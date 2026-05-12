@@ -230,7 +230,9 @@ func VerifyItemInScope(ctx context.Context, client registry.HTTPClient, res Reso
 	present := false
 	if items != nil {
 		for _, item := range items.Items {
-			if strings.EqualFold(item.Name, itemName) {
+			if strings.EqualFold(item.Name, itemName) ||
+				item.ID == itemName ||
+				strings.EqualFold(item.UDID, itemName) {
 				present = true
 				break
 			}
@@ -244,7 +246,7 @@ func VerifyItemInScope(ctx context.Context, client registry.HTTPClient, res Reso
 
 func silentDropError(singularKey, section, flagName, itemName string, expectedPresent bool) error {
 	if expectedPresent {
-		return fmt.Errorf("server accepted PUT but did not persist --%s %q in %s scope (resource type %q does not support this scope element)", flagName, itemName, section, singularKey)
+		return fmt.Errorf("server accepted PUT but did not persist --%s %q in %s scope (identifier did not resolve to an existing record, or resource type %q does not support this scope element)", flagName, itemName, section, singularKey)
 	}
 	return fmt.Errorf("server accepted PUT but did not remove --%s %q from %s scope (resource type %q may not allow modification of this scope element)", flagName, itemName, section, singularKey)
 }
@@ -642,9 +644,6 @@ func exclusionItems(exc *ExclusionsXML, flagName string) *ScopeItemSlice {
 }
 
 // resolveElemName returns the XML child element name for a new scope item.
-// Both --user-group and --jss-user-group route to jss_user_groups whose
-// children are <user_group>, so flagToElemName["user-group"] = "user_group"
-// is correct for both cases.
 func resolveElemName(section, flagName string) string {
 	return flagToElemName[flagName]
 }

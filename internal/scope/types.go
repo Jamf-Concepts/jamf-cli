@@ -31,12 +31,14 @@ type ScopeTarget struct {
 // multiple <computer_group> elements) that Go's built-in encoding cannot express
 // with tags alone.
 
-// NamedItem is an item identified by name (and optionally ID) in scope XML.
+// NamedItem is an item identified by name (and optionally ID or UDID) in scope XML.
 // ID is a string to accommodate both integer IDs (most resources) and UUID
 // IDs (e.g. ebook scope user groups) returned by the Classic API.
+// UDID is populated for individual mobile devices and computers.
 type NamedItem struct {
 	ID   string `xml:"id,omitempty" json:"id,omitempty"`
 	Name string `xml:"name" json:"name"`
+	UDID string `xml:"udid,omitempty" json:"udid,omitempty"`
 }
 
 // ScopeItemSlice is a list of NamedItem elements under a single XML parent.

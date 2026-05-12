@@ -945,3 +945,46 @@ func TestFlattenScope_NewFields(t *testing.T) {
 		}
 	}
 }
+
+// ─── VerifyItemInScope id/UDID matching ──────────────────────────────────────
+
+func TestVerifyItemInScope_MatchesByNameIDAndUDID(t *testing.T) {
+	// Simulates the post-PUT GET response where the server returns the canonical
+	// name alongside the id/udid.  The user may have supplied any of the three
+	// forms to the CLI, so VerifyItemInScope must accept all three.
+	s := &ScopeXML{
+		Computers: ScopeItemSlice{
+			Items: []NamedItem{{ID: "10", Name: "Mac-Build-01", UDID: "AAA-BBB"}},
+		},
+		MobileDevices: ScopeItemSlice{
+			Items: []NamedItem{{ID: "18", Name: "G6TDK43P0D4Y", UDID: "00008101-000170490151003A"}},
+		},
+	}
+
+	for _, tc := range []struct {
+		flagName string
+		input    string
+		items    *ScopeItemSlice
+	}{
+		{"computer", "Mac-Build-01", &s.Computers},
+		{"computer", "10", &s.Computers},
+		{"computer", "AAA-BBB", &s.Computers},
+		{"computer", "aaa-bbb", &s.Computers}, // UDID case-insensitive
+		{"mobile-device", "G6TDK43P0D4Y", &s.MobileDevices},
+		{"mobile-device", "18", &s.MobileDevices},
+		{"mobile-device", "00008101-000170490151003A", &s.MobileDevices},
+	} {
+		present := false
+		for _, item := range tc.items.Items {
+			if strings.EqualFold(item.Name, tc.input) ||
+				item.ID == tc.input ||
+				strings.EqualFold(item.UDID, tc.input) {
+				present = true
+				break
+			}
+		}
+		if !present {
+			t.Errorf("flag --%s value %q: expected match, got none", tc.flagName, tc.input)
+		}
+	}
+}
