@@ -1,4 +1,4 @@
-.PHONY: build test clean generate sync-specs sync-spec sync-platform-specs install lint verify-generated verify-platform-specs verify-site verify-site-output smoke smoke-seed smoke-cleanup release-check site
+.PHONY: build test clean generate sync-specs sync-spec sync-platform-specs install lint lint-dead verify-generated verify-platform-specs verify-site verify-site-output smoke smoke-seed smoke-cleanup release-check site
 
 # Build variables
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
@@ -29,6 +29,10 @@ test-cover:
 # Lint
 lint:
 	golangci-lint run
+
+# Detect dead Cobra flag bindings and unexported helpers (warn-only for now)
+lint-dead:
+	go run ./scripts/lint-dead-code/
 
 # Clean build artifacts
 clean:
