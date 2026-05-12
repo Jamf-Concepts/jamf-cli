@@ -88,6 +88,10 @@ func newScopeAddCmd(ctx *registry.CLIContext, res Resource) *cobra.Command {
 				return err
 			}
 
+			if err := VerifyItemInScope(cmd.Context(), ctx.Client, res, args[0], section, target.FlagName, target.Name, true); err != nil {
+				return err
+			}
+
 			fmt.Fprintf(os.Stderr, "Added %s %q to %s scope of %q\n",
 				target.FlagName, target.Name, section, args[0])
 			return OutputScope(ctx.Output, s, res.SingularKey, outputFormat(cmd))
@@ -132,6 +136,10 @@ func newScopeRemoveCmd(ctx *registry.CLIContext, res Resource) *cobra.Command {
 			}
 
 			if err := PutScope(cmd.Context(), ctx.Client, res, id, s); err != nil {
+				return err
+			}
+
+			if err := VerifyItemInScope(cmd.Context(), ctx.Client, res, args[0], section, target.FlagName, target.Name, false); err != nil {
 				return err
 			}
 

@@ -87,12 +87,13 @@ func (g *Generator) GenerateRegistry(resources []ClassicResource) (string, error
 
 func templateFuncs() template.FuncMap {
 	return template.FuncMap{
-		"toCamel":      strcase.ToCamel,
-		"toKebab":      strcase.ToKebab,
-		"toLower":      strings.ToLower,
-		"hasOp":        hasOp,
-		"hasLookup":    hasLookup,
-		"extraLookups": extraLookups,
+		"toCamel":            strcase.ToCamel,
+		"toKebab":            strcase.ToKebab,
+		"toLower":            strings.ToLower,
+		"hasOp":              hasOp,
+		"hasLookup":          hasLookup,
+		"extraLookups":       extraLookups,
+		"scopeResolveByList": func(r ClassicResource) bool { return !r.HasLookup("name") },
 		"classicExample": func(r ClassicResource, op string) string {
 			bin := "jamf-cli pro"
 			name := r.CLIName
@@ -371,8 +372,14 @@ func New{{ .GoName }}Cmd(ctx *registry.CLIContext) *cobra.Command {
 {{- end }}
 {{ if needsScope . }}
 	cmd.AddCommand(scope.NewScopeCmd(ctx, scope.Resource{
-		APIPath:     "{{ .Path }}",
-		SingularKey: "{{ .Singular }}",
+		APIPath:       "{{ .Path }}",
+		SingularKey:   "{{ .Singular }}",
+		{{- if scopeResolveByList . }}
+		ResolveByList: true,
+		{{- end }}
+		{{- if .NoSubsetPut }}
+		NoSubsetPut:   true,
+		{{- end }}
 	}))
 {{- end }}
 

@@ -27,6 +27,7 @@ type manifestResource struct {
 	Operations  []string `yaml:"operations"`
 	Lookups     []string `yaml:"lookups"`
 	Scope       bool     `yaml:"scope"`
+	NoSubsetPut bool     `yaml:"no_subset_put"`
 	IDPath      string   `yaml:"id_path"`
 	ListSubset  string   `yaml:"list_subset"`
 	GroupsPath  string   `yaml:"groups_path"`
@@ -114,6 +115,7 @@ func buildResource(entry manifestResource) (ClassicResource, error) {
 		Operations:       operations,
 		Lookups:          lookups,
 		HasScope:         entry.Scope,
+		NoSubsetPut:      entry.NoSubsetPut,
 		IDPath:           idPath,
 		IsConfigProfile:  entry.Path == "osxconfigurationprofiles" || entry.Path == "mobiledeviceconfigurationprofiles",
 		HasCustomPayload: entry.Path == "osxconfigurationprofiles",

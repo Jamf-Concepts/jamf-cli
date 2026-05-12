@@ -12,6 +12,7 @@ import (
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/cooldown"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
+	"github.com/Jamf-Concepts/jamf-cli/internal/scope"
 	"github.com/Jamf-Concepts/jamf-cli/internal/xmlconv"
 	"github.com/spf13/cobra"
 )
@@ -31,6 +32,13 @@ func NewClassicVppInvitationsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(newClassicVppInvitationsCreateCmd(ctx))
 
 	cmd.AddCommand(newClassicVppInvitationsDeleteCmd(ctx))
+
+	cmd.AddCommand(scope.NewScopeCmd(ctx, scope.Resource{
+		APIPath:       "vppinvitations",
+		SingularKey:   "vpp_invitation",
+		ResolveByList: true,
+		NoSubsetPut:   true,
+	}))
 
 	return cmd
 }

@@ -180,6 +180,9 @@ resources:
     cli_name: classic-restricted-software
     singular: restricted_software
     scope: true
+    # Classic API has no /subset/Scope endpoint for restricted_software (404).
+    # Fetch the full document, splice in the updated scope, PUT the whole doc.
+    no_subset_put: true
 
   - name: allowedfileextensions
     path: allowedfileextensions
@@ -201,6 +204,13 @@ resources:
     description: Mobile device applications
     cli_name: classic-mobile-apps
     singular: mobile_device_application
+    scope: true
+
+  - name: ebooks
+    path: ebooks
+    description: eBook distributions
+    cli_name: classic-ebooks
+    singular: ebook
     scope: true
 
   - name: ibeacons
@@ -283,6 +293,12 @@ resources:
     cli_name: classic-licensed-software
     singular: licensed_software
 
+  - name: usergroups
+    path: usergroups
+    description: JSS user groups (referenced in policy/ebook scope limitations)
+    cli_name: classic-user-groups
+    singular: user_group
+
   - name: userextensionattributes
     path: userextensionattributes
     description: User extension attributes
@@ -302,6 +318,8 @@ resources:
     cli_name: classic-vpp-assignments
     singular: vpp_assignment
     lookups: [id]
+    scope: true
+    no_subset_put: true
 
   - name: vppinvitations
     path: vppinvitations
@@ -310,6 +328,8 @@ resources:
     singular: vpp_invitation
     operations: [list, get, create, delete]
     lookups: [id]
+    scope: true
+    no_subset_put: true
 
   - name: gsxconnection
     path: gsxconnection
