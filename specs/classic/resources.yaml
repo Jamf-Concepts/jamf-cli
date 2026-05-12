@@ -180,6 +180,9 @@ resources:
     cli_name: classic-restricted-software
     singular: restricted_software
     scope: true
+    # Classic API has no /subset/Scope endpoint for restricted_software (404).
+    # Fetch the full document, splice in the updated scope, PUT the whole doc.
+    no_subset_put: true
 
   - name: allowedfileextensions
     path: allowedfileextensions

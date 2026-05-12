@@ -420,12 +420,19 @@ func TestRemoveFromScope_PolicyLimitUserGroup_InBothLocations(t *testing.T) {
 // ─── ValidateScopeCombination ────────────────────────────────────────────────
 
 func TestValidateScopeCombination_ValidTargets(t *testing.T) {
-	for _, flag := range []string{"computer-group", "mobile-device-group", "building", "department", "user-group", "jss-user-group", "jss-user"} {
-		for _, sk := range []string{"policy", "restricted_software", "os_x_configuration_profile"} {
+	for _, flag := range []string{"computer", "computer-group", "mobile-device", "mobile-device-group", "building", "department", "jss-user-group", "jss-user"} {
+		for _, sk := range []string{"policy", "os_x_configuration_profile"} {
 			if err := ValidateScopeCombination(sk, "target", flag); err != nil {
 				t.Errorf("target/%s/%s: %v", sk, flag, err)
 			}
 		}
+	}
+}
+
+func TestValidateScopeCombination_UserGroupTargetRejected(t *testing.T) {
+	// --user-group must not be valid for target; --jss-user-group is the explicit alternative.
+	if err := ValidateScopeCombination("policy", "target", "user-group"); err == nil {
+		t.Error("expected error: --user-group as target should be rejected (use --jss-user-group)")
 	}
 }
 
@@ -435,8 +442,21 @@ func TestValidateScopeCombination_InvalidTarget(t *testing.T) {
 	}
 }
 
+func TestValidateScopeCombination_RestrictedSoftwareTargets(t *testing.T) {
+	for _, flag := range []string{"computer", "computer-group", "building", "department"} {
+		if err := ValidateScopeCombination("restricted_software", "target", flag); err != nil {
+			t.Errorf("restricted target/%s: %v", flag, err)
+		}
+	}
+	for _, flag := range []string{"mobile-device", "mobile-device-group", "jss-user-group", "jss-user", "user-group"} {
+		if err := ValidateScopeCombination("restricted_software", "target", flag); err == nil {
+			t.Errorf("expected error: restricted software target + %s", flag)
+		}
+	}
+}
+
 func TestValidateScopeCombination_ValidLimitations(t *testing.T) {
-	for _, flag := range []string{"network-segment", "user-group", "computer-group"} {
+	for _, flag := range []string{"network-segment", "user", "user-group"} {
 		if err := ValidateScopeCombination("policy", "limitation", flag); err != nil {
 			t.Errorf("limitation/%s: %v", flag, err)
 		}
@@ -444,7 +464,7 @@ func TestValidateScopeCombination_ValidLimitations(t *testing.T) {
 }
 
 func TestValidateScopeCombination_RestrictedSoftwareNoLimitations(t *testing.T) {
-	for _, flag := range []string{"network-segment", "user-group", "computer-group"} {
+	for _, flag := range []string{"network-segment", "user-group", "user"} {
 		err := ValidateScopeCombination("restricted_software", "limitation", flag)
 		if err == nil {
 			t.Errorf("expected error: restricted software + limitation + %s", flag)
@@ -456,7 +476,7 @@ func TestValidateScopeCombination_RestrictedSoftwareNoLimitations(t *testing.T) 
 }
 
 func TestValidateScopeCombination_ValidExclusions(t *testing.T) {
-	for _, flag := range []string{"computer-group", "mobile-device-group", "user-group", "jss-user-group", "jss-user", "network-segment", "building", "department"} {
+	for _, flag := range []string{"computer", "computer-group", "mobile-device", "mobile-device-group", "user", "user-group", "jss-user-group", "jss-user", "network-segment", "building", "department"} {
 		if err := ValidateScopeCombination("policy", "exclusion", flag); err != nil {
 			t.Errorf("exclusion/%s: %v", flag, err)
 		}
@@ -464,12 +484,12 @@ func TestValidateScopeCombination_ValidExclusions(t *testing.T) {
 }
 
 func TestValidateScopeCombination_RestrictedSoftwareExclusions(t *testing.T) {
-	for _, flag := range []string{"computer-group", "building", "department"} {
+	for _, flag := range []string{"computer", "computer-group", "building", "department"} {
 		if err := ValidateScopeCombination("restricted_software", "exclusion", flag); err != nil {
 			t.Errorf("restricted exclusion/%s: %v", flag, err)
 		}
 	}
-	for _, flag := range []string{"mobile-device-group", "user-group", "network-segment"} {
+	for _, flag := range []string{"mobile-device", "mobile-device-group", "user", "user-group", "jss-user-group", "jss-user", "network-segment"} {
 		if err := ValidateScopeCombination("restricted_software", "exclusion", flag); err == nil {
 			t.Errorf("expected error: restricted software exclusion + %s", flag)
 		}
@@ -485,6 +505,19 @@ func TestValidateScopeCombination_InvalidSection(t *testing.T) {
 func TestValidateScopeCombination_InvalidLimitationFlag(t *testing.T) {
 	if err := ValidateScopeCombination("policy", "limitation", "building"); err == nil {
 		t.Error("expected error: building is not a valid limitation")
+	}
+}
+
+func TestValidateScopeCombination_ComputerOnlyInTargetExclusion(t *testing.T) {
+	// --computer / --mobile-device / --user must be rejected outside their sections.
+	if err := ValidateScopeCombination("policy", "limitation", "computer"); err == nil {
+		t.Error("expected error: --computer as limitation")
+	}
+	if err := ValidateScopeCombination("policy", "limitation", "mobile-device"); err == nil {
+		t.Error("expected error: --mobile-device as limitation")
+	}
+	if err := ValidateScopeCombination("policy", "target", "user"); err == nil {
+		t.Error("expected error: --user as target")
 	}
 }
 
@@ -603,20 +636,16 @@ func TestIsPolicyLimitUserGroup(t *testing.T) {
 
 // ─── JSS user group target routing (VPP-style scope) ─────────────────────────
 
-func TestAddToScope_UserGroupTarget_RoutesToJSSUserGroups(t *testing.T) {
+func TestAddToScope_UserGroupTarget_NoLongerRoutes(t *testing.T) {
+	// --user-group is LDAP-only (limitation/exclusion). For target users must use
+	// --jss-user-group explicitly. AddToScope should refuse to add it.
 	s := &ScopeXML{}
 
-	if !AddToScope(s, "vpp_assignment", "target", "user-group", "VPP Associated Users") {
-		t.Fatal("expected true")
+	if AddToScope(s, "vpp_assignment", "target", "user-group", "VPP Associated Users") {
+		t.Fatal("expected false: --user-group is not a valid target flag")
 	}
-	if len(s.JSSUserGroups.Items) != 1 {
-		t.Fatalf("jss_user_groups: got %d, want 1", len(s.JSSUserGroups.Items))
-	}
-	if s.JSSUserGroups.Items[0].Name != "VPP Associated Users" {
-		t.Errorf("name = %q", s.JSSUserGroups.Items[0].Name)
-	}
-	if s.JSSUserGroups.ElemName != "user_group" {
-		t.Errorf("ElemName = %q, want user_group", s.JSSUserGroups.ElemName)
+	if len(s.JSSUserGroups.Items) != 0 {
+		t.Errorf("jss_user_groups should remain empty, got %d items", len(s.JSSUserGroups.Items))
 	}
 }
 
@@ -638,24 +667,24 @@ func TestAddToScope_JSSUserGroupTarget_Idempotent(t *testing.T) {
 	s := &ScopeXML{
 		JSSUserGroups: ScopeItemSlice{
 			Items:    []NamedItem{{Name: "VPP Associated Users"}},
-			ElemName: "jss_user_group",
+			ElemName: "user_group",
 		},
 	}
 
-	if AddToScope(s, "vpp_assignment", "target", "user-group", "vpp associated users") {
+	if AddToScope(s, "vpp_assignment", "target", "jss-user-group", "vpp associated users") {
 		t.Fatal("expected false for case-insensitive duplicate")
 	}
 }
 
-func TestRemoveFromScope_UserGroupTarget_RoutesToJSSUserGroups(t *testing.T) {
+func TestRemoveFromScope_JSSUserGroupTarget(t *testing.T) {
 	s := &ScopeXML{
 		JSSUserGroups: ScopeItemSlice{
 			Items:    []NamedItem{{Name: "VPP Associated Users"}, {Name: "Other Group"}},
-			ElemName: "jss_user_group",
+			ElemName: "user_group",
 		},
 	}
 
-	if !RemoveFromScope(s, "vpp_assignment", "target", "user-group", "VPP Associated Users") {
+	if !RemoveFromScope(s, "vpp_assignment", "target", "jss-user-group", "VPP Associated Users") {
 		t.Fatal("expected true")
 	}
 	if len(s.JSSUserGroups.Items) != 1 {
@@ -717,10 +746,16 @@ func TestResolveElemName(t *testing.T) {
 	tests := []struct {
 		section, flag, want string
 	}{
-		{"target", "user-group", "user_group"},
 		{"target", "jss-user-group", "user_group"},
+		{"target", "computer", "computer"},
 		{"target", "computer-group", "computer_group"},
+		{"target", "mobile-device", "mobile_device"},
+		{"target", "mobile-device-group", "mobile_device_group"},
+		{"limitation", "user", "user"},
 		{"limitation", "user-group", "user_group"},
+		{"exclusion", "computer", "computer"},
+		{"exclusion", "mobile-device", "mobile_device"},
+		{"exclusion", "user", "user"},
 		{"exclusion", "user-group", "user_group"},
 		{"exclusion", "jss-user-group", "user_group"},
 	}
@@ -763,5 +798,150 @@ func TestReplaceScopeInXML_MissingScope(t *testing.T) {
 	_, err := replaceScopeInXML(original, &ScopeXML{})
 	if err == nil {
 		t.Error("expected error for missing <scope>")
+	}
+}
+
+// ─── Round-trip preserves fields server returned but CLI doesn't expose ─────
+
+func TestScopeXML_PreservesMobileDevicesOnRoundTrip(t *testing.T) {
+	// Mobile config profiles return <mobile_devices> (individual devices). CLI's
+	// scope add only manipulates groups, but the unmarshal/marshal round-trip
+	// must preserve these or they get wiped on subset/Scope PUT.
+	data := `<configuration_profile>
+		<general><id>1</id><name>Profile</name></general>
+		<scope>
+			<all_mobile_devices>false</all_mobile_devices>
+			<mobile_devices>
+				<mobile_device><id>18</id><name>G6TDK43P0D4Y</name><udid>00008101-000170490151003A</udid></mobile_device>
+			</mobile_devices>
+		</scope>
+	</configuration_profile>`
+	var env classicResourceXML
+	if err := xml.Unmarshal([]byte(data), &env); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if len(env.Scope.MobileDevices.Items) != 1 {
+		t.Fatalf("mobile_devices: got %d, want 1", len(env.Scope.MobileDevices.Items))
+	}
+	if env.Scope.MobileDevices.Items[0].ID != "18" {
+		t.Errorf("mobile_devices[0].id = %q, want 18", env.Scope.MobileDevices.Items[0].ID)
+	}
+	// Marshal back and verify <mobile_devices> still present.
+	out, err := xml.Marshal(env.Scope)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	if !strings.Contains(string(out), "<mobile_device>") {
+		t.Error("round-trip lost <mobile_device> data")
+	}
+}
+
+func TestScopeXML_PreservesClassesOnRoundTrip(t *testing.T) {
+	// Ebooks return <classes>. CLI doesn't expose, but round-trip must preserve.
+	data := `<ebook>
+		<general><id>2</id><name>Book</name></general>
+		<scope>
+			<classes>
+				<class><id>5</id><name>10A</name></class>
+			</classes>
+		</scope>
+	</ebook>`
+	var env classicResourceXML
+	if err := xml.Unmarshal([]byte(data), &env); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if len(env.Scope.Classes.Items) != 1 || env.Scope.Classes.Items[0].Name != "10A" {
+		t.Fatalf("classes: got %+v", env.Scope.Classes.Items)
+	}
+	out, err := xml.Marshal(env.Scope)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	if !strings.Contains(string(out), "<class>") {
+		t.Error("round-trip lost <class> data")
+	}
+}
+
+// ─── New scope flags ──────────────────────────────────────────────────────────
+
+func TestAddToScope_ComputerTarget(t *testing.T) {
+	s := &ScopeXML{}
+	if !AddToScope(s, "policy", "target", "computer", "ZTNR9F6XJ0") {
+		t.Fatal("expected true")
+	}
+	if len(s.Computers.Items) != 1 || s.Computers.Items[0].Name != "ZTNR9F6XJ0" {
+		t.Errorf("computers = %+v", s.Computers.Items)
+	}
+}
+
+func TestAddToScope_MobileDeviceTarget(t *testing.T) {
+	s := &ScopeXML{}
+	if !AddToScope(s, "configuration_profile", "target", "mobile-device", "G6TDK43P0D4Y") {
+		t.Fatal("expected true")
+	}
+	if len(s.MobileDevices.Items) != 1 || s.MobileDevices.Items[0].Name != "G6TDK43P0D4Y" {
+		t.Errorf("mobile_devices = %+v", s.MobileDevices.Items)
+	}
+	if s.MobileDevices.ElemName != "mobile_device" {
+		t.Errorf("ElemName = %q", s.MobileDevices.ElemName)
+	}
+}
+
+func TestAddToScope_UserLimitation(t *testing.T) {
+	s := &ScopeXML{}
+	if !AddToScope(s, "policy", "limitation", "user", "alice") {
+		t.Fatal("expected true")
+	}
+	if s.Limitations == nil || len(s.Limitations.Users.Items) != 1 {
+		t.Fatalf("limitations.users = %+v", s.Limitations)
+	}
+	if s.Limitations.Users.Items[0].Name != "alice" {
+		t.Errorf("user name = %q", s.Limitations.Users.Items[0].Name)
+	}
+}
+
+func TestAddToScope_UserExclusion(t *testing.T) {
+	s := &ScopeXML{}
+	if !AddToScope(s, "policy", "exclusion", "user", "bob") {
+		t.Fatal("expected true")
+	}
+	if s.Exclusions == nil || len(s.Exclusions.Users.Items) != 1 {
+		t.Fatalf("exclusions.users = %+v", s.Exclusions)
+	}
+}
+
+func TestFlattenScope_NewFields(t *testing.T) {
+	s := &ScopeXML{
+		AllMobileDevices: true,
+		Computers:        ScopeItemSlice{Items: []NamedItem{{ID: "28", Name: "Mac-X"}}},
+		MobileDevices:    ScopeItemSlice{Items: []NamedItem{{ID: "18", Name: "iPad-Y"}}},
+		Limitations: &LimitationsXML{
+			Users: ScopeItemSlice{Items: []NamedItem{{Name: "alice"}}},
+		},
+		Exclusions: &ExclusionsXML{
+			MobileDevices: ScopeItemSlice{Items: []NamedItem{{Name: "iPad-Z"}}},
+			Users:         ScopeItemSlice{Items: []NamedItem{{Name: "bob"}}},
+		},
+	}
+	rows := FlattenScope(s, "configuration_profile")
+
+	want := map[string]bool{
+		"target:all_mobile_devices:true": false,
+		"target:computer:Mac-X":          false,
+		"target:mobile_device:iPad-Y":    false,
+		"limitation:user:alice":          false,
+		"exclusion:mobile_device:iPad-Z": false,
+		"exclusion:user:bob":             false,
+	}
+	for _, r := range rows {
+		key := r["section"].(string) + ":" + r["type"].(string) + ":" + r["name"].(string)
+		if _, ok := want[key]; ok {
+			want[key] = true
+		}
+	}
+	for k, found := range want {
+		if !found {
+			t.Errorf("missing flatten row: %s", k)
+		}
 	}
 }

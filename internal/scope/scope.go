@@ -189,6 +189,66 @@ func replaceScopeInXML(original []byte, newScope *ScopeXML) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
+// VerifyItemInScope refetches scope after a PUT and confirms the given item is
+// (or is not) present, depending on `expectPresent`. Catches the silent-drop
+// case where the server returns 200/201 but discards a scope element that
+// doesn't apply to the resource type (e.g. computer_groups limitation on a
+// policy, network_segment on a VPP assignment).
+func VerifyItemInScope(ctx context.Context, client registry.HTTPClient, res Resource, name, section, flagName, itemName string, expectPresent bool) error {
+	_, s, err := FetchScope(ctx, client, res, name)
+	if err != nil {
+		return fmt.Errorf("verifying scope: %w", err)
+	}
+
+	if isPolicyLimitUserGroup(res.SingularKey, section, flagName) {
+		ltuPresent := false
+		if s.LimitToUsers != nil {
+			for _, g := range s.LimitToUsers.UserGroups.Items {
+				if strings.EqualFold(g, itemName) {
+					ltuPresent = true
+					break
+				}
+			}
+		}
+		limPresent := false
+		if s.Limitations != nil {
+			for _, item := range s.Limitations.UserGroups.Items {
+				if strings.EqualFold(item.Name, itemName) {
+					limPresent = true
+					break
+				}
+			}
+		}
+		present := ltuPresent || limPresent
+		if present != expectPresent {
+			return silentDropError(res.SingularKey, section, flagName, itemName, expectPresent)
+		}
+		return nil
+	}
+
+	items := readScopeItems(s, section, flagName)
+	present := false
+	if items != nil {
+		for _, item := range items.Items {
+			if strings.EqualFold(item.Name, itemName) {
+				present = true
+				break
+			}
+		}
+	}
+	if present != expectPresent {
+		return silentDropError(res.SingularKey, section, flagName, itemName, expectPresent)
+	}
+	return nil
+}
+
+func silentDropError(singularKey, section, flagName, itemName string, expectedPresent bool) error {
+	if expectedPresent {
+		return fmt.Errorf("server accepted PUT but did not persist --%s %q in %s scope (resource type %q does not support this scope element)", flagName, itemName, section, singularKey)
+	}
+	return fmt.Errorf("server accepted PUT but did not remove --%s %q from %s scope (resource type %q may not allow modification of this scope element)", flagName, itemName, section, singularKey)
+}
+
 // AddToScope adds a named item to the given scope section. Returns true if the
 // item was added, false if already present (idempotent no-op).
 func AddToScope(s *ScopeXML, singularKey, section, flagName, name string) bool {
@@ -261,17 +321,22 @@ func FlattenScope(s *ScopeXML, singularKey string) []map[string]any {
 	if s.AllComputers {
 		rows = append(rows, map[string]any{"section": "target", "type": "all_computers", "name": "true"})
 	}
+	if s.AllMobileDevices {
+		rows = append(rows, map[string]any{"section": "target", "type": "all_mobile_devices", "name": "true"})
+	}
 	if s.AllJSSUsers {
 		rows = append(rows, map[string]any{"section": "target", "type": "all_jss_users", "name": "true"})
 	}
 
 	appendNamedRows(&rows, "target", "computer", s.Computers.Items)
 	appendNamedRows(&rows, "target", "computer_group", s.ComputerGroups.Items)
+	appendNamedRows(&rows, "target", "mobile_device", s.MobileDevices.Items)
 	appendNamedRows(&rows, "target", "mobile_device_group", s.MobileDeviceGroups.Items)
 	appendNamedRows(&rows, "target", "building", s.Buildings.Items)
 	appendNamedRows(&rows, "target", "department", s.Departments.Items)
 	appendNamedRows(&rows, "target", "jss_user", s.JSSUsers.Items)
 	appendNamedRows(&rows, "target", "jss_user_group", s.JSSUserGroups.Items)
+	appendNamedRows(&rows, "target", "class", s.Classes.Items)
 
 	// Policy special case: limit_to_users holds plain strings
 	if singularKey == "policy" && s.LimitToUsers != nil {
@@ -281,64 +346,92 @@ func FlattenScope(s *ScopeXML, singularKey string) []map[string]any {
 	}
 
 	if s.Limitations != nil {
+		appendNamedRows(&rows, "limitation", "user", s.Limitations.Users.Items)
 		appendNamedRows(&rows, "limitation", "network_segment", s.Limitations.NetworkSegments.Items)
 		// For policies, user groups are already emitted from limit_to_users above;
 		// limitations/user_groups is a server-side mirror, so skip it to avoid duplicates.
 		if singularKey != "policy" {
 			appendNamedRows(&rows, "limitation", "user_group", s.Limitations.UserGroups.Items)
 		}
-		appendNamedRows(&rows, "limitation", "computer_group", s.Limitations.ComputerGroups.Items)
+		appendNamedRows(&rows, "limitation", "ibeacon", s.Limitations.IBeacons.Items)
 	}
 
 	if s.Exclusions != nil {
 		appendNamedRows(&rows, "exclusion", "computer", s.Exclusions.Computers.Items)
 		appendNamedRows(&rows, "exclusion", "computer_group", s.Exclusions.ComputerGroups.Items)
+		appendNamedRows(&rows, "exclusion", "mobile_device", s.Exclusions.MobileDevices.Items)
 		appendNamedRows(&rows, "exclusion", "mobile_device_group", s.Exclusions.MobileDeviceGroups.Items)
+		appendNamedRows(&rows, "exclusion", "user", s.Exclusions.Users.Items)
 		appendNamedRows(&rows, "exclusion", "user_group", s.Exclusions.UserGroups.Items)
 		appendNamedRows(&rows, "exclusion", "jss_user", s.Exclusions.JSSUsers.Items)
 		appendNamedRows(&rows, "exclusion", "jss_user_group", s.Exclusions.JSSUserGroups.Items)
 		appendNamedRows(&rows, "exclusion", "network_segment", s.Exclusions.NetworkSegments.Items)
 		appendNamedRows(&rows, "exclusion", "building", s.Exclusions.Buildings.Items)
 		appendNamedRows(&rows, "exclusion", "department", s.Exclusions.Departments.Items)
+		appendNamedRows(&rows, "exclusion", "ibeacon", s.Exclusions.IBeacons.Items)
 	}
 
 	return rows
 }
 
 // ValidateScopeCombination checks that the given section/flag combination is valid
-// for the resource type.
+// for the resource type. The acceptance rules below reflect live testing of every
+// flag against every scope-enabled Classic resource (see docs/solutions/).
+//
+// Notable rules:
+//   - `--user-group` is only valid in limitation/exclusion (LDAP/AD group). Use
+//     `--jss-user-group` to target a JSS user group; the previous overload of
+//     `--user-group` for target was ambiguous and made wrong-section mistakes
+//     undetectable until a GET roundtrip.
+//   - Restricted software is computer-only: it accepts no limitations, and only
+//     computer-group / building / department for target and exclusion. The
+//     server silently drops jss_user_groups / all_jss_users / user_groups for
+//     this resource type.
+//   - `--computer` is only valid in target/exclusion (no concept of a "computer
+//     limitation"). `--mobile-device` same.
+//   - `--user` (inventory username, free-text) is only valid in
+//     limitation/exclusion.
 func ValidateScopeCombination(singularKey, section, flagName string) error {
 	isRestricted := singularKey == "restricted_software"
 
 	switch section {
 	case "target":
+		if isRestricted {
+			switch flagName {
+			case "computer", "computer-group", "building", "department":
+				return nil
+			}
+			return fmt.Errorf("--%s is not valid as a target for restricted software; use --computer, --computer-group, --building, or --department", flagName)
+		}
 		switch flagName {
-		case "computer-group", "mobile-device-group", "building", "department",
-			"user-group", "jss-user-group", "jss-user":
+		case "computer", "computer-group", "mobile-device", "mobile-device-group",
+			"building", "department", "jss-user-group", "jss-user":
 			return nil
 		}
-		return fmt.Errorf("--%s is not valid as a target; use --computer-group, --mobile-device-group, --building, --department, --user-group, or --jss-user-group", flagName)
+		return fmt.Errorf("--%s is not valid as a target; use --computer, --computer-group, --mobile-device, --mobile-device-group, --building, --department, --jss-user-group, or --jss-user", flagName)
 
 	case "limitation":
 		if isRestricted {
 			return fmt.Errorf("restricted software does not support limitations")
 		}
 		switch flagName {
-		case "network-segment", "user-group", "computer-group":
+		case "network-segment", "user", "user-group":
 			return nil
 		}
-		return fmt.Errorf("--%s is not valid as a limitation; use --network-segment, --user-group, or --computer-group", flagName)
+		return fmt.Errorf("--%s is not valid as a limitation; use --network-segment, --user, or --user-group", flagName)
 
 	case "exclusion":
 		if isRestricted {
 			switch flagName {
-			case "computer-group", "building", "department":
+			case "computer", "computer-group", "building", "department":
 				return nil
 			}
-			return fmt.Errorf("--%s is not valid as an exclusion for restricted software; use --computer-group, --building, or --department", flagName)
+			return fmt.Errorf("--%s is not valid as an exclusion for restricted software; use --computer, --computer-group, --building, or --department", flagName)
 		}
 		switch flagName {
-		case "computer-group", "mobile-device-group", "user-group", "jss-user-group", "jss-user", "network-segment", "building", "department":
+		case "computer", "computer-group", "mobile-device", "mobile-device-group",
+			"user", "user-group", "jss-user-group", "jss-user",
+			"network-segment", "building", "department":
 			return nil
 		}
 		return fmt.Errorf("--%s is not valid as an exclusion", flagName)
@@ -359,7 +452,7 @@ func DetermineScopeTarget(cmd *cobra.Command) (ScopeTarget, error) {
 		}
 	}
 	if count == 0 {
-		return ScopeTarget{}, fmt.Errorf("specify one of: --computer-group, --mobile-device-group, --building, --department, --network-segment, --user-group, --jss-user-group, --jss-user")
+		return ScopeTarget{}, fmt.Errorf("specify one of: --computer, --computer-group, --mobile-device, --mobile-device-group, --building, --department, --network-segment, --user, --user-group, --jss-user-group, --jss-user")
 	}
 	if count > 1 {
 		return ScopeTarget{}, fmt.Errorf("specify only one scopeable type per invocation")
@@ -373,12 +466,15 @@ func AddScopeFlags(cmd *cobra.Command, section *string) {
 	_ = cmd.RegisterFlagCompletionFunc("section", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
 		return []string{"target", "limitation", "exclusion"}, cobra.ShellCompDirectiveNoFileComp
 	})
+	cmd.Flags().String("computer", "", "individual computer (id, name, or UDID); target/exclusion only")
 	cmd.Flags().String("computer-group", "", "computer group name")
+	cmd.Flags().String("mobile-device", "", "individual mobile device (id, name, or UDID); target/exclusion only")
 	cmd.Flags().String("mobile-device-group", "", "mobile device group name")
 	cmd.Flags().String("building", "", "building name")
 	cmd.Flags().String("department", "", "department name")
-	cmd.Flags().String("network-segment", "", "network segment name")
-	cmd.Flags().String("user-group", "", "user group name (limitations/exclusions) or JSS user group name (target)")
+	cmd.Flags().String("network-segment", "", "network segment name (limitations/exclusions)")
+	cmd.Flags().String("user", "", "inventory username (free-text, limitations/exclusions only)")
+	cmd.Flags().String("user-group", "", "LDAP/directory user group name (limitations/exclusions only — use --jss-user-group for target)")
 	cmd.Flags().String("jss-user-group", "", "JSS user group name (target/exclusion)")
 	cmd.Flags().String("jss-user", "", "JSS user name (target/exclusion)")
 }
@@ -485,15 +581,19 @@ func readScopeItems(s *ScopeXML, section, flagName string) *ScopeItemSlice {
 
 func targetItems(s *ScopeXML, flagName string) *ScopeItemSlice {
 	switch flagName {
+	case "computer":
+		return &s.Computers
 	case "computer-group":
 		return &s.ComputerGroups
+	case "mobile-device":
+		return &s.MobileDevices
 	case "mobile-device-group":
 		return &s.MobileDeviceGroups
 	case "building":
 		return &s.Buildings
 	case "department":
 		return &s.Departments
-	case "user-group", "jss-user-group":
+	case "jss-user-group":
 		return &s.JSSUserGroups
 	case "jss-user":
 		return &s.JSSUsers
@@ -505,20 +605,26 @@ func limitationItems(lim *LimitationsXML, flagName string) *ScopeItemSlice {
 	switch flagName {
 	case "network-segment":
 		return &lim.NetworkSegments
+	case "user":
+		return &lim.Users
 	case "user-group":
 		return &lim.UserGroups
-	case "computer-group":
-		return &lim.ComputerGroups
 	}
 	return nil
 }
 
 func exclusionItems(exc *ExclusionsXML, flagName string) *ScopeItemSlice {
 	switch flagName {
+	case "computer":
+		return &exc.Computers
 	case "computer-group":
 		return &exc.ComputerGroups
+	case "mobile-device":
+		return &exc.MobileDevices
 	case "mobile-device-group":
 		return &exc.MobileDeviceGroups
+	case "user":
+		return &exc.Users
 	case "user-group":
 		return &exc.UserGroups
 	case "jss-user-group":

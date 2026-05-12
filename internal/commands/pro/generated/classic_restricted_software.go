@@ -41,6 +41,7 @@ func NewClassicRestrictedSoftwareCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(scope.NewScopeCmd(ctx, scope.Resource{
 		APIPath:     "restrictedsoftware",
 		SingularKey: "restricted_software",
+		NoSubsetPut: true,
 	}))
 
 	return cmd

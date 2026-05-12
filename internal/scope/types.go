@@ -143,17 +143,25 @@ func (s ScopeStringSlice) MarshalJSON() ([]byte, error) {
 }
 
 // ScopeXML models the complete <scope> section of a Classic API resource.
+//
+// All scopeable item slices are present unconditionally so that an unmarshal →
+// modify → marshal round-trip preserves every section the server returned. A
+// missing field here would cause CLI scope add/remove to silently wipe data
+// the user set elsewhere (e.g. individual mobile devices added via UI).
 type ScopeXML struct {
 	XMLName            xml.Name         `xml:"scope" json:"-"`
 	AllComputers       bool             `xml:"all_computers" json:"all_computers"`
+	AllMobileDevices   bool             `xml:"all_mobile_devices,omitempty" json:"all_mobile_devices,omitempty"`
 	AllJSSUsers        bool             `xml:"all_jss_users" json:"all_jss_users"`
 	Computers          ScopeItemSlice   `xml:"computers" json:"computers"`
 	ComputerGroups     ScopeItemSlice   `xml:"computer_groups" json:"computer_groups"`
+	MobileDevices      ScopeItemSlice   `xml:"mobile_devices" json:"mobile_devices"`
+	MobileDeviceGroups ScopeItemSlice   `xml:"mobile_device_groups" json:"mobile_device_groups"`
 	JSSUsers           ScopeItemSlice   `xml:"jss_users" json:"jss_users"`
 	JSSUserGroups      ScopeItemSlice   `xml:"jss_user_groups" json:"jss_user_groups"`
-	MobileDeviceGroups ScopeItemSlice   `xml:"mobile_device_groups" json:"mobile_device_groups"`
 	Buildings          ScopeItemSlice   `xml:"buildings" json:"buildings"`
 	Departments        ScopeItemSlice   `xml:"departments" json:"departments"`
+	Classes            ScopeItemSlice   `xml:"classes" json:"classes,omitempty"`
 	LimitToUsers       *LimitToUsersXML `xml:"limit_to_users,omitempty" json:"limit_to_users,omitempty"`
 	Limitations        *LimitationsXML  `xml:"limitations,omitempty" json:"limitations,omitempty"`
 	Exclusions         *ExclusionsXML   `xml:"exclusions,omitempty" json:"exclusions,omitempty"`
@@ -177,6 +185,7 @@ type LimitationsXML struct {
 type ExclusionsXML struct {
 	Computers          ScopeItemSlice `xml:"computers" json:"computers"`
 	ComputerGroups     ScopeItemSlice `xml:"computer_groups" json:"computer_groups"`
+	MobileDevices      ScopeItemSlice `xml:"mobile_devices" json:"mobile_devices"`
 	MobileDeviceGroups ScopeItemSlice `xml:"mobile_device_groups" json:"mobile_device_groups"`
 	Users              ScopeItemSlice `xml:"users" json:"users"`
 	UserGroups         ScopeItemSlice `xml:"user_groups" json:"user_groups"`
@@ -208,12 +217,23 @@ type scopeUpdateXML struct {
 
 // flagToElemName maps a CLI flag to the XML child element name used when
 // adding new items to a scope list.
+//
+// `--user-group` and `--jss-user-group` both serialize as <user_group> children
+// — their parent element (<user_groups> in limitations/exclusions vs
+// <jss_user_groups> in target/exclusion) is what disambiguates the semantics.
+//
+// `--jss-user` writes <jss_user> children; the server's GET response returns
+// the same items as <user> children of <jss_users> instead. The server accepts
+// both shapes on PUT, so the asymmetric write is harmless.
 var flagToElemName = map[string]string{
+	"computer":            "computer",
 	"computer-group":      "computer_group",
+	"mobile-device":       "mobile_device",
 	"mobile-device-group": "mobile_device_group",
 	"building":            "building",
 	"department":          "department",
 	"network-segment":     "network_segment",
+	"user":                "user",
 	"user-group":          "user_group",
 	"jss-user-group":      "user_group",
 	"jss-user":            "jss_user",
@@ -221,7 +241,7 @@ var flagToElemName = map[string]string{
 
 // scopeFlagNames is the ordered list of scope item flags.
 var scopeFlagNames = []string{
-	"computer-group", "mobile-device-group", "building",
-	"department", "network-segment", "user-group",
-	"jss-user-group", "jss-user",
+	"computer", "computer-group", "mobile-device", "mobile-device-group",
+	"building", "department", "network-segment",
+	"user", "user-group", "jss-user-group", "jss-user",
 }
