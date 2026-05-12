@@ -15,17 +15,31 @@ import (
 // whose verb appears here MUST carry the `jamf:destructive` annotation
 // (enforced by TestDestructiveVerbCommandsAreAnnotated below).
 //
+// This set must stay in lockstep with the generator's `isDestructiveAction`
+// predicate (generator/parser/parser.go) so the contract is symmetric across
+// generated (Platform device-actions) and hand-written (pro_device_actions.go)
+// surfaces — otherwise the same verb ends up annotated on one side and
+// silently exempt on the other, which is the exact gap the verifier exists
+// to catch.
+//
 // Add new verbs here when introducing a destructive operation pattern. Do not
 // add verbs that are merely *named* with a destructive word but operate on
 // scope/policy/etc. without actually destroying user data — e.g. a `delete-rule`
 // subcommand that edits a config file is not destructive in the MDM sense.
 var destructiveVerbs = map[string]bool{
-	"delete":         true,
-	"bulk-delete":    true,
-	"wipe":           true,
-	"erase":          true,
-	"flush-commands": true,
-	"remove-mdm":     true,
+	"delete":            true,
+	"delete-multiple":   true,
+	"delete-user":       true,
+	"bulk-delete":       true,
+	"wipe":              true,
+	"erase":             true,
+	"flush-commands":    true,
+	"remove-mdm":        true,
+	"lock":              true,
+	"restart":           true,
+	"shutdown":          true,
+	"unmanage":          true,
+	"disable-lost-mode": true,
 }
 
 // hasYesFlag reports whether the command exposes a `--yes` confirmation flag
@@ -67,14 +81,15 @@ func commandPath(cmd *cobra.Command) string {
 	return strings.Join(parts, " ")
 }
 
-// walkCommands invokes fn on every command in the tree rooted at root,
-// including the root itself. Skips hidden commands because the verifier
-// contract applies to user-reachable surface.
+// walkCommands invokes fn on every visible command in the tree rooted at
+// root, including the root itself. Hidden commands are skipped from
+// inspection but their children are still descended into — cobra lets a
+// hidden parent's subcommands execute, so the destructive-annotation
+// contract still applies to those subcommands.
 func walkCommands(root *cobra.Command, fn func(*cobra.Command)) {
-	if root.Hidden {
-		return
+	if !root.Hidden {
+		fn(root)
 	}
-	fn(root)
 	for _, child := range root.Commands() {
 		walkCommands(child, fn)
 	}
@@ -88,15 +103,32 @@ func walkCommands(root *cobra.Command, fn func(*cobra.Command)) {
 func TestDestructiveCommandsHaveYesFlag(t *testing.T) {
 	root := NewRootCmd("test", "abc123", "2024-01-01")
 
-	var violations []string
+	// minDestructiveCommands is a floor sanity check — if the count ever
+	// drops below this, the generator template's annotation emission likely
+	// regressed (typo in key, predicate stopped firing, etc.) and the
+	// "no violations" pass would be silent. Current count is ~280 across
+	// generated delete operations + Platform action verbs + hand-written
+	// destructive Pro/Protect/School commands; 100 leaves room for resource
+	// churn without being so low that a major regression slips through.
+	const minDestructiveCommands = 100
+
+	var (
+		violations []string
+		annotated  int
+	)
 	walkCommands(root, func(cmd *cobra.Command) {
 		if cmd.Annotations["jamf:destructive"] != "true" {
 			return
 		}
+		annotated++
 		if !hasYesFlag(cmd) {
 			violations = append(violations, commandPath(cmd))
 		}
 	})
+
+	if annotated < minDestructiveCommands {
+		t.Errorf("only %d commands carry jamf:destructive annotation (expected >= %d) — the template emission likely regressed", annotated, minDestructiveCommands)
+	}
 
 	if len(violations) > 0 {
 		sort.Strings(violations)

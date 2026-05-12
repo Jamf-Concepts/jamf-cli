@@ -100,9 +100,10 @@ func newSchoolDevicesRestartCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		clearPasscode bool
 	)
 	cmd := &cobra.Command{
-		Use:   "restart <name-or-udid>",
-		Short: "Restart a device",
-		Args:  cobra.ExactArgs(1),
+		Use:         "restart <name-or-udid>",
+		Short:       "Restart a device",
+		Annotations: map[string]string{"jamf:destructive": "true"},
+		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 			udid, err := resolveSchoolDeviceUDID(ctx, cliCtx, args[0])
