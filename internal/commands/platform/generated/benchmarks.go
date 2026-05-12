@@ -130,10 +130,11 @@ func newBenchmarksDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	var yes bool
 	var nameFlag string
 	cmd := &cobra.Command{
-		Use:   "delete <id>",
-		Short: "Remove benchmark with given benchmark ID",
-		Long:  "Remove benchmark with given benchmark ID and remove associated draft (if any) and artifacts from the MDM",
-		Args:  cobra.MaximumNArgs(1),
+		Use:         "delete <id>",
+		Short:       "Remove benchmark with given benchmark ID",
+		Long:        "Remove benchmark with given benchmark ID and remove associated draft (if any) and artifacts from the MDM",
+		Annotations: map[string]string{"jamf:destructive": "true"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err

@@ -43,6 +43,7 @@ func newCsasDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Delete without confirmation prompt
   jamf-cli pro csas delete 1 --yes`,
+		Annotations: map[string]string{"jamf:destructive": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

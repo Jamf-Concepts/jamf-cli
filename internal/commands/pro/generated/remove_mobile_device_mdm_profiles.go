@@ -35,10 +35,11 @@ func newRemoveMobileDeviceMdmProfilesUnmanageCmd(ctx *registry.CLIContext) *cobr
 	)
 
 	cmd := &cobra.Command{
-		Use:   "unmanage <id>",
-		Short: "Unmanage a Mobile Device",
-		Long:  "Unmanage a Mobile Device",
-		Args:  cobra.ExactArgs(1),
+		Use:         "unmanage <id>",
+		Short:       "Unmanage a Mobile Device",
+		Long:        "Unmanage a Mobile Device",
+		Annotations: map[string]string{"jamf:destructive": "true"},
+		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

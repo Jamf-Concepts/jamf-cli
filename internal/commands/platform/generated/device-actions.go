@@ -66,9 +66,10 @@ func newDeviceActionsEraseCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	var scaffoldFlag bool
 	var yes bool
 	cmd := &cobra.Command{
-		Use:   "erase <id>",
-		Short: "Erase a device",
-		Long:  "Requests that a device erase its content and settings",
+		Use:         "erase <id>",
+		Short:       "Erase a device",
+		Long:        "Requests that a device erase its content and settings",
+		Annotations: map[string]string{"jamf:destructive": "true"},
 		Args: func(cmd *cobra.Command, args []string) error {
 			if scaffoldFlag {
 				return nil
@@ -123,10 +124,11 @@ func newDeviceActionsEraseCmd(cliCtx *registry.CLIContext) *cobra.Command {
 func newDeviceActionsRestartCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	var yes bool
 	cmd := &cobra.Command{
-		Use:   "restart <id>",
-		Short: "Restart a device",
-		Long:  "Requests that a device restart",
-		Args:  cobra.ExactArgs(1),
+		Use:         "restart <id>",
+		Short:       "Restart a device",
+		Long:        "Requests that a device restart",
+		Annotations: map[string]string{"jamf:destructive": "true"},
+		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err
@@ -163,10 +165,11 @@ func newDeviceActionsRestartCmd(cliCtx *registry.CLIContext) *cobra.Command {
 func newDeviceActionsShutdownCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	var yes bool
 	cmd := &cobra.Command{
-		Use:   "shutdown <id>",
-		Short: "Shut down a device",
-		Long:  "Requests that a device shut down",
-		Args:  cobra.ExactArgs(1),
+		Use:         "shutdown <id>",
+		Short:       "Shut down a device",
+		Long:        "Requests that a device shut down",
+		Annotations: map[string]string{"jamf:destructive": "true"},
+		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err
@@ -203,10 +206,11 @@ func newDeviceActionsShutdownCmd(cliCtx *registry.CLIContext) *cobra.Command {
 func newDeviceActionsUnmanageCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	var yes bool
 	cmd := &cobra.Command{
-		Use:   "unmanage <id>",
-		Short: "Unmanage a device",
-		Long:  "Removes remote management from a device",
-		Args:  cobra.ExactArgs(1),
+		Use:         "unmanage <id>",
+		Short:       "Unmanage a device",
+		Long:        "Removes remote management from a device",
+		Annotations: map[string]string{"jamf:destructive": "true"},
+		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err

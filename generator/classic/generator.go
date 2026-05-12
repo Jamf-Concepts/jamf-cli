@@ -823,6 +823,7 @@ func new{{ .GoName }}DeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 {{ else }}		Use:   "delete <id>",
 {{ end }}		Short: "Delete a {{ .Singular }}",
 		Example: ` + "`" + `{{ classicExample . "delete" }}` + "`" + `,
+		Annotations: map[string]string{"jamf:destructive": "true"},
 {{ if hasDeleteByName . }}		Args:  cobra.MaximumNArgs(1),
 {{ else }}		Args:  cobra.ExactArgs(1),
 {{ end }}		RunE: func(cmd *cobra.Command, args []string) error {

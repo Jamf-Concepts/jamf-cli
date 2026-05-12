@@ -187,9 +187,10 @@ func newSchoolDevicesEraseCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		clearActivationLock bool
 	)
 	cmd := &cobra.Command{
-		Use:   "erase <name-or-udid>",
-		Short: "Erase a device",
-		Args:  cobra.ExactArgs(1),
+		Use:         "erase <name-or-udid>",
+		Short:       "Erase a device",
+		Annotations: map[string]string{"jamf:destructive": "true"},
+		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 			udid, err := resolveSchoolDeviceUDID(ctx, cliCtx, args[0])

@@ -90,6 +90,9 @@ func new{{$.GoName}}{{.GoName}}Cmd(cliCtx *registry.CLIContext) *cobra.Command {
 {{- if .Long }}
 		Long:  {{printf "%q" .Long}},
 {{- end }}
+{{- if .NeedsConfirm }}
+		Annotations: map[string]string{"jamf:destructive": "true"},
+{{- end }}
 {{- if and .PathParams (not .SupportsNameLookup) }}
 {{- if .HasBody }}
 		Args: func(cmd *cobra.Command, args []string) error {

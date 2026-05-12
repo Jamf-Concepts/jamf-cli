@@ -178,9 +178,10 @@ func newProtectAnalyticsApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 func newProtectAnalyticsDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	var yes bool
 	cmd := &cobra.Command{
-		Use:   "delete <name>",
-		Short: "Delete an analytic",
-		Args:  cobra.ExactArgs(1),
+		Use:         "delete <name>",
+		Short:       "Delete an analytic",
+		Annotations: map[string]string{"jamf:destructive": "true"},
+		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 			r := protect.NewResolver(cliCtx.ProtectClient)

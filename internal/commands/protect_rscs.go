@@ -158,9 +158,10 @@ func newProtectRSCSApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 func newProtectRSCSDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	var yes bool
 	cmd := &cobra.Command{
-		Use:   "delete <name>",
-		Short: "Delete a removable storage control set",
-		Args:  cobra.ExactArgs(1),
+		Use:         "delete <name>",
+		Short:       "Delete a removable storage control set",
+		Annotations: map[string]string{"jamf:destructive": "true"},
+		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			r := protect.NewResolver(cliCtx.ProtectClient)
 			id, err := r.ResolveRemovableStorageControlSetID(cmd.Context(), args[0])

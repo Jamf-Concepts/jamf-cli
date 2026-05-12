@@ -1450,6 +1450,9 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 		Example: ` + "`" + `{{ $ex }}` + "`" + `,
 {{- end }}
 {{- end }}
+{{- if .IsDestructive }}
+		Annotations: map[string]string{"jamf:destructive": "true"},
+{{- end }}
 {{- if hasPathParam .Path }}
 {{- if or (and (isPatchOp .) (patchHasLookup $)) (and (not (isPatchOp .)) (opHasNameLookup . $)) }}
 		Args:  cobra.MaximumNArgs(1),

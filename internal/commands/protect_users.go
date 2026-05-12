@@ -178,9 +178,10 @@ func newProtectUsersApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 func newProtectUsersDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	var yes bool
 	cmd := &cobra.Command{
-		Use:   "delete <email>",
-		Short: "Delete a user",
-		Args:  cobra.ExactArgs(1),
+		Use:         "delete <email>",
+		Short:       "Delete a user",
+		Annotations: map[string]string{"jamf:destructive": "true"},
+		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 			r := protect.NewResolver(cliCtx.ProtectClient)

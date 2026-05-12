@@ -202,7 +202,8 @@ func newEnrollmentCustomizationPanelsDeleteCmd(ctx *registry.CLIContext) *cobra.
 
   # Delete without confirmation prompt
   jamf-cli pro enrollment-customization-panels delete 1 2 --yes`,
-		Args: cobra.ExactArgs(2),
+		Annotations: map[string]string{"jamf:destructive": "true"},
+		Args:        cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

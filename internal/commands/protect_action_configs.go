@@ -139,9 +139,10 @@ func newProtectActionConfigsApplyCmd(cliCtx *registry.CLIContext) *cobra.Command
 func newProtectActionConfigsDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	var yes bool
 	cmd := &cobra.Command{
-		Use:   "delete <name>",
-		Short: "Delete an action configuration",
-		Args:  cobra.ExactArgs(1),
+		Use:         "delete <name>",
+		Short:       "Delete an action configuration",
+		Annotations: map[string]string{"jamf:destructive": "true"},
+		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			r := protect.NewResolver(cliCtx.ProtectClient)
 			id, err := r.ResolveActionConfigID(cmd.Context(), args[0])

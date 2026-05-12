@@ -168,9 +168,10 @@ func newProtectAnalyticSetsApplyCmd(cliCtx *registry.CLIContext) *cobra.Command 
 func newProtectAnalyticSetsDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	var yes bool
 	cmd := &cobra.Command{
-		Use:   "delete <name>",
-		Short: "Delete an analytic set",
-		Args:  cobra.ExactArgs(1),
+		Use:         "delete <name>",
+		Short:       "Delete an analytic set",
+		Annotations: map[string]string{"jamf:destructive": "true"},
+		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			r := protect.NewResolver(cliCtx.ProtectClient)
 			uuid, err := r.ResolveAnalyticSetUUID(cmd.Context(), args[0])

@@ -85,7 +85,8 @@ func newMobileDevicePrestageScopesDeleteMultipleCmd(ctx *registry.CLIContext) *c
 		Long:  "Remove device scope for a specific mobile device prestage",
 		Example: `  # Delete multiple mobile-device-prestage-scopes by IDs
   jamf-cli pro mobile-device-prestage-scopes delete-multiple --ids 1,2,3 --yes`,
-		Args: cobra.ExactArgs(1),
+		Annotations: map[string]string{"jamf:destructive": "true"},
+		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

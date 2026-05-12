@@ -321,7 +321,8 @@ func newAdvancedMobileDeviceSearchesDeleteCmd(ctx *registry.CLIContext) *cobra.C
 
   # Delete without confirmation prompt
   jamf-cli pro advanced-mobile-device-searches delete 1 --yes`,
-		Args: cobra.MaximumNArgs(1),
+		Annotations: map[string]string{"jamf:destructive": "true"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -513,6 +514,7 @@ func newAdvancedMobileDeviceSearchesDeleteMultipleCmd(ctx *registry.CLIContext) 
 		Long:  "Removes specified Advanced Search Objects",
 		Example: `  # Delete multiple advanced-mobile-device-searches by IDs
   jamf-cli pro advanced-mobile-device-searches delete-multiple --ids 1,2,3 --yes`,
+		Annotations: map[string]string{"jamf:destructive": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

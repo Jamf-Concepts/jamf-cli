@@ -455,7 +455,8 @@ func newInventoryPreloadsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Delete without confirmation prompt
   jamf-cli pro inventory-preloads delete 1 --yes`,
-		Args: cobra.MaximumNArgs(1),
+		Annotations: map[string]string{"jamf:destructive": "true"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -1035,9 +1036,10 @@ func newInventoryPreloadsDeleteAllCmd(ctx *registry.CLIContext) *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "delete-all",
-		Short: "Delete all Inventory Preload records",
-		Long:  "Deletes all Inventory Preload records.",
+		Use:         "delete-all",
+		Short:       "Delete all Inventory Preload records",
+		Long:        "Deletes all Inventory Preload records.",
+		Annotations: map[string]string{"jamf:destructive": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
