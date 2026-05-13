@@ -284,3 +284,33 @@ func TestApply_403MissingPrivilege(t *testing.T) {
 		t.Errorf("expected privilege name in error: %v", err)
 	}
 }
+
+func TestVerifyTemplates_CategoryRuns(t *testing.T) {
+	// Each template in the encryption category produces 4 HTTP calls
+	// (POST create + recalc + membership + DELETE cleanup). We queue 6 templates * 4 = 24 responses.
+	client := &fakeSGClient{}
+	for i := 0; i < 6; i++ {
+		client.queue = append(
+			client.queue,
+			newJSONResp(201, map[string]any{"id": "100"}),
+			newJSONResp(200, map[string]any{}),
+			newJSONResp(200, map[string]any{"members": []int{1, 2}}),
+			newJSONResp(204, map[string]any{}),
+		)
+	}
+	cliCtx := &registry.CLIContext{Client: client}
+	root := newSmartGroupCmd(cliCtx)
+	out := &bytes.Buffer{}
+	root.SetOut(out)
+	root.SetErr(out)
+	root.SetArgs([]string{"verify-templates", "--category", "encryption"})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("verify-templates: %v", err)
+	}
+	if !strings.Contains(out.String(), "Verifying 6 templates") {
+		t.Errorf("expected '6 templates' in output: %s", out.String())
+	}
+	if !strings.Contains(out.String(), "Summary: 6 OK") {
+		t.Errorf("expected summary line: %s", out.String())
+	}
+}

@@ -441,6 +441,68 @@ func recalculateSmartGroup(ctx context.Context, client registry.HTTPClient, id s
 	return nil
 }
 
-func newSmartGroupVerifyTemplatesCmd(_ *registry.CLIContext) *cobra.Command {
-	return &cobra.Command{Use: "verify-templates", Short: "Verify templates against the live tenant (stub)"}
+func newSmartGroupVerifyTemplatesCmd(cliCtx *registry.CLIContext) *cobra.Command {
+	var (
+		category   string
+		noCleanup  bool
+		jsonOutput bool
+	)
+	cmd := &cobra.Command{
+		Use:   "verify-templates",
+		Short: "Smoke-test every template against the live tenant",
+		Long: `Create one temporary smart group per template (prefixed "__verify_"),
+recalculate it, read the membership count, and report. Temporary groups are
+deleted on completion unless --no-cleanup is set.
+
+Use this on first run after install (and after any sync-specs that touches
+JSS) to confirm criterion-name strings match your Jamf Pro version.`,
+		Example: `  jamf-cli pro smart-group verify-templates
+  jamf-cli pro sg verify-templates --category encryption
+  jamf-cli pro sg verify-templates --no-cleanup`,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			if cliCtx.Client == nil {
+				return fmt.Errorf("not authenticated to a Jamf Pro tenant; run 'jamf-cli pro setup' first")
+			}
+			var tmpls []smartgroup.Template
+			if category != "" {
+				tmpls = smartgroup.ByCategory(category)
+			} else {
+				tmpls = smartgroup.All()
+			}
+			results := make([]smartgroup.VerifyResult, 0, len(tmpls))
+			for _, t := range tmpls {
+				results = append(results, smartgroup.RunOneVerification(cmd.Context(), cliCtx.Client, t, !noCleanup))
+			}
+			return renderVerifyResults(cmd.OutOrStdout(), results, jsonOutput)
+		},
+	}
+	cmd.Flags().StringVar(&category, "category", "", "Verify only one category")
+	cmd.Flags().BoolVar(&noCleanup, "no-cleanup", false, "Keep temporary groups instead of deleting them")
+	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Output JSON instead of human-readable summary")
+	return cmd
+}
+
+func renderVerifyResults(out io.Writer, results []smartgroup.VerifyResult, asJSON bool) error {
+	if asJSON {
+		enc := json.NewEncoder(out)
+		enc.SetIndent("", "  ")
+		return enc.Encode(results)
+	}
+	ok, zero, errs := 0, 0, 0
+	fmt.Fprintf(out, "Verifying %d templates...\n\n", len(results))
+	for _, r := range results {
+		switch r.Outcome {
+		case smartgroup.VerifyOK:
+			ok++
+			fmt.Fprintf(out, "✓ %-40s — %d devices match\n", r.Slug, r.MemberCount)
+		case smartgroup.VerifyZeroMatch:
+			zero++
+			fmt.Fprintf(out, "⚠ %-40s — 0 devices match (possible criterion mismatch)\n", r.Slug)
+		case smartgroup.VerifyError:
+			errs++
+			fmt.Fprintf(out, "✗ %-40s — ERROR: %s\n", r.Slug, r.Error)
+		}
+	}
+	fmt.Fprintf(out, "\nSummary: %d OK, %d zero-match warnings, %d errors.\n", ok, zero, errs)
+	return nil
 }
