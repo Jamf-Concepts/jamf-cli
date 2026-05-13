@@ -175,6 +175,7 @@ var proGroupMap = map[string]string{
 	"computer-extension-attributes":          groupComputers,
 	"computer-inventory-collection-settings": groupComputers,
 	"smart-computer-groups":                  groupComputers,
+	"smart-group":                            groupComputers,
 	"static-computer-groups":                 groupComputers,
 	"computers-inventory":                    groupComputers,
 	// macOS-only Dock customization (Pro: Settings > Computer management > Dock items)
