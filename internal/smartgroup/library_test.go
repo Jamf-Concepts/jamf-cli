@@ -220,3 +220,73 @@ func TestUpdates_BetaOS_Golden(t *testing.T) {
 		t.Fatalf("unexpected criterion: %+v", c)
 	}
 }
+
+// ─── MDM-health category golden tests ──────────────────────────────────────
+
+func TestMDM_BootstrapTokenMissing_Golden(t *testing.T) {
+	tmpl, _ := Lookup("mdm/bootstrap-token-missing")
+	req, err := tmpl.Build(map[string]any{})
+	if err != nil {
+		t.Fatalf("Build: %v", err)
+	}
+	c := req.Criteria[0]
+	if c.Name != "Bootstrap Token Escrowed" || c.SearchType != "is" || c.Value != "No" {
+		t.Fatalf("unexpected criterion: %+v", c)
+	}
+}
+
+func TestMDM_UserApprovedMDMNo_Golden(t *testing.T) {
+	tmpl, _ := Lookup("mdm/user-approved-mdm-no")
+	req, err := tmpl.Build(map[string]any{})
+	if err != nil {
+		t.Fatalf("Build: %v", err)
+	}
+	c := req.Criteria[0]
+	if c.Name != "User Approved MDM" || c.SearchType != "is" || c.Value != "No" {
+		t.Fatalf("unexpected criterion: %+v", c)
+	}
+}
+
+func TestMDM_StaleCheckin_GoldenDefault(t *testing.T) {
+	tmpl, _ := Lookup("mdm/stale-checkin")
+	opts, err := tmpl.ResolveOpts(map[string]any{})
+	if err != nil {
+		t.Fatalf("ResolveOpts: %v", err)
+	}
+	req, err := tmpl.Build(opts)
+	if err != nil {
+		t.Fatalf("Build: %v", err)
+	}
+	c := req.Criteria[0]
+	if c.Name != "Last Inventory Update" || c.SearchType != "more than x days ago" || c.Value != "7" {
+		t.Fatalf("unexpected criterion: %+v", c)
+	}
+}
+
+func TestMDM_MDMCertExpiring_GoldenDefault(t *testing.T) {
+	tmpl, _ := Lookup("mdm/mdm-cert-expiring")
+	opts, err := tmpl.ResolveOpts(map[string]any{})
+	if err != nil {
+		t.Fatalf("ResolveOpts: %v", err)
+	}
+	req, err := tmpl.Build(opts)
+	if err != nil {
+		t.Fatalf("Build: %v", err)
+	}
+	c := req.Criteria[0]
+	if c.Name != "MDM Profile Expiration Date" || c.SearchType != "less than x days from now" || c.Value != "30" {
+		t.Fatalf("unexpected criterion: %+v", c)
+	}
+}
+
+func TestMDM_DDMDisabled_Golden(t *testing.T) {
+	tmpl, _ := Lookup("mdm/declarative-management-disabled")
+	req, err := tmpl.Build(map[string]any{})
+	if err != nil {
+		t.Fatalf("Build: %v", err)
+	}
+	c := req.Criteria[0]
+	if c.Name != "Declarative Device Management Enabled" || c.SearchType != "is" || c.Value != "No" {
+		t.Fatalf("unexpected criterion: %+v", c)
+	}
+}
