@@ -133,7 +133,10 @@ func recalcGroup(ctx context.Context, client HTTPDoer, id string) error {
 	if err != nil {
 		return err
 	}
-	_ = resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return fmt.Errorf("recalculate: HTTP %d", resp.StatusCode)
+	}
 	return nil
 }
 

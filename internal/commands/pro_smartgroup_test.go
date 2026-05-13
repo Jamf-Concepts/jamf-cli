@@ -285,6 +285,37 @@ func TestApply_403MissingPrivilege(t *testing.T) {
 	}
 }
 
+func TestApply_ExistingGroupYesRequired(t *testing.T) {
+	// Without --yes, updating an existing group should error.
+	client := &fakeSGClient{
+		queue: []*http.Response{
+			newJSONResp(200, map[string]any{
+				"totalCount": 1,
+				"results":    []any{map[string]any{"id": "55", "name": "Existing Group"}},
+			}),
+		},
+	}
+	_, err := runSmartGroupApply(
+		t, client,
+		"--template", "encryption/not-encrypted",
+		"--name", "Existing Group",
+		// No --yes flag
+	)
+	if err == nil {
+		t.Fatal("expected error when --yes is omitted on existing group, got nil")
+	}
+	if !strings.Contains(err.Error(), "--yes to replace") {
+		t.Errorf("expected error to mention '--yes to replace', got: %v", err)
+	}
+	// Should have made only one API call (the name lookup), no PUT.
+	if len(client.calls) != 1 {
+		t.Errorf("expected exactly 1 API call (name lookup), got %d", len(client.calls))
+	}
+	if client.calls[0].method != "GET" {
+		t.Errorf("expected GET (lookup), got %s", client.calls[0].method)
+	}
+}
+
 func TestVerifyTemplates_CategoryRuns(t *testing.T) {
 	// Each template in the encryption category produces 4 HTTP calls
 	// (POST create + recalc + membership + DELETE cleanup). We queue 6 templates * 4 = 24 responses.
