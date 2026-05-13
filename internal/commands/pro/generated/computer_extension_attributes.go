@@ -459,7 +459,8 @@ func newComputerExtensionAttributesDeleteCmd(ctx *registry.CLIContext) *cobra.Co
 
   # Delete without confirmation prompt
   jamf-cli pro computer-extension-attributes delete 1 --yes`,
-		Args: cobra.MaximumNArgs(1),
+		Annotations: map[string]string{"jamf:destructive": "true"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -651,6 +652,7 @@ func newComputerExtensionAttributesDeleteMultipleCmd(ctx *registry.CLIContext) *
 		Long:  "IDs of the Computer Extension Attribute to be deleted.",
 		Example: `  # Delete multiple computer-extension-attributes by IDs
   jamf-cli pro computer-extension-attributes delete-multiple --ids 1,2,3 --yes`,
+		Annotations: map[string]string{"jamf:destructive": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

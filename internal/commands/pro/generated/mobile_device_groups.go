@@ -161,10 +161,11 @@ func newMobileDeviceGroupsEraseCmd(ctx *registry.CLIContext) *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "erase [<id>]",
-		Short: "Erase all devices in the group",
-		Long:  "Erase all devices in the group",
-		Args:  cobra.MaximumNArgs(1),
+		Use:         "erase [<id>]",
+		Short:       "Erase all devices in the group",
+		Long:        "Erase all devices in the group",
+		Annotations: map[string]string{"jamf:destructive": "true"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

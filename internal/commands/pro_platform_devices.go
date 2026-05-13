@@ -170,9 +170,10 @@ func newPlatformDevicesUpdateCmd(cliCtx *registry.CLIContext) *cobra.Command {
 func newPlatformDevicesDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	var yes bool
 	cmd := &cobra.Command{
-		Use:   "delete <id|serial>",
-		Short: "Delete a device",
-		Args:  cobra.ExactArgs(1),
+		Use:         "delete <id|serial>",
+		Short:       "Delete a device",
+		Annotations: map[string]string{"jamf:destructive": "true"},
+		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := requirePlatformClient(cliCtx); err != nil {
 				return err

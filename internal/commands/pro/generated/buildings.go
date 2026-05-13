@@ -416,7 +416,8 @@ func newBuildingsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Delete without confirmation prompt
   jamf-cli pro buildings delete 1 --yes`,
-		Args: cobra.MaximumNArgs(1),
+		Annotations: map[string]string{"jamf:destructive": "true"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -608,6 +609,7 @@ func newBuildingsDeleteMultipleCmd(ctx *registry.CLIContext) *cobra.Command {
 		Long:  "multiple many Buildings by their ids",
 		Example: `  # Delete multiple buildings by IDs
   jamf-cli pro buildings delete-multiple --ids 1,2,3 --yes`,
+		Annotations: map[string]string{"jamf:destructive": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

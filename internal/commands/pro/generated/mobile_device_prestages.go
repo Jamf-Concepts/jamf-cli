@@ -509,7 +509,8 @@ func newMobileDevicePrestagesDeleteCmd(ctx *registry.CLIContext) *cobra.Command 
 
   # Delete without confirmation prompt
   jamf-cli pro mobile-device-prestages delete 1 --yes`,
-		Args: cobra.MaximumNArgs(1),
+		Annotations: map[string]string{"jamf:destructive": "true"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -703,7 +704,8 @@ func newMobileDevicePrestagesDeleteMultipleCmd(ctx *registry.CLIContext) *cobra.
 		Long:  "Remove an attachment for a Mobile Device Prestage",
 		Example: `  # Delete multiple mobile-device-prestages by IDs
   jamf-cli pro mobile-device-prestages delete-multiple --ids 1,2,3 --yes`,
-		Args: cobra.MaximumNArgs(1),
+		Annotations: map[string]string{"jamf:destructive": "true"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

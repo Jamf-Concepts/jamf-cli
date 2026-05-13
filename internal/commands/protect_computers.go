@@ -77,9 +77,10 @@ func newProtectComputersDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	var yes bool
 
 	cmd := &cobra.Command{
-		Use:   "delete <hostname|serial>",
-		Short: "Delete a computer by hostname or serial number",
-		Args:  cobra.ExactArgs(1),
+		Use:         "delete <hostname|serial>",
+		Short:       "Delete a computer by hostname or serial number",
+		Annotations: map[string]string{"jamf:destructive": "true"},
+		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 			r := protect.NewResolver(cliCtx.ProtectClient)

@@ -35,10 +35,11 @@ func newRemoveComputerMdmProfilesRemoveMdmProfileCmd(ctx *registry.CLIContext) *
 	)
 
 	cmd := &cobra.Command{
-		Use:   "remove-mdm-profile <id>",
-		Short: "Remove a computer's MDM profile",
-		Long:  "Remove a computer's MDM profile",
-		Args:  cobra.ExactArgs(1),
+		Use:         "remove-mdm-profile <id>",
+		Short:       "Remove a computer's MDM profile",
+		Long:        "Remove a computer's MDM profile",
+		Annotations: map[string]string{"jamf:destructive": "true"},
+		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

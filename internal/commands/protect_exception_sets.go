@@ -142,9 +142,10 @@ func newProtectExceptionSetsApplyCmd(cliCtx *registry.CLIContext) *cobra.Command
 func newProtectExceptionSetsDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	var yes bool
 	cmd := &cobra.Command{
-		Use:   "delete <name>",
-		Short: "Delete an exception set",
-		Args:  cobra.ExactArgs(1),
+		Use:         "delete <name>",
+		Short:       "Delete an exception set",
+		Annotations: map[string]string{"jamf:destructive": "true"},
+		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			r := protect.NewResolver(cliCtx.ProtectClient)
 			uuid, err := r.ResolveExceptionSetUUID(cmd.Context(), args[0])

@@ -135,6 +135,7 @@ func newCloudDistributionPointsDeleteCmd(ctx *registry.CLIContext) *cobra.Comman
 
   # Delete without confirmation prompt
   jamf-cli pro cloud-distribution-points delete 1 --yes`,
+		Annotations: map[string]string{"jamf:destructive": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
