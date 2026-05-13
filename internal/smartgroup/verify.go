@@ -70,23 +70,35 @@ func RunOneVerification(ctx context.Context, client HTTPDoer, tmpl Template, cle
 
 	_ = recalcGroup(ctx, client, id) // recalc failure is non-fatal
 
+	result := VerifyResult{Slug: tmpl.Slug}
 	count, err := CountMembers(ctx, client, id)
 	if err != nil {
-		if cleanup {
-			_ = deleteGroup(ctx, client, id)
+		result.Outcome = VerifyError
+		result.Error = err.Error()
+	} else {
+		result.MemberCount = count
+		if count == 0 {
+			result.Outcome = VerifyZeroMatch
+		} else {
+			result.Outcome = VerifyOK
 		}
-		return VerifyResult{Slug: tmpl.Slug, Outcome: VerifyError, Error: err.Error()}
 	}
 
 	if cleanup {
-		_ = deleteGroup(ctx, client, id)
+		if delErr := deleteGroup(ctx, client, id); delErr != nil {
+			// Verify itself succeeded (or had a CountMembers error already
+			// captured); surface the cleanup failure without changing the
+			// outcome. Append if there's already an error string.
+			cleanupMsg := fmt.Sprintf("verify OK but cleanup failed: %v", delErr)
+			if result.Error == "" {
+				result.Error = cleanupMsg
+			} else {
+				result.Error = result.Error + "; " + cleanupMsg
+			}
+		}
 	}
 
-	outcome := VerifyOK
-	if count == 0 {
-		outcome = VerifyZeroMatch
-	}
-	return VerifyResult{Slug: tmpl.Slug, Outcome: outcome, MemberCount: count}
+	return result
 }
 
 func sanitizeSlug(s string) string {
@@ -108,7 +120,10 @@ func sanitizeSlug(s string) string {
 }
 
 func createTempGroup(ctx context.Context, client HTTPDoer, req SmartGroupRequest) (string, error) {
-	body, _ := json.Marshal(req)
+	body, err := json.Marshal(req)
+	if err != nil {
+		return "", fmt.Errorf("marshal request: %w", err)
+	}
 	resp, err := client.Do(ctx, http.MethodPost, "/v2/computer-groups/smart-groups", bytes.NewReader(body))
 	if err != nil {
 		return "", err
@@ -144,6 +159,10 @@ func deleteGroup(ctx context.Context, client HTTPDoer, id string) error {
 	if err != nil {
 		return err
 	}
-	_ = resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		buf, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("delete smart group %s: HTTP %d: %s", id, resp.StatusCode, string(buf))
+	}
 	return nil
 }

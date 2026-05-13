@@ -14,10 +14,26 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 	"github.com/Jamf-Concepts/jamf-cli/internal/smartgroup"
 )
+
+// cliShapeFlags are the flag names that describe the command's CLI surface
+// (not template params). validateNoUnknownTemplateParams skips these when
+// checking for unknown-template-param errors.
+var cliShapeFlags = map[string]struct{}{
+	"template":    {},
+	"name":        {},
+	"recalculate": {},
+	"dry-run":     {},
+	"yes":         {},
+	"category":    {},
+	"output":      {},
+	"no-cleanup":  {},
+	"json":        {},
+}
 
 func newSmartGroupCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
@@ -221,9 +237,13 @@ func registerTemplateParamFlags(cmd *cobra.Command) {
 type flagReader interface {
 	GetString(string) (string, error)
 	Changed(string) bool
+	VisitAll(func(*pflag.Flag))
 }
 
 func collectParamValues(tmpl smartgroup.Template, flags flagReader) (map[string]any, error) {
+	if err := validateNoUnknownTemplateParams(tmpl, flags); err != nil {
+		return nil, err
+	}
 	out := make(map[string]any, len(tmpl.Params))
 	for _, p := range tmpl.Params {
 		if !flags.Changed(p.Name) {
@@ -236,6 +256,67 @@ func collectParamValues(tmpl smartgroup.Template, flags flagReader) (map[string]
 		out[p.Name] = v // ResolveOpts coerces strings to int when Type is "int".
 	}
 	return out, nil
+}
+
+// validateNoUnknownTemplateParams errors if the user set a --<param> flag that
+// belongs to a different template. registerTemplateParamFlags declares the
+// union of every template's param flags on the command, so cobra silently
+// accepts them; without this check the user's value would be dropped.
+func validateNoUnknownTemplateParams(tmpl smartgroup.Template, flags flagReader) error {
+	own := make(map[string]struct{}, len(tmpl.Params))
+	for _, p := range tmpl.Params {
+		own[p.Name] = struct{}{}
+	}
+	var bad []string
+	flags.VisitAll(func(f *pflag.Flag) {
+		if !f.Changed {
+			return
+		}
+		if _, ok := cliShapeFlags[f.Name]; ok {
+			return
+		}
+		if _, ok := own[f.Name]; ok {
+			return
+		}
+		bad = append(bad, f.Name)
+	})
+	if len(bad) == 0 {
+		return nil
+	}
+	sort.Strings(bad)
+	first := bad[0]
+	hint := "this template has no params"
+	if len(tmpl.Params) > 0 {
+		names := make([]string, 0, len(tmpl.Params))
+		for _, p := range tmpl.Params {
+			names = append(names, "--"+p.Name)
+		}
+		sort.Strings(names)
+		hint = "this template accepts: " + strings.Join(names, ", ")
+	}
+	owners := templatesAcceptingParam(first)
+	if len(owners) > 0 {
+		return fmt.Errorf("template %s does not accept --%s (%s; templates with --%s: %s)",
+			tmpl.Slug, first, hint, first, strings.Join(owners, ", "))
+	}
+	return fmt.Errorf("template %s does not accept --%s (%s)", tmpl.Slug, first, hint)
+}
+
+// templatesAcceptingParam returns the sorted slugs of templates whose
+// ParamSpec contains the given flag name. Used to build actionable error
+// messages.
+func templatesAcceptingParam(name string) []string {
+	var out []string
+	for _, t := range smartgroup.All() {
+		for _, p := range t.Params {
+			if p.Name == name {
+				out = append(out, t.Slug)
+				break
+			}
+		}
+	}
+	sort.Strings(out)
+	return out
 }
 
 func unknownTemplateError(slug string) error {
@@ -310,6 +391,9 @@ func printDryRun(out io.Writer, req smartgroup.SmartGroupRequest) error {
 }
 
 func runApplyFlow(ctx context.Context, out io.Writer, client registry.HTTPClient, req smartgroup.SmartGroupRequest, recalculate, yes bool) error {
+	if strings.ContainsAny(req.Name, `"\`) {
+		return fmt.Errorf(`smart group names containing %q or %q are not supported`, `"`, `\`)
+	}
 	existingID, err := lookupSmartGroupByName(ctx, client, req.Name)
 	if err != nil {
 		return err

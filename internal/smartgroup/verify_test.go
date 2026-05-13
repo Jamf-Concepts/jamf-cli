@@ -85,6 +85,34 @@ func TestVerify_RunOneTemplate_CreateError(t *testing.T) {
 	}
 }
 
+func TestRunOneVerification_DeleteFailure(t *testing.T) {
+	// Create succeeds, recalc succeeds, count succeeds — verify is OK.
+	// DELETE returns 500 — Outcome stays VerifyOK, but Error captures the
+	// cleanup failure so the caller (the CLI) can surface it as a warning.
+	tmpl, _ := Lookup("encryption/not-encrypted")
+	client := &seqClient{
+		queue: []*http.Response{
+			jsonResp(201, map[string]any{"id": "999"}),
+			jsonResp(200, map[string]any{}),
+			jsonResp(200, map[string]any{"members": []int{1, 2}}),
+			jsonResp(500, map[string]any{"errors": []string{"boom"}}),
+		},
+	}
+	result := RunOneVerification(context.Background(), client, tmpl, true)
+	if result.Outcome != VerifyOK {
+		t.Errorf("expected Outcome=OK (verify succeeded; only cleanup failed), got %v", result.Outcome)
+	}
+	if result.Error == "" {
+		t.Error("expected Error to capture cleanup failure")
+	}
+	if !strings.Contains(result.Error, "cleanup failed") {
+		t.Errorf("expected 'cleanup failed' in Error, got: %q", result.Error)
+	}
+	if result.MemberCount != 2 {
+		t.Errorf("expected MemberCount=2, got %d", result.MemberCount)
+	}
+}
+
 func TestVerify_NoCleanupSkipsDelete(t *testing.T) {
 	tmpl, _ := Lookup("encryption/not-encrypted")
 	client := &seqClient{

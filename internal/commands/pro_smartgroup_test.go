@@ -316,6 +316,82 @@ func TestApply_ExistingGroupYesRequired(t *testing.T) {
 	}
 }
 
+func TestApply_RejectsUnknownTemplateParam(t *testing.T) {
+	// --stalled-after belongs to encryption/encryption-stalled, not
+	// encryption/not-encrypted. Even with --dry-run (no HTTP), the validator
+	// in collectParamValues must reject before doing anything else.
+	client := &fakeSGClient{}
+	_, err := runSmartGroupApply(
+		t, client,
+		"--template", "encryption/not-encrypted",
+		"--name", "X",
+		"--stalled-after", "14",
+		"--dry-run",
+	)
+	if err == nil {
+		t.Fatal("expected error for unknown template param, got nil")
+	}
+	if !strings.Contains(err.Error(), "stalled-after") {
+		t.Errorf("expected error to mention stalled-after, got: %v", err)
+	}
+	if len(client.calls) != 0 {
+		t.Errorf("expected no HTTP calls when validation fails, got %d", len(client.calls))
+	}
+}
+
+func TestApply_AcceptsTemplateOwnParam(t *testing.T) {
+	// Same flag, correct template — should NOT trigger the unknown-param
+	// validation error. --dry-run short-circuits before HTTP.
+	client := &fakeSGClient{}
+	out, err := runSmartGroupApply(
+		t, client,
+		"--template", "encryption/encryption-stalled",
+		"--name", "X",
+		"--stalled-after", "14",
+		"--dry-run",
+	)
+	if err != nil {
+		t.Fatalf("apply: %v\n%s", err, out)
+	}
+	if !strings.Contains(out, `"value": "14"`) {
+		t.Errorf("expected stalled-after=14 in dry-run output: %s", out)
+	}
+}
+
+func TestPreview_RejectsUnknownTemplateParam(t *testing.T) {
+	_, _, err := runSmartGroupCmd(
+		t, "preview",
+		"--template", "encryption/not-encrypted",
+		"--stalled-after", "14",
+	)
+	if err == nil {
+		t.Fatal("expected error for unknown template param, got nil")
+	}
+	if !strings.Contains(err.Error(), "stalled-after") {
+		t.Errorf("expected error to mention stalled-after, got: %v", err)
+	}
+}
+
+func TestApply_RejectsNameWithQuote(t *testing.T) {
+	// Names containing " or \ are rejected before any HTTP call.
+	client := &fakeSGClient{}
+	_, err := runSmartGroupApply(
+		t, client,
+		"--template", "encryption/not-encrypted",
+		"--name", `has "quote"`,
+		"--yes",
+	)
+	if err == nil {
+		t.Fatal("expected error for name containing quote, got nil")
+	}
+	if !strings.Contains(err.Error(), `"`) || !strings.Contains(err.Error(), `\`) {
+		t.Errorf("expected error to mention unsupported chars, got: %v", err)
+	}
+	if len(client.calls) != 0 {
+		t.Errorf("expected no HTTP calls when name validation fails, got %d", len(client.calls))
+	}
+}
+
 func TestVerifyTemplates_CategoryRuns(t *testing.T) {
 	// Each template in the encryption category produces 4 HTTP calls
 	// (POST create + recalc + membership + DELETE cleanup). We queue 6 templates * 4 = 24 responses.
