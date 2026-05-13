@@ -55,3 +55,104 @@ func TestCategoriesReturnsSortedUnique(t *testing.T) {
 func trivialBuild(_ map[string]any) (SmartGroupRequest, error) {
 	return SmartGroupRequest{}, nil
 }
+
+// ─── Encryption category golden tests ──────────────────────────────────────
+
+func TestEncryption_NotEncrypted_Golden(t *testing.T) {
+	tmpl, ok := Lookup("encryption/not-encrypted")
+	if !ok {
+		t.Fatal("template encryption/not-encrypted not registered")
+	}
+	req, err := tmpl.Build(map[string]any{})
+	if err != nil {
+		t.Fatalf("Build failed: %v", err)
+	}
+	if len(req.Criteria) != 1 {
+		t.Fatalf("expected 1 criterion, got %d", len(req.Criteria))
+	}
+	c := req.Criteria[0]
+	if c.Name != "FileVault 2 Status" || c.SearchType != "is" || c.Value != "Not Encrypted" {
+		t.Fatalf("unexpected criterion: %+v", c)
+	}
+}
+
+func TestEncryption_InvalidRecoveryKey_Golden(t *testing.T) {
+	tmpl, _ := Lookup("encryption/invalid-recovery-key")
+	req, err := tmpl.Build(map[string]any{})
+	if err != nil {
+		t.Fatalf("Build failed: %v", err)
+	}
+	c := req.Criteria[0]
+	if c.Name != "FileVault 2 Individual Key Validation" || c.SearchType != "is" || c.Value != "Not Valid" {
+		t.Fatalf("unexpected criterion: %+v", c)
+	}
+}
+
+func TestEncryption_EscrowMissing_Golden(t *testing.T) {
+	tmpl, _ := Lookup("encryption/escrow-missing")
+	req, err := tmpl.Build(map[string]any{})
+	if err != nil {
+		t.Fatalf("Build failed: %v", err)
+	}
+	c := req.Criteria[0]
+	if c.Name != "FileVault 2 Recovery Key Type" || c.SearchType != "is" || c.Value != "" {
+		t.Fatalf("unexpected criterion: %+v", c)
+	}
+}
+
+func TestEncryption_IRKOnlyDeprecated_Golden(t *testing.T) {
+	tmpl, _ := Lookup("encryption/irk-only-deprecated")
+	req, err := tmpl.Build(map[string]any{})
+	if err != nil {
+		t.Fatalf("Build failed: %v", err)
+	}
+	c := req.Criteria[0]
+	if c.Name != "FileVault 2 Recovery Key Type" || c.SearchType != "is" || c.Value != "Institutional" {
+		t.Fatalf("unexpected criterion: %+v", c)
+	}
+}
+
+func TestEncryption_EncryptionStalled_GoldenDefault(t *testing.T) {
+	tmpl, _ := Lookup("encryption/encryption-stalled")
+	opts, err := tmpl.ResolveOpts(map[string]any{})
+	if err != nil {
+		t.Fatalf("ResolveOpts: %v", err)
+	}
+	req, err := tmpl.Build(opts)
+	if err != nil {
+		t.Fatalf("Build: %v", err)
+	}
+	if len(req.Criteria) != 2 {
+		t.Fatalf("expected 2 criteria, got %d", len(req.Criteria))
+	}
+	if req.Criteria[1].Value != "7" {
+		t.Fatalf("expected default 7 days, got %q", req.Criteria[1].Value)
+	}
+}
+
+func TestEncryption_EncryptionStalled_GoldenCustom(t *testing.T) {
+	tmpl, _ := Lookup("encryption/encryption-stalled")
+	opts, err := tmpl.ResolveOpts(map[string]any{"stalled-after": 14})
+	if err != nil {
+		t.Fatalf("ResolveOpts: %v", err)
+	}
+	req, err := tmpl.Build(opts)
+	if err != nil {
+		t.Fatalf("Build: %v", err)
+	}
+	if req.Criteria[1].Value != "14" {
+		t.Fatalf("expected 14 days, got %q", req.Criteria[1].Value)
+	}
+}
+
+func TestEncryption_FVIneligible_Golden(t *testing.T) {
+	tmpl, _ := Lookup("encryption/fv-ineligible")
+	req, err := tmpl.Build(map[string]any{})
+	if err != nil {
+		t.Fatalf("Build: %v", err)
+	}
+	c := req.Criteria[0]
+	if c.Name != "FileVault 2 Status" || c.SearchType != "is" || c.Value != "N/A" {
+		t.Fatalf("unexpected criterion: %+v", c)
+	}
+}
