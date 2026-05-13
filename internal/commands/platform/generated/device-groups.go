@@ -152,10 +152,11 @@ func newDeviceGroupsDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	var yes bool
 	var nameFlag string
 	cmd := &cobra.Command{
-		Use:   "delete <id>",
-		Short: "Delete a device group",
-		Long:  "Delete an existing device group",
-		Args:  cobra.MaximumNArgs(1),
+		Use:         "delete <id>",
+		Short:       "Delete a device group",
+		Long:        "Delete an existing device group",
+		Annotations: map[string]string{"jamf:destructive": "true"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err

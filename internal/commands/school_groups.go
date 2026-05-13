@@ -171,9 +171,10 @@ func newSchoolGroupsApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 func newSchoolGroupsDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	var yes bool
 	cmd := &cobra.Command{
-		Use:   "delete <name>",
-		Short: "Delete a user group",
-		Args:  cobra.ExactArgs(1),
+		Use:         "delete <name>",
+		Short:       "Delete a user group",
+		Annotations: map[string]string{"jamf:destructive": "true"},
+		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 			r := school.NewResolver(cliCtx.SchoolClient)

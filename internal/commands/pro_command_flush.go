@@ -30,8 +30,9 @@ func newComputerFlushCommandsCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "flush-commands",
-		Short: "Flush pending and/or failed MDM commands from a computer's queue",
+		Use:         "flush-commands",
+		Short:       "Flush pending and/or failed MDM commands from a computer's queue",
+		Annotations: map[string]string{"jamf:destructive": "true"},
 		Long: `Flush pending and/or failed MDM commands from the MDM command queue for a
 computer or computer group.
 
@@ -154,8 +155,9 @@ func newMobileFlushCommandsCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "flush-commands",
-		Short: "Flush pending and/or failed MDM commands from a mobile device's queue",
+		Use:         "flush-commands",
+		Short:       "Flush pending and/or failed MDM commands from a mobile device's queue",
+		Annotations: map[string]string{"jamf:destructive": "true"},
 		Long: `Flush pending and/or failed MDM commands from the MDM command queue for a
 mobile device or mobile device group.
 

@@ -153,10 +153,11 @@ func newBlueprintsDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	var yes bool
 	var nameFlag string
 	cmd := &cobra.Command{
-		Use:   "delete <blueprintId>",
-		Short: "Delete a blueprint",
-		Long:  "Delete a blueprint",
-		Args:  cobra.MaximumNArgs(1),
+		Use:         "delete <blueprintId>",
+		Short:       "Delete a blueprint",
+		Long:        "Delete a blueprint",
+		Annotations: map[string]string{"jamf:destructive": "true"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err

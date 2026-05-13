@@ -18,6 +18,39 @@ import (
 	"github.com/Jamf-Concepts/jamf-cli/internal/resolve"
 )
 
+// destructiveAnnotation returns the standard jamf:destructive Cobra
+// annotation map when the command is inherently destructive in the MCP
+// destructiveHint sense — either explicitly marked by the caller, or
+// recognized by name as a verb the codebase always treats as destructive.
+//
+// The two arguments express different semantics: `destructive` drives the
+// caller's bulk-confirm gating (whether to emit --confirm-destructive and
+// require it in bulk paths). Verb-name detection is broader — shutdown
+// and restart are user-confirm-worthy (and get the existing --yes flag)
+// but the codebase deliberately does not gate them with --confirm-destructive
+// because they aren't data-destructive. Both still want the annotation so
+// future MCP destructiveHint exposure treats them uniformly with the
+// generated Platform device-actions for the same verbs.
+//
+// Keep destructiveByVerb in lockstep with destructiveVerbs in
+// destructive_annotations_test.go.
+func destructiveAnnotation(name string, destructive bool) map[string]string {
+	if destructive || destructiveByVerb[name] {
+		return map[string]string{"jamf:destructive": "true"}
+	}
+	return nil
+}
+
+// destructiveByVerb is the verb-name allowlist consulted by
+// destructiveAnnotation. Commands whose Use is one of these names get the
+// annotation regardless of the caller's `destructive` flag. Mirrors the
+// generator's isDestructiveAction predicate so Platform-generated and
+// hand-written commands stay symmetric for the same verb.
+var destructiveByVerb = map[string]bool{
+	"shutdown": true,
+	"restart":  true,
+}
+
 // deviceTarget holds the mutually exclusive targeting flags shared by all
 // device action commands.
 type deviceTarget struct {
@@ -116,8 +149,9 @@ func newComputerEraseCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "erase",
-		Short: "Erase a computer",
+		Use:         "erase",
+		Short:       "Erase a computer",
+		Annotations: map[string]string{"jamf:destructive": "true"},
 		Long: `Erase a computer by serial number, name, or ID, or target a group.
 
 This is a destructive operation that wipes the device. An optional request
@@ -173,9 +207,10 @@ func newComputerRemoveMDMCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "remove-mdm",
-		Short: "Remove the MDM profile from a computer",
-		Long:  "Remove the MDM profile (unmanage) from a computer by serial number, name, or ID.",
+		Use:         "remove-mdm",
+		Short:       "Remove the MDM profile from a computer",
+		Annotations: map[string]string{"jamf:destructive": "true"},
+		Long:        "Remove the MDM profile (unmanage) from a computer by serial number, name, or ID.",
 		Example: `  jamf-cli pro comp remove-mdm --serial C02X1234 --yes
   jamf-cli pro comp remove-mdm --group "Offboarding" --yes --confirm-destructive`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -346,8 +381,9 @@ func newMobileEraseCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "erase",
-		Short: "Erase a mobile device",
+		Use:         "erase",
+		Short:       "Erase a mobile device",
+		Annotations: map[string]string{"jamf:destructive": "true"},
 		Long: `Erase a mobile device by serial number, name, or ID, or target a group.
 
 This is a destructive operation. An optional request body can configure
@@ -395,9 +431,10 @@ func newMobileUnmanageCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "unmanage",
-		Short: "Remove management from a mobile device",
-		Long:  "Remove management (unmanage) from a mobile device by serial number, name, or ID.",
+		Use:         "unmanage",
+		Short:       "Remove management from a mobile device",
+		Annotations: destructiveAnnotation("unmanage", true),
+		Long:        "Remove management (unmanage) from a mobile device by serial number, name, or ID.",
 		Example: `  jamf-cli pro md unmanage --serial F4GH5678 --yes
   jamf-cli pro md unmanage --group "Retired iPads" --yes --confirm-destructive`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -604,10 +641,11 @@ func newModernComputerMDMCmd(cliCtx *registry.CLIContext, name, commandType, sho
 		confirmDestructive bool
 	)
 	cmd := &cobra.Command{
-		Use:     name,
-		Short:   short,
-		Long:    long,
-		Example: example,
+		Use:         name,
+		Short:       short,
+		Long:        long,
+		Example:     example,
+		Annotations: destructiveAnnotation(name, destructive),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runDeviceAction(cmd, cliCtx, &dt, yes, confirmDestructive, deviceActionConfig{
 				actionName:  name,
@@ -630,7 +668,8 @@ func newModernComputerMDMCmd(cliCtx *registry.CLIContext, name, commandType, sho
 }
 
 func newComputerLockCmd(cliCtx *registry.CLIContext) *cobra.Command {
-	return newModernComputerMDMCmd(cliCtx, "lock", "DEVICE_LOCK",
+	return newModernComputerMDMCmd(
+		cliCtx, "lock", "DEVICE_LOCK",
 		"Lock a computer",
 		"Lock a computer by serial number, name, or ID. This is a destructive operation.",
 		`  jamf-cli pro comp lock --serial C02X1234 --yes
@@ -640,7 +679,8 @@ func newComputerLockCmd(cliCtx *registry.CLIContext) *cobra.Command {
 }
 
 func newComputerEnableRemoteDesktopCmd(cliCtx *registry.CLIContext) *cobra.Command {
-	return newModernComputerMDMCmd(cliCtx, "enable-remote-desktop", "ENABLE_REMOTE_DESKTOP",
+	return newModernComputerMDMCmd(
+		cliCtx, "enable-remote-desktop", "ENABLE_REMOTE_DESKTOP",
 		"Enable Remote Desktop on a computer",
 		"Enable the Remote Desktop agent on a computer by serial number, name, or ID.",
 		`  jamf-cli pro comp enable-remote-desktop --serial C02X1234
@@ -650,7 +690,8 @@ func newComputerEnableRemoteDesktopCmd(cliCtx *registry.CLIContext) *cobra.Comma
 }
 
 func newComputerDisableRemoteDesktopCmd(cliCtx *registry.CLIContext) *cobra.Command {
-	return newModernComputerMDMCmd(cliCtx, "disable-remote-desktop", "DISABLE_REMOTE_DESKTOP",
+	return newModernComputerMDMCmd(
+		cliCtx, "disable-remote-desktop", "DISABLE_REMOTE_DESKTOP",
 		"Disable Remote Desktop on a computer",
 		"Disable the Remote Desktop agent on a computer by serial number, name, or ID.",
 		`  jamf-cli pro comp disable-remote-desktop --serial C02X1234
@@ -666,9 +707,10 @@ func newComputerRestartCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		rebuildKernelCache bool
 	)
 	cmd := &cobra.Command{
-		Use:   "restart",
-		Short: "Restart a computer",
-		Long:  "Restart a supervised computer by serial number, name, or ID.",
+		Use:         "restart",
+		Short:       "Restart a computer",
+		Annotations: destructiveAnnotation("restart", true),
+		Long:        "Restart a supervised computer by serial number, name, or ID.",
 		Example: `  jamf-cli pro comp restart --serial C02X1234
   jamf-cli pro comp restart --serial C02X1234 --rebuild-kernel-cache
   jamf-cli pro comp restart --group "Lab Macs" --yes`,
@@ -693,7 +735,8 @@ func newComputerRestartCmd(cliCtx *registry.CLIContext) *cobra.Command {
 }
 
 func newComputerShutdownCmd(cliCtx *registry.CLIContext) *cobra.Command {
-	return newModernComputerMDMCmd(cliCtx, "shutdown", "SHUT_DOWN_DEVICE",
+	return newModernComputerMDMCmd(
+		cliCtx, "shutdown", "SHUT_DOWN_DEVICE",
 		"Shut down a computer",
 		"Shut down a supervised computer by serial number, name, or ID.",
 		`  jamf-cli pro comp shutdown --serial C02X1234
@@ -776,10 +819,11 @@ func newModernMobileMDMCmd(cliCtx *registry.CLIContext, name, commandType, short
 		confirmDestructive bool
 	)
 	cmd := &cobra.Command{
-		Use:     name,
-		Short:   short,
-		Long:    long,
-		Example: example,
+		Use:         name,
+		Short:       short,
+		Long:        long,
+		Example:     example,
+		Annotations: destructiveAnnotation(name, destructive),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runMobileAction(cmd, cliCtx, &dt, yes, confirmDestructive, deviceActionConfig{
 				actionName:  name,
@@ -802,7 +846,8 @@ func newModernMobileMDMCmd(cliCtx *registry.CLIContext, name, commandType, short
 }
 
 func newMobileRestartCmd(cliCtx *registry.CLIContext) *cobra.Command {
-	return newModernMobileMDMCmd(cliCtx, "restart", "RESTART_DEVICE",
+	return newModernMobileMDMCmd(
+		cliCtx, "restart", "RESTART_DEVICE",
 		"Restart a mobile device",
 		"Restart a mobile device by serial number, name, or ID.",
 		`  jamf-cli pro md restart --serial F4GH5678
@@ -812,7 +857,8 @@ func newMobileRestartCmd(cliCtx *registry.CLIContext) *cobra.Command {
 }
 
 func newMobileShutdownCmd(cliCtx *registry.CLIContext) *cobra.Command {
-	return newModernMobileMDMCmd(cliCtx, "shutdown", "SHUT_DOWN_DEVICE",
+	return newModernMobileMDMCmd(
+		cliCtx, "shutdown", "SHUT_DOWN_DEVICE",
 		"Shut down a mobile device",
 		"Shut down a mobile device by serial number, name, or ID.",
 		`  jamf-cli pro md shutdown --serial F4GH5678`,
@@ -867,9 +913,10 @@ func newMobileLockCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		pin                string
 	)
 	cmd := &cobra.Command{
-		Use:   "lock",
-		Short: "Lock a mobile device",
-		Long:  "Lock a supervised mobile device by serial number, name, or ID. This is a destructive operation.",
+		Use:         "lock",
+		Short:       "Lock a mobile device",
+		Annotations: destructiveAnnotation("lock", true),
+		Long:        "Lock a supervised mobile device by serial number, name, or ID. This is a destructive operation.",
 		Example: `  jamf-cli pro md lock --serial F4GH5678 --yes
   jamf-cli pro md lock --serial F4GH5678 --message "Call IT" --phone-number "555-1234" --yes
   jamf-cli pro md lock --group "Lost Devices" --yes --confirm-destructive`,
@@ -986,7 +1033,8 @@ func newMobileEnableLostModeCmd(cliCtx *registry.CLIContext) *cobra.Command {
 }
 
 func newMobileDisableLostModeCmd(cliCtx *registry.CLIContext) *cobra.Command {
-	return newModernMobileMDMCmd(cliCtx, "disable-lost-mode", "DISABLE_LOST_MODE",
+	return newModernMobileMDMCmd(
+		cliCtx, "disable-lost-mode", "DISABLE_LOST_MODE",
 		"Disable Lost Mode on a mobile device",
 		"Disable Lost Mode on a supervised mobile device that is currently in Lost Mode.",
 		`  jamf-cli pro md disable-lost-mode --serial F4GH5678 --yes
@@ -996,7 +1044,8 @@ func newMobileDisableLostModeCmd(cliCtx *registry.CLIContext) *cobra.Command {
 }
 
 func newMobilePlayLostModeSoundCmd(cliCtx *registry.CLIContext) *cobra.Command {
-	return newModernMobileMDMCmd(cliCtx, "play-lost-mode-sound", "PLAY_LOST_MODE_SOUND",
+	return newModernMobileMDMCmd(
+		cliCtx, "play-lost-mode-sound", "PLAY_LOST_MODE_SOUND",
 		"Play a sound on a device in Lost Mode",
 		"Play a sound on a supervised mobile device that is currently in Lost Mode.",
 		`  jamf-cli pro md play-lost-mode-sound --serial F4GH5678
@@ -1006,7 +1055,8 @@ func newMobilePlayLostModeSoundCmd(cliCtx *registry.CLIContext) *cobra.Command {
 }
 
 func newMobileClearRestrictionsPasswordCmd(cliCtx *registry.CLIContext) *cobra.Command {
-	return newModernMobileMDMCmd(cliCtx, "clear-restrictions-password", "CLEAR_RESTRICTIONS_PASSWORD",
+	return newModernMobileMDMCmd(
+		cliCtx, "clear-restrictions-password", "CLEAR_RESTRICTIONS_PASSWORD",
 		"Clear the restrictions password on a mobile device",
 		"Clear the restrictions password on a supervised mobile device.",
 		`  jamf-cli pro md clear-restrictions-password --serial F4GH5678
@@ -1243,7 +1293,8 @@ One of --destination-id or --destination-name is required.`,
 }
 
 func newMobileStopMirroringCmd(cliCtx *registry.CLIContext) *cobra.Command {
-	return newModernMobileMDMCmd(cliCtx, "stop-mirroring", "STOP_MIRRORING",
+	return newModernMobileMDMCmd(
+		cliCtx, "stop-mirroring", "STOP_MIRRORING",
 		"Stop AirPlay mirroring on a mobile device",
 		"Stop an active AirPlay mirroring session on a mobile device.",
 		`  jamf-cli pro md stop-mirroring --serial F4GH5678`,
@@ -1329,8 +1380,9 @@ func newMobileDeleteUserCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		deleteAll          bool
 	)
 	cmd := &cobra.Command{
-		Use:   "delete-user",
-		Short: "Delete a user from a Shared iPad",
+		Use:         "delete-user",
+		Short:       "Delete a user from a Shared iPad",
+		Annotations: destructiveAnnotation("delete-user", true),
 		Long: `Delete a user account from a Shared iPad.
 Specify --user-name to delete a single user, or --all to delete all users.
 This is a destructive operation.`,
@@ -1371,7 +1423,8 @@ This is a destructive operation.`,
 }
 
 func newMobileLogOutUserCmd(cliCtx *registry.CLIContext) *cobra.Command {
-	return newModernMobileMDMCmd(cliCtx, "log-out-user", "LOG_OUT_USER",
+	return newModernMobileMDMCmd(
+		cliCtx, "log-out-user", "LOG_OUT_USER",
 		"Log out the current user on a Shared iPad",
 		"Log out the currently signed-in user on a Shared iPad.",
 		`  jamf-cli pro md log-out-user --serial F4GH5678
