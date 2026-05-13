@@ -4,6 +4,7 @@ package smartgroup
 
 import (
 	"sort"
+	"strings"
 	"testing"
 )
 
@@ -407,5 +408,97 @@ func TestLifecycle_FVIneligibleHardware_Golden(t *testing.T) {
 	}
 	if req.Criteria[1].Name != "Apple Silicon" || req.Criteria[1].Value != "No" {
 		t.Fatalf("unexpected criterion 1: %+v", req.Criteria[1])
+	}
+}
+
+// ─── Whole-library integration tests ───────────────────────────────────────
+
+func TestLibrary_ExactlyTwentyThreeTemplates(t *testing.T) {
+	got := len(All())
+	const want = 23
+	if got != want {
+		t.Fatalf("expected %d templates registered, got %d", want, got)
+	}
+}
+
+func TestLibrary_AllCategoriesPresent(t *testing.T) {
+	want := map[string]int{
+		"encryption": 6,
+		"updates":    4,
+		"mdm":        5,
+		"compliance": 4,
+		"lifecycle":  4,
+	}
+	got := make(map[string]int)
+	for _, tt := range All() {
+		got[tt.Category]++
+	}
+	for cat, n := range want {
+		if got[cat] != n {
+			t.Errorf("category %s: expected %d templates, got %d", cat, n, got[cat])
+		}
+	}
+}
+
+func TestLibrary_EveryTemplateProducesValidCriteria(t *testing.T) {
+	known := allCriterionConsts()
+	knownValues := make(map[string]struct{}, len(known))
+	for _, v := range known {
+		knownValues[v] = struct{}{}
+	}
+	for _, tmpl := range All() {
+		t.Run(tmpl.Slug, func(t *testing.T) {
+			opts, err := tmpl.ResolveOpts(defaultOptsForTest(tmpl))
+			if err != nil {
+				t.Fatalf("ResolveOpts: %v", err)
+			}
+			req, err := tmpl.Build(opts)
+			if err != nil {
+				t.Fatalf("Build: %v", err)
+			}
+			if len(req.Criteria) == 0 {
+				t.Fatal("template produced zero criteria")
+			}
+			for i, c := range req.Criteria {
+				if _, ok := knownValues[c.Name]; !ok {
+					t.Errorf("criterion %d uses unregistered name %q (must be one of the criteria.go consts)", i, c.Name)
+				}
+				if c.SearchType == "" {
+					t.Errorf("criterion %d has empty searchType", i)
+				}
+				if c.AndOr != "and" && c.AndOr != "or" {
+					t.Errorf("criterion %d has invalid andOr %q", i, c.AndOr)
+				}
+			}
+		})
+	}
+}
+
+// defaultOptsForTest supplies sensible values for required params during the
+// whole-library scan. Keep this in sync with required-param templates.
+func defaultOptsForTest(t Template) map[string]any {
+	out := make(map[string]any, len(t.Params))
+	for _, p := range t.Params {
+		if !p.Required {
+			continue
+		}
+		switch t.Slug {
+		case "updates/os-version-below":
+			out["below-version"] = "15.0"
+		case "updates/major-version-behind":
+			out["major-below"] = 15
+		case "lifecycle/jamf-binary-outdated":
+			out["below-version"] = "11.0.0"
+		}
+	}
+	return out
+}
+
+func TestLibrary_AllSlugsUseCategoryPrefix(t *testing.T) {
+	for _, tmpl := range All() {
+		prefix := tmpl.Category + "/"
+		if !strings.HasPrefix(tmpl.Slug, prefix) {
+			t.Errorf("template %q (category %q): slug should start with %q", tmpl.Slug, tmpl.Category, prefix)
+		}
 	}
 }
