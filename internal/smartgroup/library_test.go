@@ -156,3 +156,67 @@ func TestEncryption_FVIneligible_Golden(t *testing.T) {
 		t.Fatalf("unexpected criterion: %+v", c)
 	}
 }
+
+// ─── Updates category golden tests ─────────────────────────────────────────
+
+func TestUpdates_OSVersionBelow_Golden(t *testing.T) {
+	tmpl, ok := Lookup("updates/os-version-below")
+	if !ok {
+		t.Fatal("template updates/os-version-below not registered")
+	}
+	if _, err := tmpl.ResolveOpts(map[string]any{}); err == nil {
+		t.Fatal("expected error for missing required --below-version")
+	}
+	opts, err := tmpl.ResolveOpts(map[string]any{"below-version": "15.4"})
+	if err != nil {
+		t.Fatalf("ResolveOpts: %v", err)
+	}
+	req, err := tmpl.Build(opts)
+	if err != nil {
+		t.Fatalf("Build: %v", err)
+	}
+	c := req.Criteria[0]
+	if c.Name != "Operating System Version" || c.SearchType != "less than" || c.Value != "15.4" {
+		t.Fatalf("unexpected criterion: %+v", c)
+	}
+}
+
+func TestUpdates_MajorVersionBehind_Golden(t *testing.T) {
+	tmpl, _ := Lookup("updates/major-version-behind")
+	opts, err := tmpl.ResolveOpts(map[string]any{"major-below": 15})
+	if err != nil {
+		t.Fatalf("ResolveOpts: %v", err)
+	}
+	req, err := tmpl.Build(opts)
+	if err != nil {
+		t.Fatalf("Build: %v", err)
+	}
+	c := req.Criteria[0]
+	if c.Name != "Operating System Version" || c.SearchType != "less than" || c.Value != "15.0" {
+		t.Fatalf("unexpected criterion: %+v", c)
+	}
+}
+
+func TestUpdates_RSRNotApplied_Golden(t *testing.T) {
+	tmpl, _ := Lookup("updates/rsr-not-applied")
+	req, err := tmpl.Build(map[string]any{})
+	if err != nil {
+		t.Fatalf("Build: %v", err)
+	}
+	c := req.Criteria[0]
+	if c.Name != "Operating System Rapid Security Response" || c.SearchType != "is" || c.Value != "" {
+		t.Fatalf("unexpected criterion: %+v", c)
+	}
+}
+
+func TestUpdates_BetaOS_Golden(t *testing.T) {
+	tmpl, _ := Lookup("updates/beta-os")
+	req, err := tmpl.Build(map[string]any{})
+	if err != nil {
+		t.Fatalf("Build: %v", err)
+	}
+	c := req.Criteria[0]
+	if c.Name != "Operating System Version" || c.SearchType != "like" || c.Value != "Beta" {
+		t.Fatalf("unexpected criterion: %+v", c)
+	}
+}
