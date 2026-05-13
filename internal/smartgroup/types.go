@@ -6,7 +6,10 @@
 // against a live tenant via pro smart-group verify-templates.
 package smartgroup
 
-import "fmt"
+import (
+	"fmt"
+	"strconv"
+)
 
 // ParamSpec describes a single named parameter on a parameterized template.
 // Templates have at most one ParamSpec; multi-param templates should be split
@@ -25,7 +28,10 @@ type Template struct {
 	Category    string      // e.g. "encryption"
 	Description string      // one-line for table listings
 	Params      []ParamSpec // zero or one entry
-	Build       func(opts map[string]any) (SmartGroupRequest, error)
+	// Build returns the SmartGroupRequest for this template. Nil only on
+	// templates registered without a Build func (a programming error);
+	// callers must guard before invoking.
+	Build func(opts map[string]any) (SmartGroupRequest, error)
 }
 
 // SmartGroupRequest is the JSON body posted to /v2/computer-groups/smart-groups.
@@ -86,8 +92,8 @@ func coerceTo(typ string, raw any) (any, error) {
 		case float64:
 			return int(v), nil
 		case string:
-			var n int
-			if _, err := fmt.Sscanf(v, "%d", &n); err != nil {
+			n, err := strconv.Atoi(v)
+			if err != nil {
 				return nil, fmt.Errorf("expected int, got %q", v)
 			}
 			return n, nil

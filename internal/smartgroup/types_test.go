@@ -3,6 +3,7 @@
 package smartgroup
 
 import (
+	"strings"
 	"testing"
 )
 
@@ -16,6 +17,9 @@ func TestValidateOpts_RequiredMissing(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error for missing required param, got nil")
 	}
+	if !strings.Contains(err.Error(), "--below-version") {
+		t.Errorf("expected error to mention --below-version, got: %v", err)
+	}
 }
 
 func TestValidateOpts_TypeMismatch(t *testing.T) {
@@ -27,6 +31,9 @@ func TestValidateOpts_TypeMismatch(t *testing.T) {
 	_, err := tmpl.ResolveOpts(map[string]any{"days": "not-an-int"})
 	if err == nil {
 		t.Fatal("expected error for type mismatch, got nil")
+	}
+	if !strings.Contains(err.Error(), "expected int") {
+		t.Errorf("expected 'expected int' in error, got: %v", err)
 	}
 }
 
@@ -53,5 +60,20 @@ func TestValidateOpts_NoParamsAccepted(t *testing.T) {
 	}
 	if len(opts) != 0 {
 		t.Fatalf("expected empty opts, got %v", opts)
+	}
+}
+
+func TestValidateOpts_StringIntPartialParseRejected(t *testing.T) {
+	spec := ParamSpec{Name: "days", Type: "int"}
+	tmpl := Template{
+		Slug:   "test/partial",
+		Params: []ParamSpec{spec},
+	}
+	_, err := tmpl.ResolveOpts(map[string]any{"days": "30d"})
+	if err == nil {
+		t.Fatal("expected error for partial-parse '30d', got nil")
+	}
+	if !strings.Contains(err.Error(), "expected int") {
+		t.Errorf("expected 'expected int' in error, got: %v", err)
 	}
 }
