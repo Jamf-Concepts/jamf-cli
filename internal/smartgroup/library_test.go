@@ -290,3 +290,122 @@ func TestMDM_DDMDisabled_Golden(t *testing.T) {
 		t.Fatalf("unexpected criterion: %+v", c)
 	}
 }
+
+// ─── Compliance category golden tests ──────────────────────────────────────
+
+func TestCompliance_GatekeeperDisabled_Golden(t *testing.T) {
+	tmpl, _ := Lookup("compliance/gatekeeper-disabled")
+	req, err := tmpl.Build(map[string]any{})
+	if err != nil {
+		t.Fatalf("Build: %v", err)
+	}
+	c := req.Criteria[0]
+	if c.Name != "Gatekeeper" || c.SearchType != "is" || c.Value != "Disabled" {
+		t.Fatalf("unexpected criterion: %+v", c)
+	}
+}
+
+func TestCompliance_SIPDisabled_Golden(t *testing.T) {
+	tmpl, _ := Lookup("compliance/sip-disabled")
+	req, err := tmpl.Build(map[string]any{})
+	if err != nil {
+		t.Fatalf("Build: %v", err)
+	}
+	c := req.Criteria[0]
+	if c.Name != "System Integrity Protection" || c.SearchType != "is" || c.Value != "Disabled" {
+		t.Fatalf("unexpected criterion: %+v", c)
+	}
+}
+
+func TestCompliance_FirewallDisabled_Golden(t *testing.T) {
+	tmpl, _ := Lookup("compliance/firewall-disabled")
+	req, err := tmpl.Build(map[string]any{})
+	if err != nil {
+		t.Fatalf("Build: %v", err)
+	}
+	c := req.Criteria[0]
+	if c.Name != "Firewall Enabled" || c.SearchType != "is" || c.Value != "No" {
+		t.Fatalf("unexpected criterion: %+v", c)
+	}
+}
+
+func TestCompliance_NonCompliantBaseline_Golden(t *testing.T) {
+	tmpl, _ := Lookup("compliance/non-compliant-baseline")
+	req, err := tmpl.Build(map[string]any{})
+	if err != nil {
+		t.Fatalf("Build: %v", err)
+	}
+	if len(req.Criteria) != 4 {
+		t.Fatalf("expected 4 criteria, got %d", len(req.Criteria))
+	}
+	for i, c := range req.Criteria {
+		if i == 0 && c.AndOr != "and" {
+			t.Errorf("first criterion should be 'and', got %q", c.AndOr)
+		}
+		if i > 0 && c.AndOr != "or" {
+			t.Errorf("criterion %d should be 'or', got %q", i, c.AndOr)
+		}
+	}
+}
+
+// ─── Lifecycle category golden tests ───────────────────────────────────────
+
+func TestLifecycle_Unsupervised_Golden(t *testing.T) {
+	tmpl, _ := Lookup("lifecycle/unsupervised")
+	req, err := tmpl.Build(map[string]any{})
+	if err != nil {
+		t.Fatalf("Build: %v", err)
+	}
+	c := req.Criteria[0]
+	if c.Name != "Supervised" || c.SearchType != "is" || c.Value != "No" {
+		t.Fatalf("unexpected criterion: %+v", c)
+	}
+}
+
+func TestLifecycle_ADEEnrolled_Golden(t *testing.T) {
+	tmpl, _ := Lookup("lifecycle/ade-enrolled")
+	req, err := tmpl.Build(map[string]any{})
+	if err != nil {
+		t.Fatalf("Build: %v", err)
+	}
+	c := req.Criteria[0]
+	if c.Name != "Enrollment Method: PreStage enrollment" || c.SearchType != "is" || c.Value != "Yes" {
+		t.Fatalf("unexpected criterion: %+v", c)
+	}
+}
+
+func TestLifecycle_JamfBinaryOutdated_Golden(t *testing.T) {
+	tmpl, _ := Lookup("lifecycle/jamf-binary-outdated")
+	if _, err := tmpl.ResolveOpts(map[string]any{}); err == nil {
+		t.Fatal("expected error for missing required --below-version")
+	}
+	opts, err := tmpl.ResolveOpts(map[string]any{"below-version": "11.0.0"})
+	if err != nil {
+		t.Fatalf("ResolveOpts: %v", err)
+	}
+	req, err := tmpl.Build(opts)
+	if err != nil {
+		t.Fatalf("Build: %v", err)
+	}
+	c := req.Criteria[0]
+	if c.Name != "Jamf Binary Version" || c.SearchType != "less than" || c.Value != "11.0.0" {
+		t.Fatalf("unexpected criterion: %+v", c)
+	}
+}
+
+func TestLifecycle_FVIneligibleHardware_Golden(t *testing.T) {
+	tmpl, _ := Lookup("lifecycle/fv-ineligible-hardware")
+	req, err := tmpl.Build(map[string]any{})
+	if err != nil {
+		t.Fatalf("Build: %v", err)
+	}
+	if len(req.Criteria) != 2 {
+		t.Fatalf("expected 2 criteria, got %d", len(req.Criteria))
+	}
+	if req.Criteria[0].Name != "FileVault 2 Status" || req.Criteria[0].Value != "N/A" {
+		t.Fatalf("unexpected criterion 0: %+v", req.Criteria[0])
+	}
+	if req.Criteria[1].Name != "Apple Silicon" || req.Criteria[1].Value != "No" {
+		t.Fatalf("unexpected criterion 1: %+v", req.Criteria[1])
+	}
+}
