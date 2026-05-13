@@ -45,9 +45,8 @@ type VerifyResult struct {
 // defaultVerifyOpts supplies sensible required-param values for verification.
 // Update when adding new required-param templates.
 var defaultVerifyOpts = map[string]map[string]any{
-	"updates/os-version-below":       {"below-version": "15.0"},
-	"updates/major-version-behind":   {"major-below": 15},
-	"lifecycle/jamf-binary-outdated": {"below-version": "11.0.0"},
+	"updates/os-version-below":     {"below-version": "15.0"},
+	"updates/major-version-behind": {"major-below": 15},
 }
 
 // RunOneVerification creates a temporary smart group from the template,

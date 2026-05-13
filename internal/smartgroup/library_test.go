@@ -370,26 +370,22 @@ func TestLifecycle_ADEEnrolled_Golden(t *testing.T) {
 		t.Fatalf("Build: %v", err)
 	}
 	c := req.Criteria[0]
-	if c.Name != "Enrollment Method: PreStage enrollment" || c.SearchType != "is" || c.Value != "Yes" {
+	if c.Name != "Enrolled via Automated Device Enrollment" || c.SearchType != "is" || c.Value != "Yes" {
 		t.Fatalf("unexpected criterion: %+v", c)
 	}
 }
 
 func TestLifecycle_JamfBinaryOutdated_Golden(t *testing.T) {
 	tmpl, _ := Lookup("lifecycle/jamf-binary-outdated")
-	if _, err := tmpl.ResolveOpts(map[string]any{}); err == nil {
-		t.Fatal("expected error for missing required --below-version")
+	if len(tmpl.Params) != 0 {
+		t.Fatalf("expected 0 params (now using 'not current' operator), got %d", len(tmpl.Params))
 	}
-	opts, err := tmpl.ResolveOpts(map[string]any{"below-version": "11.0.0"})
-	if err != nil {
-		t.Fatalf("ResolveOpts: %v", err)
-	}
-	req, err := tmpl.Build(opts)
+	req, err := tmpl.Build(map[string]any{})
 	if err != nil {
 		t.Fatalf("Build: %v", err)
 	}
 	c := req.Criteria[0]
-	if c.Name != "JAMF Binary Version" || c.SearchType != "less than" || c.Value != "11.0.0" {
+	if c.Name != "JAMF Binary Version" || c.SearchType != "not current" || c.Value != "" {
 		t.Fatalf("unexpected criterion: %+v", c)
 	}
 }
@@ -487,8 +483,6 @@ func defaultOptsForTest(t Template) map[string]any {
 			out["below-version"] = "15.0"
 		case "updates/major-version-behind":
 			out["major-below"] = 15
-		case "lifecycle/jamf-binary-outdated":
-			out["below-version"] = "11.0.0"
 		}
 	}
 	return out

@@ -62,6 +62,9 @@ const (
 	// MatcherNameConstants.java:E.PRESTAGE
 	CriterionEnrollmentMethodPrestage = "Enrollment Method: PreStage enrollment"
 
+	// EnrolledViaAutomatedDeviceEnrollmentMatcher.java:17 @Component("Enrolled via Automated Device Enrollment")
+	CriterionEnrolledViaADE = "Enrolled via Automated Device Enrollment"
+
 	// MatcherNameConstants.java:CD.APPLE_SILICON
 	CriterionAppleSilicon = "Apple Silicon"
 
@@ -91,6 +94,7 @@ func allCriterionConsts() map[string]string {
 		"CriterionFirewallEnabled":            CriterionFirewallEnabled,
 		"CriterionSupervised":                 CriterionSupervised,
 		"CriterionEnrollmentMethodPrestage":   CriterionEnrollmentMethodPrestage,
+		"CriterionEnrolledViaADE":             CriterionEnrolledViaADE,
 		"CriterionAppleSilicon":               CriterionAppleSilicon,
 		"CriterionJamfBinaryVersion":          CriterionJamfBinaryVersion,
 	}
