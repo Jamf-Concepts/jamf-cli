@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"sort"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -154,11 +155,94 @@ func filterByCategory(tmpls []smartgroup.Template, cat string) []smartgroup.Temp
 	return out
 }
 
-// Stubs for the remaining subcommands. Replaced in Tasks 13-15.
-
 func newSmartGroupPreviewCmd(_ *registry.CLIContext) *cobra.Command {
-	return &cobra.Command{Use: "preview", Short: "Preview a template (stub)"}
+	var slug string
+	cmd := &cobra.Command{
+		Use:   "preview",
+		Short: "Print the JSON body that would be POSTed (no API call)",
+		Long: `Preview the JSON request that 'apply' would POST to
+/v2/computer-groups/smart-groups for the chosen template. Use this to inspect
+criteria before creating a group.`,
+		Example: `  jamf-cli pro smart-group preview --template encryption/invalid-recovery-key
+  jamf-cli pro smart-group preview --template encryption/encryption-stalled --stalled-after 14`,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			tmpl, ok := smartgroup.Lookup(slug)
+			if !ok {
+				return unknownTemplateError(slug)
+			}
+			opts, err := collectParamValues(tmpl, cmd.Flags())
+			if err != nil {
+				return err
+			}
+			resolved, err := tmpl.ResolveOpts(opts)
+			if err != nil {
+				return err
+			}
+			req, err := tmpl.Build(resolved)
+			if err != nil {
+				return err
+			}
+			req.Name = "<--name required when running apply>"
+			out := cmd.OutOrStdout()
+			fmt.Fprintln(out, "POST /v2/computer-groups/smart-groups")
+			enc := json.NewEncoder(out)
+			enc.SetIndent("", "  ")
+			return enc.Encode(req)
+		},
+	}
+	cmd.Flags().StringVar(&slug, "template", "", "Template slug (required) — e.g. encryption/invalid-recovery-key")
+	_ = cmd.MarkFlagRequired("template")
+	registerTemplateParamFlags(cmd)
+	return cmd
 }
+
+// registerTemplateParamFlags declares the union of all per-template param
+// flag names on the cobra command as generic string flags. collectParamValues
+// reads only the flags the chosen template actually declares.
+func registerTemplateParamFlags(cmd *cobra.Command) {
+	seen := make(map[string]bool)
+	for _, t := range smartgroup.All() {
+		for _, p := range t.Params {
+			if seen[p.Name] {
+				continue
+			}
+			seen[p.Name] = true
+			cmd.Flags().String(p.Name, "", p.Description)
+		}
+	}
+}
+
+// flagReader is the minimal flag-access interface used by collectParamValues
+// — satisfied by *pflag.FlagSet returned by cobra's cmd.Flags().
+type flagReader interface {
+	GetString(string) (string, error)
+	Changed(string) bool
+}
+
+func collectParamValues(tmpl smartgroup.Template, flags flagReader) (map[string]any, error) {
+	out := make(map[string]any, len(tmpl.Params))
+	for _, p := range tmpl.Params {
+		if !flags.Changed(p.Name) {
+			continue
+		}
+		v, err := flags.GetString(p.Name)
+		if err != nil {
+			return nil, err
+		}
+		out[p.Name] = v // ResolveOpts coerces strings to int when Type is "int".
+	}
+	return out, nil
+}
+
+func unknownTemplateError(slug string) error {
+	suggestions := smartgroup.FuzzyMatch(slug)
+	if len(suggestions) == 0 {
+		return fmt.Errorf("unknown template %q (run 'pro smart-group templates' to list available)", slug)
+	}
+	return fmt.Errorf("unknown template %q — did you mean: %s?", slug, strings.Join(suggestions, ", "))
+}
+
+// Stubs for the remaining subcommands. Replaced in Tasks 14-15.
 
 func newSmartGroupApplyCmd(_ *registry.CLIContext) *cobra.Command {
 	return &cobra.Command{Use: "apply", Short: "Apply a template (stub)"}
