@@ -3,9 +3,13 @@
 package commands
 
 import (
+	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
+	"net/http"
+	"net/url"
 	"sort"
 	"strings"
 
@@ -242,10 +246,199 @@ func unknownTemplateError(slug string) error {
 	return fmt.Errorf("unknown template %q — did you mean: %s?", slug, strings.Join(suggestions, ", "))
 }
 
-// Stubs for the remaining subcommands. Replaced in Tasks 14-15.
+func newSmartGroupApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
+	var (
+		slug        string
+		name        string
+		recalculate bool
+		dryRun      bool
+		yes         bool
+	)
+	cmd := &cobra.Command{
+		Use:   "apply",
+		Short: "Create or update a smart group from a template (idempotent by --name)",
+		Long: `Apply a template against the live tenant. If a smart group with the
+given --name already exists, it is updated (PUT); otherwise it is created
+(POST). After apply, the membership endpoint is consulted and the count is
+logged. Use --dry-run to inspect the request body without calling the API.`,
+		Example: `  jamf-cli pro smart-group apply --template encryption/invalid-recovery-key --name "FV Invalid Recovery Keys"
+  jamf-cli pro sg apply --template mdm/stale-checkin --name "Stale 30d" --days 30 --recalculate
+  jamf-cli pro sg apply --template encryption/not-encrypted --name "Not Encrypted" --dry-run`,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			tmpl, ok := smartgroup.Lookup(slug)
+			if !ok {
+				return unknownTemplateError(slug)
+			}
+			opts, err := collectParamValues(tmpl, cmd.Flags())
+			if err != nil {
+				return err
+			}
+			resolved, err := tmpl.ResolveOpts(opts)
+			if err != nil {
+				return err
+			}
+			req, err := tmpl.Build(resolved)
+			if err != nil {
+				return err
+			}
+			req.Name = name
+			if dryRun {
+				return printDryRun(cmd.OutOrStdout(), req)
+			}
+			if cliCtx.Client == nil {
+				return fmt.Errorf("not authenticated to a Jamf Pro tenant; run 'jamf-cli pro setup' first")
+			}
+			return runApplyFlow(cmd.Context(), cmd.OutOrStdout(), cliCtx.Client, req, recalculate, yes)
+		},
+	}
+	cmd.Flags().StringVar(&slug, "template", "", "Template slug (required)")
+	cmd.Flags().StringVar(&name, "name", "", "Smart group name (required)")
+	cmd.Flags().BoolVar(&recalculate, "recalculate", false, "After apply, force smart-group recalculation")
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Print the request body without calling the API")
+	cmd.Flags().BoolVar(&yes, "yes", false, "Skip confirmation when updating an existing group")
+	_ = cmd.MarkFlagRequired("template")
+	_ = cmd.MarkFlagRequired("name")
+	registerTemplateParamFlags(cmd)
+	return cmd
+}
 
-func newSmartGroupApplyCmd(_ *registry.CLIContext) *cobra.Command {
-	return &cobra.Command{Use: "apply", Short: "Apply a template (stub)"}
+func printDryRun(out io.Writer, req smartgroup.SmartGroupRequest) error {
+	fmt.Fprintln(out, "POST /v2/computer-groups/smart-groups")
+	enc := json.NewEncoder(out)
+	enc.SetIndent("", "  ")
+	return enc.Encode(req)
+}
+
+func runApplyFlow(ctx context.Context, out io.Writer, client registry.HTTPClient, req smartgroup.SmartGroupRequest, recalculate, yes bool) error {
+	existingID, err := lookupSmartGroupByName(ctx, client, req.Name)
+	if err != nil {
+		return err
+	}
+
+	var id string
+	switch {
+	case existingID == "":
+		newID, err := createSmartGroup(ctx, client, req)
+		if err != nil {
+			return err
+		}
+		id = newID
+		fmt.Fprintf(out, "Created smart group %q (ID: %s)\n", req.Name, id)
+	default:
+		if !yes {
+			return fmt.Errorf("smart group %q already exists (ID %s); pass --yes to replace", req.Name, existingID)
+		}
+		if err := updateSmartGroup(ctx, client, existingID, req); err != nil {
+			return err
+		}
+		id = existingID
+		fmt.Fprintf(out, "Updated smart group %q (ID: %s)\n", req.Name, id)
+	}
+
+	if recalculate {
+		if err := recalculateSmartGroup(ctx, client, id); err != nil {
+			fmt.Fprintf(out, "Warning: recalculate did not complete: %v\n", err)
+		}
+	}
+
+	count, err := smartgroup.CountMembers(ctx, client, id)
+	if err != nil {
+		fmt.Fprintf(out, "Warning: membership check failed: %v\n", err)
+		return nil
+	}
+	fmt.Fprintf(out, "Membership: %d devices.\n", count)
+	if count == 0 {
+		fmt.Fprintln(out, "This template matched 0 devices. Run 'pro sg verify-templates' to check criterion compatibility with your tenant.")
+	}
+	return nil
+}
+
+func lookupSmartGroupByName(ctx context.Context, client registry.HTTPClient, name string) (string, error) {
+	filter := url.QueryEscape(fmt.Sprintf(`name=="%s"`, name))
+	path := "/v2/computer-groups/smart-groups?filter=" + filter
+	resp, err := client.Do(ctx, http.MethodGet, path, nil)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != 200 {
+		body, _ := io.ReadAll(resp.Body)
+		return "", fmt.Errorf("lookup smart group: HTTP %d: %s", resp.StatusCode, string(body))
+	}
+	var out struct {
+		TotalCount int `json:"totalCount"`
+		Results    []struct {
+			ID   string `json:"id"`
+			Name string `json:"name"`
+		} `json:"results"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		return "", err
+	}
+	for _, r := range out.Results {
+		if r.Name == name {
+			return r.ID, nil
+		}
+	}
+	return "", nil
+}
+
+func createSmartGroup(ctx context.Context, client registry.HTTPClient, req smartgroup.SmartGroupRequest) (string, error) {
+	body, err := json.Marshal(req)
+	if err != nil {
+		return "", err
+	}
+	resp, err := client.Do(ctx, http.MethodPost, "/v2/computer-groups/smart-groups", bytes.NewReader(body))
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode == 403 {
+		return "", fmt.Errorf("permission denied: the OAuth role is missing the 'Create Smart Computer Groups' privilege")
+	}
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		buf, _ := io.ReadAll(resp.Body)
+		return "", fmt.Errorf("create smart group: HTTP %d: %s", resp.StatusCode, string(buf))
+	}
+	var out struct {
+		ID string `json:"id"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		return "", err
+	}
+	return out.ID, nil
+}
+
+func updateSmartGroup(ctx context.Context, client registry.HTTPClient, id string, req smartgroup.SmartGroupRequest) error {
+	body, err := json.Marshal(req)
+	if err != nil {
+		return err
+	}
+	resp, err := client.Do(ctx, http.MethodPut, "/v2/computer-groups/smart-groups/"+id, bytes.NewReader(body))
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode == 403 {
+		return fmt.Errorf("permission denied: the OAuth role is missing the 'Update Smart Computer Groups' privilege")
+	}
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		buf, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("update smart group: HTTP %d: %s", resp.StatusCode, string(buf))
+	}
+	return nil
+}
+
+func recalculateSmartGroup(ctx context.Context, client registry.HTTPClient, id string) error {
+	resp, err := client.Do(ctx, http.MethodPost, "/v1/smart-computer-groups/"+id+"/recalculate", nil)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return fmt.Errorf("recalculate: HTTP %d", resp.StatusCode)
+	}
+	return nil
 }
 
 func newSmartGroupVerifyTemplatesCmd(_ *registry.CLIContext) *cobra.Command {

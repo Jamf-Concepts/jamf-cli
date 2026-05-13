@@ -131,3 +131,156 @@ func TestPreview_RequiredParamMissing(t *testing.T) {
 		t.Errorf("expected error to mention required param: %v", err)
 	}
 }
+
+type fakeSGClient struct {
+	calls []recordedCall
+	queue []*http.Response
+}
+
+type recordedCall struct {
+	method, url, body string
+}
+
+func (f *fakeSGClient) Do(_ context.Context, method, url string, body io.Reader) (*http.Response, error) {
+	b := ""
+	if body != nil {
+		buf, _ := io.ReadAll(body)
+		b = string(buf)
+	}
+	f.calls = append(f.calls, recordedCall{method, url, b})
+	if len(f.queue) == 0 {
+		return &http.Response{StatusCode: 500, Body: io.NopCloser(strings.NewReader("queue empty"))}, nil
+	}
+	resp := f.queue[0]
+	f.queue = f.queue[1:]
+	return resp, nil
+}
+
+func newJSONResp(status int, payload any) *http.Response {
+	b, _ := json.Marshal(payload)
+	return &http.Response{StatusCode: status, Body: io.NopCloser(strings.NewReader(string(b)))}
+}
+
+func runSmartGroupApply(t *testing.T, client *fakeSGClient, args ...string) (string, error) {
+	t.Helper()
+	cliCtx := &registry.CLIContext{Client: client}
+	root := newSmartGroupCmd(cliCtx)
+	out := &bytes.Buffer{}
+	root.SetOut(out)
+	root.SetErr(out)
+	root.SetArgs(append([]string{"apply"}, args...))
+	err := root.Execute()
+	return out.String(), err
+}
+
+func TestApply_NewGroupCreated(t *testing.T) {
+	client := &fakeSGClient{
+		queue: []*http.Response{
+			newJSONResp(200, map[string]any{"totalCount": 0, "results": []any{}}),
+			newJSONResp(201, map[string]any{"id": "287", "href": "/.../287"}),
+			newJSONResp(200, map[string]any{"members": []int{1, 2, 3, 4, 5}}),
+		},
+	}
+	out, err := runSmartGroupApply(
+		t, client,
+		"--template", "encryption/not-encrypted",
+		"--name", "Test FV Not Encrypted",
+		"--yes",
+	)
+	if err != nil {
+		t.Fatalf("apply: %v\n%s", err, out)
+	}
+	if len(client.calls) != 3 {
+		t.Fatalf("expected 3 API calls, got %d", len(client.calls))
+	}
+	if client.calls[1].method != "POST" {
+		t.Errorf("expected second call POST (create), got %s", client.calls[1].method)
+	}
+	if !strings.Contains(out, "Membership: 5") {
+		t.Errorf("expected membership log in output: %s", out)
+	}
+}
+
+func TestApply_ExistingGroupUpdated(t *testing.T) {
+	client := &fakeSGClient{
+		queue: []*http.Response{
+			newJSONResp(200, map[string]any{"totalCount": 1, "results": []any{map[string]any{"id": "42", "name": "Test FV Not Encrypted"}}}),
+			newJSONResp(204, map[string]any{}),
+			newJSONResp(200, map[string]any{"members": []int{1, 2}}),
+		},
+	}
+	out, err := runSmartGroupApply(
+		t, client,
+		"--template", "encryption/not-encrypted",
+		"--name", "Test FV Not Encrypted",
+		"--yes",
+	)
+	if err != nil {
+		t.Fatalf("apply: %v\n%s", err, out)
+	}
+	if client.calls[1].method != "PUT" {
+		t.Errorf("expected PUT on existing group, got %s", client.calls[1].method)
+	}
+	if !strings.Contains(client.calls[1].url, "/42") {
+		t.Errorf("expected PUT URL with id=42: %s", client.calls[1].url)
+	}
+}
+
+func TestApply_DryRunNoAPICalls(t *testing.T) {
+	client := &fakeSGClient{}
+	out, err := runSmartGroupApply(
+		t, client,
+		"--template", "encryption/not-encrypted",
+		"--name", "Test",
+		"--dry-run",
+	)
+	if err != nil {
+		t.Fatalf("dry-run: %v\n%s", err, out)
+	}
+	if len(client.calls) != 0 {
+		t.Fatalf("expected 0 API calls in dry-run, got %d", len(client.calls))
+	}
+	if !strings.Contains(out, "POST /v2/computer-groups/smart-groups") {
+		t.Errorf("expected dry-run output to show what would POST: %s", out)
+	}
+}
+
+func TestApply_ZeroMembershipWarning(t *testing.T) {
+	client := &fakeSGClient{
+		queue: []*http.Response{
+			newJSONResp(200, map[string]any{"totalCount": 0, "results": []any{}}),
+			newJSONResp(201, map[string]any{"id": "99"}),
+			newJSONResp(200, map[string]any{"members": []int{}}),
+		},
+	}
+	out, _ := runSmartGroupApply(
+		t, client,
+		"--template", "compliance/firewall-disabled",
+		"--name", "Test FW Off",
+		"--yes",
+	)
+	if !strings.Contains(out, "matched 0 devices") {
+		t.Errorf("expected zero-match warning: %s", out)
+	}
+}
+
+func TestApply_403MissingPrivilege(t *testing.T) {
+	client := &fakeSGClient{
+		queue: []*http.Response{
+			newJSONResp(200, map[string]any{"totalCount": 0, "results": []any{}}),
+			newJSONResp(403, map[string]any{"errors": []string{"forbidden"}}),
+		},
+	}
+	_, err := runSmartGroupApply(
+		t, client,
+		"--template", "encryption/not-encrypted",
+		"--name", "Test",
+		"--yes",
+	)
+	if err == nil {
+		t.Fatal("expected error on 403, got nil")
+	}
+	if !strings.Contains(err.Error(), "Create Smart Computer Groups") {
+		t.Errorf("expected privilege name in error: %v", err)
+	}
+}
