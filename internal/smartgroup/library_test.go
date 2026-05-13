@@ -72,7 +72,7 @@ func TestEncryption_NotEncrypted_Golden(t *testing.T) {
 		t.Fatalf("expected 1 criterion, got %d", len(req.Criteria))
 	}
 	c := req.Criteria[0]
-	if c.Name != "FileVault 2 Status" || c.SearchType != "is" || c.Value != "Not Encrypted" {
+	if c.Name != "FileVault 2 Status" || c.SearchType != "is" || c.Value != "No Partitions Encrypted" {
 		t.Fatalf("unexpected criterion: %+v", c)
 	}
 }

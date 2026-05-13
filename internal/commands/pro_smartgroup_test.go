@@ -97,7 +97,7 @@ func TestPreview_ZeroParam(t *testing.T) {
 	if !strings.Contains(out, "POST /v2/computer-groups/smart-groups") {
 		t.Errorf("expected POST header: %s", out)
 	}
-	if !strings.Contains(out, "FileVault 2 Status") || !strings.Contains(out, "Not Encrypted") {
+	if !strings.Contains(out, "FileVault 2 Status") || !strings.Contains(out, "No Partitions Encrypted") {
 		t.Errorf("expected criterion in JSON body: %s", out)
 	}
 }
