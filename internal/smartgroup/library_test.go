@@ -275,7 +275,7 @@ func TestMDM_MDMCertExpiring_GoldenDefault(t *testing.T) {
 		t.Fatalf("Build: %v", err)
 	}
 	c := req.Criteria[0]
-	if c.Name != "MDM Profile Expiration Date" || c.SearchType != "less than x days from now" || c.Value != "30" {
+	if c.Name != "MDM Profile Expiration Date" || c.SearchType != "in less than x days" || c.Value != "30" {
 		t.Fatalf("unexpected criterion: %+v", c)
 	}
 }
@@ -301,7 +301,7 @@ func TestCompliance_GatekeeperDisabled_Golden(t *testing.T) {
 		t.Fatalf("Build: %v", err)
 	}
 	c := req.Criteria[0]
-	if c.Name != "Gatekeeper" || c.SearchType != "is" || c.Value != "Disabled" {
+	if c.Name != "Gatekeeper" || c.SearchType != "is" || c.Value != "Off" {
 		t.Fatalf("unexpected criterion: %+v", c)
 	}
 }
@@ -389,7 +389,7 @@ func TestLifecycle_JamfBinaryOutdated_Golden(t *testing.T) {
 		t.Fatalf("Build: %v", err)
 	}
 	c := req.Criteria[0]
-	if c.Name != "Jamf Binary Version" || c.SearchType != "less than" || c.Value != "11.0.0" {
+	if c.Name != "JAMF Binary Version" || c.SearchType != "less than" || c.Value != "11.0.0" {
 		t.Fatalf("unexpected criterion: %+v", c)
 	}
 }

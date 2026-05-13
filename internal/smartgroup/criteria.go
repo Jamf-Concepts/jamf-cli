@@ -65,9 +65,8 @@ const (
 	// MatcherNameConstants.java:CD.APPLE_SILICON
 	CriterionAppleSilicon = "Apple Silicon"
 
-	// Parallel inventory criterion; pro smart-group verify-templates is the
-	// empirical check against a live tenant.
-	CriterionJamfBinaryVersion = "Jamf Binary Version"
+	// JamfBinaryVersionMatcher.java:17 @Component("JAMF Binary Version") — note uppercase JAMF
+	CriterionJamfBinaryVersion = "JAMF Binary Version"
 )
 
 // allCriterionConsts returns the full registry as a map for testing.
