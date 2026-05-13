@@ -630,7 +630,8 @@ func newModernComputerMDMCmd(cliCtx *registry.CLIContext, name, commandType, sho
 }
 
 func newComputerLockCmd(cliCtx *registry.CLIContext) *cobra.Command {
-	return newModernComputerMDMCmd(cliCtx, "lock", "DEVICE_LOCK",
+	return newModernComputerMDMCmd(
+		cliCtx, "lock", "DEVICE_LOCK",
 		"Lock a computer",
 		"Lock a computer by serial number, name, or ID. This is a destructive operation.",
 		`  jamf-cli pro comp lock --serial C02X1234 --yes
@@ -640,7 +641,8 @@ func newComputerLockCmd(cliCtx *registry.CLIContext) *cobra.Command {
 }
 
 func newComputerEnableRemoteDesktopCmd(cliCtx *registry.CLIContext) *cobra.Command {
-	return newModernComputerMDMCmd(cliCtx, "enable-remote-desktop", "ENABLE_REMOTE_DESKTOP",
+	return newModernComputerMDMCmd(
+		cliCtx, "enable-remote-desktop", "ENABLE_REMOTE_DESKTOP",
 		"Enable Remote Desktop on a computer",
 		"Enable the Remote Desktop agent on a computer by serial number, name, or ID.",
 		`  jamf-cli pro comp enable-remote-desktop --serial C02X1234
@@ -650,7 +652,8 @@ func newComputerEnableRemoteDesktopCmd(cliCtx *registry.CLIContext) *cobra.Comma
 }
 
 func newComputerDisableRemoteDesktopCmd(cliCtx *registry.CLIContext) *cobra.Command {
-	return newModernComputerMDMCmd(cliCtx, "disable-remote-desktop", "DISABLE_REMOTE_DESKTOP",
+	return newModernComputerMDMCmd(
+		cliCtx, "disable-remote-desktop", "DISABLE_REMOTE_DESKTOP",
 		"Disable Remote Desktop on a computer",
 		"Disable the Remote Desktop agent on a computer by serial number, name, or ID.",
 		`  jamf-cli pro comp disable-remote-desktop --serial C02X1234
@@ -693,7 +696,8 @@ func newComputerRestartCmd(cliCtx *registry.CLIContext) *cobra.Command {
 }
 
 func newComputerShutdownCmd(cliCtx *registry.CLIContext) *cobra.Command {
-	return newModernComputerMDMCmd(cliCtx, "shutdown", "SHUT_DOWN_DEVICE",
+	return newModernComputerMDMCmd(
+		cliCtx, "shutdown", "SHUT_DOWN_DEVICE",
 		"Shut down a computer",
 		"Shut down a supervised computer by serial number, name, or ID.",
 		`  jamf-cli pro comp shutdown --serial C02X1234
@@ -802,7 +806,8 @@ func newModernMobileMDMCmd(cliCtx *registry.CLIContext, name, commandType, short
 }
 
 func newMobileRestartCmd(cliCtx *registry.CLIContext) *cobra.Command {
-	return newModernMobileMDMCmd(cliCtx, "restart", "RESTART_DEVICE",
+	return newModernMobileMDMCmd(
+		cliCtx, "restart", "RESTART_DEVICE",
 		"Restart a mobile device",
 		"Restart a mobile device by serial number, name, or ID.",
 		`  jamf-cli pro md restart --serial F4GH5678
@@ -812,7 +817,8 @@ func newMobileRestartCmd(cliCtx *registry.CLIContext) *cobra.Command {
 }
 
 func newMobileShutdownCmd(cliCtx *registry.CLIContext) *cobra.Command {
-	return newModernMobileMDMCmd(cliCtx, "shutdown", "SHUT_DOWN_DEVICE",
+	return newModernMobileMDMCmd(
+		cliCtx, "shutdown", "SHUT_DOWN_DEVICE",
 		"Shut down a mobile device",
 		"Shut down a mobile device by serial number, name, or ID.",
 		`  jamf-cli pro md shutdown --serial F4GH5678`,
@@ -986,7 +992,8 @@ func newMobileEnableLostModeCmd(cliCtx *registry.CLIContext) *cobra.Command {
 }
 
 func newMobileDisableLostModeCmd(cliCtx *registry.CLIContext) *cobra.Command {
-	return newModernMobileMDMCmd(cliCtx, "disable-lost-mode", "DISABLE_LOST_MODE",
+	return newModernMobileMDMCmd(
+		cliCtx, "disable-lost-mode", "DISABLE_LOST_MODE",
 		"Disable Lost Mode on a mobile device",
 		"Disable Lost Mode on a supervised mobile device that is currently in Lost Mode.",
 		`  jamf-cli pro md disable-lost-mode --serial F4GH5678 --yes
@@ -996,7 +1003,8 @@ func newMobileDisableLostModeCmd(cliCtx *registry.CLIContext) *cobra.Command {
 }
 
 func newMobilePlayLostModeSoundCmd(cliCtx *registry.CLIContext) *cobra.Command {
-	return newModernMobileMDMCmd(cliCtx, "play-lost-mode-sound", "PLAY_LOST_MODE_SOUND",
+	return newModernMobileMDMCmd(
+		cliCtx, "play-lost-mode-sound", "PLAY_LOST_MODE_SOUND",
 		"Play a sound on a device in Lost Mode",
 		"Play a sound on a supervised mobile device that is currently in Lost Mode.",
 		`  jamf-cli pro md play-lost-mode-sound --serial F4GH5678
@@ -1006,7 +1014,8 @@ func newMobilePlayLostModeSoundCmd(cliCtx *registry.CLIContext) *cobra.Command {
 }
 
 func newMobileClearRestrictionsPasswordCmd(cliCtx *registry.CLIContext) *cobra.Command {
-	return newModernMobileMDMCmd(cliCtx, "clear-restrictions-password", "CLEAR_RESTRICTIONS_PASSWORD",
+	return newModernMobileMDMCmd(
+		cliCtx, "clear-restrictions-password", "CLEAR_RESTRICTIONS_PASSWORD",
 		"Clear the restrictions password on a mobile device",
 		"Clear the restrictions password on a supervised mobile device.",
 		`  jamf-cli pro md clear-restrictions-password --serial F4GH5678
@@ -1243,7 +1252,8 @@ One of --destination-id or --destination-name is required.`,
 }
 
 func newMobileStopMirroringCmd(cliCtx *registry.CLIContext) *cobra.Command {
-	return newModernMobileMDMCmd(cliCtx, "stop-mirroring", "STOP_MIRRORING",
+	return newModernMobileMDMCmd(
+		cliCtx, "stop-mirroring", "STOP_MIRRORING",
 		"Stop AirPlay mirroring on a mobile device",
 		"Stop an active AirPlay mirroring session on a mobile device.",
 		`  jamf-cli pro md stop-mirroring --serial F4GH5678`,
@@ -1371,7 +1381,8 @@ This is a destructive operation.`,
 }
 
 func newMobileLogOutUserCmd(cliCtx *registry.CLIContext) *cobra.Command {
-	return newModernMobileMDMCmd(cliCtx, "log-out-user", "LOG_OUT_USER",
+	return newModernMobileMDMCmd(
+		cliCtx, "log-out-user", "LOG_OUT_USER",
 		"Log out the current user on a Shared iPad",
 		"Log out the currently signed-in user on a Shared iPad.",
 		`  jamf-cli pro md log-out-user --serial F4GH5678

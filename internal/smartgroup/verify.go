@@ -114,7 +114,7 @@ func createTempGroup(ctx context.Context, client HTTPDoer, req SmartGroupRequest
 	if err != nil {
 		return "", err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		buf, _ := io.ReadAll(resp.Body)
 		return "", fmt.Errorf("HTTP %d: %s", resp.StatusCode, string(buf))
@@ -133,7 +133,7 @@ func recalcGroup(ctx context.Context, client HTTPDoer, id string) error {
 	if err != nil {
 		return err
 	}
-	resp.Body.Close()
+	_ = resp.Body.Close()
 	return nil
 }
 
@@ -142,6 +142,6 @@ func deleteGroup(ctx context.Context, client HTTPDoer, id string) error {
 	if err != nil {
 		return err
 	}
-	resp.Body.Close()
+	_ = resp.Body.Close()
 	return nil
 }

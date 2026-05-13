@@ -222,7 +222,8 @@ func zshCompletionCandidates(home string) []string {
 		}
 	}
 
-	candidates = append(candidates,
+	candidates = append(
+		candidates,
 		filepath.Join(home, ".zsh", "completions"),
 		filepath.Join(home, ".local", "share", "zsh", "site-functions"),
 		"/usr/local/share/zsh/site-functions",

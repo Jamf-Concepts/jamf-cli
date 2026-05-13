@@ -81,7 +81,7 @@ func renderTemplatesList(cmd *cobra.Command, tmpls []smartgroup.Template, format
 		return writeTemplatesJSON(out, tmpls)
 	}
 	if len(tmpls) == 0 {
-		fmt.Fprintln(out, "0 templates match the filter.")
+		_, _ = fmt.Fprintln(out, "0 templates match the filter.")
 		return nil
 	}
 	cats := uniqueCategories(tmpls)
@@ -89,18 +89,18 @@ func renderTemplatesList(cmd *cobra.Command, tmpls []smartgroup.Template, format
 	if len(cats) != 1 {
 		noun = "categories"
 	}
-	fmt.Fprintf(out, "Smart Group Templates — %d available across %d %s\n\n", len(tmpls), len(cats), noun)
+	_, _ = fmt.Fprintf(out, "Smart Group Templates — %d available across %d %s\n\n", len(tmpls), len(cats), noun)
 	for _, cat := range cats {
 		bucket := filterByCategory(tmpls, cat)
-		fmt.Fprintf(out, "Category: %s (%d)\n", cat, len(bucket))
+		_, _ = fmt.Fprintf(out, "Category: %s (%d)\n", cat, len(bucket))
 		for _, t := range bucket {
 			suffix := ""
 			if len(t.Params) > 0 {
 				suffix = fmt.Sprintf(" (params: --%s)", t.Params[0].Name)
 			}
-			fmt.Fprintf(out, "  %-40s %s%s\n", t.Slug, t.Description, suffix)
+			_, _ = fmt.Fprintf(out, "  %-40s %s%s\n", t.Slug, t.Description, suffix)
 		}
-		fmt.Fprintln(out)
+		_, _ = fmt.Fprintln(out)
 	}
 	return nil
 }
@@ -188,7 +188,7 @@ criteria before creating a group.`,
 			}
 			req.Name = "<--name required when running apply>"
 			out := cmd.OutOrStdout()
-			fmt.Fprintln(out, "POST /v2/computer-groups/smart-groups")
+			_, _ = fmt.Fprintln(out, "POST /v2/computer-groups/smart-groups")
 			enc := json.NewEncoder(out)
 			enc.SetIndent("", "  ")
 			return enc.Encode(req)
@@ -303,7 +303,7 @@ logged. Use --dry-run to inspect the request body without calling the API.`,
 }
 
 func printDryRun(out io.Writer, req smartgroup.SmartGroupRequest) error {
-	fmt.Fprintln(out, "POST /v2/computer-groups/smart-groups")
+	_, _ = fmt.Fprintln(out, "POST /v2/computer-groups/smart-groups")
 	enc := json.NewEncoder(out)
 	enc.SetIndent("", "  ")
 	return enc.Encode(req)
@@ -316,14 +316,14 @@ func runApplyFlow(ctx context.Context, out io.Writer, client registry.HTTPClient
 	}
 
 	var id string
-	switch {
-	case existingID == "":
+	switch existingID {
+	case "":
 		newID, err := createSmartGroup(ctx, client, req)
 		if err != nil {
 			return err
 		}
 		id = newID
-		fmt.Fprintf(out, "Created smart group %q (ID: %s)\n", req.Name, id)
+		_, _ = fmt.Fprintf(out, "Created smart group %q (ID: %s)\n", req.Name, id)
 	default:
 		if !yes {
 			return fmt.Errorf("smart group %q already exists (ID %s); pass --yes to replace", req.Name, existingID)
@@ -332,23 +332,23 @@ func runApplyFlow(ctx context.Context, out io.Writer, client registry.HTTPClient
 			return err
 		}
 		id = existingID
-		fmt.Fprintf(out, "Updated smart group %q (ID: %s)\n", req.Name, id)
+		_, _ = fmt.Fprintf(out, "Updated smart group %q (ID: %s)\n", req.Name, id)
 	}
 
 	if recalculate {
 		if err := recalculateSmartGroup(ctx, client, id); err != nil {
-			fmt.Fprintf(out, "Warning: recalculate did not complete: %v\n", err)
+			_, _ = fmt.Fprintf(out, "Warning: recalculate did not complete: %v\n", err)
 		}
 	}
 
 	count, err := smartgroup.CountMembers(ctx, client, id)
 	if err != nil {
-		fmt.Fprintf(out, "Warning: membership check failed: %v\n", err)
+		_, _ = fmt.Fprintf(out, "Warning: membership check failed: %v\n", err)
 		return nil
 	}
-	fmt.Fprintf(out, "Membership: %d devices.\n", count)
+	_, _ = fmt.Fprintf(out, "Membership: %d devices.\n", count)
 	if count == 0 {
-		fmt.Fprintln(out, "This template matched 0 devices. Run 'pro sg verify-templates' to check criterion compatibility with your tenant.")
+		_, _ = fmt.Fprintln(out, "This template matched 0 devices. Run 'pro sg verify-templates' to check criterion compatibility with your tenant.")
 	}
 	return nil
 }
@@ -360,7 +360,7 @@ func lookupSmartGroupByName(ctx context.Context, client registry.HTTPClient, nam
 	if err != nil {
 		return "", err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != 200 {
 		body, _ := io.ReadAll(resp.Body)
 		return "", fmt.Errorf("lookup smart group: HTTP %d: %s", resp.StatusCode, string(body))
@@ -392,7 +392,7 @@ func createSmartGroup(ctx context.Context, client registry.HTTPClient, req smart
 	if err != nil {
 		return "", err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode == 403 {
 		return "", fmt.Errorf("permission denied: the OAuth role is missing the 'Create Smart Computer Groups' privilege")
 	}
@@ -418,7 +418,7 @@ func updateSmartGroup(ctx context.Context, client registry.HTTPClient, id string
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode == 403 {
 		return fmt.Errorf("permission denied: the OAuth role is missing the 'Update Smart Computer Groups' privilege")
 	}
@@ -434,7 +434,7 @@ func recalculateSmartGroup(ctx context.Context, client registry.HTTPClient, id s
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return fmt.Errorf("recalculate: HTTP %d", resp.StatusCode)
 	}
@@ -489,20 +489,20 @@ func renderVerifyResults(out io.Writer, results []smartgroup.VerifyResult, asJSO
 		return enc.Encode(results)
 	}
 	ok, zero, errs := 0, 0, 0
-	fmt.Fprintf(out, "Verifying %d templates...\n\n", len(results))
+	_, _ = fmt.Fprintf(out, "Verifying %d templates...\n\n", len(results))
 	for _, r := range results {
 		switch r.Outcome {
 		case smartgroup.VerifyOK:
 			ok++
-			fmt.Fprintf(out, "✓ %-40s — %d devices match\n", r.Slug, r.MemberCount)
+			_, _ = fmt.Fprintf(out, "✓ %-40s — %d devices match\n", r.Slug, r.MemberCount)
 		case smartgroup.VerifyZeroMatch:
 			zero++
-			fmt.Fprintf(out, "⚠ %-40s — 0 devices match (possible criterion mismatch)\n", r.Slug)
+			_, _ = fmt.Fprintf(out, "⚠ %-40s — 0 devices match (possible criterion mismatch)\n", r.Slug)
 		case smartgroup.VerifyError:
 			errs++
-			fmt.Fprintf(out, "✗ %-40s — ERROR: %s\n", r.Slug, r.Error)
+			_, _ = fmt.Fprintf(out, "✗ %-40s — ERROR: %s\n", r.Slug, r.Error)
 		}
 	}
-	fmt.Fprintf(out, "\nSummary: %d OK, %d zero-match warnings, %d errors.\n", ok, zero, errs)
+	_, _ = fmt.Fprintf(out, "\nSummary: %d OK, %d zero-match warnings, %d errors.\n", ok, zero, errs)
 	return nil
 }

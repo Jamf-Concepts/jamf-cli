@@ -1278,7 +1278,8 @@ func buildEnrollmentItems(
 		items = append(items, item("ADE Token Expires", "None configured"))
 	}
 
-	items = append(items,
+	items = append(
+		items,
 		item("ADE Sync Status", get("ade_sync_status")),
 		item("Computer Prestages", get("computer_prestages")),
 		item("Mobile Device Prestages", get("md_prestages")),
@@ -1295,7 +1296,8 @@ func buildEnrollmentItems(
 		items = append(items, overviewItem{label, display, t.Color})
 	}
 
-	items = append(items,
+	items = append(
+		items,
 		overviewItem{}, // blank separator
 		getItem("APNs Certificate", "apns_cert"),
 		getItem("Built-in CA Expires", "ca_expires"),

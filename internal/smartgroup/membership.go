@@ -24,7 +24,7 @@ func CountMembers(ctx context.Context, client HTTPDoer, groupID string) (int, er
 	if err != nil {
 		return 0, fmt.Errorf("smart-group membership: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		body, _ := io.ReadAll(resp.Body)
 		return 0, fmt.Errorf("smart-group membership: HTTP %d: %s", resp.StatusCode, string(body))
