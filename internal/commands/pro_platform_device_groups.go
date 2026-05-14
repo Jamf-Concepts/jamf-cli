@@ -67,6 +67,9 @@ func newPDGApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 
 			dg := devicegroups.New(cliCtx.PlatformSDKClient)
 			id, resolveErr := dg.ResolveDeviceGroupIDByName(ctx, createReq.Name)
+			if resolveErr != nil && !platform.IsNotFound(resolveErr) {
+				return resolveErr
+			}
 			if resolveErr != nil {
 				// Not found — create
 				result, err := devicegroups.New(cliCtx.PlatformSDKClient).CreateDeviceGroup(ctx, &createReq)
