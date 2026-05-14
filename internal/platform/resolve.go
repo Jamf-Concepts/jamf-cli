@@ -2,7 +2,11 @@
 
 package platform
 
-import "errors"
+import (
+	"errors"
+
+	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform"
+)
 
 // ErrNotFound is returned when a resource name cannot be resolved to an ID.
 //
@@ -20,7 +24,15 @@ import "errors"
 // platform.IsNotFound assertions across the codebase.
 var ErrNotFound = errors.New("not found")
 
-// IsNotFound reports whether err is or wraps ErrNotFound.
+// IsNotFound reports whether err is or wraps ErrNotFound, or is a 404
+// *APIResponseError from the Platform SDK (returned by Resolve* methods when
+// a name lookup yields zero results).
 func IsNotFound(err error) bool {
-	return errors.Is(err, ErrNotFound)
+	if errors.Is(err, ErrNotFound) {
+		return true
+	}
+	if apiErr := jamfplatform.AsAPIError(err); apiErr != nil && apiErr.HasStatus(404) {
+		return true
+	}
+	return false
 }
