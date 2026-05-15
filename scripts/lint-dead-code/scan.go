@@ -343,7 +343,7 @@ func extractAllowlist(expr ast.Expr) map[string]bool {
 				continue
 			}
 			set := map[string]bool{}
-			for _, p := range strings.Split(strings.Trim(vLit.Value, `"`), ",") {
+			for p := range strings.SplitSeq(strings.Trim(vLit.Value, `"`), ",") {
 				if s := strings.TrimSpace(p); s != "" {
 					set[s] = true
 				}

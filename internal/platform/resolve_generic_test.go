@@ -156,6 +156,62 @@ func TestResolveIDByName_NotFound(t *testing.T) {
 	}
 }
 
+// TestResolveIDByName_Ambiguous verifies that when two items share the same
+// name on the same page, an error is returned rather than silently picking one.
+func TestResolveIDByName_Ambiguous(t *testing.T) {
+	mux := http.NewServeMux()
+	path := "/api/device-groups/v1/tenant/" + resolveTestTenantID + "/device-groups"
+	mux.HandleFunc(path, func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"results": []any{
+				map[string]any{"id": "dg-computer", "name": "All Managed", "deviceType": "COMPUTER"},
+				map[string]any{"id": "dg-mobile", "name": "All Managed", "deviceType": "MOBILE"},
+			},
+			"totalCount": 2,
+		})
+	})
+	client := newResolveTestClient(t, mux)
+
+	_, err := ResolveIDByName(context.Background(), client, path, "All Managed")
+	if err == nil {
+		t.Fatal("expected ambiguous error, got nil")
+	}
+	if IsNotFound(err) {
+		t.Errorf("should not be ErrNotFound, got %v", err)
+	}
+}
+
+// TestResolveIDByNameFiltered verifies that the filter expression is appended
+// as a query param and narrows the result to the matching device type.
+func TestResolveIDByNameFiltered(t *testing.T) {
+	mux := http.NewServeMux()
+	path := "/api/device-groups/v1/tenant/" + resolveTestTenantID + "/device-groups"
+	var capturedFilter string
+	mux.HandleFunc(path, func(w http.ResponseWriter, r *http.Request) {
+		capturedFilter = r.URL.Query().Get("filter")
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"results": []any{
+				map[string]any{"id": "dg-computer", "name": "All Managed", "deviceType": "COMPUTER"},
+			},
+			"totalCount": 1,
+		})
+	})
+	client := newResolveTestClient(t, mux)
+
+	id, err := ResolveIDByNameFiltered(context.Background(), client, path, "All Managed", `deviceType=="COMPUTER"`)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if id != "dg-computer" {
+		t.Errorf("id = %q, want %q", id, "dg-computer")
+	}
+	if capturedFilter != `deviceType=="COMPUTER"` {
+		t.Errorf("filter = %q, want %q", capturedFilter, `deviceType=="COMPUTER"`)
+	}
+}
+
 // TestResolveIDByName_BareArray verifies matching against bare-array responses.
 func TestResolveIDByName_BareArray(t *testing.T) {
 	mux := http.NewServeMux()

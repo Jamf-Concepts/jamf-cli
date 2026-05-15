@@ -28,9 +28,30 @@ import (
 // "name", "title", and "displayName" properties in that order. The ID is read
 // from "id" (and falls back to "blueprintId", "groupId", "deviceId" for
 // resources that use a non-standard ID field).
+//
+// Returns an error when multiple items share the name (ambiguous match within
+// a single page). Use ResolveIDByNameFiltered to narrow the lookup first.
 func ResolveIDByName(ctx context.Context, client *jamfplatform.Client, listPath string, name string) (string, error) {
+	return ResolveIDByNameFiltered(ctx, client, listPath, name, "")
+}
+
+// ResolveIDByNameFiltered is like ResolveIDByName but narrows the server-side
+// results with an RSQL filter expression appended as ?filter=<expr> before the
+// name walk begins. Pass an empty string for no additional filtering.
+//
+// Example: ResolveIDByNameFiltered(ctx, c, path, "My Group", `deviceType=="COMPUTER"`)
+func ResolveIDByNameFiltered(ctx context.Context, client *jamfplatform.Client, listPath string, name string, filter string) (string, error) {
 	if name == "" {
 		return "", fmt.Errorf("empty name")
+	}
+	if filter != "" {
+		q := url.Values{}
+		q.Set("filter", filter)
+		sep := "?"
+		if u, err := url.Parse(listPath); err == nil && u.RawQuery != "" {
+			sep = "&"
+		}
+		listPath = listPath + sep + q.Encode()
 	}
 
 	const pageSize = 100
@@ -44,12 +65,10 @@ func ResolveIDByName(ctx context.Context, client *jamfplatform.Client, listPath 
 		return "", fmt.Errorf("listing %s: %w", listPath, err)
 	}
 	items, paged := extractItems(raw)
-	for _, item := range items {
-		if matchesName(item, name) {
-			if id := extractID(item); id != "" {
-				return id, nil
-			}
-		}
+	if id, err := firstMatch(items, name); err != nil {
+		return "", err
+	} else if id != "" {
+		return id, nil
 	}
 
 	// Paginate only if the first response signalled more pages.
@@ -69,12 +88,10 @@ func ResolveIDByName(ctx context.Context, client *jamfplatform.Client, listPath 
 				return "", fmt.Errorf("listing %s: %w", listPath, err)
 			}
 			pageItems, _ := extractItems(pageRaw)
-			for _, item := range pageItems {
-				if matchesName(item, name) {
-					if id := extractID(item); id != "" {
-						return id, nil
-					}
-				}
+			if id, err := firstMatch(pageItems, name); err != nil {
+				return "", err
+			} else if id != "" {
+				return id, nil
 			}
 			if len(pageItems) < pageSize {
 				break
@@ -119,6 +136,28 @@ func extractItems(raw json.RawMessage) ([]map[string]any, bool) {
 		}
 	}
 	return nil, false
+}
+
+// firstMatch scans items for entries whose name matches. Returns the ID of the
+// first match, or an error when multiple items share the name within this page
+// (ambiguous). Returns ("", nil) when no match is found.
+func firstMatch(items []map[string]any, name string) (string, error) {
+	var matched []string
+	for _, item := range items {
+		if matchesName(item, name) {
+			if id := extractID(item); id != "" {
+				matched = append(matched, id)
+			}
+		}
+	}
+	switch len(matched) {
+	case 0:
+		return "", nil
+	case 1:
+		return matched[0], nil
+	default:
+		return "", fmt.Errorf("ambiguous match: %d items named %q; pass the positional ID to disambiguate", len(matched), name)
+	}
 }
 
 func matchesName(item map[string]any, name string) bool {

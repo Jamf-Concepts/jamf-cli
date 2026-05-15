@@ -3,14 +3,20 @@
 package commands
 
 import (
+	"context"
+	"encoding/json"
 	"fmt"
+	"net/http"
+	"net/url"
 	"os"
+	"strings"
 
 	"github.com/spf13/cobra"
 
 	platformgen "github.com/Jamf-Concepts/jamf-cli/internal/commands/platform/generated"
 	"github.com/Jamf-Concepts/jamf-cli/internal/platform"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
+	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform"
 	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform/devicegroups"
 )
 
@@ -21,16 +27,263 @@ func newPlatformDeviceGroupsCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Long:  "Create and manage unified device groups via the Jamf Platform API. Requires platform gateway auth.",
 	}
 
-	// Generated CRUD and member ops (list, create, get, patch, delete, members, patch-members)
+	// Generated CRUD: list, create. Skip --name-using ops; replaced below with
+	// handwritten versions that add --device-type for COMPUTER/MOBILE disambiguation.
+	needsType := map[string]bool{
+		"get": true, "delete": true, "patch": true, "members": true, "patch-members": true,
+	}
 	for _, sub := range platformgen.NewDeviceGroupsCmd(cliCtx).Commands() {
+		if needsType[sub.Name()] {
+			continue
+		}
 		cmd.AddCommand(sub)
 	}
 
-	// Business logic: upsert apply and ergonomic member mutations
+	// Name-based CRUD with --device-type disambiguation
+	cmd.AddCommand(newPDGGetCmd(cliCtx))
+	cmd.AddCommand(newPDGDeleteCmd(cliCtx))
+	cmd.AddCommand(newPDGPatchCmd(cliCtx))
+	cmd.AddCommand(newPDGMembersCmd(cliCtx))
+	cmd.AddCommand(newPDGPatchMembersCmd(cliCtx))
+
+	// Business logic: upsert and ergonomic member mutations
 	cmd.AddCommand(newPDGApplyCmd(cliCtx))
 	cmd.AddCommand(newPDGAddMembersCmd(cliCtx))
 	cmd.AddCommand(newPDGRemoveMembersCmd(cliCtx))
 
+	return cmd
+}
+
+// pdgListPath returns the tenant-prefixed list endpoint for device groups.
+func pdgListPath(c *jamfplatform.Client) string {
+	return "/api/device-groups/v1/tenant/" + url.PathEscape(c.Transport().TenantID()) + "/device-groups"
+}
+
+// pdgResolveID resolves a device group name to its ID, optionally filtering by
+// deviceType ("COMPUTER" or "MOBILE"). When deviceType is empty the lookup
+// searches all groups; if two groups share a name the call errors with a hint
+// to add --device-type.
+func pdgResolveID(ctx context.Context, c *jamfplatform.Client, name, deviceType string) (string, error) {
+	filter := ""
+	if deviceType != "" {
+		filter = fmt.Sprintf(`deviceType=="%s"`, deviceType)
+	}
+	return platform.ResolveIDByNameFiltered(ctx, c, pdgListPath(c), name, filter)
+}
+
+// normalizeDeviceTypeFlag uppercases the value and validates it is COMPUTER,
+// MOBILE, or empty. Returns the normalized value and an error if invalid.
+func normalizeDeviceTypeFlag(t string) (string, error) {
+	upper := strings.ToUpper(t)
+	if upper != "" && upper != "COMPUTER" && upper != "MOBILE" {
+		return "", fmt.Errorf("--device-type must be COMPUTER or MOBILE (got %q)", t)
+	}
+	return upper, nil
+}
+
+// resolvePDGTarget normalizes --device-type, then resolves the group ID from
+// either --name or a positional ID argument.
+func resolvePDGTarget(ctx context.Context, cliCtx *registry.CLIContext, args []string, nameFlag, deviceTypeFlag string) (string, error) {
+	dt, err := normalizeDeviceTypeFlag(deviceTypeFlag)
+	if err != nil {
+		return "", err
+	}
+	if nameFlag != "" {
+		return pdgResolveID(ctx, cliCtx.PlatformSDKClient, nameFlag, dt)
+	}
+	if len(args) == 1 {
+		return args[0], nil
+	}
+	return "", fmt.Errorf("provide a positional ID or --name")
+}
+
+// pdgItemPath returns the item-level endpoint for a device group ID.
+func pdgItemPath(c *jamfplatform.Client, id string) string {
+	return pdgListPath(c) + "/" + url.PathEscape(id)
+}
+
+func newPDGGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
+	var nameFlag, deviceTypeFlag string
+	cmd := &cobra.Command{
+		Use:   "get <id>",
+		Short: "Get a device group by ID",
+		Long:  "Retrieve a specific device group by its ID",
+		Args:  cobra.MaximumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := requirePlatformClient(cliCtx); err != nil {
+				return err
+			}
+			id, err := resolvePDGTarget(cmd.Context(), cliCtx, args, nameFlag, deviceTypeFlag)
+			if err != nil {
+				return err
+			}
+			var result any
+			if err := cliCtx.PlatformSDKClient.Transport().DoExpect(cmd.Context(), http.MethodGet, pdgItemPath(cliCtx.PlatformSDKClient, id), nil, http.StatusOK, &result); err != nil {
+				return fmt.Errorf("get: %w", err)
+			}
+			if result == nil {
+				return nil
+			}
+			b, err := json.MarshalIndent(result, "", "  ")
+			if err != nil {
+				return err
+			}
+			return cliCtx.Output.PrintRaw(b)
+		},
+	}
+	cmd.Flags().StringVar(&nameFlag, "name", "", "Resolve target by name instead of ID")
+	cmd.Flags().StringVar(&deviceTypeFlag, "device-type", "", "Narrow --name lookup by device type: COMPUTER or MOBILE")
+	return cmd
+}
+
+func newPDGDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
+	var nameFlag, deviceTypeFlag string
+	var yes bool
+	cmd := &cobra.Command{
+		Use:         "delete <id>",
+		Short:       "Delete a device group",
+		Long:        "Delete an existing device group",
+		Annotations: map[string]string{"jamf:destructive": "true"},
+		Args:        cobra.MaximumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := requirePlatformClient(cliCtx); err != nil {
+				return err
+			}
+			id, err := resolvePDGTarget(cmd.Context(), cliCtx, args, nameFlag, deviceTypeFlag)
+			if err != nil {
+				return err
+			}
+			if err := platform.ConfirmAction("delete", id, yes); err != nil {
+				return err
+			}
+			if err := cliCtx.PlatformSDKClient.Transport().DoExpect(cmd.Context(), http.MethodDelete, pdgItemPath(cliCtx.PlatformSDKClient, id), nil, http.StatusNoContent, nil); err != nil {
+				return fmt.Errorf("delete: %w", err)
+			}
+			return nil
+		},
+	}
+	cmd.Flags().StringVar(&nameFlag, "name", "", "Resolve target by name instead of ID")
+	cmd.Flags().StringVar(&deviceTypeFlag, "device-type", "", "Narrow --name lookup by device type: COMPUTER or MOBILE")
+	cmd.Flags().BoolVar(&yes, "yes", false, "Skip confirmation prompt")
+	return cmd
+}
+
+func newPDGPatchCmd(cliCtx *registry.CLIContext) *cobra.Command {
+	var nameFlag, deviceTypeFlag, bodyFile string
+	var setFlags []string
+	var scaffoldFlag bool
+	cmd := &cobra.Command{
+		Use:   "patch <id>",
+		Short: "Update a device group",
+		Long:  "Update an existing device group",
+		Args:  cobra.MaximumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if scaffoldFlag {
+				return printScaffold(map[string]any{
+					"criteria":    []any{},
+					"description": "",
+					"name":        "",
+				})
+			}
+			if err := requirePlatformClient(cliCtx); err != nil {
+				return err
+			}
+			id, err := resolvePDGTarget(cmd.Context(), cliCtx, args, nameFlag, deviceTypeFlag)
+			if err != nil {
+				return err
+			}
+			body, err := platform.ReadBody(bodyFile, setFlags)
+			if err != nil {
+				return err
+			}
+			if err := cliCtx.PlatformSDKClient.Transport().DoExpect(cmd.Context(), http.MethodPatch, pdgItemPath(cliCtx.PlatformSDKClient, id), body, http.StatusNoContent, nil); err != nil {
+				return fmt.Errorf("patch: %w", err)
+			}
+			return nil
+		},
+	}
+	cmd.Flags().StringVar(&nameFlag, "name", "", "Resolve target by name instead of ID")
+	cmd.Flags().StringVar(&deviceTypeFlag, "device-type", "", "Narrow --name lookup by device type: COMPUTER or MOBILE")
+	cmd.Flags().StringVar(&bodyFile, "file", "", "Path to JSON file containing the request body")
+	cmd.Flags().StringArrayVar(&setFlags, "set", nil, "Override body values (key=value, repeatable, supports nested.keys)")
+	cmd.Flags().BoolVar(&scaffoldFlag, "scaffold", false, "Print an example request body and exit")
+	return cmd
+}
+
+func newPDGMembersCmd(cliCtx *registry.CLIContext) *cobra.Command {
+	var nameFlag, deviceTypeFlag string
+	cmd := &cobra.Command{
+		Use:   "members <id>",
+		Short: "Get group members",
+		Long:  "Retrieve all members of a device group",
+		Args:  cobra.MaximumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := requirePlatformClient(cliCtx); err != nil {
+				return err
+			}
+			id, err := resolvePDGTarget(cmd.Context(), cliCtx, args, nameFlag, deviceTypeFlag)
+			if err != nil {
+				return err
+			}
+			path := pdgItemPath(cliCtx.PlatformSDKClient, id) + "/members"
+			var result any
+			if err := cliCtx.PlatformSDKClient.Transport().DoExpect(cmd.Context(), http.MethodGet, path, nil, http.StatusOK, &result); err != nil {
+				return fmt.Errorf("members: %w", err)
+			}
+			if result == nil {
+				return nil
+			}
+			b, err := json.MarshalIndent(result, "", "  ")
+			if err != nil {
+				return err
+			}
+			return cliCtx.Output.PrintRaw(b)
+		},
+	}
+	cmd.Flags().StringVar(&nameFlag, "name", "", "Resolve target by name instead of ID")
+	cmd.Flags().StringVar(&deviceTypeFlag, "device-type", "", "Narrow --name lookup by device type: COMPUTER or MOBILE")
+	return cmd
+}
+
+func newPDGPatchMembersCmd(cliCtx *registry.CLIContext) *cobra.Command {
+	var nameFlag, deviceTypeFlag, bodyFile string
+	var setFlags []string
+	var scaffoldFlag bool
+	cmd := &cobra.Command{
+		Use:   "patch-members <id>",
+		Short: "Update device group members",
+		Long:  "Add devices to or remove devices from a static device group. Cannot be used with smart groups.",
+		Args:  cobra.MaximumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if scaffoldFlag {
+				return printScaffold(map[string]any{
+					"added":   []any{},
+					"removed": []any{},
+				})
+			}
+			if err := requirePlatformClient(cliCtx); err != nil {
+				return err
+			}
+			id, err := resolvePDGTarget(cmd.Context(), cliCtx, args, nameFlag, deviceTypeFlag)
+			if err != nil {
+				return err
+			}
+			path := pdgItemPath(cliCtx.PlatformSDKClient, id) + "/members"
+			body, err := platform.ReadBody(bodyFile, setFlags)
+			if err != nil {
+				return err
+			}
+			if err := cliCtx.PlatformSDKClient.Transport().DoExpect(cmd.Context(), http.MethodPatch, path, body, http.StatusNoContent, nil); err != nil {
+				return fmt.Errorf("patch-members: %w", err)
+			}
+			return nil
+		},
+	}
+	cmd.Flags().StringVar(&nameFlag, "name", "", "Resolve target by name instead of ID")
+	cmd.Flags().StringVar(&deviceTypeFlag, "device-type", "", "Narrow --name lookup by device type: COMPUTER or MOBILE")
+	cmd.Flags().StringVar(&bodyFile, "file", "", "Path to JSON file containing the request body")
+	cmd.Flags().StringArrayVar(&setFlags, "set", nil, "Override body values (key=value, repeatable, supports nested.keys)")
+	cmd.Flags().BoolVar(&scaffoldFlag, "scaffold", false, "Print an example request body and exit")
 	return cmd
 }
 
@@ -65,8 +318,9 @@ func newPDGApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				return fmt.Errorf("input must include a 'name' field")
 			}
 
-			dg := devicegroups.New(cliCtx.PlatformSDKClient)
-			id, resolveErr := dg.ResolveDeviceGroupIDByName(ctx, createReq.Name)
+			// Use deviceType from the input JSON to disambiguate when a COMPUTER
+			// and MOBILE group share the same name.
+			id, resolveErr := pdgResolveID(ctx, cliCtx.PlatformSDKClient, createReq.Name, string(createReq.DeviceType))
 			if resolveErr != nil && !platform.IsNotFound(resolveErr) {
 				return resolveErr
 			}
@@ -128,6 +382,7 @@ func deviceGroupScaffold() *devicegroups.DeviceGroupCreateRepresentationV1 {
 
 func newPDGAddMembersCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	var ids []string
+	var deviceTypeFlag string
 	cmd := &cobra.Command{
 		Use:   "add-members <name>",
 		Short: "Add devices to a static group",
@@ -136,12 +391,15 @@ func newPDGAddMembersCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err := requirePlatformClient(cliCtx); err != nil {
 				return err
 			}
+			dt, err := normalizeDeviceTypeFlag(deviceTypeFlag)
+			if err != nil {
+				return err
+			}
 			if len(ids) == 0 {
 				return fmt.Errorf("at least one --id is required")
 			}
 			ctx := cmd.Context()
-			dg := devicegroups.New(cliCtx.PlatformSDKClient)
-			groupID, err := dg.ResolveDeviceGroupIDByName(ctx, args[0])
+			groupID, err := pdgResolveID(ctx, cliCtx.PlatformSDKClient, args[0], dt)
 			if err != nil {
 				return err
 			}
@@ -156,11 +414,13 @@ func newPDGAddMembersCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		},
 	}
 	cmd.Flags().StringSliceVar(&ids, "id", nil, "Device ID to add (repeatable)")
+	cmd.Flags().StringVar(&deviceTypeFlag, "device-type", "", "Narrow name lookup by device type: COMPUTER or MOBILE")
 	return cmd
 }
 
 func newPDGRemoveMembersCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	var ids []string
+	var deviceTypeFlag string
 	cmd := &cobra.Command{
 		Use:   "remove-members <name>",
 		Short: "Remove devices from a static group",
@@ -169,12 +429,15 @@ func newPDGRemoveMembersCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err := requirePlatformClient(cliCtx); err != nil {
 				return err
 			}
+			dt, err := normalizeDeviceTypeFlag(deviceTypeFlag)
+			if err != nil {
+				return err
+			}
 			if len(ids) == 0 {
 				return fmt.Errorf("at least one --id is required")
 			}
 			ctx := cmd.Context()
-			dg := devicegroups.New(cliCtx.PlatformSDKClient)
-			groupID, err := dg.ResolveDeviceGroupIDByName(ctx, args[0])
+			groupID, err := pdgResolveID(ctx, cliCtx.PlatformSDKClient, args[0], dt)
 			if err != nil {
 				return err
 			}
@@ -189,5 +452,6 @@ func newPDGRemoveMembersCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		},
 	}
 	cmd.Flags().StringSliceVar(&ids, "id", nil, "Device ID to remove (repeatable)")
+	cmd.Flags().StringVar(&deviceTypeFlag, "device-type", "", "Narrow name lookup by device type: COMPUTER or MOBILE")
 	return cmd
 }

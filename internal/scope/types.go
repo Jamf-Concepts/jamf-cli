@@ -163,7 +163,7 @@ type ScopeXML struct {
 	JSSUserGroups      ScopeItemSlice   `xml:"jss_user_groups" json:"jss_user_groups"`
 	Buildings          ScopeItemSlice   `xml:"buildings" json:"buildings"`
 	Departments        ScopeItemSlice   `xml:"departments" json:"departments"`
-	Classes            ScopeItemSlice   `xml:"classes" json:"classes,omitempty"`
+	Classes            ScopeItemSlice   `xml:"classes" json:"classes"`
 	LimitToUsers       *LimitToUsersXML `xml:"limit_to_users,omitempty" json:"limit_to_users,omitempty"`
 	Limitations        *LimitationsXML  `xml:"limitations,omitempty" json:"limitations,omitempty"`
 	Exclusions         *ExclusionsXML   `xml:"exclusions,omitempty" json:"exclusions,omitempty"`
