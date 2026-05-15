@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"strconv"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -82,6 +81,27 @@ func normalizeDeviceTypeFlag(t string) (string, error) {
 	return upper, nil
 }
 
+// resolvePDGTarget normalizes --device-type, then resolves the group ID from
+// either --name or a positional ID argument.
+func resolvePDGTarget(ctx context.Context, cliCtx *registry.CLIContext, args []string, nameFlag, deviceTypeFlag string) (string, error) {
+	dt, err := normalizeDeviceTypeFlag(deviceTypeFlag)
+	if err != nil {
+		return "", err
+	}
+	if nameFlag != "" {
+		return pdgResolveID(ctx, cliCtx.PlatformSDKClient, nameFlag, dt)
+	}
+	if len(args) == 1 {
+		return args[0], nil
+	}
+	return "", fmt.Errorf("provide a positional ID or --name")
+}
+
+// pdgItemPath returns the item-level endpoint for a device group ID.
+func pdgItemPath(c *jamfplatform.Client, id string) string {
+	return pdgListPath(c) + "/" + url.PathEscape(id)
+}
+
 func newPDGGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	var nameFlag, deviceTypeFlag string
 	cmd := &cobra.Command{
@@ -93,25 +113,12 @@ func newPDGGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err := requirePlatformClient(cliCtx); err != nil {
 				return err
 			}
-			dt, err := normalizeDeviceTypeFlag(deviceTypeFlag)
+			id, err := resolvePDGTarget(cmd.Context(), cliCtx, args, nameFlag, deviceTypeFlag)
 			if err != nil {
 				return err
 			}
-			var resolvedID string
-			if nameFlag != "" {
-				id, err := pdgResolveID(cmd.Context(), cliCtx.PlatformSDKClient, nameFlag, dt)
-				if err != nil {
-					return err
-				}
-				resolvedID = id
-			} else if len(args) == 1 {
-				resolvedID = args[0]
-			} else {
-				return fmt.Errorf("provide a positional ID or --name")
-			}
-			path := "/api/device-groups/v1/tenant/" + url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantID()) + "/device-groups/" + url.PathEscape(resolvedID)
 			var result any
-			if err := cliCtx.PlatformSDKClient.Transport().DoExpect(cmd.Context(), http.MethodGet, path, nil, http.StatusOK, &result); err != nil {
+			if err := cliCtx.PlatformSDKClient.Transport().DoExpect(cmd.Context(), http.MethodGet, pdgItemPath(cliCtx.PlatformSDKClient, id), nil, http.StatusOK, &result); err != nil {
 				return fmt.Errorf("get: %w", err)
 			}
 			if result == nil {
@@ -142,27 +149,14 @@ func newPDGDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err := requirePlatformClient(cliCtx); err != nil {
 				return err
 			}
-			dt, err := normalizeDeviceTypeFlag(deviceTypeFlag)
+			id, err := resolvePDGTarget(cmd.Context(), cliCtx, args, nameFlag, deviceTypeFlag)
 			if err != nil {
 				return err
 			}
-			var resolvedID string
-			if nameFlag != "" {
-				id, err := pdgResolveID(cmd.Context(), cliCtx.PlatformSDKClient, nameFlag, dt)
-				if err != nil {
-					return err
-				}
-				resolvedID = id
-			} else if len(args) == 1 {
-				resolvedID = args[0]
-			} else {
-				return fmt.Errorf("provide a positional ID or --name")
-			}
-			if err := platform.ConfirmAction("delete", resolvedID, yes); err != nil {
+			if err := platform.ConfirmAction("delete", id, yes); err != nil {
 				return err
 			}
-			path := "/api/device-groups/v1/tenant/" + url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantID()) + "/device-groups/" + url.PathEscape(resolvedID)
-			if err := cliCtx.PlatformSDKClient.Transport().DoExpect(cmd.Context(), http.MethodDelete, path, nil, http.StatusNoContent, nil); err != nil {
+			if err := cliCtx.PlatformSDKClient.Transport().DoExpect(cmd.Context(), http.MethodDelete, pdgItemPath(cliCtx.PlatformSDKClient, id), nil, http.StatusNoContent, nil); err != nil {
 				return fmt.Errorf("delete: %w", err)
 			}
 			return nil
@@ -185,34 +179,24 @@ func newPDGPatchCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if scaffoldFlag {
-				fmt.Println("{\n  \"criteria\": [],\n  \"description\": \"\",\n  \"name\": \"\"\n}")
-				return nil
+				return printScaffold(map[string]any{
+					"criteria":    []any{},
+					"description": "",
+					"name":        "",
+				})
 			}
 			if err := requirePlatformClient(cliCtx); err != nil {
 				return err
 			}
-			dt, err := normalizeDeviceTypeFlag(deviceTypeFlag)
+			id, err := resolvePDGTarget(cmd.Context(), cliCtx, args, nameFlag, deviceTypeFlag)
 			if err != nil {
 				return err
 			}
-			var resolvedID string
-			if nameFlag != "" {
-				id, err := pdgResolveID(cmd.Context(), cliCtx.PlatformSDKClient, nameFlag, dt)
-				if err != nil {
-					return err
-				}
-				resolvedID = id
-			} else if len(args) == 1 {
-				resolvedID = args[0]
-			} else {
-				return fmt.Errorf("provide a positional ID or --name")
-			}
-			path := "/api/device-groups/v1/tenant/" + url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantID()) + "/device-groups/" + url.PathEscape(resolvedID)
 			body, err := platform.ReadBody(bodyFile, setFlags)
 			if err != nil {
 				return err
 			}
-			if err := cliCtx.PlatformSDKClient.Transport().DoExpect(cmd.Context(), http.MethodPatch, path, body, http.StatusNoContent, nil); err != nil {
+			if err := cliCtx.PlatformSDKClient.Transport().DoExpect(cmd.Context(), http.MethodPatch, pdgItemPath(cliCtx.PlatformSDKClient, id), body, http.StatusNoContent, nil); err != nil {
 				return fmt.Errorf("patch: %w", err)
 			}
 			return nil
@@ -237,23 +221,11 @@ func newPDGMembersCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err := requirePlatformClient(cliCtx); err != nil {
 				return err
 			}
-			dt, err := normalizeDeviceTypeFlag(deviceTypeFlag)
+			id, err := resolvePDGTarget(cmd.Context(), cliCtx, args, nameFlag, deviceTypeFlag)
 			if err != nil {
 				return err
 			}
-			var resolvedID string
-			if nameFlag != "" {
-				id, err := pdgResolveID(cmd.Context(), cliCtx.PlatformSDKClient, nameFlag, dt)
-				if err != nil {
-					return err
-				}
-				resolvedID = id
-			} else if len(args) == 1 {
-				resolvedID = args[0]
-			} else {
-				return fmt.Errorf("provide a positional ID or --name")
-			}
-			path := "/api/device-groups/v1/tenant/" + url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantID()) + "/device-groups/" + url.PathEscape(resolvedID) + "/members"
+			path := pdgItemPath(cliCtx.PlatformSDKClient, id) + "/members"
 			var result any
 			if err := cliCtx.PlatformSDKClient.Transport().DoExpect(cmd.Context(), http.MethodGet, path, nil, http.StatusOK, &result); err != nil {
 				return fmt.Errorf("members: %w", err)
@@ -284,29 +256,19 @@ func newPDGPatchMembersCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if scaffoldFlag {
-				fmt.Println("{\n  \"added\": [],\n  \"removed\": []\n}")
-				return nil
+				return printScaffold(map[string]any{
+					"added":   []any{},
+					"removed": []any{},
+				})
 			}
 			if err := requirePlatformClient(cliCtx); err != nil {
 				return err
 			}
-			dt, err := normalizeDeviceTypeFlag(deviceTypeFlag)
+			id, err := resolvePDGTarget(cmd.Context(), cliCtx, args, nameFlag, deviceTypeFlag)
 			if err != nil {
 				return err
 			}
-			var resolvedID string
-			if nameFlag != "" {
-				id, err := pdgResolveID(cmd.Context(), cliCtx.PlatformSDKClient, nameFlag, dt)
-				if err != nil {
-					return err
-				}
-				resolvedID = id
-			} else if len(args) == 1 {
-				resolvedID = args[0]
-			} else {
-				return fmt.Errorf("provide a positional ID or --name")
-			}
-			path := "/api/device-groups/v1/tenant/" + url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantID()) + "/device-groups/" + url.PathEscape(resolvedID) + "/members"
+			path := pdgItemPath(cliCtx.PlatformSDKClient, id) + "/members"
 			body, err := platform.ReadBody(bodyFile, setFlags)
 			if err != nil {
 				return err
@@ -493,9 +455,3 @@ func newPDGRemoveMembersCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd.Flags().StringVar(&deviceTypeFlag, "device-type", "", "Narrow name lookup by device type: COMPUTER or MOBILE")
 	return cmd
 }
-
-// guards against unused-import errors
-var (
-	_ = strings.Replace
-	_ = strconv.Itoa
-)

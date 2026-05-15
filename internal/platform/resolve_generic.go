@@ -156,7 +156,7 @@ func firstMatch(items []map[string]any, name string) (string, error) {
 	case 1:
 		return matched[0], nil
 	default:
-		return "", fmt.Errorf("ambiguous match: %d items named %q; use a positional ID or add --type to narrow", len(matched), name)
+		return "", fmt.Errorf("ambiguous match: %d items named %q; pass the positional ID to disambiguate", len(matched), name)
 	}
 }
 
