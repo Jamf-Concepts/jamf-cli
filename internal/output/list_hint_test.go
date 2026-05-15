@@ -94,7 +94,7 @@ func TestListHint_PrintRawJSONFastPath_TopLevelArray(t *testing.T) {
 	// Top-level JSON array of 60 items, no projector → fast path triggers.
 	var b bytes.Buffer
 	b.WriteString("[")
-	for i := 0; i < 60; i++ {
+	for i := range 60 {
 		if i > 0 {
 			b.WriteString(",")
 		}
