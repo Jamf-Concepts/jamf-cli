@@ -30,6 +30,7 @@ func RegisterClassicCommands(root *cobra.Command, ctx *registry.CLIContext) {
 	root.AddCommand(NewClassicAccountUsersCmd(ctx))
 	root.AddCommand(NewClassicAccountsCmd(ctx))
 	root.AddCommand(NewClassicAdvancedComputerSearchesCmd(ctx))
+	root.AddCommand(NewClassicAdvancedMobileDeviceSearchesCmd(ctx))
 	root.AddCommand(NewClassicAllowedFileExtensionsCmd(ctx))
 	root.AddCommand(NewClassicClassesCmd(ctx))
 	root.AddCommand(NewClassicComputerAppsCmd(ctx))
