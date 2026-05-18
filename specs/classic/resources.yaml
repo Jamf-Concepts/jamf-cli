@@ -90,6 +90,12 @@ resources:
     cli_name: classic-advanced-computer-searches
     singular: advanced_computer_search
 
+  - name: advancedmobiledevicesearches
+    path: advancedmobiledevicesearches
+    description: Advanced mobile device searches
+    cli_name: classic-advanced-mobile-device-searches
+    singular: advanced_mobile_device_search
+
   # ── Mobile Devices ────────────────────────────────────────────────
   - name: mobiledevices
     path: mobiledevices
