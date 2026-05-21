@@ -11,12 +11,39 @@ import (
 	"io"
 	"net/url"
 	"os"
+	"regexp"
 	"strings"
 
 	"github.com/spf13/cobra"
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 )
+
+// udidRe matches a 40-character hex string — the format of Apple device UDIDs.
+var udidRe = regexp.MustCompile(`^[0-9a-fA-F]{40}$`)
+
+// numericRe matches a plain integer string (Jamf Pro Classic API numeric ID).
+var numericRe = regexp.MustCompile(`^[0-9]+$`)
+
+// namedItemFromIdentifier builds a NamedItem with the correct field populated
+// based on what the caller passed: a 40-char hex UDID, a numeric ID, or a name.
+// Used for individual device scope targets where the API accepts any of the three.
+func namedItemFromIdentifier(value string) NamedItem {
+	switch {
+	case udidRe.MatchString(value):
+		return NamedItem{UDID: value}
+	case numericRe.MatchString(value):
+		return NamedItem{ID: value}
+	default:
+		return NamedItem{Name: value}
+	}
+}
+
+// isDeviceFlag returns true for flags that target individual devices (not groups),
+// where the caller may pass a UDID or numeric ID rather than a name.
+func isDeviceFlag(flagName string) bool {
+	return flagName == "mobile-device" || flagName == "computer"
+}
 
 // FetchScope performs a GET on a Classic API resource by name and returns
 // the resource's ID and parsed scope. When res.ResolveByList is true it lists
@@ -264,7 +291,9 @@ func AddToScope(s *ScopeXML, singularKey, section, flagName, name string) bool {
 	}
 
 	for _, item := range items.Items {
-		if strings.EqualFold(item.Name, name) {
+		if strings.EqualFold(item.Name, name) ||
+			(item.ID != "" && item.ID == name) ||
+			(item.UDID != "" && strings.EqualFold(item.UDID, name)) {
 			return false
 		}
 	}
@@ -272,7 +301,13 @@ func AddToScope(s *ScopeXML, singularKey, section, flagName, name string) bool {
 	if items.ElemName == "" {
 		items.ElemName = resolveElemName(section, flagName)
 	}
-	items.Items = append(items.Items, NamedItem{Name: name})
+	var item NamedItem
+	if isDeviceFlag(flagName) {
+		item = namedItemFromIdentifier(name)
+	} else {
+		item = NamedItem{Name: name}
+	}
+	items.Items = append(items.Items, item)
 	return true
 }
 
@@ -490,7 +525,9 @@ func removeNamedItem(items *ScopeItemSlice, name string) bool {
 	var keep []NamedItem
 	found := false
 	for _, item := range items.Items {
-		if strings.EqualFold(item.Name, name) {
+		if strings.EqualFold(item.Name, name) ||
+			(item.ID != "" && item.ID == name) ||
+			(item.UDID != "" && strings.EqualFold(item.UDID, name)) {
 			found = true
 			continue
 		}
