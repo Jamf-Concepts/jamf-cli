@@ -483,6 +483,148 @@ func TestValidateScopeCombination_ValidExclusions(t *testing.T) {
 	}
 }
 
+// ─── namedItemFromIdentifier ─────────────────────────────────────────────────
+
+func TestNamedItemFromIdentifier_UDID(t *testing.T) {
+	item := namedItemFromIdentifier("270aae10800b6e61a2ee2bbc285eb967050b5984")
+	if item.UDID != "270aae10800b6e61a2ee2bbc285eb967050b5984" {
+		t.Errorf("UDID = %q", item.UDID)
+	}
+	if item.Name != "" || item.ID != "" {
+		t.Errorf("unexpected fields set: name=%q id=%q", item.Name, item.ID)
+	}
+}
+
+func TestNamedItemFromIdentifier_NumericID(t *testing.T) {
+	item := namedItemFromIdentifier("42")
+	if item.ID != "42" {
+		t.Errorf("ID = %q", item.ID)
+	}
+	if item.Name != "" || item.UDID != "" {
+		t.Errorf("unexpected fields set: name=%q udid=%q", item.Name, item.UDID)
+	}
+}
+
+func TestNamedItemFromIdentifier_Name(t *testing.T) {
+	item := namedItemFromIdentifier("Josh's iPhone")
+	if item.Name != "Josh's iPhone" {
+		t.Errorf("Name = %q", item.Name)
+	}
+	if item.ID != "" || item.UDID != "" {
+		t.Errorf("unexpected fields set: id=%q udid=%q", item.ID, item.UDID)
+	}
+}
+
+// ─── AddToScope: mobile-device by UDID / ID ──────────────────────────────────
+
+func TestAddToScope_MobileDeviceByUDID(t *testing.T) {
+	s := &ScopeXML{}
+	udid := "270aae10800b6e61a2ee2bbc285eb967050b5984"
+
+	if !AddToScope(s, "configuration_profile", "target", "mobile-device", udid) {
+		t.Fatal("expected true")
+	}
+	if len(s.MobileDevices.Items) != 1 {
+		t.Fatalf("got %d items, want 1", len(s.MobileDevices.Items))
+	}
+	item := s.MobileDevices.Items[0]
+	if item.UDID != udid {
+		t.Errorf("UDID = %q, want %q", item.UDID, udid)
+	}
+	if item.Name != "" {
+		t.Errorf("Name should be empty, got %q", item.Name)
+	}
+}
+
+func TestAddToScope_MobileDeviceByNumericID(t *testing.T) {
+	s := &ScopeXML{}
+
+	if !AddToScope(s, "configuration_profile", "target", "mobile-device", "7") {
+		t.Fatal("expected true")
+	}
+	item := s.MobileDevices.Items[0]
+	if item.ID != "7" {
+		t.Errorf("ID = %q, want %q", item.ID, "7")
+	}
+	if item.Name != "" || item.UDID != "" {
+		t.Errorf("unexpected fields: name=%q udid=%q", item.Name, item.UDID)
+	}
+}
+
+func TestAddToScope_MobileDeviceByName(t *testing.T) {
+	s := &ScopeXML{}
+
+	if !AddToScope(s, "configuration_profile", "target", "mobile-device", "Ward iPhone") {
+		t.Fatal("expected true")
+	}
+	item := s.MobileDevices.Items[0]
+	if item.Name != "Ward iPhone" {
+		t.Errorf("Name = %q", item.Name)
+	}
+	if item.ID != "" || item.UDID != "" {
+		t.Errorf("unexpected fields: id=%q udid=%q", item.ID, item.UDID)
+	}
+}
+
+func TestAddToScope_MobileDeviceByUDID_IdempotentUDID(t *testing.T) {
+	udid := "270aae10800b6e61a2ee2bbc285eb967050b5984"
+	s := &ScopeXML{
+		MobileDevices: ScopeItemSlice{
+			Items:    []NamedItem{{UDID: udid}},
+			ElemName: "mobile_device",
+		},
+	}
+	if AddToScope(s, "configuration_profile", "target", "mobile-device", udid) {
+		t.Fatal("expected false — already present by UDID")
+	}
+}
+
+func TestAddToScope_MobileDeviceByUDID_IdempotentCaseInsensitive(t *testing.T) {
+	udid := "270aae10800b6e61a2ee2bbc285eb967050b5984"
+	s := &ScopeXML{
+		MobileDevices: ScopeItemSlice{
+			Items:    []NamedItem{{UDID: strings.ToUpper(udid)}},
+			ElemName: "mobile_device",
+		},
+	}
+	if AddToScope(s, "configuration_profile", "target", "mobile-device", udid) {
+		t.Fatal("expected false — already present (case-insensitive UDID)")
+	}
+}
+
+// ─── RemoveFromScope: mobile-device by UDID / ID ────────────────────────────
+
+func TestRemoveFromScope_MobileDeviceByUDID(t *testing.T) {
+	udid := "270aae10800b6e61a2ee2bbc285eb967050b5984"
+	s := &ScopeXML{
+		MobileDevices: ScopeItemSlice{
+			Items:    []NamedItem{{UDID: udid}},
+			ElemName: "mobile_device",
+		},
+	}
+	if !RemoveFromScope(s, "configuration_profile", "target", "mobile-device", udid) {
+		t.Fatal("expected true")
+	}
+	if len(s.MobileDevices.Items) != 0 {
+		t.Errorf("expected empty, got %d items", len(s.MobileDevices.Items))
+	}
+}
+
+func TestRemoveFromScope_MobileDeviceByNumericID(t *testing.T) {
+	s := &ScopeXML{
+		MobileDevices: ScopeItemSlice{
+			Items:    []NamedItem{{ID: "7", Name: "Ward iPhone"}},
+			ElemName: "mobile_device",
+		},
+	}
+	if !RemoveFromScope(s, "configuration_profile", "target", "mobile-device", "7") {
+		t.Fatal("expected true")
+	}
+	if len(s.MobileDevices.Items) != 0 {
+		t.Errorf("expected empty, got %d items", len(s.MobileDevices.Items))
+	}
+}
+
 func TestValidateScopeCombination_RestrictedSoftwareExclusions(t *testing.T) {
 	for _, flag := range []string{"computer", "computer-group", "building", "department"} {
 		if err := ValidateScopeCombination("restricted_software", "exclusion", flag); err != nil {
