@@ -90,6 +90,12 @@ resources:
     cli_name: classic-advanced-computer-searches
     singular: advanced_computer_search
 
+  - name: computergroups
+    path: computergroups
+    description: Computer groups (smart and static)
+    cli_name: classic-computer-groups
+    singular: computer_group
+
   - name: advancedmobiledevicesearches
     path: advancedmobiledevicesearches
     description: Advanced mobile device searches
@@ -104,6 +110,12 @@ resources:
     singular: mobile_device
     lookups: [id, name, serialnumber, macaddress, udid]
     groups_path: mobiledevicegroups
+
+  - name: mobiledevicegroups
+    path: mobiledevicegroups
+    description: Mobile device groups (smart and static)
+    cli_name: classic-mobile-device-groups
+    singular: mobile_device_group
 
   - name: mobiledevicecommands
     path: mobiledevicecommands

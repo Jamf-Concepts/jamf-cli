@@ -173,5 +173,5 @@ var Sources = []SpecSource{
 	{File: "specs/VppLocations.yaml", SHA256: "d9b41c79c0cdba81706b16c8e6d0b86b8048d40d6d55ec66618af0ac00c533d0"},
 	{File: "specs/VppSubscriptions.yaml", SHA256: "184b834aeb0d21cf190050294f7869d57b482bbe1834ad5a1bd79dcfdeef7a55"},
 	{File: "specs/_MonolithLibrary.yaml", SHA256: "9d777dc71e1909d20db05b31451246a805565c856d7b2fc50d38ccb33269a89a"},
-	{File: "specs/classic/resources.yaml", SHA256: "33ea6d51f008c918755eba219ee3fcd92b9560bb799a7dabd74b8772f33f87de"},
+	{File: "specs/classic/resources.yaml", SHA256: "8500e16c75a3e269419a0546c9740ae0ce950a2e47424e2f7b70d5744a507542"},
 }
