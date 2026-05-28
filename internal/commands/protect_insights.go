@@ -161,8 +161,8 @@ Omit --date for today's score, or pass an ISO date (e.g. 2026-03-12) for a histo
 
 // flattenInsight converts an Insight to a map for table output.
 func flattenInsight(i jamfprotect.Insight) map[string]any {
-	cisIDs := make([]string, 0, len(i.CisID))
-	for _, c := range i.CisID {
+	cisIDs := make([]string, 0, len(i.Cisid))
+	for _, c := range i.Cisid {
 		cisIDs = append(cisIDs, c.ID)
 	}
 	return map[string]any{

@@ -176,15 +176,17 @@ func newProtectExceptionSetsDeleteCmd(cliCtx *registry.CLIContext) *cobra.Comman
 func exceptionToInput(e jamfprotect.Exception) jamfprotect.ExceptionInput {
 	input := jamfprotect.ExceptionInput{
 		Type:           e.Type,
-		Value:          e.Value,
+		Value:          strPtrIfNonEmpty(e.Value),
 		IgnoreActivity: e.IgnoreActivity,
 		AnalyticTypes:  e.AnalyticTypes,
-		AnalyticUuid:   e.AnalyticUuid,
+	}
+	if e.Analytic != nil {
+		input.AnalyticUUID = strPtrIfNonEmpty(e.Analytic.UUID)
 	}
 	if e.AppSigningInfo != nil {
 		input.AppSigningInfo = &jamfprotect.AppSigningInfoInput{
-			AppId:  e.AppSigningInfo.AppId,
-			TeamId: e.AppSigningInfo.TeamId,
+			AppID:  e.AppSigningInfo.AppID,
+			TeamID: e.AppSigningInfo.TeamID,
 		}
 	}
 	return input
@@ -194,16 +196,16 @@ func exceptionToInput(e jamfprotect.Exception) jamfprotect.ExceptionInput {
 func esExceptionToInput(e jamfprotect.EsException) jamfprotect.EsExceptionInput {
 	input := jamfprotect.EsExceptionInput{
 		Type:              e.Type,
-		Value:             e.Value,
+		Value:             strPtrIfNonEmpty(e.Value),
 		IgnoreActivity:    e.IgnoreActivity,
 		IgnoreListType:    e.IgnoreListType,
-		IgnoreListSubType: e.IgnoreListSubType,
-		EventType:         e.EventType,
+		IgnoreListSubType: strPtrIfNonEmpty(e.IgnoreListSubType),
+		EventType:         strPtrIfNonEmpty(e.EventType),
 	}
 	if e.AppSigningInfo != nil {
 		input.AppSigningInfo = &jamfprotect.AppSigningInfoInput{
-			AppId:  e.AppSigningInfo.AppId,
-			TeamId: e.AppSigningInfo.TeamId,
+			AppID:  e.AppSigningInfo.AppID,
+			TeamID: e.AppSigningInfo.TeamID,
 		}
 	}
 	return input
@@ -259,7 +261,7 @@ func newProtectExceptionSetsAddExceptionCmd(cliCtx *registry.CLIContext) *cobra.
 
 			input.Exceptions = append(input.Exceptions, jamfprotect.ExceptionInput{
 				Type:           exType,
-				Value:          value,
+				Value:          strPtrIfNonEmpty(value),
 				IgnoreActivity: ignoreActivity,
 			})
 
@@ -303,7 +305,7 @@ func newProtectExceptionSetsRemoveExceptionCmd(cliCtx *registry.CLIContext) *cob
 			// Remove the matching exception
 			filtered := make([]jamfprotect.ExceptionInput, 0, len(input.Exceptions))
 			for _, e := range input.Exceptions {
-				if e.Type == exType && e.Value == value {
+				if e.Type == exType && e.Value != nil && *e.Value == value {
 					continue
 				}
 				filtered = append(filtered, e)
