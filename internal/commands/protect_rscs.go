@@ -199,31 +199,34 @@ func rscRuleToInput(rule jamfprotect.RemovableStorageControlRule) jamfprotect.Re
 
 	switch strings.ToLower(rule.Type) {
 	case "vendor":
-		input.VendorRule = &jamfprotect.RemovableStorageControlRuleDetails{
+		input.VendorRule = &jamfprotect.VendorRuleInput{
 			MountAction:   rule.MountAction,
 			MessageAction: strPtrIfNonEmpty(msgAction),
-			ApplyTo:       strPtrIfNonEmpty(applyTo),
+			ApplyTo:       applyTo,
 			Vendors:       rule.Vendors,
 		}
 	case "serial":
-		input.SerialRule = &jamfprotect.RemovableStorageControlRuleDetails{
+		input.SerialRule = &jamfprotect.SerialRuleInput{
 			MountAction:   rule.MountAction,
 			MessageAction: strPtrIfNonEmpty(msgAction),
-			ApplyTo:       strPtrIfNonEmpty(applyTo),
+			ApplyTo:       applyTo,
 			Serials:       rule.Serials,
 		}
 	case "product":
-		input.ProductRule = &jamfprotect.RemovableStorageControlProductRuleDetails{
+		products := make([]jamfprotect.ProductValueInput, 0, len(rule.Products))
+		for _, p := range rule.Products {
+			products = append(products, jamfprotect.ProductValueInput(p))
+		}
+		input.ProductRule = &jamfprotect.ProductRuleInput{
 			MountAction:   rule.MountAction,
 			MessageAction: strPtrIfNonEmpty(msgAction),
-			ApplyTo:       strPtrIfNonEmpty(applyTo),
-			Products:      rule.Products,
+			ApplyTo:       applyTo,
+			Products:      products,
 		}
 	case "encryption":
-		input.EncryptionRule = &jamfprotect.RemovableStorageControlRuleDetails{
+		input.EncryptionRule = &jamfprotect.EncryptionRuleInput{
 			MountAction:   rule.MountAction,
 			MessageAction: strPtrIfNonEmpty(msgAction),
-			ApplyTo:       strPtrIfNonEmpty(applyTo),
 		}
 	}
 
@@ -303,33 +306,33 @@ func newProtectRSCSAddRuleCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			case "vendor":
 				newRule = jamfprotect.RemovableStorageControlRuleInput{
 					Type: "Vendor",
-					VendorRule: &jamfprotect.RemovableStorageControlRuleDetails{
+					VendorRule: &jamfprotect.VendorRuleInput{
 						MountAction: mountAction,
-						ApplyTo:     &applyTo,
+						ApplyTo:     applyTo,
 						Vendors:     splitCSV(vendors),
 					},
 				}
 			case "serial":
 				newRule = jamfprotect.RemovableStorageControlRuleInput{
 					Type: "Serial",
-					SerialRule: &jamfprotect.RemovableStorageControlRuleDetails{
+					SerialRule: &jamfprotect.SerialRuleInput{
 						MountAction: mountAction,
-						ApplyTo:     &applyTo,
+						ApplyTo:     applyTo,
 						Serials:     splitCSV(serials),
 					},
 				}
 			case "product":
 				newRule = jamfprotect.RemovableStorageControlRuleInput{
 					Type: "Product",
-					ProductRule: &jamfprotect.RemovableStorageControlProductRuleDetails{
+					ProductRule: &jamfprotect.ProductRuleInput{
 						MountAction: mountAction,
-						ApplyTo:     &applyTo,
+						ApplyTo:     applyTo,
 					},
 				}
 			case "encryption":
 				newRule = jamfprotect.RemovableStorageControlRuleInput{
 					Type: "Encryption",
-					EncryptionRule: &jamfprotect.RemovableStorageControlRuleDetails{
+					EncryptionRule: &jamfprotect.EncryptionRuleInput{
 						MountAction: mountAction,
 					},
 				}

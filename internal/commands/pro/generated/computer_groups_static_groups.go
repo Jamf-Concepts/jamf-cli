@@ -17,25 +17,25 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// NewSmartComputerGroupsCmd creates the smart-computer-groups command group
-func NewSmartComputerGroupsCmd(ctx *registry.CLIContext) *cobra.Command {
+// NewComputerGroupsStaticGroupsCmd creates the computer-groups-static-groups command group
+func NewComputerGroupsStaticGroupsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "smart-computer-groups",
-		Short: "Manage smart-computer-groups",
-		Long:  `Manage smart-computer-groups in Jamf Pro.`,
+		Use:   "computer-groups-static-groups",
+		Short: "Manage computer-groups-static-groups",
+		Long:  `Manage computer-groups-static-groups in Jamf Pro.`,
 	}
 
-	cmd.AddCommand(newSmartComputerGroupsListCmd(ctx))
-	cmd.AddCommand(newSmartComputerGroupsGetCmd(ctx))
-	cmd.AddCommand(newSmartComputerGroupsCreateCmd(ctx))
-	cmd.AddCommand(newSmartComputerGroupsUpdateCmd(ctx))
-	cmd.AddCommand(newSmartComputerGroupsDeleteCmd(ctx))
-	cmd.AddCommand(newSmartComputerGroupsApplyCmd(ctx))
+	cmd.AddCommand(newComputerGroupsStaticGroupsListCmd(ctx))
+	cmd.AddCommand(newComputerGroupsStaticGroupsGetCmd(ctx))
+	cmd.AddCommand(newComputerGroupsStaticGroupsCreateCmd(ctx))
+	cmd.AddCommand(newComputerGroupsStaticGroupsUpdateCmd(ctx))
+	cmd.AddCommand(newComputerGroupsStaticGroupsDeleteCmd(ctx))
+	cmd.AddCommand(newComputerGroupsStaticGroupsApplyCmd(ctx))
 
 	return cmd
 }
 
-func newSmartComputerGroupsListCmd(ctx *registry.CLIContext) *cobra.Command {
+func newComputerGroupsStaticGroupsListCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagPage     int
 		flagPageSize int
@@ -47,18 +47,18 @@ func newSmartComputerGroupsListCmd(ctx *registry.CLIContext) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "list",
-		Short: "Search for Smart Computer Groups",
-		Long:  "Search for Smart Computer Groups",
-		Example: `  # List all smart-computer-groups
-  jamf-cli pro smart-computer-groups list
+		Short: "Search for Static Computer Groups",
+		Long:  "Search for Static Computer Groups",
+		Example: `  # List all computer-groups-static-groups
+  jamf-cli pro computer-groups-static-groups list
 
-  # List smart-computer-groups and extract IDs
-  jamf-cli pro smart-computer-groups list --field id`,
+  # List computer-groups-static-groups and extract IDs
+  jamf-cli pro computer-groups-static-groups list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
 			// Build request path
-			path := "/v2/computer-groups/smart-groups"
+			path := "/v3/computer-groups/static-groups"
 
 			// Build query string
 			var queryParts []string
@@ -88,7 +88,7 @@ func newSmartComputerGroupsListCmd(ctx *registry.CLIContext) *cobra.Command {
 
 				for {
 					// Build page-specific query
-					pagePath := "/v2/computer-groups/smart-groups"
+					pagePath := "/v3/computer-groups/static-groups"
 					var pageQuery []string
 					// Carry forward non-pagination query params
 					for _, qp := range queryParts {
@@ -159,29 +159,29 @@ func newSmartComputerGroupsListCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.Flags().IntVar(&flagPage, "page", 0, "")
 	cmd.Flags().IntVar(&flagPageSize, "page-size", 100, "")
 	cmd.Flags().StringSliceVar(&flagSort, "sort", nil, "Sorting criteria in the format: property:asc/desc. Default sort is id:asc. Multiple sort criteria are supported and must be separated with a comma. Example: sort=name:asc")
-	cmd.Flags().StringVar(&flagFilter, "filter", "", "Query in the RSQL format, allowing to filter smart computer group collection. Default filter is empty query - returning all results for the requested page. Fields allowed in the query: id, name, siteId. The siteId field can only be filtered by admins with full access. Any sited admin will have siteId filtered automatically. Example: name==\"*group*\"")
+	cmd.Flags().StringVar(&flagFilter, "filter", "", "Query in the RSQL format, allowing to filter static computer group collection. Default filter is empty query - returning all results for the requested page. Fields allowed in the query: id, name, siteId. The siteId field can only be filtered by admins with full access. Any sited admin will have siteId filtered automatically. Example: name==\"*group*\"")
 	cmd.Flags().BoolVar(&flagAll, "all", true, "Fetch all pages (set --all=false for single page)")
 	cmd.Flags().IntVar(&flagLimit, "limit", 0, "Maximum total results to return (0 = unlimited)")
 	return cmd
 }
 
-func newSmartComputerGroupsGetCmd(ctx *registry.CLIContext) *cobra.Command {
+func newComputerGroupsStaticGroupsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagName string
 	)
 
 	cmd := &cobra.Command{
 		Use:   "get [<id>]",
-		Short: "Get Smart Computer Group by Id",
-		Long:  "Get Smart Computer Group by Id",
-		Example: `  # Get a smart-computer-group by ID
-  jamf-cli pro smart-computer-groups get 1
+		Short: "Get Static Computer Group by Id",
+		Long:  "Get Static Computer Group by Id",
+		Example: `  # Get a computer-groups-static-groups by ID
+  jamf-cli pro computer-groups-static-groups get 1
 
-  # Get a smart-computer-group by name
-  jamf-cli pro smart-computer-groups get --name "Example"
+  # Get a computer-groups-static-groups by name
+  jamf-cli pro computer-groups-static-groups get --name "Example"
 
-  # Get a smart-computer-group and output as YAML
-  jamf-cli pro smart-computer-groups get 1 -o yaml`,
+  # Get a computer-groups-static-groups and output as YAML
+  jamf-cli pro computer-groups-static-groups get 1 -o yaml`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -189,7 +189,7 @@ func newSmartComputerGroupsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 			// Resolve resource ID from positional arg, --name, or lookup flags
 			var resolvedID string
 			if flagName != "" {
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/computer-groups/smart-groups", "name", "id", flagName)
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v3/computer-groups/static-groups", "name", "id", flagName)
 				if err != nil {
 					return err
 				}
@@ -201,7 +201,7 @@ func newSmartComputerGroupsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 			}
 
 			// Build request path
-			path := "/v2/computer-groups/smart-groups/{id}"
+			path := "/v3/computer-groups/static-groups/{id}"
 			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
 
 			// Build query string
@@ -221,12 +221,12 @@ func newSmartComputerGroupsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVar(&flagName, "name", "", "Look up smart-computer-group by name")
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up computer-groups-static-groups by name")
 
 	return cmd
 }
 
-func newSmartComputerGroupsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
+func newComputerGroupsStaticGroupsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagPlatform bool
 		flagScaffold bool
@@ -234,30 +234,30 @@ func newSmartComputerGroupsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "create",
-		Short: "Create a Smart Computer Group",
-		Long:  "Creates a Smart Computer Group",
-		Example: `  # Show the JSON template for creating a smart-computer-group
-  jamf-cli pro smart-computer-groups create --scaffold
+		Short: "Create membership of a static computer group.",
+		Long:  "Create membership of a static computer group.",
+		Example: `  # Show the JSON template for creating a computer-groups-static-groups
+  jamf-cli pro computer-groups-static-groups create --scaffold
 
-  # Create a smart-computer-group from JSON
-  echo '{"name":"Example"}' | jamf-cli pro smart-computer-groups create
+  # Create a computer-groups-static-groups from JSON
+  echo '{"name":"Example"}' | jamf-cli pro computer-groups-static-groups create
 
-  # Get a smart-computer-group, modify it, and create a copy
-  jamf-cli pro smart-computer-groups get 1 -o json | jq '.name = "Copy"' | jamf-cli pro smart-computer-groups create`,
+  # Get a computer-groups-static-groups, modify it, and create a copy
+  jamf-cli pro computer-groups-static-groups get 1 -o json | jq '.name = "Copy"' | jamf-cli pro computer-groups-static-groups create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
 				return printScaffoldOutput(`{
-  "criteria": [],
-  "description": "New Group Description",
-  "name": "New Group Name",
+  "assignments": [],
+  "description": "A test static computer group",
+  "name": "Test Static Computer Group",
   "siteId": "-1"
 }`, ctx.Output.Format())
 			}
 
 			// Build request path
-			path := "/v2/computer-groups/smart-groups"
+			path := "/v3/computer-groups/static-groups"
 
 			// Build query string
 			var queryParts []string
@@ -301,7 +301,7 @@ func newSmartComputerGroupsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newSmartComputerGroupsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
+func newComputerGroupsStaticGroupsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagScaffold bool
 		flagName     string
@@ -309,25 +309,25 @@ func newSmartComputerGroupsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "update [<id>]",
-		Short: "Update a Smart Computer Group",
-		Long:  "Updates a Smart Computer Group",
-		Example: `  # Update a smart-computer-group from JSON
-  echo '{"name":"Updated"}' | jamf-cli pro smart-computer-groups update 1
+		Short: "Update membership of a static computer group.",
+		Long:  "Update membership of a static computer group.",
+		Example: `  # Update a computer-groups-static-groups from JSON
+  echo '{"name":"Updated"}' | jamf-cli pro computer-groups-static-groups update 1
 
   # Update by name
-  jamf-cli pro smart-computer-groups get --name "Example" -o json | jq '.field = "value"' | jamf-cli pro smart-computer-groups update --name "Example"
+  jamf-cli pro computer-groups-static-groups get --name "Example" -o json | jq '.field = "value"' | jamf-cli pro computer-groups-static-groups update --name "Example"
 
-  # Get a smart-computer-group, modify, and update
-  jamf-cli pro smart-computer-groups get 1 -o json | jq '.name = "New Name"' | jamf-cli pro smart-computer-groups update 1`,
+  # Get a computer-groups-static-groups, modify, and update
+  jamf-cli pro computer-groups-static-groups get 1 -o json | jq '.name = "New Name"' | jamf-cli pro computer-groups-static-groups update 1`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
 				return printScaffoldOutput(`{
-  "criteria": [],
-  "description": "New Group Description",
-  "name": "New Group Name",
+  "assignments": [],
+  "description": "A test static computer group",
+  "name": "Test Static Computer Group",
   "siteId": "-1"
 }`, ctx.Output.Format())
 			}
@@ -335,7 +335,7 @@ func newSmartComputerGroupsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 			// Resolve resource ID from positional arg, --name, or lookup flags
 			var resolvedID string
 			if flagName != "" {
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/computer-groups/smart-groups", "name", "id", flagName)
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v3/computer-groups/static-groups", "name", "id", flagName)
 				if err != nil {
 					return err
 				}
@@ -347,7 +347,7 @@ func newSmartComputerGroupsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 			}
 
 			// Build request path
-			path := "/v2/computer-groups/smart-groups/{id}"
+			path := "/v3/computer-groups/static-groups/{id}"
 			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
 
 			// Build query string
@@ -385,12 +385,12 @@ func newSmartComputerGroupsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	}
 
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
-	cmd.Flags().StringVar(&flagName, "name", "", "Look up smart-computer-group by name")
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up computer-groups-static-groups by name")
 
 	return cmd
 }
 
-func newSmartComputerGroupsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
+func newComputerGroupsStaticGroupsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagYes    bool
 		flagDryRun bool
@@ -400,16 +400,16 @@ func newSmartComputerGroupsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "delete [<id>]",
-		Short: "Remove specified Smart Computer Group",
-		Long:  "Remove specified Smart Computer Group",
-		Example: `  # Delete a smart-computer-group (with confirmation)
-  jamf-cli pro smart-computer-groups delete 1
+		Short: "Remove Static Computer Group by Id",
+		Long:  "Remove Static Computer Group by Id. Returns 422 if the group has dependencies.",
+		Example: `  # Delete a computer-groups-static-groups (with confirmation)
+  jamf-cli pro computer-groups-static-groups delete 1
 
   # Delete by name
-  jamf-cli pro smart-computer-groups delete --name "Example" --yes
+  jamf-cli pro computer-groups-static-groups delete --name "Example" --yes
 
   # Delete without confirmation prompt
-  jamf-cli pro smart-computer-groups delete 1 --yes`,
+  jamf-cli pro computer-groups-static-groups delete 1 --yes`,
 		Annotations: map[string]string{"jamf:destructive": "true"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -436,14 +436,14 @@ func newSmartComputerGroupsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 					} else {
 						var rid string
 						if rid == "" {
-							id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v2/computer-groups/smart-groups", "name", "id", entry, noInputBulk)
+							id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v3/computer-groups/static-groups", "name", "id", entry, noInputBulk)
 							if err != nil {
 								return fmt.Errorf("resolving %q: %w", entry, err)
 							}
 							rid = id
 						}
 						if rid == "" {
-							return fmt.Errorf("no smart-computer-group found matching %q", entry)
+							return fmt.Errorf("no computer-groups-static-groups found matching %q", entry)
 						}
 						bulk = append(bulk, bulkEntry{id: rid, label: entry})
 					}
@@ -462,7 +462,7 @@ func newSmartComputerGroupsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 				}
 				if flagDryRun {
 					for _, e := range bulk {
-						fmt.Fprintf(os.Stderr, "[dry-run] Would delete smart-computer-group %q (id: %s)\n", e.label, e.id)
+						fmt.Fprintf(os.Stderr, "[dry-run] Would delete computer-groups-static-groups %q (id: %s)\n", e.label, e.id)
 					}
 					return nil
 				}
@@ -470,7 +470,7 @@ func newSmartComputerGroupsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 					if noInputBulk {
 						return fmt.Errorf("destructive operation requires --yes when --no-input is set")
 					}
-					fmt.Fprintf(os.Stderr, "⚠️  This will delete %d smart-computer-groups. Type 'yes' to confirm: ", len(bulk))
+					fmt.Fprintf(os.Stderr, "⚠️  This will delete %d computer-groups-static-groups. Type 'yes' to confirm: ", len(bulk))
 					var confirm string
 					fmt.Scanln(&confirm)
 					if confirm != "yes" {
@@ -481,7 +481,7 @@ func newSmartComputerGroupsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 					return err
 				}
 				for _, e := range bulk {
-					delPath := strings.Replace("/v2/computer-groups/smart-groups/{id}", "{id}", url.PathEscape(e.id), 1)
+					delPath := strings.Replace("/v3/computer-groups/static-groups/{id}", "{id}", url.PathEscape(e.id), 1)
 					resp, err := ctx.Client.Do(reqCtx, "DELETE", delPath, nil)
 					if err != nil {
 						return fmt.Errorf("deleting %q (id: %s): %w", e.label, e.id, err)
@@ -490,7 +490,7 @@ func newSmartComputerGroupsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 					if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 						return fmt.Errorf("delete %q (id: %s): HTTP %d", e.label, e.id, resp.StatusCode)
 					}
-					fmt.Fprintf(os.Stderr, "Deleted smart-computer-group %q (id: %s)\n", e.label, e.id)
+					fmt.Fprintf(os.Stderr, "Deleted computer-groups-static-groups %q (id: %s)\n", e.label, e.id)
 				}
 				cooldown.Record(ctx.ProfileName)
 				return nil
@@ -501,12 +501,12 @@ func newSmartComputerGroupsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 			var resolvedByName string
 			if flagName != "" {
 				noInput, _ := cmd.Flags().GetBool("no-input")
-				rid, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v2/computer-groups/smart-groups", "name", "id", flagName, noInput)
+				rid, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v3/computer-groups/static-groups", "name", "id", flagName, noInput)
 				if err != nil {
 					return err
 				}
 				if rid == "" {
-					return fmt.Errorf("no smart-computer-group found with name %q", flagName)
+					return fmt.Errorf("no computer-groups-static-groups found with name %q", flagName)
 				}
 				resolvedID = rid
 				resolvedByName = flagName
@@ -519,9 +519,9 @@ func newSmartComputerGroupsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 			// Confirmation for destructive action (after name lookup)
 			if flagDryRun {
 				if resolvedByName != "" {
-					fmt.Fprintf(os.Stderr, "[dry-run] Would delete smart-computer-group %q (id: %s)\n", resolvedByName, resolvedID)
+					fmt.Fprintf(os.Stderr, "[dry-run] Would delete computer-groups-static-groups %q (id: %s)\n", resolvedByName, resolvedID)
 				} else {
-					fmt.Fprintf(os.Stderr, "[dry-run] Would delete smart-computer-group %s\n", resolvedID)
+					fmt.Fprintf(os.Stderr, "[dry-run] Would delete computer-groups-static-groups %s\n", resolvedID)
 				}
 				return nil
 			}
@@ -531,9 +531,9 @@ func newSmartComputerGroupsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 					return fmt.Errorf("destructive operation requires --yes when --no-input is set")
 				}
 				if resolvedByName != "" {
-					fmt.Fprintf(os.Stderr, "⚠️  This will delete smart-computer-group %q (id: %s). Type 'yes' to confirm: ", resolvedByName, resolvedID)
+					fmt.Fprintf(os.Stderr, "⚠️  This will delete computer-groups-static-groups %q (id: %s). Type 'yes' to confirm: ", resolvedByName, resolvedID)
 				} else {
-					fmt.Fprintf(os.Stderr, "⚠️  This will delete smart-computer-group %s. Type 'yes' to confirm: ", resolvedID)
+					fmt.Fprintf(os.Stderr, "⚠️  This will delete computer-groups-static-groups %s. Type 'yes' to confirm: ", resolvedID)
 				}
 				var confirm string
 				fmt.Scanln(&confirm)
@@ -549,7 +549,7 @@ func newSmartComputerGroupsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 			}
 
 			// Build request path
-			path := "/v2/computer-groups/smart-groups/{id}"
+			path := "/v3/computer-groups/static-groups/{id}"
 			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
 
 			// Build query string
@@ -582,14 +582,14 @@ func newSmartComputerGroupsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt")
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to file listing IDs or names to delete (one per line, # comments ignored)")
-	cmd.Flags().StringVar(&flagName, "name", "", "Look up smart-computer-group by name")
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up computer-groups-static-groups by name")
 
 	cmd.MarkFlagsMutuallyExclusive("from-file", "name")
 
 	return cmd
 }
 
-func newSmartComputerGroupsApplyCmd(ctx *registry.CLIContext) *cobra.Command {
+func newComputerGroupsStaticGroupsApplyCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		fromFile     string
 		flagYes      bool
@@ -599,33 +599,33 @@ func newSmartComputerGroupsApplyCmd(ctx *registry.CLIContext) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "apply",
-		Short: "Create or replace a smart-computer-group by name",
-		Long: `Create or replace a smart-computer-group. Reads JSON or YAML from --from-file or stdin.
+		Short: "Create or replace a computer-groups-static-groups by name",
+		Long: `Create or replace a computer-groups-static-groups. Reads JSON or YAML from --from-file or stdin.
 
 The name field in the input is used to check if the resource
 already exists. If it does, the resource is replaced (with confirmation).
 If not, a new resource is created.`,
-		Example: `  # Apply a smart-computer-group from a JSON file
-  jamf-cli pro smart-computer-groups apply --from-file smart-computer-group.json
+		Example: `  # Apply a computer-groups-static-groups from a JSON file
+  jamf-cli pro computer-groups-static-groups apply --from-file computer-groups-static-groups.json
 
-  # Apply a smart-computer-group from a YAML file
-  jamf-cli pro smart-computer-groups apply --from-file smart-computer-group.yaml
+  # Apply a computer-groups-static-groups from a YAML file
+  jamf-cli pro computer-groups-static-groups apply --from-file computer-groups-static-groups.yaml
 
   # Apply from stdin
-  cat smart-computer-group.json | jamf-cli pro smart-computer-groups apply
+  cat computer-groups-static-groups.json | jamf-cli pro computer-groups-static-groups apply
 
   # Apply without replacement confirmation
-  jamf-cli pro smart-computer-groups apply --from-file smart-computer-group.json --yes
+  jamf-cli pro computer-groups-static-groups apply --from-file computer-groups-static-groups.json --yes
 
   # Preview what would happen
-  jamf-cli pro smart-computer-groups apply --from-file smart-computer-group.json --dry-run`,
+  jamf-cli pro computer-groups-static-groups apply --from-file computer-groups-static-groups.json --dry-run`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			reqCtx := cmd.Context()
 			if flagScaffold {
 				return printScaffoldOutput(`{
-  "criteria": [],
-  "description": "New Group Description",
-  "name": "New Group Name",
+  "assignments": [],
+  "description": "A test static computer group",
+  "name": "Test Static Computer Group",
   "siteId": "-1"
 }`, ctx.Output.Format())
 			}
@@ -651,7 +651,7 @@ If not, a new resource is created.`,
 
 			// Check if resource exists by name (read-only, runs even in dry-run)
 			noInput, _ := cmd.Flags().GetBool("no-input")
-			id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v2/computer-groups/smart-groups", "name", "id", name, noInput)
+			id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v3/computer-groups/static-groups", "name", "id", name, noInput)
 			if err != nil {
 				return err
 			}
@@ -659,28 +659,28 @@ If not, a new resource is created.`,
 			if id == "" {
 				// Not found — create
 				if flagDryRun {
-					fmt.Fprintf(os.Stderr, "[dry-run] Would create smart-computer-group %q\n", name)
+					fmt.Fprintf(os.Stderr, "[dry-run] Would create computer-groups-static-groups %q\n", name)
 					return nil
 				}
-				resp, err := ctx.Client.Do(reqCtx, "POST", "/v2/computer-groups/smart-groups", bytes.NewReader(data))
+				resp, err := ctx.Client.Do(reqCtx, "POST", "/v3/computer-groups/static-groups", bytes.NewReader(data))
 				if err != nil {
 					return err
 				}
 				defer resp.Body.Close()
-				fmt.Fprintf(os.Stderr, "Created smart-computer-group %q\n", name)
+				fmt.Fprintf(os.Stderr, "Created computer-groups-static-groups %q\n", name)
 				return ctx.Output.PrintResponse(resp)
 			}
 
 			// Found — replace
 			if flagDryRun {
-				fmt.Fprintf(os.Stderr, "[dry-run] Would replace smart-computer-group %q (id: %s)\n", name, id)
+				fmt.Fprintf(os.Stderr, "[dry-run] Would replace computer-groups-static-groups %q (id: %s)\n", name, id)
 				return nil
 			}
 			if !flagYes {
 				if noInput {
-					return fmt.Errorf("smart-computer-group %q already exists (id: %s); use --yes to replace when --no-input is set", name, id)
+					return fmt.Errorf("computer-groups-static-groups %q already exists (id: %s); use --yes to replace when --no-input is set", name, id)
 				}
-				fmt.Fprintf(os.Stderr, "smart-computer-group %q already exists (id: %s) and will be replaced. Type 'yes' to confirm: ", name, id)
+				fmt.Fprintf(os.Stderr, "computer-groups-static-groups %q already exists (id: %s) and will be replaced. Type 'yes' to confirm: ", name, id)
 				var confirm string
 				fmt.Scanln(&confirm)
 				if confirm != "yes" {
@@ -688,13 +688,13 @@ If not, a new resource is created.`,
 				}
 			}
 
-			updatePath := strings.Replace("/v2/computer-groups/smart-groups/{id}", "{id}", url.PathEscape(id), 1)
+			updatePath := strings.Replace("/v3/computer-groups/static-groups/{id}", "{id}", url.PathEscape(id), 1)
 			resp, err := ctx.Client.Do(reqCtx, "PUT", updatePath, bytes.NewReader(data))
 			if err != nil {
 				return err
 			}
 			defer resp.Body.Close()
-			fmt.Fprintf(os.Stderr, "Replaced smart-computer-group %q (id: %s)\n", name, id)
+			fmt.Fprintf(os.Stderr, "Replaced computer-groups-static-groups %q (id: %s)\n", name, id)
 			return ctx.Output.PrintResponse(resp)
 		},
 	}

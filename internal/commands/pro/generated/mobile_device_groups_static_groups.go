@@ -48,7 +48,7 @@ func newMobileDeviceGroupsStaticGroupsListCmd(ctx *registry.CLIContext) *cobra.C
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "Get Static Groups",
-		Long:  "Get Static Groups",
+		Long:  "Get Static Groups with pagination, sorting, and filtering support.",
 		Example: `  # List all mobile-device-groups-static-groups
   jamf-cli pro mobile-device-groups-static-groups list
 
@@ -58,7 +58,7 @@ func newMobileDeviceGroupsStaticGroupsListCmd(ctx *registry.CLIContext) *cobra.C
 			reqCtx := cmd.Context()
 
 			// Build request path
-			path := "/v1/mobile-device-groups/static-groups"
+			path := "/v2/mobile-device-groups/static-groups"
 
 			// Build query string
 			var queryParts []string
@@ -79,6 +79,7 @@ func newMobileDeviceGroupsStaticGroupsListCmd(ctx *registry.CLIContext) *cobra.C
 			if len(queryParts) > 0 {
 				path = path + "?" + strings.Join(queryParts, "&")
 			}
+			vft := newVersionFallback("/v2/mobile-device-groups/static-groups")
 
 			// Auto-pagination: fetch all pages when --all is set and --page was not manually specified
 			if flagAll && flagPage == 0 {
@@ -88,7 +89,7 @@ func newMobileDeviceGroupsStaticGroupsListCmd(ctx *registry.CLIContext) *cobra.C
 
 				for {
 					// Build page-specific query
-					pagePath := "/v1/mobile-device-groups/static-groups"
+					pagePath := "/v2/mobile-device-groups/static-groups"
 					var pageQuery []string
 					// Carry forward non-pagination query params
 					for _, qp := range queryParts {
@@ -100,7 +101,7 @@ func newMobileDeviceGroupsStaticGroupsListCmd(ctx *registry.CLIContext) *cobra.C
 					pageQuery = append(pageQuery, fmt.Sprintf("page-size=%d", pageSize))
 					pagePath = pagePath + "?" + strings.Join(pageQuery, "&")
 
-					resp, err := ctx.Client.Do(reqCtx, "GET", pagePath, nil)
+					resp, err := vft.do(ctx.Client, reqCtx, "GET", pagePath, nil, []string{"/v1/mobile-device-groups/static-groups"})
 					if err != nil {
 						return err
 					}
@@ -146,7 +147,7 @@ func newMobileDeviceGroupsStaticGroupsListCmd(ctx *registry.CLIContext) *cobra.C
 			}
 
 			// Make request
-			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			resp, err := vft.do(ctx.Client, reqCtx, "GET", path, nil, []string{"/v1/mobile-device-groups/static-groups"})
 			if err != nil {
 				return err
 			}
@@ -158,8 +159,8 @@ func newMobileDeviceGroupsStaticGroupsListCmd(ctx *registry.CLIContext) *cobra.C
 
 	cmd.Flags().IntVar(&flagPage, "page", 0, "")
 	cmd.Flags().IntVar(&flagPageSize, "page-size", 100, "")
-	cmd.Flags().StringSliceVar(&flagSort, "sort", nil, "Sorting criteria in the format: property:asc/desc. Default sort is id:asc. Available criteria to sort on: groupId, groupName, siteId.")
-	cmd.Flags().StringVar(&flagFilter, "filter", "", "Query in the RSQL format, allowing to filter department collection. Default filter is empty query - returning all results for the requested page. Fields allowed in the query: groupId, groupName, siteId. The siteId field can only be filtered by admins with full access. Any sited admin will have siteId filtered automatically. This param can be combined with paging and sorting. Example: groupName==\"staticGroup1\"")
+	cmd.Flags().StringSliceVar(&flagSort, "sort", nil, "Sorting criteria in the format: property:asc/desc. Default sort is groupId:asc. Available criteria to sort on: groupId, groupName, siteId.")
+	cmd.Flags().StringVar(&flagFilter, "filter", "", "Query in the RSQL format, allowing to filter static group collection. Default filter is empty query - returning all results for the requested page. Fields allowed in the query: groupId, groupName, siteId. The siteId field can only be filtered by admins with full access. Any sited admin will have siteId filtered automatically. This param can be combined with paging and sorting. Example: groupName==\"staticGroup1\"")
 	cmd.Flags().BoolVar(&flagAll, "all", true, "Fetch all pages (set --all=false for single page)")
 	cmd.Flags().IntVar(&flagLimit, "limit", 0, "Maximum total results to return (0 = unlimited)")
 	return cmd
@@ -189,7 +190,7 @@ func newMobileDeviceGroupsStaticGroupsGetCmd(ctx *registry.CLIContext) *cobra.Co
 			// Resolve resource ID from positional arg, --name, or lookup flags
 			var resolvedID string
 			if flagName != "" {
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/mobile-device-groups/static-groups", "groupName", "groupId", flagName)
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/mobile-device-groups/static-groups", "groupName", "groupId", flagName)
 				if err != nil {
 					return err
 				}
@@ -201,7 +202,7 @@ func newMobileDeviceGroupsStaticGroupsGetCmd(ctx *registry.CLIContext) *cobra.Co
 			}
 
 			// Build request path
-			path := "/v1/mobile-device-groups/static-groups/{id}"
+			path := "/v2/mobile-device-groups/static-groups/{id}"
 			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
 
 			// Build query string
@@ -209,9 +210,10 @@ func newMobileDeviceGroupsStaticGroupsGetCmd(ctx *registry.CLIContext) *cobra.Co
 			if len(queryParts) > 0 {
 				path = path + "?" + strings.Join(queryParts, "&")
 			}
+			vft := newVersionFallback("/v2/mobile-device-groups/static-groups/{id}")
 
 			// Make request
-			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			resp, err := vft.do(ctx.Client, reqCtx, "GET", path, nil, []string{"/v1/mobile-device-groups/static-groups/{id}"})
 			if err != nil {
 				return err
 			}
@@ -234,8 +236,8 @@ func newMobileDeviceGroupsStaticGroupsCreateCmd(ctx *registry.CLIContext) *cobra
 
 	cmd := &cobra.Command{
 		Use:   "create",
-		Short: "Create membership of a static group",
-		Long:  "Create membership of a static group",
+		Short: "Create a static group",
+		Long:  "Create a static group",
 		Example: `  # Show the JSON template for creating a mobile-device-groups-static-groups
   jamf-cli pro mobile-device-groups-static-groups create --scaffold
 
@@ -252,12 +254,12 @@ func newMobileDeviceGroupsStaticGroupsCreateCmd(ctx *registry.CLIContext) *cobra
   "assignments": [],
   "groupDescription": "Static iPads",
   "groupName": "Static iPads",
-  "siteId": "11"
+  "siteId": "-1"
 }`, ctx.Output.Format())
 			}
 
 			// Build request path
-			path := "/v1/mobile-device-groups/static-groups"
+			path := "/v2/mobile-device-groups/static-groups"
 
 			// Build query string
 			var queryParts []string
@@ -312,7 +314,7 @@ func newMobileDeviceGroupsStaticGroupsDeleteCmd(ctx *registry.CLIContext) *cobra
 	cmd := &cobra.Command{
 		Use:   "delete [<id>]",
 		Short: "Remove Static Group by Id",
-		Long:  "Remove Static Group by Id",
+		Long:  "Remove Static Group by Id. Returns 422 if the group has dependencies.",
 		Example: `  # Delete a mobile-device-groups-static-groups (with confirmation)
   jamf-cli pro mobile-device-groups-static-groups delete 1
 
@@ -347,7 +349,7 @@ func newMobileDeviceGroupsStaticGroupsDeleteCmd(ctx *registry.CLIContext) *cobra
 					} else {
 						var rid string
 						if rid == "" {
-							id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v1/mobile-device-groups/static-groups", "groupName", "groupId", entry, noInputBulk)
+							id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v2/mobile-device-groups/static-groups", "groupName", "groupId", entry, noInputBulk)
 							if err != nil {
 								return fmt.Errorf("resolving %q: %w", entry, err)
 							}
@@ -392,7 +394,7 @@ func newMobileDeviceGroupsStaticGroupsDeleteCmd(ctx *registry.CLIContext) *cobra
 					return err
 				}
 				for _, e := range bulk {
-					delPath := strings.Replace("/v1/mobile-device-groups/static-groups/{id}", "{id}", url.PathEscape(e.id), 1)
+					delPath := strings.Replace("/v2/mobile-device-groups/static-groups/{id}", "{id}", url.PathEscape(e.id), 1)
 					resp, err := ctx.Client.Do(reqCtx, "DELETE", delPath, nil)
 					if err != nil {
 						return fmt.Errorf("deleting %q (id: %s): %w", e.label, e.id, err)
@@ -412,7 +414,7 @@ func newMobileDeviceGroupsStaticGroupsDeleteCmd(ctx *registry.CLIContext) *cobra
 			var resolvedByName string
 			if flagName != "" {
 				noInput, _ := cmd.Flags().GetBool("no-input")
-				rid, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v1/mobile-device-groups/static-groups", "groupName", "groupId", flagName, noInput)
+				rid, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v2/mobile-device-groups/static-groups", "groupName", "groupId", flagName, noInput)
 				if err != nil {
 					return err
 				}
@@ -460,7 +462,7 @@ func newMobileDeviceGroupsStaticGroupsDeleteCmd(ctx *registry.CLIContext) *cobra
 			}
 
 			// Build request path
-			path := "/v1/mobile-device-groups/static-groups/{id}"
+			path := "/v2/mobile-device-groups/static-groups/{id}"
 			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
 
 			// Build query string
@@ -468,9 +470,10 @@ func newMobileDeviceGroupsStaticGroupsDeleteCmd(ctx *registry.CLIContext) *cobra
 			if len(queryParts) > 0 {
 				path = path + "?" + strings.Join(queryParts, "&")
 			}
+			vft := newVersionFallback("/v2/mobile-device-groups/static-groups/{id}")
 
 			// Make request
-			resp, err := ctx.Client.Do(reqCtx, "DELETE", path, nil)
+			resp, err := vft.do(ctx.Client, reqCtx, "DELETE", path, nil, []string{"/v1/mobile-device-groups/static-groups/{id}"})
 			if err != nil {
 				return err
 			}
@@ -510,8 +513,8 @@ func newMobileDeviceGroupsStaticGroupsPatchCmd(ctx *registry.CLIContext) *cobra.
 
 	cmd := &cobra.Command{
 		Use:   "patch [<id>]",
-		Short: "Update membership of a static group",
-		Long:  "Update membership of a static group\n\nIdentify the resource by ID (positional arg), --name, . Omit ID to use a lookup flag.\n\nUse --set KEY=VALUE to update scalar fields (repeatable). Omitted fields are unchanged.\n\nAvailable fields:\n  groupDescription                             string\n  groupName                                    string\n  siteId                                       string\n\nUse --from-file or pipe JSON to stdin for complex updates (arrays, bulk changes).",
+		Short: "Update a static group",
+		Long:  "Partially update a static group. Only provided fields will be updated.\n\nIdentify the resource by ID (positional arg), --name, . Omit ID to use a lookup flag.\n\nUse --set KEY=VALUE to update scalar fields (repeatable). Omitted fields are unchanged.\n\nAvailable fields:\n  groupDescription                             string\n  groupName                                    string\n  siteId                                       string\n\nUse --from-file or pipe JSON to stdin for complex updates (arrays, bulk changes).",
 		Example: `  # Update a field by ID
   jamf-cli pro mobile-device-groups-static-groups patch 1 --set general.managed=true
 
@@ -532,14 +535,14 @@ func newMobileDeviceGroupsStaticGroupsPatchCmd(ctx *registry.CLIContext) *cobra.
   "assignments": [],
   "groupDescription": "Static iPads",
   "groupName": "Static iPads",
-  "siteId": "11"
+  "siteId": "-1"
 }`, ctx.Output.Format())
 			}
 
 			// Resolve resource ID from positional arg, --name, or lookup flags
 			var resolvedPatchID string
 			if flagName != "" {
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/mobile-device-groups/static-groups", "groupName", "groupId", flagName)
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/mobile-device-groups/static-groups", "groupName", "groupId", flagName)
 				if err != nil {
 					return err
 				}
@@ -551,7 +554,7 @@ func newMobileDeviceGroupsStaticGroupsPatchCmd(ctx *registry.CLIContext) *cobra.
 			}
 
 			// Build request path
-			path := "/v1/mobile-device-groups/static-groups/{id}"
+			path := "/v2/mobile-device-groups/static-groups/{id}"
 			path = strings.Replace(path, "{id}", url.PathEscape(resolvedPatchID), 1)
 
 			// Build query string
@@ -652,7 +655,7 @@ If not, a new resource is created.`,
   "assignments": [],
   "groupDescription": "Static iPads",
   "groupName": "Static iPads",
-  "siteId": "11"
+  "siteId": "-1"
 }`, ctx.Output.Format())
 			}
 
@@ -677,7 +680,7 @@ If not, a new resource is created.`,
 
 			// Check if resource exists by name (read-only, runs even in dry-run)
 			noInput, _ := cmd.Flags().GetBool("no-input")
-			id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v1/mobile-device-groups/static-groups", "groupName", "groupId", name, noInput)
+			id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v2/mobile-device-groups/static-groups", "groupName", "groupId", name, noInput)
 			if err != nil {
 				return err
 			}
@@ -688,7 +691,7 @@ If not, a new resource is created.`,
 					fmt.Fprintf(os.Stderr, "[dry-run] Would create mobile-device-groups-static-groups %q\n", name)
 					return nil
 				}
-				resp, err := ctx.Client.Do(reqCtx, "POST", "/v1/mobile-device-groups/static-groups", bytes.NewReader(data))
+				resp, err := ctx.Client.Do(reqCtx, "POST", "/v2/mobile-device-groups/static-groups", bytes.NewReader(data))
 				if err != nil {
 					return err
 				}
@@ -714,7 +717,7 @@ If not, a new resource is created.`,
 				}
 			}
 
-			updatePath := strings.Replace("/v1/mobile-device-groups/static-groups/{id}", "{id}", url.PathEscape(id), 1)
+			updatePath := strings.Replace("/v2/mobile-device-groups/static-groups/{id}", "{id}", url.PathEscape(id), 1)
 			reqCtx = registry.WithContentType(reqCtx, "application/merge-patch+json")
 			resp, err := ctx.Client.Do(reqCtx, "PATCH", updatePath, bytes.NewReader(data))
 			if err != nil {

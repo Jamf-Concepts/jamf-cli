@@ -70,6 +70,10 @@ type Operation struct {
 	IsList        bool     // List operation with pagination support
 	APIVersion    string   // v1, v2, preview, etc.
 	Privileges    []string // x-required-privileges
+	// FallbackPaths holds lower-version base paths for GET/DELETE ops where the
+	// same endpoint exists at multiple API versions. Listed in descending version
+	// order so the runtime tries the newest fallback first.
+	FallbackPaths []string
 }
 
 // Parameter represents a query/path parameter

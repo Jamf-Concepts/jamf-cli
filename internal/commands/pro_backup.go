@@ -5,6 +5,7 @@ package commands
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -17,6 +18,7 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/auth"
+	"github.com/Jamf-Concepts/jamf-cli/internal/exitcode"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform/blueprints"
 	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform/compliancebenchmarks"
@@ -186,7 +188,7 @@ func runBackup(ctx context.Context, cliCtx *registry.CLIContext, opts backupOpti
 		}
 
 		// List objects for this resource type
-		items, raw, err := listResourceItemsAndMaps(ctx, client, def)
+		items, raw, err := listResourceItemsAndMaps(ctx, client, &def)
 		if err != nil {
 			failures = append(failures, backupFailure{
 				Resource: def.FilterName,
@@ -342,7 +344,14 @@ func clampConcurrency(n int) int {
 // both the (id, name) summary and the raw list items. The raw items are kept
 // around so ListOnly resources can write them to disk directly without a
 // redundant per-ID GET.
-func listResourceItemsAndMaps(ctx context.Context, client registry.HTTPClient, def ResolvedBackupResource) ([]resourceItem, []map[string]any, error) {
+// isBackup404 returns true when err is an exitcode.Error with NotFound code,
+// indicating the endpoint does not exist on this tenant (version mismatch).
+func isBackup404(err error) bool {
+	var e *exitcode.Error
+	return errors.As(err, &e) && e.Code == exitcode.NotFound
+}
+
+func listResourceItemsAndMaps(ctx context.Context, client registry.HTTPClient, def *ResolvedBackupResource) ([]resourceItem, []map[string]any, error) {
 	var raw []map[string]any
 	var err error
 	switch {
@@ -360,6 +369,16 @@ func listResourceItemsAndMaps(ctx context.Context, client registry.HTTPClient, d
 		}
 	default:
 		raw, err = FetchAllPaginated(ctx, client, def.ListPath, 100)
+		if err != nil && isBackup404(err) && def.FallbackListPath != "" {
+			raw, err = FetchAllPaginated(ctx, client, def.FallbackListPath, 100)
+			if err == nil {
+				fmt.Fprintf(os.Stderr, "warning: GET %s returned 404; falling back to %s (tenant may be on older Jamf Pro)\n", def.ListPath, def.FallbackListPath)
+				def.ListPath = def.FallbackListPath
+				if def.FallbackGetPath != "" {
+					def.GetPath = def.FallbackGetPath
+				}
+			}
+		}
 	}
 	if err != nil {
 		return nil, nil, err
@@ -382,7 +401,7 @@ func listResourceItemsAndMaps(ctx context.Context, client registry.HTTPClient, d
 // listResourceItems is the summary-only variant used by the diff command,
 // which does not write list-only payloads.
 func listResourceItems(ctx context.Context, client registry.HTTPClient, def ResolvedBackupResource) ([]resourceItem, error) {
-	items, _, err := listResourceItemsAndMaps(ctx, client, def)
+	items, _, err := listResourceItemsAndMaps(ctx, client, &def)
 	return items, err
 }
 

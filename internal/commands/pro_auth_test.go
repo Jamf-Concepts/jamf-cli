@@ -144,7 +144,7 @@ func runPlatformAuthTokenCmd(t *testing.T, provider auth.Provider, refresh bool)
 // ─── Structure tests ─────────────────────────────────────────────────────────
 
 func TestProAuthCommandExists(t *testing.T) {
-	root := NewRootCmd("test", "abc123", "2024-01-01")
+	root := NewRootCmd("test", "abc123", "2024-01-01", "unknown")
 	pro := findSubcommand(root, "pro")
 	if pro == nil {
 		t.Fatal("pro command not found")
@@ -157,7 +157,7 @@ func TestProAuthCommandExists(t *testing.T) {
 }
 
 func TestProAuthTokenCommandExists(t *testing.T) {
-	root := NewRootCmd("test", "abc123", "2024-01-01")
+	root := NewRootCmd("test", "abc123", "2024-01-01", "unknown")
 	pro := findSubcommand(root, "pro")
 	if pro == nil {
 		t.Fatal("pro command not found")
@@ -186,7 +186,7 @@ func TestProAuthGroupedInCore(t *testing.T) {
 }
 
 func TestPlatformAuthCommandExists(t *testing.T) {
-	root := NewRootCmd("test", "abc123", "2024-01-01")
+	root := NewRootCmd("test", "abc123", "2024-01-01", "unknown")
 	platform := findSubcommand(root, "platform")
 	if platform == nil {
 		t.Fatal("platform command not found")
@@ -199,7 +199,7 @@ func TestPlatformAuthCommandExists(t *testing.T) {
 }
 
 func TestPlatformAuthTokenCommandExists(t *testing.T) {
-	root := NewRootCmd("test", "abc123", "2024-01-01")
+	root := NewRootCmd("test", "abc123", "2024-01-01", "unknown")
 	platform := findSubcommand(root, "platform")
 	if platform == nil {
 		t.Fatal("platform command not found")

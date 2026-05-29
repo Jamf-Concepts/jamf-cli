@@ -79,17 +79,27 @@ components:
           example: Updated Group Name
           type: string
       type: object
+    GroupUpdateDtoV2:
+      properties:
+        assignments:
+          items:
+            $ref: '#/components/schemas/AssignmentDtoV1'
+          nullable: true
+          type: array
+        criteria:
+          items:
+            $ref: '#/components/schemas/UnifiedSmartGroupCriteriaV2'
+          type: array
+        groupDescription:
+          example: Updated Group Description
+          type: string
+        groupName:
+          example: Updated Group Name
+          type: string
+      type: object
     GroupWithCriteriaDtoV1:
       properties:
         criteria:
-          example:
-            - andOr: and
-              closingParen: false
-              name: Operating System Version
-              openingParen: false
-              priority: 1
-              searchType: greater than or equal
-              value: "15.0"
           items:
             $ref: _MonolithLibrary.yaml#/components/schemas/SmartGroupCriteria
           nullable: true
@@ -127,6 +137,53 @@ components:
           readOnly: true
           type: boolean
       type: object
+    UnifiedSmartGroupCriteriaV2:
+      description: |
+        V2 criteria format with strict enum validation for andOr field.
+        Only "and" or "or" values are accepted (case-insensitive).
+      properties:
+        andOr:
+          description: Whether this criterion should be ANDed or ORed with the previous criterion. Only "and" or "or" values are accepted (case-insensitive).
+          enum:
+            - and
+            - or
+          example: and
+          type: string
+        closingParen:
+          description: Whether to add a closing parenthesis after this criterion
+          example: false
+          type: boolean
+        name:
+          description: The field to search on (e.g., Model, OS Version, etc.)
+          example: Model
+          minLength: 1
+          type: string
+        openingParen:
+          description: Whether to add an opening parenthesis before this criterion
+          example: false
+          type: boolean
+        priority:
+          description: The priority order of this criterion
+          example: 1
+          minimum: 0
+          nullable: false
+          type: integer
+        searchType:
+          description: The type of search to perform (e.g., is, is not, like, etc.)
+          example: is
+          minLength: 1
+          type: string
+        value:
+          description: The value to search for
+          example: iPad
+          type: string
+      required:
+        - andOr
+        - name
+        - priority
+        - searchType
+        - value
+      type: object
 info:
   title: Jamf Pro API - Groups
   version: 0.0.1
@@ -134,6 +191,7 @@ openapi: 3.0.1
 paths:
   /v1/groups:
     get:
+      deprecated: true
       description: Returns group information for all Mobile Device and Computer groups. The type of groups returned will be dependent upon the corresponding group type READ privileges. Results can be sorted by name, description, group type, or isSmart. Default sorting is by group name in ascending order.
       parameters:
         - $ref: _MonolithLibrary.yaml#/components/parameters/page
@@ -170,8 +228,10 @@ paths:
       tags:
         - groups
       x-authentication-required: true
+      x-deprecation-date: "2026-05-28"
   /v1/groups/{id}:
     delete:
+      deprecated: true
       description: Deletes a group by its platform UUID. Returns a 400 error if the group is being used as a dependency. Requires appropriate DELETE privileges.
       parameters:
         - description: The platform UUID of a group
@@ -207,7 +267,9 @@ paths:
       tags:
         - groups
       x-authentication-required: true
+      x-deprecation-date: "2026-05-28"
     get:
+      deprecated: true
       description: Returns group information for the given platform UUID. Dependent upon the returned group type the corresponding READ privilege for that group type will be needed.
       parameters:
         - description: The platform UUID of a group
@@ -274,7 +336,9 @@ paths:
       tags:
         - groups
       x-authentication-required: true
+      x-deprecation-date: "2026-05-28"
     patch:
+      deprecated: true
       description: Updates a group by its platform UUID. For both smart and static groups, groupName and groupDescription can be updated. For smart groups, criteria can also be updated. For static groups, assignments can also be updated. Requires appropriate UPDATE privileges.
       parameters:
         - description: The platform UUID of a group
@@ -338,6 +402,227 @@ paths:
               schema:
                 $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
           description: A group with that platform UUID does not exist
+        422:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Duplicate group name
+      summary: Update a group by platform UUID
+      tags:
+        - groups
+      x-authentication-required: true
+      x-deprecation-date: "2026-05-28"
+  /v2/groups:
+    get:
+      description: Returns group information for all Mobile Device and Computer groups. The type of groups returned will be dependent upon the corresponding group type READ privileges. Results can be sorted by name, description, group type, or isSmart. Default sorting is by group name in ascending order.
+      parameters:
+        - $ref: _MonolithLibrary.yaml#/components/parameters/page
+        - $ref: _MonolithLibrary.yaml#/components/parameters/page-size
+        - description: 'Sorting criteria in the format: property:asc/desc. Default sort is groupName:asc. Multiple sort criteria are supported and must be separated with a comma. Fields allowed in sorting: groupName, groupDescription, groupType, isSmart. Example: sort=groupName:asc,groupType:desc'
+          explode: true
+          in: query
+          name: sort
+          required: false
+          schema:
+            default:
+              - groupName:asc
+            items:
+              type: string
+            type: array
+          style: form
+        - description: 'Query in the RSQL format, allowing to filter group collection. Default filter is empty query - returning all results for the requested page. Fields allowed in the query: groupName, groupDescription, groupType, isSmart. This param can be combined with paging and sorting. When using groupType in the filter, the value must be either "MOBILE" or "COMPUTER" but not both. When using groupType in the filter, the value is case sensitive. When using groupType in the filter, it will exclude groups of the other type regardless of or/and conditionals. Example: filter=groupName=="*Managed*" and isSmart=="true" Example: filter=groupType=="COMPUTER" and groupDescription=="*Admin*"'
+          explode: true
+          in: query
+          name: filter
+          required: false
+          schema:
+            default: ""
+            type: string
+          style: form
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GroupSearchResult'
+          description: Successful response
+      summary: Returns group information for all Mobile Device and Computer groups
+      tags:
+        - groups
+      x-authentication-required: true
+  /v2/groups/{id}:
+    delete:
+      description: |
+        Deletes a group by its platform UUID. Returns a 422 error if the group is being used as a dependency. Requires appropriate DELETE privileges.
+      parameters:
+        - description: The platform UUID of a group
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
+      responses:
+        204:
+          description: Group deleted successfully
+        403:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Insufficient privileges to delete this group
+        404:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: The requested resource was not found
+        422:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Group cannot be deleted due to dependencies
+      summary: Delete a group by platform UUID
+      tags:
+        - groups
+      x-authentication-required: true
+    get:
+      description: Returns group information for the given platform UUID. Dependent upon the returned group type the corresponding READ privilege for that group type will be needed.
+      parameters:
+        - description: The platform UUID of a group
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
+      responses:
+        200:
+          content:
+            application/json:
+              examples:
+                smartGroup:
+                  description: Example response for a smart group with criteria
+                  summary: Smart Group Response
+                  value:
+                    criteria:
+                      - andOr: and
+                        closingParen: false
+                        name: Operating System Version
+                        openingParen: false
+                        priority: 0
+                        searchType: greater than or equal
+                        value: "15.0"
+                    groupDescription: Devices with iOS 15 or higher
+                    groupJamfProId: "18"
+                    groupName: Smart Mobile Device Group
+                    groupPlatformId: 20b66625-39c0-41d9-9b2c-98e57a3554c8
+                    groupType: MOBILE
+                    membershipCount: 12
+                    smart: true
+                staticGroup:
+                  description: Example response for a static group without criteria
+                  summary: Static Group Response
+                  value:
+                    criteria: null
+                    groupDescription: All computers in the marketing department
+                    groupJamfProId: "25"
+                    groupName: Marketing Computers
+                    groupPlatformId: f8e3c123-4567-89ab-cdef-123456789abc
+                    groupType: COMPUTER
+                    membershipCount: 8
+                    smart: false
+              schema:
+                $ref: '#/components/schemas/GroupWithCriteriaDtoV1'
+          description: Successful response
+        404:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: The requested resource was not found
+      summary: Returns group information for the given platform UUID
+      tags:
+        - groups
+      x-authentication-required: true
+    patch:
+      description: |
+        Updates a group by its platform UUID. For both smart and static groups, groupName and groupDescription can be updated. For smart groups, criteria can also be updated. For static groups, assignments can also be updated. Requires appropriate UPDATE privileges.
+      parameters:
+        - description: The platform UUID of a group
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
+      requestBody:
+        content:
+          application/json:
+            examples:
+              smartGroup:
+                description: Example of updating a smart group with criteria
+                summary: Update Smart Group
+                value:
+                  criteria:
+                    - andOr: and
+                      closingParen: false
+                      name: Computer Name
+                      openingParen: false
+                      priority: 0
+                      searchType: is
+                      value: Test
+                  groupDescription: Updated smart group description
+                  groupName: Updated Smart Group
+              staticGroup:
+                description: Example of updating a static group with device assignments
+                summary: Update Static Group
+                value:
+                  assignments:
+                    - deviceId: 56585788-8937-4bdf-b986-458048b1c36c
+                      selected: true
+                    - deviceId: 12345678-1234-1234-1234-123456789012
+                      selected: false
+                  groupDescription: Updated static group description
+                  groupName: Updated Static Group
+            schema:
+              $ref: '#/components/schemas/GroupUpdateDtoV2'
+        required: true
+      responses:
+        204:
+          description: Group updated successfully
+        400:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: |
+            Invalid request data or validation error. Common causes include:
+            - Invalid andOr value (must be "and" or "or")
+            - Invalid priority order in criteria
+        403:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Insufficient privileges to update this group
+        404:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: The requested resource was not found
+        422:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Duplicate group name
       summary: Update a group by platform UUID
       tags:
         - groups

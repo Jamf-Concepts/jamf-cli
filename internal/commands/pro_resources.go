@@ -53,7 +53,7 @@ var BackupResources = []BackupResource{
 	// Computer groups — modern v2 endpoints (separate smart/static avoids the
 	// deprecated /v1/computer-groups combined endpoint that triggers 403s on
 	// role configurations without the legacy umbrella privilege).
-	{Key: "smart-computer-groups", FilterName: "smart-groups", SubDir: "smart-groups/computers"},
+	{Key: "computer-groups-smart-groups", FilterName: "smart-groups", SubDir: "smart-groups/computers"},
 	{Key: "static-computer-groups", FilterName: "static-groups", SubDir: "static-groups/computers"},
 
 	// Mobile device groups

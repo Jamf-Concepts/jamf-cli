@@ -51,7 +51,7 @@ func TestDetectShell_EmptyShell(t *testing.T) {
 func TestCompletion_ProducesOutput(t *testing.T) {
 	for _, shell := range []string{"bash", "zsh", "fish", "powershell"} {
 		t.Run(shell, func(t *testing.T) {
-			root := NewRootCmd("test", "abc123", "2024-01-01")
+			root := NewRootCmd("test", "abc123", "2024-01-01", "unknown")
 			var buf bytes.Buffer
 			root.SetOut(&buf)
 			root.SetArgs([]string{"completion", shell})
@@ -65,7 +65,7 @@ func TestCompletion_ProducesOutput(t *testing.T) {
 
 func TestCompletionInstall_NoShell(t *testing.T) {
 	t.Setenv("SHELL", "/bin/tcsh") // unsupported shell
-	root := NewRootCmd("test", "abc123", "2024-01-01")
+	root := NewRootCmd("test", "abc123", "2024-01-01", "unknown")
 	root.SetArgs([]string{"completion", "install"})
 
 	err := root.Execute()
@@ -123,7 +123,7 @@ func TestCompletionInstall_Fish(t *testing.T) {
 	dir := t.TempDir()
 	t.Setenv("XDG_CONFIG_HOME", dir)
 
-	root := NewRootCmd("test", "abc123", "2024-01-01")
+	root := NewRootCmd("test", "abc123", "2024-01-01", "unknown")
 	root.SetArgs([]string{"completion", "install"})
 
 	// Capture stderr (install writes progress there)
@@ -156,7 +156,7 @@ func TestCompletionInstall_Zsh(t *testing.T) {
 		return
 	}
 
-	root := NewRootCmd("test", "abc123", "2024-01-01")
+	root := NewRootCmd("test", "abc123", "2024-01-01", "unknown")
 	root.SetArgs([]string{"completion", "install"})
 
 	err := root.Execute()

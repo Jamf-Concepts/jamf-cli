@@ -56,7 +56,7 @@ func newGroupsListCmd(ctx *registry.CLIContext) *cobra.Command {
 			reqCtx := cmd.Context()
 
 			// Build request path
-			path := "/v1/groups"
+			path := "/v2/groups"
 
 			// Build query string
 			var queryParts []string
@@ -77,6 +77,7 @@ func newGroupsListCmd(ctx *registry.CLIContext) *cobra.Command {
 			if len(queryParts) > 0 {
 				path = path + "?" + strings.Join(queryParts, "&")
 			}
+			vft := newVersionFallback("/v2/groups")
 
 			// Auto-pagination: fetch all pages when --all is set and --page was not manually specified
 			if flagAll && flagPage == 0 {
@@ -86,7 +87,7 @@ func newGroupsListCmd(ctx *registry.CLIContext) *cobra.Command {
 
 				for {
 					// Build page-specific query
-					pagePath := "/v1/groups"
+					pagePath := "/v2/groups"
 					var pageQuery []string
 					// Carry forward non-pagination query params
 					for _, qp := range queryParts {
@@ -98,7 +99,7 @@ func newGroupsListCmd(ctx *registry.CLIContext) *cobra.Command {
 					pageQuery = append(pageQuery, fmt.Sprintf("page-size=%d", pageSize))
 					pagePath = pagePath + "?" + strings.Join(pageQuery, "&")
 
-					resp, err := ctx.Client.Do(reqCtx, "GET", pagePath, nil)
+					resp, err := vft.do(ctx.Client, reqCtx, "GET", pagePath, nil, []string{"/v1/groups"})
 					if err != nil {
 						return err
 					}
@@ -144,7 +145,7 @@ func newGroupsListCmd(ctx *registry.CLIContext) *cobra.Command {
 			}
 
 			// Make request
-			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			resp, err := vft.do(ctx.Client, reqCtx, "GET", path, nil, []string{"/v1/groups"})
 			if err != nil {
 				return err
 			}
@@ -157,7 +158,7 @@ func newGroupsListCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.Flags().IntVar(&flagPage, "page", 0, "")
 	cmd.Flags().IntVar(&flagPageSize, "page-size", 100, "")
 	cmd.Flags().StringSliceVar(&flagSort, "sort", nil, "Sorting criteria in the format: property:asc/desc. Default sort is groupName:asc. Multiple sort criteria are supported and must be separated with a comma. Fields allowed in sorting: groupName, groupDescription, groupType, isSmart. Example: sort=groupName:asc,groupType:desc")
-	cmd.Flags().StringVar(&flagFilter, "filter", "", "Query in the RSQL format, allowing to filter group collection. Default filter is empty query - returning all results for the requested page. Fields allowed in the query: groupPlatformId, groupName, groupDescription, groupType, isSmart. This param can be combined with paging and sorting. When using groupPlatformId in the filter, the supported operators are: =in= (match any in list), =out= (exclude all in list). When using groupType in the filter, the value must be either \"MOBILE\" or \"COMPUTER\" but not both. When using groupType in the filter, the value is case sensitive. When using groupType in the filter, it will exclude groups of the other type regardless of or/and conditionals. Example: filter=groupPlatformId=in=('uuid1','uuid2','uuid3') Example: filter=groupName==\"*Managed*\" and isSmart==\"true\" Example: filter=groupType==\"COMPUTER\" and groupDescription==\"*Admin*\"")
+	cmd.Flags().StringVar(&flagFilter, "filter", "", "Query in the RSQL format, allowing to filter group collection. Default filter is empty query - returning all results for the requested page. Fields allowed in the query: groupName, groupDescription, groupType, isSmart. This param can be combined with paging and sorting. When using groupType in the filter, the value must be either \"MOBILE\" or \"COMPUTER\" but not both. When using groupType in the filter, the value is case sensitive. When using groupType in the filter, it will exclude groups of the other type regardless of or/and conditionals. Example: filter=groupName==\"*Managed*\" and isSmart==\"true\" Example: filter=groupType==\"COMPUTER\" and groupDescription==\"*Admin*\"")
 	cmd.Flags().BoolVar(&flagAll, "all", true, "Fetch all pages (set --all=false for single page)")
 	cmd.Flags().IntVar(&flagLimit, "limit", 0, "Maximum total results to return (0 = unlimited)")
 	return cmd
@@ -187,7 +188,7 @@ func newGroupsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 			// Resolve resource ID from positional arg, --name, or lookup flags
 			var resolvedID string
 			if flagName != "" {
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/groups", "groupName", "groupPlatformId", flagName)
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/groups", "groupName", "groupPlatformId", flagName)
 				if err != nil {
 					return err
 				}
@@ -199,7 +200,7 @@ func newGroupsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 			}
 
 			// Build request path
-			path := "/v1/groups/{id}"
+			path := "/v2/groups/{id}"
 			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
 
 			// Build query string
@@ -207,9 +208,10 @@ func newGroupsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 			if len(queryParts) > 0 {
 				path = path + "?" + strings.Join(queryParts, "&")
 			}
+			vft := newVersionFallback("/v2/groups/{id}")
 
 			// Make request
-			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			resp, err := vft.do(ctx.Client, reqCtx, "GET", path, nil, []string{"/v1/groups/{id}"})
 			if err != nil {
 				return err
 			}
@@ -235,7 +237,7 @@ func newGroupsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "delete [<id>]",
 		Short: "Delete a group by platform UUID",
-		Long:  "Deletes a group by its platform UUID. Returns a 400 error if the group is being used as a dependency. Requires appropriate DELETE privileges.",
+		Long:  "Deletes a group by its platform UUID. Returns a 422 error if the group is being used as a dependency. Requires appropriate DELETE privileges.",
 		Example: `  # Delete a group (with confirmation)
   jamf-cli pro groups delete 1
 
@@ -270,7 +272,7 @@ func newGroupsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 					} else {
 						var rid string
 						if rid == "" {
-							id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v1/groups", "groupName", "groupPlatformId", entry, noInputBulk)
+							id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v2/groups", "groupName", "groupPlatformId", entry, noInputBulk)
 							if err != nil {
 								return fmt.Errorf("resolving %q: %w", entry, err)
 							}
@@ -315,7 +317,7 @@ func newGroupsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 					return err
 				}
 				for _, e := range bulk {
-					delPath := strings.Replace("/v1/groups/{id}", "{id}", url.PathEscape(e.id), 1)
+					delPath := strings.Replace("/v2/groups/{id}", "{id}", url.PathEscape(e.id), 1)
 					resp, err := ctx.Client.Do(reqCtx, "DELETE", delPath, nil)
 					if err != nil {
 						return fmt.Errorf("deleting %q (id: %s): %w", e.label, e.id, err)
@@ -335,7 +337,7 @@ func newGroupsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 			var resolvedByName string
 			if flagName != "" {
 				noInput, _ := cmd.Flags().GetBool("no-input")
-				rid, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v1/groups", "groupName", "groupPlatformId", flagName, noInput)
+				rid, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v2/groups", "groupName", "groupPlatformId", flagName, noInput)
 				if err != nil {
 					return err
 				}
@@ -383,7 +385,7 @@ func newGroupsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 			}
 
 			// Build request path
-			path := "/v1/groups/{id}"
+			path := "/v2/groups/{id}"
 			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
 
 			// Build query string
@@ -391,9 +393,10 @@ func newGroupsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 			if len(queryParts) > 0 {
 				path = path + "?" + strings.Join(queryParts, "&")
 			}
+			vft := newVersionFallback("/v2/groups/{id}")
 
 			// Make request
-			resp, err := ctx.Client.Do(reqCtx, "DELETE", path, nil)
+			resp, err := vft.do(ctx.Client, reqCtx, "DELETE", path, nil, []string{"/v1/groups/{id}"})
 			if err != nil {
 				return err
 			}
@@ -462,7 +465,7 @@ func newGroupsPatchCmd(ctx *registry.CLIContext) *cobra.Command {
 			// Resolve resource ID from positional arg, --name, or lookup flags
 			var resolvedPatchID string
 			if flagName != "" {
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/groups", "groupName", "groupPlatformId", flagName)
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/groups", "groupName", "groupPlatformId", flagName)
 				if err != nil {
 					return err
 				}
@@ -474,7 +477,7 @@ func newGroupsPatchCmd(ctx *registry.CLIContext) *cobra.Command {
 			}
 
 			// Build request path
-			path := "/v1/groups/{id}"
+			path := "/v2/groups/{id}"
 			path = strings.Replace(path, "{id}", url.PathEscape(resolvedPatchID), 1)
 
 			// Build query string

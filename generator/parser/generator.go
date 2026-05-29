@@ -1803,6 +1803,9 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 			if len(queryParts) > 0 {
 				path = path + "?" + strings.Join(queryParts, "&")
 			}
+{{- if .FallbackPaths }}
+			vft := newVersionFallback("{{ .Path }}")
+{{- end }}
 {{- if .IsList }}
 
 			// Auto-pagination: fetch all pages when --all is set and --page was not manually specified
@@ -1834,7 +1837,13 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 					pageQuery = append(pageQuery, fmt.Sprintf("page-size=%d", pageSize))
 					pagePath = pagePath + "?" + strings.Join(pageQuery, "&")
 
+{{- if .FallbackPaths }}
+
+					resp, err := vft.do(ctx.Client, reqCtx, "GET", pagePath, nil, []string{ {{- range .FallbackPaths }}"{{ . }}", {{ end -}} })
+{{- else }}
+
 					resp, err := ctx.Client.Do(reqCtx, "GET", pagePath, nil)
+{{- end }}
 					if err != nil {
 						return err
 					}
@@ -1905,6 +1914,8 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 				return fmt.Errorf("building multipart body: %w", err)
 			}
 			resp, err := ctx.Uploader.Upload(reqCtx, path, body, contentType, contentLength)
+{{- else if and .FallbackPaths (eq .Method "GET" "DELETE") }}
+			resp, err := vft.do(ctx.Client, reqCtx, "{{ .Method }}", path, nil, []string{ {{- range .FallbackPaths }}"{{ . }}", {{ end -}} })
 {{- else if eq .Method "GET" "DELETE" }}
 			resp, err := ctx.Client.Do(reqCtx, "{{ .Method }}", path, nil)
 {{- else }}
@@ -2531,17 +2542,21 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
+	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 
+	"github.com/Jamf-Concepts/jamf-cli/internal/exitcode"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 )
 
@@ -3266,6 +3281,79 @@ func isNumericID(s string) bool {
 	}
 	return true
 }
+
+// versionFallback tracks which API version was resolved for a resource path so
+// that paginated calls reuse the same version across pages without re-probing.
+type versionFallback struct {
+	templatePath string // original spec path, e.g. /v3/foo/{id}
+	activePath   string // resolved base path after first successful call
+	warned       bool   // true after the fallback warning has been emitted once
+}
+
+func newVersionFallback(templatePath string) *versionFallback {
+	return &versionFallback{templatePath: templatePath, activePath: templatePath}
+}
+
+// do calls client.Do with the primary actualPath. On 404 it retries each
+// fallback in order, emitting a one-line stderr warning on the first successful
+// retry. Subsequent calls reuse the resolved path directly (safe for pagination).
+func (v *versionFallback) do(client registry.HTTPClient, ctx context.Context, method, actualPath string, body []byte, fallbacks []string) (*http.Response, error) {
+	if v.activePath != v.templatePath {
+		adjusted := versionFallbackApply(v.templatePath, v.activePath, actualPath)
+		return versionFallbackDo(client, ctx, method, adjusted, body)
+	}
+	resp, err := versionFallbackDo(client, ctx, method, actualPath, body)
+	if err == nil || !versionFallbackIs404(err) || len(fallbacks) == 0 {
+		return resp, err
+	}
+	for _, fb := range fallbacks {
+		fbActual := versionFallbackApply(v.templatePath, fb, actualPath)
+		fbResp, fbErr := versionFallbackDo(client, ctx, method, fbActual, body)
+		if fbErr == nil {
+			if !v.warned {
+				fmt.Fprintf(os.Stderr, "warning: %s %s returned 404; falling back to %s (tenant may be on older Jamf Pro)\n", method, actualPath, fbActual)
+				v.warned = true
+			}
+			v.activePath = fb
+			return fbResp, nil
+		}
+		if !versionFallbackIs404(fbErr) {
+			return nil, fbErr
+		}
+	}
+	return nil, err // original 404, all fallbacks exhausted
+}
+
+func versionFallbackDo(client registry.HTTPClient, ctx context.Context, method, path string, body []byte) (*http.Response, error) {
+	var br io.Reader
+	if body != nil {
+		br = bytes.NewReader(body)
+	}
+	return client.Do(ctx, method, path, br)
+}
+
+func versionFallbackIs404(err error) bool {
+	var e *exitcode.Error
+	return errors.As(err, &e) && e.Code == exitcode.NotFound
+}
+
+var versionSegRe = regexp.MustCompile(` + "`" + `^(/v\d+|/preview)` + "`" + `)
+
+// versionFallbackApply derives the fallback actual path by replacing the primary
+// version prefix with the fallback version prefix. Query params and path-param
+// substitutions are preserved because only the leading /vN/ segment changes.
+func versionFallbackApply(primaryTemplate, fallbackTemplate, actualPath string) string {
+	pv := versionSegRe.FindString(primaryTemplate)
+	fv := versionSegRe.FindString(fallbackTemplate)
+	if pv == "" || pv == fv {
+		return actualPath
+	}
+	if fv == "" {
+		return strings.Replace(actualPath, pv+"/", "/", 1)
+	}
+	return strings.Replace(actualPath, pv+"/", fv+"/", 1)
+}
+
 // fetchClassicGroupMemberIDs and classicFindIDByName are defined in classic_registry.go
 // (same package, generated from classicRegistryTemplate).
 `

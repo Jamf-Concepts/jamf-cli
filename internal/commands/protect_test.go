@@ -22,7 +22,7 @@ func findSubcommand(parent *cobra.Command, name string) *cobra.Command {
 // test if it does not exist.
 func findProtectCmd(t *testing.T) *cobra.Command {
 	t.Helper()
-	root := NewRootCmd("test", "abc123", "2024-01-01")
+	root := NewRootCmd("test", "abc123", "2024-01-01", "unknown")
 	cmd := findSubcommand(root, "protect")
 	if cmd == nil {
 		t.Fatal("protect command not found")
@@ -32,7 +32,7 @@ func findProtectCmd(t *testing.T) *cobra.Command {
 }
 
 func TestProtectCommandExists(t *testing.T) {
-	root := NewRootCmd("test", "abc123", "2024-01-01")
+	root := NewRootCmd("test", "abc123", "2024-01-01", "unknown")
 	if findSubcommand(root, "protect") == nil {
 		t.Fatal("expected 'protect' subcommand on root")
 		return

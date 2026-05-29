@@ -1,10 +1,11 @@
 .PHONY: build test clean generate sync-specs sync-spec sync-platform-specs install lint lint-dead verify-generated verify-platform-specs verify-site verify-site-output smoke smoke-seed smoke-cleanup release-check site
 
 # Build variables
-VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
-COMMIT  ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo "none")
-DATE    ?= $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
-LDFLAGS := -ldflags "-X main.version=$(VERSION) -X main.commit=$(COMMIT) -X main.date=$(DATE)"
+VERSION         ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
+COMMIT          ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo "none")
+DATE            ?= $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
+SPEC_PRO_VERSION := $(shell cat specs/.spec-version 2>/dev/null | tr -d '[:space:]' || echo "unknown")
+LDFLAGS         := -ldflags "-X main.version=$(VERSION) -X main.commit=$(COMMIT) -X main.date=$(DATE) -X main.specProVersion=$(SPEC_PRO_VERSION)"
 
 # Default target
 all: build
@@ -97,9 +98,14 @@ JAMF_MONOLITH_SPEC ?=
 sync-spec:
 	@if [ -z "$(JAMF_MONOLITH_SPEC)" ]; then \
 		echo "Error: JAMF_MONOLITH_SPEC is not set."; \
-		echo "Usage: make sync-spec JAMF_MONOLITH_SPEC=<path-or-url>"; \
-		echo "  e.g. JAMF_MONOLITH_SPEC=/tmp/monolith-schema.json"; \
-		echo "  e.g. JAMF_MONOLITH_SPEC=https://<instance>/api/schema/"; \
+		echo "Usage: make sync-spec JAMF_MONOLITH_SPEC=<url> JAMF_PRO_VERSION=<version>"; \
+		echo "  e.g. JAMF_MONOLITH_SPEC=https://<instance>/api/schema/ JAMF_PRO_VERSION=11.14.0"; \
+		exit 1; \
+	fi
+	@if [ -z "$(JAMF_PRO_VERSION)" ]; then \
+		echo "Error: JAMF_PRO_VERSION is required — specify the Jamf Pro version the spec was fetched from."; \
+		echo "Usage: make sync-spec JAMF_MONOLITH_SPEC=<url> JAMF_PRO_VERSION=<version>"; \
+		echo "  e.g. JAMF_MONOLITH_SPEC=https://<instance>/api/schema/ JAMF_PRO_VERSION=11.14.0"; \
 		exit 1; \
 	fi
 	@case "$(JAMF_MONOLITH_SPEC)" in \
@@ -111,7 +117,9 @@ sync-spec:
 			fi ;; \
 	esac
 	@echo "Ingesting monolith spec: $(JAMF_MONOLITH_SPEC)"
+	@echo "$(JAMF_PRO_VERSION)" > specs/.spec-version
 	@$(MAKE) generate JAMF_MONOLITH_SPEC=$(JAMF_MONOLITH_SPEC)
+	@echo "Spec version: $(JAMF_PRO_VERSION) (written to specs/.spec-version)"
 	@echo "Done! Review changes with: git diff specs internal/commands/pro/generated"
 
 # Sync Jamf Platform Gateway specs from the gitignored .platform-source/
