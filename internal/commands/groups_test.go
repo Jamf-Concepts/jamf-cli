@@ -9,7 +9,7 @@ import (
 )
 
 func TestApplyRootGroups_AllCommandsGrouped(t *testing.T) {
-	root := NewRootCmd("test", "abc123", "2024-01-01")
+	root := NewRootCmd("test", "abc123", "2024-01-01", "unknown")
 
 	for _, cmd := range root.Commands() {
 		if cmd.Name() == "help" {
@@ -22,7 +22,7 @@ func TestApplyRootGroups_AllCommandsGrouped(t *testing.T) {
 }
 
 func TestApplyRootGroups_GroupsRegistered(t *testing.T) {
-	root := NewRootCmd("test", "abc123", "2024-01-01")
+	root := NewRootCmd("test", "abc123", "2024-01-01", "unknown")
 
 	groups := root.Groups()
 	if len(groups) != len(rootGroups) {
@@ -31,7 +31,7 @@ func TestApplyRootGroups_GroupsRegistered(t *testing.T) {
 }
 
 func TestApplyProGroups_AllCommandsGrouped(t *testing.T) {
-	root := NewRootCmd("test", "abc123", "2024-01-01")
+	root := NewRootCmd("test", "abc123", "2024-01-01", "unknown")
 
 	var pro *cobra.Command
 	for _, cmd := range root.Commands() {
@@ -56,7 +56,7 @@ func TestApplyProGroups_AllCommandsGrouped(t *testing.T) {
 }
 
 func TestApplyProGroups_GroupsRegistered(t *testing.T) {
-	root := NewRootCmd("test", "abc123", "2024-01-01")
+	root := NewRootCmd("test", "abc123", "2024-01-01", "unknown")
 
 	var pro *cobra.Command
 	for _, cmd := range root.Commands() {
@@ -90,13 +90,13 @@ func TestProGroupMap_AllGroupIDsValid(t *testing.T) {
 }
 
 func TestApplyGroups_NoPanic(t *testing.T) {
-	root := NewRootCmd("test", "abc123", "2024-01-01")
+	root := NewRootCmd("test", "abc123", "2024-01-01", "unknown")
 	root.SetArgs([]string{"--help"})
 	_ = root.Execute()
 }
 
 func TestApplyProGroups_NoPanic(t *testing.T) {
-	root := NewRootCmd("test", "abc123", "2024-01-01")
+	root := NewRootCmd("test", "abc123", "2024-01-01", "unknown")
 	root.SetArgs([]string{"pro", "--help"})
 	_ = root.Execute()
 }

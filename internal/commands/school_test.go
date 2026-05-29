@@ -12,7 +12,7 @@ import (
 // test if it does not exist.
 func findSchoolCmd(t *testing.T) *cobra.Command {
 	t.Helper()
-	root := NewRootCmd("test", "abc123", "2024-01-01")
+	root := NewRootCmd("test", "abc123", "2024-01-01", "unknown")
 	cmd := findSubcommand(root, "school")
 	if cmd == nil {
 		t.Fatal("school command not found")
@@ -22,7 +22,7 @@ func findSchoolCmd(t *testing.T) *cobra.Command {
 }
 
 func TestSchoolCommandExists(t *testing.T) {
-	root := NewRootCmd("test", "abc123", "2024-01-01")
+	root := NewRootCmd("test", "abc123", "2024-01-01", "unknown")
 	if findSubcommand(root, "school") == nil {
 		t.Fatal("expected 'school' subcommand on root")
 		return
@@ -214,7 +214,7 @@ func TestSchoolIBeaconsSubcommands(t *testing.T) {
 }
 
 func TestSchoolHelp_NoPanic(t *testing.T) {
-	root := NewRootCmd("test", "abc123", "2024-01-01")
+	root := NewRootCmd("test", "abc123", "2024-01-01", "unknown")
 	root.SetArgs([]string{"school", "--help"})
 	_ = root.Execute()
 }

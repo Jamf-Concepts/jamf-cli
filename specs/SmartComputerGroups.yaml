@@ -1,5 +1,47 @@
 components:
   schemas:
+    ComputerSmartGroupCriteriaV2:
+      properties:
+        andOr:
+          description: Whether this criterion should be ANDed or ORed with the previous criterion. Must be exactly "AND" or "OR" (case-insensitive input accepted, stored as lowercase).
+          enum:
+            - and
+            - or
+          example: and
+          type: string
+        closingParen:
+          description: Whether to add a closing parenthesis after this criterion
+          example: false
+          type: boolean
+        name:
+          description: The field to search on (e.g., Operating System Version, Computer Name, etc.)
+          example: Model
+          maxLength: 255
+          type: string
+        openingParen:
+          description: Whether to add an opening parenthesis before this criterion
+          example: false
+          type: boolean
+        priority:
+          description: The priority order of this criterion (must start at 0 and increment by 1 per new criteria)
+          example: 0
+          type: integer
+        searchType:
+          description: The type of search to perform (e.g., is, is not, like, greater than or equal, etc.)
+          example: greater than or equal
+          type: string
+        value:
+          description: The value to search for
+          example: "14.0"
+          maxLength: 255
+          type: string
+      required:
+        - andOr
+        - name
+        - priority
+        - searchType
+        - value
+      type: object
     SmartComputerGroupSearch:
       properties:
         description:
@@ -43,6 +85,26 @@ components:
       required:
         - name
       type: object
+    SmartComputerGroupV3:
+      properties:
+        criteria:
+          items:
+            $ref: '#/components/schemas/ComputerSmartGroupCriteriaV2'
+          type: array
+        description:
+          example: New Group Description
+          type: string
+        name:
+          example: New Group Name
+          maxLength: 255
+          type: string
+        siteId:
+          example: "-1"
+          nullable: true
+          type: string
+      required:
+        - name
+      type: object
     SmartGroupMembership:
       description: the ids of the computers that are members of the smart group
       properties:
@@ -75,6 +137,7 @@ openapi: 3.0.1
 paths:
   /v2/computer-groups/smart-group-membership/{id}:
     get:
+      deprecated: true
       description: |
         Gets the membership of a Smart Computer Group
       parameters:
@@ -103,9 +166,221 @@ paths:
         Get the membership of a Smart Computer Group
       tags:
         - computer-groups
+      x-deprecation-date: "2026-05-28"
       x-required-privileges:
         - Read Smart Computer Groups
   /v2/computer-groups/smart-groups:
+    get:
+      deprecated: true
+      description: |
+        Search for Smart Computer Groups
+      parameters:
+        - $ref: _MonolithLibrary.yaml#/components/parameters/page
+        - $ref: _MonolithLibrary.yaml#/components/parameters/page-size
+        - description: 'Sorting criteria in the format: property:asc/desc. Default sort is id:asc. Multiple sort criteria are supported and must be separated with a comma. Example: sort=name:asc'
+          explode: true
+          in: query
+          name: sort
+          required: false
+          schema:
+            default:
+              - id:asc
+            items:
+              type: string
+            type: array
+          style: form
+        - description: 'Query in the RSQL format, allowing to filter smart computer group collection. Default filter is empty query - returning all results for the requested page. Fields allowed in the query: id, name, siteId. The siteId field can only be filtered by admins with full access. Any sited admin will have siteId filtered automatically. Example: name=="*group*"'
+          explode: true
+          in: query
+          name: filter
+          required: false
+          schema:
+            default: ""
+            type: string
+          style: form
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SmartGroupSearchResult'
+          description: Successful response
+      summary: |
+        Search for Smart Computer Groups
+      tags:
+        - computer-groups
+      x-deprecation-date: "2026-05-28"
+      x-required-privileges:
+        - Read Smart Computer Groups
+    post:
+      deprecated: true
+      description: |
+        Creates a Smart Computer Group
+      parameters:
+        - description: Optional. Return platform identifiers instead of internal identifiers when set to true.
+          explode: true
+          in: query
+          name: platform
+          required: false
+          schema:
+            default: false
+            type: boolean
+          style: form
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SmartComputerGroupV2'
+        required: true
+      responses:
+        201:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/HrefResponse
+          description: Successful response - Smart Computer Group created
+      summary: |
+        Create a Smart Computer Group
+      tags:
+        - computer-groups
+      x-deprecation-date: "2026-05-28"
+      x-required-privileges:
+        - Create Smart Computer Groups
+  /v2/computer-groups/smart-groups/{id}:
+    delete:
+      deprecated: true
+      description: |
+        Remove specified Smart Computer Group
+      parameters:
+        - description: id of target Smart Computer Group
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
+      responses:
+        204:
+          description: Successful response - Smart Computer Group removed
+        404:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Target Smart Computer Group does not exist.
+      summary: |
+        Remove specified Smart Computer Group
+      tags:
+        - computer-groups
+      x-deprecation-date: "2026-05-28"
+      x-required-privileges:
+        - Delete Smart Computer Groups
+    get:
+      deprecated: true
+      description: |
+        Get Smart Computer Group by Id
+      parameters:
+        - description: instance id of smart computer group
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SmartComputerGroupV2'
+          description: Successful response
+        404:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Smart Computer Group with the specified id does not exist
+      summary: |
+        Get Smart Computer Group by Id
+      tags:
+        - computer-groups
+      x-deprecation-date: "2026-05-28"
+      x-required-privileges:
+        - Read Smart Computer Groups
+    put:
+      deprecated: true
+      description: |
+        Updates a Smart Computer Group
+      parameters:
+        - description: id of target Smart Computer Group
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SmartComputerGroupV2'
+        required: true
+      responses:
+        202:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SmartComputerGroupV2'
+          description: Successful response - Smart Computer Group updated
+        404:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Target Smart Computer Group does not exist
+      summary: |
+        Update a Smart Computer Group
+      tags:
+        - computer-groups
+      x-deprecation-date: "2026-05-28"
+      x-required-privileges:
+        - Update Smart Computer Groups
+  /v3/computer-groups/smart-group-membership/{id}:
+    get:
+      description: |
+        Gets the membership of a Smart Computer Group
+      parameters:
+        - description: id of the Smart Computer Group
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SmartGroupMembership'
+          description: Successful response - Smart Computer Group membership retrieved
+        404:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: The requested resource was not found
+      summary: |
+        Get the membership of a Smart Computer Group
+      tags:
+        - computer-groups
+      x-required-privileges:
+        - Read Smart Computer Groups
+  /v3/computer-groups/smart-groups:
     get:
       description: |
         Search for Smart Computer Groups
@@ -148,7 +423,7 @@ paths:
         - Read Smart Computer Groups
     post:
       description: |
-        Creates a Smart Computer Group
+        Creates a Smart Computer Group with strict andOr enum validation.
       parameters:
         - description: Optional. Return platform identifiers instead of internal identifiers when set to true.
           explode: true
@@ -163,7 +438,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/SmartComputerGroupV2'
+              $ref: '#/components/schemas/SmartComputerGroupV3'
         required: true
       responses:
         201:
@@ -172,16 +447,31 @@ paths:
               schema:
                 $ref: _MonolithLibrary.yaml#/components/schemas/HrefResponse
           description: Successful response - Smart Computer Group created
+        400:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: |
+            Could not save smart computer group due to validation errors. Common causes include:
+            - Invalid priority order in criteria
+            - Invalid field values (e.g., andOr must be "and" or "or")
+        422:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Duplicate group name
       summary: |
         Create a Smart Computer Group
       tags:
         - computer-groups
       x-required-privileges:
         - Create Smart Computer Groups
-  /v2/computer-groups/smart-groups/{id}:
+  /v3/computer-groups/smart-groups/{id}:
     delete:
       description: |
-        Remove specified Smart Computer Group
+        Remove specified Smart Computer Group. Returns 422 if the group has dependencies.
       parameters:
         - description: id of target Smart Computer Group
           explode: false
@@ -199,7 +489,13 @@ paths:
             application/json:
               schema:
                 $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
-          description: Target Smart Computer Group does not exist.
+          description: The requested resource was not found.
+        422:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Cannot delete smart computer group due to dependencies
       summary: |
         Remove specified Smart Computer Group
       tags:
@@ -223,14 +519,14 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SmartComputerGroupV2'
+                $ref: '#/components/schemas/SmartComputerGroupV3'
           description: Successful response
         404:
           content:
             application/json:
               schema:
                 $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
-          description: Smart Computer Group with the specified id does not exist
+          description: The requested resource was not found
       summary: |
         Get Smart Computer Group by Id
       tags:
@@ -239,7 +535,7 @@ paths:
         - Read Smart Computer Groups
     put:
       description: |
-        Updates a Smart Computer Group
+        Updates a Smart Computer Group with strict andOr enum validation.
       parameters:
         - description: id of target Smart Computer Group
           explode: false
@@ -253,26 +549,240 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/SmartComputerGroupV2'
+              $ref: '#/components/schemas/SmartComputerGroupV3'
         required: true
       responses:
         202:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SmartComputerGroupV2'
+                $ref: '#/components/schemas/SmartComputerGroupV3'
           description: Successful response - Smart Computer Group updated
+        400:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: |
+            Could not update smart computer group due to validation errors. Common causes include:
+            - Invalid priority order in criteria
+            - Invalid field values (e.g., andOr must be "and" or "or")
         404:
           content:
             application/json:
               schema:
                 $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
-          description: Target Smart Computer Group does not exist
+          description: The requested resource was not found
+        422:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Duplicate group name
       summary: |
         Update a Smart Computer Group
       tags:
         - computer-groups
       x-required-privileges:
         - Update Smart Computer Groups
+  /v3/computer-groups/static-groups:
+    get:
+      description: |
+        Search for Static Computer Groups
+      parameters:
+        - $ref: _MonolithLibrary.yaml#/components/parameters/page
+        - $ref: _MonolithLibrary.yaml#/components/parameters/page-size
+        - description: 'Sorting criteria in the format: property:asc/desc. Default sort is id:asc. Multiple sort criteria are supported and must be separated with a comma. Example: sort=name:asc'
+          explode: true
+          in: query
+          name: sort
+          required: false
+          schema:
+            default:
+              - id:asc
+            items:
+              type: string
+            type: array
+          style: form
+        - description: 'Query in the RSQL format, allowing to filter static computer group collection. Default filter is empty query - returning all results for the requested page. Fields allowed in the query: id, name, siteId. The siteId field can only be filtered by admins with full access. Any sited admin will have siteId filtered automatically. Example: name=="*group*"'
+          explode: true
+          in: query
+          name: filter
+          required: false
+          schema:
+            default: ""
+            type: string
+          style: form
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/StaticComputerGroupSearchResults
+          description: Successful response
+      summary: |
+        Search for Static Computer Groups
+      tags:
+        - computer-groups
+      x-required-privileges:
+        - Read Static Computer Groups
+    post:
+      description: |
+        Create membership of a static computer group.
+      parameters:
+        - description: Optional. Return platform identifiers instead of internal identifiers when set to true.
+          explode: true
+          in: query
+          name: platform
+          required: false
+          schema:
+            default: false
+            type: boolean
+          style: form
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: _MonolithLibrary.yaml#/components/schemas/StaticComputerGroupAssignment
+        required: true
+      responses:
+        201:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/HrefResponse
+          description: Static computer group created successfully
+        400:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Could not save static computer group (e.g., invalid device IDs).
+        422:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Duplicate group name.
+      summary: |
+        Create membership of a static computer group.
+      tags:
+        - computer-groups
+      x-required-privileges:
+        - Create Static Computer Groups
+  /v3/computer-groups/static-groups/{id}:
+    delete:
+      description: |
+        Remove Static Computer Group by Id. Returns 422 if the group has dependencies.
+      parameters:
+        - description: instance id of static computer group
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
+      responses:
+        204:
+          description: Static Computer Group successfully removed
+        404:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: The requested resource was not found
+        422:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Cannot delete static computer group due to dependencies.
+      summary: |
+        Remove Static Computer Group by Id
+      tags:
+        - computer-groups
+      x-required-privileges:
+        - Delete Static Computer Groups
+    get:
+      description: |
+        Get Static Computer Group by Id
+      parameters:
+        - description: instance id of static computer group
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/StaticComputerGroup
+          description: Successful response
+        404:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: The requested resource was not found
+      summary: |
+        Get Static Computer Group by Id
+      tags:
+        - computer-groups
+      x-required-privileges:
+        - Read Static Computer Groups
+    put:
+      description: |
+        Update membership of a static computer group.
+      parameters:
+        - description: instance id of a static computer group
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: _MonolithLibrary.yaml#/components/schemas/StaticComputerGroupAssignment
+        required: true
+      responses:
+        202:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/StaticComputerGroupAssignment
+          description: Successful response
+        400:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Invalid device IDs provided.
+        404:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: The requested resource was not found
+        422:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Duplicate group name.
+      summary: |
+        Update membership of a static computer group.
+      tags:
+        - computer-groups
+      x-required-privileges:
+        - Update Static Computer Groups
 servers:
   - url: /api

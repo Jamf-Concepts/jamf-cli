@@ -1,0 +1,32 @@
+components:
+  schemas:
+    M2mTenantIdInfo:
+      properties:
+        tenantId:
+          description: The M2M-sourced tenant ID
+          example: a1b2c3d4-e5f6-7a8b-9c0d-e1f2a3b4c5d6
+          nullable: true
+          readOnly: true
+          type: string
+      type: object
+info:
+  title: Jamf Pro API - M2M
+  version: 0.0.1
+openapi: 3.0.1
+paths:
+  /v1/m2m/tenant-id:
+    get:
+      description: Returns the M2M-sourced tenant ID.
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/M2mTenantIdInfo'
+          description: M2M-sourced tenant ID is returned.
+      summary: Returns the M2M-sourced tenant ID.
+      tags:
+        - m2m
+      x-authentication-required: true
+servers:
+  - url: /api

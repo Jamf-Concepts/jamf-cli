@@ -176,6 +176,8 @@ var proGroupMap = map[string]string{
 	"computer-inventory-collection-settings": groupComputers,
 	"smart-computer-groups":                  groupComputers,
 	"static-computer-groups":                 groupComputers,
+	"computer-groups-smart-groups":           groupComputers,
+	"computer-groups-static-groups":          groupComputers,
 	"computers-inventory":                    groupComputers,
 	// macOS-only Dock customization (Pro: Settings > Computer management > Dock items)
 	"dock-items": groupComputers,
@@ -330,6 +332,7 @@ var proGroupMap = map[string]string{
 	"api-integrations":     groupAPIAccess,
 	"api-roles-privileges": groupAPIAccess,
 	"oauth-token-sessions": groupAPIAccess,
+	"m-2-ms":               groupAPIAccess,
 
 	// MDM & Certificates — the MDM transport itself: command queue, profile
 	// renewal, certificate plumbing, push notifications, and the DDM bridge

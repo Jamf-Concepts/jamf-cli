@@ -1033,6 +1033,10 @@ func detectSingleton(ops []*Operation) bool {
 // exists at multiple API versions in one spec (e.g. /v2/foo and /v3/foo with the
 // same method). The highest version is kept; ties prefer explicitly versioned paths
 // over unversioned legacy paths.
+//
+// For GET and DELETE operations the displaced lower-version path is appended to
+// the winner's FallbackPaths (in descending version order) so the runtime can
+// retry on 404 against older Jamf Pro tenants.
 func deduplicateVersionedOps(ops []*Operation) []*Operation {
 	type key struct{ method, path string }
 	seen := make(map[key]*Operation)
@@ -1058,9 +1062,29 @@ func deduplicateVersionedOps(ops []*Operation) []*Operation {
 			}
 			seen[k] = op
 			fmt.Fprintf(os.Stderr, "  Info: preferring %s %s over %s (higher version)\n", op.Method, op.Path, prev.Path)
+			// Carry fallback chain: try prev first, then its own fallbacks.
+			if op.Method == "GET" || op.Method == "DELETE" {
+				op.FallbackPaths = append([]string{prev.Path}, prev.FallbackPaths...)
+			}
+		} else {
+			// Keep prev (higher or equal version), record op as a fallback.
+			if op.Method == "GET" || op.Method == "DELETE" {
+				prev.FallbackPaths = append(prev.FallbackPaths, op.Path)
+				prev.FallbackPaths = append(prev.FallbackPaths, op.FallbackPaths...)
+			}
 		}
-		// else: keep prev, drop op (lower or equal version — implicit, no warning)
 	}
+
+	// Sort each op's FallbackPaths in descending version order so the runtime
+	// always tries the newest available fallback first.
+	for _, op := range result {
+		if len(op.FallbackPaths) > 1 {
+			sort.Slice(op.FallbackPaths, func(i, j int) bool {
+				return compareAPIVersions(op.FallbackPaths[i], op.FallbackPaths[j]) > 0
+			})
+		}
+	}
+
 	return result
 }
 

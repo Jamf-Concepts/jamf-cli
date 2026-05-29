@@ -62,7 +62,7 @@ func TestDeviceTarget_IsBulk(t *testing.T) {
 
 func TestComputerActionSubcommands_Exist(t *testing.T) {
 	resetGlobals()
-	root := NewRootCmd("test", "abc", "2024-01-01")
+	root := NewRootCmd("test", "abc", "2024-01-01", "unknown")
 
 	wantComputer := []string{
 		"erase", "remove-mdm", "redeploy-framework",
@@ -84,7 +84,7 @@ func TestComputerActionSubcommands_Exist(t *testing.T) {
 
 func TestMobileActionSubcommands_Exist(t *testing.T) {
 	resetGlobals()
-	root := NewRootCmd("test", "abc", "2024-01-01")
+	root := NewRootCmd("test", "abc", "2024-01-01", "unknown")
 
 	wantMobile := []string{
 		"erase", "unmanage",
@@ -108,7 +108,7 @@ func TestMobileActionSubcommands_Exist(t *testing.T) {
 
 func TestComputerAliasSubcommands(t *testing.T) {
 	resetGlobals()
-	root := NewRootCmd("test", "abc", "2024-01-01")
+	root := NewRootCmd("test", "abc", "2024-01-01", "unknown")
 	root.SetArgs([]string{"pro", "comp", "erase", "--help"})
 	if err := root.Execute(); err != nil {
 		t.Errorf("alias 'pro comp erase --help' failed: %v", err)
@@ -117,7 +117,7 @@ func TestComputerAliasSubcommands(t *testing.T) {
 
 func TestMobileAliasSubcommands(t *testing.T) {
 	resetGlobals()
-	root := NewRootCmd("test", "abc", "2024-01-01")
+	root := NewRootCmd("test", "abc", "2024-01-01", "unknown")
 	root.SetArgs([]string{"pro", "md", "erase", "--help"})
 	if err := root.Execute(); err != nil {
 		t.Errorf("alias 'pro md erase --help' failed: %v", err)
@@ -126,7 +126,7 @@ func TestMobileAliasSubcommands(t *testing.T) {
 
 func TestComputerEraseScaffold(t *testing.T) {
 	resetGlobals()
-	root := NewRootCmd("test", "abc", "2024-01-01")
+	root := NewRootCmd("test", "abc", "2024-01-01", "unknown")
 	root.SetArgs([]string{"pro", "computers", "erase", "--scaffold"})
 	if err := root.Execute(); err != nil {
 		t.Errorf("scaffold failed: %v", err)
@@ -135,7 +135,7 @@ func TestComputerEraseScaffold(t *testing.T) {
 
 func TestMobileEraseScaffold(t *testing.T) {
 	resetGlobals()
-	root := NewRootCmd("test", "abc", "2024-01-01")
+	root := NewRootCmd("test", "abc", "2024-01-01", "unknown")
 	root.SetArgs([]string{"pro", "mobile-devices", "erase", "--scaffold"})
 	if err := root.Execute(); err != nil {
 		t.Errorf("scaffold failed: %v", err)

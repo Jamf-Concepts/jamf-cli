@@ -25,7 +25,7 @@ func TestCommandsSubcommand_JSON(t *testing.T) {
 	noColor = true
 	wide = false
 
-	root := NewRootCmd("test", "abc123", "2024-01-01")
+	root := NewRootCmd("test", "abc123", "2024-01-01", "unknown")
 
 	var buf bytes.Buffer
 	root.SetOut(&buf)
@@ -42,7 +42,7 @@ func TestCommandsSubcommand_JSON(t *testing.T) {
 }
 
 func TestCollectCommands(t *testing.T) {
-	root := NewRootCmd("test", "abc123", "2024-01-01")
+	root := NewRootCmd("test", "abc123", "2024-01-01", "unknown")
 	entries := collectCommands(root, "", "", "")
 
 	if len(entries) == 0 {
@@ -176,7 +176,7 @@ func TestCommandEntriesToMaps_Compact(t *testing.T) {
 }
 
 func TestCollectCommands_ProductAndGroup(t *testing.T) {
-	root := NewRootCmd("test", "abc123", "2024-01-01")
+	root := NewRootCmd("test", "abc123", "2024-01-01", "unknown")
 	entries := collectCommands(root, "", "", "")
 
 	var found *commandEntry
@@ -199,7 +199,7 @@ func TestCollectCommands_ProductAndGroup(t *testing.T) {
 }
 
 func TestCollectCommands_ProtectProductAndGroup(t *testing.T) {
-	root := NewRootCmd("test", "abc123", "2024-01-01")
+	root := NewRootCmd("test", "abc123", "2024-01-01", "unknown")
 	entries := collectCommands(root, "", "", "")
 
 	var found *commandEntry
@@ -222,7 +222,7 @@ func TestCollectCommands_ProtectProductAndGroup(t *testing.T) {
 }
 
 func TestCollectCommands_RootCommandsNoProduct(t *testing.T) {
-	root := NewRootCmd("test", "abc123", "2024-01-01")
+	root := NewRootCmd("test", "abc123", "2024-01-01", "unknown")
 	entries := collectCommands(root, "", "", "")
 
 	var found *commandEntry
@@ -473,7 +473,7 @@ func TestPersistentPreRunE_MissingURL(t *testing.T) {
 	t.Setenv("JAMF_PROFILE", "")
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir()) // empty config dir — no profiles
 
-	root := NewRootCmd("test", "abc123", "2024-01-01")
+	root := NewRootCmd("test", "abc123", "2024-01-01", "unknown")
 	root.SetArgs([]string{"pro", "computers", "list"})
 
 	err := root.Execute()
@@ -495,7 +495,7 @@ func TestPersistentPreRunE_MissingAuth(t *testing.T) {
 	t.Setenv("JAMF_PROFILE", "")
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 
-	root := NewRootCmd("test", "abc123", "2024-01-01")
+	root := NewRootCmd("test", "abc123", "2024-01-01", "unknown")
 	root.SetArgs([]string{"pro", "computers", "list"})
 
 	err := root.Execute()
@@ -517,7 +517,7 @@ func TestPersistentPreRunE_PartialOAuth2_MissingSecret(t *testing.T) {
 	t.Setenv("JAMF_PROFILE", "")
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 
-	root := NewRootCmd("test", "abc123", "2024-01-01")
+	root := NewRootCmd("test", "abc123", "2024-01-01", "unknown")
 	root.SetArgs([]string{"pro", "computers", "list"})
 
 	err := root.Execute()
@@ -539,7 +539,7 @@ func TestPersistentPreRunE_PartialOAuth2_MissingID(t *testing.T) {
 	t.Setenv("JAMF_PROFILE", "")
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 
-	root := NewRootCmd("test", "abc123", "2024-01-01")
+	root := NewRootCmd("test", "abc123", "2024-01-01", "unknown")
 	root.SetArgs([]string{"pro", "computers", "list"})
 
 	err := root.Execute()
@@ -560,7 +560,7 @@ func TestPersistentPreRunE_SkipsForConfigCommand(t *testing.T) {
 	t.Setenv("JAMF_PROFILE", "")
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 
-	root := NewRootCmd("test", "abc123", "2024-01-01")
+	root := NewRootCmd("test", "abc123", "2024-01-01", "unknown")
 	root.SetArgs([]string{"config", "validate"})
 
 	err := root.Execute()
@@ -577,7 +577,7 @@ func TestPersistentPreRunE_SkipsForVersionCommand(t *testing.T) {
 	t.Setenv("JAMF_PROFILE", "")
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 
-	root := NewRootCmd("test", "abc123", "2024-01-01")
+	root := NewRootCmd("test", "abc123", "2024-01-01", "unknown")
 	root.SetArgs([]string{"version"})
 
 	err := root.Execute()
@@ -1017,7 +1017,7 @@ func TestPersistentPreRunE_NOCOLOREnv(t *testing.T) {
 	t.Setenv("JAMF_PROFILE", "")
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 
-	root := NewRootCmd("test", "abc123", "2024-01-01")
+	root := NewRootCmd("test", "abc123", "2024-01-01", "unknown")
 
 	// Capture stdout
 	oldStdout := os.Stdout

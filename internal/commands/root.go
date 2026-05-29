@@ -33,25 +33,26 @@ import (
 
 // Global flags
 var (
-	profile      string
-	outputFmt    string
-	quiet        bool
-	verboseLevel int
-	noInput      bool
-	noColor      bool
-	dryRun       bool
-	wide         bool
-	compact      bool
-	selectFields []string
-	outFile      string
-	fieldName    string
-	serverURL    string
-	token        string
-	tokenFile    string
-	clientID     string
-	clientSecret string
-	tenantID     string
-	cliVersion   string // set by NewRootCmd for use by power commands
+	profile        string
+	outputFmt      string
+	quiet          bool
+	verboseLevel   int
+	noInput        bool
+	noColor        bool
+	dryRun         bool
+	wide           bool
+	compact        bool
+	selectFields   []string
+	outFile        string
+	fieldName      string
+	serverURL      string
+	token          string
+	tokenFile      string
+	clientID       string
+	clientSecret   string
+	tenantID       string
+	cliVersion     string // set by NewRootCmd for use by power commands
+	noVersionCheck bool   // skip tenant version compatibility probe
 )
 
 // cliClient wraps our client to implement registry.HTTPClient
@@ -198,6 +199,73 @@ func (c *dryRunClient) Do(ctx context.Context, method, path string, body io.Read
 		Body:       io.NopCloser(strings.NewReader("{}")),
 		Header:     make(http.Header),
 	}, nil
+}
+
+// checkTenantVersion probes /v1/jamf-pro-version and emits a one-line stderr
+// warning when the tenant is running an older Jamf Pro than the spec version
+// this CLI was generated from. Any error (auth failure, timeout, unparseable
+// response) is silently ignored — this check must never break a command.
+func checkTenantVersion(c *cliClient, specVersion string) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	resp, err := c.Do(ctx, "GET", "/v1/jamf-pro-version", nil)
+	if err != nil {
+		return
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	var result struct {
+		Version string `json:"version"`
+	}
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 512))
+	if err != nil || json.Unmarshal(body, &result) != nil || result.Version == "" {
+		return
+	}
+
+	if compareProVersions(result.Version, specVersion) < 0 {
+		fmt.Fprintf(os.Stderr, "warning: tenant is on Jamf Pro %s; this CLI was built against %s — some commands may not be available\n", result.Version, specVersion)
+	}
+}
+
+// compareProVersions compares two Jamf Pro version strings (e.g. "11.28.0").
+// Returns -1 if a < b, 0 if equal, 1 if a > b. Any non-numeric suffix is
+// stripped before comparison (e.g. "11.28.0-t1234" → "11.28.0").
+func compareProVersions(a, b string) int {
+	parse := func(v string) [3]int {
+		// Strip build suffix at first non-digit/dot character.
+		end := len(v)
+		for i, c := range v {
+			if c != '.' && (c < '0' || c > '9') {
+				end = i
+				break
+			}
+		}
+		v = v[:end]
+		parts := strings.SplitN(v, ".", 3)
+		var n [3]int
+		for i, p := range parts {
+			if i >= 3 {
+				break
+			}
+			for _, c := range p {
+				if c >= '0' && c <= '9' {
+					n[i] = n[i]*10 + int(c-'0')
+				}
+			}
+		}
+		return n
+	}
+	av, bv := parse(a), parse(b)
+	for i := range av {
+		if av[i] < bv[i] {
+			return -1
+		}
+		if av[i] > bv[i] {
+			return 1
+		}
+	}
+	return 0
 }
 
 // AuthParams holds all auth-related inputs for profile resolution.
@@ -394,7 +462,7 @@ func resolveAuth(cfg *config.Config) (string, auth.Provider, error) {
 	return url, provider, nil
 }
 
-func NewRootCmd(version, commit, date string) *cobra.Command {
+func NewRootCmd(version, commit, date, specProVersion string) *cobra.Command {
 	cliVersion = version
 	// CLIContext is populated in PersistentPreRunE after token/URL resolution
 	cliCtx := &registry.CLIContext{}
@@ -555,6 +623,15 @@ Set JAMF_CLI_ARGS to prepend default flags to every invocation:
 				)
 			}
 
+			// Tenant version check — probe once per invocation and warn if the
+			// tenant is running an older Jamf Pro than the spec was built against.
+			// Non-fatal: any error (403, timeout, unknown version) is silently
+			// ignored. Suppressed by --no-version-check, --quiet, or the
+			// JAMF_NO_VERSION_CHECK env var.
+			if !noVersionCheck && !quiet && os.Getenv("JAMF_NO_VERSION_CHECK") == "" && specProVersion != "unknown" {
+				checkTenantVersion(proClient, specProVersion)
+			}
+
 			return nil
 		},
 		PersistentPostRunE: func(cmd *cobra.Command, args []string) error {
@@ -586,9 +663,10 @@ Set JAMF_CLI_ARGS to prepend default flags to every invocation:
 	cmd.PersistentFlags().StringVar(&serverURL, "url", "", "Jamf Pro server URL (or JAMF_URL env)")
 	cmd.PersistentFlags().StringVar(&tokenFile, "token-file", "", "path to file containing API token")
 	cmd.PersistentFlags().StringVar(&tenantID, "tenant-id", "", "Jamf Pro tenant ID for platform gateway auth (or JAMF_TENANT_ID env)")
+	cmd.PersistentFlags().BoolVar(&noVersionCheck, "no-version-check", false, "skip tenant version compatibility check (also: JAMF_NO_VERSION_CHECK env)")
 
 	// Version command (extracted to version.go so it can pull in provenance).
-	cmd.AddCommand(newVersionCmd(cliCtx, version, commit, date))
+	cmd.AddCommand(newVersionCmd(cliCtx, version, commit, date, specProVersion))
 
 	// Config command group
 	cmd.AddCommand(newConfigCmd(cliCtx))

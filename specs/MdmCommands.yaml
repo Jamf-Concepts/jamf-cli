@@ -220,14 +220,21 @@ components:
     EnableLostModeCommand:
       allOf:
         - $ref: '#/components/schemas/MdmCommandBase'
-        - properties:
+        - description: |
+            Enables Lost Mode on a supervised iOS device. At least one of lostModeMessage or lostModePhone must be provided.
+          properties:
             lostModeFootnote:
-              example: This is a footnote
+              description: Text displayed at the bottom of the Lock Screen.
+              example: Please return to the front desk.
               type: string
             lostModeMessage:
-              example: Lost Mode Message
+              description: |
+                Text displayed on the Lock Screen. At least one of lostModeMessage or lostModePhone must be provided.
+              example: This device has been reported lost.
               type: string
             lostModePhone:
+              description: |
+                Phone number displayed on the Lock Screen. At least one of lostModePhone or lostModeMessage must be provided.
               example: 123-456-7890
               type: string
           type: object
@@ -716,6 +723,8 @@ components:
               nullable: true
               type: boolean
             bootstrapTokenAllowed:
+              deprecated: true
+              description: Deprecated - BootstrapTokenAllowed is automatically managed by macOS 11 and later. This field will continue to function but is no longer necessary.
               example: true
               nullable: true
               type: boolean

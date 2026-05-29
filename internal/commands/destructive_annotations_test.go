@@ -101,7 +101,7 @@ func walkCommands(root *cobra.Command, fn func(*cobra.Command)) {
 // interactive confirmation. A failure here means the annotation is decorative
 // and the command's destructive action isn't gated against accidental use.
 func TestDestructiveCommandsHaveYesFlag(t *testing.T) {
-	root := NewRootCmd("test", "abc123", "2024-01-01")
+	root := NewRootCmd("test", "abc123", "2024-01-01", "unknown")
 
 	// minDestructiveCommands is a floor sanity check — if the count ever
 	// drops below this, the generator template's annotation emission likely
@@ -144,7 +144,7 @@ func TestDestructiveCommandsHaveYesFlag(t *testing.T) {
 // destructiveHint, future structural checks) consume isn't set — the
 // command will be treated as benign by tooling that reads the annotation.
 func TestDestructiveVerbCommandsAreAnnotated(t *testing.T) {
-	root := NewRootCmd("test", "abc123", "2024-01-01")
+	root := NewRootCmd("test", "abc123", "2024-01-01", "unknown")
 
 	var violations []string
 	walkCommands(root, func(cmd *cobra.Command) {

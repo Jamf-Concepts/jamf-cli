@@ -252,7 +252,7 @@ func newStaticComputerGroupsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
   "assignments": [],
   "description": "A test static computer group",
   "name": "Test Static Computer Group",
-  "siteId": "1"
+  "siteId": "-1"
 }`, ctx.Output.Format())
 			}
 
@@ -328,7 +328,7 @@ func newStaticComputerGroupsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
   "assignments": [],
   "description": "A test static computer group",
   "name": "Test Static Computer Group",
-  "siteId": "1"
+  "siteId": "-1"
 }`, ctx.Output.Format())
 			}
 
@@ -626,7 +626,7 @@ If not, a new resource is created.`,
   "assignments": [],
   "description": "A test static computer group",
   "name": "Test Static Computer Group",
-  "siteId": "1"
+  "siteId": "-1"
 }`, ctx.Output.Format())
 			}
 
