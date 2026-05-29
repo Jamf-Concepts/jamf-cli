@@ -17,7 +17,10 @@ import (
 
 // permissionsSummary returns a compact description of role permissions,
 // e.g. "R: all, W: 3 resources" or "R: 5 resources, W: all".
-func permissionsSummary(p jamfprotect.RolePermissions) string {
+func permissionsSummary(p *jamfprotect.RolePermissions) string {
+	if p == nil {
+		return "R: none, W: none"
+	}
 	describe := func(label string, items []string) string {
 		if slices.Contains(items, "*") {
 			return label + ": all"
@@ -229,9 +232,10 @@ func newProtectRolesExportCmd(cliCtx *registry.CLIContext) *cobra.Command {
 
 // roleToInput converts a Role response to a RoleInput, stripping server-only fields.
 func roleToInput(r *jamfprotect.Role) jamfprotect.RoleInput {
-	return jamfprotect.RoleInput{
-		Name:           r.Name,
-		ReadResources:  r.Permissions.Read,
-		WriteResources: r.Permissions.Write,
+	input := jamfprotect.RoleInput{Name: r.Name}
+	if r.Permissions != nil {
+		input.ReadResources = r.Permissions.Read
+		input.WriteResources = r.Permissions.Write
 	}
+	return input
 }

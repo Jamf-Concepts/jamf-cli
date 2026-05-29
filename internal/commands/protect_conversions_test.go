@@ -162,7 +162,7 @@ func TestFlattenAnalyticSet_AnalyticsCount(t *testing.T) {
 func TestRoleToInput_MapsPermissions(t *testing.T) {
 	r := &jamfprotect.Role{
 		Name: "Admin",
-		Permissions: jamfprotect.RolePermissions{
+		Permissions: &jamfprotect.RolePermissions{
 			Read:  []string{"plans", "analytics", "computers"},
 			Write: []string{"plans"},
 		},
@@ -430,7 +430,7 @@ func TestFlattenInsight_BasicFields(t *testing.T) {
 		TotalPass: 42,
 		TotalFail: 3,
 		TotalNone: 1,
-		CisID:     []jamfprotect.InsightCisID{{ID: "5.1.1", OSVersion: "14"}},
+		Cisid:     []jamfprotect.InsightCisID{{ID: "5.1.1", OSVersion: "14"}},
 	}
 	m := flattenInsight(i)
 
@@ -453,7 +453,7 @@ func TestFlattenInsight_BasicFields(t *testing.T) {
 
 func TestFlattenInsight_MultipleCISIDs(t *testing.T) {
 	i := jamfprotect.Insight{
-		CisID: []jamfprotect.InsightCisID{
+		Cisid: []jamfprotect.InsightCisID{
 			{ID: "1.1", OSVersion: "14"},
 			{ID: "1.2", OSVersion: "15"},
 		},
