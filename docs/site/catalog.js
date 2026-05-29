@@ -6,7 +6,7 @@
   // pillar is preserved from GROUP_ORDER. Groups not listed here render
   // without a pillar divider (Protect-specific groups, etc.).
   var PILLARS = [
-    { label: 'Quick Access',       groups: ['Getting Started', 'Power Commands', 'Configuration', 'Shell Completion', 'Utilities', 'Core Commands'] },
+    { label: 'Quick Access',       groups: ['Getting Started', 'Power Commands', 'Configuration', 'Shell Completion', 'Utilities', 'Core Commands', 'Products'] },
     { label: 'Devices',            groups: ['Computer Management', 'Mobile Device Management', 'Enrollment', 'Inventory & Search', 'Organization'] },
     { label: 'Software & Content', groups: ['Apps & Patching', 'Distribution & JCDS', 'Scripts & Policies', 'Self Service', 'Jamf App Integrations'] },
     { label: 'Identity & Access',  groups: ['Users & Groups', 'Admin Accounts', 'Identity Providers', 'Admin SSO', 'API Access'] },

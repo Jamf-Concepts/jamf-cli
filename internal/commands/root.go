@@ -258,7 +258,7 @@ func checkTenantVersion(c registry.HTTPClient, specVersion, profileName string, 
 		if cache := readVersionCache(); cache != nil {
 			if entry, ok := cache[profileName]; ok && time.Since(entry.CheckedAt) < versionCacheTTL {
 				if compareProVersions(entry.Version, specVersion) < 0 {
-					fmt.Fprintf(w, "warning: tenant is on Jamf Pro %s; this CLI was built against %s — some commands may not be available\n", entry.Version, specVersion)
+					_, _ = fmt.Fprintf(w, "warning: tenant is on Jamf Pro %s; this CLI was built against %s — some commands may not be available\n", entry.Version, specVersion)
 				}
 				return
 			}
@@ -287,7 +287,7 @@ func checkTenantVersion(c registry.HTTPClient, specVersion, profileName string, 
 	}
 
 	if compareProVersions(result.Version, specVersion) < 0 {
-		fmt.Fprintf(w, "warning: tenant is on Jamf Pro %s; this CLI was built against %s — some commands may not be available\n", result.Version, specVersion)
+		_, _ = fmt.Fprintf(w, "warning: tenant is on Jamf Pro %s; this CLI was built against %s — some commands may not be available\n", result.Version, specVersion)
 	}
 }
 
