@@ -119,7 +119,7 @@ func RegisterCommands(root *cobra.Command, ctx *registry.CLIContext) {
 	root.AddCommand(NewLocalesCmd(ctx))
 	root.AddCommand(NewLogFlushingsCmd(ctx))
 	root.AddCommand(NewLoginCustomizationCmd(ctx))
-	root.AddCommand(NewM2MsCmd(ctx))
+	root.AddCommand(NewM2MCmd(ctx))
 	root.AddCommand(NewMacOsManagedSoftwareUpdatesCmd(ctx))
 	root.AddCommand(NewManagedSoftwareUpdatesCmd(ctx))
 	root.AddCommand(NewManagedSoftwareUpdatesPlansCmd(ctx))

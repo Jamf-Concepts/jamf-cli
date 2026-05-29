@@ -9,31 +9,31 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// NewM2MsCmd creates the m-2-ms command group
-func NewM2MsCmd(ctx *registry.CLIContext) *cobra.Command {
+// NewM2MCmd creates the m2m command group
+func NewM2MCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "m-2-ms",
-		Short: "Manage m-2-ms",
-		Long:  `Manage m-2-ms in Jamf Pro.`,
+		Use:   "m2m",
+		Short: "Manage m2m",
+		Long:  `Manage m2m in Jamf Pro.`,
 	}
 
-	cmd.AddCommand(newM2MsListCmd(ctx))
+	cmd.AddCommand(newM2MListCmd(ctx))
 
 	return cmd
 }
 
-func newM2MsListCmd(ctx *registry.CLIContext) *cobra.Command {
+func newM2MListCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "Returns the M2M-sourced tenant ID.",
 		Long:  "Returns the M2M-sourced tenant ID.",
-		Example: `  # List all m-2-ms
-  jamf-cli pro m-2-ms list
+		Example: `  # List all m2m
+  jamf-cli pro m2m list
 
-  # List m-2-ms and extract IDs
-  jamf-cli pro m-2-ms list --field id`,
+  # List m2m and extract IDs
+  jamf-cli pro m2m list --field id`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

@@ -472,6 +472,9 @@ func generateBackupRegistry(outputDir string, modern []*parser.Resource, classic
 			case "list":
 				if !strings.Contains(op.Path, "{") {
 					listPath = op.Path
+					// Only the first (highest) fallback is stored; the backup runtime
+					// tries a single level of fallback, unlike generated commands which
+					// walk the full FallbackPaths chain.
 					if len(op.FallbackPaths) > 0 {
 						fallbackListPath = op.FallbackPaths[0]
 					}
@@ -479,6 +482,7 @@ func generateBackupRegistry(outputDir string, modern []*parser.Resource, classic
 			case "get":
 				if strings.Contains(op.Path, "{id}") {
 					getPath = op.Path
+					// Same single-level limitation as list above.
 					if len(op.FallbackPaths) > 0 {
 						fallbackGetPath = op.FallbackPaths[0]
 					}

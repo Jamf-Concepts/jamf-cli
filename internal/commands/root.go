@@ -201,11 +201,70 @@ func (c *dryRunClient) Do(ctx context.Context, method, path string, body io.Read
 	}, nil
 }
 
-// checkTenantVersion probes /v1/jamf-pro-version and emits a one-line stderr
-// warning when the tenant is running an older Jamf Pro than the spec version
-// this CLI was generated from. Any error (auth failure, timeout, unparseable
-// response) is silently ignored — this check must never break a command.
-func checkTenantVersion(c *cliClient, specVersion string) {
+// versionCacheEntry holds a single cached tenant version probe result.
+type versionCacheEntry struct {
+	Version   string    `json:"version"`
+	CheckedAt time.Time `json:"checked_at"`
+}
+
+const versionCacheTTL = 24 * time.Hour
+
+func versionCachePath() string {
+	return filepath.Join(filepath.Dir(config.ConfigPath()), ".version-cache.json")
+}
+
+func readVersionCache() map[string]versionCacheEntry {
+	data, err := os.ReadFile(versionCachePath())
+	if err != nil {
+		return nil
+	}
+	var cache map[string]versionCacheEntry
+	if json.Unmarshal(data, &cache) != nil {
+		return nil
+	}
+	return cache
+}
+
+func writeVersionCache(profileName, version string) {
+	cache := readVersionCache()
+	if cache == nil {
+		cache = make(map[string]versionCacheEntry)
+	}
+	cache[profileName] = versionCacheEntry{Version: version, CheckedAt: time.Now().UTC()}
+	data, err := json.Marshal(cache)
+	if err != nil {
+		return
+	}
+	// Atomic write: temp file then rename to avoid corrupt reads from parallel invocations.
+	tmp := versionCachePath() + ".tmp"
+	if os.WriteFile(tmp, data, 0o600) == nil {
+		_ = os.Rename(tmp, versionCachePath())
+	}
+}
+
+// checkTenantVersion probes /v1/jamf-pro-version and emits a one-line warning
+// to w when the tenant is running an older Jamf Pro than the spec version this
+// CLI was generated from. Results are cached per named profile for 24 hours so
+// that fast single-shot commands don't pay an extra round-trip on every call.
+// Any error (auth failure, timeout, unparseable response) is silently ignored —
+// this check must never break a command.
+func checkTenantVersion(c registry.HTTPClient, specVersion, profileName string, w io.Writer) {
+	if specVersion == "unknown" {
+		return
+	}
+
+	// Use cached version when available and fresh to avoid a round-trip per command.
+	if profileName != "" {
+		if cache := readVersionCache(); cache != nil {
+			if entry, ok := cache[profileName]; ok && time.Since(entry.CheckedAt) < versionCacheTTL {
+				if compareProVersions(entry.Version, specVersion) < 0 {
+					fmt.Fprintf(w, "warning: tenant is on Jamf Pro %s; this CLI was built against %s — some commands may not be available\n", entry.Version, specVersion)
+				}
+				return
+			}
+		}
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
@@ -223,8 +282,12 @@ func checkTenantVersion(c *cliClient, specVersion string) {
 		return
 	}
 
+	if profileName != "" {
+		writeVersionCache(profileName, result.Version)
+	}
+
 	if compareProVersions(result.Version, specVersion) < 0 {
-		fmt.Fprintf(os.Stderr, "warning: tenant is on Jamf Pro %s; this CLI was built against %s — some commands may not be available\n", result.Version, specVersion)
+		fmt.Fprintf(w, "warning: tenant is on Jamf Pro %s; this CLI was built against %s — some commands may not be available\n", result.Version, specVersion)
 	}
 }
 
@@ -623,13 +686,12 @@ Set JAMF_CLI_ARGS to prepend default flags to every invocation:
 				)
 			}
 
-			// Tenant version check — probe once per invocation and warn if the
-			// tenant is running an older Jamf Pro than the spec was built against.
-			// Non-fatal: any error (403, timeout, unknown version) is silently
-			// ignored. Suppressed by --no-version-check, --quiet, or the
-			// JAMF_NO_VERSION_CHECK env var.
-			if !noVersionCheck && !quiet && os.Getenv("JAMF_NO_VERSION_CHECK") == "" && specProVersion != "unknown" {
-				checkTenantVersion(proClient, specProVersion)
+			// Tenant version check — probes once per 24 h per profile and warns if
+			// the tenant is running an older Jamf Pro than the spec. Non-fatal: any
+			// error is silently ignored. Suppressed by --no-version-check, --quiet,
+			// or JAMF_NO_VERSION_CHECK. The "unknown" guard is inside the function.
+			if !noVersionCheck && !quiet && os.Getenv("JAMF_NO_VERSION_CHECK") == "" {
+				checkTenantVersion(proClient, specProVersion, profile, os.Stderr)
 			}
 
 			return nil

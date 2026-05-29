@@ -301,7 +301,7 @@ func AllSmokeEndpoints() []SmokeEndpoint {
 		{Resource: "log-flushings", Operation: "list", Method: "GET", Path: "/v1/log-flushing/task", IsList: false, HasPathParams: false, IsClassic: false, WrapperKey: "", SingularKey: ""},
 		{Resource: "log-flushings", Operation: "log-flushing", Method: "GET", Path: "/v1/log-flushing", IsList: false, HasPathParams: false, IsClassic: false, WrapperKey: "", SingularKey: ""},
 		{Resource: "login-customization", Operation: "get", Method: "GET", Path: "/v1/login-customization", IsList: false, HasPathParams: false, IsClassic: false, WrapperKey: "", SingularKey: ""},
-		{Resource: "m-2-ms", Operation: "list", Method: "GET", Path: "/v1/m2m/tenant-id", IsList: false, HasPathParams: false, IsClassic: false, WrapperKey: "", SingularKey: ""},
+		{Resource: "m2m", Operation: "list", Method: "GET", Path: "/v1/m2m/tenant-id", IsList: false, HasPathParams: false, IsClassic: false, WrapperKey: "", SingularKey: ""},
 		{Resource: "mac-os-managed-software-updates", Operation: "list", Method: "GET", Path: "/v1/macos-managed-software-updates/available-updates", IsList: false, HasPathParams: false, IsClassic: false, WrapperKey: "", SingularKey: ""},
 		{Resource: "managed-software-updates", Operation: "available-updates", Method: "GET", Path: "/v1/managed-software-updates/available-updates", IsList: false, HasPathParams: false, IsClassic: false, WrapperKey: "", SingularKey: ""},
 		{Resource: "managed-software-updates", Operation: "get", Method: "GET", Path: "/v1/managed-software-updates/update-statuses/computer-groups/{id}", IsList: false, HasPathParams: true, IsClassic: false, WrapperKey: "", SingularKey: ""},

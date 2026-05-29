@@ -28,6 +28,8 @@ var resourceNameOverrides = map[string]string{
 	"ddm-statuss":              "ddm-status",
 	"startup-statuss":          "startup-status",
 	"apns-client-push-statuss": "apns-client-push-status",
+	// "m2m" → kebab → "m-2-m" → pluralize → "m-2-ms"; preserve the original token.
+	"m-2-ms": "m2m",
 }
 
 // ApplyNameOverrides corrects resource names that auto-pluralization got wrong.
