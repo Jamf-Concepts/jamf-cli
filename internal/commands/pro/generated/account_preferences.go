@@ -50,9 +50,10 @@ func newAccountPreferencesListCmd(ctx *registry.CLIContext) *cobra.Command {
 			if len(queryParts) > 0 {
 				path = path + "?" + strings.Join(queryParts, "&")
 			}
+			vft := newVersionFallback("/v3/account-preferences")
 
 			// Make request
-			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			resp, err := vft.do(ctx.Client, reqCtx, "GET", path, nil, []string{"/v2/account-preferences"})
 			if err != nil {
 				return err
 			}

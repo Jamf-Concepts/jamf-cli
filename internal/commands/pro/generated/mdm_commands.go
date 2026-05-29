@@ -74,6 +74,7 @@ func newMdmCommandsListCmd(ctx *registry.CLIContext) *cobra.Command {
 			if len(queryParts) > 0 {
 				path = path + "?" + strings.Join(queryParts, "&")
 			}
+			vft := newVersionFallback("/v2/mdm/commands")
 
 			// Auto-pagination: fetch all pages when --all is set and --page was not manually specified
 			if flagAll && flagPage == 0 {
@@ -95,7 +96,7 @@ func newMdmCommandsListCmd(ctx *registry.CLIContext) *cobra.Command {
 					pageQuery = append(pageQuery, fmt.Sprintf("page-size=%d", pageSize))
 					pagePath = pagePath + "?" + strings.Join(pageQuery, "&")
 
-					resp, err := ctx.Client.Do(reqCtx, "GET", pagePath, nil)
+					resp, err := vft.do(ctx.Client, reqCtx, "GET", pagePath, nil, []string{"/v1/mdm/commands"})
 					if err != nil {
 						return err
 					}
@@ -141,7 +142,7 @@ func newMdmCommandsListCmd(ctx *registry.CLIContext) *cobra.Command {
 			}
 
 			// Make request
-			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			resp, err := vft.do(ctx.Client, reqCtx, "GET", path, nil, []string{"/v1/mdm/commands"})
 			if err != nil {
 				return err
 			}

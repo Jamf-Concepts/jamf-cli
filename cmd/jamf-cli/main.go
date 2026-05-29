@@ -12,9 +12,10 @@ import (
 )
 
 var (
-	version = "dev"
-	commit  = "none"
-	date    = "unknown"
+	version        = "dev"
+	commit         = "none"
+	date           = "unknown"
+	specProVersion = "unknown"
 )
 
 // injectEnvArgs prepends flags from JAMF_CLI_ARGS into args (after the program name).
@@ -42,7 +43,7 @@ func injectEnvArgs(args []string, env string) []string {
 func main() {
 	os.Args = injectEnvArgs(os.Args, os.Getenv("JAMF_CLI_ARGS"))
 
-	cmd := commands.NewRootCmd(version, commit, date)
+	cmd := commands.NewRootCmd(version, commit, date, specProVersion)
 	if err := cmd.Execute(); err != nil {
 		if !commands.FormatError(err) {
 			fmt.Fprintln(os.Stderr, err)

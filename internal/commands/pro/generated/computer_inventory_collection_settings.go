@@ -55,9 +55,10 @@ func newComputerInventoryCollectionSettingsListCmd(ctx *registry.CLIContext) *co
 			if len(queryParts) > 0 {
 				path = path + "?" + strings.Join(queryParts, "&")
 			}
+			vft := newVersionFallback("/v2/computer-inventory-collection-settings")
 
 			// Make request
-			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			resp, err := vft.do(ctx.Client, reqCtx, "GET", path, nil, []string{"/v1/computer-inventory-collection-settings"})
 			if err != nil {
 				return err
 			}
@@ -305,9 +306,10 @@ func newComputerInventoryCollectionSettingsDeleteCmd(ctx *registry.CLIContext) *
 			if len(queryParts) > 0 {
 				path = path + "?" + strings.Join(queryParts, "&")
 			}
+			vft := newVersionFallback("/v2/computer-inventory-collection-settings/custom-path/{id}")
 
 			// Make request
-			resp, err := ctx.Client.Do(reqCtx, "DELETE", path, nil)
+			resp, err := vft.do(ctx.Client, reqCtx, "DELETE", path, nil, []string{"/v1/computer-inventory-collection-settings/custom-path/{id}"})
 			if err != nil {
 				return err
 			}

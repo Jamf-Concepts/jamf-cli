@@ -27,7 +27,7 @@ const classicSpecPrefix = "specs/classic/"
 // Jamf Pro / Platform spec version is this CLI generated against?"
 // without git archaeology. Honours -o json/yaml; falls through to text
 // for anything else.
-func newVersionCmd(cliCtx *registry.CLIContext, version, commit, date string) *cobra.Command {
+func newVersionCmd(cliCtx *registry.CLIContext, version, commit, date, specProVersion string) *cobra.Command {
 	var verbose bool
 	cmd := &cobra.Command{
 		Use:   "version",
@@ -41,7 +41,7 @@ code-generation time, with SHA256 hashes — useful for diagnosing
 Output is text by default. Pass -o json or -o yaml to get a structured
 report keyed by source group (pro, proClassic, platform).`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return renderVersion(cliCtx, version, commit, date, verbose, outputFmt)
+			return renderVersion(cliCtx, version, commit, date, specProVersion, verbose, outputFmt)
 		},
 	}
 	cmd.Flags().BoolVarP(&verbose, "verbose", "v", false, "print spec provenance (file + SHA256) for generated commands")
@@ -52,10 +52,11 @@ report keyed by source group (pro, proClassic, platform).`,
 // Sources field is omitted when verbose is false to keep the default
 // banner minimal.
 type versionReport struct {
-	Version string        `json:"version"`
-	Commit  string        `json:"commit"`
-	Built   string        `json:"built"`
-	Sources *versionSpecs `json:"specSources,omitempty"`
+	Version        string        `json:"version"`
+	Commit         string        `json:"commit"`
+	Built          string        `json:"built"`
+	SpecProVersion string        `json:"specProVersion,omitempty"`
+	Sources        *versionSpecs `json:"specSources,omitempty"`
 }
 
 // versionSpecs partitions provenance by origin so consumers can filter
@@ -77,9 +78,9 @@ type specEntry struct {
 // YAML go through the formatter (which handles json↔yaml conversion);
 // everything else (table, csv, xml, plain, default) renders the human
 // banner. Mirrors doctor's format-routing convention.
-func renderVersion(cliCtx *registry.CLIContext, version, commit, date string, verbose bool, format string) error {
+func renderVersion(cliCtx *registry.CLIContext, version, commit, date, specProVersion string, verbose bool, format string) error {
 	if format == "json" || format == "yaml" {
-		report := buildVersionReport(version, commit, date, verbose)
+		report := buildVersionReport(version, commit, date, specProVersion, verbose)
 		data, err := json.Marshal(report)
 		if err != nil {
 			return err
@@ -91,14 +92,14 @@ func renderVersion(cliCtx *registry.CLIContext, version, commit, date string, ve
 		return err
 	}
 	w := writerFor(cliCtx)
-	printVersion(w, version, commit, date, verbose)
+	printVersion(w, version, commit, date, specProVersion, verbose)
 	return nil
 }
 
 // buildVersionReport assembles the structured report. Pure function for
 // easy testing of the JSON shape and classic-vs-modern partitioning.
-func buildVersionReport(version, commit, date string, verbose bool) versionReport {
-	r := versionReport{Version: version, Commit: commit, Built: date}
+func buildVersionReport(version, commit, date, specProVersion string, verbose bool) versionReport {
+	r := versionReport{Version: version, Commit: commit, Built: date, SpecProVersion: specProVersion}
 	if !verbose {
 		return r
 	}
@@ -137,7 +138,7 @@ func partitionProSources(all []progen.SpecSource) (modern, classic []progen.Spec
 // is true — to w. Pure function for easy testing. Classic Pro specs get
 // their own section so the manifest-derived entry doesn't get lost in
 // the long modern-spec list.
-func printVersion(w io.Writer, version, commit, date string, verbose bool) {
+func printVersion(w io.Writer, version, commit, date, specProVersion string, verbose bool) {
 	pf := func(format string, args ...any) {
 		_, _ = fmt.Fprintf(w, format, args...)
 	}
@@ -148,6 +149,9 @@ func printVersion(w io.Writer, version, commit, date string, verbose bool) {
 	pf("jamf-cli %s\n", version)
 	pf("  commit: %s\n", commit)
 	pf("  built:  %s\n", date)
+	if specProVersion != "" && specProVersion != "unknown" {
+		pf("  spec:   Jamf Pro %s\n", specProVersion)
+	}
 
 	if !verbose {
 		return

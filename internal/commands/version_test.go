@@ -13,7 +13,7 @@ import (
 
 func TestPrintVersion_DefaultBanner(t *testing.T) {
 	var buf bytes.Buffer
-	printVersion(&buf, "v1.0.0", "abc1234", "2026-05-08T00:00:00Z", false)
+	printVersion(&buf, "v1.0.0", "abc1234", "2026-05-08T00:00:00Z", "unknown", false)
 	out := buf.String()
 
 	for _, want := range []string{"v1.0.0", "abc1234", "2026-05-08T00:00:00Z"} {
@@ -28,7 +28,7 @@ func TestPrintVersion_DefaultBanner(t *testing.T) {
 
 func TestPrintVersion_VerboseShowsProvenance(t *testing.T) {
 	var buf bytes.Buffer
-	printVersion(&buf, "v1.0.0", "abc1234", "2026-05-08T00:00:00Z", true)
+	printVersion(&buf, "v1.0.0", "abc1234", "2026-05-08T00:00:00Z", "unknown", true)
 	out := buf.String()
 
 	for _, want := range []string{"Pro spec sources:", "Pro Classic spec sources:", "Platform spec sources:"} {
@@ -45,7 +45,7 @@ func TestPrintVersion_VerboseShowsProvenance(t *testing.T) {
 // "Pro spec sources:" rather than getting their own header.
 func TestPrintVersion_ClassicSectionExcludesModern(t *testing.T) {
 	var buf bytes.Buffer
-	printVersion(&buf, "v1.0.0", "abc1234", "2026-05-08T00:00:00Z", true)
+	printVersion(&buf, "v1.0.0", "abc1234", "2026-05-08T00:00:00Z", "unknown", true)
 	out := buf.String()
 
 	proIdx := strings.Index(out, "Pro spec sources:")
@@ -92,7 +92,7 @@ func TestShortHash(t *testing.T) {
 }
 
 func TestNewVersionCmd_HelpMentionsVerbose(t *testing.T) {
-	cmd := newVersionCmd(nil, "v1.0.0", "deadbeef", "2026-05-08")
+	cmd := newVersionCmd(nil, "v1.0.0", "deadbeef", "2026-05-08", "unknown")
 	if !cmd.Flags().HasFlags() {
 		t.Fatal("version command should declare a -v flag")
 	}
@@ -126,7 +126,7 @@ func TestPartitionProSources_RoutesByPrefix(t *testing.T) {
 // text. This test exists so a future refactor can't silently regress
 // the structured shape.
 func TestBuildVersionReport_VerboseShape(t *testing.T) {
-	r := buildVersionReport("v1.0.0", "abc1234", "2026-05-08T00:00:00Z", true)
+	r := buildVersionReport("v1.0.0", "abc1234", "2026-05-08T00:00:00Z", "unknown", true)
 	if r.Version != "v1.0.0" || r.Commit != "abc1234" || r.Built != "2026-05-08T00:00:00Z" {
 		t.Errorf("banner fields wrong: %+v", r)
 	}
@@ -154,7 +154,7 @@ func TestBuildVersionReport_VerboseShape(t *testing.T) {
 }
 
 func TestBuildVersionReport_NonVerboseOmitsSources(t *testing.T) {
-	r := buildVersionReport("v1.0.0", "abc1234", "2026-05-08T00:00:00Z", false)
+	r := buildVersionReport("v1.0.0", "abc1234", "2026-05-08T00:00:00Z", "unknown", false)
 	if r.Sources != nil {
 		t.Errorf("non-verbose report must not include specSources, got %+v", r.Sources)
 	}

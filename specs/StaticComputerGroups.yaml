@@ -1,95 +1,3 @@
-components:
-  schemas:
-    StaticComputerGroup:
-      properties:
-        description:
-          example: A test static computer group
-          nullable: true
-          type: string
-        id:
-          example: "1"
-          minLength: 1
-          type: string
-        name:
-          example: Test Static Computer Group
-          minLength: 1
-          type: string
-        siteId:
-          example: "1"
-          nullable: true
-          type: string
-      required:
-        - id
-        - name
-      type: object
-    StaticComputerGroupAssignment:
-      properties:
-        assignments:
-          description: Array of computer IDs to assign to the static group
-          items:
-            example: "1"
-            minLength: 1
-            type: string
-          type: array
-        description:
-          example: A test static computer group
-          nullable: true
-          type: string
-        id:
-          example: "1"
-          readOnly: true
-          type: string
-        name:
-          example: Test Static Computer Group
-          minLength: 1
-          type: string
-        siteId:
-          example: "1"
-          nullable: true
-          type: string
-      required:
-        - name
-      type: object
-    StaticComputerGroupSearchResults:
-      properties:
-        results:
-          items:
-            $ref: '#/components/schemas/StaticComputerGroupSummary'
-          type: array
-        totalCount:
-          example: 2
-          minimum: 0
-          type: integer
-      required:
-        - results
-        - totalCount
-      type: object
-    StaticComputerGroupSummary:
-      properties:
-        count:
-          example: 5
-          minimum: 0
-          type: integer
-        description:
-          example: A test static computer group
-          nullable: true
-          type: string
-        id:
-          example: "1"
-          minLength: 1
-          type: string
-        name:
-          example: Test Static Computer Group
-          minLength: 1
-          type: string
-        siteId:
-          example: "1"
-          nullable: true
-          type: string
-      required:
-        - id
-        - name
-      type: object
 info:
   title: Jamf Pro API - StaticComputerGroups
   version: 0.0.1
@@ -97,6 +5,7 @@ openapi: 3.0.1
 paths:
   /v2/computer-groups/static-groups:
     get:
+      deprecated: true
       description: |
         Search for Static Computer Groups
       parameters:
@@ -128,15 +37,17 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/StaticComputerGroupSearchResults'
+                $ref: _MonolithLibrary.yaml#/components/schemas/StaticComputerGroupSearchResults
           description: Successful response
       summary: |
         Search for Static Computer Groups
       tags:
         - computer-groups
+      x-deprecation-date: "2026-05-28"
       x-required-privileges:
         - Read Static Computer Groups
     post:
+      deprecated: true
       description: |
         Create membership of a static computer group.
       parameters:
@@ -153,7 +64,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/StaticComputerGroupAssignment'
+              $ref: _MonolithLibrary.yaml#/components/schemas/StaticComputerGroupAssignment
         required: true
       responses:
         201:
@@ -178,10 +89,12 @@ paths:
         Create membership of a static computer group.
       tags:
         - computer-groups
+      x-deprecation-date: "2026-05-28"
       x-required-privileges:
         - Create Static Computer Groups
   /v2/computer-groups/static-groups/{id}:
     delete:
+      deprecated: true
       description: |
         Remove Static Computer Group by Id
       parameters:
@@ -206,9 +119,11 @@ paths:
         Remove Static Computer Group by Id
       tags:
         - computer-groups
+      x-deprecation-date: "2026-05-28"
       x-required-privileges:
         - Delete Static Computer Groups
     get:
+      deprecated: true
       description: |
         Get Static Computer Group by Id
       parameters:
@@ -225,7 +140,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/StaticComputerGroup'
+                $ref: _MonolithLibrary.yaml#/components/schemas/StaticComputerGroup
           description: Successful response
         404:
           content:
@@ -237,9 +152,11 @@ paths:
         Get Static Computer Group by Id
       tags:
         - computer-groups
+      x-deprecation-date: "2026-05-28"
       x-required-privileges:
         - Read Static Computer Groups
     put:
+      deprecated: true
       description: |
         Update membership of a static computer group.
       parameters:
@@ -255,14 +172,14 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/StaticComputerGroupAssignment'
+              $ref: _MonolithLibrary.yaml#/components/schemas/StaticComputerGroupAssignment
         required: true
       responses:
         202:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/StaticComputerGroupAssignment'
+                $ref: _MonolithLibrary.yaml#/components/schemas/StaticComputerGroupAssignment
           description: Successful response
         404:
           content:
@@ -280,6 +197,7 @@ paths:
         Update membership of a static computer group.
       tags:
         - computer-groups
+      x-deprecation-date: "2026-05-28"
       x-required-privileges:
         - Update Static Computer Groups
 servers:

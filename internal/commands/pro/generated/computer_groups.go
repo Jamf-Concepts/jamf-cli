@@ -3,6 +3,8 @@
 package generated
 
 import (
+	"fmt"
+	"net/url"
 	"strings"
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
@@ -17,37 +19,59 @@ func NewComputerGroupsCmd(ctx *registry.CLIContext) *cobra.Command {
 		Long:  `Manage computer-groups in Jamf Pro.`,
 	}
 
-	cmd.AddCommand(newComputerGroupsListCmd(ctx))
+	cmd.AddCommand(newComputerGroupsGetCmd(ctx))
 
 	return cmd
 }
 
-func newComputerGroupsListCmd(ctx *registry.CLIContext) *cobra.Command {
-	var ()
+func newComputerGroupsGetCmd(ctx *registry.CLIContext) *cobra.Command {
+	var (
+		flagName string
+	)
 
 	cmd := &cobra.Command{
-		Use:   "list",
-		Short: "Returns the list of all computer groups",
-		Long:  "Use it to get the list of all computer groups.",
-		Example: `  # List all computer-groups
-  jamf-cli pro computer-groups list
+		Use:   "get [<id>]",
+		Short: "Get the membership of a Smart Computer Group",
+		Long:  "Gets the membership of a Smart Computer Group",
+		Example: `  # Get a computer-group by ID
+  jamf-cli pro computer-groups get 1
 
-  # List computer-groups and extract IDs
-  jamf-cli pro computer-groups list --field id`,
+  # Get a computer-group by name
+  jamf-cli pro computer-groups get --name "Example"
+
+  # Get a computer-group and output as YAML
+  jamf-cli pro computer-groups get 1 -o yaml`,
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
+			// Resolve resource ID from positional arg, --name, or lookup flags
+			var resolvedID string
+			if flagName != "" {
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v3/computer-groups/smart-group-membership", "name", "id", flagName)
+				if err != nil {
+					return err
+				}
+				resolvedID = rid
+			} else if len(args) > 0 {
+				resolvedID = args[0]
+			} else {
+				return fmt.Errorf("provide an <id> argument, --name")
+			}
+
 			// Build request path
-			path := "/v1/computer-groups"
+			path := "/v3/computer-groups/smart-group-membership/{id}"
+			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
 
 			// Build query string
 			var queryParts []string
 			if len(queryParts) > 0 {
 				path = path + "?" + strings.Join(queryParts, "&")
 			}
+			vft := newVersionFallback("/v3/computer-groups/smart-group-membership/{id}")
 
 			// Make request
-			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			resp, err := vft.do(ctx.Client, reqCtx, "GET", path, nil, []string{"/v2/computer-groups/smart-group-membership/{id}"})
 			if err != nil {
 				return err
 			}
@@ -56,6 +80,8 @@ func newComputerGroupsListCmd(ctx *registry.CLIContext) *cobra.Command {
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up computer-group by name")
 
 	return cmd
 }

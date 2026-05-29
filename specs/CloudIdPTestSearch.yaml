@@ -53,6 +53,9 @@ components:
         isMember:
           example: true
           type: boolean
+        isMemberByUuid:
+          example: true
+          type: boolean
         username:
           example: admin
           type: string

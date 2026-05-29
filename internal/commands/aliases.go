@@ -27,6 +27,9 @@ var commandAliases = map[string][]string{
 	// so it isn't detected as a singleton and retains the plural generated name.
 	"jamf-protect":  {"jp"},
 	"jamf-connects": {"jamf-connect"},
+	// computer-groups-smart-groups replaced smart-computer-groups in 11.28.0; keep the old name
+	// as an alias so existing scripts don't break.
+	"computer-groups-smart-groups": {"smart-computer-groups"},
 }
 
 // rootAliases maps root-level command names to short aliases.

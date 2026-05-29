@@ -54,9 +54,10 @@ func newAuthenticationsListCmd(ctx *registry.CLIContext) *cobra.Command {
 			if len(queryParts) > 0 {
 				path = path + "?" + strings.Join(queryParts, "&")
 			}
+			vft := newVersionFallback("/v1/auth")
 
 			// Make request
-			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			resp, err := vft.do(ctx.Client, reqCtx, "GET", path, nil, []string{"/auth"})
 			if err != nil {
 				return err
 			}

@@ -35,15 +35,17 @@ type smokeEntry struct {
 // backup and diff commands can derive paths from the specs rather than maintain
 // a duplicated hand-written list of hard-coded URLs.
 type backupEntry struct {
-	Name        string // CLI command name, e.g. "classic-policies", "scripts"
-	ListPath    string // e.g. "/JSSResource/policies" or "/v1/scripts"
-	GetPath     string // with {id} placeholder, e.g. "/JSSResource/policies/id/{id}"
-	IsClassic   bool
-	WrapperKey  string // classic list wrapper element, e.g. "policies"
-	SingularKey string // classic detail wrapper element, e.g. "policy"
-	ListSubset  string // set when the list endpoint is shared (e.g. "users" for /JSSResource/accounts)
-	NameField   string // field on list items holding the human name (default "name")
-	IDField     string // field on list items holding the resource ID (default "id")
+	Name             string // CLI command name, e.g. "classic-policies", "scripts"
+	ListPath         string // e.g. "/JSSResource/policies" or "/v1/scripts"
+	GetPath          string // with {id} placeholder, e.g. "/JSSResource/policies/id/{id}"
+	FallbackListPath string // lower-version list path tried on 404, e.g. "/v1/foo"
+	FallbackGetPath  string // lower-version get path tried on 404, e.g. "/v1/foo/{id}"
+	IsClassic        bool
+	WrapperKey       string // classic list wrapper element, e.g. "policies"
+	SingularKey      string // classic detail wrapper element, e.g. "policy"
+	ListSubset       string // set when the list endpoint is shared (e.g. "users" for /JSSResource/accounts)
+	NameField        string // field on list items holding the human name (default "name")
+	IDField          string // field on list items holding the resource ID (default "id")
 }
 
 func main() {
@@ -461,7 +463,7 @@ func generateBackupRegistry(outputDir string, modern []*parser.Resource, classic
 		if r.IsSingleton {
 			continue
 		}
-		var listPath, getPath string
+		var listPath, getPath, fallbackListPath, fallbackGetPath string
 		for _, op := range r.Operations {
 			if op.Method != "GET" {
 				continue
@@ -470,10 +472,20 @@ func generateBackupRegistry(outputDir string, modern []*parser.Resource, classic
 			case "list":
 				if !strings.Contains(op.Path, "{") {
 					listPath = op.Path
+					// Only the first (highest) fallback is stored; the backup runtime
+					// tries a single level of fallback, unlike generated commands which
+					// walk the full FallbackPaths chain.
+					if len(op.FallbackPaths) > 0 {
+						fallbackListPath = op.FallbackPaths[0]
+					}
 				}
 			case "get":
 				if strings.Contains(op.Path, "{id}") {
 					getPath = op.Path
+					// Same single-level limitation as list above.
+					if len(op.FallbackPaths) > 0 {
+						fallbackGetPath = op.FallbackPaths[0]
+					}
 				}
 			}
 		}
@@ -489,11 +501,13 @@ func generateBackupRegistry(outputDir string, modern []*parser.Resource, classic
 			idField = ""
 		}
 		entries = append(entries, backupEntry{
-			Name:      r.Name,
-			ListPath:  listPath,
-			GetPath:   getPath,
-			NameField: nameField,
-			IDField:   idField,
+			Name:             r.Name,
+			ListPath:         listPath,
+			GetPath:          getPath,
+			FallbackListPath: fallbackListPath,
+			FallbackGetPath:  fallbackGetPath,
+			NameField:        nameField,
+			IDField:          idField,
 		})
 	}
 
@@ -561,6 +575,12 @@ type BackupEndpoint struct {
 	// GetPath is the URL template for fetching a single object; the "{id}"
 	// placeholder is substituted at request time.
 	GetPath string
+	// FallbackListPath is a lower-version list URL tried when ListPath returns
+	// 404 (tenant on older Jamf Pro). Empty when no fallback is available.
+	FallbackListPath string
+	// FallbackGetPath is the lower-version get URL to use when FallbackListPath
+	// was the effective list path. Empty when no fallback is available.
+	FallbackGetPath string
 	// IsClassic routes list parsing through the XML pipeline instead of the
 	// paginated JSON pipeline.
 	IsClassic bool
@@ -589,7 +609,7 @@ type BackupEndpoint struct {
 // specs and Classic API manifest.
 var BackupEndpoints = map[string]BackupEndpoint{
 {{- range . }}
-	{{ printf "%q" .Name }}: {ListPath: {{ printf "%q" .ListPath }}, GetPath: {{ printf "%q" .GetPath }}, IsClassic: {{ .IsClassic }}, WrapperKey: {{ printf "%q" .WrapperKey }}, SingularKey: {{ printf "%q" .SingularKey }}, ListSubset: {{ printf "%q" .ListSubset }}, NameField: {{ printf "%q" .NameField }}, IDField: {{ printf "%q" .IDField }}},
+	{{ printf "%q" .Name }}: {ListPath: {{ printf "%q" .ListPath }}, GetPath: {{ printf "%q" .GetPath }}, FallbackListPath: {{ printf "%q" .FallbackListPath }}, FallbackGetPath: {{ printf "%q" .FallbackGetPath }}, IsClassic: {{ .IsClassic }}, WrapperKey: {{ printf "%q" .WrapperKey }}, SingularKey: {{ printf "%q" .SingularKey }}, ListSubset: {{ printf "%q" .ListSubset }}, NameField: {{ printf "%q" .NameField }}, IDField: {{ printf "%q" .IDField }}},
 {{- end }}
 }
 `

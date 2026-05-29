@@ -3413,6 +3413,7 @@ components:
           type: string
       type: object
     SmartGroupCriteria:
+      description: V1 criteria format with string andOr field
       properties:
         andOr:
           description: Whether this criterion should be ANDed or ORed with the previous criterion
@@ -3426,7 +3427,7 @@ components:
         name:
           description: The field to search on (e.g., Model, OS Version, etc.)
           example: Model
-          minLength: 1
+          maxLength: 255
           type: string
         openingParen:
           description: Whether to add an opening parenthesis before this criterion
@@ -3482,6 +3483,98 @@ components:
         - name
         - searchType
         - value
+      type: object
+    StaticComputerGroup:
+      properties:
+        description:
+          example: A test static computer group
+          nullable: true
+          type: string
+        id:
+          example: "1"
+          minLength: 1
+          type: string
+        name:
+          example: Test Static Computer Group
+          minLength: 1
+          type: string
+        siteId:
+          example: "-1"
+          nullable: true
+          type: string
+      required:
+        - id
+        - name
+      type: object
+    StaticComputerGroupAssignment:
+      properties:
+        assignments:
+          description: Set of computer IDs to assign to the static group
+          items:
+            example: "1"
+            minLength: 1
+            type: string
+          type: array
+          uniqueItems: true
+        description:
+          example: A test static computer group
+          nullable: true
+          type: string
+        id:
+          example: "1"
+          readOnly: true
+          type: string
+        name:
+          example: Test Static Computer Group
+          maxLength: 255
+          minLength: 1
+          type: string
+        siteId:
+          example: "-1"
+          nullable: true
+          type: string
+      required:
+        - name
+      type: object
+    StaticComputerGroupSearchResults:
+      properties:
+        results:
+          items:
+            $ref: '#/components/schemas/StaticComputerGroupSummary'
+          type: array
+        totalCount:
+          example: 2
+          minimum: 0
+          type: integer
+      required:
+        - results
+        - totalCount
+      type: object
+    StaticComputerGroupSummary:
+      properties:
+        count:
+          example: 5
+          minimum: 0
+          type: integer
+        description:
+          example: A test static computer group
+          nullable: true
+          type: string
+        id:
+          example: "1"
+          minLength: 1
+          type: string
+        name:
+          example: Test Static Computer Group
+          minLength: 1
+          type: string
+        siteId:
+          example: "-1"
+          nullable: true
+          type: string
+      required:
+        - id
+        - name
       type: object
     UserMappings:
       description: Cloud Identity Provider user mappings configuration
