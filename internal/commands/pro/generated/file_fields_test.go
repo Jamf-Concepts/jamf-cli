@@ -11,6 +11,143 @@ import (
 	"testing"
 )
 
+// ─── escapeJSONStringLiterals ─────────────────────────────────────────────────
+
+func TestEscapeJSONStringLiterals_NoControlChars(t *testing.T) {
+	input := []byte(`{"name":"hello world"}`)
+	got := escapeJSONStringLiterals(input)
+	if string(got) != string(input) {
+		t.Errorf("got %s, want unchanged %s", got, input)
+	}
+}
+
+func TestEscapeJSONStringLiterals_LiteralNewline(t *testing.T) {
+	// zsh echo interprets \n as a real newline even in single-quoted strings
+	input := []byte("{\"scriptContents\":\"#!/bin/bash\necho recon\"}")
+	got := escapeJSONStringLiterals(input)
+	want := "{\"scriptContents\":\"#!/bin/bash\\u000aecho recon\"}"
+	if string(got) != want {
+		t.Errorf("got %s, want %s", got, want)
+	}
+	if !json.Valid(got) {
+		t.Errorf("output is not valid JSON: %s", got)
+	}
+}
+
+func TestEscapeJSONStringLiterals_LiteralCRLF(t *testing.T) {
+	input := []byte("{\"x\":\"line1\r\nline2\"}")
+	got := escapeJSONStringLiterals(input)
+	want := "{\"x\":\"line1\\u000d\\u000aline2\"}"
+	if string(got) != want {
+		t.Errorf("got %s, want %s", got, want)
+	}
+}
+
+func TestEscapeJSONStringLiterals_LiteralTab(t *testing.T) {
+	input := []byte("{\"x\":\"col1\tcol2\"}")
+	got := escapeJSONStringLiterals(input)
+	want := "{\"x\":\"col1\\u0009col2\"}"
+	if string(got) != want {
+		t.Errorf("got %s, want %s", got, want)
+	}
+}
+
+func TestEscapeJSONStringLiterals_OtherControlChars(t *testing.T) {
+	// Non-printable control chars beyond \n/\r/\t also produce \uXXXX.
+	input := []byte("{\"x\":\"a\x00b\x08c\x0cc\"}")
+	got := escapeJSONStringLiterals(input)
+	want := "{\"x\":\"a\\u0000b\\u0008c\\u000cc\"}"
+	if string(got) != want {
+		t.Errorf("got %s, want %s", got, want)
+	}
+	if !json.Valid(got) {
+		t.Errorf("output is not valid JSON: %s", got)
+	}
+}
+
+func TestEscapeJSONStringLiterals_EscapedQuoteNotMistreatedAsStringEnd(t *testing.T) {
+	// \"  inside a string should NOT toggle inString
+	input := []byte("{\"x\":\"say \\\"hello\\\" now\nend\"}")
+	got := escapeJSONStringLiterals(input)
+	if !json.Valid(got) {
+		t.Errorf("output not valid JSON: %s", got)
+	}
+	var m map[string]string
+	if err := json.Unmarshal(got, &m); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if m["x"] != "say \"hello\" now\nend" {
+		t.Errorf("x = %q, want correct value", m["x"])
+	}
+}
+
+func TestEscapeJSONStringLiterals_NewlineOutsideString(t *testing.T) {
+	// Newlines between JSON tokens are valid — should pass through unchanged
+	input := []byte("{\n\"x\":\"y\"\n}")
+	got := escapeJSONStringLiterals(input)
+	if string(got) != string(input) {
+		t.Errorf("whitespace outside strings should not change: got %s", got)
+	}
+	if !json.Valid(got) {
+		t.Errorf("output not valid JSON: %s", got)
+	}
+}
+
+// ─── normalizeInputToJSON (zsh echo regression) ───────────────────────────────
+
+func TestNormalizeInputToJSON_JSONPassthrough(t *testing.T) {
+	input := []byte(`{"name":"Test","scriptContents":"#!/bin/bash\necho recon"}`)
+	out, err := normalizeInputToJSON(input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(out) != string(input) {
+		t.Errorf("valid JSON should pass through unchanged: got %s", out)
+	}
+}
+
+func TestNormalizeInputToJSON_ZshEchoLiteralNewline(t *testing.T) {
+	// Simulates: echo '{"scriptContents":"#!/bin/bash\necho recon"}' in zsh
+	// zsh echo interprets \n as real newline — input is invalid JSON
+	input := []byte("{\"name\":\"Test\",\"scriptContents\":\"#!/bin/bash\necho recon\necho done\",\"priority\":\"AFTER\"}")
+	out, err := normalizeInputToJSON(input)
+	if err != nil {
+		t.Fatalf("should not error: %v", err)
+	}
+	if !json.Valid(out) {
+		t.Errorf("output not valid JSON: %s", out)
+	}
+	var m map[string]string
+	if err := json.Unmarshal(out, &m); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if m["scriptContents"] != "#!/bin/bash\necho recon\necho done" {
+		t.Errorf("scriptContents = %q, want newlines preserved", m["scriptContents"])
+	}
+}
+
+func TestNormalizeInputToJSON_YAMLBlockLiteral(t *testing.T) {
+	input := []byte("name: Test\nscriptContents: |\n  #!/bin/bash\n  echo recon\n")
+	out, err := normalizeInputToJSON(input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !json.Valid(out) {
+		t.Errorf("output not valid JSON: %s", out)
+	}
+	var m map[string]string
+	if err := json.Unmarshal(out, &m); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if m["name"] != "Test" {
+		t.Errorf("name = %q, want Test", m["name"])
+	}
+	// Block literal trailing newline is preserved by yaml.v3
+	if !strings.Contains(m["scriptContents"], "#!/bin/bash") || !strings.Contains(m["scriptContents"], "echo recon") {
+		t.Errorf("scriptContents = %q, missing expected content", m["scriptContents"])
+	}
+}
+
 // writeTempFile creates a file with given contents and returns its path.
 // Uses t.TempDir() so cleanup is automatic.
 func writeTempFile(t *testing.T, name, content string) string {
