@@ -546,6 +546,13 @@ func normalizeInputToJSON(data []byte) ([]byte, error) {
 	if json.Valid(data) {
 		return data, nil
 	}
+	// Shells like zsh interpret \n in echo output as real newlines (0x0a), producing
+	// literal control characters inside JSON string values — invalid JSON. Try
+	// escaping those characters and retry before falling back to YAML, which would
+	// silently fold them into spaces.
+	if fixed := escapeJSONStringLiterals(data); json.Valid(fixed) {
+		return fixed, nil
+	}
 	// Try YAML → any → JSON
 	var v any
 	if err := yaml.Unmarshal(data, &v); err != nil {
@@ -556,6 +563,40 @@ func normalizeInputToJSON(data []byte) ([]byte, error) {
 		return nil, fmt.Errorf("re-marshaling YAML as JSON: %w", err)
 	}
 	return out, nil
+}
+
+// escapeJSONStringLiterals escapes literal control characters (newlines, carriage
+// returns, tabs) that appear inside JSON string values. Fixes input produced by
+// shells like zsh whose built-in echo interprets \n even in single-quoted strings,
+// creating invalid JSON that the YAML fallback would silently mangle.
+// NOTE: Also used by classic_registry.go helpers (same generated package).
+func escapeJSONStringLiterals(data []byte) []byte {
+	var buf bytes.Buffer
+	buf.Grow(len(data))
+	inString := false
+	escaped := false
+	for _, b := range data {
+		switch {
+		case escaped:
+			buf.WriteByte(b)
+			escaped = false
+		case b == '\\' && inString:
+			buf.WriteByte(b)
+			escaped = true
+		case b == '"':
+			inString = !inString
+			buf.WriteByte(b)
+		case inString && b == '\n':
+			buf.WriteString(`\n`)
+		case inString && b == '\r':
+			buf.WriteString(`\r`)
+		case inString && b == '\t':
+			buf.WriteString(`\t`)
+		default:
+			buf.WriteByte(b)
+		}
+	}
+	return buf.Bytes()
 }
 
 // extractJSONField extracts a string field from a JSON object.
