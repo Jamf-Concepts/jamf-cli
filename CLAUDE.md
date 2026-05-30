@@ -253,6 +253,7 @@ Adding a converter: create `ddm_<name>.go`, implement `convertFunc`, register vi
 - Pro `overview` makes ~37 parallel API calls; Protect `overview` makes ~14.
 - Classic API paths start with `/JSSResource/` and bypass `/api` prefix added by `client.Do()`. In platform gateway mode, rewritten to `/api/proclassic/tenant/{id}/`.
 - `NO_COLOR` env var respected (https://no-color.org).
+- `--no-hints` flag / `JAMF_CLI_NO_HINTS` env (value-parsed via `strconv.ParseBool`) suppress advisory hints only, leaving the spinner and progress output intact; `--quiet` remains a strict superset that also silences both.
 
 ## Common Workflows
 
