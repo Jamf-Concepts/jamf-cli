@@ -63,6 +63,35 @@ func TestListHint_SuppressedByQuiet(t *testing.T) {
 	}
 }
 
+func TestListHint_SuppressedByNoHints(t *testing.T) {
+	f, _, stderr := newTestFormatterWithStderr("json")
+	f.SetNoHints(true)
+	rows := makeRows(listHintThreshold + 50)
+	if err := f.Print(rows); err != nil {
+		t.Fatalf("Print failed: %v", err)
+	}
+	if stderr.Len() != 0 {
+		t.Errorf("--no-hints should suppress hint, got stderr=%q", stderr.String())
+	}
+}
+
+func TestListHint_NoHintsKeepsSpinnerSemantics(t *testing.T) {
+	// --no-hints suppresses the hint but, unlike --quiet, does not set
+	// quiet — a regression guard so the two stay independent.
+	f, _, stderr := newTestFormatterWithStderr("json")
+	f.SetNoHints(true)
+	rows := makeRows(listHintThreshold)
+	if err := f.Print(rows); err != nil {
+		t.Fatalf("Print failed: %v", err)
+	}
+	if f.quiet {
+		t.Error("SetNoHints must not flip quiet; they are independent suppressors")
+	}
+	if stderr.Len() != 0 {
+		t.Errorf("--no-hints should suppress hint, got stderr=%q", stderr.String())
+	}
+}
+
 func TestListHint_SuppressedForTable(t *testing.T) {
 	f, _, stderr := newTestFormatterWithStderr("table")
 	rows := makeRows(listHintThreshold + 10)
