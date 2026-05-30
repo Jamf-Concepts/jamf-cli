@@ -421,10 +421,12 @@ var proGroupMap = map[string]string{
 	"classic-computer-history":           groupClassicComputers,
 	"classic-computer-invitations":       groupClassicComputers,
 	"classic-advanced-computer-searches": groupClassicComputers,
+	"classic-computer-groups":            groupClassicComputers,
 
 	// Classic - Mobile Devices
 	"classic-advanced-mobile-device-searches": groupClassicMobile,
 	"classic-mobile-devices":                  groupClassicMobile,
+	"classic-mobile-device-groups":            groupClassicMobile,
 	"classic-mobile-commands":                 groupClassicMobile,
 	"classic-mobile-config-profiles":          groupClassicMobile,
 	"classic-mobile-provisioning-profiles":    groupClassicMobile,
