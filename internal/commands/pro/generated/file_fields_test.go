@@ -25,7 +25,7 @@ func TestEscapeJSONStringLiterals_LiteralNewline(t *testing.T) {
 	// zsh echo interprets \n as a real newline even in single-quoted strings
 	input := []byte("{\"scriptContents\":\"#!/bin/bash\necho recon\"}")
 	got := escapeJSONStringLiterals(input)
-	want := `{"scriptContents":"#!/bin/bash\necho recon"}`
+	want := "{\"scriptContents\":\"#!/bin/bash\\u000aecho recon\"}"
 	if string(got) != want {
 		t.Errorf("got %s, want %s", got, want)
 	}
@@ -37,7 +37,7 @@ func TestEscapeJSONStringLiterals_LiteralNewline(t *testing.T) {
 func TestEscapeJSONStringLiterals_LiteralCRLF(t *testing.T) {
 	input := []byte("{\"x\":\"line1\r\nline2\"}")
 	got := escapeJSONStringLiterals(input)
-	want := `{"x":"line1\r\nline2"}`
+	want := "{\"x\":\"line1\\u000d\\u000aline2\"}"
 	if string(got) != want {
 		t.Errorf("got %s, want %s", got, want)
 	}
@@ -46,9 +46,22 @@ func TestEscapeJSONStringLiterals_LiteralCRLF(t *testing.T) {
 func TestEscapeJSONStringLiterals_LiteralTab(t *testing.T) {
 	input := []byte("{\"x\":\"col1\tcol2\"}")
 	got := escapeJSONStringLiterals(input)
-	want := `{"x":"col1\tcol2"}`
+	want := "{\"x\":\"col1\\u0009col2\"}"
 	if string(got) != want {
 		t.Errorf("got %s, want %s", got, want)
+	}
+}
+
+func TestEscapeJSONStringLiterals_OtherControlChars(t *testing.T) {
+	// Non-printable control chars beyond \n/\r/\t also produce \uXXXX.
+	input := []byte("{\"x\":\"a\x00b\x08c\x0cc\"}")
+	got := escapeJSONStringLiterals(input)
+	want := "{\"x\":\"a\\u0000b\\u0008c\\u000cc\"}"
+	if string(got) != want {
+		t.Errorf("got %s, want %s", got, want)
+	}
+	if !json.Valid(got) {
+		t.Errorf("output is not valid JSON: %s", got)
 	}
 }
 
@@ -97,9 +110,6 @@ func TestNormalizeInputToJSON_ZshEchoLiteralNewline(t *testing.T) {
 	// Simulates: echo '{"scriptContents":"#!/bin/bash\necho recon"}' in zsh
 	// zsh echo interprets \n as real newline — input is invalid JSON
 	input := []byte("{\"name\":\"Test\",\"scriptContents\":\"#!/bin/bash\necho recon\necho done\",\"priority\":\"AFTER\"}")
-	if json.Valid(input) {
-		t.Skip("input is already valid JSON on this platform")
-	}
 	out, err := normalizeInputToJSON(input)
 	if err != nil {
 		t.Fatalf("should not error: %v", err)
