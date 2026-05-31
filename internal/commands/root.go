@@ -737,7 +737,7 @@ spinner and progress output (narrower than --quiet).`,
 	cmd.PersistentFlags().BoolVar(&noColor, "no-color", false, "disable colored output")
 	cmd.PersistentFlags().BoolVarP(&dryRun, "dry-run", "n", false, "preview changes without executing")
 	cmd.PersistentFlags().BoolVarP(&wide, "wide", "w", false, "show all columns in table output")
-	cmd.PersistentFlags().BoolVar(&compact, "compact", false, "drop arrays and nested objects, keep only scalar fields (smaller payloads for agents; ignored when --field is set)")
+	cmd.PersistentFlags().BoolVar(&compact, "compact", false, "keep only high-signal scalar fields (identity + fields common across rows); smaller payloads for agents; ignored when --field is set")
 	cmd.PersistentFlags().StringSliceVar(&selectFields, "select", nil, "project output to these dot-path fields only, e.g., --select id,general.name,udid (ignored when --field is set)")
 	cmd.PersistentFlags().StringVar(&outFile, "out-file", "", "write output to file instead of stdout")
 	cmd.PersistentFlags().StringVar(&fieldName, "field", "", "extract a single field from JSON response (e.g., --field id)")
