@@ -11,6 +11,7 @@ import (
 	"net/http/cookiejar"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -36,6 +37,7 @@ var (
 	profile        string
 	outputFmt      string
 	quiet          bool
+	noHints        bool
 	verboseLevel   int
 	noInput        bool
 	noColor        bool
@@ -546,13 +548,22 @@ users, classes, and apps).
 
 Set JAMF_CLI_ARGS to prepend default flags to every invocation:
   export JAMF_CLI_ARGS='--quiet --no-input'
-  export JAMF_CLI_ARGS='--profile "My CI Profile"'`,
+  export JAMF_CLI_ARGS='--profile "My CI Profile"'
+
+Set JAMF_CLI_NO_HINTS=1 to suppress advisory hints while keeping the
+spinner and progress output (narrower than --quiet).`,
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 			// Respect NO_COLOR env var (https://no-color.org)
 			if _, ok := os.LookupEnv("NO_COLOR"); ok {
 				noColor = true
+			}
+
+			// JAMF_CLI_NO_HINTS disables advisory hints (parallels NO_COLOR,
+			// but value-parsed so JAMF_CLI_NO_HINTS=0 leaves hints on).
+			if b, err := strconv.ParseBool(os.Getenv("JAMF_CLI_NO_HINTS")); err == nil && b {
+				noHints = true
 			}
 
 			// Load config up-front so the formatter honours default-output
@@ -587,6 +598,7 @@ Set JAMF_CLI_ARGS to prepend default flags to every invocation:
 			}
 			formatter.SetProjector(output.Projector{Compact: compact, Select: selectFields})
 			formatter.SetQuiet(quiet)
+			formatter.SetNoHints(noHints)
 			cliCtx.Output = &cliOutput{formatter}
 
 			// Skip auth for commands that don't need it. Most are matched
@@ -711,6 +723,7 @@ Set JAMF_CLI_ARGS to prepend default flags to every invocation:
 	cmd.PersistentFlags().StringVarP(&profile, "profile", "p", "", "config profile to use (or JAMF_PROFILE env)")
 	cmd.PersistentFlags().StringVarP(&outputFmt, "output", "o", "json", "output format: table, json, csv, yaml, plain, xml (pretty), raw (classic commands default to xml)")
 	cmd.PersistentFlags().BoolVarP(&quiet, "quiet", "q", false, "suppress non-error output")
+	cmd.PersistentFlags().BoolVar(&noHints, "no-hints", false, "suppress advisory hints (e.g. large-result narrowing tips); keeps spinner and progress output (or JAMF_CLI_NO_HINTS env)")
 	cmd.PersistentFlags().CountVarP(&verboseLevel, "verbose", "v", "show HTTP requests/responses (-vv adds headers, -vvv adds bodies)")
 	cmd.PersistentFlags().BoolVar(&noInput, "no-input", false, "never prompt; fail if input required")
 	cmd.PersistentFlags().BoolVar(&noColor, "no-color", false, "disable colored output")
