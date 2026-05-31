@@ -75,9 +75,11 @@ func TestListHint_SuppressedByNoHints(t *testing.T) {
 	}
 }
 
-func TestListHint_NoHintsKeepsSpinnerSemantics(t *testing.T) {
+func TestListHint_NoHintsDoesNotImplyQuiet(t *testing.T) {
 	// --no-hints suppresses the hint but, unlike --quiet, does not set
-	// quiet — a regression guard so the two stay independent.
+	// quiet — a regression guard so the two stay independent. The spinner
+	// half of that independence is guarded in the commands package by
+	// TestShouldShowSpinner_IgnoresNoHints (spinner logic lives there).
 	f, _, stderr := newTestFormatterWithStderr("json")
 	f.SetNoHints(true)
 	rows := makeRows(listHintThreshold)

@@ -1112,6 +1112,18 @@ func TestShouldShowSpinner(t *testing.T) {
 	}
 }
 
+// TestShouldShowSpinner_IgnoresNoHints guards the defining invariant of #214:
+// --no-hints / JAMF_CLI_NO_HINTS suppresses advisory hints but must NOT touch
+// the spinner. If noHints ever leaks into shouldShowSpinner(), this fails.
+func TestShouldShowSpinner_IgnoresNoHints(t *testing.T) {
+	t.Cleanup(resetGlobals)
+	resetGlobals()
+	noHints = true
+	if !shouldShowSpinner() {
+		t.Error("shouldShowSpinner()=false with noHints=true; --no-hints must not suppress the spinner")
+	}
+}
+
 func TestSpinnerClient_PassesThrough(t *testing.T) {
 	mock := &mockHTTPClient{}
 	sc := &spinnerClient{inner: mock}
