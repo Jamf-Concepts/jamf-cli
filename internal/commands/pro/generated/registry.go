@@ -376,7 +376,6 @@ func renameResourceByID(ctx context.Context, client registry.HTTPClient, updateU
 // other fields untouched. Empty value is a no-op; empty body is bootstrapped
 // to {} first. Used to apply a user-supplied --name flag to the request body
 // without requiring them to hand-build JSON.
-// NOTE: Also used by classic helpers (same generated package).
 func setBodyStringField(body []byte, field, value string) ([]byte, error) {
 	if value == "" {
 		return body, nil
@@ -409,7 +408,6 @@ type fileFieldSpec struct {
 // If body is empty and at least one file flag is active, a new object is
 // constructed. File values overwrite any value already present in the body;
 // companion and name fields are only filled when absent.
-// NOTE: Also used by classic helpers (same generated package).
 func injectFileFields(body []byte, specs []fileFieldSpec) ([]byte, error) {
 	active := false
 	for _, s := range specs {
@@ -524,7 +522,6 @@ func readApplyInput(fromFile string) ([]byte, error) {
 
 // printScaffoldOutput prints a scaffold JSON string, converting to YAML when the
 // output format requests it.
-// NOTE: Also used by classic_registry.go helpers (same generated package).
 func printScaffoldOutput(jsonStr, format string) error {
 	if format == "yaml" {
 		var v any
@@ -540,11 +537,17 @@ func printScaffoldOutput(jsonStr, format string) error {
 }
 
 // normalizeInputToJSON converts YAML input to JSON. JSON input is returned unchanged.
-// NOTE: Also used by classic_registry.go helpers (same generated package).
 func normalizeInputToJSON(data []byte) ([]byte, error) {
 	// Fast path: already JSON
 	if json.Valid(data) {
 		return data, nil
+	}
+	// Shells like zsh interpret \n in echo output as real newlines (0x0a), producing
+	// literal control characters inside JSON string values — invalid JSON. Try
+	// escaping those characters and retry before falling back to YAML, which would
+	// silently fold them into spaces.
+	if fixed := escapeJSONStringLiterals(data); json.Valid(fixed) {
+		return fixed, nil
 	}
 	// Try YAML → any → JSON
 	var v any
@@ -556,6 +559,35 @@ func normalizeInputToJSON(data []byte) ([]byte, error) {
 		return nil, fmt.Errorf("re-marshaling YAML as JSON: %w", err)
 	}
 	return out, nil
+}
+
+// escapeJSONStringLiterals escapes any U+0000–U+001F control character that
+// appears inside a JSON string value. Fixes input produced by shells like zsh
+// whose built-in echo interprets \n even in single-quoted strings, creating
+// invalid JSON that the YAML fallback would silently mangle.
+func escapeJSONStringLiterals(data []byte) []byte {
+	var buf bytes.Buffer
+	buf.Grow(len(data))
+	inString := false
+	escaped := false
+	for _, b := range data {
+		switch {
+		case escaped:
+			buf.WriteByte(b)
+			escaped = false
+		case b == '\\' && inString:
+			buf.WriteByte(b)
+			escaped = true
+		case b == '"':
+			inString = !inString
+			buf.WriteByte(b)
+		case inString && b <= 0x1f:
+			fmt.Fprintf(&buf, `\u%04x`, b)
+		default:
+			buf.WriteByte(b)
+		}
+	}
+	return buf.Bytes()
 }
 
 // extractJSONField extracts a string field from a JSON object.
