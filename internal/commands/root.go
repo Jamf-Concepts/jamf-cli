@@ -5,6 +5,7 @@ package commands
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -1230,19 +1231,45 @@ func resolveSchoolClient(cfg *config.Config, cliCtx *registry.CLIContext) error 
 // is "json". Returns true if the error was handled, false otherwise (caller
 // should fall back to plain stderr).
 func FormatError(err error) bool {
+	return formatErrorTo(os.Stdout, err)
+}
+
+// formatErrorTo writes the JSON error envelope to w when output is "json",
+// including the remediation hint and any structured details when present.
+func formatErrorTo(w io.Writer, err error) bool {
 	if outputFmt != "json" {
 		return false
 	}
 	code := exitcode.CodeFrom(err)
 	envelope := map[string]any{
-		"error":    exitcode.CodeName(code),
-		"message":  err.Error(),
-		"exitCode": code,
+		"error":        exitcode.CodeName(code),
+		"message":      err.Error(),
+		"exitCode":     code,
+		"exitCodeName": exitcode.CodeName(code),
 	}
-	enc := json.NewEncoder(os.Stdout)
+	var e *exitcode.Error
+	if errors.As(err, &e) {
+		if e.Hint != "" {
+			envelope["hint"] = e.Hint
+		}
+		for k, v := range e.Details {
+			envelope[k] = v
+		}
+	}
+	enc := json.NewEncoder(w)
 	enc.SetIndent("", "  ")
 	if err := enc.Encode(envelope); err != nil {
 		return false // stdout broken (e.g. SIGPIPE); fall back to stderr
 	}
 	return true
+}
+
+// FprintError writes a human-facing error (and a "hint:" line when present) to
+// w. Used by main when the JSON envelope path does not apply.
+func FprintError(w io.Writer, err error) {
+	fmt.Fprintln(w, err)
+	var e *exitcode.Error
+	if errors.As(err, &e) && e.Hint != "" {
+		fmt.Fprintf(w, "hint: %s\n", e.Hint)
+	}
 }

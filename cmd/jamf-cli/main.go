@@ -46,7 +46,7 @@ func main() {
 	cmd := commands.NewRootCmd(version, commit, date, specProVersion)
 	if err := cmd.Execute(); err != nil {
 		if !commands.FormatError(err) {
-			fmt.Fprintln(os.Stderr, err)
+			commands.FprintError(os.Stderr, err)
 		}
 		os.Exit(exitcode.CodeFrom(err))
 	}

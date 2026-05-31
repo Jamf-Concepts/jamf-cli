@@ -161,18 +161,7 @@ func (c *Client) Do(ctx context.Context, method, path string, body io.Reader) (*
 		if c.verboseLevel >= 3 {
 			logBody(os.Stderr, body)
 		}
-		switch resp.StatusCode {
-		case http.StatusUnauthorized:
-			return nil, exitcode.New(exitcode.Authentication, fmt.Sprintf("authentication failed (HTTP 401): %s\nCheck your credentials with: jamf-cli config validate", string(body)))
-		case http.StatusForbidden:
-			return nil, exitcode.New(exitcode.PermissionDenied, fmt.Sprintf("permission denied (HTTP 403): %s\nThe authenticated account lacks the required API privileges.", string(body)))
-		case http.StatusNotFound:
-			return nil, exitcode.New(exitcode.NotFound, fmt.Sprintf("resource not found (HTTP 404): %s %s", method, path))
-		case http.StatusTooManyRequests:
-			return nil, exitcode.New(exitcode.RateLimited, "rate limited (HTTP 429): server is throttling requests, wait a moment and try again")
-		default:
-			return nil, exitcode.Wrap(exitcode.General, fmt.Errorf("request failed (HTTP %d): %s", resp.StatusCode, string(body)))
-		}
+		return nil, httpStatusError(resp.StatusCode, method, path, body)
 	}
 
 	if c.verboseLevel >= 3 {
@@ -413,6 +402,32 @@ func logHeaders(w io.Writer, h http.Header, redactAuth bool) {
 			v = "[redacted]"
 		}
 		_, _ = fmt.Fprintf(w, "    %s: %s\n", k, v)
+	}
+}
+
+// httpStatusError maps an HTTP error response to a structured exit error with a
+// short message and a separate remediation Hint (surfaced on stderr and in the
+// JSON error envelope).
+func httpStatusError(status int, method, path string, body []byte) error {
+	switch status {
+	case http.StatusUnauthorized:
+		return exitcode.New(exitcode.Authentication,
+			fmt.Sprintf("authentication failed (HTTP 401): %s", string(body))).
+			WithHint("run 'jamf-cli config validate', or check JAMF_TOKEN / client credentials")
+	case http.StatusForbidden:
+		return exitcode.New(exitcode.PermissionDenied,
+			fmt.Sprintf("permission denied (HTTP 403): %s", string(body))).
+			WithHint("the authenticated account lacks the required API privileges; check its API role")
+	case http.StatusNotFound:
+		return exitcode.New(exitcode.NotFound,
+			fmt.Sprintf("resource not found (HTTP 404): %s %s", method, path)).
+			WithHint("run the matching 'list' command to see valid IDs/names")
+	case http.StatusTooManyRequests:
+		return exitcode.New(exitcode.RateLimited,
+			"rate limited (HTTP 429): server is throttling requests").
+			WithHint("retry shortly, or lower batch concurrency")
+	default:
+		return exitcode.Wrap(exitcode.General, fmt.Errorf("request failed (HTTP %d): %s", status, string(body)))
 	}
 }
 
