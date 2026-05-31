@@ -18,6 +18,7 @@ import (
 	"github.com/Jamf-Concepts/jamf-cli/internal/config"
 	"github.com/Jamf-Concepts/jamf-cli/internal/exitcode"
 	"github.com/Jamf-Concepts/jamf-cli/internal/output"
+	"github.com/spf13/cobra"
 )
 
 func TestCommandsSubcommand_JSON(t *testing.T) {
@@ -1221,4 +1222,47 @@ func TestGuardUnknownSubcommands(t *testing.T) {
 	if err := root.Execute(); err != nil {
 		t.Errorf("bare parent should not error, got %v", err)
 	}
+}
+
+// TestGuardUnknownSubcommands_CoversAllGroupParents walks the entire command
+// tree and asserts every group parent (a command that owns subcommands) is
+// guarded: it must carry the group-parent annotation and reject an unknown
+// subcommand with a usage exit code. Because it walks the whole tree, a new
+// command group — generated or hand-written, at any depth — is covered
+// automatically; if one is ever left unguarded, this fails.
+func TestGuardUnknownSubcommands_CoversAllGroupParents(t *testing.T) {
+	root := NewRootCmd("test", "none", "none", "none")
+
+	const bogus = "zzdefinitelynotacommand"
+	parents := 0
+
+	var walk func(c *cobra.Command, path string)
+	walk = func(c *cobra.Command, path string) {
+		for _, sub := range c.Commands() {
+			subPath := strings.TrimSpace(path + " " + sub.Name())
+			if sub.HasSubCommands() {
+				parents++
+				switch {
+				case sub.Annotations[groupParentAnnotation] != "true":
+					t.Errorf("group parent %q is not guarded: a typo would print help and exit 0", subPath)
+				case sub.RunE == nil:
+					t.Errorf("group parent %q is annotated but has no RunE", subPath)
+				default:
+					err := sub.RunE(sub, []string{bogus})
+					if err == nil {
+						t.Errorf("group parent %q accepted unknown subcommand without error", subPath)
+					} else if code := exitcode.CodeFrom(err); code != exitcode.Usage {
+						t.Errorf("group parent %q: unknown subcommand exit %d, want %d (usage)", subPath, code, exitcode.Usage)
+					}
+				}
+			}
+			walk(sub, subPath)
+		}
+	}
+	walk(root, "")
+
+	if parents < 10 {
+		t.Fatalf("found only %d group parents — tree walk likely broken", parents)
+	}
+	t.Logf("verified %d group parents reject unknown subcommands", parents)
 }
