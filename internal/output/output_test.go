@@ -132,9 +132,12 @@ func TestPrintRaw_Table_SingleObject(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	out := buf.String()
-	// New format: summary + blank + header + separator + data row
-	if !strings.Contains(out, "(1 total)") {
-		t.Errorf("expected summary header with count, got:\n%s", out)
+	// A single object renders as a vertical detail view, not a 1-row table.
+	if !strings.Contains(out, "DETAILS") {
+		t.Errorf("expected DETAILS detail-view header, got:\n%s", out)
+	}
+	if strings.Contains(out, "total)") {
+		t.Errorf("single object should not render the list-table summary, got:\n%s", out)
 	}
 	if !strings.Contains(out, "42") {
 		t.Errorf("expected '42' in output, got:\n%s", out)

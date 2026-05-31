@@ -182,7 +182,13 @@ func (f *Formatter) Print(data any) error {
 	case FormatPlain:
 		err = f.printPlain(data)
 	default:
-		err = f.printTable(data)
+		// Table mode: a single object renders as a vertical detail view, not
+		// an unreadable 1-row table.
+		if obj, ok := data.(map[string]any); ok {
+			err = f.printDetail(obj)
+		} else {
+			err = f.printTable(data)
+		}
 	}
 
 	if err == nil {
@@ -408,6 +414,43 @@ func (f *Formatter) printTable(data any) error {
 	return nil
 }
 
+// printDetail renders a single object as a vertical FIELD / VALUE layout, used
+// in table mode so a `get` does not become an unreadable 1-row table. Reuses
+// table date/status colorization.
+func (f *Formatter) printDetail(obj map[string]any) error {
+	flat := flattenRows([]map[string]any{obj})
+	if len(flat) == 0 {
+		return nil
+	}
+	row := flat[0]
+	keys := sortedKeys(row)
+
+	fieldW := len("FIELD")
+	for _, k := range keys {
+		if len(k) > fieldW {
+			fieldW = len(k)
+		}
+	}
+
+	_, _ = fmt.Fprintf(f.writer, "%s\n\n", f.colorize("DETAILS", colorBold))
+	for _, k := range keys {
+		val := FormatValue(row[k])
+		display := val
+		switch {
+		case isDateColumn(k):
+			formatted, isRecent := formatDateValue(val, f.wide)
+			display = formatted
+			if isRecent {
+				display = f.colorize(formatted, colorGreen)
+			}
+		case isStatusColumn(k):
+			display = f.formatStatusValue(val)
+		}
+		_, _ = fmt.Fprintf(f.writer, " %-*s   %s\n", fieldW, k, display)
+	}
+	return nil
+}
+
 // PrintRaw outputs raw bytes (usually JSON from the API).
 // XML responses (from Classic API) are converted to JSON before formatting,
 // unless the format is FormatXML (pretty-printed) or FormatRaw (exact wire bytes).
@@ -462,6 +505,13 @@ func (f *Formatter) PrintRaw(data []byte) error {
 	case FormatJSON, FormatJSONMulti, FormatYAML:
 		return f.Print(parsed)
 	default:
+		// Table mode: a single object renders as a detail view, not a 1-row
+		// table. Arrays (even length 1) still normalize to rows.
+		if f.format == FormatTable || f.format == "" {
+			if obj, ok := parsed.(map[string]any); ok {
+				return f.Print(obj)
+			}
+		}
 		return f.Print(normalizeForTabular(parsed))
 	}
 }
