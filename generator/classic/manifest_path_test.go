@@ -74,3 +74,20 @@ func TestProofClassicManifestPathsWellFormed(t *testing.T) {
 			len(violations), strings.Join(violations, "\n  "))
 	}
 }
+
+// TestIsCleanPathSegment is a permanent guard on the validator itself: the floor
+// check above protects against an empty parse, but only this test catches a
+// future edit that weakens isCleanPathSegment (e.g. dropping the slash check),
+// which would otherwise let the manifest proof silently pass.
+func TestIsCleanPathSegment(t *testing.T) {
+	for _, s := range []string{"", "policies/extra", "policies ", "/policies", "back\\slash"} {
+		if isCleanPathSegment(s) {
+			t.Errorf("%q should be rejected", s)
+		}
+	}
+	for _, s := range []string{"policies", "osxconfigurationprofiles", "groupid"} {
+		if !isCleanPathSegment(s) {
+			t.Errorf("%q should be accepted", s)
+		}
+	}
+}
