@@ -76,4 +76,5 @@ jobs:
             --commands-json docs/site/commands.json \
             --llms-txt docs/site/llms.txt \
             --llms-full-txt docs/site/llms-full.txt \
+            --binary ./bin/jamf-cli \
             --site-dir docs/site

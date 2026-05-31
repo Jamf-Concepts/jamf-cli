@@ -191,6 +191,7 @@ verify-site-output: build
 		--commands-json /tmp/jamf-cli-site/commands.json \
 		--llms-txt /tmp/jamf-cli-site/llms.txt \
 		--llms-full-txt /tmp/jamf-cli-site/llms-full.txt \
+		--binary ./bin/jamf-cli \
 		--site-dir docs/site
 
 # Verify generated code is up to date (CI-safe)
