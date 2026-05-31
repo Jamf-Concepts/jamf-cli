@@ -573,9 +573,17 @@ spinner and progress output (narrower than --quiet).`,
 				return fmt.Errorf("loading config: %w", err)
 			}
 
-			// Apply default output from config if flag not explicitly set
-			if !cmd.Flags().Changed("output") && cfg.DefaultOutput != "" {
-				outputFmt = cfg.DefaultOutput
+			// Resolve effective output format: explicit --output wins, then
+			// config default_output, then auto (TTY -> table, piped -> json).
+			// Color is disabled whenever stdout is not an interactive terminal
+			// so ANSI never leaks into a pipe.
+			stdoutTTY := output.IsTerminal(os.Stdout.Fd())
+			outputFmt = output.ResolveFormat(
+				cmd.Flags().Changed("output"), outputFmt, cfg.DefaultOutput,
+				stdoutTTY, outFile != "",
+			)
+			if !stdoutTTY {
+				noColor = true
 			}
 
 			if outputFmt == string(output.FormatJSONMulti) && os.Getenv("JAMF_CLI_MULTI_CAPTURE") == "" {
