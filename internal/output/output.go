@@ -62,6 +62,7 @@ type Formatter struct {
 	noColor   bool
 	wide      bool
 	quiet     bool
+	noHints   bool
 	projector Projector
 }
 
@@ -86,6 +87,13 @@ func (f *Formatter) SetProjector(p Projector) {
 // list-size hint). Errors and primary output on stdout are unaffected.
 func (f *Formatter) SetQuiet(q bool) {
 	f.quiet = q
+}
+
+// SetNoHints suppresses advisory hints (e.g. the list-size hint) written to
+// stderr. Unlike SetQuiet it leaves the spinner and progress output alone —
+// a narrower opt-out. Errors and primary output on stdout are unaffected.
+func (f *Formatter) SetNoHints(v bool) {
+	f.noHints = v
 }
 
 // listHintThreshold is the minimum row count that triggers the
@@ -187,7 +195,7 @@ func (f *Formatter) Print(data any) error {
 // below threshold, and for table format (which already shows "(N total)"
 // in its summary header).
 func (f *Formatter) maybePrintListHint(rowCount int) {
-	if f.quiet || rowCount < listHintThreshold {
+	if f.quiet || f.noHints || rowCount < listHintThreshold {
 		return
 	}
 	if f.format == FormatTable || f.format == "" {

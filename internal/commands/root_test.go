@@ -439,6 +439,7 @@ func resetGlobals() {
 	profile = ""
 	outputFmt = "json"
 	quiet = false
+	noHints = false
 	verboseLevel = 0
 	noInput = false
 	noColor = false
@@ -1039,6 +1040,47 @@ func TestPersistentPreRunE_NOCOLOREnv(t *testing.T) {
 	}
 }
 
+func TestPersistentPreRunE_NoHintsEnv(t *testing.T) {
+	cases := []struct {
+		name        string
+		envVal      string
+		wantNoHints bool
+	}{
+		{"1 enables", "1", true},
+		{"true enables", "true", true},
+		{"TRUE enables", "TRUE", true},
+		{"0 leaves hints on", "0", false},
+		{"false leaves hints on", "false", false},
+		{"empty leaves hints on", "", false},
+		{"garbage leaves hints on", "yarp", false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			resetGlobals()
+			clearAuthEnv(t)
+			t.Setenv("JAMF_CLI_NO_HINTS", tc.envVal)
+
+			root := NewRootCmd("test", "abc123", "2024-01-01", "unknown")
+
+			// version is in chainSkip, but the JAMF_CLI_NO_HINTS parse runs
+			// before the skip return — same as the NO_COLOR handling — so the
+			// global reflects the env regardless of the command.
+			oldStdout := os.Stdout
+			r, w, _ := os.Pipe()
+			os.Stdout = w
+			root.SetArgs([]string{"version"})
+			_ = root.Execute()
+			_ = w.Close()
+			os.Stdout = oldStdout
+			_, _ = io.ReadAll(r)
+
+			if noHints != tc.wantNoHints {
+				t.Errorf("JAMF_CLI_NO_HINTS=%q: noHints=%v, want %v", tc.envVal, noHints, tc.wantNoHints)
+			}
+		})
+	}
+}
+
 // --- spinnerClient tests ---
 
 func TestShouldShowSpinner(t *testing.T) {
@@ -1067,6 +1109,18 @@ func TestShouldShowSpinner(t *testing.T) {
 					got, tc.want, tc.quiet, tc.noColor, tc.verbose)
 			}
 		})
+	}
+}
+
+// TestShouldShowSpinner_IgnoresNoHints guards the defining invariant of #214:
+// --no-hints / JAMF_CLI_NO_HINTS suppresses advisory hints but must NOT touch
+// the spinner. If noHints ever leaks into shouldShowSpinner(), this fails.
+func TestShouldShowSpinner_IgnoresNoHints(t *testing.T) {
+	t.Cleanup(resetGlobals)
+	resetGlobals()
+	noHints = true
+	if !shouldShowSpinner() {
+		t.Error("shouldShowSpinner()=false with noHints=true; --no-hints must not suppress the spinner")
 	}
 }
 

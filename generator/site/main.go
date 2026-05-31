@@ -53,7 +53,7 @@ func main() {
 	previous := flag.String("previous", "", "path to previous commands.json for new-command detection")
 	flag.Parse()
 
-	versionOut, err := exec.Command(*binary, "version").Output()
+	versionOut, err := exec.Command(*binary, "version", "-o", "json").Output()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error running %s version: %v\n", *binary, err)
 		os.Exit(1)
@@ -376,11 +376,16 @@ func splitCSV(s string) []string {
 }
 
 func parseVersion(output string) string {
-	v := rawVersion(output)
+	v := extractRawVersion(output)
 	if v == "" {
 		return "unknown"
 	}
-	// Strip git-describe suffix (e.g. "v1.2.0-52-gffc0b5a-dirty" → "v1.2.0")
+	// Drop the git-describe "-dirty" marker so the site shows the clean
+	// release tag. The deploy workflow builds from the latest release tag but
+	// overlays site files from main, which dirties the tree — without this a
+	// clean tag surfaces as "v1.17.0-dirty" instead of "v1.17.0".
+	v = strings.TrimSuffix(v, "-dirty")
+	// Strip git-describe suffix (e.g. "v1.2.0-52-gffc0b5a" → "v1.2.0")
 	if parts := strings.SplitN(v, "-", 2); len(parts) == 2 && strings.ContainsAny(parts[1], "0123456789") {
 		if _, err := strconv.Atoi(strings.Split(parts[1], "-")[0]); err == nil {
 			v = parts[0]
@@ -391,16 +396,19 @@ func parseVersion(output string) string {
 	return v
 }
 
-// rawVersion extracts the version string from `jamf-cli version` output. The
-// command defaults to JSON (-o json), so prefer the structured "version"
-// field; fall back to the plain-text "jamf-cli vX.Y.Z" shape for older
-// binaries. Returns "" when no version can be found.
-func rawVersion(output string) string {
-	var meta struct {
-		Version string `json:"version"`
-	}
-	if err := json.Unmarshal([]byte(output), &meta); err == nil && meta.Version != "" {
-		return meta.Version
+// extractRawVersion pulls the raw version string out of `jamf-cli version`
+// output. The command emits JSON by default (the global -o default is json),
+// so we parse that first; older binaries that predate -o support print a
+// "jamf-cli <version>" banner, so we fall back to that. Returns "" when
+// neither yields a version, letting the caller map it to "unknown".
+func extractRawVersion(output string) string {
+	if strings.HasPrefix(strings.TrimSpace(output), "{") {
+		var report struct {
+			Version string `json:"version"`
+		}
+		if json.Unmarshal([]byte(output), &report) == nil {
+			return report.Version
+		}
 	}
 	line, _, _ := strings.Cut(output, "\n")
 	if fields := strings.Fields(line); len(fields) >= 2 {
