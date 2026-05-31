@@ -285,6 +285,31 @@ func TestParseVersion(t *testing.T) {
 			input: "",
 			want:  "unknown",
 		},
+		{
+			name:  "json default output strips git-describe suffix",
+			input: "{\n  \"version\": \"v1.17.0-25-g74846ff\",\n  \"commit\": \"74846ff\",\n  \"built\": \"2026-05-31T04:31:46Z\"\n}\n",
+			want:  "1.17.0",
+		},
+		{
+			name:  "json exact tag",
+			input: `{"version":"v1.2.0","commit":"abc1234"}`,
+			want:  "1.2.0",
+		},
+		{
+			name:  "json empty version falls back to unknown",
+			input: `{"version":"","commit":"abc1234"}`,
+			want:  "unknown",
+		},
+		{
+			name:  "json exact tag dirty build strips dirty marker",
+			input: `{"version":"v1.17.0-dirty","commit":"abc1234"}`,
+			want:  "1.17.0",
+		},
+		{
+			name:  "json describe with count and dirty marker",
+			input: `{"version":"v1.17.0-25-g74846ff-dirty","commit":"74846ff"}`,
+			want:  "1.17.0",
+		},
 	}
 
 	for _, tt := range tests {
