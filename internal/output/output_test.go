@@ -132,9 +132,12 @@ func TestPrintRaw_Table_SingleObject(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	out := buf.String()
-	// New format: summary + blank + header + separator + data row
-	if !strings.Contains(out, "(1 total)") {
-		t.Errorf("expected summary header with count, got:\n%s", out)
+	// A single object renders as a vertical detail view, not a 1-row table.
+	if !strings.Contains(out, "DETAILS") {
+		t.Errorf("expected DETAILS detail-view header, got:\n%s", out)
+	}
+	if strings.Contains(out, "total)") {
+		t.Errorf("single object should not render the list-table summary, got:\n%s", out)
 	}
 	if !strings.Contains(out, "42") {
 		t.Errorf("expected '42' in output, got:\n%s", out)
@@ -1615,5 +1618,30 @@ func TestPrintRaw_RawFormat_ExactBytes(t *testing.T) {
 	}
 	if buf.String() != `{"id":1}` {
 		t.Errorf("FormatRaw should write exact bytes, got: %q", buf.String())
+	}
+}
+
+func TestResolveFormat(t *testing.T) {
+	cases := []struct {
+		name              string
+		flagChanged       bool
+		current           string
+		configDefault     string
+		isTTY, hasOutFile bool
+		want              string
+	}{
+		{"explicit flag wins", true, "csv", "yaml", true, false, "csv"},
+		{"config default when unset", false, "json", "yaml", true, false, "yaml"},
+		{"tty -> table", false, "json", "", true, false, "table"},
+		{"piped -> json", false, "json", "", false, false, "json"},
+		{"out-file -> json even on tty", false, "json", "", true, true, "json"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			got := ResolveFormat(c.flagChanged, c.current, c.configDefault, c.isTTY, c.hasOutFile)
+			if got != c.want {
+				t.Fatalf("ResolveFormat = %q, want %q", got, c.want)
+			}
+		})
 	}
 }

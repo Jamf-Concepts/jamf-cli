@@ -313,6 +313,10 @@ jamf-cli pro buildings apply --from-file building.json --dry-run
 Please file an issue in [GitHub Issues](https://github.com/Jamf-Concepts/jamf-cli/issues).
 
 
+## Changelog
+
+See [GitHub Releases](https://github.com/Jamf-Concepts/jamf-cli/releases) for release notes and version history.
+
 ## License
 
 Copyright (c) 2026 Jamf Software LLC.

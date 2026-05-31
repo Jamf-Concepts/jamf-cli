@@ -13,9 +13,24 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/Jamf-Concepts/jamf-cli/internal/exitcode"
 	"github.com/Jamf-Concepts/jamf-cli/internal/output"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 )
+
+// finishBatch maps a bulk tally to the process result. When some items
+// succeeded and some failed it returns a PartialFailure (exit 7), unless
+// --allow-partial-failure is set, in which case it warns and returns nil.
+// A total failure propagates firstErr's exit code.
+func finishBatch(stderr io.Writer, noun string, succeeded, failed int, firstErr error) error {
+	if failed > 0 && succeeded > 0 && allowPartialFailure {
+		_, _ = fmt.Fprintf(stderr, "warning: %d of %d %s failed; continuing (--allow-partial-failure)\n",
+			failed, succeeded+failed, noun)
+		return nil
+	}
+	msg := fmt.Sprintf("%d of %d %s failed", failed, succeeded+failed, noun)
+	return exitcode.PartialOrPropagate(succeeded, failed, firstErr, msg)
+}
 
 // newBulkCmd builds the "bulk" parent command with all subcommands attached.
 func newBulkCmd(cliCtx *registry.CLIContext) *cobra.Command {

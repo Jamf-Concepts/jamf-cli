@@ -316,7 +316,12 @@ func runBackup(ctx context.Context, cliCtx *registry.CLIContext, opts backupOpti
 	fmt.Fprintln(os.Stderr)
 
 	if len(failures) > 0 {
-		return fmt.Errorf("backup completed with %d failures (see _failures%s)", len(failures), ext)
+		if allowPartialFailure && totalExported > 0 {
+			fmt.Fprintf(os.Stderr, "warning: backup completed with %d failures; continuing (--allow-partial-failure)\n", len(failures))
+			return nil
+		}
+		msg := fmt.Sprintf("backup completed with %d failures (see _failures%s)", len(failures), ext)
+		return exitcode.PartialOrPropagate(totalExported, len(failures), nil, msg)
 	}
 	return nil
 }

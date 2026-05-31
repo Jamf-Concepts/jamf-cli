@@ -320,21 +320,33 @@ func newClassicAdvancedComputerSearchesDeleteCmd(ctx *registry.CLIContext) *cobr
 				if err := cooldown.Enforce(ctx.ProfileName, noInputBulk, ctx.DestructiveCooldown); err != nil {
 					return err
 				}
+				var okCount, failCount int
+				var firstErr error
 				for _, e := range bulk {
 					delPath := fmt.Sprintf("/JSSResource/advancedcomputersearches/id/%s", url.PathEscape(e.id))
 					resp, err := ctx.Client.Do(reqCtx, "DELETE", delPath, nil)
 					if err != nil {
-						return fmt.Errorf("deleting %q (id: %s): %w", e.label, e.id, err)
+						fmt.Fprintf(os.Stderr, "delete advanced_computer_search %q (id: %s) failed: %v\n", e.label, e.id, err)
+						if firstErr == nil {
+							firstErr = err
+						}
+						failCount++
+						continue
 					}
 					resp.Body.Close()
 					if resp.StatusCode == http.StatusNoContent || resp.StatusCode == http.StatusOK {
 						fmt.Fprintf(os.Stderr, "Deleted advanced_computer_search %q (id: %s)\n", e.label, e.id)
+						okCount++
 					} else {
-						return fmt.Errorf("delete %q (id: %s): HTTP %d", e.label, e.id, resp.StatusCode)
+						fmt.Fprintf(os.Stderr, "delete advanced_computer_search %q (id: %s) failed: HTTP %d\n", e.label, e.id, resp.StatusCode)
+						if firstErr == nil {
+							firstErr = fmt.Errorf("HTTP %d", resp.StatusCode)
+						}
+						failCount++
 					}
 				}
 				cooldown.Record(ctx.ProfileName)
-				return nil
+				return batchDeleteError(cmd, okCount, failCount, firstErr, "advancedcomputersearches deletes")
 			}
 
 			// Resolve ID from --name or positional arg

@@ -1545,20 +1545,33 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 				if err := cooldown.Enforce(ctx.ProfileName, noInputBulk, ctx.DestructiveCooldown); err != nil {
 					return err
 				}
+				var okCount, failCount int
+				var firstErr error
 				for _, e := range bulk {
 					delPath := strings.Replace("{{ .Path }}", "{{ pathParamName . }}", url.PathEscape(e.id), 1)
 					resp, err := ctx.Client.Do(reqCtx, "DELETE", delPath, nil)
 					if err != nil {
-						return fmt.Errorf("deleting %q (id: %s): %w", e.label, e.id, err)
+						fmt.Fprintf(os.Stderr, "delete {{ $.NameSingular }} %q (id: %s) failed: %v\n", e.label, e.id, err)
+						if firstErr == nil {
+							firstErr = err
+						}
+						failCount++
+						continue
 					}
 					resp.Body.Close()
 					if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-						return fmt.Errorf("delete %q (id: %s): HTTP %d", e.label, e.id, resp.StatusCode)
+						fmt.Fprintf(os.Stderr, "delete {{ $.NameSingular }} %q (id: %s) failed: HTTP %d\n", e.label, e.id, resp.StatusCode)
+						if firstErr == nil {
+							firstErr = fmt.Errorf("HTTP %d", resp.StatusCode)
+						}
+						failCount++
+						continue
 					}
 					fmt.Fprintf(os.Stderr, "Deleted {{ $.NameSingular }} %q (id: %s)\n", e.label, e.id)
+					okCount++
 				}
 				cooldown.Record(ctx.ProfileName)
-				return nil
+				return batchDeleteError(cmd, okCount, failCount, firstErr, "{{ $.Name }} deletes")
 			}
 {{- end }}
 {{- if and .IsDestructive $.GroupsClassicPath }}
@@ -1598,20 +1611,33 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 				if err := cooldown.Enforce(ctx.ProfileName, noInputGrp, ctx.DestructiveCooldown); err != nil {
 					return err
 				}
+				var okCount, failCount int
+				var firstErr error
 				for _, e := range bulk {
 					delPath := strings.Replace("{{ .Path }}", "{{ pathParamName . }}", url.PathEscape(e.id), 1)
 					resp, err := ctx.Client.Do(reqCtx, "DELETE", delPath, nil)
 					if err != nil {
-						return fmt.Errorf("deleting id %s: %w", e.id, err)
+						fmt.Fprintf(os.Stderr, "delete {{ $.NameSingular }} id %s failed: %v\n", e.id, err)
+						if firstErr == nil {
+							firstErr = err
+						}
+						failCount++
+						continue
 					}
 					resp.Body.Close()
 					if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-						return fmt.Errorf("delete id %s: HTTP %d", e.id, resp.StatusCode)
+						fmt.Fprintf(os.Stderr, "delete {{ $.NameSingular }} id %s failed: HTTP %d\n", e.id, resp.StatusCode)
+						if firstErr == nil {
+							firstErr = fmt.Errorf("HTTP %d", resp.StatusCode)
+						}
+						failCount++
+						continue
 					}
 					fmt.Fprintf(os.Stderr, "Deleted {{ $.NameSingular }} id: %s\n", e.id)
+					okCount++
 				}
 				cooldown.Record(ctx.ProfileName)
-				return nil
+				return batchDeleteError(cmd, okCount, failCount, firstErr, "{{ $.Name }} deletes")
 			}
 {{- end }}
 {{- if and .IsDestructive (not (opHasNameLookup . $)) }}
@@ -2565,6 +2591,24 @@ func RegisterCommands(root *cobra.Command, ctx *registry.CLIContext) {
 {{- range . }}
 	root.AddCommand(New{{ .GoName }}Cmd(ctx))
 {{- end }}
+}
+
+// batchDeleteError maps a bulk-delete tally to the process result. When some
+// items succeeded and some failed it returns a PartialFailure (exit 7), unless
+// --allow-partial-failure is set, in which case it warns and returns nil. A
+// total failure propagates firstErr's exit code.
+func batchDeleteError(cmd *cobra.Command, succeeded, failed int, firstErr error, noun string) error {
+	if failed == 0 {
+		return nil
+	}
+	allow, _ := cmd.Flags().GetBool("allow-partial-failure")
+	if succeeded > 0 && allow {
+		fmt.Fprintf(os.Stderr, "warning: %d of %d %s failed; continuing (--allow-partial-failure)\n",
+			failed, succeeded+failed, noun)
+		return nil
+	}
+	return exitcode.PartialOrPropagate(succeeded, failed, firstErr,
+		fmt.Sprintf("%d of %d %s failed", failed, succeeded+failed, noun))
 }
 
 // resolveNameToID looks up a resource by name using a filtered list call and

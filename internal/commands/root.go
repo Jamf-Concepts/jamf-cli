@@ -5,6 +5,7 @@ package commands
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -34,27 +35,28 @@ import (
 
 // Global flags
 var (
-	profile        string
-	outputFmt      string
-	quiet          bool
-	noHints        bool
-	verboseLevel   int
-	noInput        bool
-	noColor        bool
-	dryRun         bool
-	wide           bool
-	compact        bool
-	selectFields   []string
-	outFile        string
-	fieldName      string
-	serverURL      string
-	token          string
-	tokenFile      string
-	clientID       string
-	clientSecret   string
-	tenantID       string
-	cliVersion     string // set by NewRootCmd for use by power commands
-	noVersionCheck bool   // skip tenant version compatibility probe
+	profile             string
+	outputFmt           string
+	quiet               bool
+	noHints             bool
+	verboseLevel        int
+	noInput             bool
+	noColor             bool
+	dryRun              bool
+	wide                bool
+	compact             bool
+	allowPartialFailure bool
+	selectFields        []string
+	outFile             string
+	fieldName           string
+	serverURL           string
+	token               string
+	tokenFile           string
+	clientID            string
+	clientSecret        string
+	tenantID            string
+	cliVersion          string // set by NewRootCmd for use by power commands
+	noVersionCheck      bool   // skip tenant version compatibility probe
 )
 
 // cliClient wraps our client to implement registry.HTTPClient
@@ -573,9 +575,17 @@ spinner and progress output (narrower than --quiet).`,
 				return fmt.Errorf("loading config: %w", err)
 			}
 
-			// Apply default output from config if flag not explicitly set
-			if !cmd.Flags().Changed("output") && cfg.DefaultOutput != "" {
-				outputFmt = cfg.DefaultOutput
+			// Resolve effective output format: explicit --output wins, then
+			// config default_output, then auto (TTY -> table, piped -> json).
+			// Color is disabled whenever stdout is not an interactive terminal
+			// so ANSI never leaks into a pipe.
+			stdoutTTY := output.IsTerminal(os.Stdout.Fd())
+			outputFmt = output.ResolveFormat(
+				cmd.Flags().Changed("output"), outputFmt, cfg.DefaultOutput,
+				stdoutTTY, outFile != "",
+			)
+			if !stdoutTTY {
+				noColor = true
 			}
 
 			if outputFmt == string(output.FormatJSONMulti) && os.Getenv("JAMF_CLI_MULTI_CAPTURE") == "" {
@@ -600,6 +610,13 @@ spinner and progress output (narrower than --quiet).`,
 			formatter.SetQuiet(quiet)
 			formatter.SetNoHints(noHints)
 			cliCtx.Output = &cliOutput{formatter}
+
+			// Group parent commands (made runnable only to reject unknown
+			// subcommands) never call an API; skip auth so `pro buildings`
+			// help and typos work without credentials.
+			if cmd.Annotations[groupParentAnnotation] == "true" {
+				return nil
+			}
 
 			// Skip auth for commands that don't need it. Most are matched
 			// anywhere in the chain (e.g. "config" covers all subcommands,
@@ -719,6 +736,23 @@ spinner and progress output (narrower than --quiet).`,
 	// Custom version template so --version matches the `version` subcommand output
 	cmd.SetVersionTemplate(fmt.Sprintf("jamf-cli %s\n  commit: %s\n  built:  %s\n", version, commit, date))
 
+	// Suggest the nearest command for typos ("did you mean ...").
+	cmd.SuggestionsMinimumDistance = 2
+	// Suggest the nearest flag for unknown-flag typos, then classify as a usage
+	// error (exit 2) so the exit code matches the helpers.go contract.
+	cmd.SetFlagErrorFunc(func(c *cobra.Command, ferr error) error {
+		const marker = "unknown flag: --"
+		if i := strings.Index(ferr.Error(), marker); i >= 0 {
+			bad := strings.SplitN(ferr.Error()[i+len(marker):], " ", 2)[0]
+			var known []string
+			c.Flags().VisitAll(func(f *pflag.Flag) { known = append(known, f.Name) })
+			if s := suggestFlag(bad, known); s != "" {
+				fmt.Fprintf(os.Stderr, "hint: did you mean --%s?\n", s)
+			}
+		}
+		return exitcode.Wrap(exitcode.Usage, ferr)
+	})
+
 	// Global flags
 	cmd.PersistentFlags().StringVarP(&profile, "profile", "p", "", "config profile to use (or JAMF_PROFILE env)")
 	cmd.PersistentFlags().StringVarP(&outputFmt, "output", "o", "json", "output format: table, json, csv, yaml, plain, xml (pretty), raw (classic commands default to xml)")
@@ -729,10 +763,11 @@ spinner and progress output (narrower than --quiet).`,
 	cmd.PersistentFlags().BoolVar(&noColor, "no-color", false, "disable colored output")
 	cmd.PersistentFlags().BoolVarP(&dryRun, "dry-run", "n", false, "preview changes without executing")
 	cmd.PersistentFlags().BoolVarP(&wide, "wide", "w", false, "show all columns in table output")
-	cmd.PersistentFlags().BoolVar(&compact, "compact", false, "drop arrays and nested objects, keep only scalar fields (smaller payloads for agents; ignored when --field is set)")
+	cmd.PersistentFlags().BoolVar(&compact, "compact", false, "keep only high-signal scalar fields (identity + fields common across rows); smaller payloads for agents; ignored when --field is set")
 	cmd.PersistentFlags().StringSliceVar(&selectFields, "select", nil, "project output to these dot-path fields only, e.g., --select id,general.name,udid (ignored when --field is set)")
 	cmd.PersistentFlags().StringVar(&outFile, "out-file", "", "write output to file instead of stdout")
 	cmd.PersistentFlags().StringVar(&fieldName, "field", "", "extract a single field from JSON response (e.g., --field id)")
+	cmd.PersistentFlags().BoolVar(&allowPartialFailure, "allow-partial-failure", false, "downgrade a partial batch failure (some items failed) to a warning and exit 0")
 
 	// Connection flags
 	cmd.PersistentFlags().StringVar(&serverURL, "url", "", "Jamf Pro server URL (or JAMF_URL env)")
@@ -773,6 +808,11 @@ spinner and progress output (narrower than --quiet).`,
 	// Apply root-level aliases and groups for --help output
 	applyRootAliases(cmd)
 	applyRootGroups(cmd)
+
+	// cobra only rejects unknown subcommands at the root; extend that to every
+	// non-runnable parent so typos like `pro buildings lst` error with a hint
+	// instead of silently printing help and exiting 0.
+	guardUnknownSubcommands(cmd)
 
 	return cmd
 }
@@ -1220,19 +1260,151 @@ func resolveSchoolClient(cfg *config.Config, cliCtx *registry.CLIContext) error 
 // is "json". Returns true if the error was handled, false otherwise (caller
 // should fall back to plain stderr).
 func FormatError(err error) bool {
+	return formatErrorTo(os.Stdout, err)
+}
+
+// formatErrorTo writes the JSON error envelope to w when output is "json",
+// including the remediation hint and any structured details when present.
+func formatErrorTo(w io.Writer, err error) bool {
 	if outputFmt != "json" {
 		return false
 	}
 	code := exitcode.CodeFrom(err)
 	envelope := map[string]any{
-		"error":    exitcode.CodeName(code),
-		"message":  err.Error(),
-		"exitCode": code,
+		"error":        exitcode.CodeName(code),
+		"message":      err.Error(),
+		"exitCode":     code,
+		"exitCodeName": exitcode.CodeName(code),
 	}
-	enc := json.NewEncoder(os.Stdout)
+	var e *exitcode.Error
+	if errors.As(err, &e) {
+		if e.Hint != "" {
+			envelope["hint"] = e.Hint
+		}
+		for k, v := range e.Details {
+			envelope[k] = v
+		}
+	}
+	enc := json.NewEncoder(w)
 	enc.SetIndent("", "  ")
 	if err := enc.Encode(envelope); err != nil {
 		return false // stdout broken (e.g. SIGPIPE); fall back to stderr
 	}
 	return true
+}
+
+// FprintError writes a human-facing error (and a "hint:" line when present) to
+// w. Used by main when the JSON envelope path does not apply.
+func FprintError(w io.Writer, err error) {
+	_, _ = fmt.Fprintln(w, err)
+	var e *exitcode.Error
+	if errors.As(err, &e) && e.Hint != "" {
+		_, _ = fmt.Fprintf(w, "hint: %s\n", e.Hint)
+	}
+}
+
+// ClassifyError normalizes framework errors that carry no explicit exit code so
+// they map to the documented codes. Cobra reports an unknown command as a plain
+// error (default exit 1); classify it as a usage error (2) to match the
+// unknown-flag path handled by SetFlagErrorFunc. Errors that already carry an
+// exit code (including wrapped unknown-flag errors) pass through unchanged.
+func ClassifyError(err error) error {
+	if err == nil {
+		return nil
+	}
+	var e *exitcode.Error
+	if errors.As(err, &e) {
+		return err
+	}
+	if strings.HasPrefix(err.Error(), "unknown command") {
+		return exitcode.Wrap(exitcode.Usage, err)
+	}
+	return err
+}
+
+// groupParentAnnotation marks a parent command that guardUnknownSubcommands made
+// runnable solely to reject unknown subcommands. PersistentPreRunE skips auth for
+// these — a group parent never calls an API itself.
+const groupParentAnnotation = "jamfcli/group-parent"
+
+// guardUnknownSubcommands makes every non-root group parent reject an unknown
+// subcommand with a "did you mean" hint and a usage exit code. Cobra applies
+// this only to the root command (via legacyArgs in Find); a child parent would
+// otherwise silently print help and exit 0.
+//
+// We attach a RunE rather than an Args validator because cobra short-circuits a
+// non-runnable command to help before arguments are ever validated, so an Args
+// validator on a pure group never runs. Making the parent runnable routes it
+// through RunE, where args are available — and the annotation lets the auth
+// pre-run skip it.
+func guardUnknownSubcommands(cmd *cobra.Command) {
+	for _, c := range cmd.Commands() {
+		guardUnknownSubcommands(c)
+	}
+	if !cmd.HasParent() || !cmd.HasSubCommands() || cmd.Runnable() {
+		return
+	}
+	// SuggestionsFor reads this directly with no default; child commands leave
+	// it at 0, which would suppress all but exact matches.
+	if cmd.SuggestionsMinimumDistance <= 0 {
+		cmd.SuggestionsMinimumDistance = 2
+	}
+	if cmd.Annotations == nil {
+		cmd.Annotations = map[string]string{}
+	}
+	cmd.Annotations[groupParentAnnotation] = "true"
+	cmd.RunE = func(c *cobra.Command, args []string) error {
+		if len(args) == 0 {
+			return c.Help() // bare parent (e.g. `pro buildings`) shows help
+		}
+		msg := fmt.Sprintf("unknown command %q for %q", args[0], c.CommandPath())
+		if s := c.SuggestionsFor(args[0]); len(s) > 0 {
+			msg += "\n\nDid you mean this?\n\t" + strings.Join(s, "\n\t")
+		}
+		return exitcode.Wrap(exitcode.Usage, errors.New(msg))
+	}
+}
+
+// suggestFlag returns the closest known flag name to unknown, or "" when none
+// is a plausible match. It anchors on a shared first letter and keeps the edit
+// distance small relative to the typo length, so a short typo resolves to the
+// intended flag (--fld -> --field) rather than an unrelated one at the same
+// distance (--all), and a typo with no real match (--id) yields no hint at all.
+func suggestFlag(unknown string, known []string) string {
+	if unknown == "" {
+		return ""
+	}
+	best, bestDist := "", 0
+	for _, k := range known {
+		if k == "" || k[0] != unknown[0] {
+			continue
+		}
+		d := levenshtein(unknown, k)
+		if d > 2 || d >= len(unknown) {
+			continue
+		}
+		if best == "" || d < bestDist {
+			best, bestDist = k, d
+		}
+	}
+	return best
+}
+
+func levenshtein(a, b string) int {
+	prev := make([]int, len(b)+1)
+	for j := range prev {
+		prev[j] = j
+	}
+	for i := 1; i <= len(a); i++ {
+		cur := []int{i}
+		for j := 1; j <= len(b); j++ {
+			cost := 1
+			if a[i-1] == b[j-1] {
+				cost = 0
+			}
+			cur = append(cur, min(min(prev[j]+1, cur[j-1]+1), prev[j-1]+cost))
+		}
+		prev = cur
+	}
+	return prev[len(b)]
 }

@@ -114,3 +114,43 @@ func TestWrap(t *testing.T) {
 		t.Error("expected wrapped error to be unwrappable")
 	}
 }
+
+func TestCodeName_PartialFailure(t *testing.T) {
+	if got := CodeName(PartialFailure); got != "partial_failure" {
+		t.Fatalf("CodeName(PartialFailure) = %q, want %q", got, "partial_failure")
+	}
+	if PartialFailure != 7 {
+		t.Fatalf("PartialFailure = %d, want 7", PartialFailure)
+	}
+}
+
+func TestWithHintAndDetails(t *testing.T) {
+	err := New(NotFound, "missing").WithHint("run list").WithDetails(map[string]any{"id": "5"})
+	if err.Hint != "run list" {
+		t.Fatalf("Hint = %q", err.Hint)
+	}
+	if err.Details["id"] != "5" {
+		t.Fatalf("Details = %v", err.Details)
+	}
+	if got := err.Error(); got != "missing" {
+		t.Fatalf("Error() = %q, want %q", got, "missing")
+	}
+}
+
+func TestPartialOrPropagate(t *testing.T) {
+	err := PartialOrPropagate(3, 2, New(Authentication, "401"), "2 of 5 failed")
+	if CodeFrom(err) != PartialFailure {
+		t.Fatalf("partial: code = %d, want %d", CodeFrom(err), PartialFailure)
+	}
+	err = PartialOrPropagate(0, 5, New(Authentication, "401"), "5 of 5 failed")
+	if CodeFrom(err) != Authentication {
+		t.Fatalf("total: code = %d, want %d", CodeFrom(err), Authentication)
+	}
+	err = PartialOrPropagate(0, 5, nil, "all failed")
+	if CodeFrom(err) != General {
+		t.Fatalf("total/nil: code = %d, want %d", CodeFrom(err), General)
+	}
+	if PartialOrPropagate(5, 0, nil, "") != nil {
+		t.Fatal("no failures should return nil")
+	}
+}

@@ -579,20 +579,33 @@ func newMobileDevicePrestagesDeleteCmd(ctx *registry.CLIContext) *cobra.Command 
 				if err := cooldown.Enforce(ctx.ProfileName, noInputBulk, ctx.DestructiveCooldown); err != nil {
 					return err
 				}
+				var okCount, failCount int
+				var firstErr error
 				for _, e := range bulk {
 					delPath := strings.Replace("/v3/mobile-device-prestages/{id}", "{id}", url.PathEscape(e.id), 1)
 					resp, err := ctx.Client.Do(reqCtx, "DELETE", delPath, nil)
 					if err != nil {
-						return fmt.Errorf("deleting %q (id: %s): %w", e.label, e.id, err)
+						fmt.Fprintf(os.Stderr, "delete mobile-device-prestage %q (id: %s) failed: %v\n", e.label, e.id, err)
+						if firstErr == nil {
+							firstErr = err
+						}
+						failCount++
+						continue
 					}
 					resp.Body.Close()
 					if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-						return fmt.Errorf("delete %q (id: %s): HTTP %d", e.label, e.id, resp.StatusCode)
+						fmt.Fprintf(os.Stderr, "delete mobile-device-prestage %q (id: %s) failed: HTTP %d\n", e.label, e.id, resp.StatusCode)
+						if firstErr == nil {
+							firstErr = fmt.Errorf("HTTP %d", resp.StatusCode)
+						}
+						failCount++
+						continue
 					}
 					fmt.Fprintf(os.Stderr, "Deleted mobile-device-prestage %q (id: %s)\n", e.label, e.id)
+					okCount++
 				}
 				cooldown.Record(ctx.ProfileName)
-				return nil
+				return batchDeleteError(cmd, okCount, failCount, firstErr, "mobile-device-prestages deletes")
 			}
 
 			// Resolve resource ID from positional arg, --name, or lookup flags
@@ -780,20 +793,33 @@ func newMobileDevicePrestagesDeleteMultipleCmd(ctx *registry.CLIContext) *cobra.
 				if err := cooldown.Enforce(ctx.ProfileName, noInputBulk, ctx.DestructiveCooldown); err != nil {
 					return err
 				}
+				var okCount, failCount int
+				var firstErr error
 				for _, e := range bulk {
 					delPath := strings.Replace("/v3/mobile-device-prestages/{id}/attachments/delete-multiple", "{id}", url.PathEscape(e.id), 1)
 					resp, err := ctx.Client.Do(reqCtx, "DELETE", delPath, nil)
 					if err != nil {
-						return fmt.Errorf("deleting %q (id: %s): %w", e.label, e.id, err)
+						fmt.Fprintf(os.Stderr, "delete mobile-device-prestage %q (id: %s) failed: %v\n", e.label, e.id, err)
+						if firstErr == nil {
+							firstErr = err
+						}
+						failCount++
+						continue
 					}
 					resp.Body.Close()
 					if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-						return fmt.Errorf("delete %q (id: %s): HTTP %d", e.label, e.id, resp.StatusCode)
+						fmt.Fprintf(os.Stderr, "delete mobile-device-prestage %q (id: %s) failed: HTTP %d\n", e.label, e.id, resp.StatusCode)
+						if firstErr == nil {
+							firstErr = fmt.Errorf("HTTP %d", resp.StatusCode)
+						}
+						failCount++
+						continue
 					}
 					fmt.Fprintf(os.Stderr, "Deleted mobile-device-prestage %q (id: %s)\n", e.label, e.id)
+					okCount++
 				}
 				cooldown.Record(ctx.ProfileName)
-				return nil
+				return batchDeleteError(cmd, okCount, failCount, firstErr, "mobile-device-prestages deletes")
 			}
 
 			// Resolve resource ID from positional arg, --name, or lookup flags

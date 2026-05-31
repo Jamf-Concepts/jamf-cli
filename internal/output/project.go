@@ -77,20 +77,85 @@ func projectSelect(rows []map[string]any, paths []string) []map[string]any {
 	return out
 }
 
-// projectCompact keeps only scalar values from flattened rows.
-// flattenRows already lifts nested objects to dot keys, so what remains
-// non-scalar here is arrays — which are the bulk of the token cost in
-// Jamf Pro list responses.
+// compactAllowKeys are leaf field names (lowercased) always kept by --compact,
+// regardless of how often they appear: identity and high-signal fields.
+var compactAllowKeys = map[string]bool{
+	"id": true, "name": true, "displayname": true, "udid": true,
+	"serialnumber": true, "serial": true, "managementid": true,
+	"username": true, "email": true, "status": true, "state": true,
+	"enabled": true, "managed": true, "supervised": true, "model": true,
+	"osversion": true, "version": true, "type": true, "category": true,
+}
+
+// compactBlockKeys are verbose leaf fields dropped from a single-object
+// --compact (where the frequency rule is meaningless at n=1).
+var compactBlockKeys = map[string]bool{
+	"description": true, "notes": true, "body": true, "content": true,
+	"payloads": true, "payload": true, "scriptcontents": true,
+	"html": true, "base64": true,
+}
+
+// leafKey returns the last dot-segment of a flattened key.
+func leafKey(k string) string {
+	if i := strings.LastIndex(k, "."); i >= 0 {
+		return k[i+1:]
+	}
+	return k
+}
+
+// compactAllowed reports whether a leaf key is always kept: in the allowlist,
+// or an identity field (suffix "Id").
+func compactAllowed(leaf string) bool {
+	if compactAllowKeys[strings.ToLower(leaf)] {
+		return true
+	}
+	return strings.HasSuffix(leaf, "Id")
+}
+
+// projectCompact keeps high-signal scalars. flattenRows already lifts nested
+// objects to dot keys and drops arrays, so this trims the remaining scalar
+// noise. For a single object it keeps every scalar except a verbose blocklist.
+// For a list it keeps a scalar when the leaf is allowlisted OR the key is
+// present (non-null scalar) in >=80% of rows.
 func projectCompact(rows []map[string]any) []map[string]any {
-	out := make([]map[string]any, len(rows))
-	for i, row := range rows {
-		compact := make(map[string]any, len(row))
+	if len(rows) == 0 {
+		return rows
+	}
+	if len(rows) == 1 {
+		row := rows[0]
+		out := make(map[string]any, len(row))
+		for k, v := range row {
+			if !isScalar(v) {
+				continue
+			}
+			if compactBlockKeys[strings.ToLower(leafKey(k))] {
+				continue
+			}
+			out[k] = v
+		}
+		return []map[string]any{out}
+	}
+
+	counts := make(map[string]int)
+	for _, row := range rows {
 		for k, v := range row {
 			if isScalar(v) {
-				compact[k] = v
+				counts[k]++
 			}
 		}
-		out[i] = compact
+	}
+	out := make([]map[string]any, len(rows))
+	for i, row := range rows {
+		c := make(map[string]any, len(row))
+		for k, v := range row {
+			if !isScalar(v) {
+				continue
+			}
+			if compactAllowed(leafKey(k)) || counts[k]*100 >= len(rows)*80 {
+				c[k] = v
+			}
+		}
+		out[i] = c
 	}
 	return out
 }

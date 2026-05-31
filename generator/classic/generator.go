@@ -901,21 +901,33 @@ func new{{ .GoName }}DeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 				if err := cooldown.Enforce(ctx.ProfileName, noInputBulk, ctx.DestructiveCooldown); err != nil {
 					return err
 				}
+				var okCount, failCount int
+				var firstErr error
 				for _, e := range bulk {
 					delPath := fmt.Sprintf("/JSSResource/{{ .Path }}/{{ idPath . }}/%s", url.PathEscape(e.id))
 					resp, err := ctx.Client.Do(reqCtx, "DELETE", delPath, nil)
 					if err != nil {
-						return fmt.Errorf("deleting %q (id: %s): %w", e.label, e.id, err)
+						fmt.Fprintf(os.Stderr, "delete {{ .Singular }} %q (id: %s) failed: %v\n", e.label, e.id, err)
+						if firstErr == nil {
+							firstErr = err
+						}
+						failCount++
+						continue
 					}
 					resp.Body.Close()
 					if resp.StatusCode == http.StatusNoContent || resp.StatusCode == http.StatusOK {
 						fmt.Fprintf(os.Stderr, "Deleted {{ .Singular }} %q (id: %s)\n", e.label, e.id)
+						okCount++
 					} else {
-						return fmt.Errorf("delete %q (id: %s): HTTP %d", e.label, e.id, resp.StatusCode)
+						fmt.Fprintf(os.Stderr, "delete {{ .Singular }} %q (id: %s) failed: HTTP %d\n", e.label, e.id, resp.StatusCode)
+						if firstErr == nil {
+							firstErr = fmt.Errorf("HTTP %d", resp.StatusCode)
+						}
+						failCount++
 					}
 				}
 				cooldown.Record(ctx.ProfileName)
-				return nil
+				return batchDeleteError(cmd, okCount, failCount, firstErr, "{{ .Name }} deletes")
 			}
 {{ if .GroupPath }}
 			// --group: delete all members of the named mobile device group
@@ -953,21 +965,33 @@ func new{{ .GoName }}DeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 				if err := cooldown.Enforce(ctx.ProfileName, noInputGroup, ctx.DestructiveCooldown); err != nil {
 					return err
 				}
+				var okCount, failCount int
+				var firstErr error
 				for _, e := range bulk {
 					delPath := fmt.Sprintf("/JSSResource/{{ .Path }}/{{ idPath . }}/%s", url.PathEscape(e.id))
 					resp, err := ctx.Client.Do(reqCtx, "DELETE", delPath, nil)
 					if err != nil {
-						return fmt.Errorf("deleting id %s: %w", e.id, err)
+						fmt.Fprintf(os.Stderr, "delete {{ .Singular }} id %s failed: %v\n", e.id, err)
+						if firstErr == nil {
+							firstErr = err
+						}
+						failCount++
+						continue
 					}
 					resp.Body.Close()
 					if resp.StatusCode == http.StatusNoContent || resp.StatusCode == http.StatusOK {
 						fmt.Fprintf(os.Stderr, "Deleted {{ .Singular }} id: %s\n", e.id)
+						okCount++
 					} else {
-						return fmt.Errorf("delete id %s: HTTP %d", e.id, resp.StatusCode)
+						fmt.Fprintf(os.Stderr, "delete {{ .Singular }} id %s failed: HTTP %d\n", e.id, resp.StatusCode)
+						if firstErr == nil {
+							firstErr = fmt.Errorf("HTTP %d", resp.StatusCode)
+						}
+						failCount++
 					}
 				}
 				cooldown.Record(ctx.ProfileName)
-				return nil
+				return batchDeleteError(cmd, okCount, failCount, firstErr, "{{ .Name }} deletes")
 			}
 {{ end }}
 			// Resolve ID from --name or positional arg
