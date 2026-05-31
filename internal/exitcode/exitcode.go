@@ -16,13 +16,16 @@ const (
 	NotFound         = 4
 	PermissionDenied = 5
 	RateLimited      = 6
+	PartialFailure   = 7
 )
 
 // Error is an error that carries a specific exit code.
 type Error struct {
 	Code    int
 	Message string
-	Err     error // optional wrapped error
+	Err     error          // optional wrapped error
+	Hint    string         // optional one-line remediation, surfaced separately
+	Details map[string]any // optional structured extras for the JSON envelope
 }
 
 func (e *Error) Error() string {
@@ -67,6 +70,8 @@ func CodeName(code int) string {
 		return "permission_denied"
 	case RateLimited:
 		return "rate_limited"
+	case PartialFailure:
+		return "partial_failure"
 	default:
 		return "general"
 	}
@@ -80,4 +85,30 @@ func CodeFrom(err error) int {
 		return e.Code
 	}
 	return General
+}
+
+// WithHint attaches a one-line remediation hint and returns e for chaining.
+func (e *Error) WithHint(hint string) *Error { e.Hint = hint; return e }
+
+// WithDetails attaches structured extras and returns e for chaining.
+func (e *Error) WithDetails(d map[string]any) *Error { e.Details = d; return e }
+
+// PartialOrPropagate maps a batch tally to an exit error:
+//   - failed == 0                 -> nil
+//   - succeeded > 0 && failed > 0 -> PartialFailure (7) carrying msg + counts
+//   - succeeded == 0 && failed > 0-> firstErr's exit code (propagated), or General
+func PartialOrPropagate(succeeded, failed int, firstErr error, msg string) error {
+	if failed == 0 {
+		return nil
+	}
+	if succeeded > 0 {
+		return New(PartialFailure, msg).WithDetails(map[string]any{
+			"succeeded": succeeded,
+			"failed":    failed,
+		})
+	}
+	if firstErr != nil {
+		return Wrap(CodeFrom(firstErr), firstErr)
+	}
+	return New(General, msg)
 }
