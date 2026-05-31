@@ -729,6 +729,23 @@ spinner and progress output (narrower than --quiet).`,
 	// Custom version template so --version matches the `version` subcommand output
 	cmd.SetVersionTemplate(fmt.Sprintf("jamf-cli %s\n  commit: %s\n  built:  %s\n", version, commit, date))
 
+	// Suggest the nearest command for typos ("did you mean ...").
+	cmd.SuggestionsMinimumDistance = 2
+	// Suggest the nearest flag for unknown-flag typos, then classify as a usage
+	// error (exit 2) so the exit code matches the helpers.go contract.
+	cmd.SetFlagErrorFunc(func(c *cobra.Command, ferr error) error {
+		const marker = "unknown flag: --"
+		if i := strings.Index(ferr.Error(), marker); i >= 0 {
+			bad := strings.SplitN(ferr.Error()[i+len(marker):], " ", 2)[0]
+			var known []string
+			c.Flags().VisitAll(func(f *pflag.Flag) { known = append(known, f.Name) })
+			if s := suggestFlag(bad, known); s != "" {
+				fmt.Fprintf(os.Stderr, "hint: did you mean --%s?\n", s)
+			}
+		}
+		return exitcode.Wrap(exitcode.Usage, ferr)
+	})
+
 	// Global flags
 	cmd.PersistentFlags().StringVarP(&profile, "profile", "p", "", "config profile to use (or JAMF_PROFILE env)")
 	cmd.PersistentFlags().StringVarP(&outputFmt, "output", "o", "json", "output format: table, json, csv, yaml, plain, xml (pretty), raw (classic commands default to xml)")
@@ -1272,4 +1289,34 @@ func FprintError(w io.Writer, err error) {
 	if errors.As(err, &e) && e.Hint != "" {
 		fmt.Fprintf(w, "hint: %s\n", e.Hint)
 	}
+}
+
+// suggestFlag returns the closest known flag name within edit distance 2, or "".
+func suggestFlag(unknown string, known []string) string {
+	best, bestDist := "", 3
+	for _, k := range known {
+		if d := levenshtein(unknown, k); d < bestDist {
+			best, bestDist = k, d
+		}
+	}
+	return best
+}
+
+func levenshtein(a, b string) int {
+	prev := make([]int, len(b)+1)
+	for j := range prev {
+		prev[j] = j
+	}
+	for i := 1; i <= len(a); i++ {
+		cur := []int{i}
+		for j := 1; j <= len(b); j++ {
+			cost := 1
+			if a[i-1] == b[j-1] {
+				cost = 0
+			}
+			cur = append(cur, min(min(prev[j]+1, cur[j-1]+1), prev[j-1]+cost))
+		}
+		prev = cur
+	}
+	return prev[len(b)]
 }
