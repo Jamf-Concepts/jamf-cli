@@ -13,6 +13,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Jamf-Concepts/jamf-cli/internal/exitcode"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 	"gopkg.in/yaml.v3"
 )
@@ -177,10 +178,13 @@ func TestBackup_PartialFailure(t *testing.T) {
 		Resources:   "policies",
 		Concurrency: 2,
 	})
-	// Should return error indicating failures occurred
+	// Partial failure: some exported, some failed -> exit code 7.
 	if err == nil {
 		t.Fatal("runBackup should return error when failures exist")
 		return
+	}
+	if got := exitcode.CodeFrom(err); got != exitcode.PartialFailure {
+		t.Fatalf("exit code = %d, want PartialFailure(%d)", got, exitcode.PartialFailure)
 	}
 
 	// Good policy should be exported
