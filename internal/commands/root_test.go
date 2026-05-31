@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"os"
@@ -1171,4 +1172,24 @@ type failReader struct{}
 
 func (f *failReader) Read(p []byte) (int, error) {
 	return 0, io.ErrUnexpectedEOF
+}
+
+func TestClassifyError(t *testing.T) {
+	// Unknown-command errors (plain, from cobra) become usage errors (2).
+	unknownCmd := errors.New(`unknown command "proo" for "jamf-cli"`)
+	if got := exitcode.CodeFrom(ClassifyError(unknownCmd)); got != exitcode.Usage {
+		t.Errorf("unknown command -> exit %d, want %d (usage)", got, exitcode.Usage)
+	}
+	// Errors that already carry a code are left untouched.
+	authErr := exitcode.New(exitcode.Authentication, "nope")
+	if got := exitcode.CodeFrom(ClassifyError(authErr)); got != exitcode.Authentication {
+		t.Errorf("pre-coded error -> exit %d, want %d", got, exitcode.Authentication)
+	}
+	// Unrelated plain errors stay general (1).
+	if got := exitcode.CodeFrom(ClassifyError(errors.New("boom"))); got != exitcode.General {
+		t.Errorf("generic error -> exit %d, want %d (general)", got, exitcode.General)
+	}
+	if ClassifyError(nil) != nil {
+		t.Error("ClassifyError(nil) should return nil")
+	}
 }

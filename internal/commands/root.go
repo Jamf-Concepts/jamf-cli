@@ -1291,11 +1291,44 @@ func FprintError(w io.Writer, err error) {
 	}
 }
 
-// suggestFlag returns the closest known flag name within edit distance 2, or "".
+// ClassifyError normalizes framework errors that carry no explicit exit code so
+// they map to the documented codes. Cobra reports an unknown command as a plain
+// error (default exit 1); classify it as a usage error (2) to match the
+// unknown-flag path handled by SetFlagErrorFunc. Errors that already carry an
+// exit code (including wrapped unknown-flag errors) pass through unchanged.
+func ClassifyError(err error) error {
+	if err == nil {
+		return nil
+	}
+	var e *exitcode.Error
+	if errors.As(err, &e) {
+		return err
+	}
+	if strings.HasPrefix(err.Error(), "unknown command") {
+		return exitcode.Wrap(exitcode.Usage, err)
+	}
+	return err
+}
+
+// suggestFlag returns the closest known flag name to unknown, or "" when none
+// is a plausible match. It anchors on a shared first letter and keeps the edit
+// distance small relative to the typo length, so a short typo resolves to the
+// intended flag (--fld -> --field) rather than an unrelated one at the same
+// distance (--all), and a typo with no real match (--id) yields no hint at all.
 func suggestFlag(unknown string, known []string) string {
-	best, bestDist := "", 3
+	if unknown == "" {
+		return ""
+	}
+	best, bestDist := "", 0
 	for _, k := range known {
-		if d := levenshtein(unknown, k); d < bestDist {
+		if k == "" || k[0] != unknown[0] {
+			continue
+		}
+		d := levenshtein(unknown, k)
+		if d > 2 || d >= len(unknown) {
+			continue
+		}
+		if best == "" || d < bestDist {
 			best, bestDist = k, d
 		}
 	}

@@ -16,3 +16,23 @@ func TestSuggestFlag(t *testing.T) {
 		t.Fatalf("suggestFlag(zzzzzz) = %q, want empty (too far)", got)
 	}
 }
+
+func TestSuggestFlag_ShortTypos(t *testing.T) {
+	// Regression: short typos must anchor on the first letter and pick the
+	// intended flag, not an unrelated one at the same edit distance.
+	flags := []string{"all", "compact", "field", "output", "quiet", "wide"}
+
+	// --fld and --all are both distance 2 from "fld"; only "field" shares the
+	// first letter, so it must win instead of losing on alphabetical order.
+	if got := suggestFlag("fld", flags); got != "field" {
+		t.Errorf("suggestFlag(fld) = %q, want field", got)
+	}
+	// No flag starts with 'i'; --id must produce no hint rather than --wide.
+	if got := suggestFlag("id", flags); got != "" {
+		t.Errorf("suggestFlag(id) = %q, want empty", got)
+	}
+	// A first-letter mismatch is intentionally not suggested.
+	if got := suggestFlag("xompact", flags); got != "" {
+		t.Errorf("suggestFlag(xompact) = %q, want empty", got)
+	}
+}
