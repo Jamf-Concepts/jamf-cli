@@ -23,8 +23,9 @@ func TestProofAllCommandsHaveShort(t *testing.T) {
 		violations []string
 		inspected  int
 	)
-	// walkCommands skips hidden commands (its contract in
-	// destructive_annotations_test.go), so a hidden command with an empty Short
+	// walkCommands does not invoke fn on hidden commands (though it still
+	// descends into their children) per its contract in
+	// destructive_annotations_test.go, so a hidden command with an empty Short
 	// is intentionally not flagged.
 	walkCommands(root, func(cmd *cobra.Command) {
 		inspected++
