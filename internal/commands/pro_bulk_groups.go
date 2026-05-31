@@ -119,9 +119,13 @@ func runGroupMutation(
 	_, _ = fmt.Fprintf(stderr, "Applying group membership changes to %d computers...\n", len(targets))
 
 	var successCount, failCount int
+	var firstErr error
 	for _, t := range targets {
 		if err := applyStaticGroupMutation(ctx, client, groupID, t["id"], add); err != nil {
 			bulkLogW(stderr, verb+" group", t["name"], "ERROR: "+err.Error())
+			if firstErr == nil {
+				firstErr = err
+			}
 			failCount++
 		} else {
 			bulkLogW(stderr, verb+" group", t["name"], "ok")
@@ -130,10 +134,7 @@ func runGroupMutation(
 	}
 
 	_, _ = fmt.Fprintf(stderr, "Group update complete: %d succeeded, %d failed.\n", successCount, failCount)
-	if failCount > 0 {
-		return fmt.Errorf("%d of %d group membership operations failed", failCount, successCount+failCount)
-	}
-	return nil
+	return finishBatch(stderr, "group membership operations", successCount, failCount, firstErr)
 }
 
 // directionWord returns "to" or "from" for logging messages.

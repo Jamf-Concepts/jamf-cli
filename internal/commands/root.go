@@ -34,27 +34,28 @@ import (
 
 // Global flags
 var (
-	profile        string
-	outputFmt      string
-	quiet          bool
-	noHints        bool
-	verboseLevel   int
-	noInput        bool
-	noColor        bool
-	dryRun         bool
-	wide           bool
-	compact        bool
-	selectFields   []string
-	outFile        string
-	fieldName      string
-	serverURL      string
-	token          string
-	tokenFile      string
-	clientID       string
-	clientSecret   string
-	tenantID       string
-	cliVersion     string // set by NewRootCmd for use by power commands
-	noVersionCheck bool   // skip tenant version compatibility probe
+	profile             string
+	outputFmt           string
+	quiet               bool
+	noHints             bool
+	verboseLevel        int
+	noInput             bool
+	noColor             bool
+	dryRun              bool
+	wide                bool
+	compact             bool
+	allowPartialFailure bool
+	selectFields        []string
+	outFile             string
+	fieldName           string
+	serverURL           string
+	token               string
+	tokenFile           string
+	clientID            string
+	clientSecret        string
+	tenantID            string
+	cliVersion          string // set by NewRootCmd for use by power commands
+	noVersionCheck      bool   // skip tenant version compatibility probe
 )
 
 // cliClient wraps our client to implement registry.HTTPClient
@@ -741,6 +742,7 @@ spinner and progress output (narrower than --quiet).`,
 	cmd.PersistentFlags().StringSliceVar(&selectFields, "select", nil, "project output to these dot-path fields only, e.g., --select id,general.name,udid (ignored when --field is set)")
 	cmd.PersistentFlags().StringVar(&outFile, "out-file", "", "write output to file instead of stdout")
 	cmd.PersistentFlags().StringVar(&fieldName, "field", "", "extract a single field from JSON response (e.g., --field id)")
+	cmd.PersistentFlags().BoolVar(&allowPartialFailure, "allow-partial-failure", false, "downgrade a partial batch failure (some items failed) to a warning and exit 0")
 
 	// Connection flags
 	cmd.PersistentFlags().StringVar(&serverURL, "url", "", "Jamf Pro server URL (or JAMF_URL env)")

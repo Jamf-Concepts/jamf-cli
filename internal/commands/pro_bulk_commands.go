@@ -128,6 +128,7 @@ func runSendCommand(
 	_, _ = fmt.Fprintf(stderr, "Sending %q to %d computers...\n", command, len(targets))
 
 	var successCount, failCount int
+	var firstErr error
 	for _, t := range targets {
 		if destructiveMDMCommands[command] {
 			if err := cooldown.Enforce(cliCtx.ProfileName, noInput, cliCtx.DestructiveCooldown); err != nil {
@@ -136,6 +137,9 @@ func runSendCommand(
 		}
 		if err := sendMDMCommand(ctx, client, t["id"], command); err != nil {
 			bulkLogW(stderr, "send-command", t["name"], "ERROR: "+err.Error())
+			if firstErr == nil {
+				firstErr = err
+			}
 			failCount++
 		} else {
 			if destructiveMDMCommands[command] {
@@ -147,10 +151,7 @@ func runSendCommand(
 	}
 
 	_, _ = fmt.Fprintf(stderr, "Command %q sent: %d succeeded, %d failed.\n", command, successCount, failCount)
-	if failCount > 0 {
-		return fmt.Errorf("%d of %d send-command operations failed", failCount, successCount+failCount)
-	}
-	return nil
+	return finishBatch(stderr, "send-command operations", successCount, failCount, firstErr)
 }
 
 // sortedKeys returns the keys of a map[string]bool in sorted order.

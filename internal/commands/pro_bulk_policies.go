@@ -215,11 +215,15 @@ func runTogglePolicies(
 	_, _ = fmt.Fprintf(stderr, "%sing %d policies...\n", capitalize(verb), len(matched))
 
 	var successCount, failCount int
+	var firstErr error
 	for _, p := range matched {
 		general, _ := p.detail["general"].(map[string]any)
 		name, _ := general["name"].(string)
 		if err := doClassicPolicyUpdate(ctx, client, p.id, enable); err != nil {
 			bulkLogW(stderr, verb+" policy", name, "ERROR: "+err.Error())
+			if firstErr == nil {
+				firstErr = err
+			}
 			failCount++
 		} else {
 			bulkLogW(stderr, verb+" policy", name, "ok")
@@ -228,10 +232,7 @@ func runTogglePolicies(
 	}
 
 	_, _ = fmt.Fprintf(stderr, "%sd %d policies; %d failed.\n", capitalize(verb), successCount, failCount)
-	if failCount > 0 {
-		return fmt.Errorf("%d of %d policy %s operations failed", failCount, successCount+failCount, verb)
-	}
-	return nil
+	return finishBatch(stderr, fmt.Sprintf("policy %s operations", verb), successCount, failCount, firstErr)
 }
 
 // capitalize returns the string with its first letter uppercased.
