@@ -15,6 +15,7 @@ import (
 	"strings"
 	"time"
 
+	"golang.org/x/term"
 	"gopkg.in/yaml.v3"
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/xmlconv"
@@ -904,4 +905,26 @@ func (f *Formatter) formatStatusValue(value string) string {
 	}
 
 	return value
+}
+
+// IsTerminal reports whether the given file descriptor is a character device.
+// Used to choose human (table) vs machine (json) defaults and to gate color.
+func IsTerminal(fd uintptr) bool {
+	return term.IsTerminal(int(fd))
+}
+
+// ResolveFormat decides the effective output format. Precedence:
+// explicit --output flag > config default_output > auto (TTY -> table,
+// otherwise json). Writing to a file is treated as non-interactive.
+func ResolveFormat(flagChanged bool, current, configDefault string, isTTY, hasOutFile bool) string {
+	if flagChanged {
+		return current
+	}
+	if configDefault != "" {
+		return configDefault
+	}
+	if isTTY && !hasOutFile {
+		return string(FormatTable)
+	}
+	return string(FormatJSON)
 }

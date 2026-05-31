@@ -1617,3 +1617,28 @@ func TestPrintRaw_RawFormat_ExactBytes(t *testing.T) {
 		t.Errorf("FormatRaw should write exact bytes, got: %q", buf.String())
 	}
 }
+
+func TestResolveFormat(t *testing.T) {
+	cases := []struct {
+		name              string
+		flagChanged       bool
+		current           string
+		configDefault     string
+		isTTY, hasOutFile bool
+		want              string
+	}{
+		{"explicit flag wins", true, "csv", "yaml", true, false, "csv"},
+		{"config default when unset", false, "json", "yaml", true, false, "yaml"},
+		{"tty -> table", false, "json", "", true, false, "table"},
+		{"piped -> json", false, "json", "", false, false, "json"},
+		{"out-file -> json even on tty", false, "json", "", true, true, "json"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			got := ResolveFormat(c.flagChanged, c.current, c.configDefault, c.isTTY, c.hasOutFile)
+			if got != c.want {
+				t.Fatalf("ResolveFormat = %q, want %q", got, c.want)
+			}
+		})
+	}
+}
