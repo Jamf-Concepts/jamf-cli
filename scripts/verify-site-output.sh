@@ -142,9 +142,17 @@ if [[ ! -f "$SITE_DIR/index.html" ]]; then
 else
   python3 - "$SITE_DIR/index.html" <<'PY' || ERRORS=$((ERRORS + 1))
 import json, re, sys
+from html import unescape
 html = open(sys.argv[1]).read()
 
-# Questions declared in the FAQPage structured data.
+def norm(s):
+    # Strip inline tags (e.g. <code>), decode entities, collapse whitespace —
+    # so the visible markup and the plain-text JSON-LD compare apples to apples.
+    s = re.sub(r'<[^>]+>', '', s)
+    s = unescape(s)
+    return re.sub(r'\s+', ' ', s).strip()
+
+# Question -> answer declared in the FAQPage structured data.
 faq = None
 for m in re.findall(r'<script[^>]+type="application/ld\+json"[^>]*>(.*?)</script>', html, re.DOTALL):
     try:
@@ -157,24 +165,33 @@ for m in re.findall(r'<script[^>]+type="application/ld\+json"[^>]*>(.*?)</script
 if faq is None:
     print("  FAIL: no FAQPage JSON-LD block found in index.html", file=sys.stderr)
     sys.exit(1)
-jsonld_qs = [q.get("name", "").strip() for q in faq.get("mainEntity", [])]
+jsonld = {norm(q.get("name", "")): norm((q.get("acceptedAnswer") or {}).get("text", ""))
+          for q in faq.get("mainEntity", [])}
 
-# Questions a human sees in the visible #faq section.
+# Question -> answer a human sees in the visible #faq section.
 sec = re.search(r'<section id="faq".*?</section>', html, re.DOTALL)
 if not sec:
     print("  FAIL: no visible <section id=\"faq\"> found in index.html", file=sys.stderr)
     sys.exit(1)
-visible_qs = [re.sub(r'<[^>]+>', '', h).strip()
-              for h in re.findall(r'<h3>(.*?)</h3>', sec.group(0), re.DOTALL)]
+visible = {norm(h): norm(p)
+           for h, p in re.findall(r'<h3>(.*?)</h3>\s*<p>(.*?)</p>', sec.group(0), re.DOTALL)}
 
-missing = [q for q in jsonld_qs if q not in visible_qs]
-if missing:
-    print("  FAIL: FAQPage questions missing from the visible #faq section:", file=sys.stderr)
-    for q in missing:
-        print(f"    - {q!r}", file=sys.stderr)
-    print("  The structured data and the on-page FAQ must stay in sync.", file=sys.stderr)
+# Google requires the structured-data answer to match the visible answer, so
+# check question presence AND answer-text parity (one is for humans, one for
+# answer engines — they must not drift apart).
+problems = []
+for q, ans in jsonld.items():
+    if q not in visible:
+        problems.append(f"question not shown to humans: {q!r}")
+    elif visible[q] != ans:
+        problems.append(f"answer text differs between JSON-LD and visible FAQ for {q!r}")
+if problems:
+    print("  FAIL: FAQPage <-> visible #faq drift:", file=sys.stderr)
+    for x in problems:
+        print(f"    - {x}", file=sys.stderr)
+    print("  The structured data and the on-page FAQ (questions and answers) must stay in sync.", file=sys.stderr)
     sys.exit(1)
-print(f"  PASS: all {len(jsonld_qs)} FAQPage questions present in the visible #faq section")
+print(f"  PASS: all {len(jsonld)} FAQPage questions and answers match the visible #faq section")
 PY
 fi
 
