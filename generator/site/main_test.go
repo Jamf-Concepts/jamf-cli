@@ -4,7 +4,11 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
+	"strings"
 	"testing"
+
+	"github.com/Jamf-Concepts/jamf-cli/internal/exitcode"
 )
 
 func TestTransformCommands(t *testing.T) {
@@ -281,6 +285,26 @@ func TestParseVersion(t *testing.T) {
 			want:  "2.0.0-beta.1",
 		},
 		{
+			name: "json release (default -o json output)",
+			input: `{
+  "version": "1.18.0",
+  "commit": "c71ad8a",
+  "built": "2026-05-31T05:22:01Z",
+  "specProVersion": "unknown"
+}`,
+			want: "1.18.0",
+		},
+		{
+			name:  "json dirty dev build strips git-describe suffix",
+			input: `{"version":"v1.17.0-25-g74846ff-dirty","commit":"74846ff"}`,
+			want:  "1.17.0",
+		},
+		{
+			name:  "json pre-release preserved",
+			input: `{"version":"v2.0.0-beta.1"}`,
+			want:  "2.0.0-beta.1",
+		},
+		{
 			name:  "empty output",
 			input: "",
 			want:  "unknown",
@@ -319,5 +343,49 @@ func TestParseVersion(t *testing.T) {
 				t.Errorf("parseVersion(%q) = %q, want %q", tt.input, got, tt.want)
 			}
 		})
+	}
+}
+
+// TestRenderLLMSTxt_AgentContract guards the "For AI Agents" section. The
+// exit-code table is the load-bearing part: it must stay in lockstep with
+// internal/exitcode. We interpolate each constant's value here, so renaming
+// or renumbering a code in exitcode.go without updating llms.txt fails CI.
+func TestRenderLLMSTxt_AgentContract(t *testing.T) {
+	out := renderLLMSTxt(siteData{Version: "1.0.0", CommandCount: 1200})
+
+	if !strings.Contains(out, "## For AI Agents") {
+		t.Fatalf("llms.txt is missing the \"For AI Agents\" section")
+	}
+
+	exitCodes := []struct {
+		code  int
+		label string
+	}{
+		{exitcode.Success, "success"},
+		{exitcode.General, "general"},
+		{exitcode.Usage, "usage"},
+		{exitcode.Authentication, "auth"},
+		{exitcode.NotFound, "not-found"},
+		{exitcode.PermissionDenied, "permission"},
+		{exitcode.RateLimited, "rate-limited"},
+	}
+	for _, ec := range exitCodes {
+		want := fmt.Sprintf("%d %s", ec.code, ec.label)
+		if !strings.Contains(out, want) {
+			t.Errorf("exit-code table out of sync with internal/exitcode: missing %q", want)
+		}
+	}
+
+	// Spot-check the rest of the contract so a silent deletion is caught.
+	for _, want := range []string{
+		"jamf-cli commands -o json",
+		"--no-input",
+		"--select",
+		"--confirm-destructive",
+		"apply",
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("agent contract missing %q", want)
+		}
 	}
 }

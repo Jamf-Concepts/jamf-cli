@@ -1,22 +1,29 @@
 <?xml version="1.0" encoding="UTF-8"?>
+<!-- __BUILD_DATE__ is replaced with the deploy date by the "Stamp build
+     freshness" step in deploy-site.yaml. It stays a literal placeholder in
+     the repo. -->
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
     <loc>https://jamf-concepts.github.io/jamf-cli/</loc>
+    <lastmod>__BUILD_DATE__</lastmod>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
   </url>
   <url>
     <loc>https://jamf-concepts.github.io/jamf-cli/llms.txt</loc>
+    <lastmod>__BUILD_DATE__</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://jamf-concepts.github.io/jamf-cli/llms-full.txt</loc>
+    <lastmod>__BUILD_DATE__</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://jamf-concepts.github.io/jamf-cli/commands.json</loc>
+    <lastmod>__BUILD_DATE__</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.6</priority>
   </url>

@@ -74,6 +74,25 @@ jobs:
             --llms-full-output ./docs/site/llms-full.txt \
             $PREV_FLAG
 
+      - name: Stamp build freshness (date + version) into SEO assets
+        # index.html (JSON-LD dateModified/softwareVersion) and sitemap.xml
+        # (<lastmod>) carry __BUILD_DATE__/__VERSION__ placeholders in the repo.
+        # Substitute them here, in the throwaway runner checkout, so deployed
+        # structured data signals freshness without committing volatile values.
+        # Version comes from commands.json, which the generator just wrote using
+        # the same cleaning logic as the on-page version badge (single source).
+        run: |
+          BUILD_DATE="$(date -u +%Y-%m-%d)"
+          VERSION="$(python3 -c "import json; print(json.load(open('docs/site/commands.json'))['version'])")"
+          COUNT="$(python3 -c "import json; print(format(json.load(open('docs/site/commands.json'))['commandCount'], ','))")"
+          sed -i "s/__BUILD_DATE__/${BUILD_DATE}/g; s/__VERSION__/${VERSION}/g; s/__COMMAND_COUNT__/${COUNT}/g" \
+            docs/site/index.html docs/site/sitemap.xml
+          if grep -REn '__BUILD_DATE__|__VERSION__|__COMMAND_COUNT__' docs/site/index.html docs/site/sitemap.xml; then
+            echo "::error::Unsubstituted SEO placeholder(s) remain after stamping." >&2
+            exit 1
+          fi
+          echo "Stamped freshness: version=${VERSION} date=${BUILD_DATE} commands=${COUNT}"
+
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v5
         with:

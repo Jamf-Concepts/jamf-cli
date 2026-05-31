@@ -158,7 +158,14 @@ func renderLLMSTxt(d siteData) string {
 	fmt.Fprintf(&b, "- Credentials never accepted via CLI flags or stdin (shell-history safe). Interactive prompts, env vars (`JAMF_*`, `JAMFPROTECT_*`), or keychain-backed config profiles.\n\n")
 
 	fmt.Fprintf(&b, "## Output Formats\n\n")
-	fmt.Fprintf(&b, "Every command supports `-o {table,plain,json,yaml,csv}` plus `--field <path>` for jq-free scalar extraction. Pipe-friendly, scriptable, NO_COLOR aware.\n\n")
+	fmt.Fprintf(&b, "Every command supports `-o {table,plain,json,yaml,csv}` (default `json`). Shrink large responses with `--select id,general.name` (project dot-path fields), `--field general.name` (extract one scalar), or `--compact` (drop arrays and nested objects). Lists over 50 rows print a `hint:` to stderr suggesting how to narrow. Pipe-friendly, scriptable, NO_COLOR aware.\n\n")
+
+	fmt.Fprintf(&b, "## For AI Agents\n\n")
+	fmt.Fprintf(&b, "**Discover commands at runtime.** `jamf-cli commands -o json` emits the full command tree (path, description, flags, aliases, product, group). Prefer it over guessing command names.\n\n")
+	fmt.Fprintf(&b, "**Run unattended.** Pass `--no-input` (fail instead of prompting) and `--quiet`. Authenticate with `JAMF_*` / `JAMFPROTECT_*` env vars — never flags. Set `JAMF_CLI_ARGS='--quiet --no-input'` to apply both to every invocation.\n\n")
+	fmt.Fprintf(&b, "**Parse outcomes.** Default output is JSON. Exit codes are stable: 0 success · 1 general · 2 usage · 3 auth · 4 not-found · 5 permission · 6 rate-limited. With `-o json`, failures print `{\"error\",\"message\",\"exitCode\"}`, so success and failure are both machine-readable.\n\n")
+	fmt.Fprintf(&b, "**Stay within context.** Use `--select`, `--field`, and `--compact` to avoid pulling multi-thousand-line payloads you don't need.\n\n")
+	fmt.Fprintf(&b, "**Mutate safely.** `apply` is a name-based upsert — prefer it over create/update for idempotency. Destructive commands require `--yes` (bulk also requires `--confirm-destructive`). Preview any write with `--dry-run`/`-n`.\n\n")
 
 	fmt.Fprintf(&b, "## Optional\n\n")
 	fmt.Fprintf(&b, "- [Source code (Go)](https://github.com/Jamf-Concepts/jamf-cli)\n")
