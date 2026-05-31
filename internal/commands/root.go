@@ -1284,10 +1284,10 @@ func formatErrorTo(w io.Writer, err error) bool {
 // FprintError writes a human-facing error (and a "hint:" line when present) to
 // w. Used by main when the JSON envelope path does not apply.
 func FprintError(w io.Writer, err error) {
-	fmt.Fprintln(w, err)
+	_, _ = fmt.Fprintln(w, err)
 	var e *exitcode.Error
 	if errors.As(err, &e) && e.Hint != "" {
-		fmt.Fprintf(w, "hint: %s\n", e.Hint)
+		_, _ = fmt.Fprintf(w, "hint: %s\n", e.Hint)
 	}
 }
 
