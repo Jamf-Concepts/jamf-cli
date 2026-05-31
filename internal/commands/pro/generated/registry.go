@@ -190,6 +190,24 @@ func RegisterCommands(root *cobra.Command, ctx *registry.CLIContext) {
 	root.AddCommand(NewVppSubscriptionsCmd(ctx))
 }
 
+// batchDeleteError maps a bulk-delete tally to the process result. When some
+// items succeeded and some failed it returns a PartialFailure (exit 7), unless
+// --allow-partial-failure is set, in which case it warns and returns nil. A
+// total failure propagates firstErr's exit code.
+func batchDeleteError(cmd *cobra.Command, succeeded, failed int, firstErr error, noun string) error {
+	if failed == 0 {
+		return nil
+	}
+	allow, _ := cmd.Flags().GetBool("allow-partial-failure")
+	if succeeded > 0 && allow {
+		fmt.Fprintf(os.Stderr, "warning: %d of %d %s failed; continuing (--allow-partial-failure)\n",
+			failed, succeeded+failed, noun)
+		return nil
+	}
+	return exitcode.PartialOrPropagate(succeeded, failed, firstErr,
+		fmt.Sprintf("%d of %d %s failed", failed, succeeded+failed, noun))
+}
+
 // resolveNameToID looks up a resource by name using a filtered list call and
 // returns its ID. This enables --name as an alternative to positional ID args
 // on get commands. The nameField parameter specifies the filter field
