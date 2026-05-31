@@ -611,6 +611,13 @@ spinner and progress output (narrower than --quiet).`,
 			formatter.SetNoHints(noHints)
 			cliCtx.Output = &cliOutput{formatter}
 
+			// Group parent commands (made runnable only to reject unknown
+			// subcommands) never call an API; skip auth so `pro buildings`
+			// help and typos work without credentials.
+			if cmd.Annotations[groupParentAnnotation] == "true" {
+				return nil
+			}
+
 			// Skip auth for commands that don't need it. Most are matched
 			// anywhere in the chain (e.g. "config" covers all subcommands,
 			// "setup" covers both "pro setup" and "protect setup").
@@ -801,6 +808,11 @@ spinner and progress output (narrower than --quiet).`,
 	// Apply root-level aliases and groups for --help output
 	applyRootAliases(cmd)
 	applyRootGroups(cmd)
+
+	// cobra only rejects unknown subcommands at the root; extend that to every
+	// non-runnable parent so typos like `pro buildings lst` error with a hint
+	// instead of silently printing help and exiting 0.
+	guardUnknownSubcommands(cmd)
 
 	return cmd
 }
@@ -1308,6 +1320,49 @@ func ClassifyError(err error) error {
 		return exitcode.Wrap(exitcode.Usage, err)
 	}
 	return err
+}
+
+// groupParentAnnotation marks a parent command that guardUnknownSubcommands made
+// runnable solely to reject unknown subcommands. PersistentPreRunE skips auth for
+// these — a group parent never calls an API itself.
+const groupParentAnnotation = "jamfcli/group-parent"
+
+// guardUnknownSubcommands makes every non-root group parent reject an unknown
+// subcommand with a "did you mean" hint and a usage exit code. Cobra applies
+// this only to the root command (via legacyArgs in Find); a child parent would
+// otherwise silently print help and exit 0.
+//
+// We attach a RunE rather than an Args validator because cobra short-circuits a
+// non-runnable command to help before arguments are ever validated, so an Args
+// validator on a pure group never runs. Making the parent runnable routes it
+// through RunE, where args are available — and the annotation lets the auth
+// pre-run skip it.
+func guardUnknownSubcommands(cmd *cobra.Command) {
+	for _, c := range cmd.Commands() {
+		guardUnknownSubcommands(c)
+	}
+	if !cmd.HasParent() || !cmd.HasSubCommands() || cmd.Runnable() {
+		return
+	}
+	// SuggestionsFor reads this directly with no default; child commands leave
+	// it at 0, which would suppress all but exact matches.
+	if cmd.SuggestionsMinimumDistance <= 0 {
+		cmd.SuggestionsMinimumDistance = 2
+	}
+	if cmd.Annotations == nil {
+		cmd.Annotations = map[string]string{}
+	}
+	cmd.Annotations[groupParentAnnotation] = "true"
+	cmd.RunE = func(c *cobra.Command, args []string) error {
+		if len(args) == 0 {
+			return c.Help() // bare parent (e.g. `pro buildings`) shows help
+		}
+		msg := fmt.Sprintf("unknown command %q for %q", args[0], c.CommandPath())
+		if s := c.SuggestionsFor(args[0]); len(s) > 0 {
+			msg += "\n\nDid you mean this?\n\t" + strings.Join(s, "\n\t")
+		}
+		return exitcode.Wrap(exitcode.Usage, errors.New(msg))
+	}
 }
 
 // suggestFlag returns the closest known flag name to unknown, or "" when none

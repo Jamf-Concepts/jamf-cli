@@ -1193,3 +1193,32 @@ func TestClassifyError(t *testing.T) {
 		t.Error("ClassifyError(nil) should return nil")
 	}
 }
+
+func TestGuardUnknownSubcommands(t *testing.T) {
+	// A typo at a group-parent level must error with a usage code and a
+	// suggestion, not silently print help and exit 0 (cobra's default).
+	root := NewRootCmd("test", "none", "none", "none")
+	root.SetArgs([]string{"pro", "buildings", "lst"})
+	root.SetOut(io.Discard)
+	root.SetErr(io.Discard)
+
+	err := root.Execute()
+	if err == nil {
+		t.Fatal("expected error for unknown subcommand, got nil")
+	}
+	if code := exitcode.CodeFrom(err); code != exitcode.Usage {
+		t.Errorf("exit code = %d, want %d (usage)", code, exitcode.Usage)
+	}
+	if !strings.Contains(err.Error(), "list") {
+		t.Errorf("error should suggest 'list', got %q", err.Error())
+	}
+
+	// A bare parent with no subcommand still shows help and succeeds.
+	root = NewRootCmd("test", "none", "none", "none")
+	root.SetArgs([]string{"pro", "buildings"})
+	root.SetOut(io.Discard)
+	root.SetErr(io.Discard)
+	if err := root.Execute(); err != nil {
+		t.Errorf("bare parent should not error, got %v", err)
+	}
+}
