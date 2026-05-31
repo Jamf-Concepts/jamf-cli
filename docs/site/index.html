@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="description" content="Explore all jamf-cli commands — unified CLI for Jamf Platform API Gateway, Jamf Pro, Jamf Protect, and Jamf School">
+  <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large">
   <title>jamf-cli — Your fleet, one command away</title>
   <link rel="canonical" href="https://jamf-concepts.github.io/jamf-cli/">
   <meta name="theme-color" content="#fbfbfa" media="(prefers-color-scheme: light)">
@@ -16,17 +17,20 @@
   <!-- Open Graph / Social -->
   <meta property="og:type" content="website">
   <meta property="og:title" content="jamf-cli — Your fleet, one command away">
-  <meta property="og:description" content="Unified CLI for Jamf Platform API Gateway, Jamf Pro, Jamf Protect, and Jamf School. 1,251 commands. Full API coverage. Zero clicks.">
+  <meta property="og:description" content="Unified CLI for Jamf Platform API Gateway, Jamf Pro, Jamf Protect, and Jamf School. __COMMAND_COUNT__ commands. Full API coverage. Zero clicks.">
   <meta property="og:url" content="https://jamf-concepts.github.io/jamf-cli/">
   <meta name="twitter:card" content="summary">
   <meta name="twitter:title" content="jamf-cli — Your fleet, one command away">
-  <meta name="twitter:description" content="Unified CLI for Jamf Platform API Gateway, Jamf Pro, Jamf Protect, and Jamf School. 1,251 commands. Full API coverage. Zero clicks.">
+  <meta name="twitter:description" content="Unified CLI for Jamf Platform API Gateway, Jamf Pro, Jamf Protect, and Jamf School. __COMMAND_COUNT__ commands. Full API coverage. Zero clicks.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
   <!-- Schema.org SoftwareApplication — eligibility for Google rich results
-       and structured data for AI/search consumers. -->
+       and structured data for AI/search consumers.
+       __VERSION__ and __BUILD_DATE__ are substituted with the release version
+       and deploy date by the "Stamp build freshness" step in deploy-site.yaml.
+       They stay as literal placeholders in the repo (valid JSON strings). -->
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
@@ -37,6 +41,8 @@
     "applicationCategory": "DeveloperApplication",
     "applicationSubCategory": "Command Line Interface",
     "operatingSystem": "macOS, Linux, Windows",
+    "softwareVersion": "__VERSION__",
+    "dateModified": "__BUILD_DATE__",
     "url": "https://jamf-concepts.github.io/jamf-cli/",
     "downloadUrl": "https://github.com/Jamf-Concepts/jamf-cli/releases",
     "softwareHelp": "https://github.com/Jamf-Concepts/jamf-cli/wiki",
@@ -298,6 +304,104 @@
       </div>
     </div>
   </section>
+
+  <!-- ===== FAQ ===== -->
+  <!-- The visible Q&A below and the FAQPage JSON-LD that follows share the
+       same text on purpose (one is for humans, one for answer engines).
+       scripts/verify-site-output.sh fails if a FAQPage question is missing
+       from this visible section, so they can't silently drift apart. -->
+  <section id="faq">
+    <div class="faq-inner">
+      <h2>FAQ</h2>
+
+      <div class="faq-item">
+        <h3>What is jamf-cli?</h3>
+        <p>jamf-cli is a unified command-line interface for the Jamf platform. A single binary manages Jamf Platform API Gateway, Jamf Pro, Jamf Protect, and Jamf School — over 1,250 commands covering the full API surface, with structured output built for scripting and automation.</p>
+      </div>
+
+      <div class="faq-item">
+        <h3>How do I install jamf-cli?</h3>
+        <p>Install it with Homebrew (<code>brew install Jamf-Concepts/tap/jamf-cli</code>), with Go (<code>go install github.com/Jamf-Concepts/jamf-cli/cmd/jamf-cli@latest</code>), or by downloading a pre-built binary for macOS, Linux, or Windows from the GitHub releases page.</p>
+      </div>
+
+      <div class="faq-item">
+        <h3>How do I authenticate jamf-cli without exposing credentials?</h3>
+        <p>jamf-cli supports OAuth2 client credentials, bearer tokens, and Jamf Platform Gateway authentication. Credentials are never accepted through command-line flags or stdin, so they stay out of shell history and process listings — use interactive prompts, JAMF_* environment variables, or keychain-backed configuration profiles.</p>
+      </div>
+
+      <div class="faq-item">
+        <h3>Does jamf-cli support Jamf Pro, Jamf Protect, and Jamf School?</h3>
+        <p>Yes. One binary covers Jamf Pro (both the classic and modern APIs), Jamf Protect, Jamf School, and cross-product Jamf Platform API Gateway commands, each under its own namespace (pro, protect, school).</p>
+      </div>
+
+      <div class="faq-item">
+        <h3>Can I use jamf-cli in CI/CD pipelines and with AI agents?</h3>
+        <p>Yes. Every command supports structured output (<code>-o json</code>, <code>yaml</code>, or <code>csv</code>), stable exit codes, and unattended flags (<code>--no-input</code>, <code>--quiet</code>). It also publishes an llms.txt and a machine-readable command index so scripts and AI agents can discover and call commands reliably.</p>
+      </div>
+
+      <div class="faq-item">
+        <h3>Is jamf-cli free and open source?</h3>
+        <p>Yes. jamf-cli is free and open source under its repository license, built and maintained by Jamf Concepts.</p>
+      </div>
+    </div>
+  </section>
+
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": [
+      {
+        "@type": "Question",
+        "name": "What is jamf-cli?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "jamf-cli is a unified command-line interface for the Jamf platform. A single binary manages Jamf Platform API Gateway, Jamf Pro, Jamf Protect, and Jamf School — over 1,250 commands covering the full API surface, with structured output built for scripting and automation."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "How do I install jamf-cli?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Install it with Homebrew (brew install Jamf-Concepts/tap/jamf-cli), with Go (go install github.com/Jamf-Concepts/jamf-cli/cmd/jamf-cli@latest), or by downloading a pre-built binary for macOS, Linux, or Windows from the GitHub releases page."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "How do I authenticate jamf-cli without exposing credentials?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "jamf-cli supports OAuth2 client credentials, bearer tokens, and Jamf Platform Gateway authentication. Credentials are never accepted through command-line flags or stdin, so they stay out of shell history and process listings — use interactive prompts, JAMF_* environment variables, or keychain-backed configuration profiles."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "Does jamf-cli support Jamf Pro, Jamf Protect, and Jamf School?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Yes. One binary covers Jamf Pro (both the classic and modern APIs), Jamf Protect, Jamf School, and cross-product Jamf Platform API Gateway commands, each under its own namespace (pro, protect, school)."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "Can I use jamf-cli in CI/CD pipelines and with AI agents?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Yes. Every command supports structured output (-o json, yaml, or csv), stable exit codes, and unattended flags (--no-input, --quiet). It also publishes an llms.txt and a machine-readable command index so scripts and AI agents can discover and call commands reliably."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "Is jamf-cli free and open source?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Yes. jamf-cli is free and open source under its repository license, built and maintained by Jamf Concepts."
+        }
+      }
+    ]
+  }
+  </script>
 
   <!-- ===== Keyboard Shortcuts Modal ===== -->
   <div class="kbd-modal" id="kbd-modal">
