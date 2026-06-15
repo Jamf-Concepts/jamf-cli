@@ -80,3 +80,28 @@ Command pattern: `jamf-cli -p <active-profile> <subcommand> [flags]`
 - For programmatic/piped results use `--output json`; omit for human-readable table output
 - Before any destructive operation (`delete`, `apply` replacing existing): confirm with the user
 - Before bulk operations: show the full command, get confirmation, then run
+
+### Request body policy (create / update / apply / patch)
+
+**Never guess the shape of a request body.** Before constructing any JSON or YAML input for a mutating operation (`create`, `update`, `apply`, `patch`), load the authoritative OpenAPI spec for that resource.
+
+Specs live in three locations depending on the command namespace:
+
+| Command namespace | Spec location | Naming convention | Example |
+|---|---|---|---|
+| `pro <resource>` (modern API) | `specs/<ResourceName>.yaml` | PascalCase singular | `Category.yaml`, `MobileDevice.yaml` |
+| `pro <resource>` (Classic API) | `specs/classic/resources.yaml` | single manifest | `specs/classic/resources.yaml` |
+| `pro blueprints`, `pro compliance-benchmarks`, `pro platform-devices`, `pro platform-device-groups`, `pro ddm-reports` (Platform API) | `specs/platform/<resource>-api.json` | kebab-case + `-api.json` | `blueprints-api.json`, `device-groups-api.json` |
+
+**Steps:**
+
+1. Determine which namespace the command belongs to (shown in `--help` under "Platform:" vs other groups). Pick the correct spec location from the table above.
+
+2. Fetch the raw spec via WebFetch using the appropriate URL:
+   - Pro modern: `https://raw.githubusercontent.com/Jamf-Concepts/jamf-cli/main/specs/<ResourceName>.yaml`
+   - Pro classic: `https://raw.githubusercontent.com/Jamf-Concepts/jamf-cli/main/specs/classic/resources.yaml`
+   - Platform: `https://raw.githubusercontent.com/Jamf-Concepts/jamf-cli/main/specs/platform/<resource>-api.json`
+
+3. Extract the request schema (`requestBody` → `content` → `application/json` → `schema`). Use that schema — and only that schema — to construct the body.
+
+4. If you cannot confidently map the resource to a spec file, tell the user and ask them to confirm before proceeding. Do not fall back to guessing.
