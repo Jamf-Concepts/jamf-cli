@@ -174,33 +174,3 @@ jamf-cli -p <profile> pro <resource> list -o json | jq '.' | head -40
 ```
 
 Common patterns: `.id`, `.computerAppleId`, `.udid`. Always derive the field name from the actual output.
-
-### Platform resource group operations
-
-When the task involves Platform resources (blueprints, compliance-benchmarks, ddm-reports, platform-devices), **always use `pro platform-device-groups` for all group operations** — creating test groups, listing groups, resolving group IDs, assigning scope.
-
-**Never use Classic or Pro API group commands** (`pro smart-computer-groups`, `pro static-computer-groups`, `pro computer-groups`, `pro mobile-device-groups`) for Platform workflows. These are incompatible:
-
-| API | Group ID type | Works with Platform resources? |
-|---|---|---|
-| `pro platform-device-groups` | UUID (`cda24521-…`) | Yes |
-| `pro smart-computer-groups` / `pro static-computer-groups` | Integer (`42`) | No |
-
-Blueprint and benchmark scope fields accept only Platform device group UUIDs. Passing a Classic integer group ID will fail silently or be rejected by the API.
-
-**Pattern for creating a test group and scoping a blueprint to it:**
-
-```bash
-# 1. Create the Platform device group
-echo '{"name":"Test Group","deviceType":"COMPUTER","groupType":"STATIC"}' \
-  | jamf-cli -p <profile> pro platform-device-groups create
-
-# 2. Get the new group's UUID
-jamf-cli -p <profile> pro platform-device-groups list -o json \
-  | jq -r '.results[] | select(.name == "Test Group") | .id'
-
-# 3. Scope the blueprint using that UUID
-jamf-cli -p <profile> pro blueprints get "My Blueprint" -o json \
-  | jq '.scope.deviceGroups += ["<uuid>"]' \
-  | jamf-cli -p <profile> pro blueprints apply
-```
