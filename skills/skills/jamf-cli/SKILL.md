@@ -129,3 +129,48 @@ Specs live in three locations depending on the command namespace:
 3. Extract the request schema (`requestBody` → `content` → `application/json` → `schema`). Use that schema — and only that schema — to construct the body.
 
 4. If you cannot confidently map the resource to a spec file, tell the user and ask them to confirm before proceeding. Do not fall back to guessing.
+
+### apply vs create / update
+
+Prefer `apply` over `create`/`update` whenever it is available for the resource.
+
+- `apply` is a name-based upsert: it creates the resource if it does not exist, or replaces it if it does. It is idempotent and the correct default for configuration management.
+- `create` and `update` are lower-level primitives. `create` will fail if the resource already exists; `update` requires knowing the ID and that the resource already exists.
+- Singletons (settings-style resources with no `{id}` in their path) have no `apply` — use `get` and `update` directly.
+
+Check `--help` to confirm whether `apply` is available before reaching for `create`/`update`.
+
+### --scaffold before writing a body
+
+Before writing any JSON body for `create`, `update`, or `patch`, run:
+
+```bash
+jamf-cli -p <profile> pro <resource> create --scaffold
+```
+
+This prints the exact JSON template the server expects. Use it together with the spec (see request body policy above) to construct a valid payload. Never write a body from memory.
+
+### Singleton resources (no ID, no name)
+
+Some resources are singletons — a single settings object with no collection. These use `get` and `update` with no ID or name argument:
+
+```bash
+jamf-cli -p <profile> pro <resource> get
+jamf-cli -p <profile> pro <resource> update
+```
+
+Passing an ID or `--name` to a singleton command will fail. Singletons are identifiable in `--help` by the absence of a positional `<id>` argument and the absence of a `list` subcommand.
+
+### Classic API payloads are XML
+
+Classic API resources (commands under `pro` that map to `/JSSResource/` paths) use XML request and response bodies — not JSON. When constructing a `--from-file` payload or piping input, the content must be valid XML. Check `specs/classic/resources.yaml` for the expected structure.
+
+### List response shape varies — don't assume `.id`
+
+The field name holding the object ID in a `list` response differs by resource. Do not assume `.id`. After running `list -o json`, inspect the actual response shape before writing a `jq` filter:
+
+```bash
+jamf-cli -p <profile> pro <resource> list -o json | jq '.' | head -40
+```
+
+Common patterns: `.id`, `.computerAppleId`, `.udid`. Always derive the field name from the actual output.
