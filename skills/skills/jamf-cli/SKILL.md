@@ -81,6 +81,30 @@ Command pattern: `jamf-cli -p <active-profile> <subcommand> [flags]`
 - Before any destructive operation (`delete`, `apply` replacing existing): confirm with the user
 - Before bulk operations: show the full command, get confirmation, then run
 
+### Object ID lookup policy (get / update / delete)
+
+**There is no `--id` flag.** IDs are always positional arguments placed directly after the subcommand:
+
+```
+jamf-cli -p <profile> pro <resource> get <id>
+jamf-cli -p <profile> pro <resource> update <id>
+jamf-cli -p <profile> pro <resource> delete <id>
+```
+
+**`--name` is not universal.** Only resources with name-based lookup support it — check `--help` for the resource before assuming it exists. Never attempt `--name` and fall back if it fails; check first.
+
+**Standard lookup pattern when you have a name but need an ID:**
+
+```bash
+# 1. List to find the ID
+jamf-cli -p <profile> pro <resource> list -o json | jq '.results[] | select(.name == "My Resource") | .id'
+
+# 2. Use the ID positionally
+jamf-cli -p <profile> pro <resource> get <id>
+```
+
+Do not attempt to guess an ID or try `--name` on a resource that does not advertise it in `--help`.
+
 ### Request body policy (create / update / apply / patch)
 
 **Never guess the shape of a request body.** Before constructing any JSON or YAML input for a mutating operation (`create`, `update`, `apply`, `patch`), load the authoritative OpenAPI spec for that resource.
