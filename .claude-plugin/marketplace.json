@@ -1,0 +1,20 @@
+{
+  "name": "jamf-cli",
+  "owner": {
+    "name": "Jamf Concepts",
+    "email": "neil.martin@jamf.com"
+  },
+  "metadata": {
+    "description": "jamf-cli skills for Claude Code — conversational Jamf administration without direct API calls.",
+    "version": "0.2.0",
+    "pluginRoot": "."
+  },
+  "plugins": [
+    {
+      "name": "jamf-cli-skills",
+      "source": "./skills",
+      "description": "Conversational skills for Jamf administration across Jamf Pro, Jamf Protect, and the Jamf Platform — audit, backup, bulk ops, reporting, migration, and investigation.",
+      "version": "0.2.0"
+    }
+  ]
+}
