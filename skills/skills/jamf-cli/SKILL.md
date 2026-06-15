@@ -115,7 +115,17 @@ Specs live in three locations depending on the command namespace:
 |---|---|---|---|
 | `pro <resource>` (modern API) | `specs/<ResourceName>.yaml` | PascalCase singular | `Category.yaml`, `MobileDevice.yaml` |
 | `pro <resource>` (Classic API) | `specs/classic/resources.yaml` | single manifest | `specs/classic/resources.yaml` |
-| `pro blueprints`, `pro compliance-benchmarks`, `pro platform-devices`, `pro platform-device-groups`, `pro ddm-reports` (Platform API) | `specs/platform/<resource>-api.json` | kebab-case + `-api.json` | `blueprints-api.json`, `device-groups-api.json` |
+| `pro blueprints`, `pro compliance-benchmarks`, `pro platform-devices`, `pro platform-device-groups`, `pro ddm-reports` (Platform API) | `specs/platform/` (see mapping below) | abbreviated, **not** derivable from the command name | `compliance-benchmarks` → `jamf-compliance-benchmark-engine-api.json` |
+
+Platform spec filenames do **not** follow a `<resource>-api.json` rule — they are abbreviated and must be looked up explicitly:
+
+| Command namespace | Spec file under `specs/platform/` |
+|---|---|
+| `pro blueprints` | `blueprints-api.json` |
+| `pro compliance-benchmarks` | `jamf-compliance-benchmark-engine-api.json` |
+| `pro platform-devices` | `device-inventory-api.json` (+ `device-management-actions-api.json` for actions) |
+| `pro platform-device-groups` | `device-groups-api.json` |
+| `pro ddm-reports` | `Declaration-reporting-openapi.json` |
 
 **Steps:**
 
@@ -124,7 +134,7 @@ Specs live in three locations depending on the command namespace:
 2. Fetch the raw spec via WebFetch using the appropriate URL:
    - Pro modern: `https://raw.githubusercontent.com/Jamf-Concepts/jamf-cli/main/specs/<ResourceName>.yaml`
    - Pro classic: `https://raw.githubusercontent.com/Jamf-Concepts/jamf-cli/main/specs/classic/resources.yaml`
-   - Platform: `https://raw.githubusercontent.com/Jamf-Concepts/jamf-cli/main/specs/platform/<resource>-api.json`
+   - Platform: `https://raw.githubusercontent.com/Jamf-Concepts/jamf-cli/main/specs/platform/<file>` — resolve `<file>` from the Platform mapping table above (e.g. `jamf-compliance-benchmark-engine-api.json`), do not assume `<resource>-api.json`
 
 3. Extract the request schema (`requestBody` → `content` → `application/json` → `schema`). Use that schema — and only that schema — to construct the body.
 
@@ -174,3 +184,33 @@ jamf-cli -p <profile> pro <resource> list -o json | jq '.' | head -40
 ```
 
 Common patterns: `.id`, `.computerAppleId`, `.udid`. Always derive the field name from the actual output.
+
+### Platform resource group operations
+
+When the task involves Platform resources (blueprints, compliance-benchmarks, ddm-reports, platform-devices), **always use `pro platform-device-groups` for all group operations** — creating test groups, listing groups, resolving group IDs, assigning scope.
+
+**Never use Classic or Pro API group commands** (`pro smart-computer-groups`, `pro static-computer-groups`, `pro computer-groups`, `pro mobile-device-groups`) for Platform workflows. These are incompatible:
+
+| API | Group ID type | Works with Platform resources? |
+|---|---|---|
+| `pro platform-device-groups` | UUID (`cda24521-…`) | Yes |
+| `pro smart-computer-groups` / `pro static-computer-groups` | Integer (`42`) | No |
+
+Blueprint and benchmark scope fields accept only Platform device group UUIDs. Passing a Classic integer group ID will fail silently or be rejected by the API.
+
+**Pattern for creating a test group and scoping a blueprint to it:**
+
+```bash
+# 1. Create the Platform device group
+echo '{"name":"Test Group","deviceType":"COMPUTER","groupType":"STATIC"}' \
+  | jamf-cli -p <profile> pro platform-device-groups create
+
+# 2. Get the new group's UUID
+jamf-cli -p <profile> pro platform-device-groups list -o json \
+  | jq -r '.results[] | select(.name == "Test Group") | .id'
+
+# 3. Scope the blueprint using that UUID
+jamf-cli -p <profile> pro blueprints get "My Blueprint" -o json \
+  | jq '.scope.deviceGroups += ["<uuid>"]' \
+  | jamf-cli -p <profile> pro blueprints apply
+```
