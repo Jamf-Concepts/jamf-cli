@@ -82,7 +82,7 @@ Functions available in `resourceTemplate`:
 ### Modern API (`parser/types.go`)
 
 - **`Resource`** — Top-level: `Name`, `NameSingular`, `GoName`, `Description`, `Operations`, `Schemas`, `IsSingleton`
-- **`Operation`** — Endpoint: `Name` (list/get/create/update/delete), `Method`, `Path`, `Parameters`, `RequestBody`, `IsList`, `IsDestructive`
+- **`Operation`** — Endpoint: `Name` (list/get/create/update/delete), `Method`, `Path`, `Parameters`, `RequestBody`, `IsList`, `IsPaginated`, `IsDestructive`. `IsList` is true for list/history ops and drives list-only semantics (default sections, output array key, singleton detection); `IsPaginated` is broader (any GET exposing `page`/`page-size`) and gates `--all`/`--limit` auto-pagination, so report/action GETs like `patch-report` paginate too.
 - **`Parameter`** — Query/path param: `Name`, `In`, `Type`, `Required`, `Default`, `IsArray`
 - **`Schema`** / **`Property`** — Used for `--scaffold` JSON template generation
 

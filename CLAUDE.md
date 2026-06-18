@@ -171,7 +171,7 @@ All resources ────────────────► smoke_registry
 Entrypoint: generator/main.go
 ```
 
-Key types in templates: `parser.Resource` (`Name`, `NameSingular`, `GoName`, `Operations`, `IsSingleton`), `parser.Operation` (`Name`, `Method`, `Path`, `IsList`, `IsDestructive`), `classic.ClassicResource`.
+Key types in templates: `parser.Resource` (`Name`, `NameSingular`, `GoName`, `Operations`, `IsSingleton`), `parser.Operation` (`Name`, `Method`, `Path`, `IsList`, `IsPaginated`, `IsDestructive`), `classic.ClassicResource`. `IsPaginated` (any GET with `page`/`page-size` params) is broader than `IsList` (list/history only) and gates `--all`/`--limit` auto-pagination so report/action GETs like `patch-report` page through all results.
 
 `ParseSpec` returns `[]*Resource` — most specs produce one, but multi-family specs (e.g. `SelfServiceBranding.yaml`) produce one per family. `IsSingleton` is true for settings-style resources (GET+PUT, no `{id}`) — they get `get` instead of `list`, skip `apply`.
 
