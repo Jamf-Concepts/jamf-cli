@@ -4,6 +4,7 @@ package generated
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -38,12 +39,17 @@ func NewAppInstallerDeploymentsCmd(ctx *registry.CLIContext) *cobra.Command {
 }
 
 func newAppInstallerDeploymentsListCmd(ctx *registry.CLIContext) *cobra.Command {
-	var ()
+	var (
+		flagPage     int
+		flagPageSize int
+		flagAll      bool
+		flagLimit    int
+	)
 
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "Get all App Installer deployments",
-		Long:  "Retrieves all App Installer deployment configurations (enabled or not)",
+		Long:  "Retrieves all App Installer deployment configurations (enabled or not). Results are paginated; the response carries the unfiltered totalCount so callers can page through the full set.",
 		Example: `  # List all app-installer-deployments
   jamf-cli pro app-installer-deployments list
 
@@ -57,8 +63,79 @@ func newAppInstallerDeploymentsListCmd(ctx *registry.CLIContext) *cobra.Command 
 
 			// Build query string
 			var queryParts []string
+			if flagPage != 0 {
+				queryParts = append(queryParts, fmt.Sprintf("page=%d", flagPage))
+			}
+			if flagPageSize != 0 {
+				queryParts = append(queryParts, fmt.Sprintf("page-size=%d", flagPageSize))
+			}
 			if len(queryParts) > 0 {
 				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Auto-pagination: fetch all pages when --all is set and --page was not manually specified
+			if flagAll && flagPage == 0 {
+				var allResults []json.RawMessage
+				pageNum := 0
+				pageSize := 100
+
+				for {
+					// Build page-specific query
+					pagePath := "/v1/app-installers/deployments"
+					var pageQuery []string
+					// Carry forward non-pagination query params
+					for _, qp := range queryParts {
+						if !strings.HasPrefix(qp, "page=") && !strings.HasPrefix(qp, "page-size=") && !strings.HasPrefix(qp, "pagesize=") {
+							pageQuery = append(pageQuery, qp)
+						}
+					}
+					pageQuery = append(pageQuery, fmt.Sprintf("page=%d", pageNum))
+					pageQuery = append(pageQuery, fmt.Sprintf("page-size=%d", pageSize))
+					pagePath = pagePath + "?" + strings.Join(pageQuery, "&")
+
+					resp, err := ctx.Client.Do(reqCtx, "GET", pagePath, nil)
+					if err != nil {
+						return err
+					}
+
+					body, err := io.ReadAll(resp.Body)
+					resp.Body.Close()
+					if err != nil {
+						return err
+					}
+
+					// Parse pagination response: {"totalCount": N, "results": [...]}
+					var pageResp struct {
+						TotalCount int               `json:"totalCount"`
+						Results    []json.RawMessage `json:"results"`
+					}
+					if err := json.Unmarshal(body, &pageResp); err != nil {
+						// Not a paginated response; output as-is
+						return ctx.Output.PrintRaw(body)
+					}
+
+					allResults = append(allResults, pageResp.Results...)
+
+					// Check limit
+					if flagLimit > 0 && len(allResults) >= flagLimit {
+						allResults = allResults[:flagLimit]
+						break
+					}
+
+					// Check if we've fetched everything
+					if len(pageResp.Results) < pageSize || len(allResults) >= pageResp.TotalCount {
+						break
+					}
+
+					pageNum++
+				}
+
+				// Output combined results as JSON array
+				combined, err := json.MarshalIndent(allResults, "", "  ")
+				if err != nil {
+					return err
+				}
+				return ctx.Output.PrintRaw(combined)
 			}
 
 			// Make request
@@ -72,6 +149,10 @@ func newAppInstallerDeploymentsListCmd(ctx *registry.CLIContext) *cobra.Command 
 		},
 	}
 
+	cmd.Flags().IntVar(&flagPage, "page", 0, "Zero-based page index. Defaults to 0 when omitted.")
+	cmd.Flags().IntVar(&flagPageSize, "page-size", 100, "Number of results per page. Defaults to 100 when omitted.")
+	cmd.Flags().BoolVar(&flagAll, "all", true, "Fetch all pages (set --all=false for single page)")
+	cmd.Flags().IntVar(&flagLimit, "limit", 0, "Maximum total results to return (0 = unlimited)")
 	return cmd
 }
 
@@ -168,6 +249,7 @@ func newAppInstallerDeploymentsCreateCmd(ctx *registry.CLIContext) *cobra.Comman
   "selfServiceSettings": {},
   "siteId": "",
   "smartGroupId": "",
+  "triggerAdminNotifications": false,
   "updateBehavior": ""
 }`, ctx.Output.Format())
 			}
@@ -247,6 +329,7 @@ func newAppInstallerDeploymentsUpdateCmd(ctx *registry.CLIContext) *cobra.Comman
   "selfServiceSettings": {},
   "siteId": "",
   "smartGroupId": "",
+  "triggerAdminNotifications": false,
   "updateBehavior": ""
 }`, ctx.Output.Format())
 			}
@@ -741,6 +824,7 @@ If not, a new resource is created.`,
   "selfServiceSettings": {},
   "siteId": "",
   "smartGroupId": "",
+  "triggerAdminNotifications": false,
   "updateBehavior": ""
 }`, ctx.Output.Format())
 			}

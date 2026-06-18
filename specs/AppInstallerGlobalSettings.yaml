@@ -1,0 +1,109 @@
+openapi: 3.0.1
+info:
+  title: Jamf Pro API - App Installer Global Settings
+  description: Global settings for App Installer deployments, controlling end-user experience notifications and deployment process controls.
+  version: 0.0.1
+paths:
+  /v1/app-installers/global-settings:
+    get:
+      tags:
+      - app-installer-global-settings
+      summary: Get App Installer global settings
+      description: Retrieves the global settings for App Installer deployments.
+      responses:
+        200:
+          description: Successful response
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/AppInstallerGlobalSettings'
+      x-required-privileges:
+      - Read App Installers
+    put:
+      tags:
+      - app-installer-global-settings
+      summary: Update App Installer global settings
+      description: Replaces all global settings for App Installer deployments. Fields omitted or null are cleared to their unset state.
+      requestBody:
+        description: Updated global settings
+        content:
+          'application/json':
+            schema:
+              $ref: '#/components/schemas/AppInstallerGlobalSettings'
+        required: true
+      responses:
+        200:
+          description: Settings updated
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/AppInstallerGlobalSettings'
+      x-required-privileges:
+      - Update App Installers
+components:
+  schemas:
+    AppInstallerGlobalSettings:
+      type: object
+      properties:
+        endUserExperienceSettings:
+          $ref: '#/components/schemas/AppInstallerEndUserExperienceSettings'
+        deploymentProcessControls:
+          $ref: '#/components/schemas/AppInstallerDeploymentProcessControls'
+    AppInstallerEndUserExperienceSettings:
+      type: object
+      properties:
+        notificationMessage:
+          type: string
+          nullable: true
+        notificationInterval:
+          type: integer
+          nullable: true
+        deadlineMessage:
+          type: string
+          nullable: true
+        deadline:
+          type: integer
+          nullable: true
+        quitDelay:
+          type: integer
+          nullable: true
+        completeMessage:
+          type: string
+          nullable: true
+        relaunch:
+          type: boolean
+          nullable: true
+        suppress:
+          type: boolean
+          nullable: true
+    AppInstallerDeploymentProcessControls:
+      type: object
+      properties:
+        commandsBatchSize:
+          type: integer
+          nullable: true
+        batchFrequencyInMinutes:
+          type: integer
+          nullable: true
+          description: Frequency in minutes between deployment batches. Must be between 10 and 1440.
+        daysOfWeek:
+          type: array
+          nullable: true
+          items:
+            type: string
+            enum:
+            - MONDAY
+            - TUESDAY
+            - WEDNESDAY
+            - THURSDAY
+            - FRIDAY
+            - SATURDAY
+            - SUNDAY
+        fromTimeOfDay:
+          type: string
+          nullable: true
+          description: Start of the daily deployment window in OffsetTime format (e.g. "08:00:00Z").
+        toTimeOfDay:
+          type: string
+          nullable: true
+          description: End of the daily deployment window in OffsetTime format (e.g. "18:00:00Z").

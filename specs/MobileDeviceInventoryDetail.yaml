@@ -11,6 +11,9 @@ components:
       type: object
     MobileDeviceApplicationInventoryDetail:
       properties:
+        appClip:
+          example: false
+          type: boolean
         bundleSize:
           example: "1024"
           type: string
@@ -135,6 +138,15 @@ components:
         lastInventoryUpdateDate:
           example: "2022-10-17T11:48:56.307Z"
           format: date-time
+          type: string
+        lastLoggedInUsernameMdm:
+          example: admin
+          nullable: true
+          type: string
+        lastLoggedInUsernameMdmTimestamp:
+          example: "2018-10-31T18:04:13Z"
+          format: date-time
+          nullable: true
           type: string
         lastLoggedInUsernameSelfService:
           example: admin
@@ -549,12 +561,14 @@ components:
         mapping:
           iOS: '#/components/schemas/MobileDeviceIosInventory'
           tvOS: '#/components/schemas/MobileDeviceTvOsInventory'
+          visionOS: '#/components/schemas/MobileDeviceVisionOsInventory'
           watchOS: '#/components/schemas/MobileDeviceWatchOsInventory'
         propertyName: deviceType
       oneOf:
         - $ref: '#/components/schemas/MobileDeviceIosInventory'
         - $ref: '#/components/schemas/MobileDeviceTvOsInventory'
         - $ref: '#/components/schemas/MobileDeviceWatchOsInventory'
+        - $ref: '#/components/schemas/MobileDeviceVisionOsInventory'
       type: object
     MobileDeviceSection:
       enum:
@@ -764,6 +778,52 @@ components:
           example: "1"
           type: string
       type: object
+    MobileDeviceVisionOsGeneral:
+      allOf:
+        - $ref: '#/components/schemas/MobileDeviceGeneral'
+        - properties:
+            appAnalyticsEnabled:
+              example: false
+              type: boolean
+            cloudBackupEnabled:
+              example: false
+              type: boolean
+            deviceLocatorServiceEnabled:
+              example: false
+              type: boolean
+            diagnosticAndUsageReportingEnabled:
+              example: false
+              type: boolean
+            doNotDisturbEnabled:
+              example: false
+              type: boolean
+            itunesStoreAccountActive:
+              example: false
+              type: boolean
+            lastCloudBackupDate:
+              example: "2022-10-17T11:48:56.307Z"
+              format: date-time
+              nullable: true
+              type: string
+          type: object
+    MobileDeviceVisionOsInventory:
+      allOf:
+        - $ref: '#/components/schemas/MobileDeviceInventory'
+        - properties:
+            general:
+              $ref: '#/components/schemas/MobileDeviceVisionOsGeneral'
+            network:
+              $ref: '#/components/schemas/MobileDeviceNetwork'
+            provisioningProfiles:
+              items:
+                $ref: _MonolithLibrary.yaml#/components/schemas/MobileDeviceProvisioningProfiles
+              nullable: true
+              type: array
+            purchasing:
+              $ref: '#/components/schemas/MobileDevicePurchasing'
+            security:
+              $ref: '#/components/schemas/MobileDeviceSecurity'
+          type: object
     MobileDeviceWatchOsGeneral:
       allOf:
         - $ref: '#/components/schemas/MobileDeviceGeneral'
@@ -824,9 +884,58 @@ paths:
               $ref: '#/components/schemas/MobileDeviceSection'
             type: array
           style: form
+        - description: |
+            Controls how the endpoint handles exceptions when processing device data.
+            - STRICT (default): Returns a 500 error with details when a device has data processing issues.
+              Each problematic device is surfaced one at a time.
+            - LENIENT: Returns a 200 response even when devices have processing issues. Problematic sections
+              will be null in the response, and all devices (including those with issues) are included.
+              Exceptions are logged to the Jamf Pro Server logs.
+          explode: true
+          in: query
+          name: exception-handling
+          required: false
+          schema:
+            default: STRICT
+            enum:
+              - STRICT
+              - LENIENT
+            example: STRICT
+            type: string
+          style: form
         - $ref: _MonolithLibrary.yaml#/components/parameters/page
         - $ref: _MonolithLibrary.yaml#/components/parameters/page-size
-        - description: "Sorting criteria in the format: property:asc/desc. Default sort\nis displayName:asc. Multiple sort criteria are supported and must be separated with\na comma. \n\nFields allowed in the sort: `airPlayPassword`, `appAnalyticsEnabled`, `assetTag`, `availableSpaceMb`, \n`batteryLevel`, `batteryHealth`, `bluetoothLowEnergyCapable`, `bluetoothMacAddress`, `capacityMb`, \n`lostModeEnabledDate`, `declarativeDeviceManagementEnabled`, `deviceId`, `deviceLocatorServiceEnabled`,\n`devicePhoneNumber`, `diagnosticAndUsageReportingEnabled`, `displayName`, `doNotDisturbEnabled`, \n`enrollmentSessionTokenValid`, `exchangeDeviceId`, `cloudBackupEnabled`, `osBuild`,\n`osSupplementalBuildVersion`, `osVersion`, `osRapidSecurityResponse`, `ipAddress`, `itunesStoreAccountActive`,\n`mobileDeviceId`, `managementId`, `languages`, `lastBackupDate`, `lastEnrolledDate`, `lastCloudBackupDate`,\n`lastInventoryUpdateDate`, `locales`, `locationServicesForSelfServiceMobileEnabled`, `lostModeEnabled`,\n`managed`, `mdmProfileExpirationDate`, `model`, `modelIdentifier`,\n`modelNumber`, `modemFirmwareVersion`, `preferredVoiceNumber`, `quotaSize`, `residentUsers`,\n`serialNumber`, `sharedIpad`, `supervised`, `tethered`,\n`timeZone`, `udid`, `usedSpacePercentage`, `wifiMacAddress`,\n`deviceOwnershipType`, `building`, `department`, `emailAddress`,\n`fullName`, `userPhoneNumber`, `position`, `room`,\n`username`, `appleCareId`, `leaseExpirationDate`,`lifeExpectancyYears`,\n`poDate`, `poNumber`, `purchasePrice`, `purchasedOrLeased`,\n`purchasingAccount`, `purchasingContact`, `vendor`, `warrantyExpirationDate`,\n`activationLockEnabled`, `blockEncryptionCapable`, `dataProtection`, `fileEncryptionCapable`,\n`hardwareEncryptionSupported`, `jailbreakStatus`, `passcodeCompliant`, `passcodeCompliantWithProfile`,\n`passcodeLockGracePeriodEnforcedSeconds`, `passcodePresent`, `carrierSettingsVersion`,\n`cellularTechnology`, `currentCarrierNetwork`, `currentMobileCountryCode`, `currentMobileNetworkCode`, \n`dataRoamingEnabled`, `eid`, `network`, `homeMobileCountryCode`, \n`homeMobileNetworkCode`, `iccid`, `imei`, `imei2`,\n`meid`, `personalHotspotEnabled`, `voiceRoamingEnabled`, `roaming`, `lastLoggedInUsernameSelfService`, `lastLoggedInUsernameSelfServiceTimestamp`\n\nExample: `sort=displayName:desc,username:asc`\n"
+        - description: |
+            Sorting criteria in the format: property:asc/desc. Default sort
+            is displayName:asc. Multiple sort criteria are supported and must be separated with
+            a comma.
+
+            Fields allowed in the sort: `airPlayPassword`, `appAnalyticsEnabled`, `assetTag`, `availableSpaceMb`,
+            `batteryLevel`, `batteryHealth`, `bluetoothLowEnergyCapable`, `bluetoothMacAddress`, `capacityMb`,
+            `lostModeEnabledDate`, `declarativeDeviceManagementEnabled`, `deviceId`, `deviceLocatorServiceEnabled`,
+            `devicePhoneNumber`, `diagnosticAndUsageReportingEnabled`, `displayName`, `doNotDisturbEnabled`,
+            `enrollmentSessionTokenValid`, `exchangeDeviceId`, `cloudBackupEnabled`, `osBuild`,
+            `osSupplementalBuildVersion`, `osVersion`, `osRapidSecurityResponse`, `ipAddress`, `itunesStoreAccountActive`,
+            `mobileDeviceId`, `managementId`, `languages`, `lastBackupDate`, `lastEnrolledDate`, `lastCloudBackupDate`,
+            `lastInventoryUpdateDate`, `locales`, `locationServicesForSelfServiceMobileEnabled`, `lostModeEnabled`,
+            `managed`, `mdmProfileExpirationDate`, `model`, `modelIdentifier`,
+            `modelNumber`, `modemFirmwareVersion`, `preferredVoiceNumber`, `quotaSize`, `residentUsers`,
+            `serialNumber`, `sharedIpad`, `supervised`, `tethered`,
+            `timeZone`, `udid`, `usedSpacePercentage`, `wifiMacAddress`,
+            `deviceOwnershipType`, `building`, `department`, `emailAddress`,
+            `fullName`, `userPhoneNumber`, `position`, `room`,
+            `username`, `appleCareId`, `leaseExpirationDate`,`lifeExpectancyYears`,
+            `poDate`, `poNumber`, `purchasePrice`, `purchasedOrLeased`,
+            `purchasingAccount`, `purchasingContact`, `vendor`, `warrantyExpirationDate`,
+            `activationLockEnabled`, `blockEncryptionCapable`, `dataProtection`, `fileEncryptionCapable`,
+            `hardwareEncryptionSupported`, `jailbreakStatus`, `passcodeCompliant`, `passcodeCompliantWithProfile`,
+            `passcodeLockGracePeriodEnforcedSeconds`, `passcodePresent`, `carrierSettingsVersion`,
+            `cellularTechnology`, `currentCarrierNetwork`, `currentMobileCountryCode`, `currentMobileNetworkCode`,
+            `dataRoamingEnabled`, `eid`, `network`, `homeMobileCountryCode`,
+            `homeMobileNetworkCode`, `iccid`, `imei`, `imei2`,
+            `meid`, `personalHotspotEnabled`, `voiceRoamingEnabled`, `roaming`, `lastLoggedInUsernameSelfService`, `lastLoggedInUsernameSelfServiceTimestamp`, `lastLoggedInUsernameMdm`, `lastLoggedInUsernameMdmTimestamp`
+
+            Example: `sort=displayName:desc,username:asc`
           explode: true
           in: query
           name: sort
@@ -838,7 +947,35 @@ paths:
               type: string
             type: array
           style: form
-        - description: "Query in the RSQL format, allowing to filter mobile device collection.\nDefault filter is empty query - returning all results for the requested page.\n\nFields allowed in the query: `airPlayPassword`, `appAnalyticsEnabled`, `assetTag`, `availableSpaceMb`, \n`batteryLevel`, `bluetoothLowEnergyCapable`, `bluetoothMacAddress`, `capacityMb`, \n`declarativeDeviceManagementEnabled`, `deviceId`, `deviceLocatorServiceEnabled`, `devicePhoneNumber`,\n`diagnosticAndUsageReportingEnabled`, `displayName`, `doNotDisturbEnabled`, `exchangeDeviceId`, \n`cloudBackupEnabled`, `osBuild`, `osSupplementalBuildVersion`, `osVersion`, `osRapidSecurityResponse`,\n`ipAddress`, `itunesStoreAccountActive`, `mobileDeviceId`, `managementId`, `languages`, `lastInventoryUpdateDate`, `locales`,\n`locationServicesForSelfServiceMobileEnabled`, `lostModeEnabled`, `managed`, `model`, \n`modelIdentifier`, `modelNumber`, `modemFirmwareVersion`, `preferredVoiceNumber`, `quotaSize`, \n`residentUsers`, `serialNumber`, `sharedIpad`, `supervised`,\n`tethered`, `timeZone`, `udid`, `usedSpacePercentage`, \n`wifiMacAddress`, `building`, `department`, `emailAddress`,\n`fullName`, `userPhoneNumber`, `position`, `room`,\n`username`, `appleCareId`, `lifeExpectancyYears`, `poNumber`, \n`purchasePrice`, `purchasedOrLeased`, `purchasingAccount`, `purchasingContact`,\n`vendor`, `activationLockEnabled`, `blockEncryptionCapable`, `dataProtection`, \n`fileEncryptionCapable`, `passcodeCompliant`, `passcodeCompliantWithProfile`, `passcodeLockGracePeriodEnforcedSeconds`,\n`passcodePresent`, `carrierSettingsVersion`, `currentCarrierNetwork`,\n`currentMobileCountryCode`, `currentMobileNetworkCode`, `dataRoamingEnabled`, `eid`,\n`network`, `homeMobileCountryCode`, `homeMobileNetworkCode`, `iccid`,\n`imei`, `imei2`, `meid`, `personalHotspotEnabled`,\n`roaming`, `lastLoggedInUsernameSelfService`, `lastLoggedInUsernameSelfServiceTimestamp`,\n`groupId`, `groupName`\n\nThis param can be combined with paging and sorting.\nExample: `filter=displayName==\"iPad\"`\n"
+        - description: |
+            Query in the RSQL format, allowing to filter mobile device collection.
+            Default filter is empty query - returning all results for the requested page.
+
+            Fields allowed in the query: `airPlayPassword`, `appAnalyticsEnabled`, `assetTag`, `availableSpaceMb`,
+            `batteryLevel`, `bluetoothLowEnergyCapable`, `bluetoothMacAddress`, `capacityMb`,
+            `declarativeDeviceManagementEnabled`, `deviceId`, `deviceLocatorServiceEnabled`, `devicePhoneNumber`,
+            `diagnosticAndUsageReportingEnabled`, `displayName`, `doNotDisturbEnabled`, `exchangeDeviceId`,
+            `cloudBackupEnabled`, `osBuild`, `osSupplementalBuildVersion`, `osVersion`, `osRapidSecurityResponse`,
+            `ipAddress`, `itunesStoreAccountActive`, `mobileDeviceId`, `managementId`, `languages`, `lastInventoryUpdateDate`, `locales`,
+            `locationServicesForSelfServiceMobileEnabled`, `lostModeEnabled`, `managed`, `model`,
+            `modelIdentifier`, `modelNumber`, `modemFirmwareVersion`, `preferredVoiceNumber`, `quotaSize`,
+            `residentUsers`, `serialNumber`, `sharedIpad`, `supervised`,
+            `tethered`, `timeZone`, `udid`, `usedSpacePercentage`,
+            `wifiMacAddress`, `building`, `department`, `emailAddress`,
+            `fullName`, `userPhoneNumber`, `position`, `room`,
+            `username`, `appleCareId`, `lifeExpectancyYears`, `poNumber`,
+            `purchasePrice`, `purchasedOrLeased`, `purchasingAccount`, `purchasingContact`,
+            `vendor`, `activationLockEnabled`, `blockEncryptionCapable`, `dataProtection`,
+            `fileEncryptionCapable`, `passcodeCompliant`, `passcodeCompliantWithProfile`, `passcodeLockGracePeriodEnforcedSeconds`,
+            `passcodePresent`, `carrierSettingsVersion`, `currentCarrierNetwork`,
+            `currentMobileCountryCode`, `currentMobileNetworkCode`, `dataRoamingEnabled`, `eid`,
+            `network`, `homeMobileCountryCode`, `homeMobileNetworkCode`, `iccid`,
+            `imei`, `imei2`, `meid`, `personalHotspotEnabled`,
+            `roaming`, `lastLoggedInUsernameSelfService`, `lastLoggedInUsernameSelfServiceTimestamp`, `lastLoggedInUsernameMdm`, `lastLoggedInUsernameMdmTimestamp`,
+            `groupId`, `groupName`
+
+            This param can be combined with paging and sorting.
+            Example: `filter=displayName=="iPad"`
           explode: true
           in: query
           name: filter
@@ -912,7 +1049,7 @@ paths:
             `cellularTechnology`, `currentCarrierNetwork`, `currentMobileCountryCode`, `currentMobileNetworkCode`,
             `dataRoamingEnabled`, `eid`, `network`, `homeMobileCountryCode`,
             `homeMobileNetworkCode`, `iccid`, `imei`, `imei2`,
-            `meid`, `personalHotspotEnabled`, `voiceRoamingEnabled`, `roaming`, `lastLoggedInUsernameSelfService`, `lastLoggedInUsernameSelfServiceTimestamp`
+            `meid`, `personalHotspotEnabled`, `voiceRoamingEnabled`, `roaming`, `lastLoggedInUsernameSelfService`, `lastLoggedInUsernameSelfServiceTimestamp`, `lastLoggedInUsernameMdm`, `lastLoggedInUsernameMdmTimestamp`
 
             Example: `sort=displayName:desc,username:asc`
           explode: true
@@ -948,7 +1085,7 @@ paths:
             `currentMobileCountryCode`, `currentMobileNetworkCode`, `dataRoamingEnabled`, `eid`,
             `network`, `homeMobileCountryCode`, `homeMobileNetworkCode`, `iccid`,
             `imei`, `imei2`, `meid`, `personalHotspotEnabled`,
-            `roaming`, `lastLoggedInUsernameSelfService`, `lastLoggedInUsernameSelfServiceTimestamp`,
+            `roaming`, `lastLoggedInUsernameSelfService`, `lastLoggedInUsernameSelfServiceTimestamp`, `lastLoggedInUsernameMdm`, `lastLoggedInUsernameMdmTimestamp`,
             `groupId`, `groupName`
 
             This param can be combined with paging and sorting.

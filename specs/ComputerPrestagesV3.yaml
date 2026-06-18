@@ -174,11 +174,6 @@ components:
       allOf:
         - $ref: _MonolithLibrary.yaml#/components/schemas/DeviceEnrollmentPrestageV2
         - properties:
-            authUrl:
-              description: The URL to the identity provider (IdP) for authentication for the Platform SSO (PSSO) application 403 workflow. This URL is used in conjunction with PSSO to facilitate single sign-on for users during the device setup process.
-              example: https://idp.example.com/authenticate
-              nullable: true
-              type: string
             customPackageDistributionPointId:
               example: "1"
               type: string

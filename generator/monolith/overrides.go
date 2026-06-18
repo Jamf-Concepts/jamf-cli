@@ -51,6 +51,7 @@ var DroppedTags = map[string]bool{
 var PreservedSpecs = map[string]bool{
 	// App Installer deployments and titles are not exposed in the public
 	// /api/schema/ monolith; their specs are maintained from a private source.
-	"AppInstallerDeployments.yaml": true,
-	"AppInstallerTitles.yaml":      true,
+	"AppInstallerDeployments.yaml":    true,
+	"AppInstallerGlobalSettings.yaml": true,
+	"AppInstallerTitles.yaml":         true,
 }

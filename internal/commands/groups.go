@@ -231,6 +231,7 @@ var proGroupMap = map[string]string{
 	// through Apple/VPP just like apps, so they belong here too.
 	"app-installer-titles":                groupAppsPatching,
 	"app-installer-deployments":           groupAppsPatching,
+	"app-installer-global-settings":       groupAppsPatching,
 	"app-requests":                        groupAppsPatching,
 	"vpp-subscriptions":                   groupAppsPatching,
 	"vpp-locations":                       groupAppsPatching,

@@ -38,6 +38,7 @@ components:
         includeFonts:
           default: false
           example: true
+          readOnly: true
           type: boolean
         includeHiddenAccounts:
           default: false
@@ -159,10 +160,12 @@ components:
         fontPaths:
           items:
             $ref: '#/components/schemas/FontPath'
+          readOnly: true
           type: array
         pluginPaths:
           items:
             $ref: '#/components/schemas/PluginPath'
+          readOnly: true
           type: array
       type: object
     ComputerInventoryCollectionSettingsV2:
