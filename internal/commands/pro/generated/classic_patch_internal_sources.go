@@ -100,7 +100,7 @@ func newClassicPatchInternalSourcesGetCmd(ctx *registry.CLIContext) *cobra.Comma
 			// Resolve lookup: check flags first, then positional ID
 			var path string
 			if flagName != "" {
-				path = fmt.Sprintf("/JSSResource/patchinternalsources/name/%s", url.PathEscape(flagName))
+				path = fmt.Sprintf("/JSSResource/patchinternalsources/name/%s", registry.EscapeClassicPathSegment(flagName))
 			} else if len(args) > 0 {
 				path = fmt.Sprintf("/JSSResource/patchinternalsources/id/%s", url.PathEscape(args[0]))
 			} else {

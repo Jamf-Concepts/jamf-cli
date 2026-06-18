@@ -112,7 +112,7 @@ func newClassicMobileDeviceGroupsGetCmd(ctx *registry.CLIContext) *cobra.Command
 			// Resolve lookup: check flags first, then positional ID
 			var path string
 			if flagName != "" {
-				path = fmt.Sprintf("/JSSResource/mobiledevicegroups/name/%s", url.PathEscape(flagName))
+				path = fmt.Sprintf("/JSSResource/mobiledevicegroups/name/%s", registry.EscapeClassicPathSegment(flagName))
 			} else if len(args) > 0 {
 				path = fmt.Sprintf("/JSSResource/mobiledevicegroups/id/%s", url.PathEscape(args[0]))
 			} else {
@@ -209,7 +209,7 @@ func newClassicMobileDeviceGroupsUpdateCmd(ctx *registry.CLIContext) *cobra.Comm
 
 			var path string
 			if flagName != "" {
-				path = fmt.Sprintf("/JSSResource/mobiledevicegroups/name/%s", url.PathEscape(flagName))
+				path = fmt.Sprintf("/JSSResource/mobiledevicegroups/name/%s", registry.EscapeClassicPathSegment(flagName))
 			} else if len(args) > 0 {
 				path = fmt.Sprintf("/JSSResource/mobiledevicegroups/id/%s", url.PathEscape(args[0]))
 			} else {

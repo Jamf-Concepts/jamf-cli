@@ -104,7 +104,7 @@ func newClassicAllowedFileExtensionsGetCmd(ctx *registry.CLIContext) *cobra.Comm
 			// Resolve lookup: check flags first, then positional ID
 			var path string
 			if flagExtension != "" {
-				path = fmt.Sprintf("/JSSResource/allowedfileextensions/extension/%s", url.PathEscape(flagExtension))
+				path = fmt.Sprintf("/JSSResource/allowedfileextensions/extension/%s", registry.EscapeClassicPathSegment(flagExtension))
 			} else if len(args) > 0 {
 				path = fmt.Sprintf("/JSSResource/allowedfileextensions/id/%s", url.PathEscape(args[0]))
 			} else {

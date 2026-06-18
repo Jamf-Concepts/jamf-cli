@@ -471,7 +471,7 @@ func new{{ .GoName }}GetCmd(ctx *registry.CLIContext) *cobra.Command {
 			// Resolve lookup: check flags first, then positional ID
 			var path string
 {{ range extraLookups .Lookups }}			if flag{{ lookupCamel . }} != "" {
-				path = fmt.Sprintf("/JSSResource/{{ $.Path }}/{{ . }}/%s", url.PathEscape(flag{{ lookupCamel . }}))
+				path = fmt.Sprintf("/JSSResource/{{ $.Path }}/{{ . }}/%s", registry.EscapeClassicPathSegment(flag{{ lookupCamel . }}))
 			} else {{ end }}if len(args) > 0 {
 				path = fmt.Sprintf("/JSSResource/{{ .Path }}/{{ idPath . }}/%s", url.PathEscape(args[0]))
 			} else {
@@ -780,7 +780,7 @@ func new{{ .GoName }}UpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 {{ if hasLookup .Lookups "name" }}
 			var path string
 			if flagName != "" {
-				path = fmt.Sprintf("/JSSResource/{{ .Path }}/name/%s", url.PathEscape(flagName))
+				path = fmt.Sprintf("/JSSResource/{{ .Path }}/name/%s", registry.EscapeClassicPathSegment(flagName))
 			} else if len(args) > 0 {
 				path = fmt.Sprintf("/JSSResource/{{ .Path }}/{{ idPath . }}/%s", url.PathEscape(args[0]))
 			} else {
@@ -1442,7 +1442,7 @@ func resolveClassicNameToIDForApply(ctx context.Context, client registry.HTTPCli
 // (e.g. /JSSResource/mobiledevices/serialnumber/{value}) and returns its numeric id.
 // Returns ("", nil) when not found; ("", err) on failure.
 func resolveClassicLookupToID(ctx context.Context, client registry.HTTPClient, basePath, value string) (string, error) {
-	path := fmt.Sprintf("%s/%s", basePath, url.PathEscape(value))
+	path := fmt.Sprintf("%s/%s", basePath, registry.EscapeClassicPathSegment(value))
 	resp, err := client.Do(ctx, "GET", path, nil)
 	if err != nil {
 		if exitcode.CodeFrom(err) == exitcode.NotFound {
@@ -1478,7 +1478,7 @@ func resolveClassicLookupToID(ctx context.Context, client registry.HTTPClient, b
 // Errors (including non-404 server errors) are silently swallowed — UUID
 // preservation is best-effort and must never block an update.
 func fetchClassicProfileByName(ctx context.Context, client registry.HTTPClient, apiPath, name string) (id string, payloadPlist []byte) {
-	path := fmt.Sprintf("/JSSResource/%s/name/%s", apiPath, url.PathEscape(name))
+	path := fmt.Sprintf("/JSSResource/%s/name/%s", apiPath, registry.EscapeClassicPathSegment(name))
 	resp, err := client.Do(ctx, "GET", path, nil)
 	if err != nil {
 		return "", nil
@@ -1872,7 +1872,7 @@ func setClassicGeneralName(body []byte, rootName, name string) []byte {
 // if the API responds with a non-2xx status so the caller doesn't PUT back an
 // HTML error page as the "existing record".
 func fetchClassicFullXMLByName(ctx context.Context, client registry.HTTPClient, apiPath, name string) (id string, body []byte, err error) {
-	path := fmt.Sprintf("/JSSResource/%s/name/%s", apiPath, url.PathEscape(name))
+	path := fmt.Sprintf("/JSSResource/%s/name/%s", apiPath, registry.EscapeClassicPathSegment(name))
 	resp, err := client.Do(ctx, "GET", path, nil)
 	if err != nil {
 		return "", nil, err

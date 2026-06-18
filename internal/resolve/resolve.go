@@ -625,7 +625,7 @@ func readEntriesFromFile(path string) ([]string, error) {
 // lookups. pathSegment is the JSSResource collection name (e.g. "computergroups"),
 // label is the human-readable type used in error messages (e.g. "computer group").
 func resolveClassicGroupID(ctx context.Context, client registry.HTTPClient, pathSegment, label, groupName string) (string, error) {
-	path := fmt.Sprintf("/JSSResource/%s/name/%s", pathSegment, url.PathEscape(groupName))
+	path := fmt.Sprintf("/JSSResource/%s/name/%s", pathSegment, registry.EscapeClassicPathSegment(groupName))
 	resp, err := client.Do(ctx, "GET", path, nil)
 	if err != nil {
 		return "", fmt.Errorf("looking up %s %q: %w", label, groupName, err)

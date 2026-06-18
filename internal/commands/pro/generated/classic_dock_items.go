@@ -112,7 +112,7 @@ func newClassicDockItemsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 			// Resolve lookup: check flags first, then positional ID
 			var path string
 			if flagName != "" {
-				path = fmt.Sprintf("/JSSResource/dockitems/name/%s", url.PathEscape(flagName))
+				path = fmt.Sprintf("/JSSResource/dockitems/name/%s", registry.EscapeClassicPathSegment(flagName))
 			} else if len(args) > 0 {
 				path = fmt.Sprintf("/JSSResource/dockitems/id/%s", url.PathEscape(args[0]))
 			} else {
@@ -209,7 +209,7 @@ func newClassicDockItemsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 
 			var path string
 			if flagName != "" {
-				path = fmt.Sprintf("/JSSResource/dockitems/name/%s", url.PathEscape(flagName))
+				path = fmt.Sprintf("/JSSResource/dockitems/name/%s", registry.EscapeClassicPathSegment(flagName))
 			} else if len(args) > 0 {
 				path = fmt.Sprintf("/JSSResource/dockitems/id/%s", url.PathEscape(args[0]))
 			} else {

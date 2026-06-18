@@ -112,7 +112,7 @@ func newClassicComputerExtAttrsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 			// Resolve lookup: check flags first, then positional ID
 			var path string
 			if flagName != "" {
-				path = fmt.Sprintf("/JSSResource/computerextensionattributes/name/%s", url.PathEscape(flagName))
+				path = fmt.Sprintf("/JSSResource/computerextensionattributes/name/%s", registry.EscapeClassicPathSegment(flagName))
 			} else if len(args) > 0 {
 				path = fmt.Sprintf("/JSSResource/computerextensionattributes/id/%s", url.PathEscape(args[0]))
 			} else {
@@ -209,7 +209,7 @@ func newClassicComputerExtAttrsUpdateCmd(ctx *registry.CLIContext) *cobra.Comman
 
 			var path string
 			if flagName != "" {
-				path = fmt.Sprintf("/JSSResource/computerextensionattributes/name/%s", url.PathEscape(flagName))
+				path = fmt.Sprintf("/JSSResource/computerextensionattributes/name/%s", registry.EscapeClassicPathSegment(flagName))
 			} else if len(args) > 0 {
 				path = fmt.Sprintf("/JSSResource/computerextensionattributes/id/%s", url.PathEscape(args[0]))
 			} else {
