@@ -125,21 +125,17 @@ func TestCheckFailedDDMDeclarations(t *testing.T) {
 			"results": []devices.DeviceListReadRepresentationV1{{ID: "dev-1"}, {ID: "dev-2"}},
 		})
 	})
-	mux.HandleFunc("/api/ddm/report/v1/tenant/"+testTenantID+"/devices/dev-1", func(w http.ResponseWriter, _ *http.Request) {
-		writeJSON(w, &ddmreport.DeviceReportDto{Channels: []ddmreport.DeviceReportChannelDto{{
-			Declarations: []ddmreport.StatusReportDeclarationDto{
-				{Status: "SUCCESSFUL", ValidityState: "VALID"},
-			},
-		}}})
+	mux.HandleFunc("/api/ddm/report/v1/tenant/"+testTenantID+"/devices/dev-1/declarations", func(w http.ResponseWriter, _ *http.Request) {
+		writeJSON(w, &ddmreport.FilteredDeviceReportDto{TotalCount: 1, Results: []ddmreport.FilteredResultDto{
+			{Status: "SUCCESSFUL", ValidityState: "VALID"},
+		}})
 	})
-	mux.HandleFunc("/api/ddm/report/v1/tenant/"+testTenantID+"/devices/dev-2", func(w http.ResponseWriter, _ *http.Request) {
-		writeJSON(w, &ddmreport.DeviceReportDto{Channels: []ddmreport.DeviceReportChannelDto{{
-			Declarations: []ddmreport.StatusReportDeclarationDto{
-				{Status: "UNSUCCESSFUL", ValidityState: "INVALID", Reasons: []ddmreport.StatusReportDeclarationReasonDto{
-					{Code: "Error.ProfileFailed", Description: "Profile installation failed"},
-				}},
-			},
-		}}})
+	mux.HandleFunc("/api/ddm/report/v1/tenant/"+testTenantID+"/devices/dev-2/declarations", func(w http.ResponseWriter, _ *http.Request) {
+		writeJSON(w, &ddmreport.FilteredDeviceReportDto{TotalCount: 1, Results: []ddmreport.FilteredResultDto{
+			{Status: "UNSUCCESSFUL", ValidityState: "INVALID", Reasons: []ddmreport.StatusReportDeclarationReasonDto{
+				{Code: "Error.ProfileFailed", Description: "Profile installation failed"},
+			}},
+		}})
 	})
 	result := checkFailedDDMDeclarations(context.Background(), cliCtx.PlatformSDKClient)
 	if result == nil {
@@ -158,14 +154,12 @@ func TestCheckFailedDDMDeclarations_IgnoresInfoReasons(t *testing.T) {
 			"results": []devices.DeviceListReadRepresentationV1{{ID: "dev-1"}},
 		})
 	})
-	mux.HandleFunc("/api/ddm/report/v1/tenant/"+testTenantID+"/devices/dev-1", func(w http.ResponseWriter, _ *http.Request) {
-		writeJSON(w, &ddmreport.DeviceReportDto{Channels: []ddmreport.DeviceReportChannelDto{{
-			Declarations: []ddmreport.StatusReportDeclarationDto{
-				{Status: "UNSUCCESSFUL", ValidityState: "INVALID", Reasons: []ddmreport.StatusReportDeclarationReasonDto{
-					{Code: "Info.DeclarationNotInstalled", Description: "not applicable"},
-				}},
-			},
-		}}})
+	mux.HandleFunc("/api/ddm/report/v1/tenant/"+testTenantID+"/devices/dev-1/declarations", func(w http.ResponseWriter, _ *http.Request) {
+		writeJSON(w, &ddmreport.FilteredDeviceReportDto{TotalCount: 1, Results: []ddmreport.FilteredResultDto{
+			{Status: "UNSUCCESSFUL", ValidityState: "INVALID", Reasons: []ddmreport.StatusReportDeclarationReasonDto{
+				{Code: "Info.DeclarationNotInstalled", Description: "not applicable"},
+			}},
+		}})
 	})
 	result := checkFailedDDMDeclarations(context.Background(), cliCtx.PlatformSDKClient)
 	if result != nil {

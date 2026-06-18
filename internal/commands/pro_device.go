@@ -419,7 +419,7 @@ func fetchDevicePlatformSections(ctx context.Context, cliCtx *registry.CLIContex
 	// DDM declaration report — aggregate by source, show errors
 	go func() {
 		defer wg.Done()
-		report, err := ddmreport.New(c).GetDeviceDeclarationReport(ctx, devID)
+		declarations, err := ddmreport.New(c).GetDeviceDeclarationReportFiltered(ctx, devID, ddmAllDeclarationsFilter, nil)
 		if err != nil {
 			return
 		}
@@ -445,31 +445,29 @@ func fetchDevicePlatformSections(ctx context.Context, cliCtx *registry.CLIContex
 		}
 		var errors []ddmError
 
-		for _, ch := range report.Channels {
-			for _, d := range ch.Declarations {
-				source, kind := classifyDeclaration(d.DeclarationIdentifier, bpNames, nil)
+		for _, d := range declarations {
+			source, kind := classifyDeclaration(d.DeclarationIdentifier, bpNames, nil)
 
-				a, ok := bySource[source]
-				if !ok {
-					a = &sourceAgg{kind: kind}
-					bySource[source] = a
-				}
-				a.total++
-				switch d.Status {
-				case "SUCCESSFUL":
-					a.successful++
-				case "PENDING", "AWAITING_SYNC":
-					a.pending++
-				default:
-					a.unsuccessful++
-				}
+			a, ok := bySource[source]
+			if !ok {
+				a = &sourceAgg{kind: kind}
+				bySource[source] = a
+			}
+			a.total++
+			switch d.Status {
+			case "SUCCESSFUL":
+				a.successful++
+			case "PENDING", "AWAITING_SYNC":
+				a.pending++
+			default:
+				a.unsuccessful++
+			}
 
-				for _, r := range d.Reasons {
-					if ignorableDDMReasonCodes[r.Code] {
-						continue
-					}
-					errors = append(errors, ddmError{source, r.Code + ": " + r.Description})
+			for _, r := range d.Reasons {
+				if ignorableDDMReasonCodes[r.Code] {
+					continue
 				}
+				errors = append(errors, ddmError{source, r.Code + ": " + r.Description})
 			}
 		}
 

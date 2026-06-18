@@ -14,6 +14,13 @@ import (
 	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform/ddmreport"
 )
 
+// ddmAllDeclarationsFilter matches every declaration. The filtered DDM report
+// endpoints (/devices/{id}/declarations and /declarations/{id}/devices) that
+// replaced the deprecated non-filtered endpoints require a "filter" query
+// param — omitting it returns HTTP 400. "active" is a non-nullable boolean on
+// every declaration, so in=(true,false) is a tautology that returns all rows.
+const ddmAllDeclarationsFilter = "active=in=(true,false)"
+
 func newDDMReportsCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "ddm-reports",
@@ -49,7 +56,7 @@ validity state, including the error reason codes and descriptions.`,
 			if err := requirePlatformClient(cliCtx); err != nil {
 				return err
 			}
-			clients, err := ddmreport.New(cliCtx.PlatformSDKClient).ListDeclarationReportClients(cmd.Context(), args[0], nil)
+			clients, err := ddmreport.New(cliCtx.PlatformSDKClient).ListDeclarationReportClientsFiltered(cmd.Context(), args[0], ddmAllDeclarationsFilter, nil)
 			if err != nil {
 				return err
 			}
