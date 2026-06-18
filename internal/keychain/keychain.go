@@ -4,6 +4,8 @@ package keychain
 
 import (
 	"errors"
+	"fmt"
+	"runtime"
 	"strings"
 
 	gokeyring "github.com/zalando/go-keyring"
@@ -78,6 +80,40 @@ func ParseRef(value string) (service, account string) {
 	}
 
 	return DefaultService, value
+}
+
+// WriteError wraps a failed keychain write (Store.Set) with actionable,
+// OS-specific guidance. The underlying go-keyring backends shell out to the
+// system credential store and surface only the process exit code (e.g. macOS
+// "exit status 154"), discarding the descriptive message — so on its own the
+// raw error tells the user nothing about how to fix it. item is a short,
+// human-readable label for what was being stored (e.g. "client ID").
+func WriteError(item string, err error) error {
+	switch runtime.GOOS {
+	case "darwin":
+		return fmt.Errorf("failed to store %s in the macOS keychain: %w\n\n"+
+			"The login keychain rejected the write. It is usually locked, not the\n"+
+			"default keychain, or unavailable in this session (e.g. over SSH).\n\n"+
+			"Try unlocking it:\n"+
+			"  security unlock-keychain ~/Library/Keychains/login.keychain-db\n\n"+
+			"To see the underlying error directly:\n"+
+			"  security add-generic-password -U -s %s -a jamf-cli-test -w test\n\n"+
+			"Alternatively, store secrets without the keychain using env: or file:\n"+
+			"secret references in your config profile.", item, err, DefaultService)
+	case "linux":
+		return fmt.Errorf("failed to store %s in the system keyring: %w\n\n"+
+			"The Secret Service backend (e.g. gnome-keyring) is usually locked or\n"+
+			"unavailable in this session (e.g. a headless or SSH session with no\n"+
+			"D-Bus / keyring daemon running).\n\n"+
+			"Alternatively, store secrets without the keyring using env: or file:\n"+
+			"secret references in your config profile.", item, err)
+	default:
+		return fmt.Errorf("failed to store %s in the system keychain: %w\n\n"+
+			"The system credential store rejected the write. It may be locked or\n"+
+			"unavailable in this session.\n\n"+
+			"Alternatively, store secrets without the keychain using env: or file:\n"+
+			"secret references in your config profile.", item, err)
+	}
 }
 
 // KeychainRef builds a keychain: reference string for use in config files.

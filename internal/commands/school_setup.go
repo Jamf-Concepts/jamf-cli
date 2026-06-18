@@ -98,10 +98,10 @@ portal (account.jamf.com).`,
 			// Store secrets in keychain
 			store := config.GetKeychainStore()
 			if err := store.Set(keychain.DefaultService, setupProfile+"/network-id", networkID); err != nil {
-				return fmt.Errorf("failed to store network ID in keychain: %w", err)
+				return keychain.WriteError("network ID", err)
 			}
 			if err := store.Set(keychain.DefaultService, setupProfile+"/api-key", apiKey); err != nil {
-				return fmt.Errorf("failed to store API key in keychain: %w", err)
+				return keychain.WriteError("API key", err)
 			}
 
 			// Build profile
@@ -226,10 +226,10 @@ func collectPlatformCredentials(w io.Writer, reader *bufio.Reader, store keychai
 
 	// Store in keychain
 	if err := store.Set(keychain.DefaultService, profileName+"/client-id", clientID); err != nil {
-		return prof, fmt.Errorf("failed to store client ID in keychain: %w", err)
+		return prof, keychain.WriteError("client ID", err)
 	}
 	if err := store.Set(keychain.DefaultService, profileName+"/client-secret", clientSecret); err != nil {
-		return prof, fmt.Errorf("failed to store client secret in keychain: %w", err)
+		return prof, keychain.WriteError("client secret", err)
 	}
 
 	prof.ClientID = keychain.KeychainRef(profileName, "client-id")

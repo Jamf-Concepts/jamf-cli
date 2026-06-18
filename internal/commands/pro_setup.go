@@ -571,10 +571,10 @@ func setupInstance(ctx context.Context, w io.Writer, cfg *config.Config, instanc
 		_, _ = fmt.Fprintln(w, "✓")
 
 		if err := store.Set(keychain.DefaultService, profileName+"/client-id", clientID); err != nil {
-			return fmt.Errorf("failed to store client ID in keychain: %w", err)
+			return keychain.WriteError("client ID", err)
 		}
 		if err := store.Set(keychain.DefaultService, profileName+"/client-secret", clientSecret); err != nil {
-			return fmt.Errorf("failed to store client secret in keychain: %w", err)
+			return keychain.WriteError("client secret", err)
 		}
 	}
 
