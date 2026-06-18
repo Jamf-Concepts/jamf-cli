@@ -3,6 +3,9 @@
 package keychain
 
 import (
+	"errors"
+	"runtime"
+	"strings"
 	"testing"
 
 	gokeyring "github.com/zalando/go-keyring"
@@ -109,6 +112,33 @@ func TestSystemStore_DeleteSuccess(t *testing.T) {
 	_, err := store.Get("test-service", "del-account")
 	if err != ErrNotFound {
 		t.Errorf("Get after Delete: error = %v, want ErrNotFound", err)
+	}
+}
+
+func TestWriteError(t *testing.T) {
+	cause := errors.New("exit status 154")
+	err := WriteError("client ID", cause)
+
+	if err == nil {
+		t.Fatal("WriteError returned nil")
+	}
+	if !errors.Is(err, cause) {
+		t.Errorf("WriteError does not wrap the cause; errors.Is = false")
+	}
+	msg := err.Error()
+	if !strings.Contains(msg, "client ID") {
+		t.Errorf("message missing item label: %q", msg)
+	}
+	if !strings.Contains(msg, "exit status 154") {
+		t.Errorf("message missing underlying error: %q", msg)
+	}
+	// Every platform should point users at the env:/file: escape hatch.
+	if !strings.Contains(msg, "env:") || !strings.Contains(msg, "file:") {
+		t.Errorf("message missing env:/file: fallback guidance: %q", msg)
+	}
+	// macOS guidance should name the concrete unlock command.
+	if runtime.GOOS == "darwin" && !strings.Contains(msg, "unlock-keychain") {
+		t.Errorf("darwin message missing unlock-keychain guidance: %q", msg)
 	}
 }
 

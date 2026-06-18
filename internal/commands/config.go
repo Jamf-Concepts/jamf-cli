@@ -379,7 +379,7 @@ func storeOrRefSecret(store keychain.Store, profile, field, value string, dest *
 	}
 	account := profile + "/" + field
 	if err := store.Set(keychain.DefaultService, account, value); err != nil {
-		return fmt.Errorf("failed to store %s in keychain: %w", field, err)
+		return keychain.WriteError(field, err)
 	}
 	*dest = keychain.KeychainRef(profile, field)
 	return nil

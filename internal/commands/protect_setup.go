@@ -94,10 +94,10 @@ Settings > API Clients before running this command.`,
 			// Store secrets in keychain
 			store := config.GetKeychainStore()
 			if err := store.Set(keychain.DefaultService, setupProfile+"/client-id", setupCID); err != nil {
-				return fmt.Errorf("failed to store client ID in keychain: %w", err)
+				return keychain.WriteError("client ID", err)
 			}
 			if err := store.Set(keychain.DefaultService, setupProfile+"/client-secret", setupSecret); err != nil {
-				return fmt.Errorf("failed to store client secret in keychain: %w", err)
+				return keychain.WriteError("client secret", err)
 			}
 
 			// Save profile to config

@@ -145,10 +145,10 @@ Create API client credentials in the Jamf Account portal
 			// 6. Store secrets in keychain
 			store := config.GetKeychainStore()
 			if err := store.Set(keychain.DefaultService, setupProfile+"/client-id", clientID); err != nil {
-				return fmt.Errorf("failed to store client ID in keychain: %w", err)
+				return keychain.WriteError("client ID", err)
 			}
 			if err := store.Set(keychain.DefaultService, setupProfile+"/client-secret", clientSecret); err != nil {
-				return fmt.Errorf("failed to store client secret in keychain: %w", err)
+				return keychain.WriteError("client secret", err)
 			}
 
 			// 7. Save profile
