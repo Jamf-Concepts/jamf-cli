@@ -1376,7 +1376,14 @@ func parseOperation(path, method string, op *openapi3.Operation) *Operation {
 		IsAction:      isAction,
 		IsDestructive: isDestructiveAction(opName),
 		IsList:        (opName == "list" || opName == "history") && hasPaginationParams(op),
-		APIVersion:    extractAPIVersion(path),
+		// IsPaginated is broader than IsList: any GET exposing pagination
+		// params (page/page-size) returns a {totalCount, results} collection
+		// and should support --all / --limit auto-pagination — including
+		// report/action ops like patch-report. It gates only the Pro auto-
+		// pagination flags+loop; IsList still drives list-only semantics
+		// (default sections, output array key, singleton detection). See #245.
+		IsPaginated: strings.ToUpper(method) == "GET" && hasPaginationParams(op),
+		APIVersion:  extractAPIVersion(path),
 	}
 
 	// Parse x-required-privileges extension
