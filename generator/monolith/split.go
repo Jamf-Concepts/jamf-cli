@@ -769,7 +769,8 @@ func toNode(v any) *yaml.Node {
 		sort.Strings(keys)
 		n := &yaml.Node{Kind: yaml.MappingNode}
 		for _, k := range keys {
-			n.Content = append(n.Content,
+			n.Content = append(
+				n.Content,
 				&yaml.Node{Kind: yaml.ScalarNode, Value: k},
 				toNode(x[k]),
 			)

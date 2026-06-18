@@ -58,7 +58,8 @@ type ddmConverter struct {
 var converters []*ddmConverter
 
 func init() {
-	converters = append(converters,
+	converters = append(
+		converters,
 		newPasscodeConverter(),
 		newSafariConverter(),
 		newSoftwareUpdateConverter(),

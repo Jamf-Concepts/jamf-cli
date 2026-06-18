@@ -640,7 +640,8 @@ func TestAddToGroup_DryRunDefault(t *testing.T) {
 	cliCtx := newBulkCLIContext(mock)
 
 	cmd := newBulkCmd(cliCtx)
-	_, stderr, err := runCobraCmd(t, cmd, "add-to-group",
+	_, stderr, err := runCobraCmd(
+		t, cmd, "add-to-group",
 		"--target-group", "Quarantine",
 		"--group", "Lab Macs",
 	)
@@ -673,7 +674,8 @@ func TestAddToGroup_YesDispatches(t *testing.T) {
 	cliCtx := newBulkCLIContext(mock)
 
 	cmd := newBulkCmd(cliCtx)
-	_, _, err := runCobraCmd(t, cmd, "add-to-group",
+	_, _, err := runCobraCmd(
+		t, cmd, "add-to-group",
 		"--target-group", "Quarantine",
 		"--group", "Lab Macs",
 		"--yes",
@@ -705,7 +707,8 @@ func TestRemoveFromGroup_YesDispatches(t *testing.T) {
 	cliCtx := newBulkCLIContext(mock)
 
 	cmd := newBulkCmd(cliCtx)
-	_, _, err := runCobraCmd(t, cmd, "remove-from-group",
+	_, _, err := runCobraCmd(
+		t, cmd, "remove-from-group",
 		"--target-group", "Quarantine",
 		"--group", "Lab Macs",
 		"--yes",
@@ -737,7 +740,8 @@ func TestAddToGroup_SmartGroupRejected(t *testing.T) {
 	cliCtx := newBulkCLIContext(mock)
 
 	cmd := newBulkCmd(cliCtx)
-	_, _, err := runCobraCmd(t, cmd, "add-to-group",
+	_, _, err := runCobraCmd(
+		t, cmd, "add-to-group",
 		"--target-group", "SmartTarget",
 		"--group", "Lab Macs",
 		"--yes",
@@ -779,7 +783,8 @@ func TestAddToGroup_FromFile(t *testing.T) {
 	cliCtx := newBulkCLIContext(mock)
 
 	cmd := newBulkCmd(cliCtx)
-	_, _, err := runCobraCmd(t, cmd, "add-to-group",
+	_, _, err := runCobraCmd(
+		t, cmd, "add-to-group",
 		"--target-group", "Quarantine",
 		"--from-file", filePath,
 		"--yes",
@@ -824,7 +829,8 @@ func TestFromFileMutualExclusion(t *testing.T) {
 	cliCtx := newBulkCLIContext(mock)
 
 	cmd := newBulkCmd(cliCtx)
-	_, _, err := runCobraCmd(t, cmd, "add-to-group",
+	_, _, err := runCobraCmd(
+		t, cmd, "add-to-group",
 		"--target-group", "Quarantine",
 		"--from-file", filePath,
 		"--group", "Lab Macs",
@@ -856,7 +862,8 @@ func TestSendCommand_DryRunDefault(t *testing.T) {
 	cliCtx := newBulkCLIContext(mock)
 
 	cmd := newBulkCmd(cliCtx)
-	_, stderr, err := runCobraCmd(t, cmd, "send-command",
+	_, stderr, err := runCobraCmd(
+		t, cmd, "send-command",
 		"--command", "BlankPush",
 		"--group", "Lab Macs",
 	)
@@ -888,7 +895,8 @@ func TestSendCommand_YesDispatches(t *testing.T) {
 	cliCtx := newBulkCLIContext(mock)
 
 	cmd := newBulkCmd(cliCtx)
-	_, _, err := runCobraCmd(t, cmd, "send-command",
+	_, _, err := runCobraCmd(
+		t, cmd, "send-command",
 		"--command", "BlankPush",
 		"--group", "Lab Macs",
 		"--yes",
@@ -910,7 +918,8 @@ func TestSendCommand_DestructiveRequiresConfirm(t *testing.T) {
 	for _, cmd2 := range []string{"EraseDevice", "DeviceLock"} {
 		t.Run(cmd2, func(t *testing.T) {
 			cmd := newBulkCmd(cliCtx)
-			_, _, err := runCobraCmd(t, cmd, "send-command",
+			_, _, err := runCobraCmd(
+				t, cmd, "send-command",
 				"--command", cmd2,
 				"--from-file", "/dev/null",
 				"--yes",
@@ -935,7 +944,8 @@ func TestSendCommand_DestructiveWithBothFlags(t *testing.T) {
 	cliCtx := newBulkCLIContext(mock)
 
 	cmd := newBulkCmd(cliCtx)
-	_, _, err := runCobraCmd(t, cmd, "send-command",
+	_, _, err := runCobraCmd(
+		t, cmd, "send-command",
 		"--command", "EraseDevice",
 		"--from-file", "/dev/null",
 		"--yes",
@@ -952,7 +962,8 @@ func TestSendCommand_DestructiveRequiresYesToo(t *testing.T) {
 	cliCtx := newBulkCLIContext(mock)
 
 	cmd := newBulkCmd(cliCtx)
-	_, _, err := runCobraCmd(t, cmd, "send-command",
+	_, _, err := runCobraCmd(
+		t, cmd, "send-command",
 		"--command", "EraseDevice",
 		"--from-file", "/dev/null",
 		// --yes is NOT set, --confirm-destructive IS set
@@ -972,7 +983,8 @@ func TestSendCommand_InvalidCommandName(t *testing.T) {
 	cliCtx := newBulkCLIContext(mock)
 
 	cmd := newBulkCmd(cliCtx)
-	_, _, err := runCobraCmd(t, cmd, "send-command",
+	_, _, err := runCobraCmd(
+		t, cmd, "send-command",
 		"--command", "SelfDestruct",
 		"--from-file", "/dev/null",
 		"--yes",
@@ -1040,7 +1052,8 @@ func TestSendCommand_PartialFailure(t *testing.T) {
 	cliCtx := newBulkCLIContext(mock)
 
 	cmd := newBulkCmd(cliCtx)
-	_, stderr, err := runCobraCmd(t, cmd, "send-command",
+	_, stderr, err := runCobraCmd(
+		t, cmd, "send-command",
 		"--command", "BlankPush",
 		"--group", "Lab Macs",
 		"--yes",

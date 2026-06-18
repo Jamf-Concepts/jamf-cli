@@ -21,7 +21,8 @@ import (
 
 // uuidPattern matches the standard UUID format (8-4-4-4-12 hex digits).
 var uuidPattern = regexp.MustCompile(
-	`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$`)
+	`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$`,
+)
 
 func newPlatformDevicesCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
