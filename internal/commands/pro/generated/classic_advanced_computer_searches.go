@@ -112,7 +112,7 @@ func newClassicAdvancedComputerSearchesGetCmd(ctx *registry.CLIContext) *cobra.C
 			// Resolve lookup: check flags first, then positional ID
 			var path string
 			if flagName != "" {
-				path = fmt.Sprintf("/JSSResource/advancedcomputersearches/name/%s", url.PathEscape(flagName))
+				path = fmt.Sprintf("/JSSResource/advancedcomputersearches/name/%s", registry.EscapeClassicPathSegment(flagName))
 			} else if len(args) > 0 {
 				path = fmt.Sprintf("/JSSResource/advancedcomputersearches/id/%s", url.PathEscape(args[0]))
 			} else {
@@ -209,7 +209,7 @@ func newClassicAdvancedComputerSearchesUpdateCmd(ctx *registry.CLIContext) *cobr
 
 			var path string
 			if flagName != "" {
-				path = fmt.Sprintf("/JSSResource/advancedcomputersearches/name/%s", url.PathEscape(flagName))
+				path = fmt.Sprintf("/JSSResource/advancedcomputersearches/name/%s", registry.EscapeClassicPathSegment(flagName))
 			} else if len(args) > 0 {
 				path = fmt.Sprintf("/JSSResource/advancedcomputersearches/id/%s", url.PathEscape(args[0]))
 			} else {

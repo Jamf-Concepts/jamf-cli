@@ -16,7 +16,11 @@ paths:
                   $ref: _MonolithLibrary.yaml#/components/schemas/SessionHistoryItem
                 type: array
           description: Up to 100 latest session history items
-        404:
+        403:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
           description: Jamf Remote Assist is not available on this instance.
       summary: |
         Gets session history items.
@@ -44,12 +48,18 @@ paths:
               schema:
                 $ref: _MonolithLibrary.yaml#/components/schemas/SessionHistoryItemWithDetails
           description: Single session history item
+        403:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Jamf Remote Assist is not available on this instance.
         404:
           content:
             application/json:
               schema:
                 $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
-          description: Session history item not found. This may occur when the session with the given id does not exist, or when Jamf Remote Assist is not available on this instance.
+          description: Session history item not found. This may occur when the session with the given id does not exist.
       summary: |
         Gets single session history item.
       tags:

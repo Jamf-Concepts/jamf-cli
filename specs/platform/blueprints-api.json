@@ -78,7 +78,7 @@
           {
             "name": "sort",
             "in": "query",
-            "description": "Sorting criteria in the format: `\u003Cfield_name\u003E[:sort_direction][,\u003Csecondary_sort_field_name\u003E[:sort_direction]]*`. Default sort direction is `asc` (Ascending). Use `desc` for Descending ordering. Additional sort parameters are supported and determine order of results that have equivalent values for previous sort parameters.",
+            "description": "Sorting criteria in the format: `<field_name>[:sort_direction][,<secondary_sort_field_name>[:sort_direction]]*`. Default sort direction is `asc` (Ascending). Use `desc` for Descending ordering. Additional sort parameters are supported and determine order of results that have equivalent values for previous sort parameters.",
             "required": false,
             "schema": {
               "type": "string",
@@ -750,6 +750,7 @@
           "propertyName": "identifier",
           "mapping": {
             "com.jamf.ddm-configuration-profile": "#/components/schemas/ConfigurationProfile",
+            "com.jamf.ddm.custom-declarations": "#/components/schemas/CustomDeclarationsComponent",
             "com.jamf.ddm.audio-accessory-settings": "#/components/schemas/AudioAccessorySettingsComponent",
             "com.jamf.ddm.disk-management": "#/components/schemas/DiskManagementComponent",
             "com.jamf.ddm.math-settings": "#/components/schemas/MathSettingsComponent",
@@ -758,12 +759,16 @@
             "com.jamf.ddm.safari-extensions": "#/components/schemas/SafariExtensionsComponent",
             "com.jamf.ddm.safari-settings": "#/components/schemas/SafariSettingsComponent",
             "com.jamf.ddm.software-update-settings": "#/components/schemas/SoftwareUpdateSettingsComponent",
-            "com.jamf.ddm.sw-updates": "#/components/schemas/SwUpdateComponent"
+            "com.jamf.ddm.sw-updates": "#/components/schemas/SwUpdateComponent",
+            "com.jamf.ddm.app-managed": "#/components/schemas/ManagedAppComponent"
           }
         },
         "oneOf": [
           {
             "$ref": "#/components/schemas/ConfigurationProfile"
+          },
+          {
+            "$ref": "#/components/schemas/CustomDeclarationsComponent"
           },
           {
             "$ref": "#/components/schemas/AudioAccessorySettingsComponent"
@@ -791,6 +796,9 @@
           },
           {
             "$ref": "#/components/schemas/SwUpdateComponent"
+          },
+          {
+            "$ref": "#/components/schemas/ManagedAppComponent"
           }
         ],
         "properties": {
@@ -971,7 +979,7 @@
         "properties": {
           "identifier": {
             "type": "string",
-            "description": "## Using Apple MDM profile payloads as blueprint components\n\nThe API accepts **any** Apple MDM configuration profile payload as a\nblueprint component — not only the ones explicitly listed in this\nspecification. Use the `com.jamf.ddm-configuration-profile` identifier with the\npattern described here to send one or more Apple payloads.\n\nApple publishes all payload definitions at\n[apple/device-management/mdm/profiles](https://github.com/apple/device-management/tree/release/mdm/profiles).\n\n### Step 1 — Choose the Apple payload(s)\n\nFind the payload YAML in the Apple repository. The `payloadtype` field\n(e.g. `com.apple.domains`, `com.apple.wifi.managed`,\n`com.apple.applicationaccess`) identifies each payload.\n\n\u003E **Unsupported payload types:** Blueprints with\n\u003E `com.apple.font` or `com.apple.webClip.managed` payloads\n\u003E cannot be created.\n\n### Step 2 — Build the `configuration` object\n\nThe `configuration` has two mandatory fields:\n\n| Field | Type | Description |\n|---|---|---|\n| `payloadDisplayName` | string | A human-readable name shown on the device (e.g. `\"Managed Domains\"`) |\n| `payloadContent` | array | An array of payload objects — each one represents a single Apple payload |\n\nEach entry in `payloadContent` **must** contain:\n\n| Field | Type | Description |\n|---|---|---|\n| `payloadType` | string | The Apple payload type identifier (e.g. `com.apple.domains`) |\n\nIn addition to `payloadType`, include the payload-specific keys from the\n`payloadkeys` section of the Apple payload YAML.\n\n### Apple type → JSON type mapping\n\n| Apple type | JSON value type | Example |\n|---|---|---|\n| `\u003Cstring\u003E` | string | `\"example.com\"` |\n| `\u003Cinteger\u003E` | number | `42` |\n| `\u003Creal\u003E` | number | `3.14` |\n| `\u003Cboolean\u003E` | boolean | `true` |\n| `\u003Cdata\u003E` | string (Base64-encoded) | `\"SGVsbG8=\"` |\n| `\u003Cdate\u003E` | string (ISO 8601) | `\"2026-01-15T00:00:00Z\"` |\n| `\u003Carray\u003E` | array | `[\"a\", \"b\"]` |\n| `\u003Cdictionary\u003E` | object | `{ \"key\": \"value\" }` |\n\nOnly include the keys you want to configure. Keys marked\n`presence: optional` in the Apple YAML can be omitted; keys marked\n`presence: required` must be present.\n\n### Reference\n\n- Apple payload definitions: https://github.com/apple/device-management/tree/release/mdm/profiles\n- Apple Configuration Profile reference: https://developer.apple.com/documentation/devicemanagement/profile-specific-payload-keys\n",
+            "description": "## Using Apple MDM profile payloads as blueprint components\n\nThe API accepts **any** Apple MDM configuration profile payload as a\nblueprint component — not only the ones explicitly listed in this\nspecification. Use the `com.jamf.ddm-configuration-profile` identifier with the\npattern described here to send one or more Apple payloads.\n\nApple publishes all payload definitions at\n[apple/device-management/mdm/profiles](https://github.com/apple/device-management/tree/release/mdm/profiles).\n\n### Step 1 — Choose the Apple payload(s)\n\nFind the payload YAML in the Apple repository. The `payloadtype` field\n(e.g., `com.apple.domains`, `com.apple.wifi.managed`,\n`com.apple.applicationaccess`) identifies each payload.\n\n> **Unsupported payload types:** Blueprints with\n> `com.apple.font` or `com.apple.webClip.managed` payloads\n> cannot be created.\n\n### Step 2 — Build the `configuration` object\n\nThe `configuration` has two mandatory fields:\n\n| Field | Type | Description |\n|---|---|---|\n| `payloadDisplayName` | string | A human-readable name shown on the device (e.g., `\"Managed Domains\"`) |\n| `payloadContent` | array | An array of payload objects — each one represents a single Apple payload |\n\nEach entry in `payloadContent` **must** contain:\n\n| Field | Type | Description |\n|---|---|---|\n| `payloadType` | string | The Apple payload type identifier (e.g., `com.apple.domains`) |\n\nIn addition to `payloadType`, include the payload-specific keys from the\n`payloadkeys` section of the Apple payload YAML.\n\n### Apple type → JSON type mapping\n\n| Apple type | JSON value type | Example |\n|---|---|---|\n| `<string>` | string | `\"example.com\"` |\n| `<integer>` | number | `42` |\n| `<real>` | number | `3.14` |\n| `<boolean>` | boolean | `true` |\n| `<data>` | string (Base64-encoded) | `\"SGVsbG8=\"` |\n| `<date>` | string (ISO 8601) | `\"2026-01-15T00:00:00Z\"` |\n| `<array>` | array | `[\"a\", \"b\"]` |\n| `<dictionary>` | object | `{ \"key\": \"value\" }` |\n\nOnly include the keys you want to configure. Keys marked\n`presence: optional` in the Apple YAML can be omitted; keys marked\n`presence: required` must be present.\n\n### Reference\n\n- Apple payload definitions: https://github.com/apple/device-management/tree/release/mdm/profiles\n- Apple Configuration Profile reference: https://developer.apple.com/documentation/devicemanagement/profile-specific-payload-keys\n",
             "enum": [
               "com.jamf.ddm-configuration-profile"
             ]
@@ -996,7 +1004,7 @@
           },
           "payloadContent": {
             "type": "array",
-            "description": "An array of Apple payload objects. Each entry represents a single\nApple MDM payload and **must** include a `payloadType` field set to\nthe Apple payload type identifier (e.g. `com.apple.domains`,\n`com.apple.wifi.managed`, `com.apple.applicationaccess`).\n\nIn addition to `payloadType`, include any payload-specific keys from\nthe `payloadkeys` section of the corresponding Apple payload YAML\ndefinition. Any additional properties beyond `payloadType` are\naccepted to accommodate any Apple payload schema.\n",
+            "description": "An array of Apple payload objects. Each entry represents a single\nApple MDM payload and **must** include a `payloadType` field set to\nthe Apple payload type identifier (e.g., `com.apple.domains`,\n`com.apple.wifi.managed`, `com.apple.applicationaccess`).\n\nIn addition to `payloadType`, include any payload-specific keys from\nthe `payloadkeys` section of the corresponding Apple payload YAML\ndefinition. Any additional properties beyond `payloadType` are\naccepted to accommodate any Apple payload schema.\n",
             "minItems": 1,
             "items": {
               "$ref": "#/components/schemas/ConfigurationProfileContentItem"
@@ -1013,7 +1021,7 @@
         "properties": {
           "payloadType": {
             "type": "string",
-            "description": "The Apple payload type identifier (e.g. `com.apple.domains`,\n`com.apple.wifi.managed`, `com.apple.applicationaccess`).\n",
+            "description": "The Apple payload type identifier (e.g., `com.apple.domains`,\n`com.apple.wifi.managed`, `com.apple.applicationaccess`).\n",
             "example": "com.apple.domains"
           }
         },
@@ -2768,6 +2776,241 @@
               "version": "12.5"
             }
           ]
+        }
+      },
+      "CustomDeclarationsComponent": {
+        "type": "object",
+        "description": "Blueprint component that delivers any Apple declarative device management declarations to managed devices.",
+        "required": [
+          "identifier",
+          "configuration"
+        ],
+        "properties": {
+          "identifier": {
+            "type": "string",
+            "description": "## Use Apple declarative device management declarations as blueprint components\n\nThe API accepts any Apple declarative device management configuration or asset declaration as a blueprint component, not\nonly the ones explicitly listed in this specification. Use the\n`com.jamf.ddm.custom-declarations` identifier with the pattern described here\nto send one or more Apple declarative device management declarations.\n\nApple publishes all declaration definitions at\n[apple/device-management/declarative/declarations](https://github.com/apple/device-management/tree/release/declarative/declarations).\n\n### Step 1 — Choose the Apple declaration type\n\nFind the declaration YAML in the Apple repository. The `declarationtype` field\n(e.g., `com.apple.configuration.passcode.settings`,\n`com.apple.asset.useridentity`)\nidentifies each declaration.\n\n### Step 2 — Set the `kind` field\n\nThe `kind` maps to the declaration group, derived from the Apple declaration\ntype prefix:\n\n| `kind` | Apple declaration type prefix |\n|---|---|\n| `CONFIGURATION` | `com.apple.configuration.` |\n| `ASSET` | `com.apple.asset.` |\n\n### Step 3 — Set the `channelType` field\n\n| `channelType` | Description |\n|---|---|\n| `SYSTEM` | Applies the declaration to the system (device) channel |\n| `USER` | Applies the declaration to the user channel |\n\n### Step 4 — Build the `payload` object\n\nThe `payload` is a JSON object containing the declaration-specific keys from\nthe `payloadkeys` section of the corresponding Apple declaration YAML.\n\nOnly include the keys you want to configure. Keys marked `presence: optional`\nin the Apple YAML can be omitted; keys marked `presence: required` must be\npresent.\n\n### Step 5 — Use `payloadKey` for cross-declaration references\n\nEach declaration in the array has an integer `payloadKey` that identifies it\nwithin the `declarations` list of this request. To reference another\ndeclaration's generated identifier in a payload field, use the placeholder\n`$PAYLOAD_<payloadKey>`. This placeholder is substituted at deploy time with\nthe actual declaration identifier of the referenced declaration.\n\nThe `payloadKey` value is local to the declarations in this request — it does\nnot need to be globally unique or consistent across requests. This is useful\nwhen a configuration declaration must reference an asset declaration defined\nin the same component.\n",
+            "enum": [
+              "com.jamf.ddm.custom-declarations"
+            ]
+          },
+          "configuration": {
+            "$ref": "#/components/schemas/CustomDeclarationsConfiguration"
+          }
+        }
+      },
+      "CustomDeclarationsConfiguration": {
+        "type": "object",
+        "description": "Configuration object containing one or more Apple declarative device management declarations.\n\n### Example — single configuration declaration\n\n```json\n{\n  \"declarations\": [\n    {\n      \"type\": \"com.apple.configuration.passcode.settings\",\n      \"channelType\": \"SYSTEM\",\n      \"kind\": \"CONFIGURATION\",\n      \"payload\": {\n        \"RequirePasscode\": true,\n        \"MinimumLength\": 8,\n        \"MaximumFailedAttempts\": 10\n      },\n      \"payloadKey\": 1\n    }\n  ]\n}\n```\n\n### Example — configuration declaration referencing an asset\n\nA configuration declaration can reference an asset declaration defined in the\nsame `declarations` array using the `$PAYLOAD_<payloadKey>` placeholder.\nThe `payloadKey` values are local to the declarations list in this request —\nthey do not need to be globally unique or consistent across requests:\n\n```json\n{\n  \"declarations\": [\n    {\n      \"type\": \"com.apple.asset.credential.userpassword\",\n      \"channelType\": \"SYSTEM\",\n      \"kind\": \"ASSET\",\n      \"payload\": {\n        \"Reference\": {\n          \"DataURL\": \"https://example.com/asset-data/credential.json\",\n          \"ContentType\": \"application/json\"\n        }\n      },\n      \"payloadKey\": 1\n    },\n    {\n      \"type\": \"com.apple.configuration.account.caldav\",\n      \"channelType\": \"SYSTEM\",\n      \"kind\": \"CONFIGURATION\",\n      \"payload\": {\n        \"HostName\": \"caldav.example.com\",\n        \"VisibleName\": \"Work Calendar\",\n        \"AuthenticationCredentialsAssetReference\": \"$PAYLOAD_1\"\n      },\n      \"payloadKey\": 2\n    }\n  ]\n}\n```\n",
+        "required": [
+          "declarations"
+        ],
+        "properties": {
+          "declarations": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 100,
+            "description": "An array of Apple declarative device management declaration objects to include in this component.",
+            "items": {
+              "$ref": "#/components/schemas/CustomDeclaration"
+            }
+          }
+        }
+      },
+      "CustomDeclaration": {
+        "type": "object",
+        "description": "A single Apple declarative device management declaration entry.",
+        "required": [
+          "type",
+          "channelType",
+          "kind",
+          "payload",
+          "payloadKey"
+        ],
+        "properties": {
+          "type": {
+            "type": "string",
+            "description": "The Apple declarative device management declaration type identifier\n(e.g., `com.apple.configuration.passcode.settings`,\n`com.apple.asset.useridentity`).\n",
+            "example": "com.apple.configuration.passcode.settings"
+          },
+          "channelType": {
+            "$ref": "#/components/schemas/DeclarationChannelType"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/DeclarationKind"
+          },
+          "payload": {
+            "type": "object",
+            "description": "A JSON object containing the declaration-specific keys from the Apple\ndeclaration schema. Include the `payloadkeys` fields from the corresponding\nApple declaration YAML. Additional properties are accepted to accommodate\nany Apple declaration schema.\n",
+            "additionalProperties": true
+          },
+          "payloadKey": {
+            "type": "integer",
+            "format": "int32",
+            "description": "An integer that identifies this declaration within the `declarations` list of\nthis request. Use this value to cross-reference declarations in other payload\nfields via the `$PAYLOAD_<payloadKey>` placeholder, which is substituted at\ndeploy time with the generated declaration identifier. The value is local to\nthe current request. It does not need to be globally unique or consistent\nacross requests.\n",
+            "example": 1
+          }
+        }
+      },
+      "DeclarationChannelType": {
+        "type": "string",
+        "description": "The channel to which the declaration applies:\n- `SYSTEM` — applies to the system (device) channel\n- `USER` — applies to the user channel\n",
+        "enum": [
+          "SYSTEM",
+          "USER"
+        ]
+      },
+      "DeclarationKind": {
+        "type": "string",
+        "description": "The declaration group, determined by the Apple declaration type prefix:\n- `CONFIGURATION` — for `com.apple.configuration.*` types\n- `ASSET` — for `com.apple.asset.*` types\n",
+        "enum": [
+          "CONFIGURATION",
+          "ASSET"
+        ]
+      },
+      "ManagedAppComponent": {
+        "type": "object",
+        "description": "Blueprint component that installs and manages volume purchasing apps on managed devices.",
+        "required": [
+          "identifier",
+          "configuration"
+        ],
+        "properties": {
+          "identifier": {
+            "type": "string",
+            "description": "## Using volume purchasing apps as blueprint components\n\nThe `com.jamf.ddm.app-managed` component installs and manages Apple volume purchasing apps on devices. Each component contains one or more app\nconfigurations in the `apps` array.\n\n### Prerequisites\n\nApps must be available in your Jamf organization's volume purchasing token. The `AssetId`\nand `AppAndBookTokenId` values come from your volume purchasing integration in Jamf —\nuse the [List available blueprint components](../listComponents) endpoint\n(`GET /v1/blueprint-components`) to discover apps available to your organization\nand retrieve their identifiers.\n\n### Required fields per app\n\n| Field | Type | Description |\n|---|---|---|\n| `AssetId` | string | volume purchasing asset identifier for the app |\n| `AppAndBookTokenId` | string | Identifier of the volume purchasing token that licenses the app |\n| `AppId` | string | App bundle identifier (e.g., `com.microsoft.Excel`) |\n\n### Optional management fields\n\n| Field | Type | Values | Description |\n|---|---|---|---|\n| `Install` | string | `Required`, `Optional` | Whether the app must be installed. Defaults to `Required`. |\n| `AllowDownloadsOverCellular` | string | `AlwaysOn`, `AlwaysOff`, `StoreSettings` | Controls cellular downloads. Defaults to `StoreSettings`. |\n| `AutomaticAppUpdates` | string | `AlwaysOn`, `AlwaysOff`, `StoreSettings` | Controls automatic updates. Defaults to `StoreSettings`. |\n| `IncludeInBackup` | boolean | `true`, `false` | Whether app data is included in device backups. |\n| `Attributes` | object | — | Fine-grained app behavior settings. See `Attributes` fields below. |\n\n### `Attributes` fields (all optional)\n\n| Field | Type | Description |\n|---|---|---|\n| `Hideable` | boolean | Allow the user to hide the app (requires iOS 18.1 or later). When `Lockable` is `false`, `Hideable` must also be `false`. |\n| `Lockable` | boolean | Allow the user to lock the app behind Face ID / Touch ID (requires iOS 18.1 or later). |\n| `TapToPayScreenLock` | boolean | Require screen lock when Tap to Pay is used. |\n| `AssociatedDomains` | array of strings | Associated domains for the app (e.g., `[\"example.com\"]`). |\n| `AssociatedDomainsEnableDirectDownloads` | boolean | Enable direct downloads for the associated domains. |\n| `CellularSliceUUID` | string (UUID) | Network slicing UUID for the app's cellular connection. |\n| `DNSProxyUUID` | string (UUID) | UUID of the DNS proxy configuration to apply to the app. |\n\n> **Validation rule:** When `Lockable` is `false`, `Hideable` is required and must also be `false`.\n",
+            "enum": [
+              "com.jamf.ddm.app-managed"
+            ]
+          },
+          "configuration": {
+            "$ref": "#/components/schemas/ManagedAppConfiguration"
+          }
+        }
+      },
+      "ManagedAppConfiguration": {
+        "type": "object",
+        "description": "Configuration for one or more volume purchasing apps.\n\n### Example — single required app\n\n```json\n{\n  \"apps\": [\n    {\n      \"AssetId\": \"019a8082-19ba-794c-91f4-2cd5a02b0c72\",\n      \"AppAndBookTokenId\": \"099a8082-ae9d-70be-b377-84e4ba7459c4\",\n      \"AppId\": \"com.microsoft.Excel\",\n      \"Install\": \"Required\",\n      \"AutomaticAppUpdates\": \"AlwaysOn\"\n    }\n  ]\n}\n```\n\n### Example — app with attributes (iOS 18.1+)\n\n```json\n{\n  \"apps\": [\n    {\n      \"AssetId\": \"019a8082-19ba-794c-91f4-2cd5a02b0c72\",\n      \"AppAndBookTokenId\": \"099a8082-ae9d-70be-b377-84e4ba7459c4\",\n      \"AppId\": \"com.microsoft.Excel\",\n      \"Install\": \"Required\",\n      \"AllowDownloadsOverCellular\": \"AlwaysOff\",\n      \"AutomaticAppUpdates\": \"AlwaysOn\",\n      \"IncludeInBackup\": true,\n      \"Attributes\": {\n        \"Hideable\": true,\n        \"Lockable\": true,\n        \"AssociatedDomains\": [\"corp.example.com\"],\n        \"AssociatedDomainsEnableDirectDownloads\": false\n      }\n    }\n  ]\n}\n```\n\n### Example — multiple apps in one component\n\n```json\n{\n  \"apps\": [\n    {\n      \"AssetId\": \"019a8082-19ba-794c-91f4-2cd5a02b0c72\",\n      \"AppAndBookTokenId\": \"099a8082-ae9d-70be-b377-84e4ba7459c4\",\n      \"AppId\": \"com.microsoft.Excel\",\n      \"Install\": \"Required\"\n    },\n    {\n      \"AssetId\": \"12345678-0000-0000-0000-000000000001\",\n      \"AppAndBookTokenId\": \"099a8082-ae9d-70be-b377-84e4ba7459c4\",\n      \"AppId\": \"com.microsoft.Word\",\n      \"Install\": \"Optional\",\n      \"AutomaticAppUpdates\": \"StoreSettings\"\n    }\n  ]\n}\n```\n",
+        "required": [
+          "apps"
+        ],
+        "properties": {
+          "apps": {
+            "type": "array",
+            "description": "One or more volume purchasing app configurations to include in this component.",
+            "minItems": 1,
+            "items": {
+              "$ref": "#/components/schemas/ManagedAppEntry"
+            }
+          }
+        }
+      },
+      "ManagedAppEntry": {
+        "type": "object",
+        "description": "Configuration for a single volume purchasing app.",
+        "required": [
+          "AssetId",
+          "AppAndBookTokenId",
+          "AppId"
+        ],
+        "properties": {
+          "AssetId": {
+            "type": "string",
+            "description": "volume purchasing asset identifier for the app.",
+            "example": "019a8082-19ba-794c-91f4-2cd5a02b0c72"
+          },
+          "AppAndBookTokenId": {
+            "type": "string",
+            "description": "Identifier of the volume purchasing token that licenses this app.",
+            "example": "099a8082-ae9d-70be-b377-84e4ba7459c4"
+          },
+          "AppId": {
+            "type": "string",
+            "description": "App bundle identifier.",
+            "example": "com.microsoft.Excel"
+          },
+          "Install": {
+            "type": "string",
+            "description": "Whether the app must be installed on devices in scope.",
+            "enum": [
+              "Required",
+              "Optional"
+            ],
+            "example": "Required"
+          },
+          "AllowDownloadsOverCellular": {
+            "type": "string",
+            "description": "Controls whether the app can be downloaded over a cellular connection.",
+            "enum": [
+              "AlwaysOn",
+              "AlwaysOff",
+              "StoreSettings"
+            ],
+            "example": "StoreSettings"
+          },
+          "AutomaticAppUpdates": {
+            "type": "string",
+            "description": "Controls whether the app updates automatically.",
+            "enum": [
+              "AlwaysOn",
+              "AlwaysOff",
+              "StoreSettings"
+            ],
+            "example": "AlwaysOn"
+          },
+          "IncludeInBackup": {
+            "type": "boolean",
+            "description": "Whether the app's data is included in device backups.",
+            "example": true
+          },
+          "Attributes": {
+            "$ref": "#/components/schemas/ManagedAppAttributes"
+          }
+        }
+      },
+      "ManagedAppAttributes": {
+        "type": "object",
+        "description": "Fine-grained app behavior settings. All fields are optional.\n\n**iOS 18.1+ note:** `Hideable` and `Lockable` require iOS 18.1 or later.\nWhen `Lockable` is `false`, `Hideable` is required and must also be `false`.\n",
+        "properties": {
+          "Hideable": {
+            "type": "boolean",
+            "description": "Allow the user to hide the app from the home screen (requires iOS 18.1 or later). When `Lockable` is `false`, this must also be `false`.",
+            "example": true
+          },
+          "Lockable": {
+            "type": "boolean",
+            "description": "Allow the user to lock the app behind Face ID or Touch ID (requires iOS 18.1 or later).",
+            "example": true
+          },
+          "TapToPayScreenLock": {
+            "type": "boolean",
+            "description": "Require screen lock when the app uses Tap to Pay.",
+            "example": false
+          },
+          "AssociatedDomains": {
+            "type": "array",
+            "description": "Associated domains for the app.",
+            "items": {
+              "type": "string"
+            },
+            "example": [
+              "corp.example.com"
+            ]
+          },
+          "AssociatedDomainsEnableDirectDownloads": {
+            "type": "boolean",
+            "description": "Enable direct downloads for the app's associated domains.",
+            "example": false
+          },
+          "CellularSliceUUID": {
+            "type": "string",
+            "description": "UUID of the network slice to use for the app's cellular connection.",
+            "example": "12345678-1234-1234-1234-123456789abc"
+          },
+          "DNSProxyUUID": {
+            "type": "string",
+            "description": "UUID of the DNS proxy configuration to apply to the app.",
+            "example": "87654321-4321-4321-4321-cba987654321"
+          }
         }
       }
     },

@@ -406,40 +406,38 @@ Requires platform gateway auth.`,
 			var deviceErrors []deviceError
 
 			for _, dev := range devices {
-				report, err := ddmreport.New(c).GetDeviceDeclarationReport(ctx, dev.ID)
+				declarations, err := ddmreport.New(c).GetDeviceDeclarationReportFiltered(ctx, dev.ID, ddmAllDeclarationsFilter, nil)
 				if err != nil {
 					continue
 				}
-				for _, ch := range report.Channels {
-					for _, d := range ch.Declarations {
-						source, kind := classifyDeclaration(d.DeclarationIdentifier, bpNames, nil)
-						s, ok := agg[source]
-						if !ok {
-							s = &sourceStats{Devices: make(map[string]bool), Kind: kind}
-							agg[source] = s
-						}
-						s.Declarations++
-						s.Devices[dev.ID] = true
+				for _, d := range declarations {
+					source, kind := classifyDeclaration(d.DeclarationIdentifier, bpNames, nil)
+					s, ok := agg[source]
+					if !ok {
+						s = &sourceStats{Devices: make(map[string]bool), Kind: kind}
+						agg[source] = s
+					}
+					s.Declarations++
+					s.Devices[dev.ID] = true
 
-						switch {
-						case d.Status == "SUCCESSFUL":
-							s.Successful++
-						case onlyHasIgnorableReasons(d.Reasons):
-							// Don't count as unsuccessful — info-only
-						default:
-							s.Unsuccessful++
-						}
+					switch {
+					case d.Status == "SUCCESSFUL":
+						s.Successful++
+					case onlyHasIgnorableReasons(d.Reasons):
+						// Don't count as unsuccessful — info-only
+					default:
+						s.Unsuccessful++
+					}
 
-						for _, r := range d.Reasons {
-							if ignorableDDMReasonCodes[r.Code] {
-								continue
-							}
-							deviceErrors = append(deviceErrors, deviceError{
-								DeviceID: dev.ID,
-								Source:   source,
-								Reason:   r.Code + ": " + r.Description,
-							})
+					for _, r := range d.Reasons {
+						if ignorableDDMReasonCodes[r.Code] {
+							continue
 						}
+						deviceErrors = append(deviceErrors, deviceError{
+							DeviceID: dev.ID,
+							Source:   source,
+							Reason:   r.Code + ": " + r.Description,
+						})
 					}
 				}
 			}

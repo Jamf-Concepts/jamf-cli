@@ -245,7 +245,6 @@ func newComputerPrestagesCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 				return printScaffoldOutput(`{
   "accountSettings": {},
   "anchorCertificates": [],
-  "authUrl": "https://idp.example.com/authenticate",
   "authenticationPrompt": "LDAP authentication prompt",
   "autoAdvanceSetup": true,
   "customPackageDistributionPointId": "1",
@@ -356,7 +355,6 @@ func newComputerPrestagesUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 				return printScaffoldOutput(`{
   "accountSettings": {},
   "anchorCertificates": [],
-  "authUrl": "https://idp.example.com/authenticate",
   "authenticationPrompt": "LDAP authentication prompt",
   "autoAdvanceSetup": true,
   "customPackageDistributionPointId": "1",
@@ -717,7 +715,6 @@ If not, a new resource is created.`,
 				return printScaffoldOutput(`{
   "accountSettings": {},
   "anchorCertificates": [],
-  "authUrl": "https://idp.example.com/authenticate",
   "authenticationPrompt": "LDAP authentication prompt",
   "autoAdvanceSetup": true,
   "customPackageDistributionPointId": "1",

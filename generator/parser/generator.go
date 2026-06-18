@@ -568,6 +568,14 @@ func (g *Generator) Generate(resource *Resource) (string, error) {
 			}
 			return false
 		},
+		"hasPaginated": func(ops []*Operation) bool {
+			for _, op := range ops {
+				if op.IsPaginated {
+					return true
+				}
+			}
+			return false
+		},
 		"isGet": func(op *Operation) bool {
 			return op.Name == "get" && op.Method == "GET" && hasPathParam(op.Path)
 		},
@@ -1322,13 +1330,13 @@ import (
 {{- if or (shouldGenerateApply .) (hasPatchOp .Operations) (hasNonMultipartPostOrPut .Operations) }}
 	"bytes"
 {{- end }}
-{{- if or (hasList .Operations) (hasDeleteMultiple .Operations) }}
+{{- if or (hasList .Operations) (hasPaginated .Operations) (hasDeleteMultiple .Operations) }}
 	"encoding/json"
 {{- end }}
-{{- if or (needsFmt .) (hasList .Operations) (hasPostOrPut .Operations) }}
+{{- if or (needsFmt .) (hasList .Operations) (hasPaginated .Operations) (hasPostOrPut .Operations) }}
 	"fmt"
 {{- end }}
-{{- if or (hasNonMultipartPostOrPut .Operations) (hasList .Operations) (hasAnyBinaryResponse .) }}
+{{- if or (hasNonMultipartPostOrPut .Operations) (hasList .Operations) (hasPaginated .Operations) (hasAnyBinaryResponse .) }}
 	"io"
 {{- end }}
 {{- if or (hasDelete .Operations) .UpdateTokenOp }}
@@ -1382,7 +1390,7 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 		flag{{ toCamel .Name }} {{ goType .Type }}
 {{- end }}
 {{- end }}
-{{- if .IsList }}
+{{- if .IsPaginated }}
 		flagAll  bool
 		flagLimit int
 {{- end }}
@@ -1832,7 +1840,7 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 {{- if .FallbackPaths }}
 			vft := newVersionFallback("{{ .Path }}")
 {{- end }}
-{{- if .IsList }}
+{{- if .IsPaginated }}
 
 			// Auto-pagination: fetch all pages when --all is set and --page was not manually specified
 			if flagAll && flagPage == 0 {
@@ -2212,7 +2220,7 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 	cmd.Flags().{{ flagType .Type }}Var(&flag{{ toCamel .Name }}, "{{ toKebab .Name }}", {{ if .Default }}{{ defaultVal .Type .Default }}{{ else if eq .Type "string" }}""{{ else if eq .Type "integer" }}0{{ else if eq .Type "boolean" }}false{{ else }}0{{ end }}, "{{ escapeQuotes .Description }}")
 {{- end }}
 {{- end }}
-{{- if .IsList }}
+{{- if .IsPaginated }}
 	cmd.Flags().BoolVar(&flagAll, "all", true, "Fetch all pages (set --all=false for single page)")
 	cmd.Flags().IntVar(&flagLimit, "limit", 0, "Maximum total results to return (0 = unlimited)")
 {{- end }}

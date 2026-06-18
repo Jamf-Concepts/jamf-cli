@@ -4,6 +4,7 @@ package generated
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/url"
@@ -75,6 +76,8 @@ func newMobileDeviceGroupsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		flagPageSize int
 		flagSort     []string
 		flagFilter   string
+		flagAll      bool
+		flagLimit    int
 		flagName     string
 	)
 
@@ -133,6 +136,72 @@ func newMobileDeviceGroupsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 			}
 			vft := newVersionFallback("/v2/mobile-device-groups/smart-group-membership/{id}")
 
+			// Auto-pagination: fetch all pages when --all is set and --page was not manually specified
+			if flagAll && flagPage == 0 {
+				var allResults []json.RawMessage
+				pageNum := 0
+				pageSize := 100
+
+				for {
+					// Build page-specific query
+					pagePath := "/v2/mobile-device-groups/smart-group-membership/{id}"
+					pagePath = strings.Replace(pagePath, "{id}", url.PathEscape(resolvedID), 1)
+					var pageQuery []string
+					// Carry forward non-pagination query params
+					for _, qp := range queryParts {
+						if !strings.HasPrefix(qp, "page=") && !strings.HasPrefix(qp, "page-size=") && !strings.HasPrefix(qp, "pagesize=") {
+							pageQuery = append(pageQuery, qp)
+						}
+					}
+					pageQuery = append(pageQuery, fmt.Sprintf("page=%d", pageNum))
+					pageQuery = append(pageQuery, fmt.Sprintf("page-size=%d", pageSize))
+					pagePath = pagePath + "?" + strings.Join(pageQuery, "&")
+
+					resp, err := vft.do(ctx.Client, reqCtx, "GET", pagePath, nil, []string{"/v1/mobile-device-groups/smart-group-membership/{id}"})
+					if err != nil {
+						return err
+					}
+
+					body, err := io.ReadAll(resp.Body)
+					resp.Body.Close()
+					if err != nil {
+						return err
+					}
+
+					// Parse pagination response: {"totalCount": N, "results": [...]}
+					var pageResp struct {
+						TotalCount int               `json:"totalCount"`
+						Results    []json.RawMessage `json:"results"`
+					}
+					if err := json.Unmarshal(body, &pageResp); err != nil {
+						// Not a paginated response; output as-is
+						return ctx.Output.PrintRaw(body)
+					}
+
+					allResults = append(allResults, pageResp.Results...)
+
+					// Check limit
+					if flagLimit > 0 && len(allResults) >= flagLimit {
+						allResults = allResults[:flagLimit]
+						break
+					}
+
+					// Check if we've fetched everything
+					if len(pageResp.Results) < pageSize || len(allResults) >= pageResp.TotalCount {
+						break
+					}
+
+					pageNum++
+				}
+
+				// Output combined results as JSON array
+				combined, err := json.MarshalIndent(allResults, "", "  ")
+				if err != nil {
+					return err
+				}
+				return ctx.Output.PrintRaw(combined)
+			}
+
 			// Make request
 			resp, err := vft.do(ctx.Client, reqCtx, "GET", path, nil, []string{"/v1/mobile-device-groups/smart-group-membership/{id}"})
 			if err != nil {
@@ -146,8 +215,10 @@ func newMobileDeviceGroupsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
 	cmd.Flags().IntVar(&flagPage, "page", 0, "")
 	cmd.Flags().IntVar(&flagPageSize, "page-size", 100, "")
-	cmd.Flags().StringSliceVar(&flagSort, "sort", nil, "Sorting criteria in the format: property:asc/desc. Default sort is mobileDeviceId:asc. Multiple sort criteria are supported and must be separated with a comma.  Fields allowed in the sort: 'airPlayPassword', 'appAnalyticsEnabled', 'assetTag', 'availableSpaceMb', 'batteryLevel', 'batteryHealth', 'bluetoothLowEnergyCapable', 'bluetoothMacAddress', 'capacityMb', 'lostModeEnabledDate', 'declarativeDeviceManagementEnabled', 'deviceId', 'deviceLocatorServiceEnabled', 'devicePhoneNumber', 'diagnosticAndUsageReportingEnabled', 'displayName', 'doNotDisturbEnabled', 'enrollmentSessionTokenValid', 'exchangeDeviceId', 'cloudBackupEnabled', 'osBuild', 'osRapidSecurityResponse', 'osSupplementalBuildVersion', 'osVersion', 'ipAddress', 'itunesStoreAccountActive', 'mobileDeviceId', 'managementId', 'languages', 'lastBackupDate', 'lastEnrolledDate', 'lastCloudBackupDate', 'lastInventoryUpdateDate', 'locales', 'locationServicesForSelfServiceMobileEnabled', 'lostModeEnabled', 'managed', 'mdmProfileExpirationDate', 'model', 'modelIdentifier', 'modelNumber', 'modemFirmwareVersion', 'preferredVoiceNumber', 'quotaSize', 'residentUsers', 'serialNumber', 'sharedIpad', 'supervised', 'tethered', 'timeZone', 'udid', 'usedSpacePercentage', 'wifiMacAddress', 'deviceOwnershipType', 'building', 'department', 'emailAddress', 'fullName', 'userPhoneNumber', 'position', 'room', 'username', 'appleCareId', 'leaseExpirationDate','lifeExpectancyYears', 'poDate', 'poNumber', 'purchasePrice', 'purchasedOrLeased', 'purchasingAccount', 'purchasingContact', 'vendor', 'warrantyExpirationDate', 'activationLockEnabled', 'blockEncryptionCapable', 'dataProtection', 'fileEncryptionCapable', 'hardwareEncryptionSupported', 'jailbreakStatus', 'passcodeCompliant', 'passcodeCompliantWithProfile', 'passcodeLockGracePeriodEnforcedSeconds', 'passcodePresent', 'carrierSettingsVersion', 'cellularTechnology', 'currentCarrierNetwork', 'currentMobileCountryCode', 'currentMobileNetworkCode', 'dataRoamingEnabled', 'eid', 'network', 'homeMobileCountryCode', 'homeMobileNetworkCode', 'iccid', 'imei', 'imei2', 'meid', 'personalHotspotEnabled', 'voiceRoamingEnabled', 'roaming', 'lastLoggedInUsernameSelfService', 'lastLoggedInUsernameSelfServiceTimestamp'  Extension attributes can be sorted by using the format 'EA+ID' where ID is the ID of the extension attribute, for example 'EA+1!=null'  Example: 'sort=displayName:desc,username:asc' ")
-	cmd.Flags().StringVar(&flagFilter, "filter", "", "Query in the RSQL format, allowing to filter mobile device collection. Default filter is empty query - returning all results for the requested page.  Fields allowed in the query: 'airPlayPassword', 'appAnalyticsEnabled', 'assetTag', 'availableSpaceMb', 'batteryLevel', 'bluetoothLowEnergyCapable', 'bluetoothMacAddress', 'capacityMb', 'declarativeDeviceManagementEnabled', 'deviceId', 'deviceLocatorServiceEnabled', 'devicePhoneNumber', 'diagnosticAndUsageReportingEnabled', 'displayName', 'doNotDisturbEnabled', 'exchangeDeviceId', 'cloudBackupEnabled', 'osBuild', 'osSupplementalBuildVersion', 'osVersion', 'osRapidSecurityResponse', 'ipAddress', 'itunesStoreAccountActive', 'mobileDeviceId', 'managementId', 'languages', 'lastInventoryUpdateDate', 'locales', 'locationServicesForSelfServiceMobileEnabled', 'lostModeEnabled', 'managed', 'model', 'modelIdentifier', 'modelNumber', 'modemFirmwareVersion', 'preferredVoiceNumber', 'quotaSize', 'residentUsers', 'serialNumber', 'sharedIpad', 'supervised', 'tethered', 'timeZone', 'udid', 'usedSpacePercentage', 'wifiMacAddress', 'building', 'department', 'emailAddress', 'fullName', 'userPhoneNumber', 'position', 'room', 'username', 'appleCareId', 'lifeExpectancyYears', 'poNumber', 'purchasePrice', 'purchasedOrLeased', 'purchasingAccount', 'purchasingContact', 'vendor', 'activationLockEnabled', 'blockEncryptionCapable', 'dataProtection', 'fileEncryptionCapable', 'passcodeCompliant', 'passcodeCompliantWithProfile', 'passcodeLockGracePeriodEnforcedSeconds', 'passcodePresent', 'carrierSettingsVersion', 'currentCarrierNetwork', 'currentMobileCountryCode', 'currentMobileNetworkCode', 'dataRoamingEnabled', 'eid', 'network', 'homeMobileCountryCode', 'homeMobileNetworkCode', 'iccid', 'imei', 'imei2', 'meid', 'personalHotspotEnabled', 'roaming', 'lastLoggedInUsernameSelfService', 'lastLoggedInUsernameSelfServiceTimestamp'  Extension attributes can be filtered by using the format 'EA+ID' where ID is the ID of the extension attribute, for example 'EA+1!=null'  This param can be combined with paging and sorting. Example: 'filter=displayName==\"iPad\"' ")
+	cmd.Flags().StringSliceVar(&flagSort, "sort", nil, "Sorting criteria in the format: property:asc/desc. Default sort is mobileDeviceId:asc. Multiple sort criteria are supported and must be separated with a comma.  Fields allowed in the sort: 'airPlayPassword', 'appAnalyticsEnabled', 'assetTag', 'availableSpaceMb', 'batteryLevel', 'batteryHealth', 'bluetoothLowEnergyCapable', 'bluetoothMacAddress', 'capacityMb', 'lostModeEnabledDate', 'declarativeDeviceManagementEnabled', 'deviceId', 'deviceLocatorServiceEnabled', 'devicePhoneNumber', 'diagnosticAndUsageReportingEnabled', 'displayName', 'doNotDisturbEnabled', 'enrollmentSessionTokenValid', 'exchangeDeviceId', 'cloudBackupEnabled', 'osBuild', 'osRapidSecurityResponse', 'osSupplementalBuildVersion', 'osVersion', 'ipAddress', 'itunesStoreAccountActive', 'mobileDeviceId', 'managementId', 'languages', 'lastBackupDate', 'lastEnrolledDate', 'lastCloudBackupDate', 'lastInventoryUpdateDate', 'locales', 'locationServicesForSelfServiceMobileEnabled', 'lostModeEnabled', 'managed', 'mdmProfileExpirationDate', 'model', 'modelIdentifier', 'modelNumber', 'modemFirmwareVersion', 'preferredVoiceNumber', 'quotaSize', 'residentUsers', 'serialNumber', 'sharedIpad', 'supervised', 'tethered', 'timeZone', 'udid', 'usedSpacePercentage', 'wifiMacAddress', 'deviceOwnershipType', 'building', 'department', 'emailAddress', 'fullName', 'userPhoneNumber', 'position', 'room', 'username', 'appleCareId', 'leaseExpirationDate','lifeExpectancyYears', 'poDate', 'poNumber', 'purchasePrice', 'purchasedOrLeased', 'purchasingAccount', 'purchasingContact', 'vendor', 'warrantyExpirationDate', 'activationLockEnabled', 'blockEncryptionCapable', 'dataProtection', 'fileEncryptionCapable', 'hardwareEncryptionSupported', 'jailbreakStatus', 'passcodeCompliant', 'passcodeCompliantWithProfile', 'passcodeLockGracePeriodEnforcedSeconds', 'passcodePresent', 'carrierSettingsVersion', 'cellularTechnology', 'currentCarrierNetwork', 'currentMobileCountryCode', 'currentMobileNetworkCode', 'dataRoamingEnabled', 'eid', 'network', 'homeMobileCountryCode', 'homeMobileNetworkCode', 'iccid', 'imei', 'imei2', 'meid', 'personalHotspotEnabled', 'voiceRoamingEnabled', 'roaming', 'lastLoggedInUsernameSelfService', 'lastLoggedInUsernameSelfServiceTimestamp', 'lastLoggedInUsernameMdm', 'lastLoggedInUsernameMdmTimestamp'  Extension attributes can be sorted by using the format 'EA+ID' where ID is the ID of the extension attribute, for example 'EA+1!=null'  Example: 'sort=displayName:desc,username:asc' ")
+	cmd.Flags().StringVar(&flagFilter, "filter", "", "Query in the RSQL format, allowing to filter mobile device collection. Default filter is empty query - returning all results for the requested page.  Fields allowed in the query: 'airPlayPassword', 'appAnalyticsEnabled', 'assetTag', 'availableSpaceMb', 'batteryLevel', 'bluetoothLowEnergyCapable', 'bluetoothMacAddress', 'capacityMb', 'declarativeDeviceManagementEnabled', 'deviceId', 'deviceLocatorServiceEnabled', 'devicePhoneNumber', 'diagnosticAndUsageReportingEnabled', 'displayName', 'doNotDisturbEnabled', 'exchangeDeviceId', 'cloudBackupEnabled', 'osBuild', 'osSupplementalBuildVersion', 'osVersion', 'osRapidSecurityResponse', 'ipAddress', 'itunesStoreAccountActive', 'mobileDeviceId', 'managementId', 'languages', 'lastInventoryUpdateDate', 'locales', 'locationServicesForSelfServiceMobileEnabled', 'lostModeEnabled', 'managed', 'model', 'modelIdentifier', 'modelNumber', 'modemFirmwareVersion', 'preferredVoiceNumber', 'quotaSize', 'residentUsers', 'serialNumber', 'sharedIpad', 'supervised', 'tethered', 'timeZone', 'udid', 'usedSpacePercentage', 'wifiMacAddress', 'building', 'department', 'emailAddress', 'fullName', 'userPhoneNumber', 'position', 'room', 'username', 'appleCareId', 'lifeExpectancyYears', 'poNumber', 'purchasePrice', 'purchasedOrLeased', 'purchasingAccount', 'purchasingContact', 'vendor', 'activationLockEnabled', 'blockEncryptionCapable', 'dataProtection', 'fileEncryptionCapable', 'passcodeCompliant', 'passcodeCompliantWithProfile', 'passcodeLockGracePeriodEnforcedSeconds', 'passcodePresent', 'carrierSettingsVersion', 'currentCarrierNetwork', 'currentMobileCountryCode', 'currentMobileNetworkCode', 'dataRoamingEnabled', 'eid', 'network', 'homeMobileCountryCode', 'homeMobileNetworkCode', 'iccid', 'imei', 'imei2', 'meid', 'personalHotspotEnabled', 'roaming', 'lastLoggedInUsernameSelfService', 'lastLoggedInUsernameSelfServiceTimestamp', 'lastLoggedInUsernameMdm', 'lastLoggedInUsernameMdmTimestamp'  Extension attributes can be filtered by using the format 'EA+ID' where ID is the ID of the extension attribute, for example 'EA+1!=null'  This param can be combined with paging and sorting. Example: 'filter=displayName==\"iPad\"' ")
+	cmd.Flags().BoolVar(&flagAll, "all", true, "Fetch all pages (set --all=false for single page)")
+	cmd.Flags().IntVar(&flagLimit, "limit", 0, "Maximum total results to return (0 = unlimited)")
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up mobile-device-group by name")
 
 	return cmd

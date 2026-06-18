@@ -68,6 +68,7 @@ type Operation struct {
 	IsAction      bool     // x-action: true
 	IsDestructive bool     // Requires confirmation (delete, erase, etc.)
 	IsList        bool     // List operation with pagination support
+	IsPaginated   bool     // Any GET with pagination params (broader than IsList); gates --all/--limit auto-pagination
 	APIVersion    string   // v1, v2, preview, etc.
 	Privileges    []string // x-required-privileges
 	// FallbackPaths holds lower-version base paths for GET/DELETE ops where the

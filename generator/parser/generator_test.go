@@ -932,12 +932,13 @@ func TestGenerate_IsList(t *testing.T) {
 		GoName:       "Items",
 		Operations: []*Operation{
 			{
-				Name:       "list",
-				Method:     "GET",
-				Path:       "/v1/items",
-				Summary:    "List items",
-				IsList:     true,
-				APIVersion: "v1",
+				Name:        "list",
+				Method:      "GET",
+				Path:        "/v1/items",
+				Summary:     "List items",
+				IsList:      true,
+				IsPaginated: true,
+				APIVersion:  "v1",
 				Parameters: []*Parameter{
 					{Name: "page", In: "query", Type: "integer"},
 				},

@@ -118,7 +118,7 @@ func newClassicMacosConfigProfilesGetCmd(ctx *registry.CLIContext) *cobra.Comman
 			// Resolve lookup: check flags first, then positional ID
 			var path string
 			if flagName != "" {
-				path = fmt.Sprintf("/JSSResource/osxconfigurationprofiles/name/%s", url.PathEscape(flagName))
+				path = fmt.Sprintf("/JSSResource/osxconfigurationprofiles/name/%s", registry.EscapeClassicPathSegment(flagName))
 			} else if len(args) > 0 {
 				path = fmt.Sprintf("/JSSResource/osxconfigurationprofiles/id/%s", url.PathEscape(args[0]))
 			} else {

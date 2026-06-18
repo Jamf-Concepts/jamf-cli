@@ -112,7 +112,7 @@ func newClassicSoftwareUpdateServersGetCmd(ctx *registry.CLIContext) *cobra.Comm
 			// Resolve lookup: check flags first, then positional ID
 			var path string
 			if flagName != "" {
-				path = fmt.Sprintf("/JSSResource/softwareupdateservers/name/%s", url.PathEscape(flagName))
+				path = fmt.Sprintf("/JSSResource/softwareupdateservers/name/%s", registry.EscapeClassicPathSegment(flagName))
 			} else if len(args) > 0 {
 				path = fmt.Sprintf("/JSSResource/softwareupdateservers/id/%s", url.PathEscape(args[0]))
 			} else {
@@ -209,7 +209,7 @@ func newClassicSoftwareUpdateServersUpdateCmd(ctx *registry.CLIContext) *cobra.C
 
 			var path string
 			if flagName != "" {
-				path = fmt.Sprintf("/JSSResource/softwareupdateservers/name/%s", url.PathEscape(flagName))
+				path = fmt.Sprintf("/JSSResource/softwareupdateservers/name/%s", registry.EscapeClassicPathSegment(flagName))
 			} else if len(args) > 0 {
 				path = fmt.Sprintf("/JSSResource/softwareupdateservers/id/%s", url.PathEscape(args[0]))
 			} else {

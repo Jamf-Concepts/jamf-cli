@@ -42,7 +42,7 @@
           "device-reports"
         ],
         "summary": "Get device report declarations",
-        "description": "Get a device report containing all the declarations reported for the provided deviceId.\n\n**Required Permissions:** `read:pro:declaration-reporting`, `read:school:declaration-reporting`",
+        "description": "**Deprecated** — use `GET /v1/devices/{deviceId}/declarations` instead.\n\n**Required Permissions:** `read:pro:declaration-reporting`, `read:school:declaration-reporting`",
         "operationId": "getDeviceReport",
         "parameters": [
           {
@@ -62,6 +62,32 @@
         "responses": {
           "200": {
             "description": "Successfully retrieved the device report",
+            "headers": {
+              "Sunset": {
+                "description": "RFC 8594 planned removal date",
+                "style": "simple",
+                "schema": {
+                  "type": "string",
+                  "example": "Sun, 17 May 2027 00:00:00 GMT"
+                }
+              },
+              "Deprecation": {
+                "description": "RFC 9745 deprecation timestamp",
+                "style": "simple",
+                "schema": {
+                  "type": "string",
+                  "example": "@1778976000"
+                }
+              },
+              "Link": {
+                "description": "Link to successor endpoint",
+                "style": "simple",
+                "schema": {
+                  "type": "string",
+                  "example": "</v1/devices/{deviceId}/declarations>; rel=\"successor-version\""
+                }
+              }
+            },
             "content": {
               "application/json": {
                 "schema": {
@@ -76,6 +102,18 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "httpStatus": 400,
+                  "traceId": "3e3819a63ae0f231",
+                  "errors": [
+                    {
+                      "id": null,
+                      "code": null,
+                      "field": null,
+                      "description": "Failed to process status report"
+                    }
+                  ]
                 }
               }
             }
@@ -86,6 +124,18 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "httpStatus": 500,
+                  "traceId": "3e3819a63ae0f231",
+                  "errors": [
+                    {
+                      "id": null,
+                      "code": null,
+                      "field": null,
+                      "description": "An unexpected error occurred"
+                    }
+                  ]
                 }
               }
             }
@@ -96,6 +146,292 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "httpStatus": 503,
+                  "traceId": "3e3819a63ae0f231",
+                  "errors": [
+                    {
+                      "id": null,
+                      "code": "BULKHEAD_LIMIT_REACHED",
+                      "field": null,
+                      "description": "Bulkhead limit reached"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "deprecated": true,
+        "x-sunset-date": "2027-05-17",
+        "x-successor-endpoint": "GET /v1/devices/{deviceId}/declarations",
+        "x-deprecation-date": "2026-05-17",
+        "security": [
+          {
+            "OAuth2ClientCredentials": []
+          }
+        ],
+        "x-required-privileges": [
+          "read:pro:declaration-reporting",
+          "read:school:declaration-reporting"
+        ],
+        "x-authentication-required": true
+      }
+    },
+    "/v1/tenant/{tenantId}/devices/{deviceId}/declarations": {
+      "get": {
+        "tags": [
+          "device-reports"
+        ],
+        "summary": "Get filtered device report declarations",
+        "description": "Get a device report containing the filtered declarations reported for the provided deviceId. Supports pagination, sorting, and filtering with RSQL syntax. **Filtering:** Filters only apply to declarations already on the device (excludes PENDING status). Supported filter fields: `declarationIdentifier`, `active`, `declarationType`, `validityState`, `dateUpdated`, `channel`. **Note:** Wildcard matching on declarationIdentifier (e.g. `declarationIdentifier==Blueprint_*`) is case-insensitive. **Sorting:** Use `?sort=field,direction` (e.g., `?sort=declarationType,asc&sort=declarationIdentifier,desc`). Supported sort fields: declarationIdentifier, declarationType, active, validityState, dateUpdated. Results are returned in database order if no sort parameter is provided. For more information on RSQL, see [Jamf Developer Portal](https://developer.jamf.com)\n\n**Required Permissions:** `read:pro:declaration-reporting`, `read:school:declaration-reporting`",
+        "operationId": "getDeviceReportByFilter",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/tenantId"
+          },
+          {
+            "name": "deviceId",
+            "in": "path",
+            "description": "The platform deviceId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "179a77b6-aafb-45be-83de-915f531e4e39"
+          },
+          {
+            "name": "filter",
+            "in": "query",
+            "description": "RSQL filter expression. Allowed fields: declarationIdentifier, active, validityState, declarationType, dateUpdated, channel",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "declarationIdentifier==Blueprint_66446f3a-03c8-44d6-ba31-46cf156bb448*;declarationType==CONFIGURATION"
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "description": "Zero-based page index (0..N)",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 0,
+              "minimum": 0
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "description": "The size of the page to be returned",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 20,
+              "minimum": 1
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "description": "Sorting criteria in the format: property,(asc|desc). Default sort order is ascending. Multiple sort criteria are supported.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successfully retrieved the filtered device report",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FilteredDeviceReportDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request - invalid RSQL filter or unsupported field",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "httpStatus": 400,
+                  "traceId": "3e3819a63ae0f231",
+                  "errors": [
+                    {
+                      "id": null,
+                      "code": "INVALID_FILTER",
+                      "field": null,
+                      "description": "Unsupported filter field: 'unknownField'. Supported fields are: declarationIdentifier, active, declarationType, validityState, dateUpdated, channel"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unknown error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "httpStatus": 500,
+                  "traceId": "3e3819a63ae0f231",
+                  "errors": [
+                    {
+                      "id": null,
+                      "code": null,
+                      "field": null,
+                      "description": "An unexpected error occurred"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Too many requests - bulkhead limit reached",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "httpStatus": 503,
+                  "traceId": "3e3819a63ae0f231",
+                  "errors": [
+                    {
+                      "id": null,
+                      "code": "BULKHEAD_LIMIT_REACHED",
+                      "field": null,
+                      "description": "Bulkhead limit reached"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2ClientCredentials": []
+          }
+        ],
+        "x-required-privileges": [
+          "read:pro:declaration-reporting",
+          "read:school:declaration-reporting"
+        ],
+        "x-authentication-required": true
+      }
+    },
+    "/v1/tenant/{tenantId}/devices/{deviceId}/channels": {
+      "get": {
+        "tags": [
+          "device-reports"
+        ],
+        "summary": "Get device channels",
+        "description": "Get a list of all channels available for the provided deviceId.\n\n**Required Permissions:** `read:pro:declaration-reporting`, `read:school:declaration-reporting`",
+        "operationId": "getDeviceChannels",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/tenantId"
+          },
+          {
+            "name": "deviceId",
+            "in": "path",
+            "description": "The platform deviceId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "179a77b6-aafb-45be-83de-915f531e4e39"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successfully retrieved the device channels",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeviceChannelsDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "httpStatus": 400,
+                  "traceId": "3e3819a63ae0f231",
+                  "errors": [
+                    {
+                      "id": null,
+                      "code": null,
+                      "field": null,
+                      "description": "Failed to process status report"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unknown error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "httpStatus": 500,
+                  "traceId": "3e3819a63ae0f231",
+                  "errors": [
+                    {
+                      "id": null,
+                      "code": null,
+                      "field": null,
+                      "description": "An unexpected error occurred"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Too many requests - bulkhead limit reached",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "httpStatus": 503,
+                  "traceId": "3e3819a63ae0f231",
+                  "errors": [
+                    {
+                      "id": null,
+                      "code": "BULKHEAD_LIMIT_REACHED",
+                      "field": null,
+                      "description": "Bulkhead limit reached"
+                    }
+                  ]
                 }
               }
             }
@@ -119,7 +455,7 @@
           "declaration-reports"
         ],
         "summary": "Get declaration report devices",
-        "description": "Get a declaration report containing all the devices and users currently reporting the provided declarationIdentifier. Supports pagination.\n\n**Required Permissions:** `read:pro:declaration-reporting`, `read:school:declaration-reporting`",
+        "description": "**Deprecated** — use `GET /v1/declarations/{declarationIdentifier}/devices` instead.\n\n**Required Permissions:** `read:pro:declaration-reporting`, `read:school:declaration-reporting`",
         "operationId": "getDeclarationReport",
         "parameters": [
           {
@@ -173,6 +509,32 @@
         "responses": {
           "200": {
             "description": "Successfully retrieved the declaration report",
+            "headers": {
+              "Sunset": {
+                "description": "RFC 8594 planned removal date",
+                "style": "simple",
+                "schema": {
+                  "type": "string",
+                  "example": "Sun, 17 May 2027 00:00:00 GMT"
+                }
+              },
+              "Deprecation": {
+                "description": "RFC 9745 deprecation timestamp",
+                "style": "simple",
+                "schema": {
+                  "type": "string",
+                  "example": "@1778976000"
+                }
+              },
+              "Link": {
+                "description": "Link to successor endpoint",
+                "style": "simple",
+                "schema": {
+                  "type": "string",
+                  "example": "</v1/declarations/{declarationIdentifier}/devices>; rel=\"successor-version\""
+                }
+              }
+            },
             "content": {
               "application/json": {
                 "schema": {
@@ -187,6 +549,18 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "httpStatus": 400,
+                  "traceId": "3e3819a63ae0f231",
+                  "errors": [
+                    {
+                      "id": null,
+                      "code": null,
+                      "field": null,
+                      "description": "Failed to process status report"
+                    }
+                  ]
                 }
               }
             }
@@ -197,6 +571,18 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "httpStatus": 500,
+                  "traceId": "3e3819a63ae0f231",
+                  "errors": [
+                    {
+                      "id": null,
+                      "code": null,
+                      "field": null,
+                      "description": "An unexpected error occurred"
+                    }
+                  ]
                 }
               }
             }
@@ -207,6 +593,179 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "httpStatus": 503,
+                  "traceId": "3e3819a63ae0f231",
+                  "errors": [
+                    {
+                      "id": null,
+                      "code": "BULKHEAD_LIMIT_REACHED",
+                      "field": null,
+                      "description": "Bulkhead limit reached"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "deprecated": true,
+        "x-sunset-date": "2027-05-17",
+        "x-successor-endpoint": "GET /v1/declarations/{declarationIdentifier}/devices",
+        "x-deprecation-date": "2026-05-17",
+        "security": [
+          {
+            "OAuth2ClientCredentials": []
+          }
+        ],
+        "x-required-privileges": [
+          "read:pro:declaration-reporting",
+          "read:school:declaration-reporting"
+        ],
+        "x-authentication-required": true
+      }
+    },
+    "/v1/tenant/{tenantId}/declarations/{declarationIdentifier}/devices": {
+      "get": {
+        "tags": [
+          "declaration-reports"
+        ],
+        "summary": "Get filtered declaration report devices",
+        "description": "Get a declaration report containing the filtered devices currently reporting the provided declarationIdentifier. Supports pagination, sorting, and filtering with RSQL syntax. **Filtering:** Filters only apply to declarations already on the device (excludes PENDING status). Supported filter fields: `deviceId`, `channel`, `lastReportTime`, `active`, `validityState`, `declarationType`, `dateUpdated`. **Sorting:** Use `?sort=field,direction` (e.g., `?sort=declarationType,asc`). For more information on RSQL, see [Jamf Developer Portal](https://developer.jamf.com)\n\n**Required Permissions:** `read:pro:declaration-reporting`, `read:school:declaration-reporting`",
+        "operationId": "getDeclarationReportByFilter",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/tenantId"
+          },
+          {
+            "name": "declarationIdentifier",
+            "in": "path",
+            "description": "The declarationIdentifier present on a status report",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "179a77b6-aafb-45be-83de-915f531e4e39"
+          },
+          {
+            "name": "filter",
+            "in": "query",
+            "description": "RSQL filter expression. Allowed fields: deviceId, channel, lastReportTime, active, validityState, declarationType, dateUpdated",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "channel==SYSTEM;active==true"
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "description": "Zero-based page index (0..N)",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 0,
+              "minimum": 0
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "description": "The size of the page to be returned",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 20,
+              "minimum": 1
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "description": "Sorting criteria in the format: property,(asc|desc). Default sort order is ascending. Multiple sort criteria are supported.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successfully retrieved the filtered declaration report",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FilteredDeclarationReportDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request - invalid RSQL filter or unsupported field",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "httpStatus": 400,
+                  "traceId": "3e3819a63ae0f231",
+                  "errors": [
+                    {
+                      "id": null,
+                      "code": "INVALID_FILTER",
+                      "field": null,
+                      "description": "Unsupported filter field: 'unknownField'. Supported fields are: deviceId, channel, lastReportTime, active, validityState, declarationType, dateUpdated"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unknown error occurred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "httpStatus": 500,
+                  "traceId": "3e3819a63ae0f231",
+                  "errors": [
+                    {
+                      "id": null,
+                      "code": null,
+                      "field": null,
+                      "description": "An unexpected error occurred"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Too many requests - bulkhead limit reached",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorDto"
+                },
+                "example": {
+                  "httpStatus": 503,
+                  "traceId": "3e3819a63ae0f231",
+                  "errors": [
+                    {
+                      "id": null,
+                      "code": "BULKHEAD_LIMIT_REACHED",
+                      "field": null,
+                      "description": "Bulkhead limit reached"
+                    }
+                  ]
                 }
               }
             }
@@ -293,9 +852,9 @@
             "description": "The installation status of the declaration",
             "enum": [
               "PENDING",
-              "INSTALLED",
-              "AWAIT_SYNC",
-              "ERROR",
+              "SUCCESSFUL",
+              "AWAITING_SYNC",
+              "UNSUCCESSFUL",
               "UNKNOWN"
             ],
             "example": "PENDING"
@@ -321,7 +880,10 @@
             "example": "2c9e3ec8907bf6e58fd93f2e28a02883ac58dde58906671003074deb84de6ff8"
           },
           "dateUpdated": {
-            "type": "string",
+            "type": [
+              "string",
+              "null"
+            ],
             "format": "date-time",
             "description": "The timestamp when this declaration status was last updated for the device"
           },
@@ -418,7 +980,10 @@
         "type": "object",
         "properties": {
           "id": {
-            "type": "string",
+            "type": [
+              "string",
+              "null"
+            ],
             "description": "id of object with error",
             "example": "2b7b22dc-a0d4-48d2-a02d-8fdd88e1397c"
           },
@@ -436,6 +1001,151 @@
             "type": "string",
             "description": "A general description of error for troubleshooting/debugging. Generally this text should not be displayed to a user; instead refer to errorCode and its localized text.",
             "example": "Field name is required."
+          }
+        }
+      },
+      "FilteredDeviceReportDto": {
+        "type": "object",
+        "properties": {
+          "deviceId": {
+            "type": "string",
+            "description": "The platform deviceId",
+            "example": "179a77b6-aafb-45be-83de-915f531e4e39"
+          },
+          "totalCount": {
+            "type": "integer",
+            "format": "int64",
+            "description": "The total number of declarations reported for the device that meet the required filters"
+          },
+          "results": {
+            "type": "array",
+            "description": "The declarations associated with any channel on the device that meet the required filters",
+            "items": {
+              "$ref": "#/components/schemas/FilteredResultDto"
+            }
+          }
+        },
+        "required": [
+          "deviceId",
+          "results",
+          "totalCount"
+        ]
+      },
+      "FilteredResultDto": {
+        "type": "object",
+        "externalDocs": {
+          "description": "Apple Documentation: Status Management Declarations",
+          "url": "https://developer.apple.com/documentation/devicemanagement/statusmanagementdeclarationsdeclarationobject"
+        },
+        "properties": {
+          "declarationIdentifier": {
+            "type": "string",
+            "description": "The identifier of the declaration",
+            "example": "ea6ddcb3-729f-42b1-a67d-940008419baa"
+          },
+          "deviceId": {
+            "type": "string",
+            "description": "The platform deviceId",
+            "example": "179a77b6-aafb-45be-83de-915f531e4e39"
+          },
+          "channel": {
+            "type": "string",
+            "description": "The channel of the client from which the report is sent",
+            "example": "SYSTEM"
+          },
+          "type": {
+            "type": "string",
+            "description": "The type of the declaration",
+            "enum": [
+              "ASSET",
+              "MANAGEMENT",
+              "CONFIGURATION",
+              "ACTIVATION",
+              "UNKNOWN"
+            ],
+            "example": "CONFIGURATION"
+          },
+          "status": {
+            "type": "string",
+            "description": "The installation status of the declaration",
+            "enum": [
+              "PENDING",
+              "SUCCESSFUL",
+              "AWAITING_SYNC",
+              "UNSUCCESSFUL",
+              "UNKNOWN"
+            ],
+            "example": "PENDING"
+          },
+          "active": {
+            "type": "boolean",
+            "description": "The active state of the declaration",
+            "example": true
+          },
+          "validityState": {
+            "type": "string",
+            "description": "The validity state of the declaration",
+            "enum": [
+              "VALID",
+              "INVALID",
+              "UNKNOWN"
+            ],
+            "example": "VALID"
+          },
+          "serverToken": {
+            "type": "string",
+            "description": "The server token for the declaration",
+            "example": "2c9e3ec8907bf6e58fd93f2e28a02883ac58dde58906671003074deb84de6ff8"
+          },
+          "dateUpdated": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "description": "The timestamp when this declaration status was last updated for the device"
+          },
+          "lastReportTime": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "description": "The timestamp of the device's last status report"
+          },
+          "reasons": {
+            "type": "array",
+            "description": "Reasons associated with the declaration, if any",
+            "items": {
+              "$ref": "#/components/schemas/StatusReportDeclarationReasonDto"
+            }
+          }
+        },
+        "required": [
+          "active",
+          "channel",
+          "declarationIdentifier",
+          "deviceId",
+          "serverToken",
+          "status",
+          "type",
+          "validityState"
+        ]
+      },
+      "DeviceChannelsDto": {
+        "type": "object",
+        "properties": {
+          "deviceId": {
+            "type": "string",
+            "description": "The platform deviceId",
+            "example": "179a77b6-aafb-45be-83de-915f531e4e39"
+          },
+          "channels": {
+            "type": "array",
+            "description": "The channels associated with the device",
+            "items": {
+              "type": "string"
+            }
           }
         }
       },
@@ -511,6 +1221,33 @@
             "description": "The clients reporting the declaration",
             "items": {
               "$ref": "#/components/schemas/DeclarationReportClientDto"
+            }
+          }
+        },
+        "required": [
+          "declarationIdentifier",
+          "results",
+          "totalCount"
+        ]
+      },
+      "FilteredDeclarationReportDto": {
+        "type": "object",
+        "properties": {
+          "declarationIdentifier": {
+            "type": "string",
+            "description": "The declaration identifier",
+            "example": "179a77b6-aafb-45be-83de-915f531e4e39"
+          },
+          "totalCount": {
+            "type": "integer",
+            "format": "int64",
+            "description": "The total number of devices reported for the declaration that meet the required filters"
+          },
+          "results": {
+            "type": "array",
+            "description": "The devices associated with the declaration that meet the required filters",
+            "items": {
+              "$ref": "#/components/schemas/FilteredResultDto"
             }
           }
         },

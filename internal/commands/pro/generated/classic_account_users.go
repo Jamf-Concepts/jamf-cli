@@ -101,7 +101,7 @@ func newClassicAccountUsersGetCmd(ctx *registry.CLIContext) *cobra.Command {
 			// Resolve lookup: check flags first, then positional ID
 			var path string
 			if flagUsername != "" {
-				path = fmt.Sprintf("/JSSResource/accounts/username/%s", url.PathEscape(flagUsername))
+				path = fmt.Sprintf("/JSSResource/accounts/username/%s", registry.EscapeClassicPathSegment(flagUsername))
 			} else if len(args) > 0 {
 				path = fmt.Sprintf("/JSSResource/accounts/userid/%s", url.PathEscape(args[0]))
 			} else {

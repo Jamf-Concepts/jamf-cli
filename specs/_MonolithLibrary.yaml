@@ -518,6 +518,11 @@ components:
           example: username
           readOnly: true
           type: string
+        uuid:
+          example: 0ae590fe-9b30-11ea-bb37-0242ac130002
+          nullable: true
+          readOnly: true
+          type: string
       type: object
     ComputerConfigurationProfileCreate:
       properties:
@@ -1177,6 +1182,15 @@ components:
           format: date-time
           nullable: true
           type: string
+        lastLoggedInUsernameMdm:
+          example: admin
+          nullable: true
+          type: string
+        lastLoggedInUsernameMdmTimestamp:
+          example: "2018-10-31T18:04:13Z"
+          format: date-time
+          nullable: true
+          type: string
         lastLoggedInUsernameSelfService:
           example: admin
           nullable: true
@@ -1222,7 +1236,7 @@ components:
           format: date-time
           type: string
         site:
-          $ref: '#/components/schemas/V1SiteBase'
+          $ref: '#/components/schemas/ComputerSite'
         supervised:
           example: true
           type: boolean
@@ -2451,6 +2465,17 @@ components:
           nullable: true
           type: string
       type: object
+    ComputerSite:
+      properties:
+        id:
+          example: "1"
+          nullable: false
+          type: string
+        name:
+          example: Eau Claire
+          nullable: false
+          type: string
+      type: object
     ComputerSoftwareUpdate:
       properties:
         name:
@@ -3648,6 +3673,11 @@ components:
       type: object
     V1SiteBase:
       properties:
+        divisionId:
+          description: Platform division identifier (UUID) for this site.
+          example: 550e8400-e29b-41d4-a716-446655440000
+          nullable: true
+          type: string
         id:
           example: "1"
           type: string

@@ -134,6 +134,11 @@ components:
             - GroupBasedAccess
           example: FullAccess
           type: string
+        currentDivisionId:
+          description: Platform division identifier (UUID) for the user's current site
+          example: 550e8400-e29b-41d4-a716-446655440000
+          nullable: true
+          type: string
         currentSiteId:
           example: "1"
           type: string
@@ -308,7 +313,7 @@ components:
           $ref: '#/components/schemas/AuthenticationType'
         sites:
           items:
-            $ref: '#/components/schemas/Site'
+            $ref: _MonolithLibrary.yaml#/components/schemas/V1SiteBase
           type: array
       type: object
     OAuthTokenEndpointErrorResponse:

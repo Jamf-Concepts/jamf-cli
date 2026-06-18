@@ -29,13 +29,14 @@ func NewMobileDeviceInventoryDetailsCmd(ctx *registry.CLIContext) *cobra.Command
 
 func newMobileDeviceInventoryDetailsListCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
-		flagSection  []string
-		flagPage     int
-		flagPageSize int
-		flagSort     []string
-		flagFilter   string
-		flagAll      bool
-		flagLimit    int
+		flagSection           []string
+		flagExceptionHandling string
+		flagPage              int
+		flagPageSize          int
+		flagSort              []string
+		flagFilter            string
+		flagAll               bool
+		flagLimit             int
 	)
 
 	cmd := &cobra.Command{
@@ -59,6 +60,9 @@ func newMobileDeviceInventoryDetailsListCmd(ctx *registry.CLIContext) *cobra.Com
 				for _, v := range flagSection {
 					queryParts = append(queryParts, "section="+url.QueryEscape(fmt.Sprintf("%v", v)))
 				}
+			}
+			if flagExceptionHandling != "" {
+				queryParts = append(queryParts, "exception-handling="+url.QueryEscape(flagExceptionHandling))
 			}
 			if flagPage != 0 {
 				queryParts = append(queryParts, fmt.Sprintf("page=%d", flagPage))
@@ -155,10 +159,11 @@ func newMobileDeviceInventoryDetailsListCmd(ctx *registry.CLIContext) *cobra.Com
 	}
 
 	cmd.Flags().StringSliceVar(&flagSection, "section", nil, "section of mobile device details, if not specified, General section data is returned. Multiple section parameters are supported, e.g. section=GENERAL&section=HARDWARE")
+	cmd.Flags().StringVar(&flagExceptionHandling, "exception-handling", "STRICT", "Controls how the endpoint handles exceptions when processing device data. - STRICT (default): Returns a 500 error with details when a device has data processing issues.   Each problematic device is surfaced one at a time. - LENIENT: Returns a 200 response even when devices have processing issues. Problematic sections   will be null in the response, and all devices (including those with issues) are included.   Exceptions are logged to the Jamf Pro Server logs. ")
 	cmd.Flags().IntVar(&flagPage, "page", 0, "")
 	cmd.Flags().IntVar(&flagPageSize, "page-size", 100, "")
-	cmd.Flags().StringSliceVar(&flagSort, "sort", nil, "Sorting criteria in the format: property:asc/desc. Default sort is displayName:asc. Multiple sort criteria are supported and must be separated with a comma.   Fields allowed in the sort: 'airPlayPassword', 'appAnalyticsEnabled', 'assetTag', 'availableSpaceMb',  'batteryLevel', 'batteryHealth', 'bluetoothLowEnergyCapable', 'bluetoothMacAddress', 'capacityMb',  'lostModeEnabledDate', 'declarativeDeviceManagementEnabled', 'deviceId', 'deviceLocatorServiceEnabled', 'devicePhoneNumber', 'diagnosticAndUsageReportingEnabled', 'displayName', 'doNotDisturbEnabled',  'enrollmentSessionTokenValid', 'exchangeDeviceId', 'cloudBackupEnabled', 'osBuild', 'osSupplementalBuildVersion', 'osVersion', 'osRapidSecurityResponse', 'ipAddress', 'itunesStoreAccountActive', 'mobileDeviceId', 'managementId', 'languages', 'lastBackupDate', 'lastEnrolledDate', 'lastCloudBackupDate', 'lastInventoryUpdateDate', 'locales', 'locationServicesForSelfServiceMobileEnabled', 'lostModeEnabled', 'managed', 'mdmProfileExpirationDate', 'model', 'modelIdentifier', 'modelNumber', 'modemFirmwareVersion', 'preferredVoiceNumber', 'quotaSize', 'residentUsers', 'serialNumber', 'sharedIpad', 'supervised', 'tethered', 'timeZone', 'udid', 'usedSpacePercentage', 'wifiMacAddress', 'deviceOwnershipType', 'building', 'department', 'emailAddress', 'fullName', 'userPhoneNumber', 'position', 'room', 'username', 'appleCareId', 'leaseExpirationDate','lifeExpectancyYears', 'poDate', 'poNumber', 'purchasePrice', 'purchasedOrLeased', 'purchasingAccount', 'purchasingContact', 'vendor', 'warrantyExpirationDate', 'activationLockEnabled', 'blockEncryptionCapable', 'dataProtection', 'fileEncryptionCapable', 'hardwareEncryptionSupported', 'jailbreakStatus', 'passcodeCompliant', 'passcodeCompliantWithProfile', 'passcodeLockGracePeriodEnforcedSeconds', 'passcodePresent', 'carrierSettingsVersion', 'cellularTechnology', 'currentCarrierNetwork', 'currentMobileCountryCode', 'currentMobileNetworkCode',  'dataRoamingEnabled', 'eid', 'network', 'homeMobileCountryCode',  'homeMobileNetworkCode', 'iccid', 'imei', 'imei2', 'meid', 'personalHotspotEnabled', 'voiceRoamingEnabled', 'roaming', 'lastLoggedInUsernameSelfService', 'lastLoggedInUsernameSelfServiceTimestamp'  Example: 'sort=displayName:desc,username:asc' ")
-	cmd.Flags().StringVar(&flagFilter, "filter", "", "Query in the RSQL format, allowing to filter mobile device collection. Default filter is empty query - returning all results for the requested page.  Fields allowed in the query: 'airPlayPassword', 'appAnalyticsEnabled', 'assetTag', 'availableSpaceMb',  'batteryLevel', 'bluetoothLowEnergyCapable', 'bluetoothMacAddress', 'capacityMb',  'declarativeDeviceManagementEnabled', 'deviceId', 'deviceLocatorServiceEnabled', 'devicePhoneNumber', 'diagnosticAndUsageReportingEnabled', 'displayName', 'doNotDisturbEnabled', 'exchangeDeviceId',  'cloudBackupEnabled', 'osBuild', 'osSupplementalBuildVersion', 'osVersion', 'osRapidSecurityResponse', 'ipAddress', 'itunesStoreAccountActive', 'mobileDeviceId', 'managementId', 'languages', 'lastInventoryUpdateDate', 'locales', 'locationServicesForSelfServiceMobileEnabled', 'lostModeEnabled', 'managed', 'model',  'modelIdentifier', 'modelNumber', 'modemFirmwareVersion', 'preferredVoiceNumber', 'quotaSize',  'residentUsers', 'serialNumber', 'sharedIpad', 'supervised', 'tethered', 'timeZone', 'udid', 'usedSpacePercentage',  'wifiMacAddress', 'building', 'department', 'emailAddress', 'fullName', 'userPhoneNumber', 'position', 'room', 'username', 'appleCareId', 'lifeExpectancyYears', 'poNumber',  'purchasePrice', 'purchasedOrLeased', 'purchasingAccount', 'purchasingContact', 'vendor', 'activationLockEnabled', 'blockEncryptionCapable', 'dataProtection',  'fileEncryptionCapable', 'passcodeCompliant', 'passcodeCompliantWithProfile', 'passcodeLockGracePeriodEnforcedSeconds', 'passcodePresent', 'carrierSettingsVersion', 'currentCarrierNetwork', 'currentMobileCountryCode', 'currentMobileNetworkCode', 'dataRoamingEnabled', 'eid', 'network', 'homeMobileCountryCode', 'homeMobileNetworkCode', 'iccid', 'imei', 'imei2', 'meid', 'personalHotspotEnabled', 'roaming', 'lastLoggedInUsernameSelfService', 'lastLoggedInUsernameSelfServiceTimestamp', 'groupId', 'groupName'  This param can be combined with paging and sorting. Example: 'filter=displayName==\"iPad\"' ")
+	cmd.Flags().StringSliceVar(&flagSort, "sort", nil, "Sorting criteria in the format: property:asc/desc. Default sort is displayName:asc. Multiple sort criteria are supported and must be separated with a comma.  Fields allowed in the sort: 'airPlayPassword', 'appAnalyticsEnabled', 'assetTag', 'availableSpaceMb', 'batteryLevel', 'batteryHealth', 'bluetoothLowEnergyCapable', 'bluetoothMacAddress', 'capacityMb', 'lostModeEnabledDate', 'declarativeDeviceManagementEnabled', 'deviceId', 'deviceLocatorServiceEnabled', 'devicePhoneNumber', 'diagnosticAndUsageReportingEnabled', 'displayName', 'doNotDisturbEnabled', 'enrollmentSessionTokenValid', 'exchangeDeviceId', 'cloudBackupEnabled', 'osBuild', 'osSupplementalBuildVersion', 'osVersion', 'osRapidSecurityResponse', 'ipAddress', 'itunesStoreAccountActive', 'mobileDeviceId', 'managementId', 'languages', 'lastBackupDate', 'lastEnrolledDate', 'lastCloudBackupDate', 'lastInventoryUpdateDate', 'locales', 'locationServicesForSelfServiceMobileEnabled', 'lostModeEnabled', 'managed', 'mdmProfileExpirationDate', 'model', 'modelIdentifier', 'modelNumber', 'modemFirmwareVersion', 'preferredVoiceNumber', 'quotaSize', 'residentUsers', 'serialNumber', 'sharedIpad', 'supervised', 'tethered', 'timeZone', 'udid', 'usedSpacePercentage', 'wifiMacAddress', 'deviceOwnershipType', 'building', 'department', 'emailAddress', 'fullName', 'userPhoneNumber', 'position', 'room', 'username', 'appleCareId', 'leaseExpirationDate','lifeExpectancyYears', 'poDate', 'poNumber', 'purchasePrice', 'purchasedOrLeased', 'purchasingAccount', 'purchasingContact', 'vendor', 'warrantyExpirationDate', 'activationLockEnabled', 'blockEncryptionCapable', 'dataProtection', 'fileEncryptionCapable', 'hardwareEncryptionSupported', 'jailbreakStatus', 'passcodeCompliant', 'passcodeCompliantWithProfile', 'passcodeLockGracePeriodEnforcedSeconds', 'passcodePresent', 'carrierSettingsVersion', 'cellularTechnology', 'currentCarrierNetwork', 'currentMobileCountryCode', 'currentMobileNetworkCode', 'dataRoamingEnabled', 'eid', 'network', 'homeMobileCountryCode', 'homeMobileNetworkCode', 'iccid', 'imei', 'imei2', 'meid', 'personalHotspotEnabled', 'voiceRoamingEnabled', 'roaming', 'lastLoggedInUsernameSelfService', 'lastLoggedInUsernameSelfServiceTimestamp', 'lastLoggedInUsernameMdm', 'lastLoggedInUsernameMdmTimestamp'  Example: 'sort=displayName:desc,username:asc' ")
+	cmd.Flags().StringVar(&flagFilter, "filter", "", "Query in the RSQL format, allowing to filter mobile device collection. Default filter is empty query - returning all results for the requested page.  Fields allowed in the query: 'airPlayPassword', 'appAnalyticsEnabled', 'assetTag', 'availableSpaceMb', 'batteryLevel', 'bluetoothLowEnergyCapable', 'bluetoothMacAddress', 'capacityMb', 'declarativeDeviceManagementEnabled', 'deviceId', 'deviceLocatorServiceEnabled', 'devicePhoneNumber', 'diagnosticAndUsageReportingEnabled', 'displayName', 'doNotDisturbEnabled', 'exchangeDeviceId', 'cloudBackupEnabled', 'osBuild', 'osSupplementalBuildVersion', 'osVersion', 'osRapidSecurityResponse', 'ipAddress', 'itunesStoreAccountActive', 'mobileDeviceId', 'managementId', 'languages', 'lastInventoryUpdateDate', 'locales', 'locationServicesForSelfServiceMobileEnabled', 'lostModeEnabled', 'managed', 'model', 'modelIdentifier', 'modelNumber', 'modemFirmwareVersion', 'preferredVoiceNumber', 'quotaSize', 'residentUsers', 'serialNumber', 'sharedIpad', 'supervised', 'tethered', 'timeZone', 'udid', 'usedSpacePercentage', 'wifiMacAddress', 'building', 'department', 'emailAddress', 'fullName', 'userPhoneNumber', 'position', 'room', 'username', 'appleCareId', 'lifeExpectancyYears', 'poNumber', 'purchasePrice', 'purchasedOrLeased', 'purchasingAccount', 'purchasingContact', 'vendor', 'activationLockEnabled', 'blockEncryptionCapable', 'dataProtection', 'fileEncryptionCapable', 'passcodeCompliant', 'passcodeCompliantWithProfile', 'passcodeLockGracePeriodEnforcedSeconds', 'passcodePresent', 'carrierSettingsVersion', 'currentCarrierNetwork', 'currentMobileCountryCode', 'currentMobileNetworkCode', 'dataRoamingEnabled', 'eid', 'network', 'homeMobileCountryCode', 'homeMobileNetworkCode', 'iccid', 'imei', 'imei2', 'meid', 'personalHotspotEnabled', 'roaming', 'lastLoggedInUsernameSelfService', 'lastLoggedInUsernameSelfServiceTimestamp', 'lastLoggedInUsernameMdm', 'lastLoggedInUsernameMdmTimestamp', 'groupId', 'groupName'  This param can be combined with paging and sorting. Example: 'filter=displayName==\"iPad\"' ")
 	cmd.Flags().BoolVar(&flagAll, "all", true, "Fetch all pages (set --all=false for single page)")
 	cmd.Flags().IntVar(&flagLimit, "limit", 0, "Maximum total results to return (0 = unlimited)")
 	return cmd
@@ -171,6 +176,8 @@ func newMobileDeviceInventoryDetailsPairedDevicesCmd(ctx *registry.CLIContext) *
 		flagPageSize int
 		flagSort     []string
 		flagFilter   string
+		flagAll      bool
+		flagLimit    int
 	)
 
 	cmd := &cobra.Command{
@@ -210,6 +217,72 @@ func newMobileDeviceInventoryDetailsPairedDevicesCmd(ctx *registry.CLIContext) *
 				path = path + "?" + strings.Join(queryParts, "&")
 			}
 
+			// Auto-pagination: fetch all pages when --all is set and --page was not manually specified
+			if flagAll && flagPage == 0 {
+				var allResults []json.RawMessage
+				pageNum := 0
+				pageSize := 100
+
+				for {
+					// Build page-specific query
+					pagePath := "/v2/mobile-devices/{id}/paired-devices"
+					pagePath = strings.Replace(pagePath, "{id}", url.PathEscape(args[0]), 1)
+					var pageQuery []string
+					// Carry forward non-pagination query params
+					for _, qp := range queryParts {
+						if !strings.HasPrefix(qp, "page=") && !strings.HasPrefix(qp, "page-size=") && !strings.HasPrefix(qp, "pagesize=") {
+							pageQuery = append(pageQuery, qp)
+						}
+					}
+					pageQuery = append(pageQuery, fmt.Sprintf("page=%d", pageNum))
+					pageQuery = append(pageQuery, fmt.Sprintf("page-size=%d", pageSize))
+					pagePath = pagePath + "?" + strings.Join(pageQuery, "&")
+
+					resp, err := ctx.Client.Do(reqCtx, "GET", pagePath, nil)
+					if err != nil {
+						return err
+					}
+
+					body, err := io.ReadAll(resp.Body)
+					resp.Body.Close()
+					if err != nil {
+						return err
+					}
+
+					// Parse pagination response: {"totalCount": N, "results": [...]}
+					var pageResp struct {
+						TotalCount int               `json:"totalCount"`
+						Results    []json.RawMessage `json:"results"`
+					}
+					if err := json.Unmarshal(body, &pageResp); err != nil {
+						// Not a paginated response; output as-is
+						return ctx.Output.PrintRaw(body)
+					}
+
+					allResults = append(allResults, pageResp.Results...)
+
+					// Check limit
+					if flagLimit > 0 && len(allResults) >= flagLimit {
+						allResults = allResults[:flagLimit]
+						break
+					}
+
+					// Check if we've fetched everything
+					if len(pageResp.Results) < pageSize || len(allResults) >= pageResp.TotalCount {
+						break
+					}
+
+					pageNum++
+				}
+
+				// Output combined results as JSON array
+				combined, err := json.MarshalIndent(allResults, "", "  ")
+				if err != nil {
+					return err
+				}
+				return ctx.Output.PrintRaw(combined)
+			}
+
 			// Make request
 			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
 			if err != nil {
@@ -224,7 +297,9 @@ func newMobileDeviceInventoryDetailsPairedDevicesCmd(ctx *registry.CLIContext) *
 	cmd.Flags().StringSliceVar(&flagSection, "section", nil, "section of mobile device details, if not specified, Paired Devices section data is returned. Multiple section parameters are supported, e.g. section=GENERAL&section=HARDWARE")
 	cmd.Flags().IntVar(&flagPage, "page", 0, "")
 	cmd.Flags().IntVar(&flagPageSize, "page-size", 100, "")
-	cmd.Flags().StringSliceVar(&flagSort, "sort", nil, "Sorting criteria in the format: property:asc/desc. Default sort is displayName:asc. Multiple sort criteria are supported and must be separated with a comma.  Fields allowed in the sort: 'airPlayPassword', 'appAnalyticsEnabled', 'assetTag', 'availableSpaceMb', 'batteryLevel', 'bluetoothLowEnergyCapable', 'bluetoothMacAddress', 'capacityMb', 'lostModeEnabledDate', 'declarativeDeviceManagementEnabled', 'deviceId', 'deviceLocatorServiceEnabled', 'devicePhoneNumber', 'diagnosticAndUsageReportingEnabled', 'displayName', 'doNotDisturbEnabled', 'enrollmentSessionTokenValid', 'osBuild', 'osSupplementalBuildVersion', 'osVersion', 'osRapidSecurityResponse', 'ipAddress', 'itunesStoreAccountActive', 'mobileDeviceId', 'languages', 'lastEnrolledDate', 'lastCloudBackupDate', 'lastInventoryUpdateDate', 'locales', 'lostModeEnabled', 'managed', 'mdmProfileExpirationDate', 'model', 'modelIdentifier', 'modelNumber', 'modemFirmwareVersion', 'preferredVoiceNumber', 'serialNumber', 'supervised', 'timeZone', 'udid', 'usedSpacePercentage', 'wifiMacAddress', 'deviceOwnershipType', 'building', 'department', 'emailAddress', 'fullName', 'userPhoneNumber', 'position', 'room', 'username', 'appleCareId', 'leaseExpirationDate','lifeExpectancyYears', 'poDate', 'poNumber', 'purchasePrice', 'purchasedOrLeased', 'purchasingAccount', 'purchasingContact', 'vendor', 'warrantyExpirationDate', 'activationLockEnabled', 'blockEncryptionCapable', 'dataProtection', 'fileEncryptionCapable', 'hardwareEncryptionSupported', 'jailbreakStatus', 'passcodeCompliant', 'passcodeCompliantWithProfile', 'passcodeLockGracePeriodEnforcedSeconds', 'passcodePresent', 'carrierSettingsVersion', 'cellularTechnology', 'currentCarrierNetwork', 'currentMobileCountryCode', 'currentMobileNetworkCode', 'dataRoamingEnabled', 'eid', 'network', 'homeMobileCountryCode', 'homeMobileNetworkCode', 'iccid', 'imei', 'imei2', 'meid', 'personalHotspotEnabled', 'voiceRoamingEnabled', 'roaming', 'lastLoggedInUsernameSelfService', 'lastLoggedInUsernameSelfServiceTimestamp'  Example: 'sort=displayName:desc,username:asc' ")
-	cmd.Flags().StringVar(&flagFilter, "filter", "", "Query in the RSQL format, allowing to filter mobile device collection. Default filter is empty query - returning all results for the requested page.  Fields allowed in the query: 'airPlayPassword', 'appAnalyticsEnabled', 'assetTag', 'availableSpaceMb', 'batteryLevel', 'bluetoothLowEnergyCapable', 'bluetoothMacAddress', 'capacityMb', 'declarativeDeviceManagementEnabled', 'deviceId', 'deviceLocatorServiceEnabled', 'devicePhoneNumber', 'diagnosticAndUsageReportingEnabled', 'displayName', 'doNotDisturbEnabled', 'osBuild', 'osSupplementalBuildVersion', 'osVersion', 'osRapidSecurityResponse', 'ipAddress', 'itunesStoreAccountActive', 'mobileDeviceId', 'languages', 'lastInventoryUpdateDate', 'locales', 'lostModeEnabled', 'managed', 'model', 'modelIdentifier', 'modelNumber', 'modemFirmwareVersion', 'preferredVoiceNumber', 'serialNumber', 'supervised', 'timeZone', 'udid', 'usedSpacePercentage', 'wifiMacAddress', 'building', 'department', 'emailAddress', 'fullName', 'userPhoneNumber', 'position', 'room', 'username', 'appleCareId', 'lifeExpectancyYears', 'poNumber', 'purchasePrice', 'purchasedOrLeased', 'purchasingAccount', 'purchasingContact', 'vendor', 'activationLockEnabled', 'blockEncryptionCapable', 'dataProtection', 'fileEncryptionCapable', 'passcodeCompliant', 'passcodeCompliantWithProfile', 'passcodeLockGracePeriodEnforcedSeconds', 'passcodePresent', 'carrierSettingsVersion', 'currentCarrierNetwork', 'currentMobileCountryCode', 'currentMobileNetworkCode', 'dataRoamingEnabled', 'eid', 'network', 'homeMobileCountryCode', 'homeMobileNetworkCode', 'iccid', 'imei', 'imei2', 'meid', 'personalHotspotEnabled', 'roaming', 'lastLoggedInUsernameSelfService', 'lastLoggedInUsernameSelfServiceTimestamp', 'groupId', 'groupName'  This param can be combined with paging and sorting. Example: 'filter=displayName==\"iPad\"' ")
+	cmd.Flags().StringSliceVar(&flagSort, "sort", nil, "Sorting criteria in the format: property:asc/desc. Default sort is displayName:asc. Multiple sort criteria are supported and must be separated with a comma.  Fields allowed in the sort: 'airPlayPassword', 'appAnalyticsEnabled', 'assetTag', 'availableSpaceMb', 'batteryLevel', 'bluetoothLowEnergyCapable', 'bluetoothMacAddress', 'capacityMb', 'lostModeEnabledDate', 'declarativeDeviceManagementEnabled', 'deviceId', 'deviceLocatorServiceEnabled', 'devicePhoneNumber', 'diagnosticAndUsageReportingEnabled', 'displayName', 'doNotDisturbEnabled', 'enrollmentSessionTokenValid', 'osBuild', 'osSupplementalBuildVersion', 'osVersion', 'osRapidSecurityResponse', 'ipAddress', 'itunesStoreAccountActive', 'mobileDeviceId', 'languages', 'lastEnrolledDate', 'lastCloudBackupDate', 'lastInventoryUpdateDate', 'locales', 'lostModeEnabled', 'managed', 'mdmProfileExpirationDate', 'model', 'modelIdentifier', 'modelNumber', 'modemFirmwareVersion', 'preferredVoiceNumber', 'serialNumber', 'supervised', 'timeZone', 'udid', 'usedSpacePercentage', 'wifiMacAddress', 'deviceOwnershipType', 'building', 'department', 'emailAddress', 'fullName', 'userPhoneNumber', 'position', 'room', 'username', 'appleCareId', 'leaseExpirationDate','lifeExpectancyYears', 'poDate', 'poNumber', 'purchasePrice', 'purchasedOrLeased', 'purchasingAccount', 'purchasingContact', 'vendor', 'warrantyExpirationDate', 'activationLockEnabled', 'blockEncryptionCapable', 'dataProtection', 'fileEncryptionCapable', 'hardwareEncryptionSupported', 'jailbreakStatus', 'passcodeCompliant', 'passcodeCompliantWithProfile', 'passcodeLockGracePeriodEnforcedSeconds', 'passcodePresent', 'carrierSettingsVersion', 'cellularTechnology', 'currentCarrierNetwork', 'currentMobileCountryCode', 'currentMobileNetworkCode', 'dataRoamingEnabled', 'eid', 'network', 'homeMobileCountryCode', 'homeMobileNetworkCode', 'iccid', 'imei', 'imei2', 'meid', 'personalHotspotEnabled', 'voiceRoamingEnabled', 'roaming', 'lastLoggedInUsernameSelfService', 'lastLoggedInUsernameSelfServiceTimestamp', 'lastLoggedInUsernameMdm', 'lastLoggedInUsernameMdmTimestamp'  Example: 'sort=displayName:desc,username:asc' ")
+	cmd.Flags().StringVar(&flagFilter, "filter", "", "Query in the RSQL format, allowing to filter mobile device collection. Default filter is empty query - returning all results for the requested page.  Fields allowed in the query: 'airPlayPassword', 'appAnalyticsEnabled', 'assetTag', 'availableSpaceMb', 'batteryLevel', 'bluetoothLowEnergyCapable', 'bluetoothMacAddress', 'capacityMb', 'declarativeDeviceManagementEnabled', 'deviceId', 'deviceLocatorServiceEnabled', 'devicePhoneNumber', 'diagnosticAndUsageReportingEnabled', 'displayName', 'doNotDisturbEnabled', 'osBuild', 'osSupplementalBuildVersion', 'osVersion', 'osRapidSecurityResponse', 'ipAddress', 'itunesStoreAccountActive', 'mobileDeviceId', 'languages', 'lastInventoryUpdateDate', 'locales', 'lostModeEnabled', 'managed', 'model', 'modelIdentifier', 'modelNumber', 'modemFirmwareVersion', 'preferredVoiceNumber', 'serialNumber', 'supervised', 'timeZone', 'udid', 'usedSpacePercentage', 'wifiMacAddress', 'building', 'department', 'emailAddress', 'fullName', 'userPhoneNumber', 'position', 'room', 'username', 'appleCareId', 'lifeExpectancyYears', 'poNumber', 'purchasePrice', 'purchasedOrLeased', 'purchasingAccount', 'purchasingContact', 'vendor', 'activationLockEnabled', 'blockEncryptionCapable', 'dataProtection', 'fileEncryptionCapable', 'passcodeCompliant', 'passcodeCompliantWithProfile', 'passcodeLockGracePeriodEnforcedSeconds', 'passcodePresent', 'carrierSettingsVersion', 'currentCarrierNetwork', 'currentMobileCountryCode', 'currentMobileNetworkCode', 'dataRoamingEnabled', 'eid', 'network', 'homeMobileCountryCode', 'homeMobileNetworkCode', 'iccid', 'imei', 'imei2', 'meid', 'personalHotspotEnabled', 'roaming', 'lastLoggedInUsernameSelfService', 'lastLoggedInUsernameSelfServiceTimestamp', 'lastLoggedInUsernameMdm', 'lastLoggedInUsernameMdmTimestamp', 'groupId', 'groupName'  This param can be combined with paging and sorting. Example: 'filter=displayName==\"iPad\"' ")
+	cmd.Flags().BoolVar(&flagAll, "all", true, "Fetch all pages (set --all=false for single page)")
+	cmd.Flags().IntVar(&flagLimit, "limit", 0, "Maximum total results to return (0 = unlimited)")
 	return cmd
 }

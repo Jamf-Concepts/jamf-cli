@@ -3,7 +3,9 @@
 package generated
 
 import (
+	"encoding/json"
 	"fmt"
+	"io"
 	"net/url"
 	"strings"
 
@@ -69,6 +71,8 @@ func newSitesObjectsCmd(ctx *registry.CLIContext) *cobra.Command {
 		flagPageSize int
 		flagSort     []string
 		flagFilter   string
+		flagAll      bool
+		flagLimit    int
 		flagName     string
 	)
 
@@ -118,6 +122,72 @@ func newSitesObjectsCmd(ctx *registry.CLIContext) *cobra.Command {
 				path = path + "?" + strings.Join(queryParts, "&")
 			}
 
+			// Auto-pagination: fetch all pages when --all is set and --page was not manually specified
+			if flagAll && flagPage == 0 {
+				var allResults []json.RawMessage
+				pageNum := 0
+				pageSize := 100
+
+				for {
+					// Build page-specific query
+					pagePath := "/v1/sites/{id}/objects"
+					pagePath = strings.Replace(pagePath, "{id}", url.PathEscape(resolvedID), 1)
+					var pageQuery []string
+					// Carry forward non-pagination query params
+					for _, qp := range queryParts {
+						if !strings.HasPrefix(qp, "page=") && !strings.HasPrefix(qp, "page-size=") && !strings.HasPrefix(qp, "pagesize=") {
+							pageQuery = append(pageQuery, qp)
+						}
+					}
+					pageQuery = append(pageQuery, fmt.Sprintf("page=%d", pageNum))
+					pageQuery = append(pageQuery, fmt.Sprintf("page-size=%d", pageSize))
+					pagePath = pagePath + "?" + strings.Join(pageQuery, "&")
+
+					resp, err := ctx.Client.Do(reqCtx, "GET", pagePath, nil)
+					if err != nil {
+						return err
+					}
+
+					body, err := io.ReadAll(resp.Body)
+					resp.Body.Close()
+					if err != nil {
+						return err
+					}
+
+					// Parse pagination response: {"totalCount": N, "results": [...]}
+					var pageResp struct {
+						TotalCount int               `json:"totalCount"`
+						Results    []json.RawMessage `json:"results"`
+					}
+					if err := json.Unmarshal(body, &pageResp); err != nil {
+						// Not a paginated response; output as-is
+						return ctx.Output.PrintRaw(body)
+					}
+
+					allResults = append(allResults, pageResp.Results...)
+
+					// Check limit
+					if flagLimit > 0 && len(allResults) >= flagLimit {
+						allResults = allResults[:flagLimit]
+						break
+					}
+
+					// Check if we've fetched everything
+					if len(pageResp.Results) < pageSize || len(allResults) >= pageResp.TotalCount {
+						break
+					}
+
+					pageNum++
+				}
+
+				// Output combined results as JSON array
+				combined, err := json.MarshalIndent(allResults, "", "  ")
+				if err != nil {
+					return err
+				}
+				return ctx.Output.PrintRaw(combined)
+			}
+
 			// Make request
 			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
 			if err != nil {
@@ -133,6 +203,8 @@ func newSitesObjectsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.Flags().IntVar(&flagPageSize, "page-size", 100, "")
 	cmd.Flags().StringSliceVar(&flagSort, "sort", nil, "Sorting criteria in the format: 'property:asc/desc'. Default sort is 'objectType:asc'. Multiple sort criteria are supported and must be separated with a comma.  Example: 'sort=objectId:asc,objectType:desc'. ")
 	cmd.Flags().StringVar(&flagFilter, "filter", "objectType==\"User\"", "Query in the RSQL format, allowing filter of site object information. Default filter returns all objects for the site ID.  Fields allowed in the query: 'objectType', 'objectId'  Example: 'filter=objectType==\"User\"'  List of 'objectType' options (case-insensitive) [\"Computer\", \"Peripheral\", \"Licensed Software\", \"Licensed Software Template\", \"Policy\", \"macOS Configuration Profile\", \"Restricted Software\", \"Managed Preference Profile\", \"Computer Group\", \"Mobile Device\", \"Apple TV\", \"Android Device\", \"User Group\", \"iOS Configuration Profile\", \"Mobile Device App\", \"E-book\", \"Mobile Device Group\", \"Classroom\", \"Advanced Computer Search\", \"Advanced Mobile Search\", \"Advanced User Search\", \"Advanced User Content Search\", \"Computer Invitation\", \"Mobile Device Invitation\", \"Mobile Device Enrollment Profile\", \"Device Enrollment Program Instance\", \"Mobile Device Prestage\", \"Computer DEP Prestage\", \"Enrollment Customization\", \"VPP Location\", \"VPP Subscription\", \"VPP Invitation\", \"VPP Assignment\", \"User\", \"Network Integration\", \"Mac App\", \"App Installer\", \"Self Service Plugin\", \"Software Title\", \"Patch Software Title Summary\", \"Patch Policy\", \"Patch Software Title Configuration\", \"Change Password\", \"Mobile Device Inventory\", \"Computer Inventory\", \"Change Management\", \"Licensed Software License\"] ")
+	cmd.Flags().BoolVar(&flagAll, "all", true, "Fetch all pages (set --all=false for single page)")
+	cmd.Flags().IntVar(&flagLimit, "limit", 0, "Maximum total results to return (0 = unlimited)")
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up site by name")
 
 	return cmd

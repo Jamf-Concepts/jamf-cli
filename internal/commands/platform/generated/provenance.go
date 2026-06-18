@@ -12,8 +12,8 @@ type SpecSource struct {
 // Sources lists every spec file consumed when this package was generated.
 // Order: stable, by File. Use `jamf-cli version -v` to print.
 var Sources = []SpecSource{
-	{File: "specs/platform/Declaration-reporting-openapi.json", SHA256: "f0e2448457d66a992fd9e2163733a9495fdb75fe98ede21fe7dbf3c219979297"},
-	{File: "specs/platform/blueprints-api.json", SHA256: "6ef8ef65bac2b6391247e53318526276925c8a6d3ab20b89eed26540bbe52004"},
+	{File: "specs/platform/Declaration-reporting-openapi.json", SHA256: "693921ea307911d6b8da4fd37e80493594cda75a33b2e64f7f30dbba03d36d17"},
+	{File: "specs/platform/blueprints-api.json", SHA256: "f5efedafc06c9c48b6a474501634886f8919f5e6645a3b8021afbc6b04703b02"},
 	{File: "specs/platform/device-groups-api.json", SHA256: "4f10139db8e44bbd9712a542633301d9788932ef4701ab51e3f745f88763069b"},
 	{File: "specs/platform/device-inventory-api.json", SHA256: "258662780aebbd275701ca47662842e0bacc1d7da6596c0c62ec7f0e2a05457f"},
 	{File: "specs/platform/device-management-actions-api.json", SHA256: "150f2b77b969205fc355a4cc6532ab4c32ec4f139c1e329100937c4773503ee4"},

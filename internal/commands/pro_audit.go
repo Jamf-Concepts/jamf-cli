@@ -711,26 +711,21 @@ func checkFailedDDMDeclarations(ctx context.Context, c *jamfplatform.Client) *au
 			break
 		}
 		scanned++
-		report, err := ddmreport.New(c).GetDeviceDeclarationReport(ctx, dev.ID)
+		declarations, err := ddmreport.New(c).GetDeviceDeclarationReportFiltered(ctx, dev.ID, ddmAllDeclarationsFilter, nil)
 		if err != nil {
 			continue
 		}
 		hasFailed := false
-		for _, ch := range report.Channels {
-			for _, d := range ch.Declarations {
-				if d.Status == "SUCCESSFUL" && d.ValidityState == "VALID" {
-					continue
-				}
-				// Skip if the only reason is non-actionable
-				if onlyHasIgnorableReasons(d.Reasons) {
-					continue
-				}
-				hasFailed = true
-				break
+		for _, d := range declarations {
+			if d.Status == "SUCCESSFUL" && d.ValidityState == "VALID" {
+				continue
 			}
-			if hasFailed {
-				break
+			// Skip if the only reason is non-actionable
+			if onlyHasIgnorableReasons(d.Reasons) {
+				continue
 			}
+			hasFailed = true
+			break
 		}
 		if hasFailed {
 			devicesWithFailures++

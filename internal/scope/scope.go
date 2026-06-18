@@ -60,7 +60,7 @@ func FetchScope(ctx context.Context, client registry.HTTPClient, res Resource, n
 		resolvedID = id
 		fetchPath = fmt.Sprintf("/JSSResource/%s/id/%s", res.APIPath, url.PathEscape(id))
 	} else {
-		fetchPath = fmt.Sprintf("/JSSResource/%s/name/%s", res.APIPath, url.PathEscape(name))
+		fetchPath = fmt.Sprintf("/JSSResource/%s/name/%s", res.APIPath, registry.EscapeClassicPathSegment(name))
 	}
 
 	resp, err := client.Do(ctx, "GET", fetchPath, nil)

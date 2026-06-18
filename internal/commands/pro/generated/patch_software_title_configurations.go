@@ -783,6 +783,8 @@ func newPatchSoftwareTitleConfigurationsDefinitionsCmd(ctx *registry.CLIContext)
 		flagPageSize int
 		flagSort     []string
 		flagFilter   string
+		flagAll      bool
+		flagLimit    int
 		flagName     string
 	)
 
@@ -832,6 +834,72 @@ func newPatchSoftwareTitleConfigurationsDefinitionsCmd(ctx *registry.CLIContext)
 				path = path + "?" + strings.Join(queryParts, "&")
 			}
 
+			// Auto-pagination: fetch all pages when --all is set and --page was not manually specified
+			if flagAll && flagPage == 0 {
+				var allResults []json.RawMessage
+				pageNum := 0
+				pageSize := 100
+
+				for {
+					// Build page-specific query
+					pagePath := "/v2/patch-software-title-configurations/{id}/definitions"
+					pagePath = strings.Replace(pagePath, "{id}", url.PathEscape(resolvedID), 1)
+					var pageQuery []string
+					// Carry forward non-pagination query params
+					for _, qp := range queryParts {
+						if !strings.HasPrefix(qp, "page=") && !strings.HasPrefix(qp, "page-size=") && !strings.HasPrefix(qp, "pagesize=") {
+							pageQuery = append(pageQuery, qp)
+						}
+					}
+					pageQuery = append(pageQuery, fmt.Sprintf("page=%d", pageNum))
+					pageQuery = append(pageQuery, fmt.Sprintf("page-size=%d", pageSize))
+					pagePath = pagePath + "?" + strings.Join(pageQuery, "&")
+
+					resp, err := ctx.Client.Do(reqCtx, "GET", pagePath, nil)
+					if err != nil {
+						return err
+					}
+
+					body, err := io.ReadAll(resp.Body)
+					resp.Body.Close()
+					if err != nil {
+						return err
+					}
+
+					// Parse pagination response: {"totalCount": N, "results": [...]}
+					var pageResp struct {
+						TotalCount int               `json:"totalCount"`
+						Results    []json.RawMessage `json:"results"`
+					}
+					if err := json.Unmarshal(body, &pageResp); err != nil {
+						// Not a paginated response; output as-is
+						return ctx.Output.PrintRaw(body)
+					}
+
+					allResults = append(allResults, pageResp.Results...)
+
+					// Check limit
+					if flagLimit > 0 && len(allResults) >= flagLimit {
+						allResults = allResults[:flagLimit]
+						break
+					}
+
+					// Check if we've fetched everything
+					if len(pageResp.Results) < pageSize || len(allResults) >= pageResp.TotalCount {
+						break
+					}
+
+					pageNum++
+				}
+
+				// Output combined results as JSON array
+				combined, err := json.MarshalIndent(allResults, "", "  ")
+				if err != nil {
+					return err
+				}
+				return ctx.Output.PrintRaw(combined)
+			}
+
 			// Make request
 			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
 			if err != nil {
@@ -847,6 +915,8 @@ func newPatchSoftwareTitleConfigurationsDefinitionsCmd(ctx *registry.CLIContext)
 	cmd.Flags().IntVar(&flagPageSize, "page-size", 100, "")
 	cmd.Flags().StringSliceVar(&flagSort, "sort", nil, "Sorting criteria in the format: property:asc/desc. Default sort is absoluteOrderId:asc. Multiple sort criteria are supported and must be separated with a comma.")
 	cmd.Flags().StringVar(&flagFilter, "filter", "", "Query in the RSQL format, allowing to filter Patch Software Title Definition collection. Default filter is empty query - returning all results for the requested page. Fields allowed in the query: id, version, minimumOperatingSystem, releaseDate, reboot, standalone and absoluteOrderId. This param can be combined with paging and sorting.")
+	cmd.Flags().BoolVar(&flagAll, "all", true, "Fetch all pages (set --all=false for single page)")
+	cmd.Flags().IntVar(&flagLimit, "limit", 0, "Maximum total results to return (0 = unlimited)")
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up patch-software-title-configuration by name")
 
 	return cmd
@@ -1174,6 +1244,8 @@ func newPatchSoftwareTitleConfigurationsPatchReportCmd(ctx *registry.CLIContext)
 		flagPageSize int
 		flagSort     []string
 		flagFilter   string
+		flagAll      bool
+		flagLimit    int
 		flagName     string
 	)
 
@@ -1223,6 +1295,72 @@ func newPatchSoftwareTitleConfigurationsPatchReportCmd(ctx *registry.CLIContext)
 				path = path + "?" + strings.Join(queryParts, "&")
 			}
 
+			// Auto-pagination: fetch all pages when --all is set and --page was not manually specified
+			if flagAll && flagPage == 0 {
+				var allResults []json.RawMessage
+				pageNum := 0
+				pageSize := 100
+
+				for {
+					// Build page-specific query
+					pagePath := "/v2/patch-software-title-configurations/{id}/patch-report"
+					pagePath = strings.Replace(pagePath, "{id}", url.PathEscape(resolvedID), 1)
+					var pageQuery []string
+					// Carry forward non-pagination query params
+					for _, qp := range queryParts {
+						if !strings.HasPrefix(qp, "page=") && !strings.HasPrefix(qp, "page-size=") && !strings.HasPrefix(qp, "pagesize=") {
+							pageQuery = append(pageQuery, qp)
+						}
+					}
+					pageQuery = append(pageQuery, fmt.Sprintf("page=%d", pageNum))
+					pageQuery = append(pageQuery, fmt.Sprintf("page-size=%d", pageSize))
+					pagePath = pagePath + "?" + strings.Join(pageQuery, "&")
+
+					resp, err := ctx.Client.Do(reqCtx, "GET", pagePath, nil)
+					if err != nil {
+						return err
+					}
+
+					body, err := io.ReadAll(resp.Body)
+					resp.Body.Close()
+					if err != nil {
+						return err
+					}
+
+					// Parse pagination response: {"totalCount": N, "results": [...]}
+					var pageResp struct {
+						TotalCount int               `json:"totalCount"`
+						Results    []json.RawMessage `json:"results"`
+					}
+					if err := json.Unmarshal(body, &pageResp); err != nil {
+						// Not a paginated response; output as-is
+						return ctx.Output.PrintRaw(body)
+					}
+
+					allResults = append(allResults, pageResp.Results...)
+
+					// Check limit
+					if flagLimit > 0 && len(allResults) >= flagLimit {
+						allResults = allResults[:flagLimit]
+						break
+					}
+
+					// Check if we've fetched everything
+					if len(pageResp.Results) < pageSize || len(allResults) >= pageResp.TotalCount {
+						break
+					}
+
+					pageNum++
+				}
+
+				// Output combined results as JSON array
+				combined, err := json.MarshalIndent(allResults, "", "  ")
+				if err != nil {
+					return err
+				}
+				return ctx.Output.PrintRaw(combined)
+			}
+
 			// Make request
 			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
 			if err != nil {
@@ -1238,6 +1376,8 @@ func newPatchSoftwareTitleConfigurationsPatchReportCmd(ctx *registry.CLIContext)
 	cmd.Flags().IntVar(&flagPageSize, "page-size", 100, "")
 	cmd.Flags().StringSliceVar(&flagSort, "sort", nil, "Sorting criteria in the format: property:asc/desc. Default sort is computerName:asc. Multiple sort criteria are supported and must be separated with a comma. Supported fields: computerName, deviceId, username, operatingSystemVersion, lastContactTime, buildingName, departmentName, siteName, version")
 	cmd.Flags().StringVar(&flagFilter, "filter", "", "Query in the RSQL format, allowing to filter Patch Report collection on version equality only. Default filter is empty query - returning all results for the requested page. Fields allowed in the query: version. Comparators allowed in the query: ==, != This param can be combined with paging and sorting.")
+	cmd.Flags().BoolVar(&flagAll, "all", true, "Fetch all pages (set --all=false for single page)")
+	cmd.Flags().IntVar(&flagLimit, "limit", 0, "Maximum total results to return (0 = unlimited)")
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up patch-software-title-configuration by name")
 
 	return cmd

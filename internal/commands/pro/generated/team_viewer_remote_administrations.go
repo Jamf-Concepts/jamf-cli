@@ -4,6 +4,7 @@ package generated
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -387,6 +388,8 @@ func newTeamViewerRemoteAdministrationsSessionsCmd(ctx *registry.CLIContext) *co
 		flagPage     int
 		flagPageSize int
 		flagFilter   string
+		flagAll      bool
+		flagLimit    int
 		flagName     string
 	)
 
@@ -431,6 +434,72 @@ func newTeamViewerRemoteAdministrationsSessionsCmd(ctx *registry.CLIContext) *co
 				path = path + "?" + strings.Join(queryParts, "&")
 			}
 
+			// Auto-pagination: fetch all pages when --all is set and --page was not manually specified
+			if flagAll && flagPage == 0 {
+				var allResults []json.RawMessage
+				pageNum := 0
+				pageSize := 100
+
+				for {
+					// Build page-specific query
+					pagePath := "/preview/remote-administration-configurations/team-viewer/{configurationId}/sessions"
+					pagePath = strings.Replace(pagePath, "{configurationId}", url.PathEscape(resolvedID), 1)
+					var pageQuery []string
+					// Carry forward non-pagination query params
+					for _, qp := range queryParts {
+						if !strings.HasPrefix(qp, "page=") && !strings.HasPrefix(qp, "page-size=") && !strings.HasPrefix(qp, "pagesize=") {
+							pageQuery = append(pageQuery, qp)
+						}
+					}
+					pageQuery = append(pageQuery, fmt.Sprintf("page=%d", pageNum))
+					pageQuery = append(pageQuery, fmt.Sprintf("page-size=%d", pageSize))
+					pagePath = pagePath + "?" + strings.Join(pageQuery, "&")
+
+					resp, err := ctx.Client.Do(reqCtx, "GET", pagePath, nil)
+					if err != nil {
+						return err
+					}
+
+					body, err := io.ReadAll(resp.Body)
+					resp.Body.Close()
+					if err != nil {
+						return err
+					}
+
+					// Parse pagination response: {"totalCount": N, "results": [...]}
+					var pageResp struct {
+						TotalCount int               `json:"totalCount"`
+						Results    []json.RawMessage `json:"results"`
+					}
+					if err := json.Unmarshal(body, &pageResp); err != nil {
+						// Not a paginated response; output as-is
+						return ctx.Output.PrintRaw(body)
+					}
+
+					allResults = append(allResults, pageResp.Results...)
+
+					// Check limit
+					if flagLimit > 0 && len(allResults) >= flagLimit {
+						allResults = allResults[:flagLimit]
+						break
+					}
+
+					// Check if we've fetched everything
+					if len(pageResp.Results) < pageSize || len(allResults) >= pageResp.TotalCount {
+						break
+					}
+
+					pageNum++
+				}
+
+				// Output combined results as JSON array
+				combined, err := json.MarshalIndent(allResults, "", "  ")
+				if err != nil {
+					return err
+				}
+				return ctx.Output.PrintRaw(combined)
+			}
+
 			// Make request
 			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
 			if err != nil {
@@ -445,6 +514,8 @@ func newTeamViewerRemoteAdministrationsSessionsCmd(ctx *registry.CLIContext) *co
 	cmd.Flags().IntVar(&flagPage, "page", 0, "")
 	cmd.Flags().IntVar(&flagPageSize, "page-size", 100, "")
 	cmd.Flags().StringVar(&flagFilter, "filter", "", "Query in the RSQL format, allowing to filter sessions collection. Default filter is empty query - returning all results for the requested page.  Fields allowed in the query: 'deviceId', 'deviceType', 'state'  This param can be combined with paging. ")
+	cmd.Flags().BoolVar(&flagAll, "all", true, "Fetch all pages (set --all=false for single page)")
+	cmd.Flags().IntVar(&flagLimit, "limit", 0, "Maximum total results to return (0 = unlimited)")
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up team-viewer-remote-administration by name")
 
 	return cmd

@@ -115,13 +115,13 @@ func newClassicMobileDevicesGetCmd(ctx *registry.CLIContext) *cobra.Command {
 			// Resolve lookup: check flags first, then positional ID
 			var path string
 			if flagName != "" {
-				path = fmt.Sprintf("/JSSResource/mobiledevices/name/%s", url.PathEscape(flagName))
+				path = fmt.Sprintf("/JSSResource/mobiledevices/name/%s", registry.EscapeClassicPathSegment(flagName))
 			} else if flagSerialnumber != "" {
-				path = fmt.Sprintf("/JSSResource/mobiledevices/serialnumber/%s", url.PathEscape(flagSerialnumber))
+				path = fmt.Sprintf("/JSSResource/mobiledevices/serialnumber/%s", registry.EscapeClassicPathSegment(flagSerialnumber))
 			} else if flagMacaddress != "" {
-				path = fmt.Sprintf("/JSSResource/mobiledevices/macaddress/%s", url.PathEscape(flagMacaddress))
+				path = fmt.Sprintf("/JSSResource/mobiledevices/macaddress/%s", registry.EscapeClassicPathSegment(flagMacaddress))
 			} else if flagUdid != "" {
-				path = fmt.Sprintf("/JSSResource/mobiledevices/udid/%s", url.PathEscape(flagUdid))
+				path = fmt.Sprintf("/JSSResource/mobiledevices/udid/%s", registry.EscapeClassicPathSegment(flagUdid))
 			} else if len(args) > 0 {
 				path = fmt.Sprintf("/JSSResource/mobiledevices/id/%s", url.PathEscape(args[0]))
 			} else {
@@ -221,7 +221,7 @@ func newClassicMobileDevicesUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 
 			var path string
 			if flagName != "" {
-				path = fmt.Sprintf("/JSSResource/mobiledevices/name/%s", url.PathEscape(flagName))
+				path = fmt.Sprintf("/JSSResource/mobiledevices/name/%s", registry.EscapeClassicPathSegment(flagName))
 			} else if len(args) > 0 {
 				path = fmt.Sprintf("/JSSResource/mobiledevices/id/%s", url.PathEscape(args[0]))
 			} else {

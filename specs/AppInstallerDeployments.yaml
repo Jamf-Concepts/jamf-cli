@@ -9,7 +9,27 @@ paths:
       tags:
       - app-installer-deployments
       summary: Get all App Installer deployments
-      description: Retrieves all App Installer deployment configurations (enabled or not)
+      description: Retrieves all App Installer deployment configurations (enabled or not). Results are paginated; the response carries the unfiltered totalCount so callers can page through the full set.
+      parameters:
+      - name: page
+        in: query
+        description: Zero-based page index. Defaults to 0 when omitted.
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 0
+          minimum: 0
+      - name: page-size
+        in: query
+        description: Number of results per page. Defaults to 100 when omitted.
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 100
+          minimum: 1
+          maximum: 1000
       responses:
         200:
           description: Successful response
@@ -32,7 +52,7 @@ paths:
               $ref: '#/components/schemas/AppInstallerDeploymentCreate'
         required: true
       responses:
-        200:
+        201:
           description: Deployment created
           content:
             'application/json':
@@ -199,11 +219,6 @@ components:
           type: string
         enabled:
           type: boolean
-        selectedVersion:
-          type: string
-        latestVersion:
-          type: string
-          readOnly: true
         deploymentType:
           type: string
           enum:
@@ -214,6 +229,8 @@ components:
           enum:
           - AUTOMATIC
           - MANUAL
+        app:
+          $ref: '#/components/schemas/AppInstallerApp'
         site:
           $ref: '#/components/schemas/IdName'
         smartGroup:
@@ -222,7 +239,36 @@ components:
           $ref: '#/components/schemas/IdName'
         computerStatuses:
           $ref: '#/components/schemas/ComputerStatuses'
+    AppInstallerApp:
+      type: object
+      description: Resolved app-catalog reference as returned in the list response. All fields are read-only server-assigned values.
+      properties:
+        id:
+          type: string
+          description: App Installer title ID
+          readOnly: true
         bundleId:
+          type: string
+          readOnly: true
+        iconUrl:
+          type: string
+          readOnly: true
+        latestVersion:
+          type: string
+          readOnly: true
+        selectedVersion:
+          type: string
+          readOnly: true
+        deployedVersion:
+          type: string
+          readOnly: true
+        versionRemoved:
+          type: boolean
+          readOnly: true
+        titleAvailableInAis:
+          type: boolean
+          readOnly: true
+        mediaSourceType:
           type: string
           readOnly: true
     AppInstallerDeployment:
@@ -277,6 +323,7 @@ components:
       - name
       - appTitleId
       - deploymentType
+      - updateBehavior
       properties:
         name:
           type: string
@@ -298,6 +345,7 @@ components:
           - SELF_SERVICE
         updateBehavior:
           type: string
+          description: Required on create. Must be a valid enum value; the server rejects a missing, empty, or unrecognised value with 400 INVALID_FIELD.
           enum:
           - AUTOMATIC
           - MANUAL
@@ -306,6 +354,8 @@ components:
         selfServiceSettings:
           $ref: '#/components/schemas/SelfServiceSettings'
         installPredefinedConfigProfiles:
+          type: boolean
+        triggerAdminNotifications:
           type: boolean
     NotificationSettings:
       type: object
