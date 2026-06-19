@@ -633,6 +633,7 @@ spinner and progress output (narrower than --quiet).`,
 				"setup":      true,
 				"multi":      true,
 				"doctor":     true,
+				"mcp":        true,
 			}
 			for c := cmd; c != nil; c = c.Parent() {
 				if chainSkip[c.Name()] {
@@ -792,6 +793,9 @@ spinner and progress output (narrower than --quiet).`,
 
 	// Multi-profile command runner
 	cmd.AddCommand(newMultiCmd())
+
+	// MCP server (exposes the command tree to AI clients over stdio)
+	cmd.AddCommand(newMCPCmd())
 
 	// Jamf Pro product namespace
 	cmd.AddCommand(newProCmd(cliCtx))
