@@ -22,6 +22,7 @@ var rootGroupMap = map[string]string{
 	"commands":   "core",
 	"multi":      "core",
 	"doctor":     "core",
+	"mcp":        "core",
 	"pro":        "products",
 	"protect":    "products",
 	"school":     "products",
