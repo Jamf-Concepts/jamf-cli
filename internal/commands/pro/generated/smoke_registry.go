@@ -102,6 +102,8 @@ func AllSmokeEndpoints() []SmokeEndpoint {
 		{Resource: "classic-ibeacons", Operation: "list", Method: "GET", Path: "/JSSResource/ibeacons", IsList: true, HasPathParams: false, IsClassic: true, WrapperKey: "ibeacons", SingularKey: ""},
 		{Resource: "classic-jwt-configs", Operation: "get", Method: "GET", Path: "/JSSResource/jsonwebtokenconfigurations/id/{id}", IsList: false, HasPathParams: true, IsClassic: true, WrapperKey: "", SingularKey: "json_web_token_configuration"},
 		{Resource: "classic-jwt-configs", Operation: "list", Method: "GET", Path: "/JSSResource/jsonwebtokenconfigurations", IsList: true, HasPathParams: false, IsClassic: true, WrapperKey: "jsonwebtokenconfigurations", SingularKey: ""},
+		{Resource: "classic-ldap-servers", Operation: "get", Method: "GET", Path: "/JSSResource/ldapservers/id/{id}", IsList: false, HasPathParams: true, IsClassic: true, WrapperKey: "", SingularKey: "ldap_server"},
+		{Resource: "classic-ldap-servers", Operation: "list", Method: "GET", Path: "/JSSResource/ldapservers", IsList: true, HasPathParams: false, IsClassic: true, WrapperKey: "ldapservers", SingularKey: ""},
 		{Resource: "classic-ldaps", Operation: "get", Method: "GET", Path: "/v1/classic-ldap/{id}", IsList: false, HasPathParams: true, IsClassic: false, WrapperKey: "", SingularKey: ""},
 		{Resource: "classic-licensed-software", Operation: "get", Method: "GET", Path: "/JSSResource/licensedsoftware/id/{id}", IsList: false, HasPathParams: true, IsClassic: true, WrapperKey: "", SingularKey: "licensed_software"},
 		{Resource: "classic-licensed-software", Operation: "list", Method: "GET", Path: "/JSSResource/licensedsoftware", IsList: true, HasPathParams: false, IsClassic: true, WrapperKey: "licensedsoftware", SingularKey: ""},

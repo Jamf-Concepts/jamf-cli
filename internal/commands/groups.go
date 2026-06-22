@@ -313,6 +313,7 @@ var proGroupMap = map[string]string{
 	"cloud-ldap-key-stores":     groupIdentityEndUser,
 	"cloud-ldap-mappings":       groupIdentityEndUser,
 	"classic-ldaps":             groupIdentityEndUser,
+	"classic-ldap-servers":      groupIdentityEndUser,
 	"ldap-rs":                   groupIdentityEndUser,
 	"cloud-azures":              groupIdentityEndUser,
 	"cloud-azure-defaults":      groupIdentityEndUser,
