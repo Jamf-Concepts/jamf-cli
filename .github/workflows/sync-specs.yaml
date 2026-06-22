@@ -30,10 +30,10 @@ jobs:
       DRY_RUN: ${{ inputs.dry_run }}
     steps:
       - name: Checkout jamf-cli
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Checkout jss
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           repository: jamf/jss
           ref: ${{ inputs.server_repo_ref }}
