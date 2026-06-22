@@ -186,6 +186,12 @@ resources:
     cli_name: classic-directory-bindings
     singular: directory_binding
 
+  - name: ldapservers
+    path: ldapservers
+    description: On-prem LDAP servers
+    cli_name: classic-ldap-servers
+    singular: ldap_server
+
   - name: diskencryptionconfigurations
     path: diskencryptionconfigurations
     description: Disk encryption configurations

@@ -48,6 +48,7 @@ func RegisterClassicCommands(root *cobra.Command, ctx *registry.CLIContext) {
 	root.AddCommand(NewClassicGsxConnectionCmd(ctx))
 	root.AddCommand(NewClassicIbeaconsCmd(ctx))
 	root.AddCommand(NewClassicJwtConfigsCmd(ctx))
+	root.AddCommand(NewClassicLdapServersCmd(ctx))
 	root.AddCommand(NewClassicLicensedSoftwareCmd(ctx))
 	root.AddCommand(NewClassicMacAppsCmd(ctx))
 	root.AddCommand(NewClassicMacosConfigProfilesCmd(ctx))
