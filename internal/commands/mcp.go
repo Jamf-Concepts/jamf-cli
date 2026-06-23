@@ -88,12 +88,11 @@ Configure it in an MCP client (example for Claude Desktop's config):
 				Description: "Execute a jamf-cli command. Pass the command and its flags as an " +
 					"args array, e.g. [\"pro\",\"computers\",\"list\"] or " +
 					"[\"pro\",\"policies\",\"get\",\"--name\",\"My Policy\"]. Output defaults to " +
-					"JSON. Do not include credentials. Destructive commands (delete, etc.) " +
+					"JSON. Do not include credentials. The server is pinned to the profile it " +
+					"was started with: --profile/-p, --url, --token-file, --tenant-id, and " +
+					"--out-file are rejected. Destructive commands (delete, etc.) " +
 					"require an explicit --yes in args or they will refuse to run.",
 			}, func(ctx context.Context, _ *mcp.CallToolRequest, in runCommandInput) (*mcp.CallToolResult, any, error) {
-				if len(in.Args) == 0 {
-					return errorResult("args must not be empty; provide a command such as [\"pro\",\"computers\",\"list\"]"), nil, nil
-				}
 				return runChild(ctx, executable, serverProfile, in.Args), nil, nil
 			})
 
@@ -120,14 +119,10 @@ type runCommandInput struct {
 // result. A non-zero exit is reported as an error result (IsError) with the
 // captured output, not a transport-level failure.
 func runChild(ctx context.Context, executable, serverProfile string, args []string) *mcp.CallToolResult {
-	childArgs := make([]string, 0, len(args)+3)
-	if serverProfile != "" && !hasProfileFlag(args) {
-		childArgs = append(childArgs, "--profile", serverProfile)
+	childArgs, err := buildChildArgs(serverProfile, args)
+	if err != nil {
+		return errorResult(err.Error())
 	}
-	if !hasFlag(args, "--no-input") {
-		childArgs = append(childArgs, "--no-input")
-	}
-	childArgs = append(childArgs, args...)
 
 	child := exec.CommandContext(ctx, executable, childArgs...)
 	child.Env = append(os.Environ(), "JAMF_CLI_MCP=1")
@@ -157,20 +152,60 @@ func errorResult(text string) *mcp.CallToolResult {
 	}
 }
 
-func hasProfileFlag(args []string) bool {
-	for _, a := range args {
-		if a == "-p" || a == "--profile" || strings.HasPrefix(a, "--profile=") {
+// blockedChildFlags are flags a connecting model must not be able to set. The
+// first four would point the child at a different instance or swap the
+// credentials the server was launched with; --out-file would let the model
+// write command output to an arbitrary host path. The operator pins the target,
+// identity, and output destination once via `mcp serve`; the model only chooses
+// which command to run.
+var blockedChildFlags = []string{"--profile", "--url", "--token-file", "--tenant-id", "--out-file"}
+
+func isBlockedChildFlag(arg string) bool {
+	// Short-flag form (single dash, not "--"): pflag accepts the --profile
+	// shorthand -p attached (-pProd) or clustered after value-less bool
+	// shorthands (-np Prod), so any short token carrying 'p' can set the
+	// profile. Reject them all — 'p' is the only sensitive shorthand and no
+	// other global shorthand uses it. A rare false positive (e.g. -oplain)
+	// fails closed; the model can fall back to "-o plain".
+	if len(arg) >= 2 && arg[0] == '-' && arg[1] != '-' && strings.ContainsRune(arg, 'p') {
+		return true
+	}
+	for _, f := range blockedChildFlags {
+		if arg == f || strings.HasPrefix(arg, f+"=") {
 			return true
 		}
 	}
 	return false
 }
 
-func hasFlag(args []string, flag string) bool {
+// buildChildArgs validates a model-supplied command and returns the full
+// argument list for the child invocation. It rejects empty input and any
+// instance-, credential-, or output-redirecting flag (see blockedChildFlags),
+// drops any model-supplied --no-input, then injects the server's pinned profile
+// and an enforced --no-input the model cannot disable.
+func buildChildArgs(serverProfile string, args []string) ([]string, error) {
+	if len(args) == 0 {
+		return nil, errors.New("args must not be empty; provide a command such as [\"pro\",\"computers\",\"list\"]")
+	}
 	for _, a := range args {
-		if a == flag || strings.HasPrefix(a, flag+"=") {
-			return true
+		if isBlockedChildFlag(a) {
+			return nil, fmt.Errorf("flag %q is not allowed: the MCP server is pinned to the configuration it was started with; the target instance, credentials, and output destination cannot be overridden per command", a)
 		}
 	}
-	return false
+
+	childArgs := make([]string, 0, len(args)+3)
+	if serverProfile != "" {
+		childArgs = append(childArgs, "--profile", serverProfile)
+	}
+	// Enforce --no-input: inject our own and drop any the model supplied, so it
+	// cannot re-enable prompting (e.g. --no-input=false) in a child that has no
+	// terminal to prompt on.
+	childArgs = append(childArgs, "--no-input")
+	for _, a := range args {
+		if a == "--no-input" || strings.HasPrefix(a, "--no-input=") {
+			continue
+		}
+		childArgs = append(childArgs, a)
+	}
+	return childArgs, nil
 }
