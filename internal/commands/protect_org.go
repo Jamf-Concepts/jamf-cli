@@ -4,6 +4,7 @@ package commands
 
 import (
 	"context"
+	encasn1 "encoding/asn1"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -13,6 +14,8 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
+	"golang.org/x/crypto/cryptobyte"
+	cbasn1 "golang.org/x/crypto/cryptobyte/asn1"
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/protect"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
@@ -146,6 +149,7 @@ func newProtectDownloadsCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(newProtectDownloadsUninstallerCmd(cliCtx))
 	cmd.AddCommand(newProtectDownloadsPPPCCmd(cliCtx))
 	cmd.AddCommand(newProtectDownloadsTamperPreventionCmd(cliCtx))
+	cmd.AddCommand(newProtectDownloadsNetworkContentFilterCmd(cliCtx))
 	cmd.AddCommand(newProtectDownloadsRootCACmd(cliCtx))
 	cmd.AddCommand(newProtectDownloadsCSRCmd(cliCtx))
 	cmd.AddCommand(newProtectDownloadsWebsocketAuthCmd(cliCtx))
@@ -171,14 +175,15 @@ func newProtectDownloadsSummaryCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			}
 
 			summary := map[string]any{
-				"installerVersion":           version,
-				"installerURL":               buildProtectPackageURL(baseURL, "installer.pkg", downloads.InstallerUUID),
-				"uninstallerURL":             buildProtectPackageURL(baseURL, "uninstaller.pkg", downloads.InstallerUUID),
-				"hasPPPC":                    downloads.PPPC != "",
-				"hasRootCA":                  downloads.RootCA != "",
-				"hasCSR":                     downloads.CSR != "",
-				"hasWebsocketAuth":           downloads.WebsocketAuth != "",
-				"hasTamperPreventionProfile": downloads.TamperPreventionProfile != "",
+				"installerVersion":               version,
+				"installerURL":                   buildProtectPackageURL(baseURL, "installer.pkg", downloads.InstallerUUID),
+				"uninstallerURL":                 buildProtectPackageURL(baseURL, "uninstaller.pkg", downloads.InstallerUUID),
+				"hasPPPC":                        downloads.PPPC != "",
+				"hasRootCA":                      downloads.RootCA != "",
+				"hasCSR":                         downloads.CSR != "",
+				"hasWebsocketAuth":               downloads.WebsocketAuth != "",
+				"hasTamperPreventionProfile":     downloads.TamperPreventionProfile != "",
+				"hasNetworkContentFilterProfile": downloads.NetworkContentFilterProfile != "",
 			}
 			data, err := json.Marshal(summary)
 			if err != nil {
@@ -253,6 +258,7 @@ func newProtectDownloadsUninstallerCmd(cliCtx *registry.CLIContext) *cobra.Comma
 
 func newProtectDownloadsPPPCCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	var outPath string
+	var unsigned bool
 
 	cmd := &cobra.Command{
 		Use:   "pppc-profile",
@@ -268,16 +274,18 @@ func newProtectDownloadsPPPCCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if outPath == "" {
 				outPath = "JamfProtect-PPPC.mobileconfig"
 			}
-			return writeBase64File(downloads.PPPC, outPath, 0o644)
+			return writeProfileFile(downloads.PPPC, outPath, 0o644, unsigned)
 		},
 	}
 
 	cmd.Flags().StringVarP(&outPath, "output", "O", "", "Output file path (default: JamfProtect-PPPC.mobileconfig)")
+	cmd.Flags().BoolVar(&unsigned, "unsigned", false, "Strip the CMS signature, writing the raw payload (for re-uploading to Jamf Pro)")
 	return cmd
 }
 
 func newProtectDownloadsTamperPreventionCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	var outPath string
+	var unsigned bool
 
 	cmd := &cobra.Command{
 		Use:   "tamper-prevention-profile",
@@ -293,11 +301,39 @@ func newProtectDownloadsTamperPreventionCmd(cliCtx *registry.CLIContext) *cobra.
 			if outPath == "" {
 				outPath = "JamfProtect-TamperPrevention.mobileconfig"
 			}
-			return writeBase64File(downloads.TamperPreventionProfile, outPath, 0o644)
+			return writeProfileFile(downloads.TamperPreventionProfile, outPath, 0o644, unsigned)
 		},
 	}
 
 	cmd.Flags().StringVarP(&outPath, "output", "O", "", "Output file path (default: JamfProtect-TamperPrevention.mobileconfig)")
+	cmd.Flags().BoolVar(&unsigned, "unsigned", false, "Strip the CMS signature, writing the raw payload (for re-uploading to Jamf Pro)")
+	return cmd
+}
+
+func newProtectDownloadsNetworkContentFilterCmd(cliCtx *registry.CLIContext) *cobra.Command {
+	var outPath string
+	var unsigned bool
+
+	cmd := &cobra.Command{
+		Use:   "network-content-filter-profile",
+		Short: "Download the network content filter configuration profile",
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			downloads, err := cliCtx.ProtectClient.GetOrganizationDownloads(cmd.Context())
+			if err != nil {
+				return err
+			}
+			if downloads.NetworkContentFilterProfile == "" {
+				return fmt.Errorf("network content filter profile not available")
+			}
+			if outPath == "" {
+				outPath = "JamfProtect-NetworkContentFilter.mobileconfig"
+			}
+			return writeProfileFile(downloads.NetworkContentFilterProfile, outPath, 0o644, unsigned)
+		},
+	}
+
+	cmd.Flags().StringVarP(&outPath, "output", "O", "", "Output file path (default: JamfProtect-NetworkContentFilter.mobileconfig)")
+	cmd.Flags().BoolVar(&unsigned, "unsigned", false, "Strip the CMS signature, writing the raw payload (for re-uploading to Jamf Pro)")
 	return cmd
 }
 
@@ -401,6 +437,99 @@ func writeBase64File(b64 string, path string, perm os.FileMode) error {
 	}
 	fmt.Fprintf(os.Stderr, "Saved to %s (%d bytes)\n", path, len(data))
 	return nil
+}
+
+// writeProfileFile writes a base64-encoded configuration profile to disk. When
+// unsigned is true, the PKCS7 (CMS) signature envelope is stripped and only the
+// raw mobileconfig payload is written — required for re-uploading the profile to
+// Jamf Pro, which signs profiles itself on delivery and rejects pre-signed input.
+func writeProfileFile(b64 string, path string, perm os.FileMode, unsigned bool) error {
+	if !unsigned {
+		return writeBase64File(b64, path, perm)
+	}
+
+	data, err := base64.StdEncoding.DecodeString(b64)
+	if err != nil {
+		return fmt.Errorf("decoding base64 data: %w", err)
+	}
+	payload, err := extractPKCS7Content(data)
+	if err != nil {
+		return fmt.Errorf("stripping signature: %w", err)
+	}
+	if err := os.WriteFile(path, payload, perm); err != nil {
+		return fmt.Errorf("writing file: %w", err)
+	}
+	fmt.Fprintf(os.Stderr, "Saved to %s (%d bytes, signature stripped)\n", path, len(payload))
+	return nil
+}
+
+// pkcs7SignedDataOID is the ASN.1 OID for the PKCS7 signedData content type.
+var pkcs7SignedDataOID = encasn1.ObjectIdentifier{1, 2, 840, 113549, 1, 7, 2}
+
+// extractPKCS7Content unwraps a PKCS7 (CMS) SignedData envelope and returns the
+// encapsulated content — the raw mobileconfig payload. It does NOT verify the
+// signature; it only strips it so the profile can be re-uploaded to Jamf Pro,
+// which signs profiles itself on delivery and rejects pre-signed input.
+//
+// Structure walked (RFC 5652):
+//
+//	ContentInfo ::= SEQUENCE { contentType OID, content [0] EXPLICIT SignedData }
+//	SignedData  ::= SEQUENCE { version INTEGER, digestAlgorithms SET,
+//	                           encapContentInfo SEQUENCE { eContentType OID,
+//	                                                       eContent [0] EXPLICIT OCTET STRING } ... }
+func extractPKCS7Content(der []byte) ([]byte, error) {
+	input := cryptobyte.String(der)
+
+	var contentInfo cryptobyte.String
+	if !input.ReadASN1(&contentInfo, cbasn1.SEQUENCE) {
+		return nil, fmt.Errorf("malformed ContentInfo (is the profile actually signed?)")
+	}
+
+	var contentType encasn1.ObjectIdentifier
+	if !contentInfo.ReadASN1ObjectIdentifier(&contentType) {
+		return nil, fmt.Errorf("malformed contentType")
+	}
+	if !contentType.Equal(pkcs7SignedDataOID) {
+		return nil, fmt.Errorf("not a PKCS7 signedData envelope (contentType %v)", contentType)
+	}
+
+	explicitTag := cbasn1.Tag(0).Constructed().ContextSpecific()
+	var signedDataWrapper cryptobyte.String
+	if !contentInfo.ReadASN1(&signedDataWrapper, explicitTag) {
+		return nil, fmt.Errorf("malformed SignedData wrapper")
+	}
+
+	var signedData cryptobyte.String
+	if !signedDataWrapper.ReadASN1(&signedData, cbasn1.SEQUENCE) {
+		return nil, fmt.Errorf("malformed SignedData")
+	}
+	if !signedData.SkipASN1(cbasn1.INTEGER) {
+		return nil, fmt.Errorf("malformed SignedData version")
+	}
+	if !signedData.SkipASN1(cbasn1.SET) {
+		return nil, fmt.Errorf("malformed digestAlgorithms")
+	}
+
+	var encapContentInfo cryptobyte.String
+	if !signedData.ReadASN1(&encapContentInfo, cbasn1.SEQUENCE) {
+		return nil, fmt.Errorf("malformed encapContentInfo")
+	}
+	if !encapContentInfo.SkipASN1(cbasn1.OBJECT_IDENTIFIER) {
+		return nil, fmt.Errorf("malformed eContentType")
+	}
+
+	var eContentWrapper cryptobyte.String
+	if !encapContentInfo.ReadASN1(&eContentWrapper, explicitTag) {
+		return nil, fmt.Errorf("signed profile has no embedded payload")
+	}
+	var payload cryptobyte.String
+	if !eContentWrapper.ReadASN1(&payload, cbasn1.OCTET_STRING) {
+		return nil, fmt.Errorf("malformed eContent payload")
+	}
+	if len(payload) == 0 {
+		return nil, fmt.Errorf("signed profile contained an empty payload")
+	}
+	return []byte(payload), nil
 }
 
 // downloadProtectFile downloads a file from a URL using the Protect client's auth token.
