@@ -283,6 +283,13 @@ func loadSnapshotFromProfile(ctx context.Context, profileName string, nameFilter
 				fmt.Fprintf(os.Stderr, "WARNING: fetching %s id=%s from %q: %v\n", def.Key, item.ID, profileName, err)
 				continue
 			}
+			if def.ScopePath != "" {
+				if serials, serr := fetchPrestageScope(ctx, httpCli, def.ScopePath, item.ID); serr == nil {
+					data["scope"] = serials
+				} else {
+					fmt.Fprintf(os.Stderr, "WARNING: fetching scope for %s id=%s from %q: %v\n", def.Key, item.ID, profileName, serr)
+				}
+			}
 			data = unwrapClassicDetail(data)
 			data = StripServerFields(data)
 

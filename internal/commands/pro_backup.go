@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -223,6 +224,13 @@ func runBackup(ctx context.Context, cliCtx *registry.CLIContext, opts backupOpti
 				if err != nil {
 					return itemResult{}, fmt.Errorf("%s id=%s: %w", def.Key, item.ID, err)
 				}
+				if def.ScopePath != "" {
+					serials, serr := fetchPrestageScope(ctx, client, def.ScopePath, item.ID)
+					if serr != nil {
+						return itemResult{}, fmt.Errorf("%s id=%s scope: %w", def.Key, item.ID, serr)
+					}
+					data["scope"] = serials
+				}
 				return itemResult{Name: item.Name, Data: data}, nil
 			})
 			for _, e := range errs {
@@ -408,6 +416,34 @@ func listResourceItemsAndMaps(ctx context.Context, client registry.HTTPClient, d
 func listResourceItems(ctx context.Context, client registry.HTTPClient, def ResolvedBackupResource) ([]resourceItem, error) {
 	items, _, err := listResourceItemsAndMaps(ctx, client, &def)
 	return items, err
+}
+
+// fetchPrestageScope fetches the device scope for a single prestage and returns
+// its assigned serial numbers, sorted for stable diffs. Server-generated
+// assignment metadata (assignmentDate, userAssigned) and the optimistic-lock
+// versionLock are dropped — only the serial set is meaningful config. A
+// prestage with no devices yields an empty (non-nil) slice so the "scope" key
+// is always present and renders as `[]` rather than `null`.
+func fetchPrestageScope(ctx context.Context, client registry.HTTPClient, scopePath, id string) ([]string, error) {
+	path := strings.Replace(scopePath, "{id}", id, 1)
+	data, err := fetchJSON(ctx, client, path)
+	if err != nil {
+		return nil, err
+	}
+	serials := []string{}
+	if assignments, ok := data["assignments"].([]any); ok {
+		for _, a := range assignments {
+			m, ok := a.(map[string]any)
+			if !ok {
+				continue
+			}
+			if s, ok := m["serialNumber"].(string); ok && s != "" {
+				serials = append(serials, s)
+			}
+		}
+	}
+	sort.Strings(serials)
+	return serials, nil
 }
 
 // extractID gets the "id" field from a map, handling both string and float64.

@@ -4,6 +4,7 @@ package commands
 
 import (
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/commands/pro/generated"
@@ -125,6 +126,26 @@ func TestResolveBackupResources_AccountsSplit(t *testing.T) {
 	for _, r := range got {
 		if r.ListSubset == "" {
 			t.Errorf("accounts entry %q missing ListSubset", r.Key)
+		}
+	}
+}
+
+func TestResolveBackupResources_PrestagesWithScope(t *testing.T) {
+	// The prestages filter must resolve to both computer + mobile prestages,
+	// each carrying a per-ID scope endpoint so device assignments are embedded.
+	got, err := ResolveBackupResources([]string{"prestages"})
+	if err != nil {
+		t.Fatalf("ResolveBackupResources: %v", err)
+	}
+	if len(got) != 2 {
+		t.Fatalf("expected 2 resolved entries for prestages filter, got %d", len(got))
+	}
+	for _, r := range got {
+		if r.ScopePath == "" {
+			t.Errorf("prestages entry %q missing ScopePath", r.Key)
+		}
+		if !strings.Contains(r.ScopePath, "{id}") {
+			t.Errorf("prestages entry %q ScopePath %q lacks {id} placeholder", r.Key, r.ScopePath)
 		}
 	}
 }
