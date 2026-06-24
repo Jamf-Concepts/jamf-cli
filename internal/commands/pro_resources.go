@@ -26,6 +26,12 @@ type BackupResource struct {
 	// directly to disk as its own file. Used for resources whose list response
 	// is already the complete record (e.g. sites: {id, name}).
 	ListOnly bool
+	// ScopePath, when set, names a per-ID device-scope endpoint
+	// (e.g. "/v2/computer-prestages/{id}/scope"). After fetching each detail
+	// record the backup/diff code fetches this path and embeds the sorted
+	// serial numbers under a "scope" key so the assignment list travels with
+	// the prestage config in a single, diff-friendly file.
+	ScopePath string
 }
 
 // BackupResources is the curated set of resources included in `backup` and
@@ -41,6 +47,10 @@ var BackupResources = []BackupResource{
 	// Configuration profiles (no modern equivalent for CRUD)
 	{Key: "classic-macos-config-profiles", FilterName: "profiles", SubDir: "profiles/macos"},
 	{Key: "classic-mobile-config-profiles", FilterName: "profiles", SubDir: "profiles/ios"},
+
+	// Prestage enrollments — modern v3 config + embedded device scope (serials).
+	{Key: "computer-prestages", FilterName: "prestages", SubDir: "prestages/computers", ScopePath: "/v2/computer-prestages/{id}/scope"},
+	{Key: "mobile-device-prestages", FilterName: "prestages", SubDir: "prestages/mobile", ScopePath: "/v2/mobile-device-prestages/{id}/scope"},
 
 	// Scripts
 	{Key: "scripts", FilterName: "scripts", SubDir: "scripts"},

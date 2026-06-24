@@ -313,6 +313,9 @@ func StripServerFields(obj map[string]any) map[string]any {
 		"updatedTimestamp":   true,
 		"date_created_epoch": true,
 		"date_created_utc":   true,
+		// versionLock is the prestage optimistic-locking token — pure server
+		// state that increments on every write and carries no config meaning.
+		"versionLock": true,
 	}
 
 	result := make(map[string]any, len(obj))
