@@ -177,6 +177,13 @@ them to the package metadata after upload.`,
 	return cmd
 }
 
+// verifyTimeout/verifyInterval bound the post-upload hash-verification poll.
+// They are package-level vars (not consts) so tests can shrink them.
+var (
+	verifyTimeout  = 10 * time.Minute
+	verifyInterval = 10 * time.Second
+)
+
 // fileHashes holds the computed hash values for a package file.
 type fileHashes struct {
 	sha3   string
@@ -316,11 +323,6 @@ func uploadPackageFile(ctx context.Context, uploader registry.FileUploader, pkgI
 // a further GET, and must not PUT hash metadata back (a PUT blanks the
 // server-managed size field).
 func verifyPackageUpload(ctx context.Context, client registry.HTTPClient, pkgID, fileName, expectedSHA3, previousHash string) (map[string]any, error) {
-	const (
-		verifyTimeout  = 10 * time.Minute
-		verifyInterval = 10 * time.Second
-	)
-
 	refreshPath := fmt.Sprintf("/v1/cloud-distribution-point/refresh-inventory?file-name=%s", url.QueryEscape(fileName))
 	pkgPath := fmt.Sprintf("/v1/packages/%s", url.PathEscape(pkgID))
 
