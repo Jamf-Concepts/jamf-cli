@@ -135,33 +135,32 @@ them to the package metadata after upload.`,
 			fmt.Fprintf(os.Stderr, "Upload complete\n")
 
 			// 6. Verify upload — poll until server-computed hash matches local hash.
-			// Don't PUT hash metadata first — let the server compute from the
-			// uploaded JCDS file independently so we get a true integrity check.
+			// The server computes hashType/hashValue/sha3512/sha256/md5/size itself
+			// from the uploaded JCDS file, so no PUT of hash metadata is needed (and
+			// a PUT would blank the server-managed size field). verifyPackageUpload
+			// returns the complete record on success — reuse it for display.
 			fmt.Fprintf(os.Stderr, "Verifying upload...\n")
-			if err := verifyPackageUpload(ctx, client, pkgID, fileName, hashes.sha3, previousHash); err != nil {
+			data, err := verifyPackageUpload(ctx, client, pkgID, fileName, hashes.sha3, previousHash)
+			if err != nil {
 				if strings.Contains(err.Error(), "hash mismatch") {
 					return fmt.Errorf("upload verification failed: %w", err)
 				}
 				// Timeout is non-fatal — server may still be processing
 				fmt.Fprintf(os.Stderr, "WARNING: %v\n", err)
-				fmt.Fprintf(os.Stderr, "The file was uploaded and hashes were set. The server may still be processing.\n")
+				fmt.Fprintf(os.Stderr, "The file was uploaded. The server may still be processing.\n")
 			} else {
 				fmt.Fprintf(os.Stderr, "Verified: server hash matches local hash\n")
 			}
 
-			// 7. Update metadata with supplementary hashes (sha256, md5)
-			// that the server doesn't compute itself.
-			fmt.Fprintf(os.Stderr, "Updating package hashes...\n")
-			if err := updatePackageHashes(ctx, client, pkgID, hashes, fileSize); err != nil {
-				return fmt.Errorf("updating hashes: %w", err)
-			}
-
-			// 8. Print result
-			data, err := fetchJSON(ctx, client, fmt.Sprintf("/v1/packages/%s", url.PathEscape(pkgID)))
-			if err != nil {
-				// Non-fatal: upload succeeded, just can't show final state
-				fmt.Fprintf(os.Stderr, "Package uploaded successfully (id %s)\n", pkgID)
-				return nil
+			// 7. Print result. On a verify timeout we have no record in hand —
+			// fetch once so the user still sees the current server state.
+			if data == nil {
+				data, err = fetchJSON(ctx, client, fmt.Sprintf("/v1/packages/%s", url.PathEscape(pkgID)))
+				if err != nil {
+					// Non-fatal: upload succeeded, just can't show final state
+					fmt.Fprintf(os.Stderr, "Package uploaded successfully (id %s)\n", pkgID)
+					return nil
+				}
 			}
 			result, _ := json.Marshal(data)
 			return cliCtx.Output.PrintRaw(result)
@@ -303,36 +302,6 @@ func uploadPackageFile(ctx context.Context, uploader registry.FileUploader, pkgI
 	return nil
 }
 
-// updatePackageHashes sets the hash and size fields on an existing package record.
-func updatePackageHashes(ctx context.Context, client registry.HTTPClient, pkgID string, h fileHashes, size int64) error {
-	// Fetch current package to preserve existing fields
-	data, err := fetchJSON(ctx, client, fmt.Sprintf("/v1/packages/%s", url.PathEscape(pkgID)))
-	if err != nil {
-		return fmt.Errorf("fetching package for hash update: %w", err)
-	}
-
-	// Update hash and size fields
-	data["hashType"] = "SHA3_512"
-	data["hashValue"] = h.sha3
-	data["sha3512"] = h.sha3
-	data["sha256"] = h.sha256
-	data["md5"] = h.md5
-	data["size"] = fmt.Sprintf("%d", size)
-
-	body, err := json.Marshal(data)
-	if err != nil {
-		return err
-	}
-
-	path := fmt.Sprintf("/v1/packages/%s", url.PathEscape(pkgID))
-	resp, err := client.Do(ctx, "PUT", path, bytes.NewReader(body))
-	if err != nil {
-		return err
-	}
-	_ = resp.Body.Close()
-	return nil
-}
-
 // verifyPackageUpload polls the package until the server's computed hash matches
 // the expected value. On each iteration it nudges the JCDS inventory refresh
 // (errors ignored — transient 500s and concurrency failures are expected).
@@ -340,7 +309,13 @@ func updatePackageHashes(ctx context.Context, client registry.HTTPClient, pkgID 
 // new packages). When the server still returns this value, polling continues because
 // the server hasn't recomputed from the new file yet. A different non-matching
 // SHA3_512 hash indicates genuine corruption and fails immediately.
-func verifyPackageUpload(ctx context.Context, client registry.HTTPClient, pkgID, fileName, expectedSHA3, previousHash string) error {
+//
+// On success it returns the verified package record. The server computes
+// hashType/hashValue/sha3512/sha256/md5/size itself from the uploaded JCDS
+// file, so this record is complete — callers can display it directly without
+// a further GET, and must not PUT hash metadata back (a PUT blanks the
+// server-managed size field).
+func verifyPackageUpload(ctx context.Context, client registry.HTTPClient, pkgID, fileName, expectedSHA3, previousHash string) (map[string]any, error) {
 	const (
 		verifyTimeout  = 10 * time.Minute
 		verifyInterval = 10 * time.Second
@@ -354,7 +329,7 @@ func verifyPackageUpload(ctx context.Context, client registry.HTTPClient, pkgID,
 		// Wait first — give the server time to process
 		select {
 		case <-ctx.Done():
-			return ctx.Err()
+			return nil, ctx.Err()
 		case <-time.After(verifyInterval):
 		}
 
@@ -378,7 +353,7 @@ func verifyPackageUpload(ctx context.Context, client registry.HTTPClient, pkgID,
 		}
 
 		if hashType == "SHA3_512" && hashValue == expectedSHA3 {
-			return nil
+			return data, nil
 		}
 
 		if hashType == "SHA3_512" && hashValue == previousHash {
@@ -389,14 +364,14 @@ func verifyPackageUpload(ctx context.Context, client registry.HTTPClient, pkgID,
 
 		if hashType == "SHA3_512" {
 			// Server computed a new SHA3_512 hash that doesn't match — corrupted upload
-			return fmt.Errorf("hash mismatch: server=%s local=%s", hashValue, expectedSHA3)
+			return nil, fmt.Errorf("hash mismatch: server=%s local=%s", hashValue, expectedSHA3)
 		}
 
 		// Hash type hasn't been updated to SHA3_512 yet — keep polling
 		fmt.Fprintf(os.Stderr, "  waiting for hash type update (current: %s)...\n", hashType)
 	}
 
-	return fmt.Errorf("timed out after %v waiting for server hash to match (check package integrity)", verifyTimeout)
+	return nil, fmt.Errorf("timed out after %v waiting for server hash to match (check package integrity)", verifyTimeout)
 }
 
 // humanSize formats a byte count as a human-readable string.
