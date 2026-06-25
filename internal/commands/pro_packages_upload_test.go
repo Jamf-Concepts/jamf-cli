@@ -55,7 +55,7 @@ func TestHashFile(t *testing.T) {
 type pkgVerifyServer struct {
 	srv      *httptest.Server
 	hashSeq  []string
-	pollN    int32 // GET count
+	pollN    atomic.Int32 // GET count
 	lastBody string
 }
 
@@ -66,7 +66,7 @@ func newPkgVerifyServer(hashSeq []string) *pkgVerifyServer {
 		w.WriteHeader(http.StatusNoContent)
 	})
 	mux.HandleFunc("/v1/packages/702", func(w http.ResponseWriter, _ *http.Request) {
-		i := int(atomic.AddInt32(&p.pollN, 1)) - 1
+		i := int(p.pollN.Add(1)) - 1
 		if i >= len(p.hashSeq) {
 			i = len(p.hashSeq) - 1
 		}
