@@ -75,6 +75,7 @@ Functions available in `resourceTemplate`:
 | `hasScaffold`, `opHasScaffold`, `scaffoldJSON`, `opScaffoldJSON` | JSON scaffold template generation |
 | `exampleText(resource, singular, op)` | CLI example text per operation type (singleton-aware) |
 | `isDestructive(op)` | Check destructive flag |
+| `opAnnotations(op)` | Build the Annotations map (`jamf:destructive` + `jamf:privileges`) |
 | `defaultVal(type, val)` | Format default values for flag definitions |
 
 ## Key Types
@@ -82,7 +83,7 @@ Functions available in `resourceTemplate`:
 ### Modern API (`parser/types.go`)
 
 - **`Resource`** — Top-level: `Name`, `NameSingular`, `GoName`, `Description`, `Operations`, `Schemas`, `IsSingleton`
-- **`Operation`** — Endpoint: `Name` (list/get/create/update/delete), `Method`, `Path`, `Parameters`, `RequestBody`, `IsList`, `IsPaginated`, `IsDestructive`. `IsList` is true for list/history ops and drives list-only semantics (default sections, output array key, singleton detection); `IsPaginated` is broader (any GET exposing `page`/`page-size`) and gates `--all`/`--limit` auto-pagination, so report/action GETs like `patch-report` paginate too.
+- **`Operation`** — Endpoint: `Name` (list/get/create/update/delete), `Method`, `Path`, `Parameters`, `RequestBody`, `IsList`, `IsPaginated`, `IsDestructive`, `Privileges` (`[]string`, from `x-required-privileges`). `IsList` is true for list/history ops and drives list-only semantics (default sections, output array key, singleton detection); `IsPaginated` is broader (any GET exposing `page`/`page-size`) and gates `--all`/`--limit` auto-pagination, so report/action GETs like `patch-report` paginate too.
 - **`Parameter`** — Query/path param: `Name`, `In`, `Type`, `Required`, `Default`, `IsArray`
 - **`Schema`** / **`Property`** — Used for `--scaffold` JSON template generation
 

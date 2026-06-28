@@ -58,6 +58,7 @@ files, comment magic, or separate registries**.
   - `mcp:read-only: "true"` — annotate as readOnlyHint when exposed
 - `jamf:*` — for jamf-cli policy. Examples:
   - `jamf:destructive: "true"` — flag for confirmation gating; also drives MCP destructiveHint
+  - `jamf:privileges: "Read Computers,Read Mobile Devices"` — comma-joined privilege names from `x-required-privileges` (the human-readable Jamf API privilege names, e.g. `Read Computers`); emitted by the generator via `opAnnotations`; surfaced in the `commands` catalog as a `privileges` array and appended to the 403 `permission_denied` hint at runtime
   - `jamf:typed-exit-codes: "0,3"` — declares intentional non-zero success codes
 
 ### Reading annotations
@@ -84,7 +85,8 @@ cmd := &cobra.Command{
     Use:   "delete",
     Short: "Delete a computer by ID",
     Annotations: map[string]string{
-        "jamf:destructive":     "true",
+        "jamf:destructive":      "true",
+        "jamf:privileges":       "Delete Computers",
         "jamf:typed-exit-codes": "0,4",  // 4 = not found, treated as success
     },
     RunE: func(cmd *cobra.Command, args []string) error { ... },
