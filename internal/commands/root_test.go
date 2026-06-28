@@ -1266,3 +1266,52 @@ func TestGuardUnknownSubcommands_CoversAllGroupParents(t *testing.T) {
 	}
 	t.Logf("verified %d group parents reject unknown subcommands", parents)
 }
+
+func TestCollectCommands_DestructiveFlag(t *testing.T) {
+	root := NewRootCmd("test", "abc123", "2024-01-01", "unknown")
+	entries := collectCommands(root, "", "", "")
+
+	byCmd := make(map[string]commandEntry, len(entries))
+	for _, e := range entries {
+		byCmd[e.Command] = e
+	}
+
+	// A delete command must be marked destructive (annotation is enforced
+	// elsewhere by TestDestructiveVerbCommandsAreAnnotated).
+	// "computers" is an alias for "computers-inventory"; collectCommands uses
+	// the canonical command name, not aliases.
+	del, ok := byCmd["pro computers-inventory delete"]
+	if !ok {
+		t.Fatal("expected 'pro computers-inventory delete' in entries")
+	}
+	if !del.Destructive {
+		t.Error("pro computers-inventory delete: Destructive = false, want true")
+	}
+
+	// A read command must not be marked destructive.
+	list, ok := byCmd["pro computers-inventory list"]
+	if !ok {
+		t.Fatal("expected 'pro computers-inventory list' in entries")
+	}
+	if list.Destructive {
+		t.Error("pro computers-inventory list: Destructive = true, want false")
+	}
+}
+
+func TestCommandEntriesToMaps_Destructive(t *testing.T) {
+	// Synthetic entries — command names are arbitrary for this unit test.
+	entries := []commandEntry{
+		{Command: "x delete", Description: "Delete", Destructive: true},
+		{Command: "x list", Description: "List"},
+	}
+	maps := commandEntriesToMaps(entries, true)
+
+	if maps[0]["destructive"] != true {
+		t.Errorf("destructive command: destructive = %v, want true", maps[0]["destructive"])
+	}
+	// Emitted unconditionally in full mode (present, false) so CSV/table output —
+	// which derive columns from the first row — carry the field for every row.
+	if maps[1]["destructive"] != false {
+		t.Errorf("non-destructive command: destructive = %v, want false", maps[1]["destructive"])
+	}
+}
