@@ -58,7 +58,7 @@ files, comment magic, or separate registries**.
   - `mcp:read-only: "true"` — annotate as readOnlyHint when exposed
 - `jamf:*` — for jamf-cli policy. Examples:
   - `jamf:destructive: "true"` — flag for confirmation gating; also drives MCP destructiveHint
-  - `jamf:privileges: "Read Computers,Read Mobile Devices"` — comma-joined privilege names from `x-required-privileges` (the human-readable Jamf API privilege names, e.g. `Read Computers`); emitted by the generator via `opAnnotations`; surfaced in the `commands` catalog as a `privileges` array and appended to the 403 `permission_denied` hint at runtime
+  - `jamf:privileges: "Read Computers,Read Mobile Devices"` — comma-joined privilege names from `x-required-privileges` (the human-readable Jamf API privilege names, e.g. `Read Computers`); emitted by the Pro and Platform generators via `opAnnotations`; surfaced in the `commands` catalog as a `privileges` array and, for Pro only, appended to the 403 `permission_denied` hint at runtime (the Platform 403 hint is not wired)
   - `jamf:typed-exit-codes: "0,3"` — declares intentional non-zero success codes
 
 ### Reading annotations

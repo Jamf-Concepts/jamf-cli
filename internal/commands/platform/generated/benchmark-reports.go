@@ -33,10 +33,11 @@ func NewBenchmarkReportsCmd(cliCtx *registry.CLIContext) *cobra.Command {
 
 func newBenchmarkReportsCompliancePercentageCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "compliance-percentage <id>",
-		Short: "Get compliance percentage for a benchmark report",
-		Long:  "Calculate and return the overall compliance percentage for a specific benchmark report as sum of device compliance scores divided by number of devices",
-		Args:  cobra.ExactArgs(1),
+		Use:         "compliance-percentage <id>",
+		Short:       "Get compliance percentage for a benchmark report",
+		Long:        "Calculate and return the overall compliance percentage for a specific benchmark report as sum of device compliance scores divided by number of devices",
+		Annotations: map[string]string{"jamf:privileges": "read:pro:compliance-benchmarks"},
+		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err
@@ -72,10 +73,11 @@ func newBenchmarkReportsDevicesCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	var ruleResult string
 	var sort string
 	cmd := &cobra.Command{
-		Use:   "devices <id>",
-		Short: "Get devices for a benchmark report rule",
-		Long:  "Provide devices filtered report for a specific benchmark rule",
-		Args:  cobra.ExactArgs(1),
+		Use:         "devices <id>",
+		Short:       "Get devices for a benchmark report rule",
+		Long:        "Provide devices filtered report for a specific benchmark rule",
+		Annotations: map[string]string{"jamf:privileges": "read:pro:compliance-benchmarks"},
+		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err
@@ -140,10 +142,11 @@ func newBenchmarkReportsRulesCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	var ruleSearch string
 	var sort string
 	cmd := &cobra.Command{
-		Use:   "rules <id>",
-		Short: "Get benchmark rules for a tenant",
-		Long:  "Provide benchmark rules stats for a specific benchmark",
-		Args:  cobra.ExactArgs(1),
+		Use:         "rules <id>",
+		Short:       "Get benchmark rules for a tenant",
+		Long:        "Provide benchmark rules stats for a specific benchmark",
+		Annotations: map[string]string{"jamf:privileges": "read:pro:compliance-benchmarks"},
+		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err

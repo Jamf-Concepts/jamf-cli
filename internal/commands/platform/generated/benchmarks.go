@@ -34,9 +34,10 @@ func NewBenchmarksCmd(cliCtx *registry.CLIContext) *cobra.Command {
 
 func newBenchmarksListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "list",
-		Short: "Return list of tenant benchmarks",
-		Long:  "Return list of tenant benchmarks (if any)",
+		Use:         "list",
+		Short:       "Return list of tenant benchmarks",
+		Long:        "Return list of tenant benchmarks (if any)",
+		Annotations: map[string]string{"jamf:privileges": "read:pro:compliance-benchmarks"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err
@@ -83,9 +84,10 @@ func newBenchmarksCreateCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	var setFlags []string
 	var scaffoldFlag bool
 	cmd := &cobra.Command{
-		Use:   "create",
-		Short: "Create a new benchmark from provided benchmark request",
-		Long:  "Create a new benchmark from provided benchmark request and deploy associated artifacts to the MDM",
+		Use:         "create",
+		Short:       "Create a new benchmark from provided benchmark request",
+		Long:        "Create a new benchmark from provided benchmark request and deploy associated artifacts to the MDM",
+		Annotations: map[string]string{"jamf:privileges": "create:pro:compliance-benchmarks"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if scaffoldFlag {
 				// Scaffold prints raw JSON regardless of -o, so the output
@@ -133,7 +135,7 @@ func newBenchmarksDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Use:         "delete <id>",
 		Short:       "Remove benchmark with given benchmark ID",
 		Long:        "Remove benchmark with given benchmark ID and remove associated draft (if any) and artifacts from the MDM",
-		Annotations: map[string]string{"jamf:destructive": "true"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "delete:pro:compliance-benchmarks"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
@@ -177,10 +179,11 @@ func newBenchmarksDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
 func newBenchmarksGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	var nameFlag string
 	cmd := &cobra.Command{
-		Use:   "get <id>",
-		Short: "Return benchmark for given benchmark ID",
-		Long:  "Return benchmark for given benchmark ID (if exists)",
-		Args:  cobra.MaximumNArgs(1),
+		Use:         "get <id>",
+		Short:       "Return benchmark for given benchmark ID",
+		Long:        "Return benchmark for given benchmark ID (if exists)",
+		Annotations: map[string]string{"jamf:privileges": "read:pro:compliance-benchmarks"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err

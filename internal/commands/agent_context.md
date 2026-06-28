@@ -64,10 +64,10 @@ commands are marked `"destructive": true`.
 ## Discovery
 
 `jamf-cli commands -o json` returns the full command catalog. Each generated Pro
-command includes a `"privileges"` array listing the Jamf API privileges it
-requires (from the spec's `x-required-privileges`); the field is omitted when
-no privileges are declared. Classic and Platform commands do not carry privilege
-data.
+and Platform command includes a `"privileges"` array listing the Jamf API
+privileges it requires (from the spec's `x-required-privileges`); the field is
+omitted when no privileges are declared. Classic, Protect, and School commands do
+not carry privilege data.
 
 ## MCP
 

@@ -3,6 +3,7 @@
 package platform
 
 import (
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -122,5 +123,49 @@ func TestExtractPathParams(t *testing.T) {
 				t.Errorf("extractPathParams(%q)[%d] = %q, want %q", c.path, i, got[i], c.want[i])
 			}
 		}
+	}
+}
+
+// TestGenerate_EmitsPrivilegeAnnotation verifies the platform generator emits
+// the jamf:privileges annotation for ops that declare x-required-privileges
+// (6 platform specs / 43 occurrences carry it). Generates from the live specs
+// into a temp dir and asserts at least one generated command carries it.
+func TestGenerate_EmitsPrivilegeAnnotation(t *testing.T) {
+	specsDir, err := filepath.Abs("../../specs/platform")
+	if err != nil {
+		t.Fatalf("resolving specs dir: %v", err)
+	}
+	resources, _, err := LoadResources(specsDir)
+	if err != nil {
+		t.Fatalf("LoadResources: %v", err)
+	}
+
+	outDir := t.TempDir()
+	if _, err := Generate(resources, outDir); err != nil {
+		t.Fatalf("Generate: %v", err)
+	}
+
+	found := false
+	walkErr := filepath.Walk(outDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if info.IsDir() || !strings.HasSuffix(path, ".go") {
+			return nil
+		}
+		b, rerr := os.ReadFile(path)
+		if rerr != nil {
+			return rerr
+		}
+		if strings.Contains(string(b), `"jamf:privileges"`) {
+			found = true
+		}
+		return nil
+	})
+	if walkErr != nil {
+		t.Fatalf("walk: %v", walkErr)
+	}
+	if !found {
+		t.Error("no generated platform command carries the jamf:privileges annotation — template emission missing")
 	}
 }
