@@ -833,6 +833,7 @@ type commandEntry struct {
 	Flags       []string `json:"flags,omitempty"`
 	Product     string   `json:"product,omitempty"`
 	Group       string   `json:"group,omitempty"`
+	Destructive bool     `json:"destructive,omitempty"`
 }
 
 // newCommandsCmd creates the "commands" subcommand that outputs the full
@@ -886,6 +887,7 @@ func collectCommands(cmd *cobra.Command, prefix, product, group string) []comman
 				Description: child.Short,
 				Product:     childProduct,
 				Group:       childGroup,
+				Destructive: child.Annotations["jamf:destructive"] == "true",
 			}
 
 			// Collect aliases: for leaf commands under a top-level group
@@ -941,6 +943,10 @@ func commandEntriesToMaps(entries []commandEntry, full bool) []map[string]any {
 			m["flags"] = flags
 			m["product"] = e.Product
 			m["group"] = e.Group
+			// Emit unconditionally (not just when true) so CSV and table output,
+			// which derive their columns from the first row, carry the field for
+			// every row rather than dropping it when the first row isn't destructive.
+			m["destructive"] = e.Destructive
 		}
 		result[i] = m
 	}
