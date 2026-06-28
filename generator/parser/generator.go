@@ -1362,6 +1362,9 @@ import (
 {{- if hasDestructive .Operations }}
 	"github.com/Jamf-Concepts/jamf-cli/internal/cooldown"
 {{- end }}
+{{- if hasPaginated .Operations }}
+	"github.com/Jamf-Concepts/jamf-cli/internal/spinner"
+{{- end }}
 )
 
 // New{{ .GoName }}Cmd creates the {{ .Name }} command group
@@ -1845,6 +1848,9 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 			// Auto-pagination: fetch all pages when --all is set and --page was not manually specified
 			if flagAll && flagPage == 0 {
 				var allResults []json.RawMessage
+				prog := ctx.Output.PaginationProgress()
+				defer prog.Stop()
+				reqCtx = spinner.WithSuppressed(reqCtx)
 				pageNum := 0
 				pageSize := 100
 
@@ -1899,6 +1905,7 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 					}
 
 					allResults = append(allResults, pageResp.Results...)
+					prog.Update(len(allResults), pageResp.TotalCount)
 
 					// Check limit
 					if flagLimit > 0 && len(allResults) >= flagLimit {

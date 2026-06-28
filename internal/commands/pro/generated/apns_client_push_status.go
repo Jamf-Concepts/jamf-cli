@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
+	"github.com/Jamf-Concepts/jamf-cli/internal/spinner"
 	"github.com/spf13/cobra"
 )
 
@@ -74,6 +75,9 @@ func newApnsClientPushStatusApnsClientPushStatusCmd(ctx *registry.CLIContext) *c
 			// Auto-pagination: fetch all pages when --all is set and --page was not manually specified
 			if flagAll && flagPage == 0 {
 				var allResults []json.RawMessage
+				prog := ctx.Output.PaginationProgress()
+				defer prog.Stop()
+				reqCtx = spinner.WithSuppressed(reqCtx)
 				pageNum := 0
 				pageSize := 100
 
@@ -113,6 +117,7 @@ func newApnsClientPushStatusApnsClientPushStatusCmd(ctx *registry.CLIContext) *c
 					}
 
 					allResults = append(allResults, pageResp.Results...)
+					prog.Update(len(allResults), pageResp.TotalCount)
 
 					// Check limit
 					if flagLimit > 0 && len(allResults) >= flagLimit {

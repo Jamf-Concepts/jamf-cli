@@ -36,18 +36,18 @@ func (r *Reporter) Update(fetched, total int) {
 	switch r.mode {
 	case Interactive:
 		if total > 0 {
-			fmt.Fprintf(r.w, "\rFetched %d / %d\033[K", fetched, total)
+			_, _ = fmt.Fprintf(r.w, "\rFetched %d / %d\033[K", fetched, total)
 		} else {
-			fmt.Fprintf(r.w, "\rFetched %d\033[K", fetched)
+			_, _ = fmt.Fprintf(r.w, "\rFetched %d\033[K", fetched)
 		}
 	case Events:
-		fmt.Fprintf(r.w, `{"event":"page_fetch","fetched":%d,"total":%d}`+"\n", fetched, total)
+		_, _ = fmt.Fprintf(r.w, `{"event":"page_fetch","fetched":%d,"total":%d}`+"\n", fetched, total)
 	}
 }
 
 // Stop finalizes the reporter. In interactive mode it clears the in-place line.
 func (r *Reporter) Stop() {
 	if r.mode == Interactive {
-		fmt.Fprint(r.w, "\r\033[K")
+		_, _ = fmt.Fprint(r.w, "\r\033[K")
 	}
 }
