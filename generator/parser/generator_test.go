@@ -2291,3 +2291,50 @@ func TestGenerate_PaginationProgressWiring(t *testing.T) {
 		}
 	}
 }
+
+func TestGenerate_NdjsonSinglePageUnwrap(t *testing.T) {
+	dir := t.TempDir()
+	gen := NewGenerator(dir)
+
+	resource := &Resource{
+		Name:         "items",
+		NameSingular: "item",
+		GoName:       "Items",
+		Operations: []*Operation{
+			{
+				Name:        "list",
+				Method:      "GET",
+				Path:        "/v1/items",
+				Summary:     "List items",
+				IsList:      true,
+				IsPaginated: true,
+				APIVersion:  "v1",
+				Parameters: []*Parameter{
+					{Name: "page", In: "query", Type: "integer"},
+				},
+			},
+		},
+		Schemas: make(map[string]*Schema),
+	}
+
+	outPath, err := gen.Generate(resource)
+	if err != nil {
+		t.Fatalf("Generate() error = %v", err)
+	}
+
+	content, err := os.ReadFile(outPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	src := string(content)
+
+	// The single-page path (--all=false) should unwrap results for ndjson format.
+	for _, want := range []string{
+		`ctx.Output.Format() == "ndjson"`,
+		"ndjsonWrap.Results",
+	} {
+		if !strings.Contains(src, want) {
+			t.Errorf("generated single-page path missing ndjson unwrap %q", want)
+		}
+	}
+}
