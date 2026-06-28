@@ -1694,3 +1694,15 @@ func TestPrintNDJSON_Empty(t *testing.T) {
 		t.Errorf("empty list should produce no output, got %q", buf.String())
 	}
 }
+
+func TestPaginationProgress_QuietIsSilent(t *testing.T) {
+	f, _, stderr := newTestFormatterWithStderr("json")
+	f.SetQuiet(true)
+	p := f.PaginationProgress()
+	p.Update(10, 100)
+	p.Stop()
+	// quiet => Silent reporter => no stderr writes
+	if stderr.Len() != 0 {
+		t.Errorf("quiet should produce no progress output, got %q", stderr.String())
+	}
+}

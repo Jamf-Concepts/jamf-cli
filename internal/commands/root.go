@@ -157,6 +157,9 @@ type spinnerClient struct {
 }
 
 func (c *spinnerClient) Do(ctx context.Context, method, path string, body io.Reader) (*http.Response, error) {
+	if spinner.IsSuppressed(ctx) {
+		return c.inner.Do(ctx, method, path, body)
+	}
 	s := spinner.New("Loading...")
 	s.Start()
 	defer s.Stop()
@@ -171,6 +174,9 @@ type spinnerTransport struct {
 }
 
 func (t *spinnerTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	if spinner.IsSuppressed(req.Context()) {
+		return t.inner.RoundTrip(req)
+	}
 	s := spinner.New("Loading...")
 	s.Start()
 	defer s.Stop()

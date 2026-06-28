@@ -3,6 +3,7 @@
 package spinner
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"sync"
@@ -10,6 +11,20 @@ import (
 
 	"golang.org/x/term"
 )
+
+type suppressKey struct{}
+
+// WithSuppressed marks ctx so spinner wrappers skip the animation for requests
+// made under it (used by paginated --all loops that show determinate progress).
+func WithSuppressed(ctx context.Context) context.Context {
+	return context.WithValue(ctx, suppressKey{}, true)
+}
+
+// IsSuppressed reports whether ctx was marked by WithSuppressed.
+func IsSuppressed(ctx context.Context) bool {
+	v, _ := ctx.Value(suppressKey{}).(bool)
+	return v
+}
 
 var frames = []rune("⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏")
 

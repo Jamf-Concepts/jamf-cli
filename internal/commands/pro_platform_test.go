@@ -13,6 +13,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/Jamf-Concepts/jamf-cli/internal/progress"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform/blueprints"
 	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform/compliancebenchmarks"
@@ -412,6 +413,9 @@ func (o *captureOutput) PrintRaw(data []byte) error {
 }
 func (o *captureOutput) PrintBytes(data []byte) error { o.rawData = data; return nil }
 func (o *captureOutput) Format() string               { return "json" }
+func (o *captureOutput) PaginationProgress() *progress.Reporter {
+	return progress.New(io.Discard, progress.Silent)
+}
 
 // writeTempJSON marshals v to a temporary JSON file, returning the path. Caller must remove it.
 func writeTempJSON(t *testing.T, v any) string {

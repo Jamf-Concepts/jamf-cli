@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/auth"
+	"github.com/Jamf-Concepts/jamf-cli/internal/progress"
 	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform"
 	"github.com/Jamf-Concepts/jamfprotect-go-sdk/jamfprotect"
 	"github.com/Jamf-Concepts/jamfschool-go-sdk/jamfschool"
@@ -69,6 +70,8 @@ type OutputFormatter interface {
 	PrintBytes(data []byte) error
 	// Format returns the current output format string (e.g. "json", "xml", "table").
 	Format() string
+	// PaginationProgress returns a reporter for --all pagination progress.
+	PaginationProgress() *progress.Reporter
 }
 
 // ProtectClient defines the interface for Jamf Protect API operations.

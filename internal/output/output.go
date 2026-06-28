@@ -18,6 +18,7 @@ import (
 	"golang.org/x/term"
 	"gopkg.in/yaml.v3"
 
+	"github.com/Jamf-Concepts/jamf-cli/internal/progress"
 	"github.com/Jamf-Concepts/jamf-cli/internal/xmlconv"
 )
 
@@ -991,6 +992,26 @@ func (f *Formatter) formatStatusValue(value string) string {
 	}
 
 	return value
+}
+
+// isStderrTTY reports whether stderr is a terminal. Overridable in tests.
+var isStderrTTY = func() bool {
+	return term.IsTerminal(int(os.Stderr.Fd()))
+}
+
+// PaginationProgress builds a progress reporter for an --all pagination loop,
+// choosing the rendering mode from the formatter's state: silent when quiet,
+// an in-place count line on an interactive color terminal, NDJSON page_fetch
+// events otherwise.
+func (f *Formatter) PaginationProgress() *progress.Reporter {
+	mode := progress.Events
+	switch {
+	case f.quiet:
+		mode = progress.Silent
+	case isStderrTTY() && !f.noColor:
+		mode = progress.Interactive
+	}
+	return progress.New(f.stderr, mode)
 }
 
 // IsTerminal reports whether the given file descriptor is a character device.

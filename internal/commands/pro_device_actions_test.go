@@ -12,6 +12,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/Jamf-Concepts/jamf-cli/internal/progress"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 	"github.com/Jamf-Concepts/jamf-cli/internal/resolve"
 )
@@ -294,6 +295,9 @@ func (mockOutput) PrintResponse(_ *http.Response) error { return nil }
 func (mockOutput) PrintRaw(_ []byte) error              { return nil }
 func (mockOutput) PrintBytes(_ []byte) error            { return nil }
 func (mockOutput) Format() string                       { return "json" }
+func (mockOutput) PaginationProgress() *progress.Reporter {
+	return progress.New(io.Discard, progress.Silent)
+}
 
 // bodyCapturingClient captures the request body for assertion in tests.
 type bodyCapturingClient struct {

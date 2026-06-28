@@ -4,8 +4,11 @@ package protect
 
 import (
 	"encoding/json"
+	"io"
 	"net/http"
 	"testing"
+
+	"github.com/Jamf-Concepts/jamf-cli/internal/progress"
 )
 
 // mockFormatter captures the raw bytes passed to PrintRaw.
@@ -21,6 +24,9 @@ func (m *mockFormatter) PrintRaw(data []byte) error {
 }
 func (m *mockFormatter) PrintBytes(data []byte) error { return m.PrintRaw(data) }
 func (m *mockFormatter) Format() string               { return "json" }
+func (m *mockFormatter) PaginationProgress() *progress.Reporter {
+	return progress.New(io.Discard, progress.Silent)
+}
 
 func TestPrintOne_MarshalsSingleItem(t *testing.T) {
 	type item struct {

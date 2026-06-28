@@ -3,6 +3,7 @@
 package spinner
 
 import (
+	"context"
 	"os"
 	"testing"
 	"time"
@@ -157,5 +158,15 @@ func TestStopClearsLine_ActivePath(t *testing.T) {
 	output := collect()
 	if len(output) == 0 {
 		t.Error("expected spinner output on stderr")
+	}
+}
+
+func TestSuppressionContext(t *testing.T) {
+	ctx := context.Background()
+	if IsSuppressed(ctx) {
+		t.Error("fresh context should not be suppressed")
+	}
+	if !IsSuppressed(WithSuppressed(ctx)) {
+		t.Error("WithSuppressed context should report suppressed")
 	}
 }
