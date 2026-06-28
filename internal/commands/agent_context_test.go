@@ -50,3 +50,19 @@ func TestAgentContextGuideCoversExitCodes(t *testing.T) {
 		}
 	}
 }
+
+// TestAgentContextGuideFlagsExist guards against the guide documenting a global
+// flag that has since been renamed or removed. It pins the documented set to
+// real root persistent flags; --yes is intentionally excluded because it is a
+// per-command destructive gate, not a global flag.
+func TestAgentContextGuideFlagsExist(t *testing.T) {
+	root := NewRootCmd("test", "abc123", "2024-01-01", "unknown")
+	for _, name := range []string{
+		"output", "compact", "select", "field",
+		"quiet", "no-hints", "no-input", "dry-run", "out-file", "profile",
+	} {
+		if root.PersistentFlags().Lookup(name) == nil {
+			t.Errorf("agent-context guide documents --%s, but it is no longer a global persistent flag — update the guide or the flag", name)
+		}
+	}
+}

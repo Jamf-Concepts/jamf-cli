@@ -9,6 +9,15 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// agentContextGuide is the embedded operating guide printed by `agent-context`.
+// It duplicates facts that live in code (exit codes, global flags, the
+// destructive-command rule). When you add or rename an agent-relevant global
+// flag, an exit code, or a notable command — and especially when the local
+// data layer lands — update agent_context.md to match. The TestAgentContextGuide*
+// tests guard the documented set against renames/removals, but they cannot force
+// a newly-added construct to be documented; that is on the contributor (and the
+// PR-review documentation-currency check).
+//
 //go:embed agent_context.md
 var agentContextGuide string
 
