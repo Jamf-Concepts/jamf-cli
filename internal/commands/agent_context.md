@@ -28,7 +28,7 @@ check config, credentials, and connectivity without calling the product API.
 - `--compact` — identity + common fields only; fewer tokens
 - `--select <a,b.c>` — project to specific dot-path fields only
 - `--field <name>` — print a single field's value
-- `-q, --quiet` — suppress hints and progress; errors still print
+- `-q, --quiet` — suppress all non-error output (hints, spinner, progress); errors still print
 - `--no-hints` — suppress advisory hints only
 - `--no-input` — never prompt; fail fast if input is required
 - `-n, --dry-run` — preview mutations; GET/HEAD still execute
