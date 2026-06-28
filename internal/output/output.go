@@ -1011,7 +1011,11 @@ func (f *Formatter) PaginationProgress() *progress.Reporter {
 	case isStderrTTY() && !f.noColor:
 		mode = progress.Interactive
 	}
-	return progress.New(f.stderr, mode)
+	w := f.stderr
+	if w == nil {
+		w = os.Stderr
+	}
+	return progress.New(w, mode)
 }
 
 // IsTerminal reports whether the given file descriptor is a character device.

@@ -1706,3 +1706,15 @@ func TestPaginationProgress_QuietIsSilent(t *testing.T) {
 		t.Errorf("quiet should produce no progress output, got %q", stderr.String())
 	}
 }
+
+func TestPaginationProgress_NilStderrNoPanic(t *testing.T) {
+	orig := isStderrTTY
+	isStderrTTY = func() bool { return false } // force Events mode
+	defer func() { isStderrTTY = orig }()
+
+	f := New("json", false, false) // stderr is nil — production path
+	p := f.PaginationProgress()
+	// must not panic writing to a nil underlying writer
+	p.Update(1, 2)
+	p.Stop()
+}
