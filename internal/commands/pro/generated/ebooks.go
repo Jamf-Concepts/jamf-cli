@@ -46,6 +46,7 @@ func newEbooksListCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # List ebooks and extract IDs
   jamf-cli pro ebooks list --field id`,
+		Annotations: map[string]string{"jamf:privileges": "Read eBooks"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -170,7 +171,8 @@ func newEbooksGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a ebook and output as YAML
   jamf-cli pro ebooks get 1 -o yaml`,
-		Args: cobra.MaximumNArgs(1),
+		Annotations: map[string]string{"jamf:privileges": "Read eBooks"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -220,10 +222,11 @@ func newEbooksScopeCmd(ctx *registry.CLIContext) *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "scope [<id>]",
-		Short: "Get specified scope of Ebook object",
-		Long:  "Gets specified scope of Ebook object",
-		Args:  cobra.MaximumNArgs(1),
+		Use:         "scope [<id>]",
+		Short:       "Get specified scope of Ebook object",
+		Long:        "Gets specified scope of Ebook object",
+		Annotations: map[string]string{"jamf:privileges": "Read eBooks"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

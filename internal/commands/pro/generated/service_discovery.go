@@ -39,6 +39,7 @@ func newServiceDiscoveryGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get service-discovery and output as YAML
   jamf-cli pro service-discovery get -o yaml`,
+		Annotations: map[string]string{"jamf:privileges": "Read User-Initiated Enrollment"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -79,6 +80,7 @@ func newServiceDiscoveryUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Update from a file
   jamf-cli pro service-discovery update --from-file service-discovery.json`,
+		Annotations: map[string]string{"jamf:privileges": "Update User-Initiated Enrollment"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

@@ -54,6 +54,7 @@ func newComputerGroupsSmartGroupsListCmd(ctx *registry.CLIContext) *cobra.Comman
 
   # List computer-groups-smart-groups and extract IDs
   jamf-cli pro computer-groups-smart-groups list --field id`,
+		Annotations: map[string]string{"jamf:privileges": "Read Smart Computer Groups"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -183,7 +184,8 @@ func newComputerGroupsSmartGroupsGetCmd(ctx *registry.CLIContext) *cobra.Command
 
   # Get a computer-groups-smart-groups and output as YAML
   jamf-cli pro computer-groups-smart-groups get 1 -o yaml`,
-		Args: cobra.MaximumNArgs(1),
+		Annotations: map[string]string{"jamf:privileges": "Read Smart Computer Groups"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -246,6 +248,7 @@ func newComputerGroupsSmartGroupsCreateCmd(ctx *registry.CLIContext) *cobra.Comm
 
   # Get a computer-groups-smart-groups, modify it, and create a copy
   jamf-cli pro computer-groups-smart-groups get 1 -o json | jq '.name = "Copy"' | jamf-cli pro computer-groups-smart-groups create`,
+		Annotations: map[string]string{"jamf:privileges": "Create Smart Computer Groups"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -321,7 +324,8 @@ func newComputerGroupsSmartGroupsUpdateCmd(ctx *registry.CLIContext) *cobra.Comm
 
   # Get a computer-groups-smart-groups, modify, and update
   jamf-cli pro computer-groups-smart-groups get 1 -o json | jq '.name = "New Name"' | jamf-cli pro computer-groups-smart-groups update 1`,
-		Args: cobra.MaximumNArgs(1),
+		Annotations: map[string]string{"jamf:privileges": "Update Smart Computer Groups"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -412,7 +416,7 @@ func newComputerGroupsSmartGroupsDeleteCmd(ctx *registry.CLIContext) *cobra.Comm
 
   # Delete without confirmation prompt
   jamf-cli pro computer-groups-smart-groups delete 1 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Delete Smart Computer Groups"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

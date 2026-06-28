@@ -58,6 +58,7 @@ func newDistributionPointsListCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # List distribution-points and extract IDs
   jamf-cli pro distribution-points list --field id`,
+		Annotations: map[string]string{"jamf:privileges": "Read Distribution Points"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -186,7 +187,8 @@ func newDistributionPointsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a distribution-point and output as YAML
   jamf-cli pro distribution-points get 1 -o yaml`,
-		Args: cobra.MaximumNArgs(1),
+		Annotations: map[string]string{"jamf:privileges": "Read Distribution Points"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -247,6 +249,7 @@ func newDistributionPointsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a distribution-point, modify it, and create a copy
   jamf-cli pro distribution-points get 1 -o json | jq '.name = "Copy"' | jamf-cli pro distribution-points create`,
+		Annotations: map[string]string{"jamf:privileges": "Create Distribution Points"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -336,7 +339,8 @@ func newDistributionPointsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a distribution-point, modify, and update
   jamf-cli pro distribution-points get 1 -o json | jq '.name = "New Name"' | jamf-cli pro distribution-points update 1`,
-		Args: cobra.MaximumNArgs(1),
+		Annotations: map[string]string{"jamf:privileges": "Read Distribution Points,Update Distribution Points"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -445,7 +449,7 @@ func newDistributionPointsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Delete without confirmation prompt
   jamf-cli pro distribution-points delete 1 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Delete Distribution Points"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -651,7 +655,7 @@ func newDistributionPointsDeleteMultipleCmd(ctx *registry.CLIContext) *cobra.Com
 		Long:  "Delete multiple distribution points at once",
 		Example: `  # Delete multiple distribution-points by IDs
   jamf-cli pro distribution-points delete-multiple --ids 1,2,3 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Delete Distribution Points"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -754,7 +758,8 @@ func newDistributionPointsHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get history by name
   jamf-cli pro distribution-points history --name "Example"`,
-		Args: cobra.MaximumNArgs(1),
+		Annotations: map[string]string{"jamf:privileges": "Read Distribution Points"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -891,10 +896,11 @@ func newDistributionPointsAddHistoryNoteCmd(ctx *registry.CLIContext) *cobra.Com
 	)
 
 	cmd := &cobra.Command{
-		Use:   "add-history-note [<id>]",
-		Short: "Add specified distribution point History object notes",
-		Long:  "Adds specified distribution point History object notes",
-		Args:  cobra.MaximumNArgs(1),
+		Use:         "add-history-note [<id>]",
+		Short:       "Add specified distribution point History object notes",
+		Long:        "Adds specified distribution point History object notes",
+		Annotations: map[string]string{"jamf:privileges": "Update Distribution Points"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -985,7 +991,8 @@ func newDistributionPointsPatchCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Patch from a file
   jamf-cli pro distribution-points patch 1 --from-file changes.json`,
-		Args: cobra.MaximumNArgs(1),
+		Annotations: map[string]string{"jamf:privileges": "Read Distribution Points,Update Distribution Points"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

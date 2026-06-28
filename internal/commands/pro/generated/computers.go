@@ -46,6 +46,7 @@ func newComputersListCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # List computers and extract IDs
   jamf-cli pro computers list --field id`,
+		Annotations: map[string]string{"jamf:privileges": "Read Computers"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

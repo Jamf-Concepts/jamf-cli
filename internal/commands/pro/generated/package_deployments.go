@@ -33,9 +33,10 @@ func newPackageDeploymentsDeployPackageCmd(ctx *registry.CLIContext) *cobra.Comm
 	)
 
 	cmd := &cobra.Command{
-		Use:   "deploy-package",
-		Short: "Deploy packages using MDM",
-		Long:  "Deploys packages to macOS devices using the InstallEnterpriseApplication MDM command.",
+		Use:         "deploy-package",
+		Short:       "Deploy packages using MDM",
+		Long:        "Deploys packages to macOS devices using the InstallEnterpriseApplication MDM command.",
+		Annotations: map[string]string{"jamf:privileges": "Send Computer Remote Command to Install Package"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

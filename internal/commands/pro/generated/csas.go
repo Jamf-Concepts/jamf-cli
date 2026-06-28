@@ -43,7 +43,7 @@ func newCsasDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Delete without confirmation prompt
   jamf-cli pro csas delete 1 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Update Cloud Services Settings"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -143,9 +143,10 @@ func newCsasTokenCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{
-		Use:   "token",
-		Short: "Get details regarding the CSA token exchange",
-		Long:  "Get details regarding the CSA token exchange",
+		Use:         "token",
+		Short:       "Get details regarding the CSA token exchange",
+		Long:        "Get details regarding the CSA token exchange",
+		Annotations: map[string]string{"jamf:privileges": "Read Cloud Services Settings"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

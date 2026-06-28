@@ -55,6 +55,7 @@ func newVppSubscriptionsListCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # List vpp-subscriptions and extract IDs
   jamf-cli pro vpp-subscriptions list --field id`,
+		Annotations: map[string]string{"jamf:privileges": "Read Volume Purchasing Locations"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -179,7 +180,8 @@ func newVppSubscriptionsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a vpp-subscription and output as YAML
   jamf-cli pro vpp-subscriptions get 1 -o yaml`,
-		Args: cobra.MaximumNArgs(1),
+		Annotations: map[string]string{"jamf:privileges": "Read Volume Purchasing Locations"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -240,6 +242,7 @@ func newVppSubscriptionsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a vpp-subscription, modify it, and create a copy
   jamf-cli pro vpp-subscriptions get 1 -o json | jq '.name = "Copy"' | jamf-cli pro vpp-subscriptions create`,
+		Annotations: map[string]string{"jamf:privileges": "Create Volume Purchasing Locations"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -314,7 +317,8 @@ func newVppSubscriptionsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a vpp-subscription, modify, and update
   jamf-cli pro vpp-subscriptions get 1 -o json | jq '.name = "New Name"' | jamf-cli pro vpp-subscriptions update 1`,
-		Args: cobra.MaximumNArgs(1),
+		Annotations: map[string]string{"jamf:privileges": "Update Volume Purchasing Locations"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -408,7 +412,7 @@ func newVppSubscriptionsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Delete without confirmation prompt
   jamf-cli pro vpp-subscriptions delete 1 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Delete Volume Purchasing Locations"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -620,7 +624,8 @@ func newVppSubscriptionsHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get history by name
   jamf-cli pro vpp-subscriptions history --name "Example"`,
-		Args: cobra.MaximumNArgs(1),
+		Annotations: map[string]string{"jamf:privileges": "Read Volume Purchasing Locations"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -757,10 +762,11 @@ func newVppSubscriptionsAddHistoryNoteCmd(ctx *registry.CLIContext) *cobra.Comma
 	)
 
 	cmd := &cobra.Command{
-		Use:   "add-history-note [<id>]",
-		Short: "Add Volume Purchasing Subscription history object notes",
-		Long:  "Adds Volume Purchasing Subscription history object notes",
-		Args:  cobra.MaximumNArgs(1),
+		Use:         "add-history-note [<id>]",
+		Short:       "Add Volume Purchasing Subscription history object notes",
+		Long:        "Adds Volume Purchasing Subscription history object notes",
+		Annotations: map[string]string{"jamf:privileges": "Update Volume Purchasing Locations"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

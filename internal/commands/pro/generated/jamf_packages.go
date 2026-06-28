@@ -37,6 +37,7 @@ func newJamfPackagesListCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # List jamf-packages and extract IDs
   jamf-cli pro jamf-packages list --field id`,
+		Annotations: map[string]string{"jamf:privileges": "Jamf Packages Action"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

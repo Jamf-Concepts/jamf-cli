@@ -48,7 +48,8 @@ func newCertificateAuthoritiesGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a certificate-authority and output as YAML
   jamf-cli pro certificate-authorities get 1 -o yaml`,
-		Args: cobra.MaximumNArgs(1),
+		Annotations: map[string]string{"jamf:privileges": "Read PKI"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -252,7 +253,8 @@ func newCertificateAuthoritiesDerByIdCmd(ctx *registry.CLIContext) *cobra.Comman
 
   # Pipe to stdout
   jamf-cli pro certificate-authorities der-by-id <id> > output.bin`,
-		Args: cobra.MaximumNArgs(1),
+		Annotations: map[string]string{"jamf:privileges": "Read PKI"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			reqCtx = registry.WithAccept(reqCtx, "*/*")
@@ -327,7 +329,8 @@ func newCertificateAuthoritiesPemByIdCmd(ctx *registry.CLIContext) *cobra.Comman
 
   # Pipe to stdout
   jamf-cli pro certificate-authorities pem-by-id <id> > output.bin`,
-		Args: cobra.MaximumNArgs(1),
+		Annotations: map[string]string{"jamf:privileges": "Read PKI"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			reqCtx = registry.WithAccept(reqCtx, "*/*")

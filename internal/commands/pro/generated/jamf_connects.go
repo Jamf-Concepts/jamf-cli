@@ -51,6 +51,7 @@ func newJamfConnectsListCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # List jamf-connects and extract IDs
   jamf-cli pro jamf-connects list --field id`,
+		Annotations: map[string]string{"jamf:privileges": "Read Jamf Connect Deployments"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -180,7 +181,8 @@ func newJamfConnectsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a jamf-connect, modify, and update
   jamf-cli pro jamf-connects get 1 -o json | jq '.name = "New Name"' | jamf-cli pro jamf-connects update 1`,
-		Args: cobra.MaximumNArgs(1),
+		Annotations: map[string]string{"jamf:privileges": "Update Jamf Connect Deployments"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -265,6 +267,7 @@ func newJamfConnectsHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 		Long:  "Get Jamf Connect history",
 		Example: `  # Get history for a jamf-connect
   jamf-cli pro jamf-connects history 1`,
+		Annotations: map[string]string{"jamf:privileges": "Read Jamf Connect Settings"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -382,9 +385,10 @@ func newJamfConnectsAddHistoryNoteCmd(ctx *registry.CLIContext) *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "add-history-note",
-		Short: "Add Jamf Connect history notes",
-		Long:  "Add Jamf Connect history notes",
+		Use:         "add-history-note",
+		Short:       "Add Jamf Connect history notes",
+		Long:        "Add Jamf Connect history notes",
+		Annotations: map[string]string{"jamf:privileges": "Update Jamf Connect Settings"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -439,9 +443,10 @@ func newJamfConnectsJamfConnectCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{
-		Use:   "jamf-connect",
-		Short: "Get the Jamf Connect settings that you have access to see",
-		Long:  "Get the Jamf Connect settings that you have access to see.",
+		Use:         "jamf-connect",
+		Short:       "Get the Jamf Connect settings that you have access to see",
+		Long:        "Get the Jamf Connect settings that you have access to see.",
+		Annotations: map[string]string{"jamf:privileges": "Read Jamf Connect Settings,Read Jamf Connect Deployments"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

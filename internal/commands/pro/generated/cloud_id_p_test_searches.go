@@ -35,10 +35,11 @@ func newCloudIdPTestSearchesTestGroupCmd(ctx *registry.CLIContext) *cobra.Comman
 	)
 
 	cmd := &cobra.Command{
-		Use:   "test-group <id>",
-		Short: "Get group test search",
-		Long:  "Do test search to ensure about configuration and mappings",
-		Args:  cobra.ExactArgs(1),
+		Use:         "test-group <id>",
+		Short:       "Get group test search",
+		Long:        "Do test search to ensure about configuration and mappings",
+		Annotations: map[string]string{"jamf:privileges": "Read LDAP Servers"},
+		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -96,10 +97,11 @@ func newCloudIdPTestSearchesTestUserCmd(ctx *registry.CLIContext) *cobra.Command
 	)
 
 	cmd := &cobra.Command{
-		Use:   "test-user <id>",
-		Short: "Get user test search",
-		Long:  "Do test search to ensure about configuration and mappings",
-		Args:  cobra.ExactArgs(1),
+		Use:         "test-user <id>",
+		Short:       "Get user test search",
+		Long:        "Do test search to ensure about configuration and mappings",
+		Annotations: map[string]string{"jamf:privileges": "Read LDAP Servers"},
+		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -157,10 +159,11 @@ func newCloudIdPTestSearchesTestUserMembershipCmd(ctx *registry.CLIContext) *cob
 	)
 
 	cmd := &cobra.Command{
-		Use:   "test-user-membership <id>",
-		Short: "Get membership test search",
-		Long:  "Do test search to ensure about configuration and mappings",
-		Args:  cobra.ExactArgs(1),
+		Use:         "test-user-membership <id>",
+		Short:       "Get membership test search",
+		Long:        "Do test search to ensure about configuration and mappings",
+		Annotations: map[string]string{"jamf:privileges": "Read LDAP Servers"},
+		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

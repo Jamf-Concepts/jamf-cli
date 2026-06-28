@@ -47,6 +47,7 @@ func newJamfProtectGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get jamf-protect and output as YAML
   jamf-cli pro jamf-protect get -o yaml`,
+		Annotations: map[string]string{"jamf:privileges": "Read Jamf Protect Settings,Read Jamf Protect Deployments"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -90,6 +91,7 @@ func newJamfProtectCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a jamf-protect, modify it, and create a copy
   jamf-cli pro jamf-protect get 1 -o json | jq '.name = "Copy"' | jamf-cli pro jamf-protect create`,
+		Annotations: map[string]string{"jamf:privileges": "Update Jamf Protect Settings"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -156,6 +158,7 @@ func newJamfProtectUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Update from a file
   jamf-cli pro jamf-protect update --from-file jamf-protect.json`,
+		Annotations: map[string]string{"jamf:privileges": "Update Jamf Protect Settings"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -221,7 +224,7 @@ func newJamfProtectDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Delete without confirmation prompt
   jamf-cli pro jamf-protect delete 1 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Update Jamf Protect Settings"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -300,6 +303,7 @@ func newJamfProtectHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 		Long:  "Get Jamf Protect history",
 		Example: `  # Get history for a jamf-protect
   jamf-cli pro jamf-protect history 1`,
+		Annotations: map[string]string{"jamf:privileges": "Read Jamf Protect Settings"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -417,9 +421,10 @@ func newJamfProtectAddHistoryNoteCmd(ctx *registry.CLIContext) *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "add-history-note",
-		Short: "Add Jamf Protect history notes",
-		Long:  "Add Jamf Protect history notes",
+		Use:         "add-history-note",
+		Short:       "Add Jamf Protect history notes",
+		Long:        "Add Jamf Protect history notes",
+		Annotations: map[string]string{"jamf:privileges": "Update Jamf Protect Settings"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

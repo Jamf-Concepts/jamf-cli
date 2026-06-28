@@ -27,10 +27,11 @@ func newDdmStatusStatusItemsCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{
-		Use:   "status-items <id>",
-		Short: "Retrieve the Status Items from the latest Status Report for a device",
-		Long:  "Retrieves the Status Items from the latest Status Report for a device",
-		Args:  cobra.ExactArgs(1),
+		Use:         "status-items <id>",
+		Short:       "Retrieve the Status Items from the latest Status Report for a device",
+		Long:        "Retrieves the Status Items from the latest Status Report for a device",
+		Annotations: map[string]string{"jamf:privileges": "Read Mobile Devices,Read Computers"},
+		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

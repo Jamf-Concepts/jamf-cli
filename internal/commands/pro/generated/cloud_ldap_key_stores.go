@@ -32,9 +32,10 @@ func newCloudLdapKeyStoresVerifyCmd(ctx *registry.CLIContext) *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "verify",
-		Short: "Validate keystore for Cloud Identity Provider secure connection",
-		Long:  "Validate keystore for Cloud Identity Provider secure connection",
+		Use:         "verify",
+		Short:       "Validate keystore for Cloud Identity Provider secure connection",
+		Long:        "Validate keystore for Cloud Identity Provider secure connection",
+		Annotations: map[string]string{"jamf:privileges": "Create LDAP Servers"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

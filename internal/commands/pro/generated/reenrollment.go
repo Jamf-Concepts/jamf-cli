@@ -44,6 +44,7 @@ func newReenrollmentGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get reenrollment and output as YAML
   jamf-cli pro reenrollment get -o yaml`,
+		Annotations: map[string]string{"jamf:privileges": "Read Re-enrollment"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -84,6 +85,7 @@ func newReenrollmentUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Update from a file
   jamf-cli pro reenrollment update --from-file reenrollment.json`,
+		Annotations: map[string]string{"jamf:privileges": "Update Re-enrollment"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -156,6 +158,7 @@ func newReenrollmentHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 		Long:  "Gets Re-enrollment history object",
 		Example: `  # Get history for a reenrollment
   jamf-cli pro reenrollment history 1`,
+		Annotations: map[string]string{"jamf:privileges": "Read Re-enrollment"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -275,9 +278,10 @@ func newReenrollmentAddHistoryNoteCmd(ctx *registry.CLIContext) *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "add-history-note",
-		Short: "Add specified Re-enrollment history object notes",
-		Long:  "Adds specified Re-enrollment history object notes",
+		Use:         "add-history-note",
+		Short:       "Add specified Re-enrollment history object notes",
+		Long:        "Adds specified Re-enrollment history object notes",
+		Annotations: map[string]string{"jamf:privileges": "Update Re-enrollment"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -349,6 +353,7 @@ func newReenrollmentHistoryExportCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Pipe to stdout
   jamf-cli pro reenrollment history-export > output.bin`,
+		Annotations: map[string]string{"jamf:privileges": "Read Re-enrollment"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			reqCtx = registry.WithAccept(reqCtx, "*/*")

@@ -49,6 +49,7 @@ func newAdvancedMobileDeviceSearchesListCmd(ctx *registry.CLIContext) *cobra.Com
 
   # List advanced-mobile-device-searches and extract IDs
   jamf-cli pro advanced-mobile-device-searches list --field id`,
+		Annotations: map[string]string{"jamf:privileges": "Read Advanced Mobile Device Searches"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -92,7 +93,8 @@ func newAdvancedMobileDeviceSearchesGetCmd(ctx *registry.CLIContext) *cobra.Comm
 
   # Get a advanced-mobile-device-searche and output as YAML
   jamf-cli pro advanced-mobile-device-searches get 1 -o yaml`,
-		Args: cobra.MaximumNArgs(1),
+		Annotations: map[string]string{"jamf:privileges": "Read Advanced Mobile Device Searches"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -153,6 +155,7 @@ func newAdvancedMobileDeviceSearchesCreateCmd(ctx *registry.CLIContext) *cobra.C
 
   # Get a advanced-mobile-device-searche, modify it, and create a copy
   jamf-cli pro advanced-mobile-device-searches get 1 -o json | jq '.name = "Copy"' | jamf-cli pro advanced-mobile-device-searches create`,
+		Annotations: map[string]string{"jamf:privileges": "Create Advanced Mobile Device Searches"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -227,7 +230,8 @@ func newAdvancedMobileDeviceSearchesUpdateCmd(ctx *registry.CLIContext) *cobra.C
 
   # Get a advanced-mobile-device-searche, modify, and update
   jamf-cli pro advanced-mobile-device-searches get 1 -o json | jq '.name = "New Name"' | jamf-cli pro advanced-mobile-device-searches update 1`,
-		Args: cobra.MaximumNArgs(1),
+		Annotations: map[string]string{"jamf:privileges": "Update Advanced Mobile Device Searches"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -321,7 +325,7 @@ func newAdvancedMobileDeviceSearchesDeleteCmd(ctx *registry.CLIContext) *cobra.C
 
   # Delete without confirmation prompt
   jamf-cli pro advanced-mobile-device-searches delete 1 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Delete Advanced Mobile Device Searches"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -527,7 +531,7 @@ func newAdvancedMobileDeviceSearchesDeleteMultipleCmd(ctx *registry.CLIContext) 
 		Long:  "Removes specified Advanced Search Objects",
 		Example: `  # Delete multiple advanced-mobile-device-searches by IDs
   jamf-cli pro advanced-mobile-device-searches delete-multiple --ids 1,2,3 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Delete Advanced Mobile Device Searches"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -618,9 +622,10 @@ func newAdvancedMobileDeviceSearchesChoicesCmd(ctx *registry.CLIContext) *cobra.
 	)
 
 	cmd := &cobra.Command{
-		Use:   "choices",
-		Short: "Get Mobile Device Advanced Search criteria choices",
-		Long:  "Gets Mobile Device Advanced Search criteria choices. A list of potentially valid choices can be found by navigating to the Criteria page of the Advanced Mobile Device Search creation process. A few are \"App Name\", \"Building\", and \"Display Name\".",
+		Use:         "choices",
+		Short:       "Get Mobile Device Advanced Search criteria choices",
+		Long:        "Gets Mobile Device Advanced Search criteria choices. A list of potentially valid choices can be found by navigating to the Criteria page of the Advanced Mobile Device Search creation process. A few are \"App Name\", \"Building\", and \"Display Name\".",
+		Annotations: map[string]string{"jamf:privileges": "Read Advanced Mobile Device Searches"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

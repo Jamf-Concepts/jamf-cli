@@ -54,6 +54,7 @@ func newStaticComputerGroupsListCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # List static-computer-groups and extract IDs
   jamf-cli pro static-computer-groups list --field id`,
+		Annotations: map[string]string{"jamf:privileges": "Read Static Computer Groups"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -182,7 +183,8 @@ func newStaticComputerGroupsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a static-computer-group and output as YAML
   jamf-cli pro static-computer-groups get 1 -o yaml`,
-		Args: cobra.MaximumNArgs(1),
+		Annotations: map[string]string{"jamf:privileges": "Read Static Computer Groups"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -244,6 +246,7 @@ func newStaticComputerGroupsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a static-computer-group, modify it, and create a copy
   jamf-cli pro static-computer-groups get 1 -o json | jq '.name = "Copy"' | jamf-cli pro static-computer-groups create`,
+		Annotations: map[string]string{"jamf:privileges": "Create Static Computer Groups"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -319,7 +322,8 @@ func newStaticComputerGroupsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a static-computer-group, modify, and update
   jamf-cli pro static-computer-groups get 1 -o json | jq '.name = "New Name"' | jamf-cli pro static-computer-groups update 1`,
-		Args: cobra.MaximumNArgs(1),
+		Annotations: map[string]string{"jamf:privileges": "Update Static Computer Groups"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -410,7 +414,7 @@ func newStaticComputerGroupsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Delete without confirmation prompt
   jamf-cli pro static-computer-groups delete 1 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Delete Static Computer Groups"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

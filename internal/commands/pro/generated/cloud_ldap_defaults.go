@@ -28,10 +28,11 @@ func newCloudLdapDefaultsMappingsCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{
-		Use:   "mappings <id>",
-		Short: "Get default mappings",
-		Long:  "Get default mappings for Cloud Identity Provider Provider.",
-		Args:  cobra.ExactArgs(1),
+		Use:         "mappings <id>",
+		Short:       "Get default mappings",
+		Long:        "Get default mappings for Cloud Identity Provider Provider.",
+		Annotations: map[string]string{"jamf:privileges": "Read LDAP Servers"},
+		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -63,10 +64,11 @@ func newCloudLdapDefaultsServerConfigurationCmd(ctx *registry.CLIContext) *cobra
 	var ()
 
 	cmd := &cobra.Command{
-		Use:   "server-configuration <id>",
-		Short: "Get default server configuration",
-		Long:  "Get default server configuration for Cloud Identity Provider Identity Provider.",
-		Args:  cobra.ExactArgs(1),
+		Use:         "server-configuration <id>",
+		Short:       "Get default server configuration",
+		Long:        "Get default server configuration for Cloud Identity Provider Identity Provider.",
+		Annotations: map[string]string{"jamf:privileges": "Read LDAP Servers"},
+		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

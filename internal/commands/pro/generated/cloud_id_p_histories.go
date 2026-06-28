@@ -45,7 +45,8 @@ func newCloudIdPHistoriesHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 		Long:  "Gets specified Cloud Identity Provider object history",
 		Example: `  # Get history for a cloud-id-p-history
   jamf-cli pro cloud-id-p-histories history 1`,
-		Args: cobra.ExactArgs(1),
+		Annotations: map[string]string{"jamf:privileges": "Read LDAP Servers"},
+		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -165,10 +166,11 @@ func newCloudIdPHistoriesAddHistoryNoteCmd(ctx *registry.CLIContext) *cobra.Comm
 	)
 
 	cmd := &cobra.Command{
-		Use:   "add-history-note <id>",
-		Short: "Add Cloud Identity Provider history note",
-		Long:  "Adds specified Cloud Identity Provider object history notes",
-		Args:  cobra.ExactArgs(1),
+		Use:         "add-history-note <id>",
+		Short:       "Add Cloud Identity Provider history note",
+		Long:        "Adds specified Cloud Identity Provider object history notes",
+		Annotations: map[string]string{"jamf:privileges": "Update LDAP Servers"},
+		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
