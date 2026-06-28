@@ -625,15 +625,16 @@ spinner and progress output (narrower than --quiet).`,
 			// "jamf-cli commands" listing command must be skipped, but
 			// "pro mdm-commands commands" must NOT be skipped.
 			chainSkip := map[string]bool{
-				"completion": true,
-				"help":       true,
-				"version":    true,
-				"config":     true,
-				"diff":       true,
-				"setup":      true,
-				"multi":      true,
-				"doctor":     true,
-				"mcp":        true,
+				"completion":    true,
+				"help":          true,
+				"version":       true,
+				"config":        true,
+				"diff":          true,
+				"setup":         true,
+				"multi":         true,
+				"doctor":        true,
+				"mcp":           true,
+				"agent-context": true,
 			}
 			for c := cmd; c != nil; c = c.Parent() {
 				if chainSkip[c.Name()] {
@@ -790,6 +791,9 @@ spinner and progress output (narrower than --quiet).`,
 
 	// Commands discovery subcommand
 	cmd.AddCommand(newCommandsCmd(cmd))
+
+	// Agent operating guide (auth, exit codes, flags, MCP)
+	cmd.AddCommand(newAgentContextCmd())
 
 	// Multi-profile command runner
 	cmd.AddCommand(newMultiCmd())

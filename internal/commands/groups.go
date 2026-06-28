@@ -16,17 +16,18 @@ var rootGroups = []*cobra.Group{
 }
 
 var rootGroupMap = map[string]string{
-	"version":    "core",
-	"config":     "core",
-	"completion": "core",
-	"commands":   "core",
-	"multi":      "core",
-	"doctor":     "core",
-	"mcp":        "core",
-	"pro":        "products",
-	"protect":    "products",
-	"school":     "products",
-	"platform":   "products",
+	"version":       "core",
+	"config":        "core",
+	"completion":    "core",
+	"commands":      "core",
+	"multi":         "core",
+	"doctor":        "core",
+	"mcp":           "core",
+	"agent-context": "core",
+	"pro":           "products",
+	"protect":       "products",
+	"school":        "products",
+	"platform":      "products",
 }
 
 // applyRootGroups registers groups on the root command and assigns each
