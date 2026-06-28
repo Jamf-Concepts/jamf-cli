@@ -834,6 +834,7 @@ type commandEntry struct {
 	Product     string   `json:"product,omitempty"`
 	Group       string   `json:"group,omitempty"`
 	Destructive bool     `json:"destructive,omitempty"`
+	Privileges  []string `json:"privileges,omitempty"`
 }
 
 // newCommandsCmd creates the "commands" subcommand that outputs the full
@@ -882,12 +883,17 @@ func collectCommands(cmd *cobra.Command, prefix, product, group string) []comman
 
 		// Leaf command: has RunE or Run
 		if child.RunE != nil || child.Run != nil {
+			var privileges []string
+			if p := child.Annotations["jamf:privileges"]; p != "" {
+				privileges = strings.Split(p, ",")
+			}
 			entry := commandEntry{
 				Command:     fullPath,
 				Description: child.Short,
 				Product:     childProduct,
 				Group:       childGroup,
 				Destructive: child.Annotations["jamf:destructive"] == "true",
+				Privileges:  privileges,
 			}
 
 			// Collect aliases: for leaf commands under a top-level group
@@ -947,6 +953,9 @@ func commandEntriesToMaps(entries []commandEntry, full bool) []map[string]any {
 			// which derive their columns from the first row, carry the field for
 			// every row rather than dropping it when the first row isn't destructive.
 			m["destructive"] = e.Destructive
+			if len(e.Privileges) > 0 {
+				m["privileges"] = e.Privileges
+			}
 		}
 		result[i] = m
 	}
