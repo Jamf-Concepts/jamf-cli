@@ -44,8 +44,10 @@ func main() {
 	os.Args = injectEnvArgs(os.Args, os.Getenv("JAMF_CLI_ARGS"))
 
 	cmd := commands.NewRootCmd(version, commit, date, specProVersion)
-	if err := cmd.Execute(); err != nil {
+	executedCmd, err := cmd.ExecuteC()
+	if err != nil {
 		err = commands.ClassifyError(err)
+		err = commands.EnrichPrivilegeError(executedCmd, err)
 		if !commands.FormatError(err) {
 			commands.FprintError(os.Stderr, err)
 		}
