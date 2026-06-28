@@ -48,8 +48,9 @@ const (
 	FormatCSV       Format = "csv"
 	FormatYAML      Format = "yaml"
 	FormatPlain     Format = "plain"
-	FormatXML       Format = "xml" // Classic API native format — pretty-printed XML
-	FormatRaw       Format = "raw" // Exact wire bytes, no conversion or formatting
+	FormatXML       Format = "xml"    // Classic API native format — pretty-printed XML
+	FormatRaw       Format = "raw"    // Exact wire bytes, no conversion or formatting
+	FormatNDJSON    Format = "ndjson" // newline-delimited JSON: one compact object per line, no array
 )
 
 // nowFunc is the function used to get the current time. Override in tests.
@@ -175,6 +176,8 @@ func (f *Formatter) Print(data any) error {
 	switch f.format {
 	case FormatJSON:
 		err = f.printJSON(data)
+	case FormatNDJSON:
+		err = f.printNDJSON(data)
 	case FormatYAML:
 		err = f.printYAML(data)
 	case FormatCSV:
@@ -267,6 +270,39 @@ func (f *Formatter) printJSON(data any) error {
 	enc := json.NewEncoder(f.writer)
 	enc.SetIndent("", "  ")
 	return enc.Encode(data)
+}
+
+// printNDJSON writes one compact JSON object per line (no outer array).
+// A slice yields one line per element; a single object yields one line.
+// Projection (--select/--compact/--field) has already been applied by Print.
+func (f *Formatter) printNDJSON(data any) error {
+	writeLine := func(v any) error {
+		b, err := json.Marshal(v) // compact (no indent)
+		if err != nil {
+			return err
+		}
+		b = append(b, '\n')
+		_, err = f.writer.Write(b)
+		return err
+	}
+	switch v := data.(type) {
+	case []map[string]any:
+		for _, row := range v {
+			if err := writeLine(row); err != nil {
+				return err
+			}
+		}
+		return nil
+	case []any:
+		for _, row := range v {
+			if err := writeLine(row); err != nil {
+				return err
+			}
+		}
+		return nil
+	default:
+		return writeLine(v)
+	}
 }
 
 func (f *Formatter) printYAML(data any) error {
@@ -502,7 +538,7 @@ func (f *Formatter) PrintRaw(data []byte) error {
 	// coerce via normalizeForTabular. Print's applyProjection handles both
 	// map[string]any and []map[string]any.
 	switch f.format {
-	case FormatJSON, FormatJSONMulti, FormatYAML:
+	case FormatJSON, FormatJSONMulti, FormatYAML, FormatNDJSON:
 		return f.Print(parsed)
 	default:
 		// Table mode: a single object renders as a detail view, not a 1-row

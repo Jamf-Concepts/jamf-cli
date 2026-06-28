@@ -3284,7 +3284,7 @@ type tableColumn struct {
 // columns with display labels. Only applies for table/csv/plain formats;
 // JSON/YAML output is returned unchanged.
 func selectTableColumns(data []byte, columns []tableColumn, format string) []byte {
-	if format == "json" || format == "yaml" || format == "xml" || format == "raw" {
+	if format == "json" || format == "yaml" || format == "xml" || format == "raw" || format == "ndjson" {
 		return data
 	}
 

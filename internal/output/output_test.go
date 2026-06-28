@@ -1645,3 +1645,52 @@ func TestResolveFormat(t *testing.T) {
 		})
 	}
 }
+
+// --- NDJSON tests ---
+
+func TestPrintNDJSON_List(t *testing.T) {
+	var buf bytes.Buffer
+	f := New("ndjson", true, false)
+	f.SetWriter(&buf)
+	rows := []map[string]any{{"id": "1", "name": "a"}, {"id": "2", "name": "b"}}
+	if err := f.Print(rows); err != nil {
+		t.Fatalf("Print: %v", err)
+	}
+	lines := strings.Split(strings.TrimRight(buf.String(), "\n"), "\n")
+	if len(lines) != 2 {
+		t.Fatalf("expected 2 lines, got %d: %q", len(lines), buf.String())
+	}
+	for _, ln := range lines {
+		if strings.Contains(ln, "[") || strings.Contains(ln, "\n") {
+			t.Errorf("line is not a bare compact object: %q", ln)
+		}
+		var obj map[string]any
+		if err := json.Unmarshal([]byte(ln), &obj); err != nil {
+			t.Errorf("line not valid JSON object: %q (%v)", ln, err)
+		}
+	}
+}
+
+func TestPrintNDJSON_SingleObject(t *testing.T) {
+	var buf bytes.Buffer
+	f := New("ndjson", true, false)
+	f.SetWriter(&buf)
+	if err := f.Print(map[string]any{"id": "1"}); err != nil {
+		t.Fatalf("Print: %v", err)
+	}
+	if got := strings.Count(buf.String(), "\n"); got != 1 {
+		t.Errorf("single object should be one line, got %d newlines: %q", got, buf.String())
+	}
+}
+
+func TestPrintNDJSON_Empty(t *testing.T) {
+	var buf bytes.Buffer
+	f := New("ndjson", true, false)
+	f.SetWriter(&buf)
+	if err := f.Print([]map[string]any{}); err != nil {
+		t.Fatalf("Print: %v", err)
+	}
+	if buf.Len() != 0 {
+		t.Errorf("empty list should produce no output, got %q", buf.String())
+	}
+}
