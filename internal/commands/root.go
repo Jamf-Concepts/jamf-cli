@@ -939,9 +939,10 @@ func commandEntriesToMaps(entries []commandEntry, full bool) []map[string]any {
 			m["flags"] = flags
 			m["product"] = e.Product
 			m["group"] = e.Group
-			if e.Destructive {
-				m["destructive"] = true
-			}
+			// Emit unconditionally (not just when true) so CSV and table output,
+			// which derive their columns from the first row, carry the field for
+			// every row rather than dropping it when the first row isn't destructive.
+			m["destructive"] = e.Destructive
 		}
 		result[i] = m
 	}

@@ -1298,17 +1298,20 @@ func TestCollectCommands_DestructiveFlag(t *testing.T) {
 	}
 }
 
-func TestCommandEntriesToMaps_DestructivePositiveOnly(t *testing.T) {
+func TestCommandEntriesToMaps_Destructive(t *testing.T) {
+	// Synthetic entries — command names are arbitrary for this unit test.
 	entries := []commandEntry{
-		{Command: "pro computers delete", Description: "Delete", Destructive: true},
-		{Command: "pro computers list", Description: "List"},
+		{Command: "x delete", Description: "Delete", Destructive: true},
+		{Command: "x list", Description: "List"},
 	}
 	maps := commandEntriesToMaps(entries, true)
 
 	if maps[0]["destructive"] != true {
-		t.Errorf("delete destructive = %v, want true", maps[0]["destructive"])
+		t.Errorf("destructive command: destructive = %v, want true", maps[0]["destructive"])
 	}
-	if _, present := maps[1]["destructive"]; present {
-		t.Error("non-destructive entry must omit the 'destructive' key entirely")
+	// Emitted unconditionally in full mode (present, false) so CSV/table output —
+	// which derive columns from the first row — carry the field for every row.
+	if maps[1]["destructive"] != false {
+		t.Errorf("non-destructive command: destructive = %v, want false", maps[1]["destructive"])
 	}
 }
