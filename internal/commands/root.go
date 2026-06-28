@@ -953,6 +953,11 @@ func commandEntriesToMaps(entries []commandEntry, full bool) []map[string]any {
 			// which derive their columns from the first row, carry the field for
 			// every row rather than dropping it when the first row isn't destructive.
 			m["destructive"] = e.Destructive
+			// Privileges, unlike destructive above, is positive-only: an empty
+			// array would falsely assert "needs no privileges" for commands that
+			// simply don't declare them (classic, platform, handwritten), so the
+			// key is omitted when absent. It is primarily a JSON/agent + 403-hint
+			// signal; CSV/table may not surface it (column set derives from row 0).
 			if len(e.Privileges) > 0 {
 				m["privileges"] = e.Privileges
 			}
