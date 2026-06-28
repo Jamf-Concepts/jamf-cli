@@ -78,7 +78,9 @@ Configure it in an MCP client (example for Claude Desktop's config):
 			mcp.AddTool(server, &mcp.Tool{
 				Name: "list_commands",
 				Description: "List every available jamf-cli command with its description and " +
-					"flags. Call this first to discover what you can run, then use run_command.",
+					"flags. Commands that mutate or erase state are marked \"destructive\": true " +
+					"and require an explicit --yes. Call this first to discover what you can run, " +
+					"then use run_command.",
 			}, func(ctx context.Context, _ *mcp.CallToolRequest, _ struct{}) (*mcp.CallToolResult, any, error) {
 				return runChild(ctx, executable, serverProfile, []string{"commands", "-o", "json"}), nil, nil
 			})
