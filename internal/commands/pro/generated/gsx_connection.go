@@ -46,6 +46,7 @@ func newGsxConnectionGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get gsx-connection and output as YAML
   jamf-cli pro gsx-connection get -o yaml`,
+		Annotations: map[string]string{"jamf:privileges": "Read GSX Connection,Read Push Certificates"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -86,6 +87,7 @@ func newGsxConnectionUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Update from a file
   jamf-cli pro gsx-connection update --from-file gsx-connection.json`,
+		Annotations: map[string]string{"jamf:privileges": "Update GSX Connection,Update Push Certificates"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -157,6 +159,7 @@ func newGsxConnectionHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 		Long:  "Gets specified GSX Connection history object",
 		Example: `  # Get history for a gsx-connection
   jamf-cli pro gsx-connection history 1`,
+		Annotations: map[string]string{"jamf:privileges": "Read GSX Connection"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -297,9 +300,10 @@ func newGsxConnectionAddHistoryNoteCmd(ctx *registry.CLIContext) *cobra.Command 
 	)
 
 	cmd := &cobra.Command{
-		Use:   "add-history-note",
-		Short: "Add specified GSX Connection history object notes",
-		Long:  "Adds specified GSX Connection history object notes",
+		Use:         "add-history-note",
+		Short:       "Add specified GSX Connection history object notes",
+		Long:        "Adds specified GSX Connection history object notes",
+		Annotations: map[string]string{"jamf:privileges": "Update GSX Connection"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -366,6 +370,7 @@ func newGsxConnectionPatchCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Update using JSON
   jamf-cli pro gsx-connection get -o json | jq '.field = "value"' | jamf-cli pro gsx-connection patch`,
+		Annotations: map[string]string{"jamf:privileges": "Update GSX Connection,Update Push Certificates"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -446,9 +451,10 @@ func newGsxConnectionTestCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{
-		Use:   "test",
-		Short: "Test functionality of an GSX Connection",
-		Long:  "Test functionality of an GSX Connection",
+		Use:         "test",
+		Short:       "Test functionality of an GSX Connection",
+		Long:        "Test functionality of an GSX Connection",
+		Annotations: map[string]string{"jamf:privileges": "Read GSX Connection"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

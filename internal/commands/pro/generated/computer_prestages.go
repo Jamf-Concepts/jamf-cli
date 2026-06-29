@@ -54,6 +54,7 @@ func newComputerPrestagesListCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # List computer-prestages and extract IDs
   jamf-cli pro computer-prestages list --field id`,
+		Annotations: map[string]string{"jamf:privileges": "Read Computer PreStage Enrollments"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -201,7 +202,8 @@ func newComputerPrestagesGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a computer-prestage and output as YAML
   jamf-cli pro computer-prestages get 1 -o yaml`,
-		Args: cobra.MaximumNArgs(1),
+		Annotations: map[string]string{"jamf:privileges": "Read Computer PreStage Enrollments"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -262,6 +264,7 @@ func newComputerPrestagesCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a computer-prestage, modify it, and create a copy
   jamf-cli pro computer-prestages get 1 -o json | jq '.name = "Copy"' | jamf-cli pro computer-prestages create`,
+		Annotations: map[string]string{"jamf:privileges": "Create Computer PreStage Enrollments"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -371,7 +374,8 @@ func newComputerPrestagesUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a computer-prestage, modify, and update
   jamf-cli pro computer-prestages get 1 -o json | jq '.name = "New Name"' | jamf-cli pro computer-prestages update 1`,
-		Args: cobra.MaximumNArgs(1),
+		Annotations: map[string]string{"jamf:privileges": "Update Computer PreStage Enrollments"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -511,7 +515,7 @@ func newComputerPrestagesDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Delete without confirmation prompt
   jamf-cli pro computer-prestages delete 1 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Delete Computer PreStage Enrollments"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

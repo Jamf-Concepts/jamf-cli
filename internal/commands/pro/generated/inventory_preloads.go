@@ -65,6 +65,7 @@ func newInventoryPreloadsListCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # List inventory-preloads and extract IDs
   jamf-cli pro inventory-preloads list --field id`,
+		Annotations: map[string]string{"jamf:privileges": "Read Inventory Preload Records"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -216,7 +217,8 @@ func newInventoryPreloadsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a inventory-preload and output as YAML
   jamf-cli pro inventory-preloads get 1 -o yaml`,
-		Args: cobra.MaximumNArgs(1),
+		Annotations: map[string]string{"jamf:privileges": "Read Inventory Preload Records"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -277,6 +279,7 @@ func newInventoryPreloadsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a inventory-preload, modify it, and create a copy
   jamf-cli pro inventory-preloads get 1 -o json | jq '.name = "Copy"' | jamf-cli pro inventory-preloads create`,
+		Annotations: map[string]string{"jamf:privileges": "Create Inventory Preload Records"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -368,7 +371,8 @@ func newInventoryPreloadsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a inventory-preload, modify, and update
   jamf-cli pro inventory-preloads get 1 -o json | jq '.name = "New Name"' | jamf-cli pro inventory-preloads update 1`,
-		Args: cobra.MaximumNArgs(1),
+		Annotations: map[string]string{"jamf:privileges": "Update Inventory Preload Records"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -479,7 +483,7 @@ func newInventoryPreloadsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Delete without confirmation prompt
   jamf-cli pro inventory-preloads delete 1 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Delete Inventory Preload Records"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -687,6 +691,7 @@ func newInventoryPreloadsHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 		Long:  "Gets Inventory Preload history entries.",
 		Example: `  # Get history for a inventory-preload
   jamf-cli pro inventory-preloads history 1`,
+		Annotations: map[string]string{"jamf:privileges": "Read Inventory Preload Records"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -827,9 +832,10 @@ func newInventoryPreloadsAddHistoryNoteCmd(ctx *registry.CLIContext) *cobra.Comm
 	)
 
 	cmd := &cobra.Command{
-		Use:   "add-history-note",
-		Short: "Add Inventory Preload history object notes",
-		Long:  "Adds Inventory Preload history object notes.",
+		Use:         "add-history-note",
+		Short:       "Add Inventory Preload history object notes",
+		Long:        "Adds Inventory Preload history object notes.",
+		Annotations: map[string]string{"jamf:privileges": "Update Inventory Preload Records"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -898,6 +904,7 @@ func newInventoryPreloadsExportCmd(ctx *registry.CLIContext) *cobra.Command {
 		Long:  "Export a collection of inventory preload records",
 		Example: `  # Export inventory-preloads to CSV
   jamf-cli pro inventory-preloads export --out-file inventory-preloads.csv`,
+		Annotations: map[string]string{"jamf:privileges": "Read Inventory Preload Records"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			reqCtx = registry.WithAccept(reqCtx, "*/*")
@@ -1014,6 +1021,7 @@ func newInventoryPreloadsCsvCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Pipe to stdout
   jamf-cli pro inventory-preloads csv > output.bin`,
+		Annotations: map[string]string{"jamf:privileges": "Read Inventory Preload Records"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			reqCtx = registry.WithAccept(reqCtx, "*/*")
@@ -1060,9 +1068,10 @@ func newInventoryPreloadsEaColumnsCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{
-		Use:   "ea-columns",
-		Short: "Retrieve a list of extension attribute columns",
-		Long:  "Retrieve a list of extension attribute columns currently associated with inventory preload records",
+		Use:         "ea-columns",
+		Short:       "Retrieve a list of extension attribute columns",
+		Long:        "Retrieve a list of extension attribute columns currently associated with inventory preload records",
+		Annotations: map[string]string{"jamf:privileges": "Read Inventory Preload Records"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -1099,7 +1108,7 @@ func newInventoryPreloadsDeleteAllCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:         "delete-all",
 		Short:       "Delete all Inventory Preload records",
 		Long:        "Deletes all Inventory Preload records.",
-		Annotations: map[string]string{"jamf:destructive": "true"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Delete Inventory Preload Records"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -1179,9 +1188,10 @@ func newInventoryPreloadsCsvValidateCmd(ctx *registry.CLIContext) *cobra.Command
 	)
 
 	cmd := &cobra.Command{
-		Use:   "csv-validate",
-		Short: "Validate a given CSV file",
-		Long:  "Validate a given CSV file. Serial number and device type are required. All other fields are optional. A CSV template can be downloaded from '/v2/inventory-preload/csv-template'.",
+		Use:         "csv-validate",
+		Short:       "Validate a given CSV file",
+		Long:        "Validate a given CSV file. Serial number and device type are required. All other fields are optional. A CSV template can be downloaded from '/v2/inventory-preload/csv-template'.",
+		Annotations: map[string]string{"jamf:privileges": "Create Inventory Preload Records"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -1239,6 +1249,7 @@ func newInventoryPreloadsCsvTemplateCmd(ctx *registry.CLIContext) *cobra.Command
 
   # Pipe to stdout
   jamf-cli pro inventory-preloads csv-template > output.bin`,
+		Annotations: map[string]string{"jamf:privileges": "Read Inventory Preload Records"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			reqCtx = registry.WithAccept(reqCtx, "*/*")
@@ -1287,9 +1298,10 @@ func newInventoryPreloadsUploadCmd(ctx *registry.CLIContext) *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "upload",
-		Short: "Create one or more new Inventory Preload records using CSV",
-		Long:  "Create one or more new Inventory Preload records using CSV. A CSV template can be downloaded from /v2/inventory-preload/csv-template. Serial number and device type are required. All other fields are optional. When a matching serial number exists in the Inventory Preload data, the record will be overwritten with the CSV data. If the CSV file contains a new username and an email address is provided, the new user is created in Jamf Pro. If the CSV file contains an existing username, the following user-related fields are updated in Jamf Pro. Full Name, Email Address, Phone Number, Position. This endpoint does not do full validation of each record in the CSV data. To do full validation, use the '/v2/inventory-preload/csv-validate' endpoint first.",
+		Use:         "upload",
+		Short:       "Create one or more new Inventory Preload records using CSV",
+		Long:        "Create one or more new Inventory Preload records using CSV. A CSV template can be downloaded from /v2/inventory-preload/csv-template. Serial number and device type are required. All other fields are optional. When a matching serial number exists in the Inventory Preload data, the record will be overwritten with the CSV data. If the CSV file contains a new username and an email address is provided, the new user is created in Jamf Pro. If the CSV file contains an existing username, the following user-related fields are updated in Jamf Pro. Full Name, Email Address, Phone Number, Position. This endpoint does not do full validation of each record in the CSV data. To do full validation, use the '/v2/inventory-preload/csv-validate' endpoint first.",
+		Annotations: map[string]string{"jamf:privileges": "Create Inventory Preload Records,Update Inventory Preload Records,Create User,Update User"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

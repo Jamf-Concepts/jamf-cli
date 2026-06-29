@@ -44,6 +44,7 @@ func newDeviceCommunicationSettingsGetCmd(ctx *registry.CLIContext) *cobra.Comma
 
   # Get device-communication-settings and output as YAML
   jamf-cli pro device-communication-settings get -o yaml`,
+		Annotations: map[string]string{"jamf:privileges": "Read Automatically Renew MDM Profile Settings"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -84,6 +85,7 @@ func newDeviceCommunicationSettingsUpdateCmd(ctx *registry.CLIContext) *cobra.Co
 
   # Update from a file
   jamf-cli pro device-communication-settings update --from-file device-communication-settings.json`,
+		Annotations: map[string]string{"jamf:privileges": "Update Automatically Renew MDM Profile Settings"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -155,6 +157,7 @@ func newDeviceCommunicationSettingsHistoryCmd(ctx *registry.CLIContext) *cobra.C
 		Long:  "Gets Device Communication settings history",
 		Example: `  # Get history for a device-communication-settings
   jamf-cli pro device-communication-settings history 1`,
+		Annotations: map[string]string{"jamf:privileges": "Read Automatically Renew MDM Profile Settings"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -295,9 +298,10 @@ func newDeviceCommunicationSettingsAddHistoryNoteCmd(ctx *registry.CLIContext) *
 	)
 
 	cmd := &cobra.Command{
-		Use:   "add-history-note",
-		Short: "Add Device Communication Settings history notes",
-		Long:  "Adds Device Communication Settings history notes",
+		Use:         "add-history-note",
+		Short:       "Add Device Communication Settings history notes",
+		Long:        "Adds Device Communication Settings history notes",
+		Annotations: map[string]string{"jamf:privileges": "Update Automatically Renew MDM Profile Settings"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

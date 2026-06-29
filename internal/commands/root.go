@@ -844,6 +844,7 @@ type commandEntry struct {
 	Product     string   `json:"product,omitempty"`
 	Group       string   `json:"group,omitempty"`
 	Destructive bool     `json:"destructive,omitempty"`
+	Privileges  []string `json:"privileges,omitempty"`
 }
 
 // isFullDetailFormat reports whether an output format carries the full
@@ -905,12 +906,17 @@ func collectCommands(cmd *cobra.Command, prefix, product, group string) []comman
 
 		// Leaf command: has RunE or Run
 		if child.RunE != nil || child.Run != nil {
+			var privileges []string
+			if p := child.Annotations["jamf:privileges"]; p != "" {
+				privileges = strings.Split(p, ",")
+			}
 			entry := commandEntry{
 				Command:     fullPath,
 				Description: child.Short,
 				Product:     childProduct,
 				Group:       childGroup,
 				Destructive: child.Annotations["jamf:destructive"] == "true",
+				Privileges:  privileges,
 			}
 
 			// Collect aliases: for leaf commands under a top-level group
@@ -970,6 +976,14 @@ func commandEntriesToMaps(entries []commandEntry, full bool) []map[string]any {
 			// which derive their columns from the first row, carry the field for
 			// every row rather than dropping it when the first row isn't destructive.
 			m["destructive"] = e.Destructive
+			// Privileges, unlike destructive above, is positive-only: an empty
+			// array would falsely assert "needs no privileges" for commands that
+			// simply don't declare them (classic, platform, handwritten), so the
+			// key is omitted when absent. It is primarily a JSON/agent + 403-hint
+			// signal; CSV/table may not surface it (column set derives from row 0).
+			if len(e.Privileges) > 0 {
+				m["privileges"] = e.Privileges
+			}
 		}
 		result[i] = m
 	}

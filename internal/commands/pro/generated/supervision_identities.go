@@ -58,6 +58,7 @@ func newSupervisionIdentitiesListCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # List supervision-identities and extract IDs
   jamf-cli pro supervision-identities list --field id`,
+		Annotations: map[string]string{"jamf:privileges": "Read Apple Configurator Enrollment"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -211,7 +212,8 @@ func newSupervisionIdentitiesGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a supervision-identity and output as YAML
   jamf-cli pro supervision-identities get 1 -o yaml`,
-		Args: cobra.MaximumNArgs(1),
+		Annotations: map[string]string{"jamf:privileges": "Read Apple Configurator Enrollment"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -272,6 +274,7 @@ func newSupervisionIdentitiesCreateCmd(ctx *registry.CLIContext) *cobra.Command 
 
   # Get a supervision-identity, modify it, and create a copy
   jamf-cli pro supervision-identities get 1 -o json | jq '.name = "Copy"' | jamf-cli pro supervision-identities create`,
+		Annotations: map[string]string{"jamf:privileges": "Update Apple Configurator Enrollment"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -341,7 +344,8 @@ func newSupervisionIdentitiesUpdateCmd(ctx *registry.CLIContext) *cobra.Command 
 
   # Get a supervision-identity, modify, and update
   jamf-cli pro supervision-identities get 1 -o json | jq '.name = "New Name"' | jamf-cli pro supervision-identities update 1`,
-		Args: cobra.MaximumNArgs(1),
+		Annotations: map[string]string{"jamf:privileges": "Update Apple Configurator Enrollment"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -429,7 +433,7 @@ func newSupervisionIdentitiesDeleteCmd(ctx *registry.CLIContext) *cobra.Command 
 
   # Delete without confirmation prompt
   jamf-cli pro supervision-identities delete 1 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Update Apple Configurator Enrollment"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -627,9 +631,10 @@ func newSupervisionIdentitiesUploadCmd(ctx *registry.CLIContext) *cobra.Command 
 	)
 
 	cmd := &cobra.Command{
-		Use:   "upload",
-		Short: "Upload the Supervision Identity .p12 file",
-		Long:  "Uploads the Supervision Identity .p12 file",
+		Use:         "upload",
+		Short:       "Upload the Supervision Identity .p12 file",
+		Long:        "Uploads the Supervision Identity .p12 file",
+		Annotations: map[string]string{"jamf:privileges": "Update Apple Configurator Enrollment"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -697,7 +702,8 @@ func newSupervisionIdentitiesDownloadCmd(ctx *registry.CLIContext) *cobra.Comman
 
   # Pipe to stdout
   jamf-cli pro supervision-identities download <id> > output.bin`,
-		Args: cobra.MaximumNArgs(1),
+		Annotations: map[string]string{"jamf:privileges": "Read Apple Configurator Enrollment"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			reqCtx = registry.WithAccept(reqCtx, "*/*")

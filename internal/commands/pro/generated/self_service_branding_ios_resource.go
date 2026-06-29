@@ -54,6 +54,7 @@ func newSelfServiceBrandingIosListCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # List self-service-branding-ios and extract IDs
   jamf-cli pro self-service-branding-ios list --field id`,
+		Annotations: map[string]string{"jamf:privileges": "Read Self Service Branding Configuration"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -201,7 +202,8 @@ func newSelfServiceBrandingIosGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a self-service-branding-ios and output as YAML
   jamf-cli pro self-service-branding-ios get 1 -o yaml`,
-		Args: cobra.MaximumNArgs(1),
+		Annotations: map[string]string{"jamf:privileges": "Read Self Service Branding Configuration"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -262,6 +264,7 @@ func newSelfServiceBrandingIosCreateCmd(ctx *registry.CLIContext) *cobra.Command
 
   # Get a self-service-branding-ios, modify it, and create a copy
   jamf-cli pro self-service-branding-ios get 1 -o json | jq '.name = "Copy"' | jamf-cli pro self-service-branding-ios create`,
+		Annotations: map[string]string{"jamf:privileges": "Create Self Service Branding Configuration"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -335,7 +338,8 @@ func newSelfServiceBrandingIosUpdateCmd(ctx *registry.CLIContext) *cobra.Command
 
   # Get a self-service-branding-ios, modify, and update
   jamf-cli pro self-service-branding-ios get 1 -o json | jq '.name = "New Name"' | jamf-cli pro self-service-branding-ios update 1`,
-		Args: cobra.MaximumNArgs(1),
+		Annotations: map[string]string{"jamf:privileges": "Update Self Service Branding Configuration"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -428,7 +432,7 @@ func newSelfServiceBrandingIosDeleteCmd(ctx *registry.CLIContext) *cobra.Command
 
   # Delete without confirmation prompt
   jamf-cli pro self-service-branding-ios delete 1 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Delete Self Service Branding Configuration"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

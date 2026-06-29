@@ -53,6 +53,7 @@ CI enforces that `specs/platform/` and `internal/commands/platform/generated/` s
 
 | I want to... | Edit this file |
 |---|---|
+| Surface required privileges (annotation, catalog, 403 hint) | `generator/parser/generator.go` (`opAnnotations`) for the annotation; `internal/commands/root.go` for the `privileges` catalog field; `internal/commands/privilege_error.go` for the 403 hint |
 | Change behavior of all modern API commands | `generator/parser/generator.go` (`resourceTemplate`) |
 | Change behavior of all classic API commands | `generator/classic/generator.go` (`classicResourceTemplate`) |
 | Change how OpenAPI specs are parsed | `generator/parser/parser.go` |
@@ -179,7 +180,7 @@ See `generator/README.md` for full template reference.
 
 ### Generated Command Features
 
-Generated commands automatically get: `apply` (name-based upsert, skipped for singletons); `get`/`update`/`delete`/`patch` with `--name` (and per-resource `--serial`/`--udid`) for single-`{id}` paths on listable non-singletons; `patch` with JSON Merge Patch (RFC 7386) + `--set key=value` + shell completion of scalar fields; `--scaffold` on `create`/`update`/`patch`. All behavior lives in the templates — don't re-document here, read `generator/parser/generator.go`.
+Generated commands automatically get: `apply` (name-based upsert, skipped for singletons); `get`/`update`/`delete`/`patch` with `--name` (and per-resource `--serial`/`--udid`) for single-`{id}` paths on listable non-singletons; `patch` with JSON Merge Patch (RFC 7386) + `--set key=value` + shell completion of scalar fields; `--scaffold` on `create`/`update`/`patch`. Each generated Pro and Platform command also carries a `jamf:privileges` annotation (populated from `x-required-privileges` in the spec via `opAnnotations`) surfaced in the `commands -o json` catalog as a `privileges` array; for Pro, the privilege names are additionally appended to the 403 `permission_denied` hint at runtime (the Platform 403 hint is not wired). Classic commands carry no privilege data. All behavior lives in the templates — don't re-document here, read `generator/parser/generator.go`.
 
 Name-resolution helpers (in `registry.go` / `classic_registry.go`): `readApplyInput`, `extractJSONField`, `resolveNameToIDForApply`, `extractClassicName`, `resolveClassicNameToIDForApply`.
 

@@ -32,9 +32,10 @@ func newChangePasswordsChangePasswordCmd(ctx *registry.CLIContext) *cobra.Comman
 	)
 
 	cmd := &cobra.Command{
-		Use:   "change-password",
-		Short: "Changes the user account password.",
-		Long:  "Changes the account password for a currently authenticated user.",
+		Use:         "change-password",
+		Short:       "Changes the user account password.",
+		Long:        "Changes the account password for a currently authenticated user.",
+		Annotations: map[string]string{"jamf:privileges": "Change Password"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

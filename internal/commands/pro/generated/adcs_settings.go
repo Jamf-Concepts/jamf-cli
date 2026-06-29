@@ -57,7 +57,8 @@ func newAdcsSettingsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a adcs-setting and output as YAML
   jamf-cli pro adcs-settings get 1 -o yaml`,
-		Args: cobra.MaximumNArgs(1),
+		Annotations: map[string]string{"jamf:privileges": "Read AD CS Settings"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -118,6 +119,7 @@ func newAdcsSettingsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a adcs-setting, modify it, and create a copy
   jamf-cli pro adcs-settings get 1 -o json | jq '.name = "Copy"' | jamf-cli pro adcs-settings create`,
+		Annotations: map[string]string{"jamf:privileges": "Create AD CS Settings"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -196,7 +198,7 @@ func newAdcsSettingsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Delete without confirmation prompt
   jamf-cli pro adcs-settings delete 1 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Delete AD CS Settings"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -408,7 +410,8 @@ func newAdcsSettingsHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get history by name
   jamf-cli pro adcs-settings history --name "Example"`,
-		Args: cobra.MaximumNArgs(1),
+		Annotations: map[string]string{"jamf:privileges": "Read AD CS Settings"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -568,10 +571,11 @@ func newAdcsSettingsAddHistoryNoteCmd(ctx *registry.CLIContext) *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "add-history-note [<id>]",
-		Short: "Add specified AD CS Settings object note",
-		Long:  "Adds specified AD CS Settings object note.",
-		Args:  cobra.MaximumNArgs(1),
+		Use:         "add-history-note [<id>]",
+		Short:       "Add specified AD CS Settings object note",
+		Long:        "Adds specified AD CS Settings object note.",
+		Annotations: map[string]string{"jamf:privileges": "Update AD CS Settings"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -645,9 +649,10 @@ func newAdcsSettingsValidateCertificateCmd(ctx *registry.CLIContext) *cobra.Comm
 	)
 
 	cmd := &cobra.Command{
-		Use:   "validate-certificate",
-		Short: "Validate AD CS Settings server certificate",
-		Long:  "Validate AD CS Settings server certificate for file format. Must be base64-encoded X.509 file content, obtainable by 'openssl base64 < /file/path/filename.pfx | tr -d '\\n' | pbcopy' in linux terminal, or similar parsing methods.",
+		Use:         "validate-certificate",
+		Short:       "Validate AD CS Settings server certificate",
+		Long:        "Validate AD CS Settings server certificate for file format. Must be base64-encoded X.509 file content, obtainable by 'openssl base64 < /file/path/filename.pfx | tr -d '\\n' | pbcopy' in linux terminal, or similar parsing methods.",
+		Annotations: map[string]string{"jamf:privileges": "Update AD CS Settings,Create AD CS Settings"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -706,9 +711,10 @@ func newAdcsSettingsValidateClientCertificateCmd(ctx *registry.CLIContext) *cobr
 	)
 
 	cmd := &cobra.Command{
-		Use:   "validate-client-certificate",
-		Short: "Validate AD CS Settings client certificate",
-		Long:  "Validate AD CS Settings client certificate for file format and correct password. Must be base64-encoded PKCS#12 file content, obtainable by 'openssl base64 < /file/path/filename.pfx | tr -d '\\n' | pbcopy' in linux terminal, or similar parsing methods. This should only contain a single X.509 certificate.",
+		Use:         "validate-client-certificate",
+		Short:       "Validate AD CS Settings client certificate",
+		Long:        "Validate AD CS Settings client certificate for file format and correct password. Must be base64-encoded PKCS#12 file content, obtainable by 'openssl base64 < /file/path/filename.pfx | tr -d '\\n' | pbcopy' in linux terminal, or similar parsing methods. This should only contain a single X.509 certificate.",
+		Annotations: map[string]string{"jamf:privileges": "Update AD CS Settings,Create AD CS Settings"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -784,7 +790,8 @@ func newAdcsSettingsPatchCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Patch from a file
   jamf-cli pro adcs-settings patch 1 --from-file changes.json`,
-		Args: cobra.MaximumNArgs(1),
+		Annotations: map[string]string{"jamf:privileges": "Update AD CS Settings"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -887,10 +894,11 @@ func newAdcsSettingsDependenciesCmd(ctx *registry.CLIContext) *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "dependencies [<id>]",
-		Short: "Retrieve list of AD CS Settings dependencies",
-		Long:  "Retrieve list of AD CS Settings dependencies",
-		Args:  cobra.MaximumNArgs(1),
+		Use:         "dependencies [<id>]",
+		Short:       "Retrieve list of AD CS Settings dependencies",
+		Long:        "Retrieve list of AD CS Settings dependencies",
+		Annotations: map[string]string{"jamf:privileges": "Read AD CS Settings"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

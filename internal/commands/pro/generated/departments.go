@@ -58,6 +58,7 @@ func newDepartmentsListCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # List departments and extract IDs
   jamf-cli pro departments list --field id`,
+		Annotations: map[string]string{"jamf:privileges": "Read Departments"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -209,7 +210,8 @@ func newDepartmentsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a department and output as YAML
   jamf-cli pro departments get 1 -o yaml`,
-		Args: cobra.MaximumNArgs(1),
+		Annotations: map[string]string{"jamf:privileges": "Read Departments"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -270,6 +272,7 @@ func newDepartmentsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a department, modify it, and create a copy
   jamf-cli pro departments get 1 -o json | jq '.name = "Copy"' | jamf-cli pro departments create`,
+		Annotations: map[string]string{"jamf:privileges": "Create Departments"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -338,7 +341,8 @@ func newDepartmentsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a department, modify, and update
   jamf-cli pro departments get 1 -o json | jq '.name = "New Name"' | jamf-cli pro departments update 1`,
-		Args: cobra.MaximumNArgs(1),
+		Annotations: map[string]string{"jamf:privileges": "Update Departments"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -426,7 +430,7 @@ func newDepartmentsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Delete without confirmation prompt
   jamf-cli pro departments delete 1 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Delete Departments"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -632,7 +636,7 @@ func newDepartmentsDeleteMultipleCmd(ctx *registry.CLIContext) *cobra.Command {
 		Long:  "Deletes all departments by ids passed in body",
 		Example: `  # Delete multiple departments by IDs
   jamf-cli pro departments delete-multiple --ids 1,2,3 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Delete Departments"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -735,7 +739,8 @@ func newDepartmentsHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get history by name
   jamf-cli pro departments history --name "Example"`,
-		Args: cobra.MaximumNArgs(1),
+		Annotations: map[string]string{"jamf:privileges": "Read Departments"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -895,10 +900,11 @@ func newDepartmentsAddHistoryNoteCmd(ctx *registry.CLIContext) *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "add-history-note [<id>]",
-		Short: "Add specified Department history object notes",
-		Long:  "Adds specified Department history object notes",
-		Args:  cobra.MaximumNArgs(1),
+		Use:         "add-history-note [<id>]",
+		Short:       "Add specified Department history object notes",
+		Long:        "Adds specified Department history object notes",
+		Annotations: map[string]string{"jamf:privileges": "Update Departments"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

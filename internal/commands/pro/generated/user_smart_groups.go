@@ -32,10 +32,11 @@ func newUserSmartGroupsRecalculateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{
-		Use:   "recalculate <id>",
-		Short: "Recalculate the smart group for the given id and then return the ids for the users in the smart group",
-		Long:  "Recalculates the smart group for the given id and then returns the ids for the users in the smart group",
-		Args:  cobra.ExactArgs(1),
+		Use:         "recalculate <id>",
+		Short:       "Recalculate the smart group for the given id and then return the ids for the users in the smart group",
+		Long:        "Recalculates the smart group for the given id and then returns the ids for the users in the smart group",
+		Annotations: map[string]string{"jamf:privileges": "Update Smart User Groups"},
+		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -84,10 +85,11 @@ func newUserSmartGroupsRecalculateSmartGroupsCmd(ctx *registry.CLIContext) *cobr
 	var ()
 
 	cmd := &cobra.Command{
-		Use:   "recalculate-smart-groups <id>",
-		Short: "Recalculate a smart group for the given user id and then return the count of smart groups the user falls into",
-		Long:  "Recalculates a smart group for the given user id and then returns the count of smart groups the user falls into",
-		Args:  cobra.ExactArgs(1),
+		Use:         "recalculate-smart-groups <id>",
+		Short:       "Recalculate a smart group for the given user id and then return the count of smart groups the user falls into",
+		Long:        "Recalculates a smart group for the given user id and then returns the count of smart groups the user falls into",
+		Annotations: map[string]string{"jamf:privileges": "Update Smart User Groups"},
+		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

@@ -31,10 +31,11 @@ func newRedeployJamfManagementFrameworksActionCmd(ctx *registry.CLIContext) *cob
 	var ()
 
 	cmd := &cobra.Command{
-		Use:   "action <id>",
-		Short: "Redeploy Jamf Management Framework",
-		Long:  "Redeploys the Jamf Management Framework for enrolled device",
-		Args:  cobra.ExactArgs(1),
+		Use:         "action <id>",
+		Short:       "Redeploy Jamf Management Framework",
+		Long:        "Redeploys the Jamf Management Framework for enrolled device",
+		Annotations: map[string]string{"jamf:privileges": "Send Computer Remote Command to Install Package,Read Computer Check-In"},
+		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

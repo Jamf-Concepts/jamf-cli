@@ -50,6 +50,7 @@ func newJamfRemoteAssistSessionHistoriesListCmd(ctx *registry.CLIContext) *cobra
 
   # List jamf-remote-assist-session-histories and extract IDs
   jamf-cli pro jamf-remote-assist-session-histories list --field id`,
+		Annotations: map[string]string{"jamf:privileges": "Read Remote Assist"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -201,7 +202,8 @@ func newJamfRemoteAssistSessionHistoriesGetCmd(ctx *registry.CLIContext) *cobra.
 
   # Get a jamf-remote-assist-session-history and output as YAML
   jamf-cli pro jamf-remote-assist-session-histories get 1 -o yaml`,
-		Args: cobra.MaximumNArgs(1),
+		Annotations: map[string]string{"jamf:privileges": "Read Remote Assist"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -257,6 +259,7 @@ func newJamfRemoteAssistSessionHistoriesExportCmd(ctx *registry.CLIContext) *cob
 		Long:  "Export Jamf Remote Assist sessions history",
 		Example: `  # Export jamf-remote-assist-session-histories to CSV
   jamf-cli pro jamf-remote-assist-session-histories export --out-file jamf-remote-assist-session-histories.csv`,
+		Annotations: map[string]string{"jamf:privileges": "Read Remote Assist"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			reqCtx = registry.WithAccept(reqCtx, "*/*")

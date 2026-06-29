@@ -45,6 +45,7 @@ func newSmtpServerGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get smtp-server and output as YAML
   jamf-cli pro smtp-server get -o yaml`,
+		Annotations: map[string]string{"jamf:privileges": "Read SMTP Server"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -86,6 +87,7 @@ func newSmtpServerUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Update from a file
   jamf-cli pro smtp-server update --from-file smtp-server.json`,
+		Annotations: map[string]string{"jamf:privileges": "Update SMTP Server"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -162,6 +164,7 @@ func newSmtpServerHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 		Long:  "Get specified SMTP Server history object",
 		Example: `  # Get history for a smtp-server
   jamf-cli pro smtp-server history 1`,
+		Annotations: map[string]string{"jamf:privileges": "Read SMTP Server"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -302,9 +305,10 @@ func newSmtpServerAddHistoryNoteCmd(ctx *registry.CLIContext) *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "add-history-note",
-		Short: "Add SMTP Server history object notes",
-		Long:  "Adds SMTP Server history object notes",
+		Use:         "add-history-note",
+		Short:       "Add SMTP Server history object notes",
+		Long:        "Adds SMTP Server history object notes",
+		Annotations: map[string]string{"jamf:privileges": "Update SMTP Server"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -361,9 +365,10 @@ func newSmtpServerTestCmd(ctx *registry.CLIContext) *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "test",
-		Short: "Test functionality of an SMTP Server",
-		Long:  "Test functionality of an SMTP Server",
+		Use:         "test",
+		Short:       "Test functionality of an SMTP Server",
+		Long:        "Test functionality of an SMTP Server",
+		Annotations: map[string]string{"jamf:privileges": "Read SMTP Server"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

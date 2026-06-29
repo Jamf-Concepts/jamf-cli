@@ -48,7 +48,8 @@ func newMdmRenewalsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a mdm-renewal and output as YAML
   jamf-cli pro mdm-renewals get 1 -o yaml`,
-		Args: cobra.MaximumNArgs(1),
+		Annotations: map[string]string{"jamf:privileges": "Send Command to Renew MDM Profile"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -112,7 +113,7 @@ func newMdmRenewalsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Delete without confirmation prompt
   jamf-cli pro mdm-renewals delete 1 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Send Command to Renew MDM Profile"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -320,6 +321,7 @@ func newMdmRenewalsPatchCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Update using JSON
   jamf-cli pro mdm-renewals get -o json | jq '.field = "value"' | jamf-cli pro mdm-renewals patch`,
+		Annotations: map[string]string{"jamf:privileges": "Send Command to Renew MDM Profile"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

@@ -49,6 +49,7 @@ func newJamfProtectPlansListCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # List jamf-protect-plans and extract IDs
   jamf-cli pro jamf-protect-plans list --field id`,
+		Annotations: map[string]string{"jamf:privileges": "Read Jamf Protect Deployments"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -187,9 +188,10 @@ func newJamfProtectPlansSyncCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{
-		Use:   "sync",
-		Short: "Sync Plans with Jamf Protect",
-		Long:  "Sync Plans with Jamf Protect. Configuration profiles associated with new plans will be imported to Jamf Pro.",
+		Use:         "sync",
+		Short:       "Sync Plans with Jamf Protect",
+		Long:        "Sync Plans with Jamf Protect. Configuration profiles associated with new plans will be imported to Jamf Pro.",
+		Annotations: map[string]string{"jamf:privileges": "Read Jamf Protect Settings"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

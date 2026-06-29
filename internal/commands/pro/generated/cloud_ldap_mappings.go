@@ -32,10 +32,11 @@ func newCloudLdapMappingsMappingsCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{
-		Use:   "mappings <id>",
-		Short: "Get mappings configurations for Cloud Identity Providers server configuration.",
-		Long:  "Get all mappings configurations for Cloud Identity Providers server configuration.",
-		Args:  cobra.ExactArgs(1),
+		Use:         "mappings <id>",
+		Short:       "Get mappings configurations for Cloud Identity Providers server configuration.",
+		Long:        "Get all mappings configurations for Cloud Identity Providers server configuration.",
+		Annotations: map[string]string{"jamf:privileges": "Read LDAP Servers"},
+		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -69,10 +70,11 @@ func newCloudLdapMappingsUpdateMappingsCmd(ctx *registry.CLIContext) *cobra.Comm
 	)
 
 	cmd := &cobra.Command{
-		Use:   "update-mappings <id>",
-		Short: "Update Cloud Identity Provider mappings configuration.",
-		Long:  "Update Cloud Identity Provider mappings configuration. Cannot be used for partial updates, all content body must be sent.",
-		Args:  cobra.ExactArgs(1),
+		Use:         "update-mappings <id>",
+		Short:       "Update Cloud Identity Provider mappings configuration.",
+		Long:        "Update Cloud Identity Provider mappings configuration. Cannot be used for partial updates, all content body must be sent.",
+		Annotations: map[string]string{"jamf:privileges": "Update LDAP Servers"},
+		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

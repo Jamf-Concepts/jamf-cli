@@ -30,9 +30,10 @@ func newPatchTitlesPatchManagementAcceptDisclaimerCmd(ctx *registry.CLIContext) 
 	var ()
 
 	cmd := &cobra.Command{
-		Use:   "patch-management-accept-disclaimer",
-		Short: "Accept Patch Management disclaimer",
-		Long:  "Accept Patch Management disclaimer",
+		Use:         "patch-management-accept-disclaimer",
+		Short:       "Accept Patch Management disclaimer",
+		Long:        "Accept Patch Management disclaimer",
+		Annotations: map[string]string{"jamf:privileges": "Update Patch Management Software Titles"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

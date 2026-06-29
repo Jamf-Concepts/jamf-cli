@@ -50,6 +50,7 @@ func newOnboardingsHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 		Long:  "Gets Onboarding history object",
 		Example: `  # Get history for a onboarding
   jamf-cli pro onboardings history 1`,
+		Annotations: map[string]string{"jamf:privileges": "Read Onboarding Configuration"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -190,9 +191,10 @@ func newOnboardingsAddHistoryNoteCmd(ctx *registry.CLIContext) *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "add-history-note",
-		Short: "Add Onboarding history object notes",
-		Long:  "Adds Onboarding history object notes",
+		Use:         "add-history-note",
+		Short:       "Add Onboarding history object notes",
+		Long:        "Adds Onboarding history object notes",
+		Annotations: map[string]string{"jamf:privileges": "Update Onboarding Configuration"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -264,6 +266,7 @@ func newOnboardingsHistoryExportCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Pipe to stdout
   jamf-cli pro onboardings history-export > output.bin`,
+		Annotations: map[string]string{"jamf:privileges": "Read Onboarding Configuration"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			reqCtx = registry.WithAccept(reqCtx, "*/*")
@@ -376,9 +379,10 @@ func newOnboardingsEligibleAppsCmd(ctx *registry.CLIContext) *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "eligible-apps",
-		Short: "Retrieves a list of applications that are eligible to be used in an onboarding configuration",
-		Long:  "Retrieves a list of applications that are eligible to be used in an onboarding configuration",
+		Use:         "eligible-apps",
+		Short:       "Retrieves a list of applications that are eligible to be used in an onboarding configuration",
+		Long:        "Retrieves a list of applications that are eligible to be used in an onboarding configuration",
+		Annotations: map[string]string{"jamf:privileges": "Read Onboarding Configuration"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -519,9 +523,10 @@ func newOnboardingsEligibleConfigurationProfilesCmd(ctx *registry.CLIContext) *c
 	)
 
 	cmd := &cobra.Command{
-		Use:   "eligible-configuration-profiles",
-		Short: "Retrieves a list of configuration profiles that are eligible to be used in an onboarding configuration",
-		Long:  "Retrieves a list of configuration profiles that are eligible to be used in an onboarding configuration",
+		Use:         "eligible-configuration-profiles",
+		Short:       "Retrieves a list of configuration profiles that are eligible to be used in an onboarding configuration",
+		Long:        "Retrieves a list of configuration profiles that are eligible to be used in an onboarding configuration",
+		Annotations: map[string]string{"jamf:privileges": "Read Onboarding Configuration"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -662,9 +667,10 @@ func newOnboardingsEligiblePoliciesCmd(ctx *registry.CLIContext) *cobra.Command 
 	)
 
 	cmd := &cobra.Command{
-		Use:   "eligible-policies",
-		Short: "Retrieves a list of policies that are eligible to be used in an onboarding configuration",
-		Long:  "Retrieves a list of policies that are eligible to be used in an onboarding configuration",
+		Use:         "eligible-policies",
+		Short:       "Retrieves a list of policies that are eligible to be used in an onboarding configuration",
+		Long:        "Retrieves a list of policies that are eligible to be used in an onboarding configuration",
+		Annotations: map[string]string{"jamf:privileges": "Read Onboarding Configuration"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

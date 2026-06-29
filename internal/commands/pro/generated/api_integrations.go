@@ -56,6 +56,7 @@ func newApiIntegrationsListCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # List api-integrations and extract IDs
   jamf-cli pro api-integrations list --field id`,
+		Annotations: map[string]string{"jamf:privileges": "Read API Integrations"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -207,7 +208,8 @@ func newApiIntegrationsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a api-integration and output as YAML
   jamf-cli pro api-integrations get 1 -o yaml`,
-		Args: cobra.MaximumNArgs(1),
+		Annotations: map[string]string{"jamf:privileges": "Read API Integrations"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -268,6 +270,7 @@ func newApiIntegrationsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a api-integration, modify it, and create a copy
   jamf-cli pro api-integrations get 1 -o json | jq '.name = "Copy"' | jamf-cli pro api-integrations create`,
+		Annotations: map[string]string{"jamf:privileges": "Create API Integrations"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -342,7 +345,8 @@ func newApiIntegrationsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a api-integration, modify, and update
   jamf-cli pro api-integrations get 1 -o json | jq '.name = "New Name"' | jamf-cli pro api-integrations update 1`,
-		Args: cobra.MaximumNArgs(1),
+		Annotations: map[string]string{"jamf:privileges": "Update API Integrations"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -436,7 +440,7 @@ func newApiIntegrationsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Delete without confirmation prompt
   jamf-cli pro api-integrations delete 1 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Delete API Integrations"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -634,10 +638,11 @@ func newApiIntegrationsClientCredentialsCmd(ctx *registry.CLIContext) *cobra.Com
 	)
 
 	cmd := &cobra.Command{
-		Use:   "client-credentials [<id>]",
-		Short: "Create client credentials for specified API integration",
-		Long:  "Create client credentials for specified API integration",
-		Args:  cobra.MaximumNArgs(1),
+		Use:         "client-credentials [<id>]",
+		Short:       "Create client credentials for specified API integration",
+		Long:        "Create client credentials for specified API integration",
+		Annotations: map[string]string{"jamf:privileges": "Create API Integrations"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

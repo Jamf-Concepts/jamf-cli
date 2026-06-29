@@ -39,6 +39,7 @@ func newImpactAlertNotificationSettingsGetCmd(ctx *registry.CLIContext) *cobra.C
 
   # Get impact-alert-notification-settings and output as YAML
   jamf-cli pro impact-alert-notification-settings get -o yaml`,
+		Annotations: map[string]string{"jamf:privileges": "Read Impact Alert Notification Settings"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -79,6 +80,7 @@ func newImpactAlertNotificationSettingsUpdateCmd(ctx *registry.CLIContext) *cobr
 
   # Update from a file
   jamf-cli pro impact-alert-notification-settings update --from-file impact-alert-notification-settings.json`,
+		Annotations: map[string]string{"jamf:privileges": "Update Impact Alert Notification Settings"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

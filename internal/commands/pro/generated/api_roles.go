@@ -55,6 +55,7 @@ func newApiRolesListCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # List api-roles and extract IDs
   jamf-cli pro api-roles list --field id`,
+		Annotations: map[string]string{"jamf:privileges": "Read API Roles"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -206,7 +207,8 @@ func newApiRolesGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a api-role and output as YAML
   jamf-cli pro api-roles get 1 -o yaml`,
-		Args: cobra.MaximumNArgs(1),
+		Annotations: map[string]string{"jamf:privileges": "Read API Roles"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -267,6 +269,7 @@ func newApiRolesCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a api-role, modify it, and create a copy
   jamf-cli pro api-roles get 1 -o json | jq '.name = "Copy"' | jamf-cli pro api-roles create`,
+		Annotations: map[string]string{"jamf:privileges": "Create API Roles"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -336,7 +339,8 @@ func newApiRolesUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a api-role, modify, and update
   jamf-cli pro api-roles get 1 -o json | jq '.name = "New Name"' | jamf-cli pro api-roles update 1`,
-		Args: cobra.MaximumNArgs(1),
+		Annotations: map[string]string{"jamf:privileges": "Update API Roles"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -425,7 +429,7 @@ func newApiRolesDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Delete without confirmation prompt
   jamf-cli pro api-roles delete 1 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Delete API Roles"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

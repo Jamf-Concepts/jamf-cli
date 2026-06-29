@@ -101,6 +101,19 @@ func (g *Generator) Generate(resource *Resource) (string, error) {
 		"dedupeOps":     dedupeOperations,
 		"escapeQuotes":  escapeQuotes,
 		"isDestructive": func(op *Operation) bool { return op.IsDestructive },
+		"opAnnotations": func(op *Operation) string {
+			var pairs []string
+			if op.IsDestructive {
+				pairs = append(pairs, `"jamf:destructive": "true"`)
+			}
+			if len(op.Privileges) > 0 {
+				pairs = append(pairs, fmt.Sprintf("%q: %q", "jamf:privileges", strings.Join(op.Privileges, ",")))
+			}
+			if len(pairs) == 0 {
+				return ""
+			}
+			return "map[string]string{" + strings.Join(pairs, ", ") + "}"
+		},
 		"hasSectionParam": func(op *Operation) bool {
 			for _, p := range op.Parameters {
 				if p.In == "query" && p.Name == "section" {
@@ -1461,8 +1474,8 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 		Example: ` + "`" + `{{ $ex }}` + "`" + `,
 {{- end }}
 {{- end }}
-{{- if .IsDestructive }}
-		Annotations: map[string]string{"jamf:destructive": "true"},
+{{- $ann := opAnnotations . }}{{ if $ann }}
+		Annotations: {{ $ann }},
 {{- end }}
 {{- if hasPathParam .Path }}
 {{- if or (and (isPatchOp .) (patchHasLookup $)) (and (not (isPatchOp .)) (opHasNameLookup . $)) }}

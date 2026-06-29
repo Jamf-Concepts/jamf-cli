@@ -34,6 +34,7 @@ func newLastLoginsListCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # List last-logins and extract IDs
   jamf-cli pro last-logins list --field id`,
+		Annotations: map[string]string{"jamf:privileges": "Read Last Login"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

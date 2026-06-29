@@ -60,6 +60,7 @@ func newVppLocationsListCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # List vpp-locations and extract IDs
   jamf-cli pro vpp-locations list --field id`,
+		Annotations: map[string]string{"jamf:privileges": "Read Volume Purchasing Locations"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -211,7 +212,8 @@ func newVppLocationsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a vpp-location and output as YAML
   jamf-cli pro vpp-locations get 1 -o yaml`,
-		Args: cobra.MaximumNArgs(1),
+		Annotations: map[string]string{"jamf:privileges": "Read Volume Purchasing Locations"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -275,6 +277,7 @@ func newVppLocationsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a vpp-location, modify it, and create a copy
   jamf-cli pro vpp-locations get 1 -o json | jq '.name = "Copy"' | jamf-cli pro vpp-locations create`,
+		Annotations: map[string]string{"jamf:privileges": "Create Volume Purchasing Locations"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -367,7 +370,7 @@ func newVppLocationsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Delete without confirmation prompt
   jamf-cli pro vpp-locations delete 1 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Delete Volume Purchasing Locations"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -579,7 +582,8 @@ func newVppLocationsHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get history by name
   jamf-cli pro vpp-locations history --name "Example"`,
-		Args: cobra.MaximumNArgs(1),
+		Annotations: map[string]string{"jamf:privileges": "Read Volume Purchasing Locations"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -739,10 +743,11 @@ func newVppLocationsAddHistoryNoteCmd(ctx *registry.CLIContext) *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "add-history-note [<id>]",
-		Short: "Add specified Volume Purchasing Location history object notes",
-		Long:  "Adds specified Volume Purchasing Location history object notes",
-		Args:  cobra.MaximumNArgs(1),
+		Use:         "add-history-note [<id>]",
+		Short:       "Add specified Volume Purchasing Location history object notes",
+		Long:        "Adds specified Volume Purchasing Location history object notes",
+		Annotations: map[string]string{"jamf:privileges": "Update Volume Purchasing Locations"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -835,7 +840,8 @@ func newVppLocationsPatchCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Patch from a file
   jamf-cli pro vpp-locations patch 1 --from-file changes.json`,
-		Args: cobra.MaximumNArgs(1),
+		Annotations: map[string]string{"jamf:privileges": "Update Volume Purchasing Locations"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -954,10 +960,11 @@ func newVppLocationsContentCmd(ctx *registry.CLIContext) *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "content [<id>]",
-		Short: "Retrieve the Volume Purchasing Content for the Volume Purchasing Location with the supplied id",
-		Long:  "Retrieves the Volume Purchasing Content for the Volume Purchasing Location with the supplied id",
-		Args:  cobra.MaximumNArgs(1),
+		Use:         "content [<id>]",
+		Short:       "Retrieve the Volume Purchasing Content for the Volume Purchasing Location with the supplied id",
+		Long:        "Retrieves the Volume Purchasing Content for the Volume Purchasing Location with the supplied id",
+		Annotations: map[string]string{"jamf:privileges": "Read Volume Purchasing Locations"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -1116,10 +1123,11 @@ func newVppLocationsReclaimCmd(ctx *registry.CLIContext) *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "reclaim [<id>]",
-		Short: "Reclaim a Volume Purchasing Location with the supplied id",
-		Long:  "Reclaims a Volume Purchasing Location with the supplied id",
-		Args:  cobra.MaximumNArgs(1),
+		Use:         "reclaim [<id>]",
+		Short:       "Reclaim a Volume Purchasing Location with the supplied id",
+		Long:        "Reclaims a Volume Purchasing Location with the supplied id",
+		Annotations: map[string]string{"jamf:privileges": "Update Volume Purchasing Locations"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -1186,10 +1194,11 @@ func newVppLocationsRevokeLicensesCmd(ctx *registry.CLIContext) *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "revoke-licenses [<id>]",
-		Short: "Revoke licenses for a Volume Purchasing Location with the supplied id",
-		Long:  "Revokes licenses for a Volume Purchasing Location with the supplied id. The licenses must be revokable - any asset whose licenses are irrevocable will not be revoked.",
-		Args:  cobra.MaximumNArgs(1),
+		Use:         "revoke-licenses [<id>]",
+		Short:       "Revoke licenses for a Volume Purchasing Location with the supplied id",
+		Long:        "Revokes licenses for a Volume Purchasing Location with the supplied id. The licenses must be revokable - any asset whose licenses are irrevocable will not be revoked.",
+		Annotations: map[string]string{"jamf:privileges": "Update Volume Purchasing Locations"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

@@ -56,6 +56,7 @@ func newUsersListCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # List users and extract IDs
   jamf-cli pro users list --field id`,
+		Annotations: map[string]string{"jamf:privileges": "Read User"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -212,7 +213,8 @@ func newUsersGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a user and output as YAML
   jamf-cli pro users get 1 -o yaml`,
-		Args: cobra.MaximumNArgs(1),
+		Annotations: map[string]string{"jamf:privileges": "Read User"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -278,6 +280,7 @@ func newUsersCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a user, modify it, and create a copy
   jamf-cli pro users get 1 -o json | jq '.name = "Copy"' | jamf-cli pro users create`,
+		Annotations: map[string]string{"jamf:privileges": "Create User"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -357,7 +360,8 @@ func newUsersUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a user, modify, and update
   jamf-cli pro users get 1 -o json | jq '.name = "New Name"' | jamf-cli pro users update 1`,
-		Args: cobra.MaximumNArgs(1),
+		Annotations: map[string]string{"jamf:privileges": "Update User"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -452,7 +456,7 @@ func newUsersDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Delete without confirmation prompt
   jamf-cli pro users delete 1 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Delete User"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

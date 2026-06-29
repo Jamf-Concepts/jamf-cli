@@ -44,6 +44,7 @@ func newMobileDeviceGroupsListCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # List mobile-device-groups and extract IDs
   jamf-cli pro mobile-device-groups list --field id`,
+		Annotations: map[string]string{"jamf:privileges": "Read Smart Mobile Device Groups,Read Static Mobile Device Groups"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -94,7 +95,8 @@ func newMobileDeviceGroupsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a mobile-device-group and output as YAML
   jamf-cli pro mobile-device-groups get 1 -o yaml`,
-		Args: cobra.MaximumNArgs(1),
+		Annotations: map[string]string{"jamf:privileges": "Read Smart Mobile Device Groups,Read Mobile Devices"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -261,7 +263,7 @@ func newMobileDeviceGroupsEraseCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:         "erase [<id>]",
 		Short:       "Erase all devices in the group",
 		Long:        "Erase all devices in the group (both smart and static groups)",
-		Annotations: map[string]string{"jamf:destructive": "true"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Send MDM command information in Jamf Pro API"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

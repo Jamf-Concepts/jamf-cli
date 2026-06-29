@@ -39,9 +39,10 @@ func newDeviceGroupsListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	var sort string
 	var filter string
 	cmd := &cobra.Command{
-		Use:   "list",
-		Short: "Get all device groups",
-		Long:  "Retrieve a paginated list of all device groups for the tenant",
+		Use:         "list",
+		Short:       "Get all device groups",
+		Long:        "Retrieve a paginated list of all device groups for the tenant",
+		Annotations: map[string]string{"jamf:privileges": "read:pro:device-groups"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err
@@ -105,9 +106,10 @@ func newDeviceGroupsCreateCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	var setFlags []string
 	var scaffoldFlag bool
 	cmd := &cobra.Command{
-		Use:   "create",
-		Short: "Create a new device group",
-		Long:  "Create a new device group in Jamf Pro",
+		Use:         "create",
+		Short:       "Create a new device group",
+		Long:        "Create a new device group in Jamf Pro",
+		Annotations: map[string]string{"jamf:privileges": "create:pro:device-groups"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if scaffoldFlag {
 				// Scaffold prints raw JSON regardless of -o, so the output
@@ -155,7 +157,7 @@ func newDeviceGroupsDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Use:         "delete <id>",
 		Short:       "Delete a device group",
 		Long:        "Delete an existing device group",
-		Annotations: map[string]string{"jamf:destructive": "true"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "delete:pro:device-groups"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
@@ -199,10 +201,11 @@ func newDeviceGroupsDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
 func newDeviceGroupsGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	var nameFlag string
 	cmd := &cobra.Command{
-		Use:   "get <id>",
-		Short: "Get a device group by ID",
-		Long:  "Retrieve a specific device group by its ID",
-		Args:  cobra.MaximumNArgs(1),
+		Use:         "get <id>",
+		Short:       "Get a device group by ID",
+		Long:        "Retrieve a specific device group by its ID",
+		Annotations: map[string]string{"jamf:privileges": "read:pro:device-groups"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err
@@ -252,10 +255,11 @@ func newDeviceGroupsPatchCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	var scaffoldFlag bool
 	var nameFlag string
 	cmd := &cobra.Command{
-		Use:   "patch <id>",
-		Short: "Update a device group",
-		Long:  "Update an existing device group",
-		Args:  cobra.MaximumNArgs(1),
+		Use:         "patch <id>",
+		Short:       "Update a device group",
+		Long:        "Update an existing device group",
+		Annotations: map[string]string{"jamf:privileges": "update:pro:device-groups"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if scaffoldFlag {
 				// Scaffold prints raw JSON regardless of -o, so the output
@@ -306,10 +310,11 @@ func newDeviceGroupsPatchCmd(cliCtx *registry.CLIContext) *cobra.Command {
 func newDeviceGroupsMembersCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	var nameFlag string
 	cmd := &cobra.Command{
-		Use:   "members <id>",
-		Short: "Get group members",
-		Long:  "Retrieve all members of a device group",
-		Args:  cobra.MaximumNArgs(1),
+		Use:         "members <id>",
+		Short:       "Get group members",
+		Long:        "Retrieve all members of a device group",
+		Annotations: map[string]string{"jamf:privileges": "read:pro:device-groups"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err
@@ -359,10 +364,11 @@ func newDeviceGroupsPatchMembersCmd(cliCtx *registry.CLIContext) *cobra.Command 
 	var scaffoldFlag bool
 	var nameFlag string
 	cmd := &cobra.Command{
-		Use:   "patch-members <id>",
-		Short: "Update device group members",
-		Long:  "Add devices to or remove devices from a static device group. Cannot be used with smart groups.",
-		Args:  cobra.MaximumNArgs(1),
+		Use:         "patch-members <id>",
+		Short:       "Update device group members",
+		Long:        "Add devices to or remove devices from a static device group. Cannot be used with smart groups.",
+		Annotations: map[string]string{"jamf:privileges": "update:pro:device-groups"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if scaffoldFlag {
 				// Scaffold prints raw JSON regardless of -o, so the output

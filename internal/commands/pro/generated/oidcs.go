@@ -127,9 +127,10 @@ func newOidcsGenerateCertificateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{
-		Use:   "generate-certificate",
-		Short: "Generate a new keystore used for signing OIDC messages",
-		Long:  "Generates a new certificate used for signing OIDC messages",
+		Use:         "generate-certificate",
+		Short:       "Generate a new keystore used for signing OIDC messages",
+		Long:        "Generates a new certificate used for signing OIDC messages",
+		Annotations: map[string]string{"jamf:privileges": "Update SSO Settings"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

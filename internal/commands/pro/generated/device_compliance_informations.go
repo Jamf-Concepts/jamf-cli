@@ -37,6 +37,7 @@ func newDeviceComplianceInformationsListCmd(ctx *registry.CLIContext) *cobra.Com
 
   # List device-compliance-informations and extract IDs
   jamf-cli pro device-compliance-informations list --field id`,
+		Annotations: map[string]string{"jamf:privileges": "Read Conditional Access"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -80,7 +81,8 @@ func newDeviceComplianceInformationsGetCmd(ctx *registry.CLIContext) *cobra.Comm
 
   # Get a device-compliance-information and output as YAML
   jamf-cli pro device-compliance-informations get 1 -o yaml`,
-		Args: cobra.MaximumNArgs(1),
+		Annotations: map[string]string{"jamf:privileges": "Read Device Compliance Information"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

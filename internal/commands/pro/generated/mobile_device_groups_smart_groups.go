@@ -55,6 +55,7 @@ func newMobileDeviceGroupsSmartGroupsListCmd(ctx *registry.CLIContext) *cobra.Co
 
   # List mobile-device-groups-smart-groups and extract IDs
   jamf-cli pro mobile-device-groups-smart-groups list --field id`,
+		Annotations: map[string]string{"jamf:privileges": "Read Smart Mobile Device Groups"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -207,7 +208,8 @@ func newMobileDeviceGroupsSmartGroupsGetCmd(ctx *registry.CLIContext) *cobra.Com
 
   # Get a mobile-device-groups-smart-groups and output as YAML
   jamf-cli pro mobile-device-groups-smart-groups get 1 -o yaml`,
-		Args: cobra.MaximumNArgs(1),
+		Annotations: map[string]string{"jamf:privileges": "Read Smart Mobile Device Groups"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -270,6 +272,7 @@ func newMobileDeviceGroupsSmartGroupsCreateCmd(ctx *registry.CLIContext) *cobra.
 
   # Get a mobile-device-groups-smart-groups, modify it, and create a copy
   jamf-cli pro mobile-device-groups-smart-groups get 1 -o json | jq '.name = "Copy"' | jamf-cli pro mobile-device-groups-smart-groups create`,
+		Annotations: map[string]string{"jamf:privileges": "Create Smart Mobile Device Groups"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -345,7 +348,8 @@ func newMobileDeviceGroupsSmartGroupsUpdateCmd(ctx *registry.CLIContext) *cobra.
 
   # Get a mobile-device-groups-smart-groups, modify, and update
   jamf-cli pro mobile-device-groups-smart-groups get 1 -o json | jq '.name = "New Name"' | jamf-cli pro mobile-device-groups-smart-groups update 1`,
-		Args: cobra.MaximumNArgs(1),
+		Annotations: map[string]string{"jamf:privileges": "Update Smart Mobile Device Groups"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -436,7 +440,7 @@ func newMobileDeviceGroupsSmartGroupsDeleteCmd(ctx *registry.CLIContext) *cobra.
 
   # Delete without confirmation prompt
   jamf-cli pro mobile-device-groups-smart-groups delete 1 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Delete Smart Mobile Device Groups"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

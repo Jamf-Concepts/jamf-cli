@@ -27,9 +27,10 @@ func newUserSessionsActiveCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{
-		Use:   "active",
-		Short: "Get active user sessions.",
-		Long:  "Returns detailed information about currently logged in users.",
+		Use:         "active",
+		Short:       "Get active user sessions.",
+		Long:        "Returns detailed information about currently logged in users.",
+		Annotations: map[string]string{"jamf:privileges": "Read User"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -60,9 +61,10 @@ func newUserSessionsCountCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{
-		Use:   "count",
-		Short: "Get count of active user sessions.",
-		Long:  "Returns the number of currently logged in users.",
+		Use:         "count",
+		Short:       "Get count of active user sessions.",
+		Long:        "Returns the number of currently logged in users.",
+		Annotations: map[string]string{"jamf:privileges": "Read User"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

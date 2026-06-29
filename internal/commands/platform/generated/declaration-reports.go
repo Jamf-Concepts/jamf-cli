@@ -34,10 +34,11 @@ func newDeclarationReportsGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	var size int
 	var sort string
 	cmd := &cobra.Command{
-		Use:   "get <declarationIdentifier>",
-		Short: "Get declaration report devices",
-		Long:  "**Deprecated** — use `GET /v1/declarations/{declarationIdentifier}/devices` instead.",
-		Args:  cobra.ExactArgs(1),
+		Use:         "get <declarationIdentifier>",
+		Short:       "Get declaration report devices",
+		Long:        "**Deprecated** — use `GET /v1/declarations/{declarationIdentifier}/devices` instead.",
+		Annotations: map[string]string{"jamf:privileges": "read:pro:declaration-reporting,read:school:declaration-reporting"},
+		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err
@@ -80,10 +81,11 @@ func newDeclarationReportsDevicesCmd(cliCtx *registry.CLIContext) *cobra.Command
 	var size int
 	var sort string
 	cmd := &cobra.Command{
-		Use:   "devices <declarationIdentifier>",
-		Short: "Get filtered declaration report devices",
-		Long:  "Get a declaration report containing the filtered devices currently reporting the provided declarationIdentifier. Supports pagination, sorting, and filtering with RSQL syntax. **Filtering:** Filters only apply to declarations already on the device (excludes PENDING status). Supported filter fields: `deviceId`, `channel`, `lastReportTime`, `active`, `validityState`, `declarationType`, `dateUpdated`. **Sorting:** Use `?sort=field,direction` (e.g., `?sort=declarationType,asc`). For more information on RSQL, see [Jamf Developer Portal](https://developer.jamf.com)",
-		Args:  cobra.ExactArgs(1),
+		Use:         "devices <declarationIdentifier>",
+		Short:       "Get filtered declaration report devices",
+		Long:        "Get a declaration report containing the filtered devices currently reporting the provided declarationIdentifier. Supports pagination, sorting, and filtering with RSQL syntax. **Filtering:** Filters only apply to declarations already on the device (excludes PENDING status). Supported filter fields: `deviceId`, `channel`, `lastReportTime`, `active`, `validityState`, `declarationType`, `dateUpdated`. **Sorting:** Use `?sort=field,direction` (e.g., `?sort=declarationType,asc`). For more information on RSQL, see [Jamf Developer Portal](https://developer.jamf.com)",
+		Annotations: map[string]string{"jamf:privileges": "read:pro:declaration-reporting,read:school:declaration-reporting"},
+		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err

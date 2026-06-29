@@ -47,6 +47,7 @@ func newAccountGroupsListCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # List account-groups and extract IDs
   jamf-cli pro account-groups list --field id`,
+		Annotations: map[string]string{"jamf:privileges": "Read Account Groups"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -198,7 +199,8 @@ func newAccountGroupsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a account-group and output as YAML
   jamf-cli pro account-groups get 1 -o yaml`,
-		Args: cobra.MaximumNArgs(1),
+		Annotations: map[string]string{"jamf:privileges": "Read Account Groups"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

@@ -39,6 +39,7 @@ func newAppInstallerGlobalSettingsGetCmd(ctx *registry.CLIContext) *cobra.Comman
 
   # Get app-installer-global-settings and output as YAML
   jamf-cli pro app-installer-global-settings get -o yaml`,
+		Annotations: map[string]string{"jamf:privileges": "Read App Installers"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -79,6 +80,7 @@ func newAppInstallerGlobalSettingsUpdateCmd(ctx *registry.CLIContext) *cobra.Com
 
   # Update from a file
   jamf-cli pro app-installer-global-settings update --from-file app-installer-global-settings.json`,
+		Annotations: map[string]string{"jamf:privileges": "Update App Installers"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

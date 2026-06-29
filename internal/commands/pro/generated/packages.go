@@ -62,6 +62,7 @@ func newPackagesListCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # List packages and extract IDs
   jamf-cli pro packages list --field id`,
+		Annotations: map[string]string{"jamf:privileges": "Read Packages"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -213,7 +214,8 @@ func newPackagesGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a package and output as YAML
   jamf-cli pro packages get 1 -o yaml`,
-		Args: cobra.MaximumNArgs(1),
+		Annotations: map[string]string{"jamf:privileges": "Read Packages"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -274,6 +276,7 @@ func newPackagesCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a package, modify it, and create a copy
   jamf-cli pro packages get 1 -o json | jq '.name = "Copy"' | jamf-cli pro packages create`,
+		Annotations: map[string]string{"jamf:privileges": "Create Packages"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -373,7 +376,8 @@ func newPackagesUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a package, modify, and update
   jamf-cli pro packages get 1 -o json | jq '.name = "New Name"' | jamf-cli pro packages update 1`,
-		Args: cobra.MaximumNArgs(1),
+		Annotations: map[string]string{"jamf:privileges": "Update Packages"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -492,7 +496,7 @@ func newPackagesDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Delete without confirmation prompt
   jamf-cli pro packages delete 1 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Delete Packages"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -698,7 +702,7 @@ func newPackagesDeleteMultipleCmd(ctx *registry.CLIContext) *cobra.Command {
 		Long:  "IDs of the packages to be deleted",
 		Example: `  # Delete multiple packages by IDs
   jamf-cli pro packages delete-multiple --ids 1,2,3 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Delete Packages"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -801,7 +805,8 @@ func newPackagesHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get history by name
   jamf-cli pro packages history --name "Example"`,
-		Args: cobra.MaximumNArgs(1),
+		Annotations: map[string]string{"jamf:privileges": "Read Packages"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -961,10 +966,11 @@ func newPackagesAddHistoryNoteCmd(ctx *registry.CLIContext) *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "add-history-note [<id>]",
-		Short: "Add specified Package history object notes",
-		Long:  "Adds specified Package history object notes",
-		Args:  cobra.MaximumNArgs(1),
+		Use:         "add-history-note [<id>]",
+		Short:       "Add specified Package history object notes",
+		Long:        "Adds specified Package history object notes",
+		Annotations: map[string]string{"jamf:privileges": "Update Packages"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -1050,6 +1056,7 @@ func newPackagesExportCmd(ctx *registry.CLIContext) *cobra.Command {
 		Long:  "Export Packages collection",
 		Example: `  # Export packages to CSV
   jamf-cli pro packages export --out-file packages.csv`,
+		Annotations: map[string]string{"jamf:privileges": "Read Packages"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			reqCtx = registry.WithAccept(reqCtx, "*/*")
@@ -1174,7 +1181,8 @@ func newPackagesHistoryExportCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Pipe to stdout
   jamf-cli pro packages history-export <id> > output.bin`,
-		Args: cobra.MaximumNArgs(1),
+		Annotations: map[string]string{"jamf:privileges": "Read Packages"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			reqCtx = registry.WithAccept(reqCtx, "*/*")
@@ -1301,10 +1309,11 @@ func newPackagesUploadCmd(ctx *registry.CLIContext) *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "upload [<id>]",
-		Short: "Add a manifest to a package",
-		Long:  "Add a manifest to a package",
-		Args:  cobra.MaximumNArgs(1),
+		Use:         "upload [<id>]",
+		Short:       "Add a manifest to a package",
+		Long:        "Add a manifest to a package",
+		Annotations: map[string]string{"jamf:privileges": "Update Packages,Read Packages"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

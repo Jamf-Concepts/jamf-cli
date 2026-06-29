@@ -40,9 +40,10 @@ func newBlueprintsListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	var sort string
 	var search string
 	cmd := &cobra.Command{
-		Use:   "list",
-		Short: "List blueprints",
-		Long:  "Get list of blueprints",
+		Use:         "list",
+		Short:       "List blueprints",
+		Long:        "Get list of blueprints",
+		Annotations: map[string]string{"jamf:privileges": "read:pro:blueprints,read:school:blueprints"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err
@@ -106,9 +107,10 @@ func newBlueprintsCreateCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	var setFlags []string
 	var scaffoldFlag bool
 	cmd := &cobra.Command{
-		Use:   "create",
-		Short: "Create a new blueprint",
-		Long:  "Create a new blueprint",
+		Use:         "create",
+		Short:       "Create a new blueprint",
+		Long:        "Create a new blueprint",
+		Annotations: map[string]string{"jamf:privileges": "create:pro:blueprints,create:school:blueprints"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if scaffoldFlag {
 				// Scaffold prints raw JSON regardless of -o, so the output
@@ -156,7 +158,7 @@ func newBlueprintsDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Use:         "delete <blueprintId>",
 		Short:       "Delete a blueprint",
 		Long:        "Delete a blueprint",
-		Annotations: map[string]string{"jamf:destructive": "true"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "delete:pro:blueprints,delete:school:blueprints"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
@@ -200,10 +202,11 @@ func newBlueprintsDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
 func newBlueprintsGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	var nameFlag string
 	cmd := &cobra.Command{
-		Use:   "get <blueprintId>",
-		Short: "Get a blueprint",
-		Long:  "Get a blueprint",
-		Args:  cobra.MaximumNArgs(1),
+		Use:         "get <blueprintId>",
+		Short:       "Get a blueprint",
+		Long:        "Get a blueprint",
+		Annotations: map[string]string{"jamf:privileges": "read:pro:blueprints,read:school:blueprints"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err
@@ -253,10 +256,11 @@ func newBlueprintsPatchCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	var scaffoldFlag bool
 	var nameFlag string
 	cmd := &cobra.Command{
-		Use:   "patch <blueprintId>",
-		Short: "Updates a blueprint configuration",
-		Long:  "Updates a blueprint configuration.",
-		Args:  cobra.MaximumNArgs(1),
+		Use:         "patch <blueprintId>",
+		Short:       "Updates a blueprint configuration",
+		Long:        "Updates a blueprint configuration.",
+		Annotations: map[string]string{"jamf:privileges": "update:pro:blueprints,update:school:blueprints"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if scaffoldFlag {
 				// Scaffold prints raw JSON regardless of -o, so the output
@@ -307,10 +311,11 @@ func newBlueprintsPatchCmd(cliCtx *registry.CLIContext) *cobra.Command {
 func newBlueprintsDeployCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	var nameFlag string
 	cmd := &cobra.Command{
-		Use:   "deploy <blueprintId>",
-		Short: "Deploy blueprint",
-		Long:  "Deploy blueprint",
-		Args:  cobra.MaximumNArgs(1),
+		Use:         "deploy <blueprintId>",
+		Short:       "Deploy blueprint",
+		Long:        "Deploy blueprint",
+		Annotations: map[string]string{"jamf:privileges": "deploy:pro:blueprints,deploy:school:blueprints"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err
@@ -349,10 +354,11 @@ func newBlueprintsDeployCmd(cliCtx *registry.CLIContext) *cobra.Command {
 func newBlueprintsReportCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	var nameFlag string
 	cmd := &cobra.Command{
-		Use:   "report <blueprintId>",
-		Short: "Get blueprint status report",
-		Long:  "Retrieve deployment status report for a specified blueprint.",
-		Args:  cobra.MaximumNArgs(1),
+		Use:         "report <blueprintId>",
+		Short:       "Get blueprint status report",
+		Long:        "Retrieve deployment status report for a specified blueprint.",
+		Annotations: map[string]string{"jamf:privileges": "read:pro:blueprints,read:school:blueprints"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err
@@ -399,10 +405,11 @@ func newBlueprintsReportCmd(cliCtx *registry.CLIContext) *cobra.Command {
 func newBlueprintsUndeployCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	var nameFlag string
 	cmd := &cobra.Command{
-		Use:   "undeploy <blueprintId>",
-		Short: "Undeploy blueprint",
-		Long:  "Undeploy blueprint",
-		Args:  cobra.MaximumNArgs(1),
+		Use:         "undeploy <blueprintId>",
+		Short:       "Undeploy blueprint",
+		Long:        "Undeploy blueprint",
+		Annotations: map[string]string{"jamf:privileges": "deploy:pro:blueprints,deploy:school:blueprints"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err

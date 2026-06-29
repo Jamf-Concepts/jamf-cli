@@ -1330,3 +1330,42 @@ func TestCommandEntriesToMaps_Destructive(t *testing.T) {
 		t.Errorf("non-destructive command: destructive = %v, want false", maps[1]["destructive"])
 	}
 }
+
+func TestCollectCommands_Privileges(t *testing.T) {
+	root := NewRootCmd("test", "abc123", "2024-01-01", "unknown")
+	entries := collectCommands(root, "", "", "")
+
+	found := false
+	for _, e := range entries {
+		if len(e.Privileges) > 0 {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Error("expected at least one command with Privileges populated from the jamf:privileges annotation")
+	}
+
+	// 'version' carries no privilege annotation.
+	for _, e := range entries {
+		if e.Command == "version" && len(e.Privileges) > 0 {
+			t.Errorf("version should have no privileges, got %v", e.Privileges)
+		}
+	}
+}
+
+func TestCommandEntriesToMaps_PrivilegesPositiveOnly(t *testing.T) {
+	entries := []commandEntry{
+		// Synthetic entries — command names are arbitrary for this unit test.
+		{Command: "x get", Description: "Get", Privileges: []string{"Read Computers"}},
+		{Command: "x noop", Description: "Noop"},
+	}
+	maps := commandEntriesToMaps(entries, true)
+
+	if _, ok := maps[0]["privileges"]; !ok {
+		t.Error("entry with privileges should emit the 'privileges' key")
+	}
+	if _, ok := maps[1]["privileges"]; ok {
+		t.Error("entry without privileges must omit the 'privileges' key entirely")
+	}
+}

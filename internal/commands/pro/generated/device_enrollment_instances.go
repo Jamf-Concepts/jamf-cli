@@ -60,6 +60,7 @@ func newDeviceEnrollmentInstancesListCmd(ctx *registry.CLIContext) *cobra.Comman
 
   # List device-enrollment-instances and extract IDs
   jamf-cli pro device-enrollment-instances list --field id`,
+		Annotations: map[string]string{"jamf:privileges": "Read Device Enrollment Program Instances"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -207,7 +208,8 @@ func newDeviceEnrollmentInstancesGetCmd(ctx *registry.CLIContext) *cobra.Command
 
   # Get a device-enrollment-instance and output as YAML
   jamf-cli pro device-enrollment-instances get 1 -o yaml`,
-		Args: cobra.MaximumNArgs(1),
+		Annotations: map[string]string{"jamf:privileges": "Read Device Enrollment Program Instances"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -271,6 +273,7 @@ func newDeviceEnrollmentInstancesCreateCmd(ctx *registry.CLIContext) *cobra.Comm
 
   # Get a device-enrollment-instance, modify it, and create a copy
   jamf-cli pro device-enrollment-instances get 1 -o json | jq '.name = "Copy"' | jamf-cli pro device-enrollment-instances create`,
+		Annotations: map[string]string{"jamf:privileges": "Create Device Enrollment Program Instances"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -384,7 +387,8 @@ func newDeviceEnrollmentInstancesUpdateCmd(ctx *registry.CLIContext) *cobra.Comm
 
   # Get a device-enrollment-instance, modify, and update
   jamf-cli pro device-enrollment-instances get 1 -o json | jq '.name = "New Name"' | jamf-cli pro device-enrollment-instances update 1`,
-		Args: cobra.MaximumNArgs(1),
+		Annotations: map[string]string{"jamf:privileges": "Update Device Enrollment Program Instances"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -509,7 +513,7 @@ func newDeviceEnrollmentInstancesDeleteCmd(ctx *registry.CLIContext) *cobra.Comm
 
   # Delete without confirmation prompt
   jamf-cli pro device-enrollment-instances delete 1 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Delete Device Enrollment Program Instances"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -721,7 +725,8 @@ func newDeviceEnrollmentInstancesHistoryCmd(ctx *registry.CLIContext) *cobra.Com
 
   # Get history by name
   jamf-cli pro device-enrollment-instances history --name "Example"`,
-		Args: cobra.MaximumNArgs(1),
+		Annotations: map[string]string{"jamf:privileges": "Read Device Enrollment Program Instances"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -881,10 +886,11 @@ func newDeviceEnrollmentInstancesAddHistoryNoteCmd(ctx *registry.CLIContext) *co
 	)
 
 	cmd := &cobra.Command{
-		Use:   "add-history-note [<id>]",
-		Short: "Add Device Enrollment history object notes",
-		Long:  "Adds device enrollment history object notes",
-		Args:  cobra.MaximumNArgs(1),
+		Use:         "add-history-note [<id>]",
+		Short:       "Add Device Enrollment history object notes",
+		Long:        "Adds device enrollment history object notes",
+		Annotations: map[string]string{"jamf:privileges": "Update Device Enrollment Program Instances"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -966,6 +972,7 @@ func newDeviceEnrollmentInstancesPublicKeyCmd(ctx *registry.CLIContext) *cobra.C
 
   # Pipe to stdout
   jamf-cli pro device-enrollment-instances public-key > output.bin`,
+		Annotations: map[string]string{"jamf:privileges": "Read Device Enrollment Program Instances"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			reqCtx = registry.WithAccept(reqCtx, "*/*")
@@ -1014,10 +1021,11 @@ func newDeviceEnrollmentInstancesDevicesCmd(ctx *registry.CLIContext) *cobra.Com
 	)
 
 	cmd := &cobra.Command{
-		Use:   "devices [<id>]",
-		Short: "Retrieve a list of Devices assigned to the supplied id",
-		Long:  "Retrieves a list of devices assigned to the supplied id",
-		Args:  cobra.MaximumNArgs(1),
+		Use:         "devices [<id>]",
+		Short:       "Retrieve a list of Devices assigned to the supplied id",
+		Long:        "Retrieves a list of devices assigned to the supplied id",
+		Annotations: map[string]string{"jamf:privileges": "Read Device Enrollment Program Instances"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -1068,10 +1076,11 @@ func newDeviceEnrollmentInstancesDisownCmd(ctx *registry.CLIContext) *cobra.Comm
 	)
 
 	cmd := &cobra.Command{
-		Use:   "disown [<id>]",
-		Short: "Disown devices from the given Device Enrollment Instance",
-		Long:  "Disowns devices from the given device enrollment instance",
-		Args:  cobra.MaximumNArgs(1),
+		Use:         "disown [<id>]",
+		Short:       "Disown devices from the given Device Enrollment Instance",
+		Long:        "Disowns devices from the given device enrollment instance",
+		Annotations: map[string]string{"jamf:privileges": "Update Device Enrollment Program Instances"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
