@@ -18,6 +18,7 @@ import (
 	"golang.org/x/term"
 	"gopkg.in/yaml.v3"
 
+	"github.com/Jamf-Concepts/jamf-cli/internal/progress"
 	"github.com/Jamf-Concepts/jamf-cli/internal/xmlconv"
 )
 
@@ -48,8 +49,9 @@ const (
 	FormatCSV       Format = "csv"
 	FormatYAML      Format = "yaml"
 	FormatPlain     Format = "plain"
-	FormatXML       Format = "xml" // Classic API native format — pretty-printed XML
-	FormatRaw       Format = "raw" // Exact wire bytes, no conversion or formatting
+	FormatXML       Format = "xml"    // Classic API native format — pretty-printed XML
+	FormatRaw       Format = "raw"    // Exact wire bytes, no conversion or formatting
+	FormatNDJSON    Format = "ndjson" // newline-delimited JSON: one compact object per line, no array
 )
 
 // nowFunc is the function used to get the current time. Override in tests.
@@ -57,14 +59,15 @@ var nowFunc = time.Now
 
 // Formatter handles output formatting
 type Formatter struct {
-	format    Format
-	writer    io.Writer
-	stderr    io.Writer
-	noColor   bool
-	wide      bool
-	quiet     bool
-	noHints   bool
-	projector Projector
+	format          Format
+	writer          io.Writer
+	stderr          io.Writer
+	noColor         bool
+	explicitNoColor bool
+	wide            bool
+	quiet           bool
+	noHints         bool
+	projector       Projector
 }
 
 // SetWriter replaces the output destination.
@@ -96,6 +99,12 @@ func (f *Formatter) SetQuiet(q bool) {
 func (f *Formatter) SetNoHints(v bool) {
 	f.noHints = v
 }
+
+// SetExplicitNoColor records whether the user explicitly disabled color
+// (--no-color or NO_COLOR), as distinct from color being auto-disabled because
+// stdout is piped. Pagination progress uses this so a piped stdout still shows
+// the in-place stderr counter when stderr is a terminal.
+func (f *Formatter) SetExplicitNoColor(v bool) { f.explicitNoColor = v }
 
 // listHintThreshold is the minimum row count that triggers the
 // "narrow output" hint on stderr. Below this, lists are short enough
@@ -175,6 +184,8 @@ func (f *Formatter) Print(data any) error {
 	switch f.format {
 	case FormatJSON:
 		err = f.printJSON(data)
+	case FormatNDJSON:
+		err = f.printNDJSON(data)
 	case FormatYAML:
 		err = f.printYAML(data)
 	case FormatCSV:
@@ -267,6 +278,45 @@ func (f *Formatter) printJSON(data any) error {
 	enc := json.NewEncoder(f.writer)
 	enc.SetIndent("", "  ")
 	return enc.Encode(data)
+}
+
+// printNDJSON writes one compact JSON object per line (no outer array).
+// A slice yields one line per element; a single object yields one line.
+// Projection (--select/--compact/--field) has already been applied by Print.
+func (f *Formatter) printNDJSON(data any) error {
+	// A top-level JSON null (e.g. an empty paginated list whose accumulated
+	// results marshal to "null") yields no records — emit nothing rather than a
+	// literal "null" line.
+	if data == nil {
+		return nil
+	}
+	writeLine := func(v any) error {
+		b, err := json.Marshal(v) // compact (no indent)
+		if err != nil {
+			return err
+		}
+		b = append(b, '\n')
+		_, err = f.writer.Write(b)
+		return err
+	}
+	switch v := data.(type) {
+	case []map[string]any:
+		for _, row := range v {
+			if err := writeLine(row); err != nil {
+				return err
+			}
+		}
+		return nil
+	case []any:
+		for _, row := range v {
+			if err := writeLine(row); err != nil {
+				return err
+			}
+		}
+		return nil
+	default:
+		return writeLine(v)
+	}
 }
 
 func (f *Formatter) printYAML(data any) error {
@@ -502,7 +552,7 @@ func (f *Formatter) PrintRaw(data []byte) error {
 	// coerce via normalizeForTabular. Print's applyProjection handles both
 	// map[string]any and []map[string]any.
 	switch f.format {
-	case FormatJSON, FormatJSONMulti, FormatYAML:
+	case FormatJSON, FormatJSONMulti, FormatYAML, FormatNDJSON:
 		return f.Print(parsed)
 	default:
 		// Table mode: a single object renders as a detail view, not a 1-row
@@ -955,6 +1005,30 @@ func (f *Formatter) formatStatusValue(value string) string {
 	}
 
 	return value
+}
+
+// isStderrTTY reports whether stderr is a terminal. Overridable in tests.
+var isStderrTTY = func() bool {
+	return term.IsTerminal(int(os.Stderr.Fd()))
+}
+
+// PaginationProgress builds a progress reporter for an --all pagination loop,
+// choosing the rendering mode from the formatter's state: silent when quiet,
+// an in-place count line on an interactive color terminal, NDJSON page_fetch
+// events otherwise.
+func (f *Formatter) PaginationProgress() *progress.Reporter {
+	mode := progress.Events
+	switch {
+	case f.quiet:
+		mode = progress.Silent
+	case isStderrTTY() && !f.explicitNoColor:
+		mode = progress.Interactive
+	}
+	w := f.stderr
+	if w == nil {
+		w = os.Stderr
+	}
+	return progress.New(w, mode)
 }
 
 // IsTerminal reports whether the given file descriptor is a character device.

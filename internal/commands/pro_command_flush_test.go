@@ -10,6 +10,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Jamf-Concepts/jamf-cli/internal/progress"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 )
 
@@ -93,6 +94,9 @@ func (d *discardOutput) PrintResponse(_ *http.Response) error { return nil }
 func (d *discardOutput) PrintRaw(_ []byte) error              { return nil }
 func (d *discardOutput) PrintBytes(_ []byte) error            { return nil }
 func (d *discardOutput) Format() string                       { return "json" }
+func (d *discardOutput) PaginationProgress() *progress.Reporter {
+	return progress.New(io.Discard, progress.Silent)
+}
 
 const classicGroupXML = `<?xml version="1.0" encoding="UTF-8"?>
 <computer_group>

@@ -157,6 +157,9 @@ type spinnerClient struct {
 }
 
 func (c *spinnerClient) Do(ctx context.Context, method, path string, body io.Reader) (*http.Response, error) {
+	if spinner.IsSuppressed(ctx) {
+		return c.inner.Do(ctx, method, path, body)
+	}
 	s := spinner.New("Loading...")
 	s.Start()
 	defer s.Stop()
@@ -171,6 +174,9 @@ type spinnerTransport struct {
 }
 
 func (t *spinnerTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	if spinner.IsSuppressed(req.Context()) {
+		return t.inner.RoundTrip(req)
+	}
 	s := spinner.New("Loading...")
 	s.Start()
 	defer s.Stop()
@@ -584,6 +590,9 @@ spinner and progress output (narrower than --quiet).`,
 				cmd.Flags().Changed("output"), outputFmt, cfg.DefaultOutput,
 				stdoutTTY, outFile != "",
 			)
+			// noColor at this point reflects only explicit sources (--no-color
+			// flag or NO_COLOR env), before stdout-piping / out-file auto-disable.
+			explicitNoColor := noColor
 			if !stdoutTTY {
 				noColor = true
 			}
@@ -609,6 +618,7 @@ spinner and progress output (narrower than --quiet).`,
 			formatter.SetProjector(output.Projector{Compact: compact, Select: selectFields})
 			formatter.SetQuiet(quiet)
 			formatter.SetNoHints(noHints)
+			formatter.SetExplicitNoColor(explicitNoColor)
 			cliCtx.Output = &cliOutput{formatter}
 
 			// Group parent commands (made runnable only to reject unknown
@@ -757,7 +767,7 @@ spinner and progress output (narrower than --quiet).`,
 
 	// Global flags
 	cmd.PersistentFlags().StringVarP(&profile, "profile", "p", "", "config profile to use (or JAMF_PROFILE env)")
-	cmd.PersistentFlags().StringVarP(&outputFmt, "output", "o", "json", "output format: table, json, csv, yaml, plain, xml (pretty), raw (classic commands default to xml)")
+	cmd.PersistentFlags().StringVarP(&outputFmt, "output", "o", "json", "output format: table, json, ndjson, csv, yaml, plain, xml (pretty), raw (classic commands default to xml)")
 	cmd.PersistentFlags().BoolVarP(&quiet, "quiet", "q", false, "suppress non-error output")
 	cmd.PersistentFlags().BoolVar(&noHints, "no-hints", false, "suppress advisory hints (e.g. large-result narrowing tips); keeps spinner and progress output (or JAMF_CLI_NO_HINTS env)")
 	cmd.PersistentFlags().CountVarP(&verboseLevel, "verbose", "v", "show HTTP requests/responses (-vv adds headers, -vvv adds bodies)")
@@ -837,6 +847,19 @@ type commandEntry struct {
 	Privileges  []string `json:"privileges,omitempty"`
 }
 
+// isFullDetailFormat reports whether an output format carries the full
+// per-command detail (aliases, flags, product, group, destructive) in the
+// `commands` catalog. Structured machine formats get full detail; table/plain
+// stay compact unless --wide is set.
+func isFullDetailFormat(format string) bool {
+	switch output.Format(format) {
+	case output.FormatJSON, output.FormatNDJSON, output.FormatYAML, output.FormatCSV:
+		return true
+	default:
+		return false
+	}
+}
+
 // newCommandsCmd creates the "commands" subcommand that outputs the full
 // command tree in a machine-readable format.
 func newCommandsCmd(root *cobra.Command) *cobra.Command {
@@ -849,7 +872,7 @@ func newCommandsCmd(root *cobra.Command) *cobra.Command {
 			formatter := output.New(outputFmt, noColor, wide)
 			// Structured formats always get full detail; table/plain
 			// show only command+description unless --wide is set.
-			full := wide || outputFmt == "json" || outputFmt == "yaml" || outputFmt == "csv"
+			full := wide || isFullDetailFormat(outputFmt)
 			return formatter.Print(commandEntriesToMaps(entries, full))
 		},
 	}

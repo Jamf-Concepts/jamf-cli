@@ -1645,3 +1645,195 @@ func TestResolveFormat(t *testing.T) {
 		})
 	}
 }
+
+// --- NDJSON tests ---
+
+func TestPrintNDJSON_List(t *testing.T) {
+	var buf bytes.Buffer
+	f := New("ndjson", true, false)
+	f.SetWriter(&buf)
+	rows := []map[string]any{{"id": "1", "name": "a"}, {"id": "2", "name": "b"}}
+	if err := f.Print(rows); err != nil {
+		t.Fatalf("Print: %v", err)
+	}
+	lines := strings.Split(strings.TrimRight(buf.String(), "\n"), "\n")
+	if len(lines) != 2 {
+		t.Fatalf("expected 2 lines, got %d: %q", len(lines), buf.String())
+	}
+	for _, ln := range lines {
+		if strings.Contains(ln, "[") || strings.Contains(ln, "\n") {
+			t.Errorf("line is not a bare compact object: %q", ln)
+		}
+		var obj map[string]any
+		if err := json.Unmarshal([]byte(ln), &obj); err != nil {
+			t.Errorf("line not valid JSON object: %q (%v)", ln, err)
+		}
+	}
+}
+
+func TestPrintNDJSON_SingleObject(t *testing.T) {
+	var buf bytes.Buffer
+	f := New("ndjson", true, false)
+	f.SetWriter(&buf)
+	if err := f.Print(map[string]any{"id": "1"}); err != nil {
+		t.Fatalf("Print: %v", err)
+	}
+	if got := strings.Count(buf.String(), "\n"); got != 1 {
+		t.Errorf("single object should be one line, got %d newlines: %q", got, buf.String())
+	}
+}
+
+func TestPrintNDJSON_Empty(t *testing.T) {
+	var buf bytes.Buffer
+	f := New("ndjson", true, false)
+	f.SetWriter(&buf)
+	if err := f.Print([]map[string]any{}); err != nil {
+		t.Fatalf("Print: %v", err)
+	}
+	if buf.Len() != 0 {
+		t.Errorf("empty list should produce no output, got %q", buf.String())
+	}
+}
+
+func TestPrintNDJSON_NullNoOutput(t *testing.T) {
+	// An empty paginated --all result marshals its nil accumulator to "null";
+	// ndjson must emit nothing, not a literal "null" line.
+	var buf bytes.Buffer
+	f := New("ndjson", true, false)
+	f.SetWriter(&buf)
+	if err := f.PrintRaw([]byte("null")); err != nil {
+		t.Fatalf("PrintRaw: %v", err)
+	}
+	if buf.Len() != 0 {
+		t.Errorf("top-level null should produce no output, got %q", buf.String())
+	}
+}
+
+func TestPaginationProgress_QuietIsSilent(t *testing.T) {
+	f, _, stderr := newTestFormatterWithStderr("json")
+	f.SetQuiet(true)
+	p := f.PaginationProgress()
+	p.Update(10, 100)
+	p.Stop()
+	// quiet => Silent reporter => no stderr writes
+	if stderr.Len() != 0 {
+		t.Errorf("quiet should produce no progress output, got %q", stderr.String())
+	}
+}
+
+func TestPaginationProgress_NilStderrNoPanic(t *testing.T) {
+	orig := isStderrTTY
+	isStderrTTY = func() bool { return false } // force Events mode
+	defer func() { isStderrTTY = orig }()
+
+	f := New("json", false, false) // stderr is nil — production path
+	p := f.PaginationProgress()
+	// must not panic writing to a nil underlying writer
+	p.Update(1, 2)
+	p.Stop()
+}
+
+// TestPaginationProgress_PipedStdoutStillInteractive guards the regression where
+// piping stdout (which auto-sets noColor=true) wrongly forced Events mode even
+// when stderr was an interactive terminal.
+func TestPaginationProgress_PipedStdoutStillInteractive(t *testing.T) {
+	orig := isStderrTTY
+	isStderrTTY = func() bool { return true } // stderr is a terminal
+	defer func() { isStderrTTY = orig }()
+
+	f, _, stderr := newTestFormatterWithStderr("ndjson")
+	// Simulate the piped-stdout state: noColor auto-set to true, but the user
+	// never explicitly requested --no-color or NO_COLOR.
+	f.noColor = true
+	f.SetExplicitNoColor(false)
+
+	p := f.PaginationProgress()
+	p.Update(1, 2)
+	p.Stop()
+
+	out := stderr.String()
+	if !strings.Contains(out, "Fetched 1 / 2") {
+		t.Errorf("piped stdout + stderr TTY should use in-place counter; got %q", out)
+	}
+	if strings.Contains(out, `"event":"page_fetch"`) {
+		t.Errorf("piped stdout + stderr TTY must not emit NDJSON events; got %q", out)
+	}
+}
+
+// TestPaginationProgress_ExplicitNoColorUsesEvents ensures that --no-color or
+// NO_COLOR explicitly set by the user switches progress to Events mode.
+func TestPaginationProgress_ExplicitNoColorUsesEvents(t *testing.T) {
+	orig := isStderrTTY
+	isStderrTTY = func() bool { return true } // stderr is a terminal
+	defer func() { isStderrTTY = orig }()
+
+	f, _, stderr := newTestFormatterWithStderr("ndjson")
+	f.noColor = true
+	f.SetExplicitNoColor(true) // user explicitly passed --no-color / set NO_COLOR
+
+	p := f.PaginationProgress()
+	p.Update(1, 2)
+	p.Stop()
+
+	out := stderr.String()
+	if !strings.Contains(out, `"event":"page_fetch"`) {
+		t.Errorf("explicit --no-color should use Events mode; got %q", out)
+	}
+	if strings.Contains(out, "Fetched") {
+		t.Errorf("explicit --no-color must not emit in-place counter; got %q", out)
+	}
+}
+
+func TestPrintNDJSON_PrintRawArray(t *testing.T) {
+	// The --all production path calls PrintRaw with a JSON array assembled from
+	// all paginated pages. Each element must become a bare compact JSON line;
+	// no outer "[" or "]" wrapper should appear.
+	var buf bytes.Buffer
+	f := New("ndjson", true, false)
+	f.SetWriter(&buf)
+	if err := f.PrintRaw([]byte(`[{"id":"1"},{"id":"2"},{"id":"3"}]`)); err != nil {
+		t.Fatalf("PrintRaw: %v", err)
+	}
+	lines := strings.Split(strings.TrimRight(buf.String(), "\n"), "\n")
+	if len(lines) != 3 {
+		t.Fatalf("expected 3 lines, got %d:\n%s", len(lines), buf.String())
+	}
+	for i, ln := range lines {
+		if strings.Contains(ln, "[") || strings.Contains(ln, "]") {
+			t.Errorf("line %d contains array bracket: %q", i, ln)
+		}
+		var obj map[string]any
+		if err := json.Unmarshal([]byte(ln), &obj); err != nil {
+			t.Errorf("line %d is not a valid JSON object: %q (%v)", i, ln, err)
+		}
+	}
+}
+
+func TestPrintNDJSON_SelectProjection(t *testing.T) {
+	// ndjson must honour --select per record: projection runs in Print before
+	// format dispatch, so each NDJSON line should contain only selected fields.
+	var buf bytes.Buffer
+	f := New("ndjson", true, false)
+	f.SetWriter(&buf)
+	f.SetProjector(Projector{Select: []string{"id"}})
+	if err := f.PrintRaw([]byte(`[{"id":"1","name":"a"},{"id":"2","name":"b"}]`)); err != nil {
+		t.Fatalf("PrintRaw: %v", err)
+	}
+	lines := strings.Split(strings.TrimRight(buf.String(), "\n"), "\n")
+	if len(lines) != 2 {
+		t.Fatalf("expected 2 lines, got %d:\n%s", len(lines), buf.String())
+	}
+	for i, ln := range lines {
+		var obj map[string]any
+		if err := json.Unmarshal([]byte(ln), &obj); err != nil {
+			t.Errorf("line %d not valid JSON: %q (%v)", i, ln, err)
+			continue
+		}
+		if _, ok := obj["id"]; !ok {
+			t.Errorf("line %d missing selected field 'id': %q", i, ln)
+		}
+		if _, ok := obj["name"]; ok {
+			t.Errorf("line %d contains unselected field 'name': %q", i, ln)
+		}
+	}
+}

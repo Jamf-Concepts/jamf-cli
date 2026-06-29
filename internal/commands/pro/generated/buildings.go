@@ -14,6 +14,7 @@ import (
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/cooldown"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
+	"github.com/Jamf-Concepts/jamf-cli/internal/spinner"
 	"github.com/spf13/cobra"
 )
 
@@ -89,6 +90,9 @@ func newBuildingsListCmd(ctx *registry.CLIContext) *cobra.Command {
 			// Auto-pagination: fetch all pages when --all is set and --page was not manually specified
 			if flagAll && flagPage == 0 {
 				var allResults []json.RawMessage
+				prog := ctx.Output.PaginationProgress()
+				defer prog.Stop()
+				reqCtx = spinner.WithSuppressed(reqCtx)
 				pageNum := 0
 				pageSize := 100
 
@@ -128,6 +132,7 @@ func newBuildingsListCmd(ctx *registry.CLIContext) *cobra.Command {
 					}
 
 					allResults = append(allResults, pageResp.Results...)
+					prog.Update(len(allResults), pageResp.TotalCount)
 
 					// Check limit
 					if flagLimit > 0 && len(allResults) >= flagLimit {
@@ -142,6 +147,8 @@ func newBuildingsListCmd(ctx *registry.CLIContext) *cobra.Command {
 
 					pageNum++
 				}
+
+				prog.Stop()
 
 				// Output combined results as JSON array
 				combined, err := json.MarshalIndent(allResults, "", "  ")
@@ -158,6 +165,23 @@ func newBuildingsListCmd(ctx *registry.CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+			if ctx.Output.Format() == "ndjson" {
+				ndjsonBody, ndjsonErr := io.ReadAll(resp.Body)
+				if ndjsonErr != nil {
+					return ndjsonErr
+				}
+				var ndjsonWrap struct {
+					Results []json.RawMessage `json:"results"`
+				}
+				if err := json.Unmarshal(ndjsonBody, &ndjsonWrap); err == nil && ndjsonWrap.Results != nil {
+					arr, marshalErr := json.Marshal(ndjsonWrap.Results)
+					if marshalErr != nil {
+						return marshalErr
+					}
+					return ctx.Output.PrintRaw(arr)
+				}
+				return ctx.Output.PrintRaw(ndjsonBody)
+			}
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
@@ -775,6 +799,9 @@ func newBuildingsHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 			// Auto-pagination: fetch all pages when --all is set and --page was not manually specified
 			if flagAll && flagPage == 0 {
 				var allResults []json.RawMessage
+				prog := ctx.Output.PaginationProgress()
+				defer prog.Stop()
+				reqCtx = spinner.WithSuppressed(reqCtx)
 				pageNum := 0
 				pageSize := 100
 
@@ -815,6 +842,7 @@ func newBuildingsHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 					}
 
 					allResults = append(allResults, pageResp.Results...)
+					prog.Update(len(allResults), pageResp.TotalCount)
 
 					// Check limit
 					if flagLimit > 0 && len(allResults) >= flagLimit {
@@ -829,6 +857,8 @@ func newBuildingsHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 
 					pageNum++
 				}
+
+				prog.Stop()
 
 				// Output combined results as JSON array
 				combined, err := json.MarshalIndent(allResults, "", "  ")
@@ -845,6 +875,23 @@ func newBuildingsHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 			}
 			defer resp.Body.Close()
 
+			if ctx.Output.Format() == "ndjson" {
+				ndjsonBody, ndjsonErr := io.ReadAll(resp.Body)
+				if ndjsonErr != nil {
+					return ndjsonErr
+				}
+				var ndjsonWrap struct {
+					Results []json.RawMessage `json:"results"`
+				}
+				if err := json.Unmarshal(ndjsonBody, &ndjsonWrap); err == nil && ndjsonWrap.Results != nil {
+					arr, marshalErr := json.Marshal(ndjsonWrap.Results)
+					if marshalErr != nil {
+						return marshalErr
+					}
+					return ctx.Output.PrintRaw(arr)
+				}
+				return ctx.Output.PrintRaw(ndjsonBody)
+			}
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
