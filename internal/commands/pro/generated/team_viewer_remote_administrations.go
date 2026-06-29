@@ -497,6 +497,8 @@ func newTeamViewerRemoteAdministrationsSessionsCmd(ctx *registry.CLIContext) *co
 					pageNum++
 				}
 
+				prog.Stop()
+
 				// Output combined results as JSON array
 				combined, err := json.MarshalIndent(allResults, "", "  ")
 				if err != nil {

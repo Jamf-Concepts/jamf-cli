@@ -145,6 +145,8 @@ func newMobileDeviceExtensionAttributesListCmd(ctx *registry.CLIContext) *cobra.
 					pageNum++
 				}
 
+				prog.Stop()
+
 				// Output combined results as JSON array
 				combined, err := json.MarshalIndent(allResults, "", "  ")
 				if err != nil {
@@ -759,6 +761,8 @@ func newMobileDeviceExtensionAttributesHistoryCmd(ctx *registry.CLIContext) *cob
 
 					pageNum++
 				}
+
+				prog.Stop()
 
 				// Output combined results as JSON array
 				combined, err := json.MarshalIndent(allResults, "", "  ")

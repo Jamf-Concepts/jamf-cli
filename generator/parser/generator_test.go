@@ -2290,6 +2290,24 @@ func TestGenerate_PaginationProgressWiring(t *testing.T) {
 			t.Errorf("generated --all loop missing %q", want)
 		}
 	}
+
+	// There must be at least two prog.Stop() calls: the defer (error paths) and
+	// the explicit call before output. Count occurrences.
+	stopCount := strings.Count(src, "prog.Stop()")
+	if stopCount < 2 {
+		t.Errorf("expected at least 2 prog.Stop() calls (defer + explicit), got %d", stopCount)
+	}
+
+	// The explicit Stop must appear BEFORE json.MarshalIndent(allResults so that
+	// the in-place counter is cleared before records are written to stdout.
+	lastStopIdx := strings.LastIndex(src, "prog.Stop()")
+	marshalIdx := strings.Index(src, "json.MarshalIndent(allResults")
+	if marshalIdx < 0 {
+		t.Fatal("generated source missing json.MarshalIndent(allResults")
+	}
+	if lastStopIdx >= marshalIdx {
+		t.Errorf("last prog.Stop() (offset %d) must appear before json.MarshalIndent(allResults (offset %d)", lastStopIdx, marshalIdx)
+	}
 }
 
 func TestGenerate_NdjsonSinglePageUnwrap(t *testing.T) {

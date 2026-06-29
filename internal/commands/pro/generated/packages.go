@@ -149,6 +149,8 @@ func newPackagesListCmd(ctx *registry.CLIContext) *cobra.Command {
 					pageNum++
 				}
 
+				prog.Stop()
+
 				// Output combined results as JSON array
 				combined, err := json.MarshalIndent(allResults, "", "  ")
 				if err != nil {
@@ -902,6 +904,8 @@ func newPackagesHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 
 					pageNum++
 				}
+
+				prog.Stop()
 
 				// Output combined results as JSON array
 				combined, err := json.MarshalIndent(allResults, "", "  ")

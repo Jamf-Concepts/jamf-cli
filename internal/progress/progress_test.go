@@ -53,3 +53,15 @@ func TestReporter_InteractiveUnknownTotal(t *testing.T) {
 		t.Errorf("unknown total should omit the denominator, got %q", buf.String())
 	}
 }
+
+func TestReporter_StopIdempotent(t *testing.T) {
+	var buf bytes.Buffer
+	r := New(&buf, Interactive)
+	r.Update(50, 100)
+	r.Stop()
+	after1 := buf.String()
+	r.Stop() // second call must be a no-op
+	if buf.String() != after1 {
+		t.Errorf("second Stop() must not write anything; buffer grew from %q to %q", after1, buf.String())
+	}
+}

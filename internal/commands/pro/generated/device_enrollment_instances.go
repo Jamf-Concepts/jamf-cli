@@ -144,6 +144,8 @@ func newDeviceEnrollmentInstancesListCmd(ctx *registry.CLIContext) *cobra.Comman
 					pageNum++
 				}
 
+				prog.Stop()
+
 				// Output combined results as JSON array
 				combined, err := json.MarshalIndent(allResults, "", "  ")
 				if err != nil {
@@ -822,6 +824,8 @@ func newDeviceEnrollmentInstancesHistoryCmd(ctx *registry.CLIContext) *cobra.Com
 
 					pageNum++
 				}
+
+				prog.Stop()
 
 				// Output combined results as JSON array
 				combined, err := json.MarshalIndent(allResults, "", "  ")

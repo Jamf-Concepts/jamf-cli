@@ -134,6 +134,8 @@ func newJamfProtectDeploymentTasksTasksCmd(ctx *registry.CLIContext) *cobra.Comm
 					pageNum++
 				}
 
+				prog.Stop()
+
 				// Output combined results as JSON array
 				combined, err := json.MarshalIndent(allResults, "", "  ")
 				if err != nil {

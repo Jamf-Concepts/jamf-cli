@@ -21,8 +21,9 @@ const (
 
 // Reporter renders determinate progress to w.
 type Reporter struct {
-	w    io.Writer
-	mode Mode
+	w       io.Writer
+	mode    Mode
+	stopped bool
 }
 
 // New returns a Reporter writing to w in the given mode.
@@ -46,7 +47,12 @@ func (r *Reporter) Update(fetched, total int) {
 }
 
 // Stop finalizes the reporter. In interactive mode it clears the in-place line.
+// Stop is idempotent: subsequent calls after the first are no-ops.
 func (r *Reporter) Stop() {
+	if r.stopped {
+		return
+	}
+	r.stopped = true
 	if r.mode == Interactive {
 		_, _ = fmt.Fprint(r.w, "\r\033[K")
 	}

@@ -137,6 +137,8 @@ func newOnboardingsHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 					pageNum++
 				}
 
+				prog.Stop()
+
 				// Output combined results as JSON array
 				combined, err := json.MarshalIndent(allResults, "", "  ")
 				if err != nil {
@@ -461,6 +463,8 @@ func newOnboardingsEligibleAppsCmd(ctx *registry.CLIContext) *cobra.Command {
 					pageNum++
 				}
 
+				prog.Stop()
+
 				// Output combined results as JSON array
 				combined, err := json.MarshalIndent(allResults, "", "  ")
 				if err != nil {
@@ -602,6 +606,8 @@ func newOnboardingsEligibleConfigurationProfilesCmd(ctx *registry.CLIContext) *c
 					pageNum++
 				}
 
+				prog.Stop()
+
 				// Output combined results as JSON array
 				combined, err := json.MarshalIndent(allResults, "", "  ")
 				if err != nil {
@@ -742,6 +748,8 @@ func newOnboardingsEligiblePoliciesCmd(ctx *registry.CLIContext) *cobra.Command 
 
 					pageNum++
 				}
+
+				prog.Stop()
 
 				// Output combined results as JSON array
 				combined, err := json.MarshalIndent(allResults, "", "  ")

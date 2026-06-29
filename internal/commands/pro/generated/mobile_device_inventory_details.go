@@ -144,6 +144,8 @@ func newMobileDeviceInventoryDetailsListCmd(ctx *registry.CLIContext) *cobra.Com
 					pageNum++
 				}
 
+				prog.Stop()
+
 				// Output combined results as JSON array
 				combined, err := json.MarshalIndent(allResults, "", "  ")
 				if err != nil {
@@ -300,6 +302,8 @@ func newMobileDeviceInventoryDetailsPairedDevicesCmd(ctx *registry.CLIContext) *
 
 					pageNum++
 				}
+
+				prog.Stop()
 
 				// Output combined results as JSON array
 				combined, err := json.MarshalIndent(allResults, "", "  ")
