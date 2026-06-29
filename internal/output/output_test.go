@@ -1695,6 +1695,20 @@ func TestPrintNDJSON_Empty(t *testing.T) {
 	}
 }
 
+func TestPrintNDJSON_NullNoOutput(t *testing.T) {
+	// An empty paginated --all result marshals its nil accumulator to "null";
+	// ndjson must emit nothing, not a literal "null" line.
+	var buf bytes.Buffer
+	f := New("ndjson", true, false)
+	f.SetWriter(&buf)
+	if err := f.PrintRaw([]byte("null")); err != nil {
+		t.Fatalf("PrintRaw: %v", err)
+	}
+	if buf.Len() != 0 {
+		t.Errorf("top-level null should produce no output, got %q", buf.String())
+	}
+}
+
 func TestPaginationProgress_QuietIsSilent(t *testing.T) {
 	f, _, stderr := newTestFormatterWithStderr("json")
 	f.SetQuiet(true)

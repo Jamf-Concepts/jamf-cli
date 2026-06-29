@@ -284,6 +284,12 @@ func (f *Formatter) printJSON(data any) error {
 // A slice yields one line per element; a single object yields one line.
 // Projection (--select/--compact/--field) has already been applied by Print.
 func (f *Formatter) printNDJSON(data any) error {
+	// A top-level JSON null (e.g. an empty paginated list whose accumulated
+	// results marshal to "null") yields no records — emit nothing rather than a
+	// literal "null" line.
+	if data == nil {
+		return nil
+	}
 	writeLine := func(v any) error {
 		b, err := json.Marshal(v) // compact (no indent)
 		if err != nil {
