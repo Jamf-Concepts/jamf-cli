@@ -23,6 +23,20 @@ func TestReporter_Events(t *testing.T) {
 	}
 }
 
+func TestReporter_EventsUnknownTotal(t *testing.T) {
+	var buf bytes.Buffer
+	r := New(&buf, Events)
+	r.Update(100, 0) // unknown total
+	r.Stop()
+	out := buf.String()
+	if !strings.Contains(out, `"total":null`) || strings.Contains(out, `"total":0`) {
+		t.Errorf("unknown total should emit null, not 0: %q", out)
+	}
+	if !strings.Contains(out, `"fetched":100`) {
+		t.Errorf("event line missing fetched: %q", out)
+	}
+}
+
 func TestReporter_Silent(t *testing.T) {
 	var buf bytes.Buffer
 	r := New(&buf, Silent)

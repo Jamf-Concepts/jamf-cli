@@ -851,8 +851,8 @@ type commandEntry struct {
 // `commands` catalog. Structured machine formats get full detail; table/plain
 // stay compact unless --wide is set.
 func isFullDetailFormat(format string) bool {
-	switch format {
-	case "json", "ndjson", "yaml", "csv":
+	switch output.Format(format) {
+	case output.FormatJSON, output.FormatNDJSON, output.FormatYAML, output.FormatCSV:
 		return true
 	default:
 		return false

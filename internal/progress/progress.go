@@ -42,7 +42,13 @@ func (r *Reporter) Update(fetched, total int) {
 			_, _ = fmt.Fprintf(r.w, "\rFetched %d\033[K", fetched)
 		}
 	case Events:
-		_, _ = fmt.Fprintf(r.w, `{"event":"page_fetch","fetched":%d,"total":%d}`+"\n", fetched, total)
+		// total <= 0 means unknown — emit null rather than a misleading 0, so a
+		// machine consumer can distinguish "unknown total" from "zero results".
+		if total > 0 {
+			_, _ = fmt.Fprintf(r.w, `{"event":"page_fetch","fetched":%d,"total":%d}`+"\n", fetched, total)
+		} else {
+			_, _ = fmt.Fprintf(r.w, `{"event":"page_fetch","fetched":%d,"total":null}`+"\n", fetched)
+		}
 	}
 }
 
