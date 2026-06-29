@@ -590,6 +590,9 @@ spinner and progress output (narrower than --quiet).`,
 				cmd.Flags().Changed("output"), outputFmt, cfg.DefaultOutput,
 				stdoutTTY, outFile != "",
 			)
+			// noColor at this point reflects only explicit sources (--no-color
+			// flag or NO_COLOR env), before stdout-piping / out-file auto-disable.
+			explicitNoColor := noColor
 			if !stdoutTTY {
 				noColor = true
 			}
@@ -615,6 +618,7 @@ spinner and progress output (narrower than --quiet).`,
 			formatter.SetProjector(output.Projector{Compact: compact, Select: selectFields})
 			formatter.SetQuiet(quiet)
 			formatter.SetNoHints(noHints)
+			formatter.SetExplicitNoColor(explicitNoColor)
 			cliCtx.Output = &cliOutput{formatter}
 
 			// Group parent commands (made runnable only to reject unknown

@@ -1718,3 +1718,54 @@ func TestPaginationProgress_NilStderrNoPanic(t *testing.T) {
 	p.Update(1, 2)
 	p.Stop()
 }
+
+// TestPaginationProgress_PipedStdoutStillInteractive guards the regression where
+// piping stdout (which auto-sets noColor=true) wrongly forced Events mode even
+// when stderr was an interactive terminal.
+func TestPaginationProgress_PipedStdoutStillInteractive(t *testing.T) {
+	orig := isStderrTTY
+	isStderrTTY = func() bool { return true } // stderr is a terminal
+	defer func() { isStderrTTY = orig }()
+
+	f, _, stderr := newTestFormatterWithStderr("ndjson")
+	// Simulate the piped-stdout state: noColor auto-set to true, but the user
+	// never explicitly requested --no-color or NO_COLOR.
+	f.noColor = true
+	f.SetExplicitNoColor(false)
+
+	p := f.PaginationProgress()
+	p.Update(1, 2)
+	p.Stop()
+
+	out := stderr.String()
+	if !strings.Contains(out, "Fetched 1 / 2") {
+		t.Errorf("piped stdout + stderr TTY should use in-place counter; got %q", out)
+	}
+	if strings.Contains(out, `"event":"page_fetch"`) {
+		t.Errorf("piped stdout + stderr TTY must not emit NDJSON events; got %q", out)
+	}
+}
+
+// TestPaginationProgress_ExplicitNoColorUsesEvents ensures that --no-color or
+// NO_COLOR explicitly set by the user switches progress to Events mode.
+func TestPaginationProgress_ExplicitNoColorUsesEvents(t *testing.T) {
+	orig := isStderrTTY
+	isStderrTTY = func() bool { return true } // stderr is a terminal
+	defer func() { isStderrTTY = orig }()
+
+	f, _, stderr := newTestFormatterWithStderr("ndjson")
+	f.noColor = true
+	f.SetExplicitNoColor(true) // user explicitly passed --no-color / set NO_COLOR
+
+	p := f.PaginationProgress()
+	p.Update(1, 2)
+	p.Stop()
+
+	out := stderr.String()
+	if !strings.Contains(out, `"event":"page_fetch"`) {
+		t.Errorf("explicit --no-color should use Events mode; got %q", out)
+	}
+	if strings.Contains(out, "Fetched") {
+		t.Errorf("explicit --no-color must not emit in-place counter; got %q", out)
+	}
+}

@@ -59,14 +59,15 @@ var nowFunc = time.Now
 
 // Formatter handles output formatting
 type Formatter struct {
-	format    Format
-	writer    io.Writer
-	stderr    io.Writer
-	noColor   bool
-	wide      bool
-	quiet     bool
-	noHints   bool
-	projector Projector
+	format          Format
+	writer          io.Writer
+	stderr          io.Writer
+	noColor         bool
+	explicitNoColor bool
+	wide            bool
+	quiet           bool
+	noHints         bool
+	projector       Projector
 }
 
 // SetWriter replaces the output destination.
@@ -98,6 +99,12 @@ func (f *Formatter) SetQuiet(q bool) {
 func (f *Formatter) SetNoHints(v bool) {
 	f.noHints = v
 }
+
+// SetExplicitNoColor records whether the user explicitly disabled color
+// (--no-color or NO_COLOR), as distinct from color being auto-disabled because
+// stdout is piped. Pagination progress uses this so a piped stdout still shows
+// the in-place stderr counter when stderr is a terminal.
+func (f *Formatter) SetExplicitNoColor(v bool) { f.explicitNoColor = v }
 
 // listHintThreshold is the minimum row count that triggers the
 // "narrow output" hint on stderr. Below this, lists are short enough
@@ -1008,7 +1015,7 @@ func (f *Formatter) PaginationProgress() *progress.Reporter {
 	switch {
 	case f.quiet:
 		mode = progress.Silent
-	case isStderrTTY() && !f.noColor:
+	case isStderrTTY() && !f.explicitNoColor:
 		mode = progress.Interactive
 	}
 	w := f.stderr
