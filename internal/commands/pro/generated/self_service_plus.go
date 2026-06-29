@@ -40,6 +40,7 @@ func newSelfServicePlusGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get self-service-plus and output as YAML
   jamf-cli pro self-service-plus get -o yaml`,
+		Annotations: map[string]string{"jamf:privileges": "Read Self Service"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -80,6 +81,7 @@ func newSelfServicePlusUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Update from a file
   jamf-cli pro self-service-plus update --from-file self-service-plus.json`,
+		Annotations: map[string]string{"jamf:privileges": "Update Self Service"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

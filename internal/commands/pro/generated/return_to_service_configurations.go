@@ -46,6 +46,7 @@ func newReturnToServiceConfigurationsListCmd(ctx *registry.CLIContext) *cobra.Co
 
   # List return-to-service-configurations and extract IDs
   jamf-cli pro return-to-service-configurations list --field id`,
+		Annotations: map[string]string{"jamf:privileges": "View Return To Service Configurations"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -89,7 +90,8 @@ func newReturnToServiceConfigurationsGetCmd(ctx *registry.CLIContext) *cobra.Com
 
   # Get a return-to-service-configuration and output as YAML
   jamf-cli pro return-to-service-configurations get 1 -o yaml`,
-		Args: cobra.MaximumNArgs(1),
+		Annotations: map[string]string{"jamf:privileges": "View Return To Service Configurations"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -150,6 +152,7 @@ func newReturnToServiceConfigurationsCreateCmd(ctx *registry.CLIContext) *cobra.
 
   # Get a return-to-service-configuration, modify it, and create a copy
   jamf-cli pro return-to-service-configurations get 1 -o json | jq '.name = "Copy"' | jamf-cli pro return-to-service-configurations create`,
+		Annotations: map[string]string{"jamf:privileges": "Edit Return To Service Configurations"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -219,7 +222,8 @@ func newReturnToServiceConfigurationsUpdateCmd(ctx *registry.CLIContext) *cobra.
 
   # Get a return-to-service-configuration, modify, and update
   jamf-cli pro return-to-service-configurations get 1 -o json | jq '.name = "New Name"' | jamf-cli pro return-to-service-configurations update 1`,
-		Args: cobra.MaximumNArgs(1),
+		Annotations: map[string]string{"jamf:privileges": "Edit Return To Service Configurations"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -308,7 +312,7 @@ func newReturnToServiceConfigurationsDeleteCmd(ctx *registry.CLIContext) *cobra.
 
   # Delete without confirmation prompt
   jamf-cli pro return-to-service-configurations delete 1 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Delete Return To Service Configurations"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

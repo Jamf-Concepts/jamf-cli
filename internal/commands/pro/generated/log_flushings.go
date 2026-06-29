@@ -45,6 +45,7 @@ func newLogFlushingsListCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # List log-flushings and extract IDs
   jamf-cli pro log-flushings list --field id`,
+		Annotations: map[string]string{"jamf:privileges": "Read Retention Policy"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -88,7 +89,8 @@ func newLogFlushingsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a log-flushing and output as YAML
   jamf-cli pro log-flushings get 1 -o yaml`,
-		Args: cobra.MaximumNArgs(1),
+		Annotations: map[string]string{"jamf:privileges": "Read Retention Policy"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -152,7 +154,7 @@ func newLogFlushingsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Delete without confirmation prompt
   jamf-cli pro log-flushings delete 1 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Update Retention Policy"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -348,9 +350,10 @@ func newLogFlushingsLogFlushingCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{
-		Use:   "log-flushing",
-		Short: "Get log flushing settings",
-		Long:  "Get all log flushing and retention policy settings",
+		Use:         "log-flushing",
+		Short:       "Get log flushing settings",
+		Long:        "Get all log flushing and retention policy settings",
+		Annotations: map[string]string{"jamf:privileges": "Read Retention Policy"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -383,9 +386,10 @@ func newLogFlushingsTaskCmd(ctx *registry.CLIContext) *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "task",
-		Short: "Queue a log flushing task",
-		Long:  "Queue a log flushing task",
+		Use:         "task",
+		Short:       "Queue a log flushing task",
+		Long:        "Queue a log flushing task",
+		Annotations: map[string]string{"jamf:privileges": "Update Retention Policy"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

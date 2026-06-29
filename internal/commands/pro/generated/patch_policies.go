@@ -53,6 +53,7 @@ func newPatchPoliciesListCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # List patch-policies and extract IDs
   jamf-cli pro patch-policies list --field id`,
+		Annotations: map[string]string{"jamf:privileges": "Read Patch Policies"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -184,7 +185,7 @@ func newPatchPoliciesDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Delete without confirmation prompt
   jamf-cli pro patch-policies delete 1 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Read Patch Policies"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -387,9 +388,10 @@ func newPatchPoliciesPolicyDetailsCmd(ctx *registry.CLIContext) *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "policy-details",
-		Short: "Retrieve Patch Policies",
-		Long:  "Retrieves a list of patch policies.",
+		Use:         "policy-details",
+		Short:       "Retrieve Patch Policies",
+		Long:        "Retrieves a list of patch policies.",
+		Annotations: map[string]string{"jamf:privileges": "Read Patch Policies"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -507,10 +509,11 @@ func newPatchPoliciesDashboardCmd(ctx *registry.CLIContext) *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "dashboard [<id>]",
-		Short: "Return whether or not the requested patch policy is on the dashboard",
-		Long:  "Returns whether or not the requested patch policy is on the dashboard",
-		Args:  cobra.MaximumNArgs(1),
+		Use:         "dashboard [<id>]",
+		Short:       "Return whether or not the requested patch policy is on the dashboard",
+		Long:        "Returns whether or not the requested patch policy is on the dashboard",
+		Annotations: map[string]string{"jamf:privileges": "Read Patch Policies"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -560,10 +563,11 @@ func newPatchPoliciesCreateDashboardCmd(ctx *registry.CLIContext) *cobra.Command
 	)
 
 	cmd := &cobra.Command{
-		Use:   "create-dashboard [<id>]",
-		Short: "Add a patch policy to the dashboard",
-		Long:  "Adds a patch policy to the dashboard.",
-		Args:  cobra.MaximumNArgs(1),
+		Use:         "create-dashboard [<id>]",
+		Short:       "Add a patch policy to the dashboard",
+		Long:        "Adds a patch policy to the dashboard.",
+		Annotations: map[string]string{"jamf:privileges": "Read Patch Policies"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

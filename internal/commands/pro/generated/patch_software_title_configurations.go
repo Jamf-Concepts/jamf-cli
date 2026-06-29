@@ -58,6 +58,7 @@ func newPatchSoftwareTitleConfigurationsListCmd(ctx *registry.CLIContext) *cobra
 
   # List patch-software-title-configurations and extract IDs
   jamf-cli pro patch-software-title-configurations list --field id`,
+		Annotations: map[string]string{"jamf:privileges": "Read Patch Management Software Titles"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -101,7 +102,8 @@ func newPatchSoftwareTitleConfigurationsGetCmd(ctx *registry.CLIContext) *cobra.
 
   # Get a patch-software-title-configuration and output as YAML
   jamf-cli pro patch-software-title-configurations get 1 -o yaml`,
-		Args: cobra.MaximumNArgs(1),
+		Annotations: map[string]string{"jamf:privileges": "Read Patch Management Software Titles"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -162,6 +164,7 @@ func newPatchSoftwareTitleConfigurationsCreateCmd(ctx *registry.CLIContext) *cob
 
   # Get a patch-software-title-configuration, modify it, and create a copy
   jamf-cli pro patch-software-title-configurations get 1 -o json | jq '.name = "Copy"' | jamf-cli pro patch-software-title-configurations create`,
+		Annotations: map[string]string{"jamf:privileges": "Create Patch Management Software Titles"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -238,7 +241,7 @@ func newPatchSoftwareTitleConfigurationsDeleteCmd(ctx *registry.CLIContext) *cob
 
   # Delete without confirmation prompt
   jamf-cli pro patch-software-title-configurations delete 1 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Delete Patch Management Software Titles"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -450,7 +453,8 @@ func newPatchSoftwareTitleConfigurationsHistoryCmd(ctx *registry.CLIContext) *co
 
   # Get history by name
   jamf-cli pro patch-software-title-configurations history --name "Example"`,
-		Args: cobra.MaximumNArgs(1),
+		Annotations: map[string]string{"jamf:privileges": "Read Patch Management Software Titles"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -587,10 +591,11 @@ func newPatchSoftwareTitleConfigurationsAddHistoryNoteCmd(ctx *registry.CLIConte
 	)
 
 	cmd := &cobra.Command{
-		Use:   "add-history-note [<id>]",
-		Short: "Add Patch Software Title Configuration history object notes",
-		Long:  "Adds Patch Software Title Configuration history object notes",
-		Args:  cobra.MaximumNArgs(1),
+		Use:         "add-history-note [<id>]",
+		Short:       "Add Patch Software Title Configuration history object notes",
+		Long:        "Adds Patch Software Title Configuration history object notes",
+		Annotations: map[string]string{"jamf:privileges": "Update Patch Management Software Titles"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -681,7 +686,8 @@ func newPatchSoftwareTitleConfigurationsPatchCmd(ctx *registry.CLIContext) *cobr
 
   # Patch from a file
   jamf-cli pro patch-software-title-configurations patch 1 --from-file changes.json`,
-		Args: cobra.MaximumNArgs(1),
+		Annotations: map[string]string{"jamf:privileges": "Update Patch Management Software Titles"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -789,10 +795,11 @@ func newPatchSoftwareTitleConfigurationsDefinitionsCmd(ctx *registry.CLIContext)
 	)
 
 	cmd := &cobra.Command{
-		Use:   "definitions [<id>]",
-		Short: "Retrieve Patch Software Title Definitions with the supplied id",
-		Long:  "Retrieves patch software title definitions with the supplied id",
-		Args:  cobra.MaximumNArgs(1),
+		Use:         "definitions [<id>]",
+		Short:       "Retrieve Patch Software Title Definitions with the supplied id",
+		Long:        "Retrieves patch software title definitions with the supplied id",
+		Annotations: map[string]string{"jamf:privileges": "Read Patch Management Software Titles"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -928,10 +935,11 @@ func newPatchSoftwareTitleConfigurationsDependenciesCmd(ctx *registry.CLIContext
 	)
 
 	cmd := &cobra.Command{
-		Use:   "dependencies [<id>]",
-		Short: "Retrieve list of Patch Software Title Configuration Dependencies",
-		Long:  "Retrieve list of Patch Software Title Configuration Dependencies",
-		Args:  cobra.MaximumNArgs(1),
+		Use:         "dependencies [<id>]",
+		Short:       "Retrieve list of Patch Software Title Configuration Dependencies",
+		Long:        "Retrieve list of Patch Software Title Configuration Dependencies",
+		Annotations: map[string]string{"jamf:privileges": "Read Patch Management Software Titles"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -992,7 +1000,8 @@ func newPatchSoftwareTitleConfigurationsExportReportCmd(ctx *registry.CLIContext
 
   # Pipe to stdout
   jamf-cli pro patch-software-title-configurations export-report <id> > output.bin`,
-		Args: cobra.MaximumNArgs(1),
+		Annotations: map[string]string{"jamf:privileges": "Read Patch Management Software Titles"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			reqCtx = registry.WithAccept(reqCtx, "*/*")
@@ -1068,10 +1077,11 @@ func newPatchSoftwareTitleConfigurationsExtensionAttributesCmd(ctx *registry.CLI
 	)
 
 	cmd := &cobra.Command{
-		Use:   "extension-attributes [<id>]",
-		Short: "Retrieve Software Title Extension Attributes with the supplied id",
-		Long:  "Retrieves software title extension attributes with the supplied id",
-		Args:  cobra.MaximumNArgs(1),
+		Use:         "extension-attributes [<id>]",
+		Short:       "Retrieve Software Title Extension Attributes with the supplied id",
+		Long:        "Retrieves software title extension attributes with the supplied id",
+		Annotations: map[string]string{"jamf:privileges": "Read Patch Management Software Titles"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -1121,10 +1131,11 @@ func newPatchSoftwareTitleConfigurationsCreateDashboardCmd(ctx *registry.CLICont
 	)
 
 	cmd := &cobra.Command{
-		Use:   "create-dashboard [<id>]",
-		Short: "Add a software title configuration to the dashboard",
-		Long:  "Adds asoftware title configuration to the dashboard.",
-		Args:  cobra.MaximumNArgs(1),
+		Use:         "create-dashboard [<id>]",
+		Short:       "Add a software title configuration to the dashboard",
+		Long:        "Adds asoftware title configuration to the dashboard.",
+		Annotations: map[string]string{"jamf:privileges": "Read Patch Management Software Titles"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -1191,10 +1202,11 @@ func newPatchSoftwareTitleConfigurationsDashboardCmd(ctx *registry.CLIContext) *
 	)
 
 	cmd := &cobra.Command{
-		Use:   "dashboard [<id>]",
-		Short: "Return whether or not the requested software title configuration is on the dashboard",
-		Long:  "Returns whether or not the requested software title configuration is on the dashboard",
-		Args:  cobra.MaximumNArgs(1),
+		Use:         "dashboard [<id>]",
+		Short:       "Return whether or not the requested software title configuration is on the dashboard",
+		Long:        "Returns whether or not the requested software title configuration is on the dashboard",
+		Annotations: map[string]string{"jamf:privileges": "Read Patch Management Software Titles"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -1250,10 +1262,11 @@ func newPatchSoftwareTitleConfigurationsPatchReportCmd(ctx *registry.CLIContext)
 	)
 
 	cmd := &cobra.Command{
-		Use:   "patch-report [<id>]",
-		Short: "Retrieve Patch Software Title Configuration Patch Report",
-		Long:  "Retrieve Patch Software Title Configuration Patch Report",
-		Args:  cobra.MaximumNArgs(1),
+		Use:         "patch-report [<id>]",
+		Short:       "Retrieve Patch Software Title Configuration Patch Report",
+		Long:        "Retrieve Patch Software Title Configuration Patch Report",
+		Annotations: map[string]string{"jamf:privileges": "Read Patch Management Software Titles"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -1389,10 +1402,11 @@ func newPatchSoftwareTitleConfigurationsPatchSummaryCmd(ctx *registry.CLIContext
 	)
 
 	cmd := &cobra.Command{
-		Use:   "patch-summary [<id>]",
-		Short: "Return Active Patch Summary",
-		Long:  "Returns active patch summary.",
-		Args:  cobra.MaximumNArgs(1),
+		Use:         "patch-summary [<id>]",
+		Short:       "Return Active Patch Summary",
+		Long:        "Returns active patch summary.",
+		Annotations: map[string]string{"jamf:privileges": "Read Patch Management Software Titles"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -1442,10 +1456,11 @@ func newPatchSoftwareTitleConfigurationsVersionsCmd(ctx *registry.CLIContext) *c
 	)
 
 	cmd := &cobra.Command{
-		Use:   "versions [<id>]",
-		Short: "Returns patch versions",
-		Long:  "Returns patch versions",
-		Args:  cobra.MaximumNArgs(1),
+		Use:         "versions [<id>]",
+		Short:       "Returns patch versions",
+		Long:        "Returns patch versions",
+		Annotations: map[string]string{"jamf:privileges": "Read Patch Management Software Titles"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

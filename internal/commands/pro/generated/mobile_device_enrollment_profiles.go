@@ -40,7 +40,8 @@ func newMobileDeviceEnrollmentProfilesDownloadProfileCmd(ctx *registry.CLIContex
 
   # Pipe to stdout
   jamf-cli pro mobile-device-enrollment-profiles download-profile <id> > output.bin`,
-		Args: cobra.ExactArgs(1),
+		Annotations: map[string]string{"jamf:privileges": "Read Enrollment Profiles"},
+		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			reqCtx = registry.WithAccept(reqCtx, "*/*")

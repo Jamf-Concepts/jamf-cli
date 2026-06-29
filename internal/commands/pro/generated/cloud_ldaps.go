@@ -50,7 +50,8 @@ func newCloudLdapsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a cloud-ldap and output as YAML
   jamf-cli pro cloud-ldaps get 1 -o yaml`,
-		Args: cobra.MaximumNArgs(1),
+		Annotations: map[string]string{"jamf:privileges": "Read LDAP Servers"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -111,6 +112,7 @@ func newCloudLdapsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a cloud-ldap, modify it, and create a copy
   jamf-cli pro cloud-ldaps get 1 -o json | jq '.name = "Copy"' | jamf-cli pro cloud-ldaps create`,
+		Annotations: map[string]string{"jamf:privileges": "Create LDAP Servers"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -181,7 +183,8 @@ func newCloudLdapsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a cloud-ldap, modify, and update
   jamf-cli pro cloud-ldaps get 1 -o json | jq '.name = "New Name"' | jamf-cli pro cloud-ldaps update 1`,
-		Args: cobra.MaximumNArgs(1),
+		Annotations: map[string]string{"jamf:privileges": "Update LDAP Servers"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -271,7 +274,7 @@ func newCloudLdapsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Delete without confirmation prompt
   jamf-cli pro cloud-ldaps delete 1 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Delete LDAP Servers"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

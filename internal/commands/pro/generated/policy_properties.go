@@ -31,9 +31,10 @@ func newPolicyPropertiesPolicyPropertiesCmd(ctx *registry.CLIContext) *cobra.Com
 	var ()
 
 	cmd := &cobra.Command{
-		Use:   "policy-properties",
-		Short: "Get Policy Properties object",
-		Long:  "Gets 'Policy Properties' object.",
+		Use:         "policy-properties",
+		Short:       "Get Policy Properties object",
+		Long:        "Gets 'Policy Properties' object.",
+		Annotations: map[string]string{"jamf:privileges": "Read Policies"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -66,9 +67,10 @@ func newPolicyPropertiesUpdatePolicyPropertiesCmd(ctx *registry.CLIContext) *cob
 	)
 
 	cmd := &cobra.Command{
-		Use:   "update-policy-properties",
-		Short: "Update Policy Properties object",
-		Long:  "Update Policy Properties object",
+		Use:         "update-policy-properties",
+		Short:       "Update Policy Properties object",
+		Long:        "Update Policy Properties object",
+		Annotations: map[string]string{"jamf:privileges": "Update Policies"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

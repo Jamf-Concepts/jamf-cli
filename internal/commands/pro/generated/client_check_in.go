@@ -43,6 +43,7 @@ func newClientCheckInGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get client-check-in and output as YAML
   jamf-cli pro client-check-in get -o yaml`,
+		Annotations: map[string]string{"jamf:privileges": "Read Computer Check-In"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -83,6 +84,7 @@ func newClientCheckInUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Update from a file
   jamf-cli pro client-check-in update --from-file client-check-in.json`,
+		Annotations: map[string]string{"jamf:privileges": "Update Computer Check-In"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -157,6 +159,7 @@ func newClientCheckInHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 		Long:  "Gets Client Check-In history object",
 		Example: `  # Get history for a client-check-in
   jamf-cli pro client-check-in history 1`,
+		Annotations: map[string]string{"jamf:privileges": "Read Computer Check-In"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -274,9 +277,10 @@ func newClientCheckInAddHistoryNoteCmd(ctx *registry.CLIContext) *cobra.Command 
 	)
 
 	cmd := &cobra.Command{
-		Use:   "add-history-note",
-		Short: "Add a Note to Client Check-In History",
-		Long:  "Adds Client Check-In history object notes",
+		Use:         "add-history-note",
+		Short:       "Add a Note to Client Check-In History",
+		Long:        "Adds Client Check-In history object notes",
+		Annotations: map[string]string{"jamf:privileges": "Update Computer Check-In"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

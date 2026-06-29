@@ -32,9 +32,10 @@ func NewBlueprintComponentsCmd(cliCtx *registry.CLIContext) *cobra.Command {
 
 func newBlueprintComponentsListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "list",
-		Short: "List available blueprint components",
-		Long:  "Get list of available blueprint components",
+		Use:         "list",
+		Short:       "List available blueprint components",
+		Long:        "Get list of available blueprint components",
+		Annotations: map[string]string{"jamf:privileges": "read:pro:blueprints,read:school:blueprints"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err
@@ -80,10 +81,11 @@ func newBlueprintComponentsListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 func newBlueprintComponentsGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	var nameFlag string
 	cmd := &cobra.Command{
-		Use:   "get <identifier>",
-		Short: "Get component",
-		Long:  "Get component by identifier",
-		Args:  cobra.MaximumNArgs(1),
+		Use:         "get <identifier>",
+		Short:       "Get component",
+		Long:        "Get component by identifier",
+		Annotations: map[string]string{"jamf:privileges": "read:pro:blueprints,read:school:blueprints"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err

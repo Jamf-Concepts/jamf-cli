@@ -42,6 +42,7 @@ func newRemoteAdministrationConfigurationsListCmd(ctx *registry.CLIContext) *cob
 
   # List remote-administration-configurations and extract IDs
   jamf-cli pro remote-administration-configurations list --field id`,
+		Annotations: map[string]string{"jamf:privileges": "Read Remote Administration"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

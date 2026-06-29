@@ -49,6 +49,7 @@ func newMdmCommandsListCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # List mdm-commands and extract IDs
   jamf-cli pro mdm-commands list --field id`,
+		Annotations: map[string]string{"jamf:privileges": "View MDM command information in Jamf Pro API"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -167,9 +168,10 @@ func newMdmCommandsBlankPushCmd(ctx *registry.CLIContext) *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "blank-push",
-		Short: "Send blank push notifications to a list of client management IDs.",
-		Long:  "Accepts a list of client management IDs and sends a blank push notification to each. Returns a list of UUIDs that encountered errors.",
+		Use:         "blank-push",
+		Short:       "Send blank push notifications to a list of client management IDs.",
+		Long:        "Accepts a list of client management IDs and sends a blank push notification to each. Returns a list of UUIDs that encountered errors.",
+		Annotations: map[string]string{"jamf:privileges": "View MDM command information in Jamf Pro API"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -229,9 +231,10 @@ func newMdmCommandsCommandsCmd(ctx *registry.CLIContext) *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "commands",
-		Short: "Post a command for creation and queuing",
-		Long:  "Provided an MDM command type and appropriate information, will create and then queue said command. A separate privilege is required for each device type and MDM command you want to view or send.",
+		Use:         "commands",
+		Short:       "Post a command for creation and queuing",
+		Long:        "Provided an MDM command type and appropriate information, will create and then queue said command. A separate privilege is required for each device type and MDM command you want to view or send.",
+		Annotations: map[string]string{"jamf:privileges": "View MDM command information in Jamf Pro API"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

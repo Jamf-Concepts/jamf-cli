@@ -43,7 +43,8 @@ func newManagedSoftwareUpdatesGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a managed-software-update and output as YAML
   jamf-cli pro managed-software-updates get 1 -o yaml`,
-		Args: cobra.MaximumNArgs(1),
+		Annotations: map[string]string{"jamf:privileges": "Read Computers,Read Smart Computer Groups,Read Static Computer Groups"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -126,9 +127,10 @@ func newManagedSoftwareUpdatesUpdateStatusesCmd(ctx *registry.CLIContext) *cobra
 	)
 
 	cmd := &cobra.Command{
-		Use:   "update-statuses",
-		Short: "Retrieve Managed Software Update Statuses",
-		Long:  "Retrieve Managed Software Update Statuses",
+		Use:         "update-statuses",
+		Short:       "Retrieve Managed Software Update Statuses",
+		Long:        "Retrieve Managed Software Update Statuses",
+		Annotations: map[string]string{"jamf:privileges": "Read Computers,Read Mobile Devices"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

@@ -90,8 +90,8 @@ func new{{$.GoName}}{{.GoName}}Cmd(cliCtx *registry.CLIContext) *cobra.Command {
 {{- if .Long }}
 		Long:  {{printf "%q" .Long}},
 {{- end }}
-{{- if .IsDestructive }}
-		Annotations: map[string]string{"jamf:destructive": "true"},
+{{- $ann := opAnnotations . }}{{ if $ann }}
+		Annotations: {{ $ann }},
 {{- end }}
 {{- if and .PathParams (not .SupportsNameLookup) }}
 {{- if .HasBody }}

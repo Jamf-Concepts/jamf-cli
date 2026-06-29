@@ -57,6 +57,7 @@ func newMobileDeviceExtensionAttributesListCmd(ctx *registry.CLIContext) *cobra.
 
   # List mobile-device-extension-attributes and extract IDs
   jamf-cli pro mobile-device-extension-attributes list --field id`,
+		Annotations: map[string]string{"jamf:privileges": "Read Mobile Device Extension Attributes"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -185,7 +186,8 @@ func newMobileDeviceExtensionAttributesGetCmd(ctx *registry.CLIContext) *cobra.C
 
   # Get a mobile-device-extension-attribute and output as YAML
   jamf-cli pro mobile-device-extension-attributes get 1 -o yaml`,
-		Args: cobra.MaximumNArgs(1),
+		Annotations: map[string]string{"jamf:privileges": "Read Mobile Device Extension Attributes"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -246,6 +248,7 @@ func newMobileDeviceExtensionAttributesCreateCmd(ctx *registry.CLIContext) *cobr
 
   # Get a mobile-device-extension-attribute, modify it, and create a copy
   jamf-cli pro mobile-device-extension-attributes get 1 -o json | jq '.name = "Copy"' | jamf-cli pro mobile-device-extension-attributes create`,
+		Annotations: map[string]string{"jamf:privileges": "Create Mobile Device Extension Attributes"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -324,7 +327,8 @@ func newMobileDeviceExtensionAttributesUpdateCmd(ctx *registry.CLIContext) *cobr
 
   # Get a mobile-device-extension-attribute, modify, and update
   jamf-cli pro mobile-device-extension-attributes get 1 -o json | jq '.name = "New Name"' | jamf-cli pro mobile-device-extension-attributes update 1`,
-		Args: cobra.MaximumNArgs(1),
+		Annotations: map[string]string{"jamf:privileges": "Update Mobile Device Extension Attributes"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -422,7 +426,7 @@ func newMobileDeviceExtensionAttributesDeleteCmd(ctx *registry.CLIContext) *cobr
 
   # Delete without confirmation prompt
   jamf-cli pro mobile-device-extension-attributes delete 1 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Delete Mobile Device Extension Attributes"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -634,7 +638,8 @@ func newMobileDeviceExtensionAttributesHistoryCmd(ctx *registry.CLIContext) *cob
 
   # Get history by name
   jamf-cli pro mobile-device-extension-attributes history --name "Example"`,
-		Args: cobra.MaximumNArgs(1),
+		Annotations: map[string]string{"jamf:privileges": "Read Mobile Device Extension Attributes"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -771,10 +776,11 @@ func newMobileDeviceExtensionAttributesAddHistoryNoteCmd(ctx *registry.CLIContex
 	)
 
 	cmd := &cobra.Command{
-		Use:   "add-history-note [<id>]",
-		Short: "Add specified Mobile Device Extension Attribute history object notes",
-		Long:  "Add specified Mobile Device Extension Attribute history object notes",
-		Args:  cobra.MaximumNArgs(1),
+		Use:         "add-history-note [<id>]",
+		Short:       "Add specified Mobile Device Extension Attribute history object notes",
+		Long:        "Add specified Mobile Device Extension Attribute history object notes",
+		Annotations: map[string]string{"jamf:privileges": "Update Mobile Device Extension Attributes"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -848,10 +854,11 @@ func newMobileDeviceExtensionAttributesDataDependencyCmd(ctx *registry.CLIContex
 	)
 
 	cmd := &cobra.Command{
-		Use:   "data-dependency [<id>]",
-		Short: "Get smart group dependent object for a specified mobile device extension attribute",
-		Long:  "Get smart group dependent object for a specified mobile device extension attribute",
-		Args:  cobra.MaximumNArgs(1),
+		Use:         "data-dependency [<id>]",
+		Short:       "Get smart group dependent object for a specified mobile device extension attribute",
+		Long:        "Get smart group dependent object for a specified mobile device extension attribute",
+		Annotations: map[string]string{"jamf:privileges": "Read Mobile Device Extension Attributes"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

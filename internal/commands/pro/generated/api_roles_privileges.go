@@ -28,9 +28,10 @@ func newApiRolesPrivilegesApiRolePrivilegesCmd(ctx *registry.CLIContext) *cobra.
 	var ()
 
 	cmd := &cobra.Command{
-		Use:   "api-role-privileges",
-		Short: "Get the current Jamf API Role Privileges",
-		Long:  "Get role privileges",
+		Use:         "api-role-privileges",
+		Short:       "Get the current Jamf API Role Privileges",
+		Long:        "Get role privileges",
+		Annotations: map[string]string{"jamf:privileges": "Read API Roles"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -64,9 +65,10 @@ func newApiRolesPrivilegesSearchCmd(ctx *registry.CLIContext) *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "search",
-		Short: "Search the current Jamf API Role Privileges",
-		Long:  "Search role privileges",
+		Use:         "search",
+		Short:       "Search the current Jamf API Role Privileges",
+		Long:        "Search role privileges",
+		Annotations: map[string]string{"jamf:privileges": "Read API Roles"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

@@ -61,6 +61,7 @@ func newComputerExtensionAttributesListCmd(ctx *registry.CLIContext) *cobra.Comm
 
   # List computer-extension-attributes and extract IDs
   jamf-cli pro computer-extension-attributes list --field id`,
+		Annotations: map[string]string{"jamf:privileges": "Read Computer Extension Attributes"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -189,7 +190,8 @@ func newComputerExtensionAttributesGetCmd(ctx *registry.CLIContext) *cobra.Comma
 
   # Get a computer-extension-attribute and output as YAML
   jamf-cli pro computer-extension-attributes get 1 -o yaml`,
-		Args: cobra.MaximumNArgs(1),
+		Annotations: map[string]string{"jamf:privileges": "Read Computer Extension Attributes"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -251,6 +253,7 @@ func newComputerExtensionAttributesCreateCmd(ctx *registry.CLIContext) *cobra.Co
 
   # Get a computer-extension-attribute, modify it, and create a copy
   jamf-cli pro computer-extension-attributes get 1 -o json | jq '.name = "Copy"' | jamf-cli pro computer-extension-attributes create`,
+		Annotations: map[string]string{"jamf:privileges": "Create Computer Extension Attributes"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -346,7 +349,8 @@ func newComputerExtensionAttributesUpdateCmd(ctx *registry.CLIContext) *cobra.Co
 
   # Get a computer-extension-attribute, modify, and update
   jamf-cli pro computer-extension-attributes get 1 -o json | jq '.name = "New Name"' | jamf-cli pro computer-extension-attributes update 1`,
-		Args: cobra.MaximumNArgs(1),
+		Annotations: map[string]string{"jamf:privileges": "Update Computer Extension Attributes"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -459,7 +463,7 @@ func newComputerExtensionAttributesDeleteCmd(ctx *registry.CLIContext) *cobra.Co
 
   # Delete without confirmation prompt
   jamf-cli pro computer-extension-attributes delete 1 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Delete Computer Extension Attributes"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -665,7 +669,7 @@ func newComputerExtensionAttributesDeleteMultipleCmd(ctx *registry.CLIContext) *
 		Long:  "IDs of the Computer Extension Attribute to be deleted.",
 		Example: `  # Delete multiple computer-extension-attributes by IDs
   jamf-cli pro computer-extension-attributes delete-multiple --ids 1,2,3 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Delete Computer Extension Attributes"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -768,7 +772,8 @@ func newComputerExtensionAttributesHistoryCmd(ctx *registry.CLIContext) *cobra.C
 
   # Get history by name
   jamf-cli pro computer-extension-attributes history --name "Example"`,
-		Args: cobra.MaximumNArgs(1),
+		Annotations: map[string]string{"jamf:privileges": "Read Computer Extension Attributes"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -905,10 +910,11 @@ func newComputerExtensionAttributesAddHistoryNoteCmd(ctx *registry.CLIContext) *
 	)
 
 	cmd := &cobra.Command{
-		Use:   "add-history-note [<id>]",
-		Short: "Add specified Computer Extension Attribute history object notes",
-		Long:  "Add specified Computer Extension Attribute history object notes",
-		Args:  cobra.MaximumNArgs(1),
+		Use:         "add-history-note [<id>]",
+		Short:       "Add specified Computer Extension Attribute history object notes",
+		Long:        "Add specified Computer Extension Attribute history object notes",
+		Annotations: map[string]string{"jamf:privileges": "Update Computer Extension Attributes"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -982,9 +988,10 @@ func newComputerExtensionAttributesUploadCmd(ctx *registry.CLIContext) *cobra.Co
 	)
 
 	cmd := &cobra.Command{
-		Use:   "upload",
-		Short: "Upload Computer Extension Attribute.",
-		Long:  "Uploads a Computer Extension Attribute.",
+		Use:         "upload",
+		Short:       "Upload Computer Extension Attribute.",
+		Long:        "Uploads a Computer Extension Attribute.",
+		Annotations: map[string]string{"jamf:privileges": "Create Computer Extension Attributes,Read Computer Extension Attributes"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -1034,10 +1041,11 @@ func newComputerExtensionAttributesDataDependencyCmd(ctx *registry.CLIContext) *
 	)
 
 	cmd := &cobra.Command{
-		Use:   "data-dependency [<id>]",
-		Short: "Get smart group/advance search dependent objects for a specified computer extension attribute",
-		Long:  "Get smart group/advance search dependent objects for a specified computer extension attribute",
-		Args:  cobra.MaximumNArgs(1),
+		Use:         "data-dependency [<id>]",
+		Short:       "Get smart group/advance search dependent objects for a specified computer extension attribute",
+		Long:        "Get smart group/advance search dependent objects for a specified computer extension attribute",
+		Annotations: map[string]string{"jamf:privileges": "Read Computer Extension Attributes"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -1087,10 +1095,11 @@ func newComputerExtensionAttributesDownloadCmd(ctx *registry.CLIContext) *cobra.
 	)
 
 	cmd := &cobra.Command{
-		Use:   "download [<id>]",
-		Short: "Download the specified Computer Extension Attribute.",
-		Long:  "Retrieves the specified Computer Extension Attribute in XML format based on the provided unique ID.",
-		Args:  cobra.MaximumNArgs(1),
+		Use:         "download [<id>]",
+		Short:       "Download the specified Computer Extension Attribute.",
+		Long:        "Retrieves the specified Computer Extension Attribute in XML format based on the provided unique ID.",
+		Annotations: map[string]string{"jamf:privileges": "Read Computer Extension Attributes"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

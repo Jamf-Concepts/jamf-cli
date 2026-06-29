@@ -54,6 +54,7 @@ func newMobileDeviceGroupsStaticGroupsListCmd(ctx *registry.CLIContext) *cobra.C
 
   # List mobile-device-groups-static-groups and extract IDs
   jamf-cli pro mobile-device-groups-static-groups list --field id`,
+		Annotations: map[string]string{"jamf:privileges": "Read Static Mobile Device Groups"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -183,7 +184,8 @@ func newMobileDeviceGroupsStaticGroupsGetCmd(ctx *registry.CLIContext) *cobra.Co
 
   # Get a mobile-device-groups-static-groups and output as YAML
   jamf-cli pro mobile-device-groups-static-groups get 1 -o yaml`,
-		Args: cobra.MaximumNArgs(1),
+		Annotations: map[string]string{"jamf:privileges": "Read Static Mobile Device Groups"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -246,6 +248,7 @@ func newMobileDeviceGroupsStaticGroupsCreateCmd(ctx *registry.CLIContext) *cobra
 
   # Get a mobile-device-groups-static-groups, modify it, and create a copy
   jamf-cli pro mobile-device-groups-static-groups get 1 -o json | jq '.name = "Copy"' | jamf-cli pro mobile-device-groups-static-groups create`,
+		Annotations: map[string]string{"jamf:privileges": "Create Static Mobile Device Groups"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -323,7 +326,7 @@ func newMobileDeviceGroupsStaticGroupsDeleteCmd(ctx *registry.CLIContext) *cobra
 
   # Delete without confirmation prompt
   jamf-cli pro mobile-device-groups-static-groups delete 1 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Delete Static Mobile Device Groups"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -539,7 +542,8 @@ func newMobileDeviceGroupsStaticGroupsPatchCmd(ctx *registry.CLIContext) *cobra.
 
   # Patch from a file
   jamf-cli pro mobile-device-groups-static-groups patch 1 --from-file changes.json`,
-		Args: cobra.MaximumNArgs(1),
+		Annotations: map[string]string{"jamf:privileges": "Update Static Mobile Device Groups"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

@@ -39,7 +39,7 @@ func newEraseDeviceComputersEraseCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:         "erase <id>",
 		Short:       "Erase a computer",
 		Long:        "Erase a computer",
-		Annotations: map[string]string{"jamf:destructive": "true"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Send Computer Remote Wipe Command"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

@@ -32,10 +32,11 @@ func newMobileDeviceSmartGroupsRecalculateSmartGroupsCmd(ctx *registry.CLIContex
 	var ()
 
 	cmd := &cobra.Command{
-		Use:   "recalculate-smart-groups <id>",
-		Short: "Recalculate all smart groups for the given device id and then return count of smart groups that device fall into",
-		Long:  "Recalculates all smart groups for the given device id and then returns the count of smart groups the device falls into",
-		Args:  cobra.ExactArgs(1),
+		Use:         "recalculate-smart-groups <id>",
+		Short:       "Recalculate all smart groups for the given device id and then return count of smart groups that device fall into",
+		Long:        "Recalculates all smart groups for the given device id and then returns the count of smart groups the device falls into",
+		Annotations: map[string]string{"jamf:privileges": "Update Smart Mobile Device Groups"},
+		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -84,10 +85,11 @@ func newMobileDeviceSmartGroupsRecalculateCmd(ctx *registry.CLIContext) *cobra.C
 	var ()
 
 	cmd := &cobra.Command{
-		Use:   "recalculate <id>",
-		Short: "Recalculate a smart group for the given id then return the ids for the devices in the smart group",
-		Long:  "recalculates a smart group for the given id and then returns the ids for the devices in the smart group",
-		Args:  cobra.ExactArgs(1),
+		Use:         "recalculate <id>",
+		Short:       "Recalculate a smart group for the given id then return the ids for the devices in the smart group",
+		Long:        "recalculates a smart group for the given id and then returns the ids for the devices in the smart group",
+		Annotations: map[string]string{"jamf:privileges": "Update Smart Mobile Device Groups"},
+		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

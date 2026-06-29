@@ -45,6 +45,7 @@ func newComputerPrestageScopesListCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # List computer-prestage-scopes and extract IDs
   jamf-cli pro computer-prestage-scopes list --field id`,
+		Annotations: map[string]string{"jamf:privileges": "Read Computer PreStage Enrollments"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -85,7 +86,7 @@ func newComputerPrestageScopesDeleteMultipleCmd(ctx *registry.CLIContext) *cobra
 		Long:  "Remove device scope for a specific computer prestage",
 		Example: `  # Delete multiple computer-prestage-scopes by IDs
   jamf-cli pro computer-prestage-scopes delete-multiple --ids 1,2,3 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Update Computer PreStage Enrollments"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -194,10 +195,11 @@ func newComputerPrestageScopesScopeCmd(ctx *registry.CLIContext) *cobra.Command 
 	var ()
 
 	cmd := &cobra.Command{
-		Use:   "scope <id>",
-		Short: "Get device Scope for a specific Computer Prestage",
-		Long:  "Get device scope for a specific computer prestage",
-		Args:  cobra.ExactArgs(1),
+		Use:         "scope <id>",
+		Short:       "Get device Scope for a specific Computer Prestage",
+		Long:        "Get device scope for a specific computer prestage",
+		Annotations: map[string]string{"jamf:privileges": "Read Computer PreStage Enrollments"},
+		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -231,10 +233,11 @@ func newComputerPrestageScopesCreateScopeCmd(ctx *registry.CLIContext) *cobra.Co
 	)
 
 	cmd := &cobra.Command{
-		Use:   "create-scope <id>",
-		Short: "Add device Scope for a specific Computer Prestage",
-		Long:  "Add device scope for a specific computer prestage",
-		Args:  cobra.ExactArgs(1),
+		Use:         "create-scope <id>",
+		Short:       "Add device Scope for a specific Computer Prestage",
+		Long:        "Add device scope for a specific computer prestage",
+		Annotations: map[string]string{"jamf:privileges": "Update Computer PreStage Enrollments"},
+		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -306,10 +309,11 @@ func newComputerPrestageScopesUpdateScopeCmd(ctx *registry.CLIContext) *cobra.Co
 	)
 
 	cmd := &cobra.Command{
-		Use:   "update-scope <id>",
-		Short: "Replace device Scope for a specific Computer Prestage",
-		Long:  "Replace device scope for a specific computer prestage",
-		Args:  cobra.ExactArgs(1),
+		Use:         "update-scope <id>",
+		Short:       "Replace device Scope for a specific Computer Prestage",
+		Long:        "Replace device scope for a specific computer prestage",
+		Annotations: map[string]string{"jamf:privileges": "Update Computer PreStage Enrollments"},
+		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

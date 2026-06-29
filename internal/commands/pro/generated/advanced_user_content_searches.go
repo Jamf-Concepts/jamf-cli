@@ -46,6 +46,7 @@ func newAdvancedUserContentSearchesListCmd(ctx *registry.CLIContext) *cobra.Comm
 
   # List advanced-user-content-searches and extract IDs
   jamf-cli pro advanced-user-content-searches list --field id`,
+		Annotations: map[string]string{"jamf:privileges": "Read Advanced User Content Searches"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -89,7 +90,8 @@ func newAdvancedUserContentSearchesGetCmd(ctx *registry.CLIContext) *cobra.Comma
 
   # Get a advanced-user-content-searche and output as YAML
   jamf-cli pro advanced-user-content-searches get 1 -o yaml`,
-		Args: cobra.MaximumNArgs(1),
+		Annotations: map[string]string{"jamf:privileges": "Read Advanced User Content Searches"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -150,6 +152,7 @@ func newAdvancedUserContentSearchesCreateCmd(ctx *registry.CLIContext) *cobra.Co
 
   # Get a advanced-user-content-searche, modify it, and create a copy
   jamf-cli pro advanced-user-content-searches get 1 -o json | jq '.name = "Copy"' | jamf-cli pro advanced-user-content-searches create`,
+		Annotations: map[string]string{"jamf:privileges": "Create Advanced User Content Searches"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -224,7 +227,8 @@ func newAdvancedUserContentSearchesUpdateCmd(ctx *registry.CLIContext) *cobra.Co
 
   # Get a advanced-user-content-searche, modify, and update
   jamf-cli pro advanced-user-content-searches get 1 -o json | jq '.name = "New Name"' | jamf-cli pro advanced-user-content-searches update 1`,
-		Args: cobra.MaximumNArgs(1),
+		Annotations: map[string]string{"jamf:privileges": "Update Advanced User Content Searches"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -318,7 +322,7 @@ func newAdvancedUserContentSearchesDeleteCmd(ctx *registry.CLIContext) *cobra.Co
 
   # Delete without confirmation prompt
   jamf-cli pro advanced-user-content-searches delete 1 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Delete Advanced User Content Searches"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

@@ -59,6 +59,7 @@ func newBuildingsListCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # List buildings and extract IDs
   jamf-cli pro buildings list --field id`,
+		Annotations: map[string]string{"jamf:privileges": "Read Buildings"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -187,7 +188,8 @@ func newBuildingsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a building and output as YAML
   jamf-cli pro buildings get 1 -o yaml`,
-		Args: cobra.MaximumNArgs(1),
+		Annotations: map[string]string{"jamf:privileges": "Read Buildings"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -248,6 +250,7 @@ func newBuildingsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a building, modify it, and create a copy
   jamf-cli pro buildings get 1 -o json | jq '.name = "Copy"' | jamf-cli pro buildings create`,
+		Annotations: map[string]string{"jamf:privileges": "Create Buildings"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -322,7 +325,8 @@ func newBuildingsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a building, modify, and update
   jamf-cli pro buildings get 1 -o json | jq '.name = "New Name"' | jamf-cli pro buildings update 1`,
-		Args: cobra.MaximumNArgs(1),
+		Annotations: map[string]string{"jamf:privileges": "Update Buildings"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -416,7 +420,7 @@ func newBuildingsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Delete without confirmation prompt
   jamf-cli pro buildings delete 1 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Delete Buildings"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -622,7 +626,7 @@ func newBuildingsDeleteMultipleCmd(ctx *registry.CLIContext) *cobra.Command {
 		Long:  "multiple many Buildings by their ids",
 		Example: `  # Delete multiple buildings by IDs
   jamf-cli pro buildings delete-multiple --ids 1,2,3 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Delete Buildings"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -725,7 +729,8 @@ func newBuildingsHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get history by name
   jamf-cli pro buildings history --name "Example"`,
-		Args: cobra.MaximumNArgs(1),
+		Annotations: map[string]string{"jamf:privileges": "Read Buildings"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -862,10 +867,11 @@ func newBuildingsAddHistoryNoteCmd(ctx *registry.CLIContext) *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "add-history-note [<id>]",
-		Short: "Add specified Building history object notes",
-		Long:  "Adds specified Building history object notes",
-		Args:  cobra.MaximumNArgs(1),
+		Use:         "add-history-note [<id>]",
+		Short:       "Add specified Building history object notes",
+		Long:        "Adds specified Building history object notes",
+		Annotations: map[string]string{"jamf:privileges": "Update Buildings"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -951,6 +957,7 @@ func newBuildingsExportCmd(ctx *registry.CLIContext) *cobra.Command {
 		Long:  "Export Buildings collection",
 		Example: `  # Export buildings to CSV
   jamf-cli pro buildings export --out-file buildings.csv`,
+		Annotations: map[string]string{"jamf:privileges": "Read Buildings"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			reqCtx = registry.WithAccept(reqCtx, "*/*")
@@ -1075,7 +1082,8 @@ func newBuildingsHistoryExportCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Pipe to stdout
   jamf-cli pro buildings history-export <id> > output.bin`,
-		Args: cobra.MaximumNArgs(1),
+		Annotations: map[string]string{"jamf:privileges": "Read Buildings"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			reqCtx = registry.WithAccept(reqCtx, "*/*")

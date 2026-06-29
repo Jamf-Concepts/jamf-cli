@@ -47,7 +47,7 @@ React to a non-zero exit without parsing the message:
 | 2    | usage             | bad flags/args — fix the invocation                 |
 | 3    | authentication    | bad/missing credentials — re-check auth, then retry |
 | 4    | not_found         | resource missing — list to find valid ids           |
-| 5    | permission_denied | account lacks API privileges — not retryable as-is  |
+| 5    | permission_denied | account lacks API privileges — not retryable as-is; hint names the specific required privilege(s) |
 | 6    | rate_limited      | back off and retry                                  |
 | 7    | partial_failure   | batch: some succeeded, some failed                  |
 
@@ -60,6 +60,14 @@ Commands that delete, erase, wipe, lock, restart, shut down, unmanage, or flush
 MDM commands require an explicit `--yes`. With `--no-input` and no `--yes` they
 refuse to run rather than prompt. In the MCP catalog (`list_commands`) such
 commands are marked `"destructive": true`.
+
+## Discovery
+
+`jamf-cli commands -o json` returns the full command catalog. Each generated Pro
+and Platform command includes a `"privileges"` array listing the Jamf API
+privileges it requires (from the spec's `x-required-privileges`); the field is
+omitted when no privileges are declared. Classic, Protect, and School commands do
+not carry privilege data.
 
 ## MCP
 

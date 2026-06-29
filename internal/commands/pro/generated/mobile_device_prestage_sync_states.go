@@ -37,6 +37,7 @@ func newMobileDevicePrestageSyncStatesListCmd(ctx *registry.CLIContext) *cobra.C
 
   # List mobile-device-prestage-sync-states and extract IDs
   jamf-cli pro mobile-device-prestage-sync-states list --field id`,
+		Annotations: map[string]string{"jamf:privileges": "Read Mobile Device PreStage Enrollments"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -67,10 +68,11 @@ func newMobileDevicePrestageSyncStatesSyncsCmd(ctx *registry.CLIContext) *cobra.
 	var ()
 
 	cmd := &cobra.Command{
-		Use:   "syncs <id>",
-		Short: "Get all prestage sync states for a single prestage",
-		Long:  "Get all prestage sync states for a single prestage",
-		Args:  cobra.ExactArgs(1),
+		Use:         "syncs <id>",
+		Short:       "Get all prestage sync states for a single prestage",
+		Long:        "Get all prestage sync states for a single prestage",
+		Annotations: map[string]string{"jamf:privileges": "Read Mobile Device PreStage Enrollments"},
+		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -102,10 +104,11 @@ func newMobileDevicePrestageSyncStatesLatestCmd(ctx *registry.CLIContext) *cobra
 	var ()
 
 	cmd := &cobra.Command{
-		Use:   "latest <id>",
-		Short: "Get the latest Sync State for a single Prestage",
-		Long:  "Get the latest sync state for a single prestage",
-		Args:  cobra.ExactArgs(1),
+		Use:         "latest <id>",
+		Short:       "Get the latest Sync State for a single Prestage",
+		Long:        "Get the latest sync state for a single prestage",
+		Annotations: map[string]string{"jamf:privileges": "Read Mobile Device PreStage Enrollments"},
+		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

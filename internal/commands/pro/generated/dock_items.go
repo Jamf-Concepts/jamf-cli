@@ -50,7 +50,8 @@ func newDockItemsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a dock-item and output as YAML
   jamf-cli pro dock-items get 1 -o yaml`,
-		Args: cobra.MaximumNArgs(1),
+		Annotations: map[string]string{"jamf:privileges": "Read Dock Items"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -111,6 +112,7 @@ func newDockItemsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a dock-item, modify it, and create a copy
   jamf-cli pro dock-items get 1 -o json | jq '.name = "Copy"' | jamf-cli pro dock-items create`,
+		Annotations: map[string]string{"jamf:privileges": "Create Dock Items"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -181,7 +183,8 @@ func newDockItemsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a dock-item, modify, and update
   jamf-cli pro dock-items get 1 -o json | jq '.name = "New Name"' | jamf-cli pro dock-items update 1`,
-		Args: cobra.MaximumNArgs(1),
+		Annotations: map[string]string{"jamf:privileges": "Update Dock Items"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -271,7 +274,7 @@ func newDockItemsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Delete without confirmation prompt
   jamf-cli pro dock-items delete 1 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Delete Dock Items"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

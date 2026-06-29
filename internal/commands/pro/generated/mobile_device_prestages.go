@@ -59,6 +59,7 @@ func newMobileDevicePrestagesListCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # List mobile-device-prestages and extract IDs
   jamf-cli pro mobile-device-prestages list --field id`,
+		Annotations: map[string]string{"jamf:privileges": "Read Mobile Device PreStage Enrollments"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -183,7 +184,8 @@ func newMobileDevicePrestagesGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a mobile-device-prestage and output as YAML
   jamf-cli pro mobile-device-prestages get 1 -o yaml`,
-		Args: cobra.MaximumNArgs(1),
+		Annotations: map[string]string{"jamf:privileges": "Read Mobile Device PreStage Enrollments"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -244,6 +246,7 @@ func newMobileDevicePrestagesCreateCmd(ctx *registry.CLIContext) *cobra.Command 
 
   # Get a mobile-device-prestage, modify it, and create a copy
   jamf-cli pro mobile-device-prestages get 1 -o json | jq '.name = "Copy"' | jamf-cli pro mobile-device-prestages create`,
+		Annotations: map[string]string{"jamf:privileges": "Create Mobile Device PreStage Enrollments"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -361,7 +364,8 @@ func newMobileDevicePrestagesUpdateCmd(ctx *registry.CLIContext) *cobra.Command 
 
   # Get a mobile-device-prestage, modify, and update
   jamf-cli pro mobile-device-prestages get 1 -o json | jq '.name = "New Name"' | jamf-cli pro mobile-device-prestages update 1`,
-		Args: cobra.MaximumNArgs(1),
+		Annotations: map[string]string{"jamf:privileges": "Update Mobile Device PreStage Enrollments"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -509,7 +513,7 @@ func newMobileDevicePrestagesDeleteCmd(ctx *registry.CLIContext) *cobra.Command 
 
   # Delete without confirmation prompt
   jamf-cli pro mobile-device-prestages delete 1 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Delete Mobile Device PreStage Enrollments"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -717,7 +721,7 @@ func newMobileDevicePrestagesDeleteMultipleCmd(ctx *registry.CLIContext) *cobra.
 		Long:  "Remove an attachment for a Mobile Device Prestage",
 		Example: `  # Delete multiple mobile-device-prestages by IDs
   jamf-cli pro mobile-device-prestages delete-multiple --ids 1,2,3 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Delete Mobile Device PreStage Enrollments"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -948,7 +952,8 @@ func newMobileDevicePrestagesHistoryCmd(ctx *registry.CLIContext) *cobra.Command
 
   # Get history by name
   jamf-cli pro mobile-device-prestages history --name "Example"`,
-		Args: cobra.MaximumNArgs(1),
+		Annotations: map[string]string{"jamf:privileges": "Read Mobile Device PreStage Enrollments"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -1081,10 +1086,11 @@ func newMobileDevicePrestagesAddHistoryNoteCmd(ctx *registry.CLIContext) *cobra.
 	)
 
 	cmd := &cobra.Command{
-		Use:   "add-history-note [<id>]",
-		Short: "Add Mobile Device Prestage history object notes",
-		Long:  "Adds mobile device prestage history object notes",
-		Args:  cobra.MaximumNArgs(1),
+		Use:         "add-history-note [<id>]",
+		Short:       "Add Mobile Device Prestage history object notes",
+		Long:        "Adds mobile device prestage history object notes",
+		Annotations: map[string]string{"jamf:privileges": "Update Mobile Device PreStage Enrollments"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -1158,10 +1164,11 @@ func newMobileDevicePrestagesAttachmentsCmd(ctx *registry.CLIContext) *cobra.Com
 	)
 
 	cmd := &cobra.Command{
-		Use:   "attachments [<id>]",
-		Short: "Get attachments for a Mobile Device Prestage",
-		Long:  "Get attachments for a Mobile Device Prestage",
-		Args:  cobra.MaximumNArgs(1),
+		Use:         "attachments [<id>]",
+		Short:       "Get attachments for a Mobile Device Prestage",
+		Long:        "Get attachments for a Mobile Device Prestage",
+		Annotations: map[string]string{"jamf:privileges": "Read Mobile Device PreStage Enrollments"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -1212,10 +1219,11 @@ func newMobileDevicePrestagesUploadCmd(ctx *registry.CLIContext) *cobra.Command 
 	)
 
 	cmd := &cobra.Command{
-		Use:   "upload [<id>]",
-		Short: "Add an attachment to a Mobile Device Prestage",
-		Long:  "Add an attachment to a Mobile Device prestage",
-		Args:  cobra.MaximumNArgs(1),
+		Use:         "upload [<id>]",
+		Short:       "Add an attachment to a Mobile Device Prestage",
+		Long:        "Add an attachment to a Mobile Device prestage",
+		Annotations: map[string]string{"jamf:privileges": "Create Mobile Device PreStage Enrollments"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

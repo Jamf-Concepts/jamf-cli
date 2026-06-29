@@ -115,6 +115,19 @@ func Generate(resources []*parser.Resource, outputDir string) ([]string, error) 
 	tmpl, err := template.New("resource").Funcs(template.FuncMap{
 		"statusConstant": statusConstant,
 		"methodConstant": methodConstant,
+		"opAnnotations": func(op templateOp) string {
+			var pairs []string
+			if op.IsDestructive {
+				pairs = append(pairs, `"jamf:destructive": "true"`)
+			}
+			if len(op.Privileges) > 0 {
+				pairs = append(pairs, fmt.Sprintf("%q: %q", "jamf:privileges", strings.Join(op.Privileges, ",")))
+			}
+			if len(pairs) == 0 {
+				return ""
+			}
+			return "map[string]string{" + strings.Join(pairs, ", ") + "}"
+		},
 	}).Parse(resourceTemplate)
 	if err != nil {
 		return nil, fmt.Errorf("parsing template: %w", err)

@@ -39,6 +39,7 @@ func newCacheGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get cache and output as YAML
   jamf-cli pro cache get -o yaml`,
+		Annotations: map[string]string{"jamf:privileges": "Read Cache"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -79,6 +80,7 @@ func newCacheUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Update from a file
   jamf-cli pro cache update --from-file cache.json`,
+		Annotations: map[string]string{"jamf:privileges": "Update Cache"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

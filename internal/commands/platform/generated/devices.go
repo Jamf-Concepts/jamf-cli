@@ -37,10 +37,11 @@ func NewDevicesCmd(cliCtx *registry.CLIContext) *cobra.Command {
 func newDevicesDeviceGroupsCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	var nameFlag string
 	cmd := &cobra.Command{
-		Use:   "device-groups <id>",
-		Short: "Get device groups for a device",
-		Long:  "Retrieve all device groups to which a specific device ID belongs<br/> If no device by the specified ID exists or the device ID is not a member of any groups, an empty array will be returned.",
-		Args:  cobra.MaximumNArgs(1),
+		Use:         "device-groups <id>",
+		Short:       "Get device groups for a device",
+		Long:        "Retrieve all device groups to which a specific device ID belongs<br/> If no device by the specified ID exists or the device ID is not a member of any groups, an empty array will be returned.",
+		Annotations: map[string]string{"jamf:privileges": "read:pro:device-groups"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err
@@ -88,9 +89,10 @@ func newDevicesListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	var sort string
 	var filter string
 	cmd := &cobra.Command{
-		Use:   "list",
-		Short: "Get all devices",
-		Long:  "Retrieve a paginated list of all devices",
+		Use:         "list",
+		Short:       "Get all devices",
+		Long:        "Retrieve a paginated list of all devices",
+		Annotations: map[string]string{"jamf:privileges": "read:pro:devices"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err
@@ -157,7 +159,7 @@ func newDevicesDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Use:         "delete <id>",
 		Short:       "Delete a device",
 		Long:        "Delete an existing device",
-		Annotations: map[string]string{"jamf:destructive": "true"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "delete:pro:devices"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
@@ -201,10 +203,11 @@ func newDevicesDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
 func newDevicesGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	var nameFlag string
 	cmd := &cobra.Command{
-		Use:   "get <id>",
-		Short: "Get a device by ID",
-		Long:  "Retrieve a specific device by its ID",
-		Args:  cobra.MaximumNArgs(1),
+		Use:         "get <id>",
+		Short:       "Get a device by ID",
+		Long:        "Retrieve a specific device by its ID",
+		Annotations: map[string]string{"jamf:privileges": "read:pro:devices"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err
@@ -254,10 +257,11 @@ func newDevicesPatchCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	var scaffoldFlag bool
 	var nameFlag string
 	cmd := &cobra.Command{
-		Use:   "patch <id>",
-		Short: "Update a device",
-		Long:  "Update an existing device",
-		Args:  cobra.MaximumNArgs(1),
+		Use:         "patch <id>",
+		Short:       "Update a device",
+		Long:        "Update an existing device",
+		Annotations: map[string]string{"jamf:privileges": "update:pro:devices"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if scaffoldFlag {
 				// Scaffold prints raw JSON regardless of -o, so the output
@@ -310,10 +314,11 @@ func newDevicesApplicationsCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	var sort string
 	var filter string
 	cmd := &cobra.Command{
-		Use:   "applications <id>",
-		Short: "Get installed applications for a device",
-		Long:  "Retrieve a paginated list of applications installed on a specific device",
-		Args:  cobra.MaximumNArgs(1),
+		Use:         "applications <id>",
+		Short:       "Get installed applications for a device",
+		Long:        "Retrieve a paginated list of applications installed on a specific device",
+		Annotations: map[string]string{"jamf:privileges": "read:pro:devices"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err

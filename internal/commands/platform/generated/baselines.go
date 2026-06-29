@@ -31,9 +31,10 @@ func NewBaselinesCmd(cliCtx *registry.CLIContext) *cobra.Command {
 
 func newBaselinesListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "list",
-		Short: "Return list of the mSCP baselines",
-		Long:  "Return list of the mSCP baselines allowed for the Compliance benchmarks",
+		Use:         "list",
+		Short:       "Return list of the mSCP baselines",
+		Long:        "Return list of the mSCP baselines allowed for the Compliance benchmarks",
+		Annotations: map[string]string{"jamf:privileges": "read:pro:compliance-benchmarks"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err

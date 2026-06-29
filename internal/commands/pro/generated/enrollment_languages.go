@@ -54,6 +54,7 @@ func newEnrollmentLanguagesListCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # List enrollment-languages and extract IDs
   jamf-cli pro enrollment-languages list --field id`,
+		Annotations: map[string]string{"jamf:privileges": "Read User-Initiated Enrollment"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -178,7 +179,8 @@ func newEnrollmentLanguagesGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a enrollment-language and output as YAML
   jamf-cli pro enrollment-languages get 1 -o yaml`,
-		Args: cobra.MaximumNArgs(1),
+		Annotations: map[string]string{"jamf:privileges": "Read User-Initiated Enrollment"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -240,7 +242,8 @@ func newEnrollmentLanguagesUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a enrollment-language, modify, and update
   jamf-cli pro enrollment-languages get 1 -o json | jq '.name = "New Name"' | jamf-cli pro enrollment-languages update 1`,
-		Args: cobra.MaximumNArgs(1),
+		Annotations: map[string]string{"jamf:privileges": "Update User-Initiated Enrollment"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -367,7 +370,7 @@ func newEnrollmentLanguagesDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Delete without confirmation prompt
   jamf-cli pro enrollment-languages delete 1 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Update User-Initiated Enrollment"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -573,7 +576,7 @@ func newEnrollmentLanguagesDeleteMultipleCmd(ctx *registry.CLIContext) *cobra.Co
 		Long:  "Delete multiple configured languages from User-Initiated Enrollment settings",
 		Example: `  # Delete multiple enrollment-languages by IDs
   jamf-cli pro enrollment-languages delete-multiple --ids 1,2,3 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Update User-Initiated Enrollment"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -660,9 +663,10 @@ func newEnrollmentLanguagesFilteredLanguageCodesCmd(ctx *registry.CLIContext) *c
 	var ()
 
 	cmd := &cobra.Command{
-		Use:   "filtered-language-codes",
-		Short: "Retrieve the list of languages and corresponding ISO 639-1 Codes but only those not already added to Enrollment",
-		Long:  "Retrieves the list of languages and corresponding ISO 639-1 Codes, but only those not already added to Enrollment.",
+		Use:         "filtered-language-codes",
+		Short:       "Retrieve the list of languages and corresponding ISO 639-1 Codes but only those not already added to Enrollment",
+		Long:        "Retrieves the list of languages and corresponding ISO 639-1 Codes, but only those not already added to Enrollment.",
+		Annotations: map[string]string{"jamf:privileges": "Read User-Initiated Enrollment"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -693,9 +697,10 @@ func newEnrollmentLanguagesLanguageCodesCmd(ctx *registry.CLIContext) *cobra.Com
 	var ()
 
 	cmd := &cobra.Command{
-		Use:   "language-codes",
-		Short: "Retrieve the list of languages and corresponding ISO 639-1 Codes",
-		Long:  "Retrieves the list of languages and corresponding ISO 639-1 Codes.",
+		Use:         "language-codes",
+		Short:       "Retrieve the list of languages and corresponding ISO 639-1 Codes",
+		Long:        "Retrieves the list of languages and corresponding ISO 639-1 Codes.",
+		Annotations: map[string]string{"jamf:privileges": "Read User-Initiated Enrollment"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
