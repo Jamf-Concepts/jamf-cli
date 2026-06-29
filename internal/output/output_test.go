@@ -1783,3 +1783,57 @@ func TestPaginationProgress_ExplicitNoColorUsesEvents(t *testing.T) {
 		t.Errorf("explicit --no-color must not emit in-place counter; got %q", out)
 	}
 }
+
+func TestPrintNDJSON_PrintRawArray(t *testing.T) {
+	// The --all production path calls PrintRaw with a JSON array assembled from
+	// all paginated pages. Each element must become a bare compact JSON line;
+	// no outer "[" or "]" wrapper should appear.
+	var buf bytes.Buffer
+	f := New("ndjson", true, false)
+	f.SetWriter(&buf)
+	if err := f.PrintRaw([]byte(`[{"id":"1"},{"id":"2"},{"id":"3"}]`)); err != nil {
+		t.Fatalf("PrintRaw: %v", err)
+	}
+	lines := strings.Split(strings.TrimRight(buf.String(), "\n"), "\n")
+	if len(lines) != 3 {
+		t.Fatalf("expected 3 lines, got %d:\n%s", len(lines), buf.String())
+	}
+	for i, ln := range lines {
+		if strings.Contains(ln, "[") || strings.Contains(ln, "]") {
+			t.Errorf("line %d contains array bracket: %q", i, ln)
+		}
+		var obj map[string]any
+		if err := json.Unmarshal([]byte(ln), &obj); err != nil {
+			t.Errorf("line %d is not a valid JSON object: %q (%v)", i, ln, err)
+		}
+	}
+}
+
+func TestPrintNDJSON_SelectProjection(t *testing.T) {
+	// ndjson must honour --select per record: projection runs in Print before
+	// format dispatch, so each NDJSON line should contain only selected fields.
+	var buf bytes.Buffer
+	f := New("ndjson", true, false)
+	f.SetWriter(&buf)
+	f.SetProjector(Projector{Select: []string{"id"}})
+	if err := f.PrintRaw([]byte(`[{"id":"1","name":"a"},{"id":"2","name":"b"}]`)); err != nil {
+		t.Fatalf("PrintRaw: %v", err)
+	}
+	lines := strings.Split(strings.TrimRight(buf.String(), "\n"), "\n")
+	if len(lines) != 2 {
+		t.Fatalf("expected 2 lines, got %d:\n%s", len(lines), buf.String())
+	}
+	for i, ln := range lines {
+		var obj map[string]any
+		if err := json.Unmarshal([]byte(ln), &obj); err != nil {
+			t.Errorf("line %d not valid JSON: %q (%v)", i, ln, err)
+			continue
+		}
+		if _, ok := obj["id"]; !ok {
+			t.Errorf("line %d missing selected field 'id': %q", i, ln)
+		}
+		if _, ok := obj["name"]; ok {
+			t.Errorf("line %d contains unselected field 'name': %q", i, ln)
+		}
+	}
+}
