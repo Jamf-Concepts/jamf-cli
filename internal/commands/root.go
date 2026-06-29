@@ -842,6 +842,19 @@ type commandEntry struct {
 	Destructive bool     `json:"destructive,omitempty"`
 }
 
+// isFullDetailFormat reports whether an output format carries the full
+// per-command detail (aliases, flags, product, group, destructive) in the
+// `commands` catalog. Structured machine formats get full detail; table/plain
+// stay compact unless --wide is set.
+func isFullDetailFormat(format string) bool {
+	switch format {
+	case "json", "ndjson", "yaml", "csv":
+		return true
+	default:
+		return false
+	}
+}
+
 // newCommandsCmd creates the "commands" subcommand that outputs the full
 // command tree in a machine-readable format.
 func newCommandsCmd(root *cobra.Command) *cobra.Command {
@@ -854,7 +867,7 @@ func newCommandsCmd(root *cobra.Command) *cobra.Command {
 			formatter := output.New(outputFmt, noColor, wide)
 			// Structured formats always get full detail; table/plain
 			// show only command+description unless --wide is set.
-			full := wide || outputFmt == "json" || outputFmt == "yaml" || outputFmt == "csv"
+			full := wide || isFullDetailFormat(outputFmt)
 			return formatter.Print(commandEntriesToMaps(entries, full))
 		},
 	}

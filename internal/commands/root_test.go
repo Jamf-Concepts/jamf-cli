@@ -21,6 +21,21 @@ import (
 	"github.com/spf13/cobra"
 )
 
+func TestIsFullDetailFormat(t *testing.T) {
+	// Structured machine formats carry full per-command detail in `commands`.
+	for _, f := range []string{"json", "ndjson", "yaml", "csv"} {
+		if !isFullDetailFormat(f) {
+			t.Errorf("isFullDetailFormat(%q) = false, want true", f)
+		}
+	}
+	// Human/compact formats stay compact unless --wide.
+	for _, f := range []string{"table", "plain", "xml", "raw", ""} {
+		if isFullDetailFormat(f) {
+			t.Errorf("isFullDetailFormat(%q) = true, want false", f)
+		}
+	}
+}
+
 func TestCommandsSubcommand_JSON(t *testing.T) {
 	// Reset global state
 	outputFmt = "json"
