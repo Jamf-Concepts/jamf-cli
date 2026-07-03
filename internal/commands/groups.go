@@ -27,6 +27,7 @@ var rootGroupMap = map[string]string{
 	"pro":           "products",
 	"protect":       "products",
 	"school":        "products",
+	"security":      "products",
 	"platform":      "products",
 }
 
@@ -612,6 +613,44 @@ func applySchoolGroups(school *cobra.Command) {
 	}
 }
 
+// ─── Jamf Security Cloud groups (children of the "security" command) ───────
+
+const (
+	groupSecurityCore = "security-core"
+	groupSecurityRisk = "security-risk"
+	groupSecuritySSE  = "security-sse"
+)
+
+var securityGroups = []*cobra.Group{
+	{ID: groupSecurityCore, Title: "Core Commands:"},
+	{ID: groupSecurityRisk, Title: "Device Risk & Lifecycle:"},
+	{ID: groupSecuritySSE, Title: "Shared Signals & Events:"},
+}
+
+var securityGroupMap = map[string]string{
+	"setup": groupSecurityCore,
+
+	"risk-devices":     groupSecurityRisk,
+	"device-lifecycle": groupSecurityRisk,
+
+	"stream":       groupSecuritySSE,
+	"status":       groupSecuritySSE,
+	"verification": groupSecuritySSE,
+	"jwks":         groupSecuritySSE,
+	"well-known":   groupSecuritySSE,
+}
+
+func applySecurityGroups(security *cobra.Command) {
+	security.AddGroup(securityGroups...)
+	security.SetHelpCommandGroupID(groupSecurityCore)
+
+	for _, cmd := range security.Commands() {
+		if gid, ok := securityGroupMap[cmd.Name()]; ok {
+			cmd.GroupID = gid
+		}
+	}
+}
+
 // ─── Jamf Platform groups (children of the "platform" command) ──────────────
 
 const (
@@ -644,7 +683,7 @@ var groupTitleMap map[string]string
 func groupTitle(id string) string {
 	if groupTitleMap == nil {
 		groupTitleMap = make(map[string]string)
-		for _, groups := range [][]*cobra.Group{rootGroups, proGroups, protectGroups, schoolGroups, platformGroups} {
+		for _, groups := range [][]*cobra.Group{rootGroups, proGroups, protectGroups, schoolGroups, securityGroups, platformGroups} {
 			for _, g := range groups {
 				groupTitleMap[g.ID] = strings.TrimSuffix(g.Title, ":")
 			}
