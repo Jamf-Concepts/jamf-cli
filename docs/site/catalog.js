@@ -161,6 +161,7 @@
     var proCount = 0;
     var protectCount = 0;
     var schoolCount = 0;
+    var securityCount = 0;
     var platformCount = 0;
     var productCount = 0;
     for (var i = 0; i < data.commands.length; i++) {
@@ -169,6 +170,7 @@
       if (p === 'pro') proCount++;
       else if (p === 'protect') protectCount++;
       else if (p === 'school') schoolCount++;
+      else if (p === 'security') securityCount++;
       if (p === 'platform' || g.indexOf('Platform') === 0) platformCount++;
       if (p) productCount++;
     }
@@ -176,6 +178,7 @@
     animateCount('stat-pro', proCount);
     animateCount('stat-protect', protectCount);
     animateCount('stat-school', schoolCount);
+    animateCount('stat-security', securityCount);
     animateCount('stat-platform', platformCount);
     animateCount('stat-core', coreCount);
 
@@ -394,7 +397,8 @@
     platform: 'Jamf Platform',
     pro: 'Jamf Pro',
     protect: 'Jamf Protect',
-    school: 'Jamf School'
+    school: 'Jamf School',
+    security: 'Jamf Security Cloud'
     // connect: 'Jamf Connect'
   };
 
