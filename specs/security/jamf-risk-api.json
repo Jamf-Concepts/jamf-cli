@@ -1,0 +1,1532 @@
+{
+    "openapi": "3.0.1",
+    "info": {
+        "title": "Jamf Security Cloud API Reference Documentation: Risk",
+        "version": "1.1",
+        "x-jamf:contentType": "Developer Docs",
+        "x-jamf:portal": "Jamf Security Cloud"
+    },
+    "tags": [
+        {
+            "name": "auth-api",
+            "description": "Authentication API"
+        },
+        {
+            "name": "risk-api",
+            "description": "Risk API"
+        }
+    ],
+    "x-readme": {
+        "explorer-enabled": false,
+        "proxy-enabled": true
+    },
+    "paths": {
+        "/v1/login": {
+            "post": {
+                "tags": [
+                    "auth-api"
+                ],
+                "description": "Endpoint for generating expiring JWT token. Token can be used for requests against Jamf Security API",
+                "operationId": "login",
+                "parameters": [
+                    {
+                        "name": "authorization",
+                        "in": "header",
+                        "description": "Basic auth header containing base64 hash of clientId and clientSecret. Hash is calculated from string pair \"clientId:clientSecret\"",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "A response containing expiring JWT token that can be used for requests against Jamf Security API",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/LoginResponse"
+                                }
+                            }
+                        },
+                        "headers": {
+                            "Referrer-Policy": {
+                                "description": "",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            },
+                            "Strict-Transport-Security": {
+                                "description": "",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            },
+                            "Vary": {
+                                "description": "",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            },
+                            "Content-Length": {
+                                "description": "The size of entity body in bytes",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            },
+                            "Date": {
+                                "description": "The date and time the message was sent",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            },
+                            "Content-Type": {
+                                "description": "The resource's media type",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Access denied - can be due to wrong combination  of clientId and clientSecret, request path, method",
+                        "headers": {
+                            "Referrer-Policy": {
+                                "description": "",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            },
+                            "Strict-Transport-Security": {
+                                "description": "",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            },
+                            "Vary": {
+                                "description": "",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            },
+                            "Content-Length": {
+                                "description": "The size of entity body in bytes",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            },
+                            "Date": {
+                                "description": "The date and time the message was sent",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            },
+                            "Content-Type": {
+                                "description": "The resource's media type",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    },
+                    "429": {
+                        "description": "A response indicates the client has sent too many requests within given time period",
+                        "headers": {
+                            "Referrer-Policy": {
+                                "description": "",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            },
+                            "Strict-Transport-Security": {
+                                "description": "",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            },
+                            "Vary": {
+                                "description": "",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            },
+                            "Content-Length": {
+                                "description": "The size of entity body in bytes",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            },
+                            "X-Rate-Limit-Retry-After-Milliseconds": {
+                                "description": "The time (in ms) after which client should retry his request against Jamf Security API once it hits rate limit restriction",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            },
+                            "Date": {
+                                "description": "The date and time the message was sent",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            },
+                            "Content-Type": {
+                                "description": "The resource's media type",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/risk/v1/devices": {
+            "get": {
+                "tags": [
+                    "risk-api"
+                ],
+                "description": "Endpoint for retrieving device status information of all devices which belong to Jamf Security account. Successful response payload from this endpoint is controlled by configuration in Radar (details described below). Configuration change is effective immediately for all new generated JWT tokens.",
+                "operationId": "getAllDevicesInfo",
+                "parameters": [
+                    {
+                        "name": "authorization",
+                        "in": "header",
+                        "description": "Bearer auth header containing expiring JWT token obtained from login endpoint",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "page",
+                        "in": "query",
+                        "description": "The page number indexed from zero",
+                        "required": false,
+                        "schema": {
+                            "minimum": 0,
+                            "type": "integer",
+                            "format": "int32",
+                            "default": 0
+                        }
+                    },
+                    {
+                        "name": "pageSize",
+                        "in": "query",
+                        "description": "The number of records to be returned",
+                        "required": false,
+                        "schema": {
+                            "maximum": 100,
+                            "minimum": 1,
+                            "type": "integer",
+                            "format": "int32",
+                            "default": 20
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "A response containing list of account's devices info with additional pagination information. When 'Show User and Device Information' configuration in Radar is disabled, PII fields will not be present in the response (whole user section, device name)",
+                        "headers": {
+                            "Referrer-Policy": {
+                                "description": "",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            },
+                            "Strict-Transport-Security": {
+                                "description": "",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            },
+                            "Vary": {
+                                "description": "",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            },
+                            "Content-Length": {
+                                "description": "The size of entity body in bytes",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            },
+                            "Date": {
+                                "description": "The date and time the message was sent",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            },
+                            "Content-Type": {
+                                "description": "The resource's media type",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/DeviceInfoListResponse"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Input validation failed",
+                        "headers": {
+                            "Referrer-Policy": {
+                                "description": "",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            },
+                            "Strict-Transport-Security": {
+                                "description": "",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            },
+                            "Vary": {
+                                "description": "",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            },
+                            "Content-Length": {
+                                "description": "The size of entity body in bytes",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            },
+                            "Date": {
+                                "description": "The date and time the message was sent",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            },
+                            "Content-Type": {
+                                "description": "The resource's media type",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Access denied - can be due to invalid JWT, request path, method",
+                        "headers": {
+                            "Referrer-Policy": {
+                                "description": "",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            },
+                            "Strict-Transport-Security": {
+                                "description": "",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            },
+                            "Vary": {
+                                "description": "",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            },
+                            "Content-Length": {
+                                "description": "The size of entity body in bytes",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            },
+                            "Date": {
+                                "description": "The date and time the message was sent",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            },
+                            "Content-Type": {
+                                "description": "The resource's media type",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "There are no devices for given Jamf Security account",
+                        "headers": {
+                            "Referrer-Policy": {
+                                "description": "",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            },
+                            "Strict-Transport-Security": {
+                                "description": "",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            },
+                            "Vary": {
+                                "description": "",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            },
+                            "Content-Length": {
+                                "description": "The size of entity body in bytes",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            },
+                            "Date": {
+                                "description": "The date and time the message was sent",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            },
+                            "Content-Type": {
+                                "description": "The resource's media type",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    },
+                    "429": {
+                        "description": "A response indicates the client has sent too many requests within given time period",
+                        "headers": {
+                            "Referrer-Policy": {
+                                "description": "",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            },
+                            "Strict-Transport-Security": {
+                                "description": "",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            },
+                            "Vary": {
+                                "description": "",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            },
+                            "Content-Length": {
+                                "description": "The size of entity body in bytes",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            },
+                            "X-Rate-Limit-Retry-After-Milliseconds": {
+                                "description": "The time (in ms) after which client should retry his request against Jamf Security API once it hits rate limit restriction",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            },
+                            "Date": {
+                                "description": "The date and time the message was sent",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            },
+                            "Content-Type": {
+                                "description": "The resource's media type",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/risk/v2/devices": {
+            "get": {
+                "tags": [
+                    "risk-api"
+                ],
+                "description": "Endpoint for retrieving device status information of all devices which belong to Jamf Security account. Successful response payload from this endpoint is controlled by configuration in Radar (details described below). Configuration change is effective immediately for all new generated JWT tokens.",
+                "operationId": "getAllDevicesInfoV2",
+                "parameters": [
+                    {
+                        "name": "authorization",
+                        "in": "header",
+                        "description": "Bearer auth header containing expiring JWT token obtained from login endpoint",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "externalId",
+                        "in": "query",
+                        "description": "Return device by its externalId",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "guid",
+                        "in": "query",
+                        "description": "Return device by its guid",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "page",
+                        "in": "query",
+                        "description": "The page number indexed from zero",
+                        "required": false,
+                        "schema": {
+                            "minimum": 0,
+                            "type": "integer",
+                            "format": "int32",
+                            "default": 0
+                        }
+                    },
+                    {
+                        "name": "pageSize",
+                        "in": "query",
+                        "description": "The number of records to be returned",
+                        "required": false,
+                        "schema": {
+                            "maximum": 100,
+                            "minimum": 1,
+                            "type": "integer",
+                            "format": "int32",
+                            "default": 20
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "A response containing list of account's devices info with additional pagination information. When 'Show User and Device Information' configuration in Radar is disabled, PII fields will not be present in the response (whole user section, device name)",
+                        "headers": {
+                            "Referrer-Policy": {
+                                "description": "",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            },
+                            "Strict-Transport-Security": {
+                                "description": "",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            },
+                            "Vary": {
+                                "description": "",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            },
+                            "Content-Length": {
+                                "description": "The size of entity body in bytes",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            },
+                            "Date": {
+                                "description": "The date and time the message was sent",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            },
+                            "Content-Type": {
+                                "description": "The resource's media type",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/UserDevicesResponse"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Input validation failed",
+                        "headers": {
+                            "Referrer-Policy": {
+                                "description": "",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            },
+                            "Strict-Transport-Security": {
+                                "description": "",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            },
+                            "Vary": {
+                                "description": "",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            },
+                            "Content-Length": {
+                                "description": "The size of entity body in bytes",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            },
+                            "Date": {
+                                "description": "The date and time the message was sent",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            },
+                            "Content-Type": {
+                                "description": "The resource's media type",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Access denied - can be due to invalid JWT, request path, method",
+                        "headers": {
+                            "Referrer-Policy": {
+                                "description": "",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            },
+                            "Strict-Transport-Security": {
+                                "description": "",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            },
+                            "Vary": {
+                                "description": "",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            },
+                            "Content-Length": {
+                                "description": "The size of entity body in bytes",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            },
+                            "Date": {
+                                "description": "The date and time the message was sent",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            },
+                            "Content-Type": {
+                                "description": "The resource's media type",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "There are no devices for given Jamf Security account",
+                        "headers": {
+                            "Referrer-Policy": {
+                                "description": "",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            },
+                            "Strict-Transport-Security": {
+                                "description": "",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            },
+                            "Vary": {
+                                "description": "",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            },
+                            "Content-Length": {
+                                "description": "The size of entity body in bytes",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            },
+                            "Date": {
+                                "description": "The date and time the message was sent",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            },
+                            "Content-Type": {
+                                "description": "The resource's media type",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    },
+                    "429": {
+                        "description": "A response indicates the client has sent too many requests within given time period",
+                        "headers": {
+                            "Referrer-Policy": {
+                                "description": "",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            },
+                            "Strict-Transport-Security": {
+                                "description": "",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            },
+                            "Vary": {
+                                "description": "",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            },
+                            "Content-Length": {
+                                "description": "The size of entity body in bytes",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            },
+                            "X-Rate-Limit-Retry-After-Milliseconds": {
+                                "description": "The time (in ms) after which client should retry his request against Jamf Security API once it hits rate limit restriction",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            },
+                            "Date": {
+                                "description": "The date and time the message was sent",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            },
+                            "Content-Type": {
+                                "description": "The resource's media type",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/mobile-risk/v1/devices": {
+            "get": {
+                "tags": [
+                    "risk-api"
+                ],
+                "description": "Endpoint for retrieving device status information of all devices which belong to Jamf Security account. Successful response payload from this endpoint is controlled by configuration in Radar (details described below). Configuration change is effective immediately for all new generated JWT tokens.",
+                "operationId": "getAllDevicesInfoDeprecated",
+                "parameters": [
+                    {
+                        "name": "authorization",
+                        "in": "header",
+                        "description": "Bearer auth header containing expiring JWT token obtained from login endpoint",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "page",
+                        "in": "query",
+                        "description": "The page number indexed from zero",
+                        "required": false,
+                        "schema": {
+                            "minimum": 0,
+                            "type": "integer",
+                            "format": "int32",
+                            "default": 0
+                        }
+                    },
+                    {
+                        "name": "pageSize",
+                        "in": "query",
+                        "description": "The number of records to be returned",
+                        "required": false,
+                        "schema": {
+                            "maximum": 100,
+                            "minimum": 1,
+                            "type": "integer",
+                            "format": "int32",
+                            "default": 20
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "A response containing list of account's devices info with additional pagination information. When 'Show User and Device Information' configuration in Radar is disabled, PII fields will not be present in the response (whole user section, device name)",
+                        "headers": {
+                            "Referrer-Policy": {
+                                "description": "",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            },
+                            "Strict-Transport-Security": {
+                                "description": "",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            },
+                            "Vary": {
+                                "description": "",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            },
+                            "Content-Length": {
+                                "description": "The size of entity body in bytes",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            },
+                            "Date": {
+                                "description": "The date and time the message was sent",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            },
+                            "Content-Type": {
+                                "description": "The resource's media type",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/DeviceInfoListResponse"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Input validation failed",
+                        "headers": {
+                            "Referrer-Policy": {
+                                "description": "",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            },
+                            "Strict-Transport-Security": {
+                                "description": "",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            },
+                            "Vary": {
+                                "description": "",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            },
+                            "Content-Length": {
+                                "description": "The size of entity body in bytes",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            },
+                            "Date": {
+                                "description": "The date and time the message was sent",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            },
+                            "Content-Type": {
+                                "description": "The resource's media type",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Access denied - can be due to invalid JWT, request path, method",
+                        "headers": {
+                            "Referrer-Policy": {
+                                "description": "",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            },
+                            "Strict-Transport-Security": {
+                                "description": "",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            },
+                            "Vary": {
+                                "description": "",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            },
+                            "Content-Length": {
+                                "description": "The size of entity body in bytes",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            },
+                            "Date": {
+                                "description": "The date and time the message was sent",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            },
+                            "Content-Type": {
+                                "description": "The resource's media type",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "There are no devices for given Jamf Security account",
+                        "headers": {
+                            "Referrer-Policy": {
+                                "description": "",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            },
+                            "Strict-Transport-Security": {
+                                "description": "",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            },
+                            "Vary": {
+                                "description": "",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            },
+                            "Content-Length": {
+                                "description": "The size of entity body in bytes",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            },
+                            "Date": {
+                                "description": "The date and time the message was sent",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            },
+                            "Content-Type": {
+                                "description": "The resource's media type",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    },
+                    "429": {
+                        "description": "A response indicates the client has sent too many requests within given time period",
+                        "headers": {
+                            "Referrer-Policy": {
+                                "description": "",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            },
+                            "Strict-Transport-Security": {
+                                "description": "",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            },
+                            "Vary": {
+                                "description": "",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            },
+                            "Content-Length": {
+                                "description": "The size of entity body in bytes",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            },
+                            "X-Rate-Limit-Retry-After-Milliseconds": {
+                                "description": "The time (in ms) after which client should retry his request against Jamf Security API once it hits rate limit restriction",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            },
+                            "Date": {
+                                "description": "The date and time the message was sent",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            },
+                            "Content-Type": {
+                                "description": "The resource's media type",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    }
+                },
+                "deprecated": true
+            }
+        },
+        "/risk/v1/override": {
+            "put": {
+                "tags": [
+                    "risk-api"
+                ],
+                "description": "Endpoint for overriding the device risk as calculated by Jamf Security.",
+                "operationId": "overrideRisk",
+                "parameters": [
+                    {
+                        "name": "authorization",
+                        "in": "header",
+                        "description": "Bearer auth header containing expiring JWT token obtained from login endpoint",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "description": "JSON body of a risk override request. MANUAL source overrides calculated device risk, whereas Jamf Security source sets the device risk back to the calculated one.",
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/RiskOverrideRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "204": {
+                        "description": "The risk change was successful",
+                        "headers": {
+                            "Referrer-Policy": {
+                                "description": "",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            },
+                            "Strict-Transport-Security": {
+                                "description": "",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            },
+                            "Vary": {
+                                "description": "",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            },
+                            "Date": {
+                                "description": "The date and time the message was sent",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Input validation failed",
+                        "headers": {
+                            "Referrer-Policy": {
+                                "description": "",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            },
+                            "Strict-Transport-Security": {
+                                "description": "",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            },
+                            "Vary": {
+                                "description": "",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            },
+                            "Content-Length": {
+                                "description": "The size of entity body in bytes",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            },
+                            "Date": {
+                                "description": "The date and time the message was sent",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            },
+                            "Content-Type": {
+                                "description": "The resource's media type",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Access denied - can be due to invalid JWT, request path, method",
+                        "headers": {
+                            "Referrer-Policy": {
+                                "description": "",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            },
+                            "Strict-Transport-Security": {
+                                "description": "",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            },
+                            "Vary": {
+                                "description": "",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            },
+                            "Content-Length": {
+                                "description": "The size of entity body in bytes",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            },
+                            "Date": {
+                                "description": "The date and time the message was sent",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            },
+                            "Content-Type": {
+                                "description": "The resource's media type",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    },
+                    "429": {
+                        "description": "A response indicates the client has sent too many requests within given time period",
+                        "headers": {
+                            "Referrer-Policy": {
+                                "description": "",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            },
+                            "Strict-Transport-Security": {
+                                "description": "",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            },
+                            "Vary": {
+                                "description": "",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            },
+                            "Content-Length": {
+                                "description": "The size of entity body in bytes",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            },
+                            "X-Rate-Limit-Retry-After-Milliseconds": {
+                                "description": "The time (in ms) after which client should retry his request against Risk API once it hits rate limit restriction",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            },
+                            "Date": {
+                                "description": "The date and time the message was sent",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            },
+                            "Content-Type": {
+                                "description": "The resource's media type",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "components": {
+        "schemas": {
+            "DeviceUserResponse": {
+                "type": "object",
+                "properties": {
+                    "email": {
+                        "type": "string"
+                    },
+                    "name": {
+                        "type": "string"
+                    }
+                }
+            },
+            "DeviceInfoListResponse": {
+                "type": "object",
+                "properties": {
+                    "pagination": {
+                        "$ref": "#/components/schemas/Pagination"
+                    },
+                    "records": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/DeviceInfoResponse"
+                        }
+                    }
+                }
+            },
+            "UserDevicesResponse": {
+                "type": "object",
+                "properties": {
+                    "customerId": {
+                        "type": "string"
+                    },
+                    "userDeviceList": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/UserDeviceResponse"
+                        }
+                    }
+                }
+            },
+            "UserDeviceResponse": {
+                "type": "object",
+                "properties": {
+                    "guid": {
+                        "description": "Id of device in the system",
+                        "type": "string"
+                    },
+                    "externalId": {
+                        "type": "string"
+                    },
+                    "phoneNumber": {
+                        "type": "string"
+                    },
+                    "user": {
+                        "type": "object",
+                        "properties": {
+                            "email": {
+                                "type": "string"
+                            },
+                            "name": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "status": {
+                        "type": "string"
+                    },
+                    "info": {
+                        "type": "object",
+                        "properties": {
+                            "device": {
+                                "type": "object",
+                                "properties": {
+                                    "deviceName": {
+                                        "type": "string"
+                                    },
+                                    "deviceSystemVersion": {
+                                        "type": "integer"
+                                    },
+                                    "osType": {
+                                        "type": "string"
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "hardwareSpec": {
+                        "type": "object",
+                        "properties": {
+                            "osType": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "statusUpdate": {
+                        "type": "object",
+                        "properties": {
+                            "connector": {
+                                "type": "object",
+                                "properties": {
+                                    "lastStatusUpdateUtcMs": {
+                                        "type": "string"
+                                    },
+                                    "payload": {
+                                        "type": "object",
+                                        "properties": {
+                                            "isEnrolled": {
+                                                "type": "boolean"
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "connectorState": {
+                        "type": "string"
+                    },
+                    "riskCategory": {
+                        "type": "string"
+                    },
+                    "deploymentState": {
+                        "type": "string"
+                    },
+                    "lastPrivateAccessDnsTraffic": {
+                        "type": "integer"
+                    },
+                    "lastDnsTraffic": {
+                        "type": "integer"
+                    },
+                    "joinDate": {
+                        "type": "integer"
+                    },
+                    "appVersion": {
+                        "type": "string"
+                    }
+                }
+            },
+            "Pagination": {
+                "type": "object",
+                "properties": {
+                    "totalRecords": {
+                        "type": "integer",
+                        "format": "int64"
+                    },
+                    "totalPages": {
+                        "type": "integer",
+                        "format": "int32"
+                    },
+                    "currentPage": {
+                        "type": "integer",
+                        "format": "int32"
+                    },
+                    "pageSize": {
+                        "type": "integer",
+                        "format": "int32"
+                    }
+                }
+            },
+            "DeviceDetailResponse": {
+                "type": "object",
+                "properties": {
+                    "name": {
+                        "type": "string"
+                    },
+                    "osType": {
+                        "type": "string"
+                    },
+                    "osVersion": {
+                        "type": "string"
+                    },
+                    "phoneNumber": {
+                        "type": "string"
+                    }
+                }
+            },
+            "LoginResponse": {
+                "type": "object",
+                "properties": {
+                    "token": {
+                        "type": "string"
+                    }
+                }
+            },
+            "DeviceUemcStatusResponse": {
+                "type": "object",
+                "properties": {
+                    "enrolled": {
+                        "type": "boolean"
+                    },
+                    "lastUemSync": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                }
+            },
+            "DeviceInfoResponse": {
+                "type": "object",
+                "properties": {
+                    "customerId": {
+                        "type": "string"
+                    },
+                    "deviceId": {
+                        "type": "string"
+                    },
+                    "externalId": {
+                        "type": "string"
+                    },
+                    "risk": {
+                        "type": "string",
+                        "enum": [
+                            "HIGH",
+                            "MEDIUM",
+                            "LOW",
+                            "SECURE"
+                        ]
+                    },
+                    "status": {
+                        "$ref": "#/components/schemas/DeviceStatusResponse"
+                    },
+                    "uemcStatus": {
+                        "$ref": "#/components/schemas/DeviceUemcStatusResponse"
+                    },
+                    "user": {
+                        "$ref": "#/components/schemas/DeviceUserResponse"
+                    },
+                    "device": {
+                        "$ref": "#/components/schemas/DeviceDetailResponse"
+                    }
+                }
+            },
+            "DeviceStatusResponse": {
+                "type": "object",
+                "properties": {
+                    "active": {
+                        "type": "boolean"
+                    },
+                    "lastStatusUpdate": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "lastNetworkTraffic": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "currentLocation": {
+                        "type": "string"
+                    },
+                    "lastActivationState": {
+                        "type": "string",
+                        "enum": [
+                            "INACTIVE",
+                            "NOTIFIED",
+                            "PENDING",
+                            "ACTIVE"
+                        ]
+                    }
+                }
+            },
+            "RiskOverrideRequest": {
+                "type": "object",
+                "properties": {
+                    "risk": {
+                        "type": "string",
+                        "description": "The risk level to be set for the device",
+                        "enum": [
+                            "HIGH",
+                            "MEDIUM",
+                            "LOW",
+                            "SECURE"
+                        ]
+                    },
+                    "source": {
+                        "type": "string",
+                        "description": "The source of the risk level. This can be either 'MANUAL' when setting an override or 'WANDERA' when reverting back to the Jamf Security calculation.",
+                        "enum": [
+                            "MANUAL",
+                            "WANDERA"
+                        ]
+                    },
+                    "deviceIds": {
+                        "uniqueItems": true,
+                        "type": "array",
+                        "description": "List of identifiers of the devices to be updated"
+                    }
+                }
+            },
+            "ErrorResponse": {
+                "type": "object",
+                "properties": {
+                    "logRef": {
+                        "type": "string",
+                        "description": "Logging reference"
+                    },
+                    "message": {
+                        "type": "string",
+                        "description": "Human readable localized message"
+                    },
+                    "error": {
+                        "type": "string",
+                        "description": "Error code",
+                        "enum": [
+                            "NEGATIVE_PAGE",
+                            "NEGATIVE_PAGE_SIZE",
+                            "MAX_LIMIT_PER_PAGE"
+                        ]
+                    },
+                    "statusCode": {
+                        "type": "string",
+                        "description": "HTTP status code"
+                    }
+                }
+            }
+        }
+    }
+}

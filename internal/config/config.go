@@ -23,7 +23,7 @@ type Config struct {
 
 // Profile represents a server profile for a Jamf product.
 type Profile struct {
-	Product             string         `yaml:"product,omitempty"` // "pro" (default), "protect", or "school"
+	Product             string         `yaml:"product,omitempty"` // "pro" (default), "protect", "school", or "security"
 	URL                 string         `yaml:"url"`
 	AuthMethod          string         `yaml:"auth-method"` // token, oauth2, platform, apikey
 	Token               string         `yaml:"token,omitempty"`
@@ -33,6 +33,7 @@ type Profile struct {
 	PlatformURL         string         `yaml:"platform-url,omitempty"` // school: separate gateway URL for Platform API
 	NetworkID           string         `yaml:"network-id,omitempty"`   // school only
 	APIKey              string         `yaml:"api-key,omitempty"`      // school only
+	SSEURL              string         `yaml:"sse-url,omitempty"`      // security only: separate host for Shared Signals & Events
 	DestructiveCooldown *time.Duration `yaml:"destructive-cooldown,omitempty"`
 }
 

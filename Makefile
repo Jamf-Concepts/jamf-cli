@@ -1,4 +1,4 @@
-.PHONY: build test clean generate sync-specs sync-spec sync-platform-specs install lint lint-dead verify-generated verify-platform-specs verify-site verify-site-output smoke smoke-seed smoke-cleanup release-check site
+.PHONY: build test clean generate sync-specs sync-spec sync-platform-specs sync-security-specs install lint lint-dead verify-generated verify-platform-specs verify-security-specs verify-site verify-site-output smoke smoke-seed smoke-cleanup release-check site
 
 # Build variables
 VERSION         ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
@@ -140,6 +140,26 @@ sync-platform-specs:
 	@$(MAKE) generate
 	@echo "Done! Review changes with: git diff specs/platform internal/commands/platform/generated"
 
+# Copy private Jamf Security Cloud specs (Risk, Device Lifecycle, Shared
+# Signals & Events) from the gitignored specs/.security-source/ drop location
+# into the committed specs/security/ directory. Unlike platform, these are
+# NOT fed into the code generator — security commands are hand-written
+# (internal/commands/security_*.go) because each of the three APIs has its
+# own auth model (Basic-login-for-JWT, not OAuth2/tenant-prefixed) and only a
+# handful of endpoints. specs/security/ exists purely as committed reference
+# documentation for contributors.
+sync-security-specs:
+	@if [ ! -d "specs/.security-source" ]; then \
+		echo "Error: specs/.security-source/ not found"; \
+		echo "Drop Jamf Security Cloud *.json specs into specs/.security-source/ first."; \
+		exit 1; \
+	fi
+	@mkdir -p specs/security
+	@rm -f specs/security/*.json
+	@cp specs/.security-source/*.json specs/security/
+	@echo "Copied $$(ls specs/security/*.json | wc -l | tr -d ' ') security spec(s) to specs/security/"
+	@echo "Done! Review changes with: git diff specs/security"
+
 # Generate CLI commands from OpenAPI specs and Classic API manifest.
 # If JAMF_MONOLITH_SPEC is set, the monolith is split into per-resource spec
 # files before parsing, preserving the existing filename layout.
@@ -221,6 +241,17 @@ verify-platform-specs:
 		exit 1; \
 	fi
 	@echo "Platform specs and generated code are up to date."
+
+# Verify committed security specs match the private source (CI-safe; a no-op
+# pass when specs/.security-source/ isn't present, same as verify-platform-specs)
+verify-security-specs:
+	@$(MAKE) sync-security-specs > /dev/null 2>&1; true
+	@if ! git diff --quiet -- specs/security/; then \
+		echo "Error: specs/security/ is stale — run 'make sync-security-specs' and commit"; \
+		git diff --stat -- specs/security/; \
+		exit 1; \
+	fi
+	@echo "Security specs are up to date."
 
 # Smoke test against a real Jamf Pro instance (reads from default config profile)
 smoke:
