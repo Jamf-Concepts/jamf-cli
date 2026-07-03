@@ -85,6 +85,10 @@ func newProCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	// Also expose sync under packages — JCDS is the backing store for packages.
 	addSubcommand(cmd, []string{"packages"}, newJcdsSyncCmd(cliCtx))
 
+	// Add handwritten retry-failed to generated parent (orchestrates computer
+	// resolution + task lookup/filter before calling the retry endpoint).
+	addSubcommand(cmd, []string{"jamf-protect-deployment-tasks"}, newJamfProtectDeploymentRetryFailedCmd(cliCtx))
+
 	// Add device action subcommands to generated resource parents
 	addSubcommand(cmd, []string{"computers-inventory"}, newComputerEraseCmd(cliCtx))
 	addSubcommand(cmd, []string{"computers-inventory"}, newComputerRemoveMDMCmd(cliCtx))
