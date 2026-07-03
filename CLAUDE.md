@@ -12,9 +12,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 **Never accept credentials (passwords, tokens, client secrets) via CLI flags or stdin.** This prevents exposure in shell history, `ps` output, and CI/CD logs.
 
 - **Human credentials** (username, password): Interactive prompts only (`term.ReadPassword`). No flags, no env vars, no stdin.
-- **Machine credentials** (token, client-id, client-secret): Environment variables (`JAMF_*`, `JAMFPROTECT_*`) for CI/CD. Interactive prompts for manual use. Config profiles with `keychain:` references for persistent storage. `--token-file` for file-based CI/CD.
+- **Machine credentials** (token, client-id, client-secret): Environment variables (`JAMF_*`, `JAMFPROTECT_*`, `JAMFSCHOOL_*`, `JAMFSECURITY_*`) for CI/CD. Interactive prompts for manual use. Config profiles with `keychain:` references for persistent storage. `--token-file` for file-based CI/CD.
 - **Never add** `--password`, `--token`, `--client-secret`, `--token-stdin`, or `--client-secret-stdin` flags to any command.
-- **Setup commands** (`pro setup`, `protect setup`, `config add-profile`) must always prompt interactively for credentials — no flag or env var bypass.
+- **Setup commands** (`pro setup`, `protect setup`, `school setup`, `security setup`, `config add-profile`) must always prompt interactively for credentials — no flag or env var bypass.
 
 ## CRITICAL: Generated Code Boundary
 
@@ -22,11 +22,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **Never edit files in `internal/commands/platform/generated/`** — they are overwritten by `make generate`.
 
+**Never edit files in `internal/commands/security/generated/`** — they are overwritten by `make generate`.
+
 To change generated command behavior, edit the **generator templates**:
 - **Modern API commands:** `generator/parser/generator.go` → `resourceTemplate` const
 - **Classic API commands:** `generator/classic/generator.go` → `classicResourceTemplate` const
 - **Modern registry:** `generator/parser/generator.go` → `registryTemplate` const
 - **Classic registry:** `generator/classic/generator.go` → `classicRegistryTemplate` const
+- **Jamf Security Cloud commands:** `generator/security/template.go` → `resourceTemplate` const
 
 Templates are Go `const` strings embedded in the generator source — NOT separate `.tmpl` files.
 
@@ -78,6 +81,11 @@ CI enforces that `specs/platform/` and `internal/commands/platform/generated/` s
 | Add a new Jamf Protect command | `internal/commands/protect_*.go` (new file + wire in `protect.go`) |
 | Change Protect name-to-ID resolution | `internal/protect/resolve.go` |
 | Change Protect YAML import/export schemas | `internal/commands/protect_analytics.go`, `protect_ulf.go` |
+| Add a new Jamf Security Cloud endpoint (Risk, Device Lifecycle, SSE) | Drop the spec into `specs/.security-source/`, run `make sync-security-specs && make generate`. Don't hand-write — `generator/parser/security.go`'s `securityOpsByFile` map owns every known operation. |
+| Add a Jamf Security Cloud hand-written command (business logic, not a single HTTP call — currently only `setup`) | `internal/commands/security_*.go` (new file + wire in `security.go`) |
+| Change behavior of all generated Security Cloud commands | `generator/security/template.go` (`resourceTemplate`) |
+| Change how Security Cloud specs are parsed / which operations map to which resource | `generator/parser/security.go` (`securityOpsByFile`) |
+| Change Security Cloud auth (token cache, per-scope credentials, error mapping) | `internal/security/client.go` |
 | Add a new cross-product command | `internal/commands/` (new file + wire in `root.go`) |
 | Add a new product namespace | `internal/commands/` (e.g., `newproduct.go` + `newproduct_*.go` files); then update site (`index.html`, `style.css`, `catalog.js`) — `make verify-site` enforces |
 | Modify auth behavior | `internal/auth/` |
@@ -139,19 +147,24 @@ internal/
   scope/                 Classic API scope XML types (shared by profile import and scope resolution)
   platform/              Jamf Platform helpers: name-to-ID Resolver, PrintList/PrintOne output
   protect/               Jamf Protect helpers: name-to-ID Resolver, PrintList/PrintOne output
+  security/              Jamf Security Cloud client: 3 independent scoped-credential token caches
+                         (Risk/Device Lifecycle/SSE), DoExpect{Risk,Lifecycle,SSE}, ReadBody, ConfirmAction
   commands/
     root.go              Root command, shared flags, product-aware auth resolution
-    groups.go / aliases.go  Help groups and short aliases (root + pro + protect + platform)
+    groups.go / aliases.go  Help groups and short aliases (root + pro + protect + school + security + platform)
     protect_helpers.go   Shared helpers: input reading, confirmation, export formatting (Protect + Platform)
     pro_platform_helpers.go  Platform-specific helpers: requirePlatformClient gate, printScaffold
-    pro.go / protect.go  Bridges wiring all subcommands under each product
+    pro.go / protect.go / school.go / security.go  Bridges wiring all subcommands under each product
     pro_*.go             Jamf Pro handwritten + Platform API commands
     protect_*.go         Jamf Protect commands
+    security_setup.go    Jamf Security Cloud hand-written command (credential setup only — CRUD is generated)
     pro/generated/       Pro generated commands from OpenAPI specs + Classic manifest
+    security/generated/  Jamf Security Cloud generated commands from specs/security/*.json
 docs/site/               GitHub Pages showcase site (HTML/CSS/JS, deployed via GH Action)
 generator/
-  parser/                Modern API generator (OpenAPI → commands)
+  parser/                Modern API generator (OpenAPI → commands); also parses Security Cloud specs (security.go)
   classic/               Classic API generator (YAML manifest → commands)
+  security/              Jamf Security Cloud command generator (LoadResources + template-driven Generate)
   monolith/              Consolidated OpenAPI splitter: monolith → per-resource specs/*.yaml
   site/                  Site data generator: introspects binary → commands.json
 ```
@@ -228,6 +241,14 @@ Naming: `platform-` prefix where overlap with existing Pro resources (`platform-
 
 Commands: `blueprints` (`bp`) — CRUD, deploy/undeploy, clone, scope, components, import-profile (auto DDM conversion), report. `compliance-benchmarks` (`cb`) — baselines, benchmark CRUD, rules, stats, device-results, compliance. `platform-devices` (`pdev`), `platform-device-groups` (`pdg`), `ddm-reports` (`ddm`).
 
+### Jamf Security Cloud Integration
+
+Uses a hand-rolled client (`internal/security`) — no product Go SDK exists. Auth is a Basic-login-for-JWT exchange (`POST /v1/login` with `base64(clientId:clientSecret)` → a 15-minute JWT), not OAuth2 client-credentials. Critically, each of the three APIs — Risk, Device Lifecycle, and Shared Signals & Events (SSE) — is provisioned as its own "Security Integration" in the Radar portal with its own application ID/secret, and the resulting JWT is scoped to exactly one API via its `aud` claim. So `internal/security.Client` tracks three independent credential pairs and token caches (`DoExpectRisk`/`DoExpectLifecycle`/`DoExpectSSE`); any subset may be configured, and commands for an unconfigured API fail with a "run security setup" hint rather than the whole product refusing to start.
+
+Risk and Device Lifecycle share one host (`api.wandera.com`, which also serves `/v1/login`); SSE lives on `sse.jamf.com` per its own OpenID SSE framework discovery document. Unlike Pro/Protect/School, there's no per-tenant URL — tenancy is carried inside the JWT's `customer_id` claim, so `security setup` never prompts for a URL (env/profile overrides exist for `--url`/`JAMFSECURITY_URL`/`JAMFSECURITY_SSE_URL` in case Jamf ever stands up regional or sandbox hosts).
+
+Commands are **generator-owned**, same as Platform — the twelve total operations across the three specs are hand-mapped (not tag/family auto-detected like Platform's parser) because they span wildly different shapes (a paginated list, singleton-style get/update/delete, bulk actions with no `{id}` in their path at all) that are too few and too irregular to benefit from generic detection. See `generator/parser/security.go`'s `securityOpsByFile` map. Commands: `risk` (`list`/`override`), `device-lifecycle` (`purge` — destructive, `{customerId}` filled at request time from the Device Lifecycle JWT, never user-facing), `stream`/`status` (SSE singleton-style get/update/delete), `verification` (`trigger`), `jwks`/`well-known` (SSE discovery, read-only). No name-to-ID resolution — every identifier (guid/externalId) is supplied directly.
+
 ### Legacy-to-DDM Payload Conversion
 
 When `import-profile` processes a mobileconfig, compatible legacy payloads auto-convert to native DDM blueprint components instead of wrapping in `com.jamf.ddm-configuration-profile`. `--legacy` skips all conversion. Unsupported payload types filtered by default; `--include-unsupported` overrides.
@@ -240,7 +261,7 @@ Adding a converter: create `ddm_<name>.go`, implement `convertFunc`, register vi
 
 ### Shared Command Helpers
 
-`internal/commands/protect_helpers.go` (Protect + Platform): `readInput`, `unmarshalInput`, `printResult`, `printExport`, `confirmDelete`, `confirmReplace`. `internal/commands/pro_platform_helpers.go` (Platform only): `requirePlatformClient`, `printScaffold`.
+`internal/commands/protect_helpers.go` (Protect + Platform): `readInput`, `unmarshalInput`, `printResult`, `printExport`, `confirmDelete`, `confirmReplace`. `internal/commands/pro_platform_helpers.go` (Platform only): `requirePlatformClient`, `printScaffold`. `internal/security` (Security Cloud generated + hand-written commands): `ReadBody`, `ConfirmAction` — same `--file`/`--set`/`--scaffold`/`--yes` shape as Platform's `internal/platform` helpers, duplicated rather than shared since the products' generated packages can't import each other's parent (`internal/commands`) without an import cycle.
 
 ### Config File
 
@@ -249,8 +270,8 @@ Adding a converter: create `ddm_<name>.go`, implement `convertFunc`, register vi
 ## Conventions
 
 - Global flags are package-level vars in `root.go` — accessed by generated commands via `CLIContext`.
-- Filename prefixes: `pro_` for Jamf Pro + Platform handwritten commands, `protect_` for Jamf Protect. Platform uses `pro_platform_` infix where resource name overlaps with existing Pro resources.
-- Help groups in `groups.go`, short aliases in `aliases.go` — each split into root / pro (including platform: `bp`, `cb`, `pdev`, `pdg`, `ddm`) / protect.
+- Filename prefixes: `pro_` for Jamf Pro + Platform handwritten commands, `protect_` for Jamf Protect, `school_` for Jamf School, `security_` for Jamf Security Cloud (currently just `setup` — the twelve Risk/Device Lifecycle/SSE operations are all generator-owned). Platform uses `pro_platform_` infix where resource name overlaps with existing Pro resources.
+- Help groups in `groups.go`, short aliases in `aliases.go` — each split into root / pro (including platform: `bp`, `cb`, `pdev`, `pdg`, `ddm`) / protect / school / security.
 - Pro `overview` makes ~37 parallel API calls; Protect `overview` makes ~14.
 - Classic API paths start with `/JSSResource/` and bypass `/api` prefix added by `client.Do()`. In platform gateway mode, rewritten to `/api/proclassic/tenant/{id}/`.
 - `NO_COLOR` env var respected (https://no-color.org).
@@ -282,11 +303,19 @@ Knobs in `generator/monolith/overrides.go`:
 
 After ingest, any **new tag** surfaces as a new resource command and trips `TestApplyProGroups_AllCommandsGrouped` — wire into the correct `proGroupMap` entry in `internal/commands/groups.go`.
 
-### Adding handwritten commands (Pro, Protect, Platform, new product)
+### Adding a new Jamf Security Cloud endpoint
+
+Unlike Platform, dropping a spec into `specs/.security-source/` isn't enough by itself — the twelve known operations are hand-mapped (too few and irregular for tag/family auto-detection), so a genuinely new endpoint needs a new entry too:
+1. Drop/update the spec in `specs/.security-source/`, run `make sync-security-specs` to copy it into the committed `specs/security/`.
+2. Add an entry to `securityOpsByFile` in `generator/parser/security.go` (resource name, operation name, `isDestructive`/`isList` as appropriate). If it's a new spec file, also add it to `SecurityScopeForFile`.
+3. `make generate && make test`.
+4. Wire the new resource's `New<Resource>Cmd` into `internal/commands/security.go` if it's a new resource (existing resources just gain a new operation automatically); add to `groups.go`'s `securityGroupMap`.
+
+### Adding handwritten commands (Pro, Protect, School, Security, Platform, new product)
 
 See the "Where to Make Changes" table for file locations. Common pattern:
-1. Create new file with appropriate prefix (`pro_`, `protect_`, or new product's).
-2. Wire into the product's bridge (`pro.go`, `protect.go`, or `root.go`).
+1. Create new file with appropriate prefix (`pro_`, `protect_`, `school_`, `security_`, or new product's).
+2. Wire into the product's bridge (`pro.go`, `protect.go`, `school.go`, `security.go`, or `root.go`).
 3. Add to `groups.go` and optionally `aliases.go`.
 4. For resources needing name-to-ID lookup: add resolver method in `internal/platform/resolve.go` or `internal/protect/resolve.go`.
 5. Platform commands gate `RunE` with `requirePlatformClient(cliCtx)`.
