@@ -51,6 +51,20 @@ func ResolveComputer(ctx context.Context, client registry.HTTPClient, serial, na
 	}
 }
 
+// ResolveComputerByManagementID looks up a computer by its MDM management ID (UUID).
+func ResolveComputerByManagementID(ctx context.Context, client registry.HTTPClient, managementID string) (*DeviceIdentifiers, error) {
+	return resolveComputerByFilter(ctx, client,
+		fmt.Sprintf(`general.managementId=="%s"`, EscapeRSQL(managementID)),
+		fmt.Sprintf("management ID %q", managementID))
+}
+
+// ResolveComputerByUDID looks up a computer by its UDID.
+func ResolveComputerByUDID(ctx context.Context, client registry.HTTPClient, udid string) (*DeviceIdentifiers, error) {
+	return resolveComputerByFilter(ctx, client,
+		fmt.Sprintf(`udid=="%s"`, EscapeRSQL(udid)),
+		fmt.Sprintf("UDID %q", udid))
+}
+
 // ResolveMobileDevice looks up a mobile device by serial, name, or ID using
 // the v2 mobile-devices API and returns all identifier forms.
 func ResolveMobileDevice(ctx context.Context, client registry.HTTPClient, serial, name, id string) (*DeviceIdentifiers, error) {
