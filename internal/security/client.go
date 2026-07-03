@@ -269,26 +269,30 @@ func (c *Client) LifecycleCustomerID(ctx context.Context) (string, error) {
 }
 
 // DoExpectRisk performs an authenticated JSON request against the Risk API.
-// Mirrors jamfplatform-go-sdk's Transport.DoExpect signature so generated
-// commands (generator/security) can share the same template shape as the
-// Platform generator. body is marshalled to JSON when non-nil; result is
-// unmarshalled from the response body when non-nil. Returns an error if the
-// response status doesn't match expectedStatus.
-func (c *Client) DoExpectRisk(ctx context.Context, method, path string, body any, expectedStatus int, result any) error {
-	return c.doExpect(ctx, c.apiBaseURL, &c.risk, method, path, body, expectedStatus, result)
+// body is marshalled to JSON when non-nil; result is unmarshalled from the
+// response body when both result and the body are non-nil/non-empty.
+//
+// Unlike jamfplatform-go-sdk's Transport.DoExpect, there's no single
+// expected-status parameter: the three Security Cloud APIs are inconsistent
+// about success codes (the SSE stream/status "set" endpoints document both
+// 200 and 202 as success), so any response do() didn't already reject
+// (HTTP >= 400) is treated as success here — do() still surfaces the usual
+// structured 401/403/404/429 errors.
+func (c *Client) DoExpectRisk(ctx context.Context, method, path string, body any, result any) error {
+	return c.doExpect(ctx, c.apiBaseURL, &c.risk, method, path, body, result)
 }
 
 // DoExpectLifecycle performs an authenticated JSON request against the Device Lifecycle API.
-func (c *Client) DoExpectLifecycle(ctx context.Context, method, path string, body any, expectedStatus int, result any) error {
-	return c.doExpect(ctx, c.apiBaseURL, &c.lifecycle, method, path, body, expectedStatus, result)
+func (c *Client) DoExpectLifecycle(ctx context.Context, method, path string, body any, result any) error {
+	return c.doExpect(ctx, c.apiBaseURL, &c.lifecycle, method, path, body, result)
 }
 
 // DoExpectSSE performs an authenticated JSON request against the Shared Signals & Events API.
-func (c *Client) DoExpectSSE(ctx context.Context, method, path string, body any, expectedStatus int, result any) error {
-	return c.doExpect(ctx, c.sseBaseURL, &c.sse, method, path, body, expectedStatus, result)
+func (c *Client) DoExpectSSE(ctx context.Context, method, path string, body any, result any) error {
+	return c.doExpect(ctx, c.sseBaseURL, &c.sse, method, path, body, result)
 }
 
-func (c *Client) doExpect(ctx context.Context, baseURL string, ts *tokenSource, method, path string, body any, expectedStatus int, result any) error {
+func (c *Client) doExpect(ctx context.Context, baseURL string, ts *tokenSource, method, path string, body any, result any) error {
 	var bodyReader io.Reader
 	if body != nil {
 		data, err := json.Marshal(body)
@@ -304,14 +308,14 @@ func (c *Client) doExpect(ctx context.Context, baseURL string, ts *tokenSource, 
 	}
 	defer func() { _ = resp.Body.Close() }()
 
+	if result == nil {
+		return nil
+	}
 	respBody, err := io.ReadAll(io.LimitReader(resp.Body, 100<<20))
 	if err != nil {
 		return fmt.Errorf("reading response body: %w", err)
 	}
-	if resp.StatusCode != expectedStatus {
-		return fmt.Errorf("%s %s: expected HTTP %d, got %d: %s", method, path, expectedStatus, resp.StatusCode, strings.TrimSpace(string(respBody)))
-	}
-	if result == nil || len(respBody) == 0 {
+	if len(respBody) == 0 {
 		return nil
 	}
 	if err := json.Unmarshal(respBody, result); err != nil {
