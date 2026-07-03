@@ -630,7 +630,7 @@ var securityGroups = []*cobra.Group{
 var securityGroupMap = map[string]string{
 	"setup": groupSecurityCore,
 
-	"risk-devices":     groupSecurityRisk,
+	"risk":             groupSecurityRisk,
 	"device-lifecycle": groupSecurityRisk,
 
 	"stream":       groupSecuritySSE,
