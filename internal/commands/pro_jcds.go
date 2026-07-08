@@ -77,6 +77,28 @@ func (e *jcdsHTTPStatusError) Error() string {
 	return fmt.Sprintf("HTTP %d", e.StatusCode)
 }
 
+// jcdsListFiles fetches the full JCDS file list (name, length, hashes, region).
+func jcdsListFiles(ctx context.Context, client registry.HTTPClient) ([]jcdsFileData, error) {
+	resp, err := client.Do(ctx, "GET", "/v1/jcds/files", nil)
+	if err != nil {
+		return nil, err
+	}
+	body, err := io.ReadAll(resp.Body)
+	_ = resp.Body.Close()
+	if err != nil {
+		return nil, fmt.Errorf("reading file list: %w", err)
+	}
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return nil, fmt.Errorf("API error %d: %s", resp.StatusCode, strings.TrimSpace(string(body)))
+	}
+
+	var jcdsFiles []jcdsFileData
+	if err := json.Unmarshal(body, &jcdsFiles); err != nil {
+		return nil, fmt.Errorf("parsing file list: %w", err)
+	}
+	return jcdsFiles, nil
+}
+
 // jcdsFetchPresignedURL fetches a fresh pre-signed download URL from the JCDS API.
 func jcdsFetchPresignedURL(ctx context.Context, client registry.HTTPClient, fileName string) (string, error) {
 	apiPath := "/v1/jcds/files/" + url.PathEscape(fileName)
@@ -270,22 +292,9 @@ Designed for scheduled runs on file-share distribution points.`,
 			}
 
 			// Fetch JCDS file list.
-			resp, err := cliCtx.Client.Do(reqCtx, "GET", "/v1/jcds/files", nil)
+			jcdsFiles, err := jcdsListFiles(reqCtx, cliCtx.Client)
 			if err != nil {
 				return err
-			}
-			body, err := io.ReadAll(resp.Body)
-			_ = resp.Body.Close()
-			if err != nil {
-				return fmt.Errorf("reading file list: %w", err)
-			}
-			if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-				return fmt.Errorf("API error %d: %s", resp.StatusCode, strings.TrimSpace(string(body)))
-			}
-
-			var jcdsFiles []jcdsFileData
-			if err := json.Unmarshal(body, &jcdsFiles); err != nil {
-				return fmt.Errorf("parsing file list: %w", err)
 			}
 
 			// Build JCDS filename set for existence checks.

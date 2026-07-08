@@ -13,9 +13,11 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/spf13/cobra"
+	"golang.org/x/sync/errgroup"
 	"gopkg.in/yaml.v3"
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/auth"
@@ -63,11 +65,12 @@ type backupMeta struct {
 
 func newBackupCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	var (
-		outputDir   string
-		format      string
-		resources   string
-		includeIDs  bool
-		concurrency int
+		outputDir        string
+		format           string
+		resources        string
+		includeIDs       bool
+		concurrency      int
+		downloadPackages bool
 	)
 
 	cmd := &cobra.Command{
@@ -79,14 +82,21 @@ Each object is saved as an individual YAML or JSON file. Server-generated fields
 (id, timestamps) are stripped by default for clean version-control diffs.
 
 Partial failures are tolerated — objects that fail to fetch are recorded in
-_failures.yaml and the backup continues.`,
+_failures.yaml and the backup continues.
+
+--download-packages additionally downloads the package binaries backing the
+"packages" resource, saved to packages/files/. Only packages hosted on the
+Jamf Cloud Distribution Service (JCDS) can be downloaded this way — packages
+on other distribution points (on-prem file share, third-party cloud) have no
+reliable download path and are skipped with a warning.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runBackup(cmd.Context(), cliCtx, backupOptions{
-				OutputDir:   outputDir,
-				Format:      format,
-				Resources:   resources,
-				IncludeIDs:  includeIDs,
-				Concurrency: concurrency,
+				OutputDir:        outputDir,
+				Format:           format,
+				Resources:        resources,
+				IncludeIDs:       includeIDs,
+				Concurrency:      concurrency,
+				DownloadPackages: downloadPackages,
 			})
 		},
 	}
@@ -96,17 +106,19 @@ _failures.yaml and the backup continues.`,
 	cmd.Flags().StringVar(&resources, "resources", "", "comma-separated resource filter (e.g., policies,scripts)")
 	cmd.Flags().BoolVar(&includeIDs, "include-ids", false, "retain server-generated IDs in output")
 	cmd.Flags().IntVar(&concurrency, "concurrency", backupDefaultConcurrency, fmt.Sprintf("max parallel API requests (ceiling %d)", backupMaxConcurrency))
+	cmd.Flags().BoolVar(&downloadPackages, "download-packages", false, "also download package binaries hosted on JCDS to packages/files/")
 	_ = cmd.MarkFlagRequired("output")
 
 	return cmd
 }
 
 type backupOptions struct {
-	OutputDir   string
-	Format      string
-	Resources   string
-	IncludeIDs  bool
-	Concurrency int
+	OutputDir        string
+	Format           string
+	Resources        string
+	IncludeIDs       bool
+	Concurrency      int
+	DownloadPackages bool
 }
 
 func runBackup(ctx context.Context, cliCtx *registry.CLIContext, opts backupOptions) error {
@@ -180,6 +192,11 @@ func runBackup(ctx context.Context, cliCtx *registry.CLIContext, opts backupOpti
 
 	var failures []backupFailure
 	totalExported := 0
+
+	// packageFilenames collects the "filename" field of every exported package
+	// object so --download-packages can attempt a JCDS download after the
+	// metadata pass completes, without a redundant re-fetch of the list.
+	var packageFilenames []string
 
 	for _, def := range defs {
 		// Create output subdirectory
@@ -257,6 +274,12 @@ func runBackup(ctx context.Context, cliCtx *registry.CLIContext, opts backupOpti
 			// Add _meta block
 			obj["_meta"] = newMeta(def.FilterName)
 
+			if opts.DownloadPackages && def.FilterName == "packages" {
+				if fn, ok := obj["filename"].(string); ok && fn != "" {
+					packageFilenames = append(packageFilenames, fn)
+				}
+			}
+
 			slug := SlugifyName(r.Name)
 			slug = DeduplicateSlug(slug, slugSeen)
 
@@ -271,6 +294,13 @@ func runBackup(ctx context.Context, cliCtx *registry.CLIContext, opts backupOpti
 			}
 			totalExported++
 		}
+	}
+
+	// Package binaries — opt-in, JCDS-only (see backupPackageFiles).
+	if opts.DownloadPackages {
+		n, errs := backupPackageFiles(ctx, client, opts, packageFilenames)
+		totalExported += n
+		failures = append(failures, errs...)
 	}
 
 	// wantFilter reports whether a named resource should be included given the
@@ -649,6 +679,67 @@ func backupInventoryPreloadCSV(ctx context.Context, client registry.HTTPClient, 
 		return 0, []backupFailure{{Resource: "inventory-preloads", Path: outPath, Error: err.Error()}}
 	}
 	return 1, nil
+}
+
+// backupPackageFiles downloads the actual package binaries named in
+// filenames, gated behind --download-packages. Only packages hosted on the
+// Jamf Cloud Distribution Service (JCDS) can be reliably downloaded — on-prem
+// file-share and third-party cloud distribution points require credentials
+// or network access this CLI cannot assume, so a filename with no match in
+// /v1/jcds/files is skipped with a warning rather than treated as a failure.
+func backupPackageFiles(ctx context.Context, client registry.HTTPClient, opts backupOptions, filenames []string) (int, []backupFailure) {
+	if len(filenames) == 0 {
+		return 0, nil
+	}
+
+	jcdsFiles, err := jcdsListFiles(ctx, client)
+	if err != nil {
+		return 0, []backupFailure{{Resource: "packages", Path: "/v1/jcds/files", Error: err.Error()}}
+	}
+	jcdsSet := make(map[string]struct{}, len(jcdsFiles))
+	for _, f := range jcdsFiles {
+		jcdsSet[f.FileName] = struct{}{}
+	}
+
+	filesDir := filepath.Join(opts.OutputDir, "packages", "files")
+	if err := os.MkdirAll(filesDir, 0o755); err != nil {
+		return 0, []backupFailure{{Resource: "packages", Path: filesDir, Error: err.Error()}}
+	}
+
+	var (
+		mu         sync.Mutex
+		failures   []backupFailure
+		downloaded int
+	)
+	sem := make(chan struct{}, clampConcurrency(opts.Concurrency))
+	var g errgroup.Group
+
+	for _, name := range filenames {
+		if _, onJCDS := jcdsSet[name]; !onJCDS {
+			fmt.Fprintf(os.Stderr, "warning: package %q is not hosted on JCDS; skipping download\n", name)
+			continue
+		}
+
+		sem <- struct{}{}
+		g.Go(func() error {
+			defer func() { <-sem }()
+
+			outPath := filepath.Join(filesDir, name)
+			if err := jcdsDownloadFile(ctx, client, name, outPath); err != nil {
+				mu.Lock()
+				failures = append(failures, backupFailure{Resource: "packages", Path: name, Error: err.Error()})
+				mu.Unlock()
+				return nil
+			}
+			mu.Lock()
+			downloaded++
+			mu.Unlock()
+			return nil
+		})
+	}
+	_ = g.Wait()
+
+	return downloaded, failures
 }
 
 // backupBlueprints exports all blueprints via the Platform SDK.
