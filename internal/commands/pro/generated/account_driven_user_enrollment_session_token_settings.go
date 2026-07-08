@@ -139,6 +139,9 @@ func newAccountDrivenUserEnrollmentSessionTokenSettingsUpdateCmd(ctx *registry.C
 					return merr
 				}
 				normalized = merged
+				if setStat, _ := os.Stdin.Stat(); setStat != nil && (setStat.Mode()&os.ModeCharDevice) == 0 {
+					fmt.Fprintln(os.Stderr, "warning: --set and piped stdin are mutually exclusive; ignoring stdin")
+				}
 			}
 			stat, _ := os.Stdin.Stat()
 			if len(flagSet) == 0 && (stat.Mode()&os.ModeCharDevice) == 0 {

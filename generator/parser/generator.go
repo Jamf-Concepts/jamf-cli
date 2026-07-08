@@ -1277,6 +1277,15 @@ func anyUpdateSet(r *Resource) bool {
 // server-computed / response-only fields the endpoint would reject on PUT.
 // Returns "nil" (meaning "keep everything") when the schema is open/unmodelled,
 // so an incompletely-specified body is never over-filtered.
+//
+// Assumption: the PUT request schema is assumed to enumerate every writable
+// field. This is an allow list — anything absent from the request schema is
+// dropped from the fetched body, even if the field is genuinely writable but
+// only declared on a separate GET/response schema. If a resource's PUT and
+// GET reference divergent schemas, a writable response-only field would be
+// silently lost on "--set" write-back where the old fetch-and-PUT-whole-body
+// flow preserved it. Spot-audit new update-set-enabled resources for this
+// divergence before relying on "--set" for round-tripping unfamiliar fields.
 func writableFilterLiteral(op *Operation, schemas map[string]*Schema) string {
 	if op == nil || op.RequestBody == nil || op.RequestBody.Schema == nil {
 		return "(*fieldFilter)(nil)"
@@ -2297,6 +2306,9 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 					return merr
 				}
 				normalized = merged
+				if setStat, _ := os.Stdin.Stat(); setStat != nil && (setStat.Mode()&os.ModeCharDevice) == 0 {
+					fmt.Fprintln(os.Stderr, "warning: --set and piped stdin are mutually exclusive; ignoring stdin")
+				}
 			}
 {{- end }}
 			stat, _ := os.Stdin.Stat()
