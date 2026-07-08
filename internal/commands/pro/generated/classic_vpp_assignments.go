@@ -39,7 +39,6 @@ func NewClassicVppAssignmentsCmd(ctx *registry.CLIContext) *cobra.Command {
 		APIPath:       "vppassignments",
 		SingularKey:   "vpp_assignment",
 		ResolveByList: true,
-		NoSubsetPut:   true,
 	}))
 
 	return cmd

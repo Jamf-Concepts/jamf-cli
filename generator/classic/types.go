@@ -15,7 +15,6 @@ type ClassicResource struct {
 	Operations       []string // ["list", "get", "create", "update", "delete"]
 	Lookups          []string // ["id", "name", "serialnumber", "macaddress", "udid"]
 	HasScope         bool     // true if the resource supports scope operations
-	NoSubsetPut      bool     // true if the resource does not support /subset/Scope PUT (use full-doc PUT)
 	IDPath           string   // path segment between base path and ID value; defaults to "id" (e.g. "groupid" → /accounts/groupid/{id})
 	IsConfigProfile  bool     // true for macOS and mobile device configuration profile resources
 	HasCustomPayload bool     // true only for osxconfigurationprofiles (supports --custom-payload-file)
