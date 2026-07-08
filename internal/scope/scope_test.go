@@ -3,7 +3,10 @@
 package scope
 
 import (
+	"context"
 	"encoding/xml"
+	"io"
+	"net/http"
 	"strings"
 	"testing"
 )
@@ -134,29 +137,41 @@ func TestScopeXML_MarshalRoundTrip(t *testing.T) {
 	}
 }
 
-func TestScopeUpdateXML_Marshal(t *testing.T) {
-	s := ScopeXML{
-		ComputerGroups: ScopeItemSlice{
-			Items:    []NamedItem{{Name: "Test"}},
-			ElemName: "computer_group",
-		},
+// mockPutClient records every request path it receives and returns a fixed
+// document body for GET.
+type mockPutClient struct {
+	getBody  string
+	requests []string // "METHOD path"
+}
+
+func (m *mockPutClient) Do(_ context.Context, method, path string, _ io.Reader) (*http.Response, error) {
+	m.requests = append(m.requests, method+" "+path)
+	if method == "GET" {
+		return &http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader(m.getBody))}, nil
 	}
-	envelope := scopeUpdateXML{
-		XMLName: xml.Name{Local: "policy"},
-		Scope:   s,
+	return &http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader("{}"))}, nil
+}
+
+func TestPutScope_UsesTopLevelEndpoint_NoSubsetPath(t *testing.T) {
+	client := &mockPutClient{getBody: `<policy><general><id>5</id></general><scope><all_computers>false</all_computers></scope></policy>`}
+	res := Resource{APIPath: "policies", SingularKey: "policy"}
+	s := &ScopeXML{AllComputers: true}
+
+	if err := PutScope(context.Background(), client, res, "5", s); err != nil {
+		t.Fatalf("PutScope: %v", err)
 	}
 
-	data, err := xml.Marshal(envelope)
-	if err != nil {
-		t.Fatalf("marshal: %v", err)
+	want := []string{"GET /JSSResource/policies/id/5", "PUT /JSSResource/policies/id/5"}
+	if len(client.requests) != len(want) {
+		t.Fatalf("requests = %v, want %v", client.requests, want)
 	}
-	xmlStr := string(data)
-
-	if !strings.Contains(xmlStr, "<policy>") {
-		t.Error("missing <policy> wrapper")
-	}
-	if !strings.Contains(xmlStr, "<scope>") {
-		t.Error("missing <scope>")
+	for i, r := range client.requests {
+		if r != want[i] {
+			t.Errorf("request[%d] = %q, want %q", i, r, want[i])
+		}
+		if strings.Contains(r, "subset") {
+			t.Errorf("request[%d] hit a /subset/ path — not proxied by the Jamf Platform Gateway: %q", i, r)
+		}
 	}
 }
 

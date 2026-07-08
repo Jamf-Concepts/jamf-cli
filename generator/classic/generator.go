@@ -377,9 +377,6 @@ func New{{ .GoName }}Cmd(ctx *registry.CLIContext) *cobra.Command {
 		{{- if scopeResolveByList . }}
 		ResolveByList: true,
 		{{- end }}
-		{{- if .NoSubsetPut }}
-		NoSubsetPut:   true,
-		{{- end }}
 	}))
 {{- end }}
 

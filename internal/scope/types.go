@@ -16,7 +16,6 @@ type Resource struct {
 	APIPath       string // URL segment under /JSSResource/, e.g. "policies"
 	SingularKey   string // XML root key for a single object, e.g. "policy"
 	ResolveByList bool   // when true, resolve name→ID by listing all (no /name/ endpoint)
-	NoSubsetPut   bool   // when true, PUT full document instead of /subset/Scope
 }
 
 // ScopeTarget holds a resolved flag name and value from a scope add/remove command.
@@ -209,12 +208,6 @@ type classicResourceXML struct {
 		Name string `xml:"name"`
 	} `xml:"general"`
 	Scope ScopeXML `xml:"scope"`
-}
-
-// scopeUpdateXML wraps a scope for a Classic API subset PUT.
-type scopeUpdateXML struct {
-	XMLName xml.Name
-	Scope   ScopeXML `xml:"scope"`
 }
 
 // flagToElemName maps a CLI flag to the XML child element name used when

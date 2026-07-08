@@ -37,7 +37,6 @@ func NewClassicVppInvitationsCmd(ctx *registry.CLIContext) *cobra.Command {
 		APIPath:       "vppinvitations",
 		SingularKey:   "vpp_invitation",
 		ResolveByList: true,
-		NoSubsetPut:   true,
 	}))
 
 	return cmd

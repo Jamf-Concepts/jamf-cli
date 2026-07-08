@@ -133,37 +133,13 @@ func resolveNameToID(ctx context.Context, client registry.HTTPClient, apiPath, s
 	return "", fmt.Errorf("%s %q not found", singularKey, name)
 }
 
-// PutScope writes an updated scope back to the Classic API. Uses the subset/Scope
-// endpoint by default; falls back to a full document PUT when res.NoSubsetPut is set.
+// PutScope writes an updated scope back to the Classic API. It fetches the
+// full resource document, splices in the updated scope, and PUTs the whole
+// document back to the top-level endpoint — the /subset/Scope shortcut is
+// skipped entirely, since the Jamf Platform Gateway's Classic API proxy does
+// not proxy /subset/* sub-resources (only top-level Classic paths), which
+// otherwise surfaces as a 403 on scope add/remove under platform gateway auth.
 func PutScope(ctx context.Context, client registry.HTTPClient, res Resource, id string, s *ScopeXML) error {
-	if res.NoSubsetPut {
-		return putFullDocument(ctx, client, res, id, s)
-	}
-
-	envelope := scopeUpdateXML{
-		XMLName: xml.Name{Local: res.SingularKey},
-		Scope:   *s,
-	}
-
-	data, err := xml.MarshalIndent(envelope, "", "  ")
-	if err != nil {
-		return fmt.Errorf("marshalling scope XML: %w", err)
-	}
-	xmlBody := append([]byte(xml.Header), data...)
-
-	path := fmt.Sprintf("/JSSResource/%s/id/%s/subset/Scope", res.APIPath, url.PathEscape(id))
-	resp, err := client.Do(ctx, "PUT", path, bytes.NewReader(xmlBody))
-	if err != nil {
-		return fmt.Errorf("updating scope: %w", err)
-	}
-	_ = resp.Body.Close()
-	return nil
-}
-
-// putFullDocument fetches the full resource XML, splices in the updated scope,
-// and PUTs the whole document back. Used for Classic API resources that do not
-// support the /subset/Scope endpoint (e.g. vppassignments).
-func putFullDocument(ctx context.Context, client registry.HTTPClient, res Resource, id string, s *ScopeXML) error {
 	fetchPath := fmt.Sprintf("/JSSResource/%s/id/%s", res.APIPath, url.PathEscape(id))
 	resp, err := client.Do(ctx, "GET", fetchPath, nil)
 	if err != nil {
