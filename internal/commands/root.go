@@ -27,6 +27,7 @@ import (
 	"github.com/Jamf-Concepts/jamf-cli/internal/exitcode"
 	"github.com/Jamf-Concepts/jamf-cli/internal/output"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
+	"github.com/Jamf-Concepts/jamf-cli/internal/security"
 	"github.com/Jamf-Concepts/jamf-cli/internal/spinner"
 	"github.com/Jamf-Concepts/jamf-cli/internal/xmlconv"
 	"github.com/Jamf-Concepts/jamfprotect-go-sdk/jamfprotect"
@@ -553,6 +554,8 @@ Use "jamf-cli protect" for Jamf Protect commands (endpoint security,
 analytics, threat prevention, and configuration).
 Use "jamf-cli school" for Jamf School commands (education device management,
 users, classes, and apps).
+Use "jamf-cli security" for Jamf Security Cloud commands (device risk,
+device lifecycle, and Shared Signals & Events stream configuration).
 
 Set JAMF_CLI_ARGS to prepend default flags to every invocation:
   export JAMF_CLI_ARGS='--quiet --no-input'
@@ -669,6 +672,9 @@ spinner and progress output (narrower than --quiet).`,
 			}
 			if product == "school" {
 				return resolveSchoolClient(cfg, cliCtx)
+			}
+			if product == "security" {
+				return resolveSecurityClient(cfg, cliCtx)
 			}
 
 			// Default: Jamf Pro auth flow
@@ -820,6 +826,9 @@ spinner and progress output (narrower than --quiet).`,
 	// Jamf School product namespace
 	cmd.AddCommand(newSchoolCmd(cliCtx))
 
+	// Jamf Security Cloud product namespace
+	cmd.AddCommand(newSecurityCmd(cliCtx))
+
 	// Jamf Platform namespace
 	cmd.AddCommand(newPlatformCmd(cliCtx))
 
@@ -894,7 +903,7 @@ func collectCommands(cmd *cobra.Command, prefix, product, group string) []comman
 
 		// Determine product for this child's subtree.
 		childProduct := product
-		if child.Name() == "pro" || child.Name() == "protect" || child.Name() == "school" || child.Name() == "platform" {
+		if child.Name() == "pro" || child.Name() == "protect" || child.Name() == "school" || child.Name() == "security" || child.Name() == "platform" {
 			childProduct = child.Name()
 		}
 
@@ -1002,6 +1011,8 @@ func resolveProduct(cmd *cobra.Command, cfg *config.Config) string {
 			return "protect"
 		case "school":
 			return "school"
+		case "security":
+			return "security"
 		case "pro":
 			return "pro"
 		}
@@ -1027,6 +1038,8 @@ func resolveProduct(cmd *cobra.Command, cfg *config.Config) string {
 		return "protect"
 	case "school":
 		return "school"
+	case "security":
+		return "security"
 	default:
 		return "pro"
 	}
@@ -1304,6 +1317,111 @@ func resolveSchoolClient(cfg *config.Config, cliCtx *registry.CLIContext) error 
 		)
 	}
 
+	return nil
+}
+
+// resolveSecurityClient constructs a Jamf Security Cloud client from
+// config/flags/env and assigns it to cliCtx.SecurityClient. Unlike Pro/
+// Protect/School, Security Cloud has one shared production host
+// (api.wandera.com) across all customers — tenancy is carried inside the
+// login JWT's customer_id claim, not the URL — so a URL is not required
+// here: security.NewClient falls back to its own defaults (api.wandera.com /
+// sse.jamf.com) when both are empty.
+//
+// Also unlike those products, Security provisions a separate application
+// ID/secret per API (Risk, Device Lifecycle, SSE) — any subset may be
+// configured, and only commands that touch an unconfigured API fail (with a
+// "run security setup" hint), rather than failing here for the whole product.
+func resolveSecurityClient(cfg *config.Config, cliCtx *registry.CLIContext) error {
+	profileName := profile
+	if profileName == "" {
+		profileName = os.Getenv("JAMF_PROFILE")
+	}
+
+	url := serverURL
+	if url == "" {
+		url = os.Getenv("JAMFSECURITY_URL")
+	}
+	sseURL := os.Getenv("JAMFSECURITY_SSE_URL")
+
+	riskID, riskSecret := os.Getenv("JAMFSECURITY_RISK_CLIENT_ID"), os.Getenv("JAMFSECURITY_RISK_CLIENT_SECRET")
+	lifecycleID, lifecycleSecret := os.Getenv("JAMFSECURITY_LIFECYCLE_CLIENT_ID"), os.Getenv("JAMFSECURITY_LIFECYCLE_CLIENT_SECRET")
+	sseID, sseSecret := os.Getenv("JAMFSECURITY_SSE_CLIENT_ID"), os.Getenv("JAMFSECURITY_SSE_CLIENT_SECRET")
+
+	// Fill any still-empty values from the config profile.
+	if p, _, err := config.GetProfile(cfg, profileName); err == nil {
+		if url == "" {
+			url = p.URL
+		}
+		if sseURL == "" {
+			sseURL = p.SSEURL
+		}
+
+		var resolveErr error
+		fillPair := func(scope string, id, secret *string, profileID, profileSecret string) {
+			if resolveErr != nil {
+				return
+			}
+			// Treat id/secret as an atomic pair: if one half already came
+			// from the environment and the other would be backfilled from
+			// the profile, refuse rather than risk splicing together a
+			// mismatched credential pair that surfaces as an opaque 401.
+			idFromEnv, secretFromEnv := *id != "", *secret != ""
+			if idFromEnv && !secretFromEnv && profileSecret != "" {
+				resolveErr = fmt.Errorf("JAMFSECURITY_%s_CLIENT_ID is set via env but the client secret would come from the config profile; set both via env or neither", scope)
+				return
+			}
+			if secretFromEnv && !idFromEnv && profileID != "" {
+				resolveErr = fmt.Errorf("JAMFSECURITY_%s_CLIENT_SECRET is set via env but the client ID would come from the config profile; set both via env or neither", scope)
+				return
+			}
+			if *id == "" && profileID != "" {
+				resolved, err := config.ResolveSecret(profileID)
+				if err != nil {
+					resolveErr = fmt.Errorf("resolving credential from profile: %w", err)
+					return
+				}
+				*id = resolved
+			}
+			if *secret == "" && profileSecret != "" {
+				resolved, err := config.ResolveSecret(profileSecret)
+				if err != nil {
+					resolveErr = fmt.Errorf("resolving credential from profile: %w", err)
+					return
+				}
+				*secret = resolved
+			}
+		}
+		fillPair("RISK", &riskID, &riskSecret, p.RiskClientID, p.RiskClientSecret)
+		fillPair("LIFECYCLE", &lifecycleID, &lifecycleSecret, p.LifecycleClientID, p.LifecycleClientSecret)
+		fillPair("SSE", &sseID, &sseSecret, p.SSEClientID, p.SSEClientSecret)
+		if resolveErr != nil {
+			return resolveErr
+		}
+	}
+
+	if riskID == "" && lifecycleID == "" && sseID == "" {
+		return exitcode.New(exitcode.Usage, "no Jamf Security Cloud credentials configured: run 'jamf-cli security setup', or set JAMFSECURITY_RISK_CLIENT_ID/SECRET, JAMFSECURITY_LIFECYCLE_CLIENT_ID/SECRET, and/or JAMFSECURITY_SSE_CLIENT_ID/SECRET env vars")
+	}
+
+	if strings.HasPrefix(url, "http://") || strings.HasPrefix(sseURL, "http://") {
+		fmt.Fprintln(os.Stderr, "WARNING: using HTTP (not HTTPS) — credentials will be sent in plaintext")
+	}
+
+	stdClient := &http.Client{Timeout: 60 * time.Second}
+	if shouldShowSpinner() {
+		stdClient.Transport = &spinnerTransport{inner: http.DefaultTransport}
+	}
+
+	cliCtx.SecurityClient = security.NewClient(
+		security.WithUserAgent("jamf-cli/"+cliVersion),
+		security.WithHTTPClient(stdClient),
+		security.WithAPIBaseURL(url),
+		security.WithSSEBaseURL(sseURL),
+		security.WithRiskCredentials(riskID, riskSecret),
+		security.WithLifecycleCredentials(lifecycleID, lifecycleSecret),
+		security.WithSSECredentials(sseID, sseSecret),
+	)
 	return nil
 }
 

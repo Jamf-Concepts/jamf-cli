@@ -1,4 +1,4 @@
-.PHONY: build test clean generate sync-specs sync-spec sync-platform-specs install lint lint-dead verify-generated verify-platform-specs verify-site verify-site-output smoke smoke-seed smoke-cleanup release-check site
+.PHONY: build test clean generate sync-specs sync-spec sync-platform-specs sync-security-specs install lint lint-dead verify-generated verify-platform-specs verify-security-specs verify-site verify-site-output smoke smoke-seed smoke-cleanup release-check site
 
 # Build variables
 VERSION         ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
@@ -140,6 +140,28 @@ sync-platform-specs:
 	@$(MAKE) generate
 	@echo "Done! Review changes with: git diff specs/platform internal/commands/platform/generated"
 
+# Copy private Jamf Security Cloud specs (Risk, Device Lifecycle, Shared
+# Signals & Events) from the gitignored specs/.security-source/ drop location
+# into the committed specs/security/ directory. Like platform, these ARE fed
+# into the code generator — generator/parser/security.go hand-maps each of
+# the twelve known operations (too few and irregular for tag/family
+# auto-detection) via the securityOpsByFile map, and generator/security emits
+# internal/commands/security/generated/. Only "security setup" is
+# hand-written (internal/commands/security_setup.go); adding a new endpoint
+# needs both an updated spec here and a new securityOpsByFile entry, then
+# `make generate`.
+sync-security-specs:
+	@if [ ! -d "specs/.security-source" ]; then \
+		echo "Error: specs/.security-source/ not found"; \
+		echo "Drop Jamf Security Cloud *.json specs into specs/.security-source/ first."; \
+		exit 1; \
+	fi
+	@mkdir -p specs/security
+	@rm -f specs/security/*.json
+	@cp specs/.security-source/*.json specs/security/
+	@echo "Copied $$(ls specs/security/*.json | wc -l | tr -d ' ') security spec(s) to specs/security/"
+	@echo "Done! Review changes with: git diff specs/security"
+
 # Generate CLI commands from OpenAPI specs and Classic API manifest.
 # If JAMF_MONOLITH_SPEC is set, the monolith is split into per-resource spec
 # files before parsing, preserving the existing filename layout.
@@ -221,6 +243,25 @@ verify-platform-specs:
 		exit 1; \
 	fi
 	@echo "Platform specs and generated code are up to date."
+
+# Verify security specs and generated security code are in sync (CI-safe; a
+# no-op pass when specs/.security-source/ isn't present, same as
+# verify-platform-specs)
+verify-security-specs:
+	@$(MAKE) sync-security-specs > /dev/null 2>&1; true
+	@if ! git diff --quiet -- specs/security/; then \
+		echo "Error: specs/security/ is stale — run 'make sync-security-specs' and commit"; \
+		git diff --stat -- specs/security/; \
+		exit 1; \
+	fi
+	@ls internal/commands/security/generated/*.go | grep -v '_test\.go' | xargs rm -f
+	@$(MAKE) generate > /dev/null
+	@if ! git diff --quiet -- internal/commands/security/generated/; then \
+		echo "Error: generated security code is stale — run 'make generate' and commit"; \
+		git diff --stat -- internal/commands/security/generated/; \
+		exit 1; \
+	fi
+	@echo "Security specs and generated code are up to date."
 
 # Smoke test against a real Jamf Pro instance (reads from default config profile)
 smoke:

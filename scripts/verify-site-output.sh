@@ -238,7 +238,8 @@ llms = open(sys.argv[2]).read()
 html = open(sys.argv[3]).read()
 
 labels = {"platform": "Jamf Platform", "pro": "Jamf Pro",
-          "protect": "Jamf Protect", "school": "Jamf School"}
+          "protect": "Jamf Protect", "school": "Jamf School",
+          "security": "Jamf Security Cloud"}
 products = sorted({c.get("product") for c in cmds["commands"] if c.get("product")})
 
 m = re.search(r'<section id="faq".*?</section>', html, re.DOTALL)

@@ -546,15 +546,17 @@ func newConfigValidateCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			}
 
 			// 5-7. Validate each profile
-			validAuthMethods := map[string]bool{"token": true, "oauth2": true, "platform": true}
+			validAuthMethods := map[string]bool{"token": true, "oauth2": true, "platform": true, "security": true}
 
 			for _, name := range sortedProfileNames(&cfg) {
 				p := cfg.Profiles[name]
 
-				// URL
+				// URL — required for every product except Security, which has
+				// one shared global host (api.wandera.com) and treats URL as an
+				// optional override rather than a per-tenant address.
 				if p.URL != "" {
 					pass(name, "url")
-				} else {
+				} else if p.Product != "security" {
 					fail(name, "url", "missing")
 				}
 
@@ -584,6 +586,14 @@ func newConfigValidateCmd(cliCtx *registry.CLIContext) *cobra.Command {
 					checkSecretField(&checks, name, "client-secret", p.ClientSecret)
 				case "token":
 					checkSecretField(&checks, name, "token", p.Token)
+				case "security":
+					// Any subset of the three Risk/Lifecycle/SSE credential pairs
+					// may be configured; only require that at least one is.
+					if p.RiskClientID == "" && p.LifecycleClientID == "" && p.SSEClientID == "" {
+						fail(name, "credentials", "no risk-client-id, lifecycle-client-id, or sse-client-id configured")
+					} else {
+						pass(name, "credentials")
+					}
 				}
 
 				// Optional connectivity check

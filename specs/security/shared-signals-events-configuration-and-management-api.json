@@ -1,0 +1,669 @@
+{
+    "openapi": "3.0.3",
+    "info": {
+        "version": "1.0.0",
+        "title": "Jamf Security Cloud API Reference Documentation: Shared Signals & Events",
+        "description": "HTTP API provided by Jamf (Event Transmitter) to be used by Event Receivers to queryand update the Event Stream configuration and status, and to trigger verification.\n\n[OpenID Spec](https://openid.net/specs/openid-sse-framework-1_0.html#management)",
+        "x-jamf:contentType": "Developer Docs",
+        "x-jamf:portal": "Jamf Security Cloud"
+    },
+    "x-readme": {
+        "explorer-enabled": false,
+        "proxy-enabled": true
+    },
+    "paths": {
+        "/sse/.well-known": {
+            "get": {
+                "tags": [
+                    "StreamConfiguration"
+                ],
+                "description": "HTTP GET request to retrieve the Transmitter Configuration information including all necessary endpoints and public key location information.",
+                "responses": {
+                    "200": {
+                        "description": "A set of Claims about the Transmitter's configuration,including all necessary endpoints and public key location information",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/TransmitterConfiguration"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/sse/v1/stream": {
+            "get": {
+                "tags": [
+                    "StreamConfiguration"
+                ],
+                "description": "HTTP GET request to retrieve the Stream Configuration of an event stream. Upon receiving a valid request the Event Transmitter responds with an OK response containing a JSON representation of the stream’s configuration in the body.\n\n[Spec](https://openid.net/specs/openid-sse-framework-1_0.html#reading-a-streams-configuration)",
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The Event Stream's configuration",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/StreamConfiguration"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/BadRequest"
+                    },
+                    "403": {
+                        "description": "The Event Receiver is not allowed to read the stream configuration.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "There is no Event Stream configured for this Event Receiver.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "tags": [
+                    "StreamManagement"
+                ],
+                "description": "HTTP POST request to update the Stream Configuration of an event stream. The body contains a JSON representation of the updated configuration. Upon receiving a valid request the Event Transmitter responds with an OK response containing a JSON representation of the updated stream configuration in the body.\nThe full set of editable properties must be present in the POST body, not only the ones that are specifically intended to be changed. Missing properties SHOULD be interpreted as requested to be deleted. Event Receivers should read the configuration first, modify the JSON representation, then make an update request.\n\nProperties that cannot be updated MAY be present, but they MUST match the expected value.\n\n[Spec](https://openid.net/specs/openid-sse-framework-1_0.html#updating-a-streams-configuration)",
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "requestBody": {
+                    "description": "Request parameters",
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/StreamConfiguration"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "The Event Stream's updated configuration",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/StreamConfiguration"
+                                }
+                            }
+                        }
+                    },
+                    "202": {
+                        "description": "The update request has been accepted, but not processed.\nReceiver MAY try the same request later in order to get processing result.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "$ref": "#/components/responses/BadRequest"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthorized"
+                    },
+                    "403": {
+                        "description": "The Event Receiver is not allowed to update the stream configuration.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "There is no Event Stream configured for this Event Receiver.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "tags": [
+                    "StreamManagement"
+                ],
+                "description": "HTTP DELETE request to remove the Stream Configuration of an event stream. Upon receiving a request the Event Transmitter responds with an OK response if the configuration was successfully removed.",
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Upon receiving a request the Event Transmitter responds with an OK response if the configuration was successfully removed."
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthorized"
+                    },
+                    "403": {
+                        "description": "The Event Receiver is not allowed to update the stream configuration.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/sse/v1/status": {
+            "get": {
+                "tags": [
+                    "StreamConfiguration"
+                ],
+                "description": "HTTP GET request to retrieve the status of an Event Stream.\n\n[Spec](https://openid.net/specs/openid-sse-framework-1_0.html#reading-a-streams-status)",
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Upon receiving a valid request the Event Transmitter responds with an OK response containing a JSON representation of the Stream Status",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/StreamStatus"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthorized"
+                    },
+                    "403": {
+                        "description": "The Event Receiver is not allowed to read this stream's status.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "There is no Event Stream configured for this Event Receiver, or the Subject specified is invalid, or the Receiver is not authorized to get status for the specified Subject.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "tags": [
+                    "StreamManagement"
+                ],
+                "description": "HTTP POST request to update an Event Stream's status\n\n[Spec](https://openid.net/specs/openid-sse-framework-1_0-ID1.html#updating-a-streams-status)",
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "requestBody": {
+                    "description": "Request parameters",
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/StreamStatus"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Event Stream status successfully updated",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/StreamStatus"
+                                }
+                            }
+                        }
+                    },
+                    "202": {
+                        "description": "The update request has been accepted, but not processed.\nReceiver MAY try the same request later in order to get processing result."
+                    },
+                    "400": {
+                        "$ref": "#/components/responses/BadRequest"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthorized"
+                    },
+                    "403": {
+                        "description": "The Event Receiver is not allowed to update the stream status.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "There is no Event Stream configured for this Event Receiver,\nor an invalid Subject is specified.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/sse/v1/verification": {
+            "post": {
+                "tags": [
+                    "StreamConfiguration"
+                ],
+                "description": "HTTP POST request for a verification event to be sent over an Event Stream.",
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "requestBody": {
+                    "description": "Optional request parameters",
+                    "required": false,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/VerificationParameters"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "204": {
+                        "description": "HTTP POST request for verification event was successfully received. A successful response from a POST to the Verification Endpoint does not indicate that the verification event was transmitted successfully, only that the Event Transmitter has transmitted the event or will do so at some point in the future."
+                    },
+                    "400": {
+                        "$ref": "#/components/responses/BadRequest"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/Unauthorized"
+                    },
+                    "429": {
+                        "$ref": "#/components/responses/TooManyRequests"
+                    }
+                }
+            }
+        },
+        "/sse/v1/jwks.json": {
+            "get": {
+                "tags": [
+                    "StreamConfiguration"
+                ],
+                "description": "HTTP GET request to retrieve the JSON Web Key Set of the Event Transmitter.\n\n[Spec](https://datatracker.ietf.org/doc/html/rfc7517)",
+                "responses": {
+                    "200": {
+                        "description": "[Spec](https://www.rfc-editor.org/rfc/rfc8936.html#name-polling-http-response)",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Jwks"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "components": {
+        "securitySchemes": {
+            "BearerAuth": {
+                "type": "http",
+                "scheme": "bearer"
+            }
+        },
+        "parameters": {
+            "issuer": {
+                "name": "issuer",
+                "example": "tenant-a",
+                "in": "path",
+                "required": true,
+                "description": "Using path components enables supporting multiple issuers per host. This is required in some multi-tenant hosting configurations. This use of .well-known is for supporting multiple issuers per host; unlike its use in [RFC5785](https://openid.net/specs/openid-sse-framework-1_0.html#RFC5785), it does not provide general information about the host.",
+                "schema": {
+                    "type": "string"
+                }
+            }
+        },
+        "schemas": {
+            "TransmitterConfiguration": {
+                "type": "object",
+                "title": "Transmitter Configuration Response",
+                "description": "Transmitters have metadata describing their configuration.\n\n[OpenID Spec](https://openid.net/specs/openid-sse-framework-1_0.html#discovery-meta)\n",
+                "required": [
+                    "issuer",
+                    "jwks_uri"
+                ],
+                "properties": {
+                    "issuer": {
+                        "type": "string",
+                        "description": "URL using the https scheme with no query or fragment component that the Transmitter asserts as its Issuer Identifier. This MUST be identical to the iss claim value in Security Event Tokens issued from this Transmitter.",
+                        "format": "uri",
+                        "example": "https://most-secure.com"
+                    },
+                    "jwks_uri": {
+                        "type": "string",
+                        "description": "URL of the Transmitter's [JSON Web Key Set](https://openid.net/specs/openid-sse-framework-1_0.html#RFC7517) document. This contains the signing key(s) the Receiver uses to validate signatures from the Transmitter.",
+                        "format": "uri",
+                        "example": "https://transmitter.most-secure.com/jwks.json"
+                    },
+                    "delivery_methods_supported": {
+                        "type": "array",
+                        "items": {
+                            "type": "string",
+                            "format": "uri"
+                        },
+                        "description": "List of supported delivery method URIs. Recommended.",
+                        "example": [
+                            "https://schemas.openid.net/secevent/risc/delivery-method/push",
+                            "https://schemas.openid.net/secevent/risc/delivery-method/poll"
+                        ]
+                    },
+                    "configuration_endpoint": {
+                        "type": "string",
+                        "format": "uri",
+                        "description": "The URL of the Configuration Endpoint.",
+                        "example": "https://transmitter.most-secure.com/stream"
+                    },
+                    "status_endpoint": {
+                        "type": "string",
+                        "format": "uri",
+                        "description": "The URL of the Status Endpoint.",
+                        "example": "https://transmitter.most-secure.com/status"
+                    },
+                    "verification_endpoint": {
+                        "type": "string",
+                        "format": "uri",
+                        "description": "The URL of the Verification Endpoint.",
+                        "example": "https://transmitter.most-secure.com/verification"
+                    },
+                    "critical_subject_members": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "description": "List of member names in a Complex Subject which, if present in a Subject Member in an event, MUST be interpreted by a Receiver.",
+                        "example": [
+                            "tenant",
+                            "user"
+                        ]
+                    }
+                }
+            },
+            "StreamConfiguration": {
+                "type": "object",
+                "title": "Event Stream Configuration",
+                "description": "JSON object representing an Event Stream's configuration.\n\n[Spec](https://openid.net/specs/openid-sse-framework-1_0.html#stream-config)",
+                "required": [
+                    "events_requested",
+                    "delivery"
+                ],
+                "properties": {
+                    "iss": {
+                        "type": "string",
+                        "description": "Read-Only.\nA URL using the https scheme with no query or fragment component that the Transmitter asserts as its Issuer Identifier. This MUST be identical to the iss Claim value in Security Event Tokens issued from this Transmitter.",
+                        "format": "uri",
+                        "example": "https://most-secure.com"
+                    },
+                    "aud": {
+                        "type": "string",
+                        "format": "uri",
+                        "description": "Read-Only.\nA string or an array of strings containing an audience claim as defined in\n[JSON Web Token (JWT)](https://openid.net/specs/openid-sse-framework-1_0.html#RFC7519) that identifies the Event Receiver(s) for the Event Stream. This property cannot be updated. If multiple Receivers are specified then the Transmitter SHOULD know that these Receivers are the same entity.",
+                        "example": "https://popular-app.com"
+                    },
+                    "events_supported": {
+                        "type": "array",
+                        "items": {
+                            "type": "string",
+                            "format": "uri"
+                        },
+                        "description": "Read-Only.\nAn array of URIs identifying the set of events supported by the Transmitter for this Receiver.\nIf omitted, Event Transmitters SHOULD make this set available to the Event Receiver via some other means\n(e.g. publishing it in online documentation).",
+                        "example": [
+                            "https://schemas.openid.net/secevent/caep/event-type/session-revoked",
+                            "https://schemas.openid.net/secevent/risc/event-type/credential-compromise"
+                        ]
+                    },
+                    "events_requested": {
+                        "type": "array",
+                        "items": {
+                            "type": "string",
+                            "format": "uri"
+                        },
+                        "description": "Read-Write.\nAn array of URIs identifying the set of events that the Receiver requested.\nA Receiver SHOULD request only the events that it understands and it can act on.\nThis is configurable by the Receiver.",
+                        "example": [
+                            "https://schemas.openid.net/secevent/risc/event-type/credential-compromise"
+                        ]
+                    },
+                    "events_delivered": {
+                        "type": "array",
+                        "items": {
+                            "type": "string",
+                            "format": "uri"
+                        },
+                        "description": "Read-Only.\nAn array of URIs which is the intersection of events_supported and events_requested.\nThese events MAY be delivered over the Event Stream.",
+                        "example": [
+                            "https://schemas.openid.net/secevent/risc/event-type/credential-compromise"
+                        ]
+                    },
+                    "delivery": {
+                        "example": {
+                            "method": "https://schemas.openid.net/secevent/risc/delivery-method/push",
+                            "endpoint_url": null
+                        },
+                        "description": "Read-Write.\nA JSON object containing a set of name/value pairs specifying configuration parameters for the SET delivery method. The actual delivery method is identified by the special key method with the value being a URI as defined in [Section 11.2.1](https://openid.net/specs/openid-sse-framework-1_0.html#delivery-meta).",
+                        "oneOf": [
+                            {
+                                "$ref": "#/components/schemas/PushDeliveryMethod"
+                            }
+                        ],
+                        "discriminator": {
+                            "propertyName": "method",
+                            "mapping": {
+                                "https://schemas.openid.net/secevent/risc/delivery-method/push": "#/components/schemas/PushDeliveryMethod"
+                            }
+                        }
+                    },
+                    "min_verification_interval": {
+                        "type": "integer",
+                        "description": "Read-Only.\nAn integer indicating the minimum amount of time in seconds that must pass in between verification requests.\nIf an Event Receiver submits verification requests more frequently than this, the Event Transmitter MAY respond with a 429 status code. An Event Transmitter SHOULD NOT respond with a 429 status code if an Event Receiver is not exceeding this frequency."
+                    },
+                    "format": {
+                        "type": "string",
+                        "description": "Read-Write.\nThe Subject Identifier Format that the Receiver wants for the events.\nIf not set then the Transmitter might decide to use a type that discloses more information than necessary."
+                    }
+                }
+            },
+            "PushDeliveryMethod": {
+                "type": "object",
+                "example": {
+                    "method": "https://schemas.openid.net/secevent/risc/delivery-method/push",
+                    "endpoint_url": "https://receiver.example.com/push"
+                },
+                "required": [
+                    "method",
+                    "endpoint_url"
+                ],
+                "properties": {
+                    "method": {
+                        "default": "https://schemas.openid.net/secevent/risc/delivery-method/push",
+                        "type": "string"
+                    },
+                    "endpoint_url": {
+                        "type": "string",
+                        "description": "The URL where events are pushed through HTTP POST. This is set by the Receiver.",
+                        "format": "uri"
+                    },
+                    "authorization_header": {
+                        "type": "string",
+                        "description": "The HTTP Authorization header that the Transmitter MUST set with each event delivery,\nif the configuration is present. The value is optional and it is set by the Receiver."
+                    }
+                }
+            },
+            "StreamStatus": {
+                "type": "object",
+                "properties": {
+                    "status": {
+                        "type": "string",
+                        "example": "disabled",
+                        "enum": [
+                            "enabled",
+                            "paused",
+                            "disabled"
+                        ],
+                        "description": "REQUIRED. The status of the stream. Values can be one of:\n\nenabled:\n  The Transmitter MUST transmit events over the stream,\n  according to the stream’s configured delivery method.\n\npaused:\n  The Transmitter MUST NOT transmit events over the stream.\n  The transmitter will hold any events it would have transmitted while paused,\n  and SHOULD transmit them when the stream’s status becomes enabled.\n  If a Transmitter holds successive events that affect the same Subject Principal,\n  then the Transmitter MUST make sure that those events are transmitted in\n  the order of time that they were generated OR the Transmitter MUST send\n  only the last events that do not require the previous events affecting\n  the same Subject Principal to be processed by the Receiver,\n  because the previous events are either cancelled by the later events or\n  the previous events are outdated.\n\ndisabled:\n  The Transmitter MUST NOT transmit events over the stream,\n  and will not hold any events for later transmission."
+                    },
+                    "reason": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "status"
+                ]
+            },
+            "VerificationParameters": {
+                "type": "object",
+                "properties": {
+                    "state": {
+                        "type": "string",
+                        "description": "OPTIONAL. An arbitrary string that the Event Transmitter\nMUST echo back to the Event Receiver in the verification\nevent’s payload. Event Receivers MAY use the value of this\nparameter to correlate a verification event with a\nverification request. If the verification event is\ninitiated by the transmitter then this parameter MUST not\nbe set.\n"
+                    }
+                }
+            },
+            "Jwks": {
+                "type": "object",
+                "properties": {
+                    "keys": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "example": {
+                                "alg": "ES256",
+                                "crv": "P-256",
+                                "kid": "transmitter-ES256-001",
+                                "kty": "EC",
+                                "x": "Js-Hzhls17UL1JI2EL0AB6Ta2B282me2niBGc0s1-Lo",
+                                "y": "PCsSWYCixwZgEyYKbGDFpzaooP6_Z-4CEfV62cbNBQw"
+                            }
+                        }
+                    }
+                }
+            },
+            "Error": {
+                "type": "object",
+                "properties": {
+                    "code": {
+                        "type": "string"
+                    },
+                    "message": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "code",
+                    "message"
+                ]
+            }
+        },
+        "responses": {
+            "BadRequest": {
+                "description": "Request body cannot be parsed or the request is otherwise invalid",
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "$ref": "#/components/schemas/Error"
+                        }
+                    }
+                }
+            },
+            "Unauthorized": {
+                "description": "Authorization failed or is missing",
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "$ref": "#/components/schemas/Error"
+                        }
+                    }
+                }
+            },
+            "Forbidden": {
+                "description": "User not authorized to access resource",
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "$ref": "#/components/schemas/Error"
+                        }
+                    }
+                }
+            },
+            "NotFound": {
+                "description": "Resource not found",
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "$ref": "#/components/schemas/Error"
+                        }
+                    }
+                }
+            },
+            "TooManyRequests": {
+                "description": "Event Receiver is sending too many requests",
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "$ref": "#/components/schemas/Error"
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "tags": [
+        {
+            "name": "StreamConfiguration",
+            "description": "[Spec](https://openid.net/specs/openid-sse-framework-1_0.html#management) Stream Management endpoints provided by an Event Transmitter so that Event Receivers may configure Event Streams."
+        }
+    ]
+}

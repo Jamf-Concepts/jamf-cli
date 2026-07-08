@@ -23,17 +23,30 @@ type Config struct {
 
 // Profile represents a server profile for a Jamf product.
 type Profile struct {
-	Product             string         `yaml:"product,omitempty"` // "pro" (default), "protect", or "school"
-	URL                 string         `yaml:"url"`
-	AuthMethod          string         `yaml:"auth-method"` // token, oauth2, platform, apikey
-	Token               string         `yaml:"token,omitempty"`
-	ClientID            string         `yaml:"client-id,omitempty"`
-	ClientSecret        string         `yaml:"client-secret,omitempty"`
-	TenantID            string         `yaml:"tenant-id,omitempty"`    // platform auth
-	PlatformURL         string         `yaml:"platform-url,omitempty"` // school: separate gateway URL for Platform API
-	NetworkID           string         `yaml:"network-id,omitempty"`   // school only
-	APIKey              string         `yaml:"api-key,omitempty"`      // school only
-	DestructiveCooldown *time.Duration `yaml:"destructive-cooldown,omitempty"`
+	Product      string `yaml:"product,omitempty"` // "pro" (default), "protect", "school", or "security"
+	URL          string `yaml:"url"`
+	AuthMethod   string `yaml:"auth-method"` // token, oauth2, platform, apikey, security
+	Token        string `yaml:"token,omitempty"`
+	ClientID     string `yaml:"client-id,omitempty"`
+	ClientSecret string `yaml:"client-secret,omitempty"`
+	TenantID     string `yaml:"tenant-id,omitempty"`    // platform auth
+	PlatformURL  string `yaml:"platform-url,omitempty"` // school: separate gateway URL for Platform API
+	NetworkID    string `yaml:"network-id,omitempty"`   // school only
+	APIKey       string `yaml:"api-key,omitempty"`      // school only
+	// Security (Jamf Security Cloud) only: each of the Risk, Device Lifecycle,
+	// and Shared Signals & Events APIs is provisioned as its own "Security
+	// Integration" with its own application ID/secret, so — unlike every other
+	// product's single ClientID/ClientSecret pair — Security needs up to
+	// three independent pairs. Any subset may be configured; commands for an
+	// unconfigured API fail with a "run security setup" hint.
+	SSEURL                string         `yaml:"sse-url,omitempty"` // separate host for Shared Signals & Events
+	RiskClientID          string         `yaml:"risk-client-id,omitempty"`
+	RiskClientSecret      string         `yaml:"risk-client-secret,omitempty"`
+	LifecycleClientID     string         `yaml:"lifecycle-client-id,omitempty"`
+	LifecycleClientSecret string         `yaml:"lifecycle-client-secret,omitempty"`
+	SSEClientID           string         `yaml:"sse-client-id,omitempty"`
+	SSEClientSecret       string         `yaml:"sse-client-secret,omitempty"`
+	DestructiveCooldown   *time.Duration `yaml:"destructive-cooldown,omitempty"`
 }
 
 const (

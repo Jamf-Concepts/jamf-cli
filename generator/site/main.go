@@ -122,7 +122,7 @@ func main() {
 func renderLLMSTxt(d siteData) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "# jamf-cli\n\n")
-	fmt.Fprintf(&b, "> Unified, scriptable command-line interface for Jamf Platform API Gateway, Jamf Pro, Jamf Protect, and Jamf School. %s commands. Full API coverage. Zero clicks.\n\n", thousands(d.CommandCount))
+	fmt.Fprintf(&b, "> Unified, scriptable command-line interface for Jamf Platform API Gateway, Jamf Pro, Jamf Protect, Jamf School, and Jamf Security Cloud. %s commands. Full API coverage. Zero clicks.\n\n", thousands(d.CommandCount))
 	fmt.Fprintf(&b, "jamf-cli is the official CLI for managing Apple devices via Jamf. One binary, three auth methods (OAuth2 client credentials, bearer token, Platform Gateway), full coverage of every Jamf API surface. Auto-generated from the live binary on every deploy — see commands.json for build metadata (version, generation timestamp).\n\n")
 
 	fmt.Fprintf(&b, "## Install\n\n")
@@ -146,6 +146,7 @@ func renderLLMSTxt(d siteData) string {
 		{"pro", "Jamf Pro", "device management for macOS, iOS/iPadOS, tvOS — computers, mobile devices, configuration profiles, scripts, packages, MDM commands, classic and modern APIs"},
 		{"protect", "Jamf Protect", "endpoint security — analytics, plans, alerts, exception sets, telemetry, prevent lists, ULF filters"},
 		{"school", "Jamf School", "education-focused MDM — devices, classes, locations, blueprints, DDM reports"},
+		{"security", "Jamf Security Cloud", "device risk, device lifecycle, and Shared Signals & Events stream configuration"},
 	} {
 		fmt.Fprintf(&b, "- **%s** (%d commands): %s\n", p.label, counts[p.key], p.summary)
 	}
@@ -206,12 +207,13 @@ func renderLLMSFullTxt(d siteData) string {
 		byProduct[p][g] = append(byProduct[p][g], c)
 	}
 
-	productOrder := []string{"platform", "pro", "protect", "school", "core"}
+	productOrder := []string{"platform", "pro", "protect", "school", "security", "core"}
 	productLabels := map[string]string{
 		"platform": "Jamf Platform",
 		"pro":      "Jamf Pro",
 		"protect":  "Jamf Protect",
 		"school":   "Jamf School",
+		"security": "Jamf Security Cloud",
 		"core":     "Core / Shared",
 	}
 

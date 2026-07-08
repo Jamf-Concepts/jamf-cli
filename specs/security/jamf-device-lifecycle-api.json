@@ -1,0 +1,280 @@
+{
+    "openapi": "3.0.1",
+    "servers": [
+        {
+            "url": "https://api.wandera.com",
+            "description": "Production server"
+        }
+    ],
+    "info": {
+        "title": "Jamf Security Cloud API Reference Documentation: Device Lifecycle",
+        "version": "1.0",
+        "license": {
+            "name": "Proprietary",
+            "url": "https://www.jamf.com/terms-of-use/"
+        },
+        "x-jamf:contentType": "Developer Docs",
+        "x-jamf:portal": "Jamf Security Cloud"
+    },
+    "tags": [
+        {
+            "name": "auth-api",
+            "description": "Authentication API"
+        },
+        {
+            "name": "lifecycle-api",
+            "description": "Device Lifecycle API"
+        }
+    ],
+    "paths": {
+        "/v1/login": {
+            "post": {
+                "tags": [
+                    "Authorization API"
+                ],
+                "summary": "Generate JWT token",
+                "description": "Endpoint for generating expiring JWT token. Token can be used for requests against Jamf Security API",
+                "operationId": "login",
+                "parameters": [
+                    {
+                        "name": "authorization",
+                        "in": "header",
+                        "description": "Basic auth header containing base64 hash of clientId and clientSecret. Hash is calculated from string pair \"clientId:clientSecret\"",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "A response containing expiring JWT token that can be used for requests against Jamf Security API",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/LoginResponse"
+                                }
+                            }
+                        },
+                        "headers": {
+                            "Referrer-Policy": {
+                                "description": "",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            },
+                            "Strict-Transport-Security": {
+                                "description": "",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            },
+                            "Vary": {
+                                "description": "",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            },
+                            "Content-Length": {
+                                "description": "The size of entity body in bytes",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            },
+                            "Date": {
+                                "description": "The date and time the message was sent",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            },
+                            "Content-Type": {
+                                "description": "The resource's media type",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Access denied - can be due to wrong combination  of clientId and clientSecret, request path, method",
+                        "headers": {
+                            "Referrer-Policy": {
+                                "description": "",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            },
+                            "Strict-Transport-Security": {
+                                "description": "",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            },
+                            "Vary": {
+                                "description": "",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            },
+                            "Content-Length": {
+                                "description": "The size of entity body in bytes",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            },
+                            "Date": {
+                                "description": "The date and time the message was sent",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            },
+                            "Content-Type": {
+                                "description": "The resource's media type",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    },
+                    "429": {
+                        "description": "A response indicates the client has sent too many requests within given time period",
+                        "headers": {
+                            "Referrer-Policy": {
+                                "description": "",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            },
+                            "Strict-Transport-Security": {
+                                "description": "",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            },
+                            "Vary": {
+                                "description": "",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            },
+                            "Content-Length": {
+                                "description": "The size of entity body in bytes",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            },
+                            "X-Rate-Limit-Retry-After-Milliseconds": {
+                                "description": "The time (in ms) after which client should retry his request against Jamf Security API once it hits rate limit restriction",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            },
+                            "Date": {
+                                "description": "The date and time the message was sent",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            },
+                            "Content-Type": {
+                                "description": "The resource's media type",
+                                "schema": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/device-lifecycle/v1/{customerId}/devices/purge/async/external": {
+            "post": {
+                "tags": [
+                    "Delete Devices"
+                ],
+                "summary": "asyncPurgeDevices",
+                "operationId": "asyncPurgeDevices",
+                "parameters": [
+                    {
+                        "name": "customerId",
+                        "in": "path",
+                        "description": "Identifier of customer's portal",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "description": "request",
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/AsyncPurgeDevicesRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "202": {
+                        "description": "ACCEPTED"
+                    },
+                    "401": {
+                        "description": "Unauthorized - Invalid or missing authentication token"
+                    },
+                    "403": {
+                        "description": "Forbidden - Insufficient permissions"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ],
+                "x-codegen-request-body-name": "request"
+            }
+        }
+    },
+    "components": {
+        "securitySchemes": {
+            "bearerAuth": {
+                "type": "http",
+                "scheme": "bearer",
+                "bearerFormat": "JWT",
+                "description": "JWT token obtained from /v1/login endpoint"
+            }
+        },
+        "schemas": {
+            "LoginResponse": {
+                "type": "object",
+                "properties": {
+                    "token": {
+                        "type": "string"
+                    }
+                }
+            },
+            "AsyncPurgeDevicesRequest": {
+                "title": "AsyncPurgeDevicesRequest",
+                "type": "object",
+                "properties": {
+                    "externalIds": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "minItems": 0,
+                        "maxItems": 500
+                    },
+                    "guids": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "minItems": 0,
+                        "maxItems": 500
+                    }
+                }
+            }
+        }
+    }
+}

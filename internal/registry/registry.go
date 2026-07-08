@@ -12,6 +12,7 @@ import (
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/auth"
 	"github.com/Jamf-Concepts/jamf-cli/internal/progress"
+	"github.com/Jamf-Concepts/jamf-cli/internal/security"
 	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform"
 	"github.com/Jamf-Concepts/jamfprotect-go-sdk/jamfprotect"
 	"github.com/Jamf-Concepts/jamfschool-go-sdk/jamfschool"
@@ -302,8 +303,14 @@ type CLIContext struct {
 	// command code (hand-written and spec-generated). Hand-written commands
 	// construct subpackage clients per call (cheap — they share the
 	// transport); generated commands call .Transport().Do() directly.
-	PlatformSDKClient   *jamfplatform.Client
-	SchoolClient        SchoolClient
+	PlatformSDKClient *jamfplatform.Client
+	SchoolClient      SchoolClient
+	// SecurityClient is the hand-rolled Jamf Security Cloud client (Risk,
+	// Device Lifecycle, Shared Signals & Events). Concrete type, not an
+	// interface, because hand-written commands need its CustomerID() helper
+	// alongside Do/DoSSE — mirrors PlatformSDKClient's approach for SDKs that
+	// live inside this repo rather than an external package.
+	SecurityClient      *security.Client
 	Uploader            FileUploader   // non-nil for Pro commands; supports streaming uploads
 	ProfileName         string         // resolved profile name; empty when using env-var auth
 	DestructiveCooldown *time.Duration // nil = use default (10s); 0 = disabled
