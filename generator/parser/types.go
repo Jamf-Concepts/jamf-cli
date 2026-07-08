@@ -122,6 +122,7 @@ type Property struct {
 	Example     any
 	Nullable    bool
 	ReadOnly    bool
+	WriteOnly   bool    // true when the field is accepted in requests but never returned in responses (e.g. passwords, secrets)
 	SchemaRef   string  // name of the referenced component schema for object/array types (e.g. "ComputerGeneralUpdate")
 	Nested      *Schema // resolved nested schema for object types (may be nil)
 }

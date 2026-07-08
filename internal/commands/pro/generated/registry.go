@@ -725,6 +725,69 @@ func resolveNameToIDForApply(ctx context.Context, client registry.HTTPClient, li
 	return matches[choice-1].id, nil
 }
 
+// fieldFilter describes the writable fields a PUT request body accepts, derived
+// from the OpenAPI request schema at generation time. "update --set" applies it
+// to a fetched resource to strip read-only / server-computed fields before the
+// merge-put, preventing HTTP 400s from fields the endpoint does not accept.
+//
+// A nil *fieldFilter (or one whose fields map is nil) means "keep everything" —
+// emitted where the schema is open/unmodelled so nothing is over-filtered. A map
+// entry with a nil value is a leaf (scalar, array, or opaque object): kept whole.
+// A non-nil value recurses into a nested object.
+type fieldFilter struct {
+	fields map[string]*fieldFilter
+}
+
+func (f *fieldFilter) apply(data map[string]any) {
+	if f == nil || f.fields == nil {
+		return
+	}
+	for k := range data {
+		child, ok := f.fields[k]
+		if !ok {
+			delete(data, k)
+			continue
+		}
+		if child != nil {
+			if sub, ok := data[k].(map[string]any); ok {
+				child.apply(sub)
+			}
+		}
+	}
+}
+
+// deepMergeJSON recursively merges src into dst: object values merge key-by-key,
+// every other value (scalar, array, null) replaces. Used by "update --set".
+func deepMergeJSON(dst, src map[string]any) {
+	for k, v := range src {
+		if sv, ok := v.(map[string]any); ok {
+			if dv, ok := dst[k].(map[string]any); ok {
+				deepMergeJSON(dv, sv)
+				continue
+			}
+		}
+		dst[k] = v
+	}
+}
+
+// fetchForMerge GETs a resource and returns its raw JSON body. "update --set"
+// uses it to read current state before merging caller changes and PUTting back.
+func fetchForMerge(ctx context.Context, client registry.HTTPClient, getPath string) ([]byte, error) {
+	resp, err := client.Do(ctx, "GET", getPath, nil)
+	if err != nil {
+		return nil, fmt.Errorf("fetching current state for --set: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 10<<20))
+	if err != nil {
+		return nil, fmt.Errorf("reading current state for --set: %w", err)
+	}
+	if resp.StatusCode >= 400 {
+		return nil, fmt.Errorf("fetching current state for --set: GET %s returned %d: %s", getPath, resp.StatusCode, string(body))
+	}
+	return body, nil
+}
+
 // buildMergePatchFromSet converts a slice of "key.path=value" strings into a
 // JSON merge-patch document. Dot notation is expanded into nested objects.
 // Value inference: "true"/"false" → bool, "null" → null, integers → int64, else string.

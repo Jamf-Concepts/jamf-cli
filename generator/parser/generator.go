@@ -160,9 +160,19 @@ func (g *Generator) Generate(resource *Resource) (string, error) {
 				return fmt.Sprintf("  # Show the JSON template for creating a %s\n  %s %s create --scaffold\n\n  # Create a %s from JSON\n  echo '{\"name\":\"Example\"}' | %s %s create\n\n  # Get a %s, modify it, and create a copy\n  %s %s get 1 -o json | jq '.name = \"Copy\"' | %s %s create",
 					nameSingular, bin, resourceName, nameSingular, bin, resourceName, nameSingular, bin, resourceName, bin, resourceName)
 			case "update":
+				// For update-set-enabled ops, lead with a --set (fetch-merge-replace)
+				// example. Skipped for multi-param sub-resources (arg shape differs).
+				setEx := ""
+				if updateSetEnabled(op, r) && len(pathParams(op.Parameters)) <= 1 {
+					if hasPathParam(op.Path) {
+						setEx = fmt.Sprintf("  # Update individual fields (fetch-merge-replace)\n  %s %s update 1 --set field=value\n\n", bin, resourceName)
+					} else {
+						setEx = fmt.Sprintf("  # Update individual fields (fetch-merge-replace)\n  %s %s update --set field=value\n\n", bin, resourceName)
+					}
+				}
 				if !hasPathParam(op.Path) {
 					// Singleton update — no ID argument
-					return fmt.Sprintf("  # Update %s\n  %s %s get -o json | jq '.field = \"value\"' | %s %s update\n\n  # Update from a file\n  %s %s update --from-file %s.json",
+					return setEx + fmt.Sprintf("  # Replace %s from a full JSON document\n  %s %s get -o json | jq '.field = \"value\"' | %s %s update\n\n  # Update from a file\n  %s %s update --from-file %s.json",
 						resourceName, bin, resourceName, bin, resourceName, bin, resourceName, resourceName)
 				}
 				if pp := pathParams(op.Parameters); len(pp) > 1 {
@@ -175,10 +185,10 @@ func (g *Generator) Generate(resource *Resource) (string, error) {
 						nameSingular, bin, resourceName, idStr, nameSingular, bin, resourceName, idStr, bin, resourceName, idStr)
 				}
 				if opHasNameLookup(op, r) {
-					return fmt.Sprintf("  # Update a %s from JSON\n  echo '{\"name\":\"Updated\"}' | %s %s update 1\n\n  # Update by name\n  %s %s get --name \"Example\" -o json | jq '.field = \"value\"' | %s %s update --name \"Example\"\n\n  # Get a %s, modify, and update\n  %s %s get 1 -o json | jq '.name = \"New Name\"' | %s %s update 1",
+					return setEx + fmt.Sprintf("  # Replace a %s from JSON\n  echo '{\"name\":\"Updated\"}' | %s %s update 1\n\n  # Update by name\n  %s %s get --name \"Example\" -o json | jq '.field = \"value\"' | %s %s update --name \"Example\"\n\n  # Get a %s, modify, and update\n  %s %s get 1 -o json | jq '.name = \"New Name\"' | %s %s update 1",
 						nameSingular, bin, resourceName, bin, resourceName, bin, resourceName, nameSingular, bin, resourceName, bin, resourceName)
 				}
-				return fmt.Sprintf("  # Update a %s from JSON\n  echo '{\"name\":\"Updated\"}' | %s %s update 1\n\n  # Get a %s, modify, and update\n  %s %s get 1 -o json | jq '.name = \"New Name\"' | %s %s update 1",
+				return setEx + fmt.Sprintf("  # Replace a %s from JSON\n  echo '{\"name\":\"Updated\"}' | %s %s update 1\n\n  # Get a %s, modify, and update\n  %s %s get 1 -o json | jq '.name = \"New Name\"' | %s %s update 1",
 					nameSingular, bin, resourceName, nameSingular, bin, resourceName, bin, resourceName)
 			case "delete":
 				if pp := pathParams(op.Parameters); len(pp) > 1 {
@@ -365,8 +375,17 @@ func (g *Generator) Generate(resource *Resource) (string, error) {
 		"patchLongDesc": func(op *Operation, schemas map[string]*Schema, r *Resource) string {
 			return patchLongDesc(op, schemas, r)
 		},
-		"hasScaffold":  hasScaffold,
-		"scaffoldJSON": scaffoldJSON,
+		"isUpdateSetOp":  func(op *Operation, r *Resource) bool { return updateSetEnabled(op, r) },
+		"hasUpdateSetOp": anyUpdateSet,
+		"updateSetLongDesc": func(op *Operation, schemas map[string]*Schema, r *Resource) string {
+			return updateSetLongDesc(op, schemas, r)
+		},
+		"writableFilterLiteral": func(op *Operation, schemas map[string]*Schema) string {
+			return writableFilterLiteral(op, schemas)
+		},
+		"writeOnlyRequiredFields": writeOnlyRequiredFields,
+		"hasScaffold":             hasScaffold,
+		"scaffoldJSON":            scaffoldJSON,
 		"applyScaffoldJSON": func(ops []*Operation) string {
 			for _, op := range ops {
 				if op.Name == "create" && op.Method == "POST" && op.RequestBody != nil && op.RequestBody.Schema != nil {
@@ -1210,6 +1229,192 @@ func patchLongDesc(op *Operation, schemas map[string]*Schema, r *Resource) strin
 	return sb.String()
 }
 
+// updatePutWithBody reports whether an operation is a PUT "update" with a
+// non-multipart JSON request body carrying at least one property. These are the
+// endpoints eligible for client-side "update --set" (fetch-merge-put).
+func updatePutWithBody(op *Operation) bool {
+	return op.Method == "PUT" && op.Name == "update" &&
+		op.RequestBody != nil && !op.RequestBody.IsMultipart &&
+		op.RequestBody.Schema != nil && len(op.RequestBody.Schema.Properties) > 0
+}
+
+// updateSetEnabled reports whether the resource's PUT "update" command should
+// grow a "--set KEY=VALUE" flag that performs a client-side get-merge-put.
+//
+// Requires a PUT update with a modelled JSON body AND a GET at the same URL to
+// read current state. File-field and token-composite update ops are excluded:
+// their bespoke body-injection interacts poorly with a fetched-and-merged body,
+// so they keep full-replace semantics only. versionLock resources ARE supported —
+// the current lock value is preserved via the fetched body.
+func updateSetEnabled(op *Operation, r *Resource) bool {
+	if !updatePutWithBody(op) {
+		return false
+	}
+	if len(r.FileFields) > 0 || r.UpdateTokenOp != nil {
+		return false
+	}
+	for _, o := range r.Operations {
+		if o.Method == "GET" && o.Path == op.Path {
+			return true
+		}
+	}
+	return false
+}
+
+// anyUpdateSet reports whether any operation in the resource is update-set enabled.
+func anyUpdateSet(r *Resource) bool {
+	for _, op := range r.Operations {
+		if updateSetEnabled(op, r) {
+			return true
+		}
+	}
+	return false
+}
+
+// writableFilterLiteral emits a Go expression building a *fieldFilter for the
+// operation's PUT request schema: the tree of writable field paths (read-only
+// props excluded). "update --set" applies it to a fetched resource to strip
+// server-computed / response-only fields the endpoint would reject on PUT.
+// Returns "nil" (meaning "keep everything") when the schema is open/unmodelled,
+// so an incompletely-specified body is never over-filtered.
+//
+// Assumption: the PUT request schema is assumed to enumerate every writable
+// field. This is an allow list — anything absent from the request schema is
+// dropped from the fetched body, even if the field is genuinely writable but
+// only declared on a separate GET/response schema. If a resource's PUT and
+// GET reference divergent schemas, a writable response-only field would be
+// silently lost on "--set" write-back where the old fetch-and-PUT-whole-body
+// flow preserved it. Spot-audit new update-set-enabled resources for this
+// divergence before relying on "--set" for round-tripping unfamiliar fields.
+func writableFilterLiteral(op *Operation, schemas map[string]*Schema) string {
+	if op == nil || op.RequestBody == nil || op.RequestBody.Schema == nil {
+		return "(*fieldFilter)(nil)"
+	}
+	// A bare "nil" child is valid as a map value but not as a method receiver, so
+	// the top-level "keep everything" case must be a typed nil.
+	if lit := schemaFilterLiteral(op.RequestBody.Schema, schemas, 0, map[string]bool{}); lit != "nil" {
+		return lit
+	}
+	return "(*fieldFilter)(nil)"
+}
+
+// schemaFilterLiteral recursively builds the *fieldFilter literal for a schema.
+// Depth is capped and $ref cycles are guarded; opaque objects (no modelled
+// properties) and arrays become leaves ("keep whole subtree").
+func schemaFilterLiteral(s *Schema, schemas map[string]*Schema, depth int, visited map[string]bool) string {
+	if s == nil || len(s.Properties) == 0 || depth > 6 {
+		return "nil"
+	}
+	names := make([]string, 0, len(s.Properties))
+	for name := range s.Properties {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+
+	parts := make([]string, 0, len(names))
+	for _, name := range names {
+		prop := s.Properties[name]
+		if prop.ReadOnly {
+			continue
+		}
+		child := "nil"
+		if prop.Type == "object" || (prop.Type == "" && prop.Nested != nil) {
+			var nested *Schema
+			if prop.Nested != nil {
+				nested = prop.Nested
+			} else if prop.SchemaRef != "" {
+				nested = schemas[prop.SchemaRef]
+			}
+			if nested != nil {
+				key := prop.SchemaRef
+				if key != "" && visited[key] {
+					child = "nil" // cycle: keep whole subtree
+				} else {
+					if key != "" {
+						visited[key] = true
+					}
+					child = schemaFilterLiteral(nested, schemas, depth+1, visited)
+					if key != "" {
+						delete(visited, key)
+					}
+				}
+			}
+		}
+		parts = append(parts, fmt.Sprintf("%q: %s", name, child))
+	}
+	if len(parts) == 0 {
+		return "nil"
+	}
+	return "&fieldFilter{fields: map[string]*fieldFilter{" + strings.Join(parts, ", ") + "}}"
+}
+
+// writeOnlyRequiredFields returns the names of top-level fields that are both
+// required and write-only in the PUT request schema. These cannot be read back
+// from a GET, so "update --set" warns when the caller does not supply them.
+func writeOnlyRequiredFields(op *Operation) []string {
+	if op == nil || op.RequestBody == nil || op.RequestBody.Schema == nil {
+		return nil
+	}
+	s := op.RequestBody.Schema
+	required := make(map[string]bool, len(s.Required))
+	for _, name := range s.Required {
+		required[name] = true
+	}
+	var out []string
+	for name, prop := range s.Properties {
+		if prop.WriteOnly && required[name] {
+			out = append(out, name)
+		}
+	}
+	sort.Strings(out)
+	return out
+}
+
+// updateSetLongDesc builds the Long description (as a Go double-quoted literal)
+// for a PUT "update" command that supports "--set", listing the writable scalar
+// fields and explaining the fetch-merge-put semantics.
+func updateSetLongDesc(op *Operation, schemas map[string]*Schema, r *Resource) string {
+	fields := flattenSchemaToScalarFields(op.RequestBody.Schema, schemas)
+
+	goEscape := func(s string) string {
+		s = strings.ReplaceAll(s, `\`, `\\`)
+		s = strings.ReplaceAll(s, `"`, `\"`)
+		s = strings.ReplaceAll(s, "\r", "")
+		s = strings.ReplaceAll(s, "\n", `\n`)
+		s = strings.ReplaceAll(s, "`", "'")
+		return s
+	}
+
+	desc := strings.TrimSpace(op.Description)
+	if desc == "" {
+		desc = strings.TrimSpace(op.Summary)
+	}
+
+	var sb strings.Builder
+	sb.WriteString(`"`)
+	sb.WriteString(goEscape(desc))
+
+	if opHasNameLookup(op, r) {
+		sb.WriteString(`\n\nIdentify the resource by ID (positional arg), --name`)
+		for _, lf := range r.LookupFields {
+			sb.WriteString(`, --` + lf.Flag)
+		}
+		sb.WriteString(`.`)
+	}
+
+	if len(fields) > 0 {
+		sb.WriteString(`\n\nUse --set KEY=VALUE to update individual fields (repeatable). The current resource is fetched, your changes are merged in, read-only fields are dropped, and the whole record is written back. Omitted fields keep their current values.\n\nAvailable fields:\n`)
+		for _, f := range fields {
+			fmt.Fprintf(&sb, `  %-44s %s\n`, f.Path, f.Type)
+		}
+	}
+
+	sb.WriteString(`\nWithout --set, pipe a full JSON document to stdin to replace the resource entirely.`)
+
+	sb.WriteString(`"`)
+	return sb.String()
+}
+
 // scaffoldJSON generates a JSON template string from a schema, skipping read-only fields.
 func scaffoldJSON(s *Schema) string {
 	if s == nil || len(s.Properties) == 0 {
@@ -1343,7 +1548,7 @@ import (
 {{- if or (shouldGenerateApply .) (hasPatchOp .Operations) (hasNonMultipartPostOrPut .Operations) }}
 	"bytes"
 {{- end }}
-{{- if or (hasList .Operations) (hasPaginated .Operations) (hasDeleteMultiple .Operations) }}
+{{- if or (hasList .Operations) (hasPaginated .Operations) (hasDeleteMultiple .Operations) (hasUpdateSetOp .) }}
 	"encoding/json"
 {{- end }}
 {{- if or (needsFmt .) (hasList .Operations) (hasPaginated .Operations) (hasPostOrPut .Operations) }}
@@ -1444,6 +1649,9 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 		flagName string
 {{ range $.LookupFields }}		flag{{ toCamel .Flag }} string
 {{ end }}{{- end }}
+{{- if isUpdateSetOp . $ }}
+		flagSet []string
+{{- end }}
 {{- if opHasFileFields . $ }}
 {{ range $.FileFields }}		flag{{ toCamel .Flag }} string
 {{ end }}{{- end }}
@@ -1464,6 +1672,8 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 		Short: "{{ escapeQuotes .Summary }}",
 {{- if isPatchOp . }}
 		Long: {{ patchLongDesc . $.Schemas $ }},
+{{- else if isUpdateSetOp . $ }}
+		Long: {{ updateSetLongDesc . $.Schemas $ }},
 {{- else if .Description }}
 		Long:  "{{ escapeQuotes .Description }}",
 {{- end }}
@@ -2061,8 +2271,48 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 			}
 {{- else }}
 			var normalized []byte
+{{- if isUpdateSetOp . $ }}
+			if len(flagSet) > 0 {
+				// --set: fetch current state, drop read-only / server-computed fields,
+				// merge the caller's changes, and PUT the full record back. Fields not
+				// named in --set keep their current values.
+				existing, ferr := fetchForMerge(reqCtx, ctx.Client, path)
+				if ferr != nil {
+					return ferr
+				}
+				current := map[string]any{}
+				if len(existing) > 0 {
+					if err := json.Unmarshal(existing, &current); err != nil {
+						return fmt.Errorf("parsing current {{ $.NameSingular }} for --set: %w", err)
+					}
+				}
+				({{ writableFilterLiteral . $.Schemas }}).apply(current)
+				setDoc, serr := buildMergePatchFromSet(flagSet)
+				if serr != nil {
+					return serr
+				}
+				setMap := map[string]any{}
+				if err := json.Unmarshal(setDoc, &setMap); err != nil {
+					return err
+				}
+{{- range writeOnlyRequiredFields . }}
+				if _, ok := setMap["{{ . }}"]; !ok {
+					fmt.Fprintf(os.Stderr, "warning: {{ $.NameSingular }} field %q is write-only and required; it cannot be read back and must be supplied via --set {{ . }}=... or the update may fail\n", "{{ . }}")
+				}
+{{- end }}
+				deepMergeJSON(current, setMap)
+				merged, merr := json.Marshal(current)
+				if merr != nil {
+					return merr
+				}
+				normalized = merged
+				if setStat, _ := os.Stdin.Stat(); setStat != nil && (setStat.Mode()&os.ModeCharDevice) == 0 {
+					fmt.Fprintln(os.Stderr, "warning: --set and piped stdin are mutually exclusive; ignoring stdin")
+				}
+			}
+{{- end }}
 			stat, _ := os.Stdin.Stat()
-			if (stat.Mode() & os.ModeCharDevice) == 0 {
+			if {{ if isUpdateSetOp . $ }}len(flagSet) == 0 && {{ end }}(stat.Mode() & os.ModeCharDevice) == 0 {
 				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
 				if err != nil {
 					return fmt.Errorf("reading stdin: %w", err)
@@ -2305,6 +2555,14 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up {{ $.NameSingular }} by name")
 {{ range $.LookupFields }}	cmd.Flags().StringVar(&flag{{ toCamel .Flag }}, "{{ .Flag }}", "", "{{ escapeQuotes .Desc }}")
 {{ end }}{{- end }}
+{{- if isUpdateSetOp . $ }}
+	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Update a field via fetch-merge-replace (key=value in dot notation, repeatable)")
+	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+		return []string{
+			{{ range patchSetCompletions . $.Schemas }}"{{ . }}",{{ end }}
+		}, cobra.ShellCompDirectiveNoSpace
+	})
+{{- end }}
 {{- if opHasFileFields . $ }}
 {{ range $.FileFields }}	cmd.Flags().StringVar(&flag{{ toCamel .Flag }}, "{{ .Flag }}", "", "{{ escapeQuotes .Desc }}")
 {{ end }}{{- end }}
@@ -3177,6 +3435,69 @@ func resolveNameToIDForApply(ctx context.Context, client registry.HTTPClient, li
 }
 
 
+
+// fieldFilter describes the writable fields a PUT request body accepts, derived
+// from the OpenAPI request schema at generation time. "update --set" applies it
+// to a fetched resource to strip read-only / server-computed fields before the
+// merge-put, preventing HTTP 400s from fields the endpoint does not accept.
+//
+// A nil *fieldFilter (or one whose fields map is nil) means "keep everything" —
+// emitted where the schema is open/unmodelled so nothing is over-filtered. A map
+// entry with a nil value is a leaf (scalar, array, or opaque object): kept whole.
+// A non-nil value recurses into a nested object.
+type fieldFilter struct {
+	fields map[string]*fieldFilter
+}
+
+func (f *fieldFilter) apply(data map[string]any) {
+	if f == nil || f.fields == nil {
+		return
+	}
+	for k := range data {
+		child, ok := f.fields[k]
+		if !ok {
+			delete(data, k)
+			continue
+		}
+		if child != nil {
+			if sub, ok := data[k].(map[string]any); ok {
+				child.apply(sub)
+			}
+		}
+	}
+}
+
+// deepMergeJSON recursively merges src into dst: object values merge key-by-key,
+// every other value (scalar, array, null) replaces. Used by "update --set".
+func deepMergeJSON(dst, src map[string]any) {
+	for k, v := range src {
+		if sv, ok := v.(map[string]any); ok {
+			if dv, ok := dst[k].(map[string]any); ok {
+				deepMergeJSON(dv, sv)
+				continue
+			}
+		}
+		dst[k] = v
+	}
+}
+
+// fetchForMerge GETs a resource and returns its raw JSON body. "update --set"
+// uses it to read current state before merging caller changes and PUTting back.
+func fetchForMerge(ctx context.Context, client registry.HTTPClient, getPath string) ([]byte, error) {
+	resp, err := client.Do(ctx, "GET", getPath, nil)
+	if err != nil {
+		return nil, fmt.Errorf("fetching current state for --set: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 10<<20))
+	if err != nil {
+		return nil, fmt.Errorf("reading current state for --set: %w", err)
+	}
+	if resp.StatusCode >= 400 {
+		return nil, fmt.Errorf("fetching current state for --set: GET %s returned %d: %s", getPath, resp.StatusCode, string(body))
+	}
+	return body, nil
+}
 
 // buildMergePatchFromSet converts a slice of "key.path=value" strings into a
 // JSON merge-patch document. Dot notation is expanded into nested objects.

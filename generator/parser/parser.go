@@ -1630,6 +1630,7 @@ func parseSchema(name string, schema *openapi3.Schema) *Schema {
 				Example:     prop.Example,
 				Nullable:    prop.Nullable,
 				ReadOnly:    prop.ReadOnly,
+				WriteOnly:   prop.WriteOnly,
 			}
 			if len(prop.Type.Slice()) > 0 {
 				p.Type = prop.Type.Slice()[0]

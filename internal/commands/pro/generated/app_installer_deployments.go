@@ -326,13 +326,18 @@ func newAppInstallerDeploymentsUpdateCmd(ctx *registry.CLIContext) *cobra.Comman
 	var (
 		flagScaffold bool
 		flagName     string
+
+		flagSet []string
 	)
 
 	cmd := &cobra.Command{
 		Use:   "update [<id>]",
 		Short: "Update an App Installer deployment",
-		Long:  "Updates an existing App Installer deployment configuration",
-		Example: `  # Update a app-installer-deployment from JSON
+		Long:  "Updates an existing App Installer deployment configuration\n\nIdentify the resource by ID (positional arg), --name.\n\nUse --set KEY=VALUE to update individual fields (repeatable). The current resource is fetched, your changes are merged in, read-only fields are dropped, and the whole record is written back. Omitted fields keep their current values.\n\nAvailable fields:\n  appTitleId                                   string\n  categoryId                                   string\n  deploymentType                               string\n  enabled                                      boolean\n  installPredefinedConfigProfiles              boolean\n  name                                         string\n  notificationSettings.completeMessage         string\n  notificationSettings.deadline                integer\n  notificationSettings.deadlineMessage         string\n  notificationSettings.notificationInterval    integer\n  notificationSettings.notificationMessage     string\n  notificationSettings.quitDelay               integer\n  notificationSettings.relaunch                boolean\n  notificationSettings.suppress                boolean\n  selfServiceSettings.description              string\n  selfServiceSettings.forceViewDescription     boolean\n  selfServiceSettings.includeInComplianceCategory boolean\n  selfServiceSettings.includeInFeaturedCategory boolean\n  siteId                                       string\n  smartGroupId                                 string\n  triggerAdminNotifications                    boolean\n  updateBehavior                               string\n\nWithout --set, pipe a full JSON document to stdin to replace the resource entirely.",
+		Example: `  # Update individual fields (fetch-merge-replace)
+  jamf-cli pro app-installer-deployments update 1 --set field=value
+
+  # Replace a app-installer-deployment from JSON
   echo '{"name":"Updated"}' | jamf-cli pro app-installer-deployments update 1
 
   # Update by name
@@ -390,8 +395,41 @@ func newAppInstallerDeploymentsUpdateCmd(ctx *registry.CLIContext) *cobra.Comman
 			// Read body from stdin if available
 			var body io.Reader
 			var normalized []byte
+			if len(flagSet) > 0 {
+				// --set: fetch current state, drop read-only / server-computed fields,
+				// merge the caller's changes, and PUT the full record back. Fields not
+				// named in --set keep their current values.
+				existing, ferr := fetchForMerge(reqCtx, ctx.Client, path)
+				if ferr != nil {
+					return ferr
+				}
+				current := map[string]any{}
+				if len(existing) > 0 {
+					if err := json.Unmarshal(existing, &current); err != nil {
+						return fmt.Errorf("parsing current app-installer-deployment for --set: %w", err)
+					}
+				}
+				(&fieldFilter{fields: map[string]*fieldFilter{"appTitleId": nil, "categoryId": nil, "deploymentType": nil, "enabled": nil, "installPredefinedConfigProfiles": nil, "name": nil, "notificationSettings": &fieldFilter{fields: map[string]*fieldFilter{"completeMessage": nil, "deadline": nil, "deadlineMessage": nil, "notificationInterval": nil, "notificationMessage": nil, "quitDelay": nil, "relaunch": nil, "suppress": nil}}, "selfServiceSettings": &fieldFilter{fields: map[string]*fieldFilter{"categories": nil, "description": nil, "forceViewDescription": nil, "includeInComplianceCategory": nil, "includeInFeaturedCategory": nil}}, "siteId": nil, "smartGroupId": nil, "triggerAdminNotifications": nil, "updateBehavior": nil}}).apply(current)
+				setDoc, serr := buildMergePatchFromSet(flagSet)
+				if serr != nil {
+					return serr
+				}
+				setMap := map[string]any{}
+				if err := json.Unmarshal(setDoc, &setMap); err != nil {
+					return err
+				}
+				deepMergeJSON(current, setMap)
+				merged, merr := json.Marshal(current)
+				if merr != nil {
+					return merr
+				}
+				normalized = merged
+				if setStat, _ := os.Stdin.Stat(); setStat != nil && (setStat.Mode()&os.ModeCharDevice) == 0 {
+					fmt.Fprintln(os.Stderr, "warning: --set and piped stdin are mutually exclusive; ignoring stdin")
+				}
+			}
 			stat, _ := os.Stdin.Stat()
-			if (stat.Mode() & os.ModeCharDevice) == 0 {
+			if len(flagSet) == 0 && (stat.Mode()&os.ModeCharDevice) == 0 {
 				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
 				if err != nil {
 					return fmt.Errorf("reading stdin: %w", err)
@@ -417,6 +455,12 @@ func newAppInstallerDeploymentsUpdateCmd(ctx *registry.CLIContext) *cobra.Comman
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up app-installer-deployment by name")
 
+	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Update a field via fetch-merge-replace (key=value in dot notation, repeatable)")
+	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+		return []string{
+			"appTitleId=", "categoryId=", "deploymentType=", "enabled=", "installPredefinedConfigProfiles=", "name=", "notificationSettings.completeMessage=", "notificationSettings.deadline=", "notificationSettings.deadlineMessage=", "notificationSettings.notificationInterval=", "notificationSettings.notificationMessage=", "notificationSettings.quitDelay=", "notificationSettings.relaunch=", "notificationSettings.suppress=", "selfServiceSettings.description=", "selfServiceSettings.forceViewDescription=", "selfServiceSettings.includeInComplianceCategory=", "selfServiceSettings.includeInFeaturedCategory=", "siteId=", "smartGroupId=", "triggerAdminNotifications=", "updateBehavior=",
+		}, cobra.ShellCompDirectiveNoSpace
+	})
 	return cmd
 }
 

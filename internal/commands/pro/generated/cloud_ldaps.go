@@ -4,6 +4,7 @@ package generated
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -169,13 +170,18 @@ func newCloudLdapsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagScaffold bool
 		flagName     string
+
+		flagSet []string
 	)
 
 	cmd := &cobra.Command{
 		Use:   "update [<id>]",
 		Short: "Update Cloud Identity Provider configuration",
-		Long:  "Update Cloud Identity Provider configuration. Cannot be used for partial updates, all content body must be sent.",
-		Example: `  # Update a cloud-ldap from JSON
+		Long:  "Update Cloud Identity Provider configuration. Cannot be used for partial updates, all content body must be sent.\n\nIdentify the resource by ID (positional arg), --name.\n\nUse --set KEY=VALUE to update individual fields (repeatable). The current resource is fetched, your changes are merged in, read-only fields are dropped, and the whole record is written back. Omitted fields keep their current values.\n\nAvailable fields:\n  cloudIdPCommon.displayName                   string\n  cloudIdPCommon.id                            string\n  cloudIdPCommon.providerName                  string\n  server.connectionTimeout                     integer\n  server.connectionType                        string\n  server.domainName                            string\n  server.enabled                               boolean\n  server.membershipCalculationOptimizationEnabled boolean\n  server.port                                  integer\n  server.searchTimeout                         integer\n  server.serverUrl                             string\n  server.useWildcards                          boolean\n\nWithout --set, pipe a full JSON document to stdin to replace the resource entirely.",
+		Example: `  # Update individual fields (fetch-merge-replace)
+  jamf-cli pro cloud-ldaps update 1 --set field=value
+
+  # Replace a cloud-ldap from JSON
   echo '{"name":"Updated"}' | jamf-cli pro cloud-ldaps update 1
 
   # Update by name
@@ -224,8 +230,41 @@ func newCloudLdapsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 			// Read body from stdin if available
 			var body io.Reader
 			var normalized []byte
+			if len(flagSet) > 0 {
+				// --set: fetch current state, drop read-only / server-computed fields,
+				// merge the caller's changes, and PUT the full record back. Fields not
+				// named in --set keep their current values.
+				existing, ferr := fetchForMerge(reqCtx, ctx.Client, path)
+				if ferr != nil {
+					return ferr
+				}
+				current := map[string]any{}
+				if len(existing) > 0 {
+					if err := json.Unmarshal(existing, &current); err != nil {
+						return fmt.Errorf("parsing current cloud-ldap for --set: %w", err)
+					}
+				}
+				(&fieldFilter{fields: map[string]*fieldFilter{"cloudIdPCommon": &fieldFilter{fields: map[string]*fieldFilter{"displayName": nil, "id": nil, "providerName": nil}}, "mappings": &fieldFilter{fields: map[string]*fieldFilter{"groupMappings": &fieldFilter{fields: map[string]*fieldFilter{"groupID": nil, "groupName": nil, "groupUuid": nil, "objectClassLimitation": nil, "objectClasses": nil, "searchBase": nil, "searchScope": nil}}, "membershipMappings": &fieldFilter{fields: map[string]*fieldFilter{"groupMembershipMapping": nil}}, "userMappings": &fieldFilter{fields: map[string]*fieldFilter{"additionalSearchBase": nil, "building": nil, "department": nil, "emailAddress": nil, "objectClassLimitation": nil, "objectClasses": nil, "phone": nil, "position": nil, "realName": nil, "room": nil, "searchBase": nil, "searchScope": nil, "userID": nil, "userUuid": nil, "username": nil}}}}, "server": &fieldFilter{fields: map[string]*fieldFilter{"connectionTimeout": nil, "connectionType": nil, "domainName": nil, "enabled": nil, "keystore": &fieldFilter{fields: map[string]*fieldFilter{"fileBytes": nil, "fileName": nil, "password": nil}}, "membershipCalculationOptimizationEnabled": nil, "port": nil, "searchTimeout": nil, "serverUrl": nil, "useWildcards": nil}}}}).apply(current)
+				setDoc, serr := buildMergePatchFromSet(flagSet)
+				if serr != nil {
+					return serr
+				}
+				setMap := map[string]any{}
+				if err := json.Unmarshal(setDoc, &setMap); err != nil {
+					return err
+				}
+				deepMergeJSON(current, setMap)
+				merged, merr := json.Marshal(current)
+				if merr != nil {
+					return merr
+				}
+				normalized = merged
+				if setStat, _ := os.Stdin.Stat(); setStat != nil && (setStat.Mode()&os.ModeCharDevice) == 0 {
+					fmt.Fprintln(os.Stderr, "warning: --set and piped stdin are mutually exclusive; ignoring stdin")
+				}
+			}
 			stat, _ := os.Stdin.Stat()
-			if (stat.Mode() & os.ModeCharDevice) == 0 {
+			if len(flagSet) == 0 && (stat.Mode()&os.ModeCharDevice) == 0 {
 				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
 				if err != nil {
 					return fmt.Errorf("reading stdin: %w", err)
@@ -251,6 +290,12 @@ func newCloudLdapsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up cloud-ldap by name")
 
+	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Update a field via fetch-merge-replace (key=value in dot notation, repeatable)")
+	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+		return []string{
+			"cloudIdPCommon.displayName=", "cloudIdPCommon.id=", "cloudIdPCommon.providerName=", "server.connectionTimeout=", "server.connectionType=", "server.domainName=", "server.enabled=", "server.membershipCalculationOptimizationEnabled=", "server.port=", "server.searchTimeout=", "server.serverUrl=", "server.useWildcards=",
+		}, cobra.ShellCompDirectiveNoSpace
+	})
 	return cmd
 }
 

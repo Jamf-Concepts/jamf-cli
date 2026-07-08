@@ -76,13 +76,17 @@ func newSmtpServerUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagOauthState string
 		flagScaffold   bool
+		flagSet        []string
 	)
 
 	cmd := &cobra.Command{
 		Use:   "update",
 		Short: "Updates Jamf Pro SMTP Server information",
-		Long:  "Updates Jamf Pro SMTP Server information. If requiresAuthentication is set to true, a username and password must be provided",
-		Example: `  # Update smtp-server
+		Long:  "Updates Jamf Pro SMTP Server information. If requiresAuthentication is set to true, a username and password must be provided\n\nUse --set KEY=VALUE to update individual fields (repeatable). The current resource is fetched, your changes are merged in, read-only fields are dropped, and the whole record is written back. Omitted fields keep their current values.\n\nAvailable fields:\n  authenticationType                           string\n  basicAuthCredentials.password                string\n  basicAuthCredentials.username                string\n  connectionSettings.connectionTimeout         integer\n  connectionSettings.encryptionType            string\n  connectionSettings.host                      string\n  connectionSettings.port                      integer\n  enabled                                      boolean\n  googleMailCredentials.clientId               string\n  googleMailCredentials.clientSecret           string\n  graphApiCredentials.clientId                 string\n  graphApiCredentials.clientSecret             string\n  graphApiCredentials.tenantId                 string\n  senderSettings.displayName                   string\n  senderSettings.emailAddress                  string\n\nWithout --set, pipe a full JSON document to stdin to replace the resource entirely.",
+		Example: `  # Update individual fields (fetch-merge-replace)
+  jamf-cli pro smtp-server update --set field=value
+
+  # Replace smtp-server from a full JSON document
   jamf-cli pro smtp-server get -o json | jq '.field = "value"' | jamf-cli pro smtp-server update
 
   # Update from a file
@@ -119,8 +123,41 @@ func newSmtpServerUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 			// Read body from stdin if available
 			var body io.Reader
 			var normalized []byte
+			if len(flagSet) > 0 {
+				// --set: fetch current state, drop read-only / server-computed fields,
+				// merge the caller's changes, and PUT the full record back. Fields not
+				// named in --set keep their current values.
+				existing, ferr := fetchForMerge(reqCtx, ctx.Client, path)
+				if ferr != nil {
+					return ferr
+				}
+				current := map[string]any{}
+				if len(existing) > 0 {
+					if err := json.Unmarshal(existing, &current); err != nil {
+						return fmt.Errorf("parsing current smtp-server for --set: %w", err)
+					}
+				}
+				(&fieldFilter{fields: map[string]*fieldFilter{"authenticationType": nil, "basicAuthCredentials": &fieldFilter{fields: map[string]*fieldFilter{"password": nil, "username": nil}}, "connectionSettings": &fieldFilter{fields: map[string]*fieldFilter{"connectionTimeout": nil, "encryptionType": nil, "host": nil, "port": nil}}, "enabled": nil, "googleMailCredentials": &fieldFilter{fields: map[string]*fieldFilter{"authentications": nil, "clientId": nil, "clientSecret": nil}}, "graphApiCredentials": &fieldFilter{fields: map[string]*fieldFilter{"clientId": nil, "clientSecret": nil, "tenantId": nil}}, "senderSettings": &fieldFilter{fields: map[string]*fieldFilter{"displayName": nil, "emailAddress": nil}}}}).apply(current)
+				setDoc, serr := buildMergePatchFromSet(flagSet)
+				if serr != nil {
+					return serr
+				}
+				setMap := map[string]any{}
+				if err := json.Unmarshal(setDoc, &setMap); err != nil {
+					return err
+				}
+				deepMergeJSON(current, setMap)
+				merged, merr := json.Marshal(current)
+				if merr != nil {
+					return merr
+				}
+				normalized = merged
+				if setStat, _ := os.Stdin.Stat(); setStat != nil && (setStat.Mode()&os.ModeCharDevice) == 0 {
+					fmt.Fprintln(os.Stderr, "warning: --set and piped stdin are mutually exclusive; ignoring stdin")
+				}
+			}
 			stat, _ := os.Stdin.Stat()
-			if (stat.Mode() & os.ModeCharDevice) == 0 {
+			if len(flagSet) == 0 && (stat.Mode()&os.ModeCharDevice) == 0 {
 				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
 				if err != nil {
 					return fmt.Errorf("reading stdin: %w", err)
@@ -145,6 +182,12 @@ func newSmtpServerUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 
 	cmd.Flags().StringVar(&flagOauthState, "oauth-state", "", "The OAuth state that was last used to authorize a Google Mail account. This is only required when the authentication type is Google Mail and new accounts are being added.")
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
+	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Update a field via fetch-merge-replace (key=value in dot notation, repeatable)")
+	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+		return []string{
+			"authenticationType=", "basicAuthCredentials.password=", "basicAuthCredentials.username=", "connectionSettings.connectionTimeout=", "connectionSettings.encryptionType=", "connectionSettings.host=", "connectionSettings.port=", "enabled=", "googleMailCredentials.clientId=", "googleMailCredentials.clientSecret=", "graphApiCredentials.clientId=", "graphApiCredentials.clientSecret=", "graphApiCredentials.tenantId=", "senderSettings.displayName=", "senderSettings.emailAddress=",
+		}, cobra.ShellCompDirectiveNoSpace
+	})
 	return cmd
 }
 
