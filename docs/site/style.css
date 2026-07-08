@@ -212,6 +212,7 @@
 .palette-item-tag[data-product="pro"]      { color: var(--product-pro);      background: rgba(6, 182, 212, 0.10); }
 .palette-item-tag[data-product="protect"]  { color: var(--product-protect);  background: rgba(0, 179, 0, 0.10); }
 .palette-item-tag[data-product="school"]   { color: var(--product-school);   background: rgba(245, 158, 11, 0.10); }
+.palette-item-tag[data-product="security"]   { color: var(--product-security);   background: rgba(220, 38, 38, 0.10); }
 .palette-item-tag[data-product="platform"] { color: var(--product-platform); background: rgba(18, 104, 236, 0.10); }
 
 .palette-empty {
@@ -261,6 +262,7 @@
 .palette-tag[data-product="pro"]      { color: var(--product-pro);      background: rgba(6, 182, 212, 0.10); }
 .palette-tag[data-product="protect"]  { color: var(--product-protect);  background: rgba(0, 179, 0, 0.10); }
 .palette-tag[data-product="school"]   { color: var(--product-school);   background: rgba(245, 158, 11, 0.10); }
+.palette-tag[data-product="security"]   { color: var(--product-security);   background: rgba(220, 38, 38, 0.10); }
 .palette-tag[data-product="platform"] { color: var(--product-platform); background: rgba(18, 104, 236, 0.10); }
 .palette-group {
   font-size: 0.7rem;
@@ -356,6 +358,7 @@ html {
   --product-pro: #06b6d4;
   --product-protect: #00b300;
   --product-school: #F59E0B;
+  --product-security: #DC2626;
   --product-platform: #1268ec;
   /* --product-connect: #a135d7; */
 
@@ -701,7 +704,12 @@ a.stat-card:hover {
 .stat-card[data-product="school"] {
   border-color: rgba(245, 158, 11, 0.45);
 }
+
+.stat-card[data-product="security"] {
+  border-color: rgba(220, 38, 38, 0.45);
+}
 .stat-card[data-product="school"] .stat-value { color: var(--product-school); }
+.stat-card[data-product="security"] .stat-value { color: var(--product-security); }
 
 .stat-card[data-product="platform"] {
   border-color: rgba(18, 104, 236, 0.45);
@@ -744,6 +752,10 @@ a.stat-card:hover {
 
 .stat-card[data-product="school"] .stat-label .product-icon {
   color: var(--product-school);
+}
+
+.stat-card[data-product="security"] .stat-label .product-icon {
+  color: var(--product-security);
 }
 
 .stat-card[data-product="platform"] .stat-label .product-icon {
@@ -1076,7 +1088,9 @@ a.stat-card:hover {
 .tab[data-filter="pro"].active { background: var(--product-pro); border-color: var(--product-pro); color: #fff; }
 .tab[data-filter="protect"].active { background: var(--product-protect); border-color: var(--product-protect); color: #fff; }
 .tab[data-filter="school"] { color: var(--product-school); }
+.tab[data-filter="security"] { color: var(--product-security); }
 .tab[data-filter="school"].active { background: var(--product-school); border-color: var(--product-school); color: #fff; }
+.tab[data-filter="security"].active { background: var(--product-security); border-color: var(--product-security); color: #fff; }
 .tab[data-filter="platform"] { color: var(--product-platform); }
 .tab[data-filter="platform"].active { background: var(--product-platform); border-color: var(--product-platform); color: #fff; }
 
@@ -1348,7 +1362,9 @@ a.stat-card:hover {
 .product-divider[data-product="protect"] .product-divider-label { color: var(--product-protect); }
 .product-divider[data-product="protect"]::after { background: var(--product-protect); opacity: 0.3; }
 .product-divider[data-product="school"] .product-divider-label { color: var(--product-school); }
+.product-divider[data-product="security"] .product-divider-label { color: var(--product-security); }
 .product-divider[data-product="school"]::after { background: var(--product-school); opacity: 0.3; }
+.product-divider[data-product="security"]::after { background: var(--product-security); opacity: 0.3; }
 .product-divider[data-product="platform"] .product-divider-label { color: var(--product-platform); }
 .product-divider[data-product="platform"]::after { background: var(--product-platform); opacity: 0.3; }
 
@@ -1470,6 +1486,11 @@ a.stat-card:hover {
   border: 1px solid rgba(245, 158, 11, 0.3);
   box-shadow: 0 0 6px rgba(245, 158, 11, 0.15);
 }
+
+.catalog-group.getting-started[data-product="security"] .catalog-group-header {
+  border: 1px solid rgba(220, 38, 38, 0.3);
+  box-shadow: 0 0 6px rgba(220, 38, 38, 0.15);
+}
 .catalog-group.getting-started[data-product="platform"] .catalog-group-header {
   border: 1px solid rgba(18, 104, 236, 0.3);
   box-shadow: 0 0 6px rgba(18, 104, 236, 0.15);
@@ -1490,6 +1511,12 @@ a.stat-card:hover {
   color: var(--product-school);
   background: #FEF3C7;
 }
+
+.catalog-group[data-product="security"] .catalog-group-header {
+  border-left-color: var(--product-security);
+  color: var(--product-security);
+  background: #FEE2E2;
+}
 .catalog-group[data-product="platform"] .catalog-group-header {
   border-left-color: var(--product-platform);
   color: var(--product-platform);
@@ -1505,6 +1532,10 @@ a.stat-card:hover {
   }
   .catalog-group[data-product="school"] .catalog-group-header {
     background: #271d08;
+  }
+
+  .catalog-group[data-product="security"] .catalog-group-header {
+    background: #2e1414;
   }
   .catalog-group[data-product="platform"] .catalog-group-header {
     background: #1268ec1a;
@@ -1705,6 +1736,7 @@ a.stat-card:hover {
 .command-row[data-product="pro"] .command-name { color: var(--product-pro); }
 .command-row[data-product="protect"] .command-name { color: var(--product-protect); }
 .command-row[data-product="school"] .command-name { color: var(--product-school); }
+.command-row[data-product="security"] .command-name { color: var(--product-security); }
 .command-row[data-product="platform"] .command-name { color: var(--product-platform); }
 /* .command-row[data-product="connect"] .command-name { color: var(--product-connect); } */
 
@@ -1789,6 +1821,11 @@ a.stat-card:hover {
   background: rgba(245, 158, 11, 0.08);
 }
 
+.cmd-product-badge[data-product="security"] {
+  color: var(--product-security);
+  background: rgba(220, 38, 38, 0.08);
+}
+
 .cmd-product-badge[data-product="platform"] {
   color: var(--product-platform);
   background: rgba(18, 104, 236, 0.08);
@@ -1864,6 +1901,11 @@ a.stat-card:hover {
 .xref-badge[data-product="school"] {
   background: rgba(245, 158, 11, 0.1);
   color: var(--product-school);
+}
+
+.xref-badge[data-product="security"] {
+  background: rgba(220, 38, 38, 0.1);
+  color: var(--product-security);
 }
 
 .detail-breadcrumb {
@@ -2653,6 +2695,10 @@ footer .footer-meta {
 :root[data-theme="dark"] .catalog-group[data-product="school"] .catalog-group-header {
   background: #271d08;
 }
+
+:root[data-theme="dark"] .catalog-group[data-product="security"] .catalog-group-header {
+  background: #2e1414;
+}
 :root[data-theme="dark"] .flag-pill {
   background: rgba(142, 142, 147, 0.12);
   color: #707377;
@@ -2685,6 +2731,10 @@ footer .footer-meta {
   }
   :root[data-theme="light"] .catalog-group[data-product="school"] .catalog-group-header {
     background: #FEF3C7;
+  }
+
+  :root[data-theme="light"] .catalog-group[data-product="security"] .catalog-group-header {
+    background: #FEE2E2;
   }
   :root[data-theme="light"] .flag-pill {
     background: rgba(142, 142, 147, 0.08);

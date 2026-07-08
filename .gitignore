@@ -56,3 +56,6 @@ docs/site/llms-full.txt
 
 # Private spec sources (synced into specs/platform/ via make sync-platform-specs)
 specs/.platform-source/
+
+# Private spec sources (synced into specs/security/ via make sync-security-specs)
+specs/.security-source/

@@ -15,6 +15,7 @@ import (
 	"github.com/Jamf-Concepts/jamf-cli/generator/monolith"
 	"github.com/Jamf-Concepts/jamf-cli/generator/parser"
 	"github.com/Jamf-Concepts/jamf-cli/generator/platform"
+	secgen "github.com/Jamf-Concepts/jamf-cli/generator/security"
 )
 
 // smokeEntry collects endpoint metadata from both modern and classic generators.
@@ -302,6 +303,65 @@ func main() {
 				continue
 			}
 			if !platformGenerated[base] {
+				if err := os.Remove(f); err == nil {
+					fmt.Printf("Removed stale: %s\n", base)
+				}
+			}
+		}
+	}
+
+	// ── Jamf Security Cloud commands ──────────────────────────────
+	securitySpecsDir := filepath.Join(specsDir, "security")
+	if _, err := os.Stat(securitySpecsDir); err == nil {
+		fmt.Println()
+		fmt.Println("Jamf Security Cloud command generation")
+		fmt.Println("=======================================")
+		fmt.Printf("Specs directory: %s\n\n", securitySpecsDir)
+
+		securityOutputDir := "./internal/commands/security/generated"
+		if err := os.MkdirAll(securityOutputDir, 0o755); err != nil {
+			fmt.Fprintf(os.Stderr, "Error creating security output directory: %v\n", err)
+			os.Exit(1)
+		}
+
+		securityResources, securityScopes, securitySpecs, err := secgen.LoadResources(securitySpecsDir)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error loading security specs: %v\n", err)
+			os.Exit(1)
+		}
+
+		securityFiles, err := secgen.Generate(securityResources, securityScopes, securityOutputDir)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error generating security commands: %v\n", err)
+			os.Exit(1)
+		}
+		securityGenerated := make(map[string]bool, len(securityFiles))
+		for _, f := range securityFiles {
+			fmt.Printf("Generated: %s\n", f)
+			securityGenerated[filepath.Base(f)] = true
+		}
+		fmt.Println()
+		fmt.Printf("Successfully generated %d security resource file(s)\n", len(securityFiles))
+
+		// Emit security provenance using the spec files LoadResources
+		// actually consumed (no re-glob — single source of truth).
+		if err := writeProvenanceFile(securityOutputDir, "generated", securitySpecs); err != nil {
+			fmt.Fprintf(os.Stderr, "Error writing Security provenance: %v\n", err)
+			os.Exit(1)
+		}
+		securityGenerated["provenance.go"] = true
+		fmt.Printf("Generated: %s\n", filepath.Join(securityOutputDir, "provenance.go"))
+
+		// Remove stale files in the security output dir that this run did
+		// not produce — keeps the directory in sync when resources are
+		// dropped from specs.
+		existingSecurity, _ := filepath.Glob(filepath.Join(securityOutputDir, "*.go"))
+		for _, f := range existingSecurity {
+			base := filepath.Base(f)
+			if strings.HasSuffix(base, "_test.go") {
+				continue
+			}
+			if !securityGenerated[base] {
 				if err := os.Remove(f); err == nil {
 					fmt.Printf("Removed stale: %s\n", base)
 				}

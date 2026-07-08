@@ -34,7 +34,8 @@ var commandAliases = map[string][]string{
 
 // rootAliases maps root-level command names to short aliases.
 var rootAliases = map[string][]string{
-	"config": {"cfg"},
+	"config":   {"cfg"},
+	"security": {"sec"},
 }
 
 // applyAliases appends Aliases to any subcommand that has a mapping.
@@ -97,6 +98,20 @@ var schoolAliases = map[string][]string{
 func applySchoolAliases(parent *cobra.Command) {
 	for _, cmd := range parent.Commands() {
 		if aliases, ok := schoolAliases[cmd.Name()]; ok {
+			cmd.Aliases = append(cmd.Aliases, aliases...)
+		}
+	}
+}
+
+// securityAliases maps Jamf Security Cloud command names to their short aliases.
+var securityAliases = map[string][]string{
+	"device-lifecycle": {"lifecycle", "dl"},
+}
+
+// applySecurityAliases appends aliases to security subcommands.
+func applySecurityAliases(parent *cobra.Command) {
+	for _, cmd := range parent.Commands() {
+		if aliases, ok := securityAliases[cmd.Name()]; ok {
 			cmd.Aliases = append(cmd.Aliases, aliases...)
 		}
 	}
