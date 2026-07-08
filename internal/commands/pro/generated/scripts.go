@@ -363,7 +363,7 @@ func newScriptsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:   "update [<id>]",
 		Short: "Replace the script at the id with the supplied information",
 		Long:  "Replaces the script at the id with the supplied information",
-		Example: `  # Update a script from JSON
+		Example: `  # Replace a script from JSON
   echo '{"name":"Updated"}' | jamf-cli pro scripts update 1
 
   # Update by name

@@ -379,7 +379,7 @@ func newDeviceEnrollmentInstancesUpdateCmd(ctx *registry.CLIContext) *cobra.Comm
 		Use:   "update [<id>]",
 		Short: "Update a Device Enrollment Instance with the supplied id",
 		Long:  "Updates a Device Enrollment Instance with the supplied id",
-		Example: `  # Update a device-enrollment-instance from JSON
+		Example: `  # Replace a device-enrollment-instance from JSON
   echo '{"name":"Updated"}' | jamf-cli pro device-enrollment-instances update 1
 
   # Update by name

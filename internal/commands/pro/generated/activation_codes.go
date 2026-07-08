@@ -42,7 +42,7 @@ func newActivationCodesUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:   "update",
 		Short: "Updates Activation Code",
 		Long:  "Updates Activation Code in Jamf Pro.",
-		Example: `  # Update activation-codes
+		Example: `  # Replace activation-codes from a full JSON document
   jamf-cli pro activation-codes get -o json | jq '.field = "value"' | jamf-cli pro activation-codes update
 
   # Update from a file

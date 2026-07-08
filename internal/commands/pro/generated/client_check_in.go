@@ -74,13 +74,17 @@ func newClientCheckInGetCmd(ctx *registry.CLIContext) *cobra.Command {
 func newClientCheckInUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagScaffold bool
+		flagSet      []string
 	)
 
 	cmd := &cobra.Command{
 		Use:   "update",
 		Short: "Update Client Check-In object",
-		Long:  "Update Client Check-In object",
-		Example: `  # Update client-check-in
+		Long:  "Update Client Check-In object\n\nUse --set KEY=VALUE to update individual fields (repeatable). The current resource is fetched, your changes are merged in, read-only fields are dropped, and the whole record is written back. Omitted fields keep their current values.\n\nAvailable fields:\n  checkInFrequency                             integer\n  createHooks                                  boolean\n  createStartupScript                          boolean\n  enableLocalConfigurationProfiles             boolean\n  hookLog                                      boolean\n  hookPolicies                                 boolean\n  startupLog                                   boolean\n  startupPolicies                              boolean\n  startupSsh                                   boolean\n\nWithout --set, pipe a full JSON document to stdin to replace the resource entirely.",
+		Example: `  # Update individual fields (fetch-merge-replace)
+  jamf-cli pro client-check-in update --set field=value
+
+  # Replace client-check-in from a full JSON document
   jamf-cli pro client-check-in get -o json | jq '.field = "value"' | jamf-cli pro client-check-in update
 
   # Update from a file
@@ -116,8 +120,41 @@ func newClientCheckInUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 			// Read body from stdin if available
 			var body io.Reader
 			var normalized []byte
+			if len(flagSet) > 0 {
+				// --set: fetch current state, drop read-only / server-computed fields,
+				// merge the caller's changes, and PUT the full record back. Fields not
+				// named in --set keep their current values.
+				existing, ferr := fetchForMerge(reqCtx, ctx.Client, path)
+				if ferr != nil {
+					return ferr
+				}
+				current := map[string]any{}
+				if len(existing) > 0 {
+					if err := json.Unmarshal(existing, &current); err != nil {
+						return fmt.Errorf("parsing current client-check-in for --set: %w", err)
+					}
+				}
+				(&fieldFilter{fields: map[string]*fieldFilter{"checkInFrequency": nil, "createHooks": nil, "createStartupScript": nil, "enableLocalConfigurationProfiles": nil, "hookLog": nil, "hookPolicies": nil, "startupLog": nil, "startupPolicies": nil, "startupSsh": nil}}).apply(current)
+				setDoc, serr := buildMergePatchFromSet(flagSet)
+				if serr != nil {
+					return serr
+				}
+				setMap := map[string]any{}
+				if err := json.Unmarshal(setDoc, &setMap); err != nil {
+					return err
+				}
+				deepMergeJSON(current, setMap)
+				merged, merr := json.Marshal(current)
+				if merr != nil {
+					return merr
+				}
+				normalized = merged
+				if setStat, _ := os.Stdin.Stat(); setStat != nil && (setStat.Mode()&os.ModeCharDevice) == 0 {
+					fmt.Fprintln(os.Stderr, "warning: --set and piped stdin are mutually exclusive; ignoring stdin")
+				}
+			}
 			stat, _ := os.Stdin.Stat()
-			if (stat.Mode() & os.ModeCharDevice) == 0 {
+			if len(flagSet) == 0 && (stat.Mode()&os.ModeCharDevice) == 0 {
 				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
 				if err != nil {
 					return fmt.Errorf("reading stdin: %w", err)
@@ -141,6 +178,12 @@ func newClientCheckInUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	}
 
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
+	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Update a field via fetch-merge-replace (key=value in dot notation, repeatable)")
+	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+		return []string{
+			"checkInFrequency=", "createHooks=", "createStartupScript=", "enableLocalConfigurationProfiles=", "hookLog=", "hookPolicies=", "startupLog=", "startupPolicies=", "startupSsh=",
+		}, cobra.ShellCompDirectiveNoSpace
+	})
 	return cmd
 }
 

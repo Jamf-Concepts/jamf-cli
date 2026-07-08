@@ -101,7 +101,7 @@ func newUserPreferencesUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:   "update [<id>]",
 		Short: "Persist the user setting",
 		Long:  "Persists the user setting",
-		Example: `  # Update a user-preference from JSON
+		Example: `  # Replace a user-preference from JSON
   echo '{"name":"Updated"}' | jamf-cli pro user-preferences update 1
 
   # Update by name

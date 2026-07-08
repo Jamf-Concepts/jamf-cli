@@ -197,7 +197,7 @@ func newJamfConnectsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:   "update [<id>]",
 		Short: "Update the way the Jamf Connect app gets updated on computers within scope of the associated configuration profile.",
 		Long:  "Update the way the Jamf Connect app gets updated on computers within scope of the associated configuration profile.",
-		Example: `  # Update a jamf-connect from JSON
+		Example: `  # Replace a jamf-connect from JSON
   echo '{"name":"Updated"}' | jamf-cli pro jamf-connects update 1
 
   # Update by name

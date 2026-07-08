@@ -365,7 +365,7 @@ func newComputerExtensionAttributesUpdateCmd(ctx *registry.CLIContext) *cobra.Co
 		Use:   "update [<id>]",
 		Short: "Update specified Computer Extension Attribute object.",
 		Long:  "Update specified Computer Extension Attribute object.",
-		Example: `  # Update a computer-extension-attribute from JSON
+		Example: `  # Replace a computer-extension-attribute from JSON
   echo '{"name":"Updated"}' | jamf-cli pro computer-extension-attributes update 1
 
   # Update by name
