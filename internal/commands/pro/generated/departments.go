@@ -327,13 +327,18 @@ func newDepartmentsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagScaffold bool
 		flagName     string
+
+		flagSet []string
 	)
 
 	cmd := &cobra.Command{
 		Use:   "update [<id>]",
 		Short: "Update specified department object",
-		Long:  "Update specified department object",
-		Example: `  # Update a department from JSON
+		Long:  "Update specified department object\n\nIdentify the resource by ID (positional arg), --name.\n\nUse --set KEY=VALUE to update individual fields (repeatable). The current resource is fetched, your changes are merged in, read-only fields are dropped, and the whole record is written back. Omitted fields keep their current values.\n\nAvailable fields:\n  name                                         string\n\nWithout --set, pipe a full JSON document to stdin to replace the resource entirely.",
+		Example: `  # Update individual fields (fetch-merge-replace)
+  jamf-cli pro departments update 1 --set field=value
+
+  # Replace a department from JSON
   echo '{"name":"Updated"}' | jamf-cli pro departments update 1
 
   # Update by name
@@ -380,8 +385,38 @@ func newDepartmentsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 			// Read body from stdin if available
 			var body io.Reader
 			var normalized []byte
+			if len(flagSet) > 0 {
+				// --set: fetch current state, drop read-only / server-computed fields,
+				// merge the caller's changes, and PUT the full record back. Fields not
+				// named in --set keep their current values.
+				existing, ferr := fetchForMerge(reqCtx, ctx.Client, path)
+				if ferr != nil {
+					return ferr
+				}
+				current := map[string]any{}
+				if len(existing) > 0 {
+					if err := json.Unmarshal(existing, &current); err != nil {
+						return fmt.Errorf("parsing current department for --set: %w", err)
+					}
+				}
+				(&fieldFilter{fields: map[string]*fieldFilter{"name": nil}}).apply(current)
+				setDoc, serr := buildMergePatchFromSet(flagSet)
+				if serr != nil {
+					return serr
+				}
+				setMap := map[string]any{}
+				if err := json.Unmarshal(setDoc, &setMap); err != nil {
+					return err
+				}
+				deepMergeJSON(current, setMap)
+				merged, merr := json.Marshal(current)
+				if merr != nil {
+					return merr
+				}
+				normalized = merged
+			}
 			stat, _ := os.Stdin.Stat()
-			if (stat.Mode() & os.ModeCharDevice) == 0 {
+			if len(flagSet) == 0 && (stat.Mode()&os.ModeCharDevice) == 0 {
 				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
 				if err != nil {
 					return fmt.Errorf("reading stdin: %w", err)
@@ -407,6 +442,12 @@ func newDepartmentsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up department by name")
 
+	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Update a field via fetch-merge-replace (key=value in dot notation, repeatable)")
+	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+		return []string{
+			"name=",
+		}, cobra.ShellCompDirectiveNoSpace
+	})
 	return cmd
 }
 

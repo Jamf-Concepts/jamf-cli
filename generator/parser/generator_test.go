@@ -2356,3 +2356,115 @@ func TestGenerate_NdjsonSinglePageUnwrap(t *testing.T) {
 		}
 	}
 }
+
+// --- update --set (fetch-merge-put) generator helpers ---
+
+func updateOp(path string) *Operation {
+	return &Operation{
+		Name: "update", Method: "PUT", Path: path,
+		RequestBody: &RequestBody{Schema: &Schema{Properties: map[string]*Property{"name": {Type: "string"}}}},
+	}
+}
+
+func TestUpdatePutWithBody(t *testing.T) {
+	if !updatePutWithBody(updateOp("/v1/x/{id}")) {
+		t.Error("PUT update with a modelled body should qualify")
+	}
+	if updatePutWithBody(&Operation{Name: "update", Method: "PUT", Path: "/v1/x/{id}"}) {
+		t.Error("PUT update with no request body should not qualify")
+	}
+	if updatePutWithBody(&Operation{
+		Name: "update", Method: "PUT", Path: "/v1/x/{id}",
+		RequestBody: &RequestBody{IsMultipart: true, Schema: &Schema{Properties: map[string]*Property{"f": {Type: "string"}}}},
+	}) {
+		t.Error("multipart update should not qualify")
+	}
+	if updatePutWithBody(&Operation{
+		Name: "patch", Method: "PATCH", Path: "/v1/x/{id}",
+		RequestBody: &RequestBody{Schema: &Schema{Properties: map[string]*Property{"name": {Type: "string"}}}},
+	}) {
+		t.Error("PATCH op should not qualify as an update-set op")
+	}
+}
+
+func TestUpdateSetEnabled(t *testing.T) {
+	up := updateOp("/v1/x/{id}")
+	get := &Operation{Name: "get", Method: "GET", Path: "/v1/x/{id}"}
+
+	t.Run("enabled with matching GET", func(t *testing.T) {
+		r := &Resource{Operations: []*Operation{up, get}}
+		if !updateSetEnabled(up, r) {
+			t.Error("should be enabled when a GET at the same path exists")
+		}
+	})
+	t.Run("disabled without matching GET", func(t *testing.T) {
+		r := &Resource{Operations: []*Operation{up, {Name: "get", Method: "GET", Path: "/v1/x/detail/{id}"}}}
+		if updateSetEnabled(up, r) {
+			t.Error("should be disabled when no GET shares the update path")
+		}
+	})
+	t.Run("disabled for file-field resources", func(t *testing.T) {
+		r := &Resource{Operations: []*Operation{up, get}, FileFields: []FileField{{Flag: "script-file"}}}
+		if updateSetEnabled(up, r) {
+			t.Error("file-field resources should keep full-replace only")
+		}
+	})
+	t.Run("disabled for update-token composite ops", func(t *testing.T) {
+		r := &Resource{Operations: []*Operation{up, get}, UpdateTokenOp: &Operation{}}
+		if updateSetEnabled(up, r) {
+			t.Error("token-composite resources should keep full-replace only")
+		}
+	})
+}
+
+func TestWritableFilterLiteral(t *testing.T) {
+	t.Run("excludes read-only and recurses nested", func(t *testing.T) {
+		op := &Operation{Name: "update", Method: "PUT", RequestBody: &RequestBody{Schema: &Schema{
+			Properties: map[string]*Property{
+				"name": {Type: "string"},
+				"id":   {Type: "string", ReadOnly: true},
+				"general": {Type: "object", Nested: &Schema{Properties: map[string]*Property{
+					"barcode": {Type: "string"},
+					"created": {Type: "string", ReadOnly: true},
+				}}},
+			},
+		}}}
+		got := writableFilterLiteral(op, nil)
+		for _, want := range []string{`"name": nil`, `"general": &fieldFilter{`, `"barcode": nil`} {
+			if !strings.Contains(got, want) {
+				t.Errorf("literal missing %q; got %s", want, got)
+			}
+		}
+		for _, bad := range []string{`"id"`, `"created"`} {
+			if strings.Contains(got, bad) {
+				t.Errorf("read-only field %s should be excluded; got %s", bad, got)
+			}
+		}
+	})
+	t.Run("open schema yields typed nil", func(t *testing.T) {
+		op := &Operation{Name: "update", Method: "PUT", RequestBody: &RequestBody{Schema: &Schema{}}}
+		if got := writableFilterLiteral(op, nil); got != "(*fieldFilter)(nil)" {
+			t.Errorf("open schema should give typed nil, got %q", got)
+		}
+	})
+	t.Run("nil request body yields typed nil", func(t *testing.T) {
+		if got := writableFilterLiteral(&Operation{Name: "update", Method: "PUT"}, nil); got != "(*fieldFilter)(nil)" {
+			t.Errorf("nil body should give typed nil, got %q", got)
+		}
+	})
+}
+
+func TestWriteOnlyRequiredFields(t *testing.T) {
+	op := &Operation{RequestBody: &RequestBody{Schema: &Schema{
+		Required: []string{"token", "username"},
+		Properties: map[string]*Property{
+			"token":    {Type: "string", WriteOnly: true},
+			"username": {Type: "string"},                  // required but not write-only
+			"secret":   {Type: "string", WriteOnly: true}, // write-only but not required
+		},
+	}}}
+	got := writeOnlyRequiredFields(op)
+	if len(got) != 1 || got[0] != "token" {
+		t.Errorf("want [token], got %v", got)
+	}
+}

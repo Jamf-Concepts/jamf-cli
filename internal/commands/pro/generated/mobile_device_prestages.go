@@ -374,13 +374,18 @@ func newMobileDevicePrestagesUpdateCmd(ctx *registry.CLIContext) *cobra.Command 
 	var (
 		flagScaffold bool
 		flagName     string
+
+		flagSet []string
 	)
 
 	cmd := &cobra.Command{
 		Use:   "update [<id>]",
 		Short: "Update a Mobile Device Prestage",
-		Long:  "Updates a Mobile Device Prestage",
-		Example: `  # Update a mobile-device-prestage from JSON
+		Long:  "Updates a Mobile Device Prestage\n\nIdentify the resource by ID (positional arg), --name.\n\nUse --set KEY=VALUE to update individual fields (repeatable). The current resource is fetched, your changes are merged in, read-only fields are dropped, and the whole record is written back. Omitted fields keep their current values.\n\nAvailable fields:\n  allowPairing                                 boolean\n  authenticationPrompt                         string\n  autoAdvanceSetup                             boolean\n  configureDeviceBeforeSetupAssistant          boolean\n  defaultPrestage                              boolean\n  department                                   string\n  deviceEnrollmentProgramInstanceId            string\n  displayName                                  string\n  doNotUseProfileFromBackup                    boolean\n  enableDeviceBasedActivationLock              boolean\n  enforceTemporarySessionTimeout               boolean\n  enforceUserSessionTimeout                    boolean\n  enrollmentCustomizationId                    string\n  enrollmentSiteId                             string\n  installAppsDuringEnrollment                  boolean\n  keepExistingLocationInformation              boolean\n  keepExistingSiteMembership                   boolean\n  language                                     string\n  locationInformation.buildingId               string\n  locationInformation.departmentId             string\n  locationInformation.email                    string\n  locationInformation.id                       string\n  locationInformation.phone                    string\n  locationInformation.position                 string\n  locationInformation.realname                 string\n  locationInformation.room                     string\n  locationInformation.username                 string\n  locationInformation.versionLock              integer\n  mandatory                                    boolean\n  maximumSharedAccounts                        integer\n  mdmRemovable                                 boolean\n  minimumOsSpecificVersionIos                  string\n  minimumOsSpecificVersionIpad                 string\n  multiUser                                    boolean\n  names.assignNamesUsing                       string\n  names.deviceNamePrefix                       string\n  names.deviceNameSuffix                       string\n  names.deviceNamingConfigured                 boolean\n  names.manageNames                            boolean\n  names.singleDeviceName                       string\n  preserveManagedApps                          boolean\n  prestageMinimumOsTargetVersionTypeIos        string\n  prestageMinimumOsTargetVersionTypeIpad       string\n  preventActivationLock                        boolean\n  purchasingInformation.appleCareId            string\n  purchasingInformation.id                     string\n  purchasingInformation.leaseDate              string\n  purchasingInformation.leased                 boolean\n  purchasingInformation.lifeExpectancy         integer\n  purchasingInformation.poDate                 string\n  purchasingInformation.poNumber               string\n  purchasingInformation.purchasePrice          string\n  purchasingInformation.purchased              boolean\n  purchasingInformation.purchasingAccount      string\n  purchasingInformation.purchasingContact      string\n  purchasingInformation.vendor                 string\n  purchasingInformation.versionLock            integer\n  purchasingInformation.warrantyDate           string\n  region                                       string\n  requireAuthentication                        boolean\n  rtsConfigProfileId                           string\n  rtsEnabled                                   boolean\n  sendTimezone                                 boolean\n  storageQuotaSizeMegabytes                    integer\n  supervised                                   boolean\n  supportEmailAddress                          string\n  supportPhoneNumber                           string\n  temporarySessionOnly                         boolean\n  temporarySessionTimeout                      integer\n  timezone                                     string\n  useStorageQuotaSize                          boolean\n  userSessionTimeout                           integer\n  versionLock                                  integer\n\nWithout --set, pipe a full JSON document to stdin to replace the resource entirely.",
+		Example: `  # Update individual fields (fetch-merge-replace)
+  jamf-cli pro mobile-device-prestages update 1 --set field=value
+
+  # Replace a mobile-device-prestage from JSON
   echo '{"name":"Updated"}' | jamf-cli pro mobile-device-prestages update 1
 
   # Update by name
@@ -477,8 +482,38 @@ func newMobileDevicePrestagesUpdateCmd(ctx *registry.CLIContext) *cobra.Command 
 			// Read body from stdin if available
 			var body io.Reader
 			var normalized []byte
+			if len(flagSet) > 0 {
+				// --set: fetch current state, drop read-only / server-computed fields,
+				// merge the caller's changes, and PUT the full record back. Fields not
+				// named in --set keep their current values.
+				existing, ferr := fetchForMerge(reqCtx, ctx.Client, path)
+				if ferr != nil {
+					return ferr
+				}
+				current := map[string]any{}
+				if len(existing) > 0 {
+					if err := json.Unmarshal(existing, &current); err != nil {
+						return fmt.Errorf("parsing current mobile-device-prestage for --set: %w", err)
+					}
+				}
+				(&fieldFilter{fields: map[string]*fieldFilter{"allowPairing": nil, "anchorCertificates": nil, "authenticationPrompt": nil, "autoAdvanceSetup": nil, "configureDeviceBeforeSetupAssistant": nil, "defaultPrestage": nil, "department": nil, "deviceEnrollmentProgramInstanceId": nil, "displayName": nil, "doNotUseProfileFromBackup": nil, "enableDeviceBasedActivationLock": nil, "enforceTemporarySessionTimeout": nil, "enforceUserSessionTimeout": nil, "enrollmentCustomizationId": nil, "enrollmentSiteId": nil, "installAppsDuringEnrollment": nil, "keepExistingLocationInformation": nil, "keepExistingSiteMembership": nil, "language": nil, "locationInformation": &fieldFilter{fields: map[string]*fieldFilter{"buildingId": nil, "departmentId": nil, "email": nil, "id": nil, "phone": nil, "position": nil, "realname": nil, "room": nil, "username": nil, "versionLock": nil}}, "mandatory": nil, "maximumSharedAccounts": nil, "mdmRemovable": nil, "minimumOsSpecificVersionIos": nil, "minimumOsSpecificVersionIpad": nil, "multiUser": nil, "names": &fieldFilter{fields: map[string]*fieldFilter{"assignNamesUsing": nil, "deviceNamePrefix": nil, "deviceNameSuffix": nil, "deviceNamingConfigured": nil, "manageNames": nil, "prestageDeviceNames": nil, "singleDeviceName": nil}}, "preserveManagedApps": nil, "prestageMinimumOsTargetVersionTypeIos": nil, "prestageMinimumOsTargetVersionTypeIpad": nil, "preventActivationLock": nil, "purchasingInformation": &fieldFilter{fields: map[string]*fieldFilter{"appleCareId": nil, "id": nil, "leaseDate": nil, "leased": nil, "lifeExpectancy": nil, "poDate": nil, "poNumber": nil, "purchasePrice": nil, "purchased": nil, "purchasingAccount": nil, "purchasingContact": nil, "vendor": nil, "versionLock": nil, "warrantyDate": nil}}, "region": nil, "requireAuthentication": nil, "rtsConfigProfileId": nil, "rtsEnabled": nil, "sendTimezone": nil, "skipSetupItems": nil, "storageQuotaSizeMegabytes": nil, "supervised": nil, "supportEmailAddress": nil, "supportPhoneNumber": nil, "temporarySessionOnly": nil, "temporarySessionTimeout": nil, "timezone": nil, "useStorageQuotaSize": nil, "userSessionTimeout": nil, "versionLock": nil}}).apply(current)
+				setDoc, serr := buildMergePatchFromSet(flagSet)
+				if serr != nil {
+					return serr
+				}
+				setMap := map[string]any{}
+				if err := json.Unmarshal(setDoc, &setMap); err != nil {
+					return err
+				}
+				deepMergeJSON(current, setMap)
+				merged, merr := json.Marshal(current)
+				if merr != nil {
+					return merr
+				}
+				normalized = merged
+			}
 			stat, _ := os.Stdin.Stat()
-			if (stat.Mode() & os.ModeCharDevice) == 0 {
+			if len(flagSet) == 0 && (stat.Mode()&os.ModeCharDevice) == 0 {
 				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
 				if err != nil {
 					return fmt.Errorf("reading stdin: %w", err)
@@ -514,6 +549,12 @@ func newMobileDevicePrestagesUpdateCmd(ctx *registry.CLIContext) *cobra.Command 
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up mobile-device-prestage by name")
 
+	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Update a field via fetch-merge-replace (key=value in dot notation, repeatable)")
+	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+		return []string{
+			"allowPairing=", "authenticationPrompt=", "autoAdvanceSetup=", "configureDeviceBeforeSetupAssistant=", "defaultPrestage=", "department=", "deviceEnrollmentProgramInstanceId=", "displayName=", "doNotUseProfileFromBackup=", "enableDeviceBasedActivationLock=", "enforceTemporarySessionTimeout=", "enforceUserSessionTimeout=", "enrollmentCustomizationId=", "enrollmentSiteId=", "installAppsDuringEnrollment=", "keepExistingLocationInformation=", "keepExistingSiteMembership=", "language=", "locationInformation.buildingId=", "locationInformation.departmentId=", "locationInformation.email=", "locationInformation.id=", "locationInformation.phone=", "locationInformation.position=", "locationInformation.realname=", "locationInformation.room=", "locationInformation.username=", "locationInformation.versionLock=", "mandatory=", "maximumSharedAccounts=", "mdmRemovable=", "minimumOsSpecificVersionIos=", "minimumOsSpecificVersionIpad=", "multiUser=", "names.assignNamesUsing=", "names.deviceNamePrefix=", "names.deviceNameSuffix=", "names.deviceNamingConfigured=", "names.manageNames=", "names.singleDeviceName=", "preserveManagedApps=", "prestageMinimumOsTargetVersionTypeIos=", "prestageMinimumOsTargetVersionTypeIpad=", "preventActivationLock=", "purchasingInformation.appleCareId=", "purchasingInformation.id=", "purchasingInformation.leaseDate=", "purchasingInformation.leased=", "purchasingInformation.lifeExpectancy=", "purchasingInformation.poDate=", "purchasingInformation.poNumber=", "purchasingInformation.purchasePrice=", "purchasingInformation.purchased=", "purchasingInformation.purchasingAccount=", "purchasingInformation.purchasingContact=", "purchasingInformation.vendor=", "purchasingInformation.versionLock=", "purchasingInformation.warrantyDate=", "region=", "requireAuthentication=", "rtsConfigProfileId=", "rtsEnabled=", "sendTimezone=", "storageQuotaSizeMegabytes=", "supervised=", "supportEmailAddress=", "supportPhoneNumber=", "temporarySessionOnly=", "temporarySessionTimeout=", "timezone=", "useStorageQuotaSize=", "userSessionTimeout=", "versionLock=",
+		}, cobra.ShellCompDirectiveNoSpace
+	})
 	return cmd
 }
 

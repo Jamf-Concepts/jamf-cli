@@ -77,13 +77,17 @@ func newSsoSettingsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 func newSsoSettingsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagScaffold bool
+		flagSet      []string
 	)
 
 	cmd := &cobra.Command{
 		Use:   "update",
 		Short: "Updates the current Single Sign On configuration settings",
-		Long:  "Updates the current Single Sign On configuration settings",
-		Example: `  # Update sso-settings
+		Long:  "Updates the current Single Sign On configuration settings\n\nUse --set KEY=VALUE to update individual fields (repeatable). The current resource is fetched, your changes are merged in, read-only fields are dropped, and the whole record is written back. Omitted fields keep their current values.\n\nAvailable fields:\n  configurationType                            string\n  enrollmentSsoConfig.managementHint           string\n  enrollmentSsoForAccountDrivenEnrollmentEnabled boolean\n  groupEnrollmentAccessEnabled                 boolean\n  groupEnrollmentAccessName                    string\n  oidcSettings.jamfIdAuthenticationEnabled     boolean\n  oidcSettings.userMapping                     string\n  oidcSettings.usernameAttributeClaimMapping   string\n  samlSettings.entityId                        string\n  samlSettings.federationMetadataFile          string\n  samlSettings.groupAttributeName              string\n  samlSettings.groupRdnKey                     string\n  samlSettings.idpProviderType                 string\n  samlSettings.idpUrl                          string\n  samlSettings.metadataFileName                string\n  samlSettings.metadataSource                  string\n  samlSettings.otherProviderTypeName           string\n  samlSettings.sessionTimeout                  integer\n  samlSettings.tokenExpirationDisabled         boolean\n  samlSettings.userAttributeEnabled            boolean\n  samlSettings.userAttributeName               string\n  samlSettings.userMapping                     string\n  ssoBypassAllowed                             boolean\n  ssoEnabled                                   boolean\n  ssoForEnrollmentEnabled                      boolean\n  ssoForMacOsSelfServiceEnabled                boolean\n\nWithout --set, pipe a full JSON document to stdin to replace the resource entirely.",
+		Example: `  # Update individual fields (fetch-merge-replace)
+  jamf-cli pro sso-settings update --set field=value
+
+  # Replace sso-settings from a full JSON document
   jamf-cli pro sso-settings get -o json | jq '.field = "value"' | jamf-cli pro sso-settings update
 
   # Update from a file
@@ -121,8 +125,38 @@ func newSsoSettingsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 			// Read body from stdin if available
 			var body io.Reader
 			var normalized []byte
+			if len(flagSet) > 0 {
+				// --set: fetch current state, drop read-only / server-computed fields,
+				// merge the caller's changes, and PUT the full record back. Fields not
+				// named in --set keep their current values.
+				existing, ferr := fetchForMerge(reqCtx, ctx.Client, path)
+				if ferr != nil {
+					return ferr
+				}
+				current := map[string]any{}
+				if len(existing) > 0 {
+					if err := json.Unmarshal(existing, &current); err != nil {
+						return fmt.Errorf("parsing current sso-settings for --set: %w", err)
+					}
+				}
+				(&fieldFilter{fields: map[string]*fieldFilter{"configurationType": nil, "enrollmentSsoConfig": &fieldFilter{fields: map[string]*fieldFilter{"hosts": nil, "managementHint": nil}}, "enrollmentSsoForAccountDrivenEnrollmentEnabled": nil, "groupEnrollmentAccessEnabled": nil, "groupEnrollmentAccessName": nil, "oidcSettings": &fieldFilter{fields: map[string]*fieldFilter{"jamfIdAuthenticationEnabled": nil, "userMapping": nil, "usernameAttributeClaimMapping": nil}}, "samlSettings": &fieldFilter{fields: map[string]*fieldFilter{"entityId": nil, "federationMetadataFile": nil, "groupAttributeName": nil, "groupRdnKey": nil, "idpProviderType": nil, "idpUrl": nil, "metadataFileName": nil, "metadataSource": nil, "otherProviderTypeName": nil, "sessionTimeout": nil, "tokenExpirationDisabled": nil, "userAttributeEnabled": nil, "userAttributeName": nil, "userMapping": nil}}, "ssoBypassAllowed": nil, "ssoEnabled": nil, "ssoForEnrollmentEnabled": nil, "ssoForMacOsSelfServiceEnabled": nil}}).apply(current)
+				setDoc, serr := buildMergePatchFromSet(flagSet)
+				if serr != nil {
+					return serr
+				}
+				setMap := map[string]any{}
+				if err := json.Unmarshal(setDoc, &setMap); err != nil {
+					return err
+				}
+				deepMergeJSON(current, setMap)
+				merged, merr := json.Marshal(current)
+				if merr != nil {
+					return merr
+				}
+				normalized = merged
+			}
 			stat, _ := os.Stdin.Stat()
-			if (stat.Mode() & os.ModeCharDevice) == 0 {
+			if len(flagSet) == 0 && (stat.Mode()&os.ModeCharDevice) == 0 {
 				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
 				if err != nil {
 					return fmt.Errorf("reading stdin: %w", err)
@@ -146,6 +180,12 @@ func newSsoSettingsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	}
 
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
+	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Update a field via fetch-merge-replace (key=value in dot notation, repeatable)")
+	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+		return []string{
+			"configurationType=", "enrollmentSsoConfig.managementHint=", "enrollmentSsoForAccountDrivenEnrollmentEnabled=", "groupEnrollmentAccessEnabled=", "groupEnrollmentAccessName=", "oidcSettings.jamfIdAuthenticationEnabled=", "oidcSettings.userMapping=", "oidcSettings.usernameAttributeClaimMapping=", "samlSettings.entityId=", "samlSettings.federationMetadataFile=", "samlSettings.groupAttributeName=", "samlSettings.groupRdnKey=", "samlSettings.idpProviderType=", "samlSettings.idpUrl=", "samlSettings.metadataFileName=", "samlSettings.metadataSource=", "samlSettings.otherProviderTypeName=", "samlSettings.sessionTimeout=", "samlSettings.tokenExpirationDisabled=", "samlSettings.userAttributeEnabled=", "samlSettings.userAttributeName=", "samlSettings.userMapping=", "ssoBypassAllowed=", "ssoEnabled=", "ssoForEnrollmentEnabled=", "ssoForMacOsSelfServiceEnabled=",
+		}, cobra.ShellCompDirectiveNoSpace
+	})
 	return cmd
 }
 

@@ -252,13 +252,18 @@ func newEnrollmentLanguagesUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagScaffold bool
 		flagName     string
+
+		flagSet []string
 	)
 
 	cmd := &cobra.Command{
 		Use:   "update [<id>]",
 		Short: "Edit Enrollment messaging for a language",
-		Long:  "Edit enrollment messaging for a language.",
-		Example: `  # Update a enrollment-language from JSON
+		Long:  "Edit enrollment messaging for a language.\n\nIdentify the resource by ID (positional arg), --name.\n\nUse --set KEY=VALUE to update individual fields (repeatable). The current resource is fetched, your changes are merged in, read-only fields are dropped, and the whole record is written back. Omitted fields keep their current values.\n\nAvailable fields:\n  certificateButton                            string\n  certificateProfileDescription                string\n  certificateProfileName                       string\n  certificateText                              string\n  checkEnrollmentMessage                       string\n  checkNowButton                               string\n  completeMessage                              string\n  deviceClassButton                            string\n  deviceClassDescription                       string\n  deviceClassEnterprise                        string\n  deviceClassEnterpriseDescription             string\n  deviceClassPersonal                          string\n  deviceClassPersonalDescription               string\n  enterpriseButton                             string\n  enterpriseEula                               string\n  enterprisePending                            string\n  enterpriseProfileDescription                 string\n  enterpriseProfileName                        string\n  enterpriseText                               string\n  eulaButton                                   string\n  failedMessage                                string\n  languageCode                                 string\n  loginButton                                  string\n  loginDescription                             string\n  logoutButton                                 string\n  name                                         string\n  password                                     string\n  personalEula                                 string\n  quickAddButton                               string\n  quickAddName                                 string\n  quickAddPending                              string\n  quickAddText                                 string\n  siteDescription                              string\n  title                                        string\n  tryAgainButton                               string\n  userEnrollmentButton                         string\n  userEnrollmentProfileDescription             string\n  userEnrollmentProfileName                    string\n  userEnrollmentText                           string\n  username                                     string\n\nWithout --set, pipe a full JSON document to stdin to replace the resource entirely.",
+		Example: `  # Update individual fields (fetch-merge-replace)
+  jamf-cli pro enrollment-languages update 1 --set field=value
+
+  # Replace a enrollment-language from JSON
   echo '{"name":"Updated"}' | jamf-cli pro enrollment-languages update 1
 
   # Update by name
@@ -344,8 +349,38 @@ func newEnrollmentLanguagesUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 			// Read body from stdin if available
 			var body io.Reader
 			var normalized []byte
+			if len(flagSet) > 0 {
+				// --set: fetch current state, drop read-only / server-computed fields,
+				// merge the caller's changes, and PUT the full record back. Fields not
+				// named in --set keep their current values.
+				existing, ferr := fetchForMerge(reqCtx, ctx.Client, path)
+				if ferr != nil {
+					return ferr
+				}
+				current := map[string]any{}
+				if len(existing) > 0 {
+					if err := json.Unmarshal(existing, &current); err != nil {
+						return fmt.Errorf("parsing current enrollment-language for --set: %w", err)
+					}
+				}
+				(&fieldFilter{fields: map[string]*fieldFilter{"certificateButton": nil, "certificateProfileDescription": nil, "certificateProfileName": nil, "certificateText": nil, "checkEnrollmentMessage": nil, "checkNowButton": nil, "completeMessage": nil, "deviceClassButton": nil, "deviceClassDescription": nil, "deviceClassEnterprise": nil, "deviceClassEnterpriseDescription": nil, "deviceClassPersonal": nil, "deviceClassPersonalDescription": nil, "enterpriseButton": nil, "enterpriseEula": nil, "enterprisePending": nil, "enterpriseProfileDescription": nil, "enterpriseProfileName": nil, "enterpriseText": nil, "eulaButton": nil, "failedMessage": nil, "languageCode": nil, "loginButton": nil, "loginDescription": nil, "logoutButton": nil, "name": nil, "password": nil, "personalEula": nil, "quickAddButton": nil, "quickAddName": nil, "quickAddPending": nil, "quickAddText": nil, "siteDescription": nil, "title": nil, "tryAgainButton": nil, "userEnrollmentButton": nil, "userEnrollmentProfileDescription": nil, "userEnrollmentProfileName": nil, "userEnrollmentText": nil, "username": nil}}).apply(current)
+				setDoc, serr := buildMergePatchFromSet(flagSet)
+				if serr != nil {
+					return serr
+				}
+				setMap := map[string]any{}
+				if err := json.Unmarshal(setDoc, &setMap); err != nil {
+					return err
+				}
+				deepMergeJSON(current, setMap)
+				merged, merr := json.Marshal(current)
+				if merr != nil {
+					return merr
+				}
+				normalized = merged
+			}
 			stat, _ := os.Stdin.Stat()
-			if (stat.Mode() & os.ModeCharDevice) == 0 {
+			if len(flagSet) == 0 && (stat.Mode()&os.ModeCharDevice) == 0 {
 				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
 				if err != nil {
 					return fmt.Errorf("reading stdin: %w", err)
@@ -371,6 +406,12 @@ func newEnrollmentLanguagesUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up enrollment-language by name")
 
+	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Update a field via fetch-merge-replace (key=value in dot notation, repeatable)")
+	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+		return []string{
+			"certificateButton=", "certificateProfileDescription=", "certificateProfileName=", "certificateText=", "checkEnrollmentMessage=", "checkNowButton=", "completeMessage=", "deviceClassButton=", "deviceClassDescription=", "deviceClassEnterprise=", "deviceClassEnterpriseDescription=", "deviceClassPersonal=", "deviceClassPersonalDescription=", "enterpriseButton=", "enterpriseEula=", "enterprisePending=", "enterpriseProfileDescription=", "enterpriseProfileName=", "enterpriseText=", "eulaButton=", "failedMessage=", "languageCode=", "loginButton=", "loginDescription=", "logoutButton=", "name=", "password=", "personalEula=", "quickAddButton=", "quickAddName=", "quickAddPending=", "quickAddText=", "siteDescription=", "title=", "tryAgainButton=", "userEnrollmentButton=", "userEnrollmentProfileDescription=", "userEnrollmentProfileName=", "userEnrollmentText=", "username=",
+		}, cobra.ShellCompDirectiveNoSpace
+	})
 	return cmd
 }
 

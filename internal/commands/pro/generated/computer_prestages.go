@@ -360,13 +360,18 @@ func newComputerPrestagesUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagScaffold bool
 		flagName     string
+
+		flagSet []string
 	)
 
 	cmd := &cobra.Command{
 		Use:   "update [<id>]",
 		Short: "Update a Computer Prestage",
-		Long:  "Updates a Computer Prestage",
-		Example: `  # Update a computer-prestage from JSON
+		Long:  "Updates a Computer Prestage\n\nIdentify the resource by ID (positional arg), --name.\n\nUse --set KEY=VALUE to update individual fields (repeatable). The current resource is fetched, your changes are merged in, read-only fields are dropped, and the whole record is written back. Omitted fields keep their current values.\n\nAvailable fields:\n  accountSettings.adminPassword                string\n  accountSettings.adminUsername                string\n  accountSettings.hiddenAdminAccount           boolean\n  accountSettings.id                           string\n  accountSettings.localAdminAccountEnabled     boolean\n  accountSettings.localUserManaged             boolean\n  accountSettings.payloadConfigured            boolean\n  accountSettings.prefillAccountFullName       string\n  accountSettings.prefillAccountUserName       string\n  accountSettings.prefillPrimaryAccountInfoFeatureEnabled boolean\n  accountSettings.prefillType                  string\n  accountSettings.preventPrefillInfoFromModification boolean\n  accountSettings.userAccountType              string\n  accountSettings.versionLock                  integer\n  authenticationPrompt                         string\n  autoAdvanceSetup                             boolean\n  customPackageDistributionPointId             string\n  defaultPrestage                              boolean\n  department                                   string\n  deviceEnrollmentProgramInstanceId            string\n  displayName                                  string\n  enableDeviceBasedActivationLock              boolean\n  enableRecoveryLock                           boolean\n  enrollmentCustomizationId                    string\n  enrollmentSiteId                             string\n  installProfilesDuringSetup                   boolean\n  keepExistingLocationInformation              boolean\n  keepExistingSiteMembership                   boolean\n  language                                     string\n  locationInformation.buildingId               string\n  locationInformation.departmentId             string\n  locationInformation.email                    string\n  locationInformation.id                       string\n  locationInformation.phone                    string\n  locationInformation.position                 string\n  locationInformation.realname                 string\n  locationInformation.room                     string\n  locationInformation.username                 string\n  locationInformation.versionLock              integer\n  mandatory                                    boolean\n  manifestUrl                                  string\n  mdmRemovable                                 boolean\n  minimumOsSpecificVersion                     string\n  platformSsoAppBundleId                       string\n  prestageMinimumOsTargetVersionType           string\n  preventActivationLock                        boolean\n  profileUrl                                   string\n  pssoConfigProfileId                          string\n  pssoEnabled                                  boolean\n  purchasingInformation.appleCareId            string\n  purchasingInformation.id                     string\n  purchasingInformation.leaseDate              string\n  purchasingInformation.leased                 boolean\n  purchasingInformation.lifeExpectancy         integer\n  purchasingInformation.poDate                 string\n  purchasingInformation.poNumber               string\n  purchasingInformation.purchasePrice          string\n  purchasingInformation.purchased              boolean\n  purchasingInformation.purchasingAccount      string\n  purchasingInformation.purchasingContact      string\n  purchasingInformation.vendor                 string\n  purchasingInformation.versionLock            integer\n  purchasingInformation.warrantyDate           string\n  recoveryLockPassword                         string\n  recoveryLockPasswordType                     string\n  region                                       string\n  requireAuthentication                        boolean\n  rotateRecoveryLockPassword                   boolean\n  supportEmailAddress                          string\n  supportPhoneNumber                           string\n  versionLock                                  integer\n\nWithout --set, pipe a full JSON document to stdin to replace the resource entirely.",
+		Example: `  # Update individual fields (fetch-merge-replace)
+  jamf-cli pro computer-prestages update 1 --set field=value
+
+  # Replace a computer-prestage from JSON
   echo '{"name":"Updated"}' | jamf-cli pro computer-prestages update 1
 
   # Update by name
@@ -455,8 +460,38 @@ func newComputerPrestagesUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 			// Read body from stdin if available
 			var body io.Reader
 			var normalized []byte
+			if len(flagSet) > 0 {
+				// --set: fetch current state, drop read-only / server-computed fields,
+				// merge the caller's changes, and PUT the full record back. Fields not
+				// named in --set keep their current values.
+				existing, ferr := fetchForMerge(reqCtx, ctx.Client, path)
+				if ferr != nil {
+					return ferr
+				}
+				current := map[string]any{}
+				if len(existing) > 0 {
+					if err := json.Unmarshal(existing, &current); err != nil {
+						return fmt.Errorf("parsing current computer-prestage for --set: %w", err)
+					}
+				}
+				(&fieldFilter{fields: map[string]*fieldFilter{"accountSettings": &fieldFilter{fields: map[string]*fieldFilter{"adminPassword": nil, "adminUsername": nil, "hiddenAdminAccount": nil, "id": nil, "localAdminAccountEnabled": nil, "localUserManaged": nil, "payloadConfigured": nil, "prefillAccountFullName": nil, "prefillAccountUserName": nil, "prefillPrimaryAccountInfoFeatureEnabled": nil, "prefillType": nil, "preventPrefillInfoFromModification": nil, "userAccountType": nil, "versionLock": nil}}, "anchorCertificates": nil, "authenticationPrompt": nil, "autoAdvanceSetup": nil, "customPackageDistributionPointId": nil, "customPackageIds": nil, "defaultPrestage": nil, "department": nil, "deviceEnrollmentProgramInstanceId": nil, "displayName": nil, "enableDeviceBasedActivationLock": nil, "enableRecoveryLock": nil, "enrollmentCustomizationId": nil, "enrollmentSiteId": nil, "installProfilesDuringSetup": nil, "keepExistingLocationInformation": nil, "keepExistingSiteMembership": nil, "language": nil, "locationInformation": &fieldFilter{fields: map[string]*fieldFilter{"buildingId": nil, "departmentId": nil, "email": nil, "id": nil, "phone": nil, "position": nil, "realname": nil, "room": nil, "username": nil, "versionLock": nil}}, "mandatory": nil, "manifestUrl": nil, "mdmRemovable": nil, "minimumOsSpecificVersion": nil, "platformSsoAppBundleId": nil, "prestageInstalledProfileIds": nil, "prestageMinimumOsTargetVersionType": nil, "preventActivationLock": nil, "profileUrl": nil, "pssoConfigProfileId": nil, "pssoEnabled": nil, "purchasingInformation": &fieldFilter{fields: map[string]*fieldFilter{"appleCareId": nil, "id": nil, "leaseDate": nil, "leased": nil, "lifeExpectancy": nil, "poDate": nil, "poNumber": nil, "purchasePrice": nil, "purchased": nil, "purchasingAccount": nil, "purchasingContact": nil, "vendor": nil, "versionLock": nil, "warrantyDate": nil}}, "recoveryLockPassword": nil, "recoveryLockPasswordType": nil, "region": nil, "requireAuthentication": nil, "rotateRecoveryLockPassword": nil, "skipSetupItems": nil, "supportEmailAddress": nil, "supportPhoneNumber": nil, "versionLock": nil}}).apply(current)
+				setDoc, serr := buildMergePatchFromSet(flagSet)
+				if serr != nil {
+					return serr
+				}
+				setMap := map[string]any{}
+				if err := json.Unmarshal(setDoc, &setMap); err != nil {
+					return err
+				}
+				deepMergeJSON(current, setMap)
+				merged, merr := json.Marshal(current)
+				if merr != nil {
+					return merr
+				}
+				normalized = merged
+			}
 			stat, _ := os.Stdin.Stat()
-			if (stat.Mode() & os.ModeCharDevice) == 0 {
+			if len(flagSet) == 0 && (stat.Mode()&os.ModeCharDevice) == 0 {
 				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
 				if err != nil {
 					return fmt.Errorf("reading stdin: %w", err)
@@ -492,6 +527,12 @@ func newComputerPrestagesUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up computer-prestage by name")
 
+	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Update a field via fetch-merge-replace (key=value in dot notation, repeatable)")
+	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+		return []string{
+			"accountSettings.adminPassword=", "accountSettings.adminUsername=", "accountSettings.hiddenAdminAccount=", "accountSettings.id=", "accountSettings.localAdminAccountEnabled=", "accountSettings.localUserManaged=", "accountSettings.payloadConfigured=", "accountSettings.prefillAccountFullName=", "accountSettings.prefillAccountUserName=", "accountSettings.prefillPrimaryAccountInfoFeatureEnabled=", "accountSettings.prefillType=", "accountSettings.preventPrefillInfoFromModification=", "accountSettings.userAccountType=", "accountSettings.versionLock=", "authenticationPrompt=", "autoAdvanceSetup=", "customPackageDistributionPointId=", "defaultPrestage=", "department=", "deviceEnrollmentProgramInstanceId=", "displayName=", "enableDeviceBasedActivationLock=", "enableRecoveryLock=", "enrollmentCustomizationId=", "enrollmentSiteId=", "installProfilesDuringSetup=", "keepExistingLocationInformation=", "keepExistingSiteMembership=", "language=", "locationInformation.buildingId=", "locationInformation.departmentId=", "locationInformation.email=", "locationInformation.id=", "locationInformation.phone=", "locationInformation.position=", "locationInformation.realname=", "locationInformation.room=", "locationInformation.username=", "locationInformation.versionLock=", "mandatory=", "manifestUrl=", "mdmRemovable=", "minimumOsSpecificVersion=", "platformSsoAppBundleId=", "prestageMinimumOsTargetVersionType=", "preventActivationLock=", "profileUrl=", "pssoConfigProfileId=", "pssoEnabled=", "purchasingInformation.appleCareId=", "purchasingInformation.id=", "purchasingInformation.leaseDate=", "purchasingInformation.leased=", "purchasingInformation.lifeExpectancy=", "purchasingInformation.poDate=", "purchasingInformation.poNumber=", "purchasingInformation.purchasePrice=", "purchasingInformation.purchased=", "purchasingInformation.purchasingAccount=", "purchasingInformation.purchasingContact=", "purchasingInformation.vendor=", "purchasingInformation.versionLock=", "purchasingInformation.warrantyDate=", "recoveryLockPassword=", "recoveryLockPasswordType=", "region=", "requireAuthentication=", "rotateRecoveryLockPassword=", "supportEmailAddress=", "supportPhoneNumber=", "versionLock=",
+		}, cobra.ShellCompDirectiveNoSpace
+	})
 	return cmd
 }
 

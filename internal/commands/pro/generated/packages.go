@@ -362,13 +362,18 @@ func newPackagesUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagScaffold bool
 		flagName     string
+
+		flagSet []string
 	)
 
 	cmd := &cobra.Command{
 		Use:   "update [<id>]",
 		Short: "Update specified package object",
-		Long:  "Update specified package object",
-		Example: `  # Update a package from JSON
+		Long:  "Update specified package object\n\nIdentify the resource by ID (positional arg), --name.\n\nUse --set KEY=VALUE to update individual fields (repeatable). The current resource is fetched, your changes are merged in, read-only fields are dropped, and the whole record is written back. Omitted fields keep their current values.\n\nAvailable fields:\n  basePath                                     string\n  categoryId                                   string\n  fileName                                     string\n  fillExistingUsers                            boolean\n  fillUserTemplate                             boolean\n  format                                       string\n  hashType                                     string\n  hashValue                                    string\n  ignoreConflicts                              boolean\n  info                                         string\n  installLanguage                              string\n  manifest                                     string\n  manifestFileName                             string\n  md5                                          string\n  notes                                        string\n  osInstall                                    boolean\n  osInstallerVersion                           string\n  osRequirements                               string\n  packageName                                  string\n  parentPackageId                              string\n  priority                                     integer\n  rebootRequired                               boolean\n  selfHealNotify                               boolean\n  selfHealingAction                            string\n  serialNumber                                 string\n  sha256                                       string\n  sha3512                                      string\n  suppressEula                                 boolean\n  suppressFromDock                             boolean\n  suppressRegistration                         boolean\n  suppressUpdates                              boolean\n  swu                                          boolean\n\nWithout --set, pipe a full JSON document to stdin to replace the resource entirely.",
+		Example: `  # Update individual fields (fetch-merge-replace)
+  jamf-cli pro packages update 1 --set field=value
+
+  # Replace a package from JSON
   echo '{"name":"Updated"}' | jamf-cli pro packages update 1
 
   # Update by name
@@ -446,8 +451,38 @@ func newPackagesUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 			// Read body from stdin if available
 			var body io.Reader
 			var normalized []byte
+			if len(flagSet) > 0 {
+				// --set: fetch current state, drop read-only / server-computed fields,
+				// merge the caller's changes, and PUT the full record back. Fields not
+				// named in --set keep their current values.
+				existing, ferr := fetchForMerge(reqCtx, ctx.Client, path)
+				if ferr != nil {
+					return ferr
+				}
+				current := map[string]any{}
+				if len(existing) > 0 {
+					if err := json.Unmarshal(existing, &current); err != nil {
+						return fmt.Errorf("parsing current package for --set: %w", err)
+					}
+				}
+				(&fieldFilter{fields: map[string]*fieldFilter{"basePath": nil, "categoryId": nil, "fileName": nil, "fillExistingUsers": nil, "fillUserTemplate": nil, "format": nil, "hashType": nil, "hashValue": nil, "ignoreConflicts": nil, "info": nil, "installLanguage": nil, "manifest": nil, "manifestFileName": nil, "md5": nil, "notes": nil, "osInstall": nil, "osInstallerVersion": nil, "osRequirements": nil, "packageName": nil, "parentPackageId": nil, "priority": nil, "rebootRequired": nil, "selfHealNotify": nil, "selfHealingAction": nil, "serialNumber": nil, "sha256": nil, "sha3512": nil, "suppressEula": nil, "suppressFromDock": nil, "suppressRegistration": nil, "suppressUpdates": nil, "swu": nil}}).apply(current)
+				setDoc, serr := buildMergePatchFromSet(flagSet)
+				if serr != nil {
+					return serr
+				}
+				setMap := map[string]any{}
+				if err := json.Unmarshal(setDoc, &setMap); err != nil {
+					return err
+				}
+				deepMergeJSON(current, setMap)
+				merged, merr := json.Marshal(current)
+				if merr != nil {
+					return merr
+				}
+				normalized = merged
+			}
 			stat, _ := os.Stdin.Stat()
-			if (stat.Mode() & os.ModeCharDevice) == 0 {
+			if len(flagSet) == 0 && (stat.Mode()&os.ModeCharDevice) == 0 {
 				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
 				if err != nil {
 					return fmt.Errorf("reading stdin: %w", err)
@@ -473,6 +508,12 @@ func newPackagesUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up package by name")
 
+	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Update a field via fetch-merge-replace (key=value in dot notation, repeatable)")
+	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+		return []string{
+			"basePath=", "categoryId=", "fileName=", "fillExistingUsers=", "fillUserTemplate=", "format=", "hashType=", "hashValue=", "ignoreConflicts=", "info=", "installLanguage=", "manifest=", "manifestFileName=", "md5=", "notes=", "osInstall=", "osInstallerVersion=", "osRequirements=", "packageName=", "parentPackageId=", "priority=", "rebootRequired=", "selfHealNotify=", "selfHealingAction=", "serialNumber=", "sha256=", "sha3512=", "suppressEula=", "suppressFromDock=", "suppressRegistration=", "suppressUpdates=", "swu=",
+		}, cobra.ShellCompDirectiveNoSpace
+	})
 	return cmd
 }
 
