@@ -69,7 +69,10 @@ func Generate(resources []*parser.Resource, scopeOf map[string]string, outputDir
 
 	var generated []string
 	for _, r := range resources {
-		tr := buildTemplateResource(r, scopeOf[r.Name])
+		tr, err := buildTemplateResource(r, scopeOf[r.Name])
+		if err != nil {
+			return nil, err
+		}
 		var buf bytes.Buffer
 		if err := tmpl.Execute(&buf, tr); err != nil {
 			return nil, fmt.Errorf("rendering %s: %w", r.Name, err)
@@ -89,13 +92,19 @@ func Generate(resources []*parser.Resource, scopeOf map[string]string, outputDir
 	return generated, nil
 }
 
-func buildTemplateResource(r *parser.Resource, scope string) templateResource {
+func buildTemplateResource(r *parser.Resource, scope string) (templateResource, error) {
 	ops := make([]templateOp, 0, len(r.Operations))
 	for _, op := range r.Operations {
 		opCopy := *op
 		unwrapKey := ""
 		if opCopy.IsList && hasPageParams(opCopy.Parameters) {
 			unwrapKey = detectListArrayKey(&opCopy)
+			if unwrapKey == "" {
+				return templateResource{}, fmt.Errorf(
+					"resource %q op %q (%s %s): has page/pageSize params but no 2xx response could be identified as a single-array-property object to paginate over; add a securityOpsByFile override or fix the spec",
+					r.Name, opCopy.Name, opCopy.Method, opCopy.Path,
+				)
+			}
 		}
 		// Paginate implies a non-empty UnwrapArrayKey: an always-fetch-
 		// everything loop only makes sense when the template knows which
@@ -118,7 +127,7 @@ func buildTemplateResource(r *parser.Resource, scope string) templateResource {
 		GoName:     r.GoName,
 		Scope:      scope,
 		Operations: ops,
-	}
+	}, nil
 }
 
 // hasPageParams reports whether params includes both a "page" and a

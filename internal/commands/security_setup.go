@@ -5,6 +5,7 @@ package commands
 import (
 	"bufio"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 
@@ -18,15 +19,26 @@ import (
 // securityCredentialPair prompts for one Security Cloud API's application
 // ID/secret, returning ("", "", nil) if the user skips it by leaving the ID
 // blank. label is the human-readable API name shown in prompts (e.g. "Risk").
+// Chains through the same *bufio.Reader across three calls (Risk, Device
+// Lifecycle, SSE) — a read failure must surface rather than be silently
+// treated as a skip, and the reader must not be holding buffered type-ahead
+// when control switches to term.ReadPassword's raw-fd read, or the two would
+// desync.
 func securityCredentialPair(out *os.File, reader *bufio.Reader, label string) (id, secret string, err error) {
 	_, _ = fmt.Fprintf(out, "%s API application ID (leave blank to skip): ", label)
-	line, _ := reader.ReadString('\n')
+	line, err := reader.ReadString('\n')
+	if err != nil && err != io.EOF {
+		return "", "", fmt.Errorf("reading %s API application ID: %w", label, err)
+	}
 	id = strings.TrimSpace(line)
 	if id == "" {
 		return "", "", nil
 	}
 
 	_, _ = fmt.Fprintf(out, "%s API application secret: ", label)
+	if reader.Buffered() != 0 {
+		return "", "", fmt.Errorf("unexpected buffered input before reading %s API application secret; input may be desynchronized", label)
+	}
 	secretBytes, err := term.ReadPassword(int(os.Stdin.Fd()))
 	if err != nil {
 		return "", "", fmt.Errorf("reading %s API application secret: %w", label, err)

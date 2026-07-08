@@ -42,9 +42,6 @@ func newDeviceLifecyclePurgeCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				fmt.Println("{\n  \"externalIds\": [],\n  \"guids\": []\n}")
 				return nil
 			}
-			if err := security.ConfirmAction("purge", "device-lifecycle", yes); err != nil {
-				return err
-			}
 			path := "/device-lifecycle/v1/{customerId}/devices/purge/async/external"
 			customerID, err := cliCtx.SecurityClient.LifecycleCustomerID(cmd.Context())
 			if err != nil {
@@ -53,6 +50,12 @@ func newDeviceLifecyclePurgeCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			path = strings.Replace(path, "{customerId}", url.PathEscape(customerID), 1)
 			body, err := security.ReadBody(bodyFile, setFlags)
 			if err != nil {
+				return err
+			}
+			if body == nil {
+				return fmt.Errorf("purge requires --file or --set specifying a scope; refusing an unscoped purge")
+			}
+			if err := security.ConfirmAction(fmt.Sprintf("purge for customer %q", customerID), "device-lifecycle", yes); err != nil {
 				return err
 			}
 			var result any

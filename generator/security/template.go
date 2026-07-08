@@ -58,7 +58,6 @@ func new{{$.GoName}}{{.GoName}}Cmd(cliCtx *registry.CLIContext) *cobra.Command {
 {{- if .IsDestructive }}
 	var yes bool
 {{- end }}
-{{- if .Paginate }}
 {{- range .QueryParams }}
 {{- if eq .GoType "bool" }}
 	var {{.Var}} bool
@@ -66,7 +65,6 @@ func new{{$.GoName}}{{.GoName}}Cmd(cliCtx *registry.CLIContext) *cobra.Command {
 	var {{.Var}} []string
 {{- else }}
 	var {{.Var}} string
-{{- end }}
 {{- end }}
 {{- end }}
 	cmd := &cobra.Command{
@@ -82,11 +80,6 @@ func new{{$.GoName}}{{.GoName}}Cmd(cliCtx *registry.CLIContext) *cobra.Command {
 				// can be piped straight back into --file.
 				fmt.Println({{printf "%q" .Scaffold}})
 				return nil
-			}
-{{- end }}
-{{- if .IsDestructive }}
-			if err := security.ConfirmAction({{printf "%q" .Name}}, {{printf "%q" $.Name}}, yes); err != nil {
-				return err
 			}
 {{- end }}
 			path := {{printf "%q" .Path}}
@@ -105,10 +98,33 @@ func new{{$.GoName}}{{.GoName}}Cmd(cliCtx *registry.CLIContext) *cobra.Command {
 {{- else }}
 			var body any
 {{- end }}
+{{- if .IsDestructive }}
+{{- if .HasBody }}
+			if body == nil {
+				return fmt.Errorf("{{.Name}} requires --file or --set specifying a scope; refusing an unscoped {{.Name}}")
+			}
+{{- end }}
+{{- if .NeedsCustomerID }}
+			if err := security.ConfirmAction(fmt.Sprintf("{{.Name}} for customer %q", customerID), {{printf "%q" $.Name}}, yes); err != nil {
+				return err
+			}
+{{- else }}
+			if err := security.ConfirmAction({{printf "%q" .Name}}, {{printf "%q" $.Name}}, yes); err != nil {
+				return err
+			}
+{{- end }}
+{{- end }}
 {{- if .Paginate }}
 			const pageSize = 100
+			// maxPages is a sanity backstop: if the server ignores the page
+			// parameter and keeps returning full pages, fail loudly instead
+			// of hanging with an unbounded aggregated slice.
+			const maxPages = 10000
 			var aggregated []json.RawMessage
 			for page := 0; ; page++ {
+				if page >= maxPages {
+					return fmt.Errorf("{{.Name}}: exceeded %d pages without reaching the end; the server may not be honoring the page parameter", maxPages)
+				}
 				q := url.Values{}
 				q.Set("page", fmt.Sprintf("%d", page))
 				q.Set("pageSize", fmt.Sprintf("%d", pageSize))
@@ -144,6 +160,27 @@ func new{{$.GoName}}{{.GoName}}Cmd(cliCtx *registry.CLIContext) *cobra.Command {
 			}
 			return cliCtx.Output.PrintRaw(b)
 {{- else }}
+{{- if .QueryParams }}
+			q := url.Values{}
+{{- range .QueryParams }}
+{{- if eq .GoType "bool" }}
+			if {{.Var}} {
+				q.Set("{{.Name}}", "true")
+			}
+{{- else if eq .GoType "[]string" }}
+			for _, v := range {{.Var}} {
+				q.Add("{{.Name}}", v)
+			}
+{{- else }}
+			if {{.Var}} != "" {
+				q.Set("{{.Name}}", {{.Var}})
+			}
+{{- end }}
+{{- end }}
+			if encoded := q.Encode(); encoded != "" {
+				path += "?" + encoded
+			}
+{{- end }}
 			var result any
 			if err := cliCtx.SecurityClient.DoExpect{{$.Scope}}(cmd.Context(), {{printf "%q" .Method}}, path, body, &result); err != nil {
 				return fmt.Errorf("{{.Name}}: %w", err)
@@ -167,7 +204,6 @@ func new{{$.GoName}}{{.GoName}}Cmd(cliCtx *registry.CLIContext) *cobra.Command {
 {{- if .IsDestructive }}
 	cmd.Flags().BoolVar(&yes, "yes", false, "Skip confirmation prompt")
 {{- end }}
-{{- if .Paginate }}
 {{- range .QueryParams }}
 {{- if eq .GoType "bool" }}
 	cmd.Flags().BoolVar(&{{.Var}}, "{{.FlagName}}", false, {{printf "%q" .Description}})
@@ -175,7 +211,6 @@ func new{{$.GoName}}{{.GoName}}Cmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd.Flags().StringArrayVar(&{{.Var}}, "{{.FlagName}}", nil, {{printf "%q" .Description}})
 {{- else }}
 	cmd.Flags().StringVar(&{{.Var}}, "{{.FlagName}}", "", {{printf "%q" .Description}})
-{{- end }}
 {{- end }}
 {{- end }}
 	return cmd

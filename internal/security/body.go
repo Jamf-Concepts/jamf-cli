@@ -45,31 +45,43 @@ func ReadBody(file string, sets []string) (any, error) {
 		if !found {
 			return nil, fmt.Errorf("invalid --set %q: expected key=value", s)
 		}
-		applySet(m, strings.Split(key, "."), parseSetValue(val))
+		if err := applySet(m, strings.Split(key, "."), parseSetValue(val)); err != nil {
+			return nil, fmt.Errorf("--set %q: %w", s, err)
+		}
 	}
 	return m, nil
 }
 
 // applySet walks path through m, creating intermediate maps as needed, and
-// stores v at the leaf.
-func applySet(m map[string]any, path []string, v any) {
+// stores v at the leaf. Errors rather than silently clobbering when a path
+// segment already holds a non-object value (e.g. from --file or an earlier
+// --set) — matching the Pro generated --set parser's setNestedValue.
+func applySet(m map[string]any, path []string, v any) error {
 	for i, segment := range path {
 		if i == len(path)-1 {
 			m[segment] = v
-			return
+			return nil
 		}
-		next, ok := m[segment].(map[string]any)
+		existing, present := m[segment]
+		next, ok := existing.(map[string]any)
 		if !ok {
+			if present {
+				return fmt.Errorf("cannot set nested key under non-object field %q", segment)
+			}
 			next = map[string]any{}
 			m[segment] = next
 		}
 		m = next
 	}
+	return nil
 }
 
 // parseSetValue decodes typed JSON literals (booleans, numbers, null, arrays,
 // objects, quoted strings) and falls back to a plain string for everything
-// else. Mirrors the behavior of the Pro/Platform generated --set parsers.
+// else. Intentionally more capable than the Pro/Platform generated --set
+// parsers' parsePatchValue/parseValue, which parse only int64 before falling
+// back to string (no float branch) — Security's --set has no merge-patch
+// content-type constraint requiring that narrower behavior.
 func parseSetValue(raw string) any {
 	switch raw {
 	case "true":

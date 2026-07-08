@@ -37,8 +37,15 @@ func newRiskListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			path := "/risk/v2/devices"
 			var body any
 			const pageSize = 100
+			// maxPages is a sanity backstop: if the server ignores the page
+			// parameter and keeps returning full pages, fail loudly instead
+			// of hanging with an unbounded aggregated slice.
+			const maxPages = 10000
 			var aggregated []json.RawMessage
 			for page := 0; ; page++ {
+				if page >= maxPages {
+					return fmt.Errorf("list: exceeded %d pages without reaching the end; the server may not be honoring the page parameter", maxPages)
+				}
 				q := url.Values{}
 				q.Set("page", fmt.Sprintf("%d", page))
 				q.Set("pageSize", fmt.Sprintf("%d", pageSize))

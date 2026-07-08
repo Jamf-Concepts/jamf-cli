@@ -142,12 +142,14 @@ sync-platform-specs:
 
 # Copy private Jamf Security Cloud specs (Risk, Device Lifecycle, Shared
 # Signals & Events) from the gitignored specs/.security-source/ drop location
-# into the committed specs/security/ directory. Unlike platform, these are
-# NOT fed into the code generator — security commands are hand-written
-# (internal/commands/security_*.go) because each of the three APIs has its
-# own auth model (Basic-login-for-JWT, not OAuth2/tenant-prefixed) and only a
-# handful of endpoints. specs/security/ exists purely as committed reference
-# documentation for contributors.
+# into the committed specs/security/ directory. Like platform, these ARE fed
+# into the code generator — generator/parser/security.go hand-maps each of
+# the twelve known operations (too few and irregular for tag/family
+# auto-detection) via the securityOpsByFile map, and generator/security emits
+# internal/commands/security/generated/. Only "security setup" is
+# hand-written (internal/commands/security_setup.go); adding a new endpoint
+# needs both an updated spec here and a new securityOpsByFile entry, then
+# `make generate`.
 sync-security-specs:
 	@if [ ! -d "specs/.security-source" ]; then \
 		echo "Error: specs/.security-source/ not found"; \
@@ -242,8 +244,9 @@ verify-platform-specs:
 	fi
 	@echo "Platform specs and generated code are up to date."
 
-# Verify committed security specs match the private source (CI-safe; a no-op
-# pass when specs/.security-source/ isn't present, same as verify-platform-specs)
+# Verify security specs and generated security code are in sync (CI-safe; a
+# no-op pass when specs/.security-source/ isn't present, same as
+# verify-platform-specs)
 verify-security-specs:
 	@$(MAKE) sync-security-specs > /dev/null 2>&1; true
 	@if ! git diff --quiet -- specs/security/; then \
@@ -251,7 +254,14 @@ verify-security-specs:
 		git diff --stat -- specs/security/; \
 		exit 1; \
 	fi
-	@echo "Security specs are up to date."
+	@ls internal/commands/security/generated/*.go | grep -v '_test\.go' | xargs rm -f
+	@$(MAKE) generate > /dev/null
+	@if ! git diff --quiet -- internal/commands/security/generated/; then \
+		echo "Error: generated security code is stale — run 'make generate' and commit"; \
+		git diff --stat -- internal/commands/security/generated/; \
+		exit 1; \
+	fi
+	@echo "Security specs and generated code are up to date."
 
 # Smoke test against a real Jamf Pro instance (reads from default config profile)
 smoke:

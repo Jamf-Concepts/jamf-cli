@@ -1358,8 +1358,21 @@ func resolveSecurityClient(cfg *config.Config, cliCtx *registry.CLIContext) erro
 		}
 
 		var resolveErr error
-		fillPair := func(id, secret *string, profileID, profileSecret string) {
+		fillPair := func(scope string, id, secret *string, profileID, profileSecret string) {
 			if resolveErr != nil {
+				return
+			}
+			// Treat id/secret as an atomic pair: if one half already came
+			// from the environment and the other would be backfilled from
+			// the profile, refuse rather than risk splicing together a
+			// mismatched credential pair that surfaces as an opaque 401.
+			idFromEnv, secretFromEnv := *id != "", *secret != ""
+			if idFromEnv && !secretFromEnv && profileSecret != "" {
+				resolveErr = fmt.Errorf("JAMFSECURITY_%s_CLIENT_ID is set via env but the client secret would come from the config profile; set both via env or neither", scope)
+				return
+			}
+			if secretFromEnv && !idFromEnv && profileID != "" {
+				resolveErr = fmt.Errorf("JAMFSECURITY_%s_CLIENT_SECRET is set via env but the client ID would come from the config profile; set both via env or neither", scope)
 				return
 			}
 			if *id == "" && profileID != "" {
@@ -1379,9 +1392,9 @@ func resolveSecurityClient(cfg *config.Config, cliCtx *registry.CLIContext) erro
 				*secret = resolved
 			}
 		}
-		fillPair(&riskID, &riskSecret, p.RiskClientID, p.RiskClientSecret)
-		fillPair(&lifecycleID, &lifecycleSecret, p.LifecycleClientID, p.LifecycleClientSecret)
-		fillPair(&sseID, &sseSecret, p.SSEClientID, p.SSEClientSecret)
+		fillPair("RISK", &riskID, &riskSecret, p.RiskClientID, p.RiskClientSecret)
+		fillPair("LIFECYCLE", &lifecycleID, &lifecycleSecret, p.LifecycleClientID, p.LifecycleClientSecret)
+		fillPair("SSE", &sseID, &sseSecret, p.SSEClientID, p.SSEClientSecret)
 		if resolveErr != nil {
 			return resolveErr
 		}
@@ -1389,6 +1402,10 @@ func resolveSecurityClient(cfg *config.Config, cliCtx *registry.CLIContext) erro
 
 	if riskID == "" && lifecycleID == "" && sseID == "" {
 		return exitcode.New(exitcode.Usage, "no Jamf Security Cloud credentials configured: run 'jamf-cli security setup', or set JAMFSECURITY_RISK_CLIENT_ID/SECRET, JAMFSECURITY_LIFECYCLE_CLIENT_ID/SECRET, and/or JAMFSECURITY_SSE_CLIENT_ID/SECRET env vars")
+	}
+
+	if strings.HasPrefix(url, "http://") || strings.HasPrefix(sseURL, "http://") {
+		fmt.Fprintln(os.Stderr, "WARNING: using HTTP (not HTTPS) — credentials will be sent in plaintext")
 	}
 
 	stdClient := &http.Client{Timeout: 60 * time.Second}

@@ -86,8 +86,8 @@ func (c *paginatedClient) Do(_ context.Context, method, path string, _ io.Reader
 
 	// Parse page number from query string.
 	pageNum := 0
-	if idx := strings.Index(path, "page="); idx >= 0 {
-		rest := path[idx+len("page="):]
+	if _, after, ok := strings.Cut(path, "page="); ok {
+		rest := after
 		// Read digits until non-digit
 		end := 0
 		for end < len(rest) && rest[end] >= '0' && rest[end] <= '9' {
@@ -125,7 +125,7 @@ func (c *paginatedClient) Do(_ context.Context, method, path string, _ io.Reader
 // nonEmptyNDJSONLines splits output on newlines, dropping blank trailing lines.
 func nonEmptyNDJSONLines(s string) []string {
 	var out []string
-	for _, ln := range strings.Split(s, "\n") {
+	for ln := range strings.SplitSeq(s, "\n") {
 		if ln != "" {
 			out = append(out, ln)
 		}

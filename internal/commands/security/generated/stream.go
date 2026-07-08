@@ -98,11 +98,11 @@ func newStreamDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Short:       "Delete the event stream configuration",
 		Annotations: map[string]string{"jamf:destructive": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
+			path := "/sse/v1/stream"
+			var body any
 			if err := security.ConfirmAction("delete", "stream", yes); err != nil {
 				return err
 			}
-			path := "/sse/v1/stream"
-			var body any
 			var result any
 			if err := cliCtx.SecurityClient.DoExpectSSE(cmd.Context(), "DELETE", path, body, &result); err != nil {
 				return fmt.Errorf("delete: %w", err)

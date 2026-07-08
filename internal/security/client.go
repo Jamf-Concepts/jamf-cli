@@ -187,6 +187,11 @@ func decodeJWTClaims(token string) (jwtClaims, error) {
 	if err := json.Unmarshal(payload, &claims); err != nil {
 		return jwtClaims{}, fmt.Errorf("parsing JWT claims: %w", err)
 	}
+	if claims.ExpiresAt == 0 {
+		// A token with no exp claim would otherwise decode to the Unix
+		// epoch, making ensureToken re-login on every single request.
+		return jwtClaims{}, fmt.Errorf("JWT is missing its exp claim")
+	}
 	return claims, nil
 }
 
@@ -212,7 +217,7 @@ func (c *Client) login(ctx context.Context, ts *tokenSource) error {
 	}
 	defer func() { _ = resp.Body.Close() }()
 
-	body, err := io.ReadAll(resp.Body)
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 64<<10))
 	if err != nil {
 		return fmt.Errorf("reading login response (%s): %w", ts.label, err)
 	}
@@ -265,6 +270,9 @@ func (c *Client) LifecycleCustomerID(ctx context.Context) (string, error) {
 	}
 	c.lifecycle.mu.Lock()
 	defer c.lifecycle.mu.Unlock()
+	if c.lifecycle.customerID == "" {
+		return "", fmt.Errorf("device lifecycle API login JWT carried no customer_id claim")
+	}
 	return c.lifecycle.customerID, nil
 }
 
