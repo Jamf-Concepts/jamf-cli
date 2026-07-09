@@ -216,7 +216,8 @@ func newMobileDeviceGroupsStaticGroupsGetCmd(ctx *registry.CLIContext) *cobra.Co
 			// Resolve resource ID from positional arg, --name, or lookup flags
 			var resolvedID string
 			if flagName != "" {
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/mobile-device-groups/static-groups", "groupName", "groupId", flagName)
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/mobile-device-groups/static-groups", "groupName", "groupId", flagName, noInput)
 				if err != nil {
 					return err
 				}
@@ -583,7 +584,8 @@ func newMobileDeviceGroupsStaticGroupsPatchCmd(ctx *registry.CLIContext) *cobra.
 			// Resolve resource ID from positional arg, --name, or lookup flags
 			var resolvedPatchID string
 			if flagName != "" {
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/mobile-device-groups/static-groups", "groupName", "groupId", flagName)
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/mobile-device-groups/static-groups", "groupName", "groupId", flagName, noInput)
 				if err != nil {
 					return err
 				}

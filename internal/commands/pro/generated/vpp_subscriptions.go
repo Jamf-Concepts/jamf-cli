@@ -212,7 +212,8 @@ func newVppSubscriptionsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 			// Resolve resource ID from positional arg, --name, or lookup flags
 			var resolvedID string
 			if flagName != "" {
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/volume-purchasing-subscriptions", "name", "id", flagName)
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/volume-purchasing-subscriptions", "name", "id", flagName, noInput)
 				if err != nil {
 					return err
 				}
@@ -366,7 +367,8 @@ func newVppSubscriptionsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 			// Resolve resource ID from positional arg, --name, or lookup flags
 			var resolvedID string
 			if flagName != "" {
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/volume-purchasing-subscriptions", "name", "id", flagName)
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/volume-purchasing-subscriptions", "name", "id", flagName, noInput)
 				if err != nil {
 					return err
 				}
@@ -700,7 +702,8 @@ func newVppSubscriptionsHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 			// Resolve resource ID from positional arg, --name, or lookup flags
 			var resolvedID string
 			if flagName != "" {
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/volume-purchasing-subscriptions", "name", "id", flagName)
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/volume-purchasing-subscriptions", "name", "id", flagName, noInput)
 				if err != nil {
 					return err
 				}
@@ -870,7 +873,8 @@ func newVppSubscriptionsAddHistoryNoteCmd(ctx *registry.CLIContext) *cobra.Comma
 			// Resolve resource ID from positional arg, --name, or lookup flags
 			var resolvedID string
 			if flagName != "" {
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/volume-purchasing-subscriptions", "name", "id", flagName)
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/volume-purchasing-subscriptions", "name", "id", flagName, noInput)
 				if err != nil {
 					return err
 				}

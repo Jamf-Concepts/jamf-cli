@@ -218,7 +218,8 @@ func newScriptsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 			// Resolve resource ID from positional arg, --name, or lookup flags
 			var resolvedID string
 			if flagName != "" {
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/scripts", "name", "id", flagName)
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/scripts", "name", "id", flagName, noInput)
 				if err != nil {
 					return err
 				}
@@ -400,7 +401,8 @@ func newScriptsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 			// Resolve resource ID from positional arg, --name, or lookup flags
 			var resolvedID string
 			if flagName != "" {
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/scripts", "name", "id", flagName)
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/scripts", "name", "id", flagName, noInput)
 				if err != nil {
 					return err
 				}
@@ -707,7 +709,8 @@ func newScriptsHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 			// Resolve resource ID from positional arg, --name, or lookup flags
 			var resolvedID string
 			if flagName != "" {
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/scripts", "name", "id", flagName)
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/scripts", "name", "id", flagName, noInput)
 				if err != nil {
 					return err
 				}
@@ -877,7 +880,8 @@ func newScriptsAddHistoryNoteCmd(ctx *registry.CLIContext) *cobra.Command {
 			// Resolve resource ID from positional arg, --name, or lookup flags
 			var resolvedID string
 			if flagName != "" {
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/scripts", "name", "id", flagName)
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/scripts", "name", "id", flagName, noInput)
 				if err != nil {
 					return err
 				}
@@ -956,7 +960,8 @@ func newScriptsDownloadCmd(ctx *registry.CLIContext) *cobra.Command {
 			// Resolve resource ID from positional arg, --name, or lookup flags
 			var resolvedID string
 			if flagName != "" {
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/scripts", "name", "id", flagName)
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/scripts", "name", "id", flagName, noInput)
 				if err != nil {
 					return err
 				}

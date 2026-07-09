@@ -210,7 +210,8 @@ func newSelfServiceBrandingIosGetCmd(ctx *registry.CLIContext) *cobra.Command {
 			// Resolve resource ID from positional arg, --name, or lookup flags
 			var resolvedID string
 			if flagName != "" {
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/self-service/branding/ios", "brandingName", "id", flagName)
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/self-service/branding/ios", "brandingName", "id", flagName, noInput)
 				if err != nil {
 					return err
 				}
@@ -362,7 +363,8 @@ func newSelfServiceBrandingIosUpdateCmd(ctx *registry.CLIContext) *cobra.Command
 			// Resolve resource ID from positional arg, --name, or lookup flags
 			var resolvedID string
 			if flagName != "" {
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/self-service/branding/ios", "brandingName", "id", flagName)
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/self-service/branding/ios", "brandingName", "id", flagName, noInput)
 				if err != nil {
 					return err
 				}

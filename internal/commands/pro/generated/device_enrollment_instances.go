@@ -216,7 +216,8 @@ func newDeviceEnrollmentInstancesGetCmd(ctx *registry.CLIContext) *cobra.Command
 			// Resolve resource ID from positional arg, --name, or lookup flags
 			var resolvedID string
 			if flagName != "" {
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/device-enrollments", "name", "id", flagName)
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/device-enrollments", "name", "id", flagName, noInput)
 				if err != nil {
 					return err
 				}
@@ -403,7 +404,8 @@ func newDeviceEnrollmentInstancesUpdateCmd(ctx *registry.CLIContext) *cobra.Comm
 			// Resolve resource ID from positional arg, --name, or lookup flags
 			var resolvedID string
 			if flagName != "" {
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/device-enrollments", "name", "id", flagName)
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/device-enrollments", "name", "id", flagName, noInput)
 				if err != nil {
 					return err
 				}
@@ -733,7 +735,8 @@ func newDeviceEnrollmentInstancesHistoryCmd(ctx *registry.CLIContext) *cobra.Com
 			// Resolve resource ID from positional arg, --name, or lookup flags
 			var resolvedID string
 			if flagName != "" {
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/device-enrollments", "name", "id", flagName)
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/device-enrollments", "name", "id", flagName, noInput)
 				if err != nil {
 					return err
 				}
@@ -903,7 +906,8 @@ func newDeviceEnrollmentInstancesAddHistoryNoteCmd(ctx *registry.CLIContext) *co
 			// Resolve resource ID from positional arg, --name, or lookup flags
 			var resolvedID string
 			if flagName != "" {
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/device-enrollments", "name", "id", flagName)
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/device-enrollments", "name", "id", flagName, noInput)
 				if err != nil {
 					return err
 				}
@@ -1032,7 +1036,8 @@ func newDeviceEnrollmentInstancesDevicesCmd(ctx *registry.CLIContext) *cobra.Com
 			// Resolve resource ID from positional arg, --name, or lookup flags
 			var resolvedID string
 			if flagName != "" {
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/device-enrollments", "name", "id", flagName)
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/device-enrollments", "name", "id", flagName, noInput)
 				if err != nil {
 					return err
 				}
@@ -1096,7 +1101,8 @@ func newDeviceEnrollmentInstancesDisownCmd(ctx *registry.CLIContext) *cobra.Comm
 			// Resolve resource ID from positional arg, --name, or lookup flags
 			var resolvedID string
 			if flagName != "" {
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/device-enrollments", "name", "id", flagName)
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/device-enrollments", "name", "id", flagName, noInput)
 				if err != nil {
 					return err
 				}

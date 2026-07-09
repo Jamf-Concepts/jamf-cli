@@ -210,7 +210,8 @@ func newComputerPrestagesGetCmd(ctx *registry.CLIContext) *cobra.Command {
 			// Resolve resource ID from positional arg, --name, or lookup flags
 			var resolvedID string
 			if flagName != "" {
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v3/computer-prestages", "displayName", "id", flagName)
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v3/computer-prestages", "displayName", "id", flagName, noInput)
 				if err != nil {
 					return err
 				}
@@ -435,7 +436,8 @@ func newComputerPrestagesUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 			// Resolve resource ID from positional arg, --name, or lookup flags
 			var resolvedID string
 			if flagName != "" {
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v3/computer-prestages", "displayName", "id", flagName)
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v3/computer-prestages", "displayName", "id", flagName, noInput)
 				if err != nil {
 					return err
 				}

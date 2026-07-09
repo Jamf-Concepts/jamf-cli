@@ -217,7 +217,8 @@ func newManagedSoftwareUpdatesPlansGetCmd(ctx *registry.CLIContext) *cobra.Comma
 			// Resolve resource ID from positional arg, --name, or lookup flags
 			var resolvedID string
 			if flagName != "" {
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/managed-software-updates/plans", "name", "id", flagName)
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/managed-software-updates/plans", "name", "id", flagName, noInput)
 				if err != nil {
 					return err
 				}
@@ -567,7 +568,8 @@ func newManagedSoftwareUpdatesPlansDeclarationsCmd(ctx *registry.CLIContext) *co
 			// Resolve resource ID from positional arg, --name, or lookup flags
 			var resolvedID string
 			if flagName != "" {
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/managed-software-updates/plans", "name", "id", flagName)
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/managed-software-updates/plans", "name", "id", flagName, noInput)
 				if err != nil {
 					return err
 				}
@@ -621,7 +623,8 @@ func newManagedSoftwareUpdatesPlansEventsCmd(ctx *registry.CLIContext) *cobra.Co
 			// Resolve resource ID from positional arg, --name, or lookup flags
 			var resolvedID string
 			if flagName != "" {
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/managed-software-updates/plans", "name", "id", flagName)
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/managed-software-updates/plans", "name", "id", flagName, noInput)
 				if err != nil {
 					return err
 				}

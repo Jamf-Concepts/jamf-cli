@@ -227,19 +227,22 @@ func newMobileDevicesGetCmd(ctx *registry.CLIContext) *cobra.Command {
 			var resolvedID string
 
 			if flagSerial != "" {
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/mobile-devices/detail", "serialNumber", "mobileDeviceId", flagSerial)
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/mobile-devices/detail", "serialNumber", "mobileDeviceId", flagSerial, noInput)
 				if err != nil {
 					return fmt.Errorf("looking up --serial %q: %w", flagSerial, err)
 				}
 				resolvedID = rid
 			} else if flagUdid != "" {
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/mobile-devices/detail", "udid", "mobileDeviceId", flagUdid)
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/mobile-devices/detail", "udid", "mobileDeviceId", flagUdid, noInput)
 				if err != nil {
 					return fmt.Errorf("looking up --udid %q: %w", flagUdid, err)
 				}
 				resolvedID = rid
 			} else if flagName != "" {
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/mobile-devices/detail", "displayName", "mobileDeviceId", flagName)
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/mobile-devices/detail", "displayName", "mobileDeviceId", flagName, noInput)
 				if err != nil {
 					return err
 				}
@@ -332,19 +335,22 @@ func newMobileDevicesPatchCmd(ctx *registry.CLIContext) *cobra.Command {
 			var resolvedPatchID string
 
 			if flagSerial != "" {
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/mobile-devices/detail", "serialNumber", "mobileDeviceId", flagSerial)
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/mobile-devices/detail", "serialNumber", "mobileDeviceId", flagSerial, noInput)
 				if err != nil {
 					return fmt.Errorf("looking up --serial %q: %w", flagSerial, err)
 				}
 				resolvedPatchID = rid
 			} else if flagUdid != "" {
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/mobile-devices/detail", "udid", "mobileDeviceId", flagUdid)
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/mobile-devices/detail", "udid", "mobileDeviceId", flagUdid, noInput)
 				if err != nil {
 					return fmt.Errorf("looking up --udid %q: %w", flagUdid, err)
 				}
 				resolvedPatchID = rid
 			} else if flagName != "" {
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/mobile-devices/detail", "displayName", "mobileDeviceId", flagName)
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/mobile-devices/detail", "displayName", "mobileDeviceId", flagName, noInput)
 				if err != nil {
 					return err
 				}

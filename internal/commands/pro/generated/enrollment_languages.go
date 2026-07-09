@@ -211,7 +211,8 @@ func newEnrollmentLanguagesGetCmd(ctx *registry.CLIContext) *cobra.Command {
 			// Resolve resource ID from positional arg, --name, or lookup flags
 			var resolvedID string
 			if flagName != "" {
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v3/enrollment/languages", "name", "languageCode", flagName)
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v3/enrollment/languages", "name", "languageCode", flagName, noInput)
 				if err != nil {
 					return err
 				}
@@ -324,7 +325,8 @@ func newEnrollmentLanguagesUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 			// Resolve resource ID from positional arg, --name, or lookup flags
 			var resolvedID string
 			if flagName != "" {
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v3/enrollment/languages", "name", "languageCode", flagName)
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v3/enrollment/languages", "name", "languageCode", flagName, noInput)
 				if err != nil {
 					return err
 				}

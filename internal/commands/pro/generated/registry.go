@@ -209,25 +209,26 @@ func batchDeleteError(cmd *cobra.Command, succeeded, failed int, firstErr error,
 		fmt.Sprintf("%d of %d %s failed", failed, succeeded+failed, noun))
 }
 
-// resolveNameToID looks up a resource by name using a filtered list call and
-// returns its ID. This enables --name as an alternative to positional ID args
-// on get commands. The nameField parameter specifies the filter field
-// (usually "name", but some resources use "displayName"). The idField parameter
-// specifies which response property holds the identifier (usually "id", but some
-// resources use "templateId", "groupId", etc.).
-func resolveNameToID(ctx context.Context, client registry.HTTPClient, listPath, nameField, idField, name string) (string, error) {
-	filterPath := fmt.Sprintf("%s?filter=%s&page-size=1",
-		listPath, url.QueryEscape(fmt.Sprintf(`%s=="%s"`, nameField, name)))
+// lookupMatchingIDs looks up resources whose nameField equals name and returns
+// every matching resource's idField value. It fetches up to 100 candidates so
+// callers can detect duplicate-name/serial collisions (e.g. two computer records
+// sharing a serial after a logic-board swap), and re-fetches unfiltered when an
+// endpoint ignores the RSQL filter param (e.g. prestages). The name is escaped
+// to prevent RSQL injection. Returns an empty slice when nothing matches.
+func lookupMatchingIDs(ctx context.Context, client registry.HTTPClient, listPath, nameField, idField, name string) ([]string, error) {
+	escapedName := strings.ReplaceAll(name, `"`, `\"`)
+	filterPath := fmt.Sprintf("%s?filter=%s&page-size=100",
+		listPath, url.QueryEscape(fmt.Sprintf(`%s=="%s"`, nameField, escapedName)))
 
 	resp, err := client.Do(ctx, "GET", filterPath, nil)
 	if err != nil {
-		return "", fmt.Errorf("looking up %q: %w", name, err)
+		return nil, fmt.Errorf("looking up %q: %w", name, err)
 	}
 	defer func() { _ = resp.Body.Close() }()
 
-	body, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 8<<20))
 	if err != nil {
-		return "", fmt.Errorf("reading lookup response: %w", err)
+		return nil, fmt.Errorf("reading lookup response: %w", err)
 	}
 
 	// Paginated response: {"totalCount": N, "results": [{...}]}
@@ -239,18 +240,18 @@ func resolveNameToID(ctx context.Context, client registry.HTTPClient, listPath, 
 		// Some endpoints return plain arrays instead of paginated objects
 		var arr []json.RawMessage
 		if jsonErr := json.Unmarshal(body, &arr); jsonErr != nil {
-			return "", fmt.Errorf("parsing lookup response: %w", err)
+			return nil, fmt.Errorf("parsing lookup response: %w", err)
 		}
 		data.Results = arr
 		data.TotalCount = len(arr)
 	}
 
 	if data.TotalCount == 0 || len(data.Results) == 0 {
-		return "", fmt.Errorf("no resource found with name %q", name)
+		return nil, nil
 	}
 
 	// Client-side filter: some endpoints ignore RSQL filter params (e.g. prestages).
-	// Always verify the returned result actually matches the requested name.
+	// Always verify the returned results actually match the requested name.
 	results := filterResultsByName(data.Results, nameField, name)
 	if len(results) == 0 && data.TotalCount > len(data.Results) {
 		// RSQL was likely ignored and we only got the first page. Re-fetch all results.
@@ -267,19 +268,61 @@ func resolveNameToID(ctx context.Context, client registry.HTTPClient, listPath, 
 			}
 		}
 	}
-	if len(results) == 0 {
+
+	ids := make([]string, 0, len(results))
+	for _, raw := range results {
+		var obj map[string]any
+		if err := json.Unmarshal(raw, &obj); err != nil {
+			continue
+		}
+		if id := extractIDString(obj, idField); id != "" {
+			ids = append(ids, id)
+		}
+	}
+	return ids, nil
+}
+
+// pickMatchingID collapses a set of lookup candidates to a single ID. One match
+// returns immediately. Several matches (duplicate names/serials) error under
+// --no-input, otherwise prompt the user to choose — so an ambiguous lookup can
+// never silently target the wrong record.
+func pickMatchingID(ids []string, name string, noInput bool) (string, error) {
+	if len(ids) == 1 {
+		return ids[0], nil
+	}
+	if noInput {
+		return "", fmt.Errorf("multiple resources found matching %q (IDs: %s); resolve the duplicates or target a specific ID", name, strings.Join(ids, ", "))
+	}
+	fmt.Fprintf(os.Stderr, "Multiple resources found matching %q:\n", name)
+	for i, id := range ids {
+		fmt.Fprintf(os.Stderr, "  [%d] ID: %s\n", i+1, id)
+	}
+	fmt.Fprintf(os.Stderr, "Enter number to select (or 0 to cancel): ")
+	var choice int
+	if _, err := fmt.Fscan(os.Stdin, &choice); err != nil || choice < 1 || choice > len(ids) {
+		return "", fmt.Errorf("aborted")
+	}
+	return ids[choice-1], nil
+}
+
+// resolveNameToID looks up a resource by name (or serial/udid) and returns its
+// single matching ID. This enables --name/--serial/--udid as an alternative to
+// positional ID args on get/update/patch commands. The nameField parameter
+// specifies the filter field (usually "name", but some resources use
+// "displayName"). The idField parameter specifies which response property holds
+// the identifier (usually "id", but some resources use "templateId", "groupId",
+// etc.). Errors when nothing matches, and — unlike a naive first-match lookup —
+// errors (or prompts) when several records share the value, so duplicate serial
+// numbers can never silently target the wrong record.
+func resolveNameToID(ctx context.Context, client registry.HTTPClient, listPath, nameField, idField, name string, noInput bool) (string, error) {
+	ids, err := lookupMatchingIDs(ctx, client, listPath, nameField, idField, name)
+	if err != nil {
+		return "", err
+	}
+	if len(ids) == 0 {
 		return "", fmt.Errorf("no resource found with name %q", name)
 	}
-
-	var first map[string]any
-	if err := json.Unmarshal(results[0], &first); err != nil {
-		return "", fmt.Errorf("parsing lookup result: %w", err)
-	}
-
-	if id := extractIDString(first, idField); id != "" {
-		return id, nil
-	}
-	return "", fmt.Errorf("resource %q has no %s field", name, idField)
+	return pickMatchingID(ids, name, noInput)
 }
 
 // extractIDString extracts the named identifier field from a JSON object as a string.
@@ -634,95 +677,19 @@ func extractJSONField(data []byte, field string) (string, error) {
 	return s, nil
 }
 
-// resolveNameToIDForApply looks up a resource by name and returns its ID.
-// Unlike resolveNameToID, it fetches enough results to detect collisions.
-// Returns ("", nil) when no resource is found (caller should create).
-// Returns (id, nil) when exactly one match is found.
-// Returns ("", error) when multiple matches or lookup fails.
+// resolveNameToIDForApply is resolveNameToID for upsert flows: a no-match returns
+// ("", nil) so the caller creates the resource instead of erroring. Collisions
+// are handled identically to resolveNameToID (error under --no-input, else prompt),
+// so a duplicate name never silently replaces the wrong record.
 func resolveNameToIDForApply(ctx context.Context, client registry.HTTPClient, listPath, nameField, idField, name string, noInput bool) (string, error) {
-	// Escape double quotes in name to prevent RSQL injection
-	escapedName := strings.ReplaceAll(name, `"`, `\"`)
-	filterPath := fmt.Sprintf("%s?filter=%s&page-size=100",
-		listPath, url.QueryEscape(fmt.Sprintf(`%s=="%s"`, nameField, escapedName)))
-
-	resp, err := client.Do(ctx, "GET", filterPath, nil)
+	ids, err := lookupMatchingIDs(ctx, client, listPath, nameField, idField, name)
 	if err != nil {
-		return "", fmt.Errorf("looking up %q: %w", name, err)
+		return "", err
 	}
-	defer func() { _ = resp.Body.Close() }()
-
-	body, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
-	if err != nil {
-		return "", fmt.Errorf("reading lookup response: %w", err)
-	}
-
-	var data struct {
-		TotalCount int               `json:"totalCount"`
-		Results    []json.RawMessage `json:"results"`
-	}
-	if err := json.Unmarshal(body, &data); err != nil {
-		var arr []json.RawMessage
-		if jsonErr := json.Unmarshal(body, &arr); jsonErr != nil {
-			return "", fmt.Errorf("parsing lookup response: %w", err)
-		}
-		data.Results = arr
-		data.TotalCount = len(arr)
-	}
-
-	if data.TotalCount == 0 || len(data.Results) == 0 {
+	if len(ids) == 0 {
 		return "", nil // Not found — caller should create
 	}
-
-	// Client-side filter: some endpoints ignore RSQL filter params (e.g. prestages).
-	// Always apply exact name matching to guard against false positives.
-	results := filterResultsByName(data.Results, nameField, name)
-	if len(results) == 0 {
-		return "", nil // Not found — caller should create
-	}
-
-	// Parse results to extract IDs
-	type applyMatch struct {
-		id string
-	}
-	var matches []applyMatch
-	for _, raw := range results {
-		var obj map[string]any
-		if err := json.Unmarshal(raw, &obj); err != nil {
-			continue
-		}
-		if id := extractIDString(obj, idField); id != "" {
-			matches = append(matches, applyMatch{id: id})
-		}
-	}
-
-	if len(matches) == 0 {
-		return "", nil
-	}
-
-	if len(matches) == 1 {
-		return matches[0].id, nil
-	}
-
-	// Collision: multiple resources with the same name
-	if noInput {
-		ids := make([]string, len(matches))
-		for i, m := range matches {
-			ids[i] = m.id
-		}
-		return "", fmt.Errorf("multiple resources found with name %q (IDs: %s); resolve duplicates or use update with a specific ID", name, strings.Join(ids, ", "))
-	}
-
-	// Interactive: prompt user to pick
-	fmt.Fprintf(os.Stderr, "Multiple resources found with name %q:\n", name)
-	for i, m := range matches {
-		fmt.Fprintf(os.Stderr, "  [%d] ID: %s\n", i+1, m.id)
-	}
-	fmt.Fprintf(os.Stderr, "Enter number to replace (or 0 to cancel): ")
-	var choice int
-	if _, err := fmt.Fscan(os.Stdin, &choice); err != nil || choice < 1 || choice > len(matches) {
-		return "", fmt.Errorf("aborted")
-	}
-	return matches[choice-1].id, nil
+	return pickMatchingID(ids, name, noInput)
 }
 
 // fieldFilter describes the writable fields a PUT request body accepts, derived
