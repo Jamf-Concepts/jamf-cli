@@ -9,6 +9,7 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -249,16 +250,19 @@ func fetchMDMHistory(ctx context.Context, client registry.HTTPClient, management
 			continue
 		}
 		cmdType := strVal(cmd, "commandType")
-		status := strVal(cmd, "status")
+		// The v2 API field is "commandState" (e.g. ACKNOWLEDGED, PENDING, ERROR),
+		// not "status" — reading the wrong key left this column blank.
+		state := strVal(cmd, "commandState")
+		completed := formatCompletedDate(strVal(cmd, "dateCompleted"))
 
 		var color string
-		if strings.EqualFold(status, "Error") || strings.EqualFold(status, "Failed") {
+		if strings.EqualFold(state, "Error") || strings.EqualFold(state, "Failed") {
 			color = "red"
 		}
 
 		items = append(items, overviewItem{
 			Resource:  cmdType,
-			Value:     status,
+			Value:     historyValue(state, completed),
 			ColorHint: color,
 		})
 	}
@@ -315,6 +319,7 @@ func fetchPolicyHistory(ctx context.Context, client registry.HTTPClient, deviceI
 		}
 		name := strVal(entry, "policy_name")
 		status := strVal(entry, "status")
+		completed := formatCompletedDate(strVal(entry, "date_completed_utc"))
 
 		var color string
 		if strings.EqualFold(status, "Failed") {
@@ -323,7 +328,7 @@ func fetchPolicyHistory(ctx context.Context, client registry.HTTPClient, deviceI
 
 		items = append(items, overviewItem{
 			Resource:  name,
-			Value:     status,
+			Value:     historyValue(status, completed),
 			ColorHint: color,
 		})
 	}
@@ -331,6 +336,48 @@ func fetchPolicyHistory(ctx context.Context, client registry.HTTPClient, deviceI
 	return &overviewSection{
 		Name:  "Policy History (Last 10)",
 		Items: items,
+	}
+}
+
+// formatCompletedDate normalizes an API completion timestamp to a compact
+// "2006-01-02 15:04" form. It returns "" when the value is empty or the
+// epoch-zero sentinel APIs use for "not completed" (e.g. 1970-01-01T00:00:00Z
+// for a pending MDM command). Unparseable values are returned unchanged so no
+// data is silently dropped.
+func formatCompletedDate(raw string) string {
+	if raw == "" {
+		return ""
+	}
+	// MDM v2 dates are RFC3339 with "Z"; Classic date_completed_utc uses a
+	// numeric "-0700" offset without a colon.
+	layouts := []string{
+		time.RFC3339Nano,
+		time.RFC3339,
+		"2006-01-02T15:04:05.000-0700",
+		"2006-01-02T15:04:05-0700",
+	}
+	for _, layout := range layouts {
+		if t, err := time.Parse(layout, raw); err == nil {
+			if t.Year() <= 1970 {
+				return ""
+			}
+			return t.Format("2006-01-02 15:04")
+		}
+	}
+	return raw
+}
+
+// historyValue joins a history entry's status/state with its completion date
+// for display in a single right-aligned value column, omitting either side
+// when empty.
+func historyValue(status, completed string) string {
+	switch {
+	case completed == "":
+		return status
+	case status == "":
+		return completed
+	default:
+		return status + "  " + completed
 	}
 }
 
