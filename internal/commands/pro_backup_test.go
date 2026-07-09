@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -479,6 +480,195 @@ func TestBackup_InventoryPreloadFilter(t *testing.T) {
 	outPath := filepath.Join(outDir, "inventory-preloads", "inventory-preload-all.csv")
 	if _, err := os.Stat(outPath); os.IsNotExist(err) {
 		t.Error("inventory-preload-all.csv should exist")
+	}
+}
+
+func TestBackup_DownloadPackages(t *testing.T) {
+	fileContent := []byte("fake package binary")
+	fileSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write(fileContent)
+	}))
+	defer fileSrv.Close()
+
+	mock := &backupMockClient{
+		responses: map[string]overviewMockResponse{
+			"/JSSResource/packages":      {200, `{"packages":[{"id":1,"name":"Pkg"}]}`},
+			"/JSSResource/packages/id/1": {200, `{"package":{"id":1,"name":"Pkg","filename":"pkg-a.pkg"}}`},
+			"/v1/jcds/files":             {200, `[{"fileName":"pkg-a.pkg","length":20,"md5":"x","region":"us","sha3":"y"}]`},
+			"/v1/jcds/files/pkg-a.pkg":   {200, fmt.Sprintf(`{"uri":%q}`, fileSrv.URL+"/pkg-a.pkg")},
+		},
+	}
+
+	oldURL := serverURL
+	serverURL = "https://test.jamfcloud.com"
+	defer func() { serverURL = oldURL }()
+
+	outDir := t.TempDir()
+	cliCtx := &registry.CLIContext{Client: mock}
+
+	err := runBackup(context.Background(), cliCtx, backupOptions{
+		OutputDir:        outDir,
+		Format:           "yaml",
+		Resources:        "packages",
+		Concurrency:      2,
+		DownloadPackages: true,
+	})
+	if err != nil {
+		t.Fatalf("runBackup error: %v", err)
+	}
+
+	got, err := os.ReadFile(filepath.Join(outDir, "packages", "files", "pkg-a.pkg"))
+	if err != nil {
+		t.Fatalf("reading downloaded package: %v", err)
+	}
+	if string(got) != string(fileContent) {
+		t.Errorf("content mismatch: got %q, want %q", got, fileContent)
+	}
+}
+
+func TestBackup_DownloadPackages_SkipsNonJCDS(t *testing.T) {
+	mock := &backupMockClient{
+		responses: map[string]overviewMockResponse{
+			"/JSSResource/packages":      {200, `{"packages":[{"id":1,"name":"Pkg"}]}`},
+			"/JSSResource/packages/id/1": {200, `{"package":{"id":1,"name":"Pkg","filename":"onprem.pkg"}}`},
+			"/v1/jcds/files":             {200, `[]`},
+		},
+	}
+
+	oldURL := serverURL
+	serverURL = "https://test.jamfcloud.com"
+	defer func() { serverURL = oldURL }()
+
+	outDir := t.TempDir()
+	cliCtx := &registry.CLIContext{Client: mock}
+
+	err := runBackup(context.Background(), cliCtx, backupOptions{
+		OutputDir:        outDir,
+		Format:           "yaml",
+		Resources:        "packages",
+		Concurrency:      2,
+		DownloadPackages: true,
+	})
+	if err != nil {
+		t.Fatalf("runBackup error: %v", err)
+	}
+
+	if _, err := os.Stat(filepath.Join(outDir, "packages", "files", "onprem.pkg")); !os.IsNotExist(err) {
+		t.Error("onprem.pkg should not have been downloaded — it has no JCDS match")
+	}
+
+	// Metadata for the package must still have been written even though the
+	// binary download was skipped.
+	if _, err := os.Stat(filepath.Join(outDir, "packages", "pkg.yaml")); err != nil {
+		t.Errorf("package metadata file should still exist: %v", err)
+	}
+}
+
+func TestBackup_DownloadPackages_DownloadFailure(t *testing.T) {
+	mock := &backupMockClient{
+		responses: map[string]overviewMockResponse{
+			"/JSSResource/packages":      {200, `{"packages":[{"id":1,"name":"Pkg"}]}`},
+			"/JSSResource/packages/id/1": {200, `{"package":{"id":1,"name":"Pkg","filename":"pkg-a.pkg"}}`},
+			"/v1/jcds/files":             {200, `[{"fileName":"pkg-a.pkg","length":20,"md5":"x","region":"us","sha3":"y"}]`},
+			// Pre-signed URL fetch fails — download should be recorded as a
+			// failure, not crash the backup.
+			"/v1/jcds/files/pkg-a.pkg": {500, `{"error":"server error"}`},
+		},
+	}
+
+	oldURL := serverURL
+	serverURL = "https://test.jamfcloud.com"
+	defer func() { serverURL = oldURL }()
+
+	outDir := t.TempDir()
+	cliCtx := &registry.CLIContext{Client: mock}
+
+	err := runBackup(context.Background(), cliCtx, backupOptions{
+		OutputDir:        outDir,
+		Format:           "yaml",
+		Resources:        "packages",
+		Concurrency:      2,
+		DownloadPackages: true,
+	})
+	if err == nil {
+		t.Fatal("runBackup should return error when a package download fails")
+	}
+	if got := exitcode.CodeFrom(err); got != exitcode.PartialFailure {
+		t.Fatalf("exit code = %d, want PartialFailure(%d)", got, exitcode.PartialFailure)
+	}
+
+	// Metadata must still be written even though the binary download failed.
+	if _, err := os.Stat(filepath.Join(outDir, "packages", "pkg.yaml")); err != nil {
+		t.Errorf("package metadata file should still exist: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(outDir, "packages", "files", "pkg-a.pkg")); !os.IsNotExist(err) {
+		t.Error("pkg-a.pkg should not exist on disk after a failed download")
+	}
+	if _, err := os.Stat(filepath.Join(outDir, "_failures.yaml")); err != nil {
+		t.Errorf("_failures.yaml should exist: %v", err)
+	}
+}
+
+func TestBackup_DownloadPackages_ResourceFilteredOut(t *testing.T) {
+	// --resources excludes "packages" entirely; --download-packages must not
+	// touch /v1/jcds/files at all (no mock registered for it — a call would
+	// surface as a failure and fail this test).
+	mock := &backupMockClient{
+		responses: map[string]overviewMockResponse{
+			"/JSSResource/policies":      {200, `{"policies":[{"id":1,"name":"Good"}]}`},
+			"/JSSResource/policies/id/1": {200, `{"policy":{"general":{"id":1,"name":"Good"}}}`},
+		},
+	}
+
+	oldURL := serverURL
+	serverURL = "https://test.jamfcloud.com"
+	defer func() { serverURL = oldURL }()
+
+	outDir := t.TempDir()
+	cliCtx := &registry.CLIContext{Client: mock}
+
+	err := runBackup(context.Background(), cliCtx, backupOptions{
+		OutputDir:        outDir,
+		Format:           "yaml",
+		Resources:        "policies",
+		Concurrency:      2,
+		DownloadPackages: true,
+	})
+	if err != nil {
+		t.Fatalf("runBackup error: %v", err)
+	}
+}
+
+func TestBackup_NoDownloadPackagesByDefault(t *testing.T) {
+	mock := &backupMockClient{
+		responses: map[string]overviewMockResponse{
+			"/JSSResource/packages":      {200, `{"packages":[{"id":1,"name":"Pkg"}]}`},
+			"/JSSResource/packages/id/1": {200, `{"package":{"id":1,"name":"Pkg","filename":"pkg-a.pkg"}}`},
+		},
+	}
+
+	oldURL := serverURL
+	serverURL = "https://test.jamfcloud.com"
+	defer func() { serverURL = oldURL }()
+
+	outDir := t.TempDir()
+	cliCtx := &registry.CLIContext{Client: mock}
+
+	// DownloadPackages left false (default) — /v1/jcds/files must never be hit,
+	// so no mock response is registered for it; a call would error the mock.
+	err := runBackup(context.Background(), cliCtx, backupOptions{
+		OutputDir:   outDir,
+		Format:      "yaml",
+		Resources:   "packages",
+		Concurrency: 2,
+	})
+	if err != nil {
+		t.Fatalf("runBackup error: %v", err)
+	}
+
+	if _, err := os.Stat(filepath.Join(outDir, "packages", "files")); !os.IsNotExist(err) {
+		t.Error("packages/files directory should not exist when --download-packages is not set")
 	}
 }
 
