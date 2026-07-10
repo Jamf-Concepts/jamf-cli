@@ -239,7 +239,7 @@ CRUD pattern matches Protect: `apply` (upsert, blueprint uses merge-patch; bench
 
 Naming: `platform-` prefix where overlap with existing Pro resources (`platform-devices`, `platform-device-groups`); no prefix for unique resources (`blueprints`, `compliance-benchmarks`, `ddm-reports`).
 
-Commands: `blueprints` (`bp`) — CRUD, deploy/undeploy, clone, scope, components, import-profile (auto DDM conversion), report. `compliance-benchmarks` (`cb`) — baselines, benchmark CRUD, rules, stats, device-results, compliance. `platform-devices` (`pdev`), `platform-device-groups` (`pdg`), `ddm-reports` (`ddm`).
+Commands: `blueprints` (`bp`) — CRUD, deploy/undeploy, clone, scope, components, import-profile (auto DDM conversion), report. `compliance-benchmarks` (`cb`) — benchmark CRUD (apply/get/list/clone/delete/export; create-only, no update). `baselines`/`rules` — read-only mSCP reference data (list). `benchmark-reports` — compliance reporting (`rules`/`devices`/`compliance-percentage`, keyed by benchmark ID). `platform-devices` (`pdev`), `platform-device-groups` (`pdg`), `ddm-reports` (`ddm`).
 
 ### Jamf Security Cloud Integration
 
