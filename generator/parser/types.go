@@ -8,6 +8,7 @@ type LookupField struct {
 	Flag      string // CLI flag name (e.g. "serial")
 	RSQLField string // RSQL filter field path (e.g. "hardware.serialNumber")
 	Desc      string // Flag description shown in --help
+	Section   string // Optional inventory section to request so the RSQLField is present in the response (e.g. "HARDWARE"); empty when the field is in the default section.
 }
 
 // FileField declares a resource field whose value is sourced from a local file

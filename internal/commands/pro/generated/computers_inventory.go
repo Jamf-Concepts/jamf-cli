@@ -246,7 +246,7 @@ func newComputersInventoryGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
 			if flagSerial != "" {
 				noInput, _ := cmd.Flags().GetBool("no-input")
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v3/computers-inventory", "hardware.serialNumber", "id", flagSerial, noInput)
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v3/computers-inventory?section=HARDWARE", "hardware.serialNumber", "id", flagSerial, noInput)
 				if err != nil {
 					return fmt.Errorf("looking up --serial %q: %w", flagSerial, err)
 				}
@@ -440,7 +440,7 @@ func newComputersInventoryDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 					} else {
 						var rid string
 						if rid == "" {
-							id, lookupErr := resolveNameToIDForApply(reqCtx, ctx.Client, "/v3/computers-inventory", "hardware.serialNumber", "id", entry, noInputBulk)
+							id, lookupErr := resolveNameToIDForApply(reqCtx, ctx.Client, "/v3/computers-inventory?section=HARDWARE", "hardware.serialNumber", "id", entry, noInputBulk)
 							if lookupErr != nil {
 								return fmt.Errorf("resolving %q via serial: %w", entry, lookupErr)
 							}
@@ -597,7 +597,7 @@ func newComputersInventoryDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 
 			if flagSerial != "" {
 				noInputLookup, _ := cmd.Flags().GetBool("no-input")
-				rid, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v3/computers-inventory", "hardware.serialNumber", "id", flagSerial, noInputLookup)
+				rid, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v3/computers-inventory?section=HARDWARE", "hardware.serialNumber", "id", flagSerial, noInputLookup)
 				if err != nil {
 					return fmt.Errorf("looking up --serial %q: %w", flagSerial, err)
 				}
@@ -770,7 +770,7 @@ func newComputersInventoryPatchCmd(ctx *registry.CLIContext) *cobra.Command {
 
 			if flagSerial != "" {
 				noInput, _ := cmd.Flags().GetBool("no-input")
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v3/computers-inventory", "hardware.serialNumber", "id", flagSerial, noInput)
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v3/computers-inventory?section=HARDWARE", "hardware.serialNumber", "id", flagSerial, noInput)
 				if err != nil {
 					return fmt.Errorf("looking up --serial %q: %w", flagSerial, err)
 				}
@@ -1029,7 +1029,7 @@ func newComputersInventoryUploadCmd(ctx *registry.CLIContext) *cobra.Command {
 
 			if flagSerial != "" {
 				noInput, _ := cmd.Flags().GetBool("no-input")
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v3/computers-inventory", "hardware.serialNumber", "id", flagSerial, noInput)
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v3/computers-inventory?section=HARDWARE", "hardware.serialNumber", "id", flagSerial, noInput)
 				if err != nil {
 					return fmt.Errorf("looking up --serial %q: %w", flagSerial, err)
 				}
@@ -1127,7 +1127,7 @@ func newComputersInventoryDownloadCmd(ctx *registry.CLIContext) *cobra.Command {
 
 			if flagSerial != "" {
 				noInput, _ := cmd.Flags().GetBool("no-input")
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v3/computers-inventory", "hardware.serialNumber", "id", flagSerial, noInput)
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v3/computers-inventory?section=HARDWARE", "hardware.serialNumber", "id", flagSerial, noInput)
 				if err != nil {
 					return fmt.Errorf("looking up --serial %q: %w", flagSerial, err)
 				}
@@ -1216,7 +1216,7 @@ func newComputersInventoryFilevaultByIdCmd(ctx *registry.CLIContext) *cobra.Comm
 
 			if flagSerial != "" {
 				noInput, _ := cmd.Flags().GetBool("no-input")
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v3/computers-inventory", "hardware.serialNumber", "id", flagSerial, noInput)
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v3/computers-inventory?section=HARDWARE", "hardware.serialNumber", "id", flagSerial, noInput)
 				if err != nil {
 					return fmt.Errorf("looking up --serial %q: %w", flagSerial, err)
 				}
@@ -1290,7 +1290,7 @@ func newComputersInventoryViewDeviceLockPinCmd(ctx *registry.CLIContext) *cobra.
 
 			if flagSerial != "" {
 				noInput, _ := cmd.Flags().GetBool("no-input")
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v3/computers-inventory", "hardware.serialNumber", "id", flagSerial, noInput)
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v3/computers-inventory?section=HARDWARE", "hardware.serialNumber", "id", flagSerial, noInput)
 				if err != nil {
 					return fmt.Errorf("looking up --serial %q: %w", flagSerial, err)
 				}
@@ -1364,7 +1364,7 @@ func newComputersInventoryViewRecoveryLockPasswordCmd(ctx *registry.CLIContext) 
 
 			if flagSerial != "" {
 				noInput, _ := cmd.Flags().GetBool("no-input")
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v3/computers-inventory", "hardware.serialNumber", "id", flagSerial, noInput)
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v3/computers-inventory?section=HARDWARE", "hardware.serialNumber", "id", flagSerial, noInput)
 				if err != nil {
 					return fmt.Errorf("looking up --serial %q: %w", flagSerial, err)
 				}

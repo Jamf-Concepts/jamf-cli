@@ -433,7 +433,7 @@ func checkDuplicateSerials(ctx context.Context, client registry.HTTPClient, _ in
 		Severity:       severityWarning,
 		Name:           "Duplicate serial numbers",
 		AffectedCount:  affectedRecords,
-		Recommendation: fmt.Sprintf("%d serial(s) map to multiple computer records (typically a logic-board swap); delete the stale record for each so serial-based lookups resolve to one device", duplicatedSerials),
+		Recommendation: fmt.Sprintf("%d serial(s) map to multiple computer records (typically a logic-board swap); run 'pro report duplicate-serials' to list the affected records, then delete the stale record for each so serial-based lookups resolve to one device", duplicatedSerials),
 	}, nil
 }
 

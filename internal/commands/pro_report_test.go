@@ -492,6 +492,51 @@ func TestRunReportDuplicateSerials_FetchError(t *testing.T) {
 	}
 }
 
+// Serials that differ only in surrounding whitespace are the same serial and
+// must collide (guards the strings.TrimSpace in the grouping key).
+func TestRunReportDuplicateSerials_WhitespaceCollision(t *testing.T) {
+	client := &overviewMockClient{
+		responses: map[string]overviewMockResponse{
+			"/v3/computers-inventory": {200, `{
+				"totalCount": 2,
+				"results": [
+					{"id":"1","general":{"name":"A"},"hardware":{"serialNumber":"C02X1234"}},
+					{"id":"2","general":{"name":"B"},"hardware":{"serialNumber":"  C02X1234  "}}
+				]
+			}`},
+		},
+	}
+
+	rows, err := runReportDuplicateSerials(context.Background(), client)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(rows) != 2 {
+		t.Fatalf("got %d rows, want 2 (whitespace-variant serials must collide)", len(rows))
+	}
+	if rows[0]["serial"] != "C02X1234" || rows[1]["serial"] != "C02X1234" {
+		t.Errorf("serials = %q/%q, want both trimmed to C02X1234", rows[0]["serial"], rows[1]["serial"])
+	}
+}
+
+func TestIDLess(t *testing.T) {
+	cases := []struct {
+		a, b string
+		want bool
+	}{
+		{"2", "10", true},    // numeric: 2 < 10 (not lexical)
+		{"10", "2", false},   // numeric reverse
+		{"abc", "abd", true}, // non-numeric fallback: lexical
+		{"b", "a", false},    // non-numeric fallback reverse
+		{"9", "x", true},     // mixed → lexical ("9" < "x")
+	}
+	for _, c := range cases {
+		if got := idLess(c.a, c.b); got != c.want {
+			t.Errorf("idLess(%q, %q) = %v, want %v", c.a, c.b, got, c.want)
+		}
+	}
+}
+
 // ---------------------------------------------------------------------------
 // software-installs
 // ---------------------------------------------------------------------------

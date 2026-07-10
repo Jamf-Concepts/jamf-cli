@@ -510,6 +510,18 @@ func TestCheckDuplicateSerials_AllUnique(t *testing.T) {
 	}
 }
 
+func TestCheckDuplicateSerials_FetchError(t *testing.T) {
+	client := &overviewMockClient{
+		responses: map[string]overviewMockResponse{
+			"/v3/computers-inventory": {500, `{}`},
+		},
+	}
+
+	if _, err := checkDuplicateSerials(context.Background(), client, 0); err == nil {
+		t.Fatal("expected error on fetch failure, got nil")
+	}
+}
+
 func TestRunAudit_FilterByCategory(t *testing.T) {
 	// Only set up compliance mocks
 	mock := &overviewMockClient{

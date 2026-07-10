@@ -19,6 +19,7 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+	"golang.org/x/term"
 	"gopkg.in/yaml.v3"
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/exitcode"
@@ -216,9 +217,18 @@ func batchDeleteError(cmd *cobra.Command, succeeded, failed int, firstErr error,
 // endpoint ignores the RSQL filter param (e.g. prestages). The name is escaped
 // to prevent RSQL injection. Returns an empty slice when nothing matches.
 func lookupMatchingIDs(ctx context.Context, client registry.HTTPClient, listPath, nameField, idField, name string) ([]string, error) {
-	escapedName := strings.ReplaceAll(name, `"`, `\"`)
-	filterPath := fmt.Sprintf("%s?filter=%s&page-size=100",
-		listPath, url.QueryEscape(fmt.Sprintf(`%s=="%s"`, nameField, escapedName)))
+	// Escape backslashes before quotes so a value ending in `\` can't
+	// neutralize the closing quote and break out of the RSQL string literal.
+	escapedName := strings.ReplaceAll(name, `\`, `\\`)
+	escapedName = strings.ReplaceAll(escapedName, `"`, `\"`)
+	// listPath may already carry a query string (e.g. "?section=HARDWARE" so the
+	// filtered field is present in the response) — append with & in that case.
+	sep := "?"
+	if strings.Contains(listPath, "?") {
+		sep = "&"
+	}
+	filterPath := fmt.Sprintf("%s%sfilter=%s&page-size=100",
+		listPath, sep, url.QueryEscape(fmt.Sprintf(`%s=="%s"`, nameField, escapedName)))
 
 	resp, err := client.Do(ctx, "GET", filterPath, nil)
 	if err != nil {
@@ -255,7 +265,7 @@ func lookupMatchingIDs(ctx context.Context, client registry.HTTPClient, listPath
 	results := filterResultsByName(data.Results, nameField, name)
 	if len(results) == 0 && data.TotalCount > len(data.Results) {
 		// RSQL was likely ignored and we only got the first page. Re-fetch all results.
-		allPath := fmt.Sprintf("%s?page-size=%d", listPath, data.TotalCount)
+		allPath := fmt.Sprintf("%s%spage-size=%d", listPath, sep, data.TotalCount)
 		allResp, err := client.Do(ctx, "GET", allPath, nil)
 		if err == nil {
 			allBody, _ := io.ReadAll(io.LimitReader(allResp.Body, 8<<20))
@@ -270,14 +280,24 @@ func lookupMatchingIDs(ctx context.Context, client registry.HTTPClient, listPath
 	}
 
 	ids := make([]string, 0, len(results))
+	skipped := 0
 	for _, raw := range results {
 		var obj map[string]any
 		if err := json.Unmarshal(raw, &obj); err != nil {
+			skipped++
 			continue
 		}
-		if id := extractIDString(obj, idField); id != "" {
-			ids = append(ids, id)
+		id := extractIDString(obj, idField)
+		if id == "" {
+			skipped++
+			continue
 		}
+		ids = append(ids, id)
+	}
+	// A matching record we can't resolve to an ID would silently shrink the
+	// candidate set and defeat collision detection — surface it instead.
+	if skipped > 0 {
+		return ids, fmt.Errorf("%d record(s) matched %q but could not be resolved to an ID (missing %q field); target a specific ID", skipped, name, idField)
 	}
 	return ids, nil
 }
@@ -290,8 +310,13 @@ func pickMatchingID(ids []string, name string, noInput bool) (string, error) {
 	if len(ids) == 1 {
 		return ids[0], nil
 	}
-	if noInput {
-		return "", fmt.Errorf("multiple resources found matching %q (IDs: %s); resolve the duplicates or target a specific ID", name, strings.Join(ids, ", "))
+	// Ambiguous — several records share the value. Only prompt when a human can
+	// actually answer: --no-input, or a non-terminal stdin (CI, pipes, non-pty
+	// SSH, process supervisors) must fail fast rather than block on a read that
+	// will never be satisfied. Usage exit code marks it as a fix-the-invocation
+	// condition, distinct from a generic failure, per agent_context.md.
+	if noInput || !term.IsTerminal(int(os.Stdin.Fd())) {
+		return "", exitcode.New(exitcode.Usage, fmt.Sprintf("multiple resources found matching %q (IDs: %s); resolve the duplicates or target a specific ID", name, strings.Join(ids, ", ")))
 	}
 	fmt.Fprintf(os.Stderr, "Multiple resources found matching %q:\n", name)
 	for i, id := range ids {

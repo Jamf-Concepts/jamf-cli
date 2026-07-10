@@ -54,6 +54,12 @@ React to a non-zero exit without parsing the message:
 Errors print a one-line remediation hint and, with `-o json`, a structured error
 envelope.
 
+An ambiguous `--name`/`--serial`/`--udid` lookup (the value matches more than one
+record — e.g. duplicate computer serials after a logic-board swap) exits `usage`
+(2), not `general` (1): re-run against a specific `<id>`, or query
+`jamf-cli pro report duplicate-serials` to list the colliding records. Under
+`--no-input` or a non-terminal stdin this fails fast rather than prompting.
+
 ## Destructive commands
 
 Commands that delete, erase, wipe, lock, restart, shut down, unmanage, or flush
