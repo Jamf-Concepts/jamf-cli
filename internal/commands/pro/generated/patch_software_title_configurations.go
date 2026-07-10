@@ -111,7 +111,8 @@ func newPatchSoftwareTitleConfigurationsGetCmd(ctx *registry.CLIContext) *cobra.
 			// Resolve resource ID from positional arg, --name, or lookup flags
 			var resolvedID string
 			if flagName != "" {
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/patch-software-title-configurations", "displayName", "id", flagName)
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/patch-software-title-configurations", "displayName", "id", flagName, noInput)
 				if err != nil {
 					return err
 				}
@@ -462,7 +463,8 @@ func newPatchSoftwareTitleConfigurationsHistoryCmd(ctx *registry.CLIContext) *co
 			// Resolve resource ID from positional arg, --name, or lookup flags
 			var resolvedID string
 			if flagName != "" {
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/patch-software-title-configurations", "displayName", "id", flagName)
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/patch-software-title-configurations", "displayName", "id", flagName, noInput)
 				if err != nil {
 					return err
 				}
@@ -632,7 +634,8 @@ func newPatchSoftwareTitleConfigurationsAddHistoryNoteCmd(ctx *registry.CLIConte
 			// Resolve resource ID from positional arg, --name, or lookup flags
 			var resolvedID string
 			if flagName != "" {
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/patch-software-title-configurations", "displayName", "id", flagName)
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/patch-software-title-configurations", "displayName", "id", flagName, noInput)
 				if err != nil {
 					return err
 				}
@@ -731,7 +734,8 @@ func newPatchSoftwareTitleConfigurationsPatchCmd(ctx *registry.CLIContext) *cobr
 			// Resolve resource ID from positional arg, --name, or lookup flags
 			var resolvedPatchID string
 			if flagName != "" {
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/patch-software-title-configurations", "displayName", "id", flagName)
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/patch-software-title-configurations", "displayName", "id", flagName, noInput)
 				if err != nil {
 					return err
 				}
@@ -830,7 +834,8 @@ func newPatchSoftwareTitleConfigurationsDefinitionsCmd(ctx *registry.CLIContext)
 			// Resolve resource ID from positional arg, --name, or lookup flags
 			var resolvedID string
 			if flagName != "" {
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/patch-software-title-configurations", "displayName", "id", flagName)
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/patch-software-title-configurations", "displayName", "id", flagName, noInput)
 				if err != nil {
 					return err
 				}
@@ -993,7 +998,8 @@ func newPatchSoftwareTitleConfigurationsDependenciesCmd(ctx *registry.CLIContext
 			// Resolve resource ID from positional arg, --name, or lookup flags
 			var resolvedID string
 			if flagName != "" {
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/patch-software-title-configurations", "displayName", "id", flagName)
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/patch-software-title-configurations", "displayName", "id", flagName, noInput)
 				if err != nil {
 					return err
 				}
@@ -1056,7 +1062,8 @@ func newPatchSoftwareTitleConfigurationsExportReportCmd(ctx *registry.CLIContext
 			// Resolve resource ID from positional arg, --name, or lookup flags
 			var resolvedID string
 			if flagName != "" {
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/patch-software-title-configurations", "displayName", "id", flagName)
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/patch-software-title-configurations", "displayName", "id", flagName, noInput)
 				if err != nil {
 					return err
 				}
@@ -1135,7 +1142,8 @@ func newPatchSoftwareTitleConfigurationsExtensionAttributesCmd(ctx *registry.CLI
 			// Resolve resource ID from positional arg, --name, or lookup flags
 			var resolvedID string
 			if flagName != "" {
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/patch-software-title-configurations", "displayName", "id", flagName)
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/patch-software-title-configurations", "displayName", "id", flagName, noInput)
 				if err != nil {
 					return err
 				}
@@ -1189,7 +1197,8 @@ func newPatchSoftwareTitleConfigurationsCreateDashboardCmd(ctx *registry.CLICont
 			// Resolve resource ID from positional arg, --name, or lookup flags
 			var resolvedID string
 			if flagName != "" {
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/patch-software-title-configurations", "displayName", "id", flagName)
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/patch-software-title-configurations", "displayName", "id", flagName, noInput)
 				if err != nil {
 					return err
 				}
@@ -1260,7 +1269,8 @@ func newPatchSoftwareTitleConfigurationsDashboardCmd(ctx *registry.CLIContext) *
 			// Resolve resource ID from positional arg, --name, or lookup flags
 			var resolvedID string
 			if flagName != "" {
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/patch-software-title-configurations", "displayName", "id", flagName)
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/patch-software-title-configurations", "displayName", "id", flagName, noInput)
 				if err != nil {
 					return err
 				}
@@ -1320,7 +1330,8 @@ func newPatchSoftwareTitleConfigurationsPatchReportCmd(ctx *registry.CLIContext)
 			// Resolve resource ID from positional arg, --name, or lookup flags
 			var resolvedID string
 			if flagName != "" {
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/patch-software-title-configurations", "displayName", "id", flagName)
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/patch-software-title-configurations", "displayName", "id", flagName, noInput)
 				if err != nil {
 					return err
 				}
@@ -1483,7 +1494,8 @@ func newPatchSoftwareTitleConfigurationsPatchSummaryCmd(ctx *registry.CLIContext
 			// Resolve resource ID from positional arg, --name, or lookup flags
 			var resolvedID string
 			if flagName != "" {
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/patch-software-title-configurations", "displayName", "id", flagName)
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/patch-software-title-configurations", "displayName", "id", flagName, noInput)
 				if err != nil {
 					return err
 				}
@@ -1537,7 +1549,8 @@ func newPatchSoftwareTitleConfigurationsVersionsCmd(ctx *registry.CLIContext) *c
 			// Resolve resource ID from positional arg, --name, or lookup flags
 			var resolvedID string
 			if flagName != "" {
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/patch-software-title-configurations", "displayName", "id", flagName)
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/patch-software-title-configurations", "displayName", "id", flagName, noInput)
 				if err != nil {
 					return err
 				}

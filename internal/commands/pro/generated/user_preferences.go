@@ -55,7 +55,8 @@ func newUserPreferencesGetCmd(ctx *registry.CLIContext) *cobra.Command {
 			// Resolve resource ID from positional arg, --name, or lookup flags
 			var resolvedID string
 			if flagName != "" {
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/user/preferences/settings", "username", "key", flagName)
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/user/preferences/settings", "username", "key", flagName, noInput)
 				if err != nil {
 					return err
 				}
@@ -116,7 +117,8 @@ func newUserPreferencesUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 			// Resolve resource ID from positional arg, --name, or lookup flags
 			var resolvedID string
 			if flagName != "" {
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/user/preferences/settings", "username", "key", flagName)
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/user/preferences/settings", "username", "key", flagName, noInput)
 				if err != nil {
 					return err
 				}

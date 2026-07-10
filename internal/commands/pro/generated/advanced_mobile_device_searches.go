@@ -101,7 +101,8 @@ func newAdvancedMobileDeviceSearchesGetCmd(ctx *registry.CLIContext) *cobra.Comm
 			// Resolve resource ID from positional arg, --name, or lookup flags
 			var resolvedID string
 			if flagName != "" {
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/advanced-mobile-device-searches", "name", "id", flagName)
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/advanced-mobile-device-searches", "name", "id", flagName, noInput)
 				if err != nil {
 					return err
 				}
@@ -255,7 +256,8 @@ func newAdvancedMobileDeviceSearchesUpdateCmd(ctx *registry.CLIContext) *cobra.C
 			// Resolve resource ID from positional arg, --name, or lookup flags
 			var resolvedID string
 			if flagName != "" {
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/advanced-mobile-device-searches", "name", "id", flagName)
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/advanced-mobile-device-searches", "name", "id", flagName, noInput)
 				if err != nil {
 					return err
 				}

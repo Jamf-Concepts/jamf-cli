@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -91,6 +92,7 @@ func allAuditChecks() []auditCheck {
 		{Category: "hygiene", Name: "Empty smart groups", Run: checkEmptySmartGroups},
 		{Category: "hygiene", Name: "Policies with no scope", Run: checkPoliciesNoScope},
 		{Category: "hygiene", Name: "Empty categories", Run: checkEmptyCategories},
+		{Category: "hygiene", Name: "Duplicate serial numbers", Run: checkDuplicateSerials},
 
 		// Enrollment
 		{Category: "enrollment", Name: "DEP token expiry", Run: checkDEPTokenExpiry},
@@ -383,6 +385,55 @@ func checkEmptyCategories(ctx context.Context, client registry.HTTPClient, _ int
 		Name:           "Categories audit",
 		AffectedCount:  len(cats),
 		Recommendation: "Review categories for unused entries; consider consolidating",
+	}, nil
+}
+
+// checkDuplicateSerials flags serial numbers shared by more than one computer
+// record. A replaced logic board re-enrolls as a fresh record, so the old and
+// new records collide on serial — which breaks every serial-based lookup
+// (get/update/patch --serial, device actions) since the CLI can no longer
+// resolve the serial to a single device. Jamf smart groups cannot surface this
+// (their criteria are per-record, not cross-record), so the audit is the only
+// place to catch it. Blank serials are ignored — many pending/placeholder
+// records legitimately share an empty serial.
+func checkDuplicateSerials(ctx context.Context, client registry.HTTPClient, _ int) (*auditResult, error) {
+	all, err := FetchAllPaginated(ctx, client, "/v3/computers-inventory?section=HARDWARE", 100)
+	if err != nil {
+		return nil, err
+	}
+
+	counts := make(map[string]int)
+	for _, comp := range all {
+		hw, _ := comp["hardware"].(map[string]any)
+		if hw == nil {
+			continue
+		}
+		serial, _ := hw["serialNumber"].(string)
+		serial = strings.TrimSpace(serial)
+		if serial == "" {
+			continue
+		}
+		counts[serial]++
+	}
+
+	duplicatedSerials := 0
+	affectedRecords := 0
+	for _, n := range counts {
+		if n > 1 {
+			duplicatedSerials++
+			affectedRecords += n
+		}
+	}
+	if affectedRecords == 0 {
+		return nil, nil
+	}
+
+	return &auditResult{
+		Category:       "hygiene",
+		Severity:       severityWarning,
+		Name:           "Duplicate serial numbers",
+		AffectedCount:  affectedRecords,
+		Recommendation: fmt.Sprintf("%d serial(s) map to multiple computer records (typically a logic-board swap); run 'pro report duplicate-serials' to list the affected records, then delete the stale record for each so serial-based lookups resolve to one device", duplicatedSerials),
 	}, nil
 }
 

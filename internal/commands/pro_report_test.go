@@ -416,6 +416,128 @@ func TestRunReportInventorySummary_Empty(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
+// duplicate-serials
+// ---------------------------------------------------------------------------
+
+func TestRunReportDuplicateSerials_Basic(t *testing.T) {
+	client := &overviewMockClient{
+		responses: map[string]overviewMockResponse{
+			// C02X1234 shared by ids 2 and 10 (logic-board swap); C02Z9999 unique;
+			// two records with blank serials must not be treated as duplicates.
+			"/v3/computers-inventory": {200, `{
+				"totalCount": 5,
+				"results": [
+					{"id":"10","general":{"name":"Mac-new","lastContactTime":"2026-06-01T00:00:00Z"},"hardware":{"serialNumber":"C02X1234"}},
+					{"id":"2","general":{"name":"Mac-old","lastContactTime":"2025-01-01T00:00:00Z"},"hardware":{"serialNumber":"C02X1234"}},
+					{"id":"3","general":{"name":"Mac-unique"},"hardware":{"serialNumber":"C02Z9999"}},
+					{"id":"4","general":{"name":"Pending-A"},"hardware":{"serialNumber":""}},
+					{"id":"5","general":{"name":"Pending-B"},"hardware":{"serialNumber":"  "}}
+				]
+			}`},
+		},
+	}
+
+	rows, err := runReportDuplicateSerials(context.Background(), client)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	// Only the two C02X1234 records; blank serials and the unique serial excluded.
+	if len(rows) != 2 {
+		t.Fatalf("got %d rows, want 2", len(rows))
+	}
+	// Grouped by serial, ordered by numeric ID → id 2 before id 10.
+	if rows[0]["serial"] != "C02X1234" || rows[0]["id"] != "2" {
+		t.Errorf("row0 = %v, want serial C02X1234 id 2", rows[0])
+	}
+	if rows[1]["id"] != "10" {
+		t.Errorf("row1 id = %v, want 10 (numeric order, not lexical)", rows[1]["id"])
+	}
+	if rows[0]["name"] != "Mac-old" || rows[0]["last_contact"] != "2025-01-01T00:00:00Z" {
+		t.Errorf("row0 detail = %v, want name Mac-old / last_contact 2025-01-01", rows[0])
+	}
+}
+
+func TestRunReportDuplicateSerials_NoneWhenAllUnique(t *testing.T) {
+	client := &overviewMockClient{
+		responses: map[string]overviewMockResponse{
+			"/v3/computers-inventory": {200, `{
+				"totalCount": 2,
+				"results": [
+					{"id":"1","general":{"name":"A"},"hardware":{"serialNumber":"S1"}},
+					{"id":"2","general":{"name":"B"},"hardware":{"serialNumber":"S2"}}
+				]
+			}`},
+		},
+	}
+
+	rows, err := runReportDuplicateSerials(context.Background(), client)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(rows) != 0 {
+		t.Errorf("got %d rows, want 0", len(rows))
+	}
+}
+
+func TestRunReportDuplicateSerials_FetchError(t *testing.T) {
+	client := &overviewMockClient{
+		responses: map[string]overviewMockResponse{
+			"/v3/computers-inventory": {500, `{}`},
+		},
+	}
+
+	_, err := runReportDuplicateSerials(context.Background(), client)
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+}
+
+// Serials that differ only in surrounding whitespace are the same serial and
+// must collide (guards the strings.TrimSpace in the grouping key).
+func TestRunReportDuplicateSerials_WhitespaceCollision(t *testing.T) {
+	client := &overviewMockClient{
+		responses: map[string]overviewMockResponse{
+			"/v3/computers-inventory": {200, `{
+				"totalCount": 2,
+				"results": [
+					{"id":"1","general":{"name":"A"},"hardware":{"serialNumber":"C02X1234"}},
+					{"id":"2","general":{"name":"B"},"hardware":{"serialNumber":"  C02X1234  "}}
+				]
+			}`},
+		},
+	}
+
+	rows, err := runReportDuplicateSerials(context.Background(), client)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(rows) != 2 {
+		t.Fatalf("got %d rows, want 2 (whitespace-variant serials must collide)", len(rows))
+	}
+	if rows[0]["serial"] != "C02X1234" || rows[1]["serial"] != "C02X1234" {
+		t.Errorf("serials = %q/%q, want both trimmed to C02X1234", rows[0]["serial"], rows[1]["serial"])
+	}
+}
+
+func TestIDLess(t *testing.T) {
+	cases := []struct {
+		a, b string
+		want bool
+	}{
+		{"2", "10", true},    // numeric: 2 < 10 (not lexical)
+		{"10", "2", false},   // numeric reverse
+		{"abc", "abd", true}, // non-numeric fallback: lexical
+		{"b", "a", false},    // non-numeric fallback reverse
+		{"9", "x", true},     // mixed → lexical ("9" < "x")
+	}
+	for _, c := range cases {
+		if got := idLess(c.a, c.b); got != c.want {
+			t.Errorf("idLess(%q, %q) = %v, want %v", c.a, c.b, got, c.want)
+		}
+	}
+}
+
+// ---------------------------------------------------------------------------
 // software-installs
 // ---------------------------------------------------------------------------
 

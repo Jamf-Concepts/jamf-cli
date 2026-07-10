@@ -219,7 +219,8 @@ func newDistributionPointsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 			// Resolve resource ID from positional arg, --name, or lookup flags
 			var resolvedID string
 			if flagName != "" {
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/distribution-points", "name", "id", flagName)
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/distribution-points", "name", "id", flagName, noInput)
 				if err != nil {
 					return err
 				}
@@ -403,7 +404,8 @@ func newDistributionPointsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 			// Resolve resource ID from positional arg, --name, or lookup flags
 			var resolvedID string
 			if flagName != "" {
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/distribution-points", "name", "id", flagName)
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/distribution-points", "name", "id", flagName, noInput)
 				if err != nil {
 					return err
 				}
@@ -834,7 +836,8 @@ func newDistributionPointsHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 			// Resolve resource ID from positional arg, --name, or lookup flags
 			var resolvedID string
 			if flagName != "" {
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/distribution-points", "name", "id", flagName)
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/distribution-points", "name", "id", flagName, noInput)
 				if err != nil {
 					return err
 				}
@@ -1004,7 +1007,8 @@ func newDistributionPointsAddHistoryNoteCmd(ctx *registry.CLIContext) *cobra.Com
 			// Resolve resource ID from positional arg, --name, or lookup flags
 			var resolvedID string
 			if flagName != "" {
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/distribution-points", "name", "id", flagName)
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/distribution-points", "name", "id", flagName, noInput)
 				if err != nil {
 					return err
 				}
@@ -1117,7 +1121,8 @@ func newDistributionPointsPatchCmd(ctx *registry.CLIContext) *cobra.Command {
 			// Resolve resource ID from positional arg, --name, or lookup flags
 			var resolvedPatchID string
 			if flagName != "" {
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/distribution-points", "name", "id", flagName)
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/distribution-points", "name", "id", flagName, noInput)
 				if err != nil {
 					return err
 				}

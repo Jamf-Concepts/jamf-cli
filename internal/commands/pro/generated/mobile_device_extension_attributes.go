@@ -218,7 +218,8 @@ func newMobileDeviceExtensionAttributesGetCmd(ctx *registry.CLIContext) *cobra.C
 			// Resolve resource ID from positional arg, --name, or lookup flags
 			var resolvedID string
 			if flagName != "" {
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/mobile-device-extension-attributes", "name", "id", flagName)
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/mobile-device-extension-attributes", "name", "id", flagName, noInput)
 				if err != nil {
 					return err
 				}
@@ -380,7 +381,8 @@ func newMobileDeviceExtensionAttributesUpdateCmd(ctx *registry.CLIContext) *cobr
 			// Resolve resource ID from positional arg, --name, or lookup flags
 			var resolvedID string
 			if flagName != "" {
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/mobile-device-extension-attributes", "name", "id", flagName)
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/mobile-device-extension-attributes", "name", "id", flagName, noInput)
 				if err != nil {
 					return err
 				}
@@ -714,7 +716,8 @@ func newMobileDeviceExtensionAttributesHistoryCmd(ctx *registry.CLIContext) *cob
 			// Resolve resource ID from positional arg, --name, or lookup flags
 			var resolvedID string
 			if flagName != "" {
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/mobile-device-extension-attributes", "name", "id", flagName)
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/mobile-device-extension-attributes", "name", "id", flagName, noInput)
 				if err != nil {
 					return err
 				}
@@ -884,7 +887,8 @@ func newMobileDeviceExtensionAttributesAddHistoryNoteCmd(ctx *registry.CLIContex
 			// Resolve resource ID from positional arg, --name, or lookup flags
 			var resolvedID string
 			if flagName != "" {
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/mobile-device-extension-attributes", "name", "id", flagName)
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/mobile-device-extension-attributes", "name", "id", flagName, noInput)
 				if err != nil {
 					return err
 				}
@@ -956,7 +960,8 @@ func newMobileDeviceExtensionAttributesDataDependencyCmd(ctx *registry.CLIContex
 			// Resolve resource ID from positional arg, --name, or lookup flags
 			var resolvedID string
 			if flagName != "" {
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/mobile-device-extension-attributes", "name", "id", flagName)
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/mobile-device-extension-attributes", "name", "id", flagName, noInput)
 				if err != nil {
 					return err
 				}

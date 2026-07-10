@@ -99,7 +99,8 @@ func newAdvancedUserContentSearchesGetCmd(ctx *registry.CLIContext) *cobra.Comma
 			// Resolve resource ID from positional arg, --name, or lookup flags
 			var resolvedID string
 			if flagName != "" {
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/advanced-user-content-searches", "name", "id", flagName)
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/advanced-user-content-searches", "name", "id", flagName, noInput)
 				if err != nil {
 					return err
 				}
@@ -253,7 +254,8 @@ func newAdvancedUserContentSearchesUpdateCmd(ctx *registry.CLIContext) *cobra.Co
 			// Resolve resource ID from positional arg, --name, or lookup flags
 			var resolvedID string
 			if flagName != "" {
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/advanced-user-content-searches", "name", "id", flagName)
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/advanced-user-content-searches", "name", "id", flagName, noInput)
 				if err != nil {
 					return err
 				}

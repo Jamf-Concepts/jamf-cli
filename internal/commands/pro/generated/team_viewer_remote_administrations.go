@@ -65,7 +65,8 @@ func newTeamViewerRemoteAdministrationsGetCmd(ctx *registry.CLIContext) *cobra.C
 			// Resolve resource ID from positional arg, --name, or lookup flags
 			var resolvedID string
 			if flagName != "" {
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/preview/remote-administration-configurations/team-viewer", "displayName", "id", flagName)
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/preview/remote-administration-configurations/team-viewer", "displayName", "id", flagName, noInput)
 				if err != nil {
 					return err
 				}
@@ -408,7 +409,8 @@ func newTeamViewerRemoteAdministrationsSessionsCmd(ctx *registry.CLIContext) *co
 			// Resolve resource ID from positional arg, --name, or lookup flags
 			var resolvedID string
 			if flagName != "" {
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/preview/remote-administration-configurations/team-viewer", "displayName", "id", flagName)
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/preview/remote-administration-configurations/team-viewer", "displayName", "id", flagName, noInput)
 				if err != nil {
 					return err
 				}
@@ -565,7 +567,8 @@ func newTeamViewerRemoteAdministrationsCloseCmd(ctx *registry.CLIContext) *cobra
 			// Resolve resource ID from positional arg, --name, or lookup flags
 			var resolvedID string
 			if flagName != "" {
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/preview/remote-administration-configurations/team-viewer", "displayName", "id", flagName)
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/preview/remote-administration-configurations/team-viewer", "displayName", "id", flagName, noInput)
 				if err != nil {
 					return err
 				}
@@ -636,7 +639,8 @@ func newTeamViewerRemoteAdministrationsResendNotificationCmd(ctx *registry.CLICo
 			// Resolve resource ID from positional arg, --name, or lookup flags
 			var resolvedID string
 			if flagName != "" {
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/preview/remote-administration-configurations/team-viewer", "displayName", "id", flagName)
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/preview/remote-administration-configurations/team-viewer", "displayName", "id", flagName, noInput)
 				if err != nil {
 					return err
 				}
@@ -707,7 +711,8 @@ func newTeamViewerRemoteAdministrationsSessionsStatusCmd(ctx *registry.CLIContex
 			// Resolve resource ID from positional arg, --name, or lookup flags
 			var resolvedID string
 			if flagName != "" {
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/preview/remote-administration-configurations/team-viewer", "displayName", "id", flagName)
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/preview/remote-administration-configurations/team-viewer", "displayName", "id", flagName, noInput)
 				if err != nil {
 					return err
 				}
@@ -784,7 +789,8 @@ func newTeamViewerRemoteAdministrationsPatchCmd(ctx *registry.CLIContext) *cobra
 			// Resolve resource ID from positional arg, --name, or lookup flags
 			var resolvedPatchID string
 			if flagName != "" {
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/preview/remote-administration-configurations/team-viewer", "displayName", "id", flagName)
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/preview/remote-administration-configurations/team-viewer", "displayName", "id", flagName, noInput)
 				if err != nil {
 					return err
 				}
@@ -877,7 +883,8 @@ func newTeamViewerRemoteAdministrationsStatusCmd(ctx *registry.CLIContext) *cobr
 			// Resolve resource ID from positional arg, --name, or lookup flags
 			var resolvedID string
 			if flagName != "" {
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/preview/remote-administration-configurations/team-viewer", "displayName", "id", flagName)
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/preview/remote-administration-configurations/team-viewer", "displayName", "id", flagName, noInput)
 				if err != nil {
 					return err
 				}

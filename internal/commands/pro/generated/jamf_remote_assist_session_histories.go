@@ -210,7 +210,8 @@ func newJamfRemoteAssistSessionHistoriesGetCmd(ctx *registry.CLIContext) *cobra.
 			// Resolve resource ID from positional arg, --name, or lookup flags
 			var resolvedID string
 			if flagName != "" {
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/jamf-remote-assist/session", "name", "id", flagName)
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/jamf-remote-assist/session", "name", "id", flagName, noInput)
 				if err != nil {
 					return err
 				}

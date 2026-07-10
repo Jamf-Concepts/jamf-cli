@@ -222,7 +222,8 @@ func newComputerExtensionAttributesGetCmd(ctx *registry.CLIContext) *cobra.Comma
 			// Resolve resource ID from positional arg, --name, or lookup flags
 			var resolvedID string
 			if flagName != "" {
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/computer-extension-attributes", "name", "id", flagName)
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/computer-extension-attributes", "name", "id", flagName, noInput)
 				if err != nil {
 					return err
 				}
@@ -400,7 +401,8 @@ func newComputerExtensionAttributesUpdateCmd(ctx *registry.CLIContext) *cobra.Co
 			// Resolve resource ID from positional arg, --name, or lookup flags
 			var resolvedID string
 			if flagName != "" {
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/computer-extension-attributes", "name", "id", flagName)
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/computer-extension-attributes", "name", "id", flagName, noInput)
 				if err != nil {
 					return err
 				}
@@ -804,7 +806,8 @@ func newComputerExtensionAttributesHistoryCmd(ctx *registry.CLIContext) *cobra.C
 			// Resolve resource ID from positional arg, --name, or lookup flags
 			var resolvedID string
 			if flagName != "" {
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/computer-extension-attributes", "name", "id", flagName)
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/computer-extension-attributes", "name", "id", flagName, noInput)
 				if err != nil {
 					return err
 				}
@@ -974,7 +977,8 @@ func newComputerExtensionAttributesAddHistoryNoteCmd(ctx *registry.CLIContext) *
 			// Resolve resource ID from positional arg, --name, or lookup flags
 			var resolvedID string
 			if flagName != "" {
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/computer-extension-attributes", "name", "id", flagName)
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/computer-extension-attributes", "name", "id", flagName, noInput)
 				if err != nil {
 					return err
 				}
@@ -1099,7 +1103,8 @@ func newComputerExtensionAttributesDataDependencyCmd(ctx *registry.CLIContext) *
 			// Resolve resource ID from positional arg, --name, or lookup flags
 			var resolvedID string
 			if flagName != "" {
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/computer-extension-attributes", "name", "id", flagName)
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/computer-extension-attributes", "name", "id", flagName, noInput)
 				if err != nil {
 					return err
 				}
@@ -1153,7 +1158,8 @@ func newComputerExtensionAttributesDownloadCmd(ctx *registry.CLIContext) *cobra.
 			// Resolve resource ID from positional arg, --name, or lookup flags
 			var resolvedID string
 			if flagName != "" {
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/computer-extension-attributes", "name", "id", flagName)
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/computer-extension-attributes", "name", "id", flagName, noInput)
 				if err != nil {
 					return err
 				}

@@ -216,7 +216,8 @@ func newEnrollmentCustomizationsGetCmd(ctx *registry.CLIContext) *cobra.Command 
 			// Resolve resource ID from positional arg, --name, or lookup flags
 			var resolvedID string
 			if flagName != "" {
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/enrollment-customizations", "displayName", "id", flagName)
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/enrollment-customizations", "displayName", "id", flagName, noInput)
 				if err != nil {
 					return err
 				}
@@ -364,7 +365,8 @@ func newEnrollmentCustomizationsUpdateCmd(ctx *registry.CLIContext) *cobra.Comma
 			// Resolve resource ID from positional arg, --name, or lookup flags
 			var resolvedID string
 			if flagName != "" {
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/enrollment-customizations", "displayName", "id", flagName)
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/enrollment-customizations", "displayName", "id", flagName, noInput)
 				if err != nil {
 					return err
 				}
@@ -697,7 +699,8 @@ func newEnrollmentCustomizationsHistoryCmd(ctx *registry.CLIContext) *cobra.Comm
 			// Resolve resource ID from positional arg, --name, or lookup flags
 			var resolvedID string
 			if flagName != "" {
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/enrollment-customizations", "displayName", "id", flagName)
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/enrollment-customizations", "displayName", "id", flagName, noInput)
 				if err != nil {
 					return err
 				}
@@ -863,7 +866,8 @@ func newEnrollmentCustomizationsAddHistoryNoteCmd(ctx *registry.CLIContext) *cob
 			// Resolve resource ID from positional arg, --name, or lookup flags
 			var resolvedID string
 			if flagName != "" {
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/enrollment-customizations", "displayName", "id", flagName)
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/enrollment-customizations", "displayName", "id", flagName, noInput)
 				if err != nil {
 					return err
 				}
@@ -994,7 +998,8 @@ func newEnrollmentCustomizationsDownloadCmd(ctx *registry.CLIContext) *cobra.Com
 			// Resolve resource ID from positional arg, --name, or lookup flags
 			var resolvedID string
 			if flagName != "" {
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/enrollment-customizations", "displayName", "id", flagName)
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/enrollment-customizations", "displayName", "id", flagName, noInput)
 				if err != nil {
 					return err
 				}
@@ -1063,7 +1068,8 @@ func newEnrollmentCustomizationsPrestagesCmd(ctx *registry.CLIContext) *cobra.Co
 			// Resolve resource ID from positional arg, --name, or lookup flags
 			var resolvedID string
 			if flagName != "" {
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/enrollment-customizations", "displayName", "id", flagName)
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/enrollment-customizations", "displayName", "id", flagName, noInput)
 				if err != nil {
 					return err
 				}

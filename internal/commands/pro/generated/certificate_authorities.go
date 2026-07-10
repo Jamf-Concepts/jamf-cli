@@ -56,7 +56,8 @@ func newCertificateAuthoritiesGetCmd(ctx *registry.CLIContext) *cobra.Command {
 			// Resolve resource ID from positional arg, --name, or lookup flags
 			var resolvedID string
 			if flagName != "" {
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/pki/certificate-authority", "name", "algorithmOid", flagName)
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/pki/certificate-authority", "name", "algorithmOid", flagName, noInput)
 				if err != nil {
 					return err
 				}
@@ -262,7 +263,8 @@ func newCertificateAuthoritiesDerByIdCmd(ctx *registry.CLIContext) *cobra.Comman
 			// Resolve resource ID from positional arg, --name, or lookup flags
 			var resolvedID string
 			if flagName != "" {
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/pki/certificate-authority", "name", "algorithmOid", flagName)
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/pki/certificate-authority", "name", "algorithmOid", flagName, noInput)
 				if err != nil {
 					return err
 				}
@@ -338,7 +340,8 @@ func newCertificateAuthoritiesPemByIdCmd(ctx *registry.CLIContext) *cobra.Comman
 			// Resolve resource ID from positional arg, --name, or lookup flags
 			var resolvedID string
 			if flagName != "" {
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/pki/certificate-authority", "name", "algorithmOid", flagName)
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/pki/certificate-authority", "name", "algorithmOid", flagName, noInput)
 				if err != nil {
 					return err
 				}
