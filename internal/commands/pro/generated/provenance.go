@@ -24,7 +24,7 @@ var Sources = []SpecSource{
 	{File: "specs/ApiRoles.yaml", SHA256: "a14bc50ae49dcc04cc638aae984bed092ca8b07b914f37086e92cf19ff7ee4aa"},
 	{File: "specs/ApiRolesPrivileges.yaml", SHA256: "dd5c1453876169ce2f6cf245fbe372f0c62bad474b35c1f6ce067410f8dc4f4b"},
 	{File: "specs/ApnsClientPushStatus.yaml", SHA256: "bd74958c5be22b24cad349d7520dc556a6c483f53df7250712eb302463562a93"},
-	{File: "specs/AppInstallerDeployments.yaml", SHA256: "824f1927c01a6cc26bc4ffea0de04cef1540f769ba0d2184752583fad4398d5a"},
+	{File: "specs/AppInstallerDeployments.yaml", SHA256: "cbb3d029a0b32e327a684e03db9b5bfa7ebc221039869b5e6785ca5b41a5acd7"},
 	{File: "specs/AppInstallerGlobalSettings.yaml", SHA256: "51c927786544f1e4dc0c9ab84a736527badd4122a9fa05c315f528bd8da50177"},
 	{File: "specs/AppInstallerTitles.yaml", SHA256: "14593ce7e00c4d359e3162a5dd5991b88295025bb79ae899ea9a31879bc17410"},
 	{File: "specs/AppRequest.yaml", SHA256: "20a6c3c39cb6ba9755d9fc39acd114ec71b873cca4a3eabcd1484e2da937af1d"},

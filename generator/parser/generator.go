@@ -1123,7 +1123,11 @@ func opHasNameLookup(op *Operation, r *Resource) bool {
 	if r.IsSingleton || !hasResolvableID(r) || collectionPath(r.Operations) == "" {
 		return false
 	}
-	return hasPathParam(op.Path)
+	// Name lookup resolves a single identifier into one {id}. Multi-param paths
+	// (e.g. /{id}/computers/{computerId}/installation-retry) can't be satisfied by
+	// one --name/positional arg — they take positional args for every param, so
+	// leave them to the ExactArgs(N) path rather than the single-id codepath.
+	return hasPathParam(op.Path) && strings.Count(op.Path, "{") == 1
 }
 
 // patchExampleText builds the Example string for a unified patch command.
@@ -1615,6 +1619,9 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 		flagAll  bool
 		flagLimit int
 {{- end }}
+{{- if .BulkActionPath }}
+		flagAll bool
+{{- end }}
 {{- if .IsDestructive }}
 		flagYes bool
 		flagDryRun bool
@@ -1703,6 +1710,23 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 
 			if flagScaffold {
 				return printScaffoldOutput(` + "`" + `{{ opScaffoldJSON . }}` + "`" + `, ctx.Output.Format())
+			}
+{{- end }}
+{{- if .BulkActionPath }}
+
+			// --all: hit the collection-level {{ .Name }} endpoint, which applies
+			// the action across every {{ $.NameSingular }} in a single server-side
+			// call (no per-resource {id} needed).
+			if flagAll {
+				if len(args) > 0 || flagName != "" {
+					return fmt.Errorf("--all applies to every {{ $.NameSingular }}; do not combine it with an <id> or --name")
+				}
+				resp, err := ctx.Client.Do(reqCtx, "{{ .Method }}", "{{ .BulkActionPath }}", nil)
+				if err != nil {
+					return err
+				}
+				defer resp.Body.Close()
+				return ctx.Output.PrintResponse(resp)
 			}
 {{- end }}
 {{- if and .IsDestructive (opHasNameLookup . $) }}
@@ -2514,6 +2538,9 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 {{- if .IsPaginated }}
 	cmd.Flags().BoolVar(&flagAll, "all", true, "Fetch all pages (set --all=false for single page)")
 	cmd.Flags().IntVar(&flagLimit, "limit", 0, "Maximum total results to return (0 = unlimited)")
+{{- end }}
+{{- if .BulkActionPath }}
+	cmd.Flags().BoolVar(&flagAll, "all", false, "Apply to every {{ $.NameSingular }} in one call (collection-level {{ .Name }} endpoint)")
 {{- end }}
 {{- if .IsDestructive }}
 	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt")

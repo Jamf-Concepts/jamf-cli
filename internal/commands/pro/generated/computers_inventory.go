@@ -1093,13 +1093,10 @@ func newComputersInventoryUploadCmd(ctx *registry.CLIContext) *cobra.Command {
 func newComputersInventoryDownloadCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagSaveTo string
-		flagName   string
-		flagSerial string
-		flagUdid   string
 	)
 
 	cmd := &cobra.Command{
-		Use:   "download [<id>]",
+		Use:   "download <id> <attachmentId>",
 		Short: "Download attachment file",
 		Long:  "Download attachment file",
 		Example: `  # Save to file
@@ -1108,41 +1105,15 @@ func newComputersInventoryDownloadCmd(ctx *registry.CLIContext) *cobra.Command {
   # Pipe to stdout
   jamf-cli pro computers-inventory download <id> > output.bin`,
 		Annotations: map[string]string{"jamf:privileges": "Read Computers"},
-		Args:        cobra.MaximumNArgs(1),
+		Args:        cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			reqCtx = registry.WithAccept(reqCtx, "*/*")
 
-			// Resolve resource ID from positional arg, --name, or lookup flags
-			var resolvedID string
-
-			if flagSerial != "" {
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v3/computers-inventory", "hardware.serialNumber", "id", flagSerial)
-				if err != nil {
-					return fmt.Errorf("looking up --serial %q: %w", flagSerial, err)
-				}
-				resolvedID = rid
-			} else if flagUdid != "" {
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v3/computers-inventory", "udid", "id", flagUdid)
-				if err != nil {
-					return fmt.Errorf("looking up --udid %q: %w", flagUdid, err)
-				}
-				resolvedID = rid
-			} else if flagName != "" {
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v3/computers-inventory", "general.name", "id", flagName)
-				if err != nil {
-					return err
-				}
-				resolvedID = rid
-			} else if len(args) > 0 {
-				resolvedID = args[0]
-			} else {
-				return fmt.Errorf("provide an <id> argument, --name, --serial, --udid")
-			}
-
 			// Build request path
 			path := "/v3/computers-inventory/{id}/attachments/{attachmentId}"
-			path = strings.Replace(path, "{attachmentId}", url.PathEscape(resolvedID), 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
+			path = strings.Replace(path, "{attachmentId}", url.PathEscape(args[1]), 1)
 
 			// Build query string
 			var queryParts []string
@@ -1176,10 +1147,6 @@ func newComputersInventoryDownloadCmd(ctx *registry.CLIContext) *cobra.Command {
 	}
 
 	cmd.Flags().StringVarP(&flagSaveTo, "save-to", "O", "", "Save output to file instead of stdout")
-	cmd.Flags().StringVar(&flagName, "name", "", "Look up computers-inventory by name")
-	cmd.Flags().StringVar(&flagSerial, "serial", "", "Look up computer by serial number")
-	cmd.Flags().StringVar(&flagUdid, "udid", "", "Look up computer by UDID")
-
 	return cmd
 }
 

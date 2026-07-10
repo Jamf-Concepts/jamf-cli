@@ -75,6 +75,12 @@ type Operation struct {
 	// same endpoint exists at multiple API versions. Listed in descending version
 	// order so the runtime tries the newest fallback first.
 	FallbackPaths []string
+	// BulkActionPath is set on a per-{id} x-action when the spec also declares a
+	// sibling collection-level action of the same name (e.g. the per-deployment
+	// installation-retry and the no-{id} bulk installation-retry). It holds the
+	// bulk endpoint's path; the generator surfaces it as an --all flag that hits
+	// the collection-level endpoint in a single call instead of the {id} one.
+	BulkActionPath string
 }
 
 // Parameter represents a query/path parameter

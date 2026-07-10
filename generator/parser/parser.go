@@ -563,6 +563,10 @@ func ParseSpec(specPath string) ([]*Resource, error) {
 	// 1. Drop lower-version duplicates: when the same path exists at multiple API
 	//    versions in one spec (e.g. /v2/foo and /v3/foo), keep only the highest.
 	allOps = deduplicateVersionedOps(allOps)
+	// 1b. Pair a per-{id} action with its collection-level bulk sibling (surfaced
+	//     as --all) and drop the sibling, before name disambiguation runs — so the
+	//     per-{id} op keeps its clean terminal name and no duplicate command emits.
+	allOps = pairCollectionBulkActions(allOps)
 	// 2. Rename no-param sub-path ops that would otherwise collide with another
 	//    op of the same name (e.g. GET /settings competing with GET /pending-rotations
 	//    for the "list" name — settings becomes "settings").
@@ -650,6 +654,85 @@ func ParseSpec(specPath string) ([]*Resource, error) {
 	resource.HasVersionLock = detectVersionLock(allOps)
 
 	return []*Resource{resource}, nil
+}
+
+// pairCollectionBulkActions links a per-{id} x-action to a sibling
+// collection-level action at the same path minus its {id} segment (e.g. POST
+// /deployments/{id}/computers/installation-retry and the bulk POST
+// /deployments/computers/installation-retry). It records the bulk endpoint's
+// path on the per-{id} op as BulkActionPath — the generator surfaces that as an
+// --all flag — and removes the bulk op so it neither emits a duplicate command
+// nor forces the per-{id} op to be renamed by same-terminal disambiguation.
+// Collection-level actions with no per-{id} sibling (e.g. "export") are left
+// untouched and still become their own commands. Matches on path structure
+// rather than operation name, and MUST run before disambiguateSameTerminalOps so
+// the surviving per-{id} op keeps its clean terminal name.
+func pairCollectionBulkActions(ops []*Operation) []*Operation {
+	// Index collection-level (no path param) actions by path.
+	bulkByPath := make(map[string]*Operation)
+	for _, op := range ops {
+		if op.IsAction && !hasPathParam(op.Path) {
+			bulkByPath[op.Path] = op
+		}
+	}
+	if len(bulkByPath) == 0 {
+		return ops
+	}
+
+	remove := make(map[*Operation]bool)
+	for _, op := range ops {
+		if !op.IsAction || !hasPathParam(op.Path) {
+			continue
+		}
+		// The per-{id} op must end in a literal verb segment (e.g. .../installation-retry).
+		// A path ending in the {id} param itself (e.g. PUT /accounts/{id}) is a CRUD
+		// op the spec mis-tagged x-action — its stripped path would spuriously match a
+		// collection-level create/list, so exclude it.
+		if strings.HasSuffix(op.Path, "}") {
+			continue
+		}
+		// Exactly one path param: stripping it must yield the collection-level bulk
+		// path. A multi-param action (e.g. .../{id}/computers/{computerId}/installation-retry)
+		// pairs with its own single-param parent, not the no-param bulk endpoint, so
+		// it stays a standalone command rather than claiming --all.
+		if strings.Count(op.Path, "{") != 1 {
+			continue
+		}
+		// The bulk sibling is this path with every {param} segment removed, and must
+		// use the same HTTP method (a retry POST pairs with a bulk retry POST, never
+		// with a create POST or an update PUT at the collection root).
+		bulk, ok := bulkByPath[stripParamSegments(op.Path)]
+		if !ok || bulk == op || bulk.Method != op.Method {
+			continue
+		}
+		op.BulkActionPath = bulk.Path
+		remove[bulk] = true
+	}
+	if len(remove) == 0 {
+		return ops
+	}
+
+	kept := make([]*Operation, 0, len(ops))
+	for _, op := range ops {
+		if !remove[op] {
+			kept = append(kept, op)
+		}
+	}
+	return kept
+}
+
+// stripParamSegments removes every {param} segment from a path,
+// e.g. /v1/foo/{id}/bar → /v1/foo/bar.
+func stripParamSegments(path string) string {
+	parts := strings.Split(path, "/")
+	kept := parts[:0]
+	for _, p := range parts {
+		if strings.HasPrefix(p, "{") {
+			continue
+		}
+		kept = append(kept, p)
+	}
+	return strings.Join(kept, "/")
 }
 
 // splitByPathFamilies detects specs with multiple sibling collection paths
@@ -1325,7 +1408,7 @@ func buildDisambiguatedName(baseName, longerPath, shorterPath string, assigned m
 		candidate = strings.Join(extraFixed, "-") + "-" + baseName
 	}
 	if assigned[candidate] && lastExtraParam != "" {
-		candidate = candidate + "-by-" + lastExtraParam
+		candidate = candidate + "-by-" + strcase.ToKebab(lastExtraParam)
 	}
 	return candidate
 }

@@ -2314,3 +2314,102 @@ func propKeys(m map[string]*Property) []string {
 	}
 	return out
 }
+
+func containsOp(ops []*Operation, target *Operation) bool {
+	for _, o := range ops {
+		if o == target {
+			return true
+		}
+	}
+	return false
+}
+
+func TestPairCollectionBulkActions(t *testing.T) {
+	t.Run("pairs per-id action with bulk sibling and drops the bulk op", func(t *testing.T) {
+		list := &Operation{Name: "list", Method: "GET", Path: "/v1/deployments", IsList: true}
+		perID := &Operation{Name: "installation-retry", Method: "POST", Path: "/v1/deployments/{id}/computers/installation-retry", IsAction: true}
+		bulk := &Operation{Name: "installation-retry", Method: "POST", Path: "/v1/deployments/computers/installation-retry", IsAction: true}
+
+		got := pairCollectionBulkActions([]*Operation{list, perID, bulk})
+
+		if containsOp(got, bulk) {
+			t.Error("bulk op should have been removed")
+		}
+		if !containsOp(got, perID) {
+			t.Error("per-{id} op should be retained")
+		}
+		if perID.BulkActionPath != bulk.Path {
+			t.Errorf("perID.BulkActionPath = %q, want %q", perID.BulkActionPath, bulk.Path)
+		}
+	})
+
+	t.Run("leaves a lone collection action (no per-id sibling) untouched", func(t *testing.T) {
+		export := &Operation{Name: "export", Method: "POST", Path: "/v1/deployments/export", IsAction: true}
+		list := &Operation{Name: "list", Method: "GET", Path: "/v1/deployments", IsList: true}
+
+		got := pairCollectionBulkActions([]*Operation{list, export})
+
+		if !containsOp(got, export) {
+			t.Error("lone collection action should be retained as its own command")
+		}
+		if export.BulkActionPath != "" {
+			t.Errorf("export should not get a BulkActionPath, got %q", export.BulkActionPath)
+		}
+	})
+
+	t.Run("does not pair a mis-tagged CRUD op (PUT /{id}) with a collection create", func(t *testing.T) {
+		// Some specs mis-tag PUT /accounts/{id} (update) and POST /accounts (create)
+		// with x-action: true. Their stripped paths both reduce to /v1/accounts, but
+		// they differ in method and the PUT ends in the {id} param — must NOT pair.
+		create := &Operation{Name: "create", Method: "POST", Path: "/v1/accounts", IsAction: true}
+		update := &Operation{Name: "update", Method: "PUT", Path: "/v1/accounts/{id}", IsAction: true}
+
+		got := pairCollectionBulkActions([]*Operation{create, update})
+
+		if len(got) != 2 {
+			t.Errorf("expected both ops retained (no false pairing), got %d", len(got))
+		}
+		if update.BulkActionPath != "" {
+			t.Errorf("update must not be paired, got BulkActionPath %q", update.BulkActionPath)
+		}
+	})
+
+	t.Run("does not pair when methods differ", func(t *testing.T) {
+		// A per-{id} POST action must not pair with a same-path GET collection action.
+		perID := &Operation{Name: "reindex", Method: "POST", Path: "/v1/things/{id}/reindex", IsAction: true}
+		getBulk := &Operation{Name: "reindex", Method: "GET", Path: "/v1/things/reindex", IsAction: true}
+
+		got := pairCollectionBulkActions([]*Operation{perID, getBulk})
+
+		if len(got) != 2 || perID.BulkActionPath != "" {
+			t.Errorf("cross-method ops must not pair; got %d ops, BulkActionPath=%q", len(got), perID.BulkActionPath)
+		}
+	})
+
+	t.Run("no pairing when a per-id action has no matching bulk sibling", func(t *testing.T) {
+		perID := &Operation{Name: "erase", Method: "POST", Path: "/v1/computers/{id}/erase", IsAction: true}
+		list := &Operation{Name: "list", Method: "GET", Path: "/v1/computers", IsList: true}
+
+		got := pairCollectionBulkActions([]*Operation{list, perID})
+
+		if len(got) != 2 {
+			t.Errorf("expected both ops retained, got %d", len(got))
+		}
+		if perID.BulkActionPath != "" {
+			t.Errorf("erase should not get a BulkActionPath, got %q", perID.BulkActionPath)
+		}
+	})
+}
+
+func TestStripParamSegments(t *testing.T) {
+	cases := map[string]string{
+		"/v1/deployments/{id}/computers/installation-retry": "/v1/deployments/computers/installation-retry",
+		"/v1/deployments/export":                            "/v1/deployments/export",
+		"/v1/foo/{id}/bars/{barId}/baz":                     "/v1/foo/bars/baz",
+	}
+	for in, want := range cases {
+		if got := stripParamSegments(in); got != want {
+			t.Errorf("stripParamSegments(%q) = %q, want %q", in, got, want)
+		}
+	}
+}
