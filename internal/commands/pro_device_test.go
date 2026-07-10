@@ -36,6 +36,7 @@ const fullDeviceDetailJSON = `{
 	"id": "42",
 	"general": {
 		"name": "MacBook-Lab1",
+		"managementId": "2435abf1-f8f0-4633-b133-891be9b974fd",
 		"lastIpAddress": "10.0.1.42",
 		"platform": "Mac",
 		"managed": true,
@@ -73,22 +74,25 @@ const fullDeviceDetailJSON = `{
 	}
 }`
 
+// mdmCommandsJSON mirrors the real /v2/mdm/commands shape: the status field is
+// "commandState" (not "status") and completion is "dateCompleted". A pending
+// command carries the epoch-zero sentinel, which must render without a date.
 const mdmCommandsJSON = `{
 	"totalCount": 2,
 	"results": [
 		{
 			"uuid": "cmd-001",
 			"commandType": "ProfileList",
-			"status": "Acknowledged",
+			"commandState": "ACKNOWLEDGED",
 			"dateSent": "2026-03-30T10:00:00Z",
-			"completedDateTime": "2026-03-30T10:01:00Z"
+			"dateCompleted": "2026-03-30T10:01:00Z"
 		},
 		{
 			"uuid": "cmd-002",
 			"commandType": "EraseDevice",
-			"status": "Error",
+			"commandState": "PENDING",
 			"dateSent": "2026-03-29T08:00:00Z",
-			"completedDateTime": "2026-03-29T08:05:00Z"
+			"dateCompleted": "1970-01-01T00:00:00Z"
 		}
 	]
 }`
@@ -100,12 +104,14 @@ const policyHistoryXML = `<?xml version="1.0" encoding="UTF-8"?>
 			<policy_id>10</policy_id>
 			<policy_name>Install Chrome</policy_name>
 			<date_completed_epoch>1711800000000</date_completed_epoch>
+			<date_completed_utc>2026-03-30T12:00:00.000+0000</date_completed_utc>
 			<status>Completed</status>
 		</policy_log>
 		<policy_log>
 			<policy_id>11</policy_id>
 			<policy_name>Update Flash</policy_name>
 			<date_completed_epoch>1711790000000</date_completed_epoch>
+			<date_completed_utc>2026-03-30T09:13:20.000+0000</date_completed_utc>
 			<status>Failed</status>
 		</policy_log>
 	</policy_logs>
@@ -164,6 +170,82 @@ func TestRunDeviceDeepDive_Basic(t *testing.T) {
 	for _, want := range []string{"Identity", "Hardware & OS", "Security", "User & Location"} {
 		if !sectionNames[want] {
 			t.Errorf("missing section %q", want)
+		}
+	}
+
+	// MDM history: completed command shows state + date; pending (epoch-zero)
+	// shows state only. Regression guard for the commandState/dateCompleted fix.
+	mdm := findSection(t, sections, "MDM Command History (Last 10)")
+	assertItem(t, mdm, "ProfileList", "ACKNOWLEDGED  2026-03-30 10:01")
+	assertItem(t, mdm, "EraseDevice", "PENDING")
+
+	// Policy history: status + completion date from date_completed_utc.
+	pol := findSection(t, sections, "Policy History (Last 10)")
+	assertItem(t, pol, "Install Chrome", "Completed  2026-03-30 12:00")
+	assertItem(t, pol, "Update Flash", "Failed  2026-03-30 09:13")
+}
+
+// findSection returns the named section or fails the test.
+func findSection(t *testing.T, sections []overviewSection, name string) overviewSection {
+	t.Helper()
+	for _, s := range sections {
+		if s.Name == name {
+			return s
+		}
+	}
+	t.Fatalf("missing section %q", name)
+	return overviewSection{}
+}
+
+// assertItem asserts the section contains an item with the given resource label
+// and value.
+func assertItem(t *testing.T, s overviewSection, resource, value string) {
+	t.Helper()
+	for _, item := range s.Items {
+		if item.Resource == resource {
+			if item.Value != value {
+				t.Errorf("section %q item %q value = %q, want %q", s.Name, resource, item.Value, value)
+			}
+			return
+		}
+	}
+	t.Errorf("section %q missing item %q", s.Name, resource)
+}
+
+func TestFormatCompletedDate(t *testing.T) {
+	tests := []struct {
+		name string
+		in   string
+		want string
+	}{
+		{"empty", "", ""},
+		{"mdm epoch zero sentinel", "1970-01-01T00:00:00Z", ""},
+		{"mdm rfc3339 millis", "2024-06-03T07:53:42.489Z", "2024-06-03 07:53"},
+		{"mdm rfc3339 no fraction", "2026-03-30T10:01:00Z", "2026-03-30 10:01"},
+		{"classic utc offset", "2024-06-21T10:05:45.000+0000", "2024-06-21 10:05"},
+		{"unparseable returned raw", "2024/06/21 at 10:05 AM", "2024/06/21 at 10:05 AM"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := formatCompletedDate(tt.in); got != tt.want {
+				t.Errorf("formatCompletedDate(%q) = %q, want %q", tt.in, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestHistoryValue(t *testing.T) {
+	tests := []struct {
+		status, completed, want string
+	}{
+		{"ACKNOWLEDGED", "2024-06-03 07:53", "ACKNOWLEDGED  2024-06-03 07:53"},
+		{"PENDING", "", "PENDING"},
+		{"", "2024-06-03 07:53", "2024-06-03 07:53"},
+		{"", "", ""},
+	}
+	for _, tt := range tests {
+		if got := historyValue(tt.status, tt.completed); got != tt.want {
+			t.Errorf("historyValue(%q, %q) = %q, want %q", tt.status, tt.completed, got, tt.want)
 		}
 	}
 }
