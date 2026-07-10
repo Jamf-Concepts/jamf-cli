@@ -5,6 +5,7 @@ package parser
 import (
 	"os"
 	"path/filepath"
+	"slices"
 	"testing"
 
 	"github.com/getkin/kin-openapi/openapi3"
@@ -2316,12 +2317,7 @@ func propKeys(m map[string]*Property) []string {
 }
 
 func containsOp(ops []*Operation, target *Operation) bool {
-	for _, o := range ops {
-		if o == target {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(ops, target)
 }
 
 func TestPairCollectionBulkActions(t *testing.T) {
