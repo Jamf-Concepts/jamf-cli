@@ -207,7 +207,7 @@ Adding a product or reclassifying groups needs manual edits in `index.html`, `st
 
 `cmd/jamf-cli/main.go` → `commands.NewRootCmd()` → `PersistentPreRunE` (resolves auth + config, determines product from command hierarchy, builds HTTP client and/or Platform SDK client) → subcommand.
 
-Commands in `skipCommands` (config, completion, version, commands, diff, setup) bypass auth.
+Commands matched by the `chainSkip` set in `root.go` (`completion`, `help`, `version`, `config`, `diff`, `setup`, `multi`, `doctor`, `mcp`, `agent-context`, plus root-level `commands` and any `--scaffold` invocation) bypass auth.
 
 ### Auth
 
@@ -239,7 +239,7 @@ CRUD pattern matches Protect: `apply` (upsert, blueprint uses merge-patch; bench
 
 Naming: `platform-` prefix where overlap with existing Pro resources (`platform-devices`, `platform-device-groups`); no prefix for unique resources (`blueprints`, `compliance-benchmarks`, `ddm-reports`).
 
-Commands: `blueprints` (`bp`) — CRUD, deploy/undeploy, clone, scope, components, import-profile (auto DDM conversion), report. `compliance-benchmarks` (`cb`) — baselines, benchmark CRUD, rules, stats, device-results, compliance. `platform-devices` (`pdev`), `platform-device-groups` (`pdg`), `ddm-reports` (`ddm`).
+Commands: `blueprints` (`bp`) — CRUD, deploy/undeploy, clone, scope, components, import-profile (auto DDM conversion), report. `compliance-benchmarks` (`cb`) — benchmark CRUD (apply/get/list/clone/delete/export; create-only, no update). `baselines`/`rules` — read-only mSCP reference data (list). `benchmark-reports` — compliance reporting (`rules`/`devices`/`compliance-percentage`, keyed by benchmark ID). `platform-devices` (`pdev`), `platform-device-groups` (`pdg`), `ddm-reports` (`ddm`).
 
 ### Jamf Security Cloud Integration
 
@@ -247,7 +247,7 @@ Uses a hand-rolled client (`internal/security`) — no product Go SDK exists. Au
 
 Risk and Device Lifecycle share one host (`api.wandera.com`, which also serves `/v1/login`); SSE lives on `sse.jamf.com` per its own OpenID SSE framework discovery document. Unlike Pro/Protect/School, there's no per-tenant URL — tenancy is carried inside the JWT's `customer_id` claim, so `security setup` never prompts for a URL (env/profile overrides exist for `--url`/`JAMFSECURITY_URL`/`JAMFSECURITY_SSE_URL` in case Jamf ever stands up regional or sandbox hosts).
 
-Commands are **generator-owned**, same as Platform — the twelve total operations across the three specs are hand-mapped (not tag/family auto-detected like Platform's parser) because they span wildly different shapes (a paginated list, singleton-style get/update/delete, bulk actions with no `{id}` in their path at all) that are too few and too irregular to benefit from generic detection. See `generator/parser/security.go`'s `securityOpsByFile` map. Commands: `risk` (`list`/`override`), `device-lifecycle` (`purge` — destructive, `{customerId}` filled at request time from the Device Lifecycle JWT, never user-facing), `stream`/`status` (SSE singleton-style get/update/delete), `verification` (`trigger`), `jwks`/`well-known` (SSE discovery, read-only). No name-to-ID resolution — every identifier (guid/externalId) is supplied directly.
+Commands are **generator-owned**, same as Platform — the eleven total operations across the three specs are hand-mapped (not tag/family auto-detected like Platform's parser) because they span wildly different shapes (a paginated list, singleton-style get/update/delete, bulk actions with no `{id}` in their path at all) that are too few and too irregular to benefit from generic detection. See `generator/parser/security.go`'s `securityOpsByFile` map. Commands: `risk` (`list`/`override`), `device-lifecycle` (`purge` — destructive, `{customerId}` filled at request time from the Device Lifecycle JWT, never user-facing), `stream` (SSE singleton-style get/update/delete), `status` (get/update), `verification` (`trigger`), `jwks`/`well-known` (SSE discovery, read-only). No name-to-ID resolution — every identifier (guid/externalId) is supplied directly.
 
 ### Legacy-to-DDM Payload Conversion
 
@@ -270,9 +270,9 @@ Adding a converter: create `ddm_<name>.go`, implement `convertFunc`, register vi
 ## Conventions
 
 - Global flags are package-level vars in `root.go` — accessed by generated commands via `CLIContext`.
-- Filename prefixes: `pro_` for Jamf Pro + Platform handwritten commands, `protect_` for Jamf Protect, `school_` for Jamf School, `security_` for Jamf Security Cloud (currently just `setup` — the twelve Risk/Device Lifecycle/SSE operations are all generator-owned). Platform uses `pro_platform_` infix where resource name overlaps with existing Pro resources.
+- Filename prefixes: `pro_` for Jamf Pro + Platform handwritten commands, `protect_` for Jamf Protect, `school_` for Jamf School, `security_` for Jamf Security Cloud (currently just `setup` — the eleven Risk/Device Lifecycle/SSE operations are all generator-owned). Platform uses `pro_platform_` infix where resource name overlaps with existing Pro resources.
 - Help groups in `groups.go`, short aliases in `aliases.go` — each split into root / pro (including platform: `bp`, `cb`, `pdev`, `pdg`, `ddm`) / protect / school / security.
-- Pro `overview` makes ~37 parallel API calls; Protect `overview` makes ~14.
+- Pro `overview` makes ~41 parallel API calls; Protect `overview` makes ~16.
 - Classic API paths start with `/JSSResource/` and bypass `/api` prefix added by `client.Do()`. In platform gateway mode, rewritten to `/api/proclassic/tenant/{id}/`.
 - `NO_COLOR` env var respected (https://no-color.org).
 - `--no-hints` flag / `JAMF_CLI_NO_HINTS` env (value-parsed via `strconv.ParseBool`) suppress advisory hints only, leaving the spinner and progress output intact; `--quiet` remains a strict superset that also silences both.
@@ -305,7 +305,7 @@ After ingest, any **new tag** surfaces as a new resource command and trips `Test
 
 ### Adding a new Jamf Security Cloud endpoint
 
-Unlike Platform, dropping a spec into `specs/.security-source/` isn't enough by itself — the twelve known operations are hand-mapped (too few and irregular for tag/family auto-detection), so a genuinely new endpoint needs a new entry too:
+Unlike Platform, dropping a spec into `specs/.security-source/` isn't enough by itself — the eleven known operations are hand-mapped (too few and irregular for tag/family auto-detection), so a genuinely new endpoint needs a new entry too:
 1. Drop/update the spec in `specs/.security-source/`, run `make sync-security-specs` to copy it into the committed `specs/security/`.
 2. Add an entry to `securityOpsByFile` in `generator/parser/security.go` (resource name, operation name, `isDestructive`/`isList` as appropriate). If it's a new spec file, also add it to `SecurityScopeForFile`.
 3. `make generate && make test`.
