@@ -1205,6 +1205,70 @@ func TestGenerate_BulkActionAllFlag(t *testing.T) {
 	if strings.Contains(code, "ComputersInstallationRetryCmd") {
 		t.Error("bulk sibling must not generate a separate command")
 	}
+
+	// --all must be gated behind an explicit confirmation (tenant-wide blast
+	// radius), consistent with the codebase's convention for wide mutations.
+	confirmChecks := []string{
+		`BoolVar(&flagYes, "yes"`,
+		`if !flagYes {`,
+		`Type 'yes' to confirm`,
+	}
+	for _, check := range confirmChecks {
+		if !strings.Contains(code, check) {
+			t.Errorf("generated --all code missing confirmation gate %q", check)
+		}
+	}
+}
+
+// TestGenerate_BulkActionWithoutNameLookup guards the coupling between the --all
+// branch and flagName: flagName is only declared when opHasNameLookup is true, so
+// a BulkActionPath op on a resource that fails those preconditions (here: no list
+// op, so collectionPath == "") must NOT reference flagName or the generated file
+// would not compile. The template gates the flagName check behind opHasNameLookup;
+// this test fails (via a stray flagName reference) if that gate is removed.
+func TestGenerate_BulkActionWithoutNameLookup(t *testing.T) {
+	dir := t.TempDir()
+	gen := NewGenerator(dir)
+
+	// No list/create/get op → collectionPath("") → opHasNameLookup is false for
+	// the action, so no flagName is declared.
+	resource := &Resource{
+		Name:         "widgets",
+		NameSingular: "widget",
+		GoName:       "Widgets",
+		NameField:    "name",
+		IDField:      "id",
+		Operations: []*Operation{
+			{
+				Name: "reindex", Method: "POST",
+				Path:    "/v1/widgets/{id}/reindex",
+				Summary: "Reindex a widget", IsAction: true,
+				BulkActionPath: "/v1/widgets/reindex",
+				Parameters:     []*Parameter{{Name: "id", In: "path", Type: "string"}},
+			},
+		},
+		Schemas: make(map[string]*Schema),
+	}
+
+	outPath, err := gen.Generate(resource)
+	if err != nil {
+		t.Fatalf("Generate() error = %v", err)
+	}
+	content, err := os.ReadFile(outPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	code := string(content)
+
+	if strings.Contains(code, "flagName") {
+		t.Error("BulkActionPath op without name lookup must not reference flagName (would not compile)")
+	}
+	// The --all branch and its confirmation gate must still be present.
+	for _, check := range []string{`if flagAll {`, `if !flagYes {`, `ctx.Client.Do(reqCtx, "POST", "/v1/widgets/reindex", nil)`} {
+		if !strings.Contains(code, check) {
+			t.Errorf("generated --all code missing %q", check)
+		}
+	}
 }
 
 func TestGenerate_DeleteByNameCommand(t *testing.T) {

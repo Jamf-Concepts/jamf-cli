@@ -103,7 +103,7 @@ func newComputerPrestageScopesDeleteMultipleCmd(ctx *registry.CLIContext) *cobra
 
 			// Confirmation for destructive action
 			if flagDryRun {
-				fmt.Fprintf(os.Stderr, "Would delete-multiple resource %s\n", args[0])
+				fmt.Fprintf(os.Stderr, "Would delete-multiple resource %s\n", strings.Join(args, " "))
 				return nil
 			}
 			if !flagYes {
@@ -111,7 +111,7 @@ func newComputerPrestageScopesDeleteMultipleCmd(ctx *registry.CLIContext) *cobra
 				if noInput {
 					return fmt.Errorf("destructive operation requires --yes when --no-input is set")
 				}
-				fmt.Fprintf(os.Stderr, "⚠️  This will delete-multiple resource %s. Type 'yes' to confirm: ", args[0])
+				fmt.Fprintf(os.Stderr, "⚠️  This will delete-multiple resource %s. Type 'yes' to confirm: ", strings.Join(args, " "))
 				var confirm string
 				fmt.Scanln(&confirm)
 				if confirm != "yes" {

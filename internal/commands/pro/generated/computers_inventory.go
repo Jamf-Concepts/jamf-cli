@@ -1100,10 +1100,10 @@ func newComputersInventoryDownloadCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Download attachment file",
 		Long:  "Download attachment file",
 		Example: `  # Save to file
-  jamf-cli pro computers-inventory download <id> -O output.bin
+  jamf-cli pro computers-inventory download <id> <attachmentId> -O output.bin
 
   # Pipe to stdout
-  jamf-cli pro computers-inventory download <id> > output.bin`,
+  jamf-cli pro computers-inventory download <id> <attachmentId> > output.bin`,
 		Annotations: map[string]string{"jamf:privileges": "Read Computers"},
 		Args:        cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {

@@ -55,7 +55,7 @@ func newEraseDeviceMobilesEraseCmd(ctx *registry.CLIContext) *cobra.Command {
 
 			// Confirmation for destructive action
 			if flagDryRun {
-				fmt.Fprintf(os.Stderr, "Would erase resource %s\n", args[0])
+				fmt.Fprintf(os.Stderr, "Would erase resource %s\n", strings.Join(args, " "))
 				return nil
 			}
 			if !flagYes {
@@ -63,7 +63,7 @@ func newEraseDeviceMobilesEraseCmd(ctx *registry.CLIContext) *cobra.Command {
 				if noInput {
 					return fmt.Errorf("destructive operation requires --yes when --no-input is set")
 				}
-				fmt.Fprintf(os.Stderr, "⚠️  This will erase resource %s. Type 'yes' to confirm: ", args[0])
+				fmt.Fprintf(os.Stderr, "⚠️  This will erase resource %s. Type 'yes' to confirm: ", strings.Join(args, " "))
 				var confirm string
 				fmt.Scanln(&confirm)
 				if confirm != "yes" {

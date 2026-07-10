@@ -1062,6 +1062,7 @@ func newAppInstallerDeploymentsComputersCmd(ctx *registry.CLIContext) *cobra.Com
 func newAppInstallerDeploymentsInstallationRetryCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagAll  bool
+		flagYes  bool
 		flagName string
 	)
 
@@ -1080,6 +1081,22 @@ func newAppInstallerDeploymentsInstallationRetryCmd(ctx *registry.CLIContext) *c
 			if flagAll {
 				if len(args) > 0 || flagName != "" {
 					return fmt.Errorf("--all applies to every app-installer-deployment; do not combine it with an <id> or --name")
+				}
+				// Tenant-wide blast radius: installation-retry across every
+				// app-installer-deployment in one call. Gate behind an explicit
+				// confirmation, matching this codebase's convention for
+				// wide-reaching mutations.
+				if !flagYes {
+					noInput, _ := cmd.Flags().GetBool("no-input")
+					if noInput {
+						return fmt.Errorf("--all installation-retry applies to every app-installer-deployment; pass --yes to confirm when --no-input is set")
+					}
+					fmt.Fprintf(os.Stderr, "⚠️  --all will installation-retry across every app-installer-deployment in this tenant. Type 'yes' to confirm: ")
+					var confirm string
+					fmt.Scanln(&confirm)
+					if confirm != "yes" {
+						return fmt.Errorf("aborted")
+					}
 				}
 				resp, err := ctx.Client.Do(reqCtx, "POST", "/v1/app-installers/deployments/computers/installation-retry", nil)
 				if err != nil {
@@ -1142,6 +1159,7 @@ func newAppInstallerDeploymentsInstallationRetryCmd(ctx *registry.CLIContext) *c
 	}
 
 	cmd.Flags().BoolVar(&flagAll, "all", false, "Apply to every app-installer-deployment in one call (collection-level installation-retry endpoint)")
+	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip the --all confirmation prompt")
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up app-installer-deployment by name")
 
 	return cmd

@@ -2395,6 +2395,44 @@ func TestPairCollectionBulkActions(t *testing.T) {
 			t.Errorf("erase should not get a BulkActionPath, got %q", perID.BulkActionPath)
 		}
 	})
+
+	// Isolates the `strings.HasSuffix(op.Path, "}")` guard. The "mis-tagged CRUD"
+	// case above is saved by a method mismatch (PUT vs POST); here both ops share
+	// the POST method and strip to the same collection path, so ONLY the
+	// trailing-} guard prevents a false pairing. Removing that guard makes this
+	// test fail.
+	t.Run("does not pair a same-method {id}-terminal op with a collection sibling", func(t *testing.T) {
+		create := &Operation{Name: "create", Method: "POST", Path: "/v1/accounts", IsAction: true}
+		update := &Operation{Name: "update", Method: "POST", Path: "/v1/accounts/{id}", IsAction: true}
+
+		got := pairCollectionBulkActions([]*Operation{create, update})
+
+		if len(got) != 2 {
+			t.Errorf("expected both ops retained (trailing-} guard must fire), got %d", len(got))
+		}
+		if update.BulkActionPath != "" {
+			t.Errorf("{id}-terminal op must not pair, got BulkActionPath %q", update.BulkActionPath)
+		}
+	})
+
+	// Isolates the `strings.Count(op.Path, "{") != 1` guard. The two-param action
+	// strips to the same collection path as the bulk sibling AND shares its POST
+	// method, so ONLY the exactly-one-param guard stops it from wrongly claiming
+	// --all (the single-param sibling is the legitimate owner of that pairing).
+	// Removing that guard makes this test fail.
+	t.Run("does not pair a multi-param action with a collection sibling", func(t *testing.T) {
+		bulk := &Operation{Name: "installation-retry", Method: "POST", Path: "/v1/deployments/computers/installation-retry", IsAction: true}
+		perComputer := &Operation{Name: "installation-retry", Method: "POST", Path: "/v1/deployments/{id}/computers/{computerId}/installation-retry", IsAction: true}
+
+		got := pairCollectionBulkActions([]*Operation{bulk, perComputer})
+
+		if len(got) != 2 {
+			t.Errorf("expected both ops retained (param-count guard must fire), got %d", len(got))
+		}
+		if perComputer.BulkActionPath != "" {
+			t.Errorf("multi-param action must not pair, got BulkActionPath %q", perComputer.BulkActionPath)
+		}
+	})
 }
 
 func TestStripParamSegments(t *testing.T) {
