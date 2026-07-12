@@ -5,9 +5,24 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 10
+    groups:
+      # Go extended stdlib (golang.org/x/*) — near-zero-risk, releases in lockstep.
+      # Bundled for minor/patch only; majors still get individual PRs.
+      golang-x:
+        patterns:
+          - "golang.org/x/*"
+        update-types:
+          - minor
+          - patch
+    # Everything else (kin-openapi, jamfprotect-go-sdk, cobra, ...) and all
+    # majors stay individual so codegen-affecting bumps get isolated review.
 
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: weekly
     open-pull-requests-limit: 10
+    groups:
+      github-actions:
+        patterns:
+          - "*"
