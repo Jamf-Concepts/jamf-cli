@@ -111,6 +111,35 @@ func TestCollectCommands(t *testing.T) {
 	}
 }
 
+// TestCollectCommands_NestedNamespaceNameNotReclassified guards a regression
+// where a nested command named after a top-level namespace (e.g.
+// "pro report security") was mis-tagged with that namespace's product. Only
+// top-level namespaces should set the product.
+func TestCollectCommands_NestedNamespaceNameNotReclassified(t *testing.T) {
+	root := NewRootCmd("test", "abc123", "2024-01-01", "unknown")
+	entries := collectCommands(root, "", "", "")
+
+	byCommand := make(map[string]commandEntry, len(entries))
+	for _, e := range entries {
+		byCommand[e.Command] = e
+	}
+
+	e, ok := byCommand["pro report security"]
+	if !ok {
+		t.Fatal("expected 'pro report security' command in entries")
+	}
+	if e.Product != "pro" {
+		t.Errorf("'pro report security' product = %q, want %q", e.Product, "pro")
+	}
+
+	// Every top-level namespace command should still be tagged with its own product.
+	for _, ns := range []string{"pro", "protect", "school", "security", "platform"} {
+		if got := byCommand[ns].Product; got != ns {
+			t.Errorf("top-level %q product = %q, want %q", ns, got, ns)
+		}
+	}
+}
+
 func TestCommandEntriesToMaps_Full(t *testing.T) {
 	entries := []commandEntry{
 		{
