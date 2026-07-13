@@ -449,7 +449,8 @@ func TestBenchmarkToPortable_ResolvesGroupNames(t *testing.T) {
 			{ID: "rule-1", Enabled: true},
 			{ID: "rule-2", Enabled: false},
 		},
-		Target: &compliancebenchmarks.TargetV2{DeviceGroups: []string{"grp-id-1", "grp-id-unknown"}},
+		SelectedOsVersions: []compliancebenchmarks.OsVersion{{OsType: "MAC_OS", OsVersion: 26}},
+		Target:             &compliancebenchmarks.TargetV2{DeviceGroups: []string{"grp-id-1", "grp-id-unknown"}},
 	}
 	groupByID := map[string]devicegroups.DeviceGroupListReadRepresentationV1{
 		"grp-id-1": {Name: "All Managed Clients", DeviceType: "COMPUTER", GroupType: "SMART"},
@@ -485,6 +486,10 @@ func TestBenchmarkToPortable_ResolvesGroupNames(t *testing.T) {
 	// Unknown group falls back to raw ID
 	if portable.Target.DeviceGroups[1].Name != "grp-id-unknown" {
 		t.Errorf("group[1].Name = %q, want raw ID %q", portable.Target.DeviceGroups[1].Name, "grp-id-unknown")
+	}
+	// Selected OS versions round-trip into the portable export.
+	if len(portable.SelectedOsVersions) != 1 || portable.SelectedOsVersions[0].OsType != "MAC_OS" || portable.SelectedOsVersions[0].OsVersion != 26 {
+		t.Errorf("selectedOsVersions not carried: %v", portable.SelectedOsVersions)
 	}
 }
 
@@ -611,8 +616,10 @@ func TestCBScaffoldFromBaseline(t *testing.T) {
 	if result.Rules[0].ID != "auth_pam_sudo_smartcard" {
 		t.Errorf("rule[0].ID = %q, want auth_pam_sudo_smartcard", result.Rules[0].ID)
 	}
-	if len(result.Sources) == 0 || result.Sources[0].Branch != "main" {
-		t.Errorf("sources not injected from baseline: %v", result.Sources)
+	// scaffold-from-baseline omits selectedOsVersions so the benchmark tracks all
+	// OS versions available for the baseline (the API default).
+	if result.SelectedOsVersions != nil {
+		t.Errorf("selectedOsVersions should be omitted by scaffold-from-baseline, got %v", result.SelectedOsVersions)
 	}
 	// ODV enrichment: Placeholder wins
 	if result.Rules[2].ODV == nil {
@@ -737,14 +744,15 @@ func TestCBClone(t *testing.T) {
 	})
 	mux.HandleFunc("/api/compliance-benchmarks/v1/tenant/"+testTenantID+"/benchmarks/bm-src", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, &compliancebenchmarks.BenchmarkResponseV2{
-			BenchmarkID:     "bm-src",
-			Title:           "Source Benchmark",
-			Description:     "original desc",
-			BaselineID:      "bl-1",
-			EnforcementMode: "AUDIT",
-			Sources:         []compliancebenchmarks.Source{{Branch: "main"}},
-			Rules:           []compliancebenchmarks.RuleInfo{{ID: "r1", Enabled: true}, {ID: "r2", Enabled: false}},
-			Target:          &compliancebenchmarks.TargetV2{DeviceGroups: []string{"grp-src-id"}},
+			BenchmarkID:        "bm-src",
+			Title:              "Source Benchmark",
+			Description:        "original desc",
+			BaselineID:         "bl-1",
+			EnforcementMode:    "AUDIT",
+			Sources:            []compliancebenchmarks.Source{{Branch: "main"}},
+			Rules:              []compliancebenchmarks.RuleInfo{{ID: "r1", Enabled: true}, {ID: "r2", Enabled: false}},
+			SelectedOsVersions: []compliancebenchmarks.OsVersion{{OsType: "MAC_OS", OsVersion: 26}},
+			Target:             &compliancebenchmarks.TargetV2{DeviceGroups: []string{"grp-src-id"}},
 		})
 	})
 
@@ -776,6 +784,10 @@ func TestCBClone(t *testing.T) {
 	}
 	if req.Rules[1].ID != "r2" || req.Rules[1].Enabled {
 		t.Errorf("rule[1] not copied correctly: %+v", req.Rules[1])
+	}
+	// Selected OS versions copied from source
+	if req.SelectedOsVersions == nil || len(*req.SelectedOsVersions) != 1 || (*req.SelectedOsVersions)[0].OsVersion != 26 {
+		t.Errorf("selectedOsVersions not copied from source: %v", req.SelectedOsVersions)
 	}
 	// Target groups copied from source
 	if len(req.Target.DeviceGroups) != 1 || req.Target.DeviceGroups[0] != "grp-src-id" {
@@ -965,6 +977,77 @@ func TestCBApply_ComputerGroupOverride(t *testing.T) {
 	}
 }
 
+func TestCBApply_SelectedOsVersions(t *testing.T) {
+	cliCtx, mux, _ := newTestPlatformContext(t)
+	captured := cbApplyHandlers(mux, []devicegroups.DeviceGroupListReadRepresentationV1{
+		{ID: "grp-id", Name: "My Device Group"},
+	})
+
+	input := benchmarkPortableInput{
+		Title:              "Pinned Benchmark",
+		SourceBaselineID:   "bl-1",
+		EnforcementMode:    "MONITOR",
+		SelectedOsVersions: []compliancebenchmarks.OsVersion{{OsType: "MAC_OS", OsVersion: 26}, {OsType: "MAC_OS", OsVersion: 27}},
+		Target: benchmarkPortableTarget{
+			DeviceGroups: []benchmarkPortableGroup{{Name: "My Device Group"}},
+		},
+	}
+	path := writeTempJSON(t, input)
+
+	cmd := newCBApplyCmd(cliCtx)
+	cmd.SetArgs([]string{"--from-file", path})
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("apply: %v", err)
+	}
+
+	req := *captured
+	if req == nil {
+		t.Fatal("CreateBenchmark was not called")
+		return
+	}
+	if req.SelectedOsVersions == nil {
+		t.Fatal("selectedOsVersions not sent to API")
+		return
+	}
+	if got := *req.SelectedOsVersions; len(got) != 2 || got[0].OsVersion != 26 || got[1].OsVersion != 27 {
+		t.Errorf("selectedOsVersions = %v, want [{MAC_OS 26} {MAC_OS 27}]", got)
+	}
+}
+
+// TestCBApply_OmitSelectedOsVersions verifies that omitting the field leaves the
+// request pointer nil, so the API applies its all-available default.
+func TestCBApply_OmitSelectedOsVersions(t *testing.T) {
+	cliCtx, mux, _ := newTestPlatformContext(t)
+	captured := cbApplyHandlers(mux, []devicegroups.DeviceGroupListReadRepresentationV1{
+		{ID: "grp-id", Name: "My Device Group"},
+	})
+
+	input := benchmarkPortableInput{
+		Title:            "Tracking Benchmark",
+		SourceBaselineID: "bl-1",
+		EnforcementMode:  "MONITOR",
+		Target: benchmarkPortableTarget{
+			DeviceGroups: []benchmarkPortableGroup{{Name: "My Device Group"}},
+		},
+	}
+	path := writeTempJSON(t, input)
+
+	cmd := newCBApplyCmd(cliCtx)
+	cmd.SetArgs([]string{"--from-file", path})
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("apply: %v", err)
+	}
+
+	req := *captured
+	if req == nil {
+		t.Fatal("CreateBenchmark was not called")
+		return
+	}
+	if req.SelectedOsVersions != nil {
+		t.Errorf("selectedOsVersions should be nil when omitted, got %v", *req.SelectedOsVersions)
+	}
+}
+
 func TestCBApply_LegacyFormat(t *testing.T) {
 	cliCtx, mux, _ := newTestPlatformContext(t)
 	captured := cbApplyHandlers(mux, nil)
@@ -974,7 +1057,6 @@ func TestCBApply_LegacyFormat(t *testing.T) {
 		Title:            "Legacy Benchmark",
 		SourceBaselineID: "bl-1",
 		EnforcementMode:  "AUDIT",
-		Sources:          []compliancebenchmarks.Source{{Branch: "main"}},
 		Rules:            []compliancebenchmarks.RuleRequest{{ID: "r1", Enabled: true}},
 		Target:           compliancebenchmarks.TargetV2{DeviceGroups: []string{"raw-group-id-1"}},
 	}

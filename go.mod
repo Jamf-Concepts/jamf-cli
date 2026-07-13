@@ -1,9 +1,9 @@
 module github.com/Jamf-Concepts/jamf-cli
 
-go 1.26.4
+go 1.26.5
 
 require (
-	github.com/Jamf-Concepts/jamfplatform-go-sdk v0.10.0
+	github.com/Jamf-Concepts/jamfplatform-go-sdk v0.12.0
 	github.com/Jamf-Concepts/jamfprotect-go-sdk v0.7.1
 	github.com/Jamf-Concepts/jamfschool-go-sdk v0.1.2
 	github.com/getkin/kin-openapi v0.142.0
@@ -36,7 +36,7 @@ require (
 	github.com/segmentio/asm v1.1.3 // indirect
 	github.com/segmentio/encoding v0.5.4 // indirect
 	github.com/yosida95/uritemplate/v3 v3.0.2 // indirect
-	golang.org/x/net v0.56.0 // indirect
+	golang.org/x/net v0.57.0 // indirect
 	golang.org/x/oauth2 v0.36.0 // indirect
 	golang.org/x/sys v0.47.0 // indirect
 	golang.org/x/text v0.40.0 // indirect
