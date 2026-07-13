@@ -1,5 +1,5 @@
-github.com/Jamf-Concepts/jamfplatform-go-sdk v0.10.0 h1:k2P8JOqagsatP88Bcm0/O2zHAhxgFJGNjkQUfiTd4AY=
-github.com/Jamf-Concepts/jamfplatform-go-sdk v0.10.0/go.mod h1:Y0ZlFaMZhu1HIPML3+o+AUtZ7SC9aJ3zMC7kdMYcqnI=
+github.com/Jamf-Concepts/jamfplatform-go-sdk v0.12.0 h1:hl1LsWBXlEvUAUICxGX7jSUWUFp0oO2VAHW96UsojOg=
+github.com/Jamf-Concepts/jamfplatform-go-sdk v0.12.0/go.mod h1:v96UekyoXOw61BzxVl8I3cdUinpCm6MY5K1kfLaEuG8=
 github.com/Jamf-Concepts/jamfprotect-go-sdk v0.7.1 h1:/i+tnP1KHv+ZZEyiKFyLeUs3vTB4dzT9s2M31rQqwE0=
 github.com/Jamf-Concepts/jamfprotect-go-sdk v0.7.1/go.mod h1:wS0UZcnQBgn9UuyOp95tgf+dg92vGCu9iU5f0gAZjbg=
 github.com/Jamf-Concepts/jamfschool-go-sdk v0.1.2 h1:+YHY9leMdyP6oEDJtqIrLNTLnVVuyRW+kN5tZBvwmQY=
@@ -85,8 +85,8 @@ github.com/zalando/go-keyring v0.2.8/go.mod h1:tsMo+VpRq5NGyKfxoBVjCuMrG47yj8cma
 go.yaml.in/yaml/v3 v3.0.4/go.mod h1:DhzuOOF2ATzADvBadXxruRBLzYTpT36CKvDb3+aBEFg=
 golang.org/x/crypto v0.54.0 h1:YLIA59K4fiNzHzjnZt2tUJQjQtUWfWbeHBqKtk3eScw=
 golang.org/x/crypto v0.54.0/go.mod h1:KWL8ny2AZdGR2cWmzeHrp2azQPGogOv+HeQaVEXC2dk=
-golang.org/x/net v0.56.0 h1:Rw8j/hFzGvJUZwNBXnAtf5sVDVt+65SK2C7IxCxZt5o=
-golang.org/x/net v0.56.0/go.mod h1:D3Ku6r+V6JROoZK144D2XfMHFcMq/0zSfLelVTCFKec=
+golang.org/x/net v0.57.0 h1:K5+3DljvIuDG9/Jv9rvyMywYNFCQ9RSUY6OOTTkT+tE=
+golang.org/x/net v0.57.0/go.mod h1:KpXc8iv+r3XplLAG/f7Jsf9RPszJzdR0f58q9vGOuEU=
 golang.org/x/oauth2 v0.36.0 h1:peZ/1z27fi9hUOFCAZaHyrpWG5lwe0RJEEEeH0ThlIs=
 golang.org/x/oauth2 v0.36.0/go.mod h1:YDBUJMTkDnJS+A4BP4eZBjCqtokkg1hODuPjwiGPO7Q=
 golang.org/x/sync v0.22.0 h1:SZjpbeLmrCk4xhRSZFNZW5gFUeCeFgjekvI/+gfScek=

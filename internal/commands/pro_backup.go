@@ -836,6 +836,9 @@ func backupBenchmarks(ctx context.Context, cliCtx *registry.CLIContext, opts bac
 		if len(bm.Sources) > 0 {
 			raw["sources"] = bm.Sources
 		}
+		if len(bm.SelectedOsVersions) > 0 {
+			raw["selectedOsVersions"] = bm.SelectedOsVersions
+		}
 		obj, err := normalizeViaJSON(raw)
 		if err != nil {
 			failures = append(failures, backupFailure{Resource: "compliance-benchmarks", Path: b.ID, Error: err.Error()})

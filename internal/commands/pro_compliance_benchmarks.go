@@ -35,14 +35,19 @@ type benchmarkPortableTarget struct {
 // benchmarkPortableInput is the export/import format for benchmarks.
 // target.deviceGroups carries group names+types for cross-instance portability.
 // apply resolves names to IDs before calling the API.
+//
+// selectedOsVersions pins the benchmark to specific OS versions; omit it to let
+// the engine track all OS versions available for the source baseline (the API
+// default). The engine derives content sources from sourceBaselineId, so the
+// create request no longer carries a `sources` field (dropped in SDK v0.12.0).
 type benchmarkPortableInput struct {
-	Title            string                             `json:"title"`
-	Description      string                             `json:"description,omitempty"`
-	SourceBaselineID string                             `json:"sourceBaselineId"`
-	Sources          []compliancebenchmarks.Source      `json:"sources"`
-	Rules            []compliancebenchmarks.RuleRequest `json:"rules"`
-	Target           benchmarkPortableTarget            `json:"target"`
-	EnforcementMode  string                             `json:"enforcementMode"`
+	Title              string                             `json:"title"`
+	Description        string                             `json:"description,omitempty"`
+	SourceBaselineID   string                             `json:"sourceBaselineId"`
+	Rules              []compliancebenchmarks.RuleRequest `json:"rules"`
+	SelectedOsVersions []compliancebenchmarks.OsVersion   `json:"selectedOsVersions,omitempty"`
+	Target             benchmarkPortableTarget            `json:"target"`
+	EnforcementMode    string                             `json:"enforcementMode"`
 }
 
 // ─── Command wiring ───────────────────────────────────────────────────────────
@@ -118,9 +123,11 @@ func newCBApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 						Title:            legacy.Title,
 						Description:      desc,
 						SourceBaselineID: legacy.SourceBaselineID,
-						Sources:          legacy.Sources,
 						Rules:            legacy.Rules,
 						EnforcementMode:  legacy.EnforcementMode,
+					}
+					if legacy.SelectedOsVersions != nil {
+						input.SelectedOsVersions = *legacy.SelectedOsVersions
 					}
 					legacyGroupIDs = legacy.Target.DeviceGroups
 				} else if portableErr != nil {
@@ -144,10 +151,13 @@ func newCBApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				Title:            input.Title,
 				Description:      &input.Description,
 				SourceBaselineID: input.SourceBaselineID,
-				Sources:          input.Sources,
 				Rules:            input.Rules,
 				Target:           compliancebenchmarks.TargetV2{DeviceGroups: groupIDs},
 				EnforcementMode:  input.EnforcementMode,
+			}
+			if len(input.SelectedOsVersions) > 0 {
+				osVersions := input.SelectedOsVersions
+				req.SelectedOsVersions = &osVersions
 			}
 			result, err := compliancebenchmarks.New(cliCtx.PlatformSDKClient).CreateBenchmark(ctx, req)
 			if err != nil {
@@ -235,10 +245,13 @@ func newCBCloneCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				Title:            args[1],
 				Description:      &src.Description,
 				SourceBaselineID: src.BaselineID,
-				Sources:          src.Sources,
 				Rules:            cbRuleInfosToRequests(src.Rules),
 				Target:           compliancebenchmarks.TargetV2{DeviceGroups: targetGroupIDs},
 				EnforcementMode:  src.EnforcementMode,
+			}
+			if len(src.SelectedOsVersions) > 0 {
+				osVersions := src.SelectedOsVersions
+				req.SelectedOsVersions = &osVersions
 			}
 			result, err := compliancebenchmarks.New(cliCtx.PlatformSDKClient).CreateBenchmark(ctx, req)
 			if err != nil {
@@ -259,8 +272,10 @@ func benchmarkScaffold() *benchmarkPortableInput {
 	return &benchmarkPortableInput{
 		Title:            "My Benchmark",
 		SourceBaselineID: "<baseline-id>",
-		Sources:          []compliancebenchmarks.Source{{Branch: "main"}},
 		Rules:            []compliancebenchmarks.RuleRequest{{ID: "<rule-id>", Enabled: true}},
+		// Optional: pin to specific OS versions (osType MAC_OS or IOS). Omit the
+		// field entirely to track all OS versions available for the baseline.
+		SelectedOsVersions: []compliancebenchmarks.OsVersion{{OsType: "MAC_OS", OsVersion: 26}},
 		Target: benchmarkPortableTarget{
 			DeviceGroups: []benchmarkPortableGroup{
 				{Name: "<device-group-name>", DeviceType: "COMPUTER", GroupType: "SMART"},
@@ -291,13 +306,13 @@ func benchmarkToPortable(bm *compliancebenchmarks.BenchmarkResponseV2, groupByID
 		portableGroups = append(portableGroups, pg)
 	}
 	return &benchmarkPortableInput{
-		Title:            bm.Title,
-		Description:      bm.Description,
-		SourceBaselineID: bm.BaselineID,
-		Sources:          bm.Sources,
-		Rules:            cbRuleInfosToRequests(bm.Rules),
-		Target:           benchmarkPortableTarget{DeviceGroups: portableGroups},
-		EnforcementMode:  bm.EnforcementMode,
+		Title:              bm.Title,
+		Description:        bm.Description,
+		SourceBaselineID:   bm.BaselineID,
+		Rules:              cbRuleInfosToRequests(bm.Rules),
+		SelectedOsVersions: bm.SelectedOsVersions,
+		Target:             benchmarkPortableTarget{DeviceGroups: portableGroups},
+		EnforcementMode:    bm.EnforcementMode,
 	}
 }
 
@@ -399,7 +414,6 @@ func cbScaffoldFromBaseline(ctx context.Context, cliCtx *registry.CLIContext, ba
 		Title:            baselineTitle,
 		Description:      baselineDescription,
 		SourceBaselineID: baselineID,
-		Sources:          resp.Sources,
 		Rules:            rules,
 		Target: benchmarkPortableTarget{
 			DeviceGroups: []benchmarkPortableGroup{
@@ -408,5 +422,9 @@ func cbScaffoldFromBaseline(ctx context.Context, cliCtx *registry.CLIContext, ba
 		},
 		EnforcementMode: "MONITOR",
 	}
+	// SelectedOsVersions is intentionally omitted: the API defaults to all OS
+	// versions available for the baseline, which also tracks future OS releases.
+	// resp.AvailableOsVersions lists the pinnable versions if the user wants to
+	// narrow the scope after editing the scaffold.
 	return printScaffold(scaffold)
 }
