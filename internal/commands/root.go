@@ -901,9 +901,12 @@ func collectCommands(cmd *cobra.Command, prefix, product, group string) []comman
 			fullPath = prefix + " " + child.Name()
 		}
 
-		// Determine product for this child's subtree.
+		// Determine product for this child's subtree. Only top-level namespaces
+		// set the product: product is empty only at the root, so gating on it
+		// prevents a nested command that happens to be named after a namespace
+		// (e.g. "pro report security") from being re-tagged.
 		childProduct := product
-		if child.Name() == "pro" || child.Name() == "protect" || child.Name() == "school" || child.Name() == "security" || child.Name() == "platform" {
+		if product == "" && (child.Name() == "pro" || child.Name() == "protect" || child.Name() == "school" || child.Name() == "security" || child.Name() == "platform") {
 			childProduct = child.Name()
 		}
 
