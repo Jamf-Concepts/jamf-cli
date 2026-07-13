@@ -457,6 +457,71 @@ func TestCheckEmptyCategories_None(t *testing.T) {
 	}
 }
 
+// --- Duplicate serials test ---
+
+func TestCheckDuplicateSerials_Found(t *testing.T) {
+	client := &overviewMockClient{
+		responses: map[string]overviewMockResponse{
+			// C02X shared by two records (logic-board swap), C02Z unique.
+			"/v3/computers-inventory": {200, `{"totalCount":4,"results":[
+				{"id":"1","hardware":{"serialNumber":"C02X1234"}},
+				{"id":"2","hardware":{"serialNumber":"C02X1234"}},
+				{"id":"3","hardware":{"serialNumber":"C02Z9999"}},
+				{"id":"4","hardware":{"serialNumber":""}}
+			]}`},
+		},
+	}
+
+	result, err := checkDuplicateSerials(context.Background(), client, 0)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result == nil {
+		t.Fatal("expected finding for duplicate serials")
+		return
+	}
+	if result.AffectedCount != 2 {
+		t.Errorf("affected = %d, want 2 (both records sharing C02X1234)", result.AffectedCount)
+	}
+	if result.Severity != severityWarning {
+		t.Errorf("severity = %q, want %q", result.Severity, severityWarning)
+	}
+}
+
+func TestCheckDuplicateSerials_AllUnique(t *testing.T) {
+	client := &overviewMockClient{
+		responses: map[string]overviewMockResponse{
+			// Blank serials must never count as duplicates of each other.
+			"/v3/computers-inventory": {200, `{"totalCount":3,"results":[
+				{"id":"1","hardware":{"serialNumber":"C02X1234"}},
+				{"id":"2","hardware":{"serialNumber":"C02Z9999"}},
+				{"id":"3","hardware":{"serialNumber":""}},
+				{"id":"4","hardware":{"serialNumber":""}}
+			]}`},
+		},
+	}
+
+	result, err := checkDuplicateSerials(context.Background(), client, 0)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result != nil {
+		t.Errorf("expected nil result when all serials unique (blanks ignored), got %+v", result)
+	}
+}
+
+func TestCheckDuplicateSerials_FetchError(t *testing.T) {
+	client := &overviewMockClient{
+		responses: map[string]overviewMockResponse{
+			"/v3/computers-inventory": {500, `{}`},
+		},
+	}
+
+	if _, err := checkDuplicateSerials(context.Background(), client, 0); err == nil {
+		t.Fatal("expected error on fetch failure, got nil")
+	}
+}
+
 func TestRunAudit_FilterByCategory(t *testing.T) {
 	// Only set up compliance mocks
 	mock := &overviewMockClient{

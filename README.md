@@ -147,7 +147,7 @@ See the [Setup Guide](https://github.com/Jamf-Concepts/jamf-cli/wiki/Setup-Guide
 - **`--field`** — Extract a single field from any response: `jamf-cli pro comp list --field id`
 - **`apply`** — Name-based upsert: creates if new, replaces if existing (with confirmation)
 - **`patch`** — JSON Merge Patch (RFC 7386): update individual fields without a full replace. Use `--set key=value` for scalar fields or pipe a merge-patch document. Accepts `--name`, `--serial`, `--udid` (resource-dependent) in place of an ID. `--scaffold` prints the patchable field template
-- **`--name` flag** — `get`, `update`, `delete`, and `patch` commands all accept `--name` (and resource-specific alternates like `--serial`, `--udid`) in place of a positional ID
+- **`--name` flag** — `get`, `update`, `delete`, and `patch` commands all accept `--name` (and resource-specific alternates like `--serial`, `--udid`) in place of a positional ID. When the value matches more than one record (e.g. two computers sharing a serial after a logic-board swap), the lookup fails with a usage error under `--no-input` (or a non-terminal stdin) and prompts interactively otherwise — it never silently picks one. Run `jamf-cli pro report duplicate-serials` to list the colliding records
 - **`--scaffold`** — Print JSON templates for create/update commands with example values
 - **Five output formats** — `table`, `json`, `csv`, `yaml`, `plain`
 - **Auto-pagination** — `--all` fetches every page; `--limit` caps results

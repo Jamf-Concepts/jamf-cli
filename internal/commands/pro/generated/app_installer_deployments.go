@@ -211,7 +211,8 @@ func newAppInstallerDeploymentsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 			// Resolve resource ID from positional arg, --name, or lookup flags
 			var resolvedID string
 			if flagName != "" {
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/app-installers/deployments", "name", "id", flagName)
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/app-installers/deployments", "name", "id", flagName, noInput)
 				if err != nil {
 					return err
 				}
@@ -375,7 +376,8 @@ func newAppInstallerDeploymentsUpdateCmd(ctx *registry.CLIContext) *cobra.Comman
 			// Resolve resource ID from positional arg, --name, or lookup flags
 			var resolvedID string
 			if flagName != "" {
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/app-installers/deployments", "name", "id", flagName)
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/app-installers/deployments", "name", "id", flagName, noInput)
 				if err != nil {
 					return err
 				}
@@ -709,7 +711,8 @@ func newAppInstallerDeploymentsHistoryCmd(ctx *registry.CLIContext) *cobra.Comma
 			// Resolve resource ID from positional arg, --name, or lookup flags
 			var resolvedID string
 			if flagName != "" {
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/app-installers/deployments", "name", "id", flagName)
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/app-installers/deployments", "name", "id", flagName, noInput)
 				if err != nil {
 					return err
 				}
@@ -879,7 +882,8 @@ func newAppInstallerDeploymentsAddHistoryNoteCmd(ctx *registry.CLIContext) *cobr
 			// Resolve resource ID from positional arg, --name, or lookup flags
 			var resolvedID string
 			if flagName != "" {
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/app-installers/deployments", "name", "id", flagName)
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/app-installers/deployments", "name", "id", flagName, noInput)
 				if err != nil {
 					return err
 				}
@@ -1022,7 +1026,8 @@ func newAppInstallerDeploymentsComputersCmd(ctx *registry.CLIContext) *cobra.Com
 			// Resolve resource ID from positional arg, --name, or lookup flags
 			var resolvedID string
 			if flagName != "" {
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/app-installers/deployments", "name", "id", flagName)
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/app-installers/deployments", "name", "id", flagName, noInput)
 				if err != nil {
 					return err
 				}
@@ -1109,7 +1114,8 @@ func newAppInstallerDeploymentsInstallationRetryCmd(ctx *registry.CLIContext) *c
 			// Resolve resource ID from positional arg, --name, or lookup flags
 			var resolvedID string
 			if flagName != "" {
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/app-installers/deployments", "name", "id", flagName)
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/app-installers/deployments", "name", "id", flagName, noInput)
 				if err != nil {
 					return err
 				}
@@ -1236,7 +1242,8 @@ func newAppInstallerDeploymentsInstallationSummaryCmd(ctx *registry.CLIContext) 
 			// Resolve resource ID from positional arg, --name, or lookup flags
 			var resolvedID string
 			if flagName != "" {
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/app-installers/deployments", "name", "id", flagName)
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/app-installers/deployments", "name", "id", flagName, noInput)
 				if err != nil {
 					return err
 				}
@@ -1290,7 +1297,8 @@ func newAppInstallerDeploymentsVersionUpdateCmd(ctx *registry.CLIContext) *cobra
 			// Resolve resource ID from positional arg, --name, or lookup flags
 			var resolvedID string
 			if flagName != "" {
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/app-installers/deployments", "name", "id", flagName)
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/app-installers/deployments", "name", "id", flagName, noInput)
 				if err != nil {
 					return err
 				}

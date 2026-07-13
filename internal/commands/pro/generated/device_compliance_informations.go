@@ -89,7 +89,8 @@ func newDeviceComplianceInformationsGetCmd(ctx *registry.CLIContext) *cobra.Comm
 			// Resolve resource ID from positional arg, --name, or lookup flags
 			var resolvedID string
 			if flagName != "" {
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/conditional-access/device-compliance-information/computer", "name", "deviceId", flagName)
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/conditional-access/device-compliance-information/computer", "name", "deviceId", flagName, noInput)
 				if err != nil {
 					return err
 				}

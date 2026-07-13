@@ -25,7 +25,8 @@ Available subcommands:
   policy-status      Policy execution status and health checks
   profile-status     Configuration profile deployment failures
   app-status         Managed app deployment failures
-  update-status      Managed software update deployment status`,
+  update-status      Managed software update deployment status
+  duplicate-serials  Computer records sharing a serial number`,
 	}
 
 	cmd.AddCommand(newReportPatchStatusCmd(cliCtx))
@@ -38,6 +39,7 @@ Available subcommands:
 	cmd.AddCommand(newReportProfileStatusCmd(cliCtx))
 	cmd.AddCommand(newReportAppStatusCmd(cliCtx))
 	cmd.AddCommand(newReportUpdateStatusCmd(cliCtx))
+	cmd.AddCommand(newReportDuplicateSerialsCmd(cliCtx))
 
 	// Platform API reports
 	cmd.AddCommand(newReportBlueprintStatusCmd(cliCtx))

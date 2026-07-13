@@ -66,7 +66,9 @@
     'Classic - Patch Management',
     'Security Configuration',
     'Endpoints',
-    'Access & Identity'
+    'Access & Identity',
+    'Device Risk & Lifecycle',
+    'Shared Signals & Events'
   ];
 
   var JAMF_ICON_SVG = '<svg class="product-icon" viewBox="0 0 43 43" fill="none" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" clip-rule="evenodd" d="M33.63 6.96c-5.52 0-8.78 2.33-10.27 7.31l-3.84 11.88c-1.41 3.91-3.68 5.52-7.82 5.52H2.19A2.19 2.19 0 000 33.87v6.06c0 1.16.94 2.1 2.1 2.1h38.57a2.19 2.19 0 002.19-2.19V9.08c0-1.17-.95-2.12-2.11-2.12h-7.12z" fill="currentColor"/><path fill-rule="evenodd" clip-rule="evenodd" d="M2.35 0A2.35 2.35 0 000 2.35v16.22a2.29 2.29 0 002.29 2.29h8.17c3.74 0 8.88-.77 10.29-7.41l2.23-10.6A2.35 2.35 0 0020.68 0H2.35z" fill="currentColor"/></svg>';
@@ -212,6 +214,20 @@
   function animateCount(id, target) {
     var el = document.getElementById(id);
     if (!el) return;
+
+    // Zero-state: a product with no commands in the deployed catalog (e.g. a
+    // namespace merged after the last release the site builds from) renders a
+    // muted "Soon" rather than a stark "0", which reads as broken. Auto-clears
+    // to the real number once that product ships in a release.
+    var card = el.closest('.stat-card');
+    if (target === 0) {
+      if (card) card.classList.add('zero-state');
+      el.textContent = 'Soon';
+      el.classList.add('loaded');
+      return;
+    }
+    if (card) card.classList.remove('zero-state');
+
     var duration = 1200;
     var start = null;
     function step(ts) {

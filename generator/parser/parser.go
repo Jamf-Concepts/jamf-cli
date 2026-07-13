@@ -49,7 +49,11 @@ func ApplyNameOverrides(resources []*Resource) {
 // (after DeduplicateVersioned and ApplyNameOverrides).
 var resourceLookupFields = map[string][]LookupField{
 	"computers-inventory": {
-		{Flag: "serial", RSQLField: "hardware.serialNumber", Desc: "Look up computer by serial number"},
+		// hardware.serialNumber lives in the HARDWARE section, which the default
+		// (GENERAL) response omits — request it so filterResultsByName can verify
+		// the match rather than trusting the server's RSQL filter blindly. udid and
+		// id are top-level and always present, so udid needs no section.
+		{Flag: "serial", RSQLField: "hardware.serialNumber", Desc: "Look up computer by serial number", Section: "HARDWARE"},
 		{Flag: "udid", RSQLField: "udid", Desc: "Look up computer by UDID"},
 	},
 	// /v2/mobile-devices/detail (the lookup path) uses top-level "serialNumber"

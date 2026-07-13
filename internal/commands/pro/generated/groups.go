@@ -212,7 +212,8 @@ func newGroupsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 			// Resolve resource ID from positional arg, --name, or lookup flags
 			var resolvedID string
 			if flagName != "" {
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/groups", "groupName", "groupPlatformId", flagName)
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/groups", "groupName", "groupPlatformId", flagName, noInput)
 				if err != nil {
 					return err
 				}
@@ -502,7 +503,8 @@ func newGroupsPatchCmd(ctx *registry.CLIContext) *cobra.Command {
 			// Resolve resource ID from positional arg, --name, or lookup flags
 			var resolvedPatchID string
 			if flagName != "" {
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/groups", "groupName", "groupPlatformId", flagName)
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/groups", "groupName", "groupPlatformId", flagName, noInput)
 				if err != nil {
 					return err
 				}
