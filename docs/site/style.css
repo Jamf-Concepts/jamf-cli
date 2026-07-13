@@ -666,10 +666,10 @@ a[target="_blank"]:hover::after {
   background: var(--card-bg);
   border: 1px solid var(--border);
   border-radius: 6px;
-  padding: 1.5rem 2rem;
-  min-width: 150px;
+  padding: 1.15rem 1.5rem;
+  min-width: 140px;
   flex: 1;
-  max-width: 200px;
+  max-width: 180px;
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   transition: transform 0.15s, border-color 0.15s, box-shadow 0.15s;
@@ -728,14 +728,39 @@ a.stat-card:hover {
   line-height: 1.1;
   letter-spacing: -0.02em;
   font-feature-settings: "tnum", "ss01";
+  margin-bottom: 0.4rem;
+}
+
+/* A product not yet in the deployed catalog shows a muted "Soon" instead of a
+   count. Desaturate the whole card and shrink the label so it reads as
+   intentional, not a rendering failure. */
+.stat-card.zero-state {
+  border-color: var(--border);
+  opacity: 0.7;
+}
+.stat-card.zero-state .stat-value {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  letter-spacing: 0;
 }
 
 .stat-card .stat-label {
-  font-size: 0.85rem;
-  color: var(--text-secondary);
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-primary);
   text-transform: uppercase;
-  letter-spacing: 0.05em;
-  white-space: nowrap;
+  letter-spacing: 0.03em;
+  text-align: center;
+  line-height: 1.35;
+}
+
+/* Two-line label: "Jamf" (with icon) on the first line, product name on the
+   second. Keeps every card uniform and lets long names like "Security Cloud"
+   sit on their own line instead of overrunning the card. */
+.stat-card .stat-label .stat-brand,
+.stat-card .stat-label .stat-product {
+  display: block;
 }
 
 .stat-card .stat-label .product-icon {
