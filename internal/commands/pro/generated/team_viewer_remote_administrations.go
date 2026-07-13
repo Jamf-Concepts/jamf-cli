@@ -551,37 +551,21 @@ func newTeamViewerRemoteAdministrationsSessionsCmd(ctx *registry.CLIContext) *co
 }
 
 func newTeamViewerRemoteAdministrationsCloseCmd(ctx *registry.CLIContext) *cobra.Command {
-	var (
-		flagName string
-	)
+	var ()
 
 	cmd := &cobra.Command{
-		Use:         "close [<id>]",
+		Use:         "close <configurationId> <sessionId>",
 		Short:       "Close a session",
 		Long:        "Changes the session state from open to close. Closing a session means it is not possible to establish new remote connection between devices",
 		Annotations: map[string]string{"jamf:privileges": "Update Remote Administration"},
-		Args:        cobra.MaximumNArgs(1),
+		Args:        cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
-			// Resolve resource ID from positional arg, --name, or lookup flags
-			var resolvedID string
-			if flagName != "" {
-				noInput, _ := cmd.Flags().GetBool("no-input")
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/preview/remote-administration-configurations/team-viewer", "displayName", "id", flagName, noInput)
-				if err != nil {
-					return err
-				}
-				resolvedID = rid
-			} else if len(args) > 0 {
-				resolvedID = args[0]
-			} else {
-				return fmt.Errorf("provide an <id> argument, --name")
-			}
-
 			// Build request path
 			path := "/preview/remote-administration-configurations/team-viewer/{configurationId}/sessions/{sessionId}/close"
-			path = strings.Replace(path, "{sessionId}", url.PathEscape(resolvedID), 1)
+			path = strings.Replace(path, "{configurationId}", url.PathEscape(args[0]), 1)
+			path = strings.Replace(path, "{sessionId}", url.PathEscape(args[1]), 1)
 
 			// Build query string
 			var queryParts []string
@@ -616,44 +600,26 @@ func newTeamViewerRemoteAdministrationsCloseCmd(ctx *registry.CLIContext) *cobra
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
-
-	cmd.Flags().StringVar(&flagName, "name", "", "Look up team-viewer-remote-administration by name")
 
 	return cmd
 }
 
 func newTeamViewerRemoteAdministrationsResendNotificationCmd(ctx *registry.CLIContext) *cobra.Command {
-	var (
-		flagName string
-	)
+	var ()
 
 	cmd := &cobra.Command{
-		Use:         "resend-notification [<id>]",
+		Use:         "resend-notification <configurationId> <sessionId>",
 		Short:       "Resend nofications for a session",
 		Long:        "Resends configured notifications (e.g. Self Service push notifications).",
 		Annotations: map[string]string{"jamf:privileges": "Update Remote Administration"},
-		Args:        cobra.MaximumNArgs(1),
+		Args:        cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
-			// Resolve resource ID from positional arg, --name, or lookup flags
-			var resolvedID string
-			if flagName != "" {
-				noInput, _ := cmd.Flags().GetBool("no-input")
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/preview/remote-administration-configurations/team-viewer", "displayName", "id", flagName, noInput)
-				if err != nil {
-					return err
-				}
-				resolvedID = rid
-			} else if len(args) > 0 {
-				resolvedID = args[0]
-			} else {
-				return fmt.Errorf("provide an <id> argument, --name")
-			}
-
 			// Build request path
 			path := "/preview/remote-administration-configurations/team-viewer/{configurationId}/sessions/{sessionId}/resend-notification"
-			path = strings.Replace(path, "{sessionId}", url.PathEscape(resolvedID), 1)
+			path = strings.Replace(path, "{configurationId}", url.PathEscape(args[0]), 1)
+			path = strings.Replace(path, "{sessionId}", url.PathEscape(args[1]), 1)
 
 			// Build query string
 			var queryParts []string
@@ -689,43 +655,25 @@ func newTeamViewerRemoteAdministrationsResendNotificationCmd(ctx *registry.CLICo
 		},
 	}
 
-	cmd.Flags().StringVar(&flagName, "name", "", "Look up team-viewer-remote-administration by name")
-
 	return cmd
 }
 
 func newTeamViewerRemoteAdministrationsSessionsStatusCmd(ctx *registry.CLIContext) *cobra.Command {
-	var (
-		flagName string
-	)
+	var ()
 
 	cmd := &cobra.Command{
-		Use:         "sessions-status [<id>]",
+		Use:         "sessions-status <configurationId> <sessionId>",
 		Short:       "Get a session status by its ID",
 		Long:        "Returns a session status if found.",
 		Annotations: map[string]string{"jamf:privileges": "Read Remote Administration"},
-		Args:        cobra.MaximumNArgs(1),
+		Args:        cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
-			// Resolve resource ID from positional arg, --name, or lookup flags
-			var resolvedID string
-			if flagName != "" {
-				noInput, _ := cmd.Flags().GetBool("no-input")
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/preview/remote-administration-configurations/team-viewer", "displayName", "id", flagName, noInput)
-				if err != nil {
-					return err
-				}
-				resolvedID = rid
-			} else if len(args) > 0 {
-				resolvedID = args[0]
-			} else {
-				return fmt.Errorf("provide an <id> argument, --name")
-			}
-
 			// Build request path
 			path := "/preview/remote-administration-configurations/team-viewer/{configurationId}/sessions/{sessionId}/status"
-			path = strings.Replace(path, "{sessionId}", url.PathEscape(resolvedID), 1)
+			path = strings.Replace(path, "{configurationId}", url.PathEscape(args[0]), 1)
+			path = strings.Replace(path, "{sessionId}", url.PathEscape(args[1]), 1)
 
 			// Build query string
 			var queryParts []string
@@ -743,8 +691,6 @@ func newTeamViewerRemoteAdministrationsSessionsStatusCmd(ctx *registry.CLIContex
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
-
-	cmd.Flags().StringVar(&flagName, "name", "", "Look up team-viewer-remote-administration by name")
 
 	return cmd
 }

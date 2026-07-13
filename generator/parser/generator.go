@@ -80,27 +80,14 @@ func (g *Generator) Generate(resource *Resource) (string, error) {
 		"pathParamCount": func(params []*Parameter) int {
 			return len(pathParams(params))
 		},
-		"pathParamUsage": func(params []*Parameter) string {
-			pp := pathParams(params)
-			if len(pp) == 0 {
-				return ""
-			}
-			if len(pp) == 1 {
-				return " <id>"
-			}
-			var parts []string
-			for _, p := range pp {
-				parts = append(parts, "<"+p.Name+">")
-			}
-			return " " + strings.Join(parts, " ")
-		},
-		"queryParams":   queryParams,
-		"goType":        goType,
-		"flagType":      flagType,
-		"sortOps":       sortOperations,
-		"dedupeOps":     dedupeOperations,
-		"escapeQuotes":  escapeQuotes,
-		"isDestructive": func(op *Operation) bool { return op.IsDestructive },
+		"pathParamUsage": pathParamUsage,
+		"queryParams":    queryParams,
+		"goType":         goType,
+		"flagType":       flagType,
+		"sortOps":        sortOperations,
+		"dedupeOps":      dedupeOperations,
+		"escapeQuotes":   escapeQuotes,
+		"isDestructive":  func(op *Operation) bool { return op.IsDestructive },
 		"opAnnotations": func(op *Operation) string {
 			var pairs []string
 			if op.IsDestructive {
@@ -236,10 +223,10 @@ func (g *Generator) Generate(resource *Resource) (string, error) {
 					resourceName, bin, resourceName, resourceName)
 			default:
 				if opHasBinaryResponse(op) {
-					idArg := ""
-					if hasPathParam(op.Path) {
-						idArg = " <id>"
-					}
+					// Mirror the Use line: emit a placeholder for every path
+					// param so multi-param binary ops (e.g. download <id>
+					// <attachmentId>) show a copy-pasteable example.
+					idArg := pathParamUsage(op.Parameters)
 					return fmt.Sprintf(
 						"  # Save to file\n  %s %s %s%s -O output.bin\n\n  # Pipe to stdout\n  %s %s %s%s > output.bin",
 						bin, resourceName, op.Name, idArg,
@@ -736,6 +723,26 @@ func pathParams(params []*Parameter) []*Parameter {
 	return result
 }
 
+// pathParamUsage renders the positional-argument suffix for a command's Use
+// string (and examples): "" for no path params, " <id>" for a single param,
+// and " <p1> <p2>" using each param's real name for multi-param paths. Callers
+// that build examples must use this so the placeholders always match the Use
+// line and the ExactArgs(N) count.
+func pathParamUsage(params []*Parameter) string {
+	pp := pathParams(params)
+	if len(pp) == 0 {
+		return ""
+	}
+	if len(pp) == 1 {
+		return " <id>"
+	}
+	var parts []string
+	for _, p := range pp {
+		parts = append(parts, "<"+p.Name+">")
+	}
+	return " " + strings.Join(parts, " ")
+}
+
 // indexedParam pairs a path parameter with its positional index for template use.
 type indexedParam struct {
 	Index int
@@ -1141,7 +1148,11 @@ func opHasNameLookup(op *Operation, r *Resource) bool {
 	if r.IsSingleton || !hasResolvableID(r) || collectionPath(r.Operations) == "" {
 		return false
 	}
-	return hasPathParam(op.Path)
+	// Name lookup resolves a single identifier into one {id}. Multi-param paths
+	// (e.g. /{id}/computers/{computerId}/installation-retry) can't be satisfied by
+	// one --name/positional arg — they take positional args for every param, so
+	// leave them to the ExactArgs(N) path rather than the single-id codepath.
+	return hasPathParam(op.Path) && strings.Count(op.Path, "{") == 1
 }
 
 // patchExampleText builds the Example string for a unified patch command.
@@ -1633,6 +1644,12 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 		flagAll  bool
 		flagLimit int
 {{- end }}
+{{- if .BulkActionPath }}
+		flagAll bool
+{{- end }}
+{{- if and .BulkActionPath (not .IsDestructive) }}
+		flagYes bool
+{{- end }}
 {{- if .IsDestructive }}
 		flagYes bool
 		flagDryRun bool
@@ -1721,6 +1738,39 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 
 			if flagScaffold {
 				return printScaffoldOutput(` + "`" + `{{ opScaffoldJSON . }}` + "`" + `, ctx.Output.Format())
+			}
+{{- end }}
+{{- if .BulkActionPath }}
+
+			// --all: hit the collection-level {{ .Name }} endpoint, which applies
+			// the action across every {{ $.NameSingular }} in a single server-side
+			// call (no per-resource {id} needed).
+			if flagAll {
+				if len(args) > 0{{ if opHasNameLookup . $ }} || flagName != ""{{ end }} {
+					return fmt.Errorf("--all applies to every {{ $.NameSingular }}; do not combine it with an <id>{{ if opHasNameLookup . $ }} or --name{{ end }}")
+				}
+				// Tenant-wide blast radius: {{ .Name }} across every
+				// {{ $.NameSingular }} in one call. Gate behind an explicit
+				// confirmation, matching this codebase's convention for
+				// wide-reaching mutations.
+				if !flagYes {
+					noInput, _ := cmd.Flags().GetBool("no-input")
+					if noInput {
+						return fmt.Errorf("--all {{ .Name }} applies to every {{ $.NameSingular }}; pass --yes to confirm when --no-input is set")
+					}
+					fmt.Fprintf(os.Stderr, "⚠️  --all will {{ .Name }} across every {{ $.NameSingular }} in this tenant. Type 'yes' to confirm: ")
+					var confirm string
+					fmt.Scanln(&confirm)
+					if confirm != "yes" {
+						return fmt.Errorf("aborted")
+					}
+				}
+				resp, err := ctx.Client.Do(reqCtx, "{{ .Method }}", "{{ .BulkActionPath }}", nil)
+				if err != nil {
+					return err
+				}
+				defer resp.Body.Close()
+				return ctx.Output.PrintResponse(resp)
 			}
 {{- end }}
 {{- if and .IsDestructive (opHasNameLookup . $) }}
@@ -1896,7 +1946,7 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 
 			// Confirmation for destructive action
 			if flagDryRun {
-				fmt.Fprintf(os.Stderr, "Would {{ .Name }}{{ if hasPathParam .Path }} resource %s{{ end }}\n"{{ if hasPathParam .Path }}, args[0]{{ end }})
+				fmt.Fprintf(os.Stderr, "Would {{ .Name }}{{ if hasPathParam .Path }} resource %s{{ end }}\n"{{ if hasPathParam .Path }}, strings.Join(args, " "){{ end }})
 				return nil
 			}
 			if !flagYes {
@@ -1904,7 +1954,7 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 				if noInput {
 					return fmt.Errorf("destructive operation requires --yes when --no-input is set")
 				}
-				fmt.Fprintf(os.Stderr, "⚠️  This will {{ .Name }}{{ if hasPathParam .Path }} resource %s{{ end }}. Type 'yes' to confirm: "{{ if hasPathParam .Path }}, args[0]{{ end }})
+				fmt.Fprintf(os.Stderr, "⚠️  This will {{ .Name }}{{ if hasPathParam .Path }} resource %s{{ end }}. Type 'yes' to confirm: "{{ if hasPathParam .Path }}, strings.Join(args, " "){{ end }})
 				var confirm string
 				fmt.Scanln(&confirm)
 				if confirm != "yes" {
@@ -2536,6 +2586,12 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 {{- if .IsPaginated }}
 	cmd.Flags().BoolVar(&flagAll, "all", true, "Fetch all pages (set --all=false for single page)")
 	cmd.Flags().IntVar(&flagLimit, "limit", 0, "Maximum total results to return (0 = unlimited)")
+{{- end }}
+{{- if .BulkActionPath }}
+	cmd.Flags().BoolVar(&flagAll, "all", false, "Apply to every {{ $.NameSingular }} in one call (collection-level {{ .Name }} endpoint)")
+{{- end }}
+{{- if and .BulkActionPath (not .IsDestructive) }}
+	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip the --all confirmation prompt")
 {{- end }}
 {{- if .IsDestructive }}
 	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt")
