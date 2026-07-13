@@ -198,6 +198,170 @@ paths:
       x-action: true
       x-required-privileges:
       - Update App Installers
+  /v1/app-installers/deployments/computers/installation-retry:
+    post:
+      tags:
+      - app-installer-deployments
+      summary: Retry all failed installations across all deployments
+      description: Issues a retry for all failed App Installer installations across every deployment in a single server-side call. Surfaced on the deployment installation-retry command as --all.
+      responses:
+        204:
+          description: Retry submitted
+      x-action: true
+      x-required-privileges:
+      - Update App Installers
+  /v1/app-installers/deployments/{id}/computers/{computerId}/installation-retry:
+    post:
+      tags:
+      - app-installer-deployments
+      summary: Retry a failed installation on a specific computer
+      description: Issues a retry for a failed App Installer installation on a single computer within a deployment
+      parameters:
+      - name: id
+        in: path
+        description: ID of the deployment
+        required: true
+        schema:
+          type: string
+      - name: computerId
+        in: path
+        description: ID of the computer
+        required: true
+        schema:
+          type: string
+      responses:
+        204:
+          description: Retry submitted
+        404:
+          description: Deployment or computer not found
+      x-action: true
+      x-required-privileges:
+      - Update App Installers
+  /v1/app-installers/deployments/{id}/version-update:
+    post:
+      tags:
+      - app-installer-deployments
+      summary: Update an App Installer deployment to the latest version
+      description: Triggers a version update for the deployment's app title
+      parameters:
+      - name: id
+        in: path
+        description: ID of the deployment
+        required: true
+        schema:
+          type: string
+      responses:
+        204:
+          description: Version update triggered
+        404:
+          description: Deployment not found
+      x-action: true
+      x-required-privileges:
+      - Update App Installers
+  /v1/app-installers/deployments/export:
+    post:
+      tags:
+      - app-installer-deployments
+      summary: Export App Installer deployments
+      description: Exports all App Installer deployment configurations as CSV.
+      responses:
+        200:
+          description: Export successful
+          content:
+            text/csv:
+              schema:
+                type: string
+                format: binary
+      x-action: true
+      x-required-privileges:
+      - Read App Installers
+  /v1/app-installers/deployments/{id}/history:
+    get:
+      tags:
+      - app-installer-deployments
+      summary: Get history for an App Installer deployment
+      description: Retrieves the object history (notes and change details) for a deployment. Results are paginated.
+      parameters:
+      - name: id
+        in: path
+        description: ID of the deployment
+        required: true
+        schema:
+          type: string
+      - name: page
+        in: query
+        description: Zero-based page index. Defaults to 0 when omitted.
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 0
+          minimum: 0
+      - name: page-size
+        in: query
+        description: Number of results per page. Defaults to 100 when omitted.
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 100
+          minimum: 1
+          maximum: 2000
+      - name: sort
+        in: query
+        description: 'Sorting criteria in the format: property:asc/desc. Default sort is date:desc.'
+        required: false
+        schema:
+          type: array
+          items:
+            type: string
+          default:
+          - date:desc
+      - name: filter
+        in: query
+        description: 'RSQL filter over history fields: username, date, note, details.'
+        required: false
+        schema:
+          type: string
+      responses:
+        200:
+          description: Successful response
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/HistorySearchResults'
+        404:
+          description: Deployment not found
+      x-required-privileges:
+      - Read App Installers
+    post:
+      tags:
+      - app-installer-deployments
+      summary: Add a history note to an App Installer deployment
+      description: Adds a note to the deployment's object history
+      parameters:
+      - name: id
+        in: path
+        description: ID of the deployment
+        required: true
+        schema:
+          type: string
+      requestBody:
+        description: History note to add
+        content:
+          'application/json':
+            schema:
+              $ref: '#/components/schemas/ObjectHistoryNote'
+        required: true
+      responses:
+        201:
+          description: History note created
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/ObjectHistoryNote'
+      x-required-privileges:
+      - Update App Installers
 components:
   schemas:
     AppInstallerDeploymentSearchResults:
@@ -459,4 +623,31 @@ components:
         id:
           type: string
         name:
+          type: string
+    HistorySearchResults:
+      type: object
+      properties:
+        totalCount:
+          type: integer
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/ObjectHistory'
+    ObjectHistory:
+      type: object
+      properties:
+        id:
+          type: integer
+        username:
+          type: string
+        date:
+          type: string
+        note:
+          type: string
+        details:
+          type: string
+    ObjectHistoryNote:
+      type: object
+      properties:
+        note:
           type: string

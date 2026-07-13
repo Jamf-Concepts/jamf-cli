@@ -31,9 +31,14 @@ func NewAppInstallerDeploymentsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(newAppInstallerDeploymentsCreateCmd(ctx))
 	cmd.AddCommand(newAppInstallerDeploymentsUpdateCmd(ctx))
 	cmd.AddCommand(newAppInstallerDeploymentsDeleteCmd(ctx))
+	cmd.AddCommand(newAppInstallerDeploymentsHistoryCmd(ctx))
+	cmd.AddCommand(newAppInstallerDeploymentsAddHistoryNoteCmd(ctx))
+	cmd.AddCommand(newAppInstallerDeploymentsExportCmd(ctx))
 	cmd.AddCommand(newAppInstallerDeploymentsComputersCmd(ctx))
 	cmd.AddCommand(newAppInstallerDeploymentsInstallationRetryCmd(ctx))
+	cmd.AddCommand(newAppInstallerDeploymentsInstallationRetryByComputerIdCmd(ctx))
 	cmd.AddCommand(newAppInstallerDeploymentsInstallationSummaryCmd(ctx))
+	cmd.AddCommand(newAppInstallerDeploymentsVersionUpdateCmd(ctx))
 	cmd.AddCommand(newAppInstallerDeploymentsApplyCmd(ctx))
 
 	return cmd
@@ -678,6 +683,332 @@ func newAppInstallerDeploymentsDeleteCmd(ctx *registry.CLIContext) *cobra.Comman
 	return cmd
 }
 
+func newAppInstallerDeploymentsHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
+	var (
+		flagPage     int
+		flagPageSize int
+		flagSort     []string
+		flagFilter   string
+		flagAll      bool
+		flagLimit    int
+		flagName     string
+	)
+
+	cmd := &cobra.Command{
+		Use:   "history [<id>]",
+		Short: "Get history for an App Installer deployment",
+		Long:  "Retrieves the object history (notes and change details) for a deployment. Results are paginated.",
+		Example: `  # Get history for a app-installer-deployment by ID
+  jamf-cli pro app-installer-deployments history 1
+
+  # Get history by name
+  jamf-cli pro app-installer-deployments history --name "Example"`,
+		Annotations: map[string]string{"jamf:privileges": "Read App Installers"},
+		Args:        cobra.MaximumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			// Resolve resource ID from positional arg, --name, or lookup flags
+			var resolvedID string
+			if flagName != "" {
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/app-installers/deployments", "name", "id", flagName, noInput)
+				if err != nil {
+					return err
+				}
+				resolvedID = rid
+			} else if len(args) > 0 {
+				resolvedID = args[0]
+			} else {
+				return fmt.Errorf("provide an <id> argument, --name")
+			}
+
+			// Build request path
+			path := "/v1/app-installers/deployments/{id}/history"
+			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
+
+			// Build query string
+			var queryParts []string
+			if flagPage != 0 {
+				queryParts = append(queryParts, fmt.Sprintf("page=%d", flagPage))
+			}
+			if flagPageSize != 0 {
+				queryParts = append(queryParts, fmt.Sprintf("page-size=%d", flagPageSize))
+			}
+			if len(flagSort) > 0 {
+				for _, v := range flagSort {
+					queryParts = append(queryParts, "sort="+url.QueryEscape(fmt.Sprintf("%v", v)))
+				}
+			}
+			if flagFilter != "" {
+				queryParts = append(queryParts, "filter="+url.QueryEscape(flagFilter))
+			}
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Auto-pagination: fetch all pages when --all is set and --page was not manually specified
+			if flagAll && flagPage == 0 {
+				var allResults []json.RawMessage
+				prog := ctx.Output.PaginationProgress()
+				defer prog.Stop()
+				reqCtx = spinner.WithSuppressed(reqCtx)
+				pageNum := 0
+				pageSize := 100
+
+				for {
+					// Build page-specific query
+					pagePath := "/v1/app-installers/deployments/{id}/history"
+					pagePath = strings.Replace(pagePath, "{id}", url.PathEscape(resolvedID), 1)
+					var pageQuery []string
+					// Carry forward non-pagination query params
+					for _, qp := range queryParts {
+						if !strings.HasPrefix(qp, "page=") && !strings.HasPrefix(qp, "page-size=") && !strings.HasPrefix(qp, "pagesize=") {
+							pageQuery = append(pageQuery, qp)
+						}
+					}
+					pageQuery = append(pageQuery, fmt.Sprintf("page=%d", pageNum))
+					pageQuery = append(pageQuery, fmt.Sprintf("page-size=%d", pageSize))
+					pagePath = pagePath + "?" + strings.Join(pageQuery, "&")
+
+					resp, err := ctx.Client.Do(reqCtx, "GET", pagePath, nil)
+					if err != nil {
+						return err
+					}
+
+					body, err := io.ReadAll(resp.Body)
+					resp.Body.Close()
+					if err != nil {
+						return err
+					}
+
+					// Parse pagination response: {"totalCount": N, "results": [...]}
+					var pageResp struct {
+						TotalCount int               `json:"totalCount"`
+						Results    []json.RawMessage `json:"results"`
+					}
+					if err := json.Unmarshal(body, &pageResp); err != nil {
+						// Not a paginated response; output as-is
+						return ctx.Output.PrintRaw(body)
+					}
+
+					allResults = append(allResults, pageResp.Results...)
+					prog.Update(len(allResults), pageResp.TotalCount)
+
+					// Check limit
+					if flagLimit > 0 && len(allResults) >= flagLimit {
+						allResults = allResults[:flagLimit]
+						break
+					}
+
+					// Check if we've fetched everything
+					if len(pageResp.Results) < pageSize || len(allResults) >= pageResp.TotalCount {
+						break
+					}
+
+					pageNum++
+				}
+
+				prog.Stop()
+
+				// Output combined results as JSON array
+				combined, err := json.MarshalIndent(allResults, "", "  ")
+				if err != nil {
+					return err
+				}
+				return ctx.Output.PrintRaw(combined)
+			}
+
+			// Make request
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			if ctx.Output.Format() == "ndjson" {
+				ndjsonBody, ndjsonErr := io.ReadAll(resp.Body)
+				if ndjsonErr != nil {
+					return ndjsonErr
+				}
+				var ndjsonWrap struct {
+					Results []json.RawMessage `json:"results"`
+				}
+				if err := json.Unmarshal(ndjsonBody, &ndjsonWrap); err == nil && ndjsonWrap.Results != nil {
+					arr, marshalErr := json.Marshal(ndjsonWrap.Results)
+					if marshalErr != nil {
+						return marshalErr
+					}
+					return ctx.Output.PrintRaw(arr)
+				}
+				return ctx.Output.PrintRaw(ndjsonBody)
+			}
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	cmd.Flags().IntVar(&flagPage, "page", 0, "Zero-based page index. Defaults to 0 when omitted.")
+	cmd.Flags().IntVar(&flagPageSize, "page-size", 100, "Number of results per page. Defaults to 100 when omitted.")
+	cmd.Flags().StringSliceVar(&flagSort, "sort", nil, "Sorting criteria in the format: property:asc/desc. Default sort is date:desc.")
+	cmd.Flags().StringVar(&flagFilter, "filter", "", "RSQL filter over history fields: username, date, note, details.")
+	cmd.Flags().BoolVar(&flagAll, "all", true, "Fetch all pages (set --all=false for single page)")
+	cmd.Flags().IntVar(&flagLimit, "limit", 0, "Maximum total results to return (0 = unlimited)")
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up app-installer-deployment by name")
+
+	return cmd
+}
+
+func newAppInstallerDeploymentsAddHistoryNoteCmd(ctx *registry.CLIContext) *cobra.Command {
+	var (
+		flagScaffold bool
+		flagName     string
+	)
+
+	cmd := &cobra.Command{
+		Use:         "add-history-note [<id>]",
+		Short:       "Add a history note to an App Installer deployment",
+		Long:        "Adds a note to the deployment's object history",
+		Annotations: map[string]string{"jamf:privileges": "Update App Installers"},
+		Args:        cobra.MaximumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			if flagScaffold {
+				return printScaffoldOutput(`{
+  "note": ""
+}`, ctx.Output.Format())
+			}
+
+			// Resolve resource ID from positional arg, --name, or lookup flags
+			var resolvedID string
+			if flagName != "" {
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/app-installers/deployments", "name", "id", flagName, noInput)
+				if err != nil {
+					return err
+				}
+				resolvedID = rid
+			} else if len(args) > 0 {
+				resolvedID = args[0]
+			} else {
+				return fmt.Errorf("provide an <id> argument, --name")
+			}
+
+			// Build request path
+			path := "/v1/app-installers/deployments/{id}/history"
+			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			// Read body from stdin if available
+			var body io.Reader
+			var normalized []byte
+			stat, _ := os.Stdin.Stat()
+			if (stat.Mode() & os.ModeCharDevice) == 0 {
+				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
+				if err != nil {
+					return fmt.Errorf("reading stdin: %w", err)
+				}
+				normalized, err = normalizeInputToJSON(raw)
+				if err != nil {
+					return err
+				}
+			}
+			if len(normalized) > 0 {
+				body = bytes.NewReader(normalized)
+			}
+			resp, err := ctx.Client.Do(reqCtx, "POST", path, body)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up app-installer-deployment by name")
+
+	return cmd
+}
+
+func newAppInstallerDeploymentsExportCmd(ctx *registry.CLIContext) *cobra.Command {
+	var (
+		flagSaveTo string
+	)
+
+	cmd := &cobra.Command{
+		Use:   "export",
+		Short: "Export App Installer deployments",
+		Long:  "Exports all App Installer deployment configurations as CSV.",
+		Example: `  # Export app-installer-deployments to CSV
+  jamf-cli pro app-installer-deployments export --out-file app-installer-deployments.csv`,
+		Annotations: map[string]string{"jamf:privileges": "Read App Installers"},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+			reqCtx = registry.WithAccept(reqCtx, "*/*")
+
+			// Build request path
+			path := "/v1/app-installers/deployments/export"
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			// Read body from stdin if available
+			var body io.Reader
+			var normalized []byte
+			stat, _ := os.Stdin.Stat()
+			if (stat.Mode() & os.ModeCharDevice) == 0 {
+				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
+				if err != nil {
+					return fmt.Errorf("reading stdin: %w", err)
+				}
+				normalized, err = normalizeInputToJSON(raw)
+				if err != nil {
+					return err
+				}
+			}
+			if len(normalized) > 0 {
+				body = bytes.NewReader(normalized)
+			}
+			resp, err := ctx.Client.Do(reqCtx, "POST", path, body)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			if flagSaveTo != "" {
+				f, err := os.Create(flagSaveTo)
+				if err != nil {
+					return fmt.Errorf("opening output file: %w", err)
+				}
+				defer f.Close()
+				n, err := io.Copy(f, resp.Body)
+				if err != nil {
+					return err
+				}
+				fmt.Fprintf(os.Stderr, "Saved to %s (%d bytes)\n", flagSaveTo, n)
+				return nil
+			}
+			_, err = io.Copy(os.Stdout, resp.Body)
+			return err
+		},
+	}
+
+	cmd.Flags().StringVarP(&flagSaveTo, "save-to", "O", "", "Save output to file instead of stdout")
+	return cmd
+}
+
 func newAppInstallerDeploymentsComputersCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagName string
@@ -735,6 +1066,8 @@ func newAppInstallerDeploymentsComputersCmd(ctx *registry.CLIContext) *cobra.Com
 
 func newAppInstallerDeploymentsInstallationRetryCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
+		flagAll  bool
+		flagYes  bool
 		flagName string
 	)
 
@@ -746,6 +1079,37 @@ func newAppInstallerDeploymentsInstallationRetryCmd(ctx *registry.CLIContext) *c
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
+
+			// --all: hit the collection-level installation-retry endpoint, which applies
+			// the action across every app-installer-deployment in a single server-side
+			// call (no per-resource {id} needed).
+			if flagAll {
+				if len(args) > 0 || flagName != "" {
+					return fmt.Errorf("--all applies to every app-installer-deployment; do not combine it with an <id> or --name")
+				}
+				// Tenant-wide blast radius: installation-retry across every
+				// app-installer-deployment in one call. Gate behind an explicit
+				// confirmation, matching this codebase's convention for
+				// wide-reaching mutations.
+				if !flagYes {
+					noInput, _ := cmd.Flags().GetBool("no-input")
+					if noInput {
+						return fmt.Errorf("--all installation-retry applies to every app-installer-deployment; pass --yes to confirm when --no-input is set")
+					}
+					fmt.Fprintf(os.Stderr, "⚠️  --all will installation-retry across every app-installer-deployment in this tenant. Type 'yes' to confirm: ")
+					var confirm string
+					fmt.Scanln(&confirm)
+					if confirm != "yes" {
+						return fmt.Errorf("aborted")
+					}
+				}
+				resp, err := ctx.Client.Do(reqCtx, "POST", "/v1/app-installers/deployments/computers/installation-retry", nil)
+				if err != nil {
+					return err
+				}
+				defer resp.Body.Close()
+				return ctx.Output.PrintResponse(resp)
+			}
 
 			// Resolve resource ID from positional arg, --name, or lookup flags
 			var resolvedID string
@@ -800,7 +1164,63 @@ func newAppInstallerDeploymentsInstallationRetryCmd(ctx *registry.CLIContext) *c
 		},
 	}
 
+	cmd.Flags().BoolVar(&flagAll, "all", false, "Apply to every app-installer-deployment in one call (collection-level installation-retry endpoint)")
+	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip the --all confirmation prompt")
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up app-installer-deployment by name")
+
+	return cmd
+}
+
+func newAppInstallerDeploymentsInstallationRetryByComputerIdCmd(ctx *registry.CLIContext) *cobra.Command {
+	var ()
+
+	cmd := &cobra.Command{
+		Use:         "installation-retry-by-computer-id <id> <computerId>",
+		Short:       "Retry a failed installation on a specific computer",
+		Long:        "Issues a retry for a failed App Installer installation on a single computer within a deployment",
+		Annotations: map[string]string{"jamf:privileges": "Update App Installers"},
+		Args:        cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			// Build request path
+			path := "/v1/app-installers/deployments/{id}/computers/{computerId}/installation-retry"
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
+			path = strings.Replace(path, "{computerId}", url.PathEscape(args[1]), 1)
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			// Read body from stdin if available
+			var body io.Reader
+			var normalized []byte
+			stat, _ := os.Stdin.Stat()
+			if (stat.Mode() & os.ModeCharDevice) == 0 {
+				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
+				if err != nil {
+					return fmt.Errorf("reading stdin: %w", err)
+				}
+				normalized, err = normalizeInputToJSON(raw)
+				if err != nil {
+					return err
+				}
+			}
+			if len(normalized) > 0 {
+				body = bytes.NewReader(normalized)
+			}
+			resp, err := ctx.Client.Do(reqCtx, "POST", path, body)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
 
 	return cmd
 }
@@ -846,6 +1266,78 @@ func newAppInstallerDeploymentsInstallationSummaryCmd(ctx *registry.CLIContext) 
 
 			// Make request
 			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up app-installer-deployment by name")
+
+	return cmd
+}
+
+func newAppInstallerDeploymentsVersionUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
+	var (
+		flagName string
+	)
+
+	cmd := &cobra.Command{
+		Use:         "version-update [<id>]",
+		Short:       "Update an App Installer deployment to the latest version",
+		Long:        "Triggers a version update for the deployment's app title",
+		Annotations: map[string]string{"jamf:privileges": "Update App Installers"},
+		Args:        cobra.MaximumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			// Resolve resource ID from positional arg, --name, or lookup flags
+			var resolvedID string
+			if flagName != "" {
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/app-installers/deployments", "name", "id", flagName, noInput)
+				if err != nil {
+					return err
+				}
+				resolvedID = rid
+			} else if len(args) > 0 {
+				resolvedID = args[0]
+			} else {
+				return fmt.Errorf("provide an <id> argument, --name")
+			}
+
+			// Build request path
+			path := "/v1/app-installers/deployments/{id}/version-update"
+			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			// Read body from stdin if available
+			var body io.Reader
+			var normalized []byte
+			stat, _ := os.Stdin.Stat()
+			if (stat.Mode() & os.ModeCharDevice) == 0 {
+				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
+				if err != nil {
+					return fmt.Errorf("reading stdin: %w", err)
+				}
+				normalized, err = normalizeInputToJSON(raw)
+				if err != nil {
+					return err
+				}
+			}
+			if len(normalized) > 0 {
+				body = bytes.NewReader(normalized)
+			}
+			resp, err := ctx.Client.Do(reqCtx, "POST", path, body)
 			if err != nil {
 				return err
 			}

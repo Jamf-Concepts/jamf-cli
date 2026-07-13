@@ -45,7 +45,7 @@ func newRemoveComputerMdmProfilesRemoveMdmProfileCmd(ctx *registry.CLIContext) *
 
 			// Confirmation for destructive action
 			if flagDryRun {
-				fmt.Fprintf(os.Stderr, "Would remove-mdm-profile resource %s\n", args[0])
+				fmt.Fprintf(os.Stderr, "Would remove-mdm-profile resource %s\n", strings.Join(args, " "))
 				return nil
 			}
 			if !flagYes {
@@ -53,7 +53,7 @@ func newRemoveComputerMdmProfilesRemoveMdmProfileCmd(ctx *registry.CLIContext) *
 				if noInput {
 					return fmt.Errorf("destructive operation requires --yes when --no-input is set")
 				}
-				fmt.Fprintf(os.Stderr, "⚠️  This will remove-mdm-profile resource %s. Type 'yes' to confirm: ", args[0])
+				fmt.Fprintf(os.Stderr, "⚠️  This will remove-mdm-profile resource %s. Type 'yes' to confirm: ", strings.Join(args, " "))
 				var confirm string
 				fmt.Scanln(&confirm)
 				if confirm != "yes" {
