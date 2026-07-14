@@ -461,6 +461,8 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   font-feature-settings: "ss01", "cv11";
+  /* Missing weights/styles must fail visibly, not render browser-faked */
+  font-synthesis: none;
 }
 
 code,
@@ -472,6 +474,9 @@ pre,
 a {
   color: var(--link-blue);
   text-decoration: none;
+  /* Underlines from the font's own metrics instead of browser guesses */
+  text-underline-position: from-font;
+  text-decoration-thickness: from-font;
 }
 
 a:hover {
@@ -750,7 +755,9 @@ a.stat-card:hover {
   display: block;
   line-height: 1.1;
   letter-spacing: -0.02em;
-  font-feature-settings: "tnum", "ss01";
+  /* the variant property composes with the body's inherited
+     font-feature-settings ("ss01", "cv11") instead of replacing them */
+  font-variant-numeric: tabular-nums;
   margin-bottom: 0.4rem;
 }
 
@@ -2516,6 +2523,13 @@ footer .footer-meta {
   .catalog-controls {
     flex-direction: column;
     gap: 0.5rem;
+  }
+
+  /* iOS Safari zooms the page when a focused input is under 16px —
+     keep inputs at 1rem on mobile (desktop sizes are set above) */
+  #search,
+  .palette-input {
+    font-size: 1rem;
   }
 
   .toggle-all-btn {
