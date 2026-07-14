@@ -62,12 +62,14 @@ CI enforces that `specs/platform/` and `internal/commands/platform/generated/` s
 | Change how OpenAPI specs are parsed | `generator/parser/parser.go` |
 | Change singleton detection logic | `generator/parser/parser.go` → `detectSingleton()` |
 | Change multi-family spec splitting | `generator/parser/parser.go` → `splitByPathFamilies()` |
-| Add/change alternate lookup fields (--serial, --udid) | `generator/parser/parser.go` → `resourceLookupFields` map |
+| Add/change alternate lookup fields (--serial, --udid) — modern API | `generator/parser/parser.go` → `resourceLookupFields` map |
+| Add a CLI flag alias for a classic lookup (e.g. `--serial` → `--serialnumber`) | `generator/classic/generator.go` → `lookupFlagAliases` map |
 | Fix a resource name auto-pluralization issue | `generator/parser/parser.go` → `resourceNameOverrides` map |
 | Fix wrong RSQL filter field for --name lookup | `generator/parser/parser.go` → `resourceNameFieldOverrides` map |
 | Fix wrong ID field extracted from list response | `generator/parser/parser.go` → `resourceIDFieldOverrides` map |
 | Change how classic YAML manifest is parsed | `generator/classic/parser.go` |
 | Add a new resource to the classic API | `specs/classic/resources.yaml` |
+| Add server-side subset narrowing (`--subset`) to a classic `get` | `subsets:` list in `specs/classic/resources.yaml` (drives completion; non-id lookups auto-resolve to an id first for gateway compatibility) |
 | Add/modify DDM component scaffolds | `internal/blueprintcomponents/scaffolds.go` — SDK-typed components via `example*()` funcs; raw JSON fallback in `rawScaffolds` for components not yet in SDK |
 | Add a new legacy-to-DDM payload converter | `internal/profileconvert/ddm_<name>.go` (new converter + register in `ddm_converter.go` init) |
 | Add/remove a resource in the `backup`/`diff` commands | `internal/commands/pro_resources.go` (curated allowlist; endpoints come from generated `backup_registry.go`) |

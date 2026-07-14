@@ -1042,8 +1042,16 @@ func TestGenerate_Subset(t *testing.T) {
 	if !strings.Contains(code, `"General"`) || !strings.Contains(code, `"Commands"`) {
 		t.Error("expected curated subset values in completion list")
 	}
-	if !strings.Contains(code, `path += "/subset/" + url.PathEscape(flagSubset)`) {
-		t.Error("expected verbatim /subset/ path append")
+	if !strings.Contains(code, `path += "/subset/" + registry.EscapeClassicPathSegment(flagSubset)`) {
+		t.Error("expected /subset/ path append using the classic path escaper")
+	}
+	// A non-id lookup combined with --subset must resolve to an id first, so the
+	// request uses id/{id}/subset/ (the Platform Gateway 403s non-id + /subset/).
+	if !strings.Contains(code, "resolveClassicRecordID(reqCtx, ctx.Client, path,") {
+		t.Error("expected non-id lookup + subset to resolve to an id first")
+	}
+	if !strings.Contains(code, "pathByID") {
+		t.Error("expected pathByID tracking to gate the id-resolution")
 	}
 }
 

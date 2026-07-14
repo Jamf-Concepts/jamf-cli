@@ -53,6 +53,7 @@ func newClassicComputerHistoryGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
 			// Resolve lookup: check flags first, then positional ID
 			var path string
+			var pathByID bool
 			if flagName != "" {
 				path = fmt.Sprintf("/JSSResource/computerhistory/name/%s", registry.EscapeClassicPathSegment(flagName))
 			} else if flagSerialnumber != "" {
@@ -63,12 +64,25 @@ func newClassicComputerHistoryGetCmd(ctx *registry.CLIContext) *cobra.Command {
 				path = fmt.Sprintf("/JSSResource/computerhistory/udid/%s", registry.EscapeClassicPathSegment(flagUdid))
 			} else if len(args) > 0 {
 				path = fmt.Sprintf("/JSSResource/computerhistory/id/%s", url.PathEscape(args[0]))
+				pathByID = true
 			} else {
 				return fmt.Errorf("provide an <id> argument, --name, --serialnumber, --serial, --macaddress, --udid")
 			}
 
 			if flagSubset != "" {
-				path += "/subset/" + url.PathEscape(flagSubset)
+				// The Platform Gateway's Classic proxy 403s /subset/ on non-id lookup
+				// paths; resolve to an id first so the request uses id/{id}/subset/,
+				// which works on both direct and gateway transports. See
+				// docs/solutions/conventions/scope-put-avoid-subset-2026-07-08.md.
+				if !pathByID {
+					id, err := resolveClassicRecordID(reqCtx, ctx.Client, path, "computer_history")
+					if err != nil {
+						return err
+					}
+					path = fmt.Sprintf("/JSSResource/computerhistory/id/%s", url.PathEscape(id))
+				}
+				// Same encoding as lookups; safe for the curated single-token subset values.
+				path += "/subset/" + registry.EscapeClassicPathSegment(flagSubset)
 			}
 
 			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)

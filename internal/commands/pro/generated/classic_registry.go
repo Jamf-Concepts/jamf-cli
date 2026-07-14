@@ -828,3 +828,38 @@ func classicFindIDByName(body []byte, name string) string {
 	}
 	return ""
 }
+
+// resolveClassicRecordID fetches a Classic record by a non-id lookup path (no
+// /subset/) and returns its id, so a {lookup}/{val}/subset/... request can be
+// rewritten to id/{id}/subset/... — the only form the Platform Gateway's Classic
+// proxy allows (non-id + /subset/ returns 403). See
+// docs/solutions/conventions/scope-put-avoid-subset-2026-07-08.md.
+func resolveClassicRecordID(ctx context.Context, client registry.HTTPClient, path, singularKey string) (string, error) {
+	resp, err := client.Do(ctx, "GET", path, nil)
+	if err != nil {
+		return "", fmt.Errorf("resolving record id: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("reading record for id resolution: %w", err)
+	}
+	m, err := xmlconv.ToMap(body)
+	if err != nil {
+		return "", fmt.Errorf("parsing record for id resolution: %w", err)
+	}
+	obj, ok := m[singularKey].(map[string]any)
+	if !ok {
+		obj = m
+	}
+	if id := extractIDString(obj, "id"); id != "" {
+		return id, nil
+	}
+	// History records nest the id under <general>.
+	if general, ok := obj["general"].(map[string]any); ok {
+		if id := extractIDString(general, "id"); id != "" {
+			return id, nil
+		}
+	}
+	return "", fmt.Errorf("could not resolve id from record at %s", path)
+}
