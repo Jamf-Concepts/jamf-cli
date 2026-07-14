@@ -101,6 +101,10 @@ components:
       required:
         - errorUuids
       type: object
+    CancelEnhancedLogCollectionCommand:
+      allOf:
+        - $ref: '#/components/schemas/MdmCommandBase'
+        - type: object
     CertificateListCommand:
       allOf:
         - $ref: '#/components/schemas/MdmCommandBase'
@@ -436,6 +440,7 @@ components:
           discriminator:
             mapping:
               APPLY_REDEMPTION_CODE: '#/components/schemas/ApplyRedemptionCodeCommand'
+              CANCEL_ENHANCED_LOG_COLLECTION: '#/components/schemas/CancelEnhancedLogCollectionCommand'
               CERTIFICATE_LIST: '#/components/schemas/CertificateListCommand'
               CLEAR_PASSCODE: '#/components/schemas/ClearPasscodeCommand'
               CLEAR_RESTRICTIONS_PASSWORD: '#/components/schemas/ClearRestrictionsPasswordCommand'
@@ -465,6 +470,7 @@ components:
               SET_RECOVERY_LOCK: '#/components/schemas/SetRecoveryLockCommand'
               SHUT_DOWN_DEVICE: '#/components/schemas/ShutDownDeviceCommand'
               STOP_MIRRORING: '#/components/schemas/StopMirroringCommand'
+              TRIGGER_ENHANCED_LOG_COLLECTION: '#/components/schemas/TriggerEnhancedLogCollectionCommand'
               UNLOCK_USER_ACCOUNT: '#/components/schemas/UnlockUserAccountCommand'
               VALIDATE_APPLICATIONS: '#/components/schemas/ValidateApplicationsCommand'
               VERIFY_RECOVERY_LOCK: '#/components/schemas/VerifyRecoveryLockCommand'
@@ -476,6 +482,7 @@ components:
             lostModePhone: 123-456-7890
           oneOf:
             - $ref: '#/components/schemas/ApplyRedemptionCodeCommand'
+            - $ref: '#/components/schemas/CancelEnhancedLogCollectionCommand'
             - $ref: '#/components/schemas/CertificateListCommand'
             - $ref: '#/components/schemas/ClearPasscodeCommand'
             - $ref: '#/components/schemas/DeclarativeManagementCommand'
@@ -505,6 +512,7 @@ components:
             - $ref: '#/components/schemas/SettingsCommand'
             - $ref: '#/components/schemas/ShutDownDeviceCommand'
             - $ref: '#/components/schemas/StopMirroringCommand'
+            - $ref: '#/components/schemas/TriggerEnhancedLogCollectionCommand'
             - $ref: '#/components/schemas/UnlockUserAccountCommand'
             - $ref: '#/components/schemas/ValidateApplicationsCommand'
             - $ref: '#/components/schemas/VerifyRecoveryLockCommand'
@@ -525,11 +533,13 @@ components:
         - ACKNOWLEDGED
         - NOT_NOW
         - ERROR
+        - COMMAND_FORMAT_ERROR
       example: PENDING
       type: string
     MdmCommandType:
       enum:
         - APPLY_REDEMPTION_CODE
+        - CANCEL_ENHANCED_LOG_COLLECTION
         - CERTIFICATE_LIST
         - CLEAR_PASSCODE
         - CLEAR_RESTRICTIONS_PASSWORD
@@ -559,6 +569,7 @@ components:
         - SET_RECOVERY_LOCK
         - SHUT_DOWN_DEVICE
         - STOP_MIRRORING
+        - TRIGGER_ENHANCED_LOG_COLLECTION
         - UNLOCK_USER_ACCOUNT
         - VALIDATE_APPLICATIONS
         - VERIFY_RECOVERY_LOCK
@@ -787,6 +798,18 @@ components:
       allOf:
         - $ref: '#/components/schemas/MdmCommandBase'
         - type: object
+    TriggerEnhancedLogCollectionCommand:
+      allOf:
+        - $ref: '#/components/schemas/MdmCommandBase'
+        - properties:
+            appleCareToken:
+              description: The AppleCare token the device uses for authenticating the enhanced log collection session.
+              example: a1b2c3d4-e5f6-7890-abcd-ef1234567890
+              minLength: 1
+              type: string
+          required:
+            - appleCareToken
+          type: object
     UnlockUserAccountCommand:
       allOf:
         - $ref: '#/components/schemas/MdmCommandBase'

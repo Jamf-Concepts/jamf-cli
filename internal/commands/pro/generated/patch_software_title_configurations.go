@@ -64,16 +64,17 @@ func newPatchSoftwareTitleConfigurationsListCmd(ctx *registry.CLIContext) *cobra
 			reqCtx := cmd.Context()
 
 			// Build request path
-			path := "/v2/patch-software-title-configurations"
+			path := "/v3/patch-software-title-configurations"
 
 			// Build query string
 			var queryParts []string
 			if len(queryParts) > 0 {
 				path = path + "?" + strings.Join(queryParts, "&")
 			}
+			vft := newVersionFallback("/v3/patch-software-title-configurations")
 
 			// Make request
-			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			resp, err := vft.do(ctx.Client, reqCtx, "GET", path, nil, []string{"/v2/patch-software-title-configurations"})
 			if err != nil {
 				return err
 			}
@@ -112,7 +113,7 @@ func newPatchSoftwareTitleConfigurationsGetCmd(ctx *registry.CLIContext) *cobra.
 			var resolvedID string
 			if flagName != "" {
 				noInput, _ := cmd.Flags().GetBool("no-input")
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/patch-software-title-configurations", "displayName", "id", flagName, noInput)
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v3/patch-software-title-configurations", "displayName", "id", flagName, noInput)
 				if err != nil {
 					return err
 				}
@@ -124,7 +125,7 @@ func newPatchSoftwareTitleConfigurationsGetCmd(ctx *registry.CLIContext) *cobra.
 			}
 
 			// Build request path
-			path := "/v2/patch-software-title-configurations/{id}"
+			path := "/v3/patch-software-title-configurations/{id}"
 			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
 
 			// Build query string
@@ -132,9 +133,10 @@ func newPatchSoftwareTitleConfigurationsGetCmd(ctx *registry.CLIContext) *cobra.
 			if len(queryParts) > 0 {
 				path = path + "?" + strings.Join(queryParts, "&")
 			}
+			vft := newVersionFallback("/v3/patch-software-title-configurations/{id}")
 
 			// Make request
-			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			resp, err := vft.do(ctx.Client, reqCtx, "GET", path, nil, []string{"/v2/patch-software-title-configurations/{id}"})
 			if err != nil {
 				return err
 			}
@@ -183,7 +185,7 @@ func newPatchSoftwareTitleConfigurationsCreateCmd(ctx *registry.CLIContext) *cob
 			}
 
 			// Build request path
-			path := "/v2/patch-software-title-configurations"
+			path := "/v3/patch-software-title-configurations"
 
 			// Build query string
 			var queryParts []string
@@ -269,7 +271,7 @@ func newPatchSoftwareTitleConfigurationsDeleteCmd(ctx *registry.CLIContext) *cob
 					} else {
 						var rid string
 						if rid == "" {
-							id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v2/patch-software-title-configurations", "displayName", "id", entry, noInputBulk)
+							id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v3/patch-software-title-configurations", "displayName", "id", entry, noInputBulk)
 							if err != nil {
 								return fmt.Errorf("resolving %q: %w", entry, err)
 							}
@@ -316,7 +318,7 @@ func newPatchSoftwareTitleConfigurationsDeleteCmd(ctx *registry.CLIContext) *cob
 				var okCount, failCount int
 				var firstErr error
 				for _, e := range bulk {
-					delPath := strings.Replace("/v2/patch-software-title-configurations/{id}", "{id}", url.PathEscape(e.id), 1)
+					delPath := strings.Replace("/v3/patch-software-title-configurations/{id}", "{id}", url.PathEscape(e.id), 1)
 					resp, err := ctx.Client.Do(reqCtx, "DELETE", delPath, nil)
 					if err != nil {
 						fmt.Fprintf(os.Stderr, "delete patch-software-title-configuration %q (id: %s) failed: %v\n", e.label, e.id, err)
@@ -347,7 +349,7 @@ func newPatchSoftwareTitleConfigurationsDeleteCmd(ctx *registry.CLIContext) *cob
 			var resolvedByName string
 			if flagName != "" {
 				noInput, _ := cmd.Flags().GetBool("no-input")
-				rid, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v2/patch-software-title-configurations", "displayName", "id", flagName, noInput)
+				rid, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v3/patch-software-title-configurations", "displayName", "id", flagName, noInput)
 				if err != nil {
 					return err
 				}
@@ -395,7 +397,7 @@ func newPatchSoftwareTitleConfigurationsDeleteCmd(ctx *registry.CLIContext) *cob
 			}
 
 			// Build request path
-			path := "/v2/patch-software-title-configurations/{id}"
+			path := "/v3/patch-software-title-configurations/{id}"
 			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
 
 			// Build query string
@@ -403,9 +405,10 @@ func newPatchSoftwareTitleConfigurationsDeleteCmd(ctx *registry.CLIContext) *cob
 			if len(queryParts) > 0 {
 				path = path + "?" + strings.Join(queryParts, "&")
 			}
+			vft := newVersionFallback("/v3/patch-software-title-configurations/{id}")
 
 			// Make request
-			resp, err := ctx.Client.Do(reqCtx, "DELETE", path, nil)
+			resp, err := vft.do(ctx.Client, reqCtx, "DELETE", path, nil, []string{"/v2/patch-software-title-configurations/{id}"})
 			if err != nil {
 				return err
 			}
@@ -464,7 +467,7 @@ func newPatchSoftwareTitleConfigurationsHistoryCmd(ctx *registry.CLIContext) *co
 			var resolvedID string
 			if flagName != "" {
 				noInput, _ := cmd.Flags().GetBool("no-input")
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/patch-software-title-configurations", "displayName", "id", flagName, noInput)
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v3/patch-software-title-configurations", "displayName", "id", flagName, noInput)
 				if err != nil {
 					return err
 				}
@@ -476,7 +479,7 @@ func newPatchSoftwareTitleConfigurationsHistoryCmd(ctx *registry.CLIContext) *co
 			}
 
 			// Build request path
-			path := "/v2/patch-software-title-configurations/{id}/history"
+			path := "/v3/patch-software-title-configurations/{id}/history"
 			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
 
 			// Build query string
@@ -498,6 +501,7 @@ func newPatchSoftwareTitleConfigurationsHistoryCmd(ctx *registry.CLIContext) *co
 			if len(queryParts) > 0 {
 				path = path + "?" + strings.Join(queryParts, "&")
 			}
+			vft := newVersionFallback("/v3/patch-software-title-configurations/{id}/history")
 
 			// Auto-pagination: fetch all pages when --all is set and --page was not manually specified
 			if flagAll && flagPage == 0 {
@@ -510,7 +514,7 @@ func newPatchSoftwareTitleConfigurationsHistoryCmd(ctx *registry.CLIContext) *co
 
 				for {
 					// Build page-specific query
-					pagePath := "/v2/patch-software-title-configurations/{id}/history"
+					pagePath := "/v3/patch-software-title-configurations/{id}/history"
 					pagePath = strings.Replace(pagePath, "{id}", url.PathEscape(resolvedID), 1)
 					var pageQuery []string
 					// Carry forward non-pagination query params
@@ -523,7 +527,7 @@ func newPatchSoftwareTitleConfigurationsHistoryCmd(ctx *registry.CLIContext) *co
 					pageQuery = append(pageQuery, fmt.Sprintf("page-size=%d", pageSize))
 					pagePath = pagePath + "?" + strings.Join(pageQuery, "&")
 
-					resp, err := ctx.Client.Do(reqCtx, "GET", pagePath, nil)
+					resp, err := vft.do(ctx.Client, reqCtx, "GET", pagePath, nil, []string{"/v2/patch-software-title-configurations/{id}/history"})
 					if err != nil {
 						return err
 					}
@@ -572,7 +576,7 @@ func newPatchSoftwareTitleConfigurationsHistoryCmd(ctx *registry.CLIContext) *co
 			}
 
 			// Make request
-			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			resp, err := vft.do(ctx.Client, reqCtx, "GET", path, nil, []string{"/v2/patch-software-title-configurations/{id}/history"})
 			if err != nil {
 				return err
 			}
@@ -635,7 +639,7 @@ func newPatchSoftwareTitleConfigurationsAddHistoryNoteCmd(ctx *registry.CLIConte
 			var resolvedID string
 			if flagName != "" {
 				noInput, _ := cmd.Flags().GetBool("no-input")
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/patch-software-title-configurations", "displayName", "id", flagName, noInput)
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v3/patch-software-title-configurations", "displayName", "id", flagName, noInput)
 				if err != nil {
 					return err
 				}
@@ -647,7 +651,7 @@ func newPatchSoftwareTitleConfigurationsAddHistoryNoteCmd(ctx *registry.CLIConte
 			}
 
 			// Build request path
-			path := "/v2/patch-software-title-configurations/{id}/history"
+			path := "/v3/patch-software-title-configurations/{id}/history"
 			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
 
 			// Build query string
@@ -735,7 +739,7 @@ func newPatchSoftwareTitleConfigurationsPatchCmd(ctx *registry.CLIContext) *cobr
 			var resolvedPatchID string
 			if flagName != "" {
 				noInput, _ := cmd.Flags().GetBool("no-input")
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/patch-software-title-configurations", "displayName", "id", flagName, noInput)
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v3/patch-software-title-configurations", "displayName", "id", flagName, noInput)
 				if err != nil {
 					return err
 				}
@@ -747,7 +751,7 @@ func newPatchSoftwareTitleConfigurationsPatchCmd(ctx *registry.CLIContext) *cobr
 			}
 
 			// Build request path
-			path := "/v2/patch-software-title-configurations/{id}"
+			path := "/v3/patch-software-title-configurations/{id}"
 			path = strings.Replace(path, "{id}", url.PathEscape(resolvedPatchID), 1)
 
 			// Build query string
@@ -835,7 +839,7 @@ func newPatchSoftwareTitleConfigurationsDefinitionsCmd(ctx *registry.CLIContext)
 			var resolvedID string
 			if flagName != "" {
 				noInput, _ := cmd.Flags().GetBool("no-input")
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/patch-software-title-configurations", "displayName", "id", flagName, noInput)
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v3/patch-software-title-configurations", "displayName", "id", flagName, noInput)
 				if err != nil {
 					return err
 				}
@@ -847,7 +851,7 @@ func newPatchSoftwareTitleConfigurationsDefinitionsCmd(ctx *registry.CLIContext)
 			}
 
 			// Build request path
-			path := "/v2/patch-software-title-configurations/{id}/definitions"
+			path := "/v3/patch-software-title-configurations/{id}/definitions"
 			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
 
 			// Build query string
@@ -869,6 +873,7 @@ func newPatchSoftwareTitleConfigurationsDefinitionsCmd(ctx *registry.CLIContext)
 			if len(queryParts) > 0 {
 				path = path + "?" + strings.Join(queryParts, "&")
 			}
+			vft := newVersionFallback("/v3/patch-software-title-configurations/{id}/definitions")
 
 			// Auto-pagination: fetch all pages when --all is set and --page was not manually specified
 			if flagAll && flagPage == 0 {
@@ -881,7 +886,7 @@ func newPatchSoftwareTitleConfigurationsDefinitionsCmd(ctx *registry.CLIContext)
 
 				for {
 					// Build page-specific query
-					pagePath := "/v2/patch-software-title-configurations/{id}/definitions"
+					pagePath := "/v3/patch-software-title-configurations/{id}/definitions"
 					pagePath = strings.Replace(pagePath, "{id}", url.PathEscape(resolvedID), 1)
 					var pageQuery []string
 					// Carry forward non-pagination query params
@@ -894,7 +899,7 @@ func newPatchSoftwareTitleConfigurationsDefinitionsCmd(ctx *registry.CLIContext)
 					pageQuery = append(pageQuery, fmt.Sprintf("page-size=%d", pageSize))
 					pagePath = pagePath + "?" + strings.Join(pageQuery, "&")
 
-					resp, err := ctx.Client.Do(reqCtx, "GET", pagePath, nil)
+					resp, err := vft.do(ctx.Client, reqCtx, "GET", pagePath, nil, []string{"/v2/patch-software-title-configurations/{id}/definitions"})
 					if err != nil {
 						return err
 					}
@@ -943,7 +948,7 @@ func newPatchSoftwareTitleConfigurationsDefinitionsCmd(ctx *registry.CLIContext)
 			}
 
 			// Make request
-			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			resp, err := vft.do(ctx.Client, reqCtx, "GET", path, nil, []string{"/v2/patch-software-title-configurations/{id}/definitions"})
 			if err != nil {
 				return err
 			}
@@ -999,7 +1004,7 @@ func newPatchSoftwareTitleConfigurationsDependenciesCmd(ctx *registry.CLIContext
 			var resolvedID string
 			if flagName != "" {
 				noInput, _ := cmd.Flags().GetBool("no-input")
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/patch-software-title-configurations", "displayName", "id", flagName, noInput)
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v3/patch-software-title-configurations", "displayName", "id", flagName, noInput)
 				if err != nil {
 					return err
 				}
@@ -1011,7 +1016,7 @@ func newPatchSoftwareTitleConfigurationsDependenciesCmd(ctx *registry.CLIContext
 			}
 
 			// Build request path
-			path := "/v2/patch-software-title-configurations/{id}/dependencies"
+			path := "/v3/patch-software-title-configurations/{id}/dependencies"
 			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
 
 			// Build query string
@@ -1019,9 +1024,10 @@ func newPatchSoftwareTitleConfigurationsDependenciesCmd(ctx *registry.CLIContext
 			if len(queryParts) > 0 {
 				path = path + "?" + strings.Join(queryParts, "&")
 			}
+			vft := newVersionFallback("/v3/patch-software-title-configurations/{id}/dependencies")
 
 			// Make request
-			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			resp, err := vft.do(ctx.Client, reqCtx, "GET", path, nil, []string{"/v2/patch-software-title-configurations/{id}/dependencies"})
 			if err != nil {
 				return err
 			}
@@ -1063,7 +1069,7 @@ func newPatchSoftwareTitleConfigurationsExportReportCmd(ctx *registry.CLIContext
 			var resolvedID string
 			if flagName != "" {
 				noInput, _ := cmd.Flags().GetBool("no-input")
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/patch-software-title-configurations", "displayName", "id", flagName, noInput)
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v3/patch-software-title-configurations", "displayName", "id", flagName, noInput)
 				if err != nil {
 					return err
 				}
@@ -1075,7 +1081,7 @@ func newPatchSoftwareTitleConfigurationsExportReportCmd(ctx *registry.CLIContext
 			}
 
 			// Build request path
-			path := "/v2/patch-software-title-configurations/{id}/export-report"
+			path := "/v3/patch-software-title-configurations/{id}/export-report"
 			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
 
 			// Build query string
@@ -1091,9 +1097,10 @@ func newPatchSoftwareTitleConfigurationsExportReportCmd(ctx *registry.CLIContext
 			if len(queryParts) > 0 {
 				path = path + "?" + strings.Join(queryParts, "&")
 			}
+			vft := newVersionFallback("/v3/patch-software-title-configurations/{id}/export-report")
 
 			// Make request
-			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			resp, err := vft.do(ctx.Client, reqCtx, "GET", path, nil, []string{"/v2/patch-software-title-configurations/{id}/export-report"})
 			if err != nil {
 				return err
 			}
@@ -1143,7 +1150,7 @@ func newPatchSoftwareTitleConfigurationsExtensionAttributesCmd(ctx *registry.CLI
 			var resolvedID string
 			if flagName != "" {
 				noInput, _ := cmd.Flags().GetBool("no-input")
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/patch-software-title-configurations", "displayName", "id", flagName, noInput)
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v3/patch-software-title-configurations", "displayName", "id", flagName, noInput)
 				if err != nil {
 					return err
 				}
@@ -1155,7 +1162,7 @@ func newPatchSoftwareTitleConfigurationsExtensionAttributesCmd(ctx *registry.CLI
 			}
 
 			// Build request path
-			path := "/v2/patch-software-title-configurations/{id}/extension-attributes"
+			path := "/v3/patch-software-title-configurations/{id}/extension-attributes"
 			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
 
 			// Build query string
@@ -1163,9 +1170,10 @@ func newPatchSoftwareTitleConfigurationsExtensionAttributesCmd(ctx *registry.CLI
 			if len(queryParts) > 0 {
 				path = path + "?" + strings.Join(queryParts, "&")
 			}
+			vft := newVersionFallback("/v3/patch-software-title-configurations/{id}/extension-attributes")
 
 			// Make request
-			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			resp, err := vft.do(ctx.Client, reqCtx, "GET", path, nil, []string{"/v2/patch-software-title-configurations/{id}/extension-attributes"})
 			if err != nil {
 				return err
 			}
@@ -1188,7 +1196,7 @@ func newPatchSoftwareTitleConfigurationsCreateDashboardCmd(ctx *registry.CLICont
 	cmd := &cobra.Command{
 		Use:         "create-dashboard [<id>]",
 		Short:       "Add a software title configuration to the dashboard",
-		Long:        "Adds asoftware title configuration to the dashboard.",
+		Long:        "Adds a software title configuration to the dashboard.",
 		Annotations: map[string]string{"jamf:privileges": "Read Patch Management Software Titles"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -1198,7 +1206,7 @@ func newPatchSoftwareTitleConfigurationsCreateDashboardCmd(ctx *registry.CLICont
 			var resolvedID string
 			if flagName != "" {
 				noInput, _ := cmd.Flags().GetBool("no-input")
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/patch-software-title-configurations", "displayName", "id", flagName, noInput)
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v3/patch-software-title-configurations", "displayName", "id", flagName, noInput)
 				if err != nil {
 					return err
 				}
@@ -1210,7 +1218,7 @@ func newPatchSoftwareTitleConfigurationsCreateDashboardCmd(ctx *registry.CLICont
 			}
 
 			// Build request path
-			path := "/v2/patch-software-title-configurations/{id}/dashboard"
+			path := "/v3/patch-software-title-configurations/{id}/dashboard"
 			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
 
 			// Build query string
@@ -1270,7 +1278,7 @@ func newPatchSoftwareTitleConfigurationsDashboardCmd(ctx *registry.CLIContext) *
 			var resolvedID string
 			if flagName != "" {
 				noInput, _ := cmd.Flags().GetBool("no-input")
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/patch-software-title-configurations", "displayName", "id", flagName, noInput)
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v3/patch-software-title-configurations", "displayName", "id", flagName, noInput)
 				if err != nil {
 					return err
 				}
@@ -1282,7 +1290,7 @@ func newPatchSoftwareTitleConfigurationsDashboardCmd(ctx *registry.CLIContext) *
 			}
 
 			// Build request path
-			path := "/v2/patch-software-title-configurations/{id}/dashboard"
+			path := "/v3/patch-software-title-configurations/{id}/dashboard"
 			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
 
 			// Build query string
@@ -1290,9 +1298,10 @@ func newPatchSoftwareTitleConfigurationsDashboardCmd(ctx *registry.CLIContext) *
 			if len(queryParts) > 0 {
 				path = path + "?" + strings.Join(queryParts, "&")
 			}
+			vft := newVersionFallback("/v3/patch-software-title-configurations/{id}/dashboard")
 
 			// Make request
-			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			resp, err := vft.do(ctx.Client, reqCtx, "GET", path, nil, []string{"/v2/patch-software-title-configurations/{id}/dashboard"})
 			if err != nil {
 				return err
 			}
@@ -1331,7 +1340,7 @@ func newPatchSoftwareTitleConfigurationsPatchReportCmd(ctx *registry.CLIContext)
 			var resolvedID string
 			if flagName != "" {
 				noInput, _ := cmd.Flags().GetBool("no-input")
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/patch-software-title-configurations", "displayName", "id", flagName, noInput)
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v3/patch-software-title-configurations", "displayName", "id", flagName, noInput)
 				if err != nil {
 					return err
 				}
@@ -1343,7 +1352,7 @@ func newPatchSoftwareTitleConfigurationsPatchReportCmd(ctx *registry.CLIContext)
 			}
 
 			// Build request path
-			path := "/v2/patch-software-title-configurations/{id}/patch-report"
+			path := "/v3/patch-software-title-configurations/{id}/patch-report"
 			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
 
 			// Build query string
@@ -1365,6 +1374,7 @@ func newPatchSoftwareTitleConfigurationsPatchReportCmd(ctx *registry.CLIContext)
 			if len(queryParts) > 0 {
 				path = path + "?" + strings.Join(queryParts, "&")
 			}
+			vft := newVersionFallback("/v3/patch-software-title-configurations/{id}/patch-report")
 
 			// Auto-pagination: fetch all pages when --all is set and --page was not manually specified
 			if flagAll && flagPage == 0 {
@@ -1377,7 +1387,7 @@ func newPatchSoftwareTitleConfigurationsPatchReportCmd(ctx *registry.CLIContext)
 
 				for {
 					// Build page-specific query
-					pagePath := "/v2/patch-software-title-configurations/{id}/patch-report"
+					pagePath := "/v3/patch-software-title-configurations/{id}/patch-report"
 					pagePath = strings.Replace(pagePath, "{id}", url.PathEscape(resolvedID), 1)
 					var pageQuery []string
 					// Carry forward non-pagination query params
@@ -1390,7 +1400,7 @@ func newPatchSoftwareTitleConfigurationsPatchReportCmd(ctx *registry.CLIContext)
 					pageQuery = append(pageQuery, fmt.Sprintf("page-size=%d", pageSize))
 					pagePath = pagePath + "?" + strings.Join(pageQuery, "&")
 
-					resp, err := ctx.Client.Do(reqCtx, "GET", pagePath, nil)
+					resp, err := vft.do(ctx.Client, reqCtx, "GET", pagePath, nil, []string{"/v2/patch-software-title-configurations/{id}/patch-report"})
 					if err != nil {
 						return err
 					}
@@ -1439,7 +1449,7 @@ func newPatchSoftwareTitleConfigurationsPatchReportCmd(ctx *registry.CLIContext)
 			}
 
 			// Make request
-			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			resp, err := vft.do(ctx.Client, reqCtx, "GET", path, nil, []string{"/v2/patch-software-title-configurations/{id}/patch-report"})
 			if err != nil {
 				return err
 			}
@@ -1468,7 +1478,7 @@ func newPatchSoftwareTitleConfigurationsPatchReportCmd(ctx *registry.CLIContext)
 
 	cmd.Flags().IntVar(&flagPage, "page", 0, "")
 	cmd.Flags().IntVar(&flagPageSize, "page-size", 100, "")
-	cmd.Flags().StringSliceVar(&flagSort, "sort", nil, "Sorting criteria in the format: property:asc/desc. Default sort is computerName:asc. Multiple sort criteria are supported and must be separated with a comma. Supported fields: computerName, deviceId, username, operatingSystemVersion, lastContactTime, buildingName, departmentName, siteName, version")
+	cmd.Flags().StringSliceVar(&flagSort, "sort", nil, "Sorting criteria in the format: property:asc/desc. Default sort is computerName:asc. Multiple sort criteria are supported and must be separated with a comma. Supported fields: computerName, deviceId, username, operatingSystemVersion, lastCheckIn, buildingName, departmentName, siteName, version")
 	cmd.Flags().StringVar(&flagFilter, "filter", "", "Query in the RSQL format, allowing to filter Patch Report collection on version equality only. Default filter is empty query - returning all results for the requested page. Fields allowed in the query: version. Comparators allowed in the query: ==, != This param can be combined with paging and sorting.")
 	cmd.Flags().BoolVar(&flagAll, "all", true, "Fetch all pages (set --all=false for single page)")
 	cmd.Flags().IntVar(&flagLimit, "limit", 0, "Maximum total results to return (0 = unlimited)")
@@ -1495,7 +1505,7 @@ func newPatchSoftwareTitleConfigurationsPatchSummaryCmd(ctx *registry.CLIContext
 			var resolvedID string
 			if flagName != "" {
 				noInput, _ := cmd.Flags().GetBool("no-input")
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/patch-software-title-configurations", "displayName", "id", flagName, noInput)
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v3/patch-software-title-configurations", "displayName", "id", flagName, noInput)
 				if err != nil {
 					return err
 				}
@@ -1507,7 +1517,7 @@ func newPatchSoftwareTitleConfigurationsPatchSummaryCmd(ctx *registry.CLIContext
 			}
 
 			// Build request path
-			path := "/v2/patch-software-title-configurations/{id}/patch-summary"
+			path := "/v3/patch-software-title-configurations/{id}/patch-summary"
 			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
 
 			// Build query string
@@ -1515,9 +1525,10 @@ func newPatchSoftwareTitleConfigurationsPatchSummaryCmd(ctx *registry.CLIContext
 			if len(queryParts) > 0 {
 				path = path + "?" + strings.Join(queryParts, "&")
 			}
+			vft := newVersionFallback("/v3/patch-software-title-configurations/{id}/patch-summary")
 
 			// Make request
-			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			resp, err := vft.do(ctx.Client, reqCtx, "GET", path, nil, []string{"/v2/patch-software-title-configurations/{id}/patch-summary"})
 			if err != nil {
 				return err
 			}
@@ -1550,7 +1561,7 @@ func newPatchSoftwareTitleConfigurationsVersionsCmd(ctx *registry.CLIContext) *c
 			var resolvedID string
 			if flagName != "" {
 				noInput, _ := cmd.Flags().GetBool("no-input")
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/patch-software-title-configurations", "displayName", "id", flagName, noInput)
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v3/patch-software-title-configurations", "displayName", "id", flagName, noInput)
 				if err != nil {
 					return err
 				}
@@ -1562,7 +1573,7 @@ func newPatchSoftwareTitleConfigurationsVersionsCmd(ctx *registry.CLIContext) *c
 			}
 
 			// Build request path
-			path := "/v2/patch-software-title-configurations/{id}/patch-summary/versions"
+			path := "/v3/patch-software-title-configurations/{id}/patch-summary/versions"
 			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
 
 			// Build query string
@@ -1570,9 +1581,10 @@ func newPatchSoftwareTitleConfigurationsVersionsCmd(ctx *registry.CLIContext) *c
 			if len(queryParts) > 0 {
 				path = path + "?" + strings.Join(queryParts, "&")
 			}
+			vft := newVersionFallback("/v3/patch-software-title-configurations/{id}/patch-summary/versions")
 
 			// Make request
-			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			resp, err := vft.do(ctx.Client, reqCtx, "GET", path, nil, []string{"/v2/patch-software-title-configurations/{id}/patch-summary/versions"})
 			if err != nil {
 				return err
 			}
@@ -1652,7 +1664,7 @@ If not, a new resource is created.`,
 
 			// Check if resource exists by name (read-only, runs even in dry-run)
 			noInput, _ := cmd.Flags().GetBool("no-input")
-			id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v2/patch-software-title-configurations", "displayName", "id", name, noInput)
+			id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v3/patch-software-title-configurations", "displayName", "id", name, noInput)
 			if err != nil {
 				return err
 			}
@@ -1663,7 +1675,7 @@ If not, a new resource is created.`,
 					fmt.Fprintf(os.Stderr, "[dry-run] Would create patch-software-title-configuration %q\n", name)
 					return nil
 				}
-				resp, err := ctx.Client.Do(reqCtx, "POST", "/v2/patch-software-title-configurations", bytes.NewReader(data))
+				resp, err := ctx.Client.Do(reqCtx, "POST", "/v3/patch-software-title-configurations", bytes.NewReader(data))
 				if err != nil {
 					return err
 				}
@@ -1689,7 +1701,7 @@ If not, a new resource is created.`,
 				}
 			}
 
-			updatePath := strings.Replace("/v2/patch-software-title-configurations/{id}", "{id}", url.PathEscape(id), 1)
+			updatePath := strings.Replace("/v3/patch-software-title-configurations/{id}", "{id}", url.PathEscape(id), 1)
 			reqCtx = registry.WithContentType(reqCtx, "application/merge-patch+json")
 			resp, err := ctx.Client.Do(reqCtx, "PATCH", updatePath, bytes.NewReader(data))
 			if err != nil {
