@@ -71,6 +71,12 @@ components:
               idpType:
                 example: GENERIC_OIDC
                 type: string
+              logoUrl:
+                description: |
+                  Customer-provided icon served by jamf account URL for this connection. Null when no custom icon is configured (Jamf ID connections always return null).
+                example: https://acme.example.com/sso-logo.png
+                nullable: true
+                type: string
               redirectUrl:
                 example: /oauth2/authorization/jamf-account-domain.name?original_url=aHR0cHM6Ly9qYW1mLXByby11cmwuY29tL2xvZ2dpbmcuaHRtbA==&login_hint=YWRtaW5AZG9tYWluLm5hbWU=
                 type: string
