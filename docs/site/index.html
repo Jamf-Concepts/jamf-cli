@@ -581,8 +581,11 @@
     (function () {
       var toggle = document.getElementById('theme-toggle');
 
-      function syncThemeColor(theme) {
-        var c = theme === 'dark' ? '#0f1217' : '#fbfcfd';
+      // Pin the browser-chrome color to the rendered page background so it
+      // tracks --page-bg instead of duplicating its hex. Must run after
+      // data-theme is set (the head script hardcodes it for pre-paint).
+      function syncThemeColor() {
+        var c = getComputedStyle(document.body).backgroundColor;
         document.querySelectorAll('meta[name="theme-color"]').forEach(function (m) {
           m.setAttribute('content', c);
         });
@@ -603,7 +606,7 @@
         function apply() {
           document.documentElement.setAttribute('data-theme', next);
           localStorage.setItem('theme', next);
-          syncThemeColor(next);
+          syncThemeColor();
         }
 
         var reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;

@@ -2691,17 +2691,21 @@ footer .footer-meta {
 /* Scale on press (#12) — subtle tactile feedback on click. Uses the
    independent `scale` property so it composes with elements that already
    animate `transform` (the translateY lift on .stat-card / .back-to-top).
-   0.96 is the skill's floor; anything below reads as exaggerated. */
-.copy-btn:active,
-.tab:active,
-.toggle-all-btn:active,
-.kbd-hint-btn:active,
-.theme-toggle:active,
-.install-card .btn:active,
-.search-clear:active,
-a.stat-card:active,
-.back-to-top:active {
-  scale: 0.96;
+   0.96 is the skill's floor; anything below reads as exaggerated.
+   Gated on no-preference so reduced-motion users never get the scale —
+   no separate reset rule needed. */
+@media (prefers-reduced-motion: no-preference) {
+  .copy-btn:active,
+  .tab:active,
+  .toggle-all-btn:active,
+  .kbd-hint-btn:active,
+  .theme-toggle:active,
+  .install-card .btn:active,
+  .search-clear:active,
+  a.stat-card:active,
+  .back-to-top:active {
+    scale: 0.96;
+  }
 }
 
 /* Minimum hit area (#16) — the copy button's visible target is ~24px.
@@ -2748,17 +2752,6 @@ a.stat-card:active,
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .copy-btn:active,
-  .tab:active,
-  .toggle-all-btn:active,
-  .kbd-hint-btn:active,
-  .theme-toggle:active,
-  .install-card .btn:active,
-  .search-clear:active,
-  a.stat-card:active,
-  .back-to-top:active {
-    scale: 1;
-  }
   /* Keep the copy→check swap as a plain opacity fade — no scale/blur motion. */
   .copy-btn svg {
     transition-property: opacity;

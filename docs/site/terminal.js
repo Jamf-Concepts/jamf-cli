@@ -125,13 +125,13 @@
     cmdLine.appendChild(commandSpan);
     terminalOutput.appendChild(cmdLine);
 
-    typeChars(segmentCommand(item.command), commandSpan, 0, 0, null);
+    typeChars(segmentCommand(item.command), commandSpan, 0, 0);
   }
 
   // Types char-by-char across highlighted segments: a new span is created
   // when typing enters a segment, then filled one character at a time —
   // the color arrives with the token, just like a live shell.
-  function typeChars(segs, commandSpan, segIndex, charIndex, currentSpan) {
+  function typeChars(segs, commandSpan, segIndex, charIndex) {
     if (segIndex >= segs.length) {
       terminalEl.classList.remove('typing');
       schedule(startCommand, 3500);
@@ -139,20 +139,16 @@
     }
     var seg = segs[segIndex];
     if (charIndex === 0) {
-      currentSpan = document.createElement('span');
-      if (seg.cls) currentSpan.className = seg.cls;
-      commandSpan.appendChild(currentSpan);
+      var span = document.createElement('span');
+      if (seg.cls) span.className = seg.cls;
+      commandSpan.appendChild(span);
     }
-    currentSpan.textContent += seg.text[charIndex];
-    var nextSeg = segIndex;
+    // The span for this segment is always the last one appended.
+    commandSpan.lastChild.textContent += seg.text[charIndex];
     var nextChar = charIndex + 1;
-    if (nextChar >= seg.text.length) {
-      nextSeg = segIndex + 1;
-      nextChar = 0;
-      currentSpan = null;
-    }
+    var done = nextChar >= seg.text.length;
     schedule(function () {
-      typeChars(segs, commandSpan, nextSeg, nextChar, currentSpan);
+      typeChars(segs, commandSpan, done ? segIndex + 1 : segIndex, done ? 0 : nextChar);
     }, 55);
   }
 
