@@ -65,6 +65,20 @@ var platformTableColumns = map[string][]tableColumn{
 	},
 }
 
+// crossResourceNameLookupPath maps a resource name to a list endpoint owned by
+// a *different* resource, used for --name → ID resolution when the resource has
+// no list op of its own but its single {id} path param refers to a sibling
+// resource's ID.
+//
+// Example: benchmark-reports' ops are GET /benchmarks/{id}/rules etc.; the {id}
+// is a benchmark ID (owned by the separate "benchmarks" tag), so --name resolves
+// against the benchmarks list. The generic platform.ResolveIDByName matches
+// compliance-benchmark titles and reads the "id" field, so no SDK-specific code
+// is needed. Paths carry a literal {tenantId} the template substitutes at runtime.
+var crossResourceNameLookupPath = map[string]string{
+	"benchmark-reports": "/api/compliance-benchmarks/v1/tenant/{tenantId}/benchmarks",
+}
+
 // templateOp wraps *parser.Operation with template-friendly fields.
 type templateOp struct {
 	*parser.Operation
@@ -212,6 +226,12 @@ func buildTemplateResource(r *parser.Resource) templateResource {
 			listPath = restoreTenantSegment(op.Path)
 			break
 		}
+	}
+	// Resources with no list op of their own (e.g. benchmark-reports) resolve
+	// --name against a sibling resource's list endpoint when their {id} refers
+	// to that sibling's ID.
+	if listPath == "" {
+		listPath = crossResourceNameLookupPath[r.Name]
 	}
 
 	ops := make([]templateOp, 0, len(r.Operations))

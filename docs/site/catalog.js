@@ -860,6 +860,20 @@
       descLine.appendChild(newBadge);
     }
 
+    // Destructive-command badge — a fleet admin scanning the catalog should
+    // see at a glance which commands can nuke a device. Ground truth is the
+    // CLI's own --confirm-destructive flag; the verb fallback covers
+    // namespaces whose destructive ops don't carry it (school/platform
+    // erase, security purge). Plain `delete` is deliberately excluded:
+    // resource deletion is routine, device destruction is not.
+    if (isDestructiveCommand(cmd)) {
+      var dangerBadge = document.createElement('span');
+      dangerBadge.className = 'danger-badge';
+      dangerBadge.title = 'Destructive — requires explicit confirmation to run';
+      dangerBadge.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> destructive';
+      descLine.appendChild(dangerBadge);
+    }
+
     // Product badge on every command
     if (cmd.product && PRODUCT_LABELS[cmd.product]) {
       var prodBadge = document.createElement('span');
@@ -971,6 +985,15 @@
     });
 
     return { row: row, detail: detail };
+  }
+
+  // Destructive = the CLI's own --confirm-destructive flag (ground truth),
+  // plus device-destructive verbs for namespaces that don't carry it.
+  var DESTRUCTIVE_VERB_RE = /(^| )(erase|wipe|purge|unmanage|remove-mdm)( |$)/;
+
+  function isDestructiveCommand(cmd) {
+    if (cmd.flags && cmd.flags.indexOf('--confirm-destructive') !== -1) return true;
+    return DESTRUCTIVE_VERB_RE.test(cmd.command);
   }
 
   function copyWithFeedback(text, element) {

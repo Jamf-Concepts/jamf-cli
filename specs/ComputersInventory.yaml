@@ -27,6 +27,207 @@ components:
           nullable: true
           type: string
       type: object
+    ComputerGeneralCreateV4:
+      properties:
+        assetTag:
+          example: "304822"
+          type: string
+        barcode1:
+          example: 5 12345 678900
+          type: string
+        barcode2:
+          example: 5 12345 678900
+          type: string
+        declarativeDeviceManagementEnabled:
+          example: true
+          type: boolean
+        distributionPointId:
+          example: "1"
+          type: string
+        enrolledViaAutomatedDeviceEnrollment:
+          example: true
+          type: boolean
+        itunesStoreAccountActive:
+          example: true
+          type: boolean
+        jamfBinaryVersion:
+          example: "9.27"
+          type: string
+        lastCheckIn:
+          example: "2018-10-31T18:04:13Z"
+          format: date-time
+          type: string
+        lastCloudBackupDate:
+          example: "2018-10-31T18:04:13Z"
+          format: date-time
+          type: string
+        lastContact:
+          description: |
+            The most recent time the device communicated with Jamf Pro via any channel
+            (binary check-in, MDM ack, or DDM status report).
+          example: "2018-10-31T18:04:13Z"
+          format: date-time
+          type: string
+        lastEnrolledDate:
+          example: "2018-10-31T18:04:13Z"
+          format: date-time
+          type: string
+        lastIpAddress:
+          example: 247.185.82.186
+          type: string
+        mdmCapable:
+          example: true
+          type: boolean
+        name:
+          example: Boalime
+          minLength: 1
+          type: string
+        platform:
+          enum:
+            - WINDOWS
+            - MAC
+            - NONE
+          example: MAC
+          type: string
+        remoteManagement:
+          $ref: _MonolithLibrary.yaml#/components/schemas/ComputerRemoteManagementCreate
+        reportDate:
+          example: "2018-10-31T18:04:13Z"
+          format: date-time
+          type: string
+        siteId:
+          example: "1"
+          type: string
+        supervised:
+          example: true
+          type: boolean
+        userApprovedMdm:
+          example: true
+          type: boolean
+      required:
+        - name
+      type: object
+    ComputerGeneralV4:
+      properties:
+        assetTag:
+          example: "304822"
+          type: string
+        barcode1:
+          example: 5 12345 678900
+          type: string
+        barcode2:
+          example: 5 12345 678900
+          type: string
+        declarativeDeviceManagementEnabled:
+          example: true
+          type: boolean
+        distributionPoint:
+          example: distribution point name
+          type: string
+        enrolledViaAutomatedDeviceEnrollment:
+          example: true
+          type: boolean
+        enrollmentMethod:
+          $ref: _MonolithLibrary.yaml#/components/schemas/EnrollmentMethod
+        extensionAttributes:
+          items:
+            $ref: _MonolithLibrary.yaml#/components/schemas/ComputerExtensionAttribute
+          type: array
+        initialEntryDate:
+          example: "2018-10-31"
+          format: date
+          type: string
+        itunesStoreAccountActive:
+          example: true
+          type: boolean
+        jamfBinaryVersion:
+          example: "9.27"
+          type: string
+        lastCheckIn:
+          example: "2018-10-31T18:04:13Z"
+          format: date-time
+          type: string
+        lastCloudBackupDate:
+          example: "2018-10-31T18:04:13Z"
+          format: date-time
+          type: string
+        lastContact:
+          example: "2018-10-31T18:04:13Z"
+          format: date-time
+          type: string
+        lastEnrolledDate:
+          example: "2018-10-31T18:04:13Z"
+          format: date-time
+          type: string
+        lastIpAddress:
+          example: 247.185.82.186
+          type: string
+        lastLoggedInUsernameBinary:
+          example: admin
+          nullable: true
+          type: string
+        lastLoggedInUsernameBinaryTimestamp:
+          example: "2018-10-31T18:04:13Z"
+          format: date-time
+          nullable: true
+          type: string
+        lastLoggedInUsernameMdm:
+          example: admin
+          nullable: true
+          type: string
+        lastLoggedInUsernameMdmTimestamp:
+          example: "2018-10-31T18:04:13Z"
+          format: date-time
+          nullable: true
+          type: string
+        lastLoggedInUsernameSelfService:
+          example: admin
+          nullable: true
+          type: string
+        lastLoggedInUsernameSelfServiceTimestamp:
+          example: "2018-10-31T18:04:13Z"
+          format: date-time
+          nullable: true
+          type: string
+        lastReportedIpV4:
+          description: Last reported IPv4 address
+          example: 247.185.82.186
+          type: string
+        lastReportedIpV6:
+          example: 2001:0db8:85a3:0000:0000:8a2e:0370:7335
+          type: string
+        managementId:
+          example: 73226fb6-61df-4c10-9552-eb9bc353d507
+          readOnly: true
+          type: string
+        mdmCapable:
+          $ref: _MonolithLibrary.yaml#/components/schemas/ComputerMdmCapability
+        mdmProfileExpiration:
+          example: "2018-10-31T18:04:13Z"
+          format: date-time
+          type: string
+        name:
+          example: Boalime
+          minLength: 1
+          type: string
+        platform:
+          example: Mac
+          type: string
+        remoteManagement:
+          $ref: _MonolithLibrary.yaml#/components/schemas/ComputerRemoteManagement
+        reportDate:
+          example: "2018-10-31T18:04:13Z"
+          format: date-time
+          type: string
+        site:
+          $ref: _MonolithLibrary.yaml#/components/schemas/ComputerSite
+        supervised:
+          example: true
+          type: boolean
+        userApprovedMdm:
+          example: true
+          type: boolean
+      type: object
     ComputerInventory:
       properties:
         applications:
@@ -183,6 +384,64 @@ components:
         userAndLocation:
           $ref: _MonolithLibrary.yaml#/components/schemas/ComputerUserAndLocationCreate
       type: object
+    ComputerInventoryCreateRequestV4:
+      properties:
+        applications:
+          items:
+            $ref: _MonolithLibrary.yaml#/components/schemas/ComputerApplicationCreate
+          nullable: true
+          type: array
+        certificates:
+          items:
+            $ref: _MonolithLibrary.yaml#/components/schemas/ComputerCertificateCreate
+          nullable: true
+          type: array
+        configurationProfiles:
+          items:
+            $ref: _MonolithLibrary.yaml#/components/schemas/ComputerConfigurationProfileCreate
+          nullable: true
+          type: array
+        general:
+          $ref: '#/components/schemas/ComputerGeneralCreateV4'
+        hardware:
+          $ref: _MonolithLibrary.yaml#/components/schemas/ComputerHardwareCreate
+        localUserAccounts:
+          items:
+            $ref: _MonolithLibrary.yaml#/components/schemas/ComputerLocalUserAccountCreate
+          nullable: true
+          type: array
+        operatingSystem:
+          $ref: _MonolithLibrary.yaml#/components/schemas/ComputerOperatingSystemCreate
+        packageReceipts:
+          $ref: _MonolithLibrary.yaml#/components/schemas/ComputerPackageReceiptsCreate
+        printers:
+          items:
+            $ref: _MonolithLibrary.yaml#/components/schemas/ComputerPrinterCreate
+          nullable: true
+          type: array
+        purchasing:
+          $ref: _MonolithLibrary.yaml#/components/schemas/ComputerPurchaseCreate
+        security:
+          $ref: _MonolithLibrary.yaml#/components/schemas/ComputerSecurityCreate
+        services:
+          items:
+            $ref: _MonolithLibrary.yaml#/components/schemas/ComputerServiceCreate
+          nullable: true
+          type: array
+        softwareUpdates:
+          items:
+            $ref: _MonolithLibrary.yaml#/components/schemas/ComputerSoftwareUpdateCreate
+          nullable: true
+          type: array
+        storage:
+          $ref: _MonolithLibrary.yaml#/components/schemas/ComputerStorageCreate
+        udid:
+          example: 45436edf-864e-4364-982a-330b01d39e65
+          nullable: true
+          type: string
+        userAndLocation:
+          $ref: _MonolithLibrary.yaml#/components/schemas/ComputerUserAndLocationCreate
+      type: object
     ComputerInventorySearchResults:
       properties:
         results:
@@ -193,6 +452,96 @@ components:
           example: 3
           minimum: 0
           type: integer
+      type: object
+    ComputerInventorySearchResultsV4:
+      properties:
+        results:
+          items:
+            $ref: '#/components/schemas/ComputerInventoryV4'
+          type: array
+        totalCount:
+          example: 3
+          minimum: 0
+          type: integer
+      type: object
+    ComputerInventoryV4:
+      properties:
+        applications:
+          items:
+            $ref: _MonolithLibrary.yaml#/components/schemas/ComputerApplicationV3
+          type: array
+        attachments:
+          items:
+            $ref: _MonolithLibrary.yaml#/components/schemas/ComputerAttachment
+          type: array
+        certificates:
+          items:
+            $ref: _MonolithLibrary.yaml#/components/schemas/ComputerCertificate
+          type: array
+        configurationProfiles:
+          items:
+            $ref: _MonolithLibrary.yaml#/components/schemas/ComputerConfigurationProfile
+          type: array
+        contentCaching:
+          $ref: _MonolithLibrary.yaml#/components/schemas/ComputerContentCaching
+        diskEncryption:
+          $ref: _MonolithLibrary.yaml#/components/schemas/ComputerDiskEncryption
+        extensionAttributes:
+          items:
+            $ref: _MonolithLibrary.yaml#/components/schemas/ComputerExtensionAttribute
+          type: array
+        general:
+          $ref: '#/components/schemas/ComputerGeneralV4'
+        groupMemberships:
+          items:
+            $ref: _MonolithLibrary.yaml#/components/schemas/GroupMembership
+          type: array
+        hardware:
+          $ref: _MonolithLibrary.yaml#/components/schemas/ComputerHardware
+        ibeacons:
+          items:
+            $ref: _MonolithLibrary.yaml#/components/schemas/ComputerIbeacon
+          type: array
+        id:
+          example: "1"
+          minLength: 1
+          readOnly: true
+          type: string
+        licensedSoftware:
+          items:
+            $ref: _MonolithLibrary.yaml#/components/schemas/ComputerLicensedSoftware
+          type: array
+        localUserAccounts:
+          items:
+            $ref: _MonolithLibrary.yaml#/components/schemas/ComputerLocalUserAccount
+          type: array
+        operatingSystem:
+          $ref: _MonolithLibrary.yaml#/components/schemas/ComputerOperatingSystem
+        packageReceipts:
+          $ref: _MonolithLibrary.yaml#/components/schemas/ComputerPackageReceipts
+        printers:
+          items:
+            $ref: _MonolithLibrary.yaml#/components/schemas/ComputerPrinter
+          type: array
+        purchasing:
+          $ref: _MonolithLibrary.yaml#/components/schemas/ComputerPurchase
+        security:
+          $ref: _MonolithLibrary.yaml#/components/schemas/ComputerSecurity
+        services:
+          items:
+            $ref: _MonolithLibrary.yaml#/components/schemas/ComputerService
+          type: array
+        softwareUpdates:
+          items:
+            $ref: _MonolithLibrary.yaml#/components/schemas/ComputerSoftwareUpdate
+          type: array
+        storage:
+          $ref: _MonolithLibrary.yaml#/components/schemas/ComputerStorage
+        udid:
+          example: "123"
+          type: string
+        userAndLocation:
+          $ref: _MonolithLibrary.yaml#/components/schemas/ComputerUserAndLocation
       type: object
     ComputerSection:
       enum:
@@ -222,8 +571,34 @@ components:
         - GROUP_MEMBERSHIPS
       example: general
       type: string
+    ComputerSectionV4:
+      enum:
+        - GENERAL
+        - DISK_ENCRYPTION
+        - PURCHASING
+        - APPLICATIONS
+        - STORAGE
+        - USER_AND_LOCATION
+        - CONFIGURATION_PROFILES
+        - PRINTERS
+        - SERVICES
+        - HARDWARE
+        - LOCAL_USER_ACCOUNTS
+        - CERTIFICATES
+        - ATTACHMENTS
+        - PACKAGE_RECEIPTS
+        - SECURITY
+        - OPERATING_SYSTEM
+        - LICENSED_SOFTWARE
+        - IBEACONS
+        - SOFTWARE_UPDATES
+        - EXTENSION_ATTRIBUTES
+        - CONTENT_CACHING
+        - GROUP_MEMBERSHIPS
+      example: general
+      type: string
 info:
-  title: Jamf Pro API - ComputersInventory
+  title: Jamf Pro API - computer-inventory
   version: 0.0.1
 openapi: 3.0.1
 paths:
@@ -698,6 +1073,543 @@ paths:
       tags:
         - computer-inventory
       x-deprecation-date: "2025-06-30"
+      x-required-privileges:
+        - View Recovery Lock
+  /v4/computers-inventory:
+    get:
+      description: Return paginated Computer Inventory records
+      parameters:
+        - description: section of computer details, if not specified, General section data is returned. Multiple section parameters are supported, e.g. section=GENERAL&section=HARDWARE
+          explode: true
+          in: query
+          name: section
+          required: false
+          schema:
+            default:
+              - GENERAL
+            example:
+              - GENERAL
+            items:
+              $ref: '#/components/schemas/ComputerSectionV4'
+            type: array
+          style: form
+        - $ref: _MonolithLibrary.yaml#/components/parameters/page
+        - $ref: _MonolithLibrary.yaml#/components/parameters/page-size
+        - description: |
+            Sorting criteria in the format: `property:asc/desc`. Default sort
+            is `general.name:asc`. Multiple sort criteria are supported and must be separated with
+            a comma.
+
+            Fields allowed in the sort: `general.name`, `udid`, `id`, `general.assetTag`,
+            `general.jamfBinaryVersion`, `general.lastCheckIn`, `general.lastContact`, `general.lastEnrolledDate`, `general.lastCloudBackupDate`,
+            `general.reportDate`,
+            `general.mdmCertificateExpiration`, `general.platform`, `general.lastLoggedInUsernameSelfService`, `general.lastLoggedInUsernameSelfServiceTimestamp`,
+            `general.lastLoggedInUsernameBinary`, `general.lastLoggedInUsernameBinaryTimestamp`,
+            `general.lastLoggedInUsernameMdm`, `general.lastLoggedInUsernameMdmTimestamp`,
+            `hardware.make`, `hardware.model`,
+            `operatingSystem.build`, `operatingSystem.supplementalBuildVersion`, `operatingSystem.rapidSecurityResponse`, `operatingSystem.name`, `operatingSystem.version`,
+            `userAndLocation.realname`,
+            `purchasing.lifeExpectancy`, `purchasing.warrantyDate`
+
+            Example: `sort=udid:desc,general.name:asc`.
+          explode: true
+          in: query
+          name: sort
+          required: false
+          schema:
+            default:
+              - general.name:asc
+            items:
+              type: string
+            type: array
+          style: form
+        - description: |
+            Query in the RSQL format, allowing to filter computer inventory collection.
+            Default filter is empty query - returning all results for the requested page.
+
+            Fields allowed in the query: `general.name`, `udid`, `id`, `general.assetTag`, `general.barcode1`, `general.barcode2`,
+            `general.enrolledViaAutomatedDeviceEnrollment`, `general.lastIpAddress`, `general.itunesStoreAccountActive`,
+            `general.jamfBinaryVersion`, `general.lastCheckIn`, `general.lastContact`, `general.lastEnrolledDate`, `general.lastCloudBackupDate`,
+            `general.reportDate`, `general.lastReportedIp`, `general.lastReportedIpV4`, `general.lastReportedIpV6`, `general.managementId`, `general.remoteManagement.managed`,
+            `general.mdmCapable.capable`, `general.mdmCertificateExpiration`, `general.platform`, `general.supervised`, `general.userApprovedMdm`, `general.declarativeDeviceManagementEnabled`,
+            `general.lastLoggedInUsernameSelfService`, `general.lastLoggedInUsernameSelfServiceTimestamp`,
+            `general.lastLoggedInUsernameBinary`, `general.lastLoggedInUsernameBinaryTimestamp`,
+            `general.lastLoggedInUsernameMdm`, `general.lastLoggedInUsernameMdmTimestamp`,
+            `hardware.bleCapable`, `hardware.macAddress`, `hardware.make`, `hardware.model`, `hardware.modelIdentifier`, `hardware.serialNumber`,
+            `hardware.supportsIosAppInstalls`,`hardware.appleSilicon`, `operatingSystem.activeDirectoryStatus`, `operatingSystem.fileVault2Status`,
+            `operatingSystem.build`, `operatingSystem.supplementalBuildVersion`, `operatingSystem.rapidSecurityResponse`, `operatingSystem.name`, `operatingSystem.version`, `security.activationLockEnabled`,
+            `security.recoveryLockEnabled`,`security.firewallEnabled`,`userAndLocation.buildingId`, `userAndLocation.departmentId`, `userAndLocation.email`, `userAndLocation.realname`,
+            `userAndLocation.phone`, `userAndLocation.position`,`userAndLocation.room`, `userAndLocation.username`, `diskEncryption.fileVault2Enabled`,
+            `purchasing.appleCareId`, `purchasing.lifeExpectancy`, `purchasing.purchased`, `purchasing.leased`, `purchasing.vendor`, `purchasing.warrantyDate`,
+
+            This param can be combined with paging and sorting.
+            Example: `filter=general.name=="Orchard"`
+          explode: true
+          in: query
+          name: filter
+          required: false
+          schema:
+            default: ""
+            type: string
+          style: form
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ComputerInventorySearchResultsV4'
+          description: Successful response
+      summary: Return paginated Computer Inventory records
+      tags:
+        - computer-inventory
+      x-required-privileges:
+        - Read Computers
+    post:
+      description: Creates Computer Inventory record
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ComputerInventoryCreateRequestV4'
+        required: true
+      responses:
+        201:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/HrefResponse
+          description: Successful response - Computer Inventory record created
+      summary: Create Computer Inventory record
+      tags:
+        - computer-inventory
+      x-required-privileges:
+        - Create Computers
+  /v4/computers-inventory-detail/{id}:
+    get:
+      description: Return all sections of a computer
+      parameters:
+        - description: instance id of computer record
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ComputerInventoryV4'
+          description: Details of computer were found
+        404:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Specified computer object does not exist.
+      summary: Return all sections of a computer
+      tags:
+        - computer-inventory
+      x-required-privileges:
+        - Read Computers
+    patch:
+      description: Update specific fields on a computer, then return the updated computer object.
+      parameters:
+        - description: instance id of computer record
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: _MonolithLibrary.yaml#/components/schemas/ComputerInventoryUpdateRequest
+        required: true
+      responses:
+        204:
+          description: Details of computer were updated
+        404:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Specified computer object does not exist.
+      summary: Update specific fields on a computer
+      tags:
+        - computer-inventory
+      x-required-privileges:
+        - Update Computers
+  /v4/computers-inventory/filevault:
+    get:
+      description: Return paginated FileVault information for all computers
+      parameters:
+        - $ref: _MonolithLibrary.yaml#/components/parameters/page
+        - $ref: _MonolithLibrary.yaml#/components/parameters/page-size
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ComputerInventoryFileVaultSearchResults
+          description: Successful response
+      summary: Return paginated FileVault information for all computers
+      tags:
+        - computer-inventory
+      x-required-privileges:
+        - View Disk Encryption Recovery Key
+  /v4/computers-inventory/{id}:
+    delete:
+      description: Remove specified Computer record
+      parameters:
+        - description: instance id of computer record
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
+      responses:
+        204:
+          description: Computer record successfully removed
+        404:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Specified computer object id does not exist.
+      summary: Remove specified Computer record
+      tags:
+        - computer-inventory
+      x-required-privileges:
+        - Delete Computers
+    get:
+      description: Return General section of a Computer
+      parameters:
+        - description: instance id of computer record
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
+        - description: section of computer details, if not specified, General section data is returned. Multiple section parameters are supported, e.g. section=general&section=hardware
+          explode: true
+          in: query
+          name: section
+          required: false
+          schema:
+            default:
+              - GENERAL
+            example:
+              - GENERAL
+            items:
+              $ref: '#/components/schemas/ComputerSectionV4'
+            type: array
+          style: form
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ComputerInventoryV4'
+          description: Details of computer were found
+        404:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Specified computer object does not exist.
+      summary: Return General section of a Computer
+      tags:
+        - computer-inventory
+      x-required-privileges:
+        - Read Computers
+  /v4/computers-inventory/{id}/attachments:
+    post:
+      description: Upload attachment and assign to computer
+      parameters:
+        - description: instance id of computer record
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              properties:
+                file:
+                  description: The file to upload
+                  format: binary
+                  type: string
+              required:
+                - file
+              type: object
+        required: true
+      responses:
+        201:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/HrefResponse
+          description: Successfully uploaded attachment
+        404:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Specified computer object does not exist.
+      summary: Upload attachment and assign to computer
+      tags:
+        - computer-inventory
+      x-required-privileges:
+        - Update Computers
+  /v4/computers-inventory/{id}/attachments/{attachmentId}:
+    delete:
+      description: Remove attachment
+      parameters:
+        - description: instance id of computer record
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
+        - description: instance id of attachment object
+          explode: false
+          in: path
+          name: attachmentId
+          required: true
+          schema:
+            type: string
+          style: simple
+      responses:
+        204:
+          description: Attachment successfully removed
+        404:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Specified computer object or attachment does not exist.
+      summary: Remove attachment
+      tags:
+        - computer-inventory
+      x-required-privileges:
+        - Update Computers
+    get:
+      description: Download attachment file
+      parameters:
+        - description: instance id of computer record
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
+        - description: instance id of attachment object
+          explode: false
+          in: path
+          name: attachmentId
+          required: true
+          schema:
+            type: string
+          style: simple
+      responses:
+        200:
+          content:
+            text/plain:
+              schema:
+                description: Downloaded binary file, Content-Type will be dynamic, based on a file extension
+                format: binary
+                type: string
+          description: Attachment successfully downloaded
+        404:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Specified computer object or attachment does not exist.
+      summary: Download attachment file
+      tags:
+        - computer-inventory
+      x-required-privileges:
+        - Read Computers
+  /v4/computers-inventory/{id}/erase:
+    post:
+      description: Erase a computer
+      parameters:
+        - description: Id of the computer to erase
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: _MonolithLibrary.yaml#/components/schemas/EraseDeviceComputerRequest
+        description: Options for eraseDevice command
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/EraseDeviceComputerResponse
+          description: Erase command was queued for this device.
+        403:
+          description: Insufficient privileges to perform this action.
+        404:
+          description: Computer not found.
+        500:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Failure, unable to queue command.
+      summary: Erase a computer
+      tags:
+        - computer-inventory
+      x-action: true
+      x-required-privileges:
+        - Send Computer Remote Wipe Command
+  /v4/computers-inventory/{id}/filevault:
+    get:
+      description: Return FileVault information for a specific computer
+      parameters:
+        - description: instance id of computer record
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ComputerInventoryFileVault
+          description: FileVault information for computer was found
+        404:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: FileVault information for specified computer does not exist
+      summary: Return FileVault information for a specific computer
+      tags:
+        - computer-inventory
+      x-required-privileges:
+        - View Disk Encryption Recovery Key
+  /v4/computers-inventory/{id}/remove-mdm-profile:
+    post:
+      description: Remove a computer's MDM profile
+      parameters:
+        - description: Id of the computer to remove the MDM profile from
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/RemoveComputerMdmProfileResponse
+          description: Command to remove the MDM profile was queued.
+        403:
+          description: Insufficient privileges to perform this action.
+        500:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Failure, unable to queue command.
+      summary: Remove a computer's MDM profile
+      tags:
+        - computer-inventory
+      x-action: true
+      x-required-privileges:
+        - Send Computer Unmanage Command
+  /v4/computers-inventory/{id}/view-device-lock-pin:
+    get:
+      description: Return a computer's Device Lock PIN
+      parameters:
+        - description: instance id of computer record
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ComputerInventoryDeviceLockPinResponse
+          description: Device Lock PIN
+        404:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Specified computer object does not exist.
+      summary: Return a computer's Device Lock PIN
+      tags:
+        - computer-inventory
+      x-required-privileges:
+        - View Computer Device Lock Pin
+  /v4/computers-inventory/{id}/view-recovery-lock-password:
+    get:
+      description: Return a Computers Recovery Lock Password
+      parameters:
+        - description: instance id of computer record
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ComputerInventoryRecoveryLockPasswordResponse
+          description: Recovery Lock Password
+        404:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: Specified computer object does not exist.
+      summary: Return a Computers Recovery Lock Password
+      tags:
+        - computer-inventory
       x-required-privileges:
         - View Recovery Lock
 servers:

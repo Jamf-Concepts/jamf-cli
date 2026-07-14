@@ -131,6 +131,11 @@ components:
         ipAddress:
           example: 10.0.0.1
           type: string
+        lastContactDate:
+          description: The date and time of the most recent device contact via MDM or DDM channels.
+          example: "2022-10-17T11:48:56.307Z"
+          format: date-time
+          type: string
         lastEnrolledDate:
           example: "2022-10-17T11:48:56.307Z"
           format: date-time
@@ -916,7 +921,7 @@ paths:
             `devicePhoneNumber`, `diagnosticAndUsageReportingEnabled`, `displayName`, `doNotDisturbEnabled`,
             `enrollmentSessionTokenValid`, `exchangeDeviceId`, `cloudBackupEnabled`, `osBuild`,
             `osSupplementalBuildVersion`, `osVersion`, `osRapidSecurityResponse`, `ipAddress`, `itunesStoreAccountActive`,
-            `mobileDeviceId`, `managementId`, `languages`, `lastBackupDate`, `lastEnrolledDate`, `lastCloudBackupDate`,
+            `mobileDeviceId`, `managementId`, `languages`, `lastBackupDate`, `lastContactDate`, `lastEnrolledDate`, `lastCloudBackupDate`,
             `lastInventoryUpdateDate`, `locales`, `locationServicesForSelfServiceMobileEnabled`, `lostModeEnabled`,
             `managed`, `mdmProfileExpirationDate`, `model`, `modelIdentifier`,
             `modelNumber`, `modemFirmwareVersion`, `preferredVoiceNumber`, `quotaSize`, `residentUsers`,
@@ -956,7 +961,7 @@ paths:
             `declarativeDeviceManagementEnabled`, `deviceId`, `deviceLocatorServiceEnabled`, `devicePhoneNumber`,
             `diagnosticAndUsageReportingEnabled`, `displayName`, `doNotDisturbEnabled`, `exchangeDeviceId`,
             `cloudBackupEnabled`, `osBuild`, `osSupplementalBuildVersion`, `osVersion`, `osRapidSecurityResponse`,
-            `ipAddress`, `itunesStoreAccountActive`, `mobileDeviceId`, `managementId`, `languages`, `lastInventoryUpdateDate`, `locales`,
+            `ipAddress`, `itunesStoreAccountActive`, `mobileDeviceId`, `managementId`, `languages`, `lastContactDate`, `lastInventoryUpdateDate`, `locales`,
             `locationServicesForSelfServiceMobileEnabled`, `lostModeEnabled`, `managed`, `model`,
             `modelIdentifier`, `modelNumber`, `modemFirmwareVersion`, `preferredVoiceNumber`, `quotaSize`,
             `residentUsers`, `serialNumber`, `sharedIpad`, `supervised`,
@@ -1034,7 +1039,7 @@ paths:
             `lostModeEnabledDate`, `declarativeDeviceManagementEnabled`, `deviceId`, `deviceLocatorServiceEnabled`,
             `devicePhoneNumber`, `diagnosticAndUsageReportingEnabled`, `displayName`, `doNotDisturbEnabled`,
             `enrollmentSessionTokenValid`, `osBuild`, `osSupplementalBuildVersion`, `osVersion`, `osRapidSecurityResponse`,
-            `ipAddress`, `itunesStoreAccountActive`, `mobileDeviceId`, `languages`, `lastEnrolledDate`, `lastCloudBackupDate`,
+            `ipAddress`, `itunesStoreAccountActive`, `mobileDeviceId`, `languages`, `lastContactDate`, `lastEnrolledDate`, `lastCloudBackupDate`,
             `lastInventoryUpdateDate`, `locales`, `lostModeEnabled`,
             `managed`, `mdmProfileExpirationDate`, `model`, `modelIdentifier`, `modelNumber`, `modemFirmwareVersion`,
             `preferredVoiceNumber`, `serialNumber`, `supervised`, `timeZone`, `udid`, `usedSpacePercentage`, `wifiMacAddress`,
@@ -1072,7 +1077,7 @@ paths:
             `declarativeDeviceManagementEnabled`, `deviceId`, `deviceLocatorServiceEnabled`, `devicePhoneNumber`,
             `diagnosticAndUsageReportingEnabled`, `displayName`, `doNotDisturbEnabled`,
             `osBuild`, `osSupplementalBuildVersion`, `osVersion`, `osRapidSecurityResponse`,
-            `ipAddress`, `itunesStoreAccountActive`, `mobileDeviceId`, `languages`, `lastInventoryUpdateDate`, `locales`,
+            `ipAddress`, `itunesStoreAccountActive`, `mobileDeviceId`, `languages`, `lastContactDate`, `lastInventoryUpdateDate`, `locales`,
             `lostModeEnabled`, `managed`, `model`,
             `modelIdentifier`, `modelNumber`, `modemFirmwareVersion`, `preferredVoiceNumber`, `serialNumber`, `supervised`, `timeZone`, `udid`, `usedSpacePercentage`,
             `wifiMacAddress`, `building`, `department`, `emailAddress`,

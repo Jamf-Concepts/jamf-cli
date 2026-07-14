@@ -48,9 +48,9 @@
    attack, slow decay — mirrors how phosphors actually behave. */
 @keyframes glyph-twinkle {
   0%   { fill: currentColor; filter: none; transform: scale(1); }
-  18%  { fill: #6ec5ff; filter: drop-shadow(0 0 8px rgba(110, 197, 255, 0.65)); transform: scale(1.04); }
-  42%  { fill: #ffffff; filter: drop-shadow(0 0 18px rgba(140, 210, 255, 0.95)); transform: scale(1.06); }
-  68%  { fill: #6ec5ff; filter: drop-shadow(0 0 10px rgba(110, 197, 255, 0.5)); transform: scale(1.03); }
+  18%  { fill: light-dark(#00348a, #6ec5ff); filter: drop-shadow(0 0 8px rgba(110, 197, 255, 0.65)); transform: scale(1.04); }
+  42%  { fill: light-dark(#056ae6, #ffffff); filter: drop-shadow(0 0 18px rgba(140, 210, 255, 0.95)); transform: scale(1.06); }
+  68%  { fill: light-dark(#00348a, #6ec5ff); filter: drop-shadow(0 0 10px rgba(110, 197, 255, 0.5)); transform: scale(1.03); }
   100% { fill: currentColor; filter: none; transform: scale(1); }
 }
 
@@ -102,7 +102,7 @@
   background: var(--card-bg);
   border: 1px solid var(--border);
   border-radius: 12px;
-  box-shadow: 0 24px 60px -12px rgba(0, 0, 0, 0.5);
+  box-shadow: var(--shadow-3);
   overflow: hidden;
   animation: paletteRise 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
@@ -117,7 +117,7 @@
 .palette-prompt {
   font-family: 'Geist Mono', 'SF Mono', monospace;
   font-weight: 600;
-  color: var(--brand-blue);
+  color: var(--accent);
   font-size: 1rem;
 }
 .palette-input {
@@ -168,7 +168,7 @@
   text-overflow: ellipsis;
 }
 .palette-item.selected {
-  background: rgba(18, 104, 236, 0.10);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
   position: relative;
 }
 .palette-item.selected::before {
@@ -178,7 +178,7 @@
   top: 0;
   bottom: 0;
   width: 2px;
-  background: var(--brand-blue);
+  background: var(--accent);
 }
 .palette-item-prefix {
   color: var(--text-secondary);
@@ -193,7 +193,7 @@
   text-overflow: ellipsis;
 }
 .palette-item-name mark {
-  background: rgba(18, 104, 236, 0.25);
+  background: var(--highlight);
   color: inherit;
   border-radius: 2px;
   padding: 0 1px;
@@ -209,11 +209,11 @@
   background: var(--border);
   color: var(--text-secondary);
 }
-.palette-item-tag[data-product="pro"]      { color: var(--product-pro);      background: rgba(6, 182, 212, 0.10); }
-.palette-item-tag[data-product="protect"]  { color: var(--product-protect);  background: rgba(0, 179, 0, 0.10); }
-.palette-item-tag[data-product="school"]   { color: var(--product-school);   background: rgba(245, 158, 11, 0.10); }
-.palette-item-tag[data-product="security"]   { color: var(--product-security);   background: rgba(220, 38, 38, 0.10); }
-.palette-item-tag[data-product="platform"] { color: var(--product-platform); background: rgba(18, 104, 236, 0.10); }
+.palette-item-tag[data-product="pro"]      { color: var(--product-pro);      background: color-mix(in srgb, var(--product-pro) 10%, transparent); }
+.palette-item-tag[data-product="protect"]  { color: var(--product-protect);  background: color-mix(in srgb, var(--product-protect) 10%, transparent); }
+.palette-item-tag[data-product="school"]   { color: var(--product-school);   background: color-mix(in srgb, var(--product-school) 10%, transparent); }
+.palette-item-tag[data-product="security"]   { color: var(--product-security);   background: color-mix(in srgb, var(--product-security) 10%, transparent); }
+.palette-item-tag[data-product="platform"] { color: var(--product-platform); background: color-mix(in srgb, var(--product-platform) 10%, transparent); }
 
 .palette-empty {
   padding: 1rem;
@@ -239,7 +239,7 @@
   border-bottom: 1px solid var(--border);
   margin-bottom: 0.5rem;
 }
-.palette-cmd-dollar { color: var(--brand-blue); }
+.palette-cmd-dollar { color: var(--accent); }
 .palette-desc {
   color: var(--text-secondary);
   line-height: 1.5;
@@ -259,11 +259,11 @@
   padding: 0.1rem 0.45rem;
   border-radius: 4px;
 }
-.palette-tag[data-product="pro"]      { color: var(--product-pro);      background: rgba(6, 182, 212, 0.10); }
-.palette-tag[data-product="protect"]  { color: var(--product-protect);  background: rgba(0, 179, 0, 0.10); }
-.palette-tag[data-product="school"]   { color: var(--product-school);   background: rgba(245, 158, 11, 0.10); }
-.palette-tag[data-product="security"]   { color: var(--product-security);   background: rgba(220, 38, 38, 0.10); }
-.palette-tag[data-product="platform"] { color: var(--product-platform); background: rgba(18, 104, 236, 0.10); }
+.palette-tag[data-product="pro"]      { color: var(--product-pro);      background: color-mix(in srgb, var(--product-pro) 10%, transparent); }
+.palette-tag[data-product="protect"]  { color: var(--product-protect);  background: color-mix(in srgb, var(--product-protect) 10%, transparent); }
+.palette-tag[data-product="school"]   { color: var(--product-school);   background: color-mix(in srgb, var(--product-school) 10%, transparent); }
+.palette-tag[data-product="security"]   { color: var(--product-security);   background: color-mix(in srgb, var(--product-security) 10%, transparent); }
+.palette-tag[data-product="platform"] { color: var(--product-platform); background: color-mix(in srgb, var(--product-platform) 10%, transparent); }
 .palette-group {
   font-size: 0.7rem;
   color: var(--text-secondary);
@@ -342,69 +342,116 @@ html {
   }
 }
 
-/* ===== Custom Properties (Nebula Design System) ===== */
+/* ===== Custom Properties (Nebula Design System) =====
+
+   Every token is defined ONCE via light-dark(). `color-scheme: light dark`
+   tells the browser both modes exist (and themes scrollbars/form controls
+   for free); the manual toggle only has to flip `color-scheme` and every
+   token follows. No duplicated dark block, no per-component reset blocks.
+
+   Light mode — "cool paper terminal":
+     * page slightly cool-grey instead of warm near-white (less eye-blast)
+     * cards recede ~6% from the page so the catalog reads as set INTO
+       the surface, not floating on bleach-white
+     * text stays high-contrast but trades pure black for a cool dark
+       grey (#1a1d23) — easier on long sessions, still WCAG AA
+   Dark mode — designed, not dimmed:
+     * secondary text at 62% white (was 74% — too close to primary's 87%
+       to read as a second level)
+     * every product accent gets a lifted dark variant at matched
+       perceptual lightness — not just pro/protect */
 :root {
+  color-scheme: light dark;
+
   /* Constants (both modes) */
-  --brand-blue: #1268ec;
-  --link-blue: #5856d6;
+  --brand-blue: #056ae6;  /* FILLED surfaces only (version badge, active tab, buttons, toasts) — white text sits on it */
   --hero-bg: #141920;
   --terminal-bg: #141920;
   --terminal-border: #ffffff1f;
   --terminal-text: #ffffffde;
   --terminal-success: #00b300;
   --terminal-prompt: #ffffffbd;
-
-  /* Product colors — add new products here */
-  --product-pro: #06b6d4;
-  --product-protect: #00b300;
-  --product-school: #F59E0B;
-  --product-security: #DC2626;
-  --product-platform: #1268ec;
-  /* --product-connect: #a135d7; */
-
-  /* Indicator colors */
   --new-indicator: #ff9500;
 
-  /* Light mode — "cool paper terminal":
-       * page slightly cool-grey instead of warm near-white (less eye-blast)
-       * cards recede ~6% from the page so the catalog reads as set INTO
-         the surface, not floating on bleach-white
-       * text stays high-contrast but trades pure black for a cool dark
-         grey (#1a1d23) — easier on long sessions, still WCAG AA */
-  --page-bg: #f4f5f8;
-  --card-bg: #e9ebf0;
-  --border: #1419201f;
-  --text-primary: #1a1d23;
-  --text-secondary: #5a6068;
-  --tab-inactive-bg: #e9ebf0;
+  /* Terminal product syntax — the terminal is ALWAYS dark, so these are
+     fixed dark-tuned values, never light-dark() (which would resolve to
+     light-mode hues while the terminal stays ink) */
+  --terminal-pro: #22d3ee;
+  --terminal-protect: #32d74b;
+  --terminal-school: #fbbf24;
+  --terminal-security: #ef4444;
+  --terminal-platform: #4c8dff;
+  --terminal-flag: #ffffff8a;
+
+  /* Semantic danger — destructive-command marking. Same red family as
+     Security Cloud but a distinct role token; the "destructive" label
+     carries the meaning (Never-Color-Alone), color only reinforces. */
+  --danger: light-dark(#dc2626, #ef4444);
+
+  /* Accents — text/border/icon roles, lifted in dark for contrast */
+  --accent: light-dark(#056ae6, #5290ff);
+  --link-blue: light-dark(#5050bc, #7b79e8);
+
+  /* Product colors — add new products here */
+  --product-pro: light-dark(#06b6d4, #22d3ee);
+  --product-protect: light-dark(#00b300, #32d74b);
+  --product-school: light-dark(#f59e0b, #fbbf24);
+  --product-security: light-dark(#dc2626, #ef4444);
+  --product-platform: light-dark(#056ae6, #5290ff);
+  /* --product-connect: light-dark(#a135d7, #c065ec); */
+
+  /* Surfaces & text — "gallery paper, phosphor ink":
+     light = white cards floating on near-white (separation from hairlines
+     and soft shadows, not grey recession); dark = deep blue-cast near-black
+     with surfaces stepped ~4% up. Neutrals carry a whisper of brand-blue
+     chroma so the UI coheres with the accent without reading as tinted. */
+  --page-bg: light-dark(#fbfcfd, #0f1217);
+  --card-bg: light-dark(#ffffff, #171b22);
+  --border: light-dark(#14192014, #ffffff1a);
+  --text-primary: light-dark(#1a1d23, #ffffffde);
+  --text-secondary: light-dark(#5a6068, #ffffff9e);
+  --tab-inactive-bg: var(--card-bg);
+
+  /* Derived product tints — mixed over --page-bg so they're OPAQUE
+     (sticky group headers must not show scrolling rows through them)
+     and automatically produce the right tint in both modes.
+     Add new products here. */
+  --tint-pro: color-mix(in srgb, var(--product-pro) 10%, var(--page-bg));
+  --tint-protect: color-mix(in srgb, var(--product-protect) 10%, var(--page-bg));
+  --tint-school: color-mix(in srgb, var(--product-school) 12%, var(--page-bg));
+  --tint-security: color-mix(in srgb, var(--product-security) 12%, var(--page-bg));
+  --tint-platform: color-mix(in srgb, var(--product-platform) 10%, var(--page-bg));
+  --accent-tint: color-mix(in srgb, var(--accent) 8%, var(--page-bg));
+  --accent-tint-hover: color-mix(in srgb, var(--accent) 14%, var(--page-bg));
+  --highlight: color-mix(in srgb, var(--accent) 22%, transparent);
+
+  /* Muted UI (pills, badges, shared/core group headers) */
+  --pill-bg: light-dark(rgba(142, 142, 147, 0.08), rgba(142, 142, 147, 0.12));
+  --pill-text: light-dark(#8e8e93, #86898d);
+  --badge-bg: light-dark(rgba(0, 0, 0, 0.07), rgba(255, 255, 255, 0.1));
+  --muted-header-text: light-dark(#535358, #ffffff9e);
+  --muted-header-border: light-dark(#8e8e93, #ffffff1f);
+  --muted-header-bg: light-dark(#f2f4f6, #171b22);
+
+  /* Elevation — light-dark() only accepts <color> values, so the theme
+     variance lives in the shadow's color component (light: soft grey
+     shadows; dark: deeper black — subtle shadows vanish on dark surfaces) */
+  --shadow-1: 0 1px 3px light-dark(rgba(20, 25, 32, 0.06), rgba(0, 0, 0, 0.35));
+  --shadow-2: 0 4px 18px light-dark(rgba(20, 25, 32, 0.12), rgba(0, 0, 0, 0.5));
+  --shadow-3: 0 16px 48px -8px light-dark(rgba(20, 25, 32, 0.16), rgba(0, 0, 0, 0.6));
+  --shadow-sticky: 0 12px 16px -13px light-dark(rgba(0, 0, 0, 0.18), rgba(0, 0, 0, 0.55));
+
+  /* Hero decoration — ~18% glyph ink on paper (the near-white page needs
+     less than the old grey did), ~16% glow on the deep dark; a faint
+     brand wash tops both modes */
+  --hero-glyph: light-dark(rgba(5, 106, 230, 0.18), rgba(5, 106, 230, 0.16));
+  --hero-glow: light-dark(rgba(5, 106, 230, 0.05), rgba(82, 144, 255, 0.05));
 }
 
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --page-bg: #141920;
-    --card-bg: #1f242b;
-    --border: #ffffff1f;
-    --text-primary: #ffffffde;
-    --text-secondary: #ffffffbd;
-    --tab-inactive-bg: #1f242b;
-    --link-blue: #7b79e8;
-    --product-protect: #32d74b;
-    --product-pro: #22d3ee;
-  }
-}
-
-/* Manual theme override */
-:root[data-theme="dark"] {
-  --page-bg: #141920;
-  --card-bg: #1f242b;
-  --border: #ffffff1f;
-  --text-primary: #ffffffde;
-  --text-secondary: #ffffffbd;
-  --tab-inactive-bg: #1f242b;
-  --link-blue: #7b79e8;
-  --product-protect: #32d74b;
-  --product-pro: #22d3ee;
-}
+/* Manual theme override — flipping color-scheme flips every light-dark()
+   token above. This is the entire override mechanism. */
+:root[data-theme="light"] { color-scheme: light; }
+:root[data-theme="dark"] { color-scheme: dark; }
 
 /* ===== Typography ===== */
 body {
@@ -415,6 +462,8 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   font-feature-settings: "ss01", "cv11";
+  /* Missing weights/styles must fail visibly, not render browser-faked */
+  font-synthesis: none;
 }
 
 code,
@@ -426,6 +475,9 @@ pre,
 a {
   color: var(--link-blue);
   text-decoration: none;
+  /* Underlines from the font's own metrics instead of browser guesses */
+  text-underline-position: from-font;
+  text-decoration-thickness: from-font;
 }
 
 a:hover {
@@ -467,7 +519,7 @@ nav.scrolled {
 .nav-brand::after {
   content: '_';
   margin-left: -0.1em;
-  color: var(--brand-blue);
+  color: var(--accent);
   animation: blink 1.05s step-end infinite;
 }
 
@@ -552,7 +604,7 @@ a[target="_blank"]:hover::after {
   display: block;
   width: 22px;
   height: 2px;
-  background: #fff;
+  background: var(--text-primary);
   border-radius: 1px;
   transition: transform 0.2s, opacity 0.2s;
 }
@@ -571,7 +623,10 @@ a[target="_blank"]:hover::after {
 
 /* ===== Hero ===== */
 #hero {
-  background: var(--page-bg);
+  /* --hero-glow is transparent in dark mode, so the wash is light-only */
+  background:
+    radial-gradient(ellipse 60% 50% at 50% 0%, var(--hero-glow) 0%, transparent 65%),
+    var(--page-bg);
   color: var(--text-primary);
   text-align: center;
   padding: 7rem 2rem 2rem;
@@ -585,8 +640,7 @@ a[target="_blank"]:hover::after {
   inset: 0;
   pointer-events: none;
   user-select: none;
-  color: var(--brand-blue);
-  opacity: 0.12;
+  color: var(--hero-glyph);
   z-index: 0;
   -webkit-mask-image: radial-gradient(ellipse 50% 50% at 50% 45%, transparent 30%, black 75%);
   mask-image: radial-gradient(ellipse 50% 50% at 50% 45%, transparent 30%, black 75%);
@@ -596,35 +650,6 @@ a[target="_blank"]:hover::after {
   position: relative;
   z-index: 1;
 }
-
-/* Light-mode hero refinements:
-     * boost the pattern opacity — the brand-blue glyphs at 0.12 disappear
-       on a light bg because the multiplier kills the already-subtle pattern
-     * add a subtle radial gradient at the top to break up the flat sheet
-       without introducing a new color (just brand-blue at 5% alpha) */
-:root[data-theme="light"] .hero-pattern,
-:root:not([data-theme="dark"]) .hero-pattern {
-  opacity: 0.30;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) .hero-pattern { opacity: 0.12; }
-}
-
-:root[data-theme="dark"] .hero-pattern { opacity: 0.12; }
-
-:root[data-theme="light"] #hero,
-:root:not([data-theme="dark"]) #hero {
-  background:
-    radial-gradient(ellipse 60% 50% at 50% 0%, rgba(18, 104, 236, 0.05) 0%, transparent 65%),
-    var(--page-bg);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) #hero { background: var(--page-bg); }
-}
-
-:root[data-theme="dark"] #hero { background: var(--page-bg); }
 
 .hero-pattern-svg {
   width: 100%;
@@ -653,6 +678,10 @@ a[target="_blank"]:hover::after {
   text-wrap: balance;
 }
 
+#command-count {
+  font-variant-numeric: tabular-nums;
+}
+
 /* Stat Cards */
 .stat-cards {
   display: flex;
@@ -672,7 +701,7 @@ a[target="_blank"]:hover::after {
   max-width: 180px;
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
-  transition: transform 0.15s, border-color 0.15s, box-shadow 0.15s;
+  transition: transform 0.15s, border-color 0.15s, box-shadow 0.15s, scale 0.15s ease;
   cursor: pointer;
 }
 
@@ -683,36 +712,36 @@ a.stat-card {
 
 a.stat-card:hover {
   transform: translateY(-2px);
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+  box-shadow: var(--shadow-2);
 }
 
 .stat-card[data-product="total"] {
   border-color: var(--product-pro);
 }
-.stat-card[data-product="total"] .stat-value { color: var(--brand-blue); }
+.stat-card[data-product="total"] .stat-value { color: var(--accent); }
 
 .stat-card[data-product="pro"] {
-  border-color: rgba(6, 182, 212, 0.45);
+  border-color: color-mix(in srgb, var(--product-pro) 45%, transparent);
 }
 .stat-card[data-product="pro"] .stat-value { color: var(--product-pro); }
 
 .stat-card[data-product="protect"] {
-  border-color: rgba(0, 179, 0, 0.45);
+  border-color: color-mix(in srgb, var(--product-protect) 45%, transparent);
 }
 .stat-card[data-product="protect"] .stat-value { color: var(--product-protect); }
 
 .stat-card[data-product="school"] {
-  border-color: rgba(245, 158, 11, 0.45);
+  border-color: color-mix(in srgb, var(--product-school) 45%, transparent);
 }
 
 .stat-card[data-product="security"] {
-  border-color: rgba(220, 38, 38, 0.45);
+  border-color: color-mix(in srgb, var(--product-security) 45%, transparent);
 }
 .stat-card[data-product="school"] .stat-value { color: var(--product-school); }
 .stat-card[data-product="security"] .stat-value { color: var(--product-security); }
 
 .stat-card[data-product="platform"] {
-  border-color: rgba(18, 104, 236, 0.45);
+  border-color: color-mix(in srgb, var(--product-platform) 45%, transparent);
 }
 .stat-card[data-product="platform"] .stat-value { color: var(--product-platform); }
 
@@ -727,7 +756,9 @@ a.stat-card:hover {
   display: block;
   line-height: 1.1;
   letter-spacing: -0.02em;
-  font-feature-settings: "tnum", "ss01";
+  /* the variant property composes with the body's inherited
+     font-feature-settings ("ss01", "cv11") instead of replacing them */
+  font-variant-numeric: tabular-nums;
   margin-bottom: 0.4rem;
 }
 
@@ -800,6 +831,7 @@ a.stat-card:hover {
 .stat-secondary strong {
   color: var(--text-primary);
   font-weight: 600;
+  font-variant-numeric: tabular-nums;
 }
 
 .stat-dot {
@@ -887,12 +919,7 @@ a.stat-card:hover {
   border-radius: 10px;
   overflow: hidden;
   text-align: left;
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.15);
-}
-
-:root[data-theme="light"] #terminal,
-:root:not([data-theme]) #terminal {
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.12);
+  box-shadow: var(--shadow-2);
 }
 
 .terminal-titlebar {
@@ -931,6 +958,16 @@ a.stat-card:hover {
   color: #fff;
   font-weight: 600;
 }
+
+/* Terminal syntax highlighting — the product namespace token wears its
+   product hue (the same wayfinding system the catalog uses), flags dim.
+   Mirrors the zsh-syntax-highlighting the audience already lives in. */
+#terminal-output .command .tok-product-pro { color: var(--terminal-pro); }
+#terminal-output .command .tok-product-protect { color: var(--terminal-protect); }
+#terminal-output .command .tok-product-school { color: var(--terminal-school); }
+#terminal-output .command .tok-product-security { color: var(--terminal-security); }
+#terminal-output .command .tok-product-platform { color: var(--terminal-platform); }
+#terminal-output .command .tok-flag { color: var(--terminal-flag); font-weight: 500; }
 
 #terminal-output .success {
   color: var(--terminal-success);
@@ -994,11 +1031,11 @@ a.stat-card:hover {
 }
 
 .hero-example-btn {
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: light-dark(rgba(20, 25, 32, 0.05), rgba(255, 255, 255, 0.06));
+  border: 1px solid light-dark(rgba(20, 25, 32, 0.12), rgba(255, 255, 255, 0.1));
   border-radius: 6px;
   padding: 0.35rem 0.75rem;
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--text-secondary);
   font-family: 'Geist Mono', 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
   font-size: 0.75rem;
   cursor: pointer;
@@ -1007,9 +1044,9 @@ a.stat-card:hover {
 
 .hero-example-btn:hover,
 .hero-example-btn.active {
-  background: rgba(18, 104, 236, 0.15);
-  border-color: rgba(18, 104, 236, 0.4);
-  color: #fff;
+  background: color-mix(in srgb, var(--accent) 15%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 40%, transparent);
+  color: var(--text-primary);
 }
 
 /* ===== Commands Catalog ===== */
@@ -1059,7 +1096,7 @@ a.stat-card:hover {
 }
 
 .commands-sticky.stuck {
-  box-shadow: 0 10px 14px -12px rgba(0, 0, 0, 0.18);
+  box-shadow: var(--shadow-sticky);
 }
 
 .commands-sticky.stuck::after {
@@ -1095,7 +1132,7 @@ a.stat-card:hover {
   font-size: 0.85rem;
   font-weight: 500;
   cursor: pointer;
-  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  transition: background 0.15s, color 0.15s, border-color 0.15s, scale 0.15s ease;
 }
 
 .tab:hover {
@@ -1142,7 +1179,7 @@ a.stat-card:hover {
   padding: 0.65rem 1rem;
   cursor: pointer;
   white-space: nowrap;
-  transition: border-color 0.15s, color 0.15s;
+  transition: border-color 0.15s, color 0.15s, scale 0.15s ease;
 }
 
 .toggle-all-btn:hover {
@@ -1177,6 +1214,7 @@ a.stat-card:hover {
   line-height: 1;
   border-radius: 4px;
   display: none;
+  transition: color 0.15s, background 0.15s, scale 0.15s ease;
 }
 
 .search-clear:hover {
@@ -1193,12 +1231,12 @@ a.stat-card:hover {
 }
 
 #search:focus {
-  border-color: var(--brand-blue);
+  border-color: var(--accent);
 }
 
 /* Search highlights */
 .search-highlight {
-  background: rgba(18, 104, 236, 0.2);
+  background: var(--highlight);
   color: inherit;
   border-radius: 2px;
   padding: 0 1px;
@@ -1224,7 +1262,7 @@ a.stat-card:hover {
   line-height: 1.8;
 }
 .noscript-fallback a {
-  color: var(--brand-blue);
+  color: var(--accent);
   text-decoration: underline;
 }
 
@@ -1252,7 +1290,7 @@ a.stat-card:hover {
   letter-spacing: 0.22em;
   text-transform: uppercase;
   color: var(--text-secondary);
-  opacity: 0.6;
+  opacity: 0.65;
   white-space: nowrap;
   flex-shrink: 0;
 }
@@ -1262,19 +1300,6 @@ a.stat-card:hover {
   height: 1px;
   background: linear-gradient(to right, var(--border), transparent 75%);
 }
-
-/* Pillar labels were nearly invisible in light mode at 0.6 opacity against
-   the page; small bump to 0.7 fixes legibility without making them shouty. */
-:root[data-theme="light"] .pillar-label,
-:root:not([data-theme="dark"]) .pillar-label {
-  opacity: 0.7;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) .pillar-label { opacity: 0.6; }
-}
-
-:root[data-theme="dark"] .pillar-label { opacity: 0.6; }
 
 /* Resource sub-buckets — when a group has 8+ commands across 2+ resources,
    catalog.js sub-buckets the leaf commands by resource (second word of the
@@ -1301,9 +1326,8 @@ a.stat-card:hover {
 
 .resource-header:hover,
 .resource-header:focus-visible {
-  background: rgba(18, 104, 236, 0.06);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
   color: var(--text-primary);
-  outline: none;
 }
 
 .resource-chevron {
@@ -1402,8 +1426,9 @@ a.stat-card:hover {
   border-radius: 10px;
   margin-left: 0.35rem;
   vertical-align: middle;
-  background: rgba(255, 255, 255, 0.1);
+  background: var(--badge-bg);
   color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
 }
 
 .group-new-dot {
@@ -1414,12 +1439,6 @@ a.stat-card:hover {
   background: var(--new-indicator);
   margin-left: 0.3rem;
   vertical-align: middle;
-}
-
-@media (prefers-color-scheme: light) {
-  .group-count-badge {
-    background: rgba(0, 0, 0, 0.07);
-  }
 }
 
 /* Product badges wrapper in group headers */
@@ -1451,13 +1470,13 @@ a.stat-card:hover {
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  color: var(--brand-blue);
+  color: var(--accent);
   padding: 0.75rem 1rem;
   margin-bottom: 0;
   cursor: pointer;
   user-select: none;
-  background: #1268ec0d;
-  border-left: 3px solid var(--brand-blue);
+  background: var(--accent-tint);
+  border-left: 3px solid var(--accent);
   border-radius: 4px;
   position: sticky;
   top: 196px;
@@ -1466,122 +1485,71 @@ a.stat-card:hover {
 
 /* Shared/core groups (no data-product) use gray */
 .catalog-group:not([data-product]) .catalog-group-header {
-  color: #535358;
-  border-left-color: #8e8e93;
-  background: #f5f7f8;
-}
-
-@media (prefers-color-scheme: dark) {
-  .catalog-group:not([data-product]) .catalog-group-header {
-    color: var(--text-secondary);
-    border-left-color: var(--border);
-    background: var(--card-bg);
-  }
-}
-
-:root[data-theme="dark"] .catalog-group:not([data-product]) .catalog-group-header {
-  color: var(--text-secondary);
-  border-left-color: var(--border);
-  background: var(--card-bg);
-}
-
-:root[data-theme="light"] .catalog-group:not([data-product]) .catalog-group-header {
-  color: #535358;
-  border-left-color: #8e8e93;
-  background: #f5f7f8;
+  color: var(--muted-header-text);
+  border-left-color: var(--muted-header-border);
+  background: var(--muted-header-bg);
 }
 
 /* Product-colored group headers — add new products here */
 .catalog-group.getting-started .catalog-group-header {
-  border: 1px solid rgba(18, 104, 236, 0.3);
-  box-shadow: 0 0 6px rgba(18, 104, 236, 0.15);
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+  box-shadow: 0 0 6px color-mix(in srgb, var(--accent) 15%, transparent);
   font-weight: 700;
 }
 
 .catalog-group.getting-started[data-product="pro"] .catalog-group-header {
-  border: 1px solid rgba(6, 182, 212, 0.3);
-  box-shadow: 0 0 6px rgba(6, 182, 212, 0.15);
+  border: 1px solid color-mix(in srgb, var(--product-pro) 30%, transparent);
+  box-shadow: 0 0 6px color-mix(in srgb, var(--product-pro) 15%, transparent);
 }
 
 .catalog-group.getting-started[data-product="protect"] .catalog-group-header {
-  border: 1px solid rgba(0, 179, 0, 0.3);
-  box-shadow: 0 0 6px rgba(0, 179, 0, 0.15);
+  border: 1px solid color-mix(in srgb, var(--product-protect) 30%, transparent);
+  box-shadow: 0 0 6px color-mix(in srgb, var(--product-protect) 15%, transparent);
 }
 .catalog-group.getting-started[data-product="school"] .catalog-group-header {
-  border: 1px solid rgba(245, 158, 11, 0.3);
-  box-shadow: 0 0 6px rgba(245, 158, 11, 0.15);
+  border: 1px solid color-mix(in srgb, var(--product-school) 30%, transparent);
+  box-shadow: 0 0 6px color-mix(in srgb, var(--product-school) 15%, transparent);
 }
 
 .catalog-group.getting-started[data-product="security"] .catalog-group-header {
-  border: 1px solid rgba(220, 38, 38, 0.3);
-  box-shadow: 0 0 6px rgba(220, 38, 38, 0.15);
+  border: 1px solid color-mix(in srgb, var(--product-security) 30%, transparent);
+  box-shadow: 0 0 6px color-mix(in srgb, var(--product-security) 15%, transparent);
 }
 .catalog-group.getting-started[data-product="platform"] .catalog-group-header {
-  border: 1px solid rgba(18, 104, 236, 0.3);
-  box-shadow: 0 0 6px rgba(18, 104, 236, 0.15);
+  border: 1px solid color-mix(in srgb, var(--product-platform) 30%, transparent);
+  box-shadow: 0 0 6px color-mix(in srgb, var(--product-platform) 15%, transparent);
 }
 
 .catalog-group[data-product="pro"] .catalog-group-header {
   border-left-color: var(--product-pro);
   color: var(--product-pro);
-  background: #06b6d40d;
+  background: var(--tint-pro);
 }
 .catalog-group[data-product="protect"] .catalog-group-header {
   border-left-color: var(--product-protect);
   color: var(--product-protect);
-  background: #00b3000d;
+  background: var(--tint-protect);
 }
 .catalog-group[data-product="school"] .catalog-group-header {
   border-left-color: var(--product-school);
   color: var(--product-school);
-  background: #FEF3C7;
+  background: var(--tint-school);
 }
 
 .catalog-group[data-product="security"] .catalog-group-header {
   border-left-color: var(--product-security);
   color: var(--product-security);
-  background: #FEE2E2;
+  background: var(--tint-security);
 }
 .catalog-group[data-product="platform"] .catalog-group-header {
   border-left-color: var(--product-platform);
   color: var(--product-platform);
-  background: #1268ec0d;
-}
-
-@media (prefers-color-scheme: dark) {
-  .catalog-group[data-product="pro"] .catalog-group-header {
-    background: #22d3ee1a;
-  }
-  .catalog-group[data-product="protect"] .catalog-group-header {
-    background: #32d74b1a;
-  }
-  .catalog-group[data-product="school"] .catalog-group-header {
-    background: #271d08;
-  }
-
-  .catalog-group[data-product="security"] .catalog-group-header {
-    background: #2e1414;
-  }
-  .catalog-group[data-product="platform"] .catalog-group-header {
-    background: #1268ec1a;
-  }
-}
-
-@media (prefers-color-scheme: dark) {
-  .catalog-group-header {
-    background: #2b2f36;
-  }
+  background: var(--tint-platform);
 }
 
 .catalog-group-header:hover {
   color: var(--link-blue);
-  background: rgba(18, 104, 236, 0.1);
-}
-
-@media (prefers-color-scheme: dark) {
-  .catalog-group-header:hover {
-    background: rgba(18, 104, 236, 0.15);
-  }
+  background: var(--accent-tint-hover);
 }
 
 .group-chevron {
@@ -1606,7 +1574,7 @@ a.stat-card:hover {
   transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
   background: var(--card-bg);
   border: 1px solid var(--border);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  box-shadow: var(--shadow-1);
   position: relative;
 }
 
@@ -1660,13 +1628,12 @@ a.stat-card:hover {
 .command-row:focus-visible {
   border-color: var(--text-secondary);
   background: var(--page-bg);
-  outline: none;
 }
 
 .command-name {
   font-family: 'Geist Mono', 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
   font-size: 0.95rem;
-  color: var(--brand-blue);
+  color: var(--accent);
 }
 
 .command-name {
@@ -1694,7 +1661,7 @@ a.stat-card:hover {
 
 .command-copy-icon:hover {
   opacity: 1;
-  color: var(--brand-blue);
+  color: var(--accent);
 }
 
 .command-name.copied .command-copy-icon {
@@ -1784,7 +1751,7 @@ a.stat-card:hover {
   padding: 0.75rem 1rem 0.75rem 1.25rem;
   margin: 0 0 0.25rem;
   background: var(--card-bg);
-  border-left: 3px solid var(--brand-blue);
+  border-left: 3px solid var(--accent);
   border-radius: 0 0 6px 6px;
 }
 
@@ -1795,7 +1762,7 @@ a.stat-card:hover {
 /* Connect command row to its expanded detail */
 .command-row:has(+ .command-expanded.open) {
   border-radius: 6px 6px 0 0;
-  border-left: 3px solid var(--brand-blue);
+  border-left: 3px solid var(--accent);
   margin-bottom: 0;
 }
 
@@ -1833,27 +1800,27 @@ a.stat-card:hover {
 
 .cmd-product-badge[data-product="pro"] {
   color: var(--product-pro);
-  background: rgba(6, 182, 212, 0.08);
+  background: color-mix(in srgb, var(--product-pro) 8%, transparent);
 }
 
 .cmd-product-badge[data-product="protect"] {
   color: var(--product-protect);
-  background: rgba(0, 179, 0, 0.08);
+  background: color-mix(in srgb, var(--product-protect) 8%, transparent);
 }
 
 .cmd-product-badge[data-product="school"] {
   color: var(--product-school);
-  background: rgba(245, 158, 11, 0.08);
+  background: color-mix(in srgb, var(--product-school) 8%, transparent);
 }
 
 .cmd-product-badge[data-product="security"] {
   color: var(--product-security);
-  background: rgba(220, 38, 38, 0.08);
+  background: color-mix(in srgb, var(--product-security) 8%, transparent);
 }
 
 .cmd-product-badge[data-product="platform"] {
   color: var(--product-platform);
-  background: rgba(18, 104, 236, 0.08);
+  background: color-mix(in srgb, var(--product-platform) 8%, transparent);
 }
 
 /* Right-aligned "Jamf Platform" pill on Platform-* group headers — mirrors
@@ -1914,22 +1881,22 @@ a.stat-card:hover {
 }
 
 .xref-badge[data-product="pro"] {
-  background: rgba(18, 104, 236, 0.1);
+  background: color-mix(in srgb, var(--product-pro) 10%, transparent);
   color: var(--product-pro);
 }
 
 .xref-badge[data-product="protect"] {
-  background: rgba(0, 179, 0, 0.1);
+  background: color-mix(in srgb, var(--product-protect) 10%, transparent);
   color: var(--product-protect);
 }
 
 .xref-badge[data-product="school"] {
-  background: rgba(245, 158, 11, 0.1);
+  background: color-mix(in srgb, var(--product-school) 10%, transparent);
   color: var(--product-school);
 }
 
 .xref-badge[data-product="security"] {
-  background: rgba(220, 38, 38, 0.1);
+  background: color-mix(in srgb, var(--product-security) 10%, transparent);
   color: var(--product-security);
 }
 
@@ -1940,7 +1907,7 @@ a.stat-card:hover {
 }
 
 .detail-parent-link {
-  color: var(--brand-blue);
+  color: var(--accent);
   font-family: 'Geist Mono', 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
   font-size: 0.8rem;
   text-decoration: none;
@@ -1966,14 +1933,14 @@ a.stat-card:hover {
   border-radius: 6px;
   text-decoration: none;
   background: var(--card-bg);
-  color: var(--brand-blue);
+  color: var(--accent);
   border: 1px solid var(--border);
   transition: background 0.1s, border-color 0.1s;
 }
 
 .sibling-link:hover {
-  border-color: var(--brand-blue);
-  background: rgba(18, 104, 236, 0.08);
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
 }
 
 .sibling-link[data-product="protect"] {
@@ -1982,7 +1949,7 @@ a.stat-card:hover {
 
 .sibling-link[data-product="protect"]:hover {
   border-color: var(--product-protect);
-  background: rgba(0, 179, 0, 0.08);
+  background: color-mix(in srgb, var(--product-protect) 8%, transparent);
 }
 
 .detail-heading {
@@ -2029,7 +1996,7 @@ pre.example-command {
 }
 
 pre.example-command:hover {
-  border-color: var(--brand-blue);
+  border-color: var(--accent);
 }
 
 pre.example-command.copied {
@@ -2062,8 +2029,8 @@ pre.example-command.copied::after {
   display: inline-block;
   font-family: 'Geist Mono', 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
   font-size: 0.6rem;
-  background: rgba(142, 142, 147, 0.08);
-  color: #8e8e93;
+  background: var(--pill-bg);
+  color: var(--pill-text);
   padding: 0.15rem 0.5rem;
   border-radius: 4px;
   margin-right: 0.25rem;
@@ -2076,23 +2043,12 @@ pre.example-command.copied::after {
   display: inline-block;
   font-family: 'Geist Mono', 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
   font-size: 0.6rem;
-  background: rgba(142, 142, 147, 0.08);
-  color: #8e8e93;
+  background: var(--pill-bg);
+  color: var(--pill-text);
   padding: 0.15rem 0.5rem;
   border-radius: 4px;
   margin-right: 0.25rem;
   border: none;
-}
-
-@media (prefers-color-scheme: dark) {
-  .flag-pill {
-    background: rgba(142, 142, 147, 0.12);
-    color: #707377;
-  }
-  .alias-badge {
-    background: rgba(255, 255, 255, 0.06);
-    border-color: rgba(255, 255, 255, 0.08);
-  }
 }
 
 /* ===== Install Section ===== */
@@ -2221,7 +2177,7 @@ pre.example-command.copied::after {
   font-size: 0.85rem;
   font-weight: 500;
   white-space: nowrap;
-  transition: opacity 0.15s;
+  transition: opacity 0.15s, scale 0.15s ease;
 }
 
 .install-card .btn:hover {
@@ -2239,8 +2195,9 @@ pre.example-command.copied::after {
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: color 0.15s;
+  transition: color 0.15s, scale 0.15s ease;
   flex-shrink: 0;
+  position: relative;
 }
 
 .copy-btn:hover {
@@ -2309,8 +2266,8 @@ footer .footer-meta {
   opacity: 0;
   transform: translateY(10px);
   pointer-events: none;
-  transition: opacity 0.2s, transform 0.2s, background 0.15s;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  transition: opacity 0.2s, transform 0.2s, background 0.15s, scale 0.15s ease;
+  box-shadow: var(--shadow-2);
 }
 
 .back-to-top.visible {
@@ -2373,7 +2330,7 @@ footer .footer-meta {
   padding: 1.5rem;
   min-width: 300px;
   max-width: 400px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+  box-shadow: var(--shadow-3);
 }
 
 .kbd-modal-header {
@@ -2442,7 +2399,7 @@ footer .footer-meta {
   cursor: pointer;
   display: flex;
   align-items: center;
-  transition: border-color 0.15s;
+  transition: border-color 0.15s, scale 0.15s ease;
 }
 
 .kbd-hint-btn:hover {
@@ -2477,7 +2434,7 @@ footer .footer-meta {
     padding: 1rem 1.25rem;
     gap: 1rem;
     border-top: 1px solid var(--border);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    box-shadow: var(--shadow-2);
     z-index: 99;
   }
 
@@ -2488,10 +2445,6 @@ footer .footer-meta {
   .hamburger {
     display: flex;
     order: 2;
-  }
-
-  .hamburger span {
-    background: var(--text-primary);
   }
 
   .theme-toggle {
@@ -2571,6 +2524,13 @@ footer .footer-meta {
   .catalog-controls {
     flex-direction: column;
     gap: 0.5rem;
+  }
+
+  /* iOS Safari zooms the page when a focused input is under 16px —
+     keep inputs at 1rem on mobile (desktop sizes are set above) */
+  #search,
+  .palette-input {
+    font-size: 1rem;
   }
 
   .toggle-all-btn {
@@ -2671,7 +2631,7 @@ footer .footer-meta {
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: color 0.15s, border-color 0.15s;
+  transition: color 0.15s, border-color 0.15s, scale 0.15s ease;
   flex-shrink: 0;
 }
 
@@ -2685,92 +2645,185 @@ footer .footer-meta {
   height: 18px;
 }
 
-/* Show sun in dark mode, moon in light mode */
-.theme-icon-sun { display: none; }
-.theme-icon-moon { display: block; }
+/* Sun in dark mode, moon in light mode — both stay in the DOM stacked on
+   one grid cell and cross-fade (scale + blur, same recipe as the copy→check
+   swap) instead of popping via display. light-dark() only drives colors, so
+   these visibility states are the one spot that still needs the explicit
+   media + data-theme selectors. */
+.theme-toggle { display: grid; place-items: center; }
+.theme-icon-sun,
+.theme-icon-moon {
+  grid-area: 1 / 1;
+  transition: opacity 0.3s cubic-bezier(0.2, 0, 0, 1),
+              scale 0.3s cubic-bezier(0.2, 0, 0, 1),
+              filter 0.3s cubic-bezier(0.2, 0, 0, 1);
+}
+.theme-icon-sun { opacity: 0; scale: 0.25; filter: blur(4px); }
+.theme-icon-moon { opacity: 1; scale: 1; filter: blur(0); }
 
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) .theme-icon-sun { display: block; }
-  :root:not([data-theme="light"]) .theme-icon-moon { display: none; }
+  :root:not([data-theme="light"]) .theme-icon-sun { opacity: 1; scale: 1; filter: blur(0); }
+  :root:not([data-theme="light"]) .theme-icon-moon { opacity: 0; scale: 0.25; filter: blur(4px); }
 }
 
-:root[data-theme="dark"] .theme-icon-sun { display: block; }
-:root[data-theme="dark"] .theme-icon-moon { display: none; }
-:root[data-theme="light"] .theme-icon-sun { display: none; }
-:root[data-theme="light"] .theme-icon-moon { display: block; }
+:root[data-theme="dark"] .theme-icon-sun { opacity: 1; scale: 1; filter: blur(0); }
+:root[data-theme="dark"] .theme-icon-moon { opacity: 0; scale: 0.25; filter: blur(4px); }
 
-/* ===== Manual Dark Mode Override ([data-theme="dark"]) ===== */
-:root[data-theme="dark"] .catalog-group-header {
-  background: #2b2f36;
-}
-:root[data-theme="dark"] .catalog-group:not([data-product]) .catalog-group-header {
-  background: var(--card-bg);
-  color: var(--text-secondary);
-  border-left-color: var(--border);
-}
-:root[data-theme="dark"] .catalog-group-header:hover {
-  background: rgba(18, 104, 236, 0.15);
-}
-:root[data-theme="dark"] .catalog-group[data-product="pro"] .catalog-group-header {
-  background: #1268ec1a;
-}
-:root[data-theme="dark"] .catalog-group[data-product="protect"] .catalog-group-header {
-  background: #32d74b1a;
-}
-:root[data-theme="dark"] .catalog-group[data-product="school"] .catalog-group-header {
-  background: #271d08;
+@media (prefers-reduced-motion: reduce) {
+  .theme-icon-sun,
+  .theme-icon-moon {
+    transition-property: opacity;
+    scale: 1 !important;
+    filter: none !important;
+  }
 }
 
-:root[data-theme="dark"] .catalog-group[data-product="security"] .catalog-group-header {
-  background: #2e1414;
-}
-:root[data-theme="dark"] .flag-pill {
-  background: rgba(142, 142, 147, 0.12);
-  color: #707377;
-}
-:root[data-theme="dark"] .alias-badge {
-  background: rgba(255, 255, 255, 0.08);
-  border-color: rgba(255, 255, 255, 0.1);
-  color: #86898d;
-}
-:root[data-theme="dark"] .group-count-badge {
-  background: rgba(255, 255, 255, 0.1);
-}
-:root[data-theme="dark"] .commands-sticky.stuck {
-  box-shadow: 0 12px 18px -14px rgba(0, 0, 0, 0.55);
+/* View-transition radial theme reveal — the toggle JS animates a circular
+   clip-path on the new snapshot; default crossfade must be disabled */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
 }
 
-/* Manual Light Mode — reset dark media query overrides */
-@media (prefers-color-scheme: dark) {
-  :root[data-theme="light"] .catalog-group-header {
-    background: #1268ec0d;
-  }
-  :root[data-theme="light"] .catalog-group-header:hover {
-    background: rgba(18, 104, 236, 0.1);
-  }
-  :root[data-theme="light"] .catalog-group[data-product="pro"] .catalog-group-header {
-    background: #1268ec0d;
-  }
-  :root[data-theme="light"] .catalog-group[data-product="protect"] .catalog-group-header {
-    background: #00b3000d;
-  }
-  :root[data-theme="light"] .catalog-group[data-product="school"] .catalog-group-header {
-    background: #FEF3C7;
-  }
+/* ===== Interaction polish (make-interfaces-feel-better) ===== */
 
-  :root[data-theme="light"] .catalog-group[data-product="security"] .catalog-group-header {
-    background: #FEE2E2;
+/* Scale on press (#12) — subtle tactile feedback on click. Uses the
+   independent `scale` property so it composes with elements that already
+   animate `transform` (the translateY lift on .stat-card / .back-to-top).
+   0.96 is the skill's floor; anything below reads as exaggerated.
+   Gated on no-preference so reduced-motion users never get the scale —
+   no separate reset rule needed. */
+@media (prefers-reduced-motion: no-preference) {
+  .copy-btn:active,
+  .tab:active,
+  .toggle-all-btn:active,
+  .kbd-hint-btn:active,
+  .theme-toggle:active,
+  .install-card .btn:active,
+  .search-clear:active,
+  a.stat-card:active,
+  .back-to-top:active {
+    scale: 0.96;
   }
-  :root[data-theme="light"] .flag-pill {
-    background: rgba(142, 142, 147, 0.08);
-    color: #8e8e93;
+}
+
+/* Minimum hit area (#16) — the copy button's visible target is ~24px.
+   Extend it to a 40px comfortable target (dense-desktop floor) without
+   affecting layout. Clicks on the pseudo count as clicks on the button. */
+.copy-btn::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 40px;
+  height: 40px;
+  transform: translate(-50%, -50%);
+}
+
+/* Contextual icon cross-fade (#7) — on copy success the copy glyph scales
+   and blurs out while a check scales in. Both icons stay in the DOM (the
+   check is injected once by an inline IIFE in index.html); the .copied
+   class that drives it is toggled by catalog.js. */
+.copy-btn svg {
+  transition: opacity 0.3s cubic-bezier(0.2, 0, 0, 1),
+              scale 0.3s cubic-bezier(0.2, 0, 0, 1),
+              filter 0.3s cubic-bezier(0.2, 0, 0, 1);
+}
+.copy-btn .icon-check {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  translate: -50% -50%;
+  scale: 0.25;
+  opacity: 0;
+  filter: blur(4px);
+  color: var(--terminal-success);
+}
+.copy-btn.copied .icon-copy {
+  scale: 0.25;
+  opacity: 0;
+  filter: blur(4px);
+}
+.copy-btn.copied .icon-check {
+  scale: 1;
+  opacity: 1;
+  filter: blur(0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* Keep the copy→check swap as a plain opacity fade — no scale/blur motion. */
+  .copy-btn svg {
+    transition-property: opacity;
   }
-  :root[data-theme="light"] .alias-badge {
-    background: rgba(0, 0, 0, 0.05);
-    border-color: rgba(0, 0, 0, 0.08);
-    color: #8e8e93;
+  .copy-btn .icon-check,
+  .copy-btn.copied .icon-copy,
+  .copy-btn.copied .icon-check {
+    scale: 1;
+    filter: none;
   }
-  :root[data-theme="light"] .group-count-badge {
-    background: rgba(0, 0, 0, 0.07);
-  }
+}
+
+/* ===== Text wrapping (make-interfaces-feel-better #10) ===== */
+
+/* balance: even line lengths on short headings (the hero subtitle already
+   has it). Ignored by the browser above ~6 lines, so headings-only. */
+#hero h1,
+.commands-header h2,
+#install h2,
+#faq h2,
+.faq-item h3 {
+  text-wrap: balance;
+}
+
+/* pretty: prevents a lone orphan word on the last line of body copy. */
+.faq-item p,
+.install-card p {
+  text-wrap: pretty;
+}
+
+/* ===== Colorize (impeccable) — semantic color reach ===== */
+
+/* Branded text selection — accent tint, no color flip, so it stays
+   legible over paper, cards, and the always-dark terminal alike */
+::selection {
+  background: color-mix(in srgb, var(--accent) 25%, transparent);
+}
+
+/* Keyboard focus — the One Signal Rule extended to :focus-visible.
+   Signal Blue means interactive; a keyboard user gets the same signal
+   a mouse user gets from hover. Inputs keep their border-color focus
+   treatment instead (the border IS their focus state). */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+input:focus-visible {
+  outline: none;
+}
+
+/* Destructive-command badge — semantic danger, always paired with the
+   "destructive" label so meaning survives grayscale and screen readers */
+.danger-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-family: 'Geist', -apple-system, system-ui, sans-serif;
+  font-size: 0.6rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 8%, transparent);
+  padding: 0.1rem 0.4rem;
+  border-radius: 4px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.danger-badge svg {
+  width: 10px;
+  height: 10px;
+  flex-shrink: 0;
 }
