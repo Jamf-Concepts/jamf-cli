@@ -934,6 +934,43 @@ func TestGenerateRegistry_NoApplyHelpers_WhenNotNeeded(t *testing.T) {
 	}
 }
 
+func TestGenerate_SerialAlias(t *testing.T) {
+	dir := t.TempDir()
+	gen := NewGenerator(dir)
+
+	resource := ClassicResource{
+		Name:        "computerhistory",
+		Path:        "computerhistory",
+		CLIName:     "classic-computer-history",
+		GoName:      "ClassicComputerHistory",
+		Singular:    "computer_history",
+		Description: "Computer history records",
+		Operations:  []string{"get"},
+		Lookups:     []string{"id", "name", "serialnumber"},
+		IDPath:      "id",
+	}
+
+	outPath, err := gen.Generate(resource)
+	if err != nil {
+		t.Fatalf("Generate() error = %v", err)
+	}
+	content, err := os.ReadFile(outPath)
+	if err != nil {
+		t.Fatal(err)
+		return
+	}
+	code := string(content)
+
+	// canonical flag still registered
+	if !strings.Contains(code, `StringVar(&flagSerialnumber, "serialnumber"`) {
+		t.Error("expected canonical --serialnumber flag")
+	}
+	// alias registered, bound to the SAME variable
+	if !strings.Contains(code, `StringVar(&flagSerialnumber, "serial"`) {
+		t.Error("expected --serial alias bound to flagSerialnumber")
+	}
+}
+
 func TestGenerate_Filename(t *testing.T) {
 	dir := t.TempDir()
 	gen := NewGenerator(dir)

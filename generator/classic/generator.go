@@ -85,6 +85,15 @@ func (g *Generator) GenerateRegistry(resources []ClassicResource) (string, error
 	return outPath, nil
 }
 
+// lookupFlagAliases maps a canonical Classic lookup path segment to additional
+// CLI flag names that resolve to the same lookup. The API path segment stays
+// canonical; the alias is registered as a second flag bound to the same
+// variable. --serial mirrors the modern commands' --serial flag while the
+// Classic API path segment remains "serialnumber".
+var lookupFlagAliases = map[string][]string{
+	"serialnumber": {"serial"},
+}
+
 func templateFuncs() template.FuncMap {
 	return template.FuncMap{
 		"toCamel":            strcase.ToCamel,
@@ -134,6 +143,9 @@ func templateFuncs() template.FuncMap {
 		},
 		"lookupCamel": func(l string) string {
 			return strcase.ToCamel(l)
+		},
+		"lookupAliases": func(l string) []string {
+			return lookupFlagAliases[l]
 		},
 		"needsIO": func(r ClassicResource) bool {
 			// list and get use io.ReadAll for response unwrapping; create/update read from stdin
@@ -507,8 +519,9 @@ func new{{ .GoName }}GetCmd(ctx *registry.CLIContext) *cobra.Command {
 		},
 	}
 {{ if extraLookups .Lookups }}
-{{ range extraLookups .Lookups }}	cmd.Flags().StringVar(&flag{{ lookupCamel . }}, "{{ lookupFlag . }}", "", "Look up {{ $.Singular }} by {{ . }}")
-{{ end }}{{ end }}
+{{ range $l := extraLookups .Lookups }}	cmd.Flags().StringVar(&flag{{ lookupCamel $l }}, "{{ lookupFlag $l }}", "", "Look up {{ $.Singular }} by {{ $l }}")
+{{ range $alias := lookupAliases $l }}	cmd.Flags().StringVar(&flag{{ lookupCamel $l }}, "{{ $alias }}", "", "Alias for --{{ lookupFlag $l }}")
+{{ end }}{{ end }}{{ end }}
 	return cmd
 }
 {{ end }}
