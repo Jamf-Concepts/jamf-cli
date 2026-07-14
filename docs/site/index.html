@@ -7,8 +7,8 @@
   <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large">
   <title>jamf-cli — Your fleet, one command away</title>
   <link rel="canonical" href="https://jamf-concepts.github.io/jamf-cli/">
-  <meta name="theme-color" content="#f4f5f8" media="(prefers-color-scheme: light)">
-  <meta name="theme-color" content="#141920" media="(prefers-color-scheme: dark)">
+  <meta name="theme-color" content="#fbfcfd" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#0f1217" media="(prefers-color-scheme: dark)">
   <!-- Apply the saved manual theme before first paint (prevents a flash of
        the wrong theme) and pin the browser-chrome color to match. -->
   <script>
@@ -17,7 +17,7 @@
         var t = localStorage.getItem('theme');
         if (t !== 'dark' && t !== 'light') return;
         document.documentElement.setAttribute('data-theme', t);
-        var c = t === 'dark' ? '#141920' : '#f4f5f8';
+        var c = t === 'dark' ? '#0f1217' : '#fbfcfd';
         var metas = document.querySelectorAll('meta[name="theme-color"]');
         for (var i = 0; i < metas.length; i++) metas[i].setAttribute('content', c);
       } catch (e) { /* storage blocked — fall back to system theme */ }
@@ -582,7 +582,7 @@
       var toggle = document.getElementById('theme-toggle');
 
       function syncThemeColor(theme) {
-        var c = theme === 'dark' ? '#141920' : '#f4f5f8';
+        var c = theme === 'dark' ? '#0f1217' : '#fbfcfd';
         document.querySelectorAll('meta[name="theme-color"]').forEach(function (m) {
           m.setAttribute('content', c);
         });

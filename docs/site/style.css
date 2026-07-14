@@ -389,7 +389,7 @@ html {
   --danger: light-dark(#dc2626, #ef4444);
 
   /* Accents — text/border/icon roles, lifted in dark for contrast */
-  --accent: light-dark(#1268ec, #4c8dff);
+  --accent: light-dark(#1268ec, #5290ff);
   --link-blue: light-dark(#5856d6, #7b79e8);
 
   /* Product colors — add new products here */
@@ -397,13 +397,17 @@ html {
   --product-protect: light-dark(#00b300, #32d74b);
   --product-school: light-dark(#f59e0b, #fbbf24);
   --product-security: light-dark(#dc2626, #ef4444);
-  --product-platform: light-dark(#1268ec, #4c8dff);
+  --product-platform: light-dark(#1268ec, #5290ff);
   /* --product-connect: light-dark(#a135d7, #c065ec); */
 
-  /* Surfaces & text */
-  --page-bg: light-dark(#f4f5f8, #141920);
-  --card-bg: light-dark(#e9ebf0, #1f242b);
-  --border: light-dark(#1419201f, #ffffff1f);
+  /* Surfaces & text — "gallery paper, phosphor ink":
+     light = white cards floating on near-white (separation from hairlines
+     and soft shadows, not grey recession); dark = deep blue-cast near-black
+     with surfaces stepped ~4% up. Neutrals carry a whisper of brand-blue
+     chroma so the UI coheres with the accent without reading as tinted. */
+  --page-bg: light-dark(#fbfcfd, #0f1217);
+  --card-bg: light-dark(#ffffff, #171b22);
+  --border: light-dark(#14192014, #ffffff1a);
   --text-primary: light-dark(#1a1d23, #ffffffde);
   --text-secondary: light-dark(#5a6068, #ffffff9e);
   --tab-inactive-bg: var(--card-bg);
@@ -427,20 +431,20 @@ html {
   --badge-bg: light-dark(rgba(0, 0, 0, 0.07), rgba(255, 255, 255, 0.1));
   --muted-header-text: light-dark(#535358, #ffffff9e);
   --muted-header-border: light-dark(#8e8e93, #ffffff1f);
-  --muted-header-bg: light-dark(#f5f7f8, #1f242b);
+  --muted-header-bg: light-dark(#f2f4f6, #171b22);
 
   /* Elevation — light-dark() only accepts <color> values, so the theme
      variance lives in the shadow's color component (light: soft grey
      shadows; dark: deeper black — subtle shadows vanish on dark surfaces) */
-  --shadow-1: 0 1px 3px light-dark(rgba(0, 0, 0, 0.04), rgba(0, 0, 0, 0.25));
+  --shadow-1: 0 1px 3px light-dark(rgba(20, 25, 32, 0.06), rgba(0, 0, 0, 0.35));
   --shadow-2: 0 4px 18px light-dark(rgba(20, 25, 32, 0.12), rgba(0, 0, 0, 0.5));
   --shadow-3: 0 16px 48px -8px light-dark(rgba(20, 25, 32, 0.16), rgba(0, 0, 0, 0.6));
   --shadow-sticky: 0 12px 16px -13px light-dark(rgba(0, 0, 0, 0.18), rgba(0, 0, 0, 0.55));
 
   /* Hero decoration — glyph pattern needs ~30% ink on paper but only
-     ~14% glow on dark; the top wash exists in light mode only */
-  --hero-glyph: light-dark(rgba(18, 104, 236, 0.3), rgba(18, 104, 236, 0.14));
-  --hero-glow: light-dark(rgba(18, 104, 236, 0.05), transparent);
+     ~16% glow on the deep dark; a faint brand wash tops both modes */
+  --hero-glyph: light-dark(rgba(18, 104, 236, 0.3), rgba(18, 104, 236, 0.16));
+  --hero-glow: light-dark(rgba(18, 104, 236, 0.05), rgba(82, 144, 255, 0.05));
 }
 
 /* Manual theme override — flipping color-scheme flips every light-dark()
