@@ -1,6 +1,7 @@
 name: Feature request
 description: Suggest a new command, flag, or capability
-labels: [enhancement, needs-triage]
+type: Feature
+labels: [needs-triage]
 body:
   - type: markdown
     attributes:

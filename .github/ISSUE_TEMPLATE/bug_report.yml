@@ -1,6 +1,7 @@
 name: Bug report
 description: Something in jamf-cli isn't working as expected
-labels: [bug, needs-triage]
+type: Bug
+labels: [needs-triage]
 body:
   - type: markdown
     attributes:
