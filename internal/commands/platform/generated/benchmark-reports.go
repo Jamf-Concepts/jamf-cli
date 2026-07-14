@@ -32,19 +32,33 @@ func NewBenchmarkReportsCmd(cliCtx *registry.CLIContext) *cobra.Command {
 }
 
 func newBenchmarkReportsCompliancePercentageCmd(cliCtx *registry.CLIContext) *cobra.Command {
+	var nameFlag string
 	cmd := &cobra.Command{
 		Use:         "compliance-percentage <id>",
 		Short:       "Get compliance percentage for a benchmark report",
 		Long:        "Calculate and return the overall compliance percentage for a specific benchmark report as sum of device compliance scores divided by number of devices",
 		Annotations: map[string]string{"jamf:privileges": "read:pro:compliance-benchmarks"},
-		Args:        cobra.ExactArgs(1),
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err
 			}
+			var resolvedID string
+			if nameFlag != "" {
+				listPath := strings.Replace("/api/compliance-benchmarks/v1/tenant/{tenantId}/benchmarks", "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantID()), 1)
+				id, err := platform.ResolveIDByName(cmd.Context(), cliCtx.PlatformSDKClient, listPath, nameFlag)
+				if err != nil {
+					return err
+				}
+				resolvedID = id
+			} else if len(args) == 1 {
+				resolvedID = args[0]
+			} else {
+				return fmt.Errorf("provide a positional ID or --name")
+			}
 			path := "/api/compliance-benchmarks/v1/tenant/{tenantId}/benchmarks/{id}/compliance-percentage"
 			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantID()), 1)
-			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
 			q := url.Values{}
 			var body any
 			if encoded := q.Encode(); encoded != "" {
@@ -64,10 +78,12 @@ func newBenchmarkReportsCompliancePercentageCmd(cliCtx *registry.CLIContext) *co
 			return cliCtx.Output.PrintRaw(b)
 		},
 	}
+	cmd.Flags().StringVar(&nameFlag, "name", "", "Resolve target by name instead of ID (uses the resource list endpoint)")
 	return cmd
 }
 
 func newBenchmarkReportsDevicesCmd(cliCtx *registry.CLIContext) *cobra.Command {
+	var nameFlag string
 	var ruleId string
 	var deviceSearch string
 	var ruleResult string
@@ -77,14 +93,27 @@ func newBenchmarkReportsDevicesCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Short:       "Get devices for a benchmark report rule",
 		Long:        "Provide devices filtered report for a specific benchmark rule",
 		Annotations: map[string]string{"jamf:privileges": "read:pro:compliance-benchmarks"},
-		Args:        cobra.ExactArgs(1),
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err
 			}
+			var resolvedID string
+			if nameFlag != "" {
+				listPath := strings.Replace("/api/compliance-benchmarks/v1/tenant/{tenantId}/benchmarks", "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantID()), 1)
+				id, err := platform.ResolveIDByName(cmd.Context(), cliCtx.PlatformSDKClient, listPath, nameFlag)
+				if err != nil {
+					return err
+				}
+				resolvedID = id
+			} else if len(args) == 1 {
+				resolvedID = args[0]
+			} else {
+				return fmt.Errorf("provide a positional ID or --name")
+			}
 			path := "/api/compliance-benchmarks/v1/tenant/{tenantId}/benchmarks/{id}/devices"
 			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantID()), 1)
-			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
 			q := url.Values{}
 			if ruleId != "" {
 				q.Set("rule-id", ruleId)
@@ -130,6 +159,7 @@ func newBenchmarkReportsDevicesCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			return cliCtx.Output.PrintRaw(b)
 		},
 	}
+	cmd.Flags().StringVar(&nameFlag, "name", "", "Resolve target by name instead of ID (uses the resource list endpoint)")
 	cmd.Flags().StringVar(&ruleId, "rule-id", "", "Filter by rule-id")
 	_ = cmd.MarkFlagRequired("rule-id")
 	cmd.Flags().StringVar(&deviceSearch, "device-search", "", "Search devices with matching device name or device ID")
@@ -139,6 +169,7 @@ func newBenchmarkReportsDevicesCmd(cliCtx *registry.CLIContext) *cobra.Command {
 }
 
 func newBenchmarkReportsRulesCmd(cliCtx *registry.CLIContext) *cobra.Command {
+	var nameFlag string
 	var ruleSearch string
 	var sort string
 	cmd := &cobra.Command{
@@ -146,14 +177,27 @@ func newBenchmarkReportsRulesCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Short:       "Get benchmark rules for a tenant",
 		Long:        "Provide benchmark rules stats for a specific benchmark",
 		Annotations: map[string]string{"jamf:privileges": "read:pro:compliance-benchmarks"},
-		Args:        cobra.ExactArgs(1),
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err
 			}
+			var resolvedID string
+			if nameFlag != "" {
+				listPath := strings.Replace("/api/compliance-benchmarks/v1/tenant/{tenantId}/benchmarks", "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantID()), 1)
+				id, err := platform.ResolveIDByName(cmd.Context(), cliCtx.PlatformSDKClient, listPath, nameFlag)
+				if err != nil {
+					return err
+				}
+				resolvedID = id
+			} else if len(args) == 1 {
+				resolvedID = args[0]
+			} else {
+				return fmt.Errorf("provide a positional ID or --name")
+			}
 			path := "/api/compliance-benchmarks/v1/tenant/{tenantId}/benchmarks/{id}/rules"
 			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantID()), 1)
-			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
 			q := url.Values{}
 			if ruleSearch != "" {
 				q.Set("rule-search", ruleSearch)
@@ -193,6 +237,7 @@ func newBenchmarkReportsRulesCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			return cliCtx.Output.PrintRaw(b)
 		},
 	}
+	cmd.Flags().StringVar(&nameFlag, "name", "", "Resolve target by name instead of ID (uses the resource list endpoint)")
 	cmd.Flags().StringVar(&ruleSearch, "rule-search", "", "string to search in rule title and rule id")
 	cmd.Flags().StringVar(&sort, "sort", "", "Sort order of result (e.g., 'ruleTitle:asc', 'passed:desc', 'failed:desc', 'unknown:desc'). Supports chained sorting like 'ruleId,passed:desc'. Ascending order is default and in such a case doesn't require to be specified, such as 'ruleNumber,ruleTitle'.")
 	return cmd
