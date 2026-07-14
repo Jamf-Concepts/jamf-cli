@@ -48,9 +48,9 @@
    attack, slow decay — mirrors how phosphors actually behave. */
 @keyframes glyph-twinkle {
   0%   { fill: currentColor; filter: none; transform: scale(1); }
-  18%  { fill: light-dark(#0d55c8, #6ec5ff); filter: drop-shadow(0 0 8px rgba(110, 197, 255, 0.65)); transform: scale(1.04); }
-  42%  { fill: light-dark(#1268ec, #ffffff); filter: drop-shadow(0 0 18px rgba(140, 210, 255, 0.95)); transform: scale(1.06); }
-  68%  { fill: light-dark(#0d55c8, #6ec5ff); filter: drop-shadow(0 0 10px rgba(110, 197, 255, 0.5)); transform: scale(1.03); }
+  18%  { fill: light-dark(#00348a, #6ec5ff); filter: drop-shadow(0 0 8px rgba(110, 197, 255, 0.65)); transform: scale(1.04); }
+  42%  { fill: light-dark(#056ae6, #ffffff); filter: drop-shadow(0 0 18px rgba(140, 210, 255, 0.95)); transform: scale(1.06); }
+  68%  { fill: light-dark(#00348a, #6ec5ff); filter: drop-shadow(0 0 10px rgba(110, 197, 255, 0.5)); transform: scale(1.03); }
   100% { fill: currentColor; filter: none; transform: scale(1); }
 }
 
@@ -364,7 +364,7 @@ html {
   color-scheme: light dark;
 
   /* Constants (both modes) */
-  --brand-blue: #1268ec;  /* FILLED surfaces only (version badge, active tab, buttons, toasts) — white text sits on it */
+  --brand-blue: #056ae6;  /* FILLED surfaces only (version badge, active tab, buttons, toasts) — white text sits on it */
   --hero-bg: #141920;
   --terminal-bg: #141920;
   --terminal-border: #ffffff1f;
@@ -389,15 +389,15 @@ html {
   --danger: light-dark(#dc2626, #ef4444);
 
   /* Accents — text/border/icon roles, lifted in dark for contrast */
-  --accent: light-dark(#1268ec, #5290ff);
-  --link-blue: light-dark(#5856d6, #7b79e8);
+  --accent: light-dark(#056ae6, #5290ff);
+  --link-blue: light-dark(#5050bc, #7b79e8);
 
   /* Product colors — add new products here */
   --product-pro: light-dark(#06b6d4, #22d3ee);
   --product-protect: light-dark(#00b300, #32d74b);
   --product-school: light-dark(#f59e0b, #fbbf24);
   --product-security: light-dark(#dc2626, #ef4444);
-  --product-platform: light-dark(#1268ec, #5290ff);
+  --product-platform: light-dark(#056ae6, #5290ff);
   /* --product-connect: light-dark(#a135d7, #c065ec); */
 
   /* Surfaces & text — "gallery paper, phosphor ink":
@@ -444,8 +444,8 @@ html {
   /* Hero decoration — ~18% glyph ink on paper (the near-white page needs
      less than the old grey did), ~16% glow on the deep dark; a faint
      brand wash tops both modes */
-  --hero-glyph: light-dark(rgba(18, 104, 236, 0.18), rgba(18, 104, 236, 0.16));
-  --hero-glow: light-dark(rgba(18, 104, 236, 0.05), rgba(82, 144, 255, 0.05));
+  --hero-glyph: light-dark(rgba(5, 106, 230, 0.18), rgba(5, 106, 230, 0.16));
+  --hero-glow: light-dark(rgba(5, 106, 230, 0.05), rgba(82, 144, 255, 0.05));
 }
 
 /* Manual theme override — flipping color-scheme flips every light-dark()
