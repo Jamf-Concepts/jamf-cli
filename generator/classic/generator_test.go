@@ -969,6 +969,14 @@ func TestGenerate_SerialAlias(t *testing.T) {
 	if !strings.Contains(code, `StringVar(&flagSerialnumber, "serial"`) {
 		t.Error("expected --serial alias bound to flagSerialnumber")
 	}
+	// canonical flag help advertises the alias (two-way discoverability)
+	if !strings.Contains(code, `by serialnumber (alias: --serial)`) {
+		t.Error("expected --serialnumber help to advertise the --serial alias")
+	}
+	// no-identifier error message lists the alias too
+	if !strings.Contains(code, `--serialnumber, --serial`) {
+		t.Error("expected the no-identifier error to mention --serial")
+	}
 }
 
 func TestGenerate_Filename(t *testing.T) {

@@ -486,7 +486,7 @@ func new{{ .GoName }}GetCmd(ctx *registry.CLIContext) *cobra.Command {
 			} else {{ end }}if len(args) > 0 {
 				path = fmt.Sprintf("/JSSResource/{{ .Path }}/{{ idPath . }}/%s", url.PathEscape(args[0]))
 			} else {
-				return fmt.Errorf("provide an <id> argument{{ range extraLookups .Lookups }}, --{{ lookupFlag . }}{{ end }}")
+				return fmt.Errorf("provide an <id> argument{{ range $l := extraLookups .Lookups }}, --{{ lookupFlag $l }}{{ range $alias := lookupAliases $l }}, --{{ $alias }}{{ end }}{{ end }}")
 			}
 {{ else }}			path := fmt.Sprintf("/JSSResource/{{ .Path }}/{{ idPath . }}/%s", url.PathEscape(args[0]))
 {{ end }}
@@ -526,10 +526,10 @@ func new{{ .GoName }}GetCmd(ctx *registry.CLIContext) *cobra.Command {
 		},
 	}
 {{ if extraLookups .Lookups }}
-{{ range $l := extraLookups .Lookups }}	cmd.Flags().StringVar(&flag{{ lookupCamel $l }}, "{{ lookupFlag $l }}", "", "Look up {{ $.Singular }} by {{ $l }}")
+{{ range $l := extraLookups .Lookups }}	cmd.Flags().StringVar(&flag{{ lookupCamel $l }}, "{{ lookupFlag $l }}", "", "Look up {{ $.Singular }} by {{ $l }}{{ range $alias := lookupAliases $l }} (alias: --{{ $alias }}){{ end }}")
 {{ range $alias := lookupAliases $l }}	cmd.Flags().StringVar(&flag{{ lookupCamel $l }}, "{{ $alias }}", "", "Alias for --{{ lookupFlag $l }}")
 {{ end }}{{ end }}{{ end }}
-{{ if .Subsets }}	cmd.Flags().StringVar(&flagSubset, "subset", "", "Return only this section of the record, server-side (tab-complete for values)")
+{{ if .Subsets }}	cmd.Flags().StringVar(&flagSubset, "subset", "", "Return only this section of the record, server-side (single value; tab-complete for values)")
 	_ = cmd.RegisterFlagCompletionFunc("subset", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
 		return []string{ {{ range .Subsets }}"{{ . }}", {{ end }}}, cobra.ShellCompDirectiveNoFileComp
 	})

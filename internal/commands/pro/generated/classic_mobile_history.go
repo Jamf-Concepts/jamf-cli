@@ -64,7 +64,7 @@ func newClassicMobileHistoryGetCmd(ctx *registry.CLIContext) *cobra.Command {
 			} else if len(args) > 0 {
 				path = fmt.Sprintf("/JSSResource/mobiledevicehistory/id/%s", url.PathEscape(args[0]))
 			} else {
-				return fmt.Errorf("provide an <id> argument, --name, --serialnumber, --macaddress, --udid")
+				return fmt.Errorf("provide an <id> argument, --name, --serialnumber, --serial, --macaddress, --udid")
 			}
 
 			if flagSubset != "" {
@@ -103,12 +103,12 @@ func newClassicMobileHistoryGetCmd(ctx *registry.CLIContext) *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up mobile_device_history by name")
-	cmd.Flags().StringVar(&flagSerialnumber, "serialnumber", "", "Look up mobile_device_history by serialnumber")
+	cmd.Flags().StringVar(&flagSerialnumber, "serialnumber", "", "Look up mobile_device_history by serialnumber (alias: --serial)")
 	cmd.Flags().StringVar(&flagSerialnumber, "serial", "", "Alias for --serialnumber")
 	cmd.Flags().StringVar(&flagMacaddress, "macaddress", "", "Look up mobile_device_history by macaddress")
 	cmd.Flags().StringVar(&flagUdid, "udid", "", "Look up mobile_device_history by udid")
 
-	cmd.Flags().StringVar(&flagSubset, "subset", "", "Return only this section of the record, server-side (tab-complete for values)")
+	cmd.Flags().StringVar(&flagSubset, "subset", "", "Return only this section of the record, server-side (single value; tab-complete for values)")
 	_ = cmd.RegisterFlagCompletionFunc("subset", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
 		return []string{"General", "ManagementCommands", "UserLocation", "Audits", "Applications", "Ebooks"}, cobra.ShellCompDirectiveNoFileComp
 	})
