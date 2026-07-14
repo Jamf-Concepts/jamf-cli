@@ -1,0 +1,91 @@
+name: Bug report
+description: Something in jamf-cli isn't working as expected
+labels: [bug, needs-triage]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to file a bug. Please fill out the fields below so we can reproduce and triage quickly.
+
+        > [!WARNING]
+        > **Redact secrets.** Remove tokens, client secrets, passwords, and instance URLs from any command or output you paste. jamf-cli never accepts credentials via flags for this reason — please keep them out of issues too.
+
+  - type: input
+    id: version
+    attributes:
+      label: jamf-cli version
+      description: Output of `jamf-cli version`.
+      placeholder: e.g. v1.4.2 (commit abc1234)
+    validations:
+      required: true
+
+  - type: dropdown
+    id: product
+    attributes:
+      label: Product namespace
+      description: Which command family is affected?
+      options:
+        - pro (Jamf Pro / Platform API)
+        - protect (Jamf Protect)
+        - school (Jamf School)
+        - security (Jamf Security Cloud)
+        - config / auth / setup
+        - other / not sure
+    validations:
+      required: true
+
+  - type: dropdown
+    id: auth-method
+    attributes:
+      label: Auth method
+      description: How is the CLI authenticated for the failing command?
+      options:
+        - oauth2 (client credentials)
+        - token (pre-existing bearer)
+        - platform (gateway)
+        - not applicable
+        - not sure
+    validations:
+      required: false
+
+  - type: input
+    id: os
+    attributes:
+      label: OS / platform
+      placeholder: e.g. macOS 15.5 (arm64), Ubuntu 24.04, Windows 11
+    validations:
+      required: true
+
+  - type: textarea
+    id: command
+    attributes:
+      label: Command run
+      description: The exact command (with secrets redacted). Rendered as shell — no backticks needed.
+      render: shell
+      placeholder: jamf-cli pro computers list -o json
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: What happened instead? Include redacted output or error messages.
+      render: shell
+    validations:
+      required: true
+
+  - type: textarea
+    id: extra
+    attributes:
+      label: Anything else?
+      description: Logs, screenshots, related issues, or notes. Re-run with `--verbose` if the error is unclear.
+    validations:
+      required: false
