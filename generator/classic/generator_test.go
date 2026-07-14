@@ -996,3 +996,77 @@ func TestGenerate_Filename(t *testing.T) {
 		t.Errorf("output path = %q, want %q", outPath, expectedFile)
 	}
 }
+
+func TestGenerate_Subset(t *testing.T) {
+	dir := t.TempDir()
+	gen := NewGenerator(dir)
+
+	resource := ClassicResource{
+		Name:        "computerhistory",
+		Path:        "computerhistory",
+		CLIName:     "classic-computer-history",
+		GoName:      "ClassicComputerHistory",
+		Singular:    "computer_history",
+		Description: "Computer history records",
+		Operations:  []string{"get"},
+		Lookups:     []string{"id", "name", "serialnumber"},
+		IDPath:      "id",
+		Subsets:     []string{"General", "Commands"},
+	}
+
+	outPath, err := gen.Generate(resource)
+	if err != nil {
+		t.Fatalf("Generate() error = %v", err)
+	}
+	content, err := os.ReadFile(outPath)
+	if err != nil {
+		t.Fatal(err)
+		return
+	}
+	code := string(content)
+
+	if !strings.Contains(code, `StringVar(&flagSubset, "subset"`) {
+		t.Error("expected --subset flag")
+	}
+	if !strings.Contains(code, `RegisterFlagCompletionFunc("subset"`) {
+		t.Error("expected subset completion registration")
+	}
+	if !strings.Contains(code, `"General"`) || !strings.Contains(code, `"Commands"`) {
+		t.Error("expected curated subset values in completion list")
+	}
+	if !strings.Contains(code, `path += "/subset/" + url.PathEscape(flagSubset)`) {
+		t.Error("expected verbatim /subset/ path append")
+	}
+}
+
+func TestGenerate_NoSubsetWhenAbsent(t *testing.T) {
+	dir := t.TempDir()
+	gen := NewGenerator(dir)
+
+	resource := ClassicResource{
+		Name:        "policies",
+		Path:        "policies",
+		CLIName:     "classic-policies",
+		GoName:      "ClassicPolicies",
+		Singular:    "policy",
+		Description: "Deployment policies",
+		Operations:  []string{"list", "get"},
+		Lookups:     []string{"id", "name"},
+		IDPath:      "id",
+	}
+
+	outPath, err := gen.Generate(resource)
+	if err != nil {
+		t.Fatalf("Generate() error = %v", err)
+	}
+	content, err := os.ReadFile(outPath)
+	if err != nil {
+		t.Fatal(err)
+		return
+	}
+	code := string(content)
+
+	if strings.Contains(code, "flagSubset") {
+		t.Error("did not expect --subset wiring for a resource without subsets")
+	}
+}
