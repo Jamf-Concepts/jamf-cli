@@ -441,9 +441,10 @@ html {
   --shadow-3: 0 16px 48px -8px light-dark(rgba(20, 25, 32, 0.16), rgba(0, 0, 0, 0.6));
   --shadow-sticky: 0 12px 16px -13px light-dark(rgba(0, 0, 0, 0.18), rgba(0, 0, 0, 0.55));
 
-  /* Hero decoration — glyph pattern needs ~30% ink on paper but only
-     ~16% glow on the deep dark; a faint brand wash tops both modes */
-  --hero-glyph: light-dark(rgba(18, 104, 236, 0.3), rgba(18, 104, 236, 0.16));
+  /* Hero decoration — ~18% glyph ink on paper (the near-white page needs
+     less than the old grey did), ~16% glow on the deep dark; a faint
+     brand wash tops both modes */
+  --hero-glyph: light-dark(rgba(18, 104, 236, 0.18), rgba(18, 104, 236, 0.16));
   --hero-glow: light-dark(rgba(18, 104, 236, 0.05), rgba(82, 144, 255, 0.05));
 }
 
