@@ -394,3 +394,52 @@ func TestClassicResource_ExtraLookups(t *testing.T) {
 		t.Errorf("extra lookups = %v, want [name serialnumber]", extra)
 	}
 }
+
+func TestParseManifest_Subsets(t *testing.T) {
+	dir := t.TempDir()
+	manifest := filepath.Join(dir, "resources.yaml")
+	data := []byte(`resources:
+  - name: computerhistory
+    path: computerhistory
+    description: Computer history records
+    singular: computer_history
+    operations: [get]
+    lookups: [id, name, serialnumber]
+    subsets: [General, Commands]
+  - name: packages
+    path: packages
+    description: Software packages
+    singular: package
+    operations: [list, get]
+    lookups: [id]
+`)
+	if err := os.WriteFile(manifest, data, 0o644); err != nil {
+		t.Fatal(err)
+		return
+	}
+
+	resources, err := ParseManifest(manifest)
+	if err != nil {
+		t.Fatalf("ParseManifest() error = %v", err)
+	}
+
+	var hist, pkg *ClassicResource
+	for i := range resources {
+		switch resources[i].Name {
+		case "computerhistory":
+			hist = &resources[i]
+		case "packages":
+			pkg = &resources[i]
+		}
+	}
+	if hist == nil || pkg == nil {
+		t.Fatalf("expected both resources parsed, got %d", len(resources))
+	}
+
+	if got := hist.Subsets; len(got) != 2 || got[0] != "General" || got[1] != "Commands" {
+		t.Errorf("computerhistory.Subsets = %v, want [General Commands]", got)
+	}
+	if len(pkg.Subsets) != 0 {
+		t.Errorf("packages.Subsets = %v, want empty", pkg.Subsets)
+	}
+}

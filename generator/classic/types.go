@@ -29,6 +29,12 @@ type ClassicResource struct {
 	// list/detail endpoints, e.g. "mobiledevicegroups". When set, delete gets
 	// a --group flag that resolves members and deletes them in bulk.
 	GroupPath string
+	// Subsets is the curated list of server-side subset section names a get
+	// command exposes via --subset (e.g. General, Commands for computerhistory).
+	// Drives shell completion only; values are passed through to the API
+	// verbatim, so unknown values still work. Empty when the resource declares
+	// no subsets.
+	Subsets []string
 }
 
 // ClassicFileField declares a resource field whose value is sourced from a

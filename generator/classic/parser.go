@@ -30,6 +30,7 @@ type manifestResource struct {
 	IDPath      string   `yaml:"id_path"`
 	ListSubset  string   `yaml:"list_subset"`
 	GroupsPath  string   `yaml:"groups_path"`
+	Subsets     []string `yaml:"subsets"`
 }
 
 // ParseManifest reads the Classic API YAML manifest and returns a sorted
@@ -120,6 +121,7 @@ func buildResource(entry manifestResource) (ClassicResource, error) {
 		FileFields:       classicFileFields[entry.Path],
 		ListSubset:       entry.ListSubset,
 		GroupPath:        entry.GroupsPath,
+		Subsets:          entry.Subsets,
 	}, nil
 }
 
