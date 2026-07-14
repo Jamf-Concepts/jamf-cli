@@ -1,0 +1,50 @@
+name: Feature request
+description: Suggest a new command, flag, or capability
+type: Feature
+labels: [needs-triage]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the idea! Describe the problem first — the "why" usually shapes the "what" more than a proposed solution does.
+
+  - type: dropdown
+    id: product
+    attributes:
+      label: Product namespace
+      description: Where would this live?
+      options:
+        - pro (Jamf Pro / Platform API)
+        - protect (Jamf Protect)
+        - school (Jamf School)
+        - security (Jamf Security Cloud)
+        - cross-product / root
+        - new product namespace
+        - not sure
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem does this solve?
+      description: What are you trying to do that's hard or impossible today?
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: How might it look? A sketch of the command/flags is helpful but not required.
+      placeholder: e.g. jamf-cli pro computers export --all -o yaml
+    validations:
+      required: false
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Workarounds you're using now, or other approaches you weighed.
+    validations:
+      required: false
