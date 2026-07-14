@@ -417,6 +417,42 @@ components:
           nullable: true
           type: string
       type: object
+    ComputerApplicationV3:
+      properties:
+        bundleId:
+          example: "1"
+          type: string
+        cfBundleShortVersionString:
+          example: 1.0.0
+          nullable: false
+          type: string
+        cfBundleVersion:
+          example: 1.0.0
+          nullable: false
+          type: string
+        externalVersionId:
+          description: The app's external version ID. It can be used in the iTunes Search API to decide if the app needs to be updated
+          example: "1"
+          type: string
+        macAppStore:
+          example: true
+          type: boolean
+        name:
+          example: Microsoft Word
+          type: string
+        path:
+          example: /usr/local/app
+          type: string
+        sizeMegabytes:
+          example: 25
+          type: integer
+        updateAvailable:
+          example: false
+          type: boolean
+        version:
+          example: 1.0.0
+          type: string
+      type: object
     ComputerAttachment:
       properties:
         fileType:
@@ -2829,6 +2865,30 @@ components:
           readOnly: true
           type: string
       type: object
+    EraseDeviceComputerRequest:
+      properties:
+        pin:
+          description: The six-character PIN for Find My.
+          example: "123456"
+          maximum: 6
+          minimum: 6
+          nullable: true
+          type: string
+      type: object
+    EraseDeviceComputerResponse:
+      properties:
+        commandUuid:
+          description: Uuid of the queued eraseDevice command
+          example: 1234-5678-90ab-cdef-1234567890ab
+          type: string
+        deviceId:
+          description: Id of the computer for which eraseDevice command was queued
+          example: "1234"
+          type: string
+      required:
+        - commandUuid
+        - deviceId
+      type: object
     ExportField:
       description: Field to be included in the export operation.
       properties:
@@ -3335,6 +3395,17 @@ components:
         count:
           example: 3
           type: integer
+      type: object
+    RemoveComputerMdmProfileResponse:
+      properties:
+        commandUuid:
+          description: Uuid of the command queued that removes the MDM profile
+          example: 1234-5678-90ab-cdef-1234567890ab
+          type: string
+        deviceId:
+          description: Id of the computer whose MDM profile was removed
+          example: "1234"
+          type: string
       type: object
     SafelistedApp:
       properties:

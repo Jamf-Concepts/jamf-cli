@@ -1,41 +1,5 @@
 components:
   schemas:
-    ComputerApplicationV3:
-      properties:
-        bundleId:
-          example: "1"
-          type: string
-        cfBundleShortVersionString:
-          example: 1.0.0
-          nullable: false
-          type: string
-        cfBundleVersion:
-          example: 1.0.0
-          nullable: false
-          type: string
-        externalVersionId:
-          description: The app's external version ID. It can be used in the iTunes Search API to decide if the app needs to be updated
-          example: "1"
-          type: string
-        macAppStore:
-          example: true
-          type: boolean
-        name:
-          example: Microsoft Word
-          type: string
-        path:
-          example: /usr/local/app
-          type: string
-        sizeMegabytes:
-          example: 25
-          type: integer
-        updateAvailable:
-          example: false
-          type: boolean
-        version:
-          example: 1.0.0
-          type: string
-      type: object
     ComputerInventorySearchResultsV3:
       properties:
         results:
@@ -51,7 +15,7 @@ components:
       properties:
         applications:
           items:
-            $ref: '#/components/schemas/ComputerApplicationV3'
+            $ref: _MonolithLibrary.yaml#/components/schemas/ComputerApplicationV3
           type: array
         attachments:
           items:
@@ -159,6 +123,7 @@ openapi: 3.0.1
 paths:
   /v3/computers-inventory:
     get:
+      deprecated: true
       description: Return paginated Computer Inventory records
       parameters:
         - description: section of computer details, if not specified, General section data is returned. Multiple section parameters are supported, e.g. section=GENERAL&section=HARDWARE
@@ -224,9 +189,11 @@ paths:
       summary: Return paginated Computer Inventory records
       tags:
         - computer-inventory
+      x-deprecation-date: "2026-07-14"
       x-required-privileges:
         - Read Computers
     post:
+      deprecated: true
       description: Creates Computer Inventory record
       requestBody:
         content:
@@ -244,10 +211,12 @@ paths:
       summary: Create Computer Inventory record
       tags:
         - computer-inventory
+      x-deprecation-date: "2026-07-14"
       x-required-privileges:
         - Create Computers
   /v3/computers-inventory-detail/{id}:
     get:
+      deprecated: true
       description: Return all sections of a computer
       parameters:
         - description: instance id of computer record
@@ -274,9 +243,11 @@ paths:
       summary: Return all sections of a computer
       tags:
         - computer-inventory
+      x-deprecation-date: "2026-07-14"
       x-required-privileges:
         - Read Computers
     patch:
+      deprecated: true
       description: Update specific fields on a computer, then return the updated computer object.
       parameters:
         - description: instance id of computer record
@@ -305,10 +276,12 @@ paths:
       summary: Update specific fields on a computer
       tags:
         - computer-inventory
+      x-deprecation-date: "2026-07-14"
       x-required-privileges:
         - Update Computers
   /v3/computers-inventory/filevault:
     get:
+      deprecated: true
       description: Return paginated FileVault information for all computers
       parameters:
         - $ref: _MonolithLibrary.yaml#/components/parameters/page
@@ -323,10 +296,12 @@ paths:
       summary: Return paginated FileVault information for all computers
       tags:
         - computer-inventory
+      x-deprecation-date: "2026-07-14"
       x-required-privileges:
         - View Disk Encryption Recovery Key
   /v3/computers-inventory/{id}:
     delete:
+      deprecated: true
       description: Remove specified Computer record
       parameters:
         - description: instance id of computer record
@@ -349,9 +324,11 @@ paths:
       summary: Remove specified Computer record
       tags:
         - computer-inventory
+      x-deprecation-date: "2026-07-14"
       x-required-privileges:
         - Delete Computers
     get:
+      deprecated: true
       description: Return General section of a Computer
       parameters:
         - description: instance id of computer record
@@ -392,10 +369,12 @@ paths:
       summary: Return General section of a Computer
       tags:
         - computer-inventory
+      x-deprecation-date: "2026-07-14"
       x-required-privileges:
         - Read Computers
   /v3/computers-inventory/{id}/attachments:
     post:
+      deprecated: true
       description: Upload attachment and assign to computer
       parameters:
         - description: instance id of computer record
@@ -435,10 +414,12 @@ paths:
       summary: Upload attachment and assign to computer
       tags:
         - computer-inventory
+      x-deprecation-date: "2026-07-14"
       x-required-privileges:
         - Update Computers
   /v3/computers-inventory/{id}/attachments/{attachmentId}:
     delete:
+      deprecated: true
       description: Remove attachment
       parameters:
         - description: instance id of computer record
@@ -469,9 +450,11 @@ paths:
       summary: Remove attachment
       tags:
         - computer-inventory
+      x-deprecation-date: "2026-07-14"
       x-required-privileges:
         - Update Computers
     get:
+      deprecated: true
       description: Download attachment file
       parameters:
         - description: instance id of computer record
@@ -508,10 +491,12 @@ paths:
       summary: Download attachment file
       tags:
         - computer-inventory
+      x-deprecation-date: "2026-07-14"
       x-required-privileges:
         - Read Computers
   /v3/computers-inventory/{id}/filevault:
     get:
+      deprecated: true
       description: Return FileVault information for a specific computer
       parameters:
         - description: instance id of computer record
@@ -538,10 +523,12 @@ paths:
       summary: Return FileVault information for a specific computer
       tags:
         - computer-inventory
+      x-deprecation-date: "2026-07-14"
       x-required-privileges:
         - View Disk Encryption Recovery Key
   /v3/computers-inventory/{id}/view-device-lock-pin:
     get:
+      deprecated: true
       description: Return a computer's Device Lock PIN
       parameters:
         - description: instance id of computer record
@@ -568,10 +555,12 @@ paths:
       summary: Return a computer's Device Lock PIN
       tags:
         - computer-inventory
+      x-deprecation-date: "2026-07-14"
       x-required-privileges:
         - View Computer Device Lock Pin
   /v3/computers-inventory/{id}/view-recovery-lock-password:
     get:
+      deprecated: true
       description: Return a Computers Recovery Lock Password
       parameters:
         - description: instance id of computer record
@@ -598,6 +587,7 @@ paths:
       summary: Return a Computers Recovery Lock Password
       tags:
         - computer-inventory
+      x-deprecation-date: "2026-07-14"
       x-required-privileges:
         - View Recovery Lock
 servers:

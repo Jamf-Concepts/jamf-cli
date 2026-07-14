@@ -1,16 +1,3 @@
-components:
-  schemas:
-    RemoveComputerMdmProfileResponse:
-      properties:
-        commandUuid:
-          description: Uuid of the command queued that removes the MDM profile
-          example: 1234-5678-90ab-cdef-1234567890ab
-          type: string
-        deviceId:
-          description: Id of the computer whose MDM profile was removed
-          example: "1234"
-          type: string
-      type: object
 info:
   title: Jamf Pro API - RemoveComputerMdmProfile
   version: 0.0.1
@@ -18,6 +5,7 @@ openapi: 3.0.1
 paths:
   /v1/computer-inventory/{id}/remove-mdm-profile:
     post:
+      deprecated: true
       description: Remove a computer's MDM profile
       parameters:
         - description: Id of the computer to remove the MDM profile from
@@ -33,7 +21,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/RemoveComputerMdmProfileResponse'
+                $ref: _MonolithLibrary.yaml#/components/schemas/RemoveComputerMdmProfileResponse
           description: Command to remove the mdm profile was queued
         403:
           description: Insufficient privileges to perform this action.
@@ -48,6 +36,7 @@ paths:
       tags:
         - computer-inventory
       x-action: true
+      x-deprecation-date: "2026-07-14"
       x-required-privileges:
         - Send Computer Unmanage Command
 servers:

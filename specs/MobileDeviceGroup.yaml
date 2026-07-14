@@ -212,6 +212,10 @@ components:
           example: "2022-10-17T11:48:56.307Z"
           format: date-time
           type: string
+        lastContactDate:
+          example: "2022-10-17T11:48:56.307Z"
+          format: date-time
+          type: string
         lastEnrolledDate:
           example: "2022-10-17T11:48:56.307Z"
           format: date-time
