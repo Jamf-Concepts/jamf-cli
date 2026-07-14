@@ -125,7 +125,7 @@ func newClassicMobileDevicesGetCmd(ctx *registry.CLIContext) *cobra.Command {
 			} else if len(args) > 0 {
 				path = fmt.Sprintf("/JSSResource/mobiledevices/id/%s", url.PathEscape(args[0]))
 			} else {
-				return fmt.Errorf("provide an <id> argument, --name, --serialnumber, --macaddress, --udid")
+				return fmt.Errorf("provide an <id> argument, --name, --serialnumber, --serial, --macaddress, --udid")
 			}
 
 			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
@@ -160,7 +160,8 @@ func newClassicMobileDevicesGetCmd(ctx *registry.CLIContext) *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up mobile_device by name")
-	cmd.Flags().StringVar(&flagSerialnumber, "serialnumber", "", "Look up mobile_device by serialnumber")
+	cmd.Flags().StringVar(&flagSerialnumber, "serialnumber", "", "Look up mobile_device by serialnumber (alias: --serial)")
+	cmd.Flags().StringVar(&flagSerialnumber, "serial", "", "Alias for --serialnumber")
 	cmd.Flags().StringVar(&flagMacaddress, "macaddress", "", "Look up mobile_device by macaddress")
 	cmd.Flags().StringVar(&flagUdid, "udid", "", "Look up mobile_device by udid")
 

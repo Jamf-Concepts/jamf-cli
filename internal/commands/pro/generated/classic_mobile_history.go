@@ -34,6 +34,8 @@ func newClassicMobileHistoryGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		flagUdid         string
 	)
 
+	var flagSubset string
+
 	cmd := &cobra.Command{
 		Use:   "get [<id>]",
 		Short: "Get a mobile_device_history by ID",
@@ -51,6 +53,7 @@ func newClassicMobileHistoryGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
 			// Resolve lookup: check flags first, then positional ID
 			var path string
+			var pathByID bool
 			if flagName != "" {
 				path = fmt.Sprintf("/JSSResource/mobiledevicehistory/name/%s", registry.EscapeClassicPathSegment(flagName))
 			} else if flagSerialnumber != "" {
@@ -61,8 +64,25 @@ func newClassicMobileHistoryGetCmd(ctx *registry.CLIContext) *cobra.Command {
 				path = fmt.Sprintf("/JSSResource/mobiledevicehistory/udid/%s", registry.EscapeClassicPathSegment(flagUdid))
 			} else if len(args) > 0 {
 				path = fmt.Sprintf("/JSSResource/mobiledevicehistory/id/%s", url.PathEscape(args[0]))
+				pathByID = true
 			} else {
-				return fmt.Errorf("provide an <id> argument, --name, --serialnumber, --macaddress, --udid")
+				return fmt.Errorf("provide an <id> argument, --name, --serialnumber, --serial, --macaddress, --udid")
+			}
+
+			if flagSubset != "" {
+				// The Platform Gateway's Classic proxy 403s /subset/ on non-id lookup
+				// paths; resolve to an id first so the request uses id/{id}/subset/,
+				// which works on both direct and gateway transports. See
+				// docs/solutions/conventions/scope-put-avoid-subset-2026-07-08.md.
+				if !pathByID {
+					id, err := resolveClassicRecordID(reqCtx, ctx.Client, path, "mobile_device_history")
+					if err != nil {
+						return err
+					}
+					path = fmt.Sprintf("/JSSResource/mobiledevicehistory/id/%s", url.PathEscape(id))
+				}
+				// Same encoding as lookups; safe for the curated single-token subset values.
+				path += "/subset/" + registry.EscapeClassicPathSegment(flagSubset)
 			}
 
 			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
@@ -97,9 +117,14 @@ func newClassicMobileHistoryGetCmd(ctx *registry.CLIContext) *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up mobile_device_history by name")
-	cmd.Flags().StringVar(&flagSerialnumber, "serialnumber", "", "Look up mobile_device_history by serialnumber")
+	cmd.Flags().StringVar(&flagSerialnumber, "serialnumber", "", "Look up mobile_device_history by serialnumber (alias: --serial)")
+	cmd.Flags().StringVar(&flagSerialnumber, "serial", "", "Alias for --serialnumber")
 	cmd.Flags().StringVar(&flagMacaddress, "macaddress", "", "Look up mobile_device_history by macaddress")
 	cmd.Flags().StringVar(&flagUdid, "udid", "", "Look up mobile_device_history by udid")
 
+	cmd.Flags().StringVar(&flagSubset, "subset", "", "Return only this section of the record, server-side (single value; tab-complete for values)")
+	_ = cmd.RegisterFlagCompletionFunc("subset", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+		return []string{"General", "ManagementCommands", "UserLocation", "Audits", "Applications", "Ebooks"}, cobra.ShellCompDirectiveNoFileComp
+	})
 	return cmd
 }

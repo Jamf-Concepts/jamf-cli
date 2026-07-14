@@ -85,6 +85,15 @@ func (g *Generator) GenerateRegistry(resources []ClassicResource) (string, error
 	return outPath, nil
 }
 
+// lookupFlagAliases maps a canonical Classic lookup path segment to additional
+// CLI flag names that resolve to the same lookup. The API path segment stays
+// canonical; the alias is registered as a second flag bound to the same
+// variable. --serial mirrors the modern commands' --serial flag while the
+// Classic API path segment remains "serialnumber".
+var lookupFlagAliases = map[string][]string{
+	"serialnumber": {"serial"},
+}
+
 func templateFuncs() template.FuncMap {
 	return template.FuncMap{
 		"toCamel":            strcase.ToCamel,
@@ -134,6 +143,9 @@ func templateFuncs() template.FuncMap {
 		},
 		"lookupCamel": func(l string) string {
 			return strcase.ToCamel(l)
+		},
+		"lookupAliases": func(l string) []string {
+			return lookupFlagAliases[l]
 		},
 		"needsIO": func(r ClassicResource) bool {
 			// list and get use io.ReadAll for response unwrapping; create/update read from stdin
@@ -217,6 +229,14 @@ func templateFuncs() template.FuncMap {
 					if l != "id" && l != "name" {
 						return true
 					}
+				}
+			}
+			return false
+		},
+		"anyHasSubsets": func(resources []ClassicResource) bool {
+			for _, r := range resources {
+				if len(r.Subsets) > 0 {
+					return true
 				}
 			}
 			return false
@@ -455,6 +475,8 @@ func new{{ .GoName }}GetCmd(ctx *registry.CLIContext) *cobra.Command {
 {{ range extraLookups .Lookups }}		flag{{ lookupCamel . }} string
 {{ end }}	)
 {{ end }}
+{{ if .Subsets }}	var flagSubset string
+{{ end }}
 	cmd := &cobra.Command{
 {{ if extraLookups .Lookups }}		Use:   "get [<id>]",
 {{ else }}		Use:   "get <id>",
@@ -467,14 +489,33 @@ func new{{ .GoName }}GetCmd(ctx *registry.CLIContext) *cobra.Command {
 {{ if extraLookups .Lookups }}
 			// Resolve lookup: check flags first, then positional ID
 			var path string
-{{ range extraLookups .Lookups }}			if flag{{ lookupCamel . }} != "" {
+{{ if .Subsets }}			var pathByID bool
+{{ end }}{{ range extraLookups .Lookups }}			if flag{{ lookupCamel . }} != "" {
 				path = fmt.Sprintf("/JSSResource/{{ $.Path }}/{{ . }}/%s", registry.EscapeClassicPathSegment(flag{{ lookupCamel . }}))
 			} else {{ end }}if len(args) > 0 {
 				path = fmt.Sprintf("/JSSResource/{{ .Path }}/{{ idPath . }}/%s", url.PathEscape(args[0]))
-			} else {
-				return fmt.Errorf("provide an <id> argument{{ range extraLookups .Lookups }}, --{{ lookupFlag . }}{{ end }}")
+{{ if .Subsets }}				pathByID = true
+{{ end }}			} else {
+				return fmt.Errorf("provide an <id> argument{{ range $l := extraLookups .Lookups }}, --{{ lookupFlag $l }}{{ range $alias := lookupAliases $l }}, --{{ $alias }}{{ end }}{{ end }}")
 			}
 {{ else }}			path := fmt.Sprintf("/JSSResource/{{ .Path }}/{{ idPath . }}/%s", url.PathEscape(args[0]))
+{{ end }}
+{{ if .Subsets }}
+			if flagSubset != "" {
+{{ if extraLookups .Lookups }}				// The Platform Gateway's Classic proxy 403s /subset/ on non-id lookup
+				// paths; resolve to an id first so the request uses id/{id}/subset/,
+				// which works on both direct and gateway transports. See
+				// docs/solutions/conventions/scope-put-avoid-subset-2026-07-08.md.
+				if !pathByID {
+					id, err := resolveClassicRecordID(reqCtx, ctx.Client, path, "{{ .Singular }}")
+					if err != nil {
+						return err
+					}
+					path = fmt.Sprintf("/JSSResource/{{ .Path }}/{{ idPath . }}/%s", url.PathEscape(id))
+				}
+{{ end }}				// Same encoding as lookups; safe for the curated single-token subset values.
+				path += "/subset/" + registry.EscapeClassicPathSegment(flagSubset)
+			}
 {{ end }}
 			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
 			if err != nil {
@@ -507,9 +548,14 @@ func new{{ .GoName }}GetCmd(ctx *registry.CLIContext) *cobra.Command {
 		},
 	}
 {{ if extraLookups .Lookups }}
-{{ range extraLookups .Lookups }}	cmd.Flags().StringVar(&flag{{ lookupCamel . }}, "{{ lookupFlag . }}", "", "Look up {{ $.Singular }} by {{ . }}")
-{{ end }}{{ end }}
-	return cmd
+{{ range $l := extraLookups .Lookups }}	cmd.Flags().StringVar(&flag{{ lookupCamel $l }}, "{{ lookupFlag $l }}", "", "Look up {{ $.Singular }} by {{ $l }}{{ range $alias := lookupAliases $l }} (alias: --{{ $alias }}){{ end }}")
+{{ range $alias := lookupAliases $l }}	cmd.Flags().StringVar(&flag{{ lookupCamel $l }}, "{{ $alias }}", "", "Alias for --{{ lookupFlag $l }}")
+{{ end }}{{ end }}{{ end }}
+{{ if .Subsets }}	cmd.Flags().StringVar(&flagSubset, "subset", "", "Return only this section of the record, server-side (single value; tab-complete for values)")
+	_ = cmd.RegisterFlagCompletionFunc("subset", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+		return []string{ {{ range .Subsets }}"{{ . }}", {{ end }}}, cobra.ShellCompDirectiveNoFileComp
+	})
+{{ end }}	return cmd
 }
 {{ end }}
 {{ if hasOp .Operations "create" }}
@@ -2070,6 +2116,42 @@ func classicFindIDByName(body []byte, name string) string {
 		}
 	}
 	return ""
+}
+{{ end }}
+{{ if anyHasSubsets . }}
+// resolveClassicRecordID fetches a Classic record by a non-id lookup path (no
+// /subset/) and returns its id, so a {lookup}/{val}/subset/... request can be
+// rewritten to id/{id}/subset/... — the only form the Platform Gateway's Classic
+// proxy allows (non-id + /subset/ returns 403). See
+// docs/solutions/conventions/scope-put-avoid-subset-2026-07-08.md.
+func resolveClassicRecordID(ctx context.Context, client registry.HTTPClient, path, singularKey string) (string, error) {
+	resp, err := client.Do(ctx, "GET", path, nil)
+	if err != nil {
+		return "", fmt.Errorf("resolving record id: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("reading record for id resolution: %w", err)
+	}
+	m, err := xmlconv.ToMap(body)
+	if err != nil {
+		return "", fmt.Errorf("parsing record for id resolution: %w", err)
+	}
+	obj, ok := m[singularKey].(map[string]any)
+	if !ok {
+		obj = m
+	}
+	if id := extractIDString(obj, "id"); id != "" {
+		return id, nil
+	}
+	// History records nest the id under <general>.
+	if general, ok := obj["general"].(map[string]any); ok {
+		if id := extractIDString(general, "id"); id != "" {
+			return id, nil
+		}
+	}
+	return "", fmt.Errorf("could not resolve id from record at %s", path)
 }
 {{ end }}
 `

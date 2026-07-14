@@ -934,6 +934,51 @@ func TestGenerateRegistry_NoApplyHelpers_WhenNotNeeded(t *testing.T) {
 	}
 }
 
+func TestGenerate_SerialAlias(t *testing.T) {
+	dir := t.TempDir()
+	gen := NewGenerator(dir)
+
+	resource := ClassicResource{
+		Name:        "computerhistory",
+		Path:        "computerhistory",
+		CLIName:     "classic-computer-history",
+		GoName:      "ClassicComputerHistory",
+		Singular:    "computer_history",
+		Description: "Computer history records",
+		Operations:  []string{"get"},
+		Lookups:     []string{"id", "name", "serialnumber"},
+		IDPath:      "id",
+	}
+
+	outPath, err := gen.Generate(resource)
+	if err != nil {
+		t.Fatalf("Generate() error = %v", err)
+	}
+	content, err := os.ReadFile(outPath)
+	if err != nil {
+		t.Fatal(err)
+		return
+	}
+	code := string(content)
+
+	// canonical flag still registered
+	if !strings.Contains(code, `StringVar(&flagSerialnumber, "serialnumber"`) {
+		t.Error("expected canonical --serialnumber flag")
+	}
+	// alias registered, bound to the SAME variable
+	if !strings.Contains(code, `StringVar(&flagSerialnumber, "serial"`) {
+		t.Error("expected --serial alias bound to flagSerialnumber")
+	}
+	// canonical flag help advertises the alias (two-way discoverability)
+	if !strings.Contains(code, `by serialnumber (alias: --serial)`) {
+		t.Error("expected --serialnumber help to advertise the --serial alias")
+	}
+	// no-identifier error message lists the alias too
+	if !strings.Contains(code, `--serialnumber, --serial`) {
+		t.Error("expected the no-identifier error to mention --serial")
+	}
+}
+
 func TestGenerate_Filename(t *testing.T) {
 	dir := t.TempDir()
 	gen := NewGenerator(dir)
@@ -957,5 +1002,87 @@ func TestGenerate_Filename(t *testing.T) {
 	expectedFile := filepath.Join(dir, "classic_policies.go")
 	if outPath != expectedFile {
 		t.Errorf("output path = %q, want %q", outPath, expectedFile)
+	}
+}
+
+func TestGenerate_Subset(t *testing.T) {
+	dir := t.TempDir()
+	gen := NewGenerator(dir)
+
+	resource := ClassicResource{
+		Name:        "computerhistory",
+		Path:        "computerhistory",
+		CLIName:     "classic-computer-history",
+		GoName:      "ClassicComputerHistory",
+		Singular:    "computer_history",
+		Description: "Computer history records",
+		Operations:  []string{"get"},
+		Lookups:     []string{"id", "name", "serialnumber"},
+		IDPath:      "id",
+		Subsets:     []string{"General", "Commands"},
+	}
+
+	outPath, err := gen.Generate(resource)
+	if err != nil {
+		t.Fatalf("Generate() error = %v", err)
+	}
+	content, err := os.ReadFile(outPath)
+	if err != nil {
+		t.Fatal(err)
+		return
+	}
+	code := string(content)
+
+	if !strings.Contains(code, `StringVar(&flagSubset, "subset"`) {
+		t.Error("expected --subset flag")
+	}
+	if !strings.Contains(code, `RegisterFlagCompletionFunc("subset"`) {
+		t.Error("expected subset completion registration")
+	}
+	if !strings.Contains(code, `"General"`) || !strings.Contains(code, `"Commands"`) {
+		t.Error("expected curated subset values in completion list")
+	}
+	if !strings.Contains(code, `path += "/subset/" + registry.EscapeClassicPathSegment(flagSubset)`) {
+		t.Error("expected /subset/ path append using the classic path escaper")
+	}
+	// A non-id lookup combined with --subset must resolve to an id first, so the
+	// request uses id/{id}/subset/ (the Platform Gateway 403s non-id + /subset/).
+	if !strings.Contains(code, "resolveClassicRecordID(reqCtx, ctx.Client, path,") {
+		t.Error("expected non-id lookup + subset to resolve to an id first")
+	}
+	if !strings.Contains(code, "pathByID") {
+		t.Error("expected pathByID tracking to gate the id-resolution")
+	}
+}
+
+func TestGenerate_NoSubsetWhenAbsent(t *testing.T) {
+	dir := t.TempDir()
+	gen := NewGenerator(dir)
+
+	resource := ClassicResource{
+		Name:        "policies",
+		Path:        "policies",
+		CLIName:     "classic-policies",
+		GoName:      "ClassicPolicies",
+		Singular:    "policy",
+		Description: "Deployment policies",
+		Operations:  []string{"list", "get"},
+		Lookups:     []string{"id", "name"},
+		IDPath:      "id",
+	}
+
+	outPath, err := gen.Generate(resource)
+	if err != nil {
+		t.Fatalf("Generate() error = %v", err)
+	}
+	content, err := os.ReadFile(outPath)
+	if err != nil {
+		t.Fatal(err)
+		return
+	}
+	code := string(content)
+
+	if strings.Contains(code, "flagSubset") {
+		t.Error("did not expect --subset wiring for a resource without subsets")
 	}
 }
