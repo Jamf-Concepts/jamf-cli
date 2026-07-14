@@ -75,6 +75,7 @@ resources:
     singular: computer_history
     operations: [get]
     lookups: [id, name, serialnumber, macaddress, udid]
+    subsets: [General, ComputerUsageLogs, Audits, PolicyLogs, CasperRemoteLogs, ScreenSharingLogs, CasperImagingLogs, Commands, UserLocation, MacAppStoreApplications]
 
   - name: computerinvitations
     path: computerinvitations
@@ -148,6 +149,7 @@ resources:
     singular: mobile_device_history
     operations: [get]
     lookups: [id, name, serialnumber, macaddress, udid]
+    subsets: [General, ManagementCommands, UserLocation, Audits, Applications, Ebooks]
 
   - name: mobiledeviceinvitations
     path: mobiledeviceinvitations

@@ -161,6 +161,7 @@ func newClassicMobileDevicesGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up mobile_device by name")
 	cmd.Flags().StringVar(&flagSerialnumber, "serialnumber", "", "Look up mobile_device by serialnumber")
+	cmd.Flags().StringVar(&flagSerialnumber, "serial", "", "Alias for --serialnumber")
 	cmd.Flags().StringVar(&flagMacaddress, "macaddress", "", "Look up mobile_device by macaddress")
 	cmd.Flags().StringVar(&flagUdid, "udid", "", "Look up mobile_device by udid")
 

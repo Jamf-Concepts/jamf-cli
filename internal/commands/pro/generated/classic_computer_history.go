@@ -34,6 +34,8 @@ func newClassicComputerHistoryGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		flagUdid         string
 	)
 
+	var flagSubset string
+
 	cmd := &cobra.Command{
 		Use:   "get [<id>]",
 		Short: "Get a computer_history by ID",
@@ -63,6 +65,10 @@ func newClassicComputerHistoryGetCmd(ctx *registry.CLIContext) *cobra.Command {
 				path = fmt.Sprintf("/JSSResource/computerhistory/id/%s", url.PathEscape(args[0]))
 			} else {
 				return fmt.Errorf("provide an <id> argument, --name, --serialnumber, --macaddress, --udid")
+			}
+
+			if flagSubset != "" {
+				path += "/subset/" + url.PathEscape(flagSubset)
 			}
 
 			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
@@ -98,8 +104,13 @@ func newClassicComputerHistoryGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up computer_history by name")
 	cmd.Flags().StringVar(&flagSerialnumber, "serialnumber", "", "Look up computer_history by serialnumber")
+	cmd.Flags().StringVar(&flagSerialnumber, "serial", "", "Alias for --serialnumber")
 	cmd.Flags().StringVar(&flagMacaddress, "macaddress", "", "Look up computer_history by macaddress")
 	cmd.Flags().StringVar(&flagUdid, "udid", "", "Look up computer_history by udid")
 
+	cmd.Flags().StringVar(&flagSubset, "subset", "", "Return only this section of the record, server-side (tab-complete for values)")
+	_ = cmd.RegisterFlagCompletionFunc("subset", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+		return []string{"General", "ComputerUsageLogs", "Audits", "PolicyLogs", "CasperRemoteLogs", "ScreenSharingLogs", "CasperImagingLogs", "Commands", "UserLocation", "MacAppStoreApplications"}, cobra.ShellCompDirectiveNoFileComp
+	})
 	return cmd
 }
