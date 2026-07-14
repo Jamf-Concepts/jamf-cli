@@ -7,8 +7,22 @@
   <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large">
   <title>jamf-cli — Your fleet, one command away</title>
   <link rel="canonical" href="https://jamf-concepts.github.io/jamf-cli/">
-  <meta name="theme-color" content="#fbfbfa" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#f4f5f8" media="(prefers-color-scheme: light)">
   <meta name="theme-color" content="#141920" media="(prefers-color-scheme: dark)">
+  <!-- Apply the saved manual theme before first paint (prevents a flash of
+       the wrong theme) and pin the browser-chrome color to match. -->
+  <script>
+    (function () {
+      try {
+        var t = localStorage.getItem('theme');
+        if (t !== 'dark' && t !== 'light') return;
+        document.documentElement.setAttribute('data-theme', t);
+        var c = t === 'dark' ? '#141920' : '#f4f5f8';
+        var metas = document.querySelectorAll('meta[name="theme-color"]');
+        for (var i = 0; i < metas.length; i++) metas[i].setAttribute('content', c);
+      } catch (e) { /* storage blocked — fall back to system theme */ }
+    })();
+  </script>
   <link rel="icon" type="image/svg+xml" href="img/favicon.svg">
   <!-- Crawlable artifacts for AI agents and search engines that don't run JS -->
   <link rel="alternate" type="application/json" title="jamf-cli command index (JSON)" href="commands.json">
@@ -504,6 +518,20 @@
 
   <!-- ===== Scripts ===== -->
   <script>
+    // Copy buttons — give each a stacked check icon so a successful copy
+    // cross-fades (copy glyph scales/blurs out, check scales in) instead of
+    // just recoloring. The `.copied` class that drives the animation is
+    // toggled by catalog.js; the CSS lives under "Interaction polish" in
+    // style.css. Progressive enhancement — copy already requires JS.
+    (function () {
+      var CHECK = '<svg class="icon-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>';
+      document.querySelectorAll('.copy-btn').forEach(function (btn) {
+        var svg = btn.querySelector('svg');
+        if (svg) svg.classList.add('icon-copy');
+        btn.insertAdjacentHTML('beforeend', CHECK);
+      });
+    })();
+
     // Hamburger menu toggle
     document.querySelector('.hamburger').addEventListener('click', function () {
       const expanded = this.getAttribute('aria-expanded') === 'true';
@@ -545,11 +573,20 @@
       if (sentinel) observer.observe(sentinel);
     })();
 
-    // Theme toggle
+    // Theme toggle — the head script already applied any saved theme before
+    // first paint; this only handles the click. Uses the View Transitions
+    // API for a radial reveal expanding from the button when available,
+    // falling back to an instant swap (and always instant under
+    // prefers-reduced-motion).
     (function () {
       var toggle = document.getElementById('theme-toggle');
-      var saved = localStorage.getItem('theme');
-      if (saved) document.documentElement.setAttribute('data-theme', saved);
+
+      function syncThemeColor(theme) {
+        var c = theme === 'dark' ? '#141920' : '#f4f5f8';
+        document.querySelectorAll('meta[name="theme-color"]').forEach(function (m) {
+          m.setAttribute('content', c);
+        });
+      }
 
       toggle.addEventListener('click', function () {
         var current = document.documentElement.getAttribute('data-theme');
@@ -562,8 +599,39 @@
           isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
         }
         var next = isDark ? 'light' : 'dark';
-        document.documentElement.setAttribute('data-theme', next);
-        localStorage.setItem('theme', next);
+
+        function apply() {
+          document.documentElement.setAttribute('data-theme', next);
+          localStorage.setItem('theme', next);
+          syncThemeColor(next);
+        }
+
+        var reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        if (!document.startViewTransition || reduced) { apply(); return; }
+
+        var r = toggle.getBoundingClientRect();
+        var x = r.left + r.width / 2;
+        var y = r.top + r.height / 2;
+        var radius = Math.hypot(
+          Math.max(x, window.innerWidth - x),
+          Math.max(y, window.innerHeight - y)
+        );
+        var vt = document.startViewTransition(apply);
+        vt.ready.then(function () {
+          document.documentElement.animate(
+            {
+              clipPath: [
+                'circle(0px at ' + x + 'px ' + y + 'px)',
+                'circle(' + radius + 'px at ' + x + 'px ' + y + 'px)'
+              ]
+            },
+            {
+              duration: 450,
+              easing: 'cubic-bezier(0.2, 0, 0, 1)',
+              pseudoElement: '::view-transition-new(root)'
+            }
+          );
+        });
       });
     })();
 

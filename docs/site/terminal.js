@@ -17,6 +17,46 @@
     terminalOutput.textContent = '';
   }
 
+  // Syntax highlighting: the product namespace token wears its product hue
+  // (same wayfinding system as the catalog), flags dim. Everything else
+  // stays default. Matches the .tok-* classes in style.css.
+  var NAMESPACE_CLASSES = {
+    pro: 'tok-product-pro',
+    protect: 'tok-product-protect',
+    school: 'tok-product-school',
+    security: 'tok-product-security',
+    platform: 'tok-product-platform'
+  };
+
+  // Split "jamf-cli pro comp list -o table" into [{text, cls}] segments.
+  // Word 0 is the binary, word 1 the product namespace, "-"-prefixed words
+  // are flags; each segment keeps its leading space so typing stays 1:1.
+  function segmentCommand(text) {
+    var words = text.split(' ');
+    var segs = [];
+    for (var i = 0; i < words.length; i++) {
+      var cls = null;
+      if (i === 1 && NAMESPACE_CLASSES[words[i]]) {
+        cls = NAMESPACE_CLASSES[words[i]];
+      } else if (words[i].charAt(0) === '-') {
+        cls = 'tok-flag';
+      }
+      segs.push({ text: (i > 0 ? ' ' : '') + words[i], cls: cls });
+    }
+    return segs;
+  }
+
+  // Render a full command into container as highlighted spans (static path).
+  function renderCommand(container, text) {
+    var segs = segmentCommand(text);
+    for (var i = 0; i < segs.length; i++) {
+      var span = document.createElement('span');
+      if (segs[i].cls) span.className = segs[i].cls;
+      span.textContent = segs[i].text;
+      container.appendChild(span);
+    }
+  }
+
   function schedule(fn, delay) {
     pendingTimer = setTimeout(function () {
       pendingTimer = null;
@@ -60,7 +100,7 @@
     promptSpan.textContent = '$ ';
     var commandSpan = document.createElement('span');
     commandSpan.className = 'command';
-    commandSpan.textContent = item.command;
+    renderCommand(commandSpan, item.command);
     cmdLine.appendChild(promptSpan);
     cmdLine.appendChild(commandSpan);
     terminalOutput.appendChild(cmdLine);
@@ -85,19 +125,35 @@
     cmdLine.appendChild(commandSpan);
     terminalOutput.appendChild(cmdLine);
 
-    typeChars(item.command, commandSpan, 0);
+    typeChars(segmentCommand(item.command), commandSpan, 0, 0, null);
   }
 
-  function typeChars(text, commandSpan, charIndex) {
-    if (charIndex < text.length) {
-      commandSpan.textContent += text[charIndex];
-      schedule(function () {
-        typeChars(text, commandSpan, charIndex + 1);
-      }, 55);
-    } else {
+  // Types char-by-char across highlighted segments: a new span is created
+  // when typing enters a segment, then filled one character at a time —
+  // the color arrives with the token, just like a live shell.
+  function typeChars(segs, commandSpan, segIndex, charIndex, currentSpan) {
+    if (segIndex >= segs.length) {
       terminalEl.classList.remove('typing');
       schedule(startCommand, 3500);
+      return;
     }
+    var seg = segs[segIndex];
+    if (charIndex === 0) {
+      currentSpan = document.createElement('span');
+      if (seg.cls) currentSpan.className = seg.cls;
+      commandSpan.appendChild(currentSpan);
+    }
+    currentSpan.textContent += seg.text[charIndex];
+    var nextSeg = segIndex;
+    var nextChar = charIndex + 1;
+    if (nextChar >= seg.text.length) {
+      nextSeg = segIndex + 1;
+      nextChar = 0;
+      currentSpan = null;
+    }
+    schedule(function () {
+      typeChars(segs, commandSpan, nextSeg, nextChar, currentSpan);
+    }, 55);
   }
 
   // ===== Build command queues from commands.json =====
