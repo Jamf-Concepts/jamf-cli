@@ -217,14 +217,8 @@ func ConvertToDDMComponents(data []byte, filterUnsupported bool, fetcher *Schema
 			if DisabledPayloadTypes[payloadType] && filterUnsupported {
 				result.Warnings = append(result.Warnings,
 					fmt.Sprintf("removed %d unconverted key(s) from payload type %q — Jamf blueprints does not support it", len(remaining), payloadType))
-			} else {
-				idx := typeCount[payloadType]
+			} else if entry := buildLeftoverEntry(payloadType, remaining, typeCount[payloadType]); entry != nil {
 				typeCount[payloadType]++
-				entry := map[string]any{
-					"payloadType":       payloadType,
-					"payloadIdentifier": generatePayloadIdentifier(payloadType, idx),
-				}
-				maps.Copy(entry, remaining)
 				profilePayloads = append(profilePayloads, entry)
 			}
 		}
@@ -337,6 +331,56 @@ func ensureFullSoftwareUpdateSchema(result *DDMConversionResult) {
 		return
 	}
 	result.NativeComponents[idx].Configuration = merged
+}
+
+// mcxWrapLeftoverTypes are payload types the blueprints API refuses as bare
+// configuration-profile payloads but accepts wrapped in Custom Settings (MCX).
+// A converter's unconverted leftover keys for these types are therefore
+// delivered via a com.apple.ManagedClient.preferences payload (which is also
+// their correct legacy delivery — they are preference domains, not standalone
+// MDM payloads). Wire-verified: bare com.apple.SoftwareUpdate → 400, the same
+// keys wrapped in MCX → accepted.
+var mcxWrapLeftoverTypes = map[string]bool{
+	"com.apple.SoftwareUpdate": true,
+}
+
+// buildLeftoverEntry constructs a configuration-profile payload entry from the
+// keys a converter did not consume. Empty values (empty strings/arrays the DDM
+// API rejects) are dropped. Types in mcxWrapLeftoverTypes are wrapped in a
+// com.apple.ManagedClient.preferences (Custom Settings) payload; all others are
+// emitted as a bare payload of their own type. Returns nil if nothing remains
+// after dropping empties.
+func buildLeftoverEntry(payloadType string, remaining map[string]any, index int) map[string]any {
+	clean := make(map[string]any, len(remaining))
+	for k, v := range remaining {
+		cv := convertPlistValue(v)
+		if isEmptyValue(cv) {
+			continue
+		}
+		clean[k] = cv
+	}
+	if len(clean) == 0 {
+		return nil
+	}
+	if mcxWrapLeftoverTypes[payloadType] {
+		return map[string]any{
+			"payloadType":       mcxPayloadType,
+			"payloadIdentifier": generatePayloadIdentifier(payloadType, index),
+			"PayloadContent": map[string]any{
+				payloadType: map[string]any{
+					"Forced": []any{
+						map[string]any{"mcx_preference_settings": clean},
+					},
+				},
+			},
+		}
+	}
+	entry := map[string]any{
+		"payloadType":       payloadType,
+		"payloadIdentifier": generatePayloadIdentifier(payloadType, index),
+	}
+	maps.Copy(entry, clean)
+	return entry
 }
 
 // splitMCXPayloads expands com.apple.ManagedClient.preferences (Custom Settings)

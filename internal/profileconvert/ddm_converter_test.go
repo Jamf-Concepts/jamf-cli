@@ -316,10 +316,16 @@ func TestConvertSoftwareUpdate_Deferrals(t *testing.T) {
 		t.Fatalf("invalid JSON: %v", err)
 	}
 
-	// Full component structure should be present
-	for _, section := range []string{"AllowStandardUserOSUpdates", "AutomaticActions", "Deferrals", "Notifications", "RapidSecurityResponse", "RecommendedCadence"} {
-		if _, ok := parsed[section]; !ok {
-			t.Errorf("expected top-level section %q in output", section)
+	// The converter emits ONLY the Deferrals section — sibling sections are
+	// intentionally absent so they don't clobber another converter's Included:true
+	// during merge. ensureFullSoftwareUpdateSchema backfills them at the orchestrator
+	// level (see TestConvertToDDMComponents_SoftwareUpdatePlusDeferralNoClobber).
+	if _, ok := parsed["Deferrals"]; !ok {
+		t.Error("expected Deferrals section in output")
+	}
+	for _, section := range []string{"AutomaticActions", "Notifications", "RapidSecurityResponse"} {
+		if _, ok := parsed[section]; ok {
+			t.Errorf("did not expect sibling section %q in standalone deferral output (would clobber on merge)", section)
 		}
 	}
 
@@ -350,12 +356,6 @@ func TestConvertSoftwareUpdate_Deferrals(t *testing.T) {
 	}
 	if system["Value"] != float64(1) {
 		t.Errorf("expected SystemPeriodInDays.Value=1 (base default), got %v", system["Value"])
-	}
-
-	// Non-converted top-level sections should have Included=false (not managed)
-	notifications := parsed["Notifications"].(map[string]any)
-	if notifications["Included"] != false {
-		t.Error("expected Notifications.Included=false (not converted)")
 	}
 }
 
@@ -1385,6 +1385,119 @@ func TestConvertToDDMComponents_MCXAppleDomainNoConverterUnwrapped(t *testing.T)
 	}
 	if p["tilesize"] != float64(48) {
 		t.Errorf("expected tilesize 48 carried over, got %v", p["tilesize"])
+	}
+}
+
+func TestConvertToDDMComponents_SoftwareUpdateLeftoverMCXWrapped(t *testing.T) {
+	// A com.apple.SoftwareUpdate payload with mappable + unmappable keys.
+	// AutomaticDownload converts to native software-update-settings; the
+	// unmappable AutomaticCheckEnabled is delivered via MCX (Custom Settings)
+	// rather than a bare com.apple.SoftwareUpdate payload (which the API refuses).
+	// CatalogURL is an empty string and must be dropped.
+	mc := `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>PayloadContent</key>
+	<array>
+		<dict>
+			<key>PayloadType</key>
+			<string>com.apple.SoftwareUpdate</string>
+			<key>PayloadVersion</key>
+			<integer>1</integer>
+			<key>AutomaticDownload</key>
+			<true/>
+			<key>AutomaticCheckEnabled</key>
+			<true/>
+			<key>CatalogURL</key>
+			<string></string>
+		</dict>
+	</array>
+	<key>PayloadDisplayName</key>
+	<string>SU</string>
+	<key>PayloadType</key>
+	<string>Configuration</string>
+	<key>PayloadVersion</key>
+	<integer>1</integer>
+</dict>
+</plist>`
+
+	result, err := ConvertToDDMComponents([]byte(mc), true, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Native software-update-settings from the mappable key.
+	if _, idx := findComponent(result.NativeComponents, "com.jamf.ddm.software-update-settings"); idx < 0 {
+		t.Fatal("expected native software-update-settings component")
+	}
+
+	// Leftover delivered via MCX, not a bare com.apple.SoftwareUpdate payload.
+	if result.ProfileConfig == nil {
+		t.Fatal("expected ProfileConfig with the MCX-wrapped leftover")
+	}
+	var cfg map[string]any
+	if err := json.Unmarshal(result.ProfileConfig, &cfg); err != nil {
+		t.Fatalf("invalid ProfileConfig JSON: %v", err)
+	}
+	p := cfg["payloadContent"].([]any)[0].(map[string]any)
+	if p["payloadType"] != "com.apple.ManagedClient.preferences" {
+		t.Fatalf("expected MCX-wrapped leftover, got payloadType %v", p["payloadType"])
+	}
+	pc := p["PayloadContent"].(map[string]any)["com.apple.SoftwareUpdate"].(map[string]any)
+	settings := pc["Forced"].([]any)[0].(map[string]any)["mcx_preference_settings"].(map[string]any)
+	if settings["AutomaticCheckEnabled"] != true {
+		t.Errorf("expected AutomaticCheckEnabled preserved in MCX, got %v", settings["AutomaticCheckEnabled"])
+	}
+	if _, present := settings["CatalogURL"]; present {
+		t.Error("empty-string CatalogURL should have been dropped")
+	}
+}
+
+func TestConvertToDDMComponents_SoftwareUpdatePlusDeferralNoClobber(t *testing.T) {
+	// A profile with BOTH a com.apple.SoftwareUpdate payload (AutomaticActions)
+	// and applicationaccess deferral keys, both targeting software-update-settings.
+	// The two converters must merge without clobbering each other: the deferral
+	// converter must not flip the SoftwareUpdate-mapped AutomaticActions section
+	// back to Included:false.
+	mc := `<?xml version="1.0"?><plist version="1.0"><dict>
+<key>PayloadContent</key><array>
+<dict><key>PayloadType</key><string>com.apple.SoftwareUpdate</string>
+<key>AutomaticDownload</key><true/><key>CriticalUpdateInstall</key><true/></dict>
+<dict><key>PayloadType</key><string>com.apple.applicationaccess</string>
+<key>forceDelayedSoftwareUpdates</key><true/>
+<key>enforcedSoftwareUpdateMinorOSDeferredInstallDelay</key><integer>5</integer></dict>
+</array>
+<key>PayloadDisplayName</key><string>SU+Deferral</string>
+<key>PayloadType</key><string>Configuration</string></dict></plist>`
+
+	result, err := ConvertToDDMComponents([]byte(mc), true, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	comp, idx := findComponent(result.NativeComponents, "com.jamf.ddm.software-update-settings")
+	if idx < 0 {
+		t.Fatal("expected software-update-settings component")
+	}
+	var cfg map[string]any
+	if err := json.Unmarshal(comp.Configuration, &cfg); err != nil {
+		t.Fatalf("invalid component JSON: %v", err)
+	}
+	included := func(section, key string) any {
+		sec, _ := cfg[section].(map[string]any)
+		sub, _ := sec[key].(map[string]any)
+		return sub["Included"]
+	}
+	// SoftwareUpdate-mapped section must survive the deferral merge.
+	if included("AutomaticActions", "Download") != true {
+		t.Errorf("AutomaticActions.Download.Included = %v, want true (clobbered by deferral merge)", included("AutomaticActions", "Download"))
+	}
+	if included("AutomaticActions", "InstallSecurityUpdate") != true {
+		t.Errorf("AutomaticActions.InstallSecurityUpdate.Included = %v, want true", included("AutomaticActions", "InstallSecurityUpdate"))
+	}
+	// Deferral section must also be present.
+	if included("Deferrals", "MinorPeriodInDays") != true {
+		t.Errorf("Deferrals.MinorPeriodInDays.Included = %v, want true", included("Deferrals", "MinorPeriodInDays"))
 	}
 }
 

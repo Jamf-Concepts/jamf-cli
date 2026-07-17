@@ -104,18 +104,22 @@ func convertSoftwareUpdate(settings map[string]any) (json.RawMessage, map[string
 		return nil, remaining, warnings, nil
 	}
 
-	// Build the full component schema. The Jamf UI expects every section
-	// to be present — missing sections render as blank. Sections we did
-	// not convert use Included: false so the UI shows them as unmanaged.
-	config, err := softwareUpdateBaseConfig()
+	// Emit ONLY the Deferrals section (kept complete, from the scaffold, with the
+	// values we set marked Included:true and the rest Included:false). Emitting the
+	// whole scaffold here — every section present with Included:false — would
+	// clobber sections another converter set to Included:true (e.g. AutomaticActions
+	// from com.apple.SoftwareUpdate) when the two configs are deep-merged into one
+	// component. ensureFullSoftwareUpdateSchema backfills the remaining top-level
+	// sections after all converters run.
+	base, err := softwareUpdateBaseConfig()
 	if err != nil {
 		return nil, settings, warnings, fmt.Errorf("loading software-update scaffold: %w", err)
 	}
-	baseDeferrals, ok := config["Deferrals"].(map[string]any)
+	baseDeferrals, ok := base["Deferrals"].(map[string]any)
 	if !ok {
 		return nil, settings, warnings, fmt.Errorf("software-update scaffold missing Deferrals section")
 	}
-	config["Deferrals"] = mergeDeferrals(baseDeferrals, deferrals)
+	config := map[string]any{"Deferrals": mergeDeferrals(baseDeferrals, deferrals)}
 
 	raw, err := marshalConfig(config)
 	if err != nil {

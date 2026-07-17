@@ -1036,6 +1036,8 @@ func newBlueprintsImportProfileCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		includeUnsupported bool
 		stripDefaults      bool
 		noConvert          bool
+		computerGroups     []string
+		mobileDeviceGroups []string
 	)
 	cmd := &cobra.Command{
 		Use:   "import-profile <profile-name>",
@@ -1080,12 +1082,19 @@ Scope handling:
   limitations, and exclusions are NOT imported — blueprints only support device
   group scoping. You will be warned about any scope elements that are dropped.
 
+  Because blueprints require at least one device group, a profile whose scope has
+  no groups (e.g. scoped to all computers or to individual devices) cannot be
+  imported as-is: the command errors before calling the API. Use --computer-group
+  or --mobile-device-group to set the scope explicitly. These flags also override
+  the profile's own scope when you want to target different groups.
+
 Examples:
   jamf-cli pro blueprints import-profile "Passcode Policy"
   jamf-cli pro blueprints import-profile "My Restrictions"
   jamf-cli pro blueprints import-profile "Managed Restrictions" --type mobile
   jamf-cli pro blueprints import-profile "FileVault Settings" --blueprint-name "FV Blueprint"
   jamf-cli pro blueprints import-profile "My Restrictions" --strip-defaults
+  jamf-cli pro blueprints import-profile "Software Update" --computer-group "All Managed"
   jamf-cli pro blueprints import-profile "My Restrictions" --include-unsupported`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -1219,15 +1228,33 @@ Examples:
 				return fmt.Errorf("no components produced — all payloads were stripped or unsupported")
 			}
 
-			// Step 4: Extract scope from Classic API XML and resolve to platform UUIDs
-			scopeGroups, scopeWarnings := extractAndResolveScope(ctx, cliCtx.Client, body)
-			for _, w := range scopeWarnings {
-				fmt.Fprintf(os.Stderr, "Warning: %s\n", w)
-			}
-			if len(scopeGroups) > 0 {
-				fmt.Fprintf(os.Stderr, "Resolved %d scope group(s) to platform UUIDs\n", len(scopeGroups))
+			// Step 4: Determine scope. --computer-group/--mobile-device-group override
+			// the profile's own scope; otherwise carry over the profile's target groups.
+			var scopeGroups []string
+			if len(computerGroups) > 0 || len(mobileDeviceGroups) > 0 {
+				scopeGroups, err = resolveAllGroupFlags(ctx, cliCtx.Client, nil, computerGroups, mobileDeviceGroups)
+				if err != nil {
+					return err
+				}
+				fmt.Fprintf(os.Stderr, "Scope overridden with %d group(s) from flags\n", len(scopeGroups))
 			} else {
-				fmt.Fprintln(os.Stderr, "No scope groups resolved — blueprint will have empty scope")
+				var scopeWarnings []string
+				scopeGroups, scopeWarnings = extractAndResolveScope(ctx, cliCtx.Client, body)
+				for _, w := range scopeWarnings {
+					fmt.Fprintf(os.Stderr, "Warning: %s\n", w)
+				}
+				if len(scopeGroups) > 0 {
+					fmt.Fprintf(os.Stderr, "Resolved %d scope group(s) to platform UUIDs\n", len(scopeGroups))
+				}
+			}
+
+			// Blueprints require a non-empty device-group scope. Fail fast with an
+			// actionable message instead of letting CreateBlueprint 400.
+			if len(scopeGroups) == 0 {
+				return fmt.Errorf("profile %q has no device-group scope that blueprints can use — "+
+					"re-run with --computer-group \"<name>\" (or --mobile-device-group) to set the scope.\n"+
+					"Blueprints only support device-group scoping; all-computers, individual-device, "+
+					"building, and department scopes are not carried over", args[0])
 			}
 
 			// Step 5: Build and create the blueprint
@@ -1273,6 +1300,8 @@ Examples:
 	cmd.Flags().BoolVar(&noConvert, "legacy", false, "Wrap all payloads in a single configuration-profile component without DDM conversion")
 	cmd.Flags().BoolVar(&includeUnsupported, "include-unsupported", false, "Send payloads blueprints disables anyway (the API will reject them; by default they are skipped)")
 	cmd.Flags().BoolVar(&stripDefaults, "strip-defaults", false, "Remove keys set to Apple's default values (fetches schemas from GitHub)")
+	cmd.Flags().StringSliceVar(&computerGroups, "computer-group", nil, "Set the blueprint scope to these computer group name(s), overriding the profile's scope (repeatable)")
+	cmd.Flags().StringSliceVar(&mobileDeviceGroups, "mobile-device-group", nil, "Set the blueprint scope to these mobile device group name(s), overriding the profile's scope (repeatable)")
 	_ = cmd.RegisterFlagCompletionFunc("type", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
 		return []string{"computer", "mobile"}, cobra.ShellCompDirectiveNoFileComp
 	})
