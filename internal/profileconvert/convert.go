@@ -23,47 +23,48 @@ precedence.`
 // SupportedPayloadTypes lists legacy payload types supported by Jamf Platform blueprints.
 // Sourced from https://learn.jamf.com/r/en-US/jamf-pro-blueprints-configuration-guide/Blueprints_Release_Notes_Pro
 var SupportedPayloadTypes = map[string]bool{
-	"com.apple.Dictionary":                       true, // Parental Controls: Dictionary
-	"com.apple.DiscRecording":                    true, // Media Management: Disc Burning
-	"com.apple.MCX.Accounts":                     true, // Accounts
-	"com.apple.MCX.MobileAccounts":               true, // Mobile Accounts
-	"com.apple.MCX.TimeMachine":                  true, // Time Machine
-	"com.apple.MCX.TimeServer":                   true, // Time Server
-	"com.apple.NSExtension":                      true, // NSExtension Management
-	"com.apple.SystemConfiguration":              true, // Network Proxy Configuration
-	"com.apple.TCC.configuration-profile-policy": true, // Privacy Preferences Policy Control
-	"com.apple.airprint":                         true, // AirPrint
-	"com.apple.app.lock":                         true, // App Lock
-	"com.apple.applicationaccess":                true, // Restrictions
-	"com.apple.appstore":                         true, // App Store
-	"com.apple.asam":                             true, // Autonomous Single App Mode
-	"com.apple.cellularprivatenetwork.managed":   true, // Cellular Private Network
-	"com.apple.conferenceroomdisplay":            true, // Conference Room Display
-	"com.apple.desktop":                          true, // Desktop
-	"com.apple.dnsProxy.managed":                 true, // DNS Proxy
-	"com.apple.domains":                          true, // Domains
-	"com.apple.familycontrols.contentfilter":     true, // Parental Controls: Content Filter
-	"com.apple.fileproviderd":                    true, // File Provider
-	"com.apple.finder":                           true, // Finder
-	"com.apple.gamed":                            true, // Parental Controls: Game Center
-	"com.apple.loginitems.managed":               true, // Login Items: Managed Items
-	"com.apple.loginwindow":                      true, // Login Window
-	"com.apple.mcxprinting":                      true, // Printing
-	"com.apple.notificationsettings":             true, // Notifications
-	"com.apple.preference.security":              true, // Security Preferences
-	"com.apple.preference.users":                 true, // User Preferences
-	"com.apple.screensaver":                      true, // Screensaver
-	"com.apple.screensaver.user":                 true, // Screensaver User
-	"com.apple.security.firewall":                true, // Firewall
-	"com.apple.security.smartcard":               true, // SmartCard
-	"com.apple.servicemanagement":                true, // Service Management
-	"com.apple.shareddeviceconfiguration":        true, // Lock Screen Message
-	"com.apple.system.logging":                   true, // System Logging
-	"com.apple.systempolicy.control":             true, // System Policy Control
-	"com.apple.systempolicy.managed":             true, // System Policy Managed
-	"com.apple.tvremote":                         true, // TV Remote
-	"com.apple.universalaccess":                  true, // Accessibility
-	"loginwindow":                                true, // Login Window: Login Items
+	"com.apple.Dictionary":                        true, // Parental Controls: Dictionary
+	"com.apple.DiscRecording":                     true, // Media Management: Disc Burning
+	"com.apple.MCX.Accounts":                      true, // Accounts
+	"com.apple.MCX.MobileAccounts":                true, // Mobile Accounts
+	"com.apple.MCX.TimeMachine":                   true, // Time Machine
+	"com.apple.MCX.TimeServer":                    true, // Time Server
+	"com.apple.NSExtension":                       true, // NSExtension Management
+	"com.apple.SystemConfiguration":               true, // Network Proxy Configuration
+	"com.apple.TCC.configuration-profile-policy":  true, // Privacy Preferences Policy Control
+	"com.apple.airprint":                          true, // AirPrint
+	"com.apple.app.lock":                          true, // App Lock
+	"com.apple.applicationaccess":                 true, // Restrictions
+	"com.apple.appstore":                          true, // App Store
+	"com.apple.asam":                              true, // Autonomous Single App Mode
+	"com.apple.cellularprivatenetwork.managed":    true, // Cellular Private Network
+	"com.apple.conferenceroomdisplay":             true, // Conference Room Display
+	"com.apple.desktop":                           true, // Desktop
+	"com.apple.dnsProxy.managed":                  true, // DNS Proxy
+	"com.apple.domains":                           true, // Domains
+	"com.apple.familycontrols.contentfilter":      true, // Parental Controls: Content Filter
+	"com.apple.fileproviderd":                     true, // File Provider
+	"com.apple.finder":                            true, // Finder
+	"com.apple.gamed":                             true, // Parental Controls: Game Center
+	"com.apple.loginitems.managed":                true, // Login Items: Managed Items
+	"com.apple.loginwindow":                       true, // Login Window
+	"com.apple.mcxprinting":                       true, // Printing
+	"com.apple.notificationsettings":              true, // Notifications
+	"com.apple.preference.security":               true, // Security Preferences
+	"com.apple.preference.users":                  true, // User Preferences
+	"com.apple.screensaver":                       true, // Screensaver
+	"com.apple.screensaver.user":                  true, // Screensaver User
+	"com.apple.security.firewall":                 true, // Firewall
+	"com.apple.security.smartcard":                true, // SmartCard
+	"com.apple.servicemanagement":                 true, // Service Management
+	"com.apple.shareddeviceconfiguration":         true, // Lock Screen Message
+	"com.apple.syspolicy.kernel-extension-policy": true, // System Policy - Kernel Extensions
+	"com.apple.system.logging":                    true, // System Logging
+	"com.apple.systempolicy.control":              true, // System Policy Control
+	"com.apple.systempolicy.managed":              true, // System Policy Managed
+	"com.apple.tvremote":                          true, // TV Remote
+	"com.apple.universalaccess":                   true, // Accessibility
+	"loginwindow":                                 true, // Login Window: Login Items
 }
 
 // appleMetadataKeys are keys in a mobileconfig payload dict that represent
