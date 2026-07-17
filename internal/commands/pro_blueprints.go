@@ -1009,10 +1009,24 @@ Examples:
 	cmd.Flags().StringVar(&displayName, "display-name", "", "Display name for the component (defaults to payload type)")
 	cmd.Flags().BoolVar(&stripDefaults, "strip-defaults", false, "Remove keys set to Apple's default values (fetches schemas from GitHub)")
 	_ = cmd.MarkFlagRequired("payload-type")
-	_ = cmd.RegisterFlagCompletionFunc("payload-type", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
-		return profileconvert.SupportedPayloadTypesList(), cobra.ShellCompDirectiveNoFileComp
-	})
 	return cmd
+}
+
+// warnAPIOnlyPayloads inspects a configuration-profile component's config and,
+// if it contains payload types the Jamf Pro UI cannot manage directly, prints
+// an advisory naming them. Those payloads show as read-only "Legacy payload"
+// items in the UI and can only be edited through the blueprints API. Payload
+// types the UI can manage (UIManageablePayloadTypes) produce no warning.
+func warnAPIOnlyPayloads(config json.RawMessage) {
+	apiOnly := profileconvert.APIOnlyPayloadTypes(config)
+	if len(apiOnly) == 0 {
+		return
+	}
+	fmt.Fprintln(os.Stderr, "Note: the following payload(s) can only be managed through the blueprints API — "+
+		"they show as read-only \"Legacy payload\" items in the Jamf Pro UI and cannot be edited there:")
+	for _, pt := range apiOnly {
+		fmt.Fprintf(os.Stderr, "  - %s\n", pt)
+	}
 }
 
 func newBlueprintsImportProfileCmd(cliCtx *registry.CLIContext) *cobra.Command {
@@ -1022,6 +1036,8 @@ func newBlueprintsImportProfileCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		includeUnsupported bool
 		stripDefaults      bool
 		noConvert          bool
+		computerGroups     []string
+		mobileDeviceGroups []string
 	)
 	cmd := &cobra.Command{
 		Use:   "import-profile <profile-name>",
@@ -1040,6 +1056,20 @@ exists. Currently supported:
 
 Payloads without a DDM mapping are wrapped in a com.jamf.ddm-configuration-profile
 component. A single profile with mixed payloads produces multiple components.
+Some of these configuration-profile ("legacy payload") components can only be
+managed through the blueprints API — they appear as read-only "Legacy payload"
+items in the Jamf Pro UI and cannot be edited there.
+
+The blueprints API accepts almost every Apple payload type and validates it against
+Apple's published schema. A small set of payload types is disabled by blueprints
+(certificates, VPN, SSO, web clips, fonts, etc.); those are skipped by default with
+a warning. Use --include-unsupported to send them anyway (the API will reject them).
+
+Application & Custom Settings (MCX) payloads are unwrapped when their inner
+preference domain is a recognized Apple payload. Classifying an unknown domain
+fetches Apple's published schema from GitHub, so import-profile may reach the
+network even without --strip-defaults; it degrades gracefully offline, leaving
+unclassified domains wrapped as opaque Custom Settings (which the API accepts).
 
 Use --type to specify the profile type: "computer" (default) for macOS configuration
 profiles or "mobile" for mobile device configuration profiles. Profiles can share
@@ -1058,12 +1088,19 @@ Scope handling:
   limitations, and exclusions are NOT imported — blueprints only support device
   group scoping. You will be warned about any scope elements that are dropped.
 
+  Because blueprints require at least one device group, a profile whose scope has
+  no groups (e.g. scoped to all computers or to individual devices) cannot be
+  imported as-is: the command errors before calling the API. Use --computer-group
+  or --mobile-device-group to set the scope explicitly. These flags also override
+  the profile's own scope when you want to target different groups.
+
 Examples:
   jamf-cli pro blueprints import-profile "Passcode Policy"
   jamf-cli pro blueprints import-profile "My Restrictions"
   jamf-cli pro blueprints import-profile "Managed Restrictions" --type mobile
   jamf-cli pro blueprints import-profile "FileVault Settings" --blueprint-name "FV Blueprint"
   jamf-cli pro blueprints import-profile "My Restrictions" --strip-defaults
+  jamf-cli pro blueprints import-profile "Software Update" --computer-group "All Managed"
   jamf-cli pro blueprints import-profile "My Restrictions" --include-unsupported`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -1128,6 +1165,7 @@ Examples:
 				}
 				types := profileconvert.PayloadTypeSummary([]byte(mobileconfig))
 				fmt.Fprintf(os.Stderr, "Processed %d payload(s) (legacy mode — no DDM conversion)\n", len(types))
+				warnAPIOnlyPayloads(config)
 				components = append(components, blueprints.Component{
 					Identifier:    "com.jamf.ddm-configuration-profile",
 					Configuration: config,
@@ -1175,6 +1213,7 @@ Examples:
 				}
 				if ddmResult.ProfileConfig != nil {
 					fmt.Fprintln(os.Stderr, "  remaining payloads wrapped in configuration-profile component")
+					warnAPIOnlyPayloads(ddmResult.ProfileConfig)
 				}
 
 				for _, nc := range ddmResult.NativeComponents {
@@ -1195,15 +1234,33 @@ Examples:
 				return fmt.Errorf("no components produced — all payloads were stripped or unsupported")
 			}
 
-			// Step 4: Extract scope from Classic API XML and resolve to platform UUIDs
-			scopeGroups, scopeWarnings := extractAndResolveScope(ctx, cliCtx.Client, body)
-			for _, w := range scopeWarnings {
-				fmt.Fprintf(os.Stderr, "Warning: %s\n", w)
-			}
-			if len(scopeGroups) > 0 {
-				fmt.Fprintf(os.Stderr, "Resolved %d scope group(s) to platform UUIDs\n", len(scopeGroups))
+			// Step 4: Determine scope. --computer-group/--mobile-device-group override
+			// the profile's own scope; otherwise carry over the profile's target groups.
+			var scopeGroups []string
+			if len(computerGroups) > 0 || len(mobileDeviceGroups) > 0 {
+				scopeGroups, err = resolveAllGroupFlags(ctx, cliCtx.Client, nil, computerGroups, mobileDeviceGroups)
+				if err != nil {
+					return err
+				}
+				fmt.Fprintf(os.Stderr, "Scope overridden with %d group(s) from flags\n", len(scopeGroups))
 			} else {
-				fmt.Fprintln(os.Stderr, "No scope groups resolved — blueprint will have empty scope")
+				var scopeWarnings []string
+				scopeGroups, scopeWarnings = extractAndResolveScope(ctx, cliCtx.Client, body)
+				for _, w := range scopeWarnings {
+					fmt.Fprintf(os.Stderr, "Warning: %s\n", w)
+				}
+				if len(scopeGroups) > 0 {
+					fmt.Fprintf(os.Stderr, "Resolved %d scope group(s) to platform UUIDs\n", len(scopeGroups))
+				}
+			}
+
+			// Blueprints require a non-empty device-group scope. Fail fast with an
+			// actionable message instead of letting CreateBlueprint 400.
+			if len(scopeGroups) == 0 {
+				return fmt.Errorf("profile %q has no device-group scope that blueprints can use — "+
+					"re-run with --computer-group \"<name>\" (or --mobile-device-group) to set the scope.\n"+
+					"Blueprints only support device-group scoping; all-computers, individual-device, "+
+					"building, and department scopes are not carried over", args[0])
 			}
 
 			// Step 5: Build and create the blueprint
@@ -1247,8 +1304,10 @@ Examples:
 	cmd.Flags().StringVar(&blueprintName, "blueprint-name", "", "Override the blueprint name (defaults to profile display name)")
 	cmd.Flags().StringVar(&profileType, "type", "computer", "Profile type: computer (macOS) or mobile (iOS/iPadOS/tvOS)")
 	cmd.Flags().BoolVar(&noConvert, "legacy", false, "Wrap all payloads in a single configuration-profile component without DDM conversion")
-	cmd.Flags().BoolVar(&includeUnsupported, "include-unsupported", false, "Include payload types not supported by the platform API (may cause validation errors)")
+	cmd.Flags().BoolVar(&includeUnsupported, "include-unsupported", false, "Send payloads blueprints disables anyway (the API will reject them; by default they are skipped)")
 	cmd.Flags().BoolVar(&stripDefaults, "strip-defaults", false, "Remove keys set to Apple's default values (fetches schemas from GitHub)")
+	cmd.Flags().StringSliceVar(&computerGroups, "computer-group", nil, "Set the blueprint scope to these computer group name(s), overriding the profile's scope (repeatable)")
+	cmd.Flags().StringSliceVar(&mobileDeviceGroups, "mobile-device-group", nil, "Set the blueprint scope to these mobile device group name(s), overriding the profile's scope (repeatable)")
 	_ = cmd.RegisterFlagCompletionFunc("type", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
 		return []string{"computer", "mobile"}, cobra.ShellCompDirectiveNoFileComp
 	})
