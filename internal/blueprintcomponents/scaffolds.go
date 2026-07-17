@@ -75,9 +75,11 @@ var rawScaffolds = map[string]string{
 	"com.jamf.ddm.custom-declarations": `{
   "declarations": [
     {
+      "type": "",
+      "channelType": "SYSTEM",
       "kind": "CONFIGURATION",
       "payload": {},
-      "type": ""
+      "payloadKey": 1
     }
   ]
 }`,

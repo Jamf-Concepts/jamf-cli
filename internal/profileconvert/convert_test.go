@@ -241,21 +241,19 @@ func TestConvertMobileconfig_MultiPayload(t *testing.T) {
 	}
 }
 
-func TestConvertMobileconfig_UnsupportedPayloadType(t *testing.T) {
-	config, warnings, err := ConvertMobileconfig([]byte(testUnsupportedPayloadMobileconfig), false)
+func TestConvertMobileconfig_UnknownPayloadPassesThrough(t *testing.T) {
+	// A payload type that is NOT on the denylist is passed through to the API
+	// (which schema-validates it) with no warning — even with filtering enabled.
+	config, warnings, err := ConvertMobileconfig([]byte(testUnsupportedPayloadMobileconfig), true)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	// Should warn but still convert
-	if len(warnings) != 1 {
-		t.Fatalf("expected 1 warning, got %d", len(warnings))
-	}
-	if warnings[0] == "" {
-		t.Error("warning should not be empty")
+	if len(warnings) != 0 {
+		t.Errorf("expected no warnings for a non-disabled type, got %v", warnings)
 	}
 
-	// Output is still valid
+	// Output is still valid and includes the payload.
 	var result map[string]any
 	if err := json.Unmarshal(config, &result); err != nil {
 		t.Fatalf("invalid JSON output: %v", err)
@@ -271,8 +269,8 @@ func TestConvertMobileconfig_UnsupportedPayloadType(t *testing.T) {
 	}
 }
 
-func TestConvertMobileconfig_FilterUnsupported(t *testing.T) {
-	// Multi-payload profile where one payload is unsupported
+func TestConvertMobileconfig_FilterDisabled(t *testing.T) {
+	// Multi-payload profile where one payload is a type blueprints disables.
 	data := `<?xml version="1.0" encoding="UTF-8"?>
 <plist version="1.0">
 <dict>
@@ -286,9 +284,9 @@ func TestConvertMobileconfig_FilterUnsupported(t *testing.T) {
 		</dict>
 		<dict>
 			<key>PayloadType</key>
-			<string>com.example.fake.payload</string>
-			<key>SSID_STR</key>
-			<string>CorpWifi</string>
+			<string>com.apple.vpn.managed</string>
+			<key>UserDefinedName</key>
+			<string>Corp VPN</string>
 		</dict>
 	</array>
 	<key>PayloadDisplayName</key>
@@ -304,15 +302,15 @@ func TestConvertMobileconfig_FilterUnsupported(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	// Should warn about removed payload
+	// Should warn about the skipped disabled payload.
 	if len(warnings) != 1 {
 		t.Fatalf("expected 1 warning, got %d: %v", len(warnings), warnings)
 	}
-	if !strings.Contains(warnings[0], "removed unsupported") {
-		t.Errorf("expected 'removed unsupported' warning, got %q", warnings[0])
+	if !strings.Contains(warnings[0], "does not support") {
+		t.Errorf("expected 'does not support' warning, got %q", warnings[0])
 	}
 
-	// Only supported payload should remain
+	// Only the non-disabled payload should remain.
 	var result map[string]any
 	if err := json.Unmarshal(config, &result); err != nil {
 		t.Fatalf("invalid JSON: %v", err)
@@ -327,9 +325,31 @@ func TestConvertMobileconfig_FilterUnsupported(t *testing.T) {
 }
 
 func TestConvertMobileconfig_FilterAllRemoved(t *testing.T) {
-	_, _, err := ConvertMobileconfig([]byte(testUnsupportedPayloadMobileconfig), true)
+	// A profile containing only a disabled payload type, with filtering on,
+	// removes everything and errors.
+	data := `<?xml version="1.0" encoding="UTF-8"?>
+<plist version="1.0">
+<dict>
+	<key>PayloadContent</key>
+	<array>
+		<dict>
+			<key>PayloadType</key>
+			<string>com.apple.vpn.managed</string>
+			<key>UserDefinedName</key>
+			<string>Corp VPN</string>
+		</dict>
+	</array>
+	<key>PayloadDisplayName</key>
+	<string>VPN Only</string>
+	<key>PayloadType</key>
+	<string>Configuration</string>
+	<key>PayloadUUID</key>
+	<string>AAAAAAAA-0000-0000-0000-000000000000</string>
+</dict>
+</plist>`
+	_, _, err := ConvertMobileconfig([]byte(data), true)
 	if err == nil {
-		t.Error("expected error when all payloads filtered out")
+		t.Error("expected error when all payloads are disabled and filtered out")
 	}
 }
 
@@ -417,13 +437,28 @@ func TestConvertPlist_DefaultDisplayName(t *testing.T) {
 	}
 }
 
-func TestConvertPlist_UnsupportedType(t *testing.T) {
-	_, warnings, err := ConvertPlist([]byte(testPlist), "com.example.fake.payload", "")
+func TestConvertPlist_DisabledType(t *testing.T) {
+	// A disabled type warns that the API will reject it.
+	_, warnings, err := ConvertPlist([]byte(testPlist), "com.apple.vpn.managed", "")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if len(warnings) != 1 {
-		t.Errorf("expected 1 warning for unsupported type, got %d", len(warnings))
+		t.Fatalf("expected 1 warning for disabled type, got %d: %v", len(warnings), warnings)
+	}
+	if !strings.Contains(warnings[0], "disabled") {
+		t.Errorf("expected 'disabled' warning, got %q", warnings[0])
+	}
+}
+
+func TestConvertPlist_UnknownTypeNoWarning(t *testing.T) {
+	// A non-disabled type produces no warning — the API validates it.
+	_, warnings, err := ConvertPlist([]byte(testPlist), "com.example.fake.payload", "")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(warnings) != 0 {
+		t.Errorf("expected no warnings for a non-disabled type, got %v", warnings)
 	}
 }
 
@@ -515,10 +550,10 @@ func TestPayloadTypeSummary(t *testing.T) {
 	}
 }
 
-func TestSupportedPayloadTypesList(t *testing.T) {
-	types := SupportedPayloadTypesList()
-	if len(types) != len(SupportedPayloadTypes) {
-		t.Errorf("got %d types, want %d", len(types), len(SupportedPayloadTypes))
+func TestDisabledPayloadTypesList(t *testing.T) {
+	types := DisabledPayloadTypesList()
+	if len(types) != len(DisabledPayloadTypes) {
+		t.Errorf("got %d types, want %d", len(types), len(DisabledPayloadTypes))
 	}
 	// Should be sorted
 	for i := 1; i < len(types); i++ {
@@ -671,15 +706,12 @@ func TestConvertMobileconfig_MCXPayload(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	// Should have an unwrap warning
-	hasUnwrap := false
+	// MCX (Custom Settings) is kept intact as com.apple.ManagedClient.preferences,
+	// NOT unwrapped — the blueprints API rejects the unwrapped bare domain.
 	for _, w := range warnings {
 		if strings.Contains(w, "unwrapped") {
-			hasUnwrap = true
+			t.Errorf("did not expect an unwrap warning, got %q", w)
 		}
-	}
-	if !hasUnwrap {
-		t.Error("expected unwrap warning")
 	}
 
 	var result map[string]any
@@ -689,23 +721,37 @@ func TestConvertMobileconfig_MCXPayload(t *testing.T) {
 
 	content, ok := result["payloadContent"].([]any)
 	if !ok || len(content) != 1 {
-		t.Fatalf("expected 1 payload after MCX unwrap, got %v", result["payloadContent"])
+		t.Fatalf("expected 1 payload, got %v", result["payloadContent"])
 	}
 
 	payload := content[0].(map[string]any)
-	if payload["payloadType"] != "com.apple.applicationaccess" {
-		t.Errorf("payloadType = %v, want com.apple.applicationaccess", payload["payloadType"])
+	if payload["payloadType"] != "com.apple.ManagedClient.preferences" {
+		t.Errorf("payloadType = %v, want com.apple.ManagedClient.preferences", payload["payloadType"])
 	}
-	if payload["allowCamera"] != false {
-		t.Errorf("allowCamera = %v, want false", payload["allowCamera"])
+
+	// The inner managed-preferences structure must be preserved under PayloadContent.
+	pc, ok := payload["PayloadContent"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected PayloadContent preserved, got %T", payload["PayloadContent"])
 	}
-	if payload["allowAirDrop"] != false {
-		t.Errorf("allowAirDrop = %v, want false", payload["allowAirDrop"])
+	domain, ok := pc["com.apple.applicationaccess"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected com.apple.applicationaccess domain in PayloadContent, got %v", pc)
+	}
+	forced, ok := domain["Forced"].([]any)
+	if !ok || len(forced) != 1 {
+		t.Fatalf("expected Forced array with 1 entry, got %v", domain["Forced"])
+	}
+	settings := forced[0].(map[string]any)["mcx_preference_settings"].(map[string]any)
+	if settings["allowCamera"] != false || settings["allowAirDrop"] != false {
+		t.Errorf("expected allowCamera/allowAirDrop false, got %v", settings)
 	}
 }
 
-func TestConvertMobileconfig_MCXFilterUnsupported(t *testing.T) {
-	// MCX wrapping an unsupported domain — should be filtered
+func TestConvertMobileconfig_MCXCustomDomainKept(t *testing.T) {
+	// MCX wrapping a third-party preference domain. Previously this was unwrapped
+	// to a bare payloadType and filtered out; now it is kept intact as
+	// com.apple.ManagedClient.preferences and accepted even with filtering on.
 	data := `<?xml version="1.0" encoding="UTF-8"?>
 <plist version="1.0">
 <dict>
@@ -735,16 +781,27 @@ func TestConvertMobileconfig_MCXFilterUnsupported(t *testing.T) {
 		</dict>
 	</array>
 	<key>PayloadDisplayName</key>
-	<string>MCX Unsupported</string>
+	<string>MCX Custom Domain</string>
 	<key>PayloadType</key>
 	<string>Configuration</string>
 	<key>PayloadUUID</key>
 	<string>AAAAAAAA-0000-0000-0000-000000000000</string>
 </dict>
 </plist>`
-	_, _, err := ConvertMobileconfig([]byte(data), true)
-	if err == nil {
-		t.Error("expected error when MCX unwraps to unsupported domain and filtering enabled")
+	config, _, err := ConvertMobileconfig([]byte(data), true)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	var result map[string]any
+	if err := json.Unmarshal(config, &result); err != nil {
+		t.Fatalf("invalid JSON: %v", err)
+	}
+	content := result["payloadContent"].([]any)
+	if len(content) != 1 {
+		t.Fatalf("expected 1 payload (MCX kept), got %d", len(content))
+	}
+	if pt := content[0].(map[string]any)["payloadType"]; pt != "com.apple.ManagedClient.preferences" {
+		t.Errorf("payloadType = %v, want com.apple.ManagedClient.preferences", pt)
 	}
 }
 
@@ -803,14 +860,10 @@ func TestConvertMobileconfig_MCXMultiDomain(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	hasUnwrap := false
 	for _, w := range warnings {
-		if strings.Contains(w, "unwrapped 2 domain") {
-			hasUnwrap = true
+		if strings.Contains(w, "unwrapped") {
+			t.Errorf("did not expect an unwrap warning, got %q", w)
 		}
-	}
-	if !hasUnwrap {
-		t.Errorf("expected '2 domain' unwrap warning, got %v", warnings)
 	}
 
 	var result map[string]any
@@ -818,8 +871,18 @@ func TestConvertMobileconfig_MCXMultiDomain(t *testing.T) {
 		t.Fatalf("invalid JSON: %v", err)
 	}
 	content := result["payloadContent"].([]any)
-	if len(content) != 2 {
-		t.Fatalf("expected 2 payloads after MCX unwrap, got %d", len(content))
+	if len(content) != 1 {
+		t.Fatalf("expected 1 MCX payload (kept intact, both domains inside), got %d", len(content))
+	}
+	pc, ok := content[0].(map[string]any)["PayloadContent"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected PayloadContent preserved, got %v", content[0])
+	}
+	if _, ok := pc["com.apple.applicationaccess"]; !ok {
+		t.Errorf("missing com.apple.applicationaccess domain in PayloadContent: %v", pc)
+	}
+	if _, ok := pc["com.apple.screensaver"]; !ok {
+		t.Errorf("missing com.apple.screensaver domain in PayloadContent: %v", pc)
 	}
 }
 
@@ -886,99 +949,17 @@ func TestConvertMobileconfig_MCXMixedWithRegular(t *testing.T) {
 		t.Errorf("payload[0] type = %v, want com.apple.screensaver", p0["payloadType"])
 	}
 
-	// Second is the unwrapped applicationaccess
+	// Second is the MCX payload, kept intact (not unwrapped).
 	p1 := content[1].(map[string]any)
-	if p1["payloadType"] != "com.apple.applicationaccess" {
-		t.Errorf("payload[1] type = %v, want com.apple.applicationaccess", p1["payloadType"])
+	if p1["payloadType"] != "com.apple.ManagedClient.preferences" {
+		t.Errorf("payload[1] type = %v, want com.apple.ManagedClient.preferences", p1["payloadType"])
 	}
-	if p1["allowCamera"] != false {
-		t.Errorf("allowCamera = %v, want false", p1["allowCamera"])
+	pc, ok := p1["PayloadContent"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected PayloadContent preserved on MCX payload, got %v", p1)
 	}
-}
-
-func TestUnwrapMCXPayloads_SetOnce(t *testing.T) {
-	payload := map[string]any{
-		"PayloadType": "com.apple.ManagedClient.preferences",
-		"PayloadContent": map[string]any{
-			"com.apple.finder": map[string]any{
-				"Set-Once": []any{
-					map[string]any{
-						"mcx_preference_settings": map[string]any{
-							"ShowHardDrivesOnDesktop": true,
-						},
-					},
-				},
-			},
-		},
-	}
-
-	result, warnings := unwrapMCXPayloads([]any{payload})
-	if len(result) != 1 {
-		t.Fatalf("expected 1 unwrapped payload, got %d", len(result))
-	}
-
-	synthetic := result[0].(map[string]any)
-	if synthetic["PayloadType"] != "com.apple.finder" {
-		t.Errorf("PayloadType = %v, want com.apple.finder", synthetic["PayloadType"])
-	}
-	if synthetic["ShowHardDrivesOnDesktop"] != true {
-		t.Errorf("ShowHardDrivesOnDesktop = %v, want true", synthetic["ShowHardDrivesOnDesktop"])
-	}
-
-	if len(warnings) == 0 || !strings.Contains(warnings[0], "unwrapped") {
-		t.Errorf("expected unwrap warning, got %v", warnings)
-	}
-}
-
-func TestUnwrapMCXPayloads_NoContent(t *testing.T) {
-	payload := map[string]any{
-		"PayloadType": "com.apple.ManagedClient.preferences",
-		// No PayloadContent
-	}
-
-	result, warnings := unwrapMCXPayloads([]any{payload})
-	if len(result) != 0 {
-		t.Errorf("expected 0 results for MCX with no content, got %d", len(result))
-	}
-	if len(warnings) != 1 || !strings.Contains(warnings[0], "no PayloadContent") {
-		t.Errorf("expected 'no PayloadContent' warning, got %v", warnings)
-	}
-}
-
-func TestUnwrapMCXPayloads_EmptySettings(t *testing.T) {
-	payload := map[string]any{
-		"PayloadType": "com.apple.ManagedClient.preferences",
-		"PayloadContent": map[string]any{
-			"com.apple.finder": map[string]any{
-				// No Forced or Set-Once
-			},
-		},
-	}
-
-	result, warnings := unwrapMCXPayloads([]any{payload})
-	if len(result) != 0 {
-		t.Errorf("expected 0 results for MCX with empty settings, got %d", len(result))
-	}
-	if len(warnings) != 1 || !strings.Contains(warnings[0], "no extractable settings") {
-		t.Errorf("expected 'no extractable settings' warning, got %v", warnings)
-	}
-}
-
-func TestUnwrapMCXPayloads_NonMCXPassthrough(t *testing.T) {
-	payload := map[string]any{
-		"PayloadType": "com.apple.screensaver",
-		"idleTime":    600,
-	}
-
-	result, warnings := unwrapMCXPayloads([]any{payload})
-	if len(result) != 1 {
-		t.Fatalf("expected 1 passthrough payload, got %d", len(result))
-	}
-	if len(warnings) != 0 {
-		t.Errorf("expected no warnings for non-MCX payload, got %v", warnings)
-	}
-	if result[0].(map[string]any)["PayloadType"] != "com.apple.screensaver" {
-		t.Error("non-MCX payload should pass through unchanged")
+	if _, ok := pc["com.apple.applicationaccess"]; !ok {
+		t.Errorf("missing com.apple.applicationaccess domain in PayloadContent: %v", pc)
 	}
 }
 

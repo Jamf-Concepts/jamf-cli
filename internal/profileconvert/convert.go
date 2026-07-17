@@ -7,7 +7,6 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
-	"maps"
 	"sort"
 	"strings"
 
@@ -20,9 +19,57 @@ a blueprint that contains conflicting keys, unexpected behavior may occur. For e
 if keys within the Restrictions payload conflict, the most restrictive setting will take
 precedence.`
 
-// SupportedPayloadTypes lists legacy payload types supported by Jamf Platform blueprints.
-// Sourced from https://learn.jamf.com/r/en-US/jamf-pro-blueprints-configuration-guide/Blueprints_Release_Notes_Pro
-var SupportedPayloadTypes = map[string]bool{
+// mcxPayloadType is the Apple payload type for the "Application & Custom
+// Settings" payload (Managed Client / MCX). Its managed settings live under a
+// nested PayloadContent dictionary rather than as sibling keys.
+const mcxPayloadType = "com.apple.ManagedClient.preferences"
+
+// DisabledPayloadTypes lists the Apple MDM payload types that Jamf Platform
+// blueprints explicitly refuses. Sending one of these in a
+// com.jamf.ddm-configuration-profile component makes the API reject the whole
+// blueprint with a 400 "Payload disabled: <type>" (independent of the payload's
+// keys). Every other real Apple payload type is accepted and validated against
+// Apple's published schema by the API itself, so this is a denylist rather than
+// an allowlist.
+//
+// Wire-probed against the blueprints API by POSTing every Apple MDM payloadtype
+// (apple/device-management/mdm/profiles) 2026-07-17. This set is
+// instance/version-specific and may drift — the API is the ultimate authority.
+var DisabledPayloadTypes = map[string]bool{
+	"com.apple.ADCertificate.managed":    true, // Active Directory Certificate
+	"com.apple.DirectoryService.managed": true, // Directory Service (AD bind)
+	"com.apple.MCX.FileVault2":           true, // FileVault 2 (legacy MCX)
+	"com.apple.airplay":                  true, // AirPlay
+	"com.apple.airplay.security":         true, // AirPlay Security
+	"com.apple.cellular":                 true, // Cellular
+	"com.apple.dnsSettings.managed":      true, // DNS Settings
+	"com.apple.education":                true, // Education
+	"com.apple.ews.account":              true, // Exchange Web Services account
+	"com.apple.extensiblesso":            true, // Extensible Single Sign-On
+	"com.apple.font":                     true, // Font
+	"com.apple.profileRemovalPassword":   true, // Profile Removal Password
+	"com.apple.proxy.http.global":        true, // Global HTTP Proxy
+	"com.apple.security.pem":             true, // Certificate (PEM)
+	"com.apple.security.pkcs1":           true, // Certificate (PKCS1)
+	"com.apple.security.pkcs12":          true, // Certificate (PKCS12)
+	"com.apple.security.root":            true, // Certificate (root)
+	"com.apple.security.scep":            true, // SCEP
+	"com.apple.vpn.managed":              true, // VPN
+	"com.apple.vpn.managed.appmapping":   true, // Per-App VPN mapping
+	"com.apple.webClip.managed":          true, // Web Clip
+	"com.apple.webcontent-filter":        true, // Web Content Filter
+}
+
+// UIManageablePayloadTypes lists the legacy payload types the Jamf Pro UI can
+// manage directly (the "Legacy payload" picker). The blueprints API accepts
+// many more payload types than these, but any accepted type NOT in this set is
+// delivered as an API-only component: it shows as a read-only "Legacy payload"
+// item in the UI and can only be edited through the blueprints API.
+//
+// Sourced from the Jamf Pro blueprints UI legacy-payload list. Used only to
+// tailor the API-only advisory on import — it is not a filter, so if it drifts
+// the worst case is a slightly inaccurate warning, not a broken import.
+var UIManageablePayloadTypes = map[string]bool{
 	"com.apple.Dictionary":                        true, // Parental Controls: Dictionary
 	"com.apple.DiscRecording":                     true, // Media Management: Disc Burning
 	"com.apple.MCX.Accounts":                      true, // Accounts
@@ -56,15 +103,42 @@ var SupportedPayloadTypes = map[string]bool{
 	"com.apple.screensaver.user":                  true, // Screensaver User
 	"com.apple.security.firewall":                 true, // Firewall
 	"com.apple.security.smartcard":                true, // SmartCard
-	"com.apple.servicemanagement":                 true, // Service Management
+	"com.apple.servicemanagement":                 true, // Service Management - Managed Login Items
 	"com.apple.shareddeviceconfiguration":         true, // Lock Screen Message
 	"com.apple.syspolicy.kernel-extension-policy": true, // System Policy - Kernel Extensions
-	"com.apple.system.logging":                    true, // System Logging
 	"com.apple.systempolicy.control":              true, // System Policy Control
 	"com.apple.systempolicy.managed":              true, // System Policy Managed
 	"com.apple.tvremote":                          true, // TV Remote
 	"com.apple.universalaccess":                   true, // Accessibility
 	"loginwindow":                                 true, // Login Window: Login Items
+}
+
+// APIOnlyPayloadTypes returns, in sorted order, the payload types present in a
+// DDMProfileDto configuration that the Jamf Pro UI cannot manage directly —
+// i.e. accepted by the blueprints API but not in UIManageablePayloadTypes.
+// These render as read-only "Legacy payload" items in the UI. Returns nil when
+// every payload in the config is UI-manageable.
+func APIOnlyPayloadTypes(config json.RawMessage) []string {
+	_, content, ok := parsePayloadContent(config)
+	if !ok {
+		return nil
+	}
+	seen := make(map[string]bool)
+	var apiOnly []string
+	for _, item := range content {
+		entry, ok := item.(map[string]any)
+		if !ok {
+			continue
+		}
+		pt, _ := entry["payloadType"].(string)
+		if pt == "" || UIManageablePayloadTypes[pt] || seen[pt] {
+			continue
+		}
+		seen[pt] = true
+		apiOnly = append(apiOnly, pt)
+	}
+	sort.Strings(apiOnly)
+	return apiOnly
 }
 
 // appleMetadataKeys are keys in a mobileconfig payload dict that represent
@@ -113,10 +187,7 @@ func ConvertMobileconfig(data []byte, filterUnsupported bool) (json.RawMessage, 
 		return nil, nil, fmt.Errorf("mobileconfig has no PayloadContent array")
 	}
 
-	// Unwrap MCX (Custom Settings) payloads before processing
-	payloadContent, mcxWarnings := unwrapMCXPayloads(payloadContent)
-
-	warnings := append([]string(nil), mcxWarnings...)
+	var warnings []string
 	payloads := make([]map[string]any, 0, len(payloadContent))
 	typeCount := make(map[string]int) // tracks per-type index for unique identifiers
 
@@ -131,12 +202,12 @@ func ConvertMobileconfig(data []byte, filterUnsupported bool) (json.RawMessage, 
 			return nil, nil, fmt.Errorf("PayloadContent[%d] has no PayloadType", i)
 		}
 
-		if !SupportedPayloadTypes[payloadType] {
+		if DisabledPayloadTypes[payloadType] {
 			if filterUnsupported {
-				warnings = append(warnings, fmt.Sprintf("removed unsupported payload type %q", payloadType))
+				warnings = append(warnings, fmt.Sprintf("skipped payload type %q — Jamf blueprints does not support it", payloadType))
 				continue
 			}
-			warnings = append(warnings, fmt.Sprintf("payload type %q may not be supported — see https://github.com/apple/device-management/tree/release/mdm/profiles", payloadType))
+			warnings = append(warnings, fmt.Sprintf("payload type %q is disabled by Jamf blueprints — the API will reject the blueprint (remove --include-unsupported to skip it)", payloadType))
 		}
 
 		idx := typeCount[payloadType]
@@ -146,7 +217,7 @@ func ConvertMobileconfig(data []byte, filterUnsupported bool) (json.RawMessage, 
 	}
 
 	if len(payloads) == 0 {
-		return nil, warnings, fmt.Errorf("no supported payloads remain after filtering")
+		return nil, warnings, fmt.Errorf("no payloads remain after skipping types blueprints does not support")
 	}
 
 	config := map[string]any{
@@ -171,8 +242,8 @@ func ConvertPlist(data []byte, payloadType, displayName string) (json.RawMessage
 	}
 
 	var warnings []string
-	if !SupportedPayloadTypes[payloadType] {
-		warnings = append(warnings, fmt.Sprintf("payload type %q may not be supported — see https://github.com/apple/device-management/tree/release/mdm/profiles", payloadType))
+	if DisabledPayloadTypes[payloadType] {
+		warnings = append(warnings, fmt.Sprintf("payload type %q is disabled by Jamf blueprints — the API will reject it", payloadType))
 	}
 
 	// All keys in a raw plist are settings (no Apple metadata to strip).
@@ -226,10 +297,8 @@ func PayloadTypeSummary(data []byte) []string {
 	if !ok {
 		return nil
 	}
-	// Unwrap MCX payloads so the count reflects effective payloads
-	unwrapped, _ := unwrapMCXPayloads(content)
 	var types []string
-	for _, item := range unwrapped {
+	for _, item := range content {
 		if payload, ok := item.(map[string]any); ok {
 			if pt, ok := payload["PayloadType"].(string); ok {
 				types = append(types, pt)
@@ -248,6 +317,21 @@ func buildPayloadEntry(payloadType string, payload map[string]any, index int) ma
 	entry := map[string]any{
 		"payloadType":       payloadType,
 		"payloadIdentifier": generatePayloadIdentifier(payloadType, index),
+	}
+
+	// com.apple.ManagedClient.preferences (the "Application & Custom Settings"
+	// payload, a.k.a. MCX) carries its managed settings under PayloadContent —
+	// which is otherwise an Apple metadata key stripped from every payload.
+	// Preserve it intact so the API receives the full Managed Preferences
+	// structure it expects. The blueprints API rejects the alternative of
+	// unwrapping the inner preference domain into a bare payloadType.
+	if payloadType == mcxPayloadType {
+		if pc, ok := payload["PayloadContent"]; ok {
+			if converted := convertPlistValue(pc); !isEmptyValue(converted) {
+				entry["PayloadContent"] = converted
+			}
+		}
+		return entry
 	}
 
 	for k, v := range payload {
@@ -519,116 +603,11 @@ func ConfigHasPayloads(config json.RawMessage) error {
 	return nil
 }
 
-// unwrapMCXPayloads expands any com.apple.ManagedClient.preferences payloads
-// (Custom Settings / MCX) into synthetic payloads keyed by their inner
-// preference domain. Each domain in the MCX wrapper becomes a standalone
-// payload with PayloadType set to the domain identifier and settings extracted
-// from the Forced / Set-Once mcx_preference_settings dictionaries.
-//
-// Non-MCX payloads pass through unchanged.
-func unwrapMCXPayloads(payloads []any) ([]any, []string) {
-	var result []any
-	var warnings []string
-
-	for _, item := range payloads {
-		payload, ok := item.(map[string]any)
-		if !ok {
-			result = append(result, item)
-			continue
-		}
-
-		payloadType, _ := payload["PayloadType"].(string)
-		if payloadType != "com.apple.ManagedClient.preferences" {
-			result = append(result, item)
-			continue
-		}
-
-		// MCX payload — unwrap inner domains from PayloadContent dict
-		content, ok := payload["PayloadContent"].(map[string]any)
-		if !ok {
-			warnings = append(warnings,
-				"com.apple.ManagedClient.preferences payload has no PayloadContent dictionary — skipping")
-			continue
-		}
-
-		unwrapped := 0
-		domains := make([]string, 0, len(content))
-		for domain := range content {
-			domains = append(domains, domain)
-		}
-		sort.Strings(domains)
-		for _, domain := range domains {
-			domainData := content[domain]
-			domainDict, ok := domainData.(map[string]any)
-			if !ok {
-				continue
-			}
-
-			settings := extractMCXSettings(domainDict)
-			if len(settings) == 0 {
-				continue
-			}
-
-			// Build a synthetic payload that looks like a native payload
-			synthetic := map[string]any{
-				"PayloadType": domain,
-			}
-			// Copy Apple metadata from the MCX wrapper (except PayloadType and PayloadContent)
-			for k, v := range payload {
-				if k == "PayloadType" || k == "PayloadContent" {
-					continue
-				}
-				if appleMetadataKeys[k] {
-					synthetic[k] = v
-				}
-			}
-			maps.Copy(synthetic, settings)
-			result = append(result, synthetic)
-			unwrapped++
-		}
-
-		if unwrapped > 0 {
-			warnings = append(warnings,
-				fmt.Sprintf("unwrapped %d domain(s) from Custom Settings (com.apple.ManagedClient.preferences) payload", unwrapped))
-		} else {
-			warnings = append(warnings,
-				"com.apple.ManagedClient.preferences payload had no extractable settings — skipping")
-		}
-	}
-
-	return result, warnings
-}
-
-// extractMCXSettings extracts preference settings from an MCX domain
-// dictionary. MCX stores settings under Forced and/or Set-Once arrays,
-// each containing dicts with an mcx_preference_settings key.
-func extractMCXSettings(domainDict map[string]any) map[string]any {
-	settings := make(map[string]any)
-	for _, arrayKey := range []string{"Set-Once", "Forced"} {
-		arr, ok := domainDict[arrayKey].([]any)
-		if !ok {
-			continue
-		}
-		for _, entry := range arr {
-			entryDict, ok := entry.(map[string]any)
-			if !ok {
-				continue
-			}
-			prefs, ok := entryDict["mcx_preference_settings"].(map[string]any)
-			if !ok {
-				continue
-			}
-			maps.Copy(settings, prefs)
-		}
-	}
-	return settings
-}
-
-// SupportedPayloadTypesList returns the supported payload types as a sorted slice
-// for shell completion and help text.
-func SupportedPayloadTypesList() []string {
-	types := make([]string, 0, len(SupportedPayloadTypes))
-	for t := range SupportedPayloadTypes {
+// DisabledPayloadTypesList returns the payload types blueprints refuses as a
+// sorted slice, for help text and diagnostics.
+func DisabledPayloadTypesList() []string {
+	types := make([]string, 0, len(DisabledPayloadTypes))
+	for t := range DisabledPayloadTypes {
 		types = append(types, t)
 	}
 	sort.Strings(types)

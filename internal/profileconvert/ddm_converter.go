@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"maps"
+	"sort"
 	"strings"
 
 	"howett.net/plist"
@@ -101,11 +102,22 @@ func ConvertToDDMComponents(data []byte, filterUnsupported bool, fetcher *Schema
 		return nil, fmt.Errorf("mobileconfig has no PayloadContent array")
 	}
 
-	// Unwrap MCX (Custom Settings) payloads before processing
-	payloadContent, mcxWarnings := unwrapMCXPayloads(payloadContent)
-
 	result := &DDMConversionResult{DisplayName: displayName}
-	result.Warnings = append(result.Warnings, mcxWarnings...)
+
+	// Expand MCX (Custom Settings) payloads before processing. Inner domains that
+	// are real Apple payloads (have a converter, or Apple publishes a schema for
+	// them) are unwrapped to standalone payloads so converters can run and the API
+	// can validate them; third-party/unknown domains stay wrapped in a residual
+	// ManagedClient.preferences payload, which the API accepts as opaque custom
+	// settings but rejects as an unwrapped bare type. classifier reuses the
+	// strip-defaults fetcher when present, else a lightweight one that only hits
+	// the network for MCX inner domains (like --strip-defaults does for schemas).
+	classifier := fetcher
+	if classifier == nil {
+		classifier = NewSchemaFetcher(nil)
+	}
+	payloadContent = splitMCXPayloads(payloadContent, classifier, result)
+
 	var profilePayloads []map[string]any
 	seenComponents := make(map[string]bool)
 	typeCount := make(map[string]int) // tracks per-type index for unique identifiers
@@ -124,14 +136,14 @@ func ConvertToDDMComponents(data []byte, filterUnsupported bool, fetcher *Schema
 		matched := findConverters(payloadType)
 		if len(matched) == 0 {
 			// No DDM converter — standard profile wrapping path
-			if !SupportedPayloadTypes[payloadType] {
+			if DisabledPayloadTypes[payloadType] {
 				if filterUnsupported {
 					result.Warnings = append(result.Warnings,
-						fmt.Sprintf("removed unsupported payload type %q", payloadType))
+						fmt.Sprintf("skipped payload type %q — Jamf blueprints does not support it", payloadType))
 					continue
 				}
 				result.Warnings = append(result.Warnings,
-					fmt.Sprintf("payload type %q may not be supported — see https://github.com/apple/device-management/tree/release/mdm/profiles", payloadType))
+					fmt.Sprintf("payload type %q is disabled by Jamf blueprints — the API will reject the blueprint (remove --include-unsupported to skip it)", payloadType))
 			}
 			entry := buildPayloadEntry(payloadType, payload, typeCount[payloadType])
 			// Skip payloads with no settings (only payloadType + payloadIdentifier)
@@ -199,23 +211,12 @@ func ConvertToDDMComponents(data []byte, filterUnsupported bool, fetcher *Schema
 			remaining = leftover
 		}
 
-		// Remaining keys go into the configuration-profile wrapper —
-		// but only if the payload type is supported for wrapping.
+		// Remaining keys go into the configuration-profile wrapper, unless the
+		// payload type is one blueprints refuses (then drop it when filtering).
 		if len(remaining) > 0 {
-			if !SupportedPayloadTypes[payloadType] {
-				if filterUnsupported {
-					result.Warnings = append(result.Warnings,
-						fmt.Sprintf("removed %d unconverted key(s) from unsupported payload type %q", len(remaining), payloadType))
-				} else {
-					idx := typeCount[payloadType]
-					typeCount[payloadType]++
-					entry := map[string]any{
-						"payloadType":       payloadType,
-						"payloadIdentifier": generatePayloadIdentifier(payloadType, idx),
-					}
-					maps.Copy(entry, remaining)
-					profilePayloads = append(profilePayloads, entry)
-				}
+			if DisabledPayloadTypes[payloadType] && filterUnsupported {
+				result.Warnings = append(result.Warnings,
+					fmt.Sprintf("removed %d unconverted key(s) from payload type %q — Jamf blueprints does not support it", len(remaining), payloadType))
 			} else {
 				idx := typeCount[payloadType]
 				typeCount[payloadType]++
@@ -336,6 +337,125 @@ func ensureFullSoftwareUpdateSchema(result *DDMConversionResult) {
 		return
 	}
 	result.NativeComponents[idx].Configuration = merged
+}
+
+// splitMCXPayloads expands com.apple.ManagedClient.preferences (Custom Settings)
+// payloads. Each inner preference domain that is a real Apple payload — one with
+// a DDM converter, or one for which Apple publishes a payload schema — is emitted
+// as a standalone payload so converters can run and the blueprints API can
+// validate it. Domains that are not recognized Apple payloads (third-party
+// preference domains) stay wrapped in a residual ManagedClient.preferences
+// payload, which the API accepts as opaque custom settings but rejects as an
+// unwrapped bare type. Non-MCX payloads pass through unchanged.
+func splitMCXPayloads(payloads []any, classifier *SchemaFetcher, result *DDMConversionResult) []any {
+	out := make([]any, 0, len(payloads))
+	for _, item := range payloads {
+		p, ok := item.(map[string]any)
+		if !ok {
+			out = append(out, item)
+			continue
+		}
+		if pt, _ := p["PayloadType"].(string); pt != mcxPayloadType {
+			out = append(out, item)
+			continue
+		}
+		content, ok := p["PayloadContent"].(map[string]any)
+		if !ok {
+			out = append(out, item) // malformed MCX — leave for buildPayloadEntry
+			continue
+		}
+
+		domains := make([]string, 0, len(content))
+		for d := range content {
+			domains = append(domains, d)
+		}
+		sort.Strings(domains)
+
+		residual := make(map[string]any)
+		var unwrapped []string
+		for _, domain := range domains {
+			dd, ok := content[domain].(map[string]any)
+			if !ok {
+				residual[domain] = content[domain]
+				continue
+			}
+			settings := extractMCXSettings(dd)
+			if len(settings) == 0 || !isRealApplePayload(domain, classifier) {
+				residual[domain] = content[domain]
+				continue
+			}
+			bare := map[string]any{"PayloadType": domain}
+			copyMCXMetadata(p, bare)
+			maps.Copy(bare, settings)
+			out = append(out, bare)
+			unwrapped = append(unwrapped, domain)
+		}
+
+		if len(residual) > 0 {
+			resMCX := map[string]any{"PayloadType": mcxPayloadType, "PayloadContent": residual}
+			copyMCXMetadata(p, resMCX)
+			out = append(out, resMCX)
+		}
+		if len(unwrapped) > 0 {
+			result.Warnings = append(result.Warnings,
+				fmt.Sprintf("unwrapped %d Apple domain(s) from Custom Settings for DDM conversion: %s",
+					len(unwrapped), strings.Join(unwrapped, ", ")))
+		}
+	}
+	return out
+}
+
+// isRealApplePayload reports whether a preference domain is a real Apple payload
+// type — one with a DDM converter, or one for which Apple publishes a payload
+// schema (fetched live, like --strip-defaults). Network/lookup failures fall back
+// to false so unknown domains stay wrapped in MCX (which the API accepts).
+func isRealApplePayload(domain string, classifier *SchemaFetcher) bool {
+	if len(findConverters(domain)) > 0 {
+		return true
+	}
+	if classifier == nil {
+		return false
+	}
+	defaults, _ := classifier.FetchDefaults(domain)
+	return defaults != nil
+}
+
+// copyMCXMetadata copies Apple metadata keys (except PayloadType and
+// PayloadContent) from an MCX wrapper onto a payload derived from it.
+func copyMCXMetadata(src, dst map[string]any) {
+	for k, v := range src {
+		if k == "PayloadType" || k == "PayloadContent" {
+			continue
+		}
+		if appleMetadataKeys[k] {
+			dst[k] = v
+		}
+	}
+}
+
+// extractMCXSettings extracts preference settings from an MCX domain dictionary.
+// MCX stores settings under Forced and/or Set-Once arrays, each a list of dicts
+// with an mcx_preference_settings dictionary.
+func extractMCXSettings(domainDict map[string]any) map[string]any {
+	settings := make(map[string]any)
+	for _, arrayKey := range []string{"Set-Once", "Forced"} {
+		arr, ok := domainDict[arrayKey].([]any)
+		if !ok {
+			continue
+		}
+		for _, entry := range arr {
+			ed, ok := entry.(map[string]any)
+			if !ok {
+				continue
+			}
+			prefs, ok := ed["mcx_preference_settings"].(map[string]any)
+			if !ok {
+				continue
+			}
+			maps.Copy(settings, prefs)
+		}
+	}
+	return settings
 }
 
 // findComponent returns the component with the given identifier and its index,

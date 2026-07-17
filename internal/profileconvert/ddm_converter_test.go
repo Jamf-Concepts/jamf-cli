@@ -1205,8 +1205,8 @@ func TestConvertToDDMComponents_NoConverters(t *testing.T) {
 	}
 }
 
-func TestConvertToDDMComponents_FilterUnsupported(t *testing.T) {
-	// Profile with only an unsupported payload type and no DDM converter
+func TestConvertToDDMComponents_FilterDisabled(t *testing.T) {
+	// Profile with only a disabled payload type and no DDM converter.
 	mobileconfig := `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -1215,21 +1215,21 @@ func TestConvertToDDMComponents_FilterUnsupported(t *testing.T) {
 	<array>
 		<dict>
 			<key>PayloadType</key>
-			<string>com.example.custom.unsupported</string>
+			<string>com.apple.vpn.managed</string>
 			<key>PayloadIdentifier</key>
-			<string>com.example.custom</string>
+			<string>com.example.vpn</string>
 			<key>PayloadUUID</key>
 			<string>UUID-1</string>
 			<key>PayloadVersion</key>
 			<integer>1</integer>
-			<key>foo</key>
-			<string>bar</string>
+			<key>UserDefinedName</key>
+			<string>Corp VPN</string>
 		</dict>
 	</array>
 	<key>PayloadDisplayName</key>
-	<string>Unsupported Profile</string>
+	<string>Disabled Profile</string>
 	<key>PayloadIdentifier</key>
-	<string>com.example.unsupported</string>
+	<string>com.example.disabled</string>
 	<key>PayloadType</key>
 	<string>Configuration</string>
 	<key>PayloadVersion</key>
@@ -1247,10 +1247,10 @@ func TestConvertToDDMComponents_FilterUnsupported(t *testing.T) {
 	}
 }
 
-func TestConvertToDDMComponents_MCXWrappedApplicationaccess(t *testing.T) {
-	// MCX wrapping com.apple.applicationaccess should unwrap and hit the
-	// safari / software-update / RSR converters just like a native payload.
-	mobileconfig := `<?xml version="1.0" encoding="UTF-8"?>
+// mcxProfile builds a Custom Settings (MCX) mobileconfig wrapping one inner
+// preference domain with the given forced settings block (raw XML).
+func mcxProfile(domain, forcedSettingsXML string) string {
+	return `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
@@ -1259,26 +1259,17 @@ func TestConvertToDDMComponents_MCXWrappedApplicationaccess(t *testing.T) {
 		<dict>
 			<key>PayloadType</key>
 			<string>com.apple.ManagedClient.preferences</string>
-			<key>PayloadIdentifier</key>
-			<string>com.example.mcx</string>
-			<key>PayloadUUID</key>
-			<string>UUID-MCX</string>
 			<key>PayloadVersion</key>
 			<integer>1</integer>
 			<key>PayloadContent</key>
 			<dict>
-				<key>com.apple.applicationaccess</key>
+				<key>` + domain + `</key>
 				<dict>
 					<key>Forced</key>
 					<array>
 						<dict>
 							<key>mcx_preference_settings</key>
-							<dict>
-								<key>safariAllowPopups</key>
-								<false/>
-								<key>allowCamera</key>
-								<false/>
-							</dict>
+							<dict>` + forcedSettingsXML + `</dict>
 						</dict>
 					</array>
 				</dict>
@@ -1286,22 +1277,28 @@ func TestConvertToDDMComponents_MCXWrappedApplicationaccess(t *testing.T) {
 		</dict>
 	</array>
 	<key>PayloadDisplayName</key>
-	<string>CIS Restrictions MCX</string>
-	<key>PayloadIdentifier</key>
-	<string>com.example.cis</string>
+	<string>MCX Test</string>
 	<key>PayloadType</key>
 	<string>Configuration</string>
 	<key>PayloadVersion</key>
 	<integer>1</integer>
 </dict>
 </plist>`
+}
 
-	result, err := ConvertToDDMComponents([]byte(mobileconfig), true, nil)
+func TestConvertToDDMComponents_MCXAppleDomainConverted(t *testing.T) {
+	// MCX wrapping a real Apple domain that has a converter (applicationaccess)
+	// is unwrapped so the converter runs. safariAllowPopups -> safari-settings;
+	// allowCamera has no converter, so it lands in the config-profile wrapper as
+	// a bare applicationaccess payload (NOT ManagedClient.preferences).
+	mc := mcxProfile("com.apple.applicationaccess",
+		`<key>safariAllowPopups</key><false/><key>allowCamera</key><false/>`)
+
+	result, err := ConvertToDDMComponents([]byte(mc), true, nil) // nil fetcher: converter short-circuits, no network
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	// safariAllowAutoFill should trigger the safari converter
 	hasSafari := false
 	for _, c := range result.NativeComponents {
 		if c.Identifier == "com.jamf.ddm.safari-settings" {
@@ -1309,82 +1306,85 @@ func TestConvertToDDMComponents_MCXWrappedApplicationaccess(t *testing.T) {
 		}
 	}
 	if !hasSafari {
-		t.Error("expected safari-settings native component from MCX-wrapped applicationaccess")
+		t.Error("expected safari-settings native component from unwrapped MCX applicationaccess")
 	}
 
-	// allowCamera is not handled by any DDM converter, so it should end up
-	// in the configuration-profile wrapper
 	if result.ProfileConfig == nil {
-		t.Error("expected ProfileConfig for remaining applicationaccess keys")
+		t.Fatal("expected ProfileConfig for the unconverted applicationaccess key")
 	}
-
-	// Should have MCX unwrap warning
-	hasUnwrap := false
-	for _, w := range result.Warnings {
-		if strings.Contains(w, "unwrapped") {
-			hasUnwrap = true
-		}
+	var cfg map[string]any
+	if err := json.Unmarshal(result.ProfileConfig, &cfg); err != nil {
+		t.Fatalf("invalid ProfileConfig JSON: %v", err)
 	}
-	if !hasUnwrap {
-		t.Error("expected MCX unwrap warning")
+	p := cfg["payloadContent"].([]any)[0].(map[string]any)
+	if p["payloadType"] != "com.apple.applicationaccess" {
+		t.Errorf("expected bare com.apple.applicationaccess in wrapper, got %v", p["payloadType"])
 	}
 }
 
-func TestConvertToDDMComponents_MCXWrappedPasscode(t *testing.T) {
-	// MCX wrapping com.apple.mobiledevice.passwordpolicy should fully convert
-	mobileconfig := `<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-	<key>PayloadContent</key>
-	<array>
-		<dict>
-			<key>PayloadType</key>
-			<string>com.apple.ManagedClient.preferences</string>
-			<key>PayloadVersion</key>
-			<integer>1</integer>
-			<key>PayloadContent</key>
-			<dict>
-				<key>com.apple.mobiledevice.passwordpolicy</key>
-				<dict>
-					<key>Forced</key>
-					<array>
-						<dict>
-							<key>mcx_preference_settings</key>
-							<dict>
-								<key>minLength</key>
-								<integer>8</integer>
-								<key>requireAlphanumeric</key>
-								<true/>
-							</dict>
-						</dict>
-					</array>
-				</dict>
-			</dict>
-		</dict>
-	</array>
-	<key>PayloadDisplayName</key>
-	<string>MCX Passcode</string>
-	<key>PayloadType</key>
-	<string>Configuration</string>
-	<key>PayloadVersion</key>
-	<integer>1</integer>
-</dict>
-</plist>`
+func TestConvertToDDMComponents_MCXThirdPartyKept(t *testing.T) {
+	// MCX wrapping a third-party domain (no converter, no Apple schema) stays
+	// wrapped in ManagedClient.preferences — the API accepts it as opaque custom
+	// settings but rejects it as an unwrapped bare type.
+	mc := mcxProfile("uk.co.datajar.Management",
+		`<key>jssURL</key><string>https://x.example/</string>`)
 
-	result, err := ConvertToDDMComponents([]byte(mobileconfig), true, nil)
+	// Mock fetcher: classify the third-party domain as unknown (404 -> nil).
+	fetcher := NewSchemaFetcher(nil)
+	fetcher.mu.Lock()
+	fetcher.cache["uk.co.datajar.Management"] = &schemaResult{defaults: nil}
+	fetcher.mu.Unlock()
+
+	result, err := ConvertToDDMComponents([]byte(mc), true, fetcher)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-
-	hasPasscode := false
-	for _, c := range result.NativeComponents {
-		if c.Identifier == "com.jamf.ddm.passcode-settings" {
-			hasPasscode = true
-		}
+	if result.ProfileConfig == nil {
+		t.Fatal("expected ProfileConfig containing the kept MCX payload")
 	}
-	if !hasPasscode {
-		t.Error("expected passcode-settings native component from MCX-wrapped passwordpolicy")
+	var cfg map[string]any
+	if err := json.Unmarshal(result.ProfileConfig, &cfg); err != nil {
+		t.Fatalf("invalid ProfileConfig JSON: %v", err)
+	}
+	p := cfg["payloadContent"].([]any)[0].(map[string]any)
+	if p["payloadType"] != "com.apple.ManagedClient.preferences" {
+		t.Errorf("expected third-party domain kept in MCX, got payloadType %v", p["payloadType"])
+	}
+	pc, ok := p["PayloadContent"].(map[string]any)
+	if !ok || pc["uk.co.datajar.Management"] == nil {
+		t.Errorf("expected datajar domain preserved inside MCX PayloadContent, got %v", p["PayloadContent"])
+	}
+}
+
+func TestConvertToDDMComponents_MCXAppleDomainNoConverterUnwrapped(t *testing.T) {
+	// MCX wrapping a real Apple domain with no converter (e.g. com.apple.dock).
+	// Apple publishes a schema for it, so it is unwrapped to a bare payload and
+	// lands in the config-profile wrapper as com.apple.dock (not MCX).
+	mc := mcxProfile("com.apple.dock", `<key>tilesize</key><integer>48</integer>`)
+
+	// Mock fetcher: classify com.apple.dock as a known Apple payload (schema present).
+	fetcher := NewSchemaFetcher(nil)
+	fetcher.mu.Lock()
+	fetcher.cache["com.apple.dock"] = &schemaResult{defaults: &SchemaDefaults{}}
+	fetcher.mu.Unlock()
+
+	result, err := ConvertToDDMComponents([]byte(mc), true, fetcher)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.ProfileConfig == nil {
+		t.Fatal("expected ProfileConfig containing the unwrapped dock payload")
+	}
+	var cfg map[string]any
+	if err := json.Unmarshal(result.ProfileConfig, &cfg); err != nil {
+		t.Fatalf("invalid ProfileConfig JSON: %v", err)
+	}
+	p := cfg["payloadContent"].([]any)[0].(map[string]any)
+	if p["payloadType"] != "com.apple.dock" {
+		t.Errorf("expected unwrapped bare com.apple.dock, got %v", p["payloadType"])
+	}
+	if p["tilesize"] != float64(48) {
+		t.Errorf("expected tilesize 48 carried over, got %v", p["tilesize"])
 	}
 }
 

@@ -1009,10 +1009,24 @@ Examples:
 	cmd.Flags().StringVar(&displayName, "display-name", "", "Display name for the component (defaults to payload type)")
 	cmd.Flags().BoolVar(&stripDefaults, "strip-defaults", false, "Remove keys set to Apple's default values (fetches schemas from GitHub)")
 	_ = cmd.MarkFlagRequired("payload-type")
-	_ = cmd.RegisterFlagCompletionFunc("payload-type", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
-		return profileconvert.SupportedPayloadTypesList(), cobra.ShellCompDirectiveNoFileComp
-	})
 	return cmd
+}
+
+// warnAPIOnlyPayloads inspects a configuration-profile component's config and,
+// if it contains payload types the Jamf Pro UI cannot manage directly, prints
+// an advisory naming them. Those payloads show as read-only "Legacy payload"
+// items in the UI and can only be edited through the blueprints API. Payload
+// types the UI can manage (UIManageablePayloadTypes) produce no warning.
+func warnAPIOnlyPayloads(config json.RawMessage) {
+	apiOnly := profileconvert.APIOnlyPayloadTypes(config)
+	if len(apiOnly) == 0 {
+		return
+	}
+	fmt.Fprintln(os.Stderr, "Note: the following payload(s) can only be managed through the blueprints API — "+
+		"they show as read-only \"Legacy payload\" items in the Jamf Pro UI and cannot be edited there:")
+	for _, pt := range apiOnly {
+		fmt.Fprintf(os.Stderr, "  - %s\n", pt)
+	}
 }
 
 func newBlueprintsImportProfileCmd(cliCtx *registry.CLIContext) *cobra.Command {
@@ -1040,6 +1054,14 @@ exists. Currently supported:
 
 Payloads without a DDM mapping are wrapped in a com.jamf.ddm-configuration-profile
 component. A single profile with mixed payloads produces multiple components.
+Some of these configuration-profile ("legacy payload") components can only be
+managed through the blueprints API — they appear as read-only "Legacy payload"
+items in the Jamf Pro UI and cannot be edited there.
+
+The blueprints API accepts almost every Apple payload type and validates it against
+Apple's published schema. A small set of payload types is disabled by blueprints
+(certificates, VPN, SSO, web clips, fonts, etc.); those are skipped by default with
+a warning. Use --include-unsupported to send them anyway (the API will reject them).
 
 Use --type to specify the profile type: "computer" (default) for macOS configuration
 profiles or "mobile" for mobile device configuration profiles. Profiles can share
@@ -1128,6 +1150,7 @@ Examples:
 				}
 				types := profileconvert.PayloadTypeSummary([]byte(mobileconfig))
 				fmt.Fprintf(os.Stderr, "Processed %d payload(s) (legacy mode — no DDM conversion)\n", len(types))
+				warnAPIOnlyPayloads(config)
 				components = append(components, blueprints.Component{
 					Identifier:    "com.jamf.ddm-configuration-profile",
 					Configuration: config,
@@ -1175,6 +1198,7 @@ Examples:
 				}
 				if ddmResult.ProfileConfig != nil {
 					fmt.Fprintln(os.Stderr, "  remaining payloads wrapped in configuration-profile component")
+					warnAPIOnlyPayloads(ddmResult.ProfileConfig)
 				}
 
 				for _, nc := range ddmResult.NativeComponents {
@@ -1247,7 +1271,7 @@ Examples:
 	cmd.Flags().StringVar(&blueprintName, "blueprint-name", "", "Override the blueprint name (defaults to profile display name)")
 	cmd.Flags().StringVar(&profileType, "type", "computer", "Profile type: computer (macOS) or mobile (iOS/iPadOS/tvOS)")
 	cmd.Flags().BoolVar(&noConvert, "legacy", false, "Wrap all payloads in a single configuration-profile component without DDM conversion")
-	cmd.Flags().BoolVar(&includeUnsupported, "include-unsupported", false, "Include payload types not supported by the platform API (may cause validation errors)")
+	cmd.Flags().BoolVar(&includeUnsupported, "include-unsupported", false, "Send payloads blueprints disables anyway (the API will reject them; by default they are skipped)")
 	cmd.Flags().BoolVar(&stripDefaults, "strip-defaults", false, "Remove keys set to Apple's default values (fetches schemas from GitHub)")
 	_ = cmd.RegisterFlagCompletionFunc("type", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
 		return []string{"computer", "mobile"}, cobra.ShellCompDirectiveNoFileComp
