@@ -46,10 +46,10 @@ func convertSoftwareUpdateProfile(settings map[string]any) (json.RawMessage, map
 	var warnings []string
 	converted := 0
 
-	// Build only the sections we modify — the orchestrator backfills missing
-	// scaffold sections after all converters run (see ensureFullSoftwareUpdateSchema).
-	// This allows clean merging when the deferral converter already produced
-	// a full scaffold for Deferrals.
+	// Build only the sections we modify. Every converter targeting
+	// software-update-settings emits just its own disjoint sections, so they
+	// deep-merge without clobbering each other; ensureFullSoftwareUpdateSchema
+	// backfills the remaining scaffold sections after all converters run.
 	config := make(map[string]any)
 
 	for key, value := range settings {

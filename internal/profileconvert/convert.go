@@ -602,14 +602,3 @@ func ConfigHasPayloads(config json.RawMessage) error {
 	}
 	return nil
 }
-
-// DisabledPayloadTypesList returns the payload types blueprints refuses as a
-// sorted slice, for help text and diagnostics.
-func DisabledPayloadTypesList() []string {
-	types := make([]string, 0, len(DisabledPayloadTypes))
-	for t := range DisabledPayloadTypes {
-		types = append(types, t)
-	}
-	sort.Strings(types)
-	return types
-}

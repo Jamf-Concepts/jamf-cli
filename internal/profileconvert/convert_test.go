@@ -550,19 +550,6 @@ func TestPayloadTypeSummary(t *testing.T) {
 	}
 }
 
-func TestDisabledPayloadTypesList(t *testing.T) {
-	types := DisabledPayloadTypesList()
-	if len(types) != len(DisabledPayloadTypes) {
-		t.Errorf("got %d types, want %d", len(types), len(DisabledPayloadTypes))
-	}
-	// Should be sorted
-	for i := 1; i < len(types); i++ {
-		if types[i] < types[i-1] {
-			t.Errorf("not sorted: %s before %s", types[i-1], types[i])
-		}
-	}
-}
-
 func TestConvertMobileconfig_StripsEmptyValues(t *testing.T) {
 	data := `<?xml version="1.0" encoding="UTF-8"?>
 <plist version="1.0">

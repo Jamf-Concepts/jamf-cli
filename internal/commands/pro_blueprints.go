@@ -1065,6 +1065,12 @@ Apple's published schema. A small set of payload types is disabled by blueprints
 (certificates, VPN, SSO, web clips, fonts, etc.); those are skipped by default with
 a warning. Use --include-unsupported to send them anyway (the API will reject them).
 
+Application & Custom Settings (MCX) payloads are unwrapped when their inner
+preference domain is a recognized Apple payload. Classifying an unknown domain
+fetches Apple's published schema from GitHub, so import-profile may reach the
+network even without --strip-defaults; it degrades gracefully offline, leaving
+unclassified domains wrapped as opaque Custom Settings (which the API accepts).
+
 Use --type to specify the profile type: "computer" (default) for macOS configuration
 profiles or "mobile" for mobile device configuration profiles. Profiles can share
 names across types, so the flag is required when ambiguous.
