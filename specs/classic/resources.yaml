@@ -64,9 +64,9 @@ resources:
     operations: []
     lookups: [application]
 
-  # computerapplicationusage: all endpoints require a date range in the URL
-  # (/computerapplicationusage/id/{id}/{start_date}_{end_date}) which the generator
-  # cannot express. Implement as a handwritten command if needed.
+  # computerapplicationusage: date range in the URL path
+  # (/computerapplicationusage/id/{id}/{start_date}_{end_date}) can't be expressed by
+  # the generator — implemented as a handwritten command (internal/commands/pro_classic_app_usage.go).
 
   - name: computerhistory
     path: computerhistory
