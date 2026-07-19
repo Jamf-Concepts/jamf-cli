@@ -48,7 +48,7 @@ jobs:
             generator/site \
             internal/commands/groups.go
 
-      - uses: actions/setup-go@v6
+      - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
           cache: true
