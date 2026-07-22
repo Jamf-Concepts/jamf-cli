@@ -388,9 +388,9 @@ func (g *Generator) Generate(resource *Resource) (string, error) {
 		"writableFilterLiteral": func(op *Operation, schemas map[string]*Schema) string {
 			return writableFilterLiteral(op, schemas)
 		},
-		"writeOnlyRequiredFields": writeOnlyRequiredFields,
-		"hasScaffold":             hasScaffold,
-		"scaffoldJSON":            scaffoldJSON,
+		"writeOnlyFields": writeOnlyFields,
+		"hasScaffold":     hasScaffold,
+		"scaffoldJSON":    scaffoldJSON,
 		"applyScaffoldJSON": func(ops []*Operation) string {
 			for _, op := range ops {
 				if op.Name == "create" && op.Method == "POST" && op.RequestBody != nil && op.RequestBody.Schema != nil {
@@ -1377,26 +1377,64 @@ func schemaFilterLiteral(s *Schema, schemas map[string]*Schema, depth int, visit
 	return "&fieldFilter{fields: map[string]*fieldFilter{" + strings.Join(parts, ", ") + "}}"
 }
 
-// writeOnlyRequiredFields returns the names of top-level fields that are both
-// required and write-only in the PUT request schema. These cannot be read back
-// from a GET, so "update --set" warns when the caller does not supply them.
-func writeOnlyRequiredFields(op *Operation) []string {
+// writeOnlyFields returns the dot-notation paths of every write-only field in
+// the PUT request schema, at any nesting level. Write-only fields (passwords,
+// secrets) are never returned by a GET, so "update --set" cannot read them back:
+// the fetch-merge-put cycle drops them and the server blanks the stored value.
+// The warning fires for all of them — not just required top-level ones — so
+// nested secrets like "accountSettings.adminPassword" are covered. Depth-capped
+// and $ref-cycle-guarded, matching schemaFilterLiteral's traversal.
+func writeOnlyFields(op *Operation, schemas map[string]*Schema) []string {
 	if op == nil || op.RequestBody == nil || op.RequestBody.Schema == nil {
 		return nil
 	}
-	s := op.RequestBody.Schema
-	required := make(map[string]bool, len(s.Required))
-	for _, name := range s.Required {
-		required[name] = true
-	}
 	var out []string
-	for name, prop := range s.Properties {
-		if prop.WriteOnly && required[name] {
-			out = append(out, name)
-		}
-	}
+	collectWriteOnlyFields(op.RequestBody.Schema, schemas, "", 0, map[string]bool{}, &out)
 	sort.Strings(out)
 	return out
+}
+
+// collectWriteOnlyFields walks a schema, appending the dot-notation path of every
+// write-only property to out. Read-only props are skipped; object props recurse.
+func collectWriteOnlyFields(s *Schema, schemas map[string]*Schema, prefix string, depth int, visited map[string]bool, out *[]string) {
+	if s == nil || len(s.Properties) == 0 || depth > 6 {
+		return
+	}
+	for name, prop := range s.Properties {
+		if prop.ReadOnly {
+			continue
+		}
+		path := name
+		if prefix != "" {
+			path = prefix + "." + name
+		}
+		if prop.WriteOnly {
+			*out = append(*out, path)
+			continue
+		}
+		if prop.Type == "object" || (prop.Type == "" && prop.Nested != nil) {
+			var nested *Schema
+			if prop.Nested != nil {
+				nested = prop.Nested
+			} else if prop.SchemaRef != "" {
+				nested = schemas[prop.SchemaRef]
+			}
+			if nested == nil {
+				continue
+			}
+			key := prop.SchemaRef
+			if key != "" && visited[key] {
+				continue // cycle: stop descending
+			}
+			if key != "" {
+				visited[key] = true
+			}
+			collectWriteOnlyFields(nested, schemas, path, depth+1, visited, out)
+			if key != "" {
+				delete(visited, key)
+			}
+		}
+	}
 }
 
 // updateSetLongDesc builds the Long description (as a Go double-quoted literal)
@@ -2367,9 +2405,9 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 				if err := json.Unmarshal(setDoc, &setMap); err != nil {
 					return err
 				}
-{{- range writeOnlyRequiredFields . }}
-				if _, ok := setMap["{{ . }}"]; !ok {
-					fmt.Fprintf(os.Stderr, "warning: {{ $.NameSingular }} field %q is write-only and required; it cannot be read back and must be supplied via --set {{ . }}=... or the update may fail\n", "{{ . }}")
+{{- range writeOnlyFields . $.Schemas }}
+				if !hasNestedKey(setMap, "{{ . }}") {
+					fmt.Fprintf(os.Stderr, "warning: {{ $.NameSingular }} field %q is write-only: the server never returns it, so this update will blank any existing value. Pass --set {{ . }}=<value> to preserve it.\n", "{{ . }}")
 				}
 {{- end }}
 				deepMergeJSON(current, setMap)
@@ -3586,6 +3624,29 @@ func buildMergePatchFromSet(pairs []string) ([]byte, error) {
 		}
 	}
 	return json.Marshal(result)
+}
+
+// hasNestedKey reports whether a dot-notation path (e.g. "accountSettings.adminPassword")
+// is present in a nested map built from "--set" pairs. Used to decide whether a
+// write-only field was supplied before warning that "update --set" would blank it.
+func hasNestedKey(m map[string]any, path string) bool {
+	keys := strings.Split(path, ".")
+	cur := m
+	for i, k := range keys {
+		v, ok := cur[k]
+		if !ok {
+			return false
+		}
+		if i == len(keys)-1 {
+			return true
+		}
+		next, ok := v.(map[string]any)
+		if !ok {
+			return false
+		}
+		cur = next
+	}
+	return true
 }
 
 // setNestedValue sets a value at a dot-notation path within a nested map.

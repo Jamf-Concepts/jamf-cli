@@ -485,6 +485,12 @@ func newComputerPrestagesUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 				if err := json.Unmarshal(setDoc, &setMap); err != nil {
 					return err
 				}
+				if !hasNestedKey(setMap, "accountSettings.adminPassword") {
+					fmt.Fprintf(os.Stderr, "warning: computer-prestage field %q is write-only: the server never returns it, so this update will blank any existing value. Pass --set accountSettings.adminPassword=<value> to preserve it.\n", "accountSettings.adminPassword")
+				}
+				if !hasNestedKey(setMap, "recoveryLockPassword") {
+					fmt.Fprintf(os.Stderr, "warning: computer-prestage field %q is write-only: the server never returns it, so this update will blank any existing value. Pass --set recoveryLockPassword=<value> to preserve it.\n", "recoveryLockPassword")
+				}
 				deepMergeJSON(current, setMap)
 				merged, merr := json.Marshal(current)
 				if merr != nil {

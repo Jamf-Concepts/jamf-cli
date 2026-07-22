@@ -144,6 +144,12 @@ func newSsoSettingsCertUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 				if err := json.Unmarshal(setDoc, &setMap); err != nil {
 					return err
 				}
+				if !hasNestedKey(setMap, "keystorePassword") {
+					fmt.Fprintf(os.Stderr, "warning: sso-settings-cert field %q is write-only: the server never returns it, so this update will blank any existing value. Pass --set keystorePassword=<value> to preserve it.\n", "keystorePassword")
+				}
+				if !hasNestedKey(setMap, "password") {
+					fmt.Fprintf(os.Stderr, "warning: sso-settings-cert field %q is write-only: the server never returns it, so this update will blank any existing value. Pass --set password=<value> to preserve it.\n", "password")
+				}
 				deepMergeJSON(current, setMap)
 				merged, merr := json.Marshal(current)
 				if merr != nil {

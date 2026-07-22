@@ -453,6 +453,18 @@ func newDistributionPointsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 				if err := json.Unmarshal(setDoc, &setMap); err != nil {
 					return err
 				}
+				if !hasNestedKey(setMap, "httpsPassword") {
+					fmt.Fprintf(os.Stderr, "warning: distribution-point field %q is write-only: the server never returns it, so this update will blank any existing value. Pass --set httpsPassword=<value> to preserve it.\n", "httpsPassword")
+				}
+				if !hasNestedKey(setMap, "readOnlyPassword") {
+					fmt.Fprintf(os.Stderr, "warning: distribution-point field %q is write-only: the server never returns it, so this update will blank any existing value. Pass --set readOnlyPassword=<value> to preserve it.\n", "readOnlyPassword")
+				}
+				if !hasNestedKey(setMap, "readWritePassword") {
+					fmt.Fprintf(os.Stderr, "warning: distribution-point field %q is write-only: the server never returns it, so this update will blank any existing value. Pass --set readWritePassword=<value> to preserve it.\n", "readWritePassword")
+				}
+				if !hasNestedKey(setMap, "sshPassword") {
+					fmt.Fprintf(os.Stderr, "warning: distribution-point field %q is write-only: the server never returns it, so this update will blank any existing value. Pass --set sshPassword=<value> to preserve it.\n", "sshPassword")
+				}
 				deepMergeJSON(current, setMap)
 				merged, merr := json.Marshal(current)
 				if merr != nil {
