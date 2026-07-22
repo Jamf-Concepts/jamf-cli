@@ -255,6 +255,9 @@ func newCloudLdapsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 				if err := json.Unmarshal(setDoc, &setMap); err != nil {
 					return err
 				}
+				if !hasNestedKey(setMap, "server.keystore.password") {
+					fmt.Fprintf(os.Stderr, "warning: cloud-ldap field %q is write-only: the server never returns it, so this update will blank any existing value. Pass --set server.keystore.password=<value> to preserve it.\n", "server.keystore.password")
+				}
 				deepMergeJSON(current, setMap)
 				merged, merr := json.Marshal(current)
 				if merr != nil {

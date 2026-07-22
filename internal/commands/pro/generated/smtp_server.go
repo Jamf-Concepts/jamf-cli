@@ -146,6 +146,15 @@ func newSmtpServerUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 				if err := json.Unmarshal(setDoc, &setMap); err != nil {
 					return err
 				}
+				if !hasNestedKey(setMap, "basicAuthCredentials.password") {
+					fmt.Fprintf(os.Stderr, "warning: smtp-server field %q is write-only: the server never returns it, so this update will blank any existing value. Pass --set basicAuthCredentials.password=<value> to preserve it.\n", "basicAuthCredentials.password")
+				}
+				if !hasNestedKey(setMap, "googleMailCredentials.clientSecret") {
+					fmt.Fprintf(os.Stderr, "warning: smtp-server field %q is write-only: the server never returns it, so this update will blank any existing value. Pass --set googleMailCredentials.clientSecret=<value> to preserve it.\n", "googleMailCredentials.clientSecret")
+				}
+				if !hasNestedKey(setMap, "graphApiCredentials.clientSecret") {
+					fmt.Fprintf(os.Stderr, "warning: smtp-server field %q is write-only: the server never returns it, so this update will blank any existing value. Pass --set graphApiCredentials.clientSecret=<value> to preserve it.\n", "graphApiCredentials.clientSecret")
+				}
 				deepMergeJSON(current, setMap)
 				merged, merr := json.Marshal(current)
 				if merr != nil {

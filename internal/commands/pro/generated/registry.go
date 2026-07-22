@@ -799,6 +799,29 @@ func buildMergePatchFromSet(pairs []string) ([]byte, error) {
 	return json.Marshal(result)
 }
 
+// hasNestedKey reports whether a dot-notation path (e.g. "accountSettings.adminPassword")
+// is present in a nested map built from "--set" pairs. Used to decide whether a
+// write-only field was supplied before warning that "update --set" would blank it.
+func hasNestedKey(m map[string]any, path string) bool {
+	keys := strings.Split(path, ".")
+	cur := m
+	for i, k := range keys {
+		v, ok := cur[k]
+		if !ok {
+			return false
+		}
+		if i == len(keys)-1 {
+			return true
+		}
+		next, ok := v.(map[string]any)
+		if !ok {
+			return false
+		}
+		cur = next
+	}
+	return true
+}
+
 // setNestedValue sets a value at a dot-notation path within a nested map.
 func setNestedValue(m map[string]any, keys []string, value any) error {
 	if len(keys) == 1 {

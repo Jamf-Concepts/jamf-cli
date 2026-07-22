@@ -142,8 +142,14 @@ func newGsxConnectionUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 				if err := json.Unmarshal(setDoc, &setMap); err != nil {
 					return err
 				}
-				if _, ok := setMap["token"]; !ok {
-					fmt.Fprintf(os.Stderr, "warning: gsx-connection field %q is write-only and required; it cannot be read back and must be supplied via --set token=... or the update may fail\n", "token")
+				if !hasNestedKey(setMap, "gsxKeystore.keystoreBytes") {
+					fmt.Fprintf(os.Stderr, "warning: gsx-connection field %q is write-only: the server never returns it, so this update will blank any existing value. Pass --set gsxKeystore.keystoreBytes=<value> to preserve it.\n", "gsxKeystore.keystoreBytes")
+				}
+				if !hasNestedKey(setMap, "gsxKeystore.keystorePassword") {
+					fmt.Fprintf(os.Stderr, "warning: gsx-connection field %q is write-only: the server never returns it, so this update will blank any existing value. Pass --set gsxKeystore.keystorePassword=<value> to preserve it.\n", "gsxKeystore.keystorePassword")
+				}
+				if !hasNestedKey(setMap, "token") {
+					fmt.Fprintf(os.Stderr, "warning: gsx-connection field %q is write-only: the server never returns it, so this update will blank any existing value. Pass --set token=<value> to preserve it.\n", "token")
 				}
 				deepMergeJSON(current, setMap)
 				merged, merr := json.Marshal(current)

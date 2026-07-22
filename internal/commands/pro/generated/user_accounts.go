@@ -431,6 +431,9 @@ func newUserAccountsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 				if err := json.Unmarshal(setDoc, &setMap); err != nil {
 					return err
 				}
+				if !hasNestedKey(setMap, "plainPassword") {
+					fmt.Fprintf(os.Stderr, "warning: user-account field %q is write-only: the server never returns it, so this update will blank any existing value. Pass --set plainPassword=<value> to preserve it.\n", "plainPassword")
+				}
 				deepMergeJSON(current, setMap)
 				merged, merr := json.Marshal(current)
 				if merr != nil {

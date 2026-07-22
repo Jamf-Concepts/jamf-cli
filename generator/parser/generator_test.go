@@ -2586,17 +2586,25 @@ func TestWritableFilterLiteral(t *testing.T) {
 	})
 }
 
-func TestWriteOnlyRequiredFields(t *testing.T) {
+func TestWriteOnlyFields(t *testing.T) {
+	// Nested write-only field (like ComputerPrestage accountSettings.adminPassword)
+	// plus a top-level one, neither required. Both must be reported.
+	accountSettings := &Schema{Properties: map[string]*Property{
+		"adminUsername": {Type: "string"},
+		"adminPassword": {Type: "string", WriteOnly: true},
+		"id":            {Type: "string", ReadOnly: true}, // read-only: excluded
+	}}
 	op := &Operation{RequestBody: &RequestBody{Schema: &Schema{
-		Required: []string{"token", "username"},
+		Required: []string{"displayName"}, // required gate must NOT apply
 		Properties: map[string]*Property{
-			"token":    {Type: "string", WriteOnly: true},
-			"username": {Type: "string"},                  // required but not write-only
-			"secret":   {Type: "string", WriteOnly: true}, // write-only but not required
+			"displayName":     {Type: "string"},
+			"recoveryLock":    {Type: "string", WriteOnly: true},
+			"accountSettings": {Type: "object", Nested: accountSettings},
 		},
 	}}}
-	got := writeOnlyRequiredFields(op)
-	if len(got) != 1 || got[0] != "token" {
-		t.Errorf("want [token], got %v", got)
+	got := writeOnlyFields(op, nil)
+	want := []string{"accountSettings.adminPassword", "recoveryLock"}
+	if len(got) != len(want) || got[0] != want[0] || got[1] != want[1] {
+		t.Errorf("want %v, got %v", want, got)
 	}
 }

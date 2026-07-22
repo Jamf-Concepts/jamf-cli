@@ -172,6 +172,97 @@ func TestUpdateSetEndToEnd(t *testing.T) {
 	}
 }
 
+// TestHasNestedKey covers the dot-notation presence check used to decide whether
+// a write-only field was supplied via --set before warning that update would blank it.
+func TestHasNestedKey(t *testing.T) {
+	m := map[string]any{
+		"department":      "IT",
+		"accountSettings": map[string]any{"adminPassword": "x"},
+	}
+	cases := map[string]bool{
+		"department":                    true,
+		"accountSettings.adminPassword": true,
+		"accountSettings.adminUsername": false, // sibling not set
+		"missing":                       false,
+		"department.child":              false, // scalar has no children
+		"accountSettings":               true,  // the object itself is present
+	}
+	for path, want := range cases {
+		if got := hasNestedKey(m, path); got != want {
+			t.Errorf("hasNestedKey(%q) = %v, want %v", path, got, want)
+		}
+	}
+}
+
+// captureStderr redirects os.Stderr for the duration of fn and returns what was written.
+func captureStderr(t *testing.T, fn func()) string {
+	t.Helper()
+	orig := os.Stderr
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	os.Stderr = w
+	defer func() { os.Stderr = orig }()
+	fn()
+	_ = w.Close()
+	out, err := io.ReadAll(r)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = r.Close()
+	return string(out)
+}
+
+// TestUpdateSetWriteOnlyWarning drives "computer-prestages update <id> --set ..."
+// and asserts the write-only warning fires for a nested password field that the
+// caller did not supply (regression for issue #302: a bare metadata change would
+// silently blank accountSettings.adminPassword), and is suppressed once the caller
+// supplies that field.
+func TestUpdateSetWriteOnlyWarning(t *testing.T) {
+	// GET response never contains adminPassword — it is write-only server-side.
+	getBody := []byte(`{"id":"12","displayName":"Test","department":"Old","accountSettings":{"adminUsername":"admin","versionLock":1},"versionLock":3}`)
+
+	t.Run("warns when write-only password omitted", func(t *testing.T) {
+		mock := &updateSetRecordingClient{getBody: getBody}
+		ctx := &registry.CLIContext{Client: mock, Output: newNDJSONOutput()}
+		cmd := newComputerPrestagesUpdateCmd(ctx)
+		cmd.SetArgs([]string{"12", "--set", `department=Config Management`})
+		stderr := captureStderr(t, func() {
+			if err := cmd.Execute(); err != nil {
+				t.Fatalf("update --set failed: %v", err)
+			}
+		})
+		if !strings.Contains(stderr, `field "accountSettings.adminPassword" is write-only`) {
+			t.Errorf("expected write-only warning for accountSettings.adminPassword, got: %q", stderr)
+		}
+	})
+
+	t.Run("no warning when write-only password supplied", func(t *testing.T) {
+		mock := &updateSetRecordingClient{getBody: getBody}
+		ctx := &registry.CLIContext{Client: mock, Output: newNDJSONOutput()}
+		cmd := newComputerPrestagesUpdateCmd(ctx)
+		cmd.SetArgs([]string{"12", "--set", `department=Config Management`, "--set", "accountSettings.adminPassword=hunter2"})
+		stderr := captureStderr(t, func() {
+			if err := cmd.Execute(); err != nil {
+				t.Fatalf("update --set failed: %v", err)
+			}
+		})
+		if strings.Contains(stderr, `field "accountSettings.adminPassword" is write-only`) {
+			t.Errorf("did not expect adminPassword warning when supplied, got: %q", stderr)
+		}
+		// The supplied password must actually reach the PUT body.
+		var putBody map[string]any
+		if err := json.Unmarshal(mock.putBody, &putBody); err != nil {
+			t.Fatalf("PUT body not valid JSON: %v (%s)", err, mock.putBody)
+		}
+		acct, _ := putBody["accountSettings"].(map[string]any)
+		if acct == nil || acct["adminPassword"] != "hunter2" {
+			t.Errorf("PUT body missing supplied adminPassword: %v", putBody)
+		}
+	})
+}
+
 // updateSetRecordingClient records every call and returns a canned GET body,
 // capturing whatever body the command PUTs back.
 type updateSetRecordingClient struct {
