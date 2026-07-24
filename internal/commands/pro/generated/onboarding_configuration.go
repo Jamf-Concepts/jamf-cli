@@ -76,7 +76,7 @@ func newOnboardingConfigurationUpdateCmd(ctx *registry.CLIContext) *cobra.Comman
 	cmd := &cobra.Command{
 		Use:   "update",
 		Short: "Update the onboarding configuration.",
-		Long:  "Update the onboarding configuration.\n\nUse --set KEY=VALUE to update individual fields (repeatable). The current resource is fetched, your changes are merged in, read-only fields are dropped, and the whole record is written back. Omitted fields keep their current values.\n\nAvailable fields:\n  enabled                                      boolean\n\nWithout --set, pipe a full JSON document to stdin to replace the resource entirely.",
+		Long:  "Update the onboarding configuration.\n\nUse --set KEY=VALUE to update individual fields (repeatable). The current resource is fetched, your changes are merged in, read-only fields are dropped, and the whole record is written back. Omitted fields keep their current values.\n\nAvailable fields:\n  enabled                                      boolean\n\nArray and object fields accept a JSON value (e.g. --set field='[\"a\",\"b\"]'):\n  onboardingItems                              array\n\nWithout --set, pipe a full JSON document to stdin to replace the resource entirely.",
 		Example: `  # Update individual fields (fetch-merge-replace)
   jamf-cli pro onboarding-configuration update --set field=value
 
@@ -124,7 +124,7 @@ func newOnboardingConfigurationUpdateCmd(ctx *registry.CLIContext) *cobra.Comman
 					}
 				}
 				(&fieldFilter{fields: map[string]*fieldFilter{"enabled": nil, "onboardingItems": nil}}).apply(current)
-				setDoc, serr := buildMergePatchFromSet(flagSet)
+				setDoc, serr := buildMergePatchFromSet(flagSet, map[string]string{"enabled": "boolean", "onboardingItems": "array"})
 				if serr != nil {
 					return serr
 				}

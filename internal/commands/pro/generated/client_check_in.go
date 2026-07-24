@@ -135,7 +135,7 @@ func newClientCheckInUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 					}
 				}
 				(&fieldFilter{fields: map[string]*fieldFilter{"checkInFrequency": nil, "createHooks": nil, "createStartupScript": nil, "enableLocalConfigurationProfiles": nil, "hookLog": nil, "hookPolicies": nil, "startupLog": nil, "startupPolicies": nil, "startupSsh": nil}}).apply(current)
-				setDoc, serr := buildMergePatchFromSet(flagSet)
+				setDoc, serr := buildMergePatchFromSet(flagSet, map[string]string{"checkInFrequency": "integer", "createHooks": "boolean", "createStartupScript": "boolean", "enableLocalConfigurationProfiles": "boolean", "hookLog": "boolean", "hookPolicies": "boolean", "startupLog": "boolean", "startupPolicies": "boolean", "startupSsh": "boolean"})
 				if serr != nil {
 					return serr
 				}

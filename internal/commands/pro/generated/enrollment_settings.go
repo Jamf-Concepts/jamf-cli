@@ -418,7 +418,7 @@ func newEnrollmentSettingsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 					}
 				}
 				(&fieldFilter{fields: map[string]*fieldFilter{"accountDrivenUserEnrollmentEnabled": nil, "enterpriseEnrollmentEnabled": nil, "groupId": nil, "ldapServerId": nil, "name": nil, "personalEnrollmentEnabled": nil, "requireEula": nil, "siteId": nil}}).apply(current)
-				setDoc, serr := buildMergePatchFromSet(flagSet)
+				setDoc, serr := buildMergePatchFromSet(flagSet, map[string]string{"accountDrivenUserEnrollmentEnabled": "boolean", "enterpriseEnrollmentEnabled": "boolean", "groupId": "string", "ldapServerId": "string", "name": "string", "personalEnrollmentEnabled": "boolean", "requireEula": "boolean", "siteId": "string"})
 				if serr != nil {
 					return serr
 				}

@@ -782,8 +782,14 @@ func fetchForMerge(ctx context.Context, client registry.HTTPClient, getPath stri
 
 // buildMergePatchFromSet converts a slice of "key.path=value" strings into a
 // JSON merge-patch document. Dot notation is expanded into nested objects.
-// Value inference: "true"/"false" → bool, "null" → null, integers → int64, else string.
-func buildMergePatchFromSet(pairs []string) ([]byte, error) {
+//
+// fieldTypes maps each writable field path to its JSON kind (from the request
+// schema). Values are parsed to match the target field's kind: array/object
+// fields are JSON-decoded and kind-checked, scalars are coerced to their declared
+// type, and a mismatch is rejected with a hint rather than silently stringified
+// (issue #304). Fields absent from fieldTypes (unmodelled schemas, or paths deeper
+// than the map records) fall back to best-effort inference.
+func buildMergePatchFromSet(pairs []string, fieldTypes map[string]string) ([]byte, error) {
 	result := make(map[string]any)
 	for _, pair := range pairs {
 		eq := strings.Index(pair, "=")
@@ -792,11 +798,111 @@ func buildMergePatchFromSet(pairs []string) ([]byte, error) {
 		}
 		key := pair[:eq]
 		val := pair[eq+1:]
-		if err := setNestedValue(result, strings.Split(key, "."), parsePatchValue(val)); err != nil {
+		if err := checkSetParentKind(key, fieldTypes); err != nil {
+			return nil, err
+		}
+		parsed, perr := parseSetValue(key, val, fieldTypes[key])
+		if perr != nil {
+			return nil, perr
+		}
+		if err := setNestedValue(result, strings.Split(key, "."), parsed); err != nil {
 			return nil, fmt.Errorf("setting %q: %w", key, err)
 		}
 	}
 	return json.Marshal(result)
+}
+
+// checkSetParentKind rejects a dotted "--set" key whose parent path resolves to a
+// non-object field. Dot notation can only descend into objects, so "arr.0=x" on
+// an array field (or "count.x=1" on a scalar) is a user error that would otherwise
+// silently build a bogus nested object.
+func checkSetParentKind(key string, fieldTypes map[string]string) error {
+	parts := strings.Split(key, ".")
+	for i := 1; i < len(parts); i++ {
+		prefix := strings.Join(parts[:i], ".")
+		switch fieldTypes[prefix] {
+		case "array":
+			return fmt.Errorf("field %q is an array; set the whole array with a JSON value like --set %s='[...]', or pipe a full JSON document via stdin", prefix, prefix)
+		case "string", "integer", "number", "boolean":
+			return fmt.Errorf("field %q is a %s, not an object; cannot set nested key %q", prefix, fieldTypes[prefix], key)
+		}
+	}
+	return nil
+}
+
+// parseSetValue converts a "--set" value string to the Go value appropriate for
+// the target field's JSON kind. Array/object fields are JSON-decoded and their
+// kind verified; scalar fields are coerced to their declared type. An empty kind
+// (field not in the schema map) falls back to best-effort inference, JSON-parsing
+// values that look like an array or object. "null" always yields a JSON null.
+func parseSetValue(key, val, kind string) (any, error) {
+	if val == "null" {
+		return nil, nil
+	}
+	switch kind {
+	case "array":
+		v, err := parseJSONSetValue(val)
+		if err != nil {
+			return nil, fmt.Errorf("field %q is an array; value must be a JSON array like --set %s='[\"a\",\"b\"]' (or pipe a full JSON document via stdin): %v", key, key, err)
+		}
+		if _, ok := v.([]any); !ok {
+			return nil, fmt.Errorf("field %q is an array but the value is not a JSON array; pass something like --set %s='[\"a\",\"b\"]'", key, key)
+		}
+		return v, nil
+	case "object":
+		v, err := parseJSONSetValue(val)
+		if err != nil {
+			return nil, fmt.Errorf("field %q is an object; value must be a JSON object like --set %s='{\"k\":\"v\"}' (or pipe a full JSON document via stdin): %v", key, key, err)
+		}
+		if _, ok := v.(map[string]any); !ok {
+			return nil, fmt.Errorf("field %q is an object but the value is not a JSON object; pass something like --set %s='{\"k\":\"v\"}'", key, key)
+		}
+		return v, nil
+	case "integer":
+		i, err := strconv.ParseInt(val, 10, 64)
+		if err != nil {
+			return nil, fmt.Errorf("field %q is an integer; %q is not a valid integer", key, val)
+		}
+		return i, nil
+	case "number":
+		f, err := strconv.ParseFloat(val, 64)
+		if err != nil {
+			return nil, fmt.Errorf("field %q is a number; %q is not a valid number", key, val)
+		}
+		return f, nil
+	case "boolean":
+		b, err := strconv.ParseBool(val)
+		if err != nil {
+			return nil, fmt.Errorf("field %q is a boolean; use true or false, got %q", key, val)
+		}
+		return b, nil
+	case "string":
+		// Declared string: keep the literal text, never infer a number/bool.
+		return val, nil
+	default:
+		// Unknown/unmodelled field. Parse array/object literals so incompletely
+		// specified schemas still work, otherwise use scalar inference.
+		if len(val) > 0 && (val[0] == '[' || val[0] == '{') {
+			if v, err := parseJSONSetValue(val); err == nil {
+				return v, nil
+			}
+		}
+		return parsePatchValue(val), nil
+	}
+}
+
+// parseJSONSetValue decodes a "--set" value as a single JSON document, rejecting
+// trailing garbage so a partly-valid value like "[1,2" is an error, not a string.
+func parseJSONSetValue(s string) (any, error) {
+	dec := json.NewDecoder(strings.NewReader(s))
+	var v any
+	if err := dec.Decode(&v); err != nil {
+		return nil, err
+	}
+	if dec.More() {
+		return nil, fmt.Errorf("unexpected trailing data after JSON value")
+	}
+	return v, nil
 }
 
 // hasNestedKey reports whether a dot-notation path (e.g. "accountSettings.adminPassword")

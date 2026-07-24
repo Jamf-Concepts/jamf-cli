@@ -705,7 +705,7 @@ func newPatchSoftwareTitleConfigurationsPatchCmd(ctx *registry.CLIContext) *cobr
 	cmd := &cobra.Command{
 		Use:   "patch [<id>]",
 		Short: "Update Patch Software Title Configurations",
-		Long:  "Updates Patch Software Title Configurations\n\nIdentify the resource by ID (positional arg), --name, . Omit ID to use a lookup flag.\n\nUse --set KEY=VALUE to update scalar fields (repeatable). Omitted fields are unchanged.\n\nAvailable fields:\n  categoryId                                   string\n  displayName                                  string\n  emailNotifications                           boolean\n  siteId                                       string\n  softwareTitleId                              string\n  uiNotifications                              boolean\n\nUse --from-file or pipe JSON to stdin for complex updates (arrays, bulk changes).",
+		Long:  "Updates Patch Software Title Configurations\n\nIdentify the resource by ID (positional arg), --name, . Omit ID to use a lookup flag.\n\nUse --set KEY=VALUE to update scalar fields (repeatable). Omitted fields are unchanged.\n\nAvailable fields:\n  categoryId                                   string\n  displayName                                  string\n  emailNotifications                           boolean\n  siteId                                       string\n  softwareTitleId                              string\n  uiNotifications                              boolean\n\nArray and object fields accept a JSON value (e.g. --set field='[\"a\",\"b\"]'):\n  extensionAttributes                          array\n  packages                                     array\n\nUse --from-file or pipe JSON to stdin for complex updates (bulk changes, deep nesting).",
 		Example: `  # Update a field by ID
   jamf-cli pro patch-software-title-configurations patch 1 --set general.managed=true
 
@@ -768,7 +768,7 @@ func newPatchSoftwareTitleConfigurationsPatchCmd(ctx *registry.CLIContext) *cobr
 			var normalized []byte
 			switch {
 			case len(flagSet) > 0:
-				data, err := buildMergePatchFromSet(flagSet)
+				data, err := buildMergePatchFromSet(flagSet, map[string]string{"categoryId": "string", "displayName": "string", "emailNotifications": "boolean", "extensionAttributes": "array", "packages": "array", "siteId": "string", "softwareTitleId": "string", "uiNotifications": "boolean"})
 				if err != nil {
 					return err
 				}

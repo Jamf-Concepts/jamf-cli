@@ -133,7 +133,7 @@ func newReenrollmentUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 					}
 				}
 				(&fieldFilter{fields: map[string]*fieldFilter{"flushMDMQueue": nil, "isFlushExtensionAttributesEnabled": nil, "isFlushLocationInformationEnabled": nil, "isFlushLocationInformationHistoryEnabled": nil, "isFlushPolicyHistoryEnabled": nil, "isFlushSoftwareUpdatePlansEnabled": nil}}).apply(current)
-				setDoc, serr := buildMergePatchFromSet(flagSet)
+				setDoc, serr := buildMergePatchFromSet(flagSet, map[string]string{"flushMDMQueue": "string", "isFlushExtensionAttributesEnabled": "boolean", "isFlushLocationInformationEnabled": "boolean", "isFlushLocationInformationHistoryEnabled": "boolean", "isFlushPolicyHistoryEnabled": "boolean", "isFlushSoftwareUpdatePlansEnabled": "boolean"})
 				if serr != nil {
 					return serr
 				}

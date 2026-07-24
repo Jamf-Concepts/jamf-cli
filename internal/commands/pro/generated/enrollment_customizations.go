@@ -336,7 +336,7 @@ func newEnrollmentCustomizationsUpdateCmd(ctx *registry.CLIContext) *cobra.Comma
 	cmd := &cobra.Command{
 		Use:   "update [<id>]",
 		Short: "Update an Enrollment Customization",
-		Long:  "Updates an Enrollment Customization\n\nIdentify the resource by ID (positional arg), --name.\n\nUse --set KEY=VALUE to update individual fields (repeatable). The current resource is fetched, your changes are merged in, read-only fields are dropped, and the whole record is written back. Omitted fields keep their current values.\n\nAvailable fields:\n  description                                  string\n  displayName                                  string\n  enrollmentCustomizationBrandingSettings.backgroundColor string\n  enrollmentCustomizationBrandingSettings.buttonColor string\n  enrollmentCustomizationBrandingSettings.buttonTextColor string\n  enrollmentCustomizationBrandingSettings.iconUrl string\n  enrollmentCustomizationBrandingSettings.textColor string\n  siteId                                       string\n\nWithout --set, pipe a full JSON document to stdin to replace the resource entirely.",
+		Long:  "Updates an Enrollment Customization\n\nIdentify the resource by ID (positional arg), --name.\n\nUse --set KEY=VALUE to update individual fields (repeatable). The current resource is fetched, your changes are merged in, read-only fields are dropped, and the whole record is written back. Omitted fields keep their current values.\n\nAvailable fields:\n  description                                  string\n  displayName                                  string\n  enrollmentCustomizationBrandingSettings.backgroundColor string\n  enrollmentCustomizationBrandingSettings.buttonColor string\n  enrollmentCustomizationBrandingSettings.buttonTextColor string\n  enrollmentCustomizationBrandingSettings.iconUrl string\n  enrollmentCustomizationBrandingSettings.textColor string\n  siteId                                       string\n\nArray and object fields accept a JSON value (e.g. --set field='[\"a\",\"b\"]'):\n  enrollmentCustomizationBrandingSettings      object\n\nWithout --set, pipe a full JSON document to stdin to replace the resource entirely.",
 		Example: `  # Update individual fields (fetch-merge-replace)
   jamf-cli pro enrollment-customizations update 1 --set field=value
 
@@ -406,7 +406,7 @@ func newEnrollmentCustomizationsUpdateCmd(ctx *registry.CLIContext) *cobra.Comma
 					}
 				}
 				(&fieldFilter{fields: map[string]*fieldFilter{"description": nil, "displayName": nil, "enrollmentCustomizationBrandingSettings": &fieldFilter{fields: map[string]*fieldFilter{"backgroundColor": nil, "buttonColor": nil, "buttonTextColor": nil, "iconUrl": nil, "textColor": nil}}, "siteId": nil}}).apply(current)
-				setDoc, serr := buildMergePatchFromSet(flagSet)
+				setDoc, serr := buildMergePatchFromSet(flagSet, map[string]string{"description": "string", "displayName": "string", "enrollmentCustomizationBrandingSettings": "object", "enrollmentCustomizationBrandingSettings.backgroundColor": "string", "enrollmentCustomizationBrandingSettings.buttonColor": "string", "enrollmentCustomizationBrandingSettings.buttonTextColor": "string", "enrollmentCustomizationBrandingSettings.iconUrl": "string", "enrollmentCustomizationBrandingSettings.textColor": "string", "siteId": "string"})
 				if serr != nil {
 					return serr
 				}

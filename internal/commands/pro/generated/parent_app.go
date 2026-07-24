@@ -80,7 +80,7 @@ func newParentAppUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "update",
 		Short: "Update Jamf Parent app settings",
-		Long:  "Update Jamf Parent app settings\n\nUse --set KEY=VALUE to update individual fields (repeatable). The current resource is fetched, your changes are merged in, read-only fields are dropped, and the whole record is written back. Omitted fields keep their current values.\n\nAvailable fields:\n  allowClearPasscode                           boolean\n  allowTemplates                               boolean\n  deviceGroupId                                integer\n  disassociateOnWipeAndReEnroll                boolean\n  isEnabled                                    boolean\n  restrictedTimes.key                          string\n  timezoneId                                   string\n\nWithout --set, pipe a full JSON document to stdin to replace the resource entirely.",
+		Long:  "Update Jamf Parent app settings\n\nUse --set KEY=VALUE to update individual fields (repeatable). The current resource is fetched, your changes are merged in, read-only fields are dropped, and the whole record is written back. Omitted fields keep their current values.\n\nAvailable fields:\n  allowClearPasscode                           boolean\n  allowTemplates                               boolean\n  deviceGroupId                                integer\n  disassociateOnWipeAndReEnroll                boolean\n  isEnabled                                    boolean\n  restrictedTimes.key                          string\n  timezoneId                                   string\n\nArray and object fields accept a JSON value (e.g. --set field='[\"a\",\"b\"]'):\n  restrictedTimes                              object\n  safelistedApps                               array\n\nWithout --set, pipe a full JSON document to stdin to replace the resource entirely.",
 		Example: `  # Update individual fields (fetch-merge-replace)
   jamf-cli pro parent-app update --set field=value
 
@@ -139,7 +139,7 @@ func newParentAppUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 					}
 				}
 				(&fieldFilter{fields: map[string]*fieldFilter{"allowClearPasscode": nil, "allowTemplates": nil, "deviceGroupId": nil, "disassociateOnWipeAndReEnroll": nil, "isEnabled": nil, "restrictedTimes": &fieldFilter{fields: map[string]*fieldFilter{"key": nil}}, "safelistedApps": nil, "timezoneId": nil}}).apply(current)
-				setDoc, serr := buildMergePatchFromSet(flagSet)
+				setDoc, serr := buildMergePatchFromSet(flagSet, map[string]string{"allowClearPasscode": "boolean", "allowTemplates": "boolean", "deviceGroupId": "integer", "disassociateOnWipeAndReEnroll": "boolean", "isEnabled": "boolean", "restrictedTimes": "object", "restrictedTimes.key": "string", "safelistedApps": "array", "timezoneId": "string"})
 				if serr != nil {
 					return serr
 				}

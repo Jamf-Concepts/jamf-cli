@@ -224,7 +224,7 @@ func newAdvancedMobileDeviceSearchesUpdateCmd(ctx *registry.CLIContext) *cobra.C
 	cmd := &cobra.Command{
 		Use:   "update [<id>]",
 		Short: "Get specified Advanced Search object",
-		Long:  "Gets Specified Advanced Search Object\n\nIdentify the resource by ID (positional arg), --name.\n\nUse --set KEY=VALUE to update individual fields (repeatable). The current resource is fetched, your changes are merged in, read-only fields are dropped, and the whole record is written back. Omitted fields keep their current values.\n\nAvailable fields:\n  name                                         string\n  siteId                                       string\n\nWithout --set, pipe a full JSON document to stdin to replace the resource entirely.",
+		Long:  "Gets Specified Advanced Search Object\n\nIdentify the resource by ID (positional arg), --name.\n\nUse --set KEY=VALUE to update individual fields (repeatable). The current resource is fetched, your changes are merged in, read-only fields are dropped, and the whole record is written back. Omitted fields keep their current values.\n\nAvailable fields:\n  name                                         string\n  siteId                                       string\n\nArray and object fields accept a JSON value (e.g. --set field='[\"a\",\"b\"]'):\n  criteria                                     array\n  displayFields                                array\n\nWithout --set, pipe a full JSON document to stdin to replace the resource entirely.",
 		Example: `  # Update individual fields (fetch-merge-replace)
   jamf-cli pro advanced-mobile-device-searches update 1 --set field=value
 
@@ -297,7 +297,7 @@ func newAdvancedMobileDeviceSearchesUpdateCmd(ctx *registry.CLIContext) *cobra.C
 					}
 				}
 				(&fieldFilter{fields: map[string]*fieldFilter{"criteria": nil, "displayFields": nil, "name": nil, "siteId": nil}}).apply(current)
-				setDoc, serr := buildMergePatchFromSet(flagSet)
+				setDoc, serr := buildMergePatchFromSet(flagSet, map[string]string{"criteria": "array", "displayFields": "array", "name": "string", "siteId": "string"})
 				if serr != nil {
 					return serr
 				}

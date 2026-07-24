@@ -91,7 +91,7 @@ func TestSetNestedValue(t *testing.T) {
 // TestBuildMergePatchFromSet covers the full --set pipeline.
 func TestBuildMergePatchFromSet(t *testing.T) {
 	t.Run("single flat key", func(t *testing.T) {
-		data, err := buildMergePatchFromSet([]string{"name=Alice"})
+		data, err := buildMergePatchFromSet([]string{"name=Alice"}, nil)
 		if err != nil {
 			t.Fatal(err)
 			return
@@ -107,7 +107,7 @@ func TestBuildMergePatchFromSet(t *testing.T) {
 	})
 
 	t.Run("nested dot-notation key", func(t *testing.T) {
-		data, err := buildMergePatchFromSet([]string{"general.managed=true"})
+		data, err := buildMergePatchFromSet([]string{"general.managed=true"}, nil)
 		if err != nil {
 			t.Fatal(err)
 			return
@@ -127,7 +127,7 @@ func TestBuildMergePatchFromSet(t *testing.T) {
 	})
 
 	t.Run("null clears a field", func(t *testing.T) {
-		data, err := buildMergePatchFromSet([]string{"assetTag=null"})
+		data, err := buildMergePatchFromSet([]string{"assetTag=null"}, nil)
 		if err != nil {
 			t.Fatal(err)
 			return
@@ -152,7 +152,7 @@ func TestBuildMergePatchFromSet(t *testing.T) {
 			"general.assetTag=CORP-001",
 			"general.name=My Mac",
 			"udid=abc-123",
-		})
+		}, nil)
 		if err != nil {
 			t.Fatal(err)
 			return
@@ -175,21 +175,21 @@ func TestBuildMergePatchFromSet(t *testing.T) {
 	})
 
 	t.Run("missing equals sign is an error", func(t *testing.T) {
-		_, err := buildMergePatchFromSet([]string{"noequals"})
+		_, err := buildMergePatchFromSet([]string{"noequals"}, nil)
 		if err == nil {
 			t.Error("expected error for pair without '=', got nil")
 		}
 	})
 
 	t.Run("empty key before equals is an error", func(t *testing.T) {
-		_, err := buildMergePatchFromSet([]string{"=value"})
+		_, err := buildMergePatchFromSet([]string{"=value"}, nil)
 		if err == nil {
 			t.Error("expected error for empty key, got nil")
 		}
 	})
 
 	t.Run("integer value coerced", func(t *testing.T) {
-		data, err := buildMergePatchFromSet([]string{"purchasing.lifeExpectancy=5"})
+		data, err := buildMergePatchFromSet([]string{"purchasing.lifeExpectancy=5"}, nil)
 		if err != nil {
 			t.Fatal(err)
 			return
@@ -203,6 +203,142 @@ func TestBuildMergePatchFromSet(t *testing.T) {
 		// JSON numbers unmarshal to float64; confirm it round-trips as 5
 		if purchasing["lifeExpectancy"] != float64(5) {
 			t.Errorf("lifeExpectancy = %v (%T), want 5", purchasing["lifeExpectancy"], purchasing["lifeExpectancy"])
+		}
+	})
+}
+
+// TestBuildMergePatchFromSet_Typed covers schema-driven value parsing: array and
+// object fields are JSON-decoded, scalars are coerced to their declared type, and
+// type-mismatched input is rejected rather than silently stringified (issue #304).
+func TestBuildMergePatchFromSet_Typed(t *testing.T) {
+	types := map[string]string{
+		"customPackageIds": "array",
+		"skipSetupItems":   "object",
+		"enrollmentSiteId": "string",
+		"versionLock":      "integer",
+		"purchasePrice":    "number",
+		"mandatory":        "boolean",
+	}
+
+	decode := func(t *testing.T, data []byte) map[string]any {
+		t.Helper()
+		var m map[string]any
+		if err := json.Unmarshal(data, &m); err != nil {
+			t.Fatalf("unmarshal: %v", err)
+		}
+		return m
+	}
+
+	t.Run("array field parses JSON array", func(t *testing.T) {
+		data, err := buildMergePatchFromSet([]string{`customPackageIds=["295"]`}, types)
+		if err != nil {
+			t.Fatal(err)
+		}
+		got := decode(t, data)
+		arr, ok := got["customPackageIds"].([]any)
+		if !ok {
+			t.Fatalf("customPackageIds is %T, want []any", got["customPackageIds"])
+		}
+		if len(arr) != 1 || arr[0] != "295" {
+			t.Errorf("customPackageIds = %#v, want [\"295\"]", arr)
+		}
+	})
+
+	t.Run("array field rejects bare scalar", func(t *testing.T) {
+		_, err := buildMergePatchFromSet([]string{"customPackageIds=295"}, types)
+		if err == nil {
+			t.Fatal("expected error for scalar into array field, got nil")
+		}
+	})
+
+	t.Run("array field rejects dot index", func(t *testing.T) {
+		_, err := buildMergePatchFromSet([]string{"customPackageIds.0=295"}, types)
+		if err == nil {
+			t.Fatal("expected error for dot index into array field, got nil")
+		}
+	})
+
+	t.Run("object field parses JSON object", func(t *testing.T) {
+		data, err := buildMergePatchFromSet([]string{`skipSetupItems={"FileVault":true}`}, types)
+		if err != nil {
+			t.Fatal(err)
+		}
+		got := decode(t, data)
+		obj, ok := got["skipSetupItems"].(map[string]any)
+		if !ok {
+			t.Fatalf("skipSetupItems is %T, want map", got["skipSetupItems"])
+		}
+		if obj["FileVault"] != true {
+			t.Errorf("skipSetupItems.FileVault = %v, want true", obj["FileVault"])
+		}
+	})
+
+	t.Run("string field keeps numeric-looking value as string", func(t *testing.T) {
+		data, err := buildMergePatchFromSet([]string{"enrollmentSiteId=-1"}, types)
+		if err != nil {
+			t.Fatal(err)
+		}
+		got := decode(t, data)
+		if got["enrollmentSiteId"] != "-1" {
+			t.Errorf("enrollmentSiteId = %#v (%T), want \"-1\" (string)", got["enrollmentSiteId"], got["enrollmentSiteId"])
+		}
+	})
+
+	t.Run("integer field coerces and rejects non-integer", func(t *testing.T) {
+		data, err := buildMergePatchFromSet([]string{"versionLock=7"}, types)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got := decode(t, data); got["versionLock"] != float64(7) {
+			t.Errorf("versionLock = %v, want 7", got["versionLock"])
+		}
+		if _, err := buildMergePatchFromSet([]string{"versionLock=abc"}, types); err == nil {
+			t.Error("expected error for non-integer versionLock, got nil")
+		}
+	})
+
+	t.Run("boolean field coerces and rejects non-boolean", func(t *testing.T) {
+		data, err := buildMergePatchFromSet([]string{"mandatory=true"}, types)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got := decode(t, data); got["mandatory"] != true {
+			t.Errorf("mandatory = %v, want true", got["mandatory"])
+		}
+		if _, err := buildMergePatchFromSet([]string{"mandatory=yes"}, types); err == nil {
+			t.Error("expected error for non-boolean mandatory, got nil")
+		}
+	})
+
+	t.Run("number field coerces float", func(t *testing.T) {
+		data, err := buildMergePatchFromSet([]string{"purchasePrice=19.99"}, types)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got := decode(t, data); got["purchasePrice"] != 19.99 {
+			t.Errorf("purchasePrice = %v, want 19.99", got["purchasePrice"])
+		}
+	})
+
+	t.Run("null clears a typed array field", func(t *testing.T) {
+		data, err := buildMergePatchFromSet([]string{"customPackageIds=null"}, types)
+		if err != nil {
+			t.Fatal(err)
+		}
+		got := decode(t, data)
+		if v, ok := got["customPackageIds"]; !ok || v != nil {
+			t.Errorf("customPackageIds = %#v, want JSON null", got["customPackageIds"])
+		}
+	})
+
+	t.Run("unmodelled field still parses JSON array (fallback)", func(t *testing.T) {
+		data, err := buildMergePatchFromSet([]string{`unknownArr=["a","b"]`}, types)
+		if err != nil {
+			t.Fatal(err)
+		}
+		got := decode(t, data)
+		if arr, ok := got["unknownArr"].([]any); !ok || len(arr) != 2 {
+			t.Errorf("unknownArr = %#v, want [\"a\",\"b\"]", got["unknownArr"])
 		}
 	})
 }

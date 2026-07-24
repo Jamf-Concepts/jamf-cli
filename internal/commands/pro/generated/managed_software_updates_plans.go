@@ -380,7 +380,7 @@ func newManagedSoftwareUpdatesPlansUpdateCmd(ctx *registry.CLIContext) *cobra.Co
 					}
 				}
 				(&fieldFilter{fields: map[string]*fieldFilter{"toggle": nil}}).apply(current)
-				setDoc, serr := buildMergePatchFromSet(flagSet)
+				setDoc, serr := buildMergePatchFromSet(flagSet, map[string]string{"toggle": "boolean"})
 				if serr != nil {
 					return serr
 				}

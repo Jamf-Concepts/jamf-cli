@@ -76,7 +76,7 @@ func newServiceDiscoveryUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "update",
 		Short: "Update service discovery well-known settings",
-		Long:  "Accepts JSON payload to update enrollment types for AxM organizations.\nRequires \"Update User-Initiated Enrollment\" privilege.\nWithout --set, pipe a full JSON document to stdin to replace the resource entirely.",
+		Long:  "Accepts JSON payload to update enrollment types for AxM organizations.\nRequires \"Update User-Initiated Enrollment\" privilege.\nArray and object fields accept a JSON value (e.g. --set field='[\"a\",\"b\"]'):\n  wellKnownSettings                            array\n\nWithout --set, pipe a full JSON document to stdin to replace the resource entirely.",
 		Example: `  # Update individual fields (fetch-merge-replace)
   jamf-cli pro service-discovery update --set field=value
 
@@ -123,7 +123,7 @@ func newServiceDiscoveryUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 					}
 				}
 				(&fieldFilter{fields: map[string]*fieldFilter{"wellKnownSettings": nil}}).apply(current)
-				setDoc, serr := buildMergePatchFromSet(flagSet)
+				setDoc, serr := buildMergePatchFromSet(flagSet, map[string]string{"wellKnownSettings": "array"})
 				if serr != nil {
 					return serr
 				}

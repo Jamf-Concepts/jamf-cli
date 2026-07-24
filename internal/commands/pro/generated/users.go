@@ -428,7 +428,7 @@ func newUsersUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 					}
 				}
 				(&fieldFilter{fields: map[string]*fieldFilter{"customPhotoUrl": nil, "email": nil, "enableCustomPhotoUrl": nil, "managedAppleId": nil, "phone": nil, "position": nil, "realname": nil, "username": nil}}).apply(current)
-				setDoc, serr := buildMergePatchFromSet(flagSet)
+				setDoc, serr := buildMergePatchFromSet(flagSet, map[string]string{"customPhotoUrl": "string", "email": "string", "enableCustomPhotoUrl": "boolean", "managedAppleId": "string", "phone": "string", "position": "string", "realname": "string", "username": "string"})
 				if serr != nil {
 					return serr
 				}

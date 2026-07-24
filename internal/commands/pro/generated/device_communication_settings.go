@@ -132,7 +132,7 @@ func newDeviceCommunicationSettingsUpdateCmd(ctx *registry.CLIContext) *cobra.Co
 					}
 				}
 				(&fieldFilter{fields: map[string]*fieldFilter{"autoRenewComputerMdmProfileWhenCaRenewed": nil, "autoRenewComputerMdmProfileWhenDeviceIdentityCertExpiring": nil, "autoRenewMobileDeviceMdmProfileWhenCaRenewed": nil, "autoRenewMobileDeviceMdmProfileWhenDeviceIdentityCertExpiring": nil, "mdmProfileComputerExpirationLimitInDays": nil, "mdmProfileMobileDeviceExpirationLimitInDays": nil}}).apply(current)
-				setDoc, serr := buildMergePatchFromSet(flagSet)
+				setDoc, serr := buildMergePatchFromSet(flagSet, map[string]string{"autoRenewComputerMdmProfileWhenCaRenewed": "boolean", "autoRenewComputerMdmProfileWhenDeviceIdentityCertExpiring": "boolean", "autoRenewMobileDeviceMdmProfileWhenCaRenewed": "boolean", "autoRenewMobileDeviceMdmProfileWhenDeviceIdentityCertExpiring": "boolean", "mdmProfileComputerExpirationLimitInDays": "integer", "mdmProfileMobileDeviceExpirationLimitInDays": "integer"})
 				if serr != nil {
 					return serr
 				}

@@ -98,7 +98,7 @@ func newLocalAdminPasswordsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 					}
 				}
 				(&fieldFilter{fields: map[string]*fieldFilter{"autoDeployEnabled": nil, "autoRotateEnabled": nil, "autoRotateExpirationTime": nil, "passwordRotationTime": nil}}).apply(current)
-				setDoc, serr := buildMergePatchFromSet(flagSet)
+				setDoc, serr := buildMergePatchFromSet(flagSet, map[string]string{"autoDeployEnabled": "boolean", "autoRotateEnabled": "boolean", "autoRotateExpirationTime": "integer", "passwordRotationTime": "integer"})
 				if serr != nil {
 					return serr
 				}

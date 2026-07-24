@@ -247,7 +247,7 @@ func newDockItemsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 					}
 				}
 				(&fieldFilter{fields: map[string]*fieldFilter{"name": nil, "path": nil, "type": nil}}).apply(current)
-				setDoc, serr := buildMergePatchFromSet(flagSet)
+				setDoc, serr := buildMergePatchFromSet(flagSet, map[string]string{"name": "string", "path": "string", "type": "string"})
 				if serr != nil {
 					return serr
 				}

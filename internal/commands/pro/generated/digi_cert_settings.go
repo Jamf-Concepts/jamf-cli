@@ -455,7 +455,7 @@ func newDigiCertSettingsPatchCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "patch [<id>]",
 		Short: "Update DigiCert Trust Lifecycle Manager configuration",
-		Long:  "Update DigiCert Trust Lifecycle Manager configuration, where the client certificate information must be provided in full or not at all.\n\nIdentify the resource by ID (positional arg), --name, . Omit ID to use a lookup flag.\n\nUse --set KEY=VALUE to update scalar fields (repeatable). Omitted fields are unchanged.\n\nAvailable fields:\n  caName                                       string\n  clientCert.filename                          string\n  clientCert.password                          string\n  fqdn                                         string\n  revocationEnabled                            boolean\n\nUse --from-file or pipe JSON to stdin for complex updates (arrays, bulk changes).",
+		Long:  "Update DigiCert Trust Lifecycle Manager configuration, where the client certificate information must be provided in full or not at all.\n\nIdentify the resource by ID (positional arg), --name, . Omit ID to use a lookup flag.\n\nUse --set KEY=VALUE to update scalar fields (repeatable). Omitted fields are unchanged.\n\nAvailable fields:\n  caName                                       string\n  clientCert.filename                          string\n  clientCert.password                          string\n  fqdn                                         string\n  revocationEnabled                            boolean\n\nArray and object fields accept a JSON value (e.g. --set field='[\"a\",\"b\"]'):\n  clientCert                                   object\n  clientCert.data                              array\n\nUse --from-file or pipe JSON to stdin for complex updates (bulk changes, deep nesting).",
 		Example: `  # Update a field by ID
   jamf-cli pro digi-cert-settings patch 1 --set general.managed=true
 
@@ -514,7 +514,7 @@ func newDigiCertSettingsPatchCmd(ctx *registry.CLIContext) *cobra.Command {
 			var normalized []byte
 			switch {
 			case len(flagSet) > 0:
-				data, err := buildMergePatchFromSet(flagSet)
+				data, err := buildMergePatchFromSet(flagSet, map[string]string{"caName": "string", "clientCert": "object", "clientCert.data": "array", "clientCert.filename": "string", "clientCert.password": "string", "fqdn": "string", "revocationEnabled": "boolean"})
 				if err != nil {
 					return err
 				}

@@ -706,7 +706,7 @@ func newTeamViewerRemoteAdministrationsPatchCmd(ctx *registry.CLIContext) *cobra
 	cmd := &cobra.Command{
 		Use:   "patch [<id>]",
 		Short: "Update Team Viewer Remote Administration connection configuration",
-		Long:  "Updates Team Viewer Remote Administration connection configuration\n\nIdentify the resource by ID (positional arg), --name, . Omit ID to use a lookup flag.\n\nUse --set KEY=VALUE to update scalar fields (repeatable). Omitted fields are unchanged.\n\nAvailable fields:\n  displayName                                  string\n  enabled                                      boolean\n  sessionTimeout                               integer\n  token                                        string\n\nUse --from-file or pipe JSON to stdin for complex updates (arrays, bulk changes).",
+		Long:  "Updates Team Viewer Remote Administration connection configuration\n\nIdentify the resource by ID (positional arg), --name, . Omit ID to use a lookup flag.\n\nUse --set KEY=VALUE to update scalar fields (repeatable). Omitted fields are unchanged.\n\nAvailable fields:\n  displayName                                  string\n  enabled                                      boolean\n  sessionTimeout                               integer\n  token                                        string\n\nUse --from-file or pipe JSON to stdin for complex updates (bulk changes, deep nesting).",
 		Example: `  # Update a field by ID
   jamf-cli pro team-viewer-remote-administrations patch 1 --set general.managed=true
 
@@ -765,7 +765,7 @@ func newTeamViewerRemoteAdministrationsPatchCmd(ctx *registry.CLIContext) *cobra
 			var normalized []byte
 			switch {
 			case len(flagSet) > 0:
-				data, err := buildMergePatchFromSet(flagSet)
+				data, err := buildMergePatchFromSet(flagSet, map[string]string{"displayName": "string", "enabled": "boolean", "sessionTimeout": "integer", "token": "string"})
 				if err != nil {
 					return err
 				}

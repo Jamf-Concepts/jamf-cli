@@ -285,7 +285,7 @@ func newReturnToServiceConfigurationsUpdateCmd(ctx *registry.CLIContext) *cobra.
 					}
 				}
 				(&fieldFilter{fields: map[string]*fieldFilter{"displayName": nil, "wifiProfileId": nil}}).apply(current)
-				setDoc, serr := buildMergePatchFromSet(flagSet)
+				setDoc, serr := buildMergePatchFromSet(flagSet, map[string]string{"displayName": "string", "wifiProfileId": "string"})
 				if serr != nil {
 					return serr
 				}

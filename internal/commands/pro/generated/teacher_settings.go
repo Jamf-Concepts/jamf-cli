@@ -80,7 +80,7 @@ func newTeacherSettingsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "update",
 		Short: "Update a Jamf Teacher settings object",
-		Long:  "Update a Jamf Teacher settings object.\n\nUse --set KEY=VALUE to update individual fields (repeatable). The current resource is fetched, your changes are merged in, read-only fields are dropped, and the whole record is written back. Omitted fields keep their current values.\n\nAvailable fields:\n  autoClear                                    string\n  isEnabled                                    boolean\n  maxRestrictionLengthSeconds                  integer\n  timezoneId                                   string\n\nWithout --set, pipe a full JSON document to stdin to replace the resource entirely.",
+		Long:  "Update a Jamf Teacher settings object.\n\nUse --set KEY=VALUE to update individual fields (repeatable). The current resource is fetched, your changes are merged in, read-only fields are dropped, and the whole record is written back. Omitted fields keep their current values.\n\nAvailable fields:\n  autoClear                                    string\n  isEnabled                                    boolean\n  maxRestrictionLengthSeconds                  integer\n  timezoneId                                   string\n\nArray and object fields accept a JSON value (e.g. --set field='[\"a\",\"b\"]'):\n  safelistedApps                               array\n\nWithout --set, pipe a full JSON document to stdin to replace the resource entirely.",
 		Example: `  # Update individual fields (fetch-merge-replace)
   jamf-cli pro teacher-settings update --set field=value
 
@@ -131,7 +131,7 @@ func newTeacherSettingsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 					}
 				}
 				(&fieldFilter{fields: map[string]*fieldFilter{"autoClear": nil, "isEnabled": nil, "maxRestrictionLengthSeconds": nil, "safelistedApps": nil, "timezoneId": nil}}).apply(current)
-				setDoc, serr := buildMergePatchFromSet(flagSet)
+				setDoc, serr := buildMergePatchFromSet(flagSet, map[string]string{"autoClear": "string", "isEnabled": "boolean", "maxRestrictionLengthSeconds": "integer", "safelistedApps": "array", "timezoneId": "string"})
 				if serr != nil {
 					return serr
 				}
