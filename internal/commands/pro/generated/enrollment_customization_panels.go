@@ -124,7 +124,7 @@ func newEnrollmentCustomizationPanelsUpdateCmd(ctx *registry.CLIContext) *cobra.
 	cmd := &cobra.Command{
 		Use:   "update <id> <panel-id>",
 		Short: "Update a single LDAP Panel for a single Enrollment Customization",
-		Long:  "Update a single LDAP panel for a single enrollment customization. If multiple LDAP access groups are defined with the same name and id, only one will be saved.\n\nUse --set KEY=VALUE to update individual fields (repeatable). The current resource is fetched, your changes are merged in, read-only fields are dropped, and the whole record is written back. Omitted fields keep their current values.\n\nAvailable fields:\n  backButtonText                               string\n  continueButtonText                           string\n  displayName                                  string\n  passwordLabel                                string\n  rank                                         integer\n  title                                        string\n  usernameLabel                                string\n\nWithout --set, pipe a full JSON document to stdin to replace the resource entirely.",
+		Long:  "Update a single LDAP panel for a single enrollment customization. If multiple LDAP access groups are defined with the same name and id, only one will be saved.\n\nUse --set KEY=VALUE to update individual fields (repeatable). The current resource is fetched, your changes are merged in, read-only fields are dropped, and the whole record is written back. Omitted fields keep their current values.\n\nAvailable fields:\n  backButtonText                               string\n  continueButtonText                           string\n  displayName                                  string\n  passwordLabel                                string\n  rank                                         integer\n  title                                        string\n  usernameLabel                                string\n\nArray and object fields accept a JSON value (e.g. --set field='[\"a\",\"b\"]'):\n  ldapGroupAccess                              array\n\nWithout --set, pipe a full JSON document to stdin to replace the resource entirely.",
 		Example: `  # Update a enrollment-customization-panel from JSON
   echo '{"name":"Updated"}' | jamf-cli pro enrollment-customization-panels update 1 2
 
@@ -178,7 +178,7 @@ func newEnrollmentCustomizationPanelsUpdateCmd(ctx *registry.CLIContext) *cobra.
 					}
 				}
 				(&fieldFilter{fields: map[string]*fieldFilter{"backButtonText": nil, "continueButtonText": nil, "displayName": nil, "ldapGroupAccess": nil, "passwordLabel": nil, "rank": nil, "title": nil, "usernameLabel": nil}}).apply(current)
-				setDoc, serr := buildMergePatchFromSet(flagSet)
+				setDoc, serr := buildMergePatchFromSet(flagSet, map[string]string{"backButtonText": "string", "continueButtonText": "string", "displayName": "string", "ldapGroupAccess": "array", "passwordLabel": "string", "rank": "integer", "title": "string", "usernameLabel": "string"})
 				if serr != nil {
 					return serr
 				}

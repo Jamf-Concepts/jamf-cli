@@ -455,7 +455,7 @@ func newCloudDistributionPointsPatchCmd(ctx *registry.CLIContext) *cobra.Command
 	cmd := &cobra.Command{
 		Use:   "patch",
 		Short: "Update specific fields on a cloud distribution point",
-		Long:  "Update specific fields on a cloud distribution point, then return the updated cloud distribution point details object.\n\nUse --set KEY=VALUE to update scalar fields (repeatable). Omitted fields are unchanged.\n\nAvailable fields:\n  cdnType                                      string\n  directory                                    string\n  downloadUrl                                  string\n  expirationSeconds                            integer\n  keyPairId                                    string\n  master                                       boolean\n  password                                     string\n  privateKey                                   string\n  requireSignedUrls                            boolean\n  secondaryAuthRequired                        boolean\n  secondaryAuthStatusCode                      integer\n  secondaryAuthTimeToLive                      integer\n  uploadUrl                                    string\n  username                                     string\n\nUse --from-file or pipe JSON to stdin for complex updates (arrays, bulk changes).",
+		Long:  "Update specific fields on a cloud distribution point, then return the updated cloud distribution point details object.\n\nUse --set KEY=VALUE to update scalar fields (repeatable). Omitted fields are unchanged.\n\nAvailable fields:\n  cdnType                                      string\n  directory                                    string\n  downloadUrl                                  string\n  expirationSeconds                            integer\n  keyPairId                                    string\n  master                                       boolean\n  password                                     string\n  privateKey                                   string\n  requireSignedUrls                            boolean\n  secondaryAuthRequired                        boolean\n  secondaryAuthStatusCode                      integer\n  secondaryAuthTimeToLive                      integer\n  uploadUrl                                    string\n  username                                     string\n\nUse --from-file or pipe JSON to stdin for complex updates (bulk changes, deep nesting).",
 		Example: `  # Update a field
   jamf-cli pro cloud-distribution-points patch --set field=value
 
@@ -501,7 +501,7 @@ func newCloudDistributionPointsPatchCmd(ctx *registry.CLIContext) *cobra.Command
 			var normalized []byte
 			switch {
 			case len(flagSet) > 0:
-				data, err := buildMergePatchFromSet(flagSet)
+				data, err := buildMergePatchFromSet(flagSet, map[string]string{"cdnType": "string", "directory": "string", "downloadUrl": "string", "expirationSeconds": "integer", "keyPairId": "string", "master": "boolean", "password": "string", "privateKey": "string", "requireSignedUrls": "boolean", "secondaryAuthRequired": "boolean", "secondaryAuthStatusCode": "integer", "secondaryAuthTimeToLive": "integer", "uploadUrl": "string", "username": "string"})
 				if err != nil {
 					return err
 				}

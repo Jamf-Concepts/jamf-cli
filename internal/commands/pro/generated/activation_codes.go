@@ -443,7 +443,7 @@ func newActivationCodesPatchCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "patch",
 		Short: "Updates Organization Name",
-		Long:  "Updates Organization Name in Jamf Pro.\n\nUse --set KEY=VALUE to update scalar fields (repeatable). Omitted fields are unchanged.\n\nAvailable fields:\n  organizationName                             string\n\nUse --from-file or pipe JSON to stdin for complex updates (arrays, bulk changes).",
+		Long:  "Updates Organization Name in Jamf Pro.\n\nUse --set KEY=VALUE to update scalar fields (repeatable). Omitted fields are unchanged.\n\nAvailable fields:\n  organizationName                             string\n\nUse --from-file or pipe JSON to stdin for complex updates (bulk changes, deep nesting).",
 		Example: `  # Update a field
   jamf-cli pro activation-codes patch --set field=value
 
@@ -476,7 +476,7 @@ func newActivationCodesPatchCmd(ctx *registry.CLIContext) *cobra.Command {
 			var normalized []byte
 			switch {
 			case len(flagSet) > 0:
-				data, err := buildMergePatchFromSet(flagSet)
+				data, err := buildMergePatchFromSet(flagSet, map[string]string{"organizationName": "string"})
 				if err != nil {
 					return err
 				}

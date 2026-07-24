@@ -404,7 +404,7 @@ func newSelfServiceBrandingIosUpdateCmd(ctx *registry.CLIContext) *cobra.Command
 					}
 				}
 				(&fieldFilter{fields: map[string]*fieldFilter{"brandingName": nil, "brandingNameColorCode": nil, "headerBackgroundColorCode": nil, "iconId": nil, "menuIconColorCode": nil, "statusBarTextColor": nil}}).apply(current)
-				setDoc, serr := buildMergePatchFromSet(flagSet)
+				setDoc, serr := buildMergePatchFromSet(flagSet, map[string]string{"brandingName": "string", "brandingNameColorCode": "string", "headerBackgroundColorCode": "string", "iconId": "integer", "menuIconColorCode": "string", "statusBarTextColor": "string"})
 				if serr != nil {
 					return serr
 				}

@@ -125,7 +125,7 @@ func newAccountDrivenUserEnrollmentSessionTokenSettingsUpdateCmd(ctx *registry.C
 					}
 				}
 				(&fieldFilter{fields: map[string]*fieldFilter{"enabled": nil, "expirationIntervalDays": nil, "expirationIntervalSeconds": nil}}).apply(current)
-				setDoc, serr := buildMergePatchFromSet(flagSet)
+				setDoc, serr := buildMergePatchFromSet(flagSet, map[string]string{"enabled": "boolean", "expirationIntervalDays": "integer", "expirationIntervalSeconds": "integer"})
 				if serr != nil {
 					return serr
 				}

@@ -555,7 +555,7 @@ func newMobileDeviceGroupsStaticGroupsPatchCmd(ctx *registry.CLIContext) *cobra.
 	cmd := &cobra.Command{
 		Use:   "patch [<id>]",
 		Short: "Update a static group",
-		Long:  "Partially update a static group. Only provided fields will be updated.\n\nIdentify the resource by ID (positional arg), --name, . Omit ID to use a lookup flag.\n\nUse --set KEY=VALUE to update scalar fields (repeatable). Omitted fields are unchanged.\n\nAvailable fields:\n  groupDescription                             string\n  groupName                                    string\n  siteId                                       string\n\nUse --from-file or pipe JSON to stdin for complex updates (arrays, bulk changes).",
+		Long:  "Partially update a static group. Only provided fields will be updated.\n\nIdentify the resource by ID (positional arg), --name, . Omit ID to use a lookup flag.\n\nUse --set KEY=VALUE to update scalar fields (repeatable). Omitted fields are unchanged.\n\nAvailable fields:\n  groupDescription                             string\n  groupName                                    string\n  siteId                                       string\n\nArray and object fields accept a JSON value (e.g. --set field='[\"a\",\"b\"]'):\n  assignments                                  array\n\nUse --from-file or pipe JSON to stdin for complex updates (bulk changes, deep nesting).",
 		Example: `  # Update a field by ID
   jamf-cli pro mobile-device-groups-static-groups patch 1 --set general.managed=true
 
@@ -614,7 +614,7 @@ func newMobileDeviceGroupsStaticGroupsPatchCmd(ctx *registry.CLIContext) *cobra.
 			var normalized []byte
 			switch {
 			case len(flagSet) > 0:
-				data, err := buildMergePatchFromSet(flagSet)
+				data, err := buildMergePatchFromSet(flagSet, map[string]string{"assignments": "array", "groupDescription": "string", "groupName": "string", "siteId": "string"})
 				if err != nil {
 					return err
 				}

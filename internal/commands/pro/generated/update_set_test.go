@@ -156,7 +156,7 @@ func TestUpdateSetEndToEnd(t *testing.T) {
 	filter := &fieldFilter{fields: map[string]*fieldFilter{"name": nil, "city": nil}}
 	filter.apply(current)
 
-	setDoc, err := buildMergePatchFromSet([]string{"city=Boston"})
+	setDoc, err := buildMergePatchFromSet([]string{"city=Boston"}, map[string]string{"name": "string", "city": "string"})
 	if err != nil {
 		t.Fatal(err)
 	}

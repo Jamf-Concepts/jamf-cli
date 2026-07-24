@@ -125,7 +125,7 @@ func newLoginCustomizationUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 					}
 				}
 				(&fieldFilter{fields: map[string]*fieldFilter{"actionText": nil, "disclaimerHeading": nil, "disclaimerMainText": nil, "includeCustomDisclaimer": nil}}).apply(current)
-				setDoc, serr := buildMergePatchFromSet(flagSet)
+				setDoc, serr := buildMergePatchFromSet(flagSet, map[string]string{"actionText": "string", "disclaimerHeading": "string", "disclaimerMainText": "string", "includeCustomDisclaimer": "boolean"})
 				if serr != nil {
 					return serr
 				}

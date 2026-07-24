@@ -416,7 +416,7 @@ func newBuildingsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 					}
 				}
 				(&fieldFilter{fields: map[string]*fieldFilter{"city": nil, "country": nil, "name": nil, "stateProvince": nil, "streetAddress1": nil, "streetAddress2": nil, "zipPostalCode": nil}}).apply(current)
-				setDoc, serr := buildMergePatchFromSet(flagSet)
+				setDoc, serr := buildMergePatchFromSet(flagSet, map[string]string{"city": "string", "country": "string", "name": "string", "stateProvince": "string", "streetAddress1": "string", "streetAddress2": "string", "zipPostalCode": "string"})
 				if serr != nil {
 					return serr
 				}

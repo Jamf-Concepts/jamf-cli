@@ -339,7 +339,7 @@ func newApiIntegrationsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "update [<id>]",
 		Short: "Update specified API integration object",
-		Long:  "Update specified API integration object\n\nIdentify the resource by ID (positional arg), --name.\n\nUse --set KEY=VALUE to update individual fields (repeatable). The current resource is fetched, your changes are merged in, read-only fields are dropped, and the whole record is written back. Omitted fields keep their current values.\n\nAvailable fields:\n  accessTokenLifetimeSeconds                   integer\n  displayName                                  string\n  enabled                                      boolean\n\nWithout --set, pipe a full JSON document to stdin to replace the resource entirely.",
+		Long:  "Update specified API integration object\n\nIdentify the resource by ID (positional arg), --name.\n\nUse --set KEY=VALUE to update individual fields (repeatable). The current resource is fetched, your changes are merged in, read-only fields are dropped, and the whole record is written back. Omitted fields keep their current values.\n\nAvailable fields:\n  accessTokenLifetimeSeconds                   integer\n  displayName                                  string\n  enabled                                      boolean\n\nArray and object fields accept a JSON value (e.g. --set field='[\"a\",\"b\"]'):\n  authorizationScopes                          array\n\nWithout --set, pipe a full JSON document to stdin to replace the resource entirely.",
 		Example: `  # Update individual fields (fetch-merge-replace)
   jamf-cli pro api-integrations update 1 --set field=value
 
@@ -412,7 +412,7 @@ func newApiIntegrationsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 					}
 				}
 				(&fieldFilter{fields: map[string]*fieldFilter{"accessTokenLifetimeSeconds": nil, "authorizationScopes": nil, "displayName": nil, "enabled": nil}}).apply(current)
-				setDoc, serr := buildMergePatchFromSet(flagSet)
+				setDoc, serr := buildMergePatchFromSet(flagSet, map[string]string{"accessTokenLifetimeSeconds": "integer", "authorizationScopes": "array", "displayName": "string", "enabled": "boolean"})
 				if serr != nil {
 					return serr
 				}

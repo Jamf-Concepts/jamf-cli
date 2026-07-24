@@ -423,7 +423,7 @@ func newUserAccountsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 					}
 				}
 				(&fieldFilter{fields: map[string]*fieldFilter{"accessLevel": nil, "accountStatus": nil, "accountType": nil, "changePasswordOnNextLogin": nil, "distinguishedName": nil, "email": nil, "ldapServerId": nil, "phone": nil, "plainPassword": nil, "privilegeLevel": nil, "realname": nil, "siteId": nil, "username": nil}}).apply(current)
-				setDoc, serr := buildMergePatchFromSet(flagSet)
+				setDoc, serr := buildMergePatchFromSet(flagSet, map[string]string{"accessLevel": "string", "accountStatus": "string", "accountType": "string", "changePasswordOnNextLogin": "boolean", "distinguishedName": "string", "email": "string", "ldapServerId": "integer", "phone": "string", "plainPassword": "string", "privilegeLevel": "string", "realname": "string", "siteId": "integer", "username": "string"})
 				if serr != nil {
 					return serr
 				}

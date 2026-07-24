@@ -82,7 +82,7 @@ func newSsoSettingsCertUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "update",
 		Short: "Update the certificate used by Jamf Pro to sign SSO requests to the identify provider",
-		Long:  "Update the certificate used by Jamf Pro to sign SSO requests to the identify provider.\n\nUse --set KEY=VALUE to update individual fields (repeatable). The current resource is fetched, your changes are merged in, read-only fields are dropped, and the whole record is written back. Omitted fields keep their current values.\n\nAvailable fields:\n  key                                          string\n  keystoreFile                                 string\n  keystoreFileName                             string\n  keystorePassword                             string\n  keystoreSetupType                            string\n  password                                     string\n  type                                         string\n\nWithout --set, pipe a full JSON document to stdin to replace the resource entirely.",
+		Long:  "Update the certificate used by Jamf Pro to sign SSO requests to the identify provider.\n\nUse --set KEY=VALUE to update individual fields (repeatable). The current resource is fetched, your changes are merged in, read-only fields are dropped, and the whole record is written back. Omitted fields keep their current values.\n\nAvailable fields:\n  key                                          string\n  keystoreFile                                 string\n  keystoreFileName                             string\n  keystorePassword                             string\n  keystoreSetupType                            string\n  password                                     string\n  type                                         string\n\nArray and object fields accept a JSON value (e.g. --set field='[\"a\",\"b\"]'):\n  keys                                         array\n\nWithout --set, pipe a full JSON document to stdin to replace the resource entirely.",
 		Example: `  # Update individual fields (fetch-merge-replace)
   jamf-cli pro sso-settings-cert update --set field=value
 
@@ -136,7 +136,7 @@ func newSsoSettingsCertUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 					}
 				}
 				(&fieldFilter{fields: map[string]*fieldFilter{"key": nil, "keys": nil, "keystoreFile": nil, "keystoreFileName": nil, "keystorePassword": nil, "keystoreSetupType": nil, "password": nil, "type": nil}}).apply(current)
-				setDoc, serr := buildMergePatchFromSet(flagSet)
+				setDoc, serr := buildMergePatchFromSet(flagSet, map[string]string{"key": "string", "keys": "array", "keystoreFile": "string", "keystoreFileName": "string", "keystorePassword": "string", "keystoreSetupType": "string", "password": "string", "type": "string"})
 				if serr != nil {
 					return serr
 				}

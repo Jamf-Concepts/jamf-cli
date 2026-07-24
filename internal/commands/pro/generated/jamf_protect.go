@@ -201,7 +201,7 @@ func newJamfProtectUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 					}
 				}
 				(&fieldFilter{fields: map[string]*fieldFilter{"autoInstall": nil}}).apply(current)
-				setDoc, serr := buildMergePatchFromSet(flagSet)
+				setDoc, serr := buildMergePatchFromSet(flagSet, map[string]string{"autoInstall": "boolean"})
 				if serr != nil {
 					return serr
 				}

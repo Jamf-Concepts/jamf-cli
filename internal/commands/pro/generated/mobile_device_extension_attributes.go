@@ -345,7 +345,7 @@ func newMobileDeviceExtensionAttributesUpdateCmd(ctx *registry.CLIContext) *cobr
 	cmd := &cobra.Command{
 		Use:   "update [<id>]",
 		Short: "Update specified Mobile Device Extension Attribute object.",
-		Long:  "Update specified Mobile Device Extension Attribute object.\n\nIdentify the resource by ID (positional arg), --name.\n\nUse --set KEY=VALUE to update individual fields (repeatable). The current resource is fetched, your changes are merged in, read-only fields are dropped, and the whole record is written back. Omitted fields keep their current values.\n\nAvailable fields:\n  dataType                                     string\n  description                                  string\n  inputType                                    string\n  inventoryDisplayType                         string\n  ldapAttributeMapping                         string\n  ldapExtensionAttributeAllowed                boolean\n  name                                         string\n\nWithout --set, pipe a full JSON document to stdin to replace the resource entirely.",
+		Long:  "Update specified Mobile Device Extension Attribute object.\n\nIdentify the resource by ID (positional arg), --name.\n\nUse --set KEY=VALUE to update individual fields (repeatable). The current resource is fetched, your changes are merged in, read-only fields are dropped, and the whole record is written back. Omitted fields keep their current values.\n\nAvailable fields:\n  dataType                                     string\n  description                                  string\n  inputType                                    string\n  inventoryDisplayType                         string\n  ldapAttributeMapping                         string\n  ldapExtensionAttributeAllowed                boolean\n  name                                         string\n\nArray and object fields accept a JSON value (e.g. --set field='[\"a\",\"b\"]'):\n  popupMenuChoices                             array\n\nWithout --set, pipe a full JSON document to stdin to replace the resource entirely.",
 		Example: `  # Update individual fields (fetch-merge-replace)
   jamf-cli pro mobile-device-extension-attributes update 1 --set field=value
 
@@ -422,7 +422,7 @@ func newMobileDeviceExtensionAttributesUpdateCmd(ctx *registry.CLIContext) *cobr
 					}
 				}
 				(&fieldFilter{fields: map[string]*fieldFilter{"dataType": nil, "description": nil, "inputType": nil, "inventoryDisplayType": nil, "ldapAttributeMapping": nil, "ldapExtensionAttributeAllowed": nil, "name": nil, "popupMenuChoices": nil}}).apply(current)
-				setDoc, serr := buildMergePatchFromSet(flagSet)
+				setDoc, serr := buildMergePatchFromSet(flagSet, map[string]string{"dataType": "string", "description": "string", "inputType": "string", "inventoryDisplayType": "string", "ldapAttributeMapping": "string", "ldapExtensionAttributeAllowed": "boolean", "name": "string", "popupMenuChoices": "array"})
 				if serr != nil {
 					return serr
 				}

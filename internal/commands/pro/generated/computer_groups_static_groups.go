@@ -340,7 +340,7 @@ func newComputerGroupsStaticGroupsUpdateCmd(ctx *registry.CLIContext) *cobra.Com
 	cmd := &cobra.Command{
 		Use:   "update [<id>]",
 		Short: "Update membership of a static computer group.",
-		Long:  "Update membership of a static computer group.\n\nIdentify the resource by ID (positional arg), --name.\n\nUse --set KEY=VALUE to update individual fields (repeatable). The current resource is fetched, your changes are merged in, read-only fields are dropped, and the whole record is written back. Omitted fields keep their current values.\n\nAvailable fields:\n  description                                  string\n  name                                         string\n  siteId                                       string\n\nWithout --set, pipe a full JSON document to stdin to replace the resource entirely.",
+		Long:  "Update membership of a static computer group.\n\nIdentify the resource by ID (positional arg), --name.\n\nUse --set KEY=VALUE to update individual fields (repeatable). The current resource is fetched, your changes are merged in, read-only fields are dropped, and the whole record is written back. Omitted fields keep their current values.\n\nAvailable fields:\n  description                                  string\n  name                                         string\n  siteId                                       string\n\nArray and object fields accept a JSON value (e.g. --set field='[\"a\",\"b\"]'):\n  assignments                                  array\n\nWithout --set, pipe a full JSON document to stdin to replace the resource entirely.",
 		Example: `  # Update individual fields (fetch-merge-replace)
   jamf-cli pro computer-groups-static-groups update 1 --set field=value
 
@@ -410,7 +410,7 @@ func newComputerGroupsStaticGroupsUpdateCmd(ctx *registry.CLIContext) *cobra.Com
 					}
 				}
 				(&fieldFilter{fields: map[string]*fieldFilter{"assignments": nil, "description": nil, "name": nil, "siteId": nil}}).apply(current)
-				setDoc, serr := buildMergePatchFromSet(flagSet)
+				setDoc, serr := buildMergePatchFromSet(flagSet, map[string]string{"assignments": "array", "description": "string", "name": "string", "siteId": "string"})
 				if serr != nil {
 					return serr
 				}

@@ -388,6 +388,9 @@ func (g *Generator) Generate(resource *Resource) (string, error) {
 		"writableFilterLiteral": func(op *Operation, schemas map[string]*Schema) string {
 			return writableFilterLiteral(op, schemas)
 		},
+		"setFieldTypesLiteral": func(op *Operation, schemas map[string]*Schema) string {
+			return setFieldTypesLiteral(op, schemas)
+		},
 		"writeOnlyFields": writeOnlyFields,
 		"hasScaffold":     hasScaffold,
 		"scaffoldJSON":    scaffoldJSON,
@@ -1114,6 +1117,111 @@ func flattenSchemaToScalarFields(schema *Schema, schemas map[string]*Schema) []S
 	return fields
 }
 
+// jsonKindOfProperty returns the JSON kind of a schema property as used by the
+// "--set" value parser: "string", "integer", "number", "boolean", "array", or
+// "object". Returns "" when the type is unknown/unmodelled so the runtime keeps
+// legacy scalar inference for that field.
+func jsonKindOfProperty(p *Property) string {
+	switch p.Type {
+	case "string", "integer", "number", "boolean", "array", "object":
+		return p.Type
+	case "":
+		if p.Nested != nil {
+			return "object"
+		}
+	}
+	return ""
+}
+
+// setFieldTypeMap walks a request-body schema and returns a dot-notation path →
+// JSON kind map for every writable field: top-level properties plus one level of
+// object nesting (matching flattenSchemaToScalarFields' depth). Read-only fields
+// are skipped. "--set" uses it to parse array/object values as JSON and to reject
+// type-mismatched input rather than silently stringifying it (issue #304).
+func setFieldTypeMap(schema *Schema, schemas map[string]*Schema) map[string]string {
+	if schema == nil {
+		return nil
+	}
+	out := map[string]string{}
+	for name, prop := range schema.Properties {
+		if prop == nil || prop.ReadOnly {
+			continue
+		}
+		if kind := jsonKindOfProperty(prop); kind != "" {
+			out[name] = kind
+		}
+		// Expand one level into object properties so nested scalars/arrays get
+		// their kind recorded too (e.g. "general.managed" → "boolean").
+		if prop.Type == "object" || (prop.Type == "" && prop.Nested != nil) {
+			var nested *Schema
+			if prop.Nested != nil {
+				nested = prop.Nested
+			} else if prop.SchemaRef != "" {
+				nested = schemas[prop.SchemaRef]
+			}
+			if nested == nil {
+				continue
+			}
+			for nestedName, nestedProp := range nested.Properties {
+				if nestedProp == nil || nestedProp.ReadOnly {
+					continue
+				}
+				if kind := jsonKindOfProperty(nestedProp); kind != "" {
+					out[name+"."+nestedName] = kind
+				}
+			}
+		}
+	}
+	return out
+}
+
+// nonScalarSetFields returns the writable array/object field paths of a request
+// schema, sorted, as ScalarField values (Type is "array" or "object"). "--set"
+// help uses it to advertise that these fields are settable with a JSON value.
+func nonScalarSetFields(op *Operation, schemas map[string]*Schema) []ScalarField {
+	if op == nil || op.RequestBody == nil {
+		return nil
+	}
+	types := setFieldTypeMap(op.RequestBody.Schema, schemas)
+	var out []ScalarField
+	for path, kind := range types {
+		if kind == "array" || kind == "object" {
+			out = append(out, ScalarField{Path: path, Type: kind})
+		}
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Path < out[j].Path })
+	return out
+}
+
+// setFieldTypesLiteral emits a Go map[string]string literal mapping each writable
+// field's dot-notation path to its JSON kind, for embedding in a generated "--set"
+// command. Returns "nil" for open/unmodelled schemas so those keep the legacy
+// scalar-inference behavior at runtime.
+func setFieldTypesLiteral(op *Operation, schemas map[string]*Schema) string {
+	if op == nil || op.RequestBody == nil || op.RequestBody.Schema == nil {
+		return "nil"
+	}
+	types := setFieldTypeMap(op.RequestBody.Schema, schemas)
+	if len(types) == 0 {
+		return "nil"
+	}
+	paths := make([]string, 0, len(types))
+	for p := range types {
+		paths = append(paths, p)
+	}
+	sort.Strings(paths)
+	var sb strings.Builder
+	sb.WriteString("map[string]string{")
+	for i, p := range paths {
+		if i > 0 {
+			sb.WriteString(", ")
+		}
+		fmt.Fprintf(&sb, "%q: %q", p, types[p])
+	}
+	sb.WriteString("}")
+	return sb.String()
+}
+
 // isPatchOp reports whether an operation is a PATCH with a JSON request body schema.
 func isPatchOp(op *Operation) bool {
 	return op.Method == "PATCH" && op.Name == "patch" &&
@@ -1251,7 +1359,13 @@ func patchLongDesc(op *Operation, schemas map[string]*Schema, r *Resource) strin
 		for _, f := range fields {
 			fmt.Fprintf(&sb, `  %-44s %s\n`, f.Path, f.Type)
 		}
-		sb.WriteString(`\nUse --from-file or pipe JSON to stdin for complex updates (arrays, bulk changes).`)
+		if nonScalar := nonScalarSetFields(op, schemas); len(nonScalar) > 0 {
+			sb.WriteString(`\nArray and object fields accept a JSON value (e.g. --set field='[\"a\",\"b\"]'):\n`)
+			for _, f := range nonScalar {
+				fmt.Fprintf(&sb, `  %-44s %s\n`, f.Path, f.Type)
+			}
+		}
+		sb.WriteString(`\nUse --from-file or pipe JSON to stdin for complex updates (bulk changes, deep nesting).`)
 	}
 
 	sb.WriteString(`"`)
@@ -1472,6 +1586,13 @@ func updateSetLongDesc(op *Operation, schemas map[string]*Schema, r *Resource) s
 	if len(fields) > 0 {
 		sb.WriteString(`\n\nUse --set KEY=VALUE to update individual fields (repeatable). The current resource is fetched, your changes are merged in, read-only fields are dropped, and the whole record is written back. Omitted fields keep their current values.\n\nAvailable fields:\n`)
 		for _, f := range fields {
+			fmt.Fprintf(&sb, `  %-44s %s\n`, f.Path, f.Type)
+		}
+	}
+
+	if nonScalar := nonScalarSetFields(op, schemas); len(nonScalar) > 0 {
+		sb.WriteString(`\nArray and object fields accept a JSON value (e.g. --set field='[\"a\",\"b\"]'):\n`)
+		for _, f := range nonScalar {
 			fmt.Fprintf(&sb, `  %-44s %s\n`, f.Path, f.Type)
 		}
 	}
@@ -2303,7 +2424,7 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 			var normalized []byte
 			switch {
 			case len(flagSet) > 0:
-				data, err := buildMergePatchFromSet(flagSet)
+				data, err := buildMergePatchFromSet(flagSet, {{ setFieldTypesLiteral . $.Schemas }})
 				if err != nil {
 					return err
 				}
@@ -2397,7 +2518,7 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 					}
 				}
 				({{ writableFilterLiteral . $.Schemas }}).apply(current)
-				setDoc, serr := buildMergePatchFromSet(flagSet)
+				setDoc, serr := buildMergePatchFromSet(flagSet, {{ setFieldTypesLiteral . $.Schemas }})
 				if serr != nil {
 					return serr
 				}
@@ -3609,8 +3730,14 @@ func fetchForMerge(ctx context.Context, client registry.HTTPClient, getPath stri
 
 // buildMergePatchFromSet converts a slice of "key.path=value" strings into a
 // JSON merge-patch document. Dot notation is expanded into nested objects.
-// Value inference: "true"/"false" → bool, "null" → null, integers → int64, else string.
-func buildMergePatchFromSet(pairs []string) ([]byte, error) {
+//
+// fieldTypes maps each writable field path to its JSON kind (from the request
+// schema). Values are parsed to match the target field's kind: array/object
+// fields are JSON-decoded and kind-checked, scalars are coerced to their declared
+// type, and a mismatch is rejected with a hint rather than silently stringified
+// (issue #304). Fields absent from fieldTypes (unmodelled schemas, or paths deeper
+// than the map records) fall back to best-effort inference.
+func buildMergePatchFromSet(pairs []string, fieldTypes map[string]string) ([]byte, error) {
 	result := make(map[string]any)
 	for _, pair := range pairs {
 		eq := strings.Index(pair, "=")
@@ -3619,11 +3746,111 @@ func buildMergePatchFromSet(pairs []string) ([]byte, error) {
 		}
 		key := pair[:eq]
 		val := pair[eq+1:]
-		if err := setNestedValue(result, strings.Split(key, "."), parsePatchValue(val)); err != nil {
+		if err := checkSetParentKind(key, fieldTypes); err != nil {
+			return nil, err
+		}
+		parsed, perr := parseSetValue(key, val, fieldTypes[key])
+		if perr != nil {
+			return nil, perr
+		}
+		if err := setNestedValue(result, strings.Split(key, "."), parsed); err != nil {
 			return nil, fmt.Errorf("setting %q: %w", key, err)
 		}
 	}
 	return json.Marshal(result)
+}
+
+// checkSetParentKind rejects a dotted "--set" key whose parent path resolves to a
+// non-object field. Dot notation can only descend into objects, so "arr.0=x" on
+// an array field (or "count.x=1" on a scalar) is a user error that would otherwise
+// silently build a bogus nested object.
+func checkSetParentKind(key string, fieldTypes map[string]string) error {
+	parts := strings.Split(key, ".")
+	for i := 1; i < len(parts); i++ {
+		prefix := strings.Join(parts[:i], ".")
+		switch fieldTypes[prefix] {
+		case "array":
+			return fmt.Errorf("field %q is an array; set the whole array with a JSON value like --set %s='[...]', or pipe a full JSON document via stdin", prefix, prefix)
+		case "string", "integer", "number", "boolean":
+			return fmt.Errorf("field %q is a %s, not an object; cannot set nested key %q", prefix, fieldTypes[prefix], key)
+		}
+	}
+	return nil
+}
+
+// parseSetValue converts a "--set" value string to the Go value appropriate for
+// the target field's JSON kind. Array/object fields are JSON-decoded and their
+// kind verified; scalar fields are coerced to their declared type. An empty kind
+// (field not in the schema map) falls back to best-effort inference, JSON-parsing
+// values that look like an array or object. "null" always yields a JSON null.
+func parseSetValue(key, val, kind string) (any, error) {
+	if val == "null" {
+		return nil, nil
+	}
+	switch kind {
+	case "array":
+		v, err := parseJSONSetValue(val)
+		if err != nil {
+			return nil, fmt.Errorf("field %q is an array; value must be a JSON array like --set %s='[\"a\",\"b\"]' (or pipe a full JSON document via stdin): %v", key, key, err)
+		}
+		if _, ok := v.([]any); !ok {
+			return nil, fmt.Errorf("field %q is an array but the value is not a JSON array; pass something like --set %s='[\"a\",\"b\"]'", key, key)
+		}
+		return v, nil
+	case "object":
+		v, err := parseJSONSetValue(val)
+		if err != nil {
+			return nil, fmt.Errorf("field %q is an object; value must be a JSON object like --set %s='{\"k\":\"v\"}' (or pipe a full JSON document via stdin): %v", key, key, err)
+		}
+		if _, ok := v.(map[string]any); !ok {
+			return nil, fmt.Errorf("field %q is an object but the value is not a JSON object; pass something like --set %s='{\"k\":\"v\"}'", key, key)
+		}
+		return v, nil
+	case "integer":
+		i, err := strconv.ParseInt(val, 10, 64)
+		if err != nil {
+			return nil, fmt.Errorf("field %q is an integer; %q is not a valid integer", key, val)
+		}
+		return i, nil
+	case "number":
+		f, err := strconv.ParseFloat(val, 64)
+		if err != nil {
+			return nil, fmt.Errorf("field %q is a number; %q is not a valid number", key, val)
+		}
+		return f, nil
+	case "boolean":
+		b, err := strconv.ParseBool(val)
+		if err != nil {
+			return nil, fmt.Errorf("field %q is a boolean; use true or false, got %q", key, val)
+		}
+		return b, nil
+	case "string":
+		// Declared string: keep the literal text, never infer a number/bool.
+		return val, nil
+	default:
+		// Unknown/unmodelled field. Parse array/object literals so incompletely
+		// specified schemas still work, otherwise use scalar inference.
+		if len(val) > 0 && (val[0] == '[' || val[0] == '{') {
+			if v, err := parseJSONSetValue(val); err == nil {
+				return v, nil
+			}
+		}
+		return parsePatchValue(val), nil
+	}
+}
+
+// parseJSONSetValue decodes a "--set" value as a single JSON document, rejecting
+// trailing garbage so a partly-valid value like "[1,2" is an error, not a string.
+func parseJSONSetValue(s string) (any, error) {
+	dec := json.NewDecoder(strings.NewReader(s))
+	var v any
+	if err := dec.Decode(&v); err != nil {
+		return nil, err
+	}
+	if dec.More() {
+		return nil, fmt.Errorf("unexpected trailing data after JSON value")
+	}
+	return v, nil
 }
 
 // hasNestedKey reports whether a dot-notation path (e.g. "accountSettings.adminPassword")

@@ -316,7 +316,7 @@ func newMdmRenewalsPatchCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "patch",
 		Short: "Update device common details (partial update)",
-		Long:  "Partially updates existing device common details. The clientManagementId must be provided in the request body to identify which record to update. Only updates fields that are explicitly provided in the request - missing fields preserve their existing values. Only updates existing records; does not create new ones.\n\nUse --set KEY=VALUE to update scalar fields (repeatable). Omitted fields are unchanged.\n\nAvailable fields:\n  clientManagementId                           string\n  mdmCheckinUrl                                string\n  mdmProfileNeedsRenewalDueToCaRenewed         boolean\n  mdmProfileNeedsRenewalDueToDeviceIdentityCertExpiring boolean\n  mdmServerUrl                                 string\n  renewMdmProfileStartDate                     string\n\nUse --from-file or pipe JSON to stdin for complex updates (arrays, bulk changes).",
+		Long:  "Partially updates existing device common details. The clientManagementId must be provided in the request body to identify which record to update. Only updates fields that are explicitly provided in the request - missing fields preserve their existing values. Only updates existing records; does not create new ones.\n\nUse --set KEY=VALUE to update scalar fields (repeatable). Omitted fields are unchanged.\n\nAvailable fields:\n  clientManagementId                           string\n  mdmCheckinUrl                                string\n  mdmProfileNeedsRenewalDueToCaRenewed         boolean\n  mdmProfileNeedsRenewalDueToDeviceIdentityCertExpiring boolean\n  mdmServerUrl                                 string\n  renewMdmProfileStartDate                     string\n\nUse --from-file or pipe JSON to stdin for complex updates (bulk changes, deep nesting).",
 		Example: `  # Update a field
   jamf-cli pro mdm-renewals patch --set field=value
 
@@ -354,7 +354,7 @@ func newMdmRenewalsPatchCmd(ctx *registry.CLIContext) *cobra.Command {
 			var normalized []byte
 			switch {
 			case len(flagSet) > 0:
-				data, err := buildMergePatchFromSet(flagSet)
+				data, err := buildMergePatchFromSet(flagSet, map[string]string{"clientManagementId": "string", "mdmCheckinUrl": "string", "mdmProfileNeedsRenewalDueToCaRenewed": "boolean", "mdmProfileNeedsRenewalDueToDeviceIdentityCertExpiring": "boolean", "mdmServerUrl": "string", "renewMdmProfileStartDate": "string"})
 				if err != nil {
 					return err
 				}

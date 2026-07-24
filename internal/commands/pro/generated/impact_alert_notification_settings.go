@@ -126,7 +126,7 @@ func newImpactAlertNotificationSettingsUpdateCmd(ctx *registry.CLIContext) *cobr
 					}
 				}
 				(&fieldFilter{fields: map[string]*fieldFilter{"deployableObjectsAlertEnabled": nil, "deployableObjectsConfirmationCodeEnabled": nil, "scopeableObjectsAlertEnabled": nil, "scopeableObjectsConfirmationCodeEnabled": nil}}).apply(current)
-				setDoc, serr := buildMergePatchFromSet(flagSet)
+				setDoc, serr := buildMergePatchFromSet(flagSet, map[string]string{"deployableObjectsAlertEnabled": "boolean", "deployableObjectsConfirmationCodeEnabled": "boolean", "scopeableObjectsAlertEnabled": "boolean", "scopeableObjectsConfirmationCodeEnabled": "boolean"})
 				if serr != nil {
 					return serr
 				}

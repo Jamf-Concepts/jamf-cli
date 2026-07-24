@@ -405,7 +405,7 @@ func newSupervisionIdentitiesUpdateCmd(ctx *registry.CLIContext) *cobra.Command 
 					}
 				}
 				(&fieldFilter{fields: map[string]*fieldFilter{"displayName": nil}}).apply(current)
-				setDoc, serr := buildMergePatchFromSet(flagSet)
+				setDoc, serr := buildMergePatchFromSet(flagSet, map[string]string{"displayName": "string"})
 				if serr != nil {
 					return serr
 				}

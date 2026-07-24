@@ -335,7 +335,7 @@ func newVppSubscriptionsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "update [<id>]",
 		Short: "Update a Volume Purchasing Subscription",
-		Long:  "Updates a Volume Purchasing Subscription\n\nIdentify the resource by ID (positional arg), --name.\n\nUse --set KEY=VALUE to update individual fields (repeatable). The current resource is fetched, your changes are merged in, read-only fields are dropped, and the whole record is written back. Omitted fields keep their current values.\n\nAvailable fields:\n  enabled                                      boolean\n  name                                         string\n  siteId                                       string\n\nWithout --set, pipe a full JSON document to stdin to replace the resource entirely.",
+		Long:  "Updates a Volume Purchasing Subscription\n\nIdentify the resource by ID (positional arg), --name.\n\nUse --set KEY=VALUE to update individual fields (repeatable). The current resource is fetched, your changes are merged in, read-only fields are dropped, and the whole record is written back. Omitted fields keep their current values.\n\nAvailable fields:\n  enabled                                      boolean\n  name                                         string\n  siteId                                       string\n\nArray and object fields accept a JSON value (e.g. --set field='[\"a\",\"b\"]'):\n  externalRecipients                           array\n  internalRecipients                           array\n  locationIds                                  array\n  triggers                                     array\n\nWithout --set, pipe a full JSON document to stdin to replace the resource entirely.",
 		Example: `  # Update individual fields (fetch-merge-replace)
   jamf-cli pro vpp-subscriptions update 1 --set field=value
 
@@ -408,7 +408,7 @@ func newVppSubscriptionsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 					}
 				}
 				(&fieldFilter{fields: map[string]*fieldFilter{"enabled": nil, "externalRecipients": nil, "internalRecipients": nil, "locationIds": nil, "name": nil, "siteId": nil, "triggers": nil}}).apply(current)
-				setDoc, serr := buildMergePatchFromSet(flagSet)
+				setDoc, serr := buildMergePatchFromSet(flagSet, map[string]string{"enabled": "boolean", "externalRecipients": "array", "internalRecipients": "array", "locationIds": "array", "name": "string", "siteId": "string", "triggers": "array"})
 				if serr != nil {
 					return serr
 				}

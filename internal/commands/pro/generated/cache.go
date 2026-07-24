@@ -76,7 +76,7 @@ func newCacheUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "update",
 		Short: "Update Cache Settings",
-		Long:  "updates cache settings\n\nUse --set KEY=VALUE to update individual fields (repeatable). The current resource is fetched, your changes are merged in, read-only fields are dropped, and the whole record is written back. Omitted fields keep their current values.\n\nAvailable fields:\n  cacheType                                    string\n  cacheUniqueId                                string\n  directoryTimeToLiveSeconds                   integer\n  ehcacheMaxBytesLocalHeap                     string\n  elasticache                                  boolean\n  name                                         string\n  timeToIdleSeconds                            integer\n  timeToLiveSeconds                            integer\n\nWithout --set, pipe a full JSON document to stdin to replace the resource entirely.",
+		Long:  "updates cache settings\n\nUse --set KEY=VALUE to update individual fields (repeatable). The current resource is fetched, your changes are merged in, read-only fields are dropped, and the whole record is written back. Omitted fields keep their current values.\n\nAvailable fields:\n  cacheType                                    string\n  cacheUniqueId                                string\n  directoryTimeToLiveSeconds                   integer\n  ehcacheMaxBytesLocalHeap                     string\n  elasticache                                  boolean\n  name                                         string\n  timeToIdleSeconds                            integer\n  timeToLiveSeconds                            integer\n\nArray and object fields accept a JSON value (e.g. --set field='[\"a\",\"b\"]'):\n  memcachedEndpoints                           array\n\nWithout --set, pipe a full JSON document to stdin to replace the resource entirely.",
 		Example: `  # Update individual fields (fetch-merge-replace)
   jamf-cli pro cache update --set field=value
 
@@ -131,7 +131,7 @@ func newCacheUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 					}
 				}
 				(&fieldFilter{fields: map[string]*fieldFilter{"cacheType": nil, "cacheUniqueId": nil, "directoryTimeToLiveSeconds": nil, "ehcacheMaxBytesLocalHeap": nil, "elasticache": nil, "memcachedEndpoints": nil, "name": nil, "timeToIdleSeconds": nil, "timeToLiveSeconds": nil}}).apply(current)
-				setDoc, serr := buildMergePatchFromSet(flagSet)
+				setDoc, serr := buildMergePatchFromSet(flagSet, map[string]string{"cacheType": "string", "cacheUniqueId": "string", "directoryTimeToLiveSeconds": "integer", "ehcacheMaxBytesLocalHeap": "string", "elasticache": "boolean", "memcachedEndpoints": "array", "name": "string", "timeToIdleSeconds": "integer", "timeToLiveSeconds": "integer"})
 				if serr != nil {
 					return serr
 				}

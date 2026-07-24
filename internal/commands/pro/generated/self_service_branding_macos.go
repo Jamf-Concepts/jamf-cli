@@ -406,7 +406,7 @@ func newSelfServiceBrandingMacosUpdateCmd(ctx *registry.CLIContext) *cobra.Comma
 					}
 				}
 				(&fieldFilter{fields: map[string]*fieldFilter{"applicationName": nil, "brandingHeaderImageId": nil, "brandingName": nil, "brandingNameSecondary": nil, "homeHeading": nil, "homeSubheading": nil, "iconId": nil}}).apply(current)
-				setDoc, serr := buildMergePatchFromSet(flagSet)
+				setDoc, serr := buildMergePatchFromSet(flagSet, map[string]string{"applicationName": "string", "brandingHeaderImageId": "integer", "brandingName": "string", "brandingNameSecondary": "string", "homeHeading": "string", "homeSubheading": "string", "iconId": "integer"})
 				if serr != nil {
 					return serr
 				}
