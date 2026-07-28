@@ -241,19 +241,19 @@ func TestConvertMobileconfig_MultiPayload(t *testing.T) {
 	}
 }
 
-func TestConvertMobileconfig_UnknownPayloadPassesThrough(t *testing.T) {
-	// A payload type that is NOT on the denylist is passed through to the API
-	// (which schema-validates it) with no warning — even with filtering enabled.
+func TestConvertMobileconfig_UnknownPayloadWrappedAsMCX(t *testing.T) {
+	// A payload type outside SupportedPayloadTypes is rejected by the API as a
+	// standalone payload, so it is delivered wrapped in Custom Settings (MCX)
+	// instead of being dropped or sent bare.
 	config, warnings, err := ConvertMobileconfig([]byte(testUnsupportedPayloadMobileconfig), true)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if len(warnings) != 0 {
-		t.Errorf("expected no warnings for a non-disabled type, got %v", warnings)
+	if len(warnings) != 1 || !strings.Contains(warnings[0], "Custom Settings") {
+		t.Errorf("expected one Custom Settings warning, got %v", warnings)
 	}
 
-	// Output is still valid and includes the payload.
 	var result map[string]any
 	if err := json.Unmarshal(config, &result); err != nil {
 		t.Fatalf("invalid JSON output: %v", err)
@@ -261,11 +261,23 @@ func TestConvertMobileconfig_UnknownPayloadPassesThrough(t *testing.T) {
 
 	content := result["payloadContent"].([]any)
 	payload := content[0].(map[string]any)
-	if payload["payloadType"] != "com.example.fake.payload" {
-		t.Errorf("payloadType = %v, want com.example.fake.payload", payload["payloadType"])
+	if payload["payloadType"] != mcxPayloadType {
+		t.Fatalf("payloadType = %v, want %s", payload["payloadType"], mcxPayloadType)
 	}
-	if payload["SSID_STR"] != "CorpWifi" {
-		t.Errorf("SSID_STR = %v, want CorpWifi", payload["SSID_STR"])
+
+	// The settings survive, nested under the original domain.
+	domains, ok := payload["PayloadContent"].(map[string]any)
+	if !ok {
+		t.Fatalf("wrapped payload has no PayloadContent dict: %v", payload)
+	}
+	domain, ok := domains["com.example.fake.payload"].(map[string]any)
+	if !ok {
+		t.Fatalf("wrapped payload missing the original domain: %v", domains)
+	}
+	forced := domain["Forced"].([]any)
+	settings := forced[0].(map[string]any)["mcx_preference_settings"].(map[string]any)
+	if settings["SSID_STR"] != "CorpWifi" {
+		t.Errorf("SSID_STR = %v, want CorpWifi", settings["SSID_STR"])
 	}
 }
 
@@ -451,14 +463,78 @@ func TestConvertPlist_DisabledType(t *testing.T) {
 	}
 }
 
-func TestConvertPlist_UnknownTypeNoWarning(t *testing.T) {
-	// A non-disabled type produces no warning — the API validates it.
-	_, warnings, err := ConvertPlist([]byte(testPlist), "com.example.fake.payload", "")
+func TestConvertPlist_UnknownTypeWrappedAsMCX(t *testing.T) {
+	// A raw plist for a domain the blueprints registry doesn't know — the common
+	// case for third-party settings — is delivered as Custom Settings (MCX).
+	config, warnings, err := ConvertPlist([]byte(testPlist), "com.example.fake.payload", "")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(warnings) != 1 || !strings.Contains(warnings[0], "Custom Settings") {
+		t.Fatalf("expected one Custom Settings warning, got %v", warnings)
+	}
+
+	var result map[string]any
+	if err := json.Unmarshal(config, &result); err != nil {
+		t.Fatalf("invalid JSON output: %v", err)
+	}
+	payload := result["payloadContent"].([]any)[0].(map[string]any)
+	if payload["payloadType"] != mcxPayloadType {
+		t.Errorf("payloadType = %v, want %s", payload["payloadType"], mcxPayloadType)
+	}
+	if _, ok := payload["PayloadContent"].(map[string]any)["com.example.fake.payload"]; !ok {
+		t.Errorf("wrapped payload missing the original domain: %v", payload["PayloadContent"])
+	}
+}
+
+func TestConvertPlist_SupportedTypeStaysBare(t *testing.T) {
+	// A type the API accepts standalone must NOT be wrapped.
+	config, warnings, err := ConvertPlist([]byte(testPlist), "com.apple.dock", "")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if len(warnings) != 0 {
-		t.Errorf("expected no warnings for a non-disabled type, got %v", warnings)
+		t.Errorf("expected no warnings for a supported type, got %v", warnings)
+	}
+	var result map[string]any
+	if err := json.Unmarshal(config, &result); err != nil {
+		t.Fatalf("invalid JSON output: %v", err)
+	}
+	payload := result["payloadContent"].([]any)[0].(map[string]any)
+	if payload["payloadType"] != "com.apple.dock" {
+		t.Errorf("payloadType = %v, want com.apple.dock", payload["payloadType"])
+	}
+}
+
+func TestCanonicalPayloadType_JamfSpelling(t *testing.T) {
+	// Jamf Pro writes Apple's *filename* spelling for the User Preferences
+	// payload; the API only accepts Apple's declared payloadtype.
+	if got := CanonicalPayloadType("com.apple.preferences.users"); got != "com.apple.preference.users" {
+		t.Errorf("CanonicalPayloadType = %q, want com.apple.preference.users", got)
+	}
+	if got := CanonicalPayloadType("com.apple.dock"); got != "com.apple.dock" {
+		t.Errorf("CanonicalPayloadType rewrote a type it should not have: %q", got)
+	}
+	if !SupportedPayloadTypes[CanonicalPayloadType("com.apple.preferences.users")] {
+		t.Error("canonical User Preferences type should be in SupportedPayloadTypes")
+	}
+}
+
+func TestSupportedPayloadTypes_CoversUIManageableList(t *testing.T) {
+	// Every payload type the Jamf Pro UI can manage must be one the API accepts
+	// standalone, otherwise import would wrap something the UI could have shown.
+	for pt := range UIManageablePayloadTypes {
+		if !SupportedPayloadTypes[pt] {
+			t.Errorf("UI-manageable type %q missing from SupportedPayloadTypes", pt)
+		}
+	}
+}
+
+func TestSupportedPayloadTypes_DisjointFromDisabled(t *testing.T) {
+	for pt := range DisabledPayloadTypes {
+		if SupportedPayloadTypes[pt] {
+			t.Errorf("type %q is in both SupportedPayloadTypes and DisabledPayloadTypes", pt)
+		}
 	}
 }
 
