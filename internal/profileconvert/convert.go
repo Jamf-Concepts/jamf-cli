@@ -7,6 +7,7 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"sort"
 	"strings"
 
@@ -58,6 +59,150 @@ var DisabledPayloadTypes = map[string]bool{
 	"com.apple.vpn.managed.appmapping":   true, // Per-App VPN mapping
 	"com.apple.webClip.managed":          true, // Web Clip
 	"com.apple.webcontent-filter":        true, // Web Content Filter
+}
+
+// SupportedPayloadTypes lists the payload types the blueprints
+// com.jamf.ddm-configuration-profile component accepts as standalone payloads.
+//
+// The component matches payloadType against a fixed registry — it does NOT
+// validate arbitrary Apple payloads. Wire-probed by POSTing a blueprint carrying
+// one bare payload ({payloadType, payloadIdentifier}) per type: a type outside
+// this set is rejected with the opaque error
+//
+//	steps[0].components[0].configuration: Failed to validate configuration.
+//
+// which is byte-for-byte what an invented payload type produces. Keys are barely
+// validated by comparison — a made-up key, or a string where the schema wants a
+// boolean, is accepted for most types — so an import that fails validation is
+// almost always carrying a payload type from outside this set.
+//
+// A type outside this set is still deliverable: wrapped in a
+// com.apple.ManagedClient.preferences (Custom Settings/MCX) payload, the API
+// accepts any preference domain, including third-party ones. See
+// wrapAsManagedPreferences — that is the recovery path, not a filter.
+//
+// To re-derive after an API change, probe each candidate type bare and treat
+// "Failed to validate configuration." as unsupported. Types the API knows but
+// deliberately blocks report "Payload disabled: <type>" instead and belong in
+// DisabledPayloadTypes.
+var SupportedPayloadTypes = map[string]bool{
+	"com.apple.AssetCache.managed":                true,
+	"com.apple.Dictionary":                        true,
+	"com.apple.DiscRecording":                     true,
+	"com.apple.MCX.Accounts":                      true,
+	"com.apple.MCX.EnergySaver":                   true,
+	"com.apple.MCX.MobileAccounts":                true,
+	"com.apple.MCX.TimeMachine":                   true,
+	"com.apple.MCX.TimeServer":                    true,
+	"com.apple.ManagedClient.preferences":         true,
+	"com.apple.NSExtension":                       true,
+	"com.apple.SetupAssistant.managed":            true,
+	"com.apple.SystemConfiguration":               true,
+	"com.apple.TCC.configuration-profile-policy":  true,
+	"com.apple.airprint":                          true,
+	"com.apple.app.lock":                          true,
+	"com.apple.applicationaccess":                 true,
+	"com.apple.applicationaccess.new":             true,
+	"com.apple.appstore":                          true,
+	"com.apple.asam":                              true,
+	"com.apple.associated-domains":                true,
+	"com.apple.cellularprivatenetwork.managed":    true,
+	"com.apple.conferenceroomdisplay":             true,
+	"com.apple.desktop":                           true,
+	"com.apple.dnsProxy.managed":                  true,
+	"com.apple.dock":                              true,
+	"com.apple.domains":                           true,
+	"com.apple.familycontrols.contentfilter":      true,
+	"com.apple.familycontrols.timelimits.v2":      true,
+	"com.apple.fileproviderd":                     true,
+	"com.apple.finder":                            true,
+	"com.apple.firstactiveethernet.managed":       true,
+	"com.apple.firstethernet.managed":             true,
+	"com.apple.gamed":                             true,
+	"com.apple.globalethernet.managed":            true,
+	"com.apple.homescreenlayout":                  true,
+	"com.apple.loginitems.managed":                true,
+	"com.apple.loginwindow":                       true,
+	"com.apple.lom":                               true,
+	"com.apple.mcxMenuExtras":                     true,
+	"com.apple.mcxprinting":                       true,
+	"com.apple.networkusagerules":                 true,
+	"com.apple.notificationsettings":              true,
+	"com.apple.preference.security":               true,
+	"com.apple.preference.users":                  true,
+	"com.apple.relay.managed":                     true,
+	"com.apple.screensaver":                       true,
+	"com.apple.screensaver.user":                  true,
+	"com.apple.secondactiveethernet.managed":      true,
+	"com.apple.secondethernet.managed":            true,
+	"com.apple.security.FDERecoveryKeyEscrow":     true,
+	"com.apple.security.acme":                     true,
+	"com.apple.security.certificatepreference":    true,
+	"com.apple.security.certificaterevocation":    true,
+	"com.apple.security.certificatetransparency":  true,
+	"com.apple.security.firewall":                 true,
+	"com.apple.security.identitypreference":       true,
+	"com.apple.security.smartcard":                true,
+	"com.apple.servicemanagement":                 true,
+	"com.apple.shareddeviceconfiguration":         true,
+	"com.apple.syspolicy.kernel-extension-policy": true,
+	"com.apple.system-extension-policy":           true,
+	"com.apple.systemmigration":                   true,
+	"com.apple.systempolicy.control":              true,
+	"com.apple.systempolicy.managed":              true,
+	"com.apple.systempolicy.rule":                 true,
+	"com.apple.thirdactiveethernet.managed":       true,
+	"com.apple.thirdethernet.managed":             true,
+	"com.apple.tvremote":                          true,
+	"com.apple.universalaccess":                   true,
+	"com.apple.vpn.managed.applayer":              true,
+	"com.apple.wifi.managed":                      true,
+	"com.apple.xsan":                              true,
+	"com.apple.xsan.preferences":                  true,
+	"loginwindow":                                 true,
+}
+
+// canonicalPayloadTypes maps payload type spellings Jamf Pro writes into Classic
+// configuration profiles onto the spelling the blueprints registry keys on.
+//
+// Jamf Pro's User Preferences payload is written as com.apple.preferences.users,
+// which is the *filename* Apple publishes that payload's schema under; Apple's
+// declared payloadtype — and the only spelling the API accepts — is
+// com.apple.preference.users (singular).
+var canonicalPayloadTypes = map[string]string{
+	"com.apple.preferences.users": "com.apple.preference.users",
+}
+
+// CanonicalPayloadType returns the payload type spelling the blueprints API
+// expects, rewriting the Jamf Pro variants in canonicalPayloadTypes. Types with
+// no known variant are returned unchanged.
+func CanonicalPayloadType(payloadType string) string {
+	if canonical, ok := canonicalPayloadTypes[payloadType]; ok {
+		return canonical
+	}
+	return payloadType
+}
+
+// wrapAsManagedPreferences packages a preference domain's settings as a
+// com.apple.ManagedClient.preferences (Custom Settings/MCX) payload, the form the
+// blueprints API accepts for any domain — including the payload types outside
+// SupportedPayloadTypes and third-party domains it has never heard of. This is
+// also the correct legacy delivery for such domains: they are managed preferences
+// rather than standalone MDM payloads.
+//
+// PayloadContent keeps Apple's capitalisation because the API stores it verbatim.
+func wrapAsManagedPreferences(payloadType string, settings map[string]any, index int) map[string]any {
+	return map[string]any{
+		"payloadType":       mcxPayloadType,
+		"payloadIdentifier": generatePayloadIdentifier(payloadType, index),
+		"PayloadContent": map[string]any{
+			payloadType: map[string]any{
+				"Forced": []any{
+					map[string]any{"mcx_preference_settings": settings},
+				},
+			},
+		},
+	}
 }
 
 // UIManageablePayloadTypes lists the legacy payload types the Jamf Pro UI can
@@ -201,6 +346,10 @@ func ConvertMobileconfig(data []byte, filterUnsupported bool) (json.RawMessage, 
 		if payloadType == "" {
 			return nil, nil, fmt.Errorf("PayloadContent[%d] has no PayloadType", i)
 		}
+		if canonical := CanonicalPayloadType(payloadType); canonical != payloadType {
+			warnings = append(warnings, fmt.Sprintf("rewrote payload type %q to %q — the blueprints API only accepts Apple's canonical spelling", payloadType, canonical))
+			payloadType = canonical
+		}
 
 		if DisabledPayloadTypes[payloadType] {
 			if filterUnsupported {
@@ -213,6 +362,19 @@ func ConvertMobileconfig(data []byte, filterUnsupported bool) (json.RawMessage, 
 		idx := typeCount[payloadType]
 		typeCount[payloadType]++
 		entry := buildPayloadEntry(payloadType, payload, idx)
+		// Payload types outside the component's registry are rejected as standalone
+		// payloads but accepted as Custom Settings, which is also their correct
+		// legacy delivery. Wrap rather than lose the settings.
+		if !SupportedPayloadTypes[payloadType] && !DisabledPayloadTypes[payloadType] {
+			settings := settingsFromEntry(entry)
+			if len(settings) == 0 {
+				warnings = append(warnings, fmt.Sprintf("removed empty payload %q — no settings after metadata stripping", payloadType))
+				typeCount[payloadType]--
+				continue
+			}
+			warnings = append(warnings, fmt.Sprintf("payload type %q is not a standalone blueprints payload — delivering it as Custom Settings (MCX)", payloadType))
+			entry = wrapAsManagedPreferences(payloadType, settings, idx)
+		}
 		payloads = append(payloads, entry)
 	}
 
@@ -242,22 +404,38 @@ func ConvertPlist(data []byte, payloadType, displayName string) (json.RawMessage
 	}
 
 	var warnings []string
+	if canonical := CanonicalPayloadType(payloadType); canonical != payloadType {
+		warnings = append(warnings, fmt.Sprintf("rewrote payload type %q to %q — the blueprints API only accepts Apple's canonical spelling", payloadType, canonical))
+		payloadType = canonical
+	}
 	if DisabledPayloadTypes[payloadType] {
 		warnings = append(warnings, fmt.Sprintf("payload type %q is disabled by Jamf blueprints — the API will reject it", payloadType))
 	}
 
 	// All keys in a raw plist are settings (no Apple metadata to strip).
 	// Empty values are removed since the DDM API rejects them.
-	entry := map[string]any{
-		"payloadType":       payloadType,
-		"payloadIdentifier": generatePayloadIdentifier(payloadType, 0),
-	}
+	clean := make(map[string]any, len(settings))
 	for k, v := range settings {
 		converted := convertPlistValue(v)
 		if isEmptyValue(converted) {
 			continue
 		}
-		entry[k] = converted
+		clean[k] = converted
+	}
+
+	// A domain the component's registry doesn't know — which is every third-party
+	// domain, the common case for a raw plist — is only deliverable wrapped as
+	// Custom Settings.
+	var entry map[string]any
+	if !SupportedPayloadTypes[payloadType] && !DisabledPayloadTypes[payloadType] {
+		warnings = append(warnings, fmt.Sprintf("payload type %q is not a standalone blueprints payload — delivering it as Custom Settings (MCX)", payloadType))
+		entry = wrapAsManagedPreferences(payloadType, clean, 0)
+	} else {
+		entry = map[string]any{
+			"payloadType":       payloadType,
+			"payloadIdentifier": generatePayloadIdentifier(payloadType, 0),
+		}
+		maps.Copy(entry, clean)
 	}
 
 	if displayName == "" {
@@ -313,6 +491,20 @@ func PayloadTypeSummary(data []byte) []string {
 // empty values (empty strings and empty arrays) are removed since the DDM API
 // rejects them, and the payloadIdentifier is generated deterministically.
 // The index disambiguates multiple payloads of the same type.
+// settingsFromEntry returns the setting keys of a built payload entry, dropping
+// the structural keys. Used when an already-built entry has to be re-packaged as
+// a Custom Settings payload.
+func settingsFromEntry(entry map[string]any) map[string]any {
+	settings := make(map[string]any, len(entry))
+	for k, v := range entry {
+		if k == "payloadType" || k == "payloadIdentifier" {
+			continue
+		}
+		settings[k] = v
+	}
+	return settings
+}
+
 func buildPayloadEntry(payloadType string, payload map[string]any, index int) map[string]any {
 	entry := map[string]any{
 		"payloadType":       payloadType,

@@ -1060,16 +1060,18 @@ Some of these configuration-profile ("legacy payload") components can only be
 managed through the blueprints API — they appear as read-only "Legacy payload"
 items in the Jamf Pro UI and cannot be edited there.
 
-The blueprints API accepts almost every Apple payload type and validates it against
-Apple's published schema. A small set of payload types is disabled by blueprints
-(certificates, VPN, SSO, web clips, fonts, etc.); those are skipped by default with
-a warning. Use --include-unsupported to send them anyway (the API will reject them).
+The configuration-profile component takes a fixed set of payload types as standalone
+payloads — not every Apple payload, despite what the API reference says. Types outside
+that set (com.apple.MCX, com.apple.Safari, com.apple.SoftwareUpdate, com.apple.Terminal,
+com.apple.systemuiserver, third-party preference domains, ...) are delivered as
+Application & Custom Settings (MCX) instead, which the API accepts for any domain and
+which is their correct legacy delivery. A separate set is disabled outright by
+blueprints (certificates, VPN, SSO, web clips, fonts, etc.); those are skipped with a
+warning. Use --include-unsupported to send the disabled ones anyway (the API rejects them).
 
-Application & Custom Settings (MCX) payloads are unwrapped when their inner
-preference domain is a recognized Apple payload. Classifying an unknown domain
-fetches Apple's published schema from GitHub, so import-profile may reach the
-network even without --strip-defaults; it degrades gracefully offline, leaving
-unclassified domains wrapped as opaque Custom Settings (which the API accepts).
+Application & Custom Settings (MCX) payloads are unwrapped only when their inner
+preference domain is one the API accepts standalone, or one a DDM converter can
+consume. Everything else stays wrapped as opaque Custom Settings.
 
 Use --type to specify the profile type: "computer" (default) for macOS configuration
 profiles or "mobile" for mobile device configuration profiles. Profiles can share

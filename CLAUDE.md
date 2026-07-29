@@ -237,7 +237,9 @@ Runtime-gated: commands are always registered but `RunE` starts with `requirePla
 
 Name resolution via `internal/platform/Resolver` (blueprints by name, benchmarks by title, baselines by title, device groups by name). Devices use SDK filter methods directly (UUID vs serial auto-detected by hyphen presence).
 
-CRUD pattern matches Protect: `apply` (upsert, blueprint uses merge-patch; benchmark is create-only — SDK has no update), `get <name>`, `delete <name>`, `export <name>`. `apply --scaffold` prints create request template (auth skipped for scaffold).
+CRUD pattern: `apply` (upsert, blueprint uses merge-patch; benchmark is create-only — SDK has no update), `get`, `delete`, `export`. `apply --scaffold` prints create request template (auth skipped for scaffold).
+
+**Identifier convention differs from Protect.** Protect takes a positional `<name>`; Platform takes a positional **`<id>`** plus a `--name` flag (`delete <uuid>` or `delete --name "My Blueprint"` — passing a name positionally is sent as an ID and 404s). This holds for both the generated commands (template: `generator/platform/template.go`, gated on `SupportsNameLookup`) and the hand-written ones (`resolveBlueprintID` in `pro_blueprints.go`), which reject `<id>` and `--name` together. Exception: `blueprints clone <source-name> <new-name>` takes names positionally.
 
 Naming: `platform-` prefix where overlap with existing Pro resources (`platform-devices`, `platform-device-groups`); no prefix for unique resources (`blueprints`, `compliance-benchmarks`, `ddm-reports`).
 
