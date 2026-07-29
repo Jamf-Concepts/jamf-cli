@@ -1712,3 +1712,157 @@ func TestConvertCookiePolicy_NonNumeric(t *testing.T) {
 		t.Errorf("convertCookiePolicy(\"invalid\") = %v, want Always", got)
 	}
 }
+
+func TestConvertToDDMComponents_MCXAppleDomainAPIRejectsStaysWrapped(t *testing.T) {
+	// Apple publishes a schema for com.apple.Safari, but the blueprints registry
+	// has no such payload type — unwrapping it produced the opaque
+	// "Failed to validate configuration." 400. It must stay wrapped in MCX.
+	mc := mcxProfile("com.apple.Safari", `<key>AutoFillPasswords</key><false/>`)
+
+	result, err := ConvertToDDMComponents([]byte(mc), true, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.ProfileConfig == nil {
+		t.Fatal("expected ProfileConfig containing the kept MCX payload")
+	}
+	var cfg map[string]any
+	if err := json.Unmarshal(result.ProfileConfig, &cfg); err != nil {
+		t.Fatalf("invalid ProfileConfig JSON: %v", err)
+	}
+	p := cfg["payloadContent"].([]any)[0].(map[string]any)
+	if p["payloadType"] != mcxPayloadType {
+		t.Fatalf("com.apple.Safari should stay MCX-wrapped, got payloadType %v", p["payloadType"])
+	}
+	if _, ok := p["PayloadContent"].(map[string]any)["com.apple.Safari"]; !ok {
+		t.Errorf("expected com.apple.Safari preserved inside MCX, got %v", p["PayloadContent"])
+	}
+}
+
+func TestConvertToDDMComponents_DirectUnsupportedPayloadWrapped(t *testing.T) {
+	// The Jamf Pro Restrictions UI emits preference-domain payloads directly
+	// (com.apple.ShareKitHelper, com.apple.systemuiserver, com.apple.MCX, …). The
+	// blueprints registry refuses all of them standalone, which failed the whole
+	// import; each is delivered as Custom Settings instead. com.apple.finder is a
+	// supported type in the same profile and must stay bare.
+	mc := `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>PayloadContent</key>
+	<array>
+		<dict>
+			<key>PayloadType</key>
+			<string>com.apple.ShareKitHelper</string>
+			<key>SHKAllowedShareServices</key>
+			<array><string>com.apple.share.AirDrop</string></array>
+		</dict>
+		<dict>
+			<key>PayloadType</key>
+			<string>com.apple.MCX</string>
+			<key>safariAllowAutoFill</key>
+			<true/>
+		</dict>
+		<dict>
+			<key>PayloadType</key>
+			<string>com.apple.finder</string>
+			<key>ProhibitBurn</key>
+			<false/>
+		</dict>
+	</array>
+	<key>PayloadDisplayName</key>
+	<string>Restrictions</string>
+	<key>PayloadType</key>
+	<string>Configuration</string>
+	<key>PayloadVersion</key>
+	<integer>1</integer>
+</dict>
+</plist>`
+
+	result, err := ConvertToDDMComponents([]byte(mc), true, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.ProfileConfig == nil {
+		t.Fatal("expected ProfileConfig")
+	}
+	var cfg map[string]any
+	if err := json.Unmarshal(result.ProfileConfig, &cfg); err != nil {
+		t.Fatalf("invalid ProfileConfig JSON: %v", err)
+	}
+
+	byType := map[string][]map[string]any{}
+	for _, item := range cfg["payloadContent"].([]any) {
+		p := item.(map[string]any)
+		pt, _ := p["payloadType"].(string)
+		byType[pt] = append(byType[pt], p)
+	}
+
+	if len(byType["com.apple.finder"]) != 1 {
+		t.Errorf("supported com.apple.finder should stay bare, got %v", byType)
+	}
+	if len(byType[mcxPayloadType]) != 2 {
+		t.Fatalf("expected the two unsupported payloads wrapped as MCX, got %v", byType)
+	}
+	wrapped := map[string]bool{}
+	for _, p := range byType[mcxPayloadType] {
+		for domain := range p["PayloadContent"].(map[string]any) {
+			wrapped[domain] = true
+		}
+	}
+	for _, want := range []string{"com.apple.ShareKitHelper", "com.apple.MCX"} {
+		if !wrapped[want] {
+			t.Errorf("expected %s delivered as Custom Settings, got domains %v", want, wrapped)
+		}
+	}
+}
+
+func TestConvertToDDMComponents_JamfUserPreferencesSpellingRewritten(t *testing.T) {
+	// Jamf Pro writes com.apple.preferences.users; only Apple's declared
+	// payloadtype (com.apple.preference.users) is accepted, and once rewritten it
+	// is a supported standalone payload, so it must not be MCX-wrapped.
+	mc := `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>PayloadContent</key>
+	<array>
+		<dict>
+			<key>PayloadType</key>
+			<string>com.apple.preferences.users</string>
+			<key>DisableUsingiCloudPassword</key>
+			<false/>
+		</dict>
+	</array>
+	<key>PayloadDisplayName</key>
+	<string>User Prefs</string>
+	<key>PayloadType</key>
+	<string>Configuration</string>
+	<key>PayloadVersion</key>
+	<integer>1</integer>
+</dict>
+</plist>`
+
+	result, err := ConvertToDDMComponents([]byte(mc), true, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	var cfg map[string]any
+	if err := json.Unmarshal(result.ProfileConfig, &cfg); err != nil {
+		t.Fatalf("invalid ProfileConfig JSON: %v", err)
+	}
+	p := cfg["payloadContent"].([]any)[0].(map[string]any)
+	if p["payloadType"] != "com.apple.preference.users" {
+		t.Errorf("payloadType = %v, want com.apple.preference.users", p["payloadType"])
+	}
+
+	var rewrote bool
+	for _, w := range result.Warnings {
+		if strings.Contains(w, "canonical spelling") {
+			rewrote = true
+		}
+	}
+	if !rewrote {
+		t.Errorf("expected a warning naming the rewrite, got %v", result.Warnings)
+	}
+}
