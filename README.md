@@ -166,6 +166,7 @@ Config file: `~/.config/jamf-cli/config.yaml`
 ```yaml
 default-profile: prod
 default-output: table
+update-check: true # set false to silence the daily "newer jamf-cli available" hint
 
 profiles:
   prod:

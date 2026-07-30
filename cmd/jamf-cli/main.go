@@ -5,6 +5,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"runtime/debug"
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/commands"
 	"github.com/Jamf-Concepts/jamf-cli/internal/exitcode"
@@ -40,8 +41,26 @@ func injectEnvArgs(args []string, env string) []string {
 	return result
 }
 
+// resolveVersion falls back to the module version the Go toolchain stamps into
+// the binary. Release builds get their version from -ldflags (see the
+// Makefile), but `go install github.com/Jamf-Concepts/jamf-cli/cmd/jamf-cli@latest`
+// gets none and would report the "dev" default — which makes bug reports
+// untraceable and suppresses the newer-release advisory, since that only runs
+// on an exact release version.
+func resolveVersion(ldflagsVersion string, readBuildInfo func() (*debug.BuildInfo, bool)) string {
+	if ldflagsVersion != "" && ldflagsVersion != "dev" {
+		return ldflagsVersion
+	}
+	info, ok := readBuildInfo()
+	if !ok || info == nil || info.Main.Version == "" || info.Main.Version == "(devel)" {
+		return ldflagsVersion
+	}
+	return info.Main.Version
+}
+
 func main() {
 	os.Args = injectEnvArgs(os.Args, os.Getenv("JAMF_CLI_ARGS"))
+	version = resolveVersion(version, debug.ReadBuildInfo)
 
 	cmd := commands.NewRootCmd(version, commit, date, specProVersion)
 	executedCmd, err := cmd.ExecuteC()
