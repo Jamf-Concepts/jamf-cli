@@ -326,7 +326,9 @@ func replaceClassicProfilePayload(xmlBody, newPayload []byte) []byte {
 	var buf bytes.Buffer
 	buf.Write(xmlBody[:si])
 	buf.WriteString(openTag + "<![CDATA[")
-	buf.Write(newPayload)
+	// Guard "]]>" so the payload can never terminate the CDATA section early
+	// (XML 1.0 §2.4/§2.7).
+	buf.Write(bytes.ReplaceAll(newPayload, []byte("]]>"), []byte("]]&gt;")))
 	buf.WriteString("]]>" + closeTag)
 	buf.Write(xmlBody[ei+len(closeTag):])
 	return buf.Bytes()
@@ -385,6 +387,153 @@ func injectClassicRedeployOnUpdate(body []byte) []byte {
 	return []byte(s[:insertAt] + "<redeploy_on_update>All</redeploy_on_update>" + s[insertAt:])
 }
 
+// stripCDATASections rewrites every <![CDATA[...]]> section in an XML
+// document as equivalent escaped character data. The parsed document is
+// unchanged (CDATA content is literal text by definition — XML 1.0 §2.7),
+// but the literal "]]>" terminators disappear, so the result can itself be
+// CDATA-wrapped. Content after an unterminated <![CDATA[ is left untouched.
+func stripCDATASections(data []byte) []byte {
+	s := string(data)
+	esc := strings.NewReplacer("&", "&amp;", "<", "&lt;", ">", "&gt;")
+	var b strings.Builder
+	for {
+		si := strings.Index(s, "<![CDATA[")
+		if si < 0 {
+			break
+		}
+		ei := strings.Index(s[si:], "]]>")
+		if ei < 0 {
+			break
+		}
+		b.WriteString(s[:si])
+		b.WriteString(esc.Replace(s[si+len("<![CDATA[") : si+ei]))
+		s = s[si+ei+len("]]>"):]
+	}
+	if b.Len() == 0 {
+		return data
+	}
+	b.WriteString(s)
+	return []byte(b.String())
+}
+
+// normalizeClassicProfilePayloadsForSend rewrites the <payloads> element
+// into the only wire form the Classic API accepts for entity-bearing
+// plists, immediately before the request is sent: the true plist inside a
+// single CDATA section, "]]>" entity-guarded, with every "&" escaped once.
+// Text-form payloads (e.g. a GET/backup response piped back in) are
+// entity-decoded once to recover the plist first. Bodies without a
+// non-empty <payloads> element are returned unchanged.
+//
+// Why the escape (PI-827, wire-verified 2026-07-30 on two tenants): the
+// server validates payload content after one entity decode and 409s
+// ("Unable to update the database") when that yields a bare "&" or "<" —
+// so spec-correct raw CDATA is rejected for ANY plist containing "&amp;"
+// or "&lt;", whatever the payload types. Storage is then per-payload-type:
+// fragments of types the server re-renders (com.apple.ManagedClient
+// .preferences custom settings, notification settings) are entity-decoded
+// once — the escape stores them byte-exact — while other payload types'
+// fragments are stored verbatim, keeping the extra layer. Profiles with
+// "&"/"<" in values of those types cannot be stored faithfully by any
+// client (verifyClassicProfileStored warns after the write).
+func normalizeClassicProfilePayloadsForSend(body []byte) []byte {
+	const openTag = "<payloads>"
+	s := string(body)
+	si := strings.Index(s, openTag)
+	if si < 0 {
+		return body
+	}
+	ci := si + len(openTag)
+	var inner string
+	var restAt int // index into s of the first byte after </payloads>
+	if strings.HasPrefix(s[ci:], "<![CDATA[") {
+		end := strings.Index(s[ci:], "]]></payloads>")
+		if end < 0 {
+			return body
+		}
+		inner = s[ci+len("<![CDATA[") : ci+end]
+		restAt = ci + end + len("]]></payloads>")
+	} else {
+		end := strings.Index(s[ci:], "</payloads>")
+		if end < 0 {
+			return body
+		}
+		var decoded struct {
+			Data string `xml:",chardata"`
+		}
+		if err := xml.Unmarshal([]byte(openTag+s[ci:ci+end]+"</payloads>"), &decoded); err != nil {
+			return body
+		}
+		inner = decoded.Data
+		restAt = ci + end + len("</payloads>")
+	}
+	if inner == "" {
+		return body
+	}
+	inner = strings.ReplaceAll(inner, "]]>", "]]&gt;")
+	inner = strings.ReplaceAll(inner, "&", "&amp;")
+	return []byte(s[:ci] + "<![CDATA[" + inner + "]]></payloads>" + s[restAt:])
+}
+
+// classicProfilePayloadFromBody returns the true plist inside the request
+// body's <payloads> CDATA block, or nil. The block carries the normalizer's
+// escaped form (every "&" escaped once); undoing that single escape — our
+// own, exactly invertible — recovers the submitted plist for comparison
+// against what the server stored.
+func classicProfilePayloadFromBody(body []byte) []byte {
+	s := string(body)
+	si := strings.Index(s, "<payloads><![CDATA[")
+	if si < 0 {
+		return nil
+	}
+	ci := si + len("<payloads><![CDATA[")
+	ei := strings.Index(s[ci:], "]]></payloads>")
+	if ei < 0 {
+		return nil
+	}
+	return []byte(strings.ReplaceAll(s[ci:ci+ei], "&amp;", "&"))
+}
+
+// classicCreatedResourceID extracts the numeric <id> from a Classic create
+// response body, or "" when absent.
+func classicCreatedResourceID(respBody []byte) string {
+	s := string(respBody)
+	si := strings.Index(s, "<id>")
+	if si < 0 {
+		return ""
+	}
+	ei := strings.Index(s[si:], "</id>")
+	if ei < 0 {
+		return ""
+	}
+	return s[si+len("<id>") : si+ei]
+}
+
+// verifyClassicProfileStored fetches the stored payload after a successful
+// write and warns on stderr when the server did not store the submitted
+// values faithfully. This is reachable for profiles that mix payload types
+// with entities on the source-level side (PI-827) — no wire form can store
+// those correctly, so surfacing the exact paths is the only honest
+// behaviour. Best-effort: silent on any verification failure.
+func verifyClassicProfileStored(ctx context.Context, client registry.HTTPClient, apiPath, id string, sentBody []byte) {
+	intended := classicProfilePayloadFromBody(sentBody)
+	if len(intended) == 0 || id == "" {
+		return
+	}
+	stored := fetchClassicProfilePayloadPlist(ctx, client, apiPath, id)
+	if len(stored) == 0 {
+		return
+	}
+	diffs, err := profileconvert.DiffPayloadValues(intended, stored)
+	if err != nil || len(diffs) == 0 {
+		return
+	}
+	total := len(diffs)
+	if total > 5 {
+		diffs = append(diffs[:5], "…")
+	}
+	fmt.Fprintf(os.Stderr, "warning: the server stored %d payload value(s) differently than submitted (Jamf PI-827 — no wire format stores this mix of payload types faithfully): %s\n", total, strings.Join(diffs, ", "))
+}
+
 // classicFileFieldSpec describes one Classic XML field sourced from a local file or in-memory bytes.
 type classicFileFieldSpec struct {
 	FilePath     string   // user-supplied path (empty = skip when FileBytes also nil)
@@ -436,6 +585,30 @@ func injectClassicFileFields(body []byte, rootName string, specs []classicFileFi
 		}
 		var inner string
 		if s.Encoding == "xml-cdata" {
+			if profileconvert.IsSignedProfile(data) {
+				// CMS-signed mobileconfig — extract the inner plist. The
+				// signature cannot survive this API anyway: the server
+				// re-serialises the plist on ingest.
+				if unsigned, err := profileconvert.ExtractSignedProfile(data); err == nil {
+					fmt.Fprintln(os.Stderr, "note: input is a signed mobileconfig; uploading the inner profile (the Classic API cannot preserve the signature)")
+					data = unsigned
+				}
+			}
+			if bytes.HasPrefix(data, []byte("bplist0")) {
+				// Binary plist — convert to XML so it can be embedded at all.
+				if normalized, err := profileconvert.NormalizeXML(data); err == nil {
+					data = normalized
+				}
+			}
+			if bytes.Contains(data, []byte("]]>")) {
+				// "]]>" would terminate the CDATA wrapper early (XML 1.0
+				// §2.4/§2.7). Embedded CDATA sections are the one way a valid
+				// plist contains it — rewrite them as escaped character data
+				// (byte-faithful, no plist parsing), then entity-guard any
+				// stray remainder from malformed input.
+				data = stripCDATASections(data)
+				data = bytes.ReplaceAll(data, []byte("]]>"), []byte("]]&gt;"))
+			}
 			inner = "<![CDATA[" + string(data) + "]]>"
 		} else {
 			inner = string(data)

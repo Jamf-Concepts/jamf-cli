@@ -159,13 +159,13 @@ func newClassicVppInvitationsCreateCmd(ctx *registry.CLIContext) *cobra.Command 
 			}
 
 			resp, err := ctx.Client.Do(reqCtx, "POST", "/JSSResource/vppinvitations/id/0", body)
-
 			if err != nil {
 				return err
 			}
 			defer resp.Body.Close()
 
 			return ctx.Output.PrintResponse(resp)
+
 		},
 	}
 	return cmd

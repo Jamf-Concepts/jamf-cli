@@ -174,13 +174,13 @@ func newClassicAdvancedMobileDeviceSearchesCreateCmd(ctx *registry.CLIContext) *
 			}
 
 			resp, err := ctx.Client.Do(reqCtx, "POST", "/JSSResource/advancedmobiledevicesearches/id/0", body)
-
 			if err != nil {
 				return err
 			}
 			defer resp.Body.Close()
 
 			return ctx.Output.PrintResponse(resp)
+
 		},
 	}
 	return cmd
@@ -501,6 +501,7 @@ If not, a new resource is created.`,
 			if err != nil {
 				return err
 			}
+
 			defer resp.Body.Close()
 			fmt.Fprintf(os.Stderr, "Replaced advanced_mobile_device_search %q (id: %s)\n", name, id)
 			return ctx.Output.PrintResponse(resp)

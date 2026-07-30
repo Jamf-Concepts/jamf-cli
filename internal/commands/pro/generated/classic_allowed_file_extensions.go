@@ -166,13 +166,13 @@ func newClassicAllowedFileExtensionsCreateCmd(ctx *registry.CLIContext) *cobra.C
 			}
 
 			resp, err := ctx.Client.Do(reqCtx, "POST", "/JSSResource/allowedfileextensions/id/0", body)
-
 			if err != nil {
 				return err
 			}
 			defer resp.Body.Close()
 
 			return ctx.Output.PrintResponse(resp)
+
 		},
 	}
 	return cmd

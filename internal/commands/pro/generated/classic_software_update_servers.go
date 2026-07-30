@@ -174,13 +174,13 @@ func newClassicSoftwareUpdateServersCreateCmd(ctx *registry.CLIContext) *cobra.C
 			}
 
 			resp, err := ctx.Client.Do(reqCtx, "POST", "/JSSResource/softwareupdateservers/id/0", body)
-
 			if err != nil {
 				return err
 			}
 			defer resp.Body.Close()
 
 			return ctx.Output.PrintResponse(resp)
+
 		},
 	}
 	return cmd
@@ -501,6 +501,7 @@ If not, a new resource is created.`,
 			if err != nil {
 				return err
 			}
+
 			defer resp.Body.Close()
 			fmt.Fprintf(os.Stderr, "Replaced software_update_server %q (id: %s)\n", name, id)
 			return ctx.Output.PrintResponse(resp)

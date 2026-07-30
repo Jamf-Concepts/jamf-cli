@@ -166,13 +166,13 @@ func newClassicMobileInvitationsCreateCmd(ctx *registry.CLIContext) *cobra.Comma
 			}
 
 			resp, err := ctx.Client.Do(reqCtx, "POST", "/JSSResource/mobiledeviceinvitations/id/0", body)
-
 			if err != nil {
 				return err
 			}
 			defer resp.Body.Close()
 
 			return ctx.Output.PrintResponse(resp)
+
 		},
 	}
 	return cmd

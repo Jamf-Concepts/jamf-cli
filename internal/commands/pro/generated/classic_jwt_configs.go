@@ -154,13 +154,13 @@ func newClassicJwtConfigsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 			}
 
 			resp, err := ctx.Client.Do(reqCtx, "POST", "/JSSResource/jsonwebtokenconfigurations/id/0", body)
-
 			if err != nil {
 				return err
 			}
 			defer resp.Body.Close()
 
 			return ctx.Output.PrintResponse(resp)
+
 		},
 	}
 	return cmd
