@@ -106,10 +106,19 @@ carrying `&`/`<` in values).
 
 ## Scope notes
 
-- `macapplications`/`mobiledeviceapplications` `--appconfig-file` also
-  embeds xml-cdata content — the wrap-time handling applies, but the
-  escape/verify path does not (untested against the server; probe before
-  extending).
+- `mobiledeviceapplications` `--appconfig-file` (`app_configuration/
+  preferences`) was wire-probed 2026-07-30: the endpoint is **fully
+  spec-compliant** — raw CDATA stores byte-identical (formatting included),
+  no validation 409, and the escaped form CORRUPTS values (`A & B` stored
+  as `A &amp; B`). The payloads escape/normalize/verify must therefore
+  never extend to appconfig; the current gating (IsConfigProfile only) is
+  load-bearing. The wrap-time handling (signed/binary/`]]>`) still applies
+  and is safe.
+- `macapplications` `--appconfig-file`: the server accepts the PUT but
+  silently discards the section — GET returns no app_configuration at all
+  (Mac App Store AppConfig is deprecated server-side). A silent no-op, not
+  an escaping issue; the flag is spec-driven and effectively inert on
+  current Jamf Pro.
 - Related: terraform-provider-jamfpro PR #1103 and jamfplatform-go-sdk's
   `PayloadsXMLText` — the SDK needs the same wire form; its acceptance
   matrix in `acc_proclassic_profile_payloads_test.go` encodes the same
