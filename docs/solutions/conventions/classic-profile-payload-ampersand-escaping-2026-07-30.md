@@ -66,7 +66,16 @@ create/update/apply for both profile resources:
 
 1. Recover the true plist: CDATA content is already true form; text-form
    content (GET/backup XML piped back in) is entity-decoded once.
-2. Guard `]]>` → `]]&gt;`, then escape every `&` once and wrap in CDATA.
+2. Minimise source escaping (`minimizeClassicPlistSourceEscaping`): decode
+   every character reference except those encoding `&`/`<`. Verbatim-stored
+   payload types preserve the wire representation with zero decodes, so
+   avoidable references (`&#34;` for `"`, `&#xA;` for newlines — exactly
+   what howett.net/plist's encoding/xml backend emits when the update path
+   re-serialises for UUID injection) would surface as literal text in
+   stored values. This also shrinks the unavoidable corruption set to
+   genuine `&`/`<` characters.
+3. Guard `]]>` → `]]&gt;` (after minimising — decoding `&gt;` can resurrect
+   the terminator), then escape every `&` once and wrap in CDATA.
 
 `verifyClassicProfileStored` then GETs the stored payload after every
 successful write and compares it against the submitted plist

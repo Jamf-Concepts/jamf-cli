@@ -1381,6 +1381,9 @@ import (
 	"path/filepath"
 	"strings"
 {{- end }}
+{{- if anyIsConfigProfile . }}
+	"strconv"
+{{- end }}
 {{- if or (anyNeedsClassicNameResolve .) (anyClassicFileFields .) (anyListSubset .) (anyHasGroupPath .) }}
 	"fmt"
 {{- end }}
@@ -1754,10 +1757,65 @@ func stripCDATASections(data []byte) []byte {
 	return []byte(b.String())
 }
 
+// minimizeClassicPlistSourceEscaping decodes every character/entity
+// reference in plist XML source EXCEPT those encoding "&" and "<" — e.g.
+// "&quot;"/"&#34;" become a literal quote, "&#xA;" a literal newline,
+// "&gt;" a literal ">". Both representations parse to identical values,
+// but the wire representation is what the server's verbatim-stored
+// payload types preserve (PI-827): avoidable references would surface as
+// literal text in stored values. This matters for the update path, where
+// injectClassicProfilePayloadUUIDs re-serialises the plist via
+// howett.net/plist, whose encoding/xml backend escapes quotes and value
+// newlines/tabs numerically.
+func minimizeClassicPlistSourceEscaping(s string) string {
+	var b strings.Builder
+	for i := 0; i < len(s); {
+		c := s[i]
+		if c != '&' {
+			b.WriteByte(c)
+			i++
+			continue
+		}
+		semi := strings.IndexByte(s[i:], ';')
+		if semi < 0 || semi > 12 {
+			b.WriteByte(c)
+			i++
+			continue
+		}
+		ref := s[i+1 : i+semi]
+		var r rune = -1
+		switch {
+		case ref == "quot":
+			r = '"'
+		case ref == "apos":
+			r = '\''
+		case ref == "gt":
+			r = '>'
+		case strings.HasPrefix(ref, "#x") || strings.HasPrefix(ref, "#X"):
+			if n, err := strconv.ParseInt(ref[2:], 16, 32); err == nil {
+				r = rune(n)
+			}
+		case strings.HasPrefix(ref, "#"):
+			if n, err := strconv.ParseInt(ref[1:], 10, 32); err == nil {
+				r = rune(n)
+			}
+		}
+		if r < 0 || r == '&' || r == '<' {
+			b.WriteString(s[i : i+semi+1])
+		} else {
+			b.WriteRune(r)
+		}
+		i += semi + 1
+	}
+	return b.String()
+}
+
 // normalizeClassicProfilePayloadsForSend rewrites the <payloads> element
 // into the only wire form the Classic API accepts for entity-bearing
-// plists, immediately before the request is sent: the true plist inside a
-// single CDATA section, "]]>" entity-guarded, with every "&" escaped once.
+// plists, immediately before the request is sent: the plist inside a
+// single CDATA section with source escaping minimised (see
+// minimizeClassicPlistSourceEscaping), "]]>" entity-guarded, and every
+// "&" escaped once.
 // Text-form payloads (e.g. a GET/backup response piped back in) are
 // entity-decoded once to recover the plist first. Bodies without a
 // non-empty <payloads> element are returned unchanged.
@@ -1807,6 +1865,7 @@ func normalizeClassicProfilePayloadsForSend(body []byte) []byte {
 	if inner == "" {
 		return body
 	}
+	inner = minimizeClassicPlistSourceEscaping(inner)
 	inner = strings.ReplaceAll(inner, "]]>", "]]&gt;")
 	inner = strings.ReplaceAll(inner, "&", "&amp;")
 	return []byte(s[:ci] + "<![CDATA[" + inner + "]]></payloads>" + s[restAt:])

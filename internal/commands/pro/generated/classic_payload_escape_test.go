@@ -45,8 +45,36 @@ func TestNormalizePayloads_CDATA_EscapedOnce(t *testing.T) {
 	for _, p := range plists {
 		body := `<os_x_configuration_profile><general><payloads><![CDATA[` + p + `]]></payloads></general></os_x_configuration_profile>`
 		escaped := cdataContent(t, string(normalizeClassicProfilePayloadsForSend([]byte(body))))
-		if decoded := strings.ReplaceAll(escaped, "&amp;", "&"); decoded != p {
-			t.Errorf("server-side decode would store %q, want %q", decoded, p)
+		want := strings.ReplaceAll(minimizeClassicPlistSourceEscaping(p), "]]>", "]]&gt;")
+		if decoded := strings.ReplaceAll(escaped, "&amp;", "&"); decoded != want {
+			t.Errorf("server-side decode would store %q, want %q", decoded, want)
+		}
+	}
+}
+
+func TestMinimizeClassicPlistSourceEscaping(t *testing.T) {
+	cases := map[string]string{
+		"&quot;":    `"`,
+		"&#34;":     `"`,
+		"&#x22;":    `"`,
+		"&apos;":    "'",
+		"&#39;":     "'",
+		"&gt;":      ">",
+		"&#xA;":     "\n",
+		"&#9;":      "\t",
+		"&amp;":     "&amp;",
+		"&lt;":      "&lt;",
+		"&#38;":     "&#38;",
+		"&#x26;":    "&#x26;",
+		"&#60;":     "&#60;",
+		"&bogus;":   "&bogus;",
+		"A & B; C":  "A & B; C",
+		"&amp;#34;": "&amp;#34;",
+		"a]]&gt;b":  "a]]>b",
+	}
+	for in, want := range cases {
+		if got := minimizeClassicPlistSourceEscaping(in); got != want {
+			t.Errorf("minimize(%q) = %q, want %q", in, got, want)
 		}
 	}
 }
@@ -58,8 +86,9 @@ func TestNormalizePayloads_TextForm_ConvertedToCDATA(t *testing.T) {
 	escapedOnce := strings.NewReplacer("&", "&amp;", "<", "&lt;", ">", "&gt;").Replace(truePlist)
 	body := `<os_x_configuration_profile><general><payloads>` + escapedOnce + `</payloads></general></os_x_configuration_profile>`
 	escaped := cdataContent(t, string(normalizeClassicProfilePayloadsForSend([]byte(body))))
-	if decoded := strings.ReplaceAll(escaped, "&amp;", "&"); decoded != truePlist {
-		t.Errorf("text-form round-trip: server would store %q, want %q", decoded, truePlist)
+	want := minimizeClassicPlistSourceEscaping(truePlist)
+	if decoded := strings.ReplaceAll(escaped, "&amp;", "&"); decoded != want {
+		t.Errorf("text-form round-trip: server would store %q, want %q", decoded, want)
 	}
 }
 
