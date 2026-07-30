@@ -193,6 +193,8 @@ func newClassicMobileConfigProfilesCreateCmd(ctx *registry.CLIContext) *cobra.Co
 			if err != nil {
 				return err
 			}
+
+			bodyBytes = normalizeClassicProfilePayloadsForSend(bodyBytes)
 			resp, err := ctx.Client.Do(reqCtx, "POST", "/JSSResource/mobiledeviceconfigurationprofiles/id/0", bytes.NewReader(bodyBytes))
 
 			if err != nil {
@@ -269,6 +271,7 @@ func newClassicMobileConfigProfilesUpdateCmd(ctx *registry.CLIContext) *cobra.Co
 
 			bodyBytes = injectClassicProfilePayloadUUIDs(bodyBytes, existingPayload)
 			bodyBytes = injectClassicRedeployOnUpdate(bodyBytes)
+			bodyBytes = normalizeClassicProfilePayloadsForSend(bodyBytes)
 
 			path := fmt.Sprintf("/JSSResource/mobiledeviceconfigurationprofiles/id/%s", url.PathEscape(resolvedID))
 			resp, err := ctx.Client.Do(reqCtx, "PUT", path, bytes.NewReader(bodyBytes))
@@ -538,6 +541,8 @@ If not, a new resource is created.`,
 					fmt.Fprintf(os.Stderr, "[dry-run] Would create configuration_profile %q\n", name)
 					return nil
 				}
+
+				data = normalizeClassicProfilePayloadsForSend(data)
 				resp, err := ctx.Client.Do(reqCtx, "POST", "/JSSResource/mobiledeviceconfigurationprofiles/id/0", bytes.NewReader(data))
 				if err != nil {
 					return err
@@ -569,6 +574,7 @@ If not, a new resource is created.`,
 			existingPayload := fetchClassicProfilePayloadPlist(reqCtx, ctx.Client, "mobiledeviceconfigurationprofiles", id)
 			data = injectClassicProfilePayloadUUIDs(data, existingPayload)
 			data = injectClassicRedeployOnUpdate(data)
+			data = normalizeClassicProfilePayloadsForSend(data)
 
 			updatePath := fmt.Sprintf("/JSSResource/mobiledeviceconfigurationprofiles/id/%s", url.PathEscape(id))
 			resp, err := ctx.Client.Do(reqCtx, "PUT", updatePath, bytes.NewReader(data))

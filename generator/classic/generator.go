@@ -622,6 +622,9 @@ func new{{ .GoName }}CreateCmd(ctx *registry.CLIContext) *cobra.Command {
 				return err
 			}
 {{- end }}
+{{ if .IsConfigProfile }}
+			bodyBytes = normalizeClassicProfilePayloadsForSend(bodyBytes)
+{{ end -}}
 			resp, err := ctx.Client.Do(reqCtx, "POST", "/JSSResource/{{ .Path }}/{{ idPath . }}/0", bytes.NewReader(bodyBytes))
 {{ else }}
 			var body io.Reader
@@ -807,6 +810,7 @@ func new{{ .GoName }}UpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 {{ if .IsConfigProfile }}
 			bodyBytes = injectClassicProfilePayloadUUIDs(bodyBytes, existingPayload)
 			bodyBytes = injectClassicRedeployOnUpdate(bodyBytes)
+			bodyBytes = normalizeClassicProfilePayloadsForSend(bodyBytes)
 {{ end }}
 
 			path := fmt.Sprintf("/JSSResource/{{ .Path }}/{{ idPath . }}/%s", url.PathEscape(resolvedID))
@@ -1239,6 +1243,9 @@ If not, a new resource is created.` + "`" + `,
 					fmt.Fprintf(os.Stderr, "[dry-run] Would create {{ .Singular }} %q\n", name)
 					return nil
 				}
+{{ if .IsConfigProfile }}
+				data = normalizeClassicProfilePayloadsForSend(data)
+{{ end -}}
 				resp, err := ctx.Client.Do(reqCtx, "POST", "/JSSResource/{{ .Path }}/{{ idPath . }}/0", bytes.NewReader(data))
 				if err != nil {
 					return err
@@ -1287,6 +1294,7 @@ If not, a new resource is created.` + "`" + `,
 			existingPayload := fetchClassicProfilePayloadPlist(reqCtx, ctx.Client, "{{ .Path }}", id)
 			data = injectClassicProfilePayloadUUIDs(data, existingPayload)
 			data = injectClassicRedeployOnUpdate(data)
+			data = normalizeClassicProfilePayloadsForSend(data)
 {{ end }}
 			updatePath := fmt.Sprintf("/JSSResource/{{ .Path }}/{{ idPath . }}/%s", url.PathEscape(id))
 			resp, err := ctx.Client.Do(reqCtx, "PUT", updatePath, bytes.NewReader(data))
@@ -1350,7 +1358,7 @@ import (
 {{- if or (anyNeedsClassicNameResolve .) (anyClassicFileFields .) (anyListSubset .) }}
 	"github.com/Jamf-Concepts/jamf-cli/internal/xmlconv"
 {{- end }}
-{{- if anyIsConfigProfile . }}
+{{- if or (anyIsConfigProfile .) (anyClassicFileFields .) }}
 	"github.com/Jamf-Concepts/jamf-cli/internal/profileconvert"
 {{- end }}
 {{- if anyHasCustomPayload . }}
@@ -1611,7 +1619,9 @@ func replaceClassicProfilePayload(xmlBody, newPayload []byte) []byte {
 	var buf bytes.Buffer
 	buf.Write(xmlBody[:si])
 	buf.WriteString(openTag + "<![CDATA[")
-	buf.Write(newPayload)
+	// Guard "]]>" so the payload can never terminate the CDATA section early
+	// (XML 1.0 §2.4/§2.7).
+	buf.Write(bytes.ReplaceAll(newPayload, []byte("]]>"), []byte("]]&gt;")))
 	buf.WriteString("]]>" + closeTag)
 	buf.Write(xmlBody[ei+len(closeTag):])
 	return buf.Bytes()
@@ -1669,6 +1679,89 @@ func injectClassicRedeployOnUpdate(body []byte) []byte {
 	insertAt := gOpen + len("<general>")
 	return []byte(s[:insertAt] + "<redeploy_on_update>All</redeploy_on_update>" + s[insertAt:])
 }
+
+// stripCDATASections rewrites every <![CDATA[...]]> section in an XML
+// document as equivalent escaped character data. The parsed document is
+// unchanged (CDATA content is literal text by definition — XML 1.0 §2.7),
+// but the literal "]]>" terminators disappear, so the result can itself be
+// CDATA-wrapped. Content after an unterminated <![CDATA[ is left untouched.
+func stripCDATASections(data []byte) []byte {
+	s := string(data)
+	esc := strings.NewReplacer("&", "&amp;", "<", "&lt;", ">", "&gt;")
+	var b strings.Builder
+	for {
+		si := strings.Index(s, "<![CDATA[")
+		if si < 0 {
+			break
+		}
+		ei := strings.Index(s[si:], "]]>")
+		if ei < 0 {
+			break
+		}
+		b.WriteString(s[:si])
+		b.WriteString(esc.Replace(s[si+len("<![CDATA[") : si+ei]))
+		s = s[si+ei+len("]]>"):]
+	}
+	if b.Len() == 0 {
+		return data
+	}
+	b.WriteString(s)
+	return []byte(b.String())
+}
+
+// normalizeClassicProfilePayloadsForSend rewrites the <payloads> element into
+// the one wire format the Classic API stores correctly, immediately before
+// the request is sent. The server does not treat payload content per the XML
+// spec: it entity-decodes CDATA content once (it must decode zero times) and
+// text content twice (it must decode once) — PI-827. A profile whose plist
+// contains any entity ("&amp;", "&lt;", ...) therefore reaches the database
+// as invalid XML and the write fails with HTTP 409 "Unable to update the
+// database", or worse, stores mangled.
+//
+// Normalization: recover the true plist (CDATA content is already true form;
+// text content — e.g. a GET/backup response piped back in — is entity-decoded
+// once), then guard "]]>" as "]]&gt;" and escape every "&" once. The server's
+// single CDATA decode pass exactly inverts the escape, whatever mix of
+// entities the payload contains. Bodies without a non-empty <payloads>
+// element are returned unchanged.
+func normalizeClassicProfilePayloadsForSend(body []byte) []byte {
+	const openTag = "<payloads>"
+	s := string(body)
+	si := strings.Index(s, openTag)
+	if si < 0 {
+		return body
+	}
+	ci := si + len(openTag)
+	var inner string
+	var restAt int // index into s of the first byte after </payloads>
+	if strings.HasPrefix(s[ci:], "<![CDATA[") {
+		end := strings.Index(s[ci:], "]]></payloads>")
+		if end < 0 {
+			return body
+		}
+		inner = s[ci+len("<![CDATA[") : ci+end]
+		restAt = ci + end + len("]]></payloads>")
+	} else {
+		end := strings.Index(s[ci:], "</payloads>")
+		if end < 0 {
+			return body
+		}
+		var decoded struct {
+			Data string ` + "`" + `xml:",chardata"` + "`" + `
+		}
+		if err := xml.Unmarshal([]byte(openTag+s[ci:ci+end]+"</payloads>"), &decoded); err != nil {
+			return body
+		}
+		inner = decoded.Data
+		restAt = ci + end + len("</payloads>")
+	}
+	if inner == "" {
+		return body
+	}
+	inner = strings.ReplaceAll(inner, "]]>", "]]&gt;")
+	inner = strings.ReplaceAll(inner, "&", "&amp;")
+	return []byte(s[:ci] + "<![CDATA[" + inner + "]]></payloads>" + s[restAt:])
+}
 {{ end }}
 {{ if anyClassicFileFields . }}
 // classicFileFieldSpec describes one Classic XML field sourced from a local file or in-memory bytes.
@@ -1722,6 +1815,21 @@ func injectClassicFileFields(body []byte, rootName string, specs []classicFileFi
 		}
 		var inner string
 		if s.Encoding == "xml-cdata" {
+			if bytes.HasPrefix(data, []byte("bplist0")) {
+				// Binary plist — convert to XML so it can be embedded at all.
+				if normalized, err := profileconvert.NormalizeXML(data); err == nil {
+					data = normalized
+				}
+			}
+			if bytes.Contains(data, []byte("]]>")) {
+				// "]]>" would terminate the CDATA wrapper early (XML 1.0
+				// §2.4/§2.7). Embedded CDATA sections are the one way a valid
+				// plist contains it — rewrite them as escaped character data
+				// (byte-faithful, no plist parsing), then entity-guard any
+				// stray remainder from malformed input.
+				data = stripCDATASections(data)
+				data = bytes.ReplaceAll(data, []byte("]]>"), []byte("]]&gt;"))
+			}
 			inner = "<![CDATA[" + string(data) + "]]>"
 		} else {
 			inner = string(data)

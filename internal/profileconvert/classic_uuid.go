@@ -59,6 +59,23 @@ func InjectIdentifiers(newPlist, existingPlist []byte) ([]byte, error) {
 	return out, nil
 }
 
+// NormalizeXML parses a plist (XML or binary) and re-serialises it as XML
+// with standard entity escaping. Used to eliminate constructs that cannot
+// survive CDATA-wrapping for the Classic API — most notably embedded CDATA
+// sections, whose literal "]]>" terminator would end the wrapper early.
+// Values round-trip exactly; only the byte representation changes.
+func NormalizeXML(data []byte) ([]byte, error) {
+	var v any
+	if _, err := plist.Unmarshal(data, &v); err != nil {
+		return nil, fmt.Errorf("parsing plist: %w", err)
+	}
+	out, err := plist.MarshalIndent(v, plist.XMLFormat, "\t")
+	if err != nil {
+		return nil, fmt.Errorf("re-serialising plist: %w", err)
+	}
+	return out, nil
+}
+
 // ExtractProfileIdentifiers extracts the top-level PayloadUUID and
 // PayloadIdentifier from a mobileconfig plist. Returns empty strings when
 // the fields are absent (not an error condition).
