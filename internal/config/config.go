@@ -19,6 +19,11 @@ type Config struct {
 	DefaultProfile string             `yaml:"default-profile"`
 	DefaultOutput  string             `yaml:"default-output,omitempty"`
 	Profiles       map[string]Profile `yaml:"profiles"`
+	// UpdateCheck gates the once-a-day "a newer jamf-cli is available"
+	// advisory. nil means enabled; `update-check: false` silences it for
+	// every invocation, which is how an admin turns it off across a fleet
+	// that upgrades through a deployed package rather than by hand.
+	UpdateCheck *bool `yaml:"update-check,omitempty"`
 }
 
 // Profile represents a server profile for a Jamf product.

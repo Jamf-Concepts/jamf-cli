@@ -3,9 +3,79 @@
 package main
 
 import (
+	"runtime/debug"
 	"slices"
 	"testing"
 )
+
+func TestResolveVersion(t *testing.T) {
+	buildInfo := func(v string) func() (*debug.BuildInfo, bool) {
+		return func() (*debug.BuildInfo, bool) {
+			info := &debug.BuildInfo{}
+			info.Main.Version = v
+			return info, true
+		}
+	}
+	noBuildInfo := func() (*debug.BuildInfo, bool) { return nil, false }
+
+	tests := []struct {
+		name           string
+		ldflagsVersion string
+		readBuildInfo  func() (*debug.BuildInfo, bool)
+		want           string
+	}{
+		{
+			name:           "ldflags version wins",
+			ldflagsVersion: "v1.25.2",
+			readBuildInfo:  buildInfo("v1.0.0"),
+			want:           "v1.25.2",
+		},
+		{
+			name:           "go install falls back to the module version",
+			ldflagsVersion: "dev",
+			readBuildInfo:  buildInfo("v1.26.0"),
+			want:           "v1.26.0",
+		},
+		{
+			name:           "local go build stays dev",
+			ldflagsVersion: "dev",
+			readBuildInfo:  buildInfo("(devel)"),
+			want:           "dev",
+		},
+		{
+			name:           "empty module version stays dev",
+			ldflagsVersion: "dev",
+			readBuildInfo:  buildInfo(""),
+			want:           "dev",
+		},
+		{
+			name:           "missing build info stays dev",
+			ldflagsVersion: "dev",
+			readBuildInfo:  noBuildInfo,
+			want:           "dev",
+		},
+		{
+			name:           "empty ldflags version also falls back",
+			ldflagsVersion: "",
+			readBuildInfo:  buildInfo("v1.26.0"),
+			want:           "v1.26.0",
+		},
+		{
+			name:           "git describe version is left alone",
+			ldflagsVersion: "v1.25.2-3-gabc1234-dirty",
+			readBuildInfo:  buildInfo("v1.26.0"),
+			want:           "v1.25.2-3-gabc1234-dirty",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := resolveVersion(tt.ldflagsVersion, tt.readBuildInfo); got != tt.want {
+				t.Errorf("resolveVersion(%q) = %q, want %q", tt.ldflagsVersion, got, tt.want)
+			}
+		})
+	}
+}
 
 func TestInjectEnvArgs(t *testing.T) {
 	tests := []struct {

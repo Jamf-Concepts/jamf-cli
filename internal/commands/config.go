@@ -98,6 +98,7 @@ func newConfigShowCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				"config-file":     config.ConfigPath(),
 				"default-profile": cfg.DefaultProfile,
 				"default-output":  cfg.DefaultOutput,
+				"update-check":    cfg.UpdateCheck == nil || *cfg.UpdateCheck,
 				"profiles":        profiles,
 			}
 

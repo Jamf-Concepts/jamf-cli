@@ -58,6 +58,7 @@ var (
 	tenantID            string
 	cliVersion          string // set by NewRootCmd for use by power commands
 	noVersionCheck      bool   // skip tenant version compatibility probe
+	noUpdateCheck       bool   // skip the newer-jamf-cli-release advisory
 )
 
 // cliClient wraps our client to implement registry.HTTPClient
@@ -562,7 +563,13 @@ Set JAMF_CLI_ARGS to prepend default flags to every invocation:
   export JAMF_CLI_ARGS='--profile "My CI Profile"'
 
 Set JAMF_CLI_NO_HINTS=1 to suppress advisory hints while keeping the
-spinner and progress output (narrower than --quiet).`,
+spinner and progress output (narrower than --quiet).
+
+Once a day, an interactive release build checks whether a newer jamf-cli
+exists and prints a one-line hint to stderr. Silence it with
+--no-update-check, JAMF_CLI_NO_UPDATE_CHECK=1, or "update-check: false"
+in the config file. It never runs in CI, when output is piped, or under
+--quiet / --no-hints.`,
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
@@ -623,6 +630,14 @@ spinner and progress output (narrower than --quiet).`,
 			formatter.SetNoHints(noHints)
 			formatter.SetExplicitNoColor(explicitNoColor)
 			cliCtx.Output = &cliOutput{formatter}
+
+			// Release advisory — probes at most once per 24 h, in the
+			// background, and prints in PersistentPostRunE so it can neither
+			// delay nor interleave with the command's own output. Started
+			// before the auth-skip returns below so it covers auth-free
+			// commands too. Every suppression rule lives in the gate; see
+			// startUpdateCheck.
+			pendingUpdateCheck = startUpdateCheck(cmd, cfg, version, noUpdateCheck)
 
 			// Group parent commands (made runnable only to reject unknown
 			// subcommands) never call an API; skip auth so `pro buildings`
@@ -744,6 +759,9 @@ spinner and progress output (narrower than --quiet).`,
 			return nil
 		},
 		PersistentPostRunE: func(cmd *cobra.Command, args []string) error {
+			// Only on the success path: a user staring at an error does not
+			// need to hear about a release too.
+			pendingUpdateCheck.notify(os.Stderr)
 			if outFileHandle != nil {
 				return outFileHandle.Close()
 			}
@@ -792,6 +810,7 @@ spinner and progress output (narrower than --quiet).`,
 	cmd.PersistentFlags().StringVar(&tokenFile, "token-file", "", "path to file containing API token")
 	cmd.PersistentFlags().StringVar(&tenantID, "tenant-id", "", "Jamf Pro tenant ID for platform gateway auth (or JAMF_TENANT_ID env)")
 	cmd.PersistentFlags().BoolVar(&noVersionCheck, "no-version-check", false, "skip tenant version compatibility check (also: JAMF_NO_VERSION_CHECK env)")
+	cmd.PersistentFlags().BoolVar(&noUpdateCheck, "no-update-check", false, "skip the daily check for a newer jamf-cli release (also: JAMF_CLI_NO_UPDATE_CHECK env, or update-check: false in config)")
 
 	// Version command (extracted to version.go so it can pull in provenance).
 	cmd.AddCommand(newVersionCmd(cliCtx, version, commit, date, specProVersion))
