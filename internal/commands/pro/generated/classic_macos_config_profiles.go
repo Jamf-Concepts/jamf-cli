@@ -218,13 +218,17 @@ func newClassicMacosConfigProfilesCreateCmd(ctx *registry.CLIContext) *cobra.Com
 
 			bodyBytes = normalizeClassicProfilePayloadsForSend(bodyBytes)
 			resp, err := ctx.Client.Do(reqCtx, "POST", "/JSSResource/osxconfigurationprofiles/id/0", bytes.NewReader(bodyBytes))
-
 			if err != nil {
 				return err
 			}
 			defer resp.Body.Close()
+			respBody, readErr := io.ReadAll(resp.Body)
+			if readErr != nil {
+				return readErr
+			}
+			verifyClassicProfileStored(reqCtx, ctx.Client, "osxconfigurationprofiles", classicCreatedResourceID(respBody), bodyBytes)
+			return ctx.Output.PrintRaw(respBody)
 
-			return ctx.Output.PrintResponse(resp)
 		},
 	}
 
@@ -318,6 +322,9 @@ func newClassicMacosConfigProfilesUpdateCmd(ctx *registry.CLIContext) *cobra.Com
 
 			path := fmt.Sprintf("/JSSResource/osxconfigurationprofiles/id/%s", url.PathEscape(resolvedID))
 			resp, err := ctx.Client.Do(reqCtx, "PUT", path, bytes.NewReader(bodyBytes))
+			if err == nil {
+				verifyClassicProfileStored(reqCtx, ctx.Client, "osxconfigurationprofiles", resolvedID, bodyBytes)
+			}
 
 			if err != nil {
 				return err
@@ -619,8 +626,13 @@ If not, a new resource is created.`,
 					return err
 				}
 				defer resp.Body.Close()
+				respBody, readErr := io.ReadAll(resp.Body)
+				if readErr != nil {
+					return readErr
+				}
+				verifyClassicProfileStored(reqCtx, ctx.Client, "osxconfigurationprofiles", classicCreatedResourceID(respBody), data)
 				fmt.Fprintf(os.Stderr, "Created os_x_configuration_profile %q\n", name)
-				return ctx.Output.PrintResponse(resp)
+				return ctx.Output.PrintRaw(respBody)
 
 			}
 
@@ -652,6 +664,8 @@ If not, a new resource is created.`,
 			if err != nil {
 				return err
 			}
+			verifyClassicProfileStored(reqCtx, ctx.Client, "osxconfigurationprofiles", id, data)
+
 			defer resp.Body.Close()
 			fmt.Fprintf(os.Stderr, "Replaced os_x_configuration_profile %q (id: %s)\n", name, id)
 			return ctx.Output.PrintResponse(resp)

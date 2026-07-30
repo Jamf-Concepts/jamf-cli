@@ -1,5 +1,5 @@
 ---
-title: "Classic API profile payloads must have every & pre-escaped once inside the CDATA block (PI-827 workaround)"
+title: "Classic API profile payloads: escape every & once inside CDATA, then verify — the server's entity handling is per-payload-type (PI-827)"
 date: 2026-07-30
 category: conventions
 module: generator/classic
@@ -8,6 +8,7 @@ severity: high
 applies_when:
   - "Sending <payloads> content to POST/PUT /JSSResource/osxconfigurationprofiles or mobiledeviceconfigurationprofiles"
   - "A profile upload fails with HTTP 409 'Unable to update the database'"
+  - "A stored profile value shows &amp; / &gt; as literal text on a device"
   - "Adding a new xml-cdata file field to the classic generator"
 tags:
   - classic-api
@@ -20,97 +21,89 @@ tags:
 ## Problem
 
 `pro classic-macos-config-profiles apply --mobileconfig-file X.mobileconfig`
-failed with HTTP 409 "Unable to update the database" whenever the
-mobileconfig contained any XML entity in a value — e.g. `<string>R&amp;D</string>`.
-Since plists must encode `&` and `<` in values, any profile with `&` or `<`
-in a string value failed to upload, even though the CLI's CDATA-wrapped
-request body is spec-correct XML.
+failed with an opaque HTTP 409 "Unable to update the database" whenever the
+mobileconfig contained any XML entity in a value — e.g.
+`<string>R&amp;D</string>`. Since plists must encode `&` and `<`, any
+profile with `&` or `<` in a string value could not be uploaded. Backup
+round-trips (GET XML piped back into `apply`) failed identically.
 
-## Root cause
+## The server model (every clause wire-verified 2026-07-30, EU + US tenants)
 
-Jamf Pro's Classic API entity-decodes `<payloads>` content one extra time on
-ingest — including CDATA content, which a compliant parser must treat as raw
-text. `&amp;` arrives at the database as a bare `&`, breaking the server's
-own re-parse of the plist. Known server bugs, all unfixed as of 11.30:
-[PI-827](https://jamf.atlassian.net/browse/PI-827) (the exact issue,
-Triaged/To Do since 2024), [PI-777](https://jamf.atlassian.net/browse/PI-777)
-(same family), [PI-690](https://jamf.atlassian.net/browse/PI-690) (closed
-Not Going To Do — Jamf treats entity-encoded plists as working as intended).
-Don't expect a server-side fix; double-encoding is the de-facto contract.
+1. **Validation**: the server entity-decodes the submitted payload content
+   once and rejects the write with 409 when the result contains a bare `&`
+   or `<`. Consequence: spec-correct raw CDATA is rejected for ANY plist
+   containing `&amp;`/`&lt;`, regardless of payload types. The escaped form
+   (every `&` escaped once more) is the only submittable form for such
+   profiles.
+2. **Storage is per-payload-type** (proven with a mixed profile — one wire
+   body, two different treatments):
+   - Fragments of payload types the server re-renders —
+     `com.apple.ManagedClient.preferences` custom settings (values AND dict
+     keys), `com.apple.notificationsettings` — are entity-decoded once.
+     The escape stores them **byte-exact**.
+   - Fragments of every other payload type (TCC, direct
+     `com.apple.loginwindow`, and all payloads on
+     `mobiledeviceconfigurationprofiles`) are stored **verbatim**, keeping
+     one extra entity layer. Values with `&`/`<` in those types cannot be
+     stored faithfully by any client — the device sees `&amp;` where `&`
+     was meant. This matches PI-827's history: Jamf's own UI-created
+     exports cannot be re-uploaded intact.
+3. GET responses are escaped correctly (ingest-only quirk); the server also
+   canonicalizes representation (entities for `& < >`, literals for `" '`,
+   sorted keys) and trims leading/trailing whitespace inside string values.
+
+Do not re-derive this from theory: a raw-first/retry-on-409 design was
+implemented and reverted in this branch's history because probes showed the
+409 is validation (fires for all payload types), not a per-type signal —
+raw never succeeds for entity-bearing profiles, so retrying costs a round
+trip and buys nothing.
 
 ## Solution
 
-The full server model (all empirically verified): the Classic API entity-decodes
-`<payloads>` content **once for CDATA** (spec says zero) and **twice for
-text-form** (spec says once — the parser's decode plus the same rogue pass).
-So text-form bodies — exactly what a GET/backup response contains — also fail
-on any `&`-bearing profile when piped back in.
-
 `normalizeClassicProfilePayloadsForSend` (classic registry template in
-`generator/classic/generator.go`) funnels every input form into the one wire
-format the server stores correctly, applied as the **final** body
-transformation before `Client.Do` in create/update/apply (gated on
-`.IsConfigProfile`):
+`generator/classic/generator.go`), applied as the final body transform in
+create/update/apply for both profile resources:
 
 1. Recover the true plist: CDATA content is already true form; text-form
-   content is entity-decoded once (`encoding/xml` chardata parse — handles
-   named, decimal, and hex refs).
-2. Guard `]]>` → `]]&gt;` (backstop; see wrap-time handling below).
-3. Escape every `&` once and wrap in CDATA. This is exactly invertible by
-   the server's single decode pass regardless of which entities the payload
-   contains (`&amp;` → `&`, `&amp;lt;` → `&lt;`, `&amp;#65;` → `&#65;`).
+   content (GET/backup XML piped back in) is entity-decoded once.
+2. Guard `]]>` → `]]&gt;`, then escape every `&` once and wrap in CDATA.
 
-Ordering matters: the normalize must run *after* `injectClassicProfilePayloadUUIDs`,
-which plist-parses the CDATA content and needs it in true (un-double-escaped)
-form. Everything internal operates on the true plist; only the wire form is
-escaped.
+`verifyClassicProfileStored` then GETs the stored payload after every
+successful write and compares it against the submitted plist
+(`profileconvert.DiffPayloadValues` — parse-based, masks the
+`Payload*` metadata keys the server rewrites, trims string edges). When the
+server stored values differently (case 2 above), the exact dotted paths are
+printed as a stderr warning. Silent corruption is never acceptable;
+a warning that names `PayloadContent[3].LoginwindowText` is.
 
-Wrap-time (`injectClassicFileFields`): binary plists (`bplist0` prefix) are
-converted to XML via `profileconvert.NormalizeXML`; files containing `]]>`
-get embedded CDATA sections rewritten as escaped character data by
-`stripCDATASections` — a **textual** rewrite, deliberately not a plist
-parse/re-serialise round trip, because `howett.net/plist` is not byte-faithful
-for CDATA text (drops trailing whitespace). Any stray `]]>` remaining from
-malformed input is entity-guarded so the emitted document stays well-formed
-(XML 1.0 §2.4/§2.7). `replaceClassicProfilePayload` carries the same guard.
-
-Verified live (create + update paths) with an entity-torture profile
-(`&`, `<`, `>`, `"`, `'`, literal `&amp;` text, numeric refs, unicode):
-stored values round-tripped byte-identical, confirmed via GET.
-
-Also verified: *raw* `>` and `'` in plist text (legal XML, common in
-hand-written mobileconfigs, e.g. CEL expressions like
-`target.signing_time >= timestamp('...')`) pass through unchanged — the
-server's decode pass only affects entities, so `&` is the only character
-that needs pre-escaping. The server model this implies: Jamf extracts
-payloads content as raw text (CDATA markers stripped, no parser-level
-entity resolution) and entity-decodes exactly once — for text-form bodies
-that coincides with spec-correct XML (cf. terraform-provider-jamfpro
-PR #1103, whose single-`encoding/xml`-escape fix is correct under both
-interpretations), for CDATA it's the PI-827 bug.
+Wrap-time (`injectClassicFileFields`): CMS-signed mobileconfigs are
+detected (`profileconvert.IsSignedProfile`) and their inner plist extracted
+(`ExtractSignedProfile`, smallstep/pkcs7) with a stderr note — the
+signature cannot survive this API anyway. Binary plists (`bplist0`) are
+converted to XML (`NormalizeXML`). Embedded CDATA sections are rewritten as
+escaped character data by `stripCDATASections` — a **textual** rewrite,
+deliberately not a plist re-serialise, because `howett.net/plist` drops
+trailing whitespace in CDATA text.
 
 ## Verification
 
-All live-verified against Jamf Pro 11.x via the platform gateway: every
-reserved character (`&` `<` `>` `"` `'`) in every legal representation (raw
-where the spec allows, named entity, decimal ref, hex ref), literal entity
-text (`&amp;amp;`), embedded CDATA sections, unicode, and a Santa CEL
-expression (`target.signing_time >= timestamp('...') && ...`) — byte-exact
-storage through create, update, and the GET→apply text-form round trip.
+Live matrix on both tenants: all five reserved characters in every legal
+representation (raw/named/decimal/hex), literal entity text, embedded CDATA
+sections, dict keys with entities, CEL expressions, signed profiles, binary
+plists, GET→apply round-trips — byte-exact storage for MCX-family content
+through create/update/apply, with deterministic warnings for the
+server-unfixable combinations (mobile profiles and typed macOS payloads
+carrying `&`/`<` in values).
 
 ## Scope notes
 
-- GET responses are *not* double-encoded — the server escapes correctly on
-  output. The quirk is ingest-only, so no decode is needed when reading.
-- The server trims leading/trailing whitespace in plist string values on
-  ingest (verified with entity-free values — it is the server's own plist
-  re-serialisation, unrelated to escaping, and no client can prevent it).
-  Internal whitespace survives.
-- `macapplications`/`mobiledeviceapplications` `--appconfig-file` also embeds
-  xml-cdata content (`app_configuration/preferences`) and may have the same
-  server quirk — untested, not covered by the send-time normalizer yet
-  (the wrap-time `]]>`/binary handling does apply to it). Test before
-  extending `normalizeClassicProfilePayloadsForSend` to it.
-- Related external context: terraform-provider-jamfpro PR #1103 fixed the
-  provider's own double-escaping of text-form payloads; its device-verified
-  evidence corroborates the decode arithmetic above.
+- `macapplications`/`mobiledeviceapplications` `--appconfig-file` also
+  embeds xml-cdata content — the wrap-time handling applies, but the
+  escape/verify path does not (untested against the server; probe before
+  extending).
+- Related: terraform-provider-jamfpro PR #1103 and jamfplatform-go-sdk's
+  `PayloadsXMLText` — the SDK needs the same wire form; its acceptance
+  matrix in `acc_proclassic_profile_payloads_test.go` encodes the same
+  server model.
+- Jira: PI-827 (Triaged since 2024), PI-777, PI-690 (closed Not Going To
+  Do). The per-payload-type evidence here is a ready-made escalation kit.

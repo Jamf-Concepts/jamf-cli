@@ -174,13 +174,13 @@ func newClassicComputerExtAttrsCreateCmd(ctx *registry.CLIContext) *cobra.Comman
 			}
 
 			resp, err := ctx.Client.Do(reqCtx, "POST", "/JSSResource/computerextensionattributes/id/0", body)
-
 			if err != nil {
 				return err
 			}
 			defer resp.Body.Close()
 
 			return ctx.Output.PrintResponse(resp)
+
 		},
 	}
 	return cmd
@@ -501,6 +501,7 @@ If not, a new resource is created.`,
 			if err != nil {
 				return err
 			}
+
 			defer resp.Body.Close()
 			fmt.Fprintf(os.Stderr, "Replaced computer_extension_attribute %q (id: %s)\n", name, id)
 			return ctx.Output.PrintResponse(resp)

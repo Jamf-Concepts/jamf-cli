@@ -173,13 +173,13 @@ func newClassicComputerInvitationsCreateCmd(ctx *registry.CLIContext) *cobra.Com
 			}
 
 			resp, err := ctx.Client.Do(reqCtx, "POST", "/JSSResource/computerinvitations/id/0", body)
-
 			if err != nil {
 				return err
 			}
 			defer resp.Body.Close()
 
 			return ctx.Output.PrintResponse(resp)
+
 		},
 	}
 	return cmd

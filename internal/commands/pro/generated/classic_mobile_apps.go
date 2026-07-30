@@ -194,13 +194,13 @@ func newClassicMobileAppsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 				return err
 			}
 			resp, err := ctx.Client.Do(reqCtx, "POST", "/JSSResource/mobiledeviceapplications/id/0", bytes.NewReader(bodyBytes))
-
 			if err != nil {
 				return err
 			}
 			defer resp.Body.Close()
 
 			return ctx.Output.PrintResponse(resp)
+
 		},
 	}
 
@@ -598,6 +598,7 @@ If not, a new resource is created.`,
 			if err != nil {
 				return err
 			}
+
 			defer resp.Body.Close()
 			fmt.Fprintf(os.Stderr, "Replaced mobile_device_application %q (id: %s)\n", name, id)
 			return ctx.Output.PrintResponse(resp)

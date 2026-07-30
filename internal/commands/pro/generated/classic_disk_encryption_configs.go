@@ -174,13 +174,13 @@ func newClassicDiskEncryptionConfigsCreateCmd(ctx *registry.CLIContext) *cobra.C
 			}
 
 			resp, err := ctx.Client.Do(reqCtx, "POST", "/JSSResource/diskencryptionconfigurations/id/0", body)
-
 			if err != nil {
 				return err
 			}
 			defer resp.Body.Close()
 
 			return ctx.Output.PrintResponse(resp)
+
 		},
 	}
 	return cmd
@@ -501,6 +501,7 @@ If not, a new resource is created.`,
 			if err != nil {
 				return err
 			}
+
 			defer resp.Body.Close()
 			fmt.Fprintf(os.Stderr, "Replaced disk_encryption_configuration %q (id: %s)\n", name, id)
 			return ctx.Output.PrintResponse(resp)
