@@ -1155,17 +1155,15 @@ func TestExtractPayloadsFromXML(t *testing.T) {
 	}
 }
 
-func TestClassicProfilePath_EscapesSpecialCharacters(t *testing.T) {
+func TestClassicProfilePath_ByID(t *testing.T) {
 	tests := []struct {
 		profileType string
 		name        string
 		wantSuffix  string
 	}{
-		{"computer", "Simple", "/JSSResource/osxconfigurationprofiles/name/Simple"},
-		{"mobile", "Simple", "/JSSResource/mobiledeviceconfigurationprofiles/name/Simple"},
-		{"computer", "Has Spaces", "/JSSResource/osxconfigurationprofiles/name/Has%20Spaces"},
-		{"computer", "Slash/Test", "/JSSResource/osxconfigurationprofiles/name/Slash%2FTest"},
-		{"computer", "Plus+Sign", "/JSSResource/osxconfigurationprofiles/name/Plus+Sign"},
+		{"computer", "1", "/JSSResource/osxconfigurationprofiles/id/1"},
+		{"mobile", "1", "/JSSResource/mobiledeviceconfigurationprofiles/id/1"},
+		{"computer", "4242", "/JSSResource/osxconfigurationprofiles/id/4242"},
 	}
 	for _, tt := range tests {
 		got := classicProfilePath(tt.profileType, tt.name)
@@ -1278,6 +1276,36 @@ func (m *classicHTTPMock) Do(_ context.Context, _, _ string, _ io.Reader) (*http
 	}, nil
 }
 
+// classicRouteMock implements registry.HTTPClient with per-path canned bodies
+// and records the paths it was asked for. Unrouted paths return 404.
+type classicRouteMock struct {
+	routes map[string]string
+	paths  []string
+}
+
+func (m *classicRouteMock) Do(_ context.Context, _, path string, _ io.Reader) (*http.Response, error) {
+	m.paths = append(m.paths, path)
+	body, ok := m.routes[path]
+	status := http.StatusOK
+	if !ok {
+		status, body = http.StatusNotFound, `<html>Not Found</html>`
+	}
+	return &http.Response{
+		StatusCode: status,
+		Body:       io.NopCloser(strings.NewReader(body)),
+		Header:     make(http.Header),
+	}, nil
+}
+
+func (m *classicRouteMock) sawPath(path string) bool {
+	for _, p := range m.paths {
+		if p == path {
+			return true
+		}
+	}
+	return false
+}
+
 // ── extractAndResolveScope tests ───────────────────────────────────────────
 
 func TestExtractAndResolveScope_ComputerGroups(t *testing.T) {
@@ -1374,7 +1402,7 @@ func TestDownloadClassicProfile_Success(t *testing.T) {
 	cmd := &cobra.Command{}
 	cmd.SetContext(context.Background())
 
-	data, err := downloadClassicProfile(cmd, cliCtx, "Test Profile", "computer")
+	data, err := downloadClassicProfile(cmd, cliCtx, "42", "", "computer")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -1389,13 +1417,125 @@ func TestDownloadClassicProfile_NotFound(t *testing.T) {
 	cmd := &cobra.Command{}
 	cmd.SetContext(context.Background())
 
-	_, err := downloadClassicProfile(cmd, cliCtx, "Missing Profile", "computer")
+	_, err := downloadClassicProfile(cmd, cliCtx, "99", "", "computer")
 	if err == nil {
 		t.Fatal("expected error for 404 response")
 		return
 	}
 	if !strings.Contains(err.Error(), "not found") {
 		t.Errorf("expected 'not found' error, got %q", err.Error())
+	}
+}
+
+func TestDownloadClassicProfile_ByName(t *testing.T) {
+	mock := &classicRouteMock{routes: map[string]string{
+		"/JSSResource/osxconfigurationprofiles": `<os_x_configuration_profiles><size>2</size>
+			<os_x_configuration_profile><id>7</id><name>Passcode Policy</name></os_x_configuration_profile>
+			<os_x_configuration_profile><id>9</id><name>Other</name></os_x_configuration_profile>
+		</os_x_configuration_profiles>`,
+		"/JSSResource/osxconfigurationprofiles/id/7": `<os_x_configuration_profile><general>
+			<payloads><![CDATA[<?xml version="1.0"?><plist><dict></dict></plist>]]></payloads>
+		</general></os_x_configuration_profile>`,
+	}}
+
+	cliCtx := &registry.CLIContext{Client: mock}
+	cmd := &cobra.Command{}
+	cmd.SetContext(context.Background())
+
+	data, err := downloadClassicProfile(cmd, cliCtx, "", "Passcode Policy", "computer")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !strings.Contains(string(data), "<plist>") {
+		t.Errorf("expected plist content, got %q", string(data))
+	}
+	if !mock.sawPath("/JSSResource/osxconfigurationprofiles/id/7") {
+		t.Errorf("expected fetch by resolved id 7, saw %v", mock.paths)
+	}
+}
+
+// ── resolveClassicProfileID tests ──────────────────────────────────────────
+
+func TestResolveClassicProfileID_NumericArgSkipsLookup(t *testing.T) {
+	mock := &classicRouteMock{}
+	id, name, err := resolveClassicProfileID(context.Background(), mock, "computer", "42", "")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if id != "42" || name != "" {
+		t.Errorf("got id=%q name=%q, want id=42 and empty name", id, name)
+	}
+	if len(mock.paths) != 0 {
+		t.Errorf("expected no API calls for a numeric id, saw %v", mock.paths)
+	}
+}
+
+func TestResolveClassicProfileID_NonNumericArgResolvesAsName(t *testing.T) {
+	mock := &classicRouteMock{routes: map[string]string{
+		"/JSSResource/osxconfigurationprofiles": `<os_x_configuration_profiles><size>1</size>
+			<os_x_configuration_profile><id>3</id><name>My Restrictions</name></os_x_configuration_profile>
+		</os_x_configuration_profiles>`,
+	}}
+	id, name, err := resolveClassicProfileID(context.Background(), mock, "computer", "My Restrictions", "")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if id != "3" || name != "My Restrictions" {
+		t.Errorf("got id=%q name=%q, want id=3 name=My Restrictions", id, name)
+	}
+}
+
+func TestResolveClassicProfileID_DuplicateNamesListIDs(t *testing.T) {
+	restore := noInput
+	noInput = true
+	t.Cleanup(func() { noInput = restore })
+
+	mock := &classicRouteMock{routes: map[string]string{
+		"/JSSResource/osxconfigurationprofiles": `<os_x_configuration_profiles><size>2</size>
+			<os_x_configuration_profile><id>11</id><name>Duplicate</name></os_x_configuration_profile>
+			<os_x_configuration_profile><id>12</id><name>Duplicate</name></os_x_configuration_profile>
+		</os_x_configuration_profiles>`,
+	}}
+	_, _, err := resolveClassicProfileID(context.Background(), mock, "computer", "", "Duplicate")
+	if err == nil {
+		t.Fatal("expected an error for duplicate names")
+	}
+	if !strings.Contains(err.Error(), "11") || !strings.Contains(err.Error(), "12") {
+		t.Errorf("expected both colliding ids in error, got %q", err.Error())
+	}
+}
+
+func TestResolveClassicProfileID_WrongTypeHint(t *testing.T) {
+	restore := noInput
+	noInput = true
+	t.Cleanup(func() { noInput = restore })
+
+	mock := &classicRouteMock{routes: map[string]string{
+		"/JSSResource/osxconfigurationprofiles": `<os_x_configuration_profiles><size>0</size></os_x_configuration_profiles>`,
+		"/JSSResource/mobiledeviceconfigurationprofiles": `<configuration_profiles><size>1</size>
+			<configuration_profile><id>5</id><name>Managed Restrictions</name></configuration_profile>
+		</configuration_profiles>`,
+	}}
+	_, _, err := resolveClassicProfileID(context.Background(), mock, "computer", "", "Managed Restrictions")
+	if err == nil {
+		t.Fatal("expected an error when the name only exists under the other type")
+	}
+	if !strings.Contains(err.Error(), "--type mobile") {
+		t.Errorf("expected a --type mobile hint, got %q", err.Error())
+	}
+}
+
+func TestResolveClassicProfileID_ArgAndNameFlagConflict(t *testing.T) {
+	_, _, err := resolveClassicProfileID(context.Background(), &classicRouteMock{}, "computer", "42", "Some Profile")
+	if err == nil || !strings.Contains(err.Error(), "not both") {
+		t.Errorf("expected an 'either <id> or --name, not both' error, got %v", err)
+	}
+}
+
+func TestResolveClassicProfileID_NoIdentifier(t *testing.T) {
+	_, _, err := resolveClassicProfileID(context.Background(), &classicRouteMock{}, "computer", "", "")
+	if err == nil || !strings.Contains(err.Error(), "--name") {
+		t.Errorf("expected a 'provide an <id> or use --name' error, got %v", err)
 	}
 }
 
@@ -1406,7 +1546,7 @@ func TestDownloadClassicProfile_NoPayloads(t *testing.T) {
 	cmd := &cobra.Command{}
 	cmd.SetContext(context.Background())
 
-	_, err := downloadClassicProfile(cmd, cliCtx, "Empty Profile", "computer")
+	_, err := downloadClassicProfile(cmd, cliCtx, "13", "", "computer")
 	if err == nil {
 		t.Fatal("expected error for missing payloads")
 		return
@@ -1421,7 +1561,7 @@ func TestDownloadClassicProfile_NilClient(t *testing.T) {
 	cmd := &cobra.Command{}
 	cmd.SetContext(context.Background())
 
-	_, err := downloadClassicProfile(cmd, cliCtx, "Test", "computer")
+	_, err := downloadClassicProfile(cmd, cliCtx, "1", "", "computer")
 	if err == nil {
 		t.Fatal("expected error for nil client")
 		return

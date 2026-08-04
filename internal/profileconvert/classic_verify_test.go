@@ -71,6 +71,91 @@ func TestDiffPayloadValues_MissingEmptyContainerIgnored(t *testing.T) {
 	}
 }
 
+func TestDiffPayloadValues_CarriageReturnStoredAsLineFeed(t *testing.T) {
+	// "&#13;" is the only line break Jamf Pro stores, and it always reads back
+	// as LF (MCX/mobile fragments normalise on store; a verbatim CR byte is
+	// normalised by our own parse). That must not read as an unfaithful store.
+	intended := plistDoc(`<key>ConsentText</key><string>Welcome to&#13;&#13;ACME</string>`)
+	stored := plistDoc(`<key>ConsentText</key><string>Welcome to&#10;&#10;ACME</string>`)
+	diffs, err := DiffPayloadValues(intended, stored)
+	if err != nil || len(diffs) != 0 {
+		t.Fatalf("CR/LF difference must be tolerated, got %v (err %v)", diffs, err)
+	}
+}
+
+func TestDiffPayloadValues_LineSeparatorsStillCompared(t *testing.T) {
+	// U+2028 round-trips byte-exact, so losing it is real corruption.
+	intended := plistDoc(`<key>k</key><string>a&#8232;b</string>`)
+	stored := plistDoc(`<key>k</key><string>ab</string>`)
+	diffs, err := DiffPayloadValues(intended, stored)
+	if err != nil || len(diffs) != 1 {
+		t.Fatalf("want 1 diff for a dropped U+2028, got %v (err %v)", diffs, err)
+	}
+}
+
+func TestDiffPayloadValuesDetailed_Classification(t *testing.T) {
+	tests := []struct {
+		name           string
+		intended       string
+		stored         string
+		wantPath       string
+		reasonContains string
+	}{
+		{
+			name:           "line breaks deleted",
+			intended:       `<key>ConsentText</key><string>EITHER&#10;&#9;EXPRESSED</string>`,
+			stored:         `<key>ConsentText</key><string>EITHEREXPRESSED</string>`,
+			wantPath:       "ConsentText",
+			reasonContains: "&#13;",
+		},
+		{
+			name:           "extra entity layer",
+			intended:       `<key>LoginwindowText</key><string>Here is an &amp;</string>`,
+			stored:         `<key>LoginwindowText</key><string>Here is an &amp;amp;</string>`,
+			wantPath:       "LoginwindowText",
+			reasonContains: "PI-827",
+		},
+		{
+			name:           "non-BMP replaced",
+			intended:       `<key>k</key><string>hi &#128512;</string>`,
+			stored:         `<key>k</key><string>hi ` + "��" + `</string>`,
+			wantPath:       "k",
+			reasonContains: "non-BMP",
+		},
+		{
+			name:           "value absent",
+			intended:       `<key>k</key><string>v</string>`,
+			stored:         `<key>other</key><string>v</string>`,
+			wantPath:       "k",
+			reasonContains: "not stored at all",
+		},
+		{
+			name:           "unexplained",
+			intended:       `<key>k</key><string>alpha</string>`,
+			stored:         `<key>k</key><string>beta</string>`,
+			wantPath:       "k",
+			reasonContains: "value differs",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			diffs, err := DiffPayloadValuesDetailed(plistDoc(tt.intended), plistDoc(tt.stored))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(diffs) != 1 {
+				t.Fatalf("want 1 diff, got %v", diffs)
+			}
+			if diffs[0].Path != tt.wantPath {
+				t.Errorf("path = %q, want %q", diffs[0].Path, tt.wantPath)
+			}
+			if !strings.Contains(diffs[0].Reason, tt.reasonContains) {
+				t.Errorf("reason %q does not mention %q", diffs[0].Reason, tt.reasonContains)
+			}
+		})
+	}
+}
+
 func TestIsSignedProfile(t *testing.T) {
 	if IsSignedProfile([]byte(`<?xml version="1.0"?>`)) {
 		t.Fatal("XML misdetected as signed")
