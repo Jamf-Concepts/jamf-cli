@@ -251,6 +251,26 @@ func (s *stubProtectClientBase) DeleteUnifiedLoggingFilter(_ context.Context, _ 
 	return nil
 }
 
+func (s *stubProtectClientBase) ListUnifiedLoggingFilterSets(_ context.Context) ([]jamfprotect.UnifiedLoggingFilterSet, error) {
+	return nil, nil
+}
+
+func (s *stubProtectClientBase) GetUnifiedLoggingFilterSet(_ context.Context, _ string) (*jamfprotect.UnifiedLoggingFilterSet, error) {
+	return nil, nil
+}
+
+func (s *stubProtectClientBase) CreateUnifiedLoggingFilterSet(_ context.Context, _ jamfprotect.UnifiedLoggingFilterSetInput) (jamfprotect.UnifiedLoggingFilterSet, error) {
+	return jamfprotect.UnifiedLoggingFilterSet{}, nil
+}
+
+func (s *stubProtectClientBase) UpdateUnifiedLoggingFilterSet(_ context.Context, _ string, _ jamfprotect.UnifiedLoggingFilterSetInput) (jamfprotect.UnifiedLoggingFilterSet, error) {
+	return jamfprotect.UnifiedLoggingFilterSet{}, nil
+}
+
+func (s *stubProtectClientBase) DeleteUnifiedLoggingFilterSet(_ context.Context, _ string) error {
+	return nil
+}
+
 func (s *stubProtectClientBase) ListRoles(_ context.Context) ([]jamfprotect.Role, error) {
 	return nil, nil
 }

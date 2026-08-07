@@ -245,6 +245,170 @@ func TestPlanToExport_AnalyticSetNames(t *testing.T) {
 	}
 }
 
+func TestPlanToExport_UnifiedLoggingFilterSetNames(t *testing.T) {
+	p := &jamfprotect.Plan{
+		Name: "Plan with ULF Sets",
+		UnifiedLoggingFilterSets: []jamfprotect.PlanUnifiedLoggingFilterSet{
+			{UUID: "ulfs-1", Name: "Set One"},
+			{UUID: "ulfs-2", Name: "Set Two"},
+		},
+	}
+	export := planToExport(p)
+
+	want := []string{"Set One", "Set Two"}
+	if len(export.ULFSets) != len(want) {
+		t.Fatalf("ULFSets length = %d, want %d", len(export.ULFSets), len(want))
+	}
+	for i, w := range want {
+		if export.ULFSets[i] != w {
+			t.Errorf("ULFSets[%d] = %q, want %q", i, export.ULFSets[i], w)
+		}
+	}
+}
+
+func TestPlanToExport_NoUnifiedLoggingFilterSets(t *testing.T) {
+	export := planToExport(&jamfprotect.Plan{Name: "Bare"})
+	if export.ULFSets != nil {
+		t.Errorf("ULFSets = %v, want nil so the key is omitted from export", export.ULFSets)
+	}
+}
+
+func TestFlattenPlan_UnifiedLoggingFilterSetsJoined(t *testing.T) {
+	m := flattenPlan(jamfprotect.Plan{
+		Name: "Plan",
+		UnifiedLoggingFilterSets: []jamfprotect.PlanUnifiedLoggingFilterSet{
+			{UUID: "a", Name: "Set A"},
+			{UUID: "b", Name: "Set B"},
+		},
+	})
+	if got := m["unifiedLoggingFilterSets"]; got != "Set A, Set B" {
+		t.Errorf("unifiedLoggingFilterSets = %v, want %q", got, "Set A, Set B")
+	}
+}
+
+func TestFlattenPlan_OmitsEmptyUnifiedLoggingFilterSets(t *testing.T) {
+	m := flattenPlan(jamfprotect.Plan{Name: "Plan"})
+	if _, ok := m["unifiedLoggingFilterSets"]; ok {
+		t.Error("unifiedLoggingFilterSets present, want omitted when the plan has none")
+	}
+}
+
+// ─── unified logging filter sets ────────────────────────────────────────────
+
+func TestFlattenULFSet_FiltersAndPlans(t *testing.T) {
+	m := flattenULFSet(jamfprotect.UnifiedLoggingFilterSet{
+		Name:        "My Set",
+		Description: "desc",
+		Filters: []jamfprotect.UnifiedLoggingFilterSetFilter{
+			{UUID: "f-1", Name: "Filter One"},
+			{UUID: "f-2", Name: "Filter Two"},
+		},
+		Plans: []jamfprotect.UnifiedLoggingFilterSetPlan{
+			{ID: "p-1", Name: "Plan One"},
+		},
+	})
+
+	if got := m["name"]; got != "My Set" {
+		t.Errorf("name = %v, want %q", got, "My Set")
+	}
+	if got := m["filtersCount"]; got != 2 {
+		t.Errorf("filtersCount = %v, want 2", got)
+	}
+	if got := m["filters"]; got != "Filter One, Filter Two" {
+		t.Errorf("filters = %v, want %q", got, "Filter One, Filter Two")
+	}
+	if got := m["plans"]; got != "Plan One" {
+		t.Errorf("plans = %v, want %q", got, "Plan One")
+	}
+}
+
+func TestFlattenULFSet_OmitsEmptyCollections(t *testing.T) {
+	m := flattenULFSet(jamfprotect.UnifiedLoggingFilterSet{Name: "Empty"})
+
+	if _, ok := m["filters"]; ok {
+		t.Error("filters present, want omitted when the set has none")
+	}
+	if _, ok := m["plans"]; ok {
+		t.Error("plans present, want omitted when the set is unassigned")
+	}
+	if got := m["filtersCount"]; got != 0 {
+		t.Errorf("filtersCount = %v, want 0", got)
+	}
+}
+
+func TestULFSetToExport_UsesFilterNames(t *testing.T) {
+	export := ulfSetToExport(&jamfprotect.UnifiedLoggingFilterSet{
+		Name:        "My Set",
+		Description: "desc",
+		Filters: []jamfprotect.UnifiedLoggingFilterSetFilter{
+			{UUID: "f-1", Name: "Filter One"},
+			{UUID: "f-2", Name: "Filter Two"},
+		},
+		// Plans is intentionally set: it is a server-side back-reference and
+		// must not leak into the portable export format.
+		Plans: []jamfprotect.UnifiedLoggingFilterSetPlan{{ID: "p-1", Name: "Plan One"}},
+	})
+
+	if export.Name != "My Set" {
+		t.Errorf("Name = %q, want %q", export.Name, "My Set")
+	}
+	if export.Description != "desc" {
+		t.Errorf("Description = %q, want %q", export.Description, "desc")
+	}
+	want := []string{"Filter One", "Filter Two"}
+	if len(export.Filters) != len(want) {
+		t.Fatalf("Filters length = %d, want %d", len(export.Filters), len(want))
+	}
+	for i, w := range want {
+		if export.Filters[i] != w {
+			t.Errorf("Filters[%d] = %q, want %q", i, export.Filters[i], w)
+		}
+	}
+}
+
+func TestULFSetToExport_EmptyFiltersIsNonNil(t *testing.T) {
+	// The API accepts an empty filter list, so an emptied set must round-trip
+	// as [] rather than dropping the key and re-sending the old membership.
+	export := ulfSetToExport(&jamfprotect.UnifiedLoggingFilterSet{Name: "Empty"})
+	if export.Filters == nil {
+		t.Error("Filters = nil, want non-nil empty slice")
+	}
+	if len(export.Filters) != 0 {
+		t.Errorf("Filters length = %d, want 0", len(export.Filters))
+	}
+}
+
+// ─── flattenULF ─────────────────────────────────────────────────────────────
+
+func TestFlattenULF_SetsJoined(t *testing.T) {
+	m := flattenULF(jamfprotect.UnifiedLoggingFilter{
+		Name:    "My Filter",
+		Enabled: true,
+		Filter:  `subsystem == "com.apple.TimeMachine"`,
+		Sets: []jamfprotect.UnifiedLoggingFilterSetRef{
+			{UUID: "s-1", Name: "Set A"},
+			{UUID: "s-2", Name: "Set B"},
+		},
+	})
+
+	if got := m["name"]; got != "My Filter" {
+		t.Errorf("name = %v, want %q", got, "My Filter")
+	}
+	if got := m["enabled"]; got != true {
+		t.Errorf("enabled = %v, want true", got)
+	}
+	if got := m["sets"]; got != "Set A, Set B" {
+		t.Errorf("sets = %v, want %q", got, "Set A, Set B")
+	}
+}
+
+func TestFlattenULF_OmitsEmptySets(t *testing.T) {
+	m := flattenULF(jamfprotect.UnifiedLoggingFilter{Name: "Loner"})
+	if _, ok := m["sets"]; ok {
+		t.Error("sets present, want omitted when the filter belongs to none")
+	}
+}
+
 // ─── analyticYAMLToInput ────────────────────────────────────────────────────
 
 func TestAnalyticYAMLToInput_EmptySlices(t *testing.T) {

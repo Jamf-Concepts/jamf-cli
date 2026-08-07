@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -75,6 +76,14 @@ func flattenPlan(p jamfprotect.Plan) map[string]any {
 
 	if p.USBControlSet != nil {
 		m["usbControlSet"] = p.USBControlSet.Name
+	}
+
+	if len(p.UnifiedLoggingFilterSets) > 0 {
+		names := make([]string, 0, len(p.UnifiedLoggingFilterSets))
+		for _, s := range p.UnifiedLoggingFilterSets {
+			names = append(names, s.Name)
+		}
+		m["unifiedLoggingFilterSets"] = strings.Join(names, ", ")
 	}
 
 	return m
@@ -330,6 +339,7 @@ type planExport struct {
 	ActionConfig         string                                     `json:"actionConfig" yaml:"actionConfig"`
 	ExceptionSets        []string                                   `json:"exceptionSets,omitempty" yaml:"exceptionSets,omitempty"`
 	AnalyticSets         []planAnalyticSetExport                    `json:"analyticSets,omitempty" yaml:"analyticSets,omitempty"`
+	ULFSets              []string                                   `json:"unifiedLoggingFilterSets,omitempty" yaml:"unifiedLoggingFilterSets,omitempty"`
 	USBControlSet        string                                     `json:"usbControlSet,omitempty" yaml:"usbControlSet,omitempty"`
 	Telemetry            string                                     `json:"telemetry,omitempty" yaml:"telemetry,omitempty"`
 	CommsConfig          *jamfprotect.PlanCommsConfigInput          `json:"commsConfig,omitempty" yaml:"commsConfig,omitempty"`
@@ -369,6 +379,13 @@ func planToExport(p *jamfprotect.Plan) planExport {
 			}
 		}
 		e.AnalyticSets = sets
+	}
+	if len(p.UnifiedLoggingFilterSets) > 0 {
+		names := make([]string, len(p.UnifiedLoggingFilterSets))
+		for i, s := range p.UnifiedLoggingFilterSets {
+			names[i] = s.Name
+		}
+		e.ULFSets = names
 	}
 	if p.USBControlSet != nil {
 		e.USBControlSet = p.USBControlSet.Name
@@ -436,6 +453,17 @@ func planExportToInput(ctx context.Context, e planExport, r *protect.Resolver) (
 			sets[i] = jamfprotect.PlanAnalyticSetInput{Type: as.Type, UUID: uuid}
 		}
 		input.AnalyticSets = sets
+	}
+	if len(e.ULFSets) > 0 {
+		uuids := make([]string, len(e.ULFSets))
+		for i, name := range e.ULFSets {
+			uuid, err := r.ResolveUnifiedLoggingFilterSetUUID(ctx, name)
+			if err != nil {
+				return input, fmt.Errorf("resolving unified logging filter set %q: %w", name, err)
+			}
+			uuids[i] = uuid
+		}
+		input.UnifiedLoggingFilterSets = uuids
 	}
 	if e.USBControlSet != "" {
 		id, err := r.ResolveRemovableStorageControlSetID(ctx, e.USBControlSet)
