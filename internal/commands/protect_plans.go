@@ -122,6 +122,11 @@ func newProtectPlansApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "apply",
 		Short: "Create or update a plan",
+		Long: `Create or update a plan.
+
+Reference collections (exceptionSets, analyticSets, unifiedLoggingFilterSets) are
+additive: an omitted or empty list leaves existing membership unchanged. Use the
+granular remove-* subcommands on the referenced resource to detach members.`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if scaffold {
 				return printExport(planExport{})

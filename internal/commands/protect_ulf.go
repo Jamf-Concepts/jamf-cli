@@ -67,19 +67,19 @@ func newProtectULFListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 // flattenULF converts a UnifiedLoggingFilter into a clean map for readable
 // table output, reducing the set membership list to names.
 func flattenULF(f jamfprotect.UnifiedLoggingFilter) map[string]any {
-	m := map[string]any{
-		"name":    f.Name,
-		"enabled": f.Enabled,
-		"filter":  f.Filter,
+	names := make([]string, 0, len(f.Sets))
+	for _, s := range f.Sets {
+		names = append(names, s.Name)
 	}
-	if len(f.Sets) > 0 {
-		names := make([]string, 0, len(f.Sets))
-		for _, s := range f.Sets {
-			names = append(names, s.Name)
-		}
-		m["sets"] = strings.Join(names, ", ")
+	return map[string]any{
+		"uuid":        f.UUID,
+		"name":        f.Name,
+		"description": f.Description,
+		"enabled":     f.Enabled,
+		"filter":      f.Filter,
+		"tags":        strings.Join(f.Tags, ", "),
+		"sets":        strings.Join(names, ", "), // always present: table/csv columns come from row 0
 	}
-	return m
 }
 
 func newProtectULFGetCmd(cliCtx *registry.CLIContext) *cobra.Command {

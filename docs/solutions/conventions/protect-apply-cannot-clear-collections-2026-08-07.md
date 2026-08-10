@@ -1,14 +1,14 @@
 ---
-title: "protect apply never clears a collection field — omitted and empty both mean 'leave unchanged'"
+title: "plans apply cannot clear a reference collection — omitted and empty both mean 'leave unchanged'"
 date: 2026-08-07
 category: conventions
 module: internal/commands
 problem_type: convention
 severity: medium
 applies_when:
-  - "Adding a collection (list-of-references) field to a protect resource's apply/export format"
-  - "Expecting a protect export → edit → apply round-trip to behave as a declarative replace"
-  - "Writing a cleanup path that detaches members from a plan or set"
+  - "Adding a cross-resource reference (list-of-names) field to plans apply/export"
+  - "Expecting a plans export → edit → apply round-trip to behave as a declarative replace"
+  - "Writing a cleanup path that detaches members from a plan"
 tags:
   - protect
   - apply
@@ -18,7 +18,7 @@ tags:
   - round-trip
 ---
 
-# `protect apply` never clears a collection field
+# `plans apply` cannot clear a reference collection
 
 ## Context
 
@@ -31,7 +31,7 @@ set. The plan kept the membership, and the set then refused to delete
 
 The cause is a two-layer omission, and neither layer is wrong on its own:
 
-1. Every `protect ... apply` builds its input with
+1. `planExportToInput` builds each cross-resource reference field with
    `if len(e.Field) > 0 { input.Field = ... }`.
 2. The SDK only sends a GraphQL variable when the corresponding struct field is
    non-nil.
@@ -39,29 +39,45 @@ The cause is a two-layer omission, and neither layer is wrong on its own:
 So an absent key and an explicit `[]` are indistinguishable by the time the
 mutation is built, and both are dropped from the request. The server keeps
 whatever it had. This is not specific to filter sets — `exceptionSets` and
-`analyticSets` have always behaved this way.
+`analyticSets` on `PlanInput` have always behaved this way.
 
 Detaching by hand required reconstructing the whole plan and posting
 `unifiedLoggingFilterSets: []` directly, because `PlanInput` has no partial
 update: `name`, `description`, `actionConfigs` and `autoUpdate` are all required
 even for a one-field change.
 
+**This is scoped to `plans apply`'s cross-resource reference fields only.** A
+set's own membership list is a different case: `ulfSetExportToInput` sends
+`Filters` unconditionally (no `len() > 0` guard), and the SDK's
+`buildUnifiedLoggingFilterSetVariables` has no nil guard either — `$filters:
+[ID!]!` is a required non-null argument. So `ulfs apply` (and `analytic-sets
+apply`, built the same way) **does** clear the membership when the field is
+omitted or empty. That is correct: a resource's own membership is what `apply`
+is meant to replace; only a *reference* to another resource on `PlanInput`
+carries the limitation below.
+
 ## Guidance
 
-**Don't describe or treat `protect apply` as a declarative replace.** It is an
-upsert that can add to and reorder a collection, never empty one.
+**Don't describe or treat `plans apply`'s reference fields as a declarative
+replace.** They can add to and reorder a collection, never empty it.
 
-- To detach members, use the granular read-modify-write subcommands —
-  `remove-analytic`, `remove-exception`, `remove-rule`, `remove-filter`. Those
-  send the full remaining list, so they *can* reach empty.
-- When adding a new collection field to an export format, follow the existing
-  `if len(...) > 0` shape so the resource behaves like its siblings. Do not make
-  one field clear-capable in isolation — inconsistency here is worse than the
+- To detach members from a plan, use the granular read-modify-write
+  subcommands — `remove-analytic`, `remove-exception`, `remove-rule`,
+  `remove-filter`. Those send the full remaining list, so they *can* reach
+  empty.
+- When adding a new **cross-resource reference** field to `plans`
+  apply/export, follow the existing `if len(...) > 0` shape so the field
+  behaves like its `PlanInput` siblings. Do not make one reference field
+  clear-capable in isolation — inconsistency here is worse than the
   limitation.
-- If this is ever fixed, fix it across **all** collection fields at once. It
-  needs a way to distinguish absent from empty — a `*[]string`, or checking key
-  presence against the raw unmarshalled map — plus a matching SDK change so an
-  explicitly-empty slice still marshals into the request.
+- When adding a field for a resource's **own** membership list (e.g. a new
+  set type's `apply`), send it unconditionally instead — that field should
+  behave like `ulfs apply`'s `filters`, not like a `PlanInput` reference.
+- If the `PlanInput` limitation is ever fixed, fix it across **all**
+  reference fields at once. It needs a way to distinguish absent from empty —
+  a `*[]string`, or checking key presence against the raw unmarshalled map —
+  plus a matching SDK change so an explicitly-empty slice still marshals into
+  the request.
 
 Shape to be aware of when hand-probing the fix:
 

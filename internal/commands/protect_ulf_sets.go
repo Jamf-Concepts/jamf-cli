@@ -62,26 +62,22 @@ func newProtectULFSetsListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 // flattenULFSet converts a UnifiedLoggingFilterSet into a clean map for
 // readable table output, reducing nested slices to names/counts.
 func flattenULFSet(s jamfprotect.UnifiedLoggingFilterSet) map[string]any {
-	m := map[string]any{
+	filterNames := make([]string, 0, len(s.Filters))
+	for _, f := range s.Filters {
+		filterNames = append(filterNames, f.Name)
+	}
+	planNames := make([]string, 0, len(s.Plans))
+	for _, p := range s.Plans {
+		planNames = append(planNames, p.Name)
+	}
+	return map[string]any{
 		"name":         s.Name,
 		"description":  s.Description,
 		"filtersCount": len(s.Filters),
+		// filters/plans always present: table/csv columns come from row 0
+		"filters": strings.Join(filterNames, ", "),
+		"plans":   strings.Join(planNames, ", "),
 	}
-	if len(s.Filters) > 0 {
-		names := make([]string, 0, len(s.Filters))
-		for _, f := range s.Filters {
-			names = append(names, f.Name)
-		}
-		m["filters"] = strings.Join(names, ", ")
-	}
-	if len(s.Plans) > 0 {
-		names := make([]string, 0, len(s.Plans))
-		for _, p := range s.Plans {
-			names = append(names, p.Name)
-		}
-		m["plans"] = strings.Join(names, ", ")
-	}
-	return m
 }
 
 func newProtectULFSetsGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
