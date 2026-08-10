@@ -74,26 +74,6 @@ func normalizeLineEndings(s string) string {
 	return strings.ReplaceAll(strings.ReplaceAll(s, "\r\n", "\n"), "\r", "\n")
 }
 
-// DiffPayloadValues compares an intended mobileconfig plist against the
-// server-stored form and returns the dotted paths of setting values the
-// server did not store faithfully. Metadata keys the server rewrites by
-// design are masked (maskedPayloadMetaKeys); string comparison ignores
-// leading/trailing whitespace because the server trims value edges on
-// ingest, and CR/LF differences (see normalizeLineEndings). Keys present
-// only in the stored form (server-injected defaults) are ignored — only the
-// caller's intent is checked.
-func DiffPayloadValues(intended, stored []byte) ([]string, error) {
-	diffs, err := DiffPayloadValuesDetailed(intended, stored)
-	if err != nil {
-		return nil, err
-	}
-	paths := make([]string, len(diffs))
-	for i, d := range diffs {
-		paths[i] = d.Path
-	}
-	return paths, nil
-}
-
 // PayloadDiff pairs the path of a value the server did not store faithfully
 // with a short explanation of how it differs.
 type PayloadDiff struct {
@@ -101,15 +81,16 @@ type PayloadDiff struct {
 	Reason string
 }
 
-// String renders a diff as "path (reason)".
-func (d PayloadDiff) String() string {
-	return d.Path + " (" + d.Reason + ")"
-}
-
-// DiffPayloadValuesDetailed is DiffPayloadValues with each difference
-// classified, so callers can surface the remedy that actually applies instead
-// of blaming the PI-827 entity layer for every divergence — the line-break
-// deletion class is far more common and has a workaround.
+// DiffPayloadValuesDetailed compares an intended mobileconfig plist against
+// the server-stored form and classifies each difference, so callers can
+// surface the remedy that actually applies instead of blaming the PI-827
+// entity layer for every divergence — the line-break deletion class is far
+// more common and has a workaround. Metadata keys the server rewrites by
+// design are masked (maskedPayloadMetaKeys); string comparison ignores
+// leading/trailing whitespace because the server trims value edges on
+// ingest, and CR/LF differences (see normalizeLineEndings). Keys present
+// only in the stored form (server-injected defaults) are ignored — only the
+// caller's intent is checked.
 func DiffPayloadValuesDetailed(intended, stored []byte) ([]PayloadDiff, error) {
 	var want, got map[string]any
 	if _, err := plist.Unmarshal(intended, &want); err != nil {

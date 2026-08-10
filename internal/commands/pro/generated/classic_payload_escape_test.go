@@ -5,6 +5,8 @@ package generated
 import (
 	"strings"
 	"testing"
+
+	"github.com/Jamf-Concepts/jamf-cli/internal/profileconvert"
 )
 
 // ─── normalizeClassicProfilePayloadsForSend ───────────────────────────────────
@@ -262,5 +264,53 @@ func TestStripCDATASections_Unterminated(t *testing.T) {
 	in := `<string><![CDATA[never ends`
 	if got := string(stripCDATASections([]byte(in))); got != in {
 		t.Errorf("unterminated CDATA changed: got %s", got)
+	}
+}
+
+// ─── formatStoredPayloadWarning ────────────────────────────────────────────
+//
+// A server-injected PayloadContent entry shifts array indices and can turn
+// one real defect into a column of noise, so the report caps at
+// maxReportedPayloadDiffs (3) and names the remainder count instead of
+// listing every diff.
+
+func diffsN(n int) []profileconvert.PayloadDiff {
+	diffs := make([]profileconvert.PayloadDiff, n)
+	for i := range diffs {
+		diffs[i] = profileconvert.PayloadDiff{Path: strings.Repeat("x", i+1), Reason: "value differs"}
+	}
+	return diffs
+}
+
+func TestFormatStoredPayloadWarning_UnderCapListsAllNoTail(t *testing.T) {
+	got := formatStoredPayloadWarning(diffsN(2))
+	if strings.Contains(got, "more") {
+		t.Errorf("2 diffs should not truncate, got %q", got)
+	}
+	if strings.Count(got, "value differs") != 2 {
+		t.Errorf("expected both diffs listed, got %q", got)
+	}
+}
+
+func TestFormatStoredPayloadWarning_AtCapListsAllNoTail(t *testing.T) {
+	got := formatStoredPayloadWarning(diffsN(maxReportedPayloadDiffs))
+	if strings.Contains(got, "more") {
+		t.Errorf("exactly maxReportedPayloadDiffs diffs should not truncate, got %q", got)
+	}
+	if strings.Count(got, "value differs") != maxReportedPayloadDiffs {
+		t.Errorf("expected all %d diffs listed, got %q", maxReportedPayloadDiffs, got)
+	}
+}
+
+func TestFormatStoredPayloadWarning_OverCapTruncatesWithRemainder(t *testing.T) {
+	got := formatStoredPayloadWarning(diffsN(5))
+	if strings.Count(got, "value differs") != maxReportedPayloadDiffs {
+		t.Errorf("expected only %d diffs listed, got %q", maxReportedPayloadDiffs, got)
+	}
+	if !strings.Contains(got, "… and 2 more") {
+		t.Errorf("expected a remainder tail naming 2 more, got %q", got)
+	}
+	if !strings.Contains(got, "warning: the server stored 5 payload value(s)") {
+		t.Errorf("expected the header to report the true total (5), got %q", got)
 	}
 }

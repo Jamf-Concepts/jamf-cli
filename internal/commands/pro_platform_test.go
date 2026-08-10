@@ -1503,6 +1503,15 @@ func TestResolveClassicProfileID_DuplicateNamesListIDs(t *testing.T) {
 	if !strings.Contains(err.Error(), "11") || !strings.Contains(err.Error(), "12") {
 		t.Errorf("expected both colliding ids in error, got %q", err.Error())
 	}
+	// import-profile creates a blueprint; it never "updates" anything, so the
+	// remedy must point at re-running with an ID, not at the generated
+	// apply/update paths' generic wording.
+	if strings.Contains(err.Error(), "update") {
+		t.Errorf("expected no apply-path 'update' wording, got %q", err.Error())
+	}
+	if !strings.Contains(err.Error(), "re-run with one of these IDs") {
+		t.Errorf("expected an ID-based remedy, got %q", err.Error())
+	}
 }
 
 func TestResolveClassicProfileID_WrongTypeHint(t *testing.T) {
@@ -1536,6 +1545,23 @@ func TestResolveClassicProfileID_NoIdentifier(t *testing.T) {
 	_, _, err := resolveClassicProfileID(context.Background(), &classicRouteMock{}, "computer", "", "")
 	if err == nil || !strings.Contains(err.Error(), "--name") {
 		t.Errorf("expected a 'provide an <id> or use --name' error, got %v", err)
+	}
+}
+
+// --id is passed into resolveClassicProfileID's positional slot; a non-numeric
+// value there is silently treated as a name lookup, which reports a confusing
+// "not found" for what the user explicitly flagged as an ID. Validate it
+// upfront instead.
+func TestBlueprintsComponentsConfigProfile_NonNumericIDErrors(t *testing.T) {
+	cliCtx := &registry.CLIContext{}
+	cmd := newBlueprintsComponentsConfigProfileCmd(cliCtx)
+	cmd.SetArgs([]string{"--id", "My Restrictions"})
+	err := cmd.Execute()
+	if err == nil {
+		t.Fatal("expected an error for a non-numeric --id")
+	}
+	if !strings.Contains(err.Error(), "--id must be a numeric") {
+		t.Errorf("expected a numeric-ID error, got %q", err.Error())
 	}
 }
 

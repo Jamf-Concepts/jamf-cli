@@ -928,7 +928,7 @@ func new{{ .GoName }}DeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 							resolvedID = id
 						}
 {{ end }}{{ end }}					if resolvedID == "" {
-							id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "{{ .Path }}", "{{ .Name }}", entry, noInputBulk)
+							id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "{{ .Path }}", "{{ .Name }}", entry, "update", noInputBulk)
 							if err != nil {
 								return fmt.Errorf("resolving %q: %w", entry, err)
 							}
@@ -1069,7 +1069,7 @@ func new{{ .GoName }}DeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 			var resolvedID string
 			noInput, _ := cmd.Flags().GetBool("no-input")
 			if flagName != "" {
-				id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "{{ .Path }}", "{{ .Name }}", flagName, noInput)
+				id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "{{ .Path }}", "{{ .Name }}", flagName, "update", noInput)
 				if err != nil {
 					return err
 				}
@@ -1253,7 +1253,7 @@ If not, a new resource is created.` + "`" + `,
 
 			// Check if resource exists by name (read-only, runs even in dry-run)
 			noInput, _ := cmd.Flags().GetBool("no-input")
-			id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "{{ .Path }}", "{{ .Name }}", name, noInput)
+			id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "{{ .Path }}", "{{ .Name }}", name, "update", noInput)
 			if err != nil {
 				return err
 			}
@@ -1460,12 +1460,29 @@ func extractClassicName(data []byte, singularKey string) (string, error) {
 	return "", fmt.Errorf("could not find 'name' field in XML input")
 }
 
+// ClassicNameCollisionError signals that a name resolved to more than one
+// resource. Error() carries only the name and colliding IDs — callers that
+// need a remedy specific to their own command (e.g. "update" vs. a
+// hand-written command's own verb) should errors.As for it and phrase their
+// own wrapping message rather than relying on resolveClassicNameToIDForApply's
+// generic one.
+type ClassicNameCollisionError struct {
+	Name string
+	IDs  []string
+}
+
+func (e *ClassicNameCollisionError) Error() string {
+	return fmt.Sprintf("multiple resources found with name %q (IDs: %s)", e.Name, strings.Join(e.IDs, ", "))
+}
+
 // resolveClassicNameToIDForApply looks up a classic resource by name using
 // the list endpoint. Returns all matching IDs for collision detection.
 // Returns ("", nil) when no resource is found (caller should create).
 // Returns (id, nil) when exactly one match is found.
-// Returns ("", error) when multiple matches or lookup fails.
-func resolveClassicNameToIDForApply(ctx context.Context, client registry.HTTPClient, apiPath, wrapperKey, name string, noInput bool) (string, error) {
+// Returns ("", error) when multiple matches or lookup fails. verb names the
+// action the interactive prompt and no-input error offer as the remedy
+// ("update" for the generated apply/update/delete paths).
+func resolveClassicNameToIDForApply(ctx context.Context, client registry.HTTPClient, apiPath, wrapperKey, name, verb string, noInput bool) (string, error) {
 	resp, err := client.Do(ctx, "GET", "/JSSResource/"+apiPath, nil)
 	if err != nil {
 		return "", fmt.Errorf("listing resources: %w", err)
@@ -1520,7 +1537,8 @@ func resolveClassicNameToIDForApply(ctx context.Context, client registry.HTTPCli
 		for i, m := range matches {
 			ids[i] = m.id
 		}
-		return "", fmt.Errorf("multiple resources found with name %q (IDs: %s); resolve duplicates or use update with a specific ID", name, strings.Join(ids, ", "))
+		collision := &ClassicNameCollisionError{Name: name, IDs: ids}
+		return "", fmt.Errorf("%w; resolve duplicates or use %s with a specific ID", collision, verb)
 	}
 
 	// Interactive: prompt user to pick
@@ -1528,7 +1546,7 @@ func resolveClassicNameToIDForApply(ctx context.Context, client registry.HTTPCli
 	for i, m := range matches {
 		fmt.Fprintf(os.Stderr, "  [%d] ID: %s\n", i+1, m.id)
 	}
-	fmt.Fprintf(os.Stderr, "Enter number to replace (or 0 to cancel): ")
+	fmt.Fprintf(os.Stderr, "Enter number to %s (or 0 to cancel): ", verb)
 	var choice int
 	if _, err := fmt.Fscan(os.Stdin, &choice); err != nil || choice < 1 || choice > len(matches) {
 		return "", fmt.Errorf("aborted")
@@ -1540,12 +1558,17 @@ func resolveClassicNameToIDForApply(ctx context.Context, client registry.HTTPCli
 // name-to-ID lookup the generated apply/update paths use: case-insensitive
 // match, and on duplicate names either an interactive pick or (with noInput)
 // an error listing the colliding IDs. Returns ("", nil) when nothing matches.
+// verb is used only for the interactive prompt and the no-input error's
+// generic remedy sentence ("Enter number to %s"/"use %s with a specific ID");
+// callers whose command doesn't fit that phrasing (e.g. a command that looks
+// up rather than replaces) should pass a verb that fits, or errors.As for
+// *ClassicNameCollisionError to phrase their own remedy entirely.
 //
 // Hand-written commands in internal/commands use it so name lookups behave
 // identically whether they run through a generated command or a hand-written
 // one (e.g. blueprints import-profile resolving a configuration profile name).
-func ResolveClassicNameToID(ctx context.Context, client registry.HTTPClient, apiPath, wrapperKey, name string, noInput bool) (string, error) {
-	return resolveClassicNameToIDForApply(ctx, client, apiPath, wrapperKey, name, noInput)
+func ResolveClassicNameToID(ctx context.Context, client registry.HTTPClient, apiPath, wrapperKey, name, verb string, noInput bool) (string, error) {
+	return resolveClassicNameToIDForApply(ctx, client, apiPath, wrapperKey, name, verb, noInput)
 }
 {{ end }}
 {{ if anyClassicExtraLookups . }}
@@ -2010,20 +2033,33 @@ func verifyClassicProfileStored(ctx context.Context, client registry.HTTPClient,
 	if err != nil || len(diffs) == 0 {
 		return
 	}
-	// Cap the report: a server-injected PayloadContent entry shifts array
-	// indices and turns one defect into a column of noise.
-	const maxReported = 3
+	fmt.Fprint(os.Stderr, formatStoredPayloadWarning(diffs))
+}
+
+// maxReportedPayloadDiffs caps how many divergences formatStoredPayloadWarning
+// lists individually: a server-injected PayloadContent entry shifts array
+// indices and turns one defect into a column of noise.
+const maxReportedPayloadDiffs = 3
+
+// formatStoredPayloadWarning renders the "server stored N value(s)
+// differently" warning for verifyClassicProfileStored, truncating the listed
+// findings at maxReportedPayloadDiffs and naming the remainder count. Pulled
+// out as a pure function so the truncation math can be tested without a
+// fake HTTP client.
+func formatStoredPayloadWarning(diffs []profileconvert.PayloadDiff) string {
 	total := len(diffs)
-	if total > maxReported {
-		diffs = diffs[:maxReported]
+	if total > maxReportedPayloadDiffs {
+		diffs = diffs[:maxReportedPayloadDiffs]
 	}
-	fmt.Fprintf(os.Stderr, "warning: the server stored %d payload value(s) differently than submitted:\n", total)
+	var b strings.Builder
+	fmt.Fprintf(&b, "warning: the server stored %d payload value(s) differently than submitted:\n", total)
 	for _, d := range diffs {
-		fmt.Fprintf(os.Stderr, "  - %s: %s\n", d.Path, d.Reason)
+		fmt.Fprintf(&b, "  - %s: %s\n", d.Path, d.Reason)
 	}
 	if total > len(diffs) {
-		fmt.Fprintf(os.Stderr, "  … and %d more\n", total-len(diffs))
+		fmt.Fprintf(&b, "  … and %d more\n", total-len(diffs))
 	}
+	return b.String()
 }
 {{ end }}
 {{ if anyClassicFileFields . }}

@@ -7,6 +7,7 @@ import (
 	"crypto/rand"
 	"encoding/json"
 	"encoding/xml"
+	"errors"
 	"fmt"
 	"html"
 	"net/http"
@@ -830,8 +831,9 @@ Or download an existing profile from Jamf Pro by ID or name:
   jamf-cli pro blueprints components configuration-profile --name "My Restrictions"
   jamf-cli pro blueprints components configuration-profile --name "Managed Restrictions" --type mobile
 
-Jamf Pro allows duplicate profile display names; --name errors and lists the
-matching IDs when more than one profile shares the name. Use --id to pick one.
+Jamf Pro allows duplicate profile display names: when a name matches more than
+one profile you are prompted to pick one, or with --no-input the command errors
+listing the matching IDs. Use --id to skip the lookup entirely.
 
 Only preference domains that Apple supports for declarative management can be
 used. Unsupported payload types will trigger a warning but are still included
@@ -851,6 +853,9 @@ Supported payloads: https://github.com/apple/device-management/tree/release/mdm/
 			var err error
 
 			if profileName != "" || profileID != "" {
+				if profileID != "" && !isClassicID(profileID) {
+					return fmt.Errorf("--id must be a numeric Classic API ID, got %q (use --name for a display name)", profileID)
+				}
 				// Download from Jamf Pro classic API
 				data, err = downloadClassicProfile(cmd, cliCtx, profileID, profileName, profileType)
 				if err != nil {
@@ -956,13 +961,26 @@ func isClassicID(s string) bool {
 // gateway (see docs/solutions/conventions/classic-api-name-path-encoding).
 // allowPrompt is false for speculative lookups (the wrong-`--type` hint below),
 // which must never stop to ask the user about a profile they didn't name.
+//
+// The resolver's own collision wording ("use update with a specific ID") is
+// written for the generated apply/update paths and doesn't fit here — nothing
+// is being replaced, so we discard it and phrase our own remedy (re-run with
+// one of the IDs) via the typed *generated.ClassicNameCollisionError.
 func findClassicProfileByName(ctx context.Context, client registry.HTTPClient, profileType, name string, allowPrompt bool) (string, error) {
 	collection := classicProfileCollection(profileType)
 	wrapperKey := "os_x_configuration_profiles"
 	if profileType == "mobile" {
 		wrapperKey = "configuration_profiles"
 	}
-	return generated.ResolveClassicNameToID(ctx, client, collection, wrapperKey, name, noInput || !allowPrompt)
+	id, err := generated.ResolveClassicNameToID(ctx, client, collection, wrapperKey, name, "use", noInput || !allowPrompt)
+	if err != nil {
+		var collision *generated.ClassicNameCollisionError
+		if errors.As(err, &collision) {
+			return "", fmt.Errorf("%w; re-run with one of these IDs instead of a name", collision)
+		}
+		return "", err
+	}
+	return id, nil
 }
 
 // resolveClassicProfileID turns the identifier a user supplied into a Classic
@@ -1197,10 +1215,11 @@ consume. Everything else stays wrapped as opaque Custom Settings.
 
 Identify the profile by its Classic API ID (positional) or by display name
 (--name). A non-numeric positional argument is treated as a display name, so
-existing name-based invocations keep working. Jamf Pro allows duplicate profile
-display names: when a name matches more than one profile you are prompted to
-pick one, or with --no-input the command errors listing the matching IDs so you
-can re-run against a specific ID.
+existing name-based invocations keep working — but a profile whose display name
+is entirely digits (e.g. "2024") is resolved as an ID; use --name for those.
+Jamf Pro allows duplicate profile display names: when a name matches more than
+one profile you are prompted to pick one, or with --no-input the command errors
+listing the matching IDs so you can re-run against a specific ID.
 
 Use --type to specify the profile type: "computer" (default) for macOS configuration
 profiles or "mobile" for mobile device configuration profiles. Profiles can share
