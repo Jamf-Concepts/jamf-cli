@@ -352,10 +352,12 @@ func TestFlattenPlan_UnifiedLoggingFilterSetsJoined(t *testing.T) {
 	}
 }
 
-func TestFlattenPlan_OmitsEmptyUnifiedLoggingFilterSets(t *testing.T) {
+func TestFlattenPlan_EmptyUnifiedLoggingFilterSetsPresent(t *testing.T) {
 	m := flattenPlan(jamfprotect.Plan{Name: "Plan"})
-	if _, ok := m["unifiedLoggingFilterSets"]; ok {
-		t.Error("unifiedLoggingFilterSets present, want omitted when the plan has none")
+	if _, ok := m["unifiedLoggingFilterSets"]; !ok {
+		t.Error("unifiedLoggingFilterSets absent, want present (and empty) so table/csv columns stay stable across rows")
+	} else if got := m["unifiedLoggingFilterSets"]; got != "" {
+		t.Errorf("unifiedLoggingFilterSets = %v, want empty string", got)
 	}
 }
 
@@ -363,6 +365,7 @@ func TestFlattenPlan_OmitsEmptyUnifiedLoggingFilterSets(t *testing.T) {
 
 func TestFlattenULFSet_FiltersAndPlans(t *testing.T) {
 	m := flattenULFSet(jamfprotect.UnifiedLoggingFilterSet{
+		UUID:        "s-1",
 		Name:        "My Set",
 		Description: "desc",
 		Filters: []jamfprotect.UnifiedLoggingFilterSetFilter{
@@ -374,6 +377,9 @@ func TestFlattenULFSet_FiltersAndPlans(t *testing.T) {
 		},
 	})
 
+	if got := m["uuid"]; got != "s-1" {
+		t.Errorf("uuid = %v, want %q", got, "s-1")
+	}
 	if got := m["name"]; got != "My Set" {
 		t.Errorf("name = %v, want %q", got, "My Set")
 	}

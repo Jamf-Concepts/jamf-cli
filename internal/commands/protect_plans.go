@@ -78,13 +78,12 @@ func flattenPlan(p jamfprotect.Plan) map[string]any {
 		m["usbControlSet"] = p.USBControlSet.Name
 	}
 
-	if len(p.UnifiedLoggingFilterSets) > 0 {
-		names := make([]string, 0, len(p.UnifiedLoggingFilterSets))
-		for _, s := range p.UnifiedLoggingFilterSets {
-			names = append(names, s.Name)
-		}
-		m["unifiedLoggingFilterSets"] = strings.Join(names, ", ")
+	names := make([]string, 0, len(p.UnifiedLoggingFilterSets))
+	for _, s := range p.UnifiedLoggingFilterSets {
+		names = append(names, s.Name)
 	}
+	// always present: table/csv columns come from row 0
+	m["unifiedLoggingFilterSets"] = strings.Join(names, ", ")
 
 	return m
 }

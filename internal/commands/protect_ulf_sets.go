@@ -71,6 +71,7 @@ func flattenULFSet(s jamfprotect.UnifiedLoggingFilterSet) map[string]any {
 		planNames = append(planNames, p.Name)
 	}
 	return map[string]any{
+		"uuid":         s.UUID,
 		"name":         s.Name,
 		"description":  s.Description,
 		"filtersCount": len(s.Filters),
