@@ -5,6 +5,8 @@ package generated
 import (
 	"strings"
 	"testing"
+
+	"github.com/Jamf-Concepts/jamf-cli/internal/profileconvert"
 )
 
 // ─── normalizeClassicProfilePayloadsForSend ───────────────────────────────────
@@ -71,10 +73,77 @@ func TestMinimizeClassicPlistSourceEscaping(t *testing.T) {
 		"A & B; C":  "A & B; C",
 		"&amp;#34;": "&amp;#34;",
 		"a]]&gt;b":  "a]]>b",
+		// CR references stay undecoded — CR is the only whitespace character
+		// Jamf Pro stores inside string values, and XML 1.0 §2.11 line-end
+		// normalisation would turn a decoded literal CR into an LF the server
+		// then deletes.
+		"&#13;":   "&#13;",
+		"&#xD;":   "&#xD;",
+		"&#xd;":   "&#xd;",
+		"&#013;":  "&#013;",
+		"a&#13;b": "a&#13;b",
 	}
 	for in, want := range cases {
 		if got := minimizeClassicPlistSourceEscaping(in); got != want {
 			t.Errorf("minimize(%q) = %q, want %q", in, got, want)
+		}
+	}
+}
+
+func TestNormalizePayloads_CRReferencesReachServerBare(t *testing.T) {
+	// Jamf Pro's own UI emits "&#13;" for banner line breaks. The reference
+	// must reach the wire with a bare "&" so the server's single decode yields
+	// an actual CR — escaping it would store the reference as literal text.
+	for _, ref := range []string{"&#13;", "&#xD;", "&#xd;", "&#013;"} {
+		plist := `<string>Welcome to` + ref + ref + `[CUSTOMER NAME]</string>`
+		body := `<general><payloads><![CDATA[` + plist + `]]></payloads></general>`
+		escaped := cdataContent(t, string(normalizeClassicProfilePayloadsForSend([]byte(body))))
+		if !strings.Contains(escaped, ref) {
+			t.Errorf("%s: CR reference not left bare on the wire: %q", ref, escaped)
+		}
+	}
+}
+
+func TestNormalizePayloads_OnlyCRReferencesLeftBare(t *testing.T) {
+	// The CR exemption must not generalise: "&#38;" left bare would decode to
+	// a bare "&" and the server rejects the write with 409.
+	body := `<general><payloads><![CDATA[<string>R&amp;D&#13;&#38;&#x26;</string>]]></payloads></general>`
+	escaped := cdataContent(t, string(normalizeClassicProfilePayloadsForSend([]byte(body))))
+	if !strings.Contains(escaped, "&#13;") {
+		t.Errorf("CR reference was escaped: %q", escaped)
+	}
+	for _, ref := range []string{"&amp;#38;", "&amp;#x26;"} {
+		if !strings.Contains(escaped, ref) {
+			t.Errorf("expected %s to stay escaped once, got %q", ref, escaped)
+		}
+	}
+	// The server's single decode must reproduce the minimised source: "&amp;",
+	// "&#38;" and "&#x26;" all survive as references (decoding them would leave
+	// a bare "&" the server rejects), while the CR reference decodes to a CR.
+	if decoded := strings.ReplaceAll(escaped, "&amp;", "&"); decoded != `<string>R&amp;D&#13;&#38;&#x26;</string>` {
+		t.Errorf("server would store %q", decoded)
+	}
+}
+
+func TestClassicCRRefLen(t *testing.T) {
+	cases := map[string]int{
+		"&#13;":     5,
+		"&#xD;":     5,
+		"&#xd;":     5,
+		"&#013;":    6,
+		"&#13;rest": 5,
+		"&#10;":     0,
+		"&#38;":     0,
+		"&#x26;":    0,
+		"&quot;":    0,
+		"&#;":       0,
+		"&#zz;":     0,
+		"plain":     0,
+		"&#13":      0,
+	}
+	for in, want := range cases {
+		if got := classicCRRefLen(in); got != want {
+			t.Errorf("classicCRRefLen(%q) = %d, want %d", in, got, want)
 		}
 	}
 }
@@ -195,5 +264,53 @@ func TestStripCDATASections_Unterminated(t *testing.T) {
 	in := `<string><![CDATA[never ends`
 	if got := string(stripCDATASections([]byte(in))); got != in {
 		t.Errorf("unterminated CDATA changed: got %s", got)
+	}
+}
+
+// ─── formatStoredPayloadWarning ────────────────────────────────────────────
+//
+// A server-injected PayloadContent entry shifts array indices and can turn
+// one real defect into a column of noise, so the report caps at
+// maxReportedPayloadDiffs (3) and names the remainder count instead of
+// listing every diff.
+
+func diffsN(n int) []profileconvert.PayloadDiff {
+	diffs := make([]profileconvert.PayloadDiff, n)
+	for i := range diffs {
+		diffs[i] = profileconvert.PayloadDiff{Path: strings.Repeat("x", i+1), Reason: "value differs"}
+	}
+	return diffs
+}
+
+func TestFormatStoredPayloadWarning_UnderCapListsAllNoTail(t *testing.T) {
+	got := formatStoredPayloadWarning(diffsN(2))
+	if strings.Contains(got, "more") {
+		t.Errorf("2 diffs should not truncate, got %q", got)
+	}
+	if strings.Count(got, "value differs") != 2 {
+		t.Errorf("expected both diffs listed, got %q", got)
+	}
+}
+
+func TestFormatStoredPayloadWarning_AtCapListsAllNoTail(t *testing.T) {
+	got := formatStoredPayloadWarning(diffsN(maxReportedPayloadDiffs))
+	if strings.Contains(got, "more") {
+		t.Errorf("exactly maxReportedPayloadDiffs diffs should not truncate, got %q", got)
+	}
+	if strings.Count(got, "value differs") != maxReportedPayloadDiffs {
+		t.Errorf("expected all %d diffs listed, got %q", maxReportedPayloadDiffs, got)
+	}
+}
+
+func TestFormatStoredPayloadWarning_OverCapTruncatesWithRemainder(t *testing.T) {
+	got := formatStoredPayloadWarning(diffsN(5))
+	if strings.Count(got, "value differs") != maxReportedPayloadDiffs {
+		t.Errorf("expected only %d diffs listed, got %q", maxReportedPayloadDiffs, got)
+	}
+	if !strings.Contains(got, "… and 2 more") {
+		t.Errorf("expected a remainder tail naming 2 more, got %q", got)
+	}
+	if !strings.Contains(got, "warning: the server stored 5 payload value(s)") {
+		t.Errorf("expected the header to report the true total (5), got %q", got)
 	}
 }

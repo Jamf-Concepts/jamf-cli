@@ -7,6 +7,7 @@ import (
 	"crypto/rand"
 	"encoding/json"
 	"encoding/xml"
+	"errors"
 	"fmt"
 	"html"
 	"net/http"
@@ -19,6 +20,7 @@ import (
 	"github.com/Jamf-Concepts/jamf-cli/internal/blueprintcomponents"
 	jamfclient "github.com/Jamf-Concepts/jamf-cli/internal/client"
 	platformgen "github.com/Jamf-Concepts/jamf-cli/internal/commands/platform/generated"
+	"github.com/Jamf-Concepts/jamf-cli/internal/commands/pro/generated"
 	"github.com/Jamf-Concepts/jamf-cli/internal/platform"
 	"github.com/Jamf-Concepts/jamf-cli/internal/profileconvert"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
@@ -810,6 +812,7 @@ func newBlueprintsComponentsConfigProfileCmd(cliCtx *registry.CLIContext) *cobra
 	var (
 		fromFile      string
 		profileName   string
+		profileID     string
 		profileType   string
 		stripDefaults bool
 	)
@@ -823,9 +826,14 @@ Input can be a local file or piped from stdin:
   jamf-cli pro blueprints components configuration-profile --from-file profile.mobileconfig
   cat profile.mobileconfig | jamf-cli pro blueprints components configuration-profile
 
-Or download an existing profile from Jamf Pro by name:
+Or download an existing profile from Jamf Pro by ID or name:
+  jamf-cli pro blueprints components configuration-profile --id 42
   jamf-cli pro blueprints components configuration-profile --name "My Restrictions"
   jamf-cli pro blueprints components configuration-profile --name "Managed Restrictions" --type mobile
+
+Jamf Pro allows duplicate profile display names: when a name matches more than
+one profile you are prompted to pick one, or with --no-input the command errors
+listing the matching IDs. Use --id to skip the lookup entirely.
 
 Only preference domains that Apple supports for declarative management can be
 used. Unsupported payload types will trigger a warning but are still included
@@ -844,9 +852,12 @@ Supported payloads: https://github.com/apple/device-management/tree/release/mdm/
 			var data []byte
 			var err error
 
-			if profileName != "" {
+			if profileName != "" || profileID != "" {
+				if profileID != "" && !isClassicID(profileID) {
+					return fmt.Errorf("--id must be a numeric Classic API ID, got %q (use --name for a display name)", profileID)
+				}
 				// Download from Jamf Pro classic API
-				data, err = downloadClassicProfile(cmd, cliCtx, profileName, profileType)
+				data, err = downloadClassicProfile(cmd, cliCtx, profileID, profileName, profileType)
 				if err != nil {
 					return err
 				}
@@ -890,56 +901,184 @@ Supported payloads: https://github.com/apple/device-management/tree/release/mdm/
 	}
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to .mobileconfig file (or pipe to stdin)")
 	cmd.Flags().StringVar(&profileName, "name", "", "Download profile from Jamf Pro by name (requires Pro auth)")
-	cmd.Flags().StringVar(&profileType, "type", "computer", "Profile type when using --name: computer or mobile")
+	cmd.Flags().StringVar(&profileID, "id", "", "Download profile from Jamf Pro by ID (requires Pro auth)")
+	cmd.Flags().StringVar(&profileType, "type", "computer", "Profile type when using --id/--name: computer or mobile")
 	cmd.Flags().BoolVar(&stripDefaults, "strip-defaults", false, "Remove keys set to Apple's default values (fetches schemas from GitHub)")
-	cmd.MarkFlagsMutuallyExclusive("from-file", "name")
+	cmd.MarkFlagsMutuallyExclusive("from-file", "name", "id")
 	_ = cmd.RegisterFlagCompletionFunc("type", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
 		return []string{"computer", "mobile"}, cobra.ShellCompDirectiveNoFileComp
 	})
 	return cmd
 }
 
-// classicProfilePath returns the Classic API path for a profile by name.
-// profileType must be "computer" or "mobile".
-func classicProfilePath(profileType, name string) string {
-	escaped := url.PathEscape(name)
+// classicProfileCollection returns the Classic API collection segment for a
+// configuration profile type. profileType must be "computer" or "mobile".
+func classicProfileCollection(profileType string) string {
 	if profileType == "mobile" {
-		return "/JSSResource/mobiledeviceconfigurationprofiles/name/" + escaped
+		return "mobiledeviceconfigurationprofiles"
 	}
-	return "/JSSResource/osxconfigurationprofiles/name/" + escaped
+	return "osxconfigurationprofiles"
+}
+
+// classicProfilePath returns the Classic API path for a profile by numeric ID.
+// profileType must be "computer" or "mobile".
+func classicProfilePath(profileType, id string) string {
+	return "/JSSResource/" + classicProfileCollection(profileType) + "/id/" + url.PathEscape(id)
+}
+
+// otherProfileType returns the profile type that profileType is not, used to
+// hint when a name only exists under the other type.
+func otherProfileType(profileType string) string {
+	if profileType == "mobile" {
+		return "computer"
+	}
+	return "mobile"
+}
+
+// isClassicID reports whether s is a Classic API numeric ID rather than a name.
+func isClassicID(s string) bool {
+	if s == "" {
+		return false
+	}
+	for _, r := range s {
+		if r < '0' || r > '9' {
+			return false
+		}
+	}
+	return true
+}
+
+// findClassicProfileByName resolves a configuration profile name to its Classic
+// API ID, reusing the generated classic commands' list-based resolver so name
+// lookups behave the same here as in `pro classic-macos-config-profiles`:
+// case-insensitive match, and duplicate names either prompt for a pick or (with
+// --no-input) error listing the colliding IDs. Returns "" when nothing matches.
+//
+// Listing beats the /JSSResource/.../name/{name} shortcut: Jamf Pro allows
+// duplicate profile display names, and the name endpoint silently returns
+// whichever one the server picks. Listing also sidesteps the name path's known
+// limits — "/" in a name is rejected outright and "+" is dropped by the platform
+// gateway (see docs/solutions/conventions/classic-api-name-path-encoding).
+// allowPrompt is false for speculative lookups (the wrong-`--type` hint below),
+// which must never stop to ask the user about a profile they didn't name.
+//
+// The resolver's own collision wording ("use update with a specific ID") is
+// written for the generated apply/update paths and doesn't fit here — nothing
+// is being replaced, so we discard it and phrase our own remedy (re-run with
+// one of the IDs) via the typed *generated.ClassicNameCollisionError.
+func findClassicProfileByName(ctx context.Context, client registry.HTTPClient, profileType, name string, allowPrompt bool) (string, error) {
+	collection := classicProfileCollection(profileType)
+	wrapperKey := "os_x_configuration_profiles"
+	if profileType == "mobile" {
+		wrapperKey = "configuration_profiles"
+	}
+	id, err := generated.ResolveClassicNameToID(ctx, client, collection, wrapperKey, name, "use", noInput || !allowPrompt)
+	if err != nil {
+		var collision *generated.ClassicNameCollisionError
+		if errors.As(err, &collision) {
+			return "", fmt.Errorf("%w; re-run with one of these IDs instead of a name", collision)
+		}
+		return "", err
+	}
+	return id, nil
+}
+
+// resolveClassicProfileID turns the identifier a user supplied into a Classic
+// API profile ID. A numeric positional argument is used as the ID directly;
+// anything else is treated as a display name, as is an explicit --name. The
+// returned name is empty when the lookup was by ID.
+//
+// Duplicate display names are what makes ID lookup necessary (issue #315): the
+// name resolver prompts for the intended profile, or errors listing the
+// colliding IDs under --no-input.
+func resolveClassicProfileID(ctx context.Context, client registry.HTTPClient, profileType, arg, nameFlag string) (id, name string, err error) {
+	switch {
+	case nameFlag != "" && arg != "":
+		return "", "", fmt.Errorf("specify either <id> or --name, not both")
+	case nameFlag == "" && arg == "":
+		return "", "", fmt.Errorf("provide a profile <id> or use --name")
+	case nameFlag == "" && isClassicID(arg):
+		return arg, "", nil
+	}
+
+	name = nameFlag
+	if name == "" {
+		name = arg
+	}
+
+	id, err = findClassicProfileByName(ctx, client, profileType, name, true)
+	if err != nil {
+		return "", "", err
+	}
+	if id != "" {
+		return id, name, nil
+	}
+
+	// A name that only exists under the other type is a --type mistake.
+	other := otherProfileType(profileType)
+	if otherID, otherErr := findClassicProfileByName(ctx, client, other, name, false); otherErr == nil && otherID != "" {
+		return "", "", fmt.Errorf("no %s configuration profile named %q — a %s profile matches; re-run with --type %s",
+			profileType, name, other, other)
+	}
+	return "", "", fmt.Errorf("no %s configuration profile named %q found", profileType, name)
+}
+
+// classicProfileLabel describes a resolved profile for log and error messages.
+func classicProfileLabel(id, name string) string {
+	if name != "" {
+		return fmt.Sprintf("%q (id %s)", name, id)
+	}
+	return "id " + id
+}
+
+// fetchClassicProfile resolves a profile identifier (numeric ID, or a name via
+// the positional argument or --name) and returns the raw Classic API XML body
+// alongside the resolved ID and name. profileType must be "computer" or "mobile".
+func fetchClassicProfile(ctx context.Context, cliCtx *registry.CLIContext, profileType, arg, nameFlag string) (body []byte, id, name string, err error) {
+	if cliCtx.Client == nil {
+		return nil, "", "", fmt.Errorf("downloading a profile requires Jamf Pro authentication (use 'jamf-cli pro setup' or set JAMF_* env vars)")
+	}
+
+	id, name, err = resolveClassicProfileID(ctx, cliCtx.Client, profileType, arg, nameFlag)
+	if err != nil {
+		return nil, "", "", err
+	}
+	label := classicProfileLabel(id, name)
+
+	resp, err := cliCtx.Client.Do(ctx, "GET", classicProfilePath(profileType, id), nil)
+	if err != nil {
+		return nil, "", "", fmt.Errorf("fetching %s profile %s: %w", profileType, label, err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, "", "", fmt.Errorf("%s profile %s not found (HTTP %d)", profileType, label, resp.StatusCode)
+	}
+
+	body, err = jamfclient.ReadResponseBody(resp)
+	if err != nil {
+		return nil, "", "", fmt.Errorf("reading profile response: %w", err)
+	}
+	return body, id, name, nil
 }
 
 // downloadClassicProfile fetches a configuration profile from the Jamf Pro
 // Classic API and extracts the mobileconfig XML from the response.
 // profileType must be "computer" or "mobile".
-func downloadClassicProfile(cmd *cobra.Command, cliCtx *registry.CLIContext, name, profileType string) ([]byte, error) {
-	if cliCtx.Client == nil {
-		return nil, fmt.Errorf("--name requires Jamf Pro authentication (use 'jamf-cli pro setup' or set JAMF_* env vars)")
-	}
-
-	path := classicProfilePath(profileType, name)
-	resp, err := cliCtx.Client.Do(cmd.Context(), "GET", path, nil)
+func downloadClassicProfile(cmd *cobra.Command, cliCtx *registry.CLIContext, arg, nameFlag, profileType string) ([]byte, error) {
+	body, id, name, err := fetchClassicProfile(cmd.Context(), cliCtx, profileType, arg, nameFlag)
 	if err != nil {
-		return nil, fmt.Errorf("fetching profile %q: %w", name, err)
+		return nil, err
 	}
-	defer func() { _ = resp.Body.Close() }()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("profile %q not found (HTTP %d)", name, resp.StatusCode)
-	}
-
-	body, err := jamfclient.ReadResponseBody(resp)
-	if err != nil {
-		return nil, fmt.Errorf("reading profile response: %w", err)
-	}
+	label := classicProfileLabel(id, name)
 
 	// Extract the <payloads> content from the Classic API XML response
 	mobileconfig := extractPayloadsFromXML(string(body))
 	if mobileconfig == "" {
-		return nil, fmt.Errorf("no <payloads> found in profile %q response", name)
+		return nil, fmt.Errorf("no <payloads> found in %s profile %s response", profileType, label)
 	}
 
-	fmt.Fprintf(os.Stderr, "Downloaded profile %q from Jamf Pro\n", name)
+	fmt.Fprintf(os.Stderr, "Downloaded %s profile %s from Jamf Pro\n", profileType, label)
 	return []byte(mobileconfig), nil
 }
 
@@ -1032,6 +1171,7 @@ func warnAPIOnlyPayloads(config json.RawMessage) {
 func newBlueprintsImportProfileCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	var (
 		blueprintName      string
+		profileName        string
 		profileType        string
 		includeUnsupported bool
 		stripDefaults      bool
@@ -1040,7 +1180,7 @@ func newBlueprintsImportProfileCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		mobileDeviceGroups []string
 	)
 	cmd := &cobra.Command{
-		Use:   "import-profile <profile-name>",
+		Use:   "import-profile [<id>]",
 		Short: "Import a Classic configuration profile as a blueprint",
 		Long: `Download a configuration profile from Jamf Pro, convert its payloads
 to native DDM blueprint components where possible, and create the blueprint.
@@ -1073,6 +1213,14 @@ Application & Custom Settings (MCX) payloads are unwrapped only when their inner
 preference domain is one the API accepts standalone, or one a DDM converter can
 consume. Everything else stays wrapped as opaque Custom Settings.
 
+Identify the profile by its Classic API ID (positional) or by display name
+(--name). A non-numeric positional argument is treated as a display name, so
+existing name-based invocations keep working — but a profile whose display name
+is entirely digits (e.g. "2024") is resolved as an ID; use --name for those.
+Jamf Pro allows duplicate profile display names: when a name matches more than
+one profile you are prompted to pick one, or with --no-input the command errors
+listing the matching IDs so you can re-run against a specific ID.
+
 Use --type to specify the profile type: "computer" (default) for macOS configuration
 profiles or "mobile" for mobile device configuration profiles. Profiles can share
 names across types, so the flag is required when ambiguous.
@@ -1097,14 +1245,15 @@ Scope handling:
   the profile's own scope when you want to target different groups.
 
 Examples:
-  jamf-cli pro blueprints import-profile "Passcode Policy"
+  jamf-cli pro blueprints import-profile 42
+  jamf-cli pro blueprints import-profile --name "Passcode Policy"
   jamf-cli pro blueprints import-profile "My Restrictions"
-  jamf-cli pro blueprints import-profile "Managed Restrictions" --type mobile
-  jamf-cli pro blueprints import-profile "FileVault Settings" --blueprint-name "FV Blueprint"
+  jamf-cli pro blueprints import-profile --name "Managed Restrictions" --type mobile
+  jamf-cli pro blueprints import-profile 42 --blueprint-name "FV Blueprint"
   jamf-cli pro blueprints import-profile "My Restrictions" --strip-defaults
   jamf-cli pro blueprints import-profile "Software Update" --computer-group "All Managed"
   jamf-cli pro blueprints import-profile "My Restrictions" --include-unsupported`,
-		Args: cobra.ExactArgs(1),
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if profileType != "computer" && profileType != "mobile" {
 				return fmt.Errorf("--type must be 'computer' or 'mobile', got %q", profileType)
@@ -1117,28 +1266,23 @@ Examples:
 			}
 			ctx := cmd.Context()
 
-			// Step 1: Download the Classic API profile
-			fmt.Fprintf(os.Stderr, "Downloading %s profile %q from Jamf Pro...\n", profileType, args[0])
-			profilePath := classicProfilePath(profileType, args[0])
-			resp, err := cliCtx.Client.Do(ctx, "GET", profilePath, nil)
-			if err != nil {
-				return fmt.Errorf("fetching profile: %w", err)
-			}
-			defer func() { _ = resp.Body.Close() }()
-
-			if resp.StatusCode != http.StatusOK {
-				return fmt.Errorf("profile %q not found (HTTP %d)", args[0], resp.StatusCode)
+			var arg string
+			if len(args) > 0 {
+				arg = args[0]
 			}
 
-			body, err := jamfclient.ReadResponseBody(resp)
+			// Step 1: Resolve the identifier and download the Classic API profile
+			body, profileID, resolvedName, err := fetchClassicProfile(ctx, cliCtx, profileType, arg, profileName)
 			if err != nil {
-				return fmt.Errorf("reading profile response: %w", err)
+				return err
 			}
+			profileLabel := classicProfileLabel(profileID, resolvedName)
+			fmt.Fprintf(os.Stderr, "Downloaded %s profile %s from Jamf Pro\n", profileType, profileLabel)
 
 			// Step 2: Extract mobileconfig from <payloads>
 			mobileconfig := extractPayloadsFromXML(string(body))
 			if mobileconfig == "" {
-				return fmt.Errorf("no <payloads> found in profile %q (type=%s)", args[0], profileType)
+				return fmt.Errorf("no <payloads> found in %s profile %s", profileType, profileLabel)
 			}
 
 			// Step 3: Convert mobileconfig to blueprint components.
@@ -1259,10 +1403,10 @@ Examples:
 			// Blueprints require a non-empty device-group scope. Fail fast with an
 			// actionable message instead of letting CreateBlueprint 400.
 			if len(scopeGroups) == 0 {
-				return fmt.Errorf("profile %q has no device-group scope that blueprints can use — "+
+				return fmt.Errorf("%s profile %s has no device-group scope that blueprints can use — "+
 					"re-run with --computer-group \"<name>\" (or --mobile-device-group) to set the scope.\n"+
 					"Blueprints only support device-group scoping; all-computers, individual-device, "+
-					"building, and department scopes are not carried over", args[0])
+					"building, and department scopes are not carried over", profileType, profileLabel)
 			}
 
 			// Step 5: Build and create the blueprint
@@ -1271,7 +1415,10 @@ Examples:
 				name = displayName
 			}
 			if name == "" {
-				name = args[0]
+				name = resolvedName
+			}
+			if name == "" {
+				name = "Imported profile " + profileID
 			}
 
 			importStepName := "Step 1"
@@ -1304,6 +1451,7 @@ Examples:
 		},
 	}
 	cmd.Flags().StringVar(&blueprintName, "blueprint-name", "", "Override the blueprint name (defaults to profile display name)")
+	cmd.Flags().StringVar(&profileName, "name", "", "Look up the configuration profile by display name instead of <id>")
 	cmd.Flags().StringVar(&profileType, "type", "computer", "Profile type: computer (macOS) or mobile (iOS/iPadOS/tvOS)")
 	cmd.Flags().BoolVar(&noConvert, "legacy", false, "Wrap all payloads in a single configuration-profile component without DDM conversion")
 	cmd.Flags().BoolVar(&includeUnsupported, "include-unsupported", false, "Send payloads blueprints disables anyway (the API will reject them; by default they are skipped)")

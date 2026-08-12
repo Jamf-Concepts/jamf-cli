@@ -51,6 +51,26 @@ round-trips (GET XML piped back into `apply`) failed identically.
 3. GET responses are escaped correctly (ingest-only quirk); the server also
    canonicalizes representation (entities for `& < >`, literals for `" '`,
    sorted keys) and trims leading/trailing whitespace inside string values.
+4. **Whitespace inside string values** (added 2026-08-04, wire-verified
+   against Jamf Pro 11.30.2 on both profile endpoints — same model the SDK
+   records in jamfplatform-go-sdk#48):
+   - Literal LF and TAB are **deleted outright** in verbatim-stored payload
+     types and in every slot outside `PayloadContent`, merging the words
+     either side. `&#9;` is deleted too.
+   - **CR is the only whitespace character the server keeps** — which is why
+     Jamf Pro's own UI writes `&#13;` for login-window banner line breaks.
+     A literal CR cannot be transmitted (XML 1.0 §2.11 line-end
+     normalisation turns it into LF in transit), so the character reference
+     is the only way to send one.
+   - CR reads back as LF from MCX/mobile fragments (normalised on store) and
+     as a CR from verbatim types, so a read-back comparison must treat CR
+     and LF as equal or every correctly-stored line break looks corrupted.
+   - `U+2028`/`U+2029`/`U+0085` survive every slot byte-exact and render as
+     line breaks — a no-code workaround, and safe to compare strictly.
+   - Non-BMP characters (emoji) are unstorable: verbatim slots get two
+     `U+FFFD`, and an MCX payload drops its whole
+     `mcx_preference_settings` dict, taking untouched sibling keys with it.
+     Server-side; macOS handles them correctly.
 
 Do not re-derive this from theory: a raw-first/retry-on-409 design was
 implemented and reverted in this branch's history because probes showed the
@@ -67,7 +87,9 @@ create/update/apply for both profile resources:
 1. Recover the true plist: CDATA content is already true form; text-form
    content (GET/backup XML piped back in) is entity-decoded once.
 2. Minimise source escaping (`minimizeClassicPlistSourceEscaping`): decode
-   every character reference except those encoding `&`/`<`. Verbatim-stored
+   every character reference except those encoding `&`, `<` and CR
+   (`&#13;`/`&#xD;`, zero-padded and case variants — see model clause 4;
+   decoding one destroys the line break). Verbatim-stored
    payload types preserve the wire representation with zero decodes, so
    avoidable references (`&#34;` for `"`, `&#xA;` for newlines — exactly
    what howett.net/plist's encoding/xml backend emits when the update path
@@ -75,15 +97,22 @@ create/update/apply for both profile resources:
    stored values. This also shrinks the unavoidable corruption set to
    genuine `&`/`<` characters.
 3. Guard `]]>` → `]]&gt;` (after minimising — decoding `&gt;` can resurrect
-   the terminator), then escape every `&` once and wrap in CDATA.
+   the terminator), then escape every `&` once
+   (`escapeClassicAmpPreservingCRRefs`) and wrap in CDATA. The `&` opening a
+   CR reference is left **bare** so the server's single decode yields a real
+   CR; escaping it would store the reference as literal text. The exemption
+   is CR-only — `&#38;` left bare decodes to a bare `&` and 409s.
 
 `verifyClassicProfileStored` then GETs the stored payload after every
 successful write and compares it against the submitted plist
-(`profileconvert.DiffPayloadValues` — parse-based, masks the
-`Payload*` metadata keys the server rewrites, trims string edges). When the
-server stored values differently (case 2 above), the exact dotted paths are
-printed as a stderr warning. Silent corruption is never acceptable;
-a warning that names `PayloadContent[3].LoginwindowText` is.
+(`profileconvert.DiffPayloadValuesDetailed` — parse-based, masks the
+`Payload*` metadata keys the server rewrites, trims string edges, and folds
+CR/LF per model clause 4). Each finding names the dotted path and classifies
+the divergence — line breaks/tabs deleted (with the `&#13;` remedy), the
+PI-827 entity layer, non-BMP replacement, value absent, or unexplained — so
+the warning carries the fix that actually applies instead of blaming PI-827
+for every class. Silent corruption is never acceptable; a warning that names
+`PayloadContent[3].LoginwindowText` and why is.
 
 Wrap-time (`injectClassicFileFields`): CMS-signed mobileconfigs are
 detected (`profileconvert.IsSignedProfile`) and their inner plist extracted

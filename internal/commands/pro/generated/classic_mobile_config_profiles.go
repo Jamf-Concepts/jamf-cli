@@ -343,7 +343,7 @@ func newClassicMobileConfigProfilesDeleteCmd(ctx *registry.CLIContext) *cobra.Co
 					} else {
 						var resolvedID string
 						if resolvedID == "" {
-							id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "mobiledeviceconfigurationprofiles", "mobiledeviceconfigurationprofiles", entry, noInputBulk)
+							id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "mobiledeviceconfigurationprofiles", "mobiledeviceconfigurationprofiles", entry, "update", noInputBulk)
 							if err != nil {
 								return fmt.Errorf("resolving %q: %w", entry, err)
 							}
@@ -420,7 +420,7 @@ func newClassicMobileConfigProfilesDeleteCmd(ctx *registry.CLIContext) *cobra.Co
 			var resolvedID string
 			noInput, _ := cmd.Flags().GetBool("no-input")
 			if flagName != "" {
-				id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "mobiledeviceconfigurationprofiles", "mobiledeviceconfigurationprofiles", flagName, noInput)
+				id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "mobiledeviceconfigurationprofiles", "mobiledeviceconfigurationprofiles", flagName, "update", noInput)
 				if err != nil {
 					return err
 				}
@@ -536,7 +536,7 @@ If not, a new resource is created.`,
 
 			// Check if resource exists by name (read-only, runs even in dry-run)
 			noInput, _ := cmd.Flags().GetBool("no-input")
-			id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "mobiledeviceconfigurationprofiles", "mobiledeviceconfigurationprofiles", name, noInput)
+			id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "mobiledeviceconfigurationprofiles", "mobiledeviceconfigurationprofiles", name, "update", noInput)
 			if err != nil {
 				return err
 			}

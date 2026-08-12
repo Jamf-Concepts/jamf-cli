@@ -282,7 +282,7 @@ func newClassicRestrictedSoftwareDeleteCmd(ctx *registry.CLIContext) *cobra.Comm
 					} else {
 						var resolvedID string
 						if resolvedID == "" {
-							id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "restrictedsoftware", "restrictedsoftware", entry, noInputBulk)
+							id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "restrictedsoftware", "restrictedsoftware", entry, "update", noInputBulk)
 							if err != nil {
 								return fmt.Errorf("resolving %q: %w", entry, err)
 							}
@@ -359,7 +359,7 @@ func newClassicRestrictedSoftwareDeleteCmd(ctx *registry.CLIContext) *cobra.Comm
 			var resolvedID string
 			noInput, _ := cmd.Flags().GetBool("no-input")
 			if flagName != "" {
-				id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "restrictedsoftware", "restrictedsoftware", flagName, noInput)
+				id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "restrictedsoftware", "restrictedsoftware", flagName, "update", noInput)
 				if err != nil {
 					return err
 				}
@@ -463,7 +463,7 @@ If not, a new resource is created.`,
 
 			// Check if resource exists by name (read-only, runs even in dry-run)
 			noInput, _ := cmd.Flags().GetBool("no-input")
-			id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "restrictedsoftware", "restrictedsoftware", name, noInput)
+			id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "restrictedsoftware", "restrictedsoftware", name, "update", noInput)
 			if err != nil {
 				return err
 			}
