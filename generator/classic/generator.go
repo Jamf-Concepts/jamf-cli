@@ -928,7 +928,7 @@ func new{{ .GoName }}DeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 							resolvedID = id
 						}
 {{ end }}{{ end }}					if resolvedID == "" {
-							id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "{{ .Path }}", "{{ .Name }}", entry, noInputBulk)
+							id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "{{ .Path }}", "{{ .Name }}", entry, "update", noInputBulk)
 							if err != nil {
 								return fmt.Errorf("resolving %q: %w", entry, err)
 							}
@@ -1069,7 +1069,7 @@ func new{{ .GoName }}DeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 			var resolvedID string
 			noInput, _ := cmd.Flags().GetBool("no-input")
 			if flagName != "" {
-				id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "{{ .Path }}", "{{ .Name }}", flagName, noInput)
+				id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "{{ .Path }}", "{{ .Name }}", flagName, "update", noInput)
 				if err != nil {
 					return err
 				}
@@ -1253,7 +1253,7 @@ If not, a new resource is created.` + "`" + `,
 
 			// Check if resource exists by name (read-only, runs even in dry-run)
 			noInput, _ := cmd.Flags().GetBool("no-input")
-			id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "{{ .Path }}", "{{ .Name }}", name, noInput)
+			id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "{{ .Path }}", "{{ .Name }}", name, "update", noInput)
 			if err != nil {
 				return err
 			}
@@ -1460,12 +1460,29 @@ func extractClassicName(data []byte, singularKey string) (string, error) {
 	return "", fmt.Errorf("could not find 'name' field in XML input")
 }
 
+// ClassicNameCollisionError signals that a name resolved to more than one
+// resource. Error() carries only the name and colliding IDs — callers that
+// need a remedy specific to their own command (e.g. "update" vs. a
+// hand-written command's own verb) should errors.As for it and phrase their
+// own wrapping message rather than relying on resolveClassicNameToIDForApply's
+// generic one.
+type ClassicNameCollisionError struct {
+	Name string
+	IDs  []string
+}
+
+func (e *ClassicNameCollisionError) Error() string {
+	return fmt.Sprintf("multiple resources found with name %q (IDs: %s)", e.Name, strings.Join(e.IDs, ", "))
+}
+
 // resolveClassicNameToIDForApply looks up a classic resource by name using
 // the list endpoint. Returns all matching IDs for collision detection.
 // Returns ("", nil) when no resource is found (caller should create).
 // Returns (id, nil) when exactly one match is found.
-// Returns ("", error) when multiple matches or lookup fails.
-func resolveClassicNameToIDForApply(ctx context.Context, client registry.HTTPClient, apiPath, wrapperKey, name string, noInput bool) (string, error) {
+// Returns ("", error) when multiple matches or lookup fails. verb names the
+// action the interactive prompt and no-input error offer as the remedy
+// ("update" for the generated apply/update/delete paths).
+func resolveClassicNameToIDForApply(ctx context.Context, client registry.HTTPClient, apiPath, wrapperKey, name, verb string, noInput bool) (string, error) {
 	resp, err := client.Do(ctx, "GET", "/JSSResource/"+apiPath, nil)
 	if err != nil {
 		return "", fmt.Errorf("listing resources: %w", err)
@@ -1520,7 +1537,8 @@ func resolveClassicNameToIDForApply(ctx context.Context, client registry.HTTPCli
 		for i, m := range matches {
 			ids[i] = m.id
 		}
-		return "", fmt.Errorf("multiple resources found with name %q (IDs: %s); resolve duplicates or use update with a specific ID", name, strings.Join(ids, ", "))
+		collision := &ClassicNameCollisionError{Name: name, IDs: ids}
+		return "", fmt.Errorf("%w; resolve duplicates or use %s with a specific ID", collision, verb)
 	}
 
 	// Interactive: prompt user to pick
@@ -1528,12 +1546,29 @@ func resolveClassicNameToIDForApply(ctx context.Context, client registry.HTTPCli
 	for i, m := range matches {
 		fmt.Fprintf(os.Stderr, "  [%d] ID: %s\n", i+1, m.id)
 	}
-	fmt.Fprintf(os.Stderr, "Enter number to replace (or 0 to cancel): ")
+	fmt.Fprintf(os.Stderr, "Enter number to %s (or 0 to cancel): ", verb)
 	var choice int
 	if _, err := fmt.Fscan(os.Stdin, &choice); err != nil || choice < 1 || choice > len(matches) {
 		return "", fmt.Errorf("aborted")
 	}
 	return matches[choice-1].id, nil
+}
+
+// ResolveClassicNameToID is the exported entry point to the same list-based
+// name-to-ID lookup the generated apply/update paths use: case-insensitive
+// match, and on duplicate names either an interactive pick or (with noInput)
+// an error listing the colliding IDs. Returns ("", nil) when nothing matches.
+// verb is used only for the interactive prompt and the no-input error's
+// generic remedy sentence ("Enter number to %s"/"use %s with a specific ID");
+// callers whose command doesn't fit that phrasing (e.g. a command that looks
+// up rather than replaces) should pass a verb that fits, or errors.As for
+// *ClassicNameCollisionError to phrase their own remedy entirely.
+//
+// Hand-written commands in internal/commands use it so name lookups behave
+// identically whether they run through a generated command or a hand-written
+// one (e.g. blueprints import-profile resolving a configuration profile name).
+func ResolveClassicNameToID(ctx context.Context, client registry.HTTPClient, apiPath, wrapperKey, name, verb string, noInput bool) (string, error) {
+	return resolveClassicNameToIDForApply(ctx, client, apiPath, wrapperKey, name, verb, noInput)
 }
 {{ end }}
 {{ if anyClassicExtraLookups . }}
@@ -1758,15 +1793,26 @@ func stripCDATASections(data []byte) []byte {
 }
 
 // minimizeClassicPlistSourceEscaping decodes every character/entity
-// reference in plist XML source EXCEPT those encoding "&" and "<" — e.g.
-// "&quot;"/"&#34;" become a literal quote, "&#xA;" a literal newline,
-// "&gt;" a literal ">". Both representations parse to identical values,
-// but the wire representation is what the server's verbatim-stored
-// payload types preserve (PI-827): avoidable references would surface as
-// literal text in stored values. This matters for the update path, where
-// injectClassicProfilePayloadUUIDs re-serialises the plist via
-// howett.net/plist, whose encoding/xml backend escapes quotes and value
-// newlines/tabs numerically.
+// reference in plist XML source EXCEPT those encoding "&", "<" and
+// carriage return — e.g. "&quot;"/"&#34;" become a literal quote,
+// "&#xA;" a literal newline, "&gt;" a literal ">". Both representations
+// parse to identical values, but the wire representation is what the
+// server's verbatim-stored payload types preserve (PI-827): avoidable
+// references would surface as literal text in stored values. This matters
+// for the update path, where injectClassicProfilePayloadUUIDs re-serialises
+// the plist via howett.net/plist, whose encoding/xml backend escapes quotes
+// and value newlines/tabs numerically.
+//
+// Carriage-return references ("&#13;", "&#xD;", zero-padded and case
+// variants) must survive undecoded: CR is the only whitespace character
+// Jamf Pro stores inside string values — literal LF and TAB are deleted
+// outright — and XML 1.0 §2.11 line-end normalisation turns a literal CR
+// into LF in transit, so a reference is the only way to transmit one.
+// Decoding them destroys line breaks in values Jamf Pro's own UI authors
+// (it emits "&#13;" for login-window banner breaks), so an exported profile
+// could not be re-uploaded intact. A literal CR byte is deliberately NOT
+// re-encoded: per §2.11 it already means LF, so promoting it would change
+// the value.
 func minimizeClassicPlistSourceEscaping(s string) string {
 	var b strings.Builder
 	for i := 0; i < len(s); {
@@ -1800,7 +1846,7 @@ func minimizeClassicPlistSourceEscaping(s string) string {
 				r = rune(n)
 			}
 		}
-		if r < 0 || r == '&' || r == '<' {
+		if r < 0 || r == '&' || r == '<' || r == '\r' {
 			b.WriteString(s[i : i+semi+1])
 		} else {
 			b.WriteRune(r)
@@ -1810,12 +1856,74 @@ func minimizeClassicPlistSourceEscaping(s string) string {
 	return b.String()
 }
 
+// classicCRRefLen reports the byte length of a carriage-return character
+// reference at the start of s — "&#13;", "&#xD;" and their zero-padded and
+// case variants — or 0 when s does not start with one. Named references are
+// not considered: XML 1.0 predefines none for CR.
+func classicCRRefLen(s string) int {
+	if !strings.HasPrefix(s, "&#") {
+		return 0
+	}
+	semi := strings.IndexByte(s, ';')
+	if semi < 0 || semi > 12 {
+		return 0
+	}
+	ref := s[2:semi]
+	if ref == "" {
+		return 0
+	}
+	var (
+		n   int64
+		err error
+	)
+	if ref[0] == 'x' || ref[0] == 'X' {
+		n, err = strconv.ParseInt(ref[1:], 16, 32)
+	} else {
+		n, err = strconv.ParseInt(ref, 10, 32)
+	}
+	if err != nil || n != int64('\r') {
+		return 0
+	}
+	return semi + 1
+}
+
+// escapeClassicAmpPreservingCRRefs escapes every "&" once so the server's
+// single entity-decode restores the minimal source — except the "&" opening
+// a carriage-return reference, which is emitted bare so that decode yields
+// an actual CR.
+//
+// Escaping those too stores the reference as literal text (the PI-827 extra
+// entity layer), so a device would display "&#13;" instead of breaking the
+// line. Leaving the reference bare is safe against the server's bare-"&"/"<"
+// rejection because it decodes to CR, not to "&". Preserving other numeric
+// references is NOT safe and must not be generalised: "&#38;" decodes to a
+// bare "&" and the server rejects the write with 409.
+func escapeClassicAmpPreservingCRRefs(s string) string {
+	var b strings.Builder
+	for i := 0; i < len(s); {
+		if s[i] != '&' {
+			b.WriteByte(s[i])
+			i++
+			continue
+		}
+		if n := classicCRRefLen(s[i:]); n > 0 {
+			b.WriteString(s[i : i+n])
+			i += n
+			continue
+		}
+		b.WriteString("&amp;")
+		i++
+	}
+	return b.String()
+}
+
 // normalizeClassicProfilePayloadsForSend rewrites the <payloads> element
 // into the only wire form the Classic API accepts for entity-bearing
 // plists, immediately before the request is sent: the plist inside a
 // single CDATA section with source escaping minimised (see
 // minimizeClassicPlistSourceEscaping), "]]>" entity-guarded, and every
-// "&" escaped once.
+// "&" escaped once apart from carriage-return references (see
+// escapeClassicAmpPreservingCRRefs).
 // Text-form payloads (e.g. a GET/backup response piped back in) are
 // entity-decoded once to recover the plist first. Bodies without a
 // non-empty <payloads> element are returned unchanged.
@@ -1867,7 +1975,7 @@ func normalizeClassicProfilePayloadsForSend(body []byte) []byte {
 	}
 	inner = minimizeClassicPlistSourceEscaping(inner)
 	inner = strings.ReplaceAll(inner, "]]>", "]]&gt;")
-	inner = strings.ReplaceAll(inner, "&", "&amp;")
+	inner = escapeClassicAmpPreservingCRRefs(inner)
 	return []byte(s[:ci] + "<![CDATA[" + inner + "]]></payloads>" + s[restAt:])
 }
 
@@ -1907,10 +2015,11 @@ func classicCreatedResourceID(respBody []byte) string {
 
 // verifyClassicProfileStored fetches the stored payload after a successful
 // write and warns on stderr when the server did not store the submitted
-// values faithfully. This is reachable for profiles that mix payload types
-// with entities on the source-level side (PI-827) — no wire form can store
-// those correctly, so surfacing the exact paths is the only honest
-// behaviour. Best-effort: silent on any verification failure.
+// values faithfully. Each finding names the value path and how it diverged
+// (line breaks deleted, the PI-827 entity layer, non-BMP replacement, ...)
+// so the warning carries the remedy that actually applies rather than
+// blaming PI-827 for every class. Best-effort: silent on any verification
+// failure.
 func verifyClassicProfileStored(ctx context.Context, client registry.HTTPClient, apiPath, id string, sentBody []byte) {
 	intended := classicProfilePayloadFromBody(sentBody)
 	if len(intended) == 0 || id == "" {
@@ -1920,15 +2029,37 @@ func verifyClassicProfileStored(ctx context.Context, client registry.HTTPClient,
 	if len(stored) == 0 {
 		return
 	}
-	diffs, err := profileconvert.DiffPayloadValues(intended, stored)
+	diffs, err := profileconvert.DiffPayloadValuesDetailed(intended, stored)
 	if err != nil || len(diffs) == 0 {
 		return
 	}
+	fmt.Fprint(os.Stderr, formatStoredPayloadWarning(diffs))
+}
+
+// maxReportedPayloadDiffs caps how many divergences formatStoredPayloadWarning
+// lists individually: a server-injected PayloadContent entry shifts array
+// indices and turns one defect into a column of noise.
+const maxReportedPayloadDiffs = 3
+
+// formatStoredPayloadWarning renders the "server stored N value(s)
+// differently" warning for verifyClassicProfileStored, truncating the listed
+// findings at maxReportedPayloadDiffs and naming the remainder count. Pulled
+// out as a pure function so the truncation math can be tested without a
+// fake HTTP client.
+func formatStoredPayloadWarning(diffs []profileconvert.PayloadDiff) string {
 	total := len(diffs)
-	if total > 5 {
-		diffs = append(diffs[:5], "…")
+	if total > maxReportedPayloadDiffs {
+		diffs = diffs[:maxReportedPayloadDiffs]
 	}
-	fmt.Fprintf(os.Stderr, "warning: the server stored %d payload value(s) differently than submitted (Jamf PI-827 — no wire format stores this mix of payload types faithfully): %s\n", total, strings.Join(diffs, ", "))
+	var b strings.Builder
+	fmt.Fprintf(&b, "warning: the server stored %d payload value(s) differently than submitted:\n", total)
+	for _, d := range diffs {
+		fmt.Fprintf(&b, "  - %s: %s\n", d.Path, d.Reason)
+	}
+	if total > len(diffs) {
+		fmt.Fprintf(&b, "  … and %d more\n", total-len(diffs))
+	}
+	return b.String()
 }
 {{ end }}
 {{ if anyClassicFileFields . }}

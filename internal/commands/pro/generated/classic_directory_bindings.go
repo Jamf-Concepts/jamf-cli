@@ -276,7 +276,7 @@ func newClassicDirectoryBindingsDeleteCmd(ctx *registry.CLIContext) *cobra.Comma
 					} else {
 						var resolvedID string
 						if resolvedID == "" {
-							id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "directorybindings", "directorybindings", entry, noInputBulk)
+							id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "directorybindings", "directorybindings", entry, "update", noInputBulk)
 							if err != nil {
 								return fmt.Errorf("resolving %q: %w", entry, err)
 							}
@@ -353,7 +353,7 @@ func newClassicDirectoryBindingsDeleteCmd(ctx *registry.CLIContext) *cobra.Comma
 			var resolvedID string
 			noInput, _ := cmd.Flags().GetBool("no-input")
 			if flagName != "" {
-				id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "directorybindings", "directorybindings", flagName, noInput)
+				id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "directorybindings", "directorybindings", flagName, "update", noInput)
 				if err != nil {
 					return err
 				}
@@ -457,7 +457,7 @@ If not, a new resource is created.`,
 
 			// Check if resource exists by name (read-only, runs even in dry-run)
 			noInput, _ := cmd.Flags().GetBool("no-input")
-			id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "directorybindings", "directorybindings", name, noInput)
+			id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "directorybindings", "directorybindings", name, "update", noInput)
 			if err != nil {
 				return err
 			}

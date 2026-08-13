@@ -388,7 +388,7 @@ func newClassicMacosConfigProfilesDeleteCmd(ctx *registry.CLIContext) *cobra.Com
 					} else {
 						var resolvedID string
 						if resolvedID == "" {
-							id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "osxconfigurationprofiles", "osxconfigurationprofiles", entry, noInputBulk)
+							id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "osxconfigurationprofiles", "osxconfigurationprofiles", entry, "update", noInputBulk)
 							if err != nil {
 								return fmt.Errorf("resolving %q: %w", entry, err)
 							}
@@ -465,7 +465,7 @@ func newClassicMacosConfigProfilesDeleteCmd(ctx *registry.CLIContext) *cobra.Com
 			var resolvedID string
 			noInput, _ := cmd.Flags().GetBool("no-input")
 			if flagName != "" {
-				id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "osxconfigurationprofiles", "osxconfigurationprofiles", flagName, noInput)
+				id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "osxconfigurationprofiles", "osxconfigurationprofiles", flagName, "update", noInput)
 				if err != nil {
 					return err
 				}
@@ -607,7 +607,7 @@ If not, a new resource is created.`,
 
 			// Check if resource exists by name (read-only, runs even in dry-run)
 			noInput, _ := cmd.Flags().GetBool("no-input")
-			id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "osxconfigurationprofiles", "osxconfigurationprofiles", name, noInput)
+			id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "osxconfigurationprofiles", "osxconfigurationprofiles", name, "update", noInput)
 			if err != nil {
 				return err
 			}

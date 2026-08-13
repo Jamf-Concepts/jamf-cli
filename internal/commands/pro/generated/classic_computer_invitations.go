@@ -237,7 +237,7 @@ func newClassicComputerInvitationsDeleteCmd(ctx *registry.CLIContext) *cobra.Com
 							resolvedID = id
 						}
 						if resolvedID == "" {
-							id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "computerinvitations", "computerinvitations", entry, noInputBulk)
+							id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "computerinvitations", "computerinvitations", entry, "update", noInputBulk)
 							if err != nil {
 								return fmt.Errorf("resolving %q: %w", entry, err)
 							}
@@ -314,7 +314,7 @@ func newClassicComputerInvitationsDeleteCmd(ctx *registry.CLIContext) *cobra.Com
 			var resolvedID string
 			noInput, _ := cmd.Flags().GetBool("no-input")
 			if flagName != "" {
-				id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "computerinvitations", "computerinvitations", flagName, noInput)
+				id, err := resolveClassicNameToIDForApply(reqCtx, ctx.Client, "computerinvitations", "computerinvitations", flagName, "update", noInput)
 				if err != nil {
 					return err
 				}
