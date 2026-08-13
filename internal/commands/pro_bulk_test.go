@@ -26,11 +26,18 @@ import (
 type bulkMockClient struct {
 	responses map[string]overviewMockResponse // key: "METHOD /path"
 	calls     []string                        // recorded as "METHOD /path"
+	bodies    []string                        // request bodies, parallel to calls
 }
 
-func (m *bulkMockClient) Do(_ context.Context, method, path string, _ io.Reader) (*http.Response, error) {
+func (m *bulkMockClient) Do(_ context.Context, method, path string, body io.Reader) (*http.Response, error) {
 	key := method + " " + path
 	m.calls = append(m.calls, key)
+	bodyStr := ""
+	if body != nil {
+		b, _ := io.ReadAll(body)
+		bodyStr = string(b)
+	}
+	m.bodies = append(m.bodies, bodyStr)
 
 	// Exact match first
 	if resp, ok := m.responses[key]; ok {
@@ -71,6 +78,17 @@ func (m *bulkMockClient) callsMatching(prefix string) []string {
 	for _, c := range m.calls {
 		if strings.Contains(c, prefix) {
 			out = append(out, c)
+		}
+	}
+	return out
+}
+
+// bodiesMatching returns the request bodies of calls whose "METHOD /path" matches prefix.
+func (m *bulkMockClient) bodiesMatching(prefix string) []string {
+	var out []string
+	for i, c := range m.calls {
+		if strings.Contains(c, prefix) {
+			out = append(out, m.bodies[i])
 		}
 	}
 	return out
@@ -763,10 +781,14 @@ func TestAddToGroup_SmartGroupRejected(t *testing.T) {
 // ─────────────────────────────────────────────────────────────────
 
 func TestAddToGroup_FromFile(t *testing.T) {
-	// Write a temp file
+	// Mix a serial number with a numeric Classic ID — regression test for
+	// the bug where a raw serial was sent straight through as the Classic
+	// <id>, producing a 409 "Unable to match computer" (internal/resolve
+	// now resolves serials to a real ID before this ever reaches the
+	// Classic API).
 	dir := t.TempDir()
 	filePath := filepath.Join(dir, "computers.txt")
-	content := "Mac-01\nMac-02\n# comment\n\nMac-03\n"
+	content := "FVFC41HCLYWP\n# comment\n\n7\n"
 	if err := os.WriteFile(filePath, []byte(content), 0o600); err != nil {
 		t.Fatalf("writing temp file: %v", err)
 	}
@@ -778,6 +800,18 @@ func TestAddToGroup_FromFile(t *testing.T) {
 			]}`},
 			"GET /JSSResource/computergroups/id/200": {200, targetStaticGroupJSON},
 			"PUT /JSSResource/computergroups/id/200": {200, `<computer_group/>`},
+			// Serial resolved via the v3 inventory RSQL filter.
+			"GET /v3/computers-inventory": {200, `{"totalCount":1,"results":[{
+				"id":"5","udid":"u1",
+				"general":{"name":"FVFC41HCLYWP"},
+				"hardware":{"serialNumber":"FVFC41HCLYWP"}
+			}]}`},
+			// Numeric ID "7" is validated (not just trusted blindly) via a v3 GET by ID.
+			"GET /v3/computers-inventory/7": {200, `{
+				"id":"7","udid":"u2",
+				"general":{"name":"Mac-07"},
+				"hardware":{"serialNumber":"C02ABCDEF"}
+			}`},
 		},
 	}
 	cliCtx := newBulkCLIContext(mock)
@@ -793,30 +827,21 @@ func TestAddToGroup_FromFile(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	// 3 IDs in file (blank line and comment are skipped) → 3 PUTs
-	puts := mock.callsMatching("PUT /JSSResource/computergroups/id/200")
-	if len(puts) != 3 {
-		t.Errorf("expected 3 PUTs (3 IDs from file), got %d", len(puts))
-	}
-}
-
-func TestFromFileParsing_CommentsAndBlanks(t *testing.T) {
-	dir := t.TempDir()
-	filePath := filepath.Join(dir, "ids.txt")
-	content := "# this is a comment\nABC-001\n\n   DEF-002   \n# another comment\nGHI-003\n"
-	if err := os.WriteFile(filePath, []byte(content), 0o600); err != nil {
-		t.Fatalf("writing temp file: %v", err)
+	// 2 entries in file (blank line and comment are skipped) → 2 PUTs
+	bodies := mock.bodiesMatching("PUT /JSSResource/computergroups/id/200")
+	if len(bodies) != 2 {
+		t.Fatalf("expected 2 PUTs (2 entries from file), got %d", len(bodies))
 	}
 
-	ids, err := readIDsFromFile(filePath)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+	joined := strings.Join(bodies, "\n")
+	if strings.Contains(joined, "<id>FVFC41HCLYWP</id>") {
+		t.Error("raw serial number leaked into the Classic API <id> payload")
 	}
-	if len(ids) != 3 {
-		t.Errorf("expected 3 IDs, got %d: %v", len(ids), ids)
+	if !strings.Contains(joined, "<id>5</id>") {
+		t.Errorf("expected the serial to resolve to computer id 5, got bodies: %v", bodies)
 	}
-	if ids[0] != "ABC-001" || ids[1] != "DEF-002" || ids[2] != "GHI-003" {
-		t.Errorf("unexpected ids: %v", ids)
+	if !strings.Contains(joined, "<id>7</id>") {
+		t.Errorf("expected numeric id 7 in PUT bodies, got: %v", bodies)
 	}
 }
 
@@ -939,7 +964,16 @@ func TestSendCommand_DestructiveRequiresConfirm(t *testing.T) {
 }
 
 func TestSendCommand_DestructiveWithBothFlags(t *testing.T) {
-	// /dev/null → 0 targets, so no actual POST, but the gate should be cleared
+	// An empty --from-file now fails at target resolution (internal/resolve
+	// rejects a file with no entries), not at the destructive gate — this
+	// confirms --yes + --confirm-destructive together clear the gate before
+	// target resolution ever runs.
+	dir := t.TempDir()
+	filePath := filepath.Join(dir, "empty.txt")
+	if err := os.WriteFile(filePath, []byte("# only comments\n"), 0o600); err != nil {
+		t.Fatalf("writing temp file: %v", err)
+	}
+
 	mock := &bulkMockClient{responses: map[string]overviewMockResponse{}}
 	cliCtx := newBulkCLIContext(mock)
 
@@ -947,13 +981,18 @@ func TestSendCommand_DestructiveWithBothFlags(t *testing.T) {
 	_, _, err := runCobraCmd(
 		t, cmd, "send-command",
 		"--command", "EraseDevice",
-		"--from-file", "/dev/null",
+		"--from-file", filePath,
 		"--yes",
 		"--confirm-destructive",
 	)
-	// /dev/null gives 0 IDs → "No target computers found." but no error
-	if err != nil {
-		t.Fatalf("unexpected error with both flags set: %v", err)
+	if err == nil {
+		t.Fatal("expected an error resolving an empty target file")
+	}
+	if strings.Contains(err.Error(), "destructive") {
+		t.Errorf("gate should already be cleared; got a destructive-gate error instead of a target-resolution error: %v", err)
+	}
+	if mock.hasMutatingCall() {
+		t.Error("should not issue any calls when target resolution fails")
 	}
 }
 

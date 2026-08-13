@@ -3,7 +3,6 @@
 package commands
 
 import (
-	"bufio"
 	"context"
 	"fmt"
 	"io"
@@ -16,6 +15,7 @@ import (
 	"github.com/Jamf-Concepts/jamf-cli/internal/exitcode"
 	"github.com/Jamf-Concepts/jamf-cli/internal/output"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
+	"github.com/Jamf-Concepts/jamf-cli/internal/resolve"
 )
 
 // finishBatch maps a bulk tally to the process result. When some items
@@ -278,30 +278,6 @@ func doClassicPolicyUpdate(ctx context.Context, client registry.HTTPClient, id s
 	return nil
 }
 
-// readIDsFromFile reads device serial numbers or IDs from a plain-text file,
-// one entry per line.  Blank lines and lines starting with # are skipped.
-func readIDsFromFile(path string) ([]string, error) {
-	f, err := os.Open(path)
-	if err != nil {
-		return nil, fmt.Errorf("opening file %s: %w", path, err)
-	}
-	defer func() { _ = f.Close() }()
-
-	var ids []string
-	scanner := bufio.NewScanner(f)
-	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
-		if line == "" || strings.HasPrefix(line, "#") {
-			continue
-		}
-		ids = append(ids, line)
-	}
-	if err := scanner.Err(); err != nil {
-		return nil, fmt.Errorf("reading file %s: %w", path, err)
-	}
-	return ids, nil
-}
-
 // fetchComputerGroupMemberIDs returns the computer IDs that belong to the
 // named static or smart computer group (Classic API).
 func fetchComputerGroupMemberIDs(ctx context.Context, client registry.HTTPClient, groupName string) ([]string, error) {
@@ -371,13 +347,21 @@ func resolveComputerTargets(ctx context.Context, client registry.HTTPClient, fro
 	}
 
 	if fromFile != "" {
-		ids, err := readIDsFromFile(fromFile)
+		// Delegates to internal/resolve, which distinguishes numeric Classic
+		// IDs from serial numbers and resolves serials via the v3
+		// computers-inventory API before use — the Classic group/command
+		// endpoints below only accept a numeric ID, not a serial.
+		devices, err := resolve.ResolveComputersFromFile(ctx, client, fromFile)
 		if err != nil {
 			return nil, err
 		}
-		targets := make([]map[string]string, len(ids))
-		for i, id := range ids {
-			targets[i] = map[string]string{"id": id, "name": id}
+		targets := make([]map[string]string, len(devices))
+		for i, d := range devices {
+			name := d.Name
+			if name == "" {
+				name = d.ID
+			}
+			targets[i] = map[string]string{"id": d.ID, "name": name}
 		}
 		return targets, nil
 	}
