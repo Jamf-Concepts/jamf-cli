@@ -340,20 +340,14 @@ func (g *Generator) Generate(resource *Resource) (string, error) {
 		"patchHasLookup":  func(r *Resource) bool { return patchHasLookup(r) },
 		"opHasNameLookup": func(op *Operation, r *Resource) bool { return opHasNameLookup(op, r) },
 		"nameLookupPath": func(r *Resource) string {
-			if r.NameLookupPath != "" {
-				return r.NameLookupPath
-			}
-			return collectionPath(r.Operations)
+			return nameResolutionPath(r)
 		},
 		// lookupFieldPath is nameLookupPath with a lookup field's Section query
 		// param appended (e.g. "?section=HARDWARE" for --serial), so the response
 		// actually carries the field being filtered on and the client-side
 		// exact-match safety net in filterResultsByName can verify it.
 		"lookupFieldPath": func(r *Resource, lf LookupField) string {
-			base := r.NameLookupPath
-			if base == "" {
-				base = collectionPath(r.Operations)
-			}
+			base := nameResolutionPath(r)
 			if lf.Section == "" {
 				return base
 			}
@@ -861,6 +855,37 @@ func collectionPath(ops []*Operation) string {
 	return ""
 }
 
+// nameResolutionPath returns the path that --name (and --serial/--udid) lookup
+// should GET and RSQL-filter to turn an identifier into an {id}, or "" when the
+// resource has no such endpoint.
+//
+// This is deliberately stricter than collectionPath. collectionPath answers
+// "what is this resource's collection URL", and to do so it falls back to the
+// create POST path and to the {id} path minus its last segment — neither of
+// which implies the server will answer a GET there. Resources whose modern API
+// exposes only POST /collection + GET /collection/{id} (dock-items, the PKI
+// settings resources, cloud-ldaps, icons, …) hit exactly that: a --name flag
+// was generated, and resolveNameToID then GET the collection and got HTTP 405.
+//
+// So: take collectionPath's candidate, then require that some operation on this
+// resource actually performs a GET against that exact path. An explicit
+// NameLookupPath override is hand-picked and trusted as-is.
+func nameResolutionPath(r *Resource) string {
+	if r.NameLookupPath != "" {
+		return r.NameLookupPath
+	}
+	cp := collectionPath(r.Operations)
+	if cp == "" {
+		return ""
+	}
+	for _, op := range r.Operations {
+		if op.Method == "GET" && op.Path == cp {
+			return cp
+		}
+	}
+	return ""
+}
+
 func dedupeOperations(ops []*Operation) []*Operation {
 	// Pre-compute the collection path so we can prefer "get" ops that match it.
 	// This avoids keeping a secondary GET/{id} (e.g. /images/{id}, /smart-group-membership/{id})
@@ -1034,10 +1059,11 @@ func needsURL(r *Resource) bool {
 
 // shouldGenerateApply returns true if the resource should have an apply (upsert) command.
 // Singletons are excluded: they have no name-based collection to search, so upsert
-// semantics don't apply. Sub-resources (where collectionPath returns empty) are also
-// excluded: without a flat collection there is no way to resolve a name to an ID.
+// semantics don't apply. So are resources with no GET-serving collection
+// (nameResolutionPath empty) — sub-resources, and collections that only accept
+// POST — because apply's whole job is resolving a name to an ID first.
 func shouldGenerateApply(r *Resource) bool {
-	return !r.IsSingleton && hasApply(r.Operations) && collectionPath(r.Operations) != "" && hasResolvableID(r)
+	return !r.IsSingleton && hasApply(r.Operations) && nameResolutionPath(r) != "" && hasResolvableID(r)
 }
 
 // hasResolvableID returns true when the detected ID field exists in at least one
@@ -1235,9 +1261,10 @@ func hasPatchOp(ops []*Operation) bool {
 
 // patchHasLookup returns true when the resource's patch command should support
 // name/serial/UDID lookup in addition to a direct ID argument.
-// Requires: non-singleton, resolvable ID, a list endpoint for RSQL, and a PATCH with path param.
+// Requires: non-singleton, resolvable ID, a GET-serving collection to RSQL-filter,
+// and a PATCH with path param.
 func patchHasLookup(r *Resource) bool {
-	if r.IsSingleton || !hasResolvableID(r) || collectionPath(r.Operations) == "" {
+	if r.IsSingleton || !hasResolvableID(r) || nameResolutionPath(r) == "" {
 		return false
 	}
 	for _, op := range r.Operations {
@@ -1251,9 +1278,10 @@ func patchHasLookup(r *Resource) bool {
 // opHasNameLookup returns true when an operation should get --name/--serial/--udid
 // lookup flags as alternatives to the positional ID argument.
 // Covers get, update, delete, binary download, and multipart upload operations
-// that have a path parameter on a non-singleton, listable resource with resolvable ID.
+// that have a path parameter on a non-singleton resource with a resolvable ID and
+// a GET-serving collection to resolve the name against.
 func opHasNameLookup(op *Operation, r *Resource) bool {
-	if r.IsSingleton || !hasResolvableID(r) || collectionPath(r.Operations) == "" {
+	if r.IsSingleton || !hasResolvableID(r) || nameResolutionPath(r) == "" {
 		return false
 	}
 	// Name lookup resolves a single identifier into one {id}. Multi-param paths

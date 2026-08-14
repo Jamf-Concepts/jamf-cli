@@ -32,45 +32,25 @@ func NewMdmRenewalsCmd(ctx *registry.CLIContext) *cobra.Command {
 }
 
 func newMdmRenewalsGetCmd(ctx *registry.CLIContext) *cobra.Command {
-	var (
-		flagName string
-	)
+	var ()
 
 	cmd := &cobra.Command{
-		Use:   "get [<id>]",
+		Use:   "get <id>",
 		Short: "Get device common details for a client management ID",
 		Long:  "Retrieves device common details associated with a specific client management ID",
 		Example: `  # Get a mdm-renewal by ID
   jamf-cli pro mdm-renewals get 1
 
-  # Get a mdm-renewal by name
-  jamf-cli pro mdm-renewals get --name "Example"
-
   # Get a mdm-renewal and output as YAML
   jamf-cli pro mdm-renewals get 1 -o yaml`,
 		Annotations: map[string]string{"jamf:privileges": "Send Command to Renew MDM Profile"},
-		Args:        cobra.MaximumNArgs(1),
+		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
-			// Resolve resource ID from positional arg, --name, or lookup flags
-			var resolvedID string
-			if flagName != "" {
-				noInput, _ := cmd.Flags().GetBool("no-input")
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/mdm-renewal/device-common-details", "name", "clientManagementId", flagName, noInput)
-				if err != nil {
-					return err
-				}
-				resolvedID = rid
-			} else if len(args) > 0 {
-				resolvedID = args[0]
-			} else {
-				return fmt.Errorf("provide an <id> argument, --name")
-			}
-
 			// Build request path
 			path := "/v1/mdm-renewal/device-common-details/{clientManagementId}"
-			path = strings.Replace(path, "{clientManagementId}", url.PathEscape(resolvedID), 1)
+			path = strings.Replace(path, "{clientManagementId}", url.PathEscape(args[0]), 1)
 
 			// Build query string
 			var queryParts []string
@@ -89,8 +69,6 @@ func newMdmRenewalsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVar(&flagName, "name", "", "Look up mdm-renewal by name")
-
 	return cmd
 }
 
@@ -98,148 +76,25 @@ func newMdmRenewalsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagYes    bool
 		flagDryRun bool
-		fromFile   string
-		flagName   string
 	)
 
 	cmd := &cobra.Command{
-		Use:   "delete [<id>]",
+		Use:   "delete <id>",
 		Short: "Delete MDM renewal strategies for a client management ID",
 		Long:  "Deletes all MDM renewal strategies and errors associated with the specified client management ID",
 		Example: `  # Delete a mdm-renewal (with confirmation)
   jamf-cli pro mdm-renewals delete 1
 
-  # Delete by name
-  jamf-cli pro mdm-renewals delete --name "Example" --yes
-
   # Delete without confirmation prompt
   jamf-cli pro mdm-renewals delete 1 --yes`,
 		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Send Command to Renew MDM Profile"},
-		Args:        cobra.MaximumNArgs(1),
+		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
-			// --from-file: bulk delete from a file of IDs or names
-			if fromFile != "" {
-				entries, err := readDeleteFile(fromFile)
-				if err != nil {
-					return fmt.Errorf("reading --from-file: %w", err)
-				}
-				if len(entries) == 0 {
-					return fmt.Errorf("--from-file %q: no entries found", fromFile)
-				}
-				type bulkEntry struct{ id, label string }
-				bulk := make([]bulkEntry, 0, len(entries))
-				noInputBulk, _ := cmd.Flags().GetBool("no-input")
-				for _, entry := range entries {
-					if isNumericID(entry) {
-						if entry == "0" {
-							return fmt.Errorf("--from-file: ID 0 is not valid (Jamf Pro uses 0 as a sentinel value)")
-						}
-						bulk = append(bulk, bulkEntry{id: entry, label: entry})
-					} else {
-						var rid string
-						if rid == "" {
-							id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v1/mdm-renewal/device-common-details", "name", "clientManagementId", entry, noInputBulk)
-							if err != nil {
-								return fmt.Errorf("resolving %q: %w", entry, err)
-							}
-							rid = id
-						}
-						if rid == "" {
-							return fmt.Errorf("no mdm-renewal found matching %q", entry)
-						}
-						bulk = append(bulk, bulkEntry{id: rid, label: entry})
-					}
-				}
-				// Deduplicate resolved IDs to avoid double-delete errors.
-				{
-					seen := make(map[string]bool, len(bulk))
-					deduped := bulk[:0]
-					for _, e := range bulk {
-						if !seen[e.id] {
-							seen[e.id] = true
-							deduped = append(deduped, e)
-						}
-					}
-					bulk = deduped
-				}
-				if flagDryRun {
-					for _, e := range bulk {
-						fmt.Fprintf(os.Stderr, "[dry-run] Would delete mdm-renewal %q (id: %s)\n", e.label, e.id)
-					}
-					return nil
-				}
-				if !flagYes {
-					if noInputBulk {
-						return fmt.Errorf("destructive operation requires --yes when --no-input is set")
-					}
-					fmt.Fprintf(os.Stderr, "⚠️  This will delete %d mdm-renewals. Type 'yes' to confirm: ", len(bulk))
-					var confirm string
-					fmt.Scanln(&confirm)
-					if confirm != "yes" {
-						return fmt.Errorf("aborted")
-					}
-				}
-				if err := cooldown.Enforce(ctx.ProfileName, noInputBulk, ctx.DestructiveCooldown); err != nil {
-					return err
-				}
-				var okCount, failCount int
-				var firstErr error
-				for _, e := range bulk {
-					delPath := strings.Replace("/v1/mdm-renewal/renewal-strategies/{clientManagementId}", "{clientManagementId}", url.PathEscape(e.id), 1)
-					resp, err := ctx.Client.Do(reqCtx, "DELETE", delPath, nil)
-					if err != nil {
-						fmt.Fprintf(os.Stderr, "delete mdm-renewal %q (id: %s) failed: %v\n", e.label, e.id, err)
-						if firstErr == nil {
-							firstErr = err
-						}
-						failCount++
-						continue
-					}
-					resp.Body.Close()
-					if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-						fmt.Fprintf(os.Stderr, "delete mdm-renewal %q (id: %s) failed: HTTP %d\n", e.label, e.id, resp.StatusCode)
-						if firstErr == nil {
-							firstErr = fmt.Errorf("HTTP %d", resp.StatusCode)
-						}
-						failCount++
-						continue
-					}
-					fmt.Fprintf(os.Stderr, "Deleted mdm-renewal %q (id: %s)\n", e.label, e.id)
-					okCount++
-				}
-				cooldown.Record(ctx.ProfileName)
-				return batchDeleteError(cmd, okCount, failCount, firstErr, "mdm-renewals deletes")
-			}
-
-			// Resolve resource ID from positional arg, --name, or lookup flags
-			var resolvedID string
-			var resolvedByName string
-			if flagName != "" {
-				noInput, _ := cmd.Flags().GetBool("no-input")
-				rid, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v1/mdm-renewal/device-common-details", "name", "clientManagementId", flagName, noInput)
-				if err != nil {
-					return err
-				}
-				if rid == "" {
-					return fmt.Errorf("no mdm-renewal found with name %q", flagName)
-				}
-				resolvedID = rid
-				resolvedByName = flagName
-			} else if len(args) > 0 {
-				resolvedID = args[0]
-			} else {
-				return fmt.Errorf("provide an <id> argument, --name")
-			}
-
-			// Confirmation for destructive action (after name lookup)
+			// Confirmation for destructive action
 			if flagDryRun {
-				if resolvedByName != "" {
-					fmt.Fprintf(os.Stderr, "[dry-run] Would delete mdm-renewal %q (id: %s)\n", resolvedByName, resolvedID)
-				} else {
-					fmt.Fprintf(os.Stderr, "[dry-run] Would delete mdm-renewal %s\n", resolvedID)
-				}
+				fmt.Fprintf(os.Stderr, "Would delete resource %s\n", strings.Join(args, " "))
 				return nil
 			}
 			if !flagYes {
@@ -247,11 +102,7 @@ func newMdmRenewalsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 				if noInput {
 					return fmt.Errorf("destructive operation requires --yes when --no-input is set")
 				}
-				if resolvedByName != "" {
-					fmt.Fprintf(os.Stderr, "⚠️  This will delete mdm-renewal %q (id: %s). Type 'yes' to confirm: ", resolvedByName, resolvedID)
-				} else {
-					fmt.Fprintf(os.Stderr, "⚠️  This will delete mdm-renewal %s. Type 'yes' to confirm: ", resolvedID)
-				}
+				fmt.Fprintf(os.Stderr, "⚠️  This will delete resource %s. Type 'yes' to confirm: ", strings.Join(args, " "))
 				var confirm string
 				fmt.Scanln(&confirm)
 				if confirm != "yes" {
@@ -267,7 +118,7 @@ func newMdmRenewalsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 
 			// Build request path
 			path := "/v1/mdm-renewal/renewal-strategies/{clientManagementId}"
-			path = strings.Replace(path, "{clientManagementId}", url.PathEscape(resolvedID), 1)
+			path = strings.Replace(path, "{clientManagementId}", url.PathEscape(args[0]), 1)
 
 			// Build query string
 			var queryParts []string
@@ -298,11 +149,6 @@ func newMdmRenewalsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 
 	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt")
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
-	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to file listing IDs or names to delete (one per line, # comments ignored)")
-	cmd.Flags().StringVar(&flagName, "name", "", "Look up mdm-renewal by name")
-
-	cmd.MarkFlagsMutuallyExclusive("from-file", "name")
-
 	return cmd
 }
 

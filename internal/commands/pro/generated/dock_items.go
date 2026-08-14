@@ -29,51 +29,30 @@ func NewDockItemsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(newDockItemsCreateCmd(ctx))
 	cmd.AddCommand(newDockItemsUpdateCmd(ctx))
 	cmd.AddCommand(newDockItemsDeleteCmd(ctx))
-	cmd.AddCommand(newDockItemsApplyCmd(ctx))
 
 	return cmd
 }
 
 func newDockItemsGetCmd(ctx *registry.CLIContext) *cobra.Command {
-	var (
-		flagName string
-	)
+	var ()
 
 	cmd := &cobra.Command{
-		Use:   "get [<id>]",
+		Use:   "get <id>",
 		Short: "Retrieve a full dockItem object",
 		Long:  "Retrieves a full dockItem object",
 		Example: `  # Get a dock-item by ID
   jamf-cli pro dock-items get 1
 
-  # Get a dock-item by name
-  jamf-cli pro dock-items get --name "Example"
-
   # Get a dock-item and output as YAML
   jamf-cli pro dock-items get 1 -o yaml`,
 		Annotations: map[string]string{"jamf:privileges": "Read Dock Items"},
-		Args:        cobra.MaximumNArgs(1),
+		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
-			// Resolve resource ID from positional arg, --name, or lookup flags
-			var resolvedID string
-			if flagName != "" {
-				noInput, _ := cmd.Flags().GetBool("no-input")
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/dock-items", "name", "id", flagName, noInput)
-				if err != nil {
-					return err
-				}
-				resolvedID = rid
-			} else if len(args) > 0 {
-				resolvedID = args[0]
-			} else {
-				return fmt.Errorf("provide an <id> argument, --name")
-			}
-
 			// Build request path
 			path := "/v1/dock-items/{id}"
-			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
 
 			// Build query string
 			var queryParts []string
@@ -91,8 +70,6 @@ func newDockItemsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
-
-	cmd.Flags().StringVar(&flagName, "name", "", "Look up dock-item by name")
 
 	return cmd
 }
@@ -170,28 +147,23 @@ func newDockItemsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 func newDockItemsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagScaffold bool
-		flagName     string
-
-		flagSet []string
+		flagSet      []string
 	)
 
 	cmd := &cobra.Command{
-		Use:   "update [<id>]",
+		Use:   "update <id>",
 		Short: "Replace the dockItem at the id with the supplied information",
-		Long:  "Replaces the dockItem at the id with the supplied information\n\nIdentify the resource by ID (positional arg), --name.\n\nUse --set KEY=VALUE to update individual fields (repeatable). The current resource is fetched, your changes are merged in, read-only fields are dropped, and the whole record is written back. Omitted fields keep their current values.\n\nAvailable fields:\n  name                                         string\n  path                                         string\n  type                                         string\n\nWithout --set, pipe a full JSON document to stdin to replace the resource entirely.",
+		Long:  "Replaces the dockItem at the id with the supplied information\n\nUse --set KEY=VALUE to update individual fields (repeatable). The current resource is fetched, your changes are merged in, read-only fields are dropped, and the whole record is written back. Omitted fields keep their current values.\n\nAvailable fields:\n  name                                         string\n  path                                         string\n  type                                         string\n\nWithout --set, pipe a full JSON document to stdin to replace the resource entirely.",
 		Example: `  # Update individual fields (fetch-merge-replace)
   jamf-cli pro dock-items update 1 --set field=value
 
   # Replace a dock-item from JSON
   echo '{"name":"Updated"}' | jamf-cli pro dock-items update 1
 
-  # Update by name
-  jamf-cli pro dock-items get --name "Example" -o json | jq '.field = "value"' | jamf-cli pro dock-items update --name "Example"
-
   # Get a dock-item, modify, and update
   jamf-cli pro dock-items get 1 -o json | jq '.name = "New Name"' | jamf-cli pro dock-items update 1`,
 		Annotations: map[string]string{"jamf:privileges": "Update Dock Items"},
-		Args:        cobra.MaximumNArgs(1),
+		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -203,24 +175,9 @@ func newDockItemsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 }`, ctx.Output.Format())
 			}
 
-			// Resolve resource ID from positional arg, --name, or lookup flags
-			var resolvedID string
-			if flagName != "" {
-				noInput, _ := cmd.Flags().GetBool("no-input")
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/dock-items", "name", "id", flagName, noInput)
-				if err != nil {
-					return err
-				}
-				resolvedID = rid
-			} else if len(args) > 0 {
-				resolvedID = args[0]
-			} else {
-				return fmt.Errorf("provide an <id> argument, --name")
-			}
-
 			// Build request path
 			path := "/v1/dock-items/{id}"
-			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
 
 			// Build query string
 			var queryParts []string
@@ -290,8 +247,6 @@ func newDockItemsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	}
 
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
-	cmd.Flags().StringVar(&flagName, "name", "", "Look up dock-item by name")
-
 	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Update a field via fetch-merge-replace (key=value in dot notation, repeatable)")
 	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
 		return []string{
@@ -305,148 +260,25 @@ func newDockItemsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagYes    bool
 		flagDryRun bool
-		fromFile   string
-		flagName   string
 	)
 
 	cmd := &cobra.Command{
-		Use:   "delete [<id>]",
+		Use:   "delete <id>",
 		Short: "Delete a DockItem at the specified id",
 		Long:  "Deletes a dockItem at the specified id",
 		Example: `  # Delete a dock-item (with confirmation)
   jamf-cli pro dock-items delete 1
 
-  # Delete by name
-  jamf-cli pro dock-items delete --name "Example" --yes
-
   # Delete without confirmation prompt
   jamf-cli pro dock-items delete 1 --yes`,
 		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Delete Dock Items"},
-		Args:        cobra.MaximumNArgs(1),
+		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
-			// --from-file: bulk delete from a file of IDs or names
-			if fromFile != "" {
-				entries, err := readDeleteFile(fromFile)
-				if err != nil {
-					return fmt.Errorf("reading --from-file: %w", err)
-				}
-				if len(entries) == 0 {
-					return fmt.Errorf("--from-file %q: no entries found", fromFile)
-				}
-				type bulkEntry struct{ id, label string }
-				bulk := make([]bulkEntry, 0, len(entries))
-				noInputBulk, _ := cmd.Flags().GetBool("no-input")
-				for _, entry := range entries {
-					if isNumericID(entry) {
-						if entry == "0" {
-							return fmt.Errorf("--from-file: ID 0 is not valid (Jamf Pro uses 0 as a sentinel value)")
-						}
-						bulk = append(bulk, bulkEntry{id: entry, label: entry})
-					} else {
-						var rid string
-						if rid == "" {
-							id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v1/dock-items", "name", "id", entry, noInputBulk)
-							if err != nil {
-								return fmt.Errorf("resolving %q: %w", entry, err)
-							}
-							rid = id
-						}
-						if rid == "" {
-							return fmt.Errorf("no dock-item found matching %q", entry)
-						}
-						bulk = append(bulk, bulkEntry{id: rid, label: entry})
-					}
-				}
-				// Deduplicate resolved IDs to avoid double-delete errors.
-				{
-					seen := make(map[string]bool, len(bulk))
-					deduped := bulk[:0]
-					for _, e := range bulk {
-						if !seen[e.id] {
-							seen[e.id] = true
-							deduped = append(deduped, e)
-						}
-					}
-					bulk = deduped
-				}
-				if flagDryRun {
-					for _, e := range bulk {
-						fmt.Fprintf(os.Stderr, "[dry-run] Would delete dock-item %q (id: %s)\n", e.label, e.id)
-					}
-					return nil
-				}
-				if !flagYes {
-					if noInputBulk {
-						return fmt.Errorf("destructive operation requires --yes when --no-input is set")
-					}
-					fmt.Fprintf(os.Stderr, "⚠️  This will delete %d dock-items. Type 'yes' to confirm: ", len(bulk))
-					var confirm string
-					fmt.Scanln(&confirm)
-					if confirm != "yes" {
-						return fmt.Errorf("aborted")
-					}
-				}
-				if err := cooldown.Enforce(ctx.ProfileName, noInputBulk, ctx.DestructiveCooldown); err != nil {
-					return err
-				}
-				var okCount, failCount int
-				var firstErr error
-				for _, e := range bulk {
-					delPath := strings.Replace("/v1/dock-items/{id}", "{id}", url.PathEscape(e.id), 1)
-					resp, err := ctx.Client.Do(reqCtx, "DELETE", delPath, nil)
-					if err != nil {
-						fmt.Fprintf(os.Stderr, "delete dock-item %q (id: %s) failed: %v\n", e.label, e.id, err)
-						if firstErr == nil {
-							firstErr = err
-						}
-						failCount++
-						continue
-					}
-					resp.Body.Close()
-					if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-						fmt.Fprintf(os.Stderr, "delete dock-item %q (id: %s) failed: HTTP %d\n", e.label, e.id, resp.StatusCode)
-						if firstErr == nil {
-							firstErr = fmt.Errorf("HTTP %d", resp.StatusCode)
-						}
-						failCount++
-						continue
-					}
-					fmt.Fprintf(os.Stderr, "Deleted dock-item %q (id: %s)\n", e.label, e.id)
-					okCount++
-				}
-				cooldown.Record(ctx.ProfileName)
-				return batchDeleteError(cmd, okCount, failCount, firstErr, "dock-items deletes")
-			}
-
-			// Resolve resource ID from positional arg, --name, or lookup flags
-			var resolvedID string
-			var resolvedByName string
-			if flagName != "" {
-				noInput, _ := cmd.Flags().GetBool("no-input")
-				rid, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v1/dock-items", "name", "id", flagName, noInput)
-				if err != nil {
-					return err
-				}
-				if rid == "" {
-					return fmt.Errorf("no dock-item found with name %q", flagName)
-				}
-				resolvedID = rid
-				resolvedByName = flagName
-			} else if len(args) > 0 {
-				resolvedID = args[0]
-			} else {
-				return fmt.Errorf("provide an <id> argument, --name")
-			}
-
-			// Confirmation for destructive action (after name lookup)
+			// Confirmation for destructive action
 			if flagDryRun {
-				if resolvedByName != "" {
-					fmt.Fprintf(os.Stderr, "[dry-run] Would delete dock-item %q (id: %s)\n", resolvedByName, resolvedID)
-				} else {
-					fmt.Fprintf(os.Stderr, "[dry-run] Would delete dock-item %s\n", resolvedID)
-				}
+				fmt.Fprintf(os.Stderr, "Would delete resource %s\n", strings.Join(args, " "))
 				return nil
 			}
 			if !flagYes {
@@ -454,11 +286,7 @@ func newDockItemsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 				if noInput {
 					return fmt.Errorf("destructive operation requires --yes when --no-input is set")
 				}
-				if resolvedByName != "" {
-					fmt.Fprintf(os.Stderr, "⚠️  This will delete dock-item %q (id: %s). Type 'yes' to confirm: ", resolvedByName, resolvedID)
-				} else {
-					fmt.Fprintf(os.Stderr, "⚠️  This will delete dock-item %s. Type 'yes' to confirm: ", resolvedID)
-				}
+				fmt.Fprintf(os.Stderr, "⚠️  This will delete resource %s. Type 'yes' to confirm: ", strings.Join(args, " "))
 				var confirm string
 				fmt.Scanln(&confirm)
 				if confirm != "yes" {
@@ -474,7 +302,7 @@ func newDockItemsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 
 			// Build request path
 			path := "/v1/dock-items/{id}"
-			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
 
 			// Build query string
 			var queryParts []string
@@ -505,127 +333,5 @@ func newDockItemsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 
 	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt")
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
-	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to file listing IDs or names to delete (one per line, # comments ignored)")
-	cmd.Flags().StringVar(&flagName, "name", "", "Look up dock-item by name")
-
-	cmd.MarkFlagsMutuallyExclusive("from-file", "name")
-
-	return cmd
-}
-
-func newDockItemsApplyCmd(ctx *registry.CLIContext) *cobra.Command {
-	var (
-		fromFile     string
-		flagYes      bool
-		flagDryRun   bool
-		flagScaffold bool
-	)
-
-	cmd := &cobra.Command{
-		Use:   "apply",
-		Short: "Create or replace a dock-item by name",
-		Long: `Create or replace a dock-item. Reads JSON or YAML from --from-file or stdin.
-
-The name field in the input is used to check if the resource
-already exists. If it does, the resource is replaced (with confirmation).
-If not, a new resource is created.`,
-		Example: `  # Apply a dock-item from a JSON file
-  jamf-cli pro dock-items apply --from-file dock-item.json
-
-  # Apply a dock-item from a YAML file
-  jamf-cli pro dock-items apply --from-file dock-item.yaml
-
-  # Apply from stdin
-  cat dock-item.json | jamf-cli pro dock-items apply
-
-  # Apply without replacement confirmation
-  jamf-cli pro dock-items apply --from-file dock-item.json --yes
-
-  # Preview what would happen
-  jamf-cli pro dock-items apply --from-file dock-item.json --dry-run`,
-		RunE: func(cmd *cobra.Command, _ []string) error {
-			reqCtx := cmd.Context()
-			if flagScaffold {
-				return printScaffoldOutput(`{
-  "name": "DockItem Name",
-  "path": "file://localhost/Applications/iTunes.app",
-  "type": "FILE"
-}`, ctx.Output.Format())
-			}
-
-			// Read input (JSON or YAML). When file flags are present, empty input
-			// is OK — the file-field injector constructs a minimal body.
-			data, err := readApplyInput(fromFile)
-			if err != nil {
-				return err
-			}
-			if len(data) > 0 {
-				data, err = normalizeInputToJSON(data)
-				if err != nil {
-					return err
-				}
-			}
-
-			// Extract name from JSON input
-			name, err := extractJSONField(data, "name")
-			if err != nil {
-				return fmt.Errorf("input must include a %q field: %w", "name", err)
-			}
-
-			// Check if resource exists by name (read-only, runs even in dry-run)
-			noInput, _ := cmd.Flags().GetBool("no-input")
-			id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v1/dock-items", "name", "id", name, noInput)
-			if err != nil {
-				return err
-			}
-
-			if id == "" {
-				// Not found — create
-				if flagDryRun {
-					fmt.Fprintf(os.Stderr, "[dry-run] Would create dock-item %q\n", name)
-					return nil
-				}
-				resp, err := ctx.Client.Do(reqCtx, "POST", "/v1/dock-items", bytes.NewReader(data))
-				if err != nil {
-					return err
-				}
-				defer resp.Body.Close()
-				fmt.Fprintf(os.Stderr, "Created dock-item %q\n", name)
-				return ctx.Output.PrintResponse(resp)
-			}
-
-			// Found — replace
-			if flagDryRun {
-				fmt.Fprintf(os.Stderr, "[dry-run] Would replace dock-item %q (id: %s)\n", name, id)
-				return nil
-			}
-			if !flagYes {
-				if noInput {
-					return fmt.Errorf("dock-item %q already exists (id: %s); use --yes to replace when --no-input is set", name, id)
-				}
-				fmt.Fprintf(os.Stderr, "dock-item %q already exists (id: %s) and will be replaced. Type 'yes' to confirm: ", name, id)
-				var confirm string
-				fmt.Scanln(&confirm)
-				if confirm != "yes" {
-					return fmt.Errorf("aborted")
-				}
-			}
-
-			updatePath := strings.Replace("/v1/dock-items/{id}", "{id}", url.PathEscape(id), 1)
-			resp, err := ctx.Client.Do(reqCtx, "PUT", updatePath, bytes.NewReader(data))
-			if err != nil {
-				return err
-			}
-			defer resp.Body.Close()
-			fmt.Fprintf(os.Stderr, "Replaced dock-item %q (id: %s)\n", name, id)
-			return ctx.Output.PrintResponse(resp)
-		},
-	}
-
-	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to JSON or YAML input file (or pipe to stdin)")
-	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt when replacing")
-	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
-	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
-
 	return cmd
 }

@@ -3,7 +3,6 @@
 package generated
 
 import (
-	"fmt"
 	"net/url"
 	"strings"
 
@@ -65,45 +64,25 @@ func newDeviceComplianceInformationsListCmd(ctx *registry.CLIContext) *cobra.Com
 }
 
 func newDeviceComplianceInformationsGetCmd(ctx *registry.CLIContext) *cobra.Command {
-	var (
-		flagName string
-	)
+	var ()
 
 	cmd := &cobra.Command{
-		Use:   "get [<id>]",
+		Use:   "get <id>",
 		Short: "Get compliance information for a single computer device",
 		Long:  "Return basic compliance information for the given computer device",
 		Example: `  # Get a device-compliance-information by ID
   jamf-cli pro device-compliance-informations get 1
 
-  # Get a device-compliance-information by name
-  jamf-cli pro device-compliance-informations get --name "Example"
-
   # Get a device-compliance-information and output as YAML
   jamf-cli pro device-compliance-informations get 1 -o yaml`,
 		Annotations: map[string]string{"jamf:privileges": "Read Device Compliance Information"},
-		Args:        cobra.MaximumNArgs(1),
+		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
-			// Resolve resource ID from positional arg, --name, or lookup flags
-			var resolvedID string
-			if flagName != "" {
-				noInput, _ := cmd.Flags().GetBool("no-input")
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/conditional-access/device-compliance-information/computer", "name", "deviceId", flagName, noInput)
-				if err != nil {
-					return err
-				}
-				resolvedID = rid
-			} else if len(args) > 0 {
-				resolvedID = args[0]
-			} else {
-				return fmt.Errorf("provide an <id> argument, --name")
-			}
-
 			// Build request path
 			path := "/v1/conditional-access/device-compliance-information/computer/{deviceId}"
-			path = strings.Replace(path, "{deviceId}", url.PathEscape(resolvedID), 1)
+			path = strings.Replace(path, "{deviceId}", url.PathEscape(args[0]), 1)
 
 			// Build query string
 			var queryParts []string
@@ -121,8 +100,6 @@ func newDeviceComplianceInformationsGetCmd(ctx *registry.CLIContext) *cobra.Comm
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
-
-	cmd.Flags().StringVar(&flagName, "name", "", "Look up device-compliance-information by name")
 
 	return cmd
 }

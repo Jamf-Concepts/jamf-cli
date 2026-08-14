@@ -3,7 +3,6 @@
 package generated
 
 import (
-	"fmt"
 	"net/url"
 	"strings"
 
@@ -25,45 +24,25 @@ func NewComputerGroupsCmd(ctx *registry.CLIContext) *cobra.Command {
 }
 
 func newComputerGroupsGetCmd(ctx *registry.CLIContext) *cobra.Command {
-	var (
-		flagName string
-	)
+	var ()
 
 	cmd := &cobra.Command{
-		Use:   "get [<id>]",
+		Use:   "get <id>",
 		Short: "Get the membership of a Smart Computer Group",
 		Long:  "Gets the membership of a Smart Computer Group",
 		Example: `  # Get a computer-group by ID
   jamf-cli pro computer-groups get 1
 
-  # Get a computer-group by name
-  jamf-cli pro computer-groups get --name "Example"
-
   # Get a computer-group and output as YAML
   jamf-cli pro computer-groups get 1 -o yaml`,
 		Annotations: map[string]string{"jamf:privileges": "Read Smart Computer Groups"},
-		Args:        cobra.MaximumNArgs(1),
+		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
-			// Resolve resource ID from positional arg, --name, or lookup flags
-			var resolvedID string
-			if flagName != "" {
-				noInput, _ := cmd.Flags().GetBool("no-input")
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v3/computer-groups/smart-group-membership", "name", "id", flagName, noInput)
-				if err != nil {
-					return err
-				}
-				resolvedID = rid
-			} else if len(args) > 0 {
-				resolvedID = args[0]
-			} else {
-				return fmt.Errorf("provide an <id> argument, --name")
-			}
-
 			// Build request path
 			path := "/v3/computer-groups/smart-group-membership/{id}"
-			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
 
 			// Build query string
 			var queryParts []string
@@ -82,8 +61,6 @@ func newComputerGroupsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
-
-	cmd.Flags().StringVar(&flagName, "name", "", "Look up computer-group by name")
 
 	return cmd
 }

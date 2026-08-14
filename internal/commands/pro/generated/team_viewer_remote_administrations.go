@@ -35,51 +35,30 @@ func NewTeamViewerRemoteAdministrationsCmd(ctx *registry.CLIContext) *cobra.Comm
 	cmd.AddCommand(newTeamViewerRemoteAdministrationsSessionsStatusCmd(ctx))
 	cmd.AddCommand(newTeamViewerRemoteAdministrationsPatchCmd(ctx))
 	cmd.AddCommand(newTeamViewerRemoteAdministrationsStatusCmd(ctx))
-	cmd.AddCommand(newTeamViewerRemoteAdministrationsApplyCmd(ctx))
 
 	return cmd
 }
 
 func newTeamViewerRemoteAdministrationsGetCmd(ctx *registry.CLIContext) *cobra.Command {
-	var (
-		flagName string
-	)
+	var ()
 
 	cmd := &cobra.Command{
-		Use:   "get [<id>]",
+		Use:   "get <id>",
 		Short: "Get Team Viewer Remote Administration connection configuration",
 		Long:  "Returns Team Viewer Remote Administration connection configuration",
 		Example: `  # Get a team-viewer-remote-administration by ID
   jamf-cli pro team-viewer-remote-administrations get 1
 
-  # Get a team-viewer-remote-administration by name
-  jamf-cli pro team-viewer-remote-administrations get --name "Example"
-
   # Get a team-viewer-remote-administration and output as YAML
   jamf-cli pro team-viewer-remote-administrations get 1 -o yaml`,
 		Annotations: map[string]string{"jamf:privileges": "Read Remote Administration"},
-		Args:        cobra.MaximumNArgs(1),
+		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
-			// Resolve resource ID from positional arg, --name, or lookup flags
-			var resolvedID string
-			if flagName != "" {
-				noInput, _ := cmd.Flags().GetBool("no-input")
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/preview/remote-administration-configurations/team-viewer", "displayName", "id", flagName, noInput)
-				if err != nil {
-					return err
-				}
-				resolvedID = rid
-			} else if len(args) > 0 {
-				resolvedID = args[0]
-			} else {
-				return fmt.Errorf("provide an <id> argument, --name")
-			}
-
 			// Build request path
 			path := "/preview/remote-administration-configurations/team-viewer/{id}"
-			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
 
 			// Build query string
 			var queryParts []string
@@ -97,8 +76,6 @@ func newTeamViewerRemoteAdministrationsGetCmd(ctx *registry.CLIContext) *cobra.C
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
-
-	cmd.Flags().StringVar(&flagName, "name", "", "Look up team-viewer-remote-administration by name")
 
 	return cmd
 }
@@ -179,148 +156,25 @@ func newTeamViewerRemoteAdministrationsDeleteCmd(ctx *registry.CLIContext) *cobr
 	var (
 		flagYes    bool
 		flagDryRun bool
-		fromFile   string
-		flagName   string
 	)
 
 	cmd := &cobra.Command{
-		Use:   "delete [<id>]",
+		Use:   "delete <id>",
 		Short: "Delete Team Viewer Remote Administration connection configuration",
 		Long:  "Deletes Team Viewer Remote Administration connection configuration",
 		Example: `  # Delete a team-viewer-remote-administration (with confirmation)
   jamf-cli pro team-viewer-remote-administrations delete 1
 
-  # Delete by name
-  jamf-cli pro team-viewer-remote-administrations delete --name "Example" --yes
-
   # Delete without confirmation prompt
   jamf-cli pro team-viewer-remote-administrations delete 1 --yes`,
 		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Delete Remote Administration"},
-		Args:        cobra.MaximumNArgs(1),
+		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
-			// --from-file: bulk delete from a file of IDs or names
-			if fromFile != "" {
-				entries, err := readDeleteFile(fromFile)
-				if err != nil {
-					return fmt.Errorf("reading --from-file: %w", err)
-				}
-				if len(entries) == 0 {
-					return fmt.Errorf("--from-file %q: no entries found", fromFile)
-				}
-				type bulkEntry struct{ id, label string }
-				bulk := make([]bulkEntry, 0, len(entries))
-				noInputBulk, _ := cmd.Flags().GetBool("no-input")
-				for _, entry := range entries {
-					if isNumericID(entry) {
-						if entry == "0" {
-							return fmt.Errorf("--from-file: ID 0 is not valid (Jamf Pro uses 0 as a sentinel value)")
-						}
-						bulk = append(bulk, bulkEntry{id: entry, label: entry})
-					} else {
-						var rid string
-						if rid == "" {
-							id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/preview/remote-administration-configurations/team-viewer", "displayName", "id", entry, noInputBulk)
-							if err != nil {
-								return fmt.Errorf("resolving %q: %w", entry, err)
-							}
-							rid = id
-						}
-						if rid == "" {
-							return fmt.Errorf("no team-viewer-remote-administration found matching %q", entry)
-						}
-						bulk = append(bulk, bulkEntry{id: rid, label: entry})
-					}
-				}
-				// Deduplicate resolved IDs to avoid double-delete errors.
-				{
-					seen := make(map[string]bool, len(bulk))
-					deduped := bulk[:0]
-					for _, e := range bulk {
-						if !seen[e.id] {
-							seen[e.id] = true
-							deduped = append(deduped, e)
-						}
-					}
-					bulk = deduped
-				}
-				if flagDryRun {
-					for _, e := range bulk {
-						fmt.Fprintf(os.Stderr, "[dry-run] Would delete team-viewer-remote-administration %q (id: %s)\n", e.label, e.id)
-					}
-					return nil
-				}
-				if !flagYes {
-					if noInputBulk {
-						return fmt.Errorf("destructive operation requires --yes when --no-input is set")
-					}
-					fmt.Fprintf(os.Stderr, "⚠️  This will delete %d team-viewer-remote-administrations. Type 'yes' to confirm: ", len(bulk))
-					var confirm string
-					fmt.Scanln(&confirm)
-					if confirm != "yes" {
-						return fmt.Errorf("aborted")
-					}
-				}
-				if err := cooldown.Enforce(ctx.ProfileName, noInputBulk, ctx.DestructiveCooldown); err != nil {
-					return err
-				}
-				var okCount, failCount int
-				var firstErr error
-				for _, e := range bulk {
-					delPath := strings.Replace("/preview/remote-administration-configurations/team-viewer/{id}", "{id}", url.PathEscape(e.id), 1)
-					resp, err := ctx.Client.Do(reqCtx, "DELETE", delPath, nil)
-					if err != nil {
-						fmt.Fprintf(os.Stderr, "delete team-viewer-remote-administration %q (id: %s) failed: %v\n", e.label, e.id, err)
-						if firstErr == nil {
-							firstErr = err
-						}
-						failCount++
-						continue
-					}
-					resp.Body.Close()
-					if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-						fmt.Fprintf(os.Stderr, "delete team-viewer-remote-administration %q (id: %s) failed: HTTP %d\n", e.label, e.id, resp.StatusCode)
-						if firstErr == nil {
-							firstErr = fmt.Errorf("HTTP %d", resp.StatusCode)
-						}
-						failCount++
-						continue
-					}
-					fmt.Fprintf(os.Stderr, "Deleted team-viewer-remote-administration %q (id: %s)\n", e.label, e.id)
-					okCount++
-				}
-				cooldown.Record(ctx.ProfileName)
-				return batchDeleteError(cmd, okCount, failCount, firstErr, "team-viewer-remote-administrations deletes")
-			}
-
-			// Resolve resource ID from positional arg, --name, or lookup flags
-			var resolvedID string
-			var resolvedByName string
-			if flagName != "" {
-				noInput, _ := cmd.Flags().GetBool("no-input")
-				rid, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/preview/remote-administration-configurations/team-viewer", "displayName", "id", flagName, noInput)
-				if err != nil {
-					return err
-				}
-				if rid == "" {
-					return fmt.Errorf("no team-viewer-remote-administration found with displayName %q", flagName)
-				}
-				resolvedID = rid
-				resolvedByName = flagName
-			} else if len(args) > 0 {
-				resolvedID = args[0]
-			} else {
-				return fmt.Errorf("provide an <id> argument, --name")
-			}
-
-			// Confirmation for destructive action (after name lookup)
+			// Confirmation for destructive action
 			if flagDryRun {
-				if resolvedByName != "" {
-					fmt.Fprintf(os.Stderr, "[dry-run] Would delete team-viewer-remote-administration %q (id: %s)\n", resolvedByName, resolvedID)
-				} else {
-					fmt.Fprintf(os.Stderr, "[dry-run] Would delete team-viewer-remote-administration %s\n", resolvedID)
-				}
+				fmt.Fprintf(os.Stderr, "Would delete resource %s\n", strings.Join(args, " "))
 				return nil
 			}
 			if !flagYes {
@@ -328,11 +182,7 @@ func newTeamViewerRemoteAdministrationsDeleteCmd(ctx *registry.CLIContext) *cobr
 				if noInput {
 					return fmt.Errorf("destructive operation requires --yes when --no-input is set")
 				}
-				if resolvedByName != "" {
-					fmt.Fprintf(os.Stderr, "⚠️  This will delete team-viewer-remote-administration %q (id: %s). Type 'yes' to confirm: ", resolvedByName, resolvedID)
-				} else {
-					fmt.Fprintf(os.Stderr, "⚠️  This will delete team-viewer-remote-administration %s. Type 'yes' to confirm: ", resolvedID)
-				}
+				fmt.Fprintf(os.Stderr, "⚠️  This will delete resource %s. Type 'yes' to confirm: ", strings.Join(args, " "))
 				var confirm string
 				fmt.Scanln(&confirm)
 				if confirm != "yes" {
@@ -348,7 +198,7 @@ func newTeamViewerRemoteAdministrationsDeleteCmd(ctx *registry.CLIContext) *cobr
 
 			// Build request path
 			path := "/preview/remote-administration-configurations/team-viewer/{id}"
-			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
 
 			// Build query string
 			var queryParts []string
@@ -379,11 +229,6 @@ func newTeamViewerRemoteAdministrationsDeleteCmd(ctx *registry.CLIContext) *cobr
 
 	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt")
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
-	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to file listing IDs or names to delete (one per line, # comments ignored)")
-	cmd.Flags().StringVar(&flagName, "name", "", "Look up team-viewer-remote-administration by name")
-
-	cmd.MarkFlagsMutuallyExclusive("from-file", "name")
-
 	return cmd
 }
 
@@ -394,36 +239,20 @@ func newTeamViewerRemoteAdministrationsSessionsCmd(ctx *registry.CLIContext) *co
 		flagFilter   string
 		flagAll      bool
 		flagLimit    int
-		flagName     string
 	)
 
 	cmd := &cobra.Command{
-		Use:         "sessions [<id>]",
+		Use:         "sessions <id>",
 		Short:       "Get a paginated list of sessions",
 		Long:        "Returns a paginated list of sessions for a given configuration ID",
 		Annotations: map[string]string{"jamf:privileges": "Read Remote Administration"},
-		Args:        cobra.MaximumNArgs(1),
+		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
-			// Resolve resource ID from positional arg, --name, or lookup flags
-			var resolvedID string
-			if flagName != "" {
-				noInput, _ := cmd.Flags().GetBool("no-input")
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/preview/remote-administration-configurations/team-viewer", "displayName", "id", flagName, noInput)
-				if err != nil {
-					return err
-				}
-				resolvedID = rid
-			} else if len(args) > 0 {
-				resolvedID = args[0]
-			} else {
-				return fmt.Errorf("provide an <id> argument, --name")
-			}
-
 			// Build request path
 			path := "/preview/remote-administration-configurations/team-viewer/{configurationId}/sessions"
-			path = strings.Replace(path, "{configurationId}", url.PathEscape(resolvedID), 1)
+			path = strings.Replace(path, "{configurationId}", url.PathEscape(args[0]), 1)
 
 			// Build query string
 			var queryParts []string
@@ -452,7 +281,7 @@ func newTeamViewerRemoteAdministrationsSessionsCmd(ctx *registry.CLIContext) *co
 				for {
 					// Build page-specific query
 					pagePath := "/preview/remote-administration-configurations/team-viewer/{configurationId}/sessions"
-					pagePath = strings.Replace(pagePath, "{configurationId}", url.PathEscape(resolvedID), 1)
+					pagePath = strings.Replace(pagePath, "{configurationId}", url.PathEscape(args[0]), 1)
 					var pageQuery []string
 					// Carry forward non-pagination query params
 					for _, qp := range queryParts {
@@ -545,8 +374,6 @@ func newTeamViewerRemoteAdministrationsSessionsCmd(ctx *registry.CLIContext) *co
 	cmd.Flags().StringVar(&flagFilter, "filter", "", "Query in the RSQL format, allowing to filter sessions collection. Default filter is empty query - returning all results for the requested page.  Fields allowed in the query: 'deviceId', 'deviceType', 'state'  This param can be combined with paging. ")
 	cmd.Flags().BoolVar(&flagAll, "all", true, "Fetch all pages (set --all=false for single page)")
 	cmd.Flags().IntVar(&flagLimit, "limit", 0, "Maximum total results to return (0 = unlimited)")
-	cmd.Flags().StringVar(&flagName, "name", "", "Look up team-viewer-remote-administration by name")
-
 	return cmd
 }
 
@@ -700,26 +527,22 @@ func newTeamViewerRemoteAdministrationsPatchCmd(ctx *registry.CLIContext) *cobra
 		flagScaffold bool
 		flagSet      []string
 		fromFile     string
-		flagName     string
 	)
 
 	cmd := &cobra.Command{
-		Use:   "patch [<id>]",
+		Use:   "patch <id>",
 		Short: "Update Team Viewer Remote Administration connection configuration",
-		Long:  "Updates Team Viewer Remote Administration connection configuration\n\nIdentify the resource by ID (positional arg), --name, . Omit ID to use a lookup flag.\n\nUse --set KEY=VALUE to update scalar fields (repeatable). Omitted fields are unchanged.\n\nAvailable fields:\n  displayName                                  string\n  enabled                                      boolean\n  sessionTimeout                               integer\n  token                                        string\n\nUse --from-file or pipe JSON to stdin for complex updates (bulk changes, deep nesting).",
+		Long:  "Updates Team Viewer Remote Administration connection configuration\n\nUse --set KEY=VALUE to update scalar fields (repeatable). Omitted fields are unchanged.\n\nAvailable fields:\n  displayName                                  string\n  enabled                                      boolean\n  sessionTimeout                               integer\n  token                                        string\n\nUse --from-file or pipe JSON to stdin for complex updates (bulk changes, deep nesting).",
 		Example: `  # Update a field by ID
   jamf-cli pro team-viewer-remote-administrations patch 1 --set general.managed=true
 
   # Update multiple fields
   jamf-cli pro team-viewer-remote-administrations patch 1 --set field1=value1 --set field2=value2
 
-  # Update by name
-  jamf-cli pro team-viewer-remote-administrations patch --name "Example" --set general.managed=true
-
   # Patch from a file
   jamf-cli pro team-viewer-remote-administrations patch 1 --from-file changes.json`,
 		Annotations: map[string]string{"jamf:privileges": "Update Remote Administration"},
-		Args:        cobra.MaximumNArgs(1),
+		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -732,24 +555,9 @@ func newTeamViewerRemoteAdministrationsPatchCmd(ctx *registry.CLIContext) *cobra
 }`, ctx.Output.Format())
 			}
 
-			// Resolve resource ID from positional arg, --name, or lookup flags
-			var resolvedPatchID string
-			if flagName != "" {
-				noInput, _ := cmd.Flags().GetBool("no-input")
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/preview/remote-administration-configurations/team-viewer", "displayName", "id", flagName, noInput)
-				if err != nil {
-					return err
-				}
-				resolvedPatchID = rid
-			} else if len(args) > 0 {
-				resolvedPatchID = args[0]
-			} else {
-				return fmt.Errorf("provide an <id> argument, --name")
-			}
-
 			// Build request path
 			path := "/preview/remote-administration-configurations/team-viewer/{id}"
-			path = strings.Replace(path, "{id}", url.PathEscape(resolvedPatchID), 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
 
 			// Build query string
 			var queryParts []string
@@ -807,43 +615,24 @@ func newTeamViewerRemoteAdministrationsPatchCmd(ctx *registry.CLIContext) *cobra
 			"displayName=", "enabled=", "sessionTimeout=", "token=",
 		}, cobra.ShellCompDirectiveNoSpace
 	})
-	cmd.Flags().StringVar(&flagName, "name", "", "Look up team-viewer-remote-administration by name")
-
 	return cmd
 }
 
 func newTeamViewerRemoteAdministrationsStatusCmd(ctx *registry.CLIContext) *cobra.Command {
-	var (
-		flagName string
-	)
+	var ()
 
 	cmd := &cobra.Command{
-		Use:         "status [<id>]",
+		Use:         "status <id>",
 		Short:       "Get Team Viewer Remote Administration connection status",
 		Long:        "Returns Team Viewer Remote Administration connection status",
 		Annotations: map[string]string{"jamf:privileges": "Read Remote Administration"},
-		Args:        cobra.MaximumNArgs(1),
+		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
-			// Resolve resource ID from positional arg, --name, or lookup flags
-			var resolvedID string
-			if flagName != "" {
-				noInput, _ := cmd.Flags().GetBool("no-input")
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/preview/remote-administration-configurations/team-viewer", "displayName", "id", flagName, noInput)
-				if err != nil {
-					return err
-				}
-				resolvedID = rid
-			} else if len(args) > 0 {
-				resolvedID = args[0]
-			} else {
-				return fmt.Errorf("provide an <id> argument, --name")
-			}
-
 			// Build request path
 			path := "/preview/remote-administration-configurations/team-viewer/{id}/status"
-			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
 
 			// Build query string
 			var queryParts []string
@@ -861,128 +650,6 @@ func newTeamViewerRemoteAdministrationsStatusCmd(ctx *registry.CLIContext) *cobr
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
-
-	cmd.Flags().StringVar(&flagName, "name", "", "Look up team-viewer-remote-administration by name")
-
-	return cmd
-}
-
-func newTeamViewerRemoteAdministrationsApplyCmd(ctx *registry.CLIContext) *cobra.Command {
-	var (
-		fromFile     string
-		flagYes      bool
-		flagDryRun   bool
-		flagScaffold bool
-	)
-
-	cmd := &cobra.Command{
-		Use:   "apply",
-		Short: "Create or replace a team-viewer-remote-administration by name",
-		Long: `Create or replace a team-viewer-remote-administration. Reads JSON or YAML from --from-file or stdin.
-
-The displayName field in the input is used to check if the resource
-already exists. If it does, the resource is replaced (with confirmation).
-If not, a new resource is created.`,
-		Example: `  # Apply a team-viewer-remote-administration from a JSON file
-  jamf-cli pro team-viewer-remote-administrations apply --from-file team-viewer-remote-administration.json
-
-  # Apply a team-viewer-remote-administration from a YAML file
-  jamf-cli pro team-viewer-remote-administrations apply --from-file team-viewer-remote-administration.yaml
-
-  # Apply from stdin
-  cat team-viewer-remote-administration.json | jamf-cli pro team-viewer-remote-administrations apply
-
-  # Apply without replacement confirmation
-  jamf-cli pro team-viewer-remote-administrations apply --from-file team-viewer-remote-administration.json --yes
-
-  # Preview what would happen
-  jamf-cli pro team-viewer-remote-administrations apply --from-file team-viewer-remote-administration.json --dry-run`,
-		RunE: func(cmd *cobra.Command, _ []string) error {
-			reqCtx := cmd.Context()
-			if flagScaffold {
-				return printScaffoldOutput(`{
-  "displayName": "teamViewerConfiguration",
-  "enabled": true,
-  "scriptToken": "12847340-nPAX96bsaADH4Gz6K6i2",
-  "sessionTimeout": 15,
-  "siteId": "1"
-}`, ctx.Output.Format())
-			}
-
-			// Read input (JSON or YAML). When file flags are present, empty input
-			// is OK — the file-field injector constructs a minimal body.
-			data, err := readApplyInput(fromFile)
-			if err != nil {
-				return err
-			}
-			if len(data) > 0 {
-				data, err = normalizeInputToJSON(data)
-				if err != nil {
-					return err
-				}
-			}
-
-			// Extract name from JSON input
-			name, err := extractJSONField(data, "displayName")
-			if err != nil {
-				return fmt.Errorf("input must include a %q field: %w", "displayName", err)
-			}
-
-			// Check if resource exists by name (read-only, runs even in dry-run)
-			noInput, _ := cmd.Flags().GetBool("no-input")
-			id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/preview/remote-administration-configurations/team-viewer", "displayName", "id", name, noInput)
-			if err != nil {
-				return err
-			}
-
-			if id == "" {
-				// Not found — create
-				if flagDryRun {
-					fmt.Fprintf(os.Stderr, "[dry-run] Would create team-viewer-remote-administration %q\n", name)
-					return nil
-				}
-				resp, err := ctx.Client.Do(reqCtx, "POST", "/preview/remote-administration-configurations/team-viewer", bytes.NewReader(data))
-				if err != nil {
-					return err
-				}
-				defer resp.Body.Close()
-				fmt.Fprintf(os.Stderr, "Created team-viewer-remote-administration %q\n", name)
-				return ctx.Output.PrintResponse(resp)
-			}
-
-			// Found — replace
-			if flagDryRun {
-				fmt.Fprintf(os.Stderr, "[dry-run] Would replace team-viewer-remote-administration %q (id: %s)\n", name, id)
-				return nil
-			}
-			if !flagYes {
-				if noInput {
-					return fmt.Errorf("team-viewer-remote-administration %q already exists (id: %s); use --yes to replace when --no-input is set", name, id)
-				}
-				fmt.Fprintf(os.Stderr, "team-viewer-remote-administration %q already exists (id: %s) and will be replaced. Type 'yes' to confirm: ", name, id)
-				var confirm string
-				fmt.Scanln(&confirm)
-				if confirm != "yes" {
-					return fmt.Errorf("aborted")
-				}
-			}
-
-			updatePath := strings.Replace("/preview/remote-administration-configurations/team-viewer/{id}", "{id}", url.PathEscape(id), 1)
-			reqCtx = registry.WithContentType(reqCtx, "application/merge-patch+json")
-			resp, err := ctx.Client.Do(reqCtx, "PATCH", updatePath, bytes.NewReader(data))
-			if err != nil {
-				return err
-			}
-			defer resp.Body.Close()
-			fmt.Fprintf(os.Stderr, "Replaced team-viewer-remote-administration %q (id: %s)\n", name, id)
-			return ctx.Output.PrintResponse(resp)
-		},
-	}
-
-	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to JSON or YAML input file (or pipe to stdin)")
-	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt when replacing")
-	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
-	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 
 	return cmd
 }
