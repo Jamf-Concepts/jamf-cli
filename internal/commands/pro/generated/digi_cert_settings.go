@@ -31,6 +31,7 @@ func NewDigiCertSettingsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(newDigiCertSettingsPatchCmd(ctx))
 	cmd.AddCommand(newDigiCertSettingsConnectionStatusCmd(ctx))
 	cmd.AddCommand(newDigiCertSettingsDependenciesCmd(ctx))
+	cmd.AddCommand(newDigiCertSettingsPrivilegeCheckCmd(ctx))
 	cmd.AddCommand(newDigiCertSettingsApplyCmd(ctx))
 
 	return cmd
@@ -647,6 +648,61 @@ func newDigiCertSettingsDependenciesCmd(ctx *registry.CLIContext) *cobra.Command
 
 			// Build request path
 			path := "/v1/pki/digicert/trust-lifecycle-manager/{id}/dependencies"
+			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up digi-cert-setting by name")
+
+	return cmd
+}
+
+func newDigiCertSettingsPrivilegeCheckCmd(ctx *registry.CLIContext) *cobra.Command {
+	var (
+		flagName string
+	)
+
+	cmd := &cobra.Command{
+		Use:         "privilege-check [<id>]",
+		Short:       "Check DigiCert account permissions for certificate deployment",
+		Long:        "Checks that the DigiCert account associated with the given ID holds all permissions required to deploy certificates via the Trust Lifecycle Manager. Returns 204 if all required permissions are present. Returns 403 with a list of missing permission names if any are absent.",
+		Annotations: map[string]string{"jamf:privileges": "Read DigiCert Settings"},
+		Args:        cobra.MaximumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			// Resolve resource ID from positional arg, --name, or lookup flags
+			var resolvedID string
+			if flagName != "" {
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/pki/digicert/trust-lifecycle-manager", "name", "id", flagName, noInput)
+				if err != nil {
+					return err
+				}
+				resolvedID = rid
+			} else if len(args) > 0 {
+				resolvedID = args[0]
+			} else {
+				return fmt.Errorf("provide an <id> argument, --name")
+			}
+
+			// Build request path
+			path := "/v1/pki/digicert/trust-lifecycle-manager/{id}/privilege-check"
 			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
 
 			// Build query string

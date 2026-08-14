@@ -50,10 +50,17 @@ sync-specs:
 	@if [ ! -d "$(JAMF_SERVER_ROOT)" ]; then \
 		echo "Error: jamf-pro-server not found at $(JAMF_SERVER_PATH)"; \
 		echo "Expected $(JAMF_SERVER_ROOT) to exist."; \
-		echo "Usage: make sync-specs JAMF_SERVER_PATH=/path/to/jss"; \
+		echo "Usage: make sync-specs JAMF_SERVER_PATH=/path/to/jss JAMF_PRO_VERSION=<version>"; \
+		exit 1; \
+	fi
+	@if [ -z "$(JAMF_PRO_VERSION)" ]; then \
+		echo "Error: JAMF_PRO_VERSION is required — specify the Jamf Pro version the specs came from."; \
+		echo "Usage: make sync-specs JAMF_SERVER_PATH=/path/to/jss JAMF_PRO_VERSION=<version>"; \
+		echo "  e.g. JAMF_SERVER_PATH=../jamf-pro-server JAMF_PRO_VERSION=11.31.0"; \
 		exit 1; \
 	fi
 	@echo "Syncing OpenAPI specs from $(JAMF_SERVER_ROOT)..."
+	@echo "$(JAMF_PRO_VERSION)" > specs/.spec-version
 	@rm -f specs/*.yaml
 	@find $(JAMF_SERVER_ROOT) -path "*/swagger_docs/uapi/*.yaml" \
 		-not -path "*/uapi/hiddenapi/*" -not -path "*/uapi/common/*" \
@@ -82,6 +89,7 @@ sync-specs:
 	@ls specs/*.yaml | wc -l | xargs echo "  Total files:"
 	@echo "Regenerating commands..."
 	@$(MAKE) generate
+	@echo "Spec version: $(JAMF_PRO_VERSION) (written to specs/.spec-version)"
 	@echo "Done! Review changes with: git diff"
 
 # Path to, or URL of, a consolidated Jamf Pro OpenAPI document (e.g.

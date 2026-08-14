@@ -598,7 +598,7 @@ components:
       example: general
       type: string
 info:
-  title: Jamf Pro API - computer-inventory
+  title: Jamf Pro API - ComputersInventory
   version: 0.0.1
 openapi: 3.0.1
 paths:

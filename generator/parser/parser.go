@@ -30,6 +30,12 @@ var resourceNameOverrides = map[string]string{
 	"apns-client-push-statuss": "apns-client-push-status",
 	// "m2m" → kebab → "m-2-m" → pluralize → "m-2-ms"; preserve the original token.
 	"m-2-ms": "m2m",
+	// /v2/environment-type reports the single cloud-services environment this
+	// instance talks to (staging/production/sandbox) — it is not a collection of
+	// selectable types. GET-only with no PUT, so detectSingleton can't catch it;
+	// keep the name singular so `pro environment-type list` doesn't read as
+	// "list the available environment types". Same shape as startup-status.
+	"environment-types": "environment-type",
 }
 
 // ApplyNameOverrides corrects resource names that auto-pluralization got wrong.

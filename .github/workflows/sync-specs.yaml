@@ -56,7 +56,7 @@ jobs:
             -exec cp {} specs/ +
           find jss -path '*/swagger_docs/uapi/common/*.yaml' \
             -exec cp {} specs/ +
-          echo "$JAMF_PRO_VERSION" > specs/VERSION
+          echo "$JAMF_PRO_VERSION" > specs/.spec-version
           make generate
           go fmt ./internal/commands/pro/generated/...
 

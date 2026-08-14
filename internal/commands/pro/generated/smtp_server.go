@@ -29,6 +29,7 @@ func NewSmtpServerCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(newSmtpServerHistoryCmd(ctx))
 	cmd.AddCommand(newSmtpServerAddHistoryNoteCmd(ctx))
 	cmd.AddCommand(newSmtpServerTestCmd(ctx))
+	cmd.AddCommand(newSmtpServerAllowedAuthTypesCmd(ctx))
 
 	return cmd
 }
@@ -468,5 +469,39 @@ func newSmtpServerTestCmd(ctx *registry.CLIContext) *cobra.Command {
 	}
 
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
+	return cmd
+}
+
+func newSmtpServerAllowedAuthTypesCmd(ctx *registry.CLIContext) *cobra.Command {
+	var ()
+
+	cmd := &cobra.Command{
+		Use:         "allowed-auth-types",
+		Short:       "Get allowed SMTP authentication types",
+		Long:        "Returns the list of authentication types currently available on this instance. Availability is controlled at the instance or knobs level and is independent of current SMTP settings.",
+		Annotations: map[string]string{"jamf:privileges": "Read SMTP Server"},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			// Build request path
+			path := "/v2/smtp-server/allowed-auth-types"
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
 	return cmd
 }

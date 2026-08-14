@@ -351,7 +351,7 @@ components:
           type: boolean
       type: object
 info:
-  title: Jamf Pro API - patch-software-title-configurations
+  title: Jamf Pro API - PatchSoftwareTitleConfigurations
   version: 0.0.1
 openapi: 3.0.1
 paths:

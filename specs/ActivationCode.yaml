@@ -41,7 +41,7 @@ paths:
       tags:
         - activation-code
       x-required-privileges:
-        - Update Activation Code
+        - Update License Information
   /v1/activation-code/history:
     get:
       description: Get Activation Code history object
@@ -86,7 +86,7 @@ paths:
       tags:
         - activation-code
       x-required-privileges:
-        - Read Activation Code
+        - Read License Information
     post:
       description: |
         Adds Activation Code object note.
@@ -115,7 +115,7 @@ paths:
       tags:
         - activation-code
       x-required-privileges:
-        - Update Activation Code
+        - Update License Information
   /v1/activation-code/history/export:
     post:
       description: |
@@ -181,7 +181,7 @@ paths:
         - activation-code
       x-action: true
       x-required-privileges:
-        - Read Activation Code
+        - Read License Information
   /v1/activation-code/organization-name:
     patch:
       description: Updates Organization Name in Jamf Pro.
@@ -197,6 +197,6 @@ paths:
       tags:
         - activation-code
       x-required-privileges:
-        - Update Activation Code
+        - Update License Information
 servers:
   - url: /api

@@ -95,6 +95,7 @@ func RegisterCommands(root *cobra.Command, ctx *registry.CLIContext) {
 	root.AddCommand(NewEnrollmentCustomizationsCmd(ctx))
 	root.AddCommand(NewEnrollmentLanguagesCmd(ctx))
 	root.AddCommand(NewEnrollmentSettingsCmd(ctx))
+	root.AddCommand(NewEnvironmentTypeCmd(ctx))
 	root.AddCommand(NewEraseDeviceComputersCmd(ctx))
 	root.AddCommand(NewEraseDeviceMobilesCmd(ctx))
 	root.AddCommand(NewGroupsCmd(ctx))

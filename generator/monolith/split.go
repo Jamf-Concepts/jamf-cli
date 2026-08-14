@@ -74,8 +74,18 @@ func Split(monolithSource, specsDir string) ([]string, []string, error) {
 		return nil, nil, fmt.Errorf("building layout from existing specs: %w", err)
 	}
 
+	// Spec files that already exist in the layout. Their info.title stays
+	// filename-derived even when they pick up new paths — otherwise a file
+	// flips between filename- and tag-derived titles depending on whether that
+	// particular sync happened to bring it a new endpoint, producing diff churn
+	// with no semantic content.
+	existingFiles := make(map[string]bool, len(layout))
+	for _, filename := range layout {
+		existingFiles[filename] = true
+	}
+
 	buckets := make(map[string]map[string]any) // filename → paths subset
-	newFileTag := make(map[string]string)      // filename → tag (for titles)
+	newFileTag := make(map[string]string)      // new filename → tag (for titles)
 	warnings := []string{}
 
 	for path, pi := range paths {
@@ -102,7 +112,9 @@ func Split(monolithSource, specsDir string) ([]string, []string, error) {
 				filename = "Untagged.yaml"
 			}
 			warnings = append(warnings, fmt.Sprintf("new path %s (tag=%q) not in existing layout; routed to %s", path, tag, filename))
-			newFileTag[filename] = tag
+			if !existingFiles[filename] {
+				newFileTag[filename] = tag
+			}
 		}
 
 		if _, exists := buckets[filename]; !exists {
