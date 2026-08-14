@@ -1138,11 +1138,123 @@ func TestOpHasNameLookup(t *testing.T) {
 			&Resource{Operations: []*Operation{listOp, {Name: "action", Method: "POST", Path: "/v1/things/{id}/bars/{barId}/act"}}, IDField: "id"},
 			false,
 		},
+		{
+			// collectionPath resolves /v1/things via the create-POST branch, but the
+			// server only accepts POST there — GETting it to RSQL-filter returns 405.
+			// Mirrors dock-items, venafis, cloud-azure, the PKI settings resources.
+			"POST-only collection — lookup suppressed",
+			&Operation{Name: "get", Method: "GET", Path: "/v1/things/{id}"},
+			&Resource{Operations: []*Operation{
+				{Name: "create", Method: "POST", Path: "/v1/things"},
+				{Name: "get", Method: "GET", Path: "/v1/things/{id}"},
+			}, IDField: "id"},
+			false,
+		},
+		{
+			// collectionPath falls back to the {id} path minus its last segment, but
+			// no operation GETs that parent — it does not exist server-side at all.
+			// Mirrors classic-ldap and certificate-authorities.
+			"collection path derived from {id} with no GET — lookup suppressed",
+			&Operation{Name: "get", Method: "GET", Path: "/v1/things/{id}"},
+			&Resource{Operations: []*Operation{
+				{Name: "get", Method: "GET", Path: "/v1/things/{id}"},
+			}, IDField: "id"},
+			false,
+		},
+		{
+			// An explicit NameLookupPath override is hand-picked for a resource whose
+			// primary list endpoint ignores RSQL, so it is trusted without the
+			// GET-serving check (mirrors mobile-devices → /v2/mobile-devices/detail).
+			"NameLookupPath override — lookup generated despite POST-only collection",
+			&Operation{Name: "get", Method: "GET", Path: "/v1/things/{id}"},
+			&Resource{Operations: []*Operation{
+				{Name: "create", Method: "POST", Path: "/v1/things"},
+				{Name: "get", Method: "GET", Path: "/v1/things/{id}"},
+			}, IDField: "id", NameLookupPath: "/v1/things/detail"},
+			true,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := opHasNameLookup(tt.op, tt.r); got != tt.want {
 				t.Errorf("opHasNameLookup() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+// TestNameResolutionPath pins the distinction between collectionPath ("what is
+// this resource's collection URL") and nameResolutionPath ("which URL can we GET
+// and RSQL-filter to turn a name into an ID"). The two diverge whenever the
+// collection accepts POST but not GET, or does not exist at all.
+func TestNameResolutionPath(t *testing.T) {
+	tests := []struct {
+		name           string
+		r              *Resource
+		wantCollection string
+		want           string
+	}{
+		{
+			name: "list GET collection — resolvable",
+			r: &Resource{Operations: []*Operation{
+				{Name: "list", Method: "GET", Path: "/v1/things", IsList: true},
+				{Name: "get", Method: "GET", Path: "/v1/things/{id}"},
+			}},
+			wantCollection: "/v1/things",
+			want:           "/v1/things",
+		},
+		{
+			name: "POST-only collection — not resolvable",
+			r: &Resource{Operations: []*Operation{
+				{Name: "create", Method: "POST", Path: "/v1/things"},
+				{Name: "get", Method: "GET", Path: "/v1/things/{id}"},
+			}},
+			wantCollection: "/v1/things",
+			want:           "",
+		},
+		{
+			name: "collection derived from {id} only — not resolvable",
+			r: &Resource{Operations: []*Operation{
+				{Name: "get", Method: "GET", Path: "/v1/things/{id}"},
+			}},
+			wantCollection: "/v1/things",
+			want:           "",
+		},
+		{
+			name: "collection derived from PUT {id} only — not resolvable",
+			r: &Resource{Operations: []*Operation{
+				{Name: "update", Method: "PUT", Path: "/v1/things/{id}"},
+			}},
+			wantCollection: "/v1/things",
+			want:           "",
+		},
+		{
+			name: "no collection at all — not resolvable",
+			r: &Resource{Operations: []*Operation{
+				{Name: "action", Method: "POST", Path: "/v1/things/act"},
+			}},
+			wantCollection: "",
+			want:           "",
+		},
+		{
+			name: "NameLookupPath override wins outright",
+			r: &Resource{Operations: []*Operation{
+				{Name: "create", Method: "POST", Path: "/v1/things"},
+				{Name: "get", Method: "GET", Path: "/v1/things/{id}"},
+			}, NameLookupPath: "/v1/things/detail"},
+			wantCollection: "/v1/things",
+			want:           "/v1/things/detail",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Assert the divergence explicitly so a future change to collectionPath
+			// that makes these cases identical is caught here.
+			if got := collectionPath(tt.r.Operations); got != tt.wantCollection {
+				t.Errorf("collectionPath() = %q, want %q", got, tt.wantCollection)
+			}
+			if got := nameResolutionPath(tt.r); got != tt.want {
+				t.Errorf("nameResolutionPath() = %q, want %q", got, tt.want)
 			}
 		})
 	}
@@ -1557,6 +1669,9 @@ func TestGenerate_ApplyWithDisplayName(t *testing.T) {
 		GoName:       "ApiRoles",
 		NameField:    "displayName",
 		Operations: []*Operation{
+			// The list GET is what makes name resolution (and therefore apply)
+			// possible — see nameResolutionPath.
+			{Name: "list", Method: "GET", Path: "/v1/api-roles", Summary: "List", IsList: true},
 			{Name: "create", Method: "POST", Path: "/v1/api-roles", Summary: "Create"},
 			{
 				Name: "update", Method: "PUT", Path: "/v1/api-roles/{id}", Summary: "Update",
@@ -1619,6 +1734,7 @@ func TestGenerate_NoApply_WithoutUpdate(t *testing.T) {
 func TestNeedsFmt_WithApply(t *testing.T) {
 	r := &Resource{
 		Operations: []*Operation{
+			{Name: "list", Method: "GET", Path: "/v1/widgets", IsList: true},
 			{Name: "create", Method: "POST", Path: "/v1/widgets"},
 			{Name: "update", Method: "PUT", Path: "/v1/widgets/{id}"},
 		},
@@ -1631,6 +1747,7 @@ func TestNeedsFmt_WithApply(t *testing.T) {
 func TestNeedsURL_WithApply(t *testing.T) {
 	r := &Resource{
 		Operations: []*Operation{
+			{Name: "list", Method: "GET", Path: "/v1/widgets", IsList: true},
 			{Name: "create", Method: "POST", Path: "/v1/widgets"},
 			{Name: "update", Method: "PUT", Path: "/v1/widgets/{id}"},
 		},
@@ -1696,13 +1813,26 @@ func TestShouldGenerateApply(t *testing.T) {
 		want        bool
 	}{
 		{
-			name:        "non-singleton with create+update — apply generated",
+			name:        "non-singleton with list+create+update — apply generated",
+			isSingleton: false,
+			ops: []*Operation{
+				{Name: "list", Method: "GET", Path: "/v1/widgets", IsList: true},
+				{Name: "create", Method: "POST", Path: "/v1/widgets"},
+				{Name: "update", Method: "PUT", Path: "/v1/widgets/{id}"},
+			},
+			want: true,
+		},
+		{
+			// POST-only collection: apply cannot resolve the input's name to an
+			// existing ID, so upsert is impossible. Mirrors dock-items, venafis,
+			// cloud-azure, cloud-ldaps and the PKI settings resources.
+			name:        "non-singleton with POST-only collection — apply suppressed",
 			isSingleton: false,
 			ops: []*Operation{
 				{Name: "create", Method: "POST", Path: "/v1/widgets"},
 				{Name: "update", Method: "PUT", Path: "/v1/widgets/{id}"},
 			},
-			want: true,
+			want: false,
 		},
 		{
 			name:        "singleton with create+update — apply suppressed",
