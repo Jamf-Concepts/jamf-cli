@@ -113,12 +113,41 @@ A brand new tag becomes a brand new resource command, which trips
 ### 2. Sanity-check auto-derived resource names
 
 Resource names come from the spec filename and are auto-pluralized. When that
-reads wrong — a collective noun, a double `s`, or a single-valued endpoint that
-would otherwise look like a collection — add an entry to `resourceNameOverrides`
-in `generator/parser/parser.go` and regenerate. Getting this right before the
-command ships is much cheaper than renaming it later.
+reads wrong — a collective noun or a double `s` — add an entry to
+`resourceNameOverrides` in `generator/parser/parser.go` and regenerate. Getting
+this right before the command ships is much cheaper than renaming it later.
 
-### 3. Manual testing
+A single-valued endpoint needs the *verb* fixed too, not just the noun: a
+GET-only settings-style path with no `{id}` has no PUT for `detectSingleton` to
+match, so it generates `list` (plus a meaningless `--field id` example) for an
+endpoint that returns one object. Add its path to `readOnlySingletonPaths` in
+the same file — that makes it a singleton, which also drops the pluralization,
+so no `resourceNameOverrides` entry is needed.
+
+### 3. Check for privilege-name changes
+
+Upstream sometimes renames a privilege (11.31.0 turned `Read Activation Code`
+into `Read License Information`). Those strings are surfaced verbatim in
+`commands -o json` as `privileges` and appended to the 403 hint at runtime, so a
+downstream consumer can break on an otherwise routine sync:
+
+```bash
+git diff -- specs/ | grep -E '^[-+].*x-required-privileges' -A 3
+```
+
+Call out anything that moved in the PR body.
+
+### 4. Check whether any new endpoint documents a non-2xx as a *result*
+
+Almost every operation lists a 403 as a boilerplate error, but a few
+check-style endpoints (e.g. DigiCert's `privilege-check`) return 403 *as the
+answer*, with the body holding the detail the user asked for. Left alone, the
+client maps that to `permission_denied` with a hint blaming the caller's own API
+role, and the payload only ever appears inside an error string. Add the
+operation to `documentedStatusResults` in `generator/parser/parser.go` and
+regenerate — the command then renders the body and picks its own exit code.
+
+### 5. Manual testing
 
 Exercise the new and changed endpoints against a live instance on the target
 version, not just `--help`:
@@ -128,7 +157,7 @@ bin/jamf-cli -p <profile> pro computers list
 bin/jamf-cli -p <profile> pro mobile-devices list
 ```
 
-### 4. Commit
+### 6. Commit
 
 ```bash
 git add specs/ internal/commands/pro/generated/ internal/commands/groups.go

@@ -154,8 +154,10 @@ func (c *Client) Do(ctx context.Context, method, path string, body io.Reader) (*
 		logHeaders(os.Stderr, resp.Header, false)
 	}
 
-	// Map HTTP error status codes to structured exit codes
-	if resp.StatusCode >= 400 {
+	// Map HTTP error status codes to structured exit codes, unless the caller
+	// declared this status a documented result (registry.WithAllowedStatuses) —
+	// then the response is returned with its body intact for the caller to render.
+	if resp.StatusCode >= 400 && !registry.StatusAllowed(ctx, resp.StatusCode) {
 		body, _ := io.ReadAll(io.LimitReader(resp.Body, bodyLogLimit))
 		_ = resp.Body.Close()
 		if c.verboseLevel >= 3 {
@@ -403,6 +405,14 @@ func logHeaders(w io.Writer, h http.Header, redactAuth bool) {
 		}
 		_, _ = fmt.Fprintf(w, "    %s: %s\n", k, v)
 	}
+}
+
+// StatusError maps an HTTP error response to the same structured exit error Do
+// would have returned. For callers that opted a status out of that mapping with
+// registry.WithAllowedStatuses and then decided the response was a genuine
+// failure after all — so the error text and hint stay in one place.
+func StatusError(status int, method, path string, body []byte) error {
+	return httpStatusError(status, method, path, body)
 }
 
 // httpStatusError maps an HTTP error response to a structured exit error with a

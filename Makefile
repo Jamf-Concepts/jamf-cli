@@ -43,13 +43,17 @@ clean:
 # Path to jamf-pro-server repo (override with: make sync-specs JAMF_SERVER_PATH=/path/to/repo)
 # Specs are scattered across module directories under jamf-pro-server/.
 JAMF_SERVER_PATH ?= ../jamf-pro-server
-JAMF_SERVER_ROOT := $(JAMF_SERVER_PATH)/jamf-pro-server
+# The directory actually scanned for specs. Derived from JAMF_SERVER_PATH for a
+# normal side-by-side checkout; override it directly when the server tree is not
+# nested under a jamf-pro-server/ directory — .github/workflows/sync-specs.yaml
+# does this, since actions/checkout puts the tree straight into jss/.
+JAMF_SERVER_ROOT ?= $(JAMF_SERVER_PATH)/jamf-pro-server
 
 # Sync OpenAPI specs from jamf-pro-server repo and regenerate commands
 sync-specs:
 	@if [ ! -d "$(JAMF_SERVER_ROOT)" ]; then \
-		echo "Error: jamf-pro-server not found at $(JAMF_SERVER_PATH)"; \
-		echo "Expected $(JAMF_SERVER_ROOT) to exist."; \
+		echo "Error: jamf-pro-server spec tree not found at $(JAMF_SERVER_ROOT)"; \
+		echo "Set JAMF_SERVER_PATH to the repo's parent, or JAMF_SERVER_ROOT to the tree itself."; \
 		echo "Usage: make sync-specs JAMF_SERVER_PATH=/path/to/jss JAMF_PRO_VERSION=<version>"; \
 		exit 1; \
 	fi
@@ -60,13 +64,29 @@ sync-specs:
 		exit 1; \
 	fi
 	@echo "Syncing OpenAPI specs from $(JAMF_SERVER_ROOT)..."
-	@echo "$(JAMF_PRO_VERSION)" > specs/.spec-version
-	@rm -f specs/*.yaml
-	@find $(JAMF_SERVER_ROOT) -path "*/swagger_docs/uapi/*.yaml" \
-		-not -path "*/uapi/hiddenapi/*" -not -path "*/uapi/common/*" \
-		-exec cp {} specs/ +
-	@find $(JAMF_SERVER_ROOT) -path "*/swagger_docs/uapi/common/*.yaml" \
-		-exec cp {} specs/ +
+	@# Duplicate basenames are checked against the SOURCE tree, before anything
+	@# is copied: two upstream modules shipping the same filename collapse into
+	@# one file the moment cp runs, so a post-copy `ls specs/ | uniq -d` can
+	@# never see them. Validating first also means a rejected sync leaves the
+	@# committed specs/ untouched.
+	@# One find pass covers what used to be two (all uapi/**.yaml except
+	@# hiddenapi, which includes common/) so the check sees the same set that
+	@# gets copied.
+	@set -e; \
+	sources=$$(find $(JAMF_SERVER_ROOT) -path "*/swagger_docs/uapi/*.yaml" \
+		-not -path "*/uapi/hiddenapi/*"); \
+	if [ -z "$$sources" ]; then \
+		echo "Error: no specs found under $(JAMF_SERVER_ROOT)/**/swagger_docs/uapi/"; \
+		exit 1; \
+	fi; \
+	dupes=$$(printf '%s\n' "$$sources" | xargs -n1 basename | sort | uniq -d); \
+	if [ -n "$$dupes" ]; then \
+		echo "Error: duplicate spec filenames in $(JAMF_SERVER_ROOT) (last-write-wins risk):"; \
+		printf '%s\n' "$$dupes" | sed 's/^/  /'; \
+		exit 1; \
+	fi; \
+	rm -f specs/*.yaml; \
+	printf '%s\n' "$$sources" | while IFS= read -r spec; do cp "$$spec" specs/; done
 	@# Normalise upstream naming where the spec filename doesn't match its paths.
 	@# MobileDeviceExtensionAttribute.yaml upstream holds only the legacy preview
 	@# endpoint (/devices/extensionAttributes — tag mobile-device-extension-attributes-preview)
@@ -79,16 +99,13 @@ sync-specs:
 		mv specs/DeviceExtensionAttribute.yaml specs/MobileDeviceExtensionAttribute.yaml; \
 		echo "  Renamed DeviceExtensionAttribute.yaml → MobileDeviceExtensionAttribute.yaml (legacy preview dropped)"; \
 	fi
-	@dupes=$$(ls specs/*.yaml | xargs -n1 basename | sort | uniq -d); \
-		if [ -n "$$dupes" ]; then \
-			echo "Error: duplicate spec filenames (last-write-wins risk):"; \
-			echo "$$dupes"; \
-			exit 1; \
-		fi
 	@echo "Copied specs:"
 	@ls specs/*.yaml | wc -l | xargs echo "  Total files:"
 	@echo "Regenerating commands..."
 	@$(MAKE) generate
+	@# Stamped last: a mid-run failure must not leave .spec-version (and hence
+	@# the version baked into the next build) claiming a sync that didn't finish.
+	@echo "$(JAMF_PRO_VERSION)" > specs/.spec-version
 	@echo "Spec version: $(JAMF_PRO_VERSION) (written to specs/.spec-version)"
 	@echo "Done! Review changes with: git diff"
 
@@ -125,8 +142,9 @@ sync-spec:
 			fi ;; \
 	esac
 	@echo "Ingesting monolith spec: $(JAMF_MONOLITH_SPEC)"
-	@echo "$(JAMF_PRO_VERSION)" > specs/.spec-version
 	@$(MAKE) generate JAMF_MONOLITH_SPEC=$(JAMF_MONOLITH_SPEC)
+	@# Stamped after generate, not before — see sync-specs.
+	@echo "$(JAMF_PRO_VERSION)" > specs/.spec-version
 	@echo "Spec version: $(JAMF_PRO_VERSION) (written to specs/.spec-version)"
 	@echo "Done! Review changes with: git diff specs internal/commands/pro/generated"
 

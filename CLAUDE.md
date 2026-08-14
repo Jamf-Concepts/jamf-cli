@@ -61,6 +61,8 @@ CI enforces that `specs/platform/` and `internal/commands/platform/generated/` s
 | Change behavior of all classic API commands | `generator/classic/generator.go` (`classicResourceTemplate`) |
 | Change how OpenAPI specs are parsed | `generator/parser/parser.go` |
 | Change singleton detection logic | `generator/parser/parser.go` → `detectSingleton()` |
+| Mark a GET-only, no-`{id}` resource as a singleton (so it gets `get`, not `list`) | `generator/parser/parser.go` → `readOnlySingletonPaths` map |
+| Let an endpoint's documented non-2xx status (e.g. a check whose 403 body is the answer) render instead of becoming an exit-code error | `generator/parser/parser.go` → `documentedStatusResults` map; plumbing is `registry.WithAllowedStatuses` |
 | Change multi-family spec splitting | `generator/parser/parser.go` → `splitByPathFamilies()` |
 | Add/change alternate lookup fields (--serial, --udid) — modern API | `generator/parser/parser.go` → `resourceLookupFields` map |
 | Add a CLI flag alias for a classic lookup (e.g. `--serial` → `--serialnumber`) | `generator/classic/generator.go` → `lookupFlagAliases` map |

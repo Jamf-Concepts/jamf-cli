@@ -240,6 +240,8 @@ func (g *Generator) Generate(resource *Resource) (string, error) {
 		"hasNonMultipartPostOrPut": hasNonMultipartPostOrPut,
 		"hasDelete":                hasDelete,
 		"hasDestructive":           hasDestructive,
+		"hasStatusResults":         hasStatusResults,
+		"oneLine":                  oneLine,
 		"hasApply":                 func(ops []*Operation) bool { return hasApply(ops) },
 		"applyUpdateMethod": func(ops []*Operation) string {
 			op := applyUpdateOp(ops)
@@ -937,6 +939,24 @@ func hasDelete(ops []*Operation) bool {
 		}
 	}
 	return false
+}
+
+// hasStatusResults reports whether any operation treats a non-2xx status as a
+// documented result (see documentedStatusResults in parser.go). Gates the
+// net/http and exitcode imports.
+func hasStatusResults(ops []*Operation) bool {
+	for _, op := range ops {
+		if len(op.StatusResults) > 0 {
+			return true
+		}
+	}
+	return false
+}
+
+// oneLine collapses a spec description to a single line for embedding in a
+// generated string literal.
+func oneLine(s string) string {
+	return strings.Join(strings.Fields(s), " ")
 }
 
 func hasDestructive(ops []*Operation) bool {
@@ -1745,7 +1765,7 @@ import (
 {{- if or (hasNonMultipartPostOrPut .Operations) (hasList .Operations) (hasPaginated .Operations) (hasAnyBinaryResponse .) }}
 	"io"
 {{- end }}
-{{- if or (hasDelete .Operations) .UpdateTokenOp }}
+{{- if or (hasDelete .Operations) .UpdateTokenOp (hasStatusResults .Operations) }}
 	"net/http"
 {{- end }}
 {{- if needsURL . }}
@@ -2393,6 +2413,13 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 			}
 {{- end }}
 
+{{- if .StatusResults }}
+			// This endpoint documents {{ range $i, $s := .StatusResults }}{{ if $i }}, {{ end }}{{ $s.Code }}{{ end }} as a result of the check rather than a
+			// failure of the request, so let it past the client's error mapping and
+			// render the body below instead of surfacing a misleading exit code.
+			reqCtx = registry.WithAllowedStatuses(reqCtx{{ range .StatusResults }}, {{ .Code }}{{ end }})
+{{- end }}
+
 			// Make request
 {{- if opIsMultipart . }}
 			if ctx.Uploader == nil {
@@ -2643,6 +2670,25 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 				return err
 			}
 			defer resp.Body.Close()
+
+{{- if .StatusResults }}
+{{- if .NoContentDescription }}
+			if resp.StatusCode == http.StatusNoContent {
+				// 204 carries no body, so synthesize one — otherwise a passing
+				// check prints nothing at all in every output format.
+				return ctx.Output.PrintRaw([]byte(` + "`" + `{"result":"ok","detail":"{{ escapeQuotes (oneLine .NoContentDescription) }}"}` + "`" + `))
+			}
+{{- end }}
+{{- $op := . }}
+{{- range .StatusResults }}
+			if resp.StatusCode == {{ .Code }} {
+				// Documented result: render the body and exit non-zero so a script
+				// can branch on it — unless it turns out to be a plain
+				// token-authorization failure, which keeps its usual error.
+				return renderDocumentedStatus(ctx, resp, "{{ $op.Method }}", path, "{{ escapeQuotes (oneLine .Description) }}")
+			}
+{{- end }}
+{{- end }}
 
 {{ if eq .Method "DELETE" }}
 			if resp.StatusCode == http.StatusNoContent {
@@ -3127,6 +3173,7 @@ import (
 	"golang.org/x/term"
 	"gopkg.in/yaml.v3"
 
+	"github.com/Jamf-Concepts/jamf-cli/internal/client"
 	"github.com/Jamf-Concepts/jamf-cli/internal/exitcode"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 )
@@ -3136,6 +3183,51 @@ func RegisterCommands(root *cobra.Command, ctx *registry.CLIContext) {
 {{- range . }}
 	root.AddCommand(New{{ .GoName }}Cmd(ctx))
 {{- end }}
+}
+
+// renderDocumentedStatus handles a non-2xx response that the spec documents as a
+// result of the operation rather than a failure of it (see
+// documentedStatusResults in generator/parser/parser.go): the body is what the
+// caller asked for, so it goes through the formatter and the command picks its
+// own exit code.
+//
+// Jamf overloads 403 — the same status also means "this API token is not
+// authorized", which was verified live against a tenant whose token lacked the
+// privilege. Those bodies carry the BAD_PERMISSIONS sentinel and are re-raised
+// as the client's normal permission error, keeping exit code 5 and the
+// "check its API role" hint instead of being reported as an endpoint result.
+func renderDocumentedStatus(ctx *registry.CLIContext, resp *http.Response, method, path, message string) error {
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 10<<20))
+	if err != nil {
+		return err
+	}
+	if isTokenAuthorizationError(body) {
+		return client.StatusError(resp.StatusCode, method, path, body)
+	}
+	if err := ctx.Output.PrintRaw(body); err != nil {
+		return err
+	}
+	return exitcode.New(exitcode.General, message)
+}
+
+// isTokenAuthorizationError reports whether a Jamf Pro error body is the generic
+// "the given token was not authorized" response rather than an endpoint-specific
+// result.
+func isTokenAuthorizationError(body []byte) bool {
+	var payload struct {
+		Errors []struct {
+			Code string ` + "`" + `json:"code"` + "`" + `
+		} ` + "`" + `json:"errors"` + "`" + `
+	}
+	if err := json.Unmarshal(body, &payload); err != nil {
+		return false
+	}
+	for _, e := range payload.Errors {
+		if e.Code == "BAD_PERMISSIONS" {
+			return true
+		}
+	}
+	return false
 }
 
 // batchDeleteError maps a bulk-delete tally to the process result. When some

@@ -710,6 +710,10 @@ func newDigiCertSettingsPrivilegeCheckCmd(ctx *registry.CLIContext) *cobra.Comma
 			if len(queryParts) > 0 {
 				path = path + "?" + strings.Join(queryParts, "&")
 			}
+			// This endpoint documents 403 as a result of the check rather than a
+			// failure of the request, so let it past the client's error mapping and
+			// render the body below instead of surfacing a misleading exit code.
+			reqCtx = registry.WithAllowedStatuses(reqCtx, 403)
 
 			// Make request
 			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
@@ -717,6 +721,17 @@ func newDigiCertSettingsPrivilegeCheckCmd(ctx *registry.CLIContext) *cobra.Comma
 				return err
 			}
 			defer resp.Body.Close()
+			if resp.StatusCode == http.StatusNoContent {
+				// 204 carries no body, so synthesize one — otherwise a passing
+				// check prints nothing at all in every output format.
+				return ctx.Output.PrintRaw([]byte(`{"result":"ok","detail":"DigiCert account has all required permissions for certificate deployment."}`))
+			}
+			if resp.StatusCode == 403 {
+				// Documented result: render the body and exit non-zero so a script
+				// can branch on it — unless it turns out to be a plain
+				// token-authorization failure, which keeps its usual error.
+				return renderDocumentedStatus(ctx, resp, "GET", path, "DigiCert account is missing one or more required permissions.")
+			}
 
 			return ctx.Output.PrintResponse(resp)
 		},

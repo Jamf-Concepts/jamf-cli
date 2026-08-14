@@ -798,6 +798,15 @@ func TestDetectSingleton(t *testing.T) {
 			want: false,
 		},
 		{
+			// An allowlisted GET-only path is a singleton despite having no PUT,
+			// so it generates `get` rather than `list` for a single-object response.
+			name: "read-only singleton — allowlisted GET-only path",
+			ops: []*Operation{
+				{Name: "list", Method: "GET", Path: "/v2/environment-type", IsList: false},
+			},
+			want: true,
+		},
+		{
 			name: "paginated list — not a singleton even with no {id}",
 			ops: []*Operation{
 				{Name: "list", Method: "GET", Path: "/v1/things", IsList: true},
@@ -2446,4 +2455,66 @@ func TestStripParamSegments(t *testing.T) {
 			t.Errorf("stripParamSegments(%q) = %q, want %q", in, got, want)
 		}
 	}
+}
+
+// applyDocumentedStatusResults must attach the allowlisted statuses (with the
+// spec's own wording) only to the operations named in documentedStatusResults —
+// every other operation's 403 stays an ordinary permission error.
+func TestApplyDocumentedStatusResults(t *testing.T) {
+	const (
+		privilegeCheckPath = "/v1/pki/digicert/trust-lifecycle-manager/{id}/privilege-check"
+		missingDesc        = "DigiCert account is missing one or more required permissions."
+		presentDesc        = "DigiCert account has all required permissions for certificate deployment."
+	)
+
+	t.Run("allowlisted operation", func(t *testing.T) {
+		op := &Operation{
+			Method: "GET",
+			Path:   privilegeCheckPath,
+			Responses: map[string]*Response{
+				"204": {StatusCode: "204", Description: presentDesc},
+				"403": {StatusCode: "403", Description: missingDesc},
+				"404": {StatusCode: "404", Description: "Settings not found."},
+			},
+		}
+		applyDocumentedStatusResults(op)
+
+		if len(op.StatusResults) != 1 {
+			t.Fatalf("StatusResults = %+v, want exactly the 403", op.StatusResults)
+		}
+		if op.StatusResults[0].Code != 403 {
+			t.Errorf("status = %d, want 403", op.StatusResults[0].Code)
+		}
+		if op.StatusResults[0].Description != missingDesc {
+			t.Errorf("description = %q, want the spec's 403 wording", op.StatusResults[0].Description)
+		}
+		if op.NoContentDescription != presentDesc {
+			t.Errorf("NoContentDescription = %q, want the spec's 204 wording", op.NoContentDescription)
+		}
+	})
+
+	t.Run("same path, different method is not allowlisted", func(t *testing.T) {
+		op := &Operation{
+			Method:    "POST",
+			Path:      privilegeCheckPath,
+			Responses: map[string]*Response{"403": {StatusCode: "403", Description: missingDesc}},
+		}
+		applyDocumentedStatusResults(op)
+		if len(op.StatusResults) != 0 {
+			t.Errorf("StatusResults = %+v, want none", op.StatusResults)
+		}
+	})
+
+	t.Run("ordinary operation keeps its 403 as an error", func(t *testing.T) {
+		op := &Operation{
+			Method:    "GET",
+			Path:      "/v1/buildings",
+			Responses: map[string]*Response{"403": {StatusCode: "403", Description: "Forbidden"}},
+		}
+		applyDocumentedStatusResults(op)
+		if len(op.StatusResults) != 0 || op.NoContentDescription != "" {
+			t.Errorf("StatusResults = %+v, NoContentDescription = %q; want both empty",
+				op.StatusResults, op.NoContentDescription)
+		}
+	})
 }

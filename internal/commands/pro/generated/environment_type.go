@@ -17,23 +17,23 @@ func NewEnvironmentTypeCmd(ctx *registry.CLIContext) *cobra.Command {
 		Long:  `Manage environment-type in Jamf Pro.`,
 	}
 
-	cmd.AddCommand(newEnvironmentTypeListCmd(ctx))
+	cmd.AddCommand(newEnvironmentTypeGetCmd(ctx))
 
 	return cmd
 }
 
-func newEnvironmentTypeListCmd(ctx *registry.CLIContext) *cobra.Command {
+func newEnvironmentTypeGetCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{
-		Use:   "list",
+		Use:   "get",
 		Short: "Get the cloud services environment type",
 		Long:  "Returns the cloud services environment type (staging or production) that this Jamf Pro instance is configured to communicate with.",
-		Example: `  # List all environment-type
-  jamf-cli pro environment-type list
+		Example: `  # Get environment-type
+  jamf-cli pro environment-type get
 
-  # List environment-type and extract IDs
-  jamf-cli pro environment-type list --field id`,
+  # Get environment-type and output as YAML
+  jamf-cli pro environment-type get -o yaml`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

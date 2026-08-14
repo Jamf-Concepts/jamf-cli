@@ -258,7 +258,7 @@ func AllSmokeEndpoints() []SmokeEndpoint {
 		{Resource: "enrollment-settings", Operation: "get", Method: "GET", Path: "/v3/enrollment/access-groups/{id}", IsList: false, HasPathParams: true, IsClassic: false, WrapperKey: "", SingularKey: ""},
 		{Resource: "enrollment-settings", Operation: "history", Method: "GET", Path: "/v2/enrollment/history", IsList: true, HasPathParams: false, IsClassic: false, WrapperKey: "", SingularKey: ""},
 		{Resource: "enrollment-settings", Operation: "list", Method: "GET", Path: "/v3/enrollment/access-groups", IsList: true, HasPathParams: false, IsClassic: false, WrapperKey: "", SingularKey: ""},
-		{Resource: "environment-type", Operation: "list", Method: "GET", Path: "/v2/environment-type", IsList: false, HasPathParams: false, IsClassic: false, WrapperKey: "", SingularKey: ""},
+		{Resource: "environment-type", Operation: "get", Method: "GET", Path: "/v2/environment-type", IsList: false, HasPathParams: false, IsClassic: false, WrapperKey: "", SingularKey: ""},
 		{Resource: "groups", Operation: "get", Method: "GET", Path: "/v2/groups/{id}", IsList: false, HasPathParams: true, IsClassic: false, WrapperKey: "", SingularKey: ""},
 		{Resource: "groups", Operation: "list", Method: "GET", Path: "/v2/groups", IsList: true, HasPathParams: false, IsClassic: false, WrapperKey: "", SingularKey: ""},
 		{Resource: "gsx-connection", Operation: "get", Method: "GET", Path: "/v1/gsx-connection", IsList: false, HasPathParams: false, IsClassic: false, WrapperKey: "", SingularKey: ""},

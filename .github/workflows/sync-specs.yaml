@@ -48,16 +48,15 @@ jobs:
           go-version-file: go.mod
           cache: true
 
+      # Call the same target a maintainer runs locally rather than
+      # re-implementing the copy steps here — the target also drops the legacy
+      # MobileDeviceExtensionAttribute preview spec, renames
+      # DeviceExtensionAttribute.yaml into its place, and hard-fails on
+      # duplicate basenames. JAMF_SERVER_ROOT points at the checkout above,
+      # which is the spec tree itself rather than its parent.
       - name: Sync specs and regenerate
         run: |
-          rm -f specs/*.yaml
-          find jss -path '*/swagger_docs/uapi/*.yaml' \
-            -not -path '*/uapi/hiddenapi/*' -not -path '*/uapi/common/*' \
-            -exec cp {} specs/ +
-          find jss -path '*/swagger_docs/uapi/common/*.yaml' \
-            -exec cp {} specs/ +
-          echo "$JAMF_PRO_VERSION" > specs/.spec-version
-          make generate
+          make sync-specs JAMF_SERVER_ROOT=jss JAMF_PRO_VERSION="$JAMF_PRO_VERSION"
           go fmt ./internal/commands/pro/generated/...
 
       - name: Run tests
