@@ -19,10 +19,17 @@ type mockProtectClient struct {
 	plans     []jamfprotect.Plan
 	analytics []jamfprotect.Analytic
 	computers []jamfprotect.Computer
+	ulfSets   []jamfprotect.UnifiedLoggingFilterSet
 
 	listPlansCalls     int
 	listAnalyticsCalls int
 	listComputersCalls int
+	listULFSetsCalls   int
+}
+
+func (m *mockProtectClient) ListUnifiedLoggingFilterSets(_ context.Context) ([]jamfprotect.UnifiedLoggingFilterSet, error) {
+	m.listULFSetsCalls++
+	return m.ulfSets, nil
 }
 
 func (m *mockProtectClient) ListPlans(_ context.Context) ([]jamfprotect.Plan, error) {
@@ -210,5 +217,64 @@ func TestResolveComputerUUID_NotFound(t *testing.T) {
 	want := `computer "unknown-host" not found`
 	if got := err.Error(); len(got) < len(want) || got[:len(want)] != want {
 		t.Fatalf("error should start with %q, got %q", want, got)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Unified Logging Filter Sets
+// ---------------------------------------------------------------------------
+
+func TestResolveUnifiedLoggingFilterSetUUID_Found(t *testing.T) {
+	mock := &mockProtectClient{
+		ulfSets: []jamfprotect.UnifiedLoggingFilterSet{
+			{UUID: "ulfs-uuid-1", Name: "Set One"},
+			{UUID: "ulfs-uuid-2", Name: "Set Two"},
+		},
+	}
+	r := NewResolver(mock)
+
+	id, err := r.ResolveUnifiedLoggingFilterSetUUID(context.Background(), "Set Two")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if id != "ulfs-uuid-2" {
+		t.Fatalf("got %q, want %q", id, "ulfs-uuid-2")
+	}
+}
+
+func TestResolveUnifiedLoggingFilterSetUUID_NotFound(t *testing.T) {
+	mock := &mockProtectClient{
+		ulfSets: []jamfprotect.UnifiedLoggingFilterSet{
+			{UUID: "ulfs-uuid-1", Name: "Set One"},
+		},
+	}
+	r := NewResolver(mock)
+
+	_, err := r.ResolveUnifiedLoggingFilterSetUUID(context.Background(), "Missing")
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	want := `unified logging filter set "Missing" not found`
+	if got := err.Error(); len(got) < len(want) || got[:len(want)] != want {
+		t.Fatalf("error should start with %q, got %q", want, got)
+	}
+}
+
+func TestResolveUnifiedLoggingFilterSetUUID_Cached(t *testing.T) {
+	mock := &mockProtectClient{
+		ulfSets: []jamfprotect.UnifiedLoggingFilterSet{
+			{UUID: "ulfs-uuid-1", Name: "Set One"},
+		},
+	}
+	r := NewResolver(mock)
+	ctx := context.Background()
+
+	for range 3 {
+		if _, err := r.ResolveUnifiedLoggingFilterSetUUID(ctx, "Set One"); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	}
+	if mock.listULFSetsCalls != 1 {
+		t.Fatalf("ListUnifiedLoggingFilterSets called %d times, want 1", mock.listULFSetsCalls)
 	}
 }

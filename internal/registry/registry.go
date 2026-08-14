@@ -171,6 +171,13 @@ type ProtectClient interface {
 	UpdateUnifiedLoggingFilter(ctx context.Context, uuid string, input jamfprotect.UnifiedLoggingFilterInput) (jamfprotect.UnifiedLoggingFilter, error)
 	DeleteUnifiedLoggingFilter(ctx context.Context, uuid string) error
 
+	// Unified Logging Filter Sets
+	ListUnifiedLoggingFilterSets(ctx context.Context) ([]jamfprotect.UnifiedLoggingFilterSet, error)
+	GetUnifiedLoggingFilterSet(ctx context.Context, uuid string) (*jamfprotect.UnifiedLoggingFilterSet, error)
+	CreateUnifiedLoggingFilterSet(ctx context.Context, input jamfprotect.UnifiedLoggingFilterSetInput) (jamfprotect.UnifiedLoggingFilterSet, error)
+	UpdateUnifiedLoggingFilterSet(ctx context.Context, uuid string, input jamfprotect.UnifiedLoggingFilterSetInput) (jamfprotect.UnifiedLoggingFilterSet, error)
+	DeleteUnifiedLoggingFilterSet(ctx context.Context, uuid string) error
+
 	// Roles
 	ListRoles(ctx context.Context) ([]jamfprotect.Role, error)
 	GetRole(ctx context.Context, id string) (*jamfprotect.Role, error)

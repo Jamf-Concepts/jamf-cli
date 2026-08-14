@@ -60,6 +60,7 @@ func applyRootAliases(root *cobra.Command) {
 var protectAliases = map[string][]string{
 	"removable-storage-control-sets": {"rscs"},
 	"unified-logging-filters":        {"ulf"},
+	"unified-logging-filter-sets":    {"ulfs"},
 	"exception-sets":                 {"es"},
 	"analytic-sets":                  {"as"},
 	"action-configs":                 {"ac"},

@@ -30,6 +30,7 @@ func newProtectCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(newProtectTelemetryCmd(cliCtx))
 	cmd.AddCommand(newProtectCustomPreventListsCmd(cliCtx))
 	cmd.AddCommand(newProtectUnifiedLoggingFiltersCmd(cliCtx))
+	cmd.AddCommand(newProtectULFSetsCmd(cliCtx))
 
 	// Endpoints
 	cmd.AddCommand(newProtectComputersCmd(cliCtx))

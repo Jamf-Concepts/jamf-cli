@@ -95,6 +95,11 @@ func runProtectOverview(cmd *cobra.Command, cliCtx *registry.CLIContext) ([]over
 		send("unified_logging_filters", formatCount(len(filters)), err)
 	})
 
+	wg.Go(func() {
+		sets, err := client.ListUnifiedLoggingFilterSets(ctx)
+		send("unified_logging_filter_sets", formatCount(len(sets)), err)
+	})
+
 	// Endpoints
 
 	wg.Go(func() {
@@ -213,6 +218,7 @@ func runProtectOverview(cmd *cobra.Command, cliCtx *registry.CLIContext) ([]over
 				item("USB Control Sets", get("usb_control_sets")),
 				item("Custom Prevent Lists", get("custom_prevent_lists")),
 				item("Unified Logging Filters", get("unified_logging_filters")),
+				item("Unified Logging Filter Sets", get("unified_logging_filter_sets")),
 			},
 		},
 		{

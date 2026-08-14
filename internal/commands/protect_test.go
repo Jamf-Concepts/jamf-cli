@@ -70,6 +70,7 @@ func TestProtectAliases(t *testing.T) {
 	}{
 		{"comp", "computers"},
 		{"ulf", "unified-logging-filters"},
+		{"ulfs", "unified-logging-filter-sets"},
 		{"rscs", "removable-storage-control-sets"},
 		{"es", "exception-sets"},
 		{"as", "analytic-sets"},
@@ -115,6 +116,7 @@ func TestProtectSubcommands(t *testing.T) {
 		"telemetry",
 		"custom-prevent-lists",
 		"unified-logging-filters",
+		"unified-logging-filter-sets",
 		"roles",
 		"users",
 		"groups",
@@ -260,5 +262,40 @@ func TestProtectRSCSSubcommands(t *testing.T) {
 				t.Errorf("expected RSCS subcommand %q", name)
 			}
 		})
+	}
+}
+
+func TestProtectULFSetsSubcommands(t *testing.T) {
+	protect := findProtectCmd(t)
+	sets := findSubcommand(protect, "unified-logging-filter-sets")
+	if sets == nil {
+		t.Fatal("unified-logging-filter-sets subcommand not found")
+		return
+	}
+
+	expected := []string{"list", "get", "apply", "delete", "export", "add-filter", "remove-filter"}
+	for _, name := range expected {
+		t.Run(name, func(t *testing.T) {
+			if findSubcommand(sets, name) == nil {
+				t.Errorf("expected unified-logging-filter-sets subcommand %q", name)
+			}
+		})
+	}
+}
+
+func TestProtectULFSetsDeleteIsMarkedDestructive(t *testing.T) {
+	protect := findProtectCmd(t)
+	sets := findSubcommand(protect, "unified-logging-filter-sets")
+	if sets == nil {
+		t.Fatal("unified-logging-filter-sets subcommand not found")
+		return
+	}
+	del := findSubcommand(sets, "delete")
+	if del == nil {
+		t.Fatal("delete subcommand not found")
+		return
+	}
+	if del.Annotations["jamf:destructive"] != "true" {
+		t.Errorf(`delete jamf:destructive = %q, want "true"`, del.Annotations["jamf:destructive"])
 	}
 }
