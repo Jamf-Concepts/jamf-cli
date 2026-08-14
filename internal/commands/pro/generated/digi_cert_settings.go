@@ -31,51 +31,30 @@ func NewDigiCertSettingsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(newDigiCertSettingsPatchCmd(ctx))
 	cmd.AddCommand(newDigiCertSettingsConnectionStatusCmd(ctx))
 	cmd.AddCommand(newDigiCertSettingsDependenciesCmd(ctx))
-	cmd.AddCommand(newDigiCertSettingsApplyCmd(ctx))
 
 	return cmd
 }
 
 func newDigiCertSettingsGetCmd(ctx *registry.CLIContext) *cobra.Command {
-	var (
-		flagName string
-	)
+	var ()
 
 	cmd := &cobra.Command{
-		Use:   "get [<id>]",
+		Use:   "get <id>",
 		Short: "Retrieve DigiCert Trust Lifecycle Manager configuration",
 		Long:  "Retrieve the current configuration of the DigiCert Trust Lifecycle Manager.",
 		Example: `  # Get a digi-cert-setting by ID
   jamf-cli pro digi-cert-settings get 1
 
-  # Get a digi-cert-setting by name
-  jamf-cli pro digi-cert-settings get --name "Example"
-
   # Get a digi-cert-setting and output as YAML
   jamf-cli pro digi-cert-settings get 1 -o yaml`,
 		Annotations: map[string]string{"jamf:privileges": "Read DigiCert Settings"},
-		Args:        cobra.MaximumNArgs(1),
+		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
-			// Resolve resource ID from positional arg, --name, or lookup flags
-			var resolvedID string
-			if flagName != "" {
-				noInput, _ := cmd.Flags().GetBool("no-input")
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/pki/digicert/trust-lifecycle-manager", "name", "id", flagName, noInput)
-				if err != nil {
-					return err
-				}
-				resolvedID = rid
-			} else if len(args) > 0 {
-				resolvedID = args[0]
-			} else {
-				return fmt.Errorf("provide an <id> argument, --name")
-			}
-
 			// Build request path
 			path := "/v1/pki/digicert/trust-lifecycle-manager/{id}"
-			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
 
 			// Build query string
 			var queryParts []string
@@ -93,8 +72,6 @@ func newDigiCertSettingsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
-
-	cmd.Flags().StringVar(&flagName, "name", "", "Look up digi-cert-setting by name")
 
 	return cmd
 }
@@ -174,148 +151,25 @@ func newDigiCertSettingsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagYes    bool
 		flagDryRun bool
-		fromFile   string
-		flagName   string
 	)
 
 	cmd := &cobra.Command{
-		Use:   "delete [<id>]",
+		Use:   "delete <id>",
 		Short: "Delete DigiCert Trust Lifecycle Manager configuration",
 		Long:  "Delete the current configuration of the DigiCert Trust Lifecycle Manager.",
 		Example: `  # Delete a digi-cert-setting (with confirmation)
   jamf-cli pro digi-cert-settings delete 1
 
-  # Delete by name
-  jamf-cli pro digi-cert-settings delete --name "Example" --yes
-
   # Delete without confirmation prompt
   jamf-cli pro digi-cert-settings delete 1 --yes`,
 		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Delete DigiCert Settings"},
-		Args:        cobra.MaximumNArgs(1),
+		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
-			// --from-file: bulk delete from a file of IDs or names
-			if fromFile != "" {
-				entries, err := readDeleteFile(fromFile)
-				if err != nil {
-					return fmt.Errorf("reading --from-file: %w", err)
-				}
-				if len(entries) == 0 {
-					return fmt.Errorf("--from-file %q: no entries found", fromFile)
-				}
-				type bulkEntry struct{ id, label string }
-				bulk := make([]bulkEntry, 0, len(entries))
-				noInputBulk, _ := cmd.Flags().GetBool("no-input")
-				for _, entry := range entries {
-					if isNumericID(entry) {
-						if entry == "0" {
-							return fmt.Errorf("--from-file: ID 0 is not valid (Jamf Pro uses 0 as a sentinel value)")
-						}
-						bulk = append(bulk, bulkEntry{id: entry, label: entry})
-					} else {
-						var rid string
-						if rid == "" {
-							id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v1/pki/digicert/trust-lifecycle-manager", "name", "id", entry, noInputBulk)
-							if err != nil {
-								return fmt.Errorf("resolving %q: %w", entry, err)
-							}
-							rid = id
-						}
-						if rid == "" {
-							return fmt.Errorf("no digi-cert-setting found matching %q", entry)
-						}
-						bulk = append(bulk, bulkEntry{id: rid, label: entry})
-					}
-				}
-				// Deduplicate resolved IDs to avoid double-delete errors.
-				{
-					seen := make(map[string]bool, len(bulk))
-					deduped := bulk[:0]
-					for _, e := range bulk {
-						if !seen[e.id] {
-							seen[e.id] = true
-							deduped = append(deduped, e)
-						}
-					}
-					bulk = deduped
-				}
-				if flagDryRun {
-					for _, e := range bulk {
-						fmt.Fprintf(os.Stderr, "[dry-run] Would delete digi-cert-setting %q (id: %s)\n", e.label, e.id)
-					}
-					return nil
-				}
-				if !flagYes {
-					if noInputBulk {
-						return fmt.Errorf("destructive operation requires --yes when --no-input is set")
-					}
-					fmt.Fprintf(os.Stderr, "⚠️  This will delete %d digi-cert-settings. Type 'yes' to confirm: ", len(bulk))
-					var confirm string
-					fmt.Scanln(&confirm)
-					if confirm != "yes" {
-						return fmt.Errorf("aborted")
-					}
-				}
-				if err := cooldown.Enforce(ctx.ProfileName, noInputBulk, ctx.DestructiveCooldown); err != nil {
-					return err
-				}
-				var okCount, failCount int
-				var firstErr error
-				for _, e := range bulk {
-					delPath := strings.Replace("/v1/pki/digicert/trust-lifecycle-manager/{id}", "{id}", url.PathEscape(e.id), 1)
-					resp, err := ctx.Client.Do(reqCtx, "DELETE", delPath, nil)
-					if err != nil {
-						fmt.Fprintf(os.Stderr, "delete digi-cert-setting %q (id: %s) failed: %v\n", e.label, e.id, err)
-						if firstErr == nil {
-							firstErr = err
-						}
-						failCount++
-						continue
-					}
-					resp.Body.Close()
-					if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-						fmt.Fprintf(os.Stderr, "delete digi-cert-setting %q (id: %s) failed: HTTP %d\n", e.label, e.id, resp.StatusCode)
-						if firstErr == nil {
-							firstErr = fmt.Errorf("HTTP %d", resp.StatusCode)
-						}
-						failCount++
-						continue
-					}
-					fmt.Fprintf(os.Stderr, "Deleted digi-cert-setting %q (id: %s)\n", e.label, e.id)
-					okCount++
-				}
-				cooldown.Record(ctx.ProfileName)
-				return batchDeleteError(cmd, okCount, failCount, firstErr, "digi-cert-settings deletes")
-			}
-
-			// Resolve resource ID from positional arg, --name, or lookup flags
-			var resolvedID string
-			var resolvedByName string
-			if flagName != "" {
-				noInput, _ := cmd.Flags().GetBool("no-input")
-				rid, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v1/pki/digicert/trust-lifecycle-manager", "name", "id", flagName, noInput)
-				if err != nil {
-					return err
-				}
-				if rid == "" {
-					return fmt.Errorf("no digi-cert-setting found with name %q", flagName)
-				}
-				resolvedID = rid
-				resolvedByName = flagName
-			} else if len(args) > 0 {
-				resolvedID = args[0]
-			} else {
-				return fmt.Errorf("provide an <id> argument, --name")
-			}
-
-			// Confirmation for destructive action (after name lookup)
+			// Confirmation for destructive action
 			if flagDryRun {
-				if resolvedByName != "" {
-					fmt.Fprintf(os.Stderr, "[dry-run] Would delete digi-cert-setting %q (id: %s)\n", resolvedByName, resolvedID)
-				} else {
-					fmt.Fprintf(os.Stderr, "[dry-run] Would delete digi-cert-setting %s\n", resolvedID)
-				}
+				fmt.Fprintf(os.Stderr, "Would delete resource %s\n", strings.Join(args, " "))
 				return nil
 			}
 			if !flagYes {
@@ -323,11 +177,7 @@ func newDigiCertSettingsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 				if noInput {
 					return fmt.Errorf("destructive operation requires --yes when --no-input is set")
 				}
-				if resolvedByName != "" {
-					fmt.Fprintf(os.Stderr, "⚠️  This will delete digi-cert-setting %q (id: %s). Type 'yes' to confirm: ", resolvedByName, resolvedID)
-				} else {
-					fmt.Fprintf(os.Stderr, "⚠️  This will delete digi-cert-setting %s. Type 'yes' to confirm: ", resolvedID)
-				}
+				fmt.Fprintf(os.Stderr, "⚠️  This will delete resource %s. Type 'yes' to confirm: ", strings.Join(args, " "))
 				var confirm string
 				fmt.Scanln(&confirm)
 				if confirm != "yes" {
@@ -343,7 +193,7 @@ func newDigiCertSettingsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 
 			// Build request path
 			path := "/v1/pki/digicert/trust-lifecycle-manager/{id}"
-			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
 
 			// Build query string
 			var queryParts []string
@@ -374,11 +224,6 @@ func newDigiCertSettingsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 
 	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt")
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
-	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to file listing IDs or names to delete (one per line, # comments ignored)")
-	cmd.Flags().StringVar(&flagName, "name", "", "Look up digi-cert-setting by name")
-
-	cmd.MarkFlagsMutuallyExclusive("from-file", "name")
-
 	return cmd
 }
 
@@ -449,26 +294,22 @@ func newDigiCertSettingsPatchCmd(ctx *registry.CLIContext) *cobra.Command {
 		flagScaffold bool
 		flagSet      []string
 		fromFile     string
-		flagName     string
 	)
 
 	cmd := &cobra.Command{
-		Use:   "patch [<id>]",
+		Use:   "patch <id>",
 		Short: "Update DigiCert Trust Lifecycle Manager configuration",
-		Long:  "Update DigiCert Trust Lifecycle Manager configuration, where the client certificate information must be provided in full or not at all.\n\nIdentify the resource by ID (positional arg), --name, . Omit ID to use a lookup flag.\n\nUse --set KEY=VALUE to update scalar fields (repeatable). Omitted fields are unchanged.\n\nAvailable fields:\n  caName                                       string\n  clientCert.filename                          string\n  clientCert.password                          string\n  fqdn                                         string\n  revocationEnabled                            boolean\n\nArray and object fields accept a JSON value (e.g. --set field='[\"a\",\"b\"]'):\n  clientCert                                   object\n  clientCert.data                              array\n\nUse --from-file or pipe JSON to stdin for complex updates (bulk changes, deep nesting).",
+		Long:  "Update DigiCert Trust Lifecycle Manager configuration, where the client certificate information must be provided in full or not at all.\n\nUse --set KEY=VALUE to update scalar fields (repeatable). Omitted fields are unchanged.\n\nAvailable fields:\n  caName                                       string\n  clientCert.filename                          string\n  clientCert.password                          string\n  fqdn                                         string\n  revocationEnabled                            boolean\n\nArray and object fields accept a JSON value (e.g. --set field='[\"a\",\"b\"]'):\n  clientCert                                   object\n  clientCert.data                              array\n\nUse --from-file or pipe JSON to stdin for complex updates (bulk changes, deep nesting).",
 		Example: `  # Update a field by ID
   jamf-cli pro digi-cert-settings patch 1 --set general.managed=true
 
   # Update multiple fields
   jamf-cli pro digi-cert-settings patch 1 --set field1=value1 --set field2=value2
 
-  # Update by name
-  jamf-cli pro digi-cert-settings patch --name "Example" --set general.managed=true
-
   # Patch from a file
   jamf-cli pro digi-cert-settings patch 1 --from-file changes.json`,
 		Annotations: map[string]string{"jamf:privileges": "Update DigiCert Settings"},
-		Args:        cobra.MaximumNArgs(1),
+		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -481,24 +322,9 @@ func newDigiCertSettingsPatchCmd(ctx *registry.CLIContext) *cobra.Command {
 }`, ctx.Output.Format())
 			}
 
-			// Resolve resource ID from positional arg, --name, or lookup flags
-			var resolvedPatchID string
-			if flagName != "" {
-				noInput, _ := cmd.Flags().GetBool("no-input")
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/pki/digicert/trust-lifecycle-manager", "name", "id", flagName, noInput)
-				if err != nil {
-					return err
-				}
-				resolvedPatchID = rid
-			} else if len(args) > 0 {
-				resolvedPatchID = args[0]
-			} else {
-				return fmt.Errorf("provide an <id> argument, --name")
-			}
-
 			// Build request path
 			path := "/v1/pki/digicert/trust-lifecycle-manager/{id}"
-			path = strings.Replace(path, "{id}", url.PathEscape(resolvedPatchID), 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
 
 			// Build query string
 			var queryParts []string
@@ -556,43 +382,24 @@ func newDigiCertSettingsPatchCmd(ctx *registry.CLIContext) *cobra.Command {
 			"caName=", "clientCert.filename=", "clientCert.password=", "fqdn=", "revocationEnabled=",
 		}, cobra.ShellCompDirectiveNoSpace
 	})
-	cmd.Flags().StringVar(&flagName, "name", "", "Look up digi-cert-setting by name")
-
 	return cmd
 }
 
 func newDigiCertSettingsConnectionStatusCmd(ctx *registry.CLIContext) *cobra.Command {
-	var (
-		flagName string
-	)
+	var ()
 
 	cmd := &cobra.Command{
-		Use:         "connection-status [<id>]",
+		Use:         "connection-status <id>",
 		Short:       "Get connection status of DigiCert Trust Lifecycle Manager for a given ID",
 		Long:        "Get connection status of DigiCert Trust Lifecycle Manager for a given ID.",
 		Annotations: map[string]string{"jamf:privileges": "Read DigiCert Settings"},
-		Args:        cobra.MaximumNArgs(1),
+		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
-			// Resolve resource ID from positional arg, --name, or lookup flags
-			var resolvedID string
-			if flagName != "" {
-				noInput, _ := cmd.Flags().GetBool("no-input")
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/pki/digicert/trust-lifecycle-manager", "name", "id", flagName, noInput)
-				if err != nil {
-					return err
-				}
-				resolvedID = rid
-			} else if len(args) > 0 {
-				resolvedID = args[0]
-			} else {
-				return fmt.Errorf("provide an <id> argument, --name")
-			}
-
 			// Build request path
 			path := "/v1/pki/digicert/trust-lifecycle-manager/{id}/connection-status"
-			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
 
 			// Build query string
 			var queryParts []string
@@ -610,44 +417,25 @@ func newDigiCertSettingsConnectionStatusCmd(ctx *registry.CLIContext) *cobra.Com
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
-
-	cmd.Flags().StringVar(&flagName, "name", "", "Look up digi-cert-setting by name")
 
 	return cmd
 }
 
 func newDigiCertSettingsDependenciesCmd(ctx *registry.CLIContext) *cobra.Command {
-	var (
-		flagName string
-	)
+	var ()
 
 	cmd := &cobra.Command{
-		Use:         "dependencies [<id>]",
+		Use:         "dependencies <id>",
 		Short:       "Retrieve list of DigiCert Trust Lifecycle Manager Settings dependencies",
 		Long:        "Retrieve list of DigiCert Trust Lifecycle Manager Settings dependencies.",
 		Annotations: map[string]string{"jamf:privileges": "Read DigiCert Settings"},
-		Args:        cobra.MaximumNArgs(1),
+		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
-			// Resolve resource ID from positional arg, --name, or lookup flags
-			var resolvedID string
-			if flagName != "" {
-				noInput, _ := cmd.Flags().GetBool("no-input")
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/pki/digicert/trust-lifecycle-manager", "name", "id", flagName, noInput)
-				if err != nil {
-					return err
-				}
-				resolvedID = rid
-			} else if len(args) > 0 {
-				resolvedID = args[0]
-			} else {
-				return fmt.Errorf("provide an <id> argument, --name")
-			}
-
 			// Build request path
 			path := "/v1/pki/digicert/trust-lifecycle-manager/{id}/dependencies"
-			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
 
 			// Build query string
 			var queryParts []string
@@ -665,127 +453,6 @@ func newDigiCertSettingsDependenciesCmd(ctx *registry.CLIContext) *cobra.Command
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
-
-	cmd.Flags().StringVar(&flagName, "name", "", "Look up digi-cert-setting by name")
-
-	return cmd
-}
-
-func newDigiCertSettingsApplyCmd(ctx *registry.CLIContext) *cobra.Command {
-	var (
-		fromFile     string
-		flagYes      bool
-		flagDryRun   bool
-		flagScaffold bool
-	)
-
-	cmd := &cobra.Command{
-		Use:   "apply",
-		Short: "Create or replace a digi-cert-setting by name",
-		Long: `Create or replace a digi-cert-setting. Reads JSON or YAML from --from-file or stdin.
-
-The name field in the input is used to check if the resource
-already exists. If it does, the resource is replaced (with confirmation).
-If not, a new resource is created.`,
-		Example: `  # Apply a digi-cert-setting from a JSON file
-  jamf-cli pro digi-cert-settings apply --from-file digi-cert-setting.json
-
-  # Apply a digi-cert-setting from a YAML file
-  jamf-cli pro digi-cert-settings apply --from-file digi-cert-setting.yaml
-
-  # Apply from stdin
-  cat digi-cert-setting.json | jamf-cli pro digi-cert-settings apply
-
-  # Apply without replacement confirmation
-  jamf-cli pro digi-cert-settings apply --from-file digi-cert-setting.json --yes
-
-  # Preview what would happen
-  jamf-cli pro digi-cert-settings apply --from-file digi-cert-setting.json --dry-run`,
-		RunE: func(cmd *cobra.Command, _ []string) error {
-			reqCtx := cmd.Context()
-			if flagScaffold {
-				return printScaffoldOutput(`{
-  "caName": "Example Display Name",
-  "clientCert": {},
-  "fqdn": "digicert.example.com",
-  "revocationEnabled": true
-}`, ctx.Output.Format())
-			}
-
-			// Read input (JSON or YAML). When file flags are present, empty input
-			// is OK — the file-field injector constructs a minimal body.
-			data, err := readApplyInput(fromFile)
-			if err != nil {
-				return err
-			}
-			if len(data) > 0 {
-				data, err = normalizeInputToJSON(data)
-				if err != nil {
-					return err
-				}
-			}
-
-			// Extract name from JSON input
-			name, err := extractJSONField(data, "name")
-			if err != nil {
-				return fmt.Errorf("input must include a %q field: %w", "name", err)
-			}
-
-			// Check if resource exists by name (read-only, runs even in dry-run)
-			noInput, _ := cmd.Flags().GetBool("no-input")
-			id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v1/pki/digicert/trust-lifecycle-manager", "name", "id", name, noInput)
-			if err != nil {
-				return err
-			}
-
-			if id == "" {
-				// Not found — create
-				if flagDryRun {
-					fmt.Fprintf(os.Stderr, "[dry-run] Would create digi-cert-setting %q\n", name)
-					return nil
-				}
-				resp, err := ctx.Client.Do(reqCtx, "POST", "/v1/pki/digicert/trust-lifecycle-manager", bytes.NewReader(data))
-				if err != nil {
-					return err
-				}
-				defer resp.Body.Close()
-				fmt.Fprintf(os.Stderr, "Created digi-cert-setting %q\n", name)
-				return ctx.Output.PrintResponse(resp)
-			}
-
-			// Found — replace
-			if flagDryRun {
-				fmt.Fprintf(os.Stderr, "[dry-run] Would replace digi-cert-setting %q (id: %s)\n", name, id)
-				return nil
-			}
-			if !flagYes {
-				if noInput {
-					return fmt.Errorf("digi-cert-setting %q already exists (id: %s); use --yes to replace when --no-input is set", name, id)
-				}
-				fmt.Fprintf(os.Stderr, "digi-cert-setting %q already exists (id: %s) and will be replaced. Type 'yes' to confirm: ", name, id)
-				var confirm string
-				fmt.Scanln(&confirm)
-				if confirm != "yes" {
-					return fmt.Errorf("aborted")
-				}
-			}
-
-			updatePath := strings.Replace("/v1/pki/digicert/trust-lifecycle-manager/{id}", "{id}", url.PathEscape(id), 1)
-			reqCtx = registry.WithContentType(reqCtx, "application/merge-patch+json")
-			resp, err := ctx.Client.Do(reqCtx, "PATCH", updatePath, bytes.NewReader(data))
-			if err != nil {
-				return err
-			}
-			defer resp.Body.Close()
-			fmt.Fprintf(os.Stderr, "Replaced digi-cert-setting %q (id: %s)\n", name, id)
-			return ctx.Output.PrintResponse(resp)
-		},
-	}
-
-	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to JSON or YAML input file (or pipe to stdin)")
-	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt when replacing")
-	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
-	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 
 	return cmd
 }

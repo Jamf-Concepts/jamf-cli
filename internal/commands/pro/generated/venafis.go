@@ -37,51 +37,30 @@ func NewVenafisCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(newVenafisJamfPublicKeyCmd(ctx))
 	cmd.AddCommand(newVenafisRegenerateCmd(ctx))
 	cmd.AddCommand(newVenafisProxyTrustStoreCmd(ctx))
-	cmd.AddCommand(newVenafisApplyCmd(ctx))
 
 	return cmd
 }
 
 func newVenafisGetCmd(ctx *registry.CLIContext) *cobra.Command {
-	var (
-		flagName string
-	)
+	var ()
 
 	cmd := &cobra.Command{
-		Use:   "get [<id>]",
+		Use:   "get <id>",
 		Short: "Retrieve a Venafi PKI configuration from Jamf Pro",
 		Long:  "Retrieve a Venafi PKI configuration from Jamf Pro",
 		Example: `  # Get a venafi by ID
   jamf-cli pro venafis get 1
 
-  # Get a venafi by name
-  jamf-cli pro venafis get --name "Example"
-
   # Get a venafi and output as YAML
   jamf-cli pro venafis get 1 -o yaml`,
 		Annotations: map[string]string{"jamf:privileges": "Read PKI"},
-		Args:        cobra.MaximumNArgs(1),
+		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
-			// Resolve resource ID from positional arg, --name, or lookup flags
-			var resolvedID string
-			if flagName != "" {
-				noInput, _ := cmd.Flags().GetBool("no-input")
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/pki/venafi", "name", "id", flagName, noInput)
-				if err != nil {
-					return err
-				}
-				resolvedID = rid
-			} else if len(args) > 0 {
-				resolvedID = args[0]
-			} else {
-				return fmt.Errorf("provide an <id> argument, --name")
-			}
-
 			// Build request path
 			path := "/v1/pki/venafi/{id}"
-			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
 
 			// Build query string
 			var queryParts []string
@@ -99,8 +78,6 @@ func newVenafisGetCmd(ctx *registry.CLIContext) *cobra.Command {
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
-
-	cmd.Flags().StringVar(&flagName, "name", "", "Look up venafi by name")
 
 	return cmd
 }
@@ -181,148 +158,25 @@ func newVenafisDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagYes    bool
 		flagDryRun bool
-		fromFile   string
-		flagName   string
 	)
 
 	cmd := &cobra.Command{
-		Use:   "delete [<id>]",
+		Use:   "delete <id>",
 		Short: "Delete a Venafi PKI configuration from Jamf Pro",
 		Long:  "Delete a Venafi PKI configuration from Jamf Pro",
 		Example: `  # Delete a venafi (with confirmation)
   jamf-cli pro venafis delete 1
 
-  # Delete by name
-  jamf-cli pro venafis delete --name "Example" --yes
-
   # Delete without confirmation prompt
   jamf-cli pro venafis delete 1 --yes`,
 		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Update PKI"},
-		Args:        cobra.MaximumNArgs(1),
+		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
-			// --from-file: bulk delete from a file of IDs or names
-			if fromFile != "" {
-				entries, err := readDeleteFile(fromFile)
-				if err != nil {
-					return fmt.Errorf("reading --from-file: %w", err)
-				}
-				if len(entries) == 0 {
-					return fmt.Errorf("--from-file %q: no entries found", fromFile)
-				}
-				type bulkEntry struct{ id, label string }
-				bulk := make([]bulkEntry, 0, len(entries))
-				noInputBulk, _ := cmd.Flags().GetBool("no-input")
-				for _, entry := range entries {
-					if isNumericID(entry) {
-						if entry == "0" {
-							return fmt.Errorf("--from-file: ID 0 is not valid (Jamf Pro uses 0 as a sentinel value)")
-						}
-						bulk = append(bulk, bulkEntry{id: entry, label: entry})
-					} else {
-						var rid string
-						if rid == "" {
-							id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v1/pki/venafi", "name", "id", entry, noInputBulk)
-							if err != nil {
-								return fmt.Errorf("resolving %q: %w", entry, err)
-							}
-							rid = id
-						}
-						if rid == "" {
-							return fmt.Errorf("no venafi found matching %q", entry)
-						}
-						bulk = append(bulk, bulkEntry{id: rid, label: entry})
-					}
-				}
-				// Deduplicate resolved IDs to avoid double-delete errors.
-				{
-					seen := make(map[string]bool, len(bulk))
-					deduped := bulk[:0]
-					for _, e := range bulk {
-						if !seen[e.id] {
-							seen[e.id] = true
-							deduped = append(deduped, e)
-						}
-					}
-					bulk = deduped
-				}
-				if flagDryRun {
-					for _, e := range bulk {
-						fmt.Fprintf(os.Stderr, "[dry-run] Would delete venafi %q (id: %s)\n", e.label, e.id)
-					}
-					return nil
-				}
-				if !flagYes {
-					if noInputBulk {
-						return fmt.Errorf("destructive operation requires --yes when --no-input is set")
-					}
-					fmt.Fprintf(os.Stderr, "⚠️  This will delete %d venafis. Type 'yes' to confirm: ", len(bulk))
-					var confirm string
-					fmt.Scanln(&confirm)
-					if confirm != "yes" {
-						return fmt.Errorf("aborted")
-					}
-				}
-				if err := cooldown.Enforce(ctx.ProfileName, noInputBulk, ctx.DestructiveCooldown); err != nil {
-					return err
-				}
-				var okCount, failCount int
-				var firstErr error
-				for _, e := range bulk {
-					delPath := strings.Replace("/v1/pki/venafi/{id}", "{id}", url.PathEscape(e.id), 1)
-					resp, err := ctx.Client.Do(reqCtx, "DELETE", delPath, nil)
-					if err != nil {
-						fmt.Fprintf(os.Stderr, "delete venafi %q (id: %s) failed: %v\n", e.label, e.id, err)
-						if firstErr == nil {
-							firstErr = err
-						}
-						failCount++
-						continue
-					}
-					resp.Body.Close()
-					if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-						fmt.Fprintf(os.Stderr, "delete venafi %q (id: %s) failed: HTTP %d\n", e.label, e.id, resp.StatusCode)
-						if firstErr == nil {
-							firstErr = fmt.Errorf("HTTP %d", resp.StatusCode)
-						}
-						failCount++
-						continue
-					}
-					fmt.Fprintf(os.Stderr, "Deleted venafi %q (id: %s)\n", e.label, e.id)
-					okCount++
-				}
-				cooldown.Record(ctx.ProfileName)
-				return batchDeleteError(cmd, okCount, failCount, firstErr, "venafis deletes")
-			}
-
-			// Resolve resource ID from positional arg, --name, or lookup flags
-			var resolvedID string
-			var resolvedByName string
-			if flagName != "" {
-				noInput, _ := cmd.Flags().GetBool("no-input")
-				rid, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v1/pki/venafi", "name", "id", flagName, noInput)
-				if err != nil {
-					return err
-				}
-				if rid == "" {
-					return fmt.Errorf("no venafi found with name %q", flagName)
-				}
-				resolvedID = rid
-				resolvedByName = flagName
-			} else if len(args) > 0 {
-				resolvedID = args[0]
-			} else {
-				return fmt.Errorf("provide an <id> argument, --name")
-			}
-
-			// Confirmation for destructive action (after name lookup)
+			// Confirmation for destructive action
 			if flagDryRun {
-				if resolvedByName != "" {
-					fmt.Fprintf(os.Stderr, "[dry-run] Would delete venafi %q (id: %s)\n", resolvedByName, resolvedID)
-				} else {
-					fmt.Fprintf(os.Stderr, "[dry-run] Would delete venafi %s\n", resolvedID)
-				}
+				fmt.Fprintf(os.Stderr, "Would delete resource %s\n", strings.Join(args, " "))
 				return nil
 			}
 			if !flagYes {
@@ -330,11 +184,7 @@ func newVenafisDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 				if noInput {
 					return fmt.Errorf("destructive operation requires --yes when --no-input is set")
 				}
-				if resolvedByName != "" {
-					fmt.Fprintf(os.Stderr, "⚠️  This will delete venafi %q (id: %s). Type 'yes' to confirm: ", resolvedByName, resolvedID)
-				} else {
-					fmt.Fprintf(os.Stderr, "⚠️  This will delete venafi %s. Type 'yes' to confirm: ", resolvedID)
-				}
+				fmt.Fprintf(os.Stderr, "⚠️  This will delete resource %s. Type 'yes' to confirm: ", strings.Join(args, " "))
 				var confirm string
 				fmt.Scanln(&confirm)
 				if confirm != "yes" {
@@ -350,7 +200,7 @@ func newVenafisDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 
 			// Build request path
 			path := "/v1/pki/venafi/{id}"
-			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
 
 			// Build query string
 			var queryParts []string
@@ -381,11 +231,6 @@ func newVenafisDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 
 	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt")
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
-	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to file listing IDs or names to delete (one per line, # comments ignored)")
-	cmd.Flags().StringVar(&flagName, "name", "", "Look up venafi by name")
-
-	cmd.MarkFlagsMutuallyExclusive("from-file", "name")
-
 	return cmd
 }
 
@@ -397,41 +242,22 @@ func newVenafisHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 		flagFilter   string
 		flagAll      bool
 		flagLimit    int
-		flagName     string
 	)
 
 	cmd := &cobra.Command{
-		Use:   "history [<id>]",
+		Use:   "history <id>",
 		Short: "Get specified Venafi CA history object",
 		Long:  "Get specified Venafi CA history object",
-		Example: `  # Get history for a venafi by ID
-  jamf-cli pro venafis history 1
-
-  # Get history by name
-  jamf-cli pro venafis history --name "Example"`,
+		Example: `  # Get history for a venafi
+  jamf-cli pro venafis history 1`,
 		Annotations: map[string]string{"jamf:privileges": "Read PKI"},
-		Args:        cobra.MaximumNArgs(1),
+		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
-			// Resolve resource ID from positional arg, --name, or lookup flags
-			var resolvedID string
-			if flagName != "" {
-				noInput, _ := cmd.Flags().GetBool("no-input")
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/pki/venafi", "name", "id", flagName, noInput)
-				if err != nil {
-					return err
-				}
-				resolvedID = rid
-			} else if len(args) > 0 {
-				resolvedID = args[0]
-			} else {
-				return fmt.Errorf("provide an <id> argument, --name")
-			}
-
 			// Build request path
 			path := "/v1/pki/venafi/{id}/history"
-			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
 
 			// Build query string
 			var queryParts []string
@@ -465,7 +291,7 @@ func newVenafisHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 				for {
 					// Build page-specific query
 					pagePath := "/v1/pki/venafi/{id}/history"
-					pagePath = strings.Replace(pagePath, "{id}", url.PathEscape(resolvedID), 1)
+					pagePath = strings.Replace(pagePath, "{id}", url.PathEscape(args[0]), 1)
 					var pageQuery []string
 					// Carry forward non-pagination query params
 					for _, qp := range queryParts {
@@ -559,23 +385,20 @@ func newVenafisHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.Flags().StringVar(&flagFilter, "filter", "", "Query in the RSQL format, allowing to filter history notes collection. Default filter is empty query - returning all results for the requested page. Fields allowed in the query: username, date, note, details. This param can be combined with paging and sorting. Example: filter=username!=admin and details==*disabled* and date<2019-12-15")
 	cmd.Flags().BoolVar(&flagAll, "all", true, "Fetch all pages (set --all=false for single page)")
 	cmd.Flags().IntVar(&flagLimit, "limit", 0, "Maximum total results to return (0 = unlimited)")
-	cmd.Flags().StringVar(&flagName, "name", "", "Look up venafi by name")
-
 	return cmd
 }
 
 func newVenafisAddHistoryNoteCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagScaffold bool
-		flagName     string
 	)
 
 	cmd := &cobra.Command{
-		Use:         "add-history-note [<id>]",
+		Use:         "add-history-note <id>",
 		Short:       "Add specified Venafi CA Object Note",
 		Long:        "Adds specified Venafi CA Object Note",
 		Annotations: map[string]string{"jamf:privileges": "Update PKI"},
-		Args:        cobra.MaximumNArgs(1),
+		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -585,24 +408,9 @@ func newVenafisAddHistoryNoteCmd(ctx *registry.CLIContext) *cobra.Command {
 }`, ctx.Output.Format())
 			}
 
-			// Resolve resource ID from positional arg, --name, or lookup flags
-			var resolvedID string
-			if flagName != "" {
-				noInput, _ := cmd.Flags().GetBool("no-input")
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/pki/venafi", "name", "id", flagName, noInput)
-				if err != nil {
-					return err
-				}
-				resolvedID = rid
-			} else if len(args) > 0 {
-				resolvedID = args[0]
-			} else {
-				return fmt.Errorf("provide an <id> argument, --name")
-			}
-
 			// Build request path
 			path := "/v1/pki/venafi/{id}/history"
-			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
 
 			// Build query string
 			var queryParts []string
@@ -639,8 +447,6 @@ func newVenafisAddHistoryNoteCmd(ctx *registry.CLIContext) *cobra.Command {
 	}
 
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
-	cmd.Flags().StringVar(&flagName, "name", "", "Look up venafi by name")
-
 	return cmd
 }
 
@@ -649,26 +455,22 @@ func newVenafisPatchCmd(ctx *registry.CLIContext) *cobra.Command {
 		flagScaffold bool
 		flagSet      []string
 		fromFile     string
-		flagName     string
 	)
 
 	cmd := &cobra.Command{
-		Use:   "patch [<id>]",
+		Use:   "patch <id>",
 		Short: "Update a Venafi PKI configuration in Jamf Pro",
-		Long:  "Update a Venafi PKI configuration in Jamf Pro\n\nIdentify the resource by ID (positional arg), --name, . Omit ID to use a lookup flag.\n\nUse --set KEY=VALUE to update scalar fields (repeatable). Omitted fields are unchanged.\n\nAvailable fields:\n  clientId                                     string\n  name                                         string\n  proxyAddress                                 string\n  refreshToken                                 string\n  revocationEnabled                            boolean\n\nUse --from-file or pipe JSON to stdin for complex updates (bulk changes, deep nesting).",
+		Long:  "Update a Venafi PKI configuration in Jamf Pro\n\nUse --set KEY=VALUE to update scalar fields (repeatable). Omitted fields are unchanged.\n\nAvailable fields:\n  clientId                                     string\n  name                                         string\n  proxyAddress                                 string\n  refreshToken                                 string\n  revocationEnabled                            boolean\n\nUse --from-file or pipe JSON to stdin for complex updates (bulk changes, deep nesting).",
 		Example: `  # Update a field by ID
   jamf-cli pro venafis patch 1 --set general.managed=true
 
   # Update multiple fields
   jamf-cli pro venafis patch 1 --set field1=value1 --set field2=value2
 
-  # Update by name
-  jamf-cli pro venafis patch --name "Example" --set general.managed=true
-
   # Patch from a file
   jamf-cli pro venafis patch 1 --from-file changes.json`,
 		Annotations: map[string]string{"jamf:privileges": "Update PKI"},
-		Args:        cobra.MaximumNArgs(1),
+		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -682,24 +484,9 @@ func newVenafisPatchCmd(ctx *registry.CLIContext) *cobra.Command {
 }`, ctx.Output.Format())
 			}
 
-			// Resolve resource ID from positional arg, --name, or lookup flags
-			var resolvedPatchID string
-			if flagName != "" {
-				noInput, _ := cmd.Flags().GetBool("no-input")
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/pki/venafi", "name", "id", flagName, noInput)
-				if err != nil {
-					return err
-				}
-				resolvedPatchID = rid
-			} else if len(args) > 0 {
-				resolvedPatchID = args[0]
-			} else {
-				return fmt.Errorf("provide an <id> argument, --name")
-			}
-
 			// Build request path
 			path := "/v1/pki/venafi/{id}"
-			path = strings.Replace(path, "{id}", url.PathEscape(resolvedPatchID), 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
 
 			// Build query string
 			var queryParts []string
@@ -757,43 +544,24 @@ func newVenafisPatchCmd(ctx *registry.CLIContext) *cobra.Command {
 			"clientId=", "name=", "proxyAddress=", "refreshToken=", "revocationEnabled=",
 		}, cobra.ShellCompDirectiveNoSpace
 	})
-	cmd.Flags().StringVar(&flagName, "name", "", "Look up venafi by name")
-
 	return cmd
 }
 
 func newVenafisConnectionStatusCmd(ctx *registry.CLIContext) *cobra.Command {
-	var (
-		flagName string
-	)
+	var ()
 
 	cmd := &cobra.Command{
-		Use:         "connection-status [<id>]",
+		Use:         "connection-status <id>",
 		Short:       "Tests the communication between Jamf Pro and a Jamf Pro PKI Proxy Server",
 		Long:        "Tests the communication between Jamf Pro and a Jamf Pro PKI Proxy Server",
 		Annotations: map[string]string{"jamf:privileges": "Read PKI"},
-		Args:        cobra.MaximumNArgs(1),
+		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
-			// Resolve resource ID from positional arg, --name, or lookup flags
-			var resolvedID string
-			if flagName != "" {
-				noInput, _ := cmd.Flags().GetBool("no-input")
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/pki/venafi", "name", "id", flagName, noInput)
-				if err != nil {
-					return err
-				}
-				resolvedID = rid
-			} else if len(args) > 0 {
-				resolvedID = args[0]
-			} else {
-				return fmt.Errorf("provide an <id> argument, --name")
-			}
-
 			// Build request path
 			path := "/v1/pki/venafi/{id}/connection-status"
-			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
 
 			// Build query string
 			var queryParts []string
@@ -811,44 +579,25 @@ func newVenafisConnectionStatusCmd(ctx *registry.CLIContext) *cobra.Command {
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
-
-	cmd.Flags().StringVar(&flagName, "name", "", "Look up venafi by name")
 
 	return cmd
 }
 
 func newVenafisDependentProfilesCmd(ctx *registry.CLIContext) *cobra.Command {
-	var (
-		flagName string
-	)
+	var ()
 
 	cmd := &cobra.Command{
-		Use:         "dependent-profiles [<id>]",
+		Use:         "dependent-profiles <id>",
 		Short:       "Get configuration profile data using specified Venafi CA object",
 		Long:        "Get configuration profile data using specified Venafi CA object",
 		Annotations: map[string]string{"jamf:privileges": "Read PKI"},
-		Args:        cobra.MaximumNArgs(1),
+		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
-			// Resolve resource ID from positional arg, --name, or lookup flags
-			var resolvedID string
-			if flagName != "" {
-				noInput, _ := cmd.Flags().GetBool("no-input")
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/pki/venafi", "name", "id", flagName, noInput)
-				if err != nil {
-					return err
-				}
-				resolvedID = rid
-			} else if len(args) > 0 {
-				resolvedID = args[0]
-			} else {
-				return fmt.Errorf("provide an <id> argument, --name")
-			}
-
 			// Build request path
 			path := "/v1/pki/venafi/{id}/dependent-profiles"
-			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
 
 			// Build query string
 			var queryParts []string
@@ -866,8 +615,6 @@ func newVenafisDependentProfilesCmd(ctx *registry.CLIContext) *cobra.Command {
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
-
-	cmd.Flags().StringVar(&flagName, "name", "", "Look up venafi by name")
 
 	return cmd
 }
@@ -875,11 +622,10 @@ func newVenafisDependentProfilesCmd(ctx *registry.CLIContext) *cobra.Command {
 func newVenafisJamfPublicKeyCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagSaveTo string
-		flagName   string
 	)
 
 	cmd := &cobra.Command{
-		Use:   "jamf-public-key [<id>]",
+		Use:   "jamf-public-key <id>",
 		Short: "Downloads a certificate used to secure communication between Jamf Pro and a Jamf Pro PKI Proxy Server",
 		Long:  "Downloads a certificate for an existing Venafi configuration that can be used to secure communication between Jamf Pro and a Jamf Pro PKI Proxy Server",
 		Example: `  # Save to file
@@ -888,29 +634,14 @@ func newVenafisJamfPublicKeyCmd(ctx *registry.CLIContext) *cobra.Command {
   # Pipe to stdout
   jamf-cli pro venafis jamf-public-key <id> > output.bin`,
 		Annotations: map[string]string{"jamf:privileges": "Read PKI"},
-		Args:        cobra.MaximumNArgs(1),
+		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			reqCtx = registry.WithAccept(reqCtx, "*/*")
 
-			// Resolve resource ID from positional arg, --name, or lookup flags
-			var resolvedID string
-			if flagName != "" {
-				noInput, _ := cmd.Flags().GetBool("no-input")
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/pki/venafi", "name", "id", flagName, noInput)
-				if err != nil {
-					return err
-				}
-				resolvedID = rid
-			} else if len(args) > 0 {
-				resolvedID = args[0]
-			} else {
-				return fmt.Errorf("provide an <id> argument, --name")
-			}
-
 			// Build request path
 			path := "/v1/pki/venafi/{id}/jamf-public-key"
-			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
 
 			// Build query string
 			var queryParts []string
@@ -944,43 +675,24 @@ func newVenafisJamfPublicKeyCmd(ctx *registry.CLIContext) *cobra.Command {
 	}
 
 	cmd.Flags().StringVarP(&flagSaveTo, "save-to", "O", "", "Save output to file instead of stdout")
-	cmd.Flags().StringVar(&flagName, "name", "", "Look up venafi by name")
-
 	return cmd
 }
 
 func newVenafisRegenerateCmd(ctx *registry.CLIContext) *cobra.Command {
-	var (
-		flagName string
-	)
+	var ()
 
 	cmd := &cobra.Command{
-		Use:         "regenerate [<id>]",
+		Use:         "regenerate <id>",
 		Short:       "Regenerates a certificate used to secure communication between Jamf Pro and a Jamf Pro PKI Proxy Server",
 		Long:        "Regenerates a certificate for an existing Venafi configuration that can be used to secure communication between Jamf Pro and a Jamf Pro PKI Proxy Server",
 		Annotations: map[string]string{"jamf:privileges": "Update PKI"},
-		Args:        cobra.MaximumNArgs(1),
+		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
-			// Resolve resource ID from positional arg, --name, or lookup flags
-			var resolvedID string
-			if flagName != "" {
-				noInput, _ := cmd.Flags().GetBool("no-input")
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/pki/venafi", "name", "id", flagName, noInput)
-				if err != nil {
-					return err
-				}
-				resolvedID = rid
-			} else if len(args) > 0 {
-				resolvedID = args[0]
-			} else {
-				return fmt.Errorf("provide an <id> argument, --name")
-			}
-
 			// Build request path
 			path := "/v1/pki/venafi/{id}/jamf-public-key/regenerate"
-			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
 
 			// Build query string
 			var queryParts []string
@@ -1016,19 +728,16 @@ func newVenafisRegenerateCmd(ctx *registry.CLIContext) *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVar(&flagName, "name", "", "Look up venafi by name")
-
 	return cmd
 }
 
 func newVenafisProxyTrustStoreCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagSaveTo string
-		flagName   string
 	)
 
 	cmd := &cobra.Command{
-		Use:   "proxy-trust-store [<id>]",
+		Use:   "proxy-trust-store <id>",
 		Short: "Downloads the PKI Proxy Server public key to secure communication between Jamf Pro and a Jamf Pro PKI Proxy Server",
 		Long:  "Downloads the uploaded PKI Proxy Server public key to do basic TLS certificate validation between Jamf Pro and a Jamf Pro PKI Proxy Server",
 		Example: `  # Save to file
@@ -1037,29 +746,14 @@ func newVenafisProxyTrustStoreCmd(ctx *registry.CLIContext) *cobra.Command {
   # Pipe to stdout
   jamf-cli pro venafis proxy-trust-store <id> > output.bin`,
 		Annotations: map[string]string{"jamf:privileges": "Read PKI"},
-		Args:        cobra.MaximumNArgs(1),
+		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			reqCtx = registry.WithAccept(reqCtx, "*/*")
 
-			// Resolve resource ID from positional arg, --name, or lookup flags
-			var resolvedID string
-			if flagName != "" {
-				noInput, _ := cmd.Flags().GetBool("no-input")
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/pki/venafi", "name", "id", flagName, noInput)
-				if err != nil {
-					return err
-				}
-				resolvedID = rid
-			} else if len(args) > 0 {
-				resolvedID = args[0]
-			} else {
-				return fmt.Errorf("provide an <id> argument, --name")
-			}
-
 			// Build request path
 			path := "/v1/pki/venafi/{id}/proxy-trust-store"
-			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
 
 			// Build query string
 			var queryParts []string
@@ -1093,127 +787,5 @@ func newVenafisProxyTrustStoreCmd(ctx *registry.CLIContext) *cobra.Command {
 	}
 
 	cmd.Flags().StringVarP(&flagSaveTo, "save-to", "O", "", "Save output to file instead of stdout")
-	cmd.Flags().StringVar(&flagName, "name", "", "Look up venafi by name")
-
-	return cmd
-}
-
-func newVenafisApplyCmd(ctx *registry.CLIContext) *cobra.Command {
-	var (
-		fromFile     string
-		flagYes      bool
-		flagDryRun   bool
-		flagScaffold bool
-	)
-
-	cmd := &cobra.Command{
-		Use:   "apply",
-		Short: "Create or replace a venafi by name",
-		Long: `Create or replace a venafi. Reads JSON or YAML from --from-file or stdin.
-
-The name field in the input is used to check if the resource
-already exists. If it does, the resource is replaced (with confirmation).
-If not, a new resource is created.`,
-		Example: `  # Apply a venafi from a JSON file
-  jamf-cli pro venafis apply --from-file venafi.json
-
-  # Apply a venafi from a YAML file
-  jamf-cli pro venafis apply --from-file venafi.yaml
-
-  # Apply from stdin
-  cat venafi.json | jamf-cli pro venafis apply
-
-  # Apply without replacement confirmation
-  jamf-cli pro venafis apply --from-file venafi.json --yes
-
-  # Preview what would happen
-  jamf-cli pro venafis apply --from-file venafi.json --dry-run`,
-		RunE: func(cmd *cobra.Command, _ []string) error {
-			reqCtx := cmd.Context()
-			if flagScaffold {
-				return printScaffoldOutput(`{
-  "clientId": "jamf-pro",
-  "name": "Venafi Certificate Authority",
-  "proxyAddress": "localhost:9443",
-  "refreshToken": "qdkP4SrCFKd7tefAVM6N",
-  "revocationEnabled": true
-}`, ctx.Output.Format())
-			}
-
-			// Read input (JSON or YAML). When file flags are present, empty input
-			// is OK — the file-field injector constructs a minimal body.
-			data, err := readApplyInput(fromFile)
-			if err != nil {
-				return err
-			}
-			if len(data) > 0 {
-				data, err = normalizeInputToJSON(data)
-				if err != nil {
-					return err
-				}
-			}
-
-			// Extract name from JSON input
-			name, err := extractJSONField(data, "name")
-			if err != nil {
-				return fmt.Errorf("input must include a %q field: %w", "name", err)
-			}
-
-			// Check if resource exists by name (read-only, runs even in dry-run)
-			noInput, _ := cmd.Flags().GetBool("no-input")
-			id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v1/pki/venafi", "name", "id", name, noInput)
-			if err != nil {
-				return err
-			}
-
-			if id == "" {
-				// Not found — create
-				if flagDryRun {
-					fmt.Fprintf(os.Stderr, "[dry-run] Would create venafi %q\n", name)
-					return nil
-				}
-				resp, err := ctx.Client.Do(reqCtx, "POST", "/v1/pki/venafi", bytes.NewReader(data))
-				if err != nil {
-					return err
-				}
-				defer resp.Body.Close()
-				fmt.Fprintf(os.Stderr, "Created venafi %q\n", name)
-				return ctx.Output.PrintResponse(resp)
-			}
-
-			// Found — replace
-			if flagDryRun {
-				fmt.Fprintf(os.Stderr, "[dry-run] Would replace venafi %q (id: %s)\n", name, id)
-				return nil
-			}
-			if !flagYes {
-				if noInput {
-					return fmt.Errorf("venafi %q already exists (id: %s); use --yes to replace when --no-input is set", name, id)
-				}
-				fmt.Fprintf(os.Stderr, "venafi %q already exists (id: %s) and will be replaced. Type 'yes' to confirm: ", name, id)
-				var confirm string
-				fmt.Scanln(&confirm)
-				if confirm != "yes" {
-					return fmt.Errorf("aborted")
-				}
-			}
-
-			updatePath := strings.Replace("/v1/pki/venafi/{id}", "{id}", url.PathEscape(id), 1)
-			reqCtx = registry.WithContentType(reqCtx, "application/merge-patch+json")
-			resp, err := ctx.Client.Do(reqCtx, "PATCH", updatePath, bytes.NewReader(data))
-			if err != nil {
-				return err
-			}
-			defer resp.Body.Close()
-			fmt.Fprintf(os.Stderr, "Replaced venafi %q (id: %s)\n", name, id)
-			return ctx.Output.PrintResponse(resp)
-		},
-	}
-
-	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to JSON or YAML input file (or pipe to stdin)")
-	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt when replacing")
-	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
-	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
-
 	return cmd
 }
