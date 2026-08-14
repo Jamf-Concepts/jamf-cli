@@ -32,6 +32,26 @@ func finishBatch(stderr io.Writer, noun string, succeeded, failed int, firstErr 
 	return exitcode.PartialOrPropagate(succeeded, failed, firstErr, msg)
 }
 
+// warnUnresolvedTargets reports --from-file entries that could not be resolved,
+// before any mutation runs so the count also shows up in a dry-run preview.
+// The resolver warns per entry; this is the total the user acts on.
+func warnUnresolvedTargets(stderr io.Writer, unresolved int) {
+	if unresolved > 0 {
+		_, _ = fmt.Fprintf(stderr,
+			"warning: %d --from-file target(s) could not be resolved and will be skipped\n", unresolved)
+	}
+}
+
+// unresolvedNote formats the suffix appended to a batch summary line so entries
+// dropped during resolution are visible where the user reads the outcome, not
+// only in the earlier per-entry warning.
+func unresolvedNote(unresolved int) string {
+	if unresolved == 0 {
+		return ""
+	}
+	return fmt.Sprintf(" (%d unresolved)", unresolved)
+}
+
 // newBulkCmd builds the "bulk" parent command with all subcommands attached.
 func newBulkCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
@@ -338,12 +358,15 @@ func fetchComputerGroupMemberIDs(ctx context.Context, client registry.HTTPClient
 
 // resolveComputerTargets returns a list of (id, name) pairs from either
 // a file or a group name.  Exactly one of fromFile/groupName must be set.
-func resolveComputerTargets(ctx context.Context, client registry.HTTPClient, fromFile, groupName string) ([]map[string]string, error) {
+// The second return value is the number of --from-file entries that could not
+// be resolved; callers fold it into their failure tally so a skipped entry
+// shows up in the summary line and the exit code.
+func resolveComputerTargets(ctx context.Context, client registry.HTTPClient, fromFile, groupName string) ([]map[string]string, int, error) {
 	switch {
 	case fromFile != "" && groupName != "":
-		return nil, fmt.Errorf("--from-file and --group are mutually exclusive")
+		return nil, 0, fmt.Errorf("--from-file and --group are mutually exclusive")
 	case fromFile == "" && groupName == "":
-		return nil, fmt.Errorf("either --from-file or --group is required")
+		return nil, 0, fmt.Errorf("either --from-file or --group is required")
 	}
 
 	if fromFile != "" {
@@ -351,9 +374,9 @@ func resolveComputerTargets(ctx context.Context, client registry.HTTPClient, fro
 		// IDs from serial numbers and resolves serials via the v3
 		// computers-inventory API before use — the Classic group/command
 		// endpoints below only accept a numeric ID, not a serial.
-		devices, err := resolve.ResolveComputersFromFile(ctx, client, fromFile)
+		devices, unresolved, err := resolve.ResolveComputersFromFile(ctx, client, fromFile)
 		if err != nil {
-			return nil, err
+			return nil, 0, err
 		}
 		targets := make([]map[string]string, len(devices))
 		for i, d := range devices {
@@ -363,13 +386,13 @@ func resolveComputerTargets(ctx context.Context, client registry.HTTPClient, fro
 			}
 			targets[i] = map[string]string{"id": d.ID, "name": name}
 		}
-		return targets, nil
+		return targets, unresolved, nil
 	}
 
 	// Group mode: resolve member IDs then fetch names.
 	ids, err := fetchComputerGroupMemberIDs(ctx, client, groupName)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 
 	targets := make([]map[string]string, 0, len(ids))
@@ -388,7 +411,7 @@ func resolveComputerTargets(ctx context.Context, client registry.HTTPClient, fro
 		}
 		targets = append(targets, map[string]string{"id": id, "name": name})
 	}
-	return targets, nil
+	return targets, 0, nil
 }
 
 // sendMDMCommand posts a Classic API MDM command to a single computer.

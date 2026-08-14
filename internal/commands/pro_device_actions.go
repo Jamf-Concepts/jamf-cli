@@ -103,37 +103,41 @@ func (dt *deviceTarget) isBulk() bool {
 	return dt.group != "" || dt.fromFile != ""
 }
 
-// resolveComputersCmd resolves the target to one or more computers using a cobra command's context.
-func (dt *deviceTarget) resolveComputersCmd(cmd *cobra.Command, client registry.HTTPClient) ([]*resolve.DeviceIdentifiers, error) {
+// resolveComputersCmd resolves the target to one or more computers using a cobra
+// command's context. The second return value is the number of --from-file
+// entries that could not be resolved (see resolve.ResolveComputersFromFile).
+func (dt *deviceTarget) resolveComputersCmd(cmd *cobra.Command, client registry.HTTPClient) ([]*resolve.DeviceIdentifiers, int, error) {
 	ctx := cmd.Context()
 	switch {
 	case dt.group != "":
-		return resolve.ResolveComputerGroup(ctx, client, dt.group)
+		devices, err := resolve.ResolveComputerGroup(ctx, client, dt.group)
+		return devices, 0, err
 	case dt.fromFile != "":
 		return resolve.ResolveComputersFromFile(ctx, client, dt.fromFile)
 	default:
 		d, err := resolve.ResolveComputer(ctx, client, dt.serial, dt.name, dt.id)
 		if err != nil {
-			return nil, err
+			return nil, 0, err
 		}
-		return []*resolve.DeviceIdentifiers{d}, nil
+		return []*resolve.DeviceIdentifiers{d}, 0, nil
 	}
 }
 
 // resolveMobileDevicesCmd resolves the target to one or more mobile devices.
-func (dt *deviceTarget) resolveMobileDevicesCmd(cmd *cobra.Command, client registry.HTTPClient) ([]*resolve.DeviceIdentifiers, error) {
+func (dt *deviceTarget) resolveMobileDevicesCmd(cmd *cobra.Command, client registry.HTTPClient) ([]*resolve.DeviceIdentifiers, int, error) {
 	ctx := cmd.Context()
 	switch {
 	case dt.group != "":
-		return resolve.ResolveMobileDeviceGroup(ctx, client, dt.group)
+		devices, err := resolve.ResolveMobileDeviceGroup(ctx, client, dt.group)
+		return devices, 0, err
 	case dt.fromFile != "":
 		return resolve.ResolveMobileDevicesFromFile(ctx, client, dt.fromFile)
 	default:
 		d, err := resolve.ResolveMobileDevice(ctx, client, dt.serial, dt.name, dt.id)
 		if err != nil {
-			return nil, err
+			return nil, 0, err
 		}
-		return []*resolve.DeviceIdentifiers{d}, nil
+		return []*resolve.DeviceIdentifiers{d}, 0, nil
 	}
 }
 
@@ -473,26 +477,40 @@ func runDeviceAction(cmd *cobra.Command, cliCtx *registry.CLIContext, dt *device
 	if err := dt.validate(); err != nil {
 		return err
 	}
-	devices, err := dt.resolveComputersCmd(cmd, cliCtx.Client)
+	devices, unresolved, err := dt.resolveComputersCmd(cmd, cliCtx.Client)
 	if err != nil {
 		return err
 	}
-	return executeAction(cmd, dt, devices, yes, confirmDestructive, cfg)
+	return executeAction(cmd, dt, devices, unresolved, yes, confirmDestructive, cfg)
 }
 
 func runMobileAction(cmd *cobra.Command, cliCtx *registry.CLIContext, dt *deviceTarget, yes, confirmDestructive bool, cfg deviceActionConfig) error {
 	if err := dt.validate(); err != nil {
 		return err
 	}
-	devices, err := dt.resolveMobileDevicesCmd(cmd, cliCtx.Client)
+	devices, unresolved, err := dt.resolveMobileDevicesCmd(cmd, cliCtx.Client)
 	if err != nil {
 		return err
 	}
-	return executeAction(cmd, dt, devices, yes, confirmDestructive, cfg)
+	return executeAction(cmd, dt, devices, unresolved, yes, confirmDestructive, cfg)
 }
 
-func executeAction(cmd *cobra.Command, dt *deviceTarget, devices []*resolve.DeviceIdentifiers, yes, confirmDestructive bool, cfg deviceActionConfig) error {
+// unresolvedTargetsErr reports --from-file entries that never resolved, so an
+// action whose resolved devices all succeeded still exits non-zero.
+func unresolvedTargetsErr(deviceType string, unresolved int) error {
+	if unresolved == 0 {
+		return nil
+	}
+	return fmt.Errorf("%d %s target(s) from --from-file could not be resolved", unresolved, deviceType)
+}
+
+// executeAction runs cfg against the resolved devices. unresolved is the count
+// of --from-file entries that never resolved: already warned about per entry by
+// the resolver, and folded into the tally here so the exit code reflects them.
+func executeAction(cmd *cobra.Command, dt *deviceTarget, devices []*resolve.DeviceIdentifiers, unresolved int, yes, confirmDestructive bool, cfg deviceActionConfig) error {
 	stderr := cmd.ErrOrStderr()
+
+	warnUnresolvedTargets(stderr, unresolved)
 
 	// Reject --body-file with bulk targeting (body can't be reused per device
 	// and the semantics are unclear).
@@ -550,7 +568,10 @@ func executeAction(cmd *cobra.Command, dt *deviceTarget, devices []*resolve.Devi
 
 	// Batch endpoints (blank-push, renew-mdm): send all IDs in one request.
 	if (cfg.batchByManagementID || cfg.batchByUDID) && cfg.execBatch != nil && len(devices) > 0 {
-		return cfg.execBatch(devices)
+		if err := cfg.execBatch(devices); err != nil {
+			return err
+		}
+		return unresolvedTargetsErr(cfg.deviceType, unresolved)
 	}
 
 	// Read optional body (for erase commands).
@@ -561,12 +582,15 @@ func executeAction(cmd *cobra.Command, dt *deviceTarget, devices []*resolve.Devi
 
 	// Execute per-device.
 	if len(devices) == 1 {
-		return cfg.execSingle(devices[0], body)
+		if err := cfg.execSingle(devices[0], body); err != nil {
+			return err
+		}
+		return unresolvedTargetsErr(cfg.deviceType, unresolved)
 	}
 
 	// Bulk per-device execution with progress logging.
 	_, _ = fmt.Fprintf(stderr, "Sending %s to %d %ss...\n", cfg.actionName, len(devices), cfg.deviceType)
-	var successCount, failCount int
+	successCount, failCount := 0, unresolved
 	for _, d := range devices {
 		if err := cfg.execSingle(d, nil); err != nil {
 			_, _ = fmt.Fprintf(stderr, "[%s] %-40s ERROR: %v\n", cfg.actionName, resolve.FormatDeviceDesc(d), err)
@@ -576,7 +600,8 @@ func executeAction(cmd *cobra.Command, dt *deviceTarget, devices []*resolve.Devi
 			successCount++
 		}
 	}
-	_, _ = fmt.Fprintf(stderr, "%s complete: %d succeeded, %d failed.\n", cfg.actionName, successCount, failCount)
+	_, _ = fmt.Fprintf(stderr, "%s complete: %d succeeded, %d failed%s.\n",
+		cfg.actionName, successCount, failCount, unresolvedNote(unresolved))
 	if failCount > 0 {
 		return fmt.Errorf("%d of %d %s operations failed", failCount, successCount+failCount, cfg.actionName)
 	}
