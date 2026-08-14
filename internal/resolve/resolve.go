@@ -121,6 +121,9 @@ func ResolveMobileDeviceGroup(ctx context.Context, client registry.HTTPClient, g
 
 // ResolveComputersFromFile reads serials or IDs from a file (one per line)
 // and resolves each to full identifiers. Blank lines and #-comments are skipped.
+// An entry that cannot be resolved warns to stderr and is skipped, matching the
+// per-member soft-fail behavior of the --group path (batchResolveComputers) so
+// one bad line doesn't abort the whole batch.
 func ResolveComputersFromFile(ctx context.Context, client registry.HTTPClient, path string) ([]*DeviceIdentifiers, error) {
 	entries, err := readEntriesFromFile(path)
 	if err != nil {
@@ -135,7 +138,8 @@ func ResolveComputersFromFile(ctx context.Context, client registry.HTTPClient, p
 			d, err = ResolveComputer(ctx, client, entry, "", "")
 		}
 		if err != nil {
-			return nil, fmt.Errorf("resolving %q: %w", entry, err)
+			_, _ = fmt.Fprintf(os.Stderr, "  warning: could not resolve computer %q: %v\n", entry, err)
+			continue
 		}
 		results = append(results, d)
 	}
@@ -143,6 +147,7 @@ func ResolveComputersFromFile(ctx context.Context, client registry.HTTPClient, p
 }
 
 // ResolveMobileDevicesFromFile reads serials or IDs from a file and resolves each.
+// Unresolvable entries warn to stderr and are skipped (see ResolveComputersFromFile).
 func ResolveMobileDevicesFromFile(ctx context.Context, client registry.HTTPClient, path string) ([]*DeviceIdentifiers, error) {
 	entries, err := readEntriesFromFile(path)
 	if err != nil {
@@ -157,7 +162,8 @@ func ResolveMobileDevicesFromFile(ctx context.Context, client registry.HTTPClien
 			d, err = ResolveMobileDevice(ctx, client, entry, "", "")
 		}
 		if err != nil {
-			return nil, fmt.Errorf("resolving %q: %w", entry, err)
+			_, _ = fmt.Fprintf(os.Stderr, "  warning: could not resolve mobile device %q: %v\n", entry, err)
+			continue
 		}
 		results = append(results, d)
 	}
