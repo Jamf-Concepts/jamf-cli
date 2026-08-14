@@ -53,11 +53,7 @@ func newProtectULFListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			}
 			rows := make([]map[string]any, 0, len(filters))
 			for _, f := range filters {
-				rows = append(rows, map[string]any{
-					"name":    f.Name,
-					"enabled": f.Enabled,
-					"filter":  f.Filter,
-				})
+				rows = append(rows, flattenULF(f))
 			}
 			data, err := json.Marshal(rows)
 			if err != nil {
@@ -65,6 +61,24 @@ func newProtectULFListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			}
 			return cliCtx.Output.PrintRaw(data)
 		},
+	}
+}
+
+// flattenULF converts a UnifiedLoggingFilter into a clean map for readable
+// table output, reducing the set membership list to names.
+func flattenULF(f jamfprotect.UnifiedLoggingFilter) map[string]any {
+	names := make([]string, 0, len(f.Sets))
+	for _, s := range f.Sets {
+		names = append(names, s.Name)
+	}
+	return map[string]any{
+		"uuid":        f.UUID,
+		"name":        f.Name,
+		"description": f.Description,
+		"enabled":     f.Enabled,
+		"filter":      f.Filter,
+		"tags":        strings.Join(f.Tags, ", "),
+		"sets":        strings.Join(names, ", "), // always present: table/csv columns come from row 0
 	}
 }
 
@@ -86,7 +100,7 @@ func newProtectULFGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return protect.PrintOne(cliCtx.Output, filter)
+			return printResult(cliCtx.Output, filter, flattenULF(*filter))
 		},
 	}
 }
@@ -130,7 +144,7 @@ func newProtectULFApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 					return err
 				}
 				fmt.Fprintf(os.Stderr, "Created unified logging filter %q\n", input.Name)
-				return protect.PrintOne(cliCtx.Output, result)
+				return printResult(cliCtx.Output, result, flattenULF(result))
 			}
 
 			// Found — confirm before replacing
@@ -147,7 +161,7 @@ func newProtectULFApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				return err
 			}
 			fmt.Fprintf(os.Stderr, "Updated unified logging filter %q\n", input.Name)
-			return protect.PrintOne(cliCtx.Output, result)
+			return printResult(cliCtx.Output, result, flattenULF(result))
 		},
 	}
 

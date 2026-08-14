@@ -223,9 +223,13 @@ Secrets in config use prefixed references: `env:VAR`, `file:/path`, `keychain:se
 
 Uses `jamfprotect-go-sdk` (GraphQL, SDK manages tokens/retry/pagination). No use of `internal/auth/` or `internal/client/`. Env vars: `JAMFPROTECT_URL`, `JAMFPROTECT_CLIENT_ID`, `JAMFPROTECT_CLIENT_SECRET` (falls back to `JAMF_*`).
 
-Patterns: positional `<name>` args (not `--name` flag) resolved via `internal/protect/Resolver`. `apply` (upsert from JSON or YAML) instead of separate create/update — output of `export` can be piped to `apply`. List commands flatten to essential fields for table output; `get`/`apply` use `printResult()` (flatten for table/csv/plain, full JSON for json/yaml). Delete and apply-replace require `--yes` or interactive confirm. Granular mutations (`add-analytic`/`remove-analytic`, `add-exception`/`remove-exception`, `add-rule`/`remove-rule`) use read-modify-write and are idempotent.
+Patterns: positional `<name>` args (not `--name` flag) resolved via `internal/protect/Resolver`. `apply` (upsert from JSON or YAML) instead of separate create/update — output of `export` can be piped to `apply`. List commands flatten to essential fields for table output; `get`/`apply` use `printResult()` (flatten for table/csv/plain, full JSON for json/yaml). Delete and apply-replace require `--yes` or interactive confirm. Granular mutations (`add-analytic`/`remove-analytic`, `add-exception`/`remove-exception`, `add-rule`/`remove-rule`, `add-filter`/`remove-filter`) use read-modify-write and are idempotent.
+
+`plans apply` only sends its cross-resource reference fields (`exceptionSets`, `analyticSets`, `unifiedLoggingFilterSets`, `usbControlSet`) when the input list is non-empty, so omitting or emptying one leaves the plan's existing membership unchanged rather than clearing it — use the granular `remove-*` subcommands to detach. This does **not** apply to a set's own membership list: `ulfs apply` (`filters`) and `analytic-sets apply` (`analytics`) always send the field, so an omitted or empty list clears it.
 
 Analytics and ULF additionally support `import --file`/`--dir` matching `jamf/jamfprotect` community repo YAML schema.
+
+`unified-logging-filter-sets` (`ulfs`, SDK v0.8.0+) groups unified logging filters for assignment to plans — the ULF analogue of `analytic-sets`. Sets carry a read-only `plans` back-reference (excluded from `export`, which stays portable by using filter names); filters carry a read-only `sets` back-reference. Attach sets to a plan via `unifiedLoggingFilterSets` in `plans apply`. The server refuses to delete a set that is still used by a plan; deleting a filter cascades it out of any sets.
 
 `protect downloads` subcommands fetch installer/uninstaller/pppc-profile/tamper-prevention-profile/root-ca/csr/websocket-auth/summary files. `protect plans config-profile <name>` downloads a `.mobileconfig` (use `--no-*` to exclude payloads, `--sign` to sign).
 
@@ -276,7 +280,7 @@ Adding a converter: create `ddm_<name>.go`, implement `convertFunc`, register vi
 - Global flags are package-level vars in `root.go` — accessed by generated commands via `CLIContext`.
 - Filename prefixes: `pro_` for Jamf Pro + Platform handwritten commands, `protect_` for Jamf Protect, `school_` for Jamf School, `security_` for Jamf Security Cloud (currently just `setup` — the eleven Risk/Device Lifecycle/SSE operations are all generator-owned). Platform uses `pro_platform_` infix where resource name overlaps with existing Pro resources.
 - Help groups in `groups.go`, short aliases in `aliases.go` — each split into root / pro (including platform: `bp`, `cb`, `pdev`, `pdg`, `ddm`) / protect / school / security.
-- Pro `overview` makes ~41 parallel API calls; Protect `overview` makes ~16.
+- Pro `overview` makes ~41 parallel API calls; Protect `overview` makes ~17.
 - Classic API paths start with `/JSSResource/` and bypass `/api` prefix added by `client.Do()`. In platform gateway mode, rewritten to `/api/proclassic/tenant/{id}/`.
 - `NO_COLOR` env var respected (https://no-color.org).
 - `--no-hints` flag / `JAMF_CLI_NO_HINTS` env (value-parsed via `strconv.ParseBool`) suppress advisory hints only, leaving the spinner and progress output intact; `--quiet` remains a strict superset that also silences both.

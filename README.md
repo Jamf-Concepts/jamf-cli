@@ -224,6 +224,7 @@ jamf-cli protect <command> [subcommand] [flags]    # Jamf Protect
 | Pro | `ddm-reports` | `ddm` |
 | Protect | `removable-storage-control-sets` | `rscs` |
 | Protect | `unified-logging-filters` | `ulf` |
+| Protect | `unified-logging-filter-sets` | `ulfs` |
 | Protect | `exception-sets` | `es` |
 | Protect | `analytic-sets` | `as` |
 | Protect | `action-configs` | `ac` |

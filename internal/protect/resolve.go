@@ -23,6 +23,7 @@ type Resolver struct {
 	telemetriesV2  map[string]string
 	preventLists   map[string]string
 	ulfFilters     map[string]string
+	ulfSets        map[string]string
 	roles          map[string]string
 	users          map[string]string
 	groups         map[string]string
@@ -204,6 +205,25 @@ func (r *Resolver) ResolveUnifiedLoggingFilterUUID(ctx context.Context, name str
 	id, ok := r.ulfFilters[name]
 	if !ok {
 		return "", fmt.Errorf("unified logging filter %q not found; use 'protect unified-logging-filters list' to see available names", name)
+	}
+	return id, nil
+}
+
+// ResolveUnifiedLoggingFilterSetUUID returns the UUID for a unified logging filter set.
+func (r *Resolver) ResolveUnifiedLoggingFilterSetUUID(ctx context.Context, name string) (string, error) {
+	if r.ulfSets == nil {
+		items, err := r.client.ListUnifiedLoggingFilterSets(ctx)
+		if err != nil {
+			return "", fmt.Errorf("listing unified logging filter sets: %w", err)
+		}
+		r.ulfSets = make(map[string]string, len(items))
+		for _, s := range items {
+			r.ulfSets[s.Name] = s.UUID
+		}
+	}
+	id, ok := r.ulfSets[name]
+	if !ok {
+		return "", fmt.Errorf("unified logging filter set %q not found; use 'protect unified-logging-filter-sets list' to see available names", name)
 	}
 	return id, nil
 }

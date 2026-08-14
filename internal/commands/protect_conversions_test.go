@@ -3,10 +3,33 @@
 package commands
 
 import (
+	"context"
+	"strings"
 	"testing"
 
 	"github.com/Jamf-Concepts/jamfprotect-go-sdk/jamfprotect"
+
+	"github.com/Jamf-Concepts/jamf-cli/internal/protect"
+	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 )
+
+// mockProtectClient embeds the interface so only the methods a given test
+// needs must be implemented. The zero-value embed panics if an unimplemented
+// method is called, which is correct for these narrowly-scoped tests.
+type mockProtectClient struct {
+	registry.ProtectClient
+
+	ulfFilters []jamfprotect.UnifiedLoggingFilter
+	ulfSets    []jamfprotect.UnifiedLoggingFilterSet
+}
+
+func (m *mockProtectClient) ListUnifiedLoggingFilters(_ context.Context) ([]jamfprotect.UnifiedLoggingFilter, error) {
+	return m.ulfFilters, nil
+}
+
+func (m *mockProtectClient) ListUnifiedLoggingFilterSets(_ context.Context) ([]jamfprotect.UnifiedLoggingFilterSet, error) {
+	return m.ulfSets, nil
+}
 
 // ─── flattenPlan ────────────────────────────────────────────────────────────
 
@@ -242,6 +265,284 @@ func TestPlanToExport_AnalyticSetNames(t *testing.T) {
 	}
 	if export.AnalyticSets[1].Name != "Managed Set" {
 		t.Errorf("AnalyticSets[1].Name = %q, want %q", export.AnalyticSets[1].Name, "Managed Set")
+	}
+}
+
+func TestPlanToExport_UnifiedLoggingFilterSetNames(t *testing.T) {
+	p := &jamfprotect.Plan{
+		Name: "Plan with ULF Sets",
+		UnifiedLoggingFilterSets: []jamfprotect.PlanUnifiedLoggingFilterSet{
+			{UUID: "ulfs-1", Name: "Set One"},
+			{UUID: "ulfs-2", Name: "Set Two"},
+		},
+	}
+	export := planToExport(p)
+
+	want := []string{"Set One", "Set Two"}
+	if len(export.ULFSets) != len(want) {
+		t.Fatalf("ULFSets length = %d, want %d", len(export.ULFSets), len(want))
+	}
+	for i, w := range want {
+		if export.ULFSets[i] != w {
+			t.Errorf("ULFSets[%d] = %q, want %q", i, export.ULFSets[i], w)
+		}
+	}
+}
+
+func TestPlanToExport_NoUnifiedLoggingFilterSets(t *testing.T) {
+	export := planToExport(&jamfprotect.Plan{Name: "Bare"})
+	if export.ULFSets != nil {
+		t.Errorf("ULFSets = %v, want nil so the key is omitted from export", export.ULFSets)
+	}
+}
+
+func TestPlanExportToInput_ResolvesULFSetNames(t *testing.T) {
+	mock := &mockProtectClient{
+		ulfSets: []jamfprotect.UnifiedLoggingFilterSet{
+			{UUID: "ulfs-1", Name: "Set One"},
+			{UUID: "ulfs-2", Name: "Set Two"},
+		},
+	}
+	r := protect.NewResolver(mock)
+
+	input, err := planExportToInput(context.Background(), planExport{
+		Name:    "My Plan",
+		ULFSets: []string{"Set Two", "Set One"},
+	}, r)
+	if err != nil {
+		t.Fatalf("planExportToInput() error = %v", err)
+	}
+	want := []string{"ulfs-2", "ulfs-1"}
+	if len(input.UnifiedLoggingFilterSets) != len(want) {
+		t.Fatalf("UnifiedLoggingFilterSets length = %d, want %d", len(input.UnifiedLoggingFilterSets), len(want))
+	}
+	for i, w := range want {
+		if input.UnifiedLoggingFilterSets[i] != w {
+			t.Errorf("UnifiedLoggingFilterSets[%d] = %q, want %q", i, input.UnifiedLoggingFilterSets[i], w)
+		}
+	}
+}
+
+func TestPlanExportToInput_UnresolvableULFSetName(t *testing.T) {
+	mock := &mockProtectClient{}
+	r := protect.NewResolver(mock)
+
+	_, err := planExportToInput(context.Background(), planExport{
+		Name:    "My Plan",
+		ULFSets: []string{"Missing"},
+	}, r)
+	if err == nil {
+		t.Fatal("planExportToInput() error = nil, want error for unresolvable ULF set name")
+	}
+	if !strings.Contains(err.Error(), `resolving unified logging filter set "Missing"`) {
+		t.Errorf("error = %q, want to mention the unresolvable name", err.Error())
+	}
+}
+
+func TestFlattenPlan_UnifiedLoggingFilterSetsJoined(t *testing.T) {
+	m := flattenPlan(jamfprotect.Plan{
+		Name: "Plan",
+		UnifiedLoggingFilterSets: []jamfprotect.PlanUnifiedLoggingFilterSet{
+			{UUID: "a", Name: "Set A"},
+			{UUID: "b", Name: "Set B"},
+		},
+	})
+	if got := m["unifiedLoggingFilterSets"]; got != "Set A, Set B" {
+		t.Errorf("unifiedLoggingFilterSets = %v, want %q", got, "Set A, Set B")
+	}
+}
+
+func TestFlattenPlan_EmptyUnifiedLoggingFilterSetsPresent(t *testing.T) {
+	m := flattenPlan(jamfprotect.Plan{Name: "Plan"})
+	if _, ok := m["unifiedLoggingFilterSets"]; !ok {
+		t.Error("unifiedLoggingFilterSets absent, want present (and empty) so table/csv columns stay stable across rows")
+	} else if got := m["unifiedLoggingFilterSets"]; got != "" {
+		t.Errorf("unifiedLoggingFilterSets = %v, want empty string", got)
+	}
+}
+
+// ─── unified logging filter sets ────────────────────────────────────────────
+
+func TestFlattenULFSet_FiltersAndPlans(t *testing.T) {
+	m := flattenULFSet(jamfprotect.UnifiedLoggingFilterSet{
+		UUID:        "s-1",
+		Name:        "My Set",
+		Description: "desc",
+		Filters: []jamfprotect.UnifiedLoggingFilterSetFilter{
+			{UUID: "f-1", Name: "Filter One"},
+			{UUID: "f-2", Name: "Filter Two"},
+		},
+		Plans: []jamfprotect.UnifiedLoggingFilterSetPlan{
+			{ID: "p-1", Name: "Plan One"},
+		},
+	})
+
+	if got := m["uuid"]; got != "s-1" {
+		t.Errorf("uuid = %v, want %q", got, "s-1")
+	}
+	if got := m["name"]; got != "My Set" {
+		t.Errorf("name = %v, want %q", got, "My Set")
+	}
+	if got := m["filtersCount"]; got != 2 {
+		t.Errorf("filtersCount = %v, want 2", got)
+	}
+	if got := m["filters"]; got != "Filter One, Filter Two" {
+		t.Errorf("filters = %v, want %q", got, "Filter One, Filter Two")
+	}
+	if got := m["plans"]; got != "Plan One" {
+		t.Errorf("plans = %v, want %q", got, "Plan One")
+	}
+}
+
+func TestFlattenULFSet_OmitsEmptyCollections(t *testing.T) {
+	m := flattenULFSet(jamfprotect.UnifiedLoggingFilterSet{Name: "Empty"})
+
+	if _, ok := m["filters"]; !ok {
+		t.Error("filters absent, want present (and empty) so table/csv columns stay stable across rows")
+	} else if got := m["filters"]; got != "" {
+		t.Errorf("filters = %v, want empty string", got)
+	}
+	if _, ok := m["plans"]; !ok {
+		t.Error("plans absent, want present (and empty) so table/csv columns stay stable across rows")
+	} else if got := m["plans"]; got != "" {
+		t.Errorf("plans = %v, want empty string", got)
+	}
+	if got := m["filtersCount"]; got != 0 {
+		t.Errorf("filtersCount = %v, want 0", got)
+	}
+}
+
+func TestULFSetToExport_UsesFilterNames(t *testing.T) {
+	export := ulfSetToExport(&jamfprotect.UnifiedLoggingFilterSet{
+		Name:        "My Set",
+		Description: "desc",
+		Filters: []jamfprotect.UnifiedLoggingFilterSetFilter{
+			{UUID: "f-1", Name: "Filter One"},
+			{UUID: "f-2", Name: "Filter Two"},
+		},
+		// Plans is intentionally set: it is a server-side back-reference and
+		// must not leak into the portable export format.
+		Plans: []jamfprotect.UnifiedLoggingFilterSetPlan{{ID: "p-1", Name: "Plan One"}},
+	})
+
+	if export.Name != "My Set" {
+		t.Errorf("Name = %q, want %q", export.Name, "My Set")
+	}
+	if export.Description != "desc" {
+		t.Errorf("Description = %q, want %q", export.Description, "desc")
+	}
+	want := []string{"Filter One", "Filter Two"}
+	if len(export.Filters) != len(want) {
+		t.Fatalf("Filters length = %d, want %d", len(export.Filters), len(want))
+	}
+	for i, w := range want {
+		if export.Filters[i] != w {
+			t.Errorf("Filters[%d] = %q, want %q", i, export.Filters[i], w)
+		}
+	}
+}
+
+func TestULFSetToExport_EmptyFiltersIsNonNil(t *testing.T) {
+	// The API accepts an empty filter list, so an emptied set must round-trip
+	// as [] rather than dropping the key and re-sending the old membership.
+	export := ulfSetToExport(&jamfprotect.UnifiedLoggingFilterSet{Name: "Empty"})
+	if export.Filters == nil {
+		t.Error("Filters = nil, want non-nil empty slice")
+	}
+	if len(export.Filters) != 0 {
+		t.Errorf("Filters length = %d, want 0", len(export.Filters))
+	}
+}
+
+func TestULFSetExportToInput_ResolvesFilterNames(t *testing.T) {
+	mock := &mockProtectClient{
+		ulfFilters: []jamfprotect.UnifiedLoggingFilter{
+			{UUID: "f-1", Name: "Filter One"},
+			{UUID: "f-2", Name: "Filter Two"},
+		},
+	}
+	r := protect.NewResolver(mock)
+
+	input, err := ulfSetExportToInput(context.Background(), ulfSetExport{
+		Name:        "My Set",
+		Description: "desc",
+		Filters:     []string{"Filter Two", "Filter One"},
+	}, r)
+	if err != nil {
+		t.Fatalf("ulfSetExportToInput() error = %v", err)
+	}
+	if input.Name != "My Set" {
+		t.Errorf("Name = %q, want %q", input.Name, "My Set")
+	}
+	if input.Description != "desc" {
+		t.Errorf("Description = %q, want %q", input.Description, "desc")
+	}
+	want := []string{"f-2", "f-1"}
+	if len(input.Filters) != len(want) {
+		t.Fatalf("Filters length = %d, want %d", len(input.Filters), len(want))
+	}
+	for i, w := range want {
+		if input.Filters[i] != w {
+			t.Errorf("Filters[%d] = %q, want %q", i, input.Filters[i], w)
+		}
+	}
+}
+
+func TestULFSetExportToInput_UnresolvableFilterName(t *testing.T) {
+	mock := &mockProtectClient{}
+	r := protect.NewResolver(mock)
+
+	_, err := ulfSetExportToInput(context.Background(), ulfSetExport{
+		Name:    "My Set",
+		Filters: []string{"Missing"},
+	}, r)
+	if err == nil {
+		t.Fatal("ulfSetExportToInput() error = nil, want error for unresolvable filter name")
+	}
+}
+
+// ─── flattenULF ─────────────────────────────────────────────────────────────
+
+func TestFlattenULF_SetsJoined(t *testing.T) {
+	m := flattenULF(jamfprotect.UnifiedLoggingFilter{
+		UUID:        "f-1",
+		Name:        "My Filter",
+		Description: "desc",
+		Enabled:     true,
+		Filter:      `subsystem == "com.apple.TimeMachine"`,
+		Tags:        []string{"macos", "backup"},
+		Sets: []jamfprotect.UnifiedLoggingFilterSetRef{
+			{UUID: "s-1", Name: "Set A"},
+			{UUID: "s-2", Name: "Set B"},
+		},
+	})
+
+	if got := m["uuid"]; got != "f-1" {
+		t.Errorf("uuid = %v, want %q", got, "f-1")
+	}
+	if got := m["name"]; got != "My Filter" {
+		t.Errorf("name = %v, want %q", got, "My Filter")
+	}
+	if got := m["description"]; got != "desc" {
+		t.Errorf("description = %v, want %q", got, "desc")
+	}
+	if got := m["enabled"]; got != true {
+		t.Errorf("enabled = %v, want true", got)
+	}
+	if got := m["tags"]; got != "macos, backup" {
+		t.Errorf("tags = %v, want %q", got, "macos, backup")
+	}
+	if got := m["sets"]; got != "Set A, Set B" {
+		t.Errorf("sets = %v, want %q", got, "Set A, Set B")
+	}
+}
+
+func TestFlattenULF_OmitsEmptySets(t *testing.T) {
+	m := flattenULF(jamfprotect.UnifiedLoggingFilter{Name: "Loner"})
+	if _, ok := m["sets"]; !ok {
+		t.Error("sets absent, want present (and empty) so table/csv columns stay stable across rows")
+	} else if got := m["sets"]; got != "" {
+		t.Errorf("sets = %v, want empty string", got)
 	}
 }
 
