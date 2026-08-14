@@ -3,7 +3,6 @@
 package generated
 
 import (
-	"fmt"
 	"net/url"
 	"strings"
 
@@ -27,45 +26,25 @@ func NewManagedSoftwareUpdatesCmd(ctx *registry.CLIContext) *cobra.Command {
 }
 
 func newManagedSoftwareUpdatesGetCmd(ctx *registry.CLIContext) *cobra.Command {
-	var (
-		flagName string
-	)
+	var ()
 
 	cmd := &cobra.Command{
-		Use:   "get [<id>]",
+		Use:   "get <id>",
 		Short: "Retrieve Managed Software Update Statuses for Computer Groups",
 		Long:  "Retrieve Managed Software Update Statuses for Computer Groups",
 		Example: `  # Get a managed-software-update by ID
   jamf-cli pro managed-software-updates get 1
 
-  # Get a managed-software-update by name
-  jamf-cli pro managed-software-updates get --name "Example"
-
   # Get a managed-software-update and output as YAML
   jamf-cli pro managed-software-updates get 1 -o yaml`,
 		Annotations: map[string]string{"jamf:privileges": "Read Computers,Read Smart Computer Groups,Read Static Computer Groups"},
-		Args:        cobra.MaximumNArgs(1),
+		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
-			// Resolve resource ID from positional arg, --name, or lookup flags
-			var resolvedID string
-			if flagName != "" {
-				noInput, _ := cmd.Flags().GetBool("no-input")
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/managed-software-updates/update-statuses/computer-groups", "name", "osUpdatesStatusId", flagName, noInput)
-				if err != nil {
-					return err
-				}
-				resolvedID = rid
-			} else if len(args) > 0 {
-				resolvedID = args[0]
-			} else {
-				return fmt.Errorf("provide an <id> argument, --name")
-			}
-
 			// Build request path
 			path := "/v1/managed-software-updates/update-statuses/computer-groups/{id}"
-			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
 
 			// Build query string
 			var queryParts []string
@@ -83,8 +62,6 @@ func newManagedSoftwareUpdatesGetCmd(ctx *registry.CLIContext) *cobra.Command {
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
-
-	cmd.Flags().StringVar(&flagName, "name", "", "Look up managed-software-update by name")
 
 	return cmd
 }

@@ -32,45 +32,25 @@ func NewCertificateAuthoritiesCmd(ctx *registry.CLIContext) *cobra.Command {
 }
 
 func newCertificateAuthoritiesGetCmd(ctx *registry.CLIContext) *cobra.Command {
-	var (
-		flagName string
-	)
+	var ()
 
 	cmd := &cobra.Command{
-		Use:   "get [<id>]",
+		Use:   "get <id>",
 		Short: "Returns X.509 details of Certificate Authority (CA) with provided ID",
 		Long:  "Returns X.509 details of Certificate Authority (CA) with provided ID",
 		Example: `  # Get a certificate-authority by ID
   jamf-cli pro certificate-authorities get 1
 
-  # Get a certificate-authority by name
-  jamf-cli pro certificate-authorities get --name "Example"
-
   # Get a certificate-authority and output as YAML
   jamf-cli pro certificate-authorities get 1 -o yaml`,
 		Annotations: map[string]string{"jamf:privileges": "Read PKI"},
-		Args:        cobra.MaximumNArgs(1),
+		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
-			// Resolve resource ID from positional arg, --name, or lookup flags
-			var resolvedID string
-			if flagName != "" {
-				noInput, _ := cmd.Flags().GetBool("no-input")
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/pki/certificate-authority", "name", "algorithmOid", flagName, noInput)
-				if err != nil {
-					return err
-				}
-				resolvedID = rid
-			} else if len(args) > 0 {
-				resolvedID = args[0]
-			} else {
-				return fmt.Errorf("provide an <id> argument, --name")
-			}
-
 			// Build request path
 			path := "/v1/pki/certificate-authority/{id}"
-			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
 
 			// Build query string
 			var queryParts []string
@@ -88,8 +68,6 @@ func newCertificateAuthoritiesGetCmd(ctx *registry.CLIContext) *cobra.Command {
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
-
-	cmd.Flags().StringVar(&flagName, "name", "", "Look up certificate-authority by name")
 
 	return cmd
 }
@@ -242,11 +220,10 @@ func newCertificateAuthoritiesPemCmd(ctx *registry.CLIContext) *cobra.Command {
 func newCertificateAuthoritiesDerByIdCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagSaveTo string
-		flagName   string
 	)
 
 	cmd := &cobra.Command{
-		Use:   "der-by-id [<id>]",
+		Use:   "der-by-id <id>",
 		Short: "Returns X.509 current Certificate Authority (CA) with provided ID in DER format",
 		Long:  "Returns X.509 current Certificate Authority (CA) with provided ID in DER format",
 		Example: `  # Save to file
@@ -255,29 +232,14 @@ func newCertificateAuthoritiesDerByIdCmd(ctx *registry.CLIContext) *cobra.Comman
   # Pipe to stdout
   jamf-cli pro certificate-authorities der-by-id <id> > output.bin`,
 		Annotations: map[string]string{"jamf:privileges": "Read PKI"},
-		Args:        cobra.MaximumNArgs(1),
+		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			reqCtx = registry.WithAccept(reqCtx, "*/*")
 
-			// Resolve resource ID from positional arg, --name, or lookup flags
-			var resolvedID string
-			if flagName != "" {
-				noInput, _ := cmd.Flags().GetBool("no-input")
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/pki/certificate-authority", "name", "algorithmOid", flagName, noInput)
-				if err != nil {
-					return err
-				}
-				resolvedID = rid
-			} else if len(args) > 0 {
-				resolvedID = args[0]
-			} else {
-				return fmt.Errorf("provide an <id> argument, --name")
-			}
-
 			// Build request path
 			path := "/v1/pki/certificate-authority/{id}/der"
-			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
 
 			// Build query string
 			var queryParts []string
@@ -311,19 +273,16 @@ func newCertificateAuthoritiesDerByIdCmd(ctx *registry.CLIContext) *cobra.Comman
 	}
 
 	cmd.Flags().StringVarP(&flagSaveTo, "save-to", "O", "", "Save output to file instead of stdout")
-	cmd.Flags().StringVar(&flagName, "name", "", "Look up certificate-authority by name")
-
 	return cmd
 }
 
 func newCertificateAuthoritiesPemByIdCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagSaveTo string
-		flagName   string
 	)
 
 	cmd := &cobra.Command{
-		Use:   "pem-by-id [<id>]",
+		Use:   "pem-by-id <id>",
 		Short: "Returns current Certificate Authority (CA) with provided ID in PEM format",
 		Long:  "Returns current Certificate Authority (CA) with provided ID in PEM format",
 		Example: `  # Save to file
@@ -332,29 +291,14 @@ func newCertificateAuthoritiesPemByIdCmd(ctx *registry.CLIContext) *cobra.Comman
   # Pipe to stdout
   jamf-cli pro certificate-authorities pem-by-id <id> > output.bin`,
 		Annotations: map[string]string{"jamf:privileges": "Read PKI"},
-		Args:        cobra.MaximumNArgs(1),
+		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			reqCtx = registry.WithAccept(reqCtx, "*/*")
 
-			// Resolve resource ID from positional arg, --name, or lookup flags
-			var resolvedID string
-			if flagName != "" {
-				noInput, _ := cmd.Flags().GetBool("no-input")
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v1/pki/certificate-authority", "name", "algorithmOid", flagName, noInput)
-				if err != nil {
-					return err
-				}
-				resolvedID = rid
-			} else if len(args) > 0 {
-				resolvedID = args[0]
-			} else {
-				return fmt.Errorf("provide an <id> argument, --name")
-			}
-
 			// Build request path
 			path := "/v1/pki/certificate-authority/{id}/pem"
-			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
 
 			// Build query string
 			var queryParts []string
@@ -388,7 +332,5 @@ func newCertificateAuthoritiesPemByIdCmd(ctx *registry.CLIContext) *cobra.Comman
 	}
 
 	cmd.Flags().StringVarP(&flagSaveTo, "save-to", "O", "", "Save output to file instead of stdout")
-	cmd.Flags().StringVar(&flagName, "name", "", "Look up certificate-authority by name")
-
 	return cmd
 }
