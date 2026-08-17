@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -15,6 +16,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/Jamf-Concepts/jamf-cli/internal/exitcode"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 )
 
@@ -25,14 +27,46 @@ import (
 // bulkMockClient records calls and serves canned responses.
 type bulkMockClient struct {
 	responses map[string]overviewMockResponse // key: "METHOD /path"
-	calls     []string                        // recorded as "METHOD /path"
+	// filterResponses is substring-matched (longest pattern wins) against the
+	// query-unescaped "METHOD /path?query", so a test can distinguish the
+	// batched RSQL lookups that share one base path — e.g.
+	// `filter=id=in=(7)` vs `filter=hardware.serialNumber=in=("FVFC41HCLYWP")`.
+	filterResponses map[string]overviewMockResponse
+	calls           []string // recorded as "METHOD /path", query-unescaped
+	bodies          []string // request bodies, parallel to calls
 }
 
-func (m *bulkMockClient) Do(_ context.Context, method, path string, _ io.Reader) (*http.Response, error) {
+func (m *bulkMockClient) Do(_ context.Context, method, path string, body io.Reader) (*http.Response, error) {
 	key := method + " " + path
-	m.calls = append(m.calls, key)
+	decoded := key
+	if unescaped, err := url.QueryUnescape(key); err == nil {
+		decoded = unescaped
+	}
+	m.calls = append(m.calls, decoded)
+	bodyStr := ""
+	if body != nil {
+		b, _ := io.ReadAll(body)
+		bodyStr = string(b)
+	}
+	m.bodies = append(m.bodies, bodyStr)
 
-	// Exact match first
+	// Filter-specific matches win over the base-path maps below.
+	bestPattern := ""
+	var bestResp overviewMockResponse
+	for pattern, resp := range m.filterResponses {
+		if len(pattern) > len(bestPattern) && strings.Contains(decoded, pattern) {
+			bestPattern, bestResp = pattern, resp
+		}
+	}
+	if bestPattern != "" {
+		return &http.Response{
+			StatusCode: bestResp.statusCode,
+			Body:       io.NopCloser(strings.NewReader(bestResp.body)),
+			Header:     make(http.Header),
+		}, nil
+	}
+
+	// Exact match next
 	if resp, ok := m.responses[key]; ok {
 		return &http.Response{
 			StatusCode: resp.statusCode,
@@ -74,6 +108,41 @@ func (m *bulkMockClient) callsMatching(prefix string) []string {
 		}
 	}
 	return out
+}
+
+// bodiesMatching returns the request bodies of calls whose "METHOD /path" matches prefix.
+func (m *bulkMockClient) bodiesMatching(prefix string) []string {
+	var out []string
+	for i, c := range m.calls {
+		if strings.Contains(c, prefix) {
+			out = append(out, m.bodies[i])
+		}
+	}
+	return out
+}
+
+// v3Computer builds one v3 computers-inventory record.
+func v3Computer(id, name, serial string) string {
+	return fmt.Sprintf(`{"id":%q,"udid":"udid-%s","general":{"name":%q},"hardware":{"serialNumber":%q}}`,
+		id, id, name, serial)
+}
+
+// v3ComputerPage wraps inventory records in the paginated envelope the v3
+// computers-inventory endpoint returns for a filtered query.
+func v3ComputerPage(records ...string) string {
+	return fmt.Sprintf(`{"totalCount":%d,"results":[%s]}`, len(records), strings.Join(records, ","))
+}
+
+// quarantineGroupResponses serves the "Quarantine" static group lookup and its
+// membership PUT, the fixture shared by the --from-file group tests.
+func quarantineGroupResponses() map[string]overviewMockResponse {
+	return map[string]overviewMockResponse{
+		"GET /JSSResource/computergroups": {200, `{"computer_groups":[
+			{"id":200,"name":"Quarantine"}
+		]}`},
+		"GET /JSSResource/computergroups/id/200": {200, targetStaticGroupJSON},
+		"PUT /JSSResource/computergroups/id/200": {200, `<computer_group/>`},
+	}
 }
 
 // newBulkCLIContext builds a CLIContext backed by the given mock.
@@ -763,21 +832,24 @@ func TestAddToGroup_SmartGroupRejected(t *testing.T) {
 // ─────────────────────────────────────────────────────────────────
 
 func TestAddToGroup_FromFile(t *testing.T) {
-	// Write a temp file
+	// Mix a serial number with a numeric Classic ID — regression test for
+	// the bug where a raw serial was sent straight through as the Classic
+	// <id>, producing a 409 "Unable to match computer" (internal/resolve
+	// now resolves serials to a real ID before this ever reaches the
+	// Classic API).
 	dir := t.TempDir()
 	filePath := filepath.Join(dir, "computers.txt")
-	content := "Mac-01\nMac-02\n# comment\n\nMac-03\n"
+	content := "FVFC41HCLYWP\n# comment\n\n7\n"
 	if err := os.WriteFile(filePath, []byte(content), 0o600); err != nil {
 		t.Fatalf("writing temp file: %v", err)
 	}
 
 	mock := &bulkMockClient{
-		responses: map[string]overviewMockResponse{
-			"GET /JSSResource/computergroups": {200, `{"computer_groups":[
-				{"id":200,"name":"Quarantine"}
-			]}`},
-			"GET /JSSResource/computergroups/id/200": {200, targetStaticGroupJSON},
-			"PUT /JSSResource/computergroups/id/200": {200, `<computer_group/>`},
+		responses: quarantineGroupResponses(),
+		filterResponses: map[string]overviewMockResponse{
+			// One batched RSQL query per identifier kind, not one per line.
+			`filter=hardware.serialNumber=in=("FVFC41HCLYWP")`: {200, v3ComputerPage(v3Computer("5", "FVFC41HCLYWP", "FVFC41HCLYWP"))},
+			`filter=id=in=(7)`: {200, v3ComputerPage(v3Computer("7", "Mac-07", "C02ABCDEF"))},
 		},
 	}
 	cliCtx := newBulkCLIContext(mock)
@@ -793,30 +865,220 @@ func TestAddToGroup_FromFile(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	// 3 IDs in file (blank line and comment are skipped) → 3 PUTs
-	puts := mock.callsMatching("PUT /JSSResource/computergroups/id/200")
-	if len(puts) != 3 {
-		t.Errorf("expected 3 PUTs (3 IDs from file), got %d", len(puts))
+	// 2 entries in file (blank line and comment are skipped) → 2 PUTs
+	bodies := mock.bodiesMatching("PUT /JSSResource/computergroups/id/200")
+	if len(bodies) != 2 {
+		t.Fatalf("expected 2 PUTs (2 entries from file), got %d", len(bodies))
+	}
+
+	joined := strings.Join(bodies, "\n")
+	if strings.Contains(joined, "<id>FVFC41HCLYWP</id>") {
+		t.Error("raw serial number leaked into the Classic API <id> payload")
+	}
+	if !strings.Contains(joined, "<id>5</id>") {
+		t.Errorf("expected the serial to resolve to computer id 5, got bodies: %v", bodies)
+	}
+	if !strings.Contains(joined, "<id>7</id>") {
+		t.Errorf("expected numeric id 7 in PUT bodies, got: %v", bodies)
 	}
 }
 
-func TestFromFileParsing_CommentsAndBlanks(t *testing.T) {
+// A file of numeric IDs must not cost one inventory lookup per line — the
+// entries are resolved in a single batched RSQL query.
+func TestAddToGroup_FromFile_BatchesLookups(t *testing.T) {
 	dir := t.TempDir()
-	filePath := filepath.Join(dir, "ids.txt")
-	content := "# this is a comment\nABC-001\n\n   DEF-002   \n# another comment\nGHI-003\n"
-	if err := os.WriteFile(filePath, []byte(content), 0o600); err != nil {
+	filePath := filepath.Join(dir, "computers.txt")
+	if err := os.WriteFile(filePath, []byte("5\n7\n8\n"), 0o600); err != nil {
 		t.Fatalf("writing temp file: %v", err)
 	}
 
-	ids, err := readIDsFromFile(filePath)
+	mock := &bulkMockClient{
+		responses: quarantineGroupResponses(),
+		filterResponses: map[string]overviewMockResponse{
+			`filter=id=in=(5,7,8)`: {200, v3ComputerPage(
+				v3Computer("5", "Mac-05", "C02AAA"),
+				v3Computer("7", "Mac-07", "C02BBB"),
+				v3Computer("8", "Mac-08", "C02CCC"),
+			)},
+		},
+	}
+	cliCtx := newBulkCLIContext(mock)
+
+	cmd := newBulkCmd(cliCtx)
+	if _, _, err := runCobraCmd(
+		t, cmd, "add-to-group",
+		"--target-group", "Quarantine",
+		"--from-file", filePath,
+		"--yes",
+	); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	lookups := mock.callsMatching("GET /v3/computers-inventory")
+	if len(lookups) != 1 {
+		t.Errorf("made %d inventory lookups for 3 IDs, want 1 batched query: %v", len(lookups), lookups)
+	}
+	if got := len(mock.bodiesMatching("PUT /JSSResource/computergroups/id/200")); got != 3 {
+		t.Errorf("expected 3 PUTs, got %d", got)
+	}
+}
+
+// One unresolvable entry must not abort the whole batch — the remaining
+// entries are still mutated, matching the --group path's soft-fail behavior
+// (and so --allow-partial-failure still means something for --from-file).
+func TestAddToGroup_FromFile_PartialResolutionFailure(t *testing.T) {
+	dir := t.TempDir()
+	filePath := filepath.Join(dir, "computers.txt")
+	// "999" has no v3 inventory record in the mock → resolution fails.
+	if err := os.WriteFile(filePath, []byte("FVFC41HCLYWP\n999\n7\n"), 0o600); err != nil {
+		t.Fatalf("writing temp file: %v", err)
+	}
+
+	mock := &bulkMockClient{
+		responses: quarantineGroupResponses(),
+		filterResponses: map[string]overviewMockResponse{
+			`filter=hardware.serialNumber=in=("FVFC41HCLYWP")`: {200, v3ComputerPage(v3Computer("5", "FVFC41HCLYWP", "FVFC41HCLYWP"))},
+			// 999 has no inventory record, so the batched ID query returns only 7.
+			`filter=id=in=(999,7)`: {200, v3ComputerPage(v3Computer("7", "Mac-07", "C02ABCDEF"))},
+		},
+	}
+	cliCtx := newBulkCLIContext(mock)
+
+	cmd := newBulkCmd(cliCtx)
+	_, stderr, err := runCobraCmd(
+		t, cmd, "add-to-group",
+		"--target-group", "Quarantine",
+		"--from-file", filePath,
+		"--yes",
+	)
+	// The unresolved entry counts as a failure alongside 2 successes, so the
+	// batch reports partial failure (exit 7) rather than a clean exit 0.
+	if err == nil {
+		t.Fatal("expected a partial-failure error when one entry cannot be resolved")
+	}
+	if got := exitcode.CodeFrom(err); got != exitcode.PartialFailure {
+		t.Errorf("exit code = %d, want %d (partial failure)", got, exitcode.PartialFailure)
+	}
+	if !strings.Contains(stderr, "1 unresolved") {
+		t.Errorf("expected the summary line to name the unresolved entry, got: %q", stderr)
+	}
+
+	bodies := mock.bodiesMatching("PUT /JSSResource/computergroups/id/200")
+	if len(bodies) != 2 {
+		t.Fatalf("expected 2 PUTs (the 2 resolvable entries), got %d: %v", len(bodies), bodies)
+	}
+	joined := strings.Join(bodies, "\n")
+	for _, want := range []string{"<id>5</id>", "<id>7</id>"} {
+		if !strings.Contains(joined, want) {
+			t.Errorf("expected %s in PUT bodies, got: %v", want, bodies)
+		}
+	}
+	if strings.Contains(joined, "<id>999</id>") {
+		t.Error("unresolvable entry 999 should not have been sent to the Classic API")
+	}
+}
+
+// --allow-partial-failure still silences a resolution failure, the same way it
+// silences a mutation failure.
+func TestAddToGroup_FromFile_PartialResolutionAllowed(t *testing.T) {
+	dir := t.TempDir()
+	filePath := filepath.Join(dir, "computers.txt")
+	if err := os.WriteFile(filePath, []byte("999\n7\n"), 0o600); err != nil {
+		t.Fatalf("writing temp file: %v", err)
+	}
+
+	mock := &bulkMockClient{
+		responses: quarantineGroupResponses(),
+		filterResponses: map[string]overviewMockResponse{
+			`filter=id=in=(999,7)`: {200, v3ComputerPage(v3Computer("7", "Mac-07", "C02ABCDEF"))},
+		},
+	}
+
+	prev := allowPartialFailure
+	allowPartialFailure = true
+	t.Cleanup(func() { allowPartialFailure = prev })
+
+	cmd := newBulkCmd(newBulkCLIContext(mock))
+	if _, _, err := runCobraCmd(
+		t, cmd, "add-to-group",
+		"--target-group", "Quarantine",
+		"--from-file", filePath,
+		"--yes",
+	); err != nil {
+		t.Fatalf("--allow-partial-failure should tolerate an unresolved entry, got: %v", err)
+	}
+	if got := len(mock.bodiesMatching("PUT /JSSResource/computergroups/id/200")); got != 1 {
+		t.Errorf("expected 1 PUT for the resolvable entry, got %d", got)
+	}
+}
+
+// A file where nothing resolves must fail loudly — before this it printed
+// "No target computers found." and exited 0, reading as a clean no-op batch.
+func TestAddToGroup_FromFile_AllUnresolvableFails(t *testing.T) {
+	dir := t.TempDir()
+	filePath := filepath.Join(dir, "computers.txt")
+	if err := os.WriteFile(filePath, []byte("998\n999\n"), 0o600); err != nil {
+		t.Fatalf("writing temp file: %v", err)
+	}
+
+	mock := &bulkMockClient{
+		responses: quarantineGroupResponses(),
+		filterResponses: map[string]overviewMockResponse{
+			`filter=id=in=(998,999)`: {200, `{"totalCount":0,"results":[]}`},
+		},
+	}
+
+	cmd := newBulkCmd(newBulkCLIContext(mock))
+	_, _, err := runCobraCmd(
+		t, cmd, "add-to-group",
+		"--target-group", "Quarantine",
+		"--from-file", filePath,
+		"--yes",
+	)
+	if err == nil {
+		t.Fatal("expected an error when no entry in the file resolves")
+	}
+	if !strings.Contains(err.Error(), "none of the 2 entries") {
+		t.Errorf("error = %q, want it to report that no entry resolved", err.Error())
+	}
+	if mock.hasMutatingCall() {
+		t.Error("no mutation should be attempted when nothing resolved")
+	}
+}
+
+// A computer with no inventory name falls back to its ID for display.
+func TestAddToGroup_FromFile_NameFallsBackToID(t *testing.T) {
+	dir := t.TempDir()
+	filePath := filepath.Join(dir, "computers.txt")
+	if err := os.WriteFile(filePath, []byte("8\n"), 0o600); err != nil {
+		t.Fatalf("writing temp file: %v", err)
+	}
+
+	mock := &bulkMockClient{
+		responses: quarantineGroupResponses(),
+		filterResponses: map[string]overviewMockResponse{
+			// No general.name → the target's display name should be "8".
+			`filter=id=in=(8)`: {200, `{"totalCount":1,"results":[{
+				"id":"8","udid":"u3",
+				"general":{},
+				"hardware":{"serialNumber":"C02NONAME"}
+			}]}`},
+		},
+	}
+	cliCtx := newBulkCLIContext(mock)
+
+	cmd := newBulkCmd(cliCtx)
+	_, stderr, err := runCobraCmd(
+		t, cmd, "add-to-group",
+		"--target-group", "Quarantine",
+		"--from-file", filePath,
+		"--yes",
+	)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if len(ids) != 3 {
-		t.Errorf("expected 3 IDs, got %d: %v", len(ids), ids)
-	}
-	if ids[0] != "ABC-001" || ids[1] != "DEF-002" || ids[2] != "GHI-003" {
-		t.Errorf("unexpected ids: %v", ids)
+	if !strings.Contains(stderr, "[bulk] add to group") || !strings.Contains(stderr, "8") {
+		t.Errorf("expected mutation log to name the computer by its ID, got: %q", stderr)
 	}
 }
 
@@ -911,6 +1173,92 @@ func TestSendCommand_YesDispatches(t *testing.T) {
 	}
 }
 
+// send-command --from-file must resolve serials to numeric IDs before the
+// Classic MDM command POST — the raw serial 409s ("Unable to match computer").
+func TestSendCommand_FromFile(t *testing.T) {
+	dir := t.TempDir()
+	filePath := filepath.Join(dir, "computers.txt")
+	if err := os.WriteFile(filePath, []byte("FVFC41HCLYWP\n7\n"), 0o600); err != nil {
+		t.Fatalf("writing temp file: %v", err)
+	}
+
+	mock := &bulkMockClient{
+		responses: map[string]overviewMockResponse{
+			"POST /JSSResource/computercommands/command/BlankPush/id/5": {200, `<computer_command/>`},
+			"POST /JSSResource/computercommands/command/BlankPush/id/7": {200, `<computer_command/>`},
+		},
+		filterResponses: map[string]overviewMockResponse{
+			`filter=hardware.serialNumber=in=("FVFC41HCLYWP")`: {200, v3ComputerPage(v3Computer("5", "FVFC41HCLYWP", "FVFC41HCLYWP"))},
+			`filter=id=in=(7)`: {200, v3ComputerPage(v3Computer("7", "Mac-07", "C02ABCDEF"))},
+		},
+	}
+	cliCtx := newBulkCLIContext(mock)
+
+	cmd := newBulkCmd(cliCtx)
+	_, _, err := runCobraCmd(
+		t, cmd, "send-command",
+		"--command", "BlankPush",
+		"--from-file", filePath,
+		"--yes",
+	)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	posts := mock.callsMatching("POST /JSSResource/computercommands/command/BlankPush")
+	if len(posts) != 2 {
+		t.Fatalf("expected 2 command POSTs, got %d: %v", len(posts), posts)
+	}
+	joined := strings.Join(posts, "\n")
+	if strings.Contains(joined, "FVFC41HCLYWP") {
+		t.Error("raw serial number leaked into the Classic MDM command path")
+	}
+	for _, want := range []string{"/id/5", "/id/7"} {
+		if !strings.Contains(joined, want) {
+			t.Errorf("expected %s in POST paths, got: %v", want, posts)
+		}
+	}
+}
+
+// A resolution failure must reach the exit code the same way a POST failure
+// does — otherwise a stale line in the file reads as a clean full success.
+func TestSendCommand_FromFile_UnresolvedCountsAsFailure(t *testing.T) {
+	dir := t.TempDir()
+	filePath := filepath.Join(dir, "computers.txt")
+	if err := os.WriteFile(filePath, []byte("7\n999\n"), 0o600); err != nil {
+		t.Fatalf("writing temp file: %v", err)
+	}
+
+	mock := &bulkMockClient{
+		responses: map[string]overviewMockResponse{
+			"POST /JSSResource/computercommands/command/BlankPush/id/7": {200, `<computer_command/>`},
+		},
+		filterResponses: map[string]overviewMockResponse{
+			`filter=id=in=(7,999)`: {200, v3ComputerPage(v3Computer("7", "Mac-07", "C02ABCDEF"))},
+		},
+	}
+
+	cmd := newBulkCmd(newBulkCLIContext(mock))
+	_, stderr, err := runCobraCmd(
+		t, cmd, "send-command",
+		"--command", "BlankPush",
+		"--from-file", filePath,
+		"--yes",
+	)
+	if err == nil {
+		t.Fatal("expected a partial-failure error when one entry cannot be resolved")
+	}
+	if got := exitcode.CodeFrom(err); got != exitcode.PartialFailure {
+		t.Errorf("exit code = %d, want %d (partial failure)", got, exitcode.PartialFailure)
+	}
+	if !strings.Contains(stderr, "1 unresolved") {
+		t.Errorf("expected the summary line to name the unresolved entry, got: %q", stderr)
+	}
+	if got := len(mock.callsMatching("POST /JSSResource/computercommands")); got != 1 {
+		t.Errorf("expected 1 command POST for the resolvable entry, got %d", got)
+	}
+}
+
 func TestSendCommand_DestructiveRequiresConfirm(t *testing.T) {
 	mock := &bulkMockClient{responses: map[string]overviewMockResponse{}}
 	cliCtx := newBulkCLIContext(mock)
@@ -939,7 +1287,16 @@ func TestSendCommand_DestructiveRequiresConfirm(t *testing.T) {
 }
 
 func TestSendCommand_DestructiveWithBothFlags(t *testing.T) {
-	// /dev/null → 0 targets, so no actual POST, but the gate should be cleared
+	// An empty --from-file now fails at target resolution (internal/resolve
+	// rejects a file with no entries), not at the destructive gate — this
+	// confirms --yes + --confirm-destructive together clear the gate before
+	// target resolution ever runs.
+	dir := t.TempDir()
+	filePath := filepath.Join(dir, "empty.txt")
+	if err := os.WriteFile(filePath, []byte("# only comments\n"), 0o600); err != nil {
+		t.Fatalf("writing temp file: %v", err)
+	}
+
 	mock := &bulkMockClient{responses: map[string]overviewMockResponse{}}
 	cliCtx := newBulkCLIContext(mock)
 
@@ -947,13 +1304,18 @@ func TestSendCommand_DestructiveWithBothFlags(t *testing.T) {
 	_, _, err := runCobraCmd(
 		t, cmd, "send-command",
 		"--command", "EraseDevice",
-		"--from-file", "/dev/null",
+		"--from-file", filePath,
 		"--yes",
 		"--confirm-destructive",
 	)
-	// /dev/null gives 0 IDs → "No target computers found." but no error
-	if err != nil {
-		t.Fatalf("unexpected error with both flags set: %v", err)
+	if err == nil {
+		t.Fatal("expected an error resolving an empty target file")
+	}
+	if strings.Contains(err.Error(), "destructive") {
+		t.Errorf("gate should already be cleared; got a destructive-gate error instead of a target-resolution error: %v", err)
+	}
+	if mock.hasMutatingCall() {
+		t.Error("should not issue any calls when target resolution fails")
 	}
 }
 

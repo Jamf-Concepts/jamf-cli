@@ -47,6 +47,11 @@ from a file (--from-file) or members of another computer group (--group).
 --group          Source computer group whose members are the targets.
 --from-file and --group are mutually exclusive.
 
+Serials in --from-file are resolved to computer IDs first. A line that matches
+no computer is reported and skipped, and counts as a failure in the summary and
+exit code (use --allow-partial-failure to tolerate it); if no line resolves at
+all, or the file holds no entries, the command fails without changing anything.
+
 Without --yes the command prints a preview table and exits without making any
 changes.`, shortVerb),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -81,10 +86,11 @@ func runGroupMutation(
 	}
 
 	// 1. Resolve targets (from file or group membership).
-	targets, err := resolveComputerTargets(ctx, client, fromFile, fromGroup)
+	targets, unresolved, err := resolveComputerTargets(ctx, client, fromFile, fromGroup)
 	if err != nil {
 		return err
 	}
+	warnUnresolvedTargets(stderr, unresolved)
 	if len(targets) == 0 {
 		_, _ = fmt.Fprintf(stderr, "No target computers found.\n")
 		return nil
@@ -118,7 +124,10 @@ func runGroupMutation(
 	// 5. Execute mutations.
 	_, _ = fmt.Fprintf(stderr, "Applying group membership changes to %d computers...\n", len(targets))
 
-	var successCount, failCount int
+	// Entries dropped during resolution count as failures: "some lines in my
+	// file didn't work" is the same outcome whether the line failed to resolve
+	// or failed to mutate, so --allow-partial-failure and exit 7 govern both.
+	successCount, failCount := 0, unresolved
 	var firstErr error
 	for _, t := range targets {
 		if err := applyStaticGroupMutation(ctx, client, groupID, t["id"], add); err != nil {
@@ -133,7 +142,8 @@ func runGroupMutation(
 		}
 	}
 
-	_, _ = fmt.Fprintf(stderr, "Group update complete: %d succeeded, %d failed.\n", successCount, failCount)
+	_, _ = fmt.Fprintf(stderr, "Group update complete: %d succeeded, %d failed%s.\n",
+		successCount, failCount, unresolvedNote(unresolved))
 	return finishBatch(stderr, "group membership operations", successCount, failCount, firstErr)
 }
 

@@ -43,8 +43,13 @@ func newSendCommandCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Short: "Send an MDM command to a set of computers",
 		Long: `Send a Classic API MDM command to multiple computers.
 
-Targets are specified via --from-file (one computer ID per line) or --group
-(all members of a computer group).
+Targets are specified via --from-file (one computer ID or serial per line) or
+--group (all members of a computer group).
+
+Serials in --from-file are resolved to computer IDs first. A line that matches
+no computer is reported and skipped, and counts as a failure in the summary and
+exit code (use --allow-partial-failure to tolerate it); if no line resolves at
+all, or the file holds no entries, the command fails without sending anything.
 
 Destructive commands (EraseDevice, DeviceLock) require both --yes and
 --confirm-destructive.
@@ -62,7 +67,7 @@ Available commands: BlankPush, DeviceInformation, DeviceLock, DeleteUser,
 	}
 
 	cmd.Flags().StringVar(&command, "command", "", "MDM command name (required)")
-	cmd.Flags().StringVar(&fromFile, "from-file", "", "file containing one computer ID per line")
+	cmd.Flags().StringVar(&fromFile, "from-file", "", "file containing one computer ID or serial per line")
 	cmd.Flags().StringVar(&fromGroup, "group", "", "computer group whose members receive the command")
 	cmd.Flags().BoolVar(&yes, "yes", false, "execute mutations (default: dry-run preview only)")
 	cmd.Flags().BoolVar(&confirmDestructive, "confirm-destructive", false, "required for EraseDevice and DeviceLock")
@@ -98,10 +103,11 @@ func runSendCommand(
 	}
 
 	// 3. Resolve targets.
-	targets, err := resolveComputerTargets(ctx, client, fromFile, fromGroup)
+	targets, unresolved, err := resolveComputerTargets(ctx, client, fromFile, fromGroup)
 	if err != nil {
 		return err
 	}
+	warnUnresolvedTargets(stderr, unresolved)
 	if len(targets) == 0 {
 		_, _ = fmt.Fprintf(stderr, "No target computers found.\n")
 		return nil
@@ -127,7 +133,8 @@ func runSendCommand(
 	// 6. Execute mutations.
 	_, _ = fmt.Fprintf(stderr, "Sending %q to %d computers...\n", command, len(targets))
 
-	var successCount, failCount int
+	// Unresolvable --from-file entries count as failures (see runGroupMutation).
+	successCount, failCount := 0, unresolved
 	var firstErr error
 	for _, t := range targets {
 		if destructiveMDMCommands[command] {
@@ -150,7 +157,8 @@ func runSendCommand(
 		}
 	}
 
-	_, _ = fmt.Fprintf(stderr, "Command %q sent: %d succeeded, %d failed.\n", command, successCount, failCount)
+	_, _ = fmt.Fprintf(stderr, "Command %q sent: %d succeeded, %d failed%s.\n",
+		command, successCount, failCount, unresolvedNote(unresolved))
 	return finishBatch(stderr, "send-command operations", successCount, failCount, firstErr)
 }
 

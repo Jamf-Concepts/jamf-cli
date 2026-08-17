@@ -176,7 +176,7 @@ func TestExecuteAction_DryRun(t *testing.T) {
 		},
 	}
 
-	err := executeAction(cmd, dt, devices, true, false, cfg)
+	err := executeAction(cmd, dt, devices, 0, true, false, cfg)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -212,7 +212,7 @@ func TestExecuteAction_BulkDestructive_BlockedWithoutConfirmDestructive(t *testi
 	}
 
 	// yes=true but confirmDestructive=false → should be blocked
-	err := executeAction(cmd, dt, devices, true, false, cfg)
+	err := executeAction(cmd, dt, devices, 0, true, false, cfg)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -247,7 +247,7 @@ func TestExecuteAction_BulkDestructive_ProceedsWithBothFlags(t *testing.T) {
 	}
 
 	// yes=true, confirmDestructive=true → should proceed
-	err := executeAction(cmd, dt, devices, true, true, cfg)
+	err := executeAction(cmd, dt, devices, 0, true, true, cfg)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -278,7 +278,7 @@ func TestExecuteAction_SingleDestructive_NoInput_RequiresYes(t *testing.T) {
 	}
 
 	// yes=false, no-input=true → should error
-	err := executeAction(cmd, dt, devices, false, false, cfg)
+	err := executeAction(cmd, dt, devices, 0, false, false, cfg)
 	if err == nil {
 		t.Fatal("expected error for destructive op without --yes in no-input mode")
 		return
