@@ -29,6 +29,17 @@ jobs:
       SERVER_REPO_REF: ${{ inputs.server_repo_ref }}
       DRY_RUN: ${{ inputs.dry_run }}
     steps:
+      # Validate before any checkout, so a bad value costs nothing. The version
+      # reaches a shell twice: once here, and once when make substitutes it into
+      # a recipe. The Makefile guards its own use, but this step fails the run
+      # early and gives the operator a clear message.
+      - name: Validate jamf_pro_version
+        run: |
+          if ! printf '%s' "$JAMF_PRO_VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "::error::jamf_pro_version must be three dot-separated numbers, for example 11.31.0"
+            exit 1
+          fi
+
       - name: Checkout jamf-cli
         uses: actions/checkout@v7
 

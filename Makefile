@@ -49,6 +49,29 @@ JAMF_SERVER_PATH ?= ../jamf-pro-server
 # does this, since actions/checkout puts the tree straight into jss/.
 JAMF_SERVER_ROOT ?= $(JAMF_SERVER_PATH)/jamf-pro-server
 
+# The sync targets write JAMF_PRO_VERSION into specs/.spec-version and echo it.
+# Export it so the recipes below can read it from the environment as
+# $$JAMF_PRO_VERSION. Make substitutes $(JAMF_PRO_VERSION) textually, so a value
+# that contains a double quote closes the string and the rest runs as a command.
+# The environment reference is not substituted, so the shell sees one value.
+export JAMF_PRO_VERSION
+
+# check_jamf_pro_version rejects a value that is not three dot-separated numbers.
+# It reads the environment copy, so a hostile value cannot escape the test
+# itself. $$1 is the usage line of the calling target.
+define check_jamf_pro_version
+@if [ -z "$$JAMF_PRO_VERSION" ]; then \
+	echo "Error: JAMF_PRO_VERSION is required — specify the Jamf Pro version the specs came from."; \
+	echo "$(1)"; \
+	exit 1; \
+fi
+@printf '%s' "$$JAMF_PRO_VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$$' || { \
+	echo "Error: JAMF_PRO_VERSION must be three dot-separated numbers, for example 11.31.0."; \
+	echo "$(1)"; \
+	exit 1; \
+}
+endef
+
 # Sync OpenAPI specs from jamf-pro-server repo and regenerate commands
 sync-specs:
 	@if [ ! -d "$(JAMF_SERVER_ROOT)" ]; then \
@@ -57,12 +80,7 @@ sync-specs:
 		echo "Usage: make sync-specs JAMF_SERVER_PATH=/path/to/jss JAMF_PRO_VERSION=<version>"; \
 		exit 1; \
 	fi
-	@if [ -z "$(JAMF_PRO_VERSION)" ]; then \
-		echo "Error: JAMF_PRO_VERSION is required — specify the Jamf Pro version the specs came from."; \
-		echo "Usage: make sync-specs JAMF_SERVER_PATH=/path/to/jss JAMF_PRO_VERSION=<version>"; \
-		echo "  e.g. JAMF_SERVER_PATH=../jamf-pro-server JAMF_PRO_VERSION=11.31.0"; \
-		exit 1; \
-	fi
+	$(call check_jamf_pro_version,Usage: make sync-specs JAMF_SERVER_PATH=/path/to/jss JAMF_PRO_VERSION=<version> (e.g. JAMF_PRO_VERSION=11.31.0))
 	@echo "Syncing OpenAPI specs from $(JAMF_SERVER_ROOT)..."
 	@# Duplicate basenames are checked against the SOURCE tree, before anything
 	@# is copied: two upstream modules shipping the same filename collapse into
@@ -105,8 +123,8 @@ sync-specs:
 	@$(MAKE) generate
 	@# Stamped last: a mid-run failure must not leave .spec-version (and hence
 	@# the version baked into the next build) claiming a sync that didn't finish.
-	@echo "$(JAMF_PRO_VERSION)" > specs/.spec-version
-	@echo "Spec version: $(JAMF_PRO_VERSION) (written to specs/.spec-version)"
+	@printf '%s\n' "$$JAMF_PRO_VERSION" > specs/.spec-version
+	@echo "Spec version: $$JAMF_PRO_VERSION (written to specs/.spec-version)"
 	@echo "Done! Review changes with: git diff"
 
 # Path to, or URL of, a consolidated Jamf Pro OpenAPI document (e.g.
@@ -127,12 +145,7 @@ sync-spec:
 		echo "  e.g. JAMF_MONOLITH_SPEC=https://<instance>/api/schema/ JAMF_PRO_VERSION=11.14.0"; \
 		exit 1; \
 	fi
-	@if [ -z "$(JAMF_PRO_VERSION)" ]; then \
-		echo "Error: JAMF_PRO_VERSION is required — specify the Jamf Pro version the spec was fetched from."; \
-		echo "Usage: make sync-spec JAMF_MONOLITH_SPEC=<url> JAMF_PRO_VERSION=<version>"; \
-		echo "  e.g. JAMF_MONOLITH_SPEC=https://<instance>/api/schema/ JAMF_PRO_VERSION=11.14.0"; \
-		exit 1; \
-	fi
+	$(call check_jamf_pro_version,Usage: make sync-spec JAMF_MONOLITH_SPEC=<url> JAMF_PRO_VERSION=<version> (e.g. JAMF_PRO_VERSION=11.14.0))
 	@case "$(JAMF_MONOLITH_SPEC)" in \
 		http://*|https://*) ;; \
 		*) \
@@ -144,8 +157,8 @@ sync-spec:
 	@echo "Ingesting monolith spec: $(JAMF_MONOLITH_SPEC)"
 	@$(MAKE) generate JAMF_MONOLITH_SPEC=$(JAMF_MONOLITH_SPEC)
 	@# Stamped after generate, not before — see sync-specs.
-	@echo "$(JAMF_PRO_VERSION)" > specs/.spec-version
-	@echo "Spec version: $(JAMF_PRO_VERSION) (written to specs/.spec-version)"
+	@printf '%s\n' "$$JAMF_PRO_VERSION" > specs/.spec-version
+	@echo "Spec version: $$JAMF_PRO_VERSION (written to specs/.spec-version)"
 	@echo "Done! Review changes with: git diff specs internal/commands/pro/generated"
 
 # Sync Jamf Platform Gateway specs from the gitignored .platform-source/
