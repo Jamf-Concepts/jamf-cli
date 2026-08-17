@@ -8,6 +8,7 @@ import (
 	"context"
 	"io"
 	"net/http"
+	"slices"
 	"time"
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/auth"
@@ -55,6 +56,35 @@ func ContentTypeFromContext(ctx context.Context) string {
 		return v
 	}
 	return ""
+}
+
+// allowedStatusKey is the unexported context key for statuses that must not be
+// mapped to an exit-code error.
+type allowedStatusKey struct{}
+
+// WithAllowedStatuses returns a new context in which the given non-2xx statuses
+// are treated as ordinary responses: the client returns them with the body
+// intact instead of mapping them to an exit-code error.
+//
+// Use this only where the API documents a non-2xx status as a *result* rather
+// than a failure — e.g. DigiCert's privilege-check, whose 403 body is the list
+// of missing permissions the user asked for. The caller then owns rendering the
+// body and choosing the exit code.
+func WithAllowedStatuses(ctx context.Context, statuses ...int) context.Context {
+	if len(statuses) == 0 {
+		return ctx
+	}
+	return context.WithValue(ctx, allowedStatusKey{}, statuses)
+}
+
+// StatusAllowed reports whether status was marked as an expected result for this
+// request by WithAllowedStatuses.
+func StatusAllowed(ctx context.Context, status int) bool {
+	statuses, ok := ctx.Value(allowedStatusKey{}).([]int)
+	if !ok {
+		return false
+	}
+	return slices.Contains(statuses, status)
 }
 
 // FileUploader interface for streaming file uploads with custom Content-Type.

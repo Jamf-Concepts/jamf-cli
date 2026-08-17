@@ -82,6 +82,23 @@ type Operation struct {
 	// bulk endpoint's path; the generator surfaces it as an --all flag that hits
 	// the collection-level endpoint in a single call instead of the {id} one.
 	BulkActionPath string
+	// StatusResults lists non-2xx statuses this operation documents as results
+	// rather than failures (see documentedStatusResults in parser.go). The
+	// generated command carries them through registry.WithAllowedStatuses and
+	// renders their body instead of letting the client map them to an
+	// exit-code error. Empty for all but a handful of check-style endpoints.
+	StatusResults []StatusResult
+	// NoContentDescription is the 204 response's description, set only when
+	// StatusResults is non-empty — a 204 has no body, so the generated command
+	// synthesizes one from this so the success case is machine-readable too.
+	NoContentDescription string
+}
+
+// StatusResult is a non-2xx response the API documents as a meaningful outcome
+// of the operation rather than a failure of it.
+type StatusResult struct {
+	Code        int
+	Description string
 }
 
 // Parameter represents a query/path parameter

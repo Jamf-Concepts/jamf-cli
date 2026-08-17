@@ -1,5 +1,22 @@
 components:
   schemas:
+    SmtpAuthenticationTypeList:
+      properties:
+        allowedAuthenticationTypes:
+          example:
+            - GRAPH_API
+            - GOOGLE_MAIL
+          items:
+            enum:
+              - NONE
+              - BASIC
+              - GRAPH_API
+              - GOOGLE_MAIL
+            type: string
+          type: array
+      required:
+        - allowedAuthenticationTypes
+      type: object
     SmtpBasicCredentials:
       properties:
         password:
@@ -128,6 +145,8 @@ components:
     SmtpServerV2:
       properties:
         authenticationType:
+          description: |
+            The authentication type to use for the SMTP server. Note that NONE and BASIC may not be available depending on the server configuration. Check allowedAuthenticationTypes for the list of currently supported values.
           enum:
             - NONE
             - BASIC
@@ -330,5 +349,23 @@ paths:
         - smtp-server
       x-required-privileges:
         - Update SMTP Server
+  /v2/smtp-server/allowed-auth-types:
+    get:
+      description: |
+        Returns the list of authentication types currently available on this instance.
+        Availability is controlled at the instance or knobs level and is independent of current SMTP settings.
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SmtpAuthenticationTypeList'
+          description: Success
+      summary: |
+        Get allowed SMTP authentication types
+      tags:
+        - smtp-server
+      x-required-privileges:
+        - Read SMTP Server
 servers:
   - url: /api

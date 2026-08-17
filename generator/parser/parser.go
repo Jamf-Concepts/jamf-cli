@@ -32,6 +32,49 @@ var resourceNameOverrides = map[string]string{
 	"m-2-ms": "m2m",
 }
 
+// documentedStatusResults lists operations for which a non-2xx status is a
+// documented *result* rather than a failure, keyed by "METHOD path" and holding
+// the statuses to carry through to the user.
+//
+// There is no spec signal for this: almost every Jamf operation documents a 403
+// (and a 401/404) as boilerplate error responses, so "declares a 403" cannot
+// distinguish a check endpoint whose 403 body is the answer from a normal
+// endpoint whose 403 means "your token is not allowed". Hence an explicit map,
+// the same way TagFilenameOverrides and resourceNameFieldOverrides handle what
+// the specs can't express.
+//
+// The generated command carries these through registry.WithAllowedStatuses, so
+// the client returns the response instead of mapping it to an exit-code error,
+// and renders the body through the normal formatter. See the resourceTemplate
+// in generator/generator.go.
+var documentedStatusResults = map[string][]int{
+	// 204 = the DigiCert account holds every deployment permission; 403 = the
+	// body lists the ones it is missing. Without this the 403 became
+	// exitcode.PermissionDenied with a hint blaming the caller's own API role,
+	// and the missing-permission list only ever appeared inside an error string.
+	"GET /v1/pki/digicert/trust-lifecycle-manager/{id}/privilege-check": {403},
+}
+
+// applyDocumentedStatusResults populates op.StatusResults/NoContentDescription
+// from documentedStatusResults, pulling each status's human description from the
+// spec so the generated command doesn't hardcode Jamf's wording.
+func applyDocumentedStatusResults(op *Operation) {
+	statuses, ok := documentedStatusResults[op.Method+" "+op.Path]
+	if !ok {
+		return
+	}
+	for _, code := range statuses {
+		result := StatusResult{Code: code}
+		if resp, ok := op.Responses[strconv.Itoa(code)]; ok {
+			result.Description = strings.TrimSpace(resp.Description)
+		}
+		op.StatusResults = append(op.StatusResults, result)
+	}
+	if resp, ok := op.Responses["204"]; ok {
+		op.NoContentDescription = strings.TrimSpace(resp.Description)
+	}
+}
+
 // ApplyNameOverrides corrects resource names that auto-pluralization got wrong.
 // Must be called after DeduplicateVersioned.
 func ApplyNameOverrides(resources []*Resource) {
@@ -1091,11 +1134,31 @@ func detectVersionLock(ops []*Operation) bool {
 // detectSingleton returns true if the operations describe a singleton resource:
 // a settings-style object accessible via a single path with no {id} parameter,
 // identified by a non-paginated GET and a PUT on the same path.
+// readOnlySingletonPaths marks resources that are singletons with no PUT: one
+// GET, no {id}, nothing to update. The GET+PUT rule below cannot see them, and
+// without this they generate `list` for an endpoint that returns a single object
+// (and a `--field id` example for a schema with no id).
+//
+// Keyed by the resource's root GET path. Deliberately an allowlist rather than a
+// rule: inferring "GET-only and no {id} ⇒ singleton" would also rename the
+// existing startup-status / ddm-status / apns-client-push-status commands from
+// `list` to `get`, which is a user-visible break that belongs in its own PR.
+var readOnlySingletonPaths = map[string]bool{
+	// Reports the one cloud-services environment this instance talks to.
+	"/v2/environment-type": true,
+}
+
 func detectSingleton(ops []*Operation) bool {
 	// Any path parameter means this is a collection or keyed resource, not a singleton.
 	for _, op := range ops {
 		if hasPathParam(op.Path) {
 			return false
+		}
+	}
+
+	for _, op := range ops {
+		if op.Method == "GET" && readOnlySingletonPaths[op.Path] {
+			return true
 		}
 	}
 
@@ -1672,6 +1735,8 @@ func parseOperation(path, method string, op *openapi3.Operation) *Operation {
 			}
 		}
 	}
+
+	applyDocumentedStatusResults(operation)
 
 	return operation
 }
