@@ -4,8 +4,10 @@ package resolve
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -15,6 +17,7 @@ import (
 // mockClient implements registry.HTTPClient for testing.
 type mockClient struct {
 	responses map[string]mockResponse
+	calls     []string // recorded as "METHOD /path", query params unescaped
 }
 
 type mockResponse struct {
@@ -24,11 +27,23 @@ type mockResponse struct {
 
 func (m *mockClient) Do(_ context.Context, method, path string, _ io.Reader) (*http.Response, error) {
 	key := method + " " + path
+	// Also match the unescaped form, so a test pattern can name an RSQL filter
+	// (`filter=id=in=(1,2)`) without percent-encoding it. Patterns that spell
+	// out the escaped path keep matching against the raw key.
+	decoded := key
+	if unescaped, err := url.QueryUnescape(key); err == nil {
+		decoded = unescaped
+	}
+	m.calls = append(m.calls, decoded)
+
 	// Longest-match-wins: prefer more specific patterns.
 	bestPattern := ""
 	var bestResp mockResponse
 	for pattern, resp := range m.responses {
-		if strings.Contains(key, pattern) && len(pattern) > len(bestPattern) {
+		if len(pattern) <= len(bestPattern) {
+			continue
+		}
+		if strings.Contains(key, pattern) || strings.Contains(decoded, pattern) {
 			bestPattern = pattern
 			bestResp = resp
 		}
@@ -226,26 +241,197 @@ func TestResolveMobileDevice_ByID(t *testing.T) {
 	}
 }
 
-func TestResolveComputersFromFile(t *testing.T) {
-	dir := t.TempDir()
-	path := filepath.Join(dir, "targets.txt")
-	content := "# Comment\nC02X1234\n\n42\n"
-	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
-		t.Fatal(err)
-		return
+// computerRecord builds a minimal v3 inventory record for the given ID.
+func computerRecord(id string) string {
+	return fmt.Sprintf(`{"id":%q,"udid":"udid-%s","general":{"name":"mac-%s"},"hardware":{"serialNumber":"SER%s"}}`,
+		id, id, id, id)
+}
+
+// writeEntriesFile writes a --from-file fixture and returns its path.
+func writeEntriesFile(t *testing.T, lines string) string {
+	t.Helper()
+	path := filepath.Join(t.TempDir(), "targets.txt")
+	if err := os.WriteFile(path, []byte(lines), 0o600); err != nil {
+		t.Fatalf("writing temp file: %v", err)
 	}
+	return path
+}
+
+func TestResolveComputersFromFile(t *testing.T) {
+	path := writeEntriesFile(t, "# Comment\nC02X1234\n\n42\n")
 
 	client := &mockClient{responses: map[string]mockResponse{
-		"v3/computers-inventory?":  {200, computerV3Response},
-		"v3/computers-inventory/4": {200, computerV3DetailResponse},
+		// One batched query per identifier kind, not one per line.
+		`filter=hardware.serialNumber=in=("C02X1234")`: {200, computerV3Response},
+		`filter=id=in=(42)`:                            {200, computerV3Response},
 	}}
 
-	results, err := ResolveComputersFromFile(context.Background(), client, path)
+	results, skipped, err := ResolveComputersFromFile(context.Background(), client, path)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if len(results) != 2 {
 		t.Fatalf("got %d results, want 2", len(results))
+	}
+	if skipped != 0 {
+		t.Errorf("skipped = %d, want 0", skipped)
+	}
+	if len(client.calls) != 2 {
+		t.Errorf("made %d requests, want 2 (one per identifier kind): %v", len(client.calls), client.calls)
+	}
+}
+
+// A file of numeric IDs must not cost one request per line.
+func TestResolveComputersFromFile_BatchesIDs(t *testing.T) {
+	path := writeEntriesFile(t, "42\n43\n44\n45\n")
+
+	client := &mockClient{responses: map[string]mockResponse{
+		`filter=id=in=(42,43,44,45)`: {200, fmt.Sprintf(`{"totalCount":4,"results":[%s,%s,%s,%s]}`,
+			computerRecord("42"), computerRecord("43"), computerRecord("44"), computerRecord("45"))},
+	}}
+
+	results, skipped, err := ResolveComputersFromFile(context.Background(), client, path)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(results) != 4 || skipped != 0 {
+		t.Fatalf("got %d results / %d skipped, want 4 / 0", len(results), skipped)
+	}
+	if len(client.calls) != 1 {
+		t.Errorf("made %d requests for 4 IDs, want 1 batched query: %v", len(client.calls), client.calls)
+	}
+	// The per-ID GET path must not be used at all.
+	for _, c := range client.calls {
+		if strings.Contains(c, "/v3/computers-inventory/") {
+			t.Errorf("unexpected per-ID lookup: %s", c)
+		}
+	}
+}
+
+// Jamf matches serials case-insensitively, so a file entry that differs only in
+// case from the stored serial must still resolve.
+func TestResolveComputersFromFile_SerialCaseInsensitive(t *testing.T) {
+	path := writeEntriesFile(t, "c02x1234\n")
+
+	client := &mockClient{responses: map[string]mockResponse{
+		`filter=hardware.serialNumber=in=("c02x1234")`: {200, computerV3Response}, // stores "C02X1234"
+	}}
+
+	results, skipped, err := ResolveComputersFromFile(context.Background(), client, path)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(results) != 1 || skipped != 0 {
+		t.Fatalf("got %d results / %d skipped, want 1 / 0", len(results), skipped)
+	}
+}
+
+// Unresolvable entries are skipped and counted, not fatal.
+func TestResolveComputersFromFile_PartialFailureCounted(t *testing.T) {
+	path := writeEntriesFile(t, "C02X1234\nNOSUCHSERIAL\n99\n")
+
+	client := &mockClient{responses: map[string]mockResponse{
+		// Only C02X1234 comes back; NOSUCHSERIAL and ID 99 are unknown.
+		`filter=hardware.serialNumber=in=("C02X1234","NOSUCHSERIAL")`: {200, computerV3Response},
+		`filter=id=in=(99)`: {200, `{"totalCount":0,"results":[]}`},
+	}}
+
+	results, skipped, err := ResolveComputersFromFile(context.Background(), client, path)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(results) != 1 {
+		t.Fatalf("got %d results, want 1", len(results))
+	}
+	if skipped != 2 {
+		t.Errorf("skipped = %d, want 2", skipped)
+	}
+}
+
+// A file where nothing resolves must error rather than hand back an empty list
+// that reads downstream as a successful no-op batch.
+func TestResolveComputersFromFile_AllUnresolvableErrors(t *testing.T) {
+	path := writeEntriesFile(t, "NOSUCH1\nNOSUCH2\n")
+
+	client := &mockClient{responses: map[string]mockResponse{
+		`filter=hardware.serialNumber=in=`: {200, `{"totalCount":0,"results":[]}`},
+	}}
+
+	_, skipped, err := ResolveComputersFromFile(context.Background(), client, path)
+	if err == nil {
+		t.Fatal("expected an error when no entry resolves")
+	}
+	if !strings.Contains(err.Error(), "none of the 2 entries") {
+		t.Errorf("error = %q, want it to report that no entry resolved", err.Error())
+	}
+	if skipped != 2 {
+		t.Errorf("skipped = %d, want 2", skipped)
+	}
+}
+
+// An entry that can't be quoted into a shared =in= list is resolved on its own
+// rather than interpolated into a filter alongside other entries.
+func TestResolveComputersFromFile_UnbatchableEntryIsolated(t *testing.T) {
+	path := writeEntriesFile(t, `C02"X,1234`+"\n")
+
+	client := &mockClient{responses: map[string]mockResponse{
+		`filter=hardware.serialNumber==`: {200, `{"totalCount":0,"results":[]}`},
+	}}
+
+	_, _, err := ResolveComputersFromFile(context.Background(), client, path)
+	if err == nil {
+		t.Fatal("expected an error when the only entry does not resolve")
+	}
+	if len(client.calls) != 1 {
+		t.Fatalf("made %d requests, want 1: %v", len(client.calls), client.calls)
+	}
+	if strings.Contains(client.calls[0], "=in=") {
+		t.Errorf("unquotable entry was packed into an =in= list: %s", client.calls[0])
+	}
+}
+
+// A transport/HTTP failure of the batch lookup is fatal — it must not be
+// reported as "these entries don't exist".
+func TestResolveComputersFromFile_LookupErrorIsFatal(t *testing.T) {
+	path := writeEntriesFile(t, "42\n")
+
+	client := &mockClient{responses: map[string]mockResponse{
+		`filter=id=in=(42)`: {500, `{"httpStatus":500}`},
+	}}
+
+	_, _, err := ResolveComputersFromFile(context.Background(), client, path)
+	if err == nil {
+		t.Fatal("expected an error when the batch lookup fails")
+	}
+	if strings.Contains(err.Error(), "none of the") {
+		t.Errorf("HTTP failure was misreported as unresolvable entries: %v", err)
+	}
+}
+
+// The mobile resolver batches the same way (and against the /detail endpoint,
+// the only mobile list path that honors RSQL filters).
+func TestResolveMobileDevicesFromFile(t *testing.T) {
+	path := writeEntriesFile(t, "F4GH5678\n99\nNOSUCHSERIAL\n")
+
+	client := &mockClient{responses: map[string]mockResponse{
+		`filter=serialNumber=in=("F4GH5678","NOSUCHSERIAL")`: {200, mobileV2Response},
+		`filter=mobileDeviceId=in=(99)`:                      {200, mobileV2Response},
+	}}
+
+	results, skipped, err := ResolveMobileDevicesFromFile(context.Background(), client, path)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(results) != 2 || skipped != 1 {
+		t.Fatalf("got %d results / %d skipped, want 2 / 1", len(results), skipped)
+	}
+	if len(client.calls) != 2 {
+		t.Errorf("made %d requests, want 2 (one per identifier kind): %v", len(client.calls), client.calls)
+	}
+	for _, c := range client.calls {
+		if !strings.Contains(c, "/v2/mobile-devices/detail") {
+			t.Errorf("mobile batch lookup used %s, want the /detail endpoint", c)
+		}
 	}
 }
 
