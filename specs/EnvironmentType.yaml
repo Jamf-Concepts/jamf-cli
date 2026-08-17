@@ -1,0 +1,38 @@
+components:
+  schemas:
+    EnvironmentType:
+      properties:
+        environment:
+          description: The cloud services environment type
+          enum:
+            - staging
+            - production
+            - sandbox
+          example: production
+          type: string
+      required:
+        - environment
+      type: object
+info:
+  title: Jamf Pro API - EnvironmentType
+  version: 0.0.1
+openapi: 3.0.1
+paths:
+  /v2/environment-type:
+    get:
+      description: |
+        Returns the cloud services environment type (staging or production) that this Jamf Pro instance is configured to communicate with.
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvironmentType'
+          description: Successful response
+      summary: |
+        Get the cloud services environment type
+      tags:
+        - environment-type
+      x-authentication-required: true
+servers:
+  - url: /api

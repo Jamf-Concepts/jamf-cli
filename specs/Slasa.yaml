@@ -39,7 +39,7 @@ paths:
         - slasa
       x-action: true
       x-required-privileges:
-        - Update Activation Code
+        - Update License Information
         - View JSS Information
 servers:
   - url: /api

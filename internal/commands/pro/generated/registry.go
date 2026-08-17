@@ -22,6 +22,7 @@ import (
 	"golang.org/x/term"
 	"gopkg.in/yaml.v3"
 
+	"github.com/Jamf-Concepts/jamf-cli/internal/client"
 	"github.com/Jamf-Concepts/jamf-cli/internal/exitcode"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 )
@@ -95,6 +96,7 @@ func RegisterCommands(root *cobra.Command, ctx *registry.CLIContext) {
 	root.AddCommand(NewEnrollmentCustomizationsCmd(ctx))
 	root.AddCommand(NewEnrollmentLanguagesCmd(ctx))
 	root.AddCommand(NewEnrollmentSettingsCmd(ctx))
+	root.AddCommand(NewEnvironmentTypeCmd(ctx))
 	root.AddCommand(NewEraseDeviceComputersCmd(ctx))
 	root.AddCommand(NewEraseDeviceMobilesCmd(ctx))
 	root.AddCommand(NewGroupsCmd(ctx))
@@ -190,6 +192,51 @@ func RegisterCommands(root *cobra.Command, ctx *registry.CLIContext) {
 	root.AddCommand(NewVenafisCmd(ctx))
 	root.AddCommand(NewVppLocationsCmd(ctx))
 	root.AddCommand(NewVppSubscriptionsCmd(ctx))
+}
+
+// renderDocumentedStatus handles a non-2xx response that the spec documents as a
+// result of the operation rather than a failure of it (see
+// documentedStatusResults in generator/parser/parser.go): the body is what the
+// caller asked for, so it goes through the formatter and the command picks its
+// own exit code.
+//
+// Jamf overloads 403 — the same status also means "this API token is not
+// authorized", which was verified live against a tenant whose token lacked the
+// privilege. Those bodies carry the BAD_PERMISSIONS sentinel and are re-raised
+// as the client's normal permission error, keeping exit code 5 and the
+// "check its API role" hint instead of being reported as an endpoint result.
+func renderDocumentedStatus(ctx *registry.CLIContext, resp *http.Response, method, path, message string) error {
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 10<<20))
+	if err != nil {
+		return err
+	}
+	if isTokenAuthorizationError(body) {
+		return client.StatusError(resp.StatusCode, method, path, body)
+	}
+	if err := ctx.Output.PrintRaw(body); err != nil {
+		return err
+	}
+	return exitcode.New(exitcode.General, message)
+}
+
+// isTokenAuthorizationError reports whether a Jamf Pro error body is the generic
+// "the given token was not authorized" response rather than an endpoint-specific
+// result.
+func isTokenAuthorizationError(body []byte) bool {
+	var payload struct {
+		Errors []struct {
+			Code string `json:"code"`
+		} `json:"errors"`
+	}
+	if err := json.Unmarshal(body, &payload); err != nil {
+		return false
+	}
+	for _, e := range payload.Errors {
+		if e.Code == "BAD_PERMISSIONS" {
+			return true
+		}
+	}
+	return false
 }
 
 // batchDeleteError maps a bulk-delete tally to the process result. When some

@@ -61,6 +61,8 @@ CI enforces that `specs/platform/` and `internal/commands/platform/generated/` s
 | Change behavior of all classic API commands | `generator/classic/generator.go` (`classicResourceTemplate`) |
 | Change how OpenAPI specs are parsed | `generator/parser/parser.go` |
 | Change singleton detection logic | `generator/parser/parser.go` → `detectSingleton()` |
+| Mark a GET-only, no-`{id}` resource as a singleton (so it gets `get`, not `list`) | `generator/parser/parser.go` → `readOnlySingletonPaths` map |
+| Let an endpoint's documented non-2xx status (e.g. a check whose 403 body is the answer) render instead of becoming an exit-code error | `generator/parser/parser.go` → `documentedStatusResults` map; plumbing is `registry.WithAllowedStatuses` |
 | Change multi-family spec splitting | `generator/parser/parser.go` → `splitByPathFamilies()` |
 | Add/change alternate lookup fields (--serial, --udid) — modern API | `generator/parser/parser.go` → `resourceLookupFields` map |
 | Add a CLI flag alias for a classic lookup (e.g. `--serial` → `--serialnumber`) | `generator/classic/generator.go` → `lookupFlagAliases` map |
@@ -108,8 +110,8 @@ make build                  # Build binary to bin/jamf-cli
 make test                   # Run all tests (-v)
 make lint                   # golangci-lint (skips generated code via .golangci.yml)
 make generate               # Regenerate commands from OpenAPI specs, Classic manifest, and DDM component scaffolds
-make sync-specs             # Copy per-resource specs from jamf-pro-server repo checkout, then regenerate
-make sync-spec JAMF_MONOLITH_SPEC=./monolith.json  # Split a consolidated /api/schema/ JSON into specs/, then regenerate
+make sync-specs JAMF_SERVER_PATH=/path/to/jss JAMF_PRO_VERSION=11.31.0  # Copy per-resource specs from jamf-pro-server repo checkout, then regenerate
+make sync-spec JAMF_MONOLITH_SPEC=./monolith.json JAMF_PRO_VERSION=11.31.0  # Split a consolidated /api/schema/ JSON into specs/, then regenerate
 make verify-generated       # Check that generated code is up to date (CI-safe)
 make verify-site            # Check that site supports all product namespaces (CI-safe)
 make site                   # Build binary, generate commands.json, serve site locally at :8080
@@ -297,12 +299,16 @@ Adding a converter: create `ddm_<name>.go`, implement `convertFunc`, register vi
 
 ### Syncing specs for a new Jamf Pro version
 
-**A. Monorepo checkout:** `make sync-specs JAMF_SERVER_PATH=/path/to/jss` → review `git diff --stat -- internal/commands/pro/generated/` → `make test`.
+Both routes require `JAMF_PRO_VERSION` — it is written to `specs/.spec-version`, which the Makefile bakes into the binary as `specProVersion`. Full walkthrough in `docs/sync-specs.md`.
+
+**A. Monorepo checkout:** `make sync-specs JAMF_SERVER_PATH=/path/to/jss JAMF_PRO_VERSION=11.31.0` → review `git diff --stat -- internal/commands/pro/generated/` → `make test`.
 
 **B. Consolidated `/api/schema/` monolith:**
 1. Fetch (needs auth): `curl -H "Authorization: Bearer $JAMF_TOKEN" https://<instance>/api/schema/ -o monolith.json`
-2. `make sync-spec JAMF_MONOLITH_SPEC=./monolith.json`
+2. `make sync-spec JAMF_MONOLITH_SPEC=./monolith.json JAMF_PRO_VERSION=11.31.0`
 3. Review `git diff --stat -- specs/ internal/commands/pro/generated/` → `make test`.
+
+The public monolith is a **subset** of the monorepo specs — route B legitimately drops private endpoints, which is what `PreservedSpecs` protects.
 
 Splitter routes each path into the filename that owns it under `specs/` (path-based layout). New paths fall through to `firstTag → TagFilenameOverrides → PascalSingular(tag)`. Components classified as **exclusive** (inlined into owning file) or **shared** (emitted to `specs/_MonolithLibrary.yaml` and referenced via external $ref).
 

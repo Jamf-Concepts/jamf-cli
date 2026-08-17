@@ -352,5 +352,42 @@ paths:
         - digicert
       x-required-privileges:
         - Read DigiCert Settings
+  /v1/pki/digicert/trust-lifecycle-manager/{id}/privilege-check:
+    get:
+      description: |
+        Checks that the DigiCert account associated with the given ID holds all
+        permissions required to deploy certificates via the Trust Lifecycle Manager.
+        Returns 204 if all required permissions are present. Returns 403 with a
+        list of missing permission names if any are absent.
+      parameters:
+        - description: ID of the DigiCert Trust Lifecycle Manager settings.
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            example: "12"
+            type: string
+          style: simple
+      responses:
+        204:
+          description: DigiCert account has all required permissions for certificate deployment.
+        403:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: DigiCert account is missing one or more required permissions.
+        404:
+          content:
+            application/json:
+              schema:
+                $ref: _MonolithLibrary.yaml#/components/schemas/ApiError
+          description: DigiCert Trust Lifecycle Manager settings not found.
+      summary: Check DigiCert account permissions for certificate deployment
+      tags:
+        - digicert
+      x-required-privileges:
+        - Read DigiCert Settings
 servers:
   - url: /api

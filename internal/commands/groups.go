@@ -380,6 +380,7 @@ var proGroupMap = map[string]string{
 	"log-flushings":         groupServer,
 	"schedulers":            groupServer,
 	"startup-status":        groupServer,
+	"environment-type":      groupServer,
 
 	// System Integrations — third-party / hardware / locale config that
 	// connects Jamf Pro to the surrounding world.
