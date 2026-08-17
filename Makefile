@@ -4,7 +4,13 @@
 VERSION         ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
 COMMIT          ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo "none")
 DATE            ?= $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
-SPEC_PRO_VERSION := $(shell cat specs/.spec-version 2>/dev/null | tr -d '[:space:]' || echo "unknown")
+# Sanitized at the read site, not just at the write site. This value is spliced
+# into LDFLAGS below, and make hands LDFLAGS to a shell, so a stray quote or
+# semicolon in the file would run as a command. tr -cd keeps only the characters
+# a version can contain, which also collapses the newlines that tr -d '[:space:]'
+# used to strip. The two sync targets guard what they write, but this file is
+# also editable by hand and by a rebase.
+SPEC_PRO_VERSION := $(shell cat specs/.spec-version 2>/dev/null | tr -cd '0-9A-Za-z.-' || echo "unknown")
 LDFLAGS         := -ldflags "-X main.version=$(VERSION) -X main.commit=$(COMMIT) -X main.date=$(DATE) -X main.specProVersion=$(SPEC_PRO_VERSION)"
 
 # Default target
@@ -49,6 +55,45 @@ JAMF_SERVER_PATH ?= ../jamf-pro-server
 # does this, since actions/checkout puts the tree straight into jss/.
 JAMF_SERVER_ROOT ?= $(JAMF_SERVER_PATH)/jamf-pro-server
 
+# The sync targets write JAMF_PRO_VERSION into specs/.spec-version and echo it.
+# Export it so the recipes below can read it from the environment as
+# $$JAMF_PRO_VERSION. Make substitutes $(JAMF_PRO_VERSION) textually, so a value
+# that contains a double quote closes the string and the rest runs as a command.
+# The environment reference is not substituted, so the shell sees one value.
+export JAMF_PRO_VERSION
+
+# check_jamf_pro_version rejects a value that is not a Jamf Pro version number,
+# optionally with a build suffix (11.31.0 or 11.31.0-t1785774933693). It reads
+# the environment copy, so a hostile value cannot escape the test itself.
+# $$1 is the usage line of the calling target.
+#
+# Two checks, because one is not enough. The character class runs first and
+# rejects every character outside the accepted set, which is what excludes a
+# newline. A regex alone cannot do this: grep anchors ^ and $$ per LINE, so it
+# accepts a multi-line value as soon as any single line matches, and the
+# remaining lines then travel unchecked into specs/.spec-version. From there
+# SPEC_PRO_VERSION strips the newline and splices the rest into LDFLAGS, which
+# go build hands to a shell. The regex then only confirms the shape.
+define check_jamf_pro_version
+@if [ -z "$$JAMF_PRO_VERSION" ]; then \
+	echo "Error: JAMF_PRO_VERSION is required — specify the Jamf Pro version the specs came from."; \
+	echo "$(1)"; \
+	exit 1; \
+fi
+@case "$$JAMF_PRO_VERSION" in \
+	*[!0-9A-Za-z.-]*) \
+		echo "Error: JAMF_PRO_VERSION must not contain whitespace or punctuation other than . and -"; \
+		echo "$(1)"; \
+		exit 1;; \
+esac
+@printf '%s' "$$JAMF_PRO_VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$$' || { \
+	echo "Error: JAMF_PRO_VERSION must be three dot-separated numbers, with an optional build suffix."; \
+	echo "  Accepted: 11.31.0 or 11.31.0-t1785774933693"; \
+	echo "$(1)"; \
+	exit 1; \
+}
+endef
+
 # Sync OpenAPI specs from jamf-pro-server repo and regenerate commands
 sync-specs:
 	@if [ ! -d "$(JAMF_SERVER_ROOT)" ]; then \
@@ -57,12 +102,7 @@ sync-specs:
 		echo "Usage: make sync-specs JAMF_SERVER_PATH=/path/to/jss JAMF_PRO_VERSION=<version>"; \
 		exit 1; \
 	fi
-	@if [ -z "$(JAMF_PRO_VERSION)" ]; then \
-		echo "Error: JAMF_PRO_VERSION is required — specify the Jamf Pro version the specs came from."; \
-		echo "Usage: make sync-specs JAMF_SERVER_PATH=/path/to/jss JAMF_PRO_VERSION=<version>"; \
-		echo "  e.g. JAMF_SERVER_PATH=../jamf-pro-server JAMF_PRO_VERSION=11.31.0"; \
-		exit 1; \
-	fi
+	$(call check_jamf_pro_version,Usage: make sync-specs JAMF_SERVER_PATH=/path/to/jss JAMF_PRO_VERSION=<version> (e.g. JAMF_PRO_VERSION=11.31.0))
 	@echo "Syncing OpenAPI specs from $(JAMF_SERVER_ROOT)..."
 	@# Duplicate basenames are checked against the SOURCE tree, before anything
 	@# is copied: two upstream modules shipping the same filename collapse into
@@ -105,8 +145,8 @@ sync-specs:
 	@$(MAKE) generate
 	@# Stamped last: a mid-run failure must not leave .spec-version (and hence
 	@# the version baked into the next build) claiming a sync that didn't finish.
-	@echo "$(JAMF_PRO_VERSION)" > specs/.spec-version
-	@echo "Spec version: $(JAMF_PRO_VERSION) (written to specs/.spec-version)"
+	@printf '%s\n' "$$JAMF_PRO_VERSION" > specs/.spec-version
+	@echo "Spec version: $$JAMF_PRO_VERSION (written to specs/.spec-version)"
 	@echo "Done! Review changes with: git diff"
 
 # Path to, or URL of, a consolidated Jamf Pro OpenAPI document (e.g.
@@ -127,12 +167,7 @@ sync-spec:
 		echo "  e.g. JAMF_MONOLITH_SPEC=https://<instance>/api/schema/ JAMF_PRO_VERSION=11.14.0"; \
 		exit 1; \
 	fi
-	@if [ -z "$(JAMF_PRO_VERSION)" ]; then \
-		echo "Error: JAMF_PRO_VERSION is required — specify the Jamf Pro version the spec was fetched from."; \
-		echo "Usage: make sync-spec JAMF_MONOLITH_SPEC=<url> JAMF_PRO_VERSION=<version>"; \
-		echo "  e.g. JAMF_MONOLITH_SPEC=https://<instance>/api/schema/ JAMF_PRO_VERSION=11.14.0"; \
-		exit 1; \
-	fi
+	$(call check_jamf_pro_version,Usage: make sync-spec JAMF_MONOLITH_SPEC=<url> JAMF_PRO_VERSION=<version> (e.g. JAMF_PRO_VERSION=11.14.0))
 	@case "$(JAMF_MONOLITH_SPEC)" in \
 		http://*|https://*) ;; \
 		*) \
@@ -142,10 +177,10 @@ sync-spec:
 			fi ;; \
 	esac
 	@echo "Ingesting monolith spec: $(JAMF_MONOLITH_SPEC)"
-	@$(MAKE) generate JAMF_MONOLITH_SPEC=$(JAMF_MONOLITH_SPEC)
+	@$(MAKE) generate JAMF_MONOLITH_SPEC="$(JAMF_MONOLITH_SPEC)"
 	@# Stamped after generate, not before — see sync-specs.
-	@echo "$(JAMF_PRO_VERSION)" > specs/.spec-version
-	@echo "Spec version: $(JAMF_PRO_VERSION) (written to specs/.spec-version)"
+	@printf '%s\n' "$$JAMF_PRO_VERSION" > specs/.spec-version
+	@echo "Spec version: $$JAMF_PRO_VERSION (written to specs/.spec-version)"
 	@echo "Done! Review changes with: git diff specs internal/commands/pro/generated"
 
 # Sync Jamf Platform Gateway specs from the gitignored .platform-source/
@@ -194,7 +229,7 @@ sync-security-specs:
 generate:
 	@echo "Generating commands from OpenAPI specs and Classic API manifest..."
 ifneq ($(JAMF_MONOLITH_SPEC),)
-	go run ./generator --specs ./specs --output ./internal/commands/pro/generated --monolith $(JAMF_MONOLITH_SPEC)
+	go run ./generator --specs ./specs --output ./internal/commands/pro/generated --monolith "$(JAMF_MONOLITH_SPEC)"
 else
 	go run ./generator --specs ./specs --output ./internal/commands/pro/generated
 endif

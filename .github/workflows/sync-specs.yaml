@@ -29,6 +29,27 @@ jobs:
       SERVER_REPO_REF: ${{ inputs.server_repo_ref }}
       DRY_RUN: ${{ inputs.dry_run }}
     steps:
+      # Validate before any checkout, so a bad value costs nothing. The version
+      # reaches a shell twice: once here, and once when make substitutes it into
+      # a recipe. The Makefile guards its own use, but this step fails the run
+      # early and gives the operator a clear message.
+      - name: Validate jamf_pro_version
+        run: |
+          # The character class runs first and is what rejects a newline. grep
+          # anchors ^ and $ per line, so a regex alone accepts a multi-line
+          # value as soon as one line matches. Mirrors check_jamf_pro_version
+          # in the Makefile — keep the two in step.
+          case "$JAMF_PRO_VERSION" in
+            *[!0-9A-Za-z.-]*)
+              echo "::error::jamf_pro_version must not contain whitespace or punctuation other than . and -"
+              exit 1
+              ;;
+          esac
+          if ! printf '%s' "$JAMF_PRO_VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$'; then
+            echo "::error::jamf_pro_version must be three dot-separated numbers, with an optional build suffix (11.31.0 or 11.31.0-t1785774933693)"
+            exit 1
+          fi
+
       - name: Checkout jamf-cli
         uses: actions/checkout@v7
 
