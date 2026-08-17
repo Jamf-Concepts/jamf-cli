@@ -4,7 +4,13 @@
 VERSION         ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
 COMMIT          ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo "none")
 DATE            ?= $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
-SPEC_PRO_VERSION := $(shell cat specs/.spec-version 2>/dev/null | tr -d '[:space:]' || echo "unknown")
+# Sanitized at the read site, not just at the write site. This value is spliced
+# into LDFLAGS below, and make hands LDFLAGS to a shell, so a stray quote or
+# semicolon in the file would run as a command. tr -cd keeps only the characters
+# a version can contain, which also collapses the newlines that tr -d '[:space:]'
+# used to strip. The two sync targets guard what they write, but this file is
+# also editable by hand and by a rebase.
+SPEC_PRO_VERSION := $(shell cat specs/.spec-version 2>/dev/null | tr -cd '0-9A-Za-z.-' || echo "unknown")
 LDFLAGS         := -ldflags "-X main.version=$(VERSION) -X main.commit=$(COMMIT) -X main.date=$(DATE) -X main.specProVersion=$(SPEC_PRO_VERSION)"
 
 # Default target
@@ -56,17 +62,33 @@ JAMF_SERVER_ROOT ?= $(JAMF_SERVER_PATH)/jamf-pro-server
 # The environment reference is not substituted, so the shell sees one value.
 export JAMF_PRO_VERSION
 
-# check_jamf_pro_version rejects a value that is not three dot-separated numbers.
-# It reads the environment copy, so a hostile value cannot escape the test
-# itself. $$1 is the usage line of the calling target.
+# check_jamf_pro_version rejects a value that is not a Jamf Pro version number,
+# optionally with a build suffix (11.31.0 or 11.31.0-t1785774933693). It reads
+# the environment copy, so a hostile value cannot escape the test itself.
+# $$1 is the usage line of the calling target.
+#
+# Two checks, because one is not enough. The character class runs first and
+# rejects every character outside the accepted set, which is what excludes a
+# newline. A regex alone cannot do this: grep anchors ^ and $$ per LINE, so it
+# accepts a multi-line value as soon as any single line matches, and the
+# remaining lines then travel unchecked into specs/.spec-version. From there
+# SPEC_PRO_VERSION strips the newline and splices the rest into LDFLAGS, which
+# go build hands to a shell. The regex then only confirms the shape.
 define check_jamf_pro_version
 @if [ -z "$$JAMF_PRO_VERSION" ]; then \
 	echo "Error: JAMF_PRO_VERSION is required — specify the Jamf Pro version the specs came from."; \
 	echo "$(1)"; \
 	exit 1; \
 fi
-@printf '%s' "$$JAMF_PRO_VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$$' || { \
-	echo "Error: JAMF_PRO_VERSION must be three dot-separated numbers, for example 11.31.0."; \
+@case "$$JAMF_PRO_VERSION" in \
+	*[!0-9A-Za-z.-]*) \
+		echo "Error: JAMF_PRO_VERSION must not contain whitespace or punctuation other than . and -"; \
+		echo "$(1)"; \
+		exit 1;; \
+esac
+@printf '%s' "$$JAMF_PRO_VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$$' || { \
+	echo "Error: JAMF_PRO_VERSION must be three dot-separated numbers, with an optional build suffix."; \
+	echo "  Accepted: 11.31.0 or 11.31.0-t1785774933693"; \
 	echo "$(1)"; \
 	exit 1; \
 }
@@ -155,7 +177,7 @@ sync-spec:
 			fi ;; \
 	esac
 	@echo "Ingesting monolith spec: $(JAMF_MONOLITH_SPEC)"
-	@$(MAKE) generate JAMF_MONOLITH_SPEC=$(JAMF_MONOLITH_SPEC)
+	@$(MAKE) generate JAMF_MONOLITH_SPEC="$(JAMF_MONOLITH_SPEC)"
 	@# Stamped after generate, not before — see sync-specs.
 	@printf '%s\n' "$$JAMF_PRO_VERSION" > specs/.spec-version
 	@echo "Spec version: $$JAMF_PRO_VERSION (written to specs/.spec-version)"
@@ -207,7 +229,7 @@ sync-security-specs:
 generate:
 	@echo "Generating commands from OpenAPI specs and Classic API manifest..."
 ifneq ($(JAMF_MONOLITH_SPEC),)
-	go run ./generator --specs ./specs --output ./internal/commands/pro/generated --monolith $(JAMF_MONOLITH_SPEC)
+	go run ./generator --specs ./specs --output ./internal/commands/pro/generated --monolith "$(JAMF_MONOLITH_SPEC)"
 else
 	go run ./generator --specs ./specs --output ./internal/commands/pro/generated
 endif

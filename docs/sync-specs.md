@@ -55,6 +55,16 @@ why the clone above lands in a `jamf-pro-server` subdirectory.
 `JAMF_PRO_VERSION` is mandatory — it is what `specs/.spec-version` (and therefore
 `jamf-cli version`) reports.
 
+Both sync targets check the format and stop before they change anything if it does
+not match. Accepted values are three dot-separated numbers, with an optional build
+suffix:
+
+- `11.31.0`
+- `11.31.0-t1785774933693` — the form `/api/v1/jamf-pro-version` returns on a
+  non-GA instance
+
+Anything else is rejected, including a value that carries whitespace.
+
 ## Option B: from a live instance's consolidated schema
 
 The public `/api/schema/` endpoint serves one consolidated OpenAPI document.

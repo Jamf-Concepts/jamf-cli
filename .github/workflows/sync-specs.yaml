@@ -35,8 +35,18 @@ jobs:
       # early and gives the operator a clear message.
       - name: Validate jamf_pro_version
         run: |
-          if ! printf '%s' "$JAMF_PRO_VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
-            echo "::error::jamf_pro_version must be three dot-separated numbers, for example 11.31.0"
+          # The character class runs first and is what rejects a newline. grep
+          # anchors ^ and $ per line, so a regex alone accepts a multi-line
+          # value as soon as one line matches. Mirrors check_jamf_pro_version
+          # in the Makefile — keep the two in step.
+          case "$JAMF_PRO_VERSION" in
+            *[!0-9A-Za-z.-]*)
+              echo "::error::jamf_pro_version must not contain whitespace or punctuation other than . and -"
+              exit 1
+              ;;
+          esac
+          if ! printf '%s' "$JAMF_PRO_VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$'; then
+            echo "::error::jamf_pro_version must be three dot-separated numbers, with an optional build suffix (11.31.0 or 11.31.0-t1785774933693)"
             exit 1
           fi
 
