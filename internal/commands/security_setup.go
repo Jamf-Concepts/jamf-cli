@@ -68,7 +68,12 @@ you have access to; leave an application ID blank to skip that API. At
 least one pair is required.
 
 There's no per-tenant URL to configure — all three APIs share Jamf's global
-production host, and tenancy is carried inside the credentials themselves.`,
+production host, and tenancy is carried inside the credentials themselves.
+
+This command covers the Radar APIs only. The rest of Jamf Security Cloud —
+dns-*, ztna-*, content-categories, device-groups and uem-* — is served on the
+Jamf Platform gateway with platform client credentials and a Security Cloud
+tenant ID; configure that with "jamf-cli platform setup".`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			out := os.Stdout
 			reader := bufio.NewReader(os.Stdin)
@@ -170,6 +175,16 @@ production host, and tenancy is carried inside the credentials themselves.`,
 			if sseID != "" {
 				_, _ = fmt.Fprintf(out, "  Shared Signals & Events: application ID %s, secret stored in system keychain\n", sseID)
 			}
+
+			// The rest of Jamf Security Cloud is served on the platform gateway
+			// and takes different credentials. `platform setup` owns that; say
+			// so here, because `security --help` is where someone configuring
+			// this product looks first and nothing else would point them on.
+			_, _ = fmt.Fprintln(out)
+			_, _ = fmt.Fprintln(out, "The dns-*, ztna-*, content-categories, device-groups and uem-* commands are")
+			_, _ = fmt.Fprintln(out, "served on the Jamf Platform gateway and need platform credentials plus a")
+			_, _ = fmt.Fprintln(out, "Jamf Security Cloud tenant ID. Configure those with:")
+			_, _ = fmt.Fprintln(out, "  jamf-cli platform setup")
 
 			return nil
 		},

@@ -338,3 +338,57 @@ profiles:
 		t.Errorf("expected 'not resolvable' in output:\n%s", out)
 	}
 }
+
+// TestConfigValidate_PlatformSecurityCloudTenantOnly covers a platform profile
+// scoped to Jamf Security Cloud alone.
+//
+// Security Cloud paths carry their own tenant, so reaching them needs no Jamf
+// Pro tenant ID — every wire probe of that surface ran with a deliberately
+// bogus one. Demanding tenant-id here would make `platform setup` a dead end
+// for anyone who only has Security Cloud, forcing them to invent a value they
+// never use.
+func TestConfigValidate_PlatformSecurityCloudTenantOnly(t *testing.T) {
+	t.Setenv("TEST_JSC_CLIENT_ID", "my-client")
+	t.Setenv("TEST_JSC_CLIENT_SECRET", "my-secret")
+	yaml := `
+default-profile: jsconly
+profiles:
+  jsconly:
+    url: https://eu.apigw.jamf.com
+    auth-method: platform
+    client-id: "env:TEST_JSC_CLIENT_ID"
+    client-secret: "env:TEST_JSC_CLIENT_SECRET"
+    security-cloud-tenant-id: 928260f5-01f3-4881-bd2e-f28faa0dbab2
+`
+	out, err := runValidateCmd(t, yaml)
+	if err != nil {
+		t.Fatalf("expected no error, got: %v\nOutput:\n%s", err, out)
+	}
+	if strings.Contains(out, `"fail"`) {
+		t.Errorf("a Security-Cloud-only platform profile should validate, got:\n%s", out)
+	}
+	if !strings.Contains(out, "security-cloud-tenant-id") {
+		t.Errorf("expected the Security Cloud tenant to be the check that passed, got:\n%s", out)
+	}
+}
+
+// TestConfigValidate_PlatformNeedsSomeTenant is the other half: relaxing the
+// tenant requirement must not accept a platform profile with neither tenant,
+// which cannot reach anything.
+func TestConfigValidate_PlatformNeedsSomeTenant(t *testing.T) {
+	t.Setenv("TEST_NOTENANT_CLIENT_ID", "my-client")
+	t.Setenv("TEST_NOTENANT_CLIENT_SECRET", "my-secret")
+	yaml := `
+default-profile: notenant
+profiles:
+  notenant:
+    url: https://eu.apigw.jamf.com
+    auth-method: platform
+    client-id: "env:TEST_NOTENANT_CLIENT_ID"
+    client-secret: "env:TEST_NOTENANT_CLIENT_SECRET"
+`
+	out, _ := runValidateCmd(t, yaml)
+	if !strings.Contains(out, "tenant-id") || !strings.Contains(out, `"fail"`) {
+		t.Errorf("a platform profile with no tenant of either kind should fail, got:\n%s", out)
+	}
+}

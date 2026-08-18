@@ -187,6 +187,13 @@ func securityPlatformSDKClient(cfg *config.Config, profileName string) *jamfplat
 
 	if p, _, err := config.GetProfile(cfg, profileName); err == nil {
 		if url == "" {
+			// PlatformURL first: a profile carrying both credential sets keeps
+			// the gateway URL there, because URL is the Radar host for the
+			// Risk/Lifecycle/SSE client. Falling back to URL covers a plain
+			// platform profile, whose URL *is* the gateway.
+			url = p.PlatformURL
+		}
+		if url == "" {
 			url = p.URL
 		}
 		// An id/secret pair is atomic — the same splicing hazard the scoped

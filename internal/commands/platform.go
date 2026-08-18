@@ -4,18 +4,14 @@ package commands
 
 import (
 	"bufio"
-	"context"
 	"fmt"
 	"os"
 	"strings"
 
 	"github.com/spf13/cobra"
-	"golang.org/x/term"
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/config"
-	"github.com/Jamf-Concepts/jamf-cli/internal/keychain"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
-	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform"
 )
 
 func newPlatformCmd(cliCtx *registry.CLIContext) *cobra.Command {
@@ -50,9 +46,10 @@ func newPlatformSetupCmd() *cobra.Command {
 		Use:   "setup",
 		Short: "Configure a Jamf Platform Gateway profile",
 		Long: `Guided setup for platform gateway authentication. Prompts for region,
-API client credentials, and tenant ID, validates them against the gateway,
-and saves the profile. This profile enables both Pro API and Platform API
-commands.
+API client credentials, tenant ID, and optionally a Jamf Security Cloud tenant
+ID, validates them against the gateway, and saves the profile. This profile
+enables the Pro API, the Platform API, and — with a Security Cloud tenant — the
+gateway-served Jamf Security Cloud commands.
 
 Create API client credentials in the Jamf Account portal
 (account.jamf.com) before running this command.`,
@@ -74,81 +71,21 @@ Create API client credentials in the Jamf Account portal
 				}
 			}
 
-			// 2. Region / gateway URL
-			_, _ = fmt.Fprintln(w, "\nPlatform gateway region:")
-			for i, r := range platformGatewayRegions {
-				_, _ = fmt.Fprintf(w, "  %d. %s (%s)\n", i+1, r.key, r.url)
-			}
-			_, _ = fmt.Fprintf(w, "  %d. Custom URL\n", len(platformGatewayRegions)+1)
-			_, _ = fmt.Fprintf(w, "Choose [1-%d]: ", len(platformGatewayRegions)+1)
-
-			line, _ := reader.ReadString('\n')
-			choice := strings.TrimSpace(line)
-
-			var gatewayURL string
-			n := 0
-			if _, err := fmt.Sscanf(choice, "%d", &n); err == nil && n >= 1 && n <= len(platformGatewayRegions) {
-				gatewayURL = platformGatewayRegions[n-1].url
-			} else {
-				// Custom URL
-				_, _ = fmt.Fprint(w, "Gateway URL: ")
-				line, _ = reader.ReadString('\n')
-				gatewayURL = strings.TrimSpace(line)
-			}
-			if gatewayURL == "" {
-				return fmt.Errorf("gateway URL is required")
-			}
-			gatewayURL, err := normalizeURL(gatewayURL)
+			// 2-4. Gateway credentials (shared with `security setup`)
+			creds, err := promptPlatformGatewayCredentials(w, reader)
 			if err != nil {
-				return fmt.Errorf("invalid gateway URL: %w", err)
+				return err
 			}
 
-			// 3. Client credentials (interactive only)
-			_, _ = fmt.Fprint(w, "\nClient ID: ")
-			line, _ = reader.ReadString('\n')
-			clientID := strings.TrimSpace(line)
-			if clientID == "" {
-				return fmt.Errorf("client ID is required")
+			// 5. Validate. A rejected Security Cloud tenant warns and continues.
+			if err := validatePlatformGatewayCredentials(cmd.Context(), w, creds); err != nil {
+				return err
 			}
-
-			_, _ = fmt.Fprint(w, "Client Secret: ")
-			secretBytes, err := term.ReadPassword(int(os.Stdin.Fd()))
-			if err != nil {
-				return fmt.Errorf("reading client secret: %w", err)
-			}
-			_, _ = fmt.Fprintln(w)
-			clientSecret := string(secretBytes)
-			if clientSecret == "" {
-				return fmt.Errorf("client secret is required")
-			}
-
-			// 4. Tenant ID
-			_, _ = fmt.Fprint(w, "Tenant ID (from Jamf Account portal): ")
-			line, _ = reader.ReadString('\n')
-			tenantID := strings.TrimSpace(line)
-			if tenantID == "" {
-				return fmt.Errorf("tenant ID is required")
-			}
-
-			// 5. Validate credentials
-			_, _ = fmt.Fprint(w, "\nValidating credentials... ")
-			pc := jamfplatform.NewClient(
-				gatewayURL, clientID, clientSecret,
-				jamfplatform.WithTenantID(tenantID),
-			)
-			if err := pc.ValidateCredentials(context.Background()); err != nil {
-				_, _ = fmt.Fprintln(w, "failed")
-				return fmt.Errorf("credential validation failed: %w", err)
-			}
-			_, _ = fmt.Fprintln(w, "ok")
 
 			// 6. Store secrets in keychain
-			store := config.GetKeychainStore()
-			if err := store.Set(keychain.DefaultService, setupProfile+"/client-id", clientID); err != nil {
-				return keychain.WriteError("client ID", err)
-			}
-			if err := store.Set(keychain.DefaultService, setupProfile+"/client-secret", clientSecret); err != nil {
-				return keychain.WriteError("client secret", err)
+			clientIDRef, clientSecretRef, err := storePlatformGatewaySecrets(setupProfile, creds)
+			if err != nil {
+				return err
 			}
 
 			// 7. Save profile
@@ -158,11 +95,12 @@ Create API client credentials in the Jamf Account portal
 			}
 
 			cfg.Profiles[setupProfile] = config.Profile{
-				URL:          gatewayURL,
-				AuthMethod:   "platform",
-				TenantID:     tenantID,
-				ClientID:     keychain.KeychainRef(setupProfile, "client-id"),
-				ClientSecret: keychain.KeychainRef(setupProfile, "client-secret"),
+				URL:                   creds.GatewayURL,
+				AuthMethod:            "platform",
+				TenantID:              creds.TenantID,
+				SecurityCloudTenantID: creds.SecurityCloudTenantID,
+				ClientID:              clientIDRef,
+				ClientSecret:          clientSecretRef,
 			}
 			cfg.DefaultProfile = setupProfile
 
@@ -171,12 +109,31 @@ Create API client credentials in the Jamf Account portal
 			}
 
 			_, _ = fmt.Fprintf(w, "\nProfile %q saved and set as default.\n", setupProfile)
-			_, _ = fmt.Fprintf(w, "  Gateway:     %s\n", gatewayURL)
-			_, _ = fmt.Fprintf(w, "  Tenant ID:   %s\n", tenantID)
-			_, _ = fmt.Fprintf(w, "  Client ID:   %s\n", clientID)
+			_, _ = fmt.Fprintf(w, "  Gateway:     %s\n", creds.GatewayURL)
+			if creds.TenantID != "" {
+				_, _ = fmt.Fprintf(w, "  Jamf Pro tenant ID:    %s\n", creds.TenantID)
+			}
+			if creds.SecurityCloudTenantID != "" {
+				_, _ = fmt.Fprintf(w, "  Security Cloud tenant: %s\n", creds.SecurityCloudTenantID)
+			}
+			_, _ = fmt.Fprintf(w, "  Client ID:   %s\n", creds.ClientID)
 			_, _ = fmt.Fprintln(w, "  Secrets stored in system keychain")
 			_, _ = fmt.Fprintln(w)
-			_, _ = fmt.Fprintln(w, "This profile enables both Pro API and Platform API commands.")
+			// State what the profile actually enables. A Security-Cloud-only
+			// profile claiming "Pro API and Platform API commands" would send
+			// someone chasing a 404 that is really a missing tenant ID.
+			switch {
+			case creds.TenantID != "" && creds.SecurityCloudTenantID != "":
+				_, _ = fmt.Fprintln(w, "This profile enables Pro API and Platform API commands, and the")
+				_, _ = fmt.Fprintln(w, "gateway-served Jamf Security Cloud commands (dns-*, ztna-*,")
+				_, _ = fmt.Fprintln(w, "content-categories, device-groups, uem-*).")
+			case creds.SecurityCloudTenantID != "":
+				_, _ = fmt.Fprintln(w, "This profile enables the gateway-served Jamf Security Cloud commands")
+				_, _ = fmt.Fprintln(w, "(dns-*, ztna-*, content-categories, device-groups, uem-*).")
+				_, _ = fmt.Fprintln(w, "Add a Jamf Pro tenant ID to enable Pro API and Platform API commands.")
+			default:
+				_, _ = fmt.Fprintln(w, "This profile enables both Pro API and Platform API commands.")
+			}
 
 			return nil
 		},
