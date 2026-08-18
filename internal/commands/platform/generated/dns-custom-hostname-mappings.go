@@ -21,9 +21,10 @@ import (
 // resource. Wire it into a product namespace via AddCommand.
 func NewDnsCustomHostnameMappingsCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "dns-custom-hostname-mappings",
-		Short: "Manage dns-custom-hostname-mappings (Jamf Security Cloud)",
-		Long:  "Manage DNS Zones, Search Domains, and Custom Hostname Mappings",
+		Use:         "dns-custom-hostname-mappings",
+		Short:       "Manage dns-custom-hostname-mappings (Security Cloud · platform gateway)",
+		Long:        "Manage DNS Zones, Search Domains, and Custom Hostname Mappings",
+		Annotations: map[string]string{"jamf:api": "platform-gateway"},
 	}
 	cmd.AddCommand(newDnsCustomHostnameMappingsDeleteCmd(cliCtx))
 	cmd.AddCommand(newDnsCustomHostnameMappingsGetCmd(cliCtx))
@@ -37,7 +38,7 @@ func newDnsCustomHostnameMappingsDeleteCmd(cliCtx *registry.CLIContext) *cobra.C
 		Use:         "delete",
 		Short:       "Clear Custom Hostname Mappings",
 		Long:        "Clears all tenant Custom Hostname Mappings.",
-		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "delete:jsc:all"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "delete:jsc:all", "jamf:api": "platform-gateway"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err
@@ -67,7 +68,7 @@ func newDnsCustomHostnameMappingsGetCmd(cliCtx *registry.CLIContext) *cobra.Comm
 		Use:         "get",
 		Short:       "Get Custom Hostname Mappings",
 		Long:        "Returns the tenant Custom Hostname Mappings as a MappingList object (standard collection envelope). The full bounded set is returned in a single response and `totalCount` reflects the complete set. Pagination is currently not supported.",
-		Annotations: map[string]string{"jamf:privileges": "read:jsc:all"},
+		Annotations: map[string]string{"jamf:privileges": "read:jsc:all", "jamf:api": "platform-gateway"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err
@@ -104,7 +105,7 @@ func newDnsCustomHostnameMappingsUpdateCmd(cliCtx *registry.CLIContext) *cobra.C
 		Use:         "update",
 		Short:       "Replace Custom Hostname Mappings",
 		Long:        "Replaces the entire set of tenant Custom Hostname Mappings with the supplied JSON list. The previous mappings are fully overwritten.",
-		Annotations: map[string]string{"jamf:privileges": "update:jsc:all"},
+		Annotations: map[string]string{"jamf:privileges": "update:jsc:all", "jamf:api": "platform-gateway"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if scaffoldFlag {
 				// Scaffold prints raw JSON regardless of -o, so the output

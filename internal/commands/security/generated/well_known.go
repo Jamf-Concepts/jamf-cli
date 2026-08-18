@@ -19,8 +19,9 @@ import (
 // Security Cloud resource. Wire it into the "security" product command via AddCommand.
 func NewWellKnownCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "well-known",
-		Short: "Manage well-known (Jamf Security Cloud)",
+		Use:         "well-known",
+		Short:       "Manage well-known (Security Cloud · Radar API)",
+		Annotations: map[string]string{"jamf:api": "radar"},
 	}
 	cmd.AddCommand(newWellKnownGetCmd(cliCtx))
 	return cmd
@@ -28,8 +29,9 @@ func NewWellKnownCmd(cliCtx *registry.CLIContext) *cobra.Command {
 
 func newWellKnownGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "get",
-		Short: "Get the SSE transmitter discovery document",
+		Use:         "get",
+		Short:       "Get the SSE transmitter discovery document",
+		Annotations: map[string]string{"jamf:api": "radar"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			path := "/sse/.well-known"
 			var body any

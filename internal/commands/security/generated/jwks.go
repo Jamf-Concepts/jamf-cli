@@ -19,8 +19,9 @@ import (
 // Security Cloud resource. Wire it into the "security" product command via AddCommand.
 func NewJwksCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "jwks",
-		Short: "Manage jwks (Jamf Security Cloud)",
+		Use:         "jwks",
+		Short:       "Manage jwks (Security Cloud · Radar API)",
+		Annotations: map[string]string{"jamf:api": "radar"},
 	}
 	cmd.AddCommand(newJwksGetCmd(cliCtx))
 	return cmd
@@ -28,8 +29,9 @@ func NewJwksCmd(cliCtx *registry.CLIContext) *cobra.Command {
 
 func newJwksGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "get",
-		Short: "Get the SSE transmitter's JSON Web Key Set",
+		Use:         "get",
+		Short:       "Get the SSE transmitter's JSON Web Key Set",
+		Annotations: map[string]string{"jamf:api": "radar"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			path := "/sse/v1/jwks.json"
 			var body any

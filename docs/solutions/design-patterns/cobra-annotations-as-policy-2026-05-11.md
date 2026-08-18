@@ -60,6 +60,7 @@ files, comment magic, or separate registries**.
   - `jamf:destructive: "true"` — flag for confirmation gating; also drives MCP destructiveHint
   - `jamf:privileges: "Read Computers,Read Mobile Devices"` — comma-joined privilege names from `x-required-privileges` (the human-readable Jamf API privilege names, e.g. `Read Computers`); emitted by the Pro and Platform generators via `opAnnotations`; surfaced in the `commands` catalog as a `privileges` array and, for Pro only, appended to the 403 `permission_denied` hint at runtime (the Platform 403 hint is not wired)
   - `jamf:typed-exit-codes: "0,3"` — declares intentional non-zero success codes
+  - `jamf:api: "platform-gateway"` — which Jamf API serves the command, and so which credentials it needs (`platform-gateway` or `radar`); emitted by the Platform and Security Cloud generators, surfaced in the `commands` catalog as `api`. Added for the `security` namespace, which mixes commands reached through the platform gateway with commands reached directly on Radar; the human-readable half of the same fact is in the command's `Short`, because Cobra uses that as the shell-completion description
 
 ### Reading annotations
 

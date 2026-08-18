@@ -21,9 +21,10 @@ import (
 // resource. Wire it into a product namespace via AddCommand.
 func NewUemConnectorsCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "uem-connectors",
-		Short: "Manage uem-connectors (Jamf Security Cloud)",
-		Long:  "API for managing UEM Connect connectors",
+		Use:         "uem-connectors",
+		Short:       "Manage uem-connectors (Security Cloud · platform gateway)",
+		Long:        "API for managing UEM Connect connectors",
+		Annotations: map[string]string{"jamf:api": "platform-gateway"},
 	}
 	cmd.AddCommand(newUemConnectorsListCmd(cliCtx))
 	cmd.AddCommand(newUemConnectorsCreateCmd(cliCtx))
@@ -37,7 +38,7 @@ func newUemConnectorsListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Use:         "list",
 		Short:       "List connectors",
 		Long:        "Returns the connectors configured for the tenant.",
-		Annotations: map[string]string{"jamf:privileges": "read:jsc:all"},
+		Annotations: map[string]string{"jamf:privileges": "read:jsc:all", "jamf:api": "platform-gateway"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err
@@ -79,7 +80,7 @@ func newUemConnectorsCreateCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Use:         "create",
 		Short:       "Create connector",
 		Long:        "Creates a new connector for the tenant. On success returns the identifier of the created connector.",
-		Annotations: map[string]string{"jamf:privileges": "create:jsc:all"},
+		Annotations: map[string]string{"jamf:privileges": "create:jsc:all", "jamf:api": "platform-gateway"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if scaffoldFlag {
 				// Scaffold prints raw JSON regardless of -o, so the output
@@ -127,7 +128,7 @@ func newUemConnectorsDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Use:         "delete <configId>",
 		Short:       "Delete connector",
 		Long:        "Deletes the connector identified by `configId` and all of its data.",
-		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "delete:jsc:all"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "delete:jsc:all", "jamf:api": "platform-gateway"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
@@ -174,7 +175,7 @@ func newUemConnectorsGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Use:         "get <configId>",
 		Short:       "Get connector",
 		Long:        "Returns the connector identified by `configId`.",
-		Annotations: map[string]string{"jamf:privileges": "read:jsc:all"},
+		Annotations: map[string]string{"jamf:privileges": "read:jsc:all", "jamf:api": "platform-gateway"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {

@@ -59,6 +59,7 @@ func New{{.GoName}}Cmd(cliCtx *registry.CLIContext) *cobra.Command {
 {{- if .Long }}
 		Long:  {{printf "%q" .Long}},
 {{- end }}
+		Annotations: map[string]string{"jamf:api": "platform-gateway"},
 	}
 {{- range .Operations }}
 	cmd.AddCommand(new{{$.GoName}}{{.GoName}}Cmd(cliCtx))

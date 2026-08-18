@@ -21,9 +21,10 @@ import (
 // resource. Wire it into a product namespace via AddCommand.
 func NewZtnaPredefinedAppsCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "ztna-predefined-apps",
-		Short: "Manage ztna-predefined-apps (Jamf Security Cloud)",
-		Long:  "Manage ZTNA Gateways, Grouped Gateways, Apps, and Predefined Apps",
+		Use:         "ztna-predefined-apps",
+		Short:       "Manage ztna-predefined-apps (Security Cloud · platform gateway)",
+		Long:        "Manage ZTNA Gateways, Grouped Gateways, Apps, and Predefined Apps",
+		Annotations: map[string]string{"jamf:api": "platform-gateway"},
 	}
 	cmd.AddCommand(newZtnaPredefinedAppsListCmd(cliCtx))
 	return cmd
@@ -34,7 +35,7 @@ func newZtnaPredefinedAppsListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Use:         "list",
 		Short:       "List Predefined Apps",
 		Long:        "List the catalogue of predefined SaaS application definitions. Not paginated. Pass the `id` as `predefinedAppId` when creating an App.",
-		Annotations: map[string]string{"jamf:privileges": "read:jsc:all"},
+		Annotations: map[string]string{"jamf:privileges": "read:jsc:all", "jamf:api": "platform-gateway"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err

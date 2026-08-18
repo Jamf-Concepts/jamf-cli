@@ -41,7 +41,8 @@ import (
 func New{{.GoName}}Cmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "{{.Name}}",
-		Short: "Manage {{.Name}} (Jamf Security Cloud)",
+		Short: "Manage {{.Name}} (Security Cloud · Radar API)",
+		Annotations: map[string]string{"jamf:api": "radar"},
 	}
 {{- range .Operations }}
 	cmd.AddCommand(new{{$.GoName}}{{.GoName}}Cmd(cliCtx))

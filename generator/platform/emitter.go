@@ -139,6 +139,11 @@ func Generate(resources []*parser.Resource, outputDir string) ([]string, error) 
 			if len(op.Privileges) > 0 {
 				pairs = append(pairs, fmt.Sprintf("%q: %q", "jamf:privileges", strings.Join(op.Privileges, ",")))
 			}
+			// Which API serves this command, and so which credentials it needs.
+			// Recorded per command rather than inferred from the namespace it is
+			// wired under, because `security` mixes two transports and `pro`
+			// mixes three.
+			pairs = append(pairs, fmt.Sprintf("%q: %q", "jamf:api", "platform-gateway"))
 			if len(pairs) == 0 {
 				return ""
 			}
@@ -317,19 +322,25 @@ func firstParagraph(s string) string {
 	return s
 }
 
-// apiLabel names the API a resource belongs to, for its help text. Everything
-// on the gateway is "Platform API" except Jamf Security Cloud, which is its own
-// product with its own tenant and credentials — calling those commands
-// "Platform API" under `security` would describe the transport, not the thing
-// being managed.
+// apiLabel names the API a resource is served by, for its help text.
+//
+// Under `security` this is load-bearing rather than decorative: the namespace
+// mixes commands reached through the platform gateway with commands reached
+// directly on the Radar API, and the two take different credentials. Cobra uses
+// Short as the shell-completion description, so naming the transport here is
+// what makes `security <TAB>` reveal which credentials a command needs.
 func apiLabel(ops []templateOp) string {
 	for _, op := range ops {
-		if op.Service == "securitycloud" {
-			return "Jamf Security Cloud"
+		if op.Service == securityCloudService {
+			return "Security Cloud · platform gateway"
 		}
 	}
 	return "Platform API"
 }
+
+// securityCloudService is the gateway namespace Jamf Security Cloud is served
+// under, and the value of the jamf:api annotation's gateway variant.
+const securityCloudService = "securitycloud"
 
 // serviceFromPath returns the gateway namespace segment of a full request path
 // ("/api/securitycloud/v1/tenant/{tenantId}/dns/zones" → "securitycloud").

@@ -21,9 +21,10 @@ import (
 // resource. Wire it into a product namespace via AddCommand.
 func NewDeclarationReportsCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "declaration-reports",
-		Short: "Manage declaration-reports (Platform API)",
-		Long:  "API for accessing device and declaration status reports",
+		Use:         "declaration-reports",
+		Short:       "Manage declaration-reports (Platform API)",
+		Long:        "API for accessing device and declaration status reports",
+		Annotations: map[string]string{"jamf:api": "platform-gateway"},
 	}
 	cmd.AddCommand(newDeclarationReportsGetCmd(cliCtx))
 	cmd.AddCommand(newDeclarationReportsDevicesCmd(cliCtx))
@@ -37,7 +38,7 @@ func newDeclarationReportsGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Use:         "get <declarationIdentifier>",
 		Short:       "Get declaration report devices",
 		Long:        "**Deprecated** — use `GET /v1/declarations/{declarationIdentifier}/devices` instead.",
-		Annotations: map[string]string{"jamf:privileges": "read:pro:declaration-reporting,read:school:declaration-reporting"},
+		Annotations: map[string]string{"jamf:privileges": "read:pro:declaration-reporting,read:school:declaration-reporting", "jamf:api": "platform-gateway"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
@@ -84,7 +85,7 @@ func newDeclarationReportsDevicesCmd(cliCtx *registry.CLIContext) *cobra.Command
 		Use:         "devices <declarationIdentifier>",
 		Short:       "Get filtered declaration report devices",
 		Long:        "Get a declaration report containing the filtered devices currently reporting the provided declarationIdentifier. Supports pagination, sorting, and filtering with RSQL syntax. **Filtering:** Filters only apply to declarations already on the device (excludes PENDING status). Supported filter fields: `deviceId`, `channel`, `lastReportTime`, `active`, `validityState`, `declarationType`, `dateUpdated`. **Sorting:** Use `?sort=field,direction` (e.g., `?sort=declarationType,asc`). For more information on RSQL, see [Jamf Developer Portal](https://developer.jamf.com)",
-		Annotations: map[string]string{"jamf:privileges": "read:pro:declaration-reporting,read:school:declaration-reporting"},
+		Annotations: map[string]string{"jamf:privileges": "read:pro:declaration-reporting,read:school:declaration-reporting", "jamf:api": "platform-gateway"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {

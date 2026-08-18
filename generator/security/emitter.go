@@ -57,10 +57,16 @@ func Generate(resources []*parser.Resource, scopeOf map[string]string, outputDir
 
 	tmpl, err := template.New("resource").Funcs(template.FuncMap{
 		"opAnnotations": func(op templateOp) string {
-			if !op.IsDestructive {
-				return ""
+			var pairs []string
+			if op.IsDestructive {
+				pairs = append(pairs, `"jamf:destructive": "true"`)
 			}
-			return `map[string]string{"jamf:destructive": "true"}`
+			// Which API serves this command, and so which credentials it needs.
+			// The `security` namespace also carries commands served through the
+			// platform gateway, which annotate themselves "platform-gateway";
+			// these reach Radar directly with per-API scoped credentials.
+			pairs = append(pairs, `"jamf:api": "radar"`)
+			return "map[string]string{" + strings.Join(pairs, ", ") + "}"
 		},
 	}).Parse(resourceTemplate)
 	if err != nil {

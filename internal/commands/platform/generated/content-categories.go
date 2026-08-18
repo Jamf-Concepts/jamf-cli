@@ -21,9 +21,10 @@ import (
 // resource. Wire it into a product namespace via AddCommand.
 func NewContentCategoriesCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "content-categories",
-		Short: "Manage content-categories (Jamf Security Cloud)",
-		Long:  "Generic JSC content categories — used as categoryName in ZTNA Apps",
+		Use:         "content-categories",
+		Short:       "Manage content-categories (Security Cloud · platform gateway)",
+		Long:        "Generic JSC content categories — used as categoryName in ZTNA Apps",
+		Annotations: map[string]string{"jamf:api": "platform-gateway"},
 	}
 	cmd.AddCommand(newContentCategoriesListCmd(cliCtx))
 	return cmd
@@ -34,7 +35,7 @@ func newContentCategoriesListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Use:         "list",
 		Short:       "List Categories",
 		Long:        "List all content categories available to this tenant. Not paginated.",
-		Annotations: map[string]string{"jamf:privileges": "read:jsc:all"},
+		Annotations: map[string]string{"jamf:privileges": "read:jsc:all", "jamf:api": "platform-gateway"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err

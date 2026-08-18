@@ -21,9 +21,10 @@ import (
 // resource. Wire it into a product namespace via AddCommand.
 func NewBlueprintComponentsCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "blueprint-components",
-		Short: "Manage blueprint-components (Platform API)",
-		Long:  "Blueprints simplify the creation of complex workflows by leveraging declarative device management to ensure devices meet a particular management state. You can use blueprints to scope management settings to devices using customizable components that include payloads and their configurable settings, all in one location.",
+		Use:         "blueprint-components",
+		Short:       "Manage blueprint-components (Platform API)",
+		Long:        "Blueprints simplify the creation of complex workflows by leveraging declarative device management to ensure devices meet a particular management state. You can use blueprints to scope management settings to devices using customizable components that include payloads and their configurable settings, all in one location.",
+		Annotations: map[string]string{"jamf:api": "platform-gateway"},
 	}
 	cmd.AddCommand(newBlueprintComponentsListCmd(cliCtx))
 	cmd.AddCommand(newBlueprintComponentsGetCmd(cliCtx))
@@ -35,7 +36,7 @@ func newBlueprintComponentsListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Use:         "list",
 		Short:       "List available blueprint components",
 		Long:        "Get list of available blueprint components",
-		Annotations: map[string]string{"jamf:privileges": "read:pro:blueprints,read:school:blueprints"},
+		Annotations: map[string]string{"jamf:privileges": "read:pro:blueprints,read:school:blueprints", "jamf:api": "platform-gateway"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err
@@ -84,7 +85,7 @@ func newBlueprintComponentsGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Use:         "get <identifier>",
 		Short:       "Get component",
 		Long:        "Get component by identifier",
-		Annotations: map[string]string{"jamf:privileges": "read:pro:blueprints,read:school:blueprints"},
+		Annotations: map[string]string{"jamf:privileges": "read:pro:blueprints,read:school:blueprints", "jamf:api": "platform-gateway"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {

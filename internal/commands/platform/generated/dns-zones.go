@@ -21,9 +21,10 @@ import (
 // resource. Wire it into a product namespace via AddCommand.
 func NewDnsZonesCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "dns-zones",
-		Short: "Manage dns-zones (Jamf Security Cloud)",
-		Long:  "Manage DNS Zones, Search Domains, and Custom Hostname Mappings",
+		Use:         "dns-zones",
+		Short:       "Manage dns-zones (Security Cloud · platform gateway)",
+		Long:        "Manage DNS Zones, Search Domains, and Custom Hostname Mappings",
+		Annotations: map[string]string{"jamf:api": "platform-gateway"},
 	}
 	cmd.AddCommand(newDnsZonesListCmd(cliCtx))
 	cmd.AddCommand(newDnsZonesCreateCmd(cliCtx))
@@ -39,7 +40,7 @@ func newDnsZonesListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Use:         "list",
 		Short:       "List DNS Zones",
 		Long:        "Returns the full list of DNS Zones configured for the tenant. The list is not paginated and is bounded by a per-customer maximum zone cap. The full bounded set is returned in a single response and `totalCount` reflects the complete set. Pagination is currently not supported.",
-		Annotations: map[string]string{"jamf:privileges": "read:jsc:all"},
+		Annotations: map[string]string{"jamf:privileges": "read:jsc:all", "jamf:api": "platform-gateway"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err
@@ -85,7 +86,7 @@ func newDnsZonesCreateCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Use:         "create",
 		Short:       "Create a DNS Zone",
 		Long:        "Creates a new DNS Zone for the tenant from the supplied definition. Returns a reference to the newly created Zone, including its identifier and canonical URL. A tenant may hold at most a per-customer maximum number of DNS Zones (value TBD); a request that would exceed this per-customer cap is rejected with 400 `LIST_SIZE_EXCEEDED`.",
-		Annotations: map[string]string{"jamf:privileges": "create:jsc:all"},
+		Annotations: map[string]string{"jamf:privileges": "create:jsc:all", "jamf:api": "platform-gateway"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if scaffoldFlag {
 				// Scaffold prints raw JSON regardless of -o, so the output
@@ -133,7 +134,7 @@ func newDnsZonesDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Use:         "delete <id>",
 		Short:       "Delete a DNS Zone",
 		Long:        "Deletes the DNS Zone identified by its UUID.",
-		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "delete:jsc:all"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "delete:jsc:all", "jamf:api": "platform-gateway"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
@@ -180,7 +181,7 @@ func newDnsZonesGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Use:         "get <id>",
 		Short:       "Get a DNS Zone",
 		Long:        "Returns a single DNS Zone identified by its UUID.",
-		Annotations: map[string]string{"jamf:privileges": "read:jsc:all"},
+		Annotations: map[string]string{"jamf:privileges": "read:jsc:all", "jamf:api": "platform-gateway"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
@@ -234,7 +235,7 @@ func newDnsZonesPatchCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Use:         "patch <id>",
 		Short:       "Update a DNS Zone",
 		Long:        "Partially updates a DNS Zone using JSON Merge Patch (RFC 7396). Any subset of the writable Zone fields may be supplied. A field set to a new value is overwritten; an omitted field is left unchanged; a field set to `null` clears it where the field is optional. Setting a required field to `null` is rejected (400, per ADG-302). No optimistic locking is in place for this release — consider ADG-148 (`VersionId` + `409 OPTIMISTIC_LOCK_FAILED`) in a follow-up if this becomes a concern.",
-		Annotations: map[string]string{"jamf:privileges": "update:jsc:all"},
+		Annotations: map[string]string{"jamf:privileges": "update:jsc:all", "jamf:api": "platform-gateway"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if scaffoldFlag {

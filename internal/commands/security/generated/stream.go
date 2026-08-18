@@ -19,8 +19,9 @@ import (
 // Security Cloud resource. Wire it into the "security" product command via AddCommand.
 func NewStreamCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "stream",
-		Short: "Manage stream (Jamf Security Cloud)",
+		Use:         "stream",
+		Short:       "Manage stream (Security Cloud · Radar API)",
+		Annotations: map[string]string{"jamf:api": "radar"},
 	}
 	cmd.AddCommand(newStreamGetCmd(cliCtx))
 	cmd.AddCommand(newStreamUpdateCmd(cliCtx))
@@ -30,8 +31,9 @@ func NewStreamCmd(cliCtx *registry.CLIContext) *cobra.Command {
 
 func newStreamGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "get",
-		Short: "Get the current event stream configuration",
+		Use:         "get",
+		Short:       "Get the current event stream configuration",
+		Annotations: map[string]string{"jamf:api": "radar"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			path := "/sse/v1/stream"
 			var body any
@@ -57,8 +59,9 @@ func newStreamUpdateCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	var setFlags []string
 	var scaffoldFlag bool
 	cmd := &cobra.Command{
-		Use:   "update",
-		Short: "Create or replace the event stream configuration",
+		Use:         "update",
+		Short:       "Create or replace the event stream configuration",
+		Annotations: map[string]string{"jamf:api": "radar"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if scaffoldFlag {
 				// Scaffold prints raw JSON regardless of -o, so the output
@@ -96,7 +99,7 @@ func newStreamDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "delete",
 		Short:       "Delete the event stream configuration",
-		Annotations: map[string]string{"jamf:destructive": "true"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:api": "radar"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			path := "/sse/v1/stream"
 			var body any

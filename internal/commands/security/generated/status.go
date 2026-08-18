@@ -19,8 +19,9 @@ import (
 // Security Cloud resource. Wire it into the "security" product command via AddCommand.
 func NewStatusCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "status",
-		Short: "Manage status (Jamf Security Cloud)",
+		Use:         "status",
+		Short:       "Manage status (Security Cloud · Radar API)",
+		Annotations: map[string]string{"jamf:api": "radar"},
 	}
 	cmd.AddCommand(newStatusGetCmd(cliCtx))
 	cmd.AddCommand(newStatusUpdateCmd(cliCtx))
@@ -29,8 +30,9 @@ func NewStatusCmd(cliCtx *registry.CLIContext) *cobra.Command {
 
 func newStatusGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "get",
-		Short: "Get the current stream status",
+		Use:         "get",
+		Short:       "Get the current stream status",
+		Annotations: map[string]string{"jamf:api": "radar"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			path := "/sse/v1/status"
 			var body any
@@ -56,8 +58,9 @@ func newStatusUpdateCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	var setFlags []string
 	var scaffoldFlag bool
 	cmd := &cobra.Command{
-		Use:   "update",
-		Short: "Update the stream status",
+		Use:         "update",
+		Short:       "Update the stream status",
+		Annotations: map[string]string{"jamf:api": "radar"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if scaffoldFlag {
 				// Scaffold prints raw JSON regardless of -o, so the output

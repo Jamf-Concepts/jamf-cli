@@ -19,8 +19,9 @@ import (
 // Security Cloud resource. Wire it into the "security" product command via AddCommand.
 func NewRiskCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "risk",
-		Short: "Manage risk (Jamf Security Cloud)",
+		Use:         "risk",
+		Short:       "Manage risk (Security Cloud · Radar API)",
+		Annotations: map[string]string{"jamf:api": "radar"},
 	}
 	cmd.AddCommand(newRiskListCmd(cliCtx))
 	cmd.AddCommand(newRiskOverrideCmd(cliCtx))
@@ -31,8 +32,9 @@ func newRiskListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	var externalId string
 	var guid string
 	cmd := &cobra.Command{
-		Use:   "list",
-		Short: "List device risk status",
+		Use:         "list",
+		Short:       "List device risk status",
+		Annotations: map[string]string{"jamf:api": "radar"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			path := "/risk/v2/devices"
 			var body any
@@ -83,8 +85,9 @@ func newRiskOverrideCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	var setFlags []string
 	var scaffoldFlag bool
 	cmd := &cobra.Command{
-		Use:   "override",
-		Short: "Override calculated device risk",
+		Use:         "override",
+		Short:       "Override calculated device risk",
+		Annotations: map[string]string{"jamf:api": "radar"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if scaffoldFlag {
 				// Scaffold prints raw JSON regardless of -o, so the output

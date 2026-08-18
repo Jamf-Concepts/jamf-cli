@@ -21,9 +21,10 @@ import (
 // resource. Wire it into a product namespace via AddCommand.
 func NewBlueprintsCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "blueprints",
-		Short: "Manage blueprints (Platform API)",
-		Long:  "Blueprints simplify the creation of complex workflows by leveraging declarative device management to ensure devices meet a particular management state. You can use blueprints to scope management settings to devices using customizable components that include payloads and their configurable settings, all in one location.",
+		Use:         "blueprints",
+		Short:       "Manage blueprints (Platform API)",
+		Long:        "Blueprints simplify the creation of complex workflows by leveraging declarative device management to ensure devices meet a particular management state. You can use blueprints to scope management settings to devices using customizable components that include payloads and their configurable settings, all in one location.",
+		Annotations: map[string]string{"jamf:api": "platform-gateway"},
 	}
 	cmd.AddCommand(newBlueprintsListCmd(cliCtx))
 	cmd.AddCommand(newBlueprintsCreateCmd(cliCtx))
@@ -43,7 +44,7 @@ func newBlueprintsListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Use:         "list",
 		Short:       "List blueprints",
 		Long:        "Get list of blueprints",
-		Annotations: map[string]string{"jamf:privileges": "read:pro:blueprints,read:school:blueprints"},
+		Annotations: map[string]string{"jamf:privileges": "read:pro:blueprints,read:school:blueprints", "jamf:api": "platform-gateway"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err
@@ -110,7 +111,7 @@ func newBlueprintsCreateCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Use:         "create",
 		Short:       "Create a new blueprint",
 		Long:        "Create a new blueprint",
-		Annotations: map[string]string{"jamf:privileges": "create:pro:blueprints,create:school:blueprints"},
+		Annotations: map[string]string{"jamf:privileges": "create:pro:blueprints,create:school:blueprints", "jamf:api": "platform-gateway"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if scaffoldFlag {
 				// Scaffold prints raw JSON regardless of -o, so the output
@@ -158,7 +159,7 @@ func newBlueprintsDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Use:         "delete <blueprintId>",
 		Short:       "Delete a blueprint",
 		Long:        "Delete a blueprint",
-		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "delete:pro:blueprints,delete:school:blueprints"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "delete:pro:blueprints,delete:school:blueprints", "jamf:api": "platform-gateway"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
@@ -205,7 +206,7 @@ func newBlueprintsGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Use:         "get <blueprintId>",
 		Short:       "Get a blueprint",
 		Long:        "Get a blueprint",
-		Annotations: map[string]string{"jamf:privileges": "read:pro:blueprints,read:school:blueprints"},
+		Annotations: map[string]string{"jamf:privileges": "read:pro:blueprints,read:school:blueprints", "jamf:api": "platform-gateway"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
@@ -259,7 +260,7 @@ func newBlueprintsPatchCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Use:         "patch <blueprintId>",
 		Short:       "Updates a blueprint configuration",
 		Long:        "Updates a blueprint configuration.",
-		Annotations: map[string]string{"jamf:privileges": "update:pro:blueprints,update:school:blueprints"},
+		Annotations: map[string]string{"jamf:privileges": "update:pro:blueprints,update:school:blueprints", "jamf:api": "platform-gateway"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if scaffoldFlag {
@@ -314,7 +315,7 @@ func newBlueprintsDeployCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Use:         "deploy <blueprintId>",
 		Short:       "Deploy blueprint",
 		Long:        "Deploy blueprint",
-		Annotations: map[string]string{"jamf:privileges": "deploy:pro:blueprints,deploy:school:blueprints"},
+		Annotations: map[string]string{"jamf:privileges": "deploy:pro:blueprints,deploy:school:blueprints", "jamf:api": "platform-gateway"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
@@ -357,7 +358,7 @@ func newBlueprintsReportCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Use:         "report <blueprintId>",
 		Short:       "Get blueprint status report",
 		Long:        "Retrieve deployment status report for a specified blueprint.",
-		Annotations: map[string]string{"jamf:privileges": "read:pro:blueprints,read:school:blueprints"},
+		Annotations: map[string]string{"jamf:privileges": "read:pro:blueprints,read:school:blueprints", "jamf:api": "platform-gateway"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
@@ -408,7 +409,7 @@ func newBlueprintsUndeployCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Use:         "undeploy <blueprintId>",
 		Short:       "Undeploy blueprint",
 		Long:        "Undeploy blueprint",
-		Annotations: map[string]string{"jamf:privileges": "deploy:pro:blueprints,deploy:school:blueprints"},
+		Annotations: map[string]string{"jamf:privileges": "deploy:pro:blueprints,deploy:school:blueprints", "jamf:api": "platform-gateway"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {

@@ -21,9 +21,10 @@ import (
 // resource. Wire it into a product namespace via AddCommand.
 func NewZtnaGatewaysCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "ztna-gateways",
-		Short: "Manage ztna-gateways (Jamf Security Cloud)",
-		Long:  "Manage ZTNA Gateways, Grouped Gateways, Apps, and Predefined Apps",
+		Use:         "ztna-gateways",
+		Short:       "Manage ztna-gateways (Security Cloud · platform gateway)",
+		Long:        "Manage ZTNA Gateways, Grouped Gateways, Apps, and Predefined Apps",
+		Annotations: map[string]string{"jamf:api": "platform-gateway"},
 	}
 	cmd.AddCommand(newZtnaGatewaysListCmd(cliCtx))
 	cmd.AddCommand(newZtnaGatewaysCreateCmd(cliCtx))
@@ -38,7 +39,7 @@ func newZtnaGatewaysListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Use:         "list",
 		Short:       "List Gateways",
 		Long:        "List dedicated Gateways for the tenant, paginated. Returns only customer-owned gateways. Each item includes datacenter, availability zones, IPSec configuration, and operational status.",
-		Annotations: map[string]string{"jamf:privileges": "read:jsc:all"},
+		Annotations: map[string]string{"jamf:privileges": "read:jsc:all", "jamf:api": "platform-gateway"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err
@@ -89,7 +90,7 @@ func newZtnaGatewaysCreateCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Use:         "create",
 		Short:       "Create a Gateway",
 		Long:        "Create a dedicated Gateway. Returns `201 {id, href}` + `Location` header.",
-		Annotations: map[string]string{"jamf:privileges": "create:jsc:all"},
+		Annotations: map[string]string{"jamf:privileges": "create:jsc:all", "jamf:api": "platform-gateway"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if scaffoldFlag {
 				// Scaffold prints raw JSON regardless of -o, so the output
@@ -137,7 +138,7 @@ func newZtnaGatewaysDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Use:         "delete <gatewayId>",
 		Short:       "Delete a Gateway",
 		Long:        "Delete a dedicated Gateway. Returns `204` on success. Returns `404` if the gateway does not exist or belongs to a different tenant — never `403`. Returns `409` if the gateway is still referenced by an App, a Grouped Gateway, or a DNS Zone — disassociate it first, then retry.",
-		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "delete:jsc:all"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "delete:jsc:all", "jamf:api": "platform-gateway"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
@@ -184,7 +185,7 @@ func newZtnaGatewaysGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Use:         "get <gatewayId>",
 		Short:       "Get a Gateway",
 		Long:        "Get a single dedicated Gateway. All fields are flat at the top level. Returns `404` if the gateway does not exist **or belongs to a different tenant** — never `403`, to avoid confirming the existence of gateways owned by other tenants (Gateway IDs are 16-bit enumerable; a `403` would be an existence oracle).",
-		Annotations: map[string]string{"jamf:privileges": "read:jsc:all"},
+		Annotations: map[string]string{"jamf:privileges": "read:jsc:all", "jamf:api": "platform-gateway"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
@@ -238,7 +239,7 @@ func newZtnaGatewaysPatchCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Use:         "patch <gatewayId>",
 		Short:       "Partially update a Gateway",
 		Long:        "Partially update a dedicated Gateway. All fields are optional — flat body, no nesting.",
-		Annotations: map[string]string{"jamf:privileges": "update:jsc:all"},
+		Annotations: map[string]string{"jamf:privileges": "update:jsc:all", "jamf:api": "platform-gateway"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if scaffoldFlag {

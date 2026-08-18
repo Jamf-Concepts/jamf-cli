@@ -19,8 +19,9 @@ import (
 // Security Cloud resource. Wire it into the "security" product command via AddCommand.
 func NewVerificationCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "verification",
-		Short: "Manage verification (Jamf Security Cloud)",
+		Use:         "verification",
+		Short:       "Manage verification (Security Cloud · Radar API)",
+		Annotations: map[string]string{"jamf:api": "radar"},
 	}
 	cmd.AddCommand(newVerificationTriggerCmd(cliCtx))
 	return cmd
@@ -31,8 +32,9 @@ func newVerificationTriggerCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	var setFlags []string
 	var scaffoldFlag bool
 	cmd := &cobra.Command{
-		Use:   "trigger",
-		Short: "Trigger SSE stream verification",
+		Use:         "trigger",
+		Short:       "Trigger SSE stream verification",
+		Annotations: map[string]string{"jamf:api": "radar"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if scaffoldFlag {
 				// Scaffold prints raw JSON regardless of -o, so the output

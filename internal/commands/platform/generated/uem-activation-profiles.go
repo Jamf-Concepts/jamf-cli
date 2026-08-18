@@ -21,9 +21,10 @@ import (
 // resource. Wire it into a product namespace via AddCommand.
 func NewUemActivationProfilesCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "uem-activation-profiles",
-		Short: "Manage uem-activation-profiles (Jamf Security Cloud)",
-		Long:  "API for managing UEM Connect connectors",
+		Use:         "uem-activation-profiles",
+		Short:       "Manage uem-activation-profiles (Security Cloud · platform gateway)",
+		Long:        "API for managing UEM Connect connectors",
+		Annotations: map[string]string{"jamf:api": "platform-gateway"},
 	}
 	cmd.AddCommand(newUemActivationProfilesDeployToUemCmd(cliCtx))
 	return cmd
@@ -37,7 +38,7 @@ func newUemActivationProfilesDeployToUemCmd(cliCtx *registry.CLIContext) *cobra.
 		Use:         "deploy-to-uem <code>",
 		Short:       "Deploy Jamf Security configuration profiles to UEM",
 		Long:        "Deploys Jamf Security configuration profiles to the UEM platform for the specified activation profile. This is the final step of automated UEM Connect onboarding.",
-		Annotations: map[string]string{"jamf:privileges": "update:jsc:all"},
+		Annotations: map[string]string{"jamf:privileges": "update:jsc:all", "jamf:api": "platform-gateway"},
 		Args: func(cmd *cobra.Command, args []string) error {
 			if scaffoldFlag {
 				return nil

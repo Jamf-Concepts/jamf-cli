@@ -21,9 +21,10 @@ import (
 // resource. Wire it into a product namespace via AddCommand.
 func NewUemConnectorEnablementCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "uem-connector-enablement",
-		Short: "Manage uem-connector-enablement (Jamf Security Cloud)",
-		Long:  "API for managing UEM Connect connectors",
+		Use:         "uem-connector-enablement",
+		Short:       "Manage uem-connector-enablement (Security Cloud · platform gateway)",
+		Long:        "API for managing UEM Connect connectors",
+		Annotations: map[string]string{"jamf:api": "platform-gateway"},
 	}
 	cmd.AddCommand(newUemConnectorEnablementDisableCmd(cliCtx))
 	cmd.AddCommand(newUemConnectorEnablementEnableCmd(cliCtx))
@@ -35,7 +36,7 @@ func newUemConnectorEnablementDisableCmd(cliCtx *registry.CLIContext) *cobra.Com
 		Use:         "disable <configId>",
 		Short:       "Disable connector synchronization",
 		Long:        "Disables the specified connector to pause data synchronization between JSC and the UEM platform. This operation is idempotent — disabling an already-disabled connector succeeds.",
-		Annotations: map[string]string{"jamf:privileges": "update:jsc:all"},
+		Annotations: map[string]string{"jamf:privileges": "update:jsc:all", "jamf:api": "platform-gateway"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
@@ -66,7 +67,7 @@ func newUemConnectorEnablementEnableCmd(cliCtx *registry.CLIContext) *cobra.Comm
 		Use:         "enable <configId>",
 		Short:       "Enable connector synchronization",
 		Long:        "Sets the enablement state of the specified connector. Send `enabled: true` to resume data synchronization between JSC and the UEM platform, or `enabled: false` to pause it. This operation is idempotent.",
-		Annotations: map[string]string{"jamf:privileges": "update:jsc:all"},
+		Annotations: map[string]string{"jamf:privileges": "update:jsc:all", "jamf:api": "platform-gateway"},
 		Args: func(cmd *cobra.Command, args []string) error {
 			if scaffoldFlag {
 				return nil

@@ -21,9 +21,10 @@ import (
 // resource. Wire it into a product namespace via AddCommand.
 func NewBaselinesCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "baselines",
-		Short: "Manage baselines (Platform API)",
-		Long:  "Jamf Compliance Benchmarks API allows you to manage, enforce, and validate compliance on Apple devices",
+		Use:         "baselines",
+		Short:       "Manage baselines (Platform API)",
+		Long:        "Jamf Compliance Benchmarks API allows you to manage, enforce, and validate compliance on Apple devices",
+		Annotations: map[string]string{"jamf:api": "platform-gateway"},
 	}
 	cmd.AddCommand(newBaselinesListCmd(cliCtx))
 	return cmd
@@ -34,7 +35,7 @@ func newBaselinesListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Use:         "list",
 		Short:       "Return list of the mSCP baselines",
 		Long:        "Return list of the mSCP baselines allowed for the Compliance benchmarks",
-		Annotations: map[string]string{"jamf:privileges": "read:pro:compliance-benchmarks"},
+		Annotations: map[string]string{"jamf:privileges": "read:pro:compliance-benchmarks", "jamf:api": "platform-gateway"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err

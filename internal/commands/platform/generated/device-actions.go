@@ -21,9 +21,10 @@ import (
 // resource. Wire it into a product namespace via AddCommand.
 func NewDeviceActionsCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "device-actions",
-		Short: "Manage device-actions (Platform API)",
-		Long:  "API for invoking common management tasks against managed devices",
+		Use:         "device-actions",
+		Short:       "Manage device-actions (Platform API)",
+		Long:        "API for invoking common management tasks against managed devices",
+		Annotations: map[string]string{"jamf:api": "platform-gateway"},
 	}
 	cmd.AddCommand(newDeviceActionsCheckInCmd(cliCtx))
 	cmd.AddCommand(newDeviceActionsEraseCmd(cliCtx))
@@ -38,7 +39,7 @@ func newDeviceActionsCheckInCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Use:         "check-in <id>",
 		Short:       "Request a device check in",
 		Long:        "Requests that a device check for pending commands",
-		Annotations: map[string]string{"jamf:privileges": "execute:pro:device-actions"},
+		Annotations: map[string]string{"jamf:privileges": "execute:pro:device-actions", "jamf:api": "platform-gateway"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
@@ -70,7 +71,7 @@ func newDeviceActionsEraseCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Use:         "erase <id>",
 		Short:       "Erase a device",
 		Long:        "Requests that a device erase its content and settings",
-		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "execute:pro:device-actions"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "execute:pro:device-actions", "jamf:api": "platform-gateway"},
 		Args: func(cmd *cobra.Command, args []string) error {
 			if scaffoldFlag {
 				return nil
@@ -128,7 +129,7 @@ func newDeviceActionsRestartCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Use:         "restart <id>",
 		Short:       "Restart a device",
 		Long:        "Requests that a device restart",
-		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "execute:pro:device-actions"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "execute:pro:device-actions", "jamf:api": "platform-gateway"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
@@ -169,7 +170,7 @@ func newDeviceActionsShutdownCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Use:         "shutdown <id>",
 		Short:       "Shut down a device",
 		Long:        "Requests that a device shut down",
-		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "execute:pro:device-actions"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "execute:pro:device-actions", "jamf:api": "platform-gateway"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
@@ -210,7 +211,7 @@ func newDeviceActionsUnmanageCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Use:         "unmanage <id>",
 		Short:       "Unmanage a device",
 		Long:        "Removes remote management from a device",
-		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "execute:pro:device-actions"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "execute:pro:device-actions", "jamf:api": "platform-gateway"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {

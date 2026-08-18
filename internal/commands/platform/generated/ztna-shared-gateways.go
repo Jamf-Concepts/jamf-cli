@@ -21,9 +21,10 @@ import (
 // resource. Wire it into a product namespace via AddCommand.
 func NewZtnaSharedGatewaysCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "ztna-shared-gateways",
-		Short: "Manage ztna-shared-gateways (Jamf Security Cloud)",
-		Long:  "Manage ZTNA Gateways, Grouped Gateways, Apps, and Predefined Apps",
+		Use:         "ztna-shared-gateways",
+		Short:       "Manage ztna-shared-gateways (Security Cloud · platform gateway)",
+		Long:        "Manage ZTNA Gateways, Grouped Gateways, Apps, and Predefined Apps",
+		Annotations: map[string]string{"jamf:api": "platform-gateway"},
 	}
 	cmd.AddCommand(newZtnaSharedGatewaysListCmd(cliCtx))
 	return cmd
@@ -34,7 +35,7 @@ func newZtnaSharedGatewaysListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Use:         "list",
 		Short:       "List Shared Gateways",
 		Long:        "List Jamf-managed Shared Gateways available to this tenant. Not paginated — the full list is returned in a single response. Returns `id` and `name` only — no deployment details. These gateways are maintained by Jamf infrastructure and cannot be modified.",
-		Annotations: map[string]string{"jamf:privileges": "read:jsc:all"},
+		Annotations: map[string]string{"jamf:privileges": "read:jsc:all", "jamf:api": "platform-gateway"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err

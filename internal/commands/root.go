@@ -874,6 +874,10 @@ type commandEntry struct {
 	Group       string   `json:"group,omitempty"`
 	Destructive bool     `json:"destructive,omitempty"`
 	Privileges  []string `json:"privileges,omitempty"`
+	// API is which Jamf API serves the command, and so which credentials it
+	// needs — "platform-gateway" or "radar". It matters most under `security`,
+	// where both appear side by side and take different credentials.
+	API string `json:"api,omitempty"`
 }
 
 // isFullDetailFormat reports whether an output format carries the full
@@ -949,6 +953,7 @@ func collectCommands(cmd *cobra.Command, prefix, product, group string) []comman
 				Group:       childGroup,
 				Destructive: child.Annotations["jamf:destructive"] == "true",
 				Privileges:  privileges,
+				API:         child.Annotations["jamf:api"],
 			}
 
 			// Collect aliases: for leaf commands under a top-level group
@@ -1015,6 +1020,12 @@ func commandEntriesToMaps(entries []commandEntry, full bool) []map[string]any {
 			// signal; CSV/table may not surface it (column set derives from row 0).
 			if len(e.Privileges) > 0 {
 				m["privileges"] = e.Privileges
+			}
+			// Positive-only for the same reason as privileges: hand-written
+			// commands declare no API, and an empty string in every row would
+			// read as a claim rather than an absence.
+			if e.API != "" {
+				m["api"] = e.API
 			}
 		}
 		result[i] = m

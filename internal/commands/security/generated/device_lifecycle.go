@@ -19,8 +19,9 @@ import (
 // Security Cloud resource. Wire it into the "security" product command via AddCommand.
 func NewDeviceLifecycleCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "device-lifecycle",
-		Short: "Manage device-lifecycle (Jamf Security Cloud)",
+		Use:         "device-lifecycle",
+		Short:       "Manage device-lifecycle (Security Cloud · Radar API)",
+		Annotations: map[string]string{"jamf:api": "radar"},
 	}
 	cmd.AddCommand(newDeviceLifecyclePurgeCmd(cliCtx))
 	return cmd
@@ -34,7 +35,7 @@ func newDeviceLifecyclePurgeCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "purge",
 		Short:       "Purge devices from Jamf Security Cloud",
-		Annotations: map[string]string{"jamf:destructive": "true"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:api": "radar"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if scaffoldFlag {
 				// Scaffold prints raw JSON regardless of -o, so the output

@@ -21,9 +21,10 @@ import (
 // resource. Wire it into a product namespace via AddCommand.
 func NewUemSyncSettingsCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "uem-sync-settings",
-		Short: "Manage uem-sync-settings (Jamf Security Cloud)",
-		Long:  "API for managing UEM Connect connectors",
+		Use:         "uem-sync-settings",
+		Short:       "Manage uem-sync-settings (Security Cloud · platform gateway)",
+		Long:        "API for managing UEM Connect connectors",
+		Annotations: map[string]string{"jamf:api": "platform-gateway"},
 	}
 	cmd.AddCommand(newUemSyncSettingsGetCmd(cliCtx))
 	cmd.AddCommand(newUemSyncSettingsUpdateCmd(cliCtx))
@@ -35,7 +36,7 @@ func newUemSyncSettingsGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Use:         "get <configId>",
 		Short:       "Get connector sync settings",
 		Long:        "Returns the current connector configuration including sync settings.",
-		Annotations: map[string]string{"jamf:privileges": "read:jsc:all"},
+		Annotations: map[string]string{"jamf:privileges": "read:jsc:all", "jamf:api": "platform-gateway"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
@@ -74,7 +75,7 @@ func newUemSyncSettingsUpdateCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Use:         "update <configId>",
 		Short:       "Update connector sync settings",
 		Long:        "Updates the sync settings for the specified connector. Supported settings vary by UEM vendor. Updated settings take effect on the next sync operation.",
-		Annotations: map[string]string{"jamf:privileges": "update:jsc:all"},
+		Annotations: map[string]string{"jamf:privileges": "update:jsc:all", "jamf:api": "platform-gateway"},
 		Args: func(cmd *cobra.Command, args []string) error {
 			if scaffoldFlag {
 				return nil

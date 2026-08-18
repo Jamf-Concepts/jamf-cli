@@ -21,9 +21,10 @@ import (
 // resource. Wire it into a product namespace via AddCommand.
 func NewBenchmarkReportsCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "benchmark-reports",
-		Short: "Manage benchmark-reports (Platform API)",
-		Long:  "Jamf Compliance Benchmarks API allows you to manage, enforce, and validate compliance on Apple devices",
+		Use:         "benchmark-reports",
+		Short:       "Manage benchmark-reports (Platform API)",
+		Long:        "Jamf Compliance Benchmarks API allows you to manage, enforce, and validate compliance on Apple devices",
+		Annotations: map[string]string{"jamf:api": "platform-gateway"},
 	}
 	cmd.AddCommand(newBenchmarkReportsCompliancePercentageCmd(cliCtx))
 	cmd.AddCommand(newBenchmarkReportsDevicesCmd(cliCtx))
@@ -37,7 +38,7 @@ func newBenchmarkReportsCompliancePercentageCmd(cliCtx *registry.CLIContext) *co
 		Use:         "compliance-percentage <id>",
 		Short:       "Get compliance percentage for a benchmark report",
 		Long:        "Calculate and return the overall compliance percentage for a specific benchmark report as sum of device compliance scores divided by number of devices",
-		Annotations: map[string]string{"jamf:privileges": "read:pro:compliance-benchmarks"},
+		Annotations: map[string]string{"jamf:privileges": "read:pro:compliance-benchmarks", "jamf:api": "platform-gateway"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
@@ -92,7 +93,7 @@ func newBenchmarkReportsDevicesCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Use:         "devices <id>",
 		Short:       "Get devices for a benchmark report rule",
 		Long:        "Provide devices filtered report for a specific benchmark rule",
-		Annotations: map[string]string{"jamf:privileges": "read:pro:compliance-benchmarks"},
+		Annotations: map[string]string{"jamf:privileges": "read:pro:compliance-benchmarks", "jamf:api": "platform-gateway"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
@@ -176,7 +177,7 @@ func newBenchmarkReportsRulesCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Use:         "rules <id>",
 		Short:       "Get benchmark rules for a tenant",
 		Long:        "Provide benchmark rules stats for a specific benchmark",
-		Annotations: map[string]string{"jamf:privileges": "read:pro:compliance-benchmarks"},
+		Annotations: map[string]string{"jamf:privileges": "read:pro:compliance-benchmarks", "jamf:api": "platform-gateway"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {

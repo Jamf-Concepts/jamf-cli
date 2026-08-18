@@ -21,9 +21,10 @@ import (
 // resource. Wire it into a product namespace via AddCommand.
 func NewDnsSearchDomainsCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "dns-search-domains",
-		Short: "Manage dns-search-domains (Jamf Security Cloud)",
-		Long:  "Manage DNS Zones, Search Domains, and Custom Hostname Mappings",
+		Use:         "dns-search-domains",
+		Short:       "Manage dns-search-domains (Security Cloud · platform gateway)",
+		Long:        "Manage DNS Zones, Search Domains, and Custom Hostname Mappings",
+		Annotations: map[string]string{"jamf:api": "platform-gateway"},
 	}
 	cmd.AddCommand(newDnsSearchDomainsDeleteCmd(cliCtx))
 	cmd.AddCommand(newDnsSearchDomainsGetCmd(cliCtx))
@@ -37,7 +38,7 @@ func newDnsSearchDomainsDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Use:         "delete",
 		Short:       "Clear the Search Domain",
 		Long:        "Clears the tenant Search Domain, removing the configured suffix.",
-		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "delete:jsc:all"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "delete:jsc:all", "jamf:api": "platform-gateway"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err
@@ -67,7 +68,7 @@ func newDnsSearchDomainsGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Use:         "get",
 		Short:       "Get the Search Domain",
 		Long:        "Returns the tenant Search Domain — a singleton resource holding a single optional search-domain suffix. Returns 200 with the search domain when one is set, or 404 when none is set.",
-		Annotations: map[string]string{"jamf:privileges": "read:jsc:all"},
+		Annotations: map[string]string{"jamf:privileges": "read:jsc:all", "jamf:api": "platform-gateway"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err
@@ -104,7 +105,7 @@ func newDnsSearchDomainsUpdateCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Use:         "update",
 		Short:       "Set the Search Domain",
 		Long:        "Sets the tenant Search Domain to the supplied suffix. Any previously set search domain is overwritten.",
-		Annotations: map[string]string{"jamf:privileges": "update:jsc:all"},
+		Annotations: map[string]string{"jamf:privileges": "update:jsc:all", "jamf:api": "platform-gateway"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if scaffoldFlag {
 				// Scaffold prints raw JSON regardless of -o, so the output

@@ -3,6 +3,7 @@
 package commands
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/spf13/cobra"
@@ -69,6 +70,62 @@ func TestSecurityGatewayServedCommandsPresent(t *testing.T) {
 	for _, name := range gatewayServedSecurityResources {
 		if findSubcommand(security, name) == nil {
 			t.Errorf("security command %q not wired — add it in security.go", name)
+		}
+	}
+}
+
+// TestSecurityCommandsDeclareTheirAPI asserts every command under `security`
+// records which API serves it.
+//
+// The namespace mixes two transports with different credentials: the
+// gateway-served resources take platform client-credentials plus a Security
+// Cloud tenant ID, the Radar-served ones take per-API scoped pairs. Cobra shows
+// Short as the shell-completion description, so that label is how someone
+// typing `security <TAB>` learns which applies — and jamf:api is the
+// machine-readable half of the same fact, consumed by the commands catalog.
+//
+// Both halves come from the generators, so a refresh that adds a resource gets
+// them for free; this fails if one is ever emitted without the other.
+func TestSecurityCommandsDeclareTheirAPI(t *testing.T) {
+	security := findSecurityCmd(t)
+
+	gatewayServed := make(map[string]bool, len(gatewayServedSecurityResources))
+	for _, name := range gatewayServedSecurityResources {
+		gatewayServed[name] = true
+	}
+
+	for _, cmd := range security.Commands() {
+		switch cmd.Name() {
+		case "help", "setup":
+			// setup writes credentials to config and the keychain; it calls
+			// neither API, so it declares neither.
+			continue
+		}
+
+		want := "radar"
+		wantLabel := "Radar API"
+		if gatewayServed[cmd.Name()] {
+			want = "platform-gateway"
+			wantLabel = "platform gateway"
+		}
+
+		if got := cmd.Annotations["jamf:api"]; got != want {
+			t.Errorf("security %s: jamf:api = %q, want %q", cmd.Name(), got, want)
+		}
+		if !strings.Contains(cmd.Short, wantLabel) {
+			t.Errorf("security %s: Short %q does not name its API (%q) — shell completion shows this string",
+				cmd.Name(), cmd.Short, wantLabel)
+		}
+
+		// Subcommands inherit nothing from the parent, and they are what a
+		// 403 sends someone looking, so they carry the annotation too.
+		for _, sub := range cmd.Commands() {
+			if sub.Name() == "help" {
+				continue
+			}
+			if got := sub.Annotations["jamf:api"]; got != want {
+				t.Errorf("security %s %s: jamf:api = %q, want %q", cmd.Name(), sub.Name(), got, want)
+			}
 		}
 	}
 }
