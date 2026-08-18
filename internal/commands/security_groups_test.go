@@ -8,6 +8,17 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// gatewayServedSecurityResources are the Security Cloud resources reached
+// through the platform gateway rather than api.wandera.com.
+var gatewayServedSecurityResources = []string{
+	"dns-zones", "dns-search-domains", "dns-custom-hostname-mappings",
+	"ztna-apps", "ztna-gateways", "ztna-grouped-gateways",
+	"ztna-shared-gateways", "ztna-predefined-apps",
+	"content-categories", "device-groups",
+	"uem-connectors", "uem-connector-enablement",
+	"uem-sync-settings", "uem-sync", "uem-activation-profiles",
+}
+
 func findSecurityCmd(t *testing.T) *cobra.Command {
 	t.Helper()
 	root := NewRootCmd("test", "abc123", "2024-01-01", "unknown")
@@ -55,14 +66,7 @@ func TestSecurityGroups_GroupsRegistered(t *testing.T) {
 func TestSecurityGatewayServedCommandsPresent(t *testing.T) {
 	security := findSecurityCmd(t)
 
-	for _, name := range []string{
-		"dns-zones", "dns-search-domains", "dns-custom-hostname-mappings",
-		"ztna-apps", "ztna-gateways", "ztna-grouped-gateways",
-		"ztna-shared-gateways", "ztna-predefined-apps",
-		"content-categories", "device-groups",
-		"uem-connectors", "uem-connector-enablement",
-		"uem-sync-settings", "uem-sync", "uem-activation-profiles",
-	} {
+	for _, name := range gatewayServedSecurityResources {
 		if findSubcommand(security, name) == nil {
 			t.Errorf("security command %q not wired — add it in security.go", name)
 		}
