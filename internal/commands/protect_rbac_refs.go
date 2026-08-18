@@ -82,7 +82,10 @@ func groupToExport(g *jamfprotect.Group) groupExport {
 }
 
 func groupExportToInput(ctx context.Context, e groupExport, r *protect.Resolver) (jamfprotect.GroupInput, error) {
-	input := jamfprotect.GroupInput{Name: e.Name, AccessGroup: e.AccessGroup}
+	// The reference lists must marshal as arrays even when empty: the API rejects
+	// a null with "input → roleIds: None is not of type 'array'", which a group
+	// or user carrying no direct roles would otherwise hit.
+	input := jamfprotect.GroupInput{Name: e.Name, AccessGroup: e.AccessGroup, RoleIDs: []string{}}
 
 	if e.Connection != "" {
 		id, err := r.ResolveConnectionID(ctx, e.Connection)
@@ -142,6 +145,8 @@ func userExportToInput(ctx context.Context, e userExport, r *protect.Resolver) (
 		Email:                 e.Email,
 		ReceiveEmailAlert:     e.ReceiveEmailAlert,
 		EmailAlertMinSeverity: e.EmailAlertMinSeverity,
+		RoleIDs:               []string{},
+		GroupIDs:              []string{},
 	}
 
 	if e.Connection != "" {
@@ -195,7 +200,7 @@ func apiClientToExport(a *jamfprotect.ApiClient) apiClientExport {
 }
 
 func apiClientExportToInput(ctx context.Context, e apiClientExport, r *protect.Resolver) (jamfprotect.ApiClientInput, error) {
-	input := jamfprotect.ApiClientInput{Name: e.Name}
+	input := jamfprotect.ApiClientInput{Name: e.Name, RoleIDs: []string{}}
 	for _, name := range e.Roles {
 		id, err := r.ResolveRoleID(ctx, name)
 		if err != nil {

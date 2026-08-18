@@ -205,3 +205,44 @@ func renderExportForTest(v any) (string, error) {
 	}
 	return string(data), nil
 }
+
+// A user may belong to groups without holding any direct role. The reference
+// lists must still marshal as arrays: the API rejects a null outright with
+// "input → roleIds: None is not of type 'array'".
+func TestUserInputFromDocument_EmptyReferenceListsAreNotNil(t *testing.T) {
+	doc := []byte(`{"email":"a@example.com","groups":["Default"]}`)
+
+	got, err := userInputFromDocument(context.Background(), doc, protect.NewResolver(rbacMock()))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got.RoleIDs == nil {
+		t.Error("RoleIDs is nil — it must be an empty slice so it marshals as []")
+	}
+	if len(got.RoleIDs) != 0 {
+		t.Errorf("RoleIDs = %v, want empty", got.RoleIDs)
+	}
+	if len(got.GroupIDs) != 1 || got.GroupIDs[0] != "10" {
+		t.Errorf("GroupIDs = %v, want [10]", got.GroupIDs)
+	}
+}
+
+func TestGroupInputFromDocument_EmptyRolesAreNotNil(t *testing.T) {
+	got, err := groupInputFromDocument(context.Background(), []byte(`{"name":"Empty"}`), protect.NewResolver(rbacMock()))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got.RoleIDs == nil {
+		t.Error("RoleIDs is nil — it must be an empty slice so it marshals as []")
+	}
+}
+
+func TestApiClientInputFromDocument_EmptyRolesAreNotNil(t *testing.T) {
+	got, err := apiClientInputFromDocument(context.Background(), []byte(`{"name":"Empty"}`), protect.NewResolver(rbacMock()))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got.RoleIDs == nil {
+		t.Error("RoleIDs is nil — it must be an empty slice so it marshals as []")
+	}
+}

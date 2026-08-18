@@ -3,6 +3,7 @@
 package commands
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -717,7 +718,19 @@ func protectMarshal(v any, format string) ([]byte, error) {
 	if format == "json" {
 		return json.MarshalIndent(v, "", "  ")
 	}
-	return yaml.Marshal(v)
+	// Two-space indent to match printExport, so a backup file and the output of
+	// the matching `export` command are byte-identical for the same object and
+	// can be diffed against each other. yaml.Marshal's default is four.
+	var buf bytes.Buffer
+	enc := yaml.NewEncoder(&buf)
+	enc.SetIndent(2)
+	if err := enc.Encode(v); err != nil {
+		return nil, err
+	}
+	if err := enc.Close(); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
 }
 
 // --- backup ---
