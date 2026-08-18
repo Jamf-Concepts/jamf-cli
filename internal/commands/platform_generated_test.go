@@ -183,7 +183,16 @@ func TestGeneratedRulesListWithQueryParam(t *testing.T) {
 	if err := cmd.Execute(); err != nil {
 		t.Fatalf("list rules: %v", err)
 	}
-	if !strings.Contains(seenQuery, "baselineId=cis_lvl1") {
-		t.Errorf("query string missing baselineId: %q", seenQuery)
+	// Assert the exact wire key, not merely that some key round-tripped. The
+	// spec renamed this parameter to kebab-case; while the CLI still sent
+	// "baselineId" the server ignored it and `pro rules list` returned an empty
+	// list for every baseline — 0 rules where "baseline-id" returns 110. The
+	// old assertion passed throughout, because it checked the generator's
+	// flag→query plumbing against whatever the stale spec happened to declare.
+	if !strings.Contains(seenQuery, "baseline-id=cis_lvl1") {
+		t.Errorf("query string missing baseline-id: %q", seenQuery)
+	}
+	if strings.Contains(seenQuery, "baselineId") {
+		t.Errorf("sent the camelCase parameter the server ignores: %q", seenQuery)
 	}
 }

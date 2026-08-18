@@ -52,6 +52,16 @@ for _, sub := range platformgen.NewBlueprintsCmd(cliCtx).Commands() {
 
 CI enforces that `specs/platform/` and `internal/commands/platform/generated/` stay in sync: `make verify-platform-specs`. Run `make sync-platform-specs && make generate` after any spec change.
 
+**Platform specs come from `jamfplatform-go-sdk`'s published `api/` directory.** That is the only place they are normalised and wire-verified against a live tenant, so any other source drifts. Refresh with:
+
+```bash
+make sync-platform-specs-from-sdk JAMFPLATFORM_SDK_PATH=/path/to/jamfplatform-go-sdk
+```
+
+`specs/platform/` filenames match the SDK's `api/` filenames exactly, so the copy needs no mapping to keep in step. `PLATFORM_SDK_SPECS` in the Makefile is the authoritative set — `sync-platform-specs` copies exactly those and ignores anything else in the drop directory. It is a list rather than a wildcard for two reasons: the SDK's `api/` also holds `pro_api.json`, the Classic documentation and the app-installer specs, which are Jamf Pro APIs generated from this repo's own `specs/*.yaml` and would emit bogus platform commands from Pro paths; and `specs/.platform-source/` is gitignored, so a wildcard made `make verify-platform-specs` depend on whatever a developer last left in a directory that differs per working tree. Adding a platform resource therefore means adding its spec to that list.
+
+This is not housekeeping. A stale copy of the compliance-benchmark spec left `pro rules list` sending `baselineId` after the API renamed it to `baseline-id`; the server ignored the unknown key and answered **0 rules for every baseline**, with a required flag and no error. The test covering it passed the whole time, because it asserted the generator's flag→query plumbing against whatever the stale spec declared rather than the wire contract.
+
 ## Where to Make Changes
 
 | I want to... | Edit this file |
@@ -78,7 +88,7 @@ CI enforces that `specs/platform/` and `internal/commands/platform/generated/` s
 | Add a new Jamf Pro handwritten command | `internal/commands/pro_*.go` (new file + wire in `pro.go`) |
 | Add a new Platform API endpoint (CRUD, actions, reports) | Drop/update spec in `specs/.platform-source/`, run `make sync-platform-specs && make generate`. Don't hand-write — generator owns CRUD/actions. |
 | Add a new Platform business operation (apply, import-profile, clone, etc.) | Hand-write in the relevant `pro_<resource>.go`; CRUD primitives must come from `internal/commands/platform/generated/` |
-| Add or change a generated Platform API resource | drop a spec into `specs/.platform-source/*.json`, then `make sync-platform-specs && make generate` |
+| Add or change a generated Platform API resource | `make sync-platform-specs-from-sdk JAMFPLATFORM_SDK_PATH=/path/to/jamfplatform-go-sdk` — the SDK's `api/` is the canonical source; see below |
 | Change behavior of all generated Platform commands | `generator/platform/template.go` (`resourceTemplate`) |
 | Change Platform spec parsing (tenant prefix, tag grouping) | `generator/parser/platform.go` |
 | Change Platform name-to-ID resolution | `internal/platform/resolve.go` (hand-written, typed); `internal/platform/resolve_generic.go` (generated, untyped) |

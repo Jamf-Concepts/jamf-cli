@@ -37,7 +37,7 @@ func newBenchmarkReportsCompliancePercentageCmd(cliCtx *registry.CLIContext) *co
 	cmd := &cobra.Command{
 		Use:         "compliance-percentage <id>",
 		Short:       "Get compliance percentage for a benchmark report",
-		Long:        "Calculate and return the overall compliance percentage for a specific benchmark report as sum of device compliance scores divided by number of devices",
+		Long:        "Calculates and returns the overall compliance percentage for a specific benchmark report as sum of device compliance scores divided by number of devices",
 		Annotations: map[string]string{"jamf:privileges": "read:pro:compliance-benchmarks", "jamf:api": "platform-gateway"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -92,7 +92,7 @@ func newBenchmarkReportsDevicesCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "devices <id>",
 		Short:       "Get devices for a benchmark report rule",
-		Long:        "Provide devices filtered report for a specific benchmark rule",
+		Long:        "Provides devices filtered report for a specific benchmark rule",
 		Annotations: map[string]string{"jamf:privileges": "read:pro:compliance-benchmarks", "jamf:api": "platform-gateway"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -176,7 +176,7 @@ func newBenchmarkReportsRulesCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "rules <id>",
 		Short:       "Get benchmark rules for a tenant",
-		Long:        "Provide benchmark rules stats for a specific benchmark",
+		Long:        "Provides benchmark rules stats for a specific benchmark",
 		Annotations: map[string]string{"jamf:privileges": "read:pro:compliance-benchmarks", "jamf:api": "platform-gateway"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {

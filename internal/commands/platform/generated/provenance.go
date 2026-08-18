@@ -12,12 +12,12 @@ type SpecSource struct {
 // Sources lists every spec file consumed when this package was generated.
 // Order: stable, by File. Use `jamf-cli version -v` to print.
 var Sources = []SpecSource{
-	{File: "specs/platform/Declaration-reporting-openapi.json", SHA256: "693921ea307911d6b8da4fd37e80493594cda75a33b2e64f7f30dbba03d36d17"},
-	{File: "specs/platform/blueprints-api.json", SHA256: "f5efedafc06c9c48b6a474501634886f8919f5e6645a3b8021afbc6b04703b02"},
-	{File: "specs/platform/device-groups-api.json", SHA256: "4f10139db8e44bbd9712a542633301d9788932ef4701ab51e3f745f88763069b"},
-	{File: "specs/platform/device-inventory-api.json", SHA256: "258662780aebbd275701ca47662842e0bacc1d7da6596c0c62ec7f0e2a05457f"},
-	{File: "specs/platform/device-management-actions-api.json", SHA256: "150f2b77b969205fc355a4cc6532ab4c32ec4f139c1e329100937c4773503ee4"},
-	{File: "specs/platform/jamf-compliance-benchmark-engine-api.json", SHA256: "b4c880a1498ae40591dcd9a0351b3b4d6006aa16e1794eaaee647f5dcb30c6ae"},
+	{File: "specs/platform/blueprints_api.json", SHA256: "a6488ff3cf822bb51eb950b3bee1c2de8a15ab75dc6f7212fbbf749e7d5b83b1"},
+	{File: "specs/platform/compliance_benchmark_engine.json", SHA256: "8f042025f6dde1be0c9162202d53c6228b65c750eb1ba96ece16df39ed132aa4"},
+	{File: "specs/platform/declaration_reporting_service.json", SHA256: "f47eb595f918daa70d9bb57d289dbf13b356ef24b37bb9121e8d99319d19da21"},
+	{File: "specs/platform/device_group_inventory_api.json", SHA256: "9a706ff7a6e62405ad545675c6a9eda8b3e931f4bfcfb84384e5566525380769"},
+	{File: "specs/platform/device_inventory_api.json", SHA256: "437f5bfda95edcb8b6af5dd3df4826abffc28b511456bf3b7b16d845ed8ed0d1"},
+	{File: "specs/platform/device_management_action_api.json", SHA256: "a0c90832819c40aadd5ef68a7080637a2b88ae7064998c6f1aed22ba08b6f030"},
 	{File: "specs/platform/securitycloud_categories_api.json", SHA256: "f2ebd16e368d69444700190cef3840bd88681f767fee95dbde07760f47b80af8"},
 	{File: "specs/platform/securitycloud_device_groups_api.json", SHA256: "adebedb142bda1b96d3200d7840a7d513fc0a18c8f1fb1c769cf3be1837758e8"},
 	{File: "specs/platform/securitycloud_dns_api.json", SHA256: "d2e9920d7c4806ba859e74b89dcc09247074442b34a913db2bef35bacf2c35a6"},

@@ -242,6 +242,9 @@ of failing rules.`,
 					agg, ok := devices[d.DeviceID]
 					if !ok {
 						name := d.DeviceID
+						// DeviceName became *string in SDK v0.13.0 (OAS 3.1
+						// nullability); it is absent for devices the benchmark
+						// engine knows only by ID.
 						if d.DeviceName != nil && *d.DeviceName != "" {
 							name = *d.DeviceName
 						}

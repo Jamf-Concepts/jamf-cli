@@ -13,20 +13,11 @@ func newReportCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "report",
 		Short: "Generate operational reports from Jamf Pro data",
+		// Do not enumerate subcommands here — cobra renders the real, complete
+		// list under "Available Commands:" from the AddCommand calls below.
+		// A hand-maintained copy drifts (see issue #327).
 		Long: `Generate operational reports by aggregating Jamf Pro inventory and
-configuration data into tabular summaries.
-
-Available subcommands:
-  patch-status       Per-title patch compliance across the fleet
-  device-compliance  Devices with stale check-ins, failed commands, or missing profiles
-  inventory-summary  Hardware model and OS version breakdown
-  software-installs  Installed software version distribution
-  ea-results         Extension attribute results across devices
-  policy-status      Policy execution status and health checks
-  profile-status     Configuration profile deployment failures
-  app-status         Managed app deployment failures
-  update-status      Managed software update deployment status
-  duplicate-serials  Computer records sharing a serial number`,
+configuration data into tabular summaries.`,
 	}
 
 	cmd.AddCommand(newReportPatchStatusCmd(cliCtx))

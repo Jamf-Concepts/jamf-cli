@@ -35,7 +35,7 @@ func newRulesListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "list",
 		Short:       "Get list of rules for given baseline",
-		Long:        "Return list of the rules for given mSCP baseline together with sources that provide them",
+		Long:        "Returns list of the rules for given mSCP baseline together with sources that provide them",
 		Annotations: map[string]string{"jamf:privileges": "read:pro:compliance-benchmarks", "jamf:api": "platform-gateway"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
@@ -45,7 +45,7 @@ func newRulesListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("compliance-benchmarks")), 1)
 			q := url.Values{}
 			if baselineId != "" {
-				q.Set("baselineId", baselineId)
+				q.Set("baseline-id", baselineId)
 			}
 			var body any
 			if encoded := q.Encode(); encoded != "" {
@@ -65,7 +65,7 @@ func newRulesListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			return cliCtx.Output.PrintRaw(b)
 		},
 	}
-	cmd.Flags().StringVar(&baselineId, "baseline-id", "", "Filter by baseline-id")
+	cmd.Flags().StringVar(&baselineId, "baseline-id", "", "Given baseline ID")
 	_ = cmd.MarkFlagRequired("baseline-id")
 	return cmd
 }
