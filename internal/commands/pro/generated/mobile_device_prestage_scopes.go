@@ -19,9 +19,10 @@ import (
 // NewMobileDevicePrestageScopesCmd creates the mobile-device-prestage-scopes command group
 func NewMobileDevicePrestageScopesCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "mobile-device-prestage-scopes",
-		Short: "Manage mobile-device-prestage-scopes",
-		Long:  `Manage mobile-device-prestage-scopes in Jamf Pro.`,
+		Use:         "mobile-device-prestage-scopes",
+		Short:       "Manage mobile-device-prestage-scopes",
+		Long:        `Manage mobile-device-prestage-scopes in Jamf Pro.`,
+		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
 	cmd.AddCommand(newMobileDevicePrestageScopesListCmd(ctx))
@@ -45,7 +46,7 @@ func newMobileDevicePrestageScopesListCmd(ctx *registry.CLIContext) *cobra.Comma
 
   # List mobile-device-prestage-scopes and extract IDs
   jamf-cli pro mobile-device-prestage-scopes list --field id`,
-		Annotations: map[string]string{"jamf:privileges": "Read Mobile Device PreStage Enrollments"},
+		Annotations: map[string]string{"jamf:privileges": "Read Mobile Device PreStage Enrollments", "jamf:api": "pro"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -86,7 +87,7 @@ func newMobileDevicePrestageScopesDeleteMultipleCmd(ctx *registry.CLIContext) *c
 		Long:  "Remove device scope for a specific mobile device prestage",
 		Example: `  # Delete multiple mobile-device-prestage-scopes by IDs
   jamf-cli pro mobile-device-prestage-scopes delete-multiple --ids 1,2,3 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Update Mobile Device PreStage Enrollments"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Update Mobile Device PreStage Enrollments", "jamf:api": "pro"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -198,7 +199,7 @@ func newMobileDevicePrestageScopesScopeCmd(ctx *registry.CLIContext) *cobra.Comm
 		Use:         "scope <id>",
 		Short:       "Get Device Scope for a specific Mobile Device Prestage",
 		Long:        "Get device scope for a specific mobile device prestage",
-		Annotations: map[string]string{"jamf:privileges": "Read Mobile Device PreStage Enrollments"},
+		Annotations: map[string]string{"jamf:privileges": "Read Mobile Device PreStage Enrollments", "jamf:api": "pro"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -236,7 +237,7 @@ func newMobileDevicePrestageScopesCreateScopeCmd(ctx *registry.CLIContext) *cobr
 		Use:         "create-scope <id>",
 		Short:       "Add Device Scope for a specific Mobile Device Prestage",
 		Long:        "Add device scope for a specific mobile device prestage",
-		Annotations: map[string]string{"jamf:privileges": "Update Mobile Device PreStage Enrollments"},
+		Annotations: map[string]string{"jamf:privileges": "Update Mobile Device PreStage Enrollments", "jamf:api": "pro"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -312,7 +313,7 @@ func newMobileDevicePrestageScopesUpdateScopeCmd(ctx *registry.CLIContext) *cobr
 		Use:         "update-scope <id>",
 		Short:       "Replace Device Scope for a specific Mobile Device Prestage",
 		Long:        "Replace device scope for a specific mobile device prestage",
-		Annotations: map[string]string{"jamf:privileges": "Update Mobile Device PreStage Enrollments"},
+		Annotations: map[string]string{"jamf:privileges": "Update Mobile Device PreStage Enrollments", "jamf:api": "pro"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

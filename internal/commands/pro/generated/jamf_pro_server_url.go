@@ -19,9 +19,10 @@ import (
 // NewJamfProServerUrlCmd creates the jamf-pro-server-url command group
 func NewJamfProServerUrlCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "jamf-pro-server-url",
-		Short: "Manage jamf-pro-server-url",
-		Long:  `Manage jamf-pro-server-url in Jamf Pro.`,
+		Use:         "jamf-pro-server-url",
+		Short:       "Manage jamf-pro-server-url",
+		Long:        `Manage jamf-pro-server-url in Jamf Pro.`,
+		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
 	cmd.AddCommand(newJamfProServerUrlGetCmd(ctx))
@@ -44,7 +45,7 @@ func newJamfProServerUrlGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get jamf-pro-server-url and output as YAML
   jamf-cli pro jamf-pro-server-url get -o yaml`,
-		Annotations: map[string]string{"jamf:privileges": "Read JSS URL"},
+		Annotations: map[string]string{"jamf:privileges": "Read JSS URL", "jamf:api": "pro"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -89,7 +90,7 @@ func newJamfProServerUrlUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Update from a file
   jamf-cli pro jamf-pro-server-url update --from-file jamf-pro-server-url.json`,
-		Annotations: map[string]string{"jamf:privileges": "Update JSS URL"},
+		Annotations: map[string]string{"jamf:privileges": "Update JSS URL", "jamf:api": "pro"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -196,7 +197,7 @@ func newJamfProServerUrlHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 		Long:  "Gets Jamf Pro Server URL settings history",
 		Example: `  # Get history for a jamf-pro-server-url
   jamf-cli pro jamf-pro-server-url history 1`,
-		Annotations: map[string]string{"jamf:privileges": "Read JSS URL"},
+		Annotations: map[string]string{"jamf:privileges": "Read JSS URL", "jamf:api": "pro"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -342,7 +343,7 @@ func newJamfProServerUrlAddHistoryNoteCmd(ctx *registry.CLIContext) *cobra.Comma
 		Use:         "add-history-note",
 		Short:       "Add Jamf Pro Server URL settings history notes",
 		Long:        "Adds Jamf Pro Server URL settings history notes",
-		Annotations: map[string]string{"jamf:privileges": "Update JSS URL"},
+		Annotations: map[string]string{"jamf:privileges": "Update JSS URL", "jamf:api": "pro"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

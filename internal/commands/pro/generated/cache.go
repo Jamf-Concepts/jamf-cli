@@ -17,9 +17,10 @@ import (
 // NewCacheCmd creates the cache command group
 func NewCacheCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "cache",
-		Short: "Manage cache",
-		Long:  `Manage cache in Jamf Pro.`,
+		Use:         "cache",
+		Short:       "Manage cache",
+		Long:        `Manage cache in Jamf Pro.`,
+		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
 	cmd.AddCommand(newCacheGetCmd(ctx))
@@ -40,7 +41,7 @@ func newCacheGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get cache and output as YAML
   jamf-cli pro cache get -o yaml`,
-		Annotations: map[string]string{"jamf:privileges": "Read Cache"},
+		Annotations: map[string]string{"jamf:privileges": "Read Cache", "jamf:api": "pro"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -85,7 +86,7 @@ func newCacheUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Update from a file
   jamf-cli pro cache update --from-file cache.json`,
-		Annotations: map[string]string{"jamf:privileges": "Update Cache"},
+		Annotations: map[string]string{"jamf:privileges": "Update Cache", "jamf:api": "pro"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

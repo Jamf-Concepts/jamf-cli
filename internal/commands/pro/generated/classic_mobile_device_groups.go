@@ -20,9 +20,10 @@ import (
 // NewClassicMobileDeviceGroupsCmd creates the classic-mobile-device-groups command group
 func NewClassicMobileDeviceGroupsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "classic-mobile-device-groups",
-		Short: "Mobile device groups (smart and static) (Classic API)",
-		Long:  `Manage mobile device groups (smart and static) via the Jamf Pro Classic API (/JSSResource/).`,
+		Use:         "classic-mobile-device-groups",
+		Short:       "Mobile device groups (smart and static) (Classic API)",
+		Long:        `Manage mobile device groups (smart and static) via the Jamf Pro Classic API (/JSSResource/).`,
+		Annotations: map[string]string{"jamf:api": "pro-classic"},
 	}
 
 	cmd.AddCommand(newClassicMobileDeviceGroupsListCmd(ctx))
@@ -49,6 +50,7 @@ func newClassicMobileDeviceGroupsListCmd(ctx *registry.CLIContext) *cobra.Comman
 
   # List mobiledevicegroups and extract IDs
   jamf-cli pro classic-mobile-device-groups list --field id`,
+		Annotations: map[string]string{"jamf:api": "pro-classic"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/mobiledevicegroups", nil)
@@ -105,7 +107,8 @@ func newClassicMobileDeviceGroupsGetCmd(ctx *registry.CLIContext) *cobra.Command
 
   # Get a mobile_device_group and output as YAML
   jamf-cli pro classic-mobile-device-groups get 1 -o yaml`,
-		Args: cobra.MaximumNArgs(1),
+		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -157,9 +160,10 @@ func newClassicMobileDeviceGroupsGetCmd(ctx *registry.CLIContext) *cobra.Command
 
 func newClassicMobileDeviceGroupsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "create",
-		Short: "Create a mobile_device_group",
-		Long:  "Create a new mobile_device_group. Reads XML body from stdin.",
+		Use:         "create",
+		Short:       "Create a mobile_device_group",
+		Long:        "Create a new mobile_device_group. Reads XML body from stdin.",
+		Annotations: map[string]string{"jamf:api": "pro-classic"},
 		Example: `  # Create a mobile_device_group from XML
   cat mobile_device_group.xml | jamf-cli pro classic-mobile-device-groups create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -190,9 +194,10 @@ func newClassicMobileDeviceGroupsUpdateCmd(ctx *registry.CLIContext) *cobra.Comm
 	var flagName string
 
 	cmd := &cobra.Command{
-		Use:   "update [<id>]",
-		Short: "Update a mobile_device_group",
-		Long:  "Update an existing mobile_device_group by ID. Reads XML body from stdin.",
+		Use:         "update [<id>]",
+		Short:       "Update a mobile_device_group",
+		Long:        "Update an existing mobile_device_group by ID. Reads XML body from stdin.",
+		Annotations: map[string]string{"jamf:api": "pro-classic"},
 		Example: `  # Update a mobile_device_group from XML
   cat mobile_device_group.xml | jamf-cli pro classic-mobile-device-groups update 1`,
 		Args: cobra.MaximumNArgs(1),
@@ -250,7 +255,7 @@ func newClassicMobileDeviceGroupsDeleteCmd(ctx *registry.CLIContext) *cobra.Comm
 
   # Delete without confirmation prompt
   jamf-cli pro classic-mobile-device-groups delete 1 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:api": "pro-classic"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -421,8 +426,9 @@ func newClassicMobileDeviceGroupsApplyCmd(ctx *registry.CLIContext) *cobra.Comma
 	)
 
 	cmd := &cobra.Command{
-		Use:   "apply",
-		Short: "Create or replace a mobile_device_group by name",
+		Use:         "apply",
+		Short:       "Create or replace a mobile_device_group by name",
+		Annotations: map[string]string{"jamf:api": "pro-classic"},
 		Long: `Create or replace a mobile_device_group. Reads XML from --from-file or stdin.
 
 The name field in the input XML is used to check if the resource already

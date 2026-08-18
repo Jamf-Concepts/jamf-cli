@@ -13,9 +13,10 @@ import (
 // NewClassicLdapsCmd creates the classic-ldaps command group
 func NewClassicLdapsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "classic-ldaps",
-		Short: "Manage classic-ldaps",
-		Long:  `Manage classic-ldaps in Jamf Pro.`,
+		Use:         "classic-ldaps",
+		Short:       "Manage classic-ldaps",
+		Long:        `Manage classic-ldaps in Jamf Pro.`,
+		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
 	cmd.AddCommand(newClassicLdapsGetCmd(ctx))
@@ -35,7 +36,7 @@ func newClassicLdapsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a classic-ldap and output as YAML
   jamf-cli pro classic-ldaps get 1 -o yaml`,
-		Annotations: map[string]string{"jamf:privileges": "Read LDAP Servers"},
+		Annotations: map[string]string{"jamf:privileges": "Read LDAP Servers", "jamf:api": "pro"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

@@ -17,9 +17,10 @@ import (
 // NewOnboardingConfigurationCmd creates the onboarding-configuration command group
 func NewOnboardingConfigurationCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "onboarding-configuration",
-		Short: "Manage onboarding-configuration",
-		Long:  `Manage onboarding-configuration in Jamf Pro.`,
+		Use:         "onboarding-configuration",
+		Short:       "Manage onboarding-configuration",
+		Long:        `Manage onboarding-configuration in Jamf Pro.`,
+		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
 	cmd.AddCommand(newOnboardingConfigurationGetCmd(ctx))
@@ -40,7 +41,7 @@ func newOnboardingConfigurationGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get onboarding-configuration and output as YAML
   jamf-cli pro onboarding-configuration get -o yaml`,
-		Annotations: map[string]string{"jamf:privileges": "Read Onboarding Configuration"},
+		Annotations: map[string]string{"jamf:privileges": "Read Onboarding Configuration", "jamf:api": "pro"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -85,7 +86,7 @@ func newOnboardingConfigurationUpdateCmd(ctx *registry.CLIContext) *cobra.Comman
 
   # Update from a file
   jamf-cli pro onboarding-configuration update --from-file onboarding-configuration.json`,
-		Annotations: map[string]string{"jamf:privileges": "Update Onboarding Configuration"},
+		Annotations: map[string]string{"jamf:privileges": "Update Onboarding Configuration", "jamf:api": "pro"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

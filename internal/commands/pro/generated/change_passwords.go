@@ -16,9 +16,10 @@ import (
 // NewChangePasswordsCmd creates the change-passwords command group
 func NewChangePasswordsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "change-passwords",
-		Short: "Manage change-passwords",
-		Long:  `Manage change-passwords in Jamf Pro.`,
+		Use:         "change-passwords",
+		Short:       "Manage change-passwords",
+		Long:        `Manage change-passwords in Jamf Pro.`,
+		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
 	cmd.AddCommand(newChangePasswordsChangePasswordCmd(ctx))
@@ -35,7 +36,7 @@ func newChangePasswordsChangePasswordCmd(ctx *registry.CLIContext) *cobra.Comman
 		Use:         "change-password",
 		Short:       "Changes the user account password.",
 		Long:        "Changes the account password for a currently authenticated user.",
-		Annotations: map[string]string{"jamf:privileges": "Change Password"},
+		Annotations: map[string]string{"jamf:privileges": "Change Password", "jamf:api": "pro"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

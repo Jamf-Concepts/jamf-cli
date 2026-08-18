@@ -22,9 +22,10 @@ import (
 // NewComputersInventoryCmd creates the computers-inventory command group
 func NewComputersInventoryCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "computers-inventory",
-		Short: "Manage computers-inventory",
-		Long:  `Manage computers-inventory in Jamf Pro.`,
+		Use:         "computers-inventory",
+		Short:       "Manage computers-inventory",
+		Long:        `Manage computers-inventory in Jamf Pro.`,
+		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
 	cmd.AddCommand(newComputersInventoryListCmd(ctx))
@@ -63,7 +64,7 @@ func newComputersInventoryListCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # List computers-inventory and extract IDs
   jamf-cli pro computers-inventory list --field id`,
-		Annotations: map[string]string{"jamf:privileges": "Read Computers"},
+		Annotations: map[string]string{"jamf:privileges": "Read Computers", "jamf:api": "pro"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -236,7 +237,7 @@ func newComputersInventoryGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a computers-inventory and output as YAML
   jamf-cli pro computers-inventory get 1 -o yaml`,
-		Annotations: map[string]string{"jamf:privileges": "Read Computers"},
+		Annotations: map[string]string{"jamf:privileges": "Read Computers", "jamf:api": "pro"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -325,7 +326,7 @@ func newComputersInventoryCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a computers-inventory, modify it, and create a copy
   jamf-cli pro computers-inventory get 1 -o json | jq '.name = "Copy"' | jamf-cli pro computers-inventory create`,
-		Annotations: map[string]string{"jamf:privileges": "Create Computers"},
+		Annotations: map[string]string{"jamf:privileges": "Create Computers", "jamf:api": "pro"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -414,7 +415,7 @@ func newComputersInventoryDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Delete without confirmation prompt
   jamf-cli pro computers-inventory delete 1 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Delete Computers"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Delete Computers", "jamf:api": "pro"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -748,7 +749,7 @@ func newComputersInventoryPatchCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Patch from a file
   jamf-cli pro computers-inventory patch 1 --from-file changes.json`,
-		Annotations: map[string]string{"jamf:privileges": "Update Computers"},
+		Annotations: map[string]string{"jamf:privileges": "Update Computers", "jamf:api": "pro"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -874,7 +875,7 @@ func newComputersInventoryFilevaultCmd(ctx *registry.CLIContext) *cobra.Command 
 		Use:         "filevault",
 		Short:       "Return paginated FileVault information for all computers",
 		Long:        "Return paginated FileVault information for all computers",
-		Annotations: map[string]string{"jamf:privileges": "View Disk Encryption Recovery Key"},
+		Annotations: map[string]string{"jamf:privileges": "View Disk Encryption Recovery Key", "jamf:api": "pro"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -1019,7 +1020,7 @@ func newComputersInventoryUploadCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:         "upload [<id>]",
 		Short:       "Upload attachment and assign to computer",
 		Long:        "Upload attachment and assign to computer",
-		Annotations: map[string]string{"jamf:privileges": "Update Computers"},
+		Annotations: map[string]string{"jamf:privileges": "Update Computers", "jamf:api": "pro"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -1113,7 +1114,7 @@ func newComputersInventoryDownloadCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Pipe to stdout
   jamf-cli pro computers-inventory download <id> <attachmentId> > output.bin`,
-		Annotations: map[string]string{"jamf:privileges": "Read Computers"},
+		Annotations: map[string]string{"jamf:privileges": "Read Computers", "jamf:api": "pro"},
 		Args:        cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -1170,7 +1171,7 @@ func newComputersInventoryFilevaultByIdCmd(ctx *registry.CLIContext) *cobra.Comm
 		Use:         "filevault-by-id [<id>]",
 		Short:       "Return FileVault information for a specific computer",
 		Long:        "Return FileVault information for a specific computer",
-		Annotations: map[string]string{"jamf:privileges": "View Disk Encryption Recovery Key"},
+		Annotations: map[string]string{"jamf:privileges": "View Disk Encryption Recovery Key", "jamf:api": "pro"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -1244,7 +1245,7 @@ func newComputersInventoryViewDeviceLockPinCmd(ctx *registry.CLIContext) *cobra.
 		Use:         "view-device-lock-pin [<id>]",
 		Short:       "Return a computer's Device Lock PIN",
 		Long:        "Return a computer's Device Lock PIN",
-		Annotations: map[string]string{"jamf:privileges": "View Computer Device Lock Pin"},
+		Annotations: map[string]string{"jamf:privileges": "View Computer Device Lock Pin", "jamf:api": "pro"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -1318,7 +1319,7 @@ func newComputersInventoryViewRecoveryLockPasswordCmd(ctx *registry.CLIContext) 
 		Use:         "view-recovery-lock-password [<id>]",
 		Short:       "Return a Computers Recovery Lock Password",
 		Long:        "Return a Computers Recovery Lock Password",
-		Annotations: map[string]string{"jamf:privileges": "View Recovery Lock"},
+		Annotations: map[string]string{"jamf:privileges": "View Recovery Lock", "jamf:api": "pro"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -1390,8 +1391,9 @@ func newComputersInventoryApplyCmd(ctx *registry.CLIContext) *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "apply",
-		Short: "Create or replace a computers-inventory by name",
+		Use:         "apply",
+		Short:       "Create or replace a computers-inventory by name",
+		Annotations: map[string]string{"jamf:api": "pro"},
 		Long: `Create or replace a computers-inventory. Reads JSON or YAML from --from-file or stdin.
 
 The general.name field in the input is used to check if the resource

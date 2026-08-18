@@ -19,9 +19,10 @@ import (
 // NewClassicAccountGroupsCmd creates the classic-account-groups command group
 func NewClassicAccountGroupsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "classic-account-groups",
-		Short: "Jamf Pro account groups (Classic API)",
-		Long:  `Manage jamf pro account groups via the Jamf Pro Classic API (/JSSResource/).`,
+		Use:         "classic-account-groups",
+		Short:       "Jamf Pro account groups (Classic API)",
+		Long:        `Manage jamf pro account groups via the Jamf Pro Classic API (/JSSResource/).`,
+		Annotations: map[string]string{"jamf:api": "pro-classic"},
 	}
 
 	cmd.AddCommand(newClassicAccountGroupsListCmd(ctx))
@@ -46,6 +47,7 @@ func newClassicAccountGroupsListCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # List account-groups and extract IDs
   jamf-cli pro classic-account-groups list --field id`,
+		Annotations: map[string]string{"jamf:api": "pro-classic"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/accounts", nil)
@@ -94,7 +96,8 @@ func newClassicAccountGroupsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a account_group and output as YAML
   jamf-cli pro classic-account-groups get 1 -o yaml`,
-		Args: cobra.MaximumNArgs(1),
+		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -146,9 +149,10 @@ func newClassicAccountGroupsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
 func newClassicAccountGroupsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "create",
-		Short: "Create a account_group",
-		Long:  "Create a new account_group. Reads XML body from stdin.",
+		Use:         "create",
+		Short:       "Create a account_group",
+		Long:        "Create a new account_group. Reads XML body from stdin.",
+		Annotations: map[string]string{"jamf:api": "pro-classic"},
 		Example: `  # Create a account_group from XML
   cat account_group.xml | jamf-cli pro classic-account-groups create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -178,9 +182,10 @@ func newClassicAccountGroupsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 func newClassicAccountGroupsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 
 	cmd := &cobra.Command{
-		Use:   "update <id>",
-		Short: "Update a account_group",
-		Long:  "Update an existing account_group by ID. Reads XML body from stdin.",
+		Use:         "update <id>",
+		Short:       "Update a account_group",
+		Long:        "Update an existing account_group by ID. Reads XML body from stdin.",
+		Annotations: map[string]string{"jamf:api": "pro-classic"},
 		Example: `  # Update a account_group from XML
   cat account_group.xml | jamf-cli pro classic-account-groups update 1`,
 		Args: cobra.ExactArgs(1),
@@ -224,7 +229,7 @@ func newClassicAccountGroupsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Delete without confirmation prompt
   jamf-cli pro classic-account-groups delete 1 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:api": "pro-classic"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

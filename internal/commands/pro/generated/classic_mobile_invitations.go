@@ -19,9 +19,10 @@ import (
 // NewClassicMobileInvitationsCmd creates the classic-mobile-invitations command group
 func NewClassicMobileInvitationsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "classic-mobile-invitations",
-		Short: "Mobile device enrollment invitations (Classic API)",
-		Long:  `Manage mobile device enrollment invitations via the Jamf Pro Classic API (/JSSResource/).`,
+		Use:         "classic-mobile-invitations",
+		Short:       "Mobile device enrollment invitations (Classic API)",
+		Long:        `Manage mobile device enrollment invitations via the Jamf Pro Classic API (/JSSResource/).`,
+		Annotations: map[string]string{"jamf:api": "pro-classic"},
 	}
 
 	cmd.AddCommand(newClassicMobileInvitationsListCmd(ctx))
@@ -44,6 +45,7 @@ func newClassicMobileInvitationsListCmd(ctx *registry.CLIContext) *cobra.Command
 
   # List mobiledeviceinvitations and extract IDs
   jamf-cli pro classic-mobile-invitations list --field id`,
+		Annotations: map[string]string{"jamf:api": "pro-classic"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/mobiledeviceinvitations", nil)
@@ -97,7 +99,8 @@ func newClassicMobileInvitationsGetCmd(ctx *registry.CLIContext) *cobra.Command 
 
   # Get a mobile_device_invitation and output as YAML
   jamf-cli pro classic-mobile-invitations get 1 -o yaml`,
-		Args: cobra.MaximumNArgs(1),
+		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -149,9 +152,10 @@ func newClassicMobileInvitationsGetCmd(ctx *registry.CLIContext) *cobra.Command 
 
 func newClassicMobileInvitationsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "create",
-		Short: "Create a mobile_device_invitation",
-		Long:  "Create a new mobile_device_invitation. Reads XML body from stdin.",
+		Use:         "create",
+		Short:       "Create a mobile_device_invitation",
+		Long:        "Create a new mobile_device_invitation. Reads XML body from stdin.",
+		Annotations: map[string]string{"jamf:api": "pro-classic"},
 		Example: `  # Create a mobile_device_invitation from XML
   cat mobile_device_invitation.xml | jamf-cli pro classic-mobile-invitations create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -192,7 +196,7 @@ func newClassicMobileInvitationsDeleteCmd(ctx *registry.CLIContext) *cobra.Comma
 
   # Delete without confirmation prompt
   jamf-cli pro classic-mobile-invitations delete 1 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:api": "pro-classic"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

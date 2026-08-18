@@ -17,9 +17,10 @@ import (
 // NewClassicSmtpServerCmd creates the classic-smtp-server command group
 func NewClassicSmtpServerCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "classic-smtp-server",
-		Short: "SMTP server configuration (Classic API)",
-		Long:  `Manage smtp server configuration via the Jamf Pro Classic API (/JSSResource/).`,
+		Use:         "classic-smtp-server",
+		Short:       "SMTP server configuration (Classic API)",
+		Long:        `Manage smtp server configuration via the Jamf Pro Classic API (/JSSResource/).`,
+		Annotations: map[string]string{"jamf:api": "pro-classic"},
 	}
 
 	cmd.AddCommand(newClassicSmtpServerGetCmd(ctx))
@@ -39,7 +40,8 @@ func newClassicSmtpServerGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a smtp_server and output as YAML
   jamf-cli pro classic-smtp-server get 1 -o yaml`,
-		Args: cobra.ExactArgs(1),
+		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			path := fmt.Sprintf("/JSSResource/smtpserver/id/%s", url.PathEscape(args[0]))
@@ -81,9 +83,10 @@ func newClassicSmtpServerGetCmd(ctx *registry.CLIContext) *cobra.Command {
 func newClassicSmtpServerUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 
 	cmd := &cobra.Command{
-		Use:   "update <id>",
-		Short: "Update a smtp_server",
-		Long:  "Update an existing smtp_server by ID. Reads XML body from stdin.",
+		Use:         "update <id>",
+		Short:       "Update a smtp_server",
+		Long:        "Update an existing smtp_server by ID. Reads XML body from stdin.",
+		Annotations: map[string]string{"jamf:api": "pro-classic"},
 		Example: `  # Update a smtp_server from XML
   cat smtp_server.xml | jamf-cli pro classic-smtp-server update 1`,
 		Args: cobra.ExactArgs(1),

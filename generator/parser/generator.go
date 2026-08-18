@@ -96,6 +96,11 @@ func (g *Generator) Generate(resource *Resource) (string, error) {
 			if len(op.Privileges) > 0 {
 				pairs = append(pairs, fmt.Sprintf("%q: %q", "jamf:privileges", strings.Join(op.Privileges, ",")))
 			}
+			// Which Jamf API serves this command. Always set, so the catalog can
+			// distinguish "no privileges declared" from "not a Pro API command"
+			// — and so a namespace mixing APIs (pro carries Pro, Classic and
+			// Platform) stays legible without inferring from the command path.
+			pairs = append(pairs, fmt.Sprintf("%q: %q", "jamf:api", "pro"))
 			if len(pairs) == 0 {
 				return ""
 			}
@@ -1827,6 +1832,7 @@ func New{{ .GoName }}Cmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:   "{{ .Name }}",
 		Short: "Manage {{ .Name }}",
 		Long:  ` + "`" + `Manage {{ .Name }} in Jamf Pro.` + "`" + `,
+		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 {{ range dedupeOps (sortOps .Operations) }}
 	cmd.AddCommand(new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx))
@@ -2914,6 +2920,7 @@ func new{{ .GoName }}ApplyCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "apply",
 		Short: "Create or replace a {{ .NameSingular }} by name",
+		Annotations: map[string]string{"jamf:api": "pro"},
 		Long: ` + "`" + `Create or replace a {{ .NameSingular }}. Reads JSON or YAML from --from-file or stdin.
 
 The {{ .NameField }} field in the input is used to check if the resource

@@ -14,9 +14,10 @@ import (
 // NewClassicAccountsCmd creates the classic-accounts command group
 func NewClassicAccountsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "classic-accounts",
-		Short: "All Jamf Pro user accounts and groups (combined list) (Classic API)",
-		Long:  `Manage all jamf pro user accounts and groups (combined list) via the Jamf Pro Classic API (/JSSResource/).`,
+		Use:         "classic-accounts",
+		Short:       "All Jamf Pro user accounts and groups (combined list) (Classic API)",
+		Long:        `Manage all jamf pro user accounts and groups (combined list) via the Jamf Pro Classic API (/JSSResource/).`,
+		Annotations: map[string]string{"jamf:api": "pro-classic"},
 	}
 
 	cmd.AddCommand(newClassicAccountsListCmd(ctx))
@@ -33,6 +34,7 @@ func newClassicAccountsListCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # List accounts and extract IDs
   jamf-cli pro classic-accounts list --field id`,
+		Annotations: map[string]string{"jamf:api": "pro-classic"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/accounts", nil)

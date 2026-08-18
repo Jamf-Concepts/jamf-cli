@@ -371,6 +371,7 @@ func New{{ .GoName }}Cmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:   "{{ .CLIName }}",
 		Short: "{{ .Description }} (Classic API)",
 		Long:  ` + "`" + `Manage {{ .Description | toLower }} via the Jamf Pro Classic API (/JSSResource/).` + "`" + `,
+		Annotations: map[string]string{"jamf:api": "pro-classic"},
 	}
 {{ if hasOp .Operations "list" }}
 	cmd.AddCommand(new{{ .GoName }}ListCmd(ctx))
@@ -408,6 +409,7 @@ func new{{ .GoName }}ListCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:   "list",
 		Short: "List all {{ .Name }}",
 		Example: ` + "`" + `{{ classicExample . "list" }}` + "`" + `,
+		Annotations: map[string]string{"jamf:api": "pro-classic"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/{{ .Path }}", nil)
@@ -482,6 +484,7 @@ func new{{ .GoName }}GetCmd(ctx *registry.CLIContext) *cobra.Command {
 {{ else }}		Use:   "get <id>",
 {{ end }}		Short: "Get a {{ .Singular }} by ID",
 		Example: ` + "`" + `{{ classicExample . "get" }}` + "`" + `,
+		Annotations: map[string]string{"jamf:api": "pro-classic"},
 {{ if extraLookups .Lookups }}		Args:  cobra.MaximumNArgs(1),
 {{ else }}		Args:  cobra.ExactArgs(1),
 {{ end }}		RunE: func(cmd *cobra.Command, args []string) error {
@@ -569,6 +572,7 @@ func new{{ .GoName }}CreateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:   "create",
 		Short: "Create a {{ .Singular }}",
 		Long:  "Create a new {{ .Singular }}. Reads XML body from stdin.",
+		Annotations: map[string]string{"jamf:api": "pro-classic"},
 		Example: ` + "`" + `{{ classicExample . "create" }}` + "`" + `,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -684,6 +688,7 @@ func new{{ .GoName }}UpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 {{ else }}		Use:   "update <id>",
 {{ end }}		Short: "Update a {{ .Singular }}",
 		Long:  "Update an existing {{ .Singular }} by ID. Reads XML body from stdin.",
+		Annotations: map[string]string{"jamf:api": "pro-classic"},
 		Example: ` + "`" + `{{ classicExample . "update" }}` + "`" + `,
 {{ if hasLookup .Lookups "name" }}		Args:  cobra.MaximumNArgs(1),
 {{ else }}		Args:  cobra.ExactArgs(1),
@@ -894,7 +899,7 @@ func new{{ .GoName }}DeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 {{ else }}		Use:   "delete <id>",
 {{ end }}		Short: "Delete a {{ .Singular }}",
 		Example: ` + "`" + `{{ classicExample . "delete" }}` + "`" + `,
-		Annotations: map[string]string{"jamf:destructive": "true"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:api": "pro-classic"},
 {{ if hasDeleteByName . }}		Args:  cobra.MaximumNArgs(1),
 {{ else }}		Args:  cobra.ExactArgs(1),
 {{ end }}		RunE: func(cmd *cobra.Command, args []string) error {
@@ -1171,6 +1176,7 @@ func new{{ .GoName }}ApplyCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "apply",
 		Short: "Create or replace a {{ .Singular }} by name",
+		Annotations: map[string]string{"jamf:api": "pro-classic"},
 		Long: ` + "`" + `Create or replace a {{ .Singular }}. Reads XML from --from-file or stdin.
 
 The name field in the input XML is used to check if the resource already

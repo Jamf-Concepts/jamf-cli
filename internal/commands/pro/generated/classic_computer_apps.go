@@ -10,9 +10,10 @@ import (
 // NewClassicComputerAppsCmd creates the classic-computer-apps command group
 func NewClassicComputerAppsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "classic-computer-apps",
-		Short: "Computer applications inventory (Classic API)",
-		Long:  `Manage computer applications inventory via the Jamf Pro Classic API (/JSSResource/).`,
+		Use:         "classic-computer-apps",
+		Short:       "Computer applications inventory (Classic API)",
+		Long:        `Manage computer applications inventory via the Jamf Pro Classic API (/JSSResource/).`,
+		Annotations: map[string]string{"jamf:api": "pro-classic"},
 	}
 
 	return cmd

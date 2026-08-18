@@ -12,9 +12,10 @@ import (
 // NewLocalesCmd creates the locales command group
 func NewLocalesCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "locales",
-		Short: "Manage locales",
-		Long:  `Manage locales in Jamf Pro.`,
+		Use:         "locales",
+		Short:       "Manage locales",
+		Long:        `Manage locales in Jamf Pro.`,
+		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
 	cmd.AddCommand(newLocalesListCmd(ctx))
@@ -34,6 +35,7 @@ func newLocalesListCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # List locales and extract IDs
   jamf-cli pro locales list --field id`,
+		Annotations: map[string]string{"jamf:api": "pro"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

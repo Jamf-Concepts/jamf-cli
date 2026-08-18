@@ -17,9 +17,10 @@ import (
 // NewEbooksCmd creates the ebooks command group
 func NewEbooksCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "ebooks",
-		Short: "Manage ebooks",
-		Long:  `Manage ebooks in Jamf Pro.`,
+		Use:         "ebooks",
+		Short:       "Manage ebooks",
+		Long:        `Manage ebooks in Jamf Pro.`,
+		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
 	cmd.AddCommand(newEbooksListCmd(ctx))
@@ -47,7 +48,7 @@ func newEbooksListCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # List ebooks and extract IDs
   jamf-cli pro ebooks list --field id`,
-		Annotations: map[string]string{"jamf:privileges": "Read eBooks"},
+		Annotations: map[string]string{"jamf:privileges": "Read eBooks", "jamf:api": "pro"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -195,7 +196,7 @@ func newEbooksGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a ebook and output as YAML
   jamf-cli pro ebooks get 1 -o yaml`,
-		Annotations: map[string]string{"jamf:privileges": "Read eBooks"},
+		Annotations: map[string]string{"jamf:privileges": "Read eBooks", "jamf:api": "pro"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -250,7 +251,7 @@ func newEbooksScopeCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:         "scope [<id>]",
 		Short:       "Get specified scope of Ebook object",
 		Long:        "Gets specified scope of Ebook object",
-		Annotations: map[string]string{"jamf:privileges": "Read eBooks"},
+		Annotations: map[string]string{"jamf:privileges": "Read eBooks", "jamf:api": "pro"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

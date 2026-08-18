@@ -16,9 +16,10 @@ import (
 // NewCloudLdapKeyStoresCmd creates the cloud-ldap-key-stores command group
 func NewCloudLdapKeyStoresCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "cloud-ldap-key-stores",
-		Short: "Manage cloud-ldap-key-stores",
-		Long:  `Manage cloud-ldap-key-stores in Jamf Pro.`,
+		Use:         "cloud-ldap-key-stores",
+		Short:       "Manage cloud-ldap-key-stores",
+		Long:        `Manage cloud-ldap-key-stores in Jamf Pro.`,
+		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
 	cmd.AddCommand(newCloudLdapKeyStoresVerifyCmd(ctx))
@@ -35,7 +36,7 @@ func newCloudLdapKeyStoresVerifyCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:         "verify",
 		Short:       "Validate keystore for Cloud Identity Provider secure connection",
 		Long:        "Validate keystore for Cloud Identity Provider secure connection",
-		Annotations: map[string]string{"jamf:privileges": "Create LDAP Servers"},
+		Annotations: map[string]string{"jamf:privileges": "Create LDAP Servers", "jamf:api": "pro"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

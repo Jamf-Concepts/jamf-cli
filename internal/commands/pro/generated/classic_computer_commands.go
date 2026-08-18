@@ -14,9 +14,10 @@ import (
 // NewClassicComputerCommandsCmd creates the classic-computer-commands command group
 func NewClassicComputerCommandsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "classic-computer-commands",
-		Short: "Computer management commands (Classic API)",
-		Long:  `Manage computer management commands via the Jamf Pro Classic API (/JSSResource/).`,
+		Use:         "classic-computer-commands",
+		Short:       "Computer management commands (Classic API)",
+		Long:        `Manage computer management commands via the Jamf Pro Classic API (/JSSResource/).`,
+		Annotations: map[string]string{"jamf:api": "pro-classic"},
 	}
 
 	cmd.AddCommand(newClassicComputerCommandsListCmd(ctx))
@@ -33,6 +34,7 @@ func newClassicComputerCommandsListCmd(ctx *registry.CLIContext) *cobra.Command 
 
   # List computercommands and extract IDs
   jamf-cli pro classic-computer-commands list --field id`,
+		Annotations: map[string]string{"jamf:api": "pro-classic"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/computercommands", nil)

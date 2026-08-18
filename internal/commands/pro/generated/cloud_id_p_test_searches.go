@@ -17,9 +17,10 @@ import (
 // NewCloudIdPTestSearchesCmd creates the cloud-id-p-test-searches command group
 func NewCloudIdPTestSearchesCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "cloud-id-p-test-searches",
-		Short: "Manage cloud-id-p-test-searches",
-		Long:  `Manage cloud-id-p-test-searches in Jamf Pro.`,
+		Use:         "cloud-id-p-test-searches",
+		Short:       "Manage cloud-id-p-test-searches",
+		Long:        `Manage cloud-id-p-test-searches in Jamf Pro.`,
+		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
 	cmd.AddCommand(newCloudIdPTestSearchesTestGroupCmd(ctx))
@@ -38,7 +39,7 @@ func newCloudIdPTestSearchesTestGroupCmd(ctx *registry.CLIContext) *cobra.Comman
 		Use:         "test-group <id>",
 		Short:       "Get group test search",
 		Long:        "Do test search to ensure about configuration and mappings",
-		Annotations: map[string]string{"jamf:privileges": "Read LDAP Servers"},
+		Annotations: map[string]string{"jamf:privileges": "Read LDAP Servers", "jamf:api": "pro"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -100,7 +101,7 @@ func newCloudIdPTestSearchesTestUserCmd(ctx *registry.CLIContext) *cobra.Command
 		Use:         "test-user <id>",
 		Short:       "Get user test search",
 		Long:        "Do test search to ensure about configuration and mappings",
-		Annotations: map[string]string{"jamf:privileges": "Read LDAP Servers"},
+		Annotations: map[string]string{"jamf:privileges": "Read LDAP Servers", "jamf:api": "pro"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -162,7 +163,7 @@ func newCloudIdPTestSearchesTestUserMembershipCmd(ctx *registry.CLIContext) *cob
 		Use:         "test-user-membership <id>",
 		Short:       "Get membership test search",
 		Long:        "Do test search to ensure about configuration and mappings",
-		Annotations: map[string]string{"jamf:privileges": "Read LDAP Servers"},
+		Annotations: map[string]string{"jamf:privileges": "Read LDAP Servers", "jamf:api": "pro"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

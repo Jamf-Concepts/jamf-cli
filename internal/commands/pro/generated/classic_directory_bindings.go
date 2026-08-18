@@ -20,9 +20,10 @@ import (
 // NewClassicDirectoryBindingsCmd creates the classic-directory-bindings command group
 func NewClassicDirectoryBindingsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "classic-directory-bindings",
-		Short: "Directory bindings (Classic API)",
-		Long:  `Manage directory bindings via the Jamf Pro Classic API (/JSSResource/).`,
+		Use:         "classic-directory-bindings",
+		Short:       "Directory bindings (Classic API)",
+		Long:        `Manage directory bindings via the Jamf Pro Classic API (/JSSResource/).`,
+		Annotations: map[string]string{"jamf:api": "pro-classic"},
 	}
 
 	cmd.AddCommand(newClassicDirectoryBindingsListCmd(ctx))
@@ -49,6 +50,7 @@ func newClassicDirectoryBindingsListCmd(ctx *registry.CLIContext) *cobra.Command
 
   # List directorybindings and extract IDs
   jamf-cli pro classic-directory-bindings list --field id`,
+		Annotations: map[string]string{"jamf:api": "pro-classic"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/directorybindings", nil)
@@ -105,7 +107,8 @@ func newClassicDirectoryBindingsGetCmd(ctx *registry.CLIContext) *cobra.Command 
 
   # Get a directory_binding and output as YAML
   jamf-cli pro classic-directory-bindings get 1 -o yaml`,
-		Args: cobra.MaximumNArgs(1),
+		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -157,9 +160,10 @@ func newClassicDirectoryBindingsGetCmd(ctx *registry.CLIContext) *cobra.Command 
 
 func newClassicDirectoryBindingsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "create",
-		Short: "Create a directory_binding",
-		Long:  "Create a new directory_binding. Reads XML body from stdin.",
+		Use:         "create",
+		Short:       "Create a directory_binding",
+		Long:        "Create a new directory_binding. Reads XML body from stdin.",
+		Annotations: map[string]string{"jamf:api": "pro-classic"},
 		Example: `  # Create a directory_binding from XML
   cat directory_binding.xml | jamf-cli pro classic-directory-bindings create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -190,9 +194,10 @@ func newClassicDirectoryBindingsUpdateCmd(ctx *registry.CLIContext) *cobra.Comma
 	var flagName string
 
 	cmd := &cobra.Command{
-		Use:   "update [<id>]",
-		Short: "Update a directory_binding",
-		Long:  "Update an existing directory_binding by ID. Reads XML body from stdin.",
+		Use:         "update [<id>]",
+		Short:       "Update a directory_binding",
+		Long:        "Update an existing directory_binding by ID. Reads XML body from stdin.",
+		Annotations: map[string]string{"jamf:api": "pro-classic"},
 		Example: `  # Update a directory_binding from XML
   cat directory_binding.xml | jamf-cli pro classic-directory-bindings update 1`,
 		Args: cobra.MaximumNArgs(1),
@@ -250,7 +255,7 @@ func newClassicDirectoryBindingsDeleteCmd(ctx *registry.CLIContext) *cobra.Comma
 
   # Delete without confirmation prompt
   jamf-cli pro classic-directory-bindings delete 1 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:api": "pro-classic"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -421,8 +426,9 @@ func newClassicDirectoryBindingsApplyCmd(ctx *registry.CLIContext) *cobra.Comman
 	)
 
 	cmd := &cobra.Command{
-		Use:   "apply",
-		Short: "Create or replace a directory_binding by name",
+		Use:         "apply",
+		Short:       "Create or replace a directory_binding by name",
+		Annotations: map[string]string{"jamf:api": "pro-classic"},
 		Long: `Create or replace a directory_binding. Reads XML from --from-file or stdin.
 
 The name field in the input XML is used to check if the resource already

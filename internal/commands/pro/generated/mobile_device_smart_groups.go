@@ -17,9 +17,10 @@ import (
 // NewMobileDeviceSmartGroupsCmd creates the mobile-device-smart-groups command group
 func NewMobileDeviceSmartGroupsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "mobile-device-smart-groups",
-		Short: "Manage mobile-device-smart-groups",
-		Long:  `Manage mobile-device-smart-groups in Jamf Pro.`,
+		Use:         "mobile-device-smart-groups",
+		Short:       "Manage mobile-device-smart-groups",
+		Long:        `Manage mobile-device-smart-groups in Jamf Pro.`,
+		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
 	cmd.AddCommand(newMobileDeviceSmartGroupsRecalculateSmartGroupsCmd(ctx))
@@ -35,7 +36,7 @@ func newMobileDeviceSmartGroupsRecalculateSmartGroupsCmd(ctx *registry.CLIContex
 		Use:         "recalculate-smart-groups <id>",
 		Short:       "Recalculate all smart groups for the given device id and then return count of smart groups that device fall into",
 		Long:        "Recalculates all smart groups for the given device id and then returns the count of smart groups the device falls into",
-		Annotations: map[string]string{"jamf:privileges": "Update Smart Mobile Device Groups"},
+		Annotations: map[string]string{"jamf:privileges": "Update Smart Mobile Device Groups", "jamf:api": "pro"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -88,7 +89,7 @@ func newMobileDeviceSmartGroupsRecalculateCmd(ctx *registry.CLIContext) *cobra.C
 		Use:         "recalculate <id>",
 		Short:       "Recalculate a smart group for the given id then return the ids for the devices in the smart group",
 		Long:        "recalculates a smart group for the given id and then returns the ids for the devices in the smart group",
-		Annotations: map[string]string{"jamf:privileges": "Update Smart Mobile Device Groups"},
+		Annotations: map[string]string{"jamf:privileges": "Update Smart Mobile Device Groups", "jamf:api": "pro"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

@@ -18,9 +18,10 @@ import (
 // NewLocalAdminPasswordsCmd creates the local-admin-passwords command group
 func NewLocalAdminPasswordsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "local-admin-passwords",
-		Short: "Manage local-admin-passwords",
-		Long:  `Manage local-admin-passwords in Jamf Pro.`,
+		Use:         "local-admin-passwords",
+		Short:       "Manage local-admin-passwords",
+		Long:        `Manage local-admin-passwords in Jamf Pro.`,
+		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
 	cmd.AddCommand(newLocalAdminPasswordsUpdateCmd(ctx))
@@ -57,7 +58,7 @@ func newLocalAdminPasswordsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Update from a file
   jamf-cli pro local-admin-passwords update --from-file local-admin-passwords.json`,
-		Annotations: map[string]string{"jamf:privileges": "Update Local Admin Password Settings"},
+		Annotations: map[string]string{"jamf:privileges": "Update Local Admin Password Settings", "jamf:api": "pro"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -159,7 +160,7 @@ func newLocalAdminPasswordsHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 		Long:  "Get the full history of all local admin passwords for all accounts for a specific management ID. History will include password, who viewed the password and when it was viewed. This will include rotation history as well.",
 		Example: `  # Get history for a local-admin-password
   jamf-cli pro local-admin-passwords history 1`,
-		Annotations: map[string]string{"jamf:privileges": "View Local Admin Password Audit History"},
+		Annotations: map[string]string{"jamf:privileges": "View Local Admin Password Audit History", "jamf:api": "pro"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -195,7 +196,7 @@ func newLocalAdminPasswordsPendingRotationsCmd(ctx *registry.CLIContext) *cobra.
 		Use:         "pending-rotations",
 		Short:       "Get a list of the current devices and usernames with pending LAPS rotations",
 		Long:        "Return information about all devices and usernames currently in the state of a pending LAPS rotation",
-		Annotations: map[string]string{"jamf:privileges": "View Local Admin Password"},
+		Annotations: map[string]string{"jamf:privileges": "View Local Admin Password", "jamf:api": "pro"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -229,7 +230,7 @@ func newLocalAdminPasswordsSettingsCmd(ctx *registry.CLIContext) *cobra.Command 
 		Use:         "settings",
 		Short:       "Get the current LAPS settings.",
 		Long:        "Return information about the current LAPS settings.",
-		Annotations: map[string]string{"jamf:privileges": "Read User-Initiated Enrollment,Update Local Admin Password Settings"},
+		Annotations: map[string]string{"jamf:privileges": "Read User-Initiated Enrollment,Update Local Admin Password Settings", "jamf:api": "pro"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -263,7 +264,7 @@ func newLocalAdminPasswordsAuditCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:         "audit <clientManagementId> <username>",
 		Short:       "Get LAPS password viewed history.",
 		Long:        "Get the full history of all local admin passwords for a specific username on a target device. History will include password, who viewed the password and when it was viewed. Get audit history by using the client management id and username as the path parameters. If multiple accounts with the same username exist, the MDM source will be selected by default.",
-		Annotations: map[string]string{"jamf:privileges": "View Local Admin Password Audit History"},
+		Annotations: map[string]string{"jamf:privileges": "View Local Admin Password Audit History", "jamf:api": "pro"},
 		Args:        cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -300,7 +301,7 @@ func newLocalAdminPasswordsAccountHistoryCmd(ctx *registry.CLIContext) *cobra.Co
 		Use:         "account-history <clientManagementId> <username>",
 		Short:       "Get LAPS historical records for target device and username.",
 		Long:        "Get the full history of all for a specific username on a target device. History will include date created, date last seen, expiration time, and rotational status. Get audit history by using the client management id and username as the path parameters.",
-		Annotations: map[string]string{"jamf:privileges": "View Local Admin Password Audit History"},
+		Annotations: map[string]string{"jamf:privileges": "View Local Admin Password Audit History", "jamf:api": "pro"},
 		Args:        cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -337,7 +338,7 @@ func newLocalAdminPasswordsPasswordCmd(ctx *registry.CLIContext) *cobra.Command 
 		Use:         "password <clientManagementId> <username>",
 		Short:       "Get current LAPS password for specified username on a client.",
 		Long:        "Get current LAPS password for specified client by using the client management id and username as the path parameters. Once the password is viewed it will be rotated out with a new password based on the rotation time settings. If multiple accounts with the same username exist, the MDM source will be selected by default.",
-		Annotations: map[string]string{"jamf:privileges": "View Local Admin Password"},
+		Annotations: map[string]string{"jamf:privileges": "View Local Admin Password", "jamf:api": "pro"},
 		Args:        cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -374,7 +375,7 @@ func newLocalAdminPasswordsAuditByGuidCmd(ctx *registry.CLIContext) *cobra.Comma
 		Use:         "audit-by-guid <clientManagementId> <username> <guid>",
 		Short:       "Get LAPS password viewed history.",
 		Long:        "Get the full history of all local admin passwords for a specific user guid on a target device. History will include password, who viewed the password and when it was viewed. Get audit history by using the client management id, username, and user guid as the path parameters.",
-		Annotations: map[string]string{"jamf:privileges": "View Local Admin Password Audit History"},
+		Annotations: map[string]string{"jamf:privileges": "View Local Admin Password Audit History", "jamf:api": "pro"},
 		Args:        cobra.ExactArgs(3),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -412,7 +413,7 @@ func newLocalAdminPasswordsAccountHistoryByGuidCmd(ctx *registry.CLIContext) *co
 		Use:         "account-history-by-guid <clientManagementId> <username> <guid>",
 		Short:       "Get LAPS historical records for target device and user guid.",
 		Long:        "Get the full history of all for a specific user guid on a target device. History will include date created, date last seen, expiration time, and rotational status. Get audit history by using the client management id, username, and user guid as the path parameters.",
-		Annotations: map[string]string{"jamf:privileges": "View Local Admin Password Audit History"},
+		Annotations: map[string]string{"jamf:privileges": "View Local Admin Password Audit History", "jamf:api": "pro"},
 		Args:        cobra.ExactArgs(3),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -450,7 +451,7 @@ func newLocalAdminPasswordsPasswordByGuidCmd(ctx *registry.CLIContext) *cobra.Co
 		Use:         "password-by-guid <clientManagementId> <username> <guid>",
 		Short:       "Get current LAPS password for specified user guid on a client.",
 		Long:        "Get current LAPS password for specified client by using the client management id, username, and user guid as the path parameters. Once the password is viewed it will be rotated out with a new password based on the rotation time settings.",
-		Annotations: map[string]string{"jamf:privileges": "View Local Admin Password"},
+		Annotations: map[string]string{"jamf:privileges": "View Local Admin Password", "jamf:api": "pro"},
 		Args:        cobra.ExactArgs(3),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -488,7 +489,7 @@ func newLocalAdminPasswordsAccountsCmd(ctx *registry.CLIContext) *cobra.Command 
 		Use:         "accounts <id>",
 		Short:       "Get the LAPS capable admin accounts for a device.",
 		Long:        "Get a full list of admin accounts that are LAPS capable. Capable accounts are returned in the AutoSetupAdminAccounts from QueryResponses.",
-		Annotations: map[string]string{"jamf:privileges": "View Local Admin Password"},
+		Annotations: map[string]string{"jamf:privileges": "View Local Admin Password", "jamf:api": "pro"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -526,7 +527,7 @@ func newLocalAdminPasswordsSetPasswordCmd(ctx *registry.CLIContext) *cobra.Comma
 		Use:         "set-password <id>",
 		Short:       "Set the LAPS password for a device.",
 		Long:        "Set the LAPS password for a device. This will set the password for all LAPS capable accounts.",
-		Annotations: map[string]string{"jamf:privileges": "Send Local Admin Password Command"},
+		Annotations: map[string]string{"jamf:privileges": "Send Local Admin Password Command", "jamf:api": "pro"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

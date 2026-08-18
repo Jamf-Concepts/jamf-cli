@@ -20,9 +20,10 @@ import (
 // NewClassicAdvancedComputerSearchesCmd creates the classic-advanced-computer-searches command group
 func NewClassicAdvancedComputerSearchesCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "classic-advanced-computer-searches",
-		Short: "Advanced computer searches (Classic API)",
-		Long:  `Manage advanced computer searches via the Jamf Pro Classic API (/JSSResource/).`,
+		Use:         "classic-advanced-computer-searches",
+		Short:       "Advanced computer searches (Classic API)",
+		Long:        `Manage advanced computer searches via the Jamf Pro Classic API (/JSSResource/).`,
+		Annotations: map[string]string{"jamf:api": "pro-classic"},
 	}
 
 	cmd.AddCommand(newClassicAdvancedComputerSearchesListCmd(ctx))
@@ -49,6 +50,7 @@ func newClassicAdvancedComputerSearchesListCmd(ctx *registry.CLIContext) *cobra.
 
   # List advancedcomputersearches and extract IDs
   jamf-cli pro classic-advanced-computer-searches list --field id`,
+		Annotations: map[string]string{"jamf:api": "pro-classic"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/advancedcomputersearches", nil)
@@ -105,7 +107,8 @@ func newClassicAdvancedComputerSearchesGetCmd(ctx *registry.CLIContext) *cobra.C
 
   # Get a advanced_computer_search and output as YAML
   jamf-cli pro classic-advanced-computer-searches get 1 -o yaml`,
-		Args: cobra.MaximumNArgs(1),
+		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -157,9 +160,10 @@ func newClassicAdvancedComputerSearchesGetCmd(ctx *registry.CLIContext) *cobra.C
 
 func newClassicAdvancedComputerSearchesCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "create",
-		Short: "Create a advanced_computer_search",
-		Long:  "Create a new advanced_computer_search. Reads XML body from stdin.",
+		Use:         "create",
+		Short:       "Create a advanced_computer_search",
+		Long:        "Create a new advanced_computer_search. Reads XML body from stdin.",
+		Annotations: map[string]string{"jamf:api": "pro-classic"},
 		Example: `  # Create a advanced_computer_search from XML
   cat advanced_computer_search.xml | jamf-cli pro classic-advanced-computer-searches create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -190,9 +194,10 @@ func newClassicAdvancedComputerSearchesUpdateCmd(ctx *registry.CLIContext) *cobr
 	var flagName string
 
 	cmd := &cobra.Command{
-		Use:   "update [<id>]",
-		Short: "Update a advanced_computer_search",
-		Long:  "Update an existing advanced_computer_search by ID. Reads XML body from stdin.",
+		Use:         "update [<id>]",
+		Short:       "Update a advanced_computer_search",
+		Long:        "Update an existing advanced_computer_search by ID. Reads XML body from stdin.",
+		Annotations: map[string]string{"jamf:api": "pro-classic"},
 		Example: `  # Update a advanced_computer_search from XML
   cat advanced_computer_search.xml | jamf-cli pro classic-advanced-computer-searches update 1`,
 		Args: cobra.MaximumNArgs(1),
@@ -250,7 +255,7 @@ func newClassicAdvancedComputerSearchesDeleteCmd(ctx *registry.CLIContext) *cobr
 
   # Delete without confirmation prompt
   jamf-cli pro classic-advanced-computer-searches delete 1 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:api": "pro-classic"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -421,8 +426,9 @@ func newClassicAdvancedComputerSearchesApplyCmd(ctx *registry.CLIContext) *cobra
 	)
 
 	cmd := &cobra.Command{
-		Use:   "apply",
-		Short: "Create or replace a advanced_computer_search by name",
+		Use:         "apply",
+		Short:       "Create or replace a advanced_computer_search by name",
+		Annotations: map[string]string{"jamf:api": "pro-classic"},
 		Long: `Create or replace a advanced_computer_search. Reads XML from --from-file or stdin.
 
 The name field in the input XML is used to check if the resource already

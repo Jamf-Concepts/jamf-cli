@@ -20,9 +20,10 @@ import (
 // NewClassicDistributionPointsCmd creates the classic-distribution-points command group
 func NewClassicDistributionPointsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "classic-distribution-points",
-		Short: "File distribution points (Classic API)",
-		Long:  `Manage file distribution points via the Jamf Pro Classic API (/JSSResource/).`,
+		Use:         "classic-distribution-points",
+		Short:       "File distribution points (Classic API)",
+		Long:        `Manage file distribution points via the Jamf Pro Classic API (/JSSResource/).`,
+		Annotations: map[string]string{"jamf:api": "pro-classic"},
 	}
 
 	cmd.AddCommand(newClassicDistributionPointsListCmd(ctx))
@@ -49,6 +50,7 @@ func newClassicDistributionPointsListCmd(ctx *registry.CLIContext) *cobra.Comman
 
   # List distributionpoints and extract IDs
   jamf-cli pro classic-distribution-points list --field id`,
+		Annotations: map[string]string{"jamf:api": "pro-classic"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/distributionpoints", nil)
@@ -105,7 +107,8 @@ func newClassicDistributionPointsGetCmd(ctx *registry.CLIContext) *cobra.Command
 
   # Get a distribution_point and output as YAML
   jamf-cli pro classic-distribution-points get 1 -o yaml`,
-		Args: cobra.MaximumNArgs(1),
+		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -157,9 +160,10 @@ func newClassicDistributionPointsGetCmd(ctx *registry.CLIContext) *cobra.Command
 
 func newClassicDistributionPointsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "create",
-		Short: "Create a distribution_point",
-		Long:  "Create a new distribution_point. Reads XML body from stdin.",
+		Use:         "create",
+		Short:       "Create a distribution_point",
+		Long:        "Create a new distribution_point. Reads XML body from stdin.",
+		Annotations: map[string]string{"jamf:api": "pro-classic"},
 		Example: `  # Create a distribution_point from XML
   cat distribution_point.xml | jamf-cli pro classic-distribution-points create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -190,9 +194,10 @@ func newClassicDistributionPointsUpdateCmd(ctx *registry.CLIContext) *cobra.Comm
 	var flagName string
 
 	cmd := &cobra.Command{
-		Use:   "update [<id>]",
-		Short: "Update a distribution_point",
-		Long:  "Update an existing distribution_point by ID. Reads XML body from stdin.",
+		Use:         "update [<id>]",
+		Short:       "Update a distribution_point",
+		Long:        "Update an existing distribution_point by ID. Reads XML body from stdin.",
+		Annotations: map[string]string{"jamf:api": "pro-classic"},
 		Example: `  # Update a distribution_point from XML
   cat distribution_point.xml | jamf-cli pro classic-distribution-points update 1`,
 		Args: cobra.MaximumNArgs(1),
@@ -250,7 +255,7 @@ func newClassicDistributionPointsDeleteCmd(ctx *registry.CLIContext) *cobra.Comm
 
   # Delete without confirmation prompt
   jamf-cli pro classic-distribution-points delete 1 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:api": "pro-classic"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -421,8 +426,9 @@ func newClassicDistributionPointsApplyCmd(ctx *registry.CLIContext) *cobra.Comma
 	)
 
 	cmd := &cobra.Command{
-		Use:   "apply",
-		Short: "Create or replace a distribution_point by name",
+		Use:         "apply",
+		Short:       "Create or replace a distribution_point by name",
+		Annotations: map[string]string{"jamf:api": "pro-classic"},
 		Long: `Create or replace a distribution_point. Reads XML from --from-file or stdin.
 
 The name field in the input XML is used to check if the resource already

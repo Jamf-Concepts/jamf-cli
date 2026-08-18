@@ -16,9 +16,10 @@ import (
 // NewServersCmd creates the servers command group
 func NewServersCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "servers",
-		Short: "Manage servers",
-		Long:  `Manage servers in Jamf Pro.`,
+		Use:         "servers",
+		Short:       "Manage servers",
+		Long:        `Manage servers in Jamf Pro.`,
+		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
 	cmd.AddCommand(newServersIssueTomcatSslCertificateCmd(ctx))
@@ -33,7 +34,7 @@ func newServersIssueTomcatSslCertificateCmd(ctx *registry.CLIContext) *cobra.Com
 		Use:         "issue-tomcat-ssl-certificate",
 		Short:       "Generate a SSL Certificate using Jamf Certificate Authority",
 		Long:        "generate a SSL Certificate using Jamf Certificate Authority",
-		Annotations: map[string]string{"jamf:privileges": "Update Apache Tomcat Settings"},
+		Annotations: map[string]string{"jamf:privileges": "Update Apache Tomcat Settings", "jamf:api": "pro"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

@@ -19,9 +19,10 @@ import (
 // NewClassicAllowedFileExtensionsCmd creates the classic-allowed-file-extensions command group
 func NewClassicAllowedFileExtensionsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "classic-allowed-file-extensions",
-		Short: "Allowed file extensions (Classic API)",
-		Long:  `Manage allowed file extensions via the Jamf Pro Classic API (/JSSResource/).`,
+		Use:         "classic-allowed-file-extensions",
+		Short:       "Allowed file extensions (Classic API)",
+		Long:        `Manage allowed file extensions via the Jamf Pro Classic API (/JSSResource/).`,
+		Annotations: map[string]string{"jamf:api": "pro-classic"},
 	}
 
 	cmd.AddCommand(newClassicAllowedFileExtensionsListCmd(ctx))
@@ -44,6 +45,7 @@ func newClassicAllowedFileExtensionsListCmd(ctx *registry.CLIContext) *cobra.Com
 
   # List allowedfileextensions and extract IDs
   jamf-cli pro classic-allowed-file-extensions list --field id`,
+		Annotations: map[string]string{"jamf:api": "pro-classic"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/allowedfileextensions", nil)
@@ -97,7 +99,8 @@ func newClassicAllowedFileExtensionsGetCmd(ctx *registry.CLIContext) *cobra.Comm
 
   # Get a allowed_file_extension and output as YAML
   jamf-cli pro classic-allowed-file-extensions get 1 -o yaml`,
-		Args: cobra.MaximumNArgs(1),
+		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -149,9 +152,10 @@ func newClassicAllowedFileExtensionsGetCmd(ctx *registry.CLIContext) *cobra.Comm
 
 func newClassicAllowedFileExtensionsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "create",
-		Short: "Create a allowed_file_extension",
-		Long:  "Create a new allowed_file_extension. Reads XML body from stdin.",
+		Use:         "create",
+		Short:       "Create a allowed_file_extension",
+		Long:        "Create a new allowed_file_extension. Reads XML body from stdin.",
+		Annotations: map[string]string{"jamf:api": "pro-classic"},
 		Example: `  # Create a allowed_file_extension from XML
   cat allowed_file_extension.xml | jamf-cli pro classic-allowed-file-extensions create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -192,7 +196,7 @@ func newClassicAllowedFileExtensionsDeleteCmd(ctx *registry.CLIContext) *cobra.C
 
   # Delete without confirmation prompt
   jamf-cli pro classic-allowed-file-extensions delete 1 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:api": "pro-classic"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

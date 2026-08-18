@@ -16,9 +16,10 @@ import (
 // NewPatchTitlesCmd creates the patch-titles command group
 func NewPatchTitlesCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "patch-titles",
-		Short: "Manage patch-titles",
-		Long:  `Manage patch-titles in Jamf Pro.`,
+		Use:         "patch-titles",
+		Short:       "Manage patch-titles",
+		Long:        `Manage patch-titles in Jamf Pro.`,
+		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
 	cmd.AddCommand(newPatchTitlesPatchManagementAcceptDisclaimerCmd(ctx))
@@ -33,7 +34,7 @@ func newPatchTitlesPatchManagementAcceptDisclaimerCmd(ctx *registry.CLIContext) 
 		Use:         "patch-management-accept-disclaimer",
 		Short:       "Accept Patch Management disclaimer",
 		Long:        "Accept Patch Management disclaimer",
-		Annotations: map[string]string{"jamf:privileges": "Update Patch Management Software Titles"},
+		Annotations: map[string]string{"jamf:privileges": "Update Patch Management Software Titles", "jamf:api": "pro"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

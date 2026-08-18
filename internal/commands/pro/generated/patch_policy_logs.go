@@ -19,9 +19,10 @@ import (
 // NewPatchPolicyLogsCmd creates the patch-policy-logs command group
 func NewPatchPolicyLogsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "patch-policy-logs",
-		Short: "Manage patch-policy-logs",
-		Long:  `Manage patch-policy-logs in Jamf Pro.`,
+		Use:         "patch-policy-logs",
+		Short:       "Manage patch-policy-logs",
+		Long:        `Manage patch-policy-logs in Jamf Pro.`,
+		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
 	cmd.AddCommand(newPatchPolicyLogsLogsCmd(ctx))
@@ -47,7 +48,7 @@ func newPatchPolicyLogsLogsCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:         "logs <id>",
 		Short:       "Retrieve Patch Policy Logs",
 		Long:        "Retrieves Patch Policy Logs",
-		Annotations: map[string]string{"jamf:privileges": "Read Patch Policies"},
+		Annotations: map[string]string{"jamf:privileges": "Read Patch Policies", "jamf:api": "pro"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -192,7 +193,7 @@ func newPatchPolicyLogsEligibleRetryCountCmd(ctx *registry.CLIContext) *cobra.Co
 		Use:         "eligible-retry-count <id>",
 		Short:       "Return the count of the Patch Policy Logs for the patch policy id that are eligible for a retry attempt",
 		Long:        "return the count of the patch policy logs for the patch policy id that  are eligible for a retry attempt",
-		Annotations: map[string]string{"jamf:privileges": "Read Patch Policies"},
+		Annotations: map[string]string{"jamf:privileges": "Read Patch Policies", "jamf:api": "pro"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -230,7 +231,7 @@ func newPatchPolicyLogsRetryCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:         "retry <id>",
 		Short:       "Send retry attempts for specific devices",
 		Long:        "Send retry attempts for specific devices",
-		Annotations: map[string]string{"jamf:privileges": "Update Patch Policies"},
+		Annotations: map[string]string{"jamf:privileges": "Update Patch Policies", "jamf:api": "pro"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -293,7 +294,7 @@ func newPatchPolicyLogsRetryAllCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:         "retry-all <id>",
 		Short:       "Send retry attempts for all devices",
 		Long:        "Send retry attempts for all devices",
-		Annotations: map[string]string{"jamf:privileges": "Update Patch Policies"},
+		Annotations: map[string]string{"jamf:privileges": "Update Patch Policies", "jamf:api": "pro"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -346,7 +347,7 @@ func newPatchPolicyLogsDetailsCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:         "details <id> <deviceId>",
 		Short:       "Return attempt details for a specific log",
 		Long:        "Return attempt details for a specific log",
-		Annotations: map[string]string{"jamf:privileges": "Read Patch Policies"},
+		Annotations: map[string]string{"jamf:privileges": "Read Patch Policies", "jamf:api": "pro"},
 		Args:        cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

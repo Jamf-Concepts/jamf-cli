@@ -19,9 +19,10 @@ import (
 // NewClassicJwtConfigsCmd creates the classic-jwt-configs command group
 func NewClassicJwtConfigsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "classic-jwt-configs",
-		Short: "JSON Web Token configurations (Classic API)",
-		Long:  `Manage json web token configurations via the Jamf Pro Classic API (/JSSResource/).`,
+		Use:         "classic-jwt-configs",
+		Short:       "JSON Web Token configurations (Classic API)",
+		Long:        `Manage json web token configurations via the Jamf Pro Classic API (/JSSResource/).`,
+		Annotations: map[string]string{"jamf:api": "pro-classic"},
 	}
 
 	cmd.AddCommand(newClassicJwtConfigsListCmd(ctx))
@@ -46,6 +47,7 @@ func newClassicJwtConfigsListCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # List jsonwebtokenconfigurations and extract IDs
   jamf-cli pro classic-jwt-configs list --field id`,
+		Annotations: map[string]string{"jamf:api": "pro-classic"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/jsonwebtokenconfigurations", nil)
@@ -96,7 +98,8 @@ func newClassicJwtConfigsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a json_web_token_configuration and output as YAML
   jamf-cli pro classic-jwt-configs get 1 -o yaml`,
-		Args: cobra.ExactArgs(1),
+		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			path := fmt.Sprintf("/JSSResource/jsonwebtokenconfigurations/id/%s", url.PathEscape(args[0]))
@@ -137,9 +140,10 @@ func newClassicJwtConfigsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
 func newClassicJwtConfigsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "create",
-		Short: "Create a json_web_token_configuration",
-		Long:  "Create a new json_web_token_configuration. Reads XML body from stdin.",
+		Use:         "create",
+		Short:       "Create a json_web_token_configuration",
+		Long:        "Create a new json_web_token_configuration. Reads XML body from stdin.",
+		Annotations: map[string]string{"jamf:api": "pro-classic"},
 		Example: `  # Create a json_web_token_configuration from XML
   cat json_web_token_configuration.xml | jamf-cli pro classic-jwt-configs create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -169,9 +173,10 @@ func newClassicJwtConfigsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 func newClassicJwtConfigsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 
 	cmd := &cobra.Command{
-		Use:   "update <id>",
-		Short: "Update a json_web_token_configuration",
-		Long:  "Update an existing json_web_token_configuration by ID. Reads XML body from stdin.",
+		Use:         "update <id>",
+		Short:       "Update a json_web_token_configuration",
+		Long:        "Update an existing json_web_token_configuration by ID. Reads XML body from stdin.",
+		Annotations: map[string]string{"jamf:api": "pro-classic"},
 		Example: `  # Update a json_web_token_configuration from XML
   cat json_web_token_configuration.xml | jamf-cli pro classic-jwt-configs update 1`,
 		Args: cobra.ExactArgs(1),
@@ -215,7 +220,7 @@ func newClassicJwtConfigsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Delete without confirmation prompt
   jamf-cli pro classic-jwt-configs delete 1 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:api": "pro-classic"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

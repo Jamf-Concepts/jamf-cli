@@ -12,9 +12,10 @@ import (
 // NewHealthChecksCmd creates the health-checks command group
 func NewHealthChecksCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "health-checks",
-		Short: "Manage health-checks",
-		Long:  `Manage health-checks in Jamf Pro.`,
+		Use:         "health-checks",
+		Short:       "Manage health-checks",
+		Long:        `Manage health-checks in Jamf Pro.`,
+		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
 	cmd.AddCommand(newHealthChecksHealthCheckCmd(ctx))
@@ -27,9 +28,10 @@ func newHealthChecksHealthCheckCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{
-		Use:   "health-check",
-		Short: "Get Jamf Pro API status",
-		Long:  "Get Jamf Pro API status. Which response codes might be returned in error states will depend on the specific state encountered.",
+		Use:         "health-check",
+		Short:       "Get Jamf Pro API status",
+		Long:        "Get Jamf Pro API status. Which response codes might be returned in error states will depend on the specific state encountered.",
+		Annotations: map[string]string{"jamf:api": "pro"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -60,9 +62,10 @@ func newHealthChecksHealthStatusCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{
-		Use:   "health-status",
-		Short: "Retrieve request acceptance ratios for this Jamf Pro node",
-		Long:  "Returns metrics representing the request acceptance ratio for each concurrency group and time window on this Jamf Pro node. The acceptance ratio is a decimal value between 0 and 1, where 1 means all requests were accepted and 0 means all were denied. Health status metrics are only available in Jamf Cloud. This API will return a 404 if the Jamf Pro node does not support health status metrics.",
+		Use:         "health-status",
+		Short:       "Retrieve request acceptance ratios for this Jamf Pro node",
+		Long:        "Returns metrics representing the request acceptance ratio for each concurrency group and time window on this Jamf Pro node. The acceptance ratio is a decimal value between 0 and 1, where 1 means all requests were accepted and 0 means all were denied. Health status metrics are only available in Jamf Cloud. This API will return a 404 if the Jamf Pro node does not support health status metrics.",
+		Annotations: map[string]string{"jamf:api": "pro"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

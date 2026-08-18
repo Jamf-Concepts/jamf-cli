@@ -16,9 +16,10 @@ import (
 // NewClassicPatchReportsCmd creates the classic-patch-reports command group
 func NewClassicPatchReportsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "classic-patch-reports",
-		Short: "Patch management reports (Classic API)",
-		Long:  `Manage patch management reports via the Jamf Pro Classic API (/JSSResource/).`,
+		Use:         "classic-patch-reports",
+		Short:       "Patch management reports (Classic API)",
+		Long:        `Manage patch management reports via the Jamf Pro Classic API (/JSSResource/).`,
+		Annotations: map[string]string{"jamf:api": "pro-classic"},
 	}
 
 	cmd.AddCommand(newClassicPatchReportsGetCmd(ctx))
@@ -36,7 +37,8 @@ func newClassicPatchReportsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a patch_report and output as YAML
   jamf-cli pro classic-patch-reports get 1 -o yaml`,
-		Args: cobra.ExactArgs(1),
+		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			path := fmt.Sprintf("/JSSResource/patchreports/patchsoftwaretitleid/%s", url.PathEscape(args[0]))

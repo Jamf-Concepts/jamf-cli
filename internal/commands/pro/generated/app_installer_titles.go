@@ -17,9 +17,10 @@ import (
 // NewAppInstallerTitlesCmd creates the app-installer-titles command group
 func NewAppInstallerTitlesCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "app-installer-titles",
-		Short: "Manage app-installer-titles",
-		Long:  `Manage app-installer-titles in Jamf Pro.`,
+		Use:         "app-installer-titles",
+		Short:       "Manage app-installer-titles",
+		Long:        `Manage app-installer-titles in Jamf Pro.`,
+		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
 	cmd.AddCommand(newAppInstallerTitlesListCmd(ctx))
@@ -45,7 +46,7 @@ func newAppInstallerTitlesListCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # List app-installer-titles and extract IDs
   jamf-cli pro app-installer-titles list --field id`,
-		Annotations: map[string]string{"jamf:privileges": "Read App Installers"},
+		Annotations: map[string]string{"jamf:privileges": "Read App Installers", "jamf:api": "pro"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -187,7 +188,7 @@ func newAppInstallerTitlesGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a app-installer-title and output as YAML
   jamf-cli pro app-installer-titles get 1 -o yaml`,
-		Annotations: map[string]string{"jamf:privileges": "Read App Installers"},
+		Annotations: map[string]string{"jamf:privileges": "Read App Installers", "jamf:api": "pro"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

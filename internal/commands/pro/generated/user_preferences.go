@@ -19,9 +19,10 @@ import (
 // NewUserPreferencesCmd creates the user-preferences command group
 func NewUserPreferencesCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "user-preferences",
-		Short: "Manage user-preferences",
-		Long:  `Manage user-preferences in Jamf Pro.`,
+		Use:         "user-preferences",
+		Short:       "Manage user-preferences",
+		Long:        `Manage user-preferences in Jamf Pro.`,
+		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
 	cmd.AddCommand(newUserPreferencesGetCmd(ctx))
@@ -43,7 +44,8 @@ func newUserPreferencesGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a user-preference and output as YAML
   jamf-cli pro user-preferences get 1 -o yaml`,
-		Args: cobra.ExactArgs(1),
+		Annotations: map[string]string{"jamf:api": "pro"},
+		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -83,7 +85,8 @@ func newUserPreferencesUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a user-preference, modify, and update
   jamf-cli pro user-preferences get 1 -o json | jq '.name = "New Name"' | jamf-cli pro user-preferences update 1`,
-		Args: cobra.ExactArgs(1),
+		Annotations: map[string]string{"jamf:api": "pro"},
+		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -143,7 +146,7 @@ func newUserPreferencesDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Delete without confirmation prompt
   jamf-cli pro user-preferences delete 1 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:api": "pro"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

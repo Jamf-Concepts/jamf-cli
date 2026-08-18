@@ -20,9 +20,10 @@ import (
 // NewClassicPatchExternalSourcesCmd creates the classic-patch-external-sources command group
 func NewClassicPatchExternalSourcesCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "classic-patch-external-sources",
-		Short: "Patch management external sources (Classic API)",
-		Long:  `Manage patch management external sources via the Jamf Pro Classic API (/JSSResource/).`,
+		Use:         "classic-patch-external-sources",
+		Short:       "Patch management external sources (Classic API)",
+		Long:        `Manage patch management external sources via the Jamf Pro Classic API (/JSSResource/).`,
+		Annotations: map[string]string{"jamf:api": "pro-classic"},
 	}
 
 	cmd.AddCommand(newClassicPatchExternalSourcesListCmd(ctx))
@@ -49,6 +50,7 @@ func newClassicPatchExternalSourcesListCmd(ctx *registry.CLIContext) *cobra.Comm
 
   # List patchexternalsources and extract IDs
   jamf-cli pro classic-patch-external-sources list --field id`,
+		Annotations: map[string]string{"jamf:api": "pro-classic"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/patchexternalsources", nil)
@@ -105,7 +107,8 @@ func newClassicPatchExternalSourcesGetCmd(ctx *registry.CLIContext) *cobra.Comma
 
   # Get a patch_external_source and output as YAML
   jamf-cli pro classic-patch-external-sources get 1 -o yaml`,
-		Args: cobra.MaximumNArgs(1),
+		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -157,9 +160,10 @@ func newClassicPatchExternalSourcesGetCmd(ctx *registry.CLIContext) *cobra.Comma
 
 func newClassicPatchExternalSourcesCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "create",
-		Short: "Create a patch_external_source",
-		Long:  "Create a new patch_external_source. Reads XML body from stdin.",
+		Use:         "create",
+		Short:       "Create a patch_external_source",
+		Long:        "Create a new patch_external_source. Reads XML body from stdin.",
+		Annotations: map[string]string{"jamf:api": "pro-classic"},
 		Example: `  # Create a patch_external_source from XML
   cat patch_external_source.xml | jamf-cli pro classic-patch-external-sources create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -190,9 +194,10 @@ func newClassicPatchExternalSourcesUpdateCmd(ctx *registry.CLIContext) *cobra.Co
 	var flagName string
 
 	cmd := &cobra.Command{
-		Use:   "update [<id>]",
-		Short: "Update a patch_external_source",
-		Long:  "Update an existing patch_external_source by ID. Reads XML body from stdin.",
+		Use:         "update [<id>]",
+		Short:       "Update a patch_external_source",
+		Long:        "Update an existing patch_external_source by ID. Reads XML body from stdin.",
+		Annotations: map[string]string{"jamf:api": "pro-classic"},
 		Example: `  # Update a patch_external_source from XML
   cat patch_external_source.xml | jamf-cli pro classic-patch-external-sources update 1`,
 		Args: cobra.MaximumNArgs(1),
@@ -250,7 +255,7 @@ func newClassicPatchExternalSourcesDeleteCmd(ctx *registry.CLIContext) *cobra.Co
 
   # Delete without confirmation prompt
   jamf-cli pro classic-patch-external-sources delete 1 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:api": "pro-classic"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -421,8 +426,9 @@ func newClassicPatchExternalSourcesApplyCmd(ctx *registry.CLIContext) *cobra.Com
 	)
 
 	cmd := &cobra.Command{
-		Use:   "apply",
-		Short: "Create or replace a patch_external_source by name",
+		Use:         "apply",
+		Short:       "Create or replace a patch_external_source by name",
+		Annotations: map[string]string{"jamf:api": "pro-classic"},
 		Long: `Create or replace a patch_external_source. Reads XML from --from-file or stdin.
 
 The name field in the input XML is used to check if the resource already

@@ -21,9 +21,10 @@ import (
 // NewClassicMacosConfigProfilesCmd creates the classic-macos-config-profiles command group
 func NewClassicMacosConfigProfilesCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "classic-macos-config-profiles",
-		Short: "macOS configuration profiles (Classic API)",
-		Long:  `Manage macos configuration profiles via the Jamf Pro Classic API (/JSSResource/).`,
+		Use:         "classic-macos-config-profiles",
+		Short:       "macOS configuration profiles (Classic API)",
+		Long:        `Manage macos configuration profiles via the Jamf Pro Classic API (/JSSResource/).`,
+		Annotations: map[string]string{"jamf:api": "pro-classic"},
 	}
 
 	cmd.AddCommand(newClassicMacosConfigProfilesListCmd(ctx))
@@ -55,6 +56,7 @@ func newClassicMacosConfigProfilesListCmd(ctx *registry.CLIContext) *cobra.Comma
 
   # List osxconfigurationprofiles and extract IDs
   jamf-cli pro classic-macos-config-profiles list --field id`,
+		Annotations: map[string]string{"jamf:api": "pro-classic"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/osxconfigurationprofiles", nil)
@@ -111,7 +113,8 @@ func newClassicMacosConfigProfilesGetCmd(ctx *registry.CLIContext) *cobra.Comman
 
   # Get a os_x_configuration_profile and output as YAML
   jamf-cli pro classic-macos-config-profiles get 1 -o yaml`,
-		Args: cobra.MaximumNArgs(1),
+		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -168,9 +171,10 @@ func newClassicMacosConfigProfilesCreateCmd(ctx *registry.CLIContext) *cobra.Com
 		flagCustomPayloadDomain string
 	)
 	cmd := &cobra.Command{
-		Use:   "create",
-		Short: "Create a os_x_configuration_profile",
-		Long:  "Create a new os_x_configuration_profile. Reads XML body from stdin.",
+		Use:         "create",
+		Short:       "Create a os_x_configuration_profile",
+		Long:        "Create a new os_x_configuration_profile. Reads XML body from stdin.",
+		Annotations: map[string]string{"jamf:api": "pro-classic"},
 		Example: `  # Create a os_x_configuration_profile from XML
   cat os_x_configuration_profile.xml | jamf-cli pro classic-macos-config-profiles create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -247,9 +251,10 @@ func newClassicMacosConfigProfilesUpdateCmd(ctx *registry.CLIContext) *cobra.Com
 	)
 
 	cmd := &cobra.Command{
-		Use:   "update [<id>]",
-		Short: "Update a os_x_configuration_profile",
-		Long:  "Update an existing os_x_configuration_profile by ID. Reads XML body from stdin.",
+		Use:         "update [<id>]",
+		Short:       "Update a os_x_configuration_profile",
+		Long:        "Update an existing os_x_configuration_profile by ID. Reads XML body from stdin.",
+		Annotations: map[string]string{"jamf:api": "pro-classic"},
 		Example: `  # Update a os_x_configuration_profile from XML
   cat os_x_configuration_profile.xml | jamf-cli pro classic-macos-config-profiles update 1`,
 		Args: cobra.MaximumNArgs(1),
@@ -362,7 +367,7 @@ func newClassicMacosConfigProfilesDeleteCmd(ctx *registry.CLIContext) *cobra.Com
 
   # Delete without confirmation prompt
   jamf-cli pro classic-macos-config-profiles delete 1 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:api": "pro-classic"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -537,8 +542,9 @@ func newClassicMacosConfigProfilesApplyCmd(ctx *registry.CLIContext) *cobra.Comm
 	)
 
 	cmd := &cobra.Command{
-		Use:   "apply",
-		Short: "Create or replace a os_x_configuration_profile by name",
+		Use:         "apply",
+		Short:       "Create or replace a os_x_configuration_profile by name",
+		Annotations: map[string]string{"jamf:api": "pro-classic"},
 		Long: `Create or replace a os_x_configuration_profile. Reads XML from --from-file or stdin.
 
 The name field in the input XML is used to check if the resource already

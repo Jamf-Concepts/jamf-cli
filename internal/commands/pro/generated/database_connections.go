@@ -16,9 +16,10 @@ import (
 // NewDatabaseConnectionsCmd creates the database-connections command group
 func NewDatabaseConnectionsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "database-connections",
-		Short: "Manage database-connections",
-		Long:  `Manage database-connections in Jamf Pro.`,
+		Use:         "database-connections",
+		Short:       "Manage database-connections",
+		Long:        `Manage database-connections in Jamf Pro.`,
+		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
 	cmd.AddCommand(newDatabaseConnectionsInitializeDatabaseConnectionCmd(ctx))
@@ -32,9 +33,10 @@ func newDatabaseConnectionsInitializeDatabaseConnectionCmd(ctx *registry.CLICont
 	)
 
 	cmd := &cobra.Command{
-		Use:   "initialize-database-connection",
-		Short: "Provide Database Password during startup",
-		Long:  "Provide database password during startup. Endpoint is accessible when database password was not configured and Jamf Pro server has not been initialized yet.",
+		Use:         "initialize-database-connection",
+		Short:       "Provide Database Password during startup",
+		Long:        "Provide database password during startup. Endpoint is accessible when database password was not configured and Jamf Pro server has not been initialized yet.",
+		Annotations: map[string]string{"jamf:api": "pro"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

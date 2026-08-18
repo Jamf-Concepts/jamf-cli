@@ -13,9 +13,10 @@ import (
 // NewDeviceComplianceInformationsCmd creates the device-compliance-informations command group
 func NewDeviceComplianceInformationsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "device-compliance-informations",
-		Short: "Manage device-compliance-informations",
-		Long:  `Manage device-compliance-informations in Jamf Pro.`,
+		Use:         "device-compliance-informations",
+		Short:       "Manage device-compliance-informations",
+		Long:        `Manage device-compliance-informations in Jamf Pro.`,
+		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
 	cmd.AddCommand(newDeviceComplianceInformationsListCmd(ctx))
@@ -36,7 +37,7 @@ func newDeviceComplianceInformationsListCmd(ctx *registry.CLIContext) *cobra.Com
 
   # List device-compliance-informations and extract IDs
   jamf-cli pro device-compliance-informations list --field id`,
-		Annotations: map[string]string{"jamf:privileges": "Read Conditional Access"},
+		Annotations: map[string]string{"jamf:privileges": "Read Conditional Access", "jamf:api": "pro"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -75,7 +76,7 @@ func newDeviceComplianceInformationsGetCmd(ctx *registry.CLIContext) *cobra.Comm
 
   # Get a device-compliance-information and output as YAML
   jamf-cli pro device-compliance-informations get 1 -o yaml`,
-		Annotations: map[string]string{"jamf:privileges": "Read Device Compliance Information"},
+		Annotations: map[string]string{"jamf:privileges": "Read Device Compliance Information", "jamf:api": "pro"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

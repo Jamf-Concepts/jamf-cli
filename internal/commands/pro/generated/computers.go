@@ -17,9 +17,10 @@ import (
 // NewComputersCmd creates the computers command group
 func NewComputersCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "computers",
-		Short: "Manage computers",
-		Long:  `Manage computers in Jamf Pro.`,
+		Use:         "computers",
+		Short:       "Manage computers",
+		Long:        `Manage computers in Jamf Pro.`,
+		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
 	cmd.AddCommand(newComputersListCmd(ctx))
@@ -47,7 +48,7 @@ func newComputersListCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # List computers and extract IDs
   jamf-cli pro computers list --field id`,
-		Annotations: map[string]string{"jamf:privileges": "Read Computers"},
+		Annotations: map[string]string{"jamf:privileges": "Read Computers", "jamf:api": "pro"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

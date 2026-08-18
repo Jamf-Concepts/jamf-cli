@@ -17,9 +17,10 @@ import (
 // NewSitesCmd creates the sites command group
 func NewSitesCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "sites",
-		Short: "Manage sites",
-		Long:  `Manage sites in Jamf Pro.`,
+		Use:         "sites",
+		Short:       "Manage sites",
+		Long:        `Manage sites in Jamf Pro.`,
+		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
 	cmd.AddCommand(newSitesListCmd(ctx))
@@ -40,7 +41,7 @@ func newSitesListCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # List sites and extract IDs
   jamf-cli pro sites list --field id`,
-		Annotations: map[string]string{"jamf:privileges": "Read Sites"},
+		Annotations: map[string]string{"jamf:privileges": "Read Sites", "jamf:api": "pro"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -82,7 +83,7 @@ func newSitesObjectsCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:         "objects [<id>]",
 		Short:       "Find and filter site objects for a site ID",
 		Long:        "Find site objects for Site ID, with the ability to filter out different object types and object IDs for the site ID",
-		Annotations: map[string]string{"jamf:privileges": "Read Sites"},
+		Annotations: map[string]string{"jamf:privileges": "Read Sites", "jamf:api": "pro"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

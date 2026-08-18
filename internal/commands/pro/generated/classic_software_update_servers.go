@@ -20,9 +20,10 @@ import (
 // NewClassicSoftwareUpdateServersCmd creates the classic-software-update-servers command group
 func NewClassicSoftwareUpdateServersCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "classic-software-update-servers",
-		Short: "Software update servers (Classic API)",
-		Long:  `Manage software update servers via the Jamf Pro Classic API (/JSSResource/).`,
+		Use:         "classic-software-update-servers",
+		Short:       "Software update servers (Classic API)",
+		Long:        `Manage software update servers via the Jamf Pro Classic API (/JSSResource/).`,
+		Annotations: map[string]string{"jamf:api": "pro-classic"},
 	}
 
 	cmd.AddCommand(newClassicSoftwareUpdateServersListCmd(ctx))
@@ -49,6 +50,7 @@ func newClassicSoftwareUpdateServersListCmd(ctx *registry.CLIContext) *cobra.Com
 
   # List softwareupdateservers and extract IDs
   jamf-cli pro classic-software-update-servers list --field id`,
+		Annotations: map[string]string{"jamf:api": "pro-classic"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/softwareupdateservers", nil)
@@ -105,7 +107,8 @@ func newClassicSoftwareUpdateServersGetCmd(ctx *registry.CLIContext) *cobra.Comm
 
   # Get a software_update_server and output as YAML
   jamf-cli pro classic-software-update-servers get 1 -o yaml`,
-		Args: cobra.MaximumNArgs(1),
+		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -157,9 +160,10 @@ func newClassicSoftwareUpdateServersGetCmd(ctx *registry.CLIContext) *cobra.Comm
 
 func newClassicSoftwareUpdateServersCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "create",
-		Short: "Create a software_update_server",
-		Long:  "Create a new software_update_server. Reads XML body from stdin.",
+		Use:         "create",
+		Short:       "Create a software_update_server",
+		Long:        "Create a new software_update_server. Reads XML body from stdin.",
+		Annotations: map[string]string{"jamf:api": "pro-classic"},
 		Example: `  # Create a software_update_server from XML
   cat software_update_server.xml | jamf-cli pro classic-software-update-servers create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -190,9 +194,10 @@ func newClassicSoftwareUpdateServersUpdateCmd(ctx *registry.CLIContext) *cobra.C
 	var flagName string
 
 	cmd := &cobra.Command{
-		Use:   "update [<id>]",
-		Short: "Update a software_update_server",
-		Long:  "Update an existing software_update_server by ID. Reads XML body from stdin.",
+		Use:         "update [<id>]",
+		Short:       "Update a software_update_server",
+		Long:        "Update an existing software_update_server by ID. Reads XML body from stdin.",
+		Annotations: map[string]string{"jamf:api": "pro-classic"},
 		Example: `  # Update a software_update_server from XML
   cat software_update_server.xml | jamf-cli pro classic-software-update-servers update 1`,
 		Args: cobra.MaximumNArgs(1),
@@ -250,7 +255,7 @@ func newClassicSoftwareUpdateServersDeleteCmd(ctx *registry.CLIContext) *cobra.C
 
   # Delete without confirmation prompt
   jamf-cli pro classic-software-update-servers delete 1 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:api": "pro-classic"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -421,8 +426,9 @@ func newClassicSoftwareUpdateServersApplyCmd(ctx *registry.CLIContext) *cobra.Co
 	)
 
 	cmd := &cobra.Command{
-		Use:   "apply",
-		Short: "Create or replace a software_update_server by name",
+		Use:         "apply",
+		Short:       "Create or replace a software_update_server by name",
+		Annotations: map[string]string{"jamf:api": "pro-classic"},
 		Long: `Create or replace a software_update_server. Reads XML from --from-file or stdin.
 
 The name field in the input XML is used to check if the resource already

@@ -13,9 +13,10 @@ import (
 // NewCloudLdapDefaultsCmd creates the cloud-ldap-defaults command group
 func NewCloudLdapDefaultsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "cloud-ldap-defaults",
-		Short: "Manage cloud-ldap-defaults",
-		Long:  `Manage cloud-ldap-defaults in Jamf Pro.`,
+		Use:         "cloud-ldap-defaults",
+		Short:       "Manage cloud-ldap-defaults",
+		Long:        `Manage cloud-ldap-defaults in Jamf Pro.`,
+		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
 	cmd.AddCommand(newCloudLdapDefaultsMappingsCmd(ctx))
@@ -31,7 +32,7 @@ func newCloudLdapDefaultsMappingsCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:         "mappings <id>",
 		Short:       "Get default mappings",
 		Long:        "Get default mappings for Cloud Identity Provider Provider.",
-		Annotations: map[string]string{"jamf:privileges": "Read LDAP Servers"},
+		Annotations: map[string]string{"jamf:privileges": "Read LDAP Servers", "jamf:api": "pro"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -67,7 +68,7 @@ func newCloudLdapDefaultsServerConfigurationCmd(ctx *registry.CLIContext) *cobra
 		Use:         "server-configuration <id>",
 		Short:       "Get default server configuration",
 		Long:        "Get default server configuration for Cloud Identity Provider Identity Provider.",
-		Annotations: map[string]string{"jamf:privileges": "Read LDAP Servers"},
+		Annotations: map[string]string{"jamf:privileges": "Read LDAP Servers", "jamf:api": "pro"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

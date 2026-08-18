@@ -21,9 +21,10 @@ import (
 // NewClassicMobileAppsCmd creates the classic-mobile-apps command group
 func NewClassicMobileAppsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "classic-mobile-apps",
-		Short: "Mobile device applications (Classic API)",
-		Long:  `Manage mobile device applications via the Jamf Pro Classic API (/JSSResource/).`,
+		Use:         "classic-mobile-apps",
+		Short:       "Mobile device applications (Classic API)",
+		Long:        `Manage mobile device applications via the Jamf Pro Classic API (/JSSResource/).`,
+		Annotations: map[string]string{"jamf:api": "pro-classic"},
 	}
 
 	cmd.AddCommand(newClassicMobileAppsListCmd(ctx))
@@ -55,6 +56,7 @@ func newClassicMobileAppsListCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # List mobiledeviceapplications and extract IDs
   jamf-cli pro classic-mobile-apps list --field id`,
+		Annotations: map[string]string{"jamf:api": "pro-classic"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/mobiledeviceapplications", nil)
@@ -111,7 +113,8 @@ func newClassicMobileAppsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a mobile_device_application and output as YAML
   jamf-cli pro classic-mobile-apps get 1 -o yaml`,
-		Args: cobra.MaximumNArgs(1),
+		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -166,9 +169,10 @@ func newClassicMobileAppsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 		flagAppconfigFile string
 	)
 	cmd := &cobra.Command{
-		Use:   "create",
-		Short: "Create a mobile_device_application",
-		Long:  "Create a new mobile_device_application. Reads XML body from stdin.",
+		Use:         "create",
+		Short:       "Create a mobile_device_application",
+		Long:        "Create a new mobile_device_application. Reads XML body from stdin.",
+		Annotations: map[string]string{"jamf:api": "pro-classic"},
 		Example: `  # Create a mobile_device_application from XML
   cat mobile_device_application.xml | jamf-cli pro classic-mobile-apps create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -215,9 +219,10 @@ func newClassicMobileAppsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "update [<id>]",
-		Short: "Update a mobile_device_application",
-		Long:  "Update an existing mobile_device_application by ID. Reads XML body from stdin.",
+		Use:         "update [<id>]",
+		Short:       "Update a mobile_device_application",
+		Long:        "Update an existing mobile_device_application by ID. Reads XML body from stdin.",
+		Annotations: map[string]string{"jamf:api": "pro-classic"},
 		Example: `  # Update a mobile_device_application from XML
   cat mobile_device_application.xml | jamf-cli pro classic-mobile-apps update 1`,
 		Args: cobra.MaximumNArgs(1),
@@ -325,7 +330,7 @@ func newClassicMobileAppsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Delete without confirmation prompt
   jamf-cli pro classic-mobile-apps delete 1 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:api": "pro-classic"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -498,8 +503,9 @@ func newClassicMobileAppsApplyCmd(ctx *registry.CLIContext) *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "apply",
-		Short: "Create or replace a mobile_device_application by name",
+		Use:         "apply",
+		Short:       "Create or replace a mobile_device_application by name",
+		Annotations: map[string]string{"jamf:api": "pro-classic"},
 		Long: `Create or replace a mobile_device_application. Reads XML from --from-file or stdin.
 
 The name field in the input XML is used to check if the resource already

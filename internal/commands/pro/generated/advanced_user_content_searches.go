@@ -20,9 +20,10 @@ import (
 // NewAdvancedUserContentSearchesCmd creates the advanced-user-content-searches command group
 func NewAdvancedUserContentSearchesCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "advanced-user-content-searches",
-		Short: "Manage advanced-user-content-searches",
-		Long:  `Manage advanced-user-content-searches in Jamf Pro.`,
+		Use:         "advanced-user-content-searches",
+		Short:       "Manage advanced-user-content-searches",
+		Long:        `Manage advanced-user-content-searches in Jamf Pro.`,
+		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
 	cmd.AddCommand(newAdvancedUserContentSearchesListCmd(ctx))
@@ -47,7 +48,7 @@ func newAdvancedUserContentSearchesListCmd(ctx *registry.CLIContext) *cobra.Comm
 
   # List advanced-user-content-searches and extract IDs
   jamf-cli pro advanced-user-content-searches list --field id`,
-		Annotations: map[string]string{"jamf:privileges": "Read Advanced User Content Searches"},
+		Annotations: map[string]string{"jamf:privileges": "Read Advanced User Content Searches", "jamf:api": "pro"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -91,7 +92,7 @@ func newAdvancedUserContentSearchesGetCmd(ctx *registry.CLIContext) *cobra.Comma
 
   # Get a advanced-user-content-searche and output as YAML
   jamf-cli pro advanced-user-content-searches get 1 -o yaml`,
-		Annotations: map[string]string{"jamf:privileges": "Read Advanced User Content Searches"},
+		Annotations: map[string]string{"jamf:privileges": "Read Advanced User Content Searches", "jamf:api": "pro"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -154,7 +155,7 @@ func newAdvancedUserContentSearchesCreateCmd(ctx *registry.CLIContext) *cobra.Co
 
   # Get a advanced-user-content-searche, modify it, and create a copy
   jamf-cli pro advanced-user-content-searches get 1 -o json | jq '.name = "Copy"' | jamf-cli pro advanced-user-content-searches create`,
-		Annotations: map[string]string{"jamf:privileges": "Create Advanced User Content Searches"},
+		Annotations: map[string]string{"jamf:privileges": "Create Advanced User Content Searches", "jamf:api": "pro"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -234,7 +235,7 @@ func newAdvancedUserContentSearchesUpdateCmd(ctx *registry.CLIContext) *cobra.Co
 
   # Get a advanced-user-content-searche, modify, and update
   jamf-cli pro advanced-user-content-searches get 1 -o json | jq '.name = "New Name"' | jamf-cli pro advanced-user-content-searches update 1`,
-		Annotations: map[string]string{"jamf:privileges": "Update Advanced User Content Searches"},
+		Annotations: map[string]string{"jamf:privileges": "Update Advanced User Content Searches", "jamf:api": "pro"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -369,7 +370,7 @@ func newAdvancedUserContentSearchesDeleteCmd(ctx *registry.CLIContext) *cobra.Co
 
   # Delete without confirmation prompt
   jamf-cli pro advanced-user-content-searches delete 1 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Delete Advanced User Content Searches"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Delete Advanced User Content Searches", "jamf:api": "pro"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -570,8 +571,9 @@ func newAdvancedUserContentSearchesApplyCmd(ctx *registry.CLIContext) *cobra.Com
 	)
 
 	cmd := &cobra.Command{
-		Use:   "apply",
-		Short: "Create or replace a advanced-user-content-searche by name",
+		Use:         "apply",
+		Short:       "Create or replace a advanced-user-content-searche by name",
+		Annotations: map[string]string{"jamf:api": "pro"},
 		Long: `Create or replace a advanced-user-content-searche. Reads JSON or YAML from --from-file or stdin.
 
 The name field in the input is used to check if the resource

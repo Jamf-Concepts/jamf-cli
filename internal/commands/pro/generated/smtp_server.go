@@ -19,9 +19,10 @@ import (
 // NewSmtpServerCmd creates the smtp-server command group
 func NewSmtpServerCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "smtp-server",
-		Short: "Manage smtp-server",
-		Long:  `Manage smtp-server in Jamf Pro.`,
+		Use:         "smtp-server",
+		Short:       "Manage smtp-server",
+		Long:        `Manage smtp-server in Jamf Pro.`,
+		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
 	cmd.AddCommand(newSmtpServerGetCmd(ctx))
@@ -46,7 +47,7 @@ func newSmtpServerGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get smtp-server and output as YAML
   jamf-cli pro smtp-server get -o yaml`,
-		Annotations: map[string]string{"jamf:privileges": "Read SMTP Server"},
+		Annotations: map[string]string{"jamf:privileges": "Read SMTP Server", "jamf:api": "pro"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -92,7 +93,7 @@ func newSmtpServerUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Update from a file
   jamf-cli pro smtp-server update --from-file smtp-server.json`,
-		Annotations: map[string]string{"jamf:privileges": "Update SMTP Server"},
+		Annotations: map[string]string{"jamf:privileges": "Update SMTP Server", "jamf:api": "pro"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -217,7 +218,7 @@ func newSmtpServerHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 		Long:  "Get specified SMTP Server history object",
 		Example: `  # Get history for a smtp-server
   jamf-cli pro smtp-server history 1`,
-		Annotations: map[string]string{"jamf:privileges": "Read SMTP Server"},
+		Annotations: map[string]string{"jamf:privileges": "Read SMTP Server", "jamf:api": "pro"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -361,7 +362,7 @@ func newSmtpServerAddHistoryNoteCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:         "add-history-note",
 		Short:       "Add SMTP Server history object notes",
 		Long:        "Adds SMTP Server history object notes",
-		Annotations: map[string]string{"jamf:privileges": "Update SMTP Server"},
+		Annotations: map[string]string{"jamf:privileges": "Update SMTP Server", "jamf:api": "pro"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -421,7 +422,7 @@ func newSmtpServerTestCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:         "test",
 		Short:       "Test functionality of an SMTP Server",
 		Long:        "Test functionality of an SMTP Server",
-		Annotations: map[string]string{"jamf:privileges": "Read SMTP Server"},
+		Annotations: map[string]string{"jamf:privileges": "Read SMTP Server", "jamf:api": "pro"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -479,7 +480,7 @@ func newSmtpServerAllowedAuthTypesCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:         "allowed-auth-types",
 		Short:       "Get allowed SMTP authentication types",
 		Long:        "Returns the list of authentication types currently available on this instance. Availability is controlled at the instance or knobs level and is independent of current SMTP settings.",
-		Annotations: map[string]string{"jamf:privileges": "Read SMTP Server"},
+		Annotations: map[string]string{"jamf:privileges": "Read SMTP Server", "jamf:api": "pro"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

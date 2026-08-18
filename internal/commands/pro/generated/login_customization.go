@@ -17,9 +17,10 @@ import (
 // NewLoginCustomizationCmd creates the login-customization command group
 func NewLoginCustomizationCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "login-customization",
-		Short: "Manage login-customization",
-		Long:  `Manage login-customization in Jamf Pro.`,
+		Use:         "login-customization",
+		Short:       "Manage login-customization",
+		Long:        `Manage login-customization in Jamf Pro.`,
+		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
 	cmd.AddCommand(newLoginCustomizationGetCmd(ctx))
@@ -40,6 +41,7 @@ func newLoginCustomizationGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get login-customization and output as YAML
   jamf-cli pro login-customization get -o yaml`,
+		Annotations: map[string]string{"jamf:api": "pro"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -84,7 +86,7 @@ func newLoginCustomizationUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Update from a file
   jamf-cli pro login-customization update --from-file login-customization.json`,
-		Annotations: map[string]string{"jamf:privileges": "Update Login Disclaimer"},
+		Annotations: map[string]string{"jamf:privileges": "Update Login Disclaimer", "jamf:api": "pro"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

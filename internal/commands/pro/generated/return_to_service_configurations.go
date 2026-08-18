@@ -20,9 +20,10 @@ import (
 // NewReturnToServiceConfigurationsCmd creates the return-to-service-configurations command group
 func NewReturnToServiceConfigurationsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "return-to-service-configurations",
-		Short: "Manage return-to-service-configurations",
-		Long:  `Manage return-to-service-configurations in Jamf Pro.`,
+		Use:         "return-to-service-configurations",
+		Short:       "Manage return-to-service-configurations",
+		Long:        `Manage return-to-service-configurations in Jamf Pro.`,
+		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
 	cmd.AddCommand(newReturnToServiceConfigurationsListCmd(ctx))
@@ -47,7 +48,7 @@ func newReturnToServiceConfigurationsListCmd(ctx *registry.CLIContext) *cobra.Co
 
   # List return-to-service-configurations and extract IDs
   jamf-cli pro return-to-service-configurations list --field id`,
-		Annotations: map[string]string{"jamf:privileges": "View Return To Service Configurations"},
+		Annotations: map[string]string{"jamf:privileges": "View Return To Service Configurations", "jamf:api": "pro"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -91,7 +92,7 @@ func newReturnToServiceConfigurationsGetCmd(ctx *registry.CLIContext) *cobra.Com
 
   # Get a return-to-service-configuration and output as YAML
   jamf-cli pro return-to-service-configurations get 1 -o yaml`,
-		Annotations: map[string]string{"jamf:privileges": "View Return To Service Configurations"},
+		Annotations: map[string]string{"jamf:privileges": "View Return To Service Configurations", "jamf:api": "pro"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -154,7 +155,7 @@ func newReturnToServiceConfigurationsCreateCmd(ctx *registry.CLIContext) *cobra.
 
   # Get a return-to-service-configuration, modify it, and create a copy
   jamf-cli pro return-to-service-configurations get 1 -o json | jq '.name = "Copy"' | jamf-cli pro return-to-service-configurations create`,
-		Annotations: map[string]string{"jamf:privileges": "Edit Return To Service Configurations"},
+		Annotations: map[string]string{"jamf:privileges": "Edit Return To Service Configurations", "jamf:api": "pro"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -229,7 +230,7 @@ func newReturnToServiceConfigurationsUpdateCmd(ctx *registry.CLIContext) *cobra.
 
   # Get a return-to-service-configuration, modify, and update
   jamf-cli pro return-to-service-configurations get 1 -o json | jq '.name = "New Name"' | jamf-cli pro return-to-service-configurations update 1`,
-		Annotations: map[string]string{"jamf:privileges": "Edit Return To Service Configurations"},
+		Annotations: map[string]string{"jamf:privileges": "Edit Return To Service Configurations", "jamf:api": "pro"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -359,7 +360,7 @@ func newReturnToServiceConfigurationsDeleteCmd(ctx *registry.CLIContext) *cobra.
 
   # Delete without confirmation prompt
   jamf-cli pro return-to-service-configurations delete 1 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Delete Return To Service Configurations"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Delete Return To Service Configurations", "jamf:api": "pro"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -560,8 +561,9 @@ func newReturnToServiceConfigurationsApplyCmd(ctx *registry.CLIContext) *cobra.C
 	)
 
 	cmd := &cobra.Command{
-		Use:   "apply",
-		Short: "Create or replace a return-to-service-configuration by name",
+		Use:         "apply",
+		Short:       "Create or replace a return-to-service-configuration by name",
+		Annotations: map[string]string{"jamf:api": "pro"},
 		Long: `Create or replace a return-to-service-configuration. Reads JSON or YAML from --from-file or stdin.
 
 The displayName field in the input is used to check if the resource

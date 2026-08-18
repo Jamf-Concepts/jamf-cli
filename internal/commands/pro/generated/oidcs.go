@@ -16,9 +16,10 @@ import (
 // NewOidcsCmd creates the oidcs command group
 func NewOidcsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "oidcs",
-		Short: "Manage oidcs",
-		Long:  `Manage oidcs in Jamf Pro.`,
+		Use:         "oidcs",
+		Short:       "Manage oidcs",
+		Long:        `Manage oidcs in Jamf Pro.`,
+		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
 	cmd.AddCommand(newOidcsDirectIdpLoginUrlCmd(ctx))
@@ -34,9 +35,10 @@ func newOidcsDirectIdpLoginUrlCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{
-		Use:   "direct-idp-login-url",
-		Short: "Retrieve the URL to directly login to the IdP",
-		Long:  "Retrieve the URL to directly login to the IdP",
+		Use:         "direct-idp-login-url",
+		Short:       "Retrieve the URL to directly login to the IdP",
+		Long:        "Retrieve the URL to directly login to the IdP",
+		Annotations: map[string]string{"jamf:api": "pro"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -69,9 +71,10 @@ func newOidcsDispatchCmd(ctx *registry.CLIContext) *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "dispatch",
-		Short: "Provide the url to redirect for OIDC login",
-		Long:  "Provide the url to redirect for OIDC login based on email",
+		Use:         "dispatch",
+		Short:       "Provide the url to redirect for OIDC login",
+		Long:        "Provide the url to redirect for OIDC login based on email",
+		Annotations: map[string]string{"jamf:api": "pro"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -130,7 +133,7 @@ func newOidcsGenerateCertificateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:         "generate-certificate",
 		Short:       "Generate a new keystore used for signing OIDC messages",
 		Long:        "Generates a new certificate used for signing OIDC messages",
-		Annotations: map[string]string{"jamf:privileges": "Update SSO Settings"},
+		Annotations: map[string]string{"jamf:privileges": "Update SSO Settings", "jamf:api": "pro"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -178,9 +181,10 @@ func newOidcsPublicFeaturesCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{
-		Use:   "public-features",
-		Short: "Get the public features of the OIDC configuration",
-		Long:  "Retrieves public OIDC configuration features.",
+		Use:         "public-features",
+		Short:       "Get the public features of the OIDC configuration",
+		Long:        "Retrieves public OIDC configuration features.",
+		Annotations: map[string]string{"jamf:api": "pro"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -211,9 +215,10 @@ func newOidcsPublicKeyCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{
-		Use:   "public-key",
-		Short: "Get the public key of the keystore used for signing OIDC messages as a JWT",
-		Long:  "Gets the public key of the keystore used for signing OIDC messages as a JWT",
+		Use:         "public-key",
+		Short:       "Get the public key of the keystore used for signing OIDC messages as a JWT",
+		Long:        "Gets the public key of the keystore used for signing OIDC messages as a JWT",
+		Annotations: map[string]string{"jamf:api": "pro"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

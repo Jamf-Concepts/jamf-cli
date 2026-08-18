@@ -16,9 +16,10 @@ import (
 // NewAccessManagementsCmd creates the access-managements command group
 func NewAccessManagementsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "access-managements",
-		Short: "Manage access-managements",
-		Long:  `Manage access-managements in Jamf Pro.`,
+		Use:         "access-managements",
+		Short:       "Manage access-managements",
+		Long:        `Manage access-managements in Jamf Pro.`,
+		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
 	cmd.AddCommand(newAccessManagementsListCmd(ctx))
@@ -39,7 +40,7 @@ func newAccessManagementsListCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # List access-managements and extract IDs
   jamf-cli pro access-managements list --field id`,
-		Annotations: map[string]string{"jamf:privileges": "Access Management Setting Read"},
+		Annotations: map[string]string{"jamf:privileges": "Access Management Setting Read", "jamf:api": "pro"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -75,7 +76,7 @@ func newAccessManagementsAccessManagementCmd(ctx *registry.CLIContext) *cobra.Co
 		Use:         "access-management",
 		Short:       "Configure Access Management settings",
 		Long:        "Configure Access Management settings",
-		Annotations: map[string]string{"jamf:privileges": "Access Management Setting Update"},
+		Annotations: map[string]string{"jamf:privileges": "Access Management Setting Update", "jamf:api": "pro"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

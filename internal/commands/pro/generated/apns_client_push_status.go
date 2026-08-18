@@ -19,9 +19,10 @@ import (
 // NewApnsClientPushStatusCmd creates the apns-client-push-status command group
 func NewApnsClientPushStatusCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "apns-client-push-status",
-		Short: "Manage apns-client-push-status",
-		Long:  `Manage apns-client-push-status in Jamf Pro.`,
+		Use:         "apns-client-push-status",
+		Short:       "Manage apns-client-push-status",
+		Long:        `Manage apns-client-push-status in Jamf Pro.`,
+		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
 	cmd.AddCommand(newApnsClientPushStatusApnsClientPushStatusCmd(ctx))
@@ -46,7 +47,7 @@ func newApnsClientPushStatusApnsClientPushStatusCmd(ctx *registry.CLIContext) *c
 		Use:         "apns-client-push-status",
 		Short:       "Search for clients with push notifications disabled",
 		Long:        "Retrieve a paginated, sortable, and filterable list of MDM clients that have push notifications disabled. The endpoint queries the mdm_client table and returns information about when push was disabled and links to the device records.",
-		Annotations: map[string]string{"jamf:privileges": "View MDM command information in Jamf Pro API"},
+		Annotations: map[string]string{"jamf:privileges": "View MDM command information in Jamf Pro API", "jamf:api": "pro"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -188,7 +189,7 @@ func newApnsClientPushStatusEnableAllClientsCmd(ctx *registry.CLIContext) *cobra
 		Use:         "enable-all-clients",
 		Short:       "Enable push notifications for all clients",
 		Long:        "Create a request to enable push notifications for all MDM clients that currently have push disabled. This is an asynchronous operation that processes all disabled clients in the background.",
-		Annotations: map[string]string{"jamf:privileges": "Send MDM command information in Jamf Pro API"},
+		Annotations: map[string]string{"jamf:privileges": "Send MDM command information in Jamf Pro API", "jamf:api": "pro"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -239,7 +240,7 @@ func newApnsClientPushStatusStatusCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:         "status",
 		Short:       "Get status of enable all clients request",
 		Long:        "Retrieve the status of the most recent request to enable push notifications for all clients. Returns 404 if no recent request exists.",
-		Annotations: map[string]string{"jamf:privileges": "View MDM command information in Jamf Pro API"},
+		Annotations: map[string]string{"jamf:privileges": "View MDM command information in Jamf Pro API", "jamf:api": "pro"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -275,7 +276,7 @@ func newApnsClientPushStatusEnableClientCmd(ctx *registry.CLIContext) *cobra.Com
 		Use:         "enable-client",
 		Short:       "Enable push notifications for a single client",
 		Long:        "Enable push notifications for a single MDM client that previously had push disabled. This sets the pushEnabled flag to true for the specified client. managementId field is required in the request body.",
-		Annotations: map[string]string{"jamf:privileges": "Send MDM command information in Jamf Pro API"},
+		Annotations: map[string]string{"jamf:privileges": "Send MDM command information in Jamf Pro API", "jamf:api": "pro"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

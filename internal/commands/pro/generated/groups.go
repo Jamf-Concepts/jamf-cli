@@ -21,9 +21,10 @@ import (
 // NewGroupsCmd creates the groups command group
 func NewGroupsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "groups",
-		Short: "Manage groups",
-		Long:  `Manage groups in Jamf Pro.`,
+		Use:         "groups",
+		Short:       "Manage groups",
+		Long:        `Manage groups in Jamf Pro.`,
+		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
 	cmd.AddCommand(newGroupsListCmd(ctx))
@@ -53,6 +54,7 @@ func newGroupsListCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # List groups and extract IDs
   jamf-cli pro groups list --field id`,
+		Annotations: map[string]string{"jamf:api": "pro"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -205,7 +207,8 @@ func newGroupsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a group and output as YAML
   jamf-cli pro groups get 1 -o yaml`,
-		Args: cobra.MaximumNArgs(1),
+		Annotations: map[string]string{"jamf:api": "pro"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -271,7 +274,7 @@ func newGroupsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Delete without confirmation prompt
   jamf-cli pro groups delete 1 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:api": "pro"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -487,7 +490,8 @@ func newGroupsPatchCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Patch from a file
   jamf-cli pro groups patch 1 --from-file changes.json`,
-		Args: cobra.MaximumNArgs(1),
+		Annotations: map[string]string{"jamf:api": "pro"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

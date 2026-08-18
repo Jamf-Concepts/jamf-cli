@@ -16,9 +16,10 @@ import (
 // NewCertificateAuthoritiesCmd creates the certificate-authorities command group
 func NewCertificateAuthoritiesCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "certificate-authorities",
-		Short: "Manage certificate-authorities",
-		Long:  `Manage certificate-authorities in Jamf Pro.`,
+		Use:         "certificate-authorities",
+		Short:       "Manage certificate-authorities",
+		Long:        `Manage certificate-authorities in Jamf Pro.`,
+		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
 	cmd.AddCommand(newCertificateAuthoritiesGetCmd(ctx))
@@ -43,7 +44,7 @@ func newCertificateAuthoritiesGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a certificate-authority and output as YAML
   jamf-cli pro certificate-authorities get 1 -o yaml`,
-		Annotations: map[string]string{"jamf:privileges": "Read PKI"},
+		Annotations: map[string]string{"jamf:privileges": "Read PKI", "jamf:api": "pro"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -76,9 +77,10 @@ func newCertificateAuthoritiesActiveCmd(ctx *registry.CLIContext) *cobra.Command
 	var ()
 
 	cmd := &cobra.Command{
-		Use:   "active",
-		Short: "Returns X.509 details of the active Certificate Authority (CA)",
-		Long:  "Returns X.509 details of the active Certificate Authority (CA)",
+		Use:         "active",
+		Short:       "Returns X.509 details of the active Certificate Authority (CA)",
+		Long:        "Returns X.509 details of the active Certificate Authority (CA)",
+		Annotations: map[string]string{"jamf:api": "pro"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -119,6 +121,7 @@ func newCertificateAuthoritiesDerCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Pipe to stdout
   jamf-cli pro certificate-authorities der > output.bin`,
+		Annotations: map[string]string{"jamf:api": "pro"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			reqCtx = registry.WithAccept(reqCtx, "*/*")
@@ -175,6 +178,7 @@ func newCertificateAuthoritiesPemCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Pipe to stdout
   jamf-cli pro certificate-authorities pem > output.bin`,
+		Annotations: map[string]string{"jamf:api": "pro"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			reqCtx = registry.WithAccept(reqCtx, "*/*")
@@ -231,7 +235,7 @@ func newCertificateAuthoritiesDerByIdCmd(ctx *registry.CLIContext) *cobra.Comman
 
   # Pipe to stdout
   jamf-cli pro certificate-authorities der-by-id <id> > output.bin`,
-		Annotations: map[string]string{"jamf:privileges": "Read PKI"},
+		Annotations: map[string]string{"jamf:privileges": "Read PKI", "jamf:api": "pro"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -290,7 +294,7 @@ func newCertificateAuthoritiesPemByIdCmd(ctx *registry.CLIContext) *cobra.Comman
 
   # Pipe to stdout
   jamf-cli pro certificate-authorities pem-by-id <id> > output.bin`,
-		Annotations: map[string]string{"jamf:privileges": "Read PKI"},
+		Annotations: map[string]string{"jamf:privileges": "Read PKI", "jamf:api": "pro"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

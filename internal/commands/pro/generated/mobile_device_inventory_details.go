@@ -17,9 +17,10 @@ import (
 // NewMobileDeviceInventoryDetailsCmd creates the mobile-device-inventory-details command group
 func NewMobileDeviceInventoryDetailsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "mobile-device-inventory-details",
-		Short: "Manage mobile-device-inventory-details",
-		Long:  `Manage mobile-device-inventory-details in Jamf Pro.`,
+		Use:         "mobile-device-inventory-details",
+		Short:       "Manage mobile-device-inventory-details",
+		Long:        `Manage mobile-device-inventory-details in Jamf Pro.`,
+		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
 	cmd.AddCommand(newMobileDeviceInventoryDetailsListCmd(ctx))
@@ -49,7 +50,7 @@ func newMobileDeviceInventoryDetailsListCmd(ctx *registry.CLIContext) *cobra.Com
 
   # List mobile-device-inventory-details and extract IDs
   jamf-cli pro mobile-device-inventory-details list --field id`,
-		Annotations: map[string]string{"jamf:privileges": "Read Mobile Devices"},
+		Annotations: map[string]string{"jamf:privileges": "Read Mobile Devices", "jamf:api": "pro"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -209,7 +210,7 @@ func newMobileDeviceInventoryDetailsPairedDevicesCmd(ctx *registry.CLIContext) *
 		Use:         "paired-devices <id>",
 		Short:       "Return paginated Mobile Device Inventory records of all paired devices for the device",
 		Long:        "Return paginated Mobile Device Inventory records of all paired devices for the device",
-		Annotations: map[string]string{"jamf:privileges": "Read Mobile Devices"},
+		Annotations: map[string]string{"jamf:privileges": "Read Mobile Devices", "jamf:api": "pro"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

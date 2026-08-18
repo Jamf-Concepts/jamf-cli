@@ -20,9 +20,10 @@ import (
 // NewMobileDeviceGroupsCmd creates the mobile-device-groups command group
 func NewMobileDeviceGroupsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "mobile-device-groups",
-		Short: "Manage mobile-device-groups",
-		Long:  `Manage mobile-device-groups in Jamf Pro.`,
+		Use:         "mobile-device-groups",
+		Short:       "Manage mobile-device-groups",
+		Long:        `Manage mobile-device-groups in Jamf Pro.`,
+		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
 	cmd.AddCommand(newMobileDeviceGroupsListCmd(ctx))
@@ -44,7 +45,7 @@ func newMobileDeviceGroupsListCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # List mobile-device-groups and extract IDs
   jamf-cli pro mobile-device-groups list --field id`,
-		Annotations: map[string]string{"jamf:privileges": "Read Smart Mobile Device Groups,Read Static Mobile Device Groups"},
+		Annotations: map[string]string{"jamf:privileges": "Read Smart Mobile Device Groups,Read Static Mobile Device Groups", "jamf:api": "pro"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -95,7 +96,7 @@ func newMobileDeviceGroupsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a mobile-device-group and output as YAML
   jamf-cli pro mobile-device-groups get 1 -o yaml`,
-		Annotations: map[string]string{"jamf:privileges": "Read Smart Mobile Device Groups,Read Mobile Devices"},
+		Annotations: map[string]string{"jamf:privileges": "Read Smart Mobile Device Groups,Read Mobile Devices", "jamf:api": "pro"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -264,7 +265,7 @@ func newMobileDeviceGroupsEraseCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:         "erase [<id>]",
 		Short:       "Erase all devices in the group",
 		Long:        "Erase all devices in the group (both smart and static groups)",
-		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Send MDM command information in Jamf Pro API"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Send MDM command information in Jamf Pro API", "jamf:api": "pro"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

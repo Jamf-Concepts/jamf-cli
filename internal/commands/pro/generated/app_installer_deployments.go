@@ -21,9 +21,10 @@ import (
 // NewAppInstallerDeploymentsCmd creates the app-installer-deployments command group
 func NewAppInstallerDeploymentsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "app-installer-deployments",
-		Short: "Manage app-installer-deployments",
-		Long:  `Manage app-installer-deployments in Jamf Pro.`,
+		Use:         "app-installer-deployments",
+		Short:       "Manage app-installer-deployments",
+		Long:        `Manage app-installer-deployments in Jamf Pro.`,
+		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
 	cmd.AddCommand(newAppInstallerDeploymentsListCmd(ctx))
@@ -61,7 +62,7 @@ func newAppInstallerDeploymentsListCmd(ctx *registry.CLIContext) *cobra.Command 
 
   # List app-installer-deployments and extract IDs
   jamf-cli pro app-installer-deployments list --field id`,
-		Annotations: map[string]string{"jamf:privileges": "Read App Installers"},
+		Annotations: map[string]string{"jamf:privileges": "Read App Installers", "jamf:api": "pro"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -203,7 +204,7 @@ func newAppInstallerDeploymentsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a app-installer-deployment and output as YAML
   jamf-cli pro app-installer-deployments get 1 -o yaml`,
-		Annotations: map[string]string{"jamf:privileges": "Read App Installers"},
+		Annotations: map[string]string{"jamf:privileges": "Read App Installers", "jamf:api": "pro"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -266,7 +267,7 @@ func newAppInstallerDeploymentsCreateCmd(ctx *registry.CLIContext) *cobra.Comman
 
   # Get a app-installer-deployment, modify it, and create a copy
   jamf-cli pro app-installer-deployments get 1 -o json | jq '.name = "Copy"' | jamf-cli pro app-installer-deployments create`,
-		Annotations: map[string]string{"jamf:privileges": "Create App Installers"},
+		Annotations: map[string]string{"jamf:privileges": "Create App Installers", "jamf:api": "pro"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -351,7 +352,7 @@ func newAppInstallerDeploymentsUpdateCmd(ctx *registry.CLIContext) *cobra.Comman
 
   # Get a app-installer-deployment, modify, and update
   jamf-cli pro app-installer-deployments get 1 -o json | jq '.name = "New Name"' | jamf-cli pro app-installer-deployments update 1`,
-		Annotations: map[string]string{"jamf:privileges": "Update App Installers"},
+		Annotations: map[string]string{"jamf:privileges": "Update App Installers", "jamf:api": "pro"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -491,7 +492,7 @@ func newAppInstallerDeploymentsDeleteCmd(ctx *registry.CLIContext) *cobra.Comman
 
   # Delete without confirmation prompt
   jamf-cli pro app-installer-deployments delete 1 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Delete App Installers"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Delete App Installers", "jamf:api": "pro"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -703,7 +704,7 @@ func newAppInstallerDeploymentsHistoryCmd(ctx *registry.CLIContext) *cobra.Comma
 
   # Get history by name
   jamf-cli pro app-installer-deployments history --name "Example"`,
-		Annotations: map[string]string{"jamf:privileges": "Read App Installers"},
+		Annotations: map[string]string{"jamf:privileges": "Read App Installers", "jamf:api": "pro"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -868,7 +869,7 @@ func newAppInstallerDeploymentsAddHistoryNoteCmd(ctx *registry.CLIContext) *cobr
 		Use:         "add-history-note [<id>]",
 		Short:       "Add a history note to an App Installer deployment",
 		Long:        "Adds a note to the deployment's object history",
-		Annotations: map[string]string{"jamf:privileges": "Update App Installers"},
+		Annotations: map[string]string{"jamf:privileges": "Update App Installers", "jamf:api": "pro"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -949,7 +950,7 @@ func newAppInstallerDeploymentsExportCmd(ctx *registry.CLIContext) *cobra.Comman
 		Long:  "Exports all App Installer deployment configurations as CSV.",
 		Example: `  # Export app-installer-deployments to CSV
   jamf-cli pro app-installer-deployments export --out-file app-installer-deployments.csv`,
-		Annotations: map[string]string{"jamf:privileges": "Read App Installers"},
+		Annotations: map[string]string{"jamf:privileges": "Read App Installers", "jamf:api": "pro"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			reqCtx = registry.WithAccept(reqCtx, "*/*")
@@ -1018,7 +1019,7 @@ func newAppInstallerDeploymentsComputersCmd(ctx *registry.CLIContext) *cobra.Com
 		Use:         "computers [<id>]",
 		Short:       "Get computers for an App Installer deployment",
 		Long:        "Retrieves per-computer installation status for a deployment",
-		Annotations: map[string]string{"jamf:privileges": "Read App Installers"},
+		Annotations: map[string]string{"jamf:privileges": "Read App Installers", "jamf:api": "pro"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -1075,7 +1076,7 @@ func newAppInstallerDeploymentsInstallationRetryCmd(ctx *registry.CLIContext) *c
 		Use:         "installation-retry [<id>]",
 		Short:       "Retry all failed installations for a deployment",
 		Long:        "Issues a retry for all failed App Installer installations in a deployment",
-		Annotations: map[string]string{"jamf:privileges": "Update App Installers"},
+		Annotations: map[string]string{"jamf:privileges": "Update App Installers", "jamf:api": "pro"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -1178,7 +1179,7 @@ func newAppInstallerDeploymentsInstallationRetryByComputerIdCmd(ctx *registry.CL
 		Use:         "installation-retry-by-computer-id <id> <computerId>",
 		Short:       "Retry a failed installation on a specific computer",
 		Long:        "Issues a retry for a failed App Installer installation on a single computer within a deployment",
-		Annotations: map[string]string{"jamf:privileges": "Update App Installers"},
+		Annotations: map[string]string{"jamf:privileges": "Update App Installers", "jamf:api": "pro"},
 		Args:        cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -1234,7 +1235,7 @@ func newAppInstallerDeploymentsInstallationSummaryCmd(ctx *registry.CLIContext) 
 		Use:         "installation-summary [<id>]",
 		Short:       "Get installation summary for an App Installer deployment",
 		Long:        "Retrieves aggregate installation status counts for a deployment",
-		Annotations: map[string]string{"jamf:privileges": "Read App Installers"},
+		Annotations: map[string]string{"jamf:privileges": "Read App Installers", "jamf:api": "pro"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -1289,7 +1290,7 @@ func newAppInstallerDeploymentsVersionUpdateCmd(ctx *registry.CLIContext) *cobra
 		Use:         "version-update [<id>]",
 		Short:       "Update an App Installer deployment to the latest version",
 		Long:        "Triggers a version update for the deployment's app title",
-		Annotations: map[string]string{"jamf:privileges": "Update App Installers"},
+		Annotations: map[string]string{"jamf:privileges": "Update App Installers", "jamf:api": "pro"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -1361,8 +1362,9 @@ func newAppInstallerDeploymentsApplyCmd(ctx *registry.CLIContext) *cobra.Command
 	)
 
 	cmd := &cobra.Command{
-		Use:   "apply",
-		Short: "Create or replace a app-installer-deployment by name",
+		Use:         "apply",
+		Short:       "Create or replace a app-installer-deployment by name",
+		Annotations: map[string]string{"jamf:api": "pro"},
 		Long: `Create or replace a app-installer-deployment. Reads JSON or YAML from --from-file or stdin.
 
 The name field in the input is used to check if the resource

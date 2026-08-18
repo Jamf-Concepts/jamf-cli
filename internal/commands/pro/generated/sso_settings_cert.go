@@ -19,9 +19,10 @@ import (
 // NewSsoSettingsCertCmd creates the sso-settings-cert command group
 func NewSsoSettingsCertCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "sso-settings-cert",
-		Short: "Manage sso-settings-cert",
-		Long:  `Manage sso-settings-cert in Jamf Pro.`,
+		Use:         "sso-settings-cert",
+		Short:       "Manage sso-settings-cert",
+		Long:        `Manage sso-settings-cert in Jamf Pro.`,
+		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
 	cmd.AddCommand(newSsoSettingsCertGetCmd(ctx))
@@ -46,7 +47,7 @@ func newSsoSettingsCertGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get sso-settings-cert and output as YAML
   jamf-cli pro sso-settings-cert get -o yaml`,
-		Annotations: map[string]string{"jamf:privileges": "Read SSO Settings"},
+		Annotations: map[string]string{"jamf:privileges": "Read SSO Settings", "jamf:api": "pro"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -91,7 +92,7 @@ func newSsoSettingsCertUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Update from a file
   jamf-cli pro sso-settings-cert update --from-file sso-settings-cert.json`,
-		Annotations: map[string]string{"jamf:privileges": "Update SSO Settings"},
+		Annotations: map[string]string{"jamf:privileges": "Update SSO Settings", "jamf:api": "pro"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -209,7 +210,7 @@ func newSsoSettingsCertDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Delete without confirmation prompt
   jamf-cli pro sso-settings-cert delete 1 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Update SSO Settings"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Update SSO Settings", "jamf:api": "pro"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -279,7 +280,7 @@ func newSsoSettingsCertCertCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:         "cert",
 		Short:       "Jamf Pro will generate a new certificate and use it to sign SSO",
 		Long:        "Jamf Pro will generate a new certificate and use it to sign SSO requests to the identity provider.",
-		Annotations: map[string]string{"jamf:privileges": "Update SSO Settings"},
+		Annotations: map[string]string{"jamf:privileges": "Update SSO Settings", "jamf:api": "pro"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -337,7 +338,7 @@ func newSsoSettingsCertDownloadCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Pipe to stdout
   jamf-cli pro sso-settings-cert download > output.bin`,
-		Annotations: map[string]string{"jamf:privileges": "Read SSO Settings"},
+		Annotations: map[string]string{"jamf:privileges": "Read SSO Settings", "jamf:api": "pro"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			reqCtx = registry.WithAccept(reqCtx, "*/*")
@@ -389,7 +390,7 @@ func newSsoSettingsCertParseCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:         "parse",
 		Short:       "Parse the certificate to get details about certificate type and keys needed to upload certificate file",
 		Long:        "Parse the certificate to get details about certificate type and keys needed to upload certificate file.",
-		Annotations: map[string]string{"jamf:privileges": "Update SSO Settings"},
+		Annotations: map[string]string{"jamf:privileges": "Update SSO Settings", "jamf:api": "pro"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

@@ -19,9 +19,10 @@ import (
 // NewClassicVppAccountsCmd creates the classic-vpp-accounts command group
 func NewClassicVppAccountsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "classic-vpp-accounts",
-		Short: "Volume Purchase Program accounts (Classic API)",
-		Long:  `Manage volume purchase program accounts via the Jamf Pro Classic API (/JSSResource/).`,
+		Use:         "classic-vpp-accounts",
+		Short:       "Volume Purchase Program accounts (Classic API)",
+		Long:        `Manage volume purchase program accounts via the Jamf Pro Classic API (/JSSResource/).`,
+		Annotations: map[string]string{"jamf:api": "pro-classic"},
 	}
 
 	cmd.AddCommand(newClassicVppAccountsListCmd(ctx))
@@ -46,6 +47,7 @@ func newClassicVppAccountsListCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # List vppaccounts and extract IDs
   jamf-cli pro classic-vpp-accounts list --field id`,
+		Annotations: map[string]string{"jamf:api": "pro-classic"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/vppaccounts", nil)
@@ -96,7 +98,8 @@ func newClassicVppAccountsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a vpp_account and output as YAML
   jamf-cli pro classic-vpp-accounts get 1 -o yaml`,
-		Args: cobra.ExactArgs(1),
+		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			path := fmt.Sprintf("/JSSResource/vppaccounts/id/%s", url.PathEscape(args[0]))
@@ -137,9 +140,10 @@ func newClassicVppAccountsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
 func newClassicVppAccountsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "create",
-		Short: "Create a vpp_account",
-		Long:  "Create a new vpp_account. Reads XML body from stdin.",
+		Use:         "create",
+		Short:       "Create a vpp_account",
+		Long:        "Create a new vpp_account. Reads XML body from stdin.",
+		Annotations: map[string]string{"jamf:api": "pro-classic"},
 		Example: `  # Create a vpp_account from XML
   cat vpp_account.xml | jamf-cli pro classic-vpp-accounts create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -169,9 +173,10 @@ func newClassicVppAccountsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 func newClassicVppAccountsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 
 	cmd := &cobra.Command{
-		Use:   "update <id>",
-		Short: "Update a vpp_account",
-		Long:  "Update an existing vpp_account by ID. Reads XML body from stdin.",
+		Use:         "update <id>",
+		Short:       "Update a vpp_account",
+		Long:        "Update an existing vpp_account by ID. Reads XML body from stdin.",
+		Annotations: map[string]string{"jamf:api": "pro-classic"},
 		Example: `  # Update a vpp_account from XML
   cat vpp_account.xml | jamf-cli pro classic-vpp-accounts update 1`,
 		Args: cobra.ExactArgs(1),
@@ -215,7 +220,7 @@ func newClassicVppAccountsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Delete without confirmation prompt
   jamf-cli pro classic-vpp-accounts delete 1 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:api": "pro-classic"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

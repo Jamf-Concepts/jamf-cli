@@ -16,9 +16,10 @@ import (
 // NewClassicPatchAvailableTitlesCmd creates the classic-patch-available-titles command group
 func NewClassicPatchAvailableTitlesCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "classic-patch-available-titles",
-		Short: "Available patch titles from sources (Classic API)",
-		Long:  `Manage available patch titles from sources via the Jamf Pro Classic API (/JSSResource/).`,
+		Use:         "classic-patch-available-titles",
+		Short:       "Available patch titles from sources (Classic API)",
+		Long:        `Manage available patch titles from sources via the Jamf Pro Classic API (/JSSResource/).`,
+		Annotations: map[string]string{"jamf:api": "pro-classic"},
 	}
 
 	cmd.AddCommand(newClassicPatchAvailableTitlesGetCmd(ctx))
@@ -36,7 +37,8 @@ func newClassicPatchAvailableTitlesGetCmd(ctx *registry.CLIContext) *cobra.Comma
 
   # Get a patch_available_title and output as YAML
   jamf-cli pro classic-patch-available-titles get 1 -o yaml`,
-		Args: cobra.ExactArgs(1),
+		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			path := fmt.Sprintf("/JSSResource/patchavailabletitles/sourceid/%s", url.PathEscape(args[0]))

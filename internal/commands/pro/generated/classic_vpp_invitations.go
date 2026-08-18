@@ -20,9 +20,10 @@ import (
 // NewClassicVppInvitationsCmd creates the classic-vpp-invitations command group
 func NewClassicVppInvitationsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "classic-vpp-invitations",
-		Short: "VPP invitations (Classic API)",
-		Long:  `Manage vpp invitations via the Jamf Pro Classic API (/JSSResource/).`,
+		Use:         "classic-vpp-invitations",
+		Short:       "VPP invitations (Classic API)",
+		Long:        `Manage vpp invitations via the Jamf Pro Classic API (/JSSResource/).`,
+		Annotations: map[string]string{"jamf:api": "pro-classic"},
 	}
 
 	cmd.AddCommand(newClassicVppInvitationsListCmd(ctx))
@@ -51,6 +52,7 @@ func newClassicVppInvitationsListCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # List vppinvitations and extract IDs
   jamf-cli pro classic-vpp-invitations list --field id`,
+		Annotations: map[string]string{"jamf:api": "pro-classic"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/vppinvitations", nil)
@@ -101,7 +103,8 @@ func newClassicVppInvitationsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a vpp_invitation and output as YAML
   jamf-cli pro classic-vpp-invitations get 1 -o yaml`,
-		Args: cobra.ExactArgs(1),
+		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			path := fmt.Sprintf("/JSSResource/vppinvitations/id/%s", url.PathEscape(args[0]))
@@ -142,9 +145,10 @@ func newClassicVppInvitationsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
 func newClassicVppInvitationsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "create",
-		Short: "Create a vpp_invitation",
-		Long:  "Create a new vpp_invitation. Reads XML body from stdin.",
+		Use:         "create",
+		Short:       "Create a vpp_invitation",
+		Long:        "Create a new vpp_invitation. Reads XML body from stdin.",
+		Annotations: map[string]string{"jamf:api": "pro-classic"},
 		Example: `  # Create a vpp_invitation from XML
   cat vpp_invitation.xml | jamf-cli pro classic-vpp-invitations create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -185,7 +189,7 @@ func newClassicVppInvitationsDeleteCmd(ctx *registry.CLIContext) *cobra.Command 
 
   # Delete without confirmation prompt
   jamf-cli pro classic-vpp-invitations delete 1 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:api": "pro-classic"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

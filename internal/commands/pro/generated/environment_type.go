@@ -12,9 +12,10 @@ import (
 // NewEnvironmentTypeCmd creates the environment-type command group
 func NewEnvironmentTypeCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "environment-type",
-		Short: "Manage environment-type",
-		Long:  `Manage environment-type in Jamf Pro.`,
+		Use:         "environment-type",
+		Short:       "Manage environment-type",
+		Long:        `Manage environment-type in Jamf Pro.`,
+		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
 	cmd.AddCommand(newEnvironmentTypeGetCmd(ctx))
@@ -34,6 +35,7 @@ func newEnvironmentTypeGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get environment-type and output as YAML
   jamf-cli pro environment-type get -o yaml`,
+		Annotations: map[string]string{"jamf:api": "pro"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

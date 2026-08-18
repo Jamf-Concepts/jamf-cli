@@ -19,9 +19,10 @@ import (
 // NewComputerInventoryCollectionSettingsCmd creates the computer-inventory-collection-settings command group
 func NewComputerInventoryCollectionSettingsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "computer-inventory-collection-settings",
-		Short: "Manage computer-inventory-collection-settings",
-		Long:  `Manage computer-inventory-collection-settings in Jamf Pro.`,
+		Use:         "computer-inventory-collection-settings",
+		Short:       "Manage computer-inventory-collection-settings",
+		Long:        `Manage computer-inventory-collection-settings in Jamf Pro.`,
+		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
 	cmd.AddCommand(newComputerInventoryCollectionSettingsListCmd(ctx))
@@ -44,7 +45,7 @@ func newComputerInventoryCollectionSettingsListCmd(ctx *registry.CLIContext) *co
 
   # List computer-inventory-collection-settings and extract IDs
   jamf-cli pro computer-inventory-collection-settings list --field id`,
-		Annotations: map[string]string{"jamf:privileges": "Read Computer Inventory Collection Settings"},
+		Annotations: map[string]string{"jamf:privileges": "Read Computer Inventory Collection Settings", "jamf:api": "pro"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -89,7 +90,7 @@ func newComputerInventoryCollectionSettingsCreateCmd(ctx *registry.CLIContext) *
 
   # Get a computer-inventory-collection-setting, modify it, and create a copy
   jamf-cli pro computer-inventory-collection-settings get 1 -o json | jq '.name = "Copy"' | jamf-cli pro computer-inventory-collection-settings create`,
-		Annotations: map[string]string{"jamf:privileges": "Create Custom Paths"},
+		Annotations: map[string]string{"jamf:privileges": "Create Custom Paths", "jamf:api": "pro"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -156,7 +157,7 @@ func newComputerInventoryCollectionSettingsDeleteCmd(ctx *registry.CLIContext) *
 
   # Delete without confirmation prompt
   jamf-cli pro computer-inventory-collection-settings delete 1 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Delete Custom Paths"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Delete Custom Paths", "jamf:api": "pro"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -238,7 +239,7 @@ func newComputerInventoryCollectionSettingsPatchCmd(ctx *registry.CLIContext) *c
 
   # Update using JSON
   jamf-cli pro computer-inventory-collection-settings get -o json | jq '.field = "value"' | jamf-cli pro computer-inventory-collection-settings patch`,
-		Annotations: map[string]string{"jamf:privileges": "Update Computer Inventory Collection Settings"},
+		Annotations: map[string]string{"jamf:privileges": "Update Computer Inventory Collection Settings", "jamf:api": "pro"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

@@ -13,9 +13,10 @@ import (
 // NewDeviceEnrollmentInstanceSyncStatesCmd creates the device-enrollment-instance-sync-states command group
 func NewDeviceEnrollmentInstanceSyncStatesCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "device-enrollment-instance-sync-states",
-		Short: "Manage device-enrollment-instance-sync-states",
-		Long:  `Manage device-enrollment-instance-sync-states in Jamf Pro.`,
+		Use:         "device-enrollment-instance-sync-states",
+		Short:       "Manage device-enrollment-instance-sync-states",
+		Long:        `Manage device-enrollment-instance-sync-states in Jamf Pro.`,
+		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
 	cmd.AddCommand(newDeviceEnrollmentInstanceSyncStatesListCmd(ctx))
@@ -37,7 +38,7 @@ func newDeviceEnrollmentInstanceSyncStatesListCmd(ctx *registry.CLIContext) *cob
 
   # List device-enrollment-instance-sync-states and extract IDs
   jamf-cli pro device-enrollment-instance-sync-states list --field id`,
-		Annotations: map[string]string{"jamf:privileges": "Read Device Enrollment Program Instances"},
+		Annotations: map[string]string{"jamf:privileges": "Read Device Enrollment Program Instances", "jamf:api": "pro"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -71,7 +72,7 @@ func newDeviceEnrollmentInstanceSyncStatesSyncsCmd(ctx *registry.CLIContext) *co
 		Use:         "syncs <id>",
 		Short:       "Get all instance sync states for a single Device Enrollment Instance",
 		Long:        "Get all instance sync states for a single instance",
-		Annotations: map[string]string{"jamf:privileges": "Read Device Enrollment Program Instances"},
+		Annotations: map[string]string{"jamf:privileges": "Read Device Enrollment Program Instances", "jamf:api": "pro"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -107,7 +108,7 @@ func newDeviceEnrollmentInstanceSyncStatesLatestCmd(ctx *registry.CLIContext) *c
 		Use:         "latest <id>",
 		Short:       "Get the latest sync state for a single Device Enrollment Instance",
 		Long:        "Get the latest sync state for a single instance",
-		Annotations: map[string]string{"jamf:privileges": "Read Device Enrollment Program Instances"},
+		Annotations: map[string]string{"jamf:privileges": "Read Device Enrollment Program Instances", "jamf:api": "pro"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

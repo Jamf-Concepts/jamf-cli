@@ -17,9 +17,10 @@ import (
 // NewClassicGsxConnectionCmd creates the classic-gsx-connection command group
 func NewClassicGsxConnectionCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "classic-gsx-connection",
-		Short: "Apple GSX connection settings (Classic API)",
-		Long:  `Manage apple gsx connection settings via the Jamf Pro Classic API (/JSSResource/).`,
+		Use:         "classic-gsx-connection",
+		Short:       "Apple GSX connection settings (Classic API)",
+		Long:        `Manage apple gsx connection settings via the Jamf Pro Classic API (/JSSResource/).`,
+		Annotations: map[string]string{"jamf:api": "pro-classic"},
 	}
 
 	cmd.AddCommand(newClassicGsxConnectionGetCmd(ctx))
@@ -39,7 +40,8 @@ func newClassicGsxConnectionGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a gsx_connection and output as YAML
   jamf-cli pro classic-gsx-connection get 1 -o yaml`,
-		Args: cobra.ExactArgs(1),
+		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			path := fmt.Sprintf("/JSSResource/gsxconnection/id/%s", url.PathEscape(args[0]))
@@ -81,9 +83,10 @@ func newClassicGsxConnectionGetCmd(ctx *registry.CLIContext) *cobra.Command {
 func newClassicGsxConnectionUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 
 	cmd := &cobra.Command{
-		Use:   "update <id>",
-		Short: "Update a gsx_connection",
-		Long:  "Update an existing gsx_connection by ID. Reads XML body from stdin.",
+		Use:         "update <id>",
+		Short:       "Update a gsx_connection",
+		Long:        "Update an existing gsx_connection by ID. Reads XML body from stdin.",
+		Annotations: map[string]string{"jamf:api": "pro-classic"},
 		Example: `  # Update a gsx_connection from XML
   cat gsx_connection.xml | jamf-cli pro classic-gsx-connection update 1`,
 		Args: cobra.ExactArgs(1),

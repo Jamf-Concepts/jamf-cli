@@ -21,9 +21,10 @@ import (
 // NewCategoriesCmd creates the categories command group
 func NewCategoriesCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "categories",
-		Short: "Manage categories",
-		Long:  `Manage categories in Jamf Pro.`,
+		Use:         "categories",
+		Short:       "Manage categories",
+		Long:        `Manage categories in Jamf Pro.`,
+		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
 	cmd.AddCommand(newCategoriesListCmd(ctx))
@@ -58,7 +59,7 @@ func newCategoriesListCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # List categories and extract IDs
   jamf-cli pro categories list --field id`,
-		Annotations: map[string]string{"jamf:privileges": "Read Categories,Read Self Service"},
+		Annotations: map[string]string{"jamf:privileges": "Read Categories,Read Self Service", "jamf:api": "pro"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -210,7 +211,7 @@ func newCategoriesGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a category and output as YAML
   jamf-cli pro categories get 1 -o yaml`,
-		Annotations: map[string]string{"jamf:privileges": "Read Categories"},
+		Annotations: map[string]string{"jamf:privileges": "Read Categories", "jamf:api": "pro"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -273,7 +274,7 @@ func newCategoriesCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a category, modify it, and create a copy
   jamf-cli pro categories get 1 -o json | jq '.name = "Copy"' | jamf-cli pro categories create`,
-		Annotations: map[string]string{"jamf:privileges": "Create Categories"},
+		Annotations: map[string]string{"jamf:privileges": "Create Categories", "jamf:api": "pro"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -348,7 +349,7 @@ func newCategoriesUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a category, modify, and update
   jamf-cli pro categories get 1 -o json | jq '.name = "New Name"' | jamf-cli pro categories update 1`,
-		Annotations: map[string]string{"jamf:privileges": "Update Categories"},
+		Annotations: map[string]string{"jamf:privileges": "Update Categories", "jamf:api": "pro"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -478,7 +479,7 @@ func newCategoriesDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Delete without confirmation prompt
   jamf-cli pro categories delete 1 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Delete Categories"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Delete Categories", "jamf:api": "pro"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -684,7 +685,7 @@ func newCategoriesDeleteMultipleCmd(ctx *registry.CLIContext) *cobra.Command {
 		Long:  "Delete multiple Categories by their IDs",
 		Example: `  # Delete multiple categories by IDs
   jamf-cli pro categories delete-multiple --ids 1,2,3 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Delete Categories"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Delete Categories", "jamf:api": "pro"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -787,7 +788,7 @@ func newCategoriesHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get history by name
   jamf-cli pro categories history --name "Example"`,
-		Annotations: map[string]string{"jamf:privileges": "Read Categories"},
+		Annotations: map[string]string{"jamf:privileges": "Read Categories", "jamf:api": "pro"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -952,7 +953,7 @@ func newCategoriesAddHistoryNoteCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:         "add-history-note [<id>]",
 		Short:       "Add specified Category history object notes",
 		Long:        "Adds specified Category history object notes",
-		Annotations: map[string]string{"jamf:privileges": "Update Categories"},
+		Annotations: map[string]string{"jamf:privileges": "Update Categories", "jamf:api": "pro"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -1031,8 +1032,9 @@ func newCategoriesApplyCmd(ctx *registry.CLIContext) *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "apply",
-		Short: "Create or replace a category by name",
+		Use:         "apply",
+		Short:       "Create or replace a category by name",
+		Annotations: map[string]string{"jamf:api": "pro"},
 		Long: `Create or replace a category. Reads JSON or YAML from --from-file or stdin.
 
 The name field in the input is used to check if the resource

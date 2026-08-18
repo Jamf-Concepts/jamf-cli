@@ -17,9 +17,10 @@ import (
 // NewImpactAlertNotificationSettingsCmd creates the impact-alert-notification-settings command group
 func NewImpactAlertNotificationSettingsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "impact-alert-notification-settings",
-		Short: "Manage impact-alert-notification-settings",
-		Long:  `Manage impact-alert-notification-settings in Jamf Pro.`,
+		Use:         "impact-alert-notification-settings",
+		Short:       "Manage impact-alert-notification-settings",
+		Long:        `Manage impact-alert-notification-settings in Jamf Pro.`,
+		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
 	cmd.AddCommand(newImpactAlertNotificationSettingsGetCmd(ctx))
@@ -40,7 +41,7 @@ func newImpactAlertNotificationSettingsGetCmd(ctx *registry.CLIContext) *cobra.C
 
   # Get impact-alert-notification-settings and output as YAML
   jamf-cli pro impact-alert-notification-settings get -o yaml`,
-		Annotations: map[string]string{"jamf:privileges": "Read Impact Alert Notification Settings"},
+		Annotations: map[string]string{"jamf:privileges": "Read Impact Alert Notification Settings", "jamf:api": "pro"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -85,7 +86,7 @@ func newImpactAlertNotificationSettingsUpdateCmd(ctx *registry.CLIContext) *cobr
 
   # Update from a file
   jamf-cli pro impact-alert-notification-settings update --from-file impact-alert-notification-settings.json`,
-		Annotations: map[string]string{"jamf:privileges": "Update Impact Alert Notification Settings"},
+		Annotations: map[string]string{"jamf:privileges": "Update Impact Alert Notification Settings", "jamf:api": "pro"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

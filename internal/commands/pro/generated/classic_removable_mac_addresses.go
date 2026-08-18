@@ -20,9 +20,10 @@ import (
 // NewClassicRemovableMacAddressesCmd creates the classic-removable-mac-addresses command group
 func NewClassicRemovableMacAddressesCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "classic-removable-mac-addresses",
-		Short: "Removable MAC addresses for storage control (Classic API)",
-		Long:  `Manage removable mac addresses for storage control via the Jamf Pro Classic API (/JSSResource/).`,
+		Use:         "classic-removable-mac-addresses",
+		Short:       "Removable MAC addresses for storage control (Classic API)",
+		Long:        `Manage removable mac addresses for storage control via the Jamf Pro Classic API (/JSSResource/).`,
+		Annotations: map[string]string{"jamf:api": "pro-classic"},
 	}
 
 	cmd.AddCommand(newClassicRemovableMacAddressesListCmd(ctx))
@@ -49,6 +50,7 @@ func newClassicRemovableMacAddressesListCmd(ctx *registry.CLIContext) *cobra.Com
 
   # List removablemacaddresses and extract IDs
   jamf-cli pro classic-removable-mac-addresses list --field id`,
+		Annotations: map[string]string{"jamf:api": "pro-classic"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/removablemacaddresses", nil)
@@ -105,7 +107,8 @@ func newClassicRemovableMacAddressesGetCmd(ctx *registry.CLIContext) *cobra.Comm
 
   # Get a removable_mac_address and output as YAML
   jamf-cli pro classic-removable-mac-addresses get 1 -o yaml`,
-		Args: cobra.MaximumNArgs(1),
+		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -157,9 +160,10 @@ func newClassicRemovableMacAddressesGetCmd(ctx *registry.CLIContext) *cobra.Comm
 
 func newClassicRemovableMacAddressesCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "create",
-		Short: "Create a removable_mac_address",
-		Long:  "Create a new removable_mac_address. Reads XML body from stdin.",
+		Use:         "create",
+		Short:       "Create a removable_mac_address",
+		Long:        "Create a new removable_mac_address. Reads XML body from stdin.",
+		Annotations: map[string]string{"jamf:api": "pro-classic"},
 		Example: `  # Create a removable_mac_address from XML
   cat removable_mac_address.xml | jamf-cli pro classic-removable-mac-addresses create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -190,9 +194,10 @@ func newClassicRemovableMacAddressesUpdateCmd(ctx *registry.CLIContext) *cobra.C
 	var flagName string
 
 	cmd := &cobra.Command{
-		Use:   "update [<id>]",
-		Short: "Update a removable_mac_address",
-		Long:  "Update an existing removable_mac_address by ID. Reads XML body from stdin.",
+		Use:         "update [<id>]",
+		Short:       "Update a removable_mac_address",
+		Long:        "Update an existing removable_mac_address by ID. Reads XML body from stdin.",
+		Annotations: map[string]string{"jamf:api": "pro-classic"},
 		Example: `  # Update a removable_mac_address from XML
   cat removable_mac_address.xml | jamf-cli pro classic-removable-mac-addresses update 1`,
 		Args: cobra.MaximumNArgs(1),
@@ -250,7 +255,7 @@ func newClassicRemovableMacAddressesDeleteCmd(ctx *registry.CLIContext) *cobra.C
 
   # Delete without confirmation prompt
   jamf-cli pro classic-removable-mac-addresses delete 1 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:api": "pro-classic"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -421,8 +426,9 @@ func newClassicRemovableMacAddressesApplyCmd(ctx *registry.CLIContext) *cobra.Co
 	)
 
 	cmd := &cobra.Command{
-		Use:   "apply",
-		Short: "Create or replace a removable_mac_address by name",
+		Use:         "apply",
+		Short:       "Create or replace a removable_mac_address by name",
+		Annotations: map[string]string{"jamf:api": "pro-classic"},
 		Long: `Create or replace a removable_mac_address. Reads XML from --from-file or stdin.
 
 The name field in the input XML is used to check if the resource already

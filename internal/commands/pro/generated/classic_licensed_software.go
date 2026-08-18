@@ -20,9 +20,10 @@ import (
 // NewClassicLicensedSoftwareCmd creates the classic-licensed-software command group
 func NewClassicLicensedSoftwareCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "classic-licensed-software",
-		Short: "Licensed software records (Classic API)",
-		Long:  `Manage licensed software records via the Jamf Pro Classic API (/JSSResource/).`,
+		Use:         "classic-licensed-software",
+		Short:       "Licensed software records (Classic API)",
+		Long:        `Manage licensed software records via the Jamf Pro Classic API (/JSSResource/).`,
+		Annotations: map[string]string{"jamf:api": "pro-classic"},
 	}
 
 	cmd.AddCommand(newClassicLicensedSoftwareListCmd(ctx))
@@ -49,6 +50,7 @@ func newClassicLicensedSoftwareListCmd(ctx *registry.CLIContext) *cobra.Command 
 
   # List licensedsoftware and extract IDs
   jamf-cli pro classic-licensed-software list --field id`,
+		Annotations: map[string]string{"jamf:api": "pro-classic"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/licensedsoftware", nil)
@@ -105,7 +107,8 @@ func newClassicLicensedSoftwareGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a licensed_software and output as YAML
   jamf-cli pro classic-licensed-software get 1 -o yaml`,
-		Args: cobra.MaximumNArgs(1),
+		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -157,9 +160,10 @@ func newClassicLicensedSoftwareGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
 func newClassicLicensedSoftwareCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "create",
-		Short: "Create a licensed_software",
-		Long:  "Create a new licensed_software. Reads XML body from stdin.",
+		Use:         "create",
+		Short:       "Create a licensed_software",
+		Long:        "Create a new licensed_software. Reads XML body from stdin.",
+		Annotations: map[string]string{"jamf:api": "pro-classic"},
 		Example: `  # Create a licensed_software from XML
   cat licensed_software.xml | jamf-cli pro classic-licensed-software create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -190,9 +194,10 @@ func newClassicLicensedSoftwareUpdateCmd(ctx *registry.CLIContext) *cobra.Comman
 	var flagName string
 
 	cmd := &cobra.Command{
-		Use:   "update [<id>]",
-		Short: "Update a licensed_software",
-		Long:  "Update an existing licensed_software by ID. Reads XML body from stdin.",
+		Use:         "update [<id>]",
+		Short:       "Update a licensed_software",
+		Long:        "Update an existing licensed_software by ID. Reads XML body from stdin.",
+		Annotations: map[string]string{"jamf:api": "pro-classic"},
 		Example: `  # Update a licensed_software from XML
   cat licensed_software.xml | jamf-cli pro classic-licensed-software update 1`,
 		Args: cobra.MaximumNArgs(1),
@@ -250,7 +255,7 @@ func newClassicLicensedSoftwareDeleteCmd(ctx *registry.CLIContext) *cobra.Comman
 
   # Delete without confirmation prompt
   jamf-cli pro classic-licensed-software delete 1 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:api": "pro-classic"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -421,8 +426,9 @@ func newClassicLicensedSoftwareApplyCmd(ctx *registry.CLIContext) *cobra.Command
 	)
 
 	cmd := &cobra.Command{
-		Use:   "apply",
-		Short: "Create or replace a licensed_software by name",
+		Use:         "apply",
+		Short:       "Create or replace a licensed_software by name",
+		Annotations: map[string]string{"jamf:api": "pro-classic"},
 		Long: `Create or replace a licensed_software. Reads XML from --from-file or stdin.
 
 The name field in the input XML is used to check if the resource already

@@ -16,9 +16,10 @@ import (
 // NewDashboardsCmd creates the dashboards command group
 func NewDashboardsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "dashboards",
-		Short: "Manage dashboards",
-		Long:  `Manage dashboards in Jamf Pro.`,
+		Use:         "dashboards",
+		Short:       "Manage dashboards",
+		Long:        `Manage dashboards in Jamf Pro.`,
+		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
 	cmd.AddCommand(newDashboardsListCmd(ctx))
@@ -39,6 +40,7 @@ func newDashboardsListCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # List dashboards and extract IDs
   jamf-cli pro dashboards list --field id`,
+		Annotations: map[string]string{"jamf:api": "pro"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -71,9 +73,10 @@ func newDashboardsToggleCmd(ctx *registry.CLIContext) *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "toggle",
-		Short: "Add or remove an object to the Jamf Pro dashboard",
-		Long:  "Add or remove dashboard detail by the type of object, and the object's ID. Duplicates will not be added again.",
+		Use:         "toggle",
+		Short:       "Add or remove an object to the Jamf Pro dashboard",
+		Long:        "Add or remove dashboard detail by the type of object, and the object's ID. Duplicates will not be added again.",
+		Annotations: map[string]string{"jamf:api": "pro"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

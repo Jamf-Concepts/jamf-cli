@@ -20,9 +20,10 @@ import (
 // NewClassicUserExtAttrsCmd creates the classic-user-ext-attrs command group
 func NewClassicUserExtAttrsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "classic-user-ext-attrs",
-		Short: "User extension attributes (Classic API)",
-		Long:  `Manage user extension attributes via the Jamf Pro Classic API (/JSSResource/).`,
+		Use:         "classic-user-ext-attrs",
+		Short:       "User extension attributes (Classic API)",
+		Long:        `Manage user extension attributes via the Jamf Pro Classic API (/JSSResource/).`,
+		Annotations: map[string]string{"jamf:api": "pro-classic"},
 	}
 
 	cmd.AddCommand(newClassicUserExtAttrsListCmd(ctx))
@@ -49,6 +50,7 @@ func newClassicUserExtAttrsListCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # List userextensionattributes and extract IDs
   jamf-cli pro classic-user-ext-attrs list --field id`,
+		Annotations: map[string]string{"jamf:api": "pro-classic"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/userextensionattributes", nil)
@@ -105,7 +107,8 @@ func newClassicUserExtAttrsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a user_extension_attribute and output as YAML
   jamf-cli pro classic-user-ext-attrs get 1 -o yaml`,
-		Args: cobra.MaximumNArgs(1),
+		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -157,9 +160,10 @@ func newClassicUserExtAttrsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
 func newClassicUserExtAttrsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "create",
-		Short: "Create a user_extension_attribute",
-		Long:  "Create a new user_extension_attribute. Reads XML body from stdin.",
+		Use:         "create",
+		Short:       "Create a user_extension_attribute",
+		Long:        "Create a new user_extension_attribute. Reads XML body from stdin.",
+		Annotations: map[string]string{"jamf:api": "pro-classic"},
 		Example: `  # Create a user_extension_attribute from XML
   cat user_extension_attribute.xml | jamf-cli pro classic-user-ext-attrs create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -190,9 +194,10 @@ func newClassicUserExtAttrsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var flagName string
 
 	cmd := &cobra.Command{
-		Use:   "update [<id>]",
-		Short: "Update a user_extension_attribute",
-		Long:  "Update an existing user_extension_attribute by ID. Reads XML body from stdin.",
+		Use:         "update [<id>]",
+		Short:       "Update a user_extension_attribute",
+		Long:        "Update an existing user_extension_attribute by ID. Reads XML body from stdin.",
+		Annotations: map[string]string{"jamf:api": "pro-classic"},
 		Example: `  # Update a user_extension_attribute from XML
   cat user_extension_attribute.xml | jamf-cli pro classic-user-ext-attrs update 1`,
 		Args: cobra.MaximumNArgs(1),
@@ -250,7 +255,7 @@ func newClassicUserExtAttrsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Delete without confirmation prompt
   jamf-cli pro classic-user-ext-attrs delete 1 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:api": "pro-classic"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -421,8 +426,9 @@ func newClassicUserExtAttrsApplyCmd(ctx *registry.CLIContext) *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "apply",
-		Short: "Create or replace a user_extension_attribute by name",
+		Use:         "apply",
+		Short:       "Create or replace a user_extension_attribute by name",
+		Annotations: map[string]string{"jamf:api": "pro-classic"},
 		Long: `Create or replace a user_extension_attribute. Reads XML from --from-file or stdin.
 
 The name field in the input XML is used to check if the resource already

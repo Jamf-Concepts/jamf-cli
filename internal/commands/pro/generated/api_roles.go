@@ -21,9 +21,10 @@ import (
 // NewApiRolesCmd creates the api-roles command group
 func NewApiRolesCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "api-roles",
-		Short: "Manage api-roles",
-		Long:  `Manage api-roles in Jamf Pro.`,
+		Use:         "api-roles",
+		Short:       "Manage api-roles",
+		Long:        `Manage api-roles in Jamf Pro.`,
+		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
 	cmd.AddCommand(newApiRolesListCmd(ctx))
@@ -55,7 +56,7 @@ func newApiRolesListCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # List api-roles and extract IDs
   jamf-cli pro api-roles list --field id`,
-		Annotations: map[string]string{"jamf:privileges": "Read API Roles"},
+		Annotations: map[string]string{"jamf:privileges": "Read API Roles", "jamf:api": "pro"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -207,7 +208,7 @@ func newApiRolesGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a api-role and output as YAML
   jamf-cli pro api-roles get 1 -o yaml`,
-		Annotations: map[string]string{"jamf:privileges": "Read API Roles"},
+		Annotations: map[string]string{"jamf:privileges": "Read API Roles", "jamf:api": "pro"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -270,7 +271,7 @@ func newApiRolesCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a api-role, modify it, and create a copy
   jamf-cli pro api-roles get 1 -o json | jq '.name = "Copy"' | jamf-cli pro api-roles create`,
-		Annotations: map[string]string{"jamf:privileges": "Create API Roles"},
+		Annotations: map[string]string{"jamf:privileges": "Create API Roles", "jamf:api": "pro"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -345,7 +346,7 @@ func newApiRolesUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a api-role, modify, and update
   jamf-cli pro api-roles get 1 -o json | jq '.name = "New Name"' | jamf-cli pro api-roles update 1`,
-		Annotations: map[string]string{"jamf:privileges": "Update API Roles"},
+		Annotations: map[string]string{"jamf:privileges": "Update API Roles", "jamf:api": "pro"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -475,7 +476,7 @@ func newApiRolesDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Delete without confirmation prompt
   jamf-cli pro api-roles delete 1 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Delete API Roles"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Delete API Roles", "jamf:api": "pro"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -676,8 +677,9 @@ func newApiRolesApplyCmd(ctx *registry.CLIContext) *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "apply",
-		Short: "Create or replace a api-role by name",
+		Use:         "apply",
+		Short:       "Create or replace a api-role by name",
+		Annotations: map[string]string{"jamf:api": "pro"},
 		Long: `Create or replace a api-role. Reads JSON or YAML from --from-file or stdin.
 
 The displayName field in the input is used to check if the resource

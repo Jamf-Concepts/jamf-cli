@@ -20,9 +20,10 @@ import (
 // NewClassicDockItemsCmd creates the classic-dock-items command group
 func NewClassicDockItemsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "classic-dock-items",
-		Short: "Dock items (Classic API)",
-		Long:  `Manage dock items via the Jamf Pro Classic API (/JSSResource/).`,
+		Use:         "classic-dock-items",
+		Short:       "Dock items (Classic API)",
+		Long:        `Manage dock items via the Jamf Pro Classic API (/JSSResource/).`,
+		Annotations: map[string]string{"jamf:api": "pro-classic"},
 	}
 
 	cmd.AddCommand(newClassicDockItemsListCmd(ctx))
@@ -49,6 +50,7 @@ func newClassicDockItemsListCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # List dockitems and extract IDs
   jamf-cli pro classic-dock-items list --field id`,
+		Annotations: map[string]string{"jamf:api": "pro-classic"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/dockitems", nil)
@@ -105,7 +107,8 @@ func newClassicDockItemsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a dock_item and output as YAML
   jamf-cli pro classic-dock-items get 1 -o yaml`,
-		Args: cobra.MaximumNArgs(1),
+		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -157,9 +160,10 @@ func newClassicDockItemsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
 func newClassicDockItemsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "create",
-		Short: "Create a dock_item",
-		Long:  "Create a new dock_item. Reads XML body from stdin.",
+		Use:         "create",
+		Short:       "Create a dock_item",
+		Long:        "Create a new dock_item. Reads XML body from stdin.",
+		Annotations: map[string]string{"jamf:api": "pro-classic"},
 		Example: `  # Create a dock_item from XML
   cat dock_item.xml | jamf-cli pro classic-dock-items create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -190,9 +194,10 @@ func newClassicDockItemsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var flagName string
 
 	cmd := &cobra.Command{
-		Use:   "update [<id>]",
-		Short: "Update a dock_item",
-		Long:  "Update an existing dock_item by ID. Reads XML body from stdin.",
+		Use:         "update [<id>]",
+		Short:       "Update a dock_item",
+		Long:        "Update an existing dock_item by ID. Reads XML body from stdin.",
+		Annotations: map[string]string{"jamf:api": "pro-classic"},
 		Example: `  # Update a dock_item from XML
   cat dock_item.xml | jamf-cli pro classic-dock-items update 1`,
 		Args: cobra.MaximumNArgs(1),
@@ -250,7 +255,7 @@ func newClassicDockItemsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Delete without confirmation prompt
   jamf-cli pro classic-dock-items delete 1 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:api": "pro-classic"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -421,8 +426,9 @@ func newClassicDockItemsApplyCmd(ctx *registry.CLIContext) *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "apply",
-		Short: "Create or replace a dock_item by name",
+		Use:         "apply",
+		Short:       "Create or replace a dock_item by name",
+		Annotations: map[string]string{"jamf:api": "pro-classic"},
 		Long: `Create or replace a dock_item. Reads XML from --from-file or stdin.
 
 The name field in the input XML is used to check if the resource already

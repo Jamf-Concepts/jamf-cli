@@ -13,9 +13,10 @@ import (
 // NewDdmStatusCmd creates the ddm-status command group
 func NewDdmStatusCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "ddm-status",
-		Short: "Manage ddm-status",
-		Long:  `Manage ddm-status in Jamf Pro.`,
+		Use:         "ddm-status",
+		Short:       "Manage ddm-status",
+		Long:        `Manage ddm-status in Jamf Pro.`,
+		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
 	cmd.AddCommand(newDdmStatusStatusItemsCmd(ctx))
@@ -30,7 +31,7 @@ func newDdmStatusStatusItemsCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:         "status-items <id>",
 		Short:       "Retrieve the Status Items from the latest Status Report for a device",
 		Long:        "Retrieves the Status Items from the latest Status Report for a device",
-		Annotations: map[string]string{"jamf:privileges": "Read Mobile Devices,Read Computers"},
+		Annotations: map[string]string{"jamf:privileges": "Read Mobile Devices,Read Computers", "jamf:api": "pro"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

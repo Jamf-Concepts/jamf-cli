@@ -21,9 +21,10 @@ import (
 // NewVenafisCmd creates the venafis command group
 func NewVenafisCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "venafis",
-		Short: "Manage venafis",
-		Long:  `Manage venafis in Jamf Pro.`,
+		Use:         "venafis",
+		Short:       "Manage venafis",
+		Long:        `Manage venafis in Jamf Pro.`,
+		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
 	cmd.AddCommand(newVenafisGetCmd(ctx))
@@ -53,7 +54,7 @@ func newVenafisGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a venafi and output as YAML
   jamf-cli pro venafis get 1 -o yaml`,
-		Annotations: map[string]string{"jamf:privileges": "Read PKI"},
+		Annotations: map[string]string{"jamf:privileges": "Read PKI", "jamf:api": "pro"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -99,7 +100,7 @@ func newVenafisCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a venafi, modify it, and create a copy
   jamf-cli pro venafis get 1 -o json | jq '.name = "Copy"' | jamf-cli pro venafis create`,
-		Annotations: map[string]string{"jamf:privileges": "Update PKI"},
+		Annotations: map[string]string{"jamf:privileges": "Update PKI", "jamf:api": "pro"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -169,7 +170,7 @@ func newVenafisDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Delete without confirmation prompt
   jamf-cli pro venafis delete 1 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Update PKI"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Update PKI", "jamf:api": "pro"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -250,7 +251,7 @@ func newVenafisHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 		Long:  "Get specified Venafi CA history object",
 		Example: `  # Get history for a venafi
   jamf-cli pro venafis history 1`,
-		Annotations: map[string]string{"jamf:privileges": "Read PKI"},
+		Annotations: map[string]string{"jamf:privileges": "Read PKI", "jamf:api": "pro"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -397,7 +398,7 @@ func newVenafisAddHistoryNoteCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:         "add-history-note <id>",
 		Short:       "Add specified Venafi CA Object Note",
 		Long:        "Adds specified Venafi CA Object Note",
-		Annotations: map[string]string{"jamf:privileges": "Update PKI"},
+		Annotations: map[string]string{"jamf:privileges": "Update PKI", "jamf:api": "pro"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -469,7 +470,7 @@ func newVenafisPatchCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Patch from a file
   jamf-cli pro venafis patch 1 --from-file changes.json`,
-		Annotations: map[string]string{"jamf:privileges": "Update PKI"},
+		Annotations: map[string]string{"jamf:privileges": "Update PKI", "jamf:api": "pro"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -554,7 +555,7 @@ func newVenafisConnectionStatusCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:         "connection-status <id>",
 		Short:       "Tests the communication between Jamf Pro and a Jamf Pro PKI Proxy Server",
 		Long:        "Tests the communication between Jamf Pro and a Jamf Pro PKI Proxy Server",
-		Annotations: map[string]string{"jamf:privileges": "Read PKI"},
+		Annotations: map[string]string{"jamf:privileges": "Read PKI", "jamf:api": "pro"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -590,7 +591,7 @@ func newVenafisDependentProfilesCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:         "dependent-profiles <id>",
 		Short:       "Get configuration profile data using specified Venafi CA object",
 		Long:        "Get configuration profile data using specified Venafi CA object",
-		Annotations: map[string]string{"jamf:privileges": "Read PKI"},
+		Annotations: map[string]string{"jamf:privileges": "Read PKI", "jamf:api": "pro"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -633,7 +634,7 @@ func newVenafisJamfPublicKeyCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Pipe to stdout
   jamf-cli pro venafis jamf-public-key <id> > output.bin`,
-		Annotations: map[string]string{"jamf:privileges": "Read PKI"},
+		Annotations: map[string]string{"jamf:privileges": "Read PKI", "jamf:api": "pro"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -685,7 +686,7 @@ func newVenafisRegenerateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:         "regenerate <id>",
 		Short:       "Regenerates a certificate used to secure communication between Jamf Pro and a Jamf Pro PKI Proxy Server",
 		Long:        "Regenerates a certificate for an existing Venafi configuration that can be used to secure communication between Jamf Pro and a Jamf Pro PKI Proxy Server",
-		Annotations: map[string]string{"jamf:privileges": "Update PKI"},
+		Annotations: map[string]string{"jamf:privileges": "Update PKI", "jamf:api": "pro"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -745,7 +746,7 @@ func newVenafisProxyTrustStoreCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Pipe to stdout
   jamf-cli pro venafis proxy-trust-store <id> > output.bin`,
-		Annotations: map[string]string{"jamf:privileges": "Read PKI"},
+		Annotations: map[string]string{"jamf:privileges": "Read PKI", "jamf:api": "pro"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

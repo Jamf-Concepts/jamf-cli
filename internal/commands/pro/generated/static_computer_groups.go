@@ -21,9 +21,10 @@ import (
 // NewStaticComputerGroupsCmd creates the static-computer-groups command group
 func NewStaticComputerGroupsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "static-computer-groups",
-		Short: "Manage static-computer-groups",
-		Long:  `Manage static-computer-groups in Jamf Pro.`,
+		Use:         "static-computer-groups",
+		Short:       "Manage static-computer-groups",
+		Long:        `Manage static-computer-groups in Jamf Pro.`,
+		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
 	cmd.AddCommand(newStaticComputerGroupsListCmd(ctx))
@@ -55,7 +56,7 @@ func newStaticComputerGroupsListCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # List static-computer-groups and extract IDs
   jamf-cli pro static-computer-groups list --field id`,
-		Annotations: map[string]string{"jamf:privileges": "Read Static Computer Groups"},
+		Annotations: map[string]string{"jamf:privileges": "Read Static Computer Groups", "jamf:api": "pro"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -207,7 +208,7 @@ func newStaticComputerGroupsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a static-computer-group and output as YAML
   jamf-cli pro static-computer-groups get 1 -o yaml`,
-		Annotations: map[string]string{"jamf:privileges": "Read Static Computer Groups"},
+		Annotations: map[string]string{"jamf:privileges": "Read Static Computer Groups", "jamf:api": "pro"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -271,7 +272,7 @@ func newStaticComputerGroupsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a static-computer-group, modify it, and create a copy
   jamf-cli pro static-computer-groups get 1 -o json | jq '.name = "Copy"' | jamf-cli pro static-computer-groups create`,
-		Annotations: map[string]string{"jamf:privileges": "Create Static Computer Groups"},
+		Annotations: map[string]string{"jamf:privileges": "Create Static Computer Groups", "jamf:api": "pro"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -352,7 +353,7 @@ func newStaticComputerGroupsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a static-computer-group, modify, and update
   jamf-cli pro static-computer-groups get 1 -o json | jq '.name = "New Name"' | jamf-cli pro static-computer-groups update 1`,
-		Annotations: map[string]string{"jamf:privileges": "Update Static Computer Groups"},
+		Annotations: map[string]string{"jamf:privileges": "Update Static Computer Groups", "jamf:api": "pro"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -484,7 +485,7 @@ func newStaticComputerGroupsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Delete without confirmation prompt
   jamf-cli pro static-computer-groups delete 1 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Delete Static Computer Groups"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Delete Static Computer Groups", "jamf:api": "pro"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -685,8 +686,9 @@ func newStaticComputerGroupsApplyCmd(ctx *registry.CLIContext) *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "apply",
-		Short: "Create or replace a static-computer-group by name",
+		Use:         "apply",
+		Short:       "Create or replace a static-computer-group by name",
+		Annotations: map[string]string{"jamf:api": "pro"},
 		Long: `Create or replace a static-computer-group. Reads JSON or YAML from --from-file or stdin.
 
 The name field in the input is used to check if the resource

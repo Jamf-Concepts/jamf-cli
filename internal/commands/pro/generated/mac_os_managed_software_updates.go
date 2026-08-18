@@ -16,9 +16,10 @@ import (
 // NewMacOsManagedSoftwareUpdatesCmd creates the mac-os-managed-software-updates command group
 func NewMacOsManagedSoftwareUpdatesCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "mac-os-managed-software-updates",
-		Short: "Manage mac-os-managed-software-updates",
-		Long:  `Manage mac-os-managed-software-updates in Jamf Pro.`,
+		Use:         "mac-os-managed-software-updates",
+		Short:       "Manage mac-os-managed-software-updates",
+		Long:        `Manage mac-os-managed-software-updates in Jamf Pro.`,
+		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
 	cmd.AddCommand(newMacOsManagedSoftwareUpdatesListCmd(ctx))
@@ -39,6 +40,7 @@ func newMacOsManagedSoftwareUpdatesListCmd(ctx *registry.CLIContext) *cobra.Comm
 
   # List mac-os-managed-software-updates and extract IDs
   jamf-cli pro mac-os-managed-software-updates list --field id`,
+		Annotations: map[string]string{"jamf:api": "pro"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -74,7 +76,7 @@ func newMacOsManagedSoftwareUpdatesSendUpdatesCmd(ctx *registry.CLIContext) *cob
 		Use:         "send-updates",
 		Short:       "Send MacOs Managed Software Updates",
 		Long:        "Sends MacOs Managed Software Updates",
-		Annotations: map[string]string{"jamf:privileges": "Send Computer Remote Command to Download and Install OS X Update"},
+		Annotations: map[string]string{"jamf:privileges": "Send Computer Remote Command to Download and Install OS X Update", "jamf:api": "pro"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

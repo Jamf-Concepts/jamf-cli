@@ -17,9 +17,10 @@ import (
 // NewAppInstallerGlobalSettingsCmd creates the app-installer-global-settings command group
 func NewAppInstallerGlobalSettingsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "app-installer-global-settings",
-		Short: "Manage app-installer-global-settings",
-		Long:  `Manage app-installer-global-settings in Jamf Pro.`,
+		Use:         "app-installer-global-settings",
+		Short:       "Manage app-installer-global-settings",
+		Long:        `Manage app-installer-global-settings in Jamf Pro.`,
+		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
 	cmd.AddCommand(newAppInstallerGlobalSettingsGetCmd(ctx))
@@ -40,7 +41,7 @@ func newAppInstallerGlobalSettingsGetCmd(ctx *registry.CLIContext) *cobra.Comman
 
   # Get app-installer-global-settings and output as YAML
   jamf-cli pro app-installer-global-settings get -o yaml`,
-		Annotations: map[string]string{"jamf:privileges": "Read App Installers"},
+		Annotations: map[string]string{"jamf:privileges": "Read App Installers", "jamf:api": "pro"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -85,7 +86,7 @@ func newAppInstallerGlobalSettingsUpdateCmd(ctx *registry.CLIContext) *cobra.Com
 
   # Update from a file
   jamf-cli pro app-installer-global-settings update --from-file app-installer-global-settings.json`,
-		Annotations: map[string]string{"jamf:privileges": "Update App Installers"},
+		Annotations: map[string]string{"jamf:privileges": "Update App Installers", "jamf:api": "pro"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

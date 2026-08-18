@@ -17,9 +17,10 @@ import (
 // NewServiceDiscoveryCmd creates the service-discovery command group
 func NewServiceDiscoveryCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "service-discovery",
-		Short: "Manage service-discovery",
-		Long:  `Manage service-discovery in Jamf Pro.`,
+		Use:         "service-discovery",
+		Short:       "Manage service-discovery",
+		Long:        `Manage service-discovery in Jamf Pro.`,
+		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
 	cmd.AddCommand(newServiceDiscoveryGetCmd(ctx))
@@ -40,7 +41,7 @@ func newServiceDiscoveryGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get service-discovery and output as YAML
   jamf-cli pro service-discovery get -o yaml`,
-		Annotations: map[string]string{"jamf:privileges": "Read User-Initiated Enrollment"},
+		Annotations: map[string]string{"jamf:privileges": "Read User-Initiated Enrollment", "jamf:api": "pro"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -85,7 +86,7 @@ func newServiceDiscoveryUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Update from a file
   jamf-cli pro service-discovery update --from-file service-discovery.json`,
-		Annotations: map[string]string{"jamf:privileges": "Update User-Initiated Enrollment"},
+		Annotations: map[string]string{"jamf:privileges": "Update User-Initiated Enrollment", "jamf:api": "pro"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

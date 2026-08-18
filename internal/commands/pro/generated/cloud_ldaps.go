@@ -20,9 +20,10 @@ import (
 // NewCloudLdapsCmd creates the cloud-ldaps command group
 func NewCloudLdapsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "cloud-ldaps",
-		Short: "Manage cloud-ldaps",
-		Long:  `Manage cloud-ldaps in Jamf Pro.`,
+		Use:         "cloud-ldaps",
+		Short:       "Manage cloud-ldaps",
+		Long:        `Manage cloud-ldaps in Jamf Pro.`,
+		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
 	cmd.AddCommand(newCloudLdapsGetCmd(ctx))
@@ -45,7 +46,7 @@ func newCloudLdapsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a cloud-ldap and output as YAML
   jamf-cli pro cloud-ldaps get 1 -o yaml`,
-		Annotations: map[string]string{"jamf:privileges": "Read LDAP Servers"},
+		Annotations: map[string]string{"jamf:privileges": "Read LDAP Servers", "jamf:api": "pro"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -91,7 +92,7 @@ func newCloudLdapsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a cloud-ldap, modify it, and create a copy
   jamf-cli pro cloud-ldaps get 1 -o json | jq '.name = "Copy"' | jamf-cli pro cloud-ldaps create`,
-		Annotations: map[string]string{"jamf:privileges": "Create LDAP Servers"},
+		Annotations: map[string]string{"jamf:privileges": "Create LDAP Servers", "jamf:api": "pro"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -162,7 +163,7 @@ func newCloudLdapsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a cloud-ldap, modify, and update
   jamf-cli pro cloud-ldaps get 1 -o json | jq '.name = "New Name"' | jamf-cli pro cloud-ldaps update 1`,
-		Annotations: map[string]string{"jamf:privileges": "Update LDAP Servers"},
+		Annotations: map[string]string{"jamf:privileges": "Update LDAP Servers", "jamf:api": "pro"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -274,7 +275,7 @@ func newCloudLdapsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Delete without confirmation prompt
   jamf-cli pro cloud-ldaps delete 1 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Delete LDAP Servers"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Delete LDAP Servers", "jamf:api": "pro"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

@@ -16,9 +16,10 @@ import (
 // NewPackageDeploymentsCmd creates the package-deployments command group
 func NewPackageDeploymentsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "package-deployments",
-		Short: "Manage package-deployments",
-		Long:  `Manage package-deployments in Jamf Pro.`,
+		Use:         "package-deployments",
+		Short:       "Manage package-deployments",
+		Long:        `Manage package-deployments in Jamf Pro.`,
+		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
 	cmd.AddCommand(newPackageDeploymentsDeployPackageCmd(ctx))
@@ -36,7 +37,7 @@ func newPackageDeploymentsDeployPackageCmd(ctx *registry.CLIContext) *cobra.Comm
 		Use:         "deploy-package",
 		Short:       "Deploy packages using MDM",
 		Long:        "Deploys packages to macOS devices using the InstallEnterpriseApplication MDM command.",
-		Annotations: map[string]string{"jamf:privileges": "Send Computer Remote Command to Install Package"},
+		Annotations: map[string]string{"jamf:privileges": "Send Computer Remote Command to Install Package", "jamf:api": "pro"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

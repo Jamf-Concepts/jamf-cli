@@ -19,9 +19,10 @@ import (
 // NewAppRequestsCmd creates the app-requests command group
 func NewAppRequestsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "app-requests",
-		Short: "Manage app-requests",
-		Long:  `Manage app-requests in Jamf Pro.`,
+		Use:         "app-requests",
+		Short:       "Manage app-requests",
+		Long:        `Manage app-requests in Jamf Pro.`,
+		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
 	cmd.AddCommand(newAppRequestsListCmd(ctx))
@@ -48,7 +49,7 @@ func newAppRequestsListCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # List app-requests and extract IDs
   jamf-cli pro app-requests list --field id`,
-		Annotations: map[string]string{"jamf:privileges": "Read App Request Settings"},
+		Annotations: map[string]string{"jamf:privileges": "Read App Request Settings", "jamf:api": "pro"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -92,7 +93,7 @@ func newAppRequestsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a app-request and output as YAML
   jamf-cli pro app-requests get 1 -o yaml`,
-		Annotations: map[string]string{"jamf:privileges": "Read App Request Settings"},
+		Annotations: map[string]string{"jamf:privileges": "Read App Request Settings", "jamf:api": "pro"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -155,7 +156,7 @@ func newAppRequestsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a app-request, modify it, and create a copy
   jamf-cli pro app-requests get 1 -o json | jq '.name = "Copy"' | jamf-cli pro app-requests create`,
-		Annotations: map[string]string{"jamf:privileges": "Update App Request Settings"},
+		Annotations: map[string]string{"jamf:privileges": "Update App Request Settings", "jamf:api": "pro"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -220,7 +221,7 @@ func newAppRequestsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Update from a file
   jamf-cli pro app-requests update --from-file app-requests.json`,
-		Annotations: map[string]string{"jamf:privileges": "Update App Request Settings"},
+		Annotations: map[string]string{"jamf:privileges": "Update App Request Settings", "jamf:api": "pro"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -284,7 +285,7 @@ func newAppRequestsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Delete without confirmation prompt
   jamf-cli pro app-requests delete 1 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Update App Request Settings"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Update App Request Settings", "jamf:api": "pro"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -483,7 +484,7 @@ func newAppRequestsSettingsCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:         "settings",
 		Short:       "Get Applicastion Request Settings",
 		Long:        "Get app request settings",
-		Annotations: map[string]string{"jamf:privileges": "Read App Request Settings"},
+		Annotations: map[string]string{"jamf:privileges": "Read App Request Settings", "jamf:api": "pro"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -519,7 +520,7 @@ func newAppRequestsUpdateSettingsCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:         "update-settings",
 		Short:       "Update Application Request Settings",
 		Long:        "Update app request settings",
-		Annotations: map[string]string{"jamf:privileges": "Update App Request Settings"},
+		Annotations: map[string]string{"jamf:privileges": "Update App Request Settings", "jamf:api": "pro"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -582,8 +583,9 @@ func newAppRequestsApplyCmd(ctx *registry.CLIContext) *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "apply",
-		Short: "Create or replace a app-request by name",
+		Use:         "apply",
+		Short:       "Create or replace a app-request by name",
+		Annotations: map[string]string{"jamf:api": "pro"},
 		Long: `Create or replace a app-request. Reads JSON or YAML from --from-file or stdin.
 
 The name field in the input is used to check if the resource

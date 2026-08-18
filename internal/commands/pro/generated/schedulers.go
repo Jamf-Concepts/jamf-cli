@@ -17,9 +17,10 @@ import (
 // NewSchedulersCmd creates the schedulers command group
 func NewSchedulersCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "schedulers",
-		Short: "Manage schedulers",
-		Long:  `Manage schedulers in Jamf Pro.`,
+		Use:         "schedulers",
+		Short:       "Manage schedulers",
+		Long:        `Manage schedulers in Jamf Pro.`,
+		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
 	cmd.AddCommand(newSchedulersListCmd(ctx))
@@ -41,6 +42,7 @@ func newSchedulersListCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # List schedulers and extract IDs
   jamf-cli pro schedulers list --field id`,
+		Annotations: map[string]string{"jamf:api": "pro"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -79,10 +81,11 @@ func newSchedulersTriggersCmd(ctx *registry.CLIContext) *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "triggers [<id>]",
-		Short: "Retrieve all triggers for a Jamf Pro Scheduler job",
-		Long:  "Retrieves all triggers for a Jamf Pro Scheduler job",
-		Args:  cobra.MaximumNArgs(1),
+		Use:         "triggers [<id>]",
+		Short:       "Retrieve all triggers for a Jamf Pro Scheduler job",
+		Long:        "Retrieves all triggers for a Jamf Pro Scheduler job",
+		Annotations: map[string]string{"jamf:api": "pro"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -240,9 +243,10 @@ func newSchedulersSummaryCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{
-		Use:   "summary",
-		Short: "Retrieve a summary of the Jamf Pro Scheduler",
-		Long:  "Retrieves a summary of the Jamf Pro Scheduler",
+		Use:         "summary",
+		Short:       "Retrieve a summary of the Jamf Pro Scheduler",
+		Long:        "Retrieves a summary of the Jamf Pro Scheduler",
+		Annotations: map[string]string{"jamf:api": "pro"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
