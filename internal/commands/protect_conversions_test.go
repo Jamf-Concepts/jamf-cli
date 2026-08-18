@@ -30,10 +30,24 @@ type mockProtectClient struct {
 
 	actionConfigs []jamfprotect.ActionConfigListItem
 	actionConfig  *jamfprotect.ActionConfig
+	retention     jamfprotect.DataRetentionSettings
+
+	// retentionWrites counts UpdateDataRetention calls, so a test can assert the
+	// rate-limited mutation was not sent when the tenant already matches.
+	retentionWrites int
 
 	// analyticsErr makes ListAnalytics fail, so the backup partial-failure path
 	// can be exercised without a live tenant.
 	analyticsErr error
+}
+
+func (m *mockProtectClient) GetDataRetention(_ context.Context) (jamfprotect.DataRetentionSettings, error) {
+	return m.retention, nil
+}
+
+func (m *mockProtectClient) UpdateDataRetention(_ context.Context, _ jamfprotect.DataRetentionInput) (jamfprotect.DataRetentionSettings, error) {
+	m.retentionWrites++
+	return m.retention, nil
 }
 
 func (m *mockProtectClient) ListActionConfigs(_ context.Context) ([]jamfprotect.ActionConfigListItem, error) {
@@ -1088,7 +1102,7 @@ func TestAnalyticRoundTrip_CarriesStartupLabelMatchReason(t *testing.T) {
 	}
 
 	y := analyticToYAML(original)
-	if !y.Startup || y.Label != "a-label" || y.MatchReason != "why it matched" {
+	if y.Startup == nil || !*y.Startup || y.Label != "a-label" || y.MatchReason != "why it matched" {
 		t.Fatalf("export dropped fields: %+v", y)
 	}
 
@@ -1116,4 +1130,170 @@ func TestAnalyticToYAML_OmitsUnsetExtras(t *testing.T) {
 			t.Errorf("rendered export contains %q when unset:\n%s", key, data)
 		}
 	}
+}
+
+// A community analytic file from jamf/jamfprotect declares no startup key. That
+// must reach the wire as "unset" rather than an explicit false, or importing an
+// upstream file overwrites whatever the server defaults to.
+func TestAnalyticYAMLToInput_AbsentStartupStaysAbsent(t *testing.T) {
+	var ay analyticYAML
+	community := []byte("name: Community Analytic\ninputType: GPFSEvent\nseverity: High\nshortDescription: from the upstream repo\n")
+	if err := unmarshalInput(community, &ay); err != nil {
+		t.Fatal(err)
+	}
+	if ay.Startup != nil {
+		t.Fatalf("Startup = %v, want nil for a document with no startup key", *ay.Startup)
+	}
+
+	got := analyticYAMLToInput(ay)
+	if got.Startup != nil {
+		t.Errorf("Startup = %v, want nil so the SDK omits the variable entirely", *got.Startup)
+	}
+}
+
+// An explicit false, on the other hand, is a stated value and must be sent.
+func TestAnalyticYAMLToInput_ExplicitFalseStartupIsSent(t *testing.T) {
+	var ay analyticYAML
+	if err := unmarshalInput([]byte("name: Explicit\ninputType: GPFSEvent\nstartup: false\n"), &ay); err != nil {
+		t.Fatal(err)
+	}
+	if ay.Startup == nil {
+		t.Fatal("an explicit `startup: false` must decode to a non-nil pointer")
+	}
+
+	got := analyticYAMLToInput(ay)
+	if got.Startup == nil {
+		t.Fatal("an explicit false must reach the input")
+	}
+	if *got.Startup {
+		t.Error("Startup = true, want the document's false")
+	}
+}
+
+// `unified-logging-filters export` emits the community schema, whose predicate
+// key is `predicate`; the SDK input calls the same field `Filter`. apply decoded
+// the SDK shape directly, so piping export into apply sent an empty filter and
+// the server refused every one of them with "input → filter: ” should be
+// non-empty". Same bug class as the analytics export/apply mismatch, in the
+// sibling resource.
+func TestULFDocumentIsCommunitySchema(t *testing.T) {
+	tests := []struct {
+		name string
+		doc  string
+		want bool
+	}{
+		{"community yaml from unified-logging-filters export", "name: Some filter\ndescription: \"\"\npredicate: Blah\ntags: []\nenabled: false\n", true},
+		{"sdk input shape from apply --scaffold", "name: Some filter\ndescription: \"\"\nfilter: Blah\ntags: []\nenabled: false\n", false},
+		{"sdk input shape as json uses Go field names", `{"Name":"f","Filter":"Blah"}`, false},
+		{"community json", `{"name":"f","predicate":"Blah"}`, true},
+		{"neither key present falls back to the sdk shape", "name: f\n", false},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := ulfDocumentIsCommunitySchema([]byte(tc.doc)); got != tc.want {
+				t.Errorf("ulfDocumentIsCommunitySchema() = %v, want %v", got, tc.want)
+			}
+		})
+	}
+}
+
+// The regression: `unified-logging-filters export | apply` must carry the
+// predicate through rather than sending an empty filter.
+func TestULFInputFromDocument_AcceptsCommunityExport(t *testing.T) {
+	exported, err := yaml.Marshal(ulfToYAML(jamfprotect.UnifiedLoggingFilter{
+		Name:        "Some filter",
+		Description: "a description",
+		Filter:      `subsystem == "com.apple.TimeMachine"`,
+		Tags:        []string{"backup"},
+		Enabled:     true,
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := ulfInputFromDocument(exported)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got.Filter != `subsystem == "com.apple.TimeMachine"` {
+		t.Errorf("Filter = %q, want the predicate from the document — an empty filter is refused by the server", got.Filter)
+	}
+	if got.Name != "Some filter" || got.Description != "a description" {
+		t.Errorf("got %+v, want the name and description preserved", got)
+	}
+	if !got.Enabled || len(got.Tags) != 1 {
+		t.Errorf("got %+v, want enabled with one tag", got)
+	}
+}
+
+// And the scaffold shape must keep working alongside it.
+func TestULFInputFromDocument_AcceptsScaffoldShape(t *testing.T) {
+	got, err := ulfInputFromDocument([]byte("name: Scaffolded\nfilter: subsystem == \"com.apple.zz\"\nenabled: true\n"))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got.Name != "Scaffolded" {
+		t.Errorf("Name = %q", got.Name)
+	}
+	if got.Filter != `subsystem == "com.apple.zz"` {
+		t.Errorf("Filter = %q, want the document's filter key", got.Filter)
+	}
+}
+
+// Set membership comes back in the server's own order, and the order rotates
+// after a rewrite. An unsorted export therefore made two backups of an unchanged
+// set diff by its whole membership — 60 lines of churn for the Default Analytic
+// Set — which defeats the point of keeping a backup directory in git.
+// planToExport already sorts its three lists; these are the same problem.
+func TestSetExportsSortMembershipForStableDiffs(t *testing.T) {
+	t.Run("analytic sets", func(t *testing.T) {
+		unsorted := analyticSetToExport(&jamfprotect.AnalyticSet{
+			Name:      "Set",
+			Analytics: []jamfprotect.AnalyticSetAnalytic{{Name: "Zulu"}, {Name: "alpha"}, {Name: "Mike"}},
+		})
+		rotated := analyticSetToExport(&jamfprotect.AnalyticSet{
+			Name:      "Set",
+			Analytics: []jamfprotect.AnalyticSetAnalytic{{Name: "Mike"}, {Name: "Zulu"}, {Name: "alpha"}},
+		})
+
+		want := []string{"Mike", "Zulu", "alpha"}
+		for i, w := range want {
+			if unsorted.Analytics[i] != w {
+				t.Errorf("Analytics[%d] = %q, want %q", i, unsorted.Analytics[i], w)
+			}
+		}
+		// The load-bearing property: the same membership in a different server
+		// order must produce the same document.
+		if len(rotated.Analytics) != len(unsorted.Analytics) {
+			t.Fatalf("length changed: %v vs %v", rotated.Analytics, unsorted.Analytics)
+		}
+		for i := range unsorted.Analytics {
+			if rotated.Analytics[i] != unsorted.Analytics[i] {
+				t.Errorf("position %d: %q vs %q — the same set exported twice must not diff",
+					i, unsorted.Analytics[i], rotated.Analytics[i])
+			}
+		}
+	})
+
+	t.Run("unified logging filter sets", func(t *testing.T) {
+		a := ulfSetToExport(&jamfprotect.UnifiedLoggingFilterSet{
+			Name:    "Set",
+			Filters: []jamfprotect.UnifiedLoggingFilterSetFilter{{Name: "two"}, {Name: "one"}, {Name: "three"}},
+		})
+		b := ulfSetToExport(&jamfprotect.UnifiedLoggingFilterSet{
+			Name:    "Set",
+			Filters: []jamfprotect.UnifiedLoggingFilterSetFilter{{Name: "three"}, {Name: "two"}, {Name: "one"}},
+		})
+		want := []string{"one", "three", "two"}
+		for i, w := range want {
+			if a.Filters[i] != w {
+				t.Errorf("Filters[%d] = %q, want %q", i, a.Filters[i], w)
+			}
+		}
+		for i := range a.Filters {
+			if b.Filters[i] != a.Filters[i] {
+				t.Errorf("position %d: %q vs %q — the same set exported twice must not diff", i, a.Filters[i], b.Filters[i])
+			}
+		}
+	})
 }

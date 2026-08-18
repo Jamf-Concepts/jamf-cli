@@ -4,10 +4,35 @@ package protect
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 )
+
+// ErrNotFound reports that a lookup completed and the name was absent — as
+// distinct from the lookup itself failing.
+//
+// Callers that create-on-absent must tell the two apart with errors.Is. Treating
+// every error as "absent" turns a transient list failure, an expired token or a
+// permission problem into an unintended create, and the operator sees whatever
+// the server says about the resulting duplicate rather than the real cause. That
+// matters most in bulk paths like 'protect restore', where one blip mid-run would
+// otherwise mutate the tenant a different way than intended.
+var ErrNotFound = errors.New("not found")
+
+// notFoundError carries the CLI's usual "use '<cmd> list'" hint while still
+// matching ErrNotFound, so the message the user sees is unchanged.
+type notFoundError struct{ msg string }
+
+func (e *notFoundError) Error() string { return e.msg }
+
+func (e *notFoundError) Is(target error) bool { return target == ErrNotFound }
+
+// notFoundf builds an ErrNotFound-matching error with the given message.
+func notFoundf(format string, args ...any) error {
+	return &notFoundError{msg: fmt.Sprintf(format, args...)}
+}
 
 // Resolver maps resource names to IDs/UUIDs. Results are cached per
 // resource type to avoid redundant list calls within a single command.
@@ -53,7 +78,7 @@ func (r *Resolver) ResolvePlanID(ctx context.Context, name string) (string, erro
 	}
 	id, ok := r.plans[name]
 	if !ok {
-		return "", fmt.Errorf("plan %q not found; use 'protect plans list' to see available names", name)
+		return "", notFoundf("plan %q not found; use 'protect plans list' to see available names", name)
 	}
 	return id, nil
 }
@@ -72,7 +97,7 @@ func (r *Resolver) ResolveAnalyticUUID(ctx context.Context, name string) (string
 	}
 	id, ok := r.analytics[name]
 	if !ok {
-		return "", fmt.Errorf("analytic %q not found; use 'protect analytics list' to see available names", name)
+		return "", notFoundf("analytic %q not found; use 'protect analytics list' to see available names", name)
 	}
 	return id, nil
 }
@@ -91,7 +116,7 @@ func (r *Resolver) ResolveAnalyticSetUUID(ctx context.Context, name string) (str
 	}
 	id, ok := r.analyticSets[name]
 	if !ok {
-		return "", fmt.Errorf("analytic set %q not found; use 'protect analytic-sets list' to see available names", name)
+		return "", notFoundf("analytic set %q not found; use 'protect analytic-sets list' to see available names", name)
 	}
 	return id, nil
 }
@@ -110,7 +135,7 @@ func (r *Resolver) ResolveExceptionSetUUID(ctx context.Context, name string) (st
 	}
 	id, ok := r.exceptionSets[name]
 	if !ok {
-		return "", fmt.Errorf("exception set %q not found; use 'protect exception-sets list' to see available names", name)
+		return "", notFoundf("exception set %q not found; use 'protect exception-sets list' to see available names", name)
 	}
 	return id, nil
 }
@@ -129,7 +154,7 @@ func (r *Resolver) ResolveRemovableStorageControlSetID(ctx context.Context, name
 	}
 	id, ok := r.rscSets[name]
 	if !ok {
-		return "", fmt.Errorf("removable storage control set %q not found; use 'protect removable-storage-control-sets list' to see available names", name)
+		return "", notFoundf("removable storage control set %q not found; use 'protect removable-storage-control-sets list' to see available names", name)
 	}
 	return id, nil
 }
@@ -148,7 +173,7 @@ func (r *Resolver) ResolveActionConfigID(ctx context.Context, name string) (stri
 	}
 	id, ok := r.actionConfigs[name]
 	if !ok {
-		return "", fmt.Errorf("action config %q not found; use 'protect action-configs list' to see available names", name)
+		return "", notFoundf("action config %q not found; use 'protect action-configs list' to see available names", name)
 	}
 	return id, nil
 }
@@ -167,7 +192,7 @@ func (r *Resolver) ResolveTelemetryV2ID(ctx context.Context, name string) (strin
 	}
 	id, ok := r.telemetriesV2[name]
 	if !ok {
-		return "", fmt.Errorf("telemetry %q not found; use 'protect telemetry list' to see available names", name)
+		return "", notFoundf("telemetry %q not found; use 'protect telemetry list' to see available names", name)
 	}
 	return id, nil
 }
@@ -186,7 +211,7 @@ func (r *Resolver) ResolveCustomPreventListID(ctx context.Context, name string) 
 	}
 	id, ok := r.preventLists[name]
 	if !ok {
-		return "", fmt.Errorf("custom prevent list %q not found; use 'protect custom-prevent-lists list' to see available names", name)
+		return "", notFoundf("custom prevent list %q not found; use 'protect custom-prevent-lists list' to see available names", name)
 	}
 	return id, nil
 }
@@ -205,7 +230,7 @@ func (r *Resolver) ResolveUnifiedLoggingFilterUUID(ctx context.Context, name str
 	}
 	id, ok := r.ulfFilters[name]
 	if !ok {
-		return "", fmt.Errorf("unified logging filter %q not found; use 'protect unified-logging-filters list' to see available names", name)
+		return "", notFoundf("unified logging filter %q not found; use 'protect unified-logging-filters list' to see available names", name)
 	}
 	return id, nil
 }
@@ -224,7 +249,7 @@ func (r *Resolver) ResolveUnifiedLoggingFilterSetUUID(ctx context.Context, name 
 	}
 	id, ok := r.ulfSets[name]
 	if !ok {
-		return "", fmt.Errorf("unified logging filter set %q not found; use 'protect unified-logging-filter-sets list' to see available names", name)
+		return "", notFoundf("unified logging filter set %q not found; use 'protect unified-logging-filter-sets list' to see available names", name)
 	}
 	return id, nil
 }
@@ -243,7 +268,7 @@ func (r *Resolver) ResolveRoleID(ctx context.Context, name string) (string, erro
 	}
 	id, ok := r.roles[name]
 	if !ok {
-		return "", fmt.Errorf("role %q not found; use 'protect roles list' to see available names", name)
+		return "", notFoundf("role %q not found; use 'protect roles list' to see available names", name)
 	}
 	return id, nil
 }
@@ -262,7 +287,7 @@ func (r *Resolver) ResolveUserID(ctx context.Context, email string) (string, err
 	}
 	id, ok := r.users[email]
 	if !ok {
-		return "", fmt.Errorf("user %q not found; use 'protect users list' to see available users", email)
+		return "", notFoundf("user %q not found; use 'protect users list' to see available users", email)
 	}
 	return id, nil
 }
@@ -281,7 +306,7 @@ func (r *Resolver) ResolveGroupID(ctx context.Context, name string) (string, err
 	}
 	id, ok := r.groups[name]
 	if !ok {
-		return "", fmt.Errorf("group %q not found; use 'protect groups list' to see available names", name)
+		return "", notFoundf("group %q not found; use 'protect groups list' to see available names", name)
 	}
 	return id, nil
 }
@@ -300,7 +325,7 @@ func (r *Resolver) ResolveApiClientID(ctx context.Context, name string) (string,
 	}
 	id, ok := r.apiClients[name]
 	if !ok {
-		return "", fmt.Errorf("API client %q not found; use 'protect api-clients list' to see available names", name)
+		return "", notFoundf("API client %q not found; use 'protect api-clients list' to see available names", name)
 	}
 	return id, nil
 }
@@ -319,7 +344,7 @@ func (r *Resolver) ResolveInsightUUID(ctx context.Context, label string) (string
 	}
 	id, ok := r.insights[label]
 	if !ok {
-		return "", fmt.Errorf("insight %q not found; use 'protect insights list' to see available labels", label)
+		return "", notFoundf("insight %q not found; use 'protect insights list' to see available labels", label)
 	}
 	return id, nil
 }
@@ -348,7 +373,7 @@ func (r *Resolver) ResolveComputerUUID(ctx context.Context, nameOrSerial string)
 	if id, ok := r.computerSerial[nameOrSerial]; ok {
 		return id, nil
 	}
-	return "", fmt.Errorf("computer %q not found by hostname or serial; use 'protect computers list' to see available computers", nameOrSerial)
+	return "", notFoundf("computer %q not found by hostname or serial; use 'protect computers list' to see available computers", nameOrSerial)
 }
 
 // ResolveConnectionID returns the ID for an identity provider connection given
@@ -366,7 +391,7 @@ func (r *Resolver) ResolveConnectionID(ctx context.Context, name string) (string
 	}
 	id, ok := r.connections[name]
 	if !ok {
-		return "", fmt.Errorf("connection %q not found; use 'protect connections list' to see available names", name)
+		return "", notFoundf("connection %q not found; use 'protect connections list' to see available names", name)
 	}
 	return id, nil
 }

@@ -8,6 +8,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -97,6 +98,12 @@ type protectResource struct {
 // upsertByName resolves an object by name and creates it when absent, updates it
 // when present. Every Protect resource follows this shape; the generic keeps the
 // table from repeating it fifteen times.
+//
+// Only protect.ErrNotFound means "absent". Any other error is the lookup itself
+// failing — a transient list call, an expired token, a permission problem — and
+// must abort this object rather than be read as "so create it", which would
+// mutate the tenant a different way than the backup describes and report the
+// resulting duplicate-name error instead of the real cause.
 func upsertByName[I any, R any](
 	ctx context.Context,
 	name string,
@@ -107,6 +114,9 @@ func upsertByName[I any, R any](
 ) (string, error) {
 	id, err := resolve(ctx, name)
 	if err != nil {
+		if !errors.Is(err, protect.ErrNotFound) {
+			return "", fmt.Errorf("looking up %q: %w", name, err)
+		}
 		if _, err := create(ctx, input); err != nil {
 			return "", err
 		}
@@ -697,6 +707,17 @@ func protectResources() []protectResource {
 				input, err := decode[jamfprotect.DataRetentionInput](data)
 				if err != nil {
 					return "", err
+				}
+				// Retention updates are rate-limited to once per 24 hours, so an
+				// unconditional write made a re-run report a failure for a
+				// resource already in the desired state. Compare first, the same
+				// way config-freeze and insights do.
+				current, err := c.GetDataRetention(ctx)
+				if err != nil {
+					return "", err
+				}
+				if dataRetentionToInput(current) == input {
+					return "data-retention already matches", nil
 				}
 				if _, err := c.UpdateDataRetention(ctx, input); err != nil {
 					return "", err

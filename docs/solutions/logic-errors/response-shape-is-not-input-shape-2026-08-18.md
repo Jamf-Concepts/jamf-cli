@@ -10,6 +10,7 @@ applies_when:
   - "adding a resource to protect backup/restore"
   - "hand-writing an export struct instead of reusing the SDK input type"
   - "a round-trip silently loses fields or is refused by the server"
+  - "a resource accepts two document shapes and apply decodes only one"
 tags: [protect, export, apply, backup, restore, fidelity, graphql, round-trip, portability]
 ---
 
@@ -81,3 +82,29 @@ the other.
 
 The diff-after-clone check is cheap, needs no fixtures, and is the only thing
 that would have caught all six.
+
+## A seventh, found by pointing one command at the other
+
+Reviewing the change that produced this document, one probe — pipe each `export`
+into its own `apply` against a live tenant — turned up the same bug once more, in
+the resource sitting next to the one already fixed:
+
+```
+$ jamf-cli protect unified-logging-filters export "Some filter" -o yaml |     jamf-cli protect unified-logging-filters apply --yes
+CreateUnifiedLoggingFilter: input → filter: '' should be non-empty
+```
+
+`ulfToYAML` writes the community schema, whose predicate key is `predicate`; the
+SDK input calls the same field `Filter`. `apply` decoded the SDK shape directly,
+so the predicate never bound and the server refused every filter in every tenant
+— exactly the analytics failure, in a resource whose backup/restore path was
+already correct because it went through the YAML converters.
+
+Fixed the same way: `ulfInputFromDocument` sniffs which schema a document is in,
+mirroring `analyticInputFromDocument`.
+
+The lesson is narrower than the one above and worth stating on its own: **when a
+resource has two document shapes, the pipe between its own commands is the test.**
+Unit tests over each converter passed. What found it was running
+`export | apply` once, which is a single line of shell and belongs in the review
+of any export/apply pair.

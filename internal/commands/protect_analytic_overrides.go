@@ -374,7 +374,9 @@ func newProtectAnalyticsOverridesApplyCmd(cliCtx *registry.CLIContext) *cobra.Co
 Each entry is matched to the target tenant by analytic name, so a document
 exported from one tenant applies to another. Entries naming an analytic that is
 absent, or that is custom rather than Jamf-managed, are reported and skipped —
-the rest still apply.`,
+the rest still apply. An entry the server refuses is reported and the run
+continues, so the summary always says how many landed; the command exits
+non-zero if any failed.`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if scaffold {
@@ -412,7 +414,7 @@ the rest still apply.`,
 				return nil
 			}
 
-			var applied, skipped int
+			var applied, skipped, failed int
 			for _, o := range doc.Overrides {
 				a, ok := byName[o.Analytic]
 				if !ok {
@@ -447,12 +449,22 @@ the rest still apply.`,
 				}
 
 				if _, err := cliCtx.ProtectClient.UpdateInternalAnalytic(ctx, a.UUID, input); err != nil {
-					return fmt.Errorf("applying override for %q: %w", o.Analytic, err)
+					// Report and continue rather than abandoning the document at
+					// the first failure: aborting left the operator knowing only
+					// which entry failed, with no indication of how many had
+					// already been written, so a retry was unsafe to reason
+					// about. 'protect restore' takes the same approach.
+					fmt.Fprintf(os.Stderr, "FAILED %q: %v\n", o.Analytic, err)
+					failed++
+					continue
 				}
 				applied++
 			}
 
-			fmt.Fprintf(os.Stderr, "Applied %d override(s), skipped %d\n", applied, skipped)
+			fmt.Fprintf(os.Stderr, "Applied %d override(s), skipped %d, %d failed\n", applied, skipped, failed)
+			if failed > 0 {
+				return fmt.Errorf("%d override(s) failed to apply", failed)
+			}
 			return nil
 		},
 	}

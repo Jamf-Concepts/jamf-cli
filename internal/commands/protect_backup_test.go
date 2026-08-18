@@ -5,11 +5,13 @@ package commands
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
+	"github.com/Jamf-Concepts/jamf-cli/internal/protect"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 
 	"github.com/Jamf-Concepts/jamfprotect-go-sdk/jamfprotect"
@@ -607,4 +609,126 @@ func TestRunProtectBackupTightensPermissionsOnSensitiveResources(t *testing.T) {
 	if perm := ordinary.Mode().Perm(); perm != 0o644 {
 		t.Errorf("mode = %#o, want 0644 for a non-sensitive resource", perm)
 	}
+}
+
+// Retention updates are rate-limited to once per 24 hours, so an unconditional
+// write made a re-run report a failure for a resource already in the desired
+// state. config-freeze and insights compare first; this must too.
+func TestRestoreDataRetentionSkipsAnUnchangedWrite(t *testing.T) {
+	settings := jamfprotect.DataRetentionSettings{
+		Database: &jamfprotect.DataRetentionDatabase{
+			Log:   &jamfprotect.DataRetentionDays{NumberOfDays: 180},
+			Alert: &jamfprotect.DataRetentionDays{NumberOfDays: 90},
+		},
+		Cold: &jamfprotect.DataRetentionCold{
+			Alert: &jamfprotect.DataRetentionColdDays{NumberOfDays: 30},
+		},
+	}
+
+	var retention protectResource
+	for _, r := range protectResources() {
+		if r.Name == "data-retention" {
+			retention = r
+		}
+	}
+	if retention.Restore == nil {
+		t.Fatal("data-retention has no Restore")
+	}
+
+	doc, err := protectMarshal(dataRetentionToInput(settings), "yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	t.Run("already matching: no write", func(t *testing.T) {
+		mock := &mockProtectClient{retention: settings}
+		msg, err := retention.Restore(context.Background(), mock, protect.NewResolver(mock), doc)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if mock.retentionWrites != 0 {
+			t.Errorf("UpdateDataRetention called %d time(s); a re-run inside 24h would fail on a no-op",
+				mock.retentionWrites)
+		}
+		if !strings.Contains(msg, "already") {
+			t.Errorf("message = %q, want it to say the value already matches", msg)
+		}
+	})
+
+	t.Run("differing: writes once", func(t *testing.T) {
+		different := settings
+		different.Database = &jamfprotect.DataRetentionDatabase{
+			Log:   &jamfprotect.DataRetentionDays{NumberOfDays: 30},
+			Alert: &jamfprotect.DataRetentionDays{NumberOfDays: 90},
+		}
+		mock := &mockProtectClient{retention: different}
+		if _, err := retention.Restore(context.Background(), mock, protect.NewResolver(mock), doc); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if mock.retentionWrites != 1 {
+			t.Errorf("UpdateDataRetention called %d time(s), want 1 — a real change must still be sent",
+				mock.retentionWrites)
+		}
+	})
+}
+
+// Only "absent" may become a create. A lookup that failed for any other reason
+// must abort the object, or a transient blip mid-restore mutates the tenant a
+// different way than the backup describes.
+func TestUpsertByNameOnlyCreatesWhenGenuinelyAbsent(t *testing.T) {
+	type input struct{ Name string }
+
+	t.Run("not found creates", func(t *testing.T) {
+		var created, updated int
+		name, err := upsertByName(context.Background(), "thing", input{Name: "thing"},
+			func(context.Context, string) (string, error) {
+				return "", fmt.Errorf("thing %q not found; use 'protect things list': %w", "thing", protect.ErrNotFound)
+			},
+			func(context.Context, input) (any, error) { created++; return nil, nil },
+			func(context.Context, string, input) (any, error) { updated++; return nil, nil },
+		)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if created != 1 || updated != 0 {
+			t.Errorf("created=%d updated=%d, want a single create", created, updated)
+		}
+		if name != "thing" {
+			t.Errorf("name = %q", name)
+		}
+	})
+
+	t.Run("found updates", func(t *testing.T) {
+		var created, updated int
+		if _, err := upsertByName(context.Background(), "thing", input{Name: "thing"},
+			func(context.Context, string) (string, error) { return "id-1", nil },
+			func(context.Context, input) (any, error) { created++; return nil, nil },
+			func(context.Context, string, input) (any, error) { updated++; return nil, nil },
+		); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if created != 0 || updated != 1 {
+			t.Errorf("created=%d updated=%d, want a single update", created, updated)
+		}
+	})
+
+	t.Run("a transient lookup failure creates nothing", func(t *testing.T) {
+		var created, updated int
+		_, err := upsertByName(context.Background(), "thing", input{Name: "thing"},
+			func(context.Context, string) (string, error) {
+				return "", errors.New("listThings: 502 bad gateway")
+			},
+			func(context.Context, input) (any, error) { created++; return nil, nil },
+			func(context.Context, string, input) (any, error) { updated++; return nil, nil },
+		)
+		if err == nil {
+			t.Fatal("expected the lookup failure to abort the object")
+		}
+		if created != 0 || updated != 0 {
+			t.Errorf("created=%d updated=%d — a 502 must not be read as \"absent, so create it\"", created, updated)
+		}
+		if !strings.Contains(err.Error(), "502") {
+			t.Errorf("error %q should carry the real cause, not a duplicate-name message", err)
+		}
+	})
 }

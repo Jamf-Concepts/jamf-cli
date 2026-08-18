@@ -35,7 +35,12 @@ type analyticYAML struct {
 	// Present on the analytic and settable on the input, but absent from the
 	// community schema, so an export/apply round-trip silently dropped them.
 	// omitempty keeps the common case byte-identical to the community files.
-	Startup     bool   `yaml:"startup,omitempty"`
+	//
+	// Startup is a pointer so "absent from the document" stays distinct from
+	// "present and false". A community file from jamf/jamfprotect declares no
+	// startup key, and forcing an explicit false onto the wire for those would
+	// overwrite whatever the server defaults to rather than leaving it alone.
+	Startup     *bool  `yaml:"startup,omitempty"`
 	Label       string `yaml:"label,omitempty"`
 	MatchReason string `yaml:"matchReason,omitempty"`
 }
@@ -410,6 +415,15 @@ func analyticInputFromDocument(data []byte) (jamfprotect.AnalyticInput, error) {
 	return input, nil
 }
 
+// boolPtrIfTrue returns a pointer to b only when b is true, so a false value is
+// omitted from an export rather than written out.
+func boolPtrIfTrue(b bool) *bool {
+	if !b {
+		return nil
+	}
+	return &b
+}
+
 // analyticYAMLToInput converts the community YAML schema to an SDK AnalyticInput.
 func analyticYAMLToInput(ay analyticYAML) jamfprotect.AnalyticInput {
 	analyticActions := make([]jamfprotect.AnalyticActionInput, 0, len(ay.Actions))
@@ -461,7 +475,7 @@ func analyticYAMLToInput(ay analyticYAML) jamfprotect.AnalyticInput {
 		Level:           ay.Level,
 		Severity:        ay.Severity,
 		SnapshotFiles:   snapshotFiles,
-		Startup:         &ay.Startup,
+		Startup:         ay.Startup,
 		Label:           ay.Label,
 		MatchReason:     ay.MatchReason,
 	}
@@ -514,8 +528,10 @@ func analyticToYAML(a jamfprotect.Analytic) analyticYAML {
 		Severity:         a.Severity,
 		ShortDescription: a.Description,
 		Remediation:      a.Remediation,
-		Startup:          a.Startup,
-		Label:            a.Label,
-		MatchReason:      a.MatchReason,
+		// Emitted only when set, so an export of the overwhelmingly common
+		// startup=false analytic stays byte-identical to its community file.
+		Startup:     boolPtrIfTrue(a.Startup),
+		Label:       a.Label,
+		MatchReason: a.MatchReason,
 	}
 }
