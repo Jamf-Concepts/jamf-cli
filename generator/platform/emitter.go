@@ -179,9 +179,15 @@ func Generate(resources []*parser.Resource, outputDir string) ([]string, error) 
 	return generated, nil
 }
 
-// filterGenerableOps returns the subset of ops the current template can emit.
-// Currently: GET (no body), POST/PATCH (with or without body), DELETE.
-// Skipped: anything pagination-aware (handled separately later).
+// filterGenerableOps returns the subset of ops the current template can emit:
+// GET (no body), POST/PUT/PATCH (with or without body), DELETE.
+//
+// PUT is here because Jamf Security Cloud is the first platform spec to use it —
+// the settings-style resources (DNS search domains, custom hostname mappings,
+// UEM connector enablement and sync settings) are written with PUT, and device
+// groups update with it. Until then every platform mutation was POST or a
+// merge-PATCH, so a PUT was silently dropped and the resource shipped read-only:
+// `dns-search-domains` had no way to set a search domain at all.
 func filterGenerableOps(ops []*parser.Operation) []*parser.Operation {
 	out := make([]*parser.Operation, 0, len(ops))
 	for _, op := range ops {
@@ -190,7 +196,7 @@ func filterGenerableOps(ops []*parser.Operation) []*parser.Operation {
 			if op.RequestBody == nil {
 				out = append(out, op)
 			}
-		case "POST", "PATCH", "DELETE":
+		case "POST", "PUT", "PATCH", "DELETE":
 			out = append(out, op)
 		}
 	}

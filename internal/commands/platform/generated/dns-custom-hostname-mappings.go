@@ -27,6 +27,7 @@ func NewDnsCustomHostnameMappingsCmd(cliCtx *registry.CLIContext) *cobra.Command
 	}
 	cmd.AddCommand(newDnsCustomHostnameMappingsDeleteCmd(cliCtx))
 	cmd.AddCommand(newDnsCustomHostnameMappingsGetCmd(cliCtx))
+	cmd.AddCommand(newDnsCustomHostnameMappingsUpdateCmd(cliCtx))
 	return cmd
 }
 
@@ -92,6 +93,47 @@ func newDnsCustomHostnameMappingsGetCmd(cliCtx *registry.CLIContext) *cobra.Comm
 			return cliCtx.Output.PrintRaw(b)
 		},
 	}
+	return cmd
+}
+
+func newDnsCustomHostnameMappingsUpdateCmd(cliCtx *registry.CLIContext) *cobra.Command {
+	var bodyFile string
+	var setFlags []string
+	var scaffoldFlag bool
+	cmd := &cobra.Command{
+		Use:         "update",
+		Short:       "Replace Custom Hostname Mappings",
+		Long:        "Replaces the entire set of tenant Custom Hostname Mappings with the supplied JSON list. The previous mappings are fully overwritten.",
+		Annotations: map[string]string{"jamf:privileges": "update:jsc:all"},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if scaffoldFlag {
+				// Scaffold prints raw JSON regardless of -o, so the output
+				// can be piped straight back into --file.
+				fmt.Println("[]")
+				return nil
+			}
+			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
+				return err
+			}
+			path := "/api/securitycloud/v1/tenant/{tenantId}/dns/custom-hostname-mappings"
+			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("securitycloud")), 1)
+			q := url.Values{}
+			body, err := platform.ReadBody(bodyFile, setFlags)
+			if err != nil {
+				return err
+			}
+			if encoded := q.Encode(); encoded != "" {
+				path += "?" + encoded
+			}
+			if err := cliCtx.PlatformSDKClient.Transport().DoWithContentType(cmd.Context(), http.MethodPut, path, body, "application/json", http.StatusNoContent, nil); err != nil {
+				return fmt.Errorf("update: %w", err)
+			}
+			return nil
+		},
+	}
+	cmd.Flags().StringVar(&bodyFile, "file", "", "Path to JSON file containing the request body")
+	cmd.Flags().StringArrayVar(&setFlags, "set", nil, "Override body values (key=value, repeatable, supports nested.keys)")
+	cmd.Flags().BoolVar(&scaffoldFlag, "scaffold", false, "Print an example request body and exit")
 	return cmd
 }
 

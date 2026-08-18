@@ -25,13 +25,14 @@ func NewUemConnectorEnablementCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Short: "Manage uem-connector-enablement (Jamf Security Cloud)",
 		Long:  "API for managing UEM Connect connectors",
 	}
-	cmd.AddCommand(newUemConnectorEnablementDeleteEnablementCmd(cliCtx))
+	cmd.AddCommand(newUemConnectorEnablementDisableCmd(cliCtx))
+	cmd.AddCommand(newUemConnectorEnablementEnableCmd(cliCtx))
 	return cmd
 }
 
-func newUemConnectorEnablementDeleteEnablementCmd(cliCtx *registry.CLIContext) *cobra.Command {
+func newUemConnectorEnablementDisableCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:         "delete-enablement <configId>",
+		Use:         "disable <configId>",
 		Short:       "Disable connector synchronization",
 		Long:        "Disables the specified connector to pause data synchronization between JSC and the UEM platform. This operation is idempotent — disabling an already-disabled connector succeeds.",
 		Annotations: map[string]string{"jamf:privileges": "update:jsc:all"},
@@ -49,11 +50,59 @@ func newUemConnectorEnablementDeleteEnablementCmd(cliCtx *registry.CLIContext) *
 				path += "?" + encoded
 			}
 			if err := cliCtx.PlatformSDKClient.Transport().DoExpect(cmd.Context(), http.MethodDelete, path, body, http.StatusNoContent, nil); err != nil {
-				return fmt.Errorf("delete-enablement: %w", err)
+				return fmt.Errorf("disable: %w", err)
 			}
 			return nil
 		},
 	}
+	return cmd
+}
+
+func newUemConnectorEnablementEnableCmd(cliCtx *registry.CLIContext) *cobra.Command {
+	var bodyFile string
+	var setFlags []string
+	var scaffoldFlag bool
+	cmd := &cobra.Command{
+		Use:         "enable <configId>",
+		Short:       "Enable connector synchronization",
+		Long:        "Sets the enablement state of the specified connector. Send `enabled: true` to resume data synchronization between JSC and the UEM platform, or `enabled: false` to pause it. This operation is idempotent.",
+		Annotations: map[string]string{"jamf:privileges": "update:jsc:all"},
+		Args: func(cmd *cobra.Command, args []string) error {
+			if scaffoldFlag {
+				return nil
+			}
+			return cobra.ExactArgs(1)(cmd, args)
+		},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if scaffoldFlag {
+				// Scaffold prints raw JSON regardless of -o, so the output
+				// can be piped straight back into --file.
+				fmt.Println("{\n  \"enabled\": false\n}")
+				return nil
+			}
+			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
+				return err
+			}
+			path := "/api/securitycloud/tenant/{tenantId}/uem-connect/v1/connectors/{configId}/enablement"
+			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("securitycloud")), 1)
+			path = strings.Replace(path, "{configId}", url.PathEscape(args[0]), 1)
+			q := url.Values{}
+			body, err := platform.ReadBody(bodyFile, setFlags)
+			if err != nil {
+				return err
+			}
+			if encoded := q.Encode(); encoded != "" {
+				path += "?" + encoded
+			}
+			if err := cliCtx.PlatformSDKClient.Transport().DoWithContentType(cmd.Context(), http.MethodPut, path, body, "application/json", http.StatusNoContent, nil); err != nil {
+				return fmt.Errorf("enable: %w", err)
+			}
+			return nil
+		},
+	}
+	cmd.Flags().StringVar(&bodyFile, "file", "", "Path to JSON file containing the request body")
+	cmd.Flags().StringArrayVar(&setFlags, "set", nil, "Override body values (key=value, repeatable, supports nested.keys)")
+	cmd.Flags().BoolVar(&scaffoldFlag, "scaffold", false, "Print an example request body and exit")
 	return cmd
 }
 

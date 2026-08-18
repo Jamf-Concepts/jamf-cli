@@ -25,13 +25,14 @@ func NewUemSyncSettingsCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Short: "Manage uem-sync-settings (Jamf Security Cloud)",
 		Long:  "API for managing UEM Connect connectors",
 	}
-	cmd.AddCommand(newUemSyncSettingsSyncSettingsCmd(cliCtx))
+	cmd.AddCommand(newUemSyncSettingsGetCmd(cliCtx))
+	cmd.AddCommand(newUemSyncSettingsUpdateCmd(cliCtx))
 	return cmd
 }
 
-func newUemSyncSettingsSyncSettingsCmd(cliCtx *registry.CLIContext) *cobra.Command {
+func newUemSyncSettingsGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:         "sync-settings <configId>",
+		Use:         "get <configId>",
 		Short:       "Get connector sync settings",
 		Long:        "Returns the current connector configuration including sync settings.",
 		Annotations: map[string]string{"jamf:privileges": "read:jsc:all"},
@@ -50,7 +51,7 @@ func newUemSyncSettingsSyncSettingsCmd(cliCtx *registry.CLIContext) *cobra.Comma
 			}
 			var result any
 			if err := cliCtx.PlatformSDKClient.Transport().DoExpect(cmd.Context(), http.MethodGet, path, body, http.StatusOK, &result); err != nil {
-				return fmt.Errorf("sync-settings: %w", err)
+				return fmt.Errorf("get: %w", err)
 			}
 			if result == nil {
 				return nil
@@ -62,6 +63,54 @@ func newUemSyncSettingsSyncSettingsCmd(cliCtx *registry.CLIContext) *cobra.Comma
 			return cliCtx.Output.PrintRaw(b)
 		},
 	}
+	return cmd
+}
+
+func newUemSyncSettingsUpdateCmd(cliCtx *registry.CLIContext) *cobra.Command {
+	var bodyFile string
+	var setFlags []string
+	var scaffoldFlag bool
+	cmd := &cobra.Command{
+		Use:         "update <configId>",
+		Short:       "Update connector sync settings",
+		Long:        "Updates the sync settings for the specified connector. Supported settings vary by UEM vendor. Updated settings take effect on the next sync operation.",
+		Annotations: map[string]string{"jamf:privileges": "update:jsc:all"},
+		Args: func(cmd *cobra.Command, args []string) error {
+			if scaffoldFlag {
+				return nil
+			}
+			return cobra.ExactArgs(1)(cmd, args)
+		},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if scaffoldFlag {
+				// Scaffold prints raw JSON regardless of -o, so the output
+				// can be piped straight back into --file.
+				fmt.Println("{\n  \"autoDeviceDeletion\": \"\",\n  \"deviceFieldMappings\": {\n    \"deviceNameMapping\": \"\",\n    \"phoneNumberMapping\": \"\",\n    \"userEmailMapping\": {\n      \"fieldPrefix\": \"\",\n      \"fieldSuffix\": \"\",\n      \"type\": \"\",\n      \"useOnlyIfEmailMissing\": false\n    },\n    \"userIdMapping\": \"\",\n    \"userNameMapping\": \"\"\n  },\n  \"deviceRiskTagging\": false,\n  \"deviceUnmanagedThreshold\": 0,\n  \"disableSyncOnAuthError\": false,\n  \"groupSettings\": {\n    \"defaultGroupId\": \"\",\n    \"groupMappingEnabled\": false,\n    \"groupMappings\": []\n  },\n  \"refreshRateMinutes\": 0,\n  \"scheduled\": false,\n  \"vendor\": \"\"\n}")
+				return nil
+			}
+			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
+				return err
+			}
+			path := "/api/securitycloud/tenant/{tenantId}/uem-connect/v1/connectors/{configId}/sync-settings"
+			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("securitycloud")), 1)
+			path = strings.Replace(path, "{configId}", url.PathEscape(args[0]), 1)
+			q := url.Values{}
+			body, err := platform.ReadBody(bodyFile, setFlags)
+			if err != nil {
+				return err
+			}
+			if encoded := q.Encode(); encoded != "" {
+				path += "?" + encoded
+			}
+			if err := cliCtx.PlatformSDKClient.Transport().DoWithContentType(cmd.Context(), http.MethodPut, path, body, "application/json", http.StatusNoContent, nil); err != nil {
+				return fmt.Errorf("update: %w", err)
+			}
+			return nil
+		},
+	}
+	cmd.Flags().StringVar(&bodyFile, "file", "", "Path to JSON file containing the request body")
+	cmd.Flags().StringArrayVar(&setFlags, "set", nil, "Override body values (key=value, repeatable, supports nested.keys)")
+	cmd.Flags().BoolVar(&scaffoldFlag, "scaffold", false, "Print an example request body and exit")
 	return cmd
 }
 

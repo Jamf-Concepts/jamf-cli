@@ -296,6 +296,17 @@ var platformOperationNameOverrides = map[string]string{
 	"POST /api/securitycloud/tenant/{tenantId}/uem-connect/v1/connectors/{configId}/sync/runs":           "trigger",
 	"DELETE /api/securitycloud/tenant/{tenantId}/uem-connect/v1/connectors/{configId}/sync/runs/current": "cancel",
 
+	// Enablement is a sub-resource written with PUT and cleared with DELETE;
+	// named for the path it reads as "enablement"/"delete-enablement". The SDK
+	// calls the same pair Enable/Disable.
+	"PUT /api/securitycloud/tenant/{tenantId}/uem-connect/v1/connectors/{configId}/enablement":    "enable",
+	"DELETE /api/securitycloud/tenant/{tenantId}/uem-connect/v1/connectors/{configId}/enablement": "disable",
+
+	// Sync settings are a singleton under the connector, so the terminal
+	// segment repeats the resource name it is already nested under.
+	"GET /api/securitycloud/tenant/{tenantId}/uem-connect/v1/connectors/{configId}/sync-settings": "get",
+	"PUT /api/securitycloud/tenant/{tenantId}/uem-connect/v1/connectors/{configId}/sync-settings": "update",
+
 	// The v2 device-groups list collides with v1's on its terminal segment and
 	// disambiguates to the meaningless "groups"; name it for its version. The
 	// gateway does not route v2 yet, so this is the successor sitting ready

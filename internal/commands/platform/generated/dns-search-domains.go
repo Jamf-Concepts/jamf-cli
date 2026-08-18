@@ -27,6 +27,7 @@ func NewDnsSearchDomainsCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	}
 	cmd.AddCommand(newDnsSearchDomainsDeleteCmd(cliCtx))
 	cmd.AddCommand(newDnsSearchDomainsGetCmd(cliCtx))
+	cmd.AddCommand(newDnsSearchDomainsUpdateCmd(cliCtx))
 	return cmd
 }
 
@@ -92,6 +93,47 @@ func newDnsSearchDomainsGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			return cliCtx.Output.PrintRaw(b)
 		},
 	}
+	return cmd
+}
+
+func newDnsSearchDomainsUpdateCmd(cliCtx *registry.CLIContext) *cobra.Command {
+	var bodyFile string
+	var setFlags []string
+	var scaffoldFlag bool
+	cmd := &cobra.Command{
+		Use:         "update",
+		Short:       "Set the Search Domain",
+		Long:        "Sets the tenant Search Domain to the supplied suffix. Any previously set search domain is overwritten.",
+		Annotations: map[string]string{"jamf:privileges": "update:jsc:all"},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if scaffoldFlag {
+				// Scaffold prints raw JSON regardless of -o, so the output
+				// can be piped straight back into --file.
+				fmt.Println("{\n  \"suffix\": \"\"\n}")
+				return nil
+			}
+			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
+				return err
+			}
+			path := "/api/securitycloud/v1/tenant/{tenantId}/dns/search-domains"
+			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("securitycloud")), 1)
+			q := url.Values{}
+			body, err := platform.ReadBody(bodyFile, setFlags)
+			if err != nil {
+				return err
+			}
+			if encoded := q.Encode(); encoded != "" {
+				path += "?" + encoded
+			}
+			if err := cliCtx.PlatformSDKClient.Transport().DoWithContentType(cmd.Context(), http.MethodPut, path, body, "application/json", http.StatusNoContent, nil); err != nil {
+				return fmt.Errorf("update: %w", err)
+			}
+			return nil
+		},
+	}
+	cmd.Flags().StringVar(&bodyFile, "file", "", "Path to JSON file containing the request body")
+	cmd.Flags().StringArrayVar(&setFlags, "set", nil, "Override body values (key=value, repeatable, supports nested.keys)")
+	cmd.Flags().BoolVar(&scaffoldFlag, "scaffold", false, "Print an example request body and exit")
 	return cmd
 }
 

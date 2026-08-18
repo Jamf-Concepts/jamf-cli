@@ -29,6 +29,7 @@ func NewDeviceGroupsCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(newDeviceGroupsCreateCmd(cliCtx))
 	cmd.AddCommand(newDeviceGroupsDeleteCmd(cliCtx))
 	cmd.AddCommand(newDeviceGroupsGetCmd(cliCtx))
+	cmd.AddCommand(newDeviceGroupsUpdateCmd(cliCtx))
 	cmd.AddCommand(newDeviceGroupsListV2Cmd(cliCtx))
 	return cmd
 }
@@ -224,6 +225,64 @@ func newDeviceGroupsGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			return cliCtx.Output.PrintRaw(b)
 		},
 	}
+	cmd.Flags().StringVar(&nameFlag, "name", "", "Resolve target by name instead of ID (uses the resource list endpoint)")
+	return cmd
+}
+
+func newDeviceGroupsUpdateCmd(cliCtx *registry.CLIContext) *cobra.Command {
+	var bodyFile string
+	var setFlags []string
+	var scaffoldFlag bool
+	var nameFlag string
+	cmd := &cobra.Command{
+		Use:         "update <groupId>",
+		Short:       "Update a device group",
+		Long:        "Updates the name of an existing device group.",
+		Annotations: map[string]string{"jamf:privileges": "update:jsc:all"},
+		Args:        cobra.MaximumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if scaffoldFlag {
+				// Scaffold prints raw JSON regardless of -o, so the output
+				// can be piped straight back into --file.
+				fmt.Println("{\n  \"name\": \"\"\n}")
+				return nil
+			}
+			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
+				return err
+			}
+			var resolvedID string
+			if nameFlag != "" {
+				listPath := strings.Replace("/api/securitycloud/v1/tenant/{tenantId}/groups", "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("securitycloud")), 1)
+				id, err := platform.ResolveIDByName(cmd.Context(), cliCtx.PlatformSDKClient, listPath, nameFlag)
+				if err != nil {
+					return err
+				}
+				resolvedID = id
+			} else if len(args) == 1 {
+				resolvedID = args[0]
+			} else {
+				return fmt.Errorf("provide a positional ID or --name")
+			}
+			path := "/api/securitycloud/v1/tenant/{tenantId}/groups/{groupId}"
+			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("securitycloud")), 1)
+			path = strings.Replace(path, "{groupId}", url.PathEscape(resolvedID), 1)
+			q := url.Values{}
+			body, err := platform.ReadBody(bodyFile, setFlags)
+			if err != nil {
+				return err
+			}
+			if encoded := q.Encode(); encoded != "" {
+				path += "?" + encoded
+			}
+			if err := cliCtx.PlatformSDKClient.Transport().DoWithContentType(cmd.Context(), http.MethodPut, path, body, "application/json", http.StatusOK, nil); err != nil {
+				return fmt.Errorf("update: %w", err)
+			}
+			return nil
+		},
+	}
+	cmd.Flags().StringVar(&bodyFile, "file", "", "Path to JSON file containing the request body")
+	cmd.Flags().StringArrayVar(&setFlags, "set", nil, "Override body values (key=value, repeatable, supports nested.keys)")
+	cmd.Flags().BoolVar(&scaffoldFlag, "scaffold", false, "Print an example request body and exit")
 	cmd.Flags().StringVar(&nameFlag, "name", "", "Resolve target by name instead of ID (uses the resource list endpoint)")
 	return cmd
 }
