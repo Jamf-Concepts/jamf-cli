@@ -150,6 +150,9 @@ type ProtectClient interface {
 	GetAnalytic(ctx context.Context, uuid string) (*jamfprotect.Analytic, error)
 	CreateAnalytic(ctx context.Context, input jamfprotect.AnalyticInput) (jamfprotect.Analytic, error)
 	UpdateAnalytic(ctx context.Context, uuid string, input jamfprotect.AnalyticInput) (jamfprotect.Analytic, error)
+	// UpdateInternalAnalytic writes the tenant overlay (severity/actions) on a
+	// Jamf-managed analytic. UpdateAnalytic is refused for those by the server.
+	UpdateInternalAnalytic(ctx context.Context, uuid string, input jamfprotect.InternalAnalyticInput) (jamfprotect.Analytic, error)
 	DeleteAnalytic(ctx context.Context, uuid string) error
 
 	// Analytic Sets

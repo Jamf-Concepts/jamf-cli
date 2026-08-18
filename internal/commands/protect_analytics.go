@@ -59,6 +59,7 @@ func newProtectAnalyticsCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(newProtectAnalyticsDeleteCmd(cliCtx))
 	cmd.AddCommand(newProtectAnalyticsImportCmd(cliCtx))
 	cmd.AddCommand(newProtectAnalyticsExportCmd(cliCtx))
+	cmd.AddCommand(newProtectAnalyticsOverridesCmd(cliCtx))
 
 	return cmd
 }
