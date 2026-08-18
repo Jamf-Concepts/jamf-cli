@@ -3,9 +3,14 @@
 package commands
 
 import (
+	"context"
+	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
+
+	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 
 	"github.com/Jamf-Concepts/jamfprotect-go-sdk/jamfprotect"
 )
@@ -23,6 +28,7 @@ func TestProtectResourceOrderEncodesDependencies(t *testing.T) {
 		{"analytics", "analytic-sets"},
 		{"unified-logging-filters", "unified-logging-filter-sets"},
 		{"analytic-sets", "plans"},
+		{"analytics", "exception-sets"},
 		{"exception-sets", "plans"},
 		{"action-configs", "plans"},
 		{"telemetry", "plans"},
@@ -314,7 +320,7 @@ func TestCollectProtectRestoreFilesOrderAndDefaults(t *testing.T) {
 
 	var sawDefaultSkip bool
 	for _, s := range skipped {
-		if filepath.Base(s) != "" && contains(s, "Full Admin") {
+		if strings.Contains(s, "Full Admin") {
 			sawDefaultSkip = true
 		}
 	}
@@ -338,16 +344,267 @@ func TestCollectProtectRestoreFilesOrderAndDefaults(t *testing.T) {
 	}
 }
 
-func contains(haystack, needle string) bool {
-	return len(haystack) >= len(needle) && (haystack == needle ||
-		len(needle) == 0 || indexOf(haystack, needle) >= 0)
+// protectFileNameSafe is lossy in two directions: it collapses runs of illegal
+// characters, and a case-insensitive filesystem (the macOS default) folds names
+// that differ only in case. Both used to mean one object silently overwrote
+// another while the count still reported two.
+func TestProtectNameAllocatorDisambiguatesCollisions(t *testing.T) {
+	t.Run("punctuation collapsing to the same name", func(t *testing.T) {
+		a := newProtectNameAllocator()
+		first, wasFirstDisambiguated := a.allocate("Alert: High")
+		second, wasSecondDisambiguated := a.allocate("Alert/High")
+
+		if first != "Alert_High" {
+			t.Errorf("first = %q, want the plain safe name", first)
+		}
+		if wasFirstDisambiguated {
+			t.Error("the first claimant must keep the plain name")
+		}
+		if !wasSecondDisambiguated {
+			t.Error("the second object must be reported as disambiguated")
+		}
+		if second == first {
+			t.Fatalf("both objects got %q — one would overwrite the other", first)
+		}
+		if !strings.HasPrefix(second, "Alert_High-") {
+			t.Errorf("second = %q, want the safe name plus a discriminator", second)
+		}
+	})
+
+	t.Run("case-only difference", func(t *testing.T) {
+		a := newProtectNameAllocator()
+		first, _ := a.allocate("MyPlan")
+		second, disambiguated := a.allocate("myplan")
+		if !disambiguated {
+			t.Error("a case-only difference collides on a case-insensitive filesystem")
+		}
+		if strings.EqualFold(first, second) {
+			t.Fatalf("%q and %q are the same file on APFS", first, second)
+		}
+	})
+
+	t.Run("distinct names are untouched", func(t *testing.T) {
+		a := newProtectNameAllocator()
+		for _, name := range []string{"One", "Two", "Three"} {
+			got, disambiguated := a.allocate(name)
+			if got != name || disambiguated {
+				t.Errorf("allocate(%q) = %q (disambiguated=%v), want the name unchanged", name, got, disambiguated)
+			}
+		}
+	})
+
+	// A backup directory under version control must diff cleanly, so the
+	// discriminator has to be derived from the name rather than from iteration.
+	t.Run("allocation is stable across runs", func(t *testing.T) {
+		run := func() []string {
+			a := newProtectNameAllocator()
+			var out []string
+			for _, n := range []string{"Alert: High", "Alert/High", "Alert|High"} {
+				got, _ := a.allocate(n)
+				out = append(out, got)
+			}
+			return out
+		}
+		first, second := run(), run()
+		for i := range first {
+			if first[i] != second[i] {
+				t.Errorf("position %d: %q then %q — not reproducible", i, first[i], second[i])
+			}
+		}
+	})
+
+	// Re-offering the same object name must return the same file, not a new one.
+	t.Run("the same object name is idempotent", func(t *testing.T) {
+		a := newProtectNameAllocator()
+		first, _ := a.allocate("Plan A")
+		second, disambiguated := a.allocate("Plan A")
+		if first != second || disambiguated {
+			t.Errorf("re-allocating %q gave %q then %q", "Plan A", first, second)
+		}
+	})
 }
 
-func indexOf(h, n string) int {
-	for i := 0; i+len(n) <= len(h); i++ {
-		if h[i:i+len(n)] == n {
-			return i
+// The forwarding settings are captured for reference and never replayed, so the
+// one credential the API returns in cleartext has no reason to be in the file.
+func TestRedactDataForwarding(t *testing.T) {
+	got := redactDataForwarding(jamfprotect.DataForwardingResult{
+		UUID: "u1",
+		Forward: &jamfprotect.DataForwardingSettings{
+			Sentinel: &jamfprotect.ForwardSentinel{
+				Enabled:    true,
+				CustomerID: "cust-1",
+				SharedKey:  "super-secret-shared-key",
+				LogType:    "JamfProtect",
+			},
+			S3: &jamfprotect.ForwardS3{Bucket: "b", Enabled: true},
+		},
+	})
+
+	if got.Forward.Sentinel.SharedKey != protectRedacted {
+		t.Errorf("SharedKey = %q, want it redacted", got.Forward.Sentinel.SharedKey)
+	}
+	// Everything else must survive — the document is still a useful record.
+	if got.Forward.Sentinel.CustomerID != "cust-1" || !got.Forward.Sentinel.Enabled {
+		t.Errorf("non-secret Sentinel fields were lost: %+v", got.Forward.Sentinel)
+	}
+	if got.Forward.S3 == nil || got.Forward.S3.Bucket != "b" {
+		t.Error("the S3 section must be untouched")
+	}
+	if got.UUID != "u1" {
+		t.Error("the organization uuid must be untouched")
+	}
+}
+
+func TestRedactDataForwardingDoesNotMutateItsInput(t *testing.T) {
+	sentinel := &jamfprotect.ForwardSentinel{SharedKey: "keep-me"}
+	in := jamfprotect.DataForwardingResult{
+		Forward: &jamfprotect.DataForwardingSettings{Sentinel: sentinel},
+	}
+	_ = redactDataForwarding(in)
+	if sentinel.SharedKey != "keep-me" {
+		t.Errorf("the caller's value was overwritten: %q", sentinel.SharedKey)
+	}
+}
+
+func TestRedactDataForwardingHandlesNilSections(t *testing.T) {
+	if got := redactDataForwarding(jamfprotect.DataForwardingResult{}); got.Forward != nil {
+		t.Error("a nil Forward must pass through without panicking")
+	}
+	got := redactDataForwarding(jamfprotect.DataForwardingResult{
+		Forward: &jamfprotect.DataForwardingSettings{},
+	})
+	if got.Forward.Sentinel != nil {
+		t.Error("a nil Sentinel must pass through")
+	}
+}
+
+// Every resource that can carry a credential must say so, because that string is
+// what turns the file mode down and what the operator is shown before they commit
+// the tree to git.
+func TestProtectSensitiveResourcesAreDeclared(t *testing.T) {
+	want := map[string]bool{"action-configs": true, "data-forwarding": true}
+	for _, r := range protectResources() {
+		if want[r.Name] && r.SensitiveReason == "" {
+			t.Errorf("%s can carry a third-party credential but declares no SensitiveReason", r.Name)
+		}
+		if !want[r.Name] && r.SensitiveReason != "" {
+			t.Errorf("%s declares a SensitiveReason; add it to this test's list deliberately", r.Name)
 		}
 	}
-	return -1
+}
+
+// A backup that exits 0 with a resource missing is indistinguishable from a good
+// one to the scheduled job that runs it. 'pro backup' returns a partial-failure
+// code for the same condition; this asserts the two products agree.
+func TestRunProtectBackupExitsNonZeroOnPartialFailure(t *testing.T) {
+	newCtx := func() *registry.CLIContext {
+		return &registry.CLIContext{
+			ProtectClient: &mockProtectClient{
+				analyticsErr: errors.New("listAnalytics: 502 bad gateway"),
+				ulfFilters:   []jamfprotect.UnifiedLoggingFilter{{UUID: "f1", Name: "zz-filter"}},
+			},
+		}
+	}
+
+	t.Run("failure is reported and the run exits non-zero", func(t *testing.T) {
+		dir := t.TempDir()
+		err := runProtectBackup(context.Background(), newCtx(), dir,
+			"yaml", "analytics,unified-logging-filters", "", false)
+		if err == nil {
+			t.Fatal("expected a non-zero exit; a silently incomplete backup is the failure mode this guards")
+		}
+		if !strings.Contains(err.Error(), "failure") {
+			t.Errorf("error %q should name the failure count", err)
+		}
+		// The failure manifest must still be on disk, and the healthy resource
+		// must still have been captured — partial failures stay tolerated.
+		if _, statErr := os.Stat(filepath.Join(dir, "_failures.yaml")); statErr != nil {
+			t.Errorf("_failures.yaml not written: %v", statErr)
+		}
+		if _, statErr := os.Stat(filepath.Join(dir, "unified-logging-filters", "zz-filter.yaml")); statErr != nil {
+			t.Errorf("the healthy resource was not captured: %v", statErr)
+		}
+	})
+
+	t.Run("--allow-partial-failure downgrades to success", func(t *testing.T) {
+		dir := t.TempDir()
+		err := runProtectBackup(context.Background(), newCtx(), dir,
+			"yaml", "analytics,unified-logging-filters", "", true)
+		if err != nil {
+			t.Fatalf("--allow-partial-failure should exit 0, got %v", err)
+		}
+	})
+
+	t.Run("a clean run still exits zero", func(t *testing.T) {
+		dir := t.TempDir()
+		ctx := &registry.CLIContext{ProtectClient: &mockProtectClient{
+			ulfFilters: []jamfprotect.UnifiedLoggingFilter{{UUID: "f1", Name: "zz-filter"}},
+		}}
+		if err := runProtectBackup(context.Background(), ctx, dir,
+			"yaml", "unified-logging-filters", "", false); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if _, statErr := os.Stat(filepath.Join(dir, "_failures.yaml")); statErr == nil {
+			t.Error("_failures.yaml must not exist for a clean run")
+		}
+	})
+}
+
+// A document that can carry a credential must not be world-readable, because the
+// documented workflow for a backup directory is to commit it to version control.
+func TestRunProtectBackupTightensPermissionsOnSensitiveResources(t *testing.T) {
+	dir := t.TempDir()
+	ctx := &registry.CLIContext{ProtectClient: &mockProtectClient{
+		actionConfigs: []jamfprotect.ActionConfigListItem{{ID: "a1", Name: "zz-http-forwarder"}},
+		actionConfig: &jamfprotect.ActionConfig{
+			ID:   "a1",
+			Name: "zz-http-forwarder",
+			Clients: []jamfprotect.ReportClient{{
+				ID:   "c1",
+				Type: "Http",
+				Params: jamfprotect.ReportClientParams{
+					URL:    "https://siem.example.com/ingest",
+					Method: "POST",
+					Headers: []jamfprotect.ReportClientHeader{
+						{Header: "Authorization", Value: "Bearer super-secret-token"},
+					},
+				},
+			}},
+		},
+		ulfFilters: []jamfprotect.UnifiedLoggingFilter{{UUID: "f1", Name: "zz-filter"}},
+	}}
+
+	if err := runProtectBackup(context.Background(), ctx, dir,
+		"yaml", "action-configs,unified-logging-filters", "", false); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	sensitive := filepath.Join(dir, "action-configs", "zz-http-forwarder.yaml")
+	info, err := os.Stat(sensitive)
+	if err != nil {
+		t.Fatalf("action config not written: %v", err)
+	}
+	if perm := info.Mode().Perm(); perm != 0o600 {
+		t.Errorf("mode = %#o, want 0600 — this file contains the request headers verbatim", perm)
+	}
+
+	// The header value really is in there, which is why the mode matters. If a
+	// future change redacts it, this assertion is the one to revisit.
+	body, err := os.ReadFile(sensitive)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(body), "super-secret-token") {
+		t.Log("note: header values are no longer captured verbatim — the 0600 mode may now be unnecessary")
+	}
+
+	// A resource that cannot carry a credential keeps the ordinary mode, so the
+	// tightening is targeted rather than blanket.
+	ordinary, err := os.Stat(filepath.Join(dir, "unified-logging-filters", "zz-filter.yaml"))
+	if err != nil {
+		t.Fatalf("filter not written: %v", err)
+	}
+	if perm := ordinary.Mode().Perm(); perm != 0o644 {
+		t.Errorf("mode = %#o, want 0644 for a non-sensitive resource", perm)
+	}
 }

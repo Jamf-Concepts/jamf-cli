@@ -674,3 +674,23 @@ func dataRetentionToInput(s jamfprotect.DataRetentionSettings) jamfprotect.DataR
 	}
 	return input
 }
+
+// redactDataForwarding removes the one third-party credential the forwarding
+// settings response returns in cleartext.
+//
+// Legacy Sentinel declares sharedKey as a plain String and the SDK's query
+// selects it; SentinelV2 got this right and reports secretExists instead. Since
+// this resource is captured for reference and never replayed, dropping the value
+// costs nothing and keeps it out of a backup directory that the documented
+// workflow puts under version control.
+func redactDataForwarding(r jamfprotect.DataForwardingResult) jamfprotect.DataForwardingResult {
+	if r.Forward == nil || r.Forward.Sentinel == nil || r.Forward.Sentinel.SharedKey == "" {
+		return r
+	}
+	sentinel := *r.Forward.Sentinel
+	sentinel.SharedKey = protectRedacted
+	forward := *r.Forward
+	forward.Sentinel = &sentinel
+	r.Forward = &forward
+	return r
+}

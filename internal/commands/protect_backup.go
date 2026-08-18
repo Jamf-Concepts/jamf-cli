@@ -5,6 +5,8 @@ package commands
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -17,6 +19,7 @@ import (
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 
+	"github.com/Jamf-Concepts/jamf-cli/internal/exitcode"
 	"github.com/Jamf-Concepts/jamf-cli/internal/protect"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 	"github.com/Jamf-Concepts/jamfprotect-go-sdk/jamfprotect"
@@ -28,6 +31,11 @@ const (
 	protectBackupMetaFile     = "_meta"
 	protectBackupFailuresFile = "_failures"
 )
+
+// protectRedacted replaces a secret that the API returns but a backup must not
+// carry. It is a visible placeholder rather than an omission so a reader can see
+// that the tenant has the value set.
+const protectRedacted = "<redacted>"
 
 // protectBackupMeta records what a backup captured and from where, so a restore
 // can report the provenance of what it is about to write.
@@ -77,6 +85,13 @@ type protectResource struct {
 	// explains why. Backup still captures it — a record you cannot replay is
 	// still worth having.
 	RestoreSkipReason string
+
+	// SensitiveReason, when non-empty, marks a resource whose documents can
+	// carry a third-party credential that the API hands back in full. Those
+	// files are written 0600 instead of 0644 and the reason is reported, because
+	// the documented workflow for a backup directory is to commit it to git and
+	// nothing else in the output warns you what you are about to commit.
+	SensitiveReason string
 }
 
 // upsertByName resolves an object by name and creates it when absent, updates it
@@ -238,6 +253,13 @@ func protectResources() []protectResource {
 		{
 			Name:  "action-configs",
 			Order: 10,
+			// An HTTP report client's params carry its request headers, and the
+			// SDK's query selects `headers { header value }` in full — so an
+			// "Authorization: Bearer …" lands in the document verbatim. The
+			// values cannot be redacted here because restore needs them to
+			// reproduce a working client.
+			SensitiveReason: "an HTTP report client's request headers are captured verbatim, " +
+				"so a document may contain a bearer token or API key",
 			Export: func(ctx context.Context, c registry.ProtectClient) ([]protectExportEntry, error) {
 				// listActionConfigs returns id/name/description only — the
 				// clients and alertConfig that make up the object need a fetch.
@@ -261,36 +283,6 @@ func protectResources() []protectResource {
 					return "", err
 				}
 				return upsertByName(ctx, input.Name, input, r.ResolveActionConfigID, c.CreateActionConfig, c.UpdateActionConfig)
-			},
-		},
-		{
-			Name:  "exception-sets",
-			Order: 10,
-			Export: func(ctx context.Context, c registry.ProtectClient) ([]protectExportEntry, error) {
-				// listExceptionSets returns uuid/name/managed only.
-				items, err := c.ListExceptionSets(ctx)
-				if err != nil {
-					return nil, err
-				}
-				var out []protectExportEntry
-				for _, li := range items {
-					if li.Managed {
-						continue
-					}
-					full, err := c.GetExceptionSet(ctx, li.UUID)
-					if err != nil {
-						return nil, fmt.Errorf("fetching exception set %q: %w", li.Name, err)
-					}
-					out = append(out, protectExportEntry{Name: full.Name, Doc: rebuildExceptionSetInput(full)})
-				}
-				return out, nil
-			},
-			Restore: func(ctx context.Context, c registry.ProtectClient, r *protect.Resolver, data []byte) (string, error) {
-				input, err := decode[jamfprotect.ExceptionSetInput](data)
-				if err != nil {
-					return "", err
-				}
-				return upsertByName(ctx, input.Name, input, r.ResolveExceptionSetUUID, c.CreateExceptionSet, c.UpdateExceptionSet)
 			},
 		},
 
@@ -359,6 +351,43 @@ func protectResources() []protectResource {
 		},
 
 		// --- Order 20: sets that name the objects above ---
+		{
+			// Order 20 rather than alongside the analytics: an exception may
+			// target a specific analytic by name, and the name only resolves
+			// once that analytic exists in the target.
+			Name:  "exception-sets",
+			Order: 20,
+			Export: func(ctx context.Context, c registry.ProtectClient) ([]protectExportEntry, error) {
+				// listExceptionSets returns uuid/name/managed only.
+				items, err := c.ListExceptionSets(ctx)
+				if err != nil {
+					return nil, err
+				}
+				var out []protectExportEntry
+				for _, li := range items {
+					if li.Managed {
+						continue
+					}
+					full, err := c.GetExceptionSet(ctx, li.UUID)
+					if err != nil {
+						return nil, fmt.Errorf("fetching exception set %q: %w", li.Name, err)
+					}
+					out = append(out, protectExportEntry{Name: full.Name, Doc: exceptionSetToExport(full)})
+				}
+				return out, nil
+			},
+			Restore: func(ctx context.Context, c registry.ProtectClient, r *protect.Resolver, data []byte) (string, error) {
+				e, err := decode[exceptionSetExport](data)
+				if err != nil {
+					return "", err
+				}
+				input, err := exceptionSetExportToInput(ctx, e, r)
+				if err != nil {
+					return "", err
+				}
+				return upsertByName(ctx, input.Name, input, r.ResolveExceptionSetUUID, c.CreateExceptionSet, c.UpdateExceptionSet)
+			},
+		},
 		{
 			Name:  "analytic-sets",
 			Order: 20,
@@ -684,8 +713,14 @@ func protectResources() []protectResource {
 				if err != nil {
 					return nil, err
 				}
-				return []protectExportEntry{{Name: "data-forwarding", Doc: got}}, nil
+				// Legacy Sentinel returns its sharedKey in cleartext (only
+				// SentinelV2 uses the secretExists boolean). This resource is
+				// never replayed, so redacting costs nothing and keeps the
+				// secret out of the backup.
+				return []protectExportEntry{{Name: "data-forwarding", Doc: redactDataForwarding(got)}}, nil
 			},
+			SensitiveReason: "the S3 cloudformation blob embeds a tenant-specific IAM ExternalId " +
+				"(the Sentinel shared key is redacted)",
 			RestoreSkipReason: "the forwarding settings response is not the update input shape and carries " +
 				"third-party credentials the API never returns — reapply with 'protect data-forwarding update'",
 		},
@@ -744,6 +779,48 @@ func protectFileNameSafe(name string) string {
 		safe = "unnamed"
 	}
 	return safe
+}
+
+// protectNameAllocator hands out a distinct file name per object.
+//
+// protectFileNameSafe is lossy in two directions, and both collide silently
+// without this: it collapses every run of illegal characters to one "_", so
+// "Alert: High" and "Alert - High" arrive at the same name, and a
+// case-insensitive filesystem — the macOS default — folds "MyPlan" and "myplan"
+// together too. os.WriteFile truncates, so the loser of a collision is a
+// backed-up object that simply is not in the backup.
+//
+// The discriminator is derived from the object's own name so it is stable across
+// runs: a backup directory under version control keeps diffing cleanly.
+type protectNameAllocator struct {
+	used map[string]string // lowercased file name -> object name that claimed it
+}
+
+func newProtectNameAllocator() *protectNameAllocator {
+	return &protectNameAllocator{used: map[string]string{}}
+}
+
+// allocate returns the file name (without extension) to use for objectName, and
+// whether it had to be disambiguated.
+func (a *protectNameAllocator) allocate(objectName string) (string, bool) {
+	base := protectFileNameSafe(objectName)
+	if owner, taken := a.used[strings.ToLower(base)]; !taken || owner == objectName {
+		a.used[strings.ToLower(base)] = objectName
+		return base, false
+	}
+	sum := sha256.Sum256([]byte(objectName))
+	candidate := base + "-" + hex.EncodeToString(sum[:])[:8]
+	// A second collision needs two identical object names in one resource, which
+	// the tenant cannot produce, but fall through deterministically rather than
+	// overwrite if it ever happens.
+	for i := 0; ; i++ {
+		key := strings.ToLower(candidate)
+		if owner, taken := a.used[key]; !taken || owner == objectName {
+			a.used[key] = objectName
+			return candidate, true
+		}
+		candidate = fmt.Sprintf("%s-%s-%d", base, hex.EncodeToString(sum[:])[:8], i)
+	}
 }
 
 // protectSplitTokens parses a comma-separated flag value.
@@ -869,10 +946,11 @@ func protectMarshal(v any, format string) ([]byte, error) {
 
 func newProtectBackupCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	var (
-		outputDir string
-		format    string
-		resources string
-		exclude   string
+		outputDir           string
+		format              string
+		resources           string
+		exclude             string
+		allowPartialFailure bool
 	)
 
 	cmd := &cobra.Command{
@@ -891,9 +969,14 @@ changed *about* them is captured separately as analytic-overrides.
 
 Partial failures are tolerated. A resource that fails to export is recorded in
 _failures.yaml and the run continues, so one broken resource cannot cost you the
-rest of the backup.`,
+rest of the backup — but the command exits non-zero so a scheduled job can tell
+an incomplete backup from a good one. Pass --allow-partial-failure to exit 0.
+
+Documents that can carry a third-party credential — an HTTP action config's
+request headers, the data forwarding settings — are written 0600 and reported, so
+you know what is in the tree before committing it to version control.`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			return runProtectBackup(cmd.Context(), cliCtx, outputDir, format, resources, exclude)
+			return runProtectBackup(cmd.Context(), cliCtx, outputDir, format, resources, exclude, allowPartialFailure)
 		},
 	}
 
@@ -901,6 +984,7 @@ rest of the backup.`,
 	cmd.Flags().StringVar(&format, "format", "yaml", "file format: yaml or json")
 	cmd.Flags().StringVar(&resources, "resources", "", "comma-separated allowlist of resources to capture (default: all)")
 	cmd.Flags().StringVar(&exclude, "exclude", "", "comma-separated resources to skip (e.g. users,api-clients)")
+	cmd.Flags().BoolVar(&allowPartialFailure, "allow-partial-failure", false, "exit 0 even when some resources failed to export (matches 'pro backup')")
 	_ = cmd.MarkFlagRequired("output")
 	_ = cmd.RegisterFlagCompletionFunc("format", func(*cobra.Command, []string, string) ([]string, cobra.ShellCompDirective) {
 		return []string{"yaml", "json"}, cobra.ShellCompDirectiveNoFileComp
@@ -920,7 +1004,7 @@ func protectResourceCompletion(*cobra.Command, []string, string) ([]string, cobr
 	return names, cobra.ShellCompDirectiveNoFileComp
 }
 
-func runProtectBackup(ctx context.Context, cliCtx *registry.CLIContext, outputDir, format, filter, exclude string) error {
+func runProtectBackup(ctx context.Context, cliCtx *registry.CLIContext, outputDir, format, filter, exclude string, allowPartialFailure bool) error {
 	if format != "yaml" && format != "json" {
 		return fmt.Errorf("invalid --format %q: must be yaml or json", format)
 	}
@@ -936,6 +1020,7 @@ func runProtectBackup(ctx context.Context, cliCtx *registry.CLIContext, outputDi
 	failures := map[string]string{}
 	counts := map[string]int{}
 	captured := make([]string, 0, len(selected))
+	var sensitive []string
 
 	for _, res := range selected {
 		entries, err := res.Export(ctx, cliCtx.ProtectClient)
@@ -955,6 +1040,14 @@ func runProtectBackup(ctx context.Context, cliCtx *registry.CLIContext, outputDi
 			continue
 		}
 
+		// A document that can carry a credential is not world-readable, and the
+		// operator is told which resource that was before they commit the tree.
+		mode := os.FileMode(0o644)
+		if res.SensitiveReason != "" {
+			mode = 0o600
+			sensitive = append(sensitive, fmt.Sprintf("%s: %s", res.Name, res.SensitiveReason))
+		}
+
 		dir := outputDir
 		if !res.Singleton {
 			dir = filepath.Join(outputDir, res.Name)
@@ -964,15 +1057,20 @@ func runProtectBackup(ctx context.Context, cliCtx *registry.CLIContext, outputDi
 		}
 
 		written := 0
+		names := newProtectNameAllocator()
 		for _, e := range entries {
 			data, err := protectMarshal(e.Doc, format)
 			if err != nil {
 				failures[res.Name+"/"+e.Name] = err.Error()
 				continue
 			}
-			path := filepath.Join(dir, protectFileNameSafe(e.Name)+ext)
-			if err := os.WriteFile(path, data, 0o644); err != nil {
+			fileName, disambiguated := names.allocate(e.Name)
+			path := filepath.Join(dir, fileName+ext)
+			if err := os.WriteFile(path, data, mode); err != nil {
 				return fmt.Errorf("writing %s: %w", path, err)
+			}
+			if disambiguated && !quiet {
+				fmt.Fprintf(os.Stderr, "  note: %q shares a file name with another object; written as %s%s\n", e.Name, fileName, ext)
 			}
 			written++
 		}
@@ -1000,19 +1098,38 @@ func runProtectBackup(ctx context.Context, cliCtx *registry.CLIContext, outputDi
 		return fmt.Errorf("writing metadata: %w", err)
 	}
 
+	total := 0
+	for _, n := range counts {
+		total += n
+	}
+
+	if len(sensitive) > 0 {
+		fmt.Fprintf(os.Stderr, "\nWARNING: %d resource(s) can carry credentials and were written 0600:\n", len(sensitive))
+		for _, sr := range sensitive {
+			fmt.Fprintf(os.Stderr, "  %s\n", sr)
+		}
+		fmt.Fprintf(os.Stderr, "Review these before committing %s to version control, "+
+			"or re-run with --exclude action-configs,data-forwarding\n", outputDir)
+	}
+
 	if len(failures) > 0 {
 		failData, err := protectMarshal(failures, format)
 		if err == nil {
 			_ = os.WriteFile(filepath.Join(outputDir, protectBackupFailuresFile+ext), failData, 0o644)
 		}
-		fmt.Fprintf(os.Stderr, "\nCompleted with %d failure(s) — see %s%s\n", len(failures), protectBackupFailuresFile, ext)
-		return nil
+		fmt.Fprintf(os.Stderr, "\nBacked up %d object(s) to %s, %d failure(s) — see %s%s\n",
+			total, outputDir, len(failures), protectBackupFailuresFile, ext)
+		if allowPartialFailure && total > 0 {
+			fmt.Fprintf(os.Stderr, "warning: backup completed with %d failure(s); continuing (--allow-partial-failure)\n", len(failures))
+			return nil
+		}
+		// A backup that exits 0 with a resource missing is indistinguishable from
+		// a good one to the scheduled job that runs it, which is the whole point
+		// of having an exit code. 'pro backup' makes the same call.
+		msg := fmt.Sprintf("backup completed with %d failure(s) (see %s%s)", len(failures), protectBackupFailuresFile, ext)
+		return exitcode.PartialOrPropagate(total, len(failures), nil, msg)
 	}
 
-	total := 0
-	for _, n := range counts {
-		total += n
-	}
 	fmt.Fprintf(os.Stderr, "\nBacked up %d object(s) to %s\n", total, outputDir)
 	return nil
 }

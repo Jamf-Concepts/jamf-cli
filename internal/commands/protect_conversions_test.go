@@ -26,6 +26,29 @@ type mockProtectClient struct {
 	roles       []jamfprotect.Role
 	groups      []jamfprotect.Group
 	connections []jamfprotect.Connection
+	analytics   []jamfprotect.Analytic
+
+	actionConfigs []jamfprotect.ActionConfigListItem
+	actionConfig  *jamfprotect.ActionConfig
+
+	// analyticsErr makes ListAnalytics fail, so the backup partial-failure path
+	// can be exercised without a live tenant.
+	analyticsErr error
+}
+
+func (m *mockProtectClient) ListActionConfigs(_ context.Context) ([]jamfprotect.ActionConfigListItem, error) {
+	return m.actionConfigs, nil
+}
+
+func (m *mockProtectClient) GetActionConfig(_ context.Context, _ string) (*jamfprotect.ActionConfig, error) {
+	return m.actionConfig, nil
+}
+
+func (m *mockProtectClient) ListAnalytics(_ context.Context) ([]jamfprotect.Analytic, error) {
+	if m.analyticsErr != nil {
+		return nil, m.analyticsErr
+	}
+	return m.analytics, nil
 }
 
 func (m *mockProtectClient) ListRoles(_ context.Context) ([]jamfprotect.Role, error) {
