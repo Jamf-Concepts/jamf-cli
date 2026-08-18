@@ -1,0 +1,962 @@
+{
+  "components": {
+    "parameters": {
+      "DeviceId": {
+        "description": "The ID of the device, in UUID format",
+        "example": "616e6479-6973-6173-7461-6c6c696f6e21",
+        "in": "path",
+        "name": "id",
+        "required": true,
+        "schema": {
+          "format": "uuid",
+          "type": "string"
+        }
+      },
+      "DeviceSort": {
+        "description": "Fields to sort by and their orders. Fields allowed in the query: `id`, `name`, `model`, `modelIdentifier`, `serialNumber`, `lastInventoryUpdateTime`, `lastCheckInTime`, `operatingSystemVersion`, `userId`, `enrollmentType`, `lastEnrollmentTime`",
+        "example": "model:desc,name",
+        "in": "query",
+        "name": "sort",
+        "schema": {
+          "default": "name",
+          "type": "string"
+        }
+      },
+      "InstalledApplicationSort": {
+        "description": "Fields to sort by and their orders. Fields allowed in the query: `name`, `version`",
+        "example": "name,version:desc",
+        "in": "query",
+        "name": "sort",
+        "schema": {
+          "default": "name",
+          "type": "string"
+        }
+      },
+      "PageIndex": {
+        "description": "Page number (0-based)",
+        "in": "query",
+        "name": "page",
+        "schema": {
+          "default": 0,
+          "format": "int32",
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "PageSize": {
+        "description": "Number of items per page",
+        "in": "query",
+        "name": "page-size",
+        "schema": {
+          "default": 100,
+          "format": "int32",
+          "maximum": 1000,
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "UserId": {
+        "description": "The ID of the user, in UUID format",
+        "example": "616e6479-6973-6173-7461-6c6c696f6e21",
+        "in": "path",
+        "name": "id",
+        "required": true,
+        "schema": {
+          "format": "uuid",
+          "type": "string"
+        }
+      },
+      "tenantId": {
+        "description": "The tenant UUID identifier",
+        "in": "path",
+        "name": "tenantId",
+        "required": true,
+        "schema": {
+          "example": "e77c1408-10c8-4007-b177-abc9157fbcaa",
+          "format": "uuid",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "type": "string"
+        }
+      }
+    },
+    "schemas": {
+      "ApiErrorRepresentation": {
+        "properties": {
+          "errors": {
+            "items": {
+              "properties": {
+                "code": {
+                  "description": "Error-specific code that can be used to identify localization string, etc.",
+                  "example": "INVALID_FIELD",
+                  "type": "string"
+                },
+                "description": {
+                  "description": "A general description of error for troubleshooting/debugging. Generally this text should not be displayed to a user; instead refer to errorCode and its localized text",
+                  "example": "I've just picked up a fault in the AE35 unit. It's going to go 100% failure in 72 hours",
+                  "type": "string"
+                },
+                "field": {
+                  "description": "Name of the field that caused the error.",
+                  "example": "Name",
+                  "type": "string"
+                },
+                "id": {
+                  "description": "id of object with error. Optional.",
+                  "example": "3",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "code",
+                "field",
+                "description"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "httpStatus": {
+            "description": "HTTP status of the response",
+            "example": 400,
+            "type": "integer"
+          },
+          "traceId": {
+            "example": "ecf2ca07e23c0abc12393472f2b783df",
+            "type": "string"
+          }
+        },
+        "required": [
+          "httpStatus",
+          "traceId",
+          "errors"
+        ],
+        "type": "object"
+      },
+      "DeviceHardwareReadRepresentationV1": {
+        "properties": {
+          "batteryHealth": {
+            "description": "Battery health status of the device",
+            "enum": [
+              "NON_GENUINE",
+              "NORMAL",
+              "SERVICE_RECOMMENDED",
+              "UNKNOWN",
+              "UNSUPPORTED"
+            ],
+            "example": "NORMAL",
+            "type": "string"
+          },
+          "macAddress": {
+            "description": "MAC address of the device",
+            "example": "00:1A:2B:3C:4D:5E",
+            "type": "string"
+          },
+          "make": {
+            "description": "Make of the device",
+            "example": "Apple",
+            "type": "string"
+          },
+          "model": {
+            "description": "Model of the device",
+            "example": "MacBook Pro (14-inch, 2024) M4 Pro",
+            "type": "string"
+          },
+          "modelIdentifier": {
+            "description": "Unique identifier of the device model",
+            "example": "Mac16,8",
+            "type": "string"
+          },
+          "serialNumber": {
+            "description": "Serial number of the device",
+            "example": "C02X12345678",
+            "type": "string"
+          },
+          "storageCapacity": {
+            "description": "Total storage capacity of the device, in megabytes",
+            "example": 1000000,
+            "type": "integer"
+          },
+          "storageUsed": {
+            "description": "Used storage space on the device, in megabytes",
+            "example": 500000,
+            "type": "integer"
+          },
+          "udid": {
+            "description": "Unique device identifier (UDID) of the device",
+            "example": "12345678-1234-1234-1234-123456789012",
+            "type": "string"
+          }
+        },
+        "readOnly": true,
+        "type": "object"
+      },
+      "DeviceInstalledApplicationReadRepresentationV1": {
+        "properties": {
+          "name": {
+            "description": "The name of the installed application",
+            "example": "Safari",
+            "type": "string"
+          },
+          "version": {
+            "description": "The version of the installed application",
+            "example": "26.0.1",
+            "type": "string"
+          }
+        },
+        "readOnly": true,
+        "type": "object"
+      },
+      "DeviceListReadRepresentationV1": {
+        "properties": {
+          "enrollmentType": {
+            "description": "The type of enrollment of a device",
+            "example": "Institutional",
+            "type": "string"
+          },
+          "id": {
+            "description": "The ID of the device, in UUID format",
+            "example": "616e6479-6973-6173-7461-6c6c696f6e21",
+            "format": "uuid",
+            "type": "string"
+          },
+          "lastCheckInTime": {
+            "description": "The last time the device checked in, in ISO 8601 format, or `null` if the device is not a computer",
+            "example": "2025-01-31T18:09:00.000Z",
+            "format": "date-time",
+            "nullable": true,
+            "type": "string"
+          },
+          "lastEnrollmentTime": {
+            "description": "The last time the device was enrolled, in ISO 8601 format",
+            "example": "2025-01-31T18:09:00.000Z",
+            "format": "date-time",
+            "type": "string"
+          },
+          "lastInventoryUpdateTime": {
+            "description": "The last time the device inventory was updated, in ISO 8601 format",
+            "example": "2025-01-31T18:09:00.000Z",
+            "format": "date-time",
+            "type": "string"
+          },
+          "model": {
+            "description": "Model of the device",
+            "example": "MacBook Pro (14-inch, 2024) M4 Pro",
+            "type": "string"
+          },
+          "modelIdentifier": {
+            "description": "Unique identifier of the device model",
+            "example": "Mac16,8",
+            "type": "string"
+          },
+          "name": {
+            "description": "Name of the device",
+            "example": "Some Device",
+            "type": "string"
+          },
+          "operatingSystemVersion": {
+            "description": "The operating system version of the device",
+            "example": "macOS 14.0",
+            "type": "string"
+          },
+          "serialNumber": {
+            "description": "Serial number of the device",
+            "example": "C02X12345678",
+            "type": "string"
+          },
+          "userId": {
+            "description": "The ID of the user associated with the device, in UUID format, if assigned; otherwise, null",
+            "example": "616e6479-6973-6173-7461-6c6c696f6e21",
+            "format": "uuid",
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "readOnly": true,
+        "required": [
+          "id"
+        ],
+        "type": "object"
+      },
+      "DeviceNetworkReadRepresentationV1": {
+        "properties": {
+          "lastIpAddress": {
+            "description": "The last observed IP address of the device, in either IPv4 or IPv6 format",
+            "example": "123.45.67.89",
+            "nullable": true,
+            "type": "string"
+          },
+          "lastReportedIpV4Address": {
+            "description": "The last reported IPv4 address of the device, or null if not available or applicable",
+            "example": "123.45.67.89",
+            "nullable": true,
+            "type": "string"
+          },
+          "lastReportedIpV6Address": {
+            "description": "The last reported IPv6 address of the device, or null if not available or applicable",
+            "example": "2001:0db8:85a3:0000:000",
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "readOnly": true,
+        "type": "object"
+      },
+      "DeviceOperatingSystemReadRepresentationV1": {
+        "properties": {
+          "build": {
+            "description": "Build number of the operating system",
+            "example": "24F74",
+            "type": "string"
+          },
+          "name": {
+            "description": "Name of the operating system",
+            "example": "macOS",
+            "type": "string"
+          },
+          "rapidSecurityResponse": {
+            "description": "Rapid security response version of the operating system, if applicable",
+            "example": "(a)",
+            "nullable": true,
+            "type": "string"
+          },
+          "supplementalBuildVersion": {
+            "description": "Supplemental build version of the operating system, if applicable",
+            "example": "24F74a",
+            "nullable": true,
+            "type": "string"
+          },
+          "version": {
+            "description": "Version of the operating system",
+            "example": 15.5,
+            "type": "string"
+          }
+        },
+        "readOnly": true,
+        "type": "object"
+      },
+      "DeviceReadRepresentationV1": {
+        "properties": {
+          "enrollmentType": {
+            "description": "The type of enrollment of a device",
+            "example": "Institutional",
+            "type": "string"
+          },
+          "hardware": {
+            "$ref": "#/components/schemas/DeviceHardwareReadRepresentationV1"
+          },
+          "id": {
+            "description": "The ID of the device, in UUID format",
+            "example": "616e6479-6973-6173-7461-6c6c696f6e21",
+            "format": "uuid",
+            "type": "string"
+          },
+          "lastCheckInTime": {
+            "description": "The last time the device checked in, in ISO 8601 format, or `null` if the device is not a computer",
+            "example": "2025-01-31T18:09:00.000Z",
+            "format": "date-time",
+            "nullable": true,
+            "type": "string"
+          },
+          "lastEnrollmentTime": {
+            "description": "The last time the device was enrolled, in ISO 8601 format",
+            "example": "2025-01-31T18:09:00.000Z",
+            "format": "date-time",
+            "type": "string"
+          },
+          "lastInventoryUpdateTime": {
+            "description": "The last time the device inventory was updated, in ISO 8601 format",
+            "example": "2025-01-31T18:09:00.000Z",
+            "format": "date-time",
+            "type": "string"
+          },
+          "managed": {
+            "description": "Whether the device is managed",
+            "example": true,
+            "type": "boolean"
+          },
+          "mdmCapable": {
+            "description": "Whether the device is capable of communicating via MDM\n\nNote: This field will be `false` for Jamf Pro versions prior to 11.27.0, regardless of the MDM capability of the device\n",
+            "example": true,
+            "type": "boolean"
+          },
+          "name": {
+            "description": "Name of the device",
+            "example": "Some Device",
+            "type": "string"
+          },
+          "network": {
+            "$ref": "#/components/schemas/DeviceNetworkReadRepresentationV1"
+          },
+          "operatingSystem": {
+            "$ref": "#/components/schemas/DeviceOperatingSystemReadRepresentationV1"
+          },
+          "security": {
+            "$ref": "#/components/schemas/DeviceSecurityReadRepresentationV1"
+          },
+          "supervised": {
+            "description": "Whether the device is supervised",
+            "example": true,
+            "type": "boolean"
+          },
+          "userId": {
+            "description": "The ID of the user associated with the device, in UUID format, if assigned; otherwise, null",
+            "example": "616e6479-6973-6173-7461-6c6c696f6e21",
+            "format": "uuid",
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "readOnly": true,
+        "required": [
+          "id"
+        ],
+        "type": "object"
+      },
+      "DeviceSecurityReadRepresentationV1": {
+        "properties": {
+          "bootstrapTokenEscrowedStatus": {
+            "description": "The status of the bootstrap token for the device",
+            "enum": [
+              "NOT_SUPPORTED",
+              "ESCROWED",
+              "NOT_ESCROWED"
+            ],
+            "example": "ESCROWED",
+            "type": "string"
+          },
+          "hardwareEncryption": {
+            "description": "Whether hardware encryption is enabled on the device, or null if the device is a computer",
+            "example": true,
+            "nullable": true,
+            "type": "boolean"
+          },
+          "lostModeEnabled": {
+            "description": "Whether Lost Mode is enabled on the device, or null if the device is a computer",
+            "example": false,
+            "nullable": true,
+            "type": "boolean"
+          },
+          "passcodeCompliant": {
+            "description": "Whether the passcode on the device is compliant with the passcode policy, or null if the device is a computer",
+            "example": true,
+            "nullable": true,
+            "type": "boolean"
+          },
+          "passcodePresent": {
+            "description": "Whether a passcode is present on the device, or null if the device is a computer",
+            "example": true,
+            "nullable": true,
+            "type": "boolean"
+          }
+        },
+        "readOnly": true,
+        "type": "object"
+      },
+      "DeviceUpdateRepresentationV1": {
+        "properties": {
+          "name": {
+            "description": "Name of the device. If provided, must not be empty.",
+            "example": "Some Device",
+            "minLength": 1,
+            "type": "string"
+          },
+          "userId": {
+            "default": "",
+            "description": "The ID of the user to associate with the device, in UUID format. Set to null to unassign the device from any user. Defaults to empty string (no change to current assignment).",
+            "example": "616e6479-6973-6173-7461-6c6c696f6e21",
+            "format": "uuid",
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "PaginatedDeviceInstalledApplicationReadRepresentationV1": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/PaginatedResponseRepresentation"
+          },
+          {
+            "properties": {
+              "results": {
+                "description": "List of installed applications for the specified device and page",
+                "items": {
+                  "$ref": "#/components/schemas/DeviceInstalledApplicationReadRepresentationV1"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "results"
+            ],
+            "type": "object"
+          }
+        ]
+      },
+      "PaginatedDeviceResponseRepresentation": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/PaginatedResponseRepresentation"
+          },
+          {
+            "properties": {
+              "results": {
+                "description": "List of devices for the specified page",
+                "items": {
+                  "$ref": "#/components/schemas/DeviceListReadRepresentationV1"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "results"
+            ],
+            "type": "object"
+          }
+        ]
+      },
+      "PaginatedResponseRepresentation": {
+        "properties": {
+          "hasNext": {
+            "description": "Whether there is a next page",
+            "example": true,
+            "type": "boolean"
+          },
+          "hasPrevious": {
+            "description": "Whether there is a previous page",
+            "example": false,
+            "type": "boolean"
+          },
+          "page": {
+            "description": "Current page number (0-based)",
+            "example": 0,
+            "type": "integer"
+          },
+          "pageSize": {
+            "description": "Number of items per page",
+            "example": 20,
+            "type": "integer"
+          },
+          "totalCount": {
+            "description": "Total number of results across all pages",
+            "example": 150,
+            "type": "integer"
+          },
+          "totalPages": {
+            "description": "Total number of pages",
+            "example": 8,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "page",
+          "pageSize",
+          "totalCount",
+          "totalPages",
+          "hasNext",
+          "hasPrevious"
+        ],
+        "type": "object"
+      }
+    },
+    "securitySchemes": {
+      "bearerAuth": {
+        "bearerFormat": "JWT",
+        "description": "JWT Bearer token authentication. Obtain a token from the Jamf API Gateway.",
+        "scheme": "bearer",
+        "type": "http"
+      }
+    }
+  },
+  "info": {
+    "contact": {
+      "name": "Jamf Developer",
+      "url": "https://developer.jamf.com"
+    },
+    "description": "Management API for device inventory - Query and manage devices across your organization",
+    "termsOfService": "https://www.jamf.com/developer-resources/api-license-agreement/",
+    "title": "Device Inventory API",
+    "version": "1.0.0"
+  },
+  "openapi": "3.0.1",
+  "paths": {
+    "/v1/tenant/{tenantId}/devices": {
+      "get": {
+        "description": "Retrieve a paginated list of all devices\n\n**Required Permissions:** `read:pro:devices`",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/tenantId"
+          },
+          {
+            "$ref": "#/components/parameters/PageIndex"
+          },
+          {
+            "$ref": "#/components/parameters/PageSize"
+          },
+          {
+            "$ref": "#/components/parameters/DeviceSort"
+          },
+          {
+            "description": "Filter query in RSQL format. Includes all results, by default.\u003c/br\u003e Fields allowed in the query: `id`, `name`, `model`, `modelIdentifier`, `serialNumber`, `lastInventoryUpdateTime`, `lastCheckInTime`, `operatingSystemVersion`, `enrollmentType`, `lastEnrollmentTime`.\u003c/br\u003e Dates are specified in ISO 8601 format.\u003c/br\u003e Example: `name==\"*iPhone*\" and lastInventoryUpdateTime\u003e=\"2025-01-31T18:09:00.000Z\"`",
+            "in": "query",
+            "name": "filter",
+            "schema": {
+              "default": "",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaginatedDeviceResponseRepresentation"
+                }
+              }
+            },
+            "description": "Paginated list of devices"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Get all devices",
+        "tags": [
+          "devices"
+        ],
+        "x-authentication-required": true,
+        "x-required-privileges": [
+          "read:pro:devices"
+        ]
+      }
+    },
+    "/v1/tenant/{tenantId}/devices/{id}": {
+      "delete": {
+        "description": "Delete an existing device\n\n**Required Permissions:** `delete:pro:devices`",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/tenantId"
+          },
+          {
+            "description": "Path parameter id",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Device deleted successfully"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorRepresentation"
+                }
+              }
+            },
+            "description": "The requested device could not be found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorRepresentation"
+                }
+              }
+            },
+            "description": "The device could not be deleted"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Delete a device",
+        "tags": [
+          "devices"
+        ],
+        "x-authentication-required": true,
+        "x-required-privileges": [
+          "delete:pro:devices"
+        ]
+      },
+      "get": {
+        "description": "Retrieve a specific device by its ID\n\n**Required Permissions:** `read:pro:devices`",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/tenantId"
+          },
+          {
+            "description": "Path parameter id",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeviceReadRepresentationV1"
+                }
+              }
+            },
+            "description": "Device found"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorRepresentation"
+                }
+              }
+            },
+            "description": "The requested device could not be found"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Get a device by ID",
+        "tags": [
+          "devices"
+        ],
+        "x-authentication-required": true,
+        "x-required-privileges": [
+          "read:pro:devices"
+        ]
+      },
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/DeviceId"
+        }
+      ],
+      "patch": {
+        "description": "Update an existing device\n\n**Required Permissions:** `update:pro:devices`",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/tenantId"
+          },
+          {
+            "description": "Path parameter id",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeviceUpdateRepresentationV1"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Device updated successfully"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorRepresentation"
+                }
+              }
+            },
+            "description": "The requested device could not be found"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Update a device",
+        "tags": [
+          "devices"
+        ],
+        "x-authentication-required": true,
+        "x-required-privileges": [
+          "update:pro:devices"
+        ]
+      }
+    },
+    "/v1/tenant/{tenantId}/devices/{id}/applications": {
+      "get": {
+        "description": "Retrieve a paginated list of applications installed on a specific device\n\n**Required Permissions:** `read:pro:devices`",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/tenantId"
+          },
+          {
+            "$ref": "#/components/parameters/PageIndex"
+          },
+          {
+            "$ref": "#/components/parameters/PageSize"
+          },
+          {
+            "$ref": "#/components/parameters/InstalledApplicationSort"
+          },
+          {
+            "description": "Filter query in RSQL format. Includes all results, by default.\u003c/br\u003e Fields allowed in the query: `name`, `version`.\u003c/br\u003e Example: `name==\"*Safari*\" and version\u003e=\"26.0.0\"`",
+            "in": "query",
+            "name": "filter",
+            "schema": {
+              "default": "",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Path parameter id",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaginatedDeviceInstalledApplicationReadRepresentationV1"
+                }
+              }
+            },
+            "description": "Paginated list of installed applications"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Get installed applications for a device",
+        "tags": [
+          "devices"
+        ],
+        "x-authentication-required": true,
+        "x-required-privileges": [
+          "read:pro:devices"
+        ]
+      },
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/DeviceId"
+        }
+      ]
+    },
+    "/v1/tenant/{tenantId}/users/{id}/devices": {
+      "get": {
+        "description": "Retrieve a paginated list of devices associated with a specific user\n\n**Required Permissions:** `read:pro:devices`",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/tenantId"
+          },
+          {
+            "$ref": "#/components/parameters/PageIndex"
+          },
+          {
+            "$ref": "#/components/parameters/PageSize"
+          },
+          {
+            "$ref": "#/components/parameters/DeviceSort"
+          },
+          {
+            "description": "Filter query in RSQL format. Includes all results, by default.\u003c/br\u003e Fields allowed in the query: `id`, `name`, `model`, `modelIdentifier`, `serialNumber`, `lastInventoryUpdateTime`, `lastCheckInTime`, `operatingSystemVersion`, `enrollmentType`, `lastEnrollmentTime`.\u003c/br\u003e Dates are specified in ISO 8601 format.\u003c/br\u003e Example: `name==\"*iPhone*\" and lastInventoryUpdateTime\u003e=\"2025-01-31T18:09:00.000Z\"`",
+            "in": "query",
+            "name": "filter",
+            "schema": {
+              "default": "",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Path parameter id",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaginatedDeviceResponseRepresentation"
+                }
+              }
+            },
+            "description": "Paginated list of devices for the user"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Get devices for a user",
+        "tags": [
+          "users"
+        ],
+        "x-authentication-required": true,
+        "x-required-privileges": [
+          "read:pro:devices"
+        ]
+      },
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/UserId"
+        }
+      ]
+    }
+  },
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ],
+  "servers": [
+    {
+      "description": "Jamf Beta API Gateway - prod",
+      "url": "https://{region}.apigw.jamf.com/api/devices",
+      "variables": {
+        "region": {
+          "default": "us",
+          "description": "Geographic deployment region",
+          "enum": [
+            "us",
+            "eu",
+            "apac"
+          ]
+        }
+      }
+    }
+  ]
+}

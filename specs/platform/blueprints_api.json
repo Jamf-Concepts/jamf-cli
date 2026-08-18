@@ -1,0 +1,3026 @@
+{
+  "components": {
+    "parameters": {
+      "tenantId": {
+        "description": "The tenant UUID identifier",
+        "in": "path",
+        "name": "tenantId",
+        "required": true,
+        "schema": {
+          "example": "e77c1408-10c8-4007-b177-abc9157fbcaa",
+          "format": "uuid",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "type": "string"
+        }
+      }
+    },
+    "schemas": {
+      "AcceptCookies": {
+        "properties": {
+          "Included": {
+            "type": "boolean",
+            "writeOnly": true
+          },
+          "Value": {
+            "description": "The policy Safari uses for managing cookies",
+            "enum": [
+              "Never",
+              "CurrentWebsite",
+              "VisitedWebsites",
+              "Always"
+            ],
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "AllowDisablingFraudWarning": {
+        "properties": {
+          "Included": {
+            "type": "boolean",
+            "writeOnly": true
+          },
+          "Value": {
+            "description": "If false, the system forces fraud warnings on in Safari",
+            "type": "boolean"
+          }
+        },
+        "type": "object"
+      },
+      "AllowHistoryClearing": {
+        "properties": {
+          "Included": {
+            "type": "boolean",
+            "writeOnly": true
+          },
+          "Value": {
+            "description": "If false, the system disables clearing history in Safari",
+            "type": "boolean"
+          }
+        },
+        "type": "object"
+      },
+      "AllowJavaScript": {
+        "properties": {
+          "Included": {
+            "type": "boolean",
+            "writeOnly": true
+          },
+          "Value": {
+            "description": "If false, the system disables JavaScript in Safari",
+            "type": "boolean"
+          }
+        },
+        "type": "object"
+      },
+      "AllowPopups": {
+        "properties": {
+          "Included": {
+            "type": "boolean",
+            "writeOnly": true
+          },
+          "Value": {
+            "description": "If false, the system disables popups in Safari",
+            "type": "boolean"
+          }
+        },
+        "type": "object"
+      },
+      "AllowPrivateBrowsing": {
+        "properties": {
+          "Included": {
+            "type": "boolean",
+            "writeOnly": true
+          },
+          "Value": {
+            "description": "If false, the system disables private browsing in Safari",
+            "type": "boolean"
+          }
+        },
+        "type": "object"
+      },
+      "AllowSummary": {
+        "properties": {
+          "Included": {
+            "type": "boolean",
+            "writeOnly": true
+          },
+          "Value": {
+            "description": "If false, the system disables summarization of content in Safari",
+            "type": "boolean"
+          }
+        },
+        "type": "object"
+      },
+      "ApiError": {
+        "properties": {
+          "errors": {
+            "$ref": "#/components/schemas/Error"
+          },
+          "httpStatus": {
+            "description": "HTTP status of the response",
+            "example": 400,
+            "format": "int32",
+            "maximum": 599,
+            "minimum": 100,
+            "type": "integer"
+          },
+          "traceId": {
+            "description": "Trace ID",
+            "example": "3e3819a63ae0f231",
+            "type": "string"
+          }
+        },
+        "required": [
+          "errors",
+          "traceId"
+        ],
+        "type": "object"
+      },
+      "AudioAccessorySettingsComponent": {
+        "properties": {
+          "configuration": {
+            "$ref": "#/components/schemas/AudioAccessorySettingsConfiguration"
+          },
+          "identifier": {
+            "enum": [
+              "com.jamf.ddm.audio-accessory-settings"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "identifier",
+          "configuration"
+        ],
+        "type": "object"
+      },
+      "AudioAccessorySettingsConfiguration": {
+        "description": "Audio accessory settings configuration.\n\nConfigures audio accessory temporary pairing behavior.\n",
+        "properties": {
+          "TemporaryPairing": {
+            "$ref": "#/components/schemas/TemporaryPairing"
+          }
+        },
+        "type": "object"
+      },
+      "AutomaticAction": {
+        "properties": {
+          "Included": {
+            "default": true,
+            "description": "Controls whether this control should be used.",
+            "type": "boolean",
+            "writeOnly": true
+          },
+          "Value": {
+            "enum": [
+              "Allowed",
+              "AlwaysOn",
+              "AlwaysOff"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "Value"
+        ],
+        "type": "object"
+      },
+      "AutomaticActions": {
+        "properties": {
+          "Download": {
+            "$ref": "#/components/schemas/AutomaticAction"
+          },
+          "InstallOSUpdates": {
+            "$ref": "#/components/schemas/AutomaticAction"
+          },
+          "InstallSecurityUpdate": {
+            "$ref": "#/components/schemas/AutomaticAction"
+          }
+        },
+        "type": "object"
+      },
+      "BasicMode": {
+        "properties": {
+          "AddSquareRoot": {
+            "description": "Add the square root button to the basic calculator by replacing the +/- button.",
+            "type": "boolean"
+          },
+          "Included": {
+            "default": true,
+            "description": "Controls whether this control should be used.",
+            "type": "boolean",
+            "writeOnly": true
+          }
+        },
+        "required": [
+          "AddSquareRoot"
+        ],
+        "type": "object"
+      },
+      "Beta": {
+        "properties": {
+          "Included": {
+            "default": true,
+            "description": "Controls whether this control should be used.",
+            "type": "boolean",
+            "writeOnly": true
+          },
+          "Value": {
+            "$ref": "#/components/schemas/BetaSettings"
+          }
+        },
+        "type": "object"
+      },
+      "BetaProgram": {
+        "properties": {
+          "Description": {
+            "maxLength": 1000,
+            "minLength": 1,
+            "type": "string"
+          },
+          "Token": {
+            "maxLength": 1000,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "BetaSettings": {
+        "properties": {
+          "OfferPrograms": {
+            "items": {
+              "$ref": "#/components/schemas/BetaProgram"
+            },
+            "maxItems": 100,
+            "type": "array"
+          },
+          "ProgramEnrollment": {
+            "enum": [
+              "Allowed",
+              "AlwaysOn",
+              "AlwaysOff"
+            ],
+            "type": "string"
+          },
+          "RequireProgram": {
+            "$ref": "#/components/schemas/BetaProgram"
+          }
+        },
+        "required": [
+          "ProgramEnrollment"
+        ],
+        "type": "object"
+      },
+      "BlueprintDetail": {
+        "properties": {
+          "created": {
+            "description": "Creation date",
+            "example": "2025-04-01T12:00:00Z",
+            "format": "date-time",
+            "type": "string"
+          },
+          "deploymentState": {
+            "$ref": "#/components/schemas/DeploymentState"
+          },
+          "description": {
+            "description": "Description of the blueprint",
+            "example": "Keep all eligible MacOS devices updated to the last major version",
+            "maxLength": 2000,
+            "nullable": true,
+            "type": "string"
+          },
+          "id": {
+            "description": "ID of the blueprint",
+            "example": "15812829-95c1-451c-9239-f1f61a3d3a94",
+            "type": "string"
+          },
+          "name": {
+            "description": "Name of the blueprint",
+            "example": "Update software to latest version",
+            "maxLength": 200,
+            "minLength": 1,
+            "type": "string"
+          },
+          "scope": {
+            "$ref": "#/components/schemas/BlueprintScope"
+          },
+          "steps": {
+            "description": "Array of blueprint steps",
+            "items": {
+              "$ref": "#/components/schemas/BlueprintStep"
+            },
+            "maxItems": 100,
+            "type": "array"
+          },
+          "updated": {
+            "description": "Last modification date",
+            "example": "2025-04-01T16:30:00Z",
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "created",
+          "deploymentState",
+          "id",
+          "name",
+          "steps",
+          "updated"
+        ],
+        "type": "object"
+      },
+      "BlueprintOverview": {
+        "description": "Array of result items",
+        "properties": {
+          "created": {
+            "description": "Creation date",
+            "example": "2025-04-01T12:00:00Z",
+            "format": "date-time",
+            "type": "string"
+          },
+          "deploymentState": {
+            "$ref": "#/components/schemas/DeploymentState"
+          },
+          "description": {
+            "description": "Description of the blueprint",
+            "example": "Keep all eligible MacOS devices updated to the last major version",
+            "maxLength": 2000,
+            "nullable": true,
+            "type": "string"
+          },
+          "id": {
+            "description": "ID of the blueprint",
+            "example": "15812829-95c1-451c-9239-f1f61a3d3a94",
+            "type": "string"
+          },
+          "name": {
+            "description": "Name of the blueprint",
+            "example": "Update software to latest version",
+            "maxLength": 200,
+            "minLength": 1,
+            "type": "string"
+          },
+          "updated": {
+            "description": "Last modification date",
+            "example": "2025-04-01T16:30:00Z",
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "created",
+          "deploymentState",
+          "id",
+          "name",
+          "updated"
+        ],
+        "type": "object"
+      },
+      "BlueprintScope": {
+        "description": "Device groups",
+        "properties": {
+          "deviceGroups": {
+            "description": "Device groups",
+            "example": [
+              "cda24521-f23b-4f27-a9ff-32c89fb6feeb"
+            ],
+            "items": {
+              "description": "Device groups",
+              "example": "[\"cda24521-f23b-4f27-a9ff-32c89fb6feeb\"]",
+              "minLength": 1,
+              "type": "string"
+            },
+            "minItems": 1,
+            "type": "array"
+          }
+        },
+        "required": [
+          "deviceGroups"
+        ],
+        "type": "object"
+      },
+      "BlueprintStatusDetail": {
+        "properties": {
+          "failed": {
+            "description": "Number of devices in failed state",
+            "example": 10,
+            "format": "int32",
+            "type": "integer"
+          },
+          "pending": {
+            "description": "Number of devices in pending state",
+            "example": 5,
+            "format": "int32",
+            "type": "integer"
+          },
+          "succeeded": {
+            "description": "Number of devices in successful state",
+            "example": 150,
+            "format": "int32",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "failed",
+          "pending",
+          "succeeded"
+        ],
+        "type": "object"
+      },
+      "BlueprintStep": {
+        "description": "Array of blueprint steps",
+        "properties": {
+          "activationPredicate": {
+            "description": "Declarative activation predicate",
+            "example": "@status(device.operating-system.family) == 'iPadOS'",
+            "maxLength": 10000,
+            "nullable": true,
+            "type": "string"
+          },
+          "components": {
+            "description": "Array of components included in the step",
+            "items": {
+              "$ref": "#/components/schemas/Component"
+            },
+            "maxItems": 100,
+            "minItems": 1,
+            "type": "array"
+          },
+          "name": {
+            "description": "Name of the step",
+            "example": "Step 1",
+            "maxLength": 200,
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "required": [
+          "components"
+        ],
+        "type": "object"
+      },
+      "BookmarkGroup": {
+        "properties": {
+          "Bookmarks": {
+            "description": "A list of bookmarks",
+            "items": {
+              "$ref": "#/components/schemas/BookmarkItem"
+            },
+            "type": "array"
+          },
+          "GroupIdentifier": {
+            "description": "A string that specifies the unique identifier for this group of managed bookmarks",
+            "minLength": 1,
+            "type": "string"
+          },
+          "Title": {
+            "description": "The name of the bookmarks folder",
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "Bookmarks",
+          "GroupIdentifier",
+          "Title"
+        ],
+        "type": "object"
+      },
+      "BookmarkItem": {
+        "discriminator": {
+          "mapping": {
+            "BOOKMARK": "#/components/schemas/UrlBookmarkItem",
+            "FOLDER": "#/components/schemas/FolderBookmarkItem"
+          },
+          "propertyName": "Type"
+        },
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/FolderBookmarkItem"
+          },
+          {
+            "$ref": "#/components/schemas/UrlBookmarkItem"
+          }
+        ]
+      },
+      "Calculator": {
+        "properties": {
+          "BasicMode": {
+            "$ref": "#/components/schemas/BasicMode",
+            "description": "If present, configures the basic mode of the calculator. Basic mode is always enabled."
+          },
+          "InputModes": {
+            "$ref": "#/components/schemas/InputModes",
+            "description": "If present, controls global input options of the calculator. If not present, all input modes are enabled."
+          },
+          "MathNotesMode": {
+            "$ref": "#/components/schemas/MathNotesMode",
+            "description": "If present, configures the Math Notes mode of the calculator. If not present, math notes mode is enabled."
+          },
+          "ProgrammerMode": {
+            "$ref": "#/components/schemas/ProgrammerMode",
+            "description": "If present, configures the programmer mode of the calculator. If not present, programmer mode is enabled."
+          },
+          "ScientificMode": {
+            "$ref": "#/components/schemas/ScientificMode",
+            "description": "If present, configures the scientific mode of the calculator. If not present, scientific mode is enabled."
+          }
+        },
+        "type": "object"
+      },
+      "ChangeAtNextAuth": {
+        "properties": {
+          "Included": {
+            "type": "boolean",
+            "writeOnly": true
+          },
+          "Value": {
+            "description": "Change at next auth",
+            "type": "boolean"
+          }
+        },
+        "type": "object"
+      },
+      "Component": {
+        "description": "A blueprint component",
+        "discriminator": {
+          "mapping": {
+            "com.jamf.ddm-configuration-profile": "#/components/schemas/ConfigurationProfile",
+            "com.jamf.ddm.app-managed": "#/components/schemas/ManagedAppComponent",
+            "com.jamf.ddm.audio-accessory-settings": "#/components/schemas/AudioAccessorySettingsComponent",
+            "com.jamf.ddm.custom-declarations": "#/components/schemas/CustomDeclarationsComponent",
+            "com.jamf.ddm.disk-management": "#/components/schemas/DiskManagementComponent",
+            "com.jamf.ddm.math-settings": "#/components/schemas/MathSettingsComponent",
+            "com.jamf.ddm.passcode-settings": "#/components/schemas/PasscodeSettingsComponent",
+            "com.jamf.ddm.safari-bookmarks": "#/components/schemas/SafariBookmarksComponent",
+            "com.jamf.ddm.safari-extensions": "#/components/schemas/SafariExtensionsComponent",
+            "com.jamf.ddm.safari-settings": "#/components/schemas/SafariSettingsComponent",
+            "com.jamf.ddm.software-update-settings": "#/components/schemas/SoftwareUpdateSettingsComponent",
+            "com.jamf.ddm.sw-updates": "#/components/schemas/SwUpdateComponent"
+          },
+          "propertyName": "identifier"
+        },
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/ConfigurationProfile"
+          },
+          {
+            "$ref": "#/components/schemas/CustomDeclarationsComponent"
+          },
+          {
+            "$ref": "#/components/schemas/AudioAccessorySettingsComponent"
+          },
+          {
+            "$ref": "#/components/schemas/DiskManagementComponent"
+          },
+          {
+            "$ref": "#/components/schemas/MathSettingsComponent"
+          },
+          {
+            "$ref": "#/components/schemas/PasscodeSettingsComponent"
+          },
+          {
+            "$ref": "#/components/schemas/SafariBookmarksComponent"
+          },
+          {
+            "$ref": "#/components/schemas/SafariExtensionsComponent"
+          },
+          {
+            "$ref": "#/components/schemas/SafariSettingsComponent"
+          },
+          {
+            "$ref": "#/components/schemas/SoftwareUpdateSettingsComponent"
+          },
+          {
+            "$ref": "#/components/schemas/SwUpdateComponent"
+          },
+          {
+            "$ref": "#/components/schemas/ManagedAppComponent"
+          }
+        ],
+        "properties": {
+          "configuration": {
+            "type": "object"
+          },
+          "identifier": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "identifier",
+          "configuration"
+        ],
+        "type": "object"
+      },
+      "ComponentDescription": {
+        "description": "Array of result items",
+        "properties": {
+          "description": {
+            "description": "Description of the component",
+            "example": "Enforce software updates for your devices",
+            "nullable": true,
+            "type": "string"
+          },
+          "identifier": {
+            "description": "Blueprint component identifier",
+            "example": "com.jamf.ddm.sw-updates",
+            "type": "string"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/Meta"
+          },
+          "name": {
+            "description": "Name of the component",
+            "example": "Software updates",
+            "type": "string"
+          }
+        },
+        "required": [
+          "identifier",
+          "meta",
+          "name"
+        ],
+        "type": "object"
+      },
+      "ConfigurationProfile": {
+        "description": "Component for sending any Apple MDM configuration profile payload as a blueprint component.",
+        "properties": {
+          "configuration": {
+            "$ref": "#/components/schemas/ConfigurationProfileConfiguration"
+          },
+          "identifier": {
+            "description": "## Using Apple MDM profile payloads as blueprint components\n\nThe API accepts **any** Apple MDM configuration profile payload as a\nblueprint component — not only the ones explicitly listed in this\nspecification. Use the `com.jamf.ddm-configuration-profile` identifier with the\npattern described here to send one or more Apple payloads.\n\nApple publishes all payload definitions at\n[apple/device-management/mdm/profiles](https://github.com/apple/device-management/tree/release/mdm/profiles).\n\n### Step 1 — Choose the Apple payload(s)\n\nFind the payload YAML in the Apple repository. The `payloadtype` field\n(e.g., `com.apple.domains`, `com.apple.wifi.managed`,\n`com.apple.applicationaccess`) identifies each payload.\n\n\u003e **Unsupported payload types:** Blueprints with\n\u003e `com.apple.font` or `com.apple.webClip.managed` payloads\n\u003e cannot be created.\n\n### Step 2 — Build the `configuration` object\n\nThe `configuration` has two mandatory fields:\n\n| Field | Type | Description |\n|---|---|---|\n| `payloadDisplayName` | string | A human-readable name shown on the device (e.g., `\"Managed Domains\"`) |\n| `payloadContent` | array | An array of payload objects — each one represents a single Apple payload |\n\nEach entry in `payloadContent` **must** contain:\n\n| Field | Type | Description |\n|---|---|---|\n| `payloadType` | string | The Apple payload type identifier (e.g., `com.apple.domains`) |\n\nIn addition to `payloadType`, include the payload-specific keys from the\n`payloadkeys` section of the Apple payload YAML.\n\n### Apple type → JSON type mapping\n\n| Apple type | JSON value type | Example |\n|---|---|---|\n| `\u003cstring\u003e` | string | `\"example.com\"` |\n| `\u003cinteger\u003e` | number | `42` |\n| `\u003creal\u003e` | number | `3.14` |\n| `\u003cboolean\u003e` | boolean | `true` |\n| `\u003cdata\u003e` | string (Base64-encoded) | `\"SGVsbG8=\"` |\n| `\u003cdate\u003e` | string (ISO 8601) | `\"2026-01-15T00:00:00Z\"` |\n| `\u003carray\u003e` | array | `[\"a\", \"b\"]` |\n| `\u003cdictionary\u003e` | object | `{ \"key\": \"value\" }` |\n\nOnly include the keys you want to configure. Keys marked\n`presence: optional` in the Apple YAML can be omitted; keys marked\n`presence: required` must be present.\n\n### Reference\n\n- Apple payload definitions: https://github.com/apple/device-management/tree/release/mdm/profiles\n- Apple Configuration Profile reference: https://developer.apple.com/documentation/devicemanagement/profile-specific-payload-keys\n",
+            "enum": [
+              "com.jamf.ddm-configuration-profile"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "identifier",
+          "configuration"
+        ],
+        "type": "object"
+      },
+      "ConfigurationProfileConfiguration": {
+        "description": "Configuration wrapper for one or more Apple MDM profile payloads.\n\n### Example — `com.apple.domains`\n\nUsing the payload defined in\n[com.apple.domains.yaml](https://github.com/apple/device-management/blob/release/mdm/profiles/com.apple.domains.yaml),\nits `payloadkeys` are `EmailDomains`, `WebDomains`,\n`SafariPasswordAutoFillDomains`, `CrossSiteTrackingPreventionRelaxedDomains`,\nand `CrossSiteTrackingPreventionRelaxedApps` — all optional arrays of strings.\n\n```json\n{\n  \"payloadDisplayName\": \"Managed Domains\",\n  \"payloadContent\": [\n    {\n      \"payloadType\": \"com.apple.domains\",\n      \"EmailDomains\": [\"example.com\", \"private.example.com\"],\n      \"WebDomains\": [\"*.example.com\"],\n      \"SafariPasswordAutoFillDomains\": [\"login.example.com\"]\n    }\n  ]\n}\n```\n\n### Example — `com.apple.wifi.managed`\n\nThe same pattern works for any payload. For\n[com.apple.wifi.managed](https://github.com/apple/device-management/blob/release/mdm/profiles/com.apple.wifi.managed.yaml),\nlook up its `payloadkeys` and send:\n\n```json\n{\n  \"payloadDisplayName\": \"Corporate Wi-Fi\",\n  \"payloadContent\": [\n    {\n      \"payloadType\": \"com.apple.wifi.managed\",\n      \"SSID_STR\": \"Corporate-WiFi\",\n      \"EncryptionType\": \"WPA2\",\n      \"AutoJoin\": true,\n      \"IsHotspot\": false\n    }\n  ]\n}\n```\n\n### Combining multiple Apple payloads in one component\n\nA single `com.jamf.ddm-configuration-profile` component can contain multiple\nApple payloads in the `payloadContent` array:\n\n```json\n{\n  \"payloadDisplayName\": \"Network \u0026 Domains\",\n  \"payloadContent\": [\n    {\n      \"payloadType\": \"com.apple.domains\",\n      \"WebDomains\": [\"*.corp.example.com\"],\n      \"EmailDomains\": [\"corp.example.com\"]\n    },\n    {\n      \"payloadType\": \"com.apple.wifi.managed\",\n      \"SSID_STR\": \"CorpNet\",\n      \"EncryptionType\": \"WPA3\"\n    }\n  ]\n}\n```\n\nYou can also place multiple `com.jamf.ddm-configuration-profile` components in the\nsame blueprint step alongside other component types.\n",
+        "properties": {
+          "payloadContent": {
+            "description": "An array of Apple payload objects. Each entry represents a single\nApple MDM payload and **must** include a `payloadType` field set to\nthe Apple payload type identifier (e.g., `com.apple.domains`,\n`com.apple.wifi.managed`, `com.apple.applicationaccess`).\n\nIn addition to `payloadType`, include any payload-specific keys from\nthe `payloadkeys` section of the corresponding Apple payload YAML\ndefinition. Any additional properties beyond `payloadType` are\naccepted to accommodate any Apple payload schema.\n",
+            "items": {
+              "$ref": "#/components/schemas/ConfigurationProfileContentItem"
+            },
+            "minItems": 1,
+            "type": "array"
+          },
+          "payloadDisplayName": {
+            "description": "A human-readable name for this configuration profile, displayed on the device.",
+            "example": "Managed Domains",
+            "type": "string"
+          }
+        },
+        "required": [
+          "payloadDisplayName",
+          "payloadContent"
+        ],
+        "type": "object"
+      },
+      "ConfigurationProfileContentItem": {
+        "additionalProperties": true,
+        "description": "A single Apple MDM payload entry. Must contain `payloadType` to\nidentify the Apple payload, plus any payload-specific keys.\n",
+        "properties": {
+          "payloadType": {
+            "description": "The Apple payload type identifier (e.g., `com.apple.domains`,\n`com.apple.wifi.managed`, `com.apple.applicationaccess`).\n",
+            "example": "com.apple.domains",
+            "type": "string"
+          }
+        },
+        "required": [
+          "payloadType"
+        ],
+        "type": "object"
+      },
+      "CreateBlueprintRequest": {
+        "properties": {
+          "description": {
+            "description": "Description of the blueprint",
+            "example": "Keep all eligible MacOS devices updated to the last major version",
+            "maxLength": 2000,
+            "nullable": true,
+            "type": "string"
+          },
+          "name": {
+            "description": "Name of the blueprint",
+            "example": "Update software to latest version",
+            "maxLength": 200,
+            "minLength": 1,
+            "type": "string"
+          },
+          "scope": {
+            "$ref": "#/components/schemas/CreateScope"
+          },
+          "steps": {
+            "description": "Array of blueprint steps",
+            "items": {
+              "$ref": "#/components/schemas/BlueprintStep"
+            },
+            "maxItems": 10,
+            "type": "array"
+          }
+        },
+        "required": [
+          "name",
+          "scope",
+          "steps"
+        ],
+        "type": "object"
+      },
+      "CreateResponse": {
+        "properties": {
+          "href": {
+            "example": "https://us.apigw.jamf.com/blueprints/v1/blueprints/15812829-95c1-451c-9239-f1f61a3d3a94",
+            "format": "uri",
+            "type": "string"
+          },
+          "id": {
+            "example": "15812829-95c1-451c-9239-f1f61a3d3a94",
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "href",
+          "id"
+        ],
+        "type": "object"
+      },
+      "CreateScope": {
+        "description": "Scope of the blueprint",
+        "properties": {
+          "deviceGroups": {
+            "description": "Device groups",
+            "example": [
+              "cda24521-f23b-4f27-a9ff-32c89fb6feeb"
+            ],
+            "items": {
+              "description": "Device groups",
+              "example": "[\"cda24521-f23b-4f27-a9ff-32c89fb6feeb\"]",
+              "minLength": 1,
+              "type": "string"
+            },
+            "minItems": 1,
+            "type": "array"
+          }
+        },
+        "required": [
+          "deviceGroups"
+        ],
+        "type": "object"
+      },
+      "CustomDeclaration": {
+        "description": "A single Apple declarative device management declaration entry.",
+        "properties": {
+          "channelType": {
+            "$ref": "#/components/schemas/DeclarationChannelType"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/DeclarationKind"
+          },
+          "payload": {
+            "additionalProperties": true,
+            "description": "A JSON object containing the declaration-specific keys from the Apple\ndeclaration schema. Include the `payloadkeys` fields from the corresponding\nApple declaration YAML. Additional properties are accepted to accommodate\nany Apple declaration schema.\n",
+            "type": "object"
+          },
+          "payloadKey": {
+            "description": "An integer that identifies this declaration within the `declarations` list of\nthis request. Use this value to cross-reference declarations in other payload\nfields via the `$PAYLOAD_\u003cpayloadKey\u003e` placeholder, which is substituted at\ndeploy time with the generated declaration identifier. The value is local to\nthe current request. It does not need to be globally unique or consistent\nacross requests.\n",
+            "example": 1,
+            "format": "int32",
+            "type": "integer"
+          },
+          "type": {
+            "description": "The Apple declarative device management declaration type identifier\n(e.g., `com.apple.configuration.passcode.settings`,\n`com.apple.asset.useridentity`).\n",
+            "example": "com.apple.configuration.passcode.settings",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "channelType",
+          "kind",
+          "payload",
+          "payloadKey"
+        ],
+        "type": "object"
+      },
+      "CustomDeclarationsComponent": {
+        "description": "Blueprint component that delivers any Apple declarative device management declarations to managed devices.",
+        "properties": {
+          "configuration": {
+            "$ref": "#/components/schemas/CustomDeclarationsConfiguration"
+          },
+          "identifier": {
+            "description": "## Use Apple declarative device management declarations as blueprint components\n\nThe API accepts any Apple declarative device management configuration or asset declaration as a blueprint component, not\nonly the ones explicitly listed in this specification. Use the\n`com.jamf.ddm.custom-declarations` identifier with the pattern described here\nto send one or more Apple declarative device management declarations.\n\nApple publishes all declaration definitions at\n[apple/device-management/declarative/declarations](https://github.com/apple/device-management/tree/release/declarative/declarations).\n\n### Step 1 — Choose the Apple declaration type\n\nFind the declaration YAML in the Apple repository. The `declarationtype` field\n(e.g., `com.apple.configuration.passcode.settings`,\n`com.apple.asset.useridentity`)\nidentifies each declaration.\n\n### Step 2 — Set the `kind` field\n\nThe `kind` maps to the declaration group, derived from the Apple declaration\ntype prefix:\n\n| `kind` | Apple declaration type prefix |\n|---|---|\n| `CONFIGURATION` | `com.apple.configuration.` |\n| `ASSET` | `com.apple.asset.` |\n\n### Step 3 — Set the `channelType` field\n\n| `channelType` | Description |\n|---|---|\n| `SYSTEM` | Applies the declaration to the system (device) channel |\n| `USER` | Applies the declaration to the user channel |\n\n### Step 4 — Build the `payload` object\n\nThe `payload` is a JSON object containing the declaration-specific keys from\nthe `payloadkeys` section of the corresponding Apple declaration YAML.\n\nOnly include the keys you want to configure. Keys marked `presence: optional`\nin the Apple YAML can be omitted; keys marked `presence: required` must be\npresent.\n\n### Step 5 — Use `payloadKey` for cross-declaration references\n\nEach declaration in the array has an integer `payloadKey` that identifies it\nwithin the `declarations` list of this request. To reference another\ndeclaration's generated identifier in a payload field, use the placeholder\n`$PAYLOAD_\u003cpayloadKey\u003e`. This placeholder is substituted at deploy time with\nthe actual declaration identifier of the referenced declaration.\n\nThe `payloadKey` value is local to the declarations in this request — it does\nnot need to be globally unique or consistent across requests. This is useful\nwhen a configuration declaration must reference an asset declaration defined\nin the same component.\n",
+            "enum": [
+              "com.jamf.ddm.custom-declarations"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "identifier",
+          "configuration"
+        ],
+        "type": "object"
+      },
+      "CustomDeclarationsConfiguration": {
+        "description": "Configuration object containing one or more Apple declarative device management declarations.\n\n### Example — single configuration declaration\n\n```json\n{\n  \"declarations\": [\n    {\n      \"type\": \"com.apple.configuration.passcode.settings\",\n      \"channelType\": \"SYSTEM\",\n      \"kind\": \"CONFIGURATION\",\n      \"payload\": {\n        \"RequirePasscode\": true,\n        \"MinimumLength\": 8,\n        \"MaximumFailedAttempts\": 10\n      },\n      \"payloadKey\": 1\n    }\n  ]\n}\n```\n\n### Example — configuration declaration referencing an asset\n\nA configuration declaration can reference an asset declaration defined in the\nsame `declarations` array using the `$PAYLOAD_\u003cpayloadKey\u003e` placeholder.\nThe `payloadKey` values are local to the declarations list in this request —\nthey do not need to be globally unique or consistent across requests:\n\n```json\n{\n  \"declarations\": [\n    {\n      \"type\": \"com.apple.asset.credential.userpassword\",\n      \"channelType\": \"SYSTEM\",\n      \"kind\": \"ASSET\",\n      \"payload\": {\n        \"Reference\": {\n          \"DataURL\": \"https://example.com/asset-data/credential.json\",\n          \"ContentType\": \"application/json\"\n        }\n      },\n      \"payloadKey\": 1\n    },\n    {\n      \"type\": \"com.apple.configuration.account.caldav\",\n      \"channelType\": \"SYSTEM\",\n      \"kind\": \"CONFIGURATION\",\n      \"payload\": {\n        \"HostName\": \"caldav.example.com\",\n        \"VisibleName\": \"Work Calendar\",\n        \"AuthenticationCredentialsAssetReference\": \"$PAYLOAD_1\"\n      },\n      \"payloadKey\": 2\n    }\n  ]\n}\n```\n",
+        "properties": {
+          "declarations": {
+            "description": "An array of Apple declarative device management declaration objects to include in this component.",
+            "items": {
+              "$ref": "#/components/schemas/CustomDeclaration"
+            },
+            "maxItems": 100,
+            "minItems": 1,
+            "type": "array"
+          }
+        },
+        "required": [
+          "declarations"
+        ],
+        "type": "object"
+      },
+      "CustomRegex": {
+        "properties": {
+          "Description": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "Map of OS language ID to a localized description. Use the special `default` key for languages that the dictionary doesn't contain.",
+            "example": {
+              "en-US": "Must be 16 digits long."
+            },
+            "type": "object"
+          },
+          "Included": {
+            "type": "boolean",
+            "writeOnly": true
+          },
+          "Regex": {
+            "description": "Regular expression",
+            "example": "[0-9]{16}",
+            "maxLength": 2048,
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "DeclarationChannelType": {
+        "description": "The channel to which the declaration applies:\n- `SYSTEM` — applies to the system (device) channel\n- `USER` — applies to the user channel\n",
+        "enum": [
+          "SYSTEM",
+          "USER"
+        ],
+        "type": "string"
+      },
+      "DeclarationKind": {
+        "description": "The declaration group, determined by the Apple declaration type prefix:\n- `CONFIGURATION` — for `com.apple.configuration.*` types\n- `ASSET` — for `com.apple.asset.*` types\n",
+        "enum": [
+          "CONFIGURATION",
+          "ASSET"
+        ],
+        "type": "string"
+      },
+      "Deferrals": {
+        "properties": {
+          "CombinedPeriodInDays": {
+            "$ref": "#/components/schemas/OptionalPeriodInDays"
+          },
+          "MajorPeriodInDays": {
+            "$ref": "#/components/schemas/OptionalPeriodInDays"
+          },
+          "MinorPeriodInDays": {
+            "$ref": "#/components/schemas/OptionalPeriodInDays"
+          },
+          "SystemPeriodInDays": {
+            "$ref": "#/components/schemas/OptionalPeriodInDays"
+          }
+        },
+        "type": "object"
+      },
+      "Deployment": {
+        "description": "Information about last deployment job",
+        "nullable": true,
+        "properties": {
+          "started": {
+            "description": "Date when deployment job started",
+            "example": "2025-04-01T16:35:00Z",
+            "format": "date-time",
+            "type": "string"
+          },
+          "state": {
+            "description": "Deployment job state",
+            "enum": [
+              "PENDING",
+              "DEPLOYING",
+              "SUCCEEDED",
+              "FAILED"
+            ],
+            "example": "SUCCEEDED",
+            "type": "string"
+          }
+        },
+        "required": [
+          "started",
+          "state"
+        ],
+        "type": "object"
+      },
+      "DeploymentState": {
+        "description": "Blueprint deployment state",
+        "properties": {
+          "lastDeployment": {
+            "$ref": "#/components/schemas/Deployment"
+          },
+          "state": {
+            "description": "Blueprint state",
+            "enum": [
+              "NOT_DEPLOYED",
+              "DEPLOYED",
+              "OUT_OF_DATE"
+            ],
+            "example": "DEPLOYED",
+            "type": "string"
+          }
+        },
+        "required": [
+          "state"
+        ],
+        "type": "object"
+      },
+      "DetailsUrl": {
+        "description": "Optional URL with details about the enforced update",
+        "properties": {
+          "Included": {
+            "default": false,
+            "description": "Controls whether this setting should be used",
+            "type": "boolean"
+          },
+          "Value": {
+            "description": "URL of a web page with the details about the enforced update",
+            "format": "uri",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "DiskManagementComponent": {
+        "properties": {
+          "configuration": {
+            "$ref": "#/components/schemas/DiskManagementSettingsConfiguration"
+          },
+          "identifier": {
+            "enum": [
+              "com.jamf.ddm.disk-management"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "identifier",
+          "configuration"
+        ],
+        "type": "object"
+      },
+      "DiskManagementSettingsConfiguration": {
+        "description": "Disk management settings configuration.\n\nConfigures restrictions for external and network storage access.\n",
+        "properties": {
+          "Restrictions": {
+            "$ref": "#/components/schemas/Restrictions"
+          },
+          "version": {
+            "description": "Configuration version",
+            "enum": [
+              2
+            ],
+            "format": "int32",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "version"
+        ],
+        "type": "object"
+      },
+      "Error": {
+        "properties": {
+          "code": {
+            "description": "Error-specific code that can be used to identify localization string, etc.",
+            "example": "INVALID_FIELD",
+            "type": "string"
+          },
+          "description": {
+            "description": "A general description of error for troubleshooting/debugging. Generally this text should not be displayed to a user; instead refer to errorCode and it's localized text.",
+            "example": "Field name is required.",
+            "type": "string"
+          },
+          "field": {
+            "description": "Name of the field that caused the error.",
+            "example": "name",
+            "nullable": true,
+            "type": "string"
+          },
+          "id": {
+            "description": "id of object with error",
+            "example": "2b7b22dc-a0d4-48d2-a02d-8fdd88e1397c",
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "description"
+        ],
+        "type": "object"
+      },
+      "FailedAttemptsResetInMinutes": {
+        "properties": {
+          "Included": {
+            "type": "boolean",
+            "writeOnly": true
+          },
+          "Value": {
+            "description": "Failed attempts reset in minutes",
+            "example": 5,
+            "format": "int32",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "FolderBookmarkItem": {
+        "properties": {
+          "Folder": {
+            "description": "An array of bookmarks for each bookmark in the folder",
+            "items": {
+              "$ref": "#/components/schemas/UrlBookmarkItem"
+            },
+            "type": "array"
+          },
+          "Title": {
+            "description": "The title of the folder shown in Safari",
+            "minLength": 1,
+            "type": "string"
+          },
+          "Type": {
+            "enum": [
+              "FOLDER"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "Title",
+          "Type"
+        ],
+        "type": "object"
+      },
+      "InputModes": {
+        "properties": {
+          "Included": {
+            "default": true,
+            "description": "Controls whether this control should be used.",
+            "type": "boolean",
+            "writeOnly": true
+          },
+          "RPN": {
+            "description": "Configures whether RPN input is enabled.",
+            "type": "boolean"
+          },
+          "UnitConversion": {
+            "description": "Configures whether unit conversions are enabled.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "RPN",
+          "UnitConversion"
+        ],
+        "type": "object"
+      },
+      "ManagedAppAttributes": {
+        "description": "Fine-grained app behavior settings. All fields are optional.\n\n**iOS 18.1+ note:** `Hideable` and `Lockable` require iOS 18.1 or later.\nWhen `Lockable` is `false`, `Hideable` is required and must also be `false`.\n",
+        "properties": {
+          "AssociatedDomains": {
+            "description": "Associated domains for the app.",
+            "example": [
+              "corp.example.com"
+            ],
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "AssociatedDomainsEnableDirectDownloads": {
+            "description": "Enable direct downloads for the app's associated domains.",
+            "example": false,
+            "type": "boolean"
+          },
+          "CellularSliceUUID": {
+            "description": "UUID of the network slice to use for the app's cellular connection.",
+            "example": "12345678-1234-1234-1234-123456789abc",
+            "type": "string"
+          },
+          "DNSProxyUUID": {
+            "description": "UUID of the DNS proxy configuration to apply to the app.",
+            "example": "87654321-4321-4321-4321-cba987654321",
+            "type": "string"
+          },
+          "Hideable": {
+            "description": "Allow the user to hide the app from the home screen (requires iOS 18.1 or later). When `Lockable` is `false`, this must also be `false`.",
+            "example": true,
+            "type": "boolean"
+          },
+          "Lockable": {
+            "description": "Allow the user to lock the app behind Face ID or Touch ID (requires iOS 18.1 or later).",
+            "example": true,
+            "type": "boolean"
+          },
+          "TapToPayScreenLock": {
+            "description": "Require screen lock when the app uses Tap to Pay.",
+            "example": false,
+            "type": "boolean"
+          }
+        },
+        "type": "object"
+      },
+      "ManagedAppComponent": {
+        "description": "Blueprint component that installs and manages volume purchasing apps on managed devices.",
+        "properties": {
+          "configuration": {
+            "$ref": "#/components/schemas/ManagedAppConfiguration"
+          },
+          "identifier": {
+            "description": "## Using volume purchasing apps as blueprint components\n\nThe `com.jamf.ddm.app-managed` component installs and manages Apple volume purchasing apps on devices. Each component contains one or more app\nconfigurations in the `apps` array.\n\n### Prerequisites\n\nApps must be available in your Jamf organization's volume purchasing token. The `AssetId`\nand `AppAndBookTokenId` values come from your volume purchasing integration in Jamf —\nuse the [List available blueprint components](../listComponents) endpoint\n(`GET /v1/blueprint-components`) to discover apps available to your organization\nand retrieve their identifiers.\n\n### Required fields per app\n\n| Field | Type | Description |\n|---|---|---|\n| `AssetId` | string | volume purchasing asset identifier for the app |\n| `AppAndBookTokenId` | string | Identifier of the volume purchasing token that licenses the app |\n| `AppId` | string | App bundle identifier (e.g., `com.microsoft.Excel`) |\n\n### Optional management fields\n\n| Field | Type | Values | Description |\n|---|---|---|---|\n| `Install` | string | `Required`, `Optional` | Whether the app must be installed. Defaults to `Required`. |\n| `AllowDownloadsOverCellular` | string | `AlwaysOn`, `AlwaysOff`, `StoreSettings` | Controls cellular downloads. Defaults to `StoreSettings`. |\n| `AutomaticAppUpdates` | string | `AlwaysOn`, `AlwaysOff`, `StoreSettings` | Controls automatic updates. Defaults to `StoreSettings`. |\n| `IncludeInBackup` | boolean | `true`, `false` | Whether app data is included in device backups. |\n| `Attributes` | object | — | Fine-grained app behavior settings. See `Attributes` fields below. |\n\n### `Attributes` fields (all optional)\n\n| Field | Type | Description |\n|---|---|---|\n| `Hideable` | boolean | Allow the user to hide the app (requires iOS 18.1 or later). When `Lockable` is `false`, `Hideable` must also be `false`. |\n| `Lockable` | boolean | Allow the user to lock the app behind Face ID / Touch ID (requires iOS 18.1 or later). |\n| `TapToPayScreenLock` | boolean | Require screen lock when Tap to Pay is used. |\n| `AssociatedDomains` | array of strings | Associated domains for the app (e.g., `[\"example.com\"]`). |\n| `AssociatedDomainsEnableDirectDownloads` | boolean | Enable direct downloads for the associated domains. |\n| `CellularSliceUUID` | string (UUID) | Network slicing UUID for the app's cellular connection. |\n| `DNSProxyUUID` | string (UUID) | UUID of the DNS proxy configuration to apply to the app. |\n\n\u003e **Validation rule:** When `Lockable` is `false`, `Hideable` is required and must also be `false`.\n",
+            "enum": [
+              "com.jamf.ddm.app-managed"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "identifier",
+          "configuration"
+        ],
+        "type": "object"
+      },
+      "ManagedAppConfiguration": {
+        "description": "Configuration for one or more volume purchasing apps.\n\n### Example — single required app\n\n```json\n{\n  \"apps\": [\n    {\n      \"AssetId\": \"019a8082-19ba-794c-91f4-2cd5a02b0c72\",\n      \"AppAndBookTokenId\": \"099a8082-ae9d-70be-b377-84e4ba7459c4\",\n      \"AppId\": \"com.microsoft.Excel\",\n      \"Install\": \"Required\",\n      \"AutomaticAppUpdates\": \"AlwaysOn\"\n    }\n  ]\n}\n```\n\n### Example — app with attributes (iOS 18.1+)\n\n```json\n{\n  \"apps\": [\n    {\n      \"AssetId\": \"019a8082-19ba-794c-91f4-2cd5a02b0c72\",\n      \"AppAndBookTokenId\": \"099a8082-ae9d-70be-b377-84e4ba7459c4\",\n      \"AppId\": \"com.microsoft.Excel\",\n      \"Install\": \"Required\",\n      \"AllowDownloadsOverCellular\": \"AlwaysOff\",\n      \"AutomaticAppUpdates\": \"AlwaysOn\",\n      \"IncludeInBackup\": true,\n      \"Attributes\": {\n        \"Hideable\": true,\n        \"Lockable\": true,\n        \"AssociatedDomains\": [\"corp.example.com\"],\n        \"AssociatedDomainsEnableDirectDownloads\": false\n      }\n    }\n  ]\n}\n```\n\n### Example — multiple apps in one component\n\n```json\n{\n  \"apps\": [\n    {\n      \"AssetId\": \"019a8082-19ba-794c-91f4-2cd5a02b0c72\",\n      \"AppAndBookTokenId\": \"099a8082-ae9d-70be-b377-84e4ba7459c4\",\n      \"AppId\": \"com.microsoft.Excel\",\n      \"Install\": \"Required\"\n    },\n    {\n      \"AssetId\": \"12345678-0000-0000-0000-000000000001\",\n      \"AppAndBookTokenId\": \"099a8082-ae9d-70be-b377-84e4ba7459c4\",\n      \"AppId\": \"com.microsoft.Word\",\n      \"Install\": \"Optional\",\n      \"AutomaticAppUpdates\": \"StoreSettings\"\n    }\n  ]\n}\n```\n",
+        "properties": {
+          "apps": {
+            "description": "One or more volume purchasing app configurations to include in this component.",
+            "items": {
+              "$ref": "#/components/schemas/ManagedAppEntry"
+            },
+            "minItems": 1,
+            "type": "array"
+          }
+        },
+        "required": [
+          "apps"
+        ],
+        "type": "object"
+      },
+      "ManagedAppEntry": {
+        "description": "Configuration for a single volume purchasing app.",
+        "properties": {
+          "AllowDownloadsOverCellular": {
+            "description": "Controls whether the app can be downloaded over a cellular connection.",
+            "enum": [
+              "AlwaysOn",
+              "AlwaysOff",
+              "StoreSettings"
+            ],
+            "example": "StoreSettings",
+            "type": "string"
+          },
+          "AppAndBookTokenId": {
+            "description": "Identifier of the volume purchasing token that licenses this app.",
+            "example": "099a8082-ae9d-70be-b377-84e4ba7459c4",
+            "type": "string"
+          },
+          "AppId": {
+            "description": "App bundle identifier.",
+            "example": "com.microsoft.Excel",
+            "type": "string"
+          },
+          "AssetId": {
+            "description": "volume purchasing asset identifier for the app.",
+            "example": "019a8082-19ba-794c-91f4-2cd5a02b0c72",
+            "type": "string"
+          },
+          "Attributes": {
+            "$ref": "#/components/schemas/ManagedAppAttributes"
+          },
+          "AutomaticAppUpdates": {
+            "description": "Controls whether the app updates automatically.",
+            "enum": [
+              "AlwaysOn",
+              "AlwaysOff",
+              "StoreSettings"
+            ],
+            "example": "AlwaysOn",
+            "type": "string"
+          },
+          "IncludeInBackup": {
+            "description": "Whether the app's data is included in device backups.",
+            "example": true,
+            "type": "boolean"
+          },
+          "Install": {
+            "description": "Whether the app must be installed on devices in scope.",
+            "enum": [
+              "Required",
+              "Optional"
+            ],
+            "example": "Required",
+            "type": "string"
+          }
+        },
+        "required": [
+          "AssetId",
+          "AppAndBookTokenId",
+          "AppId"
+        ],
+        "type": "object"
+      },
+      "ManagedExtension": {
+        "properties": {
+          "AllowedDomains": {
+            "description": "Allowed domains",
+            "items": {
+              "$ref": "#/components/schemas/ManagedExtensionDomain"
+            },
+            "type": "array"
+          },
+          "DeniedDomains": {
+            "description": "Denied domains",
+            "items": {
+              "$ref": "#/components/schemas/ManagedExtensionDomain"
+            },
+            "type": "array"
+          },
+          "PrivateBrowsing": {
+            "description": "Private Browsing state",
+            "enum": [
+              "Allowed",
+              "AlwaysOn",
+              "AlwaysOff"
+            ],
+            "type": "string"
+          },
+          "State": {
+            "description": "Extension state",
+            "enum": [
+              "Allowed",
+              "AlwaysOn",
+              "AlwaysOff"
+            ],
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "ManagedExtensionDomain": {
+        "properties": {
+          "Domain": {
+            "description": "Domain",
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "Domain"
+        ],
+        "type": "object"
+      },
+      "MathNotesMode": {
+        "properties": {
+          "Enabled": {
+            "description": "Controls whether the mode is enabled.",
+            "type": "boolean"
+          },
+          "Included": {
+            "default": true,
+            "description": "Controls whether this control should be used.",
+            "type": "boolean",
+            "writeOnly": true
+          }
+        },
+        "required": [
+          "Enabled"
+        ],
+        "type": "object"
+      },
+      "MathSettingsComponent": {
+        "properties": {
+          "configuration": {
+            "$ref": "#/components/schemas/MathSettingsConfiguration"
+          },
+          "identifier": {
+            "enum": [
+              "com.jamf.ddm.math-settings"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "identifier",
+          "configuration"
+        ],
+        "type": "object"
+      },
+      "MathSettingsConfiguration": {
+        "description": "Math settings configuration.\n\nConfigures Calculator app modes and system-wide math behavior including keyboard suggestions and Math Notes.\n",
+        "properties": {
+          "Calculator": {
+            "$ref": "#/components/schemas/Calculator",
+            "description": "If present, configures the built-in Calculator app."
+          },
+          "SystemBehavior": {
+            "$ref": "#/components/schemas/SystemBehavior",
+            "description": "If present, configures math behavior in the system."
+          }
+        },
+        "type": "object"
+      },
+      "MaximumFailedAttempts": {
+        "properties": {
+          "Included": {
+            "type": "boolean",
+            "writeOnly": true
+          },
+          "Value": {
+            "default": 11,
+            "description": "Maximum failed attempts",
+            "example": 10,
+            "format": "int32",
+            "maximum": 11,
+            "minimum": 2,
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "MaximumGracePeriodInMinutes": {
+        "properties": {
+          "Included": {
+            "type": "boolean",
+            "writeOnly": true
+          },
+          "Value": {
+            "description": "Maximum grace period in minutes",
+            "example": 2,
+            "format": "int32",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "MaximumInactivityInMinutes": {
+        "properties": {
+          "Included": {
+            "type": "boolean",
+            "writeOnly": true
+          },
+          "Value": {
+            "description": "Maximum inactivity in minutes",
+            "example": 10,
+            "format": "int32",
+            "maximum": 15,
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "MaximumPasscodeAgeInDays": {
+        "properties": {
+          "Included": {
+            "type": "boolean",
+            "writeOnly": true
+          },
+          "Value": {
+            "description": "Maximum passcode age in days",
+            "example": 14,
+            "format": "int32",
+            "maximum": 730,
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "Meta": {
+        "description": "Meta object containing additional information about component",
+        "properties": {
+          "supportedOs": {
+            "additionalProperties": {
+              "description": "Supported version of OS families",
+              "example": {
+                "iOS": [
+                  {
+                    "version": "13.0"
+                  }
+                ],
+                "macOS": [
+                  {
+                    "version": "12.5"
+                  }
+                ]
+              },
+              "items": {
+                "$ref": "#/components/schemas/SupportedOs"
+              },
+              "type": "array"
+            },
+            "description": "Supported version of OS families",
+            "example": {
+              "iOS": [
+                {
+                  "version": "13.0"
+                }
+              ],
+              "macOS": [
+                {
+                  "version": "12.5"
+                }
+              ]
+            },
+            "type": "object"
+          }
+        },
+        "required": [
+          "supportedOs"
+        ],
+        "type": "object"
+      },
+      "MinimumComplexCharacters": {
+        "properties": {
+          "Included": {
+            "type": "boolean",
+            "writeOnly": true
+          },
+          "Value": {
+            "default": 0,
+            "description": "Minimum complex characters",
+            "example": 1,
+            "format": "int32",
+            "maximum": 4,
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "MinimumLength": {
+        "properties": {
+          "Included": {
+            "type": "boolean",
+            "writeOnly": true
+          },
+          "Value": {
+            "default": 0,
+            "description": "Minimum length",
+            "example": 8,
+            "format": "int32",
+            "maximum": 16,
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "NewTabStartPage": {
+        "properties": {
+          "ExtensionIdentifier": {
+            "description": "The composed identifier of the extension that provides the start page",
+            "example": "com.example.extension (ABC1234567)",
+            "pattern": "^[a-zA-Z][a-zA-Z0-9\\-]*(?:\\.[a-zA-Z0-9\\-]+)+ \\([A-Z0-9]{10}\\)$",
+            "type": "string"
+          },
+          "HomepageURL": {
+            "description": "The URL of the homepage which needs to start with https:// or http://",
+            "example": "https://example.com",
+            "pattern": "^https?://.*$",
+            "type": "string"
+          },
+          "Included": {
+            "type": "boolean",
+            "writeOnly": true
+          },
+          "PageType": {
+            "description": "Sets the start page type in Safari",
+            "enum": [
+              "Start",
+              "Home",
+              "Extension"
+            ],
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "OptionalPeriodInDays": {
+        "properties": {
+          "Included": {
+            "default": true,
+            "description": "Controls whether this control should be used.",
+            "type": "boolean",
+            "writeOnly": true
+          },
+          "Value": {
+            "format": "int32",
+            "maximum": 90,
+            "minimum": 1,
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "OptionallyEnabled": {
+        "properties": {
+          "Enabled": {
+            "type": "boolean"
+          },
+          "Included": {
+            "default": true,
+            "description": "Controls whether this control should be used.",
+            "type": "boolean",
+            "writeOnly": true
+          }
+        },
+        "required": [
+          "Enabled"
+        ],
+        "type": "object"
+      },
+      "PagedResponseBlueprintOverview": {
+        "properties": {
+          "results": {
+            "description": "Array of result items",
+            "items": {
+              "$ref": "#/components/schemas/BlueprintOverview"
+            },
+            "type": "array"
+          },
+          "totalCount": {
+            "description": "Total number of items matching the filter",
+            "example": 100,
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "results"
+        ],
+        "type": "object"
+      },
+      "PagedResponseComponentDescription": {
+        "properties": {
+          "results": {
+            "description": "Array of result items",
+            "items": {
+              "$ref": "#/components/schemas/ComponentDescription"
+            },
+            "type": "array"
+          },
+          "totalCount": {
+            "description": "Total number of items matching the filter",
+            "example": 100,
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "results"
+        ],
+        "type": "object"
+      },
+      "PasscodeReuseLimit": {
+        "properties": {
+          "Included": {
+            "type": "boolean",
+            "writeOnly": true
+          },
+          "Value": {
+            "description": "Passcode reuse limit",
+            "example": 10,
+            "format": "int32",
+            "maximum": 50,
+            "minimum": 1,
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "PasscodeSettingsComponent": {
+        "properties": {
+          "configuration": {
+            "$ref": "#/components/schemas/PasscodeSettingsConfiguration"
+          },
+          "identifier": {
+            "enum": [
+              "com.jamf.ddm.passcode-settings"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "identifier",
+          "configuration"
+        ],
+        "type": "object"
+      },
+      "PasscodeSettingsConfiguration": {
+        "description": "Passcode settings configuration.\n\nConfigures device passcode requirements including complexity, length, and expiration.\n",
+        "properties": {
+          "ChangeAtNextAuth": {
+            "$ref": "#/components/schemas/ChangeAtNextAuth"
+          },
+          "CustomRegex": {
+            "$ref": "#/components/schemas/CustomRegex"
+          },
+          "FailedAttemptsResetInMinutes": {
+            "$ref": "#/components/schemas/FailedAttemptsResetInMinutes"
+          },
+          "MaximumFailedAttempts": {
+            "$ref": "#/components/schemas/MaximumFailedAttempts"
+          },
+          "MaximumGracePeriodInMinutes": {
+            "$ref": "#/components/schemas/MaximumGracePeriodInMinutes"
+          },
+          "MaximumInactivityInMinutes": {
+            "$ref": "#/components/schemas/MaximumInactivityInMinutes"
+          },
+          "MaximumPasscodeAgeInDays": {
+            "$ref": "#/components/schemas/MaximumPasscodeAgeInDays"
+          },
+          "MinimumComplexCharacters": {
+            "$ref": "#/components/schemas/MinimumComplexCharacters"
+          },
+          "MinimumLength": {
+            "$ref": "#/components/schemas/MinimumLength"
+          },
+          "PasscodeReuseLimit": {
+            "$ref": "#/components/schemas/PasscodeReuseLimit"
+          },
+          "RequireAlphanumericPasscode": {
+            "$ref": "#/components/schemas/RequireAlphanumericPasscode"
+          },
+          "RequireComplexPasscode": {
+            "$ref": "#/components/schemas/RequireComplexPasscode"
+          },
+          "RequirePasscode": {
+            "$ref": "#/components/schemas/RequirePasscode"
+          },
+          "version": {
+            "description": "Configuration version",
+            "enum": [
+              2
+            ],
+            "format": "int32",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "version"
+        ],
+        "type": "object"
+      },
+      "ProgrammerMode": {
+        "properties": {
+          "Enabled": {
+            "description": "Controls whether the mode is enabled.",
+            "type": "boolean"
+          },
+          "Included": {
+            "default": true,
+            "description": "Controls whether this control should be used.",
+            "type": "boolean",
+            "writeOnly": true
+          }
+        },
+        "required": [
+          "Enabled"
+        ],
+        "type": "object"
+      },
+      "RapidSecurityResponse": {
+        "properties": {
+          "Enable": {
+            "$ref": "#/components/schemas/OptionallyEnabled"
+          },
+          "EnableRollback": {
+            "$ref": "#/components/schemas/OptionallyEnabled"
+          }
+        },
+        "type": "object"
+      },
+      "RecommendedCadence": {
+        "properties": {
+          "Included": {
+            "default": true,
+            "description": "Controls whether this control should be used.",
+            "type": "boolean",
+            "writeOnly": true
+          },
+          "Value": {
+            "enum": [
+              "All",
+              "Oldest",
+              "Newest"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "Value"
+        ],
+        "type": "object"
+      },
+      "RequireAlphanumericPasscode": {
+        "properties": {
+          "Included": {
+            "type": "boolean",
+            "writeOnly": true
+          },
+          "Value": {
+            "description": "Require alphanumeric passcode",
+            "type": "boolean"
+          }
+        },
+        "type": "object"
+      },
+      "RequireComplexPasscode": {
+        "properties": {
+          "Included": {
+            "type": "boolean",
+            "writeOnly": true
+          },
+          "Value": {
+            "description": "Require complex passcode",
+            "type": "boolean"
+          }
+        },
+        "type": "object"
+      },
+      "RequirePasscode": {
+        "properties": {
+          "Included": {
+            "type": "boolean",
+            "writeOnly": true
+          },
+          "Value": {
+            "description": "Require passcode",
+            "type": "boolean"
+          }
+        },
+        "type": "object"
+      },
+      "Restrictions": {
+        "description": "Storage restrictions configuration",
+        "properties": {
+          "ExternalStorage": {
+            "$ref": "#/components/schemas/StorageMode"
+          },
+          "NetworkStorage": {
+            "$ref": "#/components/schemas/StorageMode"
+          }
+        },
+        "type": "object"
+      },
+      "SafariBookmarksComponent": {
+        "properties": {
+          "configuration": {
+            "$ref": "#/components/schemas/SafariBookmarksConfiguration"
+          },
+          "identifier": {
+            "enum": [
+              "com.jamf.ddm.safari-bookmarks"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "identifier",
+          "configuration"
+        ],
+        "type": "object"
+      },
+      "SafariBookmarksConfiguration": {
+        "description": "Safari bookmarks configuration.\n\nDefines managed bookmark groups and folders that appear in Safari across managed devices.\n",
+        "properties": {
+          "ManagedBookmarks": {
+            "description": "A dictionary that specifies a set of managed bookmarks",
+            "items": {
+              "$ref": "#/components/schemas/BookmarkGroup"
+            },
+            "minItems": 1,
+            "type": "array"
+          }
+        },
+        "required": [
+          "ManagedBookmarks"
+        ],
+        "type": "object"
+      },
+      "SafariExtensionsComponent": {
+        "properties": {
+          "configuration": {
+            "$ref": "#/components/schemas/SafariExtensionsConfiguration"
+          },
+          "identifier": {
+            "enum": [
+              "com.jamf.ddm.safari-extensions"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "identifier",
+          "configuration"
+        ],
+        "type": "object"
+      },
+      "SafariExtensionsConfiguration": {
+        "description": "Safari extensions configuration.\n\nManages Safari browser extensions including allowed/denied domains and private browsing settings.\n",
+        "properties": {
+          "ManagedExtensions": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/ManagedExtension"
+            },
+            "type": "object"
+          }
+        },
+        "required": [
+          "ManagedExtensions"
+        ],
+        "type": "object"
+      },
+      "SafariSettingsComponent": {
+        "properties": {
+          "configuration": {
+            "$ref": "#/components/schemas/SafariSettingsConfiguration"
+          },
+          "identifier": {
+            "enum": [
+              "com.jamf.ddm.safari-settings"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "identifier",
+          "configuration"
+        ],
+        "type": "object"
+      },
+      "SafariSettingsConfiguration": {
+        "description": "Safari settings configuration.\n\nConfigures Safari browser behavior including cookies, JavaScript, popups, private browsing, and start page settings.\n",
+        "properties": {
+          "AcceptCookies": {
+            "$ref": "#/components/schemas/AcceptCookies",
+            "description": "The policy Safari uses for managing cookies"
+          },
+          "AllowDisablingFraudWarning": {
+            "$ref": "#/components/schemas/AllowDisablingFraudWarning",
+            "description": "If false, the system forces fraud warnings on in Safari"
+          },
+          "AllowHistoryClearing": {
+            "$ref": "#/components/schemas/AllowHistoryClearing",
+            "description": "If false, the system disables clearing history in Safari"
+          },
+          "AllowJavaScript": {
+            "$ref": "#/components/schemas/AllowJavaScript",
+            "description": "If false, the system disables JavaScript in Safari"
+          },
+          "AllowPopups": {
+            "$ref": "#/components/schemas/AllowPopups",
+            "description": "If false, the system disables popups in Safari"
+          },
+          "AllowPrivateBrowsing": {
+            "$ref": "#/components/schemas/AllowPrivateBrowsing",
+            "description": "If false, the system disables private browsing in Safari"
+          },
+          "AllowSummary": {
+            "$ref": "#/components/schemas/AllowSummary",
+            "description": "If false, the system disables summarization of content in Safari"
+          },
+          "NewTabStartPage": {
+            "$ref": "#/components/schemas/NewTabStartPage",
+            "description": "Sets the start page for new tabs in Safari"
+          }
+        },
+        "type": "object"
+      },
+      "ScientificMode": {
+        "properties": {
+          "Enabled": {
+            "description": "Controls whether the mode is enabled.",
+            "type": "boolean"
+          },
+          "Included": {
+            "default": true,
+            "description": "Controls whether this control should be used.",
+            "type": "boolean",
+            "writeOnly": true
+          }
+        },
+        "required": [
+          "Enabled"
+        ],
+        "type": "object"
+      },
+      "SoftwareUpdateSettingsComponent": {
+        "properties": {
+          "configuration": {
+            "$ref": "#/components/schemas/SoftwareUpdateSettingsConfiguration"
+          },
+          "identifier": {
+            "enum": [
+              "com.jamf.ddm.software-update-settings"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "identifier",
+          "configuration"
+        ],
+        "type": "object"
+      },
+      "SoftwareUpdateSettingsConfiguration": {
+        "description": "Software update settings configuration.\n\nConfigures OS update behavior including notifications, automatic actions, deferrals, and rapid security responses.\n",
+        "properties": {
+          "AllowStandardUserOSUpdates": {
+            "$ref": "#/components/schemas/OptionallyEnabled"
+          },
+          "AutomaticActions": {
+            "$ref": "#/components/schemas/AutomaticActions"
+          },
+          "Beta": {
+            "$ref": "#/components/schemas/Beta"
+          },
+          "Deferrals": {
+            "$ref": "#/components/schemas/Deferrals"
+          },
+          "Notifications": {
+            "$ref": "#/components/schemas/OptionallyEnabled"
+          },
+          "RapidSecurityResponse": {
+            "$ref": "#/components/schemas/RapidSecurityResponse"
+          },
+          "RecommendedCadence": {
+            "$ref": "#/components/schemas/RecommendedCadence"
+          }
+        },
+        "type": "object"
+      },
+      "StorageMode": {
+        "description": "Storage access mode configuration",
+        "properties": {
+          "Included": {
+            "default": true,
+            "description": "Controls whether this setting should be used",
+            "type": "boolean",
+            "writeOnly": true
+          },
+          "Value": {
+            "description": "Controls whether the mode is enabled.",
+            "enum": [
+              "Allowed",
+              "Disallowed",
+              "ReadOnly"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "Value"
+        ],
+        "type": "object"
+      },
+      "SupportedOs": {
+        "description": "Supported version of OS families",
+        "example": {
+          "iOS": [
+            {
+              "version": "13.0"
+            }
+          ],
+          "macOS": [
+            {
+              "version": "12.5"
+            }
+          ]
+        },
+        "properties": {
+          "version": {
+            "description": "Version of the OS family",
+            "example": "13.0",
+            "type": "string"
+          }
+        },
+        "required": [
+          "version"
+        ],
+        "type": "object"
+      },
+      "SwUpdateAutomaticConfiguration": {
+        "description": "Automatic software update enforcement configuration.\n\nAutomatically enforces updates based on strategy (LATEST or SEMANTIC).\n",
+        "discriminator": {
+          "mapping": {
+            "LATEST": "#/components/schemas/SwUpdateLatestConfiguration",
+            "SEMANTIC": "#/components/schemas/SwUpdateSemanticConfiguration"
+          },
+          "propertyName": "strategy"
+        },
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/SwUpdateLatestConfiguration"
+          },
+          {
+            "$ref": "#/components/schemas/SwUpdateSemanticConfiguration"
+          }
+        ],
+        "properties": {
+          "strategy": {
+            "description": "Strategy for enforcing automatic OS updates",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "SwUpdateComponent": {
+        "properties": {
+          "configuration": {
+            "$ref": "#/components/schemas/SwUpdateConfiguration"
+          },
+          "identifier": {
+            "enum": [
+              "com.jamf.ddm.sw-updates"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "identifier",
+          "configuration"
+        ],
+        "type": "object"
+      },
+      "SwUpdateConfiguration": {
+        "description": "Software update enforcement configuration.\n\nConfigures OS update enforcement using either manual (specific version by date) or automatic strategies.\n",
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/SwUpdateManualConfiguration"
+          },
+          {
+            "$ref": "#/components/schemas/SwUpdateAutomaticConfiguration"
+          }
+        ],
+        "properties": {
+          "enforcementType": {
+            "description": "Type of software update enforcement strategy",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "SwUpdateLatestConfiguration": {
+        "description": "Automatic software update with LATEST strategy.\nEnforces the newest available OS version a specified number of days after release.\n",
+        "properties": {
+          "deploymentTime": {
+            "description": "The device local time (HH:MM) when the update should be installed",
+            "example": "16:00",
+            "type": "string"
+          },
+          "detailsURL": {
+            "$ref": "#/components/schemas/DetailsUrl"
+          },
+          "enforceAfterDays": {
+            "description": "The number of days after the OS update release",
+            "example": 14,
+            "format": "int32",
+            "maximum": 30,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "enforcementType": {
+            "enum": [
+              "AUTOMATIC"
+            ],
+            "type": "string"
+          },
+          "strategy": {
+            "enum": [
+              "LATEST"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "enforcementType",
+          "strategy",
+          "enforceAfterDays",
+          "deploymentTime"
+        ],
+        "type": "object"
+      },
+      "SwUpdateManualConfiguration": {
+        "description": "Manual software update enforcement configuration.\n\nEnforces a specific OS version by a specific date/time.\n",
+        "properties": {
+          "detailsURL": {
+            "$ref": "#/components/schemas/DetailsUrl"
+          },
+          "enforcementType": {
+            "enum": [
+              "MANUAL"
+            ],
+            "type": "string"
+          },
+          "targetLocalDateTime": {
+            "description": "Local time of the device until which update must be performed",
+            "example": "2025-07-10T10:45:06.809",
+            "format": "date-time",
+            "type": "string"
+          },
+          "targetOSVersion": {
+            "description": "Target OS version in semantic versioning format",
+            "example": "15.0.1",
+            "pattern": "^[1-9]\\d?(?:\\.(?:\\d|[1-9]\\d)){1,2}$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "enforcementType",
+          "targetOSVersion",
+          "targetLocalDateTime"
+        ],
+        "type": "object"
+      },
+      "SwUpdateSemanticConfiguration": {
+        "description": "Automatic software update with SEMANTIC strategy.\nApplies semantic versioning rules to determine update enforcement timing.\n",
+        "properties": {
+          "detailsURL": {
+            "$ref": "#/components/schemas/DetailsUrl"
+          },
+          "enforcementType": {
+            "enum": [
+              "AUTOMATIC"
+            ],
+            "type": "string"
+          },
+          "rules": {
+            "$ref": "#/components/schemas/UpdateRules"
+          },
+          "strategy": {
+            "enum": [
+              "SEMANTIC"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "enforcementType",
+          "strategy",
+          "rules"
+        ],
+        "type": "object"
+      },
+      "SystemBehavior": {
+        "properties": {
+          "Included": {
+            "default": true,
+            "description": "Controls whether this control should be used.",
+            "type": "boolean",
+            "writeOnly": true
+          },
+          "KeyboardSuggestions": {
+            "description": "Controls whether keyboard suggestions include math solutions.",
+            "type": "boolean"
+          },
+          "MathNotes": {
+            "description": "Controls whether Math Notes is allowed in other apps such as Notes.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "KeyboardSuggestions",
+          "MathNotes"
+        ],
+        "type": "object"
+      },
+      "TemporaryPairing": {
+        "description": "Temporary pairing configuration",
+        "properties": {
+          "Configuration": {
+            "$ref": "#/components/schemas/TemporaryPairingConfig"
+          },
+          "Disabled": {
+            "default": false,
+            "description": "If true, temporary pairing of audio accessories is disabled",
+            "type": "boolean"
+          },
+          "Included": {
+            "default": true,
+            "description": "Controls whether this setting should be used",
+            "type": "boolean",
+            "writeOnly": true
+          }
+        },
+        "type": "object"
+      },
+      "TemporaryPairingConfig": {
+        "description": "Temporary pairing configuration details",
+        "properties": {
+          "UnpairingTime": {
+            "$ref": "#/components/schemas/UnpairingTime"
+          }
+        },
+        "required": [
+          "UnpairingTime"
+        ],
+        "type": "object"
+      },
+      "UnpairingTime": {
+        "description": "Automatic unpairing time configuration",
+        "properties": {
+          "Hour": {
+            "description": "Local time hour (24-hour clock) for automatic unpairing. Required when Policy is \"Hour\".",
+            "format": "int32",
+            "maximum": 23,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "Policy": {
+            "description": "A string that specifies the device's unpairing policy.",
+            "enum": [
+              "None",
+              "Hour"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "Policy"
+        ],
+        "type": "object"
+      },
+      "UpdateBlueprintRequest": {
+        "properties": {
+          "description": {
+            "description": "Description of the blueprint",
+            "example": "Keep all eligible MacOS devices updated to the last major version",
+            "maxLength": 2000,
+            "nullable": true,
+            "type": "string"
+          },
+          "name": {
+            "description": "Name of the blueprint",
+            "example": "Update software to latest version",
+            "maxLength": 200,
+            "minLength": 1,
+            "type": "string"
+          },
+          "scope": {
+            "$ref": "#/components/schemas/BlueprintScope"
+          },
+          "steps": {
+            "description": "Array of blueprint steps",
+            "items": {
+              "$ref": "#/components/schemas/BlueprintStep"
+            },
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
+      "UpdateRule": {
+        "description": "Configuration for a specific update type",
+        "properties": {
+          "deploymentTime": {
+            "description": "The device local time (HH:MM) when the update should be installed",
+            "example": "16:00",
+            "type": "string"
+          },
+          "enforceAfterDays": {
+            "description": "The number of days after the OS update release",
+            "example": 14,
+            "format": "int32",
+            "maximum": 30,
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "enforceAfterDays",
+          "deploymentTime"
+        ],
+        "type": "object"
+      },
+      "UpdateRules": {
+        "description": "Rules for semantic update strategy",
+        "properties": {
+          "minor": {
+            "$ref": "#/components/schemas/UpdateRule"
+          }
+        },
+        "required": [
+          "minor"
+        ],
+        "type": "object"
+      },
+      "UrlBookmarkItem": {
+        "properties": {
+          "Title": {
+            "description": "The title of the bookmark shown in Safari",
+            "minLength": 1,
+            "type": "string"
+          },
+          "Type": {
+            "enum": [
+              "BOOKMARK"
+            ],
+            "type": "string"
+          },
+          "URL": {
+            "description": "The URL for the bookmark item",
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "Type",
+          "Title",
+          "URL"
+        ],
+        "type": "object"
+      }
+    },
+    "securitySchemes": {
+      "bearerAuth": {
+        "bearerFormat": "JWT",
+        "description": "JWT Bearer token authentication. Obtain a token from the Jamf API Gateway.",
+        "scheme": "bearer",
+        "type": "http"
+      }
+    }
+  },
+  "info": {
+    "contact": {
+      "name": "Jamf Developer",
+      "url": "https://developer.jamf.com"
+    },
+    "description": "Blueprints simplify the creation of complex workflows by leveraging declarative device management to ensure devices meet a particular management state. You can use blueprints to scope management settings to devices using customizable components that include payloads and their configurable settings, all in one location.",
+    "termsOfService": "https://www.jamf.com/developer-resources/api-license-agreement/",
+    "title": "Blueprints API",
+    "version": "v0"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/v1/tenant/{tenantId}/blueprint-components": {
+      "get": {
+        "description": "Get list of available blueprint components\n\n**Required Permissions:** `read:pro:blueprints`, `read:school:blueprints`",
+        "operationId": "listComponents",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/tenantId"
+          },
+          {
+            "description": "Zero-based page index (0..N)",
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "default": 0,
+              "format": "int32",
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          {
+            "description": "The size of the page to be returned",
+            "in": "query",
+            "name": "page-size",
+            "schema": {
+              "default": 100,
+              "format": "int32",
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PagedResponseComponentDescription"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "List available blueprint components",
+        "tags": [
+          "blueprints"
+        ],
+        "x-authentication-required": true,
+        "x-required-privileges": [
+          "read:pro:blueprints",
+          "read:school:blueprints"
+        ]
+      }
+    },
+    "/v1/tenant/{tenantId}/blueprint-components/{identifier}": {
+      "get": {
+        "description": "Get component by identifier\n\n**Required Permissions:** `read:pro:blueprints`, `read:school:blueprints`",
+        "operationId": "getComponent",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/tenantId"
+          },
+          {
+            "description": "Identifier of the component",
+            "in": "path",
+            "name": "identifier",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ComponentDescription"
+                }
+              }
+            },
+            "description": "Blueprint component was found"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Blueprint component was not found"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Get component",
+        "tags": [
+          "blueprints"
+        ],
+        "x-authentication-required": true,
+        "x-required-privileges": [
+          "read:pro:blueprints",
+          "read:school:blueprints"
+        ]
+      }
+    },
+    "/v1/tenant/{tenantId}/blueprints": {
+      "get": {
+        "description": "Get list of blueprints\n\n**Required Permissions:** `read:pro:blueprints`, `read:school:blueprints`",
+        "operationId": "listBlueprints",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/tenantId"
+          },
+          {
+            "description": "Zero-based page index (0..N)",
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "default": 0,
+              "format": "int32",
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          {
+            "description": "The size of the page to be returned",
+            "in": "query",
+            "name": "page-size",
+            "schema": {
+              "default": 100,
+              "format": "int32",
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Sorting criteria in the format: `\u003cfield_name\u003e[:sort_direction][,\u003csecondary_sort_field_name\u003e[:sort_direction]]*`. Default sort direction is `asc` (Ascending). Use `desc` for Descending ordering. Additional sort parameters are supported and determine order of results that have equivalent values for previous sort parameters.",
+            "in": "query",
+            "name": "sort",
+            "schema": {
+              "default": "created:desc",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Search query to match against `name` and `description` properties.",
+            "in": "query",
+            "name": "search",
+            "schema": {
+              "description": "Search query to match against `name` and `description` properties.",
+              "maxLength": 1000,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PagedResponseBlueprintOverview"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "List blueprints",
+        "tags": [
+          "blueprints"
+        ],
+        "x-authentication-required": true,
+        "x-required-privileges": [
+          "read:pro:blueprints",
+          "read:school:blueprints"
+        ]
+      },
+      "post": {
+        "description": "Create a new blueprint\n\n**Required Permissions:** `create:pro:blueprints`, `create:school:blueprints`",
+        "operationId": "createBlueprint",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/tenantId"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateBlueprintRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateResponse"
+                }
+              }
+            },
+            "description": "Blueprint was successfully created",
+            "headers": {
+              "Location": {
+                "description": "URL of the created blueprint",
+                "schema": {
+                  "format": "uri",
+                  "type": "string"
+                },
+                "style": "simple"
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Blueprint is invalid"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Create a new blueprint",
+        "tags": [
+          "blueprints"
+        ],
+        "x-authentication-required": true,
+        "x-required-privileges": [
+          "create:pro:blueprints",
+          "create:school:blueprints"
+        ]
+      }
+    },
+    "/v1/tenant/{tenantId}/blueprints/{blueprintId}": {
+      "delete": {
+        "description": "Delete a blueprint\n\n**Required Permissions:** `delete:pro:blueprints`, `delete:school:blueprints`",
+        "operationId": "deleteBlueprint",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/tenantId"
+          },
+          {
+            "description": "Blueprint ID",
+            "in": "path",
+            "name": "blueprintId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Blueprint was successfully deleted"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Blueprint wasn't found"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Delete a blueprint",
+        "tags": [
+          "blueprints"
+        ],
+        "x-authentication-required": true,
+        "x-required-privileges": [
+          "delete:pro:blueprints",
+          "delete:school:blueprints"
+        ]
+      },
+      "get": {
+        "description": "Get a blueprint\n\n**Required Permissions:** `read:pro:blueprints`, `read:school:blueprints`",
+        "operationId": "getBlueprint",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/tenantId"
+          },
+          {
+            "description": "Blueprint ID",
+            "in": "path",
+            "name": "blueprintId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BlueprintDetail"
+                }
+              }
+            },
+            "description": "Blueprint was fetched successfully"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Blueprint doesn't exist"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Get a blueprint",
+        "tags": [
+          "blueprints"
+        ],
+        "x-authentication-required": true,
+        "x-required-privileges": [
+          "read:pro:blueprints",
+          "read:school:blueprints"
+        ]
+      },
+      "patch": {
+        "description": "Updates a blueprint configuration.\n\n**Required Permissions:** `update:pro:blueprints`, `update:school:blueprints`",
+        "operationId": "patchBlueprint",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/tenantId"
+          },
+          {
+            "description": "Blueprint ID",
+            "in": "path",
+            "name": "blueprintId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/merge-patch+json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateBlueprintRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Blueprint was successfully updated"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Blueprint update is not valid"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Blueprint wasn't found"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Updates a blueprint configuration",
+        "tags": [
+          "blueprints"
+        ],
+        "x-authentication-required": true,
+        "x-required-privileges": [
+          "update:pro:blueprints",
+          "update:school:blueprints"
+        ]
+      }
+    },
+    "/v1/tenant/{tenantId}/blueprints/{blueprintId}/deploy": {
+      "post": {
+        "description": "Deploy blueprint\n\n**Required Permissions:** `deploy:pro:blueprints`, `deploy:school:blueprints`",
+        "operationId": "deployBlueprint",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/tenantId"
+          },
+          {
+            "description": "Blueprint ID",
+            "in": "path",
+            "name": "blueprintId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Blueprint deployment was started"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Blueprint doesn't exist"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Blueprint is not valid for deployment"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Deploy blueprint",
+        "tags": [
+          "blueprints"
+        ],
+        "x-action": true,
+        "x-authentication-required": true,
+        "x-required-privileges": [
+          "deploy:pro:blueprints",
+          "deploy:school:blueprints"
+        ]
+      }
+    },
+    "/v1/tenant/{tenantId}/blueprints/{blueprintId}/report": {
+      "get": {
+        "description": "Retrieve deployment status report for a specified blueprint.\n\n**Required Permissions:** `read:pro:blueprints`, `read:school:blueprints`",
+        "operationId": "getBlueprintStatus",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/tenantId"
+          },
+          {
+            "description": "Blueprint ID",
+            "in": "path",
+            "name": "blueprintId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BlueprintStatusDetail"
+                }
+              }
+            },
+            "description": "Blueprint status report was fetched successfully"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Blueprint status report doesn't exist"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Get blueprint status report",
+        "tags": [
+          "blueprints"
+        ],
+        "x-authentication-required": true,
+        "x-required-privileges": [
+          "read:pro:blueprints",
+          "read:school:blueprints"
+        ]
+      }
+    },
+    "/v1/tenant/{tenantId}/blueprints/{blueprintId}/undeploy": {
+      "post": {
+        "description": "Undeploy blueprint\n\n**Required Permissions:** `deploy:pro:blueprints`, `deploy:school:blueprints`",
+        "operationId": "undeployBlueprint",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/tenantId"
+          },
+          {
+            "description": "Blueprint ID",
+            "in": "path",
+            "name": "blueprintId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Blueprint undeployment was started"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Blueprint doesn't exist"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Undeploy blueprint",
+        "tags": [
+          "blueprints"
+        ],
+        "x-action": true,
+        "x-authentication-required": true,
+        "x-required-privileges": [
+          "deploy:pro:blueprints",
+          "deploy:school:blueprints"
+        ]
+      }
+    }
+  },
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ],
+  "servers": [
+    {
+      "description": "Jamf Beta API Gateway - prod",
+      "url": "https://{region}.apigw.jamf.com/api/blueprints",
+      "variables": {
+        "region": {
+          "default": "us",
+          "description": "Geographic deployment region",
+          "enum": [
+            "us",
+            "eu",
+            "apac"
+          ]
+        }
+      }
+    }
+  ],
+  "tags": [
+    {
+      "description": "Blueprint management",
+      "name": "blueprints"
+    }
+  ]
+}

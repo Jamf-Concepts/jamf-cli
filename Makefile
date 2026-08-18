@@ -1,4 +1,4 @@
-.PHONY: build test clean generate sync-specs sync-spec sync-platform-specs sync-security-specs install lint lint-dead verify-generated verify-platform-specs verify-security-specs verify-site verify-site-output smoke smoke-seed smoke-cleanup release-check site
+.PHONY: build test clean generate sync-specs sync-spec sync-platform-specs sync-platform-specs-from-sdk sync-security-specs install lint lint-dead verify-generated verify-platform-specs verify-security-specs verify-site verify-site-output smoke smoke-seed smoke-cleanup release-check site
 
 # Build variables
 VERSION         ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
@@ -183,6 +183,35 @@ sync-spec:
 	@echo "Spec version: $$JAMF_PRO_VERSION (written to specs/.spec-version)"
 	@echo "Done! Review changes with: git diff specs internal/commands/pro/generated"
 
+# PLATFORM_SDK_SPECS is the set of Platform Gateway specs this CLI generates
+# from, and it is authoritative: sync-platform-specs copies exactly these and
+# nothing else.
+#
+# It is a list rather than a wildcard for two reasons. The SDK's api/ also holds
+# pro_api.json, the Classic documentation and the app-installer specs — Jamf Pro
+# APIs generated here from specs/*.yaml, which would emit bogus platform commands
+# from Pro paths. And specs/.platform-source/ is gitignored, so its contents are
+# whatever a developer last left there and differ per working tree; a wildcard
+# made `make verify-platform-specs` depend on that, and an unrelated spec sitting
+# in the directory would silently join the build on any branch.
+PLATFORM_SDK_SPECS = \
+	blueprints_api.json \
+	compliance_benchmark_engine.json \
+	declaration_reporting_service.json \
+	device_group_inventory_api.json \
+	device_inventory_api.json \
+	device_management_action_api.json
+
+# Platform Gateway specs are sourced from jamfplatform-go-sdk's published api/
+# directory — see sync-platform-specs-from-sdk below, which is the supported
+# route. The SDK is the only place the specs are normalised and wire-verified
+# against a live tenant, so taking them from anywhere else is how they drift:
+# a stale copy of the compliance-benchmark spec left `pro rules list` sending a
+# query parameter the server had renamed, returning 0 rules for every baseline.
+#
+# specs/platform/ filenames therefore match the SDK's api/ filenames exactly, so
+# a refresh is a copy with no mapping to keep in step.
+#
 # Sync Jamf Platform Gateway specs from the gitignored .platform-source/
 # directory into the published specs/platform/ tree, then regenerate. Drop
 # updated *.json specs into specs/.platform-source/ and run this target —
@@ -196,10 +225,45 @@ sync-platform-specs:
 	fi
 	@mkdir -p specs/platform
 	@rm -f specs/platform/*.json
-	@cp specs/.platform-source/*.json specs/platform/
+	@for f in $(PLATFORM_SDK_SPECS); do \
+		if [ ! -f "specs/.platform-source/$$f" ]; then \
+			echo "Error: specs/.platform-source/$$f not found"; \
+			echo "Fetch it with: make sync-platform-specs-from-sdk JAMFPLATFORM_SDK_PATH=/path/to/jamfplatform-go-sdk"; \
+			exit 1; \
+		fi; \
+		cp "specs/.platform-source/$$f" specs/platform/; \
+	done
 	@echo "Copied $$(ls specs/platform/*.json | wc -l | tr -d ' ') platform spec(s) to specs/platform/"
 	@$(MAKE) generate
 	@echo "Done! Review changes with: git diff specs/platform internal/commands/platform/generated"
+
+# Copy the Platform Gateway specs from a jamfplatform-go-sdk checkout into the
+# drop directory, then run the normal sync. This is the supported way to refresh
+# them: the SDK publishes api/*.json from its own generator, having applied its
+# schema corrections and validated them with acceptance tests against a live
+# tenant, so it is the only source that is both normalised and verified.
+#
+#   make sync-platform-specs-from-sdk JAMFPLATFORM_SDK_PATH=../jamfplatform-go-sdk
+sync-platform-specs-from-sdk:
+	@if [ -z "$(JAMFPLATFORM_SDK_PATH)" ]; then \
+		echo "Error: JAMFPLATFORM_SDK_PATH is required"; \
+		echo "Usage: make sync-platform-specs-from-sdk JAMFPLATFORM_SDK_PATH=/path/to/jamfplatform-go-sdk"; \
+		exit 1; \
+	fi
+	@if [ ! -d "$(JAMFPLATFORM_SDK_PATH)/api" ]; then \
+		echo "Error: $(JAMFPLATFORM_SDK_PATH)/api not found — is that a jamfplatform-go-sdk checkout?"; \
+		exit 1; \
+	fi
+	@mkdir -p specs/.platform-source
+	@for f in $(PLATFORM_SDK_SPECS); do \
+		if [ ! -f "$(JAMFPLATFORM_SDK_PATH)/api/$$f" ]; then \
+			echo "Error: $$f missing from $(JAMFPLATFORM_SDK_PATH)/api"; \
+			exit 1; \
+		fi; \
+		cp "$(JAMFPLATFORM_SDK_PATH)/api/$$f" "specs/.platform-source/$$f"; \
+	done
+	@echo "Copied $$(echo $(PLATFORM_SDK_SPECS) | wc -w | tr -d ' ') spec(s) from $(JAMFPLATFORM_SDK_PATH)/api"
+	@$(MAKE) sync-platform-specs
 
 # Copy private Jamf Security Cloud specs (Risk, Device Lifecycle, Shared
 # Signals & Events) from the gitignored specs/.security-source/ drop location
