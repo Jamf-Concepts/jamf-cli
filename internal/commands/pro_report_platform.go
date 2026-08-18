@@ -242,8 +242,8 @@ of failing rules.`,
 					agg, ok := devices[d.DeviceID]
 					if !ok {
 						name := d.DeviceID
-						if n, ok := d.DeviceName.(string); ok && n != "" {
-							name = n
+						if d.DeviceName != nil && *d.DeviceName != "" {
+							name = *d.DeviceName
 						}
 						agg = &deviceAgg{Name: name}
 						devices[d.DeviceID] = agg

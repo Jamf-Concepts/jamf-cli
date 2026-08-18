@@ -1,0 +1,1584 @@
+{
+  "components": {
+    "parameters": {
+      "ActivationProfileCode": {
+        "description": "The activation profile code obtained from the Jamf Security setup flow",
+        "in": "path",
+        "name": "code",
+        "required": true,
+        "schema": {
+          "example": "ABC123XYZ",
+          "type": "string"
+        }
+      },
+      "ConfigId": {
+        "description": "The connector configuration identifier",
+        "in": "path",
+        "name": "configId",
+        "required": true,
+        "schema": {
+          "example": "conn-abc123",
+          "type": "string"
+        }
+      },
+      "tenantId": {
+        "description": "The tenant UUID identifier",
+        "in": "path",
+        "name": "tenantId",
+        "required": true,
+        "schema": {
+          "example": "e77c1408-10c8-4007-b177-abc9157fbcaa",
+          "format": "uuid",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "type": "string"
+        }
+      }
+    },
+    "responses": {
+      "BadRequest": {
+        "content": {
+          "application/json": {
+            "example": {
+              "errors": [
+                {
+                  "code": "UEM_CONNECTION_FAILED",
+                  "description": "UEM connection failed."
+                }
+              ],
+              "httpStatus": 400,
+              "traceId": "80f198ee56343ba864fe8b2a57d3eff7"
+            },
+            "schema": {
+              "$ref": "#/components/schemas/ApiError"
+            }
+          }
+        },
+        "description": "Bad request — the connector configuration was well-formed but could not be established against the UEM platform. Error code: `UEM_CONNECTION_FAILED` — the connection test against the supplied URL and credentials failed.\n"
+      },
+      "Conflict": {
+        "content": {
+          "application/json": {
+            "examples": {
+              "connectorConfigAlreadyExists": {
+                "summary": "Incompatible connector already exists",
+                "value": {
+                  "errors": [
+                    {
+                      "code": "CONNECTOR_CONFIG_ALREADY_EXISTS",
+                      "description": "A connector already exists for the customer with an incompatible UEM vendor."
+                    }
+                  ],
+                  "httpStatus": 409,
+                  "traceId": "80f198ee56343ba864fe8b2a57d3eff7"
+                }
+              },
+              "connectorDisabled": {
+                "summary": "Connector is disabled",
+                "value": {
+                  "errors": [
+                    {
+                      "code": "CONNECTOR_DISABLED",
+                      "description": "Connector 'conn-abc123' is disabled"
+                    }
+                  ],
+                  "httpStatus": 409,
+                  "traceId": "80f198ee56343ba864fe8b2a57d3eff7"
+                }
+              },
+              "unsupportedUemVersion": {
+                "summary": "UEM platform version not supported",
+                "value": {
+                  "errors": [
+                    {
+                      "code": "UNSUPPORTED_UEM_VERSION",
+                      "description": "UEM version is not supported."
+                    }
+                  ],
+                  "httpStatus": 409,
+                  "traceId": "80f198ee56343ba864fe8b2a57d3eff7"
+                }
+              }
+            },
+            "schema": {
+              "$ref": "#/components/schemas/ApiError"
+            }
+          }
+        },
+        "description": "Conflict — the request cannot proceed against the current state of the tenant's connectors. Error codes: `CONNECTOR_DISABLED` — the connector is disabled (`triggerSync`, `deployActivationProfile`); `CONNECTOR_CONFIG_ALREADY_EXISTS` — the tenant already has a connector whose UEM vendor cannot coexist with the requested one, only Jamf Pro and Wizy may coexist (`createConnector`); `UNSUPPORTED_UEM_VERSION` — the UEM platform reported a version this integration does not support (`createConnector`); `MULTIPLE_ACTIVATION_PROFILES` — the tenant has more than one active activation profile, so the deployment target is ambiguous (`deployActivationProfile`). Not every code applies to every operation — check the individual operation's description.\n"
+      },
+      "NotFound": {
+        "content": {
+          "application/json": {
+            "examples": {
+              "noActivationProfile": {
+                "summary": "No activation profile to deploy",
+                "value": {
+                  "errors": [
+                    {
+                      "code": "NO_ACTIVATION_PROFILE",
+                      "description": "No activation profile found for customer."
+                    }
+                  ],
+                  "httpStatus": 404,
+                  "traceId": "80f198ee56343ba864fe8b2a57d3eff7"
+                }
+              },
+              "notFound": {
+                "summary": "Connector does not exist",
+                "value": {
+                  "errors": [
+                    {
+                      "code": "NOT_FOUND",
+                      "description": "Connector 'conn-abc123' was not found"
+                    }
+                  ],
+                  "httpStatus": 404,
+                  "traceId": "80f198ee56343ba864fe8b2a57d3eff7"
+                }
+              }
+            },
+            "schema": {
+              "$ref": "#/components/schemas/ApiError"
+            }
+          }
+        },
+        "description": "Not found — the referenced connector or resource does not exist. Error codes: `NOT_FOUND` — the referenced connector or resource does not exist for the tenant; `NO_ACTIVATION_PROFILE` — the tenant has no active activation profile to deploy (only emittable by `deployActivationProfile`). Not every code applies to every operation — check the individual operation's description.\n"
+      },
+      "ServiceUnavailable": {
+        "content": {
+          "application/json": {
+            "example": {
+              "errors": [
+                {
+                  "code": "UEM_UNAVAILABLE",
+                  "description": "The UEM platform is currently unavailable"
+                }
+              ],
+              "httpStatus": 503,
+              "traceId": "80f198ee56343ba864fe8b2a57d3eff7"
+            },
+            "schema": {
+              "$ref": "#/components/schemas/ApiError"
+            }
+          }
+        },
+        "description": "Service unavailable — the UEM platform could not be reached or returned an error. Retry later. Error code: `UEM_UNAVAILABLE`.\n"
+      },
+      "SyncDispatchRejected": {
+        "content": {
+          "application/json": {
+            "example": {
+              "errors": [
+                {
+                  "code": "SYNC_DISPATCH_REJECTED",
+                  "description": "The sync could not be dispatched. Please retry."
+                }
+              ],
+              "httpStatus": 503,
+              "traceId": "80f198ee56343ba864fe8b2a57d3eff7"
+            },
+            "schema": {
+              "$ref": "#/components/schemas/ApiError"
+            }
+          }
+        },
+        "description": "Service unavailable — the sync could not be dispatched because the service's sync workers are saturated or the instance is shutting down. No sync run is left in progress, so the request can be retried. Error code: `SYNC_DISPATCH_REJECTED`.\n"
+      },
+      "UnprocessableEntity": {
+        "content": {
+          "application/json": {
+            "examples": {
+              "connectorNotConnected": {
+                "summary": "Connector credentials not valid",
+                "value": {
+                  "errors": [
+                    {
+                      "code": "CONNECTOR_NOT_CONNECTED",
+                      "description": "Connector 'conn-abc123' is not connected to the UEM platform"
+                    }
+                  ],
+                  "httpStatus": 422,
+                  "traceId": "80f198ee56343ba864fe8b2a57d3eff7"
+                }
+              },
+              "validationFailed": {
+                "summary": "Schema violation or malformed body",
+                "value": {
+                  "errors": [
+                    {
+                      "code": "VALIDATION_FAILED",
+                      "description": "must not be null",
+                      "field": "autoDeviceDeletion"
+                    }
+                  ],
+                  "httpStatus": 422,
+                  "traceId": "80f198ee56343ba864fe8b2a57d3eff7"
+                }
+              }
+            },
+            "schema": {
+              "$ref": "#/components/schemas/ApiError"
+            }
+          }
+        },
+        "description": "Unprocessable entity. This API returns `422` for **both** schema-level and business-rule failures. Error codes: `VALIDATION_FAILED` — malformed JSON, a missing or mistyped required field, or a constraint violation (the `field` property identifies the offending body field where known); `CONNECTOR_NOT_CONNECTED` — the connector's credentials are not valid against the UEM platform; `CONNECTOR_MISCONFIGURED` — the UEM platform rejected the connector configuration.\nNote that connector creation can also fail with `400` when the connection test itself fails — see the `400` response on that operation.\n"
+      }
+    },
+    "schemas": {
+      "ActivationProfileDeployRequest": {
+        "description": "Request to deploy activation profile configuration profiles to UEM",
+        "properties": {
+          "platform": {
+            "description": "The device platform type for the configuration profile",
+            "enum": [
+              "SUPERVISED_MAC",
+              "SUPERVISED_IOS",
+              "UNSUPERVISED_IOS",
+              "BYOD_IOS"
+            ],
+            "example": "SUPERVISED_IOS",
+            "type": "string"
+          },
+          "uem": {
+            "description": "The UEM platform to deploy profiles to",
+            "enum": [
+              "JAMF"
+            ],
+            "example": "JAMF",
+            "type": "string"
+          },
+          "uemGroups": {
+            "description": "Optional UEM groups to scope the deployment to. If omitted or empty, deploys to all UEM groups.",
+            "example": [
+              "All Managed Devices"
+            ],
+            "items": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "uem",
+          "platform"
+        ],
+        "type": "object"
+      },
+      "ApiError": {
+        "description": "Standard error object returned for all failed requests.",
+        "properties": {
+          "errors": {
+            "description": "The individual problems with the request",
+            "items": {
+              "$ref": "#/components/schemas/ApiErrorEntry"
+            },
+            "type": "array"
+          },
+          "httpStatus": {
+            "description": "The HTTP status code",
+            "example": 422,
+            "type": "integer"
+          },
+          "traceId": {
+            "description": "Correlation identifier for the failed request",
+            "example": "80f198ee56343ba864fe8b2a57d3eff7",
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "required": [
+          "httpStatus",
+          "errors"
+        ],
+        "type": "object"
+      },
+      "ApiErrorEntry": {
+        "description": "A single problem with the request.",
+        "properties": {
+          "code": {
+            "description": "Machine-readable error code",
+            "example": "CONNECTOR_NOT_CONNECTED",
+            "type": "string"
+          },
+          "description": {
+            "description": "Human-readable explanation",
+            "example": "Connector 'conn-abc123' is not connected to the UEM platform",
+            "type": "string"
+          },
+          "field": {
+            "description": "The request field the error relates to, when applicable",
+            "example": "refreshRateMinutes",
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "required": [
+          "description"
+        ],
+        "type": "object"
+      },
+      "ConnectorConfig": {
+        "additionalProperties": true,
+        "description": "Connector configuration. Contains both core fields and vendor-specific fields.\nAdditional vendor-specific properties may appear alongside the documented ones.\nSecret fields (credentials) are write-only and are never returned.\n",
+        "properties": {
+          "concurrentSyncEnabled": {
+            "description": "Whether this connector may sync concurrently with other connectors",
+            "example": true,
+            "type": "boolean"
+          },
+          "connected": {
+            "description": "Whether the connector is currently connected to the UEM platform",
+            "example": true,
+            "readOnly": true,
+            "type": "boolean"
+          },
+          "connectorDeviceTypeAlias": {
+            "description": "Internal device-type discriminator for this connector's vendor",
+            "example": "intuneConnectorDevice",
+            "readOnly": true,
+            "type": "string"
+          },
+          "customerId": {
+            "description": "Identifier of the customer that owns this connector configuration",
+            "example": "e60fa9d5-a7ef-4ea7-92d2-7c2c22ffdf13",
+            "readOnly": true,
+            "type": "string"
+          },
+          "deviceFieldMappings": {
+            "$ref": "#/components/schemas/DeviceFieldMappings"
+          },
+          "deviceRiskTagging": {
+            "description": "Whether device risk levels are sent back to the UEM platform",
+            "example": false,
+            "type": "boolean"
+          },
+          "deviceUnmanagedThreshold": {
+            "description": "Number of consecutive syncs a device may be absent from the UEM platform before it is\ntreated as unmanaged. `0` disables the grace period.\n",
+            "example": 3,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "emmTaggingSupported": {
+            "description": "Whether the UEM platform supports receiving device tags from JSC",
+            "example": true,
+            "readOnly": true,
+            "type": "boolean"
+          },
+          "enabled": {
+            "description": "Whether the connector is enabled for synchronization",
+            "example": true,
+            "readOnly": true,
+            "type": "boolean"
+          },
+          "groupSettings": {
+            "$ref": "#/components/schemas/GroupSettings"
+          },
+          "id": {
+            "description": "Unique identifier for the connector configuration",
+            "example": "conn-abc123",
+            "type": "string"
+          },
+          "isoCountry": {
+            "description": "ISO country code for the UEM instance, when applicable",
+            "example": "US",
+            "nullable": true,
+            "type": "string"
+          },
+          "latestSync": {
+            "$ref": "#/components/schemas/LatestSync"
+          },
+          "nextScheduledSync": {
+            "description": "Timestamp of the next scheduled sync (ISO 8601)",
+            "example": "2024-05-19T10:00:00Z",
+            "format": "date-time",
+            "nullable": true,
+            "readOnly": true,
+            "type": "string"
+          },
+          "previousSyncStart": {
+            "description": "Timestamp when the previous sync started (ISO 8601)",
+            "example": "2024-05-18T10:00:00Z",
+            "format": "date-time",
+            "nullable": true,
+            "readOnly": true,
+            "type": "string"
+          },
+          "refreshRateMinutes": {
+            "description": "Sync refresh interval in minutes",
+            "example": 1440,
+            "format": "int64",
+            "minimum": 1,
+            "type": "integer"
+          },
+          "scheduled": {
+            "description": "Whether scheduled sync is active",
+            "example": true,
+            "type": "boolean"
+          },
+          "syncConfig": {
+            "$ref": "#/components/schemas/SyncConfig"
+          },
+          "url": {
+            "description": "UEM server URL",
+            "example": "https://yourcompany.jamfcloud.com",
+            "type": "string"
+          },
+          "vendor": {
+            "description": "UEM vendor name",
+            "enum": [
+              "INTUNE",
+              "XENMOBILE",
+              "MAAS360",
+              "WORKSPACE_ONE",
+              "JAMF_PRO",
+              "JAMF_SCHOOL",
+              "MICLOUD",
+              "MICORE",
+              "GOOGLE",
+              "WIZY"
+            ],
+            "example": "JAMF_PRO",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "vendor",
+          "url"
+        ],
+        "type": "object"
+      },
+      "ConnectorCreateRequest": {
+        "additionalProperties": true,
+        "description": "Request to create a connector. Contains the UEM server connection details. Vendor-specific\nfields may also be included; the `vendor` field determines which are applicable. Secret\nfields (credentials) are write-only and are never returned in responses.\n",
+        "properties": {
+          "isoCountry": {
+            "description": "ISO country code for the UEM instance, when applicable",
+            "example": "US",
+            "type": "string"
+          },
+          "url": {
+            "description": "UEM server URL",
+            "example": "https://yourcompany.jamfcloud.com",
+            "type": "string"
+          },
+          "vendor": {
+            "description": "UEM vendor name",
+            "enum": [
+              "INTUNE",
+              "XENMOBILE",
+              "MAAS360",
+              "WORKSPACE_ONE",
+              "JAMF_PRO",
+              "JAMF_SCHOOL",
+              "MICLOUD",
+              "MICORE",
+              "GOOGLE",
+              "WIZY"
+            ],
+            "example": "JAMF_PRO",
+            "type": "string"
+          }
+        },
+        "required": [
+          "vendor",
+          "url"
+        ],
+        "type": "object"
+      },
+      "ConnectorPage": {
+        "description": "A page of connectors.",
+        "properties": {
+          "results": {
+            "description": "The connectors for the requested page",
+            "items": {
+              "$ref": "#/components/schemas/ConnectorConfig"
+            },
+            "type": "array"
+          },
+          "totalCount": {
+            "description": "Total number of connectors across all pages",
+            "example": 2,
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "totalCount",
+          "results"
+        ],
+        "type": "object"
+      },
+      "CreatedResource": {
+        "description": "Identifier of a newly created resource.",
+        "properties": {
+          "id": {
+            "description": "Identifier of the created resource",
+            "example": "conn-abc123",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "type": "object"
+      },
+      "DeviceFieldMappings": {
+        "additionalProperties": true,
+        "description": "Controls which UEM attribute each JSC device field is populated from. Each value is an\nenum of UEM attribute names whose members are vendor-specific, so the accepted values for\na given key depend on the connector's `vendor`. The Google connector accepts no mappings.\n",
+        "properties": {
+          "deviceNameMapping": {
+            "description": "UEM attribute the device name is read from",
+            "example": "DEVICE_NAME",
+            "minLength": 1,
+            "type": "string"
+          },
+          "phoneNumberMapping": {
+            "description": "UEM attribute the phone number is read from",
+            "example": "PHONE_NUMBER",
+            "minLength": 1,
+            "type": "string"
+          },
+          "userEmailMapping": {
+            "$ref": "#/components/schemas/EmailMapping"
+          },
+          "userIdMapping": {
+            "description": "UEM attribute the user identifier is read from",
+            "example": "EXTERNAL_USER_ID",
+            "minLength": 1,
+            "type": "string"
+          },
+          "userNameMapping": {
+            "description": "UEM attribute the user name is read from",
+            "example": "USER_NAME",
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "EmailMapping": {
+        "description": "How the device email is derived. `EMAIL_ADDRESS` uses the UEM email attribute directly;\nany other type reads from that attribute and optionally decorates it into an address.\n",
+        "properties": {
+          "fieldPrefix": {
+            "description": "Prepended to the resolved value. Ignored when `type` is `EMAIL_ADDRESS`.",
+            "example": "dev-",
+            "type": "string"
+          },
+          "fieldSuffix": {
+            "description": "Appended to the resolved value to form a full address; an `@` is inserted when the\nsuffix does not already start with one. Ignored when `type` is `EMAIL_ADDRESS`.\n",
+            "example": "example.com",
+            "type": "string"
+          },
+          "type": {
+            "description": "UEM attribute the email is derived from",
+            "enum": [
+              "EMAIL_ADDRESS",
+              "MDM_ID",
+              "SERIAL_NUMBER",
+              "IMEI",
+              "FIRST_NAME",
+              "LAST_NAME",
+              "DEVICE_NAME",
+              "EXTERNAL_USER_ID",
+              "NAME"
+            ],
+            "example": "EMAIL_ADDRESS",
+            "type": "string"
+          },
+          "useOnlyIfEmailMissing": {
+            "default": false,
+            "description": "Apply this mapping only when the UEM email attribute is empty, rather than always.\n",
+            "example": false,
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "type"
+        ],
+        "type": "object"
+      },
+      "EnablementRequest": {
+        "description": "Desired enablement state for a connector.",
+        "properties": {
+          "enabled": {
+            "description": "Whether the connector should be enabled for synchronization",
+            "example": true,
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "enabled"
+        ],
+        "type": "object"
+      },
+      "GroupMapping": {
+        "description": "A single UEM-group-to-JSC-group assignment.\n\nBoth property names retain legacy internal product names (`emm` for UEM, `wandera` for\nJSC). They are the names the service serializes and accepts today, so they are documented\nas-is; renaming them would break existing callers.\n",
+        "properties": {
+          "emmGroupId": {
+            "description": "Group identifier in the UEM platform",
+            "example": "uem-group-1",
+            "minLength": 1,
+            "type": "string"
+          },
+          "wanderaGroupId": {
+            "description": "JSC group identifier devices in the UEM group are assigned to",
+            "example": "grp-abc123",
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "emmGroupId",
+          "wanderaGroupId"
+        ],
+        "type": "object"
+      },
+      "GroupSettings": {
+        "additionalProperties": true,
+        "description": "Group mapping configuration. Maps UEM groups to JSC groups.",
+        "properties": {
+          "defaultGroupId": {
+            "description": "JSC group that devices are assigned to when no explicit mapping matches",
+            "example": "grp-default",
+            "nullable": true,
+            "type": "string"
+          },
+          "groupMappingEnabled": {
+            "default": true,
+            "description": "Whether group mapping is applied during sync",
+            "example": true,
+            "type": "boolean"
+          },
+          "groupMappings": {
+            "description": "Explicit UEM-group-to-JSC-group assignments. Replaces the existing set on update;\nsend an empty array to clear all mappings.\n",
+            "items": {
+              "$ref": "#/components/schemas/GroupMapping"
+            },
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
+      "LatestSync": {
+        "description": "Summary of the connector's most recent sync run, embedded in `ConnectorConfig`.\n\nThis is **not** the same shape as the `SyncRun` entries returned by\n`GET /connectors/{configId}/sync/runs`: it carries `lastSeen`, `errorDetails` and epoch-millis\nduplicates of the timestamps, has no per-run device counters, and — unlike `SyncRun` — reports\nthe `CANCELLING` status with the British spelling. Use the sync-runs endpoint for run history.\n",
+        "properties": {
+          "errorDetails": {
+            "$ref": "#/components/schemas/SyncErrorDetails"
+          },
+          "finished": {
+            "description": "Timestamp when sync completed (ISO 8601), null if still running",
+            "example": "2024-05-18T10:05:30Z",
+            "format": "date-time",
+            "nullable": true,
+            "type": "string"
+          },
+          "finishedUtcMs": {
+            "deprecated": true,
+            "description": "`finished` as epoch milliseconds. Deprecated duplicate — prefer the ISO-8601 `finished`.\n",
+            "example": 1716026700000,
+            "format": "int64",
+            "nullable": true,
+            "type": "integer"
+          },
+          "lastSeen": {
+            "description": "Timestamp of the last heartbeat from the running sync (ISO 8601), used to detect\nstalled syncs\n",
+            "example": "2024-05-18T10:04:00Z",
+            "format": "date-time",
+            "nullable": true,
+            "type": "string"
+          },
+          "refreshType": {
+            "description": "What triggered this sync",
+            "enum": [
+              "AUTO",
+              "MANUAL",
+              "OUT_OF_BAND",
+              "UEM_AD_HOC_SYNC"
+            ],
+            "example": "AUTO",
+            "nullable": true,
+            "type": "string"
+          },
+          "started": {
+            "description": "Timestamp when sync started (ISO 8601)",
+            "example": "2024-05-18T10:00:00Z",
+            "format": "date-time",
+            "nullable": true,
+            "type": "string"
+          },
+          "startedUtcMs": {
+            "deprecated": true,
+            "description": "`started` as epoch milliseconds. Deprecated duplicate — prefer the ISO-8601 `started`.\n",
+            "example": 1716026400000,
+            "format": "int64",
+            "nullable": true,
+            "type": "integer"
+          },
+          "status": {
+            "description": "Current sync status",
+            "enum": [
+              "NOT_SYNCHRONIZED",
+              "RUNNING",
+              "CANCELLING",
+              "CANCELED",
+              "COMPLETED",
+              "FAILED",
+              "AUTH_FAILED",
+              "CONNECTION_TEST_FAILED",
+              "COMPLETED_WITH_ERRORS",
+              "STALLED"
+            ],
+            "example": "COMPLETED",
+            "type": "string"
+          },
+          "transactionId": {
+            "description": "Unique identifier for this sync run",
+            "example": "tx-abc123",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "type": "object"
+      },
+      "SyncConfig": {
+        "description": "Sync configuration settings as returned in responses. Response-only: the corresponding\nupdate request carries these two settings as **top-level** `autoDeviceDeletion` and\n`disableSyncOnAuthError` fields on `SyncSettings`, not nested under `syncConfig`.\n",
+        "properties": {
+          "autoDeviceDeletion": {
+            "description": "Auto-deletion policy for devices removed from the UEM platform",
+            "enum": [
+              "DISABLED",
+              "DELETED_OR_RETIRED",
+              "UNMANAGED"
+            ],
+            "example": "DELETED_OR_RETIRED",
+            "type": "string"
+          },
+          "disableSyncOnAuthError": {
+            "description": "Whether to automatically disable sync after repeated authentication failures",
+            "example": true,
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "autoDeviceDeletion",
+          "disableSyncOnAuthError"
+        ],
+        "type": "object"
+      },
+      "SyncErrorDetails": {
+        "description": "Why the most recent sync failed. Always present, with null members when the sync did not\nfail.\n",
+        "properties": {
+          "description": {
+            "description": "Human-readable failure detail",
+            "example": "The UEM platform returned HTTP 500",
+            "nullable": true,
+            "type": "string"
+          },
+          "reason": {
+            "description": "Coarse failure category",
+            "enum": [
+              "UNEXPECTED_ERROR",
+              "LOST"
+            ],
+            "example": "UNEXPECTED_ERROR",
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "SyncRun": {
+        "description": "Details of a single sync run.",
+        "properties": {
+          "configId": {
+            "description": "Connector configuration identifier",
+            "example": "conn-abc123",
+            "type": "string"
+          },
+          "deleted": {
+            "description": "Number of devices removed during this run",
+            "example": 3,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "errored": {
+            "description": "Number of devices that encountered errors during this run",
+            "example": 0,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "finished": {
+            "description": "Timestamp when sync completed (ISO 8601), null if still running",
+            "example": "2024-05-18T10:05:30Z",
+            "format": "date-time",
+            "nullable": true,
+            "type": "string"
+          },
+          "refreshType": {
+            "description": "What triggered this sync",
+            "enum": [
+              "AUTO",
+              "MANUAL",
+              "OUT_OF_BAND",
+              "UEM_AD_HOC_SYNC"
+            ],
+            "example": "AUTO",
+            "type": "string"
+          },
+          "started": {
+            "description": "Timestamp when sync started (ISO 8601)",
+            "example": "2024-05-18T10:00:00Z",
+            "format": "date-time",
+            "nullable": true,
+            "type": "string"
+          },
+          "status": {
+            "description": "Current sync status",
+            "enum": [
+              "NOT_SYNCHRONIZED",
+              "RUNNING",
+              "CANCELING",
+              "CANCELED",
+              "COMPLETED",
+              "FAILED",
+              "AUTH_FAILED",
+              "CONNECTION_TEST_FAILED",
+              "COMPLETED_WITH_ERRORS",
+              "STALLED"
+            ],
+            "example": "COMPLETED",
+            "type": "string"
+          },
+          "synced": {
+            "description": "Number of devices synced (added or updated) during this run",
+            "example": 142,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "transactionId": {
+            "description": "Unique identifier for this sync run",
+            "example": "tx-abc123",
+            "type": "string"
+          }
+        },
+        "required": [
+          "transactionId",
+          "configId",
+          "status",
+          "refreshType",
+          "synced",
+          "deleted",
+          "errored"
+        ],
+        "type": "object"
+      },
+      "SyncRunPage": {
+        "description": "A page of sync runs.",
+        "properties": {
+          "results": {
+            "description": "The sync runs for the requested page",
+            "items": {
+              "$ref": "#/components/schemas/SyncRun"
+            },
+            "type": "array"
+          },
+          "totalCount": {
+            "description": "Total number of sync runs across all pages",
+            "example": 20,
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "totalCount",
+          "results"
+        ],
+        "type": "object"
+      },
+      "SyncSettings": {
+        "additionalProperties": true,
+        "description": "Sync settings update request. Vendor-specific fields may also be included.\nThe `vendor` field in the body determines which additional fields are applicable.\n\nThis is a **full replacement**, not a patch: omitted optional fields are reset to their\ndefaults rather than left unchanged. Send the complete desired state.\n\nNote the asymmetry with the response: `autoDeviceDeletion` and `disableSyncOnAuthError` are\ntop-level here, but are returned nested under `syncConfig` on `ConnectorConfig`.\n",
+        "properties": {
+          "autoDeviceDeletion": {
+            "description": "Auto-deletion policy for devices removed from the UEM platform",
+            "enum": [
+              "DISABLED",
+              "DELETED_OR_RETIRED",
+              "UNMANAGED"
+            ],
+            "example": "DELETED_OR_RETIRED",
+            "type": "string"
+          },
+          "deviceFieldMappings": {
+            "$ref": "#/components/schemas/DeviceFieldMappings"
+          },
+          "deviceRiskTagging": {
+            "default": false,
+            "description": "Whether device risk levels are sent back to UEM",
+            "example": false,
+            "type": "boolean"
+          },
+          "deviceUnmanagedThreshold": {
+            "default": 0,
+            "description": "Number of consecutive syncs a device may be absent from the UEM platform before it is\ntreated as unmanaged. `0` disables the grace period.\n",
+            "example": 3,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "disableSyncOnAuthError": {
+            "default": true,
+            "description": "Whether to automatically disable sync after repeated authentication failures",
+            "example": true,
+            "type": "boolean"
+          },
+          "groupSettings": {
+            "$ref": "#/components/schemas/GroupSettings"
+          },
+          "refreshRateMinutes": {
+            "default": 1440,
+            "description": "Sync refresh interval in minutes",
+            "example": 1440,
+            "format": "int64",
+            "minimum": 1,
+            "type": "integer"
+          },
+          "scheduled": {
+            "default": true,
+            "description": "Whether scheduled sync is enabled",
+            "example": true,
+            "type": "boolean"
+          },
+          "vendor": {
+            "description": "UEM vendor name — determines the shape of vendor-specific fields",
+            "enum": [
+              "INTUNE",
+              "XENMOBILE",
+              "MAAS360",
+              "WORKSPACE_ONE",
+              "JAMF_PRO",
+              "JAMF_SCHOOL",
+              "MICLOUD",
+              "MICORE",
+              "GOOGLE",
+              "WIZY"
+            ],
+            "example": "INTUNE",
+            "type": "string"
+          }
+        },
+        "required": [
+          "vendor",
+          "autoDeviceDeletion",
+          "deviceFieldMappings"
+        ],
+        "type": "object"
+      }
+    },
+    "securitySchemes": {
+      "bearerAuth": {
+        "bearerFormat": "JWT",
+        "description": "JWT Bearer token authentication. Obtain a token from the Jamf API Gateway.",
+        "scheme": "bearer",
+        "type": "http"
+      }
+    }
+  },
+  "info": {
+    "contact": {
+      "name": "Jamf Developer",
+      "url": "https://developer.jamf.com"
+    },
+    "description": "API for managing UEM Connect connectors",
+    "termsOfService": "https://www.jamf.com/developer-resources/api-license-agreement/",
+    "title": "JSC UEM Connect API (STAGE)",
+    "version": "1.0.0"
+  },
+  "openapi": "3.0.3",
+  "paths": {
+    "/tenant/{tenantId}/uem-connect/v1/activation-profiles/{code}/deploy-to-uem": {
+      "post": {
+        "description": "Deploys Jamf Security configuration profiles to the UEM platform for the specified\nactivation profile. This is the final step of automated UEM Connect onboarding.\n\n**Note:** The activation profile code is obtained from the Jamf Security setup flow and is\nnot issued by the UEM Connect API. This operation is idempotent.\n\nRequires a connector that is connected to its UEM platform and not disabled — otherwise\n`422 CONNECTOR_NOT_CONNECTED` or `409 CONNECTOR_DISABLED` respectively. Returns\n`409 MULTIPLE_ACTIVATION_PROFILES` if the tenant has more than one active activation profile\nand the deployment target is ambiguous.\n\n\n**Required Permissions:** `update:jsc:all`",
+        "operationId": "deployActivationProfile",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/tenantId"
+          },
+          {
+            "$ref": "#/components/parameters/ActivationProfileCode"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "example": {
+                "platform": "SUPERVISED_IOS",
+                "uem": "JAMF"
+              },
+              "schema": {
+                "$ref": "#/components/schemas/ActivationProfileDeployRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Profiles deployed successfully"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "422": {
+            "$ref": "#/components/responses/UnprocessableEntity"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Deploy Jamf Security configuration profiles to UEM",
+        "tags": [
+          "activation-profiles"
+        ],
+        "x-action": true,
+        "x-authentication-required": true,
+        "x-required-privileges": [
+          "update:jsc:all"
+        ]
+      }
+    },
+    "/tenant/{tenantId}/uem-connect/v1/connectors": {
+      "get": {
+        "description": "Returns the connectors configured for the tenant.\n\n**Required Permissions:** `read:jsc:all`",
+        "operationId": "listConnectors",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/tenantId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConnectorPage"
+                }
+              }
+            },
+            "description": "Connectors retrieved successfully"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "List connectors",
+        "tags": [
+          "connectors"
+        ],
+        "x-authentication-required": true,
+        "x-required-privileges": [
+          "read:jsc:all"
+        ]
+      },
+      "post": {
+        "description": "Creates a new connector for the tenant. On success returns the identifier of the created\nconnector.\n\nA tenant may hold only one connector, with the single exception that Jamf Pro and Wizy may\ncoexist. Requesting any other second connector fails with `409 CONNECTOR_CONFIG_ALREADY_EXISTS`.\n\nCreation runs a connection test against the supplied URL and credentials. A failing test\nyields `400 UEM_CONNECTION_FAILED`, and a UEM platform running an unsupported version yields\n`409 UNSUPPORTED_UEM_VERSION`.\n\n\n**Required Permissions:** `create:jsc:all`",
+        "operationId": "createConnector",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/tenantId"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConnectorCreateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreatedResource"
+                }
+              }
+            },
+            "description": "Connector created successfully"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "422": {
+            "$ref": "#/components/responses/UnprocessableEntity"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Create connector",
+        "tags": [
+          "connectors"
+        ],
+        "x-authentication-required": true,
+        "x-required-privileges": [
+          "create:jsc:all"
+        ]
+      }
+    },
+    "/tenant/{tenantId}/uem-connect/v1/connectors/{configId}": {
+      "delete": {
+        "description": "Deletes the connector identified by `configId` and all of its data.\n\n**Required Permissions:** `delete:jsc:all`",
+        "operationId": "deleteConnector",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/tenantId"
+          },
+          {
+            "$ref": "#/components/parameters/ConfigId"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Connector deleted successfully"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Delete connector",
+        "tags": [
+          "connectors"
+        ],
+        "x-authentication-required": true,
+        "x-required-privileges": [
+          "delete:jsc:all"
+        ]
+      },
+      "get": {
+        "description": "Returns the connector identified by `configId`.\n\n**Required Permissions:** `read:jsc:all`",
+        "operationId": "getConnector",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/tenantId"
+          },
+          {
+            "$ref": "#/components/parameters/ConfigId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConnectorConfig"
+                }
+              }
+            },
+            "description": "Connector retrieved successfully"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Get connector",
+        "tags": [
+          "connectors"
+        ],
+        "x-authentication-required": true,
+        "x-required-privileges": [
+          "read:jsc:all"
+        ]
+      }
+    },
+    "/tenant/{tenantId}/uem-connect/v1/connectors/{configId}/enablement": {
+      "delete": {
+        "description": "Disables the specified connector to pause data synchronization between JSC and the UEM\nplatform. This operation is idempotent — disabling an already-disabled connector succeeds.\n\n\n**Required Permissions:** `update:jsc:all`",
+        "operationId": "disableConnector",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/tenantId"
+          },
+          {
+            "$ref": "#/components/parameters/ConfigId"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Connector disabled successfully"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Disable connector synchronization",
+        "tags": [
+          "connector-enablement"
+        ],
+        "x-action": true,
+        "x-authentication-required": true,
+        "x-required-privileges": [
+          "update:jsc:all"
+        ]
+      },
+      "put": {
+        "description": "Sets the enablement state of the specified connector. Send `enabled: true` to resume data\nsynchronization between JSC and the UEM platform, or `enabled: false` to pause it. This\noperation is idempotent.\n\nEnabling reaches out to the UEM platform to switch the integration back on, so it can fail\nwith `503` when that platform is unreachable. Disabling tolerates such a failure and still\nsucceeds locally, which is why `DELETE` on this path does not document `503`.\n\n\n**Required Permissions:** `update:jsc:all`",
+        "operationId": "enableConnector",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/tenantId"
+          },
+          {
+            "$ref": "#/components/parameters/ConfigId"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EnablementRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Connector enablement state updated successfully"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "422": {
+            "$ref": "#/components/responses/UnprocessableEntity"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Enable connector synchronization",
+        "tags": [
+          "connector-enablement"
+        ],
+        "x-action": true,
+        "x-authentication-required": true,
+        "x-required-privileges": [
+          "update:jsc:all"
+        ]
+      }
+    },
+    "/tenant/{tenantId}/uem-connect/v1/connectors/{configId}/sync-settings": {
+      "get": {
+        "description": "Returns the current connector configuration including sync settings.\n\n**Required Permissions:** `read:jsc:all`",
+        "operationId": "getSyncSettings",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/tenantId"
+          },
+          {
+            "$ref": "#/components/parameters/ConfigId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConnectorConfig"
+                }
+              }
+            },
+            "description": "Sync settings retrieved successfully"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Get connector sync settings",
+        "tags": [
+          "sync-configuration"
+        ],
+        "x-authentication-required": true,
+        "x-required-privileges": [
+          "read:jsc:all"
+        ]
+      },
+      "put": {
+        "description": "Updates the sync settings for the specified connector. Supported settings vary by UEM vendor.\nUpdated settings take effect on the next sync operation.\n\n\n**Required Permissions:** `update:jsc:all`",
+        "operationId": "updateSyncSettings",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/tenantId"
+          },
+          {
+            "$ref": "#/components/parameters/ConfigId"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SyncSettings"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Sync settings updated successfully"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "422": {
+            "$ref": "#/components/responses/UnprocessableEntity"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Update connector sync settings",
+        "tags": [
+          "sync-configuration"
+        ],
+        "x-authentication-required": true,
+        "x-required-privileges": [
+          "update:jsc:all"
+        ]
+      }
+    },
+    "/tenant/{tenantId}/uem-connect/v1/connectors/{configId}/sync/runs": {
+      "get": {
+        "description": "Retrieves paginated sync run history for the specified connector, ordered from newest to\noldest.\n\nThis operation queries sync history directly and does not verify that `configId` refers to\nan existing connector, so an unknown `configId` returns `200` with an empty result set\nrather than `404`.\n\n\n**Required Permissions:** `read:jsc:all`",
+        "operationId": "listSyncRuns",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/tenantId"
+          },
+          {
+            "$ref": "#/components/parameters/ConfigId"
+          },
+          {
+            "description": "Page number (zero-based)",
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "default": 0,
+              "example": 0,
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Number of results per page",
+            "in": "query",
+            "name": "page-size",
+            "schema": {
+              "default": 20,
+              "example": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SyncRunPage"
+                }
+              }
+            },
+            "description": "Sync run history retrieved successfully"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "List sync run history",
+        "tags": [
+          "sync-execution"
+        ],
+        "x-authentication-required": true,
+        "x-required-privileges": [
+          "read:jsc:all"
+        ]
+      },
+      "post": {
+        "description": "Triggers a new sync operation for the specified connector. The sync runs asynchronously;\nthis endpoint returns immediately (`202 Accepted`). Poll `GET /sync/runs` to monitor\nprogress.\n\nConditions:\n- Connector must be enabled (not disabled) — otherwise `409 Conflict`.\n- Connector must be connected (credentials valid) — otherwise `422 Unprocessable Entity`.\n\nTriggering is fire-and-forget: if a sync is already running the request is still accepted\n(`202 Accepted`) and coalesced, rather than rejected.\n\nDispatching the run is a separate step from accepting the request and can be refused when the\nservice is at capacity — see `503 Service Unavailable`.\n\n\n**Required Permissions:** `update:jsc:all`",
+        "operationId": "triggerSync",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/tenantId"
+          },
+          {
+            "$ref": "#/components/parameters/ConfigId"
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Sync triggered successfully, running asynchronously"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "422": {
+            "$ref": "#/components/responses/UnprocessableEntity"
+          },
+          "503": {
+            "$ref": "#/components/responses/SyncDispatchRejected"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Trigger sync run",
+        "tags": [
+          "sync-execution"
+        ],
+        "x-action": true,
+        "x-authentication-required": true,
+        "x-required-privileges": [
+          "update:jsc:all"
+        ]
+      }
+    },
+    "/tenant/{tenantId}/uem-connect/v1/connectors/{configId}/sync/runs/current": {
+      "delete": {
+        "description": "Requests cancelation of the currently running sync operation for the specified connector.\nCancelation is best-effort; the sync may complete before it takes effect. Check status via\n`GET /sync/runs`.\n\nThis operation is unconditionally successful: it applies a conditional update that matches\nonly a running sync, so `204` is returned whether a sync was canceled, no sync was running,\nor `configId` does not exist. It never returns `404`.\n\n\n**Required Permissions:** `update:jsc:all`",
+        "operationId": "cancelCurrentSync",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/tenantId"
+          },
+          {
+            "$ref": "#/components/parameters/ConfigId"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Cancelation requested (or no sync was running)"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Cancel current sync run",
+        "tags": [
+          "sync-execution"
+        ],
+        "x-action": true,
+        "x-authentication-required": true,
+        "x-required-privileges": [
+          "update:jsc:all"
+        ]
+      }
+    }
+  },
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ],
+  "servers": [
+    {
+      "description": "Jamf Beta API Gateway - stage",
+      "url": "https://{region}.stage.apigw.jamfnebula.com/api/securitycloud",
+      "variables": {
+        "region": {
+          "default": "us",
+          "description": "Geographic deployment region",
+          "enum": [
+            "us",
+            "eu",
+            "apac"
+          ]
+        }
+      }
+    }
+  ],
+  "tags": [
+    {
+      "description": "Create, retrieve, list, and delete connectors",
+      "name": "connectors"
+    },
+    {
+      "description": "Enable or disable connector synchronization",
+      "name": "connector-enablement"
+    },
+    {
+      "description": "Retrieve and update connector sync settings",
+      "name": "sync-configuration"
+    },
+    {
+      "description": "Manage sync operations and view sync history",
+      "name": "sync-execution"
+    },
+    {
+      "description": "Deploy Jamf Security configuration profiles to UEM platforms",
+      "name": "activation-profiles"
+    }
+  ]
+}

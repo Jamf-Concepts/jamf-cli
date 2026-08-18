@@ -1,6 +1,6 @@
 module github.com/Jamf-Concepts/jamf-cli
 
-go 1.26.5
+go 1.26.6
 
 require (
 	github.com/Jamf-Concepts/jamfplatform-go-sdk v0.12.0
@@ -44,3 +44,5 @@ require (
 	golang.org/x/text v0.41.0 // indirect
 	golang.org/x/time v0.15.0 // indirect
 )
+
+replace github.com/Jamf-Concepts/jamfplatform-go-sdk => /Users/Shared/GitHub/jamf-concepts/jamfplatform-go-sdk

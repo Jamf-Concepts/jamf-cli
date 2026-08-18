@@ -17,39 +17,34 @@ import (
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 )
 
-// NewDeviceGroupsCmd returns the cobra command tree for the device-groups platform
+// NewUemConnectorsCmd returns the cobra command tree for the uem-connectors platform
 // resource. Wire it into a product namespace via AddCommand.
-func NewDeviceGroupsCmd(cliCtx *registry.CLIContext) *cobra.Command {
+func NewUemConnectorsCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "device-groups",
-		Short: "Manage device-groups (Jamf Security Cloud)",
-		Long:  "API for accessing Security Cloud device information",
+		Use:   "uem-connectors",
+		Short: "Manage uem-connectors (Jamf Security Cloud)",
+		Long:  "API for managing UEM Connect connectors",
 	}
-	cmd.AddCommand(newDeviceGroupsListCmd(cliCtx))
-	cmd.AddCommand(newDeviceGroupsCreateCmd(cliCtx))
-	cmd.AddCommand(newDeviceGroupsDeleteCmd(cliCtx))
-	cmd.AddCommand(newDeviceGroupsGetCmd(cliCtx))
-	cmd.AddCommand(newDeviceGroupsListV2Cmd(cliCtx))
+	cmd.AddCommand(newUemConnectorsListCmd(cliCtx))
+	cmd.AddCommand(newUemConnectorsCreateCmd(cliCtx))
+	cmd.AddCommand(newUemConnectorsDeleteCmd(cliCtx))
+	cmd.AddCommand(newUemConnectorsGetCmd(cliCtx))
 	return cmd
 }
 
-func newDeviceGroupsListCmd(cliCtx *registry.CLIContext) *cobra.Command {
-	var customerId string
+func newUemConnectorsListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "list",
-		Short:       "List all device groups for a customer",
-		Long:        "Retrieves all device groups for the authenticated customer.",
+		Short:       "List connectors",
+		Long:        "Returns the connectors configured for the tenant.",
 		Annotations: map[string]string{"jamf:privileges": "read:jsc:all"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err
 			}
-			path := "/api/securitycloud/v1/tenant/{tenantId}/groups"
+			path := "/api/securitycloud/tenant/{tenantId}/uem-connect/v1/connectors"
 			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("securitycloud")), 1)
 			q := url.Values{}
-			if customerId != "" {
-				q.Set("customer-id", customerId)
-			}
 			var body any
 			if encoded := q.Encode(); encoded != "" {
 				path += "?" + encoded
@@ -61,45 +56,41 @@ func newDeviceGroupsListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if result == nil {
 				return nil
 			}
+			if obj, ok := result.(map[string]any); ok {
+				if arr, ok := obj["results"].([]any); ok {
+					result = arr
+				}
+			}
 			b, err := json.MarshalIndent(result, "", "  ")
 			if err != nil {
 				return err
 			}
-			b = platform.SelectTableColumns(b, []platform.TableColumn{
-				{Field: "id", Label: "id"},
-				{Field: "name", Label: "name"},
-				{Field: "description", Label: "description"},
-				{Field: "deviceType", Label: "deviceType"},
-				{Field: "groupType", Label: "groupType"},
-				{Field: "memberCount", Label: "memberCount"},
-			}, cliCtx.Output.Format())
 			return cliCtx.Output.PrintRaw(b)
 		},
 	}
-	cmd.Flags().StringVar(&customerId, "customer-id", "", "Unique identifier of the customer whose groups to retrieve")
 	return cmd
 }
 
-func newDeviceGroupsCreateCmd(cliCtx *registry.CLIContext) *cobra.Command {
+func newUemConnectorsCreateCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	var bodyFile string
 	var setFlags []string
 	var scaffoldFlag bool
 	cmd := &cobra.Command{
 		Use:         "create",
-		Short:       "Create a new device group",
-		Long:        "Creates a new device group for the authenticated customer.",
+		Short:       "Create connector",
+		Long:        "Creates a new connector for the tenant. On success returns the identifier of the created connector.",
 		Annotations: map[string]string{"jamf:privileges": "create:jsc:all"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if scaffoldFlag {
 				// Scaffold prints raw JSON regardless of -o, so the output
 				// can be piped straight back into --file.
-				fmt.Println("{\n  \"name\": \"\"\n}")
+				fmt.Println("{\n  \"isoCountry\": \"\",\n  \"url\": \"\",\n  \"vendor\": \"\"\n}")
 				return nil
 			}
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err
 			}
-			path := "/api/securitycloud/v1/tenant/{tenantId}/groups"
+			path := "/api/securitycloud/tenant/{tenantId}/uem-connect/v1/connectors"
 			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("securitycloud")), 1)
 			q := url.Values{}
 			body, err := platform.ReadBody(bodyFile, setFlags)
@@ -129,13 +120,13 @@ func newDeviceGroupsCreateCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newDeviceGroupsDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
+func newUemConnectorsDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	var yes bool
 	var nameFlag string
 	cmd := &cobra.Command{
-		Use:         "delete <groupId>",
-		Short:       "Delete a device group",
-		Long:        "Deletes a device group. The default group cannot be deleted.",
+		Use:         "delete <configId>",
+		Short:       "Delete connector",
+		Long:        "Deletes the connector identified by `configId` and all of its data.",
 		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "delete:jsc:all"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -144,7 +135,7 @@ func newDeviceGroupsDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			}
 			var resolvedID string
 			if nameFlag != "" {
-				listPath := strings.Replace("/api/securitycloud/v1/tenant/{tenantId}/groups", "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("securitycloud")), 1)
+				listPath := strings.Replace("/api/securitycloud/tenant/{tenantId}/uem-connect/v1/connectors", "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("securitycloud")), 1)
 				id, err := platform.ResolveIDByName(cmd.Context(), cliCtx.PlatformSDKClient, listPath, nameFlag)
 				if err != nil {
 					return err
@@ -158,9 +149,9 @@ func newDeviceGroupsDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err := platform.ConfirmAction("delete", resolvedID, yes); err != nil {
 				return err
 			}
-			path := "/api/securitycloud/v1/tenant/{tenantId}/groups/{groupId}"
+			path := "/api/securitycloud/tenant/{tenantId}/uem-connect/v1/connectors/{configId}"
 			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("securitycloud")), 1)
-			path = strings.Replace(path, "{groupId}", url.PathEscape(resolvedID), 1)
+			path = strings.Replace(path, "{configId}", url.PathEscape(resolvedID), 1)
 			q := url.Values{}
 			var body any
 			if encoded := q.Encode(); encoded != "" {
@@ -177,12 +168,12 @@ func newDeviceGroupsDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newDeviceGroupsGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
+func newUemConnectorsGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	var nameFlag string
 	cmd := &cobra.Command{
-		Use:         "get <groupId>",
-		Short:       "Get a device group by ID",
-		Long:        "Retrieves a single device group by its ID.",
+		Use:         "get <configId>",
+		Short:       "Get connector",
+		Long:        "Returns the connector identified by `configId`.",
 		Annotations: map[string]string{"jamf:privileges": "read:jsc:all"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -191,7 +182,7 @@ func newDeviceGroupsGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			}
 			var resolvedID string
 			if nameFlag != "" {
-				listPath := strings.Replace("/api/securitycloud/v1/tenant/{tenantId}/groups", "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("securitycloud")), 1)
+				listPath := strings.Replace("/api/securitycloud/tenant/{tenantId}/uem-connect/v1/connectors", "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("securitycloud")), 1)
 				id, err := platform.ResolveIDByName(cmd.Context(), cliCtx.PlatformSDKClient, listPath, nameFlag)
 				if err != nil {
 					return err
@@ -202,9 +193,9 @@ func newDeviceGroupsGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			} else {
 				return fmt.Errorf("provide a positional ID or --name")
 			}
-			path := "/api/securitycloud/v1/tenant/{tenantId}/groups/{groupId}"
+			path := "/api/securitycloud/tenant/{tenantId}/uem-connect/v1/connectors/{configId}"
 			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("securitycloud")), 1)
-			path = strings.Replace(path, "{groupId}", url.PathEscape(resolvedID), 1)
+			path = strings.Replace(path, "{configId}", url.PathEscape(resolvedID), 1)
 			q := url.Values{}
 			var body any
 			if encoded := q.Encode(); encoded != "" {
@@ -225,45 +216,6 @@ func newDeviceGroupsGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&nameFlag, "name", "", "Resolve target by name instead of ID (uses the resource list endpoint)")
-	return cmd
-}
-
-func newDeviceGroupsListV2Cmd(cliCtx *registry.CLIContext) *cobra.Command {
-	var customerId string
-	cmd := &cobra.Command{
-		Use:         "list-v2",
-		Short:       "List all device groups for a customer",
-		Long:        "Retrieves all device groups for the authenticated customer.",
-		Annotations: map[string]string{"jamf:privileges": "read:jsc:all"},
-		RunE: func(cmd *cobra.Command, args []string) error {
-			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
-				return err
-			}
-			path := "/api/securitycloud/v2/tenant/{tenantId}/groups"
-			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("securitycloud")), 1)
-			q := url.Values{}
-			if customerId != "" {
-				q.Set("customer-id", customerId)
-			}
-			var body any
-			if encoded := q.Encode(); encoded != "" {
-				path += "?" + encoded
-			}
-			var result any
-			if err := cliCtx.PlatformSDKClient.Transport().DoExpect(cmd.Context(), http.MethodGet, path, body, http.StatusOK, &result); err != nil {
-				return fmt.Errorf("list-v2: %w", err)
-			}
-			if result == nil {
-				return nil
-			}
-			b, err := json.MarshalIndent(result, "", "  ")
-			if err != nil {
-				return err
-			}
-			return cliCtx.Output.PrintRaw(b)
-		},
-	}
-	cmd.Flags().StringVar(&customerId, "customer-id", "", "Unique identifier of the customer whose groups to retrieve")
 	return cmd
 }
 

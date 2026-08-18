@@ -17,39 +17,35 @@ import (
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 )
 
-// NewDeviceGroupsCmd returns the cobra command tree for the device-groups platform
+// NewZtnaGroupedGatewaysCmd returns the cobra command tree for the ztna-grouped-gateways platform
 // resource. Wire it into a product namespace via AddCommand.
-func NewDeviceGroupsCmd(cliCtx *registry.CLIContext) *cobra.Command {
+func NewZtnaGroupedGatewaysCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "device-groups",
-		Short: "Manage device-groups (Jamf Security Cloud)",
-		Long:  "API for accessing Security Cloud device information",
+		Use:   "ztna-grouped-gateways",
+		Short: "Manage ztna-grouped-gateways (Jamf Security Cloud)",
+		Long:  "Manage ZTNA Gateways, Grouped Gateways, Apps, and Predefined Apps",
 	}
-	cmd.AddCommand(newDeviceGroupsListCmd(cliCtx))
-	cmd.AddCommand(newDeviceGroupsCreateCmd(cliCtx))
-	cmd.AddCommand(newDeviceGroupsDeleteCmd(cliCtx))
-	cmd.AddCommand(newDeviceGroupsGetCmd(cliCtx))
-	cmd.AddCommand(newDeviceGroupsListV2Cmd(cliCtx))
+	cmd.AddCommand(newZtnaGroupedGatewaysListCmd(cliCtx))
+	cmd.AddCommand(newZtnaGroupedGatewaysCreateCmd(cliCtx))
+	cmd.AddCommand(newZtnaGroupedGatewaysDeleteCmd(cliCtx))
+	cmd.AddCommand(newZtnaGroupedGatewaysGetCmd(cliCtx))
+	cmd.AddCommand(newZtnaGroupedGatewaysPatchCmd(cliCtx))
 	return cmd
 }
 
-func newDeviceGroupsListCmd(cliCtx *registry.CLIContext) *cobra.Command {
-	var customerId string
+func newZtnaGroupedGatewaysListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "list",
-		Short:       "List all device groups for a customer",
-		Long:        "Retrieves all device groups for the authenticated customer.",
+		Short:       "List Grouped Gateways",
+		Long:        "List all Grouped Gateways for the tenant. Not paginated — the full list is returned in a single response.",
 		Annotations: map[string]string{"jamf:privileges": "read:jsc:all"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err
 			}
-			path := "/api/securitycloud/v1/tenant/{tenantId}/groups"
+			path := "/api/securitycloud/v1/tenant/{tenantId}/ztna/grouped-gateways"
 			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("securitycloud")), 1)
 			q := url.Values{}
-			if customerId != "" {
-				q.Set("customer-id", customerId)
-			}
 			var body any
 			if encoded := q.Encode(); encoded != "" {
 				path += "?" + encoded
@@ -61,45 +57,41 @@ func newDeviceGroupsListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if result == nil {
 				return nil
 			}
+			if obj, ok := result.(map[string]any); ok {
+				if arr, ok := obj["results"].([]any); ok {
+					result = arr
+				}
+			}
 			b, err := json.MarshalIndent(result, "", "  ")
 			if err != nil {
 				return err
 			}
-			b = platform.SelectTableColumns(b, []platform.TableColumn{
-				{Field: "id", Label: "id"},
-				{Field: "name", Label: "name"},
-				{Field: "description", Label: "description"},
-				{Field: "deviceType", Label: "deviceType"},
-				{Field: "groupType", Label: "groupType"},
-				{Field: "memberCount", Label: "memberCount"},
-			}, cliCtx.Output.Format())
 			return cliCtx.Output.PrintRaw(b)
 		},
 	}
-	cmd.Flags().StringVar(&customerId, "customer-id", "", "Unique identifier of the customer whose groups to retrieve")
 	return cmd
 }
 
-func newDeviceGroupsCreateCmd(cliCtx *registry.CLIContext) *cobra.Command {
+func newZtnaGroupedGatewaysCreateCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	var bodyFile string
 	var setFlags []string
 	var scaffoldFlag bool
 	cmd := &cobra.Command{
 		Use:         "create",
-		Short:       "Create a new device group",
-		Long:        "Creates a new device group for the authenticated customer.",
+		Short:       "Create a Grouped Gateway",
+		Long:        "Create a Grouped Gateway. Returns `201 {id, href}` + `Location` header.",
 		Annotations: map[string]string{"jamf:privileges": "create:jsc:all"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if scaffoldFlag {
 				// Scaffold prints raw JSON regardless of -o, so the output
 				// can be piped straight back into --file.
-				fmt.Println("{\n  \"name\": \"\"\n}")
+				fmt.Println("{\n  \"gatewayIds\": [],\n  \"name\": \"\",\n  \"recoveryDelayInSec\": 0,\n  \"routingStrategy\": \"\",\n  \"tenantIds\": []\n}")
 				return nil
 			}
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err
 			}
-			path := "/api/securitycloud/v1/tenant/{tenantId}/groups"
+			path := "/api/securitycloud/v1/tenant/{tenantId}/ztna/grouped-gateways"
 			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("securitycloud")), 1)
 			q := url.Values{}
 			body, err := platform.ReadBody(bodyFile, setFlags)
@@ -129,13 +121,13 @@ func newDeviceGroupsCreateCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newDeviceGroupsDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
+func newZtnaGroupedGatewaysDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	var yes bool
 	var nameFlag string
 	cmd := &cobra.Command{
-		Use:         "delete <groupId>",
-		Short:       "Delete a device group",
-		Long:        "Deletes a device group. The default group cannot be deleted.",
+		Use:         "delete <groupedGatewayId>",
+		Short:       "Delete a Grouped Gateway",
+		Long:        "Delete a Grouped Gateway. Returns `204` on success. Returns `404` if the grouped gateway does not exist or belongs to a different tenant — never `403`. Returns `409` if the grouped gateway is still referenced by an App or a DNS Zone — disassociate it first.",
 		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "delete:jsc:all"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -144,7 +136,7 @@ func newDeviceGroupsDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			}
 			var resolvedID string
 			if nameFlag != "" {
-				listPath := strings.Replace("/api/securitycloud/v1/tenant/{tenantId}/groups", "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("securitycloud")), 1)
+				listPath := strings.Replace("/api/securitycloud/v1/tenant/{tenantId}/ztna/grouped-gateways", "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("securitycloud")), 1)
 				id, err := platform.ResolveIDByName(cmd.Context(), cliCtx.PlatformSDKClient, listPath, nameFlag)
 				if err != nil {
 					return err
@@ -158,9 +150,9 @@ func newDeviceGroupsDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err := platform.ConfirmAction("delete", resolvedID, yes); err != nil {
 				return err
 			}
-			path := "/api/securitycloud/v1/tenant/{tenantId}/groups/{groupId}"
+			path := "/api/securitycloud/v1/tenant/{tenantId}/ztna/grouped-gateways/{groupedGatewayId}"
 			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("securitycloud")), 1)
-			path = strings.Replace(path, "{groupId}", url.PathEscape(resolvedID), 1)
+			path = strings.Replace(path, "{groupedGatewayId}", url.PathEscape(resolvedID), 1)
 			q := url.Values{}
 			var body any
 			if encoded := q.Encode(); encoded != "" {
@@ -177,12 +169,12 @@ func newDeviceGroupsDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newDeviceGroupsGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
+func newZtnaGroupedGatewaysGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	var nameFlag string
 	cmd := &cobra.Command{
-		Use:         "get <groupId>",
-		Short:       "Get a device group by ID",
-		Long:        "Retrieves a single device group by its ID.",
+		Use:         "get <groupedGatewayId>",
+		Short:       "Get a Grouped Gateway",
+		Long:        "Get a single Grouped Gateway. Returns `404` if the grouped gateway does not exist **or belongs to a different tenant** — never `403`, to avoid confirming existence of grouped gateways owned by other tenants. TRS `/external/v1` intercepts the `403` from `VirtualVpnRouteAuthorizer` and re-emits `404` (reusing the same `notFound` error response shape).",
 		Annotations: map[string]string{"jamf:privileges": "read:jsc:all"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -191,7 +183,7 @@ func newDeviceGroupsGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			}
 			var resolvedID string
 			if nameFlag != "" {
-				listPath := strings.Replace("/api/securitycloud/v1/tenant/{tenantId}/groups", "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("securitycloud")), 1)
+				listPath := strings.Replace("/api/securitycloud/v1/tenant/{tenantId}/ztna/grouped-gateways", "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("securitycloud")), 1)
 				id, err := platform.ResolveIDByName(cmd.Context(), cliCtx.PlatformSDKClient, listPath, nameFlag)
 				if err != nil {
 					return err
@@ -202,9 +194,9 @@ func newDeviceGroupsGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			} else {
 				return fmt.Errorf("provide a positional ID or --name")
 			}
-			path := "/api/securitycloud/v1/tenant/{tenantId}/groups/{groupId}"
+			path := "/api/securitycloud/v1/tenant/{tenantId}/ztna/grouped-gateways/{groupedGatewayId}"
 			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("securitycloud")), 1)
-			path = strings.Replace(path, "{groupId}", url.PathEscape(resolvedID), 1)
+			path = strings.Replace(path, "{groupedGatewayId}", url.PathEscape(resolvedID), 1)
 			q := url.Values{}
 			var body any
 			if encoded := q.Encode(); encoded != "" {
@@ -228,42 +220,61 @@ func newDeviceGroupsGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newDeviceGroupsListV2Cmd(cliCtx *registry.CLIContext) *cobra.Command {
-	var customerId string
+func newZtnaGroupedGatewaysPatchCmd(cliCtx *registry.CLIContext) *cobra.Command {
+	var bodyFile string
+	var setFlags []string
+	var scaffoldFlag bool
+	var nameFlag string
 	cmd := &cobra.Command{
-		Use:         "list-v2",
-		Short:       "List all device groups for a customer",
-		Long:        "Retrieves all device groups for the authenticated customer.",
-		Annotations: map[string]string{"jamf:privileges": "read:jsc:all"},
+		Use:         "patch <groupedGatewayId>",
+		Short:       "Partially update a Grouped Gateway",
+		Long:        "Partially update a Grouped Gateway (ADG-355). All fields are optional — include only what you want to change.",
+		Annotations: map[string]string{"jamf:privileges": "update:jsc:all"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if scaffoldFlag {
+				// Scaffold prints raw JSON regardless of -o, so the output
+				// can be piped straight back into --file.
+				fmt.Println("{\n  \"gatewayIds\": [],\n  \"name\": \"\",\n  \"recoveryDelayInSec\": 0,\n  \"routingStrategy\": \"\",\n  \"tenantIds\": []\n}")
+				return nil
+			}
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err
 			}
-			path := "/api/securitycloud/v2/tenant/{tenantId}/groups"
+			var resolvedID string
+			if nameFlag != "" {
+				listPath := strings.Replace("/api/securitycloud/v1/tenant/{tenantId}/ztna/grouped-gateways", "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("securitycloud")), 1)
+				id, err := platform.ResolveIDByName(cmd.Context(), cliCtx.PlatformSDKClient, listPath, nameFlag)
+				if err != nil {
+					return err
+				}
+				resolvedID = id
+			} else if len(args) == 1 {
+				resolvedID = args[0]
+			} else {
+				return fmt.Errorf("provide a positional ID or --name")
+			}
+			path := "/api/securitycloud/v1/tenant/{tenantId}/ztna/grouped-gateways/{groupedGatewayId}"
 			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("securitycloud")), 1)
+			path = strings.Replace(path, "{groupedGatewayId}", url.PathEscape(resolvedID), 1)
 			q := url.Values{}
-			if customerId != "" {
-				q.Set("customer-id", customerId)
-			}
-			var body any
-			if encoded := q.Encode(); encoded != "" {
-				path += "?" + encoded
-			}
-			var result any
-			if err := cliCtx.PlatformSDKClient.Transport().DoExpect(cmd.Context(), http.MethodGet, path, body, http.StatusOK, &result); err != nil {
-				return fmt.Errorf("list-v2: %w", err)
-			}
-			if result == nil {
-				return nil
-			}
-			b, err := json.MarshalIndent(result, "", "  ")
+			body, err := platform.ReadBody(bodyFile, setFlags)
 			if err != nil {
 				return err
 			}
-			return cliCtx.Output.PrintRaw(b)
+			if encoded := q.Encode(); encoded != "" {
+				path += "?" + encoded
+			}
+			if err := cliCtx.PlatformSDKClient.Transport().DoWithContentType(cmd.Context(), http.MethodPatch, path, body, "application/merge-patch+json", http.StatusNoContent, nil); err != nil {
+				return fmt.Errorf("patch: %w", err)
+			}
+			return nil
 		},
 	}
-	cmd.Flags().StringVar(&customerId, "customer-id", "", "Unique identifier of the customer whose groups to retrieve")
+	cmd.Flags().StringVar(&bodyFile, "file", "", "Path to JSON file containing the request body")
+	cmd.Flags().StringArrayVar(&setFlags, "set", nil, "Override body values (key=value, repeatable, supports nested.keys)")
+	cmd.Flags().BoolVar(&scaffoldFlag, "scaffold", false, "Print an example request body and exit")
+	cmd.Flags().StringVar(&nameFlag, "name", "", "Resolve target by name instead of ID (uses the resource list endpoint)")
 	return cmd
 }
 

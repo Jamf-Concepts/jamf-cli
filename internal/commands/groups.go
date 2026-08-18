@@ -618,15 +618,23 @@ func applySchoolGroups(school *cobra.Command) {
 // ─── Jamf Security Cloud groups (children of the "security" command) ───────
 
 const (
-	groupSecurityCore = "security-core"
-	groupSecurityRisk = "security-risk"
-	groupSecuritySSE  = "security-sse"
+	groupSecurityCore    = "security-core"
+	groupSecurityRisk    = "security-risk"
+	groupSecuritySSE     = "security-sse"
+	groupSecurityNetwork = "security-network"
+	groupSecurityZTNA    = "security-ztna"
+	groupSecurityDevices = "security-devices"
+	groupSecurityUEM     = "security-uem"
 )
 
 var securityGroups = []*cobra.Group{
 	{ID: groupSecurityCore, Title: "Core Commands:"},
 	{ID: groupSecurityRisk, Title: "Device Risk & Lifecycle:"},
 	{ID: groupSecuritySSE, Title: "Shared Signals & Events:"},
+	{ID: groupSecurityNetwork, Title: "DNS & Content Filtering:"},
+	{ID: groupSecurityZTNA, Title: "Zero Trust Network Access:"},
+	{ID: groupSecurityDevices, Title: "Device Groups:"},
+	{ID: groupSecurityUEM, Title: "UEM Connect:"},
 }
 
 var securityGroupMap = map[string]string{
@@ -640,6 +648,27 @@ var securityGroupMap = map[string]string{
 	"verification": groupSecuritySSE,
 	"jwks":         groupSecuritySSE,
 	"well-known":   groupSecuritySSE,
+
+	// Served on the platform gateway (/api/securitycloud) rather than
+	// api.wandera.com — see the wiring comment in security.go.
+	"dns-zones":                    groupSecurityNetwork,
+	"dns-search-domains":           groupSecurityNetwork,
+	"dns-custom-hostname-mappings": groupSecurityNetwork,
+	"content-categories":           groupSecurityNetwork,
+
+	"ztna-apps":             groupSecurityZTNA,
+	"ztna-gateways":         groupSecurityZTNA,
+	"ztna-grouped-gateways": groupSecurityZTNA,
+	"ztna-shared-gateways":  groupSecurityZTNA,
+	"ztna-predefined-apps":  groupSecurityZTNA,
+
+	"device-groups": groupSecurityDevices,
+
+	"uem-connectors":           groupSecurityUEM,
+	"uem-connector-enablement": groupSecurityUEM,
+	"uem-sync-settings":        groupSecurityUEM,
+	"uem-sync":                 groupSecurityUEM,
+	"uem-activation-profiles":  groupSecurityUEM,
 }
 
 func applySecurityGroups(security *cobra.Command) {

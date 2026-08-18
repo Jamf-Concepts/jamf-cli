@@ -1,0 +1,2712 @@
+{
+  "components": {
+    "headers": {
+      "traceId": {
+        "description": "Trace ID for correlating this request across Tyk, JAG, and TRS (ADG-400). Include this value when reporting issues to Jamf support.\n",
+        "schema": {
+          "example": "ecf2ca07e23c0abc12393472f2b783df",
+          "type": "string"
+        }
+      }
+    },
+    "parameters": {
+      "appId": {
+        "description": "ID of the App (Access Policy). Format: UUID (e.g. `3fa85f64-5717-4562-b3fc-2c963f66afa6`).\n",
+        "in": "path",
+        "name": "appId",
+        "required": true,
+        "schema": {
+          "format": "uuid",
+          "type": "string"
+        }
+      },
+      "gatewayId": {
+        "description": "ID of the Gateway (obtained from `GET /gateways` or a create response). Format: 4-character lowercase hexadecimal string (e.g. `a1b2`).\n",
+        "in": "path",
+        "name": "gatewayId",
+        "required": true,
+        "schema": {
+          "pattern": "^[0-9a-f]{4}$",
+          "type": "string"
+        }
+      },
+      "groupedGatewayId": {
+        "description": "ID of the Grouped Gateway. Format: UUID (e.g. `3fa85f64-5717-4562-b3fc-2c963f66afa6`).\n",
+        "in": "path",
+        "name": "groupedGatewayId",
+        "required": true,
+        "schema": {
+          "format": "uuid",
+          "type": "string"
+        }
+      },
+      "page": {
+        "description": "Page index (0-based).",
+        "in": "query",
+        "name": "page",
+        "schema": {
+          "default": 0,
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "pageSize": {
+        "description": "Number of items per page.",
+        "in": "query",
+        "name": "page-size",
+        "schema": {
+          "default": 100,
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "tenantId": {
+        "description": "The tenant UUID identifier",
+        "in": "path",
+        "name": "tenantId",
+        "required": true,
+        "schema": {
+          "example": "e77c1408-10c8-4007-b177-abc9157fbcaa",
+          "format": "uuid",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "type": "string"
+        }
+      }
+    },
+    "responses": {
+      "badRequest": {
+        "content": {
+          "application/json": {
+            "examples": {
+              "invalidField": {
+                "summary": "Schema validation failure",
+                "value": {
+                  "errors": [
+                    {
+                      "code": "INVALID_FIELD",
+                      "description": "name must not be blank.",
+                      "field": "name"
+                    }
+                  ],
+                  "httpStatus": 400,
+                  "traceId": "ecf2ca07e23c0abc12393472f2b783df"
+                }
+              },
+              "ipsecSecretClear": {
+                "summary": "Attempt to clear IPSec secret",
+                "value": {
+                  "errors": [
+                    {
+                      "code": "IPSEC_SECRET_CLEAR_NOT_SUPPORTED",
+                      "description": "The IPSec pre-shared key cannot be cleared. Provide a new value to rotate it, or omit the field to leave it unchanged.",
+                      "field": "ipsec.left.secret"
+                    }
+                  ],
+                  "httpStatus": 400,
+                  "traceId": "ecf2ca07e23c0abc12393472f2b783df"
+                }
+              }
+            },
+            "schema": {
+              "$ref": "#/components/schemas/ApiError"
+            }
+          }
+        },
+        "description": "Bad request — validation error. Common codes: `INVALID_FIELD` (schema or constraint violation), `IPSEC_SECRET_CLEAR_NOT_SUPPORTED` (explicit `null` sent for `ipsec.left.secret`).\n",
+        "headers": {
+          "X-B3-TraceId": {
+            "$ref": "#/components/headers/traceId"
+          }
+        }
+      },
+      "conflict": {
+        "content": {
+          "application/json": {
+            "example": {
+              "errors": [
+                {
+                  "code": "HOSTNAME_CONFLICT",
+                  "description": "Hostname 'atlassian.com' is already assigned to another App.",
+                  "field": "hostnames",
+                  "id": "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+                }
+              ],
+              "httpStatus": 409,
+              "traceId": "ecf2ca07e23c0abc12393472f2b783df"
+            },
+            "schema": {
+              "$ref": "#/components/schemas/ApiError"
+            }
+          }
+        },
+        "description": "Conflict — request is valid but cannot be processed due to current state. Common codes: `HOSTNAME_CONFLICT` — hostname already assigned to another App; `DEDICATED_IPS_LIMIT` — `dedicatedIps.enabled: true` quota exhausted; `MISSING_CATEGORY_NAME` — `categoryName` does not match any category returned by `GET /categories` for this customer (categories are per-customer and may change); `MISSING_SKU2_FOR_RISK_CONTROL` — risk controls require SKU2 entitlement not held by this customer; `MISSING_USER_GROUPS` — one or more assignment group IDs do not exist for this customer; `UNSUPPORTED_BARE_IP_IN_REFERENCED_VPN_ROUTE_IPSEC_CONFIG` — a `bareIps` subnet is not covered by the referenced gateway's IPSec tunnel `right.subnets`; `predefinedAppId` does not resolve to an existing template; for DELETE: gateway/grouped-gateway still referenced by an App, Grouped Gateway, or DNS Zone. Note: inaccessible gateway IDs in request bodies return `422 GATEWAY_NOT_FOUND`, not `409`.\n",
+        "headers": {
+          "X-B3-TraceId": {
+            "$ref": "#/components/headers/traceId"
+          }
+        }
+      },
+      "createResponse": {
+        "content": {
+          "application/json": {
+            "example": {
+              "href": "/api/securitycloud/tenant/my-tenant-id/v1/ztna/gateways/a1b2",
+              "id": "a1b2"
+            },
+            "schema": {
+              "$ref": "#/components/schemas/CreateResponse"
+            }
+          }
+        },
+        "description": "Resource created. Body contains `id` and `href`; `Location` header points to the new resource.",
+        "headers": {
+          "Location": {
+            "description": "URL of the created resource.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          "X-B3-TraceId": {
+            "$ref": "#/components/headers/traceId"
+          }
+        }
+      },
+      "forbidden": {
+        "content": {
+          "application/json": {
+            "example": {
+              "errors": [
+                {
+                  "code": "FORBIDDEN",
+                  "description": "One or more tenantIds do not belong to your organization."
+                }
+              ],
+              "httpStatus": 403,
+              "traceId": "ecf2ca07e23c0abc12393472f2b783df"
+            },
+            "schema": {
+              "$ref": "#/components/schemas/ApiError"
+            }
+          }
+        },
+        "description": "Forbidden — the caller's organization does not own one or more of the supplied `tenantIds`. JAG validates each `tenantId` against the JWT `organizationId`; any mismatch rejects the entire request.\n",
+        "headers": {
+          "X-B3-TraceId": {
+            "$ref": "#/components/headers/traceId"
+          }
+        }
+      },
+      "serviceUnavailable": {
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ApiError"
+            }
+          }
+        },
+        "description": "Service unavailable — transient server-side failure. For gateways: TRS failed to generate a unique 4-character hex ID after 10 attempts (extremely rare; the 16-bit ID space has 65,536 values and IDs are only exhausted under heavy load or ID leakage). Retry with exponential back-off; if persistent, contact Jamf support.\n",
+        "headers": {
+          "X-B3-TraceId": {
+            "$ref": "#/components/headers/traceId"
+          }
+        }
+      },
+      "tooManyRequests": {
+        "content": {
+          "application/json": {
+            "example": {
+              "errors": [
+                {
+                  "code": "RATE_LIMIT_EXCEEDED",
+                  "description": "Too many requests. Retry after the indicated period."
+                }
+              ],
+              "httpStatus": 429,
+              "traceId": "ecf2ca07e23c0abc12393472f2b783df"
+            },
+            "schema": {
+              "$ref": "#/components/schemas/ApiError"
+            }
+          }
+        },
+        "description": "Rate limit exceeded. Retry after the period indicated by `Retry-After`.",
+        "headers": {
+          "Retry-After": {
+            "description": "Number of seconds to wait before retrying.",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          "X-B3-TraceId": {
+            "$ref": "#/components/headers/traceId"
+          }
+        }
+      },
+      "unprocessableEntity": {
+        "content": {
+          "application/json": {
+            "examples": {
+              "gatewayNotFound": {
+                "summary": "Gateway ID in request body not accessible to caller",
+                "value": {
+                  "errors": [
+                    {
+                      "code": "GATEWAY_NOT_FOUND",
+                      "description": "Gateway 'a1b2' does not exist or is not accessible to this customer.",
+                      "field": "gatewayId"
+                    }
+                  ],
+                  "httpStatus": 422,
+                  "traceId": "ecf2ca07e23c0abc12393472f2b783df"
+                }
+              },
+              "mixedDedicatedIpsTypes": {
+                "summary": "Mixed dedicatedIps.enabled values",
+                "value": {
+                  "errors": [
+                    {
+                      "code": "MIXED_DEDICATED_IPS_TYPES",
+                      "description": "All member gateways must have the same dedicatedIps.enabled value."
+                    }
+                  ],
+                  "httpStatus": 422,
+                  "traceId": "ecf2ca07e23c0abc12393472f2b783df"
+                }
+              },
+              "mixedTunnelTypes": {
+                "summary": "Mixed IPSec and non-IPSec members",
+                "value": {
+                  "errors": [
+                    {
+                      "code": "MIXED_TUNNEL_TYPES",
+                      "description": "All member gateways must have the same tunnel type (all IPSec or all non-IPSec)."
+                    }
+                  ],
+                  "httpStatus": 422,
+                  "traceId": "ecf2ca07e23c0abc12393472f2b783df"
+                }
+              },
+              "sharedGatewayMember": {
+                "summary": "Shared gateway included as member",
+                "value": {
+                  "errors": [
+                    {
+                      "code": "SHARED_GATEWAY_MEMBER",
+                      "description": "Grouped Gateway members must be dedicated gateways. Remove shared gateways from gatewayIds."
+                    }
+                  ],
+                  "httpStatus": 422,
+                  "traceId": "ecf2ca07e23c0abc12393472f2b783df"
+                }
+              }
+            },
+            "schema": {
+              "$ref": "#/components/schemas/ApiError"
+            }
+          }
+        },
+        "description": "Unprocessable entity — request is syntactically valid but violates a cross-field business constraint. Error codes: `GATEWAY_NOT_FOUND` — a gateway ID in `routing.gatewayId` or `gatewayIds` is not accessible to this customer (applies to Apps and Grouped Gateways; returns 422 rather than 404 because the ID is in the request body, not the path); `SHARED_GATEWAY_MEMBER` — one or more `gatewayIds` refer to shared (Jamf-managed) gateways, which cannot be members of a Grouped Gateway; `MIXED_DEDICATED_IPS_TYPES` — member gateways have mixed `dedicatedIps.enabled` values; `MIXED_TUNNEL_TYPES` — member gateways have mixed tunnel types (some IPSec, some non-IPSec). TRS `/external/v1` emits `422` directly for these violations.\n",
+        "headers": {
+          "X-B3-TraceId": {
+            "$ref": "#/components/headers/traceId"
+          }
+        }
+      }
+    },
+    "schemas": {
+      "ApiError": {
+        "description": "Standard error response body per ADG-54. Returned for all non-2xx responses. The `traceId` field matches the `X-B3-TraceId` response header (ADG-400).\n",
+        "properties": {
+          "errors": {
+            "description": "One entry per problem in the request.",
+            "items": {
+              "properties": {
+                "code": {
+                  "description": "Machine-readable error code.",
+                  "example": "INVALID_FIELD",
+                  "type": "string"
+                },
+                "description": {
+                  "description": "Human-readable description for debugging. Do not display to end users.",
+                  "example": "Value is not a recognised category.",
+                  "type": "string"
+                },
+                "field": {
+                  "description": "Name of the field that caused the error, if applicable.",
+                  "example": "categoryName",
+                  "type": "string"
+                },
+                "id": {
+                  "description": "ID of the object with the error, if applicable.",
+                  "example": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+                  "type": "string"
+                }
+              },
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "httpStatus": {
+            "example": 400,
+            "type": "integer"
+          },
+          "traceId": {
+            "description": "Trace ID for correlating this error across Tyk, JAG, and TRS. Matches the `X-B3-TraceId` response header.\n",
+            "example": "ecf2ca07e23c0abc12393472f2b783df",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "App": {
+        "description": "An App (Access Policy) defining ZTNA routing for a set of hostnames/IPs.",
+        "properties": {
+          "assignments": {
+            "$ref": "#/components/schemas/Assignments"
+          },
+          "bareIps": {
+            "description": "IPv4 CIDR subnets (e.g. `192.168.1.0/24`). Duplicating a subnet across Apps returns 409.\n",
+            "items": {
+              "pattern": "^(\\d{1,3}\\.){3}\\d{1,3}\\/\\d{1,2}$",
+              "type": "string"
+            },
+            "type": "array",
+            "uniqueItems": true
+          },
+          "categoryName": {
+            "$ref": "#/components/schemas/CategoryName"
+          },
+          "groupOverrides": {
+            "$ref": "#/components/schemas/GroupOverrides"
+          },
+          "hostnames": {
+            "description": "Hostnames/domains for traffic matching. Each entry must be a valid domain name, `\"*\"` (full-tunnel wildcard), or a wildcard prefix (`\"*.example.com\"`). Overlapping entries are rejected — e.g. `[\"*.example.com\", \"sub.example.com\"]` returns `400` because `sub.example.com` is covered by `*.example.com`. Duplicating a hostname across Apps returns `409`.\n",
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "uniqueItems": true
+          },
+          "id": {
+            "description": "App ID. Format: UUID (e.g. `3fa85f64-5717-4562-b3fc-2c963f66afa6`).\n",
+            "format": "uuid",
+            "type": "string"
+          },
+          "name": {
+            "description": "Ignored when `predefinedAppId` is set — inherited from the predefined app template.\n",
+            "type": "string"
+          },
+          "predefinedAppId": {
+            "description": "ID of the predefined SaaS app template (from `GET /predefined-apps`). Once set, cannot be changed or removed. When set, `name` and `hostnames` are inherited from the template; additional `hostnames` can still be appended.\n",
+            "nullable": true,
+            "type": "string"
+          },
+          "routing": {
+            "$ref": "#/components/schemas/Routing"
+          },
+          "security": {
+            "$ref": "#/components/schemas/AppSecurity"
+          }
+        },
+        "required": [
+          "id",
+          "categoryName",
+          "assignments",
+          "routing"
+        ],
+        "type": "object"
+      },
+      "AppCreateRequest": {
+        "additionalProperties": false,
+        "description": "Request body for creating an App.",
+        "properties": {
+          "assignments": {
+            "$ref": "#/components/schemas/Assignments"
+          },
+          "bareIps": {
+            "description": "IPv4 CIDR subnets (e.g. `192.168.1.0/24`). Duplicating a subnet across Apps returns 409.",
+            "items": {
+              "pattern": "^(\\d{1,3}\\.){3}\\d{1,3}\\/\\d{1,2}$",
+              "type": "string"
+            },
+            "type": "array",
+            "uniqueItems": true
+          },
+          "categoryName": {
+            "$ref": "#/components/schemas/CategoryName"
+          },
+          "groupOverrides": {
+            "$ref": "#/components/schemas/GroupOverrides"
+          },
+          "hostnames": {
+            "description": "Unique set of hostnames/domains. Each entry must be a valid domain name, `\"*\"`, or `\"*.domain\"`. Overlapping entries (e.g. `[\"*.example.com\", \"sub.example.com\"]`) return `400`. Specifying the same hostname across multiple Apps returns `409`. When `predefinedAppId` is set, additional hostnames extend the template set.\n",
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "uniqueItems": true
+          },
+          "name": {
+            "description": "Ignored when `predefinedAppId` is set — name is inherited from the template.\n",
+            "type": "string"
+          },
+          "predefinedAppId": {
+            "description": "Optional. ID from `GET /predefined-apps`. Once set, cannot be changed or removed. When set, `name` and `hostnames` are inherited; additional `hostnames` can be appended. Presence indicates a Predefined (SaaS) App; absence indicates a Custom (Enterprise) App.\n",
+            "nullable": true,
+            "type": "string"
+          },
+          "routing": {
+            "$ref": "#/components/schemas/Routing"
+          },
+          "security": {
+            "$ref": "#/components/schemas/AppSecurity"
+          }
+        },
+        "required": [
+          "categoryName",
+          "assignments",
+          "routing"
+        ],
+        "type": "object"
+      },
+      "AppListResponse": {
+        "properties": {
+          "results": {
+            "items": {
+              "$ref": "#/components/schemas/App"
+            },
+            "type": "array"
+          },
+          "totalCount": {
+            "description": "Total number of items across all pages.",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "totalCount",
+          "results"
+        ],
+        "type": "object"
+      },
+      "AppPatchRequest": {
+        "additionalProperties": false,
+        "description": "Merge-patch body (`application/merge-patch+json`) for partial App update. All fields optional — include only what you want to change.\n",
+        "properties": {
+          "assignments": {
+            "$ref": "#/components/schemas/Assignments"
+          },
+          "bareIps": {
+            "description": "Replaces the full bareIps list. IPv4 CIDR subnets (e.g. `192.168.1.0/24`).",
+            "items": {
+              "pattern": "^(\\d{1,3}\\.){3}\\d{1,3}\\/\\d{1,2}$",
+              "type": "string"
+            },
+            "type": "array",
+            "uniqueItems": true
+          },
+          "categoryName": {
+            "$ref": "#/components/schemas/CategoryName"
+          },
+          "groupOverrides": {
+            "$ref": "#/components/schemas/GroupOverrides"
+          },
+          "hostnames": {
+            "description": "Replaces the full hostname list. Each entry must be a valid domain name, `\"*\"`, or `\"*.domain\"`. Overlapping entries (e.g. `[\"*.example.com\", \"sub.example.com\"]`) return `400`. Specifying the same hostname as another App returns `409`.\n",
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "uniqueItems": true
+          },
+          "name": {
+            "description": "New name. Must be non-empty if supplied and `predefinedAppId` is not set — a blank string returns `400`. Ignored when `predefinedAppId` is set (name is inherited from the template). Omit to leave unchanged.\n",
+            "minLength": 1,
+            "type": "string"
+          },
+          "routing": {
+            "$ref": "#/components/schemas/Routing"
+          },
+          "security": {
+            "$ref": "#/components/schemas/AppSecurity"
+          }
+        },
+        "type": "object"
+      },
+      "AppSecurity": {
+        "description": "Security controls applied to App traffic.",
+        "properties": {
+          "deviceManagementBasedAccess": {
+            "$ref": "#/components/schemas/DeviceManagementBasedAccess"
+          },
+          "dohIntegration": {
+            "$ref": "#/components/schemas/DohIntegration"
+          },
+          "riskControls": {
+            "$ref": "#/components/schemas/RiskControls"
+          }
+        },
+        "type": "object"
+      },
+      "Assignments": {
+        "description": "User/group assignment rules for an App.",
+        "properties": {
+          "inclusions": {
+            "$ref": "#/components/schemas/AssignmentsInclusions"
+          }
+        },
+        "required": [
+          "inclusions"
+        ],
+        "type": "object"
+      },
+      "AssignmentsInclusions": {
+        "description": "Inclusion rules controlling who can access the App.",
+        "properties": {
+          "allUsers": {
+            "description": "`true` grants access to all users; `groups` array is then ignored.\n",
+            "type": "boolean"
+          },
+          "groups": {
+            "description": "Device Group IDs (from the Device Groups API — JSC-71029). Used when `allUsers` is `false`. When `allUsers: false`, at least one group ID must be supplied — an empty `groups` array returns `400`.\n",
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "uniqueItems": true
+          }
+        },
+        "required": [
+          "allUsers"
+        ],
+        "type": "object"
+      },
+      "CategoryName": {
+        "description": "App category name. Use the `displayName` field from `GET /categories` — that endpoint is the authoritative source. The value must exactly match a `displayName` returned by `content-block-service`. Unknown values return `409 MISSING_CATEGORY_NAME` — the category list is per-customer and may change, so an unrecognised name is a state conflict, not a malformed request. TRS validates against `displayName` (e.g. `\"Business \u0026 Industry\"`), not the machine-readable `name` slug.\n",
+        "type": "string"
+      },
+      "ConnectionConfigRequest": {
+        "description": "IPSec connection endpoint for write requests. Includes the `secret` field. `secret` is write-only — it is never returned in GET responses.\n",
+        "properties": {
+          "auth": {
+            "description": "Authentication method. Currently only `psk` is supported.",
+            "enum": [
+              "psk"
+            ],
+            "type": "string"
+          },
+          "host": {
+            "description": "Endpoint address or `%any`.",
+            "minLength": 1,
+            "type": "string"
+          },
+          "id": {
+            "description": "IKE identity (e.g. `wpa.wandera.com` or `%any`).",
+            "minLength": 1,
+            "type": "string"
+          },
+          "secret": {
+            "description": "Pre-shared key. Provide to set or rotate the secret. Omit to preserve the existing secret on PATCH — it can only be rotated, never cleared. Sending `null` explicitly returns `400 IPSEC_SECRET_CLEAR_NOT_SUPPORTED`.\n",
+            "format": "password",
+            "type": "string",
+            "writeOnly": true
+          },
+          "subnets": {
+            "description": "CIDR subnet routed through this endpoint (e.g. `0.0.0.0/0`). Exactly 1 element.\n",
+            "items": {
+              "description": "IPv4 CIDR notation (e.g. `0.0.0.0/0`, `172.31.140.203/29`).",
+              "type": "string"
+            },
+            "maxItems": 1,
+            "minItems": 1,
+            "type": "array",
+            "uniqueItems": true
+          },
+          "vendor": {
+            "description": "Optional VPN vendor identifier of this endpoint (e.g. `cisco`, `strongSwan`). Optional on `left`; required on `right` (see `ConnectionConfigRequestNoSecret`).\n",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "host",
+          "subnets",
+          "auth"
+        ],
+        "type": "object"
+      },
+      "ConnectionConfigRequestNoSecret": {
+        "description": "IPSec connection endpoint for the `right` side. Identical to `left` but without `secret` — the secret is set automatically from `left.secret`. `vendor` is **required** — use the peer's VPN vendor identifier (e.g. `cisco`, `strongSwan`, `juniper`).\n",
+        "properties": {
+          "auth": {
+            "description": "Authentication method.",
+            "enum": [
+              "psk"
+            ],
+            "type": "string"
+          },
+          "host": {
+            "description": "Endpoint address.",
+            "minLength": 1,
+            "type": "string"
+          },
+          "id": {
+            "description": "IKE identity.",
+            "minLength": 1,
+            "type": "string"
+          },
+          "subnets": {
+            "description": "CIDR subnet routed through this endpoint (e.g. `0.0.0.0/0`). Exactly 1 element.",
+            "items": {
+              "description": "IPv4 CIDR notation (e.g. `0.0.0.0/0`).",
+              "type": "string"
+            },
+            "maxItems": 1,
+            "minItems": 1,
+            "type": "array",
+            "uniqueItems": true
+          },
+          "vendor": {
+            "description": "VPN vendor identifier of the remote peer (e.g. `cisco`, `strongSwan`, `juniper`). Free string — no fixed enum. **Required**.\n",
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "host",
+          "subnets",
+          "auth",
+          "vendor"
+        ],
+        "type": "object"
+      },
+      "ConnectionConfigResponse": {
+        "description": "IPSec connection endpoint returned on GET. Secrets are never included.",
+        "properties": {
+          "auth": {
+            "description": "Authentication method.",
+            "enum": [
+              "psk"
+            ],
+            "type": "string"
+          },
+          "host": {
+            "description": "Endpoint address.",
+            "type": "string"
+          },
+          "id": {
+            "description": "IKE identity.",
+            "type": "string"
+          },
+          "subnets": {
+            "description": "CIDR subnets.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "uniqueItems": true
+          },
+          "vendor": {
+            "description": "Optional VPN vendor identifier.",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "CreateResponse": {
+        "properties": {
+          "href": {
+            "description": "Canonical URL of the created resource.",
+            "type": "string"
+          },
+          "id": {
+            "description": "ID of the created resource.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "href"
+        ],
+        "type": "object"
+      },
+      "CypherSuiteConfig": {
+        "description": "Cipher suite configuration for an IKE or ESP phase.",
+        "properties": {
+          "dhGroups": {
+            "description": "Diffie-Hellman group. Exactly one value.",
+            "items": {
+              "enum": [
+                "modp1024",
+                "modp1536",
+                "modp2048",
+                "modp3072",
+                "modp4096",
+                "ecp256",
+                "ecp384",
+                "ecp521"
+              ],
+              "type": "string"
+            },
+            "maxItems": 1,
+            "minItems": 1,
+            "type": "array"
+          },
+          "encryption": {
+            "description": "Encryption algorithm. Exactly one value.",
+            "items": {
+              "enum": [
+                "3des",
+                "aes128",
+                "aes256"
+              ],
+              "type": "string"
+            },
+            "maxItems": 1,
+            "minItems": 1,
+            "type": "array"
+          },
+          "integrity": {
+            "description": "Integrity algorithm. Exactly one value.",
+            "items": {
+              "enum": [
+                "md5",
+                "sha1",
+                "sha256",
+                "sha512"
+              ],
+              "type": "string"
+            },
+            "maxItems": 1,
+            "minItems": 1,
+            "type": "array"
+          },
+          "lifetimeInSec": {
+            "description": "Key lifetime in seconds (e.g. `28800` for IKE, `3600` for ESP).",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "encryption",
+          "integrity",
+          "dhGroups",
+          "lifetimeInSec"
+        ],
+        "type": "object"
+      },
+      "DedicatedIps": {
+        "description": "Dedicated egress IP configuration.",
+        "properties": {
+          "enabled": {
+            "description": "Whether dedicated egress IPs are provisioned for this gateway.",
+            "type": "boolean"
+          },
+          "ips": {
+            "description": "Dedicated egress IPv4 addresses provisioned by the system (vpn-service-controller). Present when `enabled: true` and provisioning is complete.\n",
+            "items": {
+              "format": "ipv4",
+              "type": "string"
+            },
+            "readOnly": true,
+            "type": "array",
+            "uniqueItems": true
+          }
+        },
+        "required": [
+          "enabled"
+        ],
+        "type": "object"
+      },
+      "DeviceManagementBasedAccess": {
+        "description": "Device management enrollment-based access control.",
+        "properties": {
+          "enabled": {
+            "description": "Whether device management enrollment is required for access.",
+            "type": "boolean"
+          },
+          "notificationsEnabled": {
+            "description": "Whether to notify users when access is blocked due to unenrolled device.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "enabled",
+          "notificationsEnabled"
+        ],
+        "type": "object"
+      },
+      "DohIntegration": {
+        "description": "DNS-over-HTTPS integration settings for the App.",
+        "properties": {
+          "blocking": {
+            "description": "Whether DoH traffic is blocked for this App.",
+            "type": "boolean"
+          },
+          "notificationsEnabled": {
+            "description": "Whether to notify users when DoH traffic is blocked.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "blocking",
+          "notificationsEnabled"
+        ],
+        "type": "object"
+      },
+      "Gateway": {
+        "description": "A dedicated ZTNA Gateway. Always has exactly one deployment. All deployment fields are at the top level — no nesting.\n",
+        "properties": {
+          "availabilityZones": {
+            "description": "Public IPv4 addresses of the availability zone nodes (e.g. `52.16.181.207`). Must belong to the gateway's datacenter region. Note: despite the field name, values are IPv4 addresses — not zone identifier strings. TRS `/external/v1` translates these to/from TRS internal zone IDs (e.g. `eu-west-1a`) transparently.\n",
+            "items": {
+              "format": "ipv4",
+              "type": "string"
+            },
+            "type": "array",
+            "uniqueItems": true
+          },
+          "contact": {
+            "$ref": "#/components/schemas/GatewayContact"
+          },
+          "datacenter": {
+            "description": "Datacenter this gateway is deployed to (e.g. `eu-west-1`). Can be changed on PATCH — triggers re-provisioning; `availabilityZones` must match the new datacenter prefix (TRS enforces this and returns `400` on mismatch).\n",
+            "type": "string"
+          },
+          "dedicatedIps": {
+            "$ref": "#/components/schemas/DedicatedIps"
+          },
+          "enabled": {
+            "description": "Whether this deployment is active.",
+            "type": "boolean"
+          },
+          "id": {
+            "description": "Gateway ID. Format: 4-character lowercase hexadecimal string (e.g. `a1b2`).\n",
+            "pattern": "^[0-9a-f]{4}$",
+            "type": "string"
+          },
+          "ipsec": {
+            "$ref": "#/components/schemas/GatewayIpSec",
+            "description": "IPSec tunnel configuration. Absent if no tunnel is configured. `left.secret` and `right.secret` are never returned (write-only).\n"
+          },
+          "name": {
+            "description": "Human-readable name.",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/GatewayStatus"
+          },
+          "tenantIds": {
+            "description": "Tenant IDs that have access to this gateway.\n",
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "uniqueItems": true
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "tenantIds",
+          "contact",
+          "datacenter",
+          "enabled",
+          "status"
+        ],
+        "type": "object"
+      },
+      "GatewayContact": {
+        "description": "Operational contact for this gateway.",
+        "properties": {
+          "email": {
+            "description": "Contact email address.",
+            "format": "email",
+            "minLength": 1,
+            "type": "string"
+          },
+          "name": {
+            "description": "Contact name or team name.",
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "email",
+          "name"
+        ],
+        "type": "object"
+      },
+      "GatewayCreateRequest": {
+        "additionalProperties": false,
+        "description": "Flat request body for creating a dedicated Gateway.",
+        "properties": {
+          "availabilityZones": {
+            "description": "Public IPv4 addresses of the availability zone nodes to deploy into (e.g. `52.16.181.207`). Must belong to the gateway's datacenter region. Must be empty when `dedicatedIps.enabled: true`. Note: despite the field name, values are IPv4 addresses — TRS `/external/v1` translates to/from TRS internal zone IDs (e.g. `eu-west-1a`) transparently.\n",
+            "items": {
+              "format": "ipv4",
+              "type": "string"
+            },
+            "type": "array",
+            "uniqueItems": true
+          },
+          "contact": {
+            "$ref": "#/components/schemas/GatewayContact"
+          },
+          "datacenter": {
+            "description": "Target datacenter identifier (e.g. `eu-west-1`).",
+            "minLength": 1,
+            "type": "string"
+          },
+          "dedicatedIps": {
+            "$ref": "#/components/schemas/DedicatedIps",
+            "description": "Dedicated egress IP configuration. `dedicatedIps.enabled: true` is mutually exclusive with `ipsec` and with non-empty `availabilityZones`.\n"
+          },
+          "enabled": {
+            "default": true,
+            "description": "Whether the deployment should be active on creation.",
+            "type": "boolean"
+          },
+          "ipsec": {
+            "$ref": "#/components/schemas/GatewayIpSecRequest",
+            "description": "IPSec tunnel configuration. Optional — omit for non-tunnelled gateways. Mutually exclusive with `dedicatedIps.enabled: true`.\n"
+          },
+          "name": {
+            "description": "Human-readable name.",
+            "minLength": 1,
+            "type": "string"
+          },
+          "tenantIds": {
+            "description": "Tenant IDs to grant access. Validated against the caller's organization — **403** if mismatched.\n",
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1,
+            "type": "array",
+            "uniqueItems": true
+          }
+        },
+        "required": [
+          "name",
+          "datacenter",
+          "tenantIds"
+        ],
+        "type": "object"
+      },
+      "GatewayIpSec": {
+        "description": "IPSec tunnel configuration returned on GET. Secrets are never included in responses.\n",
+        "properties": {
+          "esp": {
+            "$ref": "#/components/schemas/CypherSuiteConfig"
+          },
+          "ike": {
+            "$ref": "#/components/schemas/CypherSuiteConfig"
+          },
+          "keyExchange": {
+            "description": "IKE version.",
+            "enum": [
+              "ikev1",
+              "ikev2"
+            ],
+            "type": "string"
+          },
+          "left": {
+            "$ref": "#/components/schemas/ConnectionConfigResponse"
+          },
+          "right": {
+            "$ref": "#/components/schemas/ConnectionConfigResponse"
+          }
+        },
+        "type": "object"
+      },
+      "GatewayIpSecRequest": {
+        "description": "IPSec tunnel configuration for POST / PATCH requests. Provide `left.secret` to set or rotate the PSK — it is automatically applied to both tunnel endpoints. All other fields are accepted as on create.\n",
+        "properties": {
+          "esp": {
+            "$ref": "#/components/schemas/CypherSuiteConfig"
+          },
+          "ike": {
+            "$ref": "#/components/schemas/CypherSuiteConfig"
+          },
+          "keyExchange": {
+            "description": "IKE version.",
+            "enum": [
+              "ikev1",
+              "ikev2"
+            ],
+            "type": "string"
+          },
+          "left": {
+            "$ref": "#/components/schemas/ConnectionConfigRequest"
+          },
+          "right": {
+            "$ref": "#/components/schemas/ConnectionConfigRequestNoSecret"
+          }
+        },
+        "required": [
+          "keyExchange",
+          "ike",
+          "esp",
+          "left",
+          "right"
+        ],
+        "type": "object"
+      },
+      "GatewayListResponse": {
+        "properties": {
+          "results": {
+            "items": {
+              "$ref": "#/components/schemas/Gateway"
+            },
+            "type": "array"
+          },
+          "totalCount": {
+            "description": "Total number of items across all pages.",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "totalCount",
+          "results"
+        ],
+        "type": "object"
+      },
+      "GatewayPatchRequest": {
+        "additionalProperties": false,
+        "description": "Flat merge-patch body (`application/merge-patch+json`). All fields optional. When `datacenter` is omitted, the existing value is preserved. When `datacenter` changes, `availabilityZones` must match the new datacenter prefix (e.g. `eu-central-1a` for `eu-central-1`) — returns `400` on mismatch.\n",
+        "properties": {
+          "availabilityZones": {
+            "description": "Replaces the availability zone node list. Accepts public IPv4 addresses (e.g. `52.16.181.207`). Zones must belong to the (new or existing) datacenter.\n",
+            "items": {
+              "format": "ipv4",
+              "type": "string"
+            },
+            "type": "array",
+            "uniqueItems": true
+          },
+          "contact": {
+            "$ref": "#/components/schemas/GatewayContact"
+          },
+          "datacenter": {
+            "description": "New datacenter for this deployment (e.g. `eu-central-1`). When changed, `availabilityZones` must match the new datacenter prefix — returns `400` on mismatch. **Destructive:** triggers re-provisioning, connectivity outage, and immediate `status.state` reset to `PENDING`. `dedicatedIps.ips` remain stale until VSC completes provisioning in the new datacenter.\n",
+            "type": "string"
+          },
+          "enabled": {
+            "description": "Whether the deployment should be active.",
+            "type": "boolean"
+          },
+          "ipsec": {
+            "$ref": "#/components/schemas/GatewayIpSecRequest",
+            "description": "Replaces the full IPSec tunnel configuration. All fields are accepted. `right.secret` is derived automatically from `left.secret` — callers never set it directly.\n"
+          },
+          "name": {
+            "description": "New name for the gateway.",
+            "minLength": 1,
+            "type": "string"
+          },
+          "tenantIds": {
+            "description": "Replaces the full tenantIds list. Validated against the caller's organization — **403** if mismatched. Setting `tenantIds: []` (empty array) returns `400` — `minItems: 1` enforced by schema.\n",
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1,
+            "type": "array",
+            "uniqueItems": true
+          }
+        },
+        "type": "object"
+      },
+      "GatewayStatus": {
+        "description": "Read-only operational status of the gateway. Always present — `PENDING` on creation (or `DISABLED` if `enabled: false`), then updated as infrastructure is provisioned.\n",
+        "properties": {
+          "state": {
+            "description": "Composite status derived from infrastructure and tunnel health. `PENDING` — gateway is being provisioned. `UP` — gateway is fully operational. `DOWN` — gateway is unreachable or degraded. `DISABLED` — gateway has `enabled: false`.\n",
+            "enum": [
+              "UP",
+              "DOWN",
+              "PENDING",
+              "DISABLED"
+            ],
+            "type": "string"
+          },
+          "tunnelState": {
+            "description": "IPSec tunnel health. Present only when the gateway has an IPSec configuration. `null` for non-IPSec gateways or before VSC reports the first tunnel status.\n",
+            "enum": [
+              "UP",
+              "DOWN"
+            ],
+            "nullable": true,
+            "type": "string"
+          },
+          "updatedAt": {
+            "description": "Timestamp of the last status update.",
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "readOnly": true,
+        "required": [
+          "state",
+          "tunnelState",
+          "updatedAt"
+        ],
+        "type": "object"
+      },
+      "GroupOverrides": {
+        "description": "Per-group routing overrides that take precedence over the App's default routing. Each override's `groupIds` must be a subset of `assignments.inclusions.groups` (or `allUsers: true`); references to unassigned groups return `400`.\n",
+        "properties": {
+          "routingOverrides": {
+            "items": {
+              "$ref": "#/components/schemas/RoutingOverride"
+            },
+            "type": "array",
+            "uniqueItems": true
+          }
+        },
+        "type": "object"
+      },
+      "GroupedGateway": {
+        "description": "A logical group of two or more Gateways with a shared routing strategy.",
+        "properties": {
+          "createdAt": {
+            "description": "When the Grouped Gateway was created.",
+            "format": "date-time",
+            "readOnly": true,
+            "type": "string"
+          },
+          "gatewayIds": {
+            "description": "IDs of member Gateways (minimum 2). Discover via `GET /gateways`. All members must be dedicated gateways (not from `GET /shared-gateways`), must have the same tunnel type (all IPSec or all non-IPSec), and the same `dedicatedIps.enabled` value — `422` on violation.\n",
+            "items": {
+              "pattern": "^[0-9a-f]{4}$",
+              "type": "string"
+            },
+            "minItems": 2,
+            "type": "array",
+            "uniqueItems": true
+          },
+          "id": {
+            "description": "Grouped Gateway ID. Format: UUID (e.g. `3fa85f64-5717-4562-b3fc-2c963f66afa6`).\n",
+            "format": "uuid",
+            "type": "string"
+          },
+          "name": {
+            "description": "Human-readable name.",
+            "type": "string"
+          },
+          "recoveryDelayInSec": {
+            "default": 0,
+            "description": "Recovery delay in seconds for the `ACTIVE_STANDBY` strategy — how long to wait before failing back to the primary after it recovers. Defaults to `0`. Ignored for `RANDOM` and `NEAREST` strategies.\n",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "routingStrategy": {
+            "$ref": "#/components/schemas/RoutingStrategy"
+          },
+          "tenantIds": {
+            "description": "Tenant IDs with access to this grouped gateway.\n",
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "uniqueItems": true
+          },
+          "updatedAt": {
+            "description": "Last update to the Grouped Gateway.",
+            "format": "date-time",
+            "readOnly": true,
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "gatewayIds",
+          "tenantIds",
+          "routingStrategy",
+          "createdAt",
+          "updatedAt"
+        ],
+        "type": "object"
+      },
+      "GroupedGatewayCreateRequest": {
+        "additionalProperties": false,
+        "description": "Request body for creating a Grouped Gateway.",
+        "properties": {
+          "gatewayIds": {
+            "description": "IDs of member Gateways (minimum 2).\n",
+            "items": {
+              "pattern": "^[0-9a-f]{4}$",
+              "type": "string"
+            },
+            "minItems": 2,
+            "type": "array",
+            "uniqueItems": true
+          },
+          "name": {
+            "description": "Human-readable name.",
+            "minLength": 1,
+            "type": "string"
+          },
+          "recoveryDelayInSec": {
+            "default": 0,
+            "description": "Recovery delay in seconds for `ACTIVE_STANDBY` strategy. Defaults to `0` if omitted.\n",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "routingStrategy": {
+            "$ref": "#/components/schemas/RoutingStrategy"
+          },
+          "tenantIds": {
+            "description": "Tenant IDs to grant access. Validated against the caller's organization — **403** if mismatched.\n",
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1,
+            "type": "array",
+            "uniqueItems": true
+          }
+        },
+        "required": [
+          "name",
+          "gatewayIds",
+          "routingStrategy",
+          "tenantIds"
+        ],
+        "type": "object"
+      },
+      "GroupedGatewayListResponse": {
+        "properties": {
+          "results": {
+            "items": {
+              "$ref": "#/components/schemas/GroupedGateway"
+            },
+            "type": "array"
+          },
+          "totalCount": {
+            "description": "Total number of items across all pages.",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "totalCount",
+          "results"
+        ],
+        "type": "object"
+      },
+      "GroupedGatewayPatchRequest": {
+        "additionalProperties": false,
+        "description": "Merge-patch body (`application/merge-patch+json`) for partial Grouped Gateway update. All fields optional — include only what you want to change.\n",
+        "properties": {
+          "gatewayIds": {
+            "description": "Replaces the full member gateway list (minimum 2).\n",
+            "items": {
+              "pattern": "^[0-9a-f]{4}$",
+              "type": "string"
+            },
+            "minItems": 2,
+            "type": "array",
+            "uniqueItems": true
+          },
+          "name": {
+            "description": "New name for the grouped gateway.",
+            "minLength": 1,
+            "type": "string"
+          },
+          "recoveryDelayInSec": {
+            "description": "Recovery delay in seconds for `ACTIVE_STANDBY` strategy. Omit to leave unchanged.",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "routingStrategy": {
+            "$ref": "#/components/schemas/RoutingStrategy"
+          },
+          "tenantIds": {
+            "description": "Replaces the full tenantIds list. Validated against the caller's organization — **403** if mismatched. Setting `tenantIds: []` (empty array) returns `400` — `minItems: 1` enforced by schema.\n",
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1,
+            "type": "array",
+            "uniqueItems": true
+          }
+        },
+        "type": "object"
+      },
+      "PredefinedApp": {
+        "description": "A predefined SaaS application definition. Pass the `id` as `predefinedAppId` when creating an App.\n",
+        "properties": {
+          "hostnames": {
+            "description": "Hostnames inherited by Apps that reference this template.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "uniqueItems": true
+          },
+          "id": {
+            "description": "Template ID. Pass as `predefinedAppId` when creating an App.",
+            "type": "string"
+          },
+          "name": {
+            "description": "Display name of the predefined SaaS application.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ],
+        "type": "object"
+      },
+      "PredefinedAppListResponse": {
+        "properties": {
+          "results": {
+            "items": {
+              "$ref": "#/components/schemas/PredefinedApp"
+            },
+            "type": "array"
+          },
+          "totalCount": {
+            "description": "Total number of predefined app templates available.",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "totalCount",
+          "results"
+        ],
+        "type": "object"
+      },
+      "RiskControls": {
+        "description": "Risk-based access controls for the App.",
+        "properties": {
+          "enabled": {
+            "description": "Whether risk-based access control is active.",
+            "type": "boolean"
+          },
+          "levelThreshold": {
+            "description": "Minimum risk level that triggers access denial.",
+            "enum": [
+              "LOW",
+              "MEDIUM",
+              "HIGH"
+            ],
+            "type": "string"
+          },
+          "notificationsEnabled": {
+            "description": "Whether to notify users when access is blocked by risk controls.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "enabled",
+          "levelThreshold",
+          "notificationsEnabled"
+        ],
+        "type": "object"
+      },
+      "Routing": {
+        "description": "Traffic routing configuration for an App.",
+        "properties": {
+          "dnsIpResolutionType": {
+            "default": "IPv6",
+            "description": "DNS IP resolution preference. Optional. When omitted and `type=CUSTOM`, TRS defaults to `IPv6`. Explicitly set to `IPv4` if your network requires it. **Must be absent (or null) when `type=DIRECT`** — returns `400` if set.\n",
+            "enum": [
+              "IPv4",
+              "IPv6"
+            ],
+            "nullable": true,
+            "type": "string"
+          },
+          "gatewayId": {
+            "description": "ID of a Gateway or Grouped Gateway. Required when `type=CUSTOM`, must be null/absent when `type=DIRECT`. Gateway IDs are 4-character lowercase hex strings (e.g. `a1b2`); Grouped Gateway IDs are UUIDs (e.g. `3fa85f64-5717-4562-b3fc-2c963f66afa6`).\n",
+            "nullable": true,
+            "type": "string"
+          },
+          "type": {
+            "description": "`CUSTOM` routes traffic via a ZTNA gateway (`gatewayId` required). `DIRECT` uses default device routing (`gatewayId` must be null/absent). The internal TRS value `BLOCK` is not exposed in the public API.\n",
+            "enum": [
+              "CUSTOM",
+              "DIRECT"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "type"
+        ],
+        "type": "object"
+      },
+      "RoutingOverride": {
+        "description": "A routing override applied to a specific subset of assigned groups.",
+        "properties": {
+          "groupIds": {
+            "description": "Must be a subset of `assignments.inclusions.groups` (or `allUsers: true`). A group ID may not appear in more than one routing override entry — returns `400` on conflict.\n",
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1,
+            "type": "array",
+            "uniqueItems": true
+          },
+          "routing": {
+            "$ref": "#/components/schemas/Routing"
+          }
+        },
+        "required": [
+          "groupIds",
+          "routing"
+        ],
+        "type": "object"
+      },
+      "RoutingStrategy": {
+        "description": "`ACTIVE_STANDBY` — traffic goes to the primary gateway; failover to secondary on failure. `RANDOM` — traffic is distributed randomly across gateways. `NEAREST` — traffic routes to the geographically closest gateway.\n",
+        "enum": [
+          "ACTIVE_STANDBY",
+          "RANDOM",
+          "NEAREST"
+        ],
+        "type": "string"
+      },
+      "SharedGateway": {
+        "description": "A Jamf-managed shared ZTNA Gateway. Read-only. Only VPN route metadata is returned — no deployment details.\n",
+        "properties": {
+          "id": {
+            "description": "Gateway ID. Format: 4-character lowercase hexadecimal string (e.g. `a1b2`).\n",
+            "pattern": "^[0-9a-f]{4}$",
+            "type": "string"
+          },
+          "name": {
+            "description": "Human-readable name.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ],
+        "type": "object"
+      },
+      "SharedGatewayListResponse": {
+        "properties": {
+          "results": {
+            "items": {
+              "$ref": "#/components/schemas/SharedGateway"
+            },
+            "type": "array"
+          },
+          "totalCount": {
+            "description": "Total number of Shared Gateways available to this tenant.",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "totalCount",
+          "results"
+        ],
+        "type": "object"
+      }
+    },
+    "securitySchemes": {
+      "bearerAuth": {
+        "bearerFormat": "JWT",
+        "description": "JWT Bearer token authentication. Obtain a token from the Jamf API Gateway.",
+        "scheme": "bearer",
+        "type": "http"
+      }
+    }
+  },
+  "info": {
+    "contact": {
+      "name": "Jamf Developer",
+      "url": "https://developer.jamf.com"
+    },
+    "description": "Manage ZTNA Gateways, Grouped Gateways, Apps, and Predefined Apps",
+    "termsOfService": "https://www.jamf.com/developer-resources/api-license-agreement/",
+    "title": "Jamf ZTNA Public API (STAGE)",
+    "version": "1.0.0"
+  },
+  "openapi": "3.0.3",
+  "paths": {
+    "/tenant/{tenantId}/ztna/apps": {
+      "get": {
+        "description": "List all Apps (Access Policies) for the tenant, paginated.\n\n\n**Required Permissions:** `read:jsc:all`",
+        "operationId": "listApps",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/tenantId"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/pageSize"
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppListResponse"
+                }
+              }
+            },
+            "description": "Paginated list of Apps.",
+            "headers": {
+              "X-B3-TraceId": {
+                "$ref": "#/components/headers/traceId"
+              }
+            }
+          },
+          "429": {
+            "$ref": "#/components/responses/tooManyRequests"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "List Apps",
+        "tags": [
+          "Apps"
+        ],
+        "x-authentication-required": true,
+        "x-required-privileges": [
+          "read:jsc:all"
+        ]
+      },
+      "post": {
+        "description": "Create an App (Access Policy). Returns `201 {id, href}` + `Location` header.\n\n**Required fields:** `categoryName`, `assignments`, `routing`.\n\n**`name` required when `predefinedAppId` is absent:** If `predefinedAppId` is not set,\n`name` must be non-blank — returns `400` otherwise. When `predefinedAppId` is set,\n`name` is optional (inherited from the template).\n\n**Full-tunnel restriction:** When `hostnames` contains `\"*\"` (wildcard — routes all traffic),\n`security.riskControls.enabled` must be `false` — returns `400` otherwise.\n\n\n**Required Permissions:** `create:jsc:all`",
+        "operationId": "createApp",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/tenantId"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "example": {
+                "assignments": {
+                  "inclusions": {
+                    "allUsers": false,
+                    "groups": [
+                      "b813bba0-101b-467f-a0d2-495e7e5ad610"
+                    ]
+                  }
+                },
+                "bareIps": [],
+                "categoryName": "Business \u0026 Industry",
+                "groupOverrides": {
+                  "routingOverrides": [
+                    {
+                      "groupIds": [
+                        "c375d769-0e0e-4cb3-99c0-3dcd5f48a36f"
+                      ],
+                      "routing": {
+                        "type": "DIRECT"
+                      }
+                    }
+                  ]
+                },
+                "hostnames": [
+                  "atlassian.com",
+                  "*.atlassian.net"
+                ],
+                "name": "Atlassian Cloud (sales)",
+                "predefinedAppId": null,
+                "routing": {
+                  "dnsIpResolutionType": "IPv6",
+                  "gatewayId": "a1b2",
+                  "type": "CUSTOM"
+                },
+                "security": {
+                  "deviceManagementBasedAccess": {
+                    "enabled": true,
+                    "notificationsEnabled": false
+                  },
+                  "dohIntegration": {
+                    "blocking": false,
+                    "notificationsEnabled": false
+                  },
+                  "riskControls": {
+                    "enabled": true,
+                    "levelThreshold": "MEDIUM",
+                    "notificationsEnabled": false
+                  }
+                }
+              },
+              "schema": {
+                "$ref": "#/components/schemas/AppCreateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "$ref": "#/components/responses/createResponse"
+          },
+          "400": {
+            "$ref": "#/components/responses/badRequest"
+          },
+          "409": {
+            "$ref": "#/components/responses/conflict"
+          },
+          "422": {
+            "$ref": "#/components/responses/unprocessableEntity"
+          },
+          "429": {
+            "$ref": "#/components/responses/tooManyRequests"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Create an App",
+        "tags": [
+          "Apps"
+        ],
+        "x-authentication-required": true,
+        "x-required-privileges": [
+          "create:jsc:all"
+        ]
+      }
+    },
+    "/tenant/{tenantId}/ztna/apps/{appId}": {
+      "delete": {
+        "description": "Delete an App (Access Policy). Returns `204` on success. Returns `404` if the App does not exist or is not owned by this customer. Returns `409` if deletion cannot complete due to a conflict.\n\n\n**Required Permissions:** `delete:jsc:all`",
+        "operationId": "deleteApp",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/tenantId"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "App deleted.",
+            "headers": {
+              "X-B3-TraceId": {
+                "$ref": "#/components/headers/traceId"
+              }
+            }
+          },
+          "404": {
+            "description": "App not found or not owned by this customer.",
+            "headers": {
+              "X-B3-TraceId": {
+                "$ref": "#/components/headers/traceId"
+              }
+            }
+          },
+          "409": {
+            "$ref": "#/components/responses/conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/tooManyRequests"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Delete an App",
+        "tags": [
+          "Apps"
+        ],
+        "x-authentication-required": true,
+        "x-required-privileges": [
+          "delete:jsc:all"
+        ]
+      },
+      "get": {
+        "description": "Get a single App (Access Policy).\n\n\n**Required Permissions:** `read:jsc:all`",
+        "operationId": "getApp",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/tenantId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "assignments": {
+                    "inclusions": {
+                      "allUsers": false,
+                      "groups": [
+                        "b813bba0-101b-467f-a0d2-495e7e5ad610"
+                      ]
+                    }
+                  },
+                  "bareIps": [],
+                  "categoryName": "Business \u0026 Industry",
+                  "groupOverrides": {
+                    "routingOverrides": [
+                      {
+                        "groupIds": [
+                          "c375d769-0e0e-4cb3-99c0-3dcd5f48a36f"
+                        ],
+                        "routing": {
+                          "type": "DIRECT"
+                        }
+                      }
+                    ]
+                  },
+                  "hostnames": [
+                    "atlassian.com",
+                    "*.atlassian.net"
+                  ],
+                  "id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+                  "name": "Atlassian Cloud (sales)",
+                  "predefinedAppId": null,
+                  "routing": {
+                    "dnsIpResolutionType": "IPv6",
+                    "gatewayId": "a1b2",
+                    "type": "CUSTOM"
+                  },
+                  "security": {
+                    "deviceManagementBasedAccess": {
+                      "enabled": true,
+                      "notificationsEnabled": false
+                    },
+                    "dohIntegration": {
+                      "blocking": false,
+                      "notificationsEnabled": false
+                    },
+                    "riskControls": {
+                      "enabled": true,
+                      "levelThreshold": "MEDIUM",
+                      "notificationsEnabled": false
+                    }
+                  }
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/App"
+                }
+              }
+            },
+            "description": "The requested App.",
+            "headers": {
+              "X-B3-TraceId": {
+                "$ref": "#/components/headers/traceId"
+              }
+            }
+          },
+          "404": {
+            "description": "App not found or not owned by this customer.",
+            "headers": {
+              "X-B3-TraceId": {
+                "$ref": "#/components/headers/traceId"
+              }
+            }
+          },
+          "429": {
+            "$ref": "#/components/responses/tooManyRequests"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Get an App",
+        "tags": [
+          "Apps"
+        ],
+        "x-authentication-required": true,
+        "x-required-privileges": [
+          "read:jsc:all"
+        ]
+      },
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/appId"
+        }
+      ],
+      "patch": {
+        "description": "Partially update an App (Access Policy) (ADG-355).\nAll fields are optional — include only what you want to change.\n\nReturns `404` if the App does not exist or is not owned by this customer.\n\nTRS `/external/v1` performs server-side partial merge — reads the current App from\nthe database, merges the supplied fields, and persists atomically. No client-side\nread-modify-write cycle.\n\n**`name: \"\"`  is rejected.** Sending a blank string for `name` returns `400`\n— when `predefinedAppId` is not set, `name` must be non-empty if supplied.\nOmit `name` entirely to leave it unchanged.\n\n**Full-tunnel restriction:** When `hostnames` contains `\"*\"` (wildcard — routes all traffic),\n`security.riskControls.enabled` must be `false` — returns `400` otherwise.\n\n\n**Required Permissions:** `update:jsc:all`",
+        "operationId": "patchApp",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/tenantId"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/merge-patch+json": {
+              "example": {
+                "name": "Atlassian Cloud (sales) — updated",
+                "routing": {
+                  "gatewayId": "c3d4",
+                  "type": "CUSTOM"
+                }
+              },
+              "schema": {
+                "$ref": "#/components/schemas/AppPatchRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "App updated.",
+            "headers": {
+              "X-B3-TraceId": {
+                "$ref": "#/components/headers/traceId"
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/badRequest"
+          },
+          "404": {
+            "description": "App not found or not owned by this customer.",
+            "headers": {
+              "X-B3-TraceId": {
+                "$ref": "#/components/headers/traceId"
+              }
+            }
+          },
+          "409": {
+            "$ref": "#/components/responses/conflict"
+          },
+          "422": {
+            "$ref": "#/components/responses/unprocessableEntity"
+          },
+          "429": {
+            "$ref": "#/components/responses/tooManyRequests"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Partially update an App",
+        "tags": [
+          "Apps"
+        ],
+        "x-authentication-required": true,
+        "x-required-privileges": [
+          "update:jsc:all"
+        ]
+      }
+    },
+    "/tenant/{tenantId}/ztna/gateways": {
+      "get": {
+        "description": "List dedicated Gateways for the tenant, paginated. Returns only customer-owned gateways. Each item includes datacenter, availability zones, IPSec configuration, and operational status.\n\n\n**Required Permissions:** `read:jsc:all`",
+        "operationId": "listGateways",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/tenantId"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/pageSize"
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "results": [
+                    {
+                      "availabilityZones": [
+                        "18.202.42.169",
+                        "54.220.161.57"
+                      ],
+                      "contact": {
+                        "email": "ops@example.com",
+                        "name": "Ops Team"
+                      },
+                      "datacenter": "eu-west-1",
+                      "enabled": true,
+                      "id": "a1b2",
+                      "name": "EU West Gateway",
+                      "status": {
+                        "state": "UP",
+                        "tunnelState": null,
+                        "updatedAt": "2026-06-02T10:15:30Z"
+                      },
+                      "tenantIds": [
+                        "tenant-abc"
+                      ]
+                    }
+                  ],
+                  "totalCount": 3
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/GatewayListResponse"
+                }
+              }
+            },
+            "description": "Paginated list of Gateways.",
+            "headers": {
+              "X-B3-TraceId": {
+                "$ref": "#/components/headers/traceId"
+              }
+            }
+          },
+          "429": {
+            "$ref": "#/components/responses/tooManyRequests"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "List Gateways",
+        "tags": [
+          "Gateways"
+        ],
+        "x-authentication-required": true,
+        "x-required-privileges": [
+          "read:jsc:all"
+        ]
+      },
+      "post": {
+        "description": "Create a dedicated Gateway. Returns `201 {id, href}` + `Location` header.\n\n`tenantIds` are validated against the caller's organization — returns **403** if any\ntenant ID belongs to a different organization.\n\n**Constraints:**\n- `dedicatedIps.enabled: true` and `ipsec` are mutually exclusive → `400`\n- `dedicatedIps.enabled: true` and non-empty `availabilityZones` are mutually exclusive → `400`\n- Only **one** gateway with `dedicatedIps.enabled: true` is permitted per tenant (quota = 1).\n  A second attempt returns `409 DEDICATED_IPS_LIMIT`. Contact your Jamf account team to increase this limit.\n- Sending `ipsec.left.secret: null` explicitly returns `400 IPSEC_SECRET_CLEAR_NOT_SUPPORTED`.\n\n**No idempotency key.** Gateway `name` is not unique-enforced — a timed-out POST that\nsucceeded server-side may create a duplicate gateway if retried. Verify via\n`GET /ztna/gateways` before retrying a failed create.\n\n\n**Required Permissions:** `create:jsc:all`",
+        "operationId": "createGateway",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/tenantId"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "example": {
+                "availabilityZones": [
+                  "18.202.42.169"
+                ],
+                "contact": {
+                  "email": "ops@example.com",
+                  "name": "Ops Team"
+                },
+                "datacenter": "eu-west-1",
+                "enabled": true,
+                "name": "EU West Gateway",
+                "tenantIds": [
+                  "tenant-abc"
+                ]
+              },
+              "schema": {
+                "$ref": "#/components/schemas/GatewayCreateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "$ref": "#/components/responses/createResponse"
+          },
+          "400": {
+            "$ref": "#/components/responses/badRequest"
+          },
+          "403": {
+            "$ref": "#/components/responses/forbidden"
+          },
+          "409": {
+            "$ref": "#/components/responses/conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/tooManyRequests"
+          },
+          "503": {
+            "$ref": "#/components/responses/serviceUnavailable"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Create a Gateway",
+        "tags": [
+          "Gateways"
+        ],
+        "x-authentication-required": true,
+        "x-required-privileges": [
+          "create:jsc:all"
+        ]
+      }
+    },
+    "/tenant/{tenantId}/ztna/gateways/{gatewayId}": {
+      "delete": {
+        "description": "Delete a dedicated Gateway. Returns `204` on success. Returns `404` if the gateway does not exist or belongs to a different tenant — never `403`. Returns `409` if the gateway is still referenced by an App, a Grouped Gateway, or a DNS Zone — disassociate it first, then retry.\n\n\n**Required Permissions:** `delete:jsc:all`",
+        "operationId": "deleteGateway",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/tenantId"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Gateway deleted.",
+            "headers": {
+              "X-B3-TraceId": {
+                "$ref": "#/components/headers/traceId"
+              }
+            }
+          },
+          "404": {
+            "description": "Gateway not found or belongs to a different tenant.",
+            "headers": {
+              "X-B3-TraceId": {
+                "$ref": "#/components/headers/traceId"
+              }
+            }
+          },
+          "409": {
+            "$ref": "#/components/responses/conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/tooManyRequests"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Delete a Gateway",
+        "tags": [
+          "Gateways"
+        ],
+        "x-authentication-required": true,
+        "x-required-privileges": [
+          "delete:jsc:all"
+        ]
+      },
+      "get": {
+        "description": "Get a single dedicated Gateway. All fields are flat at the top level. Returns `404` if the gateway does not exist **or belongs to a different tenant** — never `403`, to avoid confirming the existence of gateways owned by other tenants (Gateway IDs are 16-bit enumerable; a `403` would be an existence oracle).\n\n\n**Required Permissions:** `read:jsc:all`",
+        "operationId": "getGateway",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/tenantId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Gateway"
+                }
+              }
+            },
+            "description": "The requested Gateway.",
+            "headers": {
+              "X-B3-TraceId": {
+                "$ref": "#/components/headers/traceId"
+              }
+            }
+          },
+          "404": {
+            "description": "Gateway not found or belongs to a different tenant.",
+            "headers": {
+              "X-B3-TraceId": {
+                "$ref": "#/components/headers/traceId"
+              }
+            }
+          },
+          "429": {
+            "$ref": "#/components/responses/tooManyRequests"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Get a Gateway",
+        "tags": [
+          "Gateways"
+        ],
+        "x-authentication-required": true,
+        "x-required-privileges": [
+          "read:jsc:all"
+        ]
+      },
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/gatewayId"
+        }
+      ],
+      "patch": {
+        "description": "Partially update a dedicated Gateway. All fields are optional — flat body, no nesting.\n\nReturns `404` if the gateway does not exist **or belongs to a different tenant** — never `403`,\nto avoid confirming the existence of gateways owned by other tenants.\n\n`tenantIds` are validated against the caller's organization — **403** on mismatch.\nWhen `datacenter` changes, `availabilityZones` must match the new datacenter prefix\n— returns `400` on mismatch.\nSending `ipsec.left.secret: null` explicitly returns `400 IPSEC_SECRET_CLEAR_NOT_SUPPORTED`\n— omit the field to leave the existing secret unchanged.\n\n**`contact: null` is rejected.** Setting `contact` to `null` in a merge-patch returns\n`409` — the contact field cannot be removed from a dedicated gateway.\n\n**`tenantIds: []` is rejected.** Setting `tenantIds` to an empty array returns `400`\n— a dedicated gateway must always have at least one tenant (`minItems: 1` enforced by schema).\n\n**Known limitation:** The server resolves the deployment ID via an internal GET before\nissuing the PATCH. Concurrent modifications between the GET and PATCH may overwrite each\nother. No optimistic locking is in place for this release — consider ADG-148\n(`VersionId` + `409 OPTIMISTIC_LOCK_FAILED`) in a follow-up if this becomes a concern.\n\n**Datacenter change is destructive:** Expect a connectivity outage while the gateway is\nre-provisioned. `status.state` resets to `PENDING` immediately; `status.tunnelState` resets\nto `null`; status records for the old datacenter are expired. `dedicatedIps.ips` are not\ncleared immediately — treat them as unreliable until VSC completes provisioning in the new datacenter.\n\n\n**Required Permissions:** `update:jsc:all`",
+        "operationId": "patchGateway",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/tenantId"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/merge-patch+json": {
+              "examples": {
+                "changeDatacenter": {
+                  "summary": "Move to a different datacenter (zones must match new datacenter)",
+                  "value": {
+                    "availabilityZones": [
+                      "3.66.107.208",
+                      "3.121.43.105"
+                    ],
+                    "datacenter": "eu-central-1"
+                  }
+                },
+                "combined": {
+                  "summary": "Update metadata and deployment in one call",
+                  "value": {
+                    "availabilityZones": [
+                      "18.202.42.169",
+                      "54.220.161.57"
+                    ],
+                    "enabled": true,
+                    "name": "EU West Gateway (updated)",
+                    "tenantIds": [
+                      "tenant-abc"
+                    ]
+                  }
+                },
+                "deploymentOnly": {
+                  "summary": "Disable the deployment",
+                  "value": {
+                    "enabled": false
+                  }
+                },
+                "metadataOnly": {
+                  "summary": "Update route metadata only",
+                  "value": {
+                    "contact": {
+                      "email": "ops@example.com",
+                      "name": "Ops Team"
+                    },
+                    "name": "EU West Gateway (updated)",
+                    "tenantIds": [
+                      "tenant-abc",
+                      "tenant-xyz"
+                    ]
+                  }
+                }
+              },
+              "schema": {
+                "$ref": "#/components/schemas/GatewayPatchRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Gateway updated.",
+            "headers": {
+              "X-B3-TraceId": {
+                "$ref": "#/components/headers/traceId"
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/badRequest"
+          },
+          "403": {
+            "$ref": "#/components/responses/forbidden"
+          },
+          "404": {
+            "description": "Gateway not found or belongs to a different tenant.",
+            "headers": {
+              "X-B3-TraceId": {
+                "$ref": "#/components/headers/traceId"
+              }
+            }
+          },
+          "409": {
+            "$ref": "#/components/responses/conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/tooManyRequests"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Partially update a Gateway",
+        "tags": [
+          "Gateways"
+        ],
+        "x-authentication-required": true,
+        "x-required-privileges": [
+          "update:jsc:all"
+        ]
+      }
+    },
+    "/tenant/{tenantId}/ztna/grouped-gateways": {
+      "get": {
+        "description": "List all Grouped Gateways for the tenant. Not paginated — the full list is returned in a single response.\n\n\n**Required Permissions:** `read:jsc:all`",
+        "operationId": "listGroupedGateways",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/tenantId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "results": [
+                    {
+                      "createdAt": "2026-06-01T09:00:00Z",
+                      "gatewayIds": [
+                        "a1b2",
+                        "c3d4"
+                      ],
+                      "id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+                      "name": "EU Failover Group",
+                      "recoveryDelayInSec": 30,
+                      "routingStrategy": "ACTIVE_STANDBY",
+                      "tenantIds": [
+                        "tenant-abc"
+                      ],
+                      "updatedAt": "2026-06-03T14:22:00Z"
+                    }
+                  ],
+                  "totalCount": 2
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/GroupedGatewayListResponse"
+                }
+              }
+            },
+            "description": "List of all Grouped Gateways for this tenant.",
+            "headers": {
+              "X-B3-TraceId": {
+                "$ref": "#/components/headers/traceId"
+              }
+            }
+          },
+          "429": {
+            "$ref": "#/components/responses/tooManyRequests"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "List Grouped Gateways",
+        "tags": [
+          "Grouped Gateways"
+        ],
+        "x-authentication-required": true,
+        "x-required-privileges": [
+          "read:jsc:all"
+        ]
+      },
+      "post": {
+        "description": "Create a Grouped Gateway. Returns `201 {id, href}` + `Location` header.\n\n`tenantIds` are validated against the caller's organization — **403** on mismatch.\n\n**Constraints:**\n- All `gatewayIds` must be dedicated (customer-owned) gateways → `422 SHARED_GATEWAY_MEMBER`\n- All `gatewayIds` must have the same tunnel type (all IPSec or all non-IPSec) → `422 MIXED_TUNNEL_TYPES`\n- All `gatewayIds` must have the same `dedicatedIps.enabled` value → `422 MIXED_DEDICATED_IPS_TYPES`\n\n\n**Required Permissions:** `create:jsc:all`",
+        "operationId": "createGroupedGateway",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/tenantId"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "example": {
+                "gatewayIds": [
+                  "a1b2",
+                  "c3d4"
+                ],
+                "name": "EU Failover Group",
+                "recoveryDelayInSec": 30,
+                "routingStrategy": "ACTIVE_STANDBY",
+                "tenantIds": [
+                  "tenant-abc"
+                ]
+              },
+              "schema": {
+                "$ref": "#/components/schemas/GroupedGatewayCreateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "$ref": "#/components/responses/createResponse"
+          },
+          "400": {
+            "$ref": "#/components/responses/badRequest"
+          },
+          "403": {
+            "$ref": "#/components/responses/forbidden"
+          },
+          "409": {
+            "$ref": "#/components/responses/conflict"
+          },
+          "422": {
+            "$ref": "#/components/responses/unprocessableEntity"
+          },
+          "429": {
+            "$ref": "#/components/responses/tooManyRequests"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Create a Grouped Gateway",
+        "tags": [
+          "Grouped Gateways"
+        ],
+        "x-authentication-required": true,
+        "x-required-privileges": [
+          "create:jsc:all"
+        ]
+      }
+    },
+    "/tenant/{tenantId}/ztna/grouped-gateways/{groupedGatewayId}": {
+      "delete": {
+        "description": "Delete a Grouped Gateway. Returns `204` on success. Returns `404` if the grouped gateway does not exist or belongs to a different tenant — never `403`. Returns `409` if the grouped gateway is still referenced by an App or a DNS Zone — disassociate it first.\n\n\n**Required Permissions:** `delete:jsc:all`",
+        "operationId": "deleteGroupedGateway",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/tenantId"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Grouped Gateway deleted.",
+            "headers": {
+              "X-B3-TraceId": {
+                "$ref": "#/components/headers/traceId"
+              }
+            }
+          },
+          "404": {
+            "description": "Grouped Gateway not found or belongs to a different tenant.",
+            "headers": {
+              "X-B3-TraceId": {
+                "$ref": "#/components/headers/traceId"
+              }
+            }
+          },
+          "409": {
+            "$ref": "#/components/responses/conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/tooManyRequests"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Delete a Grouped Gateway",
+        "tags": [
+          "Grouped Gateways"
+        ],
+        "x-authentication-required": true,
+        "x-required-privileges": [
+          "delete:jsc:all"
+        ]
+      },
+      "get": {
+        "description": "Get a single Grouped Gateway. Returns `404` if the grouped gateway does not exist **or belongs to a different tenant** — never `403`, to avoid confirming existence of grouped gateways owned by other tenants. TRS `/external/v1` intercepts the `403` from `VirtualVpnRouteAuthorizer` and re-emits `404` (reusing the same `notFound` error response shape).\n\n\n**Required Permissions:** `read:jsc:all`",
+        "operationId": "getGroupedGateway",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/tenantId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupedGateway"
+                }
+              }
+            },
+            "description": "The requested Grouped Gateway.",
+            "headers": {
+              "X-B3-TraceId": {
+                "$ref": "#/components/headers/traceId"
+              }
+            }
+          },
+          "404": {
+            "description": "Grouped Gateway not found or belongs to a different tenant.",
+            "headers": {
+              "X-B3-TraceId": {
+                "$ref": "#/components/headers/traceId"
+              }
+            }
+          },
+          "429": {
+            "$ref": "#/components/responses/tooManyRequests"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Get a Grouped Gateway",
+        "tags": [
+          "Grouped Gateways"
+        ],
+        "x-authentication-required": true,
+        "x-required-privileges": [
+          "read:jsc:all"
+        ]
+      },
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/groupedGatewayId"
+        }
+      ],
+      "patch": {
+        "description": "Partially update a Grouped Gateway (ADG-355).\nAll fields are optional — include only what you want to change.\n\nReturns `404` if the grouped gateway does not exist or belongs to a different tenant — never `403`.\n\n`tenantIds` are validated against the caller's organization — **403** on mismatch.\n\n**Constraints** (applied against the supplied `gatewayIds` array — which replaces the current set entirely):\n- All `gatewayIds` must be dedicated (customer-owned) gateways → `422 SHARED_GATEWAY_MEMBER`\n- All `gatewayIds` must have the same tunnel type (all IPSec or all non-IPSec) → `422 MIXED_TUNNEL_TYPES`\n- All `gatewayIds` must have the same `dedicatedIps.enabled` value → `422 MIXED_DEDICATED_IPS_TYPES`\n\n\n**Required Permissions:** `update:jsc:all`",
+        "operationId": "patchGroupedGateway",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/tenantId"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/merge-patch+json": {
+              "example": {
+                "gatewayIds": [
+                  "a1b2",
+                  "c3d4",
+                  "e5f6"
+                ],
+                "name": "EU Failover Group (updated)",
+                "tenantIds": [
+                  "tenant-abc",
+                  "tenant-xyz"
+                ]
+              },
+              "schema": {
+                "$ref": "#/components/schemas/GroupedGatewayPatchRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Grouped Gateway updated.",
+            "headers": {
+              "X-B3-TraceId": {
+                "$ref": "#/components/headers/traceId"
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/badRequest"
+          },
+          "403": {
+            "$ref": "#/components/responses/forbidden"
+          },
+          "404": {
+            "description": "Grouped Gateway not found or belongs to a different tenant.",
+            "headers": {
+              "X-B3-TraceId": {
+                "$ref": "#/components/headers/traceId"
+              }
+            }
+          },
+          "409": {
+            "$ref": "#/components/responses/conflict"
+          },
+          "422": {
+            "$ref": "#/components/responses/unprocessableEntity"
+          },
+          "429": {
+            "$ref": "#/components/responses/tooManyRequests"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Partially update a Grouped Gateway",
+        "tags": [
+          "Grouped Gateways"
+        ],
+        "x-authentication-required": true,
+        "x-required-privileges": [
+          "update:jsc:all"
+        ]
+      }
+    },
+    "/tenant/{tenantId}/ztna/predefined-apps": {
+      "get": {
+        "description": "List the catalogue of predefined SaaS application definitions. Not paginated. Pass the `id` as `predefinedAppId` when creating an App.\n\n\n**Required Permissions:** `read:jsc:all`",
+        "operationId": "listPredefinedApps",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/tenantId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PredefinedAppListResponse"
+                }
+              }
+            },
+            "description": "List of Predefined Apps.",
+            "headers": {
+              "X-B3-TraceId": {
+                "$ref": "#/components/headers/traceId"
+              }
+            }
+          },
+          "429": {
+            "$ref": "#/components/responses/tooManyRequests"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "List Predefined Apps",
+        "tags": [
+          "Predefined Apps"
+        ],
+        "x-authentication-required": true,
+        "x-required-privileges": [
+          "read:jsc:all"
+        ]
+      }
+    },
+    "/tenant/{tenantId}/ztna/shared-gateways": {
+      "get": {
+        "description": "List Jamf-managed Shared Gateways available to this tenant. Not paginated — the full list is returned in a single response. Returns `id` and `name` only — no deployment details. These gateways are maintained by Jamf infrastructure and cannot be modified.\n\n\n**Required Permissions:** `read:jsc:all`",
+        "operationId": "listSharedGateways",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/tenantId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "results": [
+                    {
+                      "id": "b2c3",
+                      "name": "Jamf EU Shared Gateway"
+                    },
+                    {
+                      "id": "d4e5",
+                      "name": "Jamf US Shared Gateway"
+                    }
+                  ],
+                  "totalCount": 2
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/SharedGatewayListResponse"
+                }
+              }
+            },
+            "description": "List of all Shared Gateways available to this tenant.",
+            "headers": {
+              "X-B3-TraceId": {
+                "$ref": "#/components/headers/traceId"
+              }
+            }
+          },
+          "429": {
+            "$ref": "#/components/responses/tooManyRequests"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "List Shared Gateways",
+        "tags": [
+          "Shared Gateways"
+        ],
+        "x-authentication-required": true,
+        "x-required-privileges": [
+          "read:jsc:all"
+        ]
+      }
+    }
+  },
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ],
+  "servers": [
+    {
+      "description": "Jamf Beta API Gateway - stage",
+      "url": "https://{region}.stage.apigw.jamfnebula.com/api/securitycloud",
+      "variables": {
+        "region": {
+          "default": "us",
+          "description": "Geographic deployment region",
+          "enum": [
+            "us",
+            "eu",
+            "apac"
+          ]
+        }
+      }
+    }
+  ],
+  "tags": [
+    {
+      "description": "Dedicated ZTNA Gateways — customer-owned gateways managed exclusively by the tenant. Full CRUD available.\n",
+      "name": "Gateways"
+    },
+    {
+      "description": "Shared ZTNA Gateways — Jamf-managed infrastructure gateways available to multiple tenants. **List only** — only `GET /shared-gateways` is exposed; no get-by-id, create, update, or delete. `read:jsc:all` is the only permission that applies.\n",
+      "name": "Shared Gateways"
+    },
+    {
+      "description": "A logical group of two or more Gateways with a routing strategy (active-standby, random, nearest). Use the `id` of a Gateway or Grouped Gateway as `routing.gatewayId` in an App.\n",
+      "name": "Grouped Gateways"
+    },
+    {
+      "description": "Apps (Access Policies in the Jamf Connect UI). Define which hostnames/IPs are routed through ZTNA, which users/groups have access, and which gateway handles the traffic.\n",
+      "name": "Apps"
+    },
+    {
+      "description": "Read-only catalogue of predefined SaaS application definitions. Reference an `id` as `predefinedAppId` when creating an App based on a known SaaS app.\n",
+      "name": "Predefined Apps"
+    }
+  ],
+  "x-jamf-tenant-path-version": "v1"
+}

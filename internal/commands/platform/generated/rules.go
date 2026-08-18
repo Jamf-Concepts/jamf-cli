@@ -41,7 +41,7 @@ func newRulesListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				return err
 			}
 			path := "/api/compliance-benchmarks/v1/tenant/{tenantId}/rules"
-			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantID()), 1)
+			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("compliance-benchmarks")), 1)
 			q := url.Values{}
 			if baselineId != "" {
 				q.Set("baselineId", baselineId)

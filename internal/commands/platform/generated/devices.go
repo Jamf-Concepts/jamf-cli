@@ -48,7 +48,7 @@ func newDevicesDeviceGroupsCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			}
 			var resolvedID string
 			if nameFlag != "" {
-				listPath := strings.Replace("/api/devices/v1/tenant/{tenantId}/devices", "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantID()), 1)
+				listPath := strings.Replace("/api/devices/v1/tenant/{tenantId}/devices", "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("device-groups")), 1)
 				id, err := platform.ResolveIDByName(cmd.Context(), cliCtx.PlatformSDKClient, listPath, nameFlag)
 				if err != nil {
 					return err
@@ -60,7 +60,7 @@ func newDevicesDeviceGroupsCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				return fmt.Errorf("provide a positional ID or --name")
 			}
 			path := "/api/device-groups/v1/tenant/{tenantId}/devices/{id}/device-groups"
-			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantID()), 1)
+			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("device-groups")), 1)
 			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
 			q := url.Values{}
 			var body any
@@ -98,7 +98,7 @@ func newDevicesListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				return err
 			}
 			path := "/api/devices/v1/tenant/{tenantId}/devices"
-			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantID()), 1)
+			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("devices")), 1)
 			q := url.Values{}
 			if sort != "" {
 				q.Set("sort", sort)
@@ -167,7 +167,7 @@ func newDevicesDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			}
 			var resolvedID string
 			if nameFlag != "" {
-				listPath := strings.Replace("/api/devices/v1/tenant/{tenantId}/devices", "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantID()), 1)
+				listPath := strings.Replace("/api/devices/v1/tenant/{tenantId}/devices", "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("devices")), 1)
 				id, err := platform.ResolveIDByName(cmd.Context(), cliCtx.PlatformSDKClient, listPath, nameFlag)
 				if err != nil {
 					return err
@@ -182,7 +182,7 @@ func newDevicesDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				return err
 			}
 			path := "/api/devices/v1/tenant/{tenantId}/devices/{id}"
-			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantID()), 1)
+			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("devices")), 1)
 			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
 			q := url.Values{}
 			var body any
@@ -214,7 +214,7 @@ func newDevicesGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			}
 			var resolvedID string
 			if nameFlag != "" {
-				listPath := strings.Replace("/api/devices/v1/tenant/{tenantId}/devices", "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantID()), 1)
+				listPath := strings.Replace("/api/devices/v1/tenant/{tenantId}/devices", "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("devices")), 1)
 				id, err := platform.ResolveIDByName(cmd.Context(), cliCtx.PlatformSDKClient, listPath, nameFlag)
 				if err != nil {
 					return err
@@ -226,7 +226,7 @@ func newDevicesGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				return fmt.Errorf("provide a positional ID or --name")
 			}
 			path := "/api/devices/v1/tenant/{tenantId}/devices/{id}"
-			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantID()), 1)
+			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("devices")), 1)
 			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
 			q := url.Values{}
 			var body any
@@ -274,7 +274,7 @@ func newDevicesPatchCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			}
 			var resolvedID string
 			if nameFlag != "" {
-				listPath := strings.Replace("/api/devices/v1/tenant/{tenantId}/devices", "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantID()), 1)
+				listPath := strings.Replace("/api/devices/v1/tenant/{tenantId}/devices", "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("devices")), 1)
 				id, err := platform.ResolveIDByName(cmd.Context(), cliCtx.PlatformSDKClient, listPath, nameFlag)
 				if err != nil {
 					return err
@@ -286,7 +286,7 @@ func newDevicesPatchCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				return fmt.Errorf("provide a positional ID or --name")
 			}
 			path := "/api/devices/v1/tenant/{tenantId}/devices/{id}"
-			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantID()), 1)
+			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("devices")), 1)
 			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
 			q := url.Values{}
 			body, err := platform.ReadBody(bodyFile, setFlags)
@@ -325,7 +325,7 @@ func newDevicesApplicationsCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			}
 			var resolvedID string
 			if nameFlag != "" {
-				listPath := strings.Replace("/api/devices/v1/tenant/{tenantId}/devices", "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantID()), 1)
+				listPath := strings.Replace("/api/devices/v1/tenant/{tenantId}/devices", "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("devices")), 1)
 				id, err := platform.ResolveIDByName(cmd.Context(), cliCtx.PlatformSDKClient, listPath, nameFlag)
 				if err != nil {
 					return err
@@ -337,7 +337,7 @@ func newDevicesApplicationsCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				return fmt.Errorf("provide a positional ID or --name")
 			}
 			path := "/api/devices/v1/tenant/{tenantId}/devices/{id}/applications"
-			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantID()), 1)
+			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("devices")), 1)
 			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
 			q := url.Values{}
 			if sort != "" {

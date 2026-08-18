@@ -99,6 +99,7 @@ type templateOp struct {
 	Scaffold           string        // pretty-printed JSON template for the request body, surfaced via --scaffold (empty when op has no body)
 	SupportsNameLookup bool          // op accepts a single positional ID arg AND its resource has a list op — emit --name as alternative
 	ListPath           string        // sibling list-op path (used by --name lookup); only populated when SupportsNameLookup is true
+	Service            string        // gateway namespace segment ("blueprints", "securitycloud") — selects which tenant ID the runtime injects
 }
 
 // queryParam describes a CLI flag bound to a query string parameter.
@@ -116,6 +117,7 @@ type templateResource struct {
 	Name       string
 	GoName     string
 	Long       string // First paragraph of resource description, plain text
+	APILabel   string // product name for help text — which API the resource belongs to
 	Operations []templateOp
 }
 
@@ -221,9 +223,9 @@ func buildTemplateResource(r *parser.Resource) templateResource {
 		if op.Name != "list" {
 			continue
 		}
-		userParams := filterTenantPathParams(extractPathParams(restoreTenantSegment(op.Path)))
+		userParams := filterTenantPathParams(extractPathParams(tenantPath(op)))
 		if len(userParams) == 0 {
-			listPath = restoreTenantSegment(op.Path)
+			listPath = tenantPath(op)
 			break
 		}
 	}
@@ -239,7 +241,7 @@ func buildTemplateResource(r *parser.Resource) templateResource {
 		// Restore /tenant/{tenantId}/ that the platform parser stripped — the
 		// runtime substitutes the tenant ID from client.Transport().TenantID().
 		opCopy := *op
-		opCopy.Path = restoreTenantSegment(op.Path)
+		opCopy.Path = tenantPath(op)
 		// User-facing params drive cobra's positional args + Use string;
 		// {tenantId} is filled from auth context at request time.
 		userParams := filterTenantPathParams(extractPathParams(opCopy.Path))
@@ -265,7 +267,7 @@ func buildTemplateResource(r *parser.Resource) templateResource {
 			UsesMergePatch: opCopy.RequestBody != nil && opCopy.RequestBody.IsMergePatch,
 			SuccessCode:    successCode,
 			HasResult:      hasResult,
-			QueryParams:    buildQueryParams(opCopy.Parameters),
+			QueryParams:    buildQueryParams(opCopy.Parameters, serviceFromPath(opCopy.Path)),
 			Paginate:       hasPaginationParams(opCopy.Parameters),
 			ListArrayKey: func() string {
 				if opCopy.Name == "list" || opCopy.IsList {
@@ -277,11 +279,13 @@ func buildTemplateResource(r *parser.Resource) templateResource {
 			Scaffold:           buildScaffold(&opCopy),
 			SupportsNameLookup: supportsName,
 			ListPath:           opListPath,
+			Service:            serviceFromPath(opCopy.Path),
 		})
 	}
 	return templateResource{
 		Name:       r.Name,
 		GoName:     r.GoName,
+		APILabel:   apiLabel(ops),
 		Long:       firstParagraph(r.Description),
 		Operations: ops,
 	}
@@ -307,12 +311,53 @@ func firstParagraph(s string) string {
 	return s
 }
 
+// apiLabel names the API a resource belongs to, for its help text. Everything
+// on the gateway is "Platform API" except Jamf Security Cloud, which is its own
+// product with its own tenant and credentials — calling those commands
+// "Platform API" under `security` would describe the transport, not the thing
+// being managed.
+func apiLabel(ops []templateOp) string {
+	for _, op := range ops {
+		if op.Service == "securitycloud" {
+			return "Jamf Security Cloud"
+		}
+	}
+	return "Platform API"
+}
+
+// serviceFromPath returns the gateway namespace segment of a full request path
+// ("/api/securitycloud/v1/tenant/{tenantId}/dns/zones" → "securitycloud").
+// Returns "" for a path that carries no /api/ prefix, which leaves the runtime
+// on the client-wide tenant ID — the correct fallback, since a namespace
+// override only exists for namespaces that were named explicitly.
+func serviceFromPath(path string) string {
+	rest, ok := strings.CutPrefix(path, "/api/")
+	if !ok {
+		return ""
+	}
+	service, _, _ := strings.Cut(rest, "/")
+	return service
+}
+
+// tenantPath returns the operation's full request path, including
+// /tenant/{tenantId} at the position its spec declares. ParsePlatformSpec
+// records this on the operation; restoreTenantSegment covers operations that
+// reached the emitter by some other route.
+func tenantPath(op *parser.Operation) string {
+	if op.TenantPath != "" {
+		return op.TenantPath
+	}
+	return restoreTenantSegment(op.Path)
+}
+
 // restoreTenantSegment inserts /tenant/{tenantId} after the /v{n} version
 // segment of a platform path (e.g. /api/blueprints/v1/blueprints →
-// /api/blueprints/v1/tenant/{tenantId}/blueprints). The platform parser
-// strips this prefix so path-family detection works; emitted paths need it
-// back, and the runtime substitutes {tenantId} from auth context before
-// dispatching the request.
+// /api/blueprints/v1/tenant/{tenantId}/blueprints).
+//
+// This is a fallback for operations carrying no TenantPath. It assumes the
+// tenant segment follows the version, which is not true of every gateway
+// namespace — uem-connect serves /tenant/{tenantId}/uem-connect/v1/... — so
+// prefer TenantPath, which records the spec's actual layout.
 func restoreTenantSegment(path string) string {
 	parts := strings.Split(path, "/")
 	for i, p := range parts {
@@ -432,11 +477,29 @@ func detectListArrayKey(op *parser.Operation) string {
 	return ""
 }
 
+// platformIgnoredRequiredParams lists query parameters a spec marks required
+// that the server in fact ignores, keyed "{service}/{param}".
+//
+// Only wire probing reveals these, so an entry needs a recorded observation
+// behind it. Security Cloud's device-groups declares customer-id required, but
+// the tenant in the URL path decides the customer and the parameter changes
+// nothing — enforcing it would make the CLI demand a value with no effect and
+// no obvious source. See the Security Cloud section of the SDK's CLAUDE.md,
+// which records the same finding for the generated Go client.
+//
+// This duplicates knowledge the SDK holds, which is normally the thing to
+// avoid; it lives here only because the SDK's generator config has no way to
+// express "declared required, actually ignored" for it to publish. Move it into
+// the published spec once it can.
+var platformIgnoredRequiredParams = map[string]bool{
+	"securitycloud/customer-id": true,
+}
+
 // buildQueryParams returns the user-facing query flags for an operation.
 // page/page-size are filtered out — pagination is handled by the runtime
 // loop, not exposed as flags. tenantId would never be query (it's path) so
 // no special-case is needed here.
-func buildQueryParams(params []*parser.Parameter) []queryParam {
+func buildQueryParams(params []*parser.Parameter, service string) []queryParam {
 	var out []queryParam
 	for _, p := range params {
 		if p == nil || p.In != "query" {
@@ -465,7 +528,7 @@ func buildQueryParams(params []*parser.Parameter) []queryParam {
 			Var:         strcase.ToLowerCamel(strings.ReplaceAll(p.Name, "-", "_")),
 			Description: desc,
 			GoType:      goType,
-			Required:    p.Required,
+			Required:    p.Required && !platformIgnoredRequiredParams[service+"/"+p.Name],
 		})
 	}
 	return out
@@ -489,6 +552,26 @@ func filterTenantPathParams(params []string) []string {
 // unmarshal. http.StatusNoContent is treated as no body regardless of any
 // schema.
 func successStatus(op *parser.Operation) (code int, hasResult bool) {
+	// A published-spec override wins: it records what the server was observed
+	// to answer, against a spec that declares something else.
+	if op.ExpectedStatus != 0 {
+		resp := op.Responses[strconv.Itoa(op.ExpectedStatus)]
+		if resp == nil {
+			// The declared response is under the wrong code, so take the body
+			// shape from whichever 2xx the spec does describe.
+			for status, r := range op.Responses {
+				n, err := strconv.Atoi(status)
+				if err != nil || n < 200 || n >= 300 {
+					continue
+				}
+				if r != nil && r.Schema != nil {
+					resp = r
+					break
+				}
+			}
+		}
+		return op.ExpectedStatus, op.ExpectedStatus != http.StatusNoContent && resp != nil && resp.Schema != nil
+	}
 	code = http.StatusOK
 	for status := range op.Responses {
 		n, err := strconv.Atoi(status)

@@ -17,38 +17,38 @@ import (
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 )
 
-// NewDeviceGroupsCmd returns the cobra command tree for the device-groups platform
+// NewDnsZonesCmd returns the cobra command tree for the dns-zones platform
 // resource. Wire it into a product namespace via AddCommand.
-func NewDeviceGroupsCmd(cliCtx *registry.CLIContext) *cobra.Command {
+func NewDnsZonesCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "device-groups",
-		Short: "Manage device-groups (Jamf Security Cloud)",
-		Long:  "API for accessing Security Cloud device information",
+		Use:   "dns-zones",
+		Short: "Manage dns-zones (Jamf Security Cloud)",
+		Long:  "Manage DNS Zones, Search Domains, and Custom Hostname Mappings",
 	}
-	cmd.AddCommand(newDeviceGroupsListCmd(cliCtx))
-	cmd.AddCommand(newDeviceGroupsCreateCmd(cliCtx))
-	cmd.AddCommand(newDeviceGroupsDeleteCmd(cliCtx))
-	cmd.AddCommand(newDeviceGroupsGetCmd(cliCtx))
-	cmd.AddCommand(newDeviceGroupsListV2Cmd(cliCtx))
+	cmd.AddCommand(newDnsZonesListCmd(cliCtx))
+	cmd.AddCommand(newDnsZonesCreateCmd(cliCtx))
+	cmd.AddCommand(newDnsZonesDeleteCmd(cliCtx))
+	cmd.AddCommand(newDnsZonesGetCmd(cliCtx))
+	cmd.AddCommand(newDnsZonesPatchCmd(cliCtx))
 	return cmd
 }
 
-func newDeviceGroupsListCmd(cliCtx *registry.CLIContext) *cobra.Command {
-	var customerId string
+func newDnsZonesListCmd(cliCtx *registry.CLIContext) *cobra.Command {
+	var sort string
 	cmd := &cobra.Command{
 		Use:         "list",
-		Short:       "List all device groups for a customer",
-		Long:        "Retrieves all device groups for the authenticated customer.",
+		Short:       "List DNS Zones",
+		Long:        "Returns the full list of DNS Zones configured for the tenant. The list is not paginated and is bounded by a per-customer maximum zone cap. The full bounded set is returned in a single response and `totalCount` reflects the complete set. Pagination is currently not supported.",
 		Annotations: map[string]string{"jamf:privileges": "read:jsc:all"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err
 			}
-			path := "/api/securitycloud/v1/tenant/{tenantId}/groups"
+			path := "/api/securitycloud/v1/tenant/{tenantId}/dns/zones"
 			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("securitycloud")), 1)
 			q := url.Values{}
-			if customerId != "" {
-				q.Set("customer-id", customerId)
+			if sort != "" {
+				q.Set("sort", sort)
 			}
 			var body any
 			if encoded := q.Encode(); encoded != "" {
@@ -61,45 +61,42 @@ func newDeviceGroupsListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if result == nil {
 				return nil
 			}
+			if obj, ok := result.(map[string]any); ok {
+				if arr, ok := obj["results"].([]any); ok {
+					result = arr
+				}
+			}
 			b, err := json.MarshalIndent(result, "", "  ")
 			if err != nil {
 				return err
 			}
-			b = platform.SelectTableColumns(b, []platform.TableColumn{
-				{Field: "id", Label: "id"},
-				{Field: "name", Label: "name"},
-				{Field: "description", Label: "description"},
-				{Field: "deviceType", Label: "deviceType"},
-				{Field: "groupType", Label: "groupType"},
-				{Field: "memberCount", Label: "memberCount"},
-			}, cliCtx.Output.Format())
 			return cliCtx.Output.PrintRaw(b)
 		},
 	}
-	cmd.Flags().StringVar(&customerId, "customer-id", "", "Unique identifier of the customer whose groups to retrieve")
+	cmd.Flags().StringVar(&sort, "sort", "", "Sort expression in the form `field:direction`, where direction is `asc` or `desc`. Defaults to ascending order when direction is omitted. The only supported sort field is `name`.")
 	return cmd
 }
 
-func newDeviceGroupsCreateCmd(cliCtx *registry.CLIContext) *cobra.Command {
+func newDnsZonesCreateCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	var bodyFile string
 	var setFlags []string
 	var scaffoldFlag bool
 	cmd := &cobra.Command{
 		Use:         "create",
-		Short:       "Create a new device group",
-		Long:        "Creates a new device group for the authenticated customer.",
+		Short:       "Create a DNS Zone",
+		Long:        "Creates a new DNS Zone for the tenant from the supplied definition. Returns a reference to the newly created Zone, including its identifier and canonical URL. A tenant may hold at most a per-customer maximum number of DNS Zones (value TBD); a request that would exceed this per-customer cap is rejected with 400 `LIST_SIZE_EXCEEDED`.",
 		Annotations: map[string]string{"jamf:privileges": "create:jsc:all"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if scaffoldFlag {
 				// Scaffold prints raw JSON regardless of -o, so the output
 				// can be piped straight back into --file.
-				fmt.Println("{\n  \"name\": \"\"\n}")
+				fmt.Println("{\n  \"domains\": [],\n  \"name\": \"\",\n  \"nameServers\": []\n}")
 				return nil
 			}
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err
 			}
-			path := "/api/securitycloud/v1/tenant/{tenantId}/groups"
+			path := "/api/securitycloud/v1/tenant/{tenantId}/dns/zones"
 			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("securitycloud")), 1)
 			q := url.Values{}
 			body, err := platform.ReadBody(bodyFile, setFlags)
@@ -129,13 +126,13 @@ func newDeviceGroupsCreateCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newDeviceGroupsDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
+func newDnsZonesDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	var yes bool
 	var nameFlag string
 	cmd := &cobra.Command{
-		Use:         "delete <groupId>",
-		Short:       "Delete a device group",
-		Long:        "Deletes a device group. The default group cannot be deleted.",
+		Use:         "delete <id>",
+		Short:       "Delete a DNS Zone",
+		Long:        "Deletes the DNS Zone identified by its UUID.",
 		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "delete:jsc:all"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -144,7 +141,7 @@ func newDeviceGroupsDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			}
 			var resolvedID string
 			if nameFlag != "" {
-				listPath := strings.Replace("/api/securitycloud/v1/tenant/{tenantId}/groups", "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("securitycloud")), 1)
+				listPath := strings.Replace("/api/securitycloud/v1/tenant/{tenantId}/dns/zones", "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("securitycloud")), 1)
 				id, err := platform.ResolveIDByName(cmd.Context(), cliCtx.PlatformSDKClient, listPath, nameFlag)
 				if err != nil {
 					return err
@@ -158,9 +155,9 @@ func newDeviceGroupsDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err := platform.ConfirmAction("delete", resolvedID, yes); err != nil {
 				return err
 			}
-			path := "/api/securitycloud/v1/tenant/{tenantId}/groups/{groupId}"
+			path := "/api/securitycloud/v1/tenant/{tenantId}/dns/zones/{id}"
 			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("securitycloud")), 1)
-			path = strings.Replace(path, "{groupId}", url.PathEscape(resolvedID), 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
 			q := url.Values{}
 			var body any
 			if encoded := q.Encode(); encoded != "" {
@@ -177,12 +174,12 @@ func newDeviceGroupsDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newDeviceGroupsGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
+func newDnsZonesGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	var nameFlag string
 	cmd := &cobra.Command{
-		Use:         "get <groupId>",
-		Short:       "Get a device group by ID",
-		Long:        "Retrieves a single device group by its ID.",
+		Use:         "get <id>",
+		Short:       "Get a DNS Zone",
+		Long:        "Returns a single DNS Zone identified by its UUID.",
 		Annotations: map[string]string{"jamf:privileges": "read:jsc:all"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -191,7 +188,7 @@ func newDeviceGroupsGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			}
 			var resolvedID string
 			if nameFlag != "" {
-				listPath := strings.Replace("/api/securitycloud/v1/tenant/{tenantId}/groups", "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("securitycloud")), 1)
+				listPath := strings.Replace("/api/securitycloud/v1/tenant/{tenantId}/dns/zones", "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("securitycloud")), 1)
 				id, err := platform.ResolveIDByName(cmd.Context(), cliCtx.PlatformSDKClient, listPath, nameFlag)
 				if err != nil {
 					return err
@@ -202,9 +199,9 @@ func newDeviceGroupsGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			} else {
 				return fmt.Errorf("provide a positional ID or --name")
 			}
-			path := "/api/securitycloud/v1/tenant/{tenantId}/groups/{groupId}"
+			path := "/api/securitycloud/v1/tenant/{tenantId}/dns/zones/{id}"
 			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("securitycloud")), 1)
-			path = strings.Replace(path, "{groupId}", url.PathEscape(resolvedID), 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
 			q := url.Values{}
 			var body any
 			if encoded := q.Encode(); encoded != "" {
@@ -228,42 +225,61 @@ func newDeviceGroupsGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newDeviceGroupsListV2Cmd(cliCtx *registry.CLIContext) *cobra.Command {
-	var customerId string
+func newDnsZonesPatchCmd(cliCtx *registry.CLIContext) *cobra.Command {
+	var bodyFile string
+	var setFlags []string
+	var scaffoldFlag bool
+	var nameFlag string
 	cmd := &cobra.Command{
-		Use:         "list-v2",
-		Short:       "List all device groups for a customer",
-		Long:        "Retrieves all device groups for the authenticated customer.",
-		Annotations: map[string]string{"jamf:privileges": "read:jsc:all"},
+		Use:         "patch <id>",
+		Short:       "Update a DNS Zone",
+		Long:        "Partially updates a DNS Zone using JSON Merge Patch (RFC 7396). Any subset of the writable Zone fields may be supplied. A field set to a new value is overwritten; an omitted field is left unchanged; a field set to `null` clears it where the field is optional. Setting a required field to `null` is rejected (400, per ADG-302). No optimistic locking is in place for this release — consider ADG-148 (`VersionId` + `409 OPTIMISTIC_LOCK_FAILED`) in a follow-up if this becomes a concern.",
+		Annotations: map[string]string{"jamf:privileges": "update:jsc:all"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if scaffoldFlag {
+				// Scaffold prints raw JSON regardless of -o, so the output
+				// can be piped straight back into --file.
+				fmt.Println("{\n  \"domains\": [],\n  \"name\": \"\",\n  \"nameServers\": []\n}")
+				return nil
+			}
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err
 			}
-			path := "/api/securitycloud/v2/tenant/{tenantId}/groups"
+			var resolvedID string
+			if nameFlag != "" {
+				listPath := strings.Replace("/api/securitycloud/v1/tenant/{tenantId}/dns/zones", "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("securitycloud")), 1)
+				id, err := platform.ResolveIDByName(cmd.Context(), cliCtx.PlatformSDKClient, listPath, nameFlag)
+				if err != nil {
+					return err
+				}
+				resolvedID = id
+			} else if len(args) == 1 {
+				resolvedID = args[0]
+			} else {
+				return fmt.Errorf("provide a positional ID or --name")
+			}
+			path := "/api/securitycloud/v1/tenant/{tenantId}/dns/zones/{id}"
 			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("securitycloud")), 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
 			q := url.Values{}
-			if customerId != "" {
-				q.Set("customer-id", customerId)
-			}
-			var body any
-			if encoded := q.Encode(); encoded != "" {
-				path += "?" + encoded
-			}
-			var result any
-			if err := cliCtx.PlatformSDKClient.Transport().DoExpect(cmd.Context(), http.MethodGet, path, body, http.StatusOK, &result); err != nil {
-				return fmt.Errorf("list-v2: %w", err)
-			}
-			if result == nil {
-				return nil
-			}
-			b, err := json.MarshalIndent(result, "", "  ")
+			body, err := platform.ReadBody(bodyFile, setFlags)
 			if err != nil {
 				return err
 			}
-			return cliCtx.Output.PrintRaw(b)
+			if encoded := q.Encode(); encoded != "" {
+				path += "?" + encoded
+			}
+			if err := cliCtx.PlatformSDKClient.Transport().DoWithContentType(cmd.Context(), http.MethodPatch, path, body, "application/merge-patch+json", http.StatusNoContent, nil); err != nil {
+				return fmt.Errorf("patch: %w", err)
+			}
+			return nil
 		},
 	}
-	cmd.Flags().StringVar(&customerId, "customer-id", "", "Unique identifier of the customer whose groups to retrieve")
+	cmd.Flags().StringVar(&bodyFile, "file", "", "Path to JSON file containing the request body")
+	cmd.Flags().StringArrayVar(&setFlags, "set", nil, "Override body values (key=value, repeatable, supports nested.keys)")
+	cmd.Flags().BoolVar(&scaffoldFlag, "scaffold", false, "Print an example request body and exit")
+	cmd.Flags().StringVar(&nameFlag, "name", "", "Resolve target by name instead of ID (uses the resource list endpoint)")
 	return cmd
 }
 

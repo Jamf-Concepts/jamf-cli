@@ -39,9 +39,9 @@ func LoadResources(specsDir string) ([]*parser.Resource, []string, error) {
 		for _, r := range resources {
 			if existing, ok := merged[r.Name]; ok {
 				mergeInto(existing, r)
-			} else {
-				merged[r.Name] = r
+				continue
 			}
+			merged[r.Name] = r
 		}
 	}
 
@@ -51,11 +51,51 @@ func LoadResources(specsDir string) ([]*parser.Resource, []string, error) {
 	}
 	sort.Strings(names)
 
+	for _, n := range names {
+		if err := checkOperationNameCollisions(merged[n]); err != nil {
+			return nil, nil, err
+		}
+	}
+
 	out := make([]*parser.Resource, 0, len(merged))
 	for _, n := range names {
 		out = append(out, merged[n])
 	}
 	return out, files, nil
+}
+
+// checkOperationNameCollisions rejects a resource carrying two operations of
+// the same name.
+//
+// Operation names become both the cobra subcommand and the Go constructor
+// name, so a duplicate emits two new<Resource><Op>Cmd functions into one file
+// and the package stops compiling — or, worse, if the names ever diverge while
+// the subcommand strings do not, registers two subcommands under one verb and
+// silently serves whichever cobra matches first.
+//
+// This is reachable whenever two specs contribute an identically-tagged
+// resource: mergeInto deduplicates by (method, path), which does nothing for a
+// "list" of /groups meeting a "list" of /device-groups. Jamf Security Cloud
+// introduced the first such pair. The fix is a platformResourceNameOverrides
+// entry that keeps the two resources apart, so the error names that map.
+func checkOperationNameCollisions(r *parser.Resource) error {
+	seen := make(map[string]string, len(r.Operations))
+	for _, op := range r.Operations {
+		path := op.TenantPath
+		if path == "" {
+			path = op.Path
+		}
+		if prev, dup := seen[op.Name]; dup {
+			return fmt.Errorf(
+				"platform resource %q has two %q operations (%s and %s): "+
+					"two specs contribute this resource name — rename one via "+
+					"platformResourceNameOverrides in generator/parser/platform.go, "+
+					"keyed \"{service}/%s\"",
+				r.Name, op.Name, prev, path, r.Name)
+		}
+		seen[op.Name] = path
+	}
+	return nil
 }
 
 // mergeInto folds src's operations and schemas into dst. Operations are

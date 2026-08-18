@@ -744,6 +744,7 @@ in the config file. It never runs in CI, when output is piped, or under
 			if p, ok := authProvider.(*auth.PlatformOAuth2Provider); ok {
 				cliCtx.PlatformSDKClient = newPlatformSDKClient(
 					resolvedURL, p.ClientID(), p.ClientSecret(), p.TenantID(),
+					resolveSecurityCloudTenantID(cfg, resolvedProfile),
 					shouldShowSpinner(),
 				)
 			}
@@ -1333,8 +1334,10 @@ func resolveSchoolClient(cfg *config.Config, cliCtx *registry.CLIContext) error 
 	// When platform credentials are present, also construct the Platform SDK
 	// client for blueprint and DDM report commands.
 	if platformURL != "" && cid != "" && csecret != "" && tid != "" {
+		// School reaches the Platform API for blueprints and DDM reports only;
+		// Security Cloud is not part of that surface, so it has no tenant here.
 		cliCtx.PlatformSDKClient = newPlatformSDKClient(
-			platformURL, cid, csecret, tid,
+			platformURL, cid, csecret, tid, "",
 			shouldShowSpinner(),
 		)
 	}
@@ -1422,8 +1425,16 @@ func resolveSecurityClient(cfg *config.Config, cliCtx *registry.CLIContext) erro
 		}
 	}
 
-	if riskID == "" && lifecycleID == "" && sseID == "" {
-		return exitcode.New(exitcode.Usage, "no Jamf Security Cloud credentials configured: run 'jamf-cli security setup', or set JAMFSECURITY_RISK_CLIENT_ID/SECRET, JAMFSECURITY_LIFECYCLE_CLIENT_ID/SECRET, and/or JAMFSECURITY_SSE_CLIENT_ID/SECRET env vars")
+	// Part of Jamf Security Cloud is served on the platform gateway
+	// (/api/securitycloud — DNS, ZTNA, content categories, device groups, UEM
+	// Connect) rather than on api.wandera.com, and reached with platform
+	// client-credentials plus a Security Cloud tenant ID instead of the scoped
+	// pairs above. A profile may carry either set or both, so this is resolved
+	// independently and neither half is required.
+	cliCtx.PlatformSDKClient = securityPlatformSDKClient(cfg, profileName)
+
+	if riskID == "" && lifecycleID == "" && sseID == "" && cliCtx.PlatformSDKClient == nil {
+		return exitcode.New(exitcode.Usage, "no Jamf Security Cloud credentials configured: run 'jamf-cli security setup', or set JAMFSECURITY_RISK_CLIENT_ID/SECRET, JAMFSECURITY_LIFECYCLE_CLIENT_ID/SECRET, and/or JAMFSECURITY_SSE_CLIENT_ID/SECRET env vars. For the gateway-served commands (dns-*, ztna-*, content-categories, device-groups, uem-*) configure a platform profile: 'jamf-cli config add-profile <name> --auth-method platform --tenant-id <id>'")
 	}
 
 	if strings.HasPrefix(url, "http://") || strings.HasPrefix(sseURL, "http://") {

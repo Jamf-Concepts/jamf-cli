@@ -17,30 +17,30 @@ import (
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 )
 
-// NewBaselinesCmd returns the cobra command tree for the baselines platform
+// NewZtnaPredefinedAppsCmd returns the cobra command tree for the ztna-predefined-apps platform
 // resource. Wire it into a product namespace via AddCommand.
-func NewBaselinesCmd(cliCtx *registry.CLIContext) *cobra.Command {
+func NewZtnaPredefinedAppsCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "baselines",
-		Short: "Manage baselines (Platform API)",
-		Long:  "Jamf Compliance Benchmarks API allows you to manage, enforce, and validate compliance on Apple devices",
+		Use:   "ztna-predefined-apps",
+		Short: "Manage ztna-predefined-apps (Jamf Security Cloud)",
+		Long:  "Manage ZTNA Gateways, Grouped Gateways, Apps, and Predefined Apps",
 	}
-	cmd.AddCommand(newBaselinesListCmd(cliCtx))
+	cmd.AddCommand(newZtnaPredefinedAppsListCmd(cliCtx))
 	return cmd
 }
 
-func newBaselinesListCmd(cliCtx *registry.CLIContext) *cobra.Command {
+func newZtnaPredefinedAppsListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "list",
-		Short:       "Return list of the mSCP baselines",
-		Long:        "Return list of the mSCP baselines allowed for the Compliance benchmarks",
-		Annotations: map[string]string{"jamf:privileges": "read:pro:compliance-benchmarks"},
+		Short:       "List Predefined Apps",
+		Long:        "List the catalogue of predefined SaaS application definitions. Not paginated. Pass the `id` as `predefinedAppId` when creating an App.",
+		Annotations: map[string]string{"jamf:privileges": "read:jsc:all"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err
 			}
-			path := "/api/compliance-benchmarks/v1/tenant/{tenantId}/baselines"
-			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("compliance-benchmarks")), 1)
+			path := "/api/securitycloud/v1/tenant/{tenantId}/ztna/predefined-apps"
+			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("securitycloud")), 1)
 			q := url.Values{}
 			var body any
 			if encoded := q.Encode(); encoded != "" {
@@ -54,7 +54,7 @@ func newBaselinesListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				return nil
 			}
 			if obj, ok := result.(map[string]any); ok {
-				if arr, ok := obj["baselines"].([]any); ok {
+				if arr, ok := obj["results"].([]any); ok {
 					result = arr
 				}
 			}

@@ -17,30 +17,32 @@ import (
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 )
 
-// NewBaselinesCmd returns the cobra command tree for the baselines platform
+// NewUemSyncSettingsCmd returns the cobra command tree for the uem-sync-settings platform
 // resource. Wire it into a product namespace via AddCommand.
-func NewBaselinesCmd(cliCtx *registry.CLIContext) *cobra.Command {
+func NewUemSyncSettingsCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "baselines",
-		Short: "Manage baselines (Platform API)",
-		Long:  "Jamf Compliance Benchmarks API allows you to manage, enforce, and validate compliance on Apple devices",
+		Use:   "uem-sync-settings",
+		Short: "Manage uem-sync-settings (Jamf Security Cloud)",
+		Long:  "API for managing UEM Connect connectors",
 	}
-	cmd.AddCommand(newBaselinesListCmd(cliCtx))
+	cmd.AddCommand(newUemSyncSettingsSyncSettingsCmd(cliCtx))
 	return cmd
 }
 
-func newBaselinesListCmd(cliCtx *registry.CLIContext) *cobra.Command {
+func newUemSyncSettingsSyncSettingsCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:         "list",
-		Short:       "Return list of the mSCP baselines",
-		Long:        "Return list of the mSCP baselines allowed for the Compliance benchmarks",
-		Annotations: map[string]string{"jamf:privileges": "read:pro:compliance-benchmarks"},
+		Use:         "sync-settings <configId>",
+		Short:       "Get connector sync settings",
+		Long:        "Returns the current connector configuration including sync settings.",
+		Annotations: map[string]string{"jamf:privileges": "read:jsc:all"},
+		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err
 			}
-			path := "/api/compliance-benchmarks/v1/tenant/{tenantId}/baselines"
-			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("compliance-benchmarks")), 1)
+			path := "/api/securitycloud/tenant/{tenantId}/uem-connect/v1/connectors/{configId}/sync-settings"
+			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("securitycloud")), 1)
+			path = strings.Replace(path, "{configId}", url.PathEscape(args[0]), 1)
 			q := url.Values{}
 			var body any
 			if encoded := q.Encode(); encoded != "" {
@@ -48,15 +50,10 @@ func newBaselinesListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			}
 			var result any
 			if err := cliCtx.PlatformSDKClient.Transport().DoExpect(cmd.Context(), http.MethodGet, path, body, http.StatusOK, &result); err != nil {
-				return fmt.Errorf("list: %w", err)
+				return fmt.Errorf("sync-settings: %w", err)
 			}
 			if result == nil {
 				return nil
-			}
-			if obj, ok := result.(map[string]any); ok {
-				if arr, ok := obj["baselines"].([]any); ok {
-					result = arr
-				}
 			}
 			b, err := json.MarshalIndent(result, "", "  ")
 			if err != nil {

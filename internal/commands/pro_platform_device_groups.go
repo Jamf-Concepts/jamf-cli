@@ -32,7 +32,7 @@ func newPlatformDeviceGroupsCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	needsType := map[string]bool{
 		"get": true, "delete": true, "patch": true, "members": true, "patch-members": true,
 	}
-	for _, sub := range platformgen.NewDeviceGroupsCmd(cliCtx).Commands() {
+	for _, sub := range platformgen.NewPlatformDeviceGroupsCmd(cliCtx).Commands() {
 		if needsType[sub.Name()] {
 			continue
 		}

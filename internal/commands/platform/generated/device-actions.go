@@ -45,7 +45,7 @@ func newDeviceActionsCheckInCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				return err
 			}
 			path := "/api/device-actions/v1/tenant/{tenantId}/devices/{id}/check-in"
-			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantID()), 1)
+			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("device-actions")), 1)
 			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
 			q := url.Values{}
 			var body any
@@ -91,7 +91,7 @@ func newDeviceActionsEraseCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				return err
 			}
 			path := "/api/device-actions/v1/tenant/{tenantId}/devices/{id}/erase"
-			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantID()), 1)
+			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("device-actions")), 1)
 			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
 			q := url.Values{}
 			body, err := platform.ReadBody(bodyFile, setFlags)
@@ -138,7 +138,7 @@ func newDeviceActionsRestartCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				return err
 			}
 			path := "/api/device-actions/v1/tenant/{tenantId}/devices/{id}/restart"
-			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantID()), 1)
+			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("device-actions")), 1)
 			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
 			q := url.Values{}
 			var body any
@@ -179,7 +179,7 @@ func newDeviceActionsShutdownCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				return err
 			}
 			path := "/api/device-actions/v1/tenant/{tenantId}/devices/{id}/shutdown"
-			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantID()), 1)
+			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("device-actions")), 1)
 			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
 			q := url.Values{}
 			var body any
@@ -220,7 +220,7 @@ func newDeviceActionsUnmanageCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				return err
 			}
 			path := "/api/device-actions/v1/tenant/{tenantId}/devices/{id}/unmanage"
-			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantID()), 1)
+			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("device-actions")), 1)
 			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
 			q := url.Values{}
 			var body any

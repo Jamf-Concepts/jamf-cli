@@ -50,9 +50,9 @@ func TestGeneratedBlueprintsGet(t *testing.T) {
 	}
 }
 
-// TestGeneratedDeviceGroupsGet validates that `device-groups get` returns the
+// TestGeneratedDeviceGroupsGet validates that `platform-device-groups get` returns the
 // full group object — not just the criteria array. Same regression as blueprints.
-func TestGeneratedDeviceGroupsGet(t *testing.T) {
+func TestGeneratedPlatformDeviceGroupsGet(t *testing.T) {
 	sdk, mux := newTestPlatformSDK(t)
 
 	const groupID = "dg-456"
@@ -71,7 +71,7 @@ func TestGeneratedDeviceGroupsGet(t *testing.T) {
 	cliCtx.PlatformSDKClient = sdk
 	cliCtx.Output = out
 
-	cmd := platformgen.NewDeviceGroupsCmd(cliCtx)
+	cmd := platformgen.NewPlatformDeviceGroupsCmd(cliCtx)
 	cmd.SetArgs([]string{"get", groupID})
 	if err := cmd.Execute(); err != nil {
 		t.Fatalf("device-groups get: %v", err)

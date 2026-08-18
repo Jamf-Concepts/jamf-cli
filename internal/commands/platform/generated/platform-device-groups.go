@@ -17,45 +17,44 @@ import (
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 )
 
-// NewBlueprintsCmd returns the cobra command tree for the blueprints platform
+// NewPlatformDeviceGroupsCmd returns the cobra command tree for the platform-device-groups platform
 // resource. Wire it into a product namespace via AddCommand.
-func NewBlueprintsCmd(cliCtx *registry.CLIContext) *cobra.Command {
+func NewPlatformDeviceGroupsCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "blueprints",
-		Short: "Manage blueprints (Platform API)",
-		Long:  "Blueprints simplify the creation of complex workflows by leveraging declarative device management to ensure devices meet a particular management state. You can use blueprints to scope management settings to devices using customizable components that include payloads and their configurable settings, all in one location.",
+		Use:   "platform-device-groups",
+		Short: "Manage platform-device-groups (Platform API)",
+		Long:  "Management API for Device Groups - Create, manage, and organize device groups with membership controls",
 	}
-	cmd.AddCommand(newBlueprintsListCmd(cliCtx))
-	cmd.AddCommand(newBlueprintsCreateCmd(cliCtx))
-	cmd.AddCommand(newBlueprintsDeleteCmd(cliCtx))
-	cmd.AddCommand(newBlueprintsGetCmd(cliCtx))
-	cmd.AddCommand(newBlueprintsPatchCmd(cliCtx))
-	cmd.AddCommand(newBlueprintsDeployCmd(cliCtx))
-	cmd.AddCommand(newBlueprintsReportCmd(cliCtx))
-	cmd.AddCommand(newBlueprintsUndeployCmd(cliCtx))
+	cmd.AddCommand(newPlatformDeviceGroupsListCmd(cliCtx))
+	cmd.AddCommand(newPlatformDeviceGroupsCreateCmd(cliCtx))
+	cmd.AddCommand(newPlatformDeviceGroupsDeleteCmd(cliCtx))
+	cmd.AddCommand(newPlatformDeviceGroupsGetCmd(cliCtx))
+	cmd.AddCommand(newPlatformDeviceGroupsPatchCmd(cliCtx))
+	cmd.AddCommand(newPlatformDeviceGroupsMembersCmd(cliCtx))
+	cmd.AddCommand(newPlatformDeviceGroupsPatchMembersCmd(cliCtx))
 	return cmd
 }
 
-func newBlueprintsListCmd(cliCtx *registry.CLIContext) *cobra.Command {
+func newPlatformDeviceGroupsListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	var sort string
-	var search string
+	var filter string
 	cmd := &cobra.Command{
 		Use:         "list",
-		Short:       "List blueprints",
-		Long:        "Get list of blueprints",
-		Annotations: map[string]string{"jamf:privileges": "read:pro:blueprints,read:school:blueprints"},
+		Short:       "Get all device groups",
+		Long:        "Retrieve a paginated list of all device groups for the tenant",
+		Annotations: map[string]string{"jamf:privileges": "read:pro:device-groups"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err
 			}
-			path := "/api/blueprints/v1/tenant/{tenantId}/blueprints"
-			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("blueprints")), 1)
+			path := "/api/device-groups/v1/tenant/{tenantId}/device-groups"
+			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("device-groups")), 1)
 			q := url.Values{}
 			if sort != "" {
 				q.Set("sort", sort)
 			}
-			if search != "" {
-				q.Set("search", search)
+			if filter != "" {
+				q.Set("filter", filter)
 			}
 			var body any
 			const pageSize = 100
@@ -86,43 +85,35 @@ func newBlueprintsListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			b = platform.SelectTableColumns(b, []platform.TableColumn{
-				{Field: "id", Label: "id"},
-				{Field: "name", Label: "name"},
-				{Field: "deploymentState.state", Label: "state"},
-				{Field: "deploymentState.lastDeployment.started", Label: "lastDeployed"},
-				{Field: "created", Label: "created"},
-				{Field: "updated", Label: "updated"},
-			}, cliCtx.Output.Format())
 			return cliCtx.Output.PrintRaw(b)
 		},
 	}
-	cmd.Flags().StringVar(&sort, "sort", "", "Sorting criteria in the format: `<field_name>[:sort_direction][,<secondary_sort_field_name>[:sort_direction]]*`. Default sort direction is `asc` (Ascending). Use `desc` for Descending ordering. Additional sort parameters are supported and determine order of results that have equivalent values for previous sort parameters.")
-	cmd.Flags().StringVar(&search, "search", "", "Search query to match against `name` and `description` properties.")
+	cmd.Flags().StringVar(&sort, "sort", "", "Fields to sort by and their orders.</br> Fields allowed for sorting: `name`, `description`, `deviceType`, `groupType`.")
+	cmd.Flags().StringVar(&filter, "filter", "", "Filter query in RSQL format. Includes all results, by default.</br> Fields allowed in the query: `name`, `description`, `deviceType`, `groupType`.</br> This param can be combined with paging.</br> Example: `name==\"*Managed*\" and deviceType==\"MOBILE\"`")
 	return cmd
 }
 
-func newBlueprintsCreateCmd(cliCtx *registry.CLIContext) *cobra.Command {
+func newPlatformDeviceGroupsCreateCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	var bodyFile string
 	var setFlags []string
 	var scaffoldFlag bool
 	cmd := &cobra.Command{
 		Use:         "create",
-		Short:       "Create a new blueprint",
-		Long:        "Create a new blueprint",
-		Annotations: map[string]string{"jamf:privileges": "create:pro:blueprints,create:school:blueprints"},
+		Short:       "Create a new device group",
+		Long:        "Create a new device group in Jamf Pro",
+		Annotations: map[string]string{"jamf:privileges": "create:pro:device-groups"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if scaffoldFlag {
 				// Scaffold prints raw JSON regardless of -o, so the output
 				// can be piped straight back into --file.
-				fmt.Println("{\n  \"description\": \"\",\n  \"name\": \"\",\n  \"scope\": {\n    \"deviceGroups\": []\n  },\n  \"steps\": []\n}")
+				fmt.Println("{\n  \"criteria\": [],\n  \"description\": \"\",\n  \"deviceType\": \"\",\n  \"groupType\": \"\",\n  \"members\": [],\n  \"name\": \"\"\n}")
 				return nil
 			}
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err
 			}
-			path := "/api/blueprints/v1/tenant/{tenantId}/blueprints"
-			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("blueprints")), 1)
+			path := "/api/device-groups/v1/tenant/{tenantId}/device-groups"
+			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("device-groups")), 1)
 			q := url.Values{}
 			body, err := platform.ReadBody(bodyFile, setFlags)
 			if err != nil {
@@ -151,14 +142,14 @@ func newBlueprintsCreateCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newBlueprintsDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
+func newPlatformDeviceGroupsDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	var yes bool
 	var nameFlag string
 	cmd := &cobra.Command{
-		Use:         "delete <blueprintId>",
-		Short:       "Delete a blueprint",
-		Long:        "Delete a blueprint",
-		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "delete:pro:blueprints,delete:school:blueprints"},
+		Use:         "delete <id>",
+		Short:       "Delete a device group",
+		Long:        "Delete an existing device group",
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "delete:pro:device-groups"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
@@ -166,7 +157,7 @@ func newBlueprintsDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			}
 			var resolvedID string
 			if nameFlag != "" {
-				listPath := strings.Replace("/api/blueprints/v1/tenant/{tenantId}/blueprints", "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("blueprints")), 1)
+				listPath := strings.Replace("/api/device-groups/v1/tenant/{tenantId}/device-groups", "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("device-groups")), 1)
 				id, err := platform.ResolveIDByName(cmd.Context(), cliCtx.PlatformSDKClient, listPath, nameFlag)
 				if err != nil {
 					return err
@@ -180,9 +171,9 @@ func newBlueprintsDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err := platform.ConfirmAction("delete", resolvedID, yes); err != nil {
 				return err
 			}
-			path := "/api/blueprints/v1/tenant/{tenantId}/blueprints/{blueprintId}"
-			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("blueprints")), 1)
-			path = strings.Replace(path, "{blueprintId}", url.PathEscape(resolvedID), 1)
+			path := "/api/device-groups/v1/tenant/{tenantId}/device-groups/{id}"
+			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("device-groups")), 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
 			q := url.Values{}
 			var body any
 			if encoded := q.Encode(); encoded != "" {
@@ -199,13 +190,13 @@ func newBlueprintsDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newBlueprintsGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
+func newPlatformDeviceGroupsGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	var nameFlag string
 	cmd := &cobra.Command{
-		Use:         "get <blueprintId>",
-		Short:       "Get a blueprint",
-		Long:        "Get a blueprint",
-		Annotations: map[string]string{"jamf:privileges": "read:pro:blueprints,read:school:blueprints"},
+		Use:         "get <id>",
+		Short:       "Get a device group by ID",
+		Long:        "Retrieve a specific device group by its ID",
+		Annotations: map[string]string{"jamf:privileges": "read:pro:device-groups"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
@@ -213,7 +204,7 @@ func newBlueprintsGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			}
 			var resolvedID string
 			if nameFlag != "" {
-				listPath := strings.Replace("/api/blueprints/v1/tenant/{tenantId}/blueprints", "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("blueprints")), 1)
+				listPath := strings.Replace("/api/device-groups/v1/tenant/{tenantId}/device-groups", "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("device-groups")), 1)
 				id, err := platform.ResolveIDByName(cmd.Context(), cliCtx.PlatformSDKClient, listPath, nameFlag)
 				if err != nil {
 					return err
@@ -224,9 +215,9 @@ func newBlueprintsGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			} else {
 				return fmt.Errorf("provide a positional ID or --name")
 			}
-			path := "/api/blueprints/v1/tenant/{tenantId}/blueprints/{blueprintId}"
-			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("blueprints")), 1)
-			path = strings.Replace(path, "{blueprintId}", url.PathEscape(resolvedID), 1)
+			path := "/api/device-groups/v1/tenant/{tenantId}/device-groups/{id}"
+			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("device-groups")), 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
 			q := url.Values{}
 			var body any
 			if encoded := q.Encode(); encoded != "" {
@@ -250,22 +241,22 @@ func newBlueprintsGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newBlueprintsPatchCmd(cliCtx *registry.CLIContext) *cobra.Command {
+func newPlatformDeviceGroupsPatchCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	var bodyFile string
 	var setFlags []string
 	var scaffoldFlag bool
 	var nameFlag string
 	cmd := &cobra.Command{
-		Use:         "patch <blueprintId>",
-		Short:       "Updates a blueprint configuration",
-		Long:        "Updates a blueprint configuration.",
-		Annotations: map[string]string{"jamf:privileges": "update:pro:blueprints,update:school:blueprints"},
+		Use:         "patch <id>",
+		Short:       "Update a device group",
+		Long:        "Update an existing device group",
+		Annotations: map[string]string{"jamf:privileges": "update:pro:device-groups"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if scaffoldFlag {
 				// Scaffold prints raw JSON regardless of -o, so the output
 				// can be piped straight back into --file.
-				fmt.Println("{\n  \"description\": \"\",\n  \"name\": \"\",\n  \"scope\": {\n    \"deviceGroups\": []\n  },\n  \"steps\": []\n}")
+				fmt.Println("{\n  \"criteria\": [],\n  \"description\": \"\",\n  \"name\": \"\"\n}")
 				return nil
 			}
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
@@ -273,7 +264,7 @@ func newBlueprintsPatchCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			}
 			var resolvedID string
 			if nameFlag != "" {
-				listPath := strings.Replace("/api/blueprints/v1/tenant/{tenantId}/blueprints", "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("blueprints")), 1)
+				listPath := strings.Replace("/api/device-groups/v1/tenant/{tenantId}/device-groups", "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("device-groups")), 1)
 				id, err := platform.ResolveIDByName(cmd.Context(), cliCtx.PlatformSDKClient, listPath, nameFlag)
 				if err != nil {
 					return err
@@ -284,9 +275,9 @@ func newBlueprintsPatchCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			} else {
 				return fmt.Errorf("provide a positional ID or --name")
 			}
-			path := "/api/blueprints/v1/tenant/{tenantId}/blueprints/{blueprintId}"
-			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("blueprints")), 1)
-			path = strings.Replace(path, "{blueprintId}", url.PathEscape(resolvedID), 1)
+			path := "/api/device-groups/v1/tenant/{tenantId}/device-groups/{id}"
+			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("device-groups")), 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
 			q := url.Values{}
 			body, err := platform.ReadBody(bodyFile, setFlags)
 			if err != nil {
@@ -295,7 +286,7 @@ func newBlueprintsPatchCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if encoded := q.Encode(); encoded != "" {
 				path += "?" + encoded
 			}
-			if err := cliCtx.PlatformSDKClient.Transport().DoWithContentType(cmd.Context(), http.MethodPatch, path, body, "application/merge-patch+json", http.StatusNoContent, nil); err != nil {
+			if err := cliCtx.PlatformSDKClient.Transport().DoExpect(cmd.Context(), http.MethodPatch, path, body, http.StatusNoContent, nil); err != nil {
 				return fmt.Errorf("patch: %w", err)
 			}
 			return nil
@@ -308,13 +299,13 @@ func newBlueprintsPatchCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newBlueprintsDeployCmd(cliCtx *registry.CLIContext) *cobra.Command {
+func newPlatformDeviceGroupsMembersCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	var nameFlag string
 	cmd := &cobra.Command{
-		Use:         "deploy <blueprintId>",
-		Short:       "Deploy blueprint",
-		Long:        "Deploy blueprint",
-		Annotations: map[string]string{"jamf:privileges": "deploy:pro:blueprints,deploy:school:blueprints"},
+		Use:         "members <id>",
+		Short:       "Get group members",
+		Long:        "Retrieve all members of a device group",
+		Annotations: map[string]string{"jamf:privileges": "read:pro:device-groups"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
@@ -322,7 +313,7 @@ func newBlueprintsDeployCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			}
 			var resolvedID string
 			if nameFlag != "" {
-				listPath := strings.Replace("/api/blueprints/v1/tenant/{tenantId}/blueprints", "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("blueprints")), 1)
+				listPath := strings.Replace("/api/device-groups/v1/tenant/{tenantId}/device-groups", "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("device-groups")), 1)
 				id, err := platform.ResolveIDByName(cmd.Context(), cliCtx.PlatformSDKClient, listPath, nameFlag)
 				if err != nil {
 					return err
@@ -333,52 +324,9 @@ func newBlueprintsDeployCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			} else {
 				return fmt.Errorf("provide a positional ID or --name")
 			}
-			path := "/api/blueprints/v1/tenant/{tenantId}/blueprints/{blueprintId}/deploy"
-			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("blueprints")), 1)
-			path = strings.Replace(path, "{blueprintId}", url.PathEscape(resolvedID), 1)
-			q := url.Values{}
-			var body any
-			if encoded := q.Encode(); encoded != "" {
-				path += "?" + encoded
-			}
-			if err := cliCtx.PlatformSDKClient.Transport().DoExpect(cmd.Context(), http.MethodPost, path, body, http.StatusAccepted, nil); err != nil {
-				return fmt.Errorf("deploy: %w", err)
-			}
-			return nil
-		},
-	}
-	cmd.Flags().StringVar(&nameFlag, "name", "", "Resolve target by name instead of ID (uses the resource list endpoint)")
-	return cmd
-}
-
-func newBlueprintsReportCmd(cliCtx *registry.CLIContext) *cobra.Command {
-	var nameFlag string
-	cmd := &cobra.Command{
-		Use:         "report <blueprintId>",
-		Short:       "Get blueprint status report",
-		Long:        "Retrieve deployment status report for a specified blueprint.",
-		Annotations: map[string]string{"jamf:privileges": "read:pro:blueprints,read:school:blueprints"},
-		Args:        cobra.MaximumNArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
-				return err
-			}
-			var resolvedID string
-			if nameFlag != "" {
-				listPath := strings.Replace("/api/blueprints/v1/tenant/{tenantId}/blueprints", "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("blueprints")), 1)
-				id, err := platform.ResolveIDByName(cmd.Context(), cliCtx.PlatformSDKClient, listPath, nameFlag)
-				if err != nil {
-					return err
-				}
-				resolvedID = id
-			} else if len(args) == 1 {
-				resolvedID = args[0]
-			} else {
-				return fmt.Errorf("provide a positional ID or --name")
-			}
-			path := "/api/blueprints/v1/tenant/{tenantId}/blueprints/{blueprintId}/report"
-			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("blueprints")), 1)
-			path = strings.Replace(path, "{blueprintId}", url.PathEscape(resolvedID), 1)
+			path := "/api/device-groups/v1/tenant/{tenantId}/device-groups/{id}/members"
+			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("device-groups")), 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
 			q := url.Values{}
 			var body any
 			if encoded := q.Encode(); encoded != "" {
@@ -386,7 +334,7 @@ func newBlueprintsReportCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			}
 			var result any
 			if err := cliCtx.PlatformSDKClient.Transport().DoExpect(cmd.Context(), http.MethodGet, path, body, http.StatusOK, &result); err != nil {
-				return fmt.Errorf("report: %w", err)
+				return fmt.Errorf("members: %w", err)
 			}
 			if result == nil {
 				return nil
@@ -402,21 +350,30 @@ func newBlueprintsReportCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newBlueprintsUndeployCmd(cliCtx *registry.CLIContext) *cobra.Command {
+func newPlatformDeviceGroupsPatchMembersCmd(cliCtx *registry.CLIContext) *cobra.Command {
+	var bodyFile string
+	var setFlags []string
+	var scaffoldFlag bool
 	var nameFlag string
 	cmd := &cobra.Command{
-		Use:         "undeploy <blueprintId>",
-		Short:       "Undeploy blueprint",
-		Long:        "Undeploy blueprint",
-		Annotations: map[string]string{"jamf:privileges": "deploy:pro:blueprints,deploy:school:blueprints"},
+		Use:         "patch-members <id>",
+		Short:       "Update device group members",
+		Long:        "Add devices to or remove devices from a static device group. Cannot be used with smart groups.",
+		Annotations: map[string]string{"jamf:privileges": "update:pro:device-groups"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if scaffoldFlag {
+				// Scaffold prints raw JSON regardless of -o, so the output
+				// can be piped straight back into --file.
+				fmt.Println("{\n  \"added\": [],\n  \"removed\": []\n}")
+				return nil
+			}
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err
 			}
 			var resolvedID string
 			if nameFlag != "" {
-				listPath := strings.Replace("/api/blueprints/v1/tenant/{tenantId}/blueprints", "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("blueprints")), 1)
+				listPath := strings.Replace("/api/device-groups/v1/tenant/{tenantId}/device-groups", "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("device-groups")), 1)
 				id, err := platform.ResolveIDByName(cmd.Context(), cliCtx.PlatformSDKClient, listPath, nameFlag)
 				if err != nil {
 					return err
@@ -427,20 +384,26 @@ func newBlueprintsUndeployCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			} else {
 				return fmt.Errorf("provide a positional ID or --name")
 			}
-			path := "/api/blueprints/v1/tenant/{tenantId}/blueprints/{blueprintId}/undeploy"
-			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("blueprints")), 1)
-			path = strings.Replace(path, "{blueprintId}", url.PathEscape(resolvedID), 1)
+			path := "/api/device-groups/v1/tenant/{tenantId}/device-groups/{id}/members"
+			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("device-groups")), 1)
+			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
 			q := url.Values{}
-			var body any
+			body, err := platform.ReadBody(bodyFile, setFlags)
+			if err != nil {
+				return err
+			}
 			if encoded := q.Encode(); encoded != "" {
 				path += "?" + encoded
 			}
-			if err := cliCtx.PlatformSDKClient.Transport().DoExpect(cmd.Context(), http.MethodPost, path, body, http.StatusAccepted, nil); err != nil {
-				return fmt.Errorf("undeploy: %w", err)
+			if err := cliCtx.PlatformSDKClient.Transport().DoExpect(cmd.Context(), http.MethodPatch, path, body, http.StatusNoContent, nil); err != nil {
+				return fmt.Errorf("patch-members: %w", err)
 			}
 			return nil
 		},
 	}
+	cmd.Flags().StringVar(&bodyFile, "file", "", "Path to JSON file containing the request body")
+	cmd.Flags().StringArrayVar(&setFlags, "set", nil, "Override body values (key=value, repeatable, supports nested.keys)")
+	cmd.Flags().BoolVar(&scaffoldFlag, "scaffold", false, "Print an example request body and exit")
 	cmd.Flags().StringVar(&nameFlag, "name", "", "Resolve target by name instead of ID (uses the resource list endpoint)")
 	return cmd
 }

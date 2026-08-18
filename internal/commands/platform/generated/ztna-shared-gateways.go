@@ -17,30 +17,30 @@ import (
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 )
 
-// NewBaselinesCmd returns the cobra command tree for the baselines platform
+// NewZtnaSharedGatewaysCmd returns the cobra command tree for the ztna-shared-gateways platform
 // resource. Wire it into a product namespace via AddCommand.
-func NewBaselinesCmd(cliCtx *registry.CLIContext) *cobra.Command {
+func NewZtnaSharedGatewaysCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "baselines",
-		Short: "Manage baselines (Platform API)",
-		Long:  "Jamf Compliance Benchmarks API allows you to manage, enforce, and validate compliance on Apple devices",
+		Use:   "ztna-shared-gateways",
+		Short: "Manage ztna-shared-gateways (Jamf Security Cloud)",
+		Long:  "Manage ZTNA Gateways, Grouped Gateways, Apps, and Predefined Apps",
 	}
-	cmd.AddCommand(newBaselinesListCmd(cliCtx))
+	cmd.AddCommand(newZtnaSharedGatewaysListCmd(cliCtx))
 	return cmd
 }
 
-func newBaselinesListCmd(cliCtx *registry.CLIContext) *cobra.Command {
+func newZtnaSharedGatewaysListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "list",
-		Short:       "Return list of the mSCP baselines",
-		Long:        "Return list of the mSCP baselines allowed for the Compliance benchmarks",
-		Annotations: map[string]string{"jamf:privileges": "read:pro:compliance-benchmarks"},
+		Short:       "List Shared Gateways",
+		Long:        "List Jamf-managed Shared Gateways available to this tenant. Not paginated — the full list is returned in a single response. Returns `id` and `name` only — no deployment details. These gateways are maintained by Jamf infrastructure and cannot be modified.",
+		Annotations: map[string]string{"jamf:privileges": "read:jsc:all"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err
 			}
-			path := "/api/compliance-benchmarks/v1/tenant/{tenantId}/baselines"
-			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("compliance-benchmarks")), 1)
+			path := "/api/securitycloud/v1/tenant/{tenantId}/ztna/shared-gateways"
+			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("securitycloud")), 1)
 			q := url.Values{}
 			var body any
 			if encoded := q.Encode(); encoded != "" {
@@ -54,7 +54,7 @@ func newBaselinesListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				return nil
 			}
 			if obj, ok := result.(map[string]any); ok {
-				if arr, ok := obj["baselines"].([]any); ok {
+				if arr, ok := obj["results"].([]any); ok {
 					result = arr
 				}
 			}

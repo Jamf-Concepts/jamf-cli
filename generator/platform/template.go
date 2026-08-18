@@ -5,7 +5,12 @@ package platform
 // resourceTemplate emits one Go file per platform resource. Generated commands
 // take *jamfplatform.Client from CLIContext.PlatformSDKClient and call
 // .Transport().DoExpect{,WithContentType}() for every API request — the SDK
-// transport handles auth, retry, and tenant injection.
+// transport handles auth and retry.
+//
+// The tenant ID is resolved per gateway namespace via Transport().TenantIDFor:
+// Jamf Security Cloud is a separate product with its own tenant identifier, so
+// a profile reaching both Pro and Security Cloud carries two, and the
+// client-wide value is wrong for one of them.
 //
 // Each generated file exposes a single constructor New<Resource>Cmd(cliCtx)
 // returning a *cobra.Command tree. Hand-written code in pro.go, school.go etc.
@@ -50,7 +55,7 @@ import (
 func New{{.GoName}}Cmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "{{.Name}}",
-		Short: "Manage {{.Name}} (Platform API)",
+		Short: "Manage {{.Name}} ({{.APILabel}})",
 {{- if .Long }}
 		Long:  {{printf "%q" .Long}},
 {{- end }}
@@ -122,7 +127,7 @@ func new{{$.GoName}}{{.GoName}}Cmd(cliCtx *registry.CLIContext) *cobra.Command {
 {{- if .SupportsNameLookup }}
 			var resolvedID string
 			if nameFlag != "" {
-				listPath := strings.Replace({{printf "%q" .ListPath}}, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantID()), 1)
+				listPath := strings.Replace({{printf "%q" .ListPath}}, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor({{printf "%q" .Service}})), 1)
 				id, err := platform.ResolveIDByName(cmd.Context(), cliCtx.PlatformSDKClient, listPath, nameFlag)
 				if err != nil {
 					return err
@@ -140,7 +145,7 @@ func new{{$.GoName}}{{.GoName}}Cmd(cliCtx *registry.CLIContext) *cobra.Command {
 			}
 {{- end }}
 			path := {{printf "%q" .Path}}
-			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantID()), 1)
+			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor({{printf "%q" .Service}})), 1)
 {{- $op := . }}
 {{- range $i, $p := .PathParams }}
 {{- if $op.SupportsNameLookup }}

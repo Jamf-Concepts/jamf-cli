@@ -17,30 +17,30 @@ import (
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 )
 
-// NewBaselinesCmd returns the cobra command tree for the baselines platform
+// NewContentCategoriesCmd returns the cobra command tree for the content-categories platform
 // resource. Wire it into a product namespace via AddCommand.
-func NewBaselinesCmd(cliCtx *registry.CLIContext) *cobra.Command {
+func NewContentCategoriesCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "baselines",
-		Short: "Manage baselines (Platform API)",
-		Long:  "Jamf Compliance Benchmarks API allows you to manage, enforce, and validate compliance on Apple devices",
+		Use:   "content-categories",
+		Short: "Manage content-categories (Jamf Security Cloud)",
+		Long:  "Generic JSC content categories — used as categoryName in ZTNA Apps",
 	}
-	cmd.AddCommand(newBaselinesListCmd(cliCtx))
+	cmd.AddCommand(newContentCategoriesListCmd(cliCtx))
 	return cmd
 }
 
-func newBaselinesListCmd(cliCtx *registry.CLIContext) *cobra.Command {
+func newContentCategoriesListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "list",
-		Short:       "Return list of the mSCP baselines",
-		Long:        "Return list of the mSCP baselines allowed for the Compliance benchmarks",
-		Annotations: map[string]string{"jamf:privileges": "read:pro:compliance-benchmarks"},
+		Short:       "List Categories",
+		Long:        "List all content categories available to this tenant. Not paginated.",
+		Annotations: map[string]string{"jamf:privileges": "read:jsc:all"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err
 			}
-			path := "/api/compliance-benchmarks/v1/tenant/{tenantId}/baselines"
-			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("compliance-benchmarks")), 1)
+			path := "/api/securitycloud/v1/tenant/{tenantId}/categories"
+			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("securitycloud")), 1)
 			q := url.Values{}
 			var body any
 			if encoded := q.Encode(); encoded != "" {
@@ -54,7 +54,7 @@ func newBaselinesListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				return nil
 			}
 			if obj, ok := result.(map[string]any); ok {
-				if arr, ok := obj["baselines"].([]any); ok {
+				if arr, ok := obj["results"].([]any); ok {
 					result = arr
 				}
 			}
