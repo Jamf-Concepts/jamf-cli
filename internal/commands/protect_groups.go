@@ -116,17 +116,17 @@ func newProtectGroupsApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			var input jamfprotect.GroupInput
-			if err := unmarshalInput(data, &input); err != nil {
+			r := protect.NewResolver(cliCtx.ProtectClient)
+			input, err := groupInputFromDocument(ctx, data, r)
+			if err != nil {
 				return fmt.Errorf("parsing input file: %w", err)
 			}
 
 			if input.Name == "" {
-				return fmt.Errorf("input must include a 'Name' field")
+				return fmt.Errorf("input must include a 'name' field")
 			}
 
 			// Check if group exists by name
-			r := protect.NewResolver(cliCtx.ProtectClient)
 			id, err := r.ResolveGroupID(ctx, input.Name)
 			if err != nil {
 				// Not found — create
@@ -214,22 +214,7 @@ func newProtectGroupsExportCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return printExport(groupToInput(item))
+			return printExport(groupToExport(item))
 		},
 	}
-}
-
-// groupToInput converts a Group response to a GroupInput, stripping server-only fields.
-func groupToInput(g *jamfprotect.Group) jamfprotect.GroupInput {
-	input := jamfprotect.GroupInput{
-		Name:        g.Name,
-		AccessGroup: g.AccessGroup,
-	}
-	if g.Connection != nil {
-		input.ConnectionID = &g.Connection.ID
-	}
-	for _, r := range g.AssignedRoles {
-		input.RoleIDs = append(input.RoleIDs, r.ID)
-	}
-	return input
 }

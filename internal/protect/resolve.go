@@ -31,6 +31,7 @@ type Resolver struct {
 	computers      map[string]string // hostname -> uuid
 	computerSerial map[string]string // serial -> uuid
 	insights       map[string]string // label -> uuid
+	connections    map[string]string // identity provider name -> id
 }
 
 // NewResolver creates a Resolver for the given Protect client.
@@ -348,4 +349,24 @@ func (r *Resolver) ResolveComputerUUID(ctx context.Context, nameOrSerial string)
 		return id, nil
 	}
 	return "", fmt.Errorf("computer %q not found by hostname or serial; use 'protect computers list' to see available computers", nameOrSerial)
+}
+
+// ResolveConnectionID returns the ID for an identity provider connection given
+// its name.
+func (r *Resolver) ResolveConnectionID(ctx context.Context, name string) (string, error) {
+	if r.connections == nil {
+		items, err := r.client.ListConnections(ctx)
+		if err != nil {
+			return "", fmt.Errorf("listing connections: %w", err)
+		}
+		r.connections = make(map[string]string, len(items))
+		for _, c := range items {
+			r.connections[c.Name] = c.ID
+		}
+	}
+	id, ok := r.connections[name]
+	if !ok {
+		return "", fmt.Errorf("connection %q not found; use 'protect connections list' to see available names", name)
+	}
+	return id, nil
 }

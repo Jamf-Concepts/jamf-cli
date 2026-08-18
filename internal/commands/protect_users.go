@@ -128,17 +128,17 @@ func newProtectUsersApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			var input jamfprotect.UserInput
-			if err := unmarshalInput(data, &input); err != nil {
+			r := protect.NewResolver(cliCtx.ProtectClient)
+			input, err := userInputFromDocument(ctx, data, r)
+			if err != nil {
 				return fmt.Errorf("parsing input file: %w", err)
 			}
 
 			if input.Email == "" {
-				return fmt.Errorf("input must include an 'Email' field")
+				return fmt.Errorf("input must include an 'email' field")
 			}
 
 			// Check if user exists by email
-			r := protect.NewResolver(cliCtx.ProtectClient)
 			id, err := r.ResolveUserID(ctx, input.Email)
 			if err != nil {
 				// Not found — create
@@ -226,26 +226,7 @@ func newProtectUsersExportCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return printExport(userToInput(item))
+			return printExport(userToExport(item))
 		},
 	}
-}
-
-// userToInput converts a User response to a UserInput, stripping server-only fields.
-func userToInput(u *jamfprotect.User) jamfprotect.UserInput {
-	input := jamfprotect.UserInput{
-		Email:                 u.Email,
-		ReceiveEmailAlert:     u.ReceiveEmailAlert,
-		EmailAlertMinSeverity: u.EmailAlertMinSeverity,
-	}
-	if u.Connection != nil {
-		input.ConnectionID = &u.Connection.ID
-	}
-	for _, r := range u.AssignedRoles {
-		input.RoleIDs = append(input.RoleIDs, r.ID)
-	}
-	for _, g := range u.AssignedGroups {
-		input.GroupIDs = append(input.GroupIDs, g.ID)
-	}
-	return input
 }

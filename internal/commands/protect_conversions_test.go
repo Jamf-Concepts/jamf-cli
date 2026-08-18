@@ -19,8 +19,23 @@ import (
 type mockProtectClient struct {
 	registry.ProtectClient
 
-	ulfFilters []jamfprotect.UnifiedLoggingFilter
-	ulfSets    []jamfprotect.UnifiedLoggingFilterSet
+	ulfFilters  []jamfprotect.UnifiedLoggingFilter
+	ulfSets     []jamfprotect.UnifiedLoggingFilterSet
+	roles       []jamfprotect.Role
+	groups      []jamfprotect.Group
+	connections []jamfprotect.Connection
+}
+
+func (m *mockProtectClient) ListRoles(_ context.Context) ([]jamfprotect.Role, error) {
+	return m.roles, nil
+}
+
+func (m *mockProtectClient) ListGroups(_ context.Context) ([]jamfprotect.Group, error) {
+	return m.groups, nil
+}
+
+func (m *mockProtectClient) ListConnections(_ context.Context) ([]jamfprotect.Connection, error) {
+	return m.connections, nil
 }
 
 func (m *mockProtectClient) ListUnifiedLoggingFilters(_ context.Context) ([]jamfprotect.UnifiedLoggingFilter, error) {
