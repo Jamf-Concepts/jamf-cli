@@ -528,7 +528,131 @@ func protectResources() []protectResource {
 			},
 		},
 
+		// --- Order 65: compliance posture ---
+		{
+			// Insights are a fixed Jamf-published catalogue; a tenant only
+			// chooses which are enabled. So the document carries the enabled
+			// labels rather than the insights themselves, and restore flips the
+			// target's own copies to match.
+			Name:      "insights",
+			Order:     65,
+			Singleton: true,
+			Export: func(ctx context.Context, c registry.ProtectClient) ([]protectExportEntry, error) {
+				items, err := c.ListInsights(ctx)
+				if err != nil {
+					return nil, err
+				}
+				doc := insightStateDoc{Enabled: []string{}, Disabled: []string{}}
+				for _, i := range items {
+					if i.Enabled {
+						doc.Enabled = append(doc.Enabled, i.Label)
+					} else {
+						doc.Disabled = append(doc.Disabled, i.Label)
+					}
+				}
+				sort.Strings(doc.Enabled)
+				sort.Strings(doc.Disabled)
+				return []protectExportEntry{{Name: "insights", Doc: doc}}, nil
+			},
+			Restore: func(ctx context.Context, c registry.ProtectClient, _ *protect.Resolver, data []byte) (string, error) {
+				doc, err := decode[insightStateDoc](data)
+				if err != nil {
+					return "", err
+				}
+				items, err := c.ListInsights(ctx)
+				if err != nil {
+					return "", err
+				}
+				byLabel := make(map[string]jamfprotect.Insight, len(items))
+				for _, i := range items {
+					byLabel[i.Label] = i
+				}
+				want := make(map[string]bool, len(doc.Enabled)+len(doc.Disabled))
+				for _, l := range doc.Enabled {
+					want[l] = true
+				}
+				for _, l := range doc.Disabled {
+					want[l] = false
+				}
+
+				var changed int
+				for label, enabled := range want {
+					insight, ok := byLabel[label]
+					if !ok {
+						fmt.Fprintf(os.Stderr, "  skipped insight %q: not present in this tenant\n", label)
+						continue
+					}
+					// Only write the ones that differ. The catalogue runs to
+					// hundreds, and every call is a mutation on a live tenant.
+					if insight.Enabled == enabled {
+						continue
+					}
+					if _, err := c.UpdateInsightStatus(ctx, insight.UUID, enabled); err != nil {
+						return "", fmt.Errorf("setting insight %q: %w", label, err)
+					}
+					changed++
+				}
+				return fmt.Sprintf("%d insight(s) changed", changed), nil
+			},
+		},
+
 		// --- Order 70: org-wide settings ---
+		{
+			Name:      "config-freeze",
+			Order:     70,
+			Singleton: true,
+			Export: func(ctx context.Context, c registry.ProtectClient) ([]protectExportEntry, error) {
+				got, err := c.GetConfigFreeze(ctx)
+				if err != nil {
+					return nil, err
+				}
+				return []protectExportEntry{{Name: "config-freeze", Doc: got}}, nil
+			},
+			Restore: func(ctx context.Context, c registry.ProtectClient, _ *protect.Resolver, data []byte) (string, error) {
+				cfg, err := decode[jamfprotect.ChangeManagementConfig](data)
+				if err != nil {
+					return "", err
+				}
+				// Writing the value the tenant already holds is refused —
+				// disabling a freeze that is not on answers "Tenant '...' is not
+				// in a change freeze". So compare first and only write a real
+				// change, which is what makes replaying a backup idempotent.
+				current, err := c.GetConfigFreeze(ctx)
+				if err != nil {
+					return "", err
+				}
+				if current.ConfigFreeze == cfg.ConfigFreeze {
+					return fmt.Sprintf("config-freeze already %t", cfg.ConfigFreeze), nil
+				}
+				if _, err := c.UpdateOrganizationConfigFreeze(ctx, cfg.ConfigFreeze); err != nil {
+					return "", err
+				}
+				return fmt.Sprintf("config-freeze=%t", cfg.ConfigFreeze), nil
+			},
+		},
+		{
+			// Identity provider connections have no create mutation, so they can
+			// be captured but never replayed. Worth capturing anyway: a user or
+			// group naming a connection restores only where that name exists, and
+			// connection names are tenant-specific.
+			Name:      "connections",
+			Order:     70,
+			Singleton: true,
+			Export: func(ctx context.Context, c registry.ProtectClient) ([]protectExportEntry, error) {
+				items, err := c.ListConnections(ctx)
+				if err != nil {
+					return nil, err
+				}
+				names := make([]string, 0, len(items))
+				for _, cn := range items {
+					names = append(names, cn.Name)
+				}
+				sort.Strings(names)
+				return []protectExportEntry{{Name: "connections", Doc: map[string][]string{"connections": names}}}, nil
+			},
+			RestoreSkipReason: "identity provider connections have no create API — configure them in the target first, " +
+				"then restore the users and groups that reference them by name",
+		},
 		{
 			Name:      "data-retention",
 			Order:     70,
@@ -599,6 +723,14 @@ var protectDefaultObjects = map[string]map[string]bool{
 // isProtectDefaultObject reports whether an object is a tenant default.
 func isProtectDefaultObject(resource, name string) bool {
 	return protectDefaultObjects[resource][name]
+}
+
+// insightStateDoc records which compliance insights a tenant has enabled. Both
+// lists are written so a restore is explicit in each direction rather than
+// treating "absent" as "disabled".
+type insightStateDoc struct {
+	Enabled  []string `json:"enabled" yaml:"enabled"`
+	Disabled []string `json:"disabled" yaml:"disabled"`
 }
 
 // protectFileNameSafe makes an object name usable as a file name. Protect names
