@@ -840,3 +840,149 @@ func TestFlattenAuditLog_WithError(t *testing.T) {
 		t.Errorf("error = %v, want %q", m["error"], "permission denied")
 	}
 }
+
+// --- Analytic document schema detection ---
+
+// `analytics export` emits the community YAML schema and `apply --scaffold`
+// emits the SDK AnalyticInput shape. apply must accept both, because the two
+// differ on `actions` (objects vs strings) and decoding either into the wrong
+// struct fails outright.
+func TestAnalyticDocumentIsCommunitySchema(t *testing.T) {
+	tests := []struct {
+		name string
+		doc  string
+		want bool
+	}{
+		{
+			name: "community yaml from analytics export",
+			doc: `name: BlazingKeylogger
+shortDescription: Known malware IOC
+severity: High
+actions:
+    - name: Report
+      parameters: '{}'
+`,
+			want: true,
+		},
+		{
+			name: "community yaml without shortDescription still detected by action objects",
+			doc: `name: Something
+actions:
+    - name: Report
+      parameters: '{}'
+`,
+			want: true,
+		},
+		{
+			name: "sdk shape as json, capitalised go field names",
+			doc:  `{"Name":"Custom","Actions":["Report"],"AnalyticActions":[{"Name":"Report","Parameters":"{}"}]}`,
+			want: false,
+		},
+		{
+			name: "sdk shape as yaml, lowercased field names",
+			doc: `name: Custom
+analyticactions:
+    - name: Report
+      parameters: '{}'
+`,
+			want: false,
+		},
+		{
+			name: "sdk shape with string actions",
+			doc:  `{"Name":"Custom","Actions":["Report"]}`,
+			want: false,
+		},
+		{
+			name: "minimal document defaults to the sdk shape",
+			doc:  `{"Name":"Custom"}`,
+			want: false,
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := analyticDocumentIsCommunitySchema([]byte(tc.doc)); got != tc.want {
+				t.Errorf("analyticDocumentIsCommunitySchema() = %v, want %v", got, tc.want)
+			}
+		})
+	}
+}
+
+// The regression this fixes: piping `analytics export` into `analytics apply`
+// failed with "input is not valid JSON or YAML".
+func TestAnalyticInputFromDocument_AcceptsCommunityExport(t *testing.T) {
+	doc := []byte(`name: BlazingKeylogger
+longDescription: A plist name associated with BlazingKeylogger was written.
+shortDescription: Known malware IOC for BlazingKeylogger
+remediation: Delete the file.
+level: 1
+inputType: GPFSEvent
+filter: '"LaunchDaemon" IN $tags'
+severity: High
+categories:
+    - Known Malicious File
+actions:
+    - name: Report
+      parameters: '{}'
+`)
+
+	got, err := analyticInputFromDocument(doc)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got.Name != "BlazingKeylogger" {
+		t.Errorf("Name = %q, want BlazingKeylogger", got.Name)
+	}
+	if got.InputType != "GPFSEvent" {
+		t.Errorf("InputType = %q, want GPFSEvent", got.InputType)
+	}
+	if got.Description != "Known malware IOC for BlazingKeylogger" {
+		t.Errorf("Description = %q, want the community shortDescription", got.Description)
+	}
+	if len(got.AnalyticActions) != 1 || got.AnalyticActions[0].Name != "Report" {
+		t.Fatalf("AnalyticActions = %+v, want one Report action", got.AnalyticActions)
+	}
+	if got.AnalyticActions[0].Parameters != "{}" {
+		t.Errorf("Parameters = %q, want {}", got.AnalyticActions[0].Parameters)
+	}
+}
+
+func TestAnalyticInputFromDocument_AcceptsScaffoldShape(t *testing.T) {
+	doc := []byte(`{"Name":"Custom","InputType":"GPProcessEvent","AnalyticActions":[{"Name":"Report","Parameters":"{}"}]}`)
+
+	got, err := analyticInputFromDocument(doc)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got.Name != "Custom" || got.InputType != "GPProcessEvent" {
+		t.Errorf("got %+v, want the SDK shape decoded verbatim", got)
+	}
+	if len(got.AnalyticActions) != 1 {
+		t.Errorf("AnalyticActions = %+v, want one entry", got.AnalyticActions)
+	}
+}
+
+// analyticToYAML emits longDescription and remediation, so the conversion back
+// must keep them or every export/import round-trip silently drops both.
+func TestAnalyticYAMLToInput_PreservesLongDescriptionAndRemediation(t *testing.T) {
+	original := jamfprotect.Analytic{
+		Name:            "Custom",
+		Description:     "short",
+		LongDescription: "the long one",
+		Remediation:     "do the thing",
+		InputType:       "GPFSEvent",
+		Severity:        "High",
+		Level:           1,
+	}
+
+	got := analyticYAMLToInput(analyticToYAML(original))
+
+	if got.LongDescription != "the long one" {
+		t.Errorf("LongDescription = %q, want %q", got.LongDescription, "the long one")
+	}
+	if got.Remediation != "do the thing" {
+		t.Errorf("Remediation = %q, want %q", got.Remediation, "do the thing")
+	}
+	if got.Description != "short" {
+		t.Errorf("Description = %q, want %q", got.Description, "short")
+	}
+}

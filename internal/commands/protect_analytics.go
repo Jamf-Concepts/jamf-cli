@@ -129,8 +129,8 @@ func newProtectAnalyticsApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				return err
 			}
 
-			var input jamfprotect.AnalyticInput
-			if err := unmarshalInput(data, &input); err != nil {
+			input, err := analyticInputFromDocument(data)
+			if err != nil {
 				return fmt.Errorf("parsing input: %w", err)
 			}
 
@@ -138,17 +138,29 @@ func newProtectAnalyticsApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				return fmt.Errorf("input must include a 'Name' field")
 			}
 
-			// Check if analytic exists by name
-			r := protect.NewResolver(cliCtx.ProtectClient)
-			uuid, err := r.ResolveAnalyticUUID(ctx, input.Name)
+			// One list call rather than the resolver's per-name lookup, because
+			// the Jamf-managed guard below needs the analytic, not just its UUID.
+			byName, err := listAnalyticsByName(ctx, cliCtx.ProtectClient)
 			if err != nil {
-				// Not found — create
+				return err
+			}
+			existing, found := byName[input.Name]
+			if !found {
 				result, err := cliCtx.ProtectClient.CreateAnalytic(ctx, input)
 				if err != nil {
 					return err
 				}
 				fmt.Fprintf(os.Stderr, "Created analytic %q\n", input.Name)
 				return printResult(cliCtx.Output, result, flattenAnalytic(result))
+			}
+
+			// Jamf publishes its analytics centrally and the server refuses this
+			// mutation for them. Say so up front instead of spending the call to
+			// be told "This mutation may only be used for custom analytics".
+			if existing.Jamf {
+				return fmt.Errorf("analytic %q is Jamf-managed and its definition cannot be edited; "+
+					"to change the severity or actions it reports at, use 'protect analytics overrides set %s'",
+					input.Name, input.Name)
 			}
 
 			// Found — confirm before replacing
@@ -160,7 +172,7 @@ func newProtectAnalyticsApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				return nil
 			}
 
-			result, err := cliCtx.ProtectClient.UpdateAnalytic(ctx, uuid, input)
+			result, err := cliCtx.ProtectClient.UpdateAnalytic(ctx, existing.UUID, input)
 			if err != nil {
 				return err
 			}
@@ -331,6 +343,67 @@ func newProtectAnalyticsExportCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	}
 }
 
+// analyticDocumentIsCommunitySchema reports whether an analytic document is in
+// the community YAML schema (as `analytics export` and the jamf/jamfprotect repo
+// emit) rather than the SDK AnalyticInput shape (as `analytics apply --scaffold`
+// emits).
+//
+// The two differ irreconcilably on one field: community `actions` is a list of
+// {name, parameters} objects, while AnalyticInput.Actions is a list of strings
+// and carries its objects under `analyticActions`. Decoding either document into
+// the wrong struct fails outright, which is why `export | apply` was broken.
+//
+// Keys are compared lowercased because the SDK input struct has no json/yaml
+// tags: encoded as JSON its keys are Go field names ("AnalyticActions"), while
+// yaml.v3 lowercases them ("analyticactions").
+func analyticDocumentIsCommunitySchema(data []byte) bool {
+	var probe map[string]any
+	if err := unmarshalInput(data, &probe); err != nil {
+		return false
+	}
+
+	keys := make(map[string]any, len(probe))
+	for k, v := range probe {
+		keys[strings.ToLower(k)] = v
+	}
+
+	// analyticActions only exists on the SDK shape.
+	if _, ok := keys["analyticactions"]; ok {
+		return false
+	}
+	// shortDescription only exists on the community shape (the SDK calls it
+	// description).
+	if _, ok := keys["shortdescription"]; ok {
+		return true
+	}
+	// Otherwise let the shape of `actions` decide.
+	if actions, ok := keys["actions"].([]any); ok && len(actions) > 0 {
+		if _, isObject := actions[0].(map[string]any); isObject {
+			return true
+		}
+	}
+	return false
+}
+
+// analyticInputFromDocument decodes an analytic document in either schema the
+// CLI emits, so the documented `export | apply` pipe works alongside
+// `--scaffold | apply`.
+func analyticInputFromDocument(data []byte) (jamfprotect.AnalyticInput, error) {
+	if analyticDocumentIsCommunitySchema(data) {
+		var ay analyticYAML
+		if err := unmarshalInput(data, &ay); err != nil {
+			return jamfprotect.AnalyticInput{}, err
+		}
+		return analyticYAMLToInput(ay), nil
+	}
+
+	var input jamfprotect.AnalyticInput
+	if err := unmarshalInput(data, &input); err != nil {
+		return jamfprotect.AnalyticInput{}, err
+	}
+	return input, nil
+}
+
 // analyticYAMLToInput converts the community YAML schema to an SDK AnalyticInput.
 func analyticYAMLToInput(ay analyticYAML) jamfprotect.AnalyticInput {
 	analyticActions := make([]jamfprotect.AnalyticActionInput, 0, len(ay.Actions))
@@ -371,6 +444,8 @@ func analyticYAMLToInput(ay analyticYAML) jamfprotect.AnalyticInput {
 		Name:            ay.Name,
 		InputType:       ay.InputType,
 		Description:     ay.ShortDescription,
+		LongDescription: ay.LongDescription,
+		Remediation:     ay.Remediation,
 		Actions:         nil,
 		AnalyticActions: analyticActions,
 		Tags:            tags,
