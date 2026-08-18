@@ -264,6 +264,8 @@ Wire facts established by cloning between two live tenants, none of which are gu
 - **USB control vendor and product IDs need a `0x` prefix** (`0x0781`); bare hex is rejected as "contains invalid characters".
 - **`commsConfig` is always sent** by the SDK, so `protocol` must be one of `mqtt`/`wss/mqtt`/`auto`; its `fqdn` is the region-assigned IoT endpoint and the target keeps its own, which is the one field that legitimately differs after a clone.
 - **Data retention updates are rate-limited to once per 24 hours**, so re-running a restore reports that resource as failed even though the desired state is already applied.
+- **Two known non-idempotent cases**, both server-side, where re-running an otherwise complete restore reports a failure: the data retention limit above, and `accessGroup: true` on a connection-less local group, which `createGroup` accepts but `updateGroup` refuses with "Local groups cannot be designated as access groups".
+- **Telemetry `events` is `[String]!` in the schema but validated against an undeclared server-side list** — a wrong value answers "This mutation may only use predefined types". `network_connect` is valid; `network`, `network_listen`, `network_accept`, `dns_request`, `process_exec` and `file_create` are all rejected, so the list is narrow and does not follow the `GP*Event` naming used by analytic `inputType`.
 
 `protect downloads` subcommands fetch installer/uninstaller/pppc-profile/tamper-prevention-profile/root-ca/csr/websocket-auth/summary files. `protect plans config-profile <name>` downloads a `.mobileconfig` (use `--no-*` to exclude payloads, `--sign` to sign).
 

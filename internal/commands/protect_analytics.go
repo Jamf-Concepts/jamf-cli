@@ -32,6 +32,12 @@ type analyticYAML struct {
 	Severity         string                `yaml:"severity"`
 	ShortDescription string                `yaml:"shortDescription"`
 	Remediation      string                `yaml:"remediation,omitempty"`
+	// Present on the analytic and settable on the input, but absent from the
+	// community schema, so an export/apply round-trip silently dropped them.
+	// omitempty keeps the common case byte-identical to the community files.
+	Startup     bool   `yaml:"startup,omitempty"`
+	Label       string `yaml:"label,omitempty"`
+	MatchReason string `yaml:"matchReason,omitempty"`
 }
 
 // analyticActionYAML represents an action in the YAML schema.
@@ -455,6 +461,9 @@ func analyticYAMLToInput(ay analyticYAML) jamfprotect.AnalyticInput {
 		Level:           ay.Level,
 		Severity:        ay.Severity,
 		SnapshotFiles:   snapshotFiles,
+		Startup:         &ay.Startup,
+		Label:           ay.Label,
+		MatchReason:     ay.MatchReason,
 	}
 }
 
@@ -505,5 +514,8 @@ func analyticToYAML(a jamfprotect.Analytic) analyticYAML {
 		Severity:         a.Severity,
 		ShortDescription: a.Description,
 		Remediation:      a.Remediation,
+		Startup:          a.Startup,
+		Label:            a.Label,
+		MatchReason:      a.MatchReason,
 	}
 }

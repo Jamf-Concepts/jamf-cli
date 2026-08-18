@@ -7,6 +7,8 @@ import (
 	"strings"
 	"testing"
 
+	"gopkg.in/yaml.v3"
+
 	"github.com/Jamf-Concepts/jamfprotect-go-sdk/jamfprotect"
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/protect"
@@ -999,5 +1001,96 @@ func TestAnalyticYAMLToInput_PreservesLongDescriptionAndRemediation(t *testing.T
 	}
 	if got.Description != "short" {
 		t.Errorf("Description = %q, want %q", got.Description, "short")
+	}
+}
+
+// planExport is hand-written rather than the SDK input type, so a field added to
+// PlanInput can go unnoticed. threatPreventionStrategy and customEngineConfig
+// were both dropped that way — a plan's threat prevention posture silently did
+// not travel.
+func TestPlanToExport_CarriesThreatPrevention(t *testing.T) {
+	got := planToExport(&jamfprotect.Plan{
+		Name:                     "Plan",
+		ThreatPreventionStrategy: "CUSTOM_ENGINES",
+		CustomEngineConfig: &jamfprotect.CustomEngineConfig{
+			MalwareRiskware:  "block",
+			AdversaryTactics: "report",
+			SystemTampering:  "block",
+			FilelessThreats:  "report",
+			Experimental:     "off",
+		},
+	})
+
+	if got.ThreatPreventionStrategy != "CUSTOM_ENGINES" {
+		t.Errorf("ThreatPreventionStrategy = %q, want CUSTOM_ENGINES", got.ThreatPreventionStrategy)
+	}
+	if got.CustomEngineConfig == nil {
+		t.Fatal("CustomEngineConfig is nil — the per-engine settings were dropped")
+	}
+	if got.CustomEngineConfig.MalwareRiskware != "block" {
+		t.Errorf("MalwareRiskware = %q, want block", got.CustomEngineConfig.MalwareRiskware)
+	}
+	if got.CustomEngineConfig.Experimental != "off" {
+		t.Errorf("Experimental = %q, want off", got.CustomEngineConfig.Experimental)
+	}
+}
+
+func TestPlanExportToInput_CarriesThreatPrevention(t *testing.T) {
+	input, err := planExportToInput(context.Background(), planExport{
+		Name:                     "Plan",
+		ThreatPreventionStrategy: "MANAGED",
+		CustomEngineConfig:       &jamfprotect.CustomEngineConfigInput{MalwareRiskware: "block"},
+	}, protect.NewResolver(&mockProtectClient{}))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if input.ThreatPreventionStrategy != "MANAGED" {
+		t.Errorf("ThreatPreventionStrategy = %q, want MANAGED", input.ThreatPreventionStrategy)
+	}
+	if input.CustomEngineConfig == nil || input.CustomEngineConfig.MalwareRiskware != "block" {
+		t.Errorf("CustomEngineConfig = %+v, want it carried through", input.CustomEngineConfig)
+	}
+}
+
+// startup, label and matchReason are on the analytic and settable on the input
+// but absent from the community schema, so they were lost on round-trip.
+func TestAnalyticRoundTrip_CarriesStartupLabelMatchReason(t *testing.T) {
+	original := jamfprotect.Analytic{
+		Name:        "Custom",
+		InputType:   "GPFSEvent",
+		Severity:    "High",
+		Startup:     true,
+		Label:       "a-label",
+		MatchReason: "why it matched",
+	}
+
+	y := analyticToYAML(original)
+	if !y.Startup || y.Label != "a-label" || y.MatchReason != "why it matched" {
+		t.Fatalf("export dropped fields: %+v", y)
+	}
+
+	got := analyticYAMLToInput(y)
+	if got.Startup == nil || !*got.Startup {
+		t.Error("Startup did not survive the round-trip")
+	}
+	if got.Label != "a-label" {
+		t.Errorf("Label = %q, want a-label", got.Label)
+	}
+	if got.MatchReason != "why it matched" {
+		t.Errorf("MatchReason = %q, want the original", got.MatchReason)
+	}
+}
+
+// The common case must stay byte-identical to a community analytic file, or
+// every export starts carrying keys the community schema does not define.
+func TestAnalyticToYAML_OmitsUnsetExtras(t *testing.T) {
+	data, err := yaml.Marshal(analyticToYAML(jamfprotect.Analytic{Name: "Plain", InputType: "GPFSEvent"}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, key := range []string{"startup:", "label:", "matchReason:"} {
+		if strings.Contains(string(data), key) {
+			t.Errorf("rendered export contains %q when unset:\n%s", key, data)
+		}
 	}
 }

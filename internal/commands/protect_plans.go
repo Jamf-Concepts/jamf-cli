@@ -350,6 +350,13 @@ type planExport struct {
 	CommsConfig          *jamfprotect.PlanCommsConfigInput          `json:"commsConfig,omitempty" yaml:"commsConfig,omitempty"`
 	InfoSync             *jamfprotect.PlanInfoSyncInput             `json:"infoSync,omitempty" yaml:"infoSync,omitempty"`
 	SignaturesFeedConfig *jamfprotect.PlanSignaturesFeedConfigInput `json:"signaturesFeedConfig,omitempty" yaml:"signaturesFeedConfig,omitempty"`
+	// ThreatPreventionStrategy is LEGACY, MANAGED or CUSTOM_ENGINES, and
+	// CustomEngineConfig carries the per-engine settings the last of those uses.
+	// Both are non-null on the plan and settable on the input, so omitting them
+	// silently dropped a plan's threat prevention posture on export and left the
+	// target's own value in place on restore.
+	ThreatPreventionStrategy string                               `json:"threatPreventionStrategy,omitempty" yaml:"threatPreventionStrategy,omitempty"`
+	CustomEngineConfig       *jamfprotect.CustomEngineConfigInput `json:"customEngineConfig,omitempty" yaml:"customEngineConfig,omitempty"`
 }
 
 type planAnalyticSetExport struct {
@@ -428,15 +435,27 @@ func planToExport(p *jamfprotect.Plan) planExport {
 			Mode: p.SignaturesFeedConfig.Mode,
 		}
 	}
+	e.ThreatPreventionStrategy = p.ThreatPreventionStrategy
+	if p.CustomEngineConfig != nil {
+		e.CustomEngineConfig = &jamfprotect.CustomEngineConfigInput{
+			MalwareRiskware:  p.CustomEngineConfig.MalwareRiskware,
+			AdversaryTactics: p.CustomEngineConfig.AdversaryTactics,
+			SystemTampering:  p.CustomEngineConfig.SystemTampering,
+			FilelessThreats:  p.CustomEngineConfig.FilelessThreats,
+			Experimental:     p.CustomEngineConfig.Experimental,
+		}
+	}
 	return e
 }
 
 // planExportToInput resolves names to IDs and builds a PlanInput for the SDK.
 func planExportToInput(ctx context.Context, e planExport, r *protect.Resolver) (jamfprotect.PlanInput, error) {
 	input := jamfprotect.PlanInput{
-		Name:        e.Name,
-		Description: e.Description,
-		AutoUpdate:  e.AutoUpdate,
+		Name:                     e.Name,
+		Description:              e.Description,
+		AutoUpdate:               e.AutoUpdate,
+		ThreatPreventionStrategy: e.ThreatPreventionStrategy,
+		CustomEngineConfig:       e.CustomEngineConfig,
 	}
 	if e.LogLevel != "" {
 		input.LogLevel = &e.LogLevel
