@@ -1,0 +1,1062 @@
+// Copyright 2026, Jamf Software LLC
+
+package commands
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"os"
+	"path/filepath"
+	"regexp"
+	"sort"
+	"strings"
+	"time"
+
+	"github.com/spf13/cobra"
+	"gopkg.in/yaml.v3"
+
+	"github.com/Jamf-Concepts/jamf-cli/internal/protect"
+	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
+	"github.com/Jamf-Concepts/jamfprotect-go-sdk/jamfprotect"
+)
+
+// protectBackupMetaFile and protectBackupFailuresFile mirror the Jamf Pro
+// backup layout so the two products' output is navigable the same way.
+const (
+	protectBackupMetaFile     = "_meta"
+	protectBackupFailuresFile = "_failures"
+)
+
+// protectBackupMeta records what a backup captured and from where, so a restore
+// can report the provenance of what it is about to write.
+type protectBackupMeta struct {
+	Tool      string         `json:"tool" yaml:"tool"`
+	Version   string         `json:"version" yaml:"version"`
+	Product   string         `json:"product" yaml:"product"`
+	CreatedAt string         `json:"created_at" yaml:"created_at"`
+	TenantURL string         `json:"tenant_url,omitempty" yaml:"tenant_url,omitempty"`
+	Resources []string       `json:"resources" yaml:"resources"`
+	Counts    map[string]int `json:"counts" yaml:"counts"`
+}
+
+// protectExportEntry is one object destined for one file.
+type protectExportEntry struct {
+	// Name is the object's identity in its tenant and becomes the file name.
+	Name string
+	// Doc is the portable document written to disk.
+	Doc any
+}
+
+// protectResource is one entry in the backup/restore set.
+//
+// Order encodes the restore dependency chain rather than a preference: members
+// must exist before the sets that name them, every set before the plans that
+// bind them, roles before the groups that grant them, and groups before the
+// users that join them. Resources sharing an Order are independent of each
+// other.
+type protectResource struct {
+	Name  string
+	Order int
+
+	// Export lists every object and returns one entry per object. Whether it
+	// needs a per-object fetch is a property of the resource: most SDK list
+	// queries return the full field set, but listExceptionSets and
+	// listActionConfigs return only a summary, so those two must fetch each
+	// object individually or the backup silently records empty membership.
+	Export func(ctx context.Context, c registry.ProtectClient) ([]protectExportEntry, error)
+
+	// Restore applies one document and returns the object's name.
+	Restore func(ctx context.Context, c registry.ProtectClient, r *protect.Resolver, data []byte) (string, error)
+
+	// Singleton marks an org-wide setting: one document, no collection.
+	Singleton bool
+
+	// RestoreSkipReason, when non-empty, excludes the resource from restore and
+	// explains why. Backup still captures it — a record you cannot replay is
+	// still worth having.
+	RestoreSkipReason string
+}
+
+// upsertByName resolves an object by name and creates it when absent, updates it
+// when present. Every Protect resource follows this shape; the generic keeps the
+// table from repeating it fifteen times.
+func upsertByName[I any, R any](
+	ctx context.Context,
+	name string,
+	input I,
+	resolve func(context.Context, string) (string, error),
+	create func(context.Context, I) (R, error),
+	update func(context.Context, string, I) (R, error),
+) (string, error) {
+	id, err := resolve(ctx, name)
+	if err != nil {
+		if _, err := create(ctx, input); err != nil {
+			return "", err
+		}
+		return name, nil
+	}
+	if _, err := update(ctx, id, input); err != nil {
+		return "", err
+	}
+	return name, nil
+}
+
+// decode unmarshals a backup document into T.
+func decode[T any](data []byte) (T, error) {
+	var v T
+	if err := unmarshalInput(data, &v); err != nil {
+		return v, err
+	}
+	return v, nil
+}
+
+// protectResources is the backup/restore set, in restore order.
+func protectResources() []protectResource {
+	return []protectResource{
+		// --- Order 10: leaf objects nothing else depends on ---
+		{
+			Name:  "analytics",
+			Order: 10,
+			Export: func(ctx context.Context, c registry.ProtectClient) ([]protectExportEntry, error) {
+				items, err := c.ListAnalytics(ctx)
+				if err != nil {
+					return nil, err
+				}
+				var out []protectExportEntry
+				for _, a := range items {
+					// Jamf-managed definitions are published centrally and are
+					// identical in every tenant; the server refuses to write
+					// them. Only the custom ones are a tenant's own data. What a
+					// tenant changed about a Jamf analytic is captured by
+					// analytic-overrides below.
+					if a.Jamf {
+						continue
+					}
+					out = append(out, protectExportEntry{Name: a.Name, Doc: analyticToYAML(a)})
+				}
+				return out, nil
+			},
+			Restore: func(ctx context.Context, c registry.ProtectClient, r *protect.Resolver, data []byte) (string, error) {
+				input, err := analyticInputFromDocument(data)
+				if err != nil {
+					return "", err
+				}
+				return upsertByName(ctx, input.Name, input, r.ResolveAnalyticUUID, c.CreateAnalytic, c.UpdateAnalytic)
+			},
+		},
+		{
+			Name:  "unified-logging-filters",
+			Order: 10,
+			Export: func(ctx context.Context, c registry.ProtectClient) ([]protectExportEntry, error) {
+				items, err := c.ListUnifiedLoggingFilters(ctx)
+				if err != nil {
+					return nil, err
+				}
+				var out []protectExportEntry
+				for _, f := range items {
+					out = append(out, protectExportEntry{Name: f.Name, Doc: ulfToYAML(f)})
+				}
+				return out, nil
+			},
+			Restore: func(ctx context.Context, c registry.ProtectClient, r *protect.Resolver, data []byte) (string, error) {
+				y, err := decode[unifiedLoggingFilterYAML](data)
+				if err != nil {
+					return "", err
+				}
+				input := ulfYAMLToInput(y)
+				return upsertByName(ctx, input.Name, input, r.ResolveUnifiedLoggingFilterUUID, c.CreateUnifiedLoggingFilter, c.UpdateUnifiedLoggingFilter)
+			},
+		},
+		{
+			Name:  "removable-storage-control-sets",
+			Order: 10,
+			Export: func(ctx context.Context, c registry.ProtectClient) ([]protectExportEntry, error) {
+				items, err := c.ListRemovableStorageControlSets(ctx)
+				if err != nil {
+					return nil, err
+				}
+				var out []protectExportEntry
+				for i := range items {
+					out = append(out, protectExportEntry{Name: items[i].Name, Doc: rebuildRSCSInput(&items[i])})
+				}
+				return out, nil
+			},
+			Restore: func(ctx context.Context, c registry.ProtectClient, r *protect.Resolver, data []byte) (string, error) {
+				input, err := decode[jamfprotect.RemovableStorageControlSetInput](data)
+				if err != nil {
+					return "", err
+				}
+				return upsertByName(ctx, input.Name, input, r.ResolveRemovableStorageControlSetID, c.CreateRemovableStorageControlSet, c.UpdateRemovableStorageControlSet)
+			},
+		},
+		{
+			Name:  "telemetry",
+			Order: 10,
+			Export: func(ctx context.Context, c registry.ProtectClient) ([]protectExportEntry, error) {
+				items, err := c.ListTelemetriesV2(ctx)
+				if err != nil {
+					return nil, err
+				}
+				var out []protectExportEntry
+				for i := range items {
+					out = append(out, protectExportEntry{Name: items[i].Name, Doc: telemetryToInput(&items[i])})
+				}
+				return out, nil
+			},
+			Restore: func(ctx context.Context, c registry.ProtectClient, r *protect.Resolver, data []byte) (string, error) {
+				input, err := decode[jamfprotect.TelemetryV2Input](data)
+				if err != nil {
+					return "", err
+				}
+				return upsertByName(ctx, input.Name, input, r.ResolveTelemetryV2ID, c.CreateTelemetryV2, c.UpdateTelemetryV2)
+			},
+		},
+		{
+			Name:  "custom-prevent-lists",
+			Order: 10,
+			Export: func(ctx context.Context, c registry.ProtectClient) ([]protectExportEntry, error) {
+				items, err := c.ListCustomPreventLists(ctx)
+				if err != nil {
+					return nil, err
+				}
+				var out []protectExportEntry
+				for i := range items {
+					out = append(out, protectExportEntry{Name: items[i].Name, Doc: preventListToInput(&items[i])})
+				}
+				return out, nil
+			},
+			Restore: func(ctx context.Context, c registry.ProtectClient, r *protect.Resolver, data []byte) (string, error) {
+				input, err := decode[jamfprotect.CustomPreventListInput](data)
+				if err != nil {
+					return "", err
+				}
+				return upsertByName(ctx, input.Name, input, r.ResolveCustomPreventListID, c.CreateCustomPreventList, c.UpdateCustomPreventList)
+			},
+		},
+		{
+			Name:  "action-configs",
+			Order: 10,
+			Export: func(ctx context.Context, c registry.ProtectClient) ([]protectExportEntry, error) {
+				// listActionConfigs returns id/name/description only — the
+				// clients and alertConfig that make up the object need a fetch.
+				items, err := c.ListActionConfigs(ctx)
+				if err != nil {
+					return nil, err
+				}
+				var out []protectExportEntry
+				for _, li := range items {
+					full, err := c.GetActionConfig(ctx, li.ID)
+					if err != nil {
+						return nil, fmt.Errorf("fetching action config %q: %w", li.Name, err)
+					}
+					out = append(out, protectExportEntry{Name: full.Name, Doc: actionConfigToInput(full)})
+				}
+				return out, nil
+			},
+			Restore: func(ctx context.Context, c registry.ProtectClient, r *protect.Resolver, data []byte) (string, error) {
+				input, err := decode[jamfprotect.ActionConfigInput](data)
+				if err != nil {
+					return "", err
+				}
+				return upsertByName(ctx, input.Name, input, r.ResolveActionConfigID, c.CreateActionConfig, c.UpdateActionConfig)
+			},
+		},
+		{
+			Name:  "exception-sets",
+			Order: 10,
+			Export: func(ctx context.Context, c registry.ProtectClient) ([]protectExportEntry, error) {
+				// listExceptionSets returns uuid/name/managed only.
+				items, err := c.ListExceptionSets(ctx)
+				if err != nil {
+					return nil, err
+				}
+				var out []protectExportEntry
+				for _, li := range items {
+					if li.Managed {
+						continue
+					}
+					full, err := c.GetExceptionSet(ctx, li.UUID)
+					if err != nil {
+						return nil, fmt.Errorf("fetching exception set %q: %w", li.Name, err)
+					}
+					out = append(out, protectExportEntry{Name: full.Name, Doc: rebuildExceptionSetInput(full)})
+				}
+				return out, nil
+			},
+			Restore: func(ctx context.Context, c registry.ProtectClient, r *protect.Resolver, data []byte) (string, error) {
+				input, err := decode[jamfprotect.ExceptionSetInput](data)
+				if err != nil {
+					return "", err
+				}
+				return upsertByName(ctx, input.Name, input, r.ResolveExceptionSetUUID, c.CreateExceptionSet, c.UpdateExceptionSet)
+			},
+		},
+
+		// --- Order 15: the tenant overlay on Jamf-managed analytics ---
+		{
+			Name:  "analytic-overrides",
+			Order: 15,
+			Export: func(ctx context.Context, c registry.ProtectClient) ([]protectExportEntry, error) {
+				items, err := c.ListAnalytics(ctx)
+				if err != nil {
+					return nil, err
+				}
+				doc := analyticOverridesDoc{Overrides: []analyticOverride{}}
+				for _, a := range items {
+					if hasOverride(a) {
+						doc.Overrides = append(doc.Overrides, overrideFromAnalytic(a))
+					}
+				}
+				sort.Slice(doc.Overrides, func(i, j int) bool {
+					return doc.Overrides[i].Analytic < doc.Overrides[j].Analytic
+				})
+				if len(doc.Overrides) == 0 {
+					return nil, nil
+				}
+				return []protectExportEntry{{Name: "analytic-overrides", Doc: doc}}, nil
+			},
+			Singleton: true,
+			Restore: func(ctx context.Context, c registry.ProtectClient, _ *protect.Resolver, data []byte) (string, error) {
+				doc, err := decode[analyticOverridesDoc](data)
+				if err != nil {
+					return "", err
+				}
+				byName, err := listAnalyticsByName(ctx, c)
+				if err != nil {
+					return "", err
+				}
+				var applied int
+				for _, o := range doc.Overrides {
+					a, ok := byName[o.Analytic]
+					if !ok || !a.Jamf {
+						fmt.Fprintf(os.Stderr, "  skipped override for %q: absent or not Jamf-managed\n", o.Analytic)
+						continue
+					}
+					input := jamfprotect.InternalAnalyticInput{
+						TenantSeverityNull: o.Severity == "",
+						TenantActionsNull:  len(o.Actions) == 0,
+					}
+					if o.Severity != "" {
+						sev := o.Severity
+						input.TenantSeverity = &sev
+					}
+					for _, act := range o.Actions {
+						params := act.Parameters
+						if params == "" {
+							params = "{}"
+						}
+						input.TenantActions = append(input.TenantActions, jamfprotect.AnalyticActionInput{Name: act.Name, Parameters: params})
+					}
+					if _, err := c.UpdateInternalAnalytic(ctx, a.UUID, input); err != nil {
+						return "", fmt.Errorf("applying override for %q: %w", o.Analytic, err)
+					}
+					applied++
+				}
+				return fmt.Sprintf("%d override(s)", applied), nil
+			},
+		},
+
+		// --- Order 20: sets that name the objects above ---
+		{
+			Name:  "analytic-sets",
+			Order: 20,
+			Export: func(ctx context.Context, c registry.ProtectClient) ([]protectExportEntry, error) {
+				items, err := c.ListAnalyticSets(ctx)
+				if err != nil {
+					return nil, err
+				}
+				var out []protectExportEntry
+				for i := range items {
+					if items[i].Managed {
+						continue
+					}
+					out = append(out, protectExportEntry{Name: items[i].Name, Doc: analyticSetToExport(&items[i])})
+				}
+				return out, nil
+			},
+			Restore: func(ctx context.Context, c registry.ProtectClient, r *protect.Resolver, data []byte) (string, error) {
+				e, err := decode[analyticSetExport](data)
+				if err != nil {
+					return "", err
+				}
+				input, err := analyticSetExportToInput(ctx, e, r)
+				if err != nil {
+					return "", err
+				}
+				return upsertByName(ctx, input.Name, input, r.ResolveAnalyticSetUUID, c.CreateAnalyticSet, c.UpdateAnalyticSet)
+			},
+		},
+		{
+			Name:  "unified-logging-filter-sets",
+			Order: 20,
+			Export: func(ctx context.Context, c registry.ProtectClient) ([]protectExportEntry, error) {
+				items, err := c.ListUnifiedLoggingFilterSets(ctx)
+				if err != nil {
+					return nil, err
+				}
+				var out []protectExportEntry
+				for i := range items {
+					out = append(out, protectExportEntry{Name: items[i].Name, Doc: ulfSetToExport(&items[i])})
+				}
+				return out, nil
+			},
+			Restore: func(ctx context.Context, c registry.ProtectClient, r *protect.Resolver, data []byte) (string, error) {
+				e, err := decode[ulfSetExport](data)
+				if err != nil {
+					return "", err
+				}
+				input, err := ulfSetExportToInput(ctx, e, r)
+				if err != nil {
+					return "", err
+				}
+				return upsertByName(ctx, input.Name, input, r.ResolveUnifiedLoggingFilterSetUUID, c.CreateUnifiedLoggingFilterSet, c.UpdateUnifiedLoggingFilterSet)
+			},
+		},
+
+		// --- Order 30: plans bind every set above ---
+		{
+			Name:  "plans",
+			Order: 30,
+			Export: func(ctx context.Context, c registry.ProtectClient) ([]protectExportEntry, error) {
+				items, err := c.ListPlans(ctx)
+				if err != nil {
+					return nil, err
+				}
+				var out []protectExportEntry
+				for i := range items {
+					out = append(out, protectExportEntry{Name: items[i].Name, Doc: planToExport(&items[i])})
+				}
+				return out, nil
+			},
+			Restore: func(ctx context.Context, c registry.ProtectClient, r *protect.Resolver, data []byte) (string, error) {
+				e, err := decode[planExport](data)
+				if err != nil {
+					return "", err
+				}
+				input, err := planExportToInput(ctx, e, r)
+				if err != nil {
+					return "", err
+				}
+				return upsertByName(ctx, input.Name, input, r.ResolvePlanID, c.CreatePlan, c.UpdatePlan)
+			},
+		},
+
+		// --- Order 40+: access and identity ---
+		{
+			Name:  "roles",
+			Order: 40,
+			Export: func(ctx context.Context, c registry.ProtectClient) ([]protectExportEntry, error) {
+				items, err := c.ListRoles(ctx)
+				if err != nil {
+					return nil, err
+				}
+				var out []protectExportEntry
+				for i := range items {
+					out = append(out, protectExportEntry{Name: items[i].Name, Doc: roleToInput(&items[i])})
+				}
+				return out, nil
+			},
+			Restore: func(ctx context.Context, c registry.ProtectClient, r *protect.Resolver, data []byte) (string, error) {
+				input, err := decode[jamfprotect.RoleInput](data)
+				if err != nil {
+					return "", err
+				}
+				return upsertByName(ctx, input.Name, input, r.ResolveRoleID, c.CreateRole, c.UpdateRole)
+			},
+		},
+		{
+			Name:  "groups",
+			Order: 50,
+			Export: func(ctx context.Context, c registry.ProtectClient) ([]protectExportEntry, error) {
+				items, err := c.ListGroups(ctx)
+				if err != nil {
+					return nil, err
+				}
+				var out []protectExportEntry
+				for i := range items {
+					out = append(out, protectExportEntry{Name: items[i].Name, Doc: groupToExport(&items[i])})
+				}
+				return out, nil
+			},
+			Restore: func(ctx context.Context, c registry.ProtectClient, r *protect.Resolver, data []byte) (string, error) {
+				input, err := groupInputFromDocument(ctx, data, r)
+				if err != nil {
+					return "", err
+				}
+				return upsertByName(ctx, input.Name, input, r.ResolveGroupID, c.CreateGroup, c.UpdateGroup)
+			},
+		},
+		{
+			Name:  "api-clients",
+			Order: 60,
+			Export: func(ctx context.Context, c registry.ProtectClient) ([]protectExportEntry, error) {
+				items, err := c.ListApiClients(ctx)
+				if err != nil {
+					return nil, err
+				}
+				var out []protectExportEntry
+				for i := range items {
+					out = append(out, protectExportEntry{Name: items[i].Name, Doc: apiClientToExport(&items[i])})
+				}
+				return out, nil
+			},
+			RestoreSkipReason: "the server issues a new client secret on create and never returns an existing one, " +
+				"so a restored client cannot reuse the original credentials — recreate them deliberately with 'protect api-clients apply'",
+		},
+		{
+			Name:  "users",
+			Order: 60,
+			Export: func(ctx context.Context, c registry.ProtectClient) ([]protectExportEntry, error) {
+				items, err := c.ListUsers(ctx)
+				if err != nil {
+					return nil, err
+				}
+				var out []protectExportEntry
+				for i := range items {
+					out = append(out, protectExportEntry{Name: items[i].Email, Doc: userToExport(&items[i])})
+				}
+				return out, nil
+			},
+			Restore: func(ctx context.Context, c registry.ProtectClient, r *protect.Resolver, data []byte) (string, error) {
+				input, err := userInputFromDocument(ctx, data, r)
+				if err != nil {
+					return "", err
+				}
+				return upsertByName(ctx, input.Email, input, r.ResolveUserID, c.CreateUser, c.UpdateUser)
+			},
+		},
+
+		// --- Order 70: org-wide settings ---
+		{
+			Name:      "data-retention",
+			Order:     70,
+			Singleton: true,
+			Export: func(ctx context.Context, c registry.ProtectClient) ([]protectExportEntry, error) {
+				got, err := c.GetDataRetention(ctx)
+				if err != nil {
+					return nil, err
+				}
+				return []protectExportEntry{{Name: "data-retention", Doc: dataRetentionToInput(got)}}, nil
+			},
+			Restore: func(ctx context.Context, c registry.ProtectClient, _ *protect.Resolver, data []byte) (string, error) {
+				input, err := decode[jamfprotect.DataRetentionInput](data)
+				if err != nil {
+					return "", err
+				}
+				if _, err := c.UpdateDataRetention(ctx, input); err != nil {
+					return "", err
+				}
+				return "data-retention", nil
+			},
+		},
+		{
+			Name:      "data-forwarding",
+			Order:     70,
+			Singleton: true,
+			Export: func(ctx context.Context, c registry.ProtectClient) ([]protectExportEntry, error) {
+				got, err := c.GetDataForwarding(ctx)
+				if err != nil {
+					return nil, err
+				}
+				return []protectExportEntry{{Name: "data-forwarding", Doc: got}}, nil
+			},
+			RestoreSkipReason: "the forwarding settings response is not the update input shape and carries " +
+				"third-party credentials the API never returns — reapply with 'protect data-forwarding update'",
+		},
+	}
+}
+
+// protectDefaultObjects names objects every Jamf Protect tenant is provisioned
+// with. They are skipped on restore by default.
+//
+// Skipping them is safe precisely because references resolve by name: a restored
+// group naming "Full Admin" binds to the target's own built-in role, so the role
+// document itself never needs replaying. Replaying it would at best be a no-op
+// and at worst overwrite a product-versioned default with an older tenant's copy.
+//
+// Built-in roles are identifiable beyond their names — "Read Only" is id 1 and
+// "Full Admin" id 2 in every tenant observed, while custom roles get high
+// sequential ids — but restore only ever sees the document, and the exports
+// strip ids by design, so the check here is by name. --include-defaults replays
+// them anyway.
+var protectDefaultObjects = map[string]map[string]bool{
+	"roles": {
+		"Full Admin": true,
+		"Read Only":  true,
+	},
+	"groups": {
+		"Default": true,
+	},
+	"analytic-sets": {
+		// Every tenant's catch-all set. Its membership is the full Jamf-published
+		// analytic list, which the target already has.
+		"Default Analytic Set": true,
+	},
+}
+
+// isProtectDefaultObject reports whether an object is a tenant default.
+func isProtectDefaultObject(resource, name string) bool {
+	return protectDefaultObjects[resource][name]
+}
+
+// protectFileNameSafe makes an object name usable as a file name. Protect names
+// are free text and routinely contain slashes and colons.
+var protectFileNameUnsafe = regexp.MustCompile(`[^\w.@-]+`)
+
+func protectFileNameSafe(name string) string {
+	safe := protectFileNameUnsafe.ReplaceAllString(name, "_")
+	safe = strings.Trim(safe, "_")
+	if safe == "" {
+		safe = "unnamed"
+	}
+	return safe
+}
+
+// protectSplitTokens parses a comma-separated flag value.
+func protectSplitTokens(v string) []string {
+	var out []string
+	for _, tok := range strings.Split(v, ",") {
+		if tok = strings.TrimSpace(tok); tok != "" {
+			out = append(out, tok)
+		}
+	}
+	return out
+}
+
+// protectObjectNameFromFile reads an object's own name out of a backup document.
+//
+// The file name cannot be used: protectFileNameSafe rewrites characters that are
+// illegal in a path, so "Full Admin" is stored as "Full_Admin.yaml" and the
+// original is only recoverable from the document body.
+func protectObjectNameFromFile(path string) string {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return ""
+	}
+	var probe map[string]any
+	if err := unmarshalInput(data, &probe); err != nil {
+		return ""
+	}
+	for _, key := range []string{"name", "Name", "email", "Email"} {
+		if v, ok := probe[key].(string); ok && v != "" {
+			return v
+		}
+	}
+	return ""
+}
+
+// protectSelectResources filters the set by an include list and an exclude list,
+// returning it sorted into restore order. include is an allowlist ("only
+// these"); exclude removes from whatever include produced, so the two compose.
+func protectSelectResources(filter, exclude string) ([]protectResource, error) {
+	all := protectResources()
+	sort.SliceStable(all, func(i, j int) bool {
+		if all[i].Order != all[j].Order {
+			return all[i].Order < all[j].Order
+		}
+		return all[i].Name < all[j].Name
+	})
+
+	known := make([]string, 0, len(all))
+	valid := map[string]bool{}
+	for _, r := range all {
+		known = append(known, r.Name)
+		valid[r.Name] = true
+	}
+	unknownErr := func(tokens []string, flag string) error {
+		var unknown []string
+		for _, t := range tokens {
+			if !valid[t] {
+				unknown = append(unknown, t)
+			}
+		}
+		if len(unknown) == 0 {
+			return nil
+		}
+		sort.Strings(unknown)
+		return fmt.Errorf("unknown resource(s) in --%s: %s\nknown resources: %s",
+			flag, strings.Join(unknown, ", "), strings.Join(known, ", "))
+	}
+
+	includes := protectSplitTokens(filter)
+	if err := unknownErr(includes, "resources"); err != nil {
+		return nil, err
+	}
+	excludes := protectSplitTokens(exclude)
+	if err := unknownErr(excludes, "exclude"); err != nil {
+		return nil, err
+	}
+
+	included := map[string]bool{}
+	for _, t := range includes {
+		included[t] = true
+	}
+	excluded := map[string]bool{}
+	for _, t := range excludes {
+		excluded[t] = true
+	}
+
+	var out []protectResource
+	for _, r := range all {
+		if len(included) > 0 && !included[r.Name] {
+			continue
+		}
+		if excluded[r.Name] {
+			continue
+		}
+		out = append(out, r)
+	}
+	if len(out) == 0 {
+		return nil, fmt.Errorf("no resources selected: --resources and --exclude leave nothing to do")
+	}
+	return out, nil
+}
+
+func protectMarshal(v any, format string) ([]byte, error) {
+	if format == "json" {
+		return json.MarshalIndent(v, "", "  ")
+	}
+	return yaml.Marshal(v)
+}
+
+// --- backup ---
+
+func newProtectBackupCmd(cliCtx *registry.CLIContext) *cobra.Command {
+	var (
+		outputDir string
+		format    string
+		resources string
+		exclude   string
+	)
+
+	cmd := &cobra.Command{
+		Use:   "backup",
+		Short: "Export all Jamf Protect configuration to a local directory",
+		Long: `Export configuration from a Jamf Protect tenant to a local directory.
+
+Each object is written as its own YAML or JSON file under a per-resource
+subdirectory, in the same portable form the matching 'export' command produces —
+cross-resource references are names, not IDs, so a backup can be restored into a
+different tenant.
+
+Jamf-managed content is skipped: those definitions are published centrally, are
+identical in every tenant, and the server refuses to write them. What a tenant
+changed *about* them is captured separately as analytic-overrides.
+
+Partial failures are tolerated. A resource that fails to export is recorded in
+_failures.yaml and the run continues, so one broken resource cannot cost you the
+rest of the backup.`,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			return runProtectBackup(cmd.Context(), cliCtx, outputDir, format, resources, exclude)
+		},
+	}
+
+	cmd.Flags().StringVar(&outputDir, "output", "", "destination directory (required)")
+	cmd.Flags().StringVar(&format, "format", "yaml", "file format: yaml or json")
+	cmd.Flags().StringVar(&resources, "resources", "", "comma-separated allowlist of resources to capture (default: all)")
+	cmd.Flags().StringVar(&exclude, "exclude", "", "comma-separated resources to skip (e.g. users,api-clients)")
+	_ = cmd.MarkFlagRequired("output")
+	_ = cmd.RegisterFlagCompletionFunc("format", func(*cobra.Command, []string, string) ([]string, cobra.ShellCompDirective) {
+		return []string{"yaml", "json"}, cobra.ShellCompDirectiveNoFileComp
+	})
+	_ = cmd.RegisterFlagCompletionFunc("resources", protectResourceCompletion)
+
+	return cmd
+}
+
+func protectResourceCompletion(*cobra.Command, []string, string) ([]string, cobra.ShellCompDirective) {
+	all := protectResources()
+	names := make([]string, 0, len(all))
+	for _, r := range all {
+		names = append(names, r.Name)
+	}
+	sort.Strings(names)
+	return names, cobra.ShellCompDirectiveNoFileComp
+}
+
+func runProtectBackup(ctx context.Context, cliCtx *registry.CLIContext, outputDir, format, filter, exclude string) error {
+	if format != "yaml" && format != "json" {
+		return fmt.Errorf("invalid --format %q: must be yaml or json", format)
+	}
+	selected, err := protectSelectResources(filter, exclude)
+	if err != nil {
+		return err
+	}
+	if err := os.MkdirAll(outputDir, 0o755); err != nil {
+		return fmt.Errorf("creating output directory: %w", err)
+	}
+
+	ext := "." + format
+	failures := map[string]string{}
+	counts := map[string]int{}
+	captured := make([]string, 0, len(selected))
+
+	for _, res := range selected {
+		entries, err := res.Export(ctx, cliCtx.ProtectClient)
+		if err != nil {
+			failures[res.Name] = err.Error()
+			fmt.Fprintf(os.Stderr, "WARNING: %s failed: %v\n", res.Name, err)
+			continue
+		}
+		// Report empty resources too. A silently absent line reads as "not
+		// checked" when it actually means "checked, nothing there".
+		if len(entries) == 0 {
+			counts[res.Name] = 0
+			captured = append(captured, res.Name)
+			if !quiet {
+				fmt.Fprintf(os.Stderr, "%-32s %d\n", res.Name, 0)
+			}
+			continue
+		}
+
+		dir := outputDir
+		if !res.Singleton {
+			dir = filepath.Join(outputDir, res.Name)
+			if err := os.MkdirAll(dir, 0o755); err != nil {
+				return fmt.Errorf("creating %s directory: %w", res.Name, err)
+			}
+		}
+
+		written := 0
+		for _, e := range entries {
+			data, err := protectMarshal(e.Doc, format)
+			if err != nil {
+				failures[res.Name+"/"+e.Name] = err.Error()
+				continue
+			}
+			path := filepath.Join(dir, protectFileNameSafe(e.Name)+ext)
+			if err := os.WriteFile(path, data, 0o644); err != nil {
+				return fmt.Errorf("writing %s: %w", path, err)
+			}
+			written++
+		}
+		counts[res.Name] = written
+		captured = append(captured, res.Name)
+		if !quiet {
+			fmt.Fprintf(os.Stderr, "%-32s %d\n", res.Name, written)
+		}
+	}
+
+	meta := protectBackupMeta{
+		Tool:      "jamf-cli",
+		Version:   cliVersion,
+		Product:   "protect",
+		CreatedAt: time.Now().UTC().Format(time.RFC3339),
+		TenantURL: cliCtx.ProtectURL,
+		Resources: captured,
+		Counts:    counts,
+	}
+	metaData, err := protectMarshal(meta, format)
+	if err != nil {
+		return fmt.Errorf("marshalling metadata: %w", err)
+	}
+	if err := os.WriteFile(filepath.Join(outputDir, protectBackupMetaFile+ext), metaData, 0o644); err != nil {
+		return fmt.Errorf("writing metadata: %w", err)
+	}
+
+	if len(failures) > 0 {
+		failData, err := protectMarshal(failures, format)
+		if err == nil {
+			_ = os.WriteFile(filepath.Join(outputDir, protectBackupFailuresFile+ext), failData, 0o644)
+		}
+		fmt.Fprintf(os.Stderr, "\nCompleted with %d failure(s) — see %s%s\n", len(failures), protectBackupFailuresFile, ext)
+		return nil
+	}
+
+	total := 0
+	for _, n := range counts {
+		total += n
+	}
+	fmt.Fprintf(os.Stderr, "\nBacked up %d object(s) to %s\n", total, outputDir)
+	return nil
+}
+
+// --- restore ---
+
+func newProtectRestoreCmd(cliCtx *registry.CLIContext) *cobra.Command {
+	var (
+		inputDir        string
+		resources       string
+		exclude         string
+		includeDefaults bool
+		dryRun          bool
+		yes             bool
+	)
+
+	cmd := &cobra.Command{
+		Use:         "restore",
+		Short:       "Apply a Jamf Protect backup directory to a tenant",
+		Annotations: map[string]string{"jamf:destructive": "true"},
+		Long: `Apply a directory produced by 'protect backup' to a Jamf Protect tenant.
+
+Objects are applied in dependency order — filters and analytics before the sets
+that name them, every set before the plans that bind them, roles before groups
+before users — because each reference is resolved by name against the target
+tenant as it is applied.
+
+Existing objects of the same name are updated, absent ones created. Nothing is
+ever deleted: an object present in the tenant but absent from the backup is left
+alone.
+
+Two resources are captured by backup but not replayed here, because replaying
+them cannot reproduce the original: API clients (the server issues a new secret
+on create) and data forwarding (its settings carry third-party credentials the
+API never returns). Both are reported when skipped.
+
+--dry-run reports what would be applied without calling the API.`,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			return runProtectRestore(cmd.Context(), cliCtx, inputDir, resources, exclude, includeDefaults, dryRun, yes)
+		},
+	}
+
+	cmd.Flags().StringVar(&inputDir, "input", "", "backup directory to restore from (required)")
+	cmd.Flags().StringVar(&resources, "resources", "", "comma-separated allowlist of resources to apply (default: all)")
+	cmd.Flags().StringVar(&exclude, "exclude", "", "comma-separated resources to skip (e.g. users,roles)")
+	cmd.Flags().BoolVar(&includeDefaults, "include-defaults", false, "also apply objects every tenant is provisioned with (built-in roles, the Default group, the Default Analytic Set)")
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "report what would be applied without calling the API")
+	cmd.Flags().BoolVar(&yes, "yes", false, "skip the confirmation prompt")
+	_ = cmd.MarkFlagRequired("input")
+	_ = cmd.RegisterFlagCompletionFunc("resources", protectResourceCompletion)
+
+	return cmd
+}
+
+// protectRestoreFile is one document found on disk, paired with its resource.
+type protectRestoreFile struct {
+	Resource protectResource
+	Path     string
+}
+
+// collectProtectRestoreFiles walks the backup directory in restore order.
+func collectProtectRestoreFiles(inputDir string, selected []protectResource, includeDefaults bool) ([]protectRestoreFile, []string, error) {
+	var files []protectRestoreFile
+	var skipped []string
+
+	for _, res := range selected {
+		if res.RestoreSkipReason != "" {
+			skipped = append(skipped, fmt.Sprintf("%s: %s", res.Name, res.RestoreSkipReason))
+			continue
+		}
+
+		if res.Singleton {
+			for _, ext := range []string{".yaml", ".json"} {
+				path := filepath.Join(inputDir, res.Name+ext)
+				if _, err := os.Stat(path); err == nil {
+					files = append(files, protectRestoreFile{Resource: res, Path: path})
+					break
+				}
+			}
+			continue
+		}
+
+		dir := filepath.Join(inputDir, res.Name)
+		entries, err := os.ReadDir(dir)
+		if err != nil {
+			if os.IsNotExist(err) {
+				continue
+			}
+			return nil, nil, fmt.Errorf("reading %s: %w", dir, err)
+		}
+		names := make([]string, 0, len(entries))
+		for _, e := range entries {
+			if e.IsDir() {
+				continue
+			}
+			ext := strings.ToLower(filepath.Ext(e.Name()))
+			if ext == ".yaml" || ext == ".yml" || ext == ".json" {
+				names = append(names, e.Name())
+			}
+		}
+		// Deterministic order so a restore is reproducible and its log diffable.
+		sort.Strings(names)
+		for _, n := range names {
+			objectName := protectObjectNameFromFile(filepath.Join(dir, n))
+			if !includeDefaults && isProtectDefaultObject(res.Name, objectName) {
+				skipped = append(skipped, fmt.Sprintf("%s/%s: a tenant default, already present in the target (--include-defaults to apply anyway)", res.Name, objectName))
+				continue
+			}
+			files = append(files, protectRestoreFile{Resource: res, Path: filepath.Join(dir, n)})
+		}
+	}
+	return files, skipped, nil
+}
+
+func runProtectRestore(ctx context.Context, cliCtx *registry.CLIContext, inputDir, filter, exclude string, includeDefaults, dryRun, yes bool) error {
+	info, err := os.Stat(inputDir)
+	if err != nil {
+		return fmt.Errorf("reading backup directory: %w", err)
+	}
+	if !info.IsDir() {
+		return fmt.Errorf("%s is not a directory", inputDir)
+	}
+
+	selected, err := protectSelectResources(filter, exclude)
+	if err != nil {
+		return err
+	}
+	files, skipped, err := collectProtectRestoreFiles(inputDir, selected, includeDefaults)
+	if err != nil {
+		return err
+	}
+	if len(files) == 0 {
+		return fmt.Errorf("no restorable documents found under %s", inputDir)
+	}
+
+	for _, s := range skipped {
+		fmt.Fprintf(os.Stderr, "Not restored — %s\n", s)
+	}
+
+	if dryRun {
+		fmt.Fprintf(os.Stderr, "\nWould apply %d document(s) in this order:\n", len(files))
+		for _, f := range files {
+			fmt.Fprintf(os.Stderr, "  %-32s %s\n", f.Resource.Name, filepath.Base(f.Path))
+		}
+		return nil
+	}
+
+	proceed, err := confirmAction(fmt.Sprintf("restore %d document(s) into", len(files)), "this tenant", yes)
+	if err != nil {
+		return err
+	}
+	if !proceed {
+		return nil
+	}
+
+	resolver := protect.NewResolver(cliCtx.ProtectClient)
+	var applied, failed int
+	// Names resolved during restore are cached by the resolver, so an object
+	// created in an earlier stage must invalidate that cache before a later
+	// stage looks for it. A fresh resolver per resource is the simplest way to
+	// guarantee that ordering actually pays off.
+	currentResource := ""
+
+	for _, f := range files {
+		if f.Resource.Name != currentResource {
+			currentResource = f.Resource.Name
+			resolver = protect.NewResolver(cliCtx.ProtectClient)
+			fmt.Fprintf(os.Stderr, "\n%s\n", currentResource)
+		}
+
+		data, err := os.ReadFile(f.Path)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "  FAILED %s: %v\n", filepath.Base(f.Path), err)
+			failed++
+			continue
+		}
+		name, err := f.Resource.Restore(ctx, cliCtx.ProtectClient, resolver, data)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "  FAILED %s: %v\n", filepath.Base(f.Path), err)
+			failed++
+			continue
+		}
+		fmt.Fprintf(os.Stderr, "  applied %s\n", name)
+		applied++
+	}
+
+	fmt.Fprintf(os.Stderr, "\nApplied %d document(s), %d failed\n", applied, failed)
+	if failed > 0 {
+		return fmt.Errorf("%d document(s) failed to restore", failed)
+	}
+	return nil
+}

@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"sort"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -372,6 +373,10 @@ func planToExport(p *jamfprotect.Plan) planExport {
 		for i, es := range p.ExceptionSets {
 			names[i] = es.Name
 		}
+		// Membership is a set, but the server returns it in its own order, so an
+		// unsorted export makes two identical plans diff. Sorting keeps a backup
+		// diffable across runs and across tenants.
+		sort.Strings(names)
 		e.ExceptionSets = names
 	}
 	if len(p.AnalyticSets) > 0 {
@@ -382,6 +387,12 @@ func planToExport(p *jamfprotect.Plan) planExport {
 				Type: as.Type,
 			}
 		}
+		sort.Slice(sets, func(i, j int) bool {
+			if sets[i].Name != sets[j].Name {
+				return sets[i].Name < sets[j].Name
+			}
+			return sets[i].Type < sets[j].Type
+		})
 		e.AnalyticSets = sets
 	}
 	if len(p.UnifiedLoggingFilterSets) > 0 {
@@ -389,6 +400,7 @@ func planToExport(p *jamfprotect.Plan) planExport {
 		for i, s := range p.UnifiedLoggingFilterSets {
 			names[i] = s.Name
 		}
+		sort.Strings(names)
 		e.ULFSets = names
 	}
 	if p.USBControlSet != nil {

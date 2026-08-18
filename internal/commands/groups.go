@@ -521,6 +521,8 @@ var protectGroupMap = map[string]string{
 	"setup":    groupProtectCore,
 	"overview": groupProtectCore,
 	"auth":     groupProtectCore,
+	"backup":   groupProtectCore,
+	"restore":  groupProtectCore,
 
 	"plans":                          groupProtectSecurity,
 	"analytics":                      groupProtectSecurity,

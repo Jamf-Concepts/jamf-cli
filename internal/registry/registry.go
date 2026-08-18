@@ -339,6 +339,9 @@ type CLIContext struct {
 	Output        OutputFormatter
 	AuthProvider  auth.Provider // resolved Pro auth provider (nil for Protect commands)
 	ProtectClient ProtectClient
+	// ProtectURL is the resolved Jamf Protect tenant URL. Recorded by
+	// "protect backup" so a backup carries the provenance of where it came from.
+	ProtectURL string
 	// PlatformSDKClient is the raw *jamfplatform.Client used by all platform
 	// command code (hand-written and spec-generated). Hand-written commands
 	// construct subpackage clients per call (cheap — they share the

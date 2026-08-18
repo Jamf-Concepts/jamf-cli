@@ -653,3 +653,24 @@ func newProtectConnectionsListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		},
 	}
 }
+
+// dataRetentionToInput converts the retention settings response to the update
+// input shape. The response is nested (database.log.numberOfDays) while the
+// input is flat (DatabaseLogDays), so a backup that stored the response could
+// not be replayed: decoding it into the input yielded zeros, and the server
+// rejects 0 as "not one of [30, 60, 90, 180, 365]".
+func dataRetentionToInput(s jamfprotect.DataRetentionSettings) jamfprotect.DataRetentionInput {
+	var input jamfprotect.DataRetentionInput
+	if s.Database != nil {
+		if s.Database.Log != nil {
+			input.DatabaseLogDays = s.Database.Log.NumberOfDays
+		}
+		if s.Database.Alert != nil {
+			input.DatabaseAlertDays = s.Database.Alert.NumberOfDays
+		}
+	}
+	if s.Cold != nil && s.Cold.Alert != nil {
+		input.ColdAlertDays = s.Cold.Alert.NumberOfDays
+	}
+	return input
+}
