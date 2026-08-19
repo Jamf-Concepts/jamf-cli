@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io/fs"
 	"maps"
 	"os"
 	"path/filepath"
@@ -134,31 +135,99 @@ func loadSnapshotFromDirectory(dir string, nameFilter []string) (resourceSnapsho
 
 	snapshot := make(resourceSnapshot)
 
-	// Walk one level of subdirectories; each subdir is a resource type.
-	entries, err := os.ReadDir(dir)
-	if err != nil {
-		return nil, fmt.Errorf("reading directory %q: %w", dir, err)
+	// knownSubDirs maps a resource's on-disk path to the FilterName it is
+	// bucketed under; nestedParents holds the directories that merely contain
+	// those paths (e.g. "profiles" contains profiles/macos and profiles/ios) and
+	// are walked through rather than read as a resource.
+	knownSubDirs := BackupSubDirs()
+	nestedParents := make(map[string]bool)
+	for sub := range knownSubDirs {
+		if i := strings.Index(sub, "/"); i > 0 {
+			nestedParents[sub[:i]] = true
+		}
 	}
 
-	for _, entry := range entries {
-		if !entry.IsDir() {
-			continue // skip files at the root (e.g., _failures.yaml)
-		}
-
-		resourceName := entry.Name()
-		if len(allowedResources) > 0 && !allowedResources[resourceName] {
-			continue
-		}
-
-		subDir := filepath.Join(dir, resourceName)
-		objects, err := readObjectsFromSubdir(subDir)
+	// readInto reads one resource directory and merges it into the snapshot
+	// under resourceName. Several curated resources share a FilterName (macOS +
+	// iOS profiles, account users + groups) and so merge into one bucket — the
+	// same shape live mode produces, which is what makes the two comparable.
+	readInto := func(resourceName, path string) {
+		objects, err := readObjectsFromSubdir(path)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "WARNING: reading %s: %v\n", subDir, err)
-			continue
+			fmt.Fprintf(os.Stderr, "WARNING: reading %s: %v\n", path, err)
+			return
 		}
-		if len(objects) > 0 {
+		if len(objects) == 0 {
+			return
+		}
+		if existing, ok := snapshot[resourceName]; ok {
+			maps.Copy(existing, objects)
+		} else {
 			snapshot[resourceName] = objects
 		}
+	}
+
+	walkErr := filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "WARNING: walking %s: %v\n", path, err)
+			return nil
+		}
+
+		// A symlinked resource directory is read in place: WalkDir reports it as
+		// a non-directory entry and never descends into it.
+		symlinkedDir := false
+		if !d.IsDir() && d.Type()&fs.ModeSymlink != 0 {
+			if info, statErr := os.Stat(path); statErr == nil && info.IsDir() {
+				symlinkedDir = true
+			}
+		}
+		if !d.IsDir() && !symlinkedDir {
+			return nil // object files are read by readObjectsFromSubdir
+		}
+
+		rel, relErr := filepath.Rel(dir, path)
+		if relErr != nil {
+			return nil
+		}
+		rel = filepath.ToSlash(rel)
+		if rel == "." {
+			return nil
+		}
+
+		// skip stops the walk from descending, except for a symlinked entry
+		// where fs.SkipDir would skip the *containing* directory instead.
+		skip := fs.SkipDir
+		if symlinkedDir {
+			skip = nil
+		}
+
+		resourceName, known := knownSubDirs[rel]
+		switch {
+		case known:
+			// Read it, then stop: a resource directory owns its files, not its
+			// subdirectories — packages/files holds downloaded package
+			// binaries, which are not config objects.
+		case nestedParents[rel] && !symlinkedDir:
+			return nil // container — descend to the resource directories inside
+		case !strings.Contains(rel, "/"):
+			// A top-level directory outside the curated set, keyed by its own
+			// name. Covers the SDK-backed resources written straight to the
+			// backup root (blueprints, compliance-benchmarks) and any
+			// hand-assembled tree.
+			resourceName = rel
+		default:
+			return skip // unknown nested directory
+		}
+
+		if len(allowedResources) > 0 && !allowedResources[resourceName] {
+			return skip
+		}
+
+		readInto(resourceName, path)
+		return skip
+	})
+	if walkErr != nil {
+		return nil, fmt.Errorf("reading directory %q: %w", dir, walkErr)
 	}
 
 	return snapshot, nil
@@ -209,19 +278,34 @@ func readObjectsFromSubdir(subDir string) (map[string]map[string]any, error) {
 		// Strip _meta block added by backup — not part of the config.
 		delete(obj, "_meta")
 
-		// Use the "name" field as the object key; fall back to the filename stem.
-		objName := ""
-		if n, ok := obj["name"].(string); ok && n != "" {
-			objName = n
-		} else {
-			stem := strings.TrimSuffix(strings.TrimSuffix(name, ".yaml"), ".json")
-			objName = stem
-		}
-
-		objects[objName] = obj
+		stem := strings.TrimSuffix(strings.TrimSuffix(name, ".yaml"), ".json")
+		objects[backupObjectName(obj, stem)] = obj
 	}
 
 	return objects, nil
+}
+
+// backupObjectName picks the snapshot key for one object read off disk. It has
+// to agree with live mode, which keys on the list item's name — otherwise a
+// directory diffed against an instance reports every object as removed *and*
+// added. Modern resources carry "name", prestages carry "displayName", and
+// Classic details nest theirs under "general". Only when none of those is
+// present does the filename stem stand in, and a stem is a poor key: it is
+// SlugifyName output, possibly carrying a DeduplicateSlug suffix, so it never
+// equals the name the live side uses.
+func backupObjectName(obj map[string]any, fileStem string) string {
+	if n, ok := obj["name"].(string); ok && n != "" {
+		return n
+	}
+	if n, ok := obj["displayName"].(string); ok && n != "" {
+		return n
+	}
+	if general, ok := obj["general"].(map[string]any); ok {
+		if n, ok := general["name"].(string); ok && n != "" {
+			return n
+		}
+	}
+	return fileStem
 }
 
 // normaliseViaJSON round-trips a map through JSON to coerce yaml.v3 types

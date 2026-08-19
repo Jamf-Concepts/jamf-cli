@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"testing"
 
@@ -642,5 +643,282 @@ func TestJSONRoundTrip(t *testing.T) {
 
 	if parsed["name"] != "Round Trip Script" {
 		t.Errorf("name mismatch: %v", parsed["name"])
+	}
+}
+
+// --- nested backup subdirectories (issue #331) ---
+
+// TestLoadSnapshotFromDirectory_NestedSubdirs covers the reported bug directly:
+// configuration profiles live two levels deep (profiles/macos, profiles/ios) and
+// were invisible to the directory loader, so `diff` reported no change.
+func TestLoadSnapshotFromDirectory_NestedSubdirs(t *testing.T) {
+	dir := t.TempDir()
+
+	writeBackupFileForTest(t, filepath.Join(dir, "profiles", "macos", "wifi.yaml"), map[string]any{
+		"general": map[string]any{"name": "WiFi", "description": "corp wifi"},
+	}, "yaml")
+	writeBackupFileForTest(t, filepath.Join(dir, "profiles", "ios", "vpn.yaml"), map[string]any{
+		"general": map[string]any{"name": "VPN", "description": "corp vpn"},
+	}, "yaml")
+
+	snapshot, err := loadSnapshotFromDirectory(dir, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	profiles, ok := snapshot["profiles"]
+	if !ok {
+		t.Fatalf("expected 'profiles' in snapshot, got keys %v", snapshotKeys(snapshot))
+	}
+	// macOS and iOS profiles share one FilterName, so they must merge into one
+	// bucket — the same shape live mode produces.
+	if len(profiles) != 2 {
+		t.Fatalf("expected 2 merged profiles, got %d: %v", len(profiles), profiles)
+	}
+	for _, want := range []string{"WiFi", "VPN"} {
+		if _, ok := profiles[want]; !ok {
+			t.Errorf("expected profile %q in the merged bucket", want)
+		}
+	}
+	// The intermediate directory names must never become resource keys.
+	for _, unwanted := range []string{"macos", "ios"} {
+		if _, ok := snapshot[unwanted]; ok {
+			t.Errorf("directory %q leaked into the snapshot as a resource", unwanted)
+		}
+	}
+}
+
+// TestLoadSnapshotFromDirectory_EveryCuratedSubDirIsRead guards the whole bug
+// class rather than the one resource that was reported: every curated resource
+// must be discoverable at the path `backup` writes it to, bucketed under the
+// FilterName live mode uses. A new nested resource added to BackupResources
+// fails here if the loader cannot see it.
+func TestLoadSnapshotFromDirectory_EveryCuratedSubDirIsRead(t *testing.T) {
+	dir := t.TempDir()
+
+	want := make(map[string][]string)
+	for _, r := range BackupResources {
+		objName := "obj-" + r.Key
+		writeBackupFileForTest(t, filepath.Join(dir, filepath.FromSlash(r.SubDir), r.Key+".yaml"),
+			map[string]any{"name": objName}, "yaml")
+		want[r.FilterName] = append(want[r.FilterName], objName)
+	}
+
+	snapshot, err := loadSnapshotFromDirectory(dir, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	for filterName, objNames := range want {
+		bucket, ok := snapshot[filterName]
+		if !ok {
+			t.Errorf("resource %q missing from snapshot (keys: %v)", filterName, snapshotKeys(snapshot))
+			continue
+		}
+		for _, objName := range objNames {
+			if _, ok := bucket[objName]; !ok {
+				t.Errorf("resource %q: object %q not read from disk", filterName, objName)
+			}
+		}
+	}
+}
+
+// TestLoadSnapshotFromDirectory_NestedResourceFilter checks --resources still
+// selects by FilterName once the files it names sit two levels down.
+func TestLoadSnapshotFromDirectory_NestedResourceFilter(t *testing.T) {
+	dir := t.TempDir()
+
+	writeBackupFileForTest(t, filepath.Join(dir, "profiles", "macos", "wifi.yaml"), map[string]any{
+		"general": map[string]any{"name": "WiFi"},
+	}, "yaml")
+	writeBackupFileForTest(t, filepath.Join(dir, "smart-groups", "computers", "all.yaml"), map[string]any{
+		"name": "All Macs",
+	}, "yaml")
+
+	snapshot, err := loadSnapshotFromDirectory(dir, []string{"profiles"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if _, ok := snapshot["profiles"]; !ok {
+		t.Error("expected nested 'profiles' to match filter 'profiles'")
+	}
+	if _, ok := snapshot["smart-groups"]; ok {
+		t.Error("smart-groups should be excluded when the filter is 'profiles'")
+	}
+}
+
+// TestLoadSnapshotFromDirectory_IgnoresPackageFiles pins the reason a resource
+// directory is not walked recursively: `backup --download-packages` writes
+// package binaries under packages/files, and those are not config objects.
+func TestLoadSnapshotFromDirectory_IgnoresPackageFiles(t *testing.T) {
+	dir := t.TempDir()
+
+	writeBackupFileForTest(t, filepath.Join(dir, "packages", "chrome.yaml"), map[string]any{
+		"name": "Chrome.pkg",
+	}, "yaml")
+	filesDir := filepath.Join(dir, "packages", "files")
+	if err := os.MkdirAll(filesDir, 0o755); err != nil {
+		t.Fatalf("creating dirs: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(filesDir, "manifest.json"), []byte(`{"name":"not a config object"}`), 0o644); err != nil {
+		t.Fatalf("writing package file: %v", err)
+	}
+
+	snapshot, err := loadSnapshotFromDirectory(dir, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	packages := snapshot["packages"]
+	if len(packages) != 1 {
+		t.Fatalf("expected only the package record, got %d: %v", len(packages), packages)
+	}
+	if _, ok := packages["Chrome.pkg"]; !ok {
+		t.Errorf("expected 'Chrome.pkg', got %v", packages)
+	}
+	if _, ok := snapshot["files"]; ok {
+		t.Error("packages/files leaked into the snapshot as a resource")
+	}
+}
+
+// TestLoadSnapshotFromDirectory_UnknownTopLevelDirStillRead keeps the old
+// behaviour for directories outside the curated set — the SDK-backed resources
+// (blueprints, compliance-benchmarks) and hand-assembled trees.
+func TestLoadSnapshotFromDirectory_UnknownTopLevelDirStillRead(t *testing.T) {
+	dir := t.TempDir()
+
+	writeBackupFileForTest(t, filepath.Join(dir, "blueprints", "baseline.yaml"), map[string]any{
+		"name": "Baseline",
+	}, "yaml")
+
+	snapshot, err := loadSnapshotFromDirectory(dir, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if _, ok := snapshot["blueprints"]["Baseline"]; !ok {
+		t.Errorf("expected blueprints/Baseline, got %v", snapshot)
+	}
+}
+
+// TestRunDiff_NestedProfileModified is the end-to-end shape from the issue:
+// two backup directories differing only in one configuration profile.
+func TestRunDiff_NestedProfileModified(t *testing.T) {
+	srcDir := t.TempDir()
+	tgtDir := t.TempDir()
+
+	writeBackupFileForTest(t, filepath.Join(srcDir, "profiles", "macos", "wifi.yaml"), map[string]any{
+		"general": map[string]any{"name": "WiFi", "description": "old"},
+	}, "yaml")
+	writeBackupFileForTest(t, filepath.Join(tgtDir, "profiles", "macos", "wifi.yaml"), map[string]any{
+		"general": map[string]any{"name": "WiFi", "description": "new"},
+	}, "yaml")
+
+	src, err := loadSnapshotFromDirectory(srcDir, nil)
+	if err != nil {
+		t.Fatalf("loading src: %v", err)
+	}
+	tgt, err := loadSnapshotFromDirectory(tgtDir, nil)
+	if err != nil {
+		t.Fatalf("loading tgt: %v", err)
+	}
+
+	results := compareSnapshots(src, tgt)
+	if len(results) != 1 {
+		t.Fatalf("expected 1 modified profile, got %d: %+v", len(results), results)
+	}
+	if results[0].Resource != "profiles" || results[0].Name != "WiFi" || results[0].Change != diffModified {
+		t.Errorf("unexpected result: %+v", results[0])
+	}
+}
+
+// --- backupObjectName ---
+
+// TestBackupObjectName_MatchesLiveNameExtraction asserts the directory loader
+// and the live loader agree on the snapshot key. They diverged for Classic
+// resources, whose detail nests the name under "general": the directory side
+// fell through to the filename stem (slugified, possibly de-duplicated) while
+// the live side used the real name, so every Classic object in a
+// directory-vs-instance diff was reported removed and added.
+func TestBackupObjectName_MatchesLiveNameExtraction(t *testing.T) {
+	tests := []struct {
+		name     string
+		detail   map[string]any // what backup wrote to disk
+		listItem map[string]any // what live mode lists
+		nameFld  string         // BackupEndpoint.NameField
+		stem     string
+	}{
+		{
+			name:     "modern resource with top-level name",
+			detail:   map[string]any{"name": "Deploy Chrome"},
+			listItem: map[string]any{"id": "3", "name": "Deploy Chrome"},
+			stem:     "deploy-chrome",
+		},
+		{
+			name:     "classic detail nests name under general",
+			detail:   map[string]any{"general": map[string]any{"name": "Corp WiFi"}},
+			listItem: map[string]any{"id": "7", "name": "Corp WiFi"},
+			stem:     "corp-wifi",
+		},
+		{
+			name:     "prestage uses displayName",
+			detail:   map[string]any{"displayName": "Standard Mac"},
+			listItem: map[string]any{"id": "1", "displayName": "Standard Mac"},
+			nameFld:  "displayName",
+			stem:     "standard-mac",
+		},
+		{
+			name:     "de-duplicated slug must not become the key",
+			detail:   map[string]any{"general": map[string]any{"name": "Corp WiFi"}},
+			listItem: map[string]any{"id": "9", "name": "Corp WiFi"},
+			stem:     "corp-wifi-2",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fromDisk := backupObjectName(tt.detail, tt.stem)
+			fromLive := extractName(tt.listItem, tt.nameFld, "")
+			if fromDisk != fromLive {
+				t.Errorf("snapshot keys disagree: directory %q vs live %q", fromDisk, fromLive)
+			}
+		})
+	}
+}
+
+func TestBackupObjectName_FallsBackToStem(t *testing.T) {
+	got := backupObjectName(map[string]any{"priority": float64(5)}, "productivity")
+	if got != "productivity" {
+		t.Errorf("expected filename stem 'productivity', got %q", got)
+	}
+}
+
+func snapshotKeys(s resourceSnapshot) []string {
+	keys := make([]string, 0, len(s))
+	for k := range s {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	return keys
+}
+
+// TestLoadSnapshotFromDirectory_SymlinkedResourceDir keeps a capability the
+// pre-WalkDir loader had for free: os.ReadDir followed a symlinked resource
+// directory. WalkDir does not descend into symlinks, so they are read in place.
+func TestLoadSnapshotFromDirectory_SymlinkedResourceDir(t *testing.T) {
+	real := t.TempDir()
+	writeBackupFileForTest(t, filepath.Join(real, "shared-scripts", "deploy.yaml"), map[string]any{
+		"name": "Deploy Script",
+	}, "yaml")
+
+	dir := t.TempDir()
+	if err := os.Symlink(filepath.Join(real, "shared-scripts"), filepath.Join(dir, "scripts")); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+
+	snapshot, err := loadSnapshotFromDirectory(dir, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if _, ok := snapshot["scripts"]["Deploy Script"]; !ok {
+		t.Errorf("expected symlinked scripts directory to be read, got %v", snapshot)
 	}
 }
