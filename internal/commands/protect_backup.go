@@ -1116,12 +1116,11 @@ func protectPruneStale(dir string, res protectResource, kept map[string]bool) ([
 
 func newProtectBackupCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	var (
-		outputDir           string
-		format              string
-		resources           string
-		exclude             string
-		allowPartialFailure bool
-		noPrune             bool
+		outputDir string
+		format    string
+		resources string
+		exclude   string
+		noPrune   bool
 	)
 
 	cmd := &cobra.Command{
@@ -1141,7 +1140,8 @@ changed *about* them is captured separately as analytic-overrides.
 Partial failures are tolerated. A resource that fails to export is recorded in
 _failures.yaml and the run continues, so one broken resource cannot cost you the
 rest of the backup — but the command exits non-zero so a scheduled job can tell
-an incomplete backup from a good one. Pass --allow-partial-failure to exit 0.
+an incomplete backup from a good one. The global --allow-partial-failure exits 0
+instead, the same way it does for 'pro backup'.
 
 Documents that can carry a third-party credential — an HTTP action config's
 request headers, the data forwarding settings — are written 0600 and reported, so
@@ -1156,7 +1156,7 @@ export is never pruned. --no-prune keeps them.
 
 ` + protectResourceListHelp(false),
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			return runProtectBackup(cmd.Context(), cliCtx, outputDir, format, resources, exclude, allowPartialFailure, noPrune)
+			return runProtectBackup(cmd.Context(), cliCtx, outputDir, format, resources, exclude, noPrune)
 		},
 	}
 
@@ -1164,7 +1164,6 @@ export is never pruned. --no-prune keeps them.
 	cmd.Flags().StringVar(&format, "format", "yaml", "file format: yaml or json")
 	cmd.Flags().StringVar(&resources, "resources", "", "comma-separated allowlist of resources to capture (default: all)")
 	cmd.Flags().StringVar(&exclude, "exclude", "", "comma-separated resources to skip (e.g. users,api-clients)")
-	cmd.Flags().BoolVar(&allowPartialFailure, "allow-partial-failure", false, "exit 0 even when some resources failed to export (matches 'pro backup')")
 	cmd.Flags().BoolVar(&noPrune, "no-prune", false, "keep documents from earlier runs that no longer match the tenant (they would be re-applied by 'protect restore')")
 	_ = cmd.MarkFlagRequired("output")
 	_ = cmd.RegisterFlagCompletionFunc("format", func(*cobra.Command, []string, string) ([]string, cobra.ShellCompDirective) {
@@ -1187,7 +1186,10 @@ func protectResourceCompletion(*cobra.Command, []string, string) ([]string, cobr
 	return names, cobra.ShellCompDirectiveNoFileComp
 }
 
-func runProtectBackup(ctx context.Context, cliCtx *registry.CLIContext, outputDir, format, filter, exclude string, allowPartialFailure, noPrune bool) error {
+// allowPartialFailure is the root persistent flag, read directly the way
+// pro_backup.go does. Declaring a local flag of the same name shadowed it, so
+// passing it in the global position was silently ignored.
+func runProtectBackup(ctx context.Context, cliCtx *registry.CLIContext, outputDir, format, filter, exclude string, noPrune bool) error {
 	if format != "yaml" && format != "json" {
 		return fmt.Errorf("invalid --format %q: must be yaml or json", format)
 	}

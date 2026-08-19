@@ -511,7 +511,7 @@ func TestRunProtectBackupExitsNonZeroOnPartialFailure(t *testing.T) {
 	t.Run("failure is reported and the run exits non-zero", func(t *testing.T) {
 		dir := t.TempDir()
 		err := runProtectBackup(context.Background(), newCtx(), dir,
-			"yaml", "analytics,unified-logging-filters", "", false, false)
+			"yaml", "analytics,unified-logging-filters", "", false)
 		if err == nil {
 			t.Fatal("expected a non-zero exit; a silently incomplete backup is the failure mode this guards")
 		}
@@ -528,10 +528,17 @@ func TestRunProtectBackupExitsNonZeroOnPartialFailure(t *testing.T) {
 		}
 	})
 
+	// --allow-partial-failure is the root persistent flag, read from the package
+	// var the same way pro_backup.go reads it. A local flag of the same name would
+	// shadow it and silently ignore the global position.
 	t.Run("--allow-partial-failure downgrades to success", func(t *testing.T) {
+		prev := allowPartialFailure
+		allowPartialFailure = true
+		defer func() { allowPartialFailure = prev }()
+
 		dir := t.TempDir()
 		err := runProtectBackup(context.Background(), newCtx(), dir,
-			"yaml", "analytics,unified-logging-filters", "", true, false)
+			"yaml", "analytics,unified-logging-filters", "", false)
 		if err != nil {
 			t.Fatalf("--allow-partial-failure should exit 0, got %v", err)
 		}
@@ -543,7 +550,7 @@ func TestRunProtectBackupExitsNonZeroOnPartialFailure(t *testing.T) {
 			ulfFilters: []jamfprotect.UnifiedLoggingFilter{{UUID: "f1", Name: "zz-filter"}},
 		}}
 		if err := runProtectBackup(context.Background(), ctx, dir,
-			"yaml", "unified-logging-filters", "", false, false); err != nil {
+			"yaml", "unified-logging-filters", "", false); err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
 		if _, statErr := os.Stat(filepath.Join(dir, "_failures.yaml")); statErr == nil {
@@ -577,7 +584,7 @@ func TestRunProtectBackupTightensPermissionsOnSensitiveResources(t *testing.T) {
 	}}
 
 	if err := runProtectBackup(context.Background(), ctx, dir,
-		"yaml", "action-configs,unified-logging-filters", "", false, false); err != nil {
+		"yaml", "action-configs,unified-logging-filters", "", false); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
@@ -879,7 +886,7 @@ func TestBackupPrunesDocumentsThatNoLongerMatchTheTenant(t *testing.T) {
 	t.Run("an object deleted from the tenant loses its file", func(t *testing.T) {
 		dir := t.TempDir()
 		ctx := &registry.CLIContext{ProtectClient: &mockProtectClient{ulfFilters: twoFilters}}
-		if err := runProtectBackup(context.Background(), ctx, dir, "yaml", "unified-logging-filters", "", false, false); err != nil {
+		if err := runProtectBackup(context.Background(), ctx, dir, "yaml", "unified-logging-filters", "", false); err != nil {
 			t.Fatal(err)
 		}
 		for _, n := range []string{"zz-keep.yaml", "zz-remove-me.yaml"} {
@@ -890,7 +897,7 @@ func TestBackupPrunesDocumentsThatNoLongerMatchTheTenant(t *testing.T) {
 
 		// Second run: the tenant now holds only one of them.
 		ctx = &registry.CLIContext{ProtectClient: &mockProtectClient{ulfFilters: twoFilters[:1]}}
-		if err := runProtectBackup(context.Background(), ctx, dir, "yaml", "unified-logging-filters", "", false, false); err != nil {
+		if err := runProtectBackup(context.Background(), ctx, dir, "yaml", "unified-logging-filters", "", false); err != nil {
 			t.Fatal(err)
 		}
 		if _, err := os.Stat(filepath.Join(dir, "unified-logging-filters", "zz-keep.yaml")); err != nil {
@@ -904,11 +911,11 @@ func TestBackupPrunesDocumentsThatNoLongerMatchTheTenant(t *testing.T) {
 	t.Run("--no-prune keeps it", func(t *testing.T) {
 		dir := t.TempDir()
 		ctx := &registry.CLIContext{ProtectClient: &mockProtectClient{ulfFilters: twoFilters}}
-		if err := runProtectBackup(context.Background(), ctx, dir, "yaml", "unified-logging-filters", "", false, false); err != nil {
+		if err := runProtectBackup(context.Background(), ctx, dir, "yaml", "unified-logging-filters", "", false); err != nil {
 			t.Fatal(err)
 		}
 		ctx = &registry.CLIContext{ProtectClient: &mockProtectClient{ulfFilters: twoFilters[:1]}}
-		if err := runProtectBackup(context.Background(), ctx, dir, "yaml", "unified-logging-filters", "", false, true); err != nil {
+		if err := runProtectBackup(context.Background(), ctx, dir, "yaml", "unified-logging-filters", "", true); err != nil {
 			t.Fatal(err)
 		}
 		if _, err := os.Stat(filepath.Join(dir, "unified-logging-filters", "zz-remove-me.yaml")); err != nil {
@@ -921,10 +928,10 @@ func TestBackupPrunesDocumentsThatNoLongerMatchTheTenant(t *testing.T) {
 	t.Run("switching format removes the other format's documents", func(t *testing.T) {
 		dir := t.TempDir()
 		ctx := &registry.CLIContext{ProtectClient: &mockProtectClient{ulfFilters: twoFilters[:1]}}
-		if err := runProtectBackup(context.Background(), ctx, dir, "yaml", "unified-logging-filters", "", false, false); err != nil {
+		if err := runProtectBackup(context.Background(), ctx, dir, "yaml", "unified-logging-filters", "", false); err != nil {
 			t.Fatal(err)
 		}
-		if err := runProtectBackup(context.Background(), ctx, dir, "json", "unified-logging-filters", "", false, false); err != nil {
+		if err := runProtectBackup(context.Background(), ctx, dir, "json", "unified-logging-filters", "", false); err != nil {
 			t.Fatal(err)
 		}
 		if _, err := os.Stat(filepath.Join(dir, "unified-logging-filters", "zz-keep.json")); err != nil {
@@ -940,7 +947,7 @@ func TestBackupPrunesDocumentsThatNoLongerMatchTheTenant(t *testing.T) {
 	t.Run("a resource whose export failed is never pruned", func(t *testing.T) {
 		dir := t.TempDir()
 		ctx := &registry.CLIContext{ProtectClient: &mockProtectClient{ulfFilters: twoFilters}}
-		if err := runProtectBackup(context.Background(), ctx, dir, "yaml", "unified-logging-filters", "", false, false); err != nil {
+		if err := runProtectBackup(context.Background(), ctx, dir, "yaml", "unified-logging-filters", "", false); err != nil {
 			t.Fatal(err)
 		}
 
@@ -948,10 +955,9 @@ func TestBackupPrunesDocumentsThatNoLongerMatchTheTenant(t *testing.T) {
 		ctx = &registry.CLIContext{ProtectClient: &mockProtectClient{
 			ulfErr: errors.New("listUnifiedLoggingFilters: 502 bad gateway"),
 		}}
-		// The run exits non-zero — the only selected resource failed, so
-		// --allow-partial-failure has nothing to downgrade. What matters here is
-		// what it did NOT do to the directory.
-		if err := runProtectBackup(context.Background(), ctx, dir, "yaml", "unified-logging-filters", "", true, false); err == nil {
+		// The run exits non-zero: the only selected resource failed. What matters
+		// here is what it did NOT do to the directory.
+		if err := runProtectBackup(context.Background(), ctx, dir, "yaml", "unified-logging-filters", "", false); err == nil {
 			t.Fatal("expected a non-zero exit when the only selected resource failed")
 		}
 		for _, n := range []string{"zz-keep.yaml", "zz-remove-me.yaml"} {
@@ -965,7 +971,7 @@ func TestBackupPrunesDocumentsThatNoLongerMatchTheTenant(t *testing.T) {
 	t.Run("files the command could not have written are untouched", func(t *testing.T) {
 		dir := t.TempDir()
 		ctx := &registry.CLIContext{ProtectClient: &mockProtectClient{ulfFilters: twoFilters[:1]}}
-		if err := runProtectBackup(context.Background(), ctx, dir, "yaml", "unified-logging-filters", "", false, false); err != nil {
+		if err := runProtectBackup(context.Background(), ctx, dir, "yaml", "unified-logging-filters", "", false); err != nil {
 			t.Fatal(err)
 		}
 
@@ -979,7 +985,7 @@ func TestBackupPrunesDocumentsThatNoLongerMatchTheTenant(t *testing.T) {
 				t.Fatal(err)
 			}
 		}
-		if err := runProtectBackup(context.Background(), ctx, dir, "yaml", "unified-logging-filters", "", false, false); err != nil {
+		if err := runProtectBackup(context.Background(), ctx, dir, "yaml", "unified-logging-filters", "", false); err != nil {
 			t.Fatal(err)
 		}
 		for path := range bystanders {
