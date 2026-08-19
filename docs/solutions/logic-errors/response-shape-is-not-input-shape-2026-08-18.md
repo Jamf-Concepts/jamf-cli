@@ -67,9 +67,23 @@ actually catches this class:
 backup tenant A  →  restore into tenant B  →  backup tenant B  →  diff
 ```
 
-Anything that is not byte-identical is either a bug or a server-owned field you
-can name and justify. In the Protect clone that left exactly one: `commsConfig.fqdn`,
-the region-assigned IoT endpoint, where the target correctly keeps its own.
+Anything that is not byte-identical is either a bug or a field you can name and
+justify. In the Protect clone that leaves exactly two:
+
+- `commsConfig.fqdn` — the region-assigned IoT endpoint, where the target
+  correctly keeps its own (`us-east-1` vs `eu-central-1` between the two tenants
+  used here).
+- an exception's `analyticuuid` — which *must* differ for a custom analytic,
+  because the restore rebound it from the `analytic:` name to the target's own
+  uuid. A byte-identical `analyticuuid` here would mean the rebinding did **not**
+  happen, so this is the one field where equality is the failure signal.
+
+Everything else in the tree is byte-identical, with four categories legitimately
+absent rather than differing: api-clients (a new secret is issued on create),
+data forwarding, identity provider connections, and tenant defaults. And the
+target keeps anything it holds that the backup does not mention — restore never
+deletes — so the target's own analytic overrides survive alongside the replayed
+ones, and a per-file comparison is the right check rather than a whole-tree diff.
 
 ## Why this beats the alternative
 
