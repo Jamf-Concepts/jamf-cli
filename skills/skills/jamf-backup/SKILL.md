@@ -50,6 +50,8 @@ On Protect, `jamf-cli protect backup --help` lists every resource name accepted 
 
 Both products exit non-zero if any resource failed to export, so a scheduled backup can tell an incomplete run from a good one. Pass `--allow-partial-failure` to accept a partial backup as success.
 
+Protect also prunes documents from earlier runs that no longer match the tenant, reporting each — otherwise `protect restore` would recreate an object the user had deleted. Pro does not prune (it has no restore). Pass `--no-prune` to keep them.
+
 Protect only: any resource that can carry a credential is written `0600` and named in a warning at the end of the run. Read that warning before committing the directory.
 
 ### Step 3: Check for Previous Backup

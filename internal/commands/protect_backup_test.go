@@ -511,7 +511,7 @@ func TestRunProtectBackupExitsNonZeroOnPartialFailure(t *testing.T) {
 	t.Run("failure is reported and the run exits non-zero", func(t *testing.T) {
 		dir := t.TempDir()
 		err := runProtectBackup(context.Background(), newCtx(), dir,
-			"yaml", "analytics,unified-logging-filters", "", false)
+			"yaml", "analytics,unified-logging-filters", "", false, false)
 		if err == nil {
 			t.Fatal("expected a non-zero exit; a silently incomplete backup is the failure mode this guards")
 		}
@@ -531,7 +531,7 @@ func TestRunProtectBackupExitsNonZeroOnPartialFailure(t *testing.T) {
 	t.Run("--allow-partial-failure downgrades to success", func(t *testing.T) {
 		dir := t.TempDir()
 		err := runProtectBackup(context.Background(), newCtx(), dir,
-			"yaml", "analytics,unified-logging-filters", "", true)
+			"yaml", "analytics,unified-logging-filters", "", true, false)
 		if err != nil {
 			t.Fatalf("--allow-partial-failure should exit 0, got %v", err)
 		}
@@ -543,7 +543,7 @@ func TestRunProtectBackupExitsNonZeroOnPartialFailure(t *testing.T) {
 			ulfFilters: []jamfprotect.UnifiedLoggingFilter{{UUID: "f1", Name: "zz-filter"}},
 		}}
 		if err := runProtectBackup(context.Background(), ctx, dir,
-			"yaml", "unified-logging-filters", "", false); err != nil {
+			"yaml", "unified-logging-filters", "", false, false); err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
 		if _, statErr := os.Stat(filepath.Join(dir, "_failures.yaml")); statErr == nil {
@@ -577,7 +577,7 @@ func TestRunProtectBackupTightensPermissionsOnSensitiveResources(t *testing.T) {
 	}}
 
 	if err := runProtectBackup(context.Background(), ctx, dir,
-		"yaml", "action-configs,unified-logging-filters", "", false); err != nil {
+		"yaml", "action-configs,unified-logging-filters", "", false, false); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
@@ -793,4 +793,199 @@ func TestProtectBackupAndRestoreCompleteBothResourceFlags(t *testing.T) {
 			}
 		})
 	}
+}
+
+// createGroup accepts accessGroup: true on a connection-less local group but
+// updateGroup refuses it — even when true is already stored. Verified on the wire.
+// So a restore of such a group succeeded once and failed on every re-run.
+func TestRestoreGroupHandlesTheAccessGroupAsymmetry(t *testing.T) {
+	local := func(access bool) jamfprotect.GroupInput {
+		return jamfprotect.GroupInput{Name: "zz-group", AccessGroup: access, RoleIDs: []string{}}
+	}
+
+	t.Run("absent: created", func(t *testing.T) {
+		m := &mockProtectClient{}
+		got, err := restoreGroup(context.Background(), m, local(true))
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if got != "zz-group" {
+			t.Errorf("got %q", got)
+		}
+		if m.createdGroups != 1 || m.updatedGroups != 0 {
+			t.Errorf("created=%d updated=%d, want a single create", m.createdGroups, m.updatedGroups)
+		}
+	})
+
+	// The re-run that used to fail.
+	t.Run("present and already an access group: no update attempted", func(t *testing.T) {
+		m := &mockProtectClient{groups: []jamfprotect.Group{{ID: "g-1", Name: "zz-group", AccessGroup: true}}}
+		got, err := restoreGroup(context.Background(), m, local(true))
+		if err != nil {
+			t.Fatalf("re-applying an unchanged access group must not fail: %v", err)
+		}
+		if m.updatedGroups != 0 {
+			t.Errorf("updateGroup was called %d time(s); the server refuses it for a local group", m.updatedGroups)
+		}
+		if !strings.Contains(got, "already an access group") {
+			t.Errorf("message = %q, want it to say the desired state already holds", got)
+		}
+	})
+
+	// Genuinely impossible via update: say so instead of passing through the
+	// server's "Local groups cannot be designated as access groups".
+	t.Run("present but access disabled: actionable error", func(t *testing.T) {
+		m := &mockProtectClient{groups: []jamfprotect.Group{{ID: "g-1", Name: "zz-group", AccessGroup: false}}}
+		_, err := restoreGroup(context.Background(), m, local(true))
+		if err == nil {
+			t.Fatal("expected an error explaining that update cannot do this")
+		}
+		for _, want := range []string{"zz-group", "only at create"} {
+			if !strings.Contains(err.Error(), want) {
+				t.Errorf("error %q should mention %q", err, want)
+			}
+		}
+		if m.updatedGroups != 0 {
+			t.Error("must not spend a call the server will refuse")
+		}
+	})
+
+	// A group with a connection is unaffected; so is accessGroup: false.
+	t.Run("ordinary updates still happen", func(t *testing.T) {
+		for _, in := range []jamfprotect.GroupInput{
+			local(false),
+			{Name: "zz-group", AccessGroup: true, ConnectionID: strp("conn-1"), RoleIDs: []string{}},
+		} {
+			m := &mockProtectClient{groups: []jamfprotect.Group{{ID: "g-1", Name: "zz-group"}}}
+			if _, err := restoreGroup(context.Background(), m, in); err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if m.updatedGroups != 1 {
+				t.Errorf("updateGroup called %d time(s), want 1 for %+v", m.updatedGroups, in)
+			}
+		}
+	})
+}
+
+// A backup directory used to be the union of every run that wrote to it, and
+// because restore applies whatever it finds, an object deleted from the tenant was
+// silently recreated by the next restore.
+func TestBackupPrunesDocumentsThatNoLongerMatchTheTenant(t *testing.T) {
+	twoFilters := []jamfprotect.UnifiedLoggingFilter{
+		{UUID: "f1", Name: "zz-keep"},
+		{UUID: "f2", Name: "zz-remove-me"},
+	}
+
+	t.Run("an object deleted from the tenant loses its file", func(t *testing.T) {
+		dir := t.TempDir()
+		ctx := &registry.CLIContext{ProtectClient: &mockProtectClient{ulfFilters: twoFilters}}
+		if err := runProtectBackup(context.Background(), ctx, dir, "yaml", "unified-logging-filters", "", false, false); err != nil {
+			t.Fatal(err)
+		}
+		for _, n := range []string{"zz-keep.yaml", "zz-remove-me.yaml"} {
+			if _, err := os.Stat(filepath.Join(dir, "unified-logging-filters", n)); err != nil {
+				t.Fatalf("first backup did not write %s: %v", n, err)
+			}
+		}
+
+		// Second run: the tenant now holds only one of them.
+		ctx = &registry.CLIContext{ProtectClient: &mockProtectClient{ulfFilters: twoFilters[:1]}}
+		if err := runProtectBackup(context.Background(), ctx, dir, "yaml", "unified-logging-filters", "", false, false); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := os.Stat(filepath.Join(dir, "unified-logging-filters", "zz-keep.yaml")); err != nil {
+			t.Errorf("the surviving object lost its file: %v", err)
+		}
+		if _, err := os.Stat(filepath.Join(dir, "unified-logging-filters", "zz-remove-me.yaml")); err == nil {
+			t.Error("the deleted object kept its file; a restore would recreate it")
+		}
+	})
+
+	t.Run("--no-prune keeps it", func(t *testing.T) {
+		dir := t.TempDir()
+		ctx := &registry.CLIContext{ProtectClient: &mockProtectClient{ulfFilters: twoFilters}}
+		if err := runProtectBackup(context.Background(), ctx, dir, "yaml", "unified-logging-filters", "", false, false); err != nil {
+			t.Fatal(err)
+		}
+		ctx = &registry.CLIContext{ProtectClient: &mockProtectClient{ulfFilters: twoFilters[:1]}}
+		if err := runProtectBackup(context.Background(), ctx, dir, "yaml", "unified-logging-filters", "", false, true); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := os.Stat(filepath.Join(dir, "unified-logging-filters", "zz-remove-me.yaml")); err != nil {
+			t.Errorf("--no-prune must keep the stale document: %v", err)
+		}
+	})
+
+	// Switching format used to leave both sets on disk, and restore reads .yaml,
+	// .yml and .json alike — so every object would be applied twice.
+	t.Run("switching format removes the other format's documents", func(t *testing.T) {
+		dir := t.TempDir()
+		ctx := &registry.CLIContext{ProtectClient: &mockProtectClient{ulfFilters: twoFilters[:1]}}
+		if err := runProtectBackup(context.Background(), ctx, dir, "yaml", "unified-logging-filters", "", false, false); err != nil {
+			t.Fatal(err)
+		}
+		if err := runProtectBackup(context.Background(), ctx, dir, "json", "unified-logging-filters", "", false, false); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := os.Stat(filepath.Join(dir, "unified-logging-filters", "zz-keep.json")); err != nil {
+			t.Errorf("json document missing: %v", err)
+		}
+		if _, err := os.Stat(filepath.Join(dir, "unified-logging-filters", "zz-keep.yaml")); err == nil {
+			t.Error("the yaml document survived a switch to json; restore would apply the object twice")
+		}
+	})
+
+	// The rail that matters: a failed export must never delete anything, because
+	// the true object set is unknown.
+	t.Run("a resource whose export failed is never pruned", func(t *testing.T) {
+		dir := t.TempDir()
+		ctx := &registry.CLIContext{ProtectClient: &mockProtectClient{ulfFilters: twoFilters}}
+		if err := runProtectBackup(context.Background(), ctx, dir, "yaml", "unified-logging-filters", "", false, false); err != nil {
+			t.Fatal(err)
+		}
+
+		// Now the same resource fails to list.
+		ctx = &registry.CLIContext{ProtectClient: &mockProtectClient{
+			ulfErr: errors.New("listUnifiedLoggingFilters: 502 bad gateway"),
+		}}
+		// The run exits non-zero — the only selected resource failed, so
+		// --allow-partial-failure has nothing to downgrade. What matters here is
+		// what it did NOT do to the directory.
+		if err := runProtectBackup(context.Background(), ctx, dir, "yaml", "unified-logging-filters", "", true, false); err == nil {
+			t.Fatal("expected a non-zero exit when the only selected resource failed")
+		}
+		for _, n := range []string{"zz-keep.yaml", "zz-remove-me.yaml"} {
+			if _, statErr := os.Stat(filepath.Join(dir, "unified-logging-filters", n)); statErr != nil {
+				t.Errorf("%s was deleted after a failed export — that turns an outage into data loss", n)
+			}
+		}
+	})
+
+	// Pruning must not reach outside the directories this command writes.
+	t.Run("files the command could not have written are untouched", func(t *testing.T) {
+		dir := t.TempDir()
+		ctx := &registry.CLIContext{ProtectClient: &mockProtectClient{ulfFilters: twoFilters[:1]}}
+		if err := runProtectBackup(context.Background(), ctx, dir, "yaml", "unified-logging-filters", "", false, false); err != nil {
+			t.Fatal(err)
+		}
+
+		bystanders := map[string]string{
+			filepath.Join(dir, "README.md"):                            "notes",
+			filepath.Join(dir, "unified-logging-filters", "notes.txt"): "not a backup document",
+			filepath.Join(dir, "plans.yaml"):                           "a singleton name this run never captured",
+		}
+		for path, body := range bystanders {
+			if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
+				t.Fatal(err)
+			}
+		}
+		if err := runProtectBackup(context.Background(), ctx, dir, "yaml", "unified-logging-filters", "", false, false); err != nil {
+			t.Fatal(err)
+		}
+		for path := range bystanders {
+			if _, err := os.Stat(path); err != nil {
+				t.Errorf("%s was deleted; pruning must only consider files it could have written", path)
+			}
+		}
+	})
 }

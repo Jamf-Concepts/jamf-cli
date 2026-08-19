@@ -128,6 +128,56 @@ func upsertByName[I any, R any](
 	return name, nil
 }
 
+// restoreGroup applies one group, working around the one asymmetry between
+// createGroup and updateGroup.
+//
+// createGroup accepts accessGroup: true on a connection-less local group;
+// updateGroup refuses it outright — "Local groups cannot be designated as access
+// groups" — *even when true is already the stored value*. Established on the wire:
+// create with true succeeds and stores true, the identical document re-applied
+// fails, and turning it off via update works but cannot be turned back on.
+//
+// So a restore of such a group used to succeed once and fail on every re-run, with
+// a raw server error naming nothing actionable. Where the target already holds the
+// desired state there is nothing to do, and where it does not the operation is
+// impossible via update and says so.
+func restoreGroup(ctx context.Context, c registry.ProtectClient, input jamfprotect.GroupInput) (string, error) {
+	groups, err := c.ListGroups(ctx)
+	if err != nil {
+		return "", fmt.Errorf("listing groups: %w", err)
+	}
+	var existing *jamfprotect.Group
+	for i := range groups {
+		if groups[i].Name == input.Name {
+			existing = &groups[i]
+			break
+		}
+	}
+
+	if existing == nil {
+		if _, err := c.CreateGroup(ctx, input); err != nil {
+			return "", err
+		}
+		return input.Name, nil
+	}
+
+	isLocal := input.ConnectionID == nil || *input.ConnectionID == ""
+	if input.AccessGroup && isLocal {
+		if existing.AccessGroup {
+			// Desired state already holds; updateGroup could only refuse it.
+			return fmt.Sprintf("%s (already an access group; updateGroup cannot re-send that flag for a local group)", input.Name), nil
+		}
+		return "", fmt.Errorf("group %q asks for accessGroup: true, but the target's copy has it disabled and "+
+			"updateGroup refuses to designate a connection-less local group as an access group — the server allows it "+
+			"only at create. Delete the group in the target and restore again, or clear accessGroup in the document", input.Name)
+	}
+
+	if _, err := c.UpdateGroup(ctx, existing.ID, input); err != nil {
+		return "", err
+	}
+	return input.Name, nil
+}
+
 // decode unmarshals a backup document into T.
 func decode[T any](data []byte) (T, error) {
 	var v T
@@ -524,7 +574,7 @@ func protectResources() []protectResource {
 				if err != nil {
 					return "", err
 				}
-				return upsertByName(ctx, input.Name, input, r.ResolveGroupID, c.CreateGroup, c.UpdateGroup)
+				return restoreGroup(ctx, c, input)
 			},
 		},
 		{
@@ -991,6 +1041,77 @@ func protectResourceListHelp(forRestore bool) string {
 	return b.String()
 }
 
+// protectRestoreExts are the extensions restore will pick up. Pruning considers
+// exactly this set, because it is precisely what a later restore would apply.
+var protectRestoreExts = []string{".yaml", ".yml", ".json"}
+
+// protectPruneStale removes backup documents this run did not write.
+//
+// Without it a backup directory is the union of every run that ever wrote to it,
+// and because restore applies whatever it finds, an object deleted from the tenant
+// is silently recreated by the next restore. Switching --format has the same
+// effect in reverse: the old .yaml files stay beside the new .json ones and both
+// get applied.
+//
+// 'pro backup' does not do this. The difference is deliberate rather than drift:
+// Pro has no restore, so a stale file there only misleads a diff, while here it
+// resurrects an object.
+//
+// The rails matter more than the feature. Only files this command could itself
+// have written are ever considered — inside a directory named after one of its own
+// resources, or for a singleton the one file that resource owns — and only with an
+// extension restore would read. A resource whose export failed is never pruned:
+// the true object set is unknown, and deleting on a failed read is exactly how a
+// backup tool loses the data it exists to protect.
+func protectPruneStale(dir string, res protectResource, kept map[string]bool) ([]string, error) {
+	var candidates []string
+
+	if res.Singleton {
+		// A singleton lives at the root next to _meta and every other
+		// singleton, so only the file this resource owns is a candidate.
+		for _, ext := range protectRestoreExts {
+			candidates = append(candidates, res.Name+ext)
+		}
+	} else {
+		entries, err := os.ReadDir(dir)
+		if err != nil {
+			if os.IsNotExist(err) {
+				return nil, nil
+			}
+			return nil, err
+		}
+		for _, e := range entries {
+			if e.IsDir() {
+				continue
+			}
+			ext := strings.ToLower(filepath.Ext(e.Name()))
+			for _, want := range protectRestoreExts {
+				if ext == want {
+					candidates = append(candidates, e.Name())
+					break
+				}
+			}
+		}
+	}
+
+	var pruned []string
+	for _, name := range candidates {
+		if kept[name] {
+			continue
+		}
+		path := filepath.Join(dir, name)
+		if _, err := os.Stat(path); err != nil {
+			continue // never existed; only relevant for the singleton guesses
+		}
+		if err := os.Remove(path); err != nil {
+			return pruned, fmt.Errorf("removing stale %s: %w", path, err)
+		}
+		pruned = append(pruned, filepath.Join(res.Name, name))
+	}
+	sort.Strings(pruned)
+	return pruned, nil
+}
+
 // --- backup ---
 
 func newProtectBackupCmd(cliCtx *registry.CLIContext) *cobra.Command {
@@ -1000,6 +1121,7 @@ func newProtectBackupCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		resources           string
 		exclude             string
 		allowPartialFailure bool
+		noPrune             bool
 	)
 
 	cmd := &cobra.Command{
@@ -1025,9 +1147,16 @@ Documents that can carry a third-party credential — an HTTP action config's
 request headers, the data forwarding settings — are written 0600 and reported, so
 you know what is in the tree before committing it to version control.
 
+Documents left by an earlier run that no longer match the tenant are removed, and
+each removal is reported. Without that a backup directory is the union of every run
+that ever wrote to it, and because 'protect restore' applies whatever it finds, an
+object you deleted from the tenant would be silently recreated. Only files this
+command could have written are ever considered, and a resource that failed to
+export is never pruned. --no-prune keeps them.
+
 ` + protectResourceListHelp(false),
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			return runProtectBackup(cmd.Context(), cliCtx, outputDir, format, resources, exclude, allowPartialFailure)
+			return runProtectBackup(cmd.Context(), cliCtx, outputDir, format, resources, exclude, allowPartialFailure, noPrune)
 		},
 	}
 
@@ -1036,6 +1165,7 @@ you know what is in the tree before committing it to version control.
 	cmd.Flags().StringVar(&resources, "resources", "", "comma-separated allowlist of resources to capture (default: all)")
 	cmd.Flags().StringVar(&exclude, "exclude", "", "comma-separated resources to skip (e.g. users,api-clients)")
 	cmd.Flags().BoolVar(&allowPartialFailure, "allow-partial-failure", false, "exit 0 even when some resources failed to export (matches 'pro backup')")
+	cmd.Flags().BoolVar(&noPrune, "no-prune", false, "keep documents from earlier runs that no longer match the tenant (they would be re-applied by 'protect restore')")
 	_ = cmd.MarkFlagRequired("output")
 	_ = cmd.RegisterFlagCompletionFunc("format", func(*cobra.Command, []string, string) ([]string, cobra.ShellCompDirective) {
 		return []string{"yaml", "json"}, cobra.ShellCompDirectiveNoFileComp
@@ -1057,7 +1187,7 @@ func protectResourceCompletion(*cobra.Command, []string, string) ([]string, cobr
 	return names, cobra.ShellCompDirectiveNoFileComp
 }
 
-func runProtectBackup(ctx context.Context, cliCtx *registry.CLIContext, outputDir, format, filter, exclude string, allowPartialFailure bool) error {
+func runProtectBackup(ctx context.Context, cliCtx *registry.CLIContext, outputDir, format, filter, exclude string, allowPartialFailure, noPrune bool) error {
 	if format != "yaml" && format != "json" {
 		return fmt.Errorf("invalid --format %q: must be yaml or json", format)
 	}
@@ -1074,6 +1204,7 @@ func runProtectBackup(ctx context.Context, cliCtx *registry.CLIContext, outputDi
 	counts := map[string]int{}
 	captured := make([]string, 0, len(selected))
 	var sensitive []string
+	var pruned []string
 
 	for _, res := range selected {
 		entries, err := res.Export(ctx, cliCtx.ProtectClient)
@@ -1087,6 +1218,19 @@ func runProtectBackup(ctx context.Context, cliCtx *registry.CLIContext, outputDi
 		if len(entries) == 0 {
 			counts[res.Name] = 0
 			captured = append(captured, res.Name)
+			// A resource that used to hold objects and now holds none still has
+			// its files on disk, and restore would re-create every one of them.
+			if !noPrune {
+				dir := outputDir
+				if !res.Singleton {
+					dir = filepath.Join(outputDir, res.Name)
+				}
+				gone, err := protectPruneStale(dir, res, nil)
+				if err != nil {
+					return err
+				}
+				pruned = append(pruned, gone...)
+			}
 			if !quiet {
 				fmt.Fprintf(os.Stderr, "%-32s %d\n", res.Name, 0)
 			}
@@ -1111,10 +1255,13 @@ func runProtectBackup(ctx context.Context, cliCtx *registry.CLIContext, outputDi
 
 		written := 0
 		names := newProtectNameAllocator()
+		kept := map[string]bool{}
+		marshalFailed := false
 		for _, e := range entries {
 			data, err := protectMarshal(e.Doc, format)
 			if err != nil {
 				failures[res.Name+"/"+e.Name] = err.Error()
+				marshalFailed = true
 				continue
 			}
 			fileName, disambiguated := names.allocate(e.Name)
@@ -1122,12 +1269,24 @@ func runProtectBackup(ctx context.Context, cliCtx *registry.CLIContext, outputDi
 			if err := os.WriteFile(path, data, mode); err != nil {
 				return fmt.Errorf("writing %s: %w", path, err)
 			}
+			kept[fileName+ext] = true
 			if disambiguated && !quiet {
 				fmt.Fprintf(os.Stderr, "  note: %q shares a file name with another object; written as %s%s\n", e.Name, fileName, ext)
 			}
 			written++
 		}
 		counts[res.Name] = written
+
+		// Only prune when every object in the resource was written. If one failed
+		// to marshal, its existing file on disk is the better record and deleting
+		// it would turn a partial failure into data loss.
+		if !noPrune && !marshalFailed {
+			gone, err := protectPruneStale(dir, res, kept)
+			if err != nil {
+				return err
+			}
+			pruned = append(pruned, gone...)
+		}
 		captured = append(captured, res.Name)
 		if !quiet {
 			fmt.Fprintf(os.Stderr, "%-32s %d\n", res.Name, written)
@@ -1154,6 +1313,14 @@ func runProtectBackup(ctx context.Context, cliCtx *registry.CLIContext, outputDi
 	total := 0
 	for _, n := range counts {
 		total += n
+	}
+
+	if len(pruned) > 0 && !quiet {
+		fmt.Fprintf(os.Stderr, "\nPruned %d document(s) that no longer match the tenant:\n", len(pruned))
+		for _, f := range pruned {
+			fmt.Fprintf(os.Stderr, "  %s\n", f)
+		}
+		fmt.Fprintf(os.Stderr, "Use --no-prune to keep them (note that 'protect restore' would re-apply them)\n")
 	}
 
 	if len(sensitive) > 0 {

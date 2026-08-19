@@ -36,9 +36,23 @@ type mockProtectClient struct {
 	// rate-limited mutation was not sent when the tenant already matches.
 	retentionWrites int
 
-	// analyticsErr makes ListAnalytics fail, so the backup partial-failure path
-	// can be exercised without a live tenant.
+	// analyticsErr and ulfErr make a list call fail, so the backup partial-failure
+	// and never-prune-on-failure paths can be exercised without a live tenant.
 	analyticsErr error
+	ulfErr       error
+
+	createdGroups int
+	updatedGroups int
+}
+
+func (m *mockProtectClient) CreateGroup(_ context.Context, _ jamfprotect.GroupInput) (jamfprotect.Group, error) {
+	m.createdGroups++
+	return jamfprotect.Group{}, nil
+}
+
+func (m *mockProtectClient) UpdateGroup(_ context.Context, _ string, _ jamfprotect.GroupInput) (jamfprotect.Group, error) {
+	m.updatedGroups++
+	return jamfprotect.Group{}, nil
 }
 
 func (m *mockProtectClient) GetDataRetention(_ context.Context) (jamfprotect.DataRetentionSettings, error) {
@@ -78,6 +92,9 @@ func (m *mockProtectClient) ListConnections(_ context.Context) ([]jamfprotect.Co
 }
 
 func (m *mockProtectClient) ListUnifiedLoggingFilters(_ context.Context) ([]jamfprotect.UnifiedLoggingFilter, error) {
+	if m.ulfErr != nil {
+		return nil, m.ulfErr
+	}
 	return m.ulfFilters, nil
 }
 
