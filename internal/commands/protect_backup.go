@@ -963,6 +963,34 @@ func protectMarshal(v any, format string) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
+// protectResourceListHelp renders the resource vocabulary for --help.
+//
+// It is generated from protectResources() rather than written out, because the
+// set changes and a hand-maintained list in help text drifts silently. Without
+// it the only ways to discover the vocabulary are shell completion and passing a
+// wrong value to read the error — neither of which is `--help`.
+//
+// forRestore marks the resources backup captures but restore will not replay, so
+// the reader can see why asking for one had no effect.
+func protectResourceListHelp(forRestore bool) string {
+	all := protectResources()
+	sort.Slice(all, func(i, j int) bool { return all[i].Name < all[j].Name })
+
+	var b strings.Builder
+	b.WriteString("Resources accepted by --resources and --exclude:\n")
+	for _, r := range all {
+		switch {
+		case forRestore && r.RestoreSkipReason != "":
+			fmt.Fprintf(&b, "  %-32s (captured by backup, never replayed)\n", r.Name)
+		case r.Singleton:
+			fmt.Fprintf(&b, "  %-32s (one document, not a collection)\n", r.Name)
+		default:
+			fmt.Fprintf(&b, "  %s\n", r.Name)
+		}
+	}
+	return b.String()
+}
+
 // --- backup ---
 
 func newProtectBackupCmd(cliCtx *registry.CLIContext) *cobra.Command {
@@ -995,7 +1023,9 @@ an incomplete backup from a good one. Pass --allow-partial-failure to exit 0.
 
 Documents that can carry a third-party credential — an HTTP action config's
 request headers, the data forwarding settings — are written 0600 and reported, so
-you know what is in the tree before committing it to version control.`,
+you know what is in the tree before committing it to version control.
+
+` + protectResourceListHelp(false),
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return runProtectBackup(cmd.Context(), cliCtx, outputDir, format, resources, exclude, allowPartialFailure)
 		},
@@ -1010,7 +1040,9 @@ you know what is in the tree before committing it to version control.`,
 	_ = cmd.RegisterFlagCompletionFunc("format", func(*cobra.Command, []string, string) ([]string, cobra.ShellCompDirective) {
 		return []string{"yaml", "json"}, cobra.ShellCompDirectiveNoFileComp
 	})
+	// Both flags take the same vocabulary and compose, so both complete.
 	_ = cmd.RegisterFlagCompletionFunc("resources", protectResourceCompletion)
+	_ = cmd.RegisterFlagCompletionFunc("exclude", protectResourceCompletion)
 
 	return cmd
 }
@@ -1187,7 +1219,9 @@ them cannot reproduce the original: API clients (the server issues a new secret
 on create) and data forwarding (its settings carry third-party credentials the
 API never returns). Both are reported when skipped.
 
---dry-run reports what would be applied without calling the API.`,
+--dry-run reports what would be applied without calling the API.
+
+` + protectResourceListHelp(true),
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return runProtectRestore(cmd.Context(), cliCtx, inputDir, resources, exclude, includeDefaults, dryRun, yes)
 		},
@@ -1201,6 +1235,7 @@ API never returns). Both are reported when skipped.
 	cmd.Flags().BoolVar(&yes, "yes", false, "skip the confirmation prompt")
 	_ = cmd.MarkFlagRequired("input")
 	_ = cmd.RegisterFlagCompletionFunc("resources", protectResourceCompletion)
+	_ = cmd.RegisterFlagCompletionFunc("exclude", protectResourceCompletion)
 
 	return cmd
 }

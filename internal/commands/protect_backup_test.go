@@ -732,3 +732,65 @@ func TestUpsertByNameOnlyCreatesWhenGenuinelyAbsent(t *testing.T) {
 		}
 	})
 }
+
+// The resource vocabulary was discoverable only two ways: shell completion on
+// --resources, and passing a wrong value to read the error. --help never listed
+// it and --exclude did not complete at all, despite taking the same vocabulary.
+// These pin the fix so the help cannot drift from the table.
+func TestProtectResourceListHelpCoversEveryResource(t *testing.T) {
+	for _, forRestore := range []bool{false, true} {
+		name := "backup"
+		if forRestore {
+			name = "restore"
+		}
+		t.Run(name, func(t *testing.T) {
+			help := protectResourceListHelp(forRestore)
+			for _, r := range protectResources() {
+				if !strings.Contains(help, r.Name) {
+					t.Errorf("%s is in protectResources() but missing from --help", r.Name)
+				}
+			}
+			if forRestore {
+				// A user asking to restore one of these should be able to see
+				// from --help why nothing happens.
+				for _, r := range protectResources() {
+					if r.RestoreSkipReason == "" {
+						continue
+					}
+					line := ""
+					for _, l := range strings.Split(help, "\n") {
+						if strings.HasPrefix(strings.TrimSpace(l), r.Name) {
+							line = l
+						}
+					}
+					if !strings.Contains(line, "never replayed") {
+						t.Errorf("%s is backup-only but restore --help does not say so (line: %q)", r.Name, line)
+					}
+				}
+			}
+		})
+	}
+}
+
+// Both flags take the same vocabulary and are documented as composing, so both
+// must complete.
+func TestProtectBackupAndRestoreCompleteBothResourceFlags(t *testing.T) {
+	protectCmd := findProtectCmd(t)
+	for _, name := range []string{"backup", "restore"} {
+		t.Run(name, func(t *testing.T) {
+			cmd := findSubcommand(protectCmd, name)
+			if cmd == nil {
+				t.Fatalf("%s subcommand not found", name)
+			}
+			for _, flag := range []string{"resources", "exclude"} {
+				if cmd.Flags().Lookup(flag) == nil {
+					t.Fatalf("--%s not defined on %s", flag, name)
+				}
+				got, _ := cmd.GetFlagCompletionFunc(flag)
+				if got == nil {
+					t.Errorf("--%s on %s has no completion function", flag, name)
+				}
+			}
+		})
+	}
+}

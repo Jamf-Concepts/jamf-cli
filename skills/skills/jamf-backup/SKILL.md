@@ -46,6 +46,8 @@ jamf-cli protect backup --output ./protect-backup/2026-03-15 --exclude users,api
 
 `--resources` is an allowlist and `--exclude` a denylist; on Protect they compose, and selecting nothing is an error rather than a silent no-op. `--exclude` is Protect-only. `--include-ids`, `--concurrency` and `--download-packages` are Pro-only.
 
+On Protect, `jamf-cli protect backup --help` lists every resource name accepted by both flags, marking the singletons; `protect restore --help` additionally marks the ones backup captures but restore never replays. Both flags shell-complete. Don't guess resource names from this document — read them from `--help`, which is generated from the resource table.
+
 Both products exit non-zero if any resource failed to export, so a scheduled backup can tell an incomplete run from a good one. Pass `--allow-partial-failure` to accept a partial backup as success.
 
 Protect only: any resource that can carry a credential is written `0600` and named in a warning at the end of the run. Read that warning before committing the directory.
