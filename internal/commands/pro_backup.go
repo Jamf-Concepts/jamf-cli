@@ -825,21 +825,7 @@ func backupBenchmarks(ctx context.Context, cliCtx *registry.CLIContext, opts bac
 		// any SDK types that embed json.RawMessage / []byte (now or later)
 		// serialize as native Go types instead of yaml.v3's integer-array
 		// fallback — same reason backupBlueprints normalizes.
-		raw := map[string]any{
-			"title":           bm.Title,
-			"description":     bm.Description,
-			"baselineId":      bm.BaselineID,
-			"enforcementMode": bm.EnforcementMode,
-			"target":          bm.Target,
-			"rules":           bm.Rules,
-		}
-		if len(bm.Sources) > 0 {
-			raw["sources"] = bm.Sources
-		}
-		if len(bm.SelectedOsVersions) > 0 {
-			raw["selectedOsVersions"] = bm.SelectedOsVersions
-		}
-		obj, err := normalizeViaJSON(raw)
+		obj, err := normalizeViaJSON(benchmarkToExport(bm))
 		if err != nil {
 			failures = append(failures, backupFailure{Resource: "compliance-benchmarks", Path: b.ID, Error: err.Error()})
 			continue

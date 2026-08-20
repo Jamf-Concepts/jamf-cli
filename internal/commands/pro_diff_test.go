@@ -11,7 +11,9 @@ import (
 	"sort"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform/compliancebenchmarks"
 	"gopkg.in/yaml.v3"
 )
 
@@ -1148,25 +1150,39 @@ func TestLoadSnapshotFromDirectory_ComplianceBenchmarkKeyedOnTitle(t *testing.T)
 	}
 }
 
-// TestLoadSnapshotFromDirectory_EveryPlatformNameFieldIsHonoured is the
-// platformNameFields analogue of the curated table guard: for every SDK-backed
-// resource backup writes to the backup root, an object carrying only its
-// declared name field must be keyed by that field's value. A platform resource
-// added later with a new name field fails here rather than in a diff against a
-// live tenant.
-func TestLoadSnapshotFromDirectory_EveryPlatformNameFieldIsHonoured(t *testing.T) {
+// TestLoadSnapshotFromDirectory_EveryNonStandardNameFieldIsHonoured is the
+// non-standard analogue of the curated table guard. It iterates
+// nonStandardBackupFilters — the authoritative table — on both axes, so a table
+// entry naming a directory that no backup writes, or an entry added later
+// without a name field, fails here rather than in a diff against a live tenant.
+//
+// Deriving the directory from the entry is what makes this a real guard now that
+// the name field lives beside the filter name: there is one list, so the two
+// cannot disagree.
+func TestLoadSnapshotFromDirectory_EveryNonStandardNameFieldIsHonoured(t *testing.T) {
 	dir := t.TempDir()
+
+	// inventory-preloads is a single CSV, not a directory of objects, so the
+	// snapshot loader never reads it.
+	skip := map[string]bool{"inventory-preloads": true}
 
 	type expectation struct{ resource, objName string }
 	var want []expectation
-	for resource, field := range platformNameFields {
-		objName := "named-" + resource
-		writeBackupFileForTest(t, filepath.Join(dir, resource, "obj.yaml"),
+	for _, entry := range nonStandardBackupFilters {
+		if skip[entry.FilterName] {
+			continue
+		}
+		field := entry.NameField
+		if field == "" {
+			field = "name"
+		}
+		objName := "named-" + entry.FilterName
+		writeBackupFileForTest(t, filepath.Join(dir, entry.FilterName, "obj.yaml"),
 			map[string]any{field: objName}, "yaml")
-		want = append(want, expectation{resource, objName})
+		want = append(want, expectation{entry.FilterName, objName})
 	}
 	if len(want) == 0 {
-		t.Fatal("platformNameFields is empty; the guard would assert nothing")
+		t.Fatal("no non-standard object resources found; the guard would assert nothing")
 	}
 
 	snapshot, err := loadSnapshotFromDirectory(dir, nil)
@@ -1176,6 +1192,58 @@ func TestLoadSnapshotFromDirectory_EveryPlatformNameFieldIsHonoured(t *testing.T
 	for _, w := range want {
 		if _, ok := snapshot[w.resource][w.objName]; !ok {
 			t.Errorf("resource %q: object not keyed on its name field, bucket holds %v", w.resource, snapshot[w.resource])
+		}
+	}
+}
+
+// TestBenchmarkToExport_DiskAndLiveAgreeFieldForField is the other half of
+// keying benchmarks correctly. diffObjects unions the key sets of the two sides
+// and reports any key present on one only, so agreeing on the key while
+// disagreeing on the field set turns "removed and added" into "modified" on
+// every run. backup wrote seven fields and the diff live loader built five;
+// both now derive the object from benchmarkToExport, so an unchanged benchmark
+// produces no field diffs.
+func TestBenchmarkToExport_DiskAndLiveAgreeFieldForField(t *testing.T) {
+	bm := &compliancebenchmarks.BenchmarkResponseV2{
+		Title:           "CIS Level 1",
+		Description:     "CIS macOS benchmark",
+		BaselineID:      "b-1",
+		EnforcementMode: "audit",
+		Rules: []compliancebenchmarks.RuleInfo{
+			{ID: "r-1"},
+		},
+		// Server-generated fields the snapshot must not carry: a diff would
+		// report them as drift on every run.
+		TenantID:      "t-1",
+		BenchmarkID:   "bm-1",
+		LastUpdatedAt: time.Unix(0, 0).UTC(),
+	}
+
+	dir := t.TempDir()
+	onDisk, err := normalizeViaJSON(benchmarkToExport(bm))
+	if err != nil {
+		t.Fatalf("normalising: %v", err)
+	}
+	writeBackupFileForTest(t, filepath.Join(dir, "compliance-benchmarks", SlugifyName(bm.Title)+".yaml"), onDisk, "yaml")
+
+	snapshot, err := loadSnapshotFromDirectory(dir, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	fromDisk, ok := snapshot["compliance-benchmarks"][bm.Title]
+	if !ok {
+		t.Fatalf("benchmark not keyed on its title, bucket holds %v", snapshot["compliance-benchmarks"])
+	}
+
+	// What the diff live loader builds for the same benchmark.
+	fromLive := normaliseViaJSON(benchmarkToExport(bm))
+
+	if diffs := diffObjects(fromDisk, fromLive); len(diffs) != 0 {
+		t.Errorf("unchanged benchmark reports %d field diff(s): %+v", len(diffs), diffs)
+	}
+	for _, server := range []string{"tenantId", "benchmarkId", "lastUpdatedAt"} {
+		if _, present := fromDisk[server]; present {
+			t.Errorf("snapshot carries server-generated field %q", server)
 		}
 	}
 }
