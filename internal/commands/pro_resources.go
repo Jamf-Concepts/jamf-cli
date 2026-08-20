@@ -186,3 +186,23 @@ func BackupFilterNames() []string {
 	sort.Strings(names)
 	return names
 }
+
+// BackupSubDirs maps each curated resource's on-disk subdirectory (relative to
+// the backup root, slash-separated) to the FilterName that owns it. `diff`
+// reads this table rather than walking the backup tree, so files off disk are
+// bucketed under exactly the key live mode uses and a directory and an instance
+// are comparable; it also uses the key set to tell which directories in the
+// backup root a curated resource already owns from those it must key by name.
+//
+// It matters because thirteen of the curated resources nest two levels deep
+// (profiles/macos, smart-groups/computers, accounts/users, …). `diff` used to
+// treat every top-level directory as a resource and read only the files sitting
+// directly inside it, so those thirteen contributed nothing to either snapshot
+// and their changes were reported as no change at all — silently, exit 0.
+func BackupSubDirs() map[string]string {
+	out := make(map[string]string, len(BackupResources))
+	for _, r := range BackupResources {
+		out[r.SubDir] = r.FilterName
+	}
+	return out
+}
