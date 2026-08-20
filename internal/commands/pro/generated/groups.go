@@ -497,8 +497,23 @@ func newGroupsPatchCmd(ctx *registry.CLIContext) *cobra.Command {
 
 			if flagScaffold {
 				return printScaffoldOutput(`{
-  "assignments": [],
-  "criteria": [],
+  "assignments": [
+    {
+      "deviceId": "56585788-8937-4bdf-b986-458048b1c36c",
+      "selected": true
+    }
+  ],
+  "criteria": [
+    {
+      "andOr": "and",
+      "closingParen": false,
+      "name": "Model",
+      "openingParen": false,
+      "priority": 1,
+      "searchType": "is",
+      "value": "iPad"
+    }
+  ],
   "groupDescription": "Updated Group Description",
   "groupName": "Updated Group Name"
 }`, ctx.Output.Format())

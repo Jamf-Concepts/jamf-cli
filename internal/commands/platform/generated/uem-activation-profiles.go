@@ -49,7 +49,7 @@ func newUemActivationProfilesDeployToUemCmd(cliCtx *registry.CLIContext) *cobra.
 			if scaffoldFlag {
 				// Scaffold prints raw JSON regardless of -o, so the output
 				// can be piped straight back into --file.
-				fmt.Println("{\n  \"platform\": \"\",\n  \"uem\": \"\",\n  \"uemGroups\": []\n}")
+				fmt.Println("{\n  \"platform\": \"SUPERVISED_IOS\",\n  \"uem\": \"JAMF\",\n  \"uemGroups\": [\n    \"All Managed Devices\"\n  ]\n}")
 				return nil
 			}
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {

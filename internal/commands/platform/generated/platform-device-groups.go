@@ -115,7 +115,7 @@ func newPlatformDeviceGroupsCreateCmd(cliCtx *registry.CLIContext) *cobra.Comman
 			if scaffoldFlag {
 				// Scaffold prints raw JSON regardless of -o, so the output
 				// can be piped straight back into --file.
-				fmt.Println("{\n  \"criteria\": [],\n  \"description\": \"\",\n  \"deviceType\": \"\",\n  \"groupType\": \"\",\n  \"members\": [],\n  \"name\": \"\"\n}")
+				fmt.Println("{\n  \"criteria\": [\n    {\n      \"attributeName\": \"Device Name\",\n      \"attributeValue\": \"Some Device Name\",\n      \"hasClosingParenthesis\": false,\n      \"hasOpeningParenthesis\": false,\n      \"joinType\": \"\",\n      \"operator\": \"IS\",\n      \"order\": 0\n    }\n  ],\n  \"description\": \"A custom group of devices\",\n  \"deviceType\": \"\",\n  \"groupType\": \"\",\n  \"members\": [],\n  \"name\": \"New Device Group\"\n}")
 				return nil
 			}
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
@@ -265,7 +265,7 @@ func newPlatformDeviceGroupsPatchCmd(cliCtx *registry.CLIContext) *cobra.Command
 			if scaffoldFlag {
 				// Scaffold prints raw JSON regardless of -o, so the output
 				// can be piped straight back into --file.
-				fmt.Println("{\n  \"criteria\": [],\n  \"description\": \"\",\n  \"name\": \"\"\n}")
+				fmt.Println("{\n  \"criteria\": [\n    {\n      \"attributeName\": \"Device Name\",\n      \"attributeValue\": \"Some Device Name\",\n      \"hasClosingParenthesis\": false,\n      \"hasOpeningParenthesis\": false,\n      \"joinType\": \"\",\n      \"operator\": \"IS\",\n      \"order\": 0\n    }\n  ],\n  \"description\": \"A custom group of devices\",\n  \"name\": \"Some Device Group\"\n}")
 				return nil
 			}
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {

@@ -98,8 +98,34 @@ func newCloudAzuresCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 
 			if flagScaffold {
 				return printScaffoldOutput(`{
-  "cloudIdPCommon": {},
-  "server": {}
+  "cloudIdPCommon": {
+    "displayName": "Cloud Identity Provider",
+    "providerName": "PROVIDER"
+  },
+  "server": {
+    "code": "auth",
+    "enabled": true,
+    "mappings": {
+      "building": "companyName",
+      "department": "department",
+      "email": "mail",
+      "groupId": "id",
+      "groupName": "displayName",
+      "phone": "mobilePhone",
+      "position": "jobTitle",
+      "realName": "displayName",
+      "room": "officeLocation",
+      "userId": "id",
+      "userName": "userPrincipalName"
+    },
+    "membershipCalculationOptimizationEnabled": true,
+    "searchTimeout": 30,
+    "tenantId": "db65d325-0350-4a17-9af9-b302d0fc386b",
+    "transitiveDirectoryMembershipEnabled": false,
+    "transitiveMembershipEnabled": false,
+    "transitiveMembershipUserField": "userPrincipalName",
+    "type": "PUBLIC"
+  }
 }`, ctx.Output.Format())
 			}
 
@@ -169,8 +195,33 @@ func newCloudAzuresUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 
 			if flagScaffold {
 				return printScaffoldOutput(`{
-  "cloudIdPCommon": {},
-  "server": {}
+  "cloudIdPCommon": {
+    "displayName": "Cloud Identity Provider",
+    "id": "1001",
+    "providerName": "PROVIDER"
+  },
+  "server": {
+    "enabled": true,
+    "id": "1001",
+    "mappings": {
+      "building": "companyName",
+      "department": "department",
+      "email": "mail",
+      "groupId": "id",
+      "groupName": "displayName",
+      "phone": "mobilePhone",
+      "position": "jobTitle",
+      "realName": "displayName",
+      "room": "officeLocation",
+      "userId": "id",
+      "userName": "userPrincipalName"
+    },
+    "membershipCalculationOptimizationEnabled": true,
+    "searchTimeout": 30,
+    "transitiveDirectoryMembershipEnabled": false,
+    "transitiveMembershipEnabled": false,
+    "transitiveMembershipUserField": "userPrincipalName"
+  }
 }`, ctx.Output.Format())
 			}
 

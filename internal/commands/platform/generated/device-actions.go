@@ -82,7 +82,7 @@ func newDeviceActionsEraseCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if scaffoldFlag {
 				// Scaffold prints raw JSON regardless of -o, so the output
 				// can be piped straight back into --file.
-				fmt.Println("{\n  \"clearActivationLock\": false,\n  \"disallowProximitySetup\": false,\n  \"pin\": \"\",\n  \"preserveDataPlan\": false,\n  \"returnToService\": false\n}")
+				fmt.Println("{\n  \"clearActivationLock\": true,\n  \"disallowProximitySetup\": true,\n  \"pin\": \"123456\",\n  \"preserveDataPlan\": true,\n  \"returnToService\": true\n}")
 				return nil
 			}
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {

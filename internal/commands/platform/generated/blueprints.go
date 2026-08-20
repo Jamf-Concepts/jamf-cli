@@ -116,7 +116,7 @@ func newBlueprintsCreateCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if scaffoldFlag {
 				// Scaffold prints raw JSON regardless of -o, so the output
 				// can be piped straight back into --file.
-				fmt.Println("{\n  \"description\": \"\",\n  \"name\": \"\",\n  \"scope\": {\n    \"deviceGroups\": []\n  },\n  \"steps\": []\n}")
+				fmt.Println("{\n  \"description\": \"Keep all eligible MacOS devices updated to the last major version\",\n  \"name\": \"Update software to latest version\",\n  \"scope\": {\n    \"deviceGroups\": [\n      \"cda24521-f23b-4f27-a9ff-32c89fb6feeb\"\n    ]\n  },\n  \"steps\": [\n    {\n      \"activationPredicate\": \"@status(device.operating-system.family) == 'iPadOS'\",\n      \"components\": [\n        {\n          \"configuration\": {},\n          \"identifier\": \"\"\n        }\n      ],\n      \"name\": \"Step 1\"\n    }\n  ]\n}")
 				return nil
 			}
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
@@ -266,7 +266,7 @@ func newBlueprintsPatchCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if scaffoldFlag {
 				// Scaffold prints raw JSON regardless of -o, so the output
 				// can be piped straight back into --file.
-				fmt.Println("{\n  \"description\": \"\",\n  \"name\": \"\",\n  \"scope\": {\n    \"deviceGroups\": []\n  },\n  \"steps\": []\n}")
+				fmt.Println("{\n  \"description\": \"Keep all eligible MacOS devices updated to the last major version\",\n  \"name\": \"Update software to latest version\",\n  \"scope\": {\n    \"deviceGroups\": [\n      \"cda24521-f23b-4f27-a9ff-32c89fb6feeb\"\n    ]\n  },\n  \"steps\": [\n    {\n      \"activationPredicate\": \"@status(device.operating-system.family) == 'iPadOS'\",\n      \"components\": [\n        {\n          \"configuration\": {},\n          \"identifier\": \"\"\n        }\n      ],\n      \"name\": \"Step 1\"\n    }\n  ]\n}")
 				return nil
 			}
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {

@@ -295,7 +295,12 @@ func newInventoryPreloadsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
   "department": "IT",
   "deviceType": "Computer",
   "emailAddress": "ITBob@jamf.com",
-  "extensionAttributes": [],
+  "extensionAttributes": [
+    {
+      "name": "foo",
+      "value": "42"
+    }
+  ],
   "fullName": "Name",
   "leaseExpiration": "2015-06-19",
   "lifeExpectancy": "5 years",
@@ -393,7 +398,12 @@ func newInventoryPreloadsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
   "department": "IT",
   "deviceType": "Computer",
   "emailAddress": "ITBob@jamf.com",
-  "extensionAttributes": [],
+  "extensionAttributes": [
+    {
+      "name": "foo",
+      "value": "42"
+    }
+  ],
   "fullName": "Name",
   "leaseExpiration": "2015-06-19",
   "lifeExpectancy": "5 years",
@@ -958,7 +968,12 @@ func newInventoryPreloadsExportCmd(ctx *registry.CLIContext) *cobra.Command {
 
 			if flagScaffold {
 				return printScaffoldOutput(`{
-  "fields": [],
+  "fields": [
+    {
+      "fieldLabelOverride": "identiteit",
+      "fieldName": "id"
+    }
+  ],
   "filter": "id\u003e=100",
   "page": 0,
   "pageSize": 100,
@@ -1435,7 +1450,12 @@ If not, a new resource is created.`,
   "department": "IT",
   "deviceType": "Computer",
   "emailAddress": "ITBob@jamf.com",
-  "extensionAttributes": [],
+  "extensionAttributes": [
+    {
+      "name": "foo",
+      "value": "42"
+    }
+  ],
   "fullName": "Name",
   "leaseExpiration": "2015-06-19",
   "lifeExpectancy": "5 years",

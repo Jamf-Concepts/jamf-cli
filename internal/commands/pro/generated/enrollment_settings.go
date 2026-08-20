@@ -919,7 +919,12 @@ func newEnrollmentSettingsHistoryExportCmd(ctx *registry.CLIContext) *cobra.Comm
 
 			if flagScaffold {
 				return printScaffoldOutput(`{
-  "fields": [],
+  "fields": [
+    {
+      "fieldLabelOverride": "identiteit",
+      "fieldName": "id"
+    }
+  ],
   "filter": "id\u003e=100",
   "page": 0,
   "pageSize": 100,
@@ -1071,8 +1076,15 @@ func newEnrollmentSettingsUpdateEnrollmentCmd(ctx *registry.CLIContext) *cobra.C
   "accountDrivenUserVisionosEnrollmentEnabled": false,
   "allowSshOnlyManagementAccount": false,
   "createManagementAccount": false,
-  "developerCertificateIdentity": {},
-  "developerCertificateIdentityDetails": {},
+  "developerCertificateIdentity": {
+    "filename": "",
+    "identityKeystore": "WlhoaGJYQnNaU0J2WmlCaElHSmhjMlUyTkNCbGJtTnZaR1ZrSUhaaGJHbGtJSEF4TWk0Z2EyVjVjM1J2Y21VZ1ptbHNaUT09",
+    "keystorePassword": ""
+  },
+  "developerCertificateIdentityDetails": {
+    "serialNumber": "",
+    "subject": ""
+  },
   "ensureSshRunning": false,
   "flushExtensionAttributes": false,
   "flushLocationHistoryInformation": false,
@@ -1088,8 +1100,15 @@ func newEnrollmentSettingsUpdateEnrollmentCmd(ctx *registry.CLIContext) *cobra.C
   "macOsEnterpriseEnrollmentEnabled": false,
   "maidUsernameMergeEnabled": false,
   "managementUsername": "radmin",
-  "mdmSigningCertificate": {},
-  "mdmSigningCertificateDetails": {},
+  "mdmSigningCertificate": {
+    "filename": "",
+    "identityKeystore": "WlhoaGJYQnNaU0J2WmlCaElHSmhjMlUyTkNCbGJtTnZaR1ZrSUhaaGJHbGtJSEF4TWk0Z2EyVjVjM1J2Y21VZ1ptbHNaUT09",
+    "keystorePassword": ""
+  },
+  "mdmSigningCertificateDetails": {
+    "serialNumber": "",
+    "subject": ""
+  },
   "restrictReenrollment": false,
   "signQuickAdd": false,
   "signingMdmProfileEnabled": false

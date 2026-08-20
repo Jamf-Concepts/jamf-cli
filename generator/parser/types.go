@@ -148,6 +148,14 @@ type Schema struct {
 	Type       string
 	Properties map[string]*Property
 	Required   []string
+	// Items is the element schema when Type is "array", for a schema that is
+	// itself an array rather than an object. Set only for arrays, and only as
+	// deep as parseSchema's recursion cap allows.
+	//
+	// Needed because a request body may be a bare array — the DNS whole-list
+	// replaces are — and without this such a body has no properties and no
+	// element shape, so a scaffold for it can only be "[]".
+	Items *Schema
 }
 
 // Property represents a schema property
@@ -170,4 +178,14 @@ type Property struct {
 	// is a case-sensitive eleven-value enum whose rejection is a 400 that does
 	// not name the offending field, so guessing is expensive.
 	Enum []string
+	// Items is the element schema for an array-typed property, so a scaffold can
+	// show one element instead of a bare "[]". Nil when the element is a scalar
+	// or the spec declares no items.
+	//
+	// This is the array counterpart of Nested, and it is populated under a
+	// recursion cap that Nested never needed: an object property whose own
+	// properties are empty ends the walk, but an array property can name its
+	// parent's schema as its element type (a tree with a children[] of itself),
+	// which would recurse forever.
+	Items *Schema
 }

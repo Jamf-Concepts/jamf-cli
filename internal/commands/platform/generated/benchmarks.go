@@ -93,7 +93,7 @@ func newBenchmarksCreateCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if scaffoldFlag {
 				// Scaffold prints raw JSON regardless of -o, so the output
 				// can be piped straight back into --file.
-				fmt.Println("{\n  \"description\": \"\",\n  \"enforcementMode\": \"\",\n  \"rules\": [],\n  \"selectedOsVersions\": [],\n  \"sourceBaselineId\": \"\",\n  \"target\": {\n    \"deviceGroups\": []\n  },\n  \"title\": \"\"\n}")
+				fmt.Println("{\n  \"description\": \"Security benchmark for macOS 26 Tahoe\",\n  \"enforcementMode\": \"MONITOR\",\n  \"rules\": [\n    {\n      \"enabled\": true,\n      \"id\": \"os_install_log_retention_configure\",\n      \"odv\": null\n    }\n  ],\n  \"selectedOsVersions\": [\n    {\n      \"osType\": \"MAC_OS\",\n      \"osVersion\": 26\n    }\n  ],\n  \"sourceBaselineId\": \"cis_lvl1\",\n  \"target\": {\n    \"deviceGroups\": [\n      \"56681d76-f139-48bc-bab6-145ffb2d4696\"\n    ]\n  },\n  \"title\": \"CIS Level 1 example benchmark\"\n}")
 				return nil
 			}
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {

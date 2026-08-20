@@ -65,7 +65,7 @@ func newStatusUpdateCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if scaffoldFlag {
 				// Scaffold prints raw JSON regardless of -o, so the output
 				// can be piped straight back into --file.
-				fmt.Println("{\n  \"reason\": \"\",\n  \"status\": \"\"\n}")
+				fmt.Println("{\n  \"reason\": \"\",\n  \"status\": \"disabled\"\n}")
 				return nil
 			}
 			path := "/sse/v1/status"

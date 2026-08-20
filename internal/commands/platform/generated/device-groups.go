@@ -91,7 +91,7 @@ func newDeviceGroupsCreateCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if scaffoldFlag {
 				// Scaffold prints raw JSON regardless of -o, so the output
 				// can be piped straight back into --file.
-				fmt.Println("{\n  \"name\": \"\"\n}")
+				fmt.Println("{\n  \"name\": \"Engineering Team\"\n}")
 				return nil
 			}
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
@@ -241,7 +241,7 @@ func newDeviceGroupsUpdateCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if scaffoldFlag {
 				// Scaffold prints raw JSON regardless of -o, so the output
 				// can be piped straight back into --file.
-				fmt.Println("{\n  \"name\": \"\"\n}")
+				fmt.Println("{\n  \"name\": \"Engineering Team\"\n}")
 				return nil
 			}
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {

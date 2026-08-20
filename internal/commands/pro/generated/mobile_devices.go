@@ -322,13 +322,60 @@ func newMobileDevicesPatchCmd(ctx *registry.CLIContext) *cobra.Command {
 				return printScaffoldOutput(`{
   "assetTag": "8675309",
   "enforceName": true,
-  "ios": {},
-  "location": {},
+  "ios": {
+    "purchasing": {
+      "appleCareId": "9546567.0",
+      "leaseExpiresDate": "2019-02-04T21:09:31.661Z",
+      "leased": false,
+      "lifeExpectancy": 7,
+      "poDate": "2019-02-04T21:09:31.661Z",
+      "poNumber": "8675309",
+      "purchasePrice": "$399",
+      "purchased": true,
+      "purchasingAccount": "IT Budget",
+      "purchasingContact": "Nick in IT",
+      "vendor": "Apple",
+      "warrantyExpiresDate": "2019-02-04T21:09:31.661Z"
+    }
+  },
+  "location": {
+    "buildingId": "1",
+    "departmentId": "1",
+    "emailAddress": "ITBob@jamf.com",
+    "phoneNumber": "555-555-5555",
+    "position": "IT Team Lead",
+    "realName": "IT Bob",
+    "room": "4th Floor - Quad 3",
+    "username": "admin"
+  },
   "name": "Jan's Mobile Device",
   "siteId": "1",
   "timeZone": "Europe/Warsaw",
-  "tvos": {},
-  "updatedExtensionAttributes": []
+  "tvos": {
+    "airplayPassword": "12345",
+    "purchasing": {
+      "appleCareId": "9546567.0",
+      "leaseExpiresDate": "2019-02-04T21:09:31.661Z",
+      "leased": false,
+      "lifeExpectancy": 7,
+      "poDate": "2019-02-04T21:09:31.661Z",
+      "poNumber": "8675309",
+      "purchasePrice": "$399",
+      "purchased": true,
+      "purchasingAccount": "IT Budget",
+      "purchasingContact": "Nick in IT",
+      "vendor": "Apple",
+      "warrantyExpiresDate": "2019-02-04T21:09:31.661Z"
+    }
+  },
+  "updatedExtensionAttributes": [
+    {
+      "extensionAttributeCollectionAllowed": false,
+      "name": "Example EA",
+      "type": "STRING",
+      "value": []
+    }
+  ]
 }`, ctx.Output.Format())
 			}
 

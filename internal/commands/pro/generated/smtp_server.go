@@ -100,12 +100,35 @@ func newSmtpServerUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 			if flagScaffold {
 				return printScaffoldOutput(`{
   "authenticationType": "NONE",
-  "basicAuthCredentials": {},
-  "connectionSettings": {},
+  "basicAuthCredentials": {
+    "password": "",
+    "username": "exampleEmail@example.com"
+  },
+  "connectionSettings": {
+    "connectionTimeout": 5,
+    "encryptionType": "SSL",
+    "host": "abcd.server.com",
+    "port": 25
+  },
   "enabled": true,
-  "googleMailCredentials": {},
-  "graphApiCredentials": {},
-  "senderSettings": {}
+  "googleMailCredentials": {
+    "authentications": [
+      {
+        "emailAddress": "exampleEmail@example.com"
+      }
+    ],
+    "clientId": "012345678901-abcdefghijklmnopqrstuvwxyz123456.apps.googleusercontent.com",
+    "clientSecret": ""
+  },
+  "graphApiCredentials": {
+    "clientId": "5294f9d1-f723-419c-93db-ff040bf7c947",
+    "clientSecret": "",
+    "tenantId": "c84b7b82-c277-411b-975d-7431b4ce40ac"
+  },
+  "senderSettings": {
+    "displayName": "Jamf Pro Server",
+    "emailAddress": "exampleEmail@example.com"
+  }
 }`, ctx.Output.Format())
 			}
 

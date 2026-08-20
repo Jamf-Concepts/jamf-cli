@@ -93,7 +93,14 @@ func newOnboardingConfigurationUpdateCmd(ctx *registry.CLIContext) *cobra.Comman
 			if flagScaffold {
 				return printScaffoldOutput(`{
   "enabled": true,
-  "onboardingItems": []
+  "onboardingItems": [
+    {
+      "entityId": "1",
+      "id": "3",
+      "priority": 35,
+      "selfServiceEntityType": "OS_X_POLICY"
+    }
+  ]
 }`, ctx.Output.Format())
 			}
 

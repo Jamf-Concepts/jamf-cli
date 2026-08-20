@@ -265,7 +265,11 @@ func newMdmCommandsCommandsCmd(ctx *registry.CLIContext) *cobra.Command {
 
 			if flagScaffold {
 				return printScaffoldOutput(`{
-  "clientData": [],
+  "clientData": [
+    {
+      "managementId": "aaaaaaaa-3f1e-4b3a-a5b3-ca0cd7430937"
+    }
+  ],
   "commandData": {
     "commandType": "ENABLE_LOST_MODE",
     "lostModeFootnote": "This is a footnote",

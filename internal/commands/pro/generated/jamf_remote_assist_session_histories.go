@@ -268,7 +268,12 @@ func newJamfRemoteAssistSessionHistoriesExportCmd(ctx *registry.CLIContext) *cob
 
 			if flagScaffold {
 				return printScaffoldOutput(`{
-  "fields": [],
+  "fields": [
+    {
+      "fieldLabelOverride": "identiteit",
+      "fieldName": "id"
+    }
+  ],
   "filter": "id\u003e=100",
   "page": 0,
   "pageSize": 100,

@@ -4,7 +4,6 @@ package security
 
 import (
 	"bytes"
-	"encoding/json"
 	"fmt"
 	"go/format"
 	"os"
@@ -222,64 +221,17 @@ func buildQueryParams(params []*parser.Parameter) []queryParam {
 
 // buildScaffold returns a pretty-printed JSON example for the operation's
 // request body, derived from the spec schema. Returns "" when the op has no
-// body.
+// body, which is the signal the template uses to omit --scaffold entirely.
+//
+// The rendering itself is parser.ScaffoldJSON, shared with the Jamf Pro and
+// Security Cloud generators. It used to be a local copy — byte-identical between
+// this file and generator/security/emitter.go, and subtly different from Pro's —
+// so the same schema could scaffold three ways depending on which API served it.
 func buildScaffold(op *parser.Operation) string {
 	if op.RequestBody == nil || op.RequestBody.Schema == nil {
 		return ""
 	}
-	example := schemaExample(op.RequestBody.Schema)
-	b, err := json.MarshalIndent(example, "", "  ")
-	if err != nil {
-		return "{}"
-	}
-	return string(b)
-}
-
-// schemaExample walks a parsed schema and emits a JSON-marshallable Go value
-// with placeholder zero values for every property.
-func schemaExample(s *parser.Schema) any {
-	if s == nil {
-		return nil
-	}
-	switch s.Type {
-	case "object", "":
-		m := map[string]any{}
-		for name, prop := range s.Properties {
-			m[name] = propertyExample(prop)
-		}
-		return m
-	case "array":
-		return []any{}
-	case "string":
-		return ""
-	case "boolean":
-		return false
-	case "integer", "number":
-		return 0
-	}
-	return nil
-}
-
-func propertyExample(p *parser.Property) any {
-	if p == nil {
-		return nil
-	}
-	switch p.Type {
-	case "object":
-		if p.Nested != nil {
-			return schemaExample(p.Nested)
-		}
-		return map[string]any{}
-	case "array":
-		return []any{}
-	case "string":
-		return ""
-	case "boolean":
-		return false
-	case "integer", "number":
-		return 0
-	}
-	return nil
+	return parser.ScaffoldJSON(op.RequestBody.Schema)
 }
 
 // shortFromOp produces a brief help string for an operation. Falls back to a

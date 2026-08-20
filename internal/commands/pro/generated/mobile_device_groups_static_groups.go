@@ -280,7 +280,12 @@ func newMobileDeviceGroupsStaticGroupsCreateCmd(ctx *registry.CLIContext) *cobra
 
 			if flagScaffold {
 				return printScaffoldOutput(`{
-  "assignments": [],
+  "assignments": [
+    {
+      "mobileDeviceId": "5",
+      "selected": true
+    }
+  ],
   "groupDescription": "Static iPads",
   "groupName": "Static iPads",
   "siteId": "-1"
@@ -575,7 +580,12 @@ func newMobileDeviceGroupsStaticGroupsPatchCmd(ctx *registry.CLIContext) *cobra.
 
 			if flagScaffold {
 				return printScaffoldOutput(`{
-  "assignments": [],
+  "assignments": [
+    {
+      "mobileDeviceId": "5",
+      "selected": true
+    }
+  ],
   "groupDescription": "Static iPads",
   "groupName": "Static iPads",
   "siteId": "-1"
@@ -697,7 +707,12 @@ If not, a new resource is created.`,
 			reqCtx := cmd.Context()
 			if flagScaffold {
 				return printScaffoldOutput(`{
-  "assignments": [],
+  "assignments": [
+    {
+      "mobileDeviceId": "5",
+      "selected": true
+    }
+  ],
   "groupDescription": "Static iPads",
   "groupName": "Static iPads",
   "siteId": "-1"

@@ -91,7 +91,7 @@ func newDnsZonesCreateCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if scaffoldFlag {
 				// Scaffold prints raw JSON regardless of -o, so the output
 				// can be piped straight back into --file.
-				fmt.Println("{\n  \"domains\": [],\n  \"name\": \"\",\n  \"nameServers\": []\n}")
+				fmt.Println("{\n  \"domains\": [\n    \"example.com\"\n  ],\n  \"name\": \"corp-internal\",\n  \"nameServers\": [\n    {\n      \"gatewayId\": \"gw-eu-01\",\n      \"ip\": \"203.0.113.53\"\n    }\n  ]\n}")
 				return nil
 			}
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
@@ -241,7 +241,7 @@ func newDnsZonesPatchCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if scaffoldFlag {
 				// Scaffold prints raw JSON regardless of -o, so the output
 				// can be piped straight back into --file.
-				fmt.Println("{\n  \"domains\": [],\n  \"name\": \"\",\n  \"nameServers\": []\n}")
+				fmt.Println("{\n  \"domains\": [\n    \"example.com\"\n  ],\n  \"name\": \"corp-internal\",\n  \"nameServers\": [\n    {\n      \"gatewayId\": \"gw-eu-01\",\n      \"ip\": \"203.0.113.53\"\n    }\n  ]\n}")
 				return nil
 			}
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {

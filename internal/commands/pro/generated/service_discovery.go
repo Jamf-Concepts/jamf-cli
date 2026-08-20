@@ -92,7 +92,13 @@ func newServiceDiscoveryUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 
 			if flagScaffold {
 				return printScaffoldOutput(`{
-  "wellKnownSettings": []
+  "wellKnownSettings": [
+    {
+      "enrollmentType": "mdm-byod",
+      "orgName": "Acme Corporation",
+      "serverUuid": "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+    }
+  ]
 }`, ctx.Output.Format())
 			}
 

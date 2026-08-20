@@ -98,9 +98,57 @@ func newCloudLdapsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 
 			if flagScaffold {
 				return printScaffoldOutput(`{
-  "cloudIdPCommon": {},
-  "mappings": {},
-  "server": {}
+  "cloudIdPCommon": {
+    "displayName": "Cloud Identity Provider",
+    "providerName": "PROVIDER"
+  },
+  "mappings": {
+    "groupMappings": {
+      "groupID": "cn",
+      "groupName": "cn",
+      "groupUuid": "gidNumber",
+      "objectClassLimitation": "ANY_OBJECT_CLASSES",
+      "objectClasses": "groupOfNames",
+      "searchBase": "ou=Groups",
+      "searchScope": "ALL_SUBTREES"
+    },
+    "membershipMappings": {
+      "groupMembershipMapping": "memberOf"
+    },
+    "userMappings": {
+      "additionalSearchBase": "",
+      "building": "",
+      "department": "departmentNumber",
+      "emailAddress": "mail",
+      "objectClassLimitation": "ANY_OBJECT_CLASSES",
+      "objectClasses": "inetOrgPerson",
+      "phone": "",
+      "position": "title",
+      "realName": "displayName",
+      "room": "",
+      "searchBase": "ou=Users",
+      "searchScope": "ALL_SUBTREES",
+      "userID": "mail",
+      "userUuid": "uid",
+      "username": "uid"
+    }
+  },
+  "server": {
+    "connectionTimeout": 15,
+    "connectionType": "LDAPS",
+    "domainName": "jamf.com",
+    "enabled": true,
+    "keystore": {
+      "fileBytes": "WlhoaGJYQnNaU0J2WmlCaElHSmhjMlUyTkNCbGJtTnZaR1ZrSUhaaGJHbGtJSEF4TWk0Z2EyVjVjM1J2Y21VZ1ptbHNaUT09",
+      "fileName": "keystore.p12",
+      "password": "***"
+    },
+    "membershipCalculationOptimizationEnabled": true,
+    "port": 636,
+    "searchTimeout": 60,
+    "serverUrl": "ldap.google.com",
+    "useWildcards": true
+  }
 }`, ctx.Output.Format())
 			}
 
@@ -170,9 +218,58 @@ func newCloudLdapsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 
 			if flagScaffold {
 				return printScaffoldOutput(`{
-  "cloudIdPCommon": {},
-  "mappings": {},
-  "server": {}
+  "cloudIdPCommon": {
+    "displayName": "Cloud Identity Provider",
+    "id": "1001",
+    "providerName": "PROVIDER"
+  },
+  "mappings": {
+    "groupMappings": {
+      "groupID": "cn",
+      "groupName": "cn",
+      "groupUuid": "gidNumber",
+      "objectClassLimitation": "ANY_OBJECT_CLASSES",
+      "objectClasses": "groupOfNames",
+      "searchBase": "ou=Groups",
+      "searchScope": "ALL_SUBTREES"
+    },
+    "membershipMappings": {
+      "groupMembershipMapping": "memberOf"
+    },
+    "userMappings": {
+      "additionalSearchBase": "",
+      "building": "",
+      "department": "departmentNumber",
+      "emailAddress": "mail",
+      "objectClassLimitation": "ANY_OBJECT_CLASSES",
+      "objectClasses": "inetOrgPerson",
+      "phone": "",
+      "position": "title",
+      "realName": "displayName",
+      "room": "",
+      "searchBase": "ou=Users",
+      "searchScope": "ALL_SUBTREES",
+      "userID": "mail",
+      "userUuid": "uid",
+      "username": "uid"
+    }
+  },
+  "server": {
+    "connectionTimeout": 15,
+    "connectionType": "LDAPS",
+    "domainName": "jamf.com",
+    "enabled": true,
+    "keystore": {
+      "fileBytes": "WlhoaGJYQnNaU0J2WmlCaElHSmhjMlUyTkNCbGJtTnZaR1ZrSUhaaGJHbGtJSEF4TWk0Z2EyVjVjM1J2Y21VZ1ptbHNaUT09",
+      "fileName": "keystore.p12",
+      "password": "***"
+    },
+    "membershipCalculationOptimizationEnabled": true,
+    "port": 636,
+    "searchTimeout": 60,
+    "serverUrl": "ldap.google.com",
+    "useWildcards": true
+  }
 }`, ctx.Output.Format())
 			}
 

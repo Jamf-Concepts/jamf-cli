@@ -110,7 +110,7 @@ func newDnsCustomHostnameMappingsUpdateCmd(cliCtx *registry.CLIContext) *cobra.C
 			if scaffoldFlag {
 				// Scaffold prints raw JSON regardless of -o, so the output
 				// can be piped straight back into --file.
-				fmt.Println("[]")
+				fmt.Println("[\n  {\n    \"aRecords\": [\n      \"203.0.113.10\"\n    ],\n    \"aaaaRecords\": [\n      \"2001:db8::10\"\n    ],\n    \"hostname\": \"app.example.com\",\n    \"secureDns\": false,\n    \"ztna\": false\n  }\n]")
 				return nil
 			}
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {

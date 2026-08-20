@@ -275,8 +275,18 @@ func newVppSubscriptionsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 			if flagScaffold {
 				return printScaffoldOutput(`{
   "enabled": true,
-  "externalRecipients": [],
-  "internalRecipients": [],
+  "externalRecipients": [
+    {
+      "email": "bob@example.com",
+      "name": "Bob Exampleman"
+    }
+  ],
+  "internalRecipients": [
+    {
+      "accountId": "1",
+      "frequency": "DAILY"
+    }
+  ],
   "locationIds": [],
   "name": "Example",
   "siteId": "1",
@@ -356,8 +366,18 @@ func newVppSubscriptionsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 			if flagScaffold {
 				return printScaffoldOutput(`{
   "enabled": true,
-  "externalRecipients": [],
-  "internalRecipients": [],
+  "externalRecipients": [
+    {
+      "email": "bob@example.com",
+      "name": "Bob Exampleman"
+    }
+  ],
+  "internalRecipients": [
+    {
+      "accountId": "1",
+      "frequency": "DAILY"
+    }
+  ],
   "locationIds": [],
   "name": "Example",
   "siteId": "1",
@@ -966,8 +986,18 @@ If not, a new resource is created.`,
 			if flagScaffold {
 				return printScaffoldOutput(`{
   "enabled": true,
-  "externalRecipients": [],
-  "internalRecipients": [],
+  "externalRecipients": [
+    {
+      "email": "bob@example.com",
+      "name": "Bob Exampleman"
+    }
+  ],
+  "internalRecipients": [
+    {
+      "accountId": "1",
+      "frequency": "DAILY"
+    }
+  ],
   "locationIds": [],
   "name": "Example",
   "siteId": "1",

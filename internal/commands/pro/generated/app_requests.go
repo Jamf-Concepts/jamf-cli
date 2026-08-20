@@ -210,7 +210,9 @@ func newAppRequestsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 }
 
 func newAppRequestsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
-	var ()
+	var (
+		flagScaffold bool
+	)
 
 	cmd := &cobra.Command{
 		Use:   "update",
@@ -224,6 +226,16 @@ func newAppRequestsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Annotations: map[string]string{"jamf:privileges": "Update App Request Settings", "jamf:api": "pro"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
+
+			if flagScaffold {
+				return printScaffoldOutput(`[
+  {
+    "description": "How many of these would you like?",
+    "priority": 1,
+    "title": "Quantity"
+  }
+]`, ctx.Output.Format())
+			}
 
 			// Build request path
 			path := "/v1/app-request/form-input-fields"
@@ -262,6 +274,7 @@ func newAppRequestsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 		},
 	}
 
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 	return cmd
 }
 

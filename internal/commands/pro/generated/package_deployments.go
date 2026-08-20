@@ -50,7 +50,18 @@ func newPackageDeploymentsDeployPackageCmd(ctx *registry.CLIContext) *cobra.Comm
   ],
   "groupId": "1",
   "installAsManaged": false,
-  "manifest": {}
+  "manifest": {
+    "bundleId": "com.jamf.example",
+    "bundleVersion": "0.1.0",
+    "displayImageUrl": "https://example.jamf.com/img/display/this/package.jpg",
+    "fullSizeImageUrl": "https://example.jamf.com/img/full/this/package.jpg",
+    "hash": "dcb02a41cd6d842943459a88c96a5f72",
+    "hashType": "MD5",
+    "sizeInBytes": 12345,
+    "subtitle": "Subtitle",
+    "title": "Title",
+    "url": "https://example.jamf.com/this/package"
+  }
 }`, ctx.Output.Format())
 			}
 

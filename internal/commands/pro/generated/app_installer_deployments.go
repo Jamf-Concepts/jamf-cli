@@ -279,8 +279,28 @@ func newAppInstallerDeploymentsCreateCmd(ctx *registry.CLIContext) *cobra.Comman
   "enabled": false,
   "installPredefinedConfigProfiles": false,
   "name": "",
-  "notificationSettings": {},
-  "selfServiceSettings": {},
+  "notificationSettings": {
+    "completeMessage": "",
+    "deadline": 0,
+    "deadlineMessage": "",
+    "notificationInterval": 0,
+    "notificationMessage": "",
+    "quitDelay": 0,
+    "relaunch": false,
+    "suppress": false
+  },
+  "selfServiceSettings": {
+    "categories": [
+      {
+        "featured": false,
+        "id": ""
+      }
+    ],
+    "description": "",
+    "forceViewDescription": false,
+    "includeInComplianceCategory": false,
+    "includeInFeaturedCategory": false
+  },
   "siteId": "",
   "smartGroupId": "",
   "triggerAdminNotifications": false,
@@ -365,8 +385,28 @@ func newAppInstallerDeploymentsUpdateCmd(ctx *registry.CLIContext) *cobra.Comman
   "enabled": false,
   "installPredefinedConfigProfiles": false,
   "name": "",
-  "notificationSettings": {},
-  "selfServiceSettings": {},
+  "notificationSettings": {
+    "completeMessage": "",
+    "deadline": 0,
+    "deadlineMessage": "",
+    "notificationInterval": 0,
+    "notificationMessage": "",
+    "quitDelay": 0,
+    "relaunch": false,
+    "suppress": false
+  },
+  "selfServiceSettings": {
+    "categories": [
+      {
+        "featured": false,
+        "id": ""
+      }
+    ],
+    "description": "",
+    "forceViewDescription": false,
+    "includeInComplianceCategory": false,
+    "includeInFeaturedCategory": false
+  },
   "siteId": "",
   "smartGroupId": "",
   "triggerAdminNotifications": false,
@@ -1394,8 +1434,28 @@ If not, a new resource is created.`,
   "enabled": false,
   "installPredefinedConfigProfiles": false,
   "name": "",
-  "notificationSettings": {},
-  "selfServiceSettings": {},
+  "notificationSettings": {
+    "completeMessage": "",
+    "deadline": 0,
+    "deadlineMessage": "",
+    "notificationInterval": 0,
+    "notificationMessage": "",
+    "quitDelay": 0,
+    "relaunch": false,
+    "suppress": false
+  },
+  "selfServiceSettings": {
+    "categories": [
+      {
+        "featured": false,
+        "id": ""
+      }
+    ],
+    "description": "",
+    "forceViewDescription": false,
+    "includeInComplianceCategory": false,
+    "includeInFeaturedCategory": false
+  },
   "siteId": "",
   "smartGroupId": "",
   "triggerAdminNotifications": false,

@@ -4,7 +4,6 @@ package platform
 
 import (
 	"bytes"
-	"encoding/json"
 	"fmt"
 	"go/format"
 	"net/http"
@@ -407,23 +406,6 @@ func restoreTenantSegment(path string) string {
 	return path
 }
 
-// buildScaffold returns a pretty-printed JSON example for the operation's
-// request body, derived from the spec schema. Returns "" when the op has no
-// body. Properties recurse into nested schemas; primitives use their
-// zero-value, arrays render as []. Generated code surfaces this via the
-// --scaffold flag so callers can `--scaffold > body.json && edit && apply`.
-func buildScaffold(op *parser.Operation) string {
-	if op.RequestBody == nil || op.RequestBody.Schema == nil {
-		return ""
-	}
-	example := schemaExample(op.RequestBody.Schema)
-	b, err := json.MarshalIndent(example, "", "  ")
-	if err != nil {
-		return "{}"
-	}
-	return string(b)
-}
-
 // enumChoice names one request-body field that is restricted to a fixed set of
 // values, by its dotted path from the body root.
 type enumChoice struct {
@@ -494,51 +476,19 @@ func appendEnumChoices(long string, choices []enumChoice) string {
 	return b.String()
 }
 
-// schemaExample walks a parsed schema and emits a JSON-marshallable Go value
-// with placeholder zero values for every property.
-func schemaExample(s *parser.Schema) any {
-	if s == nil {
-		return nil
-	}
-	switch s.Type {
-	case "object", "":
-		m := map[string]any{}
-		for name, prop := range s.Properties {
-			m[name] = propertyExample(prop)
-		}
-		return m
-	case "array":
-		return []any{}
-	case "string":
+// buildScaffold returns a pretty-printed JSON example for the operation's
+// request body, derived from the spec schema. Returns "" when the op has no
+// body, which is the signal the template uses to omit --scaffold entirely.
+//
+// The rendering itself is parser.ScaffoldJSON, shared with the Jamf Pro and
+// Security Cloud generators. It used to be a local copy — byte-identical between
+// this file and generator/security/emitter.go, and subtly different from Pro's —
+// so the same schema could scaffold three ways depending on which API served it.
+func buildScaffold(op *parser.Operation) string {
+	if op.RequestBody == nil || op.RequestBody.Schema == nil {
 		return ""
-	case "boolean":
-		return false
-	case "integer", "number":
-		return 0
 	}
-	return nil
-}
-
-func propertyExample(p *parser.Property) any {
-	if p == nil {
-		return nil
-	}
-	switch p.Type {
-	case "object":
-		if p.Nested != nil {
-			return schemaExample(p.Nested)
-		}
-		return map[string]any{}
-	case "array":
-		return []any{}
-	case "string":
-		return ""
-	case "boolean":
-		return false
-	case "integer", "number":
-		return 0
-	}
-	return nil
+	return parser.ScaffoldJSON(op.RequestBody.Schema)
 }
 
 // hasPaginationParams reports whether the op exposes page + page-size query

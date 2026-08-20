@@ -245,8 +245,29 @@ func newComputerInventoryCollectionSettingsPatchCmd(ctx *registry.CLIContext) *c
 
 			if flagScaffold {
 				return printScaffoldOutput(`{
-  "applicationPaths": [],
-  "computerInventoryCollectionPreferences": {}
+  "applicationPaths": [
+    {
+      "id": "1",
+      "path": "/Example/Path/To/App/"
+    }
+  ],
+  "computerInventoryCollectionPreferences": {
+    "allowChangingUserAndLocation": true,
+    "calculateSizes": false,
+    "collectSyncedMobileDeviceInfo": false,
+    "collectUnmanagedCertificates": true,
+    "includeAccounts": true,
+    "includeHiddenAccounts": true,
+    "includePackages": true,
+    "includePrinters": true,
+    "includeServices": true,
+    "includeSoftwareId": true,
+    "includeSoftwareUpdates": true,
+    "monitorApplicationUsage": true,
+    "monitorBeacons": true,
+    "updateLdapInfoOnComputerInventorySubmissions": false,
+    "useUnixUserPaths": true
+  }
 }`, ctx.Output.Format())
 			}
 

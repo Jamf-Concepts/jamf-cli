@@ -66,7 +66,7 @@ func newStreamUpdateCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if scaffoldFlag {
 				// Scaffold prints raw JSON regardless of -o, so the output
 				// can be piped straight back into --file.
-				fmt.Println("{\n  \"aud\": \"\",\n  \"delivery\": null,\n  \"events_delivered\": [],\n  \"events_requested\": [],\n  \"events_supported\": [],\n  \"format\": \"\",\n  \"iss\": \"\",\n  \"min_verification_interval\": 0\n}")
+				fmt.Println("{\n  \"aud\": \"https://popular-app.com\",\n  \"delivery\": {\n    \"endpoint_url\": null,\n    \"method\": \"https://schemas.openid.net/secevent/risc/delivery-method/push\"\n  },\n  \"events_delivered\": [\n    \"https://schemas.openid.net/secevent/risc/event-type/credential-compromise\"\n  ],\n  \"events_requested\": [\n    \"https://schemas.openid.net/secevent/risc/event-type/credential-compromise\"\n  ],\n  \"events_supported\": [\n    \"https://schemas.openid.net/secevent/caep/event-type/session-revoked\",\n    \"https://schemas.openid.net/secevent/risc/event-type/credential-compromise\"\n  ],\n  \"format\": \"\",\n  \"iss\": \"https://most-secure.com\",\n  \"min_verification_interval\": 0\n}")
 				return nil
 			}
 			path := "/sse/v1/stream"

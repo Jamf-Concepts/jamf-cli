@@ -99,7 +99,12 @@ func newTeacherSettingsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
   "autoClear": "05:30",
   "isEnabled": true,
   "maxRestrictionLengthSeconds": 600,
-  "safelistedApps": [],
+  "safelistedApps": [
+    {
+      "bundleId": "com.jamf.parent",
+      "name": "Content Filter"
+    }
+  ],
   "timezoneId": "Europe/Paris"
 }`, ctx.Output.Format())
 			}

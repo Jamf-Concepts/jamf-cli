@@ -3,7 +3,6 @@
 package parser
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -416,8 +415,7 @@ func (g *Generator) Generate(resource *Resource) (string, error) {
 			if op.RequestBody != nil && op.RequestBody.IsMultipart {
 				return false
 			}
-			return op.RequestBody != nil && op.RequestBody.Schema != nil &&
-				len(op.RequestBody.Schema.Properties) > 0 &&
+			return op.RequestBody != nil && HasScaffoldShape(op.RequestBody.Schema) &&
 				(op.Method == "POST" || op.Method == "PUT" || op.Method == "PATCH")
 		},
 		"opScaffoldJSON": func(op *Operation) string {
@@ -1656,50 +1654,14 @@ func updateSetLongDesc(op *Operation, schemas map[string]*Schema, r *Resource) s
 	return sb.String()
 }
 
-// scaffoldJSON generates a JSON template string from a schema, skipping read-only fields.
+// scaffoldJSON generates a JSON template string from a schema.
+//
+// Thin wrapper over the shared walker so every generator's --scaffold means the
+// same thing; see ScaffoldJSON for the rules. This used to be its own
+// implementation that skipped read-only fields and honoured examples but never
+// descended into a nested object, and rendered every array as "[]".
 func scaffoldJSON(s *Schema) string {
-	if s == nil || len(s.Properties) == 0 {
-		return "{}"
-	}
-
-	// Sort property names for deterministic output
-	names := make([]string, 0, len(s.Properties))
-	for name := range s.Properties {
-		names = append(names, name)
-	}
-	sort.Strings(names)
-
-	obj := make(map[string]any)
-	for _, name := range names {
-		prop := s.Properties[name]
-		if prop.ReadOnly {
-			continue
-		}
-		if prop.Example != nil {
-			obj[name] = prop.Example
-		} else {
-			switch prop.Type {
-			case "string":
-				obj[name] = ""
-			case "integer", "number":
-				obj[name] = 0
-			case "boolean":
-				obj[name] = false
-			case "array":
-				obj[name] = []any{}
-			case "object":
-				obj[name] = map[string]any{}
-			default:
-				obj[name] = ""
-			}
-		}
-	}
-
-	data, err := json.MarshalIndent(obj, "", "  ")
-	if err != nil {
-		return "{}"
-	}
-	return string(data)
+	return ScaffoldJSON(s)
 }
 
 // hasApply returns true if the resource has a create and a mutating update-style
@@ -1739,7 +1701,7 @@ func applyUpdateOp(ops []*Operation) *Operation {
 // hasScaffold returns true if any operation has a request body with a schema.
 func hasScaffold(ops []*Operation) bool {
 	for _, op := range ops {
-		if op.RequestBody != nil && op.RequestBody.Schema != nil && len(op.RequestBody.Schema.Properties) > 0 {
+		if op.RequestBody != nil && HasScaffoldShape(op.RequestBody.Schema) {
 			if op.Method == "POST" || op.Method == "PUT" || op.Method == "PATCH" {
 				return true
 			}

@@ -78,7 +78,7 @@ func newUemConnectorEnablementEnableCmd(cliCtx *registry.CLIContext) *cobra.Comm
 			if scaffoldFlag {
 				// Scaffold prints raw JSON regardless of -o, so the output
 				// can be piped straight back into --file.
-				fmt.Println("{\n  \"enabled\": false\n}")
+				fmt.Println("{\n  \"enabled\": true\n}")
 				return nil
 			}
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {

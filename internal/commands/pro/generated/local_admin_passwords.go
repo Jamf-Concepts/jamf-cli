@@ -534,7 +534,12 @@ func newLocalAdminPasswordsSetPasswordCmd(ctx *registry.CLIContext) *cobra.Comma
 
 			if flagScaffold {
 				return printScaffoldOutput(`{
-  "lapsUserPasswordList": []
+  "lapsUserPasswordList": [
+    {
+      "password": "jamf1234",
+      "username": "username"
+    }
+  ]
 }`, ctx.Output.Format())
 			}
 

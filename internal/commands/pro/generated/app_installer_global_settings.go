@@ -92,8 +92,23 @@ func newAppInstallerGlobalSettingsUpdateCmd(ctx *registry.CLIContext) *cobra.Com
 
 			if flagScaffold {
 				return printScaffoldOutput(`{
-  "deploymentProcessControls": {},
-  "endUserExperienceSettings": {}
+  "deploymentProcessControls": {
+    "batchFrequencyInMinutes": 0,
+    "commandsBatchSize": 0,
+    "daysOfWeek": [],
+    "fromTimeOfDay": "",
+    "toTimeOfDay": ""
+  },
+  "endUserExperienceSettings": {
+    "completeMessage": "",
+    "deadline": 0,
+    "deadlineMessage": "",
+    "notificationInterval": 0,
+    "notificationMessage": "",
+    "quitDelay": 0,
+    "relaunch": false,
+    "suppress": false
+  }
 }`, ctx.Output.Format())
 			}
 

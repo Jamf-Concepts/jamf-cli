@@ -280,7 +280,17 @@ func newMobileDeviceGroupsSmartGroupsCreateCmd(ctx *registry.CLIContext) *cobra.
 
 			if flagScaffold {
 				return printScaffoldOutput(`{
-  "criteria": [],
+  "criteria": [
+    {
+      "andOr": "and",
+      "closingParen": false,
+      "name": "Model",
+      "openingParen": false,
+      "priority": 0,
+      "searchType": "is",
+      "value": "iPad"
+    }
+  ],
   "groupDescription": "Smart iPads that meet certain criteria",
   "groupName": "Smart iPads Group",
   "siteId": "-1"
@@ -362,7 +372,17 @@ func newMobileDeviceGroupsSmartGroupsUpdateCmd(ctx *registry.CLIContext) *cobra.
 
 			if flagScaffold {
 				return printScaffoldOutput(`{
-  "criteria": [],
+  "criteria": [
+    {
+      "andOr": "and",
+      "closingParen": false,
+      "name": "Model",
+      "openingParen": false,
+      "priority": 0,
+      "searchType": "is",
+      "value": "iPad"
+    }
+  ],
   "groupDescription": "Smart iPads that meet certain criteria",
   "groupName": "Smart iPads Group",
   "siteId": "-1"
@@ -715,7 +735,17 @@ If not, a new resource is created.`,
 			reqCtx := cmd.Context()
 			if flagScaffold {
 				return printScaffoldOutput(`{
-  "criteria": [],
+  "criteria": [
+    {
+      "andOr": "and",
+      "closingParen": false,
+      "name": "Model",
+      "openingParen": false,
+      "priority": 0,
+      "searchType": "is",
+      "value": "iPad"
+    }
+  ],
   "groupDescription": "Smart iPads that meet certain criteria",
   "groupName": "Smart iPads Group",
   "siteId": "-1"
