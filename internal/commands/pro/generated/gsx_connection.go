@@ -98,7 +98,11 @@ func newGsxConnectionUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 			if flagScaffold {
 				return printScaffoldOutput(`{
   "enabled": true,
-  "gsxKeystore": {},
+  "gsxKeystore": {
+    "keystoreBytes": "WlhoaGJYQnNaU0J2WmlCaElHSmhjMlUyTkNCbGJtTnZaR1ZrSUhaaGJHbGtJSEF4TWk0Z2EyVjVjM1J2Y21VZ1ptbHNaUT09",
+    "keystorePassword": "test1234",
+    "name": "certificate.p12"
+  },
   "serviceAccountNo": "0000012345",
   "shipToNo": "0000012345",
   "token": "34dsg23-5dsgs-3sdg-4ffs-435sdgs",
@@ -429,7 +433,11 @@ func newGsxConnectionPatchCmd(ctx *registry.CLIContext) *cobra.Command {
 			if flagScaffold {
 				return printScaffoldOutput(`{
   "enabled": true,
-  "gsxKeystore": {},
+  "gsxKeystore": {
+    "keystoreBytes": "WlhoaGJYQnNaU0J2WmlCaElHSmhjMlUyTkNCbGJtTnZaR1ZrSUhaaGJHbGtJSEF4TWk0Z2EyVjVjM1J2Y21VZ1ptbHNaUT09",
+    "keystorePassword": "test1234",
+    "name": "certificate.p12"
+  },
   "serviceAccountNo": "0000012345",
   "shipToNo": "0000012345",
   "token": "34dsg23-5dsgs-3sdg-4ffs-435sdgs",

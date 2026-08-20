@@ -72,7 +72,7 @@ Functions available in `resourceTemplate`:
 | `createPath(ops)`, `updatePath(ops)`, `updatePathParam(ops)` | Extract paths from create/update operations for apply |
 | `needsFmt(r)` | Whether generated code needs `fmt` import |
 | `needsURL(r)` | Whether generated code needs `net/url` import |
-| `hasScaffold`, `opHasScaffold`, `scaffoldJSON`, `opScaffoldJSON` | JSON scaffold template generation |
+| `hasScaffold`, `opHasScaffold`, `scaffoldJSON`, `opScaffoldJSON` | JSON scaffold template generation — all delegate to `parser.ScaffoldJSON` / `parser.HasScaffoldShape`, shared with the Platform and Security Cloud generators so a scaffold means the same thing whichever API serves the command |
 | `exampleText(resource, singular, op)` | CLI example text per operation type (singleton-aware) |
 | `isDestructive(op)` | Check destructive flag |
 | `opAnnotations(op)` | Build the Annotations map (`jamf:destructive` + `jamf:privileges`) |
@@ -85,7 +85,7 @@ Functions available in `resourceTemplate`:
 - **`Resource`** — Top-level: `Name`, `NameSingular`, `GoName`, `Description`, `Operations`, `Schemas`, `IsSingleton`
 - **`Operation`** — Endpoint: `Name` (list/get/create/update/delete), `Method`, `Path`, `Parameters`, `RequestBody`, `IsList`, `IsPaginated`, `IsDestructive`, `Privileges` (`[]string`, from `x-required-privileges`). `IsList` is true for list/history ops and drives list-only semantics (default sections, output array key, singleton detection); `IsPaginated` is broader (any GET exposing `page`/`page-size`) and gates `--all`/`--limit` auto-pagination, so report/action GETs like `patch-report` paginate too.
 - **`Parameter`** — Query/path param: `Name`, `In`, `Type`, `Required`, `Default`, `IsArray`
-- **`Schema`** / **`Property`** — Used for `--scaffold` JSON template generation
+- **`Schema`** / **`Property`** — Used for `--scaffold` JSON template generation. `Property.Nested` carries a resolved object schema and `Property.Items` / `Schema.Items` the element schema of an array, so a scaffold can show one element instead of a bare `[]`. Both are populated under `maxSchemaDepth`: object nesting terminates on its own, but an array element may name its own parent's schema, which without a cap recurses until the stack dies.
 
 `IsSingleton` is set by `detectSingleton()` in `parser.go` and controls CLI name pluralisation, operation naming, and whether `apply`/`delete-by-name` are generated.
 

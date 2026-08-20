@@ -4,7 +4,6 @@ package platform
 
 import (
 	"bytes"
-	"encoding/json"
 	"fmt"
 	"go/format"
 	"net/http"
@@ -96,7 +95,8 @@ type templateOp struct {
 	Paginate           bool          // op exposes page+page-size — emit a pagination loop
 	ListArrayKey       string        // JSON key holding the result array on a list response (empty if response shouldn't be unwrapped)
 	ListTableColumns   []tableColumn // preferred columns for table output on a list op (empty = emit raw)
-	Scaffold           string        // pretty-printed JSON template for the request body, surfaced via --scaffold (empty when op has no body)
+	Scaffold           string        // pretty-printed JSON template for the request body, surfaced via --scaffold (empty when the body has no shape to show)
+	HasScaffold        bool          // body carries enough shape for --scaffold to be worth offering (parser.HasScaffoldShape)
 	SupportsNameLookup bool          // op accepts a single positional ID arg AND its resource has a list op — emit --name as alternative
 	ListPath           string        // sibling list-op path (used by --name lookup); only populated when SupportsNameLookup is true
 }
@@ -157,7 +157,10 @@ func Generate(resources []*parser.Resource, outputDir string) ([]string, error) 
 		}
 		filtered := *r
 		filtered.Operations = generable
-		tr := buildTemplateResource(&filtered)
+		tr, err := buildTemplateResource(&filtered)
+		if err != nil {
+			return nil, err
+		}
 		var buf bytes.Buffer
 		if err := tmpl.Execute(&buf, tr); err != nil {
 			return nil, fmt.Errorf("rendering %s: %w", r.Name, err)
@@ -213,7 +216,7 @@ func extractPathParams(p string) []string {
 	return out
 }
 
-func buildTemplateResource(r *parser.Resource) templateResource {
+func buildTemplateResource(r *parser.Resource) (templateResource, error) {
 	// Find the resource's list op upfront (if any) so single-ID ops can
 	// expose --name as an alternative to the positional arg.
 	var listPath string
@@ -253,6 +256,10 @@ func buildTemplateResource(r *parser.Resource) templateResource {
 		if opCopy.Name == "list" {
 			listTableCols = platformTableColumns[r.Name]
 		}
+		scaffold, err := buildScaffold(&opCopy)
+		if err != nil {
+			return templateResource{}, fmt.Errorf("resource %q op %q: %w", r.Name, opCopy.Name, err)
+		}
 		ops = append(ops, templateOp{
 			Operation:      &opCopy,
 			GoName:         strcase.ToCamel(opCopy.Name),
@@ -274,7 +281,8 @@ func buildTemplateResource(r *parser.Resource) templateResource {
 				return ""
 			}(),
 			ListTableColumns:   listTableCols,
-			Scaffold:           buildScaffold(&opCopy),
+			Scaffold:           scaffold,
+			HasScaffold:        scaffold != "",
 			SupportsNameLookup: supportsName,
 			ListPath:           opListPath,
 		})
@@ -284,7 +292,7 @@ func buildTemplateResource(r *parser.Resource) templateResource {
 		GoName:     r.GoName,
 		Long:       firstParagraph(r.Description),
 		Operations: ops,
-	}
+	}, nil
 }
 
 // firstParagraph returns the leading paragraph of s, with internal newlines
@@ -327,67 +335,19 @@ func restoreTenantSegment(path string) string {
 }
 
 // buildScaffold returns a pretty-printed JSON example for the operation's
-// request body, derived from the spec schema. Returns "" when the op has no
-// body. Properties recurse into nested schemas; primitives use their
-// zero-value, arrays render as []. Generated code surfaces this via the
-// --scaffold flag so callers can `--scaffold > body.json && edit && apply`.
-func buildScaffold(op *parser.Operation) string {
-	if op.RequestBody == nil || op.RequestBody.Schema == nil {
-		return ""
+// request body, derived from the spec schema. Returns "" when the op's body has
+// no shape worth showing, which is the signal the template uses to omit
+// --scaffold entirely.
+//
+// The rendering itself is parser.ScaffoldJSON, shared with the Jamf Pro and
+// Security Cloud generators. It used to be a local copy — byte-identical between
+// this file and generator/security/emitter.go, and subtly different from Pro's —
+// so the same schema could scaffold three ways depending on which API served it.
+func buildScaffold(op *parser.Operation) (string, error) {
+	if op.RequestBody == nil || !parser.HasScaffoldShape(op.RequestBody.Schema) {
+		return "", nil
 	}
-	example := schemaExample(op.RequestBody.Schema)
-	b, err := json.MarshalIndent(example, "", "  ")
-	if err != nil {
-		return "{}"
-	}
-	return string(b)
-}
-
-// schemaExample walks a parsed schema and emits a JSON-marshallable Go value
-// with placeholder zero values for every property.
-func schemaExample(s *parser.Schema) any {
-	if s == nil {
-		return nil
-	}
-	switch s.Type {
-	case "object", "":
-		m := map[string]any{}
-		for name, prop := range s.Properties {
-			m[name] = propertyExample(prop)
-		}
-		return m
-	case "array":
-		return []any{}
-	case "string":
-		return ""
-	case "boolean":
-		return false
-	case "integer", "number":
-		return 0
-	}
-	return nil
-}
-
-func propertyExample(p *parser.Property) any {
-	if p == nil {
-		return nil
-	}
-	switch p.Type {
-	case "object":
-		if p.Nested != nil {
-			return schemaExample(p.Nested)
-		}
-		return map[string]any{}
-	case "array":
-		return []any{}
-	case "string":
-		return ""
-	case "boolean":
-		return false
-	case "integer", "number":
-		return 0
-	}
-	return nil
+	return parser.ScaffoldJSON(op.RequestBody.Schema)
 }
 
 // hasPaginationParams reports whether the op exposes page + page-size query

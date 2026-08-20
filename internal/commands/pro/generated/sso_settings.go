@@ -99,12 +99,37 @@ func newSsoSettingsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 			if flagScaffold {
 				return printScaffoldOutput(`{
   "configurationType": "SAML",
-  "enrollmentSsoConfig": {},
+  "enrollmentSsoConfig": {
+    "hosts": [
+      "dev-12324233.okta.com",
+      "example.okta.com"
+    ],
+    "managementHint": ""
+  },
   "enrollmentSsoForAccountDrivenEnrollmentEnabled": false,
   "groupEnrollmentAccessEnabled": false,
   "groupEnrollmentAccessName": "",
-  "oidcSettings": {},
-  "samlSettings": {},
+  "oidcSettings": {
+    "jamfIdAuthenticationEnabled": false,
+    "userMapping": "USERNAME",
+    "usernameAttributeClaimMapping": "EMAIL"
+  },
+  "samlSettings": {
+    "entityId": "saml/metadata",
+    "federationMetadataFile": "WlhoaGJYQnNaU0J2WmlCaElHSmhjMlUyTkNCbGJtTnZaR1ZrSUhaaGJHbGtJSEF4TWk0Z2EyVjVjM1J2Y21VZ1ptbHNaUT09",
+    "groupAttributeName": "",
+    "groupRdnKey": "",
+    "idpProviderType": "ADFS",
+    "idpUrl": "https://example.idp.com/app/id/sso/saml/metadata",
+    "metadataFileName": "if MetadataSource is set to URL, remove this field",
+    "metadataSource": "URL",
+    "otherProviderTypeName": "",
+    "sessionTimeout": 0,
+    "tokenExpirationDisabled": false,
+    "userAttributeEnabled": false,
+    "userAttributeName": "",
+    "userMapping": "USERNAME"
+  },
   "ssoBypassAllowed": false,
   "ssoEnabled": false,
   "ssoForEnrollmentEnabled": false,
