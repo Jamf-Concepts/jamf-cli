@@ -4,8 +4,11 @@ package commands
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"testing"
+
+	"gopkg.in/yaml.v3"
 
 	"github.com/Jamf-Concepts/jamfprotect-go-sdk/jamfprotect"
 
@@ -19,11 +22,127 @@ import (
 type mockProtectClient struct {
 	registry.ProtectClient
 
-	ulfFilters []jamfprotect.UnifiedLoggingFilter
-	ulfSets    []jamfprotect.UnifiedLoggingFilterSet
+	ulfFilters  []jamfprotect.UnifiedLoggingFilter
+	ulfSets     []jamfprotect.UnifiedLoggingFilterSet
+	roles       []jamfprotect.Role
+	groups      []jamfprotect.Group
+	connections []jamfprotect.Connection
+	analytics   []jamfprotect.Analytic
+
+	actionConfigs []jamfprotect.ActionConfigListItem
+	actionConfig  *jamfprotect.ActionConfig
+	retention     jamfprotect.DataRetentionSettings
+
+	// retentionWrites counts UpdateDataRetention calls, so a test can assert the
+	// rate-limited mutation was not sent when the tenant already matches.
+	retentionWrites int
+
+	// analyticsErr and ulfErr make a list call fail, so the backup partial-failure
+	// and never-prune-on-failure paths can be exercised without a live tenant.
+	analyticsErr error
+	ulfErr       error
+
+	// internalAnalyticFailFor makes UpdateInternalAnalytic refuse one UUID, so a
+	// test can assert that one refused override does not abandon the rest.
+	internalAnalyticFailFor string
+	// internalAnalyticWrites records the UUIDs UpdateInternalAnalytic accepted, in
+	// call order.
+	internalAnalyticWrites []string
+
+	createdGroups int
+	updatedGroups int
+
+	// plans and planInputs let a test read the PlanInput a restore actually built,
+	// which is the only place the clearAbsent decision is observable.
+	plans      []jamfprotect.Plan
+	planInputs []jamfprotect.PlanInput
+}
+
+func (m *mockProtectClient) ListPlans(context.Context) ([]jamfprotect.Plan, error) {
+	return m.plans, nil
+}
+
+func (m *mockProtectClient) CreatePlan(_ context.Context, in jamfprotect.PlanInput) (jamfprotect.Plan, error) {
+	m.planInputs = append(m.planInputs, in)
+	return jamfprotect.Plan{Name: in.Name}, nil
+}
+
+func (m *mockProtectClient) UpdatePlan(_ context.Context, _ string, in jamfprotect.PlanInput) (jamfprotect.Plan, error) {
+	m.planInputs = append(m.planInputs, in)
+	return jamfprotect.Plan{Name: in.Name}, nil
+}
+
+func (m *mockProtectClient) UpdateInternalAnalytic(_ context.Context, uuid string, _ jamfprotect.InternalAnalyticInput) (jamfprotect.Analytic, error) {
+	if uuid == m.internalAnalyticFailFor {
+		return jamfprotect.Analytic{}, errors.New("updateInternalAnalytic: action 'Bogus' is not provisioned for this tenant")
+	}
+	m.internalAnalyticWrites = append(m.internalAnalyticWrites, uuid)
+	return jamfprotect.Analytic{UUID: uuid}, nil
+}
+
+func (m *mockProtectClient) CreateUnifiedLoggingFilter(_ context.Context, in jamfprotect.UnifiedLoggingFilterInput) (jamfprotect.UnifiedLoggingFilter, error) {
+	return jamfprotect.UnifiedLoggingFilter{UUID: "created", Name: in.Name}, nil
+}
+
+func (m *mockProtectClient) GetGroup(_ context.Context, id string) (*jamfprotect.Group, error) {
+	for i := range m.groups {
+		if m.groups[i].ID == id {
+			return &m.groups[i], nil
+		}
+	}
+	return nil, errors.New("group not found")
+}
+
+func (m *mockProtectClient) CreateGroup(_ context.Context, _ jamfprotect.GroupInput) (jamfprotect.Group, error) {
+	m.createdGroups++
+	return jamfprotect.Group{}, nil
+}
+
+func (m *mockProtectClient) UpdateGroup(_ context.Context, _ string, _ jamfprotect.GroupInput) (jamfprotect.Group, error) {
+	m.updatedGroups++
+	return jamfprotect.Group{}, nil
+}
+
+func (m *mockProtectClient) GetDataRetention(_ context.Context) (jamfprotect.DataRetentionSettings, error) {
+	return m.retention, nil
+}
+
+func (m *mockProtectClient) UpdateDataRetention(_ context.Context, _ jamfprotect.DataRetentionInput) (jamfprotect.DataRetentionSettings, error) {
+	m.retentionWrites++
+	return m.retention, nil
+}
+
+func (m *mockProtectClient) ListActionConfigs(_ context.Context) ([]jamfprotect.ActionConfigListItem, error) {
+	return m.actionConfigs, nil
+}
+
+func (m *mockProtectClient) GetActionConfig(_ context.Context, _ string) (*jamfprotect.ActionConfig, error) {
+	return m.actionConfig, nil
+}
+
+func (m *mockProtectClient) ListAnalytics(_ context.Context) ([]jamfprotect.Analytic, error) {
+	if m.analyticsErr != nil {
+		return nil, m.analyticsErr
+	}
+	return m.analytics, nil
+}
+
+func (m *mockProtectClient) ListRoles(_ context.Context) ([]jamfprotect.Role, error) {
+	return m.roles, nil
+}
+
+func (m *mockProtectClient) ListGroups(_ context.Context) ([]jamfprotect.Group, error) {
+	return m.groups, nil
+}
+
+func (m *mockProtectClient) ListConnections(_ context.Context) ([]jamfprotect.Connection, error) {
+	return m.connections, nil
 }
 
 func (m *mockProtectClient) ListUnifiedLoggingFilters(_ context.Context) ([]jamfprotect.UnifiedLoggingFilter, error) {
+	if m.ulfErr != nil {
+		return nil, m.ulfErr
+	}
 	return m.ulfFilters, nil
 }
 
@@ -308,7 +427,7 @@ func TestPlanExportToInput_ResolvesULFSetNames(t *testing.T) {
 	input, err := planExportToInput(context.Background(), planExport{
 		Name:    "My Plan",
 		ULFSets: []string{"Set Two", "Set One"},
-	}, r)
+	}, r, false)
 	if err != nil {
 		t.Fatalf("planExportToInput() error = %v", err)
 	}
@@ -330,7 +449,7 @@ func TestPlanExportToInput_UnresolvableULFSetName(t *testing.T) {
 	_, err := planExportToInput(context.Background(), planExport{
 		Name:    "My Plan",
 		ULFSets: []string{"Missing"},
-	}, r)
+	}, r, false)
 	if err == nil {
 		t.Fatal("planExportToInput() error = nil, want error for unresolvable ULF set name")
 	}
@@ -839,4 +958,466 @@ func TestFlattenAuditLog_WithError(t *testing.T) {
 	if m["error"] != "permission denied" {
 		t.Errorf("error = %v, want %q", m["error"], "permission denied")
 	}
+}
+
+// --- Analytic document schema detection ---
+
+// `analytics export` emits the community YAML schema and `apply --scaffold`
+// emits the SDK AnalyticInput shape. apply must accept both, because the two
+// differ on `actions` (objects vs strings) and decoding either into the wrong
+// struct fails outright.
+func TestAnalyticDocumentIsCommunitySchema(t *testing.T) {
+	tests := []struct {
+		name string
+		doc  string
+		want bool
+	}{
+		{
+			name: "community yaml from analytics export",
+			doc: `name: BlazingKeylogger
+shortDescription: Known malware IOC
+severity: High
+actions:
+    - name: Report
+      parameters: '{}'
+`,
+			want: true,
+		},
+		{
+			name: "community yaml without shortDescription still detected by action objects",
+			doc: `name: Something
+actions:
+    - name: Report
+      parameters: '{}'
+`,
+			want: true,
+		},
+		{
+			name: "sdk shape as json, capitalised go field names",
+			doc:  `{"Name":"Custom","Actions":["Report"],"AnalyticActions":[{"Name":"Report","Parameters":"{}"}]}`,
+			want: false,
+		},
+		{
+			name: "sdk shape as yaml, lowercased field names",
+			doc: `name: Custom
+analyticactions:
+    - name: Report
+      parameters: '{}'
+`,
+			want: false,
+		},
+		{
+			name: "sdk shape with string actions",
+			doc:  `{"Name":"Custom","Actions":["Report"]}`,
+			want: false,
+		},
+		{
+			name: "minimal document defaults to the sdk shape",
+			doc:  `{"Name":"Custom"}`,
+			want: false,
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := analyticDocumentIsCommunitySchema([]byte(tc.doc)); got != tc.want {
+				t.Errorf("analyticDocumentIsCommunitySchema() = %v, want %v", got, tc.want)
+			}
+		})
+	}
+}
+
+// The regression this fixes: piping `analytics export` into `analytics apply`
+// failed with "input is not valid JSON or YAML".
+func TestAnalyticInputFromDocument_AcceptsCommunityExport(t *testing.T) {
+	doc := []byte(`name: BlazingKeylogger
+longDescription: A plist name associated with BlazingKeylogger was written.
+shortDescription: Known malware IOC for BlazingKeylogger
+remediation: Delete the file.
+level: 1
+inputType: GPFSEvent
+filter: '"LaunchDaemon" IN $tags'
+severity: High
+categories:
+    - Known Malicious File
+actions:
+    - name: Report
+      parameters: '{}'
+`)
+
+	got, err := analyticInputFromDocument(doc)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got.Name != "BlazingKeylogger" {
+		t.Errorf("Name = %q, want BlazingKeylogger", got.Name)
+	}
+	if got.InputType != "GPFSEvent" {
+		t.Errorf("InputType = %q, want GPFSEvent", got.InputType)
+	}
+	if got.Description != "Known malware IOC for BlazingKeylogger" {
+		t.Errorf("Description = %q, want the community shortDescription", got.Description)
+	}
+	if len(got.AnalyticActions) != 1 || got.AnalyticActions[0].Name != "Report" {
+		t.Fatalf("AnalyticActions = %+v, want one Report action", got.AnalyticActions)
+	}
+	if got.AnalyticActions[0].Parameters != "{}" {
+		t.Errorf("Parameters = %q, want {}", got.AnalyticActions[0].Parameters)
+	}
+}
+
+func TestAnalyticInputFromDocument_AcceptsScaffoldShape(t *testing.T) {
+	doc := []byte(`{"Name":"Custom","InputType":"GPProcessEvent","AnalyticActions":[{"Name":"Report","Parameters":"{}"}]}`)
+
+	got, err := analyticInputFromDocument(doc)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got.Name != "Custom" || got.InputType != "GPProcessEvent" {
+		t.Errorf("got %+v, want the SDK shape decoded verbatim", got)
+	}
+	if len(got.AnalyticActions) != 1 {
+		t.Errorf("AnalyticActions = %+v, want one entry", got.AnalyticActions)
+	}
+}
+
+// analyticToYAML emits longDescription and remediation, so the conversion back
+// must keep them or every export/import round-trip silently drops both.
+func TestAnalyticYAMLToInput_PreservesLongDescriptionAndRemediation(t *testing.T) {
+	original := jamfprotect.Analytic{
+		Name:            "Custom",
+		Description:     "short",
+		LongDescription: "the long one",
+		Remediation:     "do the thing",
+		InputType:       "GPFSEvent",
+		Severity:        "High",
+		Level:           1,
+	}
+
+	got := analyticYAMLToInput(analyticToYAML(original))
+
+	if got.LongDescription != "the long one" {
+		t.Errorf("LongDescription = %q, want %q", got.LongDescription, "the long one")
+	}
+	if got.Remediation != "do the thing" {
+		t.Errorf("Remediation = %q, want %q", got.Remediation, "do the thing")
+	}
+	if got.Description != "short" {
+		t.Errorf("Description = %q, want %q", got.Description, "short")
+	}
+}
+
+// planExport is hand-written rather than the SDK input type, so a field added to
+// PlanInput can go unnoticed. threatPreventionStrategy and customEngineConfig
+// were both dropped that way — a plan's threat prevention posture silently did
+// not travel.
+func TestPlanToExport_CarriesThreatPrevention(t *testing.T) {
+	got := planToExport(&jamfprotect.Plan{
+		Name:                     "Plan",
+		ThreatPreventionStrategy: "CUSTOM_ENGINES",
+		CustomEngineConfig: &jamfprotect.CustomEngineConfig{
+			MalwareRiskware:  "block",
+			AdversaryTactics: "report",
+			SystemTampering:  "block",
+			FilelessThreats:  "report",
+			Experimental:     "off",
+		},
+	})
+
+	if got.ThreatPreventionStrategy != "CUSTOM_ENGINES" {
+		t.Errorf("ThreatPreventionStrategy = %q, want CUSTOM_ENGINES", got.ThreatPreventionStrategy)
+	}
+	if got.CustomEngineConfig == nil {
+		t.Fatal("CustomEngineConfig is nil — the per-engine settings were dropped")
+	}
+	if got.CustomEngineConfig.MalwareRiskware != "block" {
+		t.Errorf("MalwareRiskware = %q, want block", got.CustomEngineConfig.MalwareRiskware)
+	}
+	if got.CustomEngineConfig.Experimental != "off" {
+		t.Errorf("Experimental = %q, want off", got.CustomEngineConfig.Experimental)
+	}
+}
+
+func TestPlanExportToInput_CarriesThreatPrevention(t *testing.T) {
+	input, err := planExportToInput(context.Background(), planExport{
+		Name:                     "Plan",
+		ThreatPreventionStrategy: "MANAGED",
+		CustomEngineConfig:       &jamfprotect.CustomEngineConfigInput{MalwareRiskware: "block"},
+	}, protect.NewResolver(&mockProtectClient{}), false)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if input.ThreatPreventionStrategy != "MANAGED" {
+		t.Errorf("ThreatPreventionStrategy = %q, want MANAGED", input.ThreatPreventionStrategy)
+	}
+	if input.CustomEngineConfig == nil || input.CustomEngineConfig.MalwareRiskware != "block" {
+		t.Errorf("CustomEngineConfig = %+v, want it carried through", input.CustomEngineConfig)
+	}
+}
+
+// startup, label and matchReason are on the analytic and settable on the input
+// but absent from the community schema, so they were lost on round-trip.
+func TestAnalyticRoundTrip_CarriesStartupLabelMatchReason(t *testing.T) {
+	original := jamfprotect.Analytic{
+		Name:        "Custom",
+		InputType:   "GPFSEvent",
+		Severity:    "High",
+		Startup:     true,
+		Label:       "a-label",
+		MatchReason: "why it matched",
+	}
+
+	y := analyticToYAML(original)
+	if y.Startup == nil || !*y.Startup || y.Label != "a-label" || y.MatchReason != "why it matched" {
+		t.Fatalf("export dropped fields: %+v", y)
+	}
+
+	got := analyticYAMLToInput(y)
+	if got.Startup == nil || !*got.Startup {
+		t.Error("Startup did not survive the round-trip")
+	}
+	if got.Label != "a-label" {
+		t.Errorf("Label = %q, want a-label", got.Label)
+	}
+	if got.MatchReason != "why it matched" {
+		t.Errorf("MatchReason = %q, want the original", got.MatchReason)
+	}
+}
+
+// The common case must stay byte-identical to a community analytic file, or
+// every export starts carrying keys the community schema does not define.
+func TestAnalyticToYAML_OmitsUnsetExtras(t *testing.T) {
+	data, err := yaml.Marshal(analyticToYAML(jamfprotect.Analytic{Name: "Plain", InputType: "GPFSEvent"}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, key := range []string{"startup:", "label:", "matchReason:"} {
+		if strings.Contains(string(data), key) {
+			t.Errorf("rendered export contains %q when unset:\n%s", key, data)
+		}
+	}
+}
+
+// A community analytic file from jamf/jamfprotect declares no startup key. That
+// must reach the wire as "unset" rather than an explicit false, or importing an
+// upstream file overwrites whatever the server defaults to.
+func TestAnalyticYAMLToInput_AbsentStartupStaysAbsent(t *testing.T) {
+	var ay analyticYAML
+	community := []byte("name: Community Analytic\ninputType: GPFSEvent\nseverity: High\nshortDescription: from the upstream repo\n")
+	if err := unmarshalInput(community, &ay); err != nil {
+		t.Fatal(err)
+	}
+	if ay.Startup != nil {
+		t.Fatalf("Startup = %v, want nil for a document with no startup key", *ay.Startup)
+	}
+
+	got := analyticYAMLToInput(ay)
+	if got.Startup != nil {
+		t.Errorf("Startup = %v, want nil so the SDK omits the variable entirely", *got.Startup)
+	}
+}
+
+// An explicit false, on the other hand, is a stated value and must be sent.
+func TestAnalyticYAMLToInput_ExplicitFalseStartupIsSent(t *testing.T) {
+	var ay analyticYAML
+	if err := unmarshalInput([]byte("name: Explicit\ninputType: GPFSEvent\nstartup: false\n"), &ay); err != nil {
+		t.Fatal(err)
+	}
+	if ay.Startup == nil {
+		t.Fatal("an explicit `startup: false` must decode to a non-nil pointer")
+	}
+
+	got := analyticYAMLToInput(ay)
+	if got.Startup == nil {
+		t.Fatal("an explicit false must reach the input")
+	}
+	if *got.Startup {
+		t.Error("Startup = true, want the document's false")
+	}
+}
+
+// `unified-logging-filters export` emits the community schema, whose predicate
+// key is `predicate`; the SDK input calls the same field `Filter`. apply decoded
+// the SDK shape directly, so piping export into apply sent an empty filter and
+// the server refused every one of them with "input → filter: ” should be
+// non-empty". Same bug class as the analytics export/apply mismatch, in the
+// sibling resource.
+func TestULFDocumentIsCommunitySchema(t *testing.T) {
+	tests := []struct {
+		name string
+		doc  string
+		want bool
+	}{
+		{"community yaml from unified-logging-filters export", "name: Some filter\ndescription: \"\"\npredicate: Blah\ntags: []\nenabled: false\n", true},
+		{"sdk input shape from apply --scaffold", "name: Some filter\ndescription: \"\"\nfilter: Blah\ntags: []\nenabled: false\n", false},
+		{"sdk input shape as json uses Go field names", `{"Name":"f","Filter":"Blah"}`, false},
+		{"community json", `{"name":"f","predicate":"Blah"}`, true},
+		{"neither key present falls back to the sdk shape", "name: f\n", false},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := ulfDocumentIsCommunitySchema([]byte(tc.doc)); got != tc.want {
+				t.Errorf("ulfDocumentIsCommunitySchema() = %v, want %v", got, tc.want)
+			}
+		})
+	}
+}
+
+// The regression: `unified-logging-filters export | apply` must carry the
+// predicate through rather than sending an empty filter.
+func TestULFInputFromDocument_AcceptsCommunityExport(t *testing.T) {
+	exported, err := yaml.Marshal(ulfToYAML(jamfprotect.UnifiedLoggingFilter{
+		Name:        "Some filter",
+		Description: "a description",
+		Filter:      `subsystem == "com.apple.TimeMachine"`,
+		Tags:        []string{"backup"},
+		Enabled:     true,
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := ulfInputFromDocument(exported)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got.Filter != `subsystem == "com.apple.TimeMachine"` {
+		t.Errorf("Filter = %q, want the predicate from the document — an empty filter is refused by the server", got.Filter)
+	}
+	if got.Name != "Some filter" || got.Description != "a description" {
+		t.Errorf("got %+v, want the name and description preserved", got)
+	}
+	if !got.Enabled || len(got.Tags) != 1 {
+		t.Errorf("got %+v, want enabled with one tag", got)
+	}
+}
+
+// And the scaffold shape must keep working alongside it.
+func TestULFInputFromDocument_AcceptsScaffoldShape(t *testing.T) {
+	got, err := ulfInputFromDocument([]byte("name: Scaffolded\nfilter: subsystem == \"com.apple.zz\"\nenabled: true\n"))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got.Name != "Scaffolded" {
+		t.Errorf("Name = %q", got.Name)
+	}
+	if got.Filter != `subsystem == "com.apple.zz"` {
+		t.Errorf("Filter = %q, want the document's filter key", got.Filter)
+	}
+}
+
+// Set membership comes back in the server's own order, and the order rotates
+// after a rewrite. An unsorted export therefore made two backups of an unchanged
+// set diff by its whole membership — 60 lines of churn for the Default Analytic
+// Set — which defeats the point of keeping a backup directory in git.
+// planToExport already sorts its three lists; these are the same problem.
+func TestSetExportsSortMembershipForStableDiffs(t *testing.T) {
+	t.Run("analytic sets", func(t *testing.T) {
+		unsorted := analyticSetToExport(&jamfprotect.AnalyticSet{
+			Name:      "Set",
+			Analytics: []jamfprotect.AnalyticSetAnalytic{{Name: "Zulu"}, {Name: "alpha"}, {Name: "Mike"}},
+		})
+		rotated := analyticSetToExport(&jamfprotect.AnalyticSet{
+			Name:      "Set",
+			Analytics: []jamfprotect.AnalyticSetAnalytic{{Name: "Mike"}, {Name: "Zulu"}, {Name: "alpha"}},
+		})
+
+		want := []string{"Mike", "Zulu", "alpha"}
+		for i, w := range want {
+			if unsorted.Analytics[i] != w {
+				t.Errorf("Analytics[%d] = %q, want %q", i, unsorted.Analytics[i], w)
+			}
+		}
+		// The load-bearing property: the same membership in a different server
+		// order must produce the same document.
+		if len(rotated.Analytics) != len(unsorted.Analytics) {
+			t.Fatalf("length changed: %v vs %v", rotated.Analytics, unsorted.Analytics)
+		}
+		for i := range unsorted.Analytics {
+			if rotated.Analytics[i] != unsorted.Analytics[i] {
+				t.Errorf("position %d: %q vs %q — the same set exported twice must not diff",
+					i, unsorted.Analytics[i], rotated.Analytics[i])
+			}
+		}
+	})
+
+	t.Run("unified logging filter sets", func(t *testing.T) {
+		a := ulfSetToExport(&jamfprotect.UnifiedLoggingFilterSet{
+			Name:    "Set",
+			Filters: []jamfprotect.UnifiedLoggingFilterSetFilter{{Name: "two"}, {Name: "one"}, {Name: "three"}},
+		})
+		b := ulfSetToExport(&jamfprotect.UnifiedLoggingFilterSet{
+			Name:    "Set",
+			Filters: []jamfprotect.UnifiedLoggingFilterSetFilter{{Name: "three"}, {Name: "two"}, {Name: "one"}},
+		})
+		want := []string{"one", "three", "two"}
+		for i, w := range want {
+			if a.Filters[i] != w {
+				t.Errorf("Filters[%d] = %q, want %q", i, a.Filters[i], w)
+			}
+		}
+		for i := range a.Filters {
+			if b.Filters[i] != a.Filters[i] {
+				t.Errorf("position %d: %q vs %q — the same set exported twice must not diff", i, a.Filters[i], b.Filters[i])
+			}
+		}
+	})
+}
+
+// restore's help promises the target ends up matching the document, so a
+// membership field the document omits has to be sent as an empty list — the SDK
+// omits a nil one from the GraphQL variables and the server then leaves the field
+// alone, which would leave a binding added after the backup attached through a
+// rollback. 'plans apply' keeps the opposite, documented, additive behaviour.
+func TestPlanExportToInputClearsAbsentMembershipOnlyForRestore(t *testing.T) {
+	doc := planExport{Name: "zz-plan", ActionConfig: ""}
+
+	t.Run("restore clears", func(t *testing.T) {
+		input, err := planExportToInput(context.Background(), doc, protect.NewResolver(&mockProtectClient{}), true)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if input.ExceptionSets == nil {
+			t.Error("ExceptionSets is nil; the SDK omits a nil list and the server keeps the existing bindings")
+		}
+		if input.AnalyticSets == nil {
+			t.Error("AnalyticSets is nil; the SDK omits a nil list and the server keeps the existing bindings")
+		}
+		if input.UnifiedLoggingFilterSets == nil {
+			t.Error("UnifiedLoggingFilterSets is nil; the SDK omits a nil list and the server keeps the existing bindings")
+		}
+		if len(input.ExceptionSets) != 0 || len(input.AnalyticSets) != 0 || len(input.UnifiedLoggingFilterSets) != 0 {
+			t.Error("the cleared lists must be empty, not populated")
+		}
+		if !input.TelemetryV2Null {
+			t.Error("TelemetryV2Null is false; a single reference needs the explicit-null flag to be cleared")
+		}
+	})
+
+	t.Run("apply leaves membership alone", func(t *testing.T) {
+		input, err := planExportToInput(context.Background(), doc, protect.NewResolver(&mockProtectClient{}), false)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if input.ExceptionSets != nil || input.AnalyticSets != nil || input.UnifiedLoggingFilterSets != nil {
+			t.Error("apply must send nothing for an omitted list — CLAUDE.md documents that as leaving membership unchanged")
+		}
+		if input.TelemetryV2Null {
+			t.Error("apply must not null telemetry for an omitted field")
+		}
+	})
+
+	// A document that names its members is unaffected by the flag.
+	t.Run("a populated list is sent either way", func(t *testing.T) {
+		mock := &mockProtectClient{ulfSets: []jamfprotect.UnifiedLoggingFilterSet{{UUID: "ulfs-1", Name: "Set One"}}}
+		populated := planExport{Name: "zz-plan", ULFSets: []string{"Set One"}}
+		for _, clearAbsent := range []bool{true, false} {
+			input, err := planExportToInput(context.Background(), populated, protect.NewResolver(mock), clearAbsent)
+			if err != nil {
+				t.Fatalf("clearAbsent=%v: unexpected error: %v", clearAbsent, err)
+			}
+			if len(input.UnifiedLoggingFilterSets) != 1 || input.UnifiedLoggingFilterSets[0] != "ulfs-1" {
+				t.Errorf("clearAbsent=%v: got %v, want the resolved set", clearAbsent, input.UnifiedLoggingFilterSets)
+			}
+		}
+	})
 }

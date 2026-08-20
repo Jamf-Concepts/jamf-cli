@@ -150,6 +150,9 @@ type ProtectClient interface {
 	GetAnalytic(ctx context.Context, uuid string) (*jamfprotect.Analytic, error)
 	CreateAnalytic(ctx context.Context, input jamfprotect.AnalyticInput) (jamfprotect.Analytic, error)
 	UpdateAnalytic(ctx context.Context, uuid string, input jamfprotect.AnalyticInput) (jamfprotect.Analytic, error)
+	// UpdateInternalAnalytic writes the tenant overlay (severity/actions) on a
+	// Jamf-managed analytic. UpdateAnalytic is refused for those by the server.
+	UpdateInternalAnalytic(ctx context.Context, uuid string, input jamfprotect.InternalAnalyticInput) (jamfprotect.Analytic, error)
 	DeleteAnalytic(ctx context.Context, uuid string) error
 
 	// Analytic Sets
@@ -336,6 +339,9 @@ type CLIContext struct {
 	Output        OutputFormatter
 	AuthProvider  auth.Provider // resolved Pro auth provider (nil for Protect commands)
 	ProtectClient ProtectClient
+	// ProtectURL is the resolved Jamf Protect tenant URL. Recorded by
+	// "protect backup" so a backup carries the provenance of where it came from.
+	ProtectURL string
 	// PlatformSDKClient is the raw *jamfplatform.Client used by all platform
 	// command code (hand-written and spec-generated). Hand-written commands
 	// construct subpackage clients per call (cheap — they share the

@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"slices"
+	"sort"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -97,6 +99,75 @@ func newProtectGroupsGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	}
 }
 
+// protectGroupUpdateSatisfied decides whether an existing group can be updated
+// with this document, working around the one asymmetry between createGroup and
+// updateGroup.
+//
+// createGroup accepts accessGroup: true on a connection-less local group;
+// updateGroup refuses it outright — "Local groups cannot be designated as access
+// groups" — *even when true is already the stored value*. Established on the wire:
+// create with true succeeds and stores true, the identical document re-applied
+// fails, and turning it off via update works but cannot be turned back on.
+//
+// satisfied reports that the target already holds the desired state, so the update
+// must be skipped rather than attempted. An error means the change is impossible
+// through update and says what to do about it. Shared by 'groups apply' and
+// 'protect restore' so the same document behaves the same way through both.
+func protectGroupUpdateSatisfied(existing *jamfprotect.Group, input jamfprotect.GroupInput) (bool, error) {
+	isLocal := input.ConnectionID == nil || *input.ConnectionID == ""
+	if !input.AccessGroup || !isLocal {
+		return false, nil
+	}
+	if existing.AccessGroup {
+		// updateGroup would refuse this document outright, so nothing at all can be
+		// sent for it. That is a no-op only when the document asks for nothing else
+		// — otherwise reporting success would silently drop the change, which is
+		// worse than the raw server error this guard replaced.
+		if diff := groupUpdateWouldChange(existing, input); diff != "" {
+			return false, fmt.Errorf("group %q is a connection-less local access group, so updateGroup refuses "+
+				"any update to it, and this document changes %s — clear accessGroup in the document, or delete "+
+				"and recreate the group in the target", input.Name, diff)
+		}
+		return true, nil
+	}
+	return false, fmt.Errorf("group %q asks for accessGroup: true, but the target's copy has it disabled and "+
+		"updateGroup refuses to designate a connection-less local group as an access group — the server allows it "+
+		"only at create. Delete the group in the target and apply again, or clear accessGroup in the document", input.Name)
+}
+
+// groupUpdateWouldChange names what a document changes about the group the target
+// already holds, or "" when it asks for the state that is already stored.
+//
+// Only the fields an update could carry are compared: updateGroup's mutation sends
+// name, accessGroup and roleIds and nothing else, so a document that moves a group
+// between connections is asking for something update cannot express either — which
+// is a change it could not apply, not a no-op.
+func groupUpdateWouldChange(existing *jamfprotect.Group, input jamfprotect.GroupInput) string {
+	var changes []string
+	if existing.Name != input.Name {
+		changes = append(changes, "name")
+	}
+	if existing.AccessGroup != input.AccessGroup {
+		changes = append(changes, "accessGroup")
+	}
+	have := make([]string, 0, len(existing.AssignedRoles))
+	for _, r := range existing.AssignedRoles {
+		have = append(have, r.ID)
+	}
+	want := slices.Clone(input.RoleIDs)
+	// Membership is a set: the server returns roles in its own order, so comparing
+	// unsorted would report a change on every re-apply of an unedited export.
+	sort.Strings(have)
+	sort.Strings(want)
+	if !slices.Equal(have, want) {
+		changes = append(changes, "roles")
+	}
+	if existing.Connection != nil && existing.Connection.ID != "" {
+		changes = append(changes, "connection")
+	}
+	return strings.Join(changes, ", ")
+}
+
 func newProtectGroupsApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	var (
 		fromFile string
@@ -109,24 +180,27 @@ func newProtectGroupsApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Short: "Create or update a group",
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if scaffold {
-				return printExport(jamfprotect.GroupInput{})
+				// The export shape, not the SDK input shape: 'export' emits names now,
+				// and a scaffold teaching roleids/connectionid teaches the form this
+				// command only still accepts for backward compatibility.
+				return printExport(groupExport{Roles: []string{}})
 			}
 			ctx := cmd.Context()
 			data, err := readInput(fromFile)
 			if err != nil {
 				return err
 			}
-			var input jamfprotect.GroupInput
-			if err := unmarshalInput(data, &input); err != nil {
+			r := protect.NewResolver(cliCtx.ProtectClient)
+			input, err := groupInputFromDocument(ctx, data, r)
+			if err != nil {
 				return fmt.Errorf("parsing input file: %w", err)
 			}
 
 			if input.Name == "" {
-				return fmt.Errorf("input must include a 'Name' field")
+				return fmt.Errorf("input must include a 'name' field")
 			}
 
 			// Check if group exists by name
-			r := protect.NewResolver(cliCtx.ProtectClient)
 			id, err := r.ResolveGroupID(ctx, input.Name)
 			if err != nil {
 				// Not found — create
@@ -145,6 +219,23 @@ func newProtectGroupsApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			}
 			if !proceed {
 				return nil
+			}
+
+			// Same guard 'protect restore' applies. Without it, re-applying a local
+			// access group's own export failed with the raw server message that says
+			// nothing actionable.
+			existing, err := cliCtx.ProtectClient.GetGroup(ctx, id)
+			if err != nil {
+				return err
+			}
+			satisfied, err := protectGroupUpdateSatisfied(existing, input)
+			if err != nil {
+				return err
+			}
+			if satisfied {
+				fmt.Fprintf(os.Stderr, "Group %q is already an access group; nothing to update "+
+					"(updateGroup cannot re-send that flag for a local group)\n", input.Name)
+				return printResult(cliCtx.Output, *existing, flattenGroup(*existing))
 			}
 
 			result, err := cliCtx.ProtectClient.UpdateGroup(ctx, id, input)
@@ -214,22 +305,7 @@ func newProtectGroupsExportCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return printExport(groupToInput(item))
+			return printExport(groupToExport(item))
 		},
 	}
-}
-
-// groupToInput converts a Group response to a GroupInput, stripping server-only fields.
-func groupToInput(g *jamfprotect.Group) jamfprotect.GroupInput {
-	input := jamfprotect.GroupInput{
-		Name:        g.Name,
-		AccessGroup: g.AccessGroup,
-	}
-	if g.Connection != nil {
-		input.ConnectionID = &g.Connection.ID
-	}
-	for _, r := range g.AssignedRoles {
-		input.RoleIDs = append(input.RoleIDs, r.ID)
-	}
-	return input
 }
