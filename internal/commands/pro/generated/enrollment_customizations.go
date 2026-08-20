@@ -279,7 +279,13 @@ func newEnrollmentCustomizationsCreateCmd(ctx *registry.CLIContext) *cobra.Comma
 				return printScaffoldOutput(`{
   "description": "Example description",
   "displayName": "Example",
-  "enrollmentCustomizationBrandingSettings": {},
+  "enrollmentCustomizationBrandingSettings": {
+    "backgroundColor": "0000FF",
+    "buttonColor": "0000FF",
+    "buttonTextColor": "0000FF",
+    "iconUrl": "https://jamfUrl/api/v2/enrollment-customizations/images/1",
+    "textColor": "0000FF"
+  },
   "siteId": "2"
 }`, ctx.Output.Format())
 			}
@@ -357,7 +363,13 @@ func newEnrollmentCustomizationsUpdateCmd(ctx *registry.CLIContext) *cobra.Comma
 				return printScaffoldOutput(`{
   "description": "Example description",
   "displayName": "Example",
-  "enrollmentCustomizationBrandingSettings": {},
+  "enrollmentCustomizationBrandingSettings": {
+    "backgroundColor": "0000FF",
+    "buttonColor": "0000FF",
+    "buttonTextColor": "0000FF",
+    "iconUrl": "https://jamfUrl/api/v2/enrollment-customizations/images/1",
+    "textColor": "0000FF"
+  },
   "siteId": "2"
 }`, ctx.Output.Format())
 			}
@@ -1142,7 +1154,13 @@ If not, a new resource is created.`,
 				return printScaffoldOutput(`{
   "description": "Example description",
   "displayName": "Example",
-  "enrollmentCustomizationBrandingSettings": {},
+  "enrollmentCustomizationBrandingSettings": {
+    "backgroundColor": "0000FF",
+    "buttonColor": "0000FF",
+    "buttonTextColor": "0000FF",
+    "iconUrl": "https://jamfUrl/api/v2/enrollment-customizations/images/1",
+    "textColor": "0000FF"
+  },
   "siteId": "2"
 }`, ctx.Output.Format())
 			}

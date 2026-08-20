@@ -278,8 +278,20 @@ func newManagedSoftwareUpdatesPlansCreateCmd(ctx *registry.CLIContext) *cobra.Co
 
 			if flagScaffold {
 				return printScaffoldOutput(`{
-  "config": {},
-  "devices": []
+  "config": {
+    "buildVersion": "21F79",
+    "forceInstallLocalDateTime": "2023-12-25T21:09:31",
+    "maxDeferrals": 5,
+    "specificVersion": "12.6.1",
+    "updateAction": "DOWNLOAD_INSTALL",
+    "versionType": "SPECIFIC_VERSION"
+  },
+  "devices": [
+    {
+      "deviceId": "1",
+      "objectType": "COMPUTER"
+    }
+  ]
 }`, ctx.Output.Format())
 			}
 
@@ -695,8 +707,20 @@ If not, a new resource is created.`,
 			reqCtx := cmd.Context()
 			if flagScaffold {
 				return printScaffoldOutput(`{
-  "config": {},
-  "devices": []
+  "config": {
+    "buildVersion": "21F79",
+    "forceInstallLocalDateTime": "2023-12-25T21:09:31",
+    "maxDeferrals": 5,
+    "specificVersion": "12.6.1",
+    "updateAction": "DOWNLOAD_INSTALL",
+    "versionType": "SPECIFIC_VERSION"
+  },
+  "devices": [
+    {
+      "deviceId": "1",
+      "objectType": "COMPUTER"
+    }
+  ]
 }`, ctx.Output.Format())
 			}
 
