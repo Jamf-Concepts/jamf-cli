@@ -121,6 +121,10 @@ func (s *stubProtectClientBase) CreateAnalytic(_ context.Context, _ jamfprotect.
 func (s *stubProtectClientBase) UpdateAnalytic(_ context.Context, _ string, _ jamfprotect.AnalyticInput) (jamfprotect.Analytic, error) {
 	return jamfprotect.Analytic{}, nil
 }
+
+func (s *stubProtectClientBase) UpdateInternalAnalytic(_ context.Context, _ string, _ jamfprotect.InternalAnalyticInput) (jamfprotect.Analytic, error) {
+	return jamfprotect.Analytic{}, nil
+}
 func (s *stubProtectClientBase) DeleteAnalytic(_ context.Context, _ string) error { return nil }
 
 func (s *stubProtectClientBase) ListAnalyticSets(_ context.Context) ([]jamfprotect.AnalyticSet, error) {

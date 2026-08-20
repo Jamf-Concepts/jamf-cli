@@ -1228,6 +1228,7 @@ func resolveProtectClient(cfg *config.Config, cliCtx *registry.CLIContext) error
 	}
 	sdkClient := jamfprotect.NewClient(url, cid, csecret, protectOpts...)
 	cliCtx.ProtectClient = sdkClient
+	cliCtx.ProtectURL = url
 	return nil
 }
 

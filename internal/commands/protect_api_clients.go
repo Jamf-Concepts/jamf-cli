@@ -105,24 +105,25 @@ func newProtectApiClientsApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Short: "Create or update an API client",
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if scaffold {
-				return printExport(jamfprotect.ApiClientInput{})
+				// The export shape, not the SDK input shape — see the groups scaffold.
+				return printExport(apiClientExport{Roles: []string{}})
 			}
 			ctx := cmd.Context()
 			data, err := readInput(fromFile)
 			if err != nil {
 				return err
 			}
-			var input jamfprotect.ApiClientInput
-			if err := unmarshalInput(data, &input); err != nil {
+			r := protect.NewResolver(cliCtx.ProtectClient)
+			input, err := apiClientInputFromDocument(ctx, data, r)
+			if err != nil {
 				return fmt.Errorf("parsing input file: %w", err)
 			}
 
 			if input.Name == "" {
-				return fmt.Errorf("input must include a 'Name' field")
+				return fmt.Errorf("input must include a 'name' field")
 			}
 
 			// Check if API client exists by name
-			r := protect.NewResolver(cliCtx.ProtectClient)
 			clientID, err := r.ResolveApiClientID(ctx, input.Name)
 			if err != nil {
 				// Not found — create
@@ -210,18 +211,7 @@ func newProtectApiClientsExportCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return printExport(apiClientToInput(item))
+			return printExport(apiClientToExport(item))
 		},
 	}
-}
-
-// apiClientToInput converts an ApiClient response to an ApiClientInput, stripping server-only fields.
-func apiClientToInput(a *jamfprotect.ApiClient) jamfprotect.ApiClientInput {
-	input := jamfprotect.ApiClientInput{
-		Name: a.Name,
-	}
-	for _, r := range a.AssignedRoles {
-		input.RoleIDs = append(input.RoleIDs, r.ID)
-	}
-	return input
 }

@@ -125,8 +125,8 @@ func newProtectULFApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				return err
 			}
 
-			var input jamfprotect.UnifiedLoggingFilterInput
-			if err := unmarshalInput(data, &input); err != nil {
+			input, err := ulfInputFromDocument(data)
+			if err != nil {
 				return fmt.Errorf("parsing input: %w", err)
 			}
 
@@ -325,6 +325,55 @@ func newProtectULFExportCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			return nil
 		},
 	}
+}
+
+// ulfDocumentIsCommunitySchema reports whether a filter document is in the
+// community YAML schema (as `unified-logging-filters export` and the backup
+// directory emit) rather than the SDK UnifiedLoggingFilterInput shape (as
+// `apply --scaffold` emits).
+//
+// The two disagree on the name of the one field that matters: the community
+// schema calls the predicate `predicate`, the SDK input calls it `Filter`. So
+// `export | apply` sent an empty filter and every apply was refused with
+// "input → filter: ” should be non-empty" — the same class of bug as the
+// analytics export/apply mismatch, in the sibling resource. See
+// docs/solutions/logic-errors/response-shape-is-not-input-shape-2026-08-18.md.
+//
+// Keys are compared lowercased because the SDK input struct carries no
+// json/yaml tags: encoded as JSON its keys are Go field names ("Filter"), while
+// yaml.v3 lowercases them ("filter").
+func ulfDocumentIsCommunitySchema(data []byte) bool {
+	var probe map[string]any
+	if err := unmarshalInput(data, &probe); err != nil {
+		return false
+	}
+	for k := range probe {
+		switch strings.ToLower(k) {
+		case "predicate":
+			return true
+		case "filter":
+			return false
+		}
+	}
+	return false
+}
+
+// ulfInputFromDocument decodes a filter document in either schema the CLI emits,
+// so the documented `export | apply` pipe works alongside `--scaffold | apply`.
+func ulfInputFromDocument(data []byte) (jamfprotect.UnifiedLoggingFilterInput, error) {
+	if ulfDocumentIsCommunitySchema(data) {
+		var uy unifiedLoggingFilterYAML
+		if err := unmarshalInput(data, &uy); err != nil {
+			return jamfprotect.UnifiedLoggingFilterInput{}, err
+		}
+		return ulfYAMLToInput(uy), nil
+	}
+
+	var input jamfprotect.UnifiedLoggingFilterInput
+	if err := unmarshalInput(data, &input); err != nil {
+		return jamfprotect.UnifiedLoggingFilterInput{}, err
+	}
+	return input, nil
 }
 
 // ulfYAMLToInput converts the community YAML schema to an SDK UnifiedLoggingFilterInput.
