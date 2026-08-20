@@ -80,9 +80,35 @@ func newCloudLdapMappingsUpdateMappingsCmd(ctx *registry.CLIContext) *cobra.Comm
 
 			if flagScaffold {
 				return printScaffoldOutput(`{
-  "groupMappings": {},
-  "membershipMappings": {},
-  "userMappings": {}
+  "groupMappings": {
+    "groupID": "cn",
+    "groupName": "cn",
+    "groupUuid": "gidNumber",
+    "objectClassLimitation": "ANY_OBJECT_CLASSES",
+    "objectClasses": "groupOfNames",
+    "searchBase": "ou=Groups",
+    "searchScope": "ALL_SUBTREES"
+  },
+  "membershipMappings": {
+    "groupMembershipMapping": "memberOf"
+  },
+  "userMappings": {
+    "additionalSearchBase": "",
+    "building": "",
+    "department": "departmentNumber",
+    "emailAddress": "mail",
+    "objectClassLimitation": "ANY_OBJECT_CLASSES",
+    "objectClasses": "inetOrgPerson",
+    "phone": "",
+    "position": "title",
+    "realName": "displayName",
+    "room": "",
+    "searchBase": "ou=Users",
+    "searchScope": "ALL_SUBTREES",
+    "userID": "mail",
+    "userUuid": "uid",
+    "username": "uid"
+  }
 }`, ctx.Output.Format())
 			}
 

@@ -266,7 +266,7 @@ func newDevicesPatchCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if scaffoldFlag {
 				// Scaffold prints raw JSON regardless of -o, so the output
 				// can be piped straight back into --file.
-				fmt.Println("{\n  \"name\": \"\",\n  \"userId\": \"\"\n}")
+				fmt.Println("{\n  \"name\": \"Some Device\",\n  \"userId\": \"616e6479-6973-6173-7461-6c6c696f6e21\"\n}")
 				return nil
 			}
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {

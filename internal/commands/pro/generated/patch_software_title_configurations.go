@@ -177,7 +177,12 @@ func newPatchSoftwareTitleConfigurationsCreateCmd(ctx *registry.CLIContext) *cob
   "categoryId": "-1",
   "displayName": "Google Chrome",
   "emailNotifications": false,
-  "extensionAttributes": [],
+  "extensionAttributes": [
+    {
+      "accepted": false,
+      "eaId": "google-chrome-ea"
+    }
+  ],
   "siteId": "-1",
   "softwareTitleId": "1",
   "uiNotifications": false
@@ -727,8 +732,18 @@ func newPatchSoftwareTitleConfigurationsPatchCmd(ctx *registry.CLIContext) *cobr
   "categoryId": "-1",
   "displayName": "Google Chrome",
   "emailNotifications": false,
-  "extensionAttributes": [],
-  "packages": [],
+  "extensionAttributes": [
+    {
+      "accepted": false,
+      "eaId": "google-chrome-ea"
+    }
+  ],
+  "packages": [
+    {
+      "packageId": "1",
+      "version": "1"
+    }
+  ],
   "siteId": "-1",
   "softwareTitleId": "1",
   "uiNotifications": false
@@ -1636,7 +1651,12 @@ If not, a new resource is created.`,
   "categoryId": "-1",
   "displayName": "Google Chrome",
   "emailNotifications": false,
-  "extensionAttributes": [],
+  "extensionAttributes": [
+    {
+      "accepted": false,
+      "eaId": "google-chrome-ea"
+    }
+  ],
   "siteId": "-1",
   "softwareTitleId": "1",
   "uiNotifications": false
