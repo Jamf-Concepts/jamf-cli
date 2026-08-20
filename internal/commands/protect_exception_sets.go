@@ -3,6 +3,7 @@
 package commands
 
 import (
+	"context"
 	"fmt"
 	"os"
 
@@ -87,25 +88,32 @@ func newProtectExceptionSetsApplyCmd(cliCtx *registry.CLIContext) *cobra.Command
 		Short: "Create or update an exception set",
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if scaffold {
-				return printExport(jamfprotect.ExceptionSetInput{})
+				return printExport(exceptionSetExport{
+					Exceptions:   []exceptionExport{},
+					EsExceptions: []jamfprotect.EsExceptionInput{},
+				})
 			}
 			ctx := cmd.Context()
 			data, err := readInput(fromFile)
 			if err != nil {
 				return err
 			}
-			var input jamfprotect.ExceptionSetInput
-			if err := unmarshalInput(data, &input); err != nil {
+			var doc exceptionSetExport
+			if err := unmarshalInput(data, &doc); err != nil {
 				return fmt.Errorf("parsing input JSON: %w", err)
 			}
 
-			if input.Name == "" {
-				return fmt.Errorf("input must include a 'Name' field")
+			if doc.Name == "" {
+				return fmt.Errorf("input must include a 'name' field")
 			}
 
 			// Check if exception set exists by name
 			r := protect.NewResolver(cliCtx.ProtectClient)
-			uuid, err := r.ResolveExceptionSetUUID(ctx, input.Name)
+			input, err := exceptionSetExportToInput(ctx, doc, r)
+			if err != nil {
+				return err
+			}
+			uuid, err := r.ResolveExceptionSetUUID(ctx, doc.Name)
 			if err != nil {
 				// Not found — create
 				result, err := cliCtx.ProtectClient.CreateExceptionSet(ctx, input)
@@ -209,6 +217,127 @@ func esExceptionToInput(e jamfprotect.EsException) jamfprotect.EsExceptionInput 
 		}
 	}
 	return input
+}
+
+// An exception that targets a specific analytic used to export only that
+// analytic's UUID. Jamf-published analytics carry the same UUID in every tenant,
+// so those survived a move; a custom analytic gets a per-tenant UUID, so the same
+// document applied elsewhere named an analytic the target does not have.
+//
+// The server does reject that, but with an error that identifies nothing:
+//
+//	createExceptionSet: Action blocked due to dependencies on this resource.
+//
+// Established on the wire by applying two documents differing only in the uuid —
+// the real one created the set, the foreign one produced the message above. So
+// the old behaviour was not a silently dead exception; it was an unactionable
+// restore failure naming neither the analytic, nor the uuid, nor the reason.
+//
+// exceptionSetExport therefore carries the analytic's *name* as well, and apply
+// resolves it against the target, failing with the analytic and set names when it
+// cannot. The document keys are otherwise a field-for-field mirror of the SDK
+// input types, json tags included and yaml tags deliberately absent, so files
+// written before this change decode unchanged and only gain the new key.
+
+// exceptionSetExport is the portable representation of an exception set.
+type exceptionSetExport struct {
+	Name         string                         `json:"name"`
+	Description  string                         `json:"description"`
+	Exceptions   []exceptionExport              `json:"exceptions"`
+	EsExceptions []jamfprotect.EsExceptionInput `json:"esExceptions"`
+}
+
+// exceptionExport is one exception, with its analytic reference by name.
+type exceptionExport struct {
+	Type           string                           `json:"type"`
+	Value          *string                          `json:"value,omitempty"`
+	AppSigningInfo *jamfprotect.AppSigningInfoInput `json:"appSigningInfo,omitempty"`
+	IgnoreActivity string                           `json:"ignoreActivity"`
+	// Analytic is the target analytic's name and is what apply resolves.
+	// AnalyticUUID is still read so pre-existing documents keep working, and is
+	// still written so a document stays usable with an older CLI, but Analytic
+	// wins whenever both are present.
+	//
+	// This is the one field carrying a yaml tag: the others deliberately have
+	// none so their keys stay byte-identical to what the SDK input types
+	// produced, but there is no legacy key for a new field to preserve, and
+	// without omitempty every exception that targets no analytic would carry a
+	// noisy `analytic: ""`.
+	Analytic      string   `json:"analytic,omitempty" yaml:"analytic,omitempty"`
+	AnalyticUUID  *string  `json:"analyticUuid,omitempty"`
+	AnalyticTypes []string `json:"analyticTypes,omitempty"`
+}
+
+// exceptionSetToExport builds the portable document from a fetched set. The
+// analytic name needs no extra call: the SDK's query already selects
+// `analytic { name uuid }`.
+func exceptionSetToExport(set *jamfprotect.ExceptionSet) exceptionSetExport {
+	e := exceptionSetExport{
+		Name:         set.Name,
+		Description:  set.Description,
+		Exceptions:   make([]exceptionExport, 0, len(set.Exceptions)),
+		EsExceptions: make([]jamfprotect.EsExceptionInput, 0, len(set.EsExceptions)),
+	}
+	for _, ex := range set.Exceptions {
+		out := exceptionExport{
+			Type:           ex.Type,
+			Value:          strPtrIfNonEmpty(ex.Value),
+			IgnoreActivity: ex.IgnoreActivity,
+			AnalyticTypes:  ex.AnalyticTypes,
+		}
+		if ex.Analytic != nil {
+			out.Analytic = ex.Analytic.Name
+			out.AnalyticUUID = strPtrIfNonEmpty(ex.Analytic.UUID)
+		}
+		if ex.AppSigningInfo != nil {
+			out.AppSigningInfo = &jamfprotect.AppSigningInfoInput{
+				AppID:  ex.AppSigningInfo.AppID,
+				TeamID: ex.AppSigningInfo.TeamID,
+			}
+		}
+		e.Exceptions = append(e.Exceptions, out)
+	}
+	for _, ex := range set.EsExceptions {
+		e.EsExceptions = append(e.EsExceptions, esExceptionToInput(ex))
+	}
+	return e
+}
+
+// exceptionSetExportToInput resolves each exception's analytic name against the
+// target tenant and builds the SDK input.
+//
+// A named analytic that the target does not have is an error rather than a
+// pass-through: writing the source tenant's UUID is what produced a silently
+// dead exception in the first place.
+func exceptionSetExportToInput(ctx context.Context, e exceptionSetExport, r *protect.Resolver) (jamfprotect.ExceptionSetInput, error) {
+	input := jamfprotect.ExceptionSetInput{
+		Name:         e.Name,
+		Description:  e.Description,
+		Exceptions:   make([]jamfprotect.ExceptionInput, 0, len(e.Exceptions)),
+		EsExceptions: e.EsExceptions,
+	}
+	if input.EsExceptions == nil {
+		input.EsExceptions = []jamfprotect.EsExceptionInput{}
+	}
+	for _, ex := range e.Exceptions {
+		out := jamfprotect.ExceptionInput{
+			Type:           ex.Type,
+			Value:          ex.Value,
+			AppSigningInfo: ex.AppSigningInfo,
+			IgnoreActivity: ex.IgnoreActivity,
+			AnalyticTypes:  ex.AnalyticTypes,
+			AnalyticUUID:   ex.AnalyticUUID,
+		}
+		if ex.Analytic != "" {
+			uuid, err := r.ResolveAnalyticUUID(ctx, ex.Analytic)
+			if err != nil {
+				return jamfprotect.ExceptionSetInput{}, fmt.Errorf("resolving analytic %q for an exception in set %q: %w", ex.Analytic, e.Name, err)
+			}
+			out.AnalyticUUID = &uuid
+		}
+		input.Exceptions = append(input.Exceptions, out)
+	}
+	return input, nil
 }
 
 // rebuildExceptionSetInput reconstructs an ExceptionSetInput from the current ExceptionSet state.
@@ -342,7 +471,7 @@ func newProtectExceptionSetsExportCmd(cliCtx *registry.CLIContext) *cobra.Comman
 			if err != nil {
 				return err
 			}
-			return printExport(rebuildExceptionSetInput(item))
+			return printExport(exceptionSetToExport(item))
 		},
 	}
 }

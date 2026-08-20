@@ -394,17 +394,19 @@ func (g *Generator) Generate(resource *Resource) (string, error) {
 		"writeOnlyFields": writeOnlyFields,
 		"hasScaffold":     hasScaffold,
 		"scaffoldJSON":    scaffoldJSON,
-		"applyScaffoldJSON": func(ops []*Operation) string {
+		"applyScaffoldJSON": func(ops []*Operation) (string, error) {
 			for _, op := range ops {
 				if op.Name == "create" && op.Method == "POST" && op.RequestBody != nil && op.RequestBody.Schema != nil {
-					return scaffoldJSON(op.RequestBody.Schema)
+					return scaffoldRawLiteral(op.RequestBody.Schema)
 				}
 			}
-			return "{}"
+			return "{}", nil
 		},
 		"hasApplyScaffold": func(ops []*Operation) bool {
 			for _, op := range ops {
-				if op.Name == "create" && op.Method == "POST" && op.RequestBody != nil && op.RequestBody.Schema != nil && len(op.RequestBody.Schema.Properties) > 0 {
+				// Gates on HasScaffoldShape, not len(Properties) > 0: the latter
+				// silently denies the flag to a bare-array request body.
+				if op.Name == "create" && op.Method == "POST" && op.RequestBody != nil && HasScaffoldShape(op.RequestBody.Schema) {
 					return true
 				}
 			}
@@ -418,11 +420,11 @@ func (g *Generator) Generate(resource *Resource) (string, error) {
 			return op.RequestBody != nil && HasScaffoldShape(op.RequestBody.Schema) &&
 				(op.Method == "POST" || op.Method == "PUT" || op.Method == "PATCH")
 		},
-		"opScaffoldJSON": func(op *Operation) string {
+		"opScaffoldJSON": func(op *Operation) (string, error) {
 			if op.RequestBody == nil || op.RequestBody.Schema == nil {
-				return "{}"
+				return "{}", nil
 			}
-			return scaffoldJSON(op.RequestBody.Schema)
+			return scaffoldRawLiteral(op.RequestBody.Schema)
 		},
 		"needsFmt":             needsFmt,
 		"needsURL":             needsURL,
@@ -1660,8 +1662,30 @@ func updateSetLongDesc(op *Operation, schemas map[string]*Schema, r *Resource) s
 // same thing; see ScaffoldJSON for the rules. This used to be its own
 // implementation that skipped read-only fields and honoured examples but never
 // descended into a nested object, and rendered every array as "[]".
-func scaffoldJSON(s *Schema) string {
+func scaffoldJSON(s *Schema) (string, error) {
 	return ScaffoldJSON(s)
+}
+
+// scaffoldRawLiteral renders a scaffold for the Jamf Pro templates, which embed
+// it inside a raw Go string literal so the generated code keeps the scaffold
+// readable and `make generate` diffs stay line-by-line — the review workflow for
+// a spec ingest, which rewrites dozens of scaffolds at once. The Platform and
+// Security templates embed theirs with %q instead and need no such check.
+//
+// The price of a raw literal is that a backtick anywhere in the scaffold emits
+// uncompilable code. Spec examples now reach the scaffold from nested objects and
+// array elements as well as the top level, so the surface is much wider than it
+// was; no committed spec has one today. Fail at generation rather than at the
+// build of the generated package, where the cause is not obvious.
+func scaffoldRawLiteral(s *Schema) (string, error) {
+	out, err := ScaffoldJSON(s)
+	if err != nil {
+		return "", err
+	}
+	if strings.Contains(out, "`") {
+		return "", fmt.Errorf("scaffold for schema %q contains a backtick, which cannot be embedded in the Jamf Pro template's raw string literal; switch that template to %%q or strip the offending spec example:\n%s", s.Name, out)
+	}
+	return out, nil
 }
 
 // hasApply returns true if the resource has a create and a mutating update-style

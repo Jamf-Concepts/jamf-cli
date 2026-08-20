@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"sort"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -148,7 +149,7 @@ granular remove-* subcommands on the referenced resource to detach members.`,
 			r := protect.NewResolver(cliCtx.ProtectClient)
 
 			// Resolve names to IDs
-			input, err := planExportToInput(ctx, export, r)
+			input, err := planExportToInput(ctx, export, r, false)
 			if err != nil {
 				return err
 			}
@@ -349,6 +350,13 @@ type planExport struct {
 	CommsConfig          *jamfprotect.PlanCommsConfigInput          `json:"commsConfig,omitempty" yaml:"commsConfig,omitempty"`
 	InfoSync             *jamfprotect.PlanInfoSyncInput             `json:"infoSync,omitempty" yaml:"infoSync,omitempty"`
 	SignaturesFeedConfig *jamfprotect.PlanSignaturesFeedConfigInput `json:"signaturesFeedConfig,omitempty" yaml:"signaturesFeedConfig,omitempty"`
+	// ThreatPreventionStrategy is LEGACY, MANAGED or CUSTOM_ENGINES, and
+	// CustomEngineConfig carries the per-engine settings the last of those uses.
+	// Both are non-null on the plan and settable on the input, so omitting them
+	// silently dropped a plan's threat prevention posture on export and left the
+	// target's own value in place on restore.
+	ThreatPreventionStrategy string                               `json:"threatPreventionStrategy,omitempty" yaml:"threatPreventionStrategy,omitempty"`
+	CustomEngineConfig       *jamfprotect.CustomEngineConfigInput `json:"customEngineConfig,omitempty" yaml:"customEngineConfig,omitempty"`
 }
 
 type planAnalyticSetExport struct {
@@ -372,6 +380,10 @@ func planToExport(p *jamfprotect.Plan) planExport {
 		for i, es := range p.ExceptionSets {
 			names[i] = es.Name
 		}
+		// Membership is a set, but the server returns it in its own order, so an
+		// unsorted export makes two identical plans diff. Sorting keeps a backup
+		// diffable across runs and across tenants.
+		sort.Strings(names)
 		e.ExceptionSets = names
 	}
 	if len(p.AnalyticSets) > 0 {
@@ -382,6 +394,12 @@ func planToExport(p *jamfprotect.Plan) planExport {
 				Type: as.Type,
 			}
 		}
+		sort.Slice(sets, func(i, j int) bool {
+			if sets[i].Name != sets[j].Name {
+				return sets[i].Name < sets[j].Name
+			}
+			return sets[i].Type < sets[j].Type
+		})
 		e.AnalyticSets = sets
 	}
 	if len(p.UnifiedLoggingFilterSets) > 0 {
@@ -389,6 +407,7 @@ func planToExport(p *jamfprotect.Plan) planExport {
 		for i, s := range p.UnifiedLoggingFilterSets {
 			names[i] = s.Name
 		}
+		sort.Strings(names)
 		e.ULFSets = names
 	}
 	if p.USBControlSet != nil {
@@ -416,15 +435,35 @@ func planToExport(p *jamfprotect.Plan) planExport {
 			Mode: p.SignaturesFeedConfig.Mode,
 		}
 	}
+	e.ThreatPreventionStrategy = p.ThreatPreventionStrategy
+	if p.CustomEngineConfig != nil {
+		e.CustomEngineConfig = &jamfprotect.CustomEngineConfigInput{
+			MalwareRiskware:  p.CustomEngineConfig.MalwareRiskware,
+			AdversaryTactics: p.CustomEngineConfig.AdversaryTactics,
+			SystemTampering:  p.CustomEngineConfig.SystemTampering,
+			FilelessThreats:  p.CustomEngineConfig.FilelessThreats,
+			Experimental:     p.CustomEngineConfig.Experimental,
+		}
+	}
 	return e
 }
 
 // planExportToInput resolves names to IDs and builds a PlanInput for the SDK.
-func planExportToInput(ctx context.Context, e planExport, r *protect.Resolver) (jamfprotect.PlanInput, error) {
+//
+// clearAbsent decides what a membership field the document omits means. The SDK
+// omits a nil list from the GraphQL variables and the server leaves the field
+// untouched, which is what 'plans apply' wants — CLAUDE.md documents that an
+// omitted list there leaves membership alone, and the granular remove-* commands
+// are how you detach. A restore wants the opposite: its help promises the target
+// ends up matching the document, so an absent list has to be sent as an empty one
+// or a binding added after the backup survives the rollback.
+func planExportToInput(ctx context.Context, e planExport, r *protect.Resolver, clearAbsent bool) (jamfprotect.PlanInput, error) {
 	input := jamfprotect.PlanInput{
-		Name:        e.Name,
-		Description: e.Description,
-		AutoUpdate:  e.AutoUpdate,
+		Name:                     e.Name,
+		Description:              e.Description,
+		AutoUpdate:               e.AutoUpdate,
+		ThreatPreventionStrategy: e.ThreatPreventionStrategy,
+		CustomEngineConfig:       e.CustomEngineConfig,
 	}
 	if e.LogLevel != "" {
 		input.LogLevel = &e.LogLevel
@@ -491,6 +530,37 @@ func planExportToInput(ctx context.Context, e planExport, r *protect.Resolver) (
 	}
 	if e.SignaturesFeedConfig != nil {
 		input.SignaturesFeedConfig = *e.SignaturesFeedConfig
+	}
+	if clearAbsent {
+		// A non-nil empty slice is the SDK's "send []", which clears. Only the
+		// fields the document could not express are converted — a list that was
+		// present has already been resolved above.
+		if input.ExceptionSets == nil {
+			input.ExceptionSets = []string{}
+		}
+		if input.AnalyticSets == nil {
+			input.AnalyticSets = []jamfprotect.PlanAnalyticSetInput{}
+		}
+		if input.UnifiedLoggingFilterSets == nil {
+			input.UnifiedLoggingFilterSets = []string{}
+		}
+		if input.TelemetryV2 == nil {
+			// TelemetryV2 is a single reference, so clearing it needs the SDK's
+			// explicit-null flag rather than an empty value.
+			input.TelemetryV2Null = true
+		}
+		// USBControlSet has no explicit-null mechanism in the SDK (it is a plain
+		// *string with no Null sibling), so a plan that had one detached after the
+		// backup keeps it. Sending "" is untested on the wire and would more likely
+		// be refused as an unresolvable ID than read as a clear.
+		//
+		// The legacy telemetry reference is unconverged for the same reason.
+		// PlanInput.Telemetry is a bare *string too, and buildPlanVariables omits
+		// the key when it is nil, so nulling telemetryV2 leaves a plan bound
+		// through the pre-v2 field bound. planToExport reads that field
+		// deliberately (a plan can still be on it), so this is reachable rather
+		// than theoretical — and the restore resolves whatever name it captured
+		// back onto telemetryV2, which is the field the server takes now.
 	}
 	return input, nil
 }

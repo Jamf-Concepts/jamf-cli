@@ -74,6 +74,8 @@ func new{{$.GoName}}{{.GoName}}Cmd(cliCtx *registry.CLIContext) *cobra.Command {
 {{- if .HasBody }}
 	var bodyFile string
 	var setFlags []string
+{{- end }}
+{{- if .HasScaffold }}
 	var scaffoldFlag bool
 {{- end }}
 {{- if .IsDestructive }}
@@ -103,7 +105,7 @@ func new{{$.GoName}}{{.GoName}}Cmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Annotations: {{ $ann }},
 {{- end }}
 {{- if and .PathParams (not .SupportsNameLookup) }}
-{{- if .HasBody }}
+{{- if .HasScaffold }}
 		Args: func(cmd *cobra.Command, args []string) error {
 			if scaffoldFlag {
 				return nil
@@ -117,7 +119,7 @@ func new{{$.GoName}}{{.GoName}}Cmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Args:  cobra.MaximumNArgs(1),
 {{- end }}
 		RunE: func(cmd *cobra.Command, args []string) error {
-{{- if .HasBody }}
+{{- if .HasScaffold }}
 			if scaffoldFlag {
 				// Scaffold prints raw JSON regardless of -o, so the output
 				// can be piped straight back into --file.
@@ -283,6 +285,8 @@ func new{{$.GoName}}{{.GoName}}Cmd(cliCtx *registry.CLIContext) *cobra.Command {
 {{- if .HasBody }}
 	cmd.Flags().StringVar(&bodyFile, "file", "", "Path to JSON file containing the request body")
 	cmd.Flags().StringArrayVar(&setFlags, "set", nil, "Override body values (key=value, repeatable, supports nested.keys)")
+{{- end }}
+{{- if .HasScaffold }}
 	cmd.Flags().BoolVar(&scaffoldFlag, "scaffold", false, "Print an example request body and exit")
 {{- end }}
 {{- if .IsDestructive }}

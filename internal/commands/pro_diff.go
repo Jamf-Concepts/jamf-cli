@@ -5,7 +5,9 @@ package commands
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io/fs"
 	"maps"
 	"os"
 	"path/filepath"
@@ -134,39 +136,108 @@ func loadSnapshotFromDirectory(dir string, nameFilter []string) (resourceSnapsho
 
 	snapshot := make(resourceSnapshot)
 
-	// Walk one level of subdirectories; each subdir is a resource type.
+	// readInto reads the object files sitting directly in one directory and
+	// merges them into the snapshot under resourceName. Several curated
+	// resources share a FilterName (macOS + iOS profiles, account users +
+	// groups) and so merge into one bucket — the same shape live mode produces,
+	// which is what makes the two comparable. nameField is the resource's
+	// BackupEndpoint.NameField, so an object read off disk is keyed by the same
+	// field live mode reads off the list item.
+	readInto := func(resourceName, nameField, path string) {
+		if len(allowedResources) > 0 && !allowedResources[resourceName] {
+			return
+		}
+		objects, err := readObjectsFromSubdir(path, nameField)
+		if err != nil {
+			// A curated resource absent from this backup is not a problem —
+			// only an unreadable directory is.
+			if !errors.Is(err, fs.ErrNotExist) {
+				fmt.Fprintf(os.Stderr, "WARNING: reading %s: %v\n", path, err)
+			}
+			return
+		}
+		if len(objects) == 0 {
+			return
+		}
+		if existing, ok := snapshot[resourceName]; ok {
+			maps.Copy(existing, objects)
+		} else {
+			snapshot[resourceName] = objects
+		}
+	}
+
+	// First, directories in the backup root that no curated resource claims,
+	// keyed by their own name. That covers the SDK-backed resources written
+	// straight to the root (blueprints, compliance-benchmarks), any
+	// hand-assembled tree, and object files left directly in a parent of a
+	// nested resource (profiles/*.yaml beside profiles/macos/) — for those the
+	// directory name is already the FilterName, so they land in the right
+	// bucket. Reading them before the curated pass means the layout `backup`
+	// actually writes wins a name collision. nonStandardBackupFilters supplies
+	// the name field for the root-written resources that do not call their name
+	// "name", the way BackupEndpoint.NameField does for the curated ones.
+	//
+	// Failing to read the root is fatal rather than a warning: an empty
+	// snapshot there is not a partial result, it is "the source was never
+	// read", and reporting that as no differences is exactly the silent
+	// success this loader exists to remove.
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		return nil, fmt.Errorf("reading directory %q: %w", dir, err)
 	}
-
+	curatedDirs := BackupSubDirs()
 	for _, entry := range entries {
-		if !entry.IsDir() {
-			continue // skip files at the root (e.g., _failures.yaml)
+		name := entry.Name()
+		if _, curated := curatedDirs[name]; curated {
+			continue // read by the curated pass below, under its FilterName
 		}
-
-		resourceName := entry.Name()
-		if len(allowedResources) > 0 && !allowedResources[resourceName] {
+		if !entryIsDir(dir, entry) {
 			continue
 		}
+		readInto(name, nonStandardBackupNameField(name), filepath.Join(dir, name))
+	}
 
-		subDir := filepath.Join(dir, resourceName)
-		objects, err := readObjectsFromSubdir(subDir)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "WARNING: reading %s: %v\n", subDir, err)
-			continue
-		}
-		if len(objects) > 0 {
-			snapshot[resourceName] = objects
-		}
+	// Then every curated resource, read at the path `backup` writes it to and
+	// in BackupResources order. Reading the table instead of walking the tree
+	// gives both loaders one iteration order, so two objects sharing a name in
+	// one bucket (a macOS and an iOS profile both called "Corporate Wi-Fi")
+	// resolve to the same object on disk as they do live. It also bounds the
+	// read to the directories the table names: a resource directory owns its
+	// files, not its subdirectories, which is what keeps packages/files —
+	// downloaded package binaries, not config objects — out of the snapshot.
+	defs, err := ResolveBackupResources(nameFilter)
+	if err != nil {
+		return nil, err
+	}
+	for _, def := range defs {
+		readInto(def.FilterName, def.NameField, filepath.Join(dir, filepath.FromSlash(def.SubDir)))
 	}
 
 	return snapshot, nil
 }
 
+// entryIsDir reports whether entry names a directory, following a symlink.
+// os.ReadDir returns the entry as it appears in the directory itself, so a
+// symlink to a directory reports IsDir() == false; diff follows it, so a
+// backup tree may point a resource directory somewhere else. Reading the
+// curated resources by path follows symlinks for free — this keeps the
+// root-level scan consistent with that.
+func entryIsDir(parent string, entry fs.DirEntry) bool {
+	if entry.IsDir() {
+		return true
+	}
+	if entry.Type()&fs.ModeSymlink == 0 {
+		return false
+	}
+	info, err := os.Stat(filepath.Join(parent, entry.Name()))
+	return err == nil && info.IsDir()
+}
+
 // readObjectsFromSubdir reads all .yaml and .json files in subDir and returns
-// a map of object name → fields (with _meta stripped).
-func readObjectsFromSubdir(subDir string) (map[string]map[string]any, error) {
+// a map of object name → fields (with _meta stripped). nameField is the
+// resource's BackupEndpoint.NameField — the field live mode keys on — or empty
+// for a directory outside the curated set.
+func readObjectsFromSubdir(subDir, nameField string) (map[string]map[string]any, error) {
 	entries, err := os.ReadDir(subDir)
 	if err != nil {
 		return nil, err
@@ -209,19 +280,43 @@ func readObjectsFromSubdir(subDir string) (map[string]map[string]any, error) {
 		// Strip _meta block added by backup — not part of the config.
 		delete(obj, "_meta")
 
-		// Use the "name" field as the object key; fall back to the filename stem.
-		objName := ""
-		if n, ok := obj["name"].(string); ok && n != "" {
-			objName = n
-		} else {
-			stem := strings.TrimSuffix(strings.TrimSuffix(name, ".yaml"), ".json")
-			objName = stem
-		}
-
-		objects[objName] = obj
+		stem := strings.TrimSuffix(strings.TrimSuffix(name, ".yaml"), ".json")
+		objects[backupObjectName(obj, nameField, stem)] = obj
 	}
 
 	return objects, nil
+}
+
+// backupObjectName picks the snapshot key for one object read off disk. It has
+// to agree with live mode, which keys on the list item's name — otherwise a
+// directory diffed against an instance reports every object as removed *and*
+// added. nameField is the resource's declared NameField, checked first for the
+// same reason extractName checks it first: it is where the resources that do
+// not call their name "name" keep it (prestages use displayName, mobile-device
+// groups use groupName). Then "name", then the two shapes no registry field
+// names — a Classic detail nesting its name under "general", and displayName on
+// a directory read without a NameField. Only when none of those is present does
+// the filename stem stand in, and a stem is a poor key: it is SlugifyName
+// output, possibly carrying a DeduplicateSlug suffix, so it never equals the
+// name the live side uses.
+func backupObjectName(obj map[string]any, nameField, fileStem string) string {
+	if nameField != "" {
+		if n, ok := obj[nameField].(string); ok && n != "" {
+			return n
+		}
+	}
+	if n, ok := obj["name"].(string); ok && n != "" {
+		return n
+	}
+	if n, ok := obj["displayName"].(string); ok && n != "" {
+		return n
+	}
+	if general, ok := obj["general"].(map[string]any); ok {
+		if n, ok := general["name"].(string); ok && n != "" {
+			return n
+		}
+	}
+	return fileStem
 }
 
 // normaliseViaJSON round-trips a map through JSON to coerce yaml.v3 types
@@ -362,14 +457,7 @@ func loadSnapshotFromProfile(ctx context.Context, profileName string, nameFilter
 					if err != nil {
 						continue
 					}
-					obj := map[string]any{
-						"title":           bm.Title,
-						"description":     bm.Description,
-						"baselineId":      bm.BaselineID,
-						"enforcementMode": bm.EnforcementMode,
-						"target":          bm.Target,
-					}
-					objects[bm.Title] = normaliseViaJSON(obj)
+					objects[bm.Title] = normaliseViaJSON(benchmarkToExport(bm))
 				}
 				if len(objects) > 0 {
 					snapshot["compliance-benchmarks"] = objects

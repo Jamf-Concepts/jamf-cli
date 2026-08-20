@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"sort"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -341,6 +342,11 @@ func analyticSetToExport(s *jamfprotect.AnalyticSet) analyticSetExport {
 	for i, a := range s.Analytics {
 		names[i] = a.Name
 	}
+	// Membership is a set, but the server returns it in its own order — the same
+	// set exported twice differs, and after a rewrite the order rotates. Sorting
+	// keeps a backup diffable across runs and across tenants, which is what
+	// planToExport already does for its three membership lists.
+	sort.Strings(names)
 	return analyticSetExport{
 		Name:        s.Name,
 		Description: s.Description,

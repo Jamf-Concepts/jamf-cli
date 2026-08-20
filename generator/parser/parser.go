@@ -1824,7 +1824,6 @@ func parseSchemaDepth(name string, schema *openapi3.Schema, depth int) *Schema {
 			s.Enum = append(s.Enum, str)
 		}
 	}
-
 	// A schema that is itself an array carries its shape in items, not in
 	// properties — a bare-array request body has no properties at all.
 	if s.Type == "array" && depth < maxSchemaDepth {

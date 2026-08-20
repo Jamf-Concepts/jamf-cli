@@ -149,21 +149,49 @@ func isKnownBackupFilter(name string) bool {
 		}
 	}
 	for _, n := range nonStandardBackupFilters {
-		if n == name {
+		if n.FilterName == name {
 			return true
 		}
 	}
 	return false
 }
 
-// nonStandardBackupFilters lists filter names for backup resources that are
-// handled outside BackupResources (CSV downloads, SDK-backed resources, etc.).
-// These appear in BackupFilterNames so shell completion and help text stay
-// accurate even though they have no entry in the curated list.
-var nonStandardBackupFilters = []string{
-	"inventory-preloads",    // downloaded as a single CSV via /v2/inventory-preload/csv
-	"blueprints",            // Platform SDK
-	"compliance-benchmarks", // Platform SDK
+// nonStandardBackupFilter describes a backup resource handled outside
+// BackupResources. NameField is the field its documents keep their name in, the
+// same role BackupEndpoint.NameField plays for a curated resource: `diff` reads
+// it to key the resource's objects the way the live side does. Leave it empty
+// when the name is in "name", which backupObjectName already finds.
+type nonStandardBackupFilter struct {
+	FilterName string
+	NameField  string
+}
+
+// nonStandardBackupFilters lists the backup resources that are handled outside
+// BackupResources (CSV downloads, SDK-backed resources, etc.). These appear in
+// BackupFilterNames so shell completion and help text stay accurate even though
+// they have no entry in the curated list.
+//
+// One table rather than two: a name field listed apart from the filter name can
+// name a directory no resource writes, and nothing would catch it. `diff` reads
+// NameField from here for the resources it finds in the backup root.
+var nonStandardBackupFilters = []nonStandardBackupFilter{
+	// downloaded as a single CSV via /v2/inventory-preload/csv
+	{FilterName: "inventory-preloads"},
+	// Platform SDK; blueprintToExport emits "name"
+	{FilterName: "blueprints"},
+	// Platform SDK; benchmarkToExport emits the name as "title"
+	{FilterName: "compliance-benchmarks", NameField: "title"},
+}
+
+// nonStandardBackupNameField returns the name field declared for a
+// non-standard backup resource, or "" when it declares none or is not one.
+func nonStandardBackupNameField(filterName string) string {
+	for _, n := range nonStandardBackupFilters {
+		if n.FilterName == filterName {
+			return n.NameField
+		}
+	}
+	return ""
 }
 
 // BackupFilterNames returns the unique set of FilterName values (sorted) — used
@@ -178,11 +206,31 @@ func BackupFilterNames() []string {
 		}
 	}
 	for _, n := range nonStandardBackupFilters {
-		if !seen[n] {
-			seen[n] = true
-			names = append(names, n)
+		if !seen[n.FilterName] {
+			seen[n.FilterName] = true
+			names = append(names, n.FilterName)
 		}
 	}
 	sort.Strings(names)
 	return names
+}
+
+// BackupSubDirs maps each curated resource's on-disk subdirectory (relative to
+// the backup root, slash-separated) to the FilterName that owns it. `diff`
+// reads this table rather than walking the backup tree, so files off disk are
+// bucketed under exactly the key live mode uses and a directory and an instance
+// are comparable; it also uses the key set to tell which directories in the
+// backup root a curated resource already owns from those it must key by name.
+//
+// It matters because thirteen of the curated resources nest two levels deep
+// (profiles/macos, smart-groups/computers, accounts/users, …). `diff` used to
+// treat every top-level directory as a resource and read only the files sitting
+// directly inside it, so those thirteen contributed nothing to either snapshot
+// and their changes were reported as no change at all — silently, exit 0.
+func BackupSubDirs() map[string]string {
+	out := make(map[string]string, len(BackupResources))
+	for _, r := range BackupResources {
+		out[r.SubDir] = r.FilterName
+	}
+	return out
 }

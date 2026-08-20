@@ -185,14 +185,18 @@ func newProtectActionConfigsExportCmd(cliCtx *registry.CLIContext) *cobra.Comman
 			if err != nil {
 				return err
 			}
-			return printExport(actionConfigToInput(item))
+			export, err := actionConfigToInput(item)
+			if err != nil {
+				return err
+			}
+			return printExport(export)
 		},
 	}
 }
 
 // actionConfigToInput converts an ActionConfig response to an ActionConfigInput, stripping server-only fields.
 // AlertConfig and Clients use map[string]any in the input type, so we marshal/unmarshal to convert.
-func actionConfigToInput(a *jamfprotect.ActionConfig) jamfprotect.ActionConfigInput {
+func actionConfigToInput(a *jamfprotect.ActionConfig) (jamfprotect.ActionConfigInput, error) {
 	input := jamfprotect.ActionConfigInput{
 		Name:        a.Name,
 		Description: a.Description,
@@ -211,9 +215,90 @@ func actionConfigToInput(a *jamfprotect.ActionConfig) jamfprotect.ActionConfigIn
 			_ = json.Unmarshal(b, &m)
 			// Strip server-generated id field
 			delete(m, "id")
+			// params is read back as an object — the ReportClientParams union —
+			// but the input schema declares it AWSJSON!, a non-null JSON-encoded
+			// *string*. Handing the object straight back is refused ("Variable
+			// 'params' has an invalid value"), and dropping it is refused too
+			// ("coerced Null value for NonNull type 'AWSJSON!'"), so it must be
+			// re-encoded as a string.
+			//
+			// The union also means the response carries every member's fields at
+			// their zero value — port 0, empty scheme, empty host — for a client
+			// type that uses none of them. Those are pruned first so a JamfCloud
+			// client sends "{}" rather than a wall of empty settings.
+			// batchConfig has the same zero-value problem, but only its nullable
+			// fields may be dropped: sizeIndex and windowInSeconds are Int! and
+			// must be sent even as 0, while sizeInBytes carries a minimum of 1000
+			// that an unset 0 violates, and delimiter is a nullable String.
+			if batch, ok := m["batchConfig"].(map[string]any); ok {
+				for _, key := range []string{"sizeInBytes", "delimiter"} {
+					switch v := batch[key].(type) {
+					case nil:
+						delete(batch, key)
+					case string:
+						if v == "" {
+							delete(batch, key)
+						}
+					case float64:
+						if v == 0 {
+							delete(batch, key)
+						}
+					}
+				}
+				m["batchConfig"] = batch
+			}
+
+			params, _ := m["params"].(map[string]any)
+			// No "{}" fallback: params is AWSJSON! and carries the client's whole
+			// configuration, so an empty object is not a degraded version of it —
+			// it is a client that would be backed up broken and restored broken.
+			encoded, err := json.Marshal(pruneEmptyValues(params))
+			if err != nil {
+				return input, fmt.Errorf("encoding params for client %d of action config %q: %w", i, a.Name, err)
+			}
+			m["params"] = string(encoded)
 			clients[i] = m
 		}
 		input.Clients = clients
 	}
-	return input
+	return input, nil
+}
+
+// pruneEmptyValues removes keys whose values carry no information — nil, the
+// empty string, numeric zero, and empty collections — recursing into nested
+// maps. Boolean false is kept: unlike an unset port or an empty host, it is a
+// meaningful setting.
+func pruneEmptyValues(m map[string]any) map[string]any {
+	out := make(map[string]any, len(m))
+	for k, v := range m {
+		switch val := v.(type) {
+		case nil:
+			continue
+		case string:
+			if val == "" {
+				continue
+			}
+		case float64:
+			if val == 0 {
+				continue
+			}
+		case int64:
+			if val == 0 {
+				continue
+			}
+		case []any:
+			if len(val) == 0 {
+				continue
+			}
+		case map[string]any:
+			nested := pruneEmptyValues(val)
+			if len(nested) == 0 {
+				continue
+			}
+			out[k] = nested
+			continue
+		}
+		out[k] = v
+	}
+	return out
 }
