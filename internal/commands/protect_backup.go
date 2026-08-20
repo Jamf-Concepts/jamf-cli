@@ -39,8 +39,12 @@ const (
 // that the tenant has the value set.
 const protectRedacted = "<redacted>"
 
-// protectBackupMeta records what a backup captured and from where, so a restore
-// can report the provenance of what it is about to write.
+// protectBackupMeta records what a backup captured and from where.
+//
+// Its only programmatic reader is backup itself: the tenant guard reads Tenants to
+// decide whether this run may prune the directory. Restore never opens it — the
+// documents are self-describing, so there is nothing it would need from here — and
+// the resource and count fields exist for the human reading the tree.
 type protectBackupMeta struct {
 	Tool      string `json:"tool" yaml:"tool"`
 	Version   string `json:"version" yaml:"version"`
@@ -1179,8 +1183,8 @@ func protectBackupProvenanceUsable(dir string) error {
 // relabelling the directory, so the tenant it wrote alongside is still refused
 // later.
 func protectBackupPruneAllowed(dir, tenantURL string) error {
-	prior, found, err := readProtectBackupMeta(dir)
-	if err != nil || !found {
+	prior, _, err := readProtectBackupMeta(dir)
+	if err != nil {
 		// Unreadable is already handled by protectBackupProvenanceUsable, which
 		// runs first and refuses when it matters.
 		return nil
@@ -1191,18 +1195,60 @@ func protectBackupPruneAllowed(dir, tenantURL string) error {
 		// URL is unset only where no tenant was resolved at all.
 		return nil
 	}
+
+	recorded := prior.tenantURLs()
+	if len(recorded) == 0 {
+		// No manifest at all, or one that parsed cleanly to no tenant. Both used to
+		// read as "fresh directory" and permit the prune, but beside real documents
+		// they mean the same thing an unreadable manifest does: whose documents
+		// these are is not on record. A zero-length _meta is the sharp case, because
+		// that is precisely what an interrupted or out-of-space write leaves — so
+		// the state this command's write-the-claim-first ordering exists to survive
+		// used to land in the one branch the guard did not cover, looking clean.
+		//
+		// Unlike protectBackupProvenanceUsable this is a pruning question, not a
+		// provenance-rewrite one: there is no claim here to overwrite and lose, so
+		// --no-prune is a real way forward rather than a way to disarm the guard. It
+		// writes this tenant's claim, and the run after it prunes normally.
+		if protectBackupHoldsDocuments(dir) {
+			return fmt.Errorf("%s holds backup documents but its %s records no tenant — this run cannot tell whose "+
+				"documents they are, and pruning would delete every object %s does not have; use a different "+
+				"--output, or if they are this tenant's own, pass --no-prune once to put it on record",
+				dir, protectBackupMetaFile, tenantURL)
+		}
+		return nil
+	}
+
 	var others []string
-	for _, t := range prior.tenantURLs() {
+	for _, t := range recorded {
 		if t != mine {
 			others = append(others, t)
 		}
 	}
 	if len(others) > 0 {
 		return fmt.Errorf("%s holds a backup of %s, not %s — pruning would delete that tenant's documents; "+
-			"use a different --output, or pass --no-prune to write alongside them",
-			dir, strings.Join(others, ", "), tenantURL)
+			"use a different --output, pass --no-prune to write alongside them, or if that tenant's documents "+
+			"are gone, delete its entry from %s",
+			dir, strings.Join(others, ", "), tenantURL, protectBackupMetaPath(dir))
 	}
 	return nil
+}
+
+// protectBackupMetaPath names the manifest file that is actually on disk, so an
+// error can point at the file the operator has to edit.
+//
+// The tenant-mismatch refusal offers two remedies that both abandon pruning for
+// the directory, and the operator who reads it is usually the one who caused it
+// one run earlier — by taking the --no-prune advice from the run before. Editing
+// the manifest is the only way to reclaim the directory, so it has to be named.
+func protectBackupMetaPath(dir string) string {
+	for _, ext := range protectRestoreExts {
+		path := filepath.Join(dir, protectBackupMetaFile+ext)
+		if _, err := os.Stat(path); err == nil {
+			return path
+		}
+	}
+	return filepath.Join(dir, protectBackupMetaFile)
 }
 
 // writeProtectBackupMeta writes the provenance manifest, replacing any copy an
@@ -1228,7 +1274,14 @@ func writeProtectBackupMeta(dir, ext, format string, meta protectBackupMeta) err
 	return nil
 }
 
-// protectPruneStale removes backup documents this run did not write.
+// protectPruneStale removes backup documents this run did not write, or with
+// remove=false reports which ones it would have removed and deletes nothing.
+//
+// remove is what the root -n, --dry-run means here. Backup's only destructive act
+// is this one, so a preview run has to reach the same decision by the same route
+// and stop at the os.Remove — deciding it is what produces the list the operator
+// asked for. Skipping the call instead would print nothing and read as "there was
+// nothing to prune".
 //
 // Without it a backup directory is the union of every run that ever wrote to it,
 // and because restore applies whatever it finds, an object deleted from the tenant
@@ -1246,7 +1299,7 @@ func writeProtectBackupMeta(dir, ext, format string, meta protectBackupMeta) err
 // extension restore would read. A resource whose export failed is never pruned:
 // the true object set is unknown, and deleting on a failed read is exactly how a
 // backup tool loses the data it exists to protect.
-func protectPruneStale(dir string, res protectResource, kept map[string]bool) ([]string, error) {
+func protectPruneStale(dir string, res protectResource, kept map[string]bool, remove bool) ([]string, error) {
 	var candidates []string
 
 	if res.Singleton {
@@ -1286,8 +1339,10 @@ func protectPruneStale(dir string, res protectResource, kept map[string]bool) ([
 		if _, err := os.Stat(path); err != nil {
 			continue // never existed; only relevant for the singleton guesses
 		}
-		if err := os.Remove(path); err != nil {
-			return pruned, fmt.Errorf("removing stale %s: %w", path, err)
+		if remove {
+			if err := os.Remove(path); err != nil {
+				return pruned, fmt.Errorf("removing stale %s: %w", path, err)
+			}
 		}
 		// A singleton's file sits at the tree root, not under a directory named
 		// after the resource, so reporting insights/insights.json would name a
@@ -1354,6 +1409,12 @@ that tenant's documents for every object this one does not have. --no-prune writ
 alongside them and records this tenant too, so a later run by either tenant is
 still refused rather than silently pruning the other's documents.
 
+The global -n, --dry-run applies to the pruning only: documents are still written,
+because that is what --output asked for and it is how 'pro backup' behaves under
+the same flag, but nothing is deleted and every removal the run would have made is
+reported. Pruning is this command's one destructive act, so that is the half a
+preview exists for.
+
 ` + protectResourceListHelp(false),
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return runProtectBackup(cmd.Context(), cliCtx, outputDir, format, resources, exclude, noPrune)
@@ -1389,6 +1450,13 @@ func protectResourceCompletion(*cobra.Command, []string, string) ([]string, cobr
 // allowPartialFailure is the root persistent flag, read directly the way
 // pro_backup.go does. Declaring a local flag of the same name shadowed it, so
 // passing it in the global position was silently ignored.
+//
+// dryRun is read the same way, and for the sibling reason: it is inherited from the
+// root, so it appears in this command's own --help whether or not the code reads
+// it, and a flag that is documented and ignored is worse than one that is absent.
+// It gates the prune — see protectPruneStale — rather than the document writes,
+// because writing is what --output asked for and pruning is the only thing here
+// that destroys anything. 'pro backup' under -n writes its files too.
 func runProtectBackup(ctx context.Context, cliCtx *registry.CLIContext, outputDir, format, filter, exclude string, noPrune bool) error {
 	if format != "yaml" && format != "json" {
 		return fmt.Errorf("invalid --format %q: must be yaml or json", format)
@@ -1419,10 +1487,23 @@ func runProtectBackup(ctx context.Context, cliCtx *registry.CLIContext, outputDi
 	// Claim the directory before writing any document. _meta used to be written
 	// last, so a run that failed or was interrupted left documents with no
 	// provenance at all and the next run's guard had nothing to refuse on. The
-	// full manifest, with counts, replaces this one at the end.
+	// full manifest, with this run's counts, replaces this one at the end.
 	tenants := prior.tenantURLs()
 	if mine := normaliseTenantURL(cliCtx.ProtectURL); mine != "" && !slices.Contains(tenants, mine) {
 		tenants = append(tenants, mine)
+	}
+	// The claim carries the previous run's inventory forward rather than blanking
+	// it. Only Tenants is this run's own news; writing empties for the rest would
+	// leave an interrupted run describing a backup that never happened, beside the
+	// intact documents of the one that did. Stale is a worse answer than current
+	// and a much better one than blank. Non-nil because these two fields have no
+	// omitempty and a nil map or slice marshals as JSON null.
+	claimResources, claimCounts := prior.Resources, prior.Counts
+	if claimResources == nil {
+		claimResources = []string{}
+	}
+	if claimCounts == nil {
+		claimCounts = map[string]int{}
 	}
 	if err := writeProtectBackupMeta(outputDir, ext, format, protectBackupMeta{
 		Tool:      "jamf-cli",
@@ -1431,8 +1512,8 @@ func runProtectBackup(ctx context.Context, cliCtx *registry.CLIContext, outputDi
 		CreatedAt: time.Now().UTC().Format(time.RFC3339),
 		TenantURL: cliCtx.ProtectURL,
 		Tenants:   tenants,
-		Resources: []string{},
-		Counts:    map[string]int{},
+		Resources: claimResources,
+		Counts:    claimCounts,
 	}); err != nil {
 		return err
 	}
@@ -1461,7 +1542,7 @@ func runProtectBackup(ctx context.Context, cliCtx *registry.CLIContext, outputDi
 				if !res.Singleton {
 					dir = filepath.Join(outputDir, res.Name)
 				}
-				gone, err := protectPruneStale(dir, res, nil)
+				gone, err := protectPruneStale(dir, res, nil, !dryRun)
 				if err != nil {
 					return err
 				}
@@ -1527,7 +1608,7 @@ func runProtectBackup(ctx context.Context, cliCtx *registry.CLIContext, outputDi
 		// to marshal, its existing file on disk is the better record and deleting
 		// it would turn a partial failure into data loss.
 		if !noPrune && !marshalFailed {
-			gone, err := protectPruneStale(dir, res, kept)
+			gone, err := protectPruneStale(dir, res, kept, !dryRun)
 			if err != nil {
 				return err
 			}
@@ -1558,11 +1639,19 @@ func runProtectBackup(ctx context.Context, cliCtx *registry.CLIContext, outputDi
 	}
 
 	if len(pruned) > 0 && !quiet {
-		fmt.Fprintf(os.Stderr, "\nPruned %d document(s) that no longer match the tenant:\n", len(pruned))
-		for _, f := range pruned {
-			fmt.Fprintf(os.Stderr, "  %s\n", f)
+		if dryRun {
+			fmt.Fprintf(os.Stderr, "\n[dry-run] Would prune %d document(s) that no longer match the tenant:\n", len(pruned))
+			for _, f := range pruned {
+				fmt.Fprintf(os.Stderr, "  [dry-run] %s\n", f)
+			}
+			fmt.Fprintf(os.Stderr, "[dry-run] Nothing was removed. Re-run without -n to prune, or with --no-prune to keep them permanently\n")
+		} else {
+			fmt.Fprintf(os.Stderr, "\nPruned %d document(s) that no longer match the tenant:\n", len(pruned))
+			for _, f := range pruned {
+				fmt.Fprintf(os.Stderr, "  %s\n", f)
+			}
+			fmt.Fprintf(os.Stderr, "Use --no-prune to keep them (note that 'protect restore' would re-apply them)\n")
 		}
-		fmt.Fprintf(os.Stderr, "Use --no-prune to keep them (note that 'protect restore' would re-apply them)\n")
 	}
 
 	if len(sensitive) > 0 {

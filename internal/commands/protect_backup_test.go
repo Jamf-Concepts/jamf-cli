@@ -1304,6 +1304,281 @@ func TestBackupKeepsOneManifestAcrossAFormatChange(t *testing.T) {
 	}
 }
 
+// -n is a root persistent flag, so it appears in 'protect backup --help' whether
+// the code reads it or not. It did not: the flag parsed, was documented on the
+// command, and a "preview" run deleted files — on the one command in this product
+// that removes them with no confirmation prompt and no destructive annotation.
+// setDryRun sets the root -n package var for one test and puts it back afterwards.
+//
+// Restoring matters more than setting: dryRun is bound to the persistent flag, so
+// any test that calls ParseFlags("-n") writes it too and leaks a true into every
+// test that runs after — which is a preview run's worth of skipped pruning in a
+// test that was asserting a prune.
+func setDryRun(t *testing.T, v bool) {
+	t.Helper()
+	prior := dryRun
+	dryRun = v
+	t.Cleanup(func() { dryRun = prior })
+}
+
+func TestBackupUnderTheRootDryRunFlagPrunesNothing(t *testing.T) {
+	twoFilters := []jamfprotect.UnifiedLoggingFilter{
+		{UUID: "f1", Name: "zz-keep"},
+		{UUID: "f2", Name: "zz-gone"},
+	}
+	stale := filepath.Join("unified-logging-filters", "zz-gone.yaml")
+
+	seed := func(t *testing.T) string {
+		t.Helper()
+		dir := t.TempDir()
+		ctx := &registry.CLIContext{
+			ProtectURL:    "https://staging.protect.jamfcloud.com",
+			ProtectClient: &mockProtectClient{ulfFilters: twoFilters},
+		}
+		if err := runProtectBackup(context.Background(), ctx, dir, "yaml", "unified-logging-filters", "", false); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := os.Stat(filepath.Join(dir, stale)); err != nil {
+			t.Fatalf("seed run did not write %s: %v", stale, err)
+		}
+		return dir
+	}
+
+	// The object has since been deleted in the tenant, so a real run prunes its file.
+	shrunk := func() *registry.CLIContext {
+		return &registry.CLIContext{
+			ProtectURL:    "https://staging.protect.jamfcloud.com",
+			ProtectClient: &mockProtectClient{ulfFilters: twoFilters[:1]},
+		}
+	}
+
+	t.Run("the file a real run would prune survives", func(t *testing.T) {
+		dir := seed(t)
+		setDryRun(t, true)
+		if err := runProtectBackup(context.Background(), shrunk(), dir, "yaml", "unified-logging-filters", "", false); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := os.Stat(filepath.Join(dir, stale)); err != nil {
+			t.Errorf("-n deleted %s; the operator asked for a preview and got a deletion: %v", stale, err)
+		}
+		// The preview is only useful if the run still wrote what it captured.
+		if _, err := os.Stat(filepath.Join(dir, "unified-logging-filters", "zz-keep.yaml")); err != nil {
+			t.Errorf("-n must still write documents, the way 'pro backup' does: %v", err)
+		}
+	})
+
+	// The other half: a preview that reports nothing is indistinguishable from
+	// "there was nothing to prune", which is how disabling the prune call instead
+	// of the removal would have passed the check above.
+	t.Run("what it would have pruned is reported", func(t *testing.T) {
+		dir := seed(t)
+		setDryRun(t, true)
+
+		r, w, err := os.Pipe()
+		if err != nil {
+			t.Fatal(err)
+		}
+		priorStderr := os.Stderr
+		os.Stderr = w
+		runErr := runProtectBackup(context.Background(), shrunk(), dir, "yaml", "unified-logging-filters", "", false)
+		os.Stderr = priorStderr
+		_ = w.Close()
+		out, _ := io.ReadAll(r)
+		if runErr != nil {
+			t.Fatal(runErr)
+		}
+		for _, want := range []string{"[dry-run]", "zz-gone.yaml"} {
+			if !strings.Contains(string(out), want) {
+				t.Errorf("output should mention %q so the operator sees what a real run would remove:\n%s", want, out)
+			}
+		}
+	})
+
+	// And the flag is genuinely inherited rather than shadowed, the way restore's is.
+	t.Run("-n reaches the command", func(t *testing.T) {
+		setDryRun(t, dryRun) // ParseFlags below writes the package var; put it back.
+		backup := findSubcommand(findProtectCmd(t), "backup")
+		if backup == nil {
+			t.Fatal("backup subcommand not found")
+		}
+		if backup.Flags().Lookup("dry-run") != nil {
+			t.Error("--dry-run is declared locally; that shadows the root persistent flag and drops -n")
+		}
+		if err := backup.ParseFlags([]string{"-n"}); err != nil {
+			t.Fatalf("backup -n must parse: %v", err)
+		}
+		if f := backup.Flags().ShorthandLookup("n"); f == nil || f.Name != "dry-run" {
+			t.Errorf("-n resolves to %v, want the root --dry-run", f)
+		}
+		if !strings.Contains(backup.Long, "--dry-run") {
+			t.Error("backup's help must say what -n does here; a documented flag that does nothing is worse than an absent one")
+		}
+	})
+}
+
+// The guard refused an *unreadable* manifest beside documents but waved through an
+// absent or contentless one, and both read as "fresh directory". A zero-length
+// _meta is the sharp case: it is exactly what an interrupted or out-of-space write
+// leaves, so the state the write-the-claim-first ordering exists to survive landed
+// in the one branch the guard did not cover — looking clean rather than broken.
+func TestBackupRefusesToPruneWhenNoTenantIsOnRecord(t *testing.T) {
+	filters := []jamfprotect.UnifiedLoggingFilter{{UUID: "f2", Name: "zz-shared"}}
+	cliCtx := func() *registry.CLIContext {
+		return &registry.CLIContext{
+			ProtectURL:    "https://prod.protect.jamfcloud.com",
+			ProtectClient: &mockProtectClient{ulfFilters: filters},
+		}
+	}
+	// A directory holding someone's documents, with the manifest in the state named.
+	seed := func(t *testing.T, meta func(dir string)) string {
+		t.Helper()
+		dir := t.TempDir()
+		if err := os.MkdirAll(filepath.Join(dir, "unified-logging-filters"), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		doc := filepath.Join(dir, "unified-logging-filters", "zz-someone-elses.yaml")
+		if err := os.WriteFile(doc, []byte("name: zz-someone-elses\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		meta(dir)
+		return dir
+	}
+
+	states := map[string]func(dir string){
+		"no manifest at all": func(string) {},
+		"a zero-length manifest": func(dir string) {
+			if err := os.WriteFile(filepath.Join(dir, "_meta.yaml"), nil, 0o644); err != nil {
+				t.Fatal(err)
+			}
+		},
+		"a manifest naming no tenant": func(dir string) {
+			if err := os.WriteFile(filepath.Join(dir, "_meta.yaml"),
+				[]byte("tool: jamf-cli\nproduct: protect\n"), 0o644); err != nil {
+				t.Fatal(err)
+			}
+		},
+	}
+
+	for name, meta := range states {
+		t.Run(name, func(t *testing.T) {
+			dir := seed(t, meta)
+			doc := filepath.Join(dir, "unified-logging-filters", "zz-someone-elses.yaml")
+
+			err := runProtectBackup(context.Background(), cliCtx(), dir, "yaml", "unified-logging-filters", "", false)
+			if err == nil {
+				t.Fatal("expected a refusal: pruning a directory with no recorded owner is a guess about whose documents it holds")
+			}
+			if _, statErr := os.Stat(doc); statErr != nil {
+				t.Errorf("the document was deleted anyway: %v", statErr)
+			}
+			// The way forward has to be in the message, and it has to work.
+			if !strings.Contains(err.Error(), "--no-prune") {
+				t.Errorf("error %q should name the way forward", err)
+			}
+
+			if err := runProtectBackup(context.Background(), cliCtx(), dir, "yaml", "unified-logging-filters", "", true); err != nil {
+				t.Fatalf("--no-prune must be allowed and must record the claim: %v", err)
+			}
+			if err := runProtectBackup(context.Background(), cliCtx(), dir, "yaml", "unified-logging-filters", "", false); err != nil {
+				t.Fatalf("the run after --no-prune must prune normally: %v", err)
+			}
+			if _, statErr := os.Stat(doc); statErr == nil {
+				t.Error("once the tenant is on record the prune must actually happen; a guard that never lets go is a disabled feature")
+			}
+		})
+	}
+
+	// Unchanged: with nothing on disk to lose, a missing manifest is a fresh directory.
+	t.Run("allowed when there is nothing to lose", func(t *testing.T) {
+		dir := t.TempDir()
+		if err := runProtectBackup(context.Background(), cliCtx(), dir, "yaml", "unified-logging-filters", "", false); err != nil {
+			t.Errorf("an empty directory is not somebody's backup: %v", err)
+		}
+	})
+}
+
+// The tenant-mismatch refusal offered two remedies that both abandon pruning. The
+// operator reading it is usually the one who caused it one run earlier, by taking
+// the --no-prune advice, so the only route back has to be named.
+func TestBackupTenantRefusalNamesTheManifestToEdit(t *testing.T) {
+	filters := []jamfprotect.UnifiedLoggingFilter{
+		{UUID: "f1", Name: "zz-staging-only"},
+		{UUID: "f2", Name: "zz-shared"},
+	}
+	dir := t.TempDir()
+	staging := &registry.CLIContext{
+		ProtectURL:    "https://staging.protect.jamfcloud.com",
+		ProtectClient: &mockProtectClient{ulfFilters: filters},
+	}
+	if err := runProtectBackup(context.Background(), staging, dir, "yaml", "unified-logging-filters", "", false); err != nil {
+		t.Fatal(err)
+	}
+	production := &registry.CLIContext{
+		ProtectURL:    "https://prod.protect.jamfcloud.com",
+		ProtectClient: &mockProtectClient{ulfFilters: filters[1:]},
+	}
+	err := runProtectBackup(context.Background(), production, dir, "yaml", "unified-logging-filters", "", false)
+	if err == nil {
+		t.Fatal("expected a refusal")
+	}
+	// The real file, not the stem: the extension follows --format, so a reader
+	// cannot guess which of the three it is.
+	if want := filepath.Join(dir, "_meta.yaml"); !strings.Contains(err.Error(), want) {
+		t.Errorf("error %q should name %s, the only route back to pruning this directory", err, want)
+	}
+}
+
+// An interrupted run's claim used to overwrite the manifest's inventory with
+// empties, so the manifest described a backup that never happened while the
+// previous run's documents sat intact beside it.
+func TestBackupClaimCarriesThePreviousInventoryForward(t *testing.T) {
+	dir := t.TempDir()
+	cliCtx := &registry.CLIContext{
+		ProtectURL: "https://staging.protect.jamfcloud.com",
+		ProtectClient: &mockProtectClient{ulfFilters: []jamfprotect.UnifiedLoggingFilter{
+			{UUID: "f1", Name: "zz-keep"},
+			{UUID: "f2", Name: "zz-also"},
+		}},
+	}
+	if err := runProtectBackup(context.Background(), cliCtx, dir, "yaml", "unified-logging-filters", "", false); err != nil {
+		t.Fatal(err)
+	}
+	good, _, err := readProtectBackupMeta(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if good.Counts["unified-logging-filters"] != 2 {
+		t.Fatalf("a completed run should record its counts, got %v", good.Counts)
+	}
+
+	// Now interrupt one, the same way TestBackupClaimsTheDirectoryBeforeExporting
+	// does: a file where the resource directory belongs, so the export loop returns
+	// after the claim is written and before the final manifest replaces it.
+	if err := os.RemoveAll(filepath.Join(dir, "unified-logging-filters")); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "unified-logging-filters"), []byte("not a directory"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := runProtectBackup(context.Background(), cliCtx, dir, "yaml", "unified-logging-filters", "", false); err == nil {
+		t.Fatal("a run that cannot create its resource directory must fail")
+	}
+
+	claim, found, err := readProtectBackupMeta(dir)
+	if err != nil || !found {
+		t.Fatalf("readProtectBackupMeta() = %v, %v", found, err)
+	}
+	if !slices.Equal(claim.Resources, good.Resources) || claim.Counts["unified-logging-filters"] != 2 {
+		t.Errorf("the claim wrote resources=%v counts=%v; an interrupted run should degrade to the previous "+
+			"run's inventory, not to a manifest describing a backup that never happened",
+			claim.Resources, claim.Counts)
+	}
+	// The claim's own news still lands.
+	if !slices.Contains(claim.tenantURLs(), "https://staging.protect.jamfcloud.com") {
+		t.Errorf("tenantURLs() = %v, want the tenant that ran", claim.tenantURLs())
+	}
+}
+
 // One refused override must not abandon the document: the entries before it are
 // already written, and aborting left them unreported and the rest never attempted.
 // This is the behaviour 'overrides apply' has, and whose comment claims restore
@@ -1356,6 +1631,7 @@ func TestRestoreAnalyticOverridesReportsAndContinues(t *testing.T) {
 // the root -n entirely, so 'restore -n' failed with "unknown shorthand flag" and
 // neither form appeared in the command's Global Flags list.
 func TestProtectRestoreUsesTheRootDryRunFlag(t *testing.T) {
+	setDryRun(t, dryRun) // ParseFlags below writes the package var; put it back.
 	restore := findSubcommand(findProtectCmd(t), "restore")
 	if restore == nil {
 		t.Fatal("restore subcommand not found")
@@ -1460,21 +1736,43 @@ func TestCollectProtectRestoreFilesAcceptsYmlForSingletons(t *testing.T) {
 // for one object disagreed, and a JSON backup carried an explicit null where the
 // type's contract promises an empty list.
 func TestRBACExportsCarryEmptyListsInBothFormats(t *testing.T) {
-	docs := map[string]any{
-		"group":      groupToExport(&jamfprotect.Group{Name: "zz-group"}),
-		"user":       userToExport(&jamfprotect.User{Email: "zz@example.com"}),
-		"api-client": apiClientToExport(&jamfprotect.ApiClient{Name: "zz-client"}),
+	// The fields to check, per resource. Asserting on the parsed shape rather than
+	// on the substring "null" anywhere in the document: that also fired for an
+	// object legitimately named zz-nullable-test, and would fire the day any string
+	// field on these exports can hold null.
+	docs := map[string]struct {
+		doc   any
+		lists []string
+	}{
+		"group":      {groupToExport(&jamfprotect.Group{Name: "zz-group"}), []string{"roles"}},
+		"user":       {userToExport(&jamfprotect.User{Email: "zz@example.com"}), []string{"roles", "groups"}},
+		"api-client": {apiClientToExport(&jamfprotect.ApiClient{Name: "zz-client"}), []string{"roles"}},
 	}
-	for name, doc := range docs {
+	for name, tc := range docs {
 		for _, format := range []string{"json", "yaml"} {
-			data, err := protectMarshal(doc, format)
+			data, err := protectMarshal(tc.doc, format)
 			if err != nil {
 				t.Fatal(err)
 			}
-			if strings.Contains(string(data), "null") {
-				t.Errorf("%s as %s carries a null reference list, which the API rejects "+
-					"(\"roleIds: None is not of type 'array'\") and which disagrees with the other format:\n%s",
-					name, format, data)
+			var parsed map[string]any
+			if err := unmarshalInput(data, &parsed); err != nil {
+				t.Fatalf("%s as %s did not parse: %v\n%s", name, format, err, data)
+			}
+			for _, field := range tc.lists {
+				got, present := parsed[field]
+				if !present {
+					t.Errorf("%s as %s omits %q; the type carries no omitempty so a reader "+
+						"cannot tell an empty list from an absent one:\n%s", name, format, field, data)
+					continue
+				}
+				if _, ok := got.([]any); !ok {
+					// nil slices marshal as null in JSON and [] in YAML, so the two
+					// formats' documents for one object disagreed and the JSON one
+					// carried a null the API rejects.
+					t.Errorf("%s as %s has %q = %#v, want an empty list — the API rejects the null "+
+						"(\"roleIds: None is not of type 'array'\") and the two formats disagree:\n%s",
+						name, format, field, got, data)
+				}
 			}
 		}
 	}

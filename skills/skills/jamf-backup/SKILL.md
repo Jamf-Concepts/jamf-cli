@@ -50,7 +50,7 @@ On Protect, `jamf-cli protect backup --help` lists every resource name accepted 
 
 Both products exit non-zero if any resource failed to export, so a scheduled backup can tell an incomplete run from a good one. Pass `--allow-partial-failure` to accept a partial backup as success.
 
-Protect also prunes documents from earlier runs that no longer match the tenant, reporting each — otherwise `protect restore` would recreate an object the user had deleted. Pro does not prune (it has no restore). Pass `--no-prune` to keep them.
+Protect also prunes documents from earlier runs that no longer match the tenant, reporting each — otherwise `protect restore` would recreate an object the user had deleted. Pro does not prune (it has no restore). Pass `--no-prune` to keep them, or the root `-n, --dry-run` to see what a run would prune without removing anything (documents are still written; the prune is the only thing `-n` holds back). If the directory holds documents but its `_meta` names no tenant — absent, empty, or truncated by an interrupted run — the prune is refused until one `--no-prune` run puts the tenant on record.
 
 Protect only: any resource that can carry a credential is written `0600` and named in a warning at the end of the run. Read that warning before committing the directory. Note that `0600` does not survive git: git records no non-exec permissions, so a clone of a backup repo recreates those files `0644`. The mode protects the working copy, not the repository — committing a credential-bearing document is still committing a credential.
 
