@@ -71,24 +71,46 @@ Two adjacent mismatches came out of the same repro:
 
 `BackupSubDirs()` (`pro_resources.go`) maps each `SubDir` to its `FilterName`, so
 the two loaders derive their keys from one table instead of two conventions.
-`loadSnapshotFromDirectory` now walks the tree with `filepath.WalkDir` and, per
-directory:
+`loadSnapshotFromDirectory` then **reads that table instead of walking the tree**:
 
-- a path in `BackupSubDirs()` is read and then `fs.SkipDir` — a resource directory
-  owns its *files*, not its subdirectories, which is what keeps
-  `packages/files` (downloaded package binaries) out of the snapshot;
-- a parent of a nested resource path (`profiles`) is descended through, never read
-  as a resource itself;
-- an unknown *top-level* directory keeps the old behaviour, keyed by its own name
-  — that is what carries the SDK-backed resources written straight to the backup
-  root (`blueprints`, `compliance-benchmarks`) and any hand-assembled tree;
-- an unknown *nested* directory is skipped.
+- one `os.ReadDir` of the backup root picks up the directories no curated
+  `SubDir` claims, keyed by their own name — the SDK-backed resources written
+  straight to the root (`blueprints`, `compliance-benchmarks`), any
+  hand-assembled tree, and object files left directly in a parent of a nested
+  resource (`profiles/*.yaml` beside `profiles/macos/`), where the directory name
+  is already the `FilterName`. A failure to read the root is returned as an
+  error, not warned about: an empty snapshot there is not a partial result, it is
+  "the source was never read", and reporting that as no differences is the same
+  silent success this fix exists to remove;
+- then every entry of `BackupResources`, in slice order, read at
+  `filepath.Join(dir, r.SubDir)`. A missing directory is simply skipped.
 
-Buckets merge with `maps.Copy` exactly as live mode does, so macOS + iOS profiles
-(and account users + groups) land in one bucket on both sides.
+Reading the table rather than walking it is what makes the two loaders agree on
+more than the key. Both merge shared buckets with `maps.Copy` in
+`BackupResources` order, so the entry listed *last* wins a name collision on both
+sides — a macOS and an iOS profile both called `Corporate Wi-Fi` resolve to the
+same object on disk as they do live. A walk visits lexically (`profiles/ios`
+before `profiles/macos`, `accounts/groups` before `accounts/users`) and inverts
+that for exactly those two `FilterName`s, which turns a hidden object into a diff
+reporting every field of the survivor as modified. Reading by path also bounds
+the read to the directories the table names, which is what keeps `packages/files`
+(downloaded package binaries) out of the snapshot, and it drops the nested-parent
+bookkeeping, the `fs.SkipDir` handling and the depth assumptions with it.
 
-`backupObjectName` replaces the inline `obj["name"]` read: `name`, then
-`displayName`, then `general.name`, then the stem as a last resort.
+One behaviour is genuinely new rather than preserved: a resource directory may be
+a **symlink**. The old loader skipped symlinks (`os.ReadDir` reports a
+symlink-to-directory with `IsDir() == false`); reading the curated resources by
+path follows them for free, and `entryIsDir` keeps the root-level scan consistent
+with that. Worth knowing when handed an untrusted tree — `diff` will read and
+print field values from outside it.
+
+`backupObjectName` replaces the inline `obj["name"]` read and takes the
+resource's `BackupEndpoint.NameField`, checked first for the same reason
+`extractName` checks it first: it is where the resources that do not call their
+name `name` keep it — prestages use `displayName`, mobile-device smart and static
+groups use `groupName`. Then `name`, then the two shapes no registry field names
+(a Classic detail nesting its name under `general`, and `displayName` for a
+directory read without a `NameField`), then the filename stem as a last resort.
 
 ## Guardrails
 
@@ -97,16 +119,31 @@ Buckets merge with `maps.Copy` exactly as live mode does, so macOS + iOS profile
 `FilterName`. That is deliberately a test over the table rather than over the
 thirteen paths, so a nested resource added later cannot reintroduce the class.
 
+`TestLoadSnapshotFromDirectory_EveryCuratedNameFieldIsHonoured` is the same idea
+for the key: for every curated resource it writes an object carrying *only* its
+declared `NameField`, so a resource added later whose name lives somewhere new
+fails rather than silently falling back to the stem.
+
 `TestBackupObjectName_MatchesLiveNameExtraction` asserts the directory key equals
 `extractName` of the corresponding list item — the two loaders are only
 comparable if they agree on this, and nothing else in the codebase forces it.
+
+`TestLoadSnapshotFromDirectory_SharedBucketCollisionMatchesLiveOrder` pins the
+collision winner for `profiles` and `accounts` by reading it out of
+`BackupResources`, so reordering the table moves the expectation with it.
+
+`TestLoadSnapshotFromDirectory_UnreadableRootIsAnError` and
+`TestRunDiff_UnreadableSourceDirectoryErrors` keep an unreadable source out of
+the "No differences found" path, at the loader and at the command boundary.
 
 ## Watch for
 
 - A resource whose live list name differs from anything in its detail body would
   break key parity again; `backupObjectName` can only see the file on disk.
 - `NameField` in the generated backup registry accepts dotted paths
-  (`computers-inventory` declares `general.name`) but `extractName` does not
-  traverse them. No curated backup resource relies on it today.
+  (`computers-inventory` declares `general.name`) but neither `extractName` nor
+  `backupObjectName` traverses them — the latter happens to land on the right
+  value through its `general.name` branch, not because the dotted field was
+  honoured. No curated backup resource relies on it today.
 - `diff` still says nothing when a resource directory exists but is empty on both
   sides, which is correct but reads the same as "no such resource".

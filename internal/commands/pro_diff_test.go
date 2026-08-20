@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strings"
 	"testing"
@@ -866,6 +867,13 @@ func TestBackupObjectName_MatchesLiveNameExtraction(t *testing.T) {
 			stem:     "standard-mac",
 		},
 		{
+			name:     "mobile-device group uses groupName",
+			detail:   map[string]any{"groupName": "Static iPads"},
+			listItem: map[string]any{"groupId": "6", "groupName": "Static iPads"},
+			nameFld:  "groupName",
+			stem:     "static-ipads",
+		},
+		{
 			name:     "de-duplicated slug must not become the key",
 			detail:   map[string]any{"general": map[string]any{"name": "Corp WiFi"}},
 			listItem: map[string]any{"id": "9", "name": "Corp WiFi"},
@@ -875,7 +883,7 @@ func TestBackupObjectName_MatchesLiveNameExtraction(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			fromDisk := backupObjectName(tt.detail, tt.stem)
+			fromDisk := backupObjectName(tt.detail, tt.nameFld, tt.stem)
 			fromLive := extractName(tt.listItem, tt.nameFld, "")
 			if fromDisk != fromLive {
 				t.Errorf("snapshot keys disagree: directory %q vs live %q", fromDisk, fromLive)
@@ -885,7 +893,7 @@ func TestBackupObjectName_MatchesLiveNameExtraction(t *testing.T) {
 }
 
 func TestBackupObjectName_FallsBackToStem(t *testing.T) {
-	got := backupObjectName(map[string]any{"priority": float64(5)}, "productivity")
+	got := backupObjectName(map[string]any{"priority": float64(5)}, "", "productivity")
 	if got != "productivity" {
 		t.Errorf("expected filename stem 'productivity', got %q", got)
 	}
@@ -900,17 +908,28 @@ func snapshotKeys(s resourceSnapshot) []string {
 	return keys
 }
 
-// TestLoadSnapshotFromDirectory_SymlinkedResourceDir keeps a capability the
-// pre-WalkDir loader had for free: os.ReadDir followed a symlinked resource
-// directory. WalkDir does not descend into symlinks, so they are read in place.
+// TestLoadSnapshotFromDirectory_SymlinkedResourceDir pins a capability this
+// loader adds: a resource directory may be a symlink. The old loader skipped
+// them (os.ReadDir reports a symlink-to-directory with IsDir() == false);
+// reading the curated resources by path follows them for free, and entryIsDir
+// keeps the root-level scan consistent with that.
 func TestLoadSnapshotFromDirectory_SymlinkedResourceDir(t *testing.T) {
 	real := t.TempDir()
 	writeBackupFileForTest(t, filepath.Join(real, "shared-scripts", "deploy.yaml"), map[string]any{
 		"name": "Deploy Script",
 	}, "yaml")
 
+	writeBackupFileForTest(t, filepath.Join(real, "shared-blueprints", "baseline.yaml"), map[string]any{
+		"name": "Baseline",
+	}, "yaml")
+
 	dir := t.TempDir()
 	if err := os.Symlink(filepath.Join(real, "shared-scripts"), filepath.Join(dir, "scripts")); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+	// blueprints is outside the curated table, so it goes through the
+	// root-level scan and entryIsDir rather than through a table path.
+	if err := os.Symlink(filepath.Join(real, "shared-blueprints"), filepath.Join(dir, "blueprints")); err != nil {
 		t.Skipf("symlinks unavailable: %v", err)
 	}
 
@@ -921,4 +940,180 @@ func TestLoadSnapshotFromDirectory_SymlinkedResourceDir(t *testing.T) {
 	if _, ok := snapshot["scripts"]["Deploy Script"]; !ok {
 		t.Errorf("expected symlinked scripts directory to be read, got %v", snapshot)
 	}
+	if _, ok := snapshot["blueprints"]["Baseline"]; !ok {
+		t.Errorf("expected symlinked blueprints directory to be read, got %v", snapshot)
+	}
+}
+
+// TestLoadSnapshotFromDirectory_EveryCuratedNameFieldIsHonoured guards the key
+// resolver over the table rather than over the field names that happened to be
+// wrong. For every curated resource, an object carrying *only* its declared
+// NameField must be keyed by that field's value: mobile-device groups keep
+// theirs in groupName and prestages in displayName, and a resource whose name
+// is not found falls back to the filename stem — the slugified, possibly
+// de-duplicated key live mode never produces, so every object is reported
+// removed and added. A resource added later with a new NameField fails here.
+func TestLoadSnapshotFromDirectory_EveryCuratedNameFieldIsHonoured(t *testing.T) {
+	defs, err := ResolveBackupResources(nil)
+	if err != nil {
+		t.Fatalf("resolving curated resources: %v", err)
+	}
+
+	dir := t.TempDir()
+	type expectation struct{ filterName, objName string }
+	var want []expectation
+	for _, def := range defs {
+		field := def.NameField
+		if field == "" {
+			field = "name"
+		}
+		objName := "named-" + def.Key
+		writeBackupFileForTest(t, filepath.Join(dir, filepath.FromSlash(def.SubDir), "obj.yaml"),
+			map[string]any{field: objName}, "yaml")
+		want = append(want, expectation{def.FilterName, objName})
+	}
+
+	snapshot, err := loadSnapshotFromDirectory(dir, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	for _, w := range want {
+		if _, ok := snapshot[w.filterName][w.objName]; !ok {
+			t.Errorf("resource %q: object not keyed on its NameField, bucket holds %v", w.filterName, snapshot[w.filterName])
+		}
+	}
+}
+
+// TestLoadSnapshotFromDirectory_SharedBucketCollisionMatchesLiveOrder pins the
+// merge order where two curated entries share a FilterName and the table order
+// disagrees with the alphabet: profiles (macos then ios) and accounts (users
+// then groups). Both loaders merge with maps.Copy in BackupResources order, so
+// the entry listed last wins a name collision. A walk of the tree visits
+// lexically and inverts both, which leaves the two sides keeping different
+// objects under one key — every field of the survivor reported as modified,
+// and the other object never compared at all.
+func TestLoadSnapshotFromDirectory_SharedBucketCollisionMatchesLiveOrder(t *testing.T) {
+	dir := t.TempDir()
+
+	// Each file records the leaf directory it came from, so the surviving
+	// object identifies which curated entry won.
+	writeBackupFileForTest(t, filepath.Join(dir, "profiles", "macos", "wifi.yaml"), map[string]any{
+		"general": map[string]any{"name": "Corporate Wi-Fi"}, "from": "macos",
+	}, "yaml")
+	writeBackupFileForTest(t, filepath.Join(dir, "profiles", "ios", "wifi.yaml"), map[string]any{
+		"general": map[string]any{"name": "Corporate Wi-Fi"}, "from": "ios",
+	}, "yaml")
+	writeBackupFileForTest(t, filepath.Join(dir, "accounts", "users", "admin.yaml"), map[string]any{
+		"name": "admin", "from": "users",
+	}, "yaml")
+	writeBackupFileForTest(t, filepath.Join(dir, "accounts", "groups", "admin.yaml"), map[string]any{
+		"name": "admin", "from": "groups",
+	}, "yaml")
+
+	// lastLeaf reads the winner out of the table instead of hard-coding it, so
+	// reordering BackupResources moves the expectation with it.
+	lastLeaf := func(filterName string) string {
+		leaf := ""
+		for _, r := range BackupResources {
+			if r.FilterName == filterName {
+				leaf = r.SubDir[strings.LastIndex(r.SubDir, "/")+1:]
+			}
+		}
+		return leaf
+	}
+
+	snapshot, err := loadSnapshotFromDirectory(dir, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	for _, tc := range []struct{ resource, objName string }{
+		{"profiles", "Corporate Wi-Fi"},
+		{"accounts", "admin"},
+	} {
+		obj, ok := snapshot[tc.resource][tc.objName]
+		if !ok {
+			t.Errorf("%s: %q missing from the merged bucket, got %v", tc.resource, tc.objName, snapshot[tc.resource])
+			continue
+		}
+		if want := lastLeaf(tc.resource); obj["from"] != want {
+			t.Errorf("%s: collision kept the object from %v, want %q (the entry listed last in BackupResources, which is what live mode keeps)", tc.resource, obj["from"], want)
+		}
+		if len(snapshot[tc.resource]) != 1 {
+			t.Errorf("%s: expected the collision to leave one object, got %d", tc.resource, len(snapshot[tc.resource]))
+		}
+	}
+}
+
+// TestLoadSnapshotFromDirectory_ObjectFilesInNestedParent covers a
+// hand-assembled tree that drops profiles straight into profiles/ rather than
+// profiles/macos: the parent directory name is already the FilterName, so its
+// files merge into the same bucket the curated subdirectories fill.
+func TestLoadSnapshotFromDirectory_ObjectFilesInNestedParent(t *testing.T) {
+	dir := t.TempDir()
+
+	writeBackupFileForTest(t, filepath.Join(dir, "profiles", "loose.yaml"), map[string]any{
+		"general": map[string]any{"name": "Loose Profile"},
+	}, "yaml")
+	writeBackupFileForTest(t, filepath.Join(dir, "profiles", "macos", "wifi.yaml"), map[string]any{
+		"general": map[string]any{"name": "WiFi"},
+	}, "yaml")
+
+	snapshot, err := loadSnapshotFromDirectory(dir, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	profiles := snapshot["profiles"]
+	if len(profiles) != 2 {
+		t.Fatalf("expected the parent's files and the subdirectory's to merge, got %d: %v", len(profiles), profiles)
+	}
+	for _, want := range []string{"Loose Profile", "WiFi"} {
+		if _, ok := profiles[want]; !ok {
+			t.Errorf("expected %q in the profiles bucket", want)
+		}
+	}
+}
+
+// TestLoadSnapshotFromDirectory_UnreadableRootIsAnError keeps an unreadable
+// source out of the "no differences found" path. An empty snapshot there is not
+// a partial read, it is no read at all, and reporting it as agreement with exit
+// 0 is the same silent success this loader was fixed to remove.
+func TestLoadSnapshotFromDirectory_UnreadableRootIsAnError(t *testing.T) {
+	dir := unreadableBackupDirForTest(t)
+
+	if _, err := loadSnapshotFromDirectory(dir, nil); err == nil {
+		t.Error("expected an error for an unreadable source directory, got nil")
+	}
+}
+
+// TestRunDiff_UnreadableSourceDirectoryErrors is the same check at the command
+// boundary: a non-nil error is what gives the process a non-zero exit status,
+// which is what a CI gate reads.
+func TestRunDiff_UnreadableSourceDirectoryErrors(t *testing.T) {
+	src := unreadableBackupDirForTest(t)
+	tgt := t.TempDir()
+
+	if err := runDiff(context.Background(), diffOptions{Source: src, Target: tgt}); err == nil {
+		t.Error("expected runDiff to fail on an unreadable source, got nil (diff would print \"No differences found\" and exit 0)")
+	}
+}
+
+// unreadableBackupDirForTest returns a backup directory that stats as a
+// directory but cannot be listed: mode 0111 is searchable, not readable.
+func unreadableBackupDirForTest(t *testing.T) string {
+	t.Helper()
+	if runtime.GOOS == "windows" {
+		t.Skip("POSIX directory permissions")
+	}
+	if os.Geteuid() == 0 {
+		t.Skip("root bypasses directory permissions")
+	}
+
+	dir := filepath.Join(t.TempDir(), "backup")
+	writeBackupFileForTest(t, filepath.Join(dir, "policies", "test.yaml"), map[string]any{"name": "Test"}, "yaml")
+	if err := os.Chmod(dir, 0o111); err != nil {
+		t.Fatalf("chmod: %v", err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(dir, 0o755) })
+	return dir
 }

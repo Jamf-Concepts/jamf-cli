@@ -188,9 +188,11 @@ func BackupFilterNames() []string {
 }
 
 // BackupSubDirs maps each curated resource's on-disk subdirectory (relative to
-// the backup root, slash-separated) to the FilterName that owns it. `diff` uses
-// it to bucket files read off disk under exactly the key live mode uses, so a
-// directory and an instance are comparable.
+// the backup root, slash-separated) to the FilterName that owns it. `diff`
+// reads this table rather than walking the backup tree, so files off disk are
+// bucketed under exactly the key live mode uses and a directory and an instance
+// are comparable; it also uses the key set to tell which directories in the
+// backup root a curated resource already owns from those it must key by name.
 //
 // It matters because thirteen of the curated resources nest two levels deep
 // (profiles/macos, smart-groups/computers, accounts/users, …). `diff` used to
