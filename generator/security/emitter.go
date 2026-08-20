@@ -31,8 +31,9 @@ type templateOp struct {
 	*parser.Operation
 	GoName          string // PascalCase form of Name, used in Go identifiers
 	Short           string // Short help text for the cobra subcommand
-	HasBody         bool   // operation accepts a request body — emit --file/--set/--scaffold flags
-	Scaffold        string // pretty-printed JSON template for the request body ("" when op has no body)
+	HasBody         bool   // operation accepts a request body — emit --file/--set flags
+	Scaffold        string // pretty-printed JSON template for the request body ("" when the body has no shape to show)
+	HasScaffold     bool   // body carries enough shape for --scaffold to be worth offering (parser.HasScaffoldShape)
 	QueryParams     []queryParam
 	Paginate        bool   // op exposes page+pageSize — always fetch every page, aggregating the array named by UnwrapArrayKey
 	UnwrapArrayKey  string // response object property holding the result array (empty: print the raw response)
@@ -109,12 +110,17 @@ func buildTemplateResource(r *parser.Resource, scope string) (templateResource, 
 		// everything loop only makes sense when the template knows which
 		// response property to aggregate pages into.
 		paginate := unwrapKey != ""
+		scaffold, err := buildScaffold(&opCopy)
+		if err != nil {
+			return templateResource{}, fmt.Errorf("resource %q op %q: %w", r.Name, opCopy.Name, err)
+		}
 		ops = append(ops, templateOp{
 			Operation:       &opCopy,
 			GoName:          strcase.ToCamel(opCopy.Name),
 			Short:           shortFromOp(&opCopy),
 			HasBody:         opCopy.RequestBody != nil,
-			Scaffold:        buildScaffold(&opCopy),
+			Scaffold:        scaffold,
+			HasScaffold:     scaffold != "",
 			QueryParams:     buildQueryParams(opCopy.Parameters),
 			Paginate:        paginate,
 			UnwrapArrayKey:  unwrapKey,
@@ -214,16 +220,17 @@ func buildQueryParams(params []*parser.Parameter) []queryParam {
 }
 
 // buildScaffold returns a pretty-printed JSON example for the operation's
-// request body, derived from the spec schema. Returns "" when the op has no
-// body, which is the signal the template uses to omit --scaffold entirely.
+// request body, derived from the spec schema. Returns "" when the op's body has
+// no shape worth showing, which is the signal the template uses to omit
+// --scaffold entirely.
 //
 // The rendering itself is parser.ScaffoldJSON, shared with the Jamf Pro and
-// Security Cloud generators. It used to be a local copy — byte-identical between
-// this file and generator/security/emitter.go, and subtly different from Pro's —
+// Platform generators. It used to be a local copy — byte-identical between
+// this file and generator/platform/emitter.go, and subtly different from Pro's —
 // so the same schema could scaffold three ways depending on which API served it.
-func buildScaffold(op *parser.Operation) string {
-	if op.RequestBody == nil || op.RequestBody.Schema == nil {
-		return ""
+func buildScaffold(op *parser.Operation) (string, error) {
+	if op.RequestBody == nil || !parser.HasScaffoldShape(op.RequestBody.Schema) {
+		return "", nil
 	}
 	return parser.ScaffoldJSON(op.RequestBody.Schema)
 }

@@ -6,8 +6,20 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
+
+// mustScaffoldJSON fails the test on a render error rather than letting an empty
+// scaffold pass for a real one.
+func mustScaffoldJSON(t *testing.T, s *Schema) string {
+	t.Helper()
+	out, err := ScaffoldJSON(s)
+	if err != nil {
+		t.Fatalf("ScaffoldJSON: %v", err)
+	}
+	return out
+}
 
 // TestScaffoldJSON_ArrayOfObjectsShowsOneElement is the case this walker exists
 // for. `platform-device-groups create --scaffold` rendered "criteria": [] for a
@@ -27,7 +39,7 @@ func TestScaffoldJSON_ArrayOfObjectsShowsOneElement(t *testing.T) {
 		},
 	}
 	var parsed map[string]any
-	if err := json.Unmarshal([]byte(ScaffoldJSON(s)), &parsed); err != nil {
+	if err := json.Unmarshal([]byte(mustScaffoldJSON(t, s)), &parsed); err != nil {
 		t.Fatalf("invalid JSON: %v", err)
 	}
 	arr, ok := parsed["criteria"].([]any)
@@ -59,7 +71,7 @@ func TestScaffoldJSON_ArrayOfScalarsStaysEmpty(t *testing.T) {
 		},
 	}
 	var parsed map[string]any
-	if err := json.Unmarshal([]byte(ScaffoldJSON(s)), &parsed); err != nil {
+	if err := json.Unmarshal([]byte(mustScaffoldJSON(t, s)), &parsed); err != nil {
 		t.Fatalf("invalid JSON: %v", err)
 	}
 	for _, f := range []string{"domains", "unknown"} {
@@ -85,7 +97,7 @@ func TestScaffoldJSON_TopLevelArrayBody(t *testing.T) {
 		}},
 	}
 	var parsed []map[string]any
-	if err := json.Unmarshal([]byte(ScaffoldJSON(s)), &parsed); err != nil {
+	if err := json.Unmarshal([]byte(mustScaffoldJSON(t, s)), &parsed); err != nil {
 		t.Fatalf("expected a JSON array, got error %v", err)
 	}
 	if len(parsed) != 1 {
@@ -109,7 +121,7 @@ func TestScaffoldJSON_NestedObjectsRecurse(t *testing.T) {
 		},
 	}
 	var parsed map[string]any
-	if err := json.Unmarshal([]byte(ScaffoldJSON(s)), &parsed); err != nil {
+	if err := json.Unmarshal([]byte(mustScaffoldJSON(t, s)), &parsed); err != nil {
 		t.Fatalf("invalid JSON: %v", err)
 	}
 	contact, ok := parsed["contact"].(map[string]any)
@@ -138,7 +150,7 @@ func TestScaffoldJSON_KeepsWriteOnly(t *testing.T) {
 		},
 	}
 	var parsed map[string]any
-	if err := json.Unmarshal([]byte(ScaffoldJSON(s)), &parsed); err != nil {
+	if err := json.Unmarshal([]byte(mustScaffoldJSON(t, s)), &parsed); err != nil {
 		t.Fatalf("invalid JSON: %v", err)
 	}
 	if _, ok := parsed["password"]; !ok {
@@ -163,7 +175,7 @@ func TestScaffoldJSON_ExampleWinsForEveryType(t *testing.T) {
 		},
 	}
 	var parsed map[string]any
-	if err := json.Unmarshal([]byte(ScaffoldJSON(s)), &parsed); err != nil {
+	if err := json.Unmarshal([]byte(mustScaffoldJSON(t, s)), &parsed); err != nil {
 		t.Fatalf("invalid JSON: %v", err)
 	}
 	arr, ok := parsed["aRecords"].([]any)
@@ -204,8 +216,9 @@ func TestHasScaffoldShape(t *testing.T) {
 // Object nesting always terminated on its own — a property with no properties of
 // its own ends the walk — but an array property can name its own parent as its
 // element type, and kin-openapi resolves $ref inline, so following element
-// schemas without a cap recurses until the stack dies. This test would hang, not
-// fail, without the cap.
+// schemas without a cap recurses until the stack dies. Without the cap this test
+// does not hang — it dies in about a second with "fatal error: stack overflow",
+// so the guard is better than a timeout would be.
 func TestParseSchema_RecursiveArrayTerminates(t *testing.T) {
 	specPath := filepath.Join(t.TempDir(), "recursive.yaml")
 	if err := os.WriteFile(specPath, []byte(`
@@ -249,13 +262,24 @@ components:
 	if op == nil {
 		t.Fatal("expected an operation with a request body")
 	}
-	out := ScaffoldJSON(op.RequestBody.Schema)
+	out := mustScaffoldJSON(t, op.RequestBody.Schema)
 	var parsed map[string]any
 	if err := json.Unmarshal([]byte(out), &parsed); err != nil {
 		t.Fatalf("recursive schema produced invalid JSON: %v\n%s", err, out)
 	}
-	if _, ok := parsed["children"]; !ok {
-		t.Errorf("expected children rendered, got %s", out)
+	// The element shape is the point, and it is the half that pins
+	// parseSchemaDepth's Property.Items branch: a bare [] satisfies a key check,
+	// so asserting only the key leaves the parser-side population untested.
+	kids, ok := parsed["children"].([]any)
+	if !ok || len(kids) != 1 {
+		t.Fatalf("expected one example child element, got %#v (%s)", parsed["children"], out)
+	}
+	elem, ok := kids[0].(map[string]any)
+	if !ok {
+		t.Fatalf("expected the parsed element schema, got %#v", kids[0])
+	}
+	if _, ok := elem["name"]; !ok {
+		t.Errorf("expected the element to carry Node's own properties, got %#v", elem)
 	}
 }
 
@@ -266,7 +290,7 @@ components:
 // shortening scaffolds.
 func TestParseSchema_DepthCapUnreachedByLiveSpecs(t *testing.T) {
 	var specs []string
-	for _, pat := range []string{"../../specs/*.yaml", "../../specs/platform/*.json"} {
+	for _, pat := range []string{"../../specs/*.yaml", "../../specs/platform/*.json", "../../specs/security/*.json"} {
 		m, err := filepath.Glob(pat)
 		if err != nil {
 			t.Fatalf("globbing %s: %v", pat, err)
@@ -319,4 +343,224 @@ func TestParseSchema_DepthCapUnreachedByLiveSpecs(t *testing.T) {
 			deepest, where, maxSchemaDepth)
 	}
 	t.Logf("deepest committed schema depth: %d (%s); cap %d", deepest, where, maxSchemaDepth)
+}
+
+// TestParseSchema_ArrayRequestBodyEndToEnd covers the Schema.Items branch of
+// parseSchemaDepth — the other half of this change's mechanism — and does it
+// through the whole path a generator takes: parse a spec, ask HasScaffoldShape
+// whether the flag is worth emitting, then render.
+//
+// Every other test in this file hands ScaffoldJSON a Schema built by hand, so
+// none of them notice if the parser stops deriving Items from a spec. Without
+// this the two population branches could both be deleted with the suite still
+// green, and CI's only complaint would be a golden-file drift whose documented
+// remedy is to commit the degraded output.
+func TestParseSchema_ArrayRequestBodyEndToEnd(t *testing.T) {
+	specPath := filepath.Join(t.TempDir(), "arraybody.yaml")
+	if err := os.WriteFile(specPath, []byte(`
+openapi: 3.0.0
+info: {title: AppRequest, version: v1}
+paths:
+  /v1/app-request-form-settings:
+    put:
+      tags: [app-requests]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                type: object
+                properties:
+                  title: {type: string, example: Quantity}
+                  priority: {type: integer}
+                  serverId: {type: string, readOnly: true}
+      responses: {'200': {description: ok}}
+`), 0o644); err != nil {
+		t.Fatalf("writing spec: %v", err)
+	}
+	resources, err := ParseSpec(specPath)
+	if err != nil {
+		t.Fatalf("ParseSpec: %v", err)
+	}
+	var op *Operation
+	for _, r := range resources {
+		for _, o := range r.Operations {
+			if o.RequestBody != nil && o.RequestBody.Schema != nil {
+				op = o
+			}
+		}
+	}
+	if op == nil {
+		t.Fatal("expected an operation with a request body")
+	}
+	// The emit gate: a bare-array body has no properties, so gating on
+	// len(Properties) > 0 denied `pro app-requests update` the flag entirely.
+	if !HasScaffoldShape(op.RequestBody.Schema) {
+		t.Fatalf("bare-array request body should earn --scaffold; Items = %#v", op.RequestBody.Schema.Items)
+	}
+	out := mustScaffoldJSON(t, op.RequestBody.Schema)
+	var parsed []map[string]any
+	if err := json.Unmarshal([]byte(out), &parsed); err != nil {
+		t.Fatalf("expected a JSON array, got %v\n%s", err, out)
+	}
+	if len(parsed) != 1 {
+		t.Fatalf("expected one example element, got %d: %s", len(parsed), out)
+	}
+	if got := parsed[0]["title"]; got != "Quantity" {
+		t.Errorf("expected the element's spec example, got %#v (%s)", got, out)
+	}
+	if _, ok := parsed[0]["priority"]; !ok {
+		t.Errorf("expected the element's other properties, got %s", out)
+	}
+	// Read-only omission has to reach inside a synthesised element, not just the
+	// top level — an element is a request template too.
+	if _, ok := parsed[0]["serverId"]; ok {
+		t.Errorf("read-only element field must not appear, got %s", out)
+	}
+}
+
+// TestParseSchema_ArrayPropertyItemsFromSpec pins the Property.Items branch on
+// its own, without the recursive-schema machinery, so a failure names the cause
+// directly. This is the branch that turns "criteria": [] into a shape.
+func TestParseSchema_ArrayPropertyItemsFromSpec(t *testing.T) {
+	specPath := filepath.Join(t.TempDir(), "groups.yaml")
+	if err := os.WriteFile(specPath, []byte(`
+openapi: 3.0.0
+info: {title: Groups, version: v1}
+paths:
+  /v1/device-groups:
+    post:
+      tags: [device-groups]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: {type: string}
+                criteria:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      attributeName: {type: string, example: Device Name}
+                      operator: {type: string, example: IS}
+                hostnames:
+                  type: array
+                  items: {type: string}
+      responses: {'201': {description: created}}
+`), 0o644); err != nil {
+		t.Fatalf("writing spec: %v", err)
+	}
+	resources, err := ParseSpec(specPath)
+	if err != nil {
+		t.Fatalf("ParseSpec: %v", err)
+	}
+	var op *Operation
+	for _, r := range resources {
+		for _, o := range r.Operations {
+			if o.RequestBody != nil && o.RequestBody.Schema != nil {
+				op = o
+			}
+		}
+	}
+	if op == nil {
+		t.Fatal("expected an operation with a request body")
+	}
+	crit := op.RequestBody.Schema.Properties["criteria"]
+	if crit == nil || crit.Items == nil || len(crit.Items.Properties) == 0 {
+		t.Fatalf("parser did not derive the element schema for criteria: %#v", crit)
+	}
+	out := mustScaffoldJSON(t, op.RequestBody.Schema)
+	var parsed map[string]any
+	if err := json.Unmarshal([]byte(out), &parsed); err != nil {
+		t.Fatalf("invalid JSON: %v\n%s", err, out)
+	}
+	arr, ok := parsed["criteria"].([]any)
+	if !ok || len(arr) != 1 {
+		t.Fatalf("expected one example criterion, got %#v (%s)", parsed["criteria"], out)
+	}
+	if got := arr[0].(map[string]any)["operator"]; got != "IS" {
+		t.Errorf("expected the element's spec example, got %#v (%s)", got, out)
+	}
+	// The scalar-element half, also parsed from the spec rather than hand-built.
+	if arr, ok := parsed["hostnames"].([]any); !ok || len(arr) != 0 {
+		t.Errorf("expected an array of scalars to stay empty, got %#v", parsed["hostnames"])
+	}
+}
+
+// TestScaffoldJSON_UntypedPropertyWithNestedShape covers a property carrying
+// properties (or allOf) but no declared `type`. parseSchemaDepth resolves its
+// Nested schema regardless, and matching only the literal "object" discarded
+// that and rendered the whole sub-object as null.
+func TestScaffoldJSON_UntypedPropertyWithNestedShape(t *testing.T) {
+	s := &Schema{
+		Properties: map[string]*Property{
+			"settings": {Nested: &Schema{Properties: map[string]*Property{
+				"enabled": {Type: "boolean"},
+			}}},
+			// A bare oneOf resolves to no shape at all; null is the honest answer
+			// and matches what the previous default arm gave.
+			"odv": {},
+		},
+	}
+	var parsed map[string]any
+	if err := json.Unmarshal([]byte(mustScaffoldJSON(t, s)), &parsed); err != nil {
+		t.Fatalf("invalid JSON: %v", err)
+	}
+	settings, ok := parsed["settings"].(map[string]any)
+	if !ok {
+		t.Fatalf("an untyped property with a resolved shape must render it, got %#v", parsed["settings"])
+	}
+	if _, ok := settings["enabled"]; !ok {
+		t.Errorf("expected the nested field, got %#v", settings)
+	}
+	if v, ok := parsed["odv"]; !ok || v != nil {
+		t.Errorf("expected a shapeless untyped property to stay null, got %#v", v)
+	}
+}
+
+// TestScaffoldJSON_ReportsRenderFailure pins the direction of the error. This
+// runs at generation time, so swallowing a marshal failure into "{}" ships an
+// operation with a useless scaffold while `make generate` exits 0.
+func TestScaffoldJSON_ReportsRenderFailure(t *testing.T) {
+	s := &Schema{
+		Name: "Broken",
+		Properties: map[string]*Property{
+			// A spec example is passed through verbatim; a value json cannot
+			// encode has to surface rather than collapse the whole scaffold.
+			"weird": {Type: "string", Example: func() {}},
+		},
+	}
+	out, err := ScaffoldJSON(s)
+	if err == nil {
+		t.Fatalf("expected a render error, got %q", out)
+	}
+	if !strings.Contains(err.Error(), "Broken") {
+		t.Errorf("error should name the schema so the generator failure is locatable, got %v", err)
+	}
+}
+
+// TestScaffoldRawLiteral_RejectsBacktick guards the one place Pro differs from
+// the other two generators: it embeds the scaffold in a raw Go string literal, so
+// a backtick anywhere in it emits uncompilable generated code. Spec examples now
+// reach the scaffold from nested objects and array elements too, so the surface
+// is wider than it was.
+func TestScaffoldRawLiteral_RejectsBacktick(t *testing.T) {
+	clean := &Schema{Properties: map[string]*Property{"name": {Type: "string", Example: "Apple Park"}}}
+	if _, err := scaffoldRawLiteral(clean); err != nil {
+		t.Fatalf("unexpected error for a backtick-free scaffold: %v", err)
+	}
+	dirty := &Schema{
+		Name: "Shell",
+		Properties: map[string]*Property{
+			"command": {Type: "array", Items: &Schema{Properties: map[string]*Property{
+				"script": {Type: "string", Example: "echo `whoami`"},
+			}}},
+		},
+	}
+	if _, err := scaffoldRawLiteral(dirty); err == nil {
+		t.Error("a backtick in a nested spec example must fail generation, not emit uncompilable code")
+	}
 }

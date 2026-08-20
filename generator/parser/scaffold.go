@@ -2,7 +2,10 @@
 
 package parser
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"fmt"
+)
 
 // ScaffoldJSON returns a pretty-printed JSON template for a request body,
 // derived from its parsed schema. It backs every generator's --scaffold output:
@@ -33,17 +36,20 @@ import "encoding/json"
 //     scalar element's type is evident from the field and its help text, and
 //     rendering [""] would imply an empty string is a meaningful entry.
 //
-// Returns "{}" for a nil schema or an unmarshallable result, so a template can
-// embed the output unconditionally.
-func ScaffoldJSON(s *Schema) string {
+// Returns "{}" for a nil schema, so a template can embed the output
+// unconditionally. A marshalling failure is returned, not swallowed: this runs at
+// generation time, and the alternative is an operation that ships a scaffold of
+// "{}" while `make generate` exits 0 — the silent-shortening failure mode that
+// TestParseSchema_DepthCapUnreachedByLiveSpecs exists to prevent one tier up.
+func ScaffoldJSON(s *Schema) (string, error) {
 	if s == nil {
-		return "{}"
+		return "{}", nil
 	}
 	data, err := json.MarshalIndent(scaffoldValue(s), "", "  ")
 	if err != nil {
-		return "{}"
+		return "", fmt.Errorf("rendering scaffold for schema %q: %w", s.Name, err)
 	}
-	return string(data)
+	return string(data), nil
 }
 
 // scaffoldValue builds the Go value for a schema. Recursion is bounded by the
@@ -88,11 +94,23 @@ func propertyValue(p *Property) any {
 	switch p.Type {
 	case "array":
 		return scaffoldArray(p.Items)
-	case "object":
+	case "object", "":
+		// An untyped property is included here because a declared type is not a
+		// reliable test — scaffoldArray says the same of element schemas, and
+		// scaffoldValue treats "" as an object. A property carrying properties or
+		// allOf but no `type` already has its Nested schema resolved by
+		// parseSchemaDepth; matching only the literal "object" discarded it and
+		// rendered the whole sub-object as null.
 		if p.Nested != nil {
 			return scaffoldValue(p.Nested)
 		}
-		return map[string]any{}
+		if p.Type == "object" {
+			return map[string]any{}
+		}
+		// An untyped property with no resolved shape stays null, the same answer
+		// the switch's default gave. Today that is only a bare oneOf (e.g.
+		// compliance_benchmark_engine.json's rules[].odv).
+		return nil
 	case "string":
 		return ""
 	case "boolean":
