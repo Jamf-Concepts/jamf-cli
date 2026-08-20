@@ -149,7 +149,7 @@ granular remove-* subcommands on the referenced resource to detach members.`,
 			r := protect.NewResolver(cliCtx.ProtectClient)
 
 			// Resolve names to IDs
-			input, err := planExportToInput(ctx, export, r)
+			input, err := planExportToInput(ctx, export, r, false)
 			if err != nil {
 				return err
 			}
@@ -449,7 +449,15 @@ func planToExport(p *jamfprotect.Plan) planExport {
 }
 
 // planExportToInput resolves names to IDs and builds a PlanInput for the SDK.
-func planExportToInput(ctx context.Context, e planExport, r *protect.Resolver) (jamfprotect.PlanInput, error) {
+//
+// clearAbsent decides what a membership field the document omits means. The SDK
+// omits a nil list from the GraphQL variables and the server leaves the field
+// untouched, which is what 'plans apply' wants — CLAUDE.md documents that an
+// omitted list there leaves membership alone, and the granular remove-* commands
+// are how you detach. A restore wants the opposite: its help promises the target
+// ends up matching the document, so an absent list has to be sent as an empty one
+// or a binding added after the backup survives the rollback.
+func planExportToInput(ctx context.Context, e planExport, r *protect.Resolver, clearAbsent bool) (jamfprotect.PlanInput, error) {
 	input := jamfprotect.PlanInput{
 		Name:                     e.Name,
 		Description:              e.Description,
@@ -522,6 +530,29 @@ func planExportToInput(ctx context.Context, e planExport, r *protect.Resolver) (
 	}
 	if e.SignaturesFeedConfig != nil {
 		input.SignaturesFeedConfig = *e.SignaturesFeedConfig
+	}
+	if clearAbsent {
+		// A non-nil empty slice is the SDK's "send []", which clears. Only the
+		// fields the document could not express are converted — a list that was
+		// present has already been resolved above.
+		if input.ExceptionSets == nil {
+			input.ExceptionSets = []string{}
+		}
+		if input.AnalyticSets == nil {
+			input.AnalyticSets = []jamfprotect.PlanAnalyticSetInput{}
+		}
+		if input.UnifiedLoggingFilterSets == nil {
+			input.UnifiedLoggingFilterSets = []string{}
+		}
+		if input.TelemetryV2 == nil {
+			// TelemetryV2 is a single reference, so clearing it needs the SDK's
+			// explicit-null flag rather than an empty value.
+			input.TelemetryV2Null = true
+		}
+		// USBControlSet has no explicit-null mechanism in the SDK (it is a plain
+		// *string with no Null sibling), so a plan that had one detached after the
+		// backup keeps it. Sending "" is untested on the wire and would more likely
+		// be refused as an unresolvable ID than read as a clear.
 	}
 	return input, nil
 }

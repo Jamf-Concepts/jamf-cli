@@ -217,7 +217,7 @@ func protectRoundTripCases() []roundTripCase {
 				if err := unmarshalInput(data, &e); err != nil {
 					return nil, err
 				}
-				return planExportToInput(context.Background(), e, r)
+				return planExportToInput(context.Background(), e, r, false)
 			},
 			seed: func(f *fakeTenant) {
 				f.analyticSets = []jamfprotect.AnalyticSet{{UUID: "as-1", Name: "zz-analytic-set"}}

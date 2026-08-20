@@ -6,11 +6,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
+	"github.com/Jamf-Concepts/jamf-cli/internal/exitcode"
 	"github.com/Jamf-Concepts/jamf-cli/internal/protect"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 
@@ -992,6 +995,321 @@ func TestBackupPrunesDocumentsThatNoLongerMatchTheTenant(t *testing.T) {
 			if _, err := os.Stat(path); err != nil {
 				t.Errorf("%s was deleted; pruning must only consider files it could have written", path)
 			}
+		}
+	})
+}
+
+// os.WriteFile applies its perm argument only when it creates the file, so a
+// re-run into an existing tree used to keep whatever mode was already there while
+// the summary still claimed 0600. A git clone of a backup repo hands every file
+// back 0644 — git records no non-exec permissions — which is exactly the workflow
+// the jamf-backup skill recommends.
+func TestRunProtectBackupTightensPermissionsOnAnExistingFile(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(dir, "action-configs"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	sensitive := filepath.Join(dir, "action-configs", "zz-http-forwarder.yaml")
+	// Stand in for the checkout: the file already exists, world-readable.
+	if err := os.WriteFile(sensitive, []byte("name: zz-http-forwarder\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	ctx := &registry.CLIContext{ProtectClient: &mockProtectClient{
+		actionConfigs: []jamfprotect.ActionConfigListItem{{ID: "a1", Name: "zz-http-forwarder"}},
+		actionConfig: &jamfprotect.ActionConfig{
+			ID:   "a1",
+			Name: "zz-http-forwarder",
+			Clients: []jamfprotect.ReportClient{{
+				ID:   "c1",
+				Type: "Http",
+				Params: jamfprotect.ReportClientParams{
+					URL:    "https://siem.example.com/ingest",
+					Method: "POST",
+					Headers: []jamfprotect.ReportClientHeader{
+						{Header: "Authorization", Value: "Bearer super-secret-token"},
+					},
+				},
+			}},
+		},
+	}}
+	if err := runProtectBackup(context.Background(), ctx, dir, "yaml", "action-configs", "", false); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	info, err := os.Stat(sensitive)
+	if err != nil {
+		t.Fatalf("action config not written: %v", err)
+	}
+	if perm := info.Mode().Perm(); perm != 0o600 {
+		t.Errorf("mode = %#o, want 0600 — the run reports 0600 and must deliver it on a re-run too", perm)
+	}
+}
+
+// Pruning is keyed on "the object set of the tenant being backed up now", so
+// running it against a directory holding a different tenant's backup would delete
+// that tenant's documents for every object this one does not have — reported only
+// as a prune count, with no confirmation prompt and no destructive annotation.
+func TestBackupRefusesToPruneAnotherTenantsDirectory(t *testing.T) {
+	twoFilters := []jamfprotect.UnifiedLoggingFilter{
+		{UUID: "f1", Name: "zz-staging-only"},
+		{UUID: "f2", Name: "zz-shared"},
+	}
+	staging := func() *registry.CLIContext {
+		return &registry.CLIContext{
+			ProtectURL:    "https://staging.protect.jamfcloud.com",
+			ProtectClient: &mockProtectClient{ulfFilters: twoFilters},
+		}
+	}
+	production := func() *registry.CLIContext {
+		return &registry.CLIContext{
+			ProtectURL:    "https://prod.protect.jamfcloud.com",
+			ProtectClient: &mockProtectClient{ulfFilters: twoFilters[1:]},
+		}
+	}
+
+	t.Run("a second tenant is refused before anything is deleted", func(t *testing.T) {
+		dir := t.TempDir()
+		if err := runProtectBackup(context.Background(), staging(), dir, "yaml", "unified-logging-filters", "", false); err != nil {
+			t.Fatal(err)
+		}
+
+		err := runProtectBackup(context.Background(), production(), dir, "yaml", "unified-logging-filters", "", false)
+		if err == nil {
+			t.Fatal("expected a refusal; pruning would delete the other tenant's documents")
+		}
+		for _, want := range []string{"staging.protect.jamfcloud.com", "prod.protect.jamfcloud.com", "--no-prune"} {
+			if !strings.Contains(err.Error(), want) {
+				t.Errorf("error %q should mention %q", err, want)
+			}
+		}
+		if _, statErr := os.Stat(filepath.Join(dir, "unified-logging-filters", "zz-staging-only.yaml")); statErr != nil {
+			t.Errorf("the other tenant's document was deleted anyway: %v", statErr)
+		}
+	})
+
+	t.Run("--no-prune writes alongside them", func(t *testing.T) {
+		dir := t.TempDir()
+		if err := runProtectBackup(context.Background(), staging(), dir, "yaml", "unified-logging-filters", "", false); err != nil {
+			t.Fatal(err)
+		}
+		if err := runProtectBackup(context.Background(), production(), dir, "yaml", "unified-logging-filters", "", true); err != nil {
+			t.Fatalf("--no-prune must be allowed: %v", err)
+		}
+		if _, statErr := os.Stat(filepath.Join(dir, "unified-logging-filters", "zz-staging-only.yaml")); statErr != nil {
+			t.Errorf("--no-prune must keep the other tenant's document: %v", statErr)
+		}
+	})
+
+	t.Run("the same tenant still prunes", func(t *testing.T) {
+		dir := t.TempDir()
+		if err := runProtectBackup(context.Background(), staging(), dir, "yaml", "unified-logging-filters", "", false); err != nil {
+			t.Fatal(err)
+		}
+		shrunk := &registry.CLIContext{
+			ProtectURL:    "https://staging.protect.jamfcloud.com",
+			ProtectClient: &mockProtectClient{ulfFilters: twoFilters[1:]},
+		}
+		if err := runProtectBackup(context.Background(), shrunk, dir, "yaml", "unified-logging-filters", "", false); err != nil {
+			t.Fatal(err)
+		}
+		if _, statErr := os.Stat(filepath.Join(dir, "unified-logging-filters", "zz-staging-only.yaml")); statErr == nil {
+			t.Error("the deleted object kept its file; the guard must not disable pruning for the owning tenant")
+		}
+	})
+}
+
+// One refused override must not abandon the document: the entries before it are
+// already written, and aborting left them unreported and the rest never attempted.
+// This is the behaviour 'overrides apply' has, and whose comment claims restore
+// matches it.
+func TestRestoreAnalyticOverridesReportsAndContinues(t *testing.T) {
+	var overrides protectResource
+	for _, r := range protectResources() {
+		if r.Name == "analytic-overrides" {
+			overrides = r
+		}
+	}
+	if overrides.Restore == nil {
+		t.Fatal("analytic-overrides has no Restore")
+	}
+
+	doc, err := protectMarshal(analyticOverridesDoc{Overrides: []analyticOverride{
+		{Analytic: "zz-first", Severity: "High"},
+		{Analytic: "zz-second", Actions: []analyticOverrideAction{{Name: "Bogus"}}},
+		{Analytic: "zz-third", Severity: "Low"},
+	}}, "yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	mock := &mockProtectClient{
+		analytics: []jamfprotect.Analytic{
+			{UUID: "a1", Name: "zz-first", Jamf: true},
+			{UUID: "a2", Name: "zz-second", Jamf: true},
+			{UUID: "a3", Name: "zz-third", Jamf: true},
+		},
+		internalAnalyticFailFor: "a2",
+	}
+
+	_, err = overrides.Restore(context.Background(), mock, protect.NewResolver(mock), doc)
+	if err == nil {
+		t.Fatal("expected an error so the resource still counts as failed and the run exits non-zero")
+	}
+	for _, want := range []string{"1 of 3", "2 applied"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("error %q should report both counts (%q)", err, want)
+		}
+	}
+	if got, want := mock.internalAnalyticWrites, []string{"a1", "a3"}; !slices.Equal(got, want) {
+		t.Errorf("applied %v, want %v — the entries after the failure must still be attempted", got, want)
+	}
+}
+
+// Cobra's AddFlagSet skips an inherited flag whose name is already taken, and the
+// shorthand goes with it. A local --dry-run on 'protect restore' therefore removed
+// the root -n entirely, so 'restore -n' failed with "unknown shorthand flag" and
+// neither form appeared in the command's Global Flags list.
+func TestProtectRestoreUsesTheRootDryRunFlag(t *testing.T) {
+	restore := findSubcommand(findProtectCmd(t), "restore")
+	if restore == nil {
+		t.Fatal("restore subcommand not found")
+	}
+	if restore.Flags().Lookup("dry-run") != nil {
+		t.Error("--dry-run is declared locally; that shadows the root persistent flag and drops -n")
+	}
+	// After ParseFlags the merged set is what the user actually gets.
+	if err := restore.ParseFlags([]string{"-n"}); err != nil {
+		t.Fatalf("restore -n must parse: %v", err)
+	}
+	if f := restore.Flags().ShorthandLookup("n"); f == nil || f.Name != "dry-run" {
+		t.Errorf("-n resolves to %v, want the root --dry-run", f)
+	}
+}
+
+// --output is this command's destination directory, which costs it the root -o.
+// 'pro backup' made the same trade, so the name stays — but the help has to say so,
+// because the documented CI mechanism JAMF_CLI_ARGS='-o json' exits 2 here.
+func TestProtectBackupHelpExplainsTheLostOutputShorthand(t *testing.T) {
+	backup := findSubcommand(findProtectCmd(t), "backup")
+	if backup == nil {
+		t.Fatal("backup subcommand not found")
+	}
+	if backup.Flags().Lookup("output") == nil {
+		t.Fatal("--output not defined on backup")
+	}
+	if !strings.Contains(backup.Long, "-o") {
+		t.Error("backup's help must say the global -o output format flag is unavailable here")
+	}
+}
+
+// A restore that half-worked must be observable the same way a backup that
+// half-worked is: PartialFailure (7) rather than General (1), and downgradable
+// with the same --allow-partial-failure. Returning a plain error ignored both.
+func TestRunProtectRestoreExitsPartialOnMixedResults(t *testing.T) {
+	seed := func(t *testing.T) string {
+		t.Helper()
+		dir := t.TempDir()
+		sub := filepath.Join(dir, "unified-logging-filters")
+		if err := os.MkdirAll(sub, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(sub, "zz-good.yaml"),
+			[]byte("name: zz-good\npredicate: 'subsystem == \"com.apple.TimeMachine\"'\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		// Not a document at all, so its Restore fails at decode.
+		if err := os.WriteFile(filepath.Join(sub, "zz-bad.yaml"), []byte("\t- : ][\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		return dir
+	}
+	newCtx := func() *registry.CLIContext {
+		return &registry.CLIContext{ProtectClient: &mockProtectClient{}}
+	}
+
+	t.Run("mixed results exit PartialFailure", func(t *testing.T) {
+		err := runProtectRestore(context.Background(), newCtx(), seed(t), "unified-logging-filters", "", false, false, true)
+		if err == nil {
+			t.Fatal("expected a non-zero exit when a document failed to restore")
+		}
+		if got := exitcode.CodeFrom(err); got != exitcode.PartialFailure {
+			t.Errorf("exit code = %v, want PartialFailure (%v) — 'protect backup' reports the same condition that way",
+				got, exitcode.PartialFailure)
+		}
+	})
+
+	t.Run("--allow-partial-failure downgrades to success", func(t *testing.T) {
+		prev := allowPartialFailure
+		allowPartialFailure = true
+		defer func() { allowPartialFailure = prev }()
+
+		if err := runProtectRestore(context.Background(), newCtx(), seed(t), "unified-logging-filters", "", false, false, true); err != nil {
+			t.Fatalf("--allow-partial-failure should exit 0, got %v", err)
+		}
+	})
+}
+
+// Pruning reads .yaml, .yml and .json alike, so restore must too: a singleton
+// written insights.yml was deleted by a backup run and ignored by a restore.
+func TestCollectProtectRestoreFilesAcceptsYmlForSingletons(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "insights.yml"), []byte("enabled: []\ndisabled: []\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	selected, err := protectSelectResources("insights", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	files, _, err := collectProtectRestoreFiles(dir, selected, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(files) != 1 {
+		t.Fatalf("collected %d file(s), want 1 — a .yml singleton is prunable, so it must be restorable", len(files))
+	}
+}
+
+// The accessGroup asymmetry is a property of the API, not of restore, so
+// 'groups apply' has to honour it too — otherwise 'groups export | groups apply'
+// still fails for a local access group with the raw server message the guard
+// exists to replace.
+func TestGroupsApplySharesTheAccessGroupGuard(t *testing.T) {
+	dir := t.TempDir()
+	doc := filepath.Join(dir, "group.yaml")
+	if err := os.WriteFile(doc, []byte("name: zz-group\nconnection: \"\"\naccessGroup: true\nroles: []\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	t.Run("already an access group: no update attempted", func(t *testing.T) {
+		m := &mockProtectClient{groups: []jamfprotect.Group{{ID: "g-1", Name: "zz-group", AccessGroup: true}}}
+		cmd := newProtectGroupsApplyCmd(&registry.CLIContext{ProtectClient: m, Output: mockOutput{}})
+		cmd.SetArgs([]string{"--from-file", doc, "--yes"})
+		cmd.SetOut(io.Discard)
+		cmd.SetErr(io.Discard)
+		if err := cmd.Execute(); err != nil {
+			t.Fatalf("re-applying an unchanged local access group must not fail: %v", err)
+		}
+		if m.updatedGroups != 0 {
+			t.Errorf("updateGroup was called %d time(s); the server refuses it for a local group", m.updatedGroups)
+		}
+	})
+
+	t.Run("access disabled in the target: actionable error", func(t *testing.T) {
+		m := &mockProtectClient{groups: []jamfprotect.Group{{ID: "g-1", Name: "zz-group", AccessGroup: false}}}
+		cmd := newProtectGroupsApplyCmd(&registry.CLIContext{ProtectClient: m, Output: mockOutput{}})
+		cmd.SetArgs([]string{"--from-file", doc, "--yes"})
+		cmd.SetOut(io.Discard)
+		cmd.SetErr(io.Discard)
+		err := cmd.Execute()
+		if err == nil {
+			t.Fatal("expected the guard's error rather than the raw server message")
+		}
+		if !strings.Contains(err.Error(), "only at create") {
+			t.Errorf("error %q should explain that update cannot do this", err)
+		}
+		if m.updatedGroups != 0 {
+			t.Error("must not spend a call the server will refuse")
 		}
 	})
 }

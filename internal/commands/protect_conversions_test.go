@@ -4,6 +4,7 @@ package commands
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"testing"
 
@@ -41,8 +42,36 @@ type mockProtectClient struct {
 	analyticsErr error
 	ulfErr       error
 
+	// internalAnalyticFailFor makes UpdateInternalAnalytic refuse one UUID, so a
+	// test can assert that one refused override does not abandon the rest.
+	internalAnalyticFailFor string
+	// internalAnalyticWrites records the UUIDs UpdateInternalAnalytic accepted, in
+	// call order.
+	internalAnalyticWrites []string
+
 	createdGroups int
 	updatedGroups int
+}
+
+func (m *mockProtectClient) UpdateInternalAnalytic(_ context.Context, uuid string, _ jamfprotect.InternalAnalyticInput) (jamfprotect.Analytic, error) {
+	if uuid == m.internalAnalyticFailFor {
+		return jamfprotect.Analytic{}, errors.New("updateInternalAnalytic: action 'Bogus' is not provisioned for this tenant")
+	}
+	m.internalAnalyticWrites = append(m.internalAnalyticWrites, uuid)
+	return jamfprotect.Analytic{UUID: uuid}, nil
+}
+
+func (m *mockProtectClient) CreateUnifiedLoggingFilter(_ context.Context, in jamfprotect.UnifiedLoggingFilterInput) (jamfprotect.UnifiedLoggingFilter, error) {
+	return jamfprotect.UnifiedLoggingFilter{UUID: "created", Name: in.Name}, nil
+}
+
+func (m *mockProtectClient) GetGroup(_ context.Context, id string) (*jamfprotect.Group, error) {
+	for i := range m.groups {
+		if m.groups[i].ID == id {
+			return &m.groups[i], nil
+		}
+	}
+	return nil, errors.New("group not found")
 }
 
 func (m *mockProtectClient) CreateGroup(_ context.Context, _ jamfprotect.GroupInput) (jamfprotect.Group, error) {
@@ -379,7 +408,7 @@ func TestPlanExportToInput_ResolvesULFSetNames(t *testing.T) {
 	input, err := planExportToInput(context.Background(), planExport{
 		Name:    "My Plan",
 		ULFSets: []string{"Set Two", "Set One"},
-	}, r)
+	}, r, false)
 	if err != nil {
 		t.Fatalf("planExportToInput() error = %v", err)
 	}
@@ -401,7 +430,7 @@ func TestPlanExportToInput_UnresolvableULFSetName(t *testing.T) {
 	_, err := planExportToInput(context.Background(), planExport{
 		Name:    "My Plan",
 		ULFSets: []string{"Missing"},
-	}, r)
+	}, r, false)
 	if err == nil {
 		t.Fatal("planExportToInput() error = nil, want error for unresolvable ULF set name")
 	}
@@ -1094,7 +1123,7 @@ func TestPlanExportToInput_CarriesThreatPrevention(t *testing.T) {
 		Name:                     "Plan",
 		ThreatPreventionStrategy: "MANAGED",
 		CustomEngineConfig:       &jamfprotect.CustomEngineConfigInput{MalwareRiskware: "block"},
-	}, protect.NewResolver(&mockProtectClient{}))
+	}, protect.NewResolver(&mockProtectClient{}), false)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -1310,6 +1339,65 @@ func TestSetExportsSortMembershipForStableDiffs(t *testing.T) {
 		for i := range a.Filters {
 			if b.Filters[i] != a.Filters[i] {
 				t.Errorf("position %d: %q vs %q — the same set exported twice must not diff", i, a.Filters[i], b.Filters[i])
+			}
+		}
+	})
+}
+
+// restore's help promises the target ends up matching the document, so a
+// membership field the document omits has to be sent as an empty list — the SDK
+// omits a nil one from the GraphQL variables and the server then leaves the field
+// alone, which would leave a binding added after the backup attached through a
+// rollback. 'plans apply' keeps the opposite, documented, additive behaviour.
+func TestPlanExportToInputClearsAbsentMembershipOnlyForRestore(t *testing.T) {
+	doc := planExport{Name: "zz-plan", ActionConfig: ""}
+
+	t.Run("restore clears", func(t *testing.T) {
+		input, err := planExportToInput(context.Background(), doc, protect.NewResolver(&mockProtectClient{}), true)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if input.ExceptionSets == nil {
+			t.Error("ExceptionSets is nil; the SDK omits a nil list and the server keeps the existing bindings")
+		}
+		if input.AnalyticSets == nil {
+			t.Error("AnalyticSets is nil; the SDK omits a nil list and the server keeps the existing bindings")
+		}
+		if input.UnifiedLoggingFilterSets == nil {
+			t.Error("UnifiedLoggingFilterSets is nil; the SDK omits a nil list and the server keeps the existing bindings")
+		}
+		if len(input.ExceptionSets) != 0 || len(input.AnalyticSets) != 0 || len(input.UnifiedLoggingFilterSets) != 0 {
+			t.Error("the cleared lists must be empty, not populated")
+		}
+		if !input.TelemetryV2Null {
+			t.Error("TelemetryV2Null is false; a single reference needs the explicit-null flag to be cleared")
+		}
+	})
+
+	t.Run("apply leaves membership alone", func(t *testing.T) {
+		input, err := planExportToInput(context.Background(), doc, protect.NewResolver(&mockProtectClient{}), false)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if input.ExceptionSets != nil || input.AnalyticSets != nil || input.UnifiedLoggingFilterSets != nil {
+			t.Error("apply must send nothing for an omitted list — CLAUDE.md documents that as leaving membership unchanged")
+		}
+		if input.TelemetryV2Null {
+			t.Error("apply must not null telemetry for an omitted field")
+		}
+	})
+
+	// A document that names its members is unaffected by the flag.
+	t.Run("a populated list is sent either way", func(t *testing.T) {
+		mock := &mockProtectClient{ulfSets: []jamfprotect.UnifiedLoggingFilterSet{{UUID: "ulfs-1", Name: "Set One"}}}
+		populated := planExport{Name: "zz-plan", ULFSets: []string{"Set One"}}
+		for _, clearAbsent := range []bool{true, false} {
+			input, err := planExportToInput(context.Background(), populated, protect.NewResolver(mock), clearAbsent)
+			if err != nil {
+				t.Fatalf("clearAbsent=%v: unexpected error: %v", clearAbsent, err)
+			}
+			if len(input.UnifiedLoggingFilterSets) != 1 || input.UnifiedLoggingFilterSets[0] != "ulfs-1" {
+				t.Errorf("clearAbsent=%v: got %v, want the resolved set", clearAbsent, input.UnifiedLoggingFilterSets)
 			}
 		}
 	})

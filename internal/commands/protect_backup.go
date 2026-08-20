@@ -13,6 +13,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -128,19 +129,11 @@ func upsertByName[I any, R any](
 	return name, nil
 }
 
-// restoreGroup applies one group, working around the one asymmetry between
-// createGroup and updateGroup.
-//
-// createGroup accepts accessGroup: true on a connection-less local group;
-// updateGroup refuses it outright — "Local groups cannot be designated as access
-// groups" — *even when true is already the stored value*. Established on the wire:
-// create with true succeeds and stores true, the identical document re-applied
-// fails, and turning it off via update works but cannot be turned back on.
-//
-// So a restore of such a group used to succeed once and fail on every re-run, with
-// a raw server error naming nothing actionable. Where the target already holds the
-// desired state there is nothing to do, and where it does not the operation is
-// impossible via update and says so.
+// restoreGroup applies one group. It cannot use upsertByName because the update
+// half needs the existing group, not just its ID: createGroup and updateGroup
+// disagree about accessGroup on a connection-less local group, and
+// protectGroupUpdateSatisfied (protect_groups.go) holds the wire facts and decides
+// what an update may carry. 'groups apply' runs the same guard.
 func restoreGroup(ctx context.Context, c registry.ProtectClient, input jamfprotect.GroupInput) (string, error) {
 	groups, err := c.ListGroups(ctx)
 	if err != nil {
@@ -161,15 +154,12 @@ func restoreGroup(ctx context.Context, c registry.ProtectClient, input jamfprote
 		return input.Name, nil
 	}
 
-	isLocal := input.ConnectionID == nil || *input.ConnectionID == ""
-	if input.AccessGroup && isLocal {
-		if existing.AccessGroup {
-			// Desired state already holds; updateGroup could only refuse it.
-			return fmt.Sprintf("%s (already an access group; updateGroup cannot re-send that flag for a local group)", input.Name), nil
-		}
-		return "", fmt.Errorf("group %q asks for accessGroup: true, but the target's copy has it disabled and "+
-			"updateGroup refuses to designate a connection-less local group as an access group — the server allows it "+
-			"only at create. Delete the group in the target and restore again, or clear accessGroup in the document", input.Name)
+	satisfied, err := protectGroupUpdateSatisfied(existing, input)
+	if err != nil {
+		return "", err
+	}
+	if satisfied {
+		return fmt.Sprintf("%s (already an access group; updateGroup cannot re-send that flag for a local group)", input.Name), nil
 	}
 
 	if _, err := c.UpdateGroup(ctx, existing.ID, input); err != nil {
@@ -333,7 +323,11 @@ func protectResources() []protectResource {
 					if err != nil {
 						return nil, fmt.Errorf("fetching action config %q: %w", li.Name, err)
 					}
-					out = append(out, protectExportEntry{Name: full.Name, Doc: actionConfigToInput(full)})
+					doc, err := actionConfigToInput(full)
+					if err != nil {
+						return nil, err
+					}
+					out = append(out, protectExportEntry{Name: full.Name, Doc: doc})
 				}
 				return out, nil
 			},
@@ -379,7 +373,12 @@ func protectResources() []protectResource {
 				if err != nil {
 					return "", err
 				}
-				var applied int
+				// Report and continue, the way 'overrides apply' does and the way every
+				// other resource in this table does at the object level. Aborting at the
+				// first refused entry left the earlier ones written and unreported, the
+				// later ones never attempted, and the whole singleton shown as one
+				// FAILED line — so a retry was unsafe to reason about.
+				var applied, failed int
 				for _, o := range doc.Overrides {
 					a, ok := byName[o.Analytic]
 					if !ok || !a.Jamf {
@@ -402,9 +401,16 @@ func protectResources() []protectResource {
 						input.TenantActions = append(input.TenantActions, jamfprotect.AnalyticActionInput{Name: act.Name, Parameters: params})
 					}
 					if _, err := c.UpdateInternalAnalytic(ctx, a.UUID, input); err != nil {
-						return "", fmt.Errorf("applying override for %q: %w", o.Analytic, err)
+						fmt.Fprintf(os.Stderr, "  FAILED override for %q: %v\n", o.Analytic, err)
+						failed++
+						continue
 					}
 					applied++
+				}
+				if failed > 0 {
+					// Still an error so the resource counts as failed and the run exits
+					// non-zero, but the counts say what actually landed.
+					return "", fmt.Errorf("%d of %d override(s) failed (%d applied)", failed, len(doc.Overrides), applied)
 				}
 				return fmt.Sprintf("%d override(s)", applied), nil
 			},
@@ -524,7 +530,7 @@ func protectResources() []protectResource {
 				if err != nil {
 					return "", err
 				}
-				input, err := planExportToInput(ctx, e, r)
+				input, err := planExportToInput(ctx, e, r, true)
 				if err != nil {
 					return "", err
 				}
@@ -664,8 +670,18 @@ func protectResources() []protectResource {
 					want[l] = false
 				}
 
+				// Sorted, because iterating the map made both the order of live
+				// mutations and the order of the log lines vary run to run — against the
+				// determinism the rest of restore is built on.
+				labels := make([]string, 0, len(want))
+				for l := range want {
+					labels = append(labels, l)
+				}
+				sort.Strings(labels)
+
 				var changed int
-				for label, enabled := range want {
+				for _, label := range labels {
+					enabled := want[label]
 					insight, ok := byLabel[label]
 					if !ok {
 						fmt.Fprintf(os.Stderr, "  skipped insight %q: not present in this tenant\n", label)
@@ -1045,6 +1061,25 @@ func protectResourceListHelp(forRestore bool) string {
 // exactly this set, because it is precisely what a later restore would apply.
 var protectRestoreExts = []string{".yaml", ".yml", ".json"}
 
+// readProtectBackupMeta reads the _meta document an earlier run left in dir, in
+// whichever of the two formats it was written. The bool reports whether one was
+// found and parsed — a missing or unreadable manifest is not an error, it just
+// means the directory's provenance is unknown.
+func readProtectBackupMeta(dir string) (protectBackupMeta, bool) {
+	for _, ext := range protectRestoreExts {
+		data, err := os.ReadFile(filepath.Join(dir, protectBackupMetaFile+ext))
+		if err != nil {
+			continue
+		}
+		var meta protectBackupMeta
+		if err := unmarshalInput(data, &meta); err != nil {
+			continue
+		}
+		return meta, true
+	}
+	return protectBackupMeta{}, false
+}
+
 // protectPruneStale removes backup documents this run did not write.
 //
 // Without it a backup directory is the union of every run that ever wrote to it,
@@ -1106,7 +1141,14 @@ func protectPruneStale(dir string, res protectResource, kept map[string]bool) ([
 		if err := os.Remove(path); err != nil {
 			return pruned, fmt.Errorf("removing stale %s: %w", path, err)
 		}
-		pruned = append(pruned, filepath.Join(res.Name, name))
+		// A singleton's file sits at the tree root, not under a directory named
+		// after the resource, so reporting insights/insights.json would name a
+		// path that does not exist.
+		if res.Singleton {
+			pruned = append(pruned, name)
+		} else {
+			pruned = append(pruned, filepath.Join(res.Name, name))
+		}
 	}
 	sort.Strings(pruned)
 	return pruned, nil
@@ -1147,8 +1189,14 @@ Documents that can carry a third-party credential — an HTTP action config's
 request headers, the data forwarding settings — are written 0600 and reported, so
 you know what is in the tree before committing it to version control.
 
+Note that --output is this command's destination directory, so the global -o output
+format flag is unavailable here (--format picks the file encoding instead). This
+matches 'pro backup'.
+
 Documents left by an earlier run that no longer match the tenant are removed, and
-each removal is reported. Without that a backup directory is the union of every run
+each removal is reported. The run refuses to prune a directory whose _meta names a
+different tenant, because pruning is keyed on this tenant's object set and would
+otherwise delete the other tenant's documents; --no-prune writes alongside them. Without that a backup directory is the union of every run
 that ever wrote to it, and because 'protect restore' applies whatever it finds, an
 object you deleted from the tenant would be silently recreated. Only files this
 command could have written are ever considered, and a resource that failed to
@@ -1199,6 +1247,21 @@ func runProtectBackup(ctx context.Context, cliCtx *registry.CLIContext, outputDi
 	}
 	if err := os.MkdirAll(outputDir, 0o755); err != nil {
 		return fmt.Errorf("creating output directory: %w", err)
+	}
+
+	// Pruning is destructive and keyed on "the object set of the tenant being
+	// backed up right now", so pointing the command at a directory that holds a
+	// different tenant's backup would delete that tenant's documents for every
+	// object this one does not have. The run records its tenant in _meta; refuse
+	// when an existing manifest names a different one. Nothing else about the
+	// backup depends on the directory's history, so --no-prune makes it safe.
+	if !noPrune {
+		if prior, ok := readProtectBackupMeta(outputDir); ok &&
+			prior.TenantURL != "" && cliCtx.ProtectURL != "" && prior.TenantURL != cliCtx.ProtectURL {
+			return fmt.Errorf("%s holds a backup of %s, not %s — pruning would delete that tenant's documents; "+
+				"use a different --output, or pass --no-prune to write alongside them",
+				outputDir, prior.TenantURL, cliCtx.ProtectURL)
+		}
 	}
 
 	ext := "." + format
@@ -1271,6 +1334,16 @@ func runProtectBackup(ctx context.Context, cliCtx *registry.CLIContext, outputDi
 			if err := os.WriteFile(path, data, mode); err != nil {
 				return fmt.Errorf("writing %s: %w", path, err)
 			}
+			// os.WriteFile passes perm to OpenFile(O_CREATE|O_TRUNC), so it only
+			// applies when the file is created. A re-run into an existing tree —
+			// a git clone of a backup repo hands every file back 0644, since git
+			// records no non-exec permissions — would otherwise keep the loose
+			// mode while the summary below reports 0600.
+			if mode != 0o644 {
+				if err := os.Chmod(path, mode); err != nil {
+					return fmt.Errorf("tightening permissions on %s: %w", path, err)
+				}
+			}
 			kept[fileName+ext] = true
 			if disambiguated && !quiet {
 				fmt.Fprintf(os.Stderr, "  note: %q shares a file name with another object; written as %s%s\n", e.Name, fileName, ext)
@@ -1335,9 +1408,15 @@ func runProtectBackup(ctx context.Context, cliCtx *registry.CLIContext, outputDi
 	}
 
 	if len(failures) > 0 {
+		// The next line tells the operator to read this file, so a failure to
+		// write it cannot be swallowed — that would send them to a file that is
+		// missing or holds an earlier run's failures.
 		failData, err := protectMarshal(failures, format)
-		if err == nil {
-			_ = os.WriteFile(filepath.Join(outputDir, protectBackupFailuresFile+ext), failData, 0o644)
+		if err != nil {
+			return fmt.Errorf("marshalling failure manifest: %w", err)
+		}
+		if err := os.WriteFile(filepath.Join(outputDir, protectBackupFailuresFile+ext), failData, 0o644); err != nil {
+			return fmt.Errorf("writing failure manifest: %w", err)
 		}
 		fmt.Fprintf(os.Stderr, "\nBacked up %d object(s) to %s, %d failure(s) — see %s%s\n",
 			total, outputDir, len(failures), protectBackupFailuresFile, ext)
@@ -1364,7 +1443,6 @@ func newProtectRestoreCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		resources       string
 		exclude         string
 		includeDefaults bool
-		dryRun          bool
 		yes             bool
 	)
 
@@ -1388,10 +1466,14 @@ them cannot reproduce the original: API clients (the server issues a new secret
 on create) and data forwarding (its settings carry third-party credentials the
 API never returns). Both are reported when skipped.
 
---dry-run reports what would be applied without calling the API.
+The global -n, --dry-run reports what would be applied without calling the API.
 
 ` + protectResourceListHelp(true),
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			// dryRun is the root persistent flag, read directly the way
+			// allowPartialFailure is. Declaring a local flag of the same name made
+			// Cobra drop the inherited one, taking -n with it, so 'restore -n'
+			// failed with "unknown shorthand flag".
 			return runProtectRestore(cmd.Context(), cliCtx, inputDir, resources, exclude, includeDefaults, dryRun, yes)
 		},
 	}
@@ -1400,7 +1482,6 @@ API never returns). Both are reported when skipped.
 	cmd.Flags().StringVar(&resources, "resources", "", "comma-separated allowlist of resources to apply (default: all)")
 	cmd.Flags().StringVar(&exclude, "exclude", "", "comma-separated resources to skip (e.g. users,roles)")
 	cmd.Flags().BoolVar(&includeDefaults, "include-defaults", false, "also apply objects every tenant is provisioned with (built-in roles, the Default group, the Default Analytic Set)")
-	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "report what would be applied without calling the API")
 	cmd.Flags().BoolVar(&yes, "yes", false, "skip the confirmation prompt")
 	_ = cmd.MarkFlagRequired("input")
 	_ = cmd.RegisterFlagCompletionFunc("resources", protectResourceCompletion)
@@ -1427,7 +1508,10 @@ func collectProtectRestoreFiles(inputDir string, selected []protectResource, inc
 		}
 
 		if res.Singleton {
-			for _, ext := range []string{".yaml", ".json"} {
+			// Same extension set as pruning, so backup and restore agree on what a
+			// restorable document is. Accepting only .yaml/.json here made a
+			// hand-written insights.yml one that backup deletes and restore ignores.
+			for _, ext := range protectRestoreExts {
 				path := filepath.Join(inputDir, res.Name+ext)
 				if _, err := os.Stat(path); err == nil {
 					files = append(files, protectRestoreFile{Resource: res, Path: path})
@@ -1451,7 +1535,7 @@ func collectProtectRestoreFiles(inputDir string, selected []protectResource, inc
 				continue
 			}
 			ext := strings.ToLower(filepath.Ext(e.Name()))
-			if ext == ".yaml" || ext == ".yml" || ext == ".json" {
+			if slices.Contains(protectRestoreExts, ext) {
 				names = append(names, e.Name())
 			}
 		}
@@ -1543,7 +1627,15 @@ func runProtectRestore(ctx context.Context, cliCtx *registry.CLIContext, inputDi
 
 	fmt.Fprintf(os.Stderr, "\nApplied %d document(s), %d failed\n", applied, failed)
 	if failed > 0 {
-		return fmt.Errorf("%d document(s) failed to restore", failed)
+		// PartialFailure rather than General, and honouring --allow-partial-failure,
+		// so the two halves of the round trip are observable the same way by the
+		// job that runs them.
+		msg := fmt.Sprintf("%d document(s) failed to restore", failed)
+		if allowPartialFailure && applied > 0 {
+			fmt.Fprintf(os.Stderr, "warning: restore completed with %d failure(s); continuing (--allow-partial-failure)\n", failed)
+			return nil
+		}
+		return exitcode.PartialOrPropagate(applied, failed, nil, msg)
 	}
 	return nil
 }

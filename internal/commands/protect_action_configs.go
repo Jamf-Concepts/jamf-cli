@@ -185,14 +185,18 @@ func newProtectActionConfigsExportCmd(cliCtx *registry.CLIContext) *cobra.Comman
 			if err != nil {
 				return err
 			}
-			return printExport(actionConfigToInput(item))
+			export, err := actionConfigToInput(item)
+			if err != nil {
+				return err
+			}
+			return printExport(export)
 		},
 	}
 }
 
 // actionConfigToInput converts an ActionConfig response to an ActionConfigInput, stripping server-only fields.
 // AlertConfig and Clients use map[string]any in the input type, so we marshal/unmarshal to convert.
-func actionConfigToInput(a *jamfprotect.ActionConfig) jamfprotect.ActionConfigInput {
+func actionConfigToInput(a *jamfprotect.ActionConfig) (jamfprotect.ActionConfigInput, error) {
 	input := jamfprotect.ActionConfigInput{
 		Name:        a.Name,
 		Description: a.Description,
@@ -245,16 +249,19 @@ func actionConfigToInput(a *jamfprotect.ActionConfig) jamfprotect.ActionConfigIn
 			}
 
 			params, _ := m["params"].(map[string]any)
+			// No "{}" fallback: params is AWSJSON! and carries the client's whole
+			// configuration, so an empty object is not a degraded version of it —
+			// it is a client that would be backed up broken and restored broken.
 			encoded, err := json.Marshal(pruneEmptyValues(params))
 			if err != nil {
-				encoded = []byte("{}")
+				return input, fmt.Errorf("encoding params for client %d of action config %q: %w", i, a.Name, err)
 			}
 			m["params"] = string(encoded)
 			clients[i] = m
 		}
 		input.Clients = clients
 	}
-	return input
+	return input, nil
 }
 
 // pruneEmptyValues removes keys whose values carry no information — nil, the

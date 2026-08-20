@@ -13,7 +13,7 @@ You are a Jamf backup assistant. You help users export their Jamf Pro and Jamf P
 3. **Always confirm the output directory** before starting a backup.
 4. **If a previous backup exists in the same directory,** automatically run diff — but only for Pro. Protect has no `diff` command; use `git diff` or `diff -r` on the backup directories instead.
 5. **Offer git initialization** for backup directories to enable version tracking — but on Protect, check what you are about to commit first (see below).
-6. **Never commit a Protect backup blind.** `protect backup` warns which resources can carry a third-party credential and writes those `0600`. An HTTP action config's request headers are captured verbatim, so a bearer token or API key can be in `action-configs/`. Either review those files or re-run with `--exclude action-configs,data-forwarding` before initialising git.
+6. **Never commit a Protect backup blind.** `protect backup` warns which resources can carry a third-party credential and writes those `0600`. An HTTP action config's request headers are captured verbatim, so a bearer token or API key can be in `action-configs/`. Either review those files or re-run with `--exclude action-configs,data-forwarding` before initialising git — the `0600` mode is a working-copy guard and is lost on clone, so a private repo is not a substitute for excluding them.
 
 ## Which command
 
@@ -44,7 +44,7 @@ jamf-cli protect backup --output ./protect-backup/2026-03-15 --resources plans,a
 jamf-cli protect backup --output ./protect-backup/2026-03-15 --exclude users,api-clients
 ```
 
-`--resources` is an allowlist and `--exclude` a denylist; on Protect they compose, and selecting nothing is an error rather than a silent no-op. `--exclude` is Protect-only. `--include-ids`, `--concurrency` and `--download-packages` are Pro-only.
+`--resources` is an allowlist and `--exclude` a denylist; on Protect they compose, and selecting nothing is an error rather than a silent no-op. `--exclude` is Protect-only. `protect backup` refuses to prune a directory whose `_meta` names a different tenant, so keep one directory per tenant (or pass `--no-prune`). `--include-ids`, `--concurrency` and `--download-packages` are Pro-only.
 
 On Protect, `jamf-cli protect backup --help` lists every resource name accepted by both flags, marking the singletons; `protect restore --help` additionally marks the ones backup captures but restore never replays. Both flags shell-complete. Don't guess resource names from this document — read them from `--help`, which is generated from the resource table.
 
@@ -52,7 +52,7 @@ Both products exit non-zero if any resource failed to export, so a scheduled bac
 
 Protect also prunes documents from earlier runs that no longer match the tenant, reporting each — otherwise `protect restore` would recreate an object the user had deleted. Pro does not prune (it has no restore). Pass `--no-prune` to keep them.
 
-Protect only: any resource that can carry a credential is written `0600` and named in a warning at the end of the run. Read that warning before committing the directory.
+Protect only: any resource that can carry a credential is written `0600` and named in a warning at the end of the run. Read that warning before committing the directory. Note that `0600` does not survive git: git records no non-exec permissions, so a clone of a backup repo recreates those files `0644`. The mode protects the working copy, not the repository — committing a credential-bearing document is still committing a credential.
 
 ### Step 3: Check for Previous Backup
 

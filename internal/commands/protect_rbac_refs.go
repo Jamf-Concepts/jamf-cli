@@ -23,19 +23,25 @@ import (
 // this change keep working; see rbacDocumentUsesIDs.
 
 // groupExport is the portable representation of a group.
+//
+// The reference fields carry no omitempty: an absent list and an empty one mean
+// the same thing to groupExportToInput (it always sends []), so writing them out
+// keeps a document self-describing — which is what makes --scaffold able to teach
+// the shape at all — and keeps two backups of the same group diffable when one
+// tenant's copy holds no roles.
 type groupExport struct {
 	Name        string   `json:"name" yaml:"name"`
-	Connection  string   `json:"connection,omitempty" yaml:"connection,omitempty"`
+	Connection  string   `json:"connection" yaml:"connection"`
 	AccessGroup bool     `json:"accessGroup" yaml:"accessGroup"`
-	Roles       []string `json:"roles,omitempty" yaml:"roles,omitempty"`
+	Roles       []string `json:"roles" yaml:"roles"`
 }
 
 // userExport is the portable representation of a user.
 type userExport struct {
 	Email                 string   `json:"email" yaml:"email"`
-	Connection            string   `json:"connection,omitempty" yaml:"connection,omitempty"`
-	Roles                 []string `json:"roles,omitempty" yaml:"roles,omitempty"`
-	Groups                []string `json:"groups,omitempty" yaml:"groups,omitempty"`
+	Connection            string   `json:"connection" yaml:"connection"`
+	Roles                 []string `json:"roles" yaml:"roles"`
+	Groups                []string `json:"groups" yaml:"groups"`
 	ReceiveEmailAlert     bool     `json:"receiveEmailAlert" yaml:"receiveEmailAlert"`
 	EmailAlertMinSeverity string   `json:"emailAlertMinSeverity,omitempty" yaml:"emailAlertMinSeverity,omitempty"`
 }
@@ -45,7 +51,7 @@ type userExport struct {
 // and regenerates it on any recreate, so it cannot be carried in an export.
 type apiClientExport struct {
 	Name  string   `json:"name" yaml:"name"`
-	Roles []string `json:"roles,omitempty" yaml:"roles,omitempty"`
+	Roles []string `json:"roles" yaml:"roles"`
 }
 
 // rbacDocumentUsesIDs reports whether an input document is in the older

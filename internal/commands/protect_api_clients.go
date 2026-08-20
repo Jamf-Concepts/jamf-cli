@@ -105,7 +105,8 @@ func newProtectApiClientsApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Short: "Create or update an API client",
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if scaffold {
-				return printExport(jamfprotect.ApiClientInput{})
+				// The export shape, not the SDK input shape — see the groups scaffold.
+				return printExport(apiClientExport{Roles: []string{}})
 			}
 			ctx := cmd.Context()
 			data, err := readInput(fromFile)

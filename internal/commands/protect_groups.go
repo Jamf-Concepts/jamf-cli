@@ -97,6 +97,34 @@ func newProtectGroupsGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	}
 }
 
+// protectGroupUpdateSatisfied decides whether an existing group can be updated
+// with this document, working around the one asymmetry between createGroup and
+// updateGroup.
+//
+// createGroup accepts accessGroup: true on a connection-less local group;
+// updateGroup refuses it outright — "Local groups cannot be designated as access
+// groups" — *even when true is already the stored value*. Established on the wire:
+// create with true succeeds and stores true, the identical document re-applied
+// fails, and turning it off via update works but cannot be turned back on.
+//
+// satisfied reports that the target already holds the desired state, so the update
+// must be skipped rather than attempted. An error means the change is impossible
+// through update and says what to do about it. Shared by 'groups apply' and
+// 'protect restore' so the same document behaves the same way through both.
+func protectGroupUpdateSatisfied(existing *jamfprotect.Group, input jamfprotect.GroupInput) (bool, error) {
+	isLocal := input.ConnectionID == nil || *input.ConnectionID == ""
+	if !input.AccessGroup || !isLocal {
+		return false, nil
+	}
+	if existing.AccessGroup {
+		// Desired state already holds; updateGroup could only refuse it.
+		return true, nil
+	}
+	return false, fmt.Errorf("group %q asks for accessGroup: true, but the target's copy has it disabled and "+
+		"updateGroup refuses to designate a connection-less local group as an access group — the server allows it "+
+		"only at create. Delete the group in the target and apply again, or clear accessGroup in the document", input.Name)
+}
+
 func newProtectGroupsApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	var (
 		fromFile string
@@ -109,7 +137,10 @@ func newProtectGroupsApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Short: "Create or update a group",
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if scaffold {
-				return printExport(jamfprotect.GroupInput{})
+				// The export shape, not the SDK input shape: 'export' emits names now,
+				// and a scaffold teaching roleids/connectionid teaches the form this
+				// command only still accepts for backward compatibility.
+				return printExport(groupExport{Roles: []string{}})
 			}
 			ctx := cmd.Context()
 			data, err := readInput(fromFile)
@@ -145,6 +176,23 @@ func newProtectGroupsApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			}
 			if !proceed {
 				return nil
+			}
+
+			// Same guard 'protect restore' applies. Without it, re-applying a local
+			// access group's own export failed with the raw server message that says
+			// nothing actionable.
+			existing, err := cliCtx.ProtectClient.GetGroup(ctx, id)
+			if err != nil {
+				return err
+			}
+			satisfied, err := protectGroupUpdateSatisfied(existing, input)
+			if err != nil {
+				return err
+			}
+			if satisfied {
+				fmt.Fprintf(os.Stderr, "Group %q is already an access group; nothing to update "+
+					"(updateGroup cannot re-send that flag for a local group)\n", input.Name)
+				return printResult(cliCtx.Output, *existing, flattenGroup(*existing))
 			}
 
 			result, err := cliCtx.ProtectClient.UpdateGroup(ctx, id, input)

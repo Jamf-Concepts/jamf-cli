@@ -121,7 +121,8 @@ func newProtectUsersApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Short: "Create or update a user",
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if scaffold {
-				return printExport(jamfprotect.UserInput{})
+				// The export shape, not the SDK input shape — see the groups scaffold.
+				return printExport(userExport{Roles: []string{}, Groups: []string{}})
 			}
 			ctx := cmd.Context()
 			data, err := readInput(fromFile)
