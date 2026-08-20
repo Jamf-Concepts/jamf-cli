@@ -89,13 +89,13 @@ func newZtnaGatewaysCreateCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "create",
 		Short:       "Create a Gateway",
-		Long:        "Create a dedicated Gateway. Returns `201 {id, href}` + `Location` header.",
+		Long:        "Create a dedicated Gateway. Returns `201 {id, href}` + `Location` header.\n\nAllowed values:\n  ipsec.keyExchange: ikev1, ikev2\n  ipsec.right.vendor: Checkpoint, Cisco, Fortinet, Juniper, Palo Alto, SonicWall, Sophos, Sourcefire, strongSwan, Watchguard, Other",
 		Annotations: map[string]string{"jamf:privileges": "create:jsc:all", "jamf:api": "platform-gateway"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if scaffoldFlag {
 				// Scaffold prints raw JSON regardless of -o, so the output
 				// can be piped straight back into --file.
-				fmt.Println("{\n  \"availabilityZones\": [],\n  \"contact\": {\n    \"email\": \"\",\n    \"name\": \"\"\n  },\n  \"datacenter\": \"\",\n  \"dedicatedIps\": {\n    \"enabled\": false,\n    \"ips\": []\n  },\n  \"enabled\": false,\n  \"ipsec\": {\n    \"esp\": {\n      \"dhGroups\": [],\n      \"encryption\": [],\n      \"integrity\": [],\n      \"lifetimeInSec\": 0\n    },\n    \"ike\": {\n      \"dhGroups\": [],\n      \"encryption\": [],\n      \"integrity\": [],\n      \"lifetimeInSec\": 0\n    },\n    \"keyExchange\": \"\",\n    \"left\": {\n      \"auth\": \"\",\n      \"host\": \"\",\n      \"id\": \"\",\n      \"secret\": \"\",\n      \"subnets\": [],\n      \"vendor\": \"\"\n    },\n    \"right\": {\n      \"auth\": \"\",\n      \"host\": \"\",\n      \"id\": \"\",\n      \"subnets\": [],\n      \"vendor\": \"\"\n    }\n  },\n  \"name\": \"\",\n  \"tenantIds\": []\n}")
+				fmt.Println("{\n  \"availabilityZones\": [],\n  \"contact\": {\n    \"email\": \"\",\n    \"name\": \"\"\n  },\n  \"datacenter\": \"\",\n  \"dedicatedIps\": {\n    \"enabled\": false,\n    \"ips\": []\n  },\n  \"enabled\": false,\n  \"ipsec\": {\n    \"esp\": {\n      \"dhGroups\": [],\n      \"encryption\": [],\n      \"integrity\": [],\n      \"lifetimeInSec\": 0\n    },\n    \"ike\": {\n      \"dhGroups\": [],\n      \"encryption\": [],\n      \"integrity\": [],\n      \"lifetimeInSec\": 0\n    },\n    \"keyExchange\": \"\",\n    \"left\": {\n      \"host\": \"\",\n      \"id\": \"\",\n      \"secret\": \"\",\n      \"subnets\": []\n    },\n    \"right\": {\n      \"host\": \"\",\n      \"id\": \"\",\n      \"subnets\": [],\n      \"vendor\": \"\"\n    }\n  },\n  \"name\": \"\",\n  \"tenantIds\": []\n}")
 				return nil
 			}
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
@@ -238,14 +238,14 @@ func newZtnaGatewaysPatchCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "patch <gatewayId>",
 		Short:       "Partially update a Gateway",
-		Long:        "Partially update a dedicated Gateway. All fields are optional — flat body, no nesting.",
+		Long:        "Partially update a dedicated Gateway. All fields are optional — flat body, no nesting.\n\nAllowed values:\n  ipsec.keyExchange: ikev1, ikev2\n  ipsec.right.vendor: Checkpoint, Cisco, Fortinet, Juniper, Palo Alto, SonicWall, Sophos, Sourcefire, strongSwan, Watchguard, Other",
 		Annotations: map[string]string{"jamf:privileges": "update:jsc:all", "jamf:api": "platform-gateway"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if scaffoldFlag {
 				// Scaffold prints raw JSON regardless of -o, so the output
 				// can be piped straight back into --file.
-				fmt.Println("{\n  \"availabilityZones\": [],\n  \"contact\": {\n    \"email\": \"\",\n    \"name\": \"\"\n  },\n  \"datacenter\": \"\",\n  \"enabled\": false,\n  \"ipsec\": {\n    \"esp\": {\n      \"dhGroups\": [],\n      \"encryption\": [],\n      \"integrity\": [],\n      \"lifetimeInSec\": 0\n    },\n    \"ike\": {\n      \"dhGroups\": [],\n      \"encryption\": [],\n      \"integrity\": [],\n      \"lifetimeInSec\": 0\n    },\n    \"keyExchange\": \"\",\n    \"left\": {\n      \"auth\": \"\",\n      \"host\": \"\",\n      \"id\": \"\",\n      \"secret\": \"\",\n      \"subnets\": [],\n      \"vendor\": \"\"\n    },\n    \"right\": {\n      \"auth\": \"\",\n      \"host\": \"\",\n      \"id\": \"\",\n      \"subnets\": [],\n      \"vendor\": \"\"\n    }\n  },\n  \"name\": \"\",\n  \"tenantIds\": []\n}")
+				fmt.Println("{\n  \"availabilityZones\": [],\n  \"contact\": {\n    \"email\": \"\",\n    \"name\": \"\"\n  },\n  \"datacenter\": \"\",\n  \"enabled\": false,\n  \"ipsec\": {\n    \"esp\": {\n      \"dhGroups\": [],\n      \"encryption\": [],\n      \"integrity\": [],\n      \"lifetimeInSec\": 0\n    },\n    \"ike\": {\n      \"dhGroups\": [],\n      \"encryption\": [],\n      \"integrity\": [],\n      \"lifetimeInSec\": 0\n    },\n    \"keyExchange\": \"\",\n    \"left\": {\n      \"host\": \"\",\n      \"id\": \"\",\n      \"secret\": \"\",\n      \"subnets\": []\n    },\n    \"right\": {\n      \"host\": \"\",\n      \"id\": \"\",\n      \"subnets\": [],\n      \"vendor\": \"\"\n    }\n  },\n  \"name\": \"\",\n  \"tenantIds\": []\n}")
 				return nil
 			}
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {

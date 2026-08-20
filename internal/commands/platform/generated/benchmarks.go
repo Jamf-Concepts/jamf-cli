@@ -87,7 +87,7 @@ func newBenchmarksCreateCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "create",
 		Short:       "Creates a new benchmark from provided benchmark request",
-		Long:        "Creates a new benchmark from provided benchmark request and deploys associated artifacts to the MDM",
+		Long:        "Creates a new benchmark from provided benchmark request and deploys associated artifacts to the MDM\n\nAllowed values:\n  enforcementMode: MONITOR, MONITOR_AND_ENFORCE",
 		Annotations: map[string]string{"jamf:privileges": "create:pro:compliance-benchmarks", "jamf:api": "platform-gateway"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if scaffoldFlag {

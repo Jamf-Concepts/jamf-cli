@@ -74,7 +74,7 @@ func newUemSyncSettingsUpdateCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "update <configId>",
 		Short:       "Update connector sync settings",
-		Long:        "Updates the sync settings for the specified connector. Supported settings vary by UEM vendor. Updated settings take effect on the next sync operation.",
+		Long:        "Updates the sync settings for the specified connector. Supported settings vary by UEM vendor. Updated settings take effect on the next sync operation.\n\nAllowed values:\n  autoDeviceDeletion: DISABLED, DELETED_OR_RETIRED, UNMANAGED\n  deviceFieldMappings.userEmailMapping.type: EMAIL_ADDRESS, MDM_ID, SERIAL_NUMBER, IMEI, FIRST_NAME, LAST_NAME, DEVICE_NAME, EXTERNAL_USER_ID, NAME\n  vendor: INTUNE, XENMOBILE, MAAS360, WORKSPACE_ONE, JAMF_PRO, JAMF_SCHOOL, MICLOUD, MICORE, GOOGLE, WIZY",
 		Annotations: map[string]string{"jamf:privileges": "update:jsc:all", "jamf:api": "platform-gateway"},
 		Args: func(cmd *cobra.Command, args []string) error {
 			if scaffoldFlag {

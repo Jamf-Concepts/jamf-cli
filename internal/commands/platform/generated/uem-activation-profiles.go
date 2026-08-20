@@ -37,7 +37,7 @@ func newUemActivationProfilesDeployToUemCmd(cliCtx *registry.CLIContext) *cobra.
 	cmd := &cobra.Command{
 		Use:         "deploy-to-uem <code>",
 		Short:       "Deploy Jamf Security configuration profiles to UEM",
-		Long:        "Deploys Jamf Security configuration profiles to the UEM platform for the specified activation profile. This is the final step of automated UEM Connect onboarding.",
+		Long:        "Deploys Jamf Security configuration profiles to the UEM platform for the specified activation profile. This is the final step of automated UEM Connect onboarding.\n\nAllowed values:\n  platform: SUPERVISED_MAC, SUPERVISED_IOS, UNSUPERVISED_IOS, BYOD_IOS\n  uem: JAMF",
 		Annotations: map[string]string{"jamf:privileges": "update:jsc:all", "jamf:api": "platform-gateway"},
 		Args: func(cmd *cobra.Command, args []string) error {
 			if scaffoldFlag {

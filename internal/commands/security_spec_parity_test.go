@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"regexp"
 	"testing"
 )
 
@@ -23,6 +24,17 @@ import (
 // leaves a resource unwired, has to fail here rather than quietly shrink the
 // command tree. Counts, not names: this is a coverage check, and the per-name
 // checks live in TestSecurityGatewayServedCommandsPresent.
+//
+// The count is of distinct *endpoints*, not raw spec operations: where a spec
+// declares the same endpoint at two API versions, deduplicateVersionedOps keeps
+// only the highest and it ships as one command. Counting operations instead made
+// the arrival of a second version look like a regression — device groups
+// publishing a v2 list alongside the deprecated v1 turned this test red while
+// the command tree was in fact correct.
+// versionSegments matches an API version path segment wherever it sits, the
+// same shape generator/parser's stripVersionSegments removes.
+var versionSegments = regexp.MustCompile(`/(?:v\d+|preview)(/|$)`)
+
 func TestSecurityCloudSpecParity(t *testing.T) {
 	specs, err := filepath.Glob(filepath.Join("..", "..", "specs", "platform", "securitycloud_*.json"))
 	if err != nil {
@@ -32,7 +44,9 @@ func TestSecurityCloudSpecParity(t *testing.T) {
 		t.Skip("no Security Cloud specs committed")
 	}
 
-	specOps := 0
+	// Keyed "method version-stripped-path" so two versions of one endpoint
+	// collapse the same way the generator collapses them.
+	endpoints := map[string]struct{}{}
 	for _, path := range specs {
 		raw, err := os.ReadFile(path)
 		if err != nil {
@@ -44,15 +58,16 @@ func TestSecurityCloudSpecParity(t *testing.T) {
 		if err := json.Unmarshal(raw, &doc); err != nil {
 			t.Fatalf("decoding %s: %v", path, err)
 		}
-		for _, item := range doc.Paths {
+		for specPath, item := range doc.Paths {
 			for method := range item {
 				switch method {
 				case "get", "post", "put", "patch", "delete":
-					specOps++
+					endpoints[method+" "+versionSegments.ReplaceAllString(specPath, "$1")] = struct{}{}
 				}
 			}
 		}
 	}
+	specOps := len(endpoints)
 
 	security := findSecurityCmd(t)
 	cliOps := 0

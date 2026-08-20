@@ -29,6 +29,9 @@ package platform
 //     result array and emits a single flat JSON array
 //   - List response unwrapping for non-paginated lists with exactly one
 //     array property
+//   - Documented non-2xx results (platformDocumentedStatusResults) routed
+//     through platform.DoExpectDocumented so an endpoint's own empty-state
+//     response renders instead of becoming an exit-code error
 //
 // Still pending: --name → ID resolution, table column hints, scaffold output.
 const resourceTemplate = `// Copyright 2026, Jamf Software LLC
@@ -233,6 +236,14 @@ func new{{$.GoName}}{{.GoName}}Cmd(cliCtx *registry.CLIContext) *cobra.Command {
 			}
 {{- else if and .HasBody (or (eq .Method "POST") (eq .Method "PUT")) }}
 			if err := cliCtx.PlatformSDKClient.Transport().DoWithContentType(cmd.Context(), {{methodConstant .Method}}, path, body, "application/json", {{statusConstant .SuccessCode}}, {{if .HasResult}}&result{{else}}nil{{end}}); err != nil {
+				return fmt.Errorf("{{.Name}}: %w", err)
+			}
+{{- else if .DocumentedStatuses }}
+			if err := platform.DoExpectDocumented(cmd.Context(), cliCtx.PlatformSDKClient, {{methodConstant .Method}}, path, body, {{statusConstant .SuccessCode}}, []platform.DocumentedStatus{
+			{{- range .DocumentedStatuses }}
+				{Code: {{.Code}}, ErrorCode: {{printf "%q" .ErrorCode}}, Empty: {{.Empty}}},
+			{{- end }}
+			}, {{if .HasResult}}&result{{else}}nil{{end}}); err != nil {
 				return fmt.Errorf("{{.Name}}: %w", err)
 			}
 {{- else }}

@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"text/template"
@@ -27,10 +28,20 @@ type tableColumn struct {
 	Label string
 }
 
-// platformTableColumns maps canonical platform resource names to preferred
-// columns for list table output. Only applies to paginated list operations.
+// platformTableColumns maps a platform resource to its preferred columns for
+// list table output. Only applies to paginated list operations.
+//
+// Keyed "{service}/{name}" — the gateway namespace plus the resource name — for
+// the same reason platformResourceNameOverrides is: a bare resource name is not
+// unique across services. Two specs produce a "device-groups": the Pro device
+// group inventory and Security Cloud's device groups. Keyed on the bare name,
+// the columns below landed on whichever of the two kept that name after
+// applyResourceNameOverride ran, which was Security Cloud's — so the Pro
+// inventory the columns actually describe rendered without them, while Security
+// Cloud groups, which carry only id and name, printed four permanently empty
+// columns.
 var platformTableColumns = map[string][]tableColumn{
-	"blueprints": {
+	"blueprints/blueprints": {
 		{Field: "id", Label: "id"},
 		{Field: "name", Label: "name"},
 		{Field: "deploymentState.state", Label: "state"},
@@ -38,7 +49,7 @@ var platformTableColumns = map[string][]tableColumn{
 		{Field: "created", Label: "created"},
 		{Field: "updated", Label: "updated"},
 	},
-	"benchmarks": {
+	"compliance-benchmarks/benchmarks": {
 		{Field: "id", Label: "id"},
 		{Field: "title", Label: "title"},
 		{Field: "description", Label: "description"},
@@ -46,7 +57,7 @@ var platformTableColumns = map[string][]tableColumn{
 		{Field: "updateAvailable", Label: "updateAvailable"},
 		{Field: "modified", Label: "modified"},
 	},
-	"devices": {
+	"devices/devices": {
 		{Field: "id", Label: "id"},
 		{Field: "name", Label: "name"},
 		{Field: "model", Label: "model"},
@@ -55,7 +66,7 @@ var platformTableColumns = map[string][]tableColumn{
 		{Field: "enrollmentType", Label: "enrollmentType"},
 		{Field: "lastInventoryUpdateTime", Label: "lastInventory"},
 	},
-	"device-groups": {
+	"device-groups/platform-device-groups": {
 		{Field: "id", Label: "id"},
 		{Field: "name", Label: "name"},
 		{Field: "description", Label: "description"},
@@ -100,6 +111,13 @@ type templateOp struct {
 	SupportsNameLookup bool          // op accepts a single positional ID arg AND its resource has a list op — emit --name as alternative
 	ListPath           string        // sibling list-op path (used by --name lookup); only populated when SupportsNameLookup is true
 	Service            string        // gateway namespace segment ("blueprints", "securitycloud") — selects which tenant ID the runtime injects
+
+	// DocumentedStatuses lists non-2xx statuses this operation documents as
+	// results rather than failures, from platformDocumentedStatusResults. The
+	// generated command routes through platform.DoExpectDocumented, which
+	// renders their body instead of returning an exit-code error. Empty for all
+	// but a handful of singleton reads.
+	DocumentedStatuses []documentedStatus
 }
 
 // queryParam describes a CLI flag bound to a query string parameter.
@@ -264,13 +282,13 @@ func buildTemplateResource(r *parser.Resource) templateResource {
 		}
 		var listTableCols []tableColumn
 		if opCopy.Name == "list" {
-			listTableCols = platformTableColumns[r.Name]
+			listTableCols = platformTableColumns[serviceFromPath(opCopy.Path)+"/"+r.Name]
 		}
 		ops = append(ops, templateOp{
 			Operation:      &opCopy,
 			GoName:         strcase.ToCamel(opCopy.Name),
 			Short:          shortFromOp(&opCopy),
-			Long:           firstParagraph(opCopy.Description),
+			Long:           appendEnumChoices(firstParagraph(opCopy.Description), buildEnumChoices(&opCopy)),
 			Use:            buildUse(opCopy.Name, userParams),
 			PathParams:     userParams,
 			HasBody:        opCopy.RequestBody != nil,
@@ -291,6 +309,7 @@ func buildTemplateResource(r *parser.Resource) templateResource {
 			SupportsNameLookup: supportsName,
 			ListPath:           opListPath,
 			Service:            serviceFromPath(opCopy.Path),
+			DocumentedStatuses: platformDocumentedStatusResults[strings.ToUpper(opCopy.Method)+" "+opCopy.Path],
 		})
 	}
 	return templateResource{
@@ -405,6 +424,76 @@ func buildScaffold(op *parser.Operation) string {
 	return string(b)
 }
 
+// enumChoice names one request-body field that is restricted to a fixed set of
+// values, by its dotted path from the body root.
+type enumChoice struct {
+	Path   string
+	Values []string
+}
+
+// buildEnumChoices lists every enum-constrained field in an operation's request
+// body, depth-first and sorted by path.
+//
+// This is what makes a scaffold usable for those fields. The scaffold renders
+// them as "" — indistinguishable from a free-text field — so without the choices
+// written down somewhere a caller has to read the spec or guess. Guessing is not
+// cheap: Security Cloud's ipsec.right.vendor is case-sensitive, and sending
+// "cisco" for "Cisco" is rejected with a 400 that does not name the field.
+func buildEnumChoices(op *parser.Operation) []enumChoice {
+	if op.RequestBody == nil || op.RequestBody.Schema == nil {
+		return nil
+	}
+	var out []enumChoice
+	collectEnumChoices(op.RequestBody.Schema, "", &out, 0)
+	sort.Slice(out, func(i, j int) bool { return out[i].Path < out[j].Path })
+	return out
+}
+
+// collectEnumChoices walks a schema's properties, recursing into nested objects.
+// depth caps the walk so a schema that references itself cannot loop.
+func collectEnumChoices(s *parser.Schema, prefix string, out *[]enumChoice, depth int) {
+	if s == nil || depth > 6 {
+		return
+	}
+	for name, prop := range s.Properties {
+		if prop == nil {
+			continue
+		}
+		path := name
+		if prefix != "" {
+			path = prefix + "." + name
+		}
+		if len(prop.Enum) > 0 {
+			*out = append(*out, enumChoice{Path: path, Values: prop.Enum})
+		}
+		if prop.Nested != nil {
+			collectEnumChoices(prop.Nested, path, out, depth+1)
+		}
+	}
+}
+
+// appendEnumChoices adds an "Allowed values:" tail to an operation's long help,
+// one line per enum-constrained field. Returns long unchanged when the operation
+// has none.
+func appendEnumChoices(long string, choices []enumChoice) string {
+	if len(choices) == 0 {
+		return long
+	}
+	var b strings.Builder
+	b.WriteString(long)
+	if long != "" {
+		b.WriteString("\n\n")
+	}
+	b.WriteString("Allowed values:")
+	for _, c := range choices {
+		b.WriteString("\n  ")
+		b.WriteString(c.Path)
+		b.WriteString(": ")
+		b.WriteString(strings.Join(c.Values, ", "))
+	}
+	return b.String()
+}
+
 // schemaExample walks a parsed schema and emits a JSON-marshallable Go value
 // with placeholder zero values for every property.
 func schemaExample(s *parser.Schema) any {
@@ -510,6 +599,42 @@ func detectListArrayKey(op *parser.Operation) string {
 // the published spec once it can.
 var platformIgnoredRequiredParams = map[string]bool{
 	"securitycloud/customer-id": true,
+}
+
+// documentedStatus names a non-2xx response an operation documents as a result
+// rather than a failure, plus the error code its body must carry.
+type documentedStatus struct {
+	Code      int
+	ErrorCode string
+	// Empty marks a status meaning "not configured" rather than one whose body
+	// is the answer — see platform.DocumentedStatus.Empty.
+	Empty bool
+}
+
+// platformDocumentedStatusResults lists operations for which a non-2xx status is
+// a documented *result*, keyed "{METHOD} {full tenant-bearing path}" — the form
+// the generated command dispatches, and the same key shape
+// platformOperationNameOverrides uses.
+//
+// There is no spec signal to derive this from: every one of these operations
+// documents a 404 alongside 401/403/500 as boilerplate, so "declares a 404"
+// cannot separate a singleton whose 404 body is the answer from an endpoint
+// whose 404 means the thing genuinely is not there. Hence an explicit table,
+// the same way the Jamf Pro generator's documentedStatusResults handles it.
+//
+// Each entry names the error code as well as the status, so the allowance is
+// narrow: only the server's own "not configured" code is read as an answer,
+// and a 404 arriving for any other reason still fails.
+var platformDocumentedStatusResults = map[string][]documentedStatus{
+	// A tenant with no search domain configured is the ordinary empty state of
+	// a singleton settings endpoint, and the server answers it 404
+	// SEARCH_DOMAIN_NOT_SET. Without this, `security dns-search-domains get`
+	// exited 1 with a traceId for a tenant that was simply not using the
+	// feature, so nothing could distinguish "not configured" from "the request
+	// failed". Wire-confirmed on tenant wisconsam, 2026-08-20.
+	"GET /api/securitycloud/v1/tenant/{tenantId}/dns/search-domains": {
+		{Code: 404, ErrorCode: "SEARCH_DOMAIN_NOT_SET", Empty: true},
+	},
 }
 
 // buildQueryParams returns the user-facing query flags for an operation.

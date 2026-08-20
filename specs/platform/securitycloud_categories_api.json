@@ -1,14 +1,5 @@
 {
   "components": {
-    "headers": {
-      "traceId": {
-        "description": "Trace ID for correlating this request across Tyk, JAG, and the backend service (ADG-400). Include this value when reporting issues to Jamf support.\n",
-        "schema": {
-          "example": "ecf2ca07e23c0abc12393472f2b783df",
-          "type": "string"
-        }
-      }
-    },
     "parameters": {
       "tenantId": {
         "description": "The tenant UUID identifier",
@@ -49,16 +40,13 @@
             "schema": {
               "type": "integer"
             }
-          },
-          "X-B3-TraceId": {
-            "$ref": "#/components/headers/traceId"
           }
         }
       }
     },
     "schemas": {
       "ApiError": {
-        "description": "Standard error response body per ADG-54. Returned for all non-2xx responses. The `traceId` field matches the `X-B3-TraceId` response header (ADG-400).\n",
+        "description": "Standard error response body per ADG-54. Returned for all non-2xx responses.\n",
         "properties": {
           "errors": {
             "description": "One entry per problem in the request.",
@@ -81,10 +69,12 @@
           },
           "httpStatus": {
             "example": 400,
+            "maximum": 599,
+            "minimum": 400,
             "type": "integer"
           },
           "traceId": {
-            "description": "Trace ID for correlating this error across Tyk, JAG, and the backend service. Matches the `X-B3-TraceId` response header.\n",
+            "description": "Trace ID for correlating this error across Tyk, JAG, and the backend service (ADG-400). Include this value when reporting issues to Jamf support.\n",
             "example": "ecf2ca07e23c0abc12393472f2b783df",
             "type": "string"
           }
@@ -96,14 +86,18 @@
         "properties": {
           "displayName": {
             "description": "Human-readable label (e.g. `\"Social\"`). This is the value to pass as `categoryName` when creating or updating an App — TRS validates `categoryName` against this field via `ContentBlockServiceClient.getCategories()` which maps `Category::getDisplayName`.\n",
+            "example": "Social",
             "type": "string"
           },
           "id": {
             "description": "Unique category identifier.",
+            "example": "c2723189-c531-46ac-a794-a0acb5350b3a",
+            "format": "uuid",
             "type": "string"
           },
           "name": {
-            "description": "Machine-readable slug (e.g. `social`). Informational only — **do not use as `categoryName`**; TRS validates against `displayName`, not `name`.\n",
+            "description": "Internal category name (e.g. `Category - Social`). Informational only — do not use as `categoryName`; use `displayName`, which TRS validates against.\n",
+            "example": "Category - Social",
             "type": "string"
           }
         },
@@ -115,6 +109,7 @@
         "type": "object"
       },
       "CategoryListResponse": {
+        "description": "Full list of content categories. Not paginated; the same list is returned for all tenants.",
         "properties": {
           "results": {
             "items": {
@@ -123,7 +118,8 @@
             "type": "array"
           },
           "totalCount": {
-            "description": "Total number of content categories available to this tenant.",
+            "description": "Total number of content categories.",
+            "example": 42,
             "type": "integer"
           }
         },
@@ -135,11 +131,17 @@
       }
     },
     "securitySchemes": {
-      "bearerAuth": {
-        "bearerFormat": "JWT",
-        "description": "JWT Bearer token authentication. Obtain a token from the Jamf API Gateway.",
-        "scheme": "bearer",
-        "type": "http"
+      "oauth2": {
+        "description": "Obtain an access token by calling the API Gateway's token endpoint using the OAuth2 client-credentials flow.",
+        "flows": {
+          "clientCredentials": {
+            "scopes": {
+              "read:jsc:all": ""
+            },
+            "tokenUrl": "https://{region}.api.stage.platform.jamflabs.com/auth/token"
+          }
+        },
+        "type": "oauth2"
       }
     }
   },
@@ -155,9 +157,9 @@
   },
   "openapi": "3.0.3",
   "paths": {
-    "/tenant/{tenantId}/categories": {
+    "/v1/tenant/{tenantId}/categories": {
       "get": {
-        "description": "List all content categories available to this tenant. Not paginated.\n\n**Required Permissions:** `read:jsc:all`",
+        "description": "List all content categories. Not paginated.\n\n**Required Permissions:** `read:jsc:all`",
         "operationId": "listCategories",
         "parameters": [
           {
@@ -172,13 +174,13 @@
                   "results": [
                     {
                       "displayName": "Social",
-                      "id": "abc123",
-                      "name": "social"
+                      "id": "c2723189-c531-46ac-a794-a0acb5350b3a",
+                      "name": "Category - Social"
                     },
                     {
                       "displayName": "Business \u0026 Industry",
-                      "id": "def456",
-                      "name": "business-and-industry"
+                      "id": "659282da-a8c0-454f-8b55-6b5c41daeeac",
+                      "name": "Category - Business \u0026 Industry"
                     }
                   ],
                   "totalCount": 2
@@ -188,27 +190,103 @@
                 }
               }
             },
-            "description": "List of content categories.",
-            "headers": {
-              "X-B3-TraceId": {
-                "$ref": "#/components/headers/traceId"
+            "description": "List of content categories."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "errors": [
+                    {
+                      "code": "MISSING_JSC_CUSTOMER_ID",
+                      "description": "JSC CustomerId is not present in the request."
+                    }
+                  ],
+                  "httpStatus": 401,
+                  "traceId": "ecf2ca07e23c0abc12393472f2b783df"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
               }
-            }
+            },
+            "description": "Authentication failed. The normal application response carries code `MISSING_JSC_CUSTOMER_ID`; requests rejected before dispatch carry `UNAUTHORIZED`.\n"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "errors": [
+                    {
+                      "code": "FORBIDDEN",
+                      "description": "The caller lacks the read:jsc:all privilege."
+                    }
+                  ],
+                  "httpStatus": 403,
+                  "traceId": "ecf2ca07e23c0abc12393472f2b783df"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "The caller lacks the privilege required to list categories."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "errors": [
+                    {
+                      "code": "NOT_FOUND",
+                      "description": "Not found."
+                    }
+                  ],
+                  "httpStatus": 404,
+                  "traceId": "ecf2ca07e23c0abc12393472f2b783df"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "The requested resource was not found. A downstream 404 body is passed through unchanged."
           },
           "429": {
             "$ref": "#/components/responses/tooManyRequests"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "errors": [
+                    {
+                      "code": "INTERNAL_SERVER_ERROR",
+                      "description": "An unexpected error occurred. Contact Jamf support with the traceId."
+                    }
+                  ],
+                  "httpStatus": 500,
+                  "traceId": "ecf2ca07e23c0abc12393472f2b783df"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Unexpected server error."
           }
         },
         "security": [
           {
-            "bearerAuth": []
+            "oauth2": [
+              "read:jsc:all"
+            ]
           }
         ],
         "summary": "List Categories",
         "tags": [
-          "Categories"
+          "categories"
         ],
-        "x-authentication-required": true,
         "x-required-privileges": [
           "read:jsc:all"
         ]
@@ -217,7 +295,7 @@
   },
   "security": [
     {
-      "bearerAuth": []
+      "oauth2": []
     }
   ],
   "servers": [
@@ -240,8 +318,7 @@
   "tags": [
     {
       "description": "JSC content categories. **List only** — no get-by-id.\n",
-      "name": "Categories"
+      "name": "categories"
     }
-  ],
-  "x-jamf-tenant-path-version": "v1"
+  ]
 }

@@ -34,7 +34,7 @@ func newContentCategoriesListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "list",
 		Short:       "List Categories",
-		Long:        "List all content categories available to this tenant. Not paginated.",
+		Long:        "List all content categories. Not paginated.",
 		Annotations: map[string]string{"jamf:privileges": "read:jsc:all", "jamf:api": "platform-gateway"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {

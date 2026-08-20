@@ -161,4 +161,13 @@ type Property struct {
 	WriteOnly   bool    // true when the field is accepted in requests but never returned in responses (e.g. passwords, secrets)
 	SchemaRef   string  // name of the referenced component schema for object/array types (e.g. "ComputerGeneralUpdate")
 	Nested      *Schema // resolved nested schema for object types (may be nil)
+	// Enum holds the values a string property is restricted to, in the order
+	// the spec lists them. Empty for unconstrained properties.
+	//
+	// Carried so generated help can name the choices. A scaffold renders an
+	// enum field as an empty string like any other, which tells a caller
+	// nothing about what it accepts — and Security Cloud's ZTNA gateway vendor
+	// is a case-sensitive eleven-value enum whose rejection is a 400 that does
+	// not name the offending field, so guessing is expensive.
+	Enum []string
 }

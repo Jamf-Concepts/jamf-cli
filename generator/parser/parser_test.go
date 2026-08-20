@@ -2518,3 +2518,117 @@ func TestApplyDocumentedStatusResults(t *testing.T) {
 		}
 	})
 }
+
+func TestStripVersionSegments(t *testing.T) {
+	tests := []struct {
+		name string
+		path string
+		want string
+	}{
+		{"leading version, as Jamf Pro paths carry it", "/v1/computers-inventory", "/computers-inventory"},
+		{"preview counts as a version", "/preview/x", "/x"},
+		{"no version is left alone", "/no-version/foo", "/no-version/foo"},
+		{
+			// The shape stripVersionPrefix could not see: the gateway puts the
+			// version after the service namespace.
+			"version after the service namespace",
+			"/api/securitycloud/v1/groups",
+			"/api/securitycloud/groups",
+		},
+		{
+			"the v2 sibling collapses onto the same key",
+			"/api/securitycloud/v2/groups",
+			"/api/securitycloud/groups",
+		},
+		{
+			// UEM Connect nests a service version deeper still.
+			"version deep in the path",
+			"/api/securitycloud/uem-connect/v1/connectors",
+			"/api/securitycloud/uem-connect/connectors",
+		},
+		{
+			"two version segments are both removed",
+			"/api/securitycloud/v1/uem-connect/v2/connectors",
+			"/api/securitycloud/uem-connect/connectors",
+		},
+		{
+			// A segment merely starting with "v" is not a version. The old
+			// leading-segment check accepted any such segment.
+			"a segment that only starts with v is kept",
+			"/api/securitycloud/venafi/groups",
+			"/api/securitycloud/venafi/groups",
+		},
+		{"trailing version segment", "/api/securitycloud/groups/v2", "/api/securitycloud/groups"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := stripVersionSegments(tt.path); got != tt.want {
+				t.Errorf("stripVersionSegments(%q) = %q, want %q", tt.path, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestAPIVersionRank(t *testing.T) {
+	tests := []struct {
+		path string
+		want int
+	}{
+		{"/v1/foo", 1},
+		{"/v3/foo", 3},
+		{"/v10/foo", 10},
+		{"/preview/foo", -1},
+		{"/foo/bar", 0},
+		// Ranked by the version wherever it sits. Reading only the leading
+		// segment scored both of these 0, which made "prefer the higher
+		// version" a tie decided by map iteration order.
+		{"/api/securitycloud/v1/groups", 1},
+		{"/api/securitycloud/v2/groups", 2},
+		// The outermost version wins when a path carries two: it is the one
+		// that distinguishes siblings.
+		{"/api/securitycloud/v1/uem-connect/v2/connectors", 1},
+	}
+	for _, tt := range tests {
+		t.Run(tt.path, func(t *testing.T) {
+			if got := apiVersionRank(tt.path); got != tt.want {
+				t.Errorf("apiVersionRank(%q) = %d, want %d", tt.path, got, tt.want)
+			}
+		})
+	}
+}
+
+// TestDeduplicateVersionedOps_GatewayPathShape covers the case that shipped two
+// commands for one endpoint: Jamf Security Cloud published a v2 device-groups
+// list beside the deprecated v1, and because the version sits after the service
+// namespace the dedup key never collided, so both survived — the deprecated one
+// holding the plain "list" name.
+func TestDeduplicateVersionedOps_GatewayPathShape(t *testing.T) {
+	v1 := &Operation{Name: "list", Method: "GET", Path: "/api/securitycloud/v1/groups"}
+	v2 := &Operation{Name: "groups", Method: "GET", Path: "/api/securitycloud/v2/groups"}
+
+	got := deduplicateVersionedOps([]*Operation{v1, v2})
+
+	if len(got) != 1 {
+		t.Fatalf("expected the two versions to collapse to one op, got %d: %v", len(got), got)
+	}
+	if got[0] != v2 {
+		t.Errorf("expected the v2 op to win, got %s", got[0].Path)
+	}
+	if len(got[0].FallbackPaths) != 1 || got[0].FallbackPaths[0] != v1.Path {
+		t.Errorf("expected v1's path recorded as a fallback, got %v", got[0].FallbackPaths)
+	}
+}
+
+// TestDeduplicateVersionedOps_DistinctGatewayServicesSurvive guards the other
+// direction: stripping every version segment must not merge endpoints that
+// merely share a terminal segment across different services.
+func TestDeduplicateVersionedOps_DistinctGatewayServicesSurvive(t *testing.T) {
+	ops := []*Operation{
+		{Name: "list", Method: "GET", Path: "/api/securitycloud/v1/groups"},
+		{Name: "list", Method: "GET", Path: "/api/device-groups/v1/device-groups"},
+		{Name: "list", Method: "GET", Path: "/api/securitycloud/uem-connect/v1/connectors"},
+	}
+	if got := deduplicateVersionedOps(ops); len(got) != 3 {
+		t.Errorf("expected all 3 distinct endpoints to survive, got %d", len(got))
+	}
+}

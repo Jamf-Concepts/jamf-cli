@@ -79,7 +79,7 @@ func newUemConnectorsCreateCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "create",
 		Short:       "Create connector",
-		Long:        "Creates a new connector for the tenant. On success returns the identifier of the created connector.",
+		Long:        "Creates a new connector for the tenant. On success returns the identifier of the created connector.\n\nAllowed values:\n  vendor: INTUNE, XENMOBILE, MAAS360, WORKSPACE_ONE, JAMF_PRO, JAMF_SCHOOL, MICLOUD, MICORE, GOOGLE, WIZY",
 		Annotations: map[string]string{"jamf:privileges": "create:jsc:all", "jamf:api": "platform-gateway"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if scaffoldFlag {

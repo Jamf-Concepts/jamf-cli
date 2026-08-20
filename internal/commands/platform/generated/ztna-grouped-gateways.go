@@ -80,7 +80,7 @@ func newZtnaGroupedGatewaysCreateCmd(cliCtx *registry.CLIContext) *cobra.Command
 	cmd := &cobra.Command{
 		Use:         "create",
 		Short:       "Create a Grouped Gateway",
-		Long:        "Create a Grouped Gateway. Returns `201 {id, href}` + `Location` header.",
+		Long:        "Create a Grouped Gateway. Returns `201 {id, href}` + `Location` header.\n\nAllowed values:\n  routingStrategy: ACTIVE_STANDBY, RANDOM, NEAREST",
 		Annotations: map[string]string{"jamf:privileges": "create:jsc:all", "jamf:api": "platform-gateway"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if scaffoldFlag {
@@ -229,7 +229,7 @@ func newZtnaGroupedGatewaysPatchCmd(cliCtx *registry.CLIContext) *cobra.Command 
 	cmd := &cobra.Command{
 		Use:         "patch <groupedGatewayId>",
 		Short:       "Partially update a Grouped Gateway",
-		Long:        "Partially update a Grouped Gateway (ADG-355). All fields are optional — include only what you want to change.",
+		Long:        "Partially update a Grouped Gateway (ADG-355). All fields are optional — include only what you want to change.\n\nAllowed values:\n  routingStrategy: ACTIVE_STANDBY, RANDOM, NEAREST",
 		Annotations: map[string]string{"jamf:privileges": "update:jsc:all", "jamf:api": "platform-gateway"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {

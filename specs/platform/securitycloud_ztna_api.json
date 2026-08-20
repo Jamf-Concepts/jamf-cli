@@ -139,7 +139,7 @@
             }
           }
         },
-        "description": "Conflict — request is valid but cannot be processed due to current state. Common codes: `HOSTNAME_CONFLICT` — hostname already assigned to another App; `DEDICATED_IPS_LIMIT` — `dedicatedIps.enabled: true` quota exhausted; `MISSING_CATEGORY_NAME` — `categoryName` does not match any category returned by `GET /categories` for this customer (categories are per-customer and may change); `MISSING_SKU2_FOR_RISK_CONTROL` — risk controls require SKU2 entitlement not held by this customer; `MISSING_USER_GROUPS` — one or more assignment group IDs do not exist for this customer; `UNSUPPORTED_BARE_IP_IN_REFERENCED_VPN_ROUTE_IPSEC_CONFIG` — a `bareIps` subnet is not covered by the referenced gateway's IPSec tunnel `right.subnets`; `predefinedAppId` does not resolve to an existing template; for DELETE: gateway/grouped-gateway still referenced by an App, Grouped Gateway, or DNS Zone. Note: inaccessible gateway IDs in request bodies return `422 GATEWAY_NOT_FOUND`, not `409`.\n",
+        "description": "Conflict — request is valid but cannot be processed due to current state. Common codes: `HOSTNAME_CONFLICT` — hostname already assigned to another App; `DEDICATED_IPS_LIMIT` — `dedicatedIps.enabled: true` quota exhausted; `MISSING_CATEGORY_NAME` — `categoryName` does not match any category returned by `GET /v1/categories`; `MISSING_SKU2_FOR_RISK_CONTROL` — risk controls require SKU2 entitlement not held by this customer; `MISSING_USER_GROUPS` — one or more assignment group IDs do not exist for this customer; `UNSUPPORTED_BARE_IP_IN_REFERENCED_VPN_ROUTE_IPSEC_CONFIG` — a `bareIps` subnet is not covered by the referenced gateway's IPSec tunnel `right.subnets`; `predefinedAppId` does not resolve to an existing template; for DELETE: gateway/grouped-gateway still referenced by an App, Grouped Gateway, or DNS Zone. Note: inaccessible gateway IDs in request bodies return `422 GATEWAY_NOT_FOUND`, not `409`.\n",
         "headers": {
           "X-B3-TraceId": {
             "$ref": "#/components/headers/traceId"
@@ -581,19 +581,47 @@
         "type": "object"
       },
       "CategoryName": {
-        "description": "App category name. Use the `displayName` field from `GET /categories` — that endpoint is the authoritative source. The value must exactly match a `displayName` returned by `content-block-service`. Unknown values return `409 MISSING_CATEGORY_NAME` — the category list is per-customer and may change, so an unrecognised name is a state conflict, not a malformed request. TRS validates against `displayName` (e.g. `\"Business \u0026 Industry\"`), not the machine-readable `name` slug.\n",
+        "description": "App category name. Use the `displayName` field from `GET /v1/categories` — that endpoint is the authoritative source. The value must exactly match a `displayName` returned by `content-block-service`. Unknown values return `409 MISSING_CATEGORY_NAME` — the category list is server-owned and may change, so an unrecognised name is a state conflict, not a malformed request. TRS validates against `displayName` (e.g. `\"Business \u0026 Industry\"`), not the internal `name` (e.g. `\"Category - Business \u0026 Industry\"`).\n",
         "type": "string"
+      },
+      "ConnectionConfigLeftResponse": {
+        "description": "IPSec Jamf-side endpoint returned on GET. Secrets are never included.",
+        "properties": {
+          "auth": {
+            "description": "Authentication method.",
+            "enum": [
+              "psk"
+            ],
+            "example": "psk",
+            "type": "string"
+          },
+          "host": {
+            "description": "Endpoint address.",
+            "example": "%any",
+            "type": "string"
+          },
+          "id": {
+            "description": "IKE identity.",
+            "example": "wpa.wandera.com",
+            "type": "string"
+          },
+          "subnets": {
+            "description": "CIDR subnets.",
+            "example": [
+              "10.0.0.0/24"
+            ],
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "uniqueItems": true
+          }
+        },
+        "type": "object"
       },
       "ConnectionConfigRequest": {
         "description": "IPSec connection endpoint for write requests. Includes the `secret` field. `secret` is write-only — it is never returned in GET responses.\n",
         "properties": {
-          "auth": {
-            "description": "Authentication method. Currently only `psk` is supported.",
-            "enum": [
-              "psk"
-            ],
-            "type": "string"
-          },
           "host": {
             "description": "Endpoint address or `%any`.",
             "minLength": 1,
@@ -620,30 +648,18 @@
             "minItems": 1,
             "type": "array",
             "uniqueItems": true
-          },
-          "vendor": {
-            "description": "Optional VPN vendor identifier of this endpoint (e.g. `cisco`, `strongSwan`). Optional on `left`; required on `right` (see `ConnectionConfigRequestNoSecret`).\n",
-            "type": "string"
           }
         },
         "required": [
           "id",
           "host",
-          "subnets",
-          "auth"
+          "subnets"
         ],
         "type": "object"
       },
       "ConnectionConfigRequestNoSecret": {
-        "description": "IPSec connection endpoint for the `right` side. Identical to `left` but without `secret` — the secret is set automatically from `left.secret`. `vendor` is **required** — use the peer's VPN vendor identifier (e.g. `cisco`, `strongSwan`, `juniper`).\n",
+        "description": "IPSec connection endpoint for the `right` side. Identical to `left` but without `secret` — the secret is set automatically from `left.secret`. `vendor` is **required** — use one of the fixed vendor identifiers listed under `ConnectionConfigRequestNoSecret.vendor`. Values are case-sensitive.\n",
         "properties": {
-          "auth": {
-            "description": "Authentication method.",
-            "enum": [
-              "psk"
-            ],
-            "type": "string"
-          },
           "host": {
             "description": "Endpoint address.",
             "minLength": 1,
@@ -666,8 +682,20 @@
             "uniqueItems": true
           },
           "vendor": {
-            "description": "VPN vendor identifier of the remote peer (e.g. `cisco`, `strongSwan`, `juniper`). Free string — no fixed enum. **Required**.\n",
-            "minLength": 1,
+            "description": "VPN vendor identifier of the remote peer. Case-sensitive. **Required**.",
+            "enum": [
+              "Checkpoint",
+              "Cisco",
+              "Fortinet",
+              "Juniper",
+              "Palo Alto",
+              "SonicWall",
+              "Sophos",
+              "Sourcefire",
+              "strongSwan",
+              "Watchguard",
+              "Other"
+            ],
             "type": "string"
           }
         },
@@ -675,31 +703,36 @@
           "id",
           "host",
           "subnets",
-          "auth",
           "vendor"
         ],
         "type": "object"
       },
-      "ConnectionConfigResponse": {
-        "description": "IPSec connection endpoint returned on GET. Secrets are never included.",
+      "ConnectionConfigRightResponse": {
+        "description": "IPSec remote-peer endpoint returned on GET. Secrets are never included.",
         "properties": {
           "auth": {
             "description": "Authentication method.",
             "enum": [
               "psk"
             ],
+            "example": "psk",
             "type": "string"
           },
           "host": {
             "description": "Endpoint address.",
+            "example": "203.0.113.10",
             "type": "string"
           },
           "id": {
             "description": "IKE identity.",
+            "example": "peer-gw-01",
             "type": "string"
           },
           "subnets": {
             "description": "CIDR subnets.",
+            "example": [
+              "10.1.0.0/16"
+            ],
             "items": {
               "type": "string"
             },
@@ -707,10 +740,27 @@
             "uniqueItems": true
           },
           "vendor": {
-            "description": "Optional VPN vendor identifier.",
+            "description": "VPN vendor identifier of the remote peer.",
+            "enum": [
+              "Checkpoint",
+              "Cisco",
+              "Fortinet",
+              "Juniper",
+              "Palo Alto",
+              "SonicWall",
+              "Sophos",
+              "Sourcefire",
+              "strongSwan",
+              "Watchguard",
+              "Other"
+            ],
+            "example": "Cisco",
             "type": "string"
           }
         },
+        "required": [
+          "vendor"
+        ],
         "type": "object"
       },
       "CreateResponse": {
@@ -783,6 +833,7 @@
           },
           "lifetimeInSec": {
             "description": "Key lifetime in seconds (e.g. `28800` for IKE, `3600` for ESP).",
+            "minimum": 1,
             "type": "integer"
           }
         },
@@ -1010,10 +1061,10 @@
             "type": "string"
           },
           "left": {
-            "$ref": "#/components/schemas/ConnectionConfigResponse"
+            "$ref": "#/components/schemas/ConnectionConfigLeftResponse"
           },
           "right": {
-            "$ref": "#/components/schemas/ConnectionConfigResponse"
+            "$ref": "#/components/schemas/ConnectionConfigRightResponse"
           }
         },
         "type": "object"
@@ -1507,11 +1558,20 @@
       }
     },
     "securitySchemes": {
-      "bearerAuth": {
-        "bearerFormat": "JWT",
-        "description": "JWT Bearer token authentication. Obtain a token from the Jamf API Gateway.",
-        "scheme": "bearer",
-        "type": "http"
+      "oauth2": {
+        "description": "Obtain an access token by calling the API Gateway's token endpoint using the OAuth2 client-credentials flow.",
+        "flows": {
+          "clientCredentials": {
+            "scopes": {
+              "create:jsc:all": "",
+              "delete:jsc:all": "",
+              "read:jsc:all": "",
+              "update:jsc:all": ""
+            },
+            "tokenUrl": "https://{region}.api.stage.platform.jamflabs.com/auth/token"
+          }
+        },
+        "type": "oauth2"
       }
     }
   },
@@ -1564,14 +1624,15 @@
         },
         "security": [
           {
-            "bearerAuth": []
+            "oauth2": [
+              "read:jsc:all"
+            ]
           }
         ],
         "summary": "List Apps",
         "tags": [
           "Apps"
         ],
-        "x-authentication-required": true,
         "x-required-privileges": [
           "read:jsc:all"
         ]
@@ -1663,14 +1724,15 @@
         },
         "security": [
           {
-            "bearerAuth": []
+            "oauth2": [
+              "create:jsc:all"
+            ]
           }
         ],
         "summary": "Create an App",
         "tags": [
           "Apps"
         ],
-        "x-authentication-required": true,
         "x-required-privileges": [
           "create:jsc:all"
         ]
@@ -1711,14 +1773,15 @@
         },
         "security": [
           {
-            "bearerAuth": []
+            "oauth2": [
+              "delete:jsc:all"
+            ]
           }
         ],
         "summary": "Delete an App",
         "tags": [
           "Apps"
         ],
-        "x-authentication-required": true,
         "x-required-privileges": [
           "delete:jsc:all"
         ]
@@ -1812,14 +1875,15 @@
         },
         "security": [
           {
-            "bearerAuth": []
+            "oauth2": [
+              "read:jsc:all"
+            ]
           }
         ],
         "summary": "Get an App",
         "tags": [
           "Apps"
         ],
-        "x-authentication-required": true,
         "x-required-privileges": [
           "read:jsc:all"
         ]
@@ -1886,14 +1950,15 @@
         },
         "security": [
           {
-            "bearerAuth": []
+            "oauth2": [
+              "update:jsc:all"
+            ]
           }
         ],
         "summary": "Partially update an App",
         "tags": [
           "Apps"
         ],
-        "x-authentication-required": true,
         "x-required-privileges": [
           "update:jsc:all"
         ]
@@ -1963,14 +2028,15 @@
         },
         "security": [
           {
-            "bearerAuth": []
+            "oauth2": [
+              "read:jsc:all"
+            ]
           }
         ],
         "summary": "List Gateways",
         "tags": [
           "Gateways"
         ],
-        "x-authentication-required": true,
         "x-required-privileges": [
           "read:jsc:all"
         ]
@@ -2030,14 +2096,15 @@
         },
         "security": [
           {
-            "bearerAuth": []
+            "oauth2": [
+              "create:jsc:all"
+            ]
           }
         ],
         "summary": "Create a Gateway",
         "tags": [
           "Gateways"
         ],
-        "x-authentication-required": true,
         "x-required-privileges": [
           "create:jsc:all"
         ]
@@ -2078,14 +2145,15 @@
         },
         "security": [
           {
-            "bearerAuth": []
+            "oauth2": [
+              "delete:jsc:all"
+            ]
           }
         ],
         "summary": "Delete a Gateway",
         "tags": [
           "Gateways"
         ],
-        "x-authentication-required": true,
         "x-required-privileges": [
           "delete:jsc:all"
         ]
@@ -2128,14 +2196,15 @@
         },
         "security": [
           {
-            "bearerAuth": []
+            "oauth2": [
+              "read:jsc:all"
+            ]
           }
         ],
         "summary": "Get a Gateway",
         "tags": [
           "Gateways"
         ],
-        "x-authentication-required": true,
         "x-required-privileges": [
           "read:jsc:all"
         ]
@@ -2241,14 +2310,15 @@
         },
         "security": [
           {
-            "bearerAuth": []
+            "oauth2": [
+              "update:jsc:all"
+            ]
           }
         ],
         "summary": "Partially update a Gateway",
         "tags": [
           "Gateways"
         ],
-        "x-authentication-required": true,
         "x-required-privileges": [
           "update:jsc:all"
         ]
@@ -2305,14 +2375,15 @@
         },
         "security": [
           {
-            "bearerAuth": []
+            "oauth2": [
+              "read:jsc:all"
+            ]
           }
         ],
         "summary": "List Grouped Gateways",
         "tags": [
           "Grouped Gateways"
         ],
-        "x-authentication-required": true,
         "x-required-privileges": [
           "read:jsc:all"
         ]
@@ -2369,14 +2440,15 @@
         },
         "security": [
           {
-            "bearerAuth": []
+            "oauth2": [
+              "create:jsc:all"
+            ]
           }
         ],
         "summary": "Create a Grouped Gateway",
         "tags": [
           "Grouped Gateways"
         ],
-        "x-authentication-required": true,
         "x-required-privileges": [
           "create:jsc:all"
         ]
@@ -2417,14 +2489,15 @@
         },
         "security": [
           {
-            "bearerAuth": []
+            "oauth2": [
+              "delete:jsc:all"
+            ]
           }
         ],
         "summary": "Delete a Grouped Gateway",
         "tags": [
           "Grouped Gateways"
         ],
-        "x-authentication-required": true,
         "x-required-privileges": [
           "delete:jsc:all"
         ]
@@ -2467,14 +2540,15 @@
         },
         "security": [
           {
-            "bearerAuth": []
+            "oauth2": [
+              "read:jsc:all"
+            ]
           }
         ],
         "summary": "Get a Grouped Gateway",
         "tags": [
           "Grouped Gateways"
         ],
-        "x-authentication-required": true,
         "x-required-privileges": [
           "read:jsc:all"
         ]
@@ -2549,14 +2623,15 @@
         },
         "security": [
           {
-            "bearerAuth": []
+            "oauth2": [
+              "update:jsc:all"
+            ]
           }
         ],
         "summary": "Partially update a Grouped Gateway",
         "tags": [
           "Grouped Gateways"
         ],
-        "x-authentication-required": true,
         "x-required-privileges": [
           "update:jsc:all"
         ]
@@ -2593,14 +2668,15 @@
         },
         "security": [
           {
-            "bearerAuth": []
+            "oauth2": [
+              "read:jsc:all"
+            ]
           }
         ],
         "summary": "List Predefined Apps",
         "tags": [
           "Predefined Apps"
         ],
-        "x-authentication-required": true,
         "x-required-privileges": [
           "read:jsc:all"
         ]
@@ -2650,14 +2726,15 @@
         },
         "security": [
           {
-            "bearerAuth": []
+            "oauth2": [
+              "read:jsc:all"
+            ]
           }
         ],
         "summary": "List Shared Gateways",
         "tags": [
           "Shared Gateways"
         ],
-        "x-authentication-required": true,
         "x-required-privileges": [
           "read:jsc:all"
         ]
@@ -2666,7 +2743,7 @@
   },
   "security": [
     {
-      "bearerAuth": []
+      "oauth2": []
     }
   ],
   "servers": [

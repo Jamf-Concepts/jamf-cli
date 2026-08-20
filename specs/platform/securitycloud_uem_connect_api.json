@@ -981,11 +981,20 @@
       }
     },
     "securitySchemes": {
-      "bearerAuth": {
-        "bearerFormat": "JWT",
-        "description": "JWT Bearer token authentication. Obtain a token from the Jamf API Gateway.",
-        "scheme": "bearer",
-        "type": "http"
+      "oauth2": {
+        "description": "Obtain an access token by calling the API Gateway's token endpoint using the OAuth2 client-credentials flow.",
+        "flows": {
+          "clientCredentials": {
+            "scopes": {
+              "create:jsc:all": "",
+              "delete:jsc:all": "",
+              "read:jsc:all": "",
+              "update:jsc:all": ""
+            },
+            "tokenUrl": "https://{region}.api.stage.platform.jamflabs.com/auth/token"
+          }
+        },
+        "type": "oauth2"
       }
     }
   },
@@ -1046,7 +1055,9 @@
         },
         "security": [
           {
-            "bearerAuth": []
+            "oauth2": [
+              "update:jsc:all"
+            ]
           }
         ],
         "summary": "Deploy Jamf Security configuration profiles to UEM",
@@ -1054,7 +1065,6 @@
           "activation-profiles"
         ],
         "x-action": true,
-        "x-authentication-required": true,
         "x-required-privileges": [
           "update:jsc:all"
         ]
@@ -1083,14 +1093,15 @@
         },
         "security": [
           {
-            "bearerAuth": []
+            "oauth2": [
+              "read:jsc:all"
+            ]
           }
         ],
         "summary": "List connectors",
         "tags": [
           "connectors"
         ],
-        "x-authentication-required": true,
         "x-required-privileges": [
           "read:jsc:all"
         ]
@@ -1136,14 +1147,15 @@
         },
         "security": [
           {
-            "bearerAuth": []
+            "oauth2": [
+              "create:jsc:all"
+            ]
           }
         ],
         "summary": "Create connector",
         "tags": [
           "connectors"
         ],
-        "x-authentication-required": true,
         "x-required-privileges": [
           "create:jsc:all"
         ]
@@ -1171,14 +1183,15 @@
         },
         "security": [
           {
-            "bearerAuth": []
+            "oauth2": [
+              "delete:jsc:all"
+            ]
           }
         ],
         "summary": "Delete connector",
         "tags": [
           "connectors"
         ],
-        "x-authentication-required": true,
         "x-required-privileges": [
           "delete:jsc:all"
         ]
@@ -1211,14 +1224,15 @@
         },
         "security": [
           {
-            "bearerAuth": []
+            "oauth2": [
+              "read:jsc:all"
+            ]
           }
         ],
         "summary": "Get connector",
         "tags": [
           "connectors"
         ],
-        "x-authentication-required": true,
         "x-required-privileges": [
           "read:jsc:all"
         ]
@@ -1246,7 +1260,9 @@
         },
         "security": [
           {
-            "bearerAuth": []
+            "oauth2": [
+              "update:jsc:all"
+            ]
           }
         ],
         "summary": "Disable connector synchronization",
@@ -1254,7 +1270,6 @@
           "connector-enablement"
         ],
         "x-action": true,
-        "x-authentication-required": true,
         "x-required-privileges": [
           "update:jsc:all"
         ]
@@ -1296,7 +1311,9 @@
         },
         "security": [
           {
-            "bearerAuth": []
+            "oauth2": [
+              "update:jsc:all"
+            ]
           }
         ],
         "summary": "Enable connector synchronization",
@@ -1304,7 +1321,6 @@
           "connector-enablement"
         ],
         "x-action": true,
-        "x-authentication-required": true,
         "x-required-privileges": [
           "update:jsc:all"
         ]
@@ -1339,14 +1355,15 @@
         },
         "security": [
           {
-            "bearerAuth": []
+            "oauth2": [
+              "read:jsc:all"
+            ]
           }
         ],
         "summary": "Get connector sync settings",
         "tags": [
           "sync-configuration"
         ],
-        "x-authentication-required": true,
         "x-required-privileges": [
           "read:jsc:all"
         ]
@@ -1385,14 +1402,15 @@
         },
         "security": [
           {
-            "bearerAuth": []
+            "oauth2": [
+              "update:jsc:all"
+            ]
           }
         ],
         "summary": "Update connector sync settings",
         "tags": [
           "sync-configuration"
         ],
-        "x-authentication-required": true,
         "x-required-privileges": [
           "update:jsc:all"
         ]
@@ -1447,14 +1465,15 @@
         },
         "security": [
           {
-            "bearerAuth": []
+            "oauth2": [
+              "read:jsc:all"
+            ]
           }
         ],
         "summary": "List sync run history",
         "tags": [
           "sync-execution"
         ],
-        "x-authentication-required": true,
         "x-required-privileges": [
           "read:jsc:all"
         ]
@@ -1489,7 +1508,9 @@
         },
         "security": [
           {
-            "bearerAuth": []
+            "oauth2": [
+              "update:jsc:all"
+            ]
           }
         ],
         "summary": "Trigger sync run",
@@ -1497,7 +1518,6 @@
           "sync-execution"
         ],
         "x-action": true,
-        "x-authentication-required": true,
         "x-required-privileges": [
           "update:jsc:all"
         ]
@@ -1522,7 +1542,9 @@
         },
         "security": [
           {
-            "bearerAuth": []
+            "oauth2": [
+              "update:jsc:all"
+            ]
           }
         ],
         "summary": "Cancel current sync run",
@@ -1530,7 +1552,6 @@
           "sync-execution"
         ],
         "x-action": true,
-        "x-authentication-required": true,
         "x-required-privileges": [
           "update:jsc:all"
         ]
@@ -1539,7 +1560,7 @@
   },
   "security": [
     {
-      "bearerAuth": []
+      "oauth2": []
     }
   ],
   "servers": [

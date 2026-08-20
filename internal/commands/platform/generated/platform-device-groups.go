@@ -86,6 +86,14 @@ func newPlatformDeviceGroupsListCmd(cliCtx *registry.CLIContext) *cobra.Command 
 			if err != nil {
 				return err
 			}
+			b = platform.SelectTableColumns(b, []platform.TableColumn{
+				{Field: "id", Label: "id"},
+				{Field: "name", Label: "name"},
+				{Field: "description", Label: "description"},
+				{Field: "deviceType", Label: "deviceType"},
+				{Field: "groupType", Label: "groupType"},
+				{Field: "memberCount", Label: "memberCount"},
+			}, cliCtx.Output.Format())
 			return cliCtx.Output.PrintRaw(b)
 		},
 	}
@@ -101,7 +109,7 @@ func newPlatformDeviceGroupsCreateCmd(cliCtx *registry.CLIContext) *cobra.Comman
 	cmd := &cobra.Command{
 		Use:         "create",
 		Short:       "Create a new device group",
-		Long:        "Create a new device group in Jamf Pro",
+		Long:        "Create a new device group in Jamf Pro\n\nAllowed values:\n  deviceType: COMPUTER, MOBILE\n  groupType: SMART, STATIC",
 		Annotations: map[string]string{"jamf:privileges": "create:pro:device-groups", "jamf:api": "platform-gateway"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if scaffoldFlag {

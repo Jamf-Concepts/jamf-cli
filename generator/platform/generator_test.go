@@ -169,3 +169,115 @@ func TestGenerate_EmitsPrivilegeAnnotation(t *testing.T) {
 		t.Error("no generated platform command carries the jamf:privileges annotation — template emission missing")
 	}
 }
+
+// TestPlatformTableColumns_KeyedByService guards a mix-up that shipped: two
+// specs produce a resource called "device-groups" — the Jamf Pro device group
+// inventory and Jamf Security Cloud's device groups. Keyed on the bare name, the
+// inventory's columns (description, deviceType, groupType, memberCount) landed
+// on the Security Cloud resource, which carries only id and name, so `security
+// device-groups list -o csv` emitted four permanently empty columns while the
+// Pro resource the columns describe rendered without any.
+func TestPlatformTableColumns_KeyedByService(t *testing.T) {
+	for key := range platformTableColumns {
+		service, name, ok := strings.Cut(key, "/")
+		if !ok {
+			t.Errorf("platformTableColumns key %q is not \"{service}/{name}\" — a bare resource name is not unique across services", key)
+			continue
+		}
+		if service == "" || name == "" {
+			t.Errorf("platformTableColumns key %q has an empty service or name", key)
+		}
+	}
+
+	// The pairing that was inverted, asserted both ways round.
+	if _, ok := platformTableColumns["device-groups/platform-device-groups"]; !ok {
+		t.Error("expected the Pro device group inventory to own the inventory columns")
+	}
+	if _, ok := platformTableColumns["securitycloud/device-groups"]; ok {
+		t.Error("Security Cloud device groups carry only id and name; giving them the inventory columns prints empty ones")
+	}
+}
+
+// TestBuildEnumChoices_NestedAndSorted covers what makes a scaffold usable for
+// enum fields: the scaffold renders them as "", so the choices have to be
+// written down somewhere. Security Cloud's ipsec.right.vendor is the case that
+// forced it — case-sensitive, and a wrong-case value is rejected with a 400 that
+// does not name the field.
+func TestBuildEnumChoices_NestedAndSorted(t *testing.T) {
+	specsDir, err := filepath.Abs("../../specs/platform")
+	if err != nil {
+		t.Fatalf("resolving specs dir: %v", err)
+	}
+	resources, _, err := LoadResources(specsDir)
+	if err != nil {
+		t.Fatalf("LoadResources: %v", err)
+	}
+
+	var found []enumChoice
+	for _, r := range resources {
+		if r.Name != "ztna-gateways" {
+			continue
+		}
+		for _, op := range r.Operations {
+			if op.Name != "create" {
+				continue
+			}
+			found = buildEnumChoices(op)
+		}
+	}
+	if len(found) == 0 {
+		t.Fatal("expected enum choices on ztna-gateways create — has the IPSec schema stopped constraining vendor?")
+	}
+
+	byPath := map[string][]string{}
+	for _, c := range found {
+		byPath[c.Path] = c.Values
+	}
+	// Nested two levels deep, which a properties-only walk would miss.
+	vendor, ok := byPath["ipsec.right.vendor"]
+	if !ok {
+		t.Fatalf("expected ipsec.right.vendor collected, got paths %v", byPath)
+	}
+	if len(vendor) < 2 {
+		t.Errorf("expected the vendor enum's values, got %v", vendor)
+	}
+	// Case matters on the wire, so the values must be carried verbatim.
+	var sawMixedCase bool
+	for _, v := range vendor {
+		if v != strings.ToLower(v) && v != strings.ToUpper(v) {
+			sawMixedCase = true
+		}
+	}
+	if !sawMixedCase {
+		t.Errorf("expected the vendor values to keep their original case (e.g. \"Palo Alto\"), got %v", vendor)
+	}
+
+	for i := 1; i < len(found); i++ {
+		if found[i-1].Path >= found[i].Path {
+			t.Errorf("enum choices not sorted by path: %q >= %q", found[i-1].Path, found[i].Path)
+		}
+	}
+}
+
+// TestAppendEnumChoices covers the help-text shaping, including the no-enum case
+// where the long text must be returned untouched.
+func TestAppendEnumChoices(t *testing.T) {
+	if got := appendEnumChoices("Some description.", nil); got != "Some description." {
+		t.Errorf("expected long text unchanged with no enums, got %q", got)
+	}
+
+	got := appendEnumChoices("Create a gateway.", []enumChoice{
+		{Path: "ipsec.keyExchange", Values: []string{"ikev1", "ikev2"}},
+	})
+	for _, want := range []string{"Create a gateway.", "Allowed values:", "ipsec.keyExchange: ikev1, ikev2"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("expected help to contain %q, got %q", want, got)
+		}
+	}
+
+	// An op with no description still gets the choices, without a leading blank.
+	bare := appendEnumChoices("", []enumChoice{{Path: "x", Values: []string{"a"}}})
+	if strings.HasPrefix(bare, "\n") {
+		t.Errorf("expected no leading newline when there is no description, got %q", bare)
+	}
+}

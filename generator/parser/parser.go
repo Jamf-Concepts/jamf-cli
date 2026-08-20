@@ -1098,6 +1098,69 @@ func stripVersionPrefix(path string) string {
 	return path
 }
 
+// versionSegment matches a path segment that names an API version — "v1",
+// "v12", or the pre-release "preview".
+var versionSegment = regexp.MustCompile(`^(v\d+|preview)$`)
+
+// stripVersionSegments removes every version segment from a path, wherever it
+// sits, leaving the rest of the path intact.
+//
+// This is the version-blind identity of an endpoint, and it is what
+// deduplicateVersionedOps keys on. stripVersionPrefix only handles a *leading*
+// version, which is enough for Jamf Pro ("/v1/computers-inventory") but blind
+// to the shape the Platform Gateway uses, where the version follows the service
+// namespace ("/api/securitycloud/v1/groups") or even the tenant segment
+// ("/api/securitycloud/uem-connect/v1/connectors"). Without this, two versions
+// of the same gateway endpoint hash to different keys and both ship as
+// commands — which is how Security Cloud's device groups ended up with a "list"
+// on the deprecated v1 alongside a "list-v2" on its successor.
+//
+// Removing every segment rather than the first is safe rather than merely
+// convenient: across all Jamf Pro specs and every published platform spec it
+// introduces exactly one new collision, the v1/v2 device-groups list it is
+// meant to catch.
+func stripVersionSegments(path string) string {
+	if !strings.Contains(path, "/v") && !strings.Contains(path, "/preview") {
+		return path
+	}
+	segs := strings.Split(path, "/")
+	kept := segs[:0:len(segs)]
+	for i, s := range segs {
+		// i == 0 is the empty string before the leading slash; keep it so the
+		// result stays absolute.
+		if i > 0 && versionSegment.MatchString(s) {
+			continue
+		}
+		kept = append(kept, s)
+	}
+	return strings.Join(kept, "/")
+}
+
+// apiVersionRank ranks a path by the first version segment it carries, wherever
+// that sits: a numeric version scores its own number, "preview" scores below
+// any of them as a pre-release, and a path carrying no version at all scores 0
+// (legacy, beaten by any explicit version).
+//
+// The first segment rather than the highest, because a path carrying two is
+// versioning two different things — Security Cloud's UEM Connect nests a
+// service version under the gateway namespace — and it is the outermost one
+// that distinguishes siblings.
+func apiVersionRank(path string) int {
+	for _, s := range strings.Split(path, "/") {
+		if !versionSegment.MatchString(s) {
+			continue
+		}
+		if s == "preview" {
+			return -1
+		}
+		var n int
+		if _, err := fmt.Sscanf(s[1:], "%d", &n); err == nil {
+			return n
+		}
+	}
+	return 0
+}
+
 // pathToResourceName converts an API path to a kebab-case resource name.
 // Strips the version prefix and replaces slashes with dashes.
 // e.g. /v1/self-service/branding/macos → self-service-branding-macos
@@ -1195,7 +1258,7 @@ func deduplicateVersionedOps(ops []*Operation) []*Operation {
 	result := make([]*Operation, 0, len(ops))
 
 	for _, op := range ops {
-		k := key{op.Method, stripVersionPrefix(op.Path)}
+		k := key{op.Method, stripVersionSegments(op.Path)}
 		prev, exists := seen[k]
 		if !exists {
 			seen[k] = op
@@ -1243,28 +1306,14 @@ func deduplicateVersionedOps(ops []*Operation) []*Operation {
 // compareAPIVersions returns >0 if path1 should be preferred over path2.
 // Comparison order: explicit /v3 > /v2 > /v1 > unversioned > preview (treated as
 // pre-release, kept for now but lower than any numeric version).
+//
+// The version is read from wherever it sits in the path, not just the leading
+// segment — see apiVersionRank. A gateway path carries it after the service
+// namespace, and ranking those by their leading segment scored every one of
+// them 0, making the "prefer the higher version" branch a coin toss decided by
+// map iteration order.
 func compareAPIVersions(path1, path2 string) int {
-	rank := func(path string) int {
-		trimmed := strings.TrimPrefix(path, "/")
-		before, _, ok := strings.Cut(trimmed, "/")
-		var prefix string
-		if ok {
-			prefix = before
-		} else {
-			prefix = trimmed
-		}
-		if prefix == "preview" {
-			return -1 // lower than any versioned path
-		}
-		if strings.HasPrefix(prefix, "v") {
-			var n int
-			if _, err := fmt.Sscanf(prefix[1:], "%d", &n); err == nil {
-				return n
-			}
-		}
-		return 0 // unversioned legacy path
-	}
-	r1, r2 := rank(path1), rank(path2)
+	r1, r2 := apiVersionRank(path1), apiVersionRank(path2)
 	if r1 > r2 {
 		return 1
 	}
@@ -1786,6 +1835,11 @@ func parseSchema(name string, schema *openapi3.Schema) *Schema {
 			}
 			if len(prop.Type.Slice()) > 0 {
 				p.Type = prop.Type.Slice()[0]
+			}
+			for _, v := range prop.Enum {
+				if s, ok := v.(string); ok {
+					p.Enum = append(p.Enum, s)
+				}
 			}
 			// Capture the referenced component schema name so the generator can
 			// resolve nested object fields (e.g. for --set dot-notation paths).

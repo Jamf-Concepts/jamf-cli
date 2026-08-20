@@ -306,12 +306,6 @@ var platformOperationNameOverrides = map[string]string{
 	// segment repeats the resource name it is already nested under.
 	"GET /api/securitycloud/tenant/{tenantId}/uem-connect/v1/connectors/{configId}/sync-settings": "get",
 	"PUT /api/securitycloud/tenant/{tenantId}/uem-connect/v1/connectors/{configId}/sync-settings": "update",
-
-	// The v2 device-groups list collides with v1's on its terminal segment and
-	// disambiguates to the meaningless "groups"; name it for its version. The
-	// gateway does not route v2 yet, so this is the successor sitting ready
-	// rather than a working command today.
-	"GET /api/securitycloud/v2/tenant/{tenantId}/groups": "list-v2",
 }
 
 // applyPlatformPathMetadata attaches the full tenant-bearing path, any

@@ -81,7 +81,9 @@ func newDnsSearchDomainsGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				path += "?" + encoded
 			}
 			var result any
-			if err := cliCtx.PlatformSDKClient.Transport().DoExpect(cmd.Context(), http.MethodGet, path, body, http.StatusOK, &result); err != nil {
+			if err := platform.DoExpectDocumented(cmd.Context(), cliCtx.PlatformSDKClient, http.MethodGet, path, body, http.StatusOK, []platform.DocumentedStatus{
+				{Code: 404, ErrorCode: "SEARCH_DOMAIN_NOT_SET", Empty: true},
+			}, &result); err != nil {
 				return fmt.Errorf("get: %w", err)
 			}
 			if result == nil {

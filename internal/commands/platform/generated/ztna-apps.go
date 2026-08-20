@@ -89,7 +89,7 @@ func newZtnaAppsCreateCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "create",
 		Short:       "Create an App",
-		Long:        "Create an App (Access Policy). Returns `201 {id, href}` + `Location` header.",
+		Long:        "Create an App (Access Policy). Returns `201 {id, href}` + `Location` header.\n\nAllowed values:\n  routing.dnsIpResolutionType: IPv4, IPv6\n  routing.type: CUSTOM, DIRECT\n  security.riskControls.levelThreshold: LOW, MEDIUM, HIGH",
 		Annotations: map[string]string{"jamf:privileges": "create:jsc:all", "jamf:api": "platform-gateway"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if scaffoldFlag {
@@ -238,7 +238,7 @@ func newZtnaAppsPatchCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "patch <appId>",
 		Short:       "Partially update an App",
-		Long:        "Partially update an App (Access Policy) (ADG-355). All fields are optional — include only what you want to change.",
+		Long:        "Partially update an App (Access Policy) (ADG-355). All fields are optional — include only what you want to change.\n\nAllowed values:\n  routing.dnsIpResolutionType: IPv4, IPv6\n  routing.type: CUSTOM, DIRECT\n  security.riskControls.levelThreshold: LOW, MEDIUM, HIGH",
 		Annotations: map[string]string{"jamf:privileges": "update:jsc:all", "jamf:api": "platform-gateway"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {

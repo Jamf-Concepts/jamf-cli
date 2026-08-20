@@ -151,11 +151,20 @@
       }
     },
     "securitySchemes": {
-      "bearerAuth": {
-        "bearerFormat": "JWT",
-        "description": "JWT Bearer token authentication. Obtain a token from the Jamf API Gateway.",
-        "scheme": "bearer",
-        "type": "http"
+      "oauth2": {
+        "description": "Obtain an access token by calling the API Gateway's token endpoint using the OAuth2 client-credentials flow.",
+        "flows": {
+          "clientCredentials": {
+            "scopes": {
+              "create:jsc:all": "",
+              "delete:jsc:all": "",
+              "read:jsc:all": "",
+              "update:jsc:all": ""
+            },
+            "tokenUrl": "https://{region}.apigw.jamf.com/auth/token"
+          }
+        },
+        "type": "oauth2"
       }
     }
   },
@@ -222,14 +231,15 @@
         },
         "security": [
           {
-            "bearerAuth": []
+            "oauth2": [
+              "read:jsc:all"
+            ]
           }
         ],
         "summary": "List all device groups for a customer",
         "tags": [
           "device-groups"
         ],
-        "x-authentication-required": true,
         "x-deprecation-date": "2026-08-12",
         "x-required-privileges": [
           "read:jsc:all"
@@ -298,14 +308,15 @@
         },
         "security": [
           {
-            "bearerAuth": []
+            "oauth2": [
+              "create:jsc:all"
+            ]
           }
         ],
         "summary": "Create a new device group",
         "tags": [
           "device-groups"
         ],
-        "x-authentication-required": true,
         "x-required-privileges": [
           "create:jsc:all"
         ]
@@ -366,14 +377,15 @@
         },
         "security": [
           {
-            "bearerAuth": []
+            "oauth2": [
+              "delete:jsc:all"
+            ]
           }
         ],
         "summary": "Delete a device group",
         "tags": [
           "device-groups"
         ],
-        "x-authentication-required": true,
         "x-required-privileges": [
           "delete:jsc:all"
         ]
@@ -439,14 +451,15 @@
         },
         "security": [
           {
-            "bearerAuth": []
+            "oauth2": [
+              "read:jsc:all"
+            ]
           }
         ],
         "summary": "Get a device group by ID",
         "tags": [
           "device-groups"
         ],
-        "x-authentication-required": true,
         "x-required-privileges": [
           "read:jsc:all"
         ]
@@ -535,14 +548,15 @@
         },
         "security": [
           {
-            "bearerAuth": []
+            "oauth2": [
+              "update:jsc:all"
+            ]
           }
         ],
         "summary": "Update a device group",
         "tags": [
           "device-groups"
         ],
-        "x-authentication-required": true,
         "x-jamf-expected-status": 200,
         "x-required-privileges": [
           "update:jsc:all"
@@ -581,14 +595,15 @@
         },
         "security": [
           {
-            "bearerAuth": []
+            "oauth2": [
+              "read:jsc:all"
+            ]
           }
         ],
         "summary": "List all device groups for a customer",
         "tags": [
           "device-groups"
         ],
-        "x-authentication-required": true,
         "x-required-privileges": [
           "read:jsc:all"
         ]
@@ -597,7 +612,7 @@
   },
   "security": [
     {
-      "bearerAuth": []
+      "oauth2": []
     }
   ],
   "servers": [
