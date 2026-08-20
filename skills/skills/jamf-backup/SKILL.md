@@ -44,7 +44,7 @@ jamf-cli protect backup --output ./protect-backup/2026-03-15 --resources plans,a
 jamf-cli protect backup --output ./protect-backup/2026-03-15 --exclude users,api-clients
 ```
 
-`--resources` is an allowlist and `--exclude` a denylist; on Protect they compose, and selecting nothing is an error rather than a silent no-op. `--exclude` is Protect-only. `protect backup` refuses to prune a directory whose `_meta` names a different tenant, so keep one directory per tenant (or pass `--no-prune`). `--include-ids`, `--concurrency` and `--download-packages` are Pro-only.
+`--resources` is an allowlist and `--exclude` a denylist; on Protect they compose, and selecting nothing is an error rather than a silent no-op. `--exclude` is Protect-only. `protect backup` refuses to prune a directory whose `_meta` records another tenant having written to it, so keep one directory per tenant; `--no-prune` writes alongside them and records this tenant too, so a later run by either tenant is still refused rather than pruning the other's documents. `--include-ids`, `--concurrency` and `--download-packages` are Pro-only.
 
 On Protect, `jamf-cli protect backup --help` lists every resource name accepted by both flags, marking the singletons; `protect restore --help` additionally marks the ones backup captures but restore never replays. Both flags shell-complete. Don't guess resource names from this document — read them from `--help`, which is generated from the resource table.
 

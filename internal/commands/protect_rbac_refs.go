@@ -77,7 +77,11 @@ func rbacDocumentUsesIDs(data []byte) bool {
 // --- Groups ---
 
 func groupToExport(g *jamfprotect.Group) groupExport {
-	e := groupExport{Name: g.Name, AccessGroup: g.AccessGroup}
+	// Non-nil so the list marshals as [] in JSON as well as YAML. A nil slice is
+	// "null" in JSON and "[]" in YAML, which made the two formats' documents for
+	// one group disagree and put an explicit null where the type's contract above
+	// promises a self-describing empty list.
+	e := groupExport{Name: g.Name, AccessGroup: g.AccessGroup, Roles: []string{}}
 	if g.Connection != nil {
 		e.Connection = g.Connection.Name
 	}
@@ -133,6 +137,8 @@ func userToExport(u *jamfprotect.User) userExport {
 		Email:                 u.Email,
 		ReceiveEmailAlert:     u.ReceiveEmailAlert,
 		EmailAlertMinSeverity: u.EmailAlertMinSeverity,
+		Roles:                 []string{},
+		Groups:                []string{},
 	}
 	if u.Connection != nil {
 		e.Connection = u.Connection.Name
@@ -198,7 +204,7 @@ func userInputFromDocument(ctx context.Context, data []byte, r *protect.Resolver
 // --- API clients ---
 
 func apiClientToExport(a *jamfprotect.ApiClient) apiClientExport {
-	e := apiClientExport{Name: a.Name}
+	e := apiClientExport{Name: a.Name, Roles: []string{}}
 	for _, r := range a.AssignedRoles {
 		e.Roles = append(e.Roles, r.Name)
 	}

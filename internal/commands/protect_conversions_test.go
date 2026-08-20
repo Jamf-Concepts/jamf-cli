@@ -51,6 +51,25 @@ type mockProtectClient struct {
 
 	createdGroups int
 	updatedGroups int
+
+	// plans and planInputs let a test read the PlanInput a restore actually built,
+	// which is the only place the clearAbsent decision is observable.
+	plans      []jamfprotect.Plan
+	planInputs []jamfprotect.PlanInput
+}
+
+func (m *mockProtectClient) ListPlans(context.Context) ([]jamfprotect.Plan, error) {
+	return m.plans, nil
+}
+
+func (m *mockProtectClient) CreatePlan(_ context.Context, in jamfprotect.PlanInput) (jamfprotect.Plan, error) {
+	m.planInputs = append(m.planInputs, in)
+	return jamfprotect.Plan{Name: in.Name}, nil
+}
+
+func (m *mockProtectClient) UpdatePlan(_ context.Context, _ string, in jamfprotect.PlanInput) (jamfprotect.Plan, error) {
+	m.planInputs = append(m.planInputs, in)
+	return jamfprotect.Plan{Name: in.Name}, nil
 }
 
 func (m *mockProtectClient) UpdateInternalAnalytic(_ context.Context, uuid string, _ jamfprotect.InternalAnalyticInput) (jamfprotect.Analytic, error) {

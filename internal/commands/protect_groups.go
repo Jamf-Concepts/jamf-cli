@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"slices"
+	"sort"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -117,12 +119,53 @@ func protectGroupUpdateSatisfied(existing *jamfprotect.Group, input jamfprotect.
 		return false, nil
 	}
 	if existing.AccessGroup {
-		// Desired state already holds; updateGroup could only refuse it.
+		// updateGroup would refuse this document outright, so nothing at all can be
+		// sent for it. That is a no-op only when the document asks for nothing else
+		// — otherwise reporting success would silently drop the change, which is
+		// worse than the raw server error this guard replaced.
+		if diff := groupUpdateWouldChange(existing, input); diff != "" {
+			return false, fmt.Errorf("group %q is a connection-less local access group, so updateGroup refuses "+
+				"any update to it, and this document changes %s — clear accessGroup in the document, or delete "+
+				"and recreate the group in the target", input.Name, diff)
+		}
 		return true, nil
 	}
 	return false, fmt.Errorf("group %q asks for accessGroup: true, but the target's copy has it disabled and "+
 		"updateGroup refuses to designate a connection-less local group as an access group — the server allows it "+
 		"only at create. Delete the group in the target and apply again, or clear accessGroup in the document", input.Name)
+}
+
+// groupUpdateWouldChange names what a document changes about the group the target
+// already holds, or "" when it asks for the state that is already stored.
+//
+// Only the fields an update could carry are compared: updateGroup's mutation sends
+// name, accessGroup and roleIds and nothing else, so a document that moves a group
+// between connections is asking for something update cannot express either — which
+// is a change it could not apply, not a no-op.
+func groupUpdateWouldChange(existing *jamfprotect.Group, input jamfprotect.GroupInput) string {
+	var changes []string
+	if existing.Name != input.Name {
+		changes = append(changes, "name")
+	}
+	if existing.AccessGroup != input.AccessGroup {
+		changes = append(changes, "accessGroup")
+	}
+	have := make([]string, 0, len(existing.AssignedRoles))
+	for _, r := range existing.AssignedRoles {
+		have = append(have, r.ID)
+	}
+	want := slices.Clone(input.RoleIDs)
+	// Membership is a set: the server returns roles in its own order, so comparing
+	// unsorted would report a change on every re-apply of an unedited export.
+	sort.Strings(have)
+	sort.Strings(want)
+	if !slices.Equal(have, want) {
+		changes = append(changes, "roles")
+	}
+	if existing.Connection != nil && existing.Connection.ID != "" {
+		changes = append(changes, "connection")
+	}
+	return strings.Join(changes, ", ")
 }
 
 func newProtectGroupsApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {

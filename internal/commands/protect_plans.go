@@ -553,6 +553,14 @@ func planExportToInput(ctx context.Context, e planExport, r *protect.Resolver, c
 		// *string with no Null sibling), so a plan that had one detached after the
 		// backup keeps it. Sending "" is untested on the wire and would more likely
 		// be refused as an unresolvable ID than read as a clear.
+		//
+		// The legacy telemetry reference is unconverged for the same reason.
+		// PlanInput.Telemetry is a bare *string too, and buildPlanVariables omits
+		// the key when it is nil, so nulling telemetryV2 leaves a plan bound
+		// through the pre-v2 field bound. planToExport reads that field
+		// deliberately (a plan can still be on it), so this is reachable rather
+		// than theoretical — and the restore resolves whatever name it captured
+		// back onto telemetryV2, which is the field the server takes now.
 	}
 	return input, nil
 }

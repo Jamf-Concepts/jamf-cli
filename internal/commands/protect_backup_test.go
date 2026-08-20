@@ -1119,6 +1119,191 @@ func TestBackupRefusesToPruneAnotherTenantsDirectory(t *testing.T) {
 	})
 }
 
+// The guard is only as good as the record it trusts. TenantURL was last-writer-wins
+// and _meta was written last, so following the refusal's own advice — "pass
+// --no-prune to write alongside them" — relabelled the directory as the second
+// tenant's, and that tenant's *next* run passed the guard and pruned the first
+// tenant's documents.
+func TestBackupProvenanceSurvivesANoPruneRunByAnotherTenant(t *testing.T) {
+	twoFilters := []jamfprotect.UnifiedLoggingFilter{
+		{UUID: "f1", Name: "zz-staging-only"},
+		{UUID: "f2", Name: "zz-shared"},
+	}
+	staging := &registry.CLIContext{
+		ProtectURL:    "https://staging.protect.jamfcloud.com",
+		ProtectClient: &mockProtectClient{ulfFilters: twoFilters},
+	}
+	production := func() *registry.CLIContext {
+		return &registry.CLIContext{
+			ProtectURL:    "https://prod.protect.jamfcloud.com",
+			ProtectClient: &mockProtectClient{ulfFilters: twoFilters[1:]},
+		}
+	}
+
+	dir := t.TempDir()
+	stagingOnly := filepath.Join(dir, "unified-logging-filters", "zz-staging-only.yaml")
+
+	if err := runProtectBackup(context.Background(), staging, dir, "yaml", "unified-logging-filters", "", false); err != nil {
+		t.Fatal(err)
+	}
+	// Step two is what the refusal tells the user to do.
+	if err := runProtectBackup(context.Background(), production(), dir, "yaml", "unified-logging-filters", "", true); err != nil {
+		t.Fatalf("--no-prune must be allowed: %v", err)
+	}
+	// Step three is the one that used to delete staging's documents.
+	err := runProtectBackup(context.Background(), production(), dir, "yaml", "unified-logging-filters", "", false)
+	if err == nil {
+		t.Fatal("expected a refusal: --no-prune must record the tenant, not relabel the directory")
+	}
+	if !strings.Contains(err.Error(), "staging.protect.jamfcloud.com") {
+		t.Errorf("error %q should name the tenant whose documents are at risk", err)
+	}
+	if _, statErr := os.Stat(stagingOnly); statErr != nil {
+		t.Errorf("the other tenant's document was pruned anyway: %v", statErr)
+	}
+
+	// And the record is cumulative rather than either-or.
+	meta, found, readErr := readProtectBackupMeta(dir)
+	if readErr != nil || !found {
+		t.Fatalf("readProtectBackupMeta() = %v, %v", found, readErr)
+	}
+	want := []string{"https://prod.protect.jamfcloud.com", "https://staging.protect.jamfcloud.com"}
+	if got := meta.tenantURLs(); !slices.Equal(got, want) {
+		t.Errorf("tenantURLs() = %v, want %v", got, want)
+	}
+}
+
+// _meta was written last, so a run that died part-way left the directory with no
+// provenance and handed the next run's tenant guard nothing to refuse on. A
+// blocking file where a resource's directory belongs is the reachable stand-in for
+// the interrupted run: the export loop returns before it ever reaches the manifest.
+func TestBackupClaimsTheDirectoryBeforeExporting(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "unified-logging-filters"), []byte("not a directory"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	cliCtx := &registry.CLIContext{
+		ProtectURL: "https://staging.protect.jamfcloud.com",
+		ProtectClient: &mockProtectClient{ulfFilters: []jamfprotect.UnifiedLoggingFilter{
+			{UUID: "f1", Name: "zz-shared"},
+		}},
+	}
+	if err := runProtectBackup(context.Background(), cliCtx, dir, "yaml", "unified-logging-filters", "", false); err == nil {
+		t.Fatal("a run that cannot create its resource directory must fail")
+	}
+	meta, found, err := readProtectBackupMeta(dir)
+	if err != nil || !found {
+		t.Fatalf("a run that died mid-export must still leave provenance: found = %v, err = %v", found, err)
+	}
+	if got := meta.tenantURLs(); !slices.Equal(got, []string{"https://staging.protect.jamfcloud.com"}) {
+		t.Errorf("tenantURLs() = %v, want the tenant that ran", got)
+	}
+}
+
+// An unreadable manifest used to read as "provenance unknown", which is the same
+// answer as "fresh directory" — so pruning went ahead on a directory that
+// demonstrably held someone's documents.
+func TestBackupRefusesAnUnreadableManifestBesideDocuments(t *testing.T) {
+	filters := []jamfprotect.UnifiedLoggingFilter{{UUID: "f2", Name: "zz-shared"}}
+	cliCtx := func() *registry.CLIContext {
+		return &registry.CLIContext{
+			ProtectURL:    "https://prod.protect.jamfcloud.com",
+			ProtectClient: &mockProtectClient{ulfFilters: filters},
+		}
+	}
+
+	t.Run("refused, --no-prune included", func(t *testing.T) {
+		for _, noPrune := range []bool{false, true} {
+			dir := t.TempDir()
+			if err := os.MkdirAll(filepath.Join(dir, "unified-logging-filters"), 0o755); err != nil {
+				t.Fatal(err)
+			}
+			doc := filepath.Join(dir, "unified-logging-filters", "zz-someone-elses.yaml")
+			if err := os.WriteFile(doc, []byte("name: zz-someone-elses\n"), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(filepath.Join(dir, "_meta.yaml"), []byte("\tnot: [valid"), 0o644); err != nil {
+				t.Fatal(err)
+			}
+
+			err := runProtectBackup(context.Background(), cliCtx(), dir, "yaml", "unified-logging-filters", "", noPrune)
+			if err == nil {
+				t.Fatalf("noPrune = %v: expected a refusal on an unreadable _meta", noPrune)
+			}
+			if !strings.Contains(err.Error(), "_meta") {
+				t.Errorf("error %q should name the manifest", err)
+			}
+			if _, statErr := os.Stat(doc); statErr != nil {
+				t.Errorf("noPrune = %v: the document was deleted anyway: %v", noPrune, statErr)
+			}
+		}
+	})
+
+	t.Run("allowed when there is nothing to lose", func(t *testing.T) {
+		dir := t.TempDir()
+		if err := os.WriteFile(filepath.Join(dir, "_meta.yaml"), []byte("\tnot: [valid"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		if err := runProtectBackup(context.Background(), cliCtx(), dir, "yaml", "unified-logging-filters", "", false); err != nil {
+			t.Errorf("an unreadable manifest beside an empty tree is noise, not a backup: %v", err)
+		}
+	})
+}
+
+// ProtectURL is assigned verbatim from --url, JAMFPROTECT_URL, the profile or
+// JAMF_URL, so a legitimate re-run used to be refused with an error naming two
+// strings that differ by a trailing slash.
+func TestBackupTenantGuardNormalisesTheURL(t *testing.T) {
+	filters := []jamfprotect.UnifiedLoggingFilter{
+		{UUID: "f1", Name: "zz-staging-only"},
+		{UUID: "f2", Name: "zz-shared"},
+	}
+	dir := t.TempDir()
+	first := &registry.CLIContext{
+		ProtectURL:    "https://staging.protect.jamfcloud.com",
+		ProtectClient: &mockProtectClient{ulfFilters: filters},
+	}
+	if err := runProtectBackup(context.Background(), first, dir, "yaml", "unified-logging-filters", "", false); err != nil {
+		t.Fatal(err)
+	}
+	same := &registry.CLIContext{
+		ProtectURL:    "https://Staging.Protect.jamfcloud.com/",
+		ProtectClient: &mockProtectClient{ulfFilters: filters[1:]},
+	}
+	if err := runProtectBackup(context.Background(), same, dir, "yaml", "unified-logging-filters", "", false); err != nil {
+		t.Fatalf("same tenant, differently spelled, must not be refused: %v", err)
+	}
+	if _, statErr := os.Stat(filepath.Join(dir, "unified-logging-filters", "zz-staging-only.yaml")); statErr == nil {
+		t.Error("the deleted object kept its file; a normalised match must still prune")
+	}
+}
+
+// Switching --format leaves the earlier manifest on disk, and readProtectBackupMeta
+// answers with whichever extension it checks first — so provenance has to be a
+// single file rather than whichever one wins the extension order.
+func TestBackupKeepsOneManifestAcrossAFormatChange(t *testing.T) {
+	filters := []jamfprotect.UnifiedLoggingFilter{{UUID: "f2", Name: "zz-shared"}}
+	dir := t.TempDir()
+	cliCtx := func() *registry.CLIContext {
+		return &registry.CLIContext{
+			ProtectURL:    "https://staging.protect.jamfcloud.com",
+			ProtectClient: &mockProtectClient{ulfFilters: filters},
+		}
+	}
+	if err := runProtectBackup(context.Background(), cliCtx(), dir, "yaml", "unified-logging-filters", "", false); err != nil {
+		t.Fatal(err)
+	}
+	if err := runProtectBackup(context.Background(), cliCtx(), dir, "json", "unified-logging-filters", "", false); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "_meta.yaml")); err == nil {
+		t.Error("_meta.yaml survived a switch to --format json; two manifests means the older one can answer for the directory")
+	}
+	if _, err := os.Stat(filepath.Join(dir, "_meta.json")); err != nil {
+		t.Errorf("_meta.json: %v", err)
+	}
+}
+
 // One refused override must not abandon the document: the entries before it are
 // already written, and aborting left them unreported and the rest never attempted.
 // This is the behaviour 'overrides apply' has, and whose comment claims restore
@@ -1270,6 +1455,76 @@ func TestCollectProtectRestoreFilesAcceptsYmlForSingletons(t *testing.T) {
 	}
 }
 
+// Dropping omitempty was meant to make an RBAC document self-describing, but a nil
+// slice marshals as null in JSON and as [] in YAML — so the two formats' documents
+// for one object disagreed, and a JSON backup carried an explicit null where the
+// type's contract promises an empty list.
+func TestRBACExportsCarryEmptyListsInBothFormats(t *testing.T) {
+	docs := map[string]any{
+		"group":      groupToExport(&jamfprotect.Group{Name: "zz-group"}),
+		"user":       userToExport(&jamfprotect.User{Email: "zz@example.com"}),
+		"api-client": apiClientToExport(&jamfprotect.ApiClient{Name: "zz-client"}),
+	}
+	for name, doc := range docs {
+		for _, format := range []string{"json", "yaml"} {
+			data, err := protectMarshal(doc, format)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if strings.Contains(string(data), "null") {
+				t.Errorf("%s as %s carries a null reference list, which the API rejects "+
+					"(\"roleIds: None is not of type 'array'\") and which disagrees with the other format:\n%s",
+					name, format, data)
+			}
+		}
+	}
+}
+
+// The clearAbsent fix lives in planExportToInput, but the decision that makes it
+// a convergence guarantee is the argument the *restore closure* passes. Flipping
+// that one call site to false reverts the whole fix and left the suite green: the
+// conversion test covers the function with both values, and the round-trip harness
+// exercises the 'plans apply' decoder, which legitimately passes false.
+func TestPlansRestoreAsksForAbsentMembershipToBeCleared(t *testing.T) {
+	var plans protectResource
+	for _, r := range protectResources() {
+		if r.Name == "plans" {
+			plans = r
+		}
+	}
+	if plans.Restore == nil {
+		t.Fatal("plans has no Restore")
+	}
+
+	// A plan that was bound to sets when the backup was taken and has none in the
+	// document: the rollback has to send [] rather than omit the field, or the
+	// bindings added after the backup survive it.
+	doc, err := protectMarshal(planExport{Name: "zz-plan"}, "yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	m := &mockProtectClient{plans: []jamfprotect.Plan{{ID: "p-1", Name: "zz-plan"}}}
+	if _, err := plans.Restore(context.Background(), m, protect.NewResolver(m), doc); err != nil {
+		t.Fatal(err)
+	}
+	if len(m.planInputs) != 1 {
+		t.Fatalf("recorded %d plan input(s), want 1", len(m.planInputs))
+	}
+	got := m.planInputs[0]
+	if got.ExceptionSets == nil {
+		t.Error("ExceptionSets is nil, so the SDK omits the key and the server leaves membership alone")
+	}
+	if got.AnalyticSets == nil {
+		t.Error("AnalyticSets is nil, so the SDK omits the key and the server leaves membership alone")
+	}
+	if got.UnifiedLoggingFilterSets == nil {
+		t.Error("UnifiedLoggingFilterSets is nil, so the SDK omits the key and the server leaves membership alone")
+	}
+	if !got.TelemetryV2Null {
+		t.Error("TelemetryV2Null is false, so a telemetry binding added after the backup survives the rollback")
+	}
+}
+
 // The accessGroup asymmetry is a property of the API, not of restore, so
 // 'groups apply' has to honour it too — otherwise 'groups export | groups apply'
 // still fails for a local access group with the raw server message the guard
@@ -1292,6 +1547,54 @@ func TestGroupsApplySharesTheAccessGroupGuard(t *testing.T) {
 		}
 		if m.updatedGroups != 0 {
 			t.Errorf("updateGroup was called %d time(s); the server refuses it for a local group", m.updatedGroups)
+		}
+	})
+
+	// The guard's whole job is to skip an update that cannot be sent — which is a
+	// no-op only when the document asks for nothing else. Answering "nothing to
+	// update" for a document that also grants a role turned a loud server error
+	// into a silently dropped change, and made restore report the group as applied.
+	t.Run("a change the update cannot carry: named error, not silence", func(t *testing.T) {
+		changed := filepath.Join(dir, "group-with-role.yaml")
+		if err := os.WriteFile(changed, []byte("name: zz-group\nconnection: \"\"\naccessGroup: true\nroles:\n  - zz-role\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		m := &mockProtectClient{
+			groups: []jamfprotect.Group{{ID: "g-1", Name: "zz-group", AccessGroup: true}},
+			roles:  []jamfprotect.Role{{ID: "r-1", Name: "zz-role"}},
+		}
+		cmd := newProtectGroupsApplyCmd(&registry.CLIContext{ProtectClient: m, Output: mockOutput{}})
+		cmd.SetArgs([]string{"--from-file", changed, "--yes"})
+		cmd.SetOut(io.Discard)
+		cmd.SetErr(io.Discard)
+		err := cmd.Execute()
+		if err == nil {
+			t.Fatal("expected an error: the role grant cannot be applied, so success would drop it")
+		}
+		if !strings.Contains(err.Error(), "roles") {
+			t.Errorf("error %q should name the field it could not change", err)
+		}
+		if m.updatedGroups != 0 {
+			t.Error("must not spend a call the server will refuse")
+		}
+	})
+
+	// restoreGroup runs the same guard, so an edited backup must fail the same way
+	// rather than reporting the group as applied.
+	t.Run("restore reports the same change as unapplied", func(t *testing.T) {
+		m := &mockProtectClient{
+			groups: []jamfprotect.Group{{ID: "g-1", Name: "zz-group", AccessGroup: true}},
+		}
+		_, err := restoreGroup(context.Background(), m, jamfprotect.GroupInput{
+			Name:        "zz-group",
+			AccessGroup: true,
+			RoleIDs:     []string{"r-1"},
+		})
+		if err == nil {
+			t.Fatal("restore must not report a group as applied when the role grant was dropped")
+		}
+		if m.updatedGroups != 0 {
+			t.Error("must not spend a call the server will refuse")
 		}
 	})
 

@@ -42,13 +42,46 @@ const protectRedacted = "<redacted>"
 // protectBackupMeta records what a backup captured and from where, so a restore
 // can report the provenance of what it is about to write.
 type protectBackupMeta struct {
-	Tool      string         `json:"tool" yaml:"tool"`
-	Version   string         `json:"version" yaml:"version"`
-	Product   string         `json:"product" yaml:"product"`
-	CreatedAt string         `json:"created_at" yaml:"created_at"`
-	TenantURL string         `json:"tenant_url,omitempty" yaml:"tenant_url,omitempty"`
+	Tool      string `json:"tool" yaml:"tool"`
+	Version   string `json:"version" yaml:"version"`
+	Product   string `json:"product" yaml:"product"`
+	CreatedAt string `json:"created_at" yaml:"created_at"`
+	TenantURL string `json:"tenant_url,omitempty" yaml:"tenant_url,omitempty"`
+	// Tenants is every tenant that has ever written into this directory, appended
+	// rather than replaced. TenantURL alone is last-writer-wins, so a --no-prune
+	// run by a second tenant relabelled the directory and the next pruning run by
+	// that tenant deleted the first tenant's documents — reached by doing exactly
+	// what the prune refusal's own error text recommends.
+	Tenants   []string       `json:"tenants,omitempty" yaml:"tenants,omitempty"`
 	Resources []string       `json:"resources" yaml:"resources"`
 	Counts    map[string]int `json:"counts" yaml:"counts"`
+}
+
+// normaliseTenantURL folds one tenant's spellings onto a single key.
+// resolveProtectClient (root.go) assigns the URL verbatim from --url,
+// JAMFPROTECT_URL, the profile or JAMF_URL with no normalisation, so without this
+// a trailing slash or a difference in case reads as a second tenant and refuses a
+// legitimate re-run naming two strings a reader cannot tell apart.
+func normaliseTenantURL(u string) string {
+	return strings.ToLower(strings.TrimRight(strings.TrimSpace(u), "/"))
+}
+
+// tenantURLs is every tenant the manifest records, normalised and deduplicated,
+// reading both the current field and the cumulative list so a manifest written by
+// an older version still contributes its tenant.
+func (m protectBackupMeta) tenantURLs() []string {
+	seen := map[string]bool{}
+	out := make([]string, 0, len(m.Tenants)+1)
+	for _, t := range append([]string{m.TenantURL}, m.Tenants...) {
+		n := normaliseTenantURL(t)
+		if n == "" || seen[n] {
+			continue
+		}
+		seen[n] = true
+		out = append(out, n)
+	}
+	sort.Strings(out)
+	return out
 }
 
 // protectExportEntry is one object destined for one file.
@@ -1062,22 +1095,137 @@ func protectResourceListHelp(forRestore bool) string {
 var protectRestoreExts = []string{".yaml", ".yml", ".json"}
 
 // readProtectBackupMeta reads the _meta document an earlier run left in dir, in
-// whichever of the two formats it was written. The bool reports whether one was
-// found and parsed — a missing or unreadable manifest is not an error, it just
-// means the directory's provenance is unknown.
-func readProtectBackupMeta(dir string) (protectBackupMeta, bool) {
+// whichever of the three formats it was written.
+//
+// The three results are deliberately distinct. A missing manifest (false, nil) is
+// a directory with no provenance — normally a fresh one. A manifest that is there
+// but cannot be read (false, err) is provenance that was *lost*, which is not the
+// same thing: the tenant guard refuses to prune on it, because pruning would be a
+// guess about whose documents the directory holds.
+func readProtectBackupMeta(dir string) (protectBackupMeta, bool, error) {
 	for _, ext := range protectRestoreExts {
-		data, err := os.ReadFile(filepath.Join(dir, protectBackupMetaFile+ext))
+		path := filepath.Join(dir, protectBackupMetaFile+ext)
+		data, err := os.ReadFile(path)
 		if err != nil {
-			continue
+			if os.IsNotExist(err) {
+				continue
+			}
+			return protectBackupMeta{}, false, fmt.Errorf("reading %s: %w", path, err)
 		}
 		var meta protectBackupMeta
 		if err := unmarshalInput(data, &meta); err != nil {
+			return protectBackupMeta{}, false, fmt.Errorf("parsing %s: %w", path, err)
+		}
+		return meta, true, nil
+	}
+	return protectBackupMeta{}, false, nil
+}
+
+// protectBackupHoldsDocuments reports whether dir already holds a document a
+// restore would apply. It answers one question only: whether an unreadable _meta
+// sits beside real content, in which case the directory's provenance was lost
+// rather than never written.
+func protectBackupHoldsDocuments(dir string) bool {
+	for _, res := range protectResources() {
+		if res.Singleton {
+			for _, ext := range protectRestoreExts {
+				if _, err := os.Stat(filepath.Join(dir, res.Name+ext)); err == nil {
+					return true
+				}
+			}
 			continue
 		}
-		return meta, true
+		entries, err := os.ReadDir(filepath.Join(dir, res.Name))
+		if err != nil {
+			continue
+		}
+		for _, e := range entries {
+			if e.IsDir() {
+				continue
+			}
+			if slices.Contains(protectRestoreExts, strings.ToLower(filepath.Ext(e.Name()))) {
+				return true
+			}
+		}
 	}
-	return protectBackupMeta{}, false
+	return false
+}
+
+// protectBackupProvenanceUsable refuses to run against a directory holding
+// documents whose _meta cannot be read.
+//
+// This is not about pruning, which is why it is checked even under --no-prune: the
+// run is about to rewrite the manifest, and a manifest it could not read is one
+// whose tenant list it cannot carry forward. Overwriting it would drop another
+// tenant's claim on the directory and hand the *next* run a guard that passes,
+// which is the same data loss the guard exists to prevent, one run later.
+func protectBackupProvenanceUsable(dir string) error {
+	if _, _, err := readProtectBackupMeta(dir); err != nil && protectBackupHoldsDocuments(dir) {
+		return fmt.Errorf("%s holds backup documents but its %s cannot be read (%v) — this run cannot tell whose "+
+			"documents they are, and rewriting the manifest would lose that record; repair or remove the manifest, "+
+			"or use a different --output", dir, protectBackupMetaFile, err)
+	}
+	// An unreadable manifest beside an empty tree is noise, not a tenant's backup.
+	return nil
+}
+
+// protectBackupPruneAllowed decides whether this run may prune dir.
+//
+// Pruning is destructive and keyed on "the object set of the tenant being backed
+// up right now", so pointing the command at a directory that holds a different
+// tenant's backup would delete that tenant's documents for every object this one
+// does not have. Provenance is what makes that decidable, and every tenant that
+// has written here is on record: a --no-prune run appends itself rather than
+// relabelling the directory, so the tenant it wrote alongside is still refused
+// later.
+func protectBackupPruneAllowed(dir, tenantURL string) error {
+	prior, found, err := readProtectBackupMeta(dir)
+	if err != nil || !found {
+		// Unreadable is already handled by protectBackupProvenanceUsable, which
+		// runs first and refuses when it matters.
+		return nil
+	}
+	mine := normaliseTenantURL(tenantURL)
+	if mine == "" {
+		// Nothing to compare against. Unchanged from before the guard existed: the
+		// URL is unset only where no tenant was resolved at all.
+		return nil
+	}
+	var others []string
+	for _, t := range prior.tenantURLs() {
+		if t != mine {
+			others = append(others, t)
+		}
+	}
+	if len(others) > 0 {
+		return fmt.Errorf("%s holds a backup of %s, not %s — pruning would delete that tenant's documents; "+
+			"use a different --output, or pass --no-prune to write alongside them",
+			dir, strings.Join(others, ", "), tenantURL)
+	}
+	return nil
+}
+
+// writeProtectBackupMeta writes the provenance manifest, replacing any copy an
+// earlier run left in a different format. Without the removal a directory backed
+// up as yaml and then as json holds two manifests, and readProtectBackupMeta
+// answers with whichever extension it checks first rather than the current one.
+func writeProtectBackupMeta(dir, ext, format string, meta protectBackupMeta) error {
+	data, err := protectMarshal(meta, format)
+	if err != nil {
+		return fmt.Errorf("marshalling metadata: %w", err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, protectBackupMetaFile+ext), data, 0o644); err != nil {
+		return fmt.Errorf("writing metadata: %w", err)
+	}
+	for _, stale := range protectRestoreExts {
+		if stale == ext {
+			continue
+		}
+		if err := os.Remove(filepath.Join(dir, protectBackupMetaFile+stale)); err != nil && !os.IsNotExist(err) {
+			return fmt.Errorf("removing stale metadata: %w", err)
+		}
+	}
+	return nil
 }
 
 // protectPruneStale removes backup documents this run did not write.
@@ -1194,13 +1342,17 @@ format flag is unavailable here (--format picks the file encoding instead). This
 matches 'pro backup'.
 
 Documents left by an earlier run that no longer match the tenant are removed, and
-each removal is reported. The run refuses to prune a directory whose _meta names a
-different tenant, because pruning is keyed on this tenant's object set and would
-otherwise delete the other tenant's documents; --no-prune writes alongside them. Without that a backup directory is the union of every run
+each removal is reported. Without that a backup directory is the union of every run
 that ever wrote to it, and because 'protect restore' applies whatever it finds, an
 object you deleted from the tenant would be silently recreated. Only files this
 command could have written are ever considered, and a resource that failed to
 export is never pruned. --no-prune keeps them.
+
+Pruning is keyed on this tenant's object set, so the run refuses it when _meta
+records another tenant having written to the directory — otherwise it would delete
+that tenant's documents for every object this one does not have. --no-prune writes
+alongside them and records this tenant too, so a later run by either tenant is
+still refused rather than silently pruning the other's documents.
 
 ` + protectResourceListHelp(false),
 		RunE: func(cmd *cobra.Command, _ []string) error {
@@ -1249,22 +1401,41 @@ func runProtectBackup(ctx context.Context, cliCtx *registry.CLIContext, outputDi
 		return fmt.Errorf("creating output directory: %w", err)
 	}
 
-	// Pruning is destructive and keyed on "the object set of the tenant being
-	// backed up right now", so pointing the command at a directory that holds a
-	// different tenant's backup would delete that tenant's documents for every
-	// object this one does not have. The run records its tenant in _meta; refuse
-	// when an existing manifest names a different one. Nothing else about the
-	// backup depends on the directory's history, so --no-prune makes it safe.
+	if err := protectBackupProvenanceUsable(outputDir); err != nil {
+		return err
+	}
+	prior, _, _ := readProtectBackupMeta(outputDir)
+	// Nothing else about the backup depends on the directory's history, so
+	// --no-prune is what makes a shared directory safe — and because provenance is
+	// cumulative, taking that advice no longer disarms the guard for the next run.
 	if !noPrune {
-		if prior, ok := readProtectBackupMeta(outputDir); ok &&
-			prior.TenantURL != "" && cliCtx.ProtectURL != "" && prior.TenantURL != cliCtx.ProtectURL {
-			return fmt.Errorf("%s holds a backup of %s, not %s — pruning would delete that tenant's documents; "+
-				"use a different --output, or pass --no-prune to write alongside them",
-				outputDir, prior.TenantURL, cliCtx.ProtectURL)
+		if err := protectBackupPruneAllowed(outputDir, cliCtx.ProtectURL); err != nil {
+			return err
 		}
 	}
 
 	ext := "." + format
+
+	// Claim the directory before writing any document. _meta used to be written
+	// last, so a run that failed or was interrupted left documents with no
+	// provenance at all and the next run's guard had nothing to refuse on. The
+	// full manifest, with counts, replaces this one at the end.
+	tenants := prior.tenantURLs()
+	if mine := normaliseTenantURL(cliCtx.ProtectURL); mine != "" && !slices.Contains(tenants, mine) {
+		tenants = append(tenants, mine)
+	}
+	if err := writeProtectBackupMeta(outputDir, ext, format, protectBackupMeta{
+		Tool:      "jamf-cli",
+		Version:   cliVersion,
+		Product:   "protect",
+		CreatedAt: time.Now().UTC().Format(time.RFC3339),
+		TenantURL: cliCtx.ProtectURL,
+		Tenants:   tenants,
+		Resources: []string{},
+		Counts:    map[string]int{},
+	}); err != nil {
+		return err
+	}
 	failures := map[string]string{}
 	counts := map[string]int{}
 	captured := make([]string, 0, len(selected))
@@ -1368,21 +1539,17 @@ func runProtectBackup(ctx context.Context, cliCtx *registry.CLIContext, outputDi
 		}
 	}
 
-	meta := protectBackupMeta{
+	if err := writeProtectBackupMeta(outputDir, ext, format, protectBackupMeta{
 		Tool:      "jamf-cli",
 		Version:   cliVersion,
 		Product:   "protect",
 		CreatedAt: time.Now().UTC().Format(time.RFC3339),
 		TenantURL: cliCtx.ProtectURL,
+		Tenants:   tenants,
 		Resources: captured,
 		Counts:    counts,
-	}
-	metaData, err := protectMarshal(meta, format)
-	if err != nil {
-		return fmt.Errorf("marshalling metadata: %w", err)
-	}
-	if err := os.WriteFile(filepath.Join(outputDir, protectBackupMetaFile+ext), metaData, 0o644); err != nil {
-		return fmt.Errorf("writing metadata: %w", err)
+	}); err != nil {
+		return err
 	}
 
 	total := 0
