@@ -106,7 +106,12 @@ func newParentAppUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
       "endTime": "15:45:00"
     }
   },
-  "safelistedApps": [],
+  "safelistedApps": [
+    {
+      "bundleId": "com.jamf.parent",
+      "name": "Content Filter"
+    }
+  ],
   "timezoneId": "Europe/Paris"
 }`, ctx.Output.Format())
 			}

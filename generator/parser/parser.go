@@ -1742,6 +1742,23 @@ func parseOperation(path, method string, op *openapi3.Operation) *Operation {
 }
 
 func parseSchema(name string, schema *openapi3.Schema) *Schema {
+	return parseSchemaDepth(name, schema, 0)
+}
+
+// maxSchemaDepth caps how far parseSchemaDepth descends into nested object and
+// array element schemas.
+//
+// Object nesting has always terminated on its own: a property whose own
+// Properties map is empty ends the walk. Array elements do not have that
+// property — a schema may name itself as its own element type (a node with a
+// children[] of nodes), and kin-openapi resolves $ref inline, so following
+// element schemas without a cap recurses until the stack dies. The cap is
+// generous enough that no committed spec reaches it (asserted by
+// TestParseSchema_DepthCapUnreachedByLiveSpecs) and exists so that a future one
+// degrades to a shallower scaffold rather than crashing generation.
+const maxSchemaDepth = 8
+
+func parseSchemaDepth(name string, schema *openapi3.Schema, depth int) *Schema {
 	s := &Schema{
 		Name:       name,
 		Type:       "object",
@@ -1751,6 +1768,14 @@ func parseSchema(name string, schema *openapi3.Schema) *Schema {
 
 	if len(schema.Type.Slice()) > 0 {
 		s.Type = schema.Type.Slice()[0]
+	}
+
+	// A schema that is itself an array carries its shape in items, not in
+	// properties — a bare-array request body has no properties at all.
+	if s.Type == "array" && depth < maxSchemaDepth {
+		if schema.Items != nil && schema.Items.Value != nil {
+			s.Items = parseSchemaDepth(name, schema.Items.Value, depth+1)
+		}
 	}
 
 	// Collect properties from direct properties and allOf items.
@@ -1797,8 +1822,16 @@ func parseSchema(name string, schema *openapi3.Schema) *Schema {
 			// Populate Nested for object types so flattenSchemaToScalarFields can
 			// resolve sub-fields even for cross-file $ref schemas not in doc.Components.Schemas.
 			// kin-openapi resolves $ref inline, so prop.Properties is always populated.
-			if len(prop.Properties) > 0 {
-				p.Nested = parseSchema(propName, prop)
+			if len(prop.Properties) > 0 && depth < maxSchemaDepth {
+				p.Nested = parseSchemaDepth(propName, prop, depth+1)
+			}
+			// Populate Items for array types so a scaffold can show one element.
+			// Same cap as Nested, and load-bearing here rather than defensive —
+			// see maxSchemaDepth.
+			if p.Type == "array" && depth < maxSchemaDepth {
+				if prop.Items != nil && prop.Items.Value != nil {
+					p.Items = parseSchemaDepth(propName, prop.Items.Value, depth+1)
+				}
 			}
 			s.Properties[propName] = p
 		}

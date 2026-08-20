@@ -160,7 +160,17 @@ func newAdvancedUserContentSearchesCreateCmd(ctx *registry.CLIContext) *cobra.Co
 
 			if flagScaffold {
 				return printScaffoldOutput(`{
-  "criteria": [],
+  "criteria": [
+    {
+      "andOr": "and",
+      "closingParen": false,
+      "name": "Account",
+      "openingParen": false,
+      "priority": 0,
+      "searchType": "is",
+      "value": "test"
+    }
+  ],
   "displayFields": [
     "Content Name",
     "Price"
@@ -241,7 +251,17 @@ func newAdvancedUserContentSearchesUpdateCmd(ctx *registry.CLIContext) *cobra.Co
 
 			if flagScaffold {
 				return printScaffoldOutput(`{
-  "criteria": [],
+  "criteria": [
+    {
+      "andOr": "and",
+      "closingParen": false,
+      "name": "Account",
+      "openingParen": false,
+      "priority": 0,
+      "searchType": "is",
+      "value": "test"
+    }
+  ],
   "displayFields": [
     "Content Name",
     "Price"
@@ -595,7 +615,17 @@ If not, a new resource is created.`,
 			reqCtx := cmd.Context()
 			if flagScaffold {
 				return printScaffoldOutput(`{
-  "criteria": [],
+  "criteria": [
+    {
+      "andOr": "and",
+      "closingParen": false,
+      "name": "Account",
+      "openingParen": false,
+      "priority": 0,
+      "searchType": "is",
+      "value": "test"
+    }
+  ],
   "displayFields": [
     "Content Name",
     "Price"

@@ -65,7 +65,12 @@ func newEnrollmentCustomizationPanelsCreateCmd(ctx *registry.CLIContext) *cobra.
   "backButtonText": "Back",
   "continueButtonText": "Continue",
   "displayName": "A Panel",
-  "ldapGroupAccess": [],
+  "ldapGroupAccess": [
+    {
+      "groupName": "admins",
+      "ldapServerId": 1
+    }
+  ],
   "passwordLabel": "Password",
   "rank": 0,
   "title": "My Ldap Panel",
@@ -140,7 +145,12 @@ func newEnrollmentCustomizationPanelsUpdateCmd(ctx *registry.CLIContext) *cobra.
   "backButtonText": "Back",
   "continueButtonText": "Continue",
   "displayName": "A Panel",
-  "ldapGroupAccess": [],
+  "ldapGroupAccess": [
+    {
+      "groupName": "admins",
+      "ldapServerId": 1
+    }
+  ],
   "passwordLabel": "Password",
   "rank": 0,
   "title": "My Ldap Panel",

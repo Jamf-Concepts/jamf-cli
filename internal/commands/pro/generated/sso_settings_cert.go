@@ -98,7 +98,12 @@ func newSsoSettingsCertUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 			if flagScaffold {
 				return printScaffoldOutput(`{
   "key": "",
-  "keys": [],
+  "keys": [
+    {
+      "id": "1",
+      "valid": true
+    }
+  ],
   "keystoreFile": "WlhoaGJYQnNaU0J2WmlCaElHSmhjMlUyTkNCbGJtTnZaR1ZrSUhaaGJHbGtJSEF4TWk0Z2EyVjVjM1J2Y21VZ1ptbHNaUT09",
   "keystoreFileName": "keystore.p12",
   "keystorePassword": "***",

@@ -608,6 +608,19 @@ func TestGenerateRegistry(t *testing.T) {
 
 // --- scaffoldJSON tests ---
 
+// mustScaffold keeps these tests reading as they did before the shared walker
+// started reporting a marshalling failure instead of swallowing it into "{}".
+// The contract they pin is unchanged: nil/empty → "{}", deterministic
+// alphabetical order, read-only skipped, examples honoured.
+func mustScaffold(t *testing.T, s *Schema) string {
+	t.Helper()
+	got, err := scaffoldJSON(s)
+	if err != nil {
+		t.Fatalf("scaffoldJSON: %v", err)
+	}
+	return got
+}
+
 func TestScaffoldJSON_BasicProperties(t *testing.T) {
 	s := &Schema{
 		Properties: map[string]*Property{
@@ -616,7 +629,7 @@ func TestScaffoldJSON_BasicProperties(t *testing.T) {
 			"enabled": {Type: "boolean"},
 		},
 	}
-	got := scaffoldJSON(s)
+	got := mustScaffold(t, s)
 	// Verify valid JSON
 	var parsed map[string]any
 	if err := json.Unmarshal([]byte(got), &parsed); err != nil {
@@ -640,7 +653,7 @@ func TestScaffoldJSON_SkipsReadOnly(t *testing.T) {
 			"name": {Type: "string"},
 		},
 	}
-	got := scaffoldJSON(s)
+	got := mustScaffold(t, s)
 	var parsed map[string]any
 	if err := json.Unmarshal([]byte(got), &parsed); err != nil {
 		t.Fatalf("invalid JSON: %v", err)
@@ -659,17 +672,17 @@ func TestScaffoldJSON_UsesExamples(t *testing.T) {
 			"name": {Type: "string", Example: "Apple Park"},
 		},
 	}
-	got := scaffoldJSON(s)
+	got := mustScaffold(t, s)
 	if !strings.Contains(got, "Apple Park") {
 		t.Errorf("expected example value 'Apple Park' in output, got: %s", got)
 	}
 }
 
 func TestScaffoldJSON_EmptySchema(t *testing.T) {
-	if got := scaffoldJSON(nil); got != "{}" {
+	if got := mustScaffold(t, nil); got != "{}" {
 		t.Errorf("nil schema: got %q, want %q", got, "{}")
 	}
-	if got := scaffoldJSON(&Schema{}); got != "{}" {
+	if got := mustScaffold(t, &Schema{}); got != "{}" {
 		t.Errorf("empty schema: got %q, want %q", got, "{}")
 	}
 }
@@ -683,9 +696,9 @@ func TestScaffoldJSON_DeterministicOrder(t *testing.T) {
 		},
 	}
 	// Run multiple times to check determinism
-	first := scaffoldJSON(s)
+	first := mustScaffold(t, s)
 	for i := range 10 {
-		if got := scaffoldJSON(s); got != first {
+		if got := mustScaffold(t, s); got != first {
 			t.Fatalf("non-deterministic output on iteration %d:\n%s\nvs\n%s", i, first, got)
 		}
 	}
@@ -708,7 +721,7 @@ func TestScaffoldJSON_AllTypes(t *testing.T) {
 			"flag": {Type: "boolean"},
 		},
 	}
-	got := scaffoldJSON(s)
+	got := mustScaffold(t, s)
 	var parsed map[string]any
 	if err := json.Unmarshal([]byte(got), &parsed); err != nil {
 		t.Fatalf("invalid JSON: %v", err)

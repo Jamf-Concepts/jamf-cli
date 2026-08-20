@@ -95,9 +95,23 @@ func newSelfServiceSettingsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 
 			if flagScaffold {
 				return printScaffoldOutput(`{
-  "configurationSettings": {},
-  "installSettings": {},
-  "loginSettings": {}
+  "configurationSettings": {
+    "alertUserApprovedMdm": false,
+    "bookmarksName": "Bookmarks",
+    "defaultHomeCategoryId": 0,
+    "defaultLandingPage": "HOME",
+    "notificationsEnabled": false
+  },
+  "installSettings": {
+    "installAutomatically": false,
+    "installLocation": "/Applications"
+  },
+  "loginSettings": {
+    "allowRememberMe": false,
+    "authType": "Basic",
+    "useFido2": false,
+    "userLoginLevel": "NotRequired"
+  }
 }`, ctx.Output.Format())
 			}
 

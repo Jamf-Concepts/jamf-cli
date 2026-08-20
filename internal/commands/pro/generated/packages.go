@@ -1111,7 +1111,12 @@ func newPackagesExportCmd(ctx *registry.CLIContext) *cobra.Command {
 
 			if flagScaffold {
 				return printScaffoldOutput(`{
-  "fields": [],
+  "fields": [
+    {
+      "fieldLabelOverride": "identiteit",
+      "fieldName": "id"
+    }
+  ],
   "filter": "id\u003e=100",
   "page": 0,
   "pageSize": 100,
@@ -1237,7 +1242,12 @@ func newPackagesHistoryExportCmd(ctx *registry.CLIContext) *cobra.Command {
 
 			if flagScaffold {
 				return printScaffoldOutput(`{
-  "fields": [],
+  "fields": [
+    {
+      "fieldLabelOverride": "identiteit",
+      "fieldName": "id"
+    }
+  ],
   "filter": "id\u003e=100",
   "page": 0,
   "pageSize": 100,

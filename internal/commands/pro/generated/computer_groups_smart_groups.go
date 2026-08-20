@@ -279,7 +279,17 @@ func newComputerGroupsSmartGroupsCreateCmd(ctx *registry.CLIContext) *cobra.Comm
 
 			if flagScaffold {
 				return printScaffoldOutput(`{
-  "criteria": [],
+  "criteria": [
+    {
+      "andOr": "and",
+      "closingParen": false,
+      "name": "Model",
+      "openingParen": false,
+      "priority": 0,
+      "searchType": "greater than or equal",
+      "value": "14.0"
+    }
+  ],
   "description": "New Group Description",
   "name": "New Group Name",
   "siteId": "-1"
@@ -361,7 +371,17 @@ func newComputerGroupsSmartGroupsUpdateCmd(ctx *registry.CLIContext) *cobra.Comm
 
 			if flagScaffold {
 				return printScaffoldOutput(`{
-  "criteria": [],
+  "criteria": [
+    {
+      "andOr": "and",
+      "closingParen": false,
+      "name": "Model",
+      "openingParen": false,
+      "priority": 0,
+      "searchType": "greater than or equal",
+      "value": "14.0"
+    }
+  ],
   "description": "New Group Description",
   "name": "New Group Name",
   "siteId": "-1"
@@ -713,7 +733,17 @@ If not, a new resource is created.`,
 			reqCtx := cmd.Context()
 			if flagScaffold {
 				return printScaffoldOutput(`{
-  "criteria": [],
+  "criteria": [
+    {
+      "andOr": "and",
+      "closingParen": false,
+      "name": "Model",
+      "openingParen": false,
+      "priority": 0,
+      "searchType": "greater than or equal",
+      "value": "14.0"
+    }
+  ],
   "description": "New Group Description",
   "name": "New Group Name",
   "siteId": "-1"
