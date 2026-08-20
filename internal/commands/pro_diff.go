@@ -173,7 +173,9 @@ func loadSnapshotFromDirectory(dir string, nameFilter []string) (resourceSnapsho
 	// nested resource (profiles/*.yaml beside profiles/macos/) — for those the
 	// directory name is already the FilterName, so they land in the right
 	// bucket. Reading them before the curated pass means the layout `backup`
-	// actually writes wins a name collision.
+	// actually writes wins a name collision. nonStandardBackupFilters supplies
+	// the name field for the root-written resources that do not call their name
+	// "name", the way BackupEndpoint.NameField does for the curated ones.
 	//
 	// Failing to read the root is fatal rather than a warning: an empty
 	// snapshot there is not a partial result, it is "the source was never
@@ -192,7 +194,7 @@ func loadSnapshotFromDirectory(dir string, nameFilter []string) (resourceSnapsho
 		if !entryIsDir(dir, entry) {
 			continue
 		}
-		readInto(name, "", filepath.Join(dir, name))
+		readInto(name, nonStandardBackupNameField(name), filepath.Join(dir, name))
 	}
 
 	// Then every curated resource, read at the path `backup` writes it to and
@@ -454,14 +456,7 @@ func loadSnapshotFromProfile(ctx context.Context, profileName string, nameFilter
 					if err != nil {
 						continue
 					}
-					obj := map[string]any{
-						"title":           bm.Title,
-						"description":     bm.Description,
-						"baselineId":      bm.BaselineID,
-						"enforcementMode": bm.EnforcementMode,
-						"target":          bm.Target,
-					}
-					objects[bm.Title] = normaliseViaJSON(obj)
+					objects[bm.Title] = normaliseViaJSON(benchmarkToExport(bm))
 				}
 				if len(objects) > 0 {
 					snapshot["compliance-benchmarks"] = objects

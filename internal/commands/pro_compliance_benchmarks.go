@@ -288,6 +288,34 @@ func benchmarkScaffold() *benchmarkPortableInput {
 // benchmarkToPortable converts a benchmark API response to the portable export format.
 // Device group IDs are replaced with name+type for cross-instance portability.
 // Rules are converted from the detailed info format to the request format.
+// benchmarkToExport is the one projection of a benchmark that both `pro backup`
+// and `pro diff` read, for the same reason blueprintToExport is shared: two
+// projections drift, and diffObjects unions the key sets of the two sides, so a
+// field present on one side only is reported as a change on every run. Keeping
+// the projection here means a field can be added to a benchmark's snapshot in
+// one place or not at all.
+//
+// This is the snapshot shape, not the portable shape — benchmarkToPortable
+// resolves device groups to names for cross-tenant cloning, which a diff must
+// not do because the two sides would then differ by group naming alone.
+func benchmarkToExport(bm *compliancebenchmarks.BenchmarkResponseV2) map[string]any {
+	obj := map[string]any{
+		"title":           bm.Title,
+		"description":     bm.Description,
+		"baselineId":      bm.BaselineID,
+		"enforcementMode": bm.EnforcementMode,
+		"target":          bm.Target,
+		"rules":           bm.Rules,
+	}
+	if len(bm.Sources) > 0 {
+		obj["sources"] = bm.Sources
+	}
+	if len(bm.SelectedOsVersions) > 0 {
+		obj["selectedOsVersions"] = bm.SelectedOsVersions
+	}
+	return obj
+}
+
 func benchmarkToPortable(bm *compliancebenchmarks.BenchmarkResponseV2, groupByID map[string]devicegroups.DeviceGroupListReadRepresentationV1) *benchmarkPortableInput {
 	var deviceGroups []string
 	if bm.Target != nil {

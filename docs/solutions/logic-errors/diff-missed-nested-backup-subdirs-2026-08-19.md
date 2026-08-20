@@ -8,6 +8,7 @@ severity: high
 applies_when:
   - "Adding a BackupResource whose SubDir has more than one segment"
   - "Changing how `diff` loads a backup directory, or how it keys objects"
+  - "Adding a field to one side of a resource's backup or diff projection"
   - "A user reports `diff` finding changes for some resources but not others"
   - "Comparing a backup directory against a live instance"
 tags:
@@ -112,6 +113,32 @@ groups use `groupName`. Then `name`, then the two shapes no registry field names
 (a Classic detail nesting its name under `general`, and `displayName` for a
 directory read without a `NameField`), then the filename stem as a last resort.
 
+### The non-standard resources have their own name field
+
+The curated table is not the whole story. `backup` writes the SDK-backed
+resources — blueprints and compliance benchmarks — straight to the backup root,
+so they have no `BackupEndpoint` and the root scan has no `NameField` to consult.
+Blueprints were unaffected because `blueprintToExport` emits a `name`, which
+`backupObjectName` finds. Benchmarks keep their name in `title`, so they fell
+through to the stem: a disk key of `cis-level-1` against a live key of
+`CIS Level 1`, every benchmark reported removed and added.
+
+`nonStandardBackupFilters` (`pro_resources.go`) therefore carries a `NameField`
+per entry, and the root scan reads it through `nonStandardBackupNameField`. One
+table rather than a second list: a name field listed apart from the filter name
+can name a directory that no backup writes, and nothing would catch it.
+
+Keying is only half of matching an object. `diffObjects` unions the key sets of
+the two sides and reports any field present on one side only, so two projections
+of the same resource make the diff permanently dirty even once the keys agree —
+`modified` instead of removed-and-added. Benchmarks had two: `backup` wrote seven
+fields and the live loader built five. Both now derive the object from one
+`benchmarkToExport`, the way both blueprint paths already shared
+`blueprintToExport`.
+
+**A resource is only comparable when both sides agree on the key *and* the field
+set.** Fixing one without the other moves the noise rather than removing it.
+
 ## Guardrails
 
 `TestLoadSnapshotFromDirectory_EveryCuratedSubDirIsRead` writes one file into
@@ -123,6 +150,18 @@ thirteen paths, so a nested resource added later cannot reintroduce the class.
 for the key: for every curated resource it writes an object carrying *only* its
 declared `NameField`, so a resource added later whose name lives somewhere new
 fails rather than silently falling back to the stem.
+
+`TestLoadSnapshotFromDirectory_EveryNonStandardNameFieldIsHonoured` is that guard
+for the non-standard table, iterating `nonStandardBackupFilters` on both axes so
+an entry naming a directory no backup writes fails here rather than in a diff
+against a live tenant.
+
+`TestBenchmarkToExport_DiskAndLiveAgreeFieldForField` asserts an unchanged
+benchmark produces no field diffs — the field-set half of the same requirement.
+Note its limit: it calls `benchmarkToExport` on both sides, so it proves the
+projection is single and correct, but it cannot reach the live loader's call site
+(that needs a Platform SDK client). Re-inlining a literal projection there would
+not fail this test.
 
 `TestBackupObjectName_MatchesLiveNameExtraction` asserts the directory key equals
 `extractName` of the corresponding list item — the two loaders are only
