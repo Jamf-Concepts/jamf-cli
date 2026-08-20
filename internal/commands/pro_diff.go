@@ -173,7 +173,9 @@ func loadSnapshotFromDirectory(dir string, nameFilter []string) (resourceSnapsho
 	// nested resource (profiles/*.yaml beside profiles/macos/) — for those the
 	// directory name is already the FilterName, so they land in the right
 	// bucket. Reading them before the curated pass means the layout `backup`
-	// actually writes wins a name collision.
+	// actually writes wins a name collision. platformNameFields supplies the
+	// name field for the root-written resources that do not call their name
+	// "name", the way BackupEndpoint.NameField does for the curated ones.
 	//
 	// Failing to read the root is fatal rather than a warning: an empty
 	// snapshot there is not a partial result, it is "the source was never
@@ -192,7 +194,7 @@ func loadSnapshotFromDirectory(dir string, nameFilter []string) (resourceSnapsho
 		if !entryIsDir(dir, entry) {
 			continue
 		}
-		readInto(name, "", filepath.Join(dir, name))
+		readInto(name, platformNameFields[name], filepath.Join(dir, name))
 	}
 
 	// Then every curated resource, read at the path `backup` writes it to and
@@ -212,6 +214,16 @@ func loadSnapshotFromDirectory(dir string, nameFilter []string) (resourceSnapsho
 	}
 
 	return snapshot, nil
+}
+
+// platformNameFields gives the SDK-backed resources that backup writes straight
+// to the backup root the field their name lives in. They are not in
+// BackupResources — that table describes Pro API endpoints — so the root scan
+// has no BackupEndpoint.NameField to consult and would otherwise fall back to
+// the filename stem. Only resources whose name is not called "name" need an
+// entry; blueprints export a "name", which backupObjectName already finds.
+var platformNameFields = map[string]string{
+	"compliance-benchmarks": "title",
 }
 
 // entryIsDir reports whether entry names a directory, following a symlink.

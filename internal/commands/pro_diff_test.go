@@ -1117,3 +1117,65 @@ func unreadableBackupDirForTest(t *testing.T) string {
 	t.Cleanup(func() { _ = os.Chmod(dir, 0o755) })
 	return dir
 }
+
+// TestLoadSnapshotFromDirectory_ComplianceBenchmarkKeyedOnTitle pins the key
+// for the one root-written resource whose name is not called "name".
+// backupBenchmarks writes a benchmark's name as "title" and names the file
+// SlugifyName(title), while live mode keys on bm.Title. With no declared name
+// field the directory side fell through to the stem, so a slug such as
+// "cis-level-1" faced a live key of "CIS Level 1" and every benchmark was
+// reported removed and added. Blueprints, the other root-written resource,
+// export a "name" and were never affected.
+func TestLoadSnapshotFromDirectory_ComplianceBenchmarkKeyedOnTitle(t *testing.T) {
+	dir := t.TempDir()
+
+	writeBackupFileForTest(t, filepath.Join(dir, "compliance-benchmarks", "cis-level-1.yaml"), map[string]any{
+		"title":           "CIS Level 1",
+		"description":     "CIS macOS benchmark",
+		"baselineId":      "b-1",
+		"enforcementMode": "audit",
+	}, "yaml")
+
+	snapshot, err := loadSnapshotFromDirectory(dir, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if _, ok := snapshot["compliance-benchmarks"]["CIS Level 1"]; !ok {
+		t.Errorf("benchmark not keyed on its title, bucket holds %v", snapshot["compliance-benchmarks"])
+	}
+	if _, ok := snapshot["compliance-benchmarks"]["cis-level-1"]; ok {
+		t.Error("benchmark keyed on the filename stem, which live mode never produces")
+	}
+}
+
+// TestLoadSnapshotFromDirectory_EveryPlatformNameFieldIsHonoured is the
+// platformNameFields analogue of the curated table guard: for every SDK-backed
+// resource backup writes to the backup root, an object carrying only its
+// declared name field must be keyed by that field's value. A platform resource
+// added later with a new name field fails here rather than in a diff against a
+// live tenant.
+func TestLoadSnapshotFromDirectory_EveryPlatformNameFieldIsHonoured(t *testing.T) {
+	dir := t.TempDir()
+
+	type expectation struct{ resource, objName string }
+	var want []expectation
+	for resource, field := range platformNameFields {
+		objName := "named-" + resource
+		writeBackupFileForTest(t, filepath.Join(dir, resource, "obj.yaml"),
+			map[string]any{field: objName}, "yaml")
+		want = append(want, expectation{resource, objName})
+	}
+	if len(want) == 0 {
+		t.Fatal("platformNameFields is empty; the guard would assert nothing")
+	}
+
+	snapshot, err := loadSnapshotFromDirectory(dir, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	for _, w := range want {
+		if _, ok := snapshot[w.resource][w.objName]; !ok {
+			t.Errorf("resource %q: object not keyed on its name field, bucket holds %v", w.resource, snapshot[w.resource])
+		}
+	}
+}
