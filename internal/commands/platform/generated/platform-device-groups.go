@@ -109,7 +109,7 @@ func newPlatformDeviceGroupsCreateCmd(cliCtx *registry.CLIContext) *cobra.Comman
 	cmd := &cobra.Command{
 		Use:         "create",
 		Short:       "Create a new device group",
-		Long:        "Create a new device group in Jamf Pro\n\nAllowed values:\n  deviceType: COMPUTER, MOBILE\n  groupType: SMART, STATIC",
+		Long:        "Create a new device group in Jamf Pro\n\nAllowed values:\n  criteria[].joinType: AND, OR\n  deviceType: COMPUTER, MOBILE\n  groupType: SMART, STATIC",
 		Annotations: map[string]string{"jamf:privileges": "create:pro:device-groups", "jamf:api": "platform-gateway"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if scaffoldFlag {
@@ -258,7 +258,7 @@ func newPlatformDeviceGroupsPatchCmd(cliCtx *registry.CLIContext) *cobra.Command
 	cmd := &cobra.Command{
 		Use:         "patch <id>",
 		Short:       "Update a device group",
-		Long:        "Update an existing device group",
+		Long:        "Update an existing device group\n\nAllowed values:\n  criteria[].joinType: AND, OR",
 		Annotations: map[string]string{"jamf:privileges": "update:pro:device-groups", "jamf:api": "platform-gateway"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {

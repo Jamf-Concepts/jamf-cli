@@ -148,6 +148,12 @@ type Schema struct {
 	Type       string
 	Properties map[string]*Property
 	Required   []string
+	// Enum holds the values this schema is restricted to, when the schema is
+	// itself a constrained scalar rather than an object. For an array property
+	// that is where the constraint lives — the enum sits on the element schema,
+	// not on the array — so Items.Enum is how an "array of one of these" is
+	// discovered.
+	Enum []string
 	// Items is the element schema when Type is "array", for a schema that is
 	// itself an array rather than an object. Set only for arrays, and only as
 	// deep as parseSchema's recursion cap allows.

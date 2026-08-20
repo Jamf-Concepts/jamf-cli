@@ -451,6 +451,22 @@ func collectEnumChoices(s *parser.Schema, prefix string, out *[]enumChoice, dept
 		if prop.Nested != nil {
 			collectEnumChoices(prop.Nested, path, out, depth+1)
 		}
+		// For an array the constraint lives on the element, not the property, so
+		// walking properties alone misses it entirely. That is not a corner case:
+		// six of the ZTNA gateway's IPSec cipher-suite fields are arrays of
+		// enum-constrained strings, and the server requires ipsec.esp and
+		// ipsec.ike, so anyone configuring IPSec has to fill them — while the
+		// scaffold showed "[]" and the help listed nothing. The "[]" suffix marks
+		// that it is each element that is constrained.
+		if prop.Items != nil {
+			if len(prop.Items.Enum) > 0 {
+				*out = append(*out, enumChoice{Path: path + "[]", Values: prop.Items.Enum})
+			}
+			// An array of objects can carry enums inside the element too.
+			if len(prop.Items.Properties) > 0 {
+				collectEnumChoices(prop.Items, path+"[]", out, depth+1)
+			}
+		}
 	}
 }
 

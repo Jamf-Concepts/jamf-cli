@@ -89,7 +89,7 @@ func newZtnaGatewaysCreateCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "create",
 		Short:       "Create a Gateway",
-		Long:        "Create a dedicated Gateway. Returns `201 {id, href}` + `Location` header.\n\nAllowed values:\n  ipsec.keyExchange: ikev1, ikev2\n  ipsec.right.vendor: Checkpoint, Cisco, Fortinet, Juniper, Palo Alto, SonicWall, Sophos, Sourcefire, strongSwan, Watchguard, Other",
+		Long:        "Create a dedicated Gateway. Returns `201 {id, href}` + `Location` header.\n\nAllowed values:\n  ipsec.esp.dhGroups[]: modp1024, modp1536, modp2048, modp3072, modp4096, ecp256, ecp384, ecp521\n  ipsec.esp.encryption[]: 3des, aes128, aes256\n  ipsec.esp.integrity[]: md5, sha1, sha256, sha512\n  ipsec.ike.dhGroups[]: modp1024, modp1536, modp2048, modp3072, modp4096, ecp256, ecp384, ecp521\n  ipsec.ike.encryption[]: 3des, aes128, aes256\n  ipsec.ike.integrity[]: md5, sha1, sha256, sha512\n  ipsec.keyExchange: ikev1, ikev2\n  ipsec.right.vendor: Checkpoint, Cisco, Fortinet, Juniper, Palo Alto, SonicWall, Sophos, Sourcefire, strongSwan, Watchguard, Other",
 		Annotations: map[string]string{"jamf:privileges": "create:jsc:all", "jamf:api": "platform-gateway"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if scaffoldFlag {
@@ -238,7 +238,7 @@ func newZtnaGatewaysPatchCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "patch <gatewayId>",
 		Short:       "Partially update a Gateway",
-		Long:        "Partially update a dedicated Gateway. All fields are optional — flat body, no nesting.\n\nAllowed values:\n  ipsec.keyExchange: ikev1, ikev2\n  ipsec.right.vendor: Checkpoint, Cisco, Fortinet, Juniper, Palo Alto, SonicWall, Sophos, Sourcefire, strongSwan, Watchguard, Other",
+		Long:        "Partially update a dedicated Gateway. All fields are optional — flat body, no nesting.\n\nAllowed values:\n  ipsec.esp.dhGroups[]: modp1024, modp1536, modp2048, modp3072, modp4096, ecp256, ecp384, ecp521\n  ipsec.esp.encryption[]: 3des, aes128, aes256\n  ipsec.esp.integrity[]: md5, sha1, sha256, sha512\n  ipsec.ike.dhGroups[]: modp1024, modp1536, modp2048, modp3072, modp4096, ecp256, ecp384, ecp521\n  ipsec.ike.encryption[]: 3des, aes128, aes256\n  ipsec.ike.integrity[]: md5, sha1, sha256, sha512\n  ipsec.keyExchange: ikev1, ikev2\n  ipsec.right.vendor: Checkpoint, Cisco, Fortinet, Juniper, Palo Alto, SonicWall, Sophos, Sourcefire, strongSwan, Watchguard, Other",
 		Annotations: map[string]string{"jamf:privileges": "update:jsc:all", "jamf:api": "platform-gateway"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {

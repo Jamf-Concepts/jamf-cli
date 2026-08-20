@@ -5,6 +5,7 @@ package platform
 import (
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"testing"
 )
@@ -280,4 +281,71 @@ func TestAppendEnumChoices(t *testing.T) {
 	if strings.HasPrefix(bare, "\n") {
 		t.Errorf("expected no leading newline when there is no description, got %q", bare)
 	}
+}
+
+// TestBuildEnumChoices_ReachesArrayElements covers the half a properties-only
+// walk misses. For an array the enum sits on the *element* schema, not on the
+// property, so six of the ZTNA gateway's IPSec cipher-suite fields were
+// constrained on the wire while the scaffold showed "[]" and the help listed
+// nothing — and the server requires ipsec.esp and ipsec.ike, so anyone
+// configuring IPSec has to fill them.
+func TestBuildEnumChoices_ReachesArrayElements(t *testing.T) {
+	specsDir, err := filepath.Abs("../../specs/platform")
+	if err != nil {
+		t.Fatalf("resolving specs dir: %v", err)
+	}
+	resources, _, err := LoadResources(specsDir)
+	if err != nil {
+		t.Fatalf("LoadResources: %v", err)
+	}
+
+	choices := func(resource, opName string) map[string][]string {
+		out := map[string][]string{}
+		for _, r := range resources {
+			if r.Name != resource {
+				continue
+			}
+			for _, op := range r.Operations {
+				if op.Name != opName {
+					continue
+				}
+				for _, c := range buildEnumChoices(op) {
+					out[c.Path] = c.Values
+				}
+			}
+		}
+		return out
+	}
+
+	gw := choices("ztna-gateways", "create")
+	enc, ok := gw["ipsec.esp.encryption[]"]
+	if !ok {
+		t.Fatalf("expected the element enum of ipsec.esp.encryption, got paths %v", keysOf(gw))
+	}
+	if len(enc) == 0 {
+		t.Error("expected the cipher values, got none")
+	}
+	// The suffix is what tells a reader the constraint is per element, not on
+	// the array as a whole.
+	for path := range gw {
+		if path == "ipsec.esp.encryption" {
+			t.Error(`element enum recorded without the "[]" suffix — reads as if the array itself were the enum`)
+		}
+	}
+
+	// An enum nested inside an array-of-objects element: two hops a
+	// properties-only walk cannot make.
+	bm := choices("benchmarks", "create")
+	if _, ok := bm["selectedOsVersions[].osType"]; !ok {
+		t.Errorf("expected an enum inside an array element, got paths %v", keysOf(bm))
+	}
+}
+
+func keysOf(m map[string][]string) []string {
+	out := make([]string, 0, len(m))
+	for k := range m {
+		out = append(out, k)
+	}
+	sort.Strings(out)
+	return out
 }
