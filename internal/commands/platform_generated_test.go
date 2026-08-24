@@ -3,10 +3,13 @@
 package commands
 
 import (
+	"bytes"
 	"io"
 	"net/http"
 	"strings"
 	"testing"
+
+	"github.com/spf13/cobra"
 
 	platformgen "github.com/Jamf-Concepts/jamf-cli/internal/commands/platform/generated"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
@@ -235,6 +238,121 @@ func TestGeneratedSecurityCloudListIsTenantFirstAndEmptyIsAnArray(t *testing.T) 
 	}
 	if got := strings.TrimSpace(string(out.rawData)); got != "[]" {
 		t.Errorf("empty list printed %q, want %q", got, "[]")
+	}
+}
+
+// TestGeneratedPlatformMutationsHonourDryRun pins the P0 that --dry-run used to
+// be a lie outside Jamf Pro. The root flag is advertised as "preview changes
+// without executing" and is wired by wrapping the Pro HTTPClient in
+// dryRunClient — a decorator the Platform SDK client and the Security Cloud
+// client never pass through. So every generated platform and gateway-served
+// Security Cloud mutation executed for real under -n: a create returned the
+// object it had just made, a delete deleted and reported nothing, both exiting
+// 0. Anyone could destroy production data believing they were simulating.
+//
+// The assertion is that the server is never touched, not merely that the output
+// looks like a preview.
+func TestGeneratedPlatformMutationsHonourDryRun(t *testing.T) {
+	cases := []struct {
+		name    string
+		path    string
+		newCmd  func(*registry.CLIContext) *cobra.Command
+		args    []string
+		wantPre string
+	}{
+		{
+			name:    "create",
+			path:    "/api/securitycloud/tenant/" + testTenantID + "/v1/groups",
+			newCmd:  platformgen.NewDeviceGroupsCmd,
+			args:    []string{"create", "--set", "name=dry-run-probe"},
+			wantPre: "[dry-run] POST /api/securitycloud/tenant/" + testTenantID + "/v1/groups",
+		},
+		{
+			name:    "delete",
+			path:    "/api/securitycloud/tenant/" + testTenantID + "/v1/groups/abc123",
+			newCmd:  platformgen.NewDeviceGroupsCmd,
+			args:    []string{"delete", "abc123", "--yes"},
+			wantPre: "[dry-run] DELETE /api/securitycloud/tenant/" + testTenantID + "/v1/groups/abc123",
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			sdk, mux := newTestPlatformSDK(t)
+			var hits int
+			mux.HandleFunc(tc.path, func(w http.ResponseWriter, _ *http.Request) {
+				hits++
+				writeJSON(w, map[string]any{"id": "abc123"})
+			})
+
+			cliCtx := &registry.CLIContext{PlatformSDKClient: sdk, Output: &captureOutput{}, DryRun: true}
+			cmd := tc.newCmd(cliCtx)
+			var stderr bytes.Buffer
+			cmd.SetErr(&stderr)
+			cmd.SetArgs(tc.args)
+			if err := cmd.Execute(); err != nil {
+				t.Fatalf("%s: %v", tc.name, err)
+			}
+			if hits != 0 {
+				t.Errorf("server saw %d request(s) under --dry-run, want 0", hits)
+			}
+			if got := stderr.String(); !strings.Contains(got, tc.wantPre) {
+				t.Errorf("stderr = %q, want it to contain %q", got, tc.wantPre)
+			}
+		})
+	}
+}
+
+// TestDryRunGuardRefusesUnpreviewedWrites covers the backstop for the
+// hand-written platform commands, which orchestrate several SDK calls and have
+// no per-command preview. Refusing at the transport is the conservative
+// reading: nothing is sent and the exit code is non-zero, rather than writing
+// under a flag that promised otherwise.
+//
+// It answers with a 412 rather than a transport error on purpose. The SDK's
+// retry client treats a nil response as always retryable, so refusing by error
+// made -n hang through the full backoff ladder before reporting anything.
+func TestDryRunGuardRefusesUnpreviewedWrites(t *testing.T) {
+	cases := []struct {
+		name       string
+		method     string
+		path       string
+		wantPassed bool
+	}{
+		{name: "post refused", method: http.MethodPost, path: "/api/securitycloud/tenant/t/v1/groups"},
+		{name: "patch refused", method: http.MethodPatch, path: "/api/securitycloud/tenant/t/v1/groups/1"},
+		{name: "delete refused", method: http.MethodDelete, path: "/api/securitycloud/tenant/t/v1/groups/1"},
+		{name: "get passes", method: http.MethodGet, path: "/api/securitycloud/tenant/t/v1/groups", wantPassed: true},
+		{name: "token passes", method: http.MethodPost, path: "/auth/token", wantPassed: true},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			inner := &recordingRoundTripper{}
+			rt := &dryRunGuardTransport{inner: inner}
+			req, err := http.NewRequest(tc.method, "https://gw.example.com"+tc.path, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			resp, err := rt.RoundTrip(req)
+			if err != nil {
+				t.Fatalf("RoundTrip returned an error (%v); a nil response is retried by the SDK, so the guard must answer with a status", err)
+			}
+			if tc.wantPassed {
+				if inner.calls != 1 {
+					t.Errorf("inner transport called %d time(s), want 1", inner.calls)
+				}
+				return
+			}
+			if inner.calls != 0 {
+				t.Errorf("inner transport called %d time(s) for a refused write, want 0", inner.calls)
+			}
+			if resp.StatusCode != http.StatusPreconditionFailed {
+				t.Errorf("status = %d, want %d", resp.StatusCode, http.StatusPreconditionFailed)
+			}
+			body, _ := io.ReadAll(resp.Body)
+			if !strings.Contains(string(body), "DRY_RUN") {
+				t.Errorf("body = %q, want it to name DRY_RUN", body)
+			}
+		})
 	}
 }
 

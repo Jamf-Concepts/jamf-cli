@@ -73,6 +73,13 @@ func newStatusUpdateCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err != nil {
 				return err
 			}
+			// --dry-run previewed nothing before: the Pro client is wrapped by a
+			// dry-run decorator, this one is not, so a risk override or a
+			// device-lifecycle purge executed for real under -n while the flag
+			// advertised "preview changes without executing".
+			if cliCtx.DryRun {
+				return security.ReportDryRun(cmd.ErrOrStderr(), "POST", path, body)
+			}
 			var result any
 			if err := cliCtx.SecurityClient.DoExpectSSE(cmd.Context(), "POST", path, body, &result); err != nil {
 				return fmt.Errorf("update: %w", err)

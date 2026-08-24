@@ -630,6 +630,11 @@ in the config file. It never runs in CI, when output is piped, or under
 			formatter.SetNoHints(noHints)
 			formatter.SetExplicitNoColor(explicitNoColor)
 			cliCtx.Output = &cliOutput{formatter}
+			// Set before any product branch: the Protect, School and Security
+			// Cloud paths return from here directly, so an assignment made
+			// alongside the Pro client would leave DryRun false for exactly the
+			// commands whose transports cannot be wrapped by dryRunClient.
+			cliCtx.DryRun = dryRun
 
 			// Release advisory — probes at most once per 24 h, in the
 			// background, and prints in PersistentPostRunE so it can neither

@@ -11,6 +11,7 @@ import (
 	"net/http/cookiejar"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"gopkg.in/yaml.v3"
@@ -94,6 +95,46 @@ func (t *identityEncodingOnWrites) RoundTrip(req *http.Request) (*http.Response,
 	return t.inner.RoundTrip(req)
 }
 
+// dryRunGuardTransport refuses to send a mutating platform request when
+// --dry-run is set.
+//
+// It is a backstop, not the mechanism: generated commands report the request and
+// return before reaching the transport (see platform.ReportDryRun), because only
+// the command knows the success status its caller asserts. What is left are the
+// hand-written platform commands — blueprints apply/clone/deploy/import-profile
+// and friends — which orchestrate several calls through SDK subpackages and have
+// no such gate. Before this they wrote for real under a flag that promised a
+// preview, so failing loudly is the conservative reading: nothing is sent, the
+// exit code is non-zero, and the message says which request was refused.
+//
+// The token endpoint is exempt: authenticating is not a change, and refusing it
+// would make -n fail before it could report anything.
+type dryRunGuardTransport struct{ inner http.RoundTripper }
+
+func (t *dryRunGuardTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	switch req.Method {
+	case http.MethodGet, http.MethodHead, http.MethodOptions:
+	default:
+		if !strings.Contains(req.URL.Path, "/auth/token") {
+			// A synthetic response, not an error: the SDK's retry client treats a
+			// transport error (resp == nil) as always retryable, so refusing by
+			// error made -n hang through five attempts of backoff before saying
+			// anything. A 412 is a status isRetryableWriteStatus will not retry,
+			// and it carries the reason in the envelope the transport already
+			// knows how to report.
+			body := fmt.Sprintf("{\"httpStatus\":412,\"errors\":[{\"code\":\"DRY_RUN\",\"description\":\"refused %s %s: --dry-run is set and this command has no preview mode. Re-run without -n to apply.\"}]}", req.Method, req.URL.Path)
+			return &http.Response{
+				StatusCode: http.StatusPreconditionFailed,
+				Status:     "412 Precondition Failed",
+				Header:     http.Header{"Content-Type": []string{"application/json"}},
+				Body:       io.NopCloser(strings.NewReader(body)),
+				Request:    req,
+			}, nil
+		}
+	}
+	return t.inner.RoundTrip(req)
+}
+
 // requirePlatformClient returns an error if the Platform SDK client is not
 // available. Platform commands call this at the top of RunE so users get a
 // clear message instead of a nil-pointer panic.
@@ -145,6 +186,9 @@ func newPlatformSDKClient(url, clientID, clientSecret, tenantID, securityCloudTe
 	jar, _ := cookiejar.New(nil)
 	stdClient := &http.Client{Timeout: 60 * time.Second, Jar: jar}
 	stdClient.Transport = &identityEncodingOnWrites{inner: http.DefaultTransport}
+	if dryRun {
+		stdClient.Transport = &dryRunGuardTransport{inner: stdClient.Transport}
+	}
 	if verboseLevel > 0 {
 		stdClient.Transport = &platformVerboseTransport{inner: stdClient.Transport, level: verboseLevel}
 	}

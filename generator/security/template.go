@@ -186,6 +186,15 @@ func new{{$.GoName}}{{.GoName}}Cmd(cliCtx *registry.CLIContext) *cobra.Command {
 				path += "?" + encoded
 			}
 {{- end }}
+{{- if ne .Method "GET" }}
+			// --dry-run previewed nothing before: the Pro client is wrapped by a
+			// dry-run decorator, this one is not, so a risk override or a
+			// device-lifecycle purge executed for real under -n while the flag
+			// advertised "preview changes without executing".
+			if cliCtx.DryRun {
+				return security.ReportDryRun(cmd.ErrOrStderr(), {{printf "%q" .Method}}, path, body)
+			}
+{{- end }}
 			var result any
 			if err := cliCtx.SecurityClient.DoExpect{{$.Scope}}(cmd.Context(), {{printf "%q" .Method}}, path, body, &result); err != nil {
 				return fmt.Errorf("{{.Name}}: %w", err)
