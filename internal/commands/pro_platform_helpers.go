@@ -68,6 +68,32 @@ func (t *platformVerboseTransport) RoundTrip(req *http.Request) (*http.Response,
 	return resp, nil
 }
 
+// identityEncodingOnWrites asks for an uncompressed response on mutating
+// requests.
+//
+// The gateway has a bug worth working around rather than living with: whenever
+// a create response is gzipped it answers `"href": null` AND drops the Location
+// header, and returns both when it is not — deterministic, wire-verified 3/3
+// each way on POST /ztna/apps. Go's net/http sets Accept-Encoding: gzip on
+// every request and decompresses transparently, so every create through this
+// CLI saw null and the id was the only usable field in a response whose schema
+// declares href required. Setting the header explicitly opts out of Go's
+// transparent gzip (it only compresses/decompresses when it owns the header),
+// which is safe here because a mutation's response body is a handful of bytes.
+// Reads keep gzip: a full list is exactly where it earns its keep.
+type identityEncodingOnWrites struct{ inner http.RoundTripper }
+
+func (t *identityEncodingOnWrites) RoundTrip(req *http.Request) (*http.Response, error) {
+	switch req.Method {
+	case http.MethodPost, http.MethodPut, http.MethodPatch:
+		if req.Header.Get("Accept-Encoding") == "" {
+			req = req.Clone(req.Context())
+			req.Header.Set("Accept-Encoding", "identity")
+		}
+	}
+	return t.inner.RoundTrip(req)
+}
+
 // requirePlatformClient returns an error if the Platform SDK client is not
 // available. Platform commands call this at the top of RunE so users get a
 // clear message instead of a nil-pointer panic.
@@ -118,7 +144,7 @@ func newPlatformSDKClient(url, clientID, clientSecret, tenantID, securityCloudTe
 	// *APIResponseError), so the fix is to stop shadowing it.
 	jar, _ := cookiejar.New(nil)
 	stdClient := &http.Client{Timeout: 60 * time.Second, Jar: jar}
-	stdClient.Transport = http.DefaultTransport
+	stdClient.Transport = &identityEncodingOnWrites{inner: http.DefaultTransport}
 	if verboseLevel > 0 {
 		stdClient.Transport = &platformVerboseTransport{inner: stdClient.Transport, level: verboseLevel}
 	}

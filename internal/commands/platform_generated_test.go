@@ -3,6 +3,7 @@
 package commands
 
 import (
+	"io"
 	"net/http"
 	"strings"
 	"testing"
@@ -235,4 +236,55 @@ func TestGeneratedSecurityCloudListIsTenantFirstAndEmptyIsAnArray(t *testing.T) 
 	if got := strings.TrimSpace(string(out.rawData)); got != "[]" {
 		t.Errorf("empty list printed %q, want %q", got, "[]")
 	}
+}
+
+// TestIdentityEncodingOnWrites covers the workaround for a gateway bug: a
+// gzipped create response comes back with "href": null and no Location header,
+// and an uncompressed one carries both. Go asks for gzip on every request, so
+// every create through this CLI saw null for a field the schema declares
+// required. Reads keep gzip — a full list is where it earns its keep.
+func TestIdentityEncodingOnWrites(t *testing.T) {
+	cases := []struct {
+		method string
+		want   string
+	}{
+		{http.MethodPost, "identity"},
+		{http.MethodPut, "identity"},
+		{http.MethodPatch, "identity"},
+		{http.MethodGet, ""},
+		{http.MethodDelete, ""},
+	}
+	for _, tc := range cases {
+		t.Run(tc.method, func(t *testing.T) {
+			inner := &recordingRoundTripper{}
+			rt := &identityEncodingOnWrites{inner: inner}
+			req, err := http.NewRequest(tc.method, "https://gw.example.com/x", nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err := rt.RoundTrip(req); err != nil {
+				t.Fatal(err)
+			}
+			if got := inner.lastHeader.Get("Accept-Encoding"); got != tc.want {
+				t.Errorf("Accept-Encoding = %q, want %q", got, tc.want)
+			}
+		})
+	}
+}
+
+// recordingRoundTripper counts calls and keeps the last request's headers.
+type recordingRoundTripper struct {
+	calls      int
+	lastHeader http.Header
+}
+
+func (r *recordingRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
+	r.calls++
+	r.lastHeader = req.Header.Clone()
+	return &http.Response{
+		StatusCode: http.StatusOK,
+		Header:     make(http.Header),
+		Body:       io.NopCloser(strings.NewReader("{}")),
+		Request:    req,
+	}, nil
 }
