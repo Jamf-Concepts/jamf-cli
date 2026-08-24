@@ -13,7 +13,6 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/hashicorp/go-retryablehttp"
 	"gopkg.in/yaml.v3"
 
 	jamfclient "github.com/Jamf-Concepts/jamf-cli/internal/client"
@@ -103,16 +102,23 @@ func newPlatformSDKClient(url, clientID, clientSecret, tenantID, securityCloudTe
 		opts = append(opts, jamfplatform.WithFileTokenCache(filepath.Join(cacheDir, "jamf-cli")))
 	}
 
+	// A plain *http.Client, deliberately: the SDK wraps whatever is injected
+	// here in its OWN retryablehttp client (WithHTTPClient sets
+	// retry.HTTPClient), so a retry client passed in becomes an inner retry
+	// loop nested inside the SDK's outer one, and its policy wins on the
+	// attempts it makes. That cost two real bugs. retryablehttp's default
+	// policy retries a 5xx on any method, so a POST that answered 500 was
+	// re-sent — four attempts against an endpoint whose write may already have
+	// committed, which is how one command creates N objects. And its default
+	// ErrorHandler drains the final response and returns a synthetic
+	// "giving up after N attempt(s)", discarding the body: the traceId a 500
+	// has to be reported with was gone from the error and from -vv alike.
+	// The SDK's own client gets both right (isRetryableWriteStatus refuses to
+	// retry POST/PATCH on a 500; PassthroughErrorHandler keeps the real
+	// *APIResponseError), so the fix is to stop shadowing it.
 	jar, _ := cookiejar.New(nil)
-	rc := retryablehttp.NewClient()
-	rc.RetryMax = 3
-	rc.RetryWaitMin = 1 * time.Second
-	rc.RetryWaitMax = 30 * time.Second
-	rc.Logger = nil
-	rc.CheckRetry = retryablehttp.ErrorPropagatedRetryPolicy
-	rc.HTTPClient.Timeout = 60 * time.Second
-	rc.HTTPClient.Jar = jar
-	stdClient := rc.StandardClient()
+	stdClient := &http.Client{Timeout: 60 * time.Second, Jar: jar}
+	stdClient.Transport = http.DefaultTransport
 	if verboseLevel > 0 {
 		stdClient.Transport = &platformVerboseTransport{inner: stdClient.Transport, level: verboseLevel}
 	}
