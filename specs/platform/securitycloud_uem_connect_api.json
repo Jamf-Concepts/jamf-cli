@@ -453,6 +453,14 @@
         "additionalProperties": true,
         "description": "Request to create a connector. Contains the UEM server connection details. Vendor-specific\nfields may also be included; the `vendor` field determines which are applicable. Secret\nfields (credentials) are write-only and are never returned in responses.\n",
         "properties": {
+          "authStrategy": {
+            "description": "How the connector authenticates to the UEM instance. Required on create despite the published spec omitting it: without it the server answers `500 INTERNAL_ERROR` rather than a validation error (wire-verified 2026-08-21), so a request built from the spec alone can only fail. With it present but `deviceSyncAuth` absent the server answers a proper `422 VALIDATION_FAILED`. `JAMF_PRO_OAUTH` is the strategy a Jamf Pro connector uses and the only one wire-confirmed.",
+            "example": "JAMF_PRO_OAUTH",
+            "type": "string"
+          },
+          "deviceSyncAuth": {
+            "$ref": "#/components/schemas/DeviceSyncAuth"
+          },
           "isoCountry": {
             "description": "ISO country code for the UEM instance, when applicable",
             "example": "US",
@@ -554,6 +562,30 @@
             "description": "UEM attribute the user name is read from",
             "example": "USER_NAME",
             "minLength": 1,
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "DeviceSyncAuth": {
+        "description": "Credentials the connector uses to authenticate against the UEM instance. Absent from the published spec, which declares only `vendor`/`url`/`isoCountry` on the create request and defers the rest to an undocumented \"vendor-specific fields may also be included\". Restored here from the wire (probed 2026-08-21): a GET on a live JAMF_PRO connector returns `deviceSyncAuth` alongside `authStrategy`, and a create carrying both is accepted. Which members apply depends on `authStrategy` — OAuth strategies use `clientId`/`clientSecret`, basic-auth strategies use `username`/`password`. Secrets are write-only and never returned; a GET reports only `clientId`, `username` and an `empty` flag.",
+        "properties": {
+          "clientId": {
+            "description": "OAuth client ID. For `JAMF_PRO_OAUTH`, the client ID of an API integration on the target Jamf Pro instance.",
+            "type": "string"
+          },
+          "clientSecret": {
+            "description": "OAuth client secret paired with `clientId`. Write-only — never returned on a read.",
+            "type": "string",
+            "writeOnly": true
+          },
+          "password": {
+            "description": "Password paired with `username`. Write-only — never returned on a read.",
+            "type": "string",
+            "writeOnly": true
+          },
+          "username": {
+            "description": "Username, for the basic-auth strategies.",
             "type": "string"
           }
         },

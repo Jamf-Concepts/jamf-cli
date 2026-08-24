@@ -85,7 +85,7 @@ func newUemConnectorsCreateCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if scaffoldFlag {
 				// Scaffold prints raw JSON regardless of -o, so the output
 				// can be piped straight back into --file.
-				fmt.Println("{\n  \"isoCountry\": \"US\",\n  \"url\": \"https://yourcompany.jamfcloud.com\",\n  \"vendor\": \"JAMF_PRO\"\n}")
+				fmt.Println("{\n  \"authStrategy\": \"JAMF_PRO_OAUTH\",\n  \"deviceSyncAuth\": {\n    \"clientId\": \"\",\n    \"clientSecret\": \"\",\n    \"password\": \"\",\n    \"username\": \"\"\n  },\n  \"isoCountry\": \"US\",\n  \"url\": \"https://yourcompany.jamfcloud.com\",\n  \"vendor\": \"JAMF_PRO\"\n}")
 				return nil
 			}
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {

@@ -538,6 +538,7 @@
         "type": "object"
       },
       "AppSecurity": {
+        "additionalProperties": false,
         "description": "Security controls applied to App traffic.",
         "properties": {
           "deviceManagementBasedAccess": {
@@ -593,6 +594,82 @@
         "description": "App category name. Use the `displayName` field from `GET /v1/categories` — that endpoint is the authoritative source. The value must exactly match a `displayName` returned by `content-block-service`. Unknown values return `409 MISSING_CATEGORY_NAME` — the category list is server-owned and may change, so an unrecognized name is a state conflict, not a malformed request. TRS validates against `displayName` (e.g. `\"Business \u0026 Industry\"`), not the internal `name` (e.g. `\"Category - Business \u0026 Industry\"`).\n",
         "minLength": 1,
         "type": "string"
+      },
+      "CipherSuiteConfig": {
+        "description": "Cipher suite configuration for an IKE or ESP phase.",
+        "properties": {
+          "dhGroups": {
+            "description": "Diffie-Hellman group. Exactly one value.",
+            "example": [
+              "modp2048"
+            ],
+            "items": {
+              "enum": [
+                "modp1024",
+                "modp1536",
+                "modp2048",
+                "modp3072",
+                "modp4096",
+                "ecp256",
+                "ecp384",
+                "ecp521"
+              ],
+              "type": "string"
+            },
+            "maxItems": 1,
+            "minItems": 1,
+            "type": "array"
+          },
+          "encryption": {
+            "description": "Encryption algorithm. Exactly one value.",
+            "example": [
+              "aes256"
+            ],
+            "items": {
+              "enum": [
+                "3des",
+                "aes128",
+                "aes256"
+              ],
+              "type": "string"
+            },
+            "maxItems": 1,
+            "minItems": 1,
+            "type": "array"
+          },
+          "integrity": {
+            "description": "Integrity algorithm. Exactly one value.",
+            "example": [
+              "sha256"
+            ],
+            "items": {
+              "enum": [
+                "md5",
+                "sha1",
+                "sha256",
+                "sha512"
+              ],
+              "type": "string"
+            },
+            "maxItems": 1,
+            "minItems": 1,
+            "type": "array"
+          },
+          "lifetimeInSec": {
+            "description": "Key lifetime in seconds (e.g. `28800` for IKE, `3600` for ESP).",
+            "example": 28800,
+            "format": "int64",
+            "minimum": 1,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "encryption",
+          "integrity",
+          "dhGroups",
+          "lifetimeInSec"
+        ],
+        "type": "object"
       },
       "ConnectionConfigLeftRequest": {
         "description": "IPSec connection endpoint for write requests. Includes the `secret` field. `secret` is write-only — it is never returned in GET responses.\n",
@@ -722,7 +799,7 @@
             "type": "string"
           },
           "subnets": {
-            "description": "CIDR subnet routed through this endpoint. Exactly 1 element.",
+            "description": "CIDR subnets routed through this endpoint.",
             "example": [
               "0.0.0.0/0"
             ],
@@ -730,7 +807,6 @@
               "description": "IPv4 CIDR notation (e.g. `0.0.0.0/0`, `172.31.140.203/29`).",
               "type": "string"
             },
-            "maxItems": 1,
             "minItems": 1,
             "type": "array",
             "uniqueItems": true
@@ -772,13 +848,12 @@
             "type": "string"
           },
           "subnets": {
-            "description": "CIDR subnet routed through this endpoint (e.g. `0.0.0.0/0`). Exactly 1 element.",
+            "description": "CIDR subnets routed through this endpoint (e.g. `0.0.0.0/0`).",
             "items": {
               "description": "IPv4 CIDR notation (e.g. `0.0.0.0/0`).",
               "example": "10.10.0.0/16",
               "type": "string"
             },
-            "maxItems": 1,
             "minItems": 1,
             "type": "array",
             "uniqueItems": true
@@ -883,81 +958,6 @@
         "required": [
           "id",
           "href"
-        ],
-        "type": "object"
-      },
-      "CypherSuiteConfig": {
-        "description": "Cipher suite configuration for an IKE or ESP phase.",
-        "properties": {
-          "dhGroups": {
-            "description": "Diffie-Hellman group. Exactly one value.",
-            "example": [
-              "modp2048"
-            ],
-            "items": {
-              "enum": [
-                "modp1024",
-                "modp1536",
-                "modp2048",
-                "modp3072",
-                "modp4096",
-                "ecp256",
-                "ecp384",
-                "ecp521"
-              ],
-              "type": "string"
-            },
-            "maxItems": 1,
-            "minItems": 1,
-            "type": "array"
-          },
-          "encryption": {
-            "description": "Encryption algorithm. Exactly one value.",
-            "example": [
-              "aes256"
-            ],
-            "items": {
-              "enum": [
-                "3des",
-                "aes128",
-                "aes256"
-              ],
-              "type": "string"
-            },
-            "maxItems": 1,
-            "minItems": 1,
-            "type": "array"
-          },
-          "integrity": {
-            "description": "Integrity algorithm. Exactly one value.",
-            "example": [
-              "sha256"
-            ],
-            "items": {
-              "enum": [
-                "md5",
-                "sha1",
-                "sha256",
-                "sha512"
-              ],
-              "type": "string"
-            },
-            "maxItems": 1,
-            "minItems": 1,
-            "type": "array"
-          },
-          "lifetimeInSec": {
-            "description": "Key lifetime in seconds (e.g. `28800` for IKE, `3600` for ESP).",
-            "example": 28800,
-            "minimum": 1,
-            "type": "integer"
-          }
-        },
-        "required": [
-          "encryption",
-          "integrity",
-          "dhGroups",
-          "lifetimeInSec"
         ],
         "type": "object"
       },
@@ -1211,8 +1211,9 @@
           }
         },
         "required": [
-          "name",
+          "contact",
           "datacenter",
+          "name",
           "tenantIds"
         ],
         "type": "object"
@@ -1221,10 +1222,10 @@
         "description": "IPSec tunnel configuration returned on GET. Secrets are never included in responses.\n",
         "properties": {
           "esp": {
-            "$ref": "#/components/schemas/CypherSuiteConfig"
+            "$ref": "#/components/schemas/CipherSuiteConfig"
           },
           "ike": {
-            "$ref": "#/components/schemas/CypherSuiteConfig"
+            "$ref": "#/components/schemas/CipherSuiteConfig"
           },
           "keyExchange": {
             "description": "IKE version.",
@@ -1250,10 +1251,10 @@
         "description": "Partial IPSec configuration for PATCH. All fields optional — TRS performs a deep merge. Supply only `left.secret` to rotate the pre-shared key, or the full block to replace cipher suites and endpoint addresses simultaneously. `right.secret` is derived automatically from `left.secret` — callers never set it directly.\n",
         "properties": {
           "esp": {
-            "$ref": "#/components/schemas/CypherSuiteConfig"
+            "$ref": "#/components/schemas/CipherSuiteConfig"
           },
           "ike": {
-            "$ref": "#/components/schemas/CypherSuiteConfig"
+            "$ref": "#/components/schemas/CipherSuiteConfig"
           },
           "keyExchange": {
             "description": "IKE version.",
@@ -1277,10 +1278,10 @@
         "description": "IPSec tunnel configuration for POST requests. All fields required. `left.secret` sets the pre-shared key — it is automatically applied to both tunnel endpoints.\n",
         "properties": {
           "esp": {
-            "$ref": "#/components/schemas/CypherSuiteConfig"
+            "$ref": "#/components/schemas/CipherSuiteConfig"
           },
           "ike": {
-            "$ref": "#/components/schemas/CypherSuiteConfig"
+            "$ref": "#/components/schemas/CipherSuiteConfig"
           },
           "keyExchange": {
             "description": "IKE version.",
