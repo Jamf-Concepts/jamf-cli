@@ -597,7 +597,7 @@
   },
   "openapi": "3.0.3",
   "paths": {
-    "/tenant/{tenantId}/dns/custom-hostname-mappings": {
+    "/v1/tenant/{tenantId}/dns/custom-hostname-mappings": {
       "delete": {
         "description": "Clears all tenant Custom Hostname Mappings.\n\n**Required Permissions:** `delete:jsc:all`",
         "operationId": "clearCustomHostnameMappings",
@@ -836,7 +836,7 @@
         ]
       }
     },
-    "/tenant/{tenantId}/dns/search-domains": {
+    "/v1/tenant/{tenantId}/dns/search-domains": {
       "delete": {
         "description": "Clears the tenant Search Domain, removing the configured suffix.\n\n**Required Permissions:** `delete:jsc:all`",
         "operationId": "clearSearchDomain",
@@ -1008,7 +1008,7 @@
         ]
       }
     },
-    "/tenant/{tenantId}/dns/zones": {
+    "/v1/tenant/{tenantId}/dns/zones": {
       "get": {
         "description": "Returns the full list of DNS Zones configured for the tenant. The list is not paginated and is bounded by a per-customer maximum zone cap. The full bounded set is returned in a single response and `totalCount` reflects the complete set. Pagination is currently not supported.\n\n**Required Permissions:** `read:jsc:all`",
         "operationId": "listDnsZones",
@@ -1308,7 +1308,7 @@
         ]
       }
     },
-    "/tenant/{tenantId}/dns/zones/{id}": {
+    "/v1/tenant/{tenantId}/dns/zones/{id}": {
       "delete": {
         "description": "Deletes the DNS Zone identified by its UUID.\n\n**Required Permissions:** `delete:jsc:all`",
         "operationId": "deleteDnsZone",
@@ -1612,6 +1612,5 @@
       "description": "Operations for managing tenant Custom Hostname Mappings.",
       "name": "custom-hostname-mappings"
     }
-  ],
-  "x-jamf-tenant-path-version": "v1"
+  ]
 }

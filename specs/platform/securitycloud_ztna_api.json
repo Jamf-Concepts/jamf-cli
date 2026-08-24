@@ -83,6 +83,20 @@
                   "traceId": "ecf2ca07e23c0abc12393472f2b783df"
                 }
               },
+              "ipsecRemoval": {
+                "summary": "Attempt to remove IPSec configuration",
+                "value": {
+                  "errors": [
+                    {
+                      "code": "IPSEC_REMOVAL_NOT_SUPPORTED",
+                      "description": "IPSec configuration cannot be removed from a gateway that has it configured.",
+                      "field": "ipsec"
+                    }
+                  ],
+                  "httpStatus": 400,
+                  "traceId": "ecf2ca07e23c0abc12393472f2b783df"
+                }
+              },
               "ipsecSecretClear": {
                 "summary": "Attempt to clear IPSec secret",
                 "value": {
@@ -103,7 +117,7 @@
             }
           }
         },
-        "description": "Bad request — validation error. Common codes: `INVALID_FIELD` (schema or constraint violation), `IPSEC_SECRET_CLEAR_NOT_SUPPORTED` (explicit `null` sent for `ipsec.left.secret`).\n"
+        "description": "Bad request — validation error. Common codes: `INVALID_FIELD` (schema or constraint violation), `IPSEC_SECRET_CLEAR_NOT_SUPPORTED` (explicit `null` sent for `ipsec.left.secret`), `IPSEC_REMOVAL_NOT_SUPPORTED` (explicit `null` sent for `ipsec` on a gateway that has IPSec configured).\n"
       },
       "conflict": {
         "content": {
@@ -131,7 +145,7 @@
         "content": {
           "application/json": {
             "example": {
-              "href": "/api/securitycloud/tenant/3fa85f64-5717-4562-b3fc-2c963f66afa6/v1/ztna/gateways/a1b2",
+              "href": "/api/securitycloud/tenant/550e8400-e29b-41d4-a716-446655440001/v1/ztna/gateways/a1b2",
               "id": "a1b2"
             },
             "schema": {
@@ -308,6 +322,8 @@
           },
           "httpStatus": {
             "example": 400,
+            "maximum": 599,
+            "minimum": 100,
             "type": "integer"
           },
           "traceId": {
@@ -578,6 +594,48 @@
         "minLength": 1,
         "type": "string"
       },
+      "ConnectionConfigLeftRequest": {
+        "description": "IPSec connection endpoint for write requests. Includes the `secret` field. `secret` is write-only — it is never returned in GET responses.\n",
+        "properties": {
+          "host": {
+            "description": "Endpoint address or `%any`.",
+            "example": "%any",
+            "minLength": 1,
+            "type": "string"
+          },
+          "id": {
+            "description": "IKE identity (e.g. `wpa.wandera.com` or `%any`).",
+            "example": "wpa.wandera.com",
+            "minLength": 1,
+            "type": "string"
+          },
+          "secret": {
+            "description": "Pre-shared key. Provide to set or rotate the secret. Omit to preserve the existing secret on PATCH — it can only be rotated, never cleared. Sending `null` explicitly returns `400 IPSEC_SECRET_CLEAR_NOT_SUPPORTED`.\n",
+            "example": "my-pre-shared-key",
+            "format": "password",
+            "type": "string",
+            "writeOnly": true
+          },
+          "subnets": {
+            "description": "Jamf-side encryption domain. Must be a private (RFC1918) CIDR in one of the ranges above. Exactly 1 element.\n",
+            "items": {
+              "description": "Private RFC1918 IPv4 CIDR — `10.0.0.0/8` (prefix /8–/30), `172.16.0.0/12` (/12–/30), or `192.168.0.0/16` (/16–/30) (e.g. `172.31.140.203/29`).\n",
+              "example": "172.31.140.203/29",
+              "type": "string"
+            },
+            "maxItems": 1,
+            "minItems": 1,
+            "type": "array",
+            "uniqueItems": true
+          }
+        },
+        "required": [
+          "id",
+          "host",
+          "subnets"
+        ],
+        "type": "object"
+      },
       "ConnectionConfigLeftResponse": {
         "description": "IPSec Jamf-side endpoint returned on GET. Secrets are never included.",
         "properties": {
@@ -613,29 +671,58 @@
         },
         "type": "object"
       },
-      "ConnectionConfigRequest": {
-        "description": "IPSec connection endpoint for write requests. Includes the `secret` field. `secret` is write-only — it is never returned in GET responses.\n",
+      "ConnectionConfigPatchLeftRequest": {
+        "description": "IPSec connection endpoint for PATCH `left`. All fields optional — supply only the fields to update. `secret` is write-only; omit to preserve the existing PSK; sending `null` returns `400 IPSEC_SECRET_CLEAR_NOT_SUPPORTED`.\n",
         "properties": {
           "host": {
             "description": "Endpoint address or `%any`.",
             "example": "%any",
-            "minLength": 1,
             "type": "string"
           },
           "id": {
             "description": "IKE identity (e.g. `wpa.wandera.com` or `%any`).",
             "example": "wpa.wandera.com",
-            "minLength": 1,
             "type": "string"
           },
           "secret": {
-            "description": "Pre-shared key. Provide to set or rotate the secret. Omit to preserve the existing secret on PATCH — it can only be rotated, never cleared. Sending `null` explicitly returns `400 IPSEC_SECRET_CLEAR_NOT_SUPPORTED`.\n",
+            "description": "Pre-shared key. Provide to set or rotate the PSK. Omit to preserve the existing secret. Sending `null` returns `400 IPSEC_SECRET_CLEAR_NOT_SUPPORTED`.\n",
+            "example": "new-pre-shared-key",
             "format": "password",
             "type": "string",
             "writeOnly": true
           },
           "subnets": {
-            "description": "CIDR subnet routed through this endpoint (e.g. `0.0.0.0/0`). Exactly 1 element.\n",
+            "description": "Jamf-side encryption domain. Must be a private (RFC1918) CIDR in one of the ranges above. Exactly 1 element.\n",
+            "example": [
+              "172.31.140.203/29"
+            ],
+            "items": {
+              "description": "Private RFC1918 IPv4 CIDR — `10.0.0.0/8` (prefix /8–/30), `172.16.0.0/12` (/12–/30), or `192.168.0.0/16` (/16–/30) (e.g. `172.31.140.203/29`).\n",
+              "type": "string"
+            },
+            "maxItems": 1,
+            "minItems": 1,
+            "type": "array",
+            "uniqueItems": true
+          }
+        },
+        "type": "object"
+      },
+      "ConnectionConfigPatchRightRequest": {
+        "description": "IPSec connection endpoint for PATCH `right` (remote peer). The secret is always derived from `left.secret` — callers never supply it here.\n",
+        "properties": {
+          "host": {
+            "description": "Endpoint address or `%any`.",
+            "example": "%any",
+            "type": "string"
+          },
+          "id": {
+            "description": "IKE identity (e.g. `wpa.wandera.com` or `%any`).",
+            "example": "%any",
+            "type": "string"
+          },
+          "subnets": {
+            "description": "CIDR subnet routed through this endpoint. Exactly 1 element.",
             "example": [
               "0.0.0.0/0"
             ],
@@ -647,37 +734,48 @@
             "minItems": 1,
             "type": "array",
             "uniqueItems": true
+          },
+          "vendor": {
+            "description": "VPN vendor identifier of the remote peer. Case-sensitive.",
+            "enum": [
+              "Checkpoint",
+              "Cisco",
+              "Fortinet",
+              "Juniper",
+              "Palo Alto",
+              "SonicWall",
+              "Sophos",
+              "Sourcefire",
+              "strongSwan",
+              "Watchguard",
+              "Other"
+            ],
+            "example": "Cisco",
+            "type": "string"
           }
         },
-        "required": [
-          "id",
-          "host",
-          "subnets"
-        ],
         "type": "object"
       },
-      "ConnectionConfigRequestNoSecret": {
-        "description": "IPSec connection endpoint for the `right` side. Identical to `left` but without `secret` — the secret is set automatically from `left.secret`. `vendor` is **required** — use one of the fixed vendor identifiers listed under `ConnectionConfigRequestNoSecret.vendor`. Values are case-sensitive.\n",
+      "ConnectionConfigRightRequest": {
+        "description": "IPSec connection endpoint for the `right` (remote peer) side. The secret is derived automatically from `left.secret` — callers never supply it here. `vendor` is **required** — use the peer's VPN vendor identifier (e.g. `cisco`, `strongSwan`, `juniper`).\n",
         "properties": {
           "host": {
             "description": "Endpoint address.",
-            "example": "203.0.113.10",
+            "example": "81.145.130.194",
             "minLength": 1,
             "type": "string"
           },
           "id": {
             "description": "IKE identity.",
-            "example": "peer-gw-01",
+            "example": "vpn-peer.corp.example.com",
             "minLength": 1,
             "type": "string"
           },
           "subnets": {
             "description": "CIDR subnet routed through this endpoint (e.g. `0.0.0.0/0`). Exactly 1 element.",
-            "example": [
-              "10.1.0.0/16"
-            ],
             "items": {
               "description": "IPv4 CIDR notation (e.g. `0.0.0.0/0`).",
+              "example": "10.10.0.0/16",
               "type": "string"
             },
             "maxItems": 1,
@@ -1135,6 +1233,8 @@
               "ikev2"
             ],
             "example": "ikev2",
+            "maxLength": 5,
+            "minLength": 5,
             "type": "string"
           },
           "left": {
@@ -1146,8 +1246,8 @@
         },
         "type": "object"
       },
-      "GatewayIpSecRequest": {
-        "description": "IPSec tunnel configuration for POST / PATCH requests. Provide `left.secret` to set or rotate the PSK — it is automatically applied to both tunnel endpoints. All other fields are accepted as on create.\n",
+      "GatewayIpSecPatchRequest": {
+        "description": "Partial IPSec configuration for PATCH. All fields optional — TRS performs a deep merge. Supply only `left.secret` to rotate the pre-shared key, or the full block to replace cipher suites and endpoint addresses simultaneously. `right.secret` is derived automatically from `left.secret` — callers never set it directly.\n",
         "properties": {
           "esp": {
             "$ref": "#/components/schemas/CypherSuiteConfig"
@@ -1165,10 +1265,37 @@
             "type": "string"
           },
           "left": {
-            "$ref": "#/components/schemas/ConnectionConfigRequest"
+            "$ref": "#/components/schemas/ConnectionConfigPatchLeftRequest"
           },
           "right": {
-            "$ref": "#/components/schemas/ConnectionConfigRequestNoSecret"
+            "$ref": "#/components/schemas/ConnectionConfigPatchRightRequest"
+          }
+        },
+        "type": "object"
+      },
+      "GatewayIpSecRequest": {
+        "description": "IPSec tunnel configuration for POST requests. All fields required. `left.secret` sets the pre-shared key — it is automatically applied to both tunnel endpoints.\n",
+        "properties": {
+          "esp": {
+            "$ref": "#/components/schemas/CypherSuiteConfig"
+          },
+          "ike": {
+            "$ref": "#/components/schemas/CypherSuiteConfig"
+          },
+          "keyExchange": {
+            "description": "IKE version.",
+            "enum": [
+              "ikev1",
+              "ikev2"
+            ],
+            "example": "ikev2",
+            "type": "string"
+          },
+          "left": {
+            "$ref": "#/components/schemas/ConnectionConfigLeftRequest"
+          },
+          "right": {
+            "$ref": "#/components/schemas/ConnectionConfigRightRequest"
           }
         },
         "required": [
@@ -1246,8 +1373,8 @@
             "type": "boolean"
           },
           "ipsec": {
-            "$ref": "#/components/schemas/GatewayIpSecRequest",
-            "description": "Replaces the full IPSec tunnel configuration. All fields are accepted. `right.secret` is derived automatically from `left.secret` — callers never set it directly.\n"
+            "$ref": "#/components/schemas/GatewayIpSecPatchRequest",
+            "description": "IPSec tunnel configuration to update. TRS performs a deep merge — you may supply only `left.secret` to rotate the pre-shared key, or the full block to replace cipher suites and endpoint addresses simultaneously. `right.secret` is always derived from `left.secret` automatically — callers never set it directly. Sending `null` returns `400 IPSEC_REMOVAL_NOT_SUPPORTED`.\n"
           },
           "name": {
             "description": "New name for the gateway.",
@@ -1756,7 +1883,7 @@
   },
   "openapi": "3.0.3",
   "paths": {
-    "/tenant/{tenantId}/ztna/apps": {
+    "/v1/tenant/{tenantId}/ztna/apps": {
       "get": {
         "description": "List all Apps (Access Policies) for the tenant, paginated.\n\n\n**Required Permissions:** `read:jsc:all`",
         "operationId": "listApps",
@@ -1902,7 +2029,7 @@
         ]
       }
     },
-    "/tenant/{tenantId}/ztna/apps/{appId}": {
+    "/v1/tenant/{tenantId}/ztna/apps/{appId}": {
       "delete": {
         "description": "Delete an App (Access Policy). Returns `204` on success. Returns `404` if the App does not exist or is not owned by this customer. Returns `409` if deletion cannot complete due to a conflict.\n\n\n**Required Permissions:** `delete:jsc:all`",
         "operationId": "deleteApp",
@@ -2098,7 +2225,7 @@
         ]
       }
     },
-    "/tenant/{tenantId}/ztna/gateways": {
+    "/v1/tenant/{tenantId}/ztna/gateways": {
       "get": {
         "description": "List dedicated Gateways for the tenant, paginated. Returns only customer-owned gateways. Each item includes datacenter, availability zones, IPSec configuration, and operational status.\n\n\n**Required Permissions:** `read:jsc:all`",
         "operationId": "listGateways",
@@ -2121,6 +2248,98 @@
                   "results": [
                     {
                       "availabilityZones": [
+                        "3.9.67.90",
+                        "18.130.213.235"
+                      ],
+                      "contact": {
+                        "email": "ops@example.com",
+                        "name": "Ops Team"
+                      },
+                      "datacenter": "eu-west-2",
+                      "dedicatedIps": {
+                        "enabled": false
+                      },
+                      "enabled": true,
+                      "id": "a1b2",
+                      "ipsec": {
+                        "esp": {
+                          "dhGroups": [
+                            "modp2048"
+                          ],
+                          "encryption": [
+                            "aes128"
+                          ],
+                          "integrity": [
+                            "sha256"
+                          ],
+                          "lifetimeInSec": 3600
+                        },
+                        "ike": {
+                          "dhGroups": [
+                            "modp2048"
+                          ],
+                          "encryption": [
+                            "aes128"
+                          ],
+                          "integrity": [
+                            "sha256"
+                          ],
+                          "lifetimeInSec": 28800
+                        },
+                        "keyExchange": "ikev2",
+                        "left": {
+                          "host": "%any",
+                          "id": "wpa.wandera.com",
+                          "subnets": [
+                            "172.31.140.203/29"
+                          ]
+                        },
+                        "right": {
+                          "host": "81.145.130.194",
+                          "id": "vpn-peer.corp.example.com",
+                          "subnets": [
+                            "10.10.0.0/16"
+                          ],
+                          "vendor": "Cisco"
+                        }
+                      },
+                      "name": "EU West IPSec Gateway",
+                      "status": {
+                        "state": "UP",
+                        "tunnelState": "UP",
+                        "updatedAt": "2026-06-02T10:15:30Z"
+                      },
+                      "tenantIds": [
+                        "550e8400-e29b-41d4-a716-446655440001"
+                      ]
+                    },
+                    {
+                      "availabilityZones": [],
+                      "contact": {
+                        "email": "ops@example.com",
+                        "name": "Ops Team"
+                      },
+                      "datacenter": "eu-west-1",
+                      "dedicatedIps": {
+                        "enabled": true,
+                        "ips": [
+                          "54.247.124.192"
+                        ]
+                      },
+                      "enabled": true,
+                      "id": "c3d4",
+                      "name": "EU Ireland Dedicated IP Gateway",
+                      "status": {
+                        "state": "UP",
+                        "tunnelState": null,
+                        "updatedAt": "2026-06-03T09:00:00Z"
+                      },
+                      "tenantIds": [
+                        "550e8400-e29b-41d4-a716-446655440001"
+                      ]
+                    },
+                    {
+                      "availabilityZones": [
                         "18.202.42.169",
                         "54.220.161.57"
                       ],
@@ -2129,16 +2348,19 @@
                         "name": "Ops Team"
                       },
                       "datacenter": "eu-west-1",
+                      "dedicatedIps": {
+                        "enabled": false
+                      },
                       "enabled": true,
-                      "id": "a1b2",
-                      "name": "EU West Gateway",
+                      "id": "e5f6",
+                      "name": "EU Ireland Gateway",
                       "status": {
                         "state": "UP",
                         "tunnelState": null,
-                        "updatedAt": "2026-06-02T10:15:30Z"
+                        "updatedAt": "2026-06-01T14:00:00Z"
                       },
                       "tenantIds": [
-                        "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+                        "550e8400-e29b-41d4-a716-446655440001"
                       ]
                     }
                   ],
@@ -2171,7 +2393,7 @@
         ]
       },
       "post": {
-        "description": "Create a dedicated Gateway. Returns `201 {id, href}` + `Location` header.\n\n`tenantIds` are validated against the caller's organization — returns **403** if any\ntenant ID belongs to a different organization.\n\n**Constraints:**\n- `dedicatedIps.enabled: true` and `ipsec` are mutually exclusive → `400`\n- `dedicatedIps.enabled: true` and non-empty `availabilityZones` are mutually exclusive → `400`\n- Only **one** gateway with `dedicatedIps.enabled: true` is permitted per tenant (quota = 1).\n  A second attempt returns `409 DEDICATED_IPS_LIMIT`. Contact your Jamf account team to increase this limit.\n- Sending `ipsec.left.secret: null` explicitly returns `400 IPSEC_SECRET_CLEAR_NOT_SUPPORTED`.\n\n**No idempotency key.** Gateway `name` is not unique-enforced — a timed-out POST that\nsucceeded server-side may create a duplicate gateway if retried. Verify via\n`GET /ztna/gateways` before retrying a failed create.\n\n\n**Required Permissions:** `create:jsc:all`",
+        "description": "Create a dedicated Gateway. Returns `201 {id, href}` + `Location` header.\n\n`tenantIds` are validated against the caller's organization — returns **400** if any\ntenant ID is not resolvable within the caller's organization.\n\n**Constraints:**\n- `dedicatedIps.enabled: true` and `ipsec` are mutually exclusive → `400`\n- `dedicatedIps.enabled: true` and non-empty `availabilityZones` are mutually exclusive → `400`\n- Only **one** gateway with `dedicatedIps.enabled: true` is permitted per tenant (quota = 1).\n  A second attempt returns `409 DEDICATED_IPS_LIMIT`. Contact your Jamf account team to increase this limit.\n- Sending `ipsec.left.secret: null` explicitly returns `400 IPSEC_SECRET_CLEAR_NOT_SUPPORTED`.\n\n**No idempotency key.** Gateway `name` is not unique-enforced — a timed-out POST that\nsucceeded server-side may create a duplicate gateway if retried. Verify via\n`GET /ztna/gateways` before retrying a failed create.\n\n\n**Required Permissions:** `create:jsc:all`",
         "operationId": "createGateway",
         "parameters": [
           {
@@ -2181,20 +2403,87 @@
         "requestBody": {
           "content": {
             "application/json": {
-              "example": {
-                "availabilityZones": [
-                  "18.202.42.169"
-                ],
-                "contact": {
-                  "email": "ops@example.com",
-                  "name": "Ops Team"
+              "examples": {
+                "dedicatedIpGateway": {
+                  "summary": "Dedicated IP gateway — egress from a fixed IP",
+                  "value": {
+                    "contact": {
+                      "email": "ops@example.com",
+                      "name": "Ops Team"
+                    },
+                    "datacenter": "eu-west-1",
+                    "dedicatedIps": {
+                      "enabled": true
+                    },
+                    "enabled": true,
+                    "name": "EU Ireland Dedicated IP Gateway",
+                    "tenantIds": [
+                      "550e8400-e29b-41d4-a716-446655440001"
+                    ]
+                  }
                 },
-                "datacenter": "eu-west-1",
-                "enabled": true,
-                "name": "EU West Gateway",
-                "tenantIds": [
-                  "3fa85f64-5717-4562-b3fc-2c963f66afa6"
-                ]
+                "ipsecGateway": {
+                  "summary": "IPSec gateway — full tunnel configuration",
+                  "value": {
+                    "availabilityZones": [
+                      "3.9.67.90",
+                      "18.130.213.235"
+                    ],
+                    "contact": {
+                      "email": "ops@example.com",
+                      "name": "Ops Team"
+                    },
+                    "datacenter": "eu-west-2",
+                    "enabled": true,
+                    "ipsec": {
+                      "esp": {
+                        "dhGroups": [
+                          "modp2048"
+                        ],
+                        "encryption": [
+                          "aes128"
+                        ],
+                        "integrity": [
+                          "sha256"
+                        ],
+                        "lifetimeInSec": 3600
+                      },
+                      "ike": {
+                        "dhGroups": [
+                          "modp2048"
+                        ],
+                        "encryption": [
+                          "aes128"
+                        ],
+                        "integrity": [
+                          "sha256"
+                        ],
+                        "lifetimeInSec": 28800
+                      },
+                      "keyExchange": "ikev2",
+                      "left": {
+                        "host": "%any",
+                        "id": "wpa.wandera.com",
+                        "secret": "my-pre-shared-key",
+                        "subnets": [
+                          "172.31.140.203/29"
+                        ]
+                      },
+                      "right": {
+                        "host": "81.145.130.194",
+                        "id": "vpn-peer.corp.example.com",
+                        "subnets": [
+                          "10.10.0.0/16"
+                        ],
+                        "vendor": "Cisco"
+                      }
+                    },
+                    "name": "EU West IPSec Gateway",
+                    "tenantIds": [
+                      "550e8400-e29b-41d4-a716-446655440001"
+                    ]
+                  }
+                }
               },
               "schema": {
                 "$ref": "#/components/schemas/GatewayCreateRequest"
@@ -2239,7 +2528,7 @@
         ]
       }
     },
-    "/tenant/{tenantId}/ztna/gateways/{gatewayId}": {
+    "/v1/tenant/{tenantId}/ztna/gateways/{gatewayId}": {
       "delete": {
         "description": "Delete a dedicated Gateway. Returns `204` on success. Returns `404` if the gateway does not exist or belongs to a different tenant — never `403`. Returns `409` if the gateway is still referenced by an App, a Grouped Gateway, or a DNS Zone — disassociate it first, then retry.\n\n\n**Required Permissions:** `delete:jsc:all`",
         "operationId": "deleteGateway",
@@ -2289,6 +2578,134 @@
           "200": {
             "content": {
               "application/json": {
+                "examples": {
+                  "dedicatedIpGateway": {
+                    "summary": "Dedicated IP gateway",
+                    "value": {
+                      "availabilityZones": [],
+                      "contact": {
+                        "email": "ops@example.com",
+                        "name": "Ops Team"
+                      },
+                      "datacenter": "eu-west-1",
+                      "dedicatedIps": {
+                        "enabled": true,
+                        "ips": [
+                          "54.247.124.192"
+                        ]
+                      },
+                      "enabled": true,
+                      "id": "c3d4",
+                      "name": "EU Ireland Dedicated IP Gateway",
+                      "status": {
+                        "state": "UP",
+                        "tunnelState": null,
+                        "updatedAt": "2026-06-03T09:00:00Z"
+                      },
+                      "tenantIds": [
+                        "550e8400-e29b-41d4-a716-446655440001"
+                      ]
+                    }
+                  },
+                  "ipsecGateway": {
+                    "summary": "IPSec gateway",
+                    "value": {
+                      "availabilityZones": [
+                        "3.9.67.90",
+                        "18.130.213.235"
+                      ],
+                      "contact": {
+                        "email": "ops@example.com",
+                        "name": "Ops Team"
+                      },
+                      "datacenter": "eu-west-2",
+                      "dedicatedIps": {
+                        "enabled": false
+                      },
+                      "enabled": true,
+                      "id": "a1b2",
+                      "ipsec": {
+                        "esp": {
+                          "dhGroups": [
+                            "modp2048"
+                          ],
+                          "encryption": [
+                            "aes128"
+                          ],
+                          "integrity": [
+                            "sha256"
+                          ],
+                          "lifetimeInSec": 3600
+                        },
+                        "ike": {
+                          "dhGroups": [
+                            "modp2048"
+                          ],
+                          "encryption": [
+                            "aes128"
+                          ],
+                          "integrity": [
+                            "sha256"
+                          ],
+                          "lifetimeInSec": 28800
+                        },
+                        "keyExchange": "ikev2",
+                        "left": {
+                          "host": "%any",
+                          "id": "wpa.wandera.com",
+                          "subnets": [
+                            "172.31.140.203/29"
+                          ]
+                        },
+                        "right": {
+                          "host": "81.145.130.194",
+                          "id": "vpn-peer.corp.example.com",
+                          "subnets": [
+                            "10.10.0.0/16"
+                          ],
+                          "vendor": "Cisco"
+                        }
+                      },
+                      "name": "EU West IPSec Gateway",
+                      "status": {
+                        "state": "UP",
+                        "tunnelState": "UP",
+                        "updatedAt": "2026-06-02T10:15:30Z"
+                      },
+                      "tenantIds": [
+                        "550e8400-e29b-41d4-a716-446655440001"
+                      ]
+                    }
+                  },
+                  "plainGateway": {
+                    "summary": "Plain gateway with availability zones",
+                    "value": {
+                      "availabilityZones": [
+                        "18.202.42.169",
+                        "54.220.161.57"
+                      ],
+                      "contact": {
+                        "email": "ops@example.com",
+                        "name": "Ops Team"
+                      },
+                      "datacenter": "eu-west-1",
+                      "dedicatedIps": {
+                        "enabled": false
+                      },
+                      "enabled": true,
+                      "id": "e5f6",
+                      "name": "EU Ireland Gateway",
+                      "status": {
+                        "state": "UP",
+                        "tunnelState": null,
+                        "updatedAt": "2026-06-01T14:00:00Z"
+                      },
+                      "tenantIds": [
+                        "550e8400-e29b-41d4-a716-446655440001"
+                      ]
+                    }
+                  }
+                },
                 "schema": {
                   "$ref": "#/components/schemas/Gateway"
                 }
@@ -2324,7 +2741,7 @@
         }
       ],
       "patch": {
-        "description": "Partially update a dedicated Gateway. All fields are optional — flat body, no nesting.\n\nReturns `404` if the gateway does not exist **or belongs to a different tenant** — never `403`,\nto avoid confirming the existence of gateways owned by other tenants.\n\n`tenantIds` are validated against the caller's organization — **403** on mismatch.\nWhen `datacenter` changes, `availabilityZones` must match the new datacenter prefix\n— returns `400` on mismatch.\nSending `ipsec.left.secret: null` explicitly returns `400 IPSEC_SECRET_CLEAR_NOT_SUPPORTED`\n— omit the field to leave the existing secret unchanged.\n\n**`contact: null` is rejected.** Setting `contact` to `null` in a merge-patch returns\n`409` — the contact field cannot be removed from a dedicated gateway.\n\n**`tenantIds: []` is rejected.** Setting `tenantIds` to an empty array returns `400`\n— a dedicated gateway must always have at least one tenant (`minItems: 1` enforced by schema).\n\n**Known limitation:** The server resolves the deployment ID via an internal GET before\nissuing the PATCH. Concurrent modifications between the GET and PATCH may overwrite each\nother. No optimistic locking is in place for this release — consider ADG-148\n(`VersionId` + `409 OPTIMISTIC_LOCK_FAILED`) in a follow-up if this becomes a concern.\n\n**Datacenter change is destructive:** Expect a connectivity outage while the gateway is\nre-provisioned. `status.state` resets to `PENDING` immediately; `status.tunnelState` resets\nto `null`; status records for the old datacenter are expired. `dedicatedIps.ips` are not\ncleared immediately — treat them as unreliable until VSC completes provisioning in the new datacenter.\n\n\n**Required Permissions:** `update:jsc:all`",
+        "description": "Partially update a dedicated Gateway. All fields are optional — flat body, no nesting.\n\nReturns `404` if the gateway does not exist **or belongs to a different tenant** — never `403`,\nto avoid confirming the existence of gateways owned by other tenants.\n\n`tenantIds` are validated against the caller's organization — **403** on mismatch.\nWhen `datacenter` changes, `availabilityZones` must match the new datacenter prefix\n— returns `400` on mismatch.\nSending `ipsec.left.secret: null` explicitly returns `400 IPSEC_SECRET_CLEAR_NOT_SUPPORTED`\n— omit the field to leave the existing secret unchanged.\nSending `ipsec: null` explicitly returns `400 IPSEC_REMOVAL_NOT_SUPPORTED`\n— IPSec configuration cannot be removed from a gateway that has it.\n\n**Partial IPSec update:** When `ipsec` is present in the patch, TRS performs a\ndeep merge of the IPSec sub-fields — you may supply only `left.secret` to rotate\nthe PSK without replacing the rest of the configuration, or supply the full\n`ipsec` block to replace cipher suites and endpoint addresses simultaneously.\n\n**`contact: null` is rejected.** Setting `contact` to `null` in a merge-patch returns\n`409` — the contact field cannot be removed from a dedicated gateway.\n\n**`tenantIds: []` is rejected.** Setting `tenantIds` to an empty array returns `400`\n— a dedicated gateway must always have at least one tenant (`minItems: 1` enforced by schema).\n\n**Known limitation:** The server resolves the deployment ID via an internal GET before\nissuing the PATCH. Concurrent modifications between the GET and PATCH may overwrite each\nother. No optimistic locking is in place for this release — consider ADG-148\n(`VersionId` + `409 OPTIMISTIC_LOCK_FAILED`) in a follow-up if this becomes a concern.\n\n**Datacenter change is destructive:** Expect a connectivity outage while the gateway is\nre-provisioned. `status.state` resets to `PENDING` immediately; `status.tunnelState` resets\nto `null`; status records for the old datacenter are expired. `dedicatedIps.ips` are not\ncleared immediately — treat them as unreliable until VSC completes provisioning in the new datacenter.\n\n\n**Required Permissions:** `update:jsc:all`",
         "operationId": "patchGateway",
         "parameters": [
           {
@@ -2355,7 +2772,7 @@
                     "enabled": true,
                     "name": "EU West Gateway (updated)",
                     "tenantIds": [
-                      "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+                      "550e8400-e29b-41d4-a716-446655440001"
                     ]
                   }
                 },
@@ -2374,9 +2791,67 @@
                     },
                     "name": "EU West Gateway (updated)",
                     "tenantIds": [
-                      "3fa85f64-5717-4562-b3fc-2c963f66afa6",
-                      "7c9e6679-7425-40de-944b-e07fc1f90ae7"
+                      "550e8400-e29b-41d4-a716-446655440001",
+                      "550e8400-e29b-41d4-a716-446655440002"
                     ]
+                  }
+                },
+                "replaceIpsecConfig": {
+                  "summary": "Replace full IPSec configuration (cipher suites + endpoints + key rotation)",
+                  "value": {
+                    "ipsec": {
+                      "esp": {
+                        "dhGroups": [
+                          "modp2048"
+                        ],
+                        "encryption": [
+                          "aes256"
+                        ],
+                        "integrity": [
+                          "sha256"
+                        ],
+                        "lifetimeInSec": 3600
+                      },
+                      "ike": {
+                        "dhGroups": [
+                          "modp2048"
+                        ],
+                        "encryption": [
+                          "aes256"
+                        ],
+                        "integrity": [
+                          "sha256"
+                        ],
+                        "lifetimeInSec": 28800
+                      },
+                      "keyExchange": "ikev2",
+                      "left": {
+                        "host": "%any",
+                        "id": "wpa.wandera.com",
+                        "secret": "new-pre-shared-key",
+                        "subnets": [
+                          "172.31.140.203/29"
+                        ]
+                      },
+                      "right": {
+                        "host": "81.145.130.194",
+                        "id": "vpn-peer.corp.example.com",
+                        "subnets": [
+                          "10.10.0.0/16"
+                        ],
+                        "vendor": "Cisco"
+                      }
+                    }
+                  }
+                },
+                "rotateIpsecPsk": {
+                  "summary": "Rotate the IPSec pre-shared key",
+                  "value": {
+                    "ipsec": {
+                      "left": {
+                        "secret": "new-pre-shared-key"
+                      }
+                    }
                   }
                 }
               },
@@ -2423,7 +2898,7 @@
         ]
       }
     },
-    "/tenant/{tenantId}/ztna/grouped-gateways": {
+    "/v1/tenant/{tenantId}/ztna/grouped-gateways": {
       "get": {
         "description": "List all Grouped Gateways for the tenant. Not paginated — the full list is returned in a single response.\n\n\n**Required Permissions:** `read:jsc:all`",
         "operationId": "listGroupedGateways",
@@ -2449,7 +2924,7 @@
                       "recoveryDelayInSec": 3600,
                       "routingStrategy": "ACTIVE_STANDBY",
                       "tenantIds": [
-                        "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+                        "550e8400-e29b-41d4-a716-446655440001"
                       ],
                       "updatedAt": "2026-06-03T14:22:00Z"
                     }
@@ -2502,7 +2977,7 @@
                 "recoveryDelayInSec": 3600,
                 "routingStrategy": "ACTIVE_STANDBY",
                 "tenantIds": [
-                  "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+                  "550e8400-e29b-41d4-a716-446655440001"
                 ]
               },
               "schema": {
@@ -2548,7 +3023,7 @@
         ]
       }
     },
-    "/tenant/{tenantId}/ztna/grouped-gateways/{groupedGatewayId}": {
+    "/v1/tenant/{tenantId}/ztna/grouped-gateways/{groupedGatewayId}": {
       "delete": {
         "description": "Delete a Grouped Gateway. Returns `204` on success. Returns `404` if the grouped gateway does not exist or belongs to a different tenant — never `403`. Returns `409` if the grouped gateway is still referenced by an App or a DNS Zone — disassociate it first.\n\n\n**Required Permissions:** `delete:jsc:all`",
         "operationId": "deleteGroupedGateway",
@@ -2651,8 +3126,8 @@
                 ],
                 "name": "EU Failover Group (updated)",
                 "tenantIds": [
-                  "3fa85f64-5717-4562-b3fc-2c963f66afa6",
-                  "7c9e6679-7425-40de-944b-e07fc1f90ae7"
+                  "550e8400-e29b-41d4-a716-446655440001",
+                  "550e8400-e29b-41d4-a716-446655440002"
                 ]
               },
               "schema": {
@@ -2701,7 +3176,7 @@
         ]
       }
     },
-    "/tenant/{tenantId}/ztna/predefined-apps": {
+    "/v1/tenant/{tenantId}/ztna/predefined-apps": {
       "get": {
         "description": "List the catalog of predefined SaaS application definitions. Not paginated. Pass the `id` as `predefinedAppId` when creating an App.\n\n\n**Required Permissions:** `read:jsc:all`",
         "operationId": "listPredefinedApps",
@@ -2741,7 +3216,7 @@
         ]
       }
     },
-    "/tenant/{tenantId}/ztna/shared-gateways": {
+    "/v1/tenant/{tenantId}/ztna/shared-gateways": {
       "get": {
         "description": "List Jamf-managed Shared Gateways available to this tenant. Not paginated — the full list is returned in a single response. Returns `id` and `name` only — no deployment details. These gateways are maintained by Jamf infrastructure and cannot be modified.\n\n\n**Required Permissions:** `read:jsc:all`",
         "operationId": "listSharedGateways",
@@ -2836,6 +3311,5 @@
       "description": "Read-only catalog of predefined SaaS application definitions. Reference an `id` as `predefinedAppId` when creating an App based on a known SaaS app.\n",
       "name": "predefined-apps"
     }
-  ],
-  "x-jamf-tenant-path-version": "v1"
+  ]
 }
