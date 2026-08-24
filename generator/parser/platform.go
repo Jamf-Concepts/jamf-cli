@@ -252,7 +252,7 @@ func normalisePlatformPaths(doc map[string]any, service, version string) (tenant
 	tenantPaths = make(map[string]string, len(paths))
 	expectedStatuses = make(map[string]int)
 	for path, item := range paths {
-		full := prefix + path
+		full := tenantBeforeVersion(service, prefix+path)
 		stripped := stripTenantSegment(full)
 		if pi, ok := item.(map[string]any); ok {
 			collectExpectedStatuses(pi, stripped, expectedStatuses)
@@ -436,6 +436,91 @@ func trimPlatformPathPrefix(name string) string {
 		}
 	}
 	return name
+}
+
+// tenantFirstServices lists the gateway namespaces whose URLs place
+// /tenant/{tenantId} *before* the version segment. Everything else in the Jamf
+// estate is version-first, so this is an explicit allowlist, not a default.
+//
+// Only Security Cloud is in it, and the reason is auditing rather than routing.
+// Its Tyk definition is a catch-all proxy that routes both orderings
+// identically — the SDK wire-verified 200 for every family in both shapes on
+// 2026-08-21 — but the audit rules deciding which mutating requests get
+// recorded are path globs of the form `/**/v{n}/{service}/...`, which match a
+// stripped path only when the tenant precedes the version. Under version-first
+// most Security Cloud mutations executed and were never audited, so a CLI
+// `dns-zones delete` left no record on the gateway side.
+//
+// This duplicates tenantFirstNamespaces in the SDK's internal/client, which the
+// CLI cannot import. The duplication is self-detecting rather than silent: the
+// gateway setup command builds its validation path through the SDK's
+// TenantPrefix, so a divergence fails TestValidatePlatformGatewayCredentials_
+// SecurityCloudTenant, whose httptest mux registers the path the generator
+// produces.
+var tenantFirstServices = map[string]bool{
+	securityCloudService: true,
+}
+
+// securityCloudService is the gateway namespace Jamf Security Cloud is served
+// under.
+const securityCloudService = "securitycloud"
+
+// tenantFirstService reports whether a service's URLs put the tenant segment
+// before the version. A service matches exactly or on its first path segment,
+// mirroring the SDK, so a future "securitycloud/{sub}" inherits the ordering
+// instead of silently reverting to version-first.
+func tenantFirstService(service string) bool {
+	if tenantFirstServices[service] {
+		return true
+	}
+	root, _, found := strings.Cut(service, "/")
+	return found && tenantFirstServices[root]
+}
+
+// tenantBeforeVersion moves /tenant/{tenantId} ahead of the first version
+// segment for services that need it, leaving every other path untouched.
+//
+// The three shapes Security Cloud's specs arrive in all end up the same way:
+// dns and ztna carry no version at all and take it from
+// x-jamf-tenant-path-version, which prefix puts in front of the spec's
+// /tenant/{tenantId} (/api/securitycloud/v1/tenant/{t}/dns/zones); categories
+// and device groups carry the version inside the path, ahead of the tenant
+// (/api/securitycloud/v1/tenant/{t}/groups); and uem-connect already declares
+// the tenant first, with its version after the sub-namespace
+// (/api/securitycloud/tenant/{t}/uem-connect/v1/connectors), which is why this
+// moves the tenant to the version rather than swapping the two — the uem-connect
+// version is not the segment the tenant belongs in front of.
+func tenantBeforeVersion(service, p string) string {
+	if !tenantFirstService(service) {
+		return p
+	}
+	const marker = "tenant"
+	parts := strings.Split(p, "/")
+	tenantIdx, versionIdx := -1, -1
+	for i, seg := range parts {
+		if tenantIdx == -1 && seg == marker && i+1 < len(parts) && parts[i+1] == "{tenantId}" {
+			tenantIdx = i
+		}
+		if versionIdx == -1 && isVersionSegment(seg) {
+			versionIdx = i
+		}
+	}
+	// Nothing to reorder when either segment is absent, or when the tenant
+	// already precedes the version.
+	if tenantIdx == -1 || versionIdx == -1 || tenantIdx < versionIdx {
+		return p
+	}
+	out := make([]string, 0, len(parts))
+	out = append(out, parts[:versionIdx]...)
+	out = append(out, marker, "{tenantId}")
+	out = append(out, parts[versionIdx:tenantIdx]...)
+	out = append(out, parts[tenantIdx+2:]...)
+	return strings.Join(out, "/")
+}
+
+// isVersionSegment reports whether a path segment is a URL version ("v1", "v2").
+func isVersionSegment(seg string) bool {
+	return len(seg) >= 2 && seg[0] == 'v' && seg[1] >= '0' && seg[1] <= '9'
 }
 
 func stripTenantSegment(p string) string {

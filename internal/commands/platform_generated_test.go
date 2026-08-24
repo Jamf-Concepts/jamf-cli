@@ -196,3 +196,43 @@ func TestGeneratedRulesListWithQueryParam(t *testing.T) {
 		t.Errorf("sent the camelCase parameter the server ignores: %q", seenQuery)
 	}
 }
+
+// TestGeneratedSecurityCloudListIsTenantFirstAndEmptyIsAnArray covers two things
+// that are only visible at runtime, on one request.
+//
+// The path: Security Cloud puts /tenant/{id} ahead of the version, and the
+// generated command holds that path as a literal — so the SDK getting the
+// ordering right in TenantPrefix does nothing for it. An exact mux registration
+// is what catches a regression, since both orderings are routed by the real
+// gateway and only the audit rules can tell them apart.
+//
+// The body: the paginated list path aggregates into a slice, and a nil slice
+// marshals to "null". An empty collection therefore used to print "null" while
+// the unpaginated path printed "[]" for the identical wire response, which broke
+// any jq consumer on exactly the tenants where the collection was empty.
+func TestGeneratedSecurityCloudListIsTenantFirstAndEmptyIsAnArray(t *testing.T) {
+	sdk, mux := newTestPlatformSDK(t)
+
+	const wantPath = "/api/securitycloud/tenant/" + testTenantID + "/v1/ztna/gateways"
+	var seenPath string
+	mux.HandleFunc(wantPath, func(w http.ResponseWriter, r *http.Request) {
+		seenPath = r.URL.Path
+		// The empty state every Security Cloud collection answers with.
+		writeJSON(w, map[string]any{"totalCount": 0, "results": []any{}})
+	})
+
+	out := &captureOutput{}
+	cliCtx := &registry.CLIContext{PlatformSDKClient: sdk, Output: out}
+	cmd := platformgen.NewZtnaGatewaysCmd(cliCtx)
+	cmd.SetArgs([]string{"list"})
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("ztna-gateways list: %v", err)
+	}
+
+	if seenPath != wantPath {
+		t.Errorf("server saw path %q, want %q", seenPath, wantPath)
+	}
+	if got := strings.TrimSpace(string(out.rawData)); got != "[]" {
+		t.Errorf("empty list printed %q, want %q", got, "[]")
+	}
+}

@@ -1566,15 +1566,13 @@
   "servers": [
     {
       "description": "Jamf Beta API Gateway - stage",
-      "url": "https://{region}.stage.apigw.jamfnebula.com/api/securitycloud",
+      "url": "https://{region}.api.stage.platform.jamflabs.com/api/securitycloud",
       "variables": {
         "region": {
-          "default": "us",
+          "default": "us1",
           "description": "Geographic deployment region",
           "enum": [
-            "us",
-            "eu",
-            "apac"
+            "us1"
           ]
         }
       }

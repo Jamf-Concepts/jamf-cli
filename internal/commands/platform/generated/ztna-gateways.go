@@ -44,12 +44,18 @@ func newZtnaGatewaysListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err
 			}
-			path := "/api/securitycloud/v1/tenant/{tenantId}/ztna/gateways"
+			path := "/api/securitycloud/tenant/{tenantId}/v1/ztna/gateways"
 			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("securitycloud")), 1)
 			q := url.Values{}
 			var body any
 			const pageSize = 100
-			var aggregated []json.RawMessage
+			// Initialised empty, not nil: a nil slice marshals to "null", so an
+			// empty collection used to answer -o json with "null" while the
+			// unpaginated list path answered "[]" for the identical wire response
+			// ({"totalCount":0,"results":[]}). Anything piping the output to jq
+			// then failed on "Cannot iterate over null" only for tenants where the
+			// collection happened to be empty.
+			aggregated := []json.RawMessage{}
 			for page := 0; ; page++ {
 				pq := url.Values{}
 				for k, v := range q {
@@ -95,13 +101,13 @@ func newZtnaGatewaysCreateCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if scaffoldFlag {
 				// Scaffold prints raw JSON regardless of -o, so the output
 				// can be piped straight back into --file.
-				fmt.Println("{\n  \"availabilityZones\": [],\n  \"contact\": {\n    \"email\": \"\",\n    \"name\": \"\"\n  },\n  \"datacenter\": \"\",\n  \"dedicatedIps\": {\n    \"enabled\": false\n  },\n  \"enabled\": false,\n  \"ipsec\": {\n    \"esp\": {\n      \"dhGroups\": [],\n      \"encryption\": [],\n      \"integrity\": [],\n      \"lifetimeInSec\": 0\n    },\n    \"ike\": {\n      \"dhGroups\": [],\n      \"encryption\": [],\n      \"integrity\": [],\n      \"lifetimeInSec\": 0\n    },\n    \"keyExchange\": \"\",\n    \"left\": {\n      \"host\": \"\",\n      \"id\": \"\",\n      \"secret\": \"\",\n      \"subnets\": []\n    },\n    \"right\": {\n      \"host\": \"\",\n      \"id\": \"\",\n      \"subnets\": [],\n      \"vendor\": \"\"\n    }\n  },\n  \"name\": \"\",\n  \"tenantIds\": []\n}")
+				fmt.Println("{\n  \"availabilityZones\": [\n    \"18.202.42.169\"\n  ],\n  \"contact\": {\n    \"email\": \"netops@example.com\",\n    \"name\": \"Network Operations\"\n  },\n  \"datacenter\": \"eu-west-1\",\n  \"dedicatedIps\": {\n    \"enabled\": true\n  },\n  \"enabled\": false,\n  \"ipsec\": {\n    \"esp\": {\n      \"dhGroups\": [\n        \"modp2048\"\n      ],\n      \"encryption\": [\n        \"aes256\"\n      ],\n      \"integrity\": [\n        \"sha256\"\n      ],\n      \"lifetimeInSec\": 28800\n    },\n    \"ike\": {\n      \"dhGroups\": [\n        \"modp2048\"\n      ],\n      \"encryption\": [\n        \"aes256\"\n      ],\n      \"integrity\": [\n        \"sha256\"\n      ],\n      \"lifetimeInSec\": 28800\n    },\n    \"keyExchange\": \"ikev2\",\n    \"left\": {\n      \"host\": \"%any\",\n      \"id\": \"wpa.wandera.com\",\n      \"secret\": \"\",\n      \"subnets\": [\n        \"0.0.0.0/0\"\n      ]\n    },\n    \"right\": {\n      \"host\": \"203.0.113.10\",\n      \"id\": \"peer-gw-01\",\n      \"subnets\": [\n        \"10.1.0.0/16\"\n      ],\n      \"vendor\": \"Cisco\"\n    }\n  },\n  \"name\": \"EU West Production Gateway\",\n  \"tenantIds\": [\n    \"3fa85f64-5717-4562-b3fc-2c963f66afa6\"\n  ]\n}")
 				return nil
 			}
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err
 			}
-			path := "/api/securitycloud/v1/tenant/{tenantId}/ztna/gateways"
+			path := "/api/securitycloud/tenant/{tenantId}/v1/ztna/gateways"
 			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("securitycloud")), 1)
 			q := url.Values{}
 			body, err := platform.ReadBody(bodyFile, setFlags)
@@ -146,7 +152,7 @@ func newZtnaGatewaysDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			}
 			var resolvedID string
 			if nameFlag != "" {
-				listPath := strings.Replace("/api/securitycloud/v1/tenant/{tenantId}/ztna/gateways", "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("securitycloud")), 1)
+				listPath := strings.Replace("/api/securitycloud/tenant/{tenantId}/v1/ztna/gateways", "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("securitycloud")), 1)
 				id, err := platform.ResolveIDByName(cmd.Context(), cliCtx.PlatformSDKClient, listPath, nameFlag)
 				if err != nil {
 					return err
@@ -160,7 +166,7 @@ func newZtnaGatewaysDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err := platform.ConfirmAction("delete", resolvedID, yes); err != nil {
 				return err
 			}
-			path := "/api/securitycloud/v1/tenant/{tenantId}/ztna/gateways/{gatewayId}"
+			path := "/api/securitycloud/tenant/{tenantId}/v1/ztna/gateways/{gatewayId}"
 			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("securitycloud")), 1)
 			path = strings.Replace(path, "{gatewayId}", url.PathEscape(resolvedID), 1)
 			q := url.Values{}
@@ -193,7 +199,7 @@ func newZtnaGatewaysGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			}
 			var resolvedID string
 			if nameFlag != "" {
-				listPath := strings.Replace("/api/securitycloud/v1/tenant/{tenantId}/ztna/gateways", "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("securitycloud")), 1)
+				listPath := strings.Replace("/api/securitycloud/tenant/{tenantId}/v1/ztna/gateways", "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("securitycloud")), 1)
 				id, err := platform.ResolveIDByName(cmd.Context(), cliCtx.PlatformSDKClient, listPath, nameFlag)
 				if err != nil {
 					return err
@@ -204,7 +210,7 @@ func newZtnaGatewaysGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			} else {
 				return fmt.Errorf("provide a positional ID or --name")
 			}
-			path := "/api/securitycloud/v1/tenant/{tenantId}/ztna/gateways/{gatewayId}"
+			path := "/api/securitycloud/tenant/{tenantId}/v1/ztna/gateways/{gatewayId}"
 			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("securitycloud")), 1)
 			path = strings.Replace(path, "{gatewayId}", url.PathEscape(resolvedID), 1)
 			q := url.Values{}
@@ -245,7 +251,7 @@ func newZtnaGatewaysPatchCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if scaffoldFlag {
 				// Scaffold prints raw JSON regardless of -o, so the output
 				// can be piped straight back into --file.
-				fmt.Println("{\n  \"availabilityZones\": [],\n  \"contact\": {\n    \"email\": \"\",\n    \"name\": \"\"\n  },\n  \"datacenter\": \"\",\n  \"enabled\": false,\n  \"ipsec\": {\n    \"esp\": {\n      \"dhGroups\": [],\n      \"encryption\": [],\n      \"integrity\": [],\n      \"lifetimeInSec\": 0\n    },\n    \"ike\": {\n      \"dhGroups\": [],\n      \"encryption\": [],\n      \"integrity\": [],\n      \"lifetimeInSec\": 0\n    },\n    \"keyExchange\": \"\",\n    \"left\": {\n      \"host\": \"\",\n      \"id\": \"\",\n      \"secret\": \"\",\n      \"subnets\": []\n    },\n    \"right\": {\n      \"host\": \"\",\n      \"id\": \"\",\n      \"subnets\": [],\n      \"vendor\": \"\"\n    }\n  },\n  \"name\": \"\",\n  \"tenantIds\": []\n}")
+				fmt.Println("{\n  \"availabilityZones\": [\n    \"18.202.42.169\"\n  ],\n  \"contact\": {\n    \"email\": \"netops@example.com\",\n    \"name\": \"Network Operations\"\n  },\n  \"datacenter\": \"eu-west-1\",\n  \"enabled\": true,\n  \"ipsec\": {\n    \"esp\": {\n      \"dhGroups\": [\n        \"modp2048\"\n      ],\n      \"encryption\": [\n        \"aes256\"\n      ],\n      \"integrity\": [\n        \"sha256\"\n      ],\n      \"lifetimeInSec\": 28800\n    },\n    \"ike\": {\n      \"dhGroups\": [\n        \"modp2048\"\n      ],\n      \"encryption\": [\n        \"aes256\"\n      ],\n      \"integrity\": [\n        \"sha256\"\n      ],\n      \"lifetimeInSec\": 28800\n    },\n    \"keyExchange\": \"ikev2\",\n    \"left\": {\n      \"host\": \"%any\",\n      \"id\": \"wpa.wandera.com\",\n      \"secret\": \"\",\n      \"subnets\": [\n        \"0.0.0.0/0\"\n      ]\n    },\n    \"right\": {\n      \"host\": \"203.0.113.10\",\n      \"id\": \"peer-gw-01\",\n      \"subnets\": [\n        \"10.1.0.0/16\"\n      ],\n      \"vendor\": \"Cisco\"\n    }\n  },\n  \"name\": \"EU West Production Gateway\",\n  \"tenantIds\": [\n    \"3fa85f64-5717-4562-b3fc-2c963f66afa6\"\n  ]\n}")
 				return nil
 			}
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
@@ -253,7 +259,7 @@ func newZtnaGatewaysPatchCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			}
 			var resolvedID string
 			if nameFlag != "" {
-				listPath := strings.Replace("/api/securitycloud/v1/tenant/{tenantId}/ztna/gateways", "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("securitycloud")), 1)
+				listPath := strings.Replace("/api/securitycloud/tenant/{tenantId}/v1/ztna/gateways", "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("securitycloud")), 1)
 				id, err := platform.ResolveIDByName(cmd.Context(), cliCtx.PlatformSDKClient, listPath, nameFlag)
 				if err != nil {
 					return err
@@ -264,7 +270,7 @@ func newZtnaGatewaysPatchCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			} else {
 				return fmt.Errorf("provide a positional ID or --name")
 			}
-			path := "/api/securitycloud/v1/tenant/{tenantId}/ztna/gateways/{gatewayId}"
+			path := "/api/securitycloud/tenant/{tenantId}/v1/ztna/gateways/{gatewayId}"
 			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("securitycloud")), 1)
 			path = strings.Replace(path, "{gatewayId}", url.PathEscape(resolvedID), 1)
 			q := url.Values{}

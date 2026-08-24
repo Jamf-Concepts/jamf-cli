@@ -44,12 +44,18 @@ func newZtnaAppsListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err
 			}
-			path := "/api/securitycloud/v1/tenant/{tenantId}/ztna/apps"
+			path := "/api/securitycloud/tenant/{tenantId}/v1/ztna/apps"
 			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("securitycloud")), 1)
 			q := url.Values{}
 			var body any
 			const pageSize = 100
-			var aggregated []json.RawMessage
+			// Initialised empty, not nil: a nil slice marshals to "null", so an
+			// empty collection used to answer -o json with "null" while the
+			// unpaginated list path answered "[]" for the identical wire response
+			// ({"totalCount":0,"results":[]}). Anything piping the output to jq
+			// then failed on "Cannot iterate over null" only for tenants where the
+			// collection happened to be empty.
+			aggregated := []json.RawMessage{}
 			for page := 0; ; page++ {
 				pq := url.Values{}
 				for k, v := range q {
@@ -95,13 +101,13 @@ func newZtnaAppsCreateCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if scaffoldFlag {
 				// Scaffold prints raw JSON regardless of -o, so the output
 				// can be piped straight back into --file.
-				fmt.Println("{\n  \"assignments\": {\n    \"inclusions\": {\n      \"allUsers\": false,\n      \"groups\": []\n    }\n  },\n  \"bareIps\": [],\n  \"categoryName\": \"\",\n  \"groupOverrides\": {\n    \"routingOverrides\": [\n      {\n        \"groupIds\": [],\n        \"routing\": {\n          \"dnsIpResolutionType\": \"\",\n          \"gatewayId\": \"\",\n          \"type\": \"\"\n        }\n      }\n    ]\n  },\n  \"hostnames\": [],\n  \"name\": \"\",\n  \"predefinedAppId\": \"\",\n  \"routing\": {\n    \"dnsIpResolutionType\": \"\",\n    \"gatewayId\": \"\",\n    \"type\": \"\"\n  },\n  \"security\": {\n    \"deviceManagementBasedAccess\": {\n      \"enabled\": false,\n      \"notificationsEnabled\": false\n    },\n    \"dohIntegration\": {\n      \"blocking\": false,\n      \"notificationsEnabled\": false\n    },\n    \"riskControls\": {\n      \"enabled\": false,\n      \"levelThreshold\": \"\",\n      \"notificationsEnabled\": false\n    }\n  }\n}")
+				fmt.Println("{\n  \"assignments\": {\n    \"inclusions\": {\n      \"allUsers\": false,\n      \"groups\": [\n        \"group-001\"\n      ]\n    }\n  },\n  \"bareIps\": [\n    \"192.168.1.0/24\"\n  ],\n  \"categoryName\": \"\",\n  \"groupOverrides\": {\n    \"routingOverrides\": [\n      {\n        \"groupIds\": [\n          \"group-001\"\n        ],\n        \"routing\": {\n          \"dnsIpResolutionType\": \"\",\n          \"gatewayId\": \"a1b2\",\n          \"type\": \"CUSTOM\"\n        }\n      }\n    ]\n  },\n  \"hostnames\": [\n    \"crm.example.com\"\n  ],\n  \"name\": \"Internal CRM\",\n  \"predefinedAppId\": \"atlassian-cloud\",\n  \"routing\": {\n    \"dnsIpResolutionType\": \"\",\n    \"gatewayId\": \"a1b2\",\n    \"type\": \"CUSTOM\"\n  },\n  \"security\": {\n    \"deviceManagementBasedAccess\": {\n      \"enabled\": true,\n      \"notificationsEnabled\": true\n    },\n    \"dohIntegration\": {\n      \"blocking\": false,\n      \"notificationsEnabled\": true\n    },\n    \"riskControls\": {\n      \"enabled\": true,\n      \"levelThreshold\": \"MEDIUM\",\n      \"notificationsEnabled\": true\n    }\n  }\n}")
 				return nil
 			}
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err
 			}
-			path := "/api/securitycloud/v1/tenant/{tenantId}/ztna/apps"
+			path := "/api/securitycloud/tenant/{tenantId}/v1/ztna/apps"
 			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("securitycloud")), 1)
 			q := url.Values{}
 			body, err := platform.ReadBody(bodyFile, setFlags)
@@ -146,7 +152,7 @@ func newZtnaAppsDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			}
 			var resolvedID string
 			if nameFlag != "" {
-				listPath := strings.Replace("/api/securitycloud/v1/tenant/{tenantId}/ztna/apps", "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("securitycloud")), 1)
+				listPath := strings.Replace("/api/securitycloud/tenant/{tenantId}/v1/ztna/apps", "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("securitycloud")), 1)
 				id, err := platform.ResolveIDByName(cmd.Context(), cliCtx.PlatformSDKClient, listPath, nameFlag)
 				if err != nil {
 					return err
@@ -160,7 +166,7 @@ func newZtnaAppsDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err := platform.ConfirmAction("delete", resolvedID, yes); err != nil {
 				return err
 			}
-			path := "/api/securitycloud/v1/tenant/{tenantId}/ztna/apps/{appId}"
+			path := "/api/securitycloud/tenant/{tenantId}/v1/ztna/apps/{appId}"
 			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("securitycloud")), 1)
 			path = strings.Replace(path, "{appId}", url.PathEscape(resolvedID), 1)
 			q := url.Values{}
@@ -193,7 +199,7 @@ func newZtnaAppsGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			}
 			var resolvedID string
 			if nameFlag != "" {
-				listPath := strings.Replace("/api/securitycloud/v1/tenant/{tenantId}/ztna/apps", "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("securitycloud")), 1)
+				listPath := strings.Replace("/api/securitycloud/tenant/{tenantId}/v1/ztna/apps", "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("securitycloud")), 1)
 				id, err := platform.ResolveIDByName(cmd.Context(), cliCtx.PlatformSDKClient, listPath, nameFlag)
 				if err != nil {
 					return err
@@ -204,7 +210,7 @@ func newZtnaAppsGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			} else {
 				return fmt.Errorf("provide a positional ID or --name")
 			}
-			path := "/api/securitycloud/v1/tenant/{tenantId}/ztna/apps/{appId}"
+			path := "/api/securitycloud/tenant/{tenantId}/v1/ztna/apps/{appId}"
 			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("securitycloud")), 1)
 			path = strings.Replace(path, "{appId}", url.PathEscape(resolvedID), 1)
 			q := url.Values{}
@@ -245,7 +251,7 @@ func newZtnaAppsPatchCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if scaffoldFlag {
 				// Scaffold prints raw JSON regardless of -o, so the output
 				// can be piped straight back into --file.
-				fmt.Println("{\n  \"assignments\": {\n    \"inclusions\": {\n      \"allUsers\": false,\n      \"groups\": []\n    }\n  },\n  \"bareIps\": [],\n  \"categoryName\": \"\",\n  \"groupOverrides\": {\n    \"routingOverrides\": [\n      {\n        \"groupIds\": [],\n        \"routing\": {\n          \"dnsIpResolutionType\": \"\",\n          \"gatewayId\": \"\",\n          \"type\": \"\"\n        }\n      }\n    ]\n  },\n  \"hostnames\": [],\n  \"name\": \"\",\n  \"routing\": {\n    \"dnsIpResolutionType\": \"\",\n    \"gatewayId\": \"\",\n    \"type\": \"\"\n  },\n  \"security\": {\n    \"deviceManagementBasedAccess\": {\n      \"enabled\": false,\n      \"notificationsEnabled\": false\n    },\n    \"dohIntegration\": {\n      \"blocking\": false,\n      \"notificationsEnabled\": false\n    },\n    \"riskControls\": {\n      \"enabled\": false,\n      \"levelThreshold\": \"\",\n      \"notificationsEnabled\": false\n    }\n  }\n}")
+				fmt.Println("{\n  \"assignments\": {\n    \"inclusions\": {\n      \"allUsers\": false,\n      \"groups\": [\n        \"group-001\"\n      ]\n    }\n  },\n  \"bareIps\": [\n    \"192.168.1.0/24\"\n  ],\n  \"categoryName\": \"\",\n  \"groupOverrides\": {\n    \"routingOverrides\": [\n      {\n        \"groupIds\": [\n          \"group-001\"\n        ],\n        \"routing\": {\n          \"dnsIpResolutionType\": \"\",\n          \"gatewayId\": \"a1b2\",\n          \"type\": \"CUSTOM\"\n        }\n      }\n    ]\n  },\n  \"hostnames\": [\n    \"crm.example.com\"\n  ],\n  \"name\": \"Internal CRM\",\n  \"routing\": {\n    \"dnsIpResolutionType\": \"\",\n    \"gatewayId\": \"a1b2\",\n    \"type\": \"CUSTOM\"\n  },\n  \"security\": {\n    \"deviceManagementBasedAccess\": {\n      \"enabled\": true,\n      \"notificationsEnabled\": true\n    },\n    \"dohIntegration\": {\n      \"blocking\": false,\n      \"notificationsEnabled\": true\n    },\n    \"riskControls\": {\n      \"enabled\": true,\n      \"levelThreshold\": \"MEDIUM\",\n      \"notificationsEnabled\": true\n    }\n  }\n}")
 				return nil
 			}
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
@@ -253,7 +259,7 @@ func newZtnaAppsPatchCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			}
 			var resolvedID string
 			if nameFlag != "" {
-				listPath := strings.Replace("/api/securitycloud/v1/tenant/{tenantId}/ztna/apps", "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("securitycloud")), 1)
+				listPath := strings.Replace("/api/securitycloud/tenant/{tenantId}/v1/ztna/apps", "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("securitycloud")), 1)
 				id, err := platform.ResolveIDByName(cmd.Context(), cliCtx.PlatformSDKClient, listPath, nameFlag)
 				if err != nil {
 					return err
@@ -264,7 +270,7 @@ func newZtnaAppsPatchCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			} else {
 				return fmt.Errorf("provide a positional ID or --name")
 			}
-			path := "/api/securitycloud/v1/tenant/{tenantId}/ztna/apps/{appId}"
+			path := "/api/securitycloud/tenant/{tenantId}/v1/ztna/apps/{appId}"
 			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("securitycloud")), 1)
 			path = strings.Replace(path, "{appId}", url.PathEscape(resolvedID), 1)
 			q := url.Values{}

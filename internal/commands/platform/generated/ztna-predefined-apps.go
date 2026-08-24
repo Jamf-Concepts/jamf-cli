@@ -34,13 +34,13 @@ func newZtnaPredefinedAppsListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "list",
 		Short:       "List Predefined Apps",
-		Long:        "List the catalogue of predefined SaaS application definitions. Not paginated. Pass the `id` as `predefinedAppId` when creating an App.",
+		Long:        "List the catalog of predefined SaaS application definitions. Not paginated. Pass the `id` as `predefinedAppId` when creating an App.",
 		Annotations: map[string]string{"jamf:privileges": "read:jsc:all", "jamf:api": "platform-gateway"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err
 			}
-			path := "/api/securitycloud/v1/tenant/{tenantId}/ztna/predefined-apps"
+			path := "/api/securitycloud/tenant/{tenantId}/v1/ztna/predefined-apps"
 			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("securitycloud")), 1)
 			q := url.Values{}
 			var body any

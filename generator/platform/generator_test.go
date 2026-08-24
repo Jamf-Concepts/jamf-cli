@@ -349,3 +349,69 @@ func keysOf(m map[string][]string) []string {
 	sort.Strings(out)
 	return out
 }
+
+// TestLoadResources_SecurityCloudPathsAreTenantFirst asserts the ordering on the
+// paths the generated commands actually request, across every committed spec —
+// the unit test in generator/parser covers the transform, this covers the specs.
+//
+// Ordering is not a routing concern: the gateway serves both. It decides whether
+// a mutating request is audited, because the audit rules are path globs of the
+// form /**/v{n}/{service}/... that a version-first path matches nothing in. A
+// regression here is therefore invisible in use — every command keeps working,
+// and the record of who deleted a DNS zone stops being written.
+func TestLoadResources_SecurityCloudPathsAreTenantFirst(t *testing.T) {
+	specsDir, err := filepath.Abs("../../specs/platform")
+	if err != nil {
+		t.Fatalf("resolving specs dir: %v", err)
+	}
+	resources, _, err := LoadResources(specsDir)
+	if err != nil {
+		t.Fatalf("LoadResources: %v", err)
+	}
+
+	securityCloudOps := 0
+	for _, r := range resources {
+		for _, op := range r.Operations {
+			path := tenantPath(op)
+			tenantIdx := strings.Index(path, "/tenant/{tenantId}")
+			if tenantIdx == -1 {
+				t.Errorf("%s/%s: request path carries no tenant segment: %s", r.Name, op.Name, path)
+				continue
+			}
+			versionIdx := versionSegmentIndex(path)
+			if versionIdx == -1 {
+				t.Errorf("%s/%s: request path carries no version segment: %s", r.Name, op.Name, path)
+				continue
+			}
+			if serviceFromPath(path) != securityCloudService {
+				// Every other namespace is version-first and wire-depends on it.
+				if versionIdx > tenantIdx {
+					t.Errorf("%s/%s: non-Security-Cloud path is tenant-first: %s", r.Name, op.Name, path)
+				}
+				continue
+			}
+			securityCloudOps++
+			if tenantIdx > versionIdx {
+				t.Errorf("%s/%s: Security Cloud path is version-first, which the gateway does not audit: %s", r.Name, op.Name, path)
+			}
+		}
+	}
+	// A spec set that stopped producing Security Cloud operations would pass
+	// every assertion above by covering nothing.
+	if securityCloudOps == 0 {
+		t.Error("no Security Cloud operations found — is specs/platform/ missing the securitycloud_*.json specs?")
+	}
+}
+
+// versionSegmentIndex returns the byte offset of the first /v{n} segment in a
+// path, or -1.
+func versionSegmentIndex(path string) int {
+	offset := 0
+	for _, seg := range strings.Split(path, "/") {
+		if len(seg) >= 2 && seg[0] == 'v' && seg[1] >= '0' && seg[1] <= '9' {
+			return offset
+		}
+		offset += len(seg) + 1
+	}
+	return -1
+}

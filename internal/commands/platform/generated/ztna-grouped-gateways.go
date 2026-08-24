@@ -44,7 +44,7 @@ func newZtnaGroupedGatewaysListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err
 			}
-			path := "/api/securitycloud/v1/tenant/{tenantId}/ztna/grouped-gateways"
+			path := "/api/securitycloud/tenant/{tenantId}/v1/ztna/grouped-gateways"
 			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("securitycloud")), 1)
 			q := url.Values{}
 			var body any
@@ -80,19 +80,19 @@ func newZtnaGroupedGatewaysCreateCmd(cliCtx *registry.CLIContext) *cobra.Command
 	cmd := &cobra.Command{
 		Use:         "create",
 		Short:       "Create a Grouped Gateway",
-		Long:        "Create a Grouped Gateway. Returns `201 {id, href}` + `Location` header.\n\nAllowed values:\n  routingStrategy: ACTIVE_STANDBY, RANDOM, NEAREST",
+		Long:        "Create a Grouped Gateway. Returns `201 {id, href}` + `Location` header.\n\nAllowed values:\n  recoveryDelayInSec: 300, 1800, 3600, 10800, 28800\n  routingStrategy: ACTIVE_STANDBY, RANDOM, NEAREST",
 		Annotations: map[string]string{"jamf:privileges": "create:jsc:all", "jamf:api": "platform-gateway"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if scaffoldFlag {
 				// Scaffold prints raw JSON regardless of -o, so the output
 				// can be piped straight back into --file.
-				fmt.Println("{\n  \"gatewayIds\": [],\n  \"name\": \"\",\n  \"recoveryDelayInSec\": 0,\n  \"routingStrategy\": \"\",\n  \"tenantIds\": []\n}")
+				fmt.Println("{\n  \"gatewayIds\": [\n    \"a1b2\",\n    \"c3d4\"\n  ],\n  \"name\": \"EU Grouped Gateway\",\n  \"recoveryDelayInSec\": 3600,\n  \"routingStrategy\": \"\",\n  \"tenantIds\": [\n    \"3fa85f64-5717-4562-b3fc-2c963f66afa6\"\n  ]\n}")
 				return nil
 			}
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err
 			}
-			path := "/api/securitycloud/v1/tenant/{tenantId}/ztna/grouped-gateways"
+			path := "/api/securitycloud/tenant/{tenantId}/v1/ztna/grouped-gateways"
 			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("securitycloud")), 1)
 			q := url.Values{}
 			body, err := platform.ReadBody(bodyFile, setFlags)
@@ -137,7 +137,7 @@ func newZtnaGroupedGatewaysDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command
 			}
 			var resolvedID string
 			if nameFlag != "" {
-				listPath := strings.Replace("/api/securitycloud/v1/tenant/{tenantId}/ztna/grouped-gateways", "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("securitycloud")), 1)
+				listPath := strings.Replace("/api/securitycloud/tenant/{tenantId}/v1/ztna/grouped-gateways", "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("securitycloud")), 1)
 				id, err := platform.ResolveIDByName(cmd.Context(), cliCtx.PlatformSDKClient, listPath, nameFlag)
 				if err != nil {
 					return err
@@ -151,7 +151,7 @@ func newZtnaGroupedGatewaysDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command
 			if err := platform.ConfirmAction("delete", resolvedID, yes); err != nil {
 				return err
 			}
-			path := "/api/securitycloud/v1/tenant/{tenantId}/ztna/grouped-gateways/{groupedGatewayId}"
+			path := "/api/securitycloud/tenant/{tenantId}/v1/ztna/grouped-gateways/{groupedGatewayId}"
 			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("securitycloud")), 1)
 			path = strings.Replace(path, "{groupedGatewayId}", url.PathEscape(resolvedID), 1)
 			q := url.Values{}
@@ -184,7 +184,7 @@ func newZtnaGroupedGatewaysGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			}
 			var resolvedID string
 			if nameFlag != "" {
-				listPath := strings.Replace("/api/securitycloud/v1/tenant/{tenantId}/ztna/grouped-gateways", "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("securitycloud")), 1)
+				listPath := strings.Replace("/api/securitycloud/tenant/{tenantId}/v1/ztna/grouped-gateways", "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("securitycloud")), 1)
 				id, err := platform.ResolveIDByName(cmd.Context(), cliCtx.PlatformSDKClient, listPath, nameFlag)
 				if err != nil {
 					return err
@@ -195,7 +195,7 @@ func newZtnaGroupedGatewaysGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			} else {
 				return fmt.Errorf("provide a positional ID or --name")
 			}
-			path := "/api/securitycloud/v1/tenant/{tenantId}/ztna/grouped-gateways/{groupedGatewayId}"
+			path := "/api/securitycloud/tenant/{tenantId}/v1/ztna/grouped-gateways/{groupedGatewayId}"
 			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("securitycloud")), 1)
 			path = strings.Replace(path, "{groupedGatewayId}", url.PathEscape(resolvedID), 1)
 			q := url.Values{}
@@ -229,14 +229,14 @@ func newZtnaGroupedGatewaysPatchCmd(cliCtx *registry.CLIContext) *cobra.Command 
 	cmd := &cobra.Command{
 		Use:         "patch <groupedGatewayId>",
 		Short:       "Partially update a Grouped Gateway",
-		Long:        "Partially update a Grouped Gateway (ADG-355). All fields are optional — include only what you want to change.\n\nAllowed values:\n  routingStrategy: ACTIVE_STANDBY, RANDOM, NEAREST",
+		Long:        "Partially update a Grouped Gateway (ADG-355). All fields are optional — include only what you want to change.\n\nAllowed values:\n  recoveryDelayInSec: 300, 1800, 3600, 10800, 28800\n  routingStrategy: ACTIVE_STANDBY, RANDOM, NEAREST",
 		Annotations: map[string]string{"jamf:privileges": "update:jsc:all", "jamf:api": "platform-gateway"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if scaffoldFlag {
 				// Scaffold prints raw JSON regardless of -o, so the output
 				// can be piped straight back into --file.
-				fmt.Println("{\n  \"gatewayIds\": [],\n  \"name\": \"\",\n  \"recoveryDelayInSec\": 0,\n  \"routingStrategy\": \"\",\n  \"tenantIds\": []\n}")
+				fmt.Println("{\n  \"gatewayIds\": [\n    \"a1b2\",\n    \"c3d4\"\n  ],\n  \"name\": \"EU Grouped Gateway\",\n  \"recoveryDelayInSec\": 300,\n  \"routingStrategy\": \"\",\n  \"tenantIds\": [\n    \"3fa85f64-5717-4562-b3fc-2c963f66afa6\"\n  ]\n}")
 				return nil
 			}
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
@@ -244,7 +244,7 @@ func newZtnaGroupedGatewaysPatchCmd(cliCtx *registry.CLIContext) *cobra.Command 
 			}
 			var resolvedID string
 			if nameFlag != "" {
-				listPath := strings.Replace("/api/securitycloud/v1/tenant/{tenantId}/ztna/grouped-gateways", "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("securitycloud")), 1)
+				listPath := strings.Replace("/api/securitycloud/tenant/{tenantId}/v1/ztna/grouped-gateways", "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("securitycloud")), 1)
 				id, err := platform.ResolveIDByName(cmd.Context(), cliCtx.PlatformSDKClient, listPath, nameFlag)
 				if err != nil {
 					return err
@@ -255,7 +255,7 @@ func newZtnaGroupedGatewaysPatchCmd(cliCtx *registry.CLIContext) *cobra.Command 
 			} else {
 				return fmt.Errorf("provide a positional ID or --name")
 			}
-			path := "/api/securitycloud/v1/tenant/{tenantId}/ztna/grouped-gateways/{groupedGatewayId}"
+			path := "/api/securitycloud/tenant/{tenantId}/v1/ztna/grouped-gateways/{groupedGatewayId}"
 			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("securitycloud")), 1)
 			path = strings.Replace(path, "{groupedGatewayId}", url.PathEscape(resolvedID), 1)
 			q := url.Values{}

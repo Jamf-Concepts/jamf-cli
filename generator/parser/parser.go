@@ -3,6 +3,7 @@
 package parser
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -1807,6 +1808,39 @@ func parseSchema(name string, schema *openapi3.Schema) *Schema {
 // degrades to a shallower scaffold rather than crashing generation.
 const maxSchemaDepth = 8
 
+// enumValueString renders one spec enum value for the "Allowed values:" line
+// generated help carries. Reports false for a value with no useful literal form
+// — null, or a composite — so it is dropped rather than printed as Go's default
+// formatting of a map or slice.
+//
+// Non-string values matter: Security Cloud's grouped-gateway recoveryDelayInSec
+// is an enum of five integers, required on create, and 0 — the value a caller
+// gets by leaving the field at its zero value — is rejected with a 400. A
+// string-only walk dropped the whole set, so the help listed nothing and the
+// scaffold showed one arbitrary number with no sign the others existed.
+// JSON numbers decode to float64, so an integral value is printed without a
+// trailing ".0" and a fractional one keeps its digits.
+func enumValueString(v any) (string, bool) {
+	switch val := v.(type) {
+	case string:
+		return val, true
+	case bool:
+		return strconv.FormatBool(val), true
+	case float64:
+		return strconv.FormatFloat(val, 'f', -1, 64), true
+	case float32:
+		return strconv.FormatFloat(float64(val), 'f', -1, 32), true
+	case int:
+		return strconv.Itoa(val), true
+	case int64:
+		return strconv.FormatInt(val, 10), true
+	case json.Number:
+		return val.String(), true
+	default:
+		return "", false
+	}
+}
+
 func parseSchemaDepth(name string, schema *openapi3.Schema, depth int) *Schema {
 	s := &Schema{
 		Name:       name,
@@ -1820,7 +1854,7 @@ func parseSchemaDepth(name string, schema *openapi3.Schema, depth int) *Schema {
 	}
 
 	for _, v := range schema.Enum {
-		if str, ok := v.(string); ok {
+		if str, ok := enumValueString(v); ok {
 			s.Enum = append(s.Enum, str)
 		}
 	}
@@ -1867,7 +1901,7 @@ func parseSchemaDepth(name string, schema *openapi3.Schema, depth int) *Schema {
 				p.Type = prop.Type.Slice()[0]
 			}
 			for _, v := range prop.Enum {
-				if s, ok := v.(string); ok {
+				if s, ok := enumValueString(v); ok {
 					p.Enum = append(p.Enum, s)
 				}
 			}

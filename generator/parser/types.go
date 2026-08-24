@@ -175,8 +175,11 @@ type Property struct {
 	WriteOnly   bool    // true when the field is accepted in requests but never returned in responses (e.g. passwords, secrets)
 	SchemaRef   string  // name of the referenced component schema for object/array types (e.g. "ComputerGeneralUpdate")
 	Nested      *Schema // resolved nested schema for object types (may be nil)
-	// Enum holds the values a string property is restricted to, in the order
-	// the spec lists them. Empty for unconstrained properties.
+	// Enum holds the values this property is restricted to, in the order the
+	// spec lists them, rendered as literals. Empty for unconstrained
+	// properties. Not string-only: an integer enum is carried the same way,
+	// because a required field constrained to five specific durations is
+	// exactly the case help has to name.
 	//
 	// Carried so generated help can name the choices. A scaffold renders an
 	// enum field as an empty string like any other, which tells a caller

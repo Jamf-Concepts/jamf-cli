@@ -12,6 +12,17 @@ import (
 	"testing"
 )
 
+// securityCloudCategoriesProbePath is the exact path the Security Cloud tenant
+// probe must request, registered exactly rather than as a prefix so this test is
+// what catches the URL ordering going wrong.
+//
+// Security Cloud puts /tenant/{id} *before* the version, which every other Jamf
+// namespace does the other way round. The generated commands build that shape
+// from tenantFirstServices in generator/parser/platform.go while this probe gets
+// it from the SDK's TenantPrefix, so the two copies of the rule have to agree —
+// and this is where a divergence surfaces, as a handler the client never calls.
+const securityCloudCategoriesProbePath = "/api/securitycloud/tenant/jsc-tenant/v1/categories"
+
 // gatewayStub serves the gateway endpoints validatePlatformGatewayCredentials
 // touches: the OAuth2 token endpoint, and the Security Cloud categories
 // collection it probes to check the Security Cloud tenant.
@@ -27,7 +38,7 @@ func gatewayStub(t *testing.T, tokenStatus int, categories func(w http.ResponseW
 		_, _ = fmt.Fprint(w, `{"access_token":"stub-token","token_type":"Bearer","expires_in":900}`)
 	})
 	if categories != nil {
-		mux.HandleFunc("/api/securitycloud/v1/tenant/", categories)
+		mux.HandleFunc(securityCloudCategoriesProbePath, categories)
 	}
 	srv := httptest.NewServer(mux)
 	t.Cleanup(srv.Close)
@@ -108,9 +119,11 @@ func TestValidatePlatformGatewayCredentials_SecurityCloudTenant(t *testing.T) {
 			srv := gatewayStub(t, http.StatusOK, func(w http.ResponseWriter, r *http.Request) {
 				// The probe must carry the Security Cloud tenant, not the Pro
 				// one — resolving the wrong tenant is the failure this whole
-				// check exists to catch.
-				if !strings.Contains(r.URL.Path, "/tenant/jsc-tenant/") {
-					t.Errorf("probed %q, want the Security Cloud tenant in the path", r.URL.Path)
+				// check exists to catch — and it must carry it ahead of the
+				// version, which is what puts Security Cloud mutations inside
+				// the gateway's audit globs.
+				if r.URL.Path != securityCloudCategoriesProbePath {
+					t.Errorf("probed %q, want %q", r.URL.Path, securityCloudCategoriesProbePath)
 				}
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(tc.status)

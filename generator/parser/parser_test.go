@@ -2632,3 +2632,120 @@ func TestDeduplicateVersionedOps_DistinctGatewayServicesSurvive(t *testing.T) {
 		t.Errorf("expected all 3 distinct endpoints to survive, got %d", len(got))
 	}
 }
+
+// TestTenantBeforeVersion covers the three URL shapes Jamf Security Cloud's
+// specs arrive in and the one thing this must not do: touch any other gateway
+// namespace, all of which are version-first and wire-depend on it.
+func TestTenantBeforeVersion(t *testing.T) {
+	cases := []struct {
+		name    string
+		service string
+		in      string
+		want    string
+	}{
+		{
+			// dns and ztna: no version in the spec path, so
+			// x-jamf-tenant-path-version puts it ahead of the tenant.
+			name:    "version from the extension",
+			service: "securitycloud",
+			in:      "/api/securitycloud/v1/tenant/{tenantId}/dns/zones",
+			want:    "/api/securitycloud/tenant/{tenantId}/v1/dns/zones",
+		},
+		{
+			// categories and device groups carry the version in the path.
+			name:    "version in the spec path",
+			service: "securitycloud",
+			in:      "/api/securitycloud/v2/tenant/{tenantId}/groups",
+			want:    "/api/securitycloud/tenant/{tenantId}/v2/groups",
+		},
+		{
+			// uem-connect already declares the tenant first, and its version
+			// sits after the sub-namespace — so the tenant does not belong in
+			// front of that version, and this must leave the path alone.
+			name:    "already tenant-first",
+			service: "securitycloud",
+			in:      "/api/securitycloud/tenant/{tenantId}/uem-connect/v1/connectors",
+			want:    "/api/securitycloud/tenant/{tenantId}/uem-connect/v1/connectors",
+		},
+		{
+			name:    "sub-namespace inherits the ordering",
+			service: "securitycloud/dns",
+			in:      "/api/securitycloud/v1/tenant/{tenantId}/dns/zones",
+			want:    "/api/securitycloud/tenant/{tenantId}/v1/dns/zones",
+		},
+		{
+			name:    "other services stay version-first",
+			service: "blueprints",
+			in:      "/api/blueprints/v1/tenant/{tenantId}/blueprints",
+			want:    "/api/blueprints/v1/tenant/{tenantId}/blueprints",
+		},
+		{
+			name:    "no tenant segment",
+			service: "securitycloud",
+			in:      "/api/securitycloud/v1/categories",
+			want:    "/api/securitycloud/v1/categories",
+		},
+		{
+			name:    "no version segment",
+			service: "securitycloud",
+			in:      "/api/securitycloud/tenant/{tenantId}/categories",
+			want:    "/api/securitycloud/tenant/{tenantId}/categories",
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			if got := tenantBeforeVersion(c.service, c.in); got != c.want {
+				t.Errorf("tenantBeforeVersion(%q, %q) = %q, want %q", c.service, c.in, got, c.want)
+			}
+		})
+	}
+}
+
+// TestParseSchema_NonStringEnumsAreCaptured pins the enum values generated help
+// prints for a numeric enum. Security Cloud's recoveryDelayInSec is an enum of
+// five integers, required on create, and 0 — the value a caller gets by
+// forgetting the field — is rejected; dropping non-strings left the help with
+// nothing to list for exactly the field that most needed it.
+func TestParseSchema_NonStringEnumsAreCaptured(t *testing.T) {
+	schema := &openapi3.Schema{
+		Type: &openapi3.Types{"object"},
+		Properties: openapi3.Schemas{
+			"recoveryDelayInSec": &openapi3.SchemaRef{Value: &openapi3.Schema{
+				Type: &openapi3.Types{"integer"},
+				// JSON numbers decode to float64, which is what the parser sees.
+				Enum: []any{float64(300), float64(1800), float64(28800)},
+			}},
+			"routingStrategy": &openapi3.SchemaRef{Value: &openapi3.Schema{
+				Type: &openapi3.Types{"string"},
+				Enum: []any{"RANDOM", "NEAREST"},
+			}},
+			"enabled": &openapi3.SchemaRef{Value: &openapi3.Schema{
+				Type: &openapi3.Types{"boolean"},
+				Enum: []any{true},
+			}},
+			// A value with no useful literal form is dropped rather than
+			// printed as Go's default formatting of a composite.
+			"weird": &openapi3.SchemaRef{Value: &openapi3.Schema{
+				Type: &openapi3.Types{"object"},
+				Enum: []any{map[string]any{"a": 1}, nil},
+			}},
+		},
+	}
+
+	got := parseSchema("GroupedGatewayCreate", schema)
+	want := map[string][]string{
+		"recoveryDelayInSec": {"300", "1800", "28800"},
+		"routingStrategy":    {"RANDOM", "NEAREST"},
+		"enabled":            {"true"},
+		"weird":              nil,
+	}
+	for name, wantEnum := range want {
+		prop := got.Properties[name]
+		if prop == nil {
+			t.Fatalf("property %q missing from parsed schema", name)
+		}
+		if !slices.Equal(prop.Enum, wantEnum) {
+			t.Errorf("%s enum = %v, want %v", name, prop.Enum, wantEnum)
+		}
+	}
+}

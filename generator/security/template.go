@@ -123,7 +123,9 @@ func new{{$.GoName}}{{.GoName}}Cmd(cliCtx *registry.CLIContext) *cobra.Command {
 			// parameter and keeps returning full pages, fail loudly instead
 			// of hanging with an unbounded aggregated slice.
 			const maxPages = 10000
-			var aggregated []json.RawMessage
+			// Initialised empty, not nil — a nil slice marshals to "null", which
+			// makes an empty collection unusable to anything piping -o json.
+			aggregated := []json.RawMessage{}
 			for page := 0; ; page++ {
 				if page >= maxPages {
 					return fmt.Errorf("{{.Name}}: exceeded %d pages without reaching the end; the server may not be honoring the page parameter", maxPages)

@@ -1,14 +1,5 @@
 {
   "components": {
-    "headers": {
-      "traceId": {
-        "description": "Trace ID for correlating this request across Tyk, JAG, and TRS (ADG-400). Include this value when reporting issues to Jamf support.\n",
-        "schema": {
-          "example": "ecf2ca07e23c0abc12393472f2b783df",
-          "type": "string"
-        }
-      }
-    },
     "parameters": {
       "appId": {
         "description": "ID of the App (Access Policy). Format: UUID (e.g. `3fa85f64-5717-4562-b3fc-2c963f66afa6`).\n",
@@ -112,12 +103,7 @@
             }
           }
         },
-        "description": "Bad request — validation error. Common codes: `INVALID_FIELD` (schema or constraint violation), `IPSEC_SECRET_CLEAR_NOT_SUPPORTED` (explicit `null` sent for `ipsec.left.secret`).\n",
-        "headers": {
-          "X-B3-TraceId": {
-            "$ref": "#/components/headers/traceId"
-          }
-        }
+        "description": "Bad request — validation error. Common codes: `INVALID_FIELD` (schema or constraint violation), `IPSEC_SECRET_CLEAR_NOT_SUPPORTED` (explicit `null` sent for `ipsec.left.secret`).\n"
       },
       "conflict": {
         "content": {
@@ -139,18 +125,13 @@
             }
           }
         },
-        "description": "Conflict — request is valid but cannot be processed due to current state. Common codes: `HOSTNAME_CONFLICT` — hostname already assigned to another App; `DEDICATED_IPS_LIMIT` — `dedicatedIps.enabled: true` quota exhausted; `MISSING_CATEGORY_NAME` — `categoryName` does not match any category returned by `GET /v1/categories`; `MISSING_SKU2_FOR_RISK_CONTROL` — risk controls require SKU2 entitlement not held by this customer; `MISSING_USER_GROUPS` — one or more assignment group IDs do not exist for this customer; `UNSUPPORTED_BARE_IP_IN_REFERENCED_VPN_ROUTE_IPSEC_CONFIG` — a `bareIps` subnet is not covered by the referenced gateway's IPSec tunnel `right.subnets`; `predefinedAppId` does not resolve to an existing template; for DELETE: gateway/grouped-gateway still referenced by an App, Grouped Gateway, or DNS Zone. Note: inaccessible gateway IDs in request bodies return `422 GATEWAY_NOT_FOUND`, not `409`.\n",
-        "headers": {
-          "X-B3-TraceId": {
-            "$ref": "#/components/headers/traceId"
-          }
-        }
+        "description": "Conflict — request is valid but cannot be processed due to current state. Common codes: `HOSTNAME_CONFLICT` — hostname already assigned to another App; `DEDICATED_IPS_LIMIT` — `dedicatedIps.enabled: true` quota exhausted; `MISSING_CATEGORY_NAME` — `categoryName` does not match any category returned by `GET /v1/categories`; `MISSING_SKU2_FOR_RISK_CONTROL` — risk controls require SKU2 entitlement not held by this customer; `MISSING_USER_GROUPS` — one or more assignment group IDs do not exist for this customer; `UNSUPPORTED_BARE_IP_IN_REFERENCED_VPN_ROUTE_IPSEC_CONFIG` — a `bareIps` subnet is not covered by the referenced gateway's IPSec tunnel `right.subnets`; `predefinedAppId` does not resolve to an existing template; for DELETE: gateway/grouped-gateway still referenced by an App, Grouped Gateway, or DNS Zone. Note: inaccessible gateway IDs in request bodies return `422 GATEWAY_NOT_FOUND`, not `409`.\n"
       },
       "createResponse": {
         "content": {
           "application/json": {
             "example": {
-              "href": "/api/securitycloud/tenant/my-tenant-id/v1/ztna/gateways/a1b2",
+              "href": "/api/securitycloud/tenant/3fa85f64-5717-4562-b3fc-2c963f66afa6/v1/ztna/gateways/a1b2",
               "id": "a1b2"
             },
             "schema": {
@@ -165,9 +146,6 @@
             "schema": {
               "type": "string"
             }
-          },
-          "X-B3-TraceId": {
-            "$ref": "#/components/headers/traceId"
           }
         }
       },
@@ -189,12 +167,7 @@
             }
           }
         },
-        "description": "Forbidden — the caller's organization does not own one or more of the supplied `tenantIds`. JAG validates each `tenantId` against the JWT `organizationId`; any mismatch rejects the entire request.\n",
-        "headers": {
-          "X-B3-TraceId": {
-            "$ref": "#/components/headers/traceId"
-          }
-        }
+        "description": "Forbidden — the caller's organization does not own one or more of the supplied `tenantIds`. JAG validates each `tenantId` against the JWT `organizationId`; any mismatch rejects the entire request.\n"
       },
       "serviceUnavailable": {
         "content": {
@@ -204,12 +177,7 @@
             }
           }
         },
-        "description": "Service unavailable — transient server-side failure. For gateways: TRS failed to generate a unique 4-character hex ID after 10 attempts (extremely rare; the 16-bit ID space has 65,536 values and IDs are only exhausted under heavy load or ID leakage). Retry with exponential back-off; if persistent, contact Jamf support.\n",
-        "headers": {
-          "X-B3-TraceId": {
-            "$ref": "#/components/headers/traceId"
-          }
-        }
+        "description": "Service unavailable — transient server-side failure. For gateways: TRS failed to generate a unique 4-character hex ID after 10 attempts (extremely rare; the 16-bit ID space has 65,536 values and IDs are only exhausted under heavy load or ID leakage). Retry with exponential back-off; if persistent, contact Jamf support.\n"
       },
       "tooManyRequests": {
         "content": {
@@ -236,9 +204,6 @@
             "schema": {
               "type": "integer"
             }
-          },
-          "X-B3-TraceId": {
-            "$ref": "#/components/headers/traceId"
           }
         }
       },
@@ -305,17 +270,12 @@
             }
           }
         },
-        "description": "Unprocessable entity — request is syntactically valid but violates a cross-field business constraint. Error codes: `GATEWAY_NOT_FOUND` — a gateway ID in `routing.gatewayId` or `gatewayIds` is not accessible to this customer (applies to Apps and Grouped Gateways; returns 422 rather than 404 because the ID is in the request body, not the path); `SHARED_GATEWAY_MEMBER` — one or more `gatewayIds` refer to shared (Jamf-managed) gateways, which cannot be members of a Grouped Gateway; `MIXED_DEDICATED_IPS_TYPES` — member gateways have mixed `dedicatedIps.enabled` values; `MIXED_TUNNEL_TYPES` — member gateways have mixed tunnel types (some IPSec, some non-IPSec). TRS `/external/v1` emits `422` directly for these violations.\n",
-        "headers": {
-          "X-B3-TraceId": {
-            "$ref": "#/components/headers/traceId"
-          }
-        }
+        "description": "Unprocessable entity — request is syntactically valid but violates a cross-field business constraint. Error codes: `GATEWAY_NOT_FOUND` — a gateway ID in `routing.gatewayId` or `gatewayIds` is not accessible to this customer (applies to Apps and Grouped Gateways; returns 422 rather than 404 because the ID is in the request body, not the path); `SHARED_GATEWAY_MEMBER` — one or more `gatewayIds` refer to shared (Jamf-managed) gateways, which cannot be members of a Grouped Gateway; `MIXED_DEDICATED_IPS_TYPES` — member gateways have mixed `dedicatedIps.enabled` values; `MIXED_TUNNEL_TYPES` — member gateways have mixed tunnel types (some IPSec, some non-IPSec). TRS `/external/v1` emits `422` directly for these violations.\n"
       }
     },
     "schemas": {
       "ApiError": {
-        "description": "Standard error response body per ADG-54. Returned for all non-2xx responses. The `traceId` field matches the `X-B3-TraceId` response header (ADG-400).\n",
+        "description": "Standard error response body per ADG-54. Returned for all non-2xx responses.\n",
         "properties": {
           "errors": {
             "description": "One entry per problem in the request.",
@@ -328,7 +288,7 @@
                 },
                 "description": {
                   "description": "Human-readable description for debugging. Do not display to end users.",
-                  "example": "Value is not a recognised category.",
+                  "example": "Value is not a recognized category.",
                   "type": "string"
                 },
                 "field": {
@@ -351,11 +311,14 @@
             "type": "integer"
           },
           "traceId": {
-            "description": "Trace ID for correlating this error across Tyk, JAG, and TRS. Matches the `X-B3-TraceId` response header.\n",
+            "description": "Trace ID for correlating this error across Tyk, JAG, and TRS. Include this value when reporting issues to Jamf support.\n",
             "example": "ecf2ca07e23c0abc12393472f2b783df",
             "type": "string"
           }
         },
+        "required": [
+          "httpStatus"
+        ],
         "type": "object"
       },
       "App": {
@@ -366,6 +329,9 @@
           },
           "bareIps": {
             "description": "IPv4 CIDR subnets (e.g. `192.168.1.0/24`). Duplicating a subnet across Apps returns 409.\n",
+            "example": [
+              "192.168.1.0/24"
+            ],
             "items": {
               "pattern": "^(\\d{1,3}\\.){3}\\d{1,3}\\/\\d{1,2}$",
               "type": "string"
@@ -381,6 +347,9 @@
           },
           "hostnames": {
             "description": "Hostnames/domains for traffic matching. Each entry must be a valid domain name, `\"*\"` (full-tunnel wildcard), or a wildcard prefix (`\"*.example.com\"`). Overlapping entries are rejected — e.g. `[\"*.example.com\", \"sub.example.com\"]` returns `400` because `sub.example.com` is covered by `*.example.com`. Duplicating a hostname across Apps returns `409`.\n",
+            "example": [
+              "crm.example.com"
+            ],
             "items": {
               "type": "string"
             },
@@ -389,15 +358,18 @@
           },
           "id": {
             "description": "App ID. Format: UUID (e.g. `3fa85f64-5717-4562-b3fc-2c963f66afa6`).\n",
+            "example": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
             "format": "uuid",
             "type": "string"
           },
           "name": {
             "description": "Ignored when `predefinedAppId` is set — inherited from the predefined app template.\n",
+            "example": "Internal CRM",
             "type": "string"
           },
           "predefinedAppId": {
             "description": "ID of the predefined SaaS app template (from `GET /predefined-apps`). Once set, cannot be changed or removed. When set, `name` and `hostnames` are inherited from the template; additional `hostnames` can still be appended.\n",
+            "example": "atlassian-cloud",
             "nullable": true,
             "type": "string"
           },
@@ -425,6 +397,9 @@
           },
           "bareIps": {
             "description": "IPv4 CIDR subnets (e.g. `192.168.1.0/24`). Duplicating a subnet across Apps returns 409.",
+            "example": [
+              "192.168.1.0/24"
+            ],
             "items": {
               "pattern": "^(\\d{1,3}\\.){3}\\d{1,3}\\/\\d{1,2}$",
               "type": "string"
@@ -440,6 +415,9 @@
           },
           "hostnames": {
             "description": "Unique set of hostnames/domains. Each entry must be a valid domain name, `\"*\"`, or `\"*.domain\"`. Overlapping entries (e.g. `[\"*.example.com\", \"sub.example.com\"]`) return `400`. Specifying the same hostname across multiple Apps returns `409`. When `predefinedAppId` is set, additional hostnames extend the template set.\n",
+            "example": [
+              "crm.example.com"
+            ],
             "items": {
               "type": "string"
             },
@@ -448,10 +426,12 @@
           },
           "name": {
             "description": "Ignored when `predefinedAppId` is set — name is inherited from the template.\n",
+            "example": "Internal CRM",
             "type": "string"
           },
           "predefinedAppId": {
             "description": "Optional. ID from `GET /predefined-apps`. Once set, cannot be changed or removed. When set, `name` and `hostnames` are inherited; additional `hostnames` can be appended. Presence indicates a Predefined (SaaS) App; absence indicates a Custom (Enterprise) App.\n",
+            "example": "atlassian-cloud",
             "nullable": true,
             "type": "string"
           },
@@ -470,6 +450,7 @@
         "type": "object"
       },
       "AppListResponse": {
+        "description": "List of Apps with a total count.",
         "properties": {
           "results": {
             "items": {
@@ -479,6 +460,7 @@
           },
           "totalCount": {
             "description": "Total number of items across all pages.",
+            "example": 3,
             "type": "integer"
           }
         },
@@ -497,6 +479,9 @@
           },
           "bareIps": {
             "description": "Replaces the full bareIps list. IPv4 CIDR subnets (e.g. `192.168.1.0/24`).",
+            "example": [
+              "192.168.1.0/24"
+            ],
             "items": {
               "pattern": "^(\\d{1,3}\\.){3}\\d{1,3}\\/\\d{1,2}$",
               "type": "string"
@@ -512,6 +497,9 @@
           },
           "hostnames": {
             "description": "Replaces the full hostname list. Each entry must be a valid domain name, `\"*\"`, or `\"*.domain\"`. Overlapping entries (e.g. `[\"*.example.com\", \"sub.example.com\"]`) return `400`. Specifying the same hostname as another App returns `409`.\n",
+            "example": [
+              "crm.example.com"
+            ],
             "items": {
               "type": "string"
             },
@@ -520,6 +508,7 @@
           },
           "name": {
             "description": "New name. Must be non-empty if supplied and `predefinedAppId` is not set — a blank string returns `400`. Ignored when `predefinedAppId` is set (name is inherited from the template). Omit to leave unchanged.\n",
+            "example": "Internal CRM",
             "minLength": 1,
             "type": "string"
           },
@@ -564,10 +553,14 @@
         "properties": {
           "allUsers": {
             "description": "`true` grants access to all users; `groups` array is then ignored.\n",
+            "example": false,
             "type": "boolean"
           },
           "groups": {
             "description": "Device Group IDs (from the Device Groups API — JSC-71029). Used when `allUsers` is `false`. When `allUsers: false`, at least one group ID must be supplied — an empty `groups` array returns `400`.\n",
+            "example": [
+              "group-001"
+            ],
             "items": {
               "type": "string"
             },
@@ -581,7 +574,8 @@
         "type": "object"
       },
       "CategoryName": {
-        "description": "App category name. Use the `displayName` field from `GET /v1/categories` — that endpoint is the authoritative source. The value must exactly match a `displayName` returned by `content-block-service`. Unknown values return `409 MISSING_CATEGORY_NAME` — the category list is server-owned and may change, so an unrecognised name is a state conflict, not a malformed request. TRS validates against `displayName` (e.g. `\"Business \u0026 Industry\"`), not the internal `name` (e.g. `\"Category - Business \u0026 Industry\"`).\n",
+        "description": "App category name. Use the `displayName` field from `GET /v1/categories` — that endpoint is the authoritative source. The value must exactly match a `displayName` returned by `content-block-service`. Unknown values return `409 MISSING_CATEGORY_NAME` — the category list is server-owned and may change, so an unrecognized name is a state conflict, not a malformed request. TRS validates against `displayName` (e.g. `\"Business \u0026 Industry\"`), not the internal `name` (e.g. `\"Category - Business \u0026 Industry\"`).\n",
+        "minLength": 1,
         "type": "string"
       },
       "ConnectionConfigLeftResponse": {
@@ -624,11 +618,13 @@
         "properties": {
           "host": {
             "description": "Endpoint address or `%any`.",
+            "example": "%any",
             "minLength": 1,
             "type": "string"
           },
           "id": {
             "description": "IKE identity (e.g. `wpa.wandera.com` or `%any`).",
+            "example": "wpa.wandera.com",
             "minLength": 1,
             "type": "string"
           },
@@ -640,6 +636,9 @@
           },
           "subnets": {
             "description": "CIDR subnet routed through this endpoint (e.g. `0.0.0.0/0`). Exactly 1 element.\n",
+            "example": [
+              "0.0.0.0/0"
+            ],
             "items": {
               "description": "IPv4 CIDR notation (e.g. `0.0.0.0/0`, `172.31.140.203/29`).",
               "type": "string"
@@ -662,16 +661,21 @@
         "properties": {
           "host": {
             "description": "Endpoint address.",
+            "example": "203.0.113.10",
             "minLength": 1,
             "type": "string"
           },
           "id": {
             "description": "IKE identity.",
+            "example": "peer-gw-01",
             "minLength": 1,
             "type": "string"
           },
           "subnets": {
             "description": "CIDR subnet routed through this endpoint (e.g. `0.0.0.0/0`). Exactly 1 element.",
+            "example": [
+              "10.1.0.0/16"
+            ],
             "items": {
               "description": "IPv4 CIDR notation (e.g. `0.0.0.0/0`).",
               "type": "string"
@@ -696,6 +700,7 @@
               "Watchguard",
               "Other"
             ],
+            "example": "Cisco",
             "type": "string"
           }
         },
@@ -764,13 +769,16 @@
         "type": "object"
       },
       "CreateResponse": {
+        "description": "Identifier and canonical URL of a newly created resource.",
         "properties": {
           "href": {
-            "description": "Canonical URL of the created resource.",
+            "description": "Tenant-scoped path of the created resource.",
+            "example": "/api/securitycloud/tenant/3fa85f64-5717-4562-b3fc-2c963f66afa6/v1/ztna/gateways/a1b2",
             "type": "string"
           },
           "id": {
             "description": "ID of the created resource.",
+            "example": "a1b2",
             "type": "string"
           }
         },
@@ -785,6 +793,9 @@
         "properties": {
           "dhGroups": {
             "description": "Diffie-Hellman group. Exactly one value.",
+            "example": [
+              "modp2048"
+            ],
             "items": {
               "enum": [
                 "modp1024",
@@ -804,6 +815,9 @@
           },
           "encryption": {
             "description": "Encryption algorithm. Exactly one value.",
+            "example": [
+              "aes256"
+            ],
             "items": {
               "enum": [
                 "3des",
@@ -818,6 +832,9 @@
           },
           "integrity": {
             "description": "Integrity algorithm. Exactly one value.",
+            "example": [
+              "sha256"
+            ],
             "items": {
               "enum": [
                 "md5",
@@ -833,6 +850,7 @@
           },
           "lifetimeInSec": {
             "description": "Key lifetime in seconds (e.g. `28800` for IKE, `3600` for ESP).",
+            "example": 28800,
             "minimum": 1,
             "type": "integer"
           }
@@ -850,10 +868,14 @@
         "properties": {
           "enabled": {
             "description": "Whether dedicated egress IPs are provisioned for this gateway.",
+            "example": true,
             "type": "boolean"
           },
           "ips": {
             "description": "Dedicated egress IPv4 addresses provisioned by the system (vpn-service-controller). Present when `enabled: true` and provisioning is complete.\n",
+            "example": [
+              "18.202.42.169"
+            ],
             "items": {
               "format": "ipv4",
               "type": "string"
@@ -873,10 +895,12 @@
         "properties": {
           "enabled": {
             "description": "Whether device management enrollment is required for access.",
+            "example": true,
             "type": "boolean"
           },
           "notificationsEnabled": {
             "description": "Whether to notify users when access is blocked due to unenrolled device.",
+            "example": true,
             "type": "boolean"
           }
         },
@@ -891,10 +915,12 @@
         "properties": {
           "blocking": {
             "description": "Whether DoH traffic is blocked for this App.",
+            "example": false,
             "type": "boolean"
           },
           "notificationsEnabled": {
             "description": "Whether to notify users when DoH traffic is blocked.",
+            "example": true,
             "type": "boolean"
           }
         },
@@ -909,6 +935,9 @@
         "properties": {
           "availabilityZones": {
             "description": "Public IPv4 addresses of the availability zone nodes (e.g. `18.202.42.169`).\nMust belong to the gateway's datacenter region.\nNote: despite the field name, values are IPv4 addresses — not zone identifier strings.\nTRS `/external/v1` translates these to/from TRS internal zone IDs (e.g. `eu-west-1a`) transparently.\n\nFor **IPsec gateways**, these are the source addresses the peer firewall must allow. Valid IPs per datacenter:\n\n| Datacenter | Name | IP 1 | IP 2 |\n|---|---|---|---|\n| `af-south-1` | Africa - Cape Town | `13.244.169.182` | `13.246.106.52` |\n| `ap-east-1` | Asia - Hong Kong | `16.163.54.105` | `16.163.15.242` |\n| `ap-northeast-1` | Asia - Japan | `35.76.189.152` | `52.192.166.230` |\n| `ap-south-1` | Asia - Mumbai | `3.109.252.176` | `65.1.247.99` |\n| `ap-southeast-1` | Asia - Singapore | `18.140.158.235` | `52.77.139.71` |\n| `ap-southeast-2` | Australia | `54.66.243.182` | `13.238.46.250` |\n| `ca-central-1` | North America - Canada | `15.222.200.189` | `3.98.80.44` |\n| `eu-central-1` | Europe - Germany | `3.66.107.208` | `3.121.43.105` |\n| `eu-west-1` | Europe - Ireland | `54.220.161.57` | `18.202.42.169` |\n| `eu-west-2` | Europe - UK | `3.9.67.90` | `18.130.213.235` |\n| `sa-east-1` | South America - Brazil | `54.207.180.94` | `54.232.123.56` |\n| `us-east-1` | North America - USA East | `163.123.175.1` | `163.123.175.2` |\n| `us-west-2` | North America - USA West | `163.123.174.1` | `163.123.174.2` |\n",
+            "example": [
+              "18.202.42.169"
+            ],
             "items": {
               "format": "ipv4",
               "type": "string"
@@ -936,6 +965,7 @@
               "us-east-1",
               "us-west-2"
             ],
+            "example": "eu-west-1",
             "type": "string"
           },
           "dedicatedIps": {
@@ -943,10 +973,12 @@
           },
           "enabled": {
             "description": "Whether this deployment is active.",
+            "example": true,
             "type": "boolean"
           },
           "id": {
             "description": "Gateway ID. Format: 4-character lowercase hexadecimal string (e.g. `a1b2`).\n",
+            "example": "a1b2",
             "pattern": "^[0-9a-f]{4}$",
             "type": "string"
           },
@@ -956,6 +988,7 @@
           },
           "name": {
             "description": "Human-readable name.",
+            "example": "EU West Production Gateway",
             "type": "string"
           },
           "status": {
@@ -963,6 +996,9 @@
           },
           "tenantIds": {
             "description": "Tenant IDs that have access to this gateway.\n",
+            "example": [
+              "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+            ],
             "items": {
               "type": "string"
             },
@@ -986,12 +1022,14 @@
         "properties": {
           "email": {
             "description": "Contact email address.",
-            "format": "email",
+            "example": "netops@example.com",
             "minLength": 1,
+            "pattern": "^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$",
             "type": "string"
           },
           "name": {
             "description": "Contact name or team name.",
+            "example": "Network Operations",
             "minLength": 1,
             "type": "string"
           }
@@ -1008,6 +1046,9 @@
         "properties": {
           "availabilityZones": {
             "description": "Public IPv4 addresses of the availability zone nodes to deploy into\n(e.g. `18.202.42.169`). Must belong to the gateway's datacenter region.\nMust be empty when `dedicatedIps.enabled: true`.\nNote: despite the field name, values are IPv4 addresses — TRS `/external/v1` translates to/from\nTRS internal zone IDs (e.g. `eu-west-1a`) transparently.\n\nFor **IPsec gateways**, these are the source addresses the peer firewall must allow. Valid IPs per datacenter:\n\n| Datacenter | Name | IP 1 | IP 2 |\n|---|---|---|---|\n| `af-south-1` | Africa - Cape Town | `13.244.169.182` | `13.246.106.52` |\n| `ap-east-1` | Asia - Hong Kong | `16.163.54.105` | `16.163.15.242` |\n| `ap-northeast-1` | Asia - Japan | `35.76.189.152` | `52.192.166.230` |\n| `ap-south-1` | Asia - Mumbai | `3.109.252.176` | `65.1.247.99` |\n| `ap-southeast-1` | Asia - Singapore | `18.140.158.235` | `52.77.139.71` |\n| `ap-southeast-2` | Australia | `54.66.243.182` | `13.238.46.250` |\n| `ca-central-1` | North America - Canada | `15.222.200.189` | `3.98.80.44` |\n| `eu-central-1` | Europe - Germany | `3.66.107.208` | `3.121.43.105` |\n| `eu-west-1` | Europe - Ireland | `54.220.161.57` | `18.202.42.169` |\n| `eu-west-2` | Europe - UK | `3.9.67.90` | `18.130.213.235` |\n| `sa-east-1` | South America - Brazil | `54.207.180.94` | `54.232.123.56` |\n| `us-east-1` | North America - USA East | `163.123.175.1` | `163.123.175.2` |\n| `us-west-2` | North America - USA West | `163.123.174.1` | `163.123.174.2` |\n",
+            "example": [
+              "18.202.42.169"
+            ],
             "items": {
               "format": "ipv4",
               "type": "string"
@@ -1035,6 +1076,7 @@
               "us-east-1",
               "us-west-2"
             ],
+            "example": "eu-west-1",
             "minLength": 1,
             "type": "string"
           },
@@ -1053,11 +1095,15 @@
           },
           "name": {
             "description": "Human-readable name.",
+            "example": "EU West Production Gateway",
             "minLength": 1,
             "type": "string"
           },
           "tenantIds": {
             "description": "Tenant IDs to grant access. Validated against the caller's organization — **403** if mismatched.\n",
+            "example": [
+              "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+            ],
             "items": {
               "type": "string"
             },
@@ -1088,6 +1134,7 @@
               "ikev1",
               "ikev2"
             ],
+            "example": "ikev2",
             "type": "string"
           },
           "left": {
@@ -1114,6 +1161,7 @@
               "ikev1",
               "ikev2"
             ],
+            "example": "ikev2",
             "type": "string"
           },
           "left": {
@@ -1133,6 +1181,7 @@
         "type": "object"
       },
       "GatewayListResponse": {
+        "description": "List of Gateways with a total count.",
         "properties": {
           "results": {
             "items": {
@@ -1142,6 +1191,7 @@
           },
           "totalCount": {
             "description": "Total number of items across all pages.",
+            "example": 3,
             "type": "integer"
           }
         },
@@ -1157,6 +1207,9 @@
         "properties": {
           "availabilityZones": {
             "description": "Replaces the availability zone node list. Accepts public IPv4 addresses\n(e.g. `18.202.42.169`). Zones must belong to the (new or existing) datacenter.\n\nFor **IPsec gateways**, these are the source addresses the peer firewall must allow. Valid IPs per datacenter:\n\n| Datacenter | Name | IP 1 | IP 2 |\n|---|---|---|---|\n| `af-south-1` | Africa - Cape Town | `13.244.169.182` | `13.246.106.52` |\n| `ap-east-1` | Asia - Hong Kong | `16.163.54.105` | `16.163.15.242` |\n| `ap-northeast-1` | Asia - Japan | `35.76.189.152` | `52.192.166.230` |\n| `ap-south-1` | Asia - Mumbai | `3.109.252.176` | `65.1.247.99` |\n| `ap-southeast-1` | Asia - Singapore | `18.140.158.235` | `52.77.139.71` |\n| `ap-southeast-2` | Australia | `54.66.243.182` | `13.238.46.250` |\n| `ca-central-1` | North America - Canada | `15.222.200.189` | `3.98.80.44` |\n| `eu-central-1` | Europe - Germany | `3.66.107.208` | `3.121.43.105` |\n| `eu-west-1` | Europe - Ireland | `54.220.161.57` | `18.202.42.169` |\n| `eu-west-2` | Europe - UK | `3.9.67.90` | `18.130.213.235` |\n| `sa-east-1` | South America - Brazil | `54.207.180.94` | `54.232.123.56` |\n| `us-east-1` | North America - USA East | `163.123.175.1` | `163.123.175.2` |\n| `us-west-2` | North America - USA West | `163.123.174.1` | `163.123.174.2` |\n",
+            "example": [
+              "18.202.42.169"
+            ],
             "items": {
               "format": "ipv4",
               "type": "string"
@@ -1184,10 +1237,12 @@
               "us-east-1",
               "us-west-2"
             ],
+            "example": "eu-west-1",
             "type": "string"
           },
           "enabled": {
             "description": "Whether the deployment should be active.",
+            "example": true,
             "type": "boolean"
           },
           "ipsec": {
@@ -1196,11 +1251,15 @@
           },
           "name": {
             "description": "New name for the gateway.",
+            "example": "EU West Production Gateway",
             "minLength": 1,
             "type": "string"
           },
           "tenantIds": {
             "description": "Replaces the full tenantIds list. Validated against the caller's organization — **403** if mismatched. Setting `tenantIds: []` (empty array) returns `400` — `minItems: 1` enforced by schema.\n",
+            "example": [
+              "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+            ],
             "items": {
               "type": "string"
             },
@@ -1222,6 +1281,7 @@
               "PENDING",
               "DISABLED"
             ],
+            "example": "UP",
             "type": "string"
           },
           "tunnelState": {
@@ -1230,11 +1290,13 @@
               "UP",
               "DOWN"
             ],
+            "example": "UP",
             "nullable": true,
             "type": "string"
           },
           "updatedAt": {
             "description": "Timestamp of the last status update.",
+            "example": "2026-06-02T10:15:30Z",
             "format": "date-time",
             "type": "string"
           }
@@ -1265,12 +1327,17 @@
         "properties": {
           "createdAt": {
             "description": "When the Grouped Gateway was created.",
+            "example": "2026-06-02T10:15:30Z",
             "format": "date-time",
             "readOnly": true,
             "type": "string"
           },
           "gatewayIds": {
             "description": "IDs of member Gateways (minimum 2). Discover via `GET /gateways`. All members must be dedicated gateways (not from `GET /shared-gateways`), must have the same tunnel type (all IPSec or all non-IPSec), and the same `dedicatedIps.enabled` value — `422` on violation.\n",
+            "example": [
+              "a1b2",
+              "c3d4"
+            ],
             "items": {
               "pattern": "^[0-9a-f]{4}$",
               "type": "string"
@@ -1281,16 +1348,18 @@
           },
           "id": {
             "description": "Grouped Gateway ID. Format: UUID (e.g. `3fa85f64-5717-4562-b3fc-2c963f66afa6`).\n",
+            "example": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
             "format": "uuid",
             "type": "string"
           },
           "name": {
             "description": "Human-readable name.",
+            "example": "EU Grouped Gateway",
             "type": "string"
           },
           "recoveryDelayInSec": {
-            "default": 0,
-            "description": "Recovery delay in seconds for the `ACTIVE_STANDBY` strategy — how long to wait before failing back to the primary after it recovers. Defaults to `0`. Ignored for `RANDOM` and `NEAREST` strategies.\n",
+            "description": "Recovery delay in seconds for the `ACTIVE_STANDBY` strategy — how long to wait before failing back to the primary after it recovers. New and updated grouped gateways use one of the supported durations (`300`, `1800`, `3600`, `10800`, `28800`); grouped gateways created earlier may return a legacy value. Ignored for `RANDOM` and `NEAREST` strategies.\n",
+            "example": 3600,
             "minimum": 0,
             "type": "integer"
           },
@@ -1299,6 +1368,9 @@
           },
           "tenantIds": {
             "description": "Tenant IDs with access to this grouped gateway.\n",
+            "example": [
+              "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+            ],
             "items": {
               "type": "string"
             },
@@ -1307,6 +1379,7 @@
           },
           "updatedAt": {
             "description": "Last update to the Grouped Gateway.",
+            "example": "2026-06-02T10:15:30Z",
             "format": "date-time",
             "readOnly": true,
             "type": "string"
@@ -1329,6 +1402,10 @@
         "properties": {
           "gatewayIds": {
             "description": "IDs of member Gateways (minimum 2).\n",
+            "example": [
+              "a1b2",
+              "c3d4"
+            ],
             "items": {
               "pattern": "^[0-9a-f]{4}$",
               "type": "string"
@@ -1339,13 +1416,20 @@
           },
           "name": {
             "description": "Human-readable name.",
+            "example": "EU Grouped Gateway",
             "minLength": 1,
             "type": "string"
           },
           "recoveryDelayInSec": {
-            "default": 0,
-            "description": "Recovery delay in seconds for `ACTIVE_STANDBY` strategy. Defaults to `0` if omitted.\n",
-            "minimum": 0,
+            "description": "Required gateway stability before failover, in seconds, for the `ACTIVE_STANDBY` strategy. Must be one of the listed durations (mirrors the Jamf console). Required on create even for `RANDOM`/`NEAREST`, where it is ignored.\n",
+            "enum": [
+              300,
+              1800,
+              3600,
+              10800,
+              28800
+            ],
+            "example": 3600,
             "type": "integer"
           },
           "routingStrategy": {
@@ -1353,6 +1437,9 @@
           },
           "tenantIds": {
             "description": "Tenant IDs to grant access. Validated against the caller's organization — **403** if mismatched.\n",
+            "example": [
+              "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+            ],
             "items": {
               "type": "string"
             },
@@ -1365,11 +1452,13 @@
           "name",
           "gatewayIds",
           "routingStrategy",
-          "tenantIds"
+          "tenantIds",
+          "recoveryDelayInSec"
         ],
         "type": "object"
       },
       "GroupedGatewayListResponse": {
+        "description": "List of Grouped Gateways with a total count.",
         "properties": {
           "results": {
             "items": {
@@ -1379,6 +1468,7 @@
           },
           "totalCount": {
             "description": "Total number of items across all pages.",
+            "example": 3,
             "type": "integer"
           }
         },
@@ -1394,6 +1484,10 @@
         "properties": {
           "gatewayIds": {
             "description": "Replaces the full member gateway list (minimum 2).\n",
+            "example": [
+              "a1b2",
+              "c3d4"
+            ],
             "items": {
               "pattern": "^[0-9a-f]{4}$",
               "type": "string"
@@ -1404,12 +1498,20 @@
           },
           "name": {
             "description": "New name for the grouped gateway.",
+            "example": "EU Grouped Gateway",
             "minLength": 1,
             "type": "string"
           },
           "recoveryDelayInSec": {
-            "description": "Recovery delay in seconds for `ACTIVE_STANDBY` strategy. Omit to leave unchanged.",
-            "minimum": 0,
+            "description": "Recovery delay in seconds for the `ACTIVE_STANDBY` strategy. If provided, must be one of the listed durations. Omit to leave unchanged. Grouped gateways created before this constraint may hold a legacy value; `recoveryDelayInSec` is unaffected on PATCH operations that omit it.\n",
+            "enum": [
+              300,
+              1800,
+              3600,
+              10800,
+              28800
+            ],
+            "example": 300,
             "type": "integer"
           },
           "routingStrategy": {
@@ -1417,6 +1519,9 @@
           },
           "tenantIds": {
             "description": "Replaces the full tenantIds list. Validated against the caller's organization — **403** if mismatched. Setting `tenantIds: []` (empty array) returns `400` — `minItems: 1` enforced by schema.\n",
+            "example": [
+              "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+            ],
             "items": {
               "type": "string"
             },
@@ -1432,6 +1537,9 @@
         "properties": {
           "hostnames": {
             "description": "Hostnames inherited by Apps that reference this template.",
+            "example": [
+              "atlassian.com"
+            ],
             "items": {
               "type": "string"
             },
@@ -1440,10 +1548,12 @@
           },
           "id": {
             "description": "Template ID. Pass as `predefinedAppId` when creating an App.",
+            "example": "atlassian-cloud",
             "type": "string"
           },
           "name": {
             "description": "Display name of the predefined SaaS application.",
+            "example": "Atlassian Cloud",
             "type": "string"
           }
         },
@@ -1454,6 +1564,7 @@
         "type": "object"
       },
       "PredefinedAppListResponse": {
+        "description": "List of Predefined Apps with a total count.",
         "properties": {
           "results": {
             "items": {
@@ -1463,6 +1574,7 @@
           },
           "totalCount": {
             "description": "Total number of predefined app templates available.",
+            "example": 3,
             "type": "integer"
           }
         },
@@ -1477,6 +1589,7 @@
         "properties": {
           "enabled": {
             "description": "Whether risk-based access control is active.",
+            "example": true,
             "type": "boolean"
           },
           "levelThreshold": {
@@ -1486,10 +1599,12 @@
               "MEDIUM",
               "HIGH"
             ],
+            "example": "MEDIUM",
             "type": "string"
           },
           "notificationsEnabled": {
             "description": "Whether to notify users when access is blocked by risk controls.",
+            "example": true,
             "type": "boolean"
           }
         },
@@ -1515,6 +1630,7 @@
           },
           "gatewayId": {
             "description": "ID of a Gateway or Grouped Gateway. Required when `type=CUSTOM`, must be null/absent when `type=DIRECT`. Gateway IDs are 4-character lowercase hex strings (e.g. `a1b2`); Grouped Gateway IDs are UUIDs (e.g. `3fa85f64-5717-4562-b3fc-2c963f66afa6`).\n",
+            "example": "a1b2",
             "nullable": true,
             "type": "string"
           },
@@ -1524,6 +1640,7 @@
               "CUSTOM",
               "DIRECT"
             ],
+            "example": "CUSTOM",
             "type": "string"
           }
         },
@@ -1537,6 +1654,9 @@
         "properties": {
           "groupIds": {
             "description": "Must be a subset of `assignments.inclusions.groups` (or `allUsers: true`). A group ID may not appear in more than one routing override entry — returns `400` on conflict.\n",
+            "example": [
+              "group-001"
+            ],
             "items": {
               "type": "string"
             },
@@ -1568,11 +1688,13 @@
         "properties": {
           "id": {
             "description": "Gateway ID. Format: 4-character lowercase hexadecimal string (e.g. `a1b2`).\n",
+            "example": "a1b2",
             "pattern": "^[0-9a-f]{4}$",
             "type": "string"
           },
           "name": {
             "description": "Human-readable name.",
+            "example": "Jamf Shared Gateway",
             "type": "string"
           }
         },
@@ -1583,6 +1705,7 @@
         "type": "object"
       },
       "SharedGatewayListResponse": {
+        "description": "List of Shared Gateways with a total count.",
         "properties": {
           "results": {
             "items": {
@@ -1592,6 +1715,7 @@
           },
           "totalCount": {
             "description": "Total number of Shared Gateways available to this tenant.",
+            "example": 3,
             "type": "integer"
           }
         },
@@ -1656,12 +1780,7 @@
                 }
               }
             },
-            "description": "Paginated list of Apps.",
-            "headers": {
-              "X-B3-TraceId": {
-                "$ref": "#/components/headers/traceId"
-              }
-            }
+            "description": "Paginated list of Apps."
           },
           "429": {
             "$ref": "#/components/responses/tooManyRequests"
@@ -1676,7 +1795,7 @@
         ],
         "summary": "List Apps",
         "tags": [
-          "Apps"
+          "apps"
         ],
         "x-required-privileges": [
           "read:jsc:all"
@@ -1776,7 +1895,7 @@
         ],
         "summary": "Create an App",
         "tags": [
-          "Apps"
+          "apps"
         ],
         "x-required-privileges": [
           "create:jsc:all"
@@ -1794,20 +1913,10 @@
         ],
         "responses": {
           "204": {
-            "description": "App deleted.",
-            "headers": {
-              "X-B3-TraceId": {
-                "$ref": "#/components/headers/traceId"
-              }
-            }
+            "description": "App deleted."
           },
           "404": {
-            "description": "App not found or not owned by this customer.",
-            "headers": {
-              "X-B3-TraceId": {
-                "$ref": "#/components/headers/traceId"
-              }
-            }
+            "description": "App not found or not owned by this customer."
           },
           "409": {
             "$ref": "#/components/responses/conflict"
@@ -1825,7 +1934,7 @@
         ],
         "summary": "Delete an App",
         "tags": [
-          "Apps"
+          "apps"
         ],
         "x-required-privileges": [
           "delete:jsc:all"
@@ -1899,20 +2008,10 @@
                 }
               }
             },
-            "description": "The requested App.",
-            "headers": {
-              "X-B3-TraceId": {
-                "$ref": "#/components/headers/traceId"
-              }
-            }
+            "description": "The requested App."
           },
           "404": {
-            "description": "App not found or not owned by this customer.",
-            "headers": {
-              "X-B3-TraceId": {
-                "$ref": "#/components/headers/traceId"
-              }
-            }
+            "description": "App not found or not owned by this customer."
           },
           "429": {
             "$ref": "#/components/responses/tooManyRequests"
@@ -1927,7 +2026,7 @@
         ],
         "summary": "Get an App",
         "tags": [
-          "Apps"
+          "apps"
         ],
         "x-required-privileges": [
           "read:jsc:all"
@@ -1965,23 +2064,13 @@
         },
         "responses": {
           "204": {
-            "description": "App updated.",
-            "headers": {
-              "X-B3-TraceId": {
-                "$ref": "#/components/headers/traceId"
-              }
-            }
+            "description": "App updated."
           },
           "400": {
             "$ref": "#/components/responses/badRequest"
           },
           "404": {
-            "description": "App not found or not owned by this customer.",
-            "headers": {
-              "X-B3-TraceId": {
-                "$ref": "#/components/headers/traceId"
-              }
-            }
+            "description": "App not found or not owned by this customer."
           },
           "409": {
             "$ref": "#/components/responses/conflict"
@@ -2002,7 +2091,7 @@
         ],
         "summary": "Partially update an App",
         "tags": [
-          "Apps"
+          "apps"
         ],
         "x-required-privileges": [
           "update:jsc:all"
@@ -2049,7 +2138,7 @@
                         "updatedAt": "2026-06-02T10:15:30Z"
                       },
                       "tenantIds": [
-                        "tenant-abc"
+                        "3fa85f64-5717-4562-b3fc-2c963f66afa6"
                       ]
                     }
                   ],
@@ -2060,12 +2149,7 @@
                 }
               }
             },
-            "description": "Paginated list of Gateways.",
-            "headers": {
-              "X-B3-TraceId": {
-                "$ref": "#/components/headers/traceId"
-              }
-            }
+            "description": "Paginated list of Gateways."
           },
           "429": {
             "$ref": "#/components/responses/tooManyRequests"
@@ -2080,7 +2164,7 @@
         ],
         "summary": "List Gateways",
         "tags": [
-          "Gateways"
+          "gateways"
         ],
         "x-required-privileges": [
           "read:jsc:all"
@@ -2109,7 +2193,7 @@
                 "enabled": true,
                 "name": "EU West Gateway",
                 "tenantIds": [
-                  "tenant-abc"
+                  "3fa85f64-5717-4562-b3fc-2c963f66afa6"
                 ]
               },
               "schema": {
@@ -2148,7 +2232,7 @@
         ],
         "summary": "Create a Gateway",
         "tags": [
-          "Gateways"
+          "gateways"
         ],
         "x-required-privileges": [
           "create:jsc:all"
@@ -2166,20 +2250,10 @@
         ],
         "responses": {
           "204": {
-            "description": "Gateway deleted.",
-            "headers": {
-              "X-B3-TraceId": {
-                "$ref": "#/components/headers/traceId"
-              }
-            }
+            "description": "Gateway deleted."
           },
           "404": {
-            "description": "Gateway not found or belongs to a different tenant.",
-            "headers": {
-              "X-B3-TraceId": {
-                "$ref": "#/components/headers/traceId"
-              }
-            }
+            "description": "Gateway not found or belongs to a different tenant."
           },
           "409": {
             "$ref": "#/components/responses/conflict"
@@ -2197,7 +2271,7 @@
         ],
         "summary": "Delete a Gateway",
         "tags": [
-          "Gateways"
+          "gateways"
         ],
         "x-required-privileges": [
           "delete:jsc:all"
@@ -2220,20 +2294,10 @@
                 }
               }
             },
-            "description": "The requested Gateway.",
-            "headers": {
-              "X-B3-TraceId": {
-                "$ref": "#/components/headers/traceId"
-              }
-            }
+            "description": "The requested Gateway."
           },
           "404": {
-            "description": "Gateway not found or belongs to a different tenant.",
-            "headers": {
-              "X-B3-TraceId": {
-                "$ref": "#/components/headers/traceId"
-              }
-            }
+            "description": "Gateway not found or belongs to a different tenant."
           },
           "429": {
             "$ref": "#/components/responses/tooManyRequests"
@@ -2248,7 +2312,7 @@
         ],
         "summary": "Get a Gateway",
         "tags": [
-          "Gateways"
+          "gateways"
         ],
         "x-required-privileges": [
           "read:jsc:all"
@@ -2291,7 +2355,7 @@
                     "enabled": true,
                     "name": "EU West Gateway (updated)",
                     "tenantIds": [
-                      "tenant-abc"
+                      "3fa85f64-5717-4562-b3fc-2c963f66afa6"
                     ]
                   }
                 },
@@ -2310,8 +2374,8 @@
                     },
                     "name": "EU West Gateway (updated)",
                     "tenantIds": [
-                      "tenant-abc",
-                      "tenant-xyz"
+                      "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+                      "7c9e6679-7425-40de-944b-e07fc1f90ae7"
                     ]
                   }
                 }
@@ -2325,12 +2389,7 @@
         },
         "responses": {
           "204": {
-            "description": "Gateway updated.",
-            "headers": {
-              "X-B3-TraceId": {
-                "$ref": "#/components/headers/traceId"
-              }
-            }
+            "description": "Gateway updated."
           },
           "400": {
             "$ref": "#/components/responses/badRequest"
@@ -2339,12 +2398,7 @@
             "$ref": "#/components/responses/forbidden"
           },
           "404": {
-            "description": "Gateway not found or belongs to a different tenant.",
-            "headers": {
-              "X-B3-TraceId": {
-                "$ref": "#/components/headers/traceId"
-              }
-            }
+            "description": "Gateway not found or belongs to a different tenant."
           },
           "409": {
             "$ref": "#/components/responses/conflict"
@@ -2362,7 +2416,7 @@
         ],
         "summary": "Partially update a Gateway",
         "tags": [
-          "Gateways"
+          "gateways"
         ],
         "x-required-privileges": [
           "update:jsc:all"
@@ -2392,10 +2446,10 @@
                       ],
                       "id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
                       "name": "EU Failover Group",
-                      "recoveryDelayInSec": 30,
+                      "recoveryDelayInSec": 3600,
                       "routingStrategy": "ACTIVE_STANDBY",
                       "tenantIds": [
-                        "tenant-abc"
+                        "3fa85f64-5717-4562-b3fc-2c963f66afa6"
                       ],
                       "updatedAt": "2026-06-03T14:22:00Z"
                     }
@@ -2407,12 +2461,7 @@
                 }
               }
             },
-            "description": "List of all Grouped Gateways for this tenant.",
-            "headers": {
-              "X-B3-TraceId": {
-                "$ref": "#/components/headers/traceId"
-              }
-            }
+            "description": "List of all Grouped Gateways for this tenant."
           },
           "429": {
             "$ref": "#/components/responses/tooManyRequests"
@@ -2427,7 +2476,7 @@
         ],
         "summary": "List Grouped Gateways",
         "tags": [
-          "Grouped Gateways"
+          "grouped-gateways"
         ],
         "x-required-privileges": [
           "read:jsc:all"
@@ -2450,10 +2499,10 @@
                   "c3d4"
                 ],
                 "name": "EU Failover Group",
-                "recoveryDelayInSec": 30,
+                "recoveryDelayInSec": 3600,
                 "routingStrategy": "ACTIVE_STANDBY",
                 "tenantIds": [
-                  "tenant-abc"
+                  "3fa85f64-5717-4562-b3fc-2c963f66afa6"
                 ]
               },
               "schema": {
@@ -2492,7 +2541,7 @@
         ],
         "summary": "Create a Grouped Gateway",
         "tags": [
-          "Grouped Gateways"
+          "grouped-gateways"
         ],
         "x-required-privileges": [
           "create:jsc:all"
@@ -2510,20 +2559,10 @@
         ],
         "responses": {
           "204": {
-            "description": "Grouped Gateway deleted.",
-            "headers": {
-              "X-B3-TraceId": {
-                "$ref": "#/components/headers/traceId"
-              }
-            }
+            "description": "Grouped Gateway deleted."
           },
           "404": {
-            "description": "Grouped Gateway not found or belongs to a different tenant.",
-            "headers": {
-              "X-B3-TraceId": {
-                "$ref": "#/components/headers/traceId"
-              }
-            }
+            "description": "Grouped Gateway not found or belongs to a different tenant."
           },
           "409": {
             "$ref": "#/components/responses/conflict"
@@ -2541,7 +2580,7 @@
         ],
         "summary": "Delete a Grouped Gateway",
         "tags": [
-          "Grouped Gateways"
+          "grouped-gateways"
         ],
         "x-required-privileges": [
           "delete:jsc:all"
@@ -2564,20 +2603,10 @@
                 }
               }
             },
-            "description": "The requested Grouped Gateway.",
-            "headers": {
-              "X-B3-TraceId": {
-                "$ref": "#/components/headers/traceId"
-              }
-            }
+            "description": "The requested Grouped Gateway."
           },
           "404": {
-            "description": "Grouped Gateway not found or belongs to a different tenant.",
-            "headers": {
-              "X-B3-TraceId": {
-                "$ref": "#/components/headers/traceId"
-              }
-            }
+            "description": "Grouped Gateway not found or belongs to a different tenant."
           },
           "429": {
             "$ref": "#/components/responses/tooManyRequests"
@@ -2592,7 +2621,7 @@
         ],
         "summary": "Get a Grouped Gateway",
         "tags": [
-          "Grouped Gateways"
+          "grouped-gateways"
         ],
         "x-required-privileges": [
           "read:jsc:all"
@@ -2622,8 +2651,8 @@
                 ],
                 "name": "EU Failover Group (updated)",
                 "tenantIds": [
-                  "tenant-abc",
-                  "tenant-xyz"
+                  "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+                  "7c9e6679-7425-40de-944b-e07fc1f90ae7"
                 ]
               },
               "schema": {
@@ -2635,12 +2664,7 @@
         },
         "responses": {
           "204": {
-            "description": "Grouped Gateway updated.",
-            "headers": {
-              "X-B3-TraceId": {
-                "$ref": "#/components/headers/traceId"
-              }
-            }
+            "description": "Grouped Gateway updated."
           },
           "400": {
             "$ref": "#/components/responses/badRequest"
@@ -2649,12 +2673,7 @@
             "$ref": "#/components/responses/forbidden"
           },
           "404": {
-            "description": "Grouped Gateway not found or belongs to a different tenant.",
-            "headers": {
-              "X-B3-TraceId": {
-                "$ref": "#/components/headers/traceId"
-              }
-            }
+            "description": "Grouped Gateway not found or belongs to a different tenant."
           },
           "409": {
             "$ref": "#/components/responses/conflict"
@@ -2675,7 +2694,7 @@
         ],
         "summary": "Partially update a Grouped Gateway",
         "tags": [
-          "Grouped Gateways"
+          "grouped-gateways"
         ],
         "x-required-privileges": [
           "update:jsc:all"
@@ -2684,7 +2703,7 @@
     },
     "/tenant/{tenantId}/ztna/predefined-apps": {
       "get": {
-        "description": "List the catalogue of predefined SaaS application definitions. Not paginated. Pass the `id` as `predefinedAppId` when creating an App.\n\n\n**Required Permissions:** `read:jsc:all`",
+        "description": "List the catalog of predefined SaaS application definitions. Not paginated. Pass the `id` as `predefinedAppId` when creating an App.\n\n\n**Required Permissions:** `read:jsc:all`",
         "operationId": "listPredefinedApps",
         "parameters": [
           {
@@ -2700,12 +2719,7 @@
                 }
               }
             },
-            "description": "List of Predefined Apps.",
-            "headers": {
-              "X-B3-TraceId": {
-                "$ref": "#/components/headers/traceId"
-              }
-            }
+            "description": "List of Predefined Apps."
           },
           "429": {
             "$ref": "#/components/responses/tooManyRequests"
@@ -2720,7 +2734,7 @@
         ],
         "summary": "List Predefined Apps",
         "tags": [
-          "Predefined Apps"
+          "predefined-apps"
         ],
         "x-required-privileges": [
           "read:jsc:all"
@@ -2758,12 +2772,7 @@
                 }
               }
             },
-            "description": "List of all Shared Gateways available to this tenant.",
-            "headers": {
-              "X-B3-TraceId": {
-                "$ref": "#/components/headers/traceId"
-              }
-            }
+            "description": "List of all Shared Gateways available to this tenant."
           },
           "429": {
             "$ref": "#/components/responses/tooManyRequests"
@@ -2778,7 +2787,7 @@
         ],
         "summary": "List Shared Gateways",
         "tags": [
-          "Shared Gateways"
+          "shared-gateways"
         ],
         "x-required-privileges": [
           "read:jsc:all"
@@ -2794,15 +2803,13 @@
   "servers": [
     {
       "description": "Jamf Beta API Gateway - stage",
-      "url": "https://{region}.stage.apigw.jamfnebula.com/api/securitycloud",
+      "url": "https://{region}.api.stage.platform.jamflabs.com/api/securitycloud",
       "variables": {
         "region": {
-          "default": "us",
+          "default": "us1",
           "description": "Geographic deployment region",
           "enum": [
-            "us",
-            "eu",
-            "apac"
+            "us1"
           ]
         }
       }
@@ -2811,23 +2818,23 @@
   "tags": [
     {
       "description": "Dedicated ZTNA Gateways — customer-owned gateways managed exclusively by the tenant. Full CRUD available.\n",
-      "name": "Gateways"
+      "name": "gateways"
     },
     {
       "description": "Shared ZTNA Gateways — Jamf-managed infrastructure gateways available to multiple tenants. **List only** — only `GET /shared-gateways` is exposed; no get-by-id, create, update, or delete. `read:jsc:all` is the only permission that applies.\n",
-      "name": "Shared Gateways"
+      "name": "shared-gateways"
     },
     {
       "description": "A logical group of two or more Gateways with a routing strategy (active-standby, random, nearest). Use the `id` of a Gateway or Grouped Gateway as `routing.gatewayId` in an App.\n",
-      "name": "Grouped Gateways"
+      "name": "grouped-gateways"
     },
     {
       "description": "Apps (Access Policies in the Jamf Connect UI). Define which hostnames/IPs are routed through ZTNA, which users/groups have access, and which gateway handles the traffic.\n",
-      "name": "Apps"
+      "name": "apps"
     },
     {
-      "description": "Read-only catalogue of predefined SaaS application definitions. Reference an `id` as `predefinedAppId` when creating an App based on a known SaaS app.\n",
-      "name": "Predefined Apps"
+      "description": "Read-only catalog of predefined SaaS application definitions. Reference an `id` as `predefinedAppId` when creating an App based on a known SaaS app.\n",
+      "name": "predefined-apps"
     }
   ],
   "x-jamf-tenant-path-version": "v1"

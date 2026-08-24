@@ -40,7 +40,7 @@ func newZtnaSharedGatewaysListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err
 			}
-			path := "/api/securitycloud/v1/tenant/{tenantId}/ztna/shared-gateways"
+			path := "/api/securitycloud/tenant/{tenantId}/v1/ztna/shared-gateways"
 			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("securitycloud")), 1)
 			q := url.Values{}
 			var body any

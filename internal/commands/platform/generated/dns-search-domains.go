@@ -46,7 +46,7 @@ func newDnsSearchDomainsDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err := platform.ConfirmAction("delete", "delete", yes); err != nil {
 				return err
 			}
-			path := "/api/securitycloud/v1/tenant/{tenantId}/dns/search-domains"
+			path := "/api/securitycloud/tenant/{tenantId}/v1/dns/search-domains"
 			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("securitycloud")), 1)
 			q := url.Values{}
 			var body any
@@ -73,7 +73,7 @@ func newDnsSearchDomainsGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err
 			}
-			path := "/api/securitycloud/v1/tenant/{tenantId}/dns/search-domains"
+			path := "/api/securitycloud/tenant/{tenantId}/v1/dns/search-domains"
 			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("securitycloud")), 1)
 			q := url.Values{}
 			var body any
@@ -118,7 +118,7 @@ func newDnsSearchDomainsUpdateCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err
 			}
-			path := "/api/securitycloud/v1/tenant/{tenantId}/dns/search-domains"
+			path := "/api/securitycloud/tenant/{tenantId}/v1/dns/search-domains"
 			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("securitycloud")), 1)
 			q := url.Values{}
 			body, err := platform.ReadBody(bodyFile, setFlags)

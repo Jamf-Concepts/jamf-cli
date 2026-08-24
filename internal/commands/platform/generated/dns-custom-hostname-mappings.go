@@ -46,7 +46,7 @@ func newDnsCustomHostnameMappingsDeleteCmd(cliCtx *registry.CLIContext) *cobra.C
 			if err := platform.ConfirmAction("delete", "delete", yes); err != nil {
 				return err
 			}
-			path := "/api/securitycloud/v1/tenant/{tenantId}/dns/custom-hostname-mappings"
+			path := "/api/securitycloud/tenant/{tenantId}/v1/dns/custom-hostname-mappings"
 			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("securitycloud")), 1)
 			q := url.Values{}
 			var body any
@@ -73,7 +73,7 @@ func newDnsCustomHostnameMappingsGetCmd(cliCtx *registry.CLIContext) *cobra.Comm
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err
 			}
-			path := "/api/securitycloud/v1/tenant/{tenantId}/dns/custom-hostname-mappings"
+			path := "/api/securitycloud/tenant/{tenantId}/v1/dns/custom-hostname-mappings"
 			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("securitycloud")), 1)
 			q := url.Values{}
 			var body any
@@ -116,7 +116,7 @@ func newDnsCustomHostnameMappingsUpdateCmd(cliCtx *registry.CLIContext) *cobra.C
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err
 			}
-			path := "/api/securitycloud/v1/tenant/{tenantId}/dns/custom-hostname-mappings"
+			path := "/api/securitycloud/tenant/{tenantId}/v1/dns/custom-hostname-mappings"
 			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("securitycloud")), 1)
 			q := url.Values{}
 			body, err := platform.ReadBody(bodyFile, setFlags)

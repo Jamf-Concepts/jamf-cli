@@ -608,7 +608,7 @@ var platformDocumentedStatusResults = map[string][]documentedStatus{
 	// exited 1 with a traceId for a tenant that was simply not using the
 	// feature, so nothing could distinguish "not configured" from "the request
 	// failed". Wire-confirmed on tenant wisconsam, 2026-08-20.
-	"GET /api/securitycloud/v1/tenant/{tenantId}/dns/search-domains": {
+	"GET /api/securitycloud/tenant/{tenantId}/v1/dns/search-domains": {
 		{Code: 404, ErrorCode: "SEARCH_DOMAIN_NOT_SET", Empty: true},
 	},
 }
