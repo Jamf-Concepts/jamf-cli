@@ -1,4 +1,4 @@
-.PHONY: build test clean generate sync-specs sync-spec sync-platform-specs sync-platform-specs-from-sdk sync-security-specs install lint lint-dead verify-generated verify-platform-specs verify-security-specs verify-site verify-site-output smoke smoke-seed smoke-cleanup release-check site
+.PHONY: audit-coverage build test clean generate sync-specs sync-spec sync-platform-specs sync-platform-specs-from-sdk sync-security-specs install lint lint-dead verify-generated verify-platform-specs verify-security-specs verify-site verify-site-output smoke smoke-seed smoke-cleanup release-check site
 
 # Build variables
 VERSION         ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
@@ -347,6 +347,16 @@ verify-site-output: build
 		--site-dir docs/site
 
 # Verify generated code is up to date (CI-safe)
+# Report which mutating gateway requests this CLI sends are covered by a Tyk
+# audit rule. Needs a jamf/tyk-gateway-management checkout, and a ref: a local
+# checkout is easily behind the deployed state.
+#
+#   make audit-coverage TYK_PATH=/path/to/tyk-gateway-management TYK_REF=origin/main
+TYK_PATH ?= /Users/Shared/GitHub/jamf/tyk-gateway-management
+TYK_REF ?= HEAD
+audit-coverage:
+	@python3 scripts/audit-coverage.py "$(TYK_PATH)" "$(TYK_REF)"
+
 verify-generated:
 	@ls internal/commands/pro/generated/*.go | grep -v '_test\.go' | xargs rm -f
 	@$(MAKE) generate

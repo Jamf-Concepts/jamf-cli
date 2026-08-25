@@ -24,9 +24,16 @@ tags:
 > and `tenantFirstServices` are gone from `generator/parser/platform.go` and every
 > generated path is now `/api/{namespace}/{version}/{resource}`. The finding below
 > still matters for the reason it was written: the audit rules that decide which
-> mutating requests get recorded are path globs, a request that is routed but
-> unaudited fails silently, and **nobody has confirmed those globs match the
-> header-scoped shape.** Read this before assuming they do.
+> mutating requests get recorded are path globs, and a request that is routed but
+> unaudited fails silently.
+>
+> Coverage under header scoping **has since been confirmed — 27/27, in all three
+> prod regions** — by simulating the matcher against the deployed rules at
+> tyk-gateway-management `0793131b`. The bare `/v1/<svc>/…` half of each glob pair
+> carries the header-scoped shape (19 ops); uem-connect keeps matching the
+> `/**/v1/…` half (8 ops). That simulation is now `scripts/audit-coverage.py`
+> (`make audit-coverage`), and running it against this commit's generated code
+> reproduces the 19 gaps described below — which is the check on the check.
 
 
 ## What happened
