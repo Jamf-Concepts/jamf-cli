@@ -491,12 +491,12 @@ func TestRewritePathForGateway_ClassicAPI(t *testing.T) {
 		input string
 		want  string
 	}{
-		{"/JSSResource/computers", "/api/proclassic/tenant/abc-123/computers"},
-		{"/JSSResource/policies/id/5", "/api/proclassic/tenant/abc-123/policies/id/5"},
-		{"/JSSResource/mobiledevices", "/api/proclassic/tenant/abc-123/mobiledevices"},
+		{"/JSSResource/computers", "/api/proclassic/computers"},
+		{"/JSSResource/policies/id/5", "/api/proclassic/policies/id/5"},
+		{"/JSSResource/mobiledevices", "/api/proclassic/mobiledevices"},
 	}
 	for _, tt := range tests {
-		got := rewritePathForGateway(tt.input, "abc-123")
+		got := rewritePathForGateway(tt.input)
 		if got != tt.want {
 			t.Errorf("rewritePathForGateway(%q) = %q, want %q", tt.input, got, tt.want)
 		}
@@ -508,13 +508,13 @@ func TestRewritePathForGateway_ModernAPI(t *testing.T) {
 		input string
 		want  string
 	}{
-		{"/api/v1/buildings", "/api/pro/v1/tenant/abc-123/buildings"},
-		{"/api/v2/mobile-devices", "/api/pro/v2/tenant/abc-123/mobile-devices"},
-		{"/api/v1/accounts/userid/1", "/api/pro/v1/tenant/abc-123/accounts/userid/1"},
-		{"/api/preview/computers", "/api/pro/preview/tenant/abc-123/computers"},
+		{"/api/v1/buildings", "/api/pro/v1/buildings"},
+		{"/api/v2/mobile-devices", "/api/pro/v2/mobile-devices"},
+		{"/api/v1/accounts/userid/1", "/api/pro/v1/accounts/userid/1"},
+		{"/api/preview/computers", "/api/pro/preview/computers"},
 	}
 	for _, tt := range tests {
-		got := rewritePathForGateway(tt.input, "abc-123")
+		got := rewritePathForGateway(tt.input)
 		if got != tt.want {
 			t.Errorf("rewritePathForGateway(%q) = %q, want %q", tt.input, got, tt.want)
 		}
@@ -528,7 +528,7 @@ func TestRewritePathForGateway_NoRewrite(t *testing.T) {
 		"/healthCheck.html",
 	}
 	for _, input := range tests {
-		got := rewritePathForGateway(input, "abc-123")
+		got := rewritePathForGateway(input)
 		if got != input {
 			t.Errorf("rewritePathForGateway(%q) = %q, want unchanged", input, got)
 		}
@@ -550,7 +550,7 @@ func TestDo_PlatformGateway_ClassicPath(t *testing.T) {
 		t.Fatalf("Do() error = %v", err)
 	}
 
-	want := "/api/proclassic/tenant/tenant-uuid/computers"
+	want := "/api/proclassic/computers"
 	if gotPath != want {
 		t.Errorf("path = %q, want %q", gotPath, want)
 	}
@@ -572,7 +572,7 @@ func TestDo_PlatformGateway_ModernPath(t *testing.T) {
 		t.Fatalf("Do() error = %v", err)
 	}
 
-	want := "/api/pro/v1/tenant/tenant-uuid/buildings"
+	want := "/api/pro/v1/buildings"
 	if gotPath != want {
 		t.Errorf("path = %q, want %q", gotPath, want)
 	}
@@ -593,7 +593,7 @@ func TestDo_PlatformGateway_ExplicitAPIPrefix(t *testing.T) {
 		t.Fatalf("Do() error = %v", err)
 	}
 
-	want := "/api/pro/v2/tenant/tenant-uuid/users"
+	want := "/api/pro/v2/users"
 	if gotPath != want {
 		t.Errorf("path = %q, want %q", gotPath, want)
 	}
@@ -754,5 +754,60 @@ func TestParseRetryAfter(t *testing.T) {
 				t.Errorf("parseRetryAfter(%q, %v) = %v, want %v", tt.header, tt.fallback, got, tt.want)
 			}
 		})
+	}
+}
+
+// TestGatewayTenantTravelsInHeader pins the scope moving out of the URL. Until
+// 2026-08-25 the tenant was a path segment and Tyk resolved the request context
+// from the path; prod then gained `header` as an allowed source and the specs
+// dropped the segment. A path carrying a tenant would still be routed during the
+// transition window, so nothing fails loudly if this regresses — hence a test
+// that asserts the header is sent AND that no tenant reaches the URL.
+func TestGatewayTenantTravelsInHeader(t *testing.T) {
+	var gotPath, gotHeader string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotPath = r.URL.Path
+		gotHeader = r.Header.Get("X-Tenant-Id")
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{}`))
+	}))
+	defer srv.Close()
+
+	c := New(srv.URL, auth.NewTokenProvider("test-token"), WithTenantID("abc-123"))
+	if _, err := c.Do(context.Background(), "GET", "/v1/buildings", nil); err != nil {
+		t.Fatalf("Do: %v", err)
+	}
+	if want := "/api/pro/v1/buildings"; gotPath != want {
+		t.Errorf("path = %q, want %q", gotPath, want)
+	}
+	if gotHeader != "abc-123" {
+		t.Errorf("X-Tenant-Id = %q, want %q", gotHeader, "abc-123")
+	}
+	if strings.Contains(gotPath, "tenant") {
+		t.Errorf("path %q still carries a tenant segment", gotPath)
+	}
+}
+
+// TestDirectInstanceSendsNoTenantHeader guards the other direction: a
+// direct-to-instance client has no tenant and must not invent one.
+func TestDirectInstanceSendsNoTenantHeader(t *testing.T) {
+	var gotHeader, gotPath string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotHeader = r.Header.Get("X-Tenant-Id")
+		gotPath = r.URL.Path
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{}`))
+	}))
+	defer srv.Close()
+
+	c := New(srv.URL, auth.NewTokenProvider("test-token"))
+	if _, err := c.Do(context.Background(), "GET", "/v1/buildings", nil); err != nil {
+		t.Fatalf("Do: %v", err)
+	}
+	if gotHeader != "" {
+		t.Errorf("X-Tenant-Id = %q, want it absent", gotHeader)
+	}
+	if want := "/api/v1/buildings"; gotPath != want {
+		t.Errorf("path = %q, want %q", gotPath, want)
 	}
 }

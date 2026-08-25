@@ -40,8 +40,9 @@ func WithVerbose(level int) Option {
 	}
 }
 
-// WithTenantID enables platform gateway mode, where API paths are rewritten
-// to include the tenant identifier for routing through the Jamf Platform Gateway.
+// WithTenantID enables platform gateway mode: paths are rewritten into their
+// gateway namespace (/api/v1/x -> /api/pro/v1/x, /JSSResource/x ->
+// /api/proclassic/x) and the tenant travels as an X-Tenant-Id request header.
 func WithTenantID(id string) Option {
 	return func(c *Client) {
 		c.tenantID = id
@@ -82,11 +83,12 @@ func (c *Client) Do(ctx context.Context, method, path string, body io.Reader) (*
 		path = "/api" + path
 	}
 
-	// Platform gateway mode: rewrite paths to include tenant routing.
-	//   /JSSResource/* → /api/proclassic/tenant/{id}/*
-	//   /api/v*        → /api/pro/v*/tenant/{id}/*
+	// Platform gateway mode: map the path into its gateway namespace. The
+	// tenant is sent as a header, not a path segment — see setTenantHeader.
+	//   /JSSResource/* → /api/proclassic/*
+	//   /api/v*        → /api/pro/v*
 	if c.tenantID != "" {
-		path = rewritePathForGateway(path, c.tenantID)
+		path = rewritePathForGateway(path)
 	}
 
 	// Buffer the request body so it can be replayed on retries.
@@ -111,6 +113,7 @@ func (c *Client) Do(ctx context.Context, method, path string, body io.Reader) (*
 
 	req.Header.Set("Authorization", "Bearer "+token)
 	req.Header.Set("User-Agent", "jamf-cli/1.0 (+https://github.com/Jamf-Concepts/jamf-cli)")
+	c.setTenantHeader(req)
 
 	// Classic API endpoints use XML; modern API uses JSON.
 	// An explicit Accept override in the context takes precedence (used by binary download commands).
@@ -188,7 +191,7 @@ func (c *Client) Upload(ctx context.Context, path string, body io.Reader, conten
 		path = "/api" + path
 	}
 	if c.tenantID != "" {
-		path = rewritePathForGateway(path, c.tenantID)
+		path = rewritePathForGateway(path)
 	}
 
 	seeker, _ := body.(io.Seeker)
@@ -216,6 +219,7 @@ func (c *Client) Upload(ctx context.Context, path string, body io.Reader, conten
 
 		req.Header.Set("Authorization", "Bearer "+token)
 		req.Header.Set("User-Agent", "jamf-cli/1.0 (+https://github.com/Jamf-Concepts/jamf-cli)")
+		c.setTenantHeader(req)
 		req.Header.Set("Content-Type", contentType)
 		req.Header.Set("Accept", "application/json")
 		req.ContentLength = contentLength
@@ -454,30 +458,39 @@ func logBody(w io.Writer, data []byte) {
 	}
 }
 
-// rewritePathForGateway transforms an API path for the Jamf Platform Gateway.
+// rewritePathForGateway maps an instance API path onto its Jamf Platform
+// Gateway namespace.
 //
-//	/JSSResource/computers        → /api/proclassic/tenant/{id}/computers
-//	/api/v1/accounts              → /api/pro/v1/tenant/{id}/accounts
-//	/api/preview/computers        → /api/pro/preview/tenant/{id}/computers
-func rewritePathForGateway(path, tenantID string) string {
+//	/JSSResource/computers        → /api/proclassic/computers
+//	/api/v1/accounts              → /api/pro/v1/accounts
+//	/api/preview/computers        → /api/pro/preview/computers
+//
+// The tenant is NOT in the path. Until 2026-08-25 every gateway URL embedded it
+// — /api/pro/{version}/tenant/{tenantID}/{resource} — and Tyk resolved the
+// request context from `path`; `header` became an allowed source in prod on that
+// date (tyk-gateway-management 0793131b, "JSC-73421 Enable header context
+// support - Prod") and the published specs dropped the segment in GitOps build
+// v1495 in favour of a required X-Tenant-Id header. Both forms answer during the
+// transition window, so this follows the platform SDK onto headers only rather
+// than keeping a second code path nothing exercises.
+func rewritePathForGateway(path string) string {
 	if after, ok := strings.CutPrefix(path, "/JSSResource/"); ok {
-		suffix := after
-		return "/api/proclassic/tenant/" + tenantID + "/" + suffix
+		return "/api/proclassic/" + after
 	}
 	if after, ok := strings.CutPrefix(path, "/JSSResource"); ok {
-		suffix := after
-		return "/api/proclassic/tenant/" + tenantID + suffix
+		return "/api/proclassic" + after
 	}
 	// Modern API: /api/v1/..., /api/v2/..., /api/preview/..., etc.
-	// Version segment goes before /tenant/{id} to match the Platform SDK convention:
-	//   /api/{namespace}/{version}/tenant/{tenantID}/{resource}
 	if after, ok := strings.CutPrefix(path, "/api/"); ok {
-		// after = "v1/accounts" → version = "v1", rest = "accounts"
-		version, rest, _ := strings.Cut(after, "/")
-		if rest == "" {
-			return "/api/pro/" + version + "/tenant/" + tenantID
-		}
-		return "/api/pro/" + version + "/tenant/" + tenantID + "/" + rest
+		return "/api/pro/" + after
 	}
 	return path
+}
+
+// setTenantHeader stamps the gateway scope header on a request. Only in gateway
+// mode: a direct-to-instance request has no tenant and must not carry one.
+func (c *Client) setTenantHeader(req *http.Request) {
+	if c.tenantID != "" {
+		req.Header.Set("X-Tenant-Id", c.tenantID)
+	}
 }
