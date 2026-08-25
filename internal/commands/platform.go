@@ -77,8 +77,9 @@ Create API client credentials in the Jamf Account portal
 				return err
 			}
 
-			// 5. Validate. A rejected Security Cloud tenant warns and continues.
-			if err := validatePlatformGatewayCredentials(cmd.Context(), w, creds); err != nil {
+			// 5. Validate. Security Cloud access is reported, not enforced.
+			securityCloud, err := validatePlatformGatewayCredentials(cmd.Context(), w, creds)
+			if err != nil {
 				return err
 			}
 
@@ -95,12 +96,11 @@ Create API client credentials in the Jamf Account portal
 			}
 
 			cfg.Profiles[setupProfile] = config.Profile{
-				URL:                   creds.GatewayURL,
-				AuthMethod:            "platform",
-				TenantID:              creds.TenantID,
-				SecurityCloudTenantID: creds.SecurityCloudTenantID,
-				ClientID:              clientIDRef,
-				ClientSecret:          clientSecretRef,
+				URL:          creds.GatewayURL,
+				AuthMethod:   "platform",
+				TenantID:     creds.TenantID,
+				ClientID:     clientIDRef,
+				ClientSecret: clientSecretRef,
 			}
 			cfg.DefaultProfile = setupProfile
 
@@ -110,29 +110,21 @@ Create API client credentials in the Jamf Account portal
 
 			_, _ = fmt.Fprintf(w, "\nProfile %q saved and set as default.\n", setupProfile)
 			_, _ = fmt.Fprintf(w, "  Gateway:     %s\n", creds.GatewayURL)
-			if creds.TenantID != "" {
-				_, _ = fmt.Fprintf(w, "  Jamf Pro tenant ID:    %s\n", creds.TenantID)
-			}
-			if creds.SecurityCloudTenantID != "" {
-				_, _ = fmt.Fprintf(w, "  Security Cloud tenant: %s\n", creds.SecurityCloudTenantID)
-			}
+			_, _ = fmt.Fprintf(w, "  Tenant ID:   %s\n", creds.TenantID)
 			_, _ = fmt.Fprintf(w, "  Client ID:   %s\n", creds.ClientID)
 			_, _ = fmt.Fprintln(w, "  Secrets stored in system keychain")
 			_, _ = fmt.Fprintln(w)
-			// State what the profile actually enables. A Security-Cloud-only
-			// profile claiming "Pro API and Platform API commands" would send
-			// someone chasing a 404 that is really a missing tenant ID.
-			switch {
-			case creds.TenantID != "" && creds.SecurityCloudTenantID != "":
-				_, _ = fmt.Fprintln(w, "This profile enables Pro API and Platform API commands, and the")
-				_, _ = fmt.Fprintln(w, "gateway-served Jamf Security Cloud commands (dns-*, ztna-*,")
-				_, _ = fmt.Fprintln(w, "content-categories, device-groups, uem-*).")
-			case creds.SecurityCloudTenantID != "":
-				_, _ = fmt.Fprintln(w, "This profile enables the gateway-served Jamf Security Cloud commands")
+			// State what the profile actually enables, from what the gateway
+			// answered rather than from which prompt was filled in: one tenant
+			// belongs to one product, and claiming a surface it cannot reach
+			// sends someone chasing a 403 that is really a missing entitlement.
+			if securityCloud {
+				_, _ = fmt.Fprintln(w, "This tenant serves the gateway-served Jamf Security Cloud commands")
 				_, _ = fmt.Fprintln(w, "(dns-*, ztna-*, content-categories, device-groups, uem-*).")
-				_, _ = fmt.Fprintln(w, "Add a Jamf Pro tenant ID to enable Pro API and Platform API commands.")
-			default:
-				_, _ = fmt.Fprintln(w, "This profile enables both Pro API and Platform API commands.")
+			} else {
+				_, _ = fmt.Fprintln(w, "This tenant serves the Pro API and Platform API commands.")
+				_, _ = fmt.Fprintln(w, "For Jamf Security Cloud, set up a second profile with its own tenant ID:")
+				_, _ = fmt.Fprintln(w, "  jamf-cli platform setup --profile-name jsc")
 			}
 
 			return nil

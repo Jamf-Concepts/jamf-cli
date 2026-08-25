@@ -213,17 +213,16 @@ func printScaffold(v any) error {
 	}
 }
 
-// resolveSecurityCloudTenantID returns the Jamf Security Cloud tenant ID for
-// the active profile, from JAMFSECURITY_TENANT_ID or the profile's
-// security-cloud-tenant-id.
+// resolveTenantID returns the gateway tenant for the active profile.
 //
-// Empty is a valid answer: the SDK then serves Security Cloud paths from the
-// client-wide tenant ID, which is right for a tenant whose Pro and Security
-// Cloud identifiers match and wrong (403 OWNERSHIP_FORBIDDEN) otherwise. The
-// env var wins so CI can point one profile at a different Security Cloud
-// tenant without editing config.
-func resolveSecurityCloudTenantID(cfg *config.Config, profileName string) string {
-	if id := os.Getenv("JAMFSECURITY_TENANT_ID"); id != "" {
+// A profile carries one tenant. The scope travels as a per-client X-Tenant-Id
+// header, so one client serves one tenant, and a customer holding both Jamf Pro
+// and Jamf Security Cloud — separate products with separate tenant identifiers —
+// makes a profile each. No command reaches across two namespaces, so nothing
+// wants a second tenant in the same profile. Environment IDs will span product
+// namespaces when they land, and this is the field they replace.
+func resolveTenantID(cfg *config.Config, profileName string) string {
+	if id := os.Getenv("JAMF_TENANT_ID"); id != "" {
 		return id
 	}
 	if cfg == nil {
@@ -235,39 +234,18 @@ func resolveSecurityCloudTenantID(cfg *config.Config, profileName string) string
 	if err != nil {
 		return ""
 	}
-	return p.SecurityCloudTenantID
-}
-
-// platformSDKClients builds the pair of clients the CLI dispatches through: one
-// for the Jamf Pro tenant and one for the Security Cloud tenant.
-//
-// It is a pair rather than a single client because the scope is a per-client
-// X-Tenant-Id header now, not a path segment. One client carries one tenant, and
-// Security Cloud is a separate product with its own tenant identifier, so a
-// customer holding both cannot be served by one client the way the old
-// TenantIDFor-per-namespace lookup managed. The two share credentials and
-// therefore the cached token; the second client costs a struct, not a login.
-//
-// With no Security Cloud tenant configured the same client is returned twice,
-// which preserves the documented fallback: Security Cloud paths use the Jamf
-// Pro tenant, correct only where the two happen to match.
-func platformSDKClients(url, clientID, clientSecret, tenantID, securityCloudTenantID string, showSpinner bool) (platformClient, securityCloudClient *jamfplatform.Client) {
-	platformClient = newPlatformSDKClient(url, clientID, clientSecret, tenantID, showSpinner)
-	if securityCloudTenantID == "" || securityCloudTenantID == tenantID {
-		return platformClient, platformClient
-	}
-	return platformClient, newPlatformSDKClient(url, clientID, clientSecret, securityCloudTenantID, showSpinner)
+	return p.TenantID
 }
 
 // securityPlatformSDKClient builds the Platform SDK client that serves the
 // gateway-hosted part of Jamf Security Cloud, or returns nil when the profile
-// carries no platform credentials. Both returns are nil in that case.
+// carries no platform credentials.
 //
 // Returning nil is a normal outcome, not an error: a profile configured only
 // for Risk/Device Lifecycle/SSE still gets a working `security` tree, and the
 // gateway-served subcommands report what to configure via
 // platform.RequirePlatformClient when they run.
-func securityPlatformSDKClient(cfg *config.Config, profileName string) (platformClient, securityCloudClient *jamfplatform.Client) {
+func securityPlatformSDKClient(cfg *config.Config, profileName string) *jamfplatform.Client {
 	url := serverURL
 	if url == "" {
 		url = os.Getenv("JAMF_URL")
@@ -301,12 +279,11 @@ func securityPlatformSDKClient(cfg *config.Config, profileName string) (platform
 		}
 	}
 
-	securityCloudTenantID := resolveSecurityCloudTenantID(cfg, profileName)
-	if url == "" || clientID == "" || clientSecret == "" {
-		return nil, nil
+	if tenantID == "" {
+		tenantID = resolveTenantID(cfg, profileName)
 	}
-	if tenantID == "" && securityCloudTenantID == "" {
-		return nil, nil
+	if url == "" || clientID == "" || clientSecret == "" || tenantID == "" {
+		return nil
 	}
-	return platformSDKClients(url, clientID, clientSecret, tenantID, securityCloudTenantID, shouldShowSpinner())
+	return newPlatformSDKClient(url, clientID, clientSecret, tenantID, shouldShowSpinner())
 }

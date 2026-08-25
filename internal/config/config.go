@@ -34,18 +34,10 @@ type Profile struct {
 	Token        string `yaml:"token,omitempty"`
 	ClientID     string `yaml:"client-id,omitempty"`
 	ClientSecret string `yaml:"client-secret,omitempty"`
-	TenantID     string `yaml:"tenant-id,omitempty"` // platform auth
-	// SecurityCloudTenantID is the tenant ID for Jamf Security Cloud paths on
-	// the platform gateway. Jamf Security Cloud is a separate product with its
-	// own tenant identifier, so a customer holding both products has one tenant
-	// ID for Jamf Pro (TenantID) and a different one for Security Cloud, both
-	// reachable from a single platform profile. Optional: when empty, Security
-	// Cloud paths fall back to TenantID, which is correct only where the two
-	// happen to match — otherwise the gateway answers 403 OWNERSHIP_FORBIDDEN.
-	SecurityCloudTenantID string `yaml:"security-cloud-tenant-id,omitempty"` // platform auth
-	PlatformURL           string `yaml:"platform-url,omitempty"`             // school: separate gateway URL for Platform API
-	NetworkID             string `yaml:"network-id,omitempty"`               // school only
-	APIKey                string `yaml:"api-key,omitempty"`                  // school only
+	TenantID     string `yaml:"tenant-id,omitempty"`    // platform auth
+	PlatformURL  string `yaml:"platform-url,omitempty"` // school: separate gateway URL for Platform API
+	NetworkID    string `yaml:"network-id,omitempty"`   // school only
+	APIKey       string `yaml:"api-key,omitempty"`      // school only
 	// Security (Jamf Security Cloud) only: each of the Risk, Device Lifecycle,
 	// and Shared Signals & Events APIs is provisioned as its own "Security
 	// Integration" with its own application ID/secret, so — unlike every other

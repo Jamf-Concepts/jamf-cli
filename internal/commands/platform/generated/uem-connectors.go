@@ -40,7 +40,7 @@ func newUemConnectorsListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Long:        "Returns the connectors configured for the tenant.",
 		Annotations: map[string]string{"jamf:privileges": "uem-connect:read", "jamf:api": "platform-gateway"},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if err := platform.RequirePlatformClient(cliCtx.SecurityCloudSDKClient); err != nil {
+			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err
 			}
 			path := "/api/securitycloud/uem-connect/v1/connectors"
@@ -50,7 +50,7 @@ func newUemConnectorsListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				path += "?" + encoded
 			}
 			var result any
-			if err := cliCtx.SecurityCloudSDKClient.Transport().DoExpect(cmd.Context(), http.MethodGet, path, body, http.StatusOK, &result); err != nil {
+			if err := cliCtx.PlatformSDKClient.Transport().DoExpect(cmd.Context(), http.MethodGet, path, body, http.StatusOK, &result); err != nil {
 				return fmt.Errorf("list: %w", err)
 			}
 			if result == nil {
@@ -87,7 +87,7 @@ func newUemConnectorsCreateCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				fmt.Println("{\n  \"authStrategy\": \"JAMF_PRO_OAUTH\",\n  \"deviceSyncAuth\": {\n    \"clientId\": \"\",\n    \"clientSecret\": \"\",\n    \"password\": \"\",\n    \"username\": \"\"\n  },\n  \"isoCountry\": \"US\",\n  \"url\": \"https://yourcompany.jamfcloud.com\",\n  \"vendor\": \"JAMF_PRO\"\n}")
 				return nil
 			}
-			if err := platform.RequirePlatformClient(cliCtx.SecurityCloudSDKClient); err != nil {
+			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err
 			}
 			path := "/api/securitycloud/uem-connect/v1/connectors"
@@ -109,7 +109,7 @@ func newUemConnectorsCreateCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				return platform.ReportDryRun(cmd.ErrOrStderr(), http.MethodPost, path, body)
 			}
 			var result any
-			if err := cliCtx.SecurityCloudSDKClient.Transport().DoWithContentType(cmd.Context(), http.MethodPost, path, body, "application/json", http.StatusCreated, &result); err != nil {
+			if err := cliCtx.PlatformSDKClient.Transport().DoWithContentType(cmd.Context(), http.MethodPost, path, body, "application/json", http.StatusCreated, &result); err != nil {
 				return fmt.Errorf("create: %w", err)
 			}
 			if result == nil {
@@ -138,13 +138,13 @@ func newUemConnectorsDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "uem-connect:delete", "jamf:api": "platform-gateway"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if err := platform.RequirePlatformClient(cliCtx.SecurityCloudSDKClient); err != nil {
+			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err
 			}
 			var resolvedID string
 			if nameFlag != "" {
 				listPath := "/api/securitycloud/uem-connect/v1/connectors"
-				id, err := platform.ResolveIDByName(cmd.Context(), cliCtx.SecurityCloudSDKClient, listPath, nameFlag)
+				id, err := platform.ResolveIDByName(cmd.Context(), cliCtx.PlatformSDKClient, listPath, nameFlag)
 				if err != nil {
 					return err
 				}
@@ -173,7 +173,7 @@ func newUemConnectorsDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if cliCtx.DryRun {
 				return platform.ReportDryRun(cmd.ErrOrStderr(), http.MethodDelete, path, body)
 			}
-			if err := cliCtx.SecurityCloudSDKClient.Transport().DoExpect(cmd.Context(), http.MethodDelete, path, body, http.StatusNoContent, nil); err != nil {
+			if err := cliCtx.PlatformSDKClient.Transport().DoExpect(cmd.Context(), http.MethodDelete, path, body, http.StatusNoContent, nil); err != nil {
 				return fmt.Errorf("delete: %w", err)
 			}
 			return nil
@@ -193,13 +193,13 @@ func newUemConnectorsGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Annotations: map[string]string{"jamf:privileges": "uem-connect:read", "jamf:api": "platform-gateway"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if err := platform.RequirePlatformClient(cliCtx.SecurityCloudSDKClient); err != nil {
+			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err
 			}
 			var resolvedID string
 			if nameFlag != "" {
 				listPath := "/api/securitycloud/uem-connect/v1/connectors"
-				id, err := platform.ResolveIDByName(cmd.Context(), cliCtx.SecurityCloudSDKClient, listPath, nameFlag)
+				id, err := platform.ResolveIDByName(cmd.Context(), cliCtx.PlatformSDKClient, listPath, nameFlag)
 				if err != nil {
 					return err
 				}
@@ -217,7 +217,7 @@ func newUemConnectorsGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				path += "?" + encoded
 			}
 			var result any
-			if err := cliCtx.SecurityCloudSDKClient.Transport().DoExpect(cmd.Context(), http.MethodGet, path, body, http.StatusOK, &result); err != nil {
+			if err := cliCtx.PlatformSDKClient.Transport().DoExpect(cmd.Context(), http.MethodGet, path, body, http.StatusOK, &result); err != nil {
 				return fmt.Errorf("get: %w", err)
 			}
 			if result == nil {

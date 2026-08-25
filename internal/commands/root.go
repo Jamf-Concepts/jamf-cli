@@ -747,9 +747,8 @@ in the config file. It never runs in CI, when output is piped, or under
 			// compliance-benchmarks, etc.). The SDK manages its own OAuth2
 			// token lifecycle independently from the Pro HTTP client.
 			if p, ok := authProvider.(*auth.PlatformOAuth2Provider); ok {
-				cliCtx.PlatformSDKClient, cliCtx.SecurityCloudSDKClient = platformSDKClients(
+				cliCtx.PlatformSDKClient = newPlatformSDKClient(
 					resolvedURL, p.ClientID(), p.ClientSecret(), p.TenantID(),
-					resolveSecurityCloudTenantID(cfg, resolvedProfile),
 					shouldShowSpinner(),
 				)
 			}
@@ -1357,7 +1356,6 @@ func resolveSchoolClient(cfg *config.Config, cliCtx *registry.CLIContext) error 
 			platformURL, cid, csecret, tid,
 			shouldShowSpinner(),
 		)
-		cliCtx.SecurityCloudSDKClient = cliCtx.PlatformSDKClient
 	}
 
 	return nil
@@ -1449,7 +1447,7 @@ func resolveSecurityClient(cfg *config.Config, cliCtx *registry.CLIContext) erro
 	// client-credentials plus a Security Cloud tenant ID instead of the scoped
 	// pairs above. A profile may carry either set or both, so this is resolved
 	// independently and neither half is required.
-	cliCtx.PlatformSDKClient, cliCtx.SecurityCloudSDKClient = securityPlatformSDKClient(cfg, profileName)
+	cliCtx.PlatformSDKClient = securityPlatformSDKClient(cfg, profileName)
 
 	if riskID == "" && lifecycleID == "" && sseID == "" && cliCtx.PlatformSDKClient == nil {
 		return exitcode.New(exitcode.Usage, "no Jamf Security Cloud credentials configured: run 'jamf-cli security setup', or set JAMFSECURITY_RISK_CLIENT_ID/SECRET, JAMFSECURITY_LIFECYCLE_CLIENT_ID/SECRET, and/or JAMFSECURITY_SSE_CLIENT_ID/SECRET env vars. For the gateway-served commands (dns-*, ztna-*, content-categories, device-groups, uem-*) configure a platform profile: 'jamf-cli config add-profile <name> --auth-method platform --tenant-id <id>'")

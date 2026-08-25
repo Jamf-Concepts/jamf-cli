@@ -111,15 +111,6 @@ type templateOp struct {
 	SupportsNameLookup bool          // op accepts a single positional ID arg AND its resource has a list op — emit --name as alternative
 	ListPath           string        // sibling list-op path (used by --name lookup); only populated when SupportsNameLookup is true
 	Service            string        // gateway namespace segment ("blueprints", "securitycloud")
-	// SDKField is the CLIContext field holding the client this operation
-	// dispatches through. Security Cloud is a separate product with its own
-	// tenant identifier, and the scope now travels as a per-client X-Tenant-Id
-	// header rather than a path segment, so one client can no longer serve both
-	// — a Security Cloud command needs a client built with the Security Cloud
-	// tenant. Root wires that field to the platform client when no Security
-	// Cloud tenant is configured, preserving the old fall-back-to-Pro-tenant
-	// behaviour.
-	SDKField string
 
 	// DocumentedStatuses lists non-2xx statuses this operation documents as
 	// results rather than failures, from platformDocumentedStatusResults. The
@@ -323,7 +314,6 @@ func buildTemplateResource(r *parser.Resource) (templateResource, error) {
 			SupportsNameLookup: supportsName,
 			ListPath:           opListPath,
 			Service:            serviceFromPath(opCopy.Path),
-			SDKField:           sdkFieldForService(serviceFromPath(opCopy.Path)),
 			DocumentedStatuses: platformDocumentedStatusResults[strings.ToUpper(opCopy.Method)+" "+opCopy.Path],
 		})
 	}
@@ -375,15 +365,6 @@ func apiLabel(ops []templateOp) string {
 // securityCloudService is the gateway namespace Jamf Security Cloud is served
 // under, and the value of the jamf:api annotation's gateway variant.
 const securityCloudService = "securitycloud"
-
-// sdkFieldForService names the CLIContext client field a namespace dispatches
-// through. See templateOp.SDKField.
-func sdkFieldForService(service string) string {
-	if service == securityCloudService {
-		return "SecurityCloudSDKClient"
-	}
-	return "PlatformSDKClient"
-}
 
 // serviceFromPath returns the gateway namespace segment of a full request path
 // ("/api/securitycloud/v1/dns/zones" → "securitycloud").

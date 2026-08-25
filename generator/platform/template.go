@@ -8,8 +8,8 @@ package platform
 // transport handles auth and retry.
 //
 // The scope travels as an X-Tenant-Id header set by the transport, so a path is
-// used verbatim. Security Cloud resources dispatch through their own client
-// because their tenant is a different ID from the Jamf Pro one:
+// used verbatim and every namespace dispatches through the one client — a
+// profile carries a single tenant:
 // Jamf Security Cloud is a separate product with its own tenant identifier, so
 // a profile reaching both Pro and Security Cloud carries two, and the
 // client-wide value is wrong for one of them.
@@ -129,14 +129,14 @@ func new{{$.GoName}}{{.GoName}}Cmd(cliCtx *registry.CLIContext) *cobra.Command {
 				return nil
 			}
 {{- end }}
-			if err := platform.RequirePlatformClient(cliCtx.{{.SDKField}}); err != nil {
+			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err
 			}
 {{- if .SupportsNameLookup }}
 			var resolvedID string
 			if nameFlag != "" {
 				listPath := {{printf "%q" .ListPath}}
-				id, err := platform.ResolveIDByName(cmd.Context(), cliCtx.{{.SDKField}}, listPath, nameFlag)
+				id, err := platform.ResolveIDByName(cmd.Context(), cliCtx.PlatformSDKClient, listPath, nameFlag)
 				if err != nil {
 					return err
 				}
@@ -212,7 +212,7 @@ func new{{$.GoName}}{{.GoName}}Cmd(cliCtx *registry.CLIContext) *cobra.Command {
 				var pageResult struct {
 					Results []json.RawMessage ` + "`json:\"{{.ListArrayKey}}\"`" + `
 				}
-				if err := cliCtx.{{.SDKField}}.Transport().DoExpect(cmd.Context(), {{methodConstant .Method}}, endpoint, body, {{statusConstant .SuccessCode}}, &pageResult); err != nil {
+				if err := cliCtx.PlatformSDKClient.Transport().DoExpect(cmd.Context(), {{methodConstant .Method}}, endpoint, body, {{statusConstant .SuccessCode}}, &pageResult); err != nil {
 					return fmt.Errorf("{{.Name}}: %w", err)
 				}
 				aggregated = append(aggregated, pageResult.Results...)
@@ -251,15 +251,15 @@ func new{{$.GoName}}{{.GoName}}Cmd(cliCtx *registry.CLIContext) *cobra.Command {
 			var result any
 {{- end }}
 {{- if .UsesMergePatch }}
-			if err := cliCtx.{{.SDKField}}.Transport().DoWithContentType(cmd.Context(), {{methodConstant .Method}}, path, body, "application/merge-patch+json", {{statusConstant .SuccessCode}}, {{if .HasResult}}&result{{else}}nil{{end}}); err != nil {
+			if err := cliCtx.PlatformSDKClient.Transport().DoWithContentType(cmd.Context(), {{methodConstant .Method}}, path, body, "application/merge-patch+json", {{statusConstant .SuccessCode}}, {{if .HasResult}}&result{{else}}nil{{end}}); err != nil {
 				return fmt.Errorf("{{.Name}}: %w", err)
 			}
 {{- else if and .HasBody (or (eq .Method "POST") (eq .Method "PUT")) }}
-			if err := cliCtx.{{.SDKField}}.Transport().DoWithContentType(cmd.Context(), {{methodConstant .Method}}, path, body, "application/json", {{statusConstant .SuccessCode}}, {{if .HasResult}}&result{{else}}nil{{end}}); err != nil {
+			if err := cliCtx.PlatformSDKClient.Transport().DoWithContentType(cmd.Context(), {{methodConstant .Method}}, path, body, "application/json", {{statusConstant .SuccessCode}}, {{if .HasResult}}&result{{else}}nil{{end}}); err != nil {
 				return fmt.Errorf("{{.Name}}: %w", err)
 			}
 {{- else if .DocumentedStatuses }}
-			if err := platform.DoExpectDocumented(cmd.Context(), cliCtx.{{.SDKField}}, {{methodConstant .Method}}, path, body, {{statusConstant .SuccessCode}}, []platform.DocumentedStatus{
+			if err := platform.DoExpectDocumented(cmd.Context(), cliCtx.PlatformSDKClient, {{methodConstant .Method}}, path, body, {{statusConstant .SuccessCode}}, []platform.DocumentedStatus{
 			{{- range .DocumentedStatuses }}
 				{Code: {{.Code}}, ErrorCode: {{printf "%q" .ErrorCode}}, Empty: {{.Empty}}},
 			{{- end }}
@@ -267,7 +267,7 @@ func new{{$.GoName}}{{.GoName}}Cmd(cliCtx *registry.CLIContext) *cobra.Command {
 				return fmt.Errorf("{{.Name}}: %w", err)
 			}
 {{- else }}
-			if err := cliCtx.{{.SDKField}}.Transport().DoExpect(cmd.Context(), {{methodConstant .Method}}, path, body, {{statusConstant .SuccessCode}}, {{if .HasResult}}&result{{else}}nil{{end}}); err != nil {
+			if err := cliCtx.PlatformSDKClient.Transport().DoExpect(cmd.Context(), {{methodConstant .Method}}, path, body, {{statusConstant .SuccessCode}}, {{if .HasResult}}&result{{else}}nil{{end}}); err != nil {
 				return fmt.Errorf("{{.Name}}: %w", err)
 			}
 {{- end }}

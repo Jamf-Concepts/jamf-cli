@@ -52,7 +52,7 @@ func newUemActivationProfilesDeployToUemCmd(cliCtx *registry.CLIContext) *cobra.
 				fmt.Println("{\n  \"platform\": \"SUPERVISED_IOS\",\n  \"uem\": \"JAMF\",\n  \"uemGroups\": [\n    \"All Managed Devices\"\n  ]\n}")
 				return nil
 			}
-			if err := platform.RequirePlatformClient(cliCtx.SecurityCloudSDKClient); err != nil {
+			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err
 			}
 			path := "/api/securitycloud/uem-connect/v1/activation-profiles/{code}/deploy-to-uem"
@@ -74,7 +74,7 @@ func newUemActivationProfilesDeployToUemCmd(cliCtx *registry.CLIContext) *cobra.
 			if cliCtx.DryRun {
 				return platform.ReportDryRun(cmd.ErrOrStderr(), http.MethodPost, path, body)
 			}
-			if err := cliCtx.SecurityCloudSDKClient.Transport().DoWithContentType(cmd.Context(), http.MethodPost, path, body, "application/json", http.StatusNoContent, nil); err != nil {
+			if err := cliCtx.PlatformSDKClient.Transport().DoWithContentType(cmd.Context(), http.MethodPost, path, body, "application/json", http.StatusNoContent, nil); err != nil {
 				return fmt.Errorf("deploy-to-uem: %w", err)
 			}
 			return nil

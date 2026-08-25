@@ -39,7 +39,7 @@ func newUemSyncSettingsGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Annotations: map[string]string{"jamf:privileges": "uem-connect:read", "jamf:api": "platform-gateway"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if err := platform.RequirePlatformClient(cliCtx.SecurityCloudSDKClient); err != nil {
+			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err
 			}
 			path := "/api/securitycloud/uem-connect/v1/connectors/{configId}/sync-settings"
@@ -50,7 +50,7 @@ func newUemSyncSettingsGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				path += "?" + encoded
 			}
 			var result any
-			if err := cliCtx.SecurityCloudSDKClient.Transport().DoExpect(cmd.Context(), http.MethodGet, path, body, http.StatusOK, &result); err != nil {
+			if err := cliCtx.PlatformSDKClient.Transport().DoExpect(cmd.Context(), http.MethodGet, path, body, http.StatusOK, &result); err != nil {
 				return fmt.Errorf("get: %w", err)
 			}
 			if result == nil {
@@ -88,7 +88,7 @@ func newUemSyncSettingsUpdateCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				fmt.Println("{\n  \"autoDeviceDeletion\": \"DELETED_OR_RETIRED\",\n  \"deviceFieldMappings\": {\n    \"deviceNameMapping\": \"DEVICE_NAME\",\n    \"phoneNumberMapping\": \"PHONE_NUMBER\",\n    \"userEmailMapping\": {\n      \"fieldPrefix\": \"dev-\",\n      \"fieldSuffix\": \"example.com\",\n      \"type\": \"EMAIL_ADDRESS\",\n      \"useOnlyIfEmailMissing\": false\n    },\n    \"userIdMapping\": \"EXTERNAL_USER_ID\",\n    \"userNameMapping\": \"USER_NAME\"\n  },\n  \"deviceRiskTagging\": false,\n  \"deviceUnmanagedThreshold\": 3,\n  \"disableSyncOnAuthError\": true,\n  \"groupSettings\": {\n    \"defaultGroupId\": \"grp-default\",\n    \"groupMappingEnabled\": true,\n    \"groupMappings\": [\n      {\n        \"emmGroupId\": \"uem-group-1\",\n        \"wanderaGroupId\": \"grp-abc123\"\n      }\n    ]\n  },\n  \"refreshRateMinutes\": 1440,\n  \"scheduled\": true,\n  \"vendor\": \"INTUNE\"\n}")
 				return nil
 			}
-			if err := platform.RequirePlatformClient(cliCtx.SecurityCloudSDKClient); err != nil {
+			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err
 			}
 			path := "/api/securitycloud/uem-connect/v1/connectors/{configId}/sync-settings"
@@ -110,7 +110,7 @@ func newUemSyncSettingsUpdateCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if cliCtx.DryRun {
 				return platform.ReportDryRun(cmd.ErrOrStderr(), http.MethodPut, path, body)
 			}
-			if err := cliCtx.SecurityCloudSDKClient.Transport().DoWithContentType(cmd.Context(), http.MethodPut, path, body, "application/json", http.StatusNoContent, nil); err != nil {
+			if err := cliCtx.PlatformSDKClient.Transport().DoWithContentType(cmd.Context(), http.MethodPut, path, body, "application/json", http.StatusNoContent, nil); err != nil {
 				return fmt.Errorf("update: %w", err)
 			}
 			return nil

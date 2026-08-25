@@ -44,20 +44,24 @@ func gatewayStub(t *testing.T, tokenStatus int, categories func(w http.ResponseW
 	return srv
 }
 
-func TestValidatePlatformGatewayCredentials_NoSecurityCloudTenant(t *testing.T) {
-	srv := gatewayStub(t, http.StatusOK, func(w http.ResponseWriter, r *http.Request) {
-		t.Error("Security Cloud was probed even though no tenant was supplied")
+func TestValidatePlatformGatewayCredentials_ReportsSecurityCloudAccess(t *testing.T) {
+	srv := gatewayStub(t, http.StatusOK, func(w http.ResponseWriter, _ *http.Request) {
+		writeJSONStatus(w, http.StatusOK, map[string]any{"results": []any{}, "totalCount": 0})
 	})
 
 	var out bytes.Buffer
 	creds := &platformGatewayCredentials{
-		GatewayURL: srv.URL, ClientID: "id", ClientSecret: "secret", TenantID: "pro-tenant",
+		GatewayURL: srv.URL, ClientID: "id", ClientSecret: "secret", TenantID: "a-tenant",
 	}
-	if err := validatePlatformGatewayCredentials(context.Background(), &out, creds); err != nil {
+	securityCloud, err := validatePlatformGatewayCredentials(context.Background(), &out, creds)
+	if err != nil {
 		t.Fatalf("validate: %v", err)
 	}
-	if strings.Contains(out.String(), "Security Cloud") {
-		t.Errorf("mentioned Security Cloud with no tenant configured:\n%s", out.String())
+	if !securityCloud {
+		t.Error("gateway served the Security Cloud read but access was reported as unavailable")
+	}
+	if !strings.Contains(out.String(), "Checking Jamf Security Cloud access... yes") {
+		t.Errorf("output does not report access:\n%s", out.String())
 	}
 }
 
@@ -70,16 +74,17 @@ func TestValidatePlatformGatewayCredentials_BadCredentialsAreFatal(t *testing.T)
 	}
 	// Credentials that don't work are worth failing setup over: nothing the
 	// profile could go on to do would succeed.
-	if err := validatePlatformGatewayCredentials(context.Background(), &out, creds); err == nil {
+	if _, err := validatePlatformGatewayCredentials(context.Background(), &out, creds); err == nil {
 		t.Fatal("expected credential validation to fail")
 	}
 }
 
-// TestValidatePlatformGatewayCredentials_SecurityCloudTenant covers the reason
-// this validation exists: a Security Cloud tenant ID is easy to get wrong (it is
-// not the Pro tenant, and not the client ID), and the gateway says *how* it is
-// wrong. Every outcome still saves the profile — the entitlement may simply not
-// be provisioned yet, and refusing would block a valid Pro-only profile.
+// TestValidatePlatformGatewayCredentials_SecurityCloudTenant covers what the
+// probe is for now that a profile carries one tenant: telling the operator which
+// half of `security` this tenant serves. Every outcome still saves the profile —
+// a Jamf Pro tenant legitimately has no Security Cloud entitlement, and the
+// gateway's two rejections are indistinguishable in intent from here, so none of
+// them can be treated as a setup failure.
 func TestValidatePlatformGatewayCredentials_SecurityCloudTenant(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -91,36 +96,33 @@ func TestValidatePlatformGatewayCredentials_SecurityCloudTenant(t *testing.T) {
 			name:     "reachable",
 			status:   http.StatusOK,
 			body:     `{"results":[],"totalCount":0}`,
-			wantText: "Validating Security Cloud tenant... ok",
+			wantText: "Checking Jamf Security Cloud access... yes",
 		},
 		{
 			name:     "wrong tenant",
 			status:   http.StatusForbidden,
 			body:     `{"httpStatus":403,"errors":[{"code":"OWNERSHIP_FORBIDDEN"}]}`,
-			wantText: "rejected this tenant",
+			wantText: "tenant not owned by this organization",
 		},
 		{
 			name:     "not entitled",
 			status:   http.StatusForbidden,
 			body:     `{"httpStatus":403,"errors":[{"code":"BAD_PERMISSIONS"}]}`,
-			wantText: "no Jamf Security Cloud entitlement",
+			wantText: "no (no Security Cloud entitlement)",
 		},
 		{
-			name:     "unexpected failure still warns",
+			name:     "unexpected failure is still only a report",
 			status:   http.StatusInternalServerError,
 			body:     `{"httpStatus":500,"errors":[{"code":"BOOM"}]}`,
-			wantText: "WARNING",
+			wantText: "no (",
 		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			srv := gatewayStub(t, http.StatusOK, func(w http.ResponseWriter, r *http.Request) {
-				// The probe must carry the Security Cloud tenant, not the Pro
-				// one — resolving the wrong tenant is the failure this whole
-				// check exists to catch — and it must carry it ahead of the
-				// version, which is what puts Security Cloud mutations inside
-				// the gateway's audit globs.
+				// Registered exactly, so a tenant segment creeping back into
+				// the URL shows up here as a handler the client never calls.
 				if r.URL.Path != securityCloudCategoriesProbePath {
 					t.Errorf("probed %q, want %q", r.URL.Path, securityCloudCategoriesProbePath)
 				}
@@ -132,10 +134,10 @@ func TestValidatePlatformGatewayCredentials_SecurityCloudTenant(t *testing.T) {
 			var out bytes.Buffer
 			creds := &platformGatewayCredentials{
 				GatewayURL: srv.URL, ClientID: "id", ClientSecret: "secret",
-				TenantID: "pro-tenant", SecurityCloudTenantID: "jsc-tenant",
+				TenantID: "a-tenant",
 			}
-			if err := validatePlatformGatewayCredentials(context.Background(), &out, creds); err != nil {
-				t.Fatalf("validate returned an error; a Security Cloud problem must warn and save: %v", err)
+			if _, err := validatePlatformGatewayCredentials(context.Background(), &out, creds); err != nil {
+				t.Fatalf("validate returned an error; a Security Cloud outcome must report and save: %v", err)
 			}
 			if !strings.Contains(out.String(), tc.wantText) {
 				t.Errorf("output missing %q:\n%s", tc.wantText, out.String())

@@ -234,8 +234,6 @@ func newConfigAddProfileCmd() *cobra.Command {
 		profileClientID  string
 		profileClientSec string
 		profileTenantID  string
-
-		profileSecurityCloudTenantID string
 	)
 
 	cmd := &cobra.Command{
@@ -293,7 +291,7 @@ func newConfigAddProfileCmd() *cobra.Command {
 			// platform requires a tenant, but either one will do: Security Cloud
 			// paths carry their own tenant and do not need the Jamf Pro one, so a
 			// profile scoped to Security Cloud alone is complete without it.
-			if authMethod == "platform" && profileTenantID == "" && profileSecurityCloudTenantID == "" {
+			if authMethod == "platform" && profileTenantID == "" {
 				_, _ = fmt.Fprint(w, "Tenant ID: ")
 				line, err := reader.ReadString('\n')
 				if err != nil {
@@ -325,10 +323,9 @@ func newConfigAddProfileCmd() *cobra.Command {
 			}
 
 			p := config.Profile{
-				URL:                   normalizedURL,
-				AuthMethod:            authMethod,
-				TenantID:              profileTenantID,
-				SecurityCloudTenantID: profileSecurityCloudTenantID,
+				URL:        normalizedURL,
+				AuthMethod: authMethod,
+				TenantID:   profileTenantID,
 			}
 
 			// Store secrets: values with env: or file: prefix are written
@@ -366,8 +363,6 @@ func newConfigAddProfileCmd() *cobra.Command {
 	cmd.Flags().StringVar(&profileURL, "url", "", "Jamf Pro server URL (instance URL or platform gateway URL)")
 	cmd.Flags().StringVar(&authMethod, "auth-method", "token", "authentication method: token, oauth2, platform")
 	cmd.Flags().StringVar(&profileTenantID, "tenant-id", "", "Jamf Pro tenant ID (required for platform auth)")
-	cmd.Flags().StringVar(&profileSecurityCloudTenantID, "security-cloud-tenant-id", "",
-		"Jamf Security Cloud tenant ID (optional; enables the gateway-served security commands). Not a secret, and distinct from --tenant-id")
 	_ = cmd.MarkFlagRequired("url")
 
 	return cmd
@@ -584,15 +579,11 @@ func newConfigValidateCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				case "platform":
 					checkSecretField(&checks, name, "client-id", p.ClientID)
 					checkSecretField(&checks, name, "client-secret", p.ClientSecret)
-					// Either tenant makes the profile usable; only both missing
-					// is a fault. A Security-Cloud-only profile legitimately has
-					// no Jamf Pro tenant ID.
-					switch {
-					case p.TenantID != "":
+					// One tenant per profile, and platform auth cannot work
+					// without it.
+					if p.TenantID != "" {
 						pass(name, "tenant-id")
-					case p.SecurityCloudTenantID != "":
-						pass(name, "security-cloud-tenant-id")
-					default:
+					} else {
 						fail(name, "tenant-id", "missing")
 					}
 				case "oauth2":

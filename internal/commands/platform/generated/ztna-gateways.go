@@ -41,7 +41,7 @@ func newZtnaGatewaysListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Long:        "List dedicated Gateways for the tenant, paginated. Returns only customer-owned gateways. Each item includes datacenter, availability zones, IPSec configuration, and operational status.",
 		Annotations: map[string]string{"jamf:privileges": "ztna:read", "jamf:api": "platform-gateway"},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if err := platform.RequirePlatformClient(cliCtx.SecurityCloudSDKClient); err != nil {
+			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err
 			}
 			path := "/api/securitycloud/v1/ztna/gateways"
@@ -69,7 +69,7 @@ func newZtnaGatewaysListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				var pageResult struct {
 					Results []json.RawMessage `json:"results"`
 				}
-				if err := cliCtx.SecurityCloudSDKClient.Transport().DoExpect(cmd.Context(), http.MethodGet, endpoint, body, http.StatusOK, &pageResult); err != nil {
+				if err := cliCtx.PlatformSDKClient.Transport().DoExpect(cmd.Context(), http.MethodGet, endpoint, body, http.StatusOK, &pageResult); err != nil {
 					return fmt.Errorf("list: %w", err)
 				}
 				aggregated = append(aggregated, pageResult.Results...)
@@ -103,7 +103,7 @@ func newZtnaGatewaysCreateCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				fmt.Println("{\n  \"availabilityZones\": [\n    \"18.202.42.169\"\n  ],\n  \"contact\": {\n    \"email\": \"netops@example.com\",\n    \"name\": \"Network Operations\"\n  },\n  \"datacenter\": \"eu-west-1\",\n  \"dedicatedIps\": {\n    \"enabled\": true\n  },\n  \"enabled\": false,\n  \"ipsec\": {\n    \"esp\": {\n      \"dhGroups\": [\n        \"modp2048\"\n      ],\n      \"encryption\": [\n        \"aes256\"\n      ],\n      \"integrity\": [\n        \"sha256\"\n      ],\n      \"lifetimeInSec\": 28800\n    },\n    \"ike\": {\n      \"dhGroups\": [\n        \"modp2048\"\n      ],\n      \"encryption\": [\n        \"aes256\"\n      ],\n      \"integrity\": [\n        \"sha256\"\n      ],\n      \"lifetimeInSec\": 28800\n    },\n    \"keyExchange\": \"ikev2\",\n    \"left\": {\n      \"host\": \"%any\",\n      \"id\": \"wpa.wandera.com\",\n      \"secret\": \"my-pre-shared-key\",\n      \"subnets\": []\n    },\n    \"right\": {\n      \"host\": \"81.145.130.194\",\n      \"id\": \"vpn-peer.corp.example.com\",\n      \"subnets\": [],\n      \"vendor\": \"Cisco\"\n    }\n  },\n  \"name\": \"EU West Production Gateway\",\n  \"tenantIds\": [\n    \"3fa85f64-5717-4562-b3fc-2c963f66afa6\"\n  ]\n}")
 				return nil
 			}
-			if err := platform.RequirePlatformClient(cliCtx.SecurityCloudSDKClient); err != nil {
+			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err
 			}
 			path := "/api/securitycloud/v1/ztna/gateways"
@@ -125,7 +125,7 @@ func newZtnaGatewaysCreateCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				return platform.ReportDryRun(cmd.ErrOrStderr(), http.MethodPost, path, body)
 			}
 			var result any
-			if err := cliCtx.SecurityCloudSDKClient.Transport().DoWithContentType(cmd.Context(), http.MethodPost, path, body, "application/json", http.StatusCreated, &result); err != nil {
+			if err := cliCtx.PlatformSDKClient.Transport().DoWithContentType(cmd.Context(), http.MethodPost, path, body, "application/json", http.StatusCreated, &result); err != nil {
 				return fmt.Errorf("create: %w", err)
 			}
 			if result == nil {
@@ -154,13 +154,13 @@ func newZtnaGatewaysDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "ztna:delete", "jamf:api": "platform-gateway"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if err := platform.RequirePlatformClient(cliCtx.SecurityCloudSDKClient); err != nil {
+			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err
 			}
 			var resolvedID string
 			if nameFlag != "" {
 				listPath := "/api/securitycloud/v1/ztna/gateways"
-				id, err := platform.ResolveIDByName(cmd.Context(), cliCtx.SecurityCloudSDKClient, listPath, nameFlag)
+				id, err := platform.ResolveIDByName(cmd.Context(), cliCtx.PlatformSDKClient, listPath, nameFlag)
 				if err != nil {
 					return err
 				}
@@ -189,7 +189,7 @@ func newZtnaGatewaysDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if cliCtx.DryRun {
 				return platform.ReportDryRun(cmd.ErrOrStderr(), http.MethodDelete, path, body)
 			}
-			if err := cliCtx.SecurityCloudSDKClient.Transport().DoExpect(cmd.Context(), http.MethodDelete, path, body, http.StatusNoContent, nil); err != nil {
+			if err := cliCtx.PlatformSDKClient.Transport().DoExpect(cmd.Context(), http.MethodDelete, path, body, http.StatusNoContent, nil); err != nil {
 				return fmt.Errorf("delete: %w", err)
 			}
 			return nil
@@ -209,13 +209,13 @@ func newZtnaGatewaysGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Annotations: map[string]string{"jamf:privileges": "ztna:read", "jamf:api": "platform-gateway"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if err := platform.RequirePlatformClient(cliCtx.SecurityCloudSDKClient); err != nil {
+			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err
 			}
 			var resolvedID string
 			if nameFlag != "" {
 				listPath := "/api/securitycloud/v1/ztna/gateways"
-				id, err := platform.ResolveIDByName(cmd.Context(), cliCtx.SecurityCloudSDKClient, listPath, nameFlag)
+				id, err := platform.ResolveIDByName(cmd.Context(), cliCtx.PlatformSDKClient, listPath, nameFlag)
 				if err != nil {
 					return err
 				}
@@ -233,7 +233,7 @@ func newZtnaGatewaysGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				path += "?" + encoded
 			}
 			var result any
-			if err := cliCtx.SecurityCloudSDKClient.Transport().DoExpect(cmd.Context(), http.MethodGet, path, body, http.StatusOK, &result); err != nil {
+			if err := cliCtx.PlatformSDKClient.Transport().DoExpect(cmd.Context(), http.MethodGet, path, body, http.StatusOK, &result); err != nil {
 				return fmt.Errorf("get: %w", err)
 			}
 			if result == nil {
@@ -268,13 +268,13 @@ func newZtnaGatewaysPatchCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				fmt.Println("{\n  \"availabilityZones\": [\n    \"18.202.42.169\"\n  ],\n  \"contact\": {\n    \"email\": \"netops@example.com\",\n    \"name\": \"Network Operations\"\n  },\n  \"datacenter\": \"eu-west-1\",\n  \"enabled\": true,\n  \"ipsec\": {\n    \"esp\": {\n      \"dhGroups\": [\n        \"modp2048\"\n      ],\n      \"encryption\": [\n        \"aes256\"\n      ],\n      \"integrity\": [\n        \"sha256\"\n      ],\n      \"lifetimeInSec\": 28800\n    },\n    \"ike\": {\n      \"dhGroups\": [\n        \"modp2048\"\n      ],\n      \"encryption\": [\n        \"aes256\"\n      ],\n      \"integrity\": [\n        \"sha256\"\n      ],\n      \"lifetimeInSec\": 28800\n    },\n    \"keyExchange\": \"ikev2\",\n    \"left\": {\n      \"host\": \"%any\",\n      \"id\": \"wpa.wandera.com\",\n      \"secret\": \"new-pre-shared-key\",\n      \"subnets\": [\n        \"172.31.140.203/29\"\n      ]\n    },\n    \"right\": {\n      \"host\": \"%any\",\n      \"id\": \"%any\",\n      \"subnets\": [\n        \"0.0.0.0/0\"\n      ],\n      \"vendor\": \"Cisco\"\n    }\n  },\n  \"name\": \"EU West Production Gateway\",\n  \"tenantIds\": [\n    \"3fa85f64-5717-4562-b3fc-2c963f66afa6\"\n  ]\n}")
 				return nil
 			}
-			if err := platform.RequirePlatformClient(cliCtx.SecurityCloudSDKClient); err != nil {
+			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err
 			}
 			var resolvedID string
 			if nameFlag != "" {
 				listPath := "/api/securitycloud/v1/ztna/gateways"
-				id, err := platform.ResolveIDByName(cmd.Context(), cliCtx.SecurityCloudSDKClient, listPath, nameFlag)
+				id, err := platform.ResolveIDByName(cmd.Context(), cliCtx.PlatformSDKClient, listPath, nameFlag)
 				if err != nil {
 					return err
 				}
@@ -303,7 +303,7 @@ func newZtnaGatewaysPatchCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if cliCtx.DryRun {
 				return platform.ReportDryRun(cmd.ErrOrStderr(), http.MethodPatch, path, body)
 			}
-			if err := cliCtx.SecurityCloudSDKClient.Transport().DoWithContentType(cmd.Context(), http.MethodPatch, path, body, "application/merge-patch+json", http.StatusNoContent, nil); err != nil {
+			if err := cliCtx.PlatformSDKClient.Transport().DoWithContentType(cmd.Context(), http.MethodPatch, path, body, "application/merge-patch+json", http.StatusNoContent, nil); err != nil {
 				return fmt.Errorf("patch: %w", err)
 			}
 			return nil

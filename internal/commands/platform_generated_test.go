@@ -95,7 +95,7 @@ func TestGeneratedPlatformDeviceGroupsGet(t *testing.T) {
 func TestGeneratedDeviceActionsUnmanageRequiresConfirm(t *testing.T) {
 	sdk, _ := newTestPlatformSDK(t)
 
-	cliCtx := &registry.CLIContext{PlatformSDKClient: sdk, SecurityCloudSDKClient: sdk, Output: &captureOutput{}}
+	cliCtx := &registry.CLIContext{PlatformSDKClient: sdk, Output: &captureOutput{}}
 	cmd := platformgen.NewDeviceActionsCmd(cliCtx)
 	cmd.SetArgs([]string{"unmanage", "device-id-1"})
 	err := cmd.Execute()
@@ -110,7 +110,7 @@ func TestGeneratedDeviceActionsUnmanageRequiresConfirm(t *testing.T) {
 // TestGeneratedCommandNilClientError validates that generated commands return
 // the full setup guidance (not a bare one-liner) when PlatformSDKClient is nil.
 func TestGeneratedCommandNilClientError(t *testing.T) {
-	cliCtx := &registry.CLIContext{PlatformSDKClient: nil, SecurityCloudSDKClient: nil, Output: &captureOutput{}}
+	cliCtx := &registry.CLIContext{PlatformSDKClient: nil, Output: &captureOutput{}}
 	cmd := platformgen.NewBlueprintsCmd(cliCtx)
 	cmd.SetArgs([]string{"list"})
 	err := cmd.Execute()
@@ -181,7 +181,7 @@ func TestGeneratedRulesListWithQueryParam(t *testing.T) {
 	})
 
 	out := &captureOutput{}
-	cliCtx := &registry.CLIContext{PlatformSDKClient: sdk, SecurityCloudSDKClient: sdk, Output: out}
+	cliCtx := &registry.CLIContext{PlatformSDKClient: sdk, Output: out}
 	cmd := platformgen.NewRulesCmd(cliCtx)
 	cmd.SetArgs([]string{"list", "--baseline-id", "cis_lvl1"})
 	if err := cmd.Execute(); err != nil {
@@ -226,7 +226,7 @@ func TestGeneratedSecurityCloudListIsTenantFirstAndEmptyIsAnArray(t *testing.T) 
 	})
 
 	out := &captureOutput{}
-	cliCtx := &registry.CLIContext{PlatformSDKClient: sdk, SecurityCloudSDKClient: sdk, Output: out}
+	cliCtx := &registry.CLIContext{PlatformSDKClient: sdk, Output: out}
 	cmd := platformgen.NewZtnaGatewaysCmd(cliCtx)
 	cmd.SetArgs([]string{"list"})
 	if err := cmd.Execute(); err != nil {
@@ -284,7 +284,7 @@ func TestGeneratedPlatformMutationsHonourDryRun(t *testing.T) {
 				writeJSON(w, map[string]any{"id": "abc123"})
 			})
 
-			cliCtx := &registry.CLIContext{PlatformSDKClient: sdk, SecurityCloudSDKClient: sdk, Output: &captureOutput{}, DryRun: true}
+			cliCtx := &registry.CLIContext{PlatformSDKClient: sdk, Output: &captureOutput{}, DryRun: true}
 			cmd := tc.newCmd(cliCtx)
 			var stderr bytes.Buffer
 			cmd.SetErr(&stderr)

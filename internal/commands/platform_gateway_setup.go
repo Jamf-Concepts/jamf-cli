@@ -25,11 +25,13 @@ type platformGatewayCredentials struct {
 	GatewayURL   string
 	ClientID     string
 	ClientSecret string
-	TenantID     string
-	// SecurityCloudTenantID is optional: Jamf Security Cloud is a separate
-	// product with its own tenant identifier, and plenty of platform tenants
-	// have no Security Cloud entitlement at all.
-	SecurityCloudTenantID string
+	// TenantID is the one tenant this profile serves, whichever product it
+	// belongs to. Jamf Pro and Jamf Security Cloud have separate tenant
+	// identifiers, and a customer holding both makes a profile each: the tenant
+	// travels as a per-client X-Tenant-Id header, so one profile cannot carry
+	// two. Environment IDs will span product namespaces when they land, and
+	// this is the field they replace.
+	TenantID string
 }
 
 // promptPlatformGatewayCredentials runs the interactive gateway credential
@@ -83,20 +85,17 @@ func promptPlatformGatewayCredentials(w io.Writer, reader *bufio.Reader) (*platf
 		return nil, fmt.Errorf("client secret is required")
 	}
 
-	// Either tenant alone is a complete configuration. The Pro tenant is not
-	// needed to reach Jamf Security Cloud — its paths carry their own tenant —
-	// so someone who only has Security Cloud should not have to invent a value
-	// they will never use.
-	_, _ = fmt.Fprint(w, "Jamf Pro tenant ID (from Jamf Account portal; Enter to skip if you only use Security Cloud): ")
+	// One tenant per profile, whichever product it belongs to. The tenant travels
+	// as a per-client X-Tenant-Id header, so a profile cannot serve two; a
+	// customer holding both Jamf Pro and Security Cloud makes a profile each.
+	// Environment IDs will span product namespaces when they land, and this is
+	// the field they replace.
+	_, _ = fmt.Fprint(w, "Tenant ID (from Jamf Account portal): ")
 	line, _ = reader.ReadString('\n')
 	creds.TenantID = strings.TrimSpace(line)
 
-	_, _ = fmt.Fprint(w, "Jamf Security Cloud tenant ID (Enter to skip): ")
-	line, _ = reader.ReadString('\n')
-	creds.SecurityCloudTenantID = strings.TrimSpace(line)
-
-	if creds.TenantID == "" && creds.SecurityCloudTenantID == "" {
-		return nil, fmt.Errorf("a tenant ID is required: supply the Jamf Pro tenant ID, the Jamf Security Cloud tenant ID, or both")
+	if creds.TenantID == "" {
+		return nil, fmt.Errorf("a tenant ID is required")
 	}
 
 	return creds, nil
@@ -104,11 +103,12 @@ func promptPlatformGatewayCredentials(w io.Writer, reader *bufio.Reader) (*platf
 
 // validatePlatformGatewayCredentials checks the credentials against the gateway.
 //
-// Bad credentials are a hard error — nothing works without them. A rejected
-// Security Cloud tenant is only a warning: the entitlement may not be
-// provisioned yet, and refusing to save would block an otherwise valid
-// Pro-only profile. Either way the caller saves.
-func validatePlatformGatewayCredentials(ctx context.Context, w io.Writer, creds *platformGatewayCredentials) error {
+// Bad credentials are a hard error — nothing works without them. Whether the
+// tenant can reach Jamf Security Cloud is reported rather than enforced: a Jamf
+// Pro tenant legitimately cannot, and nothing here knows which product the
+// operator meant. The bool says whether the gateway served a Security Cloud
+// read, so the caller can describe what the profile enables instead of guessing.
+func validatePlatformGatewayCredentials(ctx context.Context, w io.Writer, creds *platformGatewayCredentials) (securityCloud bool, err error) {
 	_, _ = fmt.Fprint(w, "\nValidating credentials... ")
 
 	opts := []jamfplatform.Option{
@@ -123,46 +123,33 @@ func validatePlatformGatewayCredentials(ctx context.Context, w io.Writer, creds 
 
 	if err := pc.ValidateCredentials(ctx); err != nil {
 		_, _ = fmt.Fprintln(w, "failed")
-		return fmt.Errorf("credential validation failed: %w", err)
+		return false, fmt.Errorf("credential validation failed: %w", err)
 	}
 	_, _ = fmt.Fprintln(w, "ok")
-
-	if creds.SecurityCloudTenantID == "" {
-		return nil
-	}
 
 	// One cheap read against a Security Cloud collection every entitled tenant
-	// has. The gateway distinguishes the two ways this fails, which is worth
-	// passing on: the tenant being wrong is fixable here and now, the endpoint
-	// not being routed is not.
-	_, _ = fmt.Fprint(w, "Validating Security Cloud tenant... ")
-	// A second client, scoped to the Security Cloud tenant: the scope travels
-	// as a per-client X-Tenant-Id header, so the tenant being validated has to
-	// be the one this client was built with.
-	scOpts := append([]jamfplatform.Option{}, opts...)
-	scOpts[0] = jamfplatform.WithTenantID(creds.SecurityCloudTenantID)
-	sc := jamfplatform.NewClient(creds.GatewayURL, creds.ClientID, creds.ClientSecret, scOpts...)
-	path := sc.Transport().APIPrefix(securityCloudGatewayNamespace, "v1") + "/categories"
+	// has. Its purpose is to tell the operator which half of `security` this
+	// profile serves, not to pass or fail the profile: the two ways it fails are
+	// indistinguishable from here — a Jamf Pro tenant has no Security Cloud
+	// entitlement, and a mistyped tenant is not this organisation's.
+	_, _ = fmt.Fprint(w, "Checking Jamf Security Cloud access... ")
+	path := pc.Transport().APIPrefix(securityCloudGatewayNamespace, "v1") + "/categories"
 	var result any
-	if err := sc.Transport().DoExpect(ctx, http.MethodGet, path, nil, http.StatusOK, &result); err != nil {
-		_, _ = fmt.Fprintln(w, "failed")
+	if err := pc.Transport().DoExpect(ctx, http.MethodGet, path, nil, http.StatusOK, &result); err != nil {
 		switch {
 		case strings.Contains(err.Error(), "OWNERSHIP_FORBIDDEN"):
-			_, _ = fmt.Fprintln(w, "  WARNING: the gateway rejected this tenant (OWNERSHIP_FORBIDDEN).")
-			_, _ = fmt.Fprintln(w, "  Check the Security Cloud tenant ID in Jamf Account — note it differs")
-			_, _ = fmt.Fprintln(w, "  from the Jamf Pro tenant ID, and is not the client ID.")
+			_, _ = fmt.Fprintln(w, "no (tenant not owned by this organization)")
+			_, _ = fmt.Fprintln(w, "  If this was meant to be a Security Cloud profile, check the tenant ID in Jamf")
+			_, _ = fmt.Fprintln(w, "  Account — it differs from the Jamf Pro tenant ID, and is not the client ID.")
 		case strings.Contains(err.Error(), "BAD_PERMISSIONS"):
-			_, _ = fmt.Fprintln(w, "  WARNING: the gateway did not route the request (BAD_PERMISSIONS).")
-			_, _ = fmt.Fprintln(w, "  Usually means this tenant has no Jamf Security Cloud entitlement.")
+			_, _ = fmt.Fprintln(w, "no (no Security Cloud entitlement)")
 		default:
-			_, _ = fmt.Fprintf(w, "  WARNING: %v\n", err)
+			_, _ = fmt.Fprintf(w, "no (%v)\n", err)
 		}
-		_, _ = fmt.Fprintln(w, "  Saved anyway — the gateway-served security commands (dns-*, ztna-*,")
-		_, _ = fmt.Fprintln(w, "  content-categories, device-groups, uem-*) will fail until it is corrected.")
-		return nil
+		return false, nil
 	}
-	_, _ = fmt.Fprintln(w, "ok")
-	return nil
+	_, _ = fmt.Fprintln(w, "yes")
+	return true, nil
 }
 
 // securityCloudGatewayNamespace is the gateway namespace Jamf Security Cloud is

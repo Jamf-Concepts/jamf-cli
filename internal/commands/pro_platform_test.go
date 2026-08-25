@@ -13,6 +13,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/Jamf-Concepts/jamf-cli/internal/config"
 	"github.com/Jamf-Concepts/jamf-cli/internal/progress"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform/blueprints"
@@ -1914,5 +1915,31 @@ func TestReverseResolveGroups_ListError(t *testing.T) {
 	}
 	if groups[0].ID != "uuid-1" || groups[0].Name != "" {
 		t.Errorf("expected UUID-only fallback, got %+v", groups[0])
+	}
+}
+
+// TestResolveTenantID pins the single-tenant contract: a profile carries one
+// tenant, JAMF_TENANT_ID overrides it, and there is no second field to fall back
+// to. Jamf Pro and Jamf Security Cloud have separate tenant identifiers, so a
+// customer holding both keeps a profile per tenant — which is also the shape
+// environment IDs will slot into.
+func TestResolveTenantID(t *testing.T) {
+	cfg := &config.Config{
+		DefaultProfile: "p",
+		Profiles:       map[string]config.Profile{"p": {AuthMethod: "platform", TenantID: "from-profile"}},
+	}
+
+	t.Setenv("JAMF_TENANT_ID", "")
+	if got := resolveTenantID(cfg, "p"); got != "from-profile" {
+		t.Errorf("resolveTenantID = %q, want the profile's tenant", got)
+	}
+
+	t.Setenv("JAMF_TENANT_ID", "from-env")
+	if got := resolveTenantID(cfg, "p"); got != "from-env" {
+		t.Errorf("resolveTenantID = %q, want JAMF_TENANT_ID to win", got)
+	}
+
+	if got := resolveTenantID(nil, "p"); got != "from-env" {
+		t.Errorf("resolveTenantID with no config = %q, want the env var alone to answer", got)
 	}
 }

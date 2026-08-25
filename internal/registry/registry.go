@@ -347,15 +347,7 @@ type CLIContext struct {
 	// construct subpackage clients per call (cheap — they share the
 	// transport); generated commands call .Transport().Do() directly.
 	PlatformSDKClient *jamfplatform.Client
-	// SecurityCloudSDKClient serves the gateway-served Jamf Security Cloud
-	// commands. It is a second client rather than the same one because the
-	// scope now travels as an X-Tenant-Id header set per client, and Security
-	// Cloud is a separate product with its own tenant identifier: one client
-	// can carry one tenant. Wired to PlatformSDKClient when no Security Cloud
-	// tenant is configured, which keeps the documented fallback — Security
-	// Cloud paths use the Jamf Pro tenant, right only where the two match.
-	SecurityCloudSDKClient *jamfplatform.Client
-	SchoolClient           SchoolClient
+	SchoolClient      SchoolClient
 	// SecurityClient is the hand-rolled Jamf Security Cloud client (Risk,
 	// Device Lifecycle, Shared Signals & Events). Concrete type, not an
 	// interface, because hand-written commands need its CustomerID() helper
