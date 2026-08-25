@@ -156,10 +156,10 @@
         "flows": {
           "clientCredentials": {
             "scopes": {
-              "create:jsc:all": "",
-              "delete:jsc:all": "",
-              "read:jsc:all": "",
-              "update:jsc:all": ""
+              "device-groups:create": "",
+              "device-groups:delete": "",
+              "device-groups:read": "",
+              "device-groups:update": ""
             },
             "tokenUrl": "https://{region}.apigw.jamf.com/auth/token"
           }
@@ -183,7 +183,7 @@
     "/v1/groups": {
       "get": {
         "deprecated": true,
-        "description": "Retrieves all device groups for the authenticated customer.\n\n**Required Permissions:** `read:jsc:all`",
+        "description": "Retrieves all device groups for the authenticated customer.\n\n**Required Permissions:** `device-groups:read`",
         "operationId": "listGroups",
         "parameters": [
           {
@@ -232,7 +232,7 @@
         "security": [
           {
             "oauth2": [
-              "read:jsc:all"
+              "device-groups:read"
             ]
           }
         ],
@@ -242,13 +242,13 @@
         ],
         "x-deprecation-date": "2026-08-12",
         "x-required-privileges": [
-          "read:jsc:all"
+          "device-groups:read"
         ],
         "x-successor-endpoint": "GET /v2/groups",
         "x-sunset-date": "2027-08-12"
       },
       "post": {
-        "description": "Creates a new device group for the authenticated customer.\n\n**Required Permissions:** `create:jsc:all`",
+        "description": "Creates a new device group for the authenticated customer.\n\n**Required Permissions:** `device-groups:create`",
         "operationId": "createGroup",
         "parameters": [
           {
@@ -309,7 +309,7 @@
         "security": [
           {
             "oauth2": [
-              "create:jsc:all"
+              "device-groups:create"
             ]
           }
         ],
@@ -318,13 +318,13 @@
           "device-groups"
         ],
         "x-required-privileges": [
-          "create:jsc:all"
+          "device-groups:create"
         ]
       }
     },
     "/v1/groups/{groupId}": {
       "delete": {
-        "description": "Deletes a device group. The default group cannot be deleted.\n\n**Required Permissions:** `delete:jsc:all`",
+        "description": "Deletes a device group. The default group cannot be deleted.\n\n**Required Permissions:** `device-groups:delete`",
         "operationId": "deleteGroup",
         "parameters": [
           {
@@ -378,7 +378,7 @@
         "security": [
           {
             "oauth2": [
-              "delete:jsc:all"
+              "device-groups:delete"
             ]
           }
         ],
@@ -387,11 +387,11 @@
           "device-groups"
         ],
         "x-required-privileges": [
-          "delete:jsc:all"
+          "device-groups:delete"
         ]
       },
       "get": {
-        "description": "Retrieves a single device group by its ID.\n\n**Required Permissions:** `read:jsc:all`",
+        "description": "Retrieves a single device group by its ID.\n\n**Required Permissions:** `device-groups:read`",
         "operationId": "getGroup",
         "parameters": [
           {
@@ -452,7 +452,7 @@
         "security": [
           {
             "oauth2": [
-              "read:jsc:all"
+              "device-groups:read"
             ]
           }
         ],
@@ -461,11 +461,11 @@
           "device-groups"
         ],
         "x-required-privileges": [
-          "read:jsc:all"
+          "device-groups:read"
         ]
       },
       "put": {
-        "description": "Updates the name of an existing device group.\n\n**Required Permissions:** `update:jsc:all`",
+        "description": "Updates the name of an existing device group.\n\n**Required Permissions:** `device-groups:update`",
         "operationId": "updateGroup",
         "parameters": [
           {
@@ -549,7 +549,7 @@
         "security": [
           {
             "oauth2": [
-              "update:jsc:all"
+              "device-groups:update"
             ]
           }
         ],
@@ -559,13 +559,13 @@
         ],
         "x-jamf-expected-status": 200,
         "x-required-privileges": [
-          "update:jsc:all"
+          "device-groups:update"
         ]
       }
     },
     "/v2/groups": {
       "get": {
-        "description": "Retrieves all device groups for the authenticated customer.\n\n**Required Permissions:** `read:jsc:all`",
+        "description": "Retrieves all device groups for the authenticated customer.\n\n**Required Permissions:** `device-groups:read`",
         "operationId": "listGroupsV2",
         "parameters": [
           {
@@ -596,7 +596,7 @@
         "security": [
           {
             "oauth2": [
-              "read:jsc:all"
+              "device-groups:read"
             ]
           }
         ],
@@ -605,7 +605,7 @@
           "device-groups"
         ],
         "x-required-privileges": [
-          "read:jsc:all"
+          "device-groups:read"
         ]
       }
     }

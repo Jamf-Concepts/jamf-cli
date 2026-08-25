@@ -19,8 +19,8 @@ var Sources = []SpecSource{
 	{File: "specs/platform/device_inventory_api.json", SHA256: "437f5bfda95edcb8b6af5dd3df4826abffc28b511456bf3b7b16d845ed8ed0d1"},
 	{File: "specs/platform/device_management_action_api.json", SHA256: "a0c90832819c40aadd5ef68a7080637a2b88ae7064998c6f1aed22ba08b6f030"},
 	{File: "specs/platform/securitycloud_categories_api.json", SHA256: "7cff9c49fe52f954c09e7dfd4cbb529415c9d31308c583b22cffefceec38d533"},
-	{File: "specs/platform/securitycloud_device_groups_api.json", SHA256: "ffcb4d5dc439271864f31f5f2e02510676328d36febe87726d166b2ade295b37"},
+	{File: "specs/platform/securitycloud_device_groups_api.json", SHA256: "717023f835cc71e117a69596332cc49ccd3339e5aabbf83bfd7403928bb4f3f5"},
 	{File: "specs/platform/securitycloud_dns_api.json", SHA256: "79487aaf0a2f12ef4f0099eae7d39e2c8b3c64f74696a52f5a45a533ac1455e7"},
-	{File: "specs/platform/securitycloud_uem_connect_api.json", SHA256: "0c19db31d8129332e4ee180bb576bd57749f8b4e56fa8ded9b5d3d9f3496acbb"},
-	{File: "specs/platform/securitycloud_ztna_api.json", SHA256: "eac69b076603484db07f50b824e86f5a08b9ed719b2cb87b1d07f31272050f60"},
+	{File: "specs/platform/securitycloud_uem_connect_api.json", SHA256: "d2e6bd7ab615e8a62fce32e820eb0e36cb93f7392385745500a0399b8553381c"},
+	{File: "specs/platform/securitycloud_ztna_api.json", SHA256: "8e8c75389ed449f2a546d09674d257b72ea021faa0479ed0051901aace8750f5"},
 }

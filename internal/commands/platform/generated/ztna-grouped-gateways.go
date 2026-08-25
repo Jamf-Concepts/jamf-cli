@@ -190,7 +190,7 @@ func newZtnaGroupedGatewaysGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "get <groupedGatewayId>",
 		Short:       "Get a Grouped Gateway",
-		Long:        "Get a single Grouped Gateway. Returns `404` if the grouped gateway does not exist **or belongs to a different tenant** — never `403`, to avoid confirming existence of grouped gateways owned by other tenants. TRS `/external/v1` intercepts the `403` from `VirtualVpnRouteAuthorizer` and re-emits `404` (reusing the same `notFound` error response shape).",
+		Long:        "Get a single Grouped Gateway. Returns `404` if the grouped gateway does not exist **or belongs to a different tenant** — never `403`, to avoid confirming existence of grouped gateways owned by other tenants.",
 		Annotations: map[string]string{"jamf:privileges": "ztna:read", "jamf:api": "platform-gateway"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -243,7 +243,7 @@ func newZtnaGroupedGatewaysPatchCmd(cliCtx *registry.CLIContext) *cobra.Command 
 	cmd := &cobra.Command{
 		Use:         "patch <groupedGatewayId>",
 		Short:       "Partially update a Grouped Gateway",
-		Long:        "Partially update a Grouped Gateway (ADG-355). All fields are optional — include only what you want to change.\n\nAllowed values:\n  recoveryDelayInSec: 300, 1800, 3600, 10800, 28800\n  routingStrategy: ACTIVE_STANDBY, RANDOM, NEAREST",
+		Long:        "Partially update a Grouped Gateway. All fields are optional — include only what you want to change.\n\nAllowed values:\n  recoveryDelayInSec: 300, 1800, 3600, 10800, 28800\n  routingStrategy: ACTIVE_STANDBY, RANDOM, NEAREST",
 		Annotations: map[string]string{"jamf:privileges": "ztna:update", "jamf:api": "platform-gateway"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {

@@ -181,7 +181,7 @@
             }
           }
         },
-        "description": "Forbidden — the caller's organization does not own one or more of the supplied `tenantIds`. JAG validates each `tenantId` against the JWT `organizationId`; any mismatch rejects the entire request.\n"
+        "description": "Forbidden — the caller's organization does not own one or more of the supplied `tenantIds`. Any mismatch rejects the entire request.\n"
       },
       "serviceUnavailable": {
         "content": {
@@ -191,7 +191,7 @@
             }
           }
         },
-        "description": "Service unavailable — transient server-side failure. For gateways: TRS failed to generate a unique 4-character hex ID after 10 attempts (extremely rare; the 16-bit ID space has 65,536 values and IDs are only exhausted under heavy load or ID leakage). Retry with exponential back-off; if persistent, contact Jamf support.\n"
+        "description": "Service unavailable — transient server-side failure. Retry with exponential back-off; if persistent, contact Jamf support.\n"
       },
       "tooManyRequests": {
         "content": {
@@ -284,12 +284,12 @@
             }
           }
         },
-        "description": "Unprocessable entity — request is syntactically valid but violates a cross-field business constraint. Error codes: `GATEWAY_NOT_FOUND` — a gateway ID in `routing.gatewayId` or `gatewayIds` is not accessible to this customer (applies to Apps and Grouped Gateways; returns 422 rather than 404 because the ID is in the request body, not the path); `SHARED_GATEWAY_MEMBER` — one or more `gatewayIds` refer to shared (Jamf-managed) gateways, which cannot be members of a Grouped Gateway; `MIXED_DEDICATED_IPS_TYPES` — member gateways have mixed `dedicatedIps.enabled` values; `MIXED_TUNNEL_TYPES` — member gateways have mixed tunnel types (some IPSec, some non-IPSec). TRS `/external/v1` emits `422` directly for these violations.\n"
+        "description": "Unprocessable entity — request is syntactically valid but violates a cross-field business constraint. Error codes: `GATEWAY_NOT_FOUND` — a gateway ID in `routing.gatewayId` or `gatewayIds` is not accessible to this customer (applies to Apps and Grouped Gateways; returns 422 rather than 404 because the ID is in the request body, not the path); `SHARED_GATEWAY_MEMBER` — one or more `gatewayIds` refer to shared (Jamf-managed) gateways, which cannot be members of a Grouped Gateway; `MIXED_DEDICATED_IPS_TYPES` — member gateways have mixed `dedicatedIps.enabled` values; `MIXED_TUNNEL_TYPES` — member gateways have mixed tunnel types (some IPSec, some non-IPSec).\n"
       }
     },
     "schemas": {
       "ApiError": {
-        "description": "Standard error response body per ADG-54. Returned for all non-2xx responses.\n",
+        "description": "Standard error response body. Returned for all non-2xx responses.\n",
         "properties": {
           "errors": {
             "description": "One entry per problem in the request.",
@@ -327,7 +327,7 @@
             "type": "integer"
           },
           "traceId": {
-            "description": "Trace ID for correlating this error across Tyk, JAG, and TRS. Include this value when reporting issues to Jamf support.\n",
+            "description": "Trace ID for correlating server-side errors. Include this value when reporting issues to Jamf support.\n",
             "example": "ecf2ca07e23c0abc12393472f2b783df",
             "type": "string"
           }
@@ -379,12 +379,13 @@
             "type": "string"
           },
           "name": {
-            "description": "Ignored when `predefinedAppId` is set — inherited from the predefined app template.\n",
+            "description": "Null when `predefinedAppId` is set — the name is owned by the predefined app template. Present and non-null when `predefinedAppId` is absent (custom app).\n",
             "example": "Internal CRM",
+            "nullable": true,
             "type": "string"
           },
           "predefinedAppId": {
-            "description": "ID of the predefined SaaS app template (from `GET /predefined-apps`). Once set, cannot be changed or removed. When set, `name` and `hostnames` are inherited from the template; additional `hostnames` can still be appended.\n",
+            "description": "ID of the predefined SaaS app template (from `GET /predefined-apps`). Once set, cannot be changed or removed. When set, `name` is null (owned by the template); additional `hostnames` can still be appended.\n",
             "example": "atlassian-cloud",
             "nullable": true,
             "type": "string"
@@ -398,6 +399,7 @@
         },
         "required": [
           "id",
+          "name",
           "categoryName",
           "assignments",
           "routing"
@@ -441,12 +443,13 @@
             "uniqueItems": true
           },
           "name": {
-            "description": "Ignored when `predefinedAppId` is set — name is inherited from the template.\n",
+            "description": "Required (non-null) when `predefinedAppId` is absent — `400` if missing or null. Must be null or omitted when `predefinedAppId` is set.\n",
             "example": "Internal CRM",
+            "nullable": true,
             "type": "string"
           },
           "predefinedAppId": {
-            "description": "Optional. ID from `GET /predefined-apps`. Once set, cannot be changed or removed. When set, `name` and `hostnames` are inherited; additional `hostnames` can be appended. Presence indicates a Predefined (SaaS) App; absence indicates a Custom (Enterprise) App.\n",
+            "description": "Optional. ID from `GET /predefined-apps`. Once set, cannot be changed or removed. When set, `name` must be null or omitted; additional `hostnames` can be appended. Presence indicates a Predefined (SaaS) App; absence indicates a Custom (Enterprise) App.\n",
             "example": "atlassian-cloud",
             "nullable": true,
             "type": "string"
@@ -523,7 +526,7 @@
             "uniqueItems": true
           },
           "name": {
-            "description": "New name. Must be non-empty if supplied and `predefinedAppId` is not set — a blank string returns `400`. Ignored when `predefinedAppId` is set (name is inherited from the template). Omit to leave unchanged.\n",
+            "description": "New name. Must be non-empty — a blank string returns `400`. Ignored when `predefinedAppId` is set (name is owned by the template). Omit to leave unchanged.\n",
             "example": "Internal CRM",
             "minLength": 1,
             "type": "string"
@@ -574,7 +577,7 @@
             "type": "boolean"
           },
           "groups": {
-            "description": "Device Group IDs (from the Device Groups API — JSC-71029). Used when `allUsers` is `false`. When `allUsers: false`, at least one group ID must be supplied — an empty `groups` array returns `400`.\n",
+            "description": "Device Group IDs (from the Device Groups API). Used when `allUsers` is `false`. When `allUsers: false`, at least one group ID must be supplied — an empty `groups` array returns `400`.\n",
             "example": [
               "group-001"
             ],
@@ -591,7 +594,7 @@
         "type": "object"
       },
       "CategoryName": {
-        "description": "App category name. Use the `displayName` field from `GET /v1/categories` — that endpoint is the authoritative source. The value must exactly match a `displayName` returned by `content-block-service`. Unknown values return `409 MISSING_CATEGORY_NAME` — the category list is server-owned and may change, so an unrecognized name is a state conflict, not a malformed request. TRS validates against `displayName` (e.g. `\"Business \u0026 Industry\"`), not the internal `name` (e.g. `\"Category - Business \u0026 Industry\"`).\n",
+        "description": "App category name. Must exactly match a `displayName` returned by `GET /v1/categories` (e.g. `\"Business \u0026 Industry\"`) — that endpoint is the authoritative source. Unknown values return `409 MISSING_CATEGORY_NAME` — the category list is server-owned and may change, so an unrecognized name is a state conflict, not a malformed request.\n",
         "minLength": 1,
         "type": "string"
       },
@@ -970,7 +973,7 @@
             "type": "boolean"
           },
           "ips": {
-            "description": "Dedicated egress IPv4 addresses provisioned by the system (vpn-service-controller). Present when `enabled: true` and provisioning is complete.\n",
+            "description": "Dedicated egress IPv4 addresses provisioned by the system. Present when `enabled: true` and provisioning is complete.\n",
             "example": [
               "18.202.42.169"
             ],
@@ -1032,7 +1035,7 @@
         "description": "A dedicated ZTNA Gateway. Always has exactly one deployment. All deployment fields are at the top level — no nesting.\n",
         "properties": {
           "availabilityZones": {
-            "description": "Public IPv4 addresses of the availability zone nodes (e.g. `18.202.42.169`).\nMust belong to the gateway's datacenter region.\nNote: despite the field name, values are IPv4 addresses — not zone identifier strings.\nTRS `/external/v1` translates these to/from TRS internal zone IDs (e.g. `eu-west-1a`) transparently.\n\nFor **IPsec gateways**, these are the source addresses the peer firewall must allow. Valid IPs per datacenter:\n\n| Datacenter | Name | IP 1 | IP 2 |\n|---|---|---|---|\n| `af-south-1` | Africa - Cape Town | `13.244.169.182` | `13.246.106.52` |\n| `ap-east-1` | Asia - Hong Kong | `16.163.54.105` | `16.163.15.242` |\n| `ap-northeast-1` | Asia - Japan | `35.76.189.152` | `52.192.166.230` |\n| `ap-south-1` | Asia - Mumbai | `3.109.252.176` | `65.1.247.99` |\n| `ap-southeast-1` | Asia - Singapore | `18.140.158.235` | `52.77.139.71` |\n| `ap-southeast-2` | Australia | `54.66.243.182` | `13.238.46.250` |\n| `ca-central-1` | North America - Canada | `15.222.200.189` | `3.98.80.44` |\n| `eu-central-1` | Europe - Germany | `3.66.107.208` | `3.121.43.105` |\n| `eu-west-1` | Europe - Ireland | `54.220.161.57` | `18.202.42.169` |\n| `eu-west-2` | Europe - UK | `3.9.67.90` | `18.130.213.235` |\n| `sa-east-1` | South America - Brazil | `54.207.180.94` | `54.232.123.56` |\n| `us-east-1` | North America - USA East | `163.123.175.1` | `163.123.175.2` |\n| `us-west-2` | North America - USA West | `163.123.174.1` | `163.123.174.2` |\n",
+            "description": "Public IPv4 addresses of the availability zone nodes (e.g. `18.202.42.169`).\nMust belong to the gateway's datacenter region.\nNote: despite the field name, values are IPv4 addresses — not zone identifier strings.\n\nFor **IPsec gateways**, these are the source addresses the peer firewall must allow. Valid IPs per datacenter:\n\n| Datacenter | Name | IP 1 | IP 2 |\n|---|---|---|---|\n| `af-south-1` | Africa - Cape Town | `13.244.169.182` | `13.246.106.52` |\n| `ap-east-1` | Asia - Hong Kong | `16.163.54.105` | `16.163.15.242` |\n| `ap-northeast-1` | Asia - Japan | `35.76.189.152` | `52.192.166.230` |\n| `ap-south-1` | Asia - Mumbai | `3.109.252.176` | `65.1.247.99` |\n| `ap-southeast-1` | Asia - Singapore | `18.140.158.235` | `52.77.139.71` |\n| `ap-southeast-2` | Australia | `54.66.243.182` | `13.238.46.250` |\n| `ca-central-1` | North America - Canada | `15.222.200.189` | `3.98.80.44` |\n| `eu-central-1` | Europe - Germany | `3.66.107.208` | `3.121.43.105` |\n| `eu-west-1` | Europe - Ireland | `54.220.161.57` | `18.202.42.169` |\n| `eu-west-2` | Europe - UK | `3.9.67.90` | `18.130.213.235` |\n| `sa-east-1` | South America - Brazil | `54.207.180.94` | `54.232.123.56` |\n| `us-east-1` | North America - USA East | `163.123.175.1` | `163.123.175.2` |\n| `us-west-2` | North America - USA West | `163.123.174.1` | `163.123.174.2` |\n",
             "example": [
               "18.202.42.169"
             ],
@@ -1047,7 +1050,7 @@
             "$ref": "#/components/schemas/GatewayContact"
           },
           "datacenter": {
-            "description": "Datacenter this gateway is deployed to (e.g. `eu-west-1`). Can be changed on PATCH — triggers re-provisioning; `availabilityZones` must match the new datacenter prefix (TRS enforces this and returns `400` on mismatch).\n",
+            "description": "Datacenter this gateway is deployed to (e.g. `eu-west-1`). Can be changed on PATCH — triggers re-provisioning; `availabilityZones` must match the new datacenter prefix (returns `400` on mismatch).\n",
             "enum": [
               "af-south-1",
               "ap-east-1",
@@ -1143,7 +1146,7 @@
         "description": "Flat request body for creating a dedicated Gateway.",
         "properties": {
           "availabilityZones": {
-            "description": "Public IPv4 addresses of the availability zone nodes to deploy into\n(e.g. `18.202.42.169`). Must belong to the gateway's datacenter region.\nMust be empty when `dedicatedIps.enabled: true`.\nNote: despite the field name, values are IPv4 addresses — TRS `/external/v1` translates to/from\nTRS internal zone IDs (e.g. `eu-west-1a`) transparently.\n\nFor **IPsec gateways**, these are the source addresses the peer firewall must allow. Valid IPs per datacenter:\n\n| Datacenter | Name | IP 1 | IP 2 |\n|---|---|---|---|\n| `af-south-1` | Africa - Cape Town | `13.244.169.182` | `13.246.106.52` |\n| `ap-east-1` | Asia - Hong Kong | `16.163.54.105` | `16.163.15.242` |\n| `ap-northeast-1` | Asia - Japan | `35.76.189.152` | `52.192.166.230` |\n| `ap-south-1` | Asia - Mumbai | `3.109.252.176` | `65.1.247.99` |\n| `ap-southeast-1` | Asia - Singapore | `18.140.158.235` | `52.77.139.71` |\n| `ap-southeast-2` | Australia | `54.66.243.182` | `13.238.46.250` |\n| `ca-central-1` | North America - Canada | `15.222.200.189` | `3.98.80.44` |\n| `eu-central-1` | Europe - Germany | `3.66.107.208` | `3.121.43.105` |\n| `eu-west-1` | Europe - Ireland | `54.220.161.57` | `18.202.42.169` |\n| `eu-west-2` | Europe - UK | `3.9.67.90` | `18.130.213.235` |\n| `sa-east-1` | South America - Brazil | `54.207.180.94` | `54.232.123.56` |\n| `us-east-1` | North America - USA East | `163.123.175.1` | `163.123.175.2` |\n| `us-west-2` | North America - USA West | `163.123.174.1` | `163.123.174.2` |\n",
+            "description": "Public IPv4 addresses of the availability zone nodes to deploy into\n(e.g. `18.202.42.169`). Must belong to the gateway's datacenter region.\nMust be empty when `dedicatedIps.enabled: true`.\nNote: despite the field name, values are IPv4 addresses — not zone identifier strings.\n\nFor **IPsec gateways**, these are the source addresses the peer firewall must allow. Valid IPs per datacenter:\n\n| Datacenter | Name | IP 1 | IP 2 |\n|---|---|---|---|\n| `af-south-1` | Africa - Cape Town | `13.244.169.182` | `13.246.106.52` |\n| `ap-east-1` | Asia - Hong Kong | `16.163.54.105` | `16.163.15.242` |\n| `ap-northeast-1` | Asia - Japan | `35.76.189.152` | `52.192.166.230` |\n| `ap-south-1` | Asia - Mumbai | `3.109.252.176` | `65.1.247.99` |\n| `ap-southeast-1` | Asia - Singapore | `18.140.158.235` | `52.77.139.71` |\n| `ap-southeast-2` | Australia | `54.66.243.182` | `13.238.46.250` |\n| `ca-central-1` | North America - Canada | `15.222.200.189` | `3.98.80.44` |\n| `eu-central-1` | Europe - Germany | `3.66.107.208` | `3.121.43.105` |\n| `eu-west-1` | Europe - Ireland | `54.220.161.57` | `18.202.42.169` |\n| `eu-west-2` | Europe - UK | `3.9.67.90` | `18.130.213.235` |\n| `sa-east-1` | South America - Brazil | `54.207.180.94` | `54.232.123.56` |\n| `us-east-1` | North America - USA East | `163.123.175.1` | `163.123.175.2` |\n| `us-west-2` | North America - USA West | `163.123.174.1` | `163.123.174.2` |\n",
             "example": [
               "18.202.42.169"
             ],
@@ -1248,7 +1251,7 @@
         "type": "object"
       },
       "GatewayIpSecPatchRequest": {
-        "description": "Partial IPSec configuration for PATCH. All fields optional — TRS performs a deep merge. Supply only `left.secret` to rotate the pre-shared key, or the full block to replace cipher suites and endpoint addresses simultaneously. `right.secret` is derived automatically from `left.secret` — callers never set it directly.\n",
+        "description": "Partial IPSec configuration for PATCH. All fields optional — fields are deep-merged. Supply only `left.secret` to rotate the pre-shared key, or the full block to replace cipher suites and endpoint addresses simultaneously. `right.secret` is derived automatically from `left.secret` — callers never set it directly.\n",
         "properties": {
           "esp": {
             "$ref": "#/components/schemas/CipherSuiteConfig"
@@ -1375,7 +1378,7 @@
           },
           "ipsec": {
             "$ref": "#/components/schemas/GatewayIpSecPatchRequest",
-            "description": "IPSec tunnel configuration to update. TRS performs a deep merge — you may supply only `left.secret` to rotate the pre-shared key, or the full block to replace cipher suites and endpoint addresses simultaneously. `right.secret` is always derived from `left.secret` automatically — callers never set it directly. Sending `null` returns `400 IPSEC_REMOVAL_NOT_SUPPORTED`.\n"
+            "description": "IPSec tunnel configuration to update. Fields are deep-merged — you may supply only `left.secret` to rotate the pre-shared key, or the full block to replace cipher suites and endpoint addresses simultaneously. `right.secret` is always derived from `left.secret` automatically — callers never set it directly. Sending `null` returns `400 IPSEC_REMOVAL_NOT_SUPPORTED`.\n"
           },
           "name": {
             "description": "New name for the gateway.",
@@ -1748,7 +1751,7 @@
         "properties": {
           "dnsIpResolutionType": {
             "default": "IPv6",
-            "description": "DNS IP resolution preference. Optional. When omitted and `type=CUSTOM`, TRS defaults to `IPv6`. Explicitly set to `IPv4` if your network requires it. **Must be absent (or null) when `type=DIRECT`** — returns `400` if set.\n",
+            "description": "DNS IP resolution preference. Optional. When omitted and `type=CUSTOM`, defaults to `IPv6`. Explicitly set to `IPv4` if your network requires it. **Must be absent (or null) when `type=DIRECT`** — returns `400` if set.\n",
             "enum": [
               "IPv4",
               "IPv6"
@@ -1763,7 +1766,7 @@
             "type": "string"
           },
           "type": {
-            "description": "`CUSTOM` routes traffic via a ZTNA gateway (`gatewayId` required). `DIRECT` uses default device routing (`gatewayId` must be null/absent). The internal TRS value `BLOCK` is not exposed in the public API.\n",
+            "description": "`CUSTOM` routes traffic via a ZTNA gateway (`gatewayId` required). `DIRECT` uses default device routing (`gatewayId` must be null/absent). `BLOCK` is not exposed in the public API.\n",
             "enum": [
               "CUSTOM",
               "DIRECT"
@@ -1930,7 +1933,7 @@
         ]
       },
       "post": {
-        "description": "Create an App (Access Policy). Returns `201 {id, href}` + `Location` header.\n\n**Required fields:** `categoryName`, `assignments`, `routing`.\n\n**`name` required when `predefinedAppId` is absent:** If `predefinedAppId` is not set,\n`name` must be non-blank — returns `400` otherwise. When `predefinedAppId` is set,\n`name` is optional (inherited from the template).\n\n**Full-tunnel restriction:** When `hostnames` contains `\"*\"` (wildcard — routes all traffic),\n`security.riskControls.enabled` must be `false` — returns `400` otherwise.\n\n\n**Required Permissions:** `ztna:create`",
+        "description": "Create an App (Access Policy). Returns `201 {id, href}` + `Location` header.\n\n**Required fields:** `categoryName`, `assignments`, `routing`.\n\n**`name` required when `predefinedAppId` is absent:** If `predefinedAppId` is not set,\n`name` must be non-blank — returns `400` otherwise. When `predefinedAppId` is set,\n`name` must be null or omitted.\n\n**Full-tunnel restriction:** When `hostnames` contains `\"*\"` (wildcard — routes all traffic),\n`security.riskControls.enabled` must be `false` — returns `400` otherwise.\n\n\n**Required Permissions:** `ztna:create`",
         "operationId": "createApp",
         "parameters": [
           {
@@ -2166,7 +2169,7 @@
         }
       ],
       "patch": {
-        "description": "Partially update an App (Access Policy) (ADG-355).\nAll fields are optional — include only what you want to change.\n\nReturns `404` if the App does not exist or is not owned by this customer.\n\nTRS `/external/v1` performs server-side partial merge — reads the current App from\nthe database, merges the supplied fields, and persists atomically. No client-side\nread-modify-write cycle.\n\n**`name: \"\"`  is rejected.** Sending a blank string for `name` returns `400`\n— when `predefinedAppId` is not set, `name` must be non-empty if supplied.\nOmit `name` entirely to leave it unchanged.\n\n**Full-tunnel restriction:** When `hostnames` contains `\"*\"` (wildcard — routes all traffic),\n`security.riskControls.enabled` must be `false` — returns `400` otherwise.\n\n\n**Required Permissions:** `ztna:update`",
+        "description": "Partially update an App (Access Policy).\nAll fields are optional — include only what you want to change.\n\nReturns `404` if the App does not exist or is not owned by this customer.\n\nServer-side partial merge — fields are merged atomically. No client-side\nread-modify-write cycle.\n\n**`name: \"\"`  is rejected.** Sending a blank string for `name` returns `400`.\nIgnored when `predefinedAppId` is set. Omit `name` entirely to leave it unchanged.\n\n**Full-tunnel restriction:** When `hostnames` contains `\"*\"` (wildcard — routes all traffic),\n`security.riskControls.enabled` must be `false` — returns `400` otherwise.\n\n\n**Required Permissions:** `ztna:update`",
         "operationId": "patchApp",
         "parameters": [
           {
@@ -2742,7 +2745,7 @@
         }
       ],
       "patch": {
-        "description": "Partially update a dedicated Gateway. All fields are optional — flat body, no nesting.\n\nReturns `404` if the gateway does not exist **or belongs to a different tenant** — never `403`,\nto avoid confirming the existence of gateways owned by other tenants.\n\n`tenantIds` are validated against the caller's organization — **403** on mismatch.\nWhen `datacenter` changes, `availabilityZones` must match the new datacenter prefix\n— returns `400` on mismatch.\nSending `ipsec.left.secret: null` explicitly returns `400 IPSEC_SECRET_CLEAR_NOT_SUPPORTED`\n— omit the field to leave the existing secret unchanged.\nSending `ipsec: null` explicitly returns `400 IPSEC_REMOVAL_NOT_SUPPORTED`\n— IPSec configuration cannot be removed from a gateway that has it.\n\n**Partial IPSec update:** When `ipsec` is present in the patch, TRS performs a\ndeep merge of the IPSec sub-fields — you may supply only `left.secret` to rotate\nthe PSK without replacing the rest of the configuration, or supply the full\n`ipsec` block to replace cipher suites and endpoint addresses simultaneously.\n\n**`contact: null` is rejected.** Setting `contact` to `null` in a merge-patch returns\n`409` — the contact field cannot be removed from a dedicated gateway.\n\n**`tenantIds: []` is rejected.** Setting `tenantIds` to an empty array returns `400`\n— a dedicated gateway must always have at least one tenant (`minItems: 1` enforced by schema).\n\n**Known limitation:** The server resolves the deployment ID via an internal GET before\nissuing the PATCH. Concurrent modifications between the GET and PATCH may overwrite each\nother. No optimistic locking is in place for this release — consider ADG-148\n(`VersionId` + `409 OPTIMISTIC_LOCK_FAILED`) in a follow-up if this becomes a concern.\n\n**Datacenter change is destructive:** Expect a connectivity outage while the gateway is\nre-provisioned. `status.state` resets to `PENDING` immediately; `status.tunnelState` resets\nto `null`; status records for the old datacenter are expired. `dedicatedIps.ips` are not\ncleared immediately — treat them as unreliable until VSC completes provisioning in the new datacenter.\n\n\n**Required Permissions:** `ztna:update`",
+        "description": "Partially update a dedicated Gateway. All fields are optional — flat body, no nesting.\n\nReturns `404` if the gateway does not exist **or belongs to a different tenant** — never `403`,\nto avoid confirming the existence of gateways owned by other tenants.\n\n`tenantIds` are validated against the caller's organization — **403** on mismatch.\nWhen `datacenter` changes, `availabilityZones` must match the new datacenter prefix\n— returns `400` on mismatch.\nSending `ipsec.left.secret: null` explicitly returns `400 IPSEC_SECRET_CLEAR_NOT_SUPPORTED`\n— omit the field to leave the existing secret unchanged.\nSending `ipsec: null` explicitly returns `400 IPSEC_REMOVAL_NOT_SUPPORTED`\n— IPSec configuration cannot be removed from a gateway that has it.\n\n**Partial IPSec update:** When `ipsec` is present in the patch, sub-fields are\ndeep-merged — you may supply only `left.secret` to rotate the PSK without replacing\nthe rest of the configuration, or supply the full `ipsec` block to replace cipher\nsuites and endpoint addresses simultaneously.\n\n**`contact: null` is rejected.** Setting `contact` to `null` in a merge-patch returns\n`409` — the contact field cannot be removed from a dedicated gateway.\n\n**`tenantIds: []` is rejected.** Setting `tenantIds` to an empty array returns `400`\n— a dedicated gateway must always have at least one tenant (`minItems: 1` enforced by schema).\n\n**Known limitation:** Concurrent modifications to the same gateway may overwrite each\nother — no optimistic locking is in place for this release.\n\n**Datacenter change is destructive:** Expect a connectivity outage while the gateway is\nre-provisioned. `status.state` resets to `PENDING` immediately; `status.tunnelState` resets\nto `null`; status records for the old datacenter are expired. `dedicatedIps.ips` are not\ncleared immediately — treat them as unreliable until VSC completes provisioning in the new datacenter.\n\n\n**Required Permissions:** `ztna:update`",
         "operationId": "patchGateway",
         "parameters": [
           {
@@ -3063,7 +3066,7 @@
         ]
       },
       "get": {
-        "description": "Get a single Grouped Gateway. Returns `404` if the grouped gateway does not exist **or belongs to a different tenant** — never `403`, to avoid confirming existence of grouped gateways owned by other tenants. TRS `/external/v1` intercepts the `403` from `VirtualVpnRouteAuthorizer` and re-emits `404` (reusing the same `notFound` error response shape).\n\n\n**Required Permissions:** `ztna:read`",
+        "description": "Get a single Grouped Gateway. Returns `404` if the grouped gateway does not exist **or belongs to a different tenant** — never `403`, to avoid confirming existence of grouped gateways owned by other tenants.\n\n\n**Required Permissions:** `ztna:read`",
         "operationId": "getGroupedGateway",
         "parameters": [
           {
@@ -3109,7 +3112,7 @@
         }
       ],
       "patch": {
-        "description": "Partially update a Grouped Gateway (ADG-355).\nAll fields are optional — include only what you want to change.\n\nReturns `404` if the grouped gateway does not exist or belongs to a different tenant — never `403`.\n\n`tenantIds` are validated against the caller's organization — **403** on mismatch.\n\n**Constraints** (applied against the supplied `gatewayIds` array — which replaces the current set entirely):\n- All `gatewayIds` must be dedicated (customer-owned) gateways → `422 SHARED_GATEWAY_MEMBER`\n- All `gatewayIds` must have the same tunnel type (all IPSec or all non-IPSec) → `422 MIXED_TUNNEL_TYPES`\n- All `gatewayIds` must have the same `dedicatedIps.enabled` value → `422 MIXED_DEDICATED_IPS_TYPES`\n\n\n**Required Permissions:** `ztna:update`",
+        "description": "Partially update a Grouped Gateway.\nAll fields are optional — include only what you want to change.\n\nReturns `404` if the grouped gateway does not exist or belongs to a different tenant — never `403`.\n\n`tenantIds` are validated against the caller's organization — **403** on mismatch.\n\n**Constraints** (applied against the supplied `gatewayIds` array — which replaces the current set entirely):\n- All `gatewayIds` must be dedicated (customer-owned) gateways → `422 SHARED_GATEWAY_MEMBER`\n- All `gatewayIds` must have the same tunnel type (all IPSec or all non-IPSec) → `422 MIXED_TUNNEL_TYPES`\n- All `gatewayIds` must have the same `dedicatedIps.enabled` value → `422 MIXED_DEDICATED_IPS_TYPES`\n\n\n**Required Permissions:** `ztna:update`",
         "operationId": "patchGroupedGateway",
         "parameters": [
           {

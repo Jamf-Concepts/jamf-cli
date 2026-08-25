@@ -520,16 +520,24 @@
         "type": "object"
       },
       "CreatedResource": {
-        "description": "Identifier of a newly created resource.",
+        "description": "Identifier and location of a newly created resource.",
         "properties": {
+          "href": {
+            "description": "Location of the created resource, as a path relative to the API base URL the request was\nmade against.\n\nIt is deliberately relative rather than absolute, and it does not repeat the tenant scope\nsegment: connector-service is customer-scoped downstream of the gateway and never\nreceives the `tenantId` or the external host, so it cannot construct the fully qualified\ntenant-scoped URL. Resolve it against the same base URL — including the tenant scope\nprefix the publishing pipeline injects — that was used for the `POST`.\n",
+            "example": "/uem-connect/v1/connectors/conn-abc123",
+            "minLength": 1,
+            "type": "string"
+          },
           "id": {
             "description": "Identifier of the created resource",
             "example": "conn-abc123",
+            "minLength": 1,
             "type": "string"
           }
         },
         "required": [
-          "id"
+          "id",
+          "href"
         ],
         "type": "object"
       },
@@ -695,7 +703,7 @@
         "type": "object"
       },
       "LatestSync": {
-        "description": "Summary of the connector's most recent sync run, embedded in `ConnectorConfig`.\n\nThis is **not** the same shape as the `SyncRun` entries returned by\n`GET /connectors/{configId}/sync/runs`: it carries `lastSeen`, `errorDetails` and epoch-millis\nduplicates of the timestamps, has no per-run device counters, and — unlike `SyncRun` — reports\nthe `CANCELLING` status with the British spelling. Use the sync-runs endpoint for run history.\n",
+        "description": "Summary of the connector's most recent sync run, embedded in `ConnectorConfig`. The\ncontaining `latestSync` property is `null` until the connector has run its first sync.\n\nThis is **not** the same shape as the `SyncRun` entries returned by\n`GET /connectors/{configId}/sync/runs`: it carries `lastSeen` and `errorDetails`, and has no\nper-run device counters, because the connector record keeps only the current transaction's\nstate and not its tallies. Use the sync-runs endpoint for run history and counts.\n\n`startedUtcMs` and `finishedUtcMs` are retained, deprecated epoch-millisecond duplicates of\nthe ISO-8601 `started` and `finished`. They are still emitted for existing consumers; new\nconsumers should read the ISO-8601 fields.\n",
         "properties": {
           "errorDetails": {
             "$ref": "#/components/schemas/SyncErrorDetails"
@@ -716,7 +724,7 @@
             "type": "integer"
           },
           "lastSeen": {
-            "description": "Timestamp of the last heartbeat from the running sync (ISO 8601), used to detect\nstalled syncs\n",
+            "description": "Timestamp of the last progress heartbeat from the running sync (ISO 8601), used to\ndetect stalled syncs\n",
             "example": "2024-05-18T10:04:00Z",
             "format": "date-time",
             "nullable": true,
@@ -754,7 +762,7 @@
             "enum": [
               "NOT_SYNCHRONIZED",
               "RUNNING",
-              "CANCELLING",
+              "CANCELING",
               "CANCELED",
               "COMPLETED",
               "FAILED",
@@ -767,7 +775,7 @@
             "type": "string"
           },
           "transactionId": {
-            "description": "Unique identifier for this sync run",
+            "description": "Unique identifier for this sync run. Always present when `latestSync` itself is present:\nit is the identifier of the underlying sync transaction, and the whole object is null\nwhen there is no transaction.\n",
             "example": "tx-abc123",
             "type": "string"
           }
@@ -1139,7 +1147,7 @@
         ]
       },
       "post": {
-        "description": "Creates a new connector for the tenant. On success returns the identifier of the created\nconnector.\n\nA tenant may hold only one connector, with the single exception that Jamf Pro and Wizy may\ncoexist. Requesting any other second connector fails with `409 CONNECTOR_CONFIG_ALREADY_EXISTS`.\n\nCreation runs a connection test against the supplied URL and credentials. A failing test\nyields `400 UEM_CONNECTION_FAILED`, and a UEM platform running an unsupported version yields\n`409 UNSUPPORTED_UEM_VERSION`.\n\n\n**Required Permissions:** `uem-connect:create`",
+        "description": "Creates a new connector for the tenant. On success returns the identifier of the created\nconnector together with an `href` locating it, as a path relative to the base URL the\nrequest was made against.\n\nA tenant may hold only one connector, with the single exception that Jamf Pro and Wizy may\ncoexist. Requesting any other second connector fails with `409 CONNECTOR_CONFIG_ALREADY_EXISTS`.\n\nCreation runs a connection test against the supplied URL and credentials. A failing test\nyields `400 UEM_CONNECTION_FAILED`, and a UEM platform running an unsupported version yields\n`409 UNSUPPORTED_UEM_VERSION`.\n\n\n**Required Permissions:** `uem-connect:create`",
         "operationId": "createConnector",
         "parameters": [
           {

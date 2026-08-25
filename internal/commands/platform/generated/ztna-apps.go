@@ -258,7 +258,7 @@ func newZtnaAppsPatchCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "patch <appId>",
 		Short:       "Partially update an App",
-		Long:        "Partially update an App (Access Policy) (ADG-355). All fields are optional — include only what you want to change.\n\nAllowed values:\n  groupOverrides.routingOverrides[].routing.dnsIpResolutionType: IPv4, IPv6\n  groupOverrides.routingOverrides[].routing.type: CUSTOM, DIRECT\n  routing.dnsIpResolutionType: IPv4, IPv6\n  routing.type: CUSTOM, DIRECT\n  security.riskControls.levelThreshold: LOW, MEDIUM, HIGH",
+		Long:        "Partially update an App (Access Policy). All fields are optional — include only what you want to change.\n\nAllowed values:\n  groupOverrides.routingOverrides[].routing.dnsIpResolutionType: IPv4, IPv6\n  groupOverrides.routingOverrides[].routing.type: CUSTOM, DIRECT\n  routing.dnsIpResolutionType: IPv4, IPv6\n  routing.type: CUSTOM, DIRECT\n  security.riskControls.levelThreshold: LOW, MEDIUM, HIGH",
 		Annotations: map[string]string{"jamf:privileges": "ztna:update", "jamf:api": "platform-gateway"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
