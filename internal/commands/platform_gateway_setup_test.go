@@ -16,12 +16,11 @@ import (
 // probe must request, registered exactly rather than as a prefix so this test is
 // what catches the URL ordering going wrong.
 //
-// Security Cloud puts /tenant/{id} *before* the version, which every other Jamf
-// namespace does the other way round. The generated commands build that shape
-// from tenantFirstServices in generator/parser/platform.go while this probe gets
-// it from the SDK's TenantPrefix, so the two copies of the rule have to agree —
-// and this is where a divergence surfaces, as a handler the client never calls.
-const securityCloudCategoriesProbePath = "/api/securitycloud/tenant/jsc-tenant/v1/categories"
+// The scope is not in the URL any more: it travels as an X-Tenant-Id header, so
+// the path is /api/{namespace}/{version}/{resource} and a tenant segment
+// appearing anywhere in it is a regression. Registering the path exactly (rather
+// than as a prefix) is what surfaces that — as a handler the client never calls.
+const securityCloudCategoriesProbePath = "/api/securitycloud/v1/categories"
 
 // gatewayStub serves the gateway endpoints validatePlatformGatewayCredentials
 // touches: the OAuth2 token endpoint, and the Security Cloud categories

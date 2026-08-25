@@ -38,16 +38,15 @@ func newDnsSearchDomainsDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Use:         "delete",
 		Short:       "Clear the Search Domain",
 		Long:        "Clears the tenant Search Domain, removing the configured suffix.",
-		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "delete:jsc:all", "jamf:api": "platform-gateway"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "search-domains:delete", "jamf:api": "platform-gateway"},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
+			if err := platform.RequirePlatformClient(cliCtx.SecurityCloudSDKClient); err != nil {
 				return err
 			}
 			if err := platform.ConfirmAction("delete", "delete", yes); err != nil {
 				return err
 			}
-			path := "/api/securitycloud/tenant/{tenantId}/v1/dns/search-domains"
-			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("securitycloud")), 1)
+			path := "/api/securitycloud/v1/dns/search-domains"
 			q := url.Values{}
 			var body any
 			if encoded := q.Encode(); encoded != "" {
@@ -62,7 +61,7 @@ func newDnsSearchDomainsDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if cliCtx.DryRun {
 				return platform.ReportDryRun(cmd.ErrOrStderr(), http.MethodDelete, path, body)
 			}
-			if err := cliCtx.PlatformSDKClient.Transport().DoExpect(cmd.Context(), http.MethodDelete, path, body, http.StatusNoContent, nil); err != nil {
+			if err := cliCtx.SecurityCloudSDKClient.Transport().DoExpect(cmd.Context(), http.MethodDelete, path, body, http.StatusNoContent, nil); err != nil {
 				return fmt.Errorf("delete: %w", err)
 			}
 			return nil
@@ -77,20 +76,19 @@ func newDnsSearchDomainsGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Use:         "get",
 		Short:       "Get the Search Domain",
 		Long:        "Returns the tenant Search Domain — a singleton resource holding a single optional search-domain suffix. Returns 200 with the search domain when one is set, or 404 when none is set.",
-		Annotations: map[string]string{"jamf:privileges": "read:jsc:all", "jamf:api": "platform-gateway"},
+		Annotations: map[string]string{"jamf:privileges": "search-domains:read", "jamf:api": "platform-gateway"},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
+			if err := platform.RequirePlatformClient(cliCtx.SecurityCloudSDKClient); err != nil {
 				return err
 			}
-			path := "/api/securitycloud/tenant/{tenantId}/v1/dns/search-domains"
-			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("securitycloud")), 1)
+			path := "/api/securitycloud/v1/dns/search-domains"
 			q := url.Values{}
 			var body any
 			if encoded := q.Encode(); encoded != "" {
 				path += "?" + encoded
 			}
 			var result any
-			if err := platform.DoExpectDocumented(cmd.Context(), cliCtx.PlatformSDKClient, http.MethodGet, path, body, http.StatusOK, []platform.DocumentedStatus{
+			if err := platform.DoExpectDocumented(cmd.Context(), cliCtx.SecurityCloudSDKClient, http.MethodGet, path, body, http.StatusOK, []platform.DocumentedStatus{
 				{Code: 404, ErrorCode: "SEARCH_DOMAIN_NOT_SET", Empty: true},
 			}, &result); err != nil {
 				return fmt.Errorf("get: %w", err)
@@ -116,7 +114,7 @@ func newDnsSearchDomainsUpdateCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Use:         "update",
 		Short:       "Set the Search Domain",
 		Long:        "Sets the tenant Search Domain to the supplied suffix. Any previously set search domain is overwritten.",
-		Annotations: map[string]string{"jamf:privileges": "update:jsc:all", "jamf:api": "platform-gateway"},
+		Annotations: map[string]string{"jamf:privileges": "search-domains:update", "jamf:api": "platform-gateway"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if scaffoldFlag {
 				// Scaffold prints raw JSON regardless of -o, so the output
@@ -124,11 +122,10 @@ func newDnsSearchDomainsUpdateCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				fmt.Println("{\n  \"suffix\": \"corp.example.com\"\n}")
 				return nil
 			}
-			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
+			if err := platform.RequirePlatformClient(cliCtx.SecurityCloudSDKClient); err != nil {
 				return err
 			}
-			path := "/api/securitycloud/tenant/{tenantId}/v1/dns/search-domains"
-			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("securitycloud")), 1)
+			path := "/api/securitycloud/v1/dns/search-domains"
 			q := url.Values{}
 			body, err := platform.ReadBody(bodyFile, setFlags)
 			if err != nil {
@@ -146,7 +143,7 @@ func newDnsSearchDomainsUpdateCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if cliCtx.DryRun {
 				return platform.ReportDryRun(cmd.ErrOrStderr(), http.MethodPut, path, body)
 			}
-			if err := cliCtx.PlatformSDKClient.Transport().DoWithContentType(cmd.Context(), http.MethodPut, path, body, "application/json", http.StatusNoContent, nil); err != nil {
+			if err := cliCtx.SecurityCloudSDKClient.Transport().DoWithContentType(cmd.Context(), http.MethodPut, path, body, "application/json", http.StatusNoContent, nil); err != nil {
 				return fmt.Errorf("update: %w", err)
 			}
 			return nil

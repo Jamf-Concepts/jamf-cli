@@ -42,11 +42,10 @@ func newDeviceGroupsListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Long:        "Retrieves all device groups for the authenticated customer.",
 		Annotations: map[string]string{"jamf:privileges": "read:jsc:all", "jamf:api": "platform-gateway"},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
+			if err := platform.RequirePlatformClient(cliCtx.SecurityCloudSDKClient); err != nil {
 				return err
 			}
-			path := "/api/securitycloud/tenant/{tenantId}/v2/groups"
-			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("securitycloud")), 1)
+			path := "/api/securitycloud/v2/groups"
 			q := url.Values{}
 			if customerId != "" {
 				q.Set("customer-id", customerId)
@@ -56,7 +55,7 @@ func newDeviceGroupsListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				path += "?" + encoded
 			}
 			var result any
-			if err := cliCtx.PlatformSDKClient.Transport().DoExpect(cmd.Context(), http.MethodGet, path, body, http.StatusOK, &result); err != nil {
+			if err := cliCtx.SecurityCloudSDKClient.Transport().DoExpect(cmd.Context(), http.MethodGet, path, body, http.StatusOK, &result); err != nil {
 				return fmt.Errorf("list: %w", err)
 			}
 			if result == nil {
@@ -94,11 +93,10 @@ func newDeviceGroupsCreateCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				fmt.Println("{\n  \"name\": \"Engineering Team\"\n}")
 				return nil
 			}
-			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
+			if err := platform.RequirePlatformClient(cliCtx.SecurityCloudSDKClient); err != nil {
 				return err
 			}
-			path := "/api/securitycloud/tenant/{tenantId}/v1/groups"
-			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("securitycloud")), 1)
+			path := "/api/securitycloud/v1/groups"
 			q := url.Values{}
 			body, err := platform.ReadBody(bodyFile, setFlags)
 			if err != nil {
@@ -117,7 +115,7 @@ func newDeviceGroupsCreateCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				return platform.ReportDryRun(cmd.ErrOrStderr(), http.MethodPost, path, body)
 			}
 			var result any
-			if err := cliCtx.PlatformSDKClient.Transport().DoWithContentType(cmd.Context(), http.MethodPost, path, body, "application/json", http.StatusCreated, &result); err != nil {
+			if err := cliCtx.SecurityCloudSDKClient.Transport().DoWithContentType(cmd.Context(), http.MethodPost, path, body, "application/json", http.StatusCreated, &result); err != nil {
 				return fmt.Errorf("create: %w", err)
 			}
 			if result == nil {
@@ -146,13 +144,13 @@ func newDeviceGroupsDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "delete:jsc:all", "jamf:api": "platform-gateway"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
+			if err := platform.RequirePlatformClient(cliCtx.SecurityCloudSDKClient); err != nil {
 				return err
 			}
 			var resolvedID string
 			if nameFlag != "" {
-				listPath := strings.Replace("/api/securitycloud/tenant/{tenantId}/v2/groups", "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("securitycloud")), 1)
-				id, err := platform.ResolveIDByName(cmd.Context(), cliCtx.PlatformSDKClient, listPath, nameFlag)
+				listPath := "/api/securitycloud/v2/groups"
+				id, err := platform.ResolveIDByName(cmd.Context(), cliCtx.SecurityCloudSDKClient, listPath, nameFlag)
 				if err != nil {
 					return err
 				}
@@ -165,8 +163,7 @@ func newDeviceGroupsDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err := platform.ConfirmAction("delete", resolvedID, yes); err != nil {
 				return err
 			}
-			path := "/api/securitycloud/tenant/{tenantId}/v1/groups/{groupId}"
-			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("securitycloud")), 1)
+			path := "/api/securitycloud/v1/groups/{groupId}"
 			path = strings.Replace(path, "{groupId}", url.PathEscape(resolvedID), 1)
 			q := url.Values{}
 			var body any
@@ -182,7 +179,7 @@ func newDeviceGroupsDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if cliCtx.DryRun {
 				return platform.ReportDryRun(cmd.ErrOrStderr(), http.MethodDelete, path, body)
 			}
-			if err := cliCtx.PlatformSDKClient.Transport().DoExpect(cmd.Context(), http.MethodDelete, path, body, http.StatusNoContent, nil); err != nil {
+			if err := cliCtx.SecurityCloudSDKClient.Transport().DoExpect(cmd.Context(), http.MethodDelete, path, body, http.StatusNoContent, nil); err != nil {
 				return fmt.Errorf("delete: %w", err)
 			}
 			return nil
@@ -202,13 +199,13 @@ func newDeviceGroupsGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Annotations: map[string]string{"jamf:privileges": "read:jsc:all", "jamf:api": "platform-gateway"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
+			if err := platform.RequirePlatformClient(cliCtx.SecurityCloudSDKClient); err != nil {
 				return err
 			}
 			var resolvedID string
 			if nameFlag != "" {
-				listPath := strings.Replace("/api/securitycloud/tenant/{tenantId}/v2/groups", "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("securitycloud")), 1)
-				id, err := platform.ResolveIDByName(cmd.Context(), cliCtx.PlatformSDKClient, listPath, nameFlag)
+				listPath := "/api/securitycloud/v2/groups"
+				id, err := platform.ResolveIDByName(cmd.Context(), cliCtx.SecurityCloudSDKClient, listPath, nameFlag)
 				if err != nil {
 					return err
 				}
@@ -218,8 +215,7 @@ func newDeviceGroupsGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			} else {
 				return fmt.Errorf("provide a positional ID or --name")
 			}
-			path := "/api/securitycloud/tenant/{tenantId}/v1/groups/{groupId}"
-			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("securitycloud")), 1)
+			path := "/api/securitycloud/v1/groups/{groupId}"
 			path = strings.Replace(path, "{groupId}", url.PathEscape(resolvedID), 1)
 			q := url.Values{}
 			var body any
@@ -227,7 +223,7 @@ func newDeviceGroupsGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				path += "?" + encoded
 			}
 			var result any
-			if err := cliCtx.PlatformSDKClient.Transport().DoExpect(cmd.Context(), http.MethodGet, path, body, http.StatusOK, &result); err != nil {
+			if err := cliCtx.SecurityCloudSDKClient.Transport().DoExpect(cmd.Context(), http.MethodGet, path, body, http.StatusOK, &result); err != nil {
 				return fmt.Errorf("get: %w", err)
 			}
 			if result == nil {
@@ -262,13 +258,13 @@ func newDeviceGroupsUpdateCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				fmt.Println("{\n  \"name\": \"Engineering Team\"\n}")
 				return nil
 			}
-			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
+			if err := platform.RequirePlatformClient(cliCtx.SecurityCloudSDKClient); err != nil {
 				return err
 			}
 			var resolvedID string
 			if nameFlag != "" {
-				listPath := strings.Replace("/api/securitycloud/tenant/{tenantId}/v2/groups", "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("securitycloud")), 1)
-				id, err := platform.ResolveIDByName(cmd.Context(), cliCtx.PlatformSDKClient, listPath, nameFlag)
+				listPath := "/api/securitycloud/v2/groups"
+				id, err := platform.ResolveIDByName(cmd.Context(), cliCtx.SecurityCloudSDKClient, listPath, nameFlag)
 				if err != nil {
 					return err
 				}
@@ -278,8 +274,7 @@ func newDeviceGroupsUpdateCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			} else {
 				return fmt.Errorf("provide a positional ID or --name")
 			}
-			path := "/api/securitycloud/tenant/{tenantId}/v1/groups/{groupId}"
-			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("securitycloud")), 1)
+			path := "/api/securitycloud/v1/groups/{groupId}"
 			path = strings.Replace(path, "{groupId}", url.PathEscape(resolvedID), 1)
 			q := url.Values{}
 			body, err := platform.ReadBody(bodyFile, setFlags)
@@ -298,7 +293,7 @@ func newDeviceGroupsUpdateCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if cliCtx.DryRun {
 				return platform.ReportDryRun(cmd.ErrOrStderr(), http.MethodPut, path, body)
 			}
-			if err := cliCtx.PlatformSDKClient.Transport().DoWithContentType(cmd.Context(), http.MethodPut, path, body, "application/json", http.StatusOK, nil); err != nil {
+			if err := cliCtx.SecurityCloudSDKClient.Transport().DoWithContentType(cmd.Context(), http.MethodPut, path, body, "application/json", http.StatusOK, nil); err != nil {
 				return fmt.Errorf("update: %w", err)
 			}
 			return nil

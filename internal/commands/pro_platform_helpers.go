@@ -153,16 +153,10 @@ func requirePlatformClient(cliCtx *registry.CLIContext) error {
 // command code (both hand-written and spec-generated). The SDK transport
 // handles auth, retry, and tenant injection; hand-written commands construct
 // SDK subpackage clients per call (cheap — they share this transport).
-func newPlatformSDKClient(url, clientID, clientSecret, tenantID, securityCloudTenantID string, showSpinner bool) *jamfplatform.Client {
+func newPlatformSDKClient(url, clientID, clientSecret, tenantID string, showSpinner bool) *jamfplatform.Client {
 	opts := []jamfplatform.Option{
 		jamfplatform.WithTenantID(tenantID),
 		jamfplatform.WithUserAgent("jamf-cli/" + cliVersion),
-	}
-
-	// Security Cloud paths resolve their own tenant ID when one is configured;
-	// the option is a no-op for an empty value, leaving them on tenantID.
-	if securityCloudTenantID != "" {
-		opts = append(opts, jamfplatform.WithSecurityCloudTenantID(securityCloudTenantID))
 	}
 
 	if cacheDir, _ := os.UserCacheDir(); cacheDir != "" {
@@ -244,15 +238,36 @@ func resolveSecurityCloudTenantID(cfg *config.Config, profileName string) string
 	return p.SecurityCloudTenantID
 }
 
+// platformSDKClients builds the pair of clients the CLI dispatches through: one
+// for the Jamf Pro tenant and one for the Security Cloud tenant.
+//
+// It is a pair rather than a single client because the scope is a per-client
+// X-Tenant-Id header now, not a path segment. One client carries one tenant, and
+// Security Cloud is a separate product with its own tenant identifier, so a
+// customer holding both cannot be served by one client the way the old
+// TenantIDFor-per-namespace lookup managed. The two share credentials and
+// therefore the cached token; the second client costs a struct, not a login.
+//
+// With no Security Cloud tenant configured the same client is returned twice,
+// which preserves the documented fallback: Security Cloud paths use the Jamf
+// Pro tenant, correct only where the two happen to match.
+func platformSDKClients(url, clientID, clientSecret, tenantID, securityCloudTenantID string, showSpinner bool) (platformClient, securityCloudClient *jamfplatform.Client) {
+	platformClient = newPlatformSDKClient(url, clientID, clientSecret, tenantID, showSpinner)
+	if securityCloudTenantID == "" || securityCloudTenantID == tenantID {
+		return platformClient, platformClient
+	}
+	return platformClient, newPlatformSDKClient(url, clientID, clientSecret, securityCloudTenantID, showSpinner)
+}
+
 // securityPlatformSDKClient builds the Platform SDK client that serves the
 // gateway-hosted part of Jamf Security Cloud, or returns nil when the profile
-// carries no platform credentials.
+// carries no platform credentials. Both returns are nil in that case.
 //
 // Returning nil is a normal outcome, not an error: a profile configured only
 // for Risk/Device Lifecycle/SSE still gets a working `security` tree, and the
 // gateway-served subcommands report what to configure via
 // platform.RequirePlatformClient when they run.
-func securityPlatformSDKClient(cfg *config.Config, profileName string) *jamfplatform.Client {
+func securityPlatformSDKClient(cfg *config.Config, profileName string) (platformClient, securityCloudClient *jamfplatform.Client) {
 	url := serverURL
 	if url == "" {
 		url = os.Getenv("JAMF_URL")
@@ -288,10 +303,10 @@ func securityPlatformSDKClient(cfg *config.Config, profileName string) *jamfplat
 
 	securityCloudTenantID := resolveSecurityCloudTenantID(cfg, profileName)
 	if url == "" || clientID == "" || clientSecret == "" {
-		return nil
+		return nil, nil
 	}
 	if tenantID == "" && securityCloudTenantID == "" {
-		return nil
+		return nil, nil
 	}
-	return newPlatformSDKClient(url, clientID, clientSecret, tenantID, securityCloudTenantID, shouldShowSpinner())
+	return platformSDKClients(url, clientID, clientSecret, tenantID, securityCloudTenantID, shouldShowSpinner())
 }

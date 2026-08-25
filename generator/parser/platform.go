@@ -15,7 +15,7 @@ import (
 )
 
 // ParsePlatformSpec parses a Platform Gateway OpenAPI spec and returns one
-// Resource per operation tag. Platform paths share a /v1/tenant/{tenantId}/
+// Resource per operation tag. Platform paths share an /api/{service}/{version}/
 // prefix that the runtime fills from auth context — it is not a per-call
 // parameter. This loader strips the prefix to /v1/ and removes the tenantId
 // path parameter from each operation before parsing.
@@ -33,7 +33,7 @@ func ParsePlatformSpec(specPath string) ([]*Resource, error) {
 		return nil, fmt.Errorf("decoding platform spec: %w", err)
 	}
 	service := serviceSegment(rawDoc)
-	tenantPaths, expectedStatuses := normalisePlatformPaths(rawDoc, service, tenantPathVersion(rawDoc))
+	expectedStatuses := normalisePlatformPaths(rawDoc, service, tenantPathVersion(rawDoc))
 
 	tmpPath, err := writeNormalisedTempSpec(specPath, rawDoc)
 	if err != nil {
@@ -53,7 +53,7 @@ func ParsePlatformSpec(specPath string) ([]*Resource, error) {
 	if len(allOps) == 0 {
 		return nil, nil
 	}
-	applyPlatformPathMetadata(allOps, tenantPaths, expectedStatuses)
+	applyPlatformPathMetadata(allOps, expectedStatuses)
 
 	schemas := make(map[string]*Schema)
 	if doc.Components != nil {
@@ -215,30 +215,29 @@ func tenantPathVersion(doc map[string]any) string {
 	return v
 }
 
-// normalisePlatformPaths rewrites every path key to its full gateway form
-// ("/api/{service}[/{version}]{specPath}") and then strips /tenant/{tenantId}
-// from it, because path-family detection groups siblings by path and the tenant
-// segment is filled from auth context rather than supplied per call.
+// normalisePlatformPaths rewrites every path key to its gateway form
+// ("/api/{service}[/{version}]{specPath}"), dropping /tenant/{tenantId}
+// wherever a spec still declares it.
 //
-// It returns the stripped→full mapping so emitters can recover the real request
-// path without guessing where the tenant segment belongs. That guesswork used
-// to live in the emitter as "insert after the first /v{n} segment", which is
-// wrong for both shapes Security Cloud introduced: paths carrying no version at
-// all (dns, ztna, categories — the version arrives via the extension) and paths
-// whose version sits *after* the tenant segment (uem-connect's
-// /tenant/{tenantId}/uem-connect/v1/connectors, where the heuristic would
-// produce /uem-connect/v1/tenant/{tenantId}/connectors and 404).
+// The scope is not in the path any more. Until 2026-08-25 every Jamf URL
+// embedded it and the gateway's Tyk config resolved the request context from
+// `path`; `header` became an allowed source in prod on that date, and the
+// published specs dropped the segment in GitOps build v1495 in favour of a
+// required X-Tenant-Id header. The Security Cloud specs have already lost it;
+// blueprints, benchmarks, devices, pro and classic still declare it, so this
+// strips it for them and the transport supplies the header instead. That is why
+// there is no stripped→full mapping any more: the stripped path *is* the
+// request path, and nothing has to guess where a tenant segment belonged.
 //
-// The second return value maps "<strippedPath> <METHOD>" to the operation's
-// expected-status override, for the same reason: it has to be read off the raw
-// document before kin-openapi re-serialises it, but applied to operations that
-// are keyed by their stripped path.
+// The return value maps "<path> <METHOD>" to the operation's expected-status
+// override, which has to be read off the raw document before kin-openapi
+// re-serialises it but applied to operations keyed by their rewritten path.
 //
 // Mutates doc in place.
-func normalisePlatformPaths(doc map[string]any, service, version string) (tenantPaths map[string]string, expectedStatuses map[string]int) {
+func normalisePlatformPaths(doc map[string]any, service, version string) (expectedStatuses map[string]int) {
 	paths, ok := doc["paths"].(map[string]any)
 	if !ok {
-		return nil, nil
+		return nil
 	}
 	var prefix string
 	if service != "" {
@@ -249,22 +248,17 @@ func normalisePlatformPaths(doc map[string]any, service, version string) (tenant
 	}
 
 	rewritten := make(map[string]any, len(paths))
-	tenantPaths = make(map[string]string, len(paths))
 	expectedStatuses = make(map[string]int)
 	for path, item := range paths {
-		full := tenantBeforeVersion(service, prefix+path)
-		stripped := stripTenantSegment(full)
+		stripped := stripTenantSegment(prefix + path)
 		if pi, ok := item.(map[string]any); ok {
 			collectExpectedStatuses(pi, stripped, expectedStatuses)
 			stripTenantParam(pi)
 		}
 		rewritten[stripped] = item
-		if full != stripped {
-			tenantPaths[stripped] = full
-		}
 	}
 	doc["paths"] = rewritten
-	return tenantPaths, expectedStatuses
+	return expectedStatuses
 }
 
 // collectExpectedStatuses records any x-jamf-expected-status on a path item's
@@ -286,44 +280,36 @@ func collectExpectedStatuses(pathItem map[string]any, strippedPath string, out m
 
 // platformOperationNameOverrides renames operations whose auto-derived name —
 // taken from the last meaningful path segment — reads badly as a CLI verb.
-// Keyed "{METHOD} {full path}", the same form the generated command dispatches.
+// Keyed "{METHOD} {path}", the same form the generated command dispatches.
 //
 // UEM Connect models sync as a collection of runs, so the derived names come
 // out as "runs"/"create-runs"/"current" — describing the resource rather than
 // the action. The SDK names the same three operations List/Trigger/Cancel.
 var platformOperationNameOverrides = map[string]string{
-	"GET /api/securitycloud/tenant/{tenantId}/uem-connect/v1/connectors/{configId}/sync/runs":            "list",
-	"POST /api/securitycloud/tenant/{tenantId}/uem-connect/v1/connectors/{configId}/sync/runs":           "trigger",
-	"DELETE /api/securitycloud/tenant/{tenantId}/uem-connect/v1/connectors/{configId}/sync/runs/current": "cancel",
+	"GET /api/securitycloud/uem-connect/v1/connectors/{configId}/sync/runs":            "list",
+	"POST /api/securitycloud/uem-connect/v1/connectors/{configId}/sync/runs":           "trigger",
+	"DELETE /api/securitycloud/uem-connect/v1/connectors/{configId}/sync/runs/current": "cancel",
 
 	// Enablement is a sub-resource written with PUT and cleared with DELETE;
 	// named for the path it reads as "enablement"/"delete-enablement". The SDK
 	// calls the same pair Enable/Disable.
-	"PUT /api/securitycloud/tenant/{tenantId}/uem-connect/v1/connectors/{configId}/enablement":    "enable",
-	"DELETE /api/securitycloud/tenant/{tenantId}/uem-connect/v1/connectors/{configId}/enablement": "disable",
+	"PUT /api/securitycloud/uem-connect/v1/connectors/{configId}/enablement":    "enable",
+	"DELETE /api/securitycloud/uem-connect/v1/connectors/{configId}/enablement": "disable",
 
 	// Sync settings are a singleton under the connector, so the terminal
 	// segment repeats the resource name it is already nested under.
-	"GET /api/securitycloud/tenant/{tenantId}/uem-connect/v1/connectors/{configId}/sync-settings": "get",
-	"PUT /api/securitycloud/tenant/{tenantId}/uem-connect/v1/connectors/{configId}/sync-settings": "update",
+	"GET /api/securitycloud/uem-connect/v1/connectors/{configId}/sync-settings": "get",
+	"PUT /api/securitycloud/uem-connect/v1/connectors/{configId}/sync-settings": "update",
 }
 
-// applyPlatformPathMetadata attaches the full tenant-bearing path, any
-// expected-status override, and any operation-name override to each parsed
-// operation.
-func applyPlatformPathMetadata(ops []*Operation, tenantPaths map[string]string, expectedStatuses map[string]int) {
+// applyPlatformPathMetadata attaches any expected-status override and any
+// operation-name override to each parsed operation.
+func applyPlatformPathMetadata(ops []*Operation, expectedStatuses map[string]int) {
 	for _, op := range ops {
-		if full, ok := tenantPaths[op.Path]; ok {
-			op.TenantPath = full
-		}
 		if code, ok := expectedStatuses[op.Path+" "+strings.ToUpper(op.Method)]; ok {
 			op.ExpectedStatus = code
 		}
-		path := op.TenantPath
-		if path == "" {
-			path = op.Path
-		}
-		if name, ok := platformOperationNameOverrides[strings.ToUpper(op.Method)+" "+path]; ok {
+		if name, ok := platformOperationNameOverrides[strings.ToUpper(op.Method)+" "+op.Path]; ok {
 			op.Name = name
 		}
 	}
@@ -436,91 +422,6 @@ func trimPlatformPathPrefix(name string) string {
 		}
 	}
 	return name
-}
-
-// tenantFirstServices lists the gateway namespaces whose URLs place
-// /tenant/{tenantId} *before* the version segment. Everything else in the Jamf
-// estate is version-first, so this is an explicit allowlist, not a default.
-//
-// Only Security Cloud is in it, and the reason is auditing rather than routing.
-// Its Tyk definition is a catch-all proxy that routes both orderings
-// identically — the SDK wire-verified 200 for every family in both shapes on
-// 2026-08-21 — but the audit rules deciding which mutating requests get
-// recorded are path globs of the form `/**/v{n}/{service}/...`, which match a
-// stripped path only when the tenant precedes the version. Under version-first
-// most Security Cloud mutations executed and were never audited, so a CLI
-// `dns-zones delete` left no record on the gateway side.
-//
-// This duplicates tenantFirstNamespaces in the SDK's internal/client, which the
-// CLI cannot import. The duplication is self-detecting rather than silent: the
-// gateway setup command builds its validation path through the SDK's
-// TenantPrefix, so a divergence fails TestValidatePlatformGatewayCredentials_
-// SecurityCloudTenant, whose httptest mux registers the path the generator
-// produces.
-var tenantFirstServices = map[string]bool{
-	securityCloudService: true,
-}
-
-// securityCloudService is the gateway namespace Jamf Security Cloud is served
-// under.
-const securityCloudService = "securitycloud"
-
-// tenantFirstService reports whether a service's URLs put the tenant segment
-// before the version. A service matches exactly or on its first path segment,
-// mirroring the SDK, so a future "securitycloud/{sub}" inherits the ordering
-// instead of silently reverting to version-first.
-func tenantFirstService(service string) bool {
-	if tenantFirstServices[service] {
-		return true
-	}
-	root, _, found := strings.Cut(service, "/")
-	return found && tenantFirstServices[root]
-}
-
-// tenantBeforeVersion moves /tenant/{tenantId} ahead of the first version
-// segment for services that need it, leaving every other path untouched.
-//
-// The three shapes Security Cloud's specs arrive in all end up the same way:
-// dns and ztna carry no version at all and take it from
-// x-jamf-tenant-path-version, which prefix puts in front of the spec's
-// /tenant/{tenantId} (/api/securitycloud/v1/tenant/{t}/dns/zones); categories
-// and device groups carry the version inside the path, ahead of the tenant
-// (/api/securitycloud/v1/tenant/{t}/groups); and uem-connect already declares
-// the tenant first, with its version after the sub-namespace
-// (/api/securitycloud/tenant/{t}/uem-connect/v1/connectors), which is why this
-// moves the tenant to the version rather than swapping the two — the uem-connect
-// version is not the segment the tenant belongs in front of.
-func tenantBeforeVersion(service, p string) string {
-	if !tenantFirstService(service) {
-		return p
-	}
-	const marker = "tenant"
-	parts := strings.Split(p, "/")
-	tenantIdx, versionIdx := -1, -1
-	for i, seg := range parts {
-		if tenantIdx == -1 && seg == marker && i+1 < len(parts) && parts[i+1] == "{tenantId}" {
-			tenantIdx = i
-		}
-		if versionIdx == -1 && isVersionSegment(seg) {
-			versionIdx = i
-		}
-	}
-	// Nothing to reorder when either segment is absent, or when the tenant
-	// already precedes the version.
-	if tenantIdx == -1 || versionIdx == -1 || tenantIdx < versionIdx {
-		return p
-	}
-	out := make([]string, 0, len(parts))
-	out = append(out, parts[:versionIdx]...)
-	out = append(out, marker, "{tenantId}")
-	out = append(out, parts[versionIdx:tenantIdx]...)
-	out = append(out, parts[tenantIdx+2:]...)
-	return strings.Join(out, "/")
-}
-
-// isVersionSegment reports whether a path segment is a URL version ("v1", "v2").
-func isVersionSegment(seg string) bool {
-	return len(seg) >= 2 && seg[0] == 'v' && seg[1] >= '0' && seg[1] <= '9'
 }
 
 func stripTenantSegment(p string) string {

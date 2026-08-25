@@ -36,14 +36,13 @@ func newUemConnectorEnablementDisableCmd(cliCtx *registry.CLIContext) *cobra.Com
 		Use:         "disable <configId>",
 		Short:       "Disable connector synchronization",
 		Long:        "Disables the specified connector to pause data synchronization between JSC and the UEM platform. This operation is idempotent — disabling an already-disabled connector succeeds.",
-		Annotations: map[string]string{"jamf:privileges": "update:jsc:all", "jamf:api": "platform-gateway"},
+		Annotations: map[string]string{"jamf:privileges": "uem-connect:delete", "jamf:api": "platform-gateway"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
+			if err := platform.RequirePlatformClient(cliCtx.SecurityCloudSDKClient); err != nil {
 				return err
 			}
-			path := "/api/securitycloud/tenant/{tenantId}/uem-connect/v1/connectors/{configId}/enablement"
-			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("securitycloud")), 1)
+			path := "/api/securitycloud/uem-connect/v1/connectors/{configId}/enablement"
 			path = strings.Replace(path, "{configId}", url.PathEscape(args[0]), 1)
 			q := url.Values{}
 			var body any
@@ -59,7 +58,7 @@ func newUemConnectorEnablementDisableCmd(cliCtx *registry.CLIContext) *cobra.Com
 			if cliCtx.DryRun {
 				return platform.ReportDryRun(cmd.ErrOrStderr(), http.MethodDelete, path, body)
 			}
-			if err := cliCtx.PlatformSDKClient.Transport().DoExpect(cmd.Context(), http.MethodDelete, path, body, http.StatusNoContent, nil); err != nil {
+			if err := cliCtx.SecurityCloudSDKClient.Transport().DoExpect(cmd.Context(), http.MethodDelete, path, body, http.StatusNoContent, nil); err != nil {
 				return fmt.Errorf("disable: %w", err)
 			}
 			return nil
@@ -76,7 +75,7 @@ func newUemConnectorEnablementEnableCmd(cliCtx *registry.CLIContext) *cobra.Comm
 		Use:         "enable <configId>",
 		Short:       "Enable connector synchronization",
 		Long:        "Sets the enablement state of the specified connector. Send `enabled: true` to resume data synchronization between JSC and the UEM platform, or `enabled: false` to pause it. This operation is idempotent.",
-		Annotations: map[string]string{"jamf:privileges": "update:jsc:all", "jamf:api": "platform-gateway"},
+		Annotations: map[string]string{"jamf:privileges": "uem-connect:update", "jamf:api": "platform-gateway"},
 		Args: func(cmd *cobra.Command, args []string) error {
 			if scaffoldFlag {
 				return nil
@@ -90,11 +89,10 @@ func newUemConnectorEnablementEnableCmd(cliCtx *registry.CLIContext) *cobra.Comm
 				fmt.Println("{\n  \"enabled\": true\n}")
 				return nil
 			}
-			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
+			if err := platform.RequirePlatformClient(cliCtx.SecurityCloudSDKClient); err != nil {
 				return err
 			}
-			path := "/api/securitycloud/tenant/{tenantId}/uem-connect/v1/connectors/{configId}/enablement"
-			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("securitycloud")), 1)
+			path := "/api/securitycloud/uem-connect/v1/connectors/{configId}/enablement"
 			path = strings.Replace(path, "{configId}", url.PathEscape(args[0]), 1)
 			q := url.Values{}
 			body, err := platform.ReadBody(bodyFile, setFlags)
@@ -113,7 +111,7 @@ func newUemConnectorEnablementEnableCmd(cliCtx *registry.CLIContext) *cobra.Comm
 			if cliCtx.DryRun {
 				return platform.ReportDryRun(cmd.ErrOrStderr(), http.MethodPut, path, body)
 			}
-			if err := cliCtx.PlatformSDKClient.Transport().DoWithContentType(cmd.Context(), http.MethodPut, path, body, "application/json", http.StatusNoContent, nil); err != nil {
+			if err := cliCtx.SecurityCloudSDKClient.Transport().DoWithContentType(cmd.Context(), http.MethodPut, path, body, "application/json", http.StatusNoContent, nil); err != nil {
 				return fmt.Errorf("enable: %w", err)
 			}
 			return nil

@@ -36,14 +36,13 @@ func newUemSyncSettingsGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Use:         "get <configId>",
 		Short:       "Get connector sync settings",
 		Long:        "Returns the current connector configuration including sync settings.",
-		Annotations: map[string]string{"jamf:privileges": "read:jsc:all", "jamf:api": "platform-gateway"},
+		Annotations: map[string]string{"jamf:privileges": "uem-connect:read", "jamf:api": "platform-gateway"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
+			if err := platform.RequirePlatformClient(cliCtx.SecurityCloudSDKClient); err != nil {
 				return err
 			}
-			path := "/api/securitycloud/tenant/{tenantId}/uem-connect/v1/connectors/{configId}/sync-settings"
-			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("securitycloud")), 1)
+			path := "/api/securitycloud/uem-connect/v1/connectors/{configId}/sync-settings"
 			path = strings.Replace(path, "{configId}", url.PathEscape(args[0]), 1)
 			q := url.Values{}
 			var body any
@@ -51,7 +50,7 @@ func newUemSyncSettingsGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				path += "?" + encoded
 			}
 			var result any
-			if err := cliCtx.PlatformSDKClient.Transport().DoExpect(cmd.Context(), http.MethodGet, path, body, http.StatusOK, &result); err != nil {
+			if err := cliCtx.SecurityCloudSDKClient.Transport().DoExpect(cmd.Context(), http.MethodGet, path, body, http.StatusOK, &result); err != nil {
 				return fmt.Errorf("get: %w", err)
 			}
 			if result == nil {
@@ -75,7 +74,7 @@ func newUemSyncSettingsUpdateCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Use:         "update <configId>",
 		Short:       "Update connector sync settings",
 		Long:        "Updates the sync settings for the specified connector. Supported settings vary by UEM vendor. Updated settings take effect on the next sync operation.\n\nAllowed values:\n  autoDeviceDeletion: DISABLED, DELETED_OR_RETIRED, UNMANAGED\n  deviceFieldMappings.userEmailMapping.type: EMAIL_ADDRESS, MDM_ID, SERIAL_NUMBER, IMEI, FIRST_NAME, LAST_NAME, DEVICE_NAME, EXTERNAL_USER_ID, NAME\n  vendor: INTUNE, XENMOBILE, MAAS360, WORKSPACE_ONE, JAMF_PRO, JAMF_SCHOOL, MICLOUD, MICORE, GOOGLE, WIZY",
-		Annotations: map[string]string{"jamf:privileges": "update:jsc:all", "jamf:api": "platform-gateway"},
+		Annotations: map[string]string{"jamf:privileges": "uem-connect:update", "jamf:api": "platform-gateway"},
 		Args: func(cmd *cobra.Command, args []string) error {
 			if scaffoldFlag {
 				return nil
@@ -89,11 +88,10 @@ func newUemSyncSettingsUpdateCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				fmt.Println("{\n  \"autoDeviceDeletion\": \"DELETED_OR_RETIRED\",\n  \"deviceFieldMappings\": {\n    \"deviceNameMapping\": \"DEVICE_NAME\",\n    \"phoneNumberMapping\": \"PHONE_NUMBER\",\n    \"userEmailMapping\": {\n      \"fieldPrefix\": \"dev-\",\n      \"fieldSuffix\": \"example.com\",\n      \"type\": \"EMAIL_ADDRESS\",\n      \"useOnlyIfEmailMissing\": false\n    },\n    \"userIdMapping\": \"EXTERNAL_USER_ID\",\n    \"userNameMapping\": \"USER_NAME\"\n  },\n  \"deviceRiskTagging\": false,\n  \"deviceUnmanagedThreshold\": 3,\n  \"disableSyncOnAuthError\": true,\n  \"groupSettings\": {\n    \"defaultGroupId\": \"grp-default\",\n    \"groupMappingEnabled\": true,\n    \"groupMappings\": [\n      {\n        \"emmGroupId\": \"uem-group-1\",\n        \"wanderaGroupId\": \"grp-abc123\"\n      }\n    ]\n  },\n  \"refreshRateMinutes\": 1440,\n  \"scheduled\": true,\n  \"vendor\": \"INTUNE\"\n}")
 				return nil
 			}
-			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
+			if err := platform.RequirePlatformClient(cliCtx.SecurityCloudSDKClient); err != nil {
 				return err
 			}
-			path := "/api/securitycloud/tenant/{tenantId}/uem-connect/v1/connectors/{configId}/sync-settings"
-			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("securitycloud")), 1)
+			path := "/api/securitycloud/uem-connect/v1/connectors/{configId}/sync-settings"
 			path = strings.Replace(path, "{configId}", url.PathEscape(args[0]), 1)
 			q := url.Values{}
 			body, err := platform.ReadBody(bodyFile, setFlags)
@@ -112,7 +110,7 @@ func newUemSyncSettingsUpdateCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if cliCtx.DryRun {
 				return platform.ReportDryRun(cmd.ErrOrStderr(), http.MethodPut, path, body)
 			}
-			if err := cliCtx.PlatformSDKClient.Transport().DoWithContentType(cmd.Context(), http.MethodPut, path, body, "application/json", http.StatusNoContent, nil); err != nil {
+			if err := cliCtx.SecurityCloudSDKClient.Transport().DoWithContentType(cmd.Context(), http.MethodPut, path, body, "application/json", http.StatusNoContent, nil); err != nil {
 				return fmt.Errorf("update: %w", err)
 			}
 			return nil

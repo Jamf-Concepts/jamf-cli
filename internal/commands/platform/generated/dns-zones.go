@@ -40,13 +40,12 @@ func newDnsZonesListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Use:         "list",
 		Short:       "List DNS Zones",
 		Long:        "Returns the full list of DNS Zones configured for the tenant. The list is not paginated and is bounded by a per-customer maximum zone cap. The full bounded set is returned in a single response and `totalCount` reflects the complete set. Pagination is currently not supported.",
-		Annotations: map[string]string{"jamf:privileges": "read:jsc:all", "jamf:api": "platform-gateway"},
+		Annotations: map[string]string{"jamf:privileges": "ztna:read", "jamf:api": "platform-gateway"},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
+			if err := platform.RequirePlatformClient(cliCtx.SecurityCloudSDKClient); err != nil {
 				return err
 			}
-			path := "/api/securitycloud/tenant/{tenantId}/v1/dns/zones"
-			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("securitycloud")), 1)
+			path := "/api/securitycloud/v1/dns/zones"
 			q := url.Values{}
 			if sort != "" {
 				q.Set("sort", sort)
@@ -56,7 +55,7 @@ func newDnsZonesListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				path += "?" + encoded
 			}
 			var result any
-			if err := cliCtx.PlatformSDKClient.Transport().DoExpect(cmd.Context(), http.MethodGet, path, body, http.StatusOK, &result); err != nil {
+			if err := cliCtx.SecurityCloudSDKClient.Transport().DoExpect(cmd.Context(), http.MethodGet, path, body, http.StatusOK, &result); err != nil {
 				return fmt.Errorf("list: %w", err)
 			}
 			if result == nil {
@@ -86,7 +85,7 @@ func newDnsZonesCreateCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Use:         "create",
 		Short:       "Create a DNS Zone",
 		Long:        "Creates a new DNS Zone for the tenant from the supplied definition. Returns a reference to the newly created Zone, including its identifier and canonical URL. A tenant may hold at most a per-customer maximum number of DNS Zones (value TBD); a request that would exceed this per-customer cap is rejected with 400 `LIST_SIZE_EXCEEDED`.",
-		Annotations: map[string]string{"jamf:privileges": "create:jsc:all", "jamf:api": "platform-gateway"},
+		Annotations: map[string]string{"jamf:privileges": "ztna:create", "jamf:api": "platform-gateway"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if scaffoldFlag {
 				// Scaffold prints raw JSON regardless of -o, so the output
@@ -94,11 +93,10 @@ func newDnsZonesCreateCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				fmt.Println("{\n  \"domains\": [\n    \"example.com\"\n  ],\n  \"name\": \"corp-internal\",\n  \"nameServers\": [\n    {\n      \"gatewayId\": \"gw-eu-01\",\n      \"ip\": \"203.0.113.53\"\n    }\n  ]\n}")
 				return nil
 			}
-			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
+			if err := platform.RequirePlatformClient(cliCtx.SecurityCloudSDKClient); err != nil {
 				return err
 			}
-			path := "/api/securitycloud/tenant/{tenantId}/v1/dns/zones"
-			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("securitycloud")), 1)
+			path := "/api/securitycloud/v1/dns/zones"
 			q := url.Values{}
 			body, err := platform.ReadBody(bodyFile, setFlags)
 			if err != nil {
@@ -117,7 +115,7 @@ func newDnsZonesCreateCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				return platform.ReportDryRun(cmd.ErrOrStderr(), http.MethodPost, path, body)
 			}
 			var result any
-			if err := cliCtx.PlatformSDKClient.Transport().DoWithContentType(cmd.Context(), http.MethodPost, path, body, "application/json", http.StatusCreated, &result); err != nil {
+			if err := cliCtx.SecurityCloudSDKClient.Transport().DoWithContentType(cmd.Context(), http.MethodPost, path, body, "application/json", http.StatusCreated, &result); err != nil {
 				return fmt.Errorf("create: %w", err)
 			}
 			if result == nil {
@@ -143,16 +141,16 @@ func newDnsZonesDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Use:         "delete <id>",
 		Short:       "Delete a DNS Zone",
 		Long:        "Deletes the DNS Zone identified by its UUID.",
-		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "delete:jsc:all", "jamf:api": "platform-gateway"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "ztna:delete", "jamf:api": "platform-gateway"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
+			if err := platform.RequirePlatformClient(cliCtx.SecurityCloudSDKClient); err != nil {
 				return err
 			}
 			var resolvedID string
 			if nameFlag != "" {
-				listPath := strings.Replace("/api/securitycloud/tenant/{tenantId}/v1/dns/zones", "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("securitycloud")), 1)
-				id, err := platform.ResolveIDByName(cmd.Context(), cliCtx.PlatformSDKClient, listPath, nameFlag)
+				listPath := "/api/securitycloud/v1/dns/zones"
+				id, err := platform.ResolveIDByName(cmd.Context(), cliCtx.SecurityCloudSDKClient, listPath, nameFlag)
 				if err != nil {
 					return err
 				}
@@ -165,8 +163,7 @@ func newDnsZonesDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err := platform.ConfirmAction("delete", resolvedID, yes); err != nil {
 				return err
 			}
-			path := "/api/securitycloud/tenant/{tenantId}/v1/dns/zones/{id}"
-			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("securitycloud")), 1)
+			path := "/api/securitycloud/v1/dns/zones/{id}"
 			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
 			q := url.Values{}
 			var body any
@@ -182,7 +179,7 @@ func newDnsZonesDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if cliCtx.DryRun {
 				return platform.ReportDryRun(cmd.ErrOrStderr(), http.MethodDelete, path, body)
 			}
-			if err := cliCtx.PlatformSDKClient.Transport().DoExpect(cmd.Context(), http.MethodDelete, path, body, http.StatusNoContent, nil); err != nil {
+			if err := cliCtx.SecurityCloudSDKClient.Transport().DoExpect(cmd.Context(), http.MethodDelete, path, body, http.StatusNoContent, nil); err != nil {
 				return fmt.Errorf("delete: %w", err)
 			}
 			return nil
@@ -199,16 +196,16 @@ func newDnsZonesGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Use:         "get <id>",
 		Short:       "Get a DNS Zone",
 		Long:        "Returns a single DNS Zone identified by its UUID.",
-		Annotations: map[string]string{"jamf:privileges": "read:jsc:all", "jamf:api": "platform-gateway"},
+		Annotations: map[string]string{"jamf:privileges": "ztna:read", "jamf:api": "platform-gateway"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
+			if err := platform.RequirePlatformClient(cliCtx.SecurityCloudSDKClient); err != nil {
 				return err
 			}
 			var resolvedID string
 			if nameFlag != "" {
-				listPath := strings.Replace("/api/securitycloud/tenant/{tenantId}/v1/dns/zones", "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("securitycloud")), 1)
-				id, err := platform.ResolveIDByName(cmd.Context(), cliCtx.PlatformSDKClient, listPath, nameFlag)
+				listPath := "/api/securitycloud/v1/dns/zones"
+				id, err := platform.ResolveIDByName(cmd.Context(), cliCtx.SecurityCloudSDKClient, listPath, nameFlag)
 				if err != nil {
 					return err
 				}
@@ -218,8 +215,7 @@ func newDnsZonesGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			} else {
 				return fmt.Errorf("provide a positional ID or --name")
 			}
-			path := "/api/securitycloud/tenant/{tenantId}/v1/dns/zones/{id}"
-			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("securitycloud")), 1)
+			path := "/api/securitycloud/v1/dns/zones/{id}"
 			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
 			q := url.Values{}
 			var body any
@@ -227,7 +223,7 @@ func newDnsZonesGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				path += "?" + encoded
 			}
 			var result any
-			if err := cliCtx.PlatformSDKClient.Transport().DoExpect(cmd.Context(), http.MethodGet, path, body, http.StatusOK, &result); err != nil {
+			if err := cliCtx.SecurityCloudSDKClient.Transport().DoExpect(cmd.Context(), http.MethodGet, path, body, http.StatusOK, &result); err != nil {
 				return fmt.Errorf("get: %w", err)
 			}
 			if result == nil {
@@ -253,7 +249,7 @@ func newDnsZonesPatchCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Use:         "patch <id>",
 		Short:       "Update a DNS Zone",
 		Long:        "Partially updates a DNS Zone using JSON Merge Patch (RFC 7396). Any subset of the writable Zone fields may be supplied. A field set to a new value is overwritten; an omitted field is left unchanged; a field set to `null` clears it where the field is optional. Setting a required field to `null` is rejected (400, per ADG-302). No optimistic locking is in place for this release — consider ADG-148 (`VersionId` + `409 OPTIMISTIC_LOCK_FAILED`) in a follow-up if this becomes a concern.",
-		Annotations: map[string]string{"jamf:privileges": "update:jsc:all", "jamf:api": "platform-gateway"},
+		Annotations: map[string]string{"jamf:privileges": "ztna:update", "jamf:api": "platform-gateway"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if scaffoldFlag {
@@ -262,13 +258,13 @@ func newDnsZonesPatchCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				fmt.Println("{\n  \"domains\": [\n    \"example.com\"\n  ],\n  \"name\": \"corp-internal\",\n  \"nameServers\": [\n    {\n      \"gatewayId\": \"gw-eu-01\",\n      \"ip\": \"203.0.113.53\"\n    }\n  ]\n}")
 				return nil
 			}
-			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
+			if err := platform.RequirePlatformClient(cliCtx.SecurityCloudSDKClient); err != nil {
 				return err
 			}
 			var resolvedID string
 			if nameFlag != "" {
-				listPath := strings.Replace("/api/securitycloud/tenant/{tenantId}/v1/dns/zones", "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("securitycloud")), 1)
-				id, err := platform.ResolveIDByName(cmd.Context(), cliCtx.PlatformSDKClient, listPath, nameFlag)
+				listPath := "/api/securitycloud/v1/dns/zones"
+				id, err := platform.ResolveIDByName(cmd.Context(), cliCtx.SecurityCloudSDKClient, listPath, nameFlag)
 				if err != nil {
 					return err
 				}
@@ -278,8 +274,7 @@ func newDnsZonesPatchCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			} else {
 				return fmt.Errorf("provide a positional ID or --name")
 			}
-			path := "/api/securitycloud/tenant/{tenantId}/v1/dns/zones/{id}"
-			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("securitycloud")), 1)
+			path := "/api/securitycloud/v1/dns/zones/{id}"
 			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
 			q := url.Values{}
 			body, err := platform.ReadBody(bodyFile, setFlags)
@@ -298,7 +293,7 @@ func newDnsZonesPatchCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if cliCtx.DryRun {
 				return platform.ReportDryRun(cmd.ErrOrStderr(), http.MethodPatch, path, body)
 			}
-			if err := cliCtx.PlatformSDKClient.Transport().DoWithContentType(cmd.Context(), http.MethodPatch, path, body, "application/merge-patch+json", http.StatusNoContent, nil); err != nil {
+			if err := cliCtx.SecurityCloudSDKClient.Transport().DoWithContentType(cmd.Context(), http.MethodPatch, path, body, "application/merge-patch+json", http.StatusNoContent, nil); err != nil {
 				return fmt.Errorf("patch: %w", err)
 			}
 			return nil

@@ -81,19 +81,15 @@ func LoadResources(specsDir string) ([]*parser.Resource, []string, error) {
 func checkOperationNameCollisions(r *parser.Resource) error {
 	seen := make(map[string]string, len(r.Operations))
 	for _, op := range r.Operations {
-		path := op.TenantPath
-		if path == "" {
-			path = op.Path
-		}
 		if prev, dup := seen[op.Name]; dup {
 			return fmt.Errorf(
 				"platform resource %q has two %q operations (%s and %s): "+
 					"two specs contribute this resource name — rename one via "+
 					"platformResourceNameOverrides in generator/parser/platform.go, "+
 					"keyed \"{service}/%s\"",
-				r.Name, op.Name, prev, path, r.Name)
+				r.Name, op.Name, prev, op.Path, r.Name)
 		}
-		seen[op.Name] = path
+		seen[op.Name] = op.Path
 	}
 	return nil
 }

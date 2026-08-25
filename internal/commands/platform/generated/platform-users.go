@@ -43,8 +43,7 @@ func newPlatformUsersDevicesCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err
 			}
-			path := "/api/devices/v1/tenant/{tenantId}/users/{id}/devices"
-			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("devices")), 1)
+			path := "/api/devices/v1/users/{id}/devices"
 			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
 			q := url.Values{}
 			if sort != "" {

@@ -1,10 +1,10 @@
 {
   "components": {
     "parameters": {
-      "tenantId": {
-        "description": "The tenant UUID identifier",
-        "in": "path",
-        "name": "tenantId",
+      "X-Tenant-Id": {
+        "description": "The tenant UUID identifier.",
+        "in": "header",
+        "name": "X-Tenant-Id",
         "required": true,
         "schema": {
           "example": "e77c1408-10c8-4007-b177-abc9157fbcaa",
@@ -180,14 +180,14 @@
   },
   "openapi": "3.0.3",
   "paths": {
-    "/v1/tenant/{tenantId}/groups": {
+    "/v1/groups": {
       "get": {
         "deprecated": true,
         "description": "Retrieves all device groups for the authenticated customer.\n\n**Required Permissions:** `read:jsc:all`",
         "operationId": "listGroups",
         "parameters": [
           {
-            "$ref": "#/components/parameters/tenantId"
+            "$ref": "#/components/parameters/X-Tenant-Id"
           },
           {
             "description": "Unique identifier of the customer whose groups to retrieve",
@@ -252,7 +252,7 @@
         "operationId": "createGroup",
         "parameters": [
           {
-            "$ref": "#/components/parameters/tenantId"
+            "$ref": "#/components/parameters/X-Tenant-Id"
           }
         ],
         "requestBody": {
@@ -322,13 +322,13 @@
         ]
       }
     },
-    "/v1/tenant/{tenantId}/groups/{groupId}": {
+    "/v1/groups/{groupId}": {
       "delete": {
         "description": "Deletes a device group. The default group cannot be deleted.\n\n**Required Permissions:** `delete:jsc:all`",
         "operationId": "deleteGroup",
         "parameters": [
           {
-            "$ref": "#/components/parameters/tenantId"
+            "$ref": "#/components/parameters/X-Tenant-Id"
           },
           {
             "description": "Unique identifier of the group to delete",
@@ -395,7 +395,7 @@
         "operationId": "getGroup",
         "parameters": [
           {
-            "$ref": "#/components/parameters/tenantId"
+            "$ref": "#/components/parameters/X-Tenant-Id"
           },
           {
             "description": "Unique identifier of the group to retrieve",
@@ -469,7 +469,7 @@
         "operationId": "updateGroup",
         "parameters": [
           {
-            "$ref": "#/components/parameters/tenantId"
+            "$ref": "#/components/parameters/X-Tenant-Id"
           },
           {
             "description": "Unique identifier of the group to update",
@@ -563,13 +563,13 @@
         ]
       }
     },
-    "/v2/tenant/{tenantId}/groups": {
+    "/v2/groups": {
       "get": {
         "description": "Retrieves all device groups for the authenticated customer.\n\n**Required Permissions:** `read:jsc:all`",
         "operationId": "listGroupsV2",
         "parameters": [
           {
-            "$ref": "#/components/parameters/tenantId"
+            "$ref": "#/components/parameters/X-Tenant-Id"
           },
           {
             "description": "Unique identifier of the customer whose groups to retrieve",
@@ -631,5 +631,8 @@
         }
       }
     }
+  ],
+  "x-scope-types": [
+    "tenant"
   ]
 }

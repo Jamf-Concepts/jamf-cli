@@ -22,7 +22,7 @@ func TestGeneratedBlueprintsGet(t *testing.T) {
 	sdk, mux := newTestPlatformSDK(t)
 
 	const blueprintID = "bp-123"
-	wantPath := "/api/blueprints/v1/tenant/" + testTenantID + "/blueprints/" + blueprintID
+	wantPath := "/api/blueprints/v1/blueprints/" + blueprintID
 	mux.HandleFunc(wantPath, func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, map[string]any{
 			"id":              blueprintID,
@@ -60,7 +60,7 @@ func TestGeneratedPlatformDeviceGroupsGet(t *testing.T) {
 	sdk, mux := newTestPlatformSDK(t)
 
 	const groupID = "dg-456"
-	wantPath := "/api/device-groups/v1/tenant/" + testTenantID + "/device-groups/" + groupID
+	wantPath := "/api/device-groups/v1/device-groups/" + groupID
 	mux.HandleFunc(wantPath, func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, map[string]any{
 			"id":          groupID,
@@ -95,7 +95,7 @@ func TestGeneratedPlatformDeviceGroupsGet(t *testing.T) {
 func TestGeneratedDeviceActionsUnmanageRequiresConfirm(t *testing.T) {
 	sdk, _ := newTestPlatformSDK(t)
 
-	cliCtx := &registry.CLIContext{PlatformSDKClient: sdk, Output: &captureOutput{}}
+	cliCtx := &registry.CLIContext{PlatformSDKClient: sdk, SecurityCloudSDKClient: sdk, Output: &captureOutput{}}
 	cmd := platformgen.NewDeviceActionsCmd(cliCtx)
 	cmd.SetArgs([]string{"unmanage", "device-id-1"})
 	err := cmd.Execute()
@@ -110,7 +110,7 @@ func TestGeneratedDeviceActionsUnmanageRequiresConfirm(t *testing.T) {
 // TestGeneratedCommandNilClientError validates that generated commands return
 // the full setup guidance (not a bare one-liner) when PlatformSDKClient is nil.
 func TestGeneratedCommandNilClientError(t *testing.T) {
-	cliCtx := &registry.CLIContext{PlatformSDKClient: nil, Output: &captureOutput{}}
+	cliCtx := &registry.CLIContext{PlatformSDKClient: nil, SecurityCloudSDKClient: nil, Output: &captureOutput{}}
 	cmd := platformgen.NewBlueprintsCmd(cliCtx)
 	cmd.SetArgs([]string{"list"})
 	err := cmd.Execute()
@@ -129,7 +129,7 @@ func TestGeneratedCommandNilClientError(t *testing.T) {
 func TestGeneratedBaselinesList(t *testing.T) {
 	sdk, mux := newTestPlatformSDK(t)
 
-	const wantPath = "/api/compliance-benchmarks/v1/tenant/" + testTenantID + "/baselines"
+	const wantPath = "/api/compliance-benchmarks/v1/baselines"
 	var seenPath string
 	mux.HandleFunc(wantPath, func(w http.ResponseWriter, r *http.Request) {
 		seenPath = r.URL.Path
@@ -172,7 +172,7 @@ func TestGeneratedRulesListWithQueryParam(t *testing.T) {
 	sdk, mux := newTestPlatformSDK(t)
 
 	var seenQuery string
-	mux.HandleFunc("/api/compliance-benchmarks/v1/tenant/"+testTenantID+"/rules", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/api/compliance-benchmarks/v1/rules", func(w http.ResponseWriter, r *http.Request) {
 		seenQuery = r.URL.RawQuery
 		writeJSON(w, map[string]any{
 			"rules":   []map[string]any{{"id": "rule-1", "title": "Some rule"}},
@@ -181,7 +181,7 @@ func TestGeneratedRulesListWithQueryParam(t *testing.T) {
 	})
 
 	out := &captureOutput{}
-	cliCtx := &registry.CLIContext{PlatformSDKClient: sdk, Output: out}
+	cliCtx := &registry.CLIContext{PlatformSDKClient: sdk, SecurityCloudSDKClient: sdk, Output: out}
 	cmd := platformgen.NewRulesCmd(cliCtx)
 	cmd.SetArgs([]string{"list", "--baseline-id", "cis_lvl1"})
 	if err := cmd.Execute(); err != nil {
@@ -204,7 +204,7 @@ func TestGeneratedRulesListWithQueryParam(t *testing.T) {
 // TestGeneratedSecurityCloudListIsTenantFirstAndEmptyIsAnArray covers two things
 // that are only visible at runtime, on one request.
 //
-// The path: Security Cloud puts /tenant/{id} ahead of the version, and the
+// The path: the scope is a header now, so the URL carries no tenant, and the
 // generated command holds that path as a literal — so the SDK getting the
 // ordering right in TenantPrefix does nothing for it. An exact mux registration
 // is what catches a regression, since both orderings are routed by the real
@@ -217,7 +217,7 @@ func TestGeneratedRulesListWithQueryParam(t *testing.T) {
 func TestGeneratedSecurityCloudListIsTenantFirstAndEmptyIsAnArray(t *testing.T) {
 	sdk, mux := newTestPlatformSDK(t)
 
-	const wantPath = "/api/securitycloud/tenant/" + testTenantID + "/v1/ztna/gateways"
+	const wantPath = "/api/securitycloud/v1/ztna/gateways"
 	var seenPath string
 	mux.HandleFunc(wantPath, func(w http.ResponseWriter, r *http.Request) {
 		seenPath = r.URL.Path
@@ -226,7 +226,7 @@ func TestGeneratedSecurityCloudListIsTenantFirstAndEmptyIsAnArray(t *testing.T) 
 	})
 
 	out := &captureOutput{}
-	cliCtx := &registry.CLIContext{PlatformSDKClient: sdk, Output: out}
+	cliCtx := &registry.CLIContext{PlatformSDKClient: sdk, SecurityCloudSDKClient: sdk, Output: out}
 	cmd := platformgen.NewZtnaGatewaysCmd(cliCtx)
 	cmd.SetArgs([]string{"list"})
 	if err := cmd.Execute(); err != nil {
@@ -262,17 +262,17 @@ func TestGeneratedPlatformMutationsHonourDryRun(t *testing.T) {
 	}{
 		{
 			name:    "create",
-			path:    "/api/securitycloud/tenant/" + testTenantID + "/v1/groups",
+			path:    "/api/securitycloud/v1/groups",
 			newCmd:  platformgen.NewDeviceGroupsCmd,
 			args:    []string{"create", "--set", "name=dry-run-probe"},
-			wantPre: "[dry-run] POST /api/securitycloud/tenant/" + testTenantID + "/v1/groups",
+			wantPre: "[dry-run] POST /api/securitycloud/v1/groups",
 		},
 		{
 			name:    "delete",
-			path:    "/api/securitycloud/tenant/" + testTenantID + "/v1/groups/abc123",
+			path:    "/api/securitycloud/v1/groups/abc123",
 			newCmd:  platformgen.NewDeviceGroupsCmd,
 			args:    []string{"delete", "abc123", "--yes"},
-			wantPre: "[dry-run] DELETE /api/securitycloud/tenant/" + testTenantID + "/v1/groups/abc123",
+			wantPre: "[dry-run] DELETE /api/securitycloud/v1/groups/abc123",
 		},
 	}
 	for _, tc := range cases {
@@ -284,7 +284,7 @@ func TestGeneratedPlatformMutationsHonourDryRun(t *testing.T) {
 				writeJSON(w, map[string]any{"id": "abc123"})
 			})
 
-			cliCtx := &registry.CLIContext{PlatformSDKClient: sdk, Output: &captureOutput{}, DryRun: true}
+			cliCtx := &registry.CLIContext{PlatformSDKClient: sdk, SecurityCloudSDKClient: sdk, Output: &captureOutput{}, DryRun: true}
 			cmd := tc.newCmd(cliCtx)
 			var stderr bytes.Buffer
 			cmd.SetErr(&stderr)
@@ -318,10 +318,10 @@ func TestDryRunGuardRefusesUnpreviewedWrites(t *testing.T) {
 		path       string
 		wantPassed bool
 	}{
-		{name: "post refused", method: http.MethodPost, path: "/api/securitycloud/tenant/t/v1/groups"},
-		{name: "patch refused", method: http.MethodPatch, path: "/api/securitycloud/tenant/t/v1/groups/1"},
-		{name: "delete refused", method: http.MethodDelete, path: "/api/securitycloud/tenant/t/v1/groups/1"},
-		{name: "get passes", method: http.MethodGet, path: "/api/securitycloud/tenant/t/v1/groups", wantPassed: true},
+		{name: "post refused", method: http.MethodPost, path: "/api/securitycloud/v1/groups"},
+		{name: "patch refused", method: http.MethodPatch, path: "/api/securitycloud/v1/groups/1"},
+		{name: "delete refused", method: http.MethodDelete, path: "/api/securitycloud/v1/groups/1"},
+		{name: "get passes", method: http.MethodGet, path: "/api/securitycloud/v1/groups", wantPassed: true},
 		{name: "token passes", method: http.MethodPost, path: "/auth/token", wantPassed: true},
 	}
 	for _, tc := range cases {

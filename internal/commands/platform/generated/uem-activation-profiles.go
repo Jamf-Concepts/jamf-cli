@@ -38,7 +38,7 @@ func newUemActivationProfilesDeployToUemCmd(cliCtx *registry.CLIContext) *cobra.
 		Use:         "deploy-to-uem <code>",
 		Short:       "Deploy Jamf Security configuration profiles to UEM",
 		Long:        "Deploys Jamf Security configuration profiles to the UEM platform for the specified activation profile. This is the final step of automated UEM Connect onboarding.\n\nAllowed values:\n  platform: SUPERVISED_MAC, SUPERVISED_IOS, UNSUPERVISED_IOS, BYOD_IOS\n  uem: JAMF",
-		Annotations: map[string]string{"jamf:privileges": "update:jsc:all", "jamf:api": "platform-gateway"},
+		Annotations: map[string]string{"jamf:privileges": "uem-connect:update", "jamf:api": "platform-gateway"},
 		Args: func(cmd *cobra.Command, args []string) error {
 			if scaffoldFlag {
 				return nil
@@ -52,11 +52,10 @@ func newUemActivationProfilesDeployToUemCmd(cliCtx *registry.CLIContext) *cobra.
 				fmt.Println("{\n  \"platform\": \"SUPERVISED_IOS\",\n  \"uem\": \"JAMF\",\n  \"uemGroups\": [\n    \"All Managed Devices\"\n  ]\n}")
 				return nil
 			}
-			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
+			if err := platform.RequirePlatformClient(cliCtx.SecurityCloudSDKClient); err != nil {
 				return err
 			}
-			path := "/api/securitycloud/tenant/{tenantId}/uem-connect/v1/activation-profiles/{code}/deploy-to-uem"
-			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("securitycloud")), 1)
+			path := "/api/securitycloud/uem-connect/v1/activation-profiles/{code}/deploy-to-uem"
 			path = strings.Replace(path, "{code}", url.PathEscape(args[0]), 1)
 			q := url.Values{}
 			body, err := platform.ReadBody(bodyFile, setFlags)
@@ -75,7 +74,7 @@ func newUemActivationProfilesDeployToUemCmd(cliCtx *registry.CLIContext) *cobra.
 			if cliCtx.DryRun {
 				return platform.ReportDryRun(cmd.ErrOrStderr(), http.MethodPost, path, body)
 			}
-			if err := cliCtx.PlatformSDKClient.Transport().DoWithContentType(cmd.Context(), http.MethodPost, path, body, "application/json", http.StatusNoContent, nil); err != nil {
+			if err := cliCtx.SecurityCloudSDKClient.Transport().DoWithContentType(cmd.Context(), http.MethodPost, path, body, "application/json", http.StatusNoContent, nil); err != nil {
 				return fmt.Errorf("deploy-to-uem: %w", err)
 			}
 			return nil

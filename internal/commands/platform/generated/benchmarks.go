@@ -43,8 +43,7 @@ func newBenchmarksListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err
 			}
-			path := "/api/compliance-benchmarks/v1/tenant/{tenantId}/benchmarks"
-			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("compliance-benchmarks")), 1)
+			path := "/api/compliance-benchmarks/v1/benchmarks"
 			q := url.Values{}
 			var body any
 			if encoded := q.Encode(); encoded != "" {
@@ -99,8 +98,7 @@ func newBenchmarksCreateCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err
 			}
-			path := "/api/compliance-benchmarks/v1/tenant/{tenantId}/benchmarks"
-			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("compliance-benchmarks")), 1)
+			path := "/api/compliance-benchmarks/v1/benchmarks"
 			q := url.Values{}
 			body, err := platform.ReadBody(bodyFile, setFlags)
 			if err != nil {
@@ -153,7 +151,7 @@ func newBenchmarksDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			}
 			var resolvedID string
 			if nameFlag != "" {
-				listPath := strings.Replace("/api/compliance-benchmarks/v1/tenant/{tenantId}/benchmarks", "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("compliance-benchmarks")), 1)
+				listPath := "/api/compliance-benchmarks/v1/benchmarks"
 				id, err := platform.ResolveIDByName(cmd.Context(), cliCtx.PlatformSDKClient, listPath, nameFlag)
 				if err != nil {
 					return err
@@ -167,8 +165,7 @@ func newBenchmarksDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err := platform.ConfirmAction("delete", resolvedID, yes); err != nil {
 				return err
 			}
-			path := "/api/compliance-benchmarks/v1/tenant/{tenantId}/benchmarks/{id}"
-			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("compliance-benchmarks")), 1)
+			path := "/api/compliance-benchmarks/v1/benchmarks/{id}"
 			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
 			q := url.Values{}
 			var body any
@@ -209,7 +206,7 @@ func newBenchmarksGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			}
 			var resolvedID string
 			if nameFlag != "" {
-				listPath := strings.Replace("/api/compliance-benchmarks/v1/tenant/{tenantId}/benchmarks", "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("compliance-benchmarks")), 1)
+				listPath := "/api/compliance-benchmarks/v1/benchmarks"
 				id, err := platform.ResolveIDByName(cmd.Context(), cliCtx.PlatformSDKClient, listPath, nameFlag)
 				if err != nil {
 					return err
@@ -220,8 +217,7 @@ func newBenchmarksGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			} else {
 				return fmt.Errorf("provide a positional ID or --name")
 			}
-			path := "/api/compliance-benchmarks/v1/tenant/{tenantId}/benchmarks/{id}"
-			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("compliance-benchmarks")), 1)
+			path := "/api/compliance-benchmarks/v1/benchmarks/{id}"
 			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
 			q := url.Values{}
 			var body any

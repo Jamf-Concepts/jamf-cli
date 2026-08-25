@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/getkin/kin-openapi/openapi3"
@@ -2633,69 +2634,62 @@ func TestDeduplicateVersionedOps_DistinctGatewayServicesSurvive(t *testing.T) {
 	}
 }
 
-// TestTenantBeforeVersion covers the three URL shapes Jamf Security Cloud's
-// specs arrive in and the one thing this must not do: touch any other gateway
-// namespace, all of which are version-first and wire-depend on it.
-func TestTenantBeforeVersion(t *testing.T) {
+// TestNormalisePlatformPathsDropsTheTenant pins the scope leaving the URL. The
+// specs disagree with each other: Security Cloud dropped /tenant/{tenantId} in
+// GitOps build v1495, while blueprints, benchmarks, devices, pro and classic
+// still declare it. Both have to come out as /api/{service}[/{version}]{path},
+// because the tenant now travels as an X-Tenant-Id header and a tenant segment
+// left in a generated path would be sent as a literal.
+func TestNormalisePlatformPathsDropsTheTenant(t *testing.T) {
 	cases := []struct {
 		name    string
 		service string
+		version string
 		in      string
 		want    string
 	}{
 		{
-			// dns and ztna: no version in the spec path, so
-			// x-jamf-tenant-path-version puts it ahead of the tenant.
-			name:    "version from the extension",
-			service: "securitycloud",
-			in:      "/api/securitycloud/v1/tenant/{tenantId}/dns/zones",
-			want:    "/api/securitycloud/tenant/{tenantId}/v1/dns/zones",
-		},
-		{
-			// categories and device groups carry the version in the path.
-			name:    "version in the spec path",
-			service: "securitycloud",
-			in:      "/api/securitycloud/v2/tenant/{tenantId}/groups",
-			want:    "/api/securitycloud/tenant/{tenantId}/v2/groups",
-		},
-		{
-			// uem-connect already declares the tenant first, and its version
-			// sits after the sub-namespace — so the tenant does not belong in
-			// front of that version, and this must leave the path alone.
-			name:    "already tenant-first",
-			service: "securitycloud",
-			in:      "/api/securitycloud/tenant/{tenantId}/uem-connect/v1/connectors",
-			want:    "/api/securitycloud/tenant/{tenantId}/uem-connect/v1/connectors",
-		},
-		{
-			name:    "sub-namespace inherits the ordering",
-			service: "securitycloud/dns",
-			in:      "/api/securitycloud/v1/tenant/{tenantId}/dns/zones",
-			want:    "/api/securitycloud/tenant/{tenantId}/v1/dns/zones",
-		},
-		{
-			name:    "other services stay version-first",
+			name:    "declared tenant segment is removed",
 			service: "blueprints",
-			in:      "/api/blueprints/v1/tenant/{tenantId}/blueprints",
-			want:    "/api/blueprints/v1/tenant/{tenantId}/blueprints",
+			in:      "/v1/tenant/{tenantId}/blueprints",
+			want:    "/api/blueprints/v1/blueprints",
 		},
 		{
-			name:    "no tenant segment",
+			name:    "header-scoped spec is left alone",
 			service: "securitycloud",
-			in:      "/api/securitycloud/v1/categories",
+			in:      "/v1/ztna/apps",
+			want:    "/api/securitycloud/v1/ztna/apps",
+		},
+		{
+			name:    "tenant ahead of a sub-namespace version",
+			service: "securitycloud",
+			in:      "/tenant/{tenantId}/uem-connect/v1/connectors",
+			want:    "/api/securitycloud/uem-connect/v1/connectors",
+		},
+		{
+			name:    "version supplied by the extension",
+			service: "securitycloud",
+			version: "v1",
+			in:      "/tenant/{tenantId}/categories",
 			want:    "/api/securitycloud/v1/categories",
-		},
-		{
-			name:    "no version segment",
-			service: "securitycloud",
-			in:      "/api/securitycloud/tenant/{tenantId}/categories",
-			want:    "/api/securitycloud/tenant/{tenantId}/categories",
 		},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			if got := tenantBeforeVersion(c.service, c.in); got != c.want {
-				t.Errorf("tenantBeforeVersion(%q, %q) = %q, want %q", c.service, c.in, got, c.want)
+			doc := map[string]any{"paths": map[string]any{c.in: map[string]any{}}}
+			normalisePlatformPaths(doc, c.service, c.version)
+			paths := doc["paths"].(map[string]any)
+			if _, ok := paths[c.want]; !ok {
+				got := make([]string, 0, len(paths))
+				for p := range paths {
+					got = append(got, p)
+				}
+				t.Errorf("paths = %v, want %q", got, c.want)
+			}
+			for p := range paths {
+				if strings.Contains(p, "tenant") {
+					t.Errorf("path %q still carries a tenant segment", p)
+				}
 			}
 		})
 	}

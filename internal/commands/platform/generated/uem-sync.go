@@ -37,14 +37,13 @@ func newUemSyncListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Use:         "list <configId>",
 		Short:       "List sync run history",
 		Long:        "Retrieves paginated sync run history for the specified connector, ordered from newest to oldest.",
-		Annotations: map[string]string{"jamf:privileges": "read:jsc:all", "jamf:api": "platform-gateway"},
+		Annotations: map[string]string{"jamf:privileges": "uem-connect:read", "jamf:api": "platform-gateway"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
+			if err := platform.RequirePlatformClient(cliCtx.SecurityCloudSDKClient); err != nil {
 				return err
 			}
-			path := "/api/securitycloud/tenant/{tenantId}/uem-connect/v1/connectors/{configId}/sync/runs"
-			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("securitycloud")), 1)
+			path := "/api/securitycloud/uem-connect/v1/connectors/{configId}/sync/runs"
 			path = strings.Replace(path, "{configId}", url.PathEscape(args[0]), 1)
 			q := url.Values{}
 			var body any
@@ -70,7 +69,7 @@ func newUemSyncListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				var pageResult struct {
 					Results []json.RawMessage `json:"results"`
 				}
-				if err := cliCtx.PlatformSDKClient.Transport().DoExpect(cmd.Context(), http.MethodGet, endpoint, body, http.StatusOK, &pageResult); err != nil {
+				if err := cliCtx.SecurityCloudSDKClient.Transport().DoExpect(cmd.Context(), http.MethodGet, endpoint, body, http.StatusOK, &pageResult); err != nil {
 					return fmt.Errorf("list: %w", err)
 				}
 				aggregated = append(aggregated, pageResult.Results...)
@@ -93,14 +92,13 @@ func newUemSyncTriggerCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Use:         "trigger <configId>",
 		Short:       "Trigger sync run",
 		Long:        "Triggers a new sync operation for the specified connector. The sync runs asynchronously; this endpoint returns immediately (`202 Accepted`). Poll `GET /sync/runs` to monitor progress.",
-		Annotations: map[string]string{"jamf:privileges": "update:jsc:all", "jamf:api": "platform-gateway"},
+		Annotations: map[string]string{"jamf:privileges": "uem-connect:update", "jamf:api": "platform-gateway"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
+			if err := platform.RequirePlatformClient(cliCtx.SecurityCloudSDKClient); err != nil {
 				return err
 			}
-			path := "/api/securitycloud/tenant/{tenantId}/uem-connect/v1/connectors/{configId}/sync/runs"
-			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("securitycloud")), 1)
+			path := "/api/securitycloud/uem-connect/v1/connectors/{configId}/sync/runs"
 			path = strings.Replace(path, "{configId}", url.PathEscape(args[0]), 1)
 			q := url.Values{}
 			var body any
@@ -116,7 +114,7 @@ func newUemSyncTriggerCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if cliCtx.DryRun {
 				return platform.ReportDryRun(cmd.ErrOrStderr(), http.MethodPost, path, body)
 			}
-			if err := cliCtx.PlatformSDKClient.Transport().DoExpect(cmd.Context(), http.MethodPost, path, body, http.StatusAccepted, nil); err != nil {
+			if err := cliCtx.SecurityCloudSDKClient.Transport().DoExpect(cmd.Context(), http.MethodPost, path, body, http.StatusAccepted, nil); err != nil {
 				return fmt.Errorf("trigger: %w", err)
 			}
 			return nil
@@ -130,14 +128,13 @@ func newUemSyncCancelCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Use:         "cancel <configId>",
 		Short:       "Cancel current sync run",
 		Long:        "Requests cancelation of the currently running sync operation for the specified connector. Cancelation is best-effort; the sync may complete before it takes effect. Check status via `GET /sync/runs`.",
-		Annotations: map[string]string{"jamf:privileges": "update:jsc:all", "jamf:api": "platform-gateway"},
+		Annotations: map[string]string{"jamf:privileges": "uem-connect:update", "jamf:api": "platform-gateway"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
+			if err := platform.RequirePlatformClient(cliCtx.SecurityCloudSDKClient); err != nil {
 				return err
 			}
-			path := "/api/securitycloud/tenant/{tenantId}/uem-connect/v1/connectors/{configId}/sync/runs/current"
-			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("securitycloud")), 1)
+			path := "/api/securitycloud/uem-connect/v1/connectors/{configId}/sync/runs/current"
 			path = strings.Replace(path, "{configId}", url.PathEscape(args[0]), 1)
 			q := url.Values{}
 			var body any
@@ -153,7 +150,7 @@ func newUemSyncCancelCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if cliCtx.DryRun {
 				return platform.ReportDryRun(cmd.ErrOrStderr(), http.MethodDelete, path, body)
 			}
-			if err := cliCtx.PlatformSDKClient.Transport().DoExpect(cmd.Context(), http.MethodDelete, path, body, http.StatusNoContent, nil); err != nil {
+			if err := cliCtx.SecurityCloudSDKClient.Transport().DoExpect(cmd.Context(), http.MethodDelete, path, body, http.StatusNoContent, nil); err != nil {
 				return fmt.Errorf("cancel: %w", err)
 			}
 			return nil

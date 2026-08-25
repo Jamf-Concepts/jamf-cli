@@ -1,10 +1,10 @@
 {
   "components": {
     "parameters": {
-      "tenantId": {
-        "description": "The tenant UUID identifier",
-        "in": "path",
-        "name": "tenantId",
+      "X-Tenant-Id": {
+        "description": "The tenant UUID identifier.",
+        "in": "header",
+        "name": "X-Tenant-Id",
         "required": true,
         "schema": {
           "example": "e77c1408-10c8-4007-b177-abc9157fbcaa",
@@ -139,7 +139,7 @@
         "flows": {
           "clientCredentials": {
             "scopes": {
-              "read:jsc:all": ""
+              "content-categories:read": ""
             },
             "tokenUrl": "https://{region}.api.stage.platform.jamflabs.com/auth/token"
           }
@@ -160,13 +160,13 @@
   },
   "openapi": "3.0.3",
   "paths": {
-    "/v1/tenant/{tenantId}/categories": {
+    "/v1/categories": {
       "get": {
-        "description": "List all content categories. Not paginated.\n\n**Required Permissions:** `read:jsc:all`",
+        "description": "List all content categories. Not paginated.\n\n**Required Permissions:** `content-categories:read`",
         "operationId": "listCategories",
         "parameters": [
           {
-            "$ref": "#/components/parameters/tenantId"
+            "$ref": "#/components/parameters/X-Tenant-Id"
           }
         ],
         "responses": {
@@ -282,7 +282,7 @@
         "security": [
           {
             "oauth2": [
-              "read:jsc:all"
+              "content-categories:read"
             ]
           }
         ],
@@ -291,7 +291,7 @@
           "categories"
         ],
         "x-required-privileges": [
-          "read:jsc:all"
+          "content-categories:read"
         ]
       }
     }
@@ -321,5 +321,8 @@
       "description": "JSC content categories. **List only** — no get-by-id.\n",
       "name": "categories"
     }
+  ],
+  "x-scope-types": [
+    "tenant"
   ]
 }

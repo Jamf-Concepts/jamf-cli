@@ -38,16 +38,15 @@ func newDnsCustomHostnameMappingsDeleteCmd(cliCtx *registry.CLIContext) *cobra.C
 		Use:         "delete",
 		Short:       "Clear Custom Hostname Mappings",
 		Long:        "Clears all tenant Custom Hostname Mappings.",
-		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "delete:jsc:all", "jamf:api": "platform-gateway"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "custom-hostname-mappings:delete", "jamf:api": "platform-gateway"},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
+			if err := platform.RequirePlatformClient(cliCtx.SecurityCloudSDKClient); err != nil {
 				return err
 			}
 			if err := platform.ConfirmAction("delete", "delete", yes); err != nil {
 				return err
 			}
-			path := "/api/securitycloud/tenant/{tenantId}/v1/dns/custom-hostname-mappings"
-			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("securitycloud")), 1)
+			path := "/api/securitycloud/v1/dns/custom-hostname-mappings"
 			q := url.Values{}
 			var body any
 			if encoded := q.Encode(); encoded != "" {
@@ -62,7 +61,7 @@ func newDnsCustomHostnameMappingsDeleteCmd(cliCtx *registry.CLIContext) *cobra.C
 			if cliCtx.DryRun {
 				return platform.ReportDryRun(cmd.ErrOrStderr(), http.MethodDelete, path, body)
 			}
-			if err := cliCtx.PlatformSDKClient.Transport().DoExpect(cmd.Context(), http.MethodDelete, path, body, http.StatusNoContent, nil); err != nil {
+			if err := cliCtx.SecurityCloudSDKClient.Transport().DoExpect(cmd.Context(), http.MethodDelete, path, body, http.StatusNoContent, nil); err != nil {
 				return fmt.Errorf("delete: %w", err)
 			}
 			return nil
@@ -77,20 +76,19 @@ func newDnsCustomHostnameMappingsGetCmd(cliCtx *registry.CLIContext) *cobra.Comm
 		Use:         "get",
 		Short:       "Get Custom Hostname Mappings",
 		Long:        "Returns the tenant Custom Hostname Mappings as a MappingList object (standard collection envelope). The full bounded set is returned in a single response and `totalCount` reflects the complete set. Pagination is currently not supported.",
-		Annotations: map[string]string{"jamf:privileges": "read:jsc:all", "jamf:api": "platform-gateway"},
+		Annotations: map[string]string{"jamf:privileges": "custom-hostname-mappings:read", "jamf:api": "platform-gateway"},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
+			if err := platform.RequirePlatformClient(cliCtx.SecurityCloudSDKClient); err != nil {
 				return err
 			}
-			path := "/api/securitycloud/tenant/{tenantId}/v1/dns/custom-hostname-mappings"
-			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("securitycloud")), 1)
+			path := "/api/securitycloud/v1/dns/custom-hostname-mappings"
 			q := url.Values{}
 			var body any
 			if encoded := q.Encode(); encoded != "" {
 				path += "?" + encoded
 			}
 			var result any
-			if err := cliCtx.PlatformSDKClient.Transport().DoExpect(cmd.Context(), http.MethodGet, path, body, http.StatusOK, &result); err != nil {
+			if err := cliCtx.SecurityCloudSDKClient.Transport().DoExpect(cmd.Context(), http.MethodGet, path, body, http.StatusOK, &result); err != nil {
 				return fmt.Errorf("get: %w", err)
 			}
 			if result == nil {
@@ -114,7 +112,7 @@ func newDnsCustomHostnameMappingsUpdateCmd(cliCtx *registry.CLIContext) *cobra.C
 		Use:         "update",
 		Short:       "Replace Custom Hostname Mappings",
 		Long:        "Replaces the entire set of tenant Custom Hostname Mappings with the supplied JSON list. The previous mappings are fully overwritten.",
-		Annotations: map[string]string{"jamf:privileges": "update:jsc:all", "jamf:api": "platform-gateway"},
+		Annotations: map[string]string{"jamf:privileges": "custom-hostname-mappings:update", "jamf:api": "platform-gateway"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if scaffoldFlag {
 				// Scaffold prints raw JSON regardless of -o, so the output
@@ -122,11 +120,10 @@ func newDnsCustomHostnameMappingsUpdateCmd(cliCtx *registry.CLIContext) *cobra.C
 				fmt.Println("[\n  {\n    \"aRecords\": [\n      \"203.0.113.10\"\n    ],\n    \"aaaaRecords\": [\n      \"2001:db8::10\"\n    ],\n    \"hostname\": \"app.example.com\",\n    \"secureDns\": false,\n    \"ztna\": false\n  }\n]")
 				return nil
 			}
-			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
+			if err := platform.RequirePlatformClient(cliCtx.SecurityCloudSDKClient); err != nil {
 				return err
 			}
-			path := "/api/securitycloud/tenant/{tenantId}/v1/dns/custom-hostname-mappings"
-			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("securitycloud")), 1)
+			path := "/api/securitycloud/v1/dns/custom-hostname-mappings"
 			q := url.Values{}
 			body, err := platform.ReadBody(bodyFile, setFlags)
 			if err != nil {
@@ -144,7 +141,7 @@ func newDnsCustomHostnameMappingsUpdateCmd(cliCtx *registry.CLIContext) *cobra.C
 			if cliCtx.DryRun {
 				return platform.ReportDryRun(cmd.ErrOrStderr(), http.MethodPut, path, body)
 			}
-			if err := cliCtx.PlatformSDKClient.Transport().DoWithContentType(cmd.Context(), http.MethodPut, path, body, "application/json", http.StatusNoContent, nil); err != nil {
+			if err := cliCtx.SecurityCloudSDKClient.Transport().DoWithContentType(cmd.Context(), http.MethodPut, path, body, "application/json", http.StatusNoContent, nil); err != nil {
 				return fmt.Errorf("update: %w", err)
 			}
 			return nil

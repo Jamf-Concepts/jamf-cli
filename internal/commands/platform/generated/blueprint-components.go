@@ -41,8 +41,7 @@ func newBlueprintComponentsListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err
 			}
-			path := "/api/blueprints/v1/tenant/{tenantId}/blueprint-components"
-			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("blueprints")), 1)
+			path := "/api/blueprints/v1/blueprint-components"
 			q := url.Values{}
 			var body any
 			const pageSize = 100
@@ -99,7 +98,7 @@ func newBlueprintComponentsGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			}
 			var resolvedID string
 			if nameFlag != "" {
-				listPath := strings.Replace("/api/blueprints/v1/tenant/{tenantId}/blueprint-components", "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("blueprints")), 1)
+				listPath := "/api/blueprints/v1/blueprint-components"
 				id, err := platform.ResolveIDByName(cmd.Context(), cliCtx.PlatformSDKClient, listPath, nameFlag)
 				if err != nil {
 					return err
@@ -110,8 +109,7 @@ func newBlueprintComponentsGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			} else {
 				return fmt.Errorf("provide a positional ID or --name")
 			}
-			path := "/api/blueprints/v1/tenant/{tenantId}/blueprint-components/{identifier}"
-			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("blueprints")), 1)
+			path := "/api/blueprints/v1/blueprint-components/{identifier}"
 			path = strings.Replace(path, "{identifier}", url.PathEscape(resolvedID), 1)
 			q := url.Values{}
 			var body any

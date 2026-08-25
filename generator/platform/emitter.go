@@ -86,7 +86,7 @@ var platformTableColumns = map[string][]tableColumn{
 // compliance-benchmark titles and reads the "id" field, so no SDK-specific code
 // is needed. Paths carry a literal {tenantId} the template substitutes at runtime.
 var crossResourceNameLookupPath = map[string]string{
-	"benchmark-reports": "/api/compliance-benchmarks/v1/tenant/{tenantId}/benchmarks",
+	"benchmark-reports": "/api/compliance-benchmarks/v1/benchmarks",
 }
 
 // templateOp wraps *parser.Operation with template-friendly fields.
@@ -110,7 +110,16 @@ type templateOp struct {
 	HasScaffold        bool          // body carries enough shape for --scaffold to be worth offering (parser.HasScaffoldShape)
 	SupportsNameLookup bool          // op accepts a single positional ID arg AND its resource has a list op — emit --name as alternative
 	ListPath           string        // sibling list-op path (used by --name lookup); only populated when SupportsNameLookup is true
-	Service            string        // gateway namespace segment ("blueprints", "securitycloud") — selects which tenant ID the runtime injects
+	Service            string        // gateway namespace segment ("blueprints", "securitycloud")
+	// SDKField is the CLIContext field holding the client this operation
+	// dispatches through. Security Cloud is a separate product with its own
+	// tenant identifier, and the scope now travels as a per-client X-Tenant-Id
+	// header rather than a path segment, so one client can no longer serve both
+	// — a Security Cloud command needs a client built with the Security Cloud
+	// tenant. Root wires that field to the platform client when no Security
+	// Cloud tenant is configured, preserving the old fall-back-to-Pro-tenant
+	// behaviour.
+	SDKField string
 
 	// DocumentedStatuses lists non-2xx statuses this operation documents as
 	// results rather than failures, from platformDocumentedStatusResults. The
@@ -255,9 +264,9 @@ func buildTemplateResource(r *parser.Resource) (templateResource, error) {
 		if op.Name != "list" {
 			continue
 		}
-		userParams := filterTenantPathParams(extractPathParams(tenantPath(op)))
+		userParams := filterTenantPathParams(extractPathParams(op.Path))
 		if len(userParams) == 0 {
-			listPath = tenantPath(op)
+			listPath = op.Path
 			break
 		}
 	}
@@ -270,12 +279,9 @@ func buildTemplateResource(r *parser.Resource) (templateResource, error) {
 
 	ops := make([]templateOp, 0, len(r.Operations))
 	for _, op := range r.Operations {
-		// Restore /tenant/{tenantId}/ that the platform parser stripped — the
-		// runtime substitutes the tenant ID from client.Transport().TenantID().
+		// The path is the request path: the scope travels as an X-Tenant-Id
+		// header set by the transport, so nothing is substituted into the URL.
 		opCopy := *op
-		opCopy.Path = tenantPath(op)
-		// User-facing params drive cobra's positional args + Use string;
-		// {tenantId} is filled from auth context at request time.
 		userParams := filterTenantPathParams(extractPathParams(opCopy.Path))
 		successCode, hasResult := successStatus(&opCopy)
 		supportsName := listPath != "" && len(userParams) == 1
@@ -317,6 +323,7 @@ func buildTemplateResource(r *parser.Resource) (templateResource, error) {
 			SupportsNameLookup: supportsName,
 			ListPath:           opListPath,
 			Service:            serviceFromPath(opCopy.Path),
+			SDKField:           sdkFieldForService(serviceFromPath(opCopy.Path)),
 			DocumentedStatuses: platformDocumentedStatusResults[strings.ToUpper(opCopy.Method)+" "+opCopy.Path],
 		})
 	}
@@ -369,8 +376,17 @@ func apiLabel(ops []templateOp) string {
 // under, and the value of the jamf:api annotation's gateway variant.
 const securityCloudService = "securitycloud"
 
+// sdkFieldForService names the CLIContext client field a namespace dispatches
+// through. See templateOp.SDKField.
+func sdkFieldForService(service string) string {
+	if service == securityCloudService {
+		return "SecurityCloudSDKClient"
+	}
+	return "PlatformSDKClient"
+}
+
 // serviceFromPath returns the gateway namespace segment of a full request path
-// ("/api/securitycloud/v1/tenant/{tenantId}/dns/zones" → "securitycloud").
+// ("/api/securitycloud/v1/dns/zones" → "securitycloud").
 // Returns "" for a path that carries no /api/ prefix, which leaves the runtime
 // on the client-wide tenant ID — the correct fallback, since a namespace
 // override only exists for namespaces that were named explicitly.
@@ -381,38 +397,6 @@ func serviceFromPath(path string) string {
 	}
 	service, _, _ := strings.Cut(rest, "/")
 	return service
-}
-
-// tenantPath returns the operation's full request path, including
-// /tenant/{tenantId} at the position its spec declares. ParsePlatformSpec
-// records this on the operation; restoreTenantSegment covers operations that
-// reached the emitter by some other route.
-func tenantPath(op *parser.Operation) string {
-	if op.TenantPath != "" {
-		return op.TenantPath
-	}
-	return restoreTenantSegment(op.Path)
-}
-
-// restoreTenantSegment inserts /tenant/{tenantId} after the /v{n} version
-// segment of a platform path (e.g. /api/blueprints/v1/blueprints →
-// /api/blueprints/v1/tenant/{tenantId}/blueprints).
-//
-// This is a fallback for operations carrying no TenantPath. It assumes the
-// tenant segment follows the version, which is not true of every gateway
-// namespace — uem-connect serves /tenant/{tenantId}/uem-connect/v1/... — so
-// prefer TenantPath, which records the spec's actual layout.
-func restoreTenantSegment(path string) string {
-	parts := strings.Split(path, "/")
-	for i, p := range parts {
-		if len(p) >= 2 && p[0] == 'v' && p[1] >= '0' && p[1] <= '9' {
-			out := append([]string{}, parts[:i+1]...)
-			out = append(out, "tenant", "{tenantId}")
-			out = append(out, parts[i+1:]...)
-			return strings.Join(out, "/")
-		}
-	}
-	return path
 }
 
 // enumChoice names one request-body field that is restricted to a fixed set of
@@ -608,7 +592,7 @@ var platformDocumentedStatusResults = map[string][]documentedStatus{
 	// exited 1 with a traceId for a tenant that was simply not using the
 	// feature, so nothing could distinguish "not configured" from "the request
 	// failed". Wire-confirmed on tenant wisconsam, 2026-08-20.
-	"GET /api/securitycloud/tenant/{tenantId}/v1/dns/search-domains": {
+	"GET /api/securitycloud/v1/dns/search-domains": {
 		{Code: 404, ErrorCode: "SEARCH_DOMAIN_NOT_SET", Empty: true},
 	},
 }
@@ -652,8 +636,12 @@ func buildQueryParams(params []*parser.Parameter, service string) []queryParam {
 	return out
 }
 
-// filterTenantPathParams drops the "tenantId" placeholder from the list of
-// CLI-facing positional params; the runtime fills it from auth, not args.
+// filterTenantPathParams drops a "tenantId" placeholder from the list of
+// CLI-facing positional params. Belt and braces since the scope moved into the
+// X-Tenant-Id header: normalisePlatformPaths strips both the path segment and
+// its parameter declaration, so nothing should reach here — but a spec that
+// spells the segment somewhere new must not turn it into a positional arg the
+// user is asked to supply.
 func filterTenantPathParams(params []string) []string {
 	out := params[:0]
 	for _, p := range params {

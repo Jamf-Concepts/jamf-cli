@@ -21,10 +21,10 @@
           "type": "string"
         }
       },
-      "tenantId": {
-        "description": "The tenant UUID identifier",
-        "in": "path",
-        "name": "tenantId",
+      "X-Tenant-Id": {
+        "description": "The tenant UUID identifier.",
+        "in": "header",
+        "name": "X-Tenant-Id",
         "required": true,
         "schema": {
           "example": "e77c1408-10c8-4007-b177-abc9157fbcaa",
@@ -1018,10 +1018,10 @@
         "flows": {
           "clientCredentials": {
             "scopes": {
-              "create:jsc:all": "",
-              "delete:jsc:all": "",
-              "read:jsc:all": "",
-              "update:jsc:all": ""
+              "uem-connect:create": "",
+              "uem-connect:delete": "",
+              "uem-connect:read": "",
+              "uem-connect:update": ""
             },
             "tokenUrl": "https://{region}.api.stage.platform.jamflabs.com/auth/token"
           }
@@ -1042,13 +1042,13 @@
   },
   "openapi": "3.0.3",
   "paths": {
-    "/tenant/{tenantId}/uem-connect/v1/activation-profiles/{code}/deploy-to-uem": {
+    "/uem-connect/v1/activation-profiles/{code}/deploy-to-uem": {
       "post": {
-        "description": "Deploys Jamf Security configuration profiles to the UEM platform for the specified\nactivation profile. This is the final step of automated UEM Connect onboarding.\n\n**Note:** The activation profile code is obtained from the Jamf Security setup flow and is\nnot issued by the UEM Connect API. This operation is idempotent.\n\nRequires a connector that is connected to its UEM platform and not disabled — otherwise\n`422 CONNECTOR_NOT_CONNECTED` or `409 CONNECTOR_DISABLED` respectively. Returns\n`409 MULTIPLE_ACTIVATION_PROFILES` if the tenant has more than one active activation profile\nand the deployment target is ambiguous.\n\n\n**Required Permissions:** `update:jsc:all`",
+        "description": "Deploys Jamf Security configuration profiles to the UEM platform for the specified\nactivation profile. This is the final step of automated UEM Connect onboarding.\n\n**Note:** The activation profile code is obtained from the Jamf Security setup flow and is\nnot issued by the UEM Connect API. This operation is idempotent.\n\nRequires a connector that is connected to its UEM platform and not disabled — otherwise\n`422 CONNECTOR_NOT_CONNECTED` or `409 CONNECTOR_DISABLED` respectively. Returns\n`409 MULTIPLE_ACTIVATION_PROFILES` if the tenant has more than one active activation profile\nand the deployment target is ambiguous.\n\n\n**Required Permissions:** `uem-connect:update`",
         "operationId": "deployActivationProfile",
         "parameters": [
           {
-            "$ref": "#/components/parameters/tenantId"
+            "$ref": "#/components/parameters/X-Tenant-Id"
           },
           {
             "$ref": "#/components/parameters/ActivationProfileCode"
@@ -1088,7 +1088,7 @@
         "security": [
           {
             "oauth2": [
-              "update:jsc:all"
+              "uem-connect:update"
             ]
           }
         ],
@@ -1098,17 +1098,17 @@
         ],
         "x-action": true,
         "x-required-privileges": [
-          "update:jsc:all"
+          "uem-connect:update"
         ]
       }
     },
-    "/tenant/{tenantId}/uem-connect/v1/connectors": {
+    "/uem-connect/v1/connectors": {
       "get": {
-        "description": "Returns the connectors configured for the tenant.\n\n**Required Permissions:** `read:jsc:all`",
+        "description": "Returns the connectors configured for the tenant.\n\n**Required Permissions:** `uem-connect:read`",
         "operationId": "listConnectors",
         "parameters": [
           {
-            "$ref": "#/components/parameters/tenantId"
+            "$ref": "#/components/parameters/X-Tenant-Id"
           }
         ],
         "responses": {
@@ -1126,7 +1126,7 @@
         "security": [
           {
             "oauth2": [
-              "read:jsc:all"
+              "uem-connect:read"
             ]
           }
         ],
@@ -1135,15 +1135,15 @@
           "connectors"
         ],
         "x-required-privileges": [
-          "read:jsc:all"
+          "uem-connect:read"
         ]
       },
       "post": {
-        "description": "Creates a new connector for the tenant. On success returns the identifier of the created\nconnector.\n\nA tenant may hold only one connector, with the single exception that Jamf Pro and Wizy may\ncoexist. Requesting any other second connector fails with `409 CONNECTOR_CONFIG_ALREADY_EXISTS`.\n\nCreation runs a connection test against the supplied URL and credentials. A failing test\nyields `400 UEM_CONNECTION_FAILED`, and a UEM platform running an unsupported version yields\n`409 UNSUPPORTED_UEM_VERSION`.\n\n\n**Required Permissions:** `create:jsc:all`",
+        "description": "Creates a new connector for the tenant. On success returns the identifier of the created\nconnector.\n\nA tenant may hold only one connector, with the single exception that Jamf Pro and Wizy may\ncoexist. Requesting any other second connector fails with `409 CONNECTOR_CONFIG_ALREADY_EXISTS`.\n\nCreation runs a connection test against the supplied URL and credentials. A failing test\nyields `400 UEM_CONNECTION_FAILED`, and a UEM platform running an unsupported version yields\n`409 UNSUPPORTED_UEM_VERSION`.\n\n\n**Required Permissions:** `uem-connect:create`",
         "operationId": "createConnector",
         "parameters": [
           {
-            "$ref": "#/components/parameters/tenantId"
+            "$ref": "#/components/parameters/X-Tenant-Id"
           }
         ],
         "requestBody": {
@@ -1180,7 +1180,7 @@
         "security": [
           {
             "oauth2": [
-              "create:jsc:all"
+              "uem-connect:create"
             ]
           }
         ],
@@ -1189,17 +1189,17 @@
           "connectors"
         ],
         "x-required-privileges": [
-          "create:jsc:all"
+          "uem-connect:create"
         ]
       }
     },
-    "/tenant/{tenantId}/uem-connect/v1/connectors/{configId}": {
+    "/uem-connect/v1/connectors/{configId}": {
       "delete": {
-        "description": "Deletes the connector identified by `configId` and all of its data.\n\n**Required Permissions:** `delete:jsc:all`",
+        "description": "Deletes the connector identified by `configId` and all of its data.\n\n**Required Permissions:** `uem-connect:delete`",
         "operationId": "deleteConnector",
         "parameters": [
           {
-            "$ref": "#/components/parameters/tenantId"
+            "$ref": "#/components/parameters/X-Tenant-Id"
           },
           {
             "$ref": "#/components/parameters/ConfigId"
@@ -1216,7 +1216,7 @@
         "security": [
           {
             "oauth2": [
-              "delete:jsc:all"
+              "uem-connect:delete"
             ]
           }
         ],
@@ -1225,15 +1225,15 @@
           "connectors"
         ],
         "x-required-privileges": [
-          "delete:jsc:all"
+          "uem-connect:delete"
         ]
       },
       "get": {
-        "description": "Returns the connector identified by `configId`.\n\n**Required Permissions:** `read:jsc:all`",
+        "description": "Returns the connector identified by `configId`.\n\n**Required Permissions:** `uem-connect:read`",
         "operationId": "getConnector",
         "parameters": [
           {
-            "$ref": "#/components/parameters/tenantId"
+            "$ref": "#/components/parameters/X-Tenant-Id"
           },
           {
             "$ref": "#/components/parameters/ConfigId"
@@ -1257,7 +1257,7 @@
         "security": [
           {
             "oauth2": [
-              "read:jsc:all"
+              "uem-connect:read"
             ]
           }
         ],
@@ -1266,17 +1266,17 @@
           "connectors"
         ],
         "x-required-privileges": [
-          "read:jsc:all"
+          "uem-connect:read"
         ]
       }
     },
-    "/tenant/{tenantId}/uem-connect/v1/connectors/{configId}/enablement": {
+    "/uem-connect/v1/connectors/{configId}/enablement": {
       "delete": {
-        "description": "Disables the specified connector to pause data synchronization between JSC and the UEM\nplatform. This operation is idempotent — disabling an already-disabled connector succeeds.\n\n\n**Required Permissions:** `update:jsc:all`",
+        "description": "Disables the specified connector to pause data synchronization between JSC and the UEM\nplatform. This operation is idempotent — disabling an already-disabled connector succeeds.\n\n\n**Required Permissions:** `uem-connect:delete`",
         "operationId": "disableConnector",
         "parameters": [
           {
-            "$ref": "#/components/parameters/tenantId"
+            "$ref": "#/components/parameters/X-Tenant-Id"
           },
           {
             "$ref": "#/components/parameters/ConfigId"
@@ -1293,7 +1293,7 @@
         "security": [
           {
             "oauth2": [
-              "update:jsc:all"
+              "uem-connect:delete"
             ]
           }
         ],
@@ -1303,15 +1303,15 @@
         ],
         "x-action": true,
         "x-required-privileges": [
-          "update:jsc:all"
+          "uem-connect:delete"
         ]
       },
       "put": {
-        "description": "Sets the enablement state of the specified connector. Send `enabled: true` to resume data\nsynchronization between JSC and the UEM platform, or `enabled: false` to pause it. This\noperation is idempotent.\n\nEnabling reaches out to the UEM platform to switch the integration back on, so it can fail\nwith `503` when that platform is unreachable. Disabling tolerates such a failure and still\nsucceeds locally, which is why `DELETE` on this path does not document `503`.\n\n\n**Required Permissions:** `update:jsc:all`",
+        "description": "Sets the enablement state of the specified connector. Send `enabled: true` to resume data\nsynchronization between JSC and the UEM platform, or `enabled: false` to pause it. This\noperation is idempotent.\n\nEnabling reaches out to the UEM platform to switch the integration back on, so it can fail\nwith `503` when that platform is unreachable. Disabling tolerates such a failure and still\nsucceeds locally, which is why `DELETE` on this path does not document `503`.\n\n\n**Required Permissions:** `uem-connect:update`",
         "operationId": "enableConnector",
         "parameters": [
           {
-            "$ref": "#/components/parameters/tenantId"
+            "$ref": "#/components/parameters/X-Tenant-Id"
           },
           {
             "$ref": "#/components/parameters/ConfigId"
@@ -1344,7 +1344,7 @@
         "security": [
           {
             "oauth2": [
-              "update:jsc:all"
+              "uem-connect:update"
             ]
           }
         ],
@@ -1354,17 +1354,17 @@
         ],
         "x-action": true,
         "x-required-privileges": [
-          "update:jsc:all"
+          "uem-connect:update"
         ]
       }
     },
-    "/tenant/{tenantId}/uem-connect/v1/connectors/{configId}/sync-settings": {
+    "/uem-connect/v1/connectors/{configId}/sync-settings": {
       "get": {
-        "description": "Returns the current connector configuration including sync settings.\n\n**Required Permissions:** `read:jsc:all`",
+        "description": "Returns the current connector configuration including sync settings.\n\n**Required Permissions:** `uem-connect:read`",
         "operationId": "getSyncSettings",
         "parameters": [
           {
-            "$ref": "#/components/parameters/tenantId"
+            "$ref": "#/components/parameters/X-Tenant-Id"
           },
           {
             "$ref": "#/components/parameters/ConfigId"
@@ -1388,7 +1388,7 @@
         "security": [
           {
             "oauth2": [
-              "read:jsc:all"
+              "uem-connect:read"
             ]
           }
         ],
@@ -1397,15 +1397,15 @@
           "sync-configuration"
         ],
         "x-required-privileges": [
-          "read:jsc:all"
+          "uem-connect:read"
         ]
       },
       "put": {
-        "description": "Updates the sync settings for the specified connector. Supported settings vary by UEM vendor.\nUpdated settings take effect on the next sync operation.\n\n\n**Required Permissions:** `update:jsc:all`",
+        "description": "Updates the sync settings for the specified connector. Supported settings vary by UEM vendor.\nUpdated settings take effect on the next sync operation.\n\n\n**Required Permissions:** `uem-connect:update`",
         "operationId": "updateSyncSettings",
         "parameters": [
           {
-            "$ref": "#/components/parameters/tenantId"
+            "$ref": "#/components/parameters/X-Tenant-Id"
           },
           {
             "$ref": "#/components/parameters/ConfigId"
@@ -1435,7 +1435,7 @@
         "security": [
           {
             "oauth2": [
-              "update:jsc:all"
+              "uem-connect:update"
             ]
           }
         ],
@@ -1444,17 +1444,17 @@
           "sync-configuration"
         ],
         "x-required-privileges": [
-          "update:jsc:all"
+          "uem-connect:update"
         ]
       }
     },
-    "/tenant/{tenantId}/uem-connect/v1/connectors/{configId}/sync/runs": {
+    "/uem-connect/v1/connectors/{configId}/sync/runs": {
       "get": {
-        "description": "Retrieves paginated sync run history for the specified connector, ordered from newest to\noldest.\n\nThis operation queries sync history directly and does not verify that `configId` refers to\nan existing connector, so an unknown `configId` returns `200` with an empty result set\nrather than `404`.\n\n\n**Required Permissions:** `read:jsc:all`",
+        "description": "Retrieves paginated sync run history for the specified connector, ordered from newest to\noldest.\n\nThis operation queries sync history directly and does not verify that `configId` refers to\nan existing connector, so an unknown `configId` returns `200` with an empty result set\nrather than `404`.\n\n\n**Required Permissions:** `uem-connect:read`",
         "operationId": "listSyncRuns",
         "parameters": [
           {
-            "$ref": "#/components/parameters/tenantId"
+            "$ref": "#/components/parameters/X-Tenant-Id"
           },
           {
             "$ref": "#/components/parameters/ConfigId"
@@ -1498,7 +1498,7 @@
         "security": [
           {
             "oauth2": [
-              "read:jsc:all"
+              "uem-connect:read"
             ]
           }
         ],
@@ -1507,15 +1507,15 @@
           "sync-execution"
         ],
         "x-required-privileges": [
-          "read:jsc:all"
+          "uem-connect:read"
         ]
       },
       "post": {
-        "description": "Triggers a new sync operation for the specified connector. The sync runs asynchronously;\nthis endpoint returns immediately (`202 Accepted`). Poll `GET /sync/runs` to monitor\nprogress.\n\nConditions:\n- Connector must be enabled (not disabled) — otherwise `409 Conflict`.\n- Connector must be connected (credentials valid) — otherwise `422 Unprocessable Entity`.\n\nTriggering is fire-and-forget: if a sync is already running the request is still accepted\n(`202 Accepted`) and coalesced, rather than rejected.\n\nDispatching the run is a separate step from accepting the request and can be refused when the\nservice is at capacity — see `503 Service Unavailable`.\n\n\n**Required Permissions:** `update:jsc:all`",
+        "description": "Triggers a new sync operation for the specified connector. The sync runs asynchronously;\nthis endpoint returns immediately (`202 Accepted`). Poll `GET /sync/runs` to monitor\nprogress.\n\nConditions:\n- Connector must be enabled (not disabled) — otherwise `409 Conflict`.\n- Connector must be connected (credentials valid) — otherwise `422 Unprocessable Entity`.\n\nTriggering is fire-and-forget: if a sync is already running the request is still accepted\n(`202 Accepted`) and coalesced, rather than rejected.\n\nDispatching the run is a separate step from accepting the request and can be refused when the\nservice is at capacity — see `503 Service Unavailable`.\n\n\n**Required Permissions:** `uem-connect:update`",
         "operationId": "triggerSync",
         "parameters": [
           {
-            "$ref": "#/components/parameters/tenantId"
+            "$ref": "#/components/parameters/X-Tenant-Id"
           },
           {
             "$ref": "#/components/parameters/ConfigId"
@@ -1541,7 +1541,7 @@
         "security": [
           {
             "oauth2": [
-              "update:jsc:all"
+              "uem-connect:update"
             ]
           }
         ],
@@ -1551,17 +1551,17 @@
         ],
         "x-action": true,
         "x-required-privileges": [
-          "update:jsc:all"
+          "uem-connect:update"
         ]
       }
     },
-    "/tenant/{tenantId}/uem-connect/v1/connectors/{configId}/sync/runs/current": {
+    "/uem-connect/v1/connectors/{configId}/sync/runs/current": {
       "delete": {
-        "description": "Requests cancelation of the currently running sync operation for the specified connector.\nCancelation is best-effort; the sync may complete before it takes effect. Check status via\n`GET /sync/runs`.\n\nThis operation is unconditionally successful: it applies a conditional update that matches\nonly a running sync, so `204` is returned whether a sync was canceled, no sync was running,\nor `configId` does not exist. It never returns `404`.\n\n\n**Required Permissions:** `update:jsc:all`",
+        "description": "Requests cancelation of the currently running sync operation for the specified connector.\nCancelation is best-effort; the sync may complete before it takes effect. Check status via\n`GET /sync/runs`.\n\nThis operation is unconditionally successful: it applies a conditional update that matches\nonly a running sync, so `204` is returned whether a sync was canceled, no sync was running,\nor `configId` does not exist. It never returns `404`.\n\n\n**Required Permissions:** `uem-connect:update`",
         "operationId": "cancelCurrentSync",
         "parameters": [
           {
-            "$ref": "#/components/parameters/tenantId"
+            "$ref": "#/components/parameters/X-Tenant-Id"
           },
           {
             "$ref": "#/components/parameters/ConfigId"
@@ -1575,7 +1575,7 @@
         "security": [
           {
             "oauth2": [
-              "update:jsc:all"
+              "uem-connect:update"
             ]
           }
         ],
@@ -1585,7 +1585,7 @@
         ],
         "x-action": true,
         "x-required-privileges": [
-          "update:jsc:all"
+          "uem-connect:update"
         ]
       }
     }
@@ -1631,5 +1631,8 @@
       "description": "Deploy Jamf Security configuration profiles to UEM platforms",
       "name": "activation-profiles"
     }
+  ],
+  "x-scope-types": [
+    "tenant"
   ]
 }

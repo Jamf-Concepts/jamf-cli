@@ -1,6 +1,18 @@
 {
   "components": {
     "parameters": {
+      "X-Tenant-Id": {
+        "description": "The tenant UUID identifier.",
+        "in": "header",
+        "name": "X-Tenant-Id",
+        "required": true,
+        "schema": {
+          "example": "e77c1408-10c8-4007-b177-abc9157fbcaa",
+          "format": "uuid",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "type": "string"
+        }
+      },
       "appId": {
         "description": "ID of the App (Access Policy). Format: UUID (e.g. `3fa85f64-5717-4562-b3fc-2c963f66afa6`).\n",
         "in": "path",
@@ -49,18 +61,6 @@
           "default": 100,
           "minimum": 1,
           "type": "integer"
-        }
-      },
-      "tenantId": {
-        "description": "The tenant UUID identifier",
-        "in": "path",
-        "name": "tenantId",
-        "required": true,
-        "schema": {
-          "example": "e77c1408-10c8-4007-b177-abc9157fbcaa",
-          "format": "uuid",
-          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
-          "type": "string"
         }
       }
     },
@@ -1860,10 +1860,10 @@
         "flows": {
           "clientCredentials": {
             "scopes": {
-              "create:jsc:all": "",
-              "delete:jsc:all": "",
-              "read:jsc:all": "",
-              "update:jsc:all": ""
+              "ztna:create": "",
+              "ztna:delete": "",
+              "ztna:read": "",
+              "ztna:update": ""
             },
             "tokenUrl": "https://{region}.api.stage.platform.jamflabs.com/auth/token"
           }
@@ -1884,13 +1884,13 @@
   },
   "openapi": "3.0.3",
   "paths": {
-    "/v1/tenant/{tenantId}/ztna/apps": {
+    "/v1/ztna/apps": {
       "get": {
-        "description": "List all Apps (Access Policies) for the tenant, paginated.\n\n\n**Required Permissions:** `read:jsc:all`",
+        "description": "List all Apps (Access Policies) for the tenant, paginated.\n\n\n**Required Permissions:** `ztna:read`",
         "operationId": "listApps",
         "parameters": [
           {
-            "$ref": "#/components/parameters/tenantId"
+            "$ref": "#/components/parameters/X-Tenant-Id"
           },
           {
             "$ref": "#/components/parameters/page"
@@ -1917,7 +1917,7 @@
         "security": [
           {
             "oauth2": [
-              "read:jsc:all"
+              "ztna:read"
             ]
           }
         ],
@@ -1926,15 +1926,15 @@
           "apps"
         ],
         "x-required-privileges": [
-          "read:jsc:all"
+          "ztna:read"
         ]
       },
       "post": {
-        "description": "Create an App (Access Policy). Returns `201 {id, href}` + `Location` header.\n\n**Required fields:** `categoryName`, `assignments`, `routing`.\n\n**`name` required when `predefinedAppId` is absent:** If `predefinedAppId` is not set,\n`name` must be non-blank — returns `400` otherwise. When `predefinedAppId` is set,\n`name` is optional (inherited from the template).\n\n**Full-tunnel restriction:** When `hostnames` contains `\"*\"` (wildcard — routes all traffic),\n`security.riskControls.enabled` must be `false` — returns `400` otherwise.\n\n\n**Required Permissions:** `create:jsc:all`",
+        "description": "Create an App (Access Policy). Returns `201 {id, href}` + `Location` header.\n\n**Required fields:** `categoryName`, `assignments`, `routing`.\n\n**`name` required when `predefinedAppId` is absent:** If `predefinedAppId` is not set,\n`name` must be non-blank — returns `400` otherwise. When `predefinedAppId` is set,\n`name` is optional (inherited from the template).\n\n**Full-tunnel restriction:** When `hostnames` contains `\"*\"` (wildcard — routes all traffic),\n`security.riskControls.enabled` must be `false` — returns `400` otherwise.\n\n\n**Required Permissions:** `ztna:create`",
         "operationId": "createApp",
         "parameters": [
           {
-            "$ref": "#/components/parameters/tenantId"
+            "$ref": "#/components/parameters/X-Tenant-Id"
           }
         ],
         "requestBody": {
@@ -2017,7 +2017,7 @@
         "security": [
           {
             "oauth2": [
-              "create:jsc:all"
+              "ztna:create"
             ]
           }
         ],
@@ -2026,17 +2026,17 @@
           "apps"
         ],
         "x-required-privileges": [
-          "create:jsc:all"
+          "ztna:create"
         ]
       }
     },
-    "/v1/tenant/{tenantId}/ztna/apps/{appId}": {
+    "/v1/ztna/apps/{appId}": {
       "delete": {
-        "description": "Delete an App (Access Policy). Returns `204` on success. Returns `404` if the App does not exist or is not owned by this customer. Returns `409` if deletion cannot complete due to a conflict.\n\n\n**Required Permissions:** `delete:jsc:all`",
+        "description": "Delete an App (Access Policy). Returns `204` on success. Returns `404` if the App does not exist or is not owned by this customer. Returns `409` if deletion cannot complete due to a conflict.\n\n\n**Required Permissions:** `ztna:delete`",
         "operationId": "deleteApp",
         "parameters": [
           {
-            "$ref": "#/components/parameters/tenantId"
+            "$ref": "#/components/parameters/X-Tenant-Id"
           }
         ],
         "responses": {
@@ -2056,7 +2056,7 @@
         "security": [
           {
             "oauth2": [
-              "delete:jsc:all"
+              "ztna:delete"
             ]
           }
         ],
@@ -2065,15 +2065,15 @@
           "apps"
         ],
         "x-required-privileges": [
-          "delete:jsc:all"
+          "ztna:delete"
         ]
       },
       "get": {
-        "description": "Get a single App (Access Policy).\n\n\n**Required Permissions:** `read:jsc:all`",
+        "description": "Get a single App (Access Policy).\n\n\n**Required Permissions:** `ztna:read`",
         "operationId": "getApp",
         "parameters": [
           {
-            "$ref": "#/components/parameters/tenantId"
+            "$ref": "#/components/parameters/X-Tenant-Id"
           }
         ],
         "responses": {
@@ -2148,7 +2148,7 @@
         "security": [
           {
             "oauth2": [
-              "read:jsc:all"
+              "ztna:read"
             ]
           }
         ],
@@ -2157,7 +2157,7 @@
           "apps"
         ],
         "x-required-privileges": [
-          "read:jsc:all"
+          "ztna:read"
         ]
       },
       "parameters": [
@@ -2166,11 +2166,11 @@
         }
       ],
       "patch": {
-        "description": "Partially update an App (Access Policy) (ADG-355).\nAll fields are optional — include only what you want to change.\n\nReturns `404` if the App does not exist or is not owned by this customer.\n\nTRS `/external/v1` performs server-side partial merge — reads the current App from\nthe database, merges the supplied fields, and persists atomically. No client-side\nread-modify-write cycle.\n\n**`name: \"\"`  is rejected.** Sending a blank string for `name` returns `400`\n— when `predefinedAppId` is not set, `name` must be non-empty if supplied.\nOmit `name` entirely to leave it unchanged.\n\n**Full-tunnel restriction:** When `hostnames` contains `\"*\"` (wildcard — routes all traffic),\n`security.riskControls.enabled` must be `false` — returns `400` otherwise.\n\n\n**Required Permissions:** `update:jsc:all`",
+        "description": "Partially update an App (Access Policy) (ADG-355).\nAll fields are optional — include only what you want to change.\n\nReturns `404` if the App does not exist or is not owned by this customer.\n\nTRS `/external/v1` performs server-side partial merge — reads the current App from\nthe database, merges the supplied fields, and persists atomically. No client-side\nread-modify-write cycle.\n\n**`name: \"\"`  is rejected.** Sending a blank string for `name` returns `400`\n— when `predefinedAppId` is not set, `name` must be non-empty if supplied.\nOmit `name` entirely to leave it unchanged.\n\n**Full-tunnel restriction:** When `hostnames` contains `\"*\"` (wildcard — routes all traffic),\n`security.riskControls.enabled` must be `false` — returns `400` otherwise.\n\n\n**Required Permissions:** `ztna:update`",
         "operationId": "patchApp",
         "parameters": [
           {
-            "$ref": "#/components/parameters/tenantId"
+            "$ref": "#/components/parameters/X-Tenant-Id"
           }
         ],
         "requestBody": {
@@ -2213,7 +2213,7 @@
         "security": [
           {
             "oauth2": [
-              "update:jsc:all"
+              "ztna:update"
             ]
           }
         ],
@@ -2222,17 +2222,17 @@
           "apps"
         ],
         "x-required-privileges": [
-          "update:jsc:all"
+          "ztna:update"
         ]
       }
     },
-    "/v1/tenant/{tenantId}/ztna/gateways": {
+    "/v1/ztna/gateways": {
       "get": {
-        "description": "List dedicated Gateways for the tenant, paginated. Returns only customer-owned gateways. Each item includes datacenter, availability zones, IPSec configuration, and operational status.\n\n\n**Required Permissions:** `read:jsc:all`",
+        "description": "List dedicated Gateways for the tenant, paginated. Returns only customer-owned gateways. Each item includes datacenter, availability zones, IPSec configuration, and operational status.\n\n\n**Required Permissions:** `ztna:read`",
         "operationId": "listGateways",
         "parameters": [
           {
-            "$ref": "#/components/parameters/tenantId"
+            "$ref": "#/components/parameters/X-Tenant-Id"
           },
           {
             "$ref": "#/components/parameters/page"
@@ -2381,7 +2381,7 @@
         "security": [
           {
             "oauth2": [
-              "read:jsc:all"
+              "ztna:read"
             ]
           }
         ],
@@ -2390,15 +2390,15 @@
           "gateways"
         ],
         "x-required-privileges": [
-          "read:jsc:all"
+          "ztna:read"
         ]
       },
       "post": {
-        "description": "Create a dedicated Gateway. Returns `201 {id, href}` + `Location` header.\n\n`tenantIds` are validated against the caller's organization — returns **400** if any\ntenant ID is not resolvable within the caller's organization.\n\n**Constraints:**\n- `dedicatedIps.enabled: true` and `ipsec` are mutually exclusive → `400`\n- `dedicatedIps.enabled: true` and non-empty `availabilityZones` are mutually exclusive → `400`\n- Only **one** gateway with `dedicatedIps.enabled: true` is permitted per tenant (quota = 1).\n  A second attempt returns `409 DEDICATED_IPS_LIMIT`. Contact your Jamf account team to increase this limit.\n- Sending `ipsec.left.secret: null` explicitly returns `400 IPSEC_SECRET_CLEAR_NOT_SUPPORTED`.\n\n**No idempotency key.** Gateway `name` is not unique-enforced — a timed-out POST that\nsucceeded server-side may create a duplicate gateway if retried. Verify via\n`GET /ztna/gateways` before retrying a failed create.\n\n\n**Required Permissions:** `create:jsc:all`",
+        "description": "Create a dedicated Gateway. Returns `201 {id, href}` + `Location` header.\n\n`tenantIds` are validated against the caller's organization — returns **400** if any\ntenant ID is not resolvable within the caller's organization.\n\n**Constraints:**\n- `dedicatedIps.enabled: true` and `ipsec` are mutually exclusive → `400`\n- `dedicatedIps.enabled: true` and non-empty `availabilityZones` are mutually exclusive → `400`\n- Only **one** gateway with `dedicatedIps.enabled: true` is permitted per tenant (quota = 1).\n  A second attempt returns `409 DEDICATED_IPS_LIMIT`. Contact your Jamf account team to increase this limit.\n- Sending `ipsec.left.secret: null` explicitly returns `400 IPSEC_SECRET_CLEAR_NOT_SUPPORTED`.\n\n**No idempotency key.** Gateway `name` is not unique-enforced — a timed-out POST that\nsucceeded server-side may create a duplicate gateway if retried. Verify via\n`GET /ztna/gateways` before retrying a failed create.\n\n\n**Required Permissions:** `ztna:create`",
         "operationId": "createGateway",
         "parameters": [
           {
-            "$ref": "#/components/parameters/tenantId"
+            "$ref": "#/components/parameters/X-Tenant-Id"
           }
         ],
         "requestBody": {
@@ -2516,7 +2516,7 @@
         "security": [
           {
             "oauth2": [
-              "create:jsc:all"
+              "ztna:create"
             ]
           }
         ],
@@ -2525,17 +2525,17 @@
           "gateways"
         ],
         "x-required-privileges": [
-          "create:jsc:all"
+          "ztna:create"
         ]
       }
     },
-    "/v1/tenant/{tenantId}/ztna/gateways/{gatewayId}": {
+    "/v1/ztna/gateways/{gatewayId}": {
       "delete": {
-        "description": "Delete a dedicated Gateway. Returns `204` on success. Returns `404` if the gateway does not exist or belongs to a different tenant — never `403`. Returns `409` if the gateway is still referenced by an App, a Grouped Gateway, or a DNS Zone — disassociate it first, then retry.\n\n\n**Required Permissions:** `delete:jsc:all`",
+        "description": "Delete a dedicated Gateway. Returns `204` on success. Returns `404` if the gateway does not exist or belongs to a different tenant — never `403`. Returns `409` if the gateway is still referenced by an App, a Grouped Gateway, or a DNS Zone — disassociate it first, then retry.\n\n\n**Required Permissions:** `ztna:delete`",
         "operationId": "deleteGateway",
         "parameters": [
           {
-            "$ref": "#/components/parameters/tenantId"
+            "$ref": "#/components/parameters/X-Tenant-Id"
           }
         ],
         "responses": {
@@ -2555,7 +2555,7 @@
         "security": [
           {
             "oauth2": [
-              "delete:jsc:all"
+              "ztna:delete"
             ]
           }
         ],
@@ -2564,15 +2564,15 @@
           "gateways"
         ],
         "x-required-privileges": [
-          "delete:jsc:all"
+          "ztna:delete"
         ]
       },
       "get": {
-        "description": "Get a single dedicated Gateway. All fields are flat at the top level. Returns `404` if the gateway does not exist **or belongs to a different tenant** — never `403`, to avoid confirming the existence of gateways owned by other tenants (Gateway IDs are 16-bit enumerable; a `403` would be an existence oracle).\n\n\n**Required Permissions:** `read:jsc:all`",
+        "description": "Get a single dedicated Gateway. All fields are flat at the top level. Returns `404` if the gateway does not exist **or belongs to a different tenant** — never `403`, to avoid confirming the existence of gateways owned by other tenants (Gateway IDs are 16-bit enumerable; a `403` would be an existence oracle).\n\n\n**Required Permissions:** `ztna:read`",
         "operationId": "getGateway",
         "parameters": [
           {
-            "$ref": "#/components/parameters/tenantId"
+            "$ref": "#/components/parameters/X-Tenant-Id"
           }
         ],
         "responses": {
@@ -2724,7 +2724,7 @@
         "security": [
           {
             "oauth2": [
-              "read:jsc:all"
+              "ztna:read"
             ]
           }
         ],
@@ -2733,7 +2733,7 @@
           "gateways"
         ],
         "x-required-privileges": [
-          "read:jsc:all"
+          "ztna:read"
         ]
       },
       "parameters": [
@@ -2742,11 +2742,11 @@
         }
       ],
       "patch": {
-        "description": "Partially update a dedicated Gateway. All fields are optional — flat body, no nesting.\n\nReturns `404` if the gateway does not exist **or belongs to a different tenant** — never `403`,\nto avoid confirming the existence of gateways owned by other tenants.\n\n`tenantIds` are validated against the caller's organization — **403** on mismatch.\nWhen `datacenter` changes, `availabilityZones` must match the new datacenter prefix\n— returns `400` on mismatch.\nSending `ipsec.left.secret: null` explicitly returns `400 IPSEC_SECRET_CLEAR_NOT_SUPPORTED`\n— omit the field to leave the existing secret unchanged.\nSending `ipsec: null` explicitly returns `400 IPSEC_REMOVAL_NOT_SUPPORTED`\n— IPSec configuration cannot be removed from a gateway that has it.\n\n**Partial IPSec update:** When `ipsec` is present in the patch, TRS performs a\ndeep merge of the IPSec sub-fields — you may supply only `left.secret` to rotate\nthe PSK without replacing the rest of the configuration, or supply the full\n`ipsec` block to replace cipher suites and endpoint addresses simultaneously.\n\n**`contact: null` is rejected.** Setting `contact` to `null` in a merge-patch returns\n`409` — the contact field cannot be removed from a dedicated gateway.\n\n**`tenantIds: []` is rejected.** Setting `tenantIds` to an empty array returns `400`\n— a dedicated gateway must always have at least one tenant (`minItems: 1` enforced by schema).\n\n**Known limitation:** The server resolves the deployment ID via an internal GET before\nissuing the PATCH. Concurrent modifications between the GET and PATCH may overwrite each\nother. No optimistic locking is in place for this release — consider ADG-148\n(`VersionId` + `409 OPTIMISTIC_LOCK_FAILED`) in a follow-up if this becomes a concern.\n\n**Datacenter change is destructive:** Expect a connectivity outage while the gateway is\nre-provisioned. `status.state` resets to `PENDING` immediately; `status.tunnelState` resets\nto `null`; status records for the old datacenter are expired. `dedicatedIps.ips` are not\ncleared immediately — treat them as unreliable until VSC completes provisioning in the new datacenter.\n\n\n**Required Permissions:** `update:jsc:all`",
+        "description": "Partially update a dedicated Gateway. All fields are optional — flat body, no nesting.\n\nReturns `404` if the gateway does not exist **or belongs to a different tenant** — never `403`,\nto avoid confirming the existence of gateways owned by other tenants.\n\n`tenantIds` are validated against the caller's organization — **403** on mismatch.\nWhen `datacenter` changes, `availabilityZones` must match the new datacenter prefix\n— returns `400` on mismatch.\nSending `ipsec.left.secret: null` explicitly returns `400 IPSEC_SECRET_CLEAR_NOT_SUPPORTED`\n— omit the field to leave the existing secret unchanged.\nSending `ipsec: null` explicitly returns `400 IPSEC_REMOVAL_NOT_SUPPORTED`\n— IPSec configuration cannot be removed from a gateway that has it.\n\n**Partial IPSec update:** When `ipsec` is present in the patch, TRS performs a\ndeep merge of the IPSec sub-fields — you may supply only `left.secret` to rotate\nthe PSK without replacing the rest of the configuration, or supply the full\n`ipsec` block to replace cipher suites and endpoint addresses simultaneously.\n\n**`contact: null` is rejected.** Setting `contact` to `null` in a merge-patch returns\n`409` — the contact field cannot be removed from a dedicated gateway.\n\n**`tenantIds: []` is rejected.** Setting `tenantIds` to an empty array returns `400`\n— a dedicated gateway must always have at least one tenant (`minItems: 1` enforced by schema).\n\n**Known limitation:** The server resolves the deployment ID via an internal GET before\nissuing the PATCH. Concurrent modifications between the GET and PATCH may overwrite each\nother. No optimistic locking is in place for this release — consider ADG-148\n(`VersionId` + `409 OPTIMISTIC_LOCK_FAILED`) in a follow-up if this becomes a concern.\n\n**Datacenter change is destructive:** Expect a connectivity outage while the gateway is\nre-provisioned. `status.state` resets to `PENDING` immediately; `status.tunnelState` resets\nto `null`; status records for the old datacenter are expired. `dedicatedIps.ips` are not\ncleared immediately — treat them as unreliable until VSC completes provisioning in the new datacenter.\n\n\n**Required Permissions:** `ztna:update`",
         "operationId": "patchGateway",
         "parameters": [
           {
-            "$ref": "#/components/parameters/tenantId"
+            "$ref": "#/components/parameters/X-Tenant-Id"
           }
         ],
         "requestBody": {
@@ -2886,7 +2886,7 @@
         "security": [
           {
             "oauth2": [
-              "update:jsc:all"
+              "ztna:update"
             ]
           }
         ],
@@ -2895,17 +2895,17 @@
           "gateways"
         ],
         "x-required-privileges": [
-          "update:jsc:all"
+          "ztna:update"
         ]
       }
     },
-    "/v1/tenant/{tenantId}/ztna/grouped-gateways": {
+    "/v1/ztna/grouped-gateways": {
       "get": {
-        "description": "List all Grouped Gateways for the tenant. Not paginated — the full list is returned in a single response.\n\n\n**Required Permissions:** `read:jsc:all`",
+        "description": "List all Grouped Gateways for the tenant. Not paginated — the full list is returned in a single response.\n\n\n**Required Permissions:** `ztna:read`",
         "operationId": "listGroupedGateways",
         "parameters": [
           {
-            "$ref": "#/components/parameters/tenantId"
+            "$ref": "#/components/parameters/X-Tenant-Id"
           }
         ],
         "responses": {
@@ -2946,7 +2946,7 @@
         "security": [
           {
             "oauth2": [
-              "read:jsc:all"
+              "ztna:read"
             ]
           }
         ],
@@ -2955,15 +2955,15 @@
           "grouped-gateways"
         ],
         "x-required-privileges": [
-          "read:jsc:all"
+          "ztna:read"
         ]
       },
       "post": {
-        "description": "Create a Grouped Gateway. Returns `201 {id, href}` + `Location` header.\n\n`tenantIds` are validated against the caller's organization — **403** on mismatch.\n\n**Constraints:**\n- All `gatewayIds` must be dedicated (customer-owned) gateways → `422 SHARED_GATEWAY_MEMBER`\n- All `gatewayIds` must have the same tunnel type (all IPSec or all non-IPSec) → `422 MIXED_TUNNEL_TYPES`\n- All `gatewayIds` must have the same `dedicatedIps.enabled` value → `422 MIXED_DEDICATED_IPS_TYPES`\n\n\n**Required Permissions:** `create:jsc:all`",
+        "description": "Create a Grouped Gateway. Returns `201 {id, href}` + `Location` header.\n\n`tenantIds` are validated against the caller's organization — **403** on mismatch.\n\n**Constraints:**\n- All `gatewayIds` must be dedicated (customer-owned) gateways → `422 SHARED_GATEWAY_MEMBER`\n- All `gatewayIds` must have the same tunnel type (all IPSec or all non-IPSec) → `422 MIXED_TUNNEL_TYPES`\n- All `gatewayIds` must have the same `dedicatedIps.enabled` value → `422 MIXED_DEDICATED_IPS_TYPES`\n\n\n**Required Permissions:** `ztna:create`",
         "operationId": "createGroupedGateway",
         "parameters": [
           {
-            "$ref": "#/components/parameters/tenantId"
+            "$ref": "#/components/parameters/X-Tenant-Id"
           }
         ],
         "requestBody": {
@@ -3011,7 +3011,7 @@
         "security": [
           {
             "oauth2": [
-              "create:jsc:all"
+              "ztna:create"
             ]
           }
         ],
@@ -3020,17 +3020,17 @@
           "grouped-gateways"
         ],
         "x-required-privileges": [
-          "create:jsc:all"
+          "ztna:create"
         ]
       }
     },
-    "/v1/tenant/{tenantId}/ztna/grouped-gateways/{groupedGatewayId}": {
+    "/v1/ztna/grouped-gateways/{groupedGatewayId}": {
       "delete": {
-        "description": "Delete a Grouped Gateway. Returns `204` on success. Returns `404` if the grouped gateway does not exist or belongs to a different tenant — never `403`. Returns `409` if the grouped gateway is still referenced by an App or a DNS Zone — disassociate it first.\n\n\n**Required Permissions:** `delete:jsc:all`",
+        "description": "Delete a Grouped Gateway. Returns `204` on success. Returns `404` if the grouped gateway does not exist or belongs to a different tenant — never `403`. Returns `409` if the grouped gateway is still referenced by an App or a DNS Zone — disassociate it first.\n\n\n**Required Permissions:** `ztna:delete`",
         "operationId": "deleteGroupedGateway",
         "parameters": [
           {
-            "$ref": "#/components/parameters/tenantId"
+            "$ref": "#/components/parameters/X-Tenant-Id"
           }
         ],
         "responses": {
@@ -3050,7 +3050,7 @@
         "security": [
           {
             "oauth2": [
-              "delete:jsc:all"
+              "ztna:delete"
             ]
           }
         ],
@@ -3059,15 +3059,15 @@
           "grouped-gateways"
         ],
         "x-required-privileges": [
-          "delete:jsc:all"
+          "ztna:delete"
         ]
       },
       "get": {
-        "description": "Get a single Grouped Gateway. Returns `404` if the grouped gateway does not exist **or belongs to a different tenant** — never `403`, to avoid confirming existence of grouped gateways owned by other tenants. TRS `/external/v1` intercepts the `403` from `VirtualVpnRouteAuthorizer` and re-emits `404` (reusing the same `notFound` error response shape).\n\n\n**Required Permissions:** `read:jsc:all`",
+        "description": "Get a single Grouped Gateway. Returns `404` if the grouped gateway does not exist **or belongs to a different tenant** — never `403`, to avoid confirming existence of grouped gateways owned by other tenants. TRS `/external/v1` intercepts the `403` from `VirtualVpnRouteAuthorizer` and re-emits `404` (reusing the same `notFound` error response shape).\n\n\n**Required Permissions:** `ztna:read`",
         "operationId": "getGroupedGateway",
         "parameters": [
           {
-            "$ref": "#/components/parameters/tenantId"
+            "$ref": "#/components/parameters/X-Tenant-Id"
           }
         ],
         "responses": {
@@ -3091,7 +3091,7 @@
         "security": [
           {
             "oauth2": [
-              "read:jsc:all"
+              "ztna:read"
             ]
           }
         ],
@@ -3100,7 +3100,7 @@
           "grouped-gateways"
         ],
         "x-required-privileges": [
-          "read:jsc:all"
+          "ztna:read"
         ]
       },
       "parameters": [
@@ -3109,11 +3109,11 @@
         }
       ],
       "patch": {
-        "description": "Partially update a Grouped Gateway (ADG-355).\nAll fields are optional — include only what you want to change.\n\nReturns `404` if the grouped gateway does not exist or belongs to a different tenant — never `403`.\n\n`tenantIds` are validated against the caller's organization — **403** on mismatch.\n\n**Constraints** (applied against the supplied `gatewayIds` array — which replaces the current set entirely):\n- All `gatewayIds` must be dedicated (customer-owned) gateways → `422 SHARED_GATEWAY_MEMBER`\n- All `gatewayIds` must have the same tunnel type (all IPSec or all non-IPSec) → `422 MIXED_TUNNEL_TYPES`\n- All `gatewayIds` must have the same `dedicatedIps.enabled` value → `422 MIXED_DEDICATED_IPS_TYPES`\n\n\n**Required Permissions:** `update:jsc:all`",
+        "description": "Partially update a Grouped Gateway (ADG-355).\nAll fields are optional — include only what you want to change.\n\nReturns `404` if the grouped gateway does not exist or belongs to a different tenant — never `403`.\n\n`tenantIds` are validated against the caller's organization — **403** on mismatch.\n\n**Constraints** (applied against the supplied `gatewayIds` array — which replaces the current set entirely):\n- All `gatewayIds` must be dedicated (customer-owned) gateways → `422 SHARED_GATEWAY_MEMBER`\n- All `gatewayIds` must have the same tunnel type (all IPSec or all non-IPSec) → `422 MIXED_TUNNEL_TYPES`\n- All `gatewayIds` must have the same `dedicatedIps.enabled` value → `422 MIXED_DEDICATED_IPS_TYPES`\n\n\n**Required Permissions:** `ztna:update`",
         "operationId": "patchGroupedGateway",
         "parameters": [
           {
-            "$ref": "#/components/parameters/tenantId"
+            "$ref": "#/components/parameters/X-Tenant-Id"
           }
         ],
         "requestBody": {
@@ -3164,7 +3164,7 @@
         "security": [
           {
             "oauth2": [
-              "update:jsc:all"
+              "ztna:update"
             ]
           }
         ],
@@ -3173,17 +3173,17 @@
           "grouped-gateways"
         ],
         "x-required-privileges": [
-          "update:jsc:all"
+          "ztna:update"
         ]
       }
     },
-    "/v1/tenant/{tenantId}/ztna/predefined-apps": {
+    "/v1/ztna/predefined-apps": {
       "get": {
-        "description": "List the catalog of predefined SaaS application definitions. Not paginated. Pass the `id` as `predefinedAppId` when creating an App.\n\n\n**Required Permissions:** `read:jsc:all`",
+        "description": "List the catalog of predefined SaaS application definitions. Not paginated. Pass the `id` as `predefinedAppId` when creating an App.\n\n\n**Required Permissions:** `ztna:read`",
         "operationId": "listPredefinedApps",
         "parameters": [
           {
-            "$ref": "#/components/parameters/tenantId"
+            "$ref": "#/components/parameters/X-Tenant-Id"
           }
         ],
         "responses": {
@@ -3204,7 +3204,7 @@
         "security": [
           {
             "oauth2": [
-              "read:jsc:all"
+              "ztna:read"
             ]
           }
         ],
@@ -3213,17 +3213,17 @@
           "predefined-apps"
         ],
         "x-required-privileges": [
-          "read:jsc:all"
+          "ztna:read"
         ]
       }
     },
-    "/v1/tenant/{tenantId}/ztna/shared-gateways": {
+    "/v1/ztna/shared-gateways": {
       "get": {
-        "description": "List Jamf-managed Shared Gateways available to this tenant. Not paginated — the full list is returned in a single response. Returns `id` and `name` only — no deployment details. These gateways are maintained by Jamf infrastructure and cannot be modified.\n\n\n**Required Permissions:** `read:jsc:all`",
+        "description": "List Jamf-managed Shared Gateways available to this tenant. Not paginated — the full list is returned in a single response. Returns `id` and `name` only — no deployment details. These gateways are maintained by Jamf infrastructure and cannot be modified.\n\n\n**Required Permissions:** `ztna:read`",
         "operationId": "listSharedGateways",
         "parameters": [
           {
-            "$ref": "#/components/parameters/tenantId"
+            "$ref": "#/components/parameters/X-Tenant-Id"
           }
         ],
         "responses": {
@@ -3257,7 +3257,7 @@
         "security": [
           {
             "oauth2": [
-              "read:jsc:all"
+              "ztna:read"
             ]
           }
         ],
@@ -3266,7 +3266,7 @@
           "shared-gateways"
         ],
         "x-required-privileges": [
-          "read:jsc:all"
+          "ztna:read"
         ]
       }
     }
@@ -3312,5 +3312,8 @@
       "description": "Read-only catalog of predefined SaaS application definitions. Reference an `id` as `predefinedAppId` when creating an App based on a known SaaS app.\n",
       "name": "predefined-apps"
     }
+  ],
+  "x-scope-types": [
+    "tenant"
   ]
 }

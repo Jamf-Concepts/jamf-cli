@@ -119,9 +119,6 @@ func validatePlatformGatewayCredentials(ctx context.Context, w io.Writer, creds 
 		// should come back immediately and legibly.
 		jamfplatform.WithRetryPolicy(0, 0, 0),
 	}
-	if creds.SecurityCloudTenantID != "" {
-		opts = append(opts, jamfplatform.WithSecurityCloudTenantID(creds.SecurityCloudTenantID))
-	}
 	pc := jamfplatform.NewClient(creds.GatewayURL, creds.ClientID, creds.ClientSecret, opts...)
 
 	if err := pc.ValidateCredentials(ctx); err != nil {
@@ -139,9 +136,15 @@ func validatePlatformGatewayCredentials(ctx context.Context, w io.Writer, creds 
 	// passing on: the tenant being wrong is fixable here and now, the endpoint
 	// not being routed is not.
 	_, _ = fmt.Fprint(w, "Validating Security Cloud tenant... ")
-	path := pc.Transport().TenantPrefix(securityCloudGatewayNamespace, "v1") + "/categories"
+	// A second client, scoped to the Security Cloud tenant: the scope travels
+	// as a per-client X-Tenant-Id header, so the tenant being validated has to
+	// be the one this client was built with.
+	scOpts := append([]jamfplatform.Option{}, opts...)
+	scOpts[0] = jamfplatform.WithTenantID(creds.SecurityCloudTenantID)
+	sc := jamfplatform.NewClient(creds.GatewayURL, creds.ClientID, creds.ClientSecret, scOpts...)
+	path := sc.Transport().APIPrefix(securityCloudGatewayNamespace, "v1") + "/categories"
 	var result any
-	if err := pc.Transport().DoExpect(ctx, http.MethodGet, path, nil, http.StatusOK, &result); err != nil {
+	if err := sc.Transport().DoExpect(ctx, http.MethodGet, path, nil, http.StatusOK, &result); err != nil {
 		_, _ = fmt.Fprintln(w, "failed")
 		switch {
 		case strings.Contains(err.Error(), "OWNERSHIP_FORBIDDEN"):

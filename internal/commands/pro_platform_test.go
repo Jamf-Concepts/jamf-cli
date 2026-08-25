@@ -54,10 +54,10 @@ func TestCheckUndeployedBlueprints_AllDeployed(t *testing.T) {
 
 func TestCheckBlueprintFailures(t *testing.T) {
 	cliCtx, mux, _ := newTestPlatformContext(t)
-	mux.HandleFunc("/api/blueprints/v1/tenant/"+testTenantID+"/blueprints/bp-1/report", func(w http.ResponseWriter, _ *http.Request) {
+	mux.HandleFunc("/api/blueprints/v1/blueprints/bp-1/report", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, &blueprints.BlueprintStatusDetail{Succeeded: 10})
 	})
-	mux.HandleFunc("/api/blueprints/v1/tenant/"+testTenantID+"/blueprints/bp-2/report", func(w http.ResponseWriter, _ *http.Request) {
+	mux.HandleFunc("/api/blueprints/v1/blueprints/bp-2/report", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, &blueprints.BlueprintStatusDetail{Succeeded: 8, Failed: 2})
 	})
 	bps := []blueprints.BlueprintOverview{
@@ -97,10 +97,10 @@ func TestCheckBenchmarkUpdates(t *testing.T) {
 
 func TestCheckEmptyPlatformScope(t *testing.T) {
 	cliCtx, mux, _ := newTestPlatformContext(t)
-	mux.HandleFunc("/api/blueprints/v1/tenant/"+testTenantID+"/blueprints/bp-1", func(w http.ResponseWriter, _ *http.Request) {
+	mux.HandleFunc("/api/blueprints/v1/blueprints/bp-1", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, &blueprints.BlueprintDetail{Scope: &blueprints.BlueprintScope{DeviceGroups: []string{"g1"}}})
 	})
-	mux.HandleFunc("/api/blueprints/v1/tenant/"+testTenantID+"/blueprints/bp-2", func(w http.ResponseWriter, _ *http.Request) {
+	mux.HandleFunc("/api/blueprints/v1/blueprints/bp-2", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, &blueprints.BlueprintDetail{Scope: &blueprints.BlueprintScope{DeviceGroups: nil}})
 	})
 	bps := []blueprints.BlueprintOverview{{ID: "bp-1"}, {ID: "bp-2"}}
@@ -121,17 +121,17 @@ func TestCheckEmptyPlatformScope(t *testing.T) {
 
 func TestCheckFailedDDMDeclarations(t *testing.T) {
 	cliCtx, mux, _ := newTestPlatformContext(t)
-	mux.HandleFunc("/api/devices/v1/tenant/"+testTenantID+"/devices", func(w http.ResponseWriter, _ *http.Request) {
+	mux.HandleFunc("/api/devices/v1/devices", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, map[string]any{
 			"results": []devices.DeviceListReadRepresentationV1{{ID: "dev-1"}, {ID: "dev-2"}},
 		})
 	})
-	mux.HandleFunc("/api/ddm/report/v1/tenant/"+testTenantID+"/devices/dev-1/declarations", func(w http.ResponseWriter, _ *http.Request) {
+	mux.HandleFunc("/api/ddm/report/v1/devices/dev-1/declarations", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, &ddmreport.FilteredDeviceReportDto{TotalCount: 1, Results: []ddmreport.FilteredResultDto{
 			{Status: "SUCCESSFUL", ValidityState: "VALID"},
 		}})
 	})
-	mux.HandleFunc("/api/ddm/report/v1/tenant/"+testTenantID+"/devices/dev-2/declarations", func(w http.ResponseWriter, _ *http.Request) {
+	mux.HandleFunc("/api/ddm/report/v1/devices/dev-2/declarations", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, &ddmreport.FilteredDeviceReportDto{TotalCount: 1, Results: []ddmreport.FilteredResultDto{
 			{Status: "UNSUCCESSFUL", ValidityState: "INVALID", Reasons: []ddmreport.StatusReportDeclarationReasonDto{
 				{Code: "Error.ProfileFailed", Description: "Profile installation failed"},
@@ -150,12 +150,12 @@ func TestCheckFailedDDMDeclarations(t *testing.T) {
 
 func TestCheckFailedDDMDeclarations_IgnoresInfoReasons(t *testing.T) {
 	cliCtx, mux, _ := newTestPlatformContext(t)
-	mux.HandleFunc("/api/devices/v1/tenant/"+testTenantID+"/devices", func(w http.ResponseWriter, _ *http.Request) {
+	mux.HandleFunc("/api/devices/v1/devices", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, map[string]any{
 			"results": []devices.DeviceListReadRepresentationV1{{ID: "dev-1"}},
 		})
 	})
-	mux.HandleFunc("/api/ddm/report/v1/tenant/"+testTenantID+"/devices/dev-1/declarations", func(w http.ResponseWriter, _ *http.Request) {
+	mux.HandleFunc("/api/ddm/report/v1/devices/dev-1/declarations", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, &ddmreport.FilteredDeviceReportDto{TotalCount: 1, Results: []ddmreport.FilteredResultDto{
 			{Status: "UNSUCCESSFUL", ValidityState: "INVALID", Reasons: []ddmreport.StatusReportDeclarationReasonDto{
 				{Code: "Info.DeclarationNotInstalled", Description: "not applicable"},
@@ -172,7 +172,7 @@ func TestCheckFailedDDMDeclarations_IgnoresInfoReasons(t *testing.T) {
 
 func TestFetchPlatformOverview(t *testing.T) {
 	cliCtx, mux, _ := newTestPlatformContext(t)
-	mux.HandleFunc("/api/blueprints/v1/tenant/"+testTenantID+"/blueprints", func(w http.ResponseWriter, _ *http.Request) {
+	mux.HandleFunc("/api/blueprints/v1/blueprints", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, map[string]any{
 			"results": []blueprints.BlueprintOverview{
 				{ID: "bp-1", DeploymentState: &blueprints.DeploymentState{State: "DEPLOYED"}},
@@ -180,14 +180,14 @@ func TestFetchPlatformOverview(t *testing.T) {
 			},
 		})
 	})
-	mux.HandleFunc("/api/compliance-benchmarks/v1/tenant/"+testTenantID+"/benchmarks", func(w http.ResponseWriter, _ *http.Request) {
+	mux.HandleFunc("/api/compliance-benchmarks/v1/benchmarks", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, &compliancebenchmarks.BenchmarksResponseV2{
 			Benchmarks: []compliancebenchmarks.BenchmarkV2{
 				{ID: "bm-1", UpdateAvailable: true},
 			},
 		})
 	})
-	mux.HandleFunc("/api/compliance-benchmarks/v1/tenant/"+testTenantID+"/benchmarks/bm-1/compliance-percentage", func(w http.ResponseWriter, _ *http.Request) {
+	mux.HandleFunc("/api/compliance-benchmarks/v1/benchmarks/bm-1/compliance-percentage", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, &compliancebenchmarks.CompliancePercentage{CompliancePercentage: 92.5})
 	})
 
@@ -206,21 +206,21 @@ func TestFetchPlatformOverview(t *testing.T) {
 
 func TestFetchPlatformOverview_UsesAllMockData(t *testing.T) {
 	cliCtx, mux, _ := newTestPlatformContext(t)
-	mux.HandleFunc("/api/blueprints/v1/tenant/"+testTenantID+"/blueprints", func(w http.ResponseWriter, _ *http.Request) {
+	mux.HandleFunc("/api/blueprints/v1/blueprints", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, map[string]any{
 			"results": []blueprints.BlueprintOverview{
 				{ID: "bp-1", Name: "Test", DeploymentState: &blueprints.DeploymentState{State: "DEPLOYED"}},
 			},
 		})
 	})
-	mux.HandleFunc("/api/compliance-benchmarks/v1/tenant/"+testTenantID+"/benchmarks", func(w http.ResponseWriter, _ *http.Request) {
+	mux.HandleFunc("/api/compliance-benchmarks/v1/benchmarks", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, &compliancebenchmarks.BenchmarksResponseV2{
 			Benchmarks: []compliancebenchmarks.BenchmarkV2{
 				{ID: "bm-1", Title: "CIS Benchmark"},
 			},
 		})
 	})
-	mux.HandleFunc("/api/compliance-benchmarks/v1/tenant/"+testTenantID+"/benchmarks/bm-1/compliance-percentage", func(w http.ResponseWriter, _ *http.Request) {
+	mux.HandleFunc("/api/compliance-benchmarks/v1/benchmarks/bm-1/compliance-percentage", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, &compliancebenchmarks.CompliancePercentage{CompliancePercentage: 95.0})
 	})
 
@@ -541,14 +541,14 @@ func TestCBScaffold_StaticTemplate(t *testing.T) {
 
 func TestCBScaffoldFromBaseline(t *testing.T) {
 	cliCtx, mux, _ := newTestPlatformContext(t)
-	mux.HandleFunc("/api/compliance-benchmarks/v1/tenant/"+testTenantID+"/baselines", func(w http.ResponseWriter, _ *http.Request) {
+	mux.HandleFunc("/api/compliance-benchmarks/v1/baselines", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, &compliancebenchmarks.BaselinesResponse{
 			Baselines: []compliancebenchmarks.BaselineInfo{
 				{ID: "bl-uuid-1", Title: "macOS Security Compliance", Description: "CIS Level 1 for macOS"},
 			},
 		})
 	})
-	mux.HandleFunc("/api/compliance-benchmarks/v1/tenant/"+testTenantID+"/rules", func(w http.ResponseWriter, _ *http.Request) {
+	mux.HandleFunc("/api/compliance-benchmarks/v1/rules", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, &compliancebenchmarks.SourcedRules{
 			Sources: []compliancebenchmarks.Source{{Branch: "main"}},
 			Rules: []compliancebenchmarks.RuleInfo{
@@ -653,7 +653,7 @@ func TestCBScaffoldFromBaseline(t *testing.T) {
 
 func TestCBScaffoldFromBaseline_UnknownID(t *testing.T) {
 	cliCtx, mux, _ := newTestPlatformContext(t)
-	mux.HandleFunc("/api/compliance-benchmarks/v1/tenant/"+testTenantID+"/rules", func(w http.ResponseWriter, _ *http.Request) {
+	mux.HandleFunc("/api/compliance-benchmarks/v1/rules", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSONStatus(w, http.StatusNotFound, map[string]string{"error": "not found"})
 	})
 
@@ -667,14 +667,14 @@ func TestCBScaffoldFromBaseline_UnknownID(t *testing.T) {
 
 func TestCBExport(t *testing.T) {
 	cliCtx, mux, _ := newTestPlatformContext(t)
-	mux.HandleFunc("/api/compliance-benchmarks/v1/tenant/"+testTenantID+"/benchmarks", func(w http.ResponseWriter, _ *http.Request) {
+	mux.HandleFunc("/api/compliance-benchmarks/v1/benchmarks", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, &compliancebenchmarks.BenchmarksResponseV2{
 			Benchmarks: []compliancebenchmarks.BenchmarkV2{
 				{ID: "bm-1", Title: "CIS Level 1"},
 			},
 		})
 	})
-	mux.HandleFunc("/api/compliance-benchmarks/v1/tenant/"+testTenantID+"/benchmarks/bm-1", func(w http.ResponseWriter, _ *http.Request) {
+	mux.HandleFunc("/api/compliance-benchmarks/v1/benchmarks/bm-1", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, &compliancebenchmarks.BenchmarkResponseV2{
 			BenchmarkID:     "bm-1",
 			Title:           "CIS Level 1",
@@ -685,7 +685,7 @@ func TestCBExport(t *testing.T) {
 			Target:          &compliancebenchmarks.TargetV2{DeviceGroups: []string{"grp-123"}},
 		})
 	})
-	mux.HandleFunc("/api/device-groups/v1/tenant/"+testTenantID+"/device-groups", func(w http.ResponseWriter, _ *http.Request) {
+	mux.HandleFunc("/api/device-groups/v1/device-groups", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, map[string]any{
 			"results": []devicegroups.DeviceGroupListReadRepresentationV1{
 				{ID: "grp-123", Name: "All Mac Clients", DeviceType: "COMPUTER", GroupType: "SMART"},
@@ -729,7 +729,7 @@ func TestCBExport(t *testing.T) {
 func TestCBClone(t *testing.T) {
 	cliCtx, mux, _ := newTestPlatformContext(t)
 	var captured *compliancebenchmarks.BenchmarkRequestV2
-	mux.HandleFunc("/api/compliance-benchmarks/v1/tenant/"+testTenantID+"/benchmarks", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/api/compliance-benchmarks/v1/benchmarks", func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodGet:
 			writeJSON(w, &compliancebenchmarks.BenchmarksResponseV2{
@@ -742,7 +742,7 @@ func TestCBClone(t *testing.T) {
 			writeJSONStatus(w, http.StatusAccepted, &compliancebenchmarks.BenchmarkResponseV2{BenchmarkID: "new-id"})
 		}
 	})
-	mux.HandleFunc("/api/compliance-benchmarks/v1/tenant/"+testTenantID+"/benchmarks/bm-src", func(w http.ResponseWriter, _ *http.Request) {
+	mux.HandleFunc("/api/compliance-benchmarks/v1/benchmarks/bm-src", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, &compliancebenchmarks.BenchmarkResponseV2{
 			BenchmarkID:        "bm-src",
 			Title:              "Source Benchmark",
@@ -798,7 +798,7 @@ func TestCBClone(t *testing.T) {
 func TestCBClone_WithComputerGroupOverride(t *testing.T) {
 	cliCtx, mux, _ := newTestPlatformContext(t)
 	var captured *compliancebenchmarks.BenchmarkRequestV2
-	mux.HandleFunc("/api/compliance-benchmarks/v1/tenant/"+testTenantID+"/benchmarks", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/api/compliance-benchmarks/v1/benchmarks", func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodGet:
 			writeJSON(w, &compliancebenchmarks.BenchmarksResponseV2{
@@ -811,14 +811,14 @@ func TestCBClone_WithComputerGroupOverride(t *testing.T) {
 			writeJSONStatus(w, http.StatusAccepted, &compliancebenchmarks.BenchmarkResponseV2{BenchmarkID: "new-id"})
 		}
 	})
-	mux.HandleFunc("/api/compliance-benchmarks/v1/tenant/"+testTenantID+"/benchmarks/bm-src", func(w http.ResponseWriter, _ *http.Request) {
+	mux.HandleFunc("/api/compliance-benchmarks/v1/benchmarks/bm-src", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, &compliancebenchmarks.BenchmarkResponseV2{
 			Title:      "Source",
 			BaselineID: "bl-1",
 			Target:     &compliancebenchmarks.TargetV2{DeviceGroups: []string{"old-grp-id"}},
 		})
 	})
-	mux.HandleFunc("/api/device-groups/v1/tenant/"+testTenantID+"/device-groups", func(w http.ResponseWriter, _ *http.Request) {
+	mux.HandleFunc("/api/device-groups/v1/device-groups", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, map[string]any{
 			"results": []devicegroups.DeviceGroupListReadRepresentationV1{
 				{ID: "new-grp-id", Name: "New Group"},
@@ -844,7 +844,7 @@ func TestCBClone_WithComputerGroupOverride(t *testing.T) {
 
 func TestCBDeleteByID(t *testing.T) {
 	cliCtx, mux, _ := newTestPlatformContext(t)
-	mux.HandleFunc("/api/compliance-benchmarks/v1/tenant/"+testTenantID+"/benchmarks/bm-abc-123", func(w http.ResponseWriter, _ *http.Request) {
+	mux.HandleFunc("/api/compliance-benchmarks/v1/benchmarks/bm-abc-123", func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNoContent)
 	})
 
@@ -857,14 +857,14 @@ func TestCBDeleteByID(t *testing.T) {
 
 func TestCBDeleteByName(t *testing.T) {
 	cliCtx, mux, _ := newTestPlatformContext(t)
-	mux.HandleFunc("/api/compliance-benchmarks/v1/tenant/"+testTenantID+"/benchmarks", func(w http.ResponseWriter, _ *http.Request) {
+	mux.HandleFunc("/api/compliance-benchmarks/v1/benchmarks", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, map[string]any{
 			"benchmarks": []map[string]any{
 				{"id": "bm-named-id", "title": "Named Benchmark"},
 			},
 		})
 	})
-	mux.HandleFunc("/api/compliance-benchmarks/v1/tenant/"+testTenantID+"/benchmarks/bm-named-id", func(w http.ResponseWriter, _ *http.Request) {
+	mux.HandleFunc("/api/compliance-benchmarks/v1/benchmarks/bm-named-id", func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNoContent)
 	})
 
@@ -890,7 +890,7 @@ func TestCBDeleteNoArgs(t *testing.T) {
 // the create-benchmark request, optional GET returns the named device groups.
 func cbApplyHandlers(mux *http.ServeMux, groups []devicegroups.DeviceGroupListReadRepresentationV1) **compliancebenchmarks.BenchmarkRequestV2 {
 	captured := new(*compliancebenchmarks.BenchmarkRequestV2)
-	mux.HandleFunc("/api/compliance-benchmarks/v1/tenant/"+testTenantID+"/benchmarks", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/api/compliance-benchmarks/v1/benchmarks", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			http.NotFound(w, r)
 			return
@@ -902,7 +902,7 @@ func cbApplyHandlers(mux *http.ServeMux, groups []devicegroups.DeviceGroupListRe
 		writeJSONStatus(w, http.StatusAccepted, &compliancebenchmarks.BenchmarkResponseV2{BenchmarkID: "new-id"})
 	})
 	if groups != nil {
-		mux.HandleFunc("/api/device-groups/v1/tenant/"+testTenantID+"/device-groups", func(w http.ResponseWriter, _ *http.Request) {
+		mux.HandleFunc("/api/device-groups/v1/device-groups", func(w http.ResponseWriter, _ *http.Request) {
 			writeJSON(w, map[string]any{"results": groups})
 		})
 	}
@@ -1185,7 +1185,7 @@ func TestResolveBlueprintID_IDFromArgs(t *testing.T) {
 
 func TestResolveBlueprintID_NameFlag(t *testing.T) {
 	cliCtx, mux, _ := newTestPlatformContext(t)
-	mux.HandleFunc("/api/blueprints/v1/tenant/"+testTenantID+"/blueprints", func(w http.ResponseWriter, _ *http.Request) {
+	mux.HandleFunc("/api/blueprints/v1/blueprints", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, map[string]any{
 			"results": []blueprints.BlueprintOverview{
 				{ID: "bp-id-1", Name: "Test BP"},
@@ -1601,7 +1601,7 @@ func TestDownloadClassicProfile_NilClient(t *testing.T) {
 
 func TestReverseResolveGroups(t *testing.T) {
 	cliCtx, mux, _ := newTestPlatformContext(t)
-	mux.HandleFunc("/api/device-groups/v1/tenant/"+testTenantID+"/device-groups", func(w http.ResponseWriter, _ *http.Request) {
+	mux.HandleFunc("/api/device-groups/v1/device-groups", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, map[string]any{
 			"results": []devicegroups.DeviceGroupListReadRepresentationV1{
 				{ID: "uuid-1", Name: "Lab Macs", DeviceType: "COMPUTER"},
@@ -1778,7 +1778,7 @@ func TestParseBlueprintApplyInput_NoName(t *testing.T) {
 
 func TestBlueprintExportRoundTrip(t *testing.T) {
 	cliCtx, mux, _ := newTestPlatformContext(t)
-	mux.HandleFunc("/api/device-groups/v1/tenant/"+testTenantID+"/device-groups", func(w http.ResponseWriter, _ *http.Request) {
+	mux.HandleFunc("/api/device-groups/v1/device-groups", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, map[string]any{
 			"results": []devicegroups.DeviceGroupListReadRepresentationV1{
 				{ID: "source-uuid", Name: "Lab Macs", DeviceType: "COMPUTER"},
@@ -1867,7 +1867,7 @@ func TestIsPortableScopeFormat(t *testing.T) {
 func TestDDMReportsDeclarationRouting(t *testing.T) {
 	cliCtx, mux, _ := newTestPlatformContext(t)
 	called := false
-	mux.HandleFunc("/api/ddm/report/v1/tenant/"+testTenantID+"/declarations/com.example.decl", func(w http.ResponseWriter, _ *http.Request) {
+	mux.HandleFunc("/api/ddm/report/v1/declarations/com.example.decl", func(w http.ResponseWriter, _ *http.Request) {
 		called = true
 		writeJSON(w, map[string]any{"results": []any{}})
 	})
@@ -1885,7 +1885,7 @@ func TestDDMReportsDeclarationRouting(t *testing.T) {
 func TestDDMReportsDeviceRouting(t *testing.T) {
 	cliCtx, mux, _ := newTestPlatformContext(t)
 	called := false
-	mux.HandleFunc("/api/ddm/report/v1/tenant/"+testTenantID+"/devices/device-uuid-123", func(w http.ResponseWriter, _ *http.Request) {
+	mux.HandleFunc("/api/ddm/report/v1/devices/device-uuid-123", func(w http.ResponseWriter, _ *http.Request) {
 		called = true
 		writeJSON(w, map[string]any{"channels": []any{}})
 	})
@@ -1904,7 +1904,7 @@ func TestReverseResolveGroups_ListError(t *testing.T) {
 	// Empty list response simulates the degraded path: all groups become
 	// UUID-only since the lookup table has nothing to resolve them to.
 	cliCtx, mux, _ := newTestPlatformContext(t)
-	mux.HandleFunc("/api/device-groups/v1/tenant/"+testTenantID+"/device-groups", func(w http.ResponseWriter, _ *http.Request) {
+	mux.HandleFunc("/api/device-groups/v1/device-groups", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, map[string]any{"results": []any{}})
 	})
 	groups := reverseResolveGroups(context.Background(), cliCtx.PlatformSDKClient, []string{"uuid-1"})

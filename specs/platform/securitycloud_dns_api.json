@@ -24,10 +24,10 @@
       }
     },
     "parameters": {
-      "tenantId": {
-        "description": "The tenant UUID identifier",
-        "in": "path",
-        "name": "tenantId",
+      "X-Tenant-Id": {
+        "description": "The tenant UUID identifier.",
+        "in": "header",
+        "name": "X-Tenant-Id",
         "required": true,
         "schema": {
           "example": "e77c1408-10c8-4007-b177-abc9157fbcaa",
@@ -573,10 +573,16 @@
         "flows": {
           "clientCredentials": {
             "scopes": {
-              "create:jsc:all": "",
-              "delete:jsc:all": "",
-              "read:jsc:all": "",
-              "update:jsc:all": ""
+              "custom-hostname-mappings:delete": "",
+              "custom-hostname-mappings:read": "",
+              "custom-hostname-mappings:update": "",
+              "search-domains:delete": "",
+              "search-domains:read": "",
+              "search-domains:update": "",
+              "ztna:create": "",
+              "ztna:delete": "",
+              "ztna:read": "",
+              "ztna:update": ""
             },
             "tokenUrl": "https://{region}.api.stage.platform.jamflabs.com/auth/token"
           }
@@ -597,13 +603,13 @@
   },
   "openapi": "3.0.3",
   "paths": {
-    "/v1/tenant/{tenantId}/dns/custom-hostname-mappings": {
+    "/v1/dns/custom-hostname-mappings": {
       "delete": {
-        "description": "Clears all tenant Custom Hostname Mappings.\n\n**Required Permissions:** `delete:jsc:all`",
+        "description": "Clears all tenant Custom Hostname Mappings.\n\n**Required Permissions:** `custom-hostname-mappings:delete`",
         "operationId": "clearCustomHostnameMappings",
         "parameters": [
           {
-            "$ref": "#/components/parameters/tenantId"
+            "$ref": "#/components/parameters/X-Tenant-Id"
           }
         ],
         "responses": {
@@ -623,7 +629,7 @@
         "security": [
           {
             "oauth2": [
-              "delete:jsc:all"
+              "custom-hostname-mappings:delete"
             ]
           }
         ],
@@ -632,15 +638,15 @@
           "custom-hostname-mappings"
         ],
         "x-required-privileges": [
-          "delete:jsc:all"
+          "custom-hostname-mappings:delete"
         ]
       },
       "get": {
-        "description": "Returns the tenant Custom Hostname Mappings as a MappingList object (standard collection envelope). The full bounded set is returned in a single response and `totalCount` reflects the complete set. Pagination is currently not supported.\n\n**Required Permissions:** `read:jsc:all`",
+        "description": "Returns the tenant Custom Hostname Mappings as a MappingList object (standard collection envelope). The full bounded set is returned in a single response and `totalCount` reflects the complete set. Pagination is currently not supported.\n\n**Required Permissions:** `custom-hostname-mappings:read`",
         "operationId": "getCustomHostnameMappings",
         "parameters": [
           {
-            "$ref": "#/components/parameters/tenantId"
+            "$ref": "#/components/parameters/X-Tenant-Id"
           }
         ],
         "responses": {
@@ -694,7 +700,7 @@
         "security": [
           {
             "oauth2": [
-              "read:jsc:all"
+              "custom-hostname-mappings:read"
             ]
           }
         ],
@@ -703,15 +709,15 @@
           "custom-hostname-mappings"
         ],
         "x-required-privileges": [
-          "read:jsc:all"
+          "custom-hostname-mappings:read"
         ]
       },
       "put": {
-        "description": "Replaces the entire set of tenant Custom Hostname Mappings with the supplied JSON list. The previous mappings are fully overwritten.\n\n**Required Permissions:** `update:jsc:all`",
+        "description": "Replaces the entire set of tenant Custom Hostname Mappings with the supplied JSON list. The previous mappings are fully overwritten.\n\n**Required Permissions:** `custom-hostname-mappings:update`",
         "operationId": "replaceCustomHostnameMappings",
         "parameters": [
           {
-            "$ref": "#/components/parameters/tenantId"
+            "$ref": "#/components/parameters/X-Tenant-Id"
           }
         ],
         "requestBody": {
@@ -823,7 +829,7 @@
         "security": [
           {
             "oauth2": [
-              "update:jsc:all"
+              "custom-hostname-mappings:update"
             ]
           }
         ],
@@ -832,17 +838,17 @@
           "custom-hostname-mappings"
         ],
         "x-required-privileges": [
-          "update:jsc:all"
+          "custom-hostname-mappings:update"
         ]
       }
     },
-    "/v1/tenant/{tenantId}/dns/search-domains": {
+    "/v1/dns/search-domains": {
       "delete": {
-        "description": "Clears the tenant Search Domain, removing the configured suffix.\n\n**Required Permissions:** `delete:jsc:all`",
+        "description": "Clears the tenant Search Domain, removing the configured suffix.\n\n**Required Permissions:** `search-domains:delete`",
         "operationId": "clearSearchDomain",
         "parameters": [
           {
-            "$ref": "#/components/parameters/tenantId"
+            "$ref": "#/components/parameters/X-Tenant-Id"
           }
         ],
         "responses": {
@@ -862,7 +868,7 @@
         "security": [
           {
             "oauth2": [
-              "delete:jsc:all"
+              "search-domains:delete"
             ]
           }
         ],
@@ -871,15 +877,15 @@
           "search-domains"
         ],
         "x-required-privileges": [
-          "delete:jsc:all"
+          "search-domains:delete"
         ]
       },
       "get": {
-        "description": "Returns the tenant Search Domain — a singleton resource holding a single optional search-domain suffix. Returns 200 with the search domain when one is set, or 404 when none is set.\n\n**Required Permissions:** `read:jsc:all`",
+        "description": "Returns the tenant Search Domain — a singleton resource holding a single optional search-domain suffix. Returns 200 with the search domain when one is set, or 404 when none is set.\n\n**Required Permissions:** `search-domains:read`",
         "operationId": "getSearchDomain",
         "parameters": [
           {
-            "$ref": "#/components/parameters/tenantId"
+            "$ref": "#/components/parameters/X-Tenant-Id"
           }
         ],
         "responses": {
@@ -923,7 +929,7 @@
         "security": [
           {
             "oauth2": [
-              "read:jsc:all"
+              "search-domains:read"
             ]
           }
         ],
@@ -932,15 +938,15 @@
           "search-domains"
         ],
         "x-required-privileges": [
-          "read:jsc:all"
+          "search-domains:read"
         ]
       },
       "put": {
-        "description": "Sets the tenant Search Domain to the supplied suffix. Any previously set search domain is overwritten.\n\n**Required Permissions:** `update:jsc:all`",
+        "description": "Sets the tenant Search Domain to the supplied suffix. Any previously set search domain is overwritten.\n\n**Required Permissions:** `search-domains:update`",
         "operationId": "setSearchDomain",
         "parameters": [
           {
-            "$ref": "#/components/parameters/tenantId"
+            "$ref": "#/components/parameters/X-Tenant-Id"
           }
         ],
         "requestBody": {
@@ -995,7 +1001,7 @@
         "security": [
           {
             "oauth2": [
-              "update:jsc:all"
+              "search-domains:update"
             ]
           }
         ],
@@ -1004,17 +1010,17 @@
           "search-domains"
         ],
         "x-required-privileges": [
-          "update:jsc:all"
+          "search-domains:update"
         ]
       }
     },
-    "/v1/tenant/{tenantId}/dns/zones": {
+    "/v1/dns/zones": {
       "get": {
-        "description": "Returns the full list of DNS Zones configured for the tenant. The list is not paginated and is bounded by a per-customer maximum zone cap. The full bounded set is returned in a single response and `totalCount` reflects the complete set. Pagination is currently not supported.\n\n**Required Permissions:** `read:jsc:all`",
+        "description": "Returns the full list of DNS Zones configured for the tenant. The list is not paginated and is bounded by a per-customer maximum zone cap. The full bounded set is returned in a single response and `totalCount` reflects the complete set. Pagination is currently not supported.\n\n**Required Permissions:** `ztna:read`",
         "operationId": "listDnsZones",
         "parameters": [
           {
-            "$ref": "#/components/parameters/tenantId"
+            "$ref": "#/components/parameters/X-Tenant-Id"
           },
           {
             "description": "Sort expression in the form `field:direction`, where direction is `asc` or `desc`. Defaults to ascending order when direction is omitted. The only supported sort field is `name`.",
@@ -1120,7 +1126,7 @@
         "security": [
           {
             "oauth2": [
-              "read:jsc:all"
+              "ztna:read"
             ]
           }
         ],
@@ -1129,15 +1135,15 @@
           "zones"
         ],
         "x-required-privileges": [
-          "read:jsc:all"
+          "ztna:read"
         ]
       },
       "post": {
-        "description": "Creates a new DNS Zone for the tenant from the supplied definition. Returns a reference to the newly created Zone, including its identifier and canonical URL. A tenant may hold at most a per-customer maximum number of DNS Zones (value TBD); a request that would exceed this per-customer cap is rejected with 400 `LIST_SIZE_EXCEEDED`.\n\n**Required Permissions:** `create:jsc:all`",
+        "description": "Creates a new DNS Zone for the tenant from the supplied definition. Returns a reference to the newly created Zone, including its identifier and canonical URL. A tenant may hold at most a per-customer maximum number of DNS Zones (value TBD); a request that would exceed this per-customer cap is rejected with 400 `LIST_SIZE_EXCEEDED`.\n\n**Required Permissions:** `ztna:create`",
         "operationId": "createDnsZone",
         "parameters": [
           {
-            "$ref": "#/components/parameters/tenantId"
+            "$ref": "#/components/parameters/X-Tenant-Id"
           }
         ],
         "requestBody": {
@@ -1295,7 +1301,7 @@
         "security": [
           {
             "oauth2": [
-              "create:jsc:all"
+              "ztna:create"
             ]
           }
         ],
@@ -1304,17 +1310,17 @@
           "zones"
         ],
         "x-required-privileges": [
-          "create:jsc:all"
+          "ztna:create"
         ]
       }
     },
-    "/v1/tenant/{tenantId}/dns/zones/{id}": {
+    "/v1/dns/zones/{id}": {
       "delete": {
-        "description": "Deletes the DNS Zone identified by its UUID.\n\n**Required Permissions:** `delete:jsc:all`",
+        "description": "Deletes the DNS Zone identified by its UUID.\n\n**Required Permissions:** `ztna:delete`",
         "operationId": "deleteDnsZone",
         "parameters": [
           {
-            "$ref": "#/components/parameters/tenantId"
+            "$ref": "#/components/parameters/X-Tenant-Id"
           }
         ],
         "responses": {
@@ -1337,7 +1343,7 @@
         "security": [
           {
             "oauth2": [
-              "delete:jsc:all"
+              "ztna:delete"
             ]
           }
         ],
@@ -1346,15 +1352,15 @@
           "zones"
         ],
         "x-required-privileges": [
-          "delete:jsc:all"
+          "ztna:delete"
         ]
       },
       "get": {
-        "description": "Returns a single DNS Zone identified by its UUID.\n\n**Required Permissions:** `read:jsc:all`",
+        "description": "Returns a single DNS Zone identified by its UUID.\n\n**Required Permissions:** `ztna:read`",
         "operationId": "getDnsZone",
         "parameters": [
           {
-            "$ref": "#/components/parameters/tenantId"
+            "$ref": "#/components/parameters/X-Tenant-Id"
           }
         ],
         "responses": {
@@ -1408,7 +1414,7 @@
         "security": [
           {
             "oauth2": [
-              "read:jsc:all"
+              "ztna:read"
             ]
           }
         ],
@@ -1417,7 +1423,7 @@
           "zones"
         ],
         "x-required-privileges": [
-          "read:jsc:all"
+          "ztna:read"
         ]
       },
       "parameters": [
@@ -1434,11 +1440,11 @@
         }
       ],
       "patch": {
-        "description": "Partially updates a DNS Zone using JSON Merge Patch (RFC 7396). Any subset of the writable Zone fields may be supplied. A field set to a new value is overwritten; an omitted field is left unchanged; a field set to `null` clears it where the field is optional. Setting a required field to `null` is rejected (400, per ADG-302). No optimistic locking is in place for this release — consider ADG-148 (`VersionId` + `409 OPTIMISTIC_LOCK_FAILED`) in a follow-up if this becomes a concern.\n\n**Required Permissions:** `update:jsc:all`",
+        "description": "Partially updates a DNS Zone using JSON Merge Patch (RFC 7396). Any subset of the writable Zone fields may be supplied. A field set to a new value is overwritten; an omitted field is left unchanged; a field set to `null` clears it where the field is optional. Setting a required field to `null` is rejected (400, per ADG-302). No optimistic locking is in place for this release — consider ADG-148 (`VersionId` + `409 OPTIMISTIC_LOCK_FAILED`) in a follow-up if this becomes a concern.\n\n**Required Permissions:** `ztna:update`",
         "operationId": "updateDnsZone",
         "parameters": [
           {
-            "$ref": "#/components/parameters/tenantId"
+            "$ref": "#/components/parameters/X-Tenant-Id"
           }
         ],
         "requestBody": {
@@ -1565,7 +1571,7 @@
         "security": [
           {
             "oauth2": [
-              "update:jsc:all"
+              "ztna:update"
             ]
           }
         ],
@@ -1574,7 +1580,7 @@
           "zones"
         ],
         "x-required-privileges": [
-          "update:jsc:all"
+          "ztna:update"
         ]
       }
     }
@@ -1612,5 +1618,8 @@
       "description": "Operations for managing tenant Custom Hostname Mappings.",
       "name": "custom-hostname-mappings"
     }
+  ],
+  "x-scope-types": [
+    "tenant"
   ]
 }

@@ -14,19 +14,19 @@ import (
 // device-groups endpoints used by all fetchDevicePlatformSections tests.
 // Device grp-a is always returned as the device's group membership.
 func registerDevicePlatformFixtures(mux *http.ServeMux) {
-	mux.HandleFunc("/api/devices/v1/tenant/"+testTenantID+"/devices", func(w http.ResponseWriter, _ *http.Request) {
+	mux.HandleFunc("/api/devices/v1/devices", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, map[string]any{
 			"results":    []map[string]any{{"id": "dev-1", "serialNumber": "SN001"}},
 			"totalCount": 1,
 		})
 	})
-	mux.HandleFunc("/api/device-groups/v1/tenant/"+testTenantID+"/devices/dev-1/device-groups", func(w http.ResponseWriter, _ *http.Request) {
+	mux.HandleFunc("/api/device-groups/v1/devices/dev-1/device-groups", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, map[string]any{
 			"results":    []map[string]any{{"groupId": "grp-a"}},
 			"totalCount": 1,
 		})
 	})
-	mux.HandleFunc("/api/ddm/report/v1/tenant/"+testTenantID+"/devices/dev-1", func(w http.ResponseWriter, _ *http.Request) {
+	mux.HandleFunc("/api/ddm/report/v1/devices/dev-1", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, map[string]any{"channels": []any{}})
 	})
 }
@@ -38,17 +38,17 @@ func TestFetchDevicePlatformSections_NilBlueprintScope(t *testing.T) {
 	sdk, mux := newTestPlatformSDK(t)
 	registerDevicePlatformFixtures(mux)
 
-	mux.HandleFunc("/api/blueprints/v1/tenant/"+testTenantID+"/blueprints", func(w http.ResponseWriter, _ *http.Request) {
+	mux.HandleFunc("/api/blueprints/v1/blueprints", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, map[string]any{
 			"results":    []map[string]any{{"id": "bp-1", "name": "Blueprint A"}},
 			"totalCount": 1,
 		})
 	})
 	// scope field absent — SDK deserialises Scope to nil *BlueprintScope
-	mux.HandleFunc("/api/blueprints/v1/tenant/"+testTenantID+"/blueprints/bp-1", func(w http.ResponseWriter, _ *http.Request) {
+	mux.HandleFunc("/api/blueprints/v1/blueprints/bp-1", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, map[string]any{"id": "bp-1", "name": "Blueprint A"})
 	})
-	mux.HandleFunc("/api/compliance-benchmarks/v1/tenant/"+testTenantID+"/benchmarks", func(w http.ResponseWriter, _ *http.Request) {
+	mux.HandleFunc("/api/compliance-benchmarks/v1/benchmarks", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, map[string]any{"benchmarks": []any{}})
 	})
 
@@ -72,21 +72,21 @@ func TestFetchDevicePlatformSections_NilDeploymentState(t *testing.T) {
 	sdk, mux := newTestPlatformSDK(t)
 	registerDevicePlatformFixtures(mux)
 
-	mux.HandleFunc("/api/blueprints/v1/tenant/"+testTenantID+"/blueprints", func(w http.ResponseWriter, _ *http.Request) {
+	mux.HandleFunc("/api/blueprints/v1/blueprints", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, map[string]any{
 			"results":    []map[string]any{{"id": "bp-2", "name": "Blueprint B"}},
 			"totalCount": 1,
 		})
 	})
 	// scope includes grp-a (device's group); deploymentState absent → nil *DeploymentState
-	mux.HandleFunc("/api/blueprints/v1/tenant/"+testTenantID+"/blueprints/bp-2", func(w http.ResponseWriter, _ *http.Request) {
+	mux.HandleFunc("/api/blueprints/v1/blueprints/bp-2", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, map[string]any{
 			"id":    "bp-2",
 			"name":  "Blueprint B",
 			"scope": map[string]any{"deviceGroups": []string{"grp-a"}},
 		})
 	})
-	mux.HandleFunc("/api/compliance-benchmarks/v1/tenant/"+testTenantID+"/benchmarks", func(w http.ResponseWriter, _ *http.Request) {
+	mux.HandleFunc("/api/compliance-benchmarks/v1/benchmarks", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, map[string]any{"benchmarks": []any{}})
 	})
 
@@ -114,16 +114,16 @@ func TestFetchDevicePlatformSections_NilBenchmarkTarget(t *testing.T) {
 	sdk, mux := newTestPlatformSDK(t)
 	registerDevicePlatformFixtures(mux)
 
-	mux.HandleFunc("/api/blueprints/v1/tenant/"+testTenantID+"/blueprints", func(w http.ResponseWriter, _ *http.Request) {
+	mux.HandleFunc("/api/blueprints/v1/blueprints", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, map[string]any{"results": []any{}, "totalCount": 0})
 	})
-	mux.HandleFunc("/api/compliance-benchmarks/v1/tenant/"+testTenantID+"/benchmarks", func(w http.ResponseWriter, _ *http.Request) {
+	mux.HandleFunc("/api/compliance-benchmarks/v1/benchmarks", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, map[string]any{
 			"benchmarks": []map[string]any{{"id": "cb-1", "title": "Benchmark X"}},
 		})
 	})
 	// target field absent — SDK deserialises Target to nil *TargetV2
-	mux.HandleFunc("/api/compliance-benchmarks/v1/tenant/"+testTenantID+"/benchmarks/cb-1", func(w http.ResponseWriter, _ *http.Request) {
+	mux.HandleFunc("/api/compliance-benchmarks/v1/benchmarks/cb-1", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, map[string]any{"id": "cb-1", "title": "Benchmark X"})
 	})
 

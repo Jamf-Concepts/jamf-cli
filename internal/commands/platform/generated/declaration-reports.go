@@ -44,8 +44,7 @@ func newDeclarationReportsGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err
 			}
-			path := "/api/ddm/report/v1/tenant/{tenantId}/declarations/{declarationIdentifier}"
-			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("ddm")), 1)
+			path := "/api/ddm/report/v1/declarations/{declarationIdentifier}"
 			path = strings.Replace(path, "{declarationIdentifier}", url.PathEscape(args[0]), 1)
 			q := url.Values{}
 			if cmd.Flags().Changed("size") {
@@ -91,8 +90,7 @@ func newDeclarationReportsDevicesCmd(cliCtx *registry.CLIContext) *cobra.Command
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err
 			}
-			path := "/api/ddm/report/v1/tenant/{tenantId}/declarations/{declarationIdentifier}/devices"
-			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantIDFor("ddm")), 1)
+			path := "/api/ddm/report/v1/declarations/{declarationIdentifier}/devices"
 			path = strings.Replace(path, "{declarationIdentifier}", url.PathEscape(args[0]), 1)
 			q := url.Values{}
 			if filter != "" {

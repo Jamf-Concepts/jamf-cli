@@ -92,13 +92,6 @@ type Operation struct {
 	// StatusResults is non-empty — a 204 has no body, so the generated command
 	// synthesizes one from this so the success case is machine-readable too.
 	NoContentDescription string
-	// TenantPath is the operation's full gateway path with /tenant/{tenantId}
-	// at the position the spec declares it and the namespace version segment
-	// injected. Set only by ParsePlatformSpec, which strips the tenant segment
-	// from Path so path-family detection can group siblings; emitters use this
-	// instead of guessing where the segment belongs. Empty for non-platform
-	// specs.
-	TenantPath string
 	// ExpectedStatus is the success status the server actually answers, from
 	// the published spec's x-jamf-expected-status extension. Non-zero only
 	// where the SDK found the declared status wrong by probing the wire; it
