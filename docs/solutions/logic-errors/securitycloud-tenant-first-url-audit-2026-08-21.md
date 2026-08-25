@@ -17,6 +17,18 @@ tags:
   - url-construction
 ---
 
+> **Superseded 2026-08-25, as a fix but not as a warning.** The tenant left the URL
+> entirely: prod gained `header` as an allowed request-context source
+> (tyk-gateway-management `0793131b`) and GitOps build v1495 dropped the path
+> segment in favour of a required `X-Tenant-Id` header, so `tenantBeforeVersion`
+> and `tenantFirstServices` are gone from `generator/parser/platform.go` and every
+> generated path is now `/api/{namespace}/{version}/{resource}`. The finding below
+> still matters for the reason it was written: the audit rules that decide which
+> mutating requests get recorded are path globs, a request that is routed but
+> unaudited fails silently, and **nobody has confirmed those globs match the
+> header-scoped shape.** Read this before assuming they do.
+
+
 ## What happened
 
 Every gateway-served Security Cloud command sent its tenant segment *after* the version:
