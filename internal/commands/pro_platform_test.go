@@ -17,6 +17,8 @@ import (
 	"github.com/Jamf-Concepts/jamf-cli/internal/config"
 	"github.com/Jamf-Concepts/jamf-cli/internal/progress"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
+
+	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform"
 	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform/blueprints"
 	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform/compliancebenchmarks"
 	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform/ddmreport"
@@ -2027,5 +2029,63 @@ func TestCheckScopeConflict(t *testing.T) {
 		if err := checkScopeConflict(cfg, "p"); err != nil {
 			t.Errorf("unexpected conflict for %+v: %v", p, err)
 		}
+	}
+}
+
+// TestNewPlatformSDKClientScope pins the mapping from a resolved auth.Scope onto
+// the SDK client's own scope, using the accessor v0.18.0 added.
+//
+// Nothing checked this before: newPlatformSDKClient passed WithEnvironmentID or
+// WithTenantID and the result was unobservable, so a wrong branch would have
+// shown up only as a 403 from the gateway — or, for organization scope, as a
+// header sent where none belongs. Reading it back is the difference between
+// asserting the call we make and asserting the state it produces.
+func TestNewPlatformSDKClientScope(t *testing.T) {
+	cases := []struct {
+		name       string
+		scope      auth.Scope
+		wantKind   jamfplatform.ScopeKind
+		wantID     string
+		wantHeader string
+	}{
+		{
+			name:       "environment",
+			scope:      auth.EnvironmentScope("env-1"),
+			wantKind:   jamfplatform.ScopeEnvironment,
+			wantID:     "env-1",
+			wantHeader: "X-Environment-Id",
+		},
+		{
+			name:       "tenant",
+			scope:      auth.TenantScope("ten-1"),
+			wantKind:   jamfplatform.ScopeTenant,
+			wantID:     "ten-1",
+			wantHeader: "X-Tenant-Id",
+		},
+		{
+			// Organization scope must reach the SDK as no scope at all. The
+			// gateway resolves it from the access token, and there is no
+			// constant for it precisely because there is no header.
+			name: "organization",
+		},
+		{
+			// A kind with no ID is not a scope. Sending its header with an empty
+			// value would be worse than sending nothing.
+			name:  "kind without an id",
+			scope: auth.Scope{Kind: auth.ScopeEnvironment},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			c := newPlatformSDKClient("https://gw.example.com", "id", "secret", tc.scope, false)
+			kind, id := c.Scope()
+			if kind != tc.wantKind || id != tc.wantID {
+				t.Errorf("Scope() = (%v, %q), want (%v, %q)", kind, id, tc.wantKind, tc.wantID)
+			}
+			if got := kind.ScopeHeader(); got != tc.wantHeader {
+				t.Errorf("ScopeHeader() = %q, want %q", got, tc.wantHeader)
+			}
+		})
 	}
 }
