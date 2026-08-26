@@ -373,6 +373,12 @@ func ResolveAuthForProfile(cfg *config.Config, params AuthParams) (string, auth.
 	csecret := params.ClientSecret
 	tid := params.TenantID
 	eid := params.EnvironmentID
+	// An explicitly supplied scope — flag or env var — settles the level, so the
+	// profile's other level must not be merged in beside it. Without this, a
+	// profile carrying tenant-id plus JAMF_ENVIRONMENT_ID read as "both levels"
+	// and was refused, when the caller had in fact overridden the profile the way
+	// every other env var here overrides it.
+	scopeFromParams := tid != "" || eid != ""
 	isPlatform := false
 
 	// Config profile: fill remaining gaps.
@@ -405,10 +411,10 @@ func ResolveAuthForProfile(cfg *config.Config, params AuthParams) (string, auth.
 						}
 						csecret = resolved
 					}
-					if eid == "" && p.EnvironmentID != "" {
+					if !scopeFromParams && p.EnvironmentID != "" {
 						eid = p.EnvironmentID
 					}
-					if tid == "" && p.TenantID != "" {
+					if !scopeFromParams && tid == "" && p.TenantID != "" {
 						tid = p.TenantID
 					}
 				case "oauth2":
@@ -482,6 +488,9 @@ func ResolveAuthForProfile(cfg *config.Config, params AuthParams) (string, auth.
 		if cid == "" || csecret == "" {
 			return "", nil, exitcode.New(exitcode.Usage, "client ID and client secret are required for platform gateway auth: set JAMF_CLIENT_ID/JAMF_CLIENT_SECRET env vars or use a config profile")
 		}
+		// Both set can now only mean both were supplied together — the profile
+		// cannot contribute a second level past scopeFromParams — so this is a
+		// genuine "you asked for two levels at once" rather than an override.
 		if tid != "" && eid != "" {
 			return "", nil, exitcode.New(exitcode.Usage,
 				"--environment-id and --tenant-id are mutually exclusive: an API integration is created at one level, and its credential only works with that level's header")

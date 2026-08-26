@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/auth"
+	"github.com/Jamf-Concepts/jamf-cli/internal/config"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 )
 
@@ -406,5 +407,99 @@ func TestPlatformAuthToken_Refresh_ForcesNewExchange(t *testing.T) {
 	}
 	if m2["token"] != "plat-token-2" {
 		t.Errorf("with refresh: token = %v, want %q", m2["token"], "plat-token-2")
+	}
+}
+
+// TestResolveAuthScopePrecedence pins that an explicitly supplied scope
+// overrides the profile rather than colliding with it.
+//
+// Every other credential field here works that way, and the first version of
+// this did not: a profile carrying tenant-id plus JAMF_ENVIRONMENT_ID merged
+// into "both levels set" and was refused as a mutual-exclusion error, so a
+// caller could not point a tenant profile at an environment without editing it.
+// Only two explicitly supplied levels are a real conflict.
+func TestResolveAuthScopePrecedence(t *testing.T) {
+	cfg := &config.Config{
+		DefaultProfile: "p",
+		Profiles: map[string]config.Profile{
+			"p": {
+				URL:          "https://eu.apigw.jamf.com",
+				AuthMethod:   "platform",
+				ClientID:     "env:TEST_SCOPE_ID",
+				ClientSecret: "env:TEST_SCOPE_SECRET",
+				TenantID:     "profile-tenant",
+			},
+			"envprofile": {
+				URL:           "https://eu.apigw.jamf.com",
+				AuthMethod:    "platform",
+				ClientID:      "env:TEST_SCOPE_ID",
+				ClientSecret:  "env:TEST_SCOPE_SECRET",
+				EnvironmentID: "profile-env",
+			},
+		},
+	}
+
+	cases := []struct {
+		name       string
+		profile    string
+		params     AuthParams
+		wantHeader string
+		wantID     string
+		wantErr    bool
+	}{
+		{
+			name:       "profile tenant with no override",
+			profile:    "p",
+			wantHeader: "X-Tenant-Id",
+			wantID:     "profile-tenant",
+		},
+		{
+			name:       "environment override beats a tenant profile",
+			profile:    "p",
+			params:     AuthParams{EnvironmentID: "override-env"},
+			wantHeader: "X-Environment-Id",
+			wantID:     "override-env",
+		},
+		{
+			name:       "tenant override beats an environment profile",
+			profile:    "envprofile",
+			params:     AuthParams{TenantID: "override-tenant"},
+			wantHeader: "X-Tenant-Id",
+			wantID:     "override-tenant",
+		},
+		{
+			name:    "both supplied explicitly is a conflict",
+			profile: "p",
+			params:  AuthParams{EnvironmentID: "e", TenantID: "t"},
+			wantErr: true,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Setenv("TEST_SCOPE_ID", "cid")
+			t.Setenv("TEST_SCOPE_SECRET", "csecret")
+
+			params := tc.params
+			params.Profile = tc.profile
+			_, provider, err := ResolveAuthForProfile(cfg, params)
+			if tc.wantErr {
+				if err == nil {
+					t.Fatal("expected two explicitly supplied levels to be refused")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("ResolveAuthForProfile: %v", err)
+			}
+			p, ok := provider.(*auth.PlatformOAuth2Provider)
+			if !ok {
+				t.Fatalf("provider is %T, want a platform provider", provider)
+			}
+			name, value := p.Scope().Header()
+			if name != tc.wantHeader || value != tc.wantID {
+				t.Errorf("scope header = (%q, %q), want (%q, %q)", name, value, tc.wantHeader, tc.wantID)
+			}
+		})
 	}
 }
