@@ -13,6 +13,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/Jamf-Concepts/jamf-cli/internal/auth"
 	"github.com/Jamf-Concepts/jamf-cli/internal/config"
 	"github.com/Jamf-Concepts/jamf-cli/internal/progress"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
@@ -1918,28 +1919,113 @@ func TestReverseResolveGroups_ListError(t *testing.T) {
 	}
 }
 
-// TestResolveTenantID pins the single-tenant contract: a profile carries one
-// tenant, JAMF_TENANT_ID overrides it, and there is no second field to fall back
-// to. Jamf Pro and Jamf Security Cloud have separate tenant identifiers, so a
-// customer holding both keeps a profile per tenant — which is also the shape
-// environment IDs will slot into.
-func TestResolveTenantID(t *testing.T) {
-	cfg := &config.Config{
+// TestResolveScope covers all three levels an API integration can be created at.
+// They are mutually exclusive — the credential carries the choice, and the
+// gateway refuses the other level's header with 403 OWNERSHIP_FORBIDDEN — so
+// resolution has to land on exactly one, and organization scope has to resolve
+// to no header rather than to a missing value.
+func TestResolveScope(t *testing.T) {
+	cases := []struct {
+		name       string
+		env        map[string]string
+		profile    config.Profile
+		wantKind   auth.ScopeKind
+		wantID     string
+		wantHeader string
+	}{
+		{
+			name:       "environment from the profile",
+			profile:    config.Profile{AuthMethod: "platform", EnvironmentID: "env-1"},
+			wantKind:   auth.ScopeEnvironment,
+			wantID:     "env-1",
+			wantHeader: "X-Environment-Id",
+		},
+		{
+			name:       "tenant from the profile",
+			profile:    config.Profile{AuthMethod: "platform", TenantID: "ten-1"},
+			wantKind:   auth.ScopeTenant,
+			wantID:     "ten-1",
+			wantHeader: "X-Tenant-Id",
+		},
+		{
+			name:     "organization when the profile names neither",
+			profile:  config.Profile{AuthMethod: "platform"},
+			wantKind: auth.ScopeOrganization,
+		},
+		{
+			name:       "JAMF_ENVIRONMENT_ID overrides the profile",
+			env:        map[string]string{"JAMF_ENVIRONMENT_ID": "env-env"},
+			profile:    config.Profile{AuthMethod: "platform", TenantID: "ten-1"},
+			wantKind:   auth.ScopeEnvironment,
+			wantID:     "env-env",
+			wantHeader: "X-Environment-Id",
+		},
+		{
+			name:       "JAMF_TENANT_ID overrides the profile",
+			env:        map[string]string{"JAMF_TENANT_ID": "ten-env"},
+			profile:    config.Profile{AuthMethod: "platform", EnvironmentID: "env-1"},
+			wantKind:   auth.ScopeTenant,
+			wantID:     "ten-env",
+			wantHeader: "X-Tenant-Id",
+		},
+		{
+			name:       "environment wins over tenant in one profile",
+			profile:    config.Profile{AuthMethod: "platform", EnvironmentID: "env-1", TenantID: "ten-1"},
+			wantKind:   auth.ScopeEnvironment,
+			wantID:     "env-1",
+			wantHeader: "X-Environment-Id",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Setenv("JAMF_ENVIRONMENT_ID", tc.env["JAMF_ENVIRONMENT_ID"])
+			t.Setenv("JAMF_TENANT_ID", tc.env["JAMF_TENANT_ID"])
+			cfg := &config.Config{
+				DefaultProfile: "p",
+				Profiles:       map[string]config.Profile{"p": tc.profile},
+			}
+
+			got := resolveScope(cfg, "p")
+			if got.Kind != tc.wantKind || got.ID != tc.wantID {
+				t.Errorf("resolveScope = {%v %q}, want {%v %q}", got.Kind, got.ID, tc.wantKind, tc.wantID)
+			}
+			name, value := got.Header()
+			if name != tc.wantHeader || value != tc.wantID {
+				t.Errorf("Header() = (%q, %q), want (%q, %q)", name, value, tc.wantHeader, tc.wantID)
+			}
+		})
+	}
+}
+
+// TestCheckScopeConflict pins the one combination that has to be refused rather
+// than resolved: a profile naming both levels. Precedence would hide it, and the
+// symptom is a 403 from whichever half the credential does not match.
+func TestCheckScopeConflict(t *testing.T) {
+	both := &config.Config{
 		DefaultProfile: "p",
-		Profiles:       map[string]config.Profile{"p": {AuthMethod: "platform", TenantID: "from-profile"}},
+		Profiles: map[string]config.Profile{
+			"p": {AuthMethod: "platform", EnvironmentID: "env-1", TenantID: "ten-1"},
+		},
+	}
+	err := checkScopeConflict(both, "p")
+	if err == nil {
+		t.Fatal("a profile naming both levels must be refused")
+	}
+	for _, want := range []string{"env-1", "ten-1", "one level"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("error does not mention %q: %v", want, err)
+		}
 	}
 
-	t.Setenv("JAMF_TENANT_ID", "")
-	if got := resolveTenantID(cfg, "p"); got != "from-profile" {
-		t.Errorf("resolveTenantID = %q, want the profile's tenant", got)
-	}
-
-	t.Setenv("JAMF_TENANT_ID", "from-env")
-	if got := resolveTenantID(cfg, "p"); got != "from-env" {
-		t.Errorf("resolveTenantID = %q, want JAMF_TENANT_ID to win", got)
-	}
-
-	if got := resolveTenantID(nil, "p"); got != "from-env" {
-		t.Errorf("resolveTenantID with no config = %q, want the env var alone to answer", got)
+	for _, p := range []config.Profile{
+		{AuthMethod: "platform", EnvironmentID: "env-1"},
+		{AuthMethod: "platform", TenantID: "ten-1"},
+		{AuthMethod: "platform"},
+	} {
+		cfg := &config.Config{DefaultProfile: "p", Profiles: map[string]config.Profile{"p": p}}
+		if err := checkScopeConflict(cfg, "p"); err != nil {
+			t.Errorf("unexpected conflict for %+v: %v", p, err)
+		}
 	}
 }

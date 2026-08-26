@@ -16,8 +16,10 @@ import (
 
 	"gopkg.in/yaml.v3"
 
+	"github.com/Jamf-Concepts/jamf-cli/internal/auth"
 	jamfclient "github.com/Jamf-Concepts/jamf-cli/internal/client"
 	"github.com/Jamf-Concepts/jamf-cli/internal/config"
+	"github.com/Jamf-Concepts/jamf-cli/internal/exitcode"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform"
 )
@@ -153,10 +155,22 @@ func requirePlatformClient(cliCtx *registry.CLIContext) error {
 // command code (both hand-written and spec-generated). The SDK transport
 // handles auth, retry, and tenant injection; hand-written commands construct
 // SDK subpackage clients per call (cheap — they share this transport).
-func newPlatformSDKClient(url, clientID, clientSecret, tenantID string, showSpinner bool) *jamfplatform.Client {
+func newPlatformSDKClient(url, clientID, clientSecret string, scope auth.Scope, showSpinner bool) *jamfplatform.Client {
 	opts := []jamfplatform.Option{
-		jamfplatform.WithTenantID(tenantID),
 		jamfplatform.WithUserAgent("jamf-cli/" + cliVersion),
+	}
+	// Exactly one scope option, or none: the SDK treats both-set as a mistake
+	// and lets environment win, and an organization-scoped credential wants
+	// neither — the gateway reads its scope from the access token.
+	switch scope.Kind {
+	case auth.ScopeEnvironment:
+		if scope.ID != "" {
+			opts = append(opts, jamfplatform.WithEnvironmentID(scope.ID))
+		}
+	case auth.ScopeTenant:
+		if scope.ID != "" {
+			opts = append(opts, jamfplatform.WithTenantID(scope.ID))
+		}
 	}
 
 	if cacheDir, _ := os.UserCacheDir(); cacheDir != "" {
@@ -213,28 +227,86 @@ func printScaffold(v any) error {
 	}
 }
 
-// resolveTenantID returns the gateway tenant for the active profile.
+// resolveScope returns the level the active profile's integration is scoped to,
+// and the identifier naming it.
 //
-// A profile carries one tenant. The scope travels as a per-client X-Tenant-Id
-// header, so one client serves one tenant, and a customer holding both Jamf Pro
-// and Jamf Security Cloud — separate products with separate tenant identifiers —
-// makes a profile each. No command reaches across two namespaces, so nothing
-// wants a second tenant in the same profile. Environment IDs will span product
-// namespaces when they land, and this is the field they replace.
-func resolveTenantID(cfg *config.Config, profileName string) string {
+// The three levels are mutually exclusive — an integration is created at one of
+// them in Jamf Account, and the credential carries that choice — so this
+// resolves to exactly one. Environment is the level to prefer; tenant is what
+// Jamf Account calls the legacy method for integrations without a platform
+// environment; organization-scoped credentials name neither, and the gateway
+// resolves them from the access token.
+//
+// Env vars win over the profile so CI can retarget one profile, and environment
+// wins over tenant when both are somehow present, matching the SDK's own
+// precedence. A profile carrying both is rejected earlier, by
+// checkScopeConflict, since the pair is a configuration mistake rather than a
+// combination worth resolving silently.
+func resolveScope(cfg *config.Config, profileName string) auth.Scope {
+	if id := os.Getenv("JAMF_ENVIRONMENT_ID"); id != "" {
+		return auth.EnvironmentScope(id)
+	}
 	if id := os.Getenv("JAMF_TENANT_ID"); id != "" {
-		return id
+		return auth.TenantScope(id)
 	}
 	if cfg == nil {
-		return ""
+		return auth.Scope{}
 	}
 	// GetProfile resolves an empty name to the default profile, which the
 	// caller may not have expanded yet.
 	p, _, err := config.GetProfile(cfg, profileName)
 	if err != nil {
-		return ""
+		return auth.Scope{}
 	}
-	return p.TenantID
+	if p.EnvironmentID != "" {
+		return auth.EnvironmentScope(p.EnvironmentID)
+	}
+	return auth.TenantScope(p.TenantID)
+}
+
+// checkScopeConflict rejects a profile that names two levels at once.
+//
+// A credential is minted against one level, and the gateway refuses the other
+// level's header with 403 OWNERSHIP_FORBIDDEN even when both IDs belong to the
+// same customer. So there is no reading of "environment-id and tenant-id" that
+// works: one of them is guaranteed to be wrong for this credential, and picking
+// by precedence would report that as a permission error from whichever half
+// lost.
+func checkScopeConflict(cfg *config.Config, profileName string) error {
+	// Env vars first: they override the profile, so a pair exported into the
+	// environment is the same mistake one level up. Checking only the profile
+	// let `JAMF_TENANT_ID=… JAMF_ENVIRONMENT_ID=… jamf-cli security …` through
+	// to a request built from whichever won.
+	envTenant, envEnvironment := os.Getenv("JAMF_TENANT_ID"), os.Getenv("JAMF_ENVIRONMENT_ID")
+	if envTenant != "" && envEnvironment != "" {
+		return exitcode.New(exitcode.Usage, fmt.Sprintf(
+			"JAMF_ENVIRONMENT_ID (%s) and JAMF_TENANT_ID (%s) are both set\n\n"+
+				"An API integration is created at one level — organization, platform environment, or\n"+
+				"tenant — and its credential only works with that level's header. Unset whichever one\n"+
+				"this credential was not created for.",
+			envEnvironment, envTenant))
+	}
+	// An env var that names one level settles it, whatever the profile says.
+	if envTenant != "" || envEnvironment != "" {
+		return nil
+	}
+	if cfg == nil {
+		return nil
+	}
+	p, resolved, err := config.GetProfile(cfg, profileName)
+	if err != nil || p == nil {
+		return nil
+	}
+	if p.EnvironmentID == "" || p.TenantID == "" {
+		return nil
+	}
+	return exitcode.New(exitcode.Usage, fmt.Sprintf(
+		"profile %q sets both environment-id (%s) and tenant-id (%s)\n\n"+
+			"An API integration is created at one level — organization, platform environment, or\n"+
+			"tenant — and its credential only works with that level's header. Keep the one this\n"+
+			"integration was created for and remove the other, or run 'jamf-cli platform setup'\n"+
+			"again for %q.",
+		resolved, p.EnvironmentID, p.TenantID, resolved))
 }
 
 // securityPlatformSDKClient builds the Platform SDK client that serves the
@@ -252,7 +324,6 @@ func securityPlatformSDKClient(cfg *config.Config, profileName string) *jamfplat
 	}
 	clientID := os.Getenv("JAMF_CLIENT_ID")
 	clientSecret := os.Getenv("JAMF_CLIENT_SECRET")
-	tenantID := os.Getenv("JAMF_TENANT_ID")
 
 	if p, _, err := config.GetProfile(cfg, profileName); err == nil {
 		if url == "" {
@@ -274,16 +345,12 @@ func securityPlatformSDKClient(cfg *config.Config, profileName string) *jamfplat
 				clientID, clientSecret = id, secret
 			}
 		}
-		if tenantID == "" {
-			tenantID = p.TenantID
-		}
 	}
 
-	if tenantID == "" {
-		tenantID = resolveTenantID(cfg, profileName)
-	}
-	if url == "" || clientID == "" || clientSecret == "" || tenantID == "" {
+	if url == "" || clientID == "" || clientSecret == "" {
 		return nil
 	}
-	return newPlatformSDKClient(url, clientID, clientSecret, tenantID, shouldShowSpinner())
+	// A scope is not required: an organization-scoped integration carries its
+	// scope in the token. What is required is credentials.
+	return newPlatformSDKClient(url, clientID, clientSecret, resolveScope(cfg, profileName), shouldShowSpinner())
 }

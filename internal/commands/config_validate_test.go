@@ -347,23 +347,49 @@ profiles:
 // bogus one. Demanding tenant-id here would make `platform setup` a dead end
 // for anyone who only has Security Cloud, forcing them to invent a value they
 // never use.
-// TestConfigValidate_PlatformNeedsATenant covers the one tenant a platform
-// profile has to carry: without it the scope header is unset and the gateway
-// answers 400 REQUEST_CONTEXT_NOT_PROVIDED for every request.
-func TestConfigValidate_PlatformNeedsATenant(t *testing.T) {
-	t.Setenv("TEST_NOTENANT_CLIENT_ID", "my-client")
-	t.Setenv("TEST_NOTENANT_CLIENT_SECRET", "my-secret")
-	yaml := `
-default-profile: notenant
+// TestConfigValidate_PlatformScopeLevels covers the three levels an integration
+// can be created at. A platform profile naming neither ID is organization-scoped
+// and valid — the gateway resolves it from the access token — so the only fault
+// is naming both, where the credential can only match one.
+func TestConfigValidate_PlatformScopeLevels(t *testing.T) {
+	cases := []struct {
+		name     string
+		scope    string
+		wantFail bool
+		wantText string
+	}{
+		{name: "environment", scope: "    environment-id: env-1", wantText: "environment-id"},
+		{name: "tenant", scope: "    tenant-id: ten-1", wantText: "tenant-id"},
+		{name: "organization", scope: "", wantText: "organization-scoped"},
+		{
+			name:     "both levels",
+			scope:    "    environment-id: env-1\n    tenant-id: ten-1",
+			wantFail: true,
+			wantText: "one level",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Setenv("TEST_SCOPE_CLIENT_ID", "my-client")
+			t.Setenv("TEST_SCOPE_CLIENT_SECRET", "my-secret")
+			yaml := `
+default-profile: scoped
 profiles:
-  notenant:
+  scoped:
     url: https://eu.apigw.jamf.com
     auth-method: platform
-    client-id: "env:TEST_NOTENANT_CLIENT_ID"
-    client-secret: "env:TEST_NOTENANT_CLIENT_SECRET"
-`
-	out, _ := runValidateCmd(t, yaml)
-	if !strings.Contains(out, "tenant-id") || !strings.Contains(out, `"fail"`) {
-		t.Errorf("a platform profile with no tenant should fail, got:\n%s", out)
+    client-id: "env:TEST_SCOPE_CLIENT_ID"
+    client-secret: "env:TEST_SCOPE_CLIENT_SECRET"
+` + tc.scope + "\n"
+
+			out, _ := runValidateCmd(t, yaml)
+			if got := strings.Contains(out, `"fail"`); got != tc.wantFail {
+				t.Errorf("fail=%v, want %v; output:\n%s", got, tc.wantFail, out)
+			}
+			if !strings.Contains(out, tc.wantText) {
+				t.Errorf("output missing %q:\n%s", tc.wantText, out)
+			}
+		})
 	}
 }

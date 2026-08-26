@@ -45,11 +45,20 @@ func newPlatformSetupCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "setup",
 		Short: "Configure a Jamf Platform Gateway profile",
-		Long: `Guided setup for platform gateway authentication. Prompts for region,
-API client credentials, tenant ID, and optionally a Jamf Security Cloud tenant
-ID, validates them against the gateway, and saves the profile. This profile
-enables the Pro API, the Platform API, and — with a Security Cloud tenant — the
-gateway-served Jamf Security Cloud commands.
+		Long: `Guided setup for platform gateway authentication. Prompts for region, API client
+credentials, and the scope the integration was created at, validates them against
+the gateway, and saves the profile.
+
+An API integration is created at one of three levels in Jamf Account, and its
+credential only works with that level:
+
+  organization           SSO, AI Governance — supply neither ID
+  platform environment   a group of tenants across product types (preferred)
+  tenant                 a single Jamf Pro, School, Protect or Security Cloud
+                         tenant (legacy)
+
+Environment and tenant are mutually exclusive; a customer holding several tenants
+without a platform environment makes a profile per tenant.
 
 Create API client credentials in the Jamf Account portal
 (account.jamf.com) before running this command.`,
@@ -96,11 +105,12 @@ Create API client credentials in the Jamf Account portal
 			}
 
 			cfg.Profiles[setupProfile] = config.Profile{
-				URL:          creds.GatewayURL,
-				AuthMethod:   "platform",
-				TenantID:     creds.TenantID,
-				ClientID:     clientIDRef,
-				ClientSecret: clientSecretRef,
+				URL:           creds.GatewayURL,
+				AuthMethod:    "platform",
+				TenantID:      creds.TenantID,
+				EnvironmentID: creds.EnvironmentID,
+				ClientID:      clientIDRef,
+				ClientSecret:  clientSecretRef,
 			}
 			cfg.DefaultProfile = setupProfile
 
@@ -110,7 +120,14 @@ Create API client credentials in the Jamf Account portal
 
 			_, _ = fmt.Fprintf(w, "\nProfile %q saved and set as default.\n", setupProfile)
 			_, _ = fmt.Fprintf(w, "  Gateway:     %s\n", creds.GatewayURL)
-			_, _ = fmt.Fprintf(w, "  Tenant ID:   %s\n", creds.TenantID)
+			switch {
+			case creds.EnvironmentID != "":
+				_, _ = fmt.Fprintf(w, "  Scope:       platform environment %s\n", creds.EnvironmentID)
+			case creds.TenantID != "":
+				_, _ = fmt.Fprintf(w, "  Scope:       tenant %s\n", creds.TenantID)
+			default:
+				_, _ = fmt.Fprintln(w, "  Scope:       organization (resolved from the credential)")
+			}
 			_, _ = fmt.Fprintf(w, "  Client ID:   %s\n", creds.ClientID)
 			_, _ = fmt.Fprintln(w, "  Secrets stored in system keychain")
 			_, _ = fmt.Fprintln(w)
@@ -118,13 +135,19 @@ Create API client credentials in the Jamf Account portal
 			// answered rather than from which prompt was filled in: one tenant
 			// belongs to one product, and claiming a surface it cannot reach
 			// sends someone chasing a 403 that is really a missing entitlement.
-			if securityCloud {
-				_, _ = fmt.Fprintln(w, "This tenant serves the gateway-served Jamf Security Cloud commands")
+			switch {
+			case securityCloud:
+				_, _ = fmt.Fprintln(w, "This scope serves the gateway-served Jamf Security Cloud commands")
 				_, _ = fmt.Fprintln(w, "(dns-*, ztna-*, content-categories, device-groups, uem-*).")
-			} else {
-				_, _ = fmt.Fprintln(w, "This tenant serves the Pro API and Platform API commands.")
-				_, _ = fmt.Fprintln(w, "For Jamf Security Cloud, set up a second profile with its own tenant ID:")
-				_, _ = fmt.Fprintln(w, "  jamf-cli platform setup --profile-name jsc")
+			case creds.EnvironmentID == "" && creds.TenantID == "":
+				// Organization scope reaches SSO and AI Governance, neither of
+				// which this CLI has commands for yet. Saying so beats implying
+				// the profile drives Pro or Security Cloud.
+				_, _ = fmt.Fprintln(w, "This is an organization-scoped credential. It covers organization resources")
+				_, _ = fmt.Fprintln(w, "(SSO, AI Governance) — no jamf-cli command targets those yet, so set up a")
+				_, _ = fmt.Fprintln(w, "profile with an environment or tenant ID to drive Pro, Platform or Security Cloud.")
+			default:
+				_, _ = fmt.Fprintln(w, "This scope serves the Pro API and Platform API commands.")
 			}
 
 			return nil

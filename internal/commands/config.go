@@ -18,6 +18,7 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/config"
+	"github.com/Jamf-Concepts/jamf-cli/internal/exitcode"
 	"github.com/Jamf-Concepts/jamf-cli/internal/keychain"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 )
@@ -43,16 +44,20 @@ func newConfigCmd(cliCtx *registry.CLIContext) *cobra.Command {
 // Fields use JSON tags so the output formatter renders stable column names
 // across table/json/yaml/csv.
 type configProfileRow struct {
-	Name         string `json:"name"`
-	URL          string `json:"url"`
-	AuthMethod   string `json:"auth-method"`
-	TenantID     string `json:"tenant-id,omitempty"`
-	Default      bool   `json:"default,omitempty"`
-	Token        string `json:"token,omitempty"`
-	ClientID     string `json:"client-id,omitempty"`
-	ClientSecret string `json:"client-secret,omitempty"`
-	Status       string `json:"status,omitempty"`
-	Healthy      *bool  `json:"healthy,omitempty"`
+	Name       string `json:"name"`
+	URL        string `json:"url"`
+	AuthMethod string `json:"auth-method"`
+	TenantID   string `json:"tenant-id,omitempty"`
+	// EnvironmentID appears alongside TenantID rather than replacing it: which
+	// level a profile is scoped to decides which commands can work, so listing
+	// profiles has to show it.
+	EnvironmentID string `json:"environment-id,omitempty"`
+	Default       bool   `json:"default,omitempty"`
+	Token         string `json:"token,omitempty"`
+	ClientID      string `json:"client-id,omitempty"`
+	ClientSecret  string `json:"client-secret,omitempty"`
+	Status        string `json:"status,omitempty"`
+	Healthy       *bool  `json:"healthy,omitempty"`
 }
 
 // activeProfileName returns the profile currently in effect: flag > env > default.
@@ -83,14 +88,15 @@ func newConfigShowCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			for _, name := range names {
 				p := cfg.Profiles[name]
 				profiles = append(profiles, configProfileRow{
-					Name:         name,
-					URL:          p.URL,
-					AuthMethod:   p.AuthMethod,
-					TenantID:     p.TenantID,
-					Default:      name == active,
-					Token:        p.Token,
-					ClientID:     p.ClientID,
-					ClientSecret: p.ClientSecret,
+					Name:          name,
+					URL:           p.URL,
+					AuthMethod:    p.AuthMethod,
+					TenantID:      p.TenantID,
+					EnvironmentID: p.EnvironmentID,
+					Default:       name == active,
+					Token:         p.Token,
+					ClientID:      p.ClientID,
+					ClientSecret:  p.ClientSecret,
 				})
 			}
 
@@ -198,11 +204,12 @@ func newConfigListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			for _, name := range names {
 				p := cfg.Profiles[name]
 				row := configProfileRow{
-					Name:       name,
-					URL:        p.URL,
-					AuthMethod: p.AuthMethod,
-					TenantID:   p.TenantID,
-					Default:    name == active,
+					Name:          name,
+					URL:           p.URL,
+					AuthMethod:    p.AuthMethod,
+					TenantID:      p.TenantID,
+					EnvironmentID: p.EnvironmentID,
+					Default:       name == active,
 				}
 				if status {
 					r := results[name]
@@ -234,6 +241,9 @@ func newConfigAddProfileCmd() *cobra.Command {
 		profileClientID  string
 		profileClientSec string
 		profileTenantID  string
+		// profileEnvironmentID is the level to prefer; mutually exclusive with
+		// profileTenantID.
+		profileEnvironmentID string
 	)
 
 	cmd := &cobra.Command{
@@ -291,16 +301,18 @@ func newConfigAddProfileCmd() *cobra.Command {
 			// platform requires a tenant, but either one will do: Security Cloud
 			// paths carry their own tenant and do not need the Jamf Pro one, so a
 			// profile scoped to Security Cloud alone is complete without it.
-			if authMethod == "platform" && profileTenantID == "" {
-				_, _ = fmt.Fprint(w, "Tenant ID: ")
-				line, err := reader.ReadString('\n')
-				if err != nil {
-					return fmt.Errorf("reading tenant ID: %w", err)
-				}
-				profileTenantID = strings.TrimSpace(line)
-				if profileTenantID == "" {
-					return fmt.Errorf("tenant ID is required")
-				}
+			if profileTenantID != "" && profileEnvironmentID != "" {
+				return exitcode.New(exitcode.Usage,
+					"--environment-id and --tenant-id are mutually exclusive: an API integration is created at one level (organization, platform environment, or tenant) and its credential only works with that level's header")
+			}
+			// Platform auth no longer requires an ID: an organization-scoped
+			// integration names none, and the gateway resolves it from the
+			// access token. Say so rather than prompting, because a profile
+			// created without an ID is a valid thing that reaches a much
+			// smaller surface — better stated at creation than discovered as a
+			// 400 on the first product command.
+			if authMethod == "platform" && profileTenantID == "" && profileEnvironmentID == "" {
+				_, _ = fmt.Fprintln(w, "No --environment-id or --tenant-id: saving as an organization-scoped profile.")
 			}
 
 			// token auth requires a bearer token
@@ -323,9 +335,10 @@ func newConfigAddProfileCmd() *cobra.Command {
 			}
 
 			p := config.Profile{
-				URL:        normalizedURL,
-				AuthMethod: authMethod,
-				TenantID:   profileTenantID,
+				URL:           normalizedURL,
+				AuthMethod:    authMethod,
+				TenantID:      profileTenantID,
+				EnvironmentID: profileEnvironmentID,
 			}
 
 			// Store secrets: values with env: or file: prefix are written
@@ -362,7 +375,8 @@ func newConfigAddProfileCmd() *cobra.Command {
 
 	cmd.Flags().StringVar(&profileURL, "url", "", "Jamf Pro server URL (instance URL or platform gateway URL)")
 	cmd.Flags().StringVar(&authMethod, "auth-method", "token", "authentication method: token, oauth2, platform")
-	cmd.Flags().StringVar(&profileTenantID, "tenant-id", "", "Jamf Pro tenant ID (required for platform auth)")
+	cmd.Flags().StringVar(&profileTenantID, "tenant-id", "", "tenant ID for platform auth (legacy level; mutually exclusive with --environment-id)")
+	cmd.Flags().StringVar(&profileEnvironmentID, "environment-id", "", "platform environment ID for platform auth (preferred level; mutually exclusive with --tenant-id)")
 	_ = cmd.MarkFlagRequired("url")
 
 	return cmd
@@ -579,12 +593,19 @@ func newConfigValidateCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				case "platform":
 					checkSecretField(&checks, name, "client-id", p.ClientID)
 					checkSecretField(&checks, name, "client-secret", p.ClientSecret)
-					// One tenant per profile, and platform auth cannot work
-					// without it.
-					if p.TenantID != "" {
+					// One level per profile: environment or tenant, or neither
+					// for an organization-scoped integration. Both is the only
+					// fault — the credential works with one level's header, so
+					// the other is guaranteed wrong.
+					switch {
+					case p.EnvironmentID != "" && p.TenantID != "":
+						fail(name, "environment-id", "also sets tenant-id; an integration is created at one level, so keep only the one it was created for")
+					case p.EnvironmentID != "":
+						pass(name, "environment-id")
+					case p.TenantID != "":
 						pass(name, "tenant-id")
-					} else {
-						fail(name, "tenant-id", "missing")
+					default:
+						pass(name, "organization-scoped (no environment-id or tenant-id)")
 					}
 				case "oauth2":
 					checkSecretField(&checks, name, "client-id", p.ClientID)

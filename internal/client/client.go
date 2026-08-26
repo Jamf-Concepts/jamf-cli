@@ -26,8 +26,14 @@ type Client struct {
 	baseURL      string
 	httpClient   *http.Client
 	auth         auth.Provider
-	verboseLevel int    // 1 = request/response lines, 2 = +headers
-	tenantID     string // non-empty when using platform gateway auth
+	verboseLevel int // 1 = request/response lines, 2 = +headers
+	// gateway is set when requests route through the Jamf Platform Gateway:
+	// paths are mapped into their gateway namespace and the scope travels as a
+	// header. It is separate from scope because an organization-scoped
+	// credential is gateway auth with no header at all, so the presence of an
+	// ID cannot stand in for "this is the gateway".
+	gateway bool
+	scope   auth.Scope
 }
 
 // Option configures the client
@@ -40,12 +46,15 @@ func WithVerbose(level int) Option {
 	}
 }
 
-// WithTenantID enables platform gateway mode: paths are rewritten into their
+// WithGatewayScope enables platform gateway mode: paths are rewritten into their
 // gateway namespace (/api/v1/x -> /api/pro/v1/x, /JSSResource/x ->
-// /api/proclassic/x) and the tenant travels as an X-Tenant-Id request header.
-func WithTenantID(id string) Option {
+// /api/proclassic/x) and the scope travels as a request header —
+// X-Environment-Id or X-Tenant-Id, or nothing for an organization-scoped
+// credential, which the gateway resolves from the access token.
+func WithGatewayScope(scope auth.Scope) Option {
 	return func(c *Client) {
-		c.tenantID = id
+		c.gateway = true
+		c.scope = scope
 	}
 }
 
@@ -87,7 +96,7 @@ func (c *Client) Do(ctx context.Context, method, path string, body io.Reader) (*
 	// tenant is sent as a header, not a path segment — see setTenantHeader.
 	//   /JSSResource/* → /api/proclassic/*
 	//   /api/v*        → /api/pro/v*
-	if c.tenantID != "" {
+	if c.gateway {
 		path = rewritePathForGateway(path)
 	}
 
@@ -113,7 +122,7 @@ func (c *Client) Do(ctx context.Context, method, path string, body io.Reader) (*
 
 	req.Header.Set("Authorization", "Bearer "+token)
 	req.Header.Set("User-Agent", "jamf-cli/1.0 (+https://github.com/Jamf-Concepts/jamf-cli)")
-	c.setTenantHeader(req)
+	c.setScopeHeader(req)
 
 	// Classic API endpoints use XML; modern API uses JSON.
 	// An explicit Accept override in the context takes precedence (used by binary download commands).
@@ -190,7 +199,7 @@ func (c *Client) Upload(ctx context.Context, path string, body io.Reader, conten
 	if !strings.HasPrefix(path, "/api") && !strings.HasPrefix(path, "/JSSResource") {
 		path = "/api" + path
 	}
-	if c.tenantID != "" {
+	if c.gateway {
 		path = rewritePathForGateway(path)
 	}
 
@@ -219,7 +228,7 @@ func (c *Client) Upload(ctx context.Context, path string, body io.Reader, conten
 
 		req.Header.Set("Authorization", "Bearer "+token)
 		req.Header.Set("User-Agent", "jamf-cli/1.0 (+https://github.com/Jamf-Concepts/jamf-cli)")
-		c.setTenantHeader(req)
+		c.setScopeHeader(req)
 		req.Header.Set("Content-Type", contentType)
 		req.Header.Set("Accept", "application/json")
 		req.ContentLength = contentLength
@@ -487,10 +496,15 @@ func rewritePathForGateway(path string) string {
 	return path
 }
 
-// setTenantHeader stamps the gateway scope header on a request. Only in gateway
-// mode: a direct-to-instance request has no tenant and must not carry one.
-func (c *Client) setTenantHeader(req *http.Request) {
-	if c.tenantID != "" {
-		req.Header.Set("X-Tenant-Id", c.tenantID)
+// setScopeHeader stamps the gateway scope header on a request. Only in gateway
+// mode, and only when there is one to send: a direct-to-instance request is not
+// scoped at all, and an organization-scoped gateway credential carries its scope
+// in the token rather than a header.
+func (c *Client) setScopeHeader(req *http.Request) {
+	if !c.gateway {
+		return
+	}
+	if name, value := c.scope.Header(); name != "" {
+		req.Header.Set(name, value)
 	}
 }

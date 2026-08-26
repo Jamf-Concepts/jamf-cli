@@ -421,7 +421,7 @@ func loadSnapshotFromProfile(ctx context.Context, profileName string, nameFilter
 			return false
 		}
 
-		sdk := newPlatformSDKClient(resolvedURL, p.ClientID(), p.ClientSecret(), p.TenantID(),
+		sdk := newPlatformSDKClient(resolvedURL, p.ClientID(), p.ClientSecret(), p.Scope(),
 			!quiet && verboseLevel == 0)
 
 		if wantPlatform("blueprints") {

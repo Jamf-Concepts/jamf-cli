@@ -57,7 +57,7 @@ func newPlatformOAuth2TestServer(t *testing.T, token string, expiresIn int) *aut
 		})
 	}))
 	t.Cleanup(srv.Close)
-	return auth.NewPlatformOAuth2Provider(srv.URL, "test-client-id", "test-secret", "tenant-uuid")
+	return auth.NewPlatformOAuth2Provider(srv.URL, "test-client-id", "test-secret", auth.TenantScope("tenant-uuid"))
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -374,7 +374,7 @@ func TestPlatformAuthToken_Refresh_ForcesNewExchange(t *testing.T) {
 		})
 	}))
 	t.Cleanup(srv.Close)
-	p := auth.NewPlatformOAuth2Provider(srv.URL, "test-client-id", "test-secret", "tenant-uuid")
+	p := auth.NewPlatformOAuth2Provider(srv.URL, "test-client-id", "test-secret", auth.TenantScope("tenant-uuid"))
 
 	// Prime the in-memory cache.
 	if _, err := p.GetToken(context.Background()); err != nil {

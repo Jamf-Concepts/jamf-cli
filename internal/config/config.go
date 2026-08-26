@@ -34,10 +34,18 @@ type Profile struct {
 	Token        string `yaml:"token,omitempty"`
 	ClientID     string `yaml:"client-id,omitempty"`
 	ClientSecret string `yaml:"client-secret,omitempty"`
-	TenantID     string `yaml:"tenant-id,omitempty"`    // platform auth
-	PlatformURL  string `yaml:"platform-url,omitempty"` // school: separate gateway URL for Platform API
-	NetworkID    string `yaml:"network-id,omitempty"`   // school only
-	APIKey       string `yaml:"api-key,omitempty"`      // school only
+	TenantID     string `yaml:"tenant-id,omitempty"` // platform auth
+	// EnvironmentID scopes a platform profile to a platform environment — a
+	// group of tenants across product types, and the level to prefer for new
+	// integrations. Mutually exclusive with TenantID: an integration is created
+	// at one level in Jamf Account and its credential carries that choice, so
+	// sending the other level's header is refused with 403 OWNERSHIP_FORBIDDEN
+	// even within one customer. Both empty is an organization-scoped
+	// integration, which sends no scope header at all.
+	EnvironmentID string `yaml:"environment-id,omitempty"` // platform auth
+	PlatformURL   string `yaml:"platform-url,omitempty"`   // school: separate gateway URL for Platform API
+	NetworkID     string `yaml:"network-id,omitempty"`     // school only
+	APIKey        string `yaml:"api-key,omitempty"`        // school only
 	// Security (Jamf Security Cloud) only: each of the Risk, Device Lifecycle,
 	// and Shared Signals & Events APIs is provisioned as its own "Security
 	// Integration" with its own application ID/secret, so — unlike every other

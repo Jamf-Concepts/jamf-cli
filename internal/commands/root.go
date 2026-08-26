@@ -43,6 +43,7 @@ var (
 	verboseLevel        int
 	noInput             bool
 	noColor             bool
+	environmentID       string
 	dryRun              bool
 	wide                bool
 	compact             bool
@@ -353,7 +354,11 @@ type AuthParams struct {
 	TokenStdin   bool
 	ClientID     string
 	ClientSecret string
-	TenantID     string
+	// TenantID and EnvironmentID are the two scope identifiers a platform
+	// integration can name, and they are mutually exclusive — see the scope
+	// handling in ResolveAuthForProfile. Neither set means organization scope.
+	TenantID      string
+	EnvironmentID string
 }
 
 // ResolveAuthForProfile determines the server URL and auth provider for a
@@ -367,6 +372,7 @@ func ResolveAuthForProfile(cfg *config.Config, params AuthParams) (string, auth.
 	cid := params.ClientID
 	csecret := params.ClientSecret
 	tid := params.TenantID
+	eid := params.EnvironmentID
 	isPlatform := false
 
 	// Config profile: fill remaining gaps.
@@ -398,6 +404,9 @@ func ResolveAuthForProfile(cfg *config.Config, params AuthParams) (string, auth.
 							return "", nil, fmt.Errorf("resolving client-secret from profile: %w", err)
 						}
 						csecret = resolved
+					}
+					if eid == "" && p.EnvironmentID != "" {
+						eid = p.EnvironmentID
 					}
 					if tid == "" && p.TenantID != "" {
 						tid = p.TenantID
@@ -463,15 +472,25 @@ func ResolveAuthForProfile(cfg *config.Config, params AuthParams) (string, auth.
 		return "", nil, exitcode.New(exitcode.Usage, "client ID is required when client secret is provided: set JAMF_CLIENT_ID env var or use a config profile")
 	}
 
-	// Platform gateway auth: requires client credentials + tenant ID
-	if isPlatform || tid != "" {
+	// Platform gateway auth. Client credentials are required; a scope is not.
+	// An integration is created at one of three levels and its credential
+	// carries that choice: organization-scoped credentials name no ID at all
+	// (the gateway reads the scope from the access token), while environment-
+	// and tenant-scoped ones name theirs. Both IDs at once cannot be honoured,
+	// since the credential only works with one level's header.
+	if isPlatform || tid != "" || eid != "" {
 		if cid == "" || csecret == "" {
 			return "", nil, exitcode.New(exitcode.Usage, "client ID and client secret are required for platform gateway auth: set JAMF_CLIENT_ID/JAMF_CLIENT_SECRET env vars or use a config profile")
 		}
-		if tid == "" {
-			return "", nil, exitcode.New(exitcode.Usage, "--tenant-id is required for platform gateway auth")
+		if tid != "" && eid != "" {
+			return "", nil, exitcode.New(exitcode.Usage,
+				"--environment-id and --tenant-id are mutually exclusive: an API integration is created at one level, and its credential only works with that level's header")
 		}
-		return url, auth.NewPlatformOAuth2Provider(url, cid, csecret, tid), nil
+		scope := auth.TenantScope(tid)
+		if eid != "" {
+			scope = auth.EnvironmentScope(eid)
+		}
+		return url, auth.NewPlatformOAuth2Provider(url, cid, csecret, scope), nil
 	}
 
 	// Construct auth provider
@@ -509,6 +528,9 @@ func resolveAuth(cfg *config.Config) (string, auth.Provider, error) {
 	if tenantID == "" {
 		tenantID = os.Getenv("JAMF_TENANT_ID")
 	}
+	if environmentID == "" {
+		environmentID = os.Getenv("JAMF_ENVIRONMENT_ID")
+	}
 
 	// Token from file
 	if token == "" && tokenFile != "" {
@@ -520,13 +542,14 @@ func resolveAuth(cfg *config.Config) (string, auth.Provider, error) {
 	}
 
 	url, provider, err := ResolveAuthForProfile(cfg, AuthParams{
-		Profile:      profile,
-		ServerURL:    serverURL,
-		Token:        token,
-		TokenFile:    tokenFile,
-		ClientID:     clientID,
-		ClientSecret: clientSecret,
-		TenantID:     tenantID,
+		Profile:       profile,
+		ServerURL:     serverURL,
+		Token:         token,
+		TokenFile:     tokenFile,
+		ClientID:      clientID,
+		ClientSecret:  clientSecret,
+		TenantID:      tenantID,
+		EnvironmentID: environmentID,
 	})
 	if err != nil {
 		return "", nil, err
@@ -710,7 +733,7 @@ in the config file. It never runs in CI, when output is piped, or under
 			}
 			clientOpts := []client.Option{client.WithVerbose(verboseLevel)}
 			if p, ok := authProvider.(*auth.PlatformOAuth2Provider); ok {
-				clientOpts = append(clientOpts, client.WithTenantID(p.TenantID()))
+				clientOpts = append(clientOpts, client.WithGatewayScope(p.Scope()))
 			}
 			if jp, ok := authProvider.(jarProvider); ok {
 				clientOpts = append(clientOpts, client.WithCookieJar(jp.Jar()))
@@ -747,8 +770,11 @@ in the config file. It never runs in CI, when output is piped, or under
 			// compliance-benchmarks, etc.). The SDK manages its own OAuth2
 			// token lifecycle independently from the Pro HTTP client.
 			if p, ok := authProvider.(*auth.PlatformOAuth2Provider); ok {
+				if err := checkScopeConflict(cfg, resolvedProfile); err != nil {
+					return err
+				}
 				cliCtx.PlatformSDKClient = newPlatformSDKClient(
-					resolvedURL, p.ClientID(), p.ClientSecret(), p.TenantID(),
+					resolvedURL, p.ClientID(), p.ClientSecret(), p.Scope(),
 					shouldShowSpinner(),
 				)
 			}
@@ -813,7 +839,8 @@ in the config file. It never runs in CI, when output is piped, or under
 	// Connection flags
 	cmd.PersistentFlags().StringVar(&serverURL, "url", "", "Jamf Pro server URL (or JAMF_URL env)")
 	cmd.PersistentFlags().StringVar(&tokenFile, "token-file", "", "path to file containing API token")
-	cmd.PersistentFlags().StringVar(&tenantID, "tenant-id", "", "Jamf Pro tenant ID for platform gateway auth (or JAMF_TENANT_ID env)")
+	cmd.PersistentFlags().StringVar(&tenantID, "tenant-id", "", "tenant ID for platform gateway auth (or JAMF_TENANT_ID env); mutually exclusive with --environment-id")
+	cmd.PersistentFlags().StringVar(&environmentID, "environment-id", "", "platform environment ID for platform gateway auth (or JAMF_ENVIRONMENT_ID env); mutually exclusive with --tenant-id")
 	cmd.PersistentFlags().BoolVar(&noVersionCheck, "no-version-check", false, "skip tenant version compatibility check (also: JAMF_NO_VERSION_CHECK env)")
 	cmd.PersistentFlags().BoolVar(&noUpdateCheck, "no-update-check", false, "skip the daily check for a newer jamf-cli release (also: JAMF_CLI_NO_UPDATE_CHECK env, or update-check: false in config)")
 
@@ -1353,7 +1380,7 @@ func resolveSchoolClient(cfg *config.Config, cliCtx *registry.CLIContext) error 
 		// School reaches the Platform API for blueprints and DDM reports only;
 		// Security Cloud is not part of that surface, so it has no tenant here.
 		cliCtx.PlatformSDKClient = newPlatformSDKClient(
-			platformURL, cid, csecret, tid,
+			platformURL, cid, csecret, auth.TenantScope(tid),
 			shouldShowSpinner(),
 		)
 	}
@@ -1447,6 +1474,9 @@ func resolveSecurityClient(cfg *config.Config, cliCtx *registry.CLIContext) erro
 	// client-credentials plus a Security Cloud tenant ID instead of the scoped
 	// pairs above. A profile may carry either set or both, so this is resolved
 	// independently and neither half is required.
+	if err := checkScopeConflict(cfg, profileName); err != nil {
+		return err
+	}
 	cliCtx.PlatformSDKClient = securityPlatformSDKClient(cfg, profileName)
 
 	if riskID == "" && lifecycleID == "" && sseID == "" && cliCtx.PlatformSDKClient == nil {

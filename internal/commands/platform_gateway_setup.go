@@ -25,13 +25,14 @@ type platformGatewayCredentials struct {
 	GatewayURL   string
 	ClientID     string
 	ClientSecret string
-	// TenantID is the one tenant this profile serves, whichever product it
-	// belongs to. Jamf Pro and Jamf Security Cloud have separate tenant
-	// identifiers, and a customer holding both makes a profile each: the tenant
-	// travels as a per-client X-Tenant-Id header, so one profile cannot carry
-	// two. Environment IDs will span product namespaces when they land, and
-	// this is the field they replace.
-	TenantID string
+	// EnvironmentID and TenantID are the two scope identifiers, and at most one
+	// is set. An API integration is created at one of three levels in Jamf
+	// Account — organization, platform environment, or tenant — and its
+	// credential only works with that level's header, so this is a choice
+	// between integrations rather than between two IDs. Both empty is an
+	// organization-scoped integration, which sends no scope header at all.
+	EnvironmentID string
+	TenantID      string
 }
 
 // promptPlatformGatewayCredentials runs the interactive gateway credential
@@ -85,17 +86,28 @@ func promptPlatformGatewayCredentials(w io.Writer, reader *bufio.Reader) (*platf
 		return nil, fmt.Errorf("client secret is required")
 	}
 
-	// One tenant per profile, whichever product it belongs to. The tenant travels
-	// as a per-client X-Tenant-Id header, so a profile cannot serve two; a
-	// customer holding both Jamf Pro and Security Cloud makes a profile each.
-	// Environment IDs will span product namespaces when they land, and this is
-	// the field they replace.
-	_, _ = fmt.Fprint(w, "Tenant ID (from Jamf Account portal): ")
+	// Scope, in the order Jamf Account presents the levels: environment first
+	// because it is the one to prefer, tenant second as the legacy method for
+	// integrations without a platform environment. Both are skippable — an
+	// organization-scoped integration names neither, and the gateway resolves
+	// its scope from the access token.
+	_, _ = fmt.Fprintln(w)
+	_, _ = fmt.Fprintln(w, "An API integration is created at one level: organization, platform environment,")
+	_, _ = fmt.Fprintln(w, "or tenant. Supply the ID for the level this integration was created at, and")
+	_, _ = fmt.Fprintln(w, "leave both blank for an organization-scoped integration.")
+	_, _ = fmt.Fprint(w, "Platform environment ID (Enter to skip): ")
+	line, _ = reader.ReadString('\n')
+	creds.EnvironmentID = strings.TrimSpace(line)
+
+	_, _ = fmt.Fprint(w, "Tenant ID (Enter to skip): ")
 	line, _ = reader.ReadString('\n')
 	creds.TenantID = strings.TrimSpace(line)
 
-	if creds.TenantID == "" {
-		return nil, fmt.Errorf("a tenant ID is required")
+	// Rejected rather than resolved by precedence: the credential works with one
+	// level's header, so the other is guaranteed wrong and would surface as a
+	// 403 on whichever half lost.
+	if creds.EnvironmentID != "" && creds.TenantID != "" {
+		return nil, fmt.Errorf("supply an environment ID or a tenant ID, not both: an integration is created at one level and its credential only works with that level")
 	}
 
 	return creds, nil
@@ -112,12 +124,17 @@ func validatePlatformGatewayCredentials(ctx context.Context, w io.Writer, creds 
 	_, _ = fmt.Fprint(w, "\nValidating credentials... ")
 
 	opts := []jamfplatform.Option{
-		jamfplatform.WithTenantID(creds.TenantID),
 		// No retries during setup. The default policy backs off for up to
 		// ~90 seconds across three attempts, which for someone sitting at a
 		// prompt reads as a hang; a mistyped secret or an unentitled tenant
 		// should come back immediately and legibly.
 		jamfplatform.WithRetryPolicy(0, 0, 0),
+	}
+	switch {
+	case creds.EnvironmentID != "":
+		opts = append(opts, jamfplatform.WithEnvironmentID(creds.EnvironmentID))
+	case creds.TenantID != "":
+		opts = append(opts, jamfplatform.WithTenantID(creds.TenantID))
 	}
 	pc := jamfplatform.NewClient(creds.GatewayURL, creds.ClientID, creds.ClientSecret, opts...)
 
@@ -132,6 +149,12 @@ func validatePlatformGatewayCredentials(ctx context.Context, w io.Writer, creds 
 	// profile serves, not to pass or fail the profile: the two ways it fails are
 	// indistinguishable from here — a Jamf Pro tenant has no Security Cloud
 	// entitlement, and a mistyped tenant is not this organisation's.
+	// Organization-scoped credentials do not reach product APIs at all, so the
+	// probe would report a failure that says nothing about the profile.
+	if creds.EnvironmentID == "" && creds.TenantID == "" {
+		return false, nil
+	}
+
 	_, _ = fmt.Fprint(w, "Checking Jamf Security Cloud access... ")
 	path := pc.Transport().APIPrefix(securityCloudGatewayNamespace, "v1") + "/categories"
 	var result any

@@ -169,7 +169,7 @@ func TestDo_SetsXMLHeaders_PlatformGatewayClassic(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	c := New(srv.URL, auth.NewTokenProvider("test-token"), WithTenantID("tid"))
+	c := New(srv.URL, auth.NewTokenProvider("test-token"), WithGatewayScope(auth.TenantScope("tid")))
 
 	body := strings.NewReader(`<policy><name>Test</name></policy>`)
 	_, err := c.Do(context.Background(), "POST", "/JSSResource/policies/id/0", body)
@@ -544,7 +544,7 @@ func TestDo_PlatformGateway_ClassicPath(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	c := New(srv.URL, auth.NewTokenProvider("test-token"), WithTenantID("tenant-uuid"))
+	c := New(srv.URL, auth.NewTokenProvider("test-token"), WithGatewayScope(auth.TenantScope("tenant-uuid")))
 	_, err := c.Do(context.Background(), "GET", "/JSSResource/computers", nil)
 	if err != nil {
 		t.Fatalf("Do() error = %v", err)
@@ -565,7 +565,7 @@ func TestDo_PlatformGateway_ModernPath(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	c := New(srv.URL, auth.NewTokenProvider("test-token"), WithTenantID("tenant-uuid"))
+	c := New(srv.URL, auth.NewTokenProvider("test-token"), WithGatewayScope(auth.TenantScope("tenant-uuid")))
 	// Path without /api prefix — should get /api prepended, then rewritten
 	_, err := c.Do(context.Background(), "GET", "/v1/buildings", nil)
 	if err != nil {
@@ -587,7 +587,7 @@ func TestDo_PlatformGateway_ExplicitAPIPrefix(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	c := New(srv.URL, auth.NewTokenProvider("test-token"), WithTenantID("tenant-uuid"))
+	c := New(srv.URL, auth.NewTokenProvider("test-token"), WithGatewayScope(auth.TenantScope("tenant-uuid")))
 	_, err := c.Do(context.Background(), "GET", "/api/v2/users", nil)
 	if err != nil {
 		t.Fatalf("Do() error = %v", err)
@@ -599,15 +599,70 @@ func TestDo_PlatformGateway_ExplicitAPIPrefix(t *testing.T) {
 	}
 }
 
-func TestWithTenantID_SetsField(t *testing.T) {
+func TestWithGatewayScope_SetsScope(t *testing.T) {
 	c := New("https://example.com", auth.NewTokenProvider("tok"))
-	if c.tenantID != "" {
-		t.Error("tenantID should default to empty")
+	if c.gateway {
+		t.Error("gateway mode should default off: a direct-to-instance client must not rewrite paths")
 	}
 
-	c = New("https://example.com", auth.NewTokenProvider("tok"), WithTenantID("my-tenant"))
-	if c.tenantID != "my-tenant" {
-		t.Errorf("tenantID = %q, want %q", c.tenantID, "my-tenant")
+	c = New("https://example.com", auth.NewTokenProvider("tok"), WithGatewayScope(auth.TenantScope("my-tenant")))
+	if !c.gateway {
+		t.Error("gateway mode should be on")
+	}
+	if name, value := c.scope.Header(); name != "X-Tenant-Id" || value != "my-tenant" {
+		t.Errorf("scope header = (%q, %q), want (X-Tenant-Id, my-tenant)", name, value)
+	}
+
+	// Organization scope is gateway mode with no header at all — the gateway
+	// resolves it from the access token — so the absence of an ID must not turn
+	// gateway mode back off.
+	c = New("https://example.com", auth.NewTokenProvider("tok"), WithGatewayScope(auth.Scope{}))
+	if !c.gateway {
+		t.Error("organization scope is still gateway mode")
+	}
+	if name, _ := c.scope.Header(); name != "" {
+		t.Errorf("organization scope sent header %q, want none", name)
+	}
+}
+
+// TestGatewayScopeHeaderPerKind pins which header each level travels in, and
+// that an organization-scoped client sends neither. Crossing them over is a 403
+// OWNERSHIP_FORBIDDEN even within one customer, so sending the wrong one is not
+// a cosmetic error.
+func TestGatewayScopeHeaderPerKind(t *testing.T) {
+	cases := []struct {
+		name       string
+		scope      auth.Scope
+		wantHeader string
+	}{
+		{name: "environment", scope: auth.EnvironmentScope("env-1"), wantHeader: "X-Environment-Id"},
+		{name: "tenant", scope: auth.TenantScope("ten-1"), wantHeader: "X-Tenant-Id"},
+		{name: "organization", scope: auth.Scope{}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			var got http.Header
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				got = r.Header.Clone()
+				w.Header().Set("Content-Type", "application/json")
+				_, _ = w.Write([]byte(`{}`))
+			}))
+			defer srv.Close()
+
+			c := New(srv.URL, auth.NewTokenProvider("tok"), WithGatewayScope(tc.scope))
+			if _, err := c.Do(context.Background(), "GET", "/v1/buildings", nil); err != nil {
+				t.Fatalf("Do: %v", err)
+			}
+			for _, h := range []string{"X-Environment-Id", "X-Tenant-Id"} {
+				want := ""
+				if h == tc.wantHeader {
+					want = tc.scope.ID
+				}
+				if got.Get(h) != want {
+					t.Errorf("%s = %q, want %q", h, got.Get(h), want)
+				}
+			}
+		})
 	}
 }
 
@@ -773,7 +828,7 @@ func TestGatewayTenantTravelsInHeader(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	c := New(srv.URL, auth.NewTokenProvider("test-token"), WithTenantID("abc-123"))
+	c := New(srv.URL, auth.NewTokenProvider("test-token"), WithGatewayScope(auth.TenantScope("abc-123")))
 	if _, err := c.Do(context.Background(), "GET", "/v1/buildings", nil); err != nil {
 		t.Fatalf("Do: %v", err)
 	}
