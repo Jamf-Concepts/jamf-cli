@@ -86,31 +86,37 @@ func promptPlatformGatewayCredentials(w io.Writer, reader *bufio.Reader) (*platf
 		return nil, fmt.Errorf("client secret is required")
 	}
 
-	// Scope, in the order Jamf Account presents the levels: environment first
-	// because it is the one to prefer, tenant second as the legacy method for
-	// integrations without a platform environment. Both are skippable — an
-	// organization-scoped integration names neither, and the gateway resolves
-	// its scope from the access token.
-	_, _ = fmt.Fprintln(w)
-	_, _ = fmt.Fprintln(w, "An API integration is created at one level: organization, platform environment,")
-	_, _ = fmt.Fprintln(w, "or tenant. Supply the ID for the level this integration was created at, and")
-	_, _ = fmt.Fprintln(w, "leave both blank for an organization-scoped integration.")
-	_, _ = fmt.Fprint(w, "Platform environment ID (Enter to skip): ")
-	line, _ = reader.ReadString('\n')
-	creds.EnvironmentID = strings.TrimSpace(line)
-
-	_, _ = fmt.Fprint(w, "Tenant ID (Enter to skip): ")
-	line, _ = reader.ReadString('\n')
-	creds.TenantID = strings.TrimSpace(line)
-
-	// Rejected rather than resolved by precedence: the credential works with one
-	// level's header, so the other is guaranteed wrong and would surface as a
-	// 403 on whichever half lost.
-	if creds.EnvironmentID != "" && creds.TenantID != "" {
-		return nil, fmt.Errorf("supply an environment ID or a tenant ID, not both: an integration is created at one level and its credential only works with that level")
-	}
+	creds.EnvironmentID, creds.TenantID = promptScope(w, reader)
 
 	return creds, nil
+}
+
+// promptScope asks which level this integration was created at, and returns the
+// one identifier that answers it.
+//
+// Environment is asked first because it is the level to prefer, and an answer
+// there ends the questioning: the levels are mutually exclusive, so asking for a
+// tenant next would be offering a combination no credential can use. The tenant
+// prompt is therefore only reached when environment is left blank, and leaving
+// both blank is an organization-scoped integration, whose scope the gateway
+// resolves from the access token.
+//
+// It returns at most one non-empty value, which is what lets the caller skip
+// reconciling a pair it can never legitimately hold.
+func promptScope(w io.Writer, reader *bufio.Reader) (environmentID, tenantID string) {
+	_, _ = fmt.Fprintln(w)
+	_, _ = fmt.Fprintln(w, "An API integration is created at one level: organization, platform environment,")
+	_, _ = fmt.Fprintln(w, "or tenant. Supply the ID for the level this integration was created at.")
+
+	_, _ = fmt.Fprint(w, "Platform environment ID (Enter to skip): ")
+	line, _ := reader.ReadString('\n')
+	if environmentID = strings.TrimSpace(line); environmentID != "" {
+		return environmentID, ""
+	}
+
+	_, _ = fmt.Fprint(w, "Tenant ID (Enter to skip for an organization-scoped integration): ")
+	line, _ = reader.ReadString('\n')
+	return "", strings.TrimSpace(line)
 }
 
 // validatePlatformGatewayCredentials checks the credentials against the gateway.

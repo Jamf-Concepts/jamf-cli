@@ -3,6 +3,7 @@
 package commands
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"fmt"
@@ -141,6 +142,75 @@ func TestValidatePlatformGatewayCredentials_SecurityCloudTenant(t *testing.T) {
 			}
 			if !strings.Contains(out.String(), tc.wantText) {
 				t.Errorf("output missing %q:\n%s", tc.wantText, out.String())
+			}
+		})
+	}
+}
+
+// TestPromptScope pins that an environment answer ends the questioning.
+//
+// The three levels are mutually exclusive — an integration is created at one of
+// them and its credential only works with that level's header — so prompting for
+// a tenant after an environment ID has been given offers a combination that
+// cannot work, and would then have to be rejected. Asking one question fewer is
+// the whole fix.
+func TestPromptScope(t *testing.T) {
+	cases := []struct {
+		name            string
+		input           string
+		wantEnvironment string
+		wantTenant      string
+		wantNoTenantAsk bool
+	}{
+		{
+			name:            "environment answer skips the tenant prompt",
+			input:           "env-123\n",
+			wantEnvironment: "env-123",
+			wantNoTenantAsk: true,
+		},
+		{
+			name:       "blank environment falls through to tenant",
+			input:      "\nten-456\n",
+			wantTenant: "ten-456",
+		},
+		{
+			name:  "both blank is organization scope",
+			input: "\n\n",
+		},
+		{
+			name:            "surrounding whitespace is trimmed",
+			input:           "  env-789  \n",
+			wantEnvironment: "env-789",
+			wantNoTenantAsk: true,
+		},
+		{
+			// A closed stdin must not hang or loop: ReadString returns io.EOF
+			// with an empty line, which reads as "skipped".
+			name:  "eof is treated as skipped",
+			input: "",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			var out bytes.Buffer
+			env, ten := promptScope(&out, bufio.NewReader(strings.NewReader(tc.input)))
+
+			if env != tc.wantEnvironment {
+				t.Errorf("environment = %q, want %q", env, tc.wantEnvironment)
+			}
+			if ten != tc.wantTenant {
+				t.Errorf("tenant = %q, want %q", ten, tc.wantTenant)
+			}
+			if env != "" && ten != "" {
+				t.Errorf("returned both levels (%q, %q); they are mutually exclusive", env, ten)
+			}
+			askedForTenant := strings.Contains(out.String(), "Tenant ID")
+			if tc.wantNoTenantAsk && askedForTenant {
+				t.Errorf("asked for a tenant ID after an environment ID was supplied:\n%s", out.String())
+			}
+			if !tc.wantNoTenantAsk && !askedForTenant {
+				t.Errorf("did not ask for a tenant ID:\n%s", out.String())
 			}
 		})
 	}
