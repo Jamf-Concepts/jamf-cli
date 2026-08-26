@@ -156,24 +156,30 @@ func newClassicComputerExtAttrsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 }
 
 func newClassicComputerExtAttrsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
+	var (
+		fromFile string
+	)
 	cmd := &cobra.Command{
 		Use:   "create",
 		Short: "Create a computer_extension_attribute",
-		Long:  "Create a new computer_extension_attribute. Reads XML body from stdin.",
-		Example: `  # Create a computer_extension_attribute from XML
+		Long:  "Create a new computer_extension_attribute. Reads the XML body from --from-file or stdin.",
+		Example: `  # Create a computer_extension_attribute from an XML file
+  jamf-cli pro classic-computer-ext-attrs create --from-file computer_extension_attribute.xml
+
+  # Create a computer_extension_attribute from XML on stdin
   cat computer_extension_attribute.xml | jamf-cli pro classic-computer-ext-attrs create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
-			var body io.Reader
-			stat, _ := os.Stdin.Stat()
-			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				body = os.Stdin
-			} else {
-				return fmt.Errorf("request body required on stdin (pipe XML input)")
+			bodyBytes, err := readClassicBody(fromFile)
+			if err != nil {
+				return err
+			}
+			if len(bodyBytes) == 0 {
+				return fmt.Errorf("request body required: use --from-file or pipe XML to stdin")
 			}
 
-			resp, err := ctx.Client.Do(reqCtx, "POST", "/JSSResource/computerextensionattributes/id/0", body)
+			resp, err := ctx.Client.Do(reqCtx, "POST", "/JSSResource/computerextensionattributes/id/0", bytes.NewReader(bodyBytes))
 			if err != nil {
 				return err
 			}
@@ -183,29 +189,35 @@ func newClassicComputerExtAttrsCreateCmd(ctx *registry.CLIContext) *cobra.Comman
 
 		},
 	}
+	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to XML input file (or pipe XML to stdin)")
 	return cmd
 }
 
 func newClassicComputerExtAttrsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
+	var fromFile string
 	var flagName string
 
 	cmd := &cobra.Command{
 		Use:   "update [<id>]",
 		Short: "Update a computer_extension_attribute",
-		Long:  "Update an existing computer_extension_attribute by ID. Reads XML body from stdin.",
-		Example: `  # Update a computer_extension_attribute from XML
+		Long:  "Update an existing computer_extension_attribute by ID. Reads the XML body from --from-file or stdin.",
+		Example: `  # Update a computer_extension_attribute from an XML file
+  jamf-cli pro classic-computer-ext-attrs update 1 --from-file computer_extension_attribute.xml
+
+  # Update a computer_extension_attribute from XML on stdin
   cat computer_extension_attribute.xml | jamf-cli pro classic-computer-ext-attrs update 1`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
-			var body io.Reader
-			stat, _ := os.Stdin.Stat()
-			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				body = os.Stdin
-			} else {
-				return fmt.Errorf("request body required on stdin (pipe XML input)")
+			bodyBytes, bodyErr := readClassicBody(fromFile)
+			if bodyErr != nil {
+				return bodyErr
 			}
+			if len(bodyBytes) == 0 {
+				return fmt.Errorf("request body required: use --from-file or pipe XML to stdin")
+			}
+			body := bytes.NewReader(bodyBytes)
 
 			var path string
 			if flagName != "" {
@@ -226,6 +238,7 @@ func newClassicComputerExtAttrsUpdateCmd(ctx *registry.CLIContext) *cobra.Comman
 		},
 	}
 
+	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to XML input file (or pipe XML to stdin)")
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up computer_extension_attribute by name")
 
 	return cmd

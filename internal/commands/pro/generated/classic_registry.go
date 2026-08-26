@@ -83,6 +83,31 @@ func RegisterClassicCommands(root *cobra.Command, ctx *registry.CLIContext) {
 	root.AddCommand(NewClassicWebhooksCmd(ctx))
 }
 
+// readClassicBody reads an XML request body from --from-file, or from stdin when
+// the flag is absent. Unlike readApplyInput it tolerates an absent body and
+// returns nil, leaving the caller to decide whether that is an error — classic
+// create/update can build a body from file-field flags alone.
+func readClassicBody(fromFile string) ([]byte, error) {
+	if fromFile != "" {
+		data, err := os.ReadFile(fromFile)
+		if err != nil {
+			return nil, fmt.Errorf("reading --from-file: %w", err)
+		}
+		return data, nil
+	}
+
+	stat, _ := os.Stdin.Stat()
+	if (stat.Mode() & os.ModeCharDevice) == 0 {
+		data, err := io.ReadAll(os.Stdin)
+		if err != nil {
+			return nil, fmt.Errorf("reading stdin: %w", err)
+		}
+		return data, nil
+	}
+
+	return nil, nil
+}
+
 // Classic apply/delete-by-name helpers. These share the generated package with
 // registry.go and depend on readApplyInput and extractIDString defined there.
 

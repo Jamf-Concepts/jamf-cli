@@ -3,6 +3,7 @@
 package generated
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -141,24 +142,30 @@ func newClassicVppInvitationsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 }
 
 func newClassicVppInvitationsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
+	var (
+		fromFile string
+	)
 	cmd := &cobra.Command{
 		Use:   "create",
 		Short: "Create a vpp_invitation",
-		Long:  "Create a new vpp_invitation. Reads XML body from stdin.",
-		Example: `  # Create a vpp_invitation from XML
+		Long:  "Create a new vpp_invitation. Reads the XML body from --from-file or stdin.",
+		Example: `  # Create a vpp_invitation from an XML file
+  jamf-cli pro classic-vpp-invitations create --from-file vpp_invitation.xml
+
+  # Create a vpp_invitation from XML on stdin
   cat vpp_invitation.xml | jamf-cli pro classic-vpp-invitations create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
-			var body io.Reader
-			stat, _ := os.Stdin.Stat()
-			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				body = os.Stdin
-			} else {
-				return fmt.Errorf("request body required on stdin (pipe XML input)")
+			bodyBytes, err := readClassicBody(fromFile)
+			if err != nil {
+				return err
+			}
+			if len(bodyBytes) == 0 {
+				return fmt.Errorf("request body required: use --from-file or pipe XML to stdin")
 			}
 
-			resp, err := ctx.Client.Do(reqCtx, "POST", "/JSSResource/vppinvitations/id/0", body)
+			resp, err := ctx.Client.Do(reqCtx, "POST", "/JSSResource/vppinvitations/id/0", bytes.NewReader(bodyBytes))
 			if err != nil {
 				return err
 			}
@@ -168,6 +175,7 @@ func newClassicVppInvitationsCreateCmd(ctx *registry.CLIContext) *cobra.Command 
 
 		},
 	}
+	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to XML input file (or pipe XML to stdin)")
 	return cmd
 }
 

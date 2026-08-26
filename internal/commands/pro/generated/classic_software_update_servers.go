@@ -156,24 +156,30 @@ func newClassicSoftwareUpdateServersGetCmd(ctx *registry.CLIContext) *cobra.Comm
 }
 
 func newClassicSoftwareUpdateServersCreateCmd(ctx *registry.CLIContext) *cobra.Command {
+	var (
+		fromFile string
+	)
 	cmd := &cobra.Command{
 		Use:   "create",
 		Short: "Create a software_update_server",
-		Long:  "Create a new software_update_server. Reads XML body from stdin.",
-		Example: `  # Create a software_update_server from XML
+		Long:  "Create a new software_update_server. Reads the XML body from --from-file or stdin.",
+		Example: `  # Create a software_update_server from an XML file
+  jamf-cli pro classic-software-update-servers create --from-file software_update_server.xml
+
+  # Create a software_update_server from XML on stdin
   cat software_update_server.xml | jamf-cli pro classic-software-update-servers create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
-			var body io.Reader
-			stat, _ := os.Stdin.Stat()
-			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				body = os.Stdin
-			} else {
-				return fmt.Errorf("request body required on stdin (pipe XML input)")
+			bodyBytes, err := readClassicBody(fromFile)
+			if err != nil {
+				return err
+			}
+			if len(bodyBytes) == 0 {
+				return fmt.Errorf("request body required: use --from-file or pipe XML to stdin")
 			}
 
-			resp, err := ctx.Client.Do(reqCtx, "POST", "/JSSResource/softwareupdateservers/id/0", body)
+			resp, err := ctx.Client.Do(reqCtx, "POST", "/JSSResource/softwareupdateservers/id/0", bytes.NewReader(bodyBytes))
 			if err != nil {
 				return err
 			}
@@ -183,29 +189,35 @@ func newClassicSoftwareUpdateServersCreateCmd(ctx *registry.CLIContext) *cobra.C
 
 		},
 	}
+	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to XML input file (or pipe XML to stdin)")
 	return cmd
 }
 
 func newClassicSoftwareUpdateServersUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
+	var fromFile string
 	var flagName string
 
 	cmd := &cobra.Command{
 		Use:   "update [<id>]",
 		Short: "Update a software_update_server",
-		Long:  "Update an existing software_update_server by ID. Reads XML body from stdin.",
-		Example: `  # Update a software_update_server from XML
+		Long:  "Update an existing software_update_server by ID. Reads the XML body from --from-file or stdin.",
+		Example: `  # Update a software_update_server from an XML file
+  jamf-cli pro classic-software-update-servers update 1 --from-file software_update_server.xml
+
+  # Update a software_update_server from XML on stdin
   cat software_update_server.xml | jamf-cli pro classic-software-update-servers update 1`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
-			var body io.Reader
-			stat, _ := os.Stdin.Stat()
-			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				body = os.Stdin
-			} else {
-				return fmt.Errorf("request body required on stdin (pipe XML input)")
+			bodyBytes, bodyErr := readClassicBody(fromFile)
+			if bodyErr != nil {
+				return bodyErr
 			}
+			if len(bodyBytes) == 0 {
+				return fmt.Errorf("request body required: use --from-file or pipe XML to stdin")
+			}
+			body := bytes.NewReader(bodyBytes)
 
 			var path string
 			if flagName != "" {
@@ -226,6 +238,7 @@ func newClassicSoftwareUpdateServersUpdateCmd(ctx *registry.CLIContext) *cobra.C
 		},
 	}
 
+	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to XML input file (or pipe XML to stdin)")
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up software_update_server by name")
 
 	return cmd

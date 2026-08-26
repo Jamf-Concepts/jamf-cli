@@ -156,24 +156,30 @@ func newClassicMobileProvisioningProfilesGetCmd(ctx *registry.CLIContext) *cobra
 }
 
 func newClassicMobileProvisioningProfilesCreateCmd(ctx *registry.CLIContext) *cobra.Command {
+	var (
+		fromFile string
+	)
 	cmd := &cobra.Command{
 		Use:   "create",
 		Short: "Create a mobile_device_provisioning_profile",
-		Long:  "Create a new mobile_device_provisioning_profile. Reads XML body from stdin.",
-		Example: `  # Create a mobile_device_provisioning_profile from XML
+		Long:  "Create a new mobile_device_provisioning_profile. Reads the XML body from --from-file or stdin.",
+		Example: `  # Create a mobile_device_provisioning_profile from an XML file
+  jamf-cli pro classic-mobile-provisioning-profiles create --from-file mobile_device_provisioning_profile.xml
+
+  # Create a mobile_device_provisioning_profile from XML on stdin
   cat mobile_device_provisioning_profile.xml | jamf-cli pro classic-mobile-provisioning-profiles create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
-			var body io.Reader
-			stat, _ := os.Stdin.Stat()
-			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				body = os.Stdin
-			} else {
-				return fmt.Errorf("request body required on stdin (pipe XML input)")
+			bodyBytes, err := readClassicBody(fromFile)
+			if err != nil {
+				return err
+			}
+			if len(bodyBytes) == 0 {
+				return fmt.Errorf("request body required: use --from-file or pipe XML to stdin")
 			}
 
-			resp, err := ctx.Client.Do(reqCtx, "POST", "/JSSResource/mobiledeviceprovisioningprofiles/id/0", body)
+			resp, err := ctx.Client.Do(reqCtx, "POST", "/JSSResource/mobiledeviceprovisioningprofiles/id/0", bytes.NewReader(bodyBytes))
 			if err != nil {
 				return err
 			}
@@ -183,29 +189,35 @@ func newClassicMobileProvisioningProfilesCreateCmd(ctx *registry.CLIContext) *co
 
 		},
 	}
+	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to XML input file (or pipe XML to stdin)")
 	return cmd
 }
 
 func newClassicMobileProvisioningProfilesUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
+	var fromFile string
 	var flagName string
 
 	cmd := &cobra.Command{
 		Use:   "update [<id>]",
 		Short: "Update a mobile_device_provisioning_profile",
-		Long:  "Update an existing mobile_device_provisioning_profile by ID. Reads XML body from stdin.",
-		Example: `  # Update a mobile_device_provisioning_profile from XML
+		Long:  "Update an existing mobile_device_provisioning_profile by ID. Reads the XML body from --from-file or stdin.",
+		Example: `  # Update a mobile_device_provisioning_profile from an XML file
+  jamf-cli pro classic-mobile-provisioning-profiles update 1 --from-file mobile_device_provisioning_profile.xml
+
+  # Update a mobile_device_provisioning_profile from XML on stdin
   cat mobile_device_provisioning_profile.xml | jamf-cli pro classic-mobile-provisioning-profiles update 1`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
-			var body io.Reader
-			stat, _ := os.Stdin.Stat()
-			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				body = os.Stdin
-			} else {
-				return fmt.Errorf("request body required on stdin (pipe XML input)")
+			bodyBytes, bodyErr := readClassicBody(fromFile)
+			if bodyErr != nil {
+				return bodyErr
 			}
+			if len(bodyBytes) == 0 {
+				return fmt.Errorf("request body required: use --from-file or pipe XML to stdin")
+			}
+			body := bytes.NewReader(bodyBytes)
 
 			var path string
 			if flagName != "" {
@@ -226,6 +238,7 @@ func newClassicMobileProvisioningProfilesUpdateCmd(ctx *registry.CLIContext) *co
 		},
 	}
 
+	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to XML input file (or pipe XML to stdin)")
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up mobile_device_provisioning_profile by name")
 
 	return cmd

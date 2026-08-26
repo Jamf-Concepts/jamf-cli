@@ -3,11 +3,11 @@
 package generated
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/url"
-	"os"
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 	"github.com/Jamf-Concepts/jamf-cli/internal/xmlconv"
@@ -79,24 +79,29 @@ func newClassicGsxConnectionGetCmd(ctx *registry.CLIContext) *cobra.Command {
 }
 
 func newClassicGsxConnectionUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
+	var fromFile string
 
 	cmd := &cobra.Command{
 		Use:   "update <id>",
 		Short: "Update a gsx_connection",
-		Long:  "Update an existing gsx_connection by ID. Reads XML body from stdin.",
-		Example: `  # Update a gsx_connection from XML
+		Long:  "Update an existing gsx_connection by ID. Reads the XML body from --from-file or stdin.",
+		Example: `  # Update a gsx_connection from an XML file
+  jamf-cli pro classic-gsx-connection update 1 --from-file gsx_connection.xml
+
+  # Update a gsx_connection from XML on stdin
   cat gsx_connection.xml | jamf-cli pro classic-gsx-connection update 1`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
-			var body io.Reader
-			stat, _ := os.Stdin.Stat()
-			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				body = os.Stdin
-			} else {
-				return fmt.Errorf("request body required on stdin (pipe XML input)")
+			bodyBytes, bodyErr := readClassicBody(fromFile)
+			if bodyErr != nil {
+				return bodyErr
 			}
+			if len(bodyBytes) == 0 {
+				return fmt.Errorf("request body required: use --from-file or pipe XML to stdin")
+			}
+			body := bytes.NewReader(bodyBytes)
 
 			path := fmt.Sprintf("/JSSResource/gsxconnection/id/%s", url.PathEscape(args[0]))
 
@@ -109,6 +114,8 @@ func newClassicGsxConnectionUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
+
+	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to XML input file (or pipe XML to stdin)")
 
 	return cmd
 }
