@@ -1086,3 +1086,52 @@ func TestGenerate_NoSubsetWhenAbsent(t *testing.T) {
 		t.Error("did not expect --subset wiring for a resource without subsets")
 	}
 }
+
+// TestGenerate_CreateAndUpdateTakeFromFile guards the flag AutoPkg's
+// JamfCLIRunner needs: it passes a body as --from-file, never on stdin, so a
+// classic create or update that only reads stdin cannot be driven from a recipe.
+func TestGenerate_CreateAndUpdateTakeFromFile(t *testing.T) {
+	dir := t.TempDir()
+	gen := NewGenerator(dir)
+
+	resource := ClassicResource{
+		Name:        "computerinvitations",
+		Path:        "computerinvitations",
+		CLIName:     "classic-computer-invitations",
+		GoName:      "ClassicComputerInvitations",
+		Singular:    "computer_invitation",
+		Description: "Computer invitations",
+		Operations:  []string{"list", "get", "create", "update", "delete"},
+		Lookups:     []string{"id"},
+		IDPath:      "id",
+	}
+
+	outPath, err := gen.Generate(resource)
+	if err != nil {
+		t.Fatalf("Generate() error = %v", err)
+	}
+	content, err := os.ReadFile(outPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	code := string(content)
+
+	// Two registrations: one on create, one on update. delete's --from-file is a
+	// list of IDs, not a body, and this resource has no name lookup so it emits none.
+	if got := strings.Count(code, `"from-file", "", "Path to XML input file`); got != 2 {
+		t.Errorf("body --from-file registrations = %d, want 2 (create and update)", got)
+	}
+	if strings.Count(code, "readClassicBody(fromFile)") != 2 {
+		t.Errorf("expected create and update to read their body through readClassicBody:\n%s", code)
+	}
+	// The old message told the caller stdin was the only route.
+	if strings.Contains(code, "request body required on stdin") {
+		t.Error("body-required error should offer --from-file as well as stdin")
+	}
+	if !strings.Contains(code, "create --from-file computer_invitation.xml") {
+		t.Error("expected the create example to show --from-file")
+	}
+	if !strings.Contains(code, "update 1 --from-file computer_invitation.xml") {
+		t.Error("expected the update example to show --from-file")
+	}
+}

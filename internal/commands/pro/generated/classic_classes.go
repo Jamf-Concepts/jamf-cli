@@ -159,25 +159,31 @@ func newClassicClassesGetCmd(ctx *registry.CLIContext) *cobra.Command {
 }
 
 func newClassicClassesCreateCmd(ctx *registry.CLIContext) *cobra.Command {
+	var (
+		fromFile string
+	)
 	cmd := &cobra.Command{
 		Use:         "create",
 		Short:       "Create a class",
-		Long:        "Create a new class. Reads XML body from stdin.",
+		Long:        "Create a new class. Reads the XML body from --from-file or stdin.",
 		Annotations: map[string]string{"jamf:api": "pro-classic"},
-		Example: `  # Create a class from XML
+		Example: `  # Create a class from an XML file
+  jamf-cli pro classic-classes create --from-file class.xml
+
+  # Create a class from XML on stdin
   cat class.xml | jamf-cli pro classic-classes create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
-			var body io.Reader
-			stat, _ := os.Stdin.Stat()
-			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				body = os.Stdin
-			} else {
-				return fmt.Errorf("request body required on stdin (pipe XML input)")
+			bodyBytes, err := readClassicBody(fromFile)
+			if err != nil {
+				return err
+			}
+			if len(bodyBytes) == 0 {
+				return fmt.Errorf("request body required: use --from-file or pipe XML to stdin")
 			}
 
-			resp, err := ctx.Client.Do(reqCtx, "POST", "/JSSResource/classes/id/0", body)
+			resp, err := ctx.Client.Do(reqCtx, "POST", "/JSSResource/classes/id/0", bytes.NewReader(bodyBytes))
 			if err != nil {
 				return err
 			}
@@ -187,30 +193,36 @@ func newClassicClassesCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 
 		},
 	}
+	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to XML input file (or pipe XML to stdin)")
 	return cmd
 }
 
 func newClassicClassesUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
+	var fromFile string
 	var flagName string
 
 	cmd := &cobra.Command{
 		Use:         "update [<id>]",
 		Short:       "Update a class",
-		Long:        "Update an existing class by ID. Reads XML body from stdin.",
+		Long:        "Update an existing class by ID. Reads the XML body from --from-file or stdin.",
 		Annotations: map[string]string{"jamf:api": "pro-classic"},
-		Example: `  # Update a class from XML
+		Example: `  # Update a class from an XML file
+  jamf-cli pro classic-classes update 1 --from-file class.xml
+
+  # Update a class from XML on stdin
   cat class.xml | jamf-cli pro classic-classes update 1`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
-			var body io.Reader
-			stat, _ := os.Stdin.Stat()
-			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				body = os.Stdin
-			} else {
-				return fmt.Errorf("request body required on stdin (pipe XML input)")
+			bodyBytes, bodyErr := readClassicBody(fromFile)
+			if bodyErr != nil {
+				return bodyErr
 			}
+			if len(bodyBytes) == 0 {
+				return fmt.Errorf("request body required: use --from-file or pipe XML to stdin")
+			}
+			body := bytes.NewReader(bodyBytes)
 
 			var path string
 			if flagName != "" {
@@ -231,6 +243,7 @@ func newClassicClassesUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 		},
 	}
 
+	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to XML input file (or pipe XML to stdin)")
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up class by name")
 
 	return cmd

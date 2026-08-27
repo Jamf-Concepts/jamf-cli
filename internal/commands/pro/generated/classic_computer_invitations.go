@@ -3,6 +3,7 @@
 package generated
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -158,25 +159,31 @@ func newClassicComputerInvitationsGetCmd(ctx *registry.CLIContext) *cobra.Comman
 }
 
 func newClassicComputerInvitationsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
+	var (
+		fromFile string
+	)
 	cmd := &cobra.Command{
 		Use:         "create",
 		Short:       "Create a computer_invitation",
-		Long:        "Create a new computer_invitation. Reads XML body from stdin.",
+		Long:        "Create a new computer_invitation. Reads the XML body from --from-file or stdin.",
 		Annotations: map[string]string{"jamf:api": "pro-classic"},
-		Example: `  # Create a computer_invitation from XML
+		Example: `  # Create a computer_invitation from an XML file
+  jamf-cli pro classic-computer-invitations create --from-file computer_invitation.xml
+
+  # Create a computer_invitation from XML on stdin
   cat computer_invitation.xml | jamf-cli pro classic-computer-invitations create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
-			var body io.Reader
-			stat, _ := os.Stdin.Stat()
-			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				body = os.Stdin
-			} else {
-				return fmt.Errorf("request body required on stdin (pipe XML input)")
+			bodyBytes, err := readClassicBody(fromFile)
+			if err != nil {
+				return err
+			}
+			if len(bodyBytes) == 0 {
+				return fmt.Errorf("request body required: use --from-file or pipe XML to stdin")
 			}
 
-			resp, err := ctx.Client.Do(reqCtx, "POST", "/JSSResource/computerinvitations/id/0", body)
+			resp, err := ctx.Client.Do(reqCtx, "POST", "/JSSResource/computerinvitations/id/0", bytes.NewReader(bodyBytes))
 			if err != nil {
 				return err
 			}
@@ -186,6 +193,7 @@ func newClassicComputerInvitationsCreateCmd(ctx *registry.CLIContext) *cobra.Com
 
 		},
 	}
+	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to XML input file (or pipe XML to stdin)")
 	return cmd
 }
 

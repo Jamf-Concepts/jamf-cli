@@ -166,32 +166,31 @@ func newClassicMobileAppsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
 func newClassicMobileAppsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
+		fromFile          string
 		flagAppconfigFile string
 	)
 	cmd := &cobra.Command{
 		Use:         "create",
 		Short:       "Create a mobile_device_application",
-		Long:        "Create a new mobile_device_application. Reads XML body from stdin.",
+		Long:        "Create a new mobile_device_application. Reads the XML body from --from-file or stdin.",
 		Annotations: map[string]string{"jamf:api": "pro-classic"},
-		Example: `  # Create a mobile_device_application from XML
+		Example: `  # Create a mobile_device_application from an XML file
+  jamf-cli pro classic-mobile-apps create --from-file mobile_device_application.xml
+
+  # Create a mobile_device_application from XML on stdin
   cat mobile_device_application.xml | jamf-cli pro classic-mobile-apps create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
-			var bodyBytes []byte
-			stat, _ := os.Stdin.Stat()
-			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				var err error
-				bodyBytes, err = io.ReadAll(os.Stdin)
-				if err != nil {
-					return fmt.Errorf("reading input: %w", err)
-				}
+			bodyBytes, err := readClassicBody(fromFile)
+			if err != nil {
+				return err
 			}
 			anyFileFlag := flagAppconfigFile != ""
 			if len(bodyBytes) == 0 && !anyFileFlag {
-				return fmt.Errorf("request body required on stdin (pipe XML input) or supply --appconfig-file")
+				return fmt.Errorf("request body required: use --from-file, pipe XML to stdin, or supply --appconfig-file")
 			}
-			bodyBytes, err := injectClassicFileFields(bodyBytes, "mobile_device_application", []classicFileFieldSpec{
+			bodyBytes, err = injectClassicFileFields(bodyBytes, "mobile_device_application", []classicFileFieldSpec{
 				{FilePath: flagAppconfigFile, ParentPath: []string{"app_configuration"}, LeafName: "preferences", Encoding: "xml-cdata", NameFallback: "none"},
 			})
 			if err != nil {
@@ -207,12 +206,14 @@ func newClassicMobileAppsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 
 		},
 	}
+	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to XML input file (or pipe XML to stdin)")
 
 	cmd.Flags().StringVar(&flagAppconfigFile, "appconfig-file", "", "Path to an AppConfig plist; contents populate <app_configuration><preferences>")
 	return cmd
 }
 
 func newClassicMobileAppsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
+	var fromFile string
 	var flagName string
 	var (
 		flagAppconfigFile string
@@ -221,27 +222,25 @@ func newClassicMobileAppsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "update [<id>]",
 		Short:       "Update a mobile_device_application",
-		Long:        "Update an existing mobile_device_application by ID. Reads XML body from stdin.",
+		Long:        "Update an existing mobile_device_application by ID. Reads the XML body from --from-file or stdin.",
 		Annotations: map[string]string{"jamf:api": "pro-classic"},
-		Example: `  # Update a mobile_device_application from XML
+		Example: `  # Update a mobile_device_application from an XML file
+  jamf-cli pro classic-mobile-apps update 1 --from-file mobile_device_application.xml
+
+  # Update a mobile_device_application from XML on stdin
   cat mobile_device_application.xml | jamf-cli pro classic-mobile-apps update 1`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
-			var bodyBytes []byte
-			stat, _ := os.Stdin.Stat()
-			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				var err error
-				bodyBytes, err = io.ReadAll(os.Stdin)
-				if err != nil {
-					return fmt.Errorf("reading input: %w", err)
-				}
+			bodyBytes, bodyErr := readClassicBody(fromFile)
+			if bodyErr != nil {
+				return bodyErr
 			}
 
 			anyFileFlag := flagAppconfigFile != ""
 			if len(bodyBytes) == 0 && !anyFileFlag {
-				return fmt.Errorf("request body required on stdin (pipe XML input) or supply --appconfig-file")
+				return fmt.Errorf("request body required: use --from-file, pipe XML to stdin, or supply --appconfig-file")
 			}
 
 			// Resolve ID and preserve PayloadUUID/PayloadIdentifier.
@@ -305,6 +304,7 @@ func newClassicMobileAppsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 		},
 	}
 
+	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to XML input file (or pipe XML to stdin)")
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up mobile_device_application by name")
 
 	cmd.Flags().StringVar(&flagAppconfigFile, "appconfig-file", "", "Path to an AppConfig plist; contents populate <app_configuration><preferences>")

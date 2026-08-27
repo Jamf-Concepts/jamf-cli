@@ -165,25 +165,31 @@ func newClassicPoliciesGetCmd(ctx *registry.CLIContext) *cobra.Command {
 }
 
 func newClassicPoliciesCreateCmd(ctx *registry.CLIContext) *cobra.Command {
+	var (
+		fromFile string
+	)
 	cmd := &cobra.Command{
 		Use:         "create",
 		Short:       "Create a policy",
-		Long:        "Create a new policy. Reads XML body from stdin.",
+		Long:        "Create a new policy. Reads the XML body from --from-file or stdin.",
 		Annotations: map[string]string{"jamf:api": "pro-classic"},
-		Example: `  # Create a policy from XML
+		Example: `  # Create a policy from an XML file
+  jamf-cli pro classic-policies create --from-file policy.xml
+
+  # Create a policy from XML on stdin
   cat policy.xml | jamf-cli pro classic-policies create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
-			var body io.Reader
-			stat, _ := os.Stdin.Stat()
-			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				body = os.Stdin
-			} else {
-				return fmt.Errorf("request body required on stdin (pipe XML input)")
+			bodyBytes, err := readClassicBody(fromFile)
+			if err != nil {
+				return err
+			}
+			if len(bodyBytes) == 0 {
+				return fmt.Errorf("request body required: use --from-file or pipe XML to stdin")
 			}
 
-			resp, err := ctx.Client.Do(reqCtx, "POST", "/JSSResource/policies/id/0", body)
+			resp, err := ctx.Client.Do(reqCtx, "POST", "/JSSResource/policies/id/0", bytes.NewReader(bodyBytes))
 			if err != nil {
 				return err
 			}
@@ -193,30 +199,36 @@ func newClassicPoliciesCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 
 		},
 	}
+	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to XML input file (or pipe XML to stdin)")
 	return cmd
 }
 
 func newClassicPoliciesUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
+	var fromFile string
 	var flagName string
 
 	cmd := &cobra.Command{
 		Use:         "update [<id>]",
 		Short:       "Update a policy",
-		Long:        "Update an existing policy by ID. Reads XML body from stdin.",
+		Long:        "Update an existing policy by ID. Reads the XML body from --from-file or stdin.",
 		Annotations: map[string]string{"jamf:api": "pro-classic"},
-		Example: `  # Update a policy from XML
+		Example: `  # Update a policy from an XML file
+  jamf-cli pro classic-policies update 1 --from-file policy.xml
+
+  # Update a policy from XML on stdin
   cat policy.xml | jamf-cli pro classic-policies update 1`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
-			var body io.Reader
-			stat, _ := os.Stdin.Stat()
-			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				body = os.Stdin
-			} else {
-				return fmt.Errorf("request body required on stdin (pipe XML input)")
+			bodyBytes, bodyErr := readClassicBody(fromFile)
+			if bodyErr != nil {
+				return bodyErr
 			}
+			if len(bodyBytes) == 0 {
+				return fmt.Errorf("request body required: use --from-file or pipe XML to stdin")
+			}
+			body := bytes.NewReader(bodyBytes)
 
 			var path string
 			if flagName != "" {
@@ -237,6 +249,7 @@ func newClassicPoliciesUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 		},
 	}
 
+	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to XML input file (or pipe XML to stdin)")
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up policy by name")
 
 	return cmd

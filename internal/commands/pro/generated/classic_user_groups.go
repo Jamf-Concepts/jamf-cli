@@ -159,25 +159,31 @@ func newClassicUserGroupsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 }
 
 func newClassicUserGroupsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
+	var (
+		fromFile string
+	)
 	cmd := &cobra.Command{
 		Use:         "create",
 		Short:       "Create a user_group",
-		Long:        "Create a new user_group. Reads XML body from stdin.",
+		Long:        "Create a new user_group. Reads the XML body from --from-file or stdin.",
 		Annotations: map[string]string{"jamf:api": "pro-classic"},
-		Example: `  # Create a user_group from XML
+		Example: `  # Create a user_group from an XML file
+  jamf-cli pro classic-user-groups create --from-file user_group.xml
+
+  # Create a user_group from XML on stdin
   cat user_group.xml | jamf-cli pro classic-user-groups create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
-			var body io.Reader
-			stat, _ := os.Stdin.Stat()
-			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				body = os.Stdin
-			} else {
-				return fmt.Errorf("request body required on stdin (pipe XML input)")
+			bodyBytes, err := readClassicBody(fromFile)
+			if err != nil {
+				return err
+			}
+			if len(bodyBytes) == 0 {
+				return fmt.Errorf("request body required: use --from-file or pipe XML to stdin")
 			}
 
-			resp, err := ctx.Client.Do(reqCtx, "POST", "/JSSResource/usergroups/id/0", body)
+			resp, err := ctx.Client.Do(reqCtx, "POST", "/JSSResource/usergroups/id/0", bytes.NewReader(bodyBytes))
 			if err != nil {
 				return err
 			}
@@ -187,30 +193,36 @@ func newClassicUserGroupsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 
 		},
 	}
+	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to XML input file (or pipe XML to stdin)")
 	return cmd
 }
 
 func newClassicUserGroupsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
+	var fromFile string
 	var flagName string
 
 	cmd := &cobra.Command{
 		Use:         "update [<id>]",
 		Short:       "Update a user_group",
-		Long:        "Update an existing user_group by ID. Reads XML body from stdin.",
+		Long:        "Update an existing user_group by ID. Reads the XML body from --from-file or stdin.",
 		Annotations: map[string]string{"jamf:api": "pro-classic"},
-		Example: `  # Update a user_group from XML
+		Example: `  # Update a user_group from an XML file
+  jamf-cli pro classic-user-groups update 1 --from-file user_group.xml
+
+  # Update a user_group from XML on stdin
   cat user_group.xml | jamf-cli pro classic-user-groups update 1`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
-			var body io.Reader
-			stat, _ := os.Stdin.Stat()
-			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				body = os.Stdin
-			} else {
-				return fmt.Errorf("request body required on stdin (pipe XML input)")
+			bodyBytes, bodyErr := readClassicBody(fromFile)
+			if bodyErr != nil {
+				return bodyErr
 			}
+			if len(bodyBytes) == 0 {
+				return fmt.Errorf("request body required: use --from-file or pipe XML to stdin")
+			}
+			body := bytes.NewReader(bodyBytes)
 
 			var path string
 			if flagName != "" {
@@ -231,6 +243,7 @@ func newClassicUserGroupsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 		},
 	}
 
+	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to XML input file (or pipe XML to stdin)")
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up user_group by name")
 
 	return cmd

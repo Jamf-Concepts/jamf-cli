@@ -165,25 +165,31 @@ func newClassicRestrictedSoftwareGetCmd(ctx *registry.CLIContext) *cobra.Command
 }
 
 func newClassicRestrictedSoftwareCreateCmd(ctx *registry.CLIContext) *cobra.Command {
+	var (
+		fromFile string
+	)
 	cmd := &cobra.Command{
 		Use:         "create",
 		Short:       "Create a restricted_software",
-		Long:        "Create a new restricted_software. Reads XML body from stdin.",
+		Long:        "Create a new restricted_software. Reads the XML body from --from-file or stdin.",
 		Annotations: map[string]string{"jamf:api": "pro-classic"},
-		Example: `  # Create a restricted_software from XML
+		Example: `  # Create a restricted_software from an XML file
+  jamf-cli pro classic-restricted-software create --from-file restricted_software.xml
+
+  # Create a restricted_software from XML on stdin
   cat restricted_software.xml | jamf-cli pro classic-restricted-software create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
-			var body io.Reader
-			stat, _ := os.Stdin.Stat()
-			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				body = os.Stdin
-			} else {
-				return fmt.Errorf("request body required on stdin (pipe XML input)")
+			bodyBytes, err := readClassicBody(fromFile)
+			if err != nil {
+				return err
+			}
+			if len(bodyBytes) == 0 {
+				return fmt.Errorf("request body required: use --from-file or pipe XML to stdin")
 			}
 
-			resp, err := ctx.Client.Do(reqCtx, "POST", "/JSSResource/restrictedsoftware/id/0", body)
+			resp, err := ctx.Client.Do(reqCtx, "POST", "/JSSResource/restrictedsoftware/id/0", bytes.NewReader(bodyBytes))
 			if err != nil {
 				return err
 			}
@@ -193,30 +199,36 @@ func newClassicRestrictedSoftwareCreateCmd(ctx *registry.CLIContext) *cobra.Comm
 
 		},
 	}
+	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to XML input file (or pipe XML to stdin)")
 	return cmd
 }
 
 func newClassicRestrictedSoftwareUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
+	var fromFile string
 	var flagName string
 
 	cmd := &cobra.Command{
 		Use:         "update [<id>]",
 		Short:       "Update a restricted_software",
-		Long:        "Update an existing restricted_software by ID. Reads XML body from stdin.",
+		Long:        "Update an existing restricted_software by ID. Reads the XML body from --from-file or stdin.",
 		Annotations: map[string]string{"jamf:api": "pro-classic"},
-		Example: `  # Update a restricted_software from XML
+		Example: `  # Update a restricted_software from an XML file
+  jamf-cli pro classic-restricted-software update 1 --from-file restricted_software.xml
+
+  # Update a restricted_software from XML on stdin
   cat restricted_software.xml | jamf-cli pro classic-restricted-software update 1`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
-			var body io.Reader
-			stat, _ := os.Stdin.Stat()
-			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				body = os.Stdin
-			} else {
-				return fmt.Errorf("request body required on stdin (pipe XML input)")
+			bodyBytes, bodyErr := readClassicBody(fromFile)
+			if bodyErr != nil {
+				return bodyErr
 			}
+			if len(bodyBytes) == 0 {
+				return fmt.Errorf("request body required: use --from-file or pipe XML to stdin")
+			}
+			body := bytes.NewReader(bodyBytes)
 
 			var path string
 			if flagName != "" {
@@ -237,6 +249,7 @@ func newClassicRestrictedSoftwareUpdateCmd(ctx *registry.CLIContext) *cobra.Comm
 		},
 	}
 
+	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to XML input file (or pipe XML to stdin)")
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up restricted_software by name")
 
 	return cmd

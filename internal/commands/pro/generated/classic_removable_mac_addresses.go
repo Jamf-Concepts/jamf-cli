@@ -159,25 +159,31 @@ func newClassicRemovableMacAddressesGetCmd(ctx *registry.CLIContext) *cobra.Comm
 }
 
 func newClassicRemovableMacAddressesCreateCmd(ctx *registry.CLIContext) *cobra.Command {
+	var (
+		fromFile string
+	)
 	cmd := &cobra.Command{
 		Use:         "create",
 		Short:       "Create a removable_mac_address",
-		Long:        "Create a new removable_mac_address. Reads XML body from stdin.",
+		Long:        "Create a new removable_mac_address. Reads the XML body from --from-file or stdin.",
 		Annotations: map[string]string{"jamf:api": "pro-classic"},
-		Example: `  # Create a removable_mac_address from XML
+		Example: `  # Create a removable_mac_address from an XML file
+  jamf-cli pro classic-removable-mac-addresses create --from-file removable_mac_address.xml
+
+  # Create a removable_mac_address from XML on stdin
   cat removable_mac_address.xml | jamf-cli pro classic-removable-mac-addresses create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
-			var body io.Reader
-			stat, _ := os.Stdin.Stat()
-			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				body = os.Stdin
-			} else {
-				return fmt.Errorf("request body required on stdin (pipe XML input)")
+			bodyBytes, err := readClassicBody(fromFile)
+			if err != nil {
+				return err
+			}
+			if len(bodyBytes) == 0 {
+				return fmt.Errorf("request body required: use --from-file or pipe XML to stdin")
 			}
 
-			resp, err := ctx.Client.Do(reqCtx, "POST", "/JSSResource/removablemacaddresses/id/0", body)
+			resp, err := ctx.Client.Do(reqCtx, "POST", "/JSSResource/removablemacaddresses/id/0", bytes.NewReader(bodyBytes))
 			if err != nil {
 				return err
 			}
@@ -187,30 +193,36 @@ func newClassicRemovableMacAddressesCreateCmd(ctx *registry.CLIContext) *cobra.C
 
 		},
 	}
+	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to XML input file (or pipe XML to stdin)")
 	return cmd
 }
 
 func newClassicRemovableMacAddressesUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
+	var fromFile string
 	var flagName string
 
 	cmd := &cobra.Command{
 		Use:         "update [<id>]",
 		Short:       "Update a removable_mac_address",
-		Long:        "Update an existing removable_mac_address by ID. Reads XML body from stdin.",
+		Long:        "Update an existing removable_mac_address by ID. Reads the XML body from --from-file or stdin.",
 		Annotations: map[string]string{"jamf:api": "pro-classic"},
-		Example: `  # Update a removable_mac_address from XML
+		Example: `  # Update a removable_mac_address from an XML file
+  jamf-cli pro classic-removable-mac-addresses update 1 --from-file removable_mac_address.xml
+
+  # Update a removable_mac_address from XML on stdin
   cat removable_mac_address.xml | jamf-cli pro classic-removable-mac-addresses update 1`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
-			var body io.Reader
-			stat, _ := os.Stdin.Stat()
-			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				body = os.Stdin
-			} else {
-				return fmt.Errorf("request body required on stdin (pipe XML input)")
+			bodyBytes, bodyErr := readClassicBody(fromFile)
+			if bodyErr != nil {
+				return bodyErr
 			}
+			if len(bodyBytes) == 0 {
+				return fmt.Errorf("request body required: use --from-file or pipe XML to stdin")
+			}
+			body := bytes.NewReader(bodyBytes)
 
 			var path string
 			if flagName != "" {
@@ -231,6 +243,7 @@ func newClassicRemovableMacAddressesUpdateCmd(ctx *registry.CLIContext) *cobra.C
 		},
 	}
 
+	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to XML input file (or pipe XML to stdin)")
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up removable_mac_address by name")
 
 	return cmd

@@ -166,6 +166,7 @@ func newClassicMacosConfigProfilesGetCmd(ctx *registry.CLIContext) *cobra.Comman
 
 func newClassicMacosConfigProfilesCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
+		fromFile                string
 		flagMobileconfigFile    string
 		flagCustomPayloadFiles  []string
 		flagCustomPayloadDomain string
@@ -173,21 +174,19 @@ func newClassicMacosConfigProfilesCreateCmd(ctx *registry.CLIContext) *cobra.Com
 	cmd := &cobra.Command{
 		Use:         "create",
 		Short:       "Create a os_x_configuration_profile",
-		Long:        "Create a new os_x_configuration_profile. Reads XML body from stdin.",
+		Long:        "Create a new os_x_configuration_profile. Reads the XML body from --from-file or stdin.",
 		Annotations: map[string]string{"jamf:api": "pro-classic"},
-		Example: `  # Create a os_x_configuration_profile from XML
+		Example: `  # Create a os_x_configuration_profile from an XML file
+  jamf-cli pro classic-macos-config-profiles create --from-file os_x_configuration_profile.xml
+
+  # Create a os_x_configuration_profile from XML on stdin
   cat os_x_configuration_profile.xml | jamf-cli pro classic-macos-config-profiles create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
-			var bodyBytes []byte
-			stat, _ := os.Stdin.Stat()
-			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				var err error
-				bodyBytes, err = io.ReadAll(os.Stdin)
-				if err != nil {
-					return fmt.Errorf("reading input: %w", err)
-				}
+			bodyBytes, err := readClassicBody(fromFile)
+			if err != nil {
+				return err
 			}
 			anyFileFlag := flagMobileconfigFile != "" || len(flagCustomPayloadFiles) > 0
 
@@ -198,10 +197,9 @@ func newClassicMacosConfigProfilesCreateCmd(ctx *registry.CLIContext) *cobra.Com
 				return fmt.Errorf("--custom-payload-domain requires exactly one --custom-payload-file")
 			}
 			if len(bodyBytes) == 0 && !anyFileFlag {
-				return fmt.Errorf("request body required on stdin (pipe XML input) or supply --mobileconfig-file or --custom-payload-file")
+				return fmt.Errorf("request body required: use --from-file, pipe XML to stdin, or supply --mobileconfig-file or --custom-payload-file")
 			}
 
-			var err error
 			if len(flagCustomPayloadFiles) > 0 {
 				var mcBytes []byte
 				mcBytes, err = buildCustomPayloadMobileconfig(flagCustomPayloadFiles, flagCustomPayloadDomain)
@@ -235,6 +233,7 @@ func newClassicMacosConfigProfilesCreateCmd(ctx *registry.CLIContext) *cobra.Com
 
 		},
 	}
+	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to XML input file (or pipe XML to stdin)")
 
 	cmd.Flags().StringVar(&flagMobileconfigFile, "mobileconfig-file", "", "Path to a .mobileconfig file; contents are CDATA-wrapped into <general><payloads>")
 	cmd.Flags().StringArrayVar(&flagCustomPayloadFiles, "custom-payload-file", nil, "Path to a preference plist (XML or binary); wrapped into a com.apple.ManagedClient.preferences payload (repeatable; mutually exclusive with --mobileconfig-file)")
@@ -243,6 +242,7 @@ func newClassicMacosConfigProfilesCreateCmd(ctx *registry.CLIContext) *cobra.Com
 }
 
 func newClassicMacosConfigProfilesUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
+	var fromFile string
 	var flagName string
 	var (
 		flagMobileconfigFile    string
@@ -253,22 +253,20 @@ func newClassicMacosConfigProfilesUpdateCmd(ctx *registry.CLIContext) *cobra.Com
 	cmd := &cobra.Command{
 		Use:         "update [<id>]",
 		Short:       "Update a os_x_configuration_profile",
-		Long:        "Update an existing os_x_configuration_profile by ID. Reads XML body from stdin.",
+		Long:        "Update an existing os_x_configuration_profile by ID. Reads the XML body from --from-file or stdin.",
 		Annotations: map[string]string{"jamf:api": "pro-classic"},
-		Example: `  # Update a os_x_configuration_profile from XML
+		Example: `  # Update a os_x_configuration_profile from an XML file
+  jamf-cli pro classic-macos-config-profiles update 1 --from-file os_x_configuration_profile.xml
+
+  # Update a os_x_configuration_profile from XML on stdin
   cat os_x_configuration_profile.xml | jamf-cli pro classic-macos-config-profiles update 1`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
-			var bodyBytes []byte
-			stat, _ := os.Stdin.Stat()
-			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				var err error
-				bodyBytes, err = io.ReadAll(os.Stdin)
-				if err != nil {
-					return fmt.Errorf("reading input: %w", err)
-				}
+			bodyBytes, bodyErr := readClassicBody(fromFile)
+			if bodyErr != nil {
+				return bodyErr
 			}
 
 			if flagMobileconfigFile != "" && len(flagCustomPayloadFiles) > 0 {
@@ -279,7 +277,7 @@ func newClassicMacosConfigProfilesUpdateCmd(ctx *registry.CLIContext) *cobra.Com
 			}
 			anyFileFlag := flagMobileconfigFile != "" || len(flagCustomPayloadFiles) > 0
 			if len(bodyBytes) == 0 && !anyFileFlag {
-				return fmt.Errorf("request body required on stdin (pipe XML input) or supply --mobileconfig-file or --custom-payload-file")
+				return fmt.Errorf("request body required: use --from-file, pipe XML to stdin, or supply --mobileconfig-file or --custom-payload-file")
 			}
 
 			// Resolve ID and preserve PayloadUUID/PayloadIdentifier.
@@ -340,6 +338,7 @@ func newClassicMacosConfigProfilesUpdateCmd(ctx *registry.CLIContext) *cobra.Com
 		},
 	}
 
+	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to XML input file (or pipe XML to stdin)")
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up os_x_configuration_profile by name")
 
 	cmd.Flags().StringVar(&flagMobileconfigFile, "mobileconfig-file", "", "Path to a .mobileconfig file; contents are CDATA-wrapped into <general><payloads>")
