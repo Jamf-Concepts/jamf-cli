@@ -78,7 +78,7 @@ func newUemConnectorsCreateCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "create",
 		Short:       "Create connector",
-		Long:        "Creates a new connector for the tenant. On success returns the identifier of the created connector together with an `href` locating it, as a path relative to the base URL the request was made against.\n\nAllowed values:\n  vendor: INTUNE, XENMOBILE, MAAS360, WORKSPACE_ONE, JAMF_PRO, JAMF_SCHOOL, MICLOUD, MICORE, GOOGLE, WIZY",
+		Long:        "Creates a new connector for the tenant. On success returns the identifier of the created connector together with an `href` locating it, as a path relative to the base URL the request was made against.\n\nAllowed values:\n  vendor: INTUNE, XENMOBILE, MAAS360, AIRWATCH, JAMF_PRO, JAMF_SCHOOL, MOBILEIRONCLOUD, MOBILEIRONCORE, GOOGLE, WIZY",
 		Annotations: map[string]string{"jamf:privileges": "uem-connect:create", "jamf:api": "platform-gateway"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if scaffoldFlag {

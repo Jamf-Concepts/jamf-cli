@@ -37,7 +37,7 @@ func newPlatformUsersDevicesCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Use:         "devices <id>",
 		Short:       "Get devices for a user",
 		Long:        "Retrieve a paginated list of devices associated with a specific user",
-		Annotations: map[string]string{"jamf:privileges": "read:pro:devices", "jamf:api": "platform-gateway"},
+		Annotations: map[string]string{"jamf:privileges": "devices:read", "jamf:api": "platform-gateway"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {

@@ -12,15 +12,15 @@ type SpecSource struct {
 // Sources lists every spec file consumed when this package was generated.
 // Order: stable, by File. Use `jamf-cli version -v` to print.
 var Sources = []SpecSource{
-	{File: "specs/platform/blueprints_api.json", SHA256: "a6488ff3cf822bb51eb950b3bee1c2de8a15ab75dc6f7212fbbf749e7d5b83b1"},
-	{File: "specs/platform/compliance_benchmark_engine.json", SHA256: "8f042025f6dde1be0c9162202d53c6228b65c750eb1ba96ece16df39ed132aa4"},
-	{File: "specs/platform/declaration_reporting_service.json", SHA256: "f47eb595f918daa70d9bb57d289dbf13b356ef24b37bb9121e8d99319d19da21"},
-	{File: "specs/platform/device_group_inventory_api.json", SHA256: "9a706ff7a6e62405ad545675c6a9eda8b3e931f4bfcfb84384e5566525380769"},
-	{File: "specs/platform/device_inventory_api.json", SHA256: "437f5bfda95edcb8b6af5dd3df4826abffc28b511456bf3b7b16d845ed8ed0d1"},
-	{File: "specs/platform/device_management_action_api.json", SHA256: "a0c90832819c40aadd5ef68a7080637a2b88ae7064998c6f1aed22ba08b6f030"},
+	{File: "specs/platform/blueprints_api.json", SHA256: "470b7fea8f63e77d806833564574456a3319868b82ddfe13a68e6f3d21cff7a5"},
+	{File: "specs/platform/compliance_benchmark_engine.json", SHA256: "c7b61d2fc0c53f407f930c81d38f5b3bc42e98558bafed28417c75e396715a01"},
+	{File: "specs/platform/declaration_reporting_service.json", SHA256: "3819ecec5f26ca8a03b7332ef529d4b74007d86d8eed5bedfdfef8e5f996cac8"},
+	{File: "specs/platform/device_group_inventory_api.json", SHA256: "5f8ca5b2b9671bc77391bc0f5a08e76ada31c497a5fa6e2c5908afefca9a8673"},
+	{File: "specs/platform/device_inventory_api.json", SHA256: "db42c993a77dd3496681f48baa54acea3087203c1983153c062f3a376c25ef81"},
+	{File: "specs/platform/device_management_action_api.json", SHA256: "b224359ac410038384d927ae99bd9367a67e97ebaa5dbe020271b0cc87a6e43d"},
 	{File: "specs/platform/securitycloud_categories_api.json", SHA256: "7cff9c49fe52f954c09e7dfd4cbb529415c9d31308c583b22cffefceec38d533"},
-	{File: "specs/platform/securitycloud_device_groups_api.json", SHA256: "717023f835cc71e117a69596332cc49ccd3339e5aabbf83bfd7403928bb4f3f5"},
+	{File: "specs/platform/securitycloud_device_groups_api.json", SHA256: "799fbc75e32c92aba9eaece33308ae0e155558441869e84cb554b1909ed2d98c"},
 	{File: "specs/platform/securitycloud_dns_api.json", SHA256: "79487aaf0a2f12ef4f0099eae7d39e2c8b3c64f74696a52f5a45a533ac1455e7"},
-	{File: "specs/platform/securitycloud_uem_connect_api.json", SHA256: "d2e6bd7ab615e8a62fce32e820eb0e36cb93f7392385745500a0399b8553381c"},
+	{File: "specs/platform/securitycloud_uem_connect_api.json", SHA256: "adc5fbf1dc40c0f2c30c3aebf0840c93c5dce0b51154bbe1ec515837d02ebeac"},
 	{File: "specs/platform/securitycloud_ztna_api.json", SHA256: "8e8c75389ed449f2a546d09674d257b72ea021faa0479ed0051901aace8750f5"},
 }

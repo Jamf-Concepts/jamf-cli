@@ -38,7 +38,7 @@ func newBenchmarksListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Use:         "list",
 		Short:       "Returns list of tenant benchmarks",
 		Long:        "Returns list of tenant benchmarks (if any)",
-		Annotations: map[string]string{"jamf:privileges": "read:pro:compliance-benchmarks", "jamf:api": "platform-gateway"},
+		Annotations: map[string]string{"jamf:privileges": "compliance-benchmarks:read", "jamf:api": "platform-gateway"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err
@@ -86,13 +86,13 @@ func newBenchmarksCreateCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "create",
 		Short:       "Creates a new benchmark from provided benchmark request",
-		Long:        "Creates a new benchmark from provided benchmark request and deploys associated artifacts to the MDM\n\nAllowed values:\n  enforcementMode: MONITOR, MONITOR_AND_ENFORCE\n  selectedOsVersions[].osType: MAC_OS, IOS",
-		Annotations: map[string]string{"jamf:privileges": "create:pro:compliance-benchmarks", "jamf:api": "platform-gateway"},
+		Long:        "Creates a new benchmark from provided benchmark request and deploys associated artifacts to the MDM\n\nAllowed values:\n  enforcementMode: MONITOR, MONITOR_AND_ENFORCE\n  selectedOsVersions[].osType: MAC_OS, IOS, VISION_OS",
+		Annotations: map[string]string{"jamf:privileges": "compliance-benchmarks:create", "jamf:api": "platform-gateway"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if scaffoldFlag {
 				// Scaffold prints raw JSON regardless of -o, so the output
 				// can be piped straight back into --file.
-				fmt.Println("{\n  \"description\": \"Security benchmark for macOS 26 Tahoe\",\n  \"enforcementMode\": \"MONITOR\",\n  \"rules\": [\n    {\n      \"enabled\": true,\n      \"id\": \"os_install_log_retention_configure\",\n      \"odv\": null\n    }\n  ],\n  \"selectedOsVersions\": [\n    {\n      \"osType\": \"MAC_OS\",\n      \"osVersion\": 26\n    }\n  ],\n  \"sourceBaselineId\": \"cis_lvl1\",\n  \"target\": {\n    \"deviceGroups\": [\n      \"56681d76-f139-48bc-bab6-145ffb2d4696\"\n    ]\n  },\n  \"title\": \"CIS Level 1 example benchmark\"\n}")
+				fmt.Println("{\n  \"description\": \"Security benchmark for macOS 26 Tahoe\",\n  \"enforcementMode\": \"MONITOR\",\n  \"rules\": [\n    {\n      \"enabled\": true,\n      \"id\": \"os_install_log_retention_configure\",\n      \"odv\": {\n        \"value\": \"365\"\n      }\n    }\n  ],\n  \"selectedOsVersions\": [\n    {\n      \"osType\": \"MAC_OS\",\n      \"osVersion\": 26\n    }\n  ],\n  \"sourceBaselineId\": \"cis_lvl1\",\n  \"target\": {\n    \"deviceGroups\": [\n      \"56681d76-f139-48bc-bab6-145ffb2d4696\"\n    ]\n  },\n  \"title\": \"CIS Level 1 example benchmark\"\n}")
 				return nil
 			}
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
@@ -143,7 +143,7 @@ func newBenchmarksDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Use:         "delete <id>",
 		Short:       "Removes benchmark with given benchmark ID",
 		Long:        "Removes benchmark with given benchmark and removes associated draft (if any) and artifacts from the MDM",
-		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "delete:pro:compliance-benchmarks", "jamf:api": "platform-gateway"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "compliance-benchmarks:delete", "jamf:api": "platform-gateway"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
@@ -198,7 +198,7 @@ func newBenchmarksGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Use:         "get <id>",
 		Short:       "Returns benchmark for given benchmark ID",
 		Long:        "Returns benchmark with full configuration for given benchmark ID, or 404 if not found",
-		Annotations: map[string]string{"jamf:privileges": "read:pro:compliance-benchmarks", "jamf:api": "platform-gateway"},
+		Annotations: map[string]string{"jamf:privileges": "compliance-benchmarks:read", "jamf:api": "platform-gateway"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {

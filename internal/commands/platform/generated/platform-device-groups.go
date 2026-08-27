@@ -43,7 +43,7 @@ func newPlatformDeviceGroupsListCmd(cliCtx *registry.CLIContext) *cobra.Command 
 		Use:         "list",
 		Short:       "Get all device groups",
 		Long:        "Retrieve a paginated list of all device groups for the tenant",
-		Annotations: map[string]string{"jamf:privileges": "read:pro:device-groups", "jamf:api": "platform-gateway"},
+		Annotations: map[string]string{"jamf:privileges": "device-groups:read", "jamf:api": "platform-gateway"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err
@@ -115,7 +115,7 @@ func newPlatformDeviceGroupsCreateCmd(cliCtx *registry.CLIContext) *cobra.Comman
 		Use:         "create",
 		Short:       "Create a new device group",
 		Long:        "Create a new device group in Jamf Pro\n\nAllowed values:\n  criteria[].joinType: AND, OR\n  deviceType: COMPUTER, MOBILE\n  groupType: SMART, STATIC",
-		Annotations: map[string]string{"jamf:privileges": "create:pro:device-groups", "jamf:api": "platform-gateway"},
+		Annotations: map[string]string{"jamf:privileges": "device-groups:create", "jamf:api": "platform-gateway"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if scaffoldFlag {
 				// Scaffold prints raw JSON regardless of -o, so the output
@@ -171,7 +171,7 @@ func newPlatformDeviceGroupsDeleteCmd(cliCtx *registry.CLIContext) *cobra.Comman
 		Use:         "delete <id>",
 		Short:       "Delete a device group",
 		Long:        "Delete an existing device group",
-		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "delete:pro:device-groups", "jamf:api": "platform-gateway"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "device-groups:delete", "jamf:api": "platform-gateway"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
@@ -226,7 +226,7 @@ func newPlatformDeviceGroupsGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Use:         "get <id>",
 		Short:       "Get a device group by ID",
 		Long:        "Retrieve a specific device group by its ID",
-		Annotations: map[string]string{"jamf:privileges": "read:pro:device-groups", "jamf:api": "platform-gateway"},
+		Annotations: map[string]string{"jamf:privileges": "device-groups:read", "jamf:api": "platform-gateway"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
@@ -279,7 +279,7 @@ func newPlatformDeviceGroupsPatchCmd(cliCtx *registry.CLIContext) *cobra.Command
 		Use:         "patch <id>",
 		Short:       "Update a device group",
 		Long:        "Update an existing device group\n\nAllowed values:\n  criteria[].joinType: AND, OR",
-		Annotations: map[string]string{"jamf:privileges": "update:pro:device-groups", "jamf:api": "platform-gateway"},
+		Annotations: map[string]string{"jamf:privileges": "device-groups:update", "jamf:api": "platform-gateway"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if scaffoldFlag {
@@ -342,7 +342,7 @@ func newPlatformDeviceGroupsMembersCmd(cliCtx *registry.CLIContext) *cobra.Comma
 		Use:         "members <id>",
 		Short:       "Get group members",
 		Long:        "Retrieve all members of a device group",
-		Annotations: map[string]string{"jamf:privileges": "read:pro:device-groups", "jamf:api": "platform-gateway"},
+		Annotations: map[string]string{"jamf:privileges": "device-groups:read", "jamf:api": "platform-gateway"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
@@ -395,7 +395,7 @@ func newPlatformDeviceGroupsPatchMembersCmd(cliCtx *registry.CLIContext) *cobra.
 		Use:         "patch-members <id>",
 		Short:       "Update device group members",
 		Long:        "Add devices to or remove devices from a static device group. Cannot be used with smart groups.",
-		Annotations: map[string]string{"jamf:privileges": "update:pro:device-groups", "jamf:api": "platform-gateway"},
+		Annotations: map[string]string{"jamf:privileges": "device-groups:update", "jamf:api": "platform-gateway"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if scaffoldFlag {

@@ -161,7 +161,7 @@
               "device-groups:read": "",
               "device-groups:update": ""
             },
-            "tokenUrl": "https://{region}.apigw.jamf.com/auth/token"
+            "tokenUrl": "https://{region}.api.jamfcloud.com/auth/token"
           }
         },
         "type": "oauth2"
@@ -618,7 +618,7 @@
   "servers": [
     {
       "description": "Jamf Beta API Gateway - prod",
-      "url": "https://{region}.apigw.jamf.com/api/securitycloud",
+      "url": "https://{region}.api.jamfcloud.com/api/securitycloud",
       "variables": {
         "region": {
           "default": "us",

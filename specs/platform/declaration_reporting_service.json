@@ -1,10 +1,10 @@
 {
   "components": {
     "parameters": {
-      "tenantId": {
-        "description": "The tenant UUID identifier",
-        "in": "path",
-        "name": "tenantId",
+      "X-Tenant-Id": {
+        "description": "The tenant UUID identifier.",
+        "in": "header",
+        "name": "X-Tenant-Id",
         "required": true,
         "schema": {
           "example": "e77c1408-10c8-4007-b177-abc9157fbcaa",
@@ -488,12 +488,14 @@
       }
     },
     "securitySchemes": {
-      "OAuth2ClientCredentials": {
+      "oauth2": {
         "description": "Obtain an access token by calling the API Gateway's token endpoint using the OAuth2 client-credentials flow.",
         "flows": {
           "clientCredentials": {
-            "scopes": {},
-            "tokenUrl": "https://{region}.apigw.jamf.com/oauth2/token"
+            "scopes": {
+              "declarations:read": ""
+            },
+            "tokenUrl": "https://{region}.api.jamfcloud.com/auth/token"
           }
         },
         "type": "oauth2"
@@ -512,14 +514,14 @@
   },
   "openapi": "3.1.0",
   "paths": {
-    "/v1/tenant/{tenantId}/declarations/{declarationIdentifier}": {
+    "/v1/declarations/{declarationIdentifier}": {
       "get": {
         "deprecated": true,
-        "description": "**Deprecated** — use `GET /v1/declarations/{declarationIdentifier}/devices` instead.\n\n**Required Permissions:** `read:pro:declaration-reporting`, `read:school:declaration-reporting`",
+        "description": "**Deprecated** — use `GET /v1/declarations/{declarationIdentifier}/devices` instead.\n\n**Required Permissions:** `declarations:read`",
         "operationId": "getDeclarationReport",
         "parameters": [
           {
-            "$ref": "#/components/parameters/tenantId"
+            "$ref": "#/components/parameters/X-Tenant-Id"
           },
           {
             "description": "The declarationIdentifier present on a status report",
@@ -669,30 +671,30 @@
         },
         "security": [
           {
-            "OAuth2ClientCredentials": []
+            "oauth2": [
+              "declarations:read"
+            ]
           }
         ],
         "summary": "Get declaration report devices",
         "tags": [
           "declaration-reports"
         ],
-        "x-authentication-required": true,
         "x-deprecation-date": "2026-05-17",
         "x-required-privileges": [
-          "read:pro:declaration-reporting",
-          "read:school:declaration-reporting"
+          "declarations:read"
         ],
         "x-successor-endpoint": "GET /v1/declarations/{declarationIdentifier}/devices",
         "x-sunset-date": "2027-05-17"
       }
     },
-    "/v1/tenant/{tenantId}/declarations/{declarationIdentifier}/devices": {
+    "/v1/declarations/{declarationIdentifier}/devices": {
       "get": {
-        "description": "Get a declaration report containing the filtered devices currently reporting the provided declarationIdentifier. Supports pagination, sorting, and filtering with RSQL syntax. **Filtering:** Filters only apply to declarations already on the device (excludes PENDING status). Supported filter fields: `deviceId`, `channel`, `lastReportTime`, `active`, `validityState`, `declarationType`, `dateUpdated`. **Sorting:** Use `?sort=field,direction` (e.g., `?sort=declarationType,asc`). For more information on RSQL, see [Jamf Developer Portal](https://developer.jamf.com)\n\n**Required Permissions:** `read:pro:declaration-reporting`, `read:school:declaration-reporting`",
+        "description": "Get a declaration report containing the filtered devices currently reporting the provided declarationIdentifier. Supports pagination, sorting, and filtering with RSQL syntax. **Filtering:** Filters only apply to declarations already on the device (excludes PENDING status). Supported filter fields: `deviceId`, `channel`, `lastReportTime`, `active`, `validityState`, `declarationType`, `dateUpdated`. **Sorting:** Use `?sort=field,direction` (e.g., `?sort=declarationType,asc`). For more information on RSQL, see [Jamf Developer Portal](https://developer.jamf.com)\n\n**Required Permissions:** `declarations:read`",
         "operationId": "getDeclarationReportByFilter",
         "parameters": [
           {
-            "$ref": "#/components/parameters/tenantId"
+            "$ref": "#/components/parameters/X-Tenant-Id"
           },
           {
             "description": "The declarationIdentifier present on a status report",
@@ -826,28 +828,28 @@
         },
         "security": [
           {
-            "OAuth2ClientCredentials": []
+            "oauth2": [
+              "declarations:read"
+            ]
           }
         ],
         "summary": "Get filtered declaration report devices",
         "tags": [
           "declaration-reports"
         ],
-        "x-authentication-required": true,
         "x-required-privileges": [
-          "read:pro:declaration-reporting",
-          "read:school:declaration-reporting"
+          "declarations:read"
         ]
       }
     },
-    "/v1/tenant/{tenantId}/devices/{deviceId}": {
+    "/v1/devices/{deviceId}": {
       "get": {
         "deprecated": true,
-        "description": "**Deprecated** — use `GET /v1/devices/{deviceId}/declarations` instead.\n\n**Required Permissions:** `read:pro:declaration-reporting`, `read:school:declaration-reporting`",
+        "description": "**Deprecated** — use `GET /v1/devices/{deviceId}/declarations` instead.\n\n**Required Permissions:** `declarations:read`",
         "operationId": "getDeviceReport",
         "parameters": [
           {
-            "$ref": "#/components/parameters/tenantId"
+            "$ref": "#/components/parameters/X-Tenant-Id"
           },
           {
             "description": "The platform deviceId",
@@ -966,30 +968,30 @@
         },
         "security": [
           {
-            "OAuth2ClientCredentials": []
+            "oauth2": [
+              "declarations:read"
+            ]
           }
         ],
         "summary": "Get device report declarations",
         "tags": [
           "device-reports"
         ],
-        "x-authentication-required": true,
         "x-deprecation-date": "2026-05-17",
         "x-required-privileges": [
-          "read:pro:declaration-reporting",
-          "read:school:declaration-reporting"
+          "declarations:read"
         ],
         "x-successor-endpoint": "GET /v1/devices/{deviceId}/declarations",
         "x-sunset-date": "2027-05-17"
       }
     },
-    "/v1/tenant/{tenantId}/devices/{deviceId}/channels": {
+    "/v1/devices/{deviceId}/channels": {
       "get": {
-        "description": "Get a list of all channels available for the provided deviceId.\n\n**Required Permissions:** `read:pro:declaration-reporting`, `read:school:declaration-reporting`",
+        "description": "Get a list of all channels available for the provided deviceId.\n\n**Required Permissions:** `declarations:read`",
         "operationId": "getDeviceChannels",
         "parameters": [
           {
-            "$ref": "#/components/parameters/tenantId"
+            "$ref": "#/components/parameters/X-Tenant-Id"
           },
           {
             "description": "The platform deviceId",
@@ -1082,27 +1084,27 @@
         },
         "security": [
           {
-            "OAuth2ClientCredentials": []
+            "oauth2": [
+              "declarations:read"
+            ]
           }
         ],
         "summary": "Get device channels",
         "tags": [
           "device-reports"
         ],
-        "x-authentication-required": true,
         "x-required-privileges": [
-          "read:pro:declaration-reporting",
-          "read:school:declaration-reporting"
+          "declarations:read"
         ]
       }
     },
-    "/v1/tenant/{tenantId}/devices/{deviceId}/declarations": {
+    "/v1/devices/{deviceId}/declarations": {
       "get": {
-        "description": "Get a device report containing the filtered declarations reported for the provided deviceId. Supports pagination, sorting, and filtering with RSQL syntax. **Filtering:** Filters only apply to declarations already on the device (excludes PENDING status). Supported filter fields: `declarationIdentifier`, `active`, `declarationType`, `validityState`, `dateUpdated`, `channel`. **Note:** Wildcard matching on declarationIdentifier (e.g. `declarationIdentifier==Blueprint_*`) is case-insensitive. **Sorting:** Use `?sort=field,direction` (e.g., `?sort=declarationType,asc\u0026sort=declarationIdentifier,desc`). Supported sort fields: declarationIdentifier, declarationType, active, validityState, dateUpdated. Results are returned in database order if no sort parameter is provided. For more information on RSQL, see [Jamf Developer Portal](https://developer.jamf.com)\n\n**Required Permissions:** `read:pro:declaration-reporting`, `read:school:declaration-reporting`",
+        "description": "Get a device report containing the filtered declarations reported for the provided deviceId. Supports pagination, sorting, and filtering with RSQL syntax. **Filtering:** Filters only apply to declarations already on the device (excludes PENDING status). Supported filter fields: `declarationIdentifier`, `active`, `declarationType`, `validityState`, `dateUpdated`, `channel`. **Note:** Wildcard matching on declarationIdentifier (e.g. `declarationIdentifier==Blueprint_*`) is case-insensitive. **Sorting:** Use `?sort=field,direction` (e.g., `?sort=declarationType,asc\u0026sort=declarationIdentifier,desc`). Supported sort fields: declarationIdentifier, declarationType, active, validityState, dateUpdated. Results are returned in database order if no sort parameter is provided. For more information on RSQL, see [Jamf Developer Portal](https://developer.jamf.com)\n\n**Required Permissions:** `declarations:read`",
         "operationId": "getDeviceReportByFilter",
         "parameters": [
           {
-            "$ref": "#/components/parameters/tenantId"
+            "$ref": "#/components/parameters/X-Tenant-Id"
           },
           {
             "description": "The platform deviceId",
@@ -1236,30 +1238,30 @@
         },
         "security": [
           {
-            "OAuth2ClientCredentials": []
+            "oauth2": [
+              "declarations:read"
+            ]
           }
         ],
         "summary": "Get filtered device report declarations",
         "tags": [
           "device-reports"
         ],
-        "x-authentication-required": true,
         "x-required-privileges": [
-          "read:pro:declaration-reporting",
-          "read:school:declaration-reporting"
+          "declarations:read"
         ]
       }
     }
   },
   "security": [
     {
-      "OAuth2ClientCredentials": []
+      "oauth2": []
     }
   ],
   "servers": [
     {
       "description": "Jamf Beta API Gateway - prod",
-      "url": "https://{region}.apigw.jamf.com/api/ddm/report",
+      "url": "https://{region}.api.jamfcloud.com/api/ddm/report",
       "variables": {
         "region": {
           "default": "us",
@@ -1280,5 +1282,8 @@
     {
       "name": "declaration report"
     }
+  ],
+  "x-scope-types": [
+    "tenant"
   ]
 }

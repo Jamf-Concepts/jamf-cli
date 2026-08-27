@@ -430,11 +430,11 @@
               "INTUNE",
               "XENMOBILE",
               "MAAS360",
-              "WORKSPACE_ONE",
+              "AIRWATCH",
               "JAMF_PRO",
               "JAMF_SCHOOL",
-              "MICLOUD",
-              "MICORE",
+              "MOBILEIRONCLOUD",
+              "MOBILEIRONCORE",
               "GOOGLE",
               "WIZY"
             ],
@@ -477,11 +477,11 @@
               "INTUNE",
               "XENMOBILE",
               "MAAS360",
-              "WORKSPACE_ONE",
+              "AIRWATCH",
               "JAMF_PRO",
               "JAMF_SCHOOL",
-              "MICLOUD",
-              "MICORE",
+              "MOBILEIRONCLOUD",
+              "MOBILEIRONCORE",
               "GOOGLE",
               "WIZY"
             ],
@@ -600,16 +600,19 @@
         "type": "object"
       },
       "EmailMapping": {
-        "description": "How the device email is derived. `EMAIL_ADDRESS` uses the UEM email attribute directly;\nany other type reads from that attribute and optionally decorates it into an address.\n",
+        "additionalProperties": true,
+        "description": "How the device email is derived. `EMAIL_ADDRESS` uses the UEM email attribute directly;\nany other type reads from that attribute and optionally decorates it into an address.\n\nVendors that support the `CUSTOM` type carry an additional `fieldName` property naming the UEM\nattribute to read. It is not documented as a property here because the vendors that do not\nsupport `CUSTOM` do not emit it at all, and ADG-125 requires every documented field to be\npresent in every response.\n",
         "properties": {
           "fieldPrefix": {
             "description": "Prepended to the resolved value. Ignored when `type` is `EMAIL_ADDRESS`.",
             "example": "dev-",
+            "nullable": true,
             "type": "string"
           },
           "fieldSuffix": {
             "description": "Appended to the resolved value to form a full address; an `@` is inserted when the\nsuffix does not already start with one. Ignored when `type` is `EMAIL_ADDRESS`.\n",
             "example": "example.com",
+            "nullable": true,
             "type": "string"
           },
           "type": {
@@ -623,7 +626,8 @@
               "LAST_NAME",
               "DEVICE_NAME",
               "EXTERNAL_USER_ID",
-              "NAME"
+              "NAME",
+              "CUSTOM"
             ],
             "example": "EMAIL_ADDRESS",
             "type": "string"
@@ -1000,11 +1004,11 @@
               "INTUNE",
               "XENMOBILE",
               "MAAS360",
-              "WORKSPACE_ONE",
+              "AIRWATCH",
               "JAMF_PRO",
               "JAMF_SCHOOL",
-              "MICLOUD",
-              "MICORE",
+              "MOBILEIRONCLOUD",
+              "MOBILEIRONCORE",
               "GOOGLE",
               "WIZY"
             ],

@@ -1,10 +1,10 @@
 {
   "components": {
     "parameters": {
-      "tenantId": {
-        "description": "The tenant UUID identifier",
-        "in": "path",
-        "name": "tenantId",
+      "X-Tenant-Id": {
+        "description": "The tenant UUID identifier.",
+        "in": "header",
+        "name": "X-Tenant-Id",
         "required": true,
         "schema": {
           "example": "e77c1408-10c8-4007-b177-abc9157fbcaa",
@@ -166,8 +166,7 @@
             "type": "string"
           },
           "target": {
-            "$ref": "#/components/schemas/TargetV2",
-            "description": "The target device groups for this benchmark"
+            "$ref": "#/components/schemas/TargetV2"
           },
           "title": {
             "description": "A short, descriptive name for the benchmark",
@@ -414,10 +413,8 @@
           },
           "deviceName": {
             "example": "John's MacBook Pro",
-            "type": [
-              "string",
-              "null"
-            ]
+            "nullable": true,
+            "type": "string"
           },
           "state": {
             "$ref": "#/components/schemas/RuleResultState"
@@ -429,15 +426,18 @@
         ],
         "type": "object"
       },
-      "ODVRecommendation": {
-        "description": "The recommended organization-defined value for a rule on one OS version.",
+      "OdvRecommendation": {
+        "description": "Recommended value and hint for an organization-defined value (ODV) field",
+        "nullable": true,
         "properties": {
           "hint": {
-            "description": "Guidance on what values the rule accepts.",
+            "example": "Number of days.",
+            "minLength": 1,
             "type": "string"
           },
           "value": {
-            "description": "The recommended value for this OS version.",
+            "example": "365",
+            "minLength": 1,
             "type": "string"
           }
         },
@@ -445,6 +445,7 @@
       },
       "OdvRequest": {
         "description": "User-supplied value for an organization-defined value (ODV) rule parameter",
+        "nullable": true,
         "properties": {
           "value": {
             "example": "365",
@@ -459,6 +460,7 @@
       },
       "OrganizationDefinedValue": {
         "description": "An organization-defined value (ODV) that customizes a parameterized compliance rule",
+        "nullable": true,
         "properties": {
           "hint": {
             "example": "Number of days.",
@@ -473,7 +475,8 @@
               "INTEGER",
               "STRING",
               "ENUM",
-              "REGEX"
+              "REGEX",
+              "BOOLEAN"
             ],
             "example": "INTEGER",
             "type": "string"
@@ -497,6 +500,7 @@
         "type": "object"
       },
       "OsInfo": {
+        "description": "Operating system type, version, and management type, uniquely identifying a supported OS target",
         "properties": {
           "managementType": {
             "enum": [
@@ -509,7 +513,8 @@
           "osType": {
             "enum": [
               "MAC_OS",
-              "IOS"
+              "IOS",
+              "VISION_OS"
             ],
             "example": "MAC_OS",
             "type": "string"
@@ -528,27 +533,42 @@
         "type": "object"
       },
       "OsSpecificRuleInfo": {
-        "description": "Per-OS-version overrides of a rule's title, description and recommended organization-defined value.",
+        "description": "OS-specific overrides for a compliance rule's title, description, and ODV recommendation",
+        "example": {
+          "MAC_OS_26": {
+            "description": "The install.log _MUST_ be configured to require records be kept for a organizational defined value before deletion, unless the system uses a central audit record storage facility.",
+            "title": "Configure Install.log Retention to $ODV"
+          }
+        },
         "properties": {
           "description": {
+            "example": "The install.log _MUST_ be configured to require records be kept for a organizational defined value before deletion, unless the system uses a central audit record storage facility. \n",
             "type": "string"
           },
           "odv": {
-            "$ref": "#/components/schemas/ODVRecommendation"
+            "$ref": "#/components/schemas/OdvRecommendation"
           },
           "title": {
+            "example": "Configure Install.log Retention to $ODV",
             "type": "string"
           }
         },
+        "required": [
+          "description",
+          "title"
+        ],
         "type": "object"
       },
       "OsVersion": {
+        "description": "The selected OS versions for this benchmark, default is all available baseline OS versions",
+        "minLength": 1,
         "properties": {
           "osType": {
             "description": "Operating system type",
             "enum": [
               "MAC_OS",
-              "IOS"
+              "IOS",
+              "VISION_OS"
             ],
             "example": "MAC_OS",
             "type": "string"
@@ -582,20 +602,18 @@
             "type": "string"
           },
           "odv": {
-            "oneOf": [
-              {
-                "$ref": "#/components/schemas/OrganizationDefinedValue"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "$ref": "#/components/schemas/OrganizationDefinedValue"
           },
           "osSpecificDefaults": {
             "additionalProperties": {
               "$ref": "#/components/schemas/OsSpecificRuleInfo"
             },
-            "description": "Per-OS-version rule overrides, keyed by OS identifier (MAC_OS_13, MAC_OS_14, ...). Empty when the rule is identical on every supported OS.",
+            "example": {
+              "MAC_OS_26": {
+                "description": "The install.log _MUST_ be configured to require records be kept for a organizational defined value before deletion, unless the system uses a central audit record storage facility.",
+                "title": "Configure Install.log Retention to $ODV"
+              }
+            },
             "type": "object"
           },
           "references": {
@@ -603,26 +621,19 @@
               "3.3"
             ],
             "items": {
+              "example": "[\"3.3\"]",
+              "nullable": true,
               "type": "string"
             },
-            "type": [
-              "array",
-              "null"
-            ]
+            "nullable": true,
+            "type": "array"
           },
           "reportable": {
             "example": true,
             "type": "boolean"
           },
           "ruleRelation": {
-            "oneOf": [
-              {
-                "$ref": "#/components/schemas/RuleRelation"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "$ref": "#/components/schemas/RuleRelation"
           },
           "sectionName": {
             "example": "OS",
@@ -657,12 +668,14 @@
       },
       "RuleRelation": {
         "description": "Dependency and conflict relationships between compliance rules",
+        "nullable": true,
         "properties": {
           "conflictsWith": {
             "example": [
               "system_settings_location_services_disable"
             ],
             "items": {
+              "example": "[\"system_settings_location_services_disable\"]",
               "type": "string"
             },
             "type": "array"
@@ -676,6 +689,7 @@
               "pwpolicy_account_lockout_enforce"
             ],
             "items": {
+              "example": "[\"pwpolicy_account_lockout_enforce\"]",
               "type": "string"
             },
             "type": "array"
@@ -688,6 +702,7 @@
       },
       "RuleRequest": {
         "description": "A rule configuration within a benchmark request, specifying the rule ID, enabled state, and optional ODV value",
+        "minLength": 1,
         "properties": {
           "enabled": {
             "example": true,
@@ -699,14 +714,7 @@
             "type": "string"
           },
           "odv": {
-            "oneOf": [
-              {
-                "$ref": "#/components/schemas/OdvRequest"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "$ref": "#/components/schemas/OdvRequest"
           }
         },
         "required": [
@@ -783,6 +791,7 @@
         "type": "string"
       },
       "Source": {
+        "deprecated": true,
         "description": "A Git source reference identifying a branch and revision of the compliance rules repository",
         "properties": {
           "branch": {
@@ -840,6 +849,7 @@
               "56681d76-f139-48bc-bab6-145ffb2d4696"
             ],
             "items": {
+              "example": "[\"56681d76-f139-48bc-bab6-145ffb2d4696\"]",
               "minLength": 1,
               "type": "string"
             },
@@ -862,6 +872,7 @@
               "use-login-window-ui"
             ],
             "items": {
+              "example": "[\"authenticate-session-owner\",\"authenticate-session-owner-or-admin\",\"use-login-window-ui\"]",
               "type": "string"
             },
             "type": "array"
@@ -887,11 +898,19 @@
       }
     },
     "securitySchemes": {
-      "bearerAuth": {
-        "bearerFormat": "JWT",
-        "description": "JWT Bearer token authentication. Obtain a token from the Jamf API Gateway.",
-        "scheme": "bearer",
-        "type": "http"
+      "oauth2": {
+        "description": "Obtain an access token by calling the API Gateway's token endpoint using the OAuth2 client-credentials flow.",
+        "flows": {
+          "clientCredentials": {
+            "scopes": {
+              "compliance-benchmarks:create": "",
+              "compliance-benchmarks:delete": "",
+              "compliance-benchmarks:read": ""
+            },
+            "tokenUrl": "https://{region}.api.jamfcloud.com/auth/token"
+          }
+        },
+        "type": "oauth2"
       }
     }
   },
@@ -905,15 +924,15 @@
     "title": "Jamf Compliance Benchmarks API - Beta",
     "version": "latest"
   },
-  "openapi": "3.1.0",
+  "openapi": "3.0.0",
   "paths": {
-    "/v1/tenant/{tenantId}/baselines": {
+    "/v1/baselines": {
       "get": {
-        "description": "Returns list of the mSCP baselines allowed for the Compliance benchmarks\n\n**Required Permissions:** `read:pro:compliance-benchmarks`",
+        "description": "Returns list of the mSCP baselines allowed for the Compliance benchmarks\n\n**Required Permissions:** `compliance-benchmarks:read`",
         "operationId": "getBaselines",
         "parameters": [
           {
-            "$ref": "#/components/parameters/tenantId"
+            "$ref": "#/components/parameters/X-Tenant-Id"
           }
         ],
         "responses": {
@@ -936,26 +955,27 @@
         },
         "security": [
           {
-            "bearerAuth": []
+            "oauth2": [
+              "compliance-benchmarks:read"
+            ]
           }
         ],
         "summary": "Returns list of the mSCP baselines",
         "tags": [
           "baselines"
         ],
-        "x-authentication-required": true,
         "x-required-privileges": [
-          "read:pro:compliance-benchmarks"
+          "compliance-benchmarks:read"
         ]
       }
     },
-    "/v1/tenant/{tenantId}/benchmarks": {
+    "/v1/benchmarks": {
       "get": {
-        "description": "Returns list of tenant benchmarks (if any)\n\n**Required Permissions:** `read:pro:compliance-benchmarks`",
+        "description": "Returns list of tenant benchmarks (if any)\n\n**Required Permissions:** `compliance-benchmarks:read`",
         "operationId": "getTenantBenchmarks",
         "parameters": [
           {
-            "$ref": "#/components/parameters/tenantId"
+            "$ref": "#/components/parameters/X-Tenant-Id"
           }
         ],
         "responses": {
@@ -978,24 +998,25 @@
         },
         "security": [
           {
-            "bearerAuth": []
+            "oauth2": [
+              "compliance-benchmarks:read"
+            ]
           }
         ],
         "summary": "Returns list of tenant benchmarks",
         "tags": [
           "benchmarks"
         ],
-        "x-authentication-required": true,
         "x-required-privileges": [
-          "read:pro:compliance-benchmarks"
+          "compliance-benchmarks:read"
         ]
       },
       "post": {
-        "description": "Creates a new benchmark from provided benchmark request and deploys associated artifacts to the MDM\n\n**Required Permissions:** `create:pro:compliance-benchmarks`",
+        "description": "Creates a new benchmark from provided benchmark request and deploys associated artifacts to the MDM\n\n**Required Permissions:** `compliance-benchmarks:create`",
         "operationId": "postBenchmark",
         "parameters": [
           {
-            "$ref": "#/components/parameters/tenantId"
+            "$ref": "#/components/parameters/X-Tenant-Id"
           }
         ],
         "requestBody": {
@@ -1034,27 +1055,28 @@
         },
         "security": [
           {
-            "bearerAuth": []
+            "oauth2": [
+              "compliance-benchmarks:create"
+            ]
           }
         ],
         "summary": "Creates a new benchmark from provided benchmark request",
         "tags": [
           "benchmarks"
         ],
-        "x-authentication-required": true,
         "x-jamf-expected-status": 202,
         "x-required-privileges": [
-          "create:pro:compliance-benchmarks"
+          "compliance-benchmarks:create"
         ]
       }
     },
-    "/v1/tenant/{tenantId}/benchmarks/{id}": {
+    "/v1/benchmarks/{id}": {
       "delete": {
-        "description": "Removes benchmark with given benchmark and removes associated draft (if any) and artifacts from the MDM\n\n**Required Permissions:** `delete:pro:compliance-benchmarks`",
+        "description": "Removes benchmark with given benchmark and removes associated draft (if any) and artifacts from the MDM\n\n**Required Permissions:** `compliance-benchmarks:delete`",
         "operationId": "deleteBenchmark",
         "parameters": [
           {
-            "$ref": "#/components/parameters/tenantId"
+            "$ref": "#/components/parameters/X-Tenant-Id"
           },
           {
             "description": "Given benchmark ID",
@@ -1082,24 +1104,25 @@
         },
         "security": [
           {
-            "bearerAuth": []
+            "oauth2": [
+              "compliance-benchmarks:delete"
+            ]
           }
         ],
         "summary": "Removes benchmark with given benchmark ID",
         "tags": [
           "benchmarks"
         ],
-        "x-authentication-required": true,
         "x-required-privileges": [
-          "delete:pro:compliance-benchmarks"
+          "compliance-benchmarks:delete"
         ]
       },
       "get": {
-        "description": "Returns benchmark with full configuration for given benchmark ID, or 404 if not found\n\n**Required Permissions:** `read:pro:compliance-benchmarks`",
+        "description": "Returns benchmark with full configuration for given benchmark ID, or 404 if not found\n\n**Required Permissions:** `compliance-benchmarks:read`",
         "operationId": "getBenchmark",
         "parameters": [
           {
-            "$ref": "#/components/parameters/tenantId"
+            "$ref": "#/components/parameters/X-Tenant-Id"
           },
           {
             "description": "Given benchmark ID",
@@ -1137,26 +1160,27 @@
         },
         "security": [
           {
-            "bearerAuth": []
+            "oauth2": [
+              "compliance-benchmarks:read"
+            ]
           }
         ],
         "summary": "Returns benchmark for given benchmark ID",
         "tags": [
           "benchmarks"
         ],
-        "x-authentication-required": true,
         "x-required-privileges": [
-          "read:pro:compliance-benchmarks"
+          "compliance-benchmarks:read"
         ]
       }
     },
-    "/v1/tenant/{tenantId}/benchmarks/{id}/compliance-percentage": {
+    "/v1/benchmarks/{id}/compliance-percentage": {
       "get": {
-        "description": "Calculates and returns the overall compliance percentage for a specific benchmark report as sum of device compliance scores divided by number of devices\n\n**Required Permissions:** `read:pro:compliance-benchmarks`",
+        "description": "Calculates and returns the overall compliance percentage for a specific benchmark report as sum of device compliance scores divided by number of devices\n\n**Required Permissions:** `compliance-benchmarks:read`",
         "operationId": "v1GetBenchmarkCompliancePercentage",
         "parameters": [
           {
-            "$ref": "#/components/parameters/tenantId"
+            "$ref": "#/components/parameters/X-Tenant-Id"
           },
           {
             "description": "Tenant's benchmark ID",
@@ -1188,26 +1212,27 @@
         },
         "security": [
           {
-            "bearerAuth": []
+            "oauth2": [
+              "compliance-benchmarks:read"
+            ]
           }
         ],
         "summary": "Get compliance percentage for a benchmark report",
         "tags": [
           "benchmark-reports"
         ],
-        "x-authentication-required": true,
         "x-required-privileges": [
-          "read:pro:compliance-benchmarks"
+          "compliance-benchmarks:read"
         ]
       }
     },
-    "/v1/tenant/{tenantId}/benchmarks/{id}/devices": {
+    "/v1/benchmarks/{id}/devices": {
       "get": {
-        "description": "Provides devices filtered report for a specific benchmark rule\n\n**Required Permissions:** `read:pro:compliance-benchmarks`",
+        "description": "Provides devices filtered report for a specific benchmark rule\n\n**Required Permissions:** `compliance-benchmarks:read`",
         "operationId": "v1GetDevicesForBenchmarkRule",
         "parameters": [
           {
-            "$ref": "#/components/parameters/tenantId"
+            "$ref": "#/components/parameters/X-Tenant-Id"
           },
           {
             "description": "Tenant's benchmark ID",
@@ -1288,26 +1313,27 @@
         },
         "security": [
           {
-            "bearerAuth": []
+            "oauth2": [
+              "compliance-benchmarks:read"
+            ]
           }
         ],
         "summary": "Get devices for a benchmark report rule",
         "tags": [
           "benchmark-reports"
         ],
-        "x-authentication-required": true,
         "x-required-privileges": [
-          "read:pro:compliance-benchmarks"
+          "compliance-benchmarks:read"
         ]
       }
     },
-    "/v1/tenant/{tenantId}/benchmarks/{id}/rules": {
+    "/v1/benchmarks/{id}/rules": {
       "get": {
-        "description": "Provides benchmark rules stats for a specific benchmark\n\n**Required Permissions:** `read:pro:compliance-benchmarks`",
+        "description": "Provides benchmark rules stats for a specific benchmark\n\n**Required Permissions:** `compliance-benchmarks:read`",
         "operationId": "v1GetBenchmarkRulesStats",
         "parameters": [
           {
-            "$ref": "#/components/parameters/tenantId"
+            "$ref": "#/components/parameters/X-Tenant-Id"
           },
           {
             "description": "Tenant's benchmark ID",
@@ -1373,26 +1399,27 @@
         },
         "security": [
           {
-            "bearerAuth": []
+            "oauth2": [
+              "compliance-benchmarks:read"
+            ]
           }
         ],
         "summary": "Get benchmark rules for a tenant",
         "tags": [
           "benchmark-reports"
         ],
-        "x-authentication-required": true,
         "x-required-privileges": [
-          "read:pro:compliance-benchmarks"
+          "compliance-benchmarks:read"
         ]
       }
     },
-    "/v1/tenant/{tenantId}/rules": {
+    "/v1/rules": {
       "get": {
-        "description": "Returns list of the rules for given mSCP baseline together with sources that provide them\n\n**Required Permissions:** `read:pro:compliance-benchmarks`",
+        "description": "Returns list of rules for specific baseline and their sources",
         "operationId": "getRules",
         "parameters": [
           {
-            "$ref": "#/components/parameters/tenantId"
+            "$ref": "#/components/parameters/X-Tenant-Id"
           },
           {
             "description": "Given baseline ID",
@@ -1422,29 +1449,30 @@
         },
         "security": [
           {
-            "bearerAuth": []
+            "oauth2": [
+              "compliance-benchmarks:read"
+            ]
           }
         ],
-        "summary": "Get list of rules for given baseline",
+        "summary": "Returns list of rules for specific baseline",
         "tags": [
           "rules"
         ],
-        "x-authentication-required": true,
         "x-required-privileges": [
-          "read:pro:compliance-benchmarks"
+          "compliance-benchmarks:read"
         ]
       }
     }
   },
   "security": [
     {
-      "bearerAuth": []
+      "oauth2": []
     }
   ],
   "servers": [
     {
       "description": "Jamf Beta API Gateway - prod",
-      "url": "https://{region}.apigw.jamf.com/api/compliance-benchmarks",
+      "url": "https://{region}.api.jamfcloud.com/api/compliance-benchmarks",
       "variables": {
         "region": {
           "default": "us",
@@ -1457,5 +1485,8 @@
         }
       }
     }
+  ],
+  "x-scope-types": [
+    "tenant"
   ]
 }
