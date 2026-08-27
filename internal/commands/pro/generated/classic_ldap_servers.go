@@ -156,24 +156,30 @@ func newClassicLdapServersGetCmd(ctx *registry.CLIContext) *cobra.Command {
 }
 
 func newClassicLdapServersCreateCmd(ctx *registry.CLIContext) *cobra.Command {
+	var (
+		fromFile string
+	)
 	cmd := &cobra.Command{
 		Use:   "create",
 		Short: "Create a ldap_server",
-		Long:  "Create a new ldap_server. Reads XML body from stdin.",
-		Example: `  # Create a ldap_server from XML
+		Long:  "Create a new ldap_server. Reads the XML body from --from-file or stdin.",
+		Example: `  # Create a ldap_server from an XML file
+  jamf-cli pro classic-ldap-servers create --from-file ldap_server.xml
+
+  # Create a ldap_server from XML on stdin
   cat ldap_server.xml | jamf-cli pro classic-ldap-servers create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
-			var body io.Reader
-			stat, _ := os.Stdin.Stat()
-			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				body = os.Stdin
-			} else {
-				return fmt.Errorf("request body required on stdin (pipe XML input)")
+			bodyBytes, err := readClassicBody(fromFile)
+			if err != nil {
+				return err
+			}
+			if len(bodyBytes) == 0 {
+				return fmt.Errorf("request body required: use --from-file or pipe XML to stdin")
 			}
 
-			resp, err := ctx.Client.Do(reqCtx, "POST", "/JSSResource/ldapservers/id/0", body)
+			resp, err := ctx.Client.Do(reqCtx, "POST", "/JSSResource/ldapservers/id/0", bytes.NewReader(bodyBytes))
 			if err != nil {
 				return err
 			}
@@ -183,29 +189,35 @@ func newClassicLdapServersCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 
 		},
 	}
+	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to XML input file (or pipe XML to stdin)")
 	return cmd
 }
 
 func newClassicLdapServersUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
+	var fromFile string
 	var flagName string
 
 	cmd := &cobra.Command{
 		Use:   "update [<id>]",
 		Short: "Update a ldap_server",
-		Long:  "Update an existing ldap_server by ID. Reads XML body from stdin.",
-		Example: `  # Update a ldap_server from XML
+		Long:  "Update an existing ldap_server by ID. Reads the XML body from --from-file or stdin.",
+		Example: `  # Update a ldap_server from an XML file
+  jamf-cli pro classic-ldap-servers update 1 --from-file ldap_server.xml
+
+  # Update a ldap_server from XML on stdin
   cat ldap_server.xml | jamf-cli pro classic-ldap-servers update 1`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
-			var body io.Reader
-			stat, _ := os.Stdin.Stat()
-			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				body = os.Stdin
-			} else {
-				return fmt.Errorf("request body required on stdin (pipe XML input)")
+			bodyBytes, bodyErr := readClassicBody(fromFile)
+			if bodyErr != nil {
+				return bodyErr
 			}
+			if len(bodyBytes) == 0 {
+				return fmt.Errorf("request body required: use --from-file or pipe XML to stdin")
+			}
+			body := bytes.NewReader(bodyBytes)
 
 			var path string
 			if flagName != "" {
@@ -226,6 +238,7 @@ func newClassicLdapServersUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 		},
 	}
 
+	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to XML input file (or pipe XML to stdin)")
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up ldap_server by name")
 
 	return cmd

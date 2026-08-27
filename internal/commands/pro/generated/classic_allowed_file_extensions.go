@@ -3,6 +3,7 @@
 package generated
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -148,24 +149,30 @@ func newClassicAllowedFileExtensionsGetCmd(ctx *registry.CLIContext) *cobra.Comm
 }
 
 func newClassicAllowedFileExtensionsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
+	var (
+		fromFile string
+	)
 	cmd := &cobra.Command{
 		Use:   "create",
 		Short: "Create a allowed_file_extension",
-		Long:  "Create a new allowed_file_extension. Reads XML body from stdin.",
-		Example: `  # Create a allowed_file_extension from XML
+		Long:  "Create a new allowed_file_extension. Reads the XML body from --from-file or stdin.",
+		Example: `  # Create a allowed_file_extension from an XML file
+  jamf-cli pro classic-allowed-file-extensions create --from-file allowed_file_extension.xml
+
+  # Create a allowed_file_extension from XML on stdin
   cat allowed_file_extension.xml | jamf-cli pro classic-allowed-file-extensions create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
-			var body io.Reader
-			stat, _ := os.Stdin.Stat()
-			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				body = os.Stdin
-			} else {
-				return fmt.Errorf("request body required on stdin (pipe XML input)")
+			bodyBytes, err := readClassicBody(fromFile)
+			if err != nil {
+				return err
+			}
+			if len(bodyBytes) == 0 {
+				return fmt.Errorf("request body required: use --from-file or pipe XML to stdin")
 			}
 
-			resp, err := ctx.Client.Do(reqCtx, "POST", "/JSSResource/allowedfileextensions/id/0", body)
+			resp, err := ctx.Client.Do(reqCtx, "POST", "/JSSResource/allowedfileextensions/id/0", bytes.NewReader(bodyBytes))
 			if err != nil {
 				return err
 			}
@@ -175,6 +182,7 @@ func newClassicAllowedFileExtensionsCreateCmd(ctx *registry.CLIContext) *cobra.C
 
 		},
 	}
+	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to XML input file (or pipe XML to stdin)")
 	return cmd
 }
 

@@ -119,11 +119,11 @@ func templateFuncs() template.FuncMap {
 				return fmt.Sprintf("  # Get a %s by ID\n  %s %s get 1\n\n  # Get a %s and output as YAML\n  %s %s get 1 -o yaml",
 					singular, bin, name, singular, bin, name)
 			case "create":
-				return fmt.Sprintf("  # Create a %s from XML\n  cat %s.xml | %s %s create",
-					singular, singular, bin, name)
+				return fmt.Sprintf("  # Create a %s from an XML file\n  %s %s create --from-file %s.xml\n\n  # Create a %s from XML on stdin\n  cat %s.xml | %s %s create",
+					singular, bin, name, singular, singular, singular, bin, name)
 			case "update":
-				return fmt.Sprintf("  # Update a %s from XML\n  cat %s.xml | %s %s update 1",
-					singular, singular, bin, name)
+				return fmt.Sprintf("  # Update a %s from an XML file\n  %s %s update 1 --from-file %s.xml\n\n  # Update a %s from XML on stdin\n  cat %s.xml | %s %s update 1",
+					singular, bin, name, singular, singular, singular, bin, name)
 			case "delete":
 				if r.HasOperation("delete") && r.HasLookup("name") {
 					return fmt.Sprintf("  # Delete a %s (with confirmation)\n  %s %s delete 1\n\n  # Delete by name\n  %s %s delete --name \"Example\" --yes\n\n  # Delete without confirmation prompt\n  %s %s delete 1 --yes",
@@ -156,7 +156,10 @@ func templateFuncs() template.FuncMap {
 			return r.HasOperation("delete") || r.HasOperation("create") || r.HasOperation("update") || r.HasOperation("get")
 		},
 		"needsOS": func(r ClassicResource) bool {
-			return r.HasOperation("create") || r.HasOperation("update") || r.HasOperation("delete")
+			// os is only reached by the delete and apply progress/confirm output;
+			// create/update read their body through readClassicBody in the registry.
+			return r.HasOperation("delete") ||
+				(r.HasOperation("create") && r.HasOperation("update") && r.HasLookup("name"))
 		},
 		"needsXMLConv": func(r ClassicResource) bool {
 			return r.HasOperation("list") || r.HasOperation("get")
@@ -168,8 +171,9 @@ func templateFuncs() template.FuncMap {
 			return r.HasOperation("create") && r.HasOperation("update") && r.HasLookup("name")
 		},
 		"needsBytes": func(r ClassicResource) bool {
-			return (r.HasOperation("create") && r.HasOperation("update") && r.HasLookup("name")) ||
-				(r.IsConfigProfile && r.HasOperation("update"))
+			// create and update both send bytes.NewReader over the body they read
+			// from --from-file or stdin; apply and config-profile update also do.
+			return r.HasOperation("create") || r.HasOperation("update")
 		},
 		"anyIsConfigProfile": func(resources []ClassicResource) bool {
 			for _, r := range resources {
@@ -560,28 +564,24 @@ func new{{ .GoName }}GetCmd(ctx *registry.CLIContext) *cobra.Command {
 {{ end }}
 {{ if hasOp .Operations "create" }}
 func new{{ .GoName }}CreateCmd(ctx *registry.CLIContext) *cobra.Command {
-{{ if .FileFields }}	var (
-{{ range .FileFields }}		flag{{ lookupCamel .Flag }} string
+	var (
+		fromFile string
+{{ if .FileFields }}{{ range .FileFields }}		flag{{ lookupCamel .Flag }} string
 {{ end }}{{ if .HasCustomPayload }}		flagCustomPayloadFiles  []string
 		flagCustomPayloadDomain string
-{{ end }}	)
-{{ end }}	cmd := &cobra.Command{
+{{ end }}{{ end }}	)
+	cmd := &cobra.Command{
 		Use:   "create",
 		Short: "Create a {{ .Singular }}",
-		Long:  "Create a new {{ .Singular }}. Reads XML body from stdin.",
+		Long:  "Create a new {{ .Singular }}. Reads the XML body from --from-file or stdin.",
 		Example: ` + "`" + `{{ classicExample . "create" }}` + "`" + `,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
 {{ if .FileFields }}
-			var bodyBytes []byte
-			stat, _ := os.Stdin.Stat()
-			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				var err error
-				bodyBytes, err = io.ReadAll(os.Stdin)
-				if err != nil {
-					return fmt.Errorf("reading input: %w", err)
-				}
+			bodyBytes, err := readClassicBody(fromFile)
+			if err != nil {
+				return err
 			}
 			anyFileFlag := {{ range $i, $ff := .FileFields }}{{ if $i }} || {{ end }}flag{{ lookupCamel $ff.Flag }} != ""{{ end }}{{ if .HasCustomPayload }} || len(flagCustomPayloadFiles) > 0{{ end }}
 {{ if .HasCustomPayload }}
@@ -593,10 +593,9 @@ func new{{ .GoName }}CreateCmd(ctx *registry.CLIContext) *cobra.Command {
 			}
 {{ end -}}
 			if len(bodyBytes) == 0 && !anyFileFlag {
-				return fmt.Errorf("request body required on stdin (pipe XML input) or supply --{{ (index .FileFields 0).Flag }}{{ if .HasCustomPayload }} or --custom-payload-file{{ end }}")
+				return fmt.Errorf("request body required: use --from-file, pipe XML to stdin, or supply --{{ (index .FileFields 0).Flag }}{{ if .HasCustomPayload }} or --custom-payload-file{{ end }}")
 			}
 {{ if .HasCustomPayload }}
-			var err error
 			if len(flagCustomPayloadFiles) > 0 {
 				var mcBytes []byte
 				mcBytes, err = buildCustomPayloadMobileconfig(flagCustomPayloadFiles, flagCustomPayloadDomain)
@@ -615,7 +614,7 @@ func new{{ .GoName }}CreateCmd(ctx *registry.CLIContext) *cobra.Command {
 				return err
 			}
 {{ else -}}
-			bodyBytes, err := injectClassicFileFields(bodyBytes, "{{ .Singular }}", []classicFileFieldSpec{
+			bodyBytes, err = injectClassicFileFields(bodyBytes, "{{ .Singular }}", []classicFileFieldSpec{
 {{ range .FileFields }}				{FilePath: flag{{ lookupCamel .Flag }}, ParentPath: {{ parentPathLiteral .XMLPath }}, LeafName: "{{ leafName .XMLPath }}", Encoding: "{{ .Encoding }}", NameFallback: "{{ .NameFallback }}"},
 {{ end }}			})
 			if err != nil {
@@ -645,15 +644,15 @@ func new{{ .GoName }}CreateCmd(ctx *registry.CLIContext) *cobra.Command {
 			return ctx.Output.PrintResponse(resp)
 {{ end -}}
 {{ else }}
-			var body io.Reader
-			stat, _ := os.Stdin.Stat()
-			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				body = os.Stdin
-			} else {
-				return fmt.Errorf("request body required on stdin (pipe XML input)")
+			bodyBytes, err := readClassicBody(fromFile)
+			if err != nil {
+				return err
+			}
+			if len(bodyBytes) == 0 {
+				return fmt.Errorf("request body required: use --from-file or pipe XML to stdin")
 			}
 
-			resp, err := ctx.Client.Do(reqCtx, "POST", "/JSSResource/{{ .Path }}/{{ idPath . }}/0", body)
+			resp, err := ctx.Client.Do(reqCtx, "POST", "/JSSResource/{{ .Path }}/{{ idPath . }}/0", bytes.NewReader(bodyBytes))
 			if err != nil {
 				return err
 			}
@@ -663,6 +662,7 @@ func new{{ .GoName }}CreateCmd(ctx *registry.CLIContext) *cobra.Command {
 {{ end }}
 		},
 	}
+	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to XML input file (or pipe XML to stdin)")
 {{ if .FileFields }}
 {{ range .FileFields }}	cmd.Flags().StringVar(&flag{{ lookupCamel .Flag }}, "{{ .Flag }}", "", "{{ .Desc }}")
 {{ end }}{{ end }}{{ if .HasCustomPayload }}	cmd.Flags().StringArrayVar(&flagCustomPayloadFiles, "custom-payload-file", nil, "Path to a preference plist (XML or binary); wrapped into a com.apple.ManagedClient.preferences payload (repeatable; mutually exclusive with --mobileconfig-file)")
@@ -672,6 +672,7 @@ func new{{ .GoName }}CreateCmd(ctx *registry.CLIContext) *cobra.Command {
 {{ end }}
 {{ if hasOp .Operations "update" }}
 func new{{ .GoName }}UpdateCmd(ctx *registry.CLIContext) *cobra.Command {
+	var fromFile string
 {{ if hasLookup .Lookups "name" }}	var flagName string
 {{ end }}{{ if .FileFields }}	var (
 {{ range .FileFields }}		flag{{ lookupCamel .Flag }} string
@@ -683,7 +684,7 @@ func new{{ .GoName }}UpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 {{ if hasLookup .Lookups "name" }}		Use:   "update [<id>]",
 {{ else }}		Use:   "update <id>",
 {{ end }}		Short: "Update a {{ .Singular }}",
-		Long:  "Update an existing {{ .Singular }} by ID. Reads XML body from stdin.",
+		Long:  "Update an existing {{ .Singular }} by ID. Reads the XML body from --from-file or stdin.",
 		Example: ` + "`" + `{{ classicExample . "update" }}` + "`" + `,
 {{ if hasLookup .Lookups "name" }}		Args:  cobra.MaximumNArgs(1),
 {{ else }}		Args:  cobra.ExactArgs(1),
@@ -691,14 +692,9 @@ func new{{ .GoName }}UpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 			reqCtx := cmd.Context()
 
 {{ if or .IsConfigProfile .FileFields }}
-			var bodyBytes []byte
-			stat, _ := os.Stdin.Stat()
-			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				var err error
-				bodyBytes, err = io.ReadAll(os.Stdin)
-				if err != nil {
-					return fmt.Errorf("reading input: %w", err)
-				}
+			bodyBytes, bodyErr := readClassicBody(fromFile)
+			if bodyErr != nil {
+				return bodyErr
 			}
 {{ if .FileFields }}
 {{ if .HasCustomPayload }}
@@ -711,11 +707,11 @@ func new{{ .GoName }}UpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 {{- end }}
 			anyFileFlag := {{ range $i, $ff := .FileFields }}{{ if $i }} || {{ end }}flag{{ lookupCamel $ff.Flag }} != ""{{ end }}{{ if .HasCustomPayload }} || len(flagCustomPayloadFiles) > 0{{ end }}
 			if len(bodyBytes) == 0 && !anyFileFlag {
-				return fmt.Errorf("request body required on stdin (pipe XML input) or supply --{{ (index .FileFields 0).Flag }}{{ if .HasCustomPayload }} or --custom-payload-file{{ end }}")
+				return fmt.Errorf("request body required: use --from-file, pipe XML to stdin, or supply --{{ (index .FileFields 0).Flag }}{{ if .HasCustomPayload }} or --custom-payload-file{{ end }}")
 			}
 {{ else }}
 			if len(bodyBytes) == 0 {
-				return fmt.Errorf("request body required on stdin (pipe XML input)")
+				return fmt.Errorf("request body required: use --from-file or pipe XML to stdin")
 			}
 {{ end }}
 
@@ -840,13 +836,14 @@ func new{{ .GoName }}UpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 			resp, err := ctx.Client.Do(reqCtx, "PUT", path, bytes.NewReader(bodyBytes))
 {{ end }}
 {{ else }}
-			var body io.Reader
-			stat, _ := os.Stdin.Stat()
-			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				body = os.Stdin
-			} else {
-				return fmt.Errorf("request body required on stdin (pipe XML input)")
+			bodyBytes, bodyErr := readClassicBody(fromFile)
+			if bodyErr != nil {
+				return bodyErr
 			}
+			if len(bodyBytes) == 0 {
+				return fmt.Errorf("request body required: use --from-file or pipe XML to stdin")
+			}
+			body := bytes.NewReader(bodyBytes)
 
 {{ if hasLookup .Lookups "name" }}
 			var path string
@@ -870,6 +867,7 @@ func new{{ .GoName }}UpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 		},
 	}
 
+	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to XML input file (or pipe XML to stdin)")
 {{ if hasLookup .Lookups "name" }}	cmd.Flags().StringVar(&flagName, "name", "", "Look up {{ .Singular }} by name")
 {{ end }}
 {{ if .FileFields }}
@@ -1372,21 +1370,19 @@ const classicRegistryTemplate = `// Copyright 2026, Jamf Software LLC
 package generated
 
 import (
+	"io"
+	"os"
 {{- if or (anyNeedsClassicNameResolve .) (anyClassicFileFields .) (anyHasGroupPath .) }}
 	"context"
 	"encoding/json"
 	"encoding/xml"
-	"io"
-	"os"
 	"path/filepath"
 	"strings"
 {{- end }}
 {{- if anyIsConfigProfile . }}
 	"strconv"
 {{- end }}
-{{- if or (anyNeedsClassicNameResolve .) (anyClassicFileFields .) (anyListSubset .) (anyHasGroupPath .) }}
 	"fmt"
-{{- end }}
 {{- if or (anyIsConfigProfile .) (anyClassicFileFields .) (anyListSubset .) (anyClassicExtraLookups .) (anyHasGroupPath .) }}
 	"bytes"
 {{- end }}
@@ -1419,6 +1415,31 @@ func RegisterClassicCommands(root *cobra.Command, ctx *registry.CLIContext) {
 {{- range . }}
 	root.AddCommand(New{{ .GoName }}Cmd(ctx))
 {{- end }}
+}
+
+// readClassicBody reads an XML request body from --from-file, or from stdin when
+// the flag is absent. Unlike readApplyInput it tolerates an absent body and
+// returns nil, leaving the caller to decide whether that is an error — classic
+// create/update can build a body from file-field flags alone.
+func readClassicBody(fromFile string) ([]byte, error) {
+	if fromFile != "" {
+		data, err := os.ReadFile(fromFile)
+		if err != nil {
+			return nil, fmt.Errorf("reading --from-file: %w", err)
+		}
+		return data, nil
+	}
+
+	stat, _ := os.Stdin.Stat()
+	if (stat.Mode() & os.ModeCharDevice) == 0 {
+		data, err := io.ReadAll(os.Stdin)
+		if err != nil {
+			return nil, fmt.Errorf("reading stdin: %w", err)
+		}
+		return data, nil
+	}
+
+	return nil, nil
 }
 {{ if anyNeedsClassicNameResolve . }}
 // Classic apply/delete-by-name helpers. These share the generated package with

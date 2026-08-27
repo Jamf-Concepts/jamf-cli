@@ -163,31 +163,30 @@ func newClassicMobileConfigProfilesGetCmd(ctx *registry.CLIContext) *cobra.Comma
 
 func newClassicMobileConfigProfilesCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
+		fromFile             string
 		flagMobileconfigFile string
 	)
 	cmd := &cobra.Command{
 		Use:   "create",
 		Short: "Create a configuration_profile",
-		Long:  "Create a new configuration_profile. Reads XML body from stdin.",
-		Example: `  # Create a configuration_profile from XML
+		Long:  "Create a new configuration_profile. Reads the XML body from --from-file or stdin.",
+		Example: `  # Create a configuration_profile from an XML file
+  jamf-cli pro classic-mobile-config-profiles create --from-file configuration_profile.xml
+
+  # Create a configuration_profile from XML on stdin
   cat configuration_profile.xml | jamf-cli pro classic-mobile-config-profiles create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
-			var bodyBytes []byte
-			stat, _ := os.Stdin.Stat()
-			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				var err error
-				bodyBytes, err = io.ReadAll(os.Stdin)
-				if err != nil {
-					return fmt.Errorf("reading input: %w", err)
-				}
+			bodyBytes, err := readClassicBody(fromFile)
+			if err != nil {
+				return err
 			}
 			anyFileFlag := flagMobileconfigFile != ""
 			if len(bodyBytes) == 0 && !anyFileFlag {
-				return fmt.Errorf("request body required on stdin (pipe XML input) or supply --mobileconfig-file")
+				return fmt.Errorf("request body required: use --from-file, pipe XML to stdin, or supply --mobileconfig-file")
 			}
-			bodyBytes, err := injectClassicFileFields(bodyBytes, "configuration_profile", []classicFileFieldSpec{
+			bodyBytes, err = injectClassicFileFields(bodyBytes, "configuration_profile", []classicFileFieldSpec{
 				{FilePath: flagMobileconfigFile, ParentPath: []string{"general"}, LeafName: "payloads", Encoding: "xml-cdata", NameFallback: "strip-ext"},
 			})
 			if err != nil {
@@ -209,12 +208,14 @@ func newClassicMobileConfigProfilesCreateCmd(ctx *registry.CLIContext) *cobra.Co
 
 		},
 	}
+	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to XML input file (or pipe XML to stdin)")
 
 	cmd.Flags().StringVar(&flagMobileconfigFile, "mobileconfig-file", "", "Path to a .mobileconfig file; contents are CDATA-wrapped into <general><payloads>")
 	return cmd
 }
 
 func newClassicMobileConfigProfilesUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
+	var fromFile string
 	var flagName string
 	var (
 		flagMobileconfigFile string
@@ -223,26 +224,24 @@ func newClassicMobileConfigProfilesUpdateCmd(ctx *registry.CLIContext) *cobra.Co
 	cmd := &cobra.Command{
 		Use:   "update [<id>]",
 		Short: "Update a configuration_profile",
-		Long:  "Update an existing configuration_profile by ID. Reads XML body from stdin.",
-		Example: `  # Update a configuration_profile from XML
+		Long:  "Update an existing configuration_profile by ID. Reads the XML body from --from-file or stdin.",
+		Example: `  # Update a configuration_profile from an XML file
+  jamf-cli pro classic-mobile-config-profiles update 1 --from-file configuration_profile.xml
+
+  # Update a configuration_profile from XML on stdin
   cat configuration_profile.xml | jamf-cli pro classic-mobile-config-profiles update 1`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
-			var bodyBytes []byte
-			stat, _ := os.Stdin.Stat()
-			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				var err error
-				bodyBytes, err = io.ReadAll(os.Stdin)
-				if err != nil {
-					return fmt.Errorf("reading input: %w", err)
-				}
+			bodyBytes, bodyErr := readClassicBody(fromFile)
+			if bodyErr != nil {
+				return bodyErr
 			}
 
 			anyFileFlag := flagMobileconfigFile != ""
 			if len(bodyBytes) == 0 && !anyFileFlag {
-				return fmt.Errorf("request body required on stdin (pipe XML input) or supply --mobileconfig-file")
+				return fmt.Errorf("request body required: use --from-file, pipe XML to stdin, or supply --mobileconfig-file")
 			}
 
 			// Resolve ID and preserve PayloadUUID/PayloadIdentifier.
@@ -292,6 +291,7 @@ func newClassicMobileConfigProfilesUpdateCmd(ctx *registry.CLIContext) *cobra.Co
 		},
 	}
 
+	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to XML input file (or pipe XML to stdin)")
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up configuration_profile by name")
 
 	cmd.Flags().StringVar(&flagMobileconfigFile, "mobileconfig-file", "", "Path to a .mobileconfig file; contents are CDATA-wrapped into <general><payloads>")
