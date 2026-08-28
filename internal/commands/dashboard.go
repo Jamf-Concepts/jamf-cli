@@ -5,9 +5,11 @@ package commands
 import (
 	"context"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/cookiejar"
 	"os"
+	"sort"
 	"time"
 
 	"github.com/hashicorp/go-retryablehttp"
@@ -21,12 +23,11 @@ import (
 	"github.com/Jamf-Concepts/jamfprotect-go-sdk/jamfprotect"
 )
 
-func newDashboardCmd() *cobra.Command {
+func newDashboardCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	var (
-		profiles    []string
-		title       string
-		outFile     string
-		smartGroups []string
+		extraProfiles []string
+		title         string
+		smartGroups   []string
 	)
 
 	cmd := &cobra.Command{
@@ -36,18 +37,23 @@ func newDashboardCmd() *cobra.Command {
 posture, audit findings, patch compliance, and more across Jamf Pro,
 Protect, and Platform products.
 
-Each --profile flag specifies a config profile to pull data from. The
-profile's product type (pro, protect, or platform) determines which
-sections are populated. All profiles are authenticated before any data
-collection begins.
+The report covers the profile selected by the global -p/--profile flag
+(or JAMF_PROFILE, or the configured default). Add --include-profile to
+pull a second product into the same report. Each profile's product type
+(pro, protect, or platform) determines which sections are populated, and
+all profiles are authenticated before any data collection begins.
+
+HTML goes to stdout; redirect it, or use the global --out-file.
 
 Examples:
-  jamf-cli dashboard --profile prod-pro --out-file report.html
-  jamf-cli dashboard --profile prod-pro --profile prod-protect > report.html
-  jamf-cli dashboard --profile my-platform --profile my-pro --title "Q2 Fleet Report"`,
+  jamf-cli dashboard -p prod-pro --out-file report.html
+  jamf-cli dashboard -p prod-pro --include-profile prod-protect > report.html
+  jamf-cli dashboard -p my-platform --include-profile my-pro --title "Q2 Fleet Report"`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if len(profiles) == 0 {
-				cfg, _ := config.Load()
+			cfg, _ := config.Load()
+
+			names := dashboardProfileNames(cfg, extraProfiles)
+			if len(names) == 0 {
 				var available []string
 				if cfg != nil {
 					for name := range cfg.Profiles {
@@ -55,31 +61,55 @@ Examples:
 					}
 				}
 				if len(available) > 0 {
-					return fmt.Errorf("at least one --profile is required\n\nAvailable profiles: %v\nList all: jamf-cli config list", available)
+					sort.Strings(available)
+					return fmt.Errorf("no profile selected: pass -p/--profile\n\nAvailable profiles: %v\nList all: jamf-cli config list", available)
 				}
-				return fmt.Errorf("at least one --profile is required\n\nConfigure one first: jamf-cli config add-profile")
+				return fmt.Errorf("no profile selected: pass -p/--profile\n\nConfigure one first: jamf-cli config add-profile")
 			}
-			return runDashboard(cmd.Context(), dashboardOptions{
-				Profiles:    profiles,
+
+			return runDashboard(cmd.Context(), writerFor(cliCtx), dashboardOptions{
+				Profiles:    names,
 				Title:       title,
-				OutFile:     outFile,
 				SmartGroups: smartGroups,
 			})
 		},
 	}
 
-	cmd.Flags().StringArrayVar(&profiles, "profile", nil, "config profile(s) to include (repeatable, required)")
+	cmd.Flags().StringArrayVar(&extraProfiles, "include-profile", nil, "additional config profile(s) to pull into the same report (repeatable)")
 	cmd.Flags().StringVar(&title, "title", "Jamf Fleet Dashboard", "report title")
-	cmd.Flags().StringVar(&outFile, "out-file", "", "write HTML to file instead of stdout")
 	cmd.Flags().StringArrayVar(&smartGroups, "smart-groups", nil, "smart group names to visualize (repeatable)")
 
 	return cmd
 }
 
+// dashboardProfileNames resolves the set of profiles the report covers: the
+// globally selected one first (-p, then JAMF_PROFILE, then the configured
+// default — the same chain resolveAuth walks), then each --include-profile,
+// de-duplicated so naming the primary again does not collect it twice.
+func dashboardProfileNames(cfg *config.Config, extra []string) []string {
+	primary := profile
+	if primary == "" {
+		primary = os.Getenv("JAMF_PROFILE")
+	}
+	if primary == "" && cfg != nil {
+		primary = cfg.DefaultProfile
+	}
+
+	var names []string
+	seen := map[string]bool{}
+	for _, name := range append([]string{primary}, extra...) {
+		if name == "" || seen[name] {
+			continue
+		}
+		seen[name] = true
+		names = append(names, name)
+	}
+	return names
+}
+
 type dashboardOptions struct {
 	Profiles    []string
 	Title       string
-	OutFile     string
 	SmartGroups []string
 }
 
@@ -90,7 +120,7 @@ type resolvedClients struct {
 	platform *jamfplatform.Client
 }
 
-func runDashboard(ctx context.Context, opts dashboardOptions) error {
+func runDashboard(ctx context.Context, w io.Writer, opts dashboardOptions) error {
 	cfg, err := config.Load()
 	if err != nil {
 		return fmt.Errorf("loading config: %w", err)
@@ -127,20 +157,10 @@ func runDashboard(ctx context.Context, opts dashboardOptions) error {
 		}
 	}
 
-	// Phase 3: Render HTML
-	if opts.OutFile != "" {
-		f, createErr := os.Create(opts.OutFile)
-		if createErr != nil {
-			return fmt.Errorf("creating output file: %w", createErr)
-		}
-		if renderErr := renderDashboard(f, data); renderErr != nil {
-			_ = f.Close()
-			return renderErr
-		}
-		return f.Close()
-	}
-
-	return renderDashboard(os.Stdout, data)
+	// Phase 3: Render HTML. The writer comes from the output formatter, so
+	// the global --out-file already points it at the file it opened; opening
+	// the path a second time here would truncate what root is holding.
+	return renderDashboard(w, data)
 }
 
 func resolveDashboardProfile(cfg *config.Config, profileName string) (resolvedClients, error) {
