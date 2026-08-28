@@ -438,6 +438,11 @@ func httpStatusError(status int, method, path string, body []byte) error {
 			fmt.Sprintf("authentication failed (HTTP 401): %s", string(body))).
 			WithHint("run 'jamf-cli config validate', or check JAMF_TOKEN / client credentials")
 	case http.StatusForbidden:
+		if note := edgeBlockedNote(body); note != "" {
+			return exitcode.New(exitcode.PermissionDenied,
+				"request blocked at the Jamf gateway edge (HTTP 403), before it reached Jamf").
+				WithHint(note)
+		}
 		return exitcode.New(exitcode.PermissionDenied,
 			fmt.Sprintf("permission denied (HTTP 403): %s", string(body))).
 			WithHint(withGatewayUnservedNote(
@@ -456,6 +461,45 @@ func httpStatusError(status int, method, path string, body []byte) error {
 	default:
 		return exitcode.Wrap(exitcode.General, fmt.Errorf("request failed (HTTP %d): %s", status, string(body)))
 	}
+}
+
+// edgeBlockedNote recognises a CloudFront/WAF refusal and returns a hint for it,
+// or "" when the body is not one.
+//
+// The GA gateway sits behind CloudFront, and its WAF refuses some request bodies
+// before Jamf ever sees them. Left alone this surfaces as
+// "permission denied (HTTP 403)" with a full HTML page dumped into the message
+// and a hint telling the operator to check their API role — which is wrong twice
+// over: the credential is fine, and no role change will help.
+//
+// The tell is the response body: an HTML error page carrying CloudFront's own
+// wording. There is also a "Server: CloudFront" header, but it is not available
+// here and the body is unambiguous, which keeps this a pure function. The
+// response cannot reveal which rule fired, so the hint names every known
+// trigger rather than guessing.
+//
+// Known trigger, wire-established 2026-08-28 against EU: **any XML processing
+// instruction in the request body**. `<?xml version="1.0" encoding="UTF-8"?>`,
+// a bare `<?xml version="1.0"?>` and `<?xml-stylesheet ...?>` are each refused,
+// on Classic paths and inside a JSON string on a modern path alike, while the
+// identical request with the prolog removed reaches Jamf. That is a generic
+// XXE/XML-injection signature firing on the prolog every Classic API payload
+// legitimately carries, so it breaks every Classic write. The other known
+// trigger is .pkg content (matched inside the xar table of contents).
+//
+// Deliberately NOT worked around by stripping the prolog: the CLI would be
+// silently rewriting a body the caller supplied, on a path where encoding
+// declarations can matter, to paper over a Jamf-side WAF rule. Name it instead.
+func edgeBlockedNote(body []byte) string {
+	if !bytes.Contains(body, []byte("Request blocked")) &&
+		!bytes.Contains(body, []byte("The request could not be satisfied")) {
+		return ""
+	}
+	// The response is CloudFront's page, so it cannot say which rule fired —
+	// name both known triggers and let the caller match on what they sent.
+	return "This is the gateway's CDN/WAF, not Jamf and not your API privileges, so no role change will help. " +
+		"Known triggers: an <?xml ...?> declaration anywhere in the request body (the same request without the prolog reaches Jamf), and .pkg upload content. " +
+		"There is no client-side fix — report it to Jamf."
 }
 
 // withGatewayUnservedNote appends an explanation when a failure looks like the

@@ -993,3 +993,50 @@ func TestUpload_PlatformGatewayPath(t *testing.T) {
 		t.Errorf("X-Tenant-Id = %q, want %q", gotScope, "abc-123")
 	}
 }
+
+// TestEdgeBlockedNote pins the CloudFront/WAF refusal being reported as what it
+// is rather than as a privilege problem.
+//
+// The GA gateway sits behind CloudFront, whose WAF refuses some request bodies
+// before Jamf sees them — wire-established 2026-08-28: any <?xml ...?>
+// declaration in the body earns a 403 "Request blocked", while the identical
+// request without the prolog reaches Jamf. Since every Classic API payload
+// carries that prolog, the untreated form of this error told an operator with a
+// perfectly good credential to go and fix their API role.
+func TestEdgeBlockedNote(t *testing.T) {
+	const cloudfront = `<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML><HEAD><TITLE>ERROR: The request could not be satisfied</TITLE></HEAD>
+<BODY><H1>403 ERROR</H1><H2>The request could not be satisfied.</H2>
+Request blocked.</BODY></HTML>`
+
+	err := StatusError(http.StatusForbidden, "POST", "/proclassic/dockitems/id/0", []byte(cloudfront))
+	var e *exitcode.Error
+	if !errors.As(err, &e) {
+		t.Fatalf("expected a structured exit error, got %T", err)
+	}
+	if !strings.Contains(e.Error(), "blocked at the Jamf gateway edge") {
+		t.Errorf("message does not identify the edge as the refuser: %q", e.Error())
+	}
+	// The whole point is that the operator is NOT sent to their API role.
+	if strings.Contains(e.Hint, "check its API role") {
+		t.Errorf("hint still blames the API role: %q", e.Hint)
+	}
+	if !strings.Contains(e.Hint, "<?xml") {
+		t.Errorf("hint does not name the known XML trigger: %q", e.Hint)
+	}
+	// And the HTML page must not be pasted into the message.
+	if strings.Contains(e.Error(), "DOCTYPE") {
+		t.Errorf("the HTML page leaked into the message: %q", e.Error())
+	}
+
+	// A genuine Jamf 403 keeps the privilege hint.
+	jamf := StatusError(http.StatusForbidden, "GET", "/pro/v1/categories",
+		[]byte(`{"httpStatus":403,"errors":[{"code":"ACCESS_DENIED"}]}`))
+	var je *exitcode.Error
+	if !errors.As(jamf, &je) {
+		t.Fatalf("expected a structured exit error, got %T", jamf)
+	}
+	if !strings.Contains(je.Hint, "API role") {
+		t.Errorf("a real Jamf 403 lost its privilege hint: %q", je.Hint)
+	}
+}

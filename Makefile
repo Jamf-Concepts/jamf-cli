@@ -404,8 +404,12 @@ verify-security-specs:
 	@echo "Security specs and generated code are up to date."
 
 # Smoke test against a real Jamf Pro instance (reads from default config profile)
+# Read-only sweep: every GET across all resources. The pattern is deliberately
+# TestSmoke_Tier and not TestSmoke — the latter also matches TestSmoke_Seed,
+# which CREATES objects on the target tenant, so `make smoke` used to mutate the
+# instance it was asked to inspect. Seeding is `make smoke-seed`, explicitly.
 smoke:
-	JAMF_SMOKE_TEST=1 go test -v -run 'TestSmoke' -timeout 10m -count=1 ./internal/commands/...
+	JAMF_SMOKE_TEST=1 go test -v -run 'TestSmoke_Tier' -timeout 10m -count=1 ./internal/commands/...
 
 # Seed test instance with minimal _smoke-test resources
 smoke-seed:
