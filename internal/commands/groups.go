@@ -21,6 +21,7 @@ var rootGroupMap = map[string]string{
 	"completion":    "core",
 	"commands":      "core",
 	"multi":         "core",
+	"dashboard":     "core",
 	"doctor":        "core",
 	"mcp":           "core",
 	"agent-context": "core",
