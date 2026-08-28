@@ -49,7 +49,7 @@ func newBlueprintsListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err
 			}
-			path := "/api/blueprints/v1/blueprints"
+			path := "/blueprints/v1/blueprints"
 			q := url.Values{}
 			if sort != "" {
 				q.Set("sort", sort)
@@ -127,7 +127,7 @@ func newBlueprintsCreateCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err
 			}
-			path := "/api/blueprints/v1/blueprints"
+			path := "/blueprints/v1/blueprints"
 			q := url.Values{}
 			body, err := platform.ReadBody(bodyFile, setFlags)
 			if err != nil {
@@ -180,7 +180,7 @@ func newBlueprintsDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			}
 			var resolvedID string
 			if nameFlag != "" {
-				listPath := "/api/blueprints/v1/blueprints"
+				listPath := "/blueprints/v1/blueprints"
 				id, err := platform.ResolveIDByName(cmd.Context(), cliCtx.PlatformSDKClient, listPath, nameFlag)
 				if err != nil {
 					return err
@@ -194,7 +194,7 @@ func newBlueprintsDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err := platform.ConfirmAction("delete", resolvedID, yes); err != nil {
 				return err
 			}
-			path := "/api/blueprints/v1/blueprints/{blueprintId}"
+			path := "/blueprints/v1/blueprints/{blueprintId}"
 			path = strings.Replace(path, "{blueprintId}", url.PathEscape(resolvedID), 1)
 			q := url.Values{}
 			var body any
@@ -235,7 +235,7 @@ func newBlueprintsGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			}
 			var resolvedID string
 			if nameFlag != "" {
-				listPath := "/api/blueprints/v1/blueprints"
+				listPath := "/blueprints/v1/blueprints"
 				id, err := platform.ResolveIDByName(cmd.Context(), cliCtx.PlatformSDKClient, listPath, nameFlag)
 				if err != nil {
 					return err
@@ -246,7 +246,7 @@ func newBlueprintsGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			} else {
 				return fmt.Errorf("provide a positional ID or --name")
 			}
-			path := "/api/blueprints/v1/blueprints/{blueprintId}"
+			path := "/blueprints/v1/blueprints/{blueprintId}"
 			path = strings.Replace(path, "{blueprintId}", url.PathEscape(resolvedID), 1)
 			q := url.Values{}
 			var body any
@@ -294,7 +294,7 @@ func newBlueprintsPatchCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			}
 			var resolvedID string
 			if nameFlag != "" {
-				listPath := "/api/blueprints/v1/blueprints"
+				listPath := "/blueprints/v1/blueprints"
 				id, err := platform.ResolveIDByName(cmd.Context(), cliCtx.PlatformSDKClient, listPath, nameFlag)
 				if err != nil {
 					return err
@@ -305,7 +305,7 @@ func newBlueprintsPatchCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			} else {
 				return fmt.Errorf("provide a positional ID or --name")
 			}
-			path := "/api/blueprints/v1/blueprints/{blueprintId}"
+			path := "/blueprints/v1/blueprints/{blueprintId}"
 			path = strings.Replace(path, "{blueprintId}", url.PathEscape(resolvedID), 1)
 			q := url.Values{}
 			body, err := platform.ReadBody(bodyFile, setFlags)
@@ -351,7 +351,7 @@ func newBlueprintsDeployCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			}
 			var resolvedID string
 			if nameFlag != "" {
-				listPath := "/api/blueprints/v1/blueprints"
+				listPath := "/blueprints/v1/blueprints"
 				id, err := platform.ResolveIDByName(cmd.Context(), cliCtx.PlatformSDKClient, listPath, nameFlag)
 				if err != nil {
 					return err
@@ -362,7 +362,7 @@ func newBlueprintsDeployCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			} else {
 				return fmt.Errorf("provide a positional ID or --name")
 			}
-			path := "/api/blueprints/v1/blueprints/{blueprintId}/deploy"
+			path := "/blueprints/v1/blueprints/{blueprintId}/deploy"
 			path = strings.Replace(path, "{blueprintId}", url.PathEscape(resolvedID), 1)
 			q := url.Values{}
 			var body any
@@ -402,7 +402,7 @@ func newBlueprintsReportCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			}
 			var resolvedID string
 			if nameFlag != "" {
-				listPath := "/api/blueprints/v1/blueprints"
+				listPath := "/blueprints/v1/blueprints"
 				id, err := platform.ResolveIDByName(cmd.Context(), cliCtx.PlatformSDKClient, listPath, nameFlag)
 				if err != nil {
 					return err
@@ -413,7 +413,7 @@ func newBlueprintsReportCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			} else {
 				return fmt.Errorf("provide a positional ID or --name")
 			}
-			path := "/api/blueprints/v1/blueprints/{blueprintId}/report"
+			path := "/blueprints/v1/blueprints/{blueprintId}/report"
 			path = strings.Replace(path, "{blueprintId}", url.PathEscape(resolvedID), 1)
 			q := url.Values{}
 			var body any
@@ -452,7 +452,7 @@ func newBlueprintsUndeployCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			}
 			var resolvedID string
 			if nameFlag != "" {
-				listPath := "/api/blueprints/v1/blueprints"
+				listPath := "/blueprints/v1/blueprints"
 				id, err := platform.ResolveIDByName(cmd.Context(), cliCtx.PlatformSDKClient, listPath, nameFlag)
 				if err != nil {
 					return err
@@ -463,7 +463,7 @@ func newBlueprintsUndeployCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			} else {
 				return fmt.Errorf("provide a positional ID or --name")
 			}
-			path := "/api/blueprints/v1/blueprints/{blueprintId}/undeploy"
+			path := "/blueprints/v1/blueprints/{blueprintId}/undeploy"
 			path = strings.Replace(path, "{blueprintId}", url.PathEscape(resolvedID), 1)
 			q := url.Values{}
 			var body any

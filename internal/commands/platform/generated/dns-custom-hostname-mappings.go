@@ -46,7 +46,7 @@ func newDnsCustomHostnameMappingsDeleteCmd(cliCtx *registry.CLIContext) *cobra.C
 			if err := platform.ConfirmAction("delete", "delete", yes); err != nil {
 				return err
 			}
-			path := "/api/securitycloud/v1/dns/custom-hostname-mappings"
+			path := "/securitycloud/v1/dns/custom-hostname-mappings"
 			q := url.Values{}
 			var body any
 			if encoded := q.Encode(); encoded != "" {
@@ -81,7 +81,7 @@ func newDnsCustomHostnameMappingsGetCmd(cliCtx *registry.CLIContext) *cobra.Comm
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err
 			}
-			path := "/api/securitycloud/v1/dns/custom-hostname-mappings"
+			path := "/securitycloud/v1/dns/custom-hostname-mappings"
 			q := url.Values{}
 			var body any
 			if encoded := q.Encode(); encoded != "" {
@@ -123,7 +123,7 @@ func newDnsCustomHostnameMappingsUpdateCmd(cliCtx *registry.CLIContext) *cobra.C
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err
 			}
-			path := "/api/securitycloud/v1/dns/custom-hostname-mappings"
+			path := "/securitycloud/v1/dns/custom-hostname-mappings"
 			q := url.Values{}
 			body, err := platform.ReadBody(bodyFile, setFlags)
 			if err != nil {

@@ -9,7 +9,7 @@ things across Pro, Platform, Protect, and School.
 | Term | Meaning |
 |------|---------|
 | **Jamf Pro** (`pro`) | The flagship MDM/UEM. Surfaces both the modern **UAPI** (`/api/v1/...`) and the legacy **Classic API** (`/JSSResource/...`). Most commands live here. |
-| **Jamf Platform** / **Platform Gateway** (`platform`) | The cross-product API surface hosted at `<region>.apigw.jamf.com`. Adds Blueprints, Compliance Benchmarks, Platform Devices/Groups. Platform auth (`auth-method: platform`) also enables Pro API calls — they're proxied through the gateway at `/api/pro/tenant/<id>/...` and `/api/proclassic/tenant/<id>/...`. |
+| **Jamf Platform** / **Platform Gateway** (`platform`) | The cross-product API surface hosted at `<region>.api.jamfcloud.com` (the pre-GA `<region>.apigw.jamf.com` is retired). Adds Blueprints, Compliance Benchmarks, Platform Devices/Groups. Platform auth (`auth-method: platform`) also enables Pro API calls — they're proxied through the gateway at `/pro/...` and `/proclassic/...`, with the scope in an `X-Environment-Id` or `X-Tenant-Id` header. |
 | **Jamf Protect** (`protect`) | The EDR/security product. GraphQL only; uses `jamfprotect-go-sdk`. No relation to Pro auth — separate credentials, separate `JAMFPROTECT_*` env vars. |
 | **Jamf School** (`school`) | The K-12-focused MDM. Separate REST API; uses `jamfschool-go-sdk`. Separate `JAMFSCHOOL_*` env vars. |
 
@@ -18,7 +18,7 @@ things across Pro, Platform, Protect, and School.
 | Term | Meaning |
 |------|---------|
 | **UAPI** / **modern API** | The newer Pro JSON REST API at `/api/v1/...` (and `/v2`, `/v3`). What new feature work targets. |
-| **Classic API** | The legacy XML API at `/JSSResource/...`. Still widely used; many resources have no UAPI equivalent. Routed through `/api/proclassic/tenant/{id}/...` under Platform gateway auth. |
+| **Classic API** | The legacy XML API at `/JSSResource/...`. Still widely used; many resources have no UAPI equivalent. Routed through `/proclassic/...` under Platform gateway auth, with the scope in a request header. |
 | **JCDS** | Jamf Cloud Distribution Service — file storage for installer packages. Commands: `pro jcds upload`, `pro jcds download`, `pro jcds sync`. |
 | **API integration** / **API client** | An OAuth2 client-credentials pairing registered in Pro (Settings > System > API Roles & Clients). Distinct from a generic API token. |
 

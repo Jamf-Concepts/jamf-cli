@@ -30,13 +30,48 @@ func newPlatformCmd(cliCtx *registry.CLIContext) *cobra.Command {
 }
 
 // platformGatewayRegions maps friendly names to gateway base URLs.
+//
+// These are the GA gateway hosts. The previous gateway,
+// {region}.apigw.jamf.com, is retired at Platform API GA (2026-09-01) and
+// required an /api segment the new host does not serve — see
+// retiredGatewayHost, which turns a profile still naming it into an
+// instruction rather than an authentication failure.
 var platformGatewayRegions = []struct {
 	key string
 	url string
 }{
-	{"US", "https://us.apigw.jamf.com"},
-	{"EU", "https://eu.apigw.jamf.com"},
-	{"APAC", "https://apac.apigw.jamf.com"},
+	{"US", "https://us.api.jamfcloud.com"},
+	{"EU", "https://eu.api.jamfcloud.com"},
+	{"APAC", "https://apac.api.jamfcloud.com"},
+}
+
+// retiredGatewayHost is the host of the pre-GA platform gateway. Every profile
+// written before 2026-08-28 names it, and it does not serve the GA path shape.
+const retiredGatewayHost = "apigw.jamf.com"
+
+// platformGatewayURLForRegion maps a retired-gateway URL onto its GA
+// replacement, preserving the region. Returns "" when the URL is not a retired
+// gateway URL.
+//
+// This exists so the failure names the fix. A profile pointing at
+// {region}.apigw.jamf.com fails during the token exchange, before the command
+// the user typed is ever sent, and the gateway's answer there is an edge-level
+// 403 with an HTML body — nothing in it says "your base URL is a host that no
+// longer serves this API". Rewriting silently was the other option and is
+// worse: the profile on disk stays wrong, so every other tool reading it keeps
+// failing, and a URL the user did not type is a bad thing to send a credential to.
+func platformGatewayURLForRegion(rawURL string) string {
+	trimmed := strings.TrimSuffix(strings.TrimSpace(rawURL), "/")
+	host := trimmed
+	if _, after, ok := strings.Cut(host, "://"); ok {
+		host = after
+	}
+	host, _, _ = strings.Cut(host, "/")
+	region, rest, ok := strings.Cut(host, ".")
+	if !ok || rest != retiredGatewayHost {
+		return ""
+	}
+	return "https://" + region + ".api.jamfcloud.com"
 }
 
 func newPlatformSetupCmd() *cobra.Command {

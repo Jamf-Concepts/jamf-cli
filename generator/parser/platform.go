@@ -111,8 +111,8 @@ func ParsePlatformSpec(specPath string) ([]*Resource, error) {
 		if families != nil {
 			for _, fam := range families {
 				// splitByPathFamilies derives names from the full collection path
-				// ("/api/blueprints/v1/blueprints" → "api-blueprints-v1-blueprints").
-				// Platform paths share the /api/{service}/v{n}/ prefix; strip it
+				// ("/blueprints/v1/blueprints" → "blueprints-v1-blueprints").
+				// Platform paths share the /{service}/v{n}/ prefix; strip it
 				// so names stay short and match the spec resource (e.g. "blueprints").
 				fam.Name = applyResourceNameOverride(service, trimPlatformPathPrefix(fam.Name))
 				fam.NameSingular = fam.Name
@@ -216,8 +216,14 @@ func tenantPathVersion(doc map[string]any) string {
 }
 
 // normalisePlatformPaths rewrites every path key to its gateway form
-// ("/api/{service}[/{version}]{specPath}"), dropping /tenant/{tenantId}
-// wherever a spec still declares it.
+// ("/{service}[/{version}]{specPath}"), dropping /tenant/{tenantId} wherever a
+// spec still declares it.
+//
+// There is no /api segment. The GA gateway at {region}.api.jamfcloud.com mounts
+// each namespace at the root and answers 404 "page not found" for anything
+// under /api; the retired {region}.apigw.jamf.com required it. See
+// serviceSegment, which drops the segment specs published before GitOps build
+// v1807 still declare.
 //
 // The scope is not in the path any more. Until 2026-08-25 every Jamf URL
 // embedded it and the gateway's Tyk config resolved the request context from
@@ -241,7 +247,7 @@ func normalisePlatformPaths(doc map[string]any, service, version string) (expect
 	}
 	var prefix string
 	if service != "" {
-		prefix = "/api/" + service
+		prefix = "/" + service
 	}
 	if version != "" {
 		prefix += "/" + version
@@ -286,20 +292,20 @@ func collectExpectedStatuses(pathItem map[string]any, strippedPath string, out m
 // out as "runs"/"create-runs"/"current" — describing the resource rather than
 // the action. The SDK names the same three operations List/Trigger/Cancel.
 var platformOperationNameOverrides = map[string]string{
-	"GET /api/securitycloud/uem-connect/v1/connectors/{configId}/sync/runs":            "list",
-	"POST /api/securitycloud/uem-connect/v1/connectors/{configId}/sync/runs":           "trigger",
-	"DELETE /api/securitycloud/uem-connect/v1/connectors/{configId}/sync/runs/current": "cancel",
+	"GET /securitycloud/uem-connect/v1/connectors/{configId}/sync/runs":            "list",
+	"POST /securitycloud/uem-connect/v1/connectors/{configId}/sync/runs":           "trigger",
+	"DELETE /securitycloud/uem-connect/v1/connectors/{configId}/sync/runs/current": "cancel",
 
 	// Enablement is a sub-resource written with PUT and cleared with DELETE;
 	// named for the path it reads as "enablement"/"delete-enablement". The SDK
 	// calls the same pair Enable/Disable.
-	"PUT /api/securitycloud/uem-connect/v1/connectors/{configId}/enablement":    "enable",
-	"DELETE /api/securitycloud/uem-connect/v1/connectors/{configId}/enablement": "disable",
+	"PUT /securitycloud/uem-connect/v1/connectors/{configId}/enablement":    "enable",
+	"DELETE /securitycloud/uem-connect/v1/connectors/{configId}/enablement": "disable",
 
 	// Sync settings are a singleton under the connector, so the terminal
 	// segment repeats the resource name it is already nested under.
-	"GET /api/securitycloud/uem-connect/v1/connectors/{configId}/sync-settings": "get",
-	"PUT /api/securitycloud/uem-connect/v1/connectors/{configId}/sync-settings": "update",
+	"GET /securitycloud/uem-connect/v1/connectors/{configId}/sync-settings": "get",
+	"PUT /securitycloud/uem-connect/v1/connectors/{configId}/sync-settings": "update",
 }
 
 // applyPlatformPathMetadata attaches any expected-status override and any
@@ -315,10 +321,22 @@ func applyPlatformPathMetadata(ops []*Operation, expectedStatuses map[string]int
 	}
 }
 
-// serviceSegment extracts the "{service}" path component from the spec's
-// servers[0].url (e.g. "https://{region}.apigw.jamf.com/api/blueprints" →
-// "blueprints"). Returns empty string when the URL does not match the expected
-// gateway shape.
+// serviceSegment extracts the "{service}" namespace from the spec's
+// servers[0].url (e.g. "https://{region}.api.jamfcloud.com/blueprints" →
+// "blueprints", "https://{region}.api.jamfcloud.com/ddm/report" → "ddm/report").
+// Returns empty string when the URL carries no path at all.
+//
+// A leading "api/" is dropped rather than required. The GA gateway mounts each
+// namespace at the root and answers 404 "page not found" for anything under
+// /api — wire-checked 2026-08-28 on eu.api.jamfcloud.com, where every namespace
+// answered under its bare name and 404 under /api. GitOps build v1807 dropped
+// the segment from the published specs, but the Security Cloud four are
+// generated from a different upstream tree that still carries it, so the two
+// forms have to coexist in one drop. Matching on the URL's path rather than on
+// an "/api/" marker is also what stops the host from being read as the
+// namespace: "{region}.api.jamfcloud.com" has no slash-delimited "api" segment,
+// so the old Cut found no marker and silently returned "" — every path would
+// have lost its namespace with no error anywhere.
 func serviceSegment(doc map[string]any) string {
 	servers, _ := doc["servers"].([]any)
 	if len(servers) == 0 {
@@ -328,13 +346,24 @@ func serviceSegment(doc map[string]any) string {
 	if srv == nil {
 		return ""
 	}
-	url, _ := srv["url"].(string)
-	const marker = "/api/"
-	_, after, ok := strings.Cut(url, marker)
+	rawURL, _ := srv["url"].(string)
+	// Take the path portion. net/url would do, but the host is a template
+	// ("{region}.api.jamfcloud.com") and this only needs the first slash.
+	if _, after, ok := strings.Cut(rawURL, "://"); ok {
+		rawURL = after
+	}
+	_, path, ok := strings.Cut(rawURL, "/")
 	if !ok {
 		return ""
 	}
-	return after
+	path = strings.Trim(path, "/")
+	if rest, ok := strings.CutPrefix(path, "api/"); ok {
+		return strings.Trim(rest, "/")
+	}
+	if path == "api" {
+		return ""
+	}
+	return path
 }
 
 // platformResourceNameOverrides renames tag-derived resource names that would
@@ -400,19 +429,15 @@ func applyResourceNameOverride(service, name string) string {
 	return name
 }
 
-// trimPlatformPathPrefix strips the leading "api-{service}-v{n}-" segment from a
+// trimPlatformPathPrefix strips the leading "{service}-v{n}-" segments from a
 // path-derived resource name. Platform paths all share that shape, so the
 // remainder is the actual collection name (e.g. "blueprints",
-// "blueprint-components"). Returns the input unchanged when the expected
-// prefix isn't present.
+// "blueprint-components"). Returns the input unchanged when no version segment
+// is present.
 func trimPlatformPathPrefix(name string) string {
-	if !strings.HasPrefix(name, "api-") {
-		return name
-	}
-	rest := strings.TrimPrefix(name, "api-")
-	// rest = "blueprints-v1-blueprints" — split on '-' and drop everything up
+	// name = "blueprints-v1-blueprints" — split on '-' and drop everything up
 	// to and including the first segment that starts with 'v' followed by a digit.
-	parts := strings.Split(rest, "-")
+	parts := strings.Split(name, "-")
 	for i, p := range parts {
 		if len(p) >= 2 && p[0] == 'v' && p[1] >= '0' && p[1] <= '9' {
 			if i+1 < len(parts) {

@@ -40,7 +40,7 @@ func newBaselinesListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err
 			}
-			path := "/api/compliance-benchmarks/v1/baselines"
+			path := "/compliance-benchmarks/v1/baselines"
 			q := url.Values{}
 			var body any
 			if encoded := q.Encode(); encoded != "" {

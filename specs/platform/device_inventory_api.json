@@ -914,7 +914,7 @@
   "servers": [
     {
       "description": "Jamf Beta API Gateway - prod",
-      "url": "https://{region}.api.jamfcloud.com/api/devices",
+      "url": "https://{region}.api.jamfcloud.com/devices",
       "variables": {
         "region": {
           "default": "us",

@@ -499,7 +499,7 @@
   "servers": [
     {
       "description": "Jamf Beta API Gateway - prod",
-      "url": "https://{region}.api.jamfcloud.com/api/device-actions",
+      "url": "https://{region}.api.jamfcloud.com/device-actions",
       "variables": {
         "region": {
           "default": "us",

@@ -44,7 +44,7 @@ func newZtnaGroupedGatewaysListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err
 			}
-			path := "/api/securitycloud/v1/ztna/grouped-gateways"
+			path := "/securitycloud/v1/ztna/grouped-gateways"
 			q := url.Values{}
 			var body any
 			if encoded := q.Encode(); encoded != "" {
@@ -91,7 +91,7 @@ func newZtnaGroupedGatewaysCreateCmd(cliCtx *registry.CLIContext) *cobra.Command
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err
 			}
-			path := "/api/securitycloud/v1/ztna/grouped-gateways"
+			path := "/securitycloud/v1/ztna/grouped-gateways"
 			q := url.Values{}
 			body, err := platform.ReadBody(bodyFile, setFlags)
 			if err != nil {
@@ -144,7 +144,7 @@ func newZtnaGroupedGatewaysDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command
 			}
 			var resolvedID string
 			if nameFlag != "" {
-				listPath := "/api/securitycloud/v1/ztna/grouped-gateways"
+				listPath := "/securitycloud/v1/ztna/grouped-gateways"
 				id, err := platform.ResolveIDByName(cmd.Context(), cliCtx.PlatformSDKClient, listPath, nameFlag)
 				if err != nil {
 					return err
@@ -158,7 +158,7 @@ func newZtnaGroupedGatewaysDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command
 			if err := platform.ConfirmAction("delete", resolvedID, yes); err != nil {
 				return err
 			}
-			path := "/api/securitycloud/v1/ztna/grouped-gateways/{groupedGatewayId}"
+			path := "/securitycloud/v1/ztna/grouped-gateways/{groupedGatewayId}"
 			path = strings.Replace(path, "{groupedGatewayId}", url.PathEscape(resolvedID), 1)
 			q := url.Values{}
 			var body any
@@ -199,7 +199,7 @@ func newZtnaGroupedGatewaysGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			}
 			var resolvedID string
 			if nameFlag != "" {
-				listPath := "/api/securitycloud/v1/ztna/grouped-gateways"
+				listPath := "/securitycloud/v1/ztna/grouped-gateways"
 				id, err := platform.ResolveIDByName(cmd.Context(), cliCtx.PlatformSDKClient, listPath, nameFlag)
 				if err != nil {
 					return err
@@ -210,7 +210,7 @@ func newZtnaGroupedGatewaysGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			} else {
 				return fmt.Errorf("provide a positional ID or --name")
 			}
-			path := "/api/securitycloud/v1/ztna/grouped-gateways/{groupedGatewayId}"
+			path := "/securitycloud/v1/ztna/grouped-gateways/{groupedGatewayId}"
 			path = strings.Replace(path, "{groupedGatewayId}", url.PathEscape(resolvedID), 1)
 			q := url.Values{}
 			var body any
@@ -258,7 +258,7 @@ func newZtnaGroupedGatewaysPatchCmd(cliCtx *registry.CLIContext) *cobra.Command 
 			}
 			var resolvedID string
 			if nameFlag != "" {
-				listPath := "/api/securitycloud/v1/ztna/grouped-gateways"
+				listPath := "/securitycloud/v1/ztna/grouped-gateways"
 				id, err := platform.ResolveIDByName(cmd.Context(), cliCtx.PlatformSDKClient, listPath, nameFlag)
 				if err != nil {
 					return err
@@ -269,7 +269,7 @@ func newZtnaGroupedGatewaysPatchCmd(cliCtx *registry.CLIContext) *cobra.Command 
 			} else {
 				return fmt.Errorf("provide a positional ID or --name")
 			}
-			path := "/api/securitycloud/v1/ztna/grouped-gateways/{groupedGatewayId}"
+			path := "/securitycloud/v1/ztna/grouped-gateways/{groupedGatewayId}"
 			path = strings.Replace(path, "{groupedGatewayId}", url.PathEscape(resolvedID), 1)
 			q := url.Values{}
 			body, err := platform.ReadBody(bodyFile, setFlags)

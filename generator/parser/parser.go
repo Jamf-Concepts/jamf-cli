@@ -1110,8 +1110,8 @@ var versionSegment = regexp.MustCompile(`^(v\d+|preview)$`)
 // deduplicateVersionedOps keys on. stripVersionPrefix only handles a *leading*
 // version, which is enough for Jamf Pro ("/v1/computers-inventory") but blind
 // to the shape the Platform Gateway uses, where the version follows the service
-// namespace ("/api/securitycloud/v1/groups") or even the tenant segment
-// ("/api/securitycloud/uem-connect/v1/connectors"). Without this, two versions
+// namespace ("/securitycloud/v1/groups") or a sub-namespace
+// ("/securitycloud/uem-connect/v1/connectors"). Without this, two versions
 // of the same gateway endpoint hash to different keys and both ship as
 // commands — which is how Security Cloud's device groups ended up with a "list"
 // on the deprecated v1 alongside a "list-v2" on its successor.

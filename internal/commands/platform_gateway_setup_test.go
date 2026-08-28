@@ -18,10 +18,10 @@ import (
 // what catches the URL ordering going wrong.
 //
 // The scope is not in the URL any more: it travels as an X-Tenant-Id header, so
-// the path is /api/{namespace}/{version}/{resource} and a tenant segment
+// the path is /{namespace}/{version}/{resource} and a tenant segment
 // appearing anywhere in it is a regression. Registering the path exactly (rather
 // than as a prefix) is what surfaces that — as a handler the client never calls.
-const securityCloudCategoriesProbePath = "/api/securitycloud/v1/categories"
+const securityCloudCategoriesProbePath = "/securitycloud/v1/categories"
 
 // gatewayStub serves the gateway endpoints validatePlatformGatewayCredentials
 // touches: the OAuth2 token endpoint, and the Security Cloud categories

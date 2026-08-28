@@ -184,7 +184,7 @@ profiles:
 
   # Platform Gateway auth (routes Jamf Pro through regional gateway)
   platform-prod:
-    url: https://us.apigw.jamf.com
+    url: https://us.api.jamfcloud.com
     auth-method: platform
     client-id: env:PLATFORM_CLIENT_ID
     client-secret: env:PLATFORM_CLIENT_SECRET

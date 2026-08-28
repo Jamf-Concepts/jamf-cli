@@ -55,7 +55,7 @@ func newUemActivationProfilesDeployToUemCmd(cliCtx *registry.CLIContext) *cobra.
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err
 			}
-			path := "/api/securitycloud/uem-connect/v1/activation-profiles/{code}/deploy-to-uem"
+			path := "/securitycloud/uem-connect/v1/activation-profiles/{code}/deploy-to-uem"
 			path = strings.Replace(path, "{code}", url.PathEscape(args[0]), 1)
 			q := url.Values{}
 			body, err := platform.ReadBody(bodyFile, setFlags)

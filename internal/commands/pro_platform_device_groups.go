@@ -62,10 +62,10 @@ func newPlatformDeviceGroupsCmd(cliCtx *registry.CLIContext) *cobra.Command {
 // still routed during the transition window, so it kept working while reading
 // the tenant back through Transport().TenantID(), an accessor that answers ""
 // for environment scope and "" again for organization scope. Under either it
-// built /api/device-groups/v1/tenant//device-groups, so every --name lookup here
+// built /device-groups/v1/tenant//device-groups, so every --name lookup here
 // would have failed for exactly the scope Jamf wants integrations to use.
 func pdgListPath(_ *jamfplatform.Client) string {
-	return "/api/device-groups/v1/device-groups"
+	return "/device-groups/v1/device-groups"
 }
 
 // pdgResolveID resolves a device group name to its ID, optionally filtering by

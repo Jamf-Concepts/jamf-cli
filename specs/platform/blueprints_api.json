@@ -3043,7 +3043,7 @@
   "servers": [
     {
       "description": "Jamf Beta API Gateway - prod",
-      "url": "https://{region}.api.jamfcloud.com/api/blueprints",
+      "url": "https://{region}.api.jamfcloud.com/blueprints",
       "variables": {
         "region": {
           "default": "us",

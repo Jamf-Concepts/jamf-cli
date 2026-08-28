@@ -1472,7 +1472,7 @@
   "servers": [
     {
       "description": "Jamf Beta API Gateway - prod",
-      "url": "https://{region}.api.jamfcloud.com/api/compliance-benchmarks",
+      "url": "https://{region}.api.jamfcloud.com/compliance-benchmarks",
       "variables": {
         "region": {
           "default": "us",

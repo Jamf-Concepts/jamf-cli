@@ -488,6 +488,15 @@ func ResolveAuthForProfile(cfg *config.Config, params AuthParams) (string, auth.
 		if cid == "" || csecret == "" {
 			return "", nil, exitcode.New(exitcode.Usage, "client ID and client secret are required for platform gateway auth: set JAMF_CLIENT_ID/JAMF_CLIENT_SECRET env vars or use a config profile")
 		}
+		// Refuse the retired gateway host by name. It is checked here rather
+		// than at the request, because the failure it produces lands in the
+		// token exchange — before the command the user typed is sent — as an
+		// edge-level 403 with an HTML body that says nothing about the host.
+		if ga := platformGatewayURLForRegion(url); ga != "" {
+			return "", nil, exitcode.New(exitcode.Usage, fmt.Sprintf(
+				"%s is the retired Jamf Platform gateway and does not serve the GA API paths.\nSet url: %s in this profile (jamf-cli config path prints the file), or re-run `jamf-cli platform setup`.",
+				url, ga))
+		}
 		// Both set can now only mean both were supplied together — the profile
 		// cannot contribute a second level past scopeFromParams — so this is a
 		// genuine "you asked for two levels at once" rather than an override.

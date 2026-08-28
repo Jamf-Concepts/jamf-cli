@@ -86,7 +86,7 @@ var platformTableColumns = map[string][]tableColumn{
 // compliance-benchmark titles and reads the "id" field, so no SDK-specific code
 // is needed. Paths carry a literal {tenantId} the template substitutes at runtime.
 var crossResourceNameLookupPath = map[string]string{
-	"benchmark-reports": "/api/compliance-benchmarks/v1/benchmarks",
+	"benchmark-reports": "/compliance-benchmarks/v1/benchmarks",
 }
 
 // templateOp wraps *parser.Operation with template-friendly fields.
@@ -367,12 +367,13 @@ func apiLabel(ops []templateOp) string {
 const securityCloudService = "securitycloud"
 
 // serviceFromPath returns the gateway namespace segment of a full request path
-// ("/api/securitycloud/v1/dns/zones" → "securitycloud").
-// Returns "" for a path that carries no /api/ prefix, which leaves the runtime
-// on the client-wide tenant ID — the correct fallback, since a namespace
-// override only exists for namespaces that were named explicitly.
+// ("/securitycloud/v1/dns/zones" → "securitycloud"). The GA gateway mounts each
+// namespace at the root, so the namespace is the first path segment.
+// Returns "" for a relative or empty path, which leaves the runtime on the
+// client-wide tenant ID — the correct fallback, since a namespace override only
+// exists for namespaces that were named explicitly.
 func serviceFromPath(path string) string {
-	rest, ok := strings.CutPrefix(path, "/api/")
+	rest, ok := strings.CutPrefix(path, "/")
 	if !ok {
 		return ""
 	}
@@ -573,7 +574,7 @@ var platformDocumentedStatusResults = map[string][]documentedStatus{
 	// exited 1 with a traceId for a tenant that was simply not using the
 	// feature, so nothing could distinguish "not configured" from "the request
 	// failed". Wire-confirmed on tenant wisconsam, 2026-08-20.
-	"GET /api/securitycloud/v1/dns/search-domains": {
+	"GET /securitycloud/v1/dns/search-domains": {
 		{Code: 404, ErrorCode: "SEARCH_DOMAIN_NOT_SET", Empty: true},
 	},
 }

@@ -45,4 +45,11 @@ require (
 	golang.org/x/time v0.15.0 // indirect
 )
 
+// The platform SDK is consumed from a local checkout while the Platform API GA
+// transport lands. The require above names v0.18.0, but the code this CLI needs
+// is unreleased: Transport.APIPrefix stops emitting the /api segment, which the
+// GA gateway at {region}.api.jamfcloud.com does not serve. Dropping this replace
+// while the require still points at a tagged release would build a binary whose
+// every platform request 404s. Bump the require to the release that carries it,
+// then drop the replace — not the other way round.
 replace github.com/Jamf-Concepts/jamfplatform-go-sdk => /Users/Shared/GitHub/jamf-concepts/jamfplatform-go-sdk

@@ -40,7 +40,7 @@ func newZtnaPredefinedAppsListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err
 			}
-			path := "/api/securitycloud/v1/ztna/predefined-apps"
+			path := "/securitycloud/v1/ztna/predefined-apps"
 			q := url.Values{}
 			var body any
 			if encoded := q.Encode(); encoded != "" {

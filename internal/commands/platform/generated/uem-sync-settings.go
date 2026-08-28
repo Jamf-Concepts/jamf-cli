@@ -42,7 +42,7 @@ func newUemSyncSettingsGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err
 			}
-			path := "/api/securitycloud/uem-connect/v1/connectors/{configId}/sync-settings"
+			path := "/securitycloud/uem-connect/v1/connectors/{configId}/sync-settings"
 			path = strings.Replace(path, "{configId}", url.PathEscape(args[0]), 1)
 			q := url.Values{}
 			var body any
@@ -91,7 +91,7 @@ func newUemSyncSettingsUpdateCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err
 			}
-			path := "/api/securitycloud/uem-connect/v1/connectors/{configId}/sync-settings"
+			path := "/securitycloud/uem-connect/v1/connectors/{configId}/sync-settings"
 			path = strings.Replace(path, "{configId}", url.PathEscape(args[0]), 1)
 			q := url.Values{}
 			body, err := platform.ReadBody(bodyFile, setFlags)

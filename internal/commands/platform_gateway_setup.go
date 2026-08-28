@@ -66,6 +66,15 @@ func promptPlatformGatewayCredentials(w io.Writer, reader *bufio.Reader) (*platf
 	if err != nil {
 		return nil, fmt.Errorf("invalid gateway URL: %w", err)
 	}
+	// The listed regions are GA hosts, so this can only come from the Custom URL
+	// branch — someone pasting the URL out of an existing profile or an old
+	// runbook. Caught here rather than at the validation call below, because the
+	// retired host answers the token exchange with an edge-level 403 carrying an
+	// HTML body: setup would report "invalid client credentials" for a URL
+	// problem, and the operator would go and rotate a working secret.
+	if ga := platformGatewayURLForRegion(normalized); ga != "" {
+		return nil, fmt.Errorf("%s is the retired Jamf Platform gateway and does not serve the GA API paths; use %s", normalized, ga)
+	}
 	creds.GatewayURL = normalized
 
 	_, _ = fmt.Fprint(w, "\nClient ID: ")
@@ -183,8 +192,8 @@ func validatePlatformGatewayCredentials(ctx context.Context, w io.Writer, creds 
 
 // securityCloudGatewayNamespace is the gateway namespace Jamf Security Cloud is
 // served under. It matches the namespace the SDK registers the Security Cloud
-// tenant override against, so TenantPrefix resolves that tenant and not the Pro
-// one.
+// tenant override against, so a Security Cloud request is scoped to that tenant
+// and not the Pro one.
 const securityCloudGatewayNamespace = "securitycloud"
 
 // storePlatformGatewaySecrets writes the client credentials to the keychain and

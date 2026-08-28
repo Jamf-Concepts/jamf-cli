@@ -2533,33 +2533,33 @@ func TestStripVersionSegments(t *testing.T) {
 			// The shape stripVersionPrefix could not see: the gateway puts the
 			// version after the service namespace.
 			"version after the service namespace",
-			"/api/securitycloud/v1/groups",
-			"/api/securitycloud/groups",
+			"/securitycloud/v1/groups",
+			"/securitycloud/groups",
 		},
 		{
 			"the v2 sibling collapses onto the same key",
-			"/api/securitycloud/v2/groups",
-			"/api/securitycloud/groups",
+			"/securitycloud/v2/groups",
+			"/securitycloud/groups",
 		},
 		{
 			// UEM Connect nests a service version deeper still.
 			"version deep in the path",
-			"/api/securitycloud/uem-connect/v1/connectors",
-			"/api/securitycloud/uem-connect/connectors",
+			"/securitycloud/uem-connect/v1/connectors",
+			"/securitycloud/uem-connect/connectors",
 		},
 		{
 			"two version segments are both removed",
-			"/api/securitycloud/v1/uem-connect/v2/connectors",
-			"/api/securitycloud/uem-connect/connectors",
+			"/securitycloud/v1/uem-connect/v2/connectors",
+			"/securitycloud/uem-connect/connectors",
 		},
 		{
 			// A segment merely starting with "v" is not a version. The old
 			// leading-segment check accepted any such segment.
 			"a segment that only starts with v is kept",
-			"/api/securitycloud/venafi/groups",
-			"/api/securitycloud/venafi/groups",
+			"/securitycloud/venafi/groups",
+			"/securitycloud/venafi/groups",
 		},
-		{"trailing version segment", "/api/securitycloud/groups/v2", "/api/securitycloud/groups"},
+		{"trailing version segment", "/securitycloud/groups/v2", "/securitycloud/groups"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -2583,11 +2583,11 @@ func TestAPIVersionRank(t *testing.T) {
 		// Ranked by the version wherever it sits. Reading only the leading
 		// segment scored both of these 0, which made "prefer the higher
 		// version" a tie decided by map iteration order.
-		{"/api/securitycloud/v1/groups", 1},
-		{"/api/securitycloud/v2/groups", 2},
+		{"/securitycloud/v1/groups", 1},
+		{"/securitycloud/v2/groups", 2},
 		// The outermost version wins when a path carries two: it is the one
 		// that distinguishes siblings.
-		{"/api/securitycloud/v1/uem-connect/v2/connectors", 1},
+		{"/securitycloud/v1/uem-connect/v2/connectors", 1},
 	}
 	for _, tt := range tests {
 		t.Run(tt.path, func(t *testing.T) {
@@ -2604,8 +2604,8 @@ func TestAPIVersionRank(t *testing.T) {
 // namespace the dedup key never collided, so both survived — the deprecated one
 // holding the plain "list" name.
 func TestDeduplicateVersionedOps_GatewayPathShape(t *testing.T) {
-	v1 := &Operation{Name: "list", Method: "GET", Path: "/api/securitycloud/v1/groups"}
-	v2 := &Operation{Name: "groups", Method: "GET", Path: "/api/securitycloud/v2/groups"}
+	v1 := &Operation{Name: "list", Method: "GET", Path: "/securitycloud/v1/groups"}
+	v2 := &Operation{Name: "groups", Method: "GET", Path: "/securitycloud/v2/groups"}
 
 	got := deduplicateVersionedOps([]*Operation{v1, v2})
 
@@ -2625,9 +2625,9 @@ func TestDeduplicateVersionedOps_GatewayPathShape(t *testing.T) {
 // merely share a terminal segment across different services.
 func TestDeduplicateVersionedOps_DistinctGatewayServicesSurvive(t *testing.T) {
 	ops := []*Operation{
-		{Name: "list", Method: "GET", Path: "/api/securitycloud/v1/groups"},
-		{Name: "list", Method: "GET", Path: "/api/device-groups/v1/device-groups"},
-		{Name: "list", Method: "GET", Path: "/api/securitycloud/uem-connect/v1/connectors"},
+		{Name: "list", Method: "GET", Path: "/securitycloud/v1/groups"},
+		{Name: "list", Method: "GET", Path: "/device-groups/v1/device-groups"},
+		{Name: "list", Method: "GET", Path: "/securitycloud/uem-connect/v1/connectors"},
 	}
 	if got := deduplicateVersionedOps(ops); len(got) != 3 {
 		t.Errorf("expected all 3 distinct endpoints to survive, got %d", len(got))
@@ -2637,7 +2637,7 @@ func TestDeduplicateVersionedOps_DistinctGatewayServicesSurvive(t *testing.T) {
 // TestNormalisePlatformPathsDropsTheTenant pins the scope leaving the URL. The
 // specs disagree with each other: Security Cloud dropped /tenant/{tenantId} in
 // GitOps build v1495, while blueprints, benchmarks, devices, pro and classic
-// still declare it. Both have to come out as /api/{service}[/{version}]{path},
+// still declare it. Both have to come out as /{service}[/{version}]{path},
 // because the tenant now travels as an X-Tenant-Id header and a tenant segment
 // left in a generated path would be sent as a literal.
 func TestNormalisePlatformPathsDropsTheTenant(t *testing.T) {
@@ -2652,26 +2652,26 @@ func TestNormalisePlatformPathsDropsTheTenant(t *testing.T) {
 			name:    "declared tenant segment is removed",
 			service: "blueprints",
 			in:      "/v1/tenant/{tenantId}/blueprints",
-			want:    "/api/blueprints/v1/blueprints",
+			want:    "/blueprints/v1/blueprints",
 		},
 		{
 			name:    "header-scoped spec is left alone",
 			service: "securitycloud",
 			in:      "/v1/ztna/apps",
-			want:    "/api/securitycloud/v1/ztna/apps",
+			want:    "/securitycloud/v1/ztna/apps",
 		},
 		{
 			name:    "tenant ahead of a sub-namespace version",
 			service: "securitycloud",
 			in:      "/tenant/{tenantId}/uem-connect/v1/connectors",
-			want:    "/api/securitycloud/uem-connect/v1/connectors",
+			want:    "/securitycloud/uem-connect/v1/connectors",
 		},
 		{
 			name:    "version supplied by the extension",
 			service: "securitycloud",
 			version: "v1",
 			in:      "/tenant/{tenantId}/categories",
-			want:    "/api/securitycloud/v1/categories",
+			want:    "/securitycloud/v1/categories",
 		},
 	}
 	for _, c := range cases {
@@ -2742,4 +2742,49 @@ func TestParseSchema_NonStringEnumsAreCaptured(t *testing.T) {
 			t.Errorf("%s enum = %v, want %v", name, prop.Enum, wantEnum)
 		}
 	}
+}
+
+// TestServiceSegment pins the namespace read off servers[0].url, including the
+// two shapes one spec drop legitimately mixes.
+//
+// The GA gateway mounts each namespace at the root, and GitOps build v1807
+// dropped /api from the published specs — but the Security Cloud four are
+// generated from a different upstream tree that still declares it, so both
+// forms arrive together and both have to yield the same namespace.
+//
+// The "host is not the namespace" case is why this is matched on the URL's path
+// rather than on an "/api/" marker: the old implementation cut the URL on
+// "/api/", which "{region}.api.jamfcloud.com" does not contain (the host's api
+// is dot-delimited, not slash-delimited). It therefore returned "" for every
+// v1807 spec, and an empty service silently drops the namespace from every
+// generated path — no error, no warning, every command 404s.
+func TestServiceSegment(t *testing.T) {
+	cases := []struct {
+		name string
+		url  string
+		want string
+	}{
+		{"GA shape", "https://{region}.api.jamfcloud.com/blueprints", "blueprints"},
+		{"multi-segment namespace", "https://{region}.api.jamfcloud.com/ddm/report", "ddm/report"},
+		{"pre-v1807 /api still yields the namespace", "https://{region}.apigw.jamf.com/api/blueprints", "blueprints"},
+		{"Security Cloud's stage host keeps /api", "https://{region}.api.stage.platform.jamflabs.com/api/securitycloud", "securitycloud"},
+		{"trailing slash", "https://{region}.api.jamfcloud.com/devices/", "devices"},
+		{"host only", "https://{region}.api.jamfcloud.com", ""},
+		{"host with bare /api", "https://{region}.apigw.jamf.com/api", ""},
+		{"no servers url", "", ""},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			doc := map[string]any{"servers": []any{map[string]any{"url": c.url}}}
+			if got := serviceSegment(doc); got != c.want {
+				t.Errorf("serviceSegment(%q) = %q, want %q", c.url, got, c.want)
+			}
+		})
+	}
+
+	t.Run("no servers block", func(t *testing.T) {
+		if got := serviceSegment(map[string]any{}); got != "" {
+			t.Errorf("serviceSegment(no servers) = %q, want \"\"", got)
+		}
+	})
 }

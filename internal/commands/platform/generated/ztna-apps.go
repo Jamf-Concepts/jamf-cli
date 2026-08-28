@@ -44,7 +44,7 @@ func newZtnaAppsListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err
 			}
-			path := "/api/securitycloud/v1/ztna/apps"
+			path := "/securitycloud/v1/ztna/apps"
 			q := url.Values{}
 			var body any
 			const pageSize = 100
@@ -106,7 +106,7 @@ func newZtnaAppsCreateCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err
 			}
-			path := "/api/securitycloud/v1/ztna/apps"
+			path := "/securitycloud/v1/ztna/apps"
 			q := url.Values{}
 			body, err := platform.ReadBody(bodyFile, setFlags)
 			if err != nil {
@@ -159,7 +159,7 @@ func newZtnaAppsDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			}
 			var resolvedID string
 			if nameFlag != "" {
-				listPath := "/api/securitycloud/v1/ztna/apps"
+				listPath := "/securitycloud/v1/ztna/apps"
 				id, err := platform.ResolveIDByName(cmd.Context(), cliCtx.PlatformSDKClient, listPath, nameFlag)
 				if err != nil {
 					return err
@@ -173,7 +173,7 @@ func newZtnaAppsDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err := platform.ConfirmAction("delete", resolvedID, yes); err != nil {
 				return err
 			}
-			path := "/api/securitycloud/v1/ztna/apps/{appId}"
+			path := "/securitycloud/v1/ztna/apps/{appId}"
 			path = strings.Replace(path, "{appId}", url.PathEscape(resolvedID), 1)
 			q := url.Values{}
 			var body any
@@ -214,7 +214,7 @@ func newZtnaAppsGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			}
 			var resolvedID string
 			if nameFlag != "" {
-				listPath := "/api/securitycloud/v1/ztna/apps"
+				listPath := "/securitycloud/v1/ztna/apps"
 				id, err := platform.ResolveIDByName(cmd.Context(), cliCtx.PlatformSDKClient, listPath, nameFlag)
 				if err != nil {
 					return err
@@ -225,7 +225,7 @@ func newZtnaAppsGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			} else {
 				return fmt.Errorf("provide a positional ID or --name")
 			}
-			path := "/api/securitycloud/v1/ztna/apps/{appId}"
+			path := "/securitycloud/v1/ztna/apps/{appId}"
 			path = strings.Replace(path, "{appId}", url.PathEscape(resolvedID), 1)
 			q := url.Values{}
 			var body any
@@ -273,7 +273,7 @@ func newZtnaAppsPatchCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			}
 			var resolvedID string
 			if nameFlag != "" {
-				listPath := "/api/securitycloud/v1/ztna/apps"
+				listPath := "/securitycloud/v1/ztna/apps"
 				id, err := platform.ResolveIDByName(cmd.Context(), cliCtx.PlatformSDKClient, listPath, nameFlag)
 				if err != nil {
 					return err
@@ -284,7 +284,7 @@ func newZtnaAppsPatchCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			} else {
 				return fmt.Errorf("provide a positional ID or --name")
 			}
-			path := "/api/securitycloud/v1/ztna/apps/{appId}"
+			path := "/securitycloud/v1/ztna/apps/{appId}"
 			path = strings.Replace(path, "{appId}", url.PathEscape(resolvedID), 1)
 			q := url.Values{}
 			body, err := platform.ReadBody(bodyFile, setFlags)

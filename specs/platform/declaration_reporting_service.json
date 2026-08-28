@@ -1261,7 +1261,7 @@
   "servers": [
     {
       "description": "Jamf Beta API Gateway - prod",
-      "url": "https://{region}.api.jamfcloud.com/api/ddm/report",
+      "url": "https://{region}.api.jamfcloud.com/ddm/report",
       "variables": {
         "region": {
           "default": "us",

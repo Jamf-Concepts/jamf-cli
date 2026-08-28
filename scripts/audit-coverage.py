@@ -16,7 +16,8 @@ does that by simulating the real matcher rather than reasoning about it:
   - the matched path is stripListenPath(request path, listen_path), i.e. the raw
     inbound path with the product's listen_path removed, before any rewriting
   - request paths are read out of the generated commands, so this measures what
-    the CLI actually sends
+    the CLI actually sends, with EDGE_PREFIX added back on to model the GA edge
+    (see the constant — the CLI no longer sends /api, but Tyk still listens on it)
 
 Usage:
     python3 scripts/audit-coverage.py [path-to-tyk-gateway-management] [git-ref]
@@ -37,6 +38,25 @@ from glob import glob
 
 DEFAULT_TYK = "/Users/Shared/GitHub/jamf/tyk-gateway-management"
 GENERATED = "internal/commands/platform/generated/*.go"
+
+# What the GA edge adds before Tyk sees the request.
+#
+# The CLI stopped sending /api at GA: {region}.api.jamfcloud.com serves
+# /blueprints/v1/blueprints and answers 404 for /api/blueprints/v1/blueprints
+# (wire-checked 2026-08-28, EU, every namespace). Tyk did not move — prod's
+# api-definitions still declare listen_path: /api/{namespace} and none declares
+# a bare /{namespace} — so the new CloudFront edge is prefixing /api ahead of
+# the gateway. That is also the only reading consistent with every namespace
+# returning byte-identical statuses on the new host, pre-existing failures
+# included: the same gateway behind a different edge, not a re-implementation.
+#
+# So the audited path is still the /api form, and coverage is unchanged by the
+# CLI dropping the segment. Matching the CLI's own outbound path against
+# listen_path directly would report all 45 mutations as unrouted — a false
+# alarm about the loudest possible failure. If Tyk later gains bare
+# /{namespace} listen paths, set this to "" and re-run: the answer must come
+# from the deployed definitions, not from this constant.
+EDGE_PREFIX = "/api"
 
 
 def compile_glob(pattern):
@@ -146,8 +166,10 @@ def main():
 
     gaps, unruled, covered = [], [], []
     for method, path in requests:
+        # Match on what Tyk sees, report what the CLI sends.
+        inbound = EDGE_PREFIX + path
         serving = [(n, lp, rs) for n, lp, rs in apis
-                   if lp.rstrip("/") and path.startswith(lp.rstrip("/") + "/")]
+                   if lp.rstrip("/") and inbound.startswith(lp.rstrip("/") + "/")]
         if not serving:
             gaps.append((method, path, "no api-definition declares a listen_path for this namespace"))
             continue
@@ -161,7 +183,7 @@ def main():
             continue
         missed = []
         for name, listen, rules in with_rules:
-            match_path = path[len(listen.rstrip("/")):]
+            match_path = inbound[len(listen.rstrip("/")):]
             if not any(method in ms and compile_glob(g).match(match_path) for ms, g in rules):
                 missed.append(name)
         if missed:
@@ -172,7 +194,7 @@ def main():
     if covered:
         print(f"audited: {len(covered)} request(s) matched an audit rule in every region document that serves them")
     if unruled:
-        products = sorted({p.split("/")[2] for _, p in unruled})
+        products = sorted({p.split("/")[1] for _, p in unruled})
         print(f"not audited upstream: {len(unruled)} request(s) on products that declare no audit rules at all")
         print(f"  ({', '.join(products)}) — nothing this repo sends changes that")
     if gaps:

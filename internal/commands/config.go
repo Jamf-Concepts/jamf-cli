@@ -591,6 +591,17 @@ func newConfigValidateCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				// Auth-method-specific fields
 				switch authMethod {
 				case "platform":
+					// The GA gateway host. Reported here as well as refused at
+					// request time, because this is the command that answers
+					// "what is wrong with my config" — and every platform
+					// profile written before 2026-08-28 names the retired host,
+					// so an operator with six of them wants all six at once
+					// rather than one failed command at a time.
+					if ga := platformGatewayURLForRegion(p.URL); ga != "" {
+						fail(name, "url", fmt.Sprintf("%s is the retired Jamf Platform gateway; use %s", p.URL, ga))
+					} else if p.URL != "" {
+						pass(name, "gateway-url")
+					}
 					checkSecretField(&checks, name, "client-id", p.ClientID)
 					checkSecretField(&checks, name, "client-secret", p.ClientSecret)
 					// One level per profile: environment or tenant, or neither

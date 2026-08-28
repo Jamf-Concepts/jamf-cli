@@ -65,10 +65,7 @@ func TestLoadResources_LiveSpecs(t *testing.T) {
 			if strings.Contains(op.Path, "/tenant/{tenantId}") {
 				t.Errorf("%s/%s: parser-stage path still contains tenant placeholder: %s", r.Name, op.Name, op.Path)
 			}
-			// Service prefix should be prepended (every path starts /api/).
-			if !strings.HasPrefix(op.Path, "/api/") {
-				t.Errorf("%s/%s: path missing /api/ prefix: %s", r.Name, op.Name, op.Path)
-			}
+			assertNamespacePrefixed(t, r.Name+"/"+op.Name, op.Path)
 		}
 	}
 
@@ -94,7 +91,7 @@ func TestExtractPathParams(t *testing.T) {
 		{"/v1/foo", nil},
 		{"/v1/foo/{id}", []string{"id"}},
 		{"/v1/foo/{id}/bar/{ruleId}", []string{"id", "ruleId"}},
-		{"/api/x/v1/tenant/{tenantId}/y/{id}", []string{"tenantId", "id"}},
+		{"/x/v1/tenant/{tenantId}/y/{id}", []string{"tenantId", "id"}},
 	}
 	for _, c := range cases {
 		got := extractPathParams(c.path)
@@ -358,9 +355,7 @@ func TestLoadResourcesDropsTheTenantFromEveryPath(t *testing.T) {
 			if strings.Contains(op.Path, "tenant") {
 				t.Errorf("%s/%s: request path still carries a tenant segment: %s", r.Name, op.Name, op.Path)
 			}
-			if !strings.HasPrefix(op.Path, "/api/") {
-				t.Errorf("%s/%s: request path is not gateway-prefixed: %s", r.Name, op.Name, op.Path)
-			}
+			assertNamespacePrefixed(t, r.Name+"/"+op.Name, op.Path)
 			if serviceFromPath(op.Path) == securityCloudService {
 				securityCloudOps++
 			}
@@ -373,5 +368,31 @@ func TestLoadResourcesDropsTheTenantFromEveryPath(t *testing.T) {
 	// stopped being loaded at all.
 	if securityCloudOps == 0 {
 		t.Error("no Security Cloud operations loaded; the specs are not being read")
+	}
+}
+
+// assertNamespacePrefixed checks a generated request path is mounted under its
+// gateway namespace and carries no /api segment.
+//
+// Both halves matter. The GA gateway at {region}.api.jamfcloud.com mounts every
+// namespace at the root and answers 404 "page not found" — the
+// unknown-namespace tell — for anything under /api, so an /api prefix is a dead
+// path. And a path whose first segment is a version means serviceSegment read
+// no namespace off servers[0].url: it returns "" on a URL shape it does not
+// recognise, the prefix then collapses to nothing, and every command in that
+// spec 404s with no error raised anywhere in the build.
+func assertNamespacePrefixed(t *testing.T, who, path string) {
+	t.Helper()
+	if strings.HasPrefix(path, "/api/") || path == "/api" {
+		t.Errorf("%s: path is under /api, which the GA gateway does not serve: %s", who, path)
+		return
+	}
+	service := serviceFromPath(path)
+	if service == "" {
+		t.Errorf("%s: path carries no namespace segment: %s", who, path)
+		return
+	}
+	if len(service) >= 2 && service[0] == 'v' && service[1] >= '0' && service[1] <= '9' {
+		t.Errorf("%s: path starts with a version, so no namespace was read from servers[0].url: %s", who, path)
 	}
 }

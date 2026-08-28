@@ -40,7 +40,7 @@ func newContentCategoriesListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err
 			}
-			path := "/api/securitycloud/v1/categories"
+			path := "/securitycloud/v1/categories"
 			q := url.Values{}
 			var body any
 			if encoded := q.Encode(); encoded != "" {

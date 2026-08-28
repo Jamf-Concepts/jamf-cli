@@ -22,7 +22,7 @@ func TestGeneratedBlueprintsGet(t *testing.T) {
 	sdk, mux := newTestPlatformSDK(t)
 
 	const blueprintID = "bp-123"
-	wantPath := "/api/blueprints/v1/blueprints/" + blueprintID
+	wantPath := "/blueprints/v1/blueprints/" + blueprintID
 	mux.HandleFunc(wantPath, func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, map[string]any{
 			"id":              blueprintID,
@@ -60,7 +60,7 @@ func TestGeneratedPlatformDeviceGroupsGet(t *testing.T) {
 	sdk, mux := newTestPlatformSDK(t)
 
 	const groupID = "dg-456"
-	wantPath := "/api/device-groups/v1/device-groups/" + groupID
+	wantPath := "/device-groups/v1/device-groups/" + groupID
 	mux.HandleFunc(wantPath, func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, map[string]any{
 			"id":          groupID,
@@ -129,7 +129,7 @@ func TestGeneratedCommandNilClientError(t *testing.T) {
 func TestGeneratedBaselinesList(t *testing.T) {
 	sdk, mux := newTestPlatformSDK(t)
 
-	const wantPath = "/api/compliance-benchmarks/v1/baselines"
+	const wantPath = "/compliance-benchmarks/v1/baselines"
 	var seenPath string
 	mux.HandleFunc(wantPath, func(w http.ResponseWriter, r *http.Request) {
 		seenPath = r.URL.Path
@@ -172,7 +172,7 @@ func TestGeneratedRulesListWithQueryParam(t *testing.T) {
 	sdk, mux := newTestPlatformSDK(t)
 
 	var seenQuery string
-	mux.HandleFunc("/api/compliance-benchmarks/v1/rules", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/compliance-benchmarks/v1/rules", func(w http.ResponseWriter, r *http.Request) {
 		seenQuery = r.URL.RawQuery
 		writeJSON(w, map[string]any{
 			"rules":   []map[string]any{{"id": "rule-1", "title": "Some rule"}},
@@ -201,23 +201,24 @@ func TestGeneratedRulesListWithQueryParam(t *testing.T) {
 	}
 }
 
-// TestGeneratedSecurityCloudListIsTenantFirstAndEmptyIsAnArray covers two things
-// that are only visible at runtime, on one request.
+// TestGeneratedSecurityCloudListPathAndEmptyIsAnArray covers two things that are
+// only visible at runtime, on one request.
 //
-// The path: the scope is a header now, so the URL carries no tenant, and the
-// generated command holds that path as a literal — so the SDK getting the
-// ordering right in TenantPrefix does nothing for it. An exact mux registration
-// is what catches a regression, since both orderings are routed by the real
-// gateway and only the audit rules can tell them apart.
+// The path: the generated command holds it as a literal, so nothing the SDK
+// does can correct it. It must carry no tenant segment (the scope is a header)
+// and no /api prefix (the GA gateway mounts each namespace at the root and
+// answers 404 for anything under /api). An exact mux registration is what
+// catches a regression — a wrong shape fails on the wire as a bare 404 or a 403
+// BAD_PERMISSIONS, neither of which names the URL as the problem.
 //
 // The body: the paginated list path aggregates into a slice, and a nil slice
 // marshals to "null". An empty collection therefore used to print "null" while
 // the unpaginated path printed "[]" for the identical wire response, which broke
 // any jq consumer on exactly the tenants where the collection was empty.
-func TestGeneratedSecurityCloudListIsTenantFirstAndEmptyIsAnArray(t *testing.T) {
+func TestGeneratedSecurityCloudListPathAndEmptyIsAnArray(t *testing.T) {
 	sdk, mux := newTestPlatformSDK(t)
 
-	const wantPath = "/api/securitycloud/v1/ztna/gateways"
+	const wantPath = "/securitycloud/v1/ztna/gateways"
 	var seenPath string
 	mux.HandleFunc(wantPath, func(w http.ResponseWriter, r *http.Request) {
 		seenPath = r.URL.Path
@@ -262,17 +263,17 @@ func TestGeneratedPlatformMutationsHonourDryRun(t *testing.T) {
 	}{
 		{
 			name:    "create",
-			path:    "/api/securitycloud/v1/groups",
+			path:    "/securitycloud/v1/groups",
 			newCmd:  platformgen.NewDeviceGroupsCmd,
 			args:    []string{"create", "--set", "name=dry-run-probe"},
-			wantPre: "[dry-run] POST /api/securitycloud/v1/groups",
+			wantPre: "[dry-run] POST /securitycloud/v1/groups",
 		},
 		{
 			name:    "delete",
-			path:    "/api/securitycloud/v1/groups/abc123",
+			path:    "/securitycloud/v1/groups/abc123",
 			newCmd:  platformgen.NewDeviceGroupsCmd,
 			args:    []string{"delete", "abc123", "--yes"},
-			wantPre: "[dry-run] DELETE /api/securitycloud/v1/groups/abc123",
+			wantPre: "[dry-run] DELETE /securitycloud/v1/groups/abc123",
 		},
 	}
 	for _, tc := range cases {
@@ -318,10 +319,10 @@ func TestDryRunGuardRefusesUnpreviewedWrites(t *testing.T) {
 		path       string
 		wantPassed bool
 	}{
-		{name: "post refused", method: http.MethodPost, path: "/api/securitycloud/v1/groups"},
-		{name: "patch refused", method: http.MethodPatch, path: "/api/securitycloud/v1/groups/1"},
-		{name: "delete refused", method: http.MethodDelete, path: "/api/securitycloud/v1/groups/1"},
-		{name: "get passes", method: http.MethodGet, path: "/api/securitycloud/v1/groups", wantPassed: true},
+		{name: "post refused", method: http.MethodPost, path: "/securitycloud/v1/groups"},
+		{name: "patch refused", method: http.MethodPatch, path: "/securitycloud/v1/groups/1"},
+		{name: "delete refused", method: http.MethodDelete, path: "/securitycloud/v1/groups/1"},
+		{name: "get passes", method: http.MethodGet, path: "/securitycloud/v1/groups", wantPassed: true},
 		{name: "token passes", method: http.MethodPost, path: "/auth/token", wantPassed: true},
 	}
 	for _, tc := range cases {

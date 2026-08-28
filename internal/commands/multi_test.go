@@ -262,7 +262,7 @@ func TestLooksLikeURL(t *testing.T) {
 		{"school1.jamfcloud.com", true},
 		{"http://localhost:8080", true},
 		{"tenant.protect.jamfcloud.com", true},
-		{"us.apigw.jamf.com", true},
+		{"us.api.jamfcloud.com", true},
 		{"pro-school1", false},
 		{"default", false},
 		{"v2.prod", false},          // dotted profile name — not a URL

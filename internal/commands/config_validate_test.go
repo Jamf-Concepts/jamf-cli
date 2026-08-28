@@ -377,7 +377,7 @@ func TestConfigValidate_PlatformScopeLevels(t *testing.T) {
 default-profile: scoped
 profiles:
   scoped:
-    url: https://eu.apigw.jamf.com
+    url: https://eu.api.jamfcloud.com
     auth-method: platform
     client-id: "env:TEST_SCOPE_CLIENT_ID"
     client-secret: "env:TEST_SCOPE_CLIENT_SECRET"
@@ -391,5 +391,47 @@ profiles:
 				t.Errorf("output missing %q:\n%s", tc.wantText, out)
 			}
 		})
+	}
+}
+
+// TestConfigValidateFlagsTheRetiredGateway pins the base-URL migration being
+// reported per profile.
+//
+// `config validate` is the command that answers "what is wrong with my config",
+// and every platform profile written before 2026-08-28 names
+// {region}.apigw.jamf.com — a host that is retired and that required an /api
+// segment the GA gateway does not serve. An operator with several such profiles
+// wants all of them named at once, not one failed command at a time.
+func TestConfigValidateFlagsTheRetiredGateway(t *testing.T) {
+	t.Setenv("TEST_RETIRED_CLIENT_ID", "my-client")
+	t.Setenv("TEST_RETIRED_CLIENT_SECRET", "my-secret")
+	yaml := `
+default-profile: ga
+profiles:
+  ga:
+    url: https://eu.api.jamfcloud.com
+    auth-method: platform
+    client-id: "env:TEST_RETIRED_CLIENT_ID"
+    client-secret: "env:TEST_RETIRED_CLIENT_SECRET"
+    tenant-id: t
+  old:
+    url: https://us.apigw.jamf.com
+    auth-method: platform
+    client-id: "env:TEST_RETIRED_CLIENT_ID"
+    client-secret: "env:TEST_RETIRED_CLIENT_SECRET"
+    tenant-id: t
+`
+	out, _ := runValidateCmd(t, yaml)
+	if !strings.Contains(out, "retired Jamf Platform gateway") {
+		t.Errorf("the retired host was not reported:\n%s", out)
+	}
+	// The replacement URL has to be in the message — naming the problem without
+	// the fix leaves the operator to guess the new host.
+	if !strings.Contains(out, "https://us.api.jamfcloud.com") {
+		t.Errorf("the message does not name the replacement URL:\n%s", out)
+	}
+	// And the GA profile must not be swept up in it.
+	if strings.Count(out, "retired Jamf Platform gateway") != 1 {
+		t.Errorf("expected exactly one profile flagged, got:\n%s", out)
 	}
 }

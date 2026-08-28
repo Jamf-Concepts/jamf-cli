@@ -45,7 +45,7 @@ func newDnsZonesListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err
 			}
-			path := "/api/securitycloud/v1/dns/zones"
+			path := "/securitycloud/v1/dns/zones"
 			q := url.Values{}
 			if sort != "" {
 				q.Set("sort", sort)
@@ -96,7 +96,7 @@ func newDnsZonesCreateCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err
 			}
-			path := "/api/securitycloud/v1/dns/zones"
+			path := "/securitycloud/v1/dns/zones"
 			q := url.Values{}
 			body, err := platform.ReadBody(bodyFile, setFlags)
 			if err != nil {
@@ -149,7 +149,7 @@ func newDnsZonesDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			}
 			var resolvedID string
 			if nameFlag != "" {
-				listPath := "/api/securitycloud/v1/dns/zones"
+				listPath := "/securitycloud/v1/dns/zones"
 				id, err := platform.ResolveIDByName(cmd.Context(), cliCtx.PlatformSDKClient, listPath, nameFlag)
 				if err != nil {
 					return err
@@ -163,7 +163,7 @@ func newDnsZonesDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err := platform.ConfirmAction("delete", resolvedID, yes); err != nil {
 				return err
 			}
-			path := "/api/securitycloud/v1/dns/zones/{id}"
+			path := "/securitycloud/v1/dns/zones/{id}"
 			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
 			q := url.Values{}
 			var body any
@@ -204,7 +204,7 @@ func newDnsZonesGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			}
 			var resolvedID string
 			if nameFlag != "" {
-				listPath := "/api/securitycloud/v1/dns/zones"
+				listPath := "/securitycloud/v1/dns/zones"
 				id, err := platform.ResolveIDByName(cmd.Context(), cliCtx.PlatformSDKClient, listPath, nameFlag)
 				if err != nil {
 					return err
@@ -215,7 +215,7 @@ func newDnsZonesGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			} else {
 				return fmt.Errorf("provide a positional ID or --name")
 			}
-			path := "/api/securitycloud/v1/dns/zones/{id}"
+			path := "/securitycloud/v1/dns/zones/{id}"
 			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
 			q := url.Values{}
 			var body any
@@ -263,7 +263,7 @@ func newDnsZonesPatchCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			}
 			var resolvedID string
 			if nameFlag != "" {
-				listPath := "/api/securitycloud/v1/dns/zones"
+				listPath := "/securitycloud/v1/dns/zones"
 				id, err := platform.ResolveIDByName(cmd.Context(), cliCtx.PlatformSDKClient, listPath, nameFlag)
 				if err != nil {
 					return err
@@ -274,7 +274,7 @@ func newDnsZonesPatchCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			} else {
 				return fmt.Errorf("provide a positional ID or --name")
 			}
-			path := "/api/securitycloud/v1/dns/zones/{id}"
+			path := "/securitycloud/v1/dns/zones/{id}"
 			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
 			q := url.Values{}
 			body, err := platform.ReadBody(bodyFile, setFlags)

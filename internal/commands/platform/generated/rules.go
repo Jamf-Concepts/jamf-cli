@@ -41,7 +41,7 @@ func newRulesListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err
 			}
-			path := "/api/compliance-benchmarks/v1/rules"
+			path := "/compliance-benchmarks/v1/rules"
 			q := url.Values{}
 			if baselineId != "" {
 				q.Set("baseline-id", baselineId)

@@ -491,9 +491,9 @@ func TestRewritePathForGateway_ClassicAPI(t *testing.T) {
 		input string
 		want  string
 	}{
-		{"/JSSResource/computers", "/api/proclassic/computers"},
-		{"/JSSResource/policies/id/5", "/api/proclassic/policies/id/5"},
-		{"/JSSResource/mobiledevices", "/api/proclassic/mobiledevices"},
+		{"/JSSResource/computers", "/proclassic/computers"},
+		{"/JSSResource/policies/id/5", "/proclassic/policies/id/5"},
+		{"/JSSResource/mobiledevices", "/proclassic/mobiledevices"},
 	}
 	for _, tt := range tests {
 		got := rewritePathForGateway(tt.input)
@@ -508,10 +508,10 @@ func TestRewritePathForGateway_ModernAPI(t *testing.T) {
 		input string
 		want  string
 	}{
-		{"/api/v1/buildings", "/api/pro/v1/buildings"},
-		{"/api/v2/mobile-devices", "/api/pro/v2/mobile-devices"},
-		{"/api/v1/accounts/userid/1", "/api/pro/v1/accounts/userid/1"},
-		{"/api/preview/computers", "/api/pro/preview/computers"},
+		{"/api/v1/buildings", "/pro/v1/buildings"},
+		{"/api/v2/mobile-devices", "/pro/v2/mobile-devices"},
+		{"/api/v1/accounts/userid/1", "/pro/v1/accounts/userid/1"},
+		{"/api/preview/computers", "/pro/preview/computers"},
 	}
 	for _, tt := range tests {
 		got := rewritePathForGateway(tt.input)
@@ -550,7 +550,7 @@ func TestDo_PlatformGateway_ClassicPath(t *testing.T) {
 		t.Fatalf("Do() error = %v", err)
 	}
 
-	want := "/api/proclassic/computers"
+	want := "/proclassic/computers"
 	if gotPath != want {
 		t.Errorf("path = %q, want %q", gotPath, want)
 	}
@@ -566,13 +566,14 @@ func TestDo_PlatformGateway_ModernPath(t *testing.T) {
 	defer srv.Close()
 
 	c := New(srv.URL, auth.NewTokenProvider("test-token"), WithGatewayScope(auth.TenantScope("tenant-uuid")))
-	// Path without /api prefix — should get /api prepended, then rewritten
+	// Path without /api prefix — gets /api prepended, then the gateway
+	// rewrite replaces that segment with the namespace.
 	_, err := c.Do(context.Background(), "GET", "/v1/buildings", nil)
 	if err != nil {
 		t.Fatalf("Do() error = %v", err)
 	}
 
-	want := "/api/pro/v1/buildings"
+	want := "/pro/v1/buildings"
 	if gotPath != want {
 		t.Errorf("path = %q, want %q", gotPath, want)
 	}
@@ -593,7 +594,7 @@ func TestDo_PlatformGateway_ExplicitAPIPrefix(t *testing.T) {
 		t.Fatalf("Do() error = %v", err)
 	}
 
-	want := "/api/pro/v2/users"
+	want := "/pro/v2/users"
 	if gotPath != want {
 		t.Errorf("path = %q, want %q", gotPath, want)
 	}
@@ -832,7 +833,7 @@ func TestGatewayTenantTravelsInHeader(t *testing.T) {
 	if _, err := c.Do(context.Background(), "GET", "/v1/buildings", nil); err != nil {
 		t.Fatalf("Do: %v", err)
 	}
-	if want := "/api/pro/v1/buildings"; gotPath != want {
+	if want := "/pro/v1/buildings"; gotPath != want {
 		t.Errorf("path = %q, want %q", gotPath, want)
 	}
 	if gotHeader != "abc-123" {
@@ -864,5 +865,89 @@ func TestDirectInstanceSendsNoTenantHeader(t *testing.T) {
 	}
 	if want := "/api/v1/buildings"; gotPath != want {
 		t.Errorf("path = %q, want %q", gotPath, want)
+	}
+}
+
+// TestGatewayUnservedNote pins the app-installers explanation, and the
+// false-positive containment around it.
+//
+// App installers are reachable only against a Jamf Pro instance directly, not
+// through the platform gateway. The gateway's answer for a namespace it does not
+// route is 403 BAD_PERMISSIONS or Tyk's bare "404 page not found" — 403
+// BAD_PERMISSIONS being indistinguishable from a real missing privilege, which
+// sends an operator looking for an API role that cannot help.
+//
+// The note is appended, never substituted, so the cases below also check it does
+// NOT fire for a Jamf-Pro-issued 404 (a deployment ID that really is gone) or
+// for a direct-to-instance path.
+func TestGatewayUnservedNote(t *testing.T) {
+	const proNotFound = `{"httpStatus":404,"errors":[]}`
+	cases := []struct {
+		name     string
+		status   int
+		path     string
+		body     string
+		wantNote bool
+	}{
+		{
+			name:     "gateway 403 BAD_PERMISSIONS on app-installers",
+			status:   http.StatusForbidden,
+			path:     "/pro/v1/app-installers/titles",
+			body:     `{"httpStatus":403,"errors":[{"code":"BAD_PERMISSIONS"}]}`,
+			wantNote: true,
+		},
+		{
+			name:     "Tyk unrouted 404 on app-installers",
+			status:   http.StatusNotFound,
+			path:     "/pro/v1/app-installers/deployments",
+			body:     "404 page not found\n",
+			wantNote: true,
+		},
+		{
+			// The request reached Jamf Pro, which answered its own 404 for a
+			// deployment that does not exist. That is not a gateway problem and
+			// the note would be a red herring.
+			name:     "Jamf Pro's own 404 for a missing deployment",
+			status:   http.StatusNotFound,
+			path:     "/pro/v1/app-installers/deployments/does-not-exist",
+			body:     proNotFound,
+			wantNote: false,
+		},
+		{
+			// Same resource, no gateway involved: /api/ rather than /pro/.
+			name:     "direct-to-instance path is untouched",
+			status:   http.StatusForbidden,
+			path:     "/api/v1/app-installers/titles",
+			body:     `{"httpStatus":403,"errors":[{"code":"BAD_PERMISSIONS"}]}`,
+			wantNote: false,
+		},
+		{
+			// A different Pro namespace through the gateway is served; a 403
+			// there is a genuine privilege problem.
+			name:     "another gateway Pro namespace keeps the plain hint",
+			status:   http.StatusForbidden,
+			path:     "/pro/v1/categories",
+			body:     `{"httpStatus":403,"errors":[{"code":"BAD_PERMISSIONS"}]}`,
+			wantNote: false,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := StatusError(tc.status, "GET", tc.path, []byte(tc.body))
+			var e *exitcode.Error
+			if !errors.As(err, &e) {
+				t.Fatalf("expected a structured exit error, got %T", err)
+			}
+			got := strings.Contains(e.Hint, "not exposed on the Jamf Platform gateway")
+			if got != tc.wantNote {
+				t.Errorf("note present = %v, want %v; hint = %q", got, tc.wantNote, e.Hint)
+			}
+			// The original remediation must survive in every case — the note is
+			// additive, so replacing the hint would be a regression too.
+			if e.Hint == "" {
+				t.Error("hint was emptied")
+			}
+		})
 	}
 }

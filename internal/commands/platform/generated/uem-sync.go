@@ -43,7 +43,7 @@ func newUemSyncListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err
 			}
-			path := "/api/securitycloud/uem-connect/v1/connectors/{configId}/sync/runs"
+			path := "/securitycloud/uem-connect/v1/connectors/{configId}/sync/runs"
 			path = strings.Replace(path, "{configId}", url.PathEscape(args[0]), 1)
 			q := url.Values{}
 			var body any
@@ -98,7 +98,7 @@ func newUemSyncTriggerCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err
 			}
-			path := "/api/securitycloud/uem-connect/v1/connectors/{configId}/sync/runs"
+			path := "/securitycloud/uem-connect/v1/connectors/{configId}/sync/runs"
 			path = strings.Replace(path, "{configId}", url.PathEscape(args[0]), 1)
 			q := url.Values{}
 			var body any
@@ -134,7 +134,7 @@ func newUemSyncCancelCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err
 			}
-			path := "/api/securitycloud/uem-connect/v1/connectors/{configId}/sync/runs/current"
+			path := "/securitycloud/uem-connect/v1/connectors/{configId}/sync/runs/current"
 			path = strings.Replace(path, "{configId}", url.PathEscape(args[0]), 1)
 			q := url.Values{}
 			var body any

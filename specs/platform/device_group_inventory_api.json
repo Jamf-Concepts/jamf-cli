@@ -962,7 +962,7 @@
   "servers": [
     {
       "description": "Jamf Beta API Gateway - prod",
-      "url": "https://{region}.api.jamfcloud.com/api/device-groups",
+      "url": "https://{region}.api.jamfcloud.com/device-groups",
       "variables": {
         "region": {
           "default": "us",

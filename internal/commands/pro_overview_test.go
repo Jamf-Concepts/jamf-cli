@@ -1399,7 +1399,7 @@ func TestBuildInstanceItems_DirectAuth_TrailingSlash(t *testing.T) {
 
 func TestBuildInstanceItems_PlatformAuth(t *testing.T) {
 	oldURL := serverURL
-	serverURL = "https://eu.apigw.jamf.com"
+	serverURL = "https://eu.api.jamfcloud.com"
 	defer func() { serverURL = oldURL }()
 
 	get := func(key string) string {
@@ -1425,14 +1425,14 @@ func TestBuildInstanceItems_PlatformAuth(t *testing.T) {
 	if found["Server URL"] != "https://acme.jamfcloud.com" {
 		t.Errorf("Server URL = %q, want %q", found["Server URL"], "https://acme.jamfcloud.com")
 	}
-	if found["Gateway URL"] != "https://eu.apigw.jamf.com" {
-		t.Errorf("Gateway URL = %q, want %q", found["Gateway URL"], "https://eu.apigw.jamf.com")
+	if found["Gateway URL"] != "https://eu.api.jamfcloud.com" {
+		t.Errorf("Gateway URL = %q, want %q", found["Gateway URL"], "https://eu.api.jamfcloud.com")
 	}
 }
 
 func TestBuildInstanceItems_ProURLFetchFailed(t *testing.T) {
 	oldURL := serverURL
-	serverURL = "https://eu.apigw.jamf.com"
+	serverURL = "https://eu.api.jamfcloud.com"
 	defer func() { serverURL = oldURL }()
 
 	get := func(key string) string {
@@ -1456,8 +1456,8 @@ func TestBuildInstanceItems_ProURLFetchFailed(t *testing.T) {
 		found[it.Resource] = it.Value
 	}
 	// Falls back to serverURL when pro_url fetch fails
-	if found["Server URL"] != "https://eu.apigw.jamf.com" {
-		t.Errorf("Server URL = %q, want %q (fallback to serverURL)", found["Server URL"], "https://eu.apigw.jamf.com")
+	if found["Server URL"] != "https://eu.api.jamfcloud.com" {
+		t.Errorf("Server URL = %q, want %q (fallback to serverURL)", found["Server URL"], "https://eu.api.jamfcloud.com")
 	}
 	if _, ok := found["Gateway URL"]; ok {
 		t.Error("Gateway URL should not be present when pro_url fallback matches serverURL")
@@ -1470,7 +1470,7 @@ func TestRunOverview_PlatformAuth_ServerURL(t *testing.T) {
 	mock.responses["/v1/jamf-pro-server-url"] = overviewMockResponse{200, `{"url":"https://acme.jamfcloud.com"}`}
 
 	oldURL := serverURL
-	serverURL = "https://eu.apigw.jamf.com"
+	serverURL = "https://eu.api.jamfcloud.com"
 	defer func() { serverURL = oldURL }()
 
 	cliCtx := &registry.CLIContext{Client: mock}
@@ -1491,8 +1491,8 @@ func TestRunOverview_PlatformAuth_ServerURL(t *testing.T) {
 	if values["Server URL"] != "https://acme.jamfcloud.com" {
 		t.Errorf("Server URL = %q, want %q", values["Server URL"], "https://acme.jamfcloud.com")
 	}
-	if values["Gateway URL"] != "https://eu.apigw.jamf.com" {
-		t.Errorf("Gateway URL = %q, want %q", values["Gateway URL"], "https://eu.apigw.jamf.com")
+	if values["Gateway URL"] != "https://eu.api.jamfcloud.com" {
+		t.Errorf("Gateway URL = %q, want %q", values["Gateway URL"], "https://eu.api.jamfcloud.com")
 	}
 }
 

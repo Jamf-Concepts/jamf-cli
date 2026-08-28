@@ -23,8 +23,10 @@ import (
 //   - {"<resource>": [...]}                       — non-paginated single-array (baselines)
 //   - [...]                                       — bare array
 //
-// listPath is the full path including /api/{service}/v{n}/tenant/{tenantId}/<collection>
-// with {tenantId} pre-substituted by the caller. Items are matched by checking
+// listPath is the full gateway path, /{service}/v{n}/<collection>. There is no
+// /api segment and no tenant segment: the GA gateway mounts each namespace at
+// the root, and the scope travels as an X-Tenant-Id or X-Environment-Id header
+// set by the transport. Items are matched by checking
 // "name", "title", and "displayName" properties in that order. The ID is read
 // from "id" (and falls back to "blueprintId", "groupId", "deviceId" for
 // resources that use a non-standard ID field).

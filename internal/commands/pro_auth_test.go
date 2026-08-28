@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -423,14 +424,14 @@ func TestResolveAuthScopePrecedence(t *testing.T) {
 		DefaultProfile: "p",
 		Profiles: map[string]config.Profile{
 			"p": {
-				URL:          "https://eu.apigw.jamf.com",
+				URL:          "https://eu.api.jamfcloud.com",
 				AuthMethod:   "platform",
 				ClientID:     "env:TEST_SCOPE_ID",
 				ClientSecret: "env:TEST_SCOPE_SECRET",
 				TenantID:     "profile-tenant",
 			},
 			"envprofile": {
-				URL:           "https://eu.apigw.jamf.com",
+				URL:           "https://eu.api.jamfcloud.com",
 				AuthMethod:    "platform",
 				ClientID:      "env:TEST_SCOPE_ID",
 				ClientSecret:  "env:TEST_SCOPE_SECRET",
@@ -501,5 +502,72 @@ func TestResolveAuthScopePrecedence(t *testing.T) {
 				t.Errorf("scope header = (%q, %q), want (%q, %q)", name, value, tc.wantHeader, tc.wantID)
 			}
 		})
+	}
+}
+
+// TestResolveAuthRefusesTheRetiredGateway pins the migration off
+// {region}.apigw.jamf.com by name.
+//
+// Every platform profile written before 2026-08-28 names that host, and it does
+// not serve the GA path shape — the GA gateway at {region}.api.jamfcloud.com
+// mounts each namespace at the root and answers 404 for anything under /api,
+// which is the prefix the old host required. Left to fail on the wire, the
+// symptom lands in the token exchange, before the command the user typed is
+// sent, as an edge-level 403 with an HTML body that names neither the host nor
+// the reason. So the refusal happens here and names the replacement URL.
+func TestResolveAuthRefusesTheRetiredGateway(t *testing.T) {
+	cfg := &config.Config{
+		DefaultProfile: "old",
+		Profiles: map[string]config.Profile{
+			"old": {
+				URL:          "https://eu.apigw.jamf.com",
+				AuthMethod:   "platform",
+				ClientID:     "env:TEST_RETIRED_ID",
+				ClientSecret: "env:TEST_RETIRED_SECRET",
+				TenantID:     "t",
+			},
+			"ga": {
+				URL:          "https://eu.api.jamfcloud.com",
+				AuthMethod:   "platform",
+				ClientID:     "env:TEST_RETIRED_ID",
+				ClientSecret: "env:TEST_RETIRED_SECRET",
+				TenantID:     "t",
+			},
+		},
+	}
+	t.Setenv("TEST_RETIRED_ID", "cid")
+	t.Setenv("TEST_RETIRED_SECRET", "csecret")
+
+	_, _, err := ResolveAuthForProfile(cfg, AuthParams{Profile: "old"})
+	if err == nil {
+		t.Fatal("expected the retired gateway host to be refused")
+	}
+	// The message has to carry the replacement, not just the complaint.
+	if !strings.Contains(err.Error(), "https://eu.api.jamfcloud.com") {
+		t.Errorf("error does not name the GA URL to switch to: %v", err)
+	}
+
+	if _, _, err := ResolveAuthForProfile(cfg, AuthParams{Profile: "ga"}); err != nil {
+		t.Errorf("the GA host must be accepted: %v", err)
+	}
+}
+
+// TestPlatformGatewayURLForRegion covers the host rewrite behind that refusal,
+// including the shapes that must NOT be rewritten — a GA URL passed through
+// again would otherwise be reported as retired.
+func TestPlatformGatewayURLForRegion(t *testing.T) {
+	cases := []struct{ in, want string }{
+		{"https://eu.apigw.jamf.com", "https://eu.api.jamfcloud.com"},
+		{"https://us.apigw.jamf.com/", "https://us.api.jamfcloud.com"},
+		{"apac.apigw.jamf.com", "https://apac.api.jamfcloud.com"},
+		{"https://eu.api.jamfcloud.com", ""},
+		{"https://mycompany.jamfcloud.com", ""},
+		{"https://apigw.jamf.com", ""},
+		{"", ""},
+	}
+	for _, c := range cases {
+		if got := platformGatewayURLForRegion(c.in); got != c.want {
+			t.Errorf("platformGatewayURLForRegion(%q) = %q, want %q", c.in, got, c.want)
+		}
 	}
 }

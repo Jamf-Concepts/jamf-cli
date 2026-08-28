@@ -42,7 +42,7 @@ func newResolveTestClient(t *testing.T, mux *http.ServeMux) *jamfplatform.Client
 func TestResolveIDByName_NonPaginated(t *testing.T) {
 	mux := http.NewServeMux()
 	var capturedQuery string
-	path := "/api/benchmarks/v1/tenant/" + resolveTestTenantID + "/benchmarks"
+	path := "/benchmarks/v1/tenant/" + resolveTestTenantID + "/benchmarks"
 	mux.HandleFunc(path, func(w http.ResponseWriter, r *http.Request) {
 		capturedQuery = r.URL.RawQuery
 		w.Header().Set("Content-Type", "application/json")
@@ -72,7 +72,7 @@ func TestResolveIDByName_NonPaginated(t *testing.T) {
 // which is used by benchmarks (not "name").
 func TestResolveIDByName_MatchesByTitle(t *testing.T) {
 	mux := http.NewServeMux()
-	path := "/api/some/v1/tenant/" + resolveTestTenantID + "/items"
+	path := "/some/v1/tenant/" + resolveTestTenantID + "/items"
 	mux.HandleFunc(path, func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(map[string]any{
@@ -100,7 +100,7 @@ func TestResolveIDByName_MatchesByTitle(t *testing.T) {
 func TestResolveIDByName_PaginatedMultiPage(t *testing.T) {
 	const pageSize = 100
 	mux := http.NewServeMux()
-	path := "/api/res/v1/tenant/" + resolveTestTenantID + "/items"
+	path := "/res/v1/tenant/" + resolveTestTenantID + "/items"
 
 	mux.HandleFunc(path, func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -140,7 +140,7 @@ func TestResolveIDByName_PaginatedMultiPage(t *testing.T) {
 // TestResolveIDByName_NotFound verifies ErrNotFound when no item matches.
 func TestResolveIDByName_NotFound(t *testing.T) {
 	mux := http.NewServeMux()
-	path := "/api/res/v1/tenant/" + resolveTestTenantID + "/items"
+	path := "/res/v1/tenant/" + resolveTestTenantID + "/items"
 	mux.HandleFunc(path, func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(map[string]any{
@@ -160,7 +160,7 @@ func TestResolveIDByName_NotFound(t *testing.T) {
 // name on the same page, an error is returned rather than silently picking one.
 func TestResolveIDByName_Ambiguous(t *testing.T) {
 	mux := http.NewServeMux()
-	path := "/api/device-groups/v1/tenant/" + resolveTestTenantID + "/device-groups"
+	path := "/device-groups/v1/tenant/" + resolveTestTenantID + "/device-groups"
 	mux.HandleFunc(path, func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(map[string]any{
@@ -186,7 +186,7 @@ func TestResolveIDByName_Ambiguous(t *testing.T) {
 // as a query param and narrows the result to the matching device type.
 func TestResolveIDByNameFiltered(t *testing.T) {
 	mux := http.NewServeMux()
-	path := "/api/device-groups/v1/tenant/" + resolveTestTenantID + "/device-groups"
+	path := "/device-groups/v1/tenant/" + resolveTestTenantID + "/device-groups"
 	var capturedFilter string
 	mux.HandleFunc(path, func(w http.ResponseWriter, r *http.Request) {
 		capturedFilter = r.URL.Query().Get("filter")
@@ -215,7 +215,7 @@ func TestResolveIDByNameFiltered(t *testing.T) {
 // TestResolveIDByName_BareArray verifies matching against bare-array responses.
 func TestResolveIDByName_BareArray(t *testing.T) {
 	mux := http.NewServeMux()
-	path := "/api/res/v1/tenant/" + resolveTestTenantID + "/items"
+	path := "/res/v1/tenant/" + resolveTestTenantID + "/items"
 	mux.HandleFunc(path, func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode([]any{

@@ -45,7 +45,7 @@ func newDeviceGroupsListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err
 			}
-			path := "/api/securitycloud/v2/groups"
+			path := "/securitycloud/v2/groups"
 			q := url.Values{}
 			if customerId != "" {
 				q.Set("customer-id", customerId)
@@ -96,7 +96,7 @@ func newDeviceGroupsCreateCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err
 			}
-			path := "/api/securitycloud/v1/groups"
+			path := "/securitycloud/v1/groups"
 			q := url.Values{}
 			body, err := platform.ReadBody(bodyFile, setFlags)
 			if err != nil {
@@ -149,7 +149,7 @@ func newDeviceGroupsDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			}
 			var resolvedID string
 			if nameFlag != "" {
-				listPath := "/api/securitycloud/v2/groups"
+				listPath := "/securitycloud/v2/groups"
 				id, err := platform.ResolveIDByName(cmd.Context(), cliCtx.PlatformSDKClient, listPath, nameFlag)
 				if err != nil {
 					return err
@@ -163,7 +163,7 @@ func newDeviceGroupsDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err := platform.ConfirmAction("delete", resolvedID, yes); err != nil {
 				return err
 			}
-			path := "/api/securitycloud/v1/groups/{groupId}"
+			path := "/securitycloud/v1/groups/{groupId}"
 			path = strings.Replace(path, "{groupId}", url.PathEscape(resolvedID), 1)
 			q := url.Values{}
 			var body any
@@ -204,7 +204,7 @@ func newDeviceGroupsGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			}
 			var resolvedID string
 			if nameFlag != "" {
-				listPath := "/api/securitycloud/v2/groups"
+				listPath := "/securitycloud/v2/groups"
 				id, err := platform.ResolveIDByName(cmd.Context(), cliCtx.PlatformSDKClient, listPath, nameFlag)
 				if err != nil {
 					return err
@@ -215,7 +215,7 @@ func newDeviceGroupsGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			} else {
 				return fmt.Errorf("provide a positional ID or --name")
 			}
-			path := "/api/securitycloud/v1/groups/{groupId}"
+			path := "/securitycloud/v1/groups/{groupId}"
 			path = strings.Replace(path, "{groupId}", url.PathEscape(resolvedID), 1)
 			q := url.Values{}
 			var body any
@@ -263,7 +263,7 @@ func newDeviceGroupsUpdateCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			}
 			var resolvedID string
 			if nameFlag != "" {
-				listPath := "/api/securitycloud/v2/groups"
+				listPath := "/securitycloud/v2/groups"
 				id, err := platform.ResolveIDByName(cmd.Context(), cliCtx.PlatformSDKClient, listPath, nameFlag)
 				if err != nil {
 					return err
@@ -274,7 +274,7 @@ func newDeviceGroupsUpdateCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			} else {
 				return fmt.Errorf("provide a positional ID or --name")
 			}
-			path := "/api/securitycloud/v1/groups/{groupId}"
+			path := "/securitycloud/v1/groups/{groupId}"
 			path = strings.Replace(path, "{groupId}", url.PathEscape(resolvedID), 1)
 			q := url.Values{}
 			body, err := platform.ReadBody(bodyFile, setFlags)

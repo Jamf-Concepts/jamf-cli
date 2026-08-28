@@ -45,7 +45,7 @@ func newDeviceActionsCheckInCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err
 			}
-			path := "/api/device-actions/v1/devices/{id}/check-in"
+			path := "/device-actions/v1/devices/{id}/check-in"
 			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
 			q := url.Values{}
 			var body any
@@ -99,7 +99,7 @@ func newDeviceActionsEraseCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err := platform.ConfirmAction("erase", args[0], yes); err != nil {
 				return err
 			}
-			path := "/api/device-actions/v1/devices/{id}/erase"
+			path := "/device-actions/v1/devices/{id}/erase"
 			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
 			q := url.Values{}
 			body, err := platform.ReadBody(bodyFile, setFlags)
@@ -154,7 +154,7 @@ func newDeviceActionsRestartCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err := platform.ConfirmAction("restart", args[0], yes); err != nil {
 				return err
 			}
-			path := "/api/device-actions/v1/devices/{id}/restart"
+			path := "/device-actions/v1/devices/{id}/restart"
 			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
 			q := url.Values{}
 			var body any
@@ -203,7 +203,7 @@ func newDeviceActionsShutdownCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err := platform.ConfirmAction("shutdown", args[0], yes); err != nil {
 				return err
 			}
-			path := "/api/device-actions/v1/devices/{id}/shutdown"
+			path := "/device-actions/v1/devices/{id}/shutdown"
 			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
 			q := url.Values{}
 			var body any
@@ -252,7 +252,7 @@ func newDeviceActionsUnmanageCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err := platform.ConfirmAction("unmanage", args[0], yes); err != nil {
 				return err
 			}
-			path := "/api/device-actions/v1/devices/{id}/unmanage"
+			path := "/device-actions/v1/devices/{id}/unmanage"
 			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
 			q := url.Values{}
 			var body any

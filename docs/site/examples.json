@@ -286,7 +286,7 @@
     },
     {
       "description": "Add a platform gateway profile",
-      "command": "jamf-cli config add-profile platform-prod --url https://us.apigw.jamf.com --auth-method platform --tenant-id abc123"
+      "command": "jamf-cli config add-profile platform-prod --url https://us.api.jamfcloud.com --auth-method platform --tenant-id abc123"
     },
     {
       "description": "Add a bearer token profile",

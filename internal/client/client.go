@@ -47,8 +47,8 @@ func WithVerbose(level int) Option {
 }
 
 // WithGatewayScope enables platform gateway mode: paths are rewritten into their
-// gateway namespace (/api/v1/x -> /api/pro/v1/x, /JSSResource/x ->
-// /api/proclassic/x) and the scope travels as a request header —
+// gateway namespace (/api/v1/x -> /pro/v1/x, /JSSResource/x ->
+// /proclassic/x) and the scope travels as a request header —
 // X-Environment-Id or X-Tenant-Id, or nothing for an organization-scoped
 // credential, which the gateway resolves from the access token.
 func WithGatewayScope(scope auth.Scope) Option {
@@ -93,9 +93,9 @@ func (c *Client) Do(ctx context.Context, method, path string, body io.Reader) (*
 	}
 
 	// Platform gateway mode: map the path into its gateway namespace. The
-	// tenant is sent as a header, not a path segment — see setTenantHeader.
-	//   /JSSResource/* → /api/proclassic/*
-	//   /api/v*        → /api/pro/v*
+	// tenant is sent as a header, not a path segment — see setScopeHeader.
+	//   /JSSResource/* → /proclassic/*
+	//   /api/v*        → /pro/v*
 	if c.gateway {
 		path = rewritePathForGateway(path)
 	}
@@ -126,7 +126,7 @@ func (c *Client) Do(ctx context.Context, method, path string, body io.Reader) (*
 
 	// Classic API endpoints use XML; modern API uses JSON.
 	// An explicit Accept override in the context takes precedence (used by binary download commands).
-	isClassic := strings.HasPrefix(path, "/JSSResource") || strings.HasPrefix(path, "/api/proclassic")
+	isClassic := strings.HasPrefix(path, "/JSSResource") || strings.HasPrefix(path, "/proclassic")
 	if override := registry.AcceptFromContext(ctx); override != "" {
 		req.Header.Set("Accept", override)
 	} else if isClassic {
@@ -440,11 +440,15 @@ func httpStatusError(status int, method, path string, body []byte) error {
 	case http.StatusForbidden:
 		return exitcode.New(exitcode.PermissionDenied,
 			fmt.Sprintf("permission denied (HTTP 403): %s", string(body))).
-			WithHint("the authenticated account lacks the required API privileges; check its API role")
+			WithHint(withGatewayUnservedNote(
+				"the authenticated account lacks the required API privileges; check its API role",
+				path, body))
 	case http.StatusNotFound:
 		return exitcode.New(exitcode.NotFound,
 			fmt.Sprintf("resource not found (HTTP 404): %s %s", method, path)).
-			WithHint("run the matching 'list' command to see valid IDs/names")
+			WithHint(withGatewayUnservedNote(
+				"run the matching 'list' command to see valid IDs/names",
+				path, body))
 	case http.StatusTooManyRequests:
 		return exitcode.New(exitcode.RateLimited,
 			"rate limited (HTTP 429): server is throttling requests").
@@ -452,6 +456,51 @@ func httpStatusError(status int, method, path string, body []byte) error {
 	default:
 		return exitcode.Wrap(exitcode.General, fmt.Errorf("request failed (HTTP %d): %s", status, string(body)))
 	}
+}
+
+// withGatewayUnservedNote appends an explanation when a failure looks like the
+// platform gateway declining to serve a Jamf Pro namespace it does not expose.
+//
+// App installers are the case this exists for: the surface is reachable only
+// against a Jamf Pro instance directly, not through the gateway. The gateway's
+// answer for a path it does not route is 403 BAD_PERMISSIONS or Tyk's bare
+// "404 page not found", and neither says anything about the gateway — 403
+// BAD_PERMISSIONS in particular is exactly what a real missing privilege looks
+// like, so an operator reads it as "grant me the privilege" and goes looking for
+// a role that will never help.
+//
+// The note is APPENDED rather than substituted, deliberately. Both signals can
+// legitimately mean what they normally mean — a 404 for a deployment ID that
+// really is gone, a 403 for a role that really is short a privilege — so the
+// cost of a false positive has to be one extra sentence, never a confidently
+// wrong exclusive answer. The path is already the rewritten gateway one by the
+// time this is called, and "/pro/..." only exists in gateway mode, so no gateway
+// flag needs threading down here.
+func withGatewayUnservedNote(hint, path string, body []byte) string {
+	if !strings.HasPrefix(path, "/pro/") {
+		return hint
+	}
+	note := gatewayUnservedNote(path)
+	if note == "" {
+		return hint
+	}
+	// Tyk's unrouted 404 is a plain-text page, not a JSON envelope; a JSON body
+	// means the request reached Jamf Pro and the 404 is about the resource.
+	if bytes.Contains(body, []byte("404 page not found")) ||
+		bytes.Contains(body, []byte("BAD_PERMISSIONS")) ||
+		len(bytes.TrimSpace(body)) == 0 {
+		return strings.TrimRight(hint, ". ") + ". " + note
+	}
+	return hint
+}
+
+// gatewayUnservedNote names the Jamf Pro namespaces the platform gateway does
+// not expose, and what to use instead. Keyed on the gateway path prefix.
+func gatewayUnservedNote(path string) string {
+	if strings.HasPrefix(path, "/pro/v1/app-installers") {
+		return "App installers are not exposed on the Jamf Platform gateway — they are reachable only against a Jamf Pro instance directly, so run `pro app-installer-*` commands with a profile whose url is your instance and whose auth-method is oauth2 or token."
+	}
+	return ""
 }
 
 // logBody prints body bytes to w indented by four spaces. Truncates at bodyLogLimit
@@ -470,9 +519,19 @@ func logBody(w io.Writer, data []byte) {
 // rewritePathForGateway maps an instance API path onto its Jamf Platform
 // Gateway namespace.
 //
-//	/JSSResource/computers        → /api/proclassic/computers
-//	/api/v1/accounts              → /api/pro/v1/accounts
-//	/api/preview/computers        → /api/pro/preview/computers
+//	/JSSResource/computers        → /proclassic/computers
+//	/api/v1/accounts              → /pro/v1/accounts
+//	/api/preview/computers        → /pro/preview/computers
+//
+// There is NO /api segment on the gateway. The GA gateway at
+// {region}.api.jamfcloud.com mounts each namespace at the root and answers
+// 404 "page not found" — the unknown-namespace tell — for anything under /api;
+// the retired {region}.apigw.jamf.com required it. Wire-verified 2026-08-28
+// against EU: /pro/v1/categories and /proclassic/categories both answered 200
+// on the same credential in the same run where their /api forms answered 404.
+// Dropped outright rather than selected per host, the same call as the tenant
+// path→header migration below: a second code path nothing exercises is how
+// that URL-shape bug went unnoticed for weeks.
 //
 // The tenant is NOT in the path. Until 2026-08-25 every gateway URL embedded it
 // — /api/pro/{version}/tenant/{tenantID}/{resource} — and Tyk resolved the
@@ -484,14 +543,16 @@ func logBody(w io.Writer, data []byte) {
 // than keeping a second code path nothing exercises.
 func rewritePathForGateway(path string) string {
 	if after, ok := strings.CutPrefix(path, "/JSSResource/"); ok {
-		return "/api/proclassic/" + after
+		return "/proclassic/" + after
 	}
 	if after, ok := strings.CutPrefix(path, "/JSSResource"); ok {
-		return "/api/proclassic" + after
+		return "/proclassic" + after
 	}
-	// Modern API: /api/v1/..., /api/v2/..., /api/preview/..., etc.
+	// Modern API: /api/v1/..., /api/v2/..., /api/preview/..., etc. The /api the
+	// caller-facing path carries is the instance's, not the gateway's — it is
+	// replaced by the namespace here, never prefixed onto it.
 	if after, ok := strings.CutPrefix(path, "/api/"); ok {
-		return "/api/pro/" + after
+		return "/pro/" + after
 	}
 	return path
 }

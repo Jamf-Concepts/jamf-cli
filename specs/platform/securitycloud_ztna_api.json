@@ -122,24 +122,306 @@
       "conflict": {
         "content": {
           "application/json": {
-            "example": {
-              "errors": [
-                {
-                  "code": "HOSTNAME_CONFLICT",
-                  "description": "Hostname 'atlassian.com' is already assigned to another App.",
-                  "field": "hostnames",
-                  "id": "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+            "examples": {
+              "bareIpsConflict": {
+                "summary": "BARE_IPS_CONFLICT",
+                "value": {
+                  "errors": [
+                    {
+                      "code": "BARE_IPS_CONFLICT",
+                      "description": "One or more of the provided IP ranges conflict with an existing app.",
+                      "field": "bareIps"
+                    }
+                  ],
+                  "httpStatus": 409,
+                  "traceId": "ecf2ca07e23c0abc12393472f2b783df"
                 }
-              ],
-              "httpStatus": 409,
-              "traceId": "ecf2ca07e23c0abc12393472f2b783df"
+              },
+              "customersFromDifferentOrganizations": {
+                "summary": "CUSTOMERS_FROM_DIFFERENT_ORGANIZATIONS",
+                "value": {
+                  "errors": [
+                    {
+                      "code": "CUSTOMERS_FROM_DIFFERENT_ORGANIZATIONS",
+                      "description": "The provided customers belong to different organizations. Use only customers from the same organization."
+                    }
+                  ],
+                  "httpStatus": 409,
+                  "traceId": "ecf2ca07e23c0abc12393472f2b783df"
+                }
+              },
+              "customersReferencedByAccessPolicies": {
+                "summary": "CUSTOMERS_REFERENCED_BY_ACCESS_POLICIES",
+                "value": {
+                  "errors": [
+                    {
+                      "code": "CUSTOMERS_REFERENCED_BY_ACCESS_POLICIES",
+                      "description": "The gateway or grouped gateway could not be modified because one or more unassigned customers are still referenced by one or more Access Policies. Remove the reference, then try again."
+                    }
+                  ],
+                  "httpStatus": 409,
+                  "traceId": "ecf2ca07e23c0abc12393472f2b783df"
+                }
+              },
+              "customersReferencedByDnsZones": {
+                "summary": "CUSTOMERS_REFERENCED_BY_DNS_ZONES",
+                "value": {
+                  "errors": [
+                    {
+                      "code": "CUSTOMERS_REFERENCED_BY_DNS_ZONES",
+                      "description": "The gateway or grouped gateway could not be modified because one or more unassigned customers are still referenced by one or more Custom DNS Zones. Remove the reference, then try again."
+                    }
+                  ],
+                  "httpStatus": 409,
+                  "traceId": "ecf2ca07e23c0abc12393472f2b783df"
+                }
+              },
+              "customersReferencedByGroupedGateways": {
+                "summary": "CUSTOMERS_REFERENCED_BY_GROUPED_GATEWAYS",
+                "value": {
+                  "errors": [
+                    {
+                      "code": "CUSTOMERS_REFERENCED_BY_GROUPED_GATEWAYS",
+                      "description": "The gateway could not be modified because one or more unassigned customers are still referenced by one or more grouped gateways. Remove the reference, then try again."
+                    }
+                  ],
+                  "httpStatus": 409,
+                  "traceId": "ecf2ca07e23c0abc12393472f2b783df"
+                }
+              },
+              "dedicatedIpsLimit": {
+                "summary": "DEDICATED_IPS_LIMIT",
+                "value": {
+                  "errors": [
+                    {
+                      "code": "DEDICATED_IPS_LIMIT",
+                      "description": "The dedicated IP address limit has been reached (5 of 5)."
+                    }
+                  ],
+                  "httpStatus": 409,
+                  "traceId": "ecf2ca07e23c0abc12393472f2b783df"
+                }
+              },
+              "gatewayReferencedByAccessPolicies": {
+                "summary": "GATEWAY_REFERENCED_BY_ACCESS_POLICIES",
+                "value": {
+                  "errors": [
+                    {
+                      "code": "GATEWAY_REFERENCED_BY_ACCESS_POLICIES",
+                      "description": "The gateway could not be deleted because it is referenced by one or more Access Policies. Disconnect this gateway from all policies, then try again."
+                    }
+                  ],
+                  "httpStatus": 409,
+                  "traceId": "ecf2ca07e23c0abc12393472f2b783df"
+                }
+              },
+              "gatewayReferencedByDnsZones": {
+                "summary": "GATEWAY_REFERENCED_BY_DNS_ZONES",
+                "value": {
+                  "errors": [
+                    {
+                      "code": "GATEWAY_REFERENCED_BY_DNS_ZONES",
+                      "description": "The gateway could not be deleted because it is referenced by one or more Custom DNS Zones. Disconnect this gateway from all zones, then try again."
+                    }
+                  ],
+                  "httpStatus": 409,
+                  "traceId": "ecf2ca07e23c0abc12393472f2b783df"
+                }
+              },
+              "gatewayReferencedByGroupedGateways": {
+                "summary": "GATEWAY_REFERENCED_BY_GROUPED_GATEWAYS",
+                "value": {
+                  "errors": [
+                    {
+                      "code": "GATEWAY_REFERENCED_BY_GROUPED_GATEWAYS",
+                      "description": "The gateway could not be deleted because it is referenced by one or more grouped gateways. Disconnect this gateway from all grouped gateways, then try again."
+                    }
+                  ],
+                  "httpStatus": 409,
+                  "traceId": "ecf2ca07e23c0abc12393472f2b783df"
+                }
+              },
+              "gatewaysTunnelFlagMismatch": {
+                "summary": "GATEWAYS_TUNNEL_FLAG_MISMATCH",
+                "value": {
+                  "errors": [
+                    {
+                      "code": "GATEWAYS_TUNNEL_FLAG_MISMATCH",
+                      "description": "The combined set of referenced gateways, including existing members, must all have the same tunneled flag.",
+                      "field": "gatewayIds"
+                    }
+                  ],
+                  "httpStatus": 409,
+                  "traceId": "ecf2ca07e23c0abc12393472f2b783df"
+                }
+              },
+              "genericConflict": {
+                "summary": "CONFLICT",
+                "value": {
+                  "errors": [
+                    {
+                      "code": "CONFLICT",
+                      "description": "The request conflicts with the current state of the resource."
+                    }
+                  ],
+                  "httpStatus": 409,
+                  "traceId": "ecf2ca07e23c0abc12393472f2b783df"
+                }
+              },
+              "groupedGatewayReferencedByAccessPolicies": {
+                "summary": "GROUPED_GATEWAY_REFERENCED_BY_ACCESS_POLICIES",
+                "value": {
+                  "errors": [
+                    {
+                      "code": "GROUPED_GATEWAY_REFERENCED_BY_ACCESS_POLICIES",
+                      "description": "The grouped gateway could not be deleted because it is referenced by one or more Access Policies. Disconnect this grouped gateway from all policies, then try again."
+                    }
+                  ],
+                  "httpStatus": 409,
+                  "traceId": "ecf2ca07e23c0abc12393472f2b783df"
+                }
+              },
+              "groupedGatewayReferencedByDnsZones": {
+                "summary": "GROUPED_GATEWAY_REFERENCED_BY_DNS_ZONES",
+                "value": {
+                  "errors": [
+                    {
+                      "code": "GROUPED_GATEWAY_REFERENCED_BY_DNS_ZONES",
+                      "description": "The grouped gateway could not be deleted because it is referenced by one or more Custom DNS Zones. Disconnect this grouped gateway from all zones, then try again."
+                    }
+                  ],
+                  "httpStatus": 409,
+                  "traceId": "ecf2ca07e23c0abc12393472f2b783df"
+                }
+              },
+              "hostnameConflict": {
+                "summary": "HOSTNAME_CONFLICT",
+                "value": {
+                  "errors": [
+                    {
+                      "code": "HOSTNAME_CONFLICT",
+                      "description": "Hostname 'atlassian.com' is already assigned to another App.",
+                      "field": "hostnames",
+                      "id": "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+                    }
+                  ],
+                  "httpStatus": 409,
+                  "traceId": "ecf2ca07e23c0abc12393472f2b783df"
+                }
+              },
+              "ipsecConfigDuplicate": {
+                "summary": "IPSEC_CONFIG_DUPLICATE",
+                "value": {
+                  "errors": [
+                    {
+                      "code": "IPSEC_CONFIG_DUPLICATE",
+                      "description": "A gateway with the same IPSec configuration already exists.",
+                      "field": "ipsec"
+                    }
+                  ],
+                  "httpStatus": 409,
+                  "traceId": "ecf2ca07e23c0abc12393472f2b783df"
+                }
+              },
+              "ipsecLimit": {
+                "summary": "IPSEC_LIMIT",
+                "value": {
+                  "errors": [
+                    {
+                      "code": "IPSEC_LIMIT",
+                      "description": "The IPSec egress limit has been reached (5 of 5)."
+                    }
+                  ],
+                  "httpStatus": 409,
+                  "traceId": "ecf2ca07e23c0abc12393472f2b783df"
+                }
+              },
+              "missingCategoryName": {
+                "summary": "MISSING_CATEGORY_NAME",
+                "value": {
+                  "errors": [
+                    {
+                      "code": "MISSING_CATEGORY_NAME",
+                      "description": "Category Web Browsing does not exist."
+                    }
+                  ],
+                  "httpStatus": 409,
+                  "traceId": "ecf2ca07e23c0abc12393472f2b783df"
+                }
+              },
+              "missingSku2ForRiskControl": {
+                "summary": "MISSING_SKU2_FOR_RISK_CONTROL",
+                "value": {
+                  "errors": [
+                    {
+                      "code": "MISSING_SKU2_FOR_RISK_CONTROL",
+                      "description": "The required component is not enabled for risk-based access control."
+                    }
+                  ],
+                  "httpStatus": 409,
+                  "traceId": "ecf2ca07e23c0abc12393472f2b783df"
+                }
+              },
+              "missingUserGroups": {
+                "summary": "MISSING_USER_GROUPS",
+                "value": {
+                  "errors": [
+                    {
+                      "code": "MISSING_USER_GROUPS",
+                      "description": "User groups [c375d769-0e0e-4cb3-99c0-3dcd5f48a36f, a1b2c3d4-e5f6-7890-abcd-ef1234567890] do not exist."
+                    }
+                  ],
+                  "httpStatus": 409,
+                  "traceId": "ecf2ca07e23c0abc12393472f2b783df"
+                }
+              },
+              "predefinedAppNotFound": {
+                "summary": "PREDEFINED_APP_NOT_FOUND",
+                "value": {
+                  "errors": [
+                    {
+                      "code": "PREDEFINED_APP_NOT_FOUND",
+                      "description": "The predefined app 'atlassian-cloud' does not exist.",
+                      "field": "predefinedAppId"
+                    }
+                  ],
+                  "httpStatus": 409,
+                  "traceId": "ecf2ca07e23c0abc12393472f2b783df"
+                }
+              },
+              "tldLimitExceeded": {
+                "summary": "TLD_LIMIT_EXCEEDED",
+                "value": {
+                  "errors": [
+                    {
+                      "code": "TLD_LIMIT_EXCEEDED",
+                      "description": "The number of distinct top-level domains (10) exceeds the maximum of 8."
+                    }
+                  ],
+                  "httpStatus": 409,
+                  "traceId": "ecf2ca07e23c0abc12393472f2b783df"
+                }
+              },
+              "unsupportedBareIpInReferencedGatewayIpsecConfig": {
+                "summary": "UNSUPPORTED_BARE_IP_IN_REFERENCED_GATEWAY_IPSEC_CONFIG",
+                "value": {
+                  "errors": [
+                    {
+                      "code": "UNSUPPORTED_BARE_IP_IN_REFERENCED_GATEWAY_IPSEC_CONFIG",
+                      "description": "The referenced gateway's IPSec configuration does not support 10.10.0.0/24."
+                    }
+                  ],
+                  "httpStatus": 409,
+                  "traceId": "ecf2ca07e23c0abc12393472f2b783df"
+                }
+              }
             },
             "schema": {
               "$ref": "#/components/schemas/ApiError"
             }
           }
         },
-        "description": "Conflict — request is valid but cannot be processed due to current state. Common codes: `HOSTNAME_CONFLICT` — hostname already assigned to another App; `DEDICATED_IPS_LIMIT` — `dedicatedIps.enabled: true` quota exhausted; `MISSING_CATEGORY_NAME` — `categoryName` does not match any category returned by `GET /v1/categories`; `MISSING_SKU2_FOR_RISK_CONTROL` — risk controls require SKU2 entitlement not held by this customer; `MISSING_USER_GROUPS` — one or more assignment group IDs do not exist for this customer; `UNSUPPORTED_BARE_IP_IN_REFERENCED_VPN_ROUTE_IPSEC_CONFIG` — a `bareIps` subnet is not covered by the referenced gateway's IPSec tunnel `right.subnets`; `predefinedAppId` does not resolve to an existing template; for DELETE: gateway/grouped-gateway still referenced by an App, Grouped Gateway, or DNS Zone. Note: inaccessible gateway IDs in request bodies return `422 GATEWAY_NOT_FOUND`, not `409`.\n"
+        "description": "Conflict — request is valid but cannot be processed due to current state. Common codes: `HOSTNAME_CONFLICT` — hostname already assigned to another App; `BARE_IPS_CONFLICT` — POST/PATCH app: one or more of the provided `bareIps` IP ranges conflict with an existing app (`field: bareIps`); `DEDICATED_IPS_LIMIT` — `dedicatedIps.enabled: true` quota exhausted; `IPSEC_LIMIT` — IPSec egress tunnel limit reached; `TLD_LIMIT_EXCEEDED` — limit on distinct top-level domains exceeded; `MISSING_CATEGORY_NAME` — `categoryName` does not match any category returned by `GET /v1/categories`; `MISSING_SKU2_FOR_RISK_CONTROL` — risk controls require SKU2 entitlement not held by this customer; `MISSING_USER_GROUPS` — one or more assignment group IDs do not exist for this customer; `UNSUPPORTED_BARE_IP_IN_REFERENCED_GATEWAY_IPSEC_CONFIG` — a `bareIps` subnet is not covered by the referenced gateway's IPSec tunnel `right.subnets`; `GATEWAY_REFERENCED_BY_ACCESS_POLICIES` — DELETE gateway: still referenced by one or more Access Policies; `GATEWAY_REFERENCED_BY_GROUPED_GATEWAYS` — DELETE gateway: still a member of one or more grouped gateways; `GATEWAY_REFERENCED_BY_DNS_ZONES` — DELETE gateway: still referenced by one or more Custom DNS Zones; `GROUPED_GATEWAY_REFERENCED_BY_ACCESS_POLICIES` — DELETE grouped-gateway: still referenced by one or more Access Policies; `GROUPED_GATEWAY_REFERENCED_BY_DNS_ZONES` — DELETE grouped-gateway: still referenced by one or more Custom DNS Zones; `CUSTOMERS_REFERENCED_BY_ACCESS_POLICIES` — PATCH gateway or grouped gateway: an unassigned customer is still referenced by one or more Access Policies; `CUSTOMERS_REFERENCED_BY_GROUPED_GATEWAYS` — PATCH gateway: an unassigned customer still uses this gateway via a grouped gateway; `CUSTOMERS_REFERENCED_BY_DNS_ZONES` — PATCH gateway or grouped gateway: an unassigned customer is still referenced by one or more Custom DNS Zones; `CUSTOMERS_FROM_DIFFERENT_ORGANIZATIONS` — PATCH gateway: the provided customers belong to different organizations; only customers from the same organization may be assigned together; `GATEWAYS_TUNNEL_FLAG_MISMATCH` — PATCH grouped-gateway: the combined set of referenced gateways (supplied plus the group's existing members) does not all share the same tunneled flag; distinct from `422 MIXED_TUNNEL_TYPES`, which rejects a supplied `gatewayIds` set that is itself mixed (`field: gatewayIds`); `IPSEC_CONFIG_DUPLICATE` — POST/PATCH gateway: a gateway with the same IPSec configuration already exists (`field: ipsec`); `PREDEFINED_APP_NOT_FOUND` — POST app: `predefinedAppId` does not resolve to an existing predefined app (`field: predefinedAppId`). Returned as `409` (not `422`): the id is checked against existing predefined apps, not the request's shape. `CONFLICT` — generic conflict fallback; emitted for conflict cases not covered by a specific code above (e.g. removing the contact from a dedicated VPN route). Note: inaccessible gateway IDs in request bodies return `422 GATEWAY_NOT_FOUND`, not `409`. An unresolvable `predefinedAppId` is the deliberate exception — it returns `409 PREDEFINED_APP_NOT_FOUND`.\n"
       },
       "createResponse": {
         "content": {
@@ -226,13 +508,27 @@
           "application/json": {
             "examples": {
               "gatewayNotFound": {
-                "summary": "Gateway ID in request body not accessible to caller",
+                "summary": "GATEWAY_NOT_FOUND — grouped gateway (field gatewayIds)",
                 "value": {
                   "errors": [
                     {
                       "code": "GATEWAY_NOT_FOUND",
-                      "description": "Gateway 'a1b2' does not exist or is not accessible to this customer.",
-                      "field": "gatewayId"
+                      "description": "A gateway in gatewayIds does not exist or is not accessible to this customer.",
+                      "field": "gatewayIds"
+                    }
+                  ],
+                  "httpStatus": 422,
+                  "traceId": "ecf2ca07e23c0abc12393472f2b783df"
+                }
+              },
+              "gatewayNotFoundInApp": {
+                "summary": "GATEWAY_NOT_FOUND — app routing (field routing.gatewayId)",
+                "value": {
+                  "errors": [
+                    {
+                      "code": "GATEWAY_NOT_FOUND",
+                      "description": "Gateway does not exist or is not accessible to this customer.",
+                      "field": "routing.gatewayId"
                     }
                   ],
                   "httpStatus": 422,
@@ -2962,7 +3258,7 @@
         ]
       },
       "post": {
-        "description": "Create a Grouped Gateway. Returns `201 {id, href}` + `Location` header.\n\n`tenantIds` are validated against the caller's organization — **403** on mismatch.\n\n**Constraints:**\n- All `gatewayIds` must be dedicated (customer-owned) gateways → `422 SHARED_GATEWAY_MEMBER`\n- All `gatewayIds` must have the same tunnel type (all IPSec or all non-IPSec) → `422 MIXED_TUNNEL_TYPES`\n- All `gatewayIds` must have the same `dedicatedIps.enabled` value → `422 MIXED_DEDICATED_IPS_TYPES`\n\n\n**Required Permissions:** `ztna:create`",
+        "description": "Create a Grouped Gateway. Returns `201 {id, href}` + `Location` header.\n\n`tenantIds` are validated against the caller's organization — **403** on mismatch.\n\n**Constraints:**\n- All `gatewayIds` must be dedicated (customer-owned) gateways → `422 SHARED_GATEWAY_MEMBER`\n- All supplied `gatewayIds` must have the same tunnel type (all IPSec or all non-IPSec) → `422 MIXED_TUNNEL_TYPES`.\n- All `gatewayIds` must have the same `dedicatedIps.enabled` value → `422 MIXED_DEDICATED_IPS_TYPES`\n\n\n**Required Permissions:** `ztna:create`",
         "operationId": "createGroupedGateway",
         "parameters": [
           {
@@ -3112,7 +3408,7 @@
         }
       ],
       "patch": {
-        "description": "Partially update a Grouped Gateway.\nAll fields are optional — include only what you want to change.\n\nReturns `404` if the grouped gateway does not exist or belongs to a different tenant — never `403`.\n\n`tenantIds` are validated against the caller's organization — **403** on mismatch.\n\n**Constraints** (applied against the supplied `gatewayIds` array — which replaces the current set entirely):\n- All `gatewayIds` must be dedicated (customer-owned) gateways → `422 SHARED_GATEWAY_MEMBER`\n- All `gatewayIds` must have the same tunnel type (all IPSec or all non-IPSec) → `422 MIXED_TUNNEL_TYPES`\n- All `gatewayIds` must have the same `dedicatedIps.enabled` value → `422 MIXED_DEDICATED_IPS_TYPES`\n\n\n**Required Permissions:** `ztna:update`",
+        "description": "Partially update a Grouped Gateway.\nAll fields are optional — include only what you want to change.\n\nReturns `404` if the grouped gateway does not exist or belongs to a different tenant — never `403`.\n\n`tenantIds` are validated against the caller's organization — **403** on mismatch.\n\n**Constraints** (applied against the supplied `gatewayIds` array — which replaces the current set entirely):\n- All `gatewayIds` must be dedicated (customer-owned) gateways → `422 SHARED_GATEWAY_MEMBER`\n- All supplied `gatewayIds` must have the same tunnel type (all IPSec or all non-IPSec) → `422 MIXED_TUNNEL_TYPES`. On PATCH, a supplied set that is uniform on its own but conflicts with the group's existing members returns `409 GATEWAYS_TUNNEL_FLAG_MISMATCH` instead.\n- All `gatewayIds` must have the same `dedicatedIps.enabled` value → `422 MIXED_DEDICATED_IPS_TYPES`\n\n\n**Required Permissions:** `ztna:update`",
         "operationId": "patchGroupedGateway",
         "parameters": [
           {
