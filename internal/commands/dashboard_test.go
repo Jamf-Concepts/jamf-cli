@@ -7,6 +7,10 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/spf13/cobra"
+
+	"github.com/Jamf-Concepts/jamf-cli/internal/config"
 )
 
 func TestRenderDashboard_ProOnly(t *testing.T) {
@@ -267,5 +271,118 @@ func TestProtectActiveAnalyticsPct(t *testing.T) {
 	empty := &protectCoverage{}
 	if empty.ActiveAnalyticsPct() != 0 {
 		t.Error("ActiveAnalyticsPct() should be 0 for empty protect")
+	}
+}
+
+// TestDashboardInheritsRootFlags guards the Cobra shadowing trap documented in
+// CLAUDE.md: a local flag whose name matches a root persistent one causes
+// AddFlagSet to skip the inherited flag, taking its shorthand with it. The
+// dashboard previously declared its own --profile and --out-file, which silently
+// removed -p and -o from the command.
+func TestDashboardInheritsRootFlags(t *testing.T) {
+	root := NewRootCmd("test", "abc123", "2024-01-01", "unknown")
+
+	var dash *cobra.Command
+	for _, c := range root.Commands() {
+		if c.Name() == "dashboard" {
+			dash = c
+			break
+		}
+	}
+	if dash == nil {
+		t.Fatal("dashboard command not registered on root")
+	}
+
+	flags := dash.InheritedFlags()
+	for _, tc := range []struct{ name, shorthand string }{
+		{"profile", "p"},
+		{"output", "o"},
+		{"out-file", ""},
+	} {
+		f := flags.Lookup(tc.name)
+		if f == nil {
+			t.Errorf("dashboard does not inherit --%s", tc.name)
+			continue
+		}
+		if f.Shorthand != tc.shorthand {
+			t.Errorf("--%s shorthand = %q, want %q", tc.name, f.Shorthand, tc.shorthand)
+		}
+		if tc.shorthand != "" && flags.ShorthandLookup(tc.shorthand) == nil {
+			t.Errorf("dashboard does not inherit -%s", tc.shorthand)
+		}
+	}
+
+	// The report-scoping flag must not reuse a root name.
+	if dash.Flags().Lookup("include-profile") == nil {
+		t.Error("dashboard is missing --include-profile")
+	}
+	for _, name := range []string{"profile", "out-file"} {
+		if f := dash.LocalNonPersistentFlags().Lookup(name); f != nil {
+			t.Errorf("dashboard declares a local --%s, shadowing the root persistent flag", name)
+		}
+	}
+}
+
+func TestDashboardProfileNames(t *testing.T) {
+	cfg := &config.Config{
+		DefaultProfile: "configured-default",
+		Profiles: map[string]config.Profile{
+			"configured-default": {}, "flag-pro": {}, "extra-protect": {},
+		},
+	}
+
+	tests := []struct {
+		name       string
+		flag       string
+		env        string
+		extra      []string
+		wantResult []string
+	}{
+		{name: "default only", wantResult: []string{"configured-default"}},
+		{name: "flag wins over default", flag: "flag-pro", wantResult: []string{"flag-pro"}},
+		{name: "env wins over default", env: "env-pro", wantResult: []string{"env-pro"}},
+		{name: "flag wins over env", flag: "flag-pro", env: "env-pro", wantResult: []string{"flag-pro"}},
+		{
+			name: "primary then extras in order", flag: "flag-pro",
+			extra: []string{"extra-protect"}, wantResult: []string{"flag-pro", "extra-protect"},
+		},
+		{
+			name: "extras de-duplicated against primary", flag: "flag-pro",
+			extra:      []string{"flag-pro", "extra-protect", "extra-protect"},
+			wantResult: []string{"flag-pro", "extra-protect"},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			old := profile
+			profile = tc.flag
+			t.Cleanup(func() { profile = old })
+			t.Setenv("JAMF_PROFILE", tc.env)
+
+			got := dashboardProfileNames(cfg, tc.extra)
+			if len(got) != len(tc.wantResult) {
+				t.Fatalf("got %v, want %v", got, tc.wantResult)
+			}
+			for i := range got {
+				if got[i] != tc.wantResult[i] {
+					t.Fatalf("got %v, want %v", got, tc.wantResult)
+				}
+			}
+		})
+	}
+}
+
+// A nil config with nothing selected must yield no profiles rather than panic —
+// config.Load() errors are tolerated by the RunE so it can still print the
+// "configure one first" hint.
+func TestDashboardProfileNames_NilConfig(t *testing.T) {
+	old := profile
+	profile = ""
+	t.Cleanup(func() { profile = old })
+	t.Setenv("JAMF_PROFILE", "")
+
+	if got := dashboardProfileNames(nil, nil); len(got) != 0 {
+		t.Errorf("got %v, want no profiles", got)
 	}
 }

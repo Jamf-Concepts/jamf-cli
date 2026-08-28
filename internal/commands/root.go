@@ -853,7 +853,7 @@ in the config file. It never runs in CI, when output is piped, or under
 	cmd.AddCommand(newPlatformCmd(cliCtx))
 
 	// Cross-product dashboard
-	cmd.AddCommand(newDashboardCmd())
+	cmd.AddCommand(newDashboardCmd(cliCtx))
 
 	// Apply root-level aliases and groups for --help output
 	applyRootAliases(cmd)
