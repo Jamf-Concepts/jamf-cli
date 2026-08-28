@@ -409,6 +409,7 @@ func TestSave_RoundTrip(t *testing.T) {
 	original := &Config{
 		DefaultProfile: "production",
 		DefaultOutput:  "table",
+		ReportDir:      "/tmp/jamf-reports",
 		Profiles: map[string]Profile{
 			"production": {
 				URL:          "https://prod.jamfcloud.com",
@@ -439,6 +440,9 @@ func TestSave_RoundTrip(t *testing.T) {
 	if loaded.DefaultOutput != original.DefaultOutput {
 		t.Errorf("DefaultOutput = %q, want %q", loaded.DefaultOutput, original.DefaultOutput)
 	}
+	if loaded.ReportDir != original.ReportDir {
+		t.Errorf("ReportDir = %q, want %q", loaded.ReportDir, original.ReportDir)
+	}
 	if len(loaded.Profiles) != len(original.Profiles) {
 		t.Fatalf("profiles count = %d, want %d", len(loaded.Profiles), len(original.Profiles))
 	}
@@ -464,6 +468,37 @@ func TestSave_RoundTrip(t *testing.T) {
 }
 
 // --- GetProfile tests ---
+
+func TestReportDirPath(t *testing.T) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		t.Skipf("no home directory: %v", err)
+	}
+
+	tests := []struct {
+		name string
+		cfg  *Config
+		want string
+	}{
+		{name: "unset", cfg: &Config{}, want: ""},
+		{name: "nil config", cfg: nil, want: ""},
+		{name: "absolute path unchanged", cfg: &Config{ReportDir: "/srv/reports"}, want: "/srv/reports"},
+		{name: "tilde slash expanded", cfg: &Config{ReportDir: "~/Reports"}, want: filepath.Join(home, "Reports")},
+		{name: "bare tilde expanded", cfg: &Config{ReportDir: "~"}, want: home},
+		// A ~ that is not the whole first segment is not a home reference —
+		// "~admin/x" names a directory literally called "~admin".
+		{name: "tilde user not expanded", cfg: &Config{ReportDir: "~admin/x"}, want: "~admin/x"},
+		{name: "relative path unchanged", cfg: &Config{ReportDir: "reports"}, want: "reports"},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := tc.cfg.ReportDirPath(); got != tc.want {
+				t.Errorf("ReportDirPath() = %q, want %q", got, tc.want)
+			}
+		})
+	}
+}
 
 func TestGetProfile_ByName(t *testing.T) {
 	cfg := &Config{

@@ -19,6 +19,11 @@ type Config struct {
 	DefaultProfile string             `yaml:"default-profile"`
 	DefaultOutput  string             `yaml:"default-output,omitempty"`
 	Profiles       map[string]Profile `yaml:"profiles"`
+	// ReportDir is the directory generated HTML reports are written to. It is
+	// load-bearing for the MCP server, which refuses to write a report unless
+	// an operator has designated a directory here — the connecting model never
+	// supplies a path. The CLI treats it as a default destination only.
+	ReportDir string `yaml:"report-dir,omitempty"`
 	// UpdateCheck gates the once-a-day "a newer jamf-cli is available"
 	// advisory. nil means enabled; `update-check: false` silences it for
 	// every invocation, which is how an admin turns it off across a fleet
@@ -70,6 +75,21 @@ func configDir() string {
 	}
 	home, _ := os.UserHomeDir()
 	return filepath.Join(home, ".config", configDirName)
+}
+
+// ReportDirPath returns ReportDir with a leading ~ expanded, or "" when no
+// report directory is configured.
+func (c *Config) ReportDirPath() string {
+	if c == nil || c.ReportDir == "" {
+		return ""
+	}
+	dir := c.ReportDir
+	if dir == "~" || strings.HasPrefix(dir, "~/") {
+		if home, err := os.UserHomeDir(); err == nil {
+			dir = filepath.Join(home, strings.TrimPrefix(dir[1:], "/"))
+		}
+	}
+	return dir
 }
 
 func legacyConfigPath() string {

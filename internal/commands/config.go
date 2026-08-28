@@ -98,6 +98,7 @@ func newConfigShowCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				"config-file":     config.ConfigPath(),
 				"default-profile": cfg.DefaultProfile,
 				"default-output":  cfg.DefaultOutput,
+				"report-dir":      cfg.ReportDir,
 				"update-check":    cfg.UpdateCheck == nil || *cfg.UpdateCheck,
 				"profiles":        profiles,
 			}
@@ -534,6 +535,21 @@ func newConfigValidateCmd(cliCtx *registry.CLIContext) *cobra.Command {
 					pass("config", "default-output")
 				} else {
 					fail("config", "default-output", fmt.Sprintf("invalid %q (must be table, json, csv, yaml, or plain)", cfg.DefaultOutput))
+				}
+			}
+
+			// 3b. report-dir exists and is a directory. A missing one fails
+			// rather than warns: the MCP server writes reports there and has
+			// no path parameter to fall back to.
+			if cfg.ReportDir != "" {
+				dir := cfg.ReportDirPath()
+				switch info, statErr := os.Stat(dir); {
+				case statErr != nil:
+					fail("config", "report-dir", fmt.Sprintf("cannot access %s: %v", dir, statErr))
+				case !info.IsDir():
+					fail("config", "report-dir", fmt.Sprintf("%s is not a directory", dir))
+				default:
+					pass("config", "report-dir")
 				}
 			}
 
