@@ -951,3 +951,45 @@ func TestGatewayUnservedNote(t *testing.T) {
 		})
 	}
 }
+
+// TestUpload_PlatformGatewayPath covers the second call site of
+// rewritePathForGateway.
+//
+// Client.Upload builds its own request rather than going through Do, so it is a
+// separate path-rewriting and scope-header site — the same reason the tenant
+// path->header migration had to be verified on it independently. Every other
+// Upload test uses a direct-to-instance client, so nothing asserted its gateway
+// shape until now.
+//
+// This one cannot be checked on the wire: the GA edge's WAF refuses .pkg uploads
+// with a CloudFront 403 before the request reaches Jamf, so a live probe cannot
+// distinguish a wrong path from the WAF. That makes the unit assertion the only
+// coverage there is.
+func TestUpload_PlatformGatewayPath(t *testing.T) {
+	var gotPath, gotScope string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotPath = r.URL.Path
+		gotScope = r.Header.Get("X-Tenant-Id")
+		w.WriteHeader(http.StatusCreated)
+	}))
+	defer srv.Close()
+
+	c := New(srv.URL, auth.NewTokenProvider("test-token"), WithGatewayScope(auth.TenantScope("abc-123")))
+	body := strings.NewReader("payload")
+	if _, err := c.Upload(context.Background(), "/v1/packages/1/upload", body, "application/octet-stream", int64(body.Len())); err != nil {
+		t.Fatalf("Upload: %v", err)
+	}
+
+	if want := "/pro/v1/packages/1/upload"; gotPath != want {
+		t.Errorf("path = %q, want %q", gotPath, want)
+	}
+	if strings.HasPrefix(gotPath, "/api/") {
+		t.Errorf("path is under /api, which the GA gateway does not serve: %q", gotPath)
+	}
+	if strings.Contains(gotPath, "tenant") {
+		t.Errorf("path %q still carries a tenant segment", gotPath)
+	}
+	if gotScope != "abc-123" {
+		t.Errorf("X-Tenant-Id = %q, want %q", gotScope, "abc-123")
+	}
+}
