@@ -997,12 +997,16 @@ func TestUpload_PlatformGatewayPath(t *testing.T) {
 // TestEdgeBlockedNote pins the CloudFront/WAF refusal being reported as what it
 // is rather than as a privilege problem.
 //
-// The GA gateway sits behind CloudFront, whose WAF refuses some request bodies
-// before Jamf sees them — wire-established 2026-08-28: any <?xml ...?>
-// declaration in the body earns a 403 "Request blocked", while the identical
-// request without the prolog reaches Jamf. Since every Classic API payload
-// carries that prolog, the untreated form of this error told an operator with a
-// perfectly good credential to go and fix their API role.
+// The GA gateway sits behind CloudFront, whose WAF refuses some requests before
+// Jamf sees them — wire-established 2026-08-28: "file://" anywhere in the body
+// earns a 403 "Request blocked", while the identical body with a POSIX path
+// reaches Jamf. That is a legitimate value in Classic payloads (a dock item's
+// path), and the untreated form of this error told an operator with a perfectly
+// good credential to go and fix their API role.
+//
+// The hint must not assert WHICH rule fired: the same page is returned for a
+// content match and for a volume block, with no traceId and nothing naming the
+// rule.
 func TestEdgeBlockedNote(t *testing.T) {
 	const cloudfront = `<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
 <HTML><HEAD><TITLE>ERROR: The request could not be satisfied</TITLE></HEAD>
@@ -1021,8 +1025,11 @@ Request blocked.</BODY></HTML>`
 	if strings.Contains(e.Hint, "check its API role") {
 		t.Errorf("hint still blames the API role: %q", e.Hint)
 	}
-	if !strings.Contains(e.Hint, "<?xml") {
-		t.Errorf("hint does not name the known XML trigger: %q", e.Hint)
+	if !strings.Contains(e.Hint, "file://") {
+		t.Errorf("hint does not name the known file:// trigger: %q", e.Hint)
+	}
+	if !strings.Contains(e.Hint, "cannot say which one fired") {
+		t.Errorf("hint claims to know which rule fired: %q", e.Hint)
 	}
 	// And the HTML page must not be pasted into the message.
 	if strings.Contains(e.Error(), "DOCTYPE") {
