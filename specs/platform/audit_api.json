@@ -1,0 +1,821 @@
+{
+  "components": {
+    "parameters": {
+      "ResourceId": {
+        "description": "Resource identifier (1-256 characters).",
+        "in": "path",
+        "name": "resourceId",
+        "required": true,
+        "schema": {
+          "maxLength": 256,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "TxId": {
+        "description": "Transaction id (UUID).",
+        "in": "path",
+        "name": "txId",
+        "required": true,
+        "schema": {
+          "format": "uuid",
+          "type": "string"
+        }
+      },
+      "X-Environment-Id": {
+        "description": "The environment UUID identifier. Send it to address environment scope. This API is also published at organization scope — send no scope header at all.",
+        "in": "header",
+        "name": "X-Environment-Id",
+        "schema": {
+          "example": "e77c1408-10c8-4007-b177-abc9157fbcaa",
+          "format": "uuid",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "type": "string"
+        }
+      }
+    },
+    "responses": {
+      "BadRequest": {
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ApiError"
+            }
+          }
+        },
+        "description": "Invalid request parameters."
+      },
+      "Forbidden": {
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ApiError"
+            }
+          }
+        },
+        "description": "Insufficient permissions."
+      },
+      "Unauthorized": {
+        "description": "Missing or invalid authentication token."
+      }
+    },
+    "schemas": {
+      "Actor": {
+        "description": "The principal responsible for a gateway event. Present only on gateway events.",
+        "properties": {
+          "displayName": {
+            "description": "Human-readable actor name (when available).",
+            "example": "jane.doe@example.com",
+            "type": "string"
+          },
+          "id": {
+            "description": "Actor identifier.",
+            "example": "auth0|5f3a2b1c9d8e7f6a5b4c3d2e",
+            "type": "string"
+          },
+          "kind": {
+            "description": "Actor type.",
+            "example": "user",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "kind"
+        ],
+        "type": "object"
+      },
+      "ApiError": {
+        "description": "Standard error response body.",
+        "properties": {
+          "errors": {
+            "items": {
+              "properties": {
+                "code": {
+                  "description": "Error code.",
+                  "example": "INVALID_UUID",
+                  "type": "string"
+                },
+                "description": {
+                  "description": "Error description.",
+                  "example": "Invalid UUID format.",
+                  "type": "string"
+                },
+                "field": {
+                  "description": "Field that caused the error.",
+                  "example": "txId",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "code",
+                "description"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "httpStatus": {
+            "description": "HTTP status code.",
+            "example": 400,
+            "format": "int32",
+            "type": "integer"
+          },
+          "traceId": {
+            "description": "Trace id for support requests.",
+            "example": "0af7651916cd43dd8448eb211c80319c",
+            "type": "string"
+          }
+        },
+        "required": [
+          "httpStatus",
+          "errors"
+        ],
+        "type": "object"
+      },
+      "AuditEnvelope": {
+        "description": "A single audit event in canonical wire shape. Discriminated structurally into a\ngateway event (carries `actor` + `requestContext`) or a service event (carries\n`data`); the two never mix.\n",
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/GatewayEnvelope"
+          },
+          {
+            "$ref": "#/components/schemas/ServiceEnvelope"
+          }
+        ]
+      },
+      "AuditEventBase": {
+        "description": "Fields common to every audit event, regardless of source. Gateway and service\nevents both extend this base with their source-specific fields.\n",
+        "properties": {
+          "auditId": {
+            "description": "Unique event id.",
+            "example": "7d3f9b2a-5c1e-4a8b-9f2d-1a2b3c4d5e6f",
+            "format": "uuid",
+            "type": "string"
+          },
+          "auditSource": {
+            "description": "System that emitted this event, e.g. `api-gateway`, `blueprints`, `ai-policy`.",
+            "example": "api-gateway",
+            "type": "string"
+          },
+          "auditType": {
+            "description": "Event type, e.g. `api.call`, `blueprint.created`.",
+            "example": "api.call",
+            "type": "string"
+          },
+          "environmentId": {
+            "description": "Environment id, when applicable.",
+            "example": "env-prod",
+            "nullable": true,
+            "type": "string"
+          },
+          "orgId": {
+            "description": "Organization id.",
+            "example": "org-1a2b3c",
+            "type": "string"
+          },
+          "resourceId": {
+            "description": "Affected resource id, when applicable.",
+            "example": "blueprint-42",
+            "nullable": true,
+            "type": "string"
+          },
+          "tenantId": {
+            "description": "Tenant id, when applicable.",
+            "example": "tenant-9f8e7d",
+            "nullable": true,
+            "type": "string"
+          },
+          "time": {
+            "description": "Event timestamp (ISO-8601).",
+            "example": "2025-05-26T20:00:00Z",
+            "format": "date-time",
+            "type": "string"
+          },
+          "txId": {
+            "description": "Transaction id linking related events.",
+            "example": "4b2c1d0e-8f7a-4e6b-bc5d-9a8b7c6d5e4f",
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "auditId",
+          "txId",
+          "auditSource",
+          "auditType",
+          "orgId",
+          "time"
+        ],
+        "type": "object"
+      },
+      "AuditSourceInfo": {
+        "description": "One audit source in the discovery view: the source identifier, whether your\nenvironment has events from it in the time window, and the distinct event types\nseen from it.\n",
+        "properties": {
+          "hasEvents": {
+            "description": "Whether your environment has events from this source in the time window.",
+            "example": true,
+            "type": "boolean"
+          },
+          "source": {
+            "description": "The audit source identifier.",
+            "example": "ai-policy",
+            "type": "string"
+          },
+          "types": {
+            "description": "Distinct event types seen from this source, sorted alphabetically.",
+            "example": [
+              "policy.archived",
+              "policy.created"
+            ],
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "source",
+          "hasEvents",
+          "types"
+        ],
+        "type": "object"
+      },
+      "FilterPage": {
+        "description": "A page of audit events matching the filters — the events themselves, not their full transactions.",
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/AuditEnvelope"
+            },
+            "type": "array"
+          },
+          "nextCursor": {
+            "description": "Cursor for the next page; absent on the final page.",
+            "example": "MTc0ODI4NDgwMDAwMDoxMTExMTExMS0xMTExLTExMTEtMTExMS0xMTExMTExMTExMTE",
+            "type": "string"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "type": "object"
+      },
+      "GatewayEnvelope": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/AuditEventBase"
+          },
+          {
+            "properties": {
+              "actor": {
+                "$ref": "#/components/schemas/Actor"
+              },
+              "requestContext": {
+                "$ref": "#/components/schemas/RequestContext"
+              }
+            },
+            "required": [
+              "actor",
+              "requestContext"
+            ],
+            "type": "object"
+          }
+        ],
+        "description": "Gateway-sourced event (`auditSource = api-gateway`) — carries actor + request context, no `data`."
+      },
+      "RequestContext": {
+        "description": "HTTP request details for gateway events.",
+        "properties": {
+          "apiKeyHash": {
+            "example": "sha256:9f86d08188...",
+            "maxLength": 256,
+            "type": "string"
+          },
+          "divisionId": {
+            "description": "Platform Division the request was scoped to. Optional — present only when the\nrequest was division-scoped.\n",
+            "example": "7c9e6679-7425-40de-944b-e07fc1f90ae7",
+            "maxLength": 256,
+            "type": "string"
+          },
+          "method": {
+            "example": "POST",
+            "maxLength": 16,
+            "type": "string"
+          },
+          "oauthClientId": {
+            "example": "49d3ef33-24a9-4936-bda1-f9d47382b216",
+            "maxLength": 256,
+            "type": "string"
+          },
+          "path": {
+            "example": "/api/v1/blueprints",
+            "maxLength": 2048,
+            "type": "string"
+          },
+          "remoteIp": {
+            "example": "198.51.100.42",
+            "maxLength": 45,
+            "type": "string"
+          },
+          "route": {
+            "example": "/api/v1/blueprints",
+            "maxLength": 2048,
+            "type": "string"
+          },
+          "userAgent": {
+            "example": "Mozilla/5.0",
+            "maxLength": 4096,
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "ResourceLineageResponse": {
+        "description": "A page of complete transactions that touched a resource.",
+        "properties": {
+          "nextCursor": {
+            "description": "Cursor for the next page; absent on the final page.",
+            "example": "bGluZWFnZToxNzQ4Mjg0ODAwMDAwOjExMTExMTExLTExMTEtMTExMS0xMTExLTExMTExMTExMTExMQ",
+            "type": "string"
+          },
+          "transactions": {
+            "items": {
+              "$ref": "#/components/schemas/TransactionGroup"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "transactions"
+        ],
+        "type": "object"
+      },
+      "ServiceEnvelope": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/AuditEventBase"
+          },
+          {
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "actor"
+                  ]
+                },
+                {
+                  "required": [
+                    "requestContext"
+                  ]
+                }
+              ]
+            },
+            "properties": {
+              "data": {
+                "additionalProperties": true,
+                "description": "Event-specific payload (schema varies by source).",
+                "example": {
+                  "action": "created",
+                  "blueprintId": "bp-001"
+                },
+                "nullable": true,
+                "type": "object"
+              }
+            },
+            "type": "object"
+          }
+        ],
+        "description": "Service-sourced event (`auditSource = blueprints | ai-policy | …`) — carries a free-form `data` payload, no actor."
+      },
+      "TransactionGroup": {
+        "description": "One complete transaction: every event sharing the `txId` — gateway baseline\nincluded — ordered ascending by `time`.\n",
+        "properties": {
+          "events": {
+            "items": {
+              "$ref": "#/components/schemas/AuditEnvelope"
+            },
+            "type": "array"
+          },
+          "txId": {
+            "description": "Transaction id.",
+            "example": "4b2c1d0e-8f7a-4e6b-bc5d-9a8b7c6d5e4f",
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "txId",
+          "events"
+        ],
+        "type": "object"
+      }
+    },
+    "securitySchemes": {
+      "oauth2": {
+        "description": "Obtain an access token by calling the API Gateway's token endpoint using the OAuth2 client-credentials flow.",
+        "flows": {
+          "clientCredentials": {
+            "scopes": {
+              "audit:read": ""
+            },
+            "tokenUrl": "https://{region}.api.jamfcloud.com/auth/token"
+          }
+        },
+        "type": "oauth2"
+      }
+    }
+  },
+  "info": {
+    "contact": {
+      "name": "Jamf Developer",
+      "url": "https://developer.jamf.com"
+    },
+    "description": "API for querying audit events",
+    "termsOfService": "https://www.jamf.com/developer-resources/api-license-agreement/",
+    "title": "Audit API",
+    "version": "1.0.0"
+  },
+  "openapi": "3.0.1",
+  "paths": {
+    "/v1/audit": {
+      "get": {
+        "description": "Returns audit events matching the supplied filters, newest-first, with pagination.\nAt least one filter (`actor`, `audit-source`, `audit-type`, or `resource-id`) is required.\n\n\n**Required Permissions:** `audit:read` (environment scope, defined in X-Environment-Id header; or organization scope, when X-Environment-Id header not present)",
+        "operationId": "filterAuditEvents",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/X-Environment-Id"
+          },
+          {
+            "description": "Actor id to filter by. The `|` in auth0 identifiers must be URI-encoded as `%7C`.\n",
+            "in": "query",
+            "name": "actor",
+            "schema": {
+              "example": "auth0%7C820c9eee000a12a35a155a4e",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Event sources to include (comma-separated, max 50).",
+            "explode": false,
+            "in": "query",
+            "name": "audit-source",
+            "schema": {
+              "items": {
+                "type": "string"
+              },
+              "maxItems": 50,
+              "type": "array"
+            },
+            "style": "form"
+          },
+          {
+            "description": "Event types to include (comma-separated, max 50). Supports trailing wildcards like `blueprint.*`.",
+            "explode": false,
+            "in": "query",
+            "name": "audit-type",
+            "schema": {
+              "items": {
+                "type": "string"
+              },
+              "maxItems": 50,
+              "type": "array"
+            },
+            "style": "form"
+          },
+          {
+            "description": "Resource ids to include (comma-separated, max 50).",
+            "explode": false,
+            "in": "query",
+            "name": "resource-id",
+            "schema": {
+              "items": {
+                "type": "string"
+              },
+              "maxItems": 50,
+              "type": "array"
+            },
+            "style": "form"
+          },
+          {
+            "description": "Inclusive lower bound on event time (ISO-8601, required).",
+            "in": "query",
+            "name": "since",
+            "required": true,
+            "schema": {
+              "example": "2025-01-01T00:00:00Z",
+              "format": "date-time",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Inclusive upper bound on event time (ISO-8601); defaults to now.",
+            "in": "query",
+            "name": "until",
+            "schema": {
+              "example": "2025-06-30T23:59:59Z",
+              "format": "date-time",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Page size (1-200, default 50).",
+            "in": "query",
+            "name": "page-size",
+            "schema": {
+              "default": 50,
+              "format": "int32",
+              "maximum": 200,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Pagination cursor from a prior response.",
+            "in": "query",
+            "name": "cursor",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FilterPage"
+                }
+              }
+            },
+            "description": "A page of matching events."
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "audit:read"
+            ]
+          }
+        ],
+        "summary": "Filter audit events",
+        "tags": [
+          "audit"
+        ],
+        "x-required-privileges": [
+          "audit:read"
+        ]
+      }
+    },
+    "/v1/audit/resources/{resourceId}/lineage": {
+      "get": {
+        "description": "Returns complete transactions that touched a resource. Each transaction includes\nall its events, not just those matching the resource — providing full context\nfor what triggered each change.\n\n\n**Required Permissions:** `audit:read` (environment scope, defined in X-Environment-Id header; or organization scope, when X-Environment-Id header not present)",
+        "operationId": "getResourceLineage",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/X-Environment-Id"
+          },
+          {
+            "$ref": "#/components/parameters/ResourceId"
+          },
+          {
+            "description": "Optional event type filter. Supports trailing wildcards like `blueprint.*`.",
+            "in": "query",
+            "name": "audit-type",
+            "schema": {
+              "example": "blueprint.created",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Optional lower bound on event time (ISO-8601).",
+            "in": "query",
+            "name": "since",
+            "schema": {
+              "example": "2025-01-01T00:00:00Z",
+              "format": "date-time",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Optional upper bound on event time (ISO-8601).",
+            "in": "query",
+            "name": "until",
+            "schema": {
+              "example": "2025-06-30T23:59:59Z",
+              "format": "date-time",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Transactions per page (1-100, default 25).",
+            "in": "query",
+            "name": "page-size",
+            "schema": {
+              "default": 25,
+              "format": "int32",
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Pagination cursor from a prior response.",
+            "in": "query",
+            "name": "cursor",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResourceLineageResponse"
+                }
+              }
+            },
+            "description": "A page of complete transactions."
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "audit:read"
+            ]
+          }
+        ],
+        "summary": "Get resource lineage",
+        "tags": [
+          "audit"
+        ],
+        "x-required-privileges": [
+          "audit:read"
+        ]
+      }
+    },
+    "/v1/audit/sources": {
+      "get": {
+        "description": "Returns the audit sources available in your environment and the event types\neach has emitted. Use this to populate filter options for the filter endpoint.\n\nThe response always includes these known sources (in order):\n- `api-gateway` — Request context (actor, method, path) for audited operations\n- `blueprints` — Blueprint lifecycle events (create, update, archive)\n- `ai-policy` — AI policy evaluation and enforcement events\n\nGateway events capture *who* made a request; service events (blueprints, ai-policy)\ncapture *what* changed. They share a transaction id, so you can trace an actor\nto the resources they affected.\n\nEach source reports `hasEvents: true` if your environment has events from it\nin the time window, along with the distinct `types` seen. Additional sources\nmay appear if your environment has events from them.\n\n\n**Required Permissions:** `audit:read` (environment scope, defined in X-Environment-Id header; or organization scope, when X-Environment-Id header not present)",
+        "operationId": "listAuditSources",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/X-Environment-Id"
+          },
+          {
+            "description": "Optional lower bound on event time (ISO-8601). Defaults to 90 days ago.",
+            "in": "query",
+            "name": "since",
+            "schema": {
+              "example": "2025-01-01T00:00:00Z",
+              "format": "date-time",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/AuditSourceInfo"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "List of audit sources with their event types."
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "audit:read"
+            ]
+          }
+        ],
+        "summary": "Discover audit sources",
+        "tags": [
+          "audit"
+        ],
+        "x-required-privileges": [
+          "audit:read"
+        ]
+      }
+    },
+    "/v1/audit/transactions/{txId}": {
+      "get": {
+        "description": "Returns all audit events for a transaction, ordered by time. A transaction\nlinks a gateway request to all downstream service events it triggered.\n\n\n**Required Permissions:** `audit:read` (environment scope, defined in X-Environment-Id header; or organization scope, when X-Environment-Id header not present)",
+        "operationId": "getTransactionTimeline",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/X-Environment-Id"
+          },
+          {
+            "$ref": "#/components/parameters/TxId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/AuditEnvelope"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "The ordered event timeline. Empty array if no matching events."
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "audit:read"
+            ]
+          }
+        ],
+        "summary": "Get transaction timeline",
+        "tags": [
+          "audit"
+        ],
+        "x-required-privileges": [
+          "audit:read"
+        ]
+      }
+    }
+  },
+  "security": [
+    {
+      "oauth2": []
+    }
+  ],
+  "servers": [
+    {
+      "description": "Jamf Beta API Gateway - prod",
+      "url": "https://{region}.api.jamfcloud.com/audit",
+      "variables": {
+        "region": {
+          "default": "us",
+          "description": "Geographic deployment region",
+          "enum": [
+            "us",
+            "eu",
+            "apac"
+          ]
+        }
+      }
+    }
+  ],
+  "tags": [
+    {
+      "description": "Query audit events and transaction history.",
+      "name": "audit"
+    }
+  ],
+  "x-scope-types": [
+    "environment",
+    "organization"
+  ]
+}

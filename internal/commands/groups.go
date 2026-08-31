@@ -687,13 +687,17 @@ func applySecurityGroups(security *cobra.Command) {
 // ─── Jamf Platform groups (children of the "platform" command) ──────────────
 
 const (
-	groupPlatformCore = "platform-core"
-	groupPlatformAI   = "platform-ai"
+	groupPlatformCore    = "platform-core"
+	groupPlatformAI      = "platform-ai"
+	groupPlatformAccount = "platform-account"
+	groupPlatformAudit   = "platform-audit"
 )
 
 var platformGroups = []*cobra.Group{
 	{ID: groupPlatformCore, Title: "Core Commands:"},
 	{ID: groupPlatformAI, Title: "AI Governance:"},
+	{ID: groupPlatformAccount, Title: "Jamf Account (US-only):"},
+	{ID: groupPlatformAudit, Title: "Audit:"},
 }
 
 var platformGroupMap = map[string]string{
@@ -701,6 +705,19 @@ var platformGroupMap = map[string]string{
 	"auth":        groupPlatformCore,
 	"ai-policies": groupPlatformAI,
 	"ai-tools":    groupPlatformAI,
+
+	// Jamf Account. Grouped together, and the group title carries the US-only
+	// constraint so `platform --help` says it without the reader opening a
+	// subcommand.
+	"account-licenses":            groupPlatformAccount,
+	"deal-registrations":          groupPlatformAccount,
+	"distributor-configuration":   groupPlatformAccount,
+	"distributor-purchase-orders": groupPlatformAccount,
+	"distributor-quotes":          groupPlatformAccount,
+	"sso-connections":             groupPlatformAccount,
+	"sso-domains":                 groupPlatformAccount,
+
+	"audit": groupPlatformAudit,
 }
 
 func applyPlatformGroups(platform *cobra.Command) {

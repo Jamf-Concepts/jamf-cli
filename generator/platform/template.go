@@ -136,7 +136,11 @@ func new{{$.GoName}}{{.GoName}}Cmd(cliCtx *registry.CLIContext) *cobra.Command {
 			var resolvedID string
 			if nameFlag != "" {
 				listPath := {{printf "%q" .ListPath}}
+{{- if .NameLookupField }}
+				id, err := platform.ResolveIDByNameInField(cmd.Context(), cliCtx.PlatformSDKClient, listPath, nameFlag, {{printf "%q" .NameLookupField}})
+{{- else }}
 				id, err := platform.ResolveIDByName(cmd.Context(), cliCtx.PlatformSDKClient, listPath, nameFlag)
+{{- end }}
 				if err != nil {
 					return err
 				}

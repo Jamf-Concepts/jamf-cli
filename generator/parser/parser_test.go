@@ -2886,3 +2886,54 @@ func TestPlatformUnroutedOpsAreDeclared(t *testing.T) {
 		}
 	}
 }
+
+// TestPlatformOperationNameOverridesWinOverDerivation pins that an override is
+// the final word on an operation's name, and that every entry still matches a
+// shipped operation.
+//
+// Overrides used to be applied before the name-derivation passes, where a pass
+// could quietly undo one. Audit is the case that exposed it: two no-param GETs
+// under the audit tag (/audit and /audit/sources) both derived "list", so
+// resolveNoParamConflicts renamed *both* to their terminal segment — and the
+// override naming /audit/v1/audit "list" was lost, shipping the stutter
+// `platform audit audit`. Nothing failed; the command was simply misnamed,
+// which is why this asserts the resulting name rather than the absence of an
+// error.
+func TestPlatformOperationNameOverridesWinOverDerivation(t *testing.T) {
+	specsDir, err := filepath.Abs("../../specs/platform")
+	if err != nil {
+		t.Fatalf("resolving specs dir: %v", err)
+	}
+	specFiles, err := filepath.Glob(filepath.Join(specsDir, "*.json"))
+	if err != nil {
+		t.Fatalf("globbing specs: %v", err)
+	}
+	if len(specFiles) == 0 {
+		t.Fatal("no specs in specs/platform/ — nothing to check the table against")
+	}
+
+	got := make(map[string]string) // "METHOD path" → operation name
+	for _, path := range specFiles {
+		resources, err := ParsePlatformSpec(path)
+		if err != nil {
+			t.Fatalf("ParsePlatformSpec(%s): %v", path, err)
+		}
+		for _, r := range resources {
+			for _, op := range r.Operations {
+				got[strings.ToUpper(op.Method)+" "+op.Path] = op.Name
+			}
+		}
+	}
+
+	for key, want := range platformOperationNameOverrides {
+		name, ok := got[key]
+		if !ok {
+			t.Errorf("platformOperationNameOverrides names %q, which no shipped spec declares — "+
+				"remove the entry, or fix its key if a path was renamed", key)
+			continue
+		}
+		if name != want {
+			t.Errorf("%s: operation name = %q, want the override %q — a derivation pass overwrote it", key, name, want)
+		}
+	}
+}

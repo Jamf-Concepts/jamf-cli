@@ -1,0 +1,1572 @@
+{
+  "components": {
+    "parameters": {
+      "jamfPoNumber": {
+        "description": "Jamf-assigned purchase order number, as returned in the `jamfPoNumber` field of a purchase order. This is not the distributor's own `poNumber`.",
+        "in": "path",
+        "name": "jamfPoNumber",
+        "required": true,
+        "schema": {
+          "example": "JPO-004512",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "quoteNumber": {
+        "description": "Jamf-assigned quote number, as returned in the `quoteNumber` field of a quote.",
+        "in": "path",
+        "name": "quoteNumber",
+        "required": true,
+        "schema": {
+          "example": "Q-0012345",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      }
+    },
+    "responses": {
+      "ConfigurationBadRequest": {
+        "content": {
+          "application/json": {
+            "example": {
+              "errors": [
+                {
+                  "code": "UPSTREAM_ERROR",
+                  "description": "Failed to update configuration via Skyway distributor service",
+                  "field": null
+                }
+              ],
+              "httpStatus": 400,
+              "traceId": "80f198ee56343ba864fe8b2a57d3eff7"
+            },
+            "schema": {
+              "$ref": "#/components/schemas/ApiError"
+            }
+          }
+        },
+        "description": "Bad Request. The configuration change was rejected (`UPSTREAM_ERROR`), or the request body could not be parsed as JSON (`MALFORMED_REQUEST_BODY`)."
+      },
+      "DistributorNotFound": {
+        "content": {
+          "application/json": {
+            "example": {
+              "errors": [
+                {
+                  "code": "NOT_FOUND",
+                  "description": "Unable to find organization for tenant service organization id 0c1d2e3f-4a5b-6c7d-8e9f-0a1b2c3d4e5f",
+                  "field": null
+                }
+              ],
+              "httpStatus": 404,
+              "traceId": "80f198ee56343ba864fe8b2a57d3eff7"
+            },
+            "schema": {
+              "$ref": "#/components/schemas/ApiError"
+            }
+          }
+        },
+        "description": "Not Found. The organization resolved from the access token is not registered as a Jamf distributor (`NOT_FOUND`), or the requested quote or purchase order does not exist for that distributor (`UPSTREAM_ERROR`)."
+      },
+      "Forbidden": {
+        "content": {
+          "application/json": {
+            "example": {
+              "errors": [
+                {
+                  "code": "FORBIDDEN",
+                  "description": "M2M token missing required scope",
+                  "field": null
+                }
+              ],
+              "httpStatus": 403,
+              "traceId": "80f198ee56343ba864fe8b2a57d3eff7"
+            },
+            "schema": {
+              "$ref": "#/components/schemas/ApiError"
+            }
+          }
+        },
+        "description": "Forbidden. The token is not an external M2M token, or it does not carry the scope required to reach this endpoint."
+      },
+      "InternalServerError": {
+        "content": {
+          "application/json": {
+            "example": {
+              "errors": [
+                {
+                  "code": "INTERNAL_ERROR",
+                  "description": "The request could not be completed",
+                  "field": null
+                }
+              ],
+              "httpStatus": 500,
+              "traceId": "80f198ee56343ba864fe8b2a57d3eff7"
+            },
+            "schema": {
+              "$ref": "#/components/schemas/ApiError"
+            }
+          }
+        },
+        "description": "Internal Server Error. The organization in the token could not be resolved, or an upstream dependency failed. The `description` is deliberately generic; quote `traceId` when reporting the failure."
+      },
+      "PurchaseOrderBadRequest": {
+        "content": {
+          "application/json": {
+            "example": {
+              "errors": [
+                {
+                  "code": "UPSTREAM_ERROR",
+                  "description": "Failed to add purchase order via Skyway distributor service",
+                  "field": null
+                }
+              ],
+              "httpStatus": 400,
+              "traceId": "80f198ee56343ba864fe8b2a57d3eff7"
+            },
+            "schema": {
+              "$ref": "#/components/schemas/ApiError"
+            }
+          }
+        },
+        "description": "Bad Request. The purchase order failed validation against the quote it references (`UPSTREAM_ERROR`), or the request body could not be parsed as JSON (`MALFORMED_REQUEST_BODY`). The validation rules are the ones `POST /distributor/validate-purchase-order` reports, so call that endpoint to see which rule failed."
+      },
+      "Unauthorized": {
+        "content": {
+          "application/json": {
+            "example": {
+              "errors": [
+                {
+                  "code": "UNAUTHORIZED",
+                  "description": "The access token is missing, invalid, or expired.",
+                  "field": null
+                }
+              ],
+              "httpStatus": 401,
+              "traceId": "80f198ee56343ba864fe8b2a57d3eff7"
+            },
+            "schema": {
+              "$ref": "#/components/schemas/ApiError"
+            }
+          }
+        },
+        "description": "Unauthorized. The access token is missing, invalid, or expired. The API Gateway rejects the request before it reaches the service."
+      },
+      "UpstreamError": {
+        "content": {
+          "application/json": {
+            "example": {
+              "errors": [
+                {
+                  "code": "UPSTREAM_ERROR",
+                  "description": "The request could not be completed",
+                  "field": null
+                }
+              ],
+              "httpStatus": 500,
+              "traceId": "80f198ee56343ba864fe8b2a57d3eff7"
+            },
+            "schema": {
+              "$ref": "#/components/schemas/ApiError"
+            }
+          }
+        },
+        "description": "Internal Server Error. The upstream distributor platform failed to serve the request. Only upstream `400`, `404`, and `409` responses are relayed with their own status; every other upstream failure is reported as a `500`, since it describes Jamf's problem rather than the caller's. The `description` is deliberately generic; quote `traceId` when reporting the failure."
+      }
+    },
+    "schemas": {
+      "ApiError": {
+        "description": "Standard Jamf error response body, returned for every non-2xx response raised by the service.",
+        "properties": {
+          "errors": {
+            "description": "Every problem found with the request. Always holds at least one entry.",
+            "items": {
+              "$ref": "#/components/schemas/ApiErrorItem"
+            },
+            "type": "array"
+          },
+          "httpStatus": {
+            "description": "HTTP status code of the response.",
+            "example": 400,
+            "type": "integer"
+          },
+          "traceId": {
+            "description": "Trace identifier correlating the response with Jamf server-side logs. Quote it when reporting a failure. Null when the request carried no active trace.",
+            "example": "80f198ee56343ba864fe8b2a57d3eff7",
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "required": [
+          "httpStatus",
+          "errors"
+        ],
+        "type": "object"
+      },
+      "ApiErrorItem": {
+        "description": "A single problem with the request.",
+        "properties": {
+          "code": {
+            "description": "Machine-readable, stable classification of the problem. Values used by this API include `MALFORMED_REQUEST_BODY`, `BAD_REQUEST`, `UNAUTHORIZED`, `FORBIDDEN`, `NOT_FOUND`, `UPSTREAM_ERROR`, and `INTERNAL_ERROR`. Prefer this over matching on `description`.",
+            "example": "UPSTREAM_ERROR",
+            "type": "string"
+          },
+          "description": {
+            "description": "Human-readable explanation, for troubleshooting rather than display to an end user. Generic for server-side failures, which are correlated through `traceId` instead.",
+            "example": "Failed to add purchase order via Skyway distributor service",
+            "type": "string"
+          },
+          "field": {
+            "description": "Request field the problem relates to, in dotted notation for a nested field. Null when the problem is not about one field.",
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "description"
+        ],
+        "type": "object"
+      },
+      "BusinessType": {
+        "description": "Market segment an end customer organization belongs to.",
+        "enum": [
+          "Commercial",
+          "Government",
+          "Education-K12",
+          "Education-High Ed",
+          "Education-Intl Ed"
+        ],
+        "example": "Commercial",
+        "type": "string"
+      },
+      "DealRegistration": {
+        "description": "A deal registration submitted by a reseller partner against a prospective end customer.",
+        "properties": {
+          "address": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/DealRegistrationAddress"
+              }
+            ],
+            "description": "Address of the prospective end customer.",
+            "example": {
+              "addressLine1": "100 Washington Ave S",
+              "addressLine2": "Suite 1100",
+              "city": "Minneapolis",
+              "country": "United States",
+              "postalCode": "55401",
+              "stateProvince": "MN"
+            }
+          },
+          "businessType": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/BusinessType"
+              }
+            ],
+            "description": "Market segment of the prospective end customer.",
+            "example": "Commercial"
+          },
+          "email": {
+            "description": "Email address of the contact at the prospective end customer.",
+            "example": "alex.rivera@example.com",
+            "format": "email",
+            "type": "string"
+          },
+          "expirationDate": {
+            "description": "Date the registration expires. Null while the registration is pending, since an expiry is set on approval.",
+            "example": "2026-12-31T23:59:59Z",
+            "format": "date-time",
+            "nullable": true,
+            "type": "string"
+          },
+          "firstName": {
+            "description": "Given name of the contact at the prospective end customer.",
+            "example": "Alex",
+            "type": "string"
+          },
+          "lastName": {
+            "description": "Family name of the contact at the prospective end customer.",
+            "example": "Rivera",
+            "type": "string"
+          },
+          "organizationName": {
+            "description": "Name of the prospective end customer organization.",
+            "example": "Example Manufacturing Co",
+            "type": "string"
+          },
+          "partnerRegistrationId": {
+            "description": "Identifier Jamf assigned to the deal registration.",
+            "example": "a1b2c3d4-5e6f-4a7b-8c9d-0e1f2a3b4c5d",
+            "type": "string"
+          },
+          "phone": {
+            "description": "Telephone number of the contact, as submitted.",
+            "example": "+1-555-0142",
+            "nullable": true,
+            "type": "string"
+          },
+          "productInterests": {
+            "description": "Jamf products the prospective end customer is interested in.",
+            "example": [
+              "Jamf Pro",
+              "Jamf Connect"
+            ],
+            "items": {
+              "description": "Name of a Jamf product.",
+              "example": "Jamf Pro",
+              "type": "string"
+            },
+            "nullable": true,
+            "type": "array"
+          },
+          "registrationStatus": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/DealRegistrationStatus"
+              }
+            ],
+            "description": "Current status of the deal registration.",
+            "example": "APPROVED"
+          },
+          "website": {
+            "description": "Website of the prospective end customer organization.",
+            "example": "https://www.example.com",
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "DealRegistrationAddress": {
+        "description": "Address of a prospective end customer on a deal registration.",
+        "properties": {
+          "addressLine1": {
+            "description": "First line of the street address.",
+            "example": "100 Washington Ave S",
+            "nullable": true,
+            "type": "string"
+          },
+          "addressLine2": {
+            "description": "Second line of the street address, such as a suite or unit.",
+            "example": "Suite 1100",
+            "nullable": true,
+            "type": "string"
+          },
+          "city": {
+            "description": "City or locality.",
+            "example": "Minneapolis",
+            "nullable": true,
+            "type": "string"
+          },
+          "country": {
+            "description": "Country name.",
+            "example": "United States",
+            "nullable": true,
+            "type": "string"
+          },
+          "postalCode": {
+            "description": "Postal or ZIP code.",
+            "example": "55401",
+            "nullable": true,
+            "type": "string"
+          },
+          "stateProvince": {
+            "description": "State, province, or region.",
+            "example": "MN",
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "DealRegistrationList": {
+        "description": "The deal registrations submitted by the partner organization.",
+        "properties": {
+          "results": {
+            "description": "The deal registrations submitted by the partner organization.",
+            "items": {
+              "$ref": "#/components/schemas/DealRegistration"
+            },
+            "type": "array"
+          },
+          "totalCount": {
+            "description": "Number of deal registrations in `results`.",
+            "example": 1,
+            "readOnly": true,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "totalCount",
+          "results"
+        ],
+        "type": "object"
+      },
+      "DealRegistrationStatus": {
+        "description": "Status of a deal registration. `PENDING` registrations are awaiting Jamf review; `APPROVED` registrations lapse to `EXPIRED` after their `expirationDate`.",
+        "enum": [
+          "PENDING",
+          "DENIED",
+          "APPROVED",
+          "EXPIRED"
+        ],
+        "example": "APPROVED",
+        "type": "string"
+      },
+      "DistributorAddress": {
+        "description": "A billing or shipping address on a distributor quote or purchase order.",
+        "properties": {
+          "city": {
+            "description": "City or locality.",
+            "example": "Minneapolis",
+            "nullable": true,
+            "type": "string"
+          },
+          "country": {
+            "description": "Full country name.",
+            "example": "United States",
+            "nullable": true,
+            "type": "string"
+          },
+          "countryCode": {
+            "description": "ISO 3166-1 alpha-2 country code.",
+            "example": "US",
+            "nullable": true,
+            "type": "string"
+          },
+          "line1": {
+            "description": "First line of the street address.",
+            "example": "100 Washington Ave S",
+            "nullable": true,
+            "type": "string"
+          },
+          "line2": {
+            "description": "Second line of the street address, such as a suite or unit.",
+            "example": "Suite 1100",
+            "nullable": true,
+            "type": "string"
+          },
+          "line3": {
+            "description": "Third line of the street address, where one is used.",
+            "example": "Attn: Accounts Payable",
+            "nullable": true,
+            "type": "string"
+          },
+          "line4": {
+            "description": "Fourth line of the street address, where one is used.",
+            "example": "Building C",
+            "nullable": true,
+            "type": "string"
+          },
+          "postalCode": {
+            "description": "Postal or ZIP code.",
+            "example": "55401",
+            "nullable": true,
+            "type": "string"
+          },
+          "stateProvince": {
+            "description": "Full name of the state, province, or region.",
+            "example": "Minnesota",
+            "nullable": true,
+            "type": "string"
+          },
+          "stateProvinceCode": {
+            "description": "Abbreviated code for the state, province, or region.",
+            "example": "MN",
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "DistributorConfiguration": {
+        "description": "Integration configuration for a distributor organization: how it is permitted to submit purchase orders and where Jamf delivers its webhooks.",
+        "properties": {
+          "jamfInfo": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/DistributorJamfInfo"
+              }
+            ],
+            "description": "Details Jamf maintains about the distributor. Read-only; ignored if supplied on update. Null when the distributor platform holds no Jamf-maintained details for the organization.",
+            "example": {
+              "distributorName": "Example Distribution Group",
+              "originCidr": [
+                "203.0.113.0/24",
+                "198.51.100.16/28"
+              ]
+            },
+            "nullable": true,
+            "readOnly": true
+          },
+          "poSubmissionPermission": {
+            "description": "How the distributor is permitted to submit purchase orders. Values are human-readable phrases and may contain spaces, such as `API only`, `Email only`, or `API and email`. Null when the distributor platform has no submission permission recorded.",
+            "example": "API and email",
+            "nullable": true,
+            "type": "string"
+          },
+          "webhook": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/DistributorWebhook"
+              }
+            ],
+            "description": "Webhook delivery settings for events raised on the distributor's purchase orders. Null when no webhook has been configured.",
+            "example": {
+              "authType": "Bearer",
+              "enabled": true,
+              "secretName": "X-Example-Signature",
+              "subscribedTo": [
+                "purchase-order-status-changed"
+              ],
+              "url": "https://webhooks.example.com/jamf/purchase-orders"
+            },
+            "nullable": true
+          }
+        },
+        "type": "object"
+      },
+      "DistributorJamfInfo": {
+        "description": "Details Jamf maintains about a distributor. Read-only.",
+        "properties": {
+          "distributorName": {
+            "description": "Registered name of the distributor.",
+            "example": "Example Distribution Group",
+            "type": "string"
+          },
+          "originCidr": {
+            "description": "CIDR ranges that API requests from the distributor are permitted to originate from.",
+            "example": [
+              "203.0.113.0/24",
+              "198.51.100.16/28"
+            ],
+            "items": {
+              "description": "A CIDR range in IPv4 or IPv6 notation.",
+              "example": "203.0.113.0/24",
+              "type": "string"
+            },
+            "nullable": true,
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
+      "DistributorPurchaseOrder": {
+        "description": "A distributor purchase order raised against a quote.\n\nThe schema is shared by requests and responses. On submission, supply the quote being ordered against, the distributor's own purchase order details, and the lines; the Jamf-assigned fields (`jamfPoNumber`, `jamfOrderNumber`, `orderNumber`, `status`, `createdOn`, `lastModifiedOn`, `legalEntity`) are populated by Jamf during processing and are ignored if supplied.",
+        "properties": {
+          "billingAddress": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/DistributorAddress"
+              }
+            ],
+            "description": "Address the order is billed to. Defaults to the quote's billing address when omitted.",
+            "example": {
+              "city": "Minneapolis",
+              "countryCode": "US",
+              "line1": "100 Washington Ave S",
+              "postalCode": "55401",
+              "stateProvinceCode": "MN"
+            }
+          },
+          "createdOn": {
+            "description": "When Jamf received the purchase order. Assigned by Jamf; ignored on submission.",
+            "example": "2026-06-12T16:04:55Z",
+            "format": "date-time",
+            "nullable": true,
+            "readOnly": true,
+            "type": "string"
+          },
+          "currencyCode": {
+            "description": "ISO 4217 currency code that `totalAmount` and all line amounts are denominated in. Must match the quote.",
+            "example": "USD",
+            "type": "string"
+          },
+          "jamfOrderNumber": {
+            "description": "Sales order Jamf raised from this purchase order. Null until the purchase order has been processed. Assigned by Jamf; ignored on submission.",
+            "example": "SO-119284",
+            "nullable": true,
+            "readOnly": true,
+            "type": "string"
+          },
+          "jamfPoNumber": {
+            "description": "Purchase order number Jamf assigned during processing. Use it to read the purchase order back. Assigned by Jamf; ignored on submission.",
+            "example": "JPO-004512",
+            "nullable": true,
+            "readOnly": true,
+            "type": "string"
+          },
+          "lastModifiedOn": {
+            "description": "When the purchase order last changed. Assigned by Jamf; ignored on submission.",
+            "example": "2026-06-13T08:31:12Z",
+            "format": "date-time",
+            "nullable": true,
+            "readOnly": true,
+            "type": "string"
+          },
+          "legalEntity": {
+            "description": "Jamf legal entity contracting on the order. Taken from the quote; ignored on submission.",
+            "example": "Jamf Software, LLC",
+            "nullable": true,
+            "readOnly": true,
+            "type": "string"
+          },
+          "lines": {
+            "description": "Line items on the purchase order.",
+            "items": {
+              "$ref": "#/components/schemas/DistributorPurchaseOrderLine"
+            },
+            "nullable": true,
+            "type": "array"
+          },
+          "orderNumber": {
+            "description": "Order reference within the distributor platform. Assigned during processing; ignored on submission.",
+            "example": "PO-88231-1",
+            "nullable": true,
+            "readOnly": true,
+            "type": "string"
+          },
+          "paymentTerms": {
+            "description": "Payment terms that apply to the order.",
+            "example": "Net 30",
+            "nullable": true,
+            "type": "string"
+          },
+          "poDate": {
+            "description": "Date the distributor raised the purchase order.",
+            "example": "2026-06-12",
+            "format": "date",
+            "nullable": true,
+            "type": "string"
+          },
+          "poNumber": {
+            "description": "The distributor's own purchase order number.",
+            "example": "PO-88231",
+            "type": "string"
+          },
+          "quoteNumber": {
+            "description": "Quote this purchase order is raised against, as returned by `GET /distributor/quotes/{quoteNumber}`.",
+            "example": "Q-0012345",
+            "type": "string"
+          },
+          "shippingAddress": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/DistributorAddress"
+              }
+            ],
+            "description": "Address the order ships to. Defaults to the quote's shipping address when omitted.",
+            "example": {
+              "city": "Minneapolis",
+              "countryCode": "US",
+              "line1": "100 Washington Ave S",
+              "postalCode": "55401",
+              "stateProvinceCode": "MN"
+            }
+          },
+          "status": {
+            "description": "Processing status of the purchase order. Assigned by Jamf; ignored on submission.",
+            "example": "Processed",
+            "nullable": true,
+            "readOnly": true,
+            "type": "string"
+          },
+          "totalAmount": {
+            "description": "Total value of the purchase order in `currencyCode`. Validated against the quote total.",
+            "example": 48250,
+            "nullable": true,
+            "type": "number"
+          }
+        },
+        "type": "object"
+      },
+      "DistributorPurchaseOrderLine": {
+        "description": "A single line item on a distributor purchase order.",
+        "properties": {
+          "description": {
+            "description": "Description of the ordered product.",
+            "example": "Jamf Pro - Annual Subscription",
+            "nullable": true,
+            "type": "string"
+          },
+          "lineAmount": {
+            "description": "Value of this line in the purchase order's `currencyCode`.",
+            "example": 48250,
+            "nullable": true,
+            "type": "number"
+          },
+          "quantity": {
+            "description": "Number of units ordered.",
+            "example": 500,
+            "format": "int32",
+            "nullable": true,
+            "type": "integer"
+          },
+          "sku": {
+            "description": "Stock-keeping unit being ordered. Must appear on the quote.",
+            "example": "JAMF-PRO-SUB",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "DistributorQuote": {
+        "description": "A quote issued to a distributor, priced with the distributor's and partner's contracted discounts.",
+        "properties": {
+          "billingAddress": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/DistributorAddress"
+              }
+            ],
+            "description": "Address the resulting order is billed to.",
+            "example": {
+              "city": "Minneapolis",
+              "countryCode": "US",
+              "line1": "100 Washington Ave S",
+              "postalCode": "55401",
+              "stateProvinceCode": "MN"
+            }
+          },
+          "billingFrequency": {
+            "description": "How often the resulting subscription is billed.",
+            "example": "Annual",
+            "nullable": true,
+            "type": "string"
+          },
+          "createdOn": {
+            "description": "When the quote was created.",
+            "example": "2026-05-04T14:22:31Z",
+            "format": "date-time",
+            "nullable": true,
+            "type": "string"
+          },
+          "currencyCode": {
+            "description": "ISO 4217 currency code that `totalAmount` and all line amounts are denominated in.",
+            "example": "USD",
+            "type": "string"
+          },
+          "expiresOn": {
+            "description": "Date after which the quote can no longer be ordered against.",
+            "example": "2026-06-30",
+            "format": "date",
+            "nullable": true,
+            "type": "string"
+          },
+          "lastModifiedOn": {
+            "description": "When the quote was last changed.",
+            "example": "2026-05-06T09:10:02Z",
+            "format": "date-time",
+            "nullable": true,
+            "type": "string"
+          },
+          "legalEntity": {
+            "description": "Jamf legal entity that will contract on the resulting order.",
+            "example": "Jamf Software, LLC",
+            "nullable": true,
+            "type": "string"
+          },
+          "lines": {
+            "description": "Line items on the quote.",
+            "items": {
+              "$ref": "#/components/schemas/DistributorQuoteLine"
+            },
+            "nullable": true,
+            "type": "array"
+          },
+          "paymentTerms": {
+            "description": "Payment terms that apply to orders placed against the quote.",
+            "example": "Net 30",
+            "nullable": true,
+            "type": "string"
+          },
+          "quoteNumber": {
+            "description": "Jamf-assigned quote number. Reference this when validating or submitting a purchase order against the quote.",
+            "example": "Q-0012345",
+            "type": "string"
+          },
+          "shippingAddress": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/DistributorAddress"
+              }
+            ],
+            "description": "Address the resulting order ships to.",
+            "example": {
+              "city": "Minneapolis",
+              "countryCode": "US",
+              "line1": "100 Washington Ave S",
+              "postalCode": "55401",
+              "stateProvinceCode": "MN"
+            }
+          },
+          "status": {
+            "description": "Status of the quote in the distributor platform, such as whether it is still in draft or has been approved for ordering.",
+            "example": "Approved",
+            "nullable": true,
+            "type": "string"
+          },
+          "totalAmount": {
+            "description": "Total value of the quote in `currencyCode`, after all discounts.",
+            "example": 48250,
+            "nullable": true,
+            "type": "number"
+          }
+        },
+        "type": "object"
+      },
+      "DistributorQuoteLine": {
+        "description": "A single line item on a distributor quote.",
+        "properties": {
+          "additionalDiscountPct": {
+            "description": "Additional discount applied to this line, as a percentage, beyond the contracted partner and distributor discounts.",
+            "example": 0,
+            "nullable": true,
+            "type": "number"
+          },
+          "description": {
+            "description": "Description of the quoted product.",
+            "example": "Jamf Pro - Annual Subscription",
+            "nullable": true,
+            "type": "string"
+          },
+          "distributorDiscountPct": {
+            "description": "Distributor's contracted discount on this line, as a percentage.",
+            "example": 5,
+            "nullable": true,
+            "type": "number"
+          },
+          "endDate": {
+            "description": "Date the quoted term for this line ends.",
+            "example": "2027-06-30",
+            "format": "date",
+            "nullable": true,
+            "type": "string"
+          },
+          "lineAmount": {
+            "description": "Value of this line in the quote's `currencyCode`, after all discounts.",
+            "example": 48250,
+            "nullable": true,
+            "type": "number"
+          },
+          "partnerDiscountPct": {
+            "description": "Reseller partner's contracted discount on this line, as a percentage.",
+            "example": 15,
+            "nullable": true,
+            "type": "number"
+          },
+          "prorateMultiplier": {
+            "description": "Fraction of a full term this line is priced for, used when the line is co-termed with an existing subscription. `1` for a full term.",
+            "example": 1,
+            "nullable": true,
+            "type": "number"
+          },
+          "quantity": {
+            "description": "Number of units quoted.",
+            "example": 500,
+            "format": "int32",
+            "nullable": true,
+            "type": "integer"
+          },
+          "sku": {
+            "description": "Stock-keeping unit being quoted.",
+            "example": "JAMF-PRO-SUB",
+            "type": "string"
+          },
+          "startDate": {
+            "description": "Date the quoted term for this line begins.",
+            "example": "2026-07-01",
+            "format": "date",
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "DistributorWebhook": {
+        "description": "Webhook delivery settings for events raised on a distributor's purchase orders.",
+        "properties": {
+          "authType": {
+            "description": "How the delivery is authenticated to the distributor's endpoint, such as a bearer token or a signature header.",
+            "example": "Bearer",
+            "nullable": true,
+            "type": "string"
+          },
+          "enabled": {
+            "description": "Whether Jamf delivers webhooks to `url`. When false, the remaining settings are retained but no deliveries are made.",
+            "example": true,
+            "type": "boolean"
+          },
+          "secretName": {
+            "description": "Name of the header the secret is sent in.",
+            "example": "X-Example-Signature",
+            "nullable": true,
+            "type": "string"
+          },
+          "secretValue": {
+            "description": "Secret used to authenticate webhook deliveries. Write-only: supply it to set or rotate the secret, and expect it to be omitted from every response.",
+            "example": "REPLACE_WITH_YOUR_WEBHOOK_SECRET",
+            "format": "password",
+            "nullable": true,
+            "type": "string",
+            "writeOnly": true
+          },
+          "subscribedTo": {
+            "description": "Event types the distributor receives. An empty list means no events are delivered even when `enabled` is true.",
+            "example": [
+              "purchase-order-status-changed"
+            ],
+            "items": {
+              "description": "An event type available for webhook delivery.",
+              "example": "purchase-order-status-changed",
+              "type": "string"
+            },
+            "nullable": true,
+            "type": "array"
+          },
+          "url": {
+            "description": "HTTPS endpoint Jamf delivers webhooks to. Required when `enabled` is true.",
+            "example": "https://webhooks.example.com/jamf/purchase-orders",
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "PurchaseOrderValidationResult": {
+        "description": "Outcome of validating a distributor purchase order, with a rule-by-rule breakdown.",
+        "properties": {
+          "result": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ValidationOutcome"
+              }
+            ],
+            "description": "Overall outcome, being the most severe outcome across all evaluated rules.",
+            "example": "Warning"
+          },
+          "rules": {
+            "description": "Outcome of each validation rule that was evaluated.",
+            "items": {
+              "$ref": "#/components/schemas/ValidationRule"
+            },
+            "nullable": true,
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
+      "ValidationOutcome": {
+        "description": "Outcome of a validation rule. `Pass` and `Warning` both permit submission; `Fail` rejects it.",
+        "enum": [
+          "Pass",
+          "Warning",
+          "Fail"
+        ],
+        "example": "Pass",
+        "type": "string"
+      },
+      "ValidationRule": {
+        "description": "Outcome of a single validation rule.",
+        "properties": {
+          "message": {
+            "description": "Explanation of the outcome, suitable for showing to the submitting distributor. Null when the rule passed with nothing to report.",
+            "example": "Purchase order total differs from the quote total by less than the permitted tolerance.",
+            "nullable": true,
+            "type": "string"
+          },
+          "result": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ValidationOutcome"
+              }
+            ],
+            "description": "Outcome of this rule.",
+            "example": "Pass"
+          },
+          "ruleName": {
+            "description": "Name of the validation rule that was evaluated.",
+            "example": "TotalAmountMatchesQuote",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      }
+    },
+    "securitySchemes": {
+      "OAuth2ClientCredentials": {
+        "description": "Obtain an access token by calling the API Gateway's token endpoint using the OAuth2 client-credentials flow.",
+        "flows": {
+          "clientCredentials": {
+            "scopes": {},
+            "tokenUrl": "https://{region}.api.jamfcloud.com/auth/token"
+          }
+        },
+        "type": "oauth2"
+      }
+    }
+  },
+  "info": {
+    "contact": {
+      "name": "Jamf Developer",
+      "url": "https://developer.jamf.com"
+    },
+    "description": "Deal registrations, distributor quotes, and distributor purchase orders for Jamf channel partners",
+    "termsOfService": "https://www.jamf.com/developer-resources/api-license-agreement/",
+    "title": "Jamf Account Partners API",
+    "version": "1.0.0"
+  },
+  "openapi": "3.0.3",
+  "paths": {
+    "/v1/deal-registrations": {
+      "get": {
+        "description": "Returns every deal registration submitted by the partner organization resolved from the access token, including registrations that have since been denied or expired, wrapped in the standard collection envelope. The full set is returned in a single response and `totalCount` reflects it; the endpoint is not paginated. A partner with no registrations returns an empty `results` array and a `totalCount` of 0.",
+        "operationId": "listDealRegistrations",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "results": [
+                    {
+                      "address": {
+                        "addressLine1": "100 Washington Ave S",
+                        "addressLine2": "Suite 1100",
+                        "city": "Minneapolis",
+                        "country": "United States",
+                        "postalCode": "55401",
+                        "stateProvince": "MN"
+                      },
+                      "businessType": "Commercial",
+                      "email": "alex.rivera@example.com",
+                      "expirationDate": "2026-12-31T23:59:59Z",
+                      "firstName": "Alex",
+                      "lastName": "Rivera",
+                      "organizationName": "Example Manufacturing Co",
+                      "partnerRegistrationId": "a1b2c3d4-5e6f-4a7b-8c9d-0e1f2a3b4c5d",
+                      "phone": "+1-555-0142",
+                      "productInterests": [
+                        "Jamf Pro",
+                        "Jamf Connect"
+                      ],
+                      "registrationStatus": "APPROVED",
+                      "website": "https://www.example.com"
+                    }
+                  ],
+                  "totalCount": 1
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/DealRegistrationList"
+                }
+              }
+            },
+            "description": "The deal registrations submitted by the partner organization. `results` is empty when the partner has submitted none."
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        },
+        "security": [
+          {
+            "OAuth2ClientCredentials": []
+          }
+        ],
+        "summary": "List Deal Registrations",
+        "tags": [
+          "deal-registrations"
+        ]
+      }
+    },
+    "/v1/distributor/configuration": {
+      "get": {
+        "description": "Returns the integration configuration of the distributor organization resolved from the access token: the distributor's registered name and allowed source CIDR ranges, how it is permitted to submit purchase orders, and its webhook delivery settings.\n\nWebhook secrets are never returned — `webhook.secretValue` is always omitted from the response.",
+        "operationId": "getDistributorConfiguration",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "jamfInfo": {
+                    "distributorName": "Example Distribution Group",
+                    "originCidr": [
+                      "203.0.113.0/24",
+                      "198.51.100.16/28"
+                    ]
+                  },
+                  "poSubmissionPermission": "API and email",
+                  "webhook": {
+                    "authType": "Bearer",
+                    "enabled": true,
+                    "secretName": "X-Example-Signature",
+                    "subscribedTo": [
+                      "purchase-order-status-changed"
+                    ],
+                    "url": "https://webhooks.example.com/jamf/purchase-orders"
+                  }
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/DistributorConfiguration"
+                }
+              }
+            },
+            "description": "The distributor's integration configuration."
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/DistributorNotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/UpstreamError"
+          }
+        },
+        "security": [
+          {
+            "OAuth2ClientCredentials": []
+          }
+        ],
+        "summary": "Get Distributor Configuration",
+        "tags": [
+          "distributor-configuration"
+        ]
+      },
+      "patch": {
+        "description": "Updates the integration configuration of the distributor organization resolved from the access token. Only the fields present in the request body are changed; omitted fields keep their current values.\n\n`jamfInfo` is maintained by Jamf and is ignored if supplied. Supply `webhook.secretValue` to set or rotate the secret used to sign webhook deliveries; it is write-only and is never returned by `GET /distributor/configuration`.\n\nThe response has no body — read the configuration back to confirm the result.",
+        "operationId": "updateDistributorConfiguration",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "example": {
+                "poSubmissionPermission": "API only",
+                "webhook": {
+                  "authType": "Bearer",
+                  "enabled": true,
+                  "secretName": "X-Example-Signature",
+                  "secretValue": "REPLACE_WITH_YOUR_WEBHOOK_SECRET",
+                  "subscribedTo": [
+                    "purchase-order-status-changed"
+                  ],
+                  "url": "https://webhooks.example.com/jamf/purchase-orders"
+                }
+              },
+              "schema": {
+                "$ref": "#/components/schemas/DistributorConfiguration"
+              }
+            }
+          },
+          "description": "The configuration fields to change.",
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "The configuration was updated. The response has no body."
+          },
+          "400": {
+            "$ref": "#/components/responses/ConfigurationBadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/DistributorNotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/UpstreamError"
+          }
+        },
+        "security": [
+          {
+            "OAuth2ClientCredentials": []
+          }
+        ],
+        "summary": "Update Distributor Configuration",
+        "tags": [
+          "distributor-configuration"
+        ]
+      }
+    },
+    "/v1/distributor/purchase-orders": {
+      "post": {
+        "description": "Submits a distributor purchase order against the quote it references. The request is validated using the same rules as `POST /distributor/validate-purchase-order`; a purchase order that fails validation is rejected.\n\nThe response has no body. Jamf assigns the `jamfPoNumber` during processing, which is not synchronous with this request — poll `GET /distributor/purchase-orders/{jamfPoNumber}` or subscribe a webhook via `PATCH /distributor/configuration` to observe the outcome.",
+        "operationId": "addDistributorPurchaseOrder",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "example": {
+                "currencyCode": "USD",
+                "lines": [
+                  {
+                    "description": "Jamf Pro - Annual Subscription",
+                    "lineAmount": 48250,
+                    "quantity": 500,
+                    "sku": "JAMF-PRO-SUB"
+                  }
+                ],
+                "poDate": "2026-06-12",
+                "poNumber": "PO-88231",
+                "quoteNumber": "Q-0012345",
+                "totalAmount": 48250
+              },
+              "schema": {
+                "$ref": "#/components/schemas/DistributorPurchaseOrder"
+              }
+            }
+          },
+          "description": "The purchase order to submit.",
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "The purchase order was created and accepted for processing. The response has no body, and no `Location` header is returned: the `jamfPoNumber` the purchase order will be addressed by is assigned during processing, after this response."
+          },
+          "400": {
+            "$ref": "#/components/responses/PurchaseOrderBadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/DistributorNotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/UpstreamError"
+          }
+        },
+        "security": [
+          {
+            "OAuth2ClientCredentials": []
+          }
+        ],
+        "summary": "Submit Distributor Purchase Order",
+        "tags": [
+          "distributor-purchase-orders"
+        ]
+      }
+    },
+    "/v1/distributor/purchase-orders/{jamfPoNumber}": {
+      "get": {
+        "description": "Returns a single purchase order belonging to the distributor organization resolved from the access token, including its current status, its line items, and the Jamf order it produced once one exists.",
+        "operationId": "getDistributorPurchaseOrder",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/jamfPoNumber"
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "billingAddress": {
+                    "city": "Minneapolis",
+                    "country": "United States",
+                    "countryCode": "US",
+                    "line1": "100 Washington Ave S",
+                    "line2": "Suite 1100",
+                    "line3": null,
+                    "line4": null,
+                    "postalCode": "55401",
+                    "stateProvince": "Minnesota",
+                    "stateProvinceCode": "MN"
+                  },
+                  "createdOn": "2026-06-12T16:04:55Z",
+                  "currencyCode": "USD",
+                  "jamfOrderNumber": "SO-119284",
+                  "jamfPoNumber": "JPO-004512",
+                  "lastModifiedOn": "2026-06-13T08:31:12Z",
+                  "legalEntity": "Jamf Software, LLC",
+                  "lines": [
+                    {
+                      "description": "Jamf Pro - Annual Subscription",
+                      "lineAmount": 48250,
+                      "quantity": 500,
+                      "sku": "JAMF-PRO-SUB"
+                    }
+                  ],
+                  "orderNumber": "PO-88231-1",
+                  "paymentTerms": "Net 30",
+                  "poDate": "2026-06-12",
+                  "poNumber": "PO-88231",
+                  "quoteNumber": "Q-0012345",
+                  "shippingAddress": {
+                    "city": "Minneapolis",
+                    "country": "United States",
+                    "countryCode": "US",
+                    "line1": "100 Washington Ave S",
+                    "line2": "Suite 1100",
+                    "line3": null,
+                    "line4": null,
+                    "postalCode": "55401",
+                    "stateProvince": "Minnesota",
+                    "stateProvinceCode": "MN"
+                  },
+                  "status": "Processed",
+                  "totalAmount": 48250
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/DistributorPurchaseOrder"
+                }
+              }
+            },
+            "description": "The requested purchase order."
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/DistributorNotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/UpstreamError"
+          }
+        },
+        "security": [
+          {
+            "OAuth2ClientCredentials": []
+          }
+        ],
+        "summary": "Get Distributor Purchase Order",
+        "tags": [
+          "distributor-purchase-orders"
+        ]
+      }
+    },
+    "/v1/distributor/quotes/{quoteNumber}": {
+      "get": {
+        "description": "Returns a single quote issued to the distributor organization resolved from the access token, including its line items and its billing and shipping addresses. Use the returned `quoteNumber` when validating or submitting a purchase order against the quote.",
+        "operationId": "getDistributorQuote",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/quoteNumber"
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "billingAddress": {
+                    "city": "Minneapolis",
+                    "country": "United States",
+                    "countryCode": "US",
+                    "line1": "100 Washington Ave S",
+                    "line2": "Suite 1100",
+                    "line3": null,
+                    "line4": null,
+                    "postalCode": "55401",
+                    "stateProvince": "Minnesota",
+                    "stateProvinceCode": "MN"
+                  },
+                  "billingFrequency": "Annual",
+                  "createdOn": "2026-05-04T14:22:31Z",
+                  "currencyCode": "USD",
+                  "expiresOn": "2026-06-30",
+                  "lastModifiedOn": "2026-05-06T09:10:02Z",
+                  "legalEntity": "Jamf Software, LLC",
+                  "lines": [
+                    {
+                      "additionalDiscountPct": 0,
+                      "description": "Jamf Pro - Annual Subscription",
+                      "distributorDiscountPct": 5,
+                      "endDate": "2027-06-30",
+                      "lineAmount": 48250,
+                      "partnerDiscountPct": 15,
+                      "prorateMultiplier": 1,
+                      "quantity": 500,
+                      "sku": "JAMF-PRO-SUB",
+                      "startDate": "2026-07-01"
+                    }
+                  ],
+                  "paymentTerms": "Net 30",
+                  "quoteNumber": "Q-0012345",
+                  "shippingAddress": {
+                    "city": "Minneapolis",
+                    "country": "United States",
+                    "countryCode": "US",
+                    "line1": "100 Washington Ave S",
+                    "line2": "Suite 1100",
+                    "line3": null,
+                    "line4": null,
+                    "postalCode": "55401",
+                    "stateProvince": "Minnesota",
+                    "stateProvinceCode": "MN"
+                  },
+                  "status": "Approved",
+                  "totalAmount": 48250
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/DistributorQuote"
+                }
+              }
+            },
+            "description": "The requested quote."
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/DistributorNotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/UpstreamError"
+          }
+        },
+        "security": [
+          {
+            "OAuth2ClientCredentials": []
+          }
+        ],
+        "summary": "Get Distributor Quote",
+        "tags": [
+          "distributor-quotes"
+        ]
+      }
+    },
+    "/v1/distributor/validate-purchase-order": {
+      "post": {
+        "description": "Validates a distributor purchase order against the quote it references without submitting it, and returns the outcome of each validation rule that was evaluated. Use this to surface problems before calling `POST /distributor/purchase-orders`.\n\nA `Pass` or `Warning` result does not guarantee that submission will succeed — validation is re-run on submission.",
+        "operationId": "validateDistributorPurchaseOrder",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "example": {
+                "currencyCode": "USD",
+                "lines": [
+                  {
+                    "description": "Jamf Pro - Annual Subscription",
+                    "lineAmount": 48250,
+                    "quantity": 500,
+                    "sku": "JAMF-PRO-SUB"
+                  }
+                ],
+                "poDate": "2026-06-12",
+                "poNumber": "PO-88231",
+                "quoteNumber": "Q-0012345",
+                "totalAmount": 48250
+              },
+              "schema": {
+                "$ref": "#/components/schemas/DistributorPurchaseOrder"
+              }
+            }
+          },
+          "description": "The purchase order to validate.",
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "result": "Warning",
+                  "rules": [
+                    {
+                      "message": "Quote Q-0012345 is valid until 2026-06-30.",
+                      "result": "Pass",
+                      "ruleName": "QuoteNotExpired"
+                    },
+                    {
+                      "message": "Purchase order total differs from the quote total by less than the permitted tolerance.",
+                      "result": "Warning",
+                      "ruleName": "TotalAmountMatchesQuote"
+                    }
+                  ]
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/PurchaseOrderValidationResult"
+                }
+              }
+            },
+            "description": "The validation outcome. A response body is returned whether or not the purchase order is valid — inspect `result` to determine validity."
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/DistributorNotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/UpstreamError"
+          }
+        },
+        "security": [
+          {
+            "OAuth2ClientCredentials": []
+          }
+        ],
+        "summary": "Validate Distributor Purchase Order",
+        "tags": [
+          "distributor-purchase-orders"
+        ],
+        "x-action": true
+      }
+    }
+  },
+  "security": [
+    {
+      "OAuth2ClientCredentials": []
+    }
+  ],
+  "servers": [
+    {
+      "description": "Jamf Production API Gateway",
+      "url": "https://{region}.api.jamfcloud.com/partners",
+      "variables": {
+        "region": {
+          "default": "us",
+          "description": "Select the regional gateway",
+          "enum": [
+            "us",
+            "eu",
+            "apac"
+          ]
+        }
+      }
+    }
+  ],
+  "tags": [
+    {
+      "description": "Operations for the deal registrations submitted by the partner organization resolved from the access token.",
+      "name": "deal-registrations"
+    },
+    {
+      "description": "Read operations for the quotes issued to the distributor organization resolved from the access token.",
+      "name": "distributor-quotes"
+    },
+    {
+      "description": "Operations for validating, submitting, and tracking distributor purchase orders raised against a quote.",
+      "name": "distributor-purchase-orders"
+    },
+    {
+      "description": "Operations for reading and updating the distributor's integration configuration, including purchase order submission method and webhook delivery settings.",
+      "name": "distributor-configuration"
+    }
+  ]
+}

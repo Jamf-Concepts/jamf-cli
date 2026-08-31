@@ -102,6 +102,16 @@ func ParsePlatformSpec(specPath string) ([]*Resource, error) {
 		ops = deduplicateVersionedOps(ops)
 		resolveNoParamConflicts(ops)
 		disambiguateSameTerminalOps(ops)
+		// Overrides are applied last, after the derivation passes, because an
+		// override is the final word on a name. Applying them earlier let a
+		// pass overwrite one silently: two no-param GETs under the audit tag
+		// both derived "list", so resolveNoParamConflicts renamed *both* to
+		// their terminal segment and the override naming /audit/v1/audit
+		// "list" was undone — shipping `platform audit audit`. A collision an
+		// override introduces is caught downstream by the platform generator's
+		// duplicate-operation check, so overriding after the passes cannot
+		// produce two same-named commands unnoticed.
+		applyPlatformOperationNameOverrides(ops)
 
 		// Each tag may span multiple collection roots (e.g. the "blueprints"
 		// tag covers both /blueprints and /blueprint-components). Reuse the
@@ -305,6 +315,28 @@ var platformOperationNameOverrides = map[string]string{
 	"GET /ai/governance/policies/v1/policies/{policyId}/deployment":               "deployment",
 	"GET /ai/governance/policies/v1/tools/{toolId}/schemas/{schemaVersion}":       "schema",
 
+	// Jamf Account — audit. The events collection is /audit inside the audit
+	// namespace, so the derived name stutters ("platform audit audit"). The two
+	// keyed reads are named for what they fetch rather than for the identifier
+	// they take: "get <txId>" would read as fetching an audit event by id,
+	// which is not what it does.
+	"GET /audit/v1/audit":                     "list",
+	"GET /audit/v1/audit/transactions/{txId}": "transaction",
+
+	// Jamf Account — SSO. There is no get-a-domain-by-id operation at all;
+	// this one answers which identity provider connection a domain is
+	// allocated to, so "get" would name the wrong thing rather than merely
+	// read awkwardly.
+	"GET /sso/v1/domains/allocation/{domain}": "allocation",
+
+	// Jamf Account — partners. The distributor configuration is a singleton
+	// (GET + PATCH, no {id}), which detectSingleton does not recognise: it
+	// requires a GET paired with a PUT, so the collection-shaped GET came out
+	// as "list". And the validate operation repeats the resource name it is
+	// already nested under.
+	"GET /partners/v1/distributor/configuration":            "get",
+	"POST /partners/v1/distributor/validate-purchase-order": "validate",
+
 	"GET /securitycloud/uem-connect/v1/connectors/{configId}/sync/runs":            "list",
 	"POST /securitycloud/uem-connect/v1/connectors/{configId}/sync/runs":           "trigger",
 	"DELETE /securitycloud/uem-connect/v1/connectors/{configId}/sync/runs/current": "cancel",
@@ -370,13 +402,22 @@ func dropUnroutedPlatformOps(ops []*Operation) []*Operation {
 	return kept
 }
 
-// applyPlatformPathMetadata attaches any expected-status override and any
-// operation-name override to each parsed operation.
+// applyPlatformPathMetadata attaches any expected-status override to each
+// parsed operation. Name overrides are applied separately, and later — see
+// applyPlatformOperationNameOverrides.
 func applyPlatformPathMetadata(ops []*Operation, expectedStatuses map[string]int) {
 	for _, op := range ops {
 		if code, ok := expectedStatuses[op.Path+" "+strings.ToUpper(op.Method)]; ok {
 			op.ExpectedStatus = code
 		}
+	}
+}
+
+// applyPlatformOperationNameOverrides renames every operation named in
+// platformOperationNameOverrides. Called after the name-derivation passes so an
+// override wins over whatever they inferred.
+func applyPlatformOperationNameOverrides(ops []*Operation) {
+	for _, op := range ops {
 		if name, ok := platformOperationNameOverrides[strings.ToUpper(op.Method)+" "+op.Path]; ok {
 			op.Name = name
 		}
@@ -453,6 +494,16 @@ var platformResourceNameOverrides = map[string]string{
 	// tag keeps the unprefixed name, matching how each is surfaced (this one
 	// under `pro` as platform-device-groups, that one under `security`).
 	"device-groups/device-groups": "platform-device-groups",
+
+	// Jamf Account. Three specs whose tags are bare nouns that say nothing
+	// about which service they belong to once they sit alongside every other
+	// Jamf resource — and "connections" is already a Jamf Protect concept
+	// (identity provider connections) while "licenses" reads as a Jamf Pro
+	// one. The partners spec needs no entry: its four tags
+	// ("deal-registrations", "distributor-*") name themselves.
+	"licensing/licenses": "account-licenses",
+	"sso/connections":    "sso-connections",
+	"sso/domains":        "sso-domains",
 
 	// Jamf AI Governance. The spec's two tags are bare nouns — "policies"
 	// collides with Jamf Pro's own policies and "tools" says nothing about

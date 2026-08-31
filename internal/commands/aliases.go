@@ -122,6 +122,17 @@ func applySecurityAliases(parent *cobra.Command) {
 var platformAliases = map[string][]string{
 	"ai-policies": {"aip"},
 	"ai-tools":    {"ait"},
+
+	// Jamf Account. "lic" rather than "al" because the resource is renamed
+	// account-licenses only to keep it distinct from Jamf Pro's licensing
+	// surfaces; what an operator is after is licences.
+	"account-licenses":            {"lic"},
+	"deal-registrations":          {"deals"},
+	"distributor-configuration":   {"dcfg"},
+	"distributor-purchase-orders": {"dpo"},
+	"distributor-quotes":          {"dq"},
+	"sso-connections":             {"ssoc"},
+	"sso-domains":                 {"ssod"},
 }
 
 // applyPlatformAliases appends aliases to platform subcommands.

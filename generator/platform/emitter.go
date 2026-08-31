@@ -64,6 +64,53 @@ var platformTableColumns = map[string][]tableColumn{
 		{Field: "displayName", Label: "displayName"},
 		{Field: "schemaVersion", Label: "schemaVersion"},
 	},
+	// Jamf Account. Each of these lists is a wide object — a license carries
+	// sixteen fields, an SSO connection twenty-four — and the default JSON dump
+	// buries the two or three an operator scans for. The activation code is
+	// deliberately absent from the licence table: it is the value that entitles
+	// an installation, so it belongs in a JSON read someone asked for rather
+	// than in the output of a bare `list`.
+	"licensing/account-licenses": {
+		{Field: "productName", Label: "product"},
+		{Field: "sku", Label: "sku"},
+		{Field: "licenseType", Label: "type"},
+		{Field: "purchasedSeats", Label: "seats"},
+		{Field: "startDate", Label: "start"},
+		{Field: "endDate", Label: "end"},
+	},
+	"partners/deal-registrations": {
+		{Field: "partnerRegistrationId", Label: "id"},
+		{Field: "organizationName", Label: "organization"},
+		{Field: "registrationStatus", Label: "status"},
+		{Field: "businessType", Label: "businessType"},
+		{Field: "expirationDate", Label: "expires"},
+	},
+	"sso/sso-connections": {
+		{Field: "id", Label: "id"},
+		{Field: "name", Label: "name"},
+		{Field: "type", Label: "type"},
+		{Field: "region", Label: "region"},
+		{Field: "domains", Label: "domains"},
+	},
+	"sso/sso-domains": {
+		{Field: "id", Label: "id"},
+		{Field: "domain", Label: "domain"},
+		{Field: "domainStatus", Label: "status"},
+		{Field: "sharedDomain", Label: "shared"},
+		{Field: "lastVerificationDate", Label: "lastVerified"},
+	},
+	// Audit events. auditType and auditSource are the pair that says what
+	// happened and which service reported it, and actor.displayName answers
+	// "who" for a gateway event — a service event carries no actor, so the
+	// column renders empty there rather than being wrong.
+	"audit/audit": {
+		{Field: "time", Label: "time"},
+		{Field: "auditType", Label: "type"},
+		{Field: "auditSource", Label: "source"},
+		{Field: "actor.displayName", Label: "actor"},
+		{Field: "resourceId", Label: "resource"},
+		{Field: "txId", Label: "txId"},
+	},
 	"blueprints/blueprints": {
 		{Field: "id", Label: "id"},
 		{Field: "name", Label: "name"},
@@ -97,6 +144,48 @@ var platformTableColumns = map[string][]tableColumn{
 		{Field: "groupType", Label: "groupType"},
 		{Field: "memberCount", Label: "memberCount"},
 	},
+}
+
+// platformNameLookupFields names the property a resource's --name lookup should
+// match, for resources whose human-readable identifier is not "name", "title"
+// or "displayName" — the three internal/platform.ResolveIDByName tries.
+//
+// Keyed "{namespace}/{name}" via namespaceFromPath, the same key shape
+// platformTableColumns uses. Without an entry the lookup matched nothing and
+// reported `not found: no item with name "example.com"`, which reads as a typo:
+// an SSO domain's identifier is its "domain" property, and its only other
+// handle is an opaque integer ID.
+//
+// Named per resource rather than appended to the resolver's default list
+// because a global "domain" match would let any resource carrying an unrelated
+// domain property resolve on it.
+var platformNameLookupFields = map[string]string{
+	"sso/sso-domains": "domain",
+}
+
+// platformNoNameLookup names operations whose --name flag cannot work, so it is
+// not emitted. Keyed "{METHOD} {path}", the same shape
+// parser.platformOperationNameOverrides uses.
+//
+// A documented flag that does nothing is worse than an absent one, because the
+// operator uses it as documented. --name is emitted whenever an op takes one
+// path param and its resource has a list op, which is a structural test and
+// says nothing about whether that param is a name-resolvable ID. Two ways it
+// is wrong:
+//
+//   - The collection has no name to match. Audit's holds events, which carry
+//     no name-ish property under any spelling, and its list also requires a
+//     `since` parameter the lookup does not send. The positionals are a
+//     resource ID and a transaction ID — neither is a name.
+//   - The positional already *is* the name. sso-domains' allocation op takes a
+//     {domain} hostname, so resolving a name to the domain's integer ID and
+//     substituting it produced GET /sso/v1/domains/allocation/1552 and a 404
+//     "Domain not found" — the flag actively broke a call that works when the
+//     domain is passed positionally.
+var platformNoNameLookup = map[string]bool{
+	"GET /audit/v1/audit/resources/{resourceId}/lineage": true,
+	"GET /audit/v1/audit/transactions/{txId}":            true,
+	"GET /sso/v1/domains/allocation/{domain}":            true,
 }
 
 // crossResourceNameLookupPath maps a resource name to a list endpoint owned by
@@ -133,6 +222,7 @@ type templateOp struct {
 	Scaffold           string        // pretty-printed JSON template for the request body, surfaced via --scaffold (empty when the body has no shape to show)
 	HasScaffold        bool          // body carries enough shape for --scaffold to be worth offering (parser.HasScaffoldShape)
 	SupportsNameLookup bool          // op accepts a single positional ID arg AND its resource has a list op — emit --name as alternative
+	NameLookupField    string        // extra property the --name lookup matches, for resources whose name is not name/title/displayName
 	ListPath           string        // sibling list-op path (used by --name lookup); only populated when SupportsNameLookup is true
 	Service            string        // gateway namespace segment ("blueprints", "securitycloud")
 
@@ -299,7 +389,8 @@ func buildTemplateResource(r *parser.Resource) (templateResource, error) {
 		opCopy := *op
 		userParams := filterTenantPathParams(extractPathParams(opCopy.Path))
 		successCode, hasResult := successStatus(&opCopy)
-		supportsName := listPath != "" && len(userParams) == 1
+		supportsName := listPath != "" && len(userParams) == 1 &&
+			!platformNoNameLookup[strings.ToUpper(opCopy.Method)+" "+opCopy.Path]
 		opListPath := ""
 		if supportsName {
 			opListPath = listPath
@@ -336,6 +427,7 @@ func buildTemplateResource(r *parser.Resource) (templateResource, error) {
 			Scaffold:           scaffold,
 			HasScaffold:        scaffold != "",
 			SupportsNameLookup: supportsName,
+			NameLookupField:    platformNameLookupFields[namespaceFromPath(opCopy.Path)+"/"+r.Name],
 			ListPath:           opListPath,
 			Service:            serviceFromPath(opCopy.Path),
 			DocumentedStatuses: platformDocumentedStatusResults[strings.ToUpper(opCopy.Method)+" "+opCopy.Path],

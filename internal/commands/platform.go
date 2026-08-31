@@ -34,6 +34,18 @@ func newPlatformCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(platformgen.NewAiPoliciesCmd(cliCtx))
 	cmd.AddCommand(platformgen.NewAiToolsCmd(cliCtx))
 
+	// Spec-generated Jamf Account commands — licensing, partners and SSO. Also
+	// here rather than under `pro`, and for a stronger reason than AI
+	// Governance: these are organization-level services that send no scope
+	// header at all, so the credential reaching them names no Jamf Pro, School,
+	// Protect or Security Cloud tenant. They are also US-only; newAccountCmds
+	// applies that guard.
+	cmd.AddCommand(newAccountCmds(cliCtx)...)
+
+	// Spec-generated platform audit commands. Environment-scoped, and served in
+	// every region — unlike the account trio above.
+	cmd.AddCommand(newPlatformAuditCmd(cliCtx))
+
 	applyPlatformGroups(cmd)
 	applyPlatformAliases(cmd)
 
@@ -54,6 +66,30 @@ var platformGatewayRegions = []struct {
 	{"US", "https://us.api.jamfcloud.com"},
 	{"EU", "https://eu.api.jamfcloud.com"},
 	{"APAC", "https://apac.api.jamfcloud.com"},
+}
+
+// platformGatewayHostSuffix is the host suffix every GA platform gateway shares
+// ("us.api.jamfcloud.com", "eu.api.jamfcloud.com", ...).
+//
+// Matched as a suffix rather than against platformGatewayRegions so a region
+// Jamf adds later needs no code change here. It cannot collide with a Jamf Pro
+// instance URL: an instance is "<tenant>.jamfcloud.com", so reaching this
+// two-label suffix would take a tenant literally named "api" *and* a subdomain
+// beneath it, which the instance naming does not produce.
+const platformGatewayHostSuffix = ".api.jamfcloud.com"
+
+// isPlatformGatewayURL reports whether a URL names a GA platform gateway, which
+// is a request for platform gateway auth whether or not a scope ID accompanies
+// it. Organization-scoped credentials name no scope at all, so the host is the
+// only signal they give.
+func isPlatformGatewayURL(rawURL string) bool {
+	host := strings.TrimSuffix(strings.TrimSpace(rawURL), "/")
+	if _, after, ok := strings.Cut(host, "://"); ok {
+		host = after
+	}
+	host, _, _ = strings.Cut(host, "/")
+	host, _, _ = strings.Cut(host, ":")
+	return strings.HasSuffix(strings.ToLower(host), platformGatewayHostSuffix)
 }
 
 // retiredGatewayHost is the host of the pre-GA platform gateway. Every profile
@@ -189,9 +225,11 @@ Create API client credentials in the Jamf Account portal
 				// Organization scope reaches SSO and AI Governance, neither of
 				// which this CLI has commands for yet. Saying so beats implying
 				// the profile drives Pro or Security Cloud.
-				_, _ = fmt.Fprintln(w, "This is an organization-scoped credential. It covers organization resources")
-				_, _ = fmt.Fprintln(w, "(SSO, AI Governance) — no jamf-cli command targets those yet, so set up a")
-				_, _ = fmt.Fprintln(w, "profile with an environment or tenant ID to drive Pro, Platform or Security Cloud.")
+				_, _ = fmt.Fprintln(w, "This is an organization-scoped credential. It serves the Jamf Account commands")
+				_, _ = fmt.Fprintln(w, "(account-licenses, deal-registrations, distributor-*, sso-connections, sso-domains)")
+				_, _ = fmt.Fprintln(w, "and AI Governance (ai-policies, ai-tools). The Jamf Account ones are US-only.")
+				_, _ = fmt.Fprintln(w, "Set up a profile with an environment or tenant ID to drive Pro, Platform,")
+				_, _ = fmt.Fprintln(w, "Security Cloud or audit.")
 			default:
 				_, _ = fmt.Fprintln(w, "This scope serves the Pro API and Platform API commands.")
 			}

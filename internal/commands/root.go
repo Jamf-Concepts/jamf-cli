@@ -484,7 +484,16 @@ func ResolveAuthForProfile(cfg *config.Config, params AuthParams) (string, auth.
 	// (the gateway reads the scope from the access token), while environment-
 	// and tenant-scoped ones name theirs. Both IDs at once cannot be honoured,
 	// since the credential only works with one level's header.
-	if isPlatform || tid != "" || eid != "" {
+	//
+	// The gateway host counts as a request for platform auth in its own right.
+	// Without that, the only env-var route into this branch was a tenant or
+	// environment ID — so an *organization*-scoped credential, which names no
+	// ID at all by definition, could only be used from a saved profile and
+	// JAMF_URL + JAMF_CLIENT_ID + JAMF_CLIENT_SECRET fell through to oauth2
+	// against a URL that is not a Jamf Pro instance. Nothing exercised it until
+	// the Jamf Account commands arrived: they are the first surface that is
+	// organization-scoped only, and CI/CD is exactly the env-var case.
+	if isPlatform || tid != "" || eid != "" || isPlatformGatewayURL(url) {
 		if cid == "" || csecret == "" {
 			return "", nil, exitcode.New(exitcode.Usage, "client ID and client secret are required for platform gateway auth: set JAMF_CLIENT_ID/JAMF_CLIENT_SECRET env vars or use a config profile")
 		}

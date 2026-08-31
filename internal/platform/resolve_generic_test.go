@@ -232,3 +232,59 @@ func TestResolveIDByName_BareArray(t *testing.T) {
 		t.Errorf("id = %q, want %q", id, "arr-1")
 	}
 }
+
+// TestExtractIDNonStringID pins that an ID which is not a string on the wire is
+// still read.
+//
+// Every platform resource but one keys on a UUID, so extractID only ever had to
+// handle strings — and then an SSO domain's ID turned out to be a small
+// integer. The failure was silent and read as the wrong thing entirely: the
+// name matched, the type assertion did not, so firstMatch counted zero matches
+// and --name reported `no item with name "example.com"`, indistinguishable from
+// a typo.
+func TestExtractIDNonStringID(t *testing.T) {
+	cases := []struct {
+		name string
+		item map[string]any
+		want string
+	}{
+		{"string uuid", map[string]any{"id": "8a2d0ff2-4336-44ca-bd61-1e7e88258740"}, "8a2d0ff2-4336-44ca-bd61-1e7e88258740"},
+		{"float64 integer", map[string]any{"id": float64(1552)}, "1552"},
+		{"json.Number", map[string]any{"id": json.Number("1552")}, "1552"},
+		// A float64 large enough to lose precision as a string is not something
+		// this surface produces, but it must not render in exponent form.
+		{"large float64", map[string]any{"id": float64(20250831123456)}, "20250831123456"},
+		{"alternate key", map[string]any{"blueprintId": "bp-1"}, "bp-1"},
+		{"no id", map[string]any{"domain": "example.com"}, ""},
+		{"unusable type", map[string]any{"id": true}, ""},
+	}
+	for _, tc := range cases {
+		if got := extractID(tc.item); got != tc.want {
+			t.Errorf("%s: extractID = %q, want %q", tc.name, got, tc.want)
+		}
+	}
+}
+
+// TestMatchesNameInExtraField pins the per-resource name property.
+//
+// The extra field is consulted per call rather than added to the default list
+// because a global "domain" match would let any resource carrying an unrelated
+// domain property resolve on it.
+func TestMatchesNameInExtraField(t *testing.T) {
+	domain := map[string]any{"domain": "example.com", "id": float64(1552)}
+
+	if matchesNameIn(domain, "example.com", "") {
+		t.Error("without the extra field, a domain must not match on the default keys")
+	}
+	if !matchesNameIn(domain, "example.com", "domain") {
+		t.Error("with the extra field, a domain must match")
+	}
+	// The defaults still apply alongside the extra field.
+	named := map[string]any{"name": "Example Corp", "id": "con_1"}
+	if !matchesNameIn(named, "Example Corp", "domain") {
+		t.Error("naming an extra field must not disable the default keys")
+	}
+	if matchesNameIn(domain, "other.com", "domain") {
+		t.Error("a non-matching value must not match")
+	}
+}

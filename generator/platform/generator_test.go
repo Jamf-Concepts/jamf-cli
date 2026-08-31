@@ -518,3 +518,122 @@ func TestNamespaceFromPath(t *testing.T) {
 		}
 	}
 }
+
+// TestAccountAndAuditResourceNames pins the Jamf Account and audit command
+// names, which all come from bare-noun tags that would otherwise collide with
+// or be indistinguishable from Jamf Pro and Jamf Protect resources.
+func TestAccountAndAuditResourceNames(t *testing.T) {
+	specsDir, err := filepath.Abs("../../specs/platform")
+	if err != nil {
+		t.Fatalf("resolving specs dir: %v", err)
+	}
+	resources, _, err := LoadResources(specsDir)
+	if err != nil {
+		t.Fatalf("LoadResources: %v", err)
+	}
+
+	want := map[string][]string{
+		"account-licenses":            {"list"},
+		"deal-registrations":          {"list"},
+		"distributor-configuration":   {"get", "patch"},
+		"distributor-purchase-orders": {"create", "get", "validate"},
+		"distributor-quotes":          {"get"},
+		"sso-connections":             {"create", "delete", "get", "list", "update"},
+		"sso-domains":                 {"allocation", "create", "delete", "list", "verify"},
+		"audit":                       {"lineage", "list", "sources", "transaction"},
+	}
+
+	got := make(map[string][]string)
+	for _, r := range resources {
+		if _, ok := want[r.Name]; !ok {
+			continue
+		}
+		for _, op := range r.Operations {
+			got[r.Name] = append(got[r.Name], op.Name)
+		}
+	}
+
+	for name, wantOps := range want {
+		gotOps, ok := got[name]
+		if !ok {
+			t.Errorf("resource %q not generated", name)
+			continue
+		}
+		sort.Strings(gotOps)
+		sort.Strings(wantOps)
+		if strings.Join(gotOps, ",") != strings.Join(wantOps, ",") {
+			t.Errorf("resource %q ops = %v, want %v", name, gotOps, wantOps)
+		}
+	}
+}
+
+// TestPlatformNameLookupTablesMatchLiveOps asserts both --name knobs still
+// match a shipped operation.
+//
+// Either table going stale is invisible in opposite directions. A dead
+// platformNoNameLookup key silently re-emits a --name flag that cannot work; a
+// dead platformNameLookupFields key silently drops back to matching
+// name/title/displayName, which for an SSO domain means matching nothing and
+// reporting a not-found that reads as a typo.
+func TestPlatformNameLookupTablesMatchLiveOps(t *testing.T) {
+	specsDir, err := filepath.Abs("../../specs/platform")
+	if err != nil {
+		t.Fatalf("resolving specs dir: %v", err)
+	}
+	resources, _, err := LoadResources(specsDir)
+	if err != nil {
+		t.Fatalf("LoadResources: %v", err)
+	}
+
+	liveOps := make(map[string]bool)
+	liveResources := make(map[string]bool)
+	for _, r := range resources {
+		for _, op := range r.Operations {
+			liveOps[strings.ToUpper(op.Method)+" "+op.Path] = true
+			liveResources[namespaceFromPath(op.Path)+"/"+r.Name] = true
+		}
+	}
+
+	for key := range platformNoNameLookup {
+		if !liveOps[key] {
+			t.Errorf("platformNoNameLookup names %q, which no shipped spec declares — "+
+				"remove the entry, or fix its key if a path was renamed", key)
+		}
+	}
+	for key := range platformNameLookupFields {
+		if !liveResources[key] {
+			t.Errorf("platformNameLookupFields key %q matches no shipped resource — "+
+				"the lookup silently falls back to name/title/displayName", key)
+		}
+	}
+}
+
+// TestSuppressedNameLookupOpsEmitNoNameFlag pins the effect rather than the
+// table: the emitted operation must not advertise --name.
+func TestSuppressedNameLookupOpsEmitNoNameFlag(t *testing.T) {
+	specsDir, err := filepath.Abs("../../specs/platform")
+	if err != nil {
+		t.Fatalf("resolving specs dir: %v", err)
+	}
+	resources, _, err := LoadResources(specsDir)
+	if err != nil {
+		t.Fatalf("LoadResources: %v", err)
+	}
+
+	for _, r := range resources {
+		tr, err := buildTemplateResource(r)
+		if err != nil {
+			t.Fatalf("buildTemplateResource(%s): %v", r.Name, err)
+		}
+		for _, op := range tr.Operations {
+			key := strings.ToUpper(op.Method) + " " + op.Path
+			if platformNoNameLookup[key] && op.SupportsNameLookup {
+				t.Errorf("%s: --name is suppressed for this op but SupportsNameLookup is true", key)
+			}
+			want := platformNameLookupFields[namespaceFromPath(op.Path)+"/"+r.Name]
+			if op.SupportsNameLookup && op.NameLookupField != want {
+				t.Errorf("%s: NameLookupField = %q, want %q", key, op.NameLookupField, want)
+			}
+		}
+	}
+}
