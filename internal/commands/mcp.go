@@ -120,6 +120,11 @@ type runCommandInput struct {
 	Args []string `json:"args" jsonschema:"the jamf-cli command and flags to run, as separate array elements (do not join into one string)"`
 }
 
+type generateReportInput struct {
+	Title       string   `json:"title,omitempty" jsonschema:"report title shown in the HTML heading"`
+	SmartGroups []string `json:"smart_groups,omitempty" jsonschema:"smart group names to visualize"`
+}
+
 // runChild re-invokes this binary with the given args, injecting the server's
 // profile and --no-input, and returns the combined output as an MCP tool
 // result. A non-zero exit is reported as an error result (IsError) with the
@@ -265,4 +270,30 @@ func createReportFile(dir, name string) (*os.File, error) {
 		return nil, fmt.Errorf("creating report file %s: %w", path, err)
 	}
 	return f, nil
+}
+
+// buildReportArgs is the dashboard invocation for a model-requested report.
+//
+// No --include-profile: the server pins one profile at launch, so an MCP report
+// covers that profile. Cross-product reports stay a CLI capability. No
+// --out-file either — stdout is a file this server opened, which is what keeps
+// the flag on blockedChildFlags.
+//
+// A blank value is dropped so an omitted field means "use the dashboard
+// default" rather than passing an empty one. A value that looks like a flag
+// (begins with "-") is dropped too: it can only have come from the model, and a
+// report has no field whose value is a flag, so emitting it as a bare token is
+// the one way it could reach the child as a flag rather than a value.
+func buildReportArgs(in generateReportInput) []string {
+	args := []string{"dashboard"}
+	if v := strings.TrimSpace(in.Title); v != "" && !strings.HasPrefix(v, "-") {
+		args = append(args, "--title", in.Title)
+	}
+	for _, g := range in.SmartGroups {
+		if v := strings.TrimSpace(g); v == "" || strings.HasPrefix(v, "-") {
+			continue
+		}
+		args = append(args, "--smart-groups", g)
+	}
+	return args
 }

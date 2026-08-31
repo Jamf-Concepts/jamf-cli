@@ -321,3 +321,82 @@ func TestCreateReportFile_CollisionIsAnError(t *testing.T) {
 		t.Errorf("the existing report was modified: %q", string(data))
 	}
 }
+
+func TestBuildReportArgs_BareInvocation(t *testing.T) {
+	// dashboard's --title already defaults to "Jamf Fleet Dashboard", so an
+	// omitted title means "use the default", not "pass an empty one".
+	got := buildReportArgs(generateReportInput{})
+	want := []string{"dashboard"}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("got %v, want %v", got, want)
+	}
+}
+
+func TestBuildReportArgs_TitleAndRepeatedSmartGroups(t *testing.T) {
+	got := buildReportArgs(generateReportInput{
+		Title:       "Q3 Fleet Review",
+		SmartGroups: []string{"All Laptops", "Executives"},
+	})
+	want := []string{
+		"dashboard",
+		"--title", "Q3 Fleet Review",
+		"--smart-groups", "All Laptops",
+		"--smart-groups", "Executives",
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("got %v, want %v", got, want)
+	}
+}
+
+func TestBuildReportArgs_SkipsBlankValues(t *testing.T) {
+	got := buildReportArgs(generateReportInput{
+		Title:       "   ",
+		SmartGroups: []string{"", "  ", "All Laptops"},
+	})
+	want := []string{"dashboard", "--smart-groups", "All Laptops"}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("got %v, want %v", got, want)
+	}
+}
+
+func TestBuildReportArgs_NeverRedirectsOutput(t *testing.T) {
+	// The whole design rests on the report child never being handed a
+	// destination: stdout is a file the server opened, not a path the model
+	// named. An --include-profile would also widen an MCP report past the pinned
+	// profile.
+	got := buildReportArgs(generateReportInput{
+		Title:       "--out-file /etc/passwd",
+		SmartGroups: []string{"--include-profile", "--out-file=/etc/passwd"},
+	})
+	for i, a := range got {
+		if a == "--out-file" || strings.HasPrefix(a, "--out-file=") || a == "--include-profile" {
+			t.Errorf("arg %d is a redirect flag: %v", i, got)
+		}
+	}
+	// A model-supplied string that looks like a flag arrives as a flag *value*,
+	// which is why it cannot become one: it is always preceded by its own flag.
+	for i, a := range got {
+		if strings.HasPrefix(a, "-") && i > 0 && !strings.HasPrefix(got[i-1], "--") {
+			t.Errorf("arg %d %q is not positioned as a flag value: %v", i, a, got)
+		}
+	}
+}
+
+func TestBuildReportArgs_ThroughBuildChildArgsKeepsBoundary(t *testing.T) {
+	// The report child goes through the same gate run_command does, so it
+	// inherits the pinned profile and the enforced --no-input, and a title that
+	// looks like a blocked flag is rejected rather than smuggled through.
+	got, err := buildChildArgs("prod", buildReportArgs(generateReportInput{Title: "Q3 Fleet Review"}))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	want := []string{"--profile", "prod", "--no-input", "dashboard", "--title", "Q3 Fleet Review"}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("got %v, want %v", got, want)
+	}
+	for _, a := range got {
+		if strings.HasPrefix(a, "--out-file") {
+			t.Errorf("--out-file must never reach the report child: %v", got)
+		}
+	}
+}
