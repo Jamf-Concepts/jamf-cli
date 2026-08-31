@@ -3,7 +3,7 @@ module github.com/Jamf-Concepts/jamf-cli
 go 1.26.6
 
 require (
-	github.com/Jamf-Concepts/jamfplatform-go-sdk v0.18.0
+	github.com/Jamf-Concepts/jamfplatform-go-sdk v0.19.1-0.20260831151820-adb8d7b4a308
 	github.com/Jamf-Concepts/jamfprotect-go-sdk v0.8.0
 	github.com/Jamf-Concepts/jamfschool-go-sdk v0.1.2
 	github.com/getkin/kin-openapi v0.147.0
@@ -46,10 +46,14 @@ require (
 )
 
 // The platform SDK is consumed from a local checkout while the Platform API GA
-// transport lands. The require above names v0.18.0, but the code this CLI needs
-// is unreleased: Transport.APIPrefix stops emitting the /api segment, which the
-// GA gateway at {region}.api.jamfcloud.com does not serve. Dropping this replace
-// while the require still points at a tagged release would build a binary whose
-// every platform request 404s. Bump the require to the release that carries it,
-// then drop the replace — not the other way round.
+// transport lands. The code this CLI needs is unreleased: Transport.APIPrefix
+// stops emitting the /api segment, which the GA gateway at
+// {region}.api.jamfcloud.com does not serve, and adb8d7b completes the published
+// jpapi surface that specs/gateway/coverage.json is derived from.
+//
+// The require above now pins that exact commit as a pseudo-version rather than a
+// stale v0.18.0 tag, so it no longer names code that would 404. What still holds
+// the replace here is that adb8d7b is untagged — the newest tag, v0.19.0, does
+// not contain it. Bump the require to the release that carries it, then drop the
+// replace; not the other way round.
 replace github.com/Jamf-Concepts/jamfplatform-go-sdk => /Users/Shared/GitHub/jamf-concepts/jamfplatform-go-sdk
