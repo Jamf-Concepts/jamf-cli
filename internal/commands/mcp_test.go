@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+	"github.com/spf13/cobra"
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/config"
 )
@@ -525,4 +526,27 @@ func mcpResultText(res *mcp.CallToolResult) string {
 		}
 	}
 	return b.String()
+}
+
+func TestNewMCPCmd_DocumentsGenerateReport(t *testing.T) {
+	// The help text is the only place an administrator learns the tool exists
+	// before wiring the server into a client, and it must not promise a
+	// destination the tool does not accept.
+	cmd := newMCPCmd()
+	long := cmd.Long
+	for _, want := range []string{"generate_report", "list_commands", "run_command", "report-dir"} {
+		if !strings.Contains(long, want) {
+			t.Errorf("mcp --help should mention %q, got:\n%s", want, long)
+		}
+	}
+
+	var serve *cobra.Command
+	for _, sub := range cmd.Commands() {
+		if sub.Name() == "serve" {
+			serve = sub
+		}
+	}
+	if serve == nil {
+		t.Fatal("mcp serve subcommand missing")
+	}
 }
