@@ -14,6 +14,8 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/spf13/cobra"
+
+	"github.com/Jamf-Concepts/jamf-cli/internal/config"
 )
 
 // newMCPCmd exposes the entire jamf-cli command tree to MCP-capable AI clients
@@ -224,4 +226,29 @@ func reportFileName(serverProfile string, now time.Time) string {
 	}
 	return fmt.Sprintf("jamf-report-%s-%s.html",
 		protectFileNameSafe(name), now.UTC().Format("20060102T150405Z"))
+}
+
+// reportDirHint is the one way to set a report directory. `config` has no `set`
+// subcommand (show, path, list, add-profile, remove-profile, set-default,
+// validate), and naming a command that does not exist is worse than naming none.
+const reportDirHint = "Set one with: jamf-cli pro setup --report-dir <dir>"
+
+// resolveReportDir returns the directory reports are written to, or a refusal.
+// Every failure here is returned before any child process starts. A missing
+// directory is refused rather than created: `pro setup` does the MkdirAll when
+// the administrator names one, and a typo'd report-dir silently materialising a
+// directory tree is worse than an error.
+func resolveReportDir(cfg *config.Config) (string, error) {
+	dir := cfg.ReportDirPath()
+	if dir == "" {
+		return "", fmt.Errorf("no report directory is configured, and the MCP server has no destination parameter to fall back on. %s", reportDirHint)
+	}
+	info, err := os.Stat(dir)
+	if err != nil {
+		return "", fmt.Errorf("report directory %s is not accessible: %w. Create it, or choose another. %s", dir, err, reportDirHint)
+	}
+	if !info.IsDir() {
+		return "", fmt.Errorf("report directory %s is not a directory. %s", dir, reportDirHint)
+	}
+	return dir, nil
 }
