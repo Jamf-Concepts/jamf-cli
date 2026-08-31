@@ -29,14 +29,54 @@ import (
 // lines at -v, headers at -vv, bodies at -vvv. Plumbed into the SDK via
 // WithHTTPClient so spec-generated commands log the same way as hand-written
 // Pro commands.
+//
+// It also labels retries, which nothing else can. This transport sits *below*
+// retryablehttp, so it already sees every attempt — but a retry sequence came
+// out as N identical request/response pairs with nothing saying they were
+// retries and no timing, so a bounded 15s of backoff still read as the CLI
+// looping or hanging. The SDK's own RequestLogHook does not help here: it emits
+// through the SDK's Logger interface, whose LogRequest carries only method, URL
+// and body, so the attempt number and the wait cannot travel through it — the
+// hook exists for consumers that log *only* via that interface (the Terraform
+// provider's tflog, which is not a RoundTripper) and would merely duplicate
+// every line for this CLI.
 type platformVerboseTransport struct {
 	inner http.RoundTripper
 	level int
+
+	// lastKey, lastFailed and attempt track consecutive identical requests so a
+	// retry can be named as one. Two conditions, both needed:
+	//
+	//   - Consecutive. retryablehttp re-issues the same method and URL with
+	//     nothing interleaved, so a different request in between resets it.
+	//   - The previous attempt failed. retryablehttp only retries a failure, so
+	//     a repeat after a 2xx is a fresh call however identical it looks —
+	//     labelling it a retry is a confident lie about what the gateway did.
+	//     Without this, a command that legitimately re-issues one request (a
+	//     poll, or a --name lookup followed by a list of the same collection)
+	//     reported "(retry 1, waited 0s)". Cheap to get right, because this
+	//     transport sees the response the retry decision is made on.
+	//
+	// Not concurrency-guarded: the SDK drives one request at a time per
+	// transport, and a racing command would only mislabel a log line.
+	lastKey    string
+	lastFailed bool
+	attempt    int
+	lastSent   time.Time
 }
 
 func (t *platformVerboseTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	if t.level >= 1 {
-		fmt.Fprintf(os.Stderr, "--> %s %s\n", req.Method, req.URL)
+		key := req.Method + " " + req.URL.String()
+		if key == t.lastKey && t.lastFailed {
+			t.attempt++
+			fmt.Fprintf(os.Stderr, "--> %s %s (retry %d, waited %s)\n",
+				req.Method, req.URL, t.attempt, time.Since(t.lastSent).Round(100*time.Millisecond))
+		} else {
+			t.lastKey, t.attempt = key, 0
+			fmt.Fprintf(os.Stderr, "--> %s %s\n", req.Method, req.URL)
+		}
+		t.lastSent = time.Now()
 	}
 	if t.level >= 2 {
 		jamfclient.LogHeaders(os.Stderr, req.Header, true)
@@ -53,8 +93,12 @@ func (t *platformVerboseTransport) RoundTrip(req *http.Request) (*http.Response,
 
 	resp, err := t.inner.RoundTrip(req)
 	if err != nil {
+		// A transport-level error is retryable, so the next identical request
+		// is a retry.
+		t.lastFailed = true
 		return resp, err
 	}
+	t.lastFailed = resp.StatusCode >= 400
 
 	if t.level >= 1 {
 		fmt.Fprintf(os.Stderr, "<-- %d %s\n", resp.StatusCode, resp.Status)

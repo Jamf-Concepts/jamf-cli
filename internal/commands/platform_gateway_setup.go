@@ -139,10 +139,19 @@ func validatePlatformGatewayCredentials(ctx context.Context, w io.Writer, creds 
 	_, _ = fmt.Fprint(w, "\nValidating credentials... ")
 
 	opts := []jamfplatform.Option{
-		// No retries during setup. The default policy backs off for up to
-		// ~90 seconds across three attempts, which for someone sitting at a
-		// prompt reads as a hang; a mistyped secret or an unentitled tenant
-		// should come back immediately and legibly.
+		// No retries during setup. A mistyped secret or an unentitled tenant
+		// should come back immediately and legibly, not after a backoff that
+		// reads as a hang to someone sitting at a prompt.
+		//
+		// The earlier note here said the default policy backs off "~90 seconds
+		// across three attempts". Both numbers were wrong: it was five attempts,
+		// and the curve was RateLimitLinearJitterBackoff sampling uniformly over
+		// the whole [1s,60s] window times the attempt number, so the first retry
+		// alone averaged ~30s and a full sequence averaged over three minutes.
+		// SDK 1529d60 replaced it with DefaultBackoff plus the intended clamp,
+		// bounding the waits at 1+2+4+8 = 15s — measured at 22s wall clock for a
+		// persistently-502 GET. Still worth disabling here: 22s at a prompt for
+		// an answer that will not change is 22s wasted.
 		jamfplatform.WithRetryPolicy(0, 0, 0),
 	}
 	switch {
