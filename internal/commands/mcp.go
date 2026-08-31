@@ -35,15 +35,19 @@ func newMCPCmd() *cobra.Command {
 		Short: "Expose jamf-cli to AI clients over the Model Context Protocol",
 		Long: `Serve jamf-cli's command tree to MCP-capable AI clients over stdio.
 
-The connecting AI gets two tools:
-  - list_commands : the full command catalog (names, descriptions, flags)
-  - run_command   : execute any jamf-cli command and get its output back
+The connecting AI gets three tools:
+  - list_commands   : the full command catalog (names, descriptions, flags)
+  - run_command     : execute any jamf-cli command and get its output back
+  - generate_report : write a shareable HTML fleet report and return its path
 
 Commands run as child processes of this binary using the same profile this
 'mcp serve' was started with (-p/--profile or JAMF_PROFILE), so credentials are
 never passed over the protocol. Children run with --no-input, so commands that
 would prompt (setup, unconfirmed destructive ops) fail fast instead of hanging;
-the model must pass --yes to confirm a destructive command.`,
+the model must pass --yes to confirm a destructive command.
+
+generate_report needs a report directory, which the connecting AI cannot
+choose. Set one with: jamf-cli pro setup --report-dir <dir>`,
 	}
 	cmd.AddCommand(newMCPServeCmd())
 	return cmd
@@ -101,6 +105,22 @@ Configure it in an MCP client (example for Claude Desktop's config):
 					"require an explicit --yes in args or they will refuse to run.",
 			}, func(ctx context.Context, _ *mcp.CallToolRequest, in runCommandInput) (*mcp.CallToolResult, any, error) {
 				return runChild(ctx, executable, serverProfile, in.Args), nil, nil
+			})
+
+			mcp.AddTool(server, &mcp.Tool{
+				Name: "generate_report",
+				Description: "Generate a shareable, self-contained HTML fleet report across " +
+					"Jamf Pro, Protect, and Platform, and write it into the report directory " +
+					"the administrator configured. Returns the file path, its size, and any " +
+					"warnings — never the HTML, which is far too large for a conversation. " +
+					"Use this when the administrator wants something to share or action " +
+					"rather than read now; use run_command for questions answered by a table. " +
+					"The destination and file name are server-derived and cannot be set per " +
+					"call, and the report covers only the profile this server was started " +
+					"with. After calling it, tell the administrator the path and summarize " +
+					"what the report says.",
+			}, func(ctx context.Context, _ *mcp.CallToolRequest, in generateReportInput) (*mcp.CallToolResult, any, error) {
+				return runReportChild(ctx, executable, serverProfile, in, time.Now()), nil, nil
 			})
 
 			// A client disconnecting closes stdin, which Run reports as EOF,
