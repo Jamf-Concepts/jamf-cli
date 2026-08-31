@@ -35,6 +35,15 @@ type ClassicResource struct {
 	// verbatim, so unknown values still work. Empty when the resource declares
 	// no subsets.
 	Subsets []string
+	// GatewayLevel and GatewayDetail record whether the Jamf Platform gateway
+	// exposes this resource, from specs/gateway/coverage.json. Resource-level
+	// rather than per-operation because a Classic resource's paths are built at
+	// runtime from Path plus the lookup in play, and the gateway's Classic
+	// coverage is whole-resource in practice. Empty when the gateway serves it
+	// or when no manifest was available.
+	GatewayLevel  string
+	GatewayBasis  string
+	GatewayDetail string
 }
 
 // ClassicFileField declares a resource field whose value is sourced from a

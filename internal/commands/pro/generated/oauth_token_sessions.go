@@ -35,7 +35,7 @@ func newOauthTokenSessionsListCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # List oauth-token-sessions and extract IDs
   jamf-cli pro oauth-token-sessions list --field id`,
-		Annotations: map[string]string{"jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:api": "pro", "jamf:gateway": "unserved", "jamf:gateway-basis": "unpublished", "jamf:gateway-detail": "not declared by the gateway's Jamf Pro API 11.31.0"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

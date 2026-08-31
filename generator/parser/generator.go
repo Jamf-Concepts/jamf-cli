@@ -100,6 +100,16 @@ func (g *Generator) Generate(resource *Resource) (string, error) {
 			// — and so a namespace mixing APIs (pro carries Pro, Classic and
 			// Platform) stays legible without inferring from the command path.
 			pairs = append(pairs, fmt.Sprintf("%q: %q", "jamf:api", "pro"))
+			// Whether the Jamf Platform gateway serves this endpoint. Set only
+			// when it does not, in which case a gateway profile is refused
+			// before a request is sent. jamf:gateway-basis is the evidence —
+			// "probe" or "unpublished" — and selects the wording only. See
+			// generator/gateway.
+			if op.GatewayLevel != "" {
+				pairs = append(pairs, fmt.Sprintf("%q: %q", "jamf:gateway", op.GatewayLevel))
+				pairs = append(pairs, fmt.Sprintf("%q: %q", "jamf:gateway-basis", op.GatewayBasis))
+				pairs = append(pairs, fmt.Sprintf("%q: %q", "jamf:gateway-detail", op.GatewayDetail))
+			}
 			if len(pairs) == 0 {
 				return ""
 			}

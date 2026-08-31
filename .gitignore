@@ -59,3 +59,6 @@ specs/.platform-source/
 
 # Private spec sources (synced into specs/security/ via make sync-security-specs)
 specs/.security-source/
+
+# Transient: the SDK revision captured by make sync-gateway-coverage
+.gateway-sdk-rev

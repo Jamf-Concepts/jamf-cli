@@ -17,6 +17,7 @@ import (
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/auth"
 	"github.com/Jamf-Concepts/jamf-cli/internal/exitcode"
+	"github.com/Jamf-Concepts/jamf-cli/internal/gateway"
 	"github.com/Jamf-Concepts/jamf-cli/internal/httptransport"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 )
@@ -447,13 +448,13 @@ func httpStatusError(status int, method, path string, body []byte) error {
 			fmt.Sprintf("permission denied (HTTP 403): %s", string(body))).
 			WithHint(withGatewayUnservedNote(
 				"the authenticated account lacks the required API privileges; check its API role",
-				path, body))
+				method, path, body))
 	case http.StatusNotFound:
 		return exitcode.New(exitcode.NotFound,
 			fmt.Sprintf("resource not found (HTTP 404): %s %s", method, path)).
 			WithHint(withGatewayUnservedNote(
 				"run the matching 'list' command to see valid IDs/names",
-				path, body))
+				method, path, body))
 	case http.StatusTooManyRequests:
 		return exitcode.New(exitcode.RateLimited,
 			"rate limited (HTTP 429): server is throttling requests").
@@ -509,28 +510,36 @@ func edgeBlockedNote(body []byte) string {
 }
 
 // withGatewayUnservedNote appends an explanation when a failure looks like the
-// platform gateway declining to serve a Jamf Pro namespace it does not expose.
+// platform gateway declining to serve a Jamf Pro or Classic namespace it does
+// not expose.
 //
-// App installers are the case this exists for: the surface is reachable only
-// against a Jamf Pro instance directly, not through the gateway. The gateway's
-// answer for a path it does not route is 403 BAD_PERMISSIONS or Tyk's bare
-// "404 page not found", and neither says anything about the gateway — 403
-// BAD_PERMISSIONS in particular is exactly what a real missing privilege looks
-// like, so an operator reads it as "grant me the privilege" and goes looking for
-// a role that will never help.
+// The gateway's answer for a path it does not route is 403 BAD_PERMISSIONS or
+// Tyk's bare "404 page not found", and neither says anything about the gateway
+// — 403 BAD_PERMISSIONS in particular is exactly what a real missing privilege
+// looks like, so an operator reads it as "grant me the privilege" and goes
+// looking for a role that will never help.
+//
+// This is the response-side half of the pair. The other half refuses an
+// Unserved command before it is sent (checkGatewayCoverage in
+// internal/commands/root.go), which is the better error because it names the
+// command rather than the URL. This half still matters for two reasons: the
+// Undeclared level is deliberately not refused, and a hand-written command that
+// fans out over many endpoints — pro overview makes ~41 calls, pro backup and
+// pro diff more — carries one command annotation for a whole batch, so only the
+// request itself knows which endpoint was refused.
 //
 // The note is APPENDED rather than substituted, deliberately. Both signals can
 // legitimately mean what they normally mean — a 404 for a deployment ID that
 // really is gone, a 403 for a role that really is short a privilege — so the
 // cost of a false positive has to be one extra sentence, never a confidently
 // wrong exclusive answer. The path is already the rewritten gateway one by the
-// time this is called, and "/pro/..." only exists in gateway mode, so no gateway
-// flag needs threading down here.
-func withGatewayUnservedNote(hint, path string, body []byte) string {
-	if !strings.HasPrefix(path, "/pro/") {
+// time this is called, and /pro/ and /proclassic/ only exist in gateway mode, so
+// no gateway flag needs threading down here.
+func withGatewayUnservedNote(hint, method, path string, body []byte) string {
+	if !strings.HasPrefix(path, "/pro/") && !strings.HasPrefix(path, "/proclassic/") {
 		return hint
 	}
-	note := gatewayUnservedNote(path)
+	note := gateway.NoteForRequest(method, path)
 	if note == "" {
 		return hint
 	}
@@ -542,15 +551,6 @@ func withGatewayUnservedNote(hint, path string, body []byte) string {
 		return strings.TrimRight(hint, ". ") + ". " + note
 	}
 	return hint
-}
-
-// gatewayUnservedNote names the Jamf Pro namespaces the platform gateway does
-// not expose, and what to use instead. Keyed on the gateway path prefix.
-func gatewayUnservedNote(path string) string {
-	if strings.HasPrefix(path, "/pro/v1/app-installers") {
-		return "App installers are not exposed on the Jamf Platform gateway — they are reachable only against a Jamf Pro instance directly, so run `pro app-installer-*` commands with a profile whose url is your instance and whose auth-method is oauth2 or token."
-	}
-	return ""
 }
 
 // logBody prints body bytes to w indented by four spaces. Truncates at bodyLogLimit

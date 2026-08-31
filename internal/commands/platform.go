@@ -222,9 +222,9 @@ Create API client credentials in the Jamf Account portal
 				_, _ = fmt.Fprintln(w, "This scope serves the gateway-served Jamf Security Cloud commands")
 				_, _ = fmt.Fprintln(w, "(dns-*, ztna-*, content-categories, device-groups, uem-*).")
 			case creds.EnvironmentID == "" && creds.TenantID == "":
-				// Organization scope reaches SSO and AI Governance, neither of
-				// which this CLI has commands for yet. Saying so beats implying
-				// the profile drives Pro or Security Cloud.
+				// Naming the surfaces beats implying the profile drives Pro or
+				// Security Cloud, which it cannot: an organization-scoped
+				// credential sends no scope header and reaches no product API.
 				_, _ = fmt.Fprintln(w, "This is an organization-scoped credential. It serves the Jamf Account commands")
 				_, _ = fmt.Fprintln(w, "(account-licenses, deal-registrations, distributor-*, sso-connections, sso-domains)")
 				_, _ = fmt.Fprintln(w, "and AI Governance (ai-policies, ai-tools). The Jamf Account ones are US-only.")

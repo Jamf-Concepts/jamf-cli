@@ -46,7 +46,7 @@ func newAppInstallerTitlesListCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # List app-installer-titles and extract IDs
   jamf-cli pro app-installer-titles list --field id`,
-		Annotations: map[string]string{"jamf:privileges": "Read App Installers", "jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:privileges": "Read App Installers", "jamf:api": "pro", "jamf:gateway": "unserved", "jamf:gateway-basis": "probe", "jamf:gateway-detail": "wire-confirmed unserved on EU and US, 2026-08-28, re-confirmed 2026-08-31"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -191,7 +191,7 @@ func newAppInstallerTitlesGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a app-installer-title and output as YAML
   jamf-cli pro app-installer-titles get 1 -o yaml`,
-		Annotations: map[string]string{"jamf:privileges": "Read App Installers", "jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:privileges": "Read App Installers", "jamf:api": "pro", "jamf:gateway": "unserved", "jamf:gateway-basis": "probe", "jamf:gateway-detail": "wire-confirmed unserved on EU and US, 2026-08-28, re-confirmed 2026-08-31"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

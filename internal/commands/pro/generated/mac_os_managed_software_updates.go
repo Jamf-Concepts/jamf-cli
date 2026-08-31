@@ -40,7 +40,7 @@ func newMacOsManagedSoftwareUpdatesListCmd(ctx *registry.CLIContext) *cobra.Comm
 
   # List mac-os-managed-software-updates and extract IDs
   jamf-cli pro mac-os-managed-software-updates list --field id`,
-		Annotations: map[string]string{"jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:api": "pro", "jamf:gateway": "unserved", "jamf:gateway-basis": "unpublished", "jamf:gateway-detail": "not declared by the gateway's Jamf Pro API 11.31.0"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

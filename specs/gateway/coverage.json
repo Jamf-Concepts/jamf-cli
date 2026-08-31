@@ -1,0 +1,8664 @@
+{
+  "_note": "The Jamf Pro and Classic API surface the Jamf Platform gateway publishes, plus the gateway scope each operation requires. Derived by `make sync-gateway-coverage` from jamfplatform-go-sdk's api/pro_api.json and api/classic_api_resource_documentation.json — see generator/gateway/coverage.go. Paths are gateway-form (/pro, /proclassic) with every path parameter normalised to {}. NOT a command source: nothing here is fed to ParseSpec, and these two specs are deliberately absent from PLATFORM_SDK_SPECS.",
+  "sources": {
+    "pro": {
+      "file": "pro_api.json",
+      "title": "Jamf Pro API",
+      "version": "11.31.0",
+      "paths": 528,
+      "operations": 790
+    },
+    "classic": {
+      "file": "classic_api_resource_documentation.json",
+      "title": "Classic API",
+      "version": "11.28.0",
+      "paths": 273,
+      "operations": 606
+    },
+    "sdkCommit": "adb8d7b"
+  },
+  "spec": {
+    "/pro/devices/extensionAttributes": [
+      "GET"
+    ],
+    "/pro/inventory-preload": [
+      "DELETE",
+      "GET",
+      "POST"
+    ],
+    "/pro/inventory-preload/csv-template": [
+      "GET"
+    ],
+    "/pro/inventory-preload/history": [
+      "GET"
+    ],
+    "/pro/inventory-preload/history/notes": [
+      "POST"
+    ],
+    "/pro/inventory-preload/validate-csv": [
+      "POST"
+    ],
+    "/pro/inventory-preload/{}": [
+      "DELETE",
+      "GET",
+      "PUT"
+    ],
+    "/pro/ldap/groups": [
+      "GET"
+    ],
+    "/pro/ldap/servers": [
+      "GET"
+    ],
+    "/pro/preview/computers": [
+      "GET"
+    ],
+    "/pro/preview/remote-administration-configurations": [
+      "GET"
+    ],
+    "/pro/preview/remote-administration-configurations/team-viewer": [
+      "POST"
+    ],
+    "/pro/preview/remote-administration-configurations/team-viewer/{}": [
+      "DELETE",
+      "GET",
+      "PATCH"
+    ],
+    "/pro/preview/remote-administration-configurations/team-viewer/{}/sessions": [
+      "GET",
+      "POST"
+    ],
+    "/pro/preview/remote-administration-configurations/team-viewer/{}/sessions/{}": [
+      "GET"
+    ],
+    "/pro/preview/remote-administration-configurations/team-viewer/{}/sessions/{}/close": [
+      "POST"
+    ],
+    "/pro/preview/remote-administration-configurations/team-viewer/{}/sessions/{}/resend-notification": [
+      "POST"
+    ],
+    "/pro/preview/remote-administration-configurations/team-viewer/{}/sessions/{}/status": [
+      "GET"
+    ],
+    "/pro/preview/remote-administration-configurations/team-viewer/{}/status": [
+      "GET"
+    ],
+    "/pro/self-service/branding/images": [
+      "POST"
+    ],
+    "/pro/settings/issueTomcatSslCertificate": [
+      "POST"
+    ],
+    "/pro/settings/obj/policyProperties": [
+      "GET",
+      "PUT"
+    ],
+    "/pro/startup-status": [
+      "GET"
+    ],
+    "/pro/user": [
+      "GET"
+    ],
+    "/pro/user/updateSession": [
+      "POST"
+    ],
+    "/pro/v1/account-groups": [
+      "GET"
+    ],
+    "/pro/v1/account-groups/{}": [
+      "GET"
+    ],
+    "/pro/v1/accounts": [
+      "GET",
+      "POST"
+    ],
+    "/pro/v1/accounts/{}": [
+      "DELETE",
+      "GET",
+      "PUT"
+    ],
+    "/pro/v1/activation-code": [
+      "PUT"
+    ],
+    "/pro/v1/activation-code/history": [
+      "GET",
+      "POST"
+    ],
+    "/pro/v1/activation-code/history/export": [
+      "POST"
+    ],
+    "/pro/v1/activation-code/organization-name": [
+      "PATCH"
+    ],
+    "/pro/v1/adue-session-token-settings": [
+      "GET",
+      "PUT"
+    ],
+    "/pro/v1/advanced-mobile-device-searches": [
+      "GET",
+      "POST"
+    ],
+    "/pro/v1/advanced-mobile-device-searches/choices": [
+      "GET"
+    ],
+    "/pro/v1/advanced-mobile-device-searches/delete-multiple": [
+      "POST"
+    ],
+    "/pro/v1/advanced-mobile-device-searches/{}": [
+      "DELETE",
+      "GET",
+      "PUT"
+    ],
+    "/pro/v1/advanced-user-content-searches": [
+      "GET",
+      "POST"
+    ],
+    "/pro/v1/advanced-user-content-searches/{}": [
+      "DELETE",
+      "GET",
+      "PUT"
+    ],
+    "/pro/v1/apns-client-push-status": [
+      "GET"
+    ],
+    "/pro/v1/apns-client-push-status/enable-all-clients": [
+      "POST"
+    ],
+    "/pro/v1/apns-client-push-status/enable-all-clients/status": [
+      "GET"
+    ],
+    "/pro/v1/apns-client-push-status/enable-client": [
+      "POST"
+    ],
+    "/pro/v1/app-request/form-input-fields": [
+      "GET",
+      "POST",
+      "PUT"
+    ],
+    "/pro/v1/app-request/form-input-fields/{}": [
+      "DELETE",
+      "GET",
+      "PUT"
+    ],
+    "/pro/v1/app-request/settings": [
+      "GET",
+      "PUT"
+    ],
+    "/pro/v1/app-store-country-codes": [
+      "GET"
+    ],
+    "/pro/v1/branding-images/download/{}": [
+      "GET"
+    ],
+    "/pro/v1/buildings": [
+      "GET",
+      "POST"
+    ],
+    "/pro/v1/buildings/delete-multiple": [
+      "POST"
+    ],
+    "/pro/v1/buildings/export": [
+      "POST"
+    ],
+    "/pro/v1/buildings/{}": [
+      "DELETE",
+      "GET",
+      "PUT"
+    ],
+    "/pro/v1/buildings/{}/history": [
+      "GET",
+      "POST"
+    ],
+    "/pro/v1/buildings/{}/history/export": [
+      "POST"
+    ],
+    "/pro/v1/cache-settings": [
+      "GET",
+      "PUT"
+    ],
+    "/pro/v1/categories": [
+      "GET",
+      "POST"
+    ],
+    "/pro/v1/categories/delete-multiple": [
+      "POST"
+    ],
+    "/pro/v1/categories/{}": [
+      "DELETE",
+      "GET",
+      "PUT"
+    ],
+    "/pro/v1/categories/{}/history": [
+      "GET",
+      "POST"
+    ],
+    "/pro/v1/classic-ldap/{}": [
+      "GET"
+    ],
+    "/pro/v1/cloud-azure": [
+      "POST"
+    ],
+    "/pro/v1/cloud-azure/defaults/mappings": [
+      "GET"
+    ],
+    "/pro/v1/cloud-azure/defaults/server-configuration": [
+      "GET"
+    ],
+    "/pro/v1/cloud-azure/{}": [
+      "DELETE",
+      "GET",
+      "PUT"
+    ],
+    "/pro/v1/cloud-distribution-point": [
+      "DELETE",
+      "GET",
+      "PATCH",
+      "POST"
+    ],
+    "/pro/v1/cloud-distribution-point/fail-upload/{}": [
+      "POST"
+    ],
+    "/pro/v1/cloud-distribution-point/files": [
+      "GET"
+    ],
+    "/pro/v1/cloud-distribution-point/history": [
+      "GET",
+      "POST"
+    ],
+    "/pro/v1/cloud-distribution-point/refresh-inventory": [
+      "POST"
+    ],
+    "/pro/v1/cloud-distribution-point/test-connection": [
+      "GET"
+    ],
+    "/pro/v1/cloud-distribution-point/upload-capability": [
+      "GET"
+    ],
+    "/pro/v1/cloud-idp": [
+      "GET"
+    ],
+    "/pro/v1/cloud-idp/export": [
+      "POST"
+    ],
+    "/pro/v1/cloud-idp/{}": [
+      "GET"
+    ],
+    "/pro/v1/cloud-idp/{}/history": [
+      "GET",
+      "POST"
+    ],
+    "/pro/v1/cloud-idp/{}/test-group": [
+      "POST"
+    ],
+    "/pro/v1/cloud-idp/{}/test-user": [
+      "POST"
+    ],
+    "/pro/v1/cloud-idp/{}/test-user-membership": [
+      "POST"
+    ],
+    "/pro/v1/cloud-information": [
+      "GET"
+    ],
+    "/pro/v1/computer-extension-attributes": [
+      "GET",
+      "POST"
+    ],
+    "/pro/v1/computer-extension-attributes/delete-multiple": [
+      "POST"
+    ],
+    "/pro/v1/computer-extension-attributes/templates": [
+      "GET"
+    ],
+    "/pro/v1/computer-extension-attributes/templates/{}": [
+      "GET"
+    ],
+    "/pro/v1/computer-extension-attributes/upload": [
+      "POST"
+    ],
+    "/pro/v1/computer-extension-attributes/{}": [
+      "DELETE",
+      "GET",
+      "PUT"
+    ],
+    "/pro/v1/computer-extension-attributes/{}/data-dependency": [
+      "GET"
+    ],
+    "/pro/v1/computer-extension-attributes/{}/download": [
+      "GET"
+    ],
+    "/pro/v1/computer-extension-attributes/{}/history": [
+      "GET",
+      "POST"
+    ],
+    "/pro/v1/computer-groups": [
+      "GET"
+    ],
+    "/pro/v1/computer-inventory-collection-settings": [
+      "GET",
+      "PATCH"
+    ],
+    "/pro/v1/computer-inventory-collection-settings/custom-path": [
+      "POST"
+    ],
+    "/pro/v1/computer-inventory-collection-settings/custom-path/{}": [
+      "DELETE"
+    ],
+    "/pro/v1/computer-inventory/{}/erase": [
+      "POST"
+    ],
+    "/pro/v1/computer-inventory/{}/remove-mdm-profile": [
+      "POST"
+    ],
+    "/pro/v1/computers-inventory": [
+      "GET",
+      "POST"
+    ],
+    "/pro/v1/computers-inventory-detail/{}": [
+      "GET",
+      "PATCH"
+    ],
+    "/pro/v1/computers-inventory/filevault": [
+      "GET"
+    ],
+    "/pro/v1/computers-inventory/{}": [
+      "DELETE",
+      "GET"
+    ],
+    "/pro/v1/computers-inventory/{}/attachments": [
+      "POST"
+    ],
+    "/pro/v1/computers-inventory/{}/attachments/{}": [
+      "DELETE",
+      "GET"
+    ],
+    "/pro/v1/computers-inventory/{}/filevault": [
+      "GET"
+    ],
+    "/pro/v1/computers-inventory/{}/view-device-lock-pin": [
+      "GET"
+    ],
+    "/pro/v1/computers-inventory/{}/view-recovery-lock-password": [
+      "GET"
+    ],
+    "/pro/v1/computers/{}/recalculate-smart-groups": [
+      "POST"
+    ],
+    "/pro/v1/conditional-access/device-compliance-information/computer/{}": [
+      "GET"
+    ],
+    "/pro/v1/conditional-access/device-compliance-information/mobile/{}": [
+      "GET"
+    ],
+    "/pro/v1/conditional-access/device-compliance/feature-toggle": [
+      "GET"
+    ],
+    "/pro/v1/csa/tenant-id": [
+      "GET"
+    ],
+    "/pro/v1/csa/token": [
+      "DELETE",
+      "GET"
+    ],
+    "/pro/v1/dashboard": [
+      "GET"
+    ],
+    "/pro/v1/dashboard/toggle": [
+      "POST"
+    ],
+    "/pro/v1/ddm/{}/status-items": [
+      "GET"
+    ],
+    "/pro/v1/ddm/{}/status-items/{}": [
+      "GET"
+    ],
+    "/pro/v1/ddm/{}/sync": [
+      "POST"
+    ],
+    "/pro/v1/departments": [
+      "GET",
+      "POST"
+    ],
+    "/pro/v1/departments/delete-multiple": [
+      "POST"
+    ],
+    "/pro/v1/departments/{}": [
+      "DELETE",
+      "GET",
+      "PUT"
+    ],
+    "/pro/v1/departments/{}/history": [
+      "GET",
+      "POST"
+    ],
+    "/pro/v1/deploy-package": [
+      "POST"
+    ],
+    "/pro/v1/device-communication-settings": [
+      "GET",
+      "PUT"
+    ],
+    "/pro/v1/device-communication-settings/history": [
+      "GET",
+      "POST"
+    ],
+    "/pro/v1/device-enrollments": [
+      "GET"
+    ],
+    "/pro/v1/device-enrollments/public-key": [
+      "GET"
+    ],
+    "/pro/v1/device-enrollments/syncs": [
+      "GET"
+    ],
+    "/pro/v1/device-enrollments/upload-token": [
+      "POST"
+    ],
+    "/pro/v1/device-enrollments/{}": [
+      "DELETE",
+      "GET",
+      "PUT"
+    ],
+    "/pro/v1/device-enrollments/{}/devices": [
+      "GET"
+    ],
+    "/pro/v1/device-enrollments/{}/disown": [
+      "POST"
+    ],
+    "/pro/v1/device-enrollments/{}/history": [
+      "GET",
+      "POST"
+    ],
+    "/pro/v1/device-enrollments/{}/syncs": [
+      "GET"
+    ],
+    "/pro/v1/device-enrollments/{}/syncs/latest": [
+      "GET"
+    ],
+    "/pro/v1/device-enrollments/{}/upload-token": [
+      "PUT"
+    ],
+    "/pro/v1/devices/{}/groups": [
+      "GET"
+    ],
+    "/pro/v1/distribution-points": [
+      "GET",
+      "POST"
+    ],
+    "/pro/v1/distribution-points/delete-multiple": [
+      "POST"
+    ],
+    "/pro/v1/distribution-points/{}": [
+      "DELETE",
+      "GET",
+      "PATCH",
+      "PUT"
+    ],
+    "/pro/v1/distribution-points/{}/history": [
+      "GET",
+      "POST"
+    ],
+    "/pro/v1/dock-items": [
+      "POST"
+    ],
+    "/pro/v1/dock-items/{}": [
+      "DELETE",
+      "GET",
+      "PUT"
+    ],
+    "/pro/v1/dss-declarations/{}": [
+      "GET"
+    ],
+    "/pro/v1/ebooks": [
+      "GET"
+    ],
+    "/pro/v1/ebooks/{}": [
+      "GET"
+    ],
+    "/pro/v1/ebooks/{}/scope": [
+      "GET"
+    ],
+    "/pro/v1/enrollment-customization/parse-markdown": [
+      "POST"
+    ],
+    "/pro/v1/enrollment-customization/{}/all": [
+      "GET"
+    ],
+    "/pro/v1/enrollment-customization/{}/all/{}": [
+      "DELETE",
+      "GET"
+    ],
+    "/pro/v1/enrollment-customization/{}/ldap": [
+      "POST"
+    ],
+    "/pro/v1/enrollment-customization/{}/ldap/{}": [
+      "DELETE",
+      "GET",
+      "PUT"
+    ],
+    "/pro/v1/enrollment-customization/{}/sso": [
+      "POST"
+    ],
+    "/pro/v1/enrollment-customization/{}/sso/{}": [
+      "DELETE",
+      "GET",
+      "PUT"
+    ],
+    "/pro/v1/enrollment-customization/{}/text": [
+      "POST"
+    ],
+    "/pro/v1/enrollment-customization/{}/text/{}": [
+      "DELETE",
+      "GET",
+      "PUT"
+    ],
+    "/pro/v1/enrollment-customization/{}/text/{}/markdown": [
+      "GET"
+    ],
+    "/pro/v1/groups": [
+      "GET"
+    ],
+    "/pro/v1/groups/{}": [
+      "DELETE",
+      "GET",
+      "PATCH"
+    ],
+    "/pro/v1/gsx-connection": [
+      "GET",
+      "PATCH",
+      "PUT"
+    ],
+    "/pro/v1/gsx-connection/history": [
+      "GET",
+      "POST"
+    ],
+    "/pro/v1/gsx-connection/test": [
+      "POST"
+    ],
+    "/pro/v1/health-check": [
+      "GET"
+    ],
+    "/pro/v1/health-status": [
+      "GET"
+    ],
+    "/pro/v1/icon": [
+      "POST"
+    ],
+    "/pro/v1/icon/download/{}": [
+      "GET"
+    ],
+    "/pro/v1/icon/{}": [
+      "GET"
+    ],
+    "/pro/v1/impact-alert-notification-settings": [
+      "GET",
+      "PUT"
+    ],
+    "/pro/v1/inventory-information": [
+      "GET"
+    ],
+    "/pro/v1/inventory-preload": [
+      "DELETE",
+      "GET",
+      "POST"
+    ],
+    "/pro/v1/inventory-preload/csv-template": [
+      "GET"
+    ],
+    "/pro/v1/inventory-preload/history": [
+      "GET",
+      "POST"
+    ],
+    "/pro/v1/inventory-preload/validate-csv": [
+      "POST"
+    ],
+    "/pro/v1/inventory-preload/{}": [
+      "DELETE",
+      "GET",
+      "PUT"
+    ],
+    "/pro/v1/jamf-connect": [
+      "GET"
+    ],
+    "/pro/v1/jamf-connect/config-profiles": [
+      "GET"
+    ],
+    "/pro/v1/jamf-connect/config-profiles/{}": [
+      "PUT"
+    ],
+    "/pro/v1/jamf-connect/deployments/{}/tasks": [
+      "GET"
+    ],
+    "/pro/v1/jamf-connect/deployments/{}/tasks/retry": [
+      "POST"
+    ],
+    "/pro/v1/jamf-connect/history": [
+      "GET",
+      "POST"
+    ],
+    "/pro/v1/jamf-management-framework/redeploy/{}": [
+      "POST"
+    ],
+    "/pro/v1/jamf-package": [
+      "GET"
+    ],
+    "/pro/v1/jamf-pro-server-url": [
+      "GET",
+      "PUT"
+    ],
+    "/pro/v1/jamf-pro-server-url/history": [
+      "GET",
+      "POST"
+    ],
+    "/pro/v1/jamf-pro-version": [
+      "GET"
+    ],
+    "/pro/v1/jamf-protect": [
+      "DELETE",
+      "GET",
+      "PUT"
+    ],
+    "/pro/v1/jamf-protect/deployments/{}/tasks": [
+      "GET"
+    ],
+    "/pro/v1/jamf-protect/deployments/{}/tasks/retry": [
+      "POST"
+    ],
+    "/pro/v1/jamf-protect/history": [
+      "GET",
+      "POST"
+    ],
+    "/pro/v1/jamf-protect/plans": [
+      "GET"
+    ],
+    "/pro/v1/jamf-protect/plans/sync": [
+      "POST"
+    ],
+    "/pro/v1/jamf-protect/register": [
+      "POST"
+    ],
+    "/pro/v1/jamf-remote-assist/session": [
+      "GET"
+    ],
+    "/pro/v1/jamf-remote-assist/session/{}": [
+      "GET"
+    ],
+    "/pro/v1/jcds/files": [
+      "GET",
+      "POST"
+    ],
+    "/pro/v1/jcds/files/{}": [
+      "DELETE",
+      "GET"
+    ],
+    "/pro/v1/jcds/refresh-inventory": [
+      "POST"
+    ],
+    "/pro/v1/jcds/renew-credentials": [
+      "POST"
+    ],
+    "/pro/v1/last-login": [
+      "GET"
+    ],
+    "/pro/v1/ldap-keystore/verify": [
+      "POST"
+    ],
+    "/pro/v1/ldap/groups": [
+      "GET"
+    ],
+    "/pro/v1/ldap/ldap-servers": [
+      "GET"
+    ],
+    "/pro/v1/ldap/servers": [
+      "GET"
+    ],
+    "/pro/v1/locales": [
+      "GET"
+    ],
+    "/pro/v1/log-flushing": [
+      "GET"
+    ],
+    "/pro/v1/log-flushing/task": [
+      "GET",
+      "POST"
+    ],
+    "/pro/v1/log-flushing/task/{}": [
+      "DELETE",
+      "GET"
+    ],
+    "/pro/v1/login-customization": [
+      "GET",
+      "PUT"
+    ],
+    "/pro/v1/m2m/tenant-id": [
+      "GET"
+    ],
+    "/pro/v1/macos-managed-software-updates/send-updates": [
+      "POST"
+    ],
+    "/pro/v1/managed-software-updates/available-updates": [
+      "GET"
+    ],
+    "/pro/v1/managed-software-updates/plans": [
+      "GET",
+      "POST"
+    ],
+    "/pro/v1/managed-software-updates/plans/feature-toggle": [
+      "GET",
+      "PUT"
+    ],
+    "/pro/v1/managed-software-updates/plans/feature-toggle/abandon": [
+      "POST"
+    ],
+    "/pro/v1/managed-software-updates/plans/feature-toggle/status": [
+      "GET"
+    ],
+    "/pro/v1/managed-software-updates/plans/group": [
+      "POST"
+    ],
+    "/pro/v1/managed-software-updates/plans/group/{}": [
+      "GET"
+    ],
+    "/pro/v1/managed-software-updates/plans/{}": [
+      "GET"
+    ],
+    "/pro/v1/managed-software-updates/plans/{}/declarations": [
+      "GET"
+    ],
+    "/pro/v1/managed-software-updates/plans/{}/events": [
+      "GET"
+    ],
+    "/pro/v1/managed-software-updates/update-statuses": [
+      "GET"
+    ],
+    "/pro/v1/managed-software-updates/update-statuses/computer-groups/{}": [
+      "GET"
+    ],
+    "/pro/v1/managed-software-updates/update-statuses/computers/{}": [
+      "GET"
+    ],
+    "/pro/v1/managed-software-updates/update-statuses/mobile-device-groups/{}": [
+      "GET"
+    ],
+    "/pro/v1/managed-software-updates/update-statuses/mobile-devices/{}": [
+      "GET"
+    ],
+    "/pro/v1/mdm-renewal/device-common-details": [
+      "PATCH"
+    ],
+    "/pro/v1/mdm-renewal/device-common-details/{}": [
+      "GET"
+    ],
+    "/pro/v1/mdm-renewal/renewal-strategies/{}": [
+      "DELETE",
+      "GET"
+    ],
+    "/pro/v1/mdm/commands": [
+      "GET"
+    ],
+    "/pro/v1/mdm/renew-profile": [
+      "POST"
+    ],
+    "/pro/v1/mobile-device-apps/reinstall-app-config": [
+      "POST"
+    ],
+    "/pro/v1/mobile-device-enrollment-profile/{}/download-profile": [
+      "GET"
+    ],
+    "/pro/v1/mobile-device-extension-attributes": [
+      "GET",
+      "POST"
+    ],
+    "/pro/v1/mobile-device-extension-attributes/{}": [
+      "DELETE",
+      "GET",
+      "PUT"
+    ],
+    "/pro/v1/mobile-device-extension-attributes/{}/data-dependency": [
+      "GET"
+    ],
+    "/pro/v1/mobile-device-extension-attributes/{}/history": [
+      "GET",
+      "POST"
+    ],
+    "/pro/v1/mobile-device-groups": [
+      "GET"
+    ],
+    "/pro/v1/mobile-device-groups/smart-group-membership/{}": [
+      "GET"
+    ],
+    "/pro/v1/mobile-device-groups/smart-groups": [
+      "GET",
+      "POST"
+    ],
+    "/pro/v1/mobile-device-groups/smart-groups/{}": [
+      "DELETE",
+      "GET",
+      "PUT"
+    ],
+    "/pro/v1/mobile-device-groups/static-group-membership/{}": [
+      "GET"
+    ],
+    "/pro/v1/mobile-device-groups/static-groups": [
+      "GET",
+      "POST"
+    ],
+    "/pro/v1/mobile-device-groups/static-groups/{}": [
+      "DELETE",
+      "GET",
+      "PATCH"
+    ],
+    "/pro/v1/mobile-device-groups/{}/erase": [
+      "POST"
+    ],
+    "/pro/v1/mobile-devices/{}/recalculate-smart-groups": [
+      "POST"
+    ],
+    "/pro/v1/notifications": [
+      "GET"
+    ],
+    "/pro/v1/notifications/{}/{}": [
+      "DELETE"
+    ],
+    "/pro/v1/oidc/direct-idp-login-url": [
+      "GET"
+    ],
+    "/pro/v1/oidc/generate-certificate": [
+      "POST"
+    ],
+    "/pro/v1/oidc/public-features": [
+      "GET"
+    ],
+    "/pro/v1/oidc/public-key": [
+      "GET"
+    ],
+    "/pro/v1/onboarding": [
+      "GET",
+      "PUT"
+    ],
+    "/pro/v1/onboarding/eligible-apps": [
+      "GET"
+    ],
+    "/pro/v1/onboarding/eligible-configuration-profiles": [
+      "GET"
+    ],
+    "/pro/v1/onboarding/eligible-policies": [
+      "GET"
+    ],
+    "/pro/v1/onboarding/history": [
+      "GET",
+      "POST"
+    ],
+    "/pro/v1/onboarding/history/export": [
+      "POST"
+    ],
+    "/pro/v1/packages": [
+      "GET",
+      "POST"
+    ],
+    "/pro/v1/packages/delete-multiple": [
+      "POST"
+    ],
+    "/pro/v1/packages/export": [
+      "POST"
+    ],
+    "/pro/v1/packages/{}": [
+      "DELETE",
+      "GET",
+      "PUT"
+    ],
+    "/pro/v1/packages/{}/history": [
+      "GET",
+      "POST"
+    ],
+    "/pro/v1/packages/{}/history/export": [
+      "POST"
+    ],
+    "/pro/v1/packages/{}/manifest": [
+      "DELETE",
+      "POST"
+    ],
+    "/pro/v1/packages/{}/upload": [
+      "POST"
+    ],
+    "/pro/v1/parent-app": [
+      "GET",
+      "PUT"
+    ],
+    "/pro/v1/parent-app/history": [
+      "GET",
+      "POST"
+    ],
+    "/pro/v1/pki/adcs-settings": [
+      "POST"
+    ],
+    "/pro/v1/pki/adcs-settings/validate-certificate": [
+      "POST"
+    ],
+    "/pro/v1/pki/adcs-settings/validate-client-certificate": [
+      "POST"
+    ],
+    "/pro/v1/pki/adcs-settings/{}": [
+      "DELETE",
+      "GET",
+      "PATCH"
+    ],
+    "/pro/v1/pki/adcs-settings/{}/dependencies": [
+      "GET"
+    ],
+    "/pro/v1/pki/adcs-settings/{}/history": [
+      "GET",
+      "POST"
+    ],
+    "/pro/v1/pki/certificate-authority/active": [
+      "GET"
+    ],
+    "/pro/v1/pki/certificate-authority/active/der": [
+      "GET"
+    ],
+    "/pro/v1/pki/certificate-authority/active/pem": [
+      "GET"
+    ],
+    "/pro/v1/pki/certificate-authority/{}": [
+      "GET"
+    ],
+    "/pro/v1/pki/certificate-authority/{}/der": [
+      "GET"
+    ],
+    "/pro/v1/pki/certificate-authority/{}/pem": [
+      "GET"
+    ],
+    "/pro/v1/pki/digicert/trust-lifecycle-manager": [
+      "POST"
+    ],
+    "/pro/v1/pki/digicert/trust-lifecycle-manager/validate-client-certificate": [
+      "POST"
+    ],
+    "/pro/v1/pki/digicert/trust-lifecycle-manager/{}": [
+      "DELETE",
+      "GET",
+      "PATCH"
+    ],
+    "/pro/v1/pki/digicert/trust-lifecycle-manager/{}/connection-status": [
+      "GET"
+    ],
+    "/pro/v1/pki/digicert/trust-lifecycle-manager/{}/dependencies": [
+      "GET"
+    ],
+    "/pro/v1/pki/digicert/trust-lifecycle-manager/{}/privilege-check": [
+      "GET"
+    ],
+    "/pro/v1/pki/venafi": [
+      "POST"
+    ],
+    "/pro/v1/pki/venafi/{}": [
+      "DELETE",
+      "GET",
+      "PATCH"
+    ],
+    "/pro/v1/pki/venafi/{}/connection-status": [
+      "GET"
+    ],
+    "/pro/v1/pki/venafi/{}/dependent-profiles": [
+      "GET"
+    ],
+    "/pro/v1/pki/venafi/{}/history": [
+      "GET",
+      "POST"
+    ],
+    "/pro/v1/pki/venafi/{}/jamf-public-key": [
+      "GET"
+    ],
+    "/pro/v1/pki/venafi/{}/jamf-public-key/regenerate": [
+      "POST"
+    ],
+    "/pro/v1/pki/venafi/{}/proxy-trust-store": [
+      "DELETE",
+      "GET",
+      "POST"
+    ],
+    "/pro/v1/policy-properties": [
+      "GET",
+      "PUT"
+    ],
+    "/pro/v1/reenrollment": [
+      "GET",
+      "PUT"
+    ],
+    "/pro/v1/reenrollment/history": [
+      "GET",
+      "POST"
+    ],
+    "/pro/v1/reenrollment/history/export": [
+      "POST"
+    ],
+    "/pro/v1/return-to-service": [
+      "GET",
+      "POST"
+    ],
+    "/pro/v1/return-to-service/{}": [
+      "DELETE",
+      "GET",
+      "PUT"
+    ],
+    "/pro/v1/scheduler/jobs": [
+      "GET"
+    ],
+    "/pro/v1/scheduler/jobs/{}/triggers": [
+      "GET"
+    ],
+    "/pro/v1/scheduler/summary": [
+      "GET"
+    ],
+    "/pro/v1/scripts": [
+      "GET",
+      "POST"
+    ],
+    "/pro/v1/scripts/{}": [
+      "DELETE",
+      "GET",
+      "PUT"
+    ],
+    "/pro/v1/scripts/{}/download": [
+      "GET"
+    ],
+    "/pro/v1/scripts/{}/history": [
+      "GET",
+      "POST"
+    ],
+    "/pro/v1/self-service-plus/feature-toggle/enabled": [
+      "GET"
+    ],
+    "/pro/v1/self-service-plus/settings": [
+      "GET",
+      "PUT"
+    ],
+    "/pro/v1/self-service/branding/ios": [
+      "GET",
+      "POST"
+    ],
+    "/pro/v1/self-service/branding/ios/{}": [
+      "DELETE",
+      "GET",
+      "PUT"
+    ],
+    "/pro/v1/self-service/branding/macos": [
+      "GET",
+      "POST"
+    ],
+    "/pro/v1/self-service/branding/macos/{}": [
+      "DELETE",
+      "GET",
+      "PUT"
+    ],
+    "/pro/v1/self-service/settings": [
+      "GET",
+      "PUT"
+    ],
+    "/pro/v1/self-service/settings/history": [
+      "GET",
+      "POST"
+    ],
+    "/pro/v1/service-discovery-enrollment/well-known-settings": [
+      "GET",
+      "PUT"
+    ],
+    "/pro/v1/sites": [
+      "GET"
+    ],
+    "/pro/v1/sites/{}/objects": [
+      "GET"
+    ],
+    "/pro/v1/slasa": [
+      "GET",
+      "POST"
+    ],
+    "/pro/v1/smart-computer-groups/{}/recalculate": [
+      "POST"
+    ],
+    "/pro/v1/smart-mobile-device-groups/{}/recalculate": [
+      "POST"
+    ],
+    "/pro/v1/smart-user-groups/{}/recalculate": [
+      "POST"
+    ],
+    "/pro/v1/smtp-server/history": [
+      "GET",
+      "POST"
+    ],
+    "/pro/v1/smtp-server/test": [
+      "POST"
+    ],
+    "/pro/v1/sso/failover": [
+      "GET"
+    ],
+    "/pro/v1/sso/failover/generate": [
+      "POST"
+    ],
+    "/pro/v1/static-user-groups": [
+      "GET"
+    ],
+    "/pro/v1/static-user-groups/{}": [
+      "GET"
+    ],
+    "/pro/v1/supervision-identities": [
+      "GET",
+      "POST"
+    ],
+    "/pro/v1/supervision-identities/upload": [
+      "POST"
+    ],
+    "/pro/v1/supervision-identities/{}": [
+      "DELETE",
+      "GET",
+      "PUT"
+    ],
+    "/pro/v1/supervision-identities/{}/download": [
+      "GET"
+    ],
+    "/pro/v1/system/initialize": [
+      "POST"
+    ],
+    "/pro/v1/system/platform-initialize": [
+      "POST"
+    ],
+    "/pro/v1/teacher-app": [
+      "GET",
+      "PUT"
+    ],
+    "/pro/v1/teacher-app/history": [
+      "GET",
+      "POST"
+    ],
+    "/pro/v1/time-zones": [
+      "GET"
+    ],
+    "/pro/v1/user-sessions/active": [
+      "GET"
+    ],
+    "/pro/v1/user-sessions/count": [
+      "GET"
+    ],
+    "/pro/v1/user/change-password": [
+      "POST"
+    ],
+    "/pro/v1/user/preferences/settings/{}": [
+      "GET"
+    ],
+    "/pro/v1/user/preferences/{}": [
+      "DELETE",
+      "GET",
+      "PUT"
+    ],
+    "/pro/v1/users": [
+      "GET",
+      "POST"
+    ],
+    "/pro/v1/users/{}": [
+      "DELETE",
+      "GET",
+      "PUT"
+    ],
+    "/pro/v1/users/{}/recalculate-smart-groups": [
+      "POST"
+    ],
+    "/pro/v1/volume-purchasing-locations": [
+      "GET",
+      "POST"
+    ],
+    "/pro/v1/volume-purchasing-locations/{}": [
+      "DELETE",
+      "GET",
+      "PATCH"
+    ],
+    "/pro/v1/volume-purchasing-locations/{}/content": [
+      "GET"
+    ],
+    "/pro/v1/volume-purchasing-locations/{}/history": [
+      "GET",
+      "POST"
+    ],
+    "/pro/v1/volume-purchasing-locations/{}/reclaim": [
+      "POST"
+    ],
+    "/pro/v1/volume-purchasing-locations/{}/revoke-licenses": [
+      "POST"
+    ],
+    "/pro/v1/volume-purchasing-subscriptions": [
+      "GET",
+      "POST"
+    ],
+    "/pro/v1/volume-purchasing-subscriptions/{}": [
+      "DELETE",
+      "GET",
+      "PUT"
+    ],
+    "/pro/v1/volume-purchasing-subscriptions/{}/history": [
+      "GET",
+      "POST"
+    ],
+    "/pro/v2/cloud-ldaps": [
+      "POST"
+    ],
+    "/pro/v2/cloud-ldaps/defaults/{}/mappings": [
+      "GET"
+    ],
+    "/pro/v2/cloud-ldaps/defaults/{}/server-configuration": [
+      "GET"
+    ],
+    "/pro/v2/cloud-ldaps/{}": [
+      "DELETE",
+      "GET",
+      "PUT"
+    ],
+    "/pro/v2/cloud-ldaps/{}/connection/bind": [
+      "GET"
+    ],
+    "/pro/v2/cloud-ldaps/{}/connection/search": [
+      "GET"
+    ],
+    "/pro/v2/cloud-ldaps/{}/connection/status": [
+      "GET"
+    ],
+    "/pro/v2/cloud-ldaps/{}/mappings": [
+      "GET",
+      "PUT"
+    ],
+    "/pro/v2/computer-groups/smart-group-membership/{}": [
+      "GET"
+    ],
+    "/pro/v2/computer-groups/smart-groups": [
+      "GET",
+      "POST"
+    ],
+    "/pro/v2/computer-groups/smart-groups/{}": [
+      "DELETE",
+      "GET",
+      "PUT"
+    ],
+    "/pro/v2/computer-groups/static-groups": [
+      "GET",
+      "POST"
+    ],
+    "/pro/v2/computer-groups/static-groups/{}": [
+      "DELETE",
+      "GET",
+      "PUT"
+    ],
+    "/pro/v2/computer-inventory-collection-settings": [
+      "GET",
+      "PATCH"
+    ],
+    "/pro/v2/computer-inventory-collection-settings/custom-path": [
+      "POST"
+    ],
+    "/pro/v2/computer-inventory-collection-settings/custom-path/{}": [
+      "DELETE"
+    ],
+    "/pro/v2/computer-prestages/scope": [
+      "GET"
+    ],
+    "/pro/v2/computer-prestages/{}/scope": [
+      "GET",
+      "POST",
+      "PUT"
+    ],
+    "/pro/v2/computer-prestages/{}/scope/delete-multiple": [
+      "POST"
+    ],
+    "/pro/v2/computers-inventory": [
+      "GET",
+      "POST"
+    ],
+    "/pro/v2/computers-inventory-detail/{}": [
+      "GET",
+      "PATCH"
+    ],
+    "/pro/v2/computers-inventory/filevault": [
+      "GET"
+    ],
+    "/pro/v2/computers-inventory/{}": [
+      "DELETE",
+      "GET"
+    ],
+    "/pro/v2/computers-inventory/{}/attachments": [
+      "POST"
+    ],
+    "/pro/v2/computers-inventory/{}/attachments/{}": [
+      "DELETE",
+      "GET"
+    ],
+    "/pro/v2/computers-inventory/{}/filevault": [
+      "GET"
+    ],
+    "/pro/v2/computers-inventory/{}/view-device-lock-pin": [
+      "GET"
+    ],
+    "/pro/v2/computers-inventory/{}/view-recovery-lock-password": [
+      "GET"
+    ],
+    "/pro/v2/enrollment-customizations": [
+      "GET",
+      "POST"
+    ],
+    "/pro/v2/enrollment-customizations/images": [
+      "POST"
+    ],
+    "/pro/v2/enrollment-customizations/images/{}": [
+      "GET"
+    ],
+    "/pro/v2/enrollment-customizations/{}": [
+      "DELETE",
+      "GET",
+      "PUT"
+    ],
+    "/pro/v2/enrollment-customizations/{}/history": [
+      "GET",
+      "POST"
+    ],
+    "/pro/v2/enrollment-customizations/{}/prestages": [
+      "GET"
+    ],
+    "/pro/v2/enrollment/history": [
+      "GET",
+      "POST"
+    ],
+    "/pro/v2/enrollment/history/export": [
+      "POST"
+    ],
+    "/pro/v2/groups": [
+      "GET"
+    ],
+    "/pro/v2/groups/{}": [
+      "DELETE",
+      "GET",
+      "PATCH"
+    ],
+    "/pro/v2/inventory-preload/csv": [
+      "GET",
+      "POST"
+    ],
+    "/pro/v2/inventory-preload/csv-template": [
+      "GET"
+    ],
+    "/pro/v2/inventory-preload/csv-validate": [
+      "POST"
+    ],
+    "/pro/v2/inventory-preload/ea-columns": [
+      "GET"
+    ],
+    "/pro/v2/inventory-preload/export": [
+      "POST"
+    ],
+    "/pro/v2/inventory-preload/history": [
+      "GET",
+      "POST"
+    ],
+    "/pro/v2/inventory-preload/records": [
+      "GET",
+      "POST"
+    ],
+    "/pro/v2/inventory-preload/records/delete-all": [
+      "POST"
+    ],
+    "/pro/v2/inventory-preload/records/{}": [
+      "DELETE",
+      "GET",
+      "PUT"
+    ],
+    "/pro/v2/jamf-package": [
+      "GET"
+    ],
+    "/pro/v2/jamf-pro-information": [
+      "GET"
+    ],
+    "/pro/v2/jamf-remote-assist/session": [
+      "GET"
+    ],
+    "/pro/v2/jamf-remote-assist/session/export": [
+      "POST"
+    ],
+    "/pro/v2/jamf-remote-assist/session/{}": [
+      "GET"
+    ],
+    "/pro/v2/local-admin-password/pending-rotations": [
+      "GET"
+    ],
+    "/pro/v2/local-admin-password/settings": [
+      "GET",
+      "PUT"
+    ],
+    "/pro/v2/local-admin-password/{}/account/{}/audit": [
+      "GET"
+    ],
+    "/pro/v2/local-admin-password/{}/account/{}/history": [
+      "GET"
+    ],
+    "/pro/v2/local-admin-password/{}/account/{}/password": [
+      "GET"
+    ],
+    "/pro/v2/local-admin-password/{}/account/{}/{}/audit": [
+      "GET"
+    ],
+    "/pro/v2/local-admin-password/{}/account/{}/{}/history": [
+      "GET"
+    ],
+    "/pro/v2/local-admin-password/{}/account/{}/{}/password": [
+      "GET"
+    ],
+    "/pro/v2/local-admin-password/{}/accounts": [
+      "GET"
+    ],
+    "/pro/v2/local-admin-password/{}/history": [
+      "GET"
+    ],
+    "/pro/v2/local-admin-password/{}/set-password": [
+      "PUT"
+    ],
+    "/pro/v2/mdm/blank-push": [
+      "POST"
+    ],
+    "/pro/v2/mdm/commands": [
+      "GET"
+    ],
+    "/pro/v2/mobile-device-groups": [
+      "GET"
+    ],
+    "/pro/v2/mobile-device-groups/smart-group-membership/{}": [
+      "GET"
+    ],
+    "/pro/v2/mobile-device-groups/smart-groups": [
+      "GET",
+      "POST"
+    ],
+    "/pro/v2/mobile-device-groups/smart-groups/{}": [
+      "DELETE",
+      "GET",
+      "PUT"
+    ],
+    "/pro/v2/mobile-device-groups/static-group-membership/{}": [
+      "GET"
+    ],
+    "/pro/v2/mobile-device-groups/static-groups": [
+      "GET",
+      "POST"
+    ],
+    "/pro/v2/mobile-device-groups/static-groups/{}": [
+      "DELETE",
+      "GET",
+      "PATCH"
+    ],
+    "/pro/v2/mobile-device-groups/{}/erase": [
+      "POST"
+    ],
+    "/pro/v2/mobile-device-prestages": [
+      "GET",
+      "POST"
+    ],
+    "/pro/v2/mobile-device-prestages/scope": [
+      "GET"
+    ],
+    "/pro/v2/mobile-device-prestages/syncs": [
+      "GET"
+    ],
+    "/pro/v2/mobile-device-prestages/{}": [
+      "DELETE",
+      "GET",
+      "PUT"
+    ],
+    "/pro/v2/mobile-device-prestages/{}/attachments": [
+      "GET",
+      "POST"
+    ],
+    "/pro/v2/mobile-device-prestages/{}/attachments/delete-multiple": [
+      "POST"
+    ],
+    "/pro/v2/mobile-device-prestages/{}/history": [
+      "GET",
+      "POST"
+    ],
+    "/pro/v2/mobile-device-prestages/{}/scope": [
+      "GET",
+      "POST",
+      "PUT"
+    ],
+    "/pro/v2/mobile-device-prestages/{}/scope/delete-multiple": [
+      "POST"
+    ],
+    "/pro/v2/mobile-device-prestages/{}/syncs": [
+      "GET"
+    ],
+    "/pro/v2/mobile-device-prestages/{}/syncs/latest": [
+      "GET"
+    ],
+    "/pro/v2/mobile-devices": [
+      "GET"
+    ],
+    "/pro/v2/mobile-devices/detail": [
+      "GET"
+    ],
+    "/pro/v2/mobile-devices/{}": [
+      "GET",
+      "PATCH"
+    ],
+    "/pro/v2/mobile-devices/{}/detail": [
+      "GET"
+    ],
+    "/pro/v2/mobile-devices/{}/erase": [
+      "POST"
+    ],
+    "/pro/v2/mobile-devices/{}/paired-devices": [
+      "GET"
+    ],
+    "/pro/v2/mobile-devices/{}/unmanage": [
+      "POST"
+    ],
+    "/pro/v2/oidc/dispatch": [
+      "POST"
+    ],
+    "/pro/v2/patch-management-accept-disclaimer": [
+      "POST"
+    ],
+    "/pro/v2/patch-policies": [
+      "GET"
+    ],
+    "/pro/v2/patch-policies/policy-details": [
+      "GET"
+    ],
+    "/pro/v2/patch-policies/{}/dashboard": [
+      "DELETE",
+      "GET",
+      "POST"
+    ],
+    "/pro/v2/patch-policies/{}/logs": [
+      "GET"
+    ],
+    "/pro/v2/patch-policies/{}/logs/eligible-retry-count": [
+      "GET"
+    ],
+    "/pro/v2/patch-policies/{}/logs/retry": [
+      "POST"
+    ],
+    "/pro/v2/patch-policies/{}/logs/retry-all": [
+      "POST"
+    ],
+    "/pro/v2/patch-policies/{}/logs/{}": [
+      "GET"
+    ],
+    "/pro/v2/patch-policies/{}/logs/{}/details": [
+      "GET"
+    ],
+    "/pro/v2/patch-software-title-configurations": [
+      "GET",
+      "POST"
+    ],
+    "/pro/v2/patch-software-title-configurations/{}": [
+      "DELETE",
+      "GET",
+      "PATCH"
+    ],
+    "/pro/v2/patch-software-title-configurations/{}/dashboard": [
+      "DELETE",
+      "GET",
+      "POST"
+    ],
+    "/pro/v2/patch-software-title-configurations/{}/definitions": [
+      "GET"
+    ],
+    "/pro/v2/patch-software-title-configurations/{}/dependencies": [
+      "GET"
+    ],
+    "/pro/v2/patch-software-title-configurations/{}/export-report": [
+      "GET"
+    ],
+    "/pro/v2/patch-software-title-configurations/{}/extension-attributes": [
+      "GET"
+    ],
+    "/pro/v2/patch-software-title-configurations/{}/history": [
+      "GET",
+      "POST"
+    ],
+    "/pro/v2/patch-software-title-configurations/{}/patch-report": [
+      "GET"
+    ],
+    "/pro/v2/patch-software-title-configurations/{}/patch-summary": [
+      "GET"
+    ],
+    "/pro/v2/patch-software-title-configurations/{}/patch-summary/versions": [
+      "GET"
+    ],
+    "/pro/v2/smtp-server": [
+      "GET",
+      "PUT"
+    ],
+    "/pro/v2/smtp-server/allowed-auth-types": [
+      "GET"
+    ],
+    "/pro/v2/sso/cert": [
+      "DELETE",
+      "GET",
+      "POST",
+      "PUT"
+    ],
+    "/pro/v2/sso/cert/download": [
+      "GET"
+    ],
+    "/pro/v2/sso/cert/parse": [
+      "POST"
+    ],
+    "/pro/v3/account-preferences": [
+      "GET",
+      "PATCH"
+    ],
+    "/pro/v3/check-in": [
+      "GET",
+      "PUT"
+    ],
+    "/pro/v3/check-in/history": [
+      "GET",
+      "POST"
+    ],
+    "/pro/v3/computer-groups/smart-group-membership/{}": [
+      "GET"
+    ],
+    "/pro/v3/computer-groups/smart-groups": [
+      "GET",
+      "POST"
+    ],
+    "/pro/v3/computer-groups/smart-groups/{}": [
+      "DELETE",
+      "GET",
+      "PUT"
+    ],
+    "/pro/v3/computer-groups/static-groups": [
+      "GET",
+      "POST"
+    ],
+    "/pro/v3/computer-groups/static-groups/{}": [
+      "DELETE",
+      "GET",
+      "PUT"
+    ],
+    "/pro/v3/computer-prestages": [
+      "GET",
+      "POST"
+    ],
+    "/pro/v3/computer-prestages/{}": [
+      "DELETE",
+      "GET",
+      "PUT"
+    ],
+    "/pro/v3/computers-inventory": [
+      "GET",
+      "POST"
+    ],
+    "/pro/v3/computers-inventory-detail/{}": [
+      "GET",
+      "PATCH"
+    ],
+    "/pro/v3/computers-inventory/filevault": [
+      "GET"
+    ],
+    "/pro/v3/computers-inventory/{}": [
+      "DELETE",
+      "GET"
+    ],
+    "/pro/v3/computers-inventory/{}/attachments": [
+      "POST"
+    ],
+    "/pro/v3/computers-inventory/{}/attachments/{}": [
+      "DELETE",
+      "GET"
+    ],
+    "/pro/v3/computers-inventory/{}/filevault": [
+      "GET"
+    ],
+    "/pro/v3/computers-inventory/{}/view-device-lock-pin": [
+      "GET"
+    ],
+    "/pro/v3/computers-inventory/{}/view-recovery-lock-password": [
+      "GET"
+    ],
+    "/pro/v3/enrollment/access-groups": [
+      "GET",
+      "POST"
+    ],
+    "/pro/v3/enrollment/access-groups/{}": [
+      "DELETE",
+      "GET",
+      "PUT"
+    ],
+    "/pro/v3/enrollment/filtered-language-codes": [
+      "GET"
+    ],
+    "/pro/v3/enrollment/language-codes": [
+      "GET"
+    ],
+    "/pro/v3/enrollment/languages": [
+      "GET"
+    ],
+    "/pro/v3/enrollment/languages/delete-multiple": [
+      "POST"
+    ],
+    "/pro/v3/enrollment/languages/{}": [
+      "DELETE",
+      "GET",
+      "PUT"
+    ],
+    "/pro/v3/mobile-device-prestages": [
+      "GET",
+      "POST"
+    ],
+    "/pro/v3/mobile-device-prestages/{}": [
+      "DELETE",
+      "GET",
+      "PUT"
+    ],
+    "/pro/v3/mobile-device-prestages/{}/attachments": [
+      "GET",
+      "POST"
+    ],
+    "/pro/v3/mobile-device-prestages/{}/attachments/delete-multiple": [
+      "POST"
+    ],
+    "/pro/v3/mobile-device-prestages/{}/history": [
+      "GET",
+      "POST"
+    ],
+    "/pro/v3/patch-software-title-configurations": [
+      "GET",
+      "POST"
+    ],
+    "/pro/v3/patch-software-title-configurations/{}": [
+      "DELETE",
+      "GET",
+      "PATCH"
+    ],
+    "/pro/v3/patch-software-title-configurations/{}/dashboard": [
+      "DELETE",
+      "GET",
+      "POST"
+    ],
+    "/pro/v3/patch-software-title-configurations/{}/definitions": [
+      "GET"
+    ],
+    "/pro/v3/patch-software-title-configurations/{}/dependencies": [
+      "GET"
+    ],
+    "/pro/v3/patch-software-title-configurations/{}/export-report": [
+      "GET"
+    ],
+    "/pro/v3/patch-software-title-configurations/{}/extension-attributes": [
+      "GET"
+    ],
+    "/pro/v3/patch-software-title-configurations/{}/history": [
+      "GET",
+      "POST"
+    ],
+    "/pro/v3/patch-software-title-configurations/{}/patch-report": [
+      "GET"
+    ],
+    "/pro/v3/patch-software-title-configurations/{}/patch-summary": [
+      "GET"
+    ],
+    "/pro/v3/patch-software-title-configurations/{}/patch-summary/versions": [
+      "GET"
+    ],
+    "/pro/v3/sso": [
+      "GET",
+      "PUT"
+    ],
+    "/pro/v3/sso/dependencies": [
+      "GET"
+    ],
+    "/pro/v3/sso/disable": [
+      "POST"
+    ],
+    "/pro/v3/sso/history": [
+      "GET",
+      "POST"
+    ],
+    "/pro/v3/sso/metadata/download": [
+      "GET"
+    ],
+    "/pro/v4/computers-inventory": [
+      "GET",
+      "POST"
+    ],
+    "/pro/v4/computers-inventory-detail/{}": [
+      "GET",
+      "PATCH"
+    ],
+    "/pro/v4/computers-inventory/filevault": [
+      "GET"
+    ],
+    "/pro/v4/computers-inventory/{}": [
+      "DELETE",
+      "GET"
+    ],
+    "/pro/v4/computers-inventory/{}/attachments": [
+      "POST"
+    ],
+    "/pro/v4/computers-inventory/{}/attachments/{}": [
+      "DELETE",
+      "GET"
+    ],
+    "/pro/v4/computers-inventory/{}/erase": [
+      "POST"
+    ],
+    "/pro/v4/computers-inventory/{}/filevault": [
+      "GET"
+    ],
+    "/pro/v4/computers-inventory/{}/remove-mdm-profile": [
+      "POST"
+    ],
+    "/pro/v4/computers-inventory/{}/view-device-lock-pin": [
+      "GET"
+    ],
+    "/pro/v4/computers-inventory/{}/view-recovery-lock-password": [
+      "GET"
+    ],
+    "/pro/v4/enrollment": [
+      "GET",
+      "PUT"
+    ],
+    "/pro/v4/enrollment/access-management": [
+      "GET",
+      "POST"
+    ],
+    "/proclassic/accounts": [
+      "GET"
+    ],
+    "/proclassic/accounts/groupid/{}": [
+      "DELETE",
+      "GET",
+      "POST",
+      "PUT"
+    ],
+    "/proclassic/accounts/groupname/{}": [
+      "DELETE",
+      "GET",
+      "POST",
+      "PUT"
+    ],
+    "/proclassic/accounts/userid/{}": [
+      "DELETE",
+      "GET",
+      "POST",
+      "PUT"
+    ],
+    "/proclassic/accounts/username/{}": [
+      "DELETE",
+      "GET",
+      "POST",
+      "PUT"
+    ],
+    "/proclassic/activationcode": [
+      "GET",
+      "PUT"
+    ],
+    "/proclassic/advancedcomputersearches": [
+      "GET"
+    ],
+    "/proclassic/advancedcomputersearches/id/{}": [
+      "DELETE",
+      "GET",
+      "POST",
+      "PUT"
+    ],
+    "/proclassic/advancedcomputersearches/name/{}": [
+      "DELETE",
+      "GET",
+      "POST",
+      "PUT"
+    ],
+    "/proclassic/advancedmobiledevicesearches": [
+      "GET"
+    ],
+    "/proclassic/advancedmobiledevicesearches/id/{}": [
+      "DELETE",
+      "GET",
+      "POST",
+      "PUT"
+    ],
+    "/proclassic/advancedmobiledevicesearches/name/{}": [
+      "DELETE",
+      "GET",
+      "POST",
+      "PUT"
+    ],
+    "/proclassic/advancedusersearches": [
+      "GET"
+    ],
+    "/proclassic/advancedusersearches/id/{}": [
+      "DELETE",
+      "GET",
+      "POST",
+      "PUT"
+    ],
+    "/proclassic/advancedusersearches/name/{}": [
+      "DELETE",
+      "GET",
+      "POST",
+      "PUT"
+    ],
+    "/proclassic/allowedfileextensions": [
+      "GET"
+    ],
+    "/proclassic/allowedfileextensions/extension/{}": [
+      "GET"
+    ],
+    "/proclassic/allowedfileextensions/id/{}": [
+      "DELETE",
+      "GET",
+      "POST"
+    ],
+    "/proclassic/buildings": [
+      "GET"
+    ],
+    "/proclassic/buildings/id/{}": [
+      "DELETE",
+      "GET",
+      "POST",
+      "PUT"
+    ],
+    "/proclassic/buildings/name/{}": [
+      "DELETE",
+      "GET",
+      "POST",
+      "PUT"
+    ],
+    "/proclassic/categories": [
+      "GET"
+    ],
+    "/proclassic/categories/id/{}": [
+      "DELETE",
+      "GET",
+      "POST",
+      "PUT"
+    ],
+    "/proclassic/categories/name/{}": [
+      "DELETE",
+      "GET",
+      "POST",
+      "PUT"
+    ],
+    "/proclassic/classes": [
+      "GET"
+    ],
+    "/proclassic/classes/id/{}": [
+      "DELETE",
+      "GET",
+      "POST",
+      "PUT"
+    ],
+    "/proclassic/classes/name/{}": [
+      "DELETE",
+      "GET",
+      "POST",
+      "PUT"
+    ],
+    "/proclassic/commandflush": [
+      "DELETE"
+    ],
+    "/proclassic/commandflush/{}/id/{}/status/{}": [
+      "DELETE"
+    ],
+    "/proclassic/computerapplications/application/{}": [
+      "GET"
+    ],
+    "/proclassic/computerapplications/application/{}/inventory/{}": [
+      "GET"
+    ],
+    "/proclassic/computerapplications/application/{}/version/{}": [
+      "GET"
+    ],
+    "/proclassic/computerapplications/application/{}/version/{}/inventory/{}": [
+      "GET"
+    ],
+    "/proclassic/computerapplicationusage/id/{}/{}_{}": [
+      "GET"
+    ],
+    "/proclassic/computerapplicationusage/macaddress/{}/{}_{}": [
+      "GET"
+    ],
+    "/proclassic/computerapplicationusage/name/{}/{}_{}": [
+      "GET"
+    ],
+    "/proclassic/computerapplicationusage/serialnumber/{}/{}_{}": [
+      "GET"
+    ],
+    "/proclassic/computerapplicationusage/udid/{}/{}_{}": [
+      "GET"
+    ],
+    "/proclassic/computercheckin": [
+      "GET",
+      "PUT"
+    ],
+    "/proclassic/computercommands": [
+      "GET"
+    ],
+    "/proclassic/computercommands/command/{}": [
+      "GET",
+      "POST"
+    ],
+    "/proclassic/computercommands/command/{}/id/{}": [
+      "POST"
+    ],
+    "/proclassic/computercommands/name/{}": [
+      "GET"
+    ],
+    "/proclassic/computercommands/status/{}": [
+      "GET"
+    ],
+    "/proclassic/computercommands/uuid/{}": [
+      "GET"
+    ],
+    "/proclassic/computerextensionattributes": [
+      "GET"
+    ],
+    "/proclassic/computerextensionattributes/id/{}": [
+      "DELETE",
+      "GET",
+      "POST",
+      "PUT"
+    ],
+    "/proclassic/computerextensionattributes/name/{}": [
+      "DELETE",
+      "GET",
+      "POST",
+      "PUT"
+    ],
+    "/proclassic/computergroups": [
+      "GET"
+    ],
+    "/proclassic/computergroups/id/{}": [
+      "DELETE",
+      "GET",
+      "POST",
+      "PUT"
+    ],
+    "/proclassic/computergroups/name/{}": [
+      "DELETE",
+      "GET",
+      "POST",
+      "PUT"
+    ],
+    "/proclassic/computerhardwaresoftwarereports/id/{}/{}_{}": [
+      "GET"
+    ],
+    "/proclassic/computerhardwaresoftwarereports/id/{}/{}_{}/subset/{}": [
+      "GET"
+    ],
+    "/proclassic/computerhardwaresoftwarereports/macaddress/{}/{}_{}": [
+      "GET"
+    ],
+    "/proclassic/computerhardwaresoftwarereports/name/{}/{}_{}": [
+      "GET"
+    ],
+    "/proclassic/computerhardwaresoftwarereports/serialnumber/{}/{}_{}": [
+      "GET"
+    ],
+    "/proclassic/computerhardwaresoftwarereports/udid/{}/{}_{}": [
+      "GET"
+    ],
+    "/proclassic/computerhistory/id/{}": [
+      "GET"
+    ],
+    "/proclassic/computerhistory/id/{}/subset/{}": [
+      "GET"
+    ],
+    "/proclassic/computerhistory/macaddress/{}": [
+      "GET"
+    ],
+    "/proclassic/computerhistory/name/{}": [
+      "GET"
+    ],
+    "/proclassic/computerhistory/serialnumber/{}": [
+      "GET"
+    ],
+    "/proclassic/computerhistory/udid/{}": [
+      "GET"
+    ],
+    "/proclassic/computerinventorycollection": [
+      "GET",
+      "PUT"
+    ],
+    "/proclassic/computerinvitations": [
+      "GET"
+    ],
+    "/proclassic/computerinvitations/id/{}": [
+      "DELETE",
+      "GET",
+      "POST"
+    ],
+    "/proclassic/computerinvitations/invitation/{}": [
+      "DELETE",
+      "GET",
+      "POST"
+    ],
+    "/proclassic/computerinvitations/name/{}": [
+      "DELETE",
+      "GET",
+      "POST"
+    ],
+    "/proclassic/computermanagement/id/{}": [
+      "GET"
+    ],
+    "/proclassic/computermanagement/id/{}/patchfilter/{}": [
+      "GET"
+    ],
+    "/proclassic/computermanagement/id/{}/subset/{}": [
+      "GET"
+    ],
+    "/proclassic/computermanagement/id/{}/username/{}": [
+      "GET"
+    ],
+    "/proclassic/computermanagement/id/{}/username/{}/subset/{}": [
+      "GET"
+    ],
+    "/proclassic/computermanagement/macaddress/{}": [
+      "GET"
+    ],
+    "/proclassic/computermanagement/name/{}": [
+      "GET"
+    ],
+    "/proclassic/computermanagement/serialnumber/{}": [
+      "GET"
+    ],
+    "/proclassic/computermanagement/udid/{}": [
+      "GET"
+    ],
+    "/proclassic/computerreports": [
+      "GET"
+    ],
+    "/proclassic/computerreports/id/{}": [
+      "GET"
+    ],
+    "/proclassic/computerreports/name/{}": [
+      "GET"
+    ],
+    "/proclassic/computers": [
+      "GET"
+    ],
+    "/proclassic/computers/id/{}": [
+      "DELETE",
+      "GET",
+      "POST",
+      "PUT"
+    ],
+    "/proclassic/computers/id/{}/subset/{}": [
+      "GET"
+    ],
+    "/proclassic/computers/macaddress/{}": [
+      "DELETE",
+      "GET",
+      "POST",
+      "PUT"
+    ],
+    "/proclassic/computers/match/name/{}": [
+      "GET"
+    ],
+    "/proclassic/computers/match/{}": [
+      "GET"
+    ],
+    "/proclassic/computers/name/{}": [
+      "DELETE",
+      "GET",
+      "POST",
+      "PUT"
+    ],
+    "/proclassic/computers/serialnumber/{}": [
+      "DELETE",
+      "GET",
+      "POST",
+      "PUT"
+    ],
+    "/proclassic/computers/subset/basic": [
+      "GET"
+    ],
+    "/proclassic/computers/udid/{}": [
+      "DELETE",
+      "GET",
+      "POST",
+      "PUT"
+    ],
+    "/proclassic/departments": [
+      "GET"
+    ],
+    "/proclassic/departments/id/{}": [
+      "DELETE",
+      "GET",
+      "POST",
+      "PUT"
+    ],
+    "/proclassic/departments/name/{}": [
+      "DELETE",
+      "GET",
+      "POST",
+      "PUT"
+    ],
+    "/proclassic/directorybindings": [
+      "GET"
+    ],
+    "/proclassic/directorybindings/id/{}": [
+      "DELETE",
+      "GET",
+      "POST",
+      "PUT"
+    ],
+    "/proclassic/directorybindings/name/{}": [
+      "DELETE",
+      "GET",
+      "POST",
+      "PUT"
+    ],
+    "/proclassic/diskencryptionconfigurations": [
+      "GET"
+    ],
+    "/proclassic/diskencryptionconfigurations/id/{}": [
+      "DELETE",
+      "GET",
+      "POST",
+      "PUT"
+    ],
+    "/proclassic/diskencryptionconfigurations/name/{}": [
+      "DELETE",
+      "GET",
+      "POST",
+      "PUT"
+    ],
+    "/proclassic/distributionpoints": [
+      "GET"
+    ],
+    "/proclassic/distributionpoints/id/{}": [
+      "DELETE",
+      "GET",
+      "POST",
+      "PUT"
+    ],
+    "/proclassic/distributionpoints/name/{}": [
+      "DELETE",
+      "GET",
+      "POST",
+      "PUT"
+    ],
+    "/proclassic/dockitems": [
+      "GET"
+    ],
+    "/proclassic/dockitems/id/{}": [
+      "DELETE",
+      "GET",
+      "POST",
+      "PUT"
+    ],
+    "/proclassic/dockitems/name/{}": [
+      "DELETE",
+      "GET",
+      "POST",
+      "PUT"
+    ],
+    "/proclassic/ebooks": [
+      "GET"
+    ],
+    "/proclassic/ebooks/id/{}": [
+      "DELETE",
+      "GET",
+      "POST",
+      "PUT"
+    ],
+    "/proclassic/ebooks/id/{}/subset/{}": [
+      "GET"
+    ],
+    "/proclassic/ebooks/name/{}": [
+      "DELETE",
+      "GET",
+      "POST",
+      "PUT"
+    ],
+    "/proclassic/fileuploads/{}/{}/{}": [
+      "POST"
+    ],
+    "/proclassic/gsxconnection": [
+      "GET",
+      "PUT"
+    ],
+    "/proclassic/healthcarelistener": [
+      "GET"
+    ],
+    "/proclassic/healthcarelistener/id/{}": [
+      "GET",
+      "PUT"
+    ],
+    "/proclassic/healthcarelistenerrule": [
+      "GET"
+    ],
+    "/proclassic/healthcarelistenerrule/id/{}": [
+      "GET",
+      "POST",
+      "PUT"
+    ],
+    "/proclassic/ibeacons": [
+      "GET"
+    ],
+    "/proclassic/ibeacons/id/{}": [
+      "DELETE",
+      "GET",
+      "POST",
+      "PUT"
+    ],
+    "/proclassic/ibeacons/name/{}": [
+      "DELETE",
+      "GET",
+      "POST",
+      "PUT"
+    ],
+    "/proclassic/infrastructuremanager": [
+      "GET"
+    ],
+    "/proclassic/infrastructuremanager/id/{}": [
+      "DELETE",
+      "GET",
+      "PUT"
+    ],
+    "/proclassic/jsonwebtokenconfigurations": [
+      "GET"
+    ],
+    "/proclassic/jsonwebtokenconfigurations/id/{}": [
+      "DELETE",
+      "GET",
+      "POST",
+      "PUT"
+    ],
+    "/proclassic/jssuser": [
+      "GET"
+    ],
+    "/proclassic/ldapservers": [
+      "GET"
+    ],
+    "/proclassic/ldapservers/id/{}": [
+      "DELETE",
+      "GET",
+      "POST",
+      "PUT"
+    ],
+    "/proclassic/ldapservers/id/{}/group/{}": [
+      "GET"
+    ],
+    "/proclassic/ldapservers/id/{}/group/{}/user/{}": [
+      "GET"
+    ],
+    "/proclassic/ldapservers/id/{}/user/{}": [
+      "GET"
+    ],
+    "/proclassic/ldapservers/name/{}": [
+      "DELETE",
+      "GET",
+      "POST",
+      "PUT"
+    ],
+    "/proclassic/licensedsoftware": [
+      "GET"
+    ],
+    "/proclassic/licensedsoftware/id/{}": [
+      "DELETE",
+      "GET",
+      "POST",
+      "PUT"
+    ],
+    "/proclassic/licensedsoftware/name/{}": [
+      "DELETE",
+      "GET",
+      "POST",
+      "PUT"
+    ],
+    "/proclassic/logflush": [
+      "DELETE"
+    ],
+    "/proclassic/logflush/{}/id/{}/interval/{}": [
+      "DELETE"
+    ],
+    "/proclassic/logflush/{}/interval/{}": [
+      "DELETE"
+    ],
+    "/proclassic/macapplications": [
+      "GET"
+    ],
+    "/proclassic/macapplications/id/{}": [
+      "DELETE",
+      "GET",
+      "POST",
+      "PUT"
+    ],
+    "/proclassic/macapplications/id/{}/subset/{}": [
+      "GET"
+    ],
+    "/proclassic/macapplications/name/{}": [
+      "DELETE",
+      "GET",
+      "POST",
+      "PUT"
+    ],
+    "/proclassic/macapplications/name/{}/subset/{}": [
+      "GET"
+    ],
+    "/proclassic/mobiledeviceapplications": [
+      "GET"
+    ],
+    "/proclassic/mobiledeviceapplications/bundleid/{}": [
+      "DELETE",
+      "GET",
+      "PUT"
+    ],
+    "/proclassic/mobiledeviceapplications/bundleid/{}/version/{}": [
+      "DELETE",
+      "GET",
+      "PUT"
+    ],
+    "/proclassic/mobiledeviceapplications/id/{}": [
+      "DELETE",
+      "GET",
+      "POST",
+      "PUT"
+    ],
+    "/proclassic/mobiledeviceapplications/id/{}/subset/{}": [
+      "GET"
+    ],
+    "/proclassic/mobiledeviceapplications/name/{}": [
+      "DELETE",
+      "GET",
+      "POST",
+      "PUT"
+    ],
+    "/proclassic/mobiledeviceapplications/name/{}/subset/{}": [
+      "GET"
+    ],
+    "/proclassic/mobiledevicecommands": [
+      "GET"
+    ],
+    "/proclassic/mobiledevicecommands/command": [
+      "POST"
+    ],
+    "/proclassic/mobiledevicecommands/command/{}": [
+      "GET",
+      "POST"
+    ],
+    "/proclassic/mobiledevicecommands/command/{}/id/{}": [
+      "POST"
+    ],
+    "/proclassic/mobiledevicecommands/command/{}/{}/id/{}": [
+      "POST"
+    ],
+    "/proclassic/mobiledevicecommands/command/{}/{}/{}/id/{}": [
+      "POST"
+    ],
+    "/proclassic/mobiledevicecommands/name/{}": [
+      "GET",
+      "POST"
+    ],
+    "/proclassic/mobiledevicecommands/uuid/{}": [
+      "GET"
+    ],
+    "/proclassic/mobiledeviceconfigurationprofiles": [
+      "GET"
+    ],
+    "/proclassic/mobiledeviceconfigurationprofiles/id/{}": [
+      "DELETE",
+      "GET",
+      "POST",
+      "PUT"
+    ],
+    "/proclassic/mobiledeviceconfigurationprofiles/id/{}/subset/{}": [
+      "GET"
+    ],
+    "/proclassic/mobiledeviceconfigurationprofiles/name/{}": [
+      "DELETE",
+      "GET",
+      "POST",
+      "PUT"
+    ],
+    "/proclassic/mobiledeviceconfigurationprofiles/name/{}/subset/{}": [
+      "GET"
+    ],
+    "/proclassic/mobiledeviceenrollmentprofiles": [
+      "GET"
+    ],
+    "/proclassic/mobiledeviceenrollmentprofiles/id/{}": [
+      "DELETE",
+      "GET",
+      "POST",
+      "PUT"
+    ],
+    "/proclassic/mobiledeviceenrollmentprofiles/id/{}/subset/{}": [
+      "GET"
+    ],
+    "/proclassic/mobiledeviceenrollmentprofiles/invitation/{}": [
+      "DELETE",
+      "GET",
+      "POST",
+      "PUT"
+    ],
+    "/proclassic/mobiledeviceenrollmentprofiles/invitation/{}/subset/{}": [
+      "GET"
+    ],
+    "/proclassic/mobiledeviceenrollmentprofiles/name/{}": [
+      "DELETE",
+      "GET",
+      "POST",
+      "PUT"
+    ],
+    "/proclassic/mobiledeviceenrollmentprofiles/name/{}/subset/{}": [
+      "GET"
+    ],
+    "/proclassic/mobiledeviceextensionattributes": [
+      "GET"
+    ],
+    "/proclassic/mobiledeviceextensionattributes/id/{}": [
+      "DELETE",
+      "GET",
+      "POST",
+      "PUT"
+    ],
+    "/proclassic/mobiledeviceextensionattributes/name/{}": [
+      "DELETE",
+      "GET",
+      "POST",
+      "PUT"
+    ],
+    "/proclassic/mobiledevicegroups": [
+      "GET"
+    ],
+    "/proclassic/mobiledevicegroups/id/{}": [
+      "DELETE",
+      "GET",
+      "POST",
+      "PUT"
+    ],
+    "/proclassic/mobiledevicegroups/name/{}": [
+      "DELETE",
+      "GET",
+      "POST",
+      "PUT"
+    ],
+    "/proclassic/mobiledevicehistory/id/{}": [
+      "GET"
+    ],
+    "/proclassic/mobiledevicehistory/id/{}/subset/{}": [
+      "GET"
+    ],
+    "/proclassic/mobiledevicehistory/macaddress/{}": [
+      "GET"
+    ],
+    "/proclassic/mobiledevicehistory/name/{}": [
+      "GET"
+    ],
+    "/proclassic/mobiledevicehistory/serialnumber/{}": [
+      "GET"
+    ],
+    "/proclassic/mobiledevicehistory/udid/{}": [
+      "GET"
+    ],
+    "/proclassic/mobiledeviceinvitations": [
+      "GET"
+    ],
+    "/proclassic/mobiledeviceinvitations/id/{}": [
+      "DELETE",
+      "GET",
+      "POST"
+    ],
+    "/proclassic/mobiledeviceinvitations/invitation/{}": [
+      "DELETE",
+      "GET",
+      "POST",
+      "PUT"
+    ],
+    "/proclassic/mobiledeviceprovisioningprofiles": [
+      "GET"
+    ],
+    "/proclassic/mobiledeviceprovisioningprofiles/id/{}": [
+      "DELETE",
+      "GET",
+      "POST",
+      "PUT"
+    ],
+    "/proclassic/mobiledeviceprovisioningprofiles/id/{}/subset/{}": [
+      "GET"
+    ],
+    "/proclassic/mobiledeviceprovisioningprofiles/name/{}": [
+      "DELETE",
+      "GET",
+      "POST",
+      "PUT"
+    ],
+    "/proclassic/mobiledeviceprovisioningprofiles/uuid/{}": [
+      "DELETE",
+      "GET",
+      "POST",
+      "PUT"
+    ],
+    "/proclassic/mobiledevices": [
+      "GET"
+    ],
+    "/proclassic/mobiledevices/id/{}": [
+      "DELETE",
+      "GET",
+      "POST",
+      "PUT"
+    ],
+    "/proclassic/mobiledevices/id/{}/subset/{}": [
+      "GET"
+    ],
+    "/proclassic/mobiledevices/macaddress/{}": [
+      "DELETE",
+      "GET",
+      "POST",
+      "PUT"
+    ],
+    "/proclassic/mobiledevices/match/{}": [
+      "GET"
+    ],
+    "/proclassic/mobiledevices/name/{}": [
+      "DELETE",
+      "GET",
+      "POST",
+      "PUT"
+    ],
+    "/proclassic/mobiledevices/serialnumber/{}": [
+      "DELETE",
+      "GET",
+      "POST",
+      "PUT"
+    ],
+    "/proclassic/mobiledevices/udid/{}": [
+      "DELETE",
+      "GET",
+      "POST",
+      "PUT"
+    ],
+    "/proclassic/networksegments": [
+      "GET"
+    ],
+    "/proclassic/networksegments/id/{}": [
+      "DELETE",
+      "GET",
+      "POST",
+      "PUT"
+    ],
+    "/proclassic/networksegments/name/{}": [
+      "DELETE",
+      "GET",
+      "POST",
+      "PUT"
+    ],
+    "/proclassic/osxconfigurationprofiles": [
+      "GET"
+    ],
+    "/proclassic/osxconfigurationprofiles/id/{}": [
+      "DELETE",
+      "GET",
+      "POST",
+      "PUT"
+    ],
+    "/proclassic/osxconfigurationprofiles/id/{}/subset/{}": [
+      "GET"
+    ],
+    "/proclassic/osxconfigurationprofiles/name/{}": [
+      "DELETE",
+      "GET",
+      "POST",
+      "PUT"
+    ],
+    "/proclassic/osxconfigurationprofiles/name/{}/subset/{}": [
+      "GET"
+    ],
+    "/proclassic/packages": [
+      "GET"
+    ],
+    "/proclassic/packages/id/{}": [
+      "DELETE",
+      "GET",
+      "POST",
+      "PUT"
+    ],
+    "/proclassic/packages/name/{}": [
+      "DELETE",
+      "GET",
+      "POST",
+      "PUT"
+    ],
+    "/proclassic/patchavailabletitles/sourceid/{}": [
+      "GET"
+    ],
+    "/proclassic/patches": [
+      "GET"
+    ],
+    "/proclassic/patches/id/{}": [
+      "DELETE",
+      "GET",
+      "POST",
+      "PUT"
+    ],
+    "/proclassic/patches/id/{}/version/{}": [
+      "GET"
+    ],
+    "/proclassic/patches/name/{}": [
+      "GET"
+    ],
+    "/proclassic/patchexternalsources": [
+      "GET"
+    ],
+    "/proclassic/patchexternalsources/id/{}": [
+      "DELETE",
+      "GET",
+      "POST",
+      "PUT"
+    ],
+    "/proclassic/patchexternalsources/name/{}": [
+      "DELETE",
+      "GET",
+      "POST",
+      "PUT"
+    ],
+    "/proclassic/patchinternalsources": [
+      "GET"
+    ],
+    "/proclassic/patchinternalsources/id/{}": [
+      "GET"
+    ],
+    "/proclassic/patchinternalsources/name/{}": [
+      "GET"
+    ],
+    "/proclassic/patchpolicies": [
+      "GET"
+    ],
+    "/proclassic/patchpolicies/id/{}": [
+      "DELETE",
+      "GET",
+      "PUT"
+    ],
+    "/proclassic/patchpolicies/id/{}/subset/{}": [
+      "GET"
+    ],
+    "/proclassic/patchpolicies/softwaretitleconfig/id/{}": [
+      "GET",
+      "POST"
+    ],
+    "/proclassic/patchreports/patchsoftwaretitleid/{}": [
+      "GET"
+    ],
+    "/proclassic/patchreports/patchsoftwaretitleid/{}/version/{}": [
+      "GET"
+    ],
+    "/proclassic/patchsoftwaretitles": [
+      "GET"
+    ],
+    "/proclassic/patchsoftwaretitles/id/{}": [
+      "DELETE",
+      "GET",
+      "POST",
+      "PUT"
+    ],
+    "/proclassic/policies": [
+      "GET"
+    ],
+    "/proclassic/policies/category/{}": [
+      "GET"
+    ],
+    "/proclassic/policies/createdBy/{}": [
+      "GET"
+    ],
+    "/proclassic/policies/id/{}": [
+      "DELETE",
+      "GET",
+      "POST",
+      "PUT"
+    ],
+    "/proclassic/policies/id/{}/subset/{}": [
+      "GET"
+    ],
+    "/proclassic/policies/name/{}": [
+      "DELETE",
+      "GET",
+      "POST",
+      "PUT"
+    ],
+    "/proclassic/printers": [
+      "GET"
+    ],
+    "/proclassic/printers/id/{}": [
+      "DELETE",
+      "GET",
+      "POST",
+      "PUT"
+    ],
+    "/proclassic/printers/name/{}": [
+      "DELETE",
+      "GET",
+      "POST",
+      "PUT"
+    ],
+    "/proclassic/removablemacaddresses": [
+      "GET"
+    ],
+    "/proclassic/removablemacaddresses/id/{}": [
+      "DELETE",
+      "GET",
+      "POST",
+      "PUT"
+    ],
+    "/proclassic/removablemacaddresses/name/{}": [
+      "DELETE",
+      "GET",
+      "POST",
+      "PUT"
+    ],
+    "/proclassic/restrictedsoftware": [
+      "GET"
+    ],
+    "/proclassic/restrictedsoftware/id/{}": [
+      "DELETE",
+      "GET",
+      "POST",
+      "PUT"
+    ],
+    "/proclassic/restrictedsoftware/name/{}": [
+      "DELETE",
+      "GET",
+      "POST",
+      "PUT"
+    ],
+    "/proclassic/savedsearches": [
+      "GET"
+    ],
+    "/proclassic/savedsearches/id/{}": [
+      "GET"
+    ],
+    "/proclassic/savedsearches/name/{}": [
+      "GET"
+    ],
+    "/proclassic/scripts": [
+      "GET"
+    ],
+    "/proclassic/scripts/id/{}": [
+      "DELETE",
+      "GET",
+      "POST",
+      "PUT"
+    ],
+    "/proclassic/scripts/name/{}": [
+      "DELETE",
+      "GET",
+      "POST",
+      "PUT"
+    ],
+    "/proclassic/sites": [
+      "GET"
+    ],
+    "/proclassic/sites/id/{}": [
+      "DELETE",
+      "GET",
+      "POST",
+      "PUT"
+    ],
+    "/proclassic/sites/name/{}": [
+      "DELETE",
+      "GET",
+      "POST",
+      "PUT"
+    ],
+    "/proclassic/smtpserver": [
+      "GET",
+      "PUT"
+    ],
+    "/proclassic/softwareupdateservers": [
+      "GET"
+    ],
+    "/proclassic/softwareupdateservers/id/{}": [
+      "DELETE",
+      "GET",
+      "POST",
+      "PUT"
+    ],
+    "/proclassic/softwareupdateservers/name/{}": [
+      "DELETE",
+      "GET",
+      "POST",
+      "PUT"
+    ],
+    "/proclassic/userextensionattributes": [
+      "GET"
+    ],
+    "/proclassic/userextensionattributes/id/{}": [
+      "DELETE",
+      "GET",
+      "POST",
+      "PUT"
+    ],
+    "/proclassic/userextensionattributes/name/{}": [
+      "DELETE",
+      "GET",
+      "POST",
+      "PUT"
+    ],
+    "/proclassic/usergroups": [
+      "GET"
+    ],
+    "/proclassic/usergroups/id/{}": [
+      "DELETE",
+      "GET",
+      "POST",
+      "PUT"
+    ],
+    "/proclassic/usergroups/name/{}": [
+      "DELETE",
+      "GET",
+      "POST",
+      "PUT"
+    ],
+    "/proclassic/users": [
+      "GET"
+    ],
+    "/proclassic/users/email/{}": [
+      "GET"
+    ],
+    "/proclassic/users/id/{}": [
+      "DELETE",
+      "GET",
+      "POST",
+      "PUT"
+    ],
+    "/proclassic/users/name/{}": [
+      "DELETE",
+      "GET",
+      "POST",
+      "PUT"
+    ],
+    "/proclassic/vppaccounts": [
+      "GET"
+    ],
+    "/proclassic/vppaccounts/id/{}": [
+      "DELETE",
+      "GET",
+      "POST",
+      "PUT"
+    ],
+    "/proclassic/vppassignments": [
+      "GET"
+    ],
+    "/proclassic/vppassignments/id/{}": [
+      "DELETE",
+      "GET",
+      "POST",
+      "PUT"
+    ],
+    "/proclassic/vppinvitations": [
+      "GET"
+    ],
+    "/proclassic/vppinvitations/id/{}": [
+      "DELETE",
+      "GET",
+      "POST",
+      "PUT"
+    ],
+    "/proclassic/vppinvitations/id/{}/subset/{}": [
+      "GET"
+    ],
+    "/proclassic/webhooks": [
+      "GET"
+    ],
+    "/proclassic/webhooks/id/{}": [
+      "DELETE",
+      "GET",
+      "POST",
+      "PUT"
+    ],
+    "/proclassic/webhooks/name/{}": [
+      "DELETE",
+      "GET",
+      "POST",
+      "PUT"
+    ]
+  },
+  "scopes": {
+    "/pro/devices/extensionAttributes": {
+      "GET": [
+        "extension-attributes:read"
+      ]
+    },
+    "/pro/inventory-preload": {
+      "DELETE": [
+        "inventory-preload-records:delete"
+      ],
+      "GET": [
+        "inventory-preload-records:read"
+      ],
+      "POST": [
+        "inventory-preload-records:create"
+      ]
+    },
+    "/pro/inventory-preload/csv-template": {
+      "GET": [
+        "inventory-preload-records:read"
+      ]
+    },
+    "/pro/inventory-preload/history": {
+      "GET": [
+        "inventory-preload-records:read"
+      ]
+    },
+    "/pro/inventory-preload/history/notes": {
+      "POST": [
+        "inventory-preload-records:update"
+      ]
+    },
+    "/pro/inventory-preload/validate-csv": {
+      "POST": [
+        "inventory-preload-records:create"
+      ]
+    },
+    "/pro/inventory-preload/{}": {
+      "DELETE": [
+        "inventory-preload-records:delete"
+      ],
+      "GET": [
+        "inventory-preload-records:read"
+      ],
+      "PUT": [
+        "inventory-preload-records:update"
+      ]
+    },
+    "/pro/ldap/groups": {
+      "GET": [
+        "ldap-servers:read"
+      ]
+    },
+    "/pro/ldap/servers": {
+      "GET": [
+        "ldap-servers:read"
+      ]
+    },
+    "/pro/preview/computers": {
+      "GET": [
+        "devices:read"
+      ]
+    },
+    "/pro/preview/remote-administration-configurations": {
+      "GET": [
+        "remote-administration:read"
+      ]
+    },
+    "/pro/preview/remote-administration-configurations/team-viewer": {
+      "POST": [
+        "remote-administration:create"
+      ]
+    },
+    "/pro/preview/remote-administration-configurations/team-viewer/{}": {
+      "DELETE": [
+        "remote-administration:delete"
+      ],
+      "GET": [
+        "remote-administration:read"
+      ],
+      "PATCH": [
+        "remote-administration:update"
+      ]
+    },
+    "/pro/preview/remote-administration-configurations/team-viewer/{}/sessions": {
+      "GET": [
+        "remote-administration:read"
+      ],
+      "POST": [
+        "remote-administration:create"
+      ]
+    },
+    "/pro/preview/remote-administration-configurations/team-viewer/{}/sessions/{}": {
+      "GET": [
+        "remote-administration:read"
+      ]
+    },
+    "/pro/preview/remote-administration-configurations/team-viewer/{}/sessions/{}/close": {
+      "POST": [
+        "remote-administration:update"
+      ]
+    },
+    "/pro/preview/remote-administration-configurations/team-viewer/{}/sessions/{}/resend-notification": {
+      "POST": [
+        "remote-administration:update"
+      ]
+    },
+    "/pro/preview/remote-administration-configurations/team-viewer/{}/sessions/{}/status": {
+      "GET": [
+        "remote-administration:read"
+      ]
+    },
+    "/pro/preview/remote-administration-configurations/team-viewer/{}/status": {
+      "GET": [
+        "remote-administration:read"
+      ]
+    },
+    "/pro/self-service/branding/images": {
+      "POST": [
+        "self-service:update"
+      ]
+    },
+    "/pro/settings/issueTomcatSslCertificate": {
+      "POST": [
+        "apache-tomcat-settings:update"
+      ]
+    },
+    "/pro/settings/obj/policyProperties": {
+      "GET": [
+        "policies:read"
+      ],
+      "PUT": [
+        "policies:update"
+      ]
+    },
+    "/pro/user": {
+      "GET": [
+        "accounts:read"
+      ]
+    },
+    "/pro/v1/account-groups": {
+      "GET": [
+        "account-groups:read"
+      ]
+    },
+    "/pro/v1/account-groups/{}": {
+      "GET": [
+        "account-groups:read"
+      ]
+    },
+    "/pro/v1/accounts": {
+      "GET": [
+        "accounts:read"
+      ],
+      "POST": [
+        "accounts:create"
+      ]
+    },
+    "/pro/v1/accounts/{}": {
+      "DELETE": [
+        "accounts:delete"
+      ],
+      "GET": [
+        "accounts:read"
+      ],
+      "PUT": [
+        "accounts:update"
+      ]
+    },
+    "/pro/v1/activation-code": {
+      "PUT": [
+        "activation-code:update"
+      ]
+    },
+    "/pro/v1/activation-code/history": {
+      "GET": [
+        "activation-code:read"
+      ],
+      "POST": [
+        "activation-code:update"
+      ]
+    },
+    "/pro/v1/activation-code/history/export": {
+      "POST": [
+        "activation-code:read"
+      ]
+    },
+    "/pro/v1/activation-code/organization-name": {
+      "PATCH": [
+        "activation-code:update"
+      ]
+    },
+    "/pro/v1/adue-session-token-settings": {
+      "GET": [
+        "user-initiated-enrollment:read"
+      ],
+      "PUT": [
+        "user-initiated-enrollment:update"
+      ]
+    },
+    "/pro/v1/advanced-mobile-device-searches": {
+      "GET": [
+        "advanced-device-searches:read"
+      ],
+      "POST": [
+        "advanced-device-searches:create"
+      ]
+    },
+    "/pro/v1/advanced-mobile-device-searches/choices": {
+      "GET": [
+        "advanced-device-searches:read"
+      ]
+    },
+    "/pro/v1/advanced-mobile-device-searches/delete-multiple": {
+      "POST": [
+        "advanced-device-searches:delete"
+      ]
+    },
+    "/pro/v1/advanced-mobile-device-searches/{}": {
+      "DELETE": [
+        "advanced-device-searches:delete"
+      ],
+      "GET": [
+        "advanced-device-searches:read"
+      ],
+      "PUT": [
+        "advanced-device-searches:update"
+      ]
+    },
+    "/pro/v1/advanced-user-content-searches": {
+      "GET": [
+        "advanced-user-searches:read"
+      ],
+      "POST": [
+        "advanced-user-searches:create"
+      ]
+    },
+    "/pro/v1/advanced-user-content-searches/{}": {
+      "DELETE": [
+        "advanced-user-searches:delete"
+      ],
+      "GET": [
+        "advanced-user-searches:read"
+      ],
+      "PUT": [
+        "advanced-user-searches:update"
+      ]
+    },
+    "/pro/v1/apns-client-push-status": {
+      "GET": [
+        "device-actions:read"
+      ]
+    },
+    "/pro/v1/apns-client-push-status/enable-all-clients": {
+      "POST": [
+        "device-actions:execute"
+      ]
+    },
+    "/pro/v1/apns-client-push-status/enable-all-clients/status": {
+      "GET": [
+        "device-actions:read"
+      ]
+    },
+    "/pro/v1/apns-client-push-status/enable-client": {
+      "POST": [
+        "device-actions:execute"
+      ]
+    },
+    "/pro/v1/app-request/form-input-fields": {
+      "GET": [
+        "app-request:read"
+      ],
+      "POST": [
+        "app-request:update"
+      ],
+      "PUT": [
+        "app-request:update"
+      ]
+    },
+    "/pro/v1/app-request/form-input-fields/{}": {
+      "DELETE": [
+        "app-request:update"
+      ],
+      "GET": [
+        "app-request:read"
+      ],
+      "PUT": [
+        "app-request:update"
+      ]
+    },
+    "/pro/v1/app-request/settings": {
+      "GET": [
+        "app-request:read"
+      ],
+      "PUT": [
+        "app-request:update"
+      ]
+    },
+    "/pro/v1/buildings": {
+      "GET": [
+        "buildings:read"
+      ],
+      "POST": [
+        "buildings:create"
+      ]
+    },
+    "/pro/v1/buildings/delete-multiple": {
+      "POST": [
+        "buildings:delete"
+      ]
+    },
+    "/pro/v1/buildings/export": {
+      "POST": [
+        "buildings:read"
+      ]
+    },
+    "/pro/v1/buildings/{}": {
+      "DELETE": [
+        "buildings:delete"
+      ],
+      "GET": [
+        "buildings:read"
+      ],
+      "PUT": [
+        "buildings:update"
+      ]
+    },
+    "/pro/v1/buildings/{}/history": {
+      "GET": [
+        "buildings:read"
+      ],
+      "POST": [
+        "buildings:update"
+      ]
+    },
+    "/pro/v1/buildings/{}/history/export": {
+      "POST": [
+        "buildings:read"
+      ]
+    },
+    "/pro/v1/cache-settings": {
+      "GET": [
+        "cache:read"
+      ],
+      "PUT": [
+        "cache:update"
+      ]
+    },
+    "/pro/v1/categories": {
+      "GET": [
+        "categories:read",
+        "self-service:read"
+      ],
+      "POST": [
+        "categories:create"
+      ]
+    },
+    "/pro/v1/categories/delete-multiple": {
+      "POST": [
+        "categories:delete"
+      ]
+    },
+    "/pro/v1/categories/{}": {
+      "DELETE": [
+        "categories:delete"
+      ],
+      "GET": [
+        "categories:read"
+      ],
+      "PUT": [
+        "categories:update"
+      ]
+    },
+    "/pro/v1/categories/{}/history": {
+      "GET": [
+        "categories:read"
+      ],
+      "POST": [
+        "categories:update"
+      ]
+    },
+    "/pro/v1/classic-ldap/{}": {
+      "GET": [
+        "ldap-servers:read"
+      ]
+    },
+    "/pro/v1/cloud-azure": {
+      "POST": [
+        "ldap-servers:create"
+      ]
+    },
+    "/pro/v1/cloud-azure/defaults/mappings": {
+      "GET": [
+        "ldap-servers:read"
+      ]
+    },
+    "/pro/v1/cloud-azure/defaults/server-configuration": {
+      "GET": [
+        "ldap-servers:read"
+      ]
+    },
+    "/pro/v1/cloud-azure/{}": {
+      "DELETE": [
+        "ldap-servers:delete"
+      ],
+      "GET": [
+        "ldap-servers:read"
+      ],
+      "PUT": [
+        "ldap-servers:update"
+      ]
+    },
+    "/pro/v1/cloud-distribution-point": {
+      "DELETE": [
+        "cloud-distribution-point:update"
+      ],
+      "GET": [
+        "cloud-distribution-point:read"
+      ],
+      "PATCH": [
+        "cloud-distribution-point:update"
+      ],
+      "POST": [
+        "cloud-distribution-point:update"
+      ]
+    },
+    "/pro/v1/cloud-distribution-point/fail-upload/{}": {
+      "POST": [
+        "cloud-distribution-point:update"
+      ]
+    },
+    "/pro/v1/cloud-distribution-point/files": {
+      "GET": [
+        "cloud-distribution-point:read"
+      ]
+    },
+    "/pro/v1/cloud-distribution-point/history": {
+      "GET": [
+        "cloud-distribution-point:read"
+      ],
+      "POST": [
+        "cloud-distribution-point:update"
+      ]
+    },
+    "/pro/v1/cloud-distribution-point/refresh-inventory": {
+      "POST": [
+        "cloud-distribution-point:read"
+      ]
+    },
+    "/pro/v1/cloud-distribution-point/test-connection": {
+      "GET": [
+        "cloud-distribution-point:read"
+      ]
+    },
+    "/pro/v1/cloud-idp": {
+      "GET": [
+        "ldap-servers:read"
+      ]
+    },
+    "/pro/v1/cloud-idp/export": {
+      "POST": [
+        "ldap-servers:read"
+      ]
+    },
+    "/pro/v1/cloud-idp/{}": {
+      "GET": [
+        "ldap-servers:read"
+      ]
+    },
+    "/pro/v1/cloud-idp/{}/history": {
+      "GET": [
+        "ldap-servers:read"
+      ],
+      "POST": [
+        "ldap-servers:update"
+      ]
+    },
+    "/pro/v1/cloud-idp/{}/test-group": {
+      "POST": [
+        "ldap-servers:read"
+      ]
+    },
+    "/pro/v1/cloud-idp/{}/test-user": {
+      "POST": [
+        "ldap-servers:read"
+      ]
+    },
+    "/pro/v1/cloud-idp/{}/test-user-membership": {
+      "POST": [
+        "ldap-servers:read"
+      ]
+    },
+    "/pro/v1/computer-extension-attributes": {
+      "GET": [
+        "extension-attributes:read"
+      ],
+      "POST": [
+        "extension-attributes:create"
+      ]
+    },
+    "/pro/v1/computer-extension-attributes/delete-multiple": {
+      "POST": [
+        "extension-attributes:delete"
+      ]
+    },
+    "/pro/v1/computer-extension-attributes/templates": {
+      "GET": [
+        "extension-attributes:read"
+      ]
+    },
+    "/pro/v1/computer-extension-attributes/templates/{}": {
+      "GET": [
+        "extension-attributes:read"
+      ]
+    },
+    "/pro/v1/computer-extension-attributes/upload": {
+      "POST": [
+        "extension-attributes:create",
+        "extension-attributes:read"
+      ]
+    },
+    "/pro/v1/computer-extension-attributes/{}": {
+      "DELETE": [
+        "extension-attributes:delete"
+      ],
+      "GET": [
+        "extension-attributes:read"
+      ],
+      "PUT": [
+        "extension-attributes:update"
+      ]
+    },
+    "/pro/v1/computer-extension-attributes/{}/data-dependency": {
+      "GET": [
+        "extension-attributes:read"
+      ]
+    },
+    "/pro/v1/computer-extension-attributes/{}/download": {
+      "GET": [
+        "extension-attributes:read"
+      ]
+    },
+    "/pro/v1/computer-extension-attributes/{}/history": {
+      "GET": [
+        "extension-attributes:read"
+      ],
+      "POST": [
+        "extension-attributes:update"
+      ]
+    },
+    "/pro/v1/computer-groups": {
+      "GET": [
+        "device-groups:read"
+      ]
+    },
+    "/pro/v1/computer-inventory-collection-settings": {
+      "GET": [
+        "computer-inventory-collection-settings:read"
+      ],
+      "PATCH": [
+        "computer-inventory-collection-settings:update"
+      ]
+    },
+    "/pro/v1/computer-inventory-collection-settings/custom-path": {
+      "POST": [
+        "custom-paths:create"
+      ]
+    },
+    "/pro/v1/computer-inventory-collection-settings/custom-path/{}": {
+      "DELETE": [
+        "custom-paths:delete"
+      ]
+    },
+    "/pro/v1/computer-inventory/{}/erase": {
+      "POST": [
+        "destructive-device-actions:execute"
+      ]
+    },
+    "/pro/v1/computer-inventory/{}/remove-mdm-profile": {
+      "POST": [
+        "destructive-device-actions:execute"
+      ]
+    },
+    "/pro/v1/computers-inventory": {
+      "GET": [
+        "devices:read"
+      ],
+      "POST": [
+        "devices:create"
+      ]
+    },
+    "/pro/v1/computers-inventory-detail/{}": {
+      "GET": [
+        "devices:read"
+      ],
+      "PATCH": [
+        "devices:update"
+      ]
+    },
+    "/pro/v1/computers-inventory/filevault": {
+      "GET": [
+        "disk-encryption-recovery-key:read"
+      ]
+    },
+    "/pro/v1/computers-inventory/{}": {
+      "DELETE": [
+        "destructive-device-actions:execute"
+      ],
+      "GET": [
+        "devices:read"
+      ]
+    },
+    "/pro/v1/computers-inventory/{}/attachments": {
+      "POST": [
+        "devices:update"
+      ]
+    },
+    "/pro/v1/computers-inventory/{}/attachments/{}": {
+      "DELETE": [
+        "devices:update"
+      ],
+      "GET": [
+        "devices:read"
+      ]
+    },
+    "/pro/v1/computers-inventory/{}/filevault": {
+      "GET": [
+        "disk-encryption-recovery-key:read"
+      ]
+    },
+    "/pro/v1/computers-inventory/{}/view-device-lock-pin": {
+      "GET": [
+        "computer-device-lock-pin:read"
+      ]
+    },
+    "/pro/v1/computers-inventory/{}/view-recovery-lock-password": {
+      "GET": [
+        "recovery-lock:read"
+      ]
+    },
+    "/pro/v1/computers/{}/recalculate-smart-groups": {
+      "POST": [
+        "device-groups:update"
+      ]
+    },
+    "/pro/v1/conditional-access/device-compliance-information/computer/{}": {
+      "GET": [
+        "device-compliance-information:read"
+      ]
+    },
+    "/pro/v1/conditional-access/device-compliance-information/mobile/{}": {
+      "GET": [
+        "device-compliance-information:read"
+      ]
+    },
+    "/pro/v1/conditional-access/device-compliance/feature-toggle": {
+      "GET": [
+        "conditional-access:read"
+      ]
+    },
+    "/pro/v1/csa/token": {
+      "DELETE": [
+        "cloud-services-settings:update"
+      ],
+      "GET": [
+        "cloud-services-settings:read"
+      ]
+    },
+    "/pro/v1/ddm/{}/status-items": {
+      "GET": [
+        "devices:read"
+      ]
+    },
+    "/pro/v1/ddm/{}/status-items/{}": {
+      "GET": [
+        "devices:read"
+      ]
+    },
+    "/pro/v1/ddm/{}/sync": {
+      "POST": [
+        "device-actions:execute"
+      ]
+    },
+    "/pro/v1/departments": {
+      "GET": [
+        "departments:read"
+      ],
+      "POST": [
+        "departments:create"
+      ]
+    },
+    "/pro/v1/departments/delete-multiple": {
+      "POST": [
+        "departments:delete"
+      ]
+    },
+    "/pro/v1/departments/{}": {
+      "DELETE": [
+        "departments:delete"
+      ],
+      "GET": [
+        "departments:read"
+      ],
+      "PUT": [
+        "departments:update"
+      ]
+    },
+    "/pro/v1/departments/{}/history": {
+      "GET": [
+        "departments:read"
+      ],
+      "POST": [
+        "departments:update"
+      ]
+    },
+    "/pro/v1/deploy-package": {
+      "POST": [
+        "device-actions:execute"
+      ]
+    },
+    "/pro/v1/device-communication-settings": {
+      "GET": [
+        "mdm-profile-renewal-settings:read"
+      ],
+      "PUT": [
+        "mdm-profile-renewal-settings:update"
+      ]
+    },
+    "/pro/v1/device-communication-settings/history": {
+      "GET": [
+        "mdm-profile-renewal-settings:read"
+      ],
+      "POST": [
+        "mdm-profile-renewal-settings:update"
+      ]
+    },
+    "/pro/v1/device-enrollments": {
+      "GET": [
+        "device-enrollment-program-instances:read"
+      ]
+    },
+    "/pro/v1/device-enrollments/public-key": {
+      "GET": [
+        "device-enrollment-program-instances:read"
+      ]
+    },
+    "/pro/v1/device-enrollments/syncs": {
+      "GET": [
+        "device-enrollment-program-instances:read"
+      ]
+    },
+    "/pro/v1/device-enrollments/upload-token": {
+      "POST": [
+        "device-enrollment-program-instances:create"
+      ]
+    },
+    "/pro/v1/device-enrollments/{}": {
+      "DELETE": [
+        "device-enrollment-program-instances:delete"
+      ],
+      "GET": [
+        "device-enrollment-program-instances:read"
+      ],
+      "PUT": [
+        "device-enrollment-program-instances:update"
+      ]
+    },
+    "/pro/v1/device-enrollments/{}/devices": {
+      "GET": [
+        "device-enrollment-program-instances:read"
+      ]
+    },
+    "/pro/v1/device-enrollments/{}/disown": {
+      "POST": [
+        "device-enrollment-program-instances:update"
+      ]
+    },
+    "/pro/v1/device-enrollments/{}/history": {
+      "GET": [
+        "device-enrollment-program-instances:read"
+      ],
+      "POST": [
+        "device-enrollment-program-instances:update"
+      ]
+    },
+    "/pro/v1/device-enrollments/{}/syncs": {
+      "GET": [
+        "device-enrollment-program-instances:read"
+      ]
+    },
+    "/pro/v1/device-enrollments/{}/syncs/latest": {
+      "GET": [
+        "device-enrollment-program-instances:read"
+      ]
+    },
+    "/pro/v1/device-enrollments/{}/upload-token": {
+      "PUT": [
+        "device-enrollment-program-instances:update"
+      ]
+    },
+    "/pro/v1/devices/{}/groups": {
+      "GET": [
+        "device-groups:read",
+        "devices:read"
+      ]
+    },
+    "/pro/v1/distribution-points": {
+      "GET": [
+        "distribution-points:read"
+      ],
+      "POST": [
+        "distribution-points:create"
+      ]
+    },
+    "/pro/v1/distribution-points/delete-multiple": {
+      "POST": [
+        "distribution-points:delete"
+      ]
+    },
+    "/pro/v1/distribution-points/{}": {
+      "DELETE": [
+        "distribution-points:delete"
+      ],
+      "GET": [
+        "distribution-points:read"
+      ],
+      "PATCH": [
+        "distribution-points:read",
+        "distribution-points:update"
+      ],
+      "PUT": [
+        "distribution-points:read",
+        "distribution-points:update"
+      ]
+    },
+    "/pro/v1/distribution-points/{}/history": {
+      "GET": [
+        "distribution-points:read"
+      ],
+      "POST": [
+        "distribution-points:update"
+      ]
+    },
+    "/pro/v1/dock-items": {
+      "POST": [
+        "dock-items:create"
+      ]
+    },
+    "/pro/v1/dock-items/{}": {
+      "DELETE": [
+        "dock-items:delete"
+      ],
+      "GET": [
+        "dock-items:read"
+      ],
+      "PUT": [
+        "dock-items:update"
+      ]
+    },
+    "/pro/v1/dss-declarations/{}": {
+      "GET": [
+        "declarations:read"
+      ]
+    },
+    "/pro/v1/ebooks": {
+      "GET": [
+        "ebooks:read"
+      ]
+    },
+    "/pro/v1/ebooks/{}": {
+      "GET": [
+        "ebooks:read"
+      ]
+    },
+    "/pro/v1/ebooks/{}/scope": {
+      "GET": [
+        "ebooks:read"
+      ]
+    },
+    "/pro/v1/enrollment-customization/parse-markdown": {
+      "POST": [
+        "enrollment-customization:read"
+      ]
+    },
+    "/pro/v1/enrollment-customization/{}/all": {
+      "GET": [
+        "enrollment-customization:read"
+      ]
+    },
+    "/pro/v1/enrollment-customization/{}/all/{}": {
+      "DELETE": [
+        "enrollment-customization:update"
+      ],
+      "GET": [
+        "enrollment-customization:read"
+      ]
+    },
+    "/pro/v1/enrollment-customization/{}/ldap": {
+      "POST": [
+        "enrollment-customization:update"
+      ]
+    },
+    "/pro/v1/enrollment-customization/{}/ldap/{}": {
+      "DELETE": [
+        "enrollment-customization:update"
+      ],
+      "GET": [
+        "enrollment-customization:read"
+      ],
+      "PUT": [
+        "enrollment-customization:update"
+      ]
+    },
+    "/pro/v1/enrollment-customization/{}/sso": {
+      "POST": [
+        "enrollment-customization:update"
+      ]
+    },
+    "/pro/v1/enrollment-customization/{}/sso/{}": {
+      "DELETE": [
+        "enrollment-customization:update"
+      ],
+      "GET": [
+        "enrollment-customization:read"
+      ],
+      "PUT": [
+        "enrollment-customization:update"
+      ]
+    },
+    "/pro/v1/enrollment-customization/{}/text": {
+      "POST": [
+        "enrollment-customization:update"
+      ]
+    },
+    "/pro/v1/enrollment-customization/{}/text/{}": {
+      "DELETE": [
+        "enrollment-customization:update"
+      ],
+      "GET": [
+        "enrollment-customization:read"
+      ],
+      "PUT": [
+        "enrollment-customization:update"
+      ]
+    },
+    "/pro/v1/enrollment-customization/{}/text/{}/markdown": {
+      "GET": [
+        "enrollment-customization:read"
+      ]
+    },
+    "/pro/v1/groups": {
+      "GET": [
+        "device-groups:read"
+      ]
+    },
+    "/pro/v1/groups/{}": {
+      "DELETE": [
+        "device-groups:delete"
+      ],
+      "GET": [
+        "device-groups:read"
+      ],
+      "PATCH": [
+        "device-groups:update"
+      ]
+    },
+    "/pro/v1/gsx-connection": {
+      "GET": [
+        "gsx-connection:read",
+        "push-certificates:read"
+      ],
+      "PATCH": [
+        "gsx-connection:update",
+        "push-certificates:update"
+      ],
+      "PUT": [
+        "gsx-connection:update",
+        "push-certificates:update"
+      ]
+    },
+    "/pro/v1/gsx-connection/history": {
+      "GET": [
+        "gsx-connection:read"
+      ],
+      "POST": [
+        "gsx-connection:update"
+      ]
+    },
+    "/pro/v1/gsx-connection/test": {
+      "POST": [
+        "gsx-connection:read"
+      ]
+    },
+    "/pro/v1/impact-alert-notification-settings": {
+      "GET": [
+        "impact-alert-notification-settings:read"
+      ],
+      "PUT": [
+        "impact-alert-notification-settings:update"
+      ]
+    },
+    "/pro/v1/inventory-preload": {
+      "DELETE": [
+        "inventory-preload-records:delete"
+      ],
+      "GET": [
+        "inventory-preload-records:read"
+      ],
+      "POST": [
+        "inventory-preload-records:create"
+      ]
+    },
+    "/pro/v1/inventory-preload/csv-template": {
+      "GET": [
+        "inventory-preload-records:read"
+      ]
+    },
+    "/pro/v1/inventory-preload/history": {
+      "GET": [
+        "inventory-preload-records:read"
+      ],
+      "POST": [
+        "inventory-preload-records:update"
+      ]
+    },
+    "/pro/v1/inventory-preload/validate-csv": {
+      "POST": [
+        "inventory-preload-records:create"
+      ]
+    },
+    "/pro/v1/inventory-preload/{}": {
+      "DELETE": [
+        "inventory-preload-records:delete"
+      ],
+      "GET": [
+        "inventory-preload-records:read"
+      ],
+      "PUT": [
+        "inventory-preload-records:update"
+      ]
+    },
+    "/pro/v1/jamf-connect": {
+      "GET": [
+        "jamf-connect-deployments:read"
+      ]
+    },
+    "/pro/v1/jamf-connect/config-profiles": {
+      "GET": [
+        "jamf-connect-deployments:read"
+      ]
+    },
+    "/pro/v1/jamf-connect/config-profiles/{}": {
+      "PUT": [
+        "jamf-connect-deployments:update"
+      ]
+    },
+    "/pro/v1/jamf-connect/deployments/{}/tasks": {
+      "GET": [
+        "jamf-connect-deployments:read"
+      ]
+    },
+    "/pro/v1/jamf-connect/deployments/{}/tasks/retry": {
+      "POST": [
+        "jamf-connect-deployments:deploy"
+      ]
+    },
+    "/pro/v1/jamf-connect/history": {
+      "GET": [
+        "jamf-connect-deployments:read"
+      ],
+      "POST": [
+        "jamf-connect-deployments:update"
+      ]
+    },
+    "/pro/v1/jamf-management-framework/redeploy/{}": {
+      "POST": [
+        "computer-check-in:read",
+        "device-actions:execute"
+      ]
+    },
+    "/pro/v1/jamf-package": {
+      "GET": [
+        "jamf-packages-action:read"
+      ]
+    },
+    "/pro/v1/jamf-pro-server-url": {
+      "GET": [
+        "jss-url:read"
+      ],
+      "PUT": [
+        "jss-url:update"
+      ]
+    },
+    "/pro/v1/jamf-pro-server-url/history": {
+      "GET": [
+        "jss-url:read"
+      ],
+      "POST": [
+        "jss-url:update"
+      ]
+    },
+    "/pro/v1/jamf-protect": {
+      "DELETE": [
+        "jamf-protect-deployments:update"
+      ],
+      "GET": [
+        "jamf-protect-deployments:read"
+      ],
+      "PUT": [
+        "jamf-protect-deployments:update"
+      ]
+    },
+    "/pro/v1/jamf-protect/deployments/{}/tasks": {
+      "GET": [
+        "jamf-protect-deployments:read"
+      ]
+    },
+    "/pro/v1/jamf-protect/deployments/{}/tasks/retry": {
+      "POST": [
+        "jamf-protect-deployments:deploy"
+      ]
+    },
+    "/pro/v1/jamf-protect/history": {
+      "GET": [
+        "jamf-protect-deployments:read"
+      ],
+      "POST": [
+        "jamf-protect-deployments:update"
+      ]
+    },
+    "/pro/v1/jamf-protect/plans": {
+      "GET": [
+        "jamf-protect-deployments:read"
+      ]
+    },
+    "/pro/v1/jamf-protect/plans/sync": {
+      "POST": [
+        "jamf-protect-deployments:read"
+      ]
+    },
+    "/pro/v1/jamf-protect/register": {
+      "POST": [
+        "jamf-protect-deployments:update"
+      ]
+    },
+    "/pro/v1/jamf-remote-assist/session": {
+      "GET": [
+        "remote-assist:read"
+      ]
+    },
+    "/pro/v1/jamf-remote-assist/session/{}": {
+      "GET": [
+        "remote-assist:read"
+      ]
+    },
+    "/pro/v1/jcds/files": {
+      "GET": [
+        "jamf-cloud-distribution-service-files:read"
+      ],
+      "POST": [
+        "jamf-cloud-distribution-service-files:create"
+      ]
+    },
+    "/pro/v1/jcds/files/{}": {
+      "DELETE": [
+        "jamf-cloud-distribution-service-files:delete"
+      ],
+      "GET": [
+        "jamf-cloud-distribution-service-files:read"
+      ]
+    },
+    "/pro/v1/jcds/refresh-inventory": {
+      "POST": [
+        "jamf-cloud-distribution-service-files:read"
+      ]
+    },
+    "/pro/v1/jcds/renew-credentials": {
+      "POST": [
+        "jamf-cloud-distribution-service-files:create"
+      ]
+    },
+    "/pro/v1/last-login": {
+      "GET": [
+        "user-sessions:read"
+      ]
+    },
+    "/pro/v1/ldap-keystore/verify": {
+      "POST": [
+        "ldap-servers:create"
+      ]
+    },
+    "/pro/v1/ldap/groups": {
+      "GET": [
+        "ldap-servers:read"
+      ]
+    },
+    "/pro/v1/ldap/ldap-servers": {
+      "GET": [
+        "ldap-servers:read"
+      ]
+    },
+    "/pro/v1/ldap/servers": {
+      "GET": [
+        "ldap-servers:read"
+      ]
+    },
+    "/pro/v1/log-flushing": {
+      "GET": [
+        "retention-policy:read"
+      ]
+    },
+    "/pro/v1/log-flushing/task": {
+      "GET": [
+        "retention-policy:read"
+      ],
+      "POST": [
+        "retention-policy:update"
+      ]
+    },
+    "/pro/v1/log-flushing/task/{}": {
+      "DELETE": [
+        "retention-policy:update"
+      ],
+      "GET": [
+        "retention-policy:read"
+      ]
+    },
+    "/pro/v1/login-customization": {
+      "PUT": [
+        "login-disclaimer:update"
+      ]
+    },
+    "/pro/v1/m2m/tenant-id": {
+      "GET": [
+        "m2m:read"
+      ]
+    },
+    "/pro/v1/macos-managed-software-updates/send-updates": {
+      "POST": [
+        "device-actions:execute"
+      ]
+    },
+    "/pro/v1/managed-software-updates/plans": {
+      "GET": [
+        "devices:read",
+        "managed-software-updates:read"
+      ],
+      "POST": [
+        "device-actions:execute",
+        "devices:read",
+        "managed-software-updates:create"
+      ]
+    },
+    "/pro/v1/managed-software-updates/plans/feature-toggle": {
+      "GET": [
+        "managed-software-updates:read"
+      ],
+      "PUT": [
+        "managed-software-updates:create",
+        "managed-software-updates:read",
+        "managed-software-updates:update"
+      ]
+    },
+    "/pro/v1/managed-software-updates/plans/feature-toggle/abandon": {
+      "POST": [
+        "managed-software-updates:create",
+        "managed-software-updates:read",
+        "managed-software-updates:update"
+      ]
+    },
+    "/pro/v1/managed-software-updates/plans/feature-toggle/status": {
+      "GET": [
+        "managed-software-updates:read"
+      ]
+    },
+    "/pro/v1/managed-software-updates/plans/group": {
+      "POST": [
+        "device-actions:execute",
+        "device-groups:read",
+        "devices:read",
+        "managed-software-updates:create"
+      ]
+    },
+    "/pro/v1/managed-software-updates/plans/group/{}": {
+      "GET": [
+        "device-groups:read",
+        "devices:read",
+        "managed-software-updates:read"
+      ]
+    },
+    "/pro/v1/managed-software-updates/plans/{}": {
+      "GET": [
+        "devices:read",
+        "managed-software-updates:read"
+      ]
+    },
+    "/pro/v1/managed-software-updates/plans/{}/declarations": {
+      "GET": [
+        "devices:read",
+        "managed-software-updates:read"
+      ]
+    },
+    "/pro/v1/managed-software-updates/plans/{}/events": {
+      "GET": [
+        "devices:read",
+        "managed-software-updates:read"
+      ]
+    },
+    "/pro/v1/managed-software-updates/update-statuses": {
+      "GET": [
+        "devices:read"
+      ]
+    },
+    "/pro/v1/managed-software-updates/update-statuses/computer-groups/{}": {
+      "GET": [
+        "device-groups:read",
+        "devices:read"
+      ]
+    },
+    "/pro/v1/managed-software-updates/update-statuses/computers/{}": {
+      "GET": [
+        "managed-software-updates:read"
+      ]
+    },
+    "/pro/v1/managed-software-updates/update-statuses/mobile-device-groups/{}": {
+      "GET": [
+        "device-groups:read",
+        "devices:read"
+      ]
+    },
+    "/pro/v1/managed-software-updates/update-statuses/mobile-devices/{}": {
+      "GET": [
+        "managed-software-updates:read"
+      ]
+    },
+    "/pro/v1/mdm-renewal/device-common-details": {
+      "PATCH": [
+        "device-actions:execute"
+      ]
+    },
+    "/pro/v1/mdm-renewal/device-common-details/{}": {
+      "GET": [
+        "device-actions:read"
+      ]
+    },
+    "/pro/v1/mdm-renewal/renewal-strategies/{}": {
+      "DELETE": [
+        "device-actions:execute"
+      ],
+      "GET": [
+        "device-actions:read"
+      ]
+    },
+    "/pro/v1/mdm/commands": {
+      "GET": [
+        "device-actions:read"
+      ]
+    },
+    "/pro/v1/mdm/renew-profile": {
+      "POST": [
+        "device-actions:execute"
+      ]
+    },
+    "/pro/v1/mobile-device-enrollment-profile/{}/download-profile": {
+      "GET": [
+        "enrollment-profiles:read"
+      ]
+    },
+    "/pro/v1/mobile-device-extension-attributes": {
+      "GET": [
+        "extension-attributes:read"
+      ],
+      "POST": [
+        "extension-attributes:create"
+      ]
+    },
+    "/pro/v1/mobile-device-extension-attributes/{}": {
+      "DELETE": [
+        "extension-attributes:delete"
+      ],
+      "GET": [
+        "extension-attributes:read"
+      ],
+      "PUT": [
+        "extension-attributes:update"
+      ]
+    },
+    "/pro/v1/mobile-device-extension-attributes/{}/data-dependency": {
+      "GET": [
+        "extension-attributes:read"
+      ]
+    },
+    "/pro/v1/mobile-device-extension-attributes/{}/history": {
+      "GET": [
+        "extension-attributes:read"
+      ],
+      "POST": [
+        "extension-attributes:update"
+      ]
+    },
+    "/pro/v1/mobile-device-groups": {
+      "GET": [
+        "device-groups:read"
+      ]
+    },
+    "/pro/v1/mobile-device-groups/smart-group-membership/{}": {
+      "GET": [
+        "device-groups:read",
+        "devices:read"
+      ]
+    },
+    "/pro/v1/mobile-device-groups/smart-groups": {
+      "GET": [
+        "device-groups:read"
+      ],
+      "POST": [
+        "device-groups:create"
+      ]
+    },
+    "/pro/v1/mobile-device-groups/smart-groups/{}": {
+      "DELETE": [
+        "device-groups:delete"
+      ],
+      "GET": [
+        "device-groups:read"
+      ],
+      "PUT": [
+        "device-groups:update"
+      ]
+    },
+    "/pro/v1/mobile-device-groups/static-group-membership/{}": {
+      "GET": [
+        "device-groups:read",
+        "devices:read"
+      ]
+    },
+    "/pro/v1/mobile-device-groups/static-groups": {
+      "GET": [
+        "device-groups:read"
+      ],
+      "POST": [
+        "device-groups:create"
+      ]
+    },
+    "/pro/v1/mobile-device-groups/static-groups/{}": {
+      "DELETE": [
+        "device-groups:delete"
+      ],
+      "GET": [
+        "device-groups:read"
+      ],
+      "PATCH": [
+        "device-groups:update"
+      ]
+    },
+    "/pro/v1/mobile-device-groups/{}/erase": {
+      "POST": [
+        "destructive-device-actions:execute"
+      ]
+    },
+    "/pro/v1/mobile-devices/{}/recalculate-smart-groups": {
+      "POST": [
+        "device-groups:update"
+      ]
+    },
+    "/pro/v1/notifications/{}/{}": {
+      "DELETE": [
+        "dismiss-notifications:execute"
+      ]
+    },
+    "/pro/v1/oidc/generate-certificate": {
+      "POST": [
+        "sso-settings:update"
+      ]
+    },
+    "/pro/v1/onboarding": {
+      "GET": [
+        "onboarding:read"
+      ],
+      "PUT": [
+        "onboarding:update"
+      ]
+    },
+    "/pro/v1/onboarding/eligible-apps": {
+      "GET": [
+        "onboarding:read"
+      ]
+    },
+    "/pro/v1/onboarding/eligible-configuration-profiles": {
+      "GET": [
+        "onboarding:read"
+      ]
+    },
+    "/pro/v1/onboarding/eligible-policies": {
+      "GET": [
+        "onboarding:read"
+      ]
+    },
+    "/pro/v1/onboarding/history": {
+      "GET": [
+        "onboarding:read"
+      ],
+      "POST": [
+        "onboarding:update"
+      ]
+    },
+    "/pro/v1/onboarding/history/export": {
+      "POST": [
+        "onboarding:read"
+      ]
+    },
+    "/pro/v1/packages": {
+      "GET": [
+        "packages:read"
+      ],
+      "POST": [
+        "packages:create"
+      ]
+    },
+    "/pro/v1/packages/delete-multiple": {
+      "POST": [
+        "packages:delete"
+      ]
+    },
+    "/pro/v1/packages/export": {
+      "POST": [
+        "packages:read"
+      ]
+    },
+    "/pro/v1/packages/{}": {
+      "DELETE": [
+        "packages:delete"
+      ],
+      "GET": [
+        "packages:read"
+      ],
+      "PUT": [
+        "packages:update"
+      ]
+    },
+    "/pro/v1/packages/{}/history": {
+      "GET": [
+        "packages:read"
+      ],
+      "POST": [
+        "packages:update"
+      ]
+    },
+    "/pro/v1/packages/{}/history/export": {
+      "POST": [
+        "packages:read"
+      ]
+    },
+    "/pro/v1/packages/{}/manifest": {
+      "DELETE": [
+        "packages:read",
+        "packages:update"
+      ],
+      "POST": [
+        "packages:read",
+        "packages:update"
+      ]
+    },
+    "/pro/v1/packages/{}/upload": {
+      "POST": [
+        "packages:read",
+        "packages:update"
+      ]
+    },
+    "/pro/v1/parent-app": {
+      "GET": [
+        "parent-app:read"
+      ],
+      "PUT": [
+        "parent-app:update"
+      ]
+    },
+    "/pro/v1/parent-app/history": {
+      "GET": [
+        "parent-app:read"
+      ],
+      "POST": [
+        "parent-app:update"
+      ]
+    },
+    "/pro/v1/pki/adcs-settings": {
+      "POST": [
+        "ad-cs-settings:create"
+      ]
+    },
+    "/pro/v1/pki/adcs-settings/validate-certificate": {
+      "POST": [
+        "ad-cs-settings:create",
+        "ad-cs-settings:update"
+      ]
+    },
+    "/pro/v1/pki/adcs-settings/validate-client-certificate": {
+      "POST": [
+        "ad-cs-settings:create",
+        "ad-cs-settings:update"
+      ]
+    },
+    "/pro/v1/pki/adcs-settings/{}": {
+      "DELETE": [
+        "ad-cs-settings:delete"
+      ],
+      "GET": [
+        "ad-cs-settings:read"
+      ],
+      "PATCH": [
+        "ad-cs-settings:update"
+      ]
+    },
+    "/pro/v1/pki/adcs-settings/{}/dependencies": {
+      "GET": [
+        "ad-cs-settings:read"
+      ]
+    },
+    "/pro/v1/pki/adcs-settings/{}/history": {
+      "GET": [
+        "ad-cs-settings:read"
+      ],
+      "POST": [
+        "ad-cs-settings:update"
+      ]
+    },
+    "/pro/v1/pki/certificate-authority/{}": {
+      "GET": [
+        "pki:read"
+      ]
+    },
+    "/pro/v1/pki/certificate-authority/{}/der": {
+      "GET": [
+        "pki:read"
+      ]
+    },
+    "/pro/v1/pki/certificate-authority/{}/pem": {
+      "GET": [
+        "pki:read"
+      ]
+    },
+    "/pro/v1/pki/digicert/trust-lifecycle-manager": {
+      "POST": [
+        "digicert-settings:create"
+      ]
+    },
+    "/pro/v1/pki/digicert/trust-lifecycle-manager/validate-client-certificate": {
+      "POST": [
+        "digicert-settings:create",
+        "digicert-settings:update"
+      ]
+    },
+    "/pro/v1/pki/digicert/trust-lifecycle-manager/{}": {
+      "DELETE": [
+        "digicert-settings:delete"
+      ],
+      "GET": [
+        "digicert-settings:read"
+      ],
+      "PATCH": [
+        "digicert-settings:update"
+      ]
+    },
+    "/pro/v1/pki/digicert/trust-lifecycle-manager/{}/connection-status": {
+      "GET": [
+        "digicert-settings:read"
+      ]
+    },
+    "/pro/v1/pki/digicert/trust-lifecycle-manager/{}/dependencies": {
+      "GET": [
+        "digicert-settings:read"
+      ]
+    },
+    "/pro/v1/pki/digicert/trust-lifecycle-manager/{}/privilege-check": {
+      "GET": [
+        "digicert-settings:read"
+      ]
+    },
+    "/pro/v1/pki/venafi": {
+      "POST": [
+        "pki:update"
+      ]
+    },
+    "/pro/v1/pki/venafi/{}": {
+      "DELETE": [
+        "pki:update"
+      ],
+      "GET": [
+        "pki:read"
+      ],
+      "PATCH": [
+        "pki:update"
+      ]
+    },
+    "/pro/v1/pki/venafi/{}/connection-status": {
+      "GET": [
+        "pki:read"
+      ]
+    },
+    "/pro/v1/pki/venafi/{}/dependent-profiles": {
+      "GET": [
+        "pki:read"
+      ]
+    },
+    "/pro/v1/pki/venafi/{}/history": {
+      "GET": [
+        "pki:read"
+      ],
+      "POST": [
+        "pki:update"
+      ]
+    },
+    "/pro/v1/pki/venafi/{}/jamf-public-key": {
+      "GET": [
+        "pki:read"
+      ]
+    },
+    "/pro/v1/pki/venafi/{}/jamf-public-key/regenerate": {
+      "POST": [
+        "pki:update"
+      ]
+    },
+    "/pro/v1/pki/venafi/{}/proxy-trust-store": {
+      "DELETE": [
+        "pki:update"
+      ],
+      "GET": [
+        "pki:read"
+      ],
+      "POST": [
+        "pki:update"
+      ]
+    },
+    "/pro/v1/policy-properties": {
+      "GET": [
+        "policies:read"
+      ],
+      "PUT": [
+        "policies:update"
+      ]
+    },
+    "/pro/v1/reenrollment": {
+      "GET": [
+        "re-enrollment:read"
+      ],
+      "PUT": [
+        "re-enrollment:update"
+      ]
+    },
+    "/pro/v1/reenrollment/history": {
+      "GET": [
+        "re-enrollment:read"
+      ],
+      "POST": [
+        "re-enrollment:update"
+      ]
+    },
+    "/pro/v1/reenrollment/history/export": {
+      "POST": [
+        "re-enrollment:read"
+      ]
+    },
+    "/pro/v1/return-to-service": {
+      "GET": [
+        "return-to-service:read"
+      ],
+      "POST": [
+        "return-to-service:update"
+      ]
+    },
+    "/pro/v1/return-to-service/{}": {
+      "DELETE": [
+        "return-to-service:delete"
+      ],
+      "GET": [
+        "return-to-service:read"
+      ],
+      "PUT": [
+        "return-to-service:update"
+      ]
+    },
+    "/pro/v1/scripts": {
+      "GET": [
+        "scripts:read"
+      ],
+      "POST": [
+        "scripts:create"
+      ]
+    },
+    "/pro/v1/scripts/{}": {
+      "DELETE": [
+        "scripts:delete"
+      ],
+      "GET": [
+        "scripts:read"
+      ],
+      "PUT": [
+        "scripts:update"
+      ]
+    },
+    "/pro/v1/scripts/{}/download": {
+      "GET": [
+        "scripts:read"
+      ]
+    },
+    "/pro/v1/scripts/{}/history": {
+      "GET": [
+        "scripts:read"
+      ],
+      "POST": [
+        "scripts:update"
+      ]
+    },
+    "/pro/v1/self-service-plus/settings": {
+      "GET": [
+        "self-service:read"
+      ],
+      "PUT": [
+        "self-service:update"
+      ]
+    },
+    "/pro/v1/self-service/branding/ios": {
+      "GET": [
+        "self-service:read"
+      ],
+      "POST": [
+        "self-service:create"
+      ]
+    },
+    "/pro/v1/self-service/branding/ios/{}": {
+      "DELETE": [
+        "self-service:delete"
+      ],
+      "GET": [
+        "self-service:read"
+      ],
+      "PUT": [
+        "self-service:update"
+      ]
+    },
+    "/pro/v1/self-service/branding/macos": {
+      "GET": [
+        "self-service:read"
+      ],
+      "POST": [
+        "self-service:create"
+      ]
+    },
+    "/pro/v1/self-service/branding/macos/{}": {
+      "DELETE": [
+        "self-service:delete"
+      ],
+      "GET": [
+        "self-service:read"
+      ],
+      "PUT": [
+        "self-service:update"
+      ]
+    },
+    "/pro/v1/self-service/settings": {
+      "GET": [
+        "self-service:read"
+      ],
+      "PUT": [
+        "self-service:update"
+      ]
+    },
+    "/pro/v1/self-service/settings/history": {
+      "GET": [
+        "self-service:read"
+      ],
+      "POST": [
+        "self-service:update"
+      ]
+    },
+    "/pro/v1/service-discovery-enrollment/well-known-settings": {
+      "GET": [
+        "user-initiated-enrollment:read"
+      ],
+      "PUT": [
+        "user-initiated-enrollment:update"
+      ]
+    },
+    "/pro/v1/sites": {
+      "GET": [
+        "sites:read"
+      ]
+    },
+    "/pro/v1/sites/{}/objects": {
+      "GET": [
+        "sites:read"
+      ]
+    },
+    "/pro/v1/slasa": {
+      "POST": [
+        "activation-code:update",
+        "jss-information:read"
+      ]
+    },
+    "/pro/v1/smart-computer-groups/{}/recalculate": {
+      "POST": [
+        "device-groups:update"
+      ]
+    },
+    "/pro/v1/smart-mobile-device-groups/{}/recalculate": {
+      "POST": [
+        "device-groups:update"
+      ]
+    },
+    "/pro/v1/smart-user-groups/{}/recalculate": {
+      "POST": [
+        "user-groups:update"
+      ]
+    },
+    "/pro/v1/smtp-server/history": {
+      "GET": [
+        "smtp-server:read"
+      ],
+      "POST": [
+        "smtp-server:update"
+      ]
+    },
+    "/pro/v1/smtp-server/test": {
+      "POST": [
+        "smtp-server:read"
+      ]
+    },
+    "/pro/v1/sso/failover": {
+      "GET": [
+        "sso-settings:read"
+      ]
+    },
+    "/pro/v1/sso/failover/generate": {
+      "POST": [
+        "sso-settings:update"
+      ]
+    },
+    "/pro/v1/static-user-groups": {
+      "GET": [
+        "user-groups:read"
+      ]
+    },
+    "/pro/v1/static-user-groups/{}": {
+      "GET": [
+        "user-groups:read"
+      ]
+    },
+    "/pro/v1/supervision-identities": {
+      "GET": [
+        "apple-configurator-enrollment:read"
+      ],
+      "POST": [
+        "apple-configurator-enrollment:update"
+      ]
+    },
+    "/pro/v1/supervision-identities/upload": {
+      "POST": [
+        "apple-configurator-enrollment:update"
+      ]
+    },
+    "/pro/v1/supervision-identities/{}": {
+      "DELETE": [
+        "apple-configurator-enrollment:update"
+      ],
+      "GET": [
+        "apple-configurator-enrollment:read"
+      ],
+      "PUT": [
+        "apple-configurator-enrollment:update"
+      ]
+    },
+    "/pro/v1/supervision-identities/{}/download": {
+      "GET": [
+        "apple-configurator-enrollment:read"
+      ]
+    },
+    "/pro/v1/teacher-app": {
+      "GET": [
+        "teacher-app:read"
+      ],
+      "PUT": [
+        "teacher-app:update"
+      ]
+    },
+    "/pro/v1/teacher-app/history": {
+      "GET": [
+        "teacher-app:read"
+      ],
+      "POST": [
+        "teacher-app:update"
+      ]
+    },
+    "/pro/v1/user-sessions/active": {
+      "GET": [
+        "user-sessions:read"
+      ]
+    },
+    "/pro/v1/user-sessions/count": {
+      "GET": [
+        "user-sessions:read"
+      ]
+    },
+    "/pro/v1/user/change-password": {
+      "POST": [
+        "change-password:execute"
+      ]
+    },
+    "/pro/v1/users": {
+      "GET": [
+        "users:read"
+      ],
+      "POST": [
+        "users:create"
+      ]
+    },
+    "/pro/v1/users/{}": {
+      "DELETE": [
+        "users:delete"
+      ],
+      "GET": [
+        "users:read"
+      ],
+      "PUT": [
+        "users:update"
+      ]
+    },
+    "/pro/v1/users/{}/recalculate-smart-groups": {
+      "POST": [
+        "user-groups:update"
+      ]
+    },
+    "/pro/v1/volume-purchasing-locations": {
+      "GET": [
+        "volume-purchasing-locations:read"
+      ],
+      "POST": [
+        "volume-purchasing-locations:create"
+      ]
+    },
+    "/pro/v1/volume-purchasing-locations/{}": {
+      "DELETE": [
+        "volume-purchasing-locations:delete"
+      ],
+      "GET": [
+        "volume-purchasing-locations:read"
+      ],
+      "PATCH": [
+        "volume-purchasing-locations:update"
+      ]
+    },
+    "/pro/v1/volume-purchasing-locations/{}/content": {
+      "GET": [
+        "volume-purchasing-locations:read"
+      ]
+    },
+    "/pro/v1/volume-purchasing-locations/{}/history": {
+      "GET": [
+        "volume-purchasing-locations:read"
+      ],
+      "POST": [
+        "volume-purchasing-locations:update"
+      ]
+    },
+    "/pro/v1/volume-purchasing-locations/{}/reclaim": {
+      "POST": [
+        "volume-purchasing-locations:update"
+      ]
+    },
+    "/pro/v1/volume-purchasing-locations/{}/revoke-licenses": {
+      "POST": [
+        "volume-purchasing-locations:update"
+      ]
+    },
+    "/pro/v1/volume-purchasing-subscriptions": {
+      "GET": [
+        "volume-purchasing-locations:read"
+      ],
+      "POST": [
+        "volume-purchasing-locations:create"
+      ]
+    },
+    "/pro/v1/volume-purchasing-subscriptions/{}": {
+      "DELETE": [
+        "volume-purchasing-locations:delete"
+      ],
+      "GET": [
+        "volume-purchasing-locations:read"
+      ],
+      "PUT": [
+        "volume-purchasing-locations:update"
+      ]
+    },
+    "/pro/v1/volume-purchasing-subscriptions/{}/history": {
+      "GET": [
+        "volume-purchasing-locations:read"
+      ],
+      "POST": [
+        "volume-purchasing-locations:update"
+      ]
+    },
+    "/pro/v2/cloud-ldaps": {
+      "POST": [
+        "ldap-servers:create"
+      ]
+    },
+    "/pro/v2/cloud-ldaps/defaults/{}/mappings": {
+      "GET": [
+        "ldap-servers:read"
+      ]
+    },
+    "/pro/v2/cloud-ldaps/defaults/{}/server-configuration": {
+      "GET": [
+        "ldap-servers:read"
+      ]
+    },
+    "/pro/v2/cloud-ldaps/{}": {
+      "DELETE": [
+        "ldap-servers:delete"
+      ],
+      "GET": [
+        "ldap-servers:read"
+      ],
+      "PUT": [
+        "ldap-servers:update"
+      ]
+    },
+    "/pro/v2/cloud-ldaps/{}/connection/bind": {
+      "GET": [
+        "ldap-servers:read"
+      ]
+    },
+    "/pro/v2/cloud-ldaps/{}/connection/search": {
+      "GET": [
+        "ldap-servers:read"
+      ]
+    },
+    "/pro/v2/cloud-ldaps/{}/connection/status": {
+      "GET": [
+        "ldap-servers:read"
+      ]
+    },
+    "/pro/v2/cloud-ldaps/{}/mappings": {
+      "GET": [
+        "ldap-servers:read"
+      ],
+      "PUT": [
+        "ldap-servers:update"
+      ]
+    },
+    "/pro/v2/computer-groups/smart-group-membership/{}": {
+      "GET": [
+        "device-groups:read"
+      ]
+    },
+    "/pro/v2/computer-groups/smart-groups": {
+      "GET": [
+        "device-groups:read"
+      ],
+      "POST": [
+        "device-groups:create"
+      ]
+    },
+    "/pro/v2/computer-groups/smart-groups/{}": {
+      "DELETE": [
+        "device-groups:delete"
+      ],
+      "GET": [
+        "device-groups:read"
+      ],
+      "PUT": [
+        "device-groups:update"
+      ]
+    },
+    "/pro/v2/computer-groups/static-groups": {
+      "GET": [
+        "device-groups:read"
+      ],
+      "POST": [
+        "device-groups:create"
+      ]
+    },
+    "/pro/v2/computer-groups/static-groups/{}": {
+      "DELETE": [
+        "device-groups:delete"
+      ],
+      "GET": [
+        "device-groups:read"
+      ],
+      "PUT": [
+        "device-groups:update"
+      ]
+    },
+    "/pro/v2/computer-inventory-collection-settings": {
+      "GET": [
+        "computer-inventory-collection-settings:read"
+      ],
+      "PATCH": [
+        "computer-inventory-collection-settings:update"
+      ]
+    },
+    "/pro/v2/computer-inventory-collection-settings/custom-path": {
+      "POST": [
+        "custom-paths:create"
+      ]
+    },
+    "/pro/v2/computer-inventory-collection-settings/custom-path/{}": {
+      "DELETE": [
+        "custom-paths:delete"
+      ]
+    },
+    "/pro/v2/computer-prestages/scope": {
+      "GET": [
+        "prestage-enrollments:read"
+      ]
+    },
+    "/pro/v2/computer-prestages/{}/scope": {
+      "GET": [
+        "prestage-enrollments:read"
+      ],
+      "POST": [
+        "prestage-enrollments:update"
+      ],
+      "PUT": [
+        "prestage-enrollments:update"
+      ]
+    },
+    "/pro/v2/computer-prestages/{}/scope/delete-multiple": {
+      "POST": [
+        "prestage-enrollments:update"
+      ]
+    },
+    "/pro/v2/computers-inventory": {
+      "GET": [
+        "devices:read"
+      ],
+      "POST": [
+        "devices:create"
+      ]
+    },
+    "/pro/v2/computers-inventory-detail/{}": {
+      "GET": [
+        "devices:read"
+      ],
+      "PATCH": [
+        "devices:update"
+      ]
+    },
+    "/pro/v2/computers-inventory/filevault": {
+      "GET": [
+        "disk-encryption-recovery-key:read"
+      ]
+    },
+    "/pro/v2/computers-inventory/{}": {
+      "DELETE": [
+        "destructive-device-actions:execute"
+      ],
+      "GET": [
+        "devices:read"
+      ]
+    },
+    "/pro/v2/computers-inventory/{}/attachments": {
+      "POST": [
+        "devices:update"
+      ]
+    },
+    "/pro/v2/computers-inventory/{}/attachments/{}": {
+      "DELETE": [
+        "devices:update"
+      ],
+      "GET": [
+        "devices:read"
+      ]
+    },
+    "/pro/v2/computers-inventory/{}/filevault": {
+      "GET": [
+        "disk-encryption-recovery-key:read"
+      ]
+    },
+    "/pro/v2/computers-inventory/{}/view-device-lock-pin": {
+      "GET": [
+        "computer-device-lock-pin:read"
+      ]
+    },
+    "/pro/v2/computers-inventory/{}/view-recovery-lock-password": {
+      "GET": [
+        "recovery-lock:read"
+      ]
+    },
+    "/pro/v2/enrollment-customizations": {
+      "GET": [
+        "enrollment-customization:read"
+      ],
+      "POST": [
+        "enrollment-customization:create"
+      ]
+    },
+    "/pro/v2/enrollment-customizations/images": {
+      "POST": [
+        "enrollment-customization:update"
+      ]
+    },
+    "/pro/v2/enrollment-customizations/{}": {
+      "DELETE": [
+        "enrollment-customization:delete",
+        "enrollment-customization:read"
+      ],
+      "GET": [
+        "enrollment-customization:read"
+      ],
+      "PUT": [
+        "enrollment-customization:update"
+      ]
+    },
+    "/pro/v2/enrollment-customizations/{}/history": {
+      "GET": [
+        "enrollment-customization:read"
+      ],
+      "POST": [
+        "enrollment-customization:update"
+      ]
+    },
+    "/pro/v2/enrollment-customizations/{}/prestages": {
+      "GET": [
+        "enrollment-customization:read"
+      ]
+    },
+    "/pro/v2/enrollment/history": {
+      "GET": [
+        "user-initiated-enrollment:read"
+      ],
+      "POST": [
+        "user-initiated-enrollment:update"
+      ]
+    },
+    "/pro/v2/enrollment/history/export": {
+      "POST": [
+        "user-initiated-enrollment:read"
+      ]
+    },
+    "/pro/v2/groups": {
+      "GET": [
+        "device-groups:read"
+      ]
+    },
+    "/pro/v2/groups/{}": {
+      "DELETE": [
+        "device-groups:delete"
+      ],
+      "GET": [
+        "device-groups:read"
+      ],
+      "PATCH": [
+        "device-groups:update"
+      ]
+    },
+    "/pro/v2/inventory-preload/csv": {
+      "GET": [
+        "inventory-preload-records:read"
+      ],
+      "POST": [
+        "inventory-preload-records:create",
+        "inventory-preload-records:update",
+        "users:create",
+        "users:update"
+      ]
+    },
+    "/pro/v2/inventory-preload/csv-template": {
+      "GET": [
+        "inventory-preload-records:read"
+      ]
+    },
+    "/pro/v2/inventory-preload/csv-validate": {
+      "POST": [
+        "inventory-preload-records:create"
+      ]
+    },
+    "/pro/v2/inventory-preload/ea-columns": {
+      "GET": [
+        "inventory-preload-records:read"
+      ]
+    },
+    "/pro/v2/inventory-preload/export": {
+      "POST": [
+        "inventory-preload-records:read"
+      ]
+    },
+    "/pro/v2/inventory-preload/history": {
+      "GET": [
+        "inventory-preload-records:read"
+      ],
+      "POST": [
+        "inventory-preload-records:update"
+      ]
+    },
+    "/pro/v2/inventory-preload/records": {
+      "GET": [
+        "inventory-preload-records:read"
+      ],
+      "POST": [
+        "inventory-preload-records:create"
+      ]
+    },
+    "/pro/v2/inventory-preload/records/delete-all": {
+      "POST": [
+        "inventory-preload-records:delete"
+      ]
+    },
+    "/pro/v2/inventory-preload/records/{}": {
+      "DELETE": [
+        "inventory-preload-records:delete"
+      ],
+      "GET": [
+        "inventory-preload-records:read"
+      ],
+      "PUT": [
+        "inventory-preload-records:update"
+      ]
+    },
+    "/pro/v2/jamf-package": {
+      "GET": [
+        "jamf-packages-action:read"
+      ]
+    },
+    "/pro/v2/jamf-remote-assist/session": {
+      "GET": [
+        "remote-assist:read"
+      ]
+    },
+    "/pro/v2/jamf-remote-assist/session/export": {
+      "POST": [
+        "remote-assist:read"
+      ]
+    },
+    "/pro/v2/jamf-remote-assist/session/{}": {
+      "GET": [
+        "remote-assist:read"
+      ]
+    },
+    "/pro/v2/local-admin-password/pending-rotations": {
+      "GET": [
+        "local-admin-passwords:read"
+      ]
+    },
+    "/pro/v2/local-admin-password/settings": {
+      "GET": [
+        "local-admin-passwords:update"
+      ],
+      "PUT": [
+        "local-admin-passwords:update"
+      ]
+    },
+    "/pro/v2/local-admin-password/{}/account/{}/audit": {
+      "GET": [
+        "local-admin-passwords:read"
+      ]
+    },
+    "/pro/v2/local-admin-password/{}/account/{}/history": {
+      "GET": [
+        "local-admin-passwords:read"
+      ]
+    },
+    "/pro/v2/local-admin-password/{}/account/{}/password": {
+      "GET": [
+        "local-admin-passwords:read"
+      ]
+    },
+    "/pro/v2/local-admin-password/{}/account/{}/{}/audit": {
+      "GET": [
+        "local-admin-passwords:read"
+      ]
+    },
+    "/pro/v2/local-admin-password/{}/account/{}/{}/history": {
+      "GET": [
+        "local-admin-passwords:read"
+      ]
+    },
+    "/pro/v2/local-admin-password/{}/account/{}/{}/password": {
+      "GET": [
+        "local-admin-passwords:read"
+      ]
+    },
+    "/pro/v2/local-admin-password/{}/accounts": {
+      "GET": [
+        "local-admin-passwords:read"
+      ]
+    },
+    "/pro/v2/local-admin-password/{}/history": {
+      "GET": [
+        "local-admin-passwords:read"
+      ]
+    },
+    "/pro/v2/local-admin-password/{}/set-password": {
+      "PUT": [
+        "local-admin-passwords:execute"
+      ]
+    },
+    "/pro/v2/mdm/blank-push": {
+      "POST": [
+        "device-actions:execute"
+      ]
+    },
+    "/pro/v2/mdm/commands": {
+      "GET": [
+        "device-actions:read"
+      ]
+    },
+    "/pro/v2/mobile-device-groups": {
+      "GET": [
+        "device-groups:read"
+      ]
+    },
+    "/pro/v2/mobile-device-groups/smart-group-membership/{}": {
+      "GET": [
+        "device-groups:read",
+        "devices:read"
+      ]
+    },
+    "/pro/v2/mobile-device-groups/smart-groups": {
+      "GET": [
+        "device-groups:read"
+      ],
+      "POST": [
+        "device-groups:create"
+      ]
+    },
+    "/pro/v2/mobile-device-groups/smart-groups/{}": {
+      "DELETE": [
+        "device-groups:delete"
+      ],
+      "GET": [
+        "device-groups:read"
+      ],
+      "PUT": [
+        "device-groups:update"
+      ]
+    },
+    "/pro/v2/mobile-device-groups/static-group-membership/{}": {
+      "GET": [
+        "device-groups:read",
+        "devices:read"
+      ]
+    },
+    "/pro/v2/mobile-device-groups/static-groups": {
+      "GET": [
+        "device-groups:read"
+      ],
+      "POST": [
+        "device-groups:create"
+      ]
+    },
+    "/pro/v2/mobile-device-groups/static-groups/{}": {
+      "DELETE": [
+        "device-groups:delete"
+      ],
+      "GET": [
+        "device-groups:read"
+      ],
+      "PATCH": [
+        "device-groups:update"
+      ]
+    },
+    "/pro/v2/mobile-device-groups/{}/erase": {
+      "POST": [
+        "destructive-device-actions:execute"
+      ]
+    },
+    "/pro/v2/mobile-device-prestages": {
+      "GET": [
+        "prestage-enrollments:read"
+      ],
+      "POST": [
+        "prestage-enrollments:create"
+      ]
+    },
+    "/pro/v2/mobile-device-prestages/scope": {
+      "GET": [
+        "prestage-enrollments:read"
+      ]
+    },
+    "/pro/v2/mobile-device-prestages/syncs": {
+      "GET": [
+        "prestage-enrollments:read"
+      ]
+    },
+    "/pro/v2/mobile-device-prestages/{}": {
+      "DELETE": [
+        "prestage-enrollments:delete"
+      ],
+      "GET": [
+        "prestage-enrollments:read"
+      ],
+      "PUT": [
+        "prestage-enrollments:update"
+      ]
+    },
+    "/pro/v2/mobile-device-prestages/{}/attachments": {
+      "GET": [
+        "prestage-enrollments:read"
+      ],
+      "POST": [
+        "prestage-enrollments:create"
+      ]
+    },
+    "/pro/v2/mobile-device-prestages/{}/attachments/delete-multiple": {
+      "POST": [
+        "prestage-enrollments:delete"
+      ]
+    },
+    "/pro/v2/mobile-device-prestages/{}/history": {
+      "GET": [
+        "prestage-enrollments:read"
+      ],
+      "POST": [
+        "prestage-enrollments:update"
+      ]
+    },
+    "/pro/v2/mobile-device-prestages/{}/scope": {
+      "GET": [
+        "prestage-enrollments:read"
+      ],
+      "POST": [
+        "prestage-enrollments:update"
+      ],
+      "PUT": [
+        "prestage-enrollments:update"
+      ]
+    },
+    "/pro/v2/mobile-device-prestages/{}/scope/delete-multiple": {
+      "POST": [
+        "prestage-enrollments:update"
+      ]
+    },
+    "/pro/v2/mobile-device-prestages/{}/syncs": {
+      "GET": [
+        "prestage-enrollments:read"
+      ]
+    },
+    "/pro/v2/mobile-device-prestages/{}/syncs/latest": {
+      "GET": [
+        "prestage-enrollments:read"
+      ]
+    },
+    "/pro/v2/mobile-devices": {
+      "GET": [
+        "devices:read"
+      ]
+    },
+    "/pro/v2/mobile-devices/detail": {
+      "GET": [
+        "devices:read"
+      ]
+    },
+    "/pro/v2/mobile-devices/{}": {
+      "GET": [
+        "devices:read"
+      ],
+      "PATCH": [
+        "devices:update"
+      ]
+    },
+    "/pro/v2/mobile-devices/{}/detail": {
+      "GET": [
+        "devices:read"
+      ]
+    },
+    "/pro/v2/mobile-devices/{}/erase": {
+      "POST": [
+        "destructive-device-actions:execute"
+      ]
+    },
+    "/pro/v2/mobile-devices/{}/paired-devices": {
+      "GET": [
+        "devices:read"
+      ]
+    },
+    "/pro/v2/mobile-devices/{}/unmanage": {
+      "POST": [
+        "destructive-device-actions:execute"
+      ]
+    },
+    "/pro/v2/patch-management-accept-disclaimer": {
+      "POST": [
+        "patch-management-software-titles:update"
+      ]
+    },
+    "/pro/v2/patch-policies": {
+      "GET": [
+        "patch-policies:read"
+      ]
+    },
+    "/pro/v2/patch-policies/policy-details": {
+      "GET": [
+        "patch-policies:read"
+      ]
+    },
+    "/pro/v2/patch-policies/{}/dashboard": {
+      "DELETE": [
+        "patch-policies:read"
+      ],
+      "GET": [
+        "patch-policies:read"
+      ],
+      "POST": [
+        "patch-policies:read"
+      ]
+    },
+    "/pro/v2/patch-policies/{}/logs": {
+      "GET": [
+        "patch-policies:read"
+      ]
+    },
+    "/pro/v2/patch-policies/{}/logs/eligible-retry-count": {
+      "GET": [
+        "patch-policies:read"
+      ]
+    },
+    "/pro/v2/patch-policies/{}/logs/retry": {
+      "POST": [
+        "patch-policies:update"
+      ]
+    },
+    "/pro/v2/patch-policies/{}/logs/retry-all": {
+      "POST": [
+        "patch-policies:update"
+      ]
+    },
+    "/pro/v2/patch-policies/{}/logs/{}": {
+      "GET": [
+        "patch-policies:read"
+      ]
+    },
+    "/pro/v2/patch-policies/{}/logs/{}/details": {
+      "GET": [
+        "patch-policies:read"
+      ]
+    },
+    "/pro/v2/patch-software-title-configurations": {
+      "GET": [
+        "patch-management-software-titles:read"
+      ],
+      "POST": [
+        "patch-management-software-titles:create"
+      ]
+    },
+    "/pro/v2/patch-software-title-configurations/{}": {
+      "DELETE": [
+        "patch-management-software-titles:delete"
+      ],
+      "GET": [
+        "patch-management-software-titles:read"
+      ],
+      "PATCH": [
+        "patch-management-software-titles:update"
+      ]
+    },
+    "/pro/v2/patch-software-title-configurations/{}/dashboard": {
+      "DELETE": [
+        "patch-management-software-titles:read"
+      ],
+      "GET": [
+        "patch-management-software-titles:read"
+      ],
+      "POST": [
+        "patch-management-software-titles:read"
+      ]
+    },
+    "/pro/v2/patch-software-title-configurations/{}/definitions": {
+      "GET": [
+        "patch-management-software-titles:read"
+      ]
+    },
+    "/pro/v2/patch-software-title-configurations/{}/dependencies": {
+      "GET": [
+        "patch-management-software-titles:read"
+      ]
+    },
+    "/pro/v2/patch-software-title-configurations/{}/export-report": {
+      "GET": [
+        "patch-management-software-titles:read"
+      ]
+    },
+    "/pro/v2/patch-software-title-configurations/{}/extension-attributes": {
+      "GET": [
+        "patch-management-software-titles:read"
+      ]
+    },
+    "/pro/v2/patch-software-title-configurations/{}/history": {
+      "GET": [
+        "patch-management-software-titles:read"
+      ],
+      "POST": [
+        "patch-management-software-titles:update"
+      ]
+    },
+    "/pro/v2/patch-software-title-configurations/{}/patch-report": {
+      "GET": [
+        "patch-management-software-titles:read"
+      ]
+    },
+    "/pro/v2/patch-software-title-configurations/{}/patch-summary": {
+      "GET": [
+        "patch-management-software-titles:read"
+      ]
+    },
+    "/pro/v2/patch-software-title-configurations/{}/patch-summary/versions": {
+      "GET": [
+        "patch-management-software-titles:read"
+      ]
+    },
+    "/pro/v2/smtp-server": {
+      "GET": [
+        "smtp-server:read"
+      ],
+      "PUT": [
+        "smtp-server:update"
+      ]
+    },
+    "/pro/v2/smtp-server/allowed-auth-types": {
+      "GET": [
+        "smtp-server:read"
+      ]
+    },
+    "/pro/v2/sso/cert": {
+      "DELETE": [
+        "sso-settings:update"
+      ],
+      "GET": [
+        "sso-settings:read"
+      ],
+      "POST": [
+        "sso-settings:update"
+      ],
+      "PUT": [
+        "sso-settings:update"
+      ]
+    },
+    "/pro/v2/sso/cert/download": {
+      "GET": [
+        "sso-settings:read"
+      ]
+    },
+    "/pro/v2/sso/cert/parse": {
+      "POST": [
+        "sso-settings:update"
+      ]
+    },
+    "/pro/v3/check-in": {
+      "GET": [
+        "computer-check-in:read"
+      ],
+      "PUT": [
+        "computer-check-in:update"
+      ]
+    },
+    "/pro/v3/check-in/history": {
+      "GET": [
+        "computer-check-in:read"
+      ],
+      "POST": [
+        "computer-check-in:update"
+      ]
+    },
+    "/pro/v3/computer-groups/smart-group-membership/{}": {
+      "GET": [
+        "device-groups:read"
+      ]
+    },
+    "/pro/v3/computer-groups/smart-groups": {
+      "GET": [
+        "device-groups:read"
+      ],
+      "POST": [
+        "device-groups:create"
+      ]
+    },
+    "/pro/v3/computer-groups/smart-groups/{}": {
+      "DELETE": [
+        "device-groups:delete"
+      ],
+      "GET": [
+        "device-groups:read"
+      ],
+      "PUT": [
+        "device-groups:update"
+      ]
+    },
+    "/pro/v3/computer-groups/static-groups": {
+      "GET": [
+        "device-groups:read"
+      ],
+      "POST": [
+        "device-groups:create"
+      ]
+    },
+    "/pro/v3/computer-groups/static-groups/{}": {
+      "DELETE": [
+        "device-groups:delete"
+      ],
+      "GET": [
+        "device-groups:read"
+      ],
+      "PUT": [
+        "device-groups:update"
+      ]
+    },
+    "/pro/v3/computer-prestages": {
+      "GET": [
+        "prestage-enrollments:read"
+      ],
+      "POST": [
+        "prestage-enrollments:create"
+      ]
+    },
+    "/pro/v3/computer-prestages/{}": {
+      "DELETE": [
+        "prestage-enrollments:delete"
+      ],
+      "GET": [
+        "prestage-enrollments:read"
+      ],
+      "PUT": [
+        "prestage-enrollments:update"
+      ]
+    },
+    "/pro/v3/computers-inventory": {
+      "GET": [
+        "devices:read"
+      ],
+      "POST": [
+        "devices:create"
+      ]
+    },
+    "/pro/v3/computers-inventory-detail/{}": {
+      "GET": [
+        "devices:read"
+      ],
+      "PATCH": [
+        "devices:update"
+      ]
+    },
+    "/pro/v3/computers-inventory/filevault": {
+      "GET": [
+        "disk-encryption-recovery-key:read"
+      ]
+    },
+    "/pro/v3/computers-inventory/{}": {
+      "DELETE": [
+        "destructive-device-actions:execute"
+      ],
+      "GET": [
+        "devices:read"
+      ]
+    },
+    "/pro/v3/computers-inventory/{}/attachments": {
+      "POST": [
+        "devices:update"
+      ]
+    },
+    "/pro/v3/computers-inventory/{}/attachments/{}": {
+      "DELETE": [
+        "devices:update"
+      ],
+      "GET": [
+        "devices:read"
+      ]
+    },
+    "/pro/v3/computers-inventory/{}/filevault": {
+      "GET": [
+        "disk-encryption-recovery-key:read"
+      ]
+    },
+    "/pro/v3/computers-inventory/{}/view-device-lock-pin": {
+      "GET": [
+        "computer-device-lock-pin:read"
+      ]
+    },
+    "/pro/v3/computers-inventory/{}/view-recovery-lock-password": {
+      "GET": [
+        "recovery-lock:read"
+      ]
+    },
+    "/pro/v3/enrollment/access-groups": {
+      "GET": [
+        "user-initiated-enrollment:read"
+      ],
+      "POST": [
+        "user-initiated-enrollment:update"
+      ]
+    },
+    "/pro/v3/enrollment/access-groups/{}": {
+      "DELETE": [
+        "user-initiated-enrollment:update"
+      ],
+      "GET": [
+        "user-initiated-enrollment:read"
+      ],
+      "PUT": [
+        "user-initiated-enrollment:update"
+      ]
+    },
+    "/pro/v3/enrollment/filtered-language-codes": {
+      "GET": [
+        "user-initiated-enrollment:read"
+      ]
+    },
+    "/pro/v3/enrollment/language-codes": {
+      "GET": [
+        "user-initiated-enrollment:read"
+      ]
+    },
+    "/pro/v3/enrollment/languages": {
+      "GET": [
+        "user-initiated-enrollment:read"
+      ]
+    },
+    "/pro/v3/enrollment/languages/delete-multiple": {
+      "POST": [
+        "user-initiated-enrollment:update"
+      ]
+    },
+    "/pro/v3/enrollment/languages/{}": {
+      "DELETE": [
+        "user-initiated-enrollment:update"
+      ],
+      "GET": [
+        "user-initiated-enrollment:read"
+      ],
+      "PUT": [
+        "user-initiated-enrollment:update"
+      ]
+    },
+    "/pro/v3/mobile-device-prestages": {
+      "GET": [
+        "prestage-enrollments:read"
+      ],
+      "POST": [
+        "prestage-enrollments:create"
+      ]
+    },
+    "/pro/v3/mobile-device-prestages/{}": {
+      "DELETE": [
+        "prestage-enrollments:delete"
+      ],
+      "GET": [
+        "prestage-enrollments:read"
+      ],
+      "PUT": [
+        "prestage-enrollments:update"
+      ]
+    },
+    "/pro/v3/mobile-device-prestages/{}/attachments": {
+      "GET": [
+        "prestage-enrollments:read"
+      ],
+      "POST": [
+        "prestage-enrollments:create"
+      ]
+    },
+    "/pro/v3/mobile-device-prestages/{}/attachments/delete-multiple": {
+      "POST": [
+        "prestage-enrollments:delete"
+      ]
+    },
+    "/pro/v3/mobile-device-prestages/{}/history": {
+      "GET": [
+        "prestage-enrollments:read"
+      ],
+      "POST": [
+        "prestage-enrollments:update"
+      ]
+    },
+    "/pro/v3/patch-software-title-configurations": {
+      "GET": [
+        "patch-management-software-titles:read"
+      ],
+      "POST": [
+        "patch-management-software-titles:create"
+      ]
+    },
+    "/pro/v3/patch-software-title-configurations/{}": {
+      "DELETE": [
+        "patch-management-software-titles:delete"
+      ],
+      "GET": [
+        "patch-management-software-titles:read"
+      ],
+      "PATCH": [
+        "patch-management-software-titles:update"
+      ]
+    },
+    "/pro/v3/patch-software-title-configurations/{}/dashboard": {
+      "DELETE": [
+        "patch-management-software-titles:read"
+      ],
+      "GET": [
+        "patch-management-software-titles:read"
+      ],
+      "POST": [
+        "patch-management-software-titles:read"
+      ]
+    },
+    "/pro/v3/patch-software-title-configurations/{}/definitions": {
+      "GET": [
+        "patch-management-software-titles:read"
+      ]
+    },
+    "/pro/v3/patch-software-title-configurations/{}/dependencies": {
+      "GET": [
+        "patch-management-software-titles:read"
+      ]
+    },
+    "/pro/v3/patch-software-title-configurations/{}/export-report": {
+      "GET": [
+        "patch-management-software-titles:read"
+      ]
+    },
+    "/pro/v3/patch-software-title-configurations/{}/extension-attributes": {
+      "GET": [
+        "patch-management-software-titles:read"
+      ]
+    },
+    "/pro/v3/patch-software-title-configurations/{}/history": {
+      "GET": [
+        "patch-management-software-titles:read"
+      ],
+      "POST": [
+        "patch-management-software-titles:update"
+      ]
+    },
+    "/pro/v3/patch-software-title-configurations/{}/patch-report": {
+      "GET": [
+        "patch-management-software-titles:read"
+      ]
+    },
+    "/pro/v3/patch-software-title-configurations/{}/patch-summary": {
+      "GET": [
+        "patch-management-software-titles:read"
+      ]
+    },
+    "/pro/v3/patch-software-title-configurations/{}/patch-summary/versions": {
+      "GET": [
+        "patch-management-software-titles:read"
+      ]
+    },
+    "/pro/v3/sso": {
+      "GET": [
+        "sso-settings:read"
+      ],
+      "PUT": [
+        "sso-settings:update"
+      ]
+    },
+    "/pro/v3/sso/dependencies": {
+      "GET": [
+        "sso-settings:read"
+      ]
+    },
+    "/pro/v3/sso/disable": {
+      "POST": [
+        "sso-settings:update"
+      ]
+    },
+    "/pro/v3/sso/history": {
+      "GET": [
+        "sso-settings:read"
+      ],
+      "POST": [
+        "sso-settings:update"
+      ]
+    },
+    "/pro/v3/sso/metadata/download": {
+      "GET": [
+        "sso-settings:read"
+      ]
+    },
+    "/pro/v4/computers-inventory": {
+      "GET": [
+        "devices:read"
+      ],
+      "POST": [
+        "devices:create"
+      ]
+    },
+    "/pro/v4/computers-inventory-detail/{}": {
+      "GET": [
+        "devices:read"
+      ],
+      "PATCH": [
+        "devices:update"
+      ]
+    },
+    "/pro/v4/computers-inventory/filevault": {
+      "GET": [
+        "disk-encryption-recovery-key:read"
+      ]
+    },
+    "/pro/v4/computers-inventory/{}": {
+      "DELETE": [
+        "destructive-device-actions:execute"
+      ],
+      "GET": [
+        "devices:read"
+      ]
+    },
+    "/pro/v4/computers-inventory/{}/attachments": {
+      "POST": [
+        "devices:update"
+      ]
+    },
+    "/pro/v4/computers-inventory/{}/attachments/{}": {
+      "DELETE": [
+        "devices:update"
+      ],
+      "GET": [
+        "devices:read"
+      ]
+    },
+    "/pro/v4/computers-inventory/{}/erase": {
+      "POST": [
+        "destructive-device-actions:execute"
+      ]
+    },
+    "/pro/v4/computers-inventory/{}/filevault": {
+      "GET": [
+        "disk-encryption-recovery-key:read"
+      ]
+    },
+    "/pro/v4/computers-inventory/{}/remove-mdm-profile": {
+      "POST": [
+        "destructive-device-actions:execute"
+      ]
+    },
+    "/pro/v4/computers-inventory/{}/view-device-lock-pin": {
+      "GET": [
+        "computer-device-lock-pin:read"
+      ]
+    },
+    "/pro/v4/computers-inventory/{}/view-recovery-lock-password": {
+      "GET": [
+        "recovery-lock:read"
+      ]
+    },
+    "/pro/v4/enrollment": {
+      "GET": [
+        "user-initiated-enrollment:read"
+      ],
+      "PUT": [
+        "user-initiated-enrollment:update"
+      ]
+    },
+    "/pro/v4/enrollment/access-management": {
+      "GET": [
+        "access-management:read"
+      ],
+      "POST": [
+        "access-management:update"
+      ]
+    },
+    "/proclassic/accounts": {
+      "GET": [
+        "accounts:read"
+      ]
+    },
+    "/proclassic/accounts/groupid/{}": {
+      "DELETE": [
+        "accounts:delete"
+      ],
+      "GET": [
+        "accounts:read"
+      ],
+      "POST": [
+        "accounts:create"
+      ],
+      "PUT": [
+        "accounts:update"
+      ]
+    },
+    "/proclassic/accounts/groupname/{}": {
+      "DELETE": [
+        "accounts:delete"
+      ],
+      "GET": [
+        "accounts:read"
+      ],
+      "POST": [
+        "accounts:create"
+      ],
+      "PUT": [
+        "accounts:update"
+      ]
+    },
+    "/proclassic/accounts/userid/{}": {
+      "DELETE": [
+        "accounts:delete"
+      ],
+      "GET": [
+        "accounts:read"
+      ],
+      "POST": [
+        "accounts:create"
+      ],
+      "PUT": [
+        "accounts:update"
+      ]
+    },
+    "/proclassic/accounts/username/{}": {
+      "DELETE": [
+        "accounts:delete"
+      ],
+      "GET": [
+        "accounts:read"
+      ],
+      "POST": [
+        "accounts:create"
+      ],
+      "PUT": [
+        "accounts:update"
+      ]
+    },
+    "/proclassic/activationcode": {
+      "GET": [
+        "activation-code:read"
+      ],
+      "PUT": [
+        "activation-code:update"
+      ]
+    },
+    "/proclassic/advancedcomputersearches": {
+      "GET": [
+        "advanced-device-searches:read"
+      ]
+    },
+    "/proclassic/advancedcomputersearches/id/{}": {
+      "DELETE": [
+        "advanced-device-searches:delete"
+      ],
+      "GET": [
+        "advanced-device-searches:read"
+      ],
+      "POST": [
+        "advanced-device-searches:create"
+      ],
+      "PUT": [
+        "advanced-device-searches:update"
+      ]
+    },
+    "/proclassic/advancedcomputersearches/name/{}": {
+      "DELETE": [
+        "advanced-device-searches:delete"
+      ],
+      "GET": [
+        "advanced-device-searches:read"
+      ],
+      "POST": [
+        "advanced-device-searches:create"
+      ],
+      "PUT": [
+        "advanced-device-searches:update"
+      ]
+    },
+    "/proclassic/advancedmobiledevicesearches": {
+      "GET": [
+        "advanced-device-searches:read"
+      ]
+    },
+    "/proclassic/advancedmobiledevicesearches/id/{}": {
+      "DELETE": [
+        "advanced-device-searches:delete"
+      ],
+      "GET": [
+        "advanced-device-searches:read"
+      ],
+      "POST": [
+        "advanced-device-searches:create"
+      ],
+      "PUT": [
+        "advanced-device-searches:update"
+      ]
+    },
+    "/proclassic/advancedmobiledevicesearches/name/{}": {
+      "DELETE": [
+        "advanced-device-searches:delete"
+      ],
+      "GET": [
+        "advanced-device-searches:read"
+      ],
+      "POST": [
+        "advanced-device-searches:create"
+      ],
+      "PUT": [
+        "advanced-device-searches:update"
+      ]
+    },
+    "/proclassic/advancedusersearches": {
+      "GET": [
+        "advanced-user-searches:read"
+      ]
+    },
+    "/proclassic/advancedusersearches/id/{}": {
+      "DELETE": [
+        "advanced-user-searches:delete"
+      ],
+      "GET": [
+        "advanced-user-searches:read"
+      ],
+      "POST": [
+        "advanced-user-searches:create"
+      ],
+      "PUT": [
+        "advanced-user-searches:update"
+      ]
+    },
+    "/proclassic/advancedusersearches/name/{}": {
+      "DELETE": [
+        "advanced-user-searches:delete"
+      ],
+      "GET": [
+        "advanced-user-searches:read"
+      ],
+      "POST": [
+        "advanced-user-searches:create"
+      ],
+      "PUT": [
+        "advanced-user-searches:update"
+      ]
+    },
+    "/proclassic/allowedfileextensions": {
+      "GET": [
+        "allowed-file-extension:read"
+      ]
+    },
+    "/proclassic/allowedfileextensions/extension/{}": {
+      "GET": [
+        "allowed-file-extension:read"
+      ]
+    },
+    "/proclassic/allowedfileextensions/id/{}": {
+      "DELETE": [
+        "allowed-file-extension:delete"
+      ],
+      "GET": [
+        "allowed-file-extension:read"
+      ],
+      "POST": [
+        "allowed-file-extension:create"
+      ]
+    },
+    "/proclassic/buildings": {
+      "GET": [
+        "buildings:read"
+      ]
+    },
+    "/proclassic/buildings/id/{}": {
+      "DELETE": [
+        "buildings:delete"
+      ],
+      "GET": [
+        "buildings:read"
+      ],
+      "POST": [
+        "buildings:create"
+      ],
+      "PUT": [
+        "buildings:update"
+      ]
+    },
+    "/proclassic/buildings/name/{}": {
+      "DELETE": [
+        "buildings:delete"
+      ],
+      "GET": [
+        "buildings:read"
+      ],
+      "POST": [
+        "buildings:create"
+      ],
+      "PUT": [
+        "buildings:update"
+      ]
+    },
+    "/proclassic/categories": {
+      "GET": [
+        "categories:read"
+      ]
+    },
+    "/proclassic/categories/id/{}": {
+      "DELETE": [
+        "categories:delete"
+      ],
+      "GET": [
+        "categories:read"
+      ],
+      "POST": [
+        "categories:create"
+      ],
+      "PUT": [
+        "categories:update"
+      ]
+    },
+    "/proclassic/categories/name/{}": {
+      "DELETE": [
+        "categories:delete"
+      ],
+      "GET": [
+        "categories:read"
+      ],
+      "POST": [
+        "categories:create"
+      ],
+      "PUT": [
+        "categories:update"
+      ]
+    },
+    "/proclassic/classes": {
+      "GET": [
+        "classes:read"
+      ]
+    },
+    "/proclassic/classes/id/{}": {
+      "DELETE": [
+        "classes:delete"
+      ],
+      "GET": [
+        "classes:read"
+      ],
+      "POST": [
+        "classes:create"
+      ],
+      "PUT": [
+        "classes:update"
+      ]
+    },
+    "/proclassic/classes/name/{}": {
+      "DELETE": [
+        "classes:delete"
+      ],
+      "GET": [
+        "classes:read"
+      ],
+      "POST": [
+        "classes:create"
+      ],
+      "PUT": [
+        "classes:update"
+      ]
+    },
+    "/proclassic/commandflush": {
+      "DELETE": [
+        "device-actions:delete"
+      ]
+    },
+    "/proclassic/commandflush/{}/id/{}/status/{}": {
+      "DELETE": [
+        "device-actions:delete"
+      ]
+    },
+    "/proclassic/computerapplications/application/{}": {
+      "GET": [
+        "advanced-device-searches:read"
+      ]
+    },
+    "/proclassic/computerapplications/application/{}/inventory/{}": {
+      "GET": [
+        "advanced-device-searches:read"
+      ]
+    },
+    "/proclassic/computerapplications/application/{}/version/{}": {
+      "GET": [
+        "advanced-device-searches:read"
+      ]
+    },
+    "/proclassic/computerapplications/application/{}/version/{}/inventory/{}": {
+      "GET": [
+        "advanced-device-searches:read"
+      ]
+    },
+    "/proclassic/computerapplicationusage/id/{}/{}_{}": {
+      "GET": [
+        "device-history:read"
+      ]
+    },
+    "/proclassic/computerapplicationusage/macaddress/{}/{}_{}": {
+      "GET": [
+        "device-history:read"
+      ]
+    },
+    "/proclassic/computerapplicationusage/name/{}/{}_{}": {
+      "GET": [
+        "device-history:read"
+      ]
+    },
+    "/proclassic/computerapplicationusage/serialnumber/{}/{}_{}": {
+      "GET": [
+        "device-history:read"
+      ]
+    },
+    "/proclassic/computerapplicationusage/udid/{}/{}_{}": {
+      "GET": [
+        "device-history:read"
+      ]
+    },
+    "/proclassic/computercheckin": {
+      "GET": [
+        "computer-check-in:read"
+      ],
+      "PUT": [
+        "computer-check-in:update"
+      ]
+    },
+    "/proclassic/computercommands": {
+      "GET": [
+        "device-actions:read"
+      ]
+    },
+    "/proclassic/computercommands/command/{}": {
+      "GET": [
+        "device-actions:read"
+      ],
+      "POST": [
+        "destructive-device-actions:execute"
+      ]
+    },
+    "/proclassic/computercommands/command/{}/id/{}": {
+      "POST": [
+        "destructive-device-actions:execute"
+      ]
+    },
+    "/proclassic/computercommands/name/{}": {
+      "GET": [
+        "device-actions:read"
+      ]
+    },
+    "/proclassic/computercommands/status/{}": {
+      "GET": [
+        "device-actions:read"
+      ]
+    },
+    "/proclassic/computercommands/uuid/{}": {
+      "GET": [
+        "device-actions:read"
+      ]
+    },
+    "/proclassic/computerextensionattributes": {
+      "GET": [
+        "extension-attributes:read"
+      ]
+    },
+    "/proclassic/computerextensionattributes/id/{}": {
+      "DELETE": [
+        "extension-attributes:delete"
+      ],
+      "GET": [
+        "extension-attributes:read"
+      ],
+      "POST": [
+        "extension-attributes:create"
+      ],
+      "PUT": [
+        "extension-attributes:update"
+      ]
+    },
+    "/proclassic/computerextensionattributes/name/{}": {
+      "DELETE": [
+        "extension-attributes:delete"
+      ],
+      "GET": [
+        "extension-attributes:read"
+      ],
+      "POST": [
+        "extension-attributes:create"
+      ],
+      "PUT": [
+        "extension-attributes:update"
+      ]
+    },
+    "/proclassic/computergroups": {
+      "GET": [
+        "device-groups:read"
+      ]
+    },
+    "/proclassic/computergroups/id/{}": {
+      "DELETE": [
+        "device-groups:delete"
+      ],
+      "GET": [
+        "device-groups:read"
+      ],
+      "POST": [
+        "device-groups:create"
+      ],
+      "PUT": [
+        "device-groups:update"
+      ]
+    },
+    "/proclassic/computergroups/name/{}": {
+      "DELETE": [
+        "device-groups:delete"
+      ],
+      "GET": [
+        "device-groups:read"
+      ],
+      "POST": [
+        "device-groups:create"
+      ],
+      "PUT": [
+        "device-groups:update"
+      ]
+    },
+    "/proclassic/computerhardwaresoftwarereports/id/{}/{}_{}": {
+      "GET": [
+        "device-history:read"
+      ]
+    },
+    "/proclassic/computerhardwaresoftwarereports/id/{}/{}_{}/subset/{}": {
+      "GET": [
+        "device-history:read"
+      ]
+    },
+    "/proclassic/computerhardwaresoftwarereports/macaddress/{}/{}_{}": {
+      "GET": [
+        "device-history:read"
+      ]
+    },
+    "/proclassic/computerhardwaresoftwarereports/name/{}/{}_{}": {
+      "GET": [
+        "device-history:read"
+      ]
+    },
+    "/proclassic/computerhardwaresoftwarereports/serialnumber/{}/{}_{}": {
+      "GET": [
+        "device-history:read"
+      ]
+    },
+    "/proclassic/computerhardwaresoftwarereports/udid/{}/{}_{}": {
+      "GET": [
+        "device-history:read"
+      ]
+    },
+    "/proclassic/computerhistory/id/{}": {
+      "GET": [
+        "device-history:read"
+      ]
+    },
+    "/proclassic/computerhistory/id/{}/subset/{}": {
+      "GET": [
+        "device-history:read"
+      ]
+    },
+    "/proclassic/computerhistory/macaddress/{}": {
+      "GET": [
+        "device-history:read"
+      ]
+    },
+    "/proclassic/computerhistory/name/{}": {
+      "GET": [
+        "device-history:read"
+      ]
+    },
+    "/proclassic/computerhistory/serialnumber/{}": {
+      "GET": [
+        "device-history:read"
+      ]
+    },
+    "/proclassic/computerhistory/udid/{}": {
+      "GET": [
+        "device-history:read"
+      ]
+    },
+    "/proclassic/computerinventorycollection": {
+      "GET": [
+        "computer-inventory-collection-settings:read"
+      ],
+      "PUT": [
+        "computer-inventory-collection-settings:update"
+      ]
+    },
+    "/proclassic/computerinvitations": {
+      "GET": [
+        "enrollment-invitations:read"
+      ]
+    },
+    "/proclassic/computerinvitations/id/{}": {
+      "DELETE": [
+        "enrollment-invitations:delete"
+      ],
+      "GET": [
+        "enrollment-invitations:read"
+      ],
+      "POST": [
+        "enrollment-invitations:create"
+      ]
+    },
+    "/proclassic/computerinvitations/invitation/{}": {
+      "DELETE": [
+        "enrollment-invitations:delete"
+      ],
+      "GET": [
+        "enrollment-invitations:read"
+      ],
+      "POST": [
+        "enrollment-invitations:create"
+      ]
+    },
+    "/proclassic/computerinvitations/name/{}": {
+      "DELETE": [
+        "enrollment-invitations:delete"
+      ],
+      "GET": [
+        "enrollment-invitations:read"
+      ],
+      "POST": [
+        "enrollment-invitations:create"
+      ]
+    },
+    "/proclassic/computermanagement/id/{}": {
+      "GET": [
+        "device-history:read"
+      ]
+    },
+    "/proclassic/computermanagement/id/{}/patchfilter/{}": {
+      "GET": [
+        "device-history:read"
+      ]
+    },
+    "/proclassic/computermanagement/id/{}/subset/{}": {
+      "GET": [
+        "device-history:read"
+      ]
+    },
+    "/proclassic/computermanagement/id/{}/username/{}": {
+      "GET": [
+        "device-history:read"
+      ]
+    },
+    "/proclassic/computermanagement/id/{}/username/{}/subset/{}": {
+      "GET": [
+        "device-history:read"
+      ]
+    },
+    "/proclassic/computermanagement/macaddress/{}": {
+      "GET": [
+        "device-history:read"
+      ]
+    },
+    "/proclassic/computermanagement/name/{}": {
+      "GET": [
+        "device-history:read"
+      ]
+    },
+    "/proclassic/computermanagement/serialnumber/{}": {
+      "GET": [
+        "device-history:read"
+      ]
+    },
+    "/proclassic/computermanagement/udid/{}": {
+      "GET": [
+        "device-history:read"
+      ]
+    },
+    "/proclassic/computerreports": {
+      "GET": [
+        "device-history:read"
+      ]
+    },
+    "/proclassic/computerreports/id/{}": {
+      "GET": [
+        "device-history:read"
+      ]
+    },
+    "/proclassic/computerreports/name/{}": {
+      "GET": [
+        "device-history:read"
+      ]
+    },
+    "/proclassic/computers": {
+      "GET": [
+        "devices:read"
+      ]
+    },
+    "/proclassic/computers/id/{}": {
+      "DELETE": [
+        "destructive-device-actions:execute"
+      ],
+      "GET": [
+        "devices:read"
+      ],
+      "POST": [
+        "devices:create",
+        "users:create"
+      ],
+      "PUT": [
+        "devices:update",
+        "users:update"
+      ]
+    },
+    "/proclassic/computers/id/{}/subset/{}": {
+      "GET": [
+        "devices:read"
+      ]
+    },
+    "/proclassic/computers/macaddress/{}": {
+      "DELETE": [
+        "destructive-device-actions:execute"
+      ],
+      "GET": [
+        "devices:read"
+      ],
+      "POST": [
+        "devices:create",
+        "users:create"
+      ],
+      "PUT": [
+        "devices:update",
+        "users:update"
+      ]
+    },
+    "/proclassic/computers/match/name/{}": {
+      "GET": [
+        "devices:read"
+      ]
+    },
+    "/proclassic/computers/match/{}": {
+      "GET": [
+        "devices:read"
+      ]
+    },
+    "/proclassic/computers/name/{}": {
+      "DELETE": [
+        "destructive-device-actions:execute"
+      ],
+      "GET": [
+        "devices:read"
+      ],
+      "POST": [
+        "devices:create",
+        "users:create"
+      ],
+      "PUT": [
+        "devices:update",
+        "users:update"
+      ]
+    },
+    "/proclassic/computers/serialnumber/{}": {
+      "DELETE": [
+        "destructive-device-actions:execute"
+      ],
+      "GET": [
+        "devices:read"
+      ],
+      "POST": [
+        "devices:create",
+        "users:create"
+      ],
+      "PUT": [
+        "devices:update",
+        "users:update"
+      ]
+    },
+    "/proclassic/computers/subset/basic": {
+      "GET": [
+        "devices:read"
+      ]
+    },
+    "/proclassic/computers/udid/{}": {
+      "DELETE": [
+        "destructive-device-actions:execute"
+      ],
+      "GET": [
+        "devices:read"
+      ],
+      "POST": [
+        "devices:create",
+        "users:create"
+      ],
+      "PUT": [
+        "devices:update",
+        "users:update"
+      ]
+    },
+    "/proclassic/departments": {
+      "GET": [
+        "departments:read"
+      ]
+    },
+    "/proclassic/departments/id/{}": {
+      "DELETE": [
+        "departments:delete"
+      ],
+      "GET": [
+        "departments:read"
+      ],
+      "POST": [
+        "departments:create"
+      ],
+      "PUT": [
+        "departments:update"
+      ]
+    },
+    "/proclassic/departments/name/{}": {
+      "DELETE": [
+        "departments:delete"
+      ],
+      "GET": [
+        "departments:read"
+      ],
+      "POST": [
+        "departments:create"
+      ],
+      "PUT": [
+        "departments:update"
+      ]
+    },
+    "/proclassic/directorybindings": {
+      "GET": [
+        "directory-bindings:read"
+      ]
+    },
+    "/proclassic/directorybindings/id/{}": {
+      "DELETE": [
+        "directory-bindings:delete"
+      ],
+      "GET": [
+        "directory-bindings:read"
+      ],
+      "POST": [
+        "directory-bindings:create"
+      ],
+      "PUT": [
+        "directory-bindings:update"
+      ]
+    },
+    "/proclassic/directorybindings/name/{}": {
+      "DELETE": [
+        "directory-bindings:delete"
+      ],
+      "GET": [
+        "directory-bindings:read"
+      ],
+      "POST": [
+        "directory-bindings:create"
+      ],
+      "PUT": [
+        "directory-bindings:update"
+      ]
+    },
+    "/proclassic/diskencryptionconfigurations": {
+      "GET": [
+        "disk-encryption-configurations:read"
+      ]
+    },
+    "/proclassic/diskencryptionconfigurations/id/{}": {
+      "DELETE": [
+        "disk-encryption-configurations:delete"
+      ],
+      "GET": [
+        "disk-encryption-configurations:read"
+      ],
+      "POST": [
+        "disk-encryption-configurations:create"
+      ],
+      "PUT": [
+        "disk-encryption-configurations:update"
+      ]
+    },
+    "/proclassic/diskencryptionconfigurations/name/{}": {
+      "DELETE": [
+        "disk-encryption-configurations:delete"
+      ],
+      "GET": [
+        "disk-encryption-configurations:read"
+      ],
+      "POST": [
+        "disk-encryption-configurations:create"
+      ],
+      "PUT": [
+        "disk-encryption-configurations:update"
+      ]
+    },
+    "/proclassic/distributionpoints": {
+      "GET": [
+        "distribution-points:read"
+      ]
+    },
+    "/proclassic/distributionpoints/id/{}": {
+      "DELETE": [
+        "distribution-points:delete"
+      ],
+      "GET": [
+        "distribution-points:read"
+      ],
+      "POST": [
+        "distribution-points:create"
+      ],
+      "PUT": [
+        "distribution-points:update"
+      ]
+    },
+    "/proclassic/distributionpoints/name/{}": {
+      "DELETE": [
+        "distribution-points:delete"
+      ],
+      "GET": [
+        "distribution-points:read"
+      ],
+      "POST": [
+        "distribution-points:create"
+      ],
+      "PUT": [
+        "distribution-points:update"
+      ]
+    },
+    "/proclassic/dockitems": {
+      "GET": [
+        "dock-items:read"
+      ]
+    },
+    "/proclassic/dockitems/id/{}": {
+      "DELETE": [
+        "dock-items:delete"
+      ],
+      "GET": [
+        "dock-items:read"
+      ],
+      "POST": [
+        "dock-items:create"
+      ],
+      "PUT": [
+        "dock-items:update"
+      ]
+    },
+    "/proclassic/dockitems/name/{}": {
+      "DELETE": [
+        "dock-items:delete"
+      ],
+      "GET": [
+        "dock-items:read"
+      ],
+      "POST": [
+        "dock-items:create"
+      ],
+      "PUT": [
+        "dock-items:update"
+      ]
+    },
+    "/proclassic/ebooks": {
+      "GET": [
+        "ebooks:read"
+      ]
+    },
+    "/proclassic/ebooks/id/{}": {
+      "DELETE": [
+        "ebooks:delete"
+      ],
+      "GET": [
+        "ebooks:read"
+      ],
+      "POST": [
+        "ebooks:create"
+      ],
+      "PUT": [
+        "ebooks:update"
+      ]
+    },
+    "/proclassic/ebooks/id/{}/subset/{}": {
+      "GET": [
+        "ebooks:read"
+      ]
+    },
+    "/proclassic/ebooks/name/{}": {
+      "DELETE": [
+        "ebooks:delete"
+      ],
+      "GET": [
+        "ebooks:read"
+      ],
+      "POST": [
+        "ebooks:create"
+      ],
+      "PUT": [
+        "ebooks:update"
+      ]
+    },
+    "/proclassic/fileuploads/{}/{}/{}": {
+      "POST": [
+        "file-uploads:create"
+      ]
+    },
+    "/proclassic/gsxconnection": {
+      "GET": [
+        "gsx-connection:read"
+      ],
+      "PUT": [
+        "gsx-connection:update"
+      ]
+    },
+    "/proclassic/healthcarelistener": {
+      "GET": [
+        "infrastructure-managers:read"
+      ]
+    },
+    "/proclassic/healthcarelistener/id/{}": {
+      "GET": [
+        "infrastructure-managers:read"
+      ],
+      "PUT": [
+        "infrastructure-managers:update"
+      ]
+    },
+    "/proclassic/healthcarelistenerrule": {
+      "GET": [
+        "infrastructure-managers:read"
+      ]
+    },
+    "/proclassic/healthcarelistenerrule/id/{}": {
+      "GET": [
+        "infrastructure-managers:read"
+      ],
+      "POST": [
+        "infrastructure-managers:create"
+      ],
+      "PUT": [
+        "infrastructure-managers:update"
+      ]
+    },
+    "/proclassic/ibeacons": {
+      "GET": [
+        "ibeacon:read"
+      ]
+    },
+    "/proclassic/ibeacons/id/{}": {
+      "DELETE": [
+        "ibeacon:delete"
+      ],
+      "GET": [
+        "ibeacon:read"
+      ],
+      "POST": [
+        "ibeacon:create"
+      ],
+      "PUT": [
+        "ibeacon:update"
+      ]
+    },
+    "/proclassic/ibeacons/name/{}": {
+      "DELETE": [
+        "ibeacon:delete"
+      ],
+      "GET": [
+        "ibeacon:read"
+      ],
+      "POST": [
+        "ibeacon:create"
+      ],
+      "PUT": [
+        "ibeacon:update"
+      ]
+    },
+    "/proclassic/infrastructuremanager": {
+      "GET": [
+        "infrastructure-managers:read"
+      ]
+    },
+    "/proclassic/infrastructuremanager/id/{}": {
+      "DELETE": [
+        "infrastructure-managers:delete"
+      ],
+      "GET": [
+        "infrastructure-managers:read"
+      ],
+      "PUT": [
+        "infrastructure-managers:update"
+      ]
+    },
+    "/proclassic/jsonwebtokenconfigurations": {
+      "GET": [
+        "json-web-token-configuration:read"
+      ]
+    },
+    "/proclassic/jsonwebtokenconfigurations/id/{}": {
+      "DELETE": [
+        "json-web-token-configuration:delete"
+      ],
+      "GET": [
+        "json-web-token-configuration:read"
+      ],
+      "POST": [
+        "json-web-token-configuration:create"
+      ],
+      "PUT": [
+        "json-web-token-configuration:update"
+      ]
+    },
+    "/proclassic/jssuser": {
+      "GET": [
+        "accounts:read"
+      ]
+    },
+    "/proclassic/ldapservers": {
+      "GET": [
+        "ldap-servers:read"
+      ]
+    },
+    "/proclassic/ldapservers/id/{}": {
+      "DELETE": [
+        "ldap-servers:delete"
+      ],
+      "GET": [
+        "ldap-servers:read"
+      ],
+      "POST": [
+        "ldap-servers:create"
+      ],
+      "PUT": [
+        "ldap-servers:update"
+      ]
+    },
+    "/proclassic/ldapservers/id/{}/group/{}": {
+      "GET": [
+        "ldap-servers:read"
+      ]
+    },
+    "/proclassic/ldapservers/id/{}/group/{}/user/{}": {
+      "GET": [
+        "ldap-servers:read"
+      ]
+    },
+    "/proclassic/ldapservers/id/{}/user/{}": {
+      "GET": [
+        "ldap-servers:read"
+      ]
+    },
+    "/proclassic/ldapservers/name/{}": {
+      "DELETE": [
+        "ldap-servers:delete"
+      ],
+      "GET": [
+        "ldap-servers:read"
+      ],
+      "POST": [
+        "ldap-servers:create"
+      ],
+      "PUT": [
+        "ldap-servers:update"
+      ]
+    },
+    "/proclassic/licensedsoftware": {
+      "GET": [
+        "licensed-software:read"
+      ]
+    },
+    "/proclassic/licensedsoftware/id/{}": {
+      "DELETE": [
+        "licensed-software:delete"
+      ],
+      "GET": [
+        "licensed-software:read"
+      ],
+      "POST": [
+        "licensed-software:create"
+      ],
+      "PUT": [
+        "licensed-software:update"
+      ]
+    },
+    "/proclassic/licensedsoftware/name/{}": {
+      "DELETE": [
+        "licensed-software:delete"
+      ],
+      "GET": [
+        "licensed-software:read"
+      ],
+      "POST": [
+        "licensed-software:create"
+      ],
+      "PUT": [
+        "licensed-software:update"
+      ]
+    },
+    "/proclassic/logflush": {
+      "DELETE": [
+        "flush-policy-logs:execute"
+      ]
+    },
+    "/proclassic/logflush/{}/id/{}/interval/{}": {
+      "DELETE": [
+        "flush-policy-logs:execute"
+      ]
+    },
+    "/proclassic/logflush/{}/interval/{}": {
+      "DELETE": [
+        "flush-policy-logs:execute"
+      ]
+    },
+    "/proclassic/macapplications": {
+      "GET": [
+        "applications:read"
+      ]
+    },
+    "/proclassic/macapplications/id/{}": {
+      "DELETE": [
+        "applications:delete"
+      ],
+      "GET": [
+        "applications:read"
+      ],
+      "POST": [
+        "applications:create"
+      ],
+      "PUT": [
+        "applications:update"
+      ]
+    },
+    "/proclassic/macapplications/id/{}/subset/{}": {
+      "GET": [
+        "applications:read"
+      ]
+    },
+    "/proclassic/macapplications/name/{}": {
+      "DELETE": [
+        "applications:delete"
+      ],
+      "GET": [
+        "applications:read"
+      ],
+      "POST": [
+        "applications:create"
+      ],
+      "PUT": [
+        "applications:update"
+      ]
+    },
+    "/proclassic/macapplications/name/{}/subset/{}": {
+      "GET": [
+        "applications:read"
+      ]
+    },
+    "/proclassic/mobiledeviceapplications": {
+      "GET": [
+        "applications:read"
+      ]
+    },
+    "/proclassic/mobiledeviceapplications/bundleid/{}": {
+      "DELETE": [
+        "applications:delete"
+      ],
+      "GET": [
+        "applications:read"
+      ],
+      "PUT": [
+        "applications:update"
+      ]
+    },
+    "/proclassic/mobiledeviceapplications/bundleid/{}/version/{}": {
+      "DELETE": [
+        "applications:delete"
+      ],
+      "GET": [
+        "applications:read"
+      ],
+      "PUT": [
+        "applications:update"
+      ]
+    },
+    "/proclassic/mobiledeviceapplications/id/{}": {
+      "DELETE": [
+        "applications:delete"
+      ],
+      "GET": [
+        "applications:read"
+      ],
+      "POST": [
+        "applications:create"
+      ],
+      "PUT": [
+        "applications:update"
+      ]
+    },
+    "/proclassic/mobiledeviceapplications/id/{}/subset/{}": {
+      "GET": [
+        "applications:read"
+      ]
+    },
+    "/proclassic/mobiledeviceapplications/name/{}": {
+      "DELETE": [
+        "applications:delete"
+      ],
+      "GET": [
+        "applications:read"
+      ],
+      "POST": [
+        "applications:create"
+      ],
+      "PUT": [
+        "applications:update"
+      ]
+    },
+    "/proclassic/mobiledeviceapplications/name/{}/subset/{}": {
+      "GET": [
+        "applications:read"
+      ]
+    },
+    "/proclassic/mobiledevicecommands": {
+      "GET": [
+        "device-actions:read"
+      ]
+    },
+    "/proclassic/mobiledevicecommands/command": {
+      "POST": [
+        "destructive-device-actions:execute",
+        "devices:create"
+      ]
+    },
+    "/proclassic/mobiledevicecommands/command/{}": {
+      "GET": [
+        "device-actions:read"
+      ],
+      "POST": [
+        "destructive-device-actions:execute"
+      ]
+    },
+    "/proclassic/mobiledevicecommands/command/{}/id/{}": {
+      "POST": [
+        "destructive-device-actions:execute"
+      ]
+    },
+    "/proclassic/mobiledevicecommands/command/{}/{}/id/{}": {
+      "POST": [
+        "device-actions:execute"
+      ]
+    },
+    "/proclassic/mobiledevicecommands/command/{}/{}/{}/id/{}": {
+      "POST": [
+        "device-actions:execute"
+      ]
+    },
+    "/proclassic/mobiledevicecommands/name/{}": {
+      "GET": [
+        "device-actions:read"
+      ],
+      "POST": [
+        "destructive-device-actions:execute"
+      ]
+    },
+    "/proclassic/mobiledevicecommands/uuid/{}": {
+      "GET": [
+        "device-actions:read"
+      ]
+    },
+    "/proclassic/mobiledeviceconfigurationprofiles": {
+      "GET": [
+        "configuration-profiles:read"
+      ]
+    },
+    "/proclassic/mobiledeviceconfigurationprofiles/id/{}": {
+      "DELETE": [
+        "configuration-profiles:delete"
+      ],
+      "GET": [
+        "configuration-profiles:read"
+      ],
+      "POST": [
+        "configuration-profiles:create"
+      ],
+      "PUT": [
+        "configuration-profiles:update"
+      ]
+    },
+    "/proclassic/mobiledeviceconfigurationprofiles/id/{}/subset/{}": {
+      "GET": [
+        "configuration-profiles:read"
+      ]
+    },
+    "/proclassic/mobiledeviceconfigurationprofiles/name/{}": {
+      "DELETE": [
+        "configuration-profiles:delete"
+      ],
+      "GET": [
+        "configuration-profiles:read"
+      ],
+      "POST": [
+        "configuration-profiles:create"
+      ],
+      "PUT": [
+        "configuration-profiles:update"
+      ]
+    },
+    "/proclassic/mobiledeviceconfigurationprofiles/name/{}/subset/{}": {
+      "GET": [
+        "configuration-profiles:read"
+      ]
+    },
+    "/proclassic/mobiledeviceenrollmentprofiles": {
+      "GET": [
+        "enrollment-profiles:read"
+      ]
+    },
+    "/proclassic/mobiledeviceenrollmentprofiles/id/{}": {
+      "DELETE": [
+        "enrollment-profiles:delete"
+      ],
+      "GET": [
+        "enrollment-profiles:read"
+      ],
+      "POST": [
+        "enrollment-profiles:create"
+      ],
+      "PUT": [
+        "enrollment-profiles:update"
+      ]
+    },
+    "/proclassic/mobiledeviceenrollmentprofiles/id/{}/subset/{}": {
+      "GET": [
+        "enrollment-profiles:read"
+      ]
+    },
+    "/proclassic/mobiledeviceenrollmentprofiles/invitation/{}": {
+      "DELETE": [
+        "enrollment-profiles:delete"
+      ],
+      "GET": [
+        "enrollment-profiles:read"
+      ],
+      "POST": [
+        "enrollment-profiles:create"
+      ],
+      "PUT": [
+        "enrollment-profiles:update"
+      ]
+    },
+    "/proclassic/mobiledeviceenrollmentprofiles/invitation/{}/subset/{}": {
+      "GET": [
+        "enrollment-profiles:read"
+      ]
+    },
+    "/proclassic/mobiledeviceenrollmentprofiles/name/{}": {
+      "DELETE": [
+        "enrollment-profiles:delete"
+      ],
+      "GET": [
+        "enrollment-profiles:read"
+      ],
+      "POST": [
+        "enrollment-profiles:create"
+      ],
+      "PUT": [
+        "enrollment-profiles:update"
+      ]
+    },
+    "/proclassic/mobiledeviceenrollmentprofiles/name/{}/subset/{}": {
+      "GET": [
+        "enrollment-profiles:read"
+      ]
+    },
+    "/proclassic/mobiledeviceextensionattributes": {
+      "GET": [
+        "extension-attributes:read"
+      ]
+    },
+    "/proclassic/mobiledeviceextensionattributes/id/{}": {
+      "DELETE": [
+        "extension-attributes:delete"
+      ],
+      "GET": [
+        "extension-attributes:read"
+      ],
+      "POST": [
+        "extension-attributes:create"
+      ],
+      "PUT": [
+        "extension-attributes:update"
+      ]
+    },
+    "/proclassic/mobiledeviceextensionattributes/name/{}": {
+      "DELETE": [
+        "extension-attributes:delete"
+      ],
+      "GET": [
+        "extension-attributes:read"
+      ],
+      "POST": [
+        "extension-attributes:create"
+      ],
+      "PUT": [
+        "extension-attributes:update"
+      ]
+    },
+    "/proclassic/mobiledevicegroups": {
+      "GET": [
+        "device-groups:read"
+      ]
+    },
+    "/proclassic/mobiledevicegroups/id/{}": {
+      "DELETE": [
+        "device-groups:delete"
+      ],
+      "GET": [
+        "device-groups:read"
+      ],
+      "POST": [
+        "device-groups:create"
+      ],
+      "PUT": [
+        "device-groups:update"
+      ]
+    },
+    "/proclassic/mobiledevicegroups/name/{}": {
+      "DELETE": [
+        "device-groups:delete"
+      ],
+      "GET": [
+        "device-groups:read"
+      ],
+      "POST": [
+        "device-groups:create"
+      ],
+      "PUT": [
+        "device-groups:update"
+      ]
+    },
+    "/proclassic/mobiledevicehistory/id/{}": {
+      "GET": [
+        "device-history:read"
+      ]
+    },
+    "/proclassic/mobiledevicehistory/id/{}/subset/{}": {
+      "GET": [
+        "device-history:read"
+      ]
+    },
+    "/proclassic/mobiledevicehistory/macaddress/{}": {
+      "GET": [
+        "device-history:read"
+      ]
+    },
+    "/proclassic/mobiledevicehistory/name/{}": {
+      "GET": [
+        "device-history:read"
+      ]
+    },
+    "/proclassic/mobiledevicehistory/serialnumber/{}": {
+      "GET": [
+        "device-history:read"
+      ]
+    },
+    "/proclassic/mobiledevicehistory/udid/{}": {
+      "GET": [
+        "device-history:read"
+      ]
+    },
+    "/proclassic/mobiledeviceinvitations": {
+      "GET": [
+        "enrollment-invitations:read"
+      ]
+    },
+    "/proclassic/mobiledeviceinvitations/id/{}": {
+      "DELETE": [
+        "enrollment-invitations:delete"
+      ],
+      "GET": [
+        "enrollment-invitations:read"
+      ],
+      "POST": [
+        "enrollment-invitations:create"
+      ]
+    },
+    "/proclassic/mobiledeviceinvitations/invitation/{}": {
+      "DELETE": [
+        "enrollment-invitations:delete"
+      ],
+      "GET": [
+        "enrollment-invitations:read"
+      ],
+      "POST": [
+        "enrollment-invitations:create"
+      ],
+      "PUT": [
+        "enrollment-invitations:update"
+      ]
+    },
+    "/proclassic/mobiledeviceprovisioningprofiles": {
+      "GET": [
+        "provisioning-profiles:read"
+      ]
+    },
+    "/proclassic/mobiledeviceprovisioningprofiles/id/{}": {
+      "DELETE": [
+        "provisioning-profiles:delete"
+      ],
+      "GET": [
+        "provisioning-profiles:read"
+      ],
+      "POST": [
+        "provisioning-profiles:create"
+      ],
+      "PUT": [
+        "provisioning-profiles:update"
+      ]
+    },
+    "/proclassic/mobiledeviceprovisioningprofiles/id/{}/subset/{}": {
+      "GET": [
+        "provisioning-profiles:read"
+      ]
+    },
+    "/proclassic/mobiledeviceprovisioningprofiles/name/{}": {
+      "DELETE": [
+        "provisioning-profiles:delete"
+      ],
+      "GET": [
+        "provisioning-profiles:read"
+      ],
+      "POST": [
+        "provisioning-profiles:create"
+      ],
+      "PUT": [
+        "provisioning-profiles:update"
+      ]
+    },
+    "/proclassic/mobiledeviceprovisioningprofiles/uuid/{}": {
+      "DELETE": [
+        "provisioning-profiles:delete"
+      ],
+      "GET": [
+        "provisioning-profiles:read"
+      ],
+      "POST": [
+        "provisioning-profiles:create"
+      ],
+      "PUT": [
+        "provisioning-profiles:update"
+      ]
+    },
+    "/proclassic/mobiledevices": {
+      "GET": [
+        "devices:read"
+      ]
+    },
+    "/proclassic/mobiledevices/id/{}": {
+      "DELETE": [
+        "destructive-device-actions:execute"
+      ],
+      "GET": [
+        "devices:read"
+      ],
+      "POST": [
+        "devices:create",
+        "users:create"
+      ],
+      "PUT": [
+        "devices:update",
+        "users:update"
+      ]
+    },
+    "/proclassic/mobiledevices/id/{}/subset/{}": {
+      "GET": [
+        "devices:read"
+      ]
+    },
+    "/proclassic/mobiledevices/macaddress/{}": {
+      "DELETE": [
+        "destructive-device-actions:execute"
+      ],
+      "GET": [
+        "devices:read"
+      ],
+      "POST": [
+        "devices:create",
+        "users:create"
+      ],
+      "PUT": [
+        "devices:update",
+        "users:update"
+      ]
+    },
+    "/proclassic/mobiledevices/match/{}": {
+      "GET": [
+        "devices:read"
+      ]
+    },
+    "/proclassic/mobiledevices/name/{}": {
+      "DELETE": [
+        "destructive-device-actions:execute"
+      ],
+      "GET": [
+        "devices:read"
+      ],
+      "POST": [
+        "devices:create",
+        "users:create"
+      ],
+      "PUT": [
+        "devices:update",
+        "users:update"
+      ]
+    },
+    "/proclassic/mobiledevices/serialnumber/{}": {
+      "DELETE": [
+        "destructive-device-actions:execute"
+      ],
+      "GET": [
+        "devices:read"
+      ],
+      "POST": [
+        "devices:create",
+        "users:create"
+      ],
+      "PUT": [
+        "devices:update",
+        "users:update"
+      ]
+    },
+    "/proclassic/mobiledevices/udid/{}": {
+      "DELETE": [
+        "destructive-device-actions:execute"
+      ],
+      "GET": [
+        "devices:read"
+      ],
+      "POST": [
+        "devices:create",
+        "users:create"
+      ],
+      "PUT": [
+        "devices:update",
+        "users:update"
+      ]
+    },
+    "/proclassic/networksegments": {
+      "GET": [
+        "network-segments:read"
+      ]
+    },
+    "/proclassic/networksegments/id/{}": {
+      "DELETE": [
+        "network-segments:delete"
+      ],
+      "GET": [
+        "network-segments:read"
+      ],
+      "POST": [
+        "network-segments:create"
+      ],
+      "PUT": [
+        "network-segments:update"
+      ]
+    },
+    "/proclassic/networksegments/name/{}": {
+      "DELETE": [
+        "network-segments:delete"
+      ],
+      "GET": [
+        "network-segments:read"
+      ],
+      "POST": [
+        "network-segments:create"
+      ],
+      "PUT": [
+        "network-segments:update"
+      ]
+    },
+    "/proclassic/osxconfigurationprofiles": {
+      "GET": [
+        "configuration-profiles:read"
+      ]
+    },
+    "/proclassic/osxconfigurationprofiles/id/{}": {
+      "DELETE": [
+        "configuration-profiles:delete"
+      ],
+      "GET": [
+        "configuration-profiles:read"
+      ],
+      "POST": [
+        "configuration-profiles:create"
+      ],
+      "PUT": [
+        "configuration-profiles:update"
+      ]
+    },
+    "/proclassic/osxconfigurationprofiles/id/{}/subset/{}": {
+      "GET": [
+        "configuration-profiles:read"
+      ]
+    },
+    "/proclassic/osxconfigurationprofiles/name/{}": {
+      "DELETE": [
+        "configuration-profiles:delete"
+      ],
+      "GET": [
+        "configuration-profiles:read"
+      ],
+      "POST": [
+        "configuration-profiles:create"
+      ],
+      "PUT": [
+        "configuration-profiles:update"
+      ]
+    },
+    "/proclassic/osxconfigurationprofiles/name/{}/subset/{}": {
+      "GET": [
+        "configuration-profiles:read"
+      ]
+    },
+    "/proclassic/packages": {
+      "GET": [
+        "packages:read"
+      ]
+    },
+    "/proclassic/packages/id/{}": {
+      "DELETE": [
+        "packages:delete"
+      ],
+      "GET": [
+        "packages:read"
+      ],
+      "POST": [
+        "packages:create"
+      ],
+      "PUT": [
+        "packages:update"
+      ]
+    },
+    "/proclassic/packages/name/{}": {
+      "DELETE": [
+        "packages:delete"
+      ],
+      "GET": [
+        "packages:read"
+      ],
+      "POST": [
+        "packages:create"
+      ],
+      "PUT": [
+        "packages:update"
+      ]
+    },
+    "/proclassic/patchavailabletitles/sourceid/{}": {
+      "GET": [
+        "patch-management-software-titles:read"
+      ]
+    },
+    "/proclassic/patches": {
+      "GET": [
+        "patch-management-software-titles:read"
+      ]
+    },
+    "/proclassic/patches/id/{}": {
+      "DELETE": [
+        "patch-management-software-titles:delete"
+      ],
+      "GET": [
+        "patch-management-software-titles:read"
+      ],
+      "POST": [
+        "patch-management-software-titles:create"
+      ],
+      "PUT": [
+        "patch-management-software-titles:update"
+      ]
+    },
+    "/proclassic/patches/id/{}/version/{}": {
+      "GET": [
+        "patch-management-software-titles:read"
+      ]
+    },
+    "/proclassic/patches/name/{}": {
+      "GET": [
+        "patch-management-software-titles:read"
+      ]
+    },
+    "/proclassic/patchexternalsources": {
+      "GET": [
+        "patch-external-source:read"
+      ]
+    },
+    "/proclassic/patchexternalsources/id/{}": {
+      "DELETE": [
+        "patch-external-source:delete"
+      ],
+      "GET": [
+        "patch-external-source:read"
+      ],
+      "POST": [
+        "patch-external-source:create"
+      ],
+      "PUT": [
+        "patch-external-source:update"
+      ]
+    },
+    "/proclassic/patchexternalsources/name/{}": {
+      "DELETE": [
+        "patch-external-source:delete"
+      ],
+      "GET": [
+        "patch-external-source:read"
+      ],
+      "POST": [
+        "patch-external-source:create"
+      ],
+      "PUT": [
+        "patch-external-source:update"
+      ]
+    },
+    "/proclassic/patchinternalsources": {
+      "GET": [
+        "patch-internal-source:read"
+      ]
+    },
+    "/proclassic/patchinternalsources/id/{}": {
+      "GET": [
+        "patch-internal-source:read"
+      ]
+    },
+    "/proclassic/patchinternalsources/name/{}": {
+      "GET": [
+        "patch-internal-source:read"
+      ]
+    },
+    "/proclassic/patchpolicies": {
+      "GET": [
+        "patch-policies:read"
+      ]
+    },
+    "/proclassic/patchpolicies/id/{}": {
+      "DELETE": [
+        "patch-policies:delete"
+      ],
+      "GET": [
+        "patch-policies:read"
+      ],
+      "PUT": [
+        "patch-policies:update"
+      ]
+    },
+    "/proclassic/patchpolicies/id/{}/subset/{}": {
+      "GET": [
+        "patch-policies:read"
+      ]
+    },
+    "/proclassic/patchpolicies/softwaretitleconfig/id/{}": {
+      "GET": [
+        "patch-policies:read"
+      ],
+      "POST": [
+        "patch-policies:create"
+      ]
+    },
+    "/proclassic/patchreports/patchsoftwaretitleid/{}": {
+      "GET": [
+        "patch-management-software-titles:read"
+      ]
+    },
+    "/proclassic/patchreports/patchsoftwaretitleid/{}/version/{}": {
+      "GET": [
+        "patch-management-software-titles:read"
+      ]
+    },
+    "/proclassic/patchsoftwaretitles": {
+      "GET": [
+        "patch-management-software-titles:read"
+      ]
+    },
+    "/proclassic/patchsoftwaretitles/id/{}": {
+      "DELETE": [
+        "patch-management-software-titles:delete"
+      ],
+      "GET": [
+        "patch-management-software-titles:read"
+      ],
+      "POST": [
+        "patch-management-software-titles:create"
+      ],
+      "PUT": [
+        "patch-management-software-titles:update"
+      ]
+    },
+    "/proclassic/policies": {
+      "GET": [
+        "policies:read"
+      ]
+    },
+    "/proclassic/policies/category/{}": {
+      "GET": [
+        "policies:read"
+      ]
+    },
+    "/proclassic/policies/createdBy/{}": {
+      "GET": [
+        "policies:read"
+      ]
+    },
+    "/proclassic/policies/id/{}": {
+      "DELETE": [
+        "policies:delete"
+      ],
+      "GET": [
+        "policies:read"
+      ],
+      "POST": [
+        "policies:create"
+      ],
+      "PUT": [
+        "policies:update"
+      ]
+    },
+    "/proclassic/policies/id/{}/subset/{}": {
+      "GET": [
+        "policies:read"
+      ]
+    },
+    "/proclassic/policies/name/{}": {
+      "DELETE": [
+        "policies:delete"
+      ],
+      "GET": [
+        "policies:read"
+      ],
+      "POST": [
+        "policies:create"
+      ],
+      "PUT": [
+        "policies:update"
+      ]
+    },
+    "/proclassic/printers": {
+      "GET": [
+        "printers:read"
+      ]
+    },
+    "/proclassic/printers/id/{}": {
+      "DELETE": [
+        "printers:delete"
+      ],
+      "GET": [
+        "printers:read"
+      ],
+      "POST": [
+        "printers:create"
+      ],
+      "PUT": [
+        "printers:update"
+      ]
+    },
+    "/proclassic/printers/name/{}": {
+      "DELETE": [
+        "printers:delete"
+      ],
+      "GET": [
+        "printers:read"
+      ],
+      "POST": [
+        "printers:create"
+      ],
+      "PUT": [
+        "printers:update"
+      ]
+    },
+    "/proclassic/removablemacaddresses": {
+      "GET": [
+        "removable-mac-address:read"
+      ]
+    },
+    "/proclassic/removablemacaddresses/id/{}": {
+      "DELETE": [
+        "removable-mac-address:delete"
+      ],
+      "GET": [
+        "removable-mac-address:read"
+      ],
+      "POST": [
+        "removable-mac-address:create"
+      ],
+      "PUT": [
+        "removable-mac-address:update"
+      ]
+    },
+    "/proclassic/removablemacaddresses/name/{}": {
+      "DELETE": [
+        "removable-mac-address:delete"
+      ],
+      "GET": [
+        "removable-mac-address:read"
+      ],
+      "POST": [
+        "removable-mac-address:create"
+      ],
+      "PUT": [
+        "removable-mac-address:update"
+      ]
+    },
+    "/proclassic/restrictedsoftware": {
+      "GET": [
+        "restricted-software:read"
+      ]
+    },
+    "/proclassic/restrictedsoftware/id/{}": {
+      "DELETE": [
+        "restricted-software:delete"
+      ],
+      "GET": [
+        "restricted-software:read"
+      ],
+      "POST": [
+        "restricted-software:create"
+      ],
+      "PUT": [
+        "restricted-software:update"
+      ]
+    },
+    "/proclassic/restrictedsoftware/name/{}": {
+      "DELETE": [
+        "restricted-software:delete"
+      ],
+      "GET": [
+        "restricted-software:read"
+      ],
+      "POST": [
+        "restricted-software:create"
+      ],
+      "PUT": [
+        "restricted-software:update"
+      ]
+    },
+    "/proclassic/savedsearches": {
+      "GET": [
+        "advanced-device-searches:read"
+      ]
+    },
+    "/proclassic/savedsearches/id/{}": {
+      "GET": [
+        "advanced-device-searches:read"
+      ]
+    },
+    "/proclassic/savedsearches/name/{}": {
+      "GET": [
+        "advanced-device-searches:read"
+      ]
+    },
+    "/proclassic/scripts": {
+      "GET": [
+        "scripts:read"
+      ]
+    },
+    "/proclassic/scripts/id/{}": {
+      "DELETE": [
+        "scripts:delete"
+      ],
+      "GET": [
+        "scripts:read"
+      ],
+      "POST": [
+        "scripts:create"
+      ],
+      "PUT": [
+        "scripts:update"
+      ]
+    },
+    "/proclassic/scripts/name/{}": {
+      "DELETE": [
+        "scripts:delete"
+      ],
+      "GET": [
+        "scripts:read"
+      ],
+      "POST": [
+        "scripts:create"
+      ],
+      "PUT": [
+        "scripts:update"
+      ]
+    },
+    "/proclassic/sites": {
+      "GET": [
+        "sites:read"
+      ]
+    },
+    "/proclassic/sites/id/{}": {
+      "DELETE": [
+        "sites:delete"
+      ],
+      "GET": [
+        "sites:read"
+      ],
+      "POST": [
+        "sites:create"
+      ],
+      "PUT": [
+        "sites:update"
+      ]
+    },
+    "/proclassic/sites/name/{}": {
+      "DELETE": [
+        "sites:delete"
+      ],
+      "GET": [
+        "sites:read"
+      ],
+      "POST": [
+        "sites:create"
+      ],
+      "PUT": [
+        "sites:update"
+      ]
+    },
+    "/proclassic/smtpserver": {
+      "GET": [
+        "smtp-server:read"
+      ],
+      "PUT": [
+        "smtp-server:update"
+      ]
+    },
+    "/proclassic/softwareupdateservers": {
+      "GET": [
+        "software-update-servers:read"
+      ]
+    },
+    "/proclassic/softwareupdateservers/id/{}": {
+      "DELETE": [
+        "software-update-servers:delete"
+      ],
+      "GET": [
+        "software-update-servers:read"
+      ],
+      "POST": [
+        "software-update-servers:create"
+      ],
+      "PUT": [
+        "software-update-servers:update"
+      ]
+    },
+    "/proclassic/softwareupdateservers/name/{}": {
+      "DELETE": [
+        "software-update-servers:delete"
+      ],
+      "GET": [
+        "software-update-servers:read"
+      ],
+      "POST": [
+        "software-update-servers:create"
+      ],
+      "PUT": [
+        "software-update-servers:update"
+      ]
+    },
+    "/proclassic/userextensionattributes": {
+      "GET": [
+        "user-extension-attributes:read"
+      ]
+    },
+    "/proclassic/userextensionattributes/id/{}": {
+      "DELETE": [
+        "user-extension-attributes:delete"
+      ],
+      "GET": [
+        "user-extension-attributes:read"
+      ],
+      "POST": [
+        "user-extension-attributes:create"
+      ],
+      "PUT": [
+        "user-extension-attributes:update"
+      ]
+    },
+    "/proclassic/userextensionattributes/name/{}": {
+      "DELETE": [
+        "user-extension-attributes:delete"
+      ],
+      "GET": [
+        "user-extension-attributes:read"
+      ],
+      "POST": [
+        "user-extension-attributes:create"
+      ],
+      "PUT": [
+        "user-extension-attributes:update"
+      ]
+    },
+    "/proclassic/usergroups": {
+      "GET": [
+        "user-groups:read"
+      ]
+    },
+    "/proclassic/usergroups/id/{}": {
+      "DELETE": [
+        "user-groups:delete"
+      ],
+      "GET": [
+        "user-groups:read"
+      ],
+      "POST": [
+        "user-groups:create"
+      ],
+      "PUT": [
+        "user-groups:update"
+      ]
+    },
+    "/proclassic/usergroups/name/{}": {
+      "DELETE": [
+        "user-groups:delete"
+      ],
+      "GET": [
+        "user-groups:read"
+      ],
+      "POST": [
+        "user-groups:create"
+      ],
+      "PUT": [
+        "user-groups:update"
+      ]
+    },
+    "/proclassic/users": {
+      "GET": [
+        "users:read"
+      ]
+    },
+    "/proclassic/users/email/{}": {
+      "GET": [
+        "users:read"
+      ]
+    },
+    "/proclassic/users/id/{}": {
+      "DELETE": [
+        "users:delete"
+      ],
+      "GET": [
+        "users:read"
+      ],
+      "POST": [
+        "users:create"
+      ],
+      "PUT": [
+        "users:update"
+      ]
+    },
+    "/proclassic/users/name/{}": {
+      "DELETE": [
+        "users:delete"
+      ],
+      "GET": [
+        "users:read"
+      ],
+      "POST": [
+        "users:create"
+      ],
+      "PUT": [
+        "users:update"
+      ]
+    },
+    "/proclassic/vppaccounts": {
+      "GET": [
+        "volume-purchasing-locations:read"
+      ]
+    },
+    "/proclassic/vppaccounts/id/{}": {
+      "DELETE": [
+        "volume-purchasing-locations:delete"
+      ],
+      "GET": [
+        "volume-purchasing-locations:read"
+      ],
+      "POST": [
+        "volume-purchasing-locations:create"
+      ],
+      "PUT": [
+        "volume-purchasing-locations:update"
+      ]
+    },
+    "/proclassic/vppassignments": {
+      "GET": [
+        "volume-purchasing-locations:read"
+      ]
+    },
+    "/proclassic/vppassignments/id/{}": {
+      "DELETE": [
+        "volume-purchasing-locations:delete"
+      ],
+      "GET": [
+        "volume-purchasing-locations:read"
+      ],
+      "POST": [
+        "volume-purchasing-locations:create"
+      ],
+      "PUT": [
+        "volume-purchasing-locations:update"
+      ]
+    },
+    "/proclassic/vppinvitations": {
+      "GET": [
+        "volume-purchasing-locations:read"
+      ]
+    },
+    "/proclassic/vppinvitations/id/{}": {
+      "DELETE": [
+        "volume-purchasing-locations:delete"
+      ],
+      "GET": [
+        "volume-purchasing-locations:read"
+      ],
+      "POST": [
+        "volume-purchasing-locations:create"
+      ],
+      "PUT": [
+        "volume-purchasing-locations:update"
+      ]
+    },
+    "/proclassic/vppinvitations/id/{}/subset/{}": {
+      "GET": [
+        "volume-purchasing-locations:read"
+      ]
+    },
+    "/proclassic/webhooks": {
+      "GET": [
+        "webhooks:read"
+      ]
+    },
+    "/proclassic/webhooks/id/{}": {
+      "DELETE": [
+        "webhooks:delete"
+      ],
+      "GET": [
+        "webhooks:read"
+      ],
+      "POST": [
+        "webhooks:create"
+      ],
+      "PUT": [
+        "webhooks:update"
+      ]
+    },
+    "/proclassic/webhooks/name/{}": {
+      "DELETE": [
+        "webhooks:delete"
+      ],
+      "GET": [
+        "webhooks:read"
+      ],
+      "POST": [
+        "webhooks:create"
+      ],
+      "PUT": [
+        "webhooks:update"
+      ]
+    }
+  }
+}

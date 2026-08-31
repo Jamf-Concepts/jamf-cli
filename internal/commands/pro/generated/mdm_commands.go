@@ -262,7 +262,7 @@ func newMdmCommandsCommandsCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:         "commands",
 		Short:       "Post a command for creation and queuing",
 		Long:        "Provided an MDM command type and appropriate information, will create and then queue said command. A separate privilege is required for each device type and MDM command you want to view or send.",
-		Annotations: map[string]string{"jamf:privileges": "View MDM command information in Jamf Pro API", "jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:privileges": "View MDM command information in Jamf Pro API", "jamf:api": "pro", "jamf:gateway": "unserved", "jamf:gateway-basis": "unpublished", "jamf:gateway-detail": "the gateway's Jamf Pro API 11.31.0 declares GET on this path but not POST"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

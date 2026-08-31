@@ -802,6 +802,16 @@ in the config file. It never runs in CI, when output is piped, or under
 				}
 			}
 
+			// Refuse an API the resolved credentials cannot reach, before any
+			// request goes out — a Pro or Classic endpoint the gateway does not
+			// expose, or a Platform command on an instance profile. Placed
+			// after the clients are built but before anything is sent (the
+			// version check below is the first request), because it needs the
+			// resolved profile name to say which credentials are in play.
+			if err := checkAPIMatch(cmd, authProvider, resolvedProfile); err != nil {
+				return err
+			}
+
 			// When platform gateway auth is active, also construct the
 			// Platform SDK client for platform-native commands (blueprints,
 			// compliance-benchmarks, etc.). The SDK manages its own OAuth2
@@ -924,6 +934,10 @@ in the config file. It never runs in CI, when output is piped, or under
 	applyRootAliases(cmd)
 	applyRootGroups(cmd)
 
+	// Say in --help which Pro and Classic commands the platform gateway does
+	// not carry, so it is discoverable without running one and failing.
+	applyGatewayCoverageHelp(cmd)
+
 	// cobra only rejects unknown subcommands at the root; extend that to every
 	// non-runnable parent so typos like `pro buildings lst` error with a hint
 	// instead of silently printing help and exiting 0.
@@ -946,6 +960,15 @@ type commandEntry struct {
 	// needs — "platform-gateway" or "radar". It matters most under `security`,
 	// where both appear side by side and take different credentials.
 	API string `json:"api,omitempty"`
+	// Gateway is set to "unserved" when the Jamf Platform gateway's published API
+	// does not carry this Pro or Classic endpoint, in which case a gateway
+	// profile is refused before a request is sent. GatewayBasis is the evidence
+	// — "probe" (wire-confirmed unrouted) or "unpublished" (absent from the
+	// published surface; the gateway may still route it today, transitionally) —
+	// and GatewayDetail spells it out. Absent when the gateway serves it.
+	Gateway       string `json:"gateway,omitempty"`
+	GatewayBasis  string `json:"gatewayBasis,omitempty"`
+	GatewayDetail string `json:"gatewayDetail,omitempty"`
 }
 
 // isFullDetailFormat reports whether an output format carries the full
@@ -1022,6 +1045,10 @@ func collectCommands(cmd *cobra.Command, prefix, product, group string) []comman
 				Destructive: child.Annotations["jamf:destructive"] == "true",
 				Privileges:  privileges,
 				API:         child.Annotations["jamf:api"],
+
+				Gateway:       child.Annotations[annotationGateway],
+				GatewayBasis:  child.Annotations[annotationGatewayBasis],
+				GatewayDetail: child.Annotations[annotationGatewayDetail],
 			}
 
 			// Collect aliases: for leaf commands under a top-level group
@@ -1094,6 +1121,16 @@ func commandEntriesToMaps(entries []commandEntry, full bool) []map[string]any {
 			// read as a claim rather than an absence.
 			if e.API != "" {
 				m["api"] = e.API
+			}
+			// Positive-only, likewise: an empty "gateway" on every row would
+			// read as "known to be served", which is a stronger claim than the
+			// coverage manifest supports — most commands are simply not
+			// annotated. The detail travels with it so a reader can weigh the
+			// evidence rather than take the level on faith.
+			if e.Gateway != "" {
+				m["gateway"] = e.Gateway
+				m["gatewayBasis"] = e.GatewayBasis
+				m["gatewayDetail"] = e.GatewayDetail
 			}
 		}
 		result[i] = m

@@ -35,7 +35,7 @@ func newEnvironmentTypeGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get environment-type and output as YAML
   jamf-cli pro environment-type get -o yaml`,
-		Annotations: map[string]string{"jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:api": "pro", "jamf:gateway": "unserved", "jamf:gateway-basis": "unpublished", "jamf:gateway-detail": "not declared by the gateway's Jamf Pro API 11.31.0"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

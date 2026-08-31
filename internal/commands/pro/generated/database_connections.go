@@ -36,7 +36,7 @@ func newDatabaseConnectionsInitializeDatabaseConnectionCmd(ctx *registry.CLICont
 		Use:         "initialize-database-connection",
 		Short:       "Provide Database Password during startup",
 		Long:        "Provide database password during startup. Endpoint is accessible when database password was not configured and Jamf Pro server has not been initialized yet.",
-		Annotations: map[string]string{"jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:api": "pro", "jamf:gateway": "unserved", "jamf:gateway-basis": "unpublished", "jamf:gateway-detail": "not declared by the gateway's Jamf Pro API 11.31.0"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

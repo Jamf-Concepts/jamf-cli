@@ -12,6 +12,7 @@ import (
 	"text/template"
 
 	"github.com/Jamf-Concepts/jamf-cli/generator/classic"
+	"github.com/Jamf-Concepts/jamf-cli/generator/gateway"
 	"github.com/Jamf-Concepts/jamf-cli/generator/monolith"
 	"github.com/Jamf-Concepts/jamf-cli/generator/parser"
 	"github.com/Jamf-Concepts/jamf-cli/generator/platform"
@@ -51,13 +52,17 @@ type backupEntry struct {
 
 func main() {
 	var (
-		specsDir     string
-		outputDir    string
-		monolithPath string
+		specsDir      string
+		outputDir     string
+		monolithPath  string
+		gatewaySource string
+		gatewaySDKRev string
 	)
 	flag.StringVar(&specsDir, "specs", "./specs", "Directory containing per-resource OpenAPI spec files")
 	flag.StringVar(&outputDir, "output", "./internal/commands/pro/generated", "Directory to write generated Go files into")
 	flag.StringVar(&monolithPath, "monolith", "", "Optional consolidated OpenAPI document to split into per-resource spec files before generation. Accepts a local path or http(s):// URL")
+	flag.StringVar(&gatewaySource, "gateway-source", "", "Optional directory holding the SDK's pro_api.json and classic_api_resource_documentation.json, to re-derive specs/gateway/coverage.json from before generation")
+	flag.StringVar(&gatewaySDKRev, "gateway-sdk-rev", "", "Optional jamfplatform-go-sdk revision to record as the coverage manifest's provenance")
 	flag.Parse()
 
 	fmt.Println("jamf-cli code generator")
@@ -90,6 +95,44 @@ func main() {
 			fmt.Fprintln(os.Stderr, "  note:", w)
 		}
 		fmt.Printf("  Wrote %d spec files (incl. %s)\n\n", len(written), monolith.LibraryFilename)
+	}
+
+	// Re-derive the gateway coverage manifest from a bundle drop, when one was
+	// pointed at. Done before generation so the same invocation that refreshes
+	// the manifest also stamps the verdicts it implies.
+	coveragePath := filepath.Join(specsDir, gateway.CoverageFile)
+	if gatewaySource != "" {
+		fmt.Println("Deriving gateway coverage")
+		fmt.Println("-------------------------")
+		cov, err := gateway.Extract(gatewaySource, gatewaySDKRev)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error deriving gateway coverage: %v\n", err)
+			os.Exit(1)
+		}
+		// Keep provenance this run could not determine for itself — see
+		// gateway.CarryForwardProvenance.
+		if prev, err := gateway.Load(coveragePath); err == nil {
+			gateway.CarryForwardProvenance(cov, prev)
+		}
+		if err := gateway.Write(cov, coveragePath); err != nil {
+			fmt.Fprintf(os.Stderr, "Error writing gateway coverage: %v\n", err)
+			os.Exit(1)
+		}
+		fmt.Printf("  %s: %s %s (%d paths, %d ops), %s %s (%d paths, %d ops), SDK %s\n\n",
+			coveragePath,
+			cov.Sources.Pro.Title, cov.Sources.Pro.Version, cov.Sources.Pro.Paths, cov.Sources.Pro.Operations,
+			cov.Sources.Classic.Title, cov.Sources.Classic.Version, cov.Sources.Classic.Paths, cov.Sources.Classic.Operations,
+			orUnknown(cov.Sources.SDKCommit))
+	}
+
+	// Load it for the verdict passes below. A missing manifest is not an error:
+	// it is the "unknown" answer, and the passes then stamp nothing so no
+	// command is refused. `make generate` has to work in a tree where nobody
+	// has fetched a bundle.
+	coverage, err := gateway.Load(coveragePath)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error loading gateway coverage: %v\n", err)
+		os.Exit(1)
 	}
 
 	// Find all YAML specs
@@ -171,6 +214,12 @@ func main() {
 	// Swap "get" operation paths to richer detail endpoints where available.
 	parser.ApplyGetDetailPaths(resources)
 
+	// Stamp each operation with whether the Jamf Platform gateway serves it, now
+	// that every path-rewriting pass above has settled — ApplyListDetailPaths
+	// and ApplyGetDetailPaths both move an op onto a different endpoint, and the
+	// verdict has to be about the path the command will actually send.
+	gatewayEntries := gateway.Apply(coverage, modernGatewayOps(resources))
+
 	// Track every file we write so we can delete stale files from previous generator runs.
 	generatedFiles := make(map[string]bool)
 
@@ -217,6 +266,8 @@ func main() {
 			os.Exit(1)
 		}
 
+		gatewayEntries = append(gatewayEntries, gateway.Apply(coverage, classicGatewayOps(classicResources))...)
+
 		classicGen := classic.NewGenerator(outputDir)
 		for _, r := range classicResources {
 			outPath, err := classicGen.Generate(r)
@@ -250,6 +301,19 @@ func main() {
 	}
 	generatedFiles["provenance.go"] = true
 	fmt.Printf("Generated: %s\n", filepath.Join(outputDir, "provenance.go"))
+
+	// ── Gateway coverage table ───────────────────────────────────
+	// Emitted after both Pro passes so it holds the modern and Classic verdicts
+	// together. Written unconditionally, including when there is no manifest:
+	// an empty table is the honest "unknown" state, and leaving a previous
+	// run's table behind would keep refusing commands on evidence that is no
+	// longer in the tree.
+	const gatewayTablePath = "./internal/gateway/coverage_gen.go"
+	if err := gateway.Emit(coverage, gatewayEntries, gatewayTablePath); err != nil {
+		fmt.Fprintf(os.Stderr, "Error writing gateway coverage table: %v\n", err)
+		os.Exit(1)
+	}
+	fmt.Printf("Generated: %s (%s)\n", gatewayTablePath, gateway.Summary(gatewayEntries))
 
 	// ── Platform Gateway commands ────────────────────────────────
 	platformSpecsDir := filepath.Join(specsDir, "platform")
@@ -673,3 +737,56 @@ var BackupEndpoints = map[string]BackupEndpoint{
 {{- end }}
 }
 `
+
+// modernGatewayOps adapts the parsed modern resources into the shape
+// generator/gateway judges. The gateway path is the caller-facing one with the
+// /pro namespace prefixed, which is exactly what client.rewritePathForGateway
+// produces at runtime.
+func modernGatewayOps(resources []*parser.Resource) []gateway.Op {
+	var ops []gateway.Op
+	for _, r := range resources {
+		for _, op := range r.Operations {
+			op := op
+			ops = append(ops, gateway.Op{
+				Method:      op.Method,
+				GatewayPath: gateway.ProPrefix + op.Path,
+				Set: func(level, basis, detail string) {
+					op.GatewayLevel, op.GatewayBasis, op.GatewayDetail = level, basis, detail
+				},
+			})
+		}
+	}
+	return ops
+}
+
+// classicGatewayOps adapts the Classic manifest. One wildcard op per resource:
+// the gateway's Classic coverage is whole-resource, and a Classic command's path
+// is assembled at runtime from the resource path plus whichever lookup is in
+// play, so there is no fixed set of op paths to enumerate here.
+//
+// GET is the method judged because every Classic resource has a list or a get;
+// create and update sit on the same collection, so a resource the gateway does
+// not carry does not carry them either.
+func classicGatewayOps(resources []classic.ClassicResource) []gateway.Op {
+	ops := make([]gateway.Op, 0, len(resources))
+	for i := range resources {
+		r := &resources[i]
+		ops = append(ops, gateway.Op{
+			Method:      "GET",
+			GatewayPath: gateway.ClassicPrefix + "/" + r.Path,
+			Wildcard:    true,
+			Set: func(level, basis, detail string) {
+				r.GatewayLevel, r.GatewayBasis, r.GatewayDetail = level, basis, detail
+			},
+		})
+	}
+	return ops
+}
+
+// orUnknown renders an empty provenance string as something a reader can act on.
+func orUnknown(s string) string {
+	if s == "" {
+		return "(revision not recorded)"
+	}
+	return s
+}

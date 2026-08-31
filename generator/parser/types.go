@@ -97,6 +97,14 @@ type Operation struct {
 	// where the SDK found the declared status wrong by probing the wire; it
 	// overrides the status derived from the responses map.
 	ExpectedStatus int
+	// GatewayLevel, GatewayBasis and GatewayDetail record whether the Jamf
+	// Platform gateway exposes this operation, from specs/gateway/coverage.json.
+	// Empty when the gateway serves it or when no manifest was available. Basis
+	// is the evidence ("probe" or "unpublished") and selects the wording of the
+	// refusal, not whether there is one. See generator/gateway.
+	GatewayLevel  string
+	GatewayBasis  string
+	GatewayDetail string
 }
 
 // StatusResult is a non-2xx response the API documents as a meaningful outcome

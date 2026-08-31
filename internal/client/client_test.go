@@ -868,7 +868,7 @@ func TestDirectInstanceSendsNoTenantHeader(t *testing.T) {
 	}
 }
 
-// TestGatewayUnservedNote pins the app-installers explanation, and the
+// TestGatewayUnservedNote pins the gateway-coverage explanation and the
 // false-positive containment around it.
 //
 // App installers are reachable only against a Jamf Pro instance directly, not
@@ -888,6 +888,10 @@ func TestGatewayUnservedNote(t *testing.T) {
 		path     string
 		body     string
 		wantNote bool
+		// wantWeak asserts the unpublished-basis wording, which says the
+		// endpoint may still answer today, rather than the probed wording,
+		// which states outright that the gateway does not serve it.
+		wantWeak bool
 	}{
 		{
 			name:     "gateway 403 BAD_PERMISSIONS on app-installers",
@@ -930,6 +934,29 @@ func TestGatewayUnservedNote(t *testing.T) {
 			body:     `{"httpStatus":403,"errors":[{"code":"BAD_PERMISSIONS"}]}`,
 			wantNote: false,
 		},
+		{
+			// Outside the published surface but not wire-probed. The note fires,
+			// but it must not claim the endpoint is gone: several such endpoints
+			// still answer today, and telling someone whose command works that
+			// it is unserved reads as a CLI bug.
+			name:     "an endpoint the published spec omits gets the transitional note",
+			status:   http.StatusForbidden,
+			path:     "/pro/v2/environment-type",
+			body:     `{"httpStatus":403,"errors":[{"code":"BAD_PERMISSIONS"}]}`,
+			wantNote: true,
+			wantWeak: true,
+		},
+		{
+			// Classic entries are whole-subtree with a wildcard method, because
+			// a Classic path is assembled at runtime from the resource plus the
+			// lookup in play.
+			name:     "a Classic resource the gateway omits, reached by an id lookup",
+			status:   http.StatusForbidden,
+			path:     "/proclassic/computerconfigurations/id/3",
+			body:     `{"httpStatus":403,"errors":[{"code":"BAD_PERMISSIONS"}]}`,
+			wantNote: true,
+			wantWeak: true,
+		},
 	}
 
 	for _, tc := range cases {
@@ -939,7 +966,7 @@ func TestGatewayUnservedNote(t *testing.T) {
 			if !errors.As(err, &e) {
 				t.Fatalf("expected a structured exit error, got %T", err)
 			}
-			got := strings.Contains(e.Hint, "not exposed on the Jamf Platform gateway")
+			got := strings.Contains(e.Hint, "Jamf Platform gateway")
 			if got != tc.wantNote {
 				t.Errorf("note present = %v, want %v; hint = %q", got, tc.wantNote, e.Hint)
 			}
@@ -947,6 +974,20 @@ func TestGatewayUnservedNote(t *testing.T) {
 			// additive, so replacing the hint would be a regression too.
 			if e.Hint == "" {
 				t.Error("hint was emptied")
+			}
+			if !tc.wantNote {
+				return
+			}
+			// A probed entry states the fact; an unpublished one must not,
+			// because the gateway still routes some of them. Getting these the
+			// wrong way round is the failure this whole mechanism exists to
+			// prevent, pointing the other way.
+			strong := strings.Contains(e.Hint, "does not serve this endpoint")
+			if tc.wantWeak && strong {
+				t.Errorf("undeclared endpoint got the definitive wording: %q", e.Hint)
+			}
+			if !tc.wantWeak && !strong {
+				t.Errorf("wire-probed endpoint got the hedged wording: %q", e.Hint)
 			}
 		})
 	}
