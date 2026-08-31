@@ -3,9 +3,11 @@
 package commands
 
 import (
+	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 )
 
 // The MCP server pins the instance/credentials at launch (the profile passed
@@ -144,5 +146,62 @@ func TestBuildChildArgs_AllowsDestructiveWithYes(t *testing.T) {
 	joined := strings.Join(got, " ")
 	if !strings.Contains(joined, "delete") || !strings.Contains(joined, "--yes") {
 		t.Errorf("destructive command should pass through unchanged, got %v", got)
+	}
+}
+
+// The MCP report path has no filename parameter. reportFileName is what makes
+// that true in practice: it derives the name from the pinned profile and a UTC
+// timestamp, and takes no title, so a model-supplied title — which may echo an
+// admin-controlled device or policy name — cannot reach a path at all.
+
+func TestReportFileName_DerivesFromProfileAndTimestamp(t *testing.T) {
+	now := time.Date(2026, 8, 28, 10, 43, 0, 0, time.UTC)
+	got := reportFileName("prod", now)
+	want := "jamf-report-prod-20260828T104300Z.html"
+	if got != want {
+		t.Errorf("got %q, want %q", got, want)
+	}
+}
+
+func TestReportFileName_UsesDefaultWhenNoProfilePinned(t *testing.T) {
+	now := time.Date(2026, 8, 28, 10, 43, 0, 0, time.UTC)
+	got := reportFileName("", now)
+	want := "jamf-report-default-20260828T104300Z.html"
+	if got != want {
+		t.Errorf("got %q, want %q", got, want)
+	}
+}
+
+func TestReportFileName_NormalizesToUTC(t *testing.T) {
+	// The timestamp segment is UTC regardless of the server's local zone, so two
+	// reports from different hosts sort together.
+	zone := time.FixedZone("UTC+10", 10*60*60)
+	got := reportFileName("prod", time.Date(2026, 8, 28, 20, 43, 0, 0, zone))
+	want := "jamf-report-prod-20260828T104300Z.html"
+	if got != want {
+		t.Errorf("got %q, want %q", got, want)
+	}
+}
+
+func TestReportFileName_StaysInsideReportDir(t *testing.T) {
+	// A profile name is administrator-supplied, so it gets the same treatment a
+	// Protect object name does: whatever it contains, the result is one path
+	// segment that joins inside the report directory.
+	now := time.Date(2026, 8, 28, 10, 43, 0, 0, time.UTC)
+	for _, prof := range []string{"../../etc", "a/b", "..", ".", "with space", "nul\x00byte", "~", "-"} {
+		name := reportFileName(prof, now)
+		if strings.ContainsAny(name, `/\`) {
+			t.Errorf("profile %q produced a name with a separator: %q", prof, name)
+		}
+		if strings.Contains(name, "\x00") {
+			t.Errorf("profile %q produced a name with a NUL: %q", prof, name)
+		}
+		joined := filepath.Join("/reports", name)
+		if filepath.Dir(joined) != "/reports" {
+			t.Errorf("profile %q escaped the report dir: %q", prof, joined)
+		}
+		if !strings.HasSuffix(name, ".html") {
+			t.Errorf("profile %q produced %q, want a .html suffix", prof, name)
+		}
 	}
 }

@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/spf13/cobra"
@@ -210,4 +211,17 @@ func buildChildArgs(serverProfile string, args []string) ([]string, error) {
 		childArgs = append(childArgs, a)
 	}
 	return childArgs, nil
+}
+
+// reportFileName derives the HTML report's filename from the pinned profile and
+// a UTC timestamp. It takes no title, so a model-supplied string cannot reach a
+// path. The profile segment goes through protectFileNameSafe, so whatever an
+// administrator named the profile stays one path segment inside the report dir.
+func reportFileName(serverProfile string, now time.Time) string {
+	name := serverProfile
+	if name == "" {
+		name = "default"
+	}
+	return fmt.Sprintf("jamf-report-%s-%s.html",
+		protectFileNameSafe(name), now.UTC().Format("20060102T150405Z"))
 }
