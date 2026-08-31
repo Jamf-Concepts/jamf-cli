@@ -529,19 +529,18 @@ func detectListArrayKey(op *parser.Operation) string {
 // that the server in fact ignores, keyed "{service}/{param}".
 //
 // Only wire probing reveals these, so an entry needs a recorded observation
-// behind it. Security Cloud's device-groups declares customer-id required, but
-// the tenant in the URL path decides the customer and the parameter changes
-// nothing — enforcing it would make the CLI demand a value with no effect and
-// no obvious source. See the Security Cloud section of the SDK's CLAUDE.md,
-// which records the same finding for the generated Go client.
+// behind it. This duplicates knowledge the SDK holds, which is normally the
+// thing to avoid; it lives here only because the SDK's generator config has no
+// way to express "declared required, actually ignored" for it to publish. Move
+// an entry into the published spec once it can.
 //
-// This duplicates knowledge the SDK holds, which is normally the thing to
-// avoid; it lives here only because the SDK's generator config has no way to
-// express "declared required, actually ignored" for it to publish. Move it into
-// the published spec once it can.
-var platformIgnoredRequiredParams = map[string]bool{
-	"securitycloud/customer-id": true,
-}
+// Empty as of the v1865 device-groups ingest, which is that last sentence
+// happening rather than a sign the table is unused: the one entry it ever held
+// — securitycloud/customer-id, declared required on both device-group list ops
+// while the scope decided the customer and the parameter changed nothing — is
+// gone from the spec upstream, so suppressing it here would now suppress
+// nothing. The knob stays for the next one.
+var platformIgnoredRequiredParams = map[string]bool{}
 
 // documentedStatus names a non-2xx response an operation documents as a result
 // rather than a failure, plus the error code its body must carry.

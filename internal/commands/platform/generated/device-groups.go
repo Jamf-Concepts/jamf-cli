@@ -35,7 +35,6 @@ func NewDeviceGroupsCmd(cliCtx *registry.CLIContext) *cobra.Command {
 }
 
 func newDeviceGroupsListCmd(cliCtx *registry.CLIContext) *cobra.Command {
-	var customerId string
 	cmd := &cobra.Command{
 		Use:         "list",
 		Short:       "List all device groups for a customer",
@@ -47,9 +46,6 @@ func newDeviceGroupsListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			}
 			path := "/securitycloud/v2/groups"
 			q := url.Values{}
-			if customerId != "" {
-				q.Set("customer-id", customerId)
-			}
 			var body any
 			if encoded := q.Encode(); encoded != "" {
 				path += "?" + encoded
@@ -73,7 +69,6 @@ func newDeviceGroupsListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			return cliCtx.Output.PrintRaw(b)
 		},
 	}
-	cmd.Flags().StringVar(&customerId, "customer-id", "", "Unique identifier of the customer whose groups to retrieve")
 	return cmd
 }
 
@@ -293,10 +288,18 @@ func newDeviceGroupsUpdateCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if cliCtx.DryRun {
 				return platform.ReportDryRun(cmd.ErrOrStderr(), http.MethodPut, path, body)
 			}
-			if err := cliCtx.PlatformSDKClient.Transport().DoWithContentType(cmd.Context(), http.MethodPut, path, body, "application/json", http.StatusOK, nil); err != nil {
+			var result any
+			if err := cliCtx.PlatformSDKClient.Transport().DoWithContentType(cmd.Context(), http.MethodPut, path, body, "application/json", http.StatusOK, &result); err != nil {
 				return fmt.Errorf("update: %w", err)
 			}
-			return nil
+			if result == nil {
+				return nil
+			}
+			b, err := json.MarshalIndent(result, "", "  ")
+			if err != nil {
+				return err
+			}
+			return cliCtx.Output.PrintRaw(b)
 		},
 	}
 	cmd.Flags().StringVar(&bodyFile, "file", "", "Path to JSON file containing the request body")

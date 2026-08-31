@@ -164,7 +164,7 @@ func newDevicesDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Use:         "delete <id>",
 		Short:       "Delete a device",
 		Long:        "Delete an existing device",
-		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "devices:delete", "jamf:api": "platform-gateway"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "destructive-device-actions:execute", "jamf:api": "platform-gateway"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {

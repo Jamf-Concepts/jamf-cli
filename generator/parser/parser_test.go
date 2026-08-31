@@ -3,6 +3,7 @@
 package parser
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"slices"
@@ -2787,4 +2788,101 @@ func TestServiceSegment(t *testing.T) {
 			t.Errorf("serviceSegment(no servers) = %q, want \"\"", got)
 		}
 	})
+}
+
+// TestDropUnroutedPlatformOps pins the withholding of an operation a published
+// spec declares but the gateway does not route.
+//
+// The mechanism exists for one case: Security Cloud's device groups, where
+// build v1865 declares PUT /v2/groups/{groupId} as the successor to the v1 PUT
+// it deprecates, while v2 answers 403 BAD_PERMISSIONS and v1 answers 200. Left
+// in, deduplicateVersionedOps prefers the higher version — correctly, by its own
+// rule — and turns a working `security device-groups update` into a permanent
+// 403 indistinguishable from a missing privilege.
+func TestDropUnroutedPlatformOps(t *testing.T) {
+	ops := []*Operation{
+		{Name: "update", Method: "PUT", Path: "/securitycloud/v1/groups/{groupId}"},
+		{Name: "update", Method: "PUT", Path: "/securitycloud/v2/groups/{groupId}"},
+		{Name: "list", Method: "GET", Path: "/securitycloud/v2/groups"},
+	}
+
+	kept := dropUnroutedPlatformOps(ops)
+
+	if len(kept) != 2 {
+		t.Fatalf("kept %d ops, want 2: %+v", len(kept), kept)
+	}
+	for _, op := range kept {
+		if op.Path == "/securitycloud/v2/groups/{groupId}" {
+			t.Errorf("unrouted %s %s survived the drop", op.Method, op.Path)
+		}
+	}
+	// The working v1 PUT and the routed v2 list both survive — the drop is
+	// per-operation, not per-version.
+	var sawV1Put, sawV2List bool
+	for _, op := range kept {
+		switch {
+		case op.Method == "PUT" && op.Path == "/securitycloud/v1/groups/{groupId}":
+			sawV1Put = true
+		case op.Method == "GET" && op.Path == "/securitycloud/v2/groups":
+			sawV2List = true
+		}
+	}
+	if !sawV1Put {
+		t.Error("v1 PUT was dropped; only the paths named in platformUnroutedOps may be")
+	}
+	if !sawV2List {
+		t.Error("v2 list was dropped; the drop is keyed on method+path, not on version")
+	}
+}
+
+// TestPlatformUnroutedOpsAreDeclared fails when an entry in
+// platformUnroutedOps no longer matches any operation in the shipped specs.
+//
+// An entry is removed when the gateway starts routing the endpoint, which no
+// spec signal announces — that takes a probe. This covers the other way an
+// entry goes stale: upstream withdrawing the path, after which the entry
+// silently guards nothing and the next reader takes it as current wire
+// knowledge.
+func TestPlatformUnroutedOpsAreDeclared(t *testing.T) {
+	specsDir, err := filepath.Abs("../../specs/platform")
+	if err != nil {
+		t.Fatalf("resolving specs dir: %v", err)
+	}
+	specFiles, err := filepath.Glob(filepath.Join(specsDir, "*.json"))
+	if err != nil {
+		t.Fatalf("globbing specs: %v", err)
+	}
+	if len(specFiles) == 0 {
+		t.Fatal("no specs in specs/platform/ — nothing to check the table against")
+	}
+
+	declared := make(map[string]bool)
+	for _, path := range specFiles {
+		raw, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatalf("reading %s: %v", path, err)
+		}
+		var doc map[string]any
+		if err := json.Unmarshal(raw, &doc); err != nil {
+			t.Fatalf("decoding %s: %v", path, err)
+		}
+		service := serviceSegment(doc)
+		normalisePlatformPaths(doc, service, tenantPathVersion(doc))
+		paths, _ := doc["paths"].(map[string]any)
+		for p, item := range paths {
+			pi, _ := item.(map[string]any)
+			for _, method := range []string{"get", "post", "put", "patch", "delete"} {
+				if _, ok := pi[method]; ok {
+					declared[strings.ToUpper(method)+" "+p] = true
+				}
+			}
+		}
+	}
+
+	for key := range platformUnroutedOps {
+		if !declared[key] {
+			t.Errorf("platformUnroutedOps names %q, which no shipped spec declares — "+
+				"remove the entry, or fix its key if a path was renamed", key)
+		}
+	}
 }

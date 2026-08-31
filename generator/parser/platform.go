@@ -54,6 +54,7 @@ func ParsePlatformSpec(specPath string) ([]*Resource, error) {
 		return nil, nil
 	}
 	applyPlatformPathMetadata(allOps, expectedStatuses)
+	allOps = dropUnroutedPlatformOps(allOps)
 
 	schemas := make(map[string]*Schema)
 	if doc.Components != nil {
@@ -306,6 +307,55 @@ var platformOperationNameOverrides = map[string]string{
 	// segment repeats the resource name it is already nested under.
 	"GET /securitycloud/uem-connect/v1/connectors/{configId}/sync-settings": "get",
 	"PUT /securitycloud/uem-connect/v1/connectors/{configId}/sync-settings": "update",
+}
+
+// platformUnroutedOps names operations a published spec declares that the
+// gateway does not route, keyed "{METHOD} {path}" in the same normalised form
+// platformOperationNameOverrides uses. They are dropped before name
+// disambiguation and before deduplicateVersionedOps, so they neither ship as a
+// command nor displace the working operation they claim to succeed.
+//
+// A dropped operation needs a recorded wire probe behind it, and dropping is
+// only right when the alternative is worse. Security Cloud's device groups is
+// the case that forced it: build v1865 declares PUT /v2/groups/{groupId} as the
+// successor to the v1 PUT it deprecates, but v2 answers 403 BAD_PERMISSIONS
+// while v1 answers 200 with the updated group — probed 7/7 by the SDK on
+// 2026-08-29 against a group created and deleted inside the same run, with a v1
+// write on the same group as the control. Left in, deduplicateVersionedOps
+// would correctly prefer the higher version, and `security device-groups
+// update` — a command that works today — would become a permanent 403 whose
+// message is indistinguishable from a missing privilege. FallbackPaths is no
+// escape: it is populated for GETs and DELETEs only, and the platform template
+// ignores it deliberately, because falling back on a 403 turns a permission
+// failure into a silent downgrade.
+//
+// This is the CLI declining to follow the SDK, which whitelisted its
+// UpdateDeviceGroupV2 method so that a // Deprecated: marker had a named
+// successor to point at. A library can ship a method that fails; a CLI command
+// that always 403s is worse than an absent one.
+//
+// Remove an entry when the endpoint becomes routed — nothing in the spec says
+// so, so it takes a probe. TestPlatformUnroutedOpsAreDeclared fails if an entry
+// stops matching any shipped spec, which catches the other way an entry goes
+// stale: upstream withdrawing the path.
+var platformUnroutedOps = map[string]bool{
+	"PUT /securitycloud/v2/groups/{groupId}": true,
+}
+
+// dropUnroutedPlatformOps removes every operation named in platformUnroutedOps,
+// reporting each on stderr so a generate run says what it withheld rather than
+// leaving a silently missing command.
+func dropUnroutedPlatformOps(ops []*Operation) []*Operation {
+	kept := make([]*Operation, 0, len(ops))
+	for _, op := range ops {
+		key := strings.ToUpper(op.Method) + " " + op.Path
+		if platformUnroutedOps[key] {
+			fmt.Fprintf(os.Stderr, "  Info: dropping %s — declared but not routed by the gateway\n", key)
+			continue
+		}
+		kept = append(kept, op)
+	}
+	return kept
 }
 
 // applyPlatformPathMetadata attaches any expected-status override and any

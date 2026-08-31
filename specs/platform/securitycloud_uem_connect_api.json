@@ -353,6 +353,9 @@
             "example": false,
             "type": "boolean"
           },
+          "deviceSyncAuth": {
+            "$ref": "#/components/schemas/DeviceSyncAuth"
+          },
           "deviceUnmanagedThreshold": {
             "description": "Number of consecutive syncs a device may be absent from the UEM platform before it is\ntreated as unmanaged. `0` disables the grace period.\n",
             "example": 3,
@@ -419,6 +422,14 @@
           "syncConfig": {
             "$ref": "#/components/schemas/SyncConfig"
           },
+          "tenantId": {
+            "description": "Platform tenant identifier of the Jamf Pro instance this connector syncs with, when it was created by naming one. Null for a connector created from caller-supplied credentials.\n\nLoad-bearing beyond information: `authStrategy` reads back as `JAMF_PRO_OAUTH` whichever way the connector was created, so this field is the only thing in the response that distinguishes the two forms. A consumer reconstructing a connector's configuration — Terraform importing one it did not create, say — has nothing else to key on. Note that a tenant-named connector also reports a `deviceSyncAuth.clientId`, the credential Jamf Security Cloud provisioned for itself, so the presence of credentials cannot serve as the signal. Restored from the wire (probed 2026-08-28), where the published spec omits it.",
+            "type": "string"
+          },
+          "uemVersion": {
+            "description": "Version of the UEM instance the connector is talking to — for a Jamf Pro connector, the Jamf Pro version. Reported by the connector rather than configured, and useful for surfacing what the integration is actually connected to. Restored from the wire (probed 2026-08-28), where the published spec omits it.",
+            "type": "string"
+          },
           "url": {
             "description": "UEM server URL",
             "example": "https://yourcompany.jamfcloud.com",
@@ -454,8 +465,13 @@
         "description": "Request to create a connector. Contains the UEM server connection details. Vendor-specific\nfields may also be included; the `vendor` field determines which are applicable. Secret\nfields (credentials) are write-only and are never returned in responses.\n",
         "properties": {
           "authStrategy": {
-            "description": "How the connector authenticates to the UEM instance. Required on create despite the published spec omitting it: without it the server answers `500 INTERNAL_ERROR` rather than a validation error (wire-verified 2026-08-21), so a request built from the spec alone can only fail. With it present but `deviceSyncAuth` absent the server answers a proper `422 VALIDATION_FAILED`. `JAMF_PRO_OAUTH` is the strategy a Jamf Pro connector uses and the only one wire-confirmed.",
-            "example": "JAMF_PRO_OAUTH",
+            "description": "How the connector authenticates to the UEM instance. Required on create despite the published spec omitting it: without it the server answers `500 INTERNAL_ERROR` rather than a validation error (wire-verified 2026-08-21), so a request built from the spec alone can only fail. With it present but the credentials it implies absent, the server answers a proper `422 VALIDATION_FAILED`.\n\nThe accepted set is enumerated by the server itself: sending an unknown value returns `422` naming every member of `JamfProAuthStrategy` (wire-verified 2026-08-28). Two are usable for a Jamf Pro connector, and they need different fields:\n\n- `JAMF_PRO_OAUTH` — the caller supplies `deviceSyncAuth.clientId` and `.clientSecret` for an API integration they created on the target Jamf Pro themselves, plus the `url` of that instance.\n- `M2M` — the caller supplies `tenantId` and no credentials at all; Jamf Security Cloud provisions its own API role and integration (named \"JSC Connector\") on that tenant. `url` is ignored on this path and may be omitted — the server derives it from the tenant.\n\nThis field is a *provisioning instruction*, not stored state: a connector created with `M2M` reads back as `JAMF_PRO_OAUTH`, because that is the steady state the provisioning produced. Callers must not treat the value as round-tripping.",
+            "enum": [
+              "M2M",
+              "JAMF_PRO_OAUTH",
+              "BASIC"
+            ],
+            "example": "M2M",
             "type": "string"
           },
           "deviceSyncAuth": {
@@ -464,6 +480,11 @@
           "isoCountry": {
             "description": "ISO country code for the UEM instance, when applicable",
             "example": "US",
+            "type": "string"
+          },
+          "tenantId": {
+            "description": "Platform tenant identifier of the target Jamf Pro instance. Required by `authStrategy: M2M` and rejected-as-null without it (`422 \"tenantId: must not be null\"`); unused by the credential-bearing strategies.\n\nAbsent from the published spec, which declares only `vendor`/`url`/`isoCountry` on the create request and defers the rest to an undocumented \"vendor-specific fields may also be included\". Restored here from the wire (probed 2026-08-28): a create carrying `authStrategy: M2M` and this field returns `201`, and the resulting connector reports the tenant's own URL rather than whatever `url` the request carried.",
+            "example": "ff584e5b-d9f8-4c1c-8752-449d8c5e45d5",
             "type": "string"
           },
           "url": {
@@ -958,6 +979,10 @@
             ],
             "example": "DELETED_OR_RETIRED",
             "type": "string"
+          },
+          "concurrentSyncEnabled": {
+            "description": "Whether this connector may sync several devices concurrently, for faster inventory updates.\n\nAbsent from the published spec's update request while present on the response, and writable — a `PUT` carrying `false` persists (wire-verified 2026-08-28). Because the update is a full replacement, a request built from the unpatched spec could not express the field and therefore reset it to `true` on every write, silently discarding an operator's choice.",
+            "type": "boolean"
           },
           "deviceFieldMappings": {
             "$ref": "#/components/schemas/DeviceFieldMappings"

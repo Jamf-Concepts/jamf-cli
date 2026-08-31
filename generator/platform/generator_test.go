@@ -8,6 +8,8 @@ import (
 	"sort"
 	"strings"
 	"testing"
+
+	"github.com/Jamf-Concepts/jamf-cli/generator/parser"
 )
 
 // TestLoadResources_LiveSpecs runs the orchestrator against the committed
@@ -394,5 +396,69 @@ func assertNamespacePrefixed(t *testing.T, who, path string) {
 	}
 	if len(service) >= 2 && service[0] == 'v' && service[1] >= '0' && service[1] <= '9' {
 		t.Errorf("%s: path starts with a version, so no namespace was read from servers[0].url: %s", who, path)
+	}
+}
+
+// TestDeviceGroupsUpdateStaysOnV1 asserts, against the committed specs, that
+// `security device-groups update` is served by the v1 PUT and that the v2 PUT
+// ships as no command at all.
+//
+// This is the end-to-end half of parser.TestDropUnroutedPlatformOps. Build
+// v1865 declares PUT /v2/groups/{groupId} as the successor to the v1 PUT it
+// deprecates, and the gateway does not route it — 403 BAD_PERMISSIONS 7/7,
+// probed 2026-08-29 against a group created and deleted in the same run, with a
+// v1 write on the same group as the control. deduplicateVersionedOps would
+// prefer v2 by its own correct rule and FallbackPaths is no escape (populated
+// for GETs and DELETEs only, and ignored by the platform template on purpose),
+// so a working command would become a permanent 403 reading as a missing
+// privilege.
+//
+// The v2 *list* is routed and is what list uses, so this also pins that the
+// withholding is per-operation rather than a blanket "hold device groups at v1".
+func TestDeviceGroupsUpdateStaysOnV1(t *testing.T) {
+	specsDir, err := filepath.Abs("../../specs/platform")
+	if err != nil {
+		t.Fatalf("resolving specs dir: %v", err)
+	}
+	resources, _, err := LoadResources(specsDir)
+	if err != nil {
+		t.Fatalf("LoadResources: %v", err)
+	}
+
+	var groups *parser.Resource
+	for _, r := range resources {
+		if r.Name == "device-groups" && strings.Contains(r.Operations[0].Path, "/securitycloud/") {
+			groups = r
+			break
+		}
+	}
+	if groups == nil {
+		t.Fatal("no securitycloud device-groups resource — did the spec or its resource name move?")
+	}
+
+	var update, list *parser.Operation
+	for _, op := range groups.Operations {
+		if op.Path == "/securitycloud/v2/groups/{groupId}" {
+			t.Errorf("op %q ships on the unrouted v2 PUT (%s %s)", op.Name, op.Method, op.Path)
+		}
+		switch op.Name {
+		case "update":
+			update = op
+		case "list":
+			list = op
+		}
+	}
+
+	if update == nil {
+		t.Fatal("device-groups has no update op")
+	}
+	if update.Path != "/securitycloud/v1/groups/{groupId}" {
+		t.Errorf("update Path = %q, want the routed v1 path", update.Path)
+	}
+	if list == nil {
+		t.Fatal("device-groups has no list op")
+	}
+	if list.Path != "/securitycloud/v2/groups" {
+		t.Errorf("list Path = %q, want the routed v2 path — the v2 list is not withheld", list.Path)
 	}
 }

@@ -565,7 +565,7 @@
         "flows": {
           "clientCredentials": {
             "scopes": {
-              "devices:delete": "",
+              "destructive-device-actions:execute": "",
               "devices:read": "",
               "devices:update": ""
             },
@@ -644,7 +644,7 @@
     },
     "/v1/devices/{id}": {
       "delete": {
-        "description": "Delete an existing device\n\n**Required Permissions:** `devices:delete`",
+        "description": "Delete an existing device\n\n**Required Permissions:** `destructive-device-actions:execute`",
         "parameters": [
           {
             "$ref": "#/components/parameters/X-Tenant-Id"
@@ -678,7 +678,7 @@
         "security": [
           {
             "oauth2": [
-              "devices:delete"
+              "destructive-device-actions:execute"
             ]
           }
         ],
@@ -687,7 +687,7 @@
           "devices"
         ],
         "x-required-privileges": [
-          "devices:delete"
+          "destructive-device-actions:execute"
         ]
       },
       "get": {

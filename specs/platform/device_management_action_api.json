@@ -27,6 +27,7 @@
     },
     "schemas": {
       "ApiError": {
+        "description": "Standard error response returned when a request cannot be completed.",
         "properties": {
           "errors": {
             "items": {
@@ -79,6 +80,7 @@
         "type": "object"
       },
       "DeviceCommandResponse": {
+        "description": "The result of a management action command issued to a device, including the created command's identifier.",
         "properties": {
           "commandId": {
             "description": "The ID of the command that was created to perform the requested action",
@@ -100,6 +102,7 @@
         "type": "object"
       },
       "EraseDeviceRequest": {
+        "description": "Options that control how a device is erased.",
         "properties": {
           "clearActivationLock": {
             "default": false,

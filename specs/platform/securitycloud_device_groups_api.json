@@ -106,25 +106,52 @@
             "type": "string"
           }
         },
+        "required": [
+          "id",
+          "name"
+        ],
+        "type": "object"
+      },
+      "GroupListItem": {
+        "description": "A device group as returned by the list endpoints. Identical to Group, except that the implicit \"Default Group\" entry has no identifier and so omits the id field.",
+        "properties": {
+          "id": {
+            "description": "Unique group identifier. Omitted for the implicit \"Default Group\" entry, which is not a stored group.",
+            "example": "550e8400-e29b-41d4-a716-446655440000",
+            "type": "string"
+          },
+          "name": {
+            "description": "Display name of the group",
+            "example": "Engineering Devices",
+            "maxLength": 255,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
         "type": "object"
       },
       "GroupListResponse": {
-        "description": "List of device groups for the authenticated customer.",
+        "description": "List of device groups for the authenticated customer. Always contains at least the implicit \"Default Group\" entry.",
         "items": {
-          "$ref": "#/components/schemas/Group"
+          "$ref": "#/components/schemas/GroupListItem"
         },
         "maxItems": 10000,
+        "minItems": 1,
         "type": "array"
       },
       "GroupListResponseV2": {
         "description": "List of device groups for the authenticated customer.",
         "properties": {
           "groups": {
-            "description": "Device groups belonging to the customer.",
+            "description": "Device groups belonging to the customer. Always contains at least the implicit \"Default Group\" entry.",
             "items": {
-              "$ref": "#/components/schemas/Group"
+              "$ref": "#/components/schemas/GroupListItem"
             },
             "maxItems": 10000,
+            "minItems": 1,
             "type": "array"
           }
         },
@@ -188,15 +215,6 @@
         "parameters": [
           {
             "$ref": "#/components/parameters/X-Tenant-Id"
-          },
-          {
-            "description": "Unique identifier of the customer whose groups to retrieve",
-            "in": "query",
-            "name": "customer-id",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
           }
         ],
         "responses": {
@@ -213,7 +231,7 @@
               "Deprecation": {
                 "description": "RFC 9745 deprecation timestamp",
                 "schema": {
-                  "example": "@1755043200",
+                  "example": "@1786492800",
                   "type": "string"
                 },
                 "style": "simple"
@@ -465,8 +483,171 @@
         ]
       },
       "put": {
+        "deprecated": true,
         "description": "Updates the name of an existing device group.\n\n**Required Permissions:** `device-groups:update`",
         "operationId": "updateGroup",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/X-Tenant-Id"
+          },
+          {
+            "description": "Unique identifier of the group to update",
+            "in": "path",
+            "name": "groupId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateGroupRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Group"
+                }
+              }
+            },
+            "description": "Group updated successfully",
+            "headers": {
+              "Deprecation": {
+                "description": "RFC 9745 deprecation timestamp",
+                "schema": {
+                  "example": "@1787616000",
+                  "type": "string"
+                }
+              },
+              "Link": {
+                "description": "Link to successor endpoint",
+                "schema": {
+                  "example": "\u003c/v2/groups/{groupId}\u003e; rel=\"successor-version\"",
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Invalid request, reserved group name, or cannot update default group"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Unauthorized - authentication required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Forbidden - insufficient permissions"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Group not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Group with the same name already exists for this tenant"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "device-groups:update"
+            ]
+          }
+        ],
+        "summary": "Update a device group",
+        "tags": [
+          "device-groups"
+        ],
+        "x-deprecation-date": "2026-08-25",
+        "x-required-privileges": [
+          "device-groups:update"
+        ],
+        "x-successor-endpoint": "PUT /v2/groups/{groupId}",
+        "x-sunset-date": "2027-08-25"
+      }
+    },
+    "/v2/groups": {
+      "get": {
+        "description": "Retrieves all device groups for the authenticated customer.\n\n**Required Permissions:** `device-groups:read`",
+        "operationId": "listGroupsV2",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/X-Tenant-Id"
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupListResponseV2"
+                }
+              }
+            },
+            "description": "Groups retrieved successfully"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "device-groups:read"
+            ]
+          }
+        ],
+        "summary": "List all device groups for a customer",
+        "tags": [
+          "device-groups"
+        ],
+        "x-required-privileges": [
+          "device-groups:read"
+        ]
+      }
+    },
+    "/v2/groups/{groupId}": {
+      "put": {
+        "description": "Updates the name of an existing device group.\n\n**Required Permissions:** `device-groups:update`",
+        "operationId": "updateGroupV2",
         "parameters": [
           {
             "$ref": "#/components/parameters/X-Tenant-Id"
@@ -543,7 +724,7 @@
                 }
               }
             },
-            "description": "Group with the same name already exists for this tenant"
+            "description": "Group with the same name already exists for this customer"
           }
         },
         "security": [
@@ -557,55 +738,8 @@
         "tags": [
           "device-groups"
         ],
-        "x-jamf-expected-status": 200,
         "x-required-privileges": [
           "device-groups:update"
-        ]
-      }
-    },
-    "/v2/groups": {
-      "get": {
-        "description": "Retrieves all device groups for the authenticated customer.\n\n**Required Permissions:** `device-groups:read`",
-        "operationId": "listGroupsV2",
-        "parameters": [
-          {
-            "$ref": "#/components/parameters/X-Tenant-Id"
-          },
-          {
-            "description": "Unique identifier of the customer whose groups to retrieve",
-            "in": "query",
-            "name": "customer-id",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/GroupListResponseV2"
-                }
-              }
-            },
-            "description": "Groups retrieved successfully"
-          }
-        },
-        "security": [
-          {
-            "oauth2": [
-              "device-groups:read"
-            ]
-          }
-        ],
-        "summary": "List all device groups for a customer",
-        "tags": [
-          "device-groups"
-        ],
-        "x-required-privileges": [
-          "device-groups:read"
         ]
       }
     }
@@ -618,7 +752,7 @@
   "servers": [
     {
       "description": "Jamf Beta API Gateway - prod",
-      "url": "https://{region}.api.jamfcloud.com/api/securitycloud",
+      "url": "https://{region}.api.jamfcloud.com/securitycloud",
       "variables": {
         "region": {
           "default": "us",
