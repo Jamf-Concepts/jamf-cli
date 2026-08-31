@@ -9,6 +9,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -251,4 +252,17 @@ func resolveReportDir(cfg *config.Config) (string, error) {
 		return "", fmt.Errorf("report directory %s is not a directory. %s", dir, reportDirHint)
 	}
 	return dir, nil
+}
+
+// createReportFile opens the report file with O_EXCL, so a name collision — two
+// reports generated inside the same second — errors rather than overwriting a
+// report the administrator may already have shared. 0600 matches the 0700
+// report directory `pro setup` creates.
+func createReportFile(dir, name string) (*os.File, error) {
+	path := filepath.Join(dir, name)
+	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
+	if err != nil {
+		return nil, fmt.Errorf("creating report file %s: %w", path, err)
+	}
+	return f, nil
 }
