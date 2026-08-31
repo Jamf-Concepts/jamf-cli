@@ -462,29 +462,11 @@
       },
       "ConnectorCreateRequest": {
         "additionalProperties": true,
-        "description": "Request to create a connector. Contains the UEM server connection details. Vendor-specific\nfields may also be included; the `vendor` field determines which are applicable. Secret\nfields (credentials) are write-only and are never returned in responses.\n",
+        "description": "Request to create a connector. Contains the UEM server connection details. Vendor-specific\nfields may also be included; the `vendor` field determines which are applicable. Secret\nfields (credentials) are write-only and are never returned in responses.\n\n`JAMF_PRO` is not accepted here — it has a dedicated fully typed contract, see\n`JamfProConnectorCreateRequest`.\n",
         "properties": {
-          "authStrategy": {
-            "description": "How the connector authenticates to the UEM instance. Required on create despite the published spec omitting it: without it the server answers `500 INTERNAL_ERROR` rather than a validation error (wire-verified 2026-08-21), so a request built from the spec alone can only fail. With it present but the credentials it implies absent, the server answers a proper `422 VALIDATION_FAILED`.\n\nThe accepted set is enumerated by the server itself: sending an unknown value returns `422` naming every member of `JamfProAuthStrategy` (wire-verified 2026-08-28). Two are usable for a Jamf Pro connector, and they need different fields:\n\n- `JAMF_PRO_OAUTH` — the caller supplies `deviceSyncAuth.clientId` and `.clientSecret` for an API integration they created on the target Jamf Pro themselves, plus the `url` of that instance.\n- `M2M` — the caller supplies `tenantId` and no credentials at all; Jamf Security Cloud provisions its own API role and integration (named \"JSC Connector\") on that tenant. `url` is ignored on this path and may be omitted — the server derives it from the tenant.\n\nThis field is a *provisioning instruction*, not stored state: a connector created with `M2M` reads back as `JAMF_PRO_OAUTH`, because that is the steady state the provisioning produced. Callers must not treat the value as round-tripping.",
-            "enum": [
-              "M2M",
-              "JAMF_PRO_OAUTH",
-              "BASIC"
-            ],
-            "example": "M2M",
-            "type": "string"
-          },
-          "deviceSyncAuth": {
-            "$ref": "#/components/schemas/DeviceSyncAuth"
-          },
           "isoCountry": {
             "description": "ISO country code for the UEM instance, when applicable",
             "example": "US",
-            "type": "string"
-          },
-          "tenantId": {
-            "description": "Platform tenant identifier of the target Jamf Pro instance. Required by `authStrategy: M2M` and rejected-as-null without it (`422 \"tenantId: must not be null\"`); unused by the credential-bearing strategies.\n\nAbsent from the published spec, which declares only `vendor`/`url`/`isoCountry` on the create request and defers the rest to an undocumented \"vendor-specific fields may also be included\". Restored here from the wire (probed 2026-08-28): a create carrying `authStrategy: M2M` and this field returns `201`, and the resulting connector reports the tenant's own URL rather than whatever `url` the request carried.",
-            "example": "ff584e5b-d9f8-4c1c-8752-449d8c5e45d5",
             "type": "string"
           },
           "url": {
@@ -499,7 +481,6 @@
               "XENMOBILE",
               "MAAS360",
               "AIRWATCH",
-              "JAMF_PRO",
               "JAMF_SCHOOL",
               "MOBILEIRONCLOUD",
               "MOBILEIRONCORE",
@@ -515,6 +496,32 @@
           "url"
         ],
         "type": "object"
+      },
+      "ConnectorCreateRequestBody": {
+        "description": "The connector to create. The `vendor` field selects the contract: `JAMF_PRO` uses the fully\ntyped `JamfProConnectorCreateRequest`; every other vendor uses the generic\n`ConnectorCreateRequest`.\n",
+        "discriminator": {
+          "mapping": {
+            "AIRWATCH": "#/components/schemas/ConnectorCreateRequest",
+            "GOOGLE": "#/components/schemas/ConnectorCreateRequest",
+            "INTUNE": "#/components/schemas/ConnectorCreateRequest",
+            "JAMF_PRO": "#/components/schemas/JamfProConnectorCreateRequest",
+            "JAMF_SCHOOL": "#/components/schemas/ConnectorCreateRequest",
+            "MAAS360": "#/components/schemas/ConnectorCreateRequest",
+            "MOBILEIRONCLOUD": "#/components/schemas/ConnectorCreateRequest",
+            "MOBILEIRONCORE": "#/components/schemas/ConnectorCreateRequest",
+            "WIZY": "#/components/schemas/ConnectorCreateRequest",
+            "XENMOBILE": "#/components/schemas/ConnectorCreateRequest"
+          },
+          "propertyName": "vendor"
+        },
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/JamfProConnectorCreateRequest"
+          },
+          {
+            "$ref": "#/components/schemas/ConnectorCreateRequest"
+          }
+        ]
       },
       "ConnectorPage": {
         "description": "A page of connectors.",
@@ -597,7 +604,7 @@
         "type": "object"
       },
       "DeviceSyncAuth": {
-        "description": "Credentials the connector uses to authenticate against the UEM instance. Absent from the published spec, which declares only `vendor`/`url`/`isoCountry` on the create request and defers the rest to an undocumented \"vendor-specific fields may also be included\". Restored here from the wire (probed 2026-08-21): a GET on a live JAMF_PRO connector returns `deviceSyncAuth` alongside `authStrategy`, and a create carrying both is accepted. Which members apply depends on `authStrategy` — OAuth strategies use `clientId`/`clientSecret`, basic-auth strategies use `username`/`password`. Secrets are write-only and never returned; a GET reports only `clientId`, `username` and an `empty` flag.",
+        "description": "Credentials the connector authenticates to the UEM instance with, as read back off a connector. Restored from the wire (probed 2026-08-21, re-verified 2026-08-31) because the published spec omits `deviceSyncAuth` from the *response* schema; the request side is upstream's own `JamfProCredentials` as of v1882, which carries the same four members. Which of them apply depends on `authStrategy` — OAuth strategies use `clientId`/`clientSecret`, basic-auth strategies use `username`/`password`. Secrets are write-only and never returned; a read reports only `clientId`, `username` and an `empty` flag, and for an `M2M`-provisioned connector the `clientId` is the one Jamf Security Cloud minted for itself.",
         "properties": {
           "clientId": {
             "description": "OAuth client ID. For `JAMF_PRO_OAUTH`, the client ID of an API integration on the target Jamf Pro instance.",
@@ -723,6 +730,87 @@
               "$ref": "#/components/schemas/GroupMapping"
             },
             "type": "array"
+          }
+        },
+        "type": "object"
+      },
+      "JamfProConnectorCreateRequest": {
+        "additionalProperties": false,
+        "description": "Connector creation request for Jamf Pro.\n\nThe `authStrategy` field selects how JSC authenticates to Jamf Pro and determines which\nfurther fields are required:\n\n- `JAMF_PRO_OAUTH` — provide `deviceSyncAuth.clientId` and `deviceSyncAuth.clientSecret`\n  (Jamf Pro API-role OAuth client credentials).\n- `BASIC` — provide `deviceSyncAuth.username` and `deviceSyncAuth.password`.\n- `M2M` — provide `tenantId`; `deviceSyncAuth` must be omitted (JSC authenticates through the\n  shared machine-to-machine trust rather than per-connector credentials).\n\nThe credential fields (`deviceSyncAuth.password`, `deviceSyncAuth.clientSecret`) are\nwrite-only. `tenantId` is likewise write-only: it is accepted on creation but not returned\nin responses. Write-only fields are never echoed back in any response.\n",
+        "properties": {
+          "authStrategy": {
+            "description": "Authentication strategy used to connect to Jamf Pro. See the schema description for the\nfields each strategy requires.\n",
+            "enum": [
+              "JAMF_PRO_OAUTH",
+              "BASIC",
+              "M2M"
+            ],
+            "example": "JAMF_PRO_OAUTH",
+            "type": "string"
+          },
+          "deviceSyncAuth": {
+            "$ref": "#/components/schemas/JamfProCredentials"
+          },
+          "isoCountry": {
+            "description": "ISO country code for the UEM instance, when applicable",
+            "example": "US",
+            "type": "string"
+          },
+          "tenantId": {
+            "description": "Jamf Pro tenant identifier. Required when `authStrategy` is `M2M`; must be omitted for\nthe other strategies.\n",
+            "example": "acme-tenant",
+            "type": "string",
+            "writeOnly": true
+          },
+          "url": {
+            "description": "Jamf Pro server URL",
+            "example": "https://yourcompany.jamfcloud.com",
+            "type": "string"
+          },
+          "vendor": {
+            "description": "UEM vendor discriminator",
+            "enum": [
+              "JAMF_PRO"
+            ],
+            "example": "JAMF_PRO",
+            "type": "string"
+          }
+        },
+        "required": [
+          "vendor",
+          "url",
+          "authStrategy"
+        ],
+        "type": "object"
+      },
+      "JamfProCredentials": {
+        "additionalProperties": false,
+        "description": "Jamf Pro connection credentials. Provide the OAuth pair (`clientId` + `clientSecret`) when\n`authStrategy` is `JAMF_PRO_OAUTH`, or the basic pair (`username` + `password`) when\n`authStrategy` is `BASIC`. Omit entirely for `M2M`.\n",
+        "properties": {
+          "clientId": {
+            "description": "Jamf Pro API-role OAuth client id (JAMF_PRO_OAUTH strategy)",
+            "example": "1a2b3c4d-5e6f-7a8b-9c0d-1e2f3a4b5c6d",
+            "type": "string"
+          },
+          "clientSecret": {
+            "description": "Jamf Pro API-role OAuth client secret (JAMF_PRO_OAUTH strategy)",
+            "example": "abcXYZ123secret",
+            "format": "password",
+            "type": "string",
+            "writeOnly": true
+          },
+          "password": {
+            "description": "Jamf Pro password (BASIC strategy)",
+            "example": "s3cr3t",
+            "format": "password",
+            "type": "string",
+            "writeOnly": true
+          },
+          "username": {
+            "description": "Jamf Pro username (BASIC strategy)",
+            "example": "svc-jsc",
+            "minLength": 1,
+            "type": "string"
           }
         },
         "type": "object"
@@ -1187,7 +1275,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/ConnectorCreateRequest"
+                "$ref": "#/components/schemas/ConnectorCreateRequestBody"
               }
             }
           },

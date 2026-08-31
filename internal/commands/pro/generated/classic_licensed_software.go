@@ -50,7 +50,7 @@ func newClassicLicensedSoftwareListCmd(ctx *registry.CLIContext) *cobra.Command 
 
   # List licensedsoftware and extract IDs
   jamf-cli pro classic-licensed-software list --field id`,
-		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "licensed-software:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/licensedsoftware", nil)
@@ -107,7 +107,7 @@ func newClassicLicensedSoftwareGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a licensed_software and output as YAML
   jamf-cli pro classic-licensed-software get 1 -o yaml`,
-		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "licensed-software:read"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -166,7 +166,7 @@ func newClassicLicensedSoftwareCreateCmd(ctx *registry.CLIContext) *cobra.Comman
 		Use:         "create",
 		Short:       "Create a licensed_software",
 		Long:        "Create a new licensed_software. Reads the XML body from --from-file or stdin.",
-		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "licensed-software:create"},
 		Example: `  # Create a licensed_software from an XML file
   jamf-cli pro classic-licensed-software create --from-file licensed_software.xml
 
@@ -205,7 +205,7 @@ func newClassicLicensedSoftwareUpdateCmd(ctx *registry.CLIContext) *cobra.Comman
 		Use:         "update [<id>]",
 		Short:       "Update a licensed_software",
 		Long:        "Update an existing licensed_software by ID. Reads the XML body from --from-file or stdin.",
-		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "licensed-software:update"},
 		Example: `  # Update a licensed_software from an XML file
   jamf-cli pro classic-licensed-software update 1 --from-file licensed_software.xml
 
@@ -268,7 +268,7 @@ func newClassicLicensedSoftwareDeleteCmd(ctx *registry.CLIContext) *cobra.Comman
 
   # Delete without confirmation prompt
   jamf-cli pro classic-licensed-software delete 1 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true", "jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:api": "pro-classic", "jamf:gateway-privileges": "licensed-software:delete"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -441,7 +441,7 @@ func newClassicLicensedSoftwareApplyCmd(ctx *registry.CLIContext) *cobra.Command
 	cmd := &cobra.Command{
 		Use:         "apply",
 		Short:       "Create or replace a licensed_software by name",
-		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "licensed-software:create,licensed-software:read,licensed-software:update"},
 		Long: `Create or replace a licensed_software. Reads XML from --from-file or stdin.
 
 The name field in the input XML is used to check if the resource already

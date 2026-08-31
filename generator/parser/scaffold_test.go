@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/getkin/kin-openapi/openapi3"
 )
 
 // mustScaffoldJSON fails the test on a render error rather than letting an empty
@@ -562,5 +564,82 @@ func TestScaffoldRawLiteral_RejectsBacktick(t *testing.T) {
 	}
 	if _, err := scaffoldRawLiteral(dirty); err == nil {
 		t.Error("a backtick in a nested spec example must fail generation, not emit uncompilable code")
+	}
+}
+
+// A discriminated-union request body (a bare oneOf) carries no properties of its
+// own, so before this it parsed to nothing at all — which cost --scaffold and
+// every "Allowed values:" line with no error to notice. uem-connect's create
+// became one of these when the SDK split JAMF_PRO onto its own typed contract.
+func TestParseSchema_DiscriminatedUnionAdoptsTheFirstVariant(t *testing.T) {
+	spec := []byte(`
+openapi: 3.0.3
+info: {title: t, version: "1"}
+paths: {}
+components:
+  schemas:
+    Body:
+      discriminator:
+        propertyName: vendor
+      oneOf:
+        - $ref: '#/components/schemas/Typed'
+        - $ref: '#/components/schemas/Generic'
+    Typed:
+      type: object
+      required: [vendor, url]
+      properties:
+        vendor: {type: string, enum: [JAMF_PRO]}
+        url: {type: string, example: "https://example.jamfcloud.com"}
+        authStrategy: {type: string, enum: [M2M, BASIC]}
+    Generic:
+      type: object
+      properties:
+        vendor: {type: string, enum: [INTUNE, GOOGLE]}
+        isoCountry: {type: string}
+        onlyOnGeneric: {type: string, enum: [A, B]}
+`)
+	loader := openapi3.NewLoader()
+	doc, err := loader.LoadFromData(spec)
+	if err != nil {
+		t.Fatalf("loading spec: %v", err)
+	}
+	s := parseSchema("Body", doc.Components.Schemas["Body"].Value)
+
+	if got := strings.Join(s.Variants, ","); got != "Typed,Generic" {
+		t.Errorf("Variants = %q, want Typed,Generic", got)
+	}
+	if s.Discriminator != "vendor" {
+		t.Errorf("Discriminator = %q, want vendor", s.Discriminator)
+	}
+	// The first variant's own shape, so the scaffold is a body that satisfies
+	// one contract rather than a merge that satisfies none.
+	if s.Properties["url"] == nil || s.Properties["url"].Example == nil {
+		t.Error("first variant's properties were not adopted")
+	}
+	if got := strings.Join(s.Required, ","); got != "vendor,url" {
+		t.Errorf("Required = %q, want vendor,url", got)
+	}
+	// The discriminator's values are unioned: naming only the scaffolded
+	// variant's would read as "every other vendor is invalid".
+	if got := strings.Join(s.Properties["vendor"].Enum, ","); got != "JAMF_PRO,INTUNE,GOOGLE" {
+		t.Errorf("vendor enum = %q, want the union across variants", got)
+	}
+
+	scaffold, err := ScaffoldJSON(s)
+	if err != nil {
+		t.Fatalf("ScaffoldJSON: %v", err)
+	}
+	for _, want := range []string{`"url"`, `"vendor"`, `"authStrategy"`} {
+		if !strings.Contains(scaffold, want) {
+			t.Errorf("scaffold = %s, missing %s", scaffold, want)
+		}
+	}
+	// A field only a sibling variant declares is help material, not part of the
+	// body being rendered.
+	if strings.Contains(scaffold, "onlyOnGeneric") {
+		t.Errorf("scaffold = %s, leaked a sibling variant's field", scaffold)
+	}
+	if p := s.Properties["onlyOnGeneric"]; p == nil || !p.VariantOnly {
+		t.Error("a sibling variant's enum field should be carried for the help, marked VariantOnly")
 	}
 }

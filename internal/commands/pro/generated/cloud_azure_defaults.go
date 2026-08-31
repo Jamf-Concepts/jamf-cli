@@ -31,7 +31,7 @@ func newCloudAzureDefaultsMappingsCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:         "mappings",
 		Short:       "Get default mappings",
 		Long:        "This is the default set of attributes that allows you to return the data you need from Azure AD. Some fields may be empty and may be edited when creating a new configuration.",
-		Annotations: map[string]string{"jamf:privileges": "Read LDAP Servers", "jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:privileges": "Read LDAP Servers", "jamf:api": "pro", "jamf:gateway-privileges": "ldap-servers:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -65,7 +65,7 @@ func newCloudAzureDefaultsServerConfigurationCmd(ctx *registry.CLIContext) *cobr
 		Use:         "server-configuration",
 		Short:       "Get default server configuration",
 		Long:        "This is the default set of attributes that allows you to return the data you need from Azure AD. Some fields may be empty and may be edited when creating a new configuration.",
-		Annotations: map[string]string{"jamf:privileges": "Read LDAP Servers", "jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:privileges": "Read LDAP Servers", "jamf:api": "pro", "jamf:gateway-privileges": "ldap-servers:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

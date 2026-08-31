@@ -40,7 +40,7 @@ func newSsoFailoversListCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # List sso-failovers and extract IDs
   jamf-cli pro sso-failovers list --field id`,
-		Annotations: map[string]string{"jamf:privileges": "Read SSO Settings", "jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:privileges": "Read SSO Settings", "jamf:api": "pro", "jamf:gateway-privileges": "sso-settings:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -74,7 +74,7 @@ func newSsoFailoversGenerateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:         "generate",
 		Short:       "Regenerates failover url",
 		Long:        "Regenerates failover url, by changing failover key to new one, and returns new failover settings",
-		Annotations: map[string]string{"jamf:privileges": "Update SSO Settings", "jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:privileges": "Update SSO Settings", "jamf:api": "pro", "jamf:gateway-privileges": "sso-settings:update"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

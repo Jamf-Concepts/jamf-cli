@@ -50,7 +50,7 @@ func newClassicMobileDeviceGroupsListCmd(ctx *registry.CLIContext) *cobra.Comman
 
   # List mobiledevicegroups and extract IDs
   jamf-cli pro classic-mobile-device-groups list --field id`,
-		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "device-groups:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/mobiledevicegroups", nil)
@@ -107,7 +107,7 @@ func newClassicMobileDeviceGroupsGetCmd(ctx *registry.CLIContext) *cobra.Command
 
   # Get a mobile_device_group and output as YAML
   jamf-cli pro classic-mobile-device-groups get 1 -o yaml`,
-		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "device-groups:read"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -166,7 +166,7 @@ func newClassicMobileDeviceGroupsCreateCmd(ctx *registry.CLIContext) *cobra.Comm
 		Use:         "create",
 		Short:       "Create a mobile_device_group",
 		Long:        "Create a new mobile_device_group. Reads the XML body from --from-file or stdin.",
-		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "device-groups:create"},
 		Example: `  # Create a mobile_device_group from an XML file
   jamf-cli pro classic-mobile-device-groups create --from-file mobile_device_group.xml
 
@@ -205,7 +205,7 @@ func newClassicMobileDeviceGroupsUpdateCmd(ctx *registry.CLIContext) *cobra.Comm
 		Use:         "update [<id>]",
 		Short:       "Update a mobile_device_group",
 		Long:        "Update an existing mobile_device_group by ID. Reads the XML body from --from-file or stdin.",
-		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "device-groups:update"},
 		Example: `  # Update a mobile_device_group from an XML file
   jamf-cli pro classic-mobile-device-groups update 1 --from-file mobile_device_group.xml
 
@@ -268,7 +268,7 @@ func newClassicMobileDeviceGroupsDeleteCmd(ctx *registry.CLIContext) *cobra.Comm
 
   # Delete without confirmation prompt
   jamf-cli pro classic-mobile-device-groups delete 1 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true", "jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:api": "pro-classic", "jamf:gateway-privileges": "device-groups:delete"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -441,7 +441,7 @@ func newClassicMobileDeviceGroupsApplyCmd(ctx *registry.CLIContext) *cobra.Comma
 	cmd := &cobra.Command{
 		Use:         "apply",
 		Short:       "Create or replace a mobile_device_group by name",
-		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "device-groups:create,device-groups:read,device-groups:update"},
 		Long: `Create or replace a mobile_device_group. Reads XML from --from-file or stdin.
 
 The name field in the input XML is used to check if the resource already

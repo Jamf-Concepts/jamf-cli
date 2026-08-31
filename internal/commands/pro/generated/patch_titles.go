@@ -34,7 +34,7 @@ func newPatchTitlesPatchManagementAcceptDisclaimerCmd(ctx *registry.CLIContext) 
 		Use:         "patch-management-accept-disclaimer",
 		Short:       "Accept Patch Management disclaimer",
 		Long:        "Accept Patch Management disclaimer",
-		Annotations: map[string]string{"jamf:privileges": "Update Patch Management Software Titles", "jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:privileges": "Update Patch Management Software Titles", "jamf:api": "pro", "jamf:gateway-privileges": "patch-management-software-titles:update"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

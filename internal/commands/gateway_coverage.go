@@ -11,6 +11,7 @@ import (
 	"github.com/Jamf-Concepts/jamf-cli/internal/auth"
 	"github.com/Jamf-Concepts/jamf-cli/internal/exitcode"
 	"github.com/Jamf-Concepts/jamf-cli/internal/gateway"
+	"github.com/Jamf-Concepts/jamf-cli/internal/privileges"
 )
 
 // Cobra annotations the generators stamp. jamf:api names the API that serves a
@@ -22,9 +23,14 @@ const (
 	annotationGateway       = "jamf:gateway"
 	annotationGatewayBasis  = "jamf:gateway-basis"
 	annotationGatewayDetail = "jamf:gateway-detail"
-	apiPro                  = "pro"
-	apiProClassic           = "pro-classic"
-	apiPlatformGateway      = "platform-gateway"
+	// annotationGatewayPrivs holds the gateway capability permissions the
+	// endpoint requires, comma-separated, stamped from
+	// specs/gateway/coverage.json. Distinct from jamf:privileges, which is the
+	// Jamf Pro API-role vocabulary for the same endpoint.
+	annotationGatewayPrivs = "jamf:gateway-privileges"
+	apiPro                 = "pro"
+	apiProClassic          = "pro-classic"
+	apiPlatformGateway     = "platform-gateway"
 )
 
 // checkAPIMatch refuses, before anything is sent, a command whose API the
@@ -183,4 +189,46 @@ func applyGatewayCoverageHelp(root *cobra.Command) {
 		}
 	}
 	walk(root)
+}
+
+// gatewayPrivilegesOf reads a command's gateway capability permissions, or nil
+// when it declares none. Separate from the Jamf Pro privileges the catalog
+// already carries: the two are independent sets, so a reader has to be able to
+// tell which console a name belongs to.
+func gatewayPrivilegesOf(cmd *cobra.Command) []string {
+	privs := cmd.Annotations[annotationGatewayPrivs]
+	if privs == "" {
+		return nil
+	}
+	return strings.Split(privs, ",")
+}
+
+// gatewayPermissionsOf renders a command's gateway permissions as Jamf Account
+// prints them, one row per permission. Nil when the command declares none.
+//
+// Rendered here rather than stamped by the generator so the catalogue is the
+// only place the names live: a generated annotation would freeze whatever the
+// transcription said at generate time, and re-verifying it against Jamf's
+// article would then mean a regenerate rather than an edit.
+func gatewayPermissionsOf(cmd *cobra.Command) []string {
+	scopes := gatewayPrivilegesOf(cmd)
+	if len(scopes) == 0 && cmd.Annotations[annotationAPI] == apiPlatformGateway {
+		// A Platform command's own jamf:privileges IS the capability
+		// vocabulary — it is served by the gateway and nothing else — so there
+		// is no second annotation to read. Without this the commands whose
+		// permissions are *only* ever granted in Jamf Account were the ones with
+		// no Jamf Account wording in the catalog.
+		if p := cmd.Annotations["jamf:privileges"]; p != "" {
+			scopes = strings.Split(p, ",")
+		}
+	}
+	if len(scopes) == 0 {
+		return nil
+	}
+	reqs := privileges.Collect(scopes)
+	out := make([]string, 0, len(reqs))
+	for _, r := range reqs {
+		out = append(out, r.String())
+	}
+	return out
 }

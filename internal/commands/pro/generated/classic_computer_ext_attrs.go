@@ -50,7 +50,7 @@ func newClassicComputerExtAttrsListCmd(ctx *registry.CLIContext) *cobra.Command 
 
   # List computerextensionattributes and extract IDs
   jamf-cli pro classic-computer-ext-attrs list --field id`,
-		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "extension-attributes:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/computerextensionattributes", nil)
@@ -107,7 +107,7 @@ func newClassicComputerExtAttrsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a computer_extension_attribute and output as YAML
   jamf-cli pro classic-computer-ext-attrs get 1 -o yaml`,
-		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "extension-attributes:read"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -166,7 +166,7 @@ func newClassicComputerExtAttrsCreateCmd(ctx *registry.CLIContext) *cobra.Comman
 		Use:         "create",
 		Short:       "Create a computer_extension_attribute",
 		Long:        "Create a new computer_extension_attribute. Reads the XML body from --from-file or stdin.",
-		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "extension-attributes:create"},
 		Example: `  # Create a computer_extension_attribute from an XML file
   jamf-cli pro classic-computer-ext-attrs create --from-file computer_extension_attribute.xml
 
@@ -205,7 +205,7 @@ func newClassicComputerExtAttrsUpdateCmd(ctx *registry.CLIContext) *cobra.Comman
 		Use:         "update [<id>]",
 		Short:       "Update a computer_extension_attribute",
 		Long:        "Update an existing computer_extension_attribute by ID. Reads the XML body from --from-file or stdin.",
-		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "extension-attributes:update"},
 		Example: `  # Update a computer_extension_attribute from an XML file
   jamf-cli pro classic-computer-ext-attrs update 1 --from-file computer_extension_attribute.xml
 
@@ -268,7 +268,7 @@ func newClassicComputerExtAttrsDeleteCmd(ctx *registry.CLIContext) *cobra.Comman
 
   # Delete without confirmation prompt
   jamf-cli pro classic-computer-ext-attrs delete 1 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true", "jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:api": "pro-classic", "jamf:gateway-privileges": "extension-attributes:delete"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -441,7 +441,7 @@ func newClassicComputerExtAttrsApplyCmd(ctx *registry.CLIContext) *cobra.Command
 	cmd := &cobra.Command{
 		Use:         "apply",
 		Short:       "Create or replace a computer_extension_attribute by name",
-		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "extension-attributes:create,extension-attributes:read,extension-attributes:update"},
 		Long: `Create or replace a computer_extension_attribute. Reads XML from --from-file or stdin.
 
 The name field in the input XML is used to check if the resource already

@@ -50,7 +50,7 @@ func newClassicDiskEncryptionConfigsListCmd(ctx *registry.CLIContext) *cobra.Com
 
   # List diskencryptionconfigurations and extract IDs
   jamf-cli pro classic-disk-encryption-configs list --field id`,
-		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "disk-encryption-configurations:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/diskencryptionconfigurations", nil)
@@ -107,7 +107,7 @@ func newClassicDiskEncryptionConfigsGetCmd(ctx *registry.CLIContext) *cobra.Comm
 
   # Get a disk_encryption_configuration and output as YAML
   jamf-cli pro classic-disk-encryption-configs get 1 -o yaml`,
-		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "disk-encryption-configurations:read"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -166,7 +166,7 @@ func newClassicDiskEncryptionConfigsCreateCmd(ctx *registry.CLIContext) *cobra.C
 		Use:         "create",
 		Short:       "Create a disk_encryption_configuration",
 		Long:        "Create a new disk_encryption_configuration. Reads the XML body from --from-file or stdin.",
-		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "disk-encryption-configurations:create"},
 		Example: `  # Create a disk_encryption_configuration from an XML file
   jamf-cli pro classic-disk-encryption-configs create --from-file disk_encryption_configuration.xml
 
@@ -205,7 +205,7 @@ func newClassicDiskEncryptionConfigsUpdateCmd(ctx *registry.CLIContext) *cobra.C
 		Use:         "update [<id>]",
 		Short:       "Update a disk_encryption_configuration",
 		Long:        "Update an existing disk_encryption_configuration by ID. Reads the XML body from --from-file or stdin.",
-		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "disk-encryption-configurations:update"},
 		Example: `  # Update a disk_encryption_configuration from an XML file
   jamf-cli pro classic-disk-encryption-configs update 1 --from-file disk_encryption_configuration.xml
 
@@ -268,7 +268,7 @@ func newClassicDiskEncryptionConfigsDeleteCmd(ctx *registry.CLIContext) *cobra.C
 
   # Delete without confirmation prompt
   jamf-cli pro classic-disk-encryption-configs delete 1 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true", "jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:api": "pro-classic", "jamf:gateway-privileges": "disk-encryption-configurations:delete"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -441,7 +441,7 @@ func newClassicDiskEncryptionConfigsApplyCmd(ctx *registry.CLIContext) *cobra.Co
 	cmd := &cobra.Command{
 		Use:         "apply",
 		Short:       "Create or replace a disk_encryption_configuration by name",
-		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "disk-encryption-configurations:create,disk-encryption-configurations:read,disk-encryption-configurations:update"},
 		Long: `Create or replace a disk_encryption_configuration. Reads XML from --from-file or stdin.
 
 The name field in the input XML is used to check if the resource already

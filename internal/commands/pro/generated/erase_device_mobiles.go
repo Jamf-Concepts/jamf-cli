@@ -40,7 +40,7 @@ func newEraseDeviceMobilesEraseCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:         "erase <id>",
 		Short:       "Erase a Mobile Device",
 		Long:        "Erase a Mobile Device",
-		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Send Mobile Device Remote Wipe Command", "jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Send Mobile Device Remote Wipe Command", "jamf:api": "pro", "jamf:gateway-privileges": "destructive-device-actions:execute"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

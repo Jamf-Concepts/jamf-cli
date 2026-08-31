@@ -36,7 +36,7 @@ func newComputerSmartGroupsRecalculateSmartGroupsCmd(ctx *registry.CLIContext) *
 		Use:         "recalculate-smart-groups <id>",
 		Short:       "Recalculate a smart group for the given id",
 		Long:        "Recalculates a smart group for the given id and then returns the count of smart groups the computer falls into",
-		Annotations: map[string]string{"jamf:privileges": "Update Smart Computer Groups", "jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:privileges": "Update Smart Computer Groups", "jamf:api": "pro", "jamf:gateway-privileges": "device-groups:update"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -89,7 +89,7 @@ func newComputerSmartGroupsRecalculateCmd(ctx *registry.CLIContext) *cobra.Comma
 		Use:         "recalculate <id>",
 		Short:       "Recalculate the smart group for the given id",
 		Long:        "Recalculates the smart group for the given id and then returns the ids for the computers in the smart group",
-		Annotations: map[string]string{"jamf:privileges": "Update Smart Computer Groups", "jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:privileges": "Update Smart Computer Groups", "jamf:api": "pro", "jamf:gateway-privileges": "device-groups:update"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

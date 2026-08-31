@@ -50,7 +50,7 @@ func newClassicAdvancedMobileDeviceSearchesListCmd(ctx *registry.CLIContext) *co
 
   # List advancedmobiledevicesearches and extract IDs
   jamf-cli pro classic-advanced-mobile-device-searches list --field id`,
-		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "advanced-device-searches:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/advancedmobiledevicesearches", nil)
@@ -107,7 +107,7 @@ func newClassicAdvancedMobileDeviceSearchesGetCmd(ctx *registry.CLIContext) *cob
 
   # Get a advanced_mobile_device_search and output as YAML
   jamf-cli pro classic-advanced-mobile-device-searches get 1 -o yaml`,
-		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "advanced-device-searches:read"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -166,7 +166,7 @@ func newClassicAdvancedMobileDeviceSearchesCreateCmd(ctx *registry.CLIContext) *
 		Use:         "create",
 		Short:       "Create a advanced_mobile_device_search",
 		Long:        "Create a new advanced_mobile_device_search. Reads the XML body from --from-file or stdin.",
-		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "advanced-device-searches:create"},
 		Example: `  # Create a advanced_mobile_device_search from an XML file
   jamf-cli pro classic-advanced-mobile-device-searches create --from-file advanced_mobile_device_search.xml
 
@@ -205,7 +205,7 @@ func newClassicAdvancedMobileDeviceSearchesUpdateCmd(ctx *registry.CLIContext) *
 		Use:         "update [<id>]",
 		Short:       "Update a advanced_mobile_device_search",
 		Long:        "Update an existing advanced_mobile_device_search by ID. Reads the XML body from --from-file or stdin.",
-		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "advanced-device-searches:update"},
 		Example: `  # Update a advanced_mobile_device_search from an XML file
   jamf-cli pro classic-advanced-mobile-device-searches update 1 --from-file advanced_mobile_device_search.xml
 
@@ -268,7 +268,7 @@ func newClassicAdvancedMobileDeviceSearchesDeleteCmd(ctx *registry.CLIContext) *
 
   # Delete without confirmation prompt
   jamf-cli pro classic-advanced-mobile-device-searches delete 1 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true", "jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:api": "pro-classic", "jamf:gateway-privileges": "advanced-device-searches:delete"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -441,7 +441,7 @@ func newClassicAdvancedMobileDeviceSearchesApplyCmd(ctx *registry.CLIContext) *c
 	cmd := &cobra.Command{
 		Use:         "apply",
 		Short:       "Create or replace a advanced_mobile_device_search by name",
-		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "advanced-device-searches:create,advanced-device-searches:read,advanced-device-searches:update"},
 		Long: `Create or replace a advanced_mobile_device_search. Reads XML from --from-file or stdin.
 
 The name field in the input XML is used to check if the resource already

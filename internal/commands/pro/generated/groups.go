@@ -54,7 +54,7 @@ func newGroupsListCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # List groups and extract IDs
   jamf-cli pro groups list --field id`,
-		Annotations: map[string]string{"jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:api": "pro", "jamf:gateway-privileges": "device-groups:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -210,7 +210,7 @@ func newGroupsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a group and output as YAML
   jamf-cli pro groups get 1 -o yaml`,
-		Annotations: map[string]string{"jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:api": "pro", "jamf:gateway-privileges": "device-groups:read"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -277,7 +277,7 @@ func newGroupsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Delete without confirmation prompt
   jamf-cli pro groups delete 1 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true", "jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:api": "pro", "jamf:gateway-privileges": "device-groups:delete"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -493,7 +493,7 @@ func newGroupsPatchCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Patch from a file
   jamf-cli pro groups patch 1 --from-file changes.json`,
-		Annotations: map[string]string{"jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:api": "pro", "jamf:gateway-privileges": "device-groups:update"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

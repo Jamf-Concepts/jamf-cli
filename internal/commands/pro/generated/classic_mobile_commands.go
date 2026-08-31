@@ -34,7 +34,7 @@ func newClassicMobileCommandsListCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # List mobiledevicecommands and extract IDs
   jamf-cli pro classic-mobile-commands list --field id`,
-		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "device-actions:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/mobiledevicecommands", nil)

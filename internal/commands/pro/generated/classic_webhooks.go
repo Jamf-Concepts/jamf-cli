@@ -50,7 +50,7 @@ func newClassicWebhooksListCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # List webhooks and extract IDs
   jamf-cli pro classic-webhooks list --field id`,
-		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "webhooks:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/webhooks", nil)
@@ -107,7 +107,7 @@ func newClassicWebhooksGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a webhook and output as YAML
   jamf-cli pro classic-webhooks get 1 -o yaml`,
-		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "webhooks:read"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -166,7 +166,7 @@ func newClassicWebhooksCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:         "create",
 		Short:       "Create a webhook",
 		Long:        "Create a new webhook. Reads the XML body from --from-file or stdin.",
-		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "webhooks:create"},
 		Example: `  # Create a webhook from an XML file
   jamf-cli pro classic-webhooks create --from-file webhook.xml
 
@@ -205,7 +205,7 @@ func newClassicWebhooksUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:         "update [<id>]",
 		Short:       "Update a webhook",
 		Long:        "Update an existing webhook by ID. Reads the XML body from --from-file or stdin.",
-		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "webhooks:update"},
 		Example: `  # Update a webhook from an XML file
   jamf-cli pro classic-webhooks update 1 --from-file webhook.xml
 
@@ -268,7 +268,7 @@ func newClassicWebhooksDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Delete without confirmation prompt
   jamf-cli pro classic-webhooks delete 1 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true", "jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:api": "pro-classic", "jamf:gateway-privileges": "webhooks:delete"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -441,7 +441,7 @@ func newClassicWebhooksApplyCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "apply",
 		Short:       "Create or replace a webhook by name",
-		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "webhooks:create,webhooks:read,webhooks:update"},
 		Long: `Create or replace a webhook. Reads XML from --from-file or stdin.
 
 The name field in the input XML is used to check if the resource already

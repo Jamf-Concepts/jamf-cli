@@ -55,7 +55,7 @@ func newClassicVppAssignmentsListCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # List vppassignments and extract IDs
   jamf-cli pro classic-vpp-assignments list --field id`,
-		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "volume-purchasing-locations:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/vppassignments", nil)
@@ -106,7 +106,7 @@ func newClassicVppAssignmentsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a vpp_assignment and output as YAML
   jamf-cli pro classic-vpp-assignments get 1 -o yaml`,
-		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "volume-purchasing-locations:read"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -154,7 +154,7 @@ func newClassicVppAssignmentsCreateCmd(ctx *registry.CLIContext) *cobra.Command 
 		Use:         "create",
 		Short:       "Create a vpp_assignment",
 		Long:        "Create a new vpp_assignment. Reads the XML body from --from-file or stdin.",
-		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "volume-purchasing-locations:create"},
 		Example: `  # Create a vpp_assignment from an XML file
   jamf-cli pro classic-vpp-assignments create --from-file vpp_assignment.xml
 
@@ -192,7 +192,7 @@ func newClassicVppAssignmentsUpdateCmd(ctx *registry.CLIContext) *cobra.Command 
 		Use:         "update <id>",
 		Short:       "Update a vpp_assignment",
 		Long:        "Update an existing vpp_assignment by ID. Reads the XML body from --from-file or stdin.",
-		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "volume-purchasing-locations:update"},
 		Example: `  # Update a vpp_assignment from an XML file
   jamf-cli pro classic-vpp-assignments update 1 --from-file vpp_assignment.xml
 
@@ -242,7 +242,7 @@ func newClassicVppAssignmentsDeleteCmd(ctx *registry.CLIContext) *cobra.Command 
 
   # Delete without confirmation prompt
   jamf-cli pro classic-vpp-assignments delete 1 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true", "jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:api": "pro-classic", "jamf:gateway-privileges": "volume-purchasing-locations:delete"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

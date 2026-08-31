@@ -19,6 +19,7 @@ import (
 	"github.com/Jamf-Concepts/jamf-cli/internal/exitcode"
 	"github.com/Jamf-Concepts/jamf-cli/internal/gateway"
 	"github.com/Jamf-Concepts/jamf-cli/internal/httptransport"
+	"github.com/Jamf-Concepts/jamf-cli/internal/privileges"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 )
 
@@ -446,9 +447,7 @@ func httpStatusError(status int, method, path string, body []byte) error {
 		}
 		return exitcode.New(exitcode.PermissionDenied,
 			fmt.Sprintf("permission denied (HTTP 403): %s", string(body))).
-			WithHint(withGatewayUnservedNote(
-				"the authenticated account lacks the required API privileges; check its API role",
-				method, path, body))
+			WithHint(withGatewayUnservedNote(forbiddenHint(method, path), method, path, body))
 	case http.StatusNotFound:
 		return exitcode.New(exitcode.NotFound,
 			fmt.Sprintf("resource not found (HTTP 404): %s %s", method, path)).
@@ -509,6 +508,41 @@ func edgeBlockedNote(body []byte) string {
 		"The response cannot say which one fired. There is no client-side fix — retry a single request cold, and report it to Jamf."
 }
 
+// isGatewayPath reports whether a path is in gateway form. The rewrite to
+// /pro/ or /proclassic/ happens before a request is sent and those prefixes
+// exist only in gateway mode, so this is also the answer to "were these
+// credentials a platform gateway credential" — no flag needs threading down
+// here.
+func isGatewayPath(path string) bool {
+	return strings.HasPrefix(path, "/pro/") || strings.HasPrefix(path, "/proclassic/")
+}
+
+// forbiddenHint names the permission a 403 wanted, in the vocabulary that
+// matches the credential that sent the request.
+//
+// The two are not interchangeable and neither is derivable from the other. A
+// Jamf Pro instance enforces API-role privileges ("Read Categories"), granted in
+// Jamf Pro; the gateway enforces GA capability permissions (categories:read),
+// granted in Jamf Account when the API integration is created, and the GA
+// consolidation folded several privileges into one capability. So a gateway 403
+// answered with Jamf Pro privilege names sends the operator to a console where
+// the grant it names does not exist — which is the same class of wrong answer as
+// the unrouted-endpoint 403 that gatewayUnservedNote exists for.
+//
+// The command's own jamf:privileges annotation is deliberately not used here:
+// it is the Jamf Pro vocabulary for a Pro command, and a hand-written command
+// fanning out over many endpoints carries one annotation for the whole batch,
+// where only the request knows which endpoint was refused.
+func forbiddenHint(method, path string) string {
+	if !isGatewayPath(path) {
+		return "the authenticated account lacks the required API privileges; check its API role"
+	}
+	if hint := privileges.Hint(gateway.Scopes(method, path)); hint != "" {
+		return hint
+	}
+	return privileges.GatewayFallbackHint()
+}
+
 // withGatewayUnservedNote appends an explanation when a failure looks like the
 // platform gateway declining to serve a Jamf Pro or Classic namespace it does
 // not expose.
@@ -536,7 +570,7 @@ func edgeBlockedNote(body []byte) string {
 // time this is called, and /pro/ and /proclassic/ only exist in gateway mode, so
 // no gateway flag needs threading down here.
 func withGatewayUnservedNote(hint, method, path string, body []byte) string {
-	if !strings.HasPrefix(path, "/pro/") && !strings.HasPrefix(path, "/proclassic/") {
+	if !isGatewayPath(path) {
 		return hint
 	}
 	note := gateway.NoteForRequest(method, path)

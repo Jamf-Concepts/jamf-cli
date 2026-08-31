@@ -36,7 +36,7 @@ func newCloudLdapKeyStoresVerifyCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:         "verify",
 		Short:       "Validate keystore for Cloud Identity Provider secure connection",
 		Long:        "Validate keystore for Cloud Identity Provider secure connection",
-		Annotations: map[string]string{"jamf:privileges": "Create LDAP Servers", "jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:privileges": "Create LDAP Servers", "jamf:api": "pro", "jamf:gateway-privileges": "ldap-servers:create"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

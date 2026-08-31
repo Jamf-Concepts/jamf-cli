@@ -118,6 +118,34 @@ func templateFuncs() template.FuncMap {
 				"jamf:gateway-basis", r.GatewayBasis,
 				"jamf:gateway-detail", r.GatewayDetail)
 		},
+		// gatewayPrivAnn renders the jamf:gateway-privileges pair for one
+		// Classic subcommand, given the HTTP methods that subcommand always
+		// sends. Per method rather than per resource because that is where the
+		// scopes differ — accounts:read for a GET, accounts:update for a PUT —
+		// even though the served/unserved verdict is resource-wide.
+		//
+		// Only the methods a command ALWAYS sends. A --name, --serial or --udid
+		// lookup additionally GETs the collection to resolve the identifier, so
+		// those invocations also need the resource's read permission; that is
+		// left out rather than folded in, because the alternative is telling
+		// everyone running `delete <id>` to grant a read they do not need, and
+		// this catalog is what a least-privilege integration gets sized from.
+		// apply is the exception that really does always read.
+		"gatewayPrivAnn": func(r ClassicResource, methods ...string) string {
+			var scopes []string
+			for _, m := range methods {
+				for _, sc := range r.GatewayPrivileges[m] {
+					if !slices.Contains(scopes, sc) {
+						scopes = append(scopes, sc)
+					}
+				}
+			}
+			if len(scopes) == 0 {
+				return ""
+			}
+			slices.Sort(scopes)
+			return fmt.Sprintf(", %q: %q", "jamf:gateway-privileges", strings.Join(scopes, ","))
+		},
 		"classicExample": func(r ClassicResource, op string) string {
 			bin := "jamf-cli pro"
 			name := r.CLIName
@@ -428,7 +456,7 @@ func new{{ .GoName }}ListCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:   "list",
 		Short: "List all {{ .Name }}",
 		Example: ` + "`" + `{{ classicExample . "list" }}` + "`" + `,
-		Annotations: map[string]string{"jamf:api": "pro-classic"{{ gatewayAnn $ }}},
+		Annotations: map[string]string{"jamf:api": "pro-classic"{{ gatewayAnn $ }}{{ gatewayPrivAnn $ "GET" }}},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/{{ .Path }}", nil)
@@ -503,7 +531,7 @@ func new{{ .GoName }}GetCmd(ctx *registry.CLIContext) *cobra.Command {
 {{ else }}		Use:   "get <id>",
 {{ end }}		Short: "Get a {{ .Singular }} by ID",
 		Example: ` + "`" + `{{ classicExample . "get" }}` + "`" + `,
-		Annotations: map[string]string{"jamf:api": "pro-classic"{{ gatewayAnn $ }}},
+		Annotations: map[string]string{"jamf:api": "pro-classic"{{ gatewayAnn $ }}{{ gatewayPrivAnn $ "GET" }}},
 {{ if extraLookups .Lookups }}		Args:  cobra.MaximumNArgs(1),
 {{ else }}		Args:  cobra.ExactArgs(1),
 {{ end }}		RunE: func(cmd *cobra.Command, args []string) error {
@@ -592,7 +620,7 @@ func new{{ .GoName }}CreateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:   "create",
 		Short: "Create a {{ .Singular }}",
 		Long:  "Create a new {{ .Singular }}. Reads the XML body from --from-file or stdin.",
-		Annotations: map[string]string{"jamf:api": "pro-classic"{{ gatewayAnn $ }}},
+		Annotations: map[string]string{"jamf:api": "pro-classic"{{ gatewayAnn $ }}{{ gatewayPrivAnn $ "POST" }}},
 		Example: ` + "`" + `{{ classicExample . "create" }}` + "`" + `,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -704,7 +732,7 @@ func new{{ .GoName }}UpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 {{ else }}		Use:   "update <id>",
 {{ end }}		Short: "Update a {{ .Singular }}",
 		Long:  "Update an existing {{ .Singular }} by ID. Reads the XML body from --from-file or stdin.",
-		Annotations: map[string]string{"jamf:api": "pro-classic"{{ gatewayAnn $ }}},
+		Annotations: map[string]string{"jamf:api": "pro-classic"{{ gatewayAnn $ }}{{ gatewayPrivAnn $ "PUT" }}},
 		Example: ` + "`" + `{{ classicExample . "update" }}` + "`" + `,
 {{ if hasLookup .Lookups "name" }}		Args:  cobra.MaximumNArgs(1),
 {{ else }}		Args:  cobra.ExactArgs(1),
@@ -912,7 +940,7 @@ func new{{ .GoName }}DeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 {{ else }}		Use:   "delete <id>",
 {{ end }}		Short: "Delete a {{ .Singular }}",
 		Example: ` + "`" + `{{ classicExample . "delete" }}` + "`" + `,
-		Annotations: map[string]string{"jamf:destructive": "true", "jamf:api": "pro-classic"{{ gatewayAnn $ }}},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:api": "pro-classic"{{ gatewayAnn $ }}{{ gatewayPrivAnn $ "DELETE" }}},
 {{ if hasDeleteByName . }}		Args:  cobra.MaximumNArgs(1),
 {{ else }}		Args:  cobra.ExactArgs(1),
 {{ end }}		RunE: func(cmd *cobra.Command, args []string) error {
@@ -1189,7 +1217,7 @@ func new{{ .GoName }}ApplyCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "apply",
 		Short: "Create or replace a {{ .Singular }} by name",
-		Annotations: map[string]string{"jamf:api": "pro-classic"{{ gatewayAnn $ }}},
+		Annotations: map[string]string{"jamf:api": "pro-classic"{{ gatewayAnn $ }}{{ gatewayPrivAnn $ "GET" "POST" "PUT" }}},
 		Long: ` + "`" + `Create or replace a {{ .Singular }}. Reads XML from --from-file or stdin.
 
 The name field in the input XML is used to check if the resource already

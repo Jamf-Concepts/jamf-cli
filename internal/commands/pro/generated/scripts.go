@@ -59,7 +59,7 @@ func newScriptsListCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # List scripts and extract IDs
   jamf-cli pro scripts list --field id`,
-		Annotations: map[string]string{"jamf:privileges": "Read Scripts", "jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:privileges": "Read Scripts", "jamf:api": "pro", "jamf:gateway-privileges": "scripts:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -214,7 +214,7 @@ func newScriptsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a script and output as YAML
   jamf-cli pro scripts get 1 -o yaml`,
-		Annotations: map[string]string{"jamf:privileges": "Read Scripts", "jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:privileges": "Read Scripts", "jamf:api": "pro", "jamf:gateway-privileges": "scripts:read"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -278,7 +278,7 @@ func newScriptsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a script, modify it, and create a copy
   jamf-cli pro scripts get 1 -o json | jq '.name = "Copy"' | jamf-cli pro scripts create`,
-		Annotations: map[string]string{"jamf:privileges": "Create Scripts", "jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:privileges": "Create Scripts", "jamf:api": "pro", "jamf:gateway-privileges": "scripts:create"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -376,7 +376,7 @@ func newScriptsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a script, modify, and update
   jamf-cli pro scripts get 1 -o json | jq '.name = "New Name"' | jamf-cli pro scripts update 1`,
-		Annotations: map[string]string{"jamf:privileges": "Update Scripts", "jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:privileges": "Update Scripts", "jamf:api": "pro", "jamf:gateway-privileges": "scripts:update"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -493,7 +493,7 @@ func newScriptsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Delete without confirmation prompt
   jamf-cli pro scripts delete 1 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Delete Scripts", "jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Delete Scripts", "jamf:api": "pro", "jamf:gateway-privileges": "scripts:delete"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -705,7 +705,7 @@ func newScriptsHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get history by name
   jamf-cli pro scripts history --name "Example"`,
-		Annotations: map[string]string{"jamf:privileges": "Read Scripts", "jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:privileges": "Read Scripts", "jamf:api": "pro", "jamf:gateway-privileges": "scripts:read"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -873,7 +873,7 @@ func newScriptsAddHistoryNoteCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:         "add-history-note [<id>]",
 		Short:       "Add specified Script history object notes",
 		Long:        "Adds specified Script history object notes",
-		Annotations: map[string]string{"jamf:privileges": "Update Scripts", "jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:privileges": "Update Scripts", "jamf:api": "pro", "jamf:gateway-privileges": "scripts:update"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -958,7 +958,7 @@ func newScriptsDownloadCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Pipe to stdout
   jamf-cli pro scripts download <id> > output.bin`,
-		Annotations: map[string]string{"jamf:privileges": "Read Scripts", "jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:privileges": "Read Scripts", "jamf:api": "pro", "jamf:gateway-privileges": "scripts:read"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -1032,7 +1032,7 @@ func newScriptsApplyCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "apply",
 		Short:       "Create or replace a script by name",
-		Annotations: map[string]string{"jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:api": "pro", "jamf:gateway-privileges": "scripts:create,scripts:read,scripts:update"},
 		Long: `Create or replace a script. Reads JSON or YAML from --from-file or stdin.
 
 The name field in the input is used to check if the resource

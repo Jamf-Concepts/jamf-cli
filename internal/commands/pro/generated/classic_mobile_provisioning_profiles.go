@@ -50,7 +50,7 @@ func newClassicMobileProvisioningProfilesListCmd(ctx *registry.CLIContext) *cobr
 
   # List mobiledeviceprovisioningprofiles and extract IDs
   jamf-cli pro classic-mobile-provisioning-profiles list --field id`,
-		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "provisioning-profiles:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/mobiledeviceprovisioningprofiles", nil)
@@ -107,7 +107,7 @@ func newClassicMobileProvisioningProfilesGetCmd(ctx *registry.CLIContext) *cobra
 
   # Get a mobile_device_provisioning_profile and output as YAML
   jamf-cli pro classic-mobile-provisioning-profiles get 1 -o yaml`,
-		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "provisioning-profiles:read"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -166,7 +166,7 @@ func newClassicMobileProvisioningProfilesCreateCmd(ctx *registry.CLIContext) *co
 		Use:         "create",
 		Short:       "Create a mobile_device_provisioning_profile",
 		Long:        "Create a new mobile_device_provisioning_profile. Reads the XML body from --from-file or stdin.",
-		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "provisioning-profiles:create"},
 		Example: `  # Create a mobile_device_provisioning_profile from an XML file
   jamf-cli pro classic-mobile-provisioning-profiles create --from-file mobile_device_provisioning_profile.xml
 
@@ -205,7 +205,7 @@ func newClassicMobileProvisioningProfilesUpdateCmd(ctx *registry.CLIContext) *co
 		Use:         "update [<id>]",
 		Short:       "Update a mobile_device_provisioning_profile",
 		Long:        "Update an existing mobile_device_provisioning_profile by ID. Reads the XML body from --from-file or stdin.",
-		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "provisioning-profiles:update"},
 		Example: `  # Update a mobile_device_provisioning_profile from an XML file
   jamf-cli pro classic-mobile-provisioning-profiles update 1 --from-file mobile_device_provisioning_profile.xml
 
@@ -268,7 +268,7 @@ func newClassicMobileProvisioningProfilesDeleteCmd(ctx *registry.CLIContext) *co
 
   # Delete without confirmation prompt
   jamf-cli pro classic-mobile-provisioning-profiles delete 1 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true", "jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:api": "pro-classic", "jamf:gateway-privileges": "provisioning-profiles:delete"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -441,7 +441,7 @@ func newClassicMobileProvisioningProfilesApplyCmd(ctx *registry.CLIContext) *cob
 	cmd := &cobra.Command{
 		Use:         "apply",
 		Short:       "Create or replace a mobile_device_provisioning_profile by name",
-		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "provisioning-profiles:create,provisioning-profiles:read,provisioning-profiles:update"},
 		Long: `Create or replace a mobile_device_provisioning_profile. Reads XML from --from-file or stdin.
 
 The name field in the input XML is used to check if the resource already

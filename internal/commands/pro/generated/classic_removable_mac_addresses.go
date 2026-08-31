@@ -50,7 +50,7 @@ func newClassicRemovableMacAddressesListCmd(ctx *registry.CLIContext) *cobra.Com
 
   # List removablemacaddresses and extract IDs
   jamf-cli pro classic-removable-mac-addresses list --field id`,
-		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "removable-mac-address:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/removablemacaddresses", nil)
@@ -107,7 +107,7 @@ func newClassicRemovableMacAddressesGetCmd(ctx *registry.CLIContext) *cobra.Comm
 
   # Get a removable_mac_address and output as YAML
   jamf-cli pro classic-removable-mac-addresses get 1 -o yaml`,
-		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "removable-mac-address:read"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -166,7 +166,7 @@ func newClassicRemovableMacAddressesCreateCmd(ctx *registry.CLIContext) *cobra.C
 		Use:         "create",
 		Short:       "Create a removable_mac_address",
 		Long:        "Create a new removable_mac_address. Reads the XML body from --from-file or stdin.",
-		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "removable-mac-address:create"},
 		Example: `  # Create a removable_mac_address from an XML file
   jamf-cli pro classic-removable-mac-addresses create --from-file removable_mac_address.xml
 
@@ -205,7 +205,7 @@ func newClassicRemovableMacAddressesUpdateCmd(ctx *registry.CLIContext) *cobra.C
 		Use:         "update [<id>]",
 		Short:       "Update a removable_mac_address",
 		Long:        "Update an existing removable_mac_address by ID. Reads the XML body from --from-file or stdin.",
-		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "removable-mac-address:update"},
 		Example: `  # Update a removable_mac_address from an XML file
   jamf-cli pro classic-removable-mac-addresses update 1 --from-file removable_mac_address.xml
 
@@ -268,7 +268,7 @@ func newClassicRemovableMacAddressesDeleteCmd(ctx *registry.CLIContext) *cobra.C
 
   # Delete without confirmation prompt
   jamf-cli pro classic-removable-mac-addresses delete 1 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true", "jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:api": "pro-classic", "jamf:gateway-privileges": "removable-mac-address:delete"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -441,7 +441,7 @@ func newClassicRemovableMacAddressesApplyCmd(ctx *registry.CLIContext) *cobra.Co
 	cmd := &cobra.Command{
 		Use:         "apply",
 		Short:       "Create or replace a removable_mac_address by name",
-		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "removable-mac-address:create,removable-mac-address:read,removable-mac-address:update"},
 		Long: `Create or replace a removable_mac_address. Reads XML from --from-file or stdin.
 
 The name field in the input XML is used to check if the resource already

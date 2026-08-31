@@ -48,7 +48,7 @@ func newClassicAccountGroupsListCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # List account-groups and extract IDs
   jamf-cli pro classic-account-groups list --field id`,
-		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "accounts:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/accounts", nil)
@@ -97,7 +97,7 @@ func newClassicAccountGroupsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a account_group and output as YAML
   jamf-cli pro classic-account-groups get 1 -o yaml`,
-		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "accounts:read"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -156,7 +156,7 @@ func newClassicAccountGroupsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:         "create",
 		Short:       "Create a account_group",
 		Long:        "Create a new account_group. Reads the XML body from --from-file or stdin.",
-		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "accounts:create"},
 		Example: `  # Create a account_group from an XML file
   jamf-cli pro classic-account-groups create --from-file account_group.xml
 
@@ -194,7 +194,7 @@ func newClassicAccountGroupsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:         "update <id>",
 		Short:       "Update a account_group",
 		Long:        "Update an existing account_group by ID. Reads the XML body from --from-file or stdin.",
-		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "accounts:update"},
 		Example: `  # Update a account_group from an XML file
   jamf-cli pro classic-account-groups update 1 --from-file account_group.xml
 
@@ -244,7 +244,7 @@ func newClassicAccountGroupsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Delete without confirmation prompt
   jamf-cli pro classic-account-groups delete 1 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true", "jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:api": "pro-classic", "jamf:gateway-privileges": "accounts:delete"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

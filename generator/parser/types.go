@@ -105,6 +105,18 @@ type Operation struct {
 	GatewayLevel  string
 	GatewayBasis  string
 	GatewayDetail string
+	// GatewayPrivileges are the Jamf Account capability permissions the gateway
+	// requires for this operation, also from specs/gateway/coverage.json. A
+	// different vocabulary from Privileges above, not a translation of it: that
+	// field holds the Jamf Pro API-role privilege names an instance enforces,
+	// and the GA consolidation folded several of those into one capability. Both
+	// are surfaced in the commands catalog so an integration can be sized
+	// without provoking a 403.
+	//
+	// Empty for an unserved operation — the published spec declares no scope for
+	// what it does not publish — and for the 44 unauthenticated Jamf Pro
+	// endpoints.
+	GatewayPrivileges []string
 }
 
 // StatusResult is a non-2xx response the API documents as a meaningful outcome
@@ -163,6 +175,20 @@ type Schema struct {
 	// replaces are — and without this such a body has no properties and no
 	// element shape, so a scaffold for it can only be "[]".
 	Items *Schema
+	// Variants names the alternative shapes of a discriminated union request
+	// body (a bare oneOf/anyOf), in spec order, and Discriminator the property
+	// that selects between them. Both empty for an ordinary schema.
+	//
+	// The schema itself carries the FIRST variant's properties, so every
+	// consumer — the scaffold, --set completion, the enum help — keeps working
+	// on a concrete shape rather than having to understand unions. Variants
+	// exists so the generated help can say that other shapes are legal, which is
+	// the part a caller cannot otherwise discover: uem-connectors create is one
+	// of these, and before this the whole body parsed to nothing, taking
+	// --scaffold and every "Allowed values:" line with it.
+	Variants []string
+	// Discriminator is the property whose value selects the variant.
+	Discriminator string
 }
 
 // Property represents a schema property
@@ -176,6 +202,11 @@ type Property struct {
 	WriteOnly   bool    // true when the field is accepted in requests but never returned in responses (e.g. passwords, secrets)
 	SchemaRef   string  // name of the referenced component schema for object/array types (e.g. "ComputerGeneralUpdate")
 	Nested      *Schema // resolved nested schema for object types (may be nil)
+	// VariantOnly marks a property that only a non-scaffolded variant of a
+	// discriminated-union body declares. It carries enum values for the help and
+	// nothing else — no type, no example — so a scaffold must not render it: it
+	// is not a field of the body the scaffold shows.
+	VariantOnly bool
 	// Enum holds the values this property is restricted to, in the order the
 	// spec lists them, rendered as literals. Empty for unconstrained
 	// properties. Not string-only: an integer enum is carried the same way,

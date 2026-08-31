@@ -45,7 +45,7 @@ func newParentAppGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get parent-app and output as YAML
   jamf-cli pro parent-app get -o yaml`,
-		Annotations: map[string]string{"jamf:privileges": "Read Parent App Settings", "jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:privileges": "Read Parent App Settings", "jamf:api": "pro", "jamf:gateway-privileges": "parent-app:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -90,7 +90,7 @@ func newParentAppUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Update from a file
   jamf-cli pro parent-app update --from-file parent-app.json`,
-		Annotations: map[string]string{"jamf:privileges": "Update Parent App Settings", "jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:privileges": "Update Parent App Settings", "jamf:api": "pro", "jamf:gateway-privileges": "parent-app:update"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -213,7 +213,7 @@ func newParentAppHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 		Long:  "Gets Jamf Parent app settings history",
 		Example: `  # Get history for a parent-app
   jamf-cli pro parent-app history 1`,
-		Annotations: map[string]string{"jamf:privileges": "Read Parent App Settings", "jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:privileges": "Read Parent App Settings", "jamf:api": "pro", "jamf:gateway-privileges": "parent-app:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -358,7 +358,7 @@ func newParentAppAddHistoryNoteCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:         "add-history-note",
 		Short:       "Add Jamf Parent app settings history notes",
 		Long:        "Adds Jamf Parent app settings history notes",
-		Annotations: map[string]string{"jamf:privileges": "Update Parent App Settings", "jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:privileges": "Update Parent App Settings", "jamf:api": "pro", "jamf:gateway-privileges": "parent-app:update"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

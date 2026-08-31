@@ -8,7 +8,9 @@ import (
 	"go/format"
 	"os"
 	"path/filepath"
+	"sort"
 	"strconv"
+	"strings"
 )
 
 // Emit writes the runtime coverage table to path as package gateway. The
@@ -64,6 +66,8 @@ var unserved = []Finding{
 	}
 	b.WriteString("}\n")
 
+	writeScopeRules(&b, cov)
+
 	src, err := format.Source(b.Bytes())
 	if err != nil {
 		return fmt.Errorf("formatting %s: %w", path, err)
@@ -72,6 +76,61 @@ var unserved = []Finding{
 		return err
 	}
 	return os.WriteFile(path, src, 0o644)
+}
+
+// writeScopeRules emits the gateway scope each published operation requires, as
+// a flat table the runtime scans on a 403.
+//
+// The whole manifest is emitted rather than the intersection with the operations
+// this CLI's generated commands send, unlike unserved above. The consumer is a
+// concrete failing request, and the hand-written commands assemble paths the
+// generator never enumerates — `pro overview` alone sends ~41 — so narrowing to
+// generated ops would leave exactly the fan-out commands without a hint.
+//
+// Sorted by path then method so a re-derivation from an unchanged manifest is a
+// no-op diff.
+func writeScopeRules(b *bytes.Buffer, cov *Coverage) {
+	b.WriteString(`
+// scopeRules is the gateway scope each operation requires, from the published
+// specs' x-required-privileges. Paths are gateway-form with every path
+// parameter rendered as {}, matched segment-wise by Scopes.
+//
+// These are Jamf Account capability permissions (categories:read), not Jamf Pro
+// API-role privilege names (Read Categories). The two are independent sets — the
+// GA consolidation mapped several privileges onto one capability — so this table
+// is only ever the right answer for a request going through the gateway.
+var scopeRules = []scopeRule{
+`)
+	if cov == nil {
+		b.WriteString("}\n")
+		return
+	}
+	paths := make([]string, 0, len(cov.Scopes))
+	for p := range cov.Scopes {
+		paths = append(paths, p)
+	}
+	sort.Strings(paths)
+	for _, p := range paths {
+		byMethod := cov.Scopes[p]
+		methods := make([]string, 0, len(byMethod))
+		for m := range byMethod {
+			methods = append(methods, m)
+		}
+		sort.Strings(methods)
+		for _, m := range methods {
+			scopes := byMethod[m]
+			if len(scopes) == 0 {
+				continue
+			}
+			quoted := make([]string, 0, len(scopes))
+			for _, s := range scopes {
+				quoted = append(quoted, strconv.Quote(s))
+			}
+			fmt.Fprintf(b, "\t{Method: %s, Path: %s, Scopes: []string{%s}},\n",
+				strconv.Quote(m), strconv.Quote(p), strings.Join(quoted, ", "))
+		}
+	}
+	b.WriteString("}\n")
 }
 
 func levelConst(l Level) string {

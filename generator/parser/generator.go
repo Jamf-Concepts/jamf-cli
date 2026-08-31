@@ -110,10 +110,49 @@ func (g *Generator) Generate(resource *Resource) (string, error) {
 				pairs = append(pairs, fmt.Sprintf("%q: %q", "jamf:gateway-basis", op.GatewayBasis))
 				pairs = append(pairs, fmt.Sprintf("%q: %q", "jamf:gateway-detail", op.GatewayDetail))
 			}
+			// The capability permissions the gateway requires, for the same
+			// endpoint jamf:privileges names in Jamf Pro's vocabulary. Both are
+			// carried because neither converts to the other and which one an
+			// operator needs depends on the credential: without this, sizing a
+			// Platform API integration from the catalog is impossible and the
+			// only route to the answer is provoking a 403.
+			if len(op.GatewayPrivileges) > 0 {
+				pairs = append(pairs, fmt.Sprintf("%q: %q", "jamf:gateway-privileges", strings.Join(op.GatewayPrivileges, ",")))
+			}
 			if len(pairs) == 0 {
 				return ""
 			}
 			return "map[string]string{" + strings.Join(pairs, ", ") + "}"
+		},
+		// applyGatewayAnn renders jamf:gateway-privileges for the synthesized
+		// `apply`, which has no spec operation of its own: it lists to resolve
+		// the name, then creates or replaces. So its permissions are the union
+		// of those three, and stating them is the whole point — apply is the
+		// command most likely to 403 on an integration sized from create alone.
+		//
+		// Only the union. Splitting it into "read plus one of create/update"
+		// would be more precise and unusable: which half runs depends on whether
+		// the object already exists, so an integration that holds one of them
+		// works until the day it does not.
+		"applyGatewayAnn": func(r *Resource) string {
+			var scopes []string
+			for _, op := range r.Operations {
+				switch op.Name {
+				case "list", "create", "update":
+				default:
+					continue
+				}
+				for _, sc := range op.GatewayPrivileges {
+					if !slices.Contains(scopes, sc) {
+						scopes = append(scopes, sc)
+					}
+				}
+			}
+			if len(scopes) == 0 {
+				return ""
+			}
+			slices.Sort(scopes)
+			return fmt.Sprintf(", %q: %q", "jamf:gateway-privileges", strings.Join(scopes, ","))
 		},
 		"hasSectionParam": func(op *Operation) bool {
 			for _, p := range op.Parameters {
@@ -2919,7 +2958,7 @@ func new{{ .GoName }}ApplyCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "apply",
 		Short: "Create or replace a {{ .NameSingular }} by name",
-		Annotations: map[string]string{"jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:api": "pro"{{ applyGatewayAnn $ }}},
 		Long: ` + "`" + `Create or replace a {{ .NameSingular }}. Reads JSON or YAML from --from-file or stdin.
 
 The {{ .NameField }} field in the input is used to check if the resource

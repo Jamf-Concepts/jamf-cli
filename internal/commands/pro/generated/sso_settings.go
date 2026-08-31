@@ -48,7 +48,7 @@ func newSsoSettingsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get sso-settings and output as YAML
   jamf-cli pro sso-settings get -o yaml`,
-		Annotations: map[string]string{"jamf:privileges": "Read SSO Settings", "jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:privileges": "Read SSO Settings", "jamf:api": "pro", "jamf:gateway-privileges": "sso-settings:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -93,7 +93,7 @@ func newSsoSettingsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Update from a file
   jamf-cli pro sso-settings update --from-file sso-settings.json`,
-		Annotations: map[string]string{"jamf:privileges": "Update SSO Settings", "jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:privileges": "Update SSO Settings", "jamf:api": "pro", "jamf:gateway-privileges": "sso-settings:update"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -234,7 +234,7 @@ func newSsoSettingsHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 		Long:  "Gets SSO history object",
 		Example: `  # Get history for a sso-settings
   jamf-cli pro sso-settings history 1`,
-		Annotations: map[string]string{"jamf:privileges": "Read SSO Settings", "jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:privileges": "Read SSO Settings", "jamf:api": "pro", "jamf:gateway-privileges": "sso-settings:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -381,7 +381,7 @@ func newSsoSettingsAddHistoryNoteCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:         "add-history-note",
 		Short:       "Add SSO history object notes",
 		Long:        "Adds SSO history object notes",
-		Annotations: map[string]string{"jamf:privileges": "Update SSO Settings", "jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:privileges": "Update SSO Settings", "jamf:api": "pro", "jamf:gateway-privileges": "sso-settings:update"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -439,7 +439,7 @@ func newSsoSettingsDependenciesCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:         "dependencies",
 		Short:       "Retrieve the list of Enrollment Customizations using SSO",
 		Long:        "Retrieves the list of Enrollment Customizations using SSO",
-		Annotations: map[string]string{"jamf:privileges": "Read SSO Settings", "jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:privileges": "Read SSO Settings", "jamf:api": "pro", "jamf:gateway-privileges": "sso-settings:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -473,7 +473,7 @@ func newSsoSettingsDisableCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:         "disable",
 		Short:       "Disable SSO",
 		Long:        "Disable SSO",
-		Annotations: map[string]string{"jamf:privileges": "Update SSO Settings", "jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:privileges": "Update SSO Settings", "jamf:api": "pro", "jamf:gateway-privileges": "sso-settings:update"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -531,7 +531,7 @@ func newSsoSettingsDownloadCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Pipe to stdout
   jamf-cli pro sso-settings download > output.bin`,
-		Annotations: map[string]string{"jamf:privileges": "Read SSO Settings", "jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:privileges": "Read SSO Settings", "jamf:api": "pro", "jamf:gateway-privileges": "sso-settings:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			reqCtx = registry.WithAccept(reqCtx, "*/*")

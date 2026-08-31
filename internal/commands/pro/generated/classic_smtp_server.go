@@ -40,7 +40,7 @@ func newClassicSmtpServerGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a smtp_server and output as YAML
   jamf-cli pro classic-smtp-server get 1 -o yaml`,
-		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "smtp-server:read"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -87,7 +87,7 @@ func newClassicSmtpServerUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:         "update <id>",
 		Short:       "Update a smtp_server",
 		Long:        "Update an existing smtp_server by ID. Reads the XML body from --from-file or stdin.",
-		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "smtp-server:update"},
 		Example: `  # Update a smtp_server from an XML file
   jamf-cli pro classic-smtp-server update 1 --from-file smtp_server.xml
 

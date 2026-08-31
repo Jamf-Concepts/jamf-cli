@@ -50,7 +50,7 @@ func newClassicDockItemsListCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # List dockitems and extract IDs
   jamf-cli pro classic-dock-items list --field id`,
-		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "dock-items:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/dockitems", nil)
@@ -107,7 +107,7 @@ func newClassicDockItemsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a dock_item and output as YAML
   jamf-cli pro classic-dock-items get 1 -o yaml`,
-		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "dock-items:read"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -166,7 +166,7 @@ func newClassicDockItemsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:         "create",
 		Short:       "Create a dock_item",
 		Long:        "Create a new dock_item. Reads the XML body from --from-file or stdin.",
-		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "dock-items:create"},
 		Example: `  # Create a dock_item from an XML file
   jamf-cli pro classic-dock-items create --from-file dock_item.xml
 
@@ -205,7 +205,7 @@ func newClassicDockItemsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:         "update [<id>]",
 		Short:       "Update a dock_item",
 		Long:        "Update an existing dock_item by ID. Reads the XML body from --from-file or stdin.",
-		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "dock-items:update"},
 		Example: `  # Update a dock_item from an XML file
   jamf-cli pro classic-dock-items update 1 --from-file dock_item.xml
 
@@ -268,7 +268,7 @@ func newClassicDockItemsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Delete without confirmation prompt
   jamf-cli pro classic-dock-items delete 1 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true", "jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:api": "pro-classic", "jamf:gateway-privileges": "dock-items:delete"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -441,7 +441,7 @@ func newClassicDockItemsApplyCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "apply",
 		Short:       "Create or replace a dock_item by name",
-		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "dock-items:create,dock-items:read,dock-items:update"},
 		Long: `Create or replace a dock_item. Reads XML from --from-file or stdin.
 
 The name field in the input XML is used to check if the resource already

@@ -56,7 +56,7 @@ func newComputerGroupsSmartGroupsListCmd(ctx *registry.CLIContext) *cobra.Comman
 
   # List computer-groups-smart-groups and extract IDs
   jamf-cli pro computer-groups-smart-groups list --field id`,
-		Annotations: map[string]string{"jamf:privileges": "Read Smart Computer Groups", "jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:privileges": "Read Smart Computer Groups", "jamf:api": "pro", "jamf:gateway-privileges": "device-groups:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -212,7 +212,7 @@ func newComputerGroupsSmartGroupsGetCmd(ctx *registry.CLIContext) *cobra.Command
 
   # Get a computer-groups-smart-groups and output as YAML
   jamf-cli pro computer-groups-smart-groups get 1 -o yaml`,
-		Annotations: map[string]string{"jamf:privileges": "Read Smart Computer Groups", "jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:privileges": "Read Smart Computer Groups", "jamf:api": "pro", "jamf:gateway-privileges": "device-groups:read"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -277,7 +277,7 @@ func newComputerGroupsSmartGroupsCreateCmd(ctx *registry.CLIContext) *cobra.Comm
 
   # Get a computer-groups-smart-groups, modify it, and create a copy
   jamf-cli pro computer-groups-smart-groups get 1 -o json | jq '.name = "Copy"' | jamf-cli pro computer-groups-smart-groups create`,
-		Annotations: map[string]string{"jamf:privileges": "Create Smart Computer Groups", "jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:privileges": "Create Smart Computer Groups", "jamf:api": "pro", "jamf:gateway-privileges": "device-groups:create"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -368,7 +368,7 @@ func newComputerGroupsSmartGroupsUpdateCmd(ctx *registry.CLIContext) *cobra.Comm
 
   # Get a computer-groups-smart-groups, modify, and update
   jamf-cli pro computer-groups-smart-groups get 1 -o json | jq '.name = "New Name"' | jamf-cli pro computer-groups-smart-groups update 1`,
-		Annotations: map[string]string{"jamf:privileges": "Update Smart Computer Groups", "jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:privileges": "Update Smart Computer Groups", "jamf:api": "pro", "jamf:gateway-privileges": "device-groups:update"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -510,7 +510,7 @@ func newComputerGroupsSmartGroupsDeleteCmd(ctx *registry.CLIContext) *cobra.Comm
 
   # Delete without confirmation prompt
   jamf-cli pro computer-groups-smart-groups delete 1 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Delete Smart Computer Groups", "jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Delete Smart Computer Groups", "jamf:api": "pro", "jamf:gateway-privileges": "device-groups:delete"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -714,7 +714,7 @@ func newComputerGroupsSmartGroupsApplyCmd(ctx *registry.CLIContext) *cobra.Comma
 	cmd := &cobra.Command{
 		Use:         "apply",
 		Short:       "Create or replace a computer-groups-smart-groups by name",
-		Annotations: map[string]string{"jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:api": "pro", "jamf:gateway-privileges": "device-groups:create,device-groups:read,device-groups:update"},
 		Long: `Create or replace a computer-groups-smart-groups. Reads JSON or YAML from --from-file or stdin.
 
 The name field in the input is used to check if the resource

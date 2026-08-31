@@ -83,7 +83,7 @@ func newNotificationsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Delete without confirmation prompt
   jamf-cli pro notifications delete 1 2 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Dismiss Notifications", "jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Dismiss Notifications", "jamf:api": "pro", "jamf:gateway-privileges": "dismiss-notifications:execute"},
 		Args:        cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

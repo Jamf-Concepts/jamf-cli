@@ -33,7 +33,7 @@ func newCloudLdapConnectionsBindCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:         "bind <id>",
 		Short:       "Get bind connection pool statistics",
 		Long:        "Get all search connection pool for chosen Cloud Identity Provider. numConnectionsClosedDefunct - The number of connections that have been closed as defunct. numConnectionsClosedExpired - The number of connections that have been closed because they were expired. numConnectionsClosedUnneeded - The number of connections that have been closed because they were no longer needed. numFailedCheckouts - The number of failed attempts to check out a connection from the pool. numFailedConnectionAttempts - The number of failed attempts to create a connection for use in the pool. numReleasedValid - The number of valid connections released back to the pool. numSuccessfulCheckouts - The number of successful attempts to check out a connection from the pool. numSuccessfulCheckoutsNewConnection - The number of successful checkout attempts that had to create a new connection because none were available. numSuccessfulConnectionAttempts - The number successful attempts to create a connection for use in the pool. maximumAvailableConnections - The maximum number of connections that may be available in the pool at any time. numSuccessfulCheckoutsWithoutWait - The number of successful checkout attempts that were able to take an existing connection without waiting. numSuccessfulCheckoutsAfterWait - The number of successful checkout attempts that retrieved a connection from the pool after waiting for it to become available. numAvailableConnections - The number of connections currently available for use in the pool.",
-		Annotations: map[string]string{"jamf:privileges": "Read LDAP Servers", "jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:privileges": "Read LDAP Servers", "jamf:api": "pro", "jamf:gateway-privileges": "ldap-servers:read"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -69,7 +69,7 @@ func newCloudLdapConnectionsSearchCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:         "search <id>",
 		Short:       "Get search connection pool statistics",
 		Long:        "Get all search connection pool for chosen Cloud Identity Provider. numConnectionsClosedDefunct - The number of connections that have been closed as defunct. numConnectionsClosedExpired - The number of connections that have been closed because they were expired. numConnectionsClosedUnneeded - The number of connections that have been closed because they were no longer needed. numFailedCheckouts - The number of failed attempts to check out a connection from the pool. numFailedConnectionAttempts - The number of failed attempts to create a connection for use in the pool. numReleasedValid - The number of valid connections released back to the pool. numSuccessfulCheckouts - The number of successful attempts to check out a connection from the pool. numSuccessfulCheckoutsNewConnection - The number of successful checkout attempts that had to create a new connection because none were available. numSuccessfulConnectionAttempts - The number successful attempts to create a connection for use in the pool. maximumAvailableConnections - The maximum number of connections that may be available in the pool at any time. numSuccessfulCheckoutsWithoutWait - The number of successful checkout attempts that were able to take an existing connection without waiting. numSuccessfulCheckoutsAfterWait - The number of successful checkout attempts that retrieved a connection from the pool after waiting for it to become available. numAvailableConnections - The number of connections currently available for use in the pool.",
-		Annotations: map[string]string{"jamf:privileges": "Read LDAP Servers", "jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:privileges": "Read LDAP Servers", "jamf:api": "pro", "jamf:gateway-privileges": "ldap-servers:read"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -105,7 +105,7 @@ func newCloudLdapConnectionsStatusCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:         "status <id>",
 		Short:       "Tests the communication with the specified cloud connection",
 		Long:        "Tests the communication with the specified cloud connection",
-		Annotations: map[string]string{"jamf:privileges": "Read LDAP Servers", "jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:privileges": "Read LDAP Servers", "jamf:api": "pro", "jamf:gateway-privileges": "ldap-servers:read"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

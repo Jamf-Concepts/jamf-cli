@@ -37,7 +37,7 @@ func newSystemsInitializeCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:         "initialize",
 		Short:       "Set up fresh installed Jamf Pro Server",
 		Long:        "Set up fresh installed Jamf Pro Server",
-		Annotations: map[string]string{"jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:api": "pro", "jamf:gateway": "unserved", "jamf:gateway-basis": "unpublished", "jamf:gateway-detail": "not declared by the gateway's Jamf Pro API 11.31.0"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -103,7 +103,7 @@ func newSystemsPlatformInitializeCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:         "platform-initialize",
 		Short:       "Set up fresh installed Jamf Pro Server for Platform",
 		Long:        "Set up fresh installed Jamf Pro Server with OIDC SSO enabled and single federated user",
-		Annotations: map[string]string{"jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:api": "pro", "jamf:gateway": "unserved", "jamf:gateway-basis": "unpublished", "jamf:gateway-detail": "not declared by the gateway's Jamf Pro API 11.31.0"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

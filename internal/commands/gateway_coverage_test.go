@@ -11,6 +11,7 @@ import (
 	"github.com/Jamf-Concepts/jamf-cli/internal/auth"
 	"github.com/Jamf-Concepts/jamf-cli/internal/exitcode"
 	"github.com/Jamf-Concepts/jamf-cli/internal/gateway"
+	"github.com/Jamf-Concepts/jamf-cli/internal/privileges"
 )
 
 func cmdWith(ann map[string]string) *cobra.Command {
@@ -236,4 +237,147 @@ func asExitcode(err error, out **exitcode.Error) bool {
 		*out = e
 	}
 	return ok
+}
+
+// The catalog skipped every command named "commands", not just the root's own
+// catalog command — so `pro mdm-commands commands` was absent from the
+// machine-readable listing, gateway refusal and all.
+func TestCommandsCatalogIncludesANestedCommandNamedCommands(t *testing.T) {
+	root := NewRootCmd("test", "", "", "")
+	entries := collectCommands(root, "", "", "")
+
+	var found bool
+	for _, e := range entries {
+		if e.Command == "commands" {
+			t.Error("the root catalog command listed itself")
+		}
+		if e.Command == "pro mdm-commands commands" {
+			found = true
+			if e.Gateway == "" {
+				t.Errorf("%s listed without its gateway verdict", e.Command)
+			}
+		}
+	}
+	if !found {
+		t.Error("pro mdm-commands commands is missing from the catalog")
+	}
+}
+
+// The catalog carries both privilege vocabularies, because neither converts to
+// the other: a Jamf Pro instance enforces API-role privilege names, the gateway
+// enforces Jamf Account capability permissions, and which one an operator needs
+// depends on the credential. Without both, sizing a Platform API integration
+// from the catalog means provoking 403s.
+func TestCommandsCatalogCarriesBothPrivilegeVocabularies(t *testing.T) {
+	root := NewRootCmd("test", "", "", "")
+	byName := map[string]commandEntry{}
+	for _, e := range collectCommands(root, "", "", "") {
+		byName[e.Command] = e
+	}
+
+	cases := []struct {
+		command      string
+		wantPro      []string
+		wantGateway  []string
+		wantNoGatewy bool
+	}{
+		// Modern Pro: both, and they do not resemble each other.
+		{command: "pro categories delete", wantPro: []string{"Delete Categories"}, wantGateway: []string{"categories:delete"}},
+		// Classic carries no Jamf Pro privilege data at all, and the gateway
+		// scope is per method even though the coverage verdict is per resource.
+		{command: "pro classic-account-groups update", wantGateway: []string{"accounts:update"}},
+		{command: "pro classic-account-groups delete", wantGateway: []string{"accounts:delete"}},
+		// apply has no spec operation of its own: it lists, then creates or
+		// replaces, so it needs all three.
+		{command: "pro scripts apply", wantGateway: []string{"scripts:create", "scripts:read", "scripts:update"}},
+		// An endpoint the gateway does not publish declares no scope — the
+		// absence is the honest answer, not "needs none".
+		{command: "pro api-roles list", wantPro: []string{"Read API Roles"}, wantNoGatewy: true},
+		// A Platform command's own privileges are already the capability
+		// vocabulary, so it must not also claim a gateway set.
+		{command: "pro blueprints list", wantNoGatewy: true},
+	}
+
+	for _, tc := range cases {
+		e, ok := byName[tc.command]
+		if !ok {
+			t.Errorf("%s is missing from the catalog", tc.command)
+			continue
+		}
+		if got := strings.Join(e.Privileges, ","); got != strings.Join(tc.wantPro, ",") && len(tc.wantPro) > 0 {
+			t.Errorf("%s privileges = %q, want %q", tc.command, got, strings.Join(tc.wantPro, ","))
+		}
+		got := strings.Join(e.GatewayPrivileges, ",")
+		if tc.wantNoGatewy {
+			if got != "" {
+				t.Errorf("%s gatewayPrivileges = %q, want none", tc.command, got)
+			}
+			continue
+		}
+		if got != strings.Join(tc.wantGateway, ",") {
+			t.Errorf("%s gatewayPrivileges = %q, want %q", tc.command, got, strings.Join(tc.wantGateway, ","))
+		}
+	}
+}
+
+// Every gateway capability the catalog prints has to be renderable into the
+// section and permission name Jamf Account shows, or the 403 hint built from the
+// same slugs falls back to "no permission name recorded".
+func TestCatalogGatewayPrivilegesAllHaveAPermissionName(t *testing.T) {
+	root := NewRootCmd("test", "", "", "")
+	seen := map[string]string{}
+	for _, e := range collectCommands(root, "", "", "") {
+		for _, slug := range e.GatewayPrivileges {
+			if _, ok := seen[slug]; !ok {
+				seen[slug] = e.Command
+			}
+		}
+	}
+	if len(seen) == 0 {
+		t.Fatal("no gateway privileges in the catalog at all — the annotation is not being stamped")
+	}
+	for slug, command := range seen {
+		reqs := privileges.Collect([]string{slug})
+		if len(reqs) != 1 || reqs[0].Unknown {
+			t.Errorf("%s (from %s) has no permission name recorded", slug, command)
+		}
+	}
+}
+
+// An API integration can only be created in Jamf Account's Platform API
+// integrations UI, whose picker lists named permissions with a checkbox per
+// action and shows a capability slug nowhere. So every command with a known
+// capability requirement has to carry the wording that picker uses — including
+// the Platform commands, whose own jamf:privileges already IS the capability
+// vocabulary and so have no second slug list to render from.
+func TestCommandsCatalogRendersPermissionsAsJamfAccountShowsThem(t *testing.T) {
+	root := NewRootCmd("test", "", "", "")
+	byName := map[string]commandEntry{}
+	for _, e := range collectCommands(root, "", "", "") {
+		byName[e.Command] = e
+	}
+
+	for _, tc := range []struct{ command, want string }{
+		{"pro categories delete", "Organizational context > Categories: Delete (categories:delete)"},
+		{"pro classic-account-groups delete", "Admin identity and access > Admin account: Delete (accounts:delete)"},
+		// Platform-served, so its jamf:privileges is the capability list.
+		{"pro blueprints list", "Deployment > Blueprints: Read (blueprints:read)"},
+		{"pro platform-devices erase", "Device actions > Destructive device actions: Execute (destructive-device-actions:execute)"},
+		{"security ztna-apps create", "Secure enterprise access > Zero-Trust Network Access (ZTNA): Create (ztna:create)"},
+	} {
+		e, ok := byName[tc.command]
+		if !ok {
+			t.Errorf("%s is missing from the catalog", tc.command)
+			continue
+		}
+		if got := strings.Join(e.GatewayPermissions, " | "); got != tc.want {
+			t.Errorf("%s gatewayPermissions = %q, want %q", tc.command, got, tc.want)
+		}
+	}
+
+	// The actions of one permission collapse onto a single row, because that is
+	// one row of the picker with several boxes ticked.
+	if got := strings.Join(byName["pro scripts apply"].GatewayPermissions, " | "); got != "Deployment > Scripts: Create, Read, Update (scripts:create, scripts:read, scripts:update)" {
+		t.Errorf("apply row = %q, want one row carrying all three actions", got)
+	}
 }

@@ -39,7 +39,7 @@ func newCloudIdPTestSearchesTestGroupCmd(ctx *registry.CLIContext) *cobra.Comman
 		Use:         "test-group <id>",
 		Short:       "Get group test search",
 		Long:        "Do test search to ensure about configuration and mappings",
-		Annotations: map[string]string{"jamf:privileges": "Read LDAP Servers", "jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:privileges": "Read LDAP Servers", "jamf:api": "pro", "jamf:gateway-privileges": "ldap-servers:read"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -101,7 +101,7 @@ func newCloudIdPTestSearchesTestUserCmd(ctx *registry.CLIContext) *cobra.Command
 		Use:         "test-user <id>",
 		Short:       "Get user test search",
 		Long:        "Do test search to ensure about configuration and mappings",
-		Annotations: map[string]string{"jamf:privileges": "Read LDAP Servers", "jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:privileges": "Read LDAP Servers", "jamf:api": "pro", "jamf:gateway-privileges": "ldap-servers:read"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -163,7 +163,7 @@ func newCloudIdPTestSearchesTestUserMembershipCmd(ctx *registry.CLIContext) *cob
 		Use:         "test-user-membership <id>",
 		Short:       "Get membership test search",
 		Long:        "Do test search to ensure about configuration and mappings",
-		Annotations: map[string]string{"jamf:privileges": "Read LDAP Servers", "jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:privileges": "Read LDAP Servers", "jamf:api": "pro", "jamf:gateway-privileges": "ldap-servers:read"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

@@ -53,7 +53,7 @@ func newClassicVppInvitationsListCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # List vppinvitations and extract IDs
   jamf-cli pro classic-vpp-invitations list --field id`,
-		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "volume-purchasing-locations:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/vppinvitations", nil)
@@ -104,7 +104,7 @@ func newClassicVppInvitationsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a vpp_invitation and output as YAML
   jamf-cli pro classic-vpp-invitations get 1 -o yaml`,
-		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "volume-purchasing-locations:read"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -152,7 +152,7 @@ func newClassicVppInvitationsCreateCmd(ctx *registry.CLIContext) *cobra.Command 
 		Use:         "create",
 		Short:       "Create a vpp_invitation",
 		Long:        "Create a new vpp_invitation. Reads the XML body from --from-file or stdin.",
-		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "volume-purchasing-locations:create"},
 		Example: `  # Create a vpp_invitation from an XML file
   jamf-cli pro classic-vpp-invitations create --from-file vpp_invitation.xml
 
@@ -197,7 +197,7 @@ func newClassicVppInvitationsDeleteCmd(ctx *registry.CLIContext) *cobra.Command 
 
   # Delete without confirmation prompt
   jamf-cli pro classic-vpp-invitations delete 1 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true", "jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:api": "pro-classic", "jamf:gateway-privileges": "volume-purchasing-locations:delete"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

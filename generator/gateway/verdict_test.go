@@ -168,9 +168,9 @@ func TestApplyStampsAndDeduplicates(t *testing.T) {
 	cov := fixture()
 	var got []string
 	ops := []Op{
-		{Method: "GET", GatewayPath: "/pro/v1/app-installers/titles/{id}", Set: func(l, b, d string) { got = append(got, l) }},
-		{Method: "GET", GatewayPath: "/pro/v1/app-installers/titles/{titleId}", Set: func(l, b, d string) { got = append(got, l) }},
-		{Method: "GET", GatewayPath: "/pro/v1/categories", Set: func(l, b, d string) { got = append(got, l) }},
+		{Method: "GET", GatewayPath: "/pro/v1/app-installers/titles/{id}", Set: func(v Verdict) { got = append(got, string(v.Level)) }},
+		{Method: "GET", GatewayPath: "/pro/v1/app-installers/titles/{titleId}", Set: func(v Verdict) { got = append(got, string(v.Level)) }},
+		{Method: "GET", GatewayPath: "/pro/v1/categories", Set: func(v Verdict) { got = append(got, string(v.Level)) }},
 	}
 	entries := Apply(cov, ops)
 	if len(got) != 3 {
@@ -191,8 +191,8 @@ func TestApplyWildcardJudgesTheSubtree(t *testing.T) {
 		Spec:    map[string][]string{"/proclassic/computerhistory/id/{}": {"GET"}},
 	}
 	entries := Apply(cov, []Op{
-		{Method: "GET", GatewayPath: "/proclassic/computerhistory", Wildcard: true, Set: func(string, string, string) {}},
-		{Method: "GET", GatewayPath: "/proclassic/computerconfigurations", Wildcard: true, Set: func(string, string, string) {}},
+		{Method: "GET", GatewayPath: "/proclassic/computerhistory", Wildcard: true, Set: func(Verdict) {}},
+		{Method: "GET", GatewayPath: "/proclassic/computerconfigurations", Wildcard: true, Set: func(Verdict) {}},
 	})
 	if len(entries) != 1 {
 		t.Fatalf("entries: got %d (%v), want 1", len(entries), entries)

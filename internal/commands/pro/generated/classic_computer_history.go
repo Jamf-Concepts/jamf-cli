@@ -48,7 +48,7 @@ func newClassicComputerHistoryGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a computer_history and output as YAML
   jamf-cli pro classic-computer-history get 1 -o yaml`,
-		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "device-history:read"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

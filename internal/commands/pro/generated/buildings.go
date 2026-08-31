@@ -61,7 +61,7 @@ func newBuildingsListCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # List buildings and extract IDs
   jamf-cli pro buildings list --field id`,
-		Annotations: map[string]string{"jamf:privileges": "Read Buildings", "jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:privileges": "Read Buildings", "jamf:api": "pro", "jamf:gateway-privileges": "buildings:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -216,7 +216,7 @@ func newBuildingsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a building and output as YAML
   jamf-cli pro buildings get 1 -o yaml`,
-		Annotations: map[string]string{"jamf:privileges": "Read Buildings", "jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:privileges": "Read Buildings", "jamf:api": "pro", "jamf:gateway-privileges": "buildings:read"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -279,7 +279,7 @@ func newBuildingsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a building, modify it, and create a copy
   jamf-cli pro buildings get 1 -o json | jq '.name = "Copy"' | jamf-cli pro buildings create`,
-		Annotations: map[string]string{"jamf:privileges": "Create Buildings", "jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:privileges": "Create Buildings", "jamf:api": "pro", "jamf:gateway-privileges": "buildings:create"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -359,7 +359,7 @@ func newBuildingsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a building, modify, and update
   jamf-cli pro buildings get 1 -o json | jq '.name = "New Name"' | jamf-cli pro buildings update 1`,
-		Annotations: map[string]string{"jamf:privileges": "Update Buildings", "jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:privileges": "Update Buildings", "jamf:api": "pro", "jamf:gateway-privileges": "buildings:update"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -494,7 +494,7 @@ func newBuildingsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Delete without confirmation prompt
   jamf-cli pro buildings delete 1 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Delete Buildings", "jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Delete Buildings", "jamf:api": "pro", "jamf:gateway-privileges": "buildings:delete"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -700,7 +700,7 @@ func newBuildingsDeleteMultipleCmd(ctx *registry.CLIContext) *cobra.Command {
 		Long:  "multiple many Buildings by their ids",
 		Example: `  # Delete multiple buildings by IDs
   jamf-cli pro buildings delete-multiple --ids 1,2,3 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Delete Buildings", "jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Delete Buildings", "jamf:api": "pro", "jamf:gateway-privileges": "buildings:delete"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -803,7 +803,7 @@ func newBuildingsHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get history by name
   jamf-cli pro buildings history --name "Example"`,
-		Annotations: map[string]string{"jamf:privileges": "Read Buildings", "jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:privileges": "Read Buildings", "jamf:api": "pro", "jamf:gateway-privileges": "buildings:read"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -971,7 +971,7 @@ func newBuildingsAddHistoryNoteCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:         "add-history-note [<id>]",
 		Short:       "Add specified Building history object notes",
 		Long:        "Adds specified Building history object notes",
-		Annotations: map[string]string{"jamf:privileges": "Update Buildings", "jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:privileges": "Update Buildings", "jamf:api": "pro", "jamf:gateway-privileges": "buildings:update"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -1059,7 +1059,7 @@ func newBuildingsExportCmd(ctx *registry.CLIContext) *cobra.Command {
 		Long:  "Export Buildings collection",
 		Example: `  # Export buildings to CSV
   jamf-cli pro buildings export --out-file buildings.csv`,
-		Annotations: map[string]string{"jamf:privileges": "Read Buildings", "jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:privileges": "Read Buildings", "jamf:api": "pro", "jamf:gateway-privileges": "buildings:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			reqCtx = registry.WithAccept(reqCtx, "*/*")
@@ -1189,7 +1189,7 @@ func newBuildingsHistoryExportCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Pipe to stdout
   jamf-cli pro buildings history-export <id> > output.bin`,
-		Annotations: map[string]string{"jamf:privileges": "Read Buildings", "jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:privileges": "Read Buildings", "jamf:api": "pro", "jamf:gateway-privileges": "buildings:read"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -1327,7 +1327,7 @@ func newBuildingsApplyCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "apply",
 		Short:       "Create or replace a building by name",
-		Annotations: map[string]string{"jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:api": "pro", "jamf:gateway-privileges": "buildings:create,buildings:read,buildings:update"},
 		Long: `Create or replace a building. Reads JSON or YAML from --from-file or stdin.
 
 The name field in the input is used to check if the resource

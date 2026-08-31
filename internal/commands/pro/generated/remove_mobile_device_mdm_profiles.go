@@ -39,7 +39,7 @@ func newRemoveMobileDeviceMdmProfilesUnmanageCmd(ctx *registry.CLIContext) *cobr
 		Use:         "unmanage <id>",
 		Short:       "Unmanage a Mobile Device",
 		Long:        "Unmanage a Mobile Device",
-		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Unmanage Mobile Devices", "jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Unmanage Mobile Devices", "jamf:api": "pro", "jamf:gateway-privileges": "destructive-device-actions:execute"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

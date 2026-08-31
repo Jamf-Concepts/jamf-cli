@@ -1084,7 +1084,9 @@ Request blocked.</BODY></HTML>`
 	if !errors.As(jamf, &je) {
 		t.Fatalf("expected a structured exit error, got %T", jamf)
 	}
-	if !strings.Contains(je.Hint, "API role") {
+	// The path is gateway-form, so the permission hint is the Jamf Account
+	// vocabulary rather than a Jamf Pro API role — see forbiddenHint.
+	if !strings.Contains(je.Hint, "categories:read") || !strings.Contains(je.Hint, "Jamf Account") {
 		t.Errorf("a real Jamf 403 lost its privilege hint: %q", je.Hint)
 	}
 }

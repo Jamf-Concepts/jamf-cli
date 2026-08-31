@@ -56,7 +56,7 @@ func newClassicRestrictedSoftwareListCmd(ctx *registry.CLIContext) *cobra.Comman
 
   # List restrictedsoftware and extract IDs
   jamf-cli pro classic-restricted-software list --field id`,
-		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "restricted-software:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/restrictedsoftware", nil)
@@ -113,7 +113,7 @@ func newClassicRestrictedSoftwareGetCmd(ctx *registry.CLIContext) *cobra.Command
 
   # Get a restricted_software and output as YAML
   jamf-cli pro classic-restricted-software get 1 -o yaml`,
-		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "restricted-software:read"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -172,7 +172,7 @@ func newClassicRestrictedSoftwareCreateCmd(ctx *registry.CLIContext) *cobra.Comm
 		Use:         "create",
 		Short:       "Create a restricted_software",
 		Long:        "Create a new restricted_software. Reads the XML body from --from-file or stdin.",
-		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "restricted-software:create"},
 		Example: `  # Create a restricted_software from an XML file
   jamf-cli pro classic-restricted-software create --from-file restricted_software.xml
 
@@ -211,7 +211,7 @@ func newClassicRestrictedSoftwareUpdateCmd(ctx *registry.CLIContext) *cobra.Comm
 		Use:         "update [<id>]",
 		Short:       "Update a restricted_software",
 		Long:        "Update an existing restricted_software by ID. Reads the XML body from --from-file or stdin.",
-		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "restricted-software:update"},
 		Example: `  # Update a restricted_software from an XML file
   jamf-cli pro classic-restricted-software update 1 --from-file restricted_software.xml
 
@@ -274,7 +274,7 @@ func newClassicRestrictedSoftwareDeleteCmd(ctx *registry.CLIContext) *cobra.Comm
 
   # Delete without confirmation prompt
   jamf-cli pro classic-restricted-software delete 1 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true", "jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:api": "pro-classic", "jamf:gateway-privileges": "restricted-software:delete"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -447,7 +447,7 @@ func newClassicRestrictedSoftwareApplyCmd(ctx *registry.CLIContext) *cobra.Comma
 	cmd := &cobra.Command{
 		Use:         "apply",
 		Short:       "Create or replace a restricted_software by name",
-		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "restricted-software:create,restricted-software:read,restricted-software:update"},
 		Long: `Create or replace a restricted_software. Reads XML from --from-file or stdin.
 
 The name field in the input XML is used to check if the resource already

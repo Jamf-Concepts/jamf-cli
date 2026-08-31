@@ -51,7 +51,7 @@ func newMobileDevicesListCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # List mobile-devices and extract IDs
   jamf-cli pro mobile-devices list --field id`,
-		Annotations: map[string]string{"jamf:privileges": "Read Mobile Devices", "jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:privileges": "Read Mobile Devices", "jamf:api": "pro", "jamf:gateway-privileges": "devices:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -222,7 +222,7 @@ func newMobileDevicesGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a mobile-device and output as YAML
   jamf-cli pro mobile-devices get 1 -o yaml`,
-		Annotations: map[string]string{"jamf:privileges": "Read Mobile Devices", "jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:privileges": "Read Mobile Devices", "jamf:api": "pro", "jamf:gateway-privileges": "devices:read"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -316,7 +316,7 @@ func newMobileDevicesPatchCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Patch from a file
   jamf-cli pro mobile-devices patch 1 --from-file changes.json`,
-		Annotations: map[string]string{"jamf:privileges": "Update Mobile Devices", "jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:privileges": "Update Mobile Devices", "jamf:api": "pro", "jamf:gateway-privileges": "devices:update"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

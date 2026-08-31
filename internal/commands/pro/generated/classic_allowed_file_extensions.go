@@ -46,7 +46,7 @@ func newClassicAllowedFileExtensionsListCmd(ctx *registry.CLIContext) *cobra.Com
 
   # List allowedfileextensions and extract IDs
   jamf-cli pro classic-allowed-file-extensions list --field id`,
-		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "allowed-file-extension:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/allowedfileextensions", nil)
@@ -100,7 +100,7 @@ func newClassicAllowedFileExtensionsGetCmd(ctx *registry.CLIContext) *cobra.Comm
 
   # Get a allowed_file_extension and output as YAML
   jamf-cli pro classic-allowed-file-extensions get 1 -o yaml`,
-		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "allowed-file-extension:read"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -159,7 +159,7 @@ func newClassicAllowedFileExtensionsCreateCmd(ctx *registry.CLIContext) *cobra.C
 		Use:         "create",
 		Short:       "Create a allowed_file_extension",
 		Long:        "Create a new allowed_file_extension. Reads the XML body from --from-file or stdin.",
-		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "allowed-file-extension:create"},
 		Example: `  # Create a allowed_file_extension from an XML file
   jamf-cli pro classic-allowed-file-extensions create --from-file allowed_file_extension.xml
 
@@ -204,7 +204,7 @@ func newClassicAllowedFileExtensionsDeleteCmd(ctx *registry.CLIContext) *cobra.C
 
   # Delete without confirmation prompt
   jamf-cli pro classic-allowed-file-extensions delete 1 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true", "jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:api": "pro-classic", "jamf:gateway-privileges": "allowed-file-extension:delete"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

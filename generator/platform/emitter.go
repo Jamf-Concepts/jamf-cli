@@ -407,7 +407,7 @@ func buildTemplateResource(r *parser.Resource) (templateResource, error) {
 			Operation:      &opCopy,
 			GoName:         strcase.ToCamel(opCopy.Name),
 			Short:          shortFromOp(&opCopy),
-			Long:           appendEnumChoices(firstParagraph(opCopy.Description), buildEnumChoices(&opCopy)),
+			Long:           appendEnumChoices(appendVariantNote(firstParagraph(opCopy.Description), &opCopy), buildEnumChoices(&opCopy)),
 			Use:            buildUse(opCopy.Name, userParams),
 			PathParams:     userParams,
 			HasBody:        opCopy.RequestBody != nil,
@@ -585,6 +585,42 @@ func collectEnumChoices(s *parser.Schema, prefix string, out *[]enumChoice, dept
 			}
 		}
 	}
+}
+
+// appendVariantNote says so when the request body is a discriminated union, and
+// which of its shapes --scaffold renders.
+//
+// Without it the scaffold is quietly one of several legal bodies: it carries the
+// first variant's fields, so a caller creating anything but a JAMF_PRO connector
+// fills in a template for the wrong contract and learns of it from the server.
+// The alternative — rendering every variant — cannot work, because the whole
+// point of --scaffold's output is that it pipes into --file.
+func appendVariantNote(long string, op *parser.Operation) string {
+	if op.RequestBody == nil || op.RequestBody.Schema == nil {
+		return long
+	}
+	sch := op.RequestBody.Schema
+	if len(sch.Variants) < 2 {
+		return long
+	}
+	note := fmt.Sprintf("The request body is one of %d shapes", len(sch.Variants))
+	if sch.Discriminator != "" {
+		note += fmt.Sprintf(", selected by %q", sch.Discriminator)
+	}
+	named := make([]string, 0, len(sch.Variants))
+	for _, v := range sch.Variants {
+		if v != "" {
+			named = append(named, v)
+		}
+	}
+	if len(named) > 0 {
+		note += ": " + strings.Join(named, ", ")
+	}
+	note += ". --scaffold renders the first; the others differ in which fields they accept."
+	if long == "" {
+		return note
+	}
+	return long + "\n\n" + note
 }
 
 // appendEnumChoices adds an "Allowed values:" tail to an operation's long help,

@@ -83,6 +83,61 @@ func Lookup(method, path string) (Finding, bool) {
 	return Finding{}, false
 }
 
+// scopeRule is one entry in the generated scope table: the Jamf Account
+// capability permissions one gateway operation requires.
+type scopeRule struct {
+	Method string
+	Path   string
+	Scopes []string
+}
+
+// Scopes returns the Jamf Account capability permissions the gateway requires
+// for a gateway-form request — the path as it will be sent, e.g.
+// "/pro/v1/categories" or "/proclassic/computers/id/3". Returns nil when the
+// table has nothing for it, which includes a tree with no manifest, an
+// unserved operation (the published specs declare no scope for what they do not
+// publish) and the 44 Jamf Pro endpoints that are unauthenticated and therefore
+// declare none.
+//
+// These are the GA capability permissions granted in Jamf Account
+// (categories:read), never Jamf Pro API-role privilege names — so this is the
+// right answer only for a request actually going through the gateway. Callers
+// discriminate on the /pro/ and /proclassic/ prefixes, which exist only in
+// gateway mode.
+func Scopes(method, path string) []string {
+	method = strings.ToUpper(method)
+	if i := strings.IndexAny(path, "?#"); i >= 0 {
+		path = path[:i]
+	}
+	// Literal patterns before parameterised ones. A concrete path can match
+	// both — /pro/v1/computers-inventory/detail matches the literal rule and
+	// .../{} alike — and the literal rule is the more specific answer, so a
+	// single ordered scan would return whichever the sort happened to put
+	// first.
+	if r, ok := findScopeRule(method, path, false); ok {
+		return r.Scopes
+	}
+	if r, ok := findScopeRule(method, path, true); ok {
+		return r.Scopes
+	}
+	return nil
+}
+
+func findScopeRule(method, path string, allowParams bool) (scopeRule, bool) {
+	for _, r := range scopeRules {
+		if r.Method != method {
+			continue
+		}
+		if !allowParams && strings.Contains(r.Path, "{}") {
+			continue
+		}
+		if matchPath(r.Path, path) {
+			return r, true
+		}
+	}
+	return scopeRule{}, false
+}
+
 // matchPath compares a table pattern against a concrete path segment by
 // segment. "{}" matches one segment; a terminal "**" matches the path it sits
 // under and every path below it.

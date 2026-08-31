@@ -34,7 +34,7 @@ func newServersIssueTomcatSslCertificateCmd(ctx *registry.CLIContext) *cobra.Com
 		Use:         "issue-tomcat-ssl-certificate",
 		Short:       "Generate a SSL Certificate using Jamf Certificate Authority",
 		Long:        "generate a SSL Certificate using Jamf Certificate Authority",
-		Annotations: map[string]string{"jamf:privileges": "Update Apache Tomcat Settings", "jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:privileges": "Update Apache Tomcat Settings", "jamf:api": "pro", "jamf:gateway-privileges": "apache-tomcat-settings:update"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

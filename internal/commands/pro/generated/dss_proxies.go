@@ -36,7 +36,7 @@ func newDssProxiesGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a dss-proxy and output as YAML
   jamf-cli pro dss-proxies get 1 -o yaml`,
-		Annotations: map[string]string{"jamf:privileges": "Read Mobile Devices,Read Computers", "jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:privileges": "Read Mobile Devices,Read Computers", "jamf:api": "pro", "jamf:gateway-privileges": "declarations:read"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

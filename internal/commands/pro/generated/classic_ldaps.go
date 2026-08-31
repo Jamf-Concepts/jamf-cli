@@ -36,7 +36,7 @@ func newClassicLdapsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a classic-ldap and output as YAML
   jamf-cli pro classic-ldaps get 1 -o yaml`,
-		Annotations: map[string]string{"jamf:privileges": "Read LDAP Servers", "jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:privileges": "Read LDAP Servers", "jamf:api": "pro", "jamf:gateway-privileges": "ldap-servers:read"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

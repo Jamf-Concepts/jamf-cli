@@ -48,7 +48,7 @@ func newClassicPatchPoliciesListCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # List patchpolicies and extract IDs
   jamf-cli pro classic-patch-policies list --field id`,
-		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "patch-policies:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/patchpolicies", nil)
@@ -99,7 +99,7 @@ func newClassicPatchPoliciesGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a patch_policy and output as YAML
   jamf-cli pro classic-patch-policies get 1 -o yaml`,
-		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "patch-policies:read"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -147,7 +147,7 @@ func newClassicPatchPoliciesCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:         "create",
 		Short:       "Create a patch_policy",
 		Long:        "Create a new patch_policy. Reads the XML body from --from-file or stdin.",
-		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "patch-policies:create"},
 		Example: `  # Create a patch_policy from an XML file
   jamf-cli pro classic-patch-policies create --from-file patch_policy.xml
 
@@ -185,7 +185,7 @@ func newClassicPatchPoliciesUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:         "update <id>",
 		Short:       "Update a patch_policy",
 		Long:        "Update an existing patch_policy by ID. Reads the XML body from --from-file or stdin.",
-		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "patch-policies:update"},
 		Example: `  # Update a patch_policy from an XML file
   jamf-cli pro classic-patch-policies update 1 --from-file patch_policy.xml
 
@@ -235,7 +235,7 @@ func newClassicPatchPoliciesDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Delete without confirmation prompt
   jamf-cli pro classic-patch-policies delete 1 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true", "jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:api": "pro-classic", "jamf:gateway-privileges": "patch-policies:delete"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

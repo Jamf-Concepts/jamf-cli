@@ -58,7 +58,7 @@ func newManagedSoftwareUpdatesPlansListCmd(ctx *registry.CLIContext) *cobra.Comm
 
   # List managed-software-updates-plans and extract IDs
   jamf-cli pro managed-software-updates-plans list --field id`,
-		Annotations: map[string]string{"jamf:privileges": "Read Managed Software Updates,Read Computers,Read Mobile Devices", "jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:privileges": "Read Managed Software Updates,Read Computers,Read Mobile Devices", "jamf:api": "pro", "jamf:gateway-privileges": "devices:read,managed-software-updates:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -213,7 +213,7 @@ func newManagedSoftwareUpdatesPlansGetCmd(ctx *registry.CLIContext) *cobra.Comma
 
   # Get a managed-software-updates-plan and output as YAML
   jamf-cli pro managed-software-updates-plans get 1 -o yaml`,
-		Annotations: map[string]string{"jamf:privileges": "Read Managed Software Updates,Read Computers,Read Mobile Devices", "jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:privileges": "Read Managed Software Updates,Read Computers,Read Mobile Devices", "jamf:api": "pro", "jamf:gateway-privileges": "devices:read,managed-software-updates:read"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -276,7 +276,7 @@ func newManagedSoftwareUpdatesPlansCreateCmd(ctx *registry.CLIContext) *cobra.Co
 
   # Get a managed-software-updates-plan, modify it, and create a copy
   jamf-cli pro managed-software-updates-plans get 1 -o json | jq '.name = "Copy"' | jamf-cli pro managed-software-updates-plans create`,
-		Annotations: map[string]string{"jamf:privileges": "Create Managed Software Updates,Read Computers,Read Mobile Devices,Send Computer Remote Command to Download and Install OS X Update,Send Mobile Device Remote Command to Download and Install iOS Update", "jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:privileges": "Create Managed Software Updates,Read Computers,Read Mobile Devices,Send Computer Remote Command to Download and Install OS X Update,Send Mobile Device Remote Command to Download and Install iOS Update", "jamf:api": "pro", "jamf:gateway-privileges": "device-actions:execute,devices:read,managed-software-updates:create"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -358,7 +358,7 @@ func newManagedSoftwareUpdatesPlansUpdateCmd(ctx *registry.CLIContext) *cobra.Co
 
   # Update from a file
   jamf-cli pro managed-software-updates-plans update --from-file managed-software-updates-plans.json`,
-		Annotations: map[string]string{"jamf:privileges": "Read Managed Software Updates,Create Managed Software Updates,Update Managed Software Updates", "jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:privileges": "Read Managed Software Updates,Create Managed Software Updates,Update Managed Software Updates", "jamf:api": "pro", "jamf:gateway-privileges": "managed-software-updates:create,managed-software-updates:read,managed-software-updates:update"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -455,7 +455,7 @@ func newManagedSoftwareUpdatesPlansFeatureToggleCmd(ctx *registry.CLIContext) *c
 		Use:         "feature-toggle",
 		Short:       "Retrieve current value of the Feature Toggle",
 		Long:        "Retrieves current value of the Feature Toggle",
-		Annotations: map[string]string{"jamf:privileges": "Read Managed Software Updates", "jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:privileges": "Read Managed Software Updates", "jamf:api": "pro", "jamf:gateway-privileges": "managed-software-updates:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -489,7 +489,7 @@ func newManagedSoftwareUpdatesPlansAbandonCmd(ctx *registry.CLIContext) *cobra.C
 		Use:         "abandon",
 		Short:       "Force stops any ongoing or stalled feature-toggle processes",
 		Long:        "\"Break Glass\" endpoint, not for nominal usage. Use this endpoint to forcefully abandon the feature-toggle background process if the status of the feature-toggle is 'stuck' or has reached an non-restartable failed state. Usage of this endpoint under nominal conditions is undefined and unsupported.",
-		Annotations: map[string]string{"jamf:privileges": "Read Managed Software Updates,Create Managed Software Updates,Update Managed Software Updates", "jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:privileges": "Read Managed Software Updates,Create Managed Software Updates,Update Managed Software Updates", "jamf:api": "pro", "jamf:gateway-privileges": "managed-software-updates:create,managed-software-updates:read,managed-software-updates:update"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -540,7 +540,7 @@ func newManagedSoftwareUpdatesPlansStatusCmd(ctx *registry.CLIContext) *cobra.Co
 		Use:         "status",
 		Short:       "Retrieves background status of the Feature Toggle",
 		Long:        "Retrieves background status of the Feature Toggle",
-		Annotations: map[string]string{"jamf:privileges": "Read Managed Software Updates", "jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:privileges": "Read Managed Software Updates", "jamf:api": "pro", "jamf:gateway-privileges": "managed-software-updates:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -576,7 +576,7 @@ func newManagedSoftwareUpdatesPlansDeclarationsCmd(ctx *registry.CLIContext) *co
 		Use:         "declarations [<id>]",
 		Short:       "Retrieve all Declarations associated with a Managed Software Update Plan",
 		Long:        "Retrieves all Declarations associated with a Managed Software Update Plan",
-		Annotations: map[string]string{"jamf:privileges": "Read Managed Software Updates,Read Computers,Read Mobile Devices", "jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:privileges": "Read Managed Software Updates,Read Computers,Read Mobile Devices", "jamf:api": "pro", "jamf:gateway-privileges": "devices:read,managed-software-updates:read"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -631,7 +631,7 @@ func newManagedSoftwareUpdatesPlansEventsCmd(ctx *registry.CLIContext) *cobra.Co
 		Use:         "events [<id>]",
 		Short:       "Retrieve a Managed Software Update Plan Event Store",
 		Long:        "Retrieves a Managed Software Update Plan Event Store",
-		Annotations: map[string]string{"jamf:privileges": "Read Managed Software Updates,Read Computers,Read Mobile Devices", "jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:privileges": "Read Managed Software Updates,Read Computers,Read Mobile Devices", "jamf:api": "pro", "jamf:gateway-privileges": "devices:read,managed-software-updates:read"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -688,7 +688,7 @@ func newManagedSoftwareUpdatesPlansApplyCmd(ctx *registry.CLIContext) *cobra.Com
 	cmd := &cobra.Command{
 		Use:         "apply",
 		Short:       "Create or replace a managed-software-updates-plan by name",
-		Annotations: map[string]string{"jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:api": "pro", "jamf:gateway-privileges": "device-actions:execute,devices:read,managed-software-updates:create,managed-software-updates:read,managed-software-updates:update"},
 		Long: `Create or replace a managed-software-updates-plan. Reads JSON or YAML from --from-file or stdin.
 
 The name field in the input is used to check if the resource

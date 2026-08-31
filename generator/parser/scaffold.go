@@ -74,7 +74,9 @@ func scaffoldValue(s *Schema) any {
 	// three implementations gave before and what generator tests assert.
 	obj := make(map[string]any, len(s.Properties))
 	for name, prop := range s.Properties {
-		if prop == nil || prop.ReadOnly {
+		// VariantOnly properties belong to a sibling variant of a discriminated
+		// union, not to the body being rendered — see Property.VariantOnly.
+		if prop == nil || prop.ReadOnly || prop.VariantOnly {
 			continue
 		}
 		obj[name] = propertyValue(prop)

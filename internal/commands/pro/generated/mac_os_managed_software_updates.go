@@ -76,7 +76,7 @@ func newMacOsManagedSoftwareUpdatesSendUpdatesCmd(ctx *registry.CLIContext) *cob
 		Use:         "send-updates",
 		Short:       "Send MacOs Managed Software Updates",
 		Long:        "Sends MacOs Managed Software Updates",
-		Annotations: map[string]string{"jamf:privileges": "Send Computer Remote Command to Download and Install OS X Update", "jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:privileges": "Send Computer Remote Command to Download and Install OS X Update", "jamf:api": "pro", "jamf:gateway-privileges": "device-actions:execute"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

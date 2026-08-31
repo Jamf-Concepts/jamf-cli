@@ -50,7 +50,7 @@ func newCloudIdPConfigurationsListCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # List cloud-id-p-configurations and extract IDs
   jamf-cli pro cloud-id-p-configurations list --field id`,
-		Annotations: map[string]string{"jamf:privileges": "Read LDAP Servers", "jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:privileges": "Read LDAP Servers", "jamf:api": "pro", "jamf:gateway-privileges": "ldap-servers:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -201,7 +201,7 @@ func newCloudIdPConfigurationsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a cloud-id-p-configuration and output as YAML
   jamf-cli pro cloud-id-p-configurations get 1 -o yaml`,
-		Annotations: map[string]string{"jamf:privileges": "Read LDAP Servers", "jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:privileges": "Read LDAP Servers", "jamf:api": "pro", "jamf:gateway-privileges": "ldap-servers:read"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -265,7 +265,7 @@ func newCloudIdPConfigurationsExportCmd(ctx *registry.CLIContext) *cobra.Command
 		Long:  "Export Cloud Identity Providers collection",
 		Example: `  # Export cloud-id-p-configurations to CSV
   jamf-cli pro cloud-id-p-configurations export --out-file cloud-id-p-configurations.csv`,
-		Annotations: map[string]string{"jamf:privileges": "Read LDAP Servers", "jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:privileges": "Read LDAP Servers", "jamf:api": "pro", "jamf:gateway-privileges": "ldap-servers:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			reqCtx = registry.WithAccept(reqCtx, "*/*")

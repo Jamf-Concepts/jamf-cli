@@ -1883,6 +1883,49 @@ func parseSchemaDepth(name string, schema *openapi3.Schema, depth int) *Schema {
 		}
 	}
 
+	// A discriminated union request body (a bare oneOf/anyOf) carries no
+	// properties of its own, so without this the whole body parses to nothing —
+	// which silently costs --scaffold and every "Allowed values:" line, with no
+	// error anywhere. uem-connect's ConnectorCreateRequestBody became one of
+	// these when the SDK split JAMF_PRO onto its own typed contract.
+	//
+	// The first variant is adopted as the schema's own shape, because every
+	// consumer downstream wants one concrete object: a scaffold has to be a body
+	// that can be piped into --file, and merging the branches would render one
+	// that satisfies no variant. Enum values are then unioned across the
+	// remaining variants, top level only — the discriminator is by definition a
+	// top-level property, and it is the field where naming only the scaffolded
+	// variant's value would read as "the other nine vendors are invalid".
+	variantEnums := map[string][]string{}
+	if len(schema.Properties) == 0 {
+		if branches := unionBranches(schema); len(branches) > 0 {
+			if schema.Discriminator != nil {
+				s.Discriminator = schema.Discriminator.PropertyName
+			}
+			for i, branch := range branches {
+				if branch == nil || branch.Value == nil {
+					continue
+				}
+				s.Variants = append(s.Variants, refName(branch.Ref))
+				if i == 0 {
+					propSources = append(propSources, branch.Value.Properties)
+					s.Required = branch.Value.Required
+					continue
+				}
+				for propName, propRef := range branch.Value.Properties {
+					if propRef == nil || propRef.Value == nil {
+						continue
+					}
+					for _, v := range propRef.Value.Enum {
+						if str, ok := enumValueString(v); ok {
+							variantEnums[propName] = appendUniqueString(variantEnums[propName], str)
+						}
+					}
+				}
+			}
+		}
+	}
+
 	for _, props := range propSources {
 		for propName, propRef := range props {
 			if propRef == nil || propRef.Value == nil {
@@ -1926,11 +1969,53 @@ func parseSchemaDepth(name string, schema *openapi3.Schema, depth int) *Schema {
 					p.Items = parseSchemaDepth(propName, prop.Items.Value, depth+1)
 				}
 			}
+			for _, v := range variantEnums[propName] {
+				p.Enum = appendUniqueString(p.Enum, v)
+			}
 			s.Properties[propName] = p
 		}
 	}
+	// A property only the other variants declare still belongs in the help: it
+	// is a legal field of a legal body. Rendered enum-only, since the scaffolded
+	// variant does not carry its type.
+	for propName, values := range variantEnums {
+		if _, ok := s.Properties[propName]; ok {
+			continue
+		}
+		s.Properties[propName] = &Property{Name: propName, Enum: values, VariantOnly: true}
+	}
 
 	return s
+}
+
+// unionBranches returns a schema's oneOf branches, or its anyOf branches when it
+// declares no oneOf. Both spell "one of these shapes" for a request body; the
+// distinction (exactly one versus at least one) has no bearing on which concrete
+// object to render.
+func unionBranches(schema *openapi3.Schema) openapi3.SchemaRefs {
+	if len(schema.OneOf) > 0 {
+		return schema.OneOf
+	}
+	return schema.AnyOf
+}
+
+// refName is the component name at the tail of a $ref, or "" for an inline
+// schema. An inline variant is left unnamed rather than given a placeholder:
+// the help lists the names it can name and says how many there are either way.
+func refName(ref string) string {
+	if idx := strings.LastIndex(ref, "/"); idx != -1 {
+		return ref[idx+1:]
+	}
+	return ref
+}
+
+func appendUniqueString(s []string, v string) []string {
+	for _, existing := range s {
+		if existing == v {
+			return s
+		}
+	}
+	return append(s, v)
 }
 
 // pluralize handles basic English pluralization

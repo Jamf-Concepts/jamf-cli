@@ -63,7 +63,7 @@ func newComputerExtensionAttributesListCmd(ctx *registry.CLIContext) *cobra.Comm
 
   # List computer-extension-attributes and extract IDs
   jamf-cli pro computer-extension-attributes list --field id`,
-		Annotations: map[string]string{"jamf:privileges": "Read Computer Extension Attributes", "jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:privileges": "Read Computer Extension Attributes", "jamf:api": "pro", "jamf:gateway-privileges": "extension-attributes:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -218,7 +218,7 @@ func newComputerExtensionAttributesGetCmd(ctx *registry.CLIContext) *cobra.Comma
 
   # Get a computer-extension-attribute and output as YAML
   jamf-cli pro computer-extension-attributes get 1 -o yaml`,
-		Annotations: map[string]string{"jamf:privileges": "Read Computer Extension Attributes", "jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:privileges": "Read Computer Extension Attributes", "jamf:api": "pro", "jamf:gateway-privileges": "extension-attributes:read"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -282,7 +282,7 @@ func newComputerExtensionAttributesCreateCmd(ctx *registry.CLIContext) *cobra.Co
 
   # Get a computer-extension-attribute, modify it, and create a copy
   jamf-cli pro computer-extension-attributes get 1 -o json | jq '.name = "Copy"' | jamf-cli pro computer-extension-attributes create`,
-		Annotations: map[string]string{"jamf:privileges": "Create Computer Extension Attributes", "jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:privileges": "Create Computer Extension Attributes", "jamf:api": "pro", "jamf:gateway-privileges": "extension-attributes:create"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -378,7 +378,7 @@ func newComputerExtensionAttributesUpdateCmd(ctx *registry.CLIContext) *cobra.Co
 
   # Get a computer-extension-attribute, modify, and update
   jamf-cli pro computer-extension-attributes get 1 -o json | jq '.name = "New Name"' | jamf-cli pro computer-extension-attributes update 1`,
-		Annotations: map[string]string{"jamf:privileges": "Update Computer Extension Attributes", "jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:privileges": "Update Computer Extension Attributes", "jamf:api": "pro", "jamf:gateway-privileges": "extension-attributes:update"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -493,7 +493,7 @@ func newComputerExtensionAttributesDeleteCmd(ctx *registry.CLIContext) *cobra.Co
 
   # Delete without confirmation prompt
   jamf-cli pro computer-extension-attributes delete 1 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Delete Computer Extension Attributes", "jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Delete Computer Extension Attributes", "jamf:api": "pro", "jamf:gateway-privileges": "extension-attributes:delete"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -699,7 +699,7 @@ func newComputerExtensionAttributesDeleteMultipleCmd(ctx *registry.CLIContext) *
 		Long:  "IDs of the Computer Extension Attribute to be deleted.",
 		Example: `  # Delete multiple computer-extension-attributes by IDs
   jamf-cli pro computer-extension-attributes delete-multiple --ids 1,2,3 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Delete Computer Extension Attributes", "jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Delete Computer Extension Attributes", "jamf:api": "pro", "jamf:gateway-privileges": "extension-attributes:delete"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -802,7 +802,7 @@ func newComputerExtensionAttributesHistoryCmd(ctx *registry.CLIContext) *cobra.C
 
   # Get history by name
   jamf-cli pro computer-extension-attributes history --name "Example"`,
-		Annotations: map[string]string{"jamf:privileges": "Read Computer Extension Attributes", "jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:privileges": "Read Computer Extension Attributes", "jamf:api": "pro", "jamf:gateway-privileges": "extension-attributes:read"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -970,7 +970,7 @@ func newComputerExtensionAttributesAddHistoryNoteCmd(ctx *registry.CLIContext) *
 		Use:         "add-history-note [<id>]",
 		Short:       "Add specified Computer Extension Attribute history object notes",
 		Long:        "Add specified Computer Extension Attribute history object notes",
-		Annotations: map[string]string{"jamf:privileges": "Update Computer Extension Attributes", "jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:privileges": "Update Computer Extension Attributes", "jamf:api": "pro", "jamf:gateway-privileges": "extension-attributes:update"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -1049,7 +1049,7 @@ func newComputerExtensionAttributesUploadCmd(ctx *registry.CLIContext) *cobra.Co
 		Use:         "upload",
 		Short:       "Upload Computer Extension Attribute.",
 		Long:        "Uploads a Computer Extension Attribute.",
-		Annotations: map[string]string{"jamf:privileges": "Create Computer Extension Attributes,Read Computer Extension Attributes", "jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:privileges": "Create Computer Extension Attributes,Read Computer Extension Attributes", "jamf:api": "pro", "jamf:gateway-privileges": "extension-attributes:create,extension-attributes:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -1102,7 +1102,7 @@ func newComputerExtensionAttributesDataDependencyCmd(ctx *registry.CLIContext) *
 		Use:         "data-dependency [<id>]",
 		Short:       "Get smart group/advance search dependent objects for a specified computer extension attribute",
 		Long:        "Get smart group/advance search dependent objects for a specified computer extension attribute",
-		Annotations: map[string]string{"jamf:privileges": "Read Computer Extension Attributes", "jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:privileges": "Read Computer Extension Attributes", "jamf:api": "pro", "jamf:gateway-privileges": "extension-attributes:read"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -1157,7 +1157,7 @@ func newComputerExtensionAttributesDownloadCmd(ctx *registry.CLIContext) *cobra.
 		Use:         "download [<id>]",
 		Short:       "Download the specified Computer Extension Attribute.",
 		Long:        "Retrieves the specified Computer Extension Attribute in XML format based on the provided unique ID.",
-		Annotations: map[string]string{"jamf:privileges": "Read Computer Extension Attributes", "jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:privileges": "Read Computer Extension Attributes", "jamf:api": "pro", "jamf:gateway-privileges": "extension-attributes:read"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -1215,7 +1215,7 @@ func newComputerExtensionAttributesApplyCmd(ctx *registry.CLIContext) *cobra.Com
 	cmd := &cobra.Command{
 		Use:         "apply",
 		Short:       "Create or replace a computer-extension-attribute by name",
-		Annotations: map[string]string{"jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:api": "pro", "jamf:gateway-privileges": "extension-attributes:create,extension-attributes:read,extension-attributes:update"},
 		Long: `Create or replace a computer-extension-attribute. Reads JSON or YAML from --from-file or stdin.
 
 The name field in the input is used to check if the resource

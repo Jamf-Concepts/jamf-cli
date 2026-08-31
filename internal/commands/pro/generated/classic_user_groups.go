@@ -50,7 +50,7 @@ func newClassicUserGroupsListCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # List usergroups and extract IDs
   jamf-cli pro classic-user-groups list --field id`,
-		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "user-groups:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/usergroups", nil)
@@ -107,7 +107,7 @@ func newClassicUserGroupsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a user_group and output as YAML
   jamf-cli pro classic-user-groups get 1 -o yaml`,
-		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "user-groups:read"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -166,7 +166,7 @@ func newClassicUserGroupsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:         "create",
 		Short:       "Create a user_group",
 		Long:        "Create a new user_group. Reads the XML body from --from-file or stdin.",
-		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "user-groups:create"},
 		Example: `  # Create a user_group from an XML file
   jamf-cli pro classic-user-groups create --from-file user_group.xml
 
@@ -205,7 +205,7 @@ func newClassicUserGroupsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:         "update [<id>]",
 		Short:       "Update a user_group",
 		Long:        "Update an existing user_group by ID. Reads the XML body from --from-file or stdin.",
-		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "user-groups:update"},
 		Example: `  # Update a user_group from an XML file
   jamf-cli pro classic-user-groups update 1 --from-file user_group.xml
 
@@ -268,7 +268,7 @@ func newClassicUserGroupsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Delete without confirmation prompt
   jamf-cli pro classic-user-groups delete 1 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true", "jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:api": "pro-classic", "jamf:gateway-privileges": "user-groups:delete"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -441,7 +441,7 @@ func newClassicUserGroupsApplyCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "apply",
 		Short:       "Create or replace a user_group by name",
-		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "user-groups:create,user-groups:read,user-groups:update"},
 		Long: `Create or replace a user_group. Reads XML from --from-file or stdin.
 
 The name field in the input XML is used to check if the resource already

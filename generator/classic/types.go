@@ -44,6 +44,13 @@ type ClassicResource struct {
 	GatewayLevel  string
 	GatewayBasis  string
 	GatewayDetail string
+	// GatewayPrivileges are the Jamf Account capability permissions the gateway
+	// requires, keyed by HTTP method — per method rather than per resource
+	// because that is the granularity that differs (accounts:read for a GET,
+	// accounts:update for a PUT), even though the served/unserved verdict above
+	// is resource-wide. A different vocabulary from Jamf Pro's own privilege
+	// names, and Classic commands carry none of those.
+	GatewayPrivileges map[string][]string
 }
 
 // ClassicFileField declares a resource field whose value is sourced from a

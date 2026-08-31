@@ -969,6 +969,33 @@ type commandEntry struct {
 	Gateway       string `json:"gateway,omitempty"`
 	GatewayBasis  string `json:"gatewayBasis,omitempty"`
 	GatewayDetail string `json:"gatewayDetail,omitempty"`
+	// GatewayPrivileges are the Jamf Account capability permissions the gateway
+	// requires for this Pro or Classic command — a different vocabulary from
+	// Privileges above, not a translation of it, since the GA consolidation
+	// folded several Jamf Pro privileges into one capability and Jamf Account no
+	// longer offers the old names. Both are carried so a Platform API
+	// integration can be sized from this catalog rather than by provoking 403s.
+	//
+	// Absent for an unserved endpoint (the published spec declares no scope for
+	// what it does not publish), for the 44 unauthenticated Jamf Pro endpoints,
+	// and for hand-written commands, which send no single endpoint. A --name,
+	// --serial or --udid lookup additionally resolves the identifier through the
+	// resource's collection, so those invocations also need its read permission.
+	GatewayPrivileges []string `json:"gatewayPrivileges,omitempty"`
+	// GatewayPermissions is the same requirement in the words Jamf Account
+	// prints — "Organizational context > Categories: Read (categories:read)",
+	// one row per permission, deduplicated across actions.
+	//
+	// It is not a convenience over GatewayPrivileges, it is the only actionable
+	// form: an integration can only be created in the Jamf Account UI, whose
+	// picker is a list of named permissions with a checkbox per action and shows
+	// the capability slug nowhere. A reader handed only slugs has to go to Jamf's
+	// permissions-map article to act, and the names differ enough that guessing
+	// fails — computer-inventory-collection-settings is "Device inventory
+	// collection settings". The slugs stay beside it because that is what the
+	// gateway's own errors and the specs use, so a script matching on them keeps
+	// a stable key.
+	GatewayPermissions []string `json:"gatewayPermissions,omitempty"`
 }
 
 // isFullDetailFormat reports whether an output format carries the full
@@ -1007,7 +1034,14 @@ func newCommandsCmd(root *cobra.Command) *cobra.Command {
 func collectCommands(cmd *cobra.Command, prefix, product, group string) []commandEntry {
 	var entries []commandEntry
 	for _, child := range cmd.Commands() {
-		if child.Hidden || child.Name() == "help" || child.Name() == "commands" {
+		// "commands" is skipped only at the root, where it is this catalog
+		// command itself. Matching the name at any depth is the same mistake
+		// chainSkip made with "version": it silently dropped
+		// `pro mdm-commands commands` — a real generated operation, and one the
+		// gateway refuses, so the catalog was missing exactly the entry a reader
+		// consults it for. "help" stays unconditional: cobra gives every command
+		// one.
+		if child.Hidden || child.Name() == "help" || (child.Name() == "commands" && prefix == "") {
 			continue
 		}
 
@@ -1049,6 +1083,9 @@ func collectCommands(cmd *cobra.Command, prefix, product, group string) []comman
 				Gateway:       child.Annotations[annotationGateway],
 				GatewayBasis:  child.Annotations[annotationGatewayBasis],
 				GatewayDetail: child.Annotations[annotationGatewayDetail],
+
+				GatewayPrivileges:  gatewayPrivilegesOf(child),
+				GatewayPermissions: gatewayPermissionsOf(child),
 			}
 
 			// Collect aliases: for leaf commands under a top-level group
@@ -1131,6 +1168,17 @@ func commandEntriesToMaps(entries []commandEntry, full bool) []map[string]any {
 				m["gateway"] = e.Gateway
 				m["gatewayBasis"] = e.GatewayBasis
 				m["gatewayDetail"] = e.GatewayDetail
+			}
+			// Positive-only, as privileges is, and for the same reason: absent
+			// means "no capability recorded", which is not "needs none".
+			if len(e.GatewayPrivileges) > 0 {
+				m["gatewayPrivileges"] = e.GatewayPrivileges
+			}
+			// Emitted independently of the slugs above: a Platform command's own
+			// privileges are already the capability vocabulary, so it has a
+			// Jamf Account rendering without a second slug list to carry.
+			if len(e.GatewayPermissions) > 0 {
+				m["gatewayPermissions"] = e.GatewayPermissions
 			}
 		}
 		result[i] = m

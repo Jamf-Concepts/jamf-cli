@@ -50,7 +50,7 @@ func newClassicNetworkSegmentsListCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # List networksegments and extract IDs
   jamf-cli pro classic-network-segments list --field id`,
-		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "network-segments:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/networksegments", nil)
@@ -107,7 +107,7 @@ func newClassicNetworkSegmentsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a network_segment and output as YAML
   jamf-cli pro classic-network-segments get 1 -o yaml`,
-		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "network-segments:read"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -166,7 +166,7 @@ func newClassicNetworkSegmentsCreateCmd(ctx *registry.CLIContext) *cobra.Command
 		Use:         "create",
 		Short:       "Create a network_segment",
 		Long:        "Create a new network_segment. Reads the XML body from --from-file or stdin.",
-		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "network-segments:create"},
 		Example: `  # Create a network_segment from an XML file
   jamf-cli pro classic-network-segments create --from-file network_segment.xml
 
@@ -205,7 +205,7 @@ func newClassicNetworkSegmentsUpdateCmd(ctx *registry.CLIContext) *cobra.Command
 		Use:         "update [<id>]",
 		Short:       "Update a network_segment",
 		Long:        "Update an existing network_segment by ID. Reads the XML body from --from-file or stdin.",
-		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "network-segments:update"},
 		Example: `  # Update a network_segment from an XML file
   jamf-cli pro classic-network-segments update 1 --from-file network_segment.xml
 
@@ -268,7 +268,7 @@ func newClassicNetworkSegmentsDeleteCmd(ctx *registry.CLIContext) *cobra.Command
 
   # Delete without confirmation prompt
   jamf-cli pro classic-network-segments delete 1 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true", "jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:api": "pro-classic", "jamf:gateway-privileges": "network-segments:delete"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -441,7 +441,7 @@ func newClassicNetworkSegmentsApplyCmd(ctx *registry.CLIContext) *cobra.Command 
 	cmd := &cobra.Command{
 		Use:         "apply",
 		Short:       "Create or replace a network_segment by name",
-		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "network-segments:create,network-segments:read,network-segments:update"},
 		Long: `Create or replace a network_segment. Reads XML from --from-file or stdin.
 
 The name field in the input XML is used to check if the resource already

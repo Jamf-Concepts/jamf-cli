@@ -50,7 +50,7 @@ func newClassicLdapServersListCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # List ldapservers and extract IDs
   jamf-cli pro classic-ldap-servers list --field id`,
-		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "ldap-servers:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/ldapservers", nil)
@@ -107,7 +107,7 @@ func newClassicLdapServersGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a ldap_server and output as YAML
   jamf-cli pro classic-ldap-servers get 1 -o yaml`,
-		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "ldap-servers:read"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -166,7 +166,7 @@ func newClassicLdapServersCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:         "create",
 		Short:       "Create a ldap_server",
 		Long:        "Create a new ldap_server. Reads the XML body from --from-file or stdin.",
-		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "ldap-servers:create"},
 		Example: `  # Create a ldap_server from an XML file
   jamf-cli pro classic-ldap-servers create --from-file ldap_server.xml
 
@@ -205,7 +205,7 @@ func newClassicLdapServersUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:         "update [<id>]",
 		Short:       "Update a ldap_server",
 		Long:        "Update an existing ldap_server by ID. Reads the XML body from --from-file or stdin.",
-		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "ldap-servers:update"},
 		Example: `  # Update a ldap_server from an XML file
   jamf-cli pro classic-ldap-servers update 1 --from-file ldap_server.xml
 
@@ -268,7 +268,7 @@ func newClassicLdapServersDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Delete without confirmation prompt
   jamf-cli pro classic-ldap-servers delete 1 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true", "jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:api": "pro-classic", "jamf:gateway-privileges": "ldap-servers:delete"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -441,7 +441,7 @@ func newClassicLdapServersApplyCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "apply",
 		Short:       "Create or replace a ldap_server by name",
-		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "ldap-servers:create,ldap-servers:read,ldap-servers:update"},
 		Long: `Create or replace a ldap_server. Reads XML from --from-file or stdin.
 
 The name field in the input XML is used to check if the resource already

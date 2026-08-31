@@ -50,7 +50,7 @@ func newClassicComputerGroupsListCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # List computergroups and extract IDs
   jamf-cli pro classic-computer-groups list --field id`,
-		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "device-groups:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/computergroups", nil)
@@ -107,7 +107,7 @@ func newClassicComputerGroupsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a computer_group and output as YAML
   jamf-cli pro classic-computer-groups get 1 -o yaml`,
-		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "device-groups:read"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -166,7 +166,7 @@ func newClassicComputerGroupsCreateCmd(ctx *registry.CLIContext) *cobra.Command 
 		Use:         "create",
 		Short:       "Create a computer_group",
 		Long:        "Create a new computer_group. Reads the XML body from --from-file or stdin.",
-		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "device-groups:create"},
 		Example: `  # Create a computer_group from an XML file
   jamf-cli pro classic-computer-groups create --from-file computer_group.xml
 
@@ -205,7 +205,7 @@ func newClassicComputerGroupsUpdateCmd(ctx *registry.CLIContext) *cobra.Command 
 		Use:         "update [<id>]",
 		Short:       "Update a computer_group",
 		Long:        "Update an existing computer_group by ID. Reads the XML body from --from-file or stdin.",
-		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "device-groups:update"},
 		Example: `  # Update a computer_group from an XML file
   jamf-cli pro classic-computer-groups update 1 --from-file computer_group.xml
 
@@ -268,7 +268,7 @@ func newClassicComputerGroupsDeleteCmd(ctx *registry.CLIContext) *cobra.Command 
 
   # Delete without confirmation prompt
   jamf-cli pro classic-computer-groups delete 1 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true", "jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:api": "pro-classic", "jamf:gateway-privileges": "device-groups:delete"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -441,7 +441,7 @@ func newClassicComputerGroupsApplyCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "apply",
 		Short:       "Create or replace a computer_group by name",
-		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "device-groups:create,device-groups:read,device-groups:update"},
 		Long: `Create or replace a computer_group. Reads XML from --from-file or stdin.
 
 The name field in the input XML is used to check if the resource already

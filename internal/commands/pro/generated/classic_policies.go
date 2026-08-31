@@ -56,7 +56,7 @@ func newClassicPoliciesListCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # List policies and extract IDs
   jamf-cli pro classic-policies list --field id`,
-		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "policies:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/policies", nil)
@@ -113,7 +113,7 @@ func newClassicPoliciesGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a policy and output as YAML
   jamf-cli pro classic-policies get 1 -o yaml`,
-		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "policies:read"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -172,7 +172,7 @@ func newClassicPoliciesCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:         "create",
 		Short:       "Create a policy",
 		Long:        "Create a new policy. Reads the XML body from --from-file or stdin.",
-		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "policies:create"},
 		Example: `  # Create a policy from an XML file
   jamf-cli pro classic-policies create --from-file policy.xml
 
@@ -211,7 +211,7 @@ func newClassicPoliciesUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:         "update [<id>]",
 		Short:       "Update a policy",
 		Long:        "Update an existing policy by ID. Reads the XML body from --from-file or stdin.",
-		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "policies:update"},
 		Example: `  # Update a policy from an XML file
   jamf-cli pro classic-policies update 1 --from-file policy.xml
 
@@ -274,7 +274,7 @@ func newClassicPoliciesDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Delete without confirmation prompt
   jamf-cli pro classic-policies delete 1 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true", "jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:api": "pro-classic", "jamf:gateway-privileges": "policies:delete"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -447,7 +447,7 @@ func newClassicPoliciesApplyCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "apply",
 		Short:       "Create or replace a policy by name",
-		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "policies:create,policies:read,policies:update"},
 		Long: `Create or replace a policy. Reads XML from --from-file or stdin.
 
 The name field in the input XML is used to check if the resource already

@@ -61,7 +61,7 @@ func newEnrollmentSettingsListCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # List enrollment-settings and extract IDs
   jamf-cli pro enrollment-settings list --field id`,
-		Annotations: map[string]string{"jamf:privileges": "Read User-Initiated Enrollment", "jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:privileges": "Read User-Initiated Enrollment", "jamf:api": "pro", "jamf:gateway-privileges": "user-initiated-enrollment:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -216,7 +216,7 @@ func newEnrollmentSettingsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a enrollment-setting and output as YAML
   jamf-cli pro enrollment-settings get 1 -o yaml`,
-		Annotations: map[string]string{"jamf:privileges": "Read User-Initiated Enrollment", "jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:privileges": "Read User-Initiated Enrollment", "jamf:api": "pro", "jamf:gateway-privileges": "user-initiated-enrollment:read"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -279,7 +279,7 @@ func newEnrollmentSettingsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a enrollment-setting, modify it, and create a copy
   jamf-cli pro enrollment-settings get 1 -o json | jq '.name = "Copy"' | jamf-cli pro enrollment-settings create`,
-		Annotations: map[string]string{"jamf:privileges": "Update User-Initiated Enrollment", "jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:privileges": "Update User-Initiated Enrollment", "jamf:api": "pro", "jamf:gateway-privileges": "user-initiated-enrollment:update"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -360,7 +360,7 @@ func newEnrollmentSettingsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a enrollment-setting, modify, and update
   jamf-cli pro enrollment-settings get 1 -o json | jq '.name = "New Name"' | jamf-cli pro enrollment-settings update 1`,
-		Annotations: map[string]string{"jamf:privileges": "Update User-Initiated Enrollment", "jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:privileges": "Update User-Initiated Enrollment", "jamf:api": "pro", "jamf:gateway-privileges": "user-initiated-enrollment:update"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -496,7 +496,7 @@ func newEnrollmentSettingsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Delete without confirmation prompt
   jamf-cli pro enrollment-settings delete 1 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Update User-Initiated Enrollment", "jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Update User-Initiated Enrollment", "jamf:api": "pro", "jamf:gateway-privileges": "user-initiated-enrollment:update"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -703,7 +703,7 @@ func newEnrollmentSettingsHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 		Long:  "Gets sorted and paged Enrollment history object",
 		Example: `  # Get history for a enrollment-setting
   jamf-cli pro enrollment-settings history 1`,
-		Annotations: map[string]string{"jamf:privileges": "Read User-Initiated Enrollment", "jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:privileges": "Read User-Initiated Enrollment", "jamf:api": "pro", "jamf:gateway-privileges": "user-initiated-enrollment:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -846,7 +846,7 @@ func newEnrollmentSettingsAddHistoryNoteCmd(ctx *registry.CLIContext) *cobra.Com
 		Use:         "add-history-note",
 		Short:       "Add Enrollment history object notes",
 		Long:        "Adds Enrollment history object notes",
-		Annotations: map[string]string{"jamf:privileges": "Update User-Initiated Enrollment", "jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:privileges": "Update User-Initiated Enrollment", "jamf:api": "pro", "jamf:gateway-privileges": "user-initiated-enrollment:update"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -918,7 +918,7 @@ func newEnrollmentSettingsHistoryExportCmd(ctx *registry.CLIContext) *cobra.Comm
 
   # Pipe to stdout
   jamf-cli pro enrollment-settings history-export > output.bin`,
-		Annotations: map[string]string{"jamf:privileges": "Read User-Initiated Enrollment", "jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:privileges": "Read User-Initiated Enrollment", "jamf:api": "pro", "jamf:gateway-privileges": "user-initiated-enrollment:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			reqCtx = registry.WithAccept(reqCtx, "*/*")
@@ -1033,7 +1033,7 @@ func newEnrollmentSettingsEnrollmentCmd(ctx *registry.CLIContext) *cobra.Command
 		Use:         "enrollment",
 		Short:       "Get Enrollment object and Re-enrollment settings",
 		Long:        "Gets Enrollment object and re-enrollment settings.",
-		Annotations: map[string]string{"jamf:privileges": "Read User-Initiated Enrollment", "jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:privileges": "Read User-Initiated Enrollment", "jamf:api": "pro", "jamf:gateway-privileges": "user-initiated-enrollment:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -1069,7 +1069,7 @@ func newEnrollmentSettingsUpdateEnrollmentCmd(ctx *registry.CLIContext) *cobra.C
 		Use:         "update-enrollment",
 		Short:       "Update Enrollment object",
 		Long:        "Update enrollment object. Regarding the 'developerCertificateIdentity', if this object is omitted, the certificate will not be deleted from Jamf Pro. The 'identityKeystore' is the entire cert file as a base64 encoded string. The 'md5Sum' field is not required in the PUT request, but is calculated and returned in the response.",
-		Annotations: map[string]string{"jamf:privileges": "Update User-Initiated Enrollment", "jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:privileges": "Update User-Initiated Enrollment", "jamf:api": "pro", "jamf:gateway-privileges": "user-initiated-enrollment:update"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -1173,7 +1173,7 @@ func newEnrollmentSettingsApplyCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "apply",
 		Short:       "Create or replace a enrollment-setting by name",
-		Annotations: map[string]string{"jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:api": "pro", "jamf:gateway-privileges": "user-initiated-enrollment:read,user-initiated-enrollment:update"},
 		Long: `Create or replace a enrollment-setting. Reads JSON or YAML from --from-file or stdin.
 
 The name field in the input is used to check if the resource

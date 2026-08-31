@@ -50,7 +50,7 @@ func newClassicIbeaconsListCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # List ibeacons and extract IDs
   jamf-cli pro classic-ibeacons list --field id`,
-		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "ibeacon:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/ibeacons", nil)
@@ -107,7 +107,7 @@ func newClassicIbeaconsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a ibeacon and output as YAML
   jamf-cli pro classic-ibeacons get 1 -o yaml`,
-		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "ibeacon:read"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -166,7 +166,7 @@ func newClassicIbeaconsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:         "create",
 		Short:       "Create a ibeacon",
 		Long:        "Create a new ibeacon. Reads the XML body from --from-file or stdin.",
-		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "ibeacon:create"},
 		Example: `  # Create a ibeacon from an XML file
   jamf-cli pro classic-ibeacons create --from-file ibeacon.xml
 
@@ -205,7 +205,7 @@ func newClassicIbeaconsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:         "update [<id>]",
 		Short:       "Update a ibeacon",
 		Long:        "Update an existing ibeacon by ID. Reads the XML body from --from-file or stdin.",
-		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "ibeacon:update"},
 		Example: `  # Update a ibeacon from an XML file
   jamf-cli pro classic-ibeacons update 1 --from-file ibeacon.xml
 
@@ -268,7 +268,7 @@ func newClassicIbeaconsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Delete without confirmation prompt
   jamf-cli pro classic-ibeacons delete 1 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true", "jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:api": "pro-classic", "jamf:gateway-privileges": "ibeacon:delete"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -441,7 +441,7 @@ func newClassicIbeaconsApplyCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "apply",
 		Short:       "Create or replace a ibeacon by name",
-		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "ibeacon:create,ibeacon:read,ibeacon:update"},
 		Long: `Create or replace a ibeacon. Reads XML from --from-file or stdin.
 
 The name field in the input XML is used to check if the resource already

@@ -48,7 +48,7 @@ func newClassicAccountUsersListCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # List account-users and extract IDs
   jamf-cli pro classic-account-users list --field id`,
-		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "accounts:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/accounts", nil)
@@ -97,7 +97,7 @@ func newClassicAccountUsersGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a account_user and output as YAML
   jamf-cli pro classic-account-users get 1 -o yaml`,
-		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "accounts:read"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -156,7 +156,7 @@ func newClassicAccountUsersCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:         "create",
 		Short:       "Create a account_user",
 		Long:        "Create a new account_user. Reads the XML body from --from-file or stdin.",
-		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "accounts:create"},
 		Example: `  # Create a account_user from an XML file
   jamf-cli pro classic-account-users create --from-file account_user.xml
 
@@ -194,7 +194,7 @@ func newClassicAccountUsersUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:         "update <id>",
 		Short:       "Update a account_user",
 		Long:        "Update an existing account_user by ID. Reads the XML body from --from-file or stdin.",
-		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "accounts:update"},
 		Example: `  # Update a account_user from an XML file
   jamf-cli pro classic-account-users update 1 --from-file account_user.xml
 
@@ -244,7 +244,7 @@ func newClassicAccountUsersDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Delete without confirmation prompt
   jamf-cli pro classic-account-users delete 1 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true", "jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:api": "pro-classic", "jamf:gateway-privileges": "accounts:delete"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

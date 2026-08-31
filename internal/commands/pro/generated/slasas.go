@@ -74,7 +74,7 @@ func newSlasasSlasaCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:         "slasa",
 		Short:       "Accept the SLASA",
 		Long:        "Accept the SLASA for Jamf Pro.",
-		Annotations: map[string]string{"jamf:privileges": "Update License Information,View JSS Information", "jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:privileges": "Update License Information,View JSS Information", "jamf:api": "pro", "jamf:gateway-privileges": "activation-code:update,jss-information:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

@@ -50,7 +50,7 @@ func newClassicPrintersListCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # List printers and extract IDs
   jamf-cli pro classic-printers list --field id`,
-		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "printers:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/printers", nil)
@@ -107,7 +107,7 @@ func newClassicPrintersGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a printer and output as YAML
   jamf-cli pro classic-printers get 1 -o yaml`,
-		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "printers:read"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -166,7 +166,7 @@ func newClassicPrintersCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:         "create",
 		Short:       "Create a printer",
 		Long:        "Create a new printer. Reads the XML body from --from-file or stdin.",
-		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "printers:create"},
 		Example: `  # Create a printer from an XML file
   jamf-cli pro classic-printers create --from-file printer.xml
 
@@ -205,7 +205,7 @@ func newClassicPrintersUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:         "update [<id>]",
 		Short:       "Update a printer",
 		Long:        "Update an existing printer by ID. Reads the XML body from --from-file or stdin.",
-		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "printers:update"},
 		Example: `  # Update a printer from an XML file
   jamf-cli pro classic-printers update 1 --from-file printer.xml
 
@@ -268,7 +268,7 @@ func newClassicPrintersDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Delete without confirmation prompt
   jamf-cli pro classic-printers delete 1 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true", "jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:api": "pro-classic", "jamf:gateway-privileges": "printers:delete"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -441,7 +441,7 @@ func newClassicPrintersApplyCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "apply",
 		Short:       "Create or replace a printer by name",
-		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "printers:create,printers:read,printers:update"},
 		Long: `Create or replace a printer. Reads XML from --from-file or stdin.
 
 The name field in the input XML is used to check if the resource already

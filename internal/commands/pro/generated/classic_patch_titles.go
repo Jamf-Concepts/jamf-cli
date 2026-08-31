@@ -50,7 +50,7 @@ func newClassicPatchTitlesListCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # List patchsoftwaretitles and extract IDs
   jamf-cli pro classic-patch-titles list --field id`,
-		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "patch-management-software-titles:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/patchsoftwaretitles", nil)
@@ -107,7 +107,7 @@ func newClassicPatchTitlesGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a patch_software_title and output as YAML
   jamf-cli pro classic-patch-titles get 1 -o yaml`,
-		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "patch-management-software-titles:read"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -166,7 +166,7 @@ func newClassicPatchTitlesCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:         "create",
 		Short:       "Create a patch_software_title",
 		Long:        "Create a new patch_software_title. Reads the XML body from --from-file or stdin.",
-		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "patch-management-software-titles:create"},
 		Example: `  # Create a patch_software_title from an XML file
   jamf-cli pro classic-patch-titles create --from-file patch_software_title.xml
 
@@ -205,7 +205,7 @@ func newClassicPatchTitlesUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:         "update [<id>]",
 		Short:       "Update a patch_software_title",
 		Long:        "Update an existing patch_software_title by ID. Reads the XML body from --from-file or stdin.",
-		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "patch-management-software-titles:update"},
 		Example: `  # Update a patch_software_title from an XML file
   jamf-cli pro classic-patch-titles update 1 --from-file patch_software_title.xml
 
@@ -268,7 +268,7 @@ func newClassicPatchTitlesDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Delete without confirmation prompt
   jamf-cli pro classic-patch-titles delete 1 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true", "jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:api": "pro-classic", "jamf:gateway-privileges": "patch-management-software-titles:delete"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -441,7 +441,7 @@ func newClassicPatchTitlesApplyCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "apply",
 		Short:       "Create or replace a patch_software_title by name",
-		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "patch-management-software-titles:create,patch-management-software-titles:read,patch-management-software-titles:update"},
 		Long: `Create or replace a patch_software_title. Reads XML from --from-file or stdin.
 
 The name field in the input XML is used to check if the resource already

@@ -35,7 +35,7 @@ func newM2MListCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # List m2m and extract IDs
   jamf-cli pro m2m list --field id`,
-		Annotations: map[string]string{"jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:api": "pro", "jamf:gateway-privileges": "m2m:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

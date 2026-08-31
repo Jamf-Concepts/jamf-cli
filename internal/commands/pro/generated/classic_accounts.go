@@ -34,7 +34,7 @@ func newClassicAccountsListCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # List accounts and extract IDs
   jamf-cli pro classic-accounts list --field id`,
-		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "accounts:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/accounts", nil)

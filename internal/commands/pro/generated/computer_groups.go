@@ -36,7 +36,7 @@ func newComputerGroupsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a computer-group and output as YAML
   jamf-cli pro computer-groups get 1 -o yaml`,
-		Annotations: map[string]string{"jamf:privileges": "Read Smart Computer Groups", "jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:privileges": "Read Smart Computer Groups", "jamf:api": "pro", "jamf:gateway-privileges": "device-groups:read"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

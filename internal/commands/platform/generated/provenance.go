@@ -26,6 +26,6 @@ var Sources = []SpecSource{
 	{File: "specs/platform/securitycloud_categories_api.json", SHA256: "7cff9c49fe52f954c09e7dfd4cbb529415c9d31308c583b22cffefceec38d533"},
 	{File: "specs/platform/securitycloud_device_groups_api.json", SHA256: "24d75bf0be735ca39c8a307e5768a566d9ab1a3d046112ceb0e936b2b39d9a2d"},
 	{File: "specs/platform/securitycloud_dns_api.json", SHA256: "79487aaf0a2f12ef4f0099eae7d39e2c8b3c64f74696a52f5a45a533ac1455e7"},
-	{File: "specs/platform/securitycloud_uem_connect_api.json", SHA256: "550ad91d3499cf2d4b8dc3d4e648099418fc72f00d6e60da014b4f136a00364f"},
+	{File: "specs/platform/securitycloud_uem_connect_api.json", SHA256: "cd2e20bc0b513c7763db9850b15dd1d8344a4edbdf0cc36ca8e06cf8ba5fc191"},
 	{File: "specs/platform/securitycloud_ztna_api.json", SHA256: "8e4f4d3ac558b47a9cd5f8c026d0a0fb894ddaedaf938cb570621a49be043429"},
 }

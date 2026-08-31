@@ -56,7 +56,7 @@ func newClassicMacosConfigProfilesListCmd(ctx *registry.CLIContext) *cobra.Comma
 
   # List osxconfigurationprofiles and extract IDs
   jamf-cli pro classic-macos-config-profiles list --field id`,
-		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "configuration-profiles:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/osxconfigurationprofiles", nil)
@@ -113,7 +113,7 @@ func newClassicMacosConfigProfilesGetCmd(ctx *registry.CLIContext) *cobra.Comman
 
   # Get a os_x_configuration_profile and output as YAML
   jamf-cli pro classic-macos-config-profiles get 1 -o yaml`,
-		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "configuration-profiles:read"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -175,7 +175,7 @@ func newClassicMacosConfigProfilesCreateCmd(ctx *registry.CLIContext) *cobra.Com
 		Use:         "create",
 		Short:       "Create a os_x_configuration_profile",
 		Long:        "Create a new os_x_configuration_profile. Reads the XML body from --from-file or stdin.",
-		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "configuration-profiles:create"},
 		Example: `  # Create a os_x_configuration_profile from an XML file
   jamf-cli pro classic-macos-config-profiles create --from-file os_x_configuration_profile.xml
 
@@ -254,7 +254,7 @@ func newClassicMacosConfigProfilesUpdateCmd(ctx *registry.CLIContext) *cobra.Com
 		Use:         "update [<id>]",
 		Short:       "Update a os_x_configuration_profile",
 		Long:        "Update an existing os_x_configuration_profile by ID. Reads the XML body from --from-file or stdin.",
-		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "configuration-profiles:update"},
 		Example: `  # Update a os_x_configuration_profile from an XML file
   jamf-cli pro classic-macos-config-profiles update 1 --from-file os_x_configuration_profile.xml
 
@@ -366,7 +366,7 @@ func newClassicMacosConfigProfilesDeleteCmd(ctx *registry.CLIContext) *cobra.Com
 
   # Delete without confirmation prompt
   jamf-cli pro classic-macos-config-profiles delete 1 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true", "jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:api": "pro-classic", "jamf:gateway-privileges": "configuration-profiles:delete"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -543,7 +543,7 @@ func newClassicMacosConfigProfilesApplyCmd(ctx *registry.CLIContext) *cobra.Comm
 	cmd := &cobra.Command{
 		Use:         "apply",
 		Short:       "Create or replace a os_x_configuration_profile by name",
-		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "configuration-profiles:create,configuration-profiles:read,configuration-profiles:update"},
 		Long: `Create or replace a os_x_configuration_profile. Reads XML from --from-file or stdin.
 
 The name field in the input XML is used to check if the resource already

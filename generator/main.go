@@ -750,8 +750,9 @@ func modernGatewayOps(resources []*parser.Resource) []gateway.Op {
 			ops = append(ops, gateway.Op{
 				Method:      op.Method,
 				GatewayPath: gateway.ProPrefix + op.Path,
-				Set: func(level, basis, detail string) {
-					op.GatewayLevel, op.GatewayBasis, op.GatewayDetail = level, basis, detail
+				Set: func(v gateway.Verdict) {
+					op.GatewayLevel, op.GatewayBasis, op.GatewayDetail = string(v.Level), string(v.Basis), v.Detail
+					op.GatewayPrivileges = v.Scopes
 				},
 			})
 		}
@@ -775,8 +776,9 @@ func classicGatewayOps(resources []classic.ClassicResource) []gateway.Op {
 			Method:      "GET",
 			GatewayPath: gateway.ClassicPrefix + "/" + r.Path,
 			Wildcard:    true,
-			Set: func(level, basis, detail string) {
-				r.GatewayLevel, r.GatewayBasis, r.GatewayDetail = level, basis, detail
+			Set: func(v gateway.Verdict) {
+				r.GatewayLevel, r.GatewayBasis, r.GatewayDetail = string(v.Level), string(v.Basis), v.Detail
+				r.GatewayPrivileges = v.ScopesByMethod
 			},
 		})
 	}

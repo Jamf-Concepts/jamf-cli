@@ -59,7 +59,7 @@ func newDepartmentsListCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # List departments and extract IDs
   jamf-cli pro departments list --field id`,
-		Annotations: map[string]string{"jamf:privileges": "Read Departments", "jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:privileges": "Read Departments", "jamf:api": "pro", "jamf:gateway-privileges": "departments:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -214,7 +214,7 @@ func newDepartmentsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a department and output as YAML
   jamf-cli pro departments get 1 -o yaml`,
-		Annotations: map[string]string{"jamf:privileges": "Read Departments", "jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:privileges": "Read Departments", "jamf:api": "pro", "jamf:gateway-privileges": "departments:read"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -277,7 +277,7 @@ func newDepartmentsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a department, modify it, and create a copy
   jamf-cli pro departments get 1 -o json | jq '.name = "Copy"' | jamf-cli pro departments create`,
-		Annotations: map[string]string{"jamf:privileges": "Create Departments", "jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:privileges": "Create Departments", "jamf:api": "pro", "jamf:gateway-privileges": "departments:create"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -351,7 +351,7 @@ func newDepartmentsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a department, modify, and update
   jamf-cli pro departments get 1 -o json | jq '.name = "New Name"' | jamf-cli pro departments update 1`,
-		Annotations: map[string]string{"jamf:privileges": "Update Departments", "jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:privileges": "Update Departments", "jamf:api": "pro", "jamf:gateway-privileges": "departments:update"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -480,7 +480,7 @@ func newDepartmentsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Delete without confirmation prompt
   jamf-cli pro departments delete 1 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Delete Departments", "jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Delete Departments", "jamf:api": "pro", "jamf:gateway-privileges": "departments:delete"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -686,7 +686,7 @@ func newDepartmentsDeleteMultipleCmd(ctx *registry.CLIContext) *cobra.Command {
 		Long:  "Deletes all departments by ids passed in body",
 		Example: `  # Delete multiple departments by IDs
   jamf-cli pro departments delete-multiple --ids 1,2,3 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Delete Departments", "jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Delete Departments", "jamf:api": "pro", "jamf:gateway-privileges": "departments:delete"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -789,7 +789,7 @@ func newDepartmentsHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get history by name
   jamf-cli pro departments history --name "Example"`,
-		Annotations: map[string]string{"jamf:privileges": "Read Departments", "jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:privileges": "Read Departments", "jamf:api": "pro", "jamf:gateway-privileges": "departments:read"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -957,7 +957,7 @@ func newDepartmentsAddHistoryNoteCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:         "add-history-note [<id>]",
 		Short:       "Add specified Department history object notes",
 		Long:        "Adds specified Department history object notes",
-		Annotations: map[string]string{"jamf:privileges": "Update Departments", "jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:privileges": "Update Departments", "jamf:api": "pro", "jamf:gateway-privileges": "departments:update"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -1038,7 +1038,7 @@ func newDepartmentsApplyCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "apply",
 		Short:       "Create or replace a department by name",
-		Annotations: map[string]string{"jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:api": "pro", "jamf:gateway-privileges": "departments:create,departments:read,departments:update"},
 		Long: `Create or replace a department. Reads JSON or YAML from --from-file or stdin.
 
 The name field in the input is used to check if the resource

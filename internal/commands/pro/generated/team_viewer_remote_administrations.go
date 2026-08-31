@@ -52,7 +52,7 @@ func newTeamViewerRemoteAdministrationsGetCmd(ctx *registry.CLIContext) *cobra.C
 
   # Get a team-viewer-remote-administration and output as YAML
   jamf-cli pro team-viewer-remote-administrations get 1 -o yaml`,
-		Annotations: map[string]string{"jamf:privileges": "Read Remote Administration", "jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:privileges": "Read Remote Administration", "jamf:api": "pro", "jamf:gateway-privileges": "remote-administration:read"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -98,7 +98,7 @@ func newTeamViewerRemoteAdministrationsCreateCmd(ctx *registry.CLIContext) *cobr
 
   # Get a team-viewer-remote-administration, modify it, and create a copy
   jamf-cli pro team-viewer-remote-administrations get 1 -o json | jq '.name = "Copy"' | jamf-cli pro team-viewer-remote-administrations create`,
-		Annotations: map[string]string{"jamf:privileges": "Create Remote Administration", "jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:privileges": "Create Remote Administration", "jamf:api": "pro", "jamf:gateway-privileges": "remote-administration:create"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -168,7 +168,7 @@ func newTeamViewerRemoteAdministrationsDeleteCmd(ctx *registry.CLIContext) *cobr
 
   # Delete without confirmation prompt
   jamf-cli pro team-viewer-remote-administrations delete 1 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Delete Remote Administration", "jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Delete Remote Administration", "jamf:api": "pro", "jamf:gateway-privileges": "remote-administration:delete"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -246,7 +246,7 @@ func newTeamViewerRemoteAdministrationsSessionsCmd(ctx *registry.CLIContext) *co
 		Use:         "sessions <id>",
 		Short:       "Get a paginated list of sessions",
 		Long:        "Returns a paginated list of sessions for a given configuration ID",
-		Annotations: map[string]string{"jamf:privileges": "Read Remote Administration", "jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:privileges": "Read Remote Administration", "jamf:api": "pro", "jamf:gateway-privileges": "remote-administration:read"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -388,7 +388,7 @@ func newTeamViewerRemoteAdministrationsCloseCmd(ctx *registry.CLIContext) *cobra
 		Use:         "close <configurationId> <sessionId>",
 		Short:       "Close a session",
 		Long:        "Changes the session state from open to close. Closing a session means it is not possible to establish new remote connection between devices",
-		Annotations: map[string]string{"jamf:privileges": "Update Remote Administration", "jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:privileges": "Update Remote Administration", "jamf:api": "pro", "jamf:gateway-privileges": "remote-administration:update"},
 		Args:        cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -442,7 +442,7 @@ func newTeamViewerRemoteAdministrationsResendNotificationCmd(ctx *registry.CLICo
 		Use:         "resend-notification <configurationId> <sessionId>",
 		Short:       "Resend nofications for a session",
 		Long:        "Resends configured notifications (e.g. Self Service push notifications).",
-		Annotations: map[string]string{"jamf:privileges": "Update Remote Administration", "jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:privileges": "Update Remote Administration", "jamf:api": "pro", "jamf:gateway-privileges": "remote-administration:update"},
 		Args:        cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -496,7 +496,7 @@ func newTeamViewerRemoteAdministrationsSessionsStatusCmd(ctx *registry.CLIContex
 		Use:         "sessions-status <configurationId> <sessionId>",
 		Short:       "Get a session status by its ID",
 		Long:        "Returns a session status if found.",
-		Annotations: map[string]string{"jamf:privileges": "Read Remote Administration", "jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:privileges": "Read Remote Administration", "jamf:api": "pro", "jamf:gateway-privileges": "remote-administration:read"},
 		Args:        cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -545,7 +545,7 @@ func newTeamViewerRemoteAdministrationsPatchCmd(ctx *registry.CLIContext) *cobra
 
   # Patch from a file
   jamf-cli pro team-viewer-remote-administrations patch 1 --from-file changes.json`,
-		Annotations: map[string]string{"jamf:privileges": "Update Remote Administration", "jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:privileges": "Update Remote Administration", "jamf:api": "pro", "jamf:gateway-privileges": "remote-administration:update"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -629,7 +629,7 @@ func newTeamViewerRemoteAdministrationsStatusCmd(ctx *registry.CLIContext) *cobr
 		Use:         "status <id>",
 		Short:       "Get Team Viewer Remote Administration connection status",
 		Long:        "Returns Team Viewer Remote Administration connection status",
-		Annotations: map[string]string{"jamf:privileges": "Read Remote Administration", "jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:privileges": "Read Remote Administration", "jamf:api": "pro", "jamf:gateway-privileges": "remote-administration:read"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

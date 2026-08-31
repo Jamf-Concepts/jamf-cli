@@ -45,7 +45,7 @@ func newTeacherSettingsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get teacher-settings and output as YAML
   jamf-cli pro teacher-settings get -o yaml`,
-		Annotations: map[string]string{"jamf:privileges": "Read Teacher App Settings", "jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:privileges": "Read Teacher App Settings", "jamf:api": "pro", "jamf:gateway-privileges": "teacher-app:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -90,7 +90,7 @@ func newTeacherSettingsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Update from a file
   jamf-cli pro teacher-settings update --from-file teacher-settings.json`,
-		Annotations: map[string]string{"jamf:privileges": "Update Teacher App Settings", "jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:privileges": "Update Teacher App Settings", "jamf:api": "pro", "jamf:gateway-privileges": "teacher-app:update"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -205,7 +205,7 @@ func newTeacherSettingsHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 		Long:  "Gets Jamf Teacher app settings history",
 		Example: `  # Get history for a teacher-settings
   jamf-cli pro teacher-settings history 1`,
-		Annotations: map[string]string{"jamf:privileges": "Read Teacher App Settings", "jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:privileges": "Read Teacher App Settings", "jamf:api": "pro", "jamf:gateway-privileges": "teacher-app:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -352,7 +352,7 @@ func newTeacherSettingsAddHistoryNoteCmd(ctx *registry.CLIContext) *cobra.Comman
 		Use:         "add-history-note",
 		Short:       "Add Jamf Teacher app settings history notes",
 		Long:        "Adds Jamf Teacher app settings history notes",
-		Annotations: map[string]string{"jamf:privileges": "Update Teacher App Settings", "jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:privileges": "Update Teacher App Settings", "jamf:api": "pro", "jamf:gateway-privileges": "teacher-app:update"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

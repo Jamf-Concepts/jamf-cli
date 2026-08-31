@@ -41,7 +41,7 @@ func newAccountDrivenUserEnrollmentSessionTokenSettingsGetCmd(ctx *registry.CLIC
 
   # Get account-driven-user-enrollment-session-token-settings and output as YAML
   jamf-cli pro account-driven-user-enrollment-session-token-settings get -o yaml`,
-		Annotations: map[string]string{"jamf:privileges": "Read User-Initiated Enrollment", "jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:privileges": "Read User-Initiated Enrollment", "jamf:api": "pro", "jamf:gateway-privileges": "user-initiated-enrollment:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -86,7 +86,7 @@ func newAccountDrivenUserEnrollmentSessionTokenSettingsUpdateCmd(ctx *registry.C
 
   # Update from a file
   jamf-cli pro account-driven-user-enrollment-session-token-settings update --from-file account-driven-user-enrollment-session-token-settings.json`,
-		Annotations: map[string]string{"jamf:privileges": "Update User-Initiated Enrollment", "jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:privileges": "Update User-Initiated Enrollment", "jamf:api": "pro", "jamf:gateway-privileges": "user-initiated-enrollment:update"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

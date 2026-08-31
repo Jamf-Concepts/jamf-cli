@@ -5,8 +5,8 @@
       "file": "pro_api.json",
       "title": "Jamf Pro API",
       "version": "11.31.0",
-      "paths": 528,
-      "operations": 790
+      "paths": 526,
+      "operations": 788
     },
     "classic": {
       "file": "classic_api_resource_documentation.json",
@@ -15,7 +15,7 @@
       "paths": 273,
       "operations": 606
     },
-    "sdkCommit": "adb8d7b"
+    "sdkCommit": "589cbe3"
   },
   "spec": {
     "/pro/devices/extensionAttributes": [
@@ -1153,12 +1153,6 @@
     ],
     "/pro/v1/supervision-identities/{}/download": [
       "GET"
-    ],
-    "/pro/v1/system/initialize": [
-      "POST"
-    ],
-    "/pro/v1/system/platform-initialize": [
-      "POST"
     ],
     "/pro/v1/teacher-app": [
       "GET",

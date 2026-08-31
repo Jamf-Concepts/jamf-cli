@@ -36,7 +36,7 @@ func newRenewMdmProfilesRenewProfileCmd(ctx *registry.CLIContext) *cobra.Command
 		Use:         "renew-profile",
 		Short:       "Renew MDM Profile",
 		Long:        "Renews the device's MDM Profile, including the device identity certificate within the MDM Profile.",
-		Annotations: map[string]string{"jamf:privileges": "Send Command to Renew MDM Profile", "jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:privileges": "Send Command to Renew MDM Profile", "jamf:api": "pro", "jamf:gateway-privileges": "device-actions:execute"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

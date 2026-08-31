@@ -50,7 +50,7 @@ func newClassicPatchExternalSourcesListCmd(ctx *registry.CLIContext) *cobra.Comm
 
   # List patchexternalsources and extract IDs
   jamf-cli pro classic-patch-external-sources list --field id`,
-		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "patch-external-source:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/patchexternalsources", nil)
@@ -107,7 +107,7 @@ func newClassicPatchExternalSourcesGetCmd(ctx *registry.CLIContext) *cobra.Comma
 
   # Get a patch_external_source and output as YAML
   jamf-cli pro classic-patch-external-sources get 1 -o yaml`,
-		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "patch-external-source:read"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -166,7 +166,7 @@ func newClassicPatchExternalSourcesCreateCmd(ctx *registry.CLIContext) *cobra.Co
 		Use:         "create",
 		Short:       "Create a patch_external_source",
 		Long:        "Create a new patch_external_source. Reads the XML body from --from-file or stdin.",
-		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "patch-external-source:create"},
 		Example: `  # Create a patch_external_source from an XML file
   jamf-cli pro classic-patch-external-sources create --from-file patch_external_source.xml
 
@@ -205,7 +205,7 @@ func newClassicPatchExternalSourcesUpdateCmd(ctx *registry.CLIContext) *cobra.Co
 		Use:         "update [<id>]",
 		Short:       "Update a patch_external_source",
 		Long:        "Update an existing patch_external_source by ID. Reads the XML body from --from-file or stdin.",
-		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "patch-external-source:update"},
 		Example: `  # Update a patch_external_source from an XML file
   jamf-cli pro classic-patch-external-sources update 1 --from-file patch_external_source.xml
 
@@ -268,7 +268,7 @@ func newClassicPatchExternalSourcesDeleteCmd(ctx *registry.CLIContext) *cobra.Co
 
   # Delete without confirmation prompt
   jamf-cli pro classic-patch-external-sources delete 1 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true", "jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:api": "pro-classic", "jamf:gateway-privileges": "patch-external-source:delete"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -441,7 +441,7 @@ func newClassicPatchExternalSourcesApplyCmd(ctx *registry.CLIContext) *cobra.Com
 	cmd := &cobra.Command{
 		Use:         "apply",
 		Short:       "Create or replace a patch_external_source by name",
-		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "patch-external-source:create,patch-external-source:read,patch-external-source:update"},
 		Long: `Create or replace a patch_external_source. Reads XML from --from-file or stdin.
 
 The name field in the input XML is used to check if the resource already

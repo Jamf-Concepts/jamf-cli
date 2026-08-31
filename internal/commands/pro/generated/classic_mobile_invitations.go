@@ -46,7 +46,7 @@ func newClassicMobileInvitationsListCmd(ctx *registry.CLIContext) *cobra.Command
 
   # List mobiledeviceinvitations and extract IDs
   jamf-cli pro classic-mobile-invitations list --field id`,
-		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "enrollment-invitations:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/mobiledeviceinvitations", nil)
@@ -100,7 +100,7 @@ func newClassicMobileInvitationsGetCmd(ctx *registry.CLIContext) *cobra.Command 
 
   # Get a mobile_device_invitation and output as YAML
   jamf-cli pro classic-mobile-invitations get 1 -o yaml`,
-		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "enrollment-invitations:read"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -159,7 +159,7 @@ func newClassicMobileInvitationsCreateCmd(ctx *registry.CLIContext) *cobra.Comma
 		Use:         "create",
 		Short:       "Create a mobile_device_invitation",
 		Long:        "Create a new mobile_device_invitation. Reads the XML body from --from-file or stdin.",
-		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "enrollment-invitations:create"},
 		Example: `  # Create a mobile_device_invitation from an XML file
   jamf-cli pro classic-mobile-invitations create --from-file mobile_device_invitation.xml
 
@@ -204,7 +204,7 @@ func newClassicMobileInvitationsDeleteCmd(ctx *registry.CLIContext) *cobra.Comma
 
   # Delete without confirmation prompt
   jamf-cli pro classic-mobile-invitations delete 1 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true", "jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:api": "pro-classic", "jamf:gateway-privileges": "enrollment-invitations:delete"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

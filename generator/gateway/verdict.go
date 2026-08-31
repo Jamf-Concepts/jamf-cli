@@ -51,10 +51,13 @@ type Verdict struct {
 	Detail string
 	// Scopes are the gateway scopes the operation requires, from the spec's
 	// x-required-privileges. Empty for an unserved operation by definition, and
-	// legitimately empty for the 44 unauthenticated Jamf Pro endpoints; carried
-	// because this lookup is the natural home for wiring the Platform 403
-	// privilege hint.
+	// legitimately empty for the 44 unauthenticated Jamf Pro endpoints.
 	Scopes []string
+	// ScopesByMethod is the subtree form of Scopes, set only by VerdictSubtree:
+	// a Classic resource is judged as a whole but its scopes are per method
+	// (accounts:read for a GET, accounts:update for a PUT), so one flat list
+	// would tell a reader that a list needs the delete permission.
+	ScopesByMethod map[string][]string
 }
 
 // probedUnserved records operations a wire probe found unrouted. It exists
@@ -166,7 +169,7 @@ func (c *Coverage) VerdictSubtree(path string) Verdict {
 		return Verdict{}
 	}
 	if hasSubtree(c.Spec, key) {
-		return Verdict{Level: Served}
+		return Verdict{Level: Served, ScopesByMethod: c.subtreeScopes(key)}
 	}
 
 	ns, apiName, apiVersion := c.namespace(key)
@@ -183,6 +186,39 @@ func (c *Coverage) VerdictSubtree(path string) Verdict {
 		Basis:  BasisUnpublished,
 		Detail: fmt.Sprintf("not declared by the gateway's %s %s", apiName, apiVersion),
 	}
+}
+
+// subtreeScopes unions the scopes of every operation at or beneath key, keyed by
+// method.
+//
+// Unioning is right for a Classic resource because its paths are one resource
+// reached by different lookups — /accounts/userid/{} and /accounts/username/{}
+// carry identical scopes per method — so the union is that one answer rather
+// than a merge of several. Were a resource ever to disagree with itself, the
+// union says so by carrying both, which is the honest rendering of a fact this
+// table cannot resolve.
+func (c *Coverage) subtreeScopes(key string) map[string][]string {
+	if c == nil {
+		return nil
+	}
+	out := map[string][]string{}
+	for path, byMethod := range c.Scopes {
+		if path != key && !strings.HasPrefix(path, key+"/") {
+			continue
+		}
+		for method, scopes := range byMethod {
+			for _, sc := range scopes {
+				out[method] = appendUnique(out[method], sc)
+			}
+		}
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	for _, scopes := range out {
+		sort.Strings(scopes)
+	}
+	return out
 }
 
 func hasSubtree[V any](m map[string]V, key string) bool {

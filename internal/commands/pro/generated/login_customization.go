@@ -86,7 +86,7 @@ func newLoginCustomizationUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Update from a file
   jamf-cli pro login-customization update --from-file login-customization.json`,
-		Annotations: map[string]string{"jamf:privileges": "Update Login Disclaimer", "jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:privileges": "Update Login Disclaimer", "jamf:api": "pro", "jamf:gateway-privileges": "login-disclaimer:update"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

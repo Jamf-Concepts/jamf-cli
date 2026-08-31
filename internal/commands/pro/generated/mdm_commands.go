@@ -51,7 +51,7 @@ func newMdmCommandsListCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # List mdm-commands and extract IDs
   jamf-cli pro mdm-commands list --field id`,
-		Annotations: map[string]string{"jamf:privileges": "View MDM command information in Jamf Pro API", "jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:privileges": "View MDM command information in Jamf Pro API", "jamf:api": "pro", "jamf:gateway-privileges": "device-actions:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -199,7 +199,7 @@ func newMdmCommandsBlankPushCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:         "blank-push",
 		Short:       "Send blank push notifications to a list of client management IDs.",
 		Long:        "Accepts a list of client management IDs and sends a blank push notification to each. Returns a list of UUIDs that encountered errors.",
-		Annotations: map[string]string{"jamf:privileges": "View MDM command information in Jamf Pro API", "jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:privileges": "View MDM command information in Jamf Pro API", "jamf:api": "pro", "jamf:gateway-privileges": "device-actions:execute"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

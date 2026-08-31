@@ -50,7 +50,7 @@ func newClassicSoftwareUpdateServersListCmd(ctx *registry.CLIContext) *cobra.Com
 
   # List softwareupdateservers and extract IDs
   jamf-cli pro classic-software-update-servers list --field id`,
-		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "software-update-servers:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/softwareupdateservers", nil)
@@ -107,7 +107,7 @@ func newClassicSoftwareUpdateServersGetCmd(ctx *registry.CLIContext) *cobra.Comm
 
   # Get a software_update_server and output as YAML
   jamf-cli pro classic-software-update-servers get 1 -o yaml`,
-		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "software-update-servers:read"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -166,7 +166,7 @@ func newClassicSoftwareUpdateServersCreateCmd(ctx *registry.CLIContext) *cobra.C
 		Use:         "create",
 		Short:       "Create a software_update_server",
 		Long:        "Create a new software_update_server. Reads the XML body from --from-file or stdin.",
-		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "software-update-servers:create"},
 		Example: `  # Create a software_update_server from an XML file
   jamf-cli pro classic-software-update-servers create --from-file software_update_server.xml
 
@@ -205,7 +205,7 @@ func newClassicSoftwareUpdateServersUpdateCmd(ctx *registry.CLIContext) *cobra.C
 		Use:         "update [<id>]",
 		Short:       "Update a software_update_server",
 		Long:        "Update an existing software_update_server by ID. Reads the XML body from --from-file or stdin.",
-		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "software-update-servers:update"},
 		Example: `  # Update a software_update_server from an XML file
   jamf-cli pro classic-software-update-servers update 1 --from-file software_update_server.xml
 
@@ -268,7 +268,7 @@ func newClassicSoftwareUpdateServersDeleteCmd(ctx *registry.CLIContext) *cobra.C
 
   # Delete without confirmation prompt
   jamf-cli pro classic-software-update-servers delete 1 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true", "jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:api": "pro-classic", "jamf:gateway-privileges": "software-update-servers:delete"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -441,7 +441,7 @@ func newClassicSoftwareUpdateServersApplyCmd(ctx *registry.CLIContext) *cobra.Co
 	cmd := &cobra.Command{
 		Use:         "apply",
 		Short:       "Create or replace a software_update_server by name",
-		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "software-update-servers:create,software-update-servers:read,software-update-servers:update"},
 		Long: `Create or replace a software_update_server. Reads XML from --from-file or stdin.
 
 The name field in the input XML is used to check if the resource already

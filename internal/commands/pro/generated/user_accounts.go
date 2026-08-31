@@ -56,7 +56,7 @@ func newUserAccountsListCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # List user-accounts and extract IDs
   jamf-cli pro user-accounts list --field id`,
-		Annotations: map[string]string{"jamf:privileges": "Read Accounts", "jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:privileges": "Read Accounts", "jamf:api": "pro", "jamf:gateway-privileges": "accounts:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -211,7 +211,7 @@ func newUserAccountsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a user-account and output as YAML
   jamf-cli pro user-accounts get 1 -o yaml`,
-		Annotations: map[string]string{"jamf:privileges": "Read Accounts", "jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:privileges": "Read Accounts", "jamf:api": "pro", "jamf:gateway-privileges": "accounts:read"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -274,7 +274,7 @@ func newUserAccountsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a user-account, modify it, and create a copy
   jamf-cli pro user-accounts get 1 -o json | jq '.name = "Copy"' | jamf-cli pro user-accounts create`,
-		Annotations: map[string]string{"jamf:privileges": "Create Accounts", "jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:privileges": "Create Accounts", "jamf:api": "pro", "jamf:gateway-privileges": "accounts:create"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -360,7 +360,7 @@ func newUserAccountsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a user-account, modify, and update
   jamf-cli pro user-accounts get 1 -o json | jq '.name = "New Name"' | jamf-cli pro user-accounts update 1`,
-		Annotations: map[string]string{"jamf:privileges": "Update Accounts", "jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:privileges": "Update Accounts", "jamf:api": "pro", "jamf:gateway-privileges": "accounts:update"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -504,7 +504,7 @@ func newUserAccountsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Delete without confirmation prompt
   jamf-cli pro user-accounts delete 1 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Delete Accounts", "jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Delete Accounts", "jamf:api": "pro", "jamf:gateway-privileges": "accounts:delete"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -707,7 +707,7 @@ func newUserAccountsApplyCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "apply",
 		Short:       "Create or replace a user-account by name",
-		Annotations: map[string]string{"jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:api": "pro", "jamf:gateway-privileges": "accounts:create,accounts:read,accounts:update"},
 		Long: `Create or replace a user-account. Reads JSON or YAML from --from-file or stdin.
 
 The username field in the input is used to check if the resource

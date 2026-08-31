@@ -35,7 +35,7 @@ func newSelfServiceBrandingImagesUploadCmd(ctx *registry.CLIContext) *cobra.Comm
 		Use:         "upload",
 		Short:       "Upload an image",
 		Long:        "Uploads an image",
-		Annotations: map[string]string{"jamf:privileges": "Update Self Service Branding Configuration", "jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:privileges": "Update Self Service Branding Configuration", "jamf:api": "pro", "jamf:gateway-privileges": "self-service:update"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

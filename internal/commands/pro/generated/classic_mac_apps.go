@@ -56,7 +56,7 @@ func newClassicMacAppsListCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # List macapplications and extract IDs
   jamf-cli pro classic-mac-apps list --field id`,
-		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "applications:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/macapplications", nil)
@@ -113,7 +113,7 @@ func newClassicMacAppsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a mac_application and output as YAML
   jamf-cli pro classic-mac-apps get 1 -o yaml`,
-		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "applications:read"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -173,7 +173,7 @@ func newClassicMacAppsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:         "create",
 		Short:       "Create a mac_application",
 		Long:        "Create a new mac_application. Reads the XML body from --from-file or stdin.",
-		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "applications:create"},
 		Example: `  # Create a mac_application from an XML file
   jamf-cli pro classic-mac-apps create --from-file mac_application.xml
 
@@ -223,7 +223,7 @@ func newClassicMacAppsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:         "update [<id>]",
 		Short:       "Update a mac_application",
 		Long:        "Update an existing mac_application by ID. Reads the XML body from --from-file or stdin.",
-		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "applications:update"},
 		Example: `  # Update a mac_application from an XML file
   jamf-cli pro classic-mac-apps update 1 --from-file mac_application.xml
 
@@ -330,7 +330,7 @@ func newClassicMacAppsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Delete without confirmation prompt
   jamf-cli pro classic-mac-apps delete 1 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true", "jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:api": "pro-classic", "jamf:gateway-privileges": "applications:delete"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -505,7 +505,7 @@ func newClassicMacAppsApplyCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "apply",
 		Short:       "Create or replace a mac_application by name",
-		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "applications:create,applications:read,applications:update"},
 		Long: `Create or replace a mac_application. Reads XML from --from-file or stdin.
 
 The name field in the input XML is used to check if the resource already

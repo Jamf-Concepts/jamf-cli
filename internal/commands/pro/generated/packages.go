@@ -63,7 +63,7 @@ func newPackagesListCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # List packages and extract IDs
   jamf-cli pro packages list --field id`,
-		Annotations: map[string]string{"jamf:privileges": "Read Packages", "jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:privileges": "Read Packages", "jamf:api": "pro", "jamf:gateway-privileges": "packages:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -218,7 +218,7 @@ func newPackagesGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a package and output as YAML
   jamf-cli pro packages get 1 -o yaml`,
-		Annotations: map[string]string{"jamf:privileges": "Read Packages", "jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:privileges": "Read Packages", "jamf:api": "pro", "jamf:gateway-privileges": "packages:read"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -281,7 +281,7 @@ func newPackagesCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a package, modify it, and create a copy
   jamf-cli pro packages get 1 -o json | jq '.name = "Copy"' | jamf-cli pro packages create`,
-		Annotations: map[string]string{"jamf:privileges": "Create Packages", "jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:privileges": "Create Packages", "jamf:api": "pro", "jamf:gateway-privileges": "packages:create"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -386,7 +386,7 @@ func newPackagesUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a package, modify, and update
   jamf-cli pro packages get 1 -o json | jq '.name = "New Name"' | jamf-cli pro packages update 1`,
-		Annotations: map[string]string{"jamf:privileges": "Update Packages", "jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:privileges": "Update Packages", "jamf:api": "pro", "jamf:gateway-privileges": "packages:update"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -546,7 +546,7 @@ func newPackagesDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Delete without confirmation prompt
   jamf-cli pro packages delete 1 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Delete Packages", "jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Delete Packages", "jamf:api": "pro", "jamf:gateway-privileges": "packages:delete"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -752,7 +752,7 @@ func newPackagesDeleteMultipleCmd(ctx *registry.CLIContext) *cobra.Command {
 		Long:  "IDs of the packages to be deleted",
 		Example: `  # Delete multiple packages by IDs
   jamf-cli pro packages delete-multiple --ids 1,2,3 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Delete Packages", "jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Delete Packages", "jamf:api": "pro", "jamf:gateway-privileges": "packages:delete"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -855,7 +855,7 @@ func newPackagesHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get history by name
   jamf-cli pro packages history --name "Example"`,
-		Annotations: map[string]string{"jamf:privileges": "Read Packages", "jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:privileges": "Read Packages", "jamf:api": "pro", "jamf:gateway-privileges": "packages:read"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -1023,7 +1023,7 @@ func newPackagesAddHistoryNoteCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:         "add-history-note [<id>]",
 		Short:       "Add specified Package history object notes",
 		Long:        "Adds specified Package history object notes",
-		Annotations: map[string]string{"jamf:privileges": "Update Packages", "jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:privileges": "Update Packages", "jamf:api": "pro", "jamf:gateway-privileges": "packages:update"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -1111,7 +1111,7 @@ func newPackagesExportCmd(ctx *registry.CLIContext) *cobra.Command {
 		Long:  "Export Packages collection",
 		Example: `  # Export packages to CSV
   jamf-cli pro packages export --out-file packages.csv`,
-		Annotations: map[string]string{"jamf:privileges": "Read Packages", "jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:privileges": "Read Packages", "jamf:api": "pro", "jamf:gateway-privileges": "packages:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			reqCtx = registry.WithAccept(reqCtx, "*/*")
@@ -1241,7 +1241,7 @@ func newPackagesHistoryExportCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Pipe to stdout
   jamf-cli pro packages history-export <id> > output.bin`,
-		Annotations: map[string]string{"jamf:privileges": "Read Packages", "jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:privileges": "Read Packages", "jamf:api": "pro", "jamf:gateway-privileges": "packages:read"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -1378,7 +1378,7 @@ func newPackagesUploadCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:         "upload [<id>]",
 		Short:       "Add a manifest to a package",
 		Long:        "Add a manifest to a package",
-		Annotations: map[string]string{"jamf:privileges": "Update Packages,Read Packages", "jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:privileges": "Update Packages,Read Packages", "jamf:api": "pro", "jamf:gateway-privileges": "packages:read,packages:update"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -1452,7 +1452,7 @@ func newPackagesApplyCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "apply",
 		Short:       "Create or replace a package by name",
-		Annotations: map[string]string{"jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:api": "pro", "jamf:gateway-privileges": "packages:create,packages:read,packages:update"},
 		Long: `Create or replace a package. Reads JSON or YAML from --from-file or stdin.
 
 The packageName field in the input is used to check if the resource

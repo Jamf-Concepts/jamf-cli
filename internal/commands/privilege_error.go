@@ -9,23 +9,61 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/exitcode"
+	"github.com/Jamf-Concepts/jamf-cli/internal/privileges"
 )
 
-// EnrichPrivilegeError augments a 403 PermissionDenied error's hint with the
-// specific Jamf privileges the executed command declares via its
-// jamf:privileges annotation (emitted by the generator from
-// x-required-privileges). For any other error code, a nil command/error, or a
-// command without the annotation, err is returned unchanged.
+// statusCarrier is the platform SDK's *jamfplatform.APIResponseError, as the
+// only thing needed from it. Matched by behaviour rather than by type because
+// the concrete type is an alias into the SDK's internal package: nothing outside
+// the SDK can construct one, so a type assertion would make this branch
+// reachable only by standing up an HTTP server and driving a real SDK call.
+type statusCarrier interface {
+	HasStatus(int) bool
+}
+
+// EnrichPrivilegeError names the permission a 403 wanted, in the vocabulary of
+// whichever API served the command.
+//
+// The two vocabularies are independent sets and neither is derivable from the
+// other. A Jamf Pro instance enforces API-role privileges ("Read Categories"),
+// granted in Jamf Pro. The Jamf Platform gateway enforces GA capability
+// permissions (categories:read), granted in Jamf Account when the API
+// integration is created; the GA consolidation folded several Jamf Pro
+// privileges into one capability, and Jamf Account no longer offers the old
+// names at all. So printing the wrong one sends the operator to a console where
+// the grant it names does not exist.
+//
+// Three cases, in the order they are checked:
+//
+//   - A Platform command (jamf:api platform-gateway, which covers the
+//     gateway-served Security Cloud commands too). Its jamf:privileges
+//     annotation is already the capability vocabulary, and its error comes
+//     from the platform SDK rather than internal/client, so nothing has mapped
+//     it to an exit code yet.
+//   - A Pro or Classic command whose 403 hint already carries a platform
+//     answer: internal/client wrote it, for the request it actually sent, on a
+//     gateway credential. Left alone — appending the Jamf Pro names here is the
+//     bug this whole function exists to avoid.
+//   - Everything else: a Pro or Classic 403 against a Jamf Pro instance, where
+//     the annotation's Jamf Pro privilege names are the right answer.
 func EnrichPrivilegeError(cmd *cobra.Command, err error) error {
 	if cmd == nil || err == nil {
 		return err
 	}
 	privs := cmd.Annotations["jamf:privileges"]
+
+	if cmd.Annotations[annotationAPI] == apiPlatformGateway {
+		return enrichPlatformPrivilegeError(privs, err)
+	}
+
 	if privs == "" {
 		return err
 	}
 	var e *exitcode.Error
 	if !errors.As(err, &e) || e.Code != exitcode.PermissionDenied {
+		return err
+	}
+	if privileges.HasHint(e.Hint) {
 		return err
 	}
 	names := strings.ReplaceAll(privs, ",", ", ")
@@ -35,4 +73,59 @@ func EnrichPrivilegeError(cmd *cobra.Command, err error) error {
 		e.Hint = "Required privilege(s): " + names
 	}
 	return err
+}
+
+// enrichPlatformPrivilegeError maps a platform SDK 403 onto the documented
+// permission-denied exit code and names the Jamf Account permissions the
+// operation requires.
+//
+// The status has to be read off the SDK error because a platform command
+// returns it untouched: unlike internal/client, the SDK has no exit-code
+// mapping, so a gateway 403 arrived as a bare exit 1 — the code the README
+// documents for a generic failure, on the one failure with a specific code and a
+// specific remedy. Only 403 is remapped; the rest are left as they are, since
+// the privilege hint is the reason to touch it at all.
+//
+// The annotation is used rather than a path lookup because these commands do not
+// go through internal/client and their annotation is already the capability
+// vocabulary, straight from the spec's x-required-privileges.
+func enrichPlatformPrivilegeError(privs string, err error) error {
+	var e *exitcode.Error
+	if errors.As(err, &e) {
+		// Already classified — a dry-run guard, a documented-status render, or
+		// a pre-flight refusal. Those are not the gateway's answer.
+		if e.Code == exitcode.PermissionDenied && !privileges.HasHint(e.Hint) {
+			e.Hint = joinHint(e.Hint, platformPrivilegeHint(privs))
+		}
+		return err
+	}
+	var apiErr statusCarrier
+	if !errors.As(err, &apiErr) || !apiErr.HasStatus(403) {
+		return err
+	}
+	return exitcode.Wrap(exitcode.PermissionDenied, err).WithHint(platformPrivilegeHint(privs))
+}
+
+// platformPrivilegeHint renders the capability permissions, falling back to the
+// generic gateway answer when the operation declares none. An operation with no
+// x-required-privileges is not an operation needing no permission: the three
+// Jamf Account specs are published with theirs stripped by the SDK's build, so
+// naming nothing is the honest answer and inventing names here would shadow the
+// real ones the day upstream restores them.
+func platformPrivilegeHint(privs string) string {
+	if privs == "" {
+		return privileges.GatewayFallbackHint()
+	}
+	scopes := strings.Split(privs, ",")
+	if hint := privileges.Hint(scopes); hint != "" {
+		return hint
+	}
+	return privileges.GatewayFallbackHint()
+}
+
+func joinHint(existing, added string) string {
+	if existing == "" {
+		return added
+	}
+	return strings.TrimRight(existing, ". ") + ". " + added
 }

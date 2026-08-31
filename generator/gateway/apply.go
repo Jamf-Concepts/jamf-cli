@@ -43,7 +43,7 @@ func Apply(cov *Coverage, ops []Op) []Entry {
 			// subtree — see Coverage.VerdictSubtree.
 			v = cov.VerdictSubtree(op.GatewayPath)
 		}
-		op.Set(string(v.Level), string(v.Basis), v.Detail)
+		op.Set(v)
 		if v.Level == Served {
 			continue
 		}
@@ -79,8 +79,10 @@ type Op struct {
 	// generate time would mean re-deriving the template's own logic and would
 	// miss a shape the day one is added.
 	Wildcard bool
-	// Set records the verdict back onto whatever the caller parsed.
-	Set func(level, basis, detail string)
+	// Set records the verdict back onto whatever the caller parsed. It takes the
+	// whole Verdict rather than its strings because the scopes travel with it —
+	// per operation for a modern path, per method for a Classic subtree.
+	Set func(Verdict)
 }
 
 // Summary renders a human-readable count per level, for the generator's log.

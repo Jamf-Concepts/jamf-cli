@@ -37,7 +37,7 @@ func newClassicPatchReportsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a patch_report and output as YAML
   jamf-cli pro classic-patch-reports get 1 -o yaml`,
-		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "patch-management-software-titles:read"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

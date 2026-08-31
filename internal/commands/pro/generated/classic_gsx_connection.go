@@ -40,7 +40,7 @@ func newClassicGsxConnectionGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a gsx_connection and output as YAML
   jamf-cli pro classic-gsx-connection get 1 -o yaml`,
-		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "gsx-connection:read"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -87,7 +87,7 @@ func newClassicGsxConnectionUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:         "update <id>",
 		Short:       "Update a gsx_connection",
 		Long:        "Update an existing gsx_connection by ID. Reads the XML body from --from-file or stdin.",
-		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "gsx-connection:update"},
 		Example: `  # Update a gsx_connection from an XML file
   jamf-cli pro classic-gsx-connection update 1 --from-file gsx_connection.xml
 

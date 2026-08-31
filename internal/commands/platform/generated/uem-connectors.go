@@ -78,13 +78,13 @@ func newUemConnectorsCreateCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "create",
 		Short:       "Create connector",
-		Long:        "Creates a new connector for the tenant. On success returns the identifier of the created connector together with an `href` locating it, as a path relative to the base URL the request was made against.\n\nAllowed values:\n  authStrategy: M2M, JAMF_PRO_OAUTH, BASIC\n  vendor: INTUNE, XENMOBILE, MAAS360, AIRWATCH, JAMF_PRO, JAMF_SCHOOL, MOBILEIRONCLOUD, MOBILEIRONCORE, GOOGLE, WIZY",
+		Long:        "Creates a new connector for the tenant. On success returns the identifier of the created connector together with an `href` locating it, as a path relative to the base URL the request was made against.\n\nThe request body is one of 2 shapes, selected by \"vendor\": JamfProConnectorCreateRequest, ConnectorCreateRequest. --scaffold renders the first; the others differ in which fields they accept.\n\nAllowed values:\n  authStrategy: JAMF_PRO_OAUTH, BASIC, M2M\n  vendor: JAMF_PRO, INTUNE, XENMOBILE, MAAS360, AIRWATCH, JAMF_SCHOOL, MOBILEIRONCLOUD, MOBILEIRONCORE, GOOGLE, WIZY",
 		Annotations: map[string]string{"jamf:privileges": "uem-connect:create", "jamf:api": "platform-gateway"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if scaffoldFlag {
 				// Scaffold prints raw JSON regardless of -o, so the output
 				// can be piped straight back into --file.
-				fmt.Println("{\n  \"authStrategy\": \"M2M\",\n  \"deviceSyncAuth\": {\n    \"clientId\": \"\",\n    \"clientSecret\": \"\",\n    \"password\": \"\",\n    \"username\": \"\"\n  },\n  \"isoCountry\": \"US\",\n  \"tenantId\": \"ff584e5b-d9f8-4c1c-8752-449d8c5e45d5\",\n  \"url\": \"https://yourcompany.jamfcloud.com\",\n  \"vendor\": \"JAMF_PRO\"\n}")
+				fmt.Println("{\n  \"authStrategy\": \"JAMF_PRO_OAUTH\",\n  \"deviceSyncAuth\": {\n    \"clientId\": \"1a2b3c4d-5e6f-7a8b-9c0d-1e2f3a4b5c6d\",\n    \"clientSecret\": \"abcXYZ123secret\",\n    \"password\": \"s3cr3t\",\n    \"username\": \"svc-jsc\"\n  },\n  \"isoCountry\": \"US\",\n  \"tenantId\": \"acme-tenant\",\n  \"url\": \"https://yourcompany.jamfcloud.com\",\n  \"vendor\": \"JAMF_PRO\"\n}")
 				return nil
 			}
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
