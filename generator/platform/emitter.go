@@ -30,9 +30,13 @@ type tableColumn struct {
 // platformTableColumns maps a platform resource to its preferred columns for
 // list table output. Only applies to paginated list operations.
 //
-// Keyed "{service}/{name}" — the gateway namespace plus the resource name — for
-// the same reason platformResourceNameOverrides is: a bare resource name is not
-// unique across services. Two specs produce a "device-groups": the Pro device
+// Keyed "{namespace}/{name}" — the gateway namespace, in full, plus the resource
+// name — for the same reason platformResourceNameOverrides is: a bare resource
+// name is not unique across services. "In full" matters: the namespace can be
+// several segments ("ai/governance/policies", "securitycloud/uem-connect"), and
+// keying on the first alone both collides and, since a key that matches nothing
+// silently emits no columns, does so without a word of complaint. See
+// namespaceFromPath. Two specs produce a "device-groups": the Pro device
 // group inventory and Security Cloud's device groups. Keyed on the bare name,
 // the columns below landed on whichever of the two kept that name after
 // applyResourceNameOverride ran, which was Security Cloud's — so the Pro
@@ -40,6 +44,26 @@ type tableColumn struct {
 // Cloud groups, which carry only id and name, printed four permanently empty
 // columns.
 var platformTableColumns = map[string][]tableColumn{
+	// AI Governance. schemaDrift and hasDraft are the two fields an operator
+	// actually scans a list for — the first says the stored settings were
+	// authored against an older tool schema, the second that unpublished
+	// changes are sitting on the policy — and neither is discoverable from a
+	// default JSON dump of eleven fields.
+	"ai/governance/policies/ai-policies": {
+		{Field: "id", Label: "id"},
+		{Field: "name", Label: "name"},
+		{Field: "toolId", Label: "tool"},
+		{Field: "status", Label: "status"},
+		{Field: "currentVersionNumber", Label: "version"},
+		{Field: "hasDraft", Label: "hasDraft"},
+		{Field: "schemaDrift", Label: "schemaDrift"},
+		{Field: "updatedAt", Label: "updated"},
+	},
+	"ai/governance/policies/ai-tools": {
+		{Field: "id", Label: "id"},
+		{Field: "displayName", Label: "displayName"},
+		{Field: "schemaVersion", Label: "schemaVersion"},
+	},
 	"blueprints/blueprints": {
 		{Field: "id", Label: "id"},
 		{Field: "name", Label: "name"},
@@ -282,7 +306,7 @@ func buildTemplateResource(r *parser.Resource) (templateResource, error) {
 		}
 		var listTableCols []tableColumn
 		if opCopy.Name == "list" {
-			listTableCols = platformTableColumns[serviceFromPath(opCopy.Path)+"/"+r.Name]
+			listTableCols = platformTableColumns[namespaceFromPath(opCopy.Path)+"/"+r.Name]
 		}
 		scaffold, err := buildScaffold(&opCopy)
 		if err != nil {
@@ -379,6 +403,32 @@ func serviceFromPath(path string) string {
 	}
 	service, _, _ := strings.Cut(rest, "/")
 	return service
+}
+
+// namespaceFromPath returns a path's whole gateway namespace — every segment
+// before the version ("/ai/governance/policies/v1/policies" →
+// "ai/governance/policies", "/securitycloud/uem-connect/v1/connectors" →
+// "securitycloud/uem-connect").
+//
+// Distinct from serviceFromPath, which returns the first segment only. That is
+// the right answer for the jamf:api label, where "securitycloud" is the product
+// whichever sub-namespace an operation sits in. It is the wrong answer for a
+// lookup key: two namespaces sharing a first segment would collide, and — the
+// way this was actually found — a three-segment namespace produced the key
+// "ai/ai-policies", which matched nothing and silently emitted a list with no
+// table columns. A missing key is invisible, hence TestPlatformTableColumnKeys.
+func namespaceFromPath(path string) string {
+	rest, ok := strings.CutPrefix(path, "/")
+	if !ok {
+		return ""
+	}
+	segs := strings.Split(rest, "/")
+	for i, seg := range segs {
+		if len(seg) >= 2 && seg[0] == 'v' && seg[1] >= '0' && seg[1] <= '9' {
+			return strings.Join(segs[:i], "/")
+		}
+	}
+	return segs[0]
 }
 
 // enumChoice names one request-body field that is restricted to a fixed set of

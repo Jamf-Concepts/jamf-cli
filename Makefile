@@ -195,6 +195,7 @@ sync-spec:
 # made `make verify-platform-specs` depend on that, and an unrelated spec sitting
 # in the directory would silently join the build on any branch.
 PLATFORM_SDK_SPECS = \
+	ai_governance_policies_api.json \
 	blueprints_api.json \
 	compliance_benchmark_engine.json \
 	declaration_reporting_service.json \

@@ -695,13 +695,20 @@ in the config file. It never runs in CI, when output is piped, or under
 			// Skip auth for commands that don't need it. Most are matched
 			// anywhere in the chain (e.g. "config" covers all subcommands,
 			// "setup" covers both "pro setup" and "protect setup").
-			// "commands" is intentionally root-child-only: the root-level
-			// "jamf-cli commands" listing command must be skipped, but
-			// "pro mdm-commands commands" must NOT be skipped.
+			//
+			// rootOnlySkip names the ones that must match a direct child of the
+			// root and nothing else, because they are ordinary English words a
+			// resource can legitimately use for an operation. Matching them
+			// anywhere is a silent auth bypass: the command runs with no client
+			// and fails at its own gate with "this command requires platform
+			// gateway auth", which sends the operator to fix credentials that
+			// were never the problem. "commands" was already here because
+			// "pro mdm-commands commands" must not skip; "version" joined it
+			// when AI Governance's GET /policies/{id}/versions/{n} became
+			// "platform ai-policies version" and stopped authenticating.
 			chainSkip := map[string]bool{
 				"completion":    true,
 				"help":          true,
-				"version":       true,
 				"config":        true,
 				"diff":          true,
 				"setup":         true,
@@ -710,12 +717,15 @@ in the config file. It never runs in CI, when output is piped, or under
 				"mcp":           true,
 				"agent-context": true,
 			}
+			rootOnlySkip := map[string]bool{
+				"commands": true,
+				"version":  true,
+			}
 			for c := cmd; c != nil; c = c.Parent() {
 				if chainSkip[c.Name()] {
 					return nil
 				}
-				// "commands" only skips when it is a direct child of the root.
-				if c.Name() == "commands" && c.Parent() != nil && c.Parent().Parent() == nil {
+				if rootOnlySkip[c.Name()] && c.Parent() != nil && c.Parent().Parent() == nil {
 					return nil
 				}
 			}

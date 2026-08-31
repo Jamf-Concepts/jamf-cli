@@ -12,6 +12,7 @@ type SpecSource struct {
 // Sources lists every spec file consumed when this package was generated.
 // Order: stable, by File. Use `jamf-cli version -v` to print.
 var Sources = []SpecSource{
+	{File: "specs/platform/ai_governance_policies_api.json", SHA256: "7c0ba60fecae405a33f290073a7868c61dd5c08b2bca3d2c987f3dc074f91a0d"},
 	{File: "specs/platform/blueprints_api.json", SHA256: "021958edc47e689f6edbc0631a47f4fa420edfd61477636402da7bbfb7762480"},
 	{File: "specs/platform/compliance_benchmark_engine.json", SHA256: "7c839ad3be5482f8673ef8afc80d0ee2995084c17aaef387cf084f43c914e7ed"},
 	{File: "specs/platform/declaration_reporting_service.json", SHA256: "eec5896c630f227c282078042307542dde41d023276f05e05e74283c432bfe03"},

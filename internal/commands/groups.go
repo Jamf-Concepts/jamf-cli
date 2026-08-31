@@ -688,15 +688,19 @@ func applySecurityGroups(security *cobra.Command) {
 
 const (
 	groupPlatformCore = "platform-core"
+	groupPlatformAI   = "platform-ai"
 )
 
 var platformGroups = []*cobra.Group{
 	{ID: groupPlatformCore, Title: "Core Commands:"},
+	{ID: groupPlatformAI, Title: "AI Governance:"},
 }
 
 var platformGroupMap = map[string]string{
-	"setup": groupPlatformCore,
-	"auth":  groupPlatformCore,
+	"setup":       groupPlatformCore,
+	"auth":        groupPlatformCore,
+	"ai-policies": groupPlatformAI,
+	"ai-tools":    groupPlatformAI,
 }
 
 func applyPlatformGroups(platform *cobra.Command) {

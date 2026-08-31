@@ -293,6 +293,18 @@ func collectExpectedStatuses(pathItem map[string]any, strippedPath string, out m
 // out as "runs"/"create-runs"/"current" — describing the resource rather than
 // the action. The SDK names the same three operations List/Trigger/Cancel.
 var platformOperationNameOverrides = map[string]string{
+	// AI Governance names a collection sub-path and its {id} child. Both are
+	// GETs carrying a path param, so both infer "get", and the disambiguation
+	// passes cannot separate them: they key on a shared non-param terminal
+	// segment, and the child's terminal is "{versionNumber}". Naming them here
+	// also reads better than any generic rule could — "versions"/"version" and
+	// "schema" say what they fetch, where a derived name would carry the path
+	// parameter into the command name.
+	"GET /ai/governance/policies/v1/policies/{policyId}/versions":                 "versions",
+	"GET /ai/governance/policies/v1/policies/{policyId}/versions/{versionNumber}": "version",
+	"GET /ai/governance/policies/v1/policies/{policyId}/deployment":               "deployment",
+	"GET /ai/governance/policies/v1/tools/{toolId}/schemas/{schemaVersion}":       "schema",
+
 	"GET /securitycloud/uem-connect/v1/connectors/{configId}/sync/runs":            "list",
 	"POST /securitycloud/uem-connect/v1/connectors/{configId}/sync/runs":           "trigger",
 	"DELETE /securitycloud/uem-connect/v1/connectors/{configId}/sync/runs/current": "cancel",
@@ -441,6 +453,14 @@ var platformResourceNameOverrides = map[string]string{
 	// tag keeps the unprefixed name, matching how each is surfaced (this one
 	// under `pro` as platform-device-groups, that one under `security`).
 	"device-groups/device-groups": "platform-device-groups",
+
+	// Jamf AI Governance. The spec's two tags are bare nouns — "policies"
+	// collides with Jamf Pro's own policies and "tools" says nothing about
+	// what it lists. Keyed on the full service, which is "ai/governance/
+	// policies" rather than a single segment: the gateway routes ai/governance
+	// as the product with policies and visibility as capabilities beneath it.
+	"ai/governance/policies/policies": "ai-policies",
+	"ai/governance/policies/tools":    "ai-tools",
 
 	// Jamf Security Cloud — DNS.
 	"securitycloud/zones":                    "dns-zones",

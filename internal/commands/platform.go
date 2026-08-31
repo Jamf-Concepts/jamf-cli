@@ -10,6 +10,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	platformgen "github.com/Jamf-Concepts/jamf-cli/internal/commands/platform/generated"
 	"github.com/Jamf-Concepts/jamf-cli/internal/config"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 )
@@ -24,7 +25,17 @@ func newPlatformCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(newPlatformSetupCmd())
 	cmd.AddCommand(newPlatformAuthCmd(cliCtx))
 
+	// Spec-generated Jamf AI Governance commands. These live here rather than
+	// under `pro` — where the other generated Platform resources sit — because
+	// AI Governance is not a Jamf Pro surface: it is scoped at the organization
+	// or platform-environment level, its privileges are its own
+	// (ai-policies:read and friends), and a credential reaching it need name no
+	// Jamf Pro tenant at all. `pro ai-policies` would have implied otherwise.
+	cmd.AddCommand(platformgen.NewAiPoliciesCmd(cliCtx))
+	cmd.AddCommand(platformgen.NewAiToolsCmd(cliCtx))
+
 	applyPlatformGroups(cmd)
+	applyPlatformAliases(cmd)
 
 	return cmd
 }

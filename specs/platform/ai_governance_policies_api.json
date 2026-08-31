@@ -1,0 +1,1410 @@
+{
+  "components": {
+    "parameters": {
+      "PageParam": {
+        "description": "0-based page number",
+        "in": "query",
+        "name": "page",
+        "schema": {
+          "default": 0,
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "PageSizeParam": {
+        "description": "Maximum number of results to return per page",
+        "in": "query",
+        "name": "page-size",
+        "schema": {
+          "default": 100,
+          "maximum": 500,
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "PolicyId": {
+        "description": "Policy ID",
+        "in": "path",
+        "name": "policyId",
+        "required": true,
+        "schema": {
+          "format": "uuid",
+          "type": "string"
+        }
+      },
+      "SortParam": {
+        "description": "Sorting criteria in the format: property:(asc|desc). Supported properties: createdAt, updatedAt, name.",
+        "in": "query",
+        "name": "sort",
+        "schema": {
+          "default": [
+            "createdAt:desc"
+          ],
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "X-Environment-Id": {
+        "description": "The environment UUID identifier.",
+        "in": "header",
+        "name": "X-Environment-Id",
+        "required": true,
+        "schema": {
+          "example": "e77c1408-10c8-4007-b177-abc9157fbcaa",
+          "format": "uuid",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "type": "string"
+        }
+      }
+    },
+    "responses": {
+      "BadRequest": {
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ApiError"
+            }
+          }
+        },
+        "description": "Bad request"
+      },
+      "Forbidden": {
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ApiError"
+            }
+          }
+        },
+        "description": "Insufficient permissions"
+      },
+      "NotFound": {
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ApiError"
+            }
+          }
+        },
+        "description": "Resource not found"
+      },
+      "Unauthorized": {
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ApiError"
+            }
+          }
+        },
+        "description": "Missing or invalid authentication"
+      },
+      "UnprocessableEntity": {
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ApiError"
+            }
+          }
+        },
+        "description": "Validation failed — toolId unknown, schemaVersion unknown, or settings invalid"
+      }
+    },
+    "schemas": {
+      "ApiError": {
+        "description": "Standard error response envelope returned for all non-2xx status codes.",
+        "properties": {
+          "errors": {
+            "items": {
+              "$ref": "#/components/schemas/ApiErrorItem"
+            },
+            "type": "array"
+          },
+          "traceId": {
+            "description": "Trace ID for request correlation",
+            "example": "abc123def456",
+            "type": "string"
+          }
+        },
+        "required": [
+          "traceId",
+          "errors"
+        ],
+        "type": "object"
+      },
+      "ApiErrorItem": {
+        "description": "A single error detail within an ApiError response.",
+        "properties": {
+          "code": {
+            "description": "Error code (e.g. TOOL_ID_UNKNOWN, SCHEMA_VALIDATION_FAILED, POLICY_NOT_FOUND)",
+            "example": "POLICY_NOT_FOUND",
+            "type": "string"
+          },
+          "description": {
+            "example": "The requested policy does not exist",
+            "type": "string"
+          },
+          "field": {
+            "description": "Dot-path to the offending field (for validation errors)",
+            "example": "settings.enabled",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "description"
+        ],
+        "type": "object"
+      },
+      "BlueprintDeployment": {
+        "description": "Deployment state of a single blueprint that references the policy.",
+        "properties": {
+          "blueprintId": {
+            "description": "ID of the blueprint referencing this policy",
+            "example": "c45879ba-2883-4584-ab9c-e86e3162dc2e",
+            "format": "uuid",
+            "type": "string"
+          },
+          "lastDeployment": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/DeploymentRun"
+              }
+            ],
+            "description": "Present when state is DEPLOYED or OUT_OF_DATE; null when NOT_DEPLOYED",
+            "example": {
+              "started": "2026-06-01T12:00:00Z",
+              "state": "SUCCEEDED"
+            },
+            "nullable": true
+          },
+          "state": {
+            "description": "Deployment state of the blueprint",
+            "enum": [
+              "NOT_DEPLOYED",
+              "DEPLOYED",
+              "OUT_OF_DATE"
+            ],
+            "example": "DEPLOYED",
+            "type": "string"
+          }
+        },
+        "required": [
+          "blueprintId",
+          "state"
+        ],
+        "type": "object"
+      },
+      "CreatePolicyRequest": {
+        "description": "Request body for creating a new AI governance policy with initial draft settings.",
+        "properties": {
+          "description": {
+            "example": "AI governance policy for engineering team",
+            "maxLength": 2000,
+            "nullable": true,
+            "type": "string"
+          },
+          "name": {
+            "example": "Claude Code - Engineering",
+            "maxLength": 200,
+            "minLength": 1,
+            "type": "string"
+          },
+          "schemaVersion": {
+            "description": "Vendor schema version the settings were authored against. Must be a known\nversion for the tool. Returns 422 if not found.\n",
+            "example": "2026-05-12",
+            "minLength": 1,
+            "type": "string"
+          },
+          "settings": {
+            "$ref": "#/components/schemas/VendorSettings"
+          },
+          "toolId": {
+            "description": "Must match a known tool. Returns 422 if not found.",
+            "example": "com.anthropic.claudecode",
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "toolId",
+          "schemaVersion",
+          "settings"
+        ],
+        "type": "object"
+      },
+      "CreatedResponse": {
+        "description": "Response body returned when a new policy is created, carrying its ID and URL.",
+        "properties": {
+          "href": {
+            "description": "URL of the created policy",
+            "example": "/v1/policies/550e8400-e29b-41d4-a716-446655440000",
+            "type": "string"
+          },
+          "id": {
+            "description": "Policy ID",
+            "example": "550e8400-e29b-41d4-a716-446655440000",
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "href"
+        ],
+        "type": "object"
+      },
+      "DeploymentRun": {
+        "description": "A single deployment execution of a blueprint's AI governance component.",
+        "properties": {
+          "started": {
+            "description": "Approximate deployment start time",
+            "example": "2026-06-01T12:00:00Z",
+            "format": "date-time",
+            "type": "string"
+          },
+          "state": {
+            "description": "Deployment execution state",
+            "enum": [
+              "PENDING",
+              "DEPLOYING",
+              "SUCCEEDED",
+              "FAILED"
+            ],
+            "example": "SUCCEEDED",
+            "type": "string"
+          }
+        },
+        "required": [
+          "started",
+          "state"
+        ],
+        "type": "object"
+      },
+      "PolicyDeploymentResponse": {
+        "description": "Deployment state across all blueprints that reference a policy.",
+        "properties": {
+          "blueprints": {
+            "description": "One entry per blueprint whose AI governance component references this policy. Empty array if no blueprint references the policy.",
+            "items": {
+              "$ref": "#/components/schemas/BlueprintDeployment"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "blueprints"
+        ],
+        "type": "object"
+      },
+      "PolicyDetail": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/PolicySummary"
+          }
+        ],
+        "description": "Full policy representation, extending PolicySummary with the current draft schema version and settings.",
+        "properties": {
+          "description": {
+            "example": "AI governance policy for engineering team",
+            "nullable": true,
+            "type": "string"
+          },
+          "schemaVersion": {
+            "description": "Vendor schema version the current draft settings are authored against",
+            "example": "2026-05-12",
+            "type": "string"
+          },
+          "settings": {
+            "$ref": "#/components/schemas/VendorSettings"
+          }
+        },
+        "required": [
+          "schemaVersion",
+          "settings"
+        ]
+      },
+      "PolicyListResponse": {
+        "description": "Paginated list of policy summaries.",
+        "properties": {
+          "results": {
+            "items": {
+              "$ref": "#/components/schemas/PolicySummary"
+            },
+            "type": "array"
+          },
+          "totalCount": {
+            "example": 42,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "totalCount",
+          "results"
+        ],
+        "type": "object"
+      },
+      "PolicySummary": {
+        "description": "Policy list item — does not include settings.",
+        "properties": {
+          "createdAt": {
+            "example": "2026-06-01T12:00:00Z",
+            "format": "date-time",
+            "type": "string"
+          },
+          "createdBy": {
+            "description": "Actor ID",
+            "example": "auth0|user123",
+            "type": "string"
+          },
+          "currentVersionNumber": {
+            "description": "Latest published version number. Null if never published.",
+            "example": 3,
+            "nullable": true,
+            "type": "integer"
+          },
+          "hasDraft": {
+            "description": "True if unpublished changes exist",
+            "example": true,
+            "type": "boolean"
+          },
+          "id": {
+            "example": "550e8400-e29b-41d4-a716-446655440000",
+            "format": "uuid",
+            "type": "string"
+          },
+          "name": {
+            "example": "Claude Code - Engineering",
+            "type": "string"
+          },
+          "schemaDrift": {
+            "description": "True if the draft schemaVersion differs from the current tool schema version",
+            "example": false,
+            "type": "boolean"
+          },
+          "status": {
+            "enum": [
+              "ACTIVE",
+              "ARCHIVED"
+            ],
+            "example": "ACTIVE",
+            "type": "string"
+          },
+          "toolId": {
+            "example": "com.anthropic.claudecode",
+            "type": "string"
+          },
+          "updatedAt": {
+            "example": "2026-06-15T09:30:00Z",
+            "format": "date-time",
+            "type": "string"
+          },
+          "updatedBy": {
+            "description": "Actor ID",
+            "example": "auth0|user123",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "toolId",
+          "schemaDrift",
+          "hasDraft",
+          "status",
+          "createdAt",
+          "createdBy",
+          "updatedAt",
+          "updatedBy"
+        ],
+        "type": "object"
+      },
+      "PolicyVersion": {
+        "description": "An immutable published snapshot of a policy's settings at a point in time.",
+        "properties": {
+          "createdAt": {
+            "example": "2026-06-15T09:30:00Z",
+            "format": "date-time",
+            "type": "string"
+          },
+          "createdBy": {
+            "description": "Actor ID",
+            "example": "auth0|user123",
+            "type": "string"
+          },
+          "id": {
+            "example": "660e8400-e29b-41d4-a716-446655440001",
+            "format": "uuid",
+            "type": "string"
+          },
+          "policyId": {
+            "example": "550e8400-e29b-41d4-a716-446655440000",
+            "format": "uuid",
+            "type": "string"
+          },
+          "schemaVersion": {
+            "example": "2026-05-12",
+            "type": "string"
+          },
+          "settings": {
+            "$ref": "#/components/schemas/VendorSettings"
+          },
+          "toolId": {
+            "example": "com.anthropic.claudecode",
+            "type": "string"
+          },
+          "versionNumber": {
+            "example": 3,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "policyId",
+          "versionNumber",
+          "toolId",
+          "schemaVersion",
+          "settings",
+          "createdAt",
+          "createdBy"
+        ],
+        "type": "object"
+      },
+      "PolicyVersionListResponse": {
+        "description": "Paginated list of published policy versions.",
+        "properties": {
+          "results": {
+            "items": {
+              "$ref": "#/components/schemas/PolicyVersion"
+            },
+            "type": "array"
+          },
+          "totalCount": {
+            "example": 5,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "totalCount",
+          "results"
+        ],
+        "type": "object"
+      },
+      "PublishResponse": {
+        "description": "Response returned when a draft is published as a new immutable policy version.",
+        "properties": {
+          "href": {
+            "description": "URL of the created policy version",
+            "example": "/v1/policies/550e8400-e29b-41d4-a716-446655440000/versions/4",
+            "type": "string"
+          },
+          "id": {
+            "description": "PolicyVersion ID",
+            "example": "660e8400-e29b-41d4-a716-446655440001",
+            "format": "uuid",
+            "type": "string"
+          },
+          "versionNumber": {
+            "description": "The version number assigned to this published version",
+            "example": 4,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "href",
+          "versionNumber"
+        ],
+        "type": "object"
+      },
+      "ToolListResponse": {
+        "description": "Paginated list of available vendor tools.",
+        "properties": {
+          "results": {
+            "items": {
+              "$ref": "#/components/schemas/ToolSummary"
+            },
+            "type": "array"
+          },
+          "totalCount": {
+            "example": 2,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "totalCount",
+          "results"
+        ],
+        "type": "object"
+      },
+      "ToolSchemaResponse": {
+        "description": "The vendor JSON Schema for a tool at a specific schema version.",
+        "properties": {
+          "schema": {
+            "$ref": "#/components/schemas/VendorJsonSchema"
+          },
+          "schemaVersion": {
+            "description": "Vendor schema version this schema document describes",
+            "example": "2026-05-12",
+            "type": "string"
+          },
+          "toolId": {
+            "description": "Tool identifier (matches toolId in policy records)",
+            "example": "com.anthropic.claudecode",
+            "type": "string"
+          }
+        },
+        "required": [
+          "toolId",
+          "schemaVersion",
+          "schema"
+        ],
+        "type": "object"
+      },
+      "ToolSummary": {
+        "description": "Metadata for an available vendor tool, including its current and available schema versions.",
+        "properties": {
+          "displayName": {
+            "example": "Claude Code",
+            "type": "string"
+          },
+          "id": {
+            "description": "Tool identifier (matches toolId in policy records)",
+            "example": "com.anthropic.claudecode",
+            "type": "string"
+          },
+          "schemaVersion": {
+            "description": "Current (latest) vendor schema version",
+            "example": "2026-05-12",
+            "type": "string"
+          },
+          "schemaVersions": {
+            "description": "All available schema versions for this tool, newest first",
+            "example": [
+              "2026-05-12",
+              "2026-04-01"
+            ],
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "displayName",
+          "schemaVersion",
+          "schemaVersions"
+        ],
+        "type": "object"
+      },
+      "UpdatePolicyRequest": {
+        "description": "Saves draft settings on the policy. Does NOT create a published version. Call\nPOST /policies/{policyId}/publish to create an immutable version. toolId is\nimmutable after creation. name and description are optional — omit them to\nleave the existing values unchanged.\n",
+        "properties": {
+          "description": {
+            "description": "New description for the policy. Omit to leave unchanged.",
+            "example": "AI governance policy for engineering team",
+            "maxLength": 2000,
+            "type": "string"
+          },
+          "name": {
+            "description": "New display name for the policy. Omit to leave unchanged.",
+            "example": "Claude Code - Engineering",
+            "maxLength": 200,
+            "minLength": 1,
+            "type": "string"
+          },
+          "schemaVersion": {
+            "example": "2026-05-12",
+            "minLength": 1,
+            "type": "string"
+          },
+          "settings": {
+            "$ref": "#/components/schemas/VendorSettings"
+          }
+        },
+        "required": [
+          "schemaVersion",
+          "settings"
+        ],
+        "type": "object"
+      },
+      "VendorJsonSchema": {
+        "additionalProperties": true,
+        "description": "The raw vendor JSON Schema document describing the shape of a tool's settings.\nFree-form by design — its structure is defined by the vendor and follows the\nJSON Schema specification rather than a fixed set of properties. Use it to\nvalidate and render settings forms for the corresponding schemaVersion.\n",
+        "type": "object"
+      },
+      "VendorSettings": {
+        "additionalProperties": true,
+        "description": "Vendor tool settings payload. Shape is tool-specific and defined by the vendor's\nJSON Schema, which is served by GET /v1/tools/{toolId}/schemas/{schemaVersion}\n(see the ToolSchemaResponse schema). Only keys the admin explicitly set are\npresent. Validated at write time against the vendor schema for the request's\nschemaVersion.\n",
+        "type": "object"
+      }
+    },
+    "securitySchemes": {
+      "oauth2": {
+        "description": "Obtain an access token by calling the API Gateway's token endpoint using the OAuth2 client-credentials flow.",
+        "flows": {
+          "clientCredentials": {
+            "scopes": {
+              "ai-policies:create": "",
+              "ai-policies:delete": "",
+              "ai-policies:read": "",
+              "ai-policies:update": ""
+            },
+            "tokenUrl": "https://{region}.api.jamfcloud.com/auth/token"
+          }
+        },
+        "type": "oauth2"
+      }
+    }
+  },
+  "info": {
+    "contact": {
+      "name": "Jamf Developer",
+      "url": "https://developer.jamf.com"
+    },
+    "description": "API for managing AI governance policies",
+    "termsOfService": "https://www.jamf.com/developer-resources/api-license-agreement/",
+    "title": "AI Governance Policies API",
+    "version": "1.0.0"
+  },
+  "openapi": "3.0.3",
+  "paths": {
+    "/v1/policies": {
+      "get": {
+        "description": "Returns a paginated list of active AI governance policies for the authenticated\ntenant. schemaDrift indicates whether a policy's draft settings were authored\nagainst an older schema version. hasDraft indicates whether unpublished changes\nexist.\n\n\n**Required Permissions:** `ai-policies:read`",
+        "operationId": "listPolicies",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/X-Environment-Id"
+          },
+          {
+            "$ref": "#/components/parameters/PageParam"
+          },
+          {
+            "$ref": "#/components/parameters/PageSizeParam"
+          },
+          {
+            "$ref": "#/components/parameters/SortParam"
+          },
+          {
+            "description": "When true, return only policies whose stored schemaVersion differs from the current tool schema version",
+            "in": "query",
+            "name": "schema-drift",
+            "schema": {
+              "default": false,
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PolicyListResponse"
+                }
+              }
+            },
+            "description": "Paginated list of policies"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "ai-policies:read"
+            ]
+          }
+        ],
+        "summary": "List active AI governance policies for the tenant",
+        "tags": [
+          "policies"
+        ],
+        "x-required-privileges": [
+          "ai-policies:read"
+        ]
+      },
+      "post": {
+        "description": "Validates settings against the vendor JSON Schema, creates a policy with draft\nsettings, and returns the policy ID. The policy starts with hasDraft=true. Call\nPOST /policies/{policyId}/publish to create the first published version.\n\n\n**Required Permissions:** `ai-policies:create`",
+        "operationId": "createPolicy",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/X-Environment-Id"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreatePolicyRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreatedResponse"
+                }
+              }
+            },
+            "description": "Policy created",
+            "headers": {
+              "Location": {
+                "description": "URL of the created policy",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "422": {
+            "$ref": "#/components/responses/UnprocessableEntity"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "ai-policies:create"
+            ]
+          }
+        ],
+        "summary": "Create a new AI governance policy",
+        "tags": [
+          "policies"
+        ],
+        "x-required-privileges": [
+          "ai-policies:create"
+        ]
+      }
+    },
+    "/v1/policies/{policyId}": {
+      "delete": {
+        "description": "Archives the policy. All published versions are retained for audit trail integrity.\n\n**Required Permissions:** `ai-policies:delete`",
+        "operationId": "archivePolicy",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/X-Environment-Id"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Policy archived"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "ai-policies:delete"
+            ]
+          }
+        ],
+        "summary": "Archive an AI governance policy (soft delete)",
+        "tags": [
+          "policies"
+        ],
+        "x-required-privileges": [
+          "ai-policies:delete"
+        ]
+      },
+      "get": {
+        "description": "Returns the policy with its current draft settings. schemaDrift indicates whether\nthe draft was authored against an older schema version. hasDraft indicates whether\nunpublished changes exist.\n\n\n**Required Permissions:** `ai-policies:read`",
+        "operationId": "getPolicy",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/X-Environment-Id"
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PolicyDetail"
+                }
+              }
+            },
+            "description": "Policy detail"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "ai-policies:read"
+            ]
+          }
+        ],
+        "summary": "Get a policy by ID",
+        "tags": [
+          "policies"
+        ],
+        "x-required-privileges": [
+          "ai-policies:read"
+        ]
+      },
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/PolicyId"
+        }
+      ],
+      "patch": {
+        "description": "Validates settings against the vendor schema and updates the draft settings on\nthe policy. Does NOT create a published version. Call POST /policies/{policyId}/publish\nto snapshot the draft into an immutable version.\n\n\n**Required Permissions:** `ai-policies:update`",
+        "operationId": "updatePolicy",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/X-Environment-Id"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdatePolicyRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Draft settings saved"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "422": {
+            "$ref": "#/components/responses/UnprocessableEntity"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "ai-policies:update"
+            ]
+          }
+        ],
+        "summary": "Save draft settings for an existing policy",
+        "tags": [
+          "policies"
+        ],
+        "x-required-privileges": [
+          "ai-policies:update"
+        ]
+      }
+    },
+    "/v1/policies/{policyId}/deployment": {
+      "get": {
+        "description": "Returns deployment state for all blueprints referencing this policy. The response\ncontains a blueprints array with one entry per matching blueprint. If no blueprint\nreferences the policy, the array is empty. Returns 404 only when the policy ID\nitself does not exist.\n\n\n**Required Permissions:** `ai-policies:read`",
+        "operationId": "getPolicyDeployment",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/X-Environment-Id"
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PolicyDeploymentResponse"
+                }
+              }
+            },
+            "description": "Deployment state for all blueprints referencing this policy"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Upstream service unavailable"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "ai-policies:read"
+            ]
+          }
+        ],
+        "summary": "Get deployment state for a policy",
+        "tags": [
+          "policies"
+        ],
+        "x-required-privileges": [
+          "ai-policies:read"
+        ]
+      },
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/PolicyId"
+        }
+      ]
+    },
+    "/v1/policies/{policyId}/publish": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/PolicyId"
+        }
+      ],
+      "post": {
+        "description": "Snapshots the current draft settings into a new immutable PolicyVersion. Returns\n409 if the draft settings match the latest published version (no changes to\npublish). The publish re-validates settings against the vendor schema before\ncreating the version.\n\n\n**Required Permissions:** `ai-policies:update`",
+        "operationId": "publishPolicy",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/X-Environment-Id"
+          }
+        ],
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublishResponse"
+                }
+              }
+            },
+            "description": "Version published",
+            "headers": {
+              "Location": {
+                "description": "URL of the created policy version",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "No draft to publish — draft settings match the latest published version"
+          },
+          "422": {
+            "$ref": "#/components/responses/UnprocessableEntity"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "ai-policies:update"
+            ]
+          }
+        ],
+        "summary": "Publish current draft settings as a new immutable PolicyVersion",
+        "tags": [
+          "policies"
+        ],
+        "x-action": true,
+        "x-required-privileges": [
+          "ai-policies:update"
+        ]
+      }
+    },
+    "/v1/policies/{policyId}/versions": {
+      "get": {
+        "description": "Returns a paginated list of all published versions for the specified policy.\n\n**Required Permissions:** `ai-policies:read`",
+        "operationId": "listPolicyVersions",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/X-Environment-Id"
+          },
+          {
+            "$ref": "#/components/parameters/PageParam"
+          },
+          {
+            "$ref": "#/components/parameters/PageSizeParam"
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PolicyVersionListResponse"
+                }
+              }
+            },
+            "description": "Paginated list of policy versions"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "ai-policies:read"
+            ]
+          }
+        ],
+        "summary": "List all versions for a policy",
+        "tags": [
+          "policies"
+        ],
+        "x-required-privileges": [
+          "ai-policies:read"
+        ]
+      },
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/PolicyId"
+        }
+      ]
+    },
+    "/v1/policies/{policyId}/versions/{versionNumber}": {
+      "get": {
+        "description": "Returns the immutable settings snapshot for a specific published version of the policy.\n\n**Required Permissions:** `ai-policies:read`",
+        "operationId": "getPolicyVersion",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/X-Environment-Id"
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PolicyVersion"
+                }
+              }
+            },
+            "description": "Policy version detail"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "ai-policies:read"
+            ]
+          }
+        ],
+        "summary": "Get a specific policy version",
+        "tags": [
+          "policies"
+        ],
+        "x-required-privileges": [
+          "ai-policies:read"
+        ]
+      },
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/PolicyId"
+        },
+        {
+          "description": "Published version number (1-based, increments on each publish)",
+          "in": "path",
+          "name": "versionNumber",
+          "required": true,
+          "schema": {
+            "minimum": 1,
+            "type": "integer"
+          }
+        }
+      ]
+    },
+    "/v1/tools": {
+      "get": {
+        "description": "Returns metadata for all available vendor tools, including their current schema\nversions. Use this to discover valid toolId values and schema versions when\ncreating or editing policies.\n\n\n**Required Permissions:** `ai-policies:read`",
+        "operationId": "listTools",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/X-Environment-Id"
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ToolListResponse"
+                }
+              }
+            },
+            "description": "List of available tools"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "ai-policies:read"
+            ]
+          }
+        ],
+        "summary": "List available vendor tools",
+        "tags": [
+          "tools"
+        ],
+        "x-required-privileges": [
+          "ai-policies:read"
+        ]
+      }
+    },
+    "/v1/tools/{toolId}": {
+      "get": {
+        "description": "Returns tool metadata including the current schema version and list of all\navailable schema versions. Returns 404 if the toolId is not known.\n\n\n**Required Permissions:** `ai-policies:read`",
+        "operationId": "getTool",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/X-Environment-Id"
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ToolSummary"
+                }
+              }
+            },
+            "description": "Tool detail"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Tool not found"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "ai-policies:read"
+            ]
+          }
+        ],
+        "summary": "Get tool detail",
+        "tags": [
+          "tools"
+        ],
+        "x-required-privileges": [
+          "ai-policies:read"
+        ]
+      },
+      "parameters": [
+        {
+          "description": "Tool identifier (e.g. com.anthropic.claudecode)",
+          "in": "path",
+          "name": "toolId",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ]
+    },
+    "/v1/tools/{toolId}/schemas/{schemaVersion}": {
+      "get": {
+        "description": "Returns the JSON Schema for the given tool and schema version pair. Use this\nschema to validate and render settings forms when creating or editing policies.\n\n\n**Required Permissions:** `ai-policies:read`",
+        "operationId": "getToolSchema",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/X-Environment-Id"
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ToolSchemaResponse"
+                }
+              }
+            },
+            "description": "Vendor JSON Schema"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Tool or schema version not found"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "ai-policies:read"
+            ]
+          }
+        ],
+        "summary": "Get the vendor JSON Schema for a tool and schema version",
+        "tags": [
+          "tools"
+        ],
+        "x-required-privileges": [
+          "ai-policies:read"
+        ]
+      },
+      "parameters": [
+        {
+          "description": "Tool identifier (e.g. com.anthropic.claudecode)",
+          "in": "path",
+          "name": "toolId",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        },
+        {
+          "description": "Vendor schema version (e.g. \"2026-05-12\")",
+          "in": "path",
+          "name": "schemaVersion",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ]
+    }
+  },
+  "security": [
+    {
+      "oauth2": []
+    }
+  ],
+  "servers": [
+    {
+      "description": "Jamf Beta API Gateway - prod",
+      "url": "https://{region}.api.jamfcloud.com/ai/governance/policies",
+      "variables": {
+        "region": {
+          "default": "us",
+          "description": "Geographic deployment region",
+          "enum": [
+            "us",
+            "eu",
+            "apac"
+          ]
+        }
+      }
+    }
+  ],
+  "tags": [
+    {
+      "description": "AI governance policy CRUD with draft/publish versioning. The Policy document\nholds mutable draft settings (updated via PATCH). Publishing snapshots the draft\ninto an immutable PolicyVersion. Delete is a soft archive.\n",
+      "name": "policies"
+    },
+    {
+      "description": "Read-only endpoints for discovering available vendor tools and their JSON Schemas.\nUse these to populate toolId and schemaVersion values when creating or editing\npolicies.\n",
+      "name": "tools"
+    }
+  ],
+  "x-scope-types": [
+    "environment"
+  ]
+}

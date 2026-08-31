@@ -117,3 +117,18 @@ func applySecurityAliases(parent *cobra.Command) {
 		}
 	}
 }
+
+// platformAliases maps Jamf Platform command names to their short aliases.
+var platformAliases = map[string][]string{
+	"ai-policies": {"aip"},
+	"ai-tools":    {"ait"},
+}
+
+// applyPlatformAliases appends aliases to platform subcommands.
+func applyPlatformAliases(parent *cobra.Command) {
+	for _, cmd := range parent.Commands() {
+		if aliases, ok := platformAliases[cmd.Name()]; ok {
+			cmd.Aliases = append(cmd.Aliases, aliases...)
+		}
+	}
+}

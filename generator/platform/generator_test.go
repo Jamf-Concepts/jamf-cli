@@ -462,3 +462,59 @@ func TestDeviceGroupsUpdateStaysOnV1(t *testing.T) {
 		t.Errorf("list Path = %q, want the routed v2 path — the v2 list is not withheld", list.Path)
 	}
 }
+
+// TestPlatformTableColumnKeys asserts every key in platformTableColumns matches
+// a real list operation in the committed specs.
+//
+// A key that matches nothing is invisible: the resource's list simply emits raw
+// JSON, exactly as it would if no entry existed, so the entry looks configured
+// and does nothing. That is how the AI Governance columns were first written
+// wrong — the key was built from serviceFromPath, which returns only the first
+// path segment, so a three-segment namespace produced "ai/ai-policies" instead
+// of "ai/governance/policies/ai-policies".
+func TestPlatformTableColumnKeys(t *testing.T) {
+	specsDir, err := filepath.Abs("../../specs/platform")
+	if err != nil {
+		t.Fatalf("resolving specs dir: %v", err)
+	}
+	resources, _, err := LoadResources(specsDir)
+	if err != nil {
+		t.Fatalf("LoadResources: %v", err)
+	}
+
+	live := make(map[string]bool)
+	for _, r := range resources {
+		for _, op := range r.Operations {
+			if op.Name == "list" {
+				live[namespaceFromPath(op.Path)+"/"+r.Name] = true
+			}
+		}
+	}
+
+	for key := range platformTableColumns {
+		if !live[key] {
+			t.Errorf("platformTableColumns key %q matches no list operation — the columns are "+
+				"silently unused; check the namespace against namespaceFromPath", key)
+		}
+	}
+}
+
+// TestNamespaceFromPath pins the whole-namespace read, including the
+// multi-segment shapes that broke the first-segment implementation.
+func TestNamespaceFromPath(t *testing.T) {
+	cases := []struct{ path, want string }{
+		{"/blueprints/v1/blueprints", "blueprints"},
+		{"/securitycloud/v1/groups", "securitycloud"},
+		{"/securitycloud/uem-connect/v1/connectors", "securitycloud/uem-connect"},
+		{"/ai/governance/policies/v1/policies", "ai/governance/policies"},
+		{"/ddm/report/v1/declaration-status", "ddm/report"},
+		{"/devices", "devices"},
+		{"relative/v1/x", ""},
+		{"", ""},
+	}
+	for _, c := range cases {
+		if got := namespaceFromPath(c.path); got != c.want {
+			t.Errorf("namespaceFromPath(%q) = %q, want %q", c.path, got, c.want)
+		}
+	}
+}
