@@ -3,12 +3,16 @@
 package commands
 
 import (
+	"context"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/config"
 )
@@ -399,4 +403,126 @@ func TestBuildReportArgs_ThroughBuildChildArgsKeepsBoundary(t *testing.T) {
 			t.Errorf("--out-file must never reach the report child: %v", got)
 		}
 	}
+}
+
+func TestTailWarnings_KeepsShortOutputVerbatim(t *testing.T) {
+	in := []byte("WARNING: patch compliance: 403\n")
+	if got := tailWarnings(in); got != string(in) {
+		t.Errorf("got %q, want %q", got, string(in))
+	}
+}
+
+func TestTailWarnings_KeepsTheTailNotTheHead(t *testing.T) {
+	// A child that fails once per device must not spend the conversation's
+	// context on repeated warnings — and the last line is the one that explains
+	// the exit, so the tail is what survives.
+	head := strings.Repeat("WARNING: device skipped\n", 1000)
+	in := []byte(head + "FATAL: gateway refused the connection\n")
+	got := tailWarnings(in)
+
+	if len(got) > reportWarningTailBytes+128 {
+		t.Errorf("truncated output is %d bytes, want ~%d", len(got), reportWarningTailBytes)
+	}
+	if !strings.Contains(got, "FATAL: gateway refused the connection") {
+		t.Error("the last line must survive truncation")
+	}
+	if !strings.Contains(got, "omitted") {
+		t.Error("truncation must be visible, not silent")
+	}
+}
+
+func TestRunReportChild_RefusesBeforeStartingAChildWhenReportDirUnset(t *testing.T) {
+	// An empty XDG_CONFIG_HOME means config.Load() returns a config with no
+	// report-dir, which is the unconfigured administrator's state.
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+
+	res := runReportChild(context.Background(), "/nonexistent/jamf-cli", "prod",
+		generateReportInput{}, time.Date(2026, 8, 28, 10, 43, 0, 0, time.UTC))
+
+	if res == nil || !res.IsError {
+		t.Fatalf("expected an error result, got %+v", res)
+	}
+	if !strings.Contains(mcpResultText(res), "pro setup --report-dir") {
+		t.Errorf("refusal must name the command that sets it, got: %s", mcpResultText(res))
+	}
+}
+
+func TestRunReportChild_RemovesThePartialFileWhenTheChildFails(t *testing.T) {
+	// A non-zero exit leaves no half-written HTML behind: a truncated report is
+	// not a smaller report, it is a corrupt file. Pointing `executable` at a
+	// path that does not exist is the cheapest deterministic failure.
+	xdg := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", xdg)
+	reportDir := t.TempDir()
+	writeTestConfig(t, xdg, "report-dir: "+reportDir+"\n")
+
+	res := runReportChild(context.Background(), filepath.Join(t.TempDir(), "absent-binary"),
+		"prod", generateReportInput{}, time.Date(2026, 8, 28, 10, 43, 0, 0, time.UTC))
+
+	if res == nil || !res.IsError {
+		t.Fatalf("expected an error result, got %+v", res)
+	}
+	entries, err := os.ReadDir(reportDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 0 {
+		t.Errorf("partial report left behind: %v", entries)
+	}
+}
+
+func TestRunReportChild_ReportsPathAndSizeNeverTheHTML(t *testing.T) {
+	// `/usr/bin/true` stands in for `jamf-cli dashboard`: it ignores the arg
+	// vector, writes nothing, and exits 0 — so the report file is created and
+	// left in place at zero bytes. The point under test is that the result
+	// carries the path and the size and never the document.
+	trueBin, err := exec.LookPath("true")
+	if err != nil {
+		t.Skipf("no `true` binary available: %v", err)
+	}
+	xdg := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", xdg)
+	reportDir := t.TempDir()
+	writeTestConfig(t, xdg, "report-dir: "+reportDir+"\n")
+
+	res := runReportChild(context.Background(), trueBin, "",
+		generateReportInput{}, time.Date(2026, 8, 28, 10, 43, 0, 0, time.UTC))
+
+	if res == nil {
+		t.Fatal("expected a result")
+	}
+	if res.IsError {
+		t.Fatalf("expected success, got error result: %s", mcpResultText(res))
+	}
+	text := mcpResultText(res)
+	want := filepath.Join(reportDir, "jamf-report-default-20260828T104300Z.html")
+	if !strings.Contains(text, want) {
+		t.Errorf("result must carry the path %q, got: %s", want, text)
+	}
+	if strings.Contains(text, "<html") || strings.Contains(text, "<!DOCTYPE") {
+		t.Errorf("result must never carry the HTML, got: %s", text)
+	}
+}
+
+// writeTestConfig writes a config.yaml into an XDG_CONFIG_HOME the test owns.
+func writeTestConfig(t *testing.T, xdgDir, body string) {
+	t.Helper()
+	dir := filepath.Join(xdgDir, "jamf-cli")
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "config.yaml"), []byte(body), 0o600); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// mcpResultText flattens a tool result's text content for assertions.
+func mcpResultText(res *mcp.CallToolResult) string {
+	var b strings.Builder
+	for _, c := range res.Content {
+		if tc, ok := c.(*mcp.TextContent); ok {
+			b.WriteString(tc.Text)
+		}
+	}
+	return b.String()
 }

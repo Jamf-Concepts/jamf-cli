@@ -3,6 +3,7 @@
 package commands
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -296,4 +297,89 @@ func buildReportArgs(in generateReportInput) []string {
 		args = append(args, "--smart-groups", g)
 	}
 	return args
+}
+
+// reportWarningTailBytes caps how much of the child's stderr reaches the model.
+// The dashboard warns per partial failure, so a child failing once per device
+// could otherwise spend the whole conversation's context on repeated warnings.
+const reportWarningTailBytes = 4 << 10
+
+// tailWarnings truncates the child's stderr to its last reportWarningTailBytes.
+// The tail rather than the head, because the last line is the one that explains
+// the exit.
+func tailWarnings(b []byte) string {
+	if len(b) <= reportWarningTailBytes {
+		return string(b)
+	}
+	return "(earlier warnings omitted)\n" + string(b[len(b)-reportWarningTailBytes:])
+}
+
+// runReportChild generates an HTML report by re-invoking this binary as
+// `jamf-cli dashboard` and returns its path, size, and warnings — never the
+// HTML, which at 320–800 KB is 80k–200k tokens, and which truncation would
+// turn into a corrupt file rather than a shorter report.
+//
+// This cannot reuse runChild: that calls CombinedOutput(), which would
+// interleave the dashboard's partial-failure warnings into the middle of the
+// HTML document. The two streams are kept apart — stdout is the report file,
+// stderr is a buffer.
+//
+// It loads config itself because newMCPCmd and newMCPServeCmd take no
+// arguments, so there is no CLIContext to thread.
+func runReportChild(ctx context.Context, executable, serverProfile string, in generateReportInput, now time.Time) *mcp.CallToolResult {
+	cfg, err := config.Load()
+	if err != nil {
+		return errorResult(fmt.Sprintf("reading config: %v", err))
+	}
+	dir, err := resolveReportDir(cfg)
+	if err != nil {
+		return errorResult(err.Error())
+	}
+	childArgs, err := buildChildArgs(serverProfile, buildReportArgs(in))
+	if err != nil {
+		return errorResult(err.Error())
+	}
+
+	f, err := createReportFile(dir, reportFileName(serverProfile, now))
+	if err != nil {
+		return errorResult(err.Error())
+	}
+	path := f.Name()
+
+	var stderr bytes.Buffer
+	child := exec.CommandContext(ctx, executable, childArgs...)
+	child.Env = append(os.Environ(), "JAMF_CLI_MCP=1")
+	child.Stdout = f
+	child.Stderr = &stderr
+
+	runErr := child.Run()
+	closeErr := f.Close()
+	warnings := strings.TrimSpace(tailWarnings(stderr.Bytes()))
+
+	if runErr != nil {
+		// A partial HTML document is not a smaller report.
+		_ = os.Remove(path)
+		text := fmt.Sprintf("report generation failed: %v", runErr)
+		if warnings != "" {
+			text += "\n\n" + warnings
+		}
+		return errorResult(text)
+	}
+	if closeErr != nil {
+		_ = os.Remove(path)
+		return errorResult(fmt.Sprintf("writing report %s: %v", path, closeErr))
+	}
+
+	var size int64
+	if info, statErr := os.Stat(path); statErr == nil {
+		size = info.Size()
+	}
+
+	text := fmt.Sprintf("Report written to %s (%d bytes). Open or share that file; its contents are not returned here.", path, size)
+	if warnings != "" {
+		text += "\n\nWarnings during generation (some sections may be incomplete):\n" + warnings
+	}
+	return &mcp.CallToolResult{
+		Content: []mcp.Content{&mcp.TextContent{Text: text}},
+	}
 }
