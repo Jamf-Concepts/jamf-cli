@@ -271,3 +271,53 @@ func TestResolveReportDir_AcceptsExistingDirectory(t *testing.T) {
 		t.Errorf("got %q, want %q", got, dir)
 	}
 }
+
+func TestCreateReportFile_CreatesInsideReportDir(t *testing.T) {
+	dir := t.TempDir()
+	f, err := createReportFile(dir, "jamf-report-prod-20260828T104300Z.html")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	defer f.Close()
+
+	if filepath.Dir(f.Name()) != dir {
+		t.Errorf("file created at %q, want it inside %q", f.Name(), dir)
+	}
+	info, err := os.Stat(f.Name())
+	if err != nil {
+		t.Fatalf("stat: %v", err)
+	}
+	if perm := info.Mode().Perm(); perm != 0o600 {
+		t.Errorf("file permissions = %o, want 0600", perm)
+	}
+}
+
+func TestCreateReportFile_CollisionIsAnError(t *testing.T) {
+	// O_EXCL: two reports generated inside the same second must not have the
+	// second silently overwrite the first.
+	dir := t.TempDir()
+	name := "jamf-report-prod-20260828T104300Z.html"
+
+	first, err := createReportFile(dir, name)
+	if err != nil {
+		t.Fatalf("unexpected error on first create: %v", err)
+	}
+	if _, err := first.WriteString("<html>first</html>"); err != nil {
+		t.Fatal(err)
+	}
+	if err := first.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := createReportFile(dir, name); err == nil {
+		t.Fatal("expected a collision to error, got nil")
+	}
+
+	data, err := os.ReadFile(filepath.Join(dir, name))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(data) != "<html>first</html>" {
+		t.Errorf("the existing report was modified: %q", string(data))
+	}
+}
