@@ -188,8 +188,13 @@ profiles:
     auth-method: platform
     client-id: env:PLATFORM_CLIENT_ID
     client-secret: env:PLATFORM_CLIENT_SECRET
-    tenant-id: e5b39e85-5ecd-4d40-9d13-02c7cf21c762
+    environment-id: 4b21c0de-1f7a-4a83-9f0b-6d2c9a51e884
 ```
+
+> **Coming from the Platform API public beta?** The gateway host, the scope key and the
+> credentials all change at GA, and a handful of Jamf Pro endpoints are no longer served
+> through the gateway. See [Preparing for the Platform API
+> GA](docs/guides/platform-api-ga.md).
 
 Jamf Pro supports three auth methods: `oauth2`, `token`, and `platform`. Jamf Protect uses `oauth2` only. Three secret formats: `env:VAR`, `file:/path`, `keychain:service/account`.
 
