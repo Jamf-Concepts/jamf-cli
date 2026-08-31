@@ -3,11 +3,14 @@
 package commands
 
 import (
+	"os"
 	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/Jamf-Concepts/jamf-cli/internal/config"
 )
 
 // The MCP server pins the instance/credentials at launch (the profile passed
@@ -203,5 +206,68 @@ func TestReportFileName_StaysInsideReportDir(t *testing.T) {
 		if !strings.HasSuffix(name, ".html") {
 			t.Errorf("profile %q produced %q, want a .html suffix", prof, name)
 		}
+	}
+}
+
+// The MCP report path has no destination parameter, so an unusable report-dir is
+// a refusal rather than something to work around. In particular a missing
+// directory is not created: a typo'd report-dir silently materialising a
+// directory tree is worse than an error, and `pro setup --report-dir` already
+// does the MkdirAll when the administrator names one.
+
+func TestResolveReportDir_RefusesWhenUnset(t *testing.T) {
+	_, err := resolveReportDir(&config.Config{})
+	if err == nil {
+		t.Fatal("expected a refusal when report-dir is unset, got nil")
+	}
+	if !strings.Contains(err.Error(), "pro setup --report-dir") {
+		t.Errorf("refusal must name the command that sets it, got: %v", err)
+	}
+	// `config` has no `set` subcommand; naming one that does not exist is worse
+	// than naming none.
+	if strings.Contains(err.Error(), "config set") {
+		t.Errorf("refusal must not name a nonexistent command, got: %v", err)
+	}
+}
+
+func TestResolveReportDir_RefusesNilConfig(t *testing.T) {
+	if _, err := resolveReportDir(nil); err == nil {
+		t.Fatal("expected a refusal for a nil config, got nil")
+	}
+}
+
+func TestResolveReportDir_RefusesMissingDirectory(t *testing.T) {
+	missing := filepath.Join(t.TempDir(), "not-created")
+	_, err := resolveReportDir(&config.Config{ReportDir: missing})
+	if err == nil {
+		t.Fatal("expected a refusal for a missing directory, got nil")
+	}
+	if _, statErr := os.Stat(missing); statErr == nil {
+		t.Error("a missing report-dir must be refused, not created")
+	}
+}
+
+func TestResolveReportDir_RefusesNonDirectory(t *testing.T) {
+	file := filepath.Join(t.TempDir(), "report-dir")
+	if err := os.WriteFile(file, []byte("not a directory"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	_, err := resolveReportDir(&config.Config{ReportDir: file})
+	if err == nil {
+		t.Fatal("expected a refusal when report-dir names a file, got nil")
+	}
+	if !strings.Contains(err.Error(), "not a directory") {
+		t.Errorf("refusal should say what is wrong, got: %v", err)
+	}
+}
+
+func TestResolveReportDir_AcceptsExistingDirectory(t *testing.T) {
+	dir := t.TempDir()
+	got, err := resolveReportDir(&config.Config{ReportDir: dir})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got != dir {
+		t.Errorf("got %q, want %q", got, dir)
 	}
 }
