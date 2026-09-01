@@ -51,6 +51,9 @@ type configProfileRow struct {
 	// EnvironmentID appears alongside TenantID rather than replacing it: which
 	// level a profile is scoped to decides which commands can work, so listing
 	// profiles has to show it.
+	//
+	// Both are omitempty, which is why `list` narrows the row set itself for the
+	// column-based formats — see listRowForFormat.
 	EnvironmentID string `json:"environment-id,omitempty"`
 	Default       bool   `json:"default,omitempty"`
 	Token         string `json:"token,omitempty"`
@@ -58,6 +61,62 @@ type configProfileRow struct {
 	ClientSecret  string `json:"client-secret,omitempty"`
 	Status        string `json:"status,omitempty"`
 	Healthy       *bool  `json:"healthy,omitempty"`
+}
+
+// configProfileTableRow is the `config list` row shape for the column-based
+// formats. It exists to carry no omitempty on the three fields whose presence
+// decides whether a column exists at all — see listRowsForFormat.
+type configProfileTableRow struct {
+	Name          string `json:"name"`
+	URL           string `json:"url"`
+	AuthMethod    string `json:"auth-method"`
+	EnvironmentID string `json:"environment-id"`
+	Default       bool   `json:"default"`
+	Status        string `json:"status,omitempty"`
+	Healthy       *bool  `json:"healthy,omitempty"`
+}
+
+// listRowsForFormat adapts the `config list` rows to the output format.
+//
+// The column-based formats get environment-id on every row and no tenant-id;
+// json, yaml and ndjson get the rows untouched, tenant-id included. Two reasons,
+// and only the second is a preference:
+//
+// A table's columns are the keys of its *first* row (`sortedKeys(rows[0])` in
+// internal/output), so an omitempty field is a column only when the first row
+// happens to carry it. Profiles are listed alphabetically, so one instance
+// profile sorting first hid the scope of every platform profile below it — and
+// --wide did not help, because that reads rows[0] too. Writing environment-id
+// as an empty string rather than omitting it is what makes the column exist at
+// all. (`default` has the same problem for the same reason and is fixed the same
+// way: with a default profile that did not sort first, the table simply stopped
+// saying which profile was active.) The underlying formatter behaviour is not
+// changed here: unioning keys across rows would alter every table in the CLI.
+//
+// Which leaves the choice of one scope column rather than two. Environment is
+// the level Jamf wants integrations created at and tenant is the legacy one, so
+// environment-id is the column. A tenant-scoped profile is not left unexplained
+// — auth-method already reads `platform`, and `config list -o json` still
+// carries tenant-id for anything parsing the output.
+func listRowsForFormat(rows []configProfileRow, format string) any {
+	switch format {
+	case "table", "csv", "plain":
+		out := make([]configProfileTableRow, 0, len(rows))
+		for _, r := range rows {
+			out = append(out, configProfileTableRow{
+				Name:          r.Name,
+				URL:           r.URL,
+				AuthMethod:    r.AuthMethod,
+				EnvironmentID: r.EnvironmentID,
+				Default:       r.Default,
+				Status:        r.Status,
+				Healthy:       r.Healthy,
+			})
+		}
+		return out
+	default:
+		return rows
+	}
 }
 
 // activeProfileName returns the profile currently in effect: flag > env > default.
@@ -220,7 +279,7 @@ func newConfigListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				rows = append(rows, row)
 			}
 
-			data, err := json.Marshal(rows)
+			data, err := json.Marshal(listRowsForFormat(rows, cliCtx.Output.Format()))
 			if err != nil {
 				return fmt.Errorf("marshalling profiles: %w", err)
 			}
