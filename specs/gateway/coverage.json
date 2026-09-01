@@ -5,8 +5,8 @@
       "file": "pro_api.json",
       "title": "Jamf Pro API",
       "version": "11.31.0",
-      "paths": 526,
-      "operations": 788
+      "paths": 451,
+      "operations": 666
     },
     "classic": {
       "file": "classic_api_resource_documentation.json",
@@ -15,33 +15,11 @@
       "paths": 273,
       "operations": 606
     },
-    "sdkCommit": "589cbe3"
+    "sdkCommit": "a307a11"
   },
   "spec": {
     "/pro/devices/extensionAttributes": [
       "GET"
-    ],
-    "/pro/inventory-preload": [
-      "DELETE",
-      "GET",
-      "POST"
-    ],
-    "/pro/inventory-preload/csv-template": [
-      "GET"
-    ],
-    "/pro/inventory-preload/history": [
-      "GET"
-    ],
-    "/pro/inventory-preload/history/notes": [
-      "POST"
-    ],
-    "/pro/inventory-preload/validate-csv": [
-      "POST"
-    ],
-    "/pro/inventory-preload/{}": [
-      "DELETE",
-      "GET",
-      "PUT"
     ],
     "/pro/ldap/groups": [
       "GET"
@@ -332,53 +310,6 @@
     "/pro/v1/computer-groups": [
       "GET"
     ],
-    "/pro/v1/computer-inventory-collection-settings": [
-      "GET",
-      "PATCH"
-    ],
-    "/pro/v1/computer-inventory-collection-settings/custom-path": [
-      "POST"
-    ],
-    "/pro/v1/computer-inventory-collection-settings/custom-path/{}": [
-      "DELETE"
-    ],
-    "/pro/v1/computer-inventory/{}/erase": [
-      "POST"
-    ],
-    "/pro/v1/computer-inventory/{}/remove-mdm-profile": [
-      "POST"
-    ],
-    "/pro/v1/computers-inventory": [
-      "GET",
-      "POST"
-    ],
-    "/pro/v1/computers-inventory-detail/{}": [
-      "GET",
-      "PATCH"
-    ],
-    "/pro/v1/computers-inventory/filevault": [
-      "GET"
-    ],
-    "/pro/v1/computers-inventory/{}": [
-      "DELETE",
-      "GET"
-    ],
-    "/pro/v1/computers-inventory/{}/attachments": [
-      "POST"
-    ],
-    "/pro/v1/computers-inventory/{}/attachments/{}": [
-      "DELETE",
-      "GET"
-    ],
-    "/pro/v1/computers-inventory/{}/filevault": [
-      "GET"
-    ],
-    "/pro/v1/computers-inventory/{}/view-device-lock-pin": [
-      "GET"
-    ],
-    "/pro/v1/computers-inventory/{}/view-recovery-lock-password": [
-      "GET"
-    ],
     "/pro/v1/computers/{}/recalculate-smart-groups": [
       "POST"
     ],
@@ -553,14 +484,6 @@
     "/pro/v1/enrollment-customization/{}/text/{}/markdown": [
       "GET"
     ],
-    "/pro/v1/groups": [
-      "GET"
-    ],
-    "/pro/v1/groups/{}": [
-      "DELETE",
-      "GET",
-      "PATCH"
-    ],
     "/pro/v1/gsx-connection": [
       "GET",
       "PATCH",
@@ -594,26 +517,6 @@
     ],
     "/pro/v1/inventory-information": [
       "GET"
-    ],
-    "/pro/v1/inventory-preload": [
-      "DELETE",
-      "GET",
-      "POST"
-    ],
-    "/pro/v1/inventory-preload/csv-template": [
-      "GET"
-    ],
-    "/pro/v1/inventory-preload/history": [
-      "GET",
-      "POST"
-    ],
-    "/pro/v1/inventory-preload/validate-csv": [
-      "POST"
-    ],
-    "/pro/v1/inventory-preload/{}": [
-      "DELETE",
-      "GET",
-      "PUT"
     ],
     "/pro/v1/jamf-connect": [
       "GET"
@@ -791,9 +694,6 @@
       "DELETE",
       "GET"
     ],
-    "/pro/v1/mdm/commands": [
-      "GET"
-    ],
     "/pro/v1/mdm/renew-profile": [
       "POST"
     ],
@@ -817,36 +717,6 @@
     ],
     "/pro/v1/mobile-device-extension-attributes/{}/history": [
       "GET",
-      "POST"
-    ],
-    "/pro/v1/mobile-device-groups": [
-      "GET"
-    ],
-    "/pro/v1/mobile-device-groups/smart-group-membership/{}": [
-      "GET"
-    ],
-    "/pro/v1/mobile-device-groups/smart-groups": [
-      "GET",
-      "POST"
-    ],
-    "/pro/v1/mobile-device-groups/smart-groups/{}": [
-      "DELETE",
-      "GET",
-      "PUT"
-    ],
-    "/pro/v1/mobile-device-groups/static-group-membership/{}": [
-      "GET"
-    ],
-    "/pro/v1/mobile-device-groups/static-groups": [
-      "GET",
-      "POST"
-    ],
-    "/pro/v1/mobile-device-groups/static-groups/{}": [
-      "DELETE",
-      "GET",
-      "PATCH"
-    ],
-    "/pro/v1/mobile-device-groups/{}/erase": [
       "POST"
     ],
     "/pro/v1/mobile-devices/{}/recalculate-smart-groups": [
@@ -1256,27 +1126,6 @@
       "GET",
       "PUT"
     ],
-    "/pro/v2/computer-groups/smart-group-membership/{}": [
-      "GET"
-    ],
-    "/pro/v2/computer-groups/smart-groups": [
-      "GET",
-      "POST"
-    ],
-    "/pro/v2/computer-groups/smart-groups/{}": [
-      "DELETE",
-      "GET",
-      "PUT"
-    ],
-    "/pro/v2/computer-groups/static-groups": [
-      "GET",
-      "POST"
-    ],
-    "/pro/v2/computer-groups/static-groups/{}": [
-      "DELETE",
-      "GET",
-      "PUT"
-    ],
     "/pro/v2/computer-inventory-collection-settings": [
       "GET",
       "PATCH"
@@ -1297,37 +1146,6 @@
     ],
     "/pro/v2/computer-prestages/{}/scope/delete-multiple": [
       "POST"
-    ],
-    "/pro/v2/computers-inventory": [
-      "GET",
-      "POST"
-    ],
-    "/pro/v2/computers-inventory-detail/{}": [
-      "GET",
-      "PATCH"
-    ],
-    "/pro/v2/computers-inventory/filevault": [
-      "GET"
-    ],
-    "/pro/v2/computers-inventory/{}": [
-      "DELETE",
-      "GET"
-    ],
-    "/pro/v2/computers-inventory/{}/attachments": [
-      "POST"
-    ],
-    "/pro/v2/computers-inventory/{}/attachments/{}": [
-      "DELETE",
-      "GET"
-    ],
-    "/pro/v2/computers-inventory/{}/filevault": [
-      "GET"
-    ],
-    "/pro/v2/computers-inventory/{}/view-device-lock-pin": [
-      "GET"
-    ],
-    "/pro/v2/computers-inventory/{}/view-recovery-lock-password": [
-      "GET"
     ],
     "/pro/v2/enrollment-customizations": [
       "GET",
@@ -1483,31 +1301,11 @@
     "/pro/v2/mobile-device-groups/{}/erase": [
       "POST"
     ],
-    "/pro/v2/mobile-device-prestages": [
-      "GET",
-      "POST"
-    ],
     "/pro/v2/mobile-device-prestages/scope": [
       "GET"
     ],
     "/pro/v2/mobile-device-prestages/syncs": [
       "GET"
-    ],
-    "/pro/v2/mobile-device-prestages/{}": [
-      "DELETE",
-      "GET",
-      "PUT"
-    ],
-    "/pro/v2/mobile-device-prestages/{}/attachments": [
-      "GET",
-      "POST"
-    ],
-    "/pro/v2/mobile-device-prestages/{}/attachments/delete-multiple": [
-      "POST"
-    ],
-    "/pro/v2/mobile-device-prestages/{}/history": [
-      "GET",
-      "POST"
     ],
     "/pro/v2/mobile-device-prestages/{}/scope": [
       "GET",
@@ -1580,45 +1378,6 @@
     "/pro/v2/patch-policies/{}/logs/{}/details": [
       "GET"
     ],
-    "/pro/v2/patch-software-title-configurations": [
-      "GET",
-      "POST"
-    ],
-    "/pro/v2/patch-software-title-configurations/{}": [
-      "DELETE",
-      "GET",
-      "PATCH"
-    ],
-    "/pro/v2/patch-software-title-configurations/{}/dashboard": [
-      "DELETE",
-      "GET",
-      "POST"
-    ],
-    "/pro/v2/patch-software-title-configurations/{}/definitions": [
-      "GET"
-    ],
-    "/pro/v2/patch-software-title-configurations/{}/dependencies": [
-      "GET"
-    ],
-    "/pro/v2/patch-software-title-configurations/{}/export-report": [
-      "GET"
-    ],
-    "/pro/v2/patch-software-title-configurations/{}/extension-attributes": [
-      "GET"
-    ],
-    "/pro/v2/patch-software-title-configurations/{}/history": [
-      "GET",
-      "POST"
-    ],
-    "/pro/v2/patch-software-title-configurations/{}/patch-report": [
-      "GET"
-    ],
-    "/pro/v2/patch-software-title-configurations/{}/patch-summary": [
-      "GET"
-    ],
-    "/pro/v2/patch-software-title-configurations/{}/patch-summary/versions": [
-      "GET"
-    ],
     "/pro/v2/smtp-server": [
       "GET",
       "PUT"
@@ -1679,37 +1438,6 @@
       "DELETE",
       "GET",
       "PUT"
-    ],
-    "/pro/v3/computers-inventory": [
-      "GET",
-      "POST"
-    ],
-    "/pro/v3/computers-inventory-detail/{}": [
-      "GET",
-      "PATCH"
-    ],
-    "/pro/v3/computers-inventory/filevault": [
-      "GET"
-    ],
-    "/pro/v3/computers-inventory/{}": [
-      "DELETE",
-      "GET"
-    ],
-    "/pro/v3/computers-inventory/{}/attachments": [
-      "POST"
-    ],
-    "/pro/v3/computers-inventory/{}/attachments/{}": [
-      "DELETE",
-      "GET"
-    ],
-    "/pro/v3/computers-inventory/{}/filevault": [
-      "GET"
-    ],
-    "/pro/v3/computers-inventory/{}/view-device-lock-pin": [
-      "GET"
-    ],
-    "/pro/v3/computers-inventory/{}/view-recovery-lock-password": [
-      "GET"
     ],
     "/pro/v3/enrollment/access-groups": [
       "GET",
@@ -3017,48 +2745,6 @@
         "extension-attributes:read"
       ]
     },
-    "/pro/inventory-preload": {
-      "DELETE": [
-        "inventory-preload-records:delete"
-      ],
-      "GET": [
-        "inventory-preload-records:read"
-      ],
-      "POST": [
-        "inventory-preload-records:create"
-      ]
-    },
-    "/pro/inventory-preload/csv-template": {
-      "GET": [
-        "inventory-preload-records:read"
-      ]
-    },
-    "/pro/inventory-preload/history": {
-      "GET": [
-        "inventory-preload-records:read"
-      ]
-    },
-    "/pro/inventory-preload/history/notes": {
-      "POST": [
-        "inventory-preload-records:update"
-      ]
-    },
-    "/pro/inventory-preload/validate-csv": {
-      "POST": [
-        "inventory-preload-records:create"
-      ]
-    },
-    "/pro/inventory-preload/{}": {
-      "DELETE": [
-        "inventory-preload-records:delete"
-      ],
-      "GET": [
-        "inventory-preload-records:read"
-      ],
-      "PUT": [
-        "inventory-preload-records:update"
-      ]
-    },
     "/pro/ldap/groups": {
       "GET": [
         "ldap-servers:read"
@@ -3566,91 +3252,6 @@
         "device-groups:read"
       ]
     },
-    "/pro/v1/computer-inventory-collection-settings": {
-      "GET": [
-        "computer-inventory-collection-settings:read"
-      ],
-      "PATCH": [
-        "computer-inventory-collection-settings:update"
-      ]
-    },
-    "/pro/v1/computer-inventory-collection-settings/custom-path": {
-      "POST": [
-        "custom-paths:create"
-      ]
-    },
-    "/pro/v1/computer-inventory-collection-settings/custom-path/{}": {
-      "DELETE": [
-        "custom-paths:delete"
-      ]
-    },
-    "/pro/v1/computer-inventory/{}/erase": {
-      "POST": [
-        "destructive-device-actions:execute"
-      ]
-    },
-    "/pro/v1/computer-inventory/{}/remove-mdm-profile": {
-      "POST": [
-        "destructive-device-actions:execute"
-      ]
-    },
-    "/pro/v1/computers-inventory": {
-      "GET": [
-        "devices:read"
-      ],
-      "POST": [
-        "devices:create"
-      ]
-    },
-    "/pro/v1/computers-inventory-detail/{}": {
-      "GET": [
-        "devices:read"
-      ],
-      "PATCH": [
-        "devices:update"
-      ]
-    },
-    "/pro/v1/computers-inventory/filevault": {
-      "GET": [
-        "disk-encryption-recovery-key:read"
-      ]
-    },
-    "/pro/v1/computers-inventory/{}": {
-      "DELETE": [
-        "destructive-device-actions:execute"
-      ],
-      "GET": [
-        "devices:read"
-      ]
-    },
-    "/pro/v1/computers-inventory/{}/attachments": {
-      "POST": [
-        "devices:update"
-      ]
-    },
-    "/pro/v1/computers-inventory/{}/attachments/{}": {
-      "DELETE": [
-        "devices:update"
-      ],
-      "GET": [
-        "devices:read"
-      ]
-    },
-    "/pro/v1/computers-inventory/{}/filevault": {
-      "GET": [
-        "disk-encryption-recovery-key:read"
-      ]
-    },
-    "/pro/v1/computers-inventory/{}/view-device-lock-pin": {
-      "GET": [
-        "computer-device-lock-pin:read"
-      ]
-    },
-    "/pro/v1/computers-inventory/{}/view-recovery-lock-password": {
-      "GET": [
-        "recovery-lock:read"
-      ]
-    },
     "/pro/v1/computers/{}/recalculate-smart-groups": {
       "POST": [
         "device-groups:update"
@@ -3961,22 +3562,6 @@
         "enrollment-customization:read"
       ]
     },
-    "/pro/v1/groups": {
-      "GET": [
-        "device-groups:read"
-      ]
-    },
-    "/pro/v1/groups/{}": {
-      "DELETE": [
-        "device-groups:delete"
-      ],
-      "GET": [
-        "device-groups:read"
-      ],
-      "PATCH": [
-        "device-groups:update"
-      ]
-    },
     "/pro/v1/gsx-connection": {
       "GET": [
         "gsx-connection:read",
@@ -4010,46 +3595,6 @@
       ],
       "PUT": [
         "impact-alert-notification-settings:update"
-      ]
-    },
-    "/pro/v1/inventory-preload": {
-      "DELETE": [
-        "inventory-preload-records:delete"
-      ],
-      "GET": [
-        "inventory-preload-records:read"
-      ],
-      "POST": [
-        "inventory-preload-records:create"
-      ]
-    },
-    "/pro/v1/inventory-preload/csv-template": {
-      "GET": [
-        "inventory-preload-records:read"
-      ]
-    },
-    "/pro/v1/inventory-preload/history": {
-      "GET": [
-        "inventory-preload-records:read"
-      ],
-      "POST": [
-        "inventory-preload-records:update"
-      ]
-    },
-    "/pro/v1/inventory-preload/validate-csv": {
-      "POST": [
-        "inventory-preload-records:create"
-      ]
-    },
-    "/pro/v1/inventory-preload/{}": {
-      "DELETE": [
-        "inventory-preload-records:delete"
-      ],
-      "GET": [
-        "inventory-preload-records:read"
-      ],
-      "PUT": [
-        "inventory-preload-records:update"
       ]
     },
     "/pro/v1/jamf-connect": {
@@ -4364,11 +3909,6 @@
         "device-actions:read"
       ]
     },
-    "/pro/v1/mdm/commands": {
-      "GET": [
-        "device-actions:read"
-      ]
-    },
     "/pro/v1/mdm/renew-profile": {
       "POST": [
         "device-actions:execute"
@@ -4409,66 +3949,6 @@
       ],
       "POST": [
         "extension-attributes:update"
-      ]
-    },
-    "/pro/v1/mobile-device-groups": {
-      "GET": [
-        "device-groups:read"
-      ]
-    },
-    "/pro/v1/mobile-device-groups/smart-group-membership/{}": {
-      "GET": [
-        "device-groups:read",
-        "devices:read"
-      ]
-    },
-    "/pro/v1/mobile-device-groups/smart-groups": {
-      "GET": [
-        "device-groups:read"
-      ],
-      "POST": [
-        "device-groups:create"
-      ]
-    },
-    "/pro/v1/mobile-device-groups/smart-groups/{}": {
-      "DELETE": [
-        "device-groups:delete"
-      ],
-      "GET": [
-        "device-groups:read"
-      ],
-      "PUT": [
-        "device-groups:update"
-      ]
-    },
-    "/pro/v1/mobile-device-groups/static-group-membership/{}": {
-      "GET": [
-        "device-groups:read",
-        "devices:read"
-      ]
-    },
-    "/pro/v1/mobile-device-groups/static-groups": {
-      "GET": [
-        "device-groups:read"
-      ],
-      "POST": [
-        "device-groups:create"
-      ]
-    },
-    "/pro/v1/mobile-device-groups/static-groups/{}": {
-      "DELETE": [
-        "device-groups:delete"
-      ],
-      "GET": [
-        "device-groups:read"
-      ],
-      "PATCH": [
-        "device-groups:update"
-      ]
-    },
-    "/pro/v1/mobile-device-groups/{}/erase": {
-      "POST": [
-        "destructive-device-actions:execute"
       ]
     },
     "/pro/v1/mobile-devices/{}/recalculate-smart-groups": {
@@ -5160,49 +4640,6 @@
         "ldap-servers:update"
       ]
     },
-    "/pro/v2/computer-groups/smart-group-membership/{}": {
-      "GET": [
-        "device-groups:read"
-      ]
-    },
-    "/pro/v2/computer-groups/smart-groups": {
-      "GET": [
-        "device-groups:read"
-      ],
-      "POST": [
-        "device-groups:create"
-      ]
-    },
-    "/pro/v2/computer-groups/smart-groups/{}": {
-      "DELETE": [
-        "device-groups:delete"
-      ],
-      "GET": [
-        "device-groups:read"
-      ],
-      "PUT": [
-        "device-groups:update"
-      ]
-    },
-    "/pro/v2/computer-groups/static-groups": {
-      "GET": [
-        "device-groups:read"
-      ],
-      "POST": [
-        "device-groups:create"
-      ]
-    },
-    "/pro/v2/computer-groups/static-groups/{}": {
-      "DELETE": [
-        "device-groups:delete"
-      ],
-      "GET": [
-        "device-groups:read"
-      ],
-      "PUT": [
-        "device-groups:update"
-      ]
-    },
     "/pro/v2/computer-inventory-collection-settings": {
       "GET": [
         "computer-inventory-collection-settings:read"
@@ -5240,63 +4677,6 @@
     "/pro/v2/computer-prestages/{}/scope/delete-multiple": {
       "POST": [
         "prestage-enrollments:update"
-      ]
-    },
-    "/pro/v2/computers-inventory": {
-      "GET": [
-        "devices:read"
-      ],
-      "POST": [
-        "devices:create"
-      ]
-    },
-    "/pro/v2/computers-inventory-detail/{}": {
-      "GET": [
-        "devices:read"
-      ],
-      "PATCH": [
-        "devices:update"
-      ]
-    },
-    "/pro/v2/computers-inventory/filevault": {
-      "GET": [
-        "disk-encryption-recovery-key:read"
-      ]
-    },
-    "/pro/v2/computers-inventory/{}": {
-      "DELETE": [
-        "destructive-device-actions:execute"
-      ],
-      "GET": [
-        "devices:read"
-      ]
-    },
-    "/pro/v2/computers-inventory/{}/attachments": {
-      "POST": [
-        "devices:update"
-      ]
-    },
-    "/pro/v2/computers-inventory/{}/attachments/{}": {
-      "DELETE": [
-        "devices:update"
-      ],
-      "GET": [
-        "devices:read"
-      ]
-    },
-    "/pro/v2/computers-inventory/{}/filevault": {
-      "GET": [
-        "disk-encryption-recovery-key:read"
-      ]
-    },
-    "/pro/v2/computers-inventory/{}/view-device-lock-pin": {
-      "GET": [
-        "computer-device-lock-pin:read"
-      ]
-    },
-    "/pro/v2/computers-inventory/{}/view-recovery-lock-password": {
-      "GET": [
-        "recovery-lock:read"
       ]
     },
     "/pro/v2/enrollment-customizations": {
@@ -5577,14 +4957,6 @@
         "destructive-device-actions:execute"
       ]
     },
-    "/pro/v2/mobile-device-prestages": {
-      "GET": [
-        "prestage-enrollments:read"
-      ],
-      "POST": [
-        "prestage-enrollments:create"
-      ]
-    },
     "/pro/v2/mobile-device-prestages/scope": {
       "GET": [
         "prestage-enrollments:read"
@@ -5593,38 +4965,6 @@
     "/pro/v2/mobile-device-prestages/syncs": {
       "GET": [
         "prestage-enrollments:read"
-      ]
-    },
-    "/pro/v2/mobile-device-prestages/{}": {
-      "DELETE": [
-        "prestage-enrollments:delete"
-      ],
-      "GET": [
-        "prestage-enrollments:read"
-      ],
-      "PUT": [
-        "prestage-enrollments:update"
-      ]
-    },
-    "/pro/v2/mobile-device-prestages/{}/attachments": {
-      "GET": [
-        "prestage-enrollments:read"
-      ],
-      "POST": [
-        "prestage-enrollments:create"
-      ]
-    },
-    "/pro/v2/mobile-device-prestages/{}/attachments/delete-multiple": {
-      "POST": [
-        "prestage-enrollments:delete"
-      ]
-    },
-    "/pro/v2/mobile-device-prestages/{}/history": {
-      "GET": [
-        "prestage-enrollments:read"
-      ],
-      "POST": [
-        "prestage-enrollments:update"
       ]
     },
     "/pro/v2/mobile-device-prestages/{}/scope": {
@@ -5747,79 +5087,6 @@
         "patch-policies:read"
       ]
     },
-    "/pro/v2/patch-software-title-configurations": {
-      "GET": [
-        "patch-management-software-titles:read"
-      ],
-      "POST": [
-        "patch-management-software-titles:create"
-      ]
-    },
-    "/pro/v2/patch-software-title-configurations/{}": {
-      "DELETE": [
-        "patch-management-software-titles:delete"
-      ],
-      "GET": [
-        "patch-management-software-titles:read"
-      ],
-      "PATCH": [
-        "patch-management-software-titles:update"
-      ]
-    },
-    "/pro/v2/patch-software-title-configurations/{}/dashboard": {
-      "DELETE": [
-        "patch-management-software-titles:read"
-      ],
-      "GET": [
-        "patch-management-software-titles:read"
-      ],
-      "POST": [
-        "patch-management-software-titles:read"
-      ]
-    },
-    "/pro/v2/patch-software-title-configurations/{}/definitions": {
-      "GET": [
-        "patch-management-software-titles:read"
-      ]
-    },
-    "/pro/v2/patch-software-title-configurations/{}/dependencies": {
-      "GET": [
-        "patch-management-software-titles:read"
-      ]
-    },
-    "/pro/v2/patch-software-title-configurations/{}/export-report": {
-      "GET": [
-        "patch-management-software-titles:read"
-      ]
-    },
-    "/pro/v2/patch-software-title-configurations/{}/extension-attributes": {
-      "GET": [
-        "patch-management-software-titles:read"
-      ]
-    },
-    "/pro/v2/patch-software-title-configurations/{}/history": {
-      "GET": [
-        "patch-management-software-titles:read"
-      ],
-      "POST": [
-        "patch-management-software-titles:update"
-      ]
-    },
-    "/pro/v2/patch-software-title-configurations/{}/patch-report": {
-      "GET": [
-        "patch-management-software-titles:read"
-      ]
-    },
-    "/pro/v2/patch-software-title-configurations/{}/patch-summary": {
-      "GET": [
-        "patch-management-software-titles:read"
-      ]
-    },
-    "/pro/v2/patch-software-title-configurations/{}/patch-summary/versions": {
-      "GET": [
-        "patch-management-software-titles:read"
-      ]
-    },
     "/pro/v2/smtp-server": {
       "GET": [
         "smtp-server:read"
@@ -5933,63 +5200,6 @@
       ],
       "PUT": [
         "prestage-enrollments:update"
-      ]
-    },
-    "/pro/v3/computers-inventory": {
-      "GET": [
-        "devices:read"
-      ],
-      "POST": [
-        "devices:create"
-      ]
-    },
-    "/pro/v3/computers-inventory-detail/{}": {
-      "GET": [
-        "devices:read"
-      ],
-      "PATCH": [
-        "devices:update"
-      ]
-    },
-    "/pro/v3/computers-inventory/filevault": {
-      "GET": [
-        "disk-encryption-recovery-key:read"
-      ]
-    },
-    "/pro/v3/computers-inventory/{}": {
-      "DELETE": [
-        "destructive-device-actions:execute"
-      ],
-      "GET": [
-        "devices:read"
-      ]
-    },
-    "/pro/v3/computers-inventory/{}/attachments": {
-      "POST": [
-        "devices:update"
-      ]
-    },
-    "/pro/v3/computers-inventory/{}/attachments/{}": {
-      "DELETE": [
-        "devices:update"
-      ],
-      "GET": [
-        "devices:read"
-      ]
-    },
-    "/pro/v3/computers-inventory/{}/filevault": {
-      "GET": [
-        "disk-encryption-recovery-key:read"
-      ]
-    },
-    "/pro/v3/computers-inventory/{}/view-device-lock-pin": {
-      "GET": [
-        "computer-device-lock-pin:read"
-      ]
-    },
-    "/pro/v3/computers-inventory/{}/view-recovery-lock-password": {
-      "GET": [
-        "recovery-lock:read"
       ]
     },
     "/pro/v3/enrollment/access-groups": {

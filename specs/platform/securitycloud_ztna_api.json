@@ -2164,7 +2164,7 @@
               "ztna:read": "",
               "ztna:update": ""
             },
-            "tokenUrl": "https://{region}.api.stage.platform.jamflabs.com/auth/token"
+            "tokenUrl": "https://{region}.api.jamfcloud.com/auth/token"
           }
         },
         "type": "oauth2"
@@ -2178,7 +2178,7 @@
     },
     "description": "Manage ZTNA Gateways, Grouped Gateways, Apps, and Predefined Apps",
     "termsOfService": "https://www.jamf.com/developer-resources/api-license-agreement/",
-    "title": "Jamf ZTNA Public API (STAGE)",
+    "title": "Jamf ZTNA Public API",
     "version": "1.0.0"
   },
   "openapi": "3.0.3",
@@ -3577,14 +3577,16 @@
   ],
   "servers": [
     {
-      "description": "Jamf Beta API Gateway - stage",
-      "url": "https://{region}.api.stage.platform.jamflabs.com/api/securitycloud",
+      "description": "Jamf Beta API Gateway - prod",
+      "url": "https://{region}.api.jamfcloud.com/securitycloud",
       "variables": {
         "region": {
-          "default": "us1",
+          "default": "us",
           "description": "Geographic deployment region",
           "enum": [
-            "us1"
+            "us",
+            "eu",
+            "apac"
           ]
         }
       }

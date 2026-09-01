@@ -26,44 +26,8 @@ func NewDeviceReportsCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Long:        "API for accessing device and declaration status reports",
 		Annotations: map[string]string{"jamf:api": "platform-gateway"},
 	}
-	cmd.AddCommand(newDeviceReportsGetCmd(cliCtx))
 	cmd.AddCommand(newDeviceReportsChannelsCmd(cliCtx))
 	cmd.AddCommand(newDeviceReportsDeclarationsCmd(cliCtx))
-	return cmd
-}
-
-func newDeviceReportsGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
-	cmd := &cobra.Command{
-		Use:         "get <deviceId>",
-		Short:       "Get device report declarations",
-		Long:        "**Deprecated** — use `GET /v1/devices/{deviceId}/declarations` instead.",
-		Annotations: map[string]string{"jamf:privileges": "declarations:read", "jamf:api": "platform-gateway"},
-		Args:        cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
-				return err
-			}
-			path := "/ddm/report/v1/devices/{deviceId}"
-			path = strings.Replace(path, "{deviceId}", url.PathEscape(args[0]), 1)
-			q := url.Values{}
-			var body any
-			if encoded := q.Encode(); encoded != "" {
-				path += "?" + encoded
-			}
-			var result any
-			if err := cliCtx.PlatformSDKClient.Transport().DoExpect(cmd.Context(), http.MethodGet, path, body, http.StatusOK, &result); err != nil {
-				return fmt.Errorf("get: %w", err)
-			}
-			if result == nil {
-				return nil
-			}
-			b, err := json.MarshalIndent(result, "", "  ")
-			if err != nil {
-				return err
-			}
-			return cliCtx.Output.PrintRaw(b)
-		},
-	}
 	return cmd
 }
 

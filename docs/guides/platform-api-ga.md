@@ -5,7 +5,7 @@ change, and what the CLI now does for you.
 
 > **Provisional, and subject to change without notice.** The Platform API is still moving
 > ahead of GA. Version numbers, the refused-command list and the permission names quoted
-> here all track a specific SDK ingest — currently `jamfplatform-go-sdk` `589cbe3`, whose
+> here all track a specific SDK ingest — currently `jamfplatform-go-sdk` `a307a11`, whose
 > published surface is Jamf Pro API 11.31.0 and Classic API 11.28.0. Re-read this against
 > the release you are actually upgrading to.
 
@@ -239,9 +239,27 @@ commands are **refused before a request is sent** on a gateway profile, with exi
 | `pro mac-os-managed-software-updates` | 1 | `list` (the deprecated available-updates endpoint) |
 | `pro mdm-commands commands` | 1 | the gateway declares GET on that path, not POST |
 | `pro classic-computer-configs` | 7 | outside the published Classic API 11.28.0 |
+| `pro static-computer-groups` | 5 | the deprecated v2 endpoint — use `pro computer-groups-static-groups` |
 
-46 operations in total. **Nothing else changes for the ~1,700 other commands** — Pro and
+55 operations in total. **Nothing else changes for the ~1,700 other commands** — Pro and
 Classic still route through the gateway as before.
+
+`pro static-computer-groups` is the one entry with a working replacement already in the
+CLI, and it is worth understanding because more will follow it. The gateway's published
+11.31.0 surface withdrew 122 superseded Jamf Pro endpoints — every one of them a version
+with a published higher-version successor. In almost every case the CLI simply moved onto
+the successor and you will notice nothing: `pro computers-inventory` now sends `/v4`
+instead of `/v3`, and gained `erase` and `remove-mdm-profile` subcommands in the process.
+Static computer groups are the exception, because the CLI ships the two versions under two
+different command names:
+
+```
+pro static-computer-groups            # v2 — refused on a gateway profile
+pro computer-groups-static-groups     # v3 — use this
+```
+
+Both still work against a Jamf Pro instance profile. The refusal does not name the
+replacement today.
 
 The refusal explains itself, and the wording differs by evidence. For the app-installer
 family the gateway demonstrably does not route it. For the rest, the endpoint **may still

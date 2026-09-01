@@ -26,53 +26,7 @@ func NewDeclarationReportsCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Long:        "API for accessing device and declaration status reports",
 		Annotations: map[string]string{"jamf:api": "platform-gateway"},
 	}
-	cmd.AddCommand(newDeclarationReportsGetCmd(cliCtx))
 	cmd.AddCommand(newDeclarationReportsDevicesCmd(cliCtx))
-	return cmd
-}
-
-func newDeclarationReportsGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
-	var size int
-	var sort string
-	cmd := &cobra.Command{
-		Use:         "get <declarationIdentifier>",
-		Short:       "Get declaration report devices",
-		Long:        "**Deprecated** — use `GET /v1/declarations/{declarationIdentifier}/devices` instead.",
-		Annotations: map[string]string{"jamf:privileges": "declarations:read", "jamf:api": "platform-gateway"},
-		Args:        cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
-				return err
-			}
-			path := "/ddm/report/v1/declarations/{declarationIdentifier}"
-			path = strings.Replace(path, "{declarationIdentifier}", url.PathEscape(args[0]), 1)
-			q := url.Values{}
-			if cmd.Flags().Changed("size") {
-				q.Set("size", strconv.Itoa(size))
-			}
-			if sort != "" {
-				q.Set("sort", sort)
-			}
-			var body any
-			if encoded := q.Encode(); encoded != "" {
-				path += "?" + encoded
-			}
-			var result any
-			if err := cliCtx.PlatformSDKClient.Transport().DoExpect(cmd.Context(), http.MethodGet, path, body, http.StatusOK, &result); err != nil {
-				return fmt.Errorf("get: %w", err)
-			}
-			if result == nil {
-				return nil
-			}
-			b, err := json.MarshalIndent(result, "", "  ")
-			if err != nil {
-				return err
-			}
-			return cliCtx.Output.PrintRaw(b)
-		},
-	}
-	cmd.Flags().IntVar(&size, "size", 0, "The size of the page to be returned")
-	cmd.Flags().StringVar(&sort, "sort", "", "Sorting criteria in the format: property,(asc|desc). Default sort order is ascending. Multiple sort criteria are supported.")
 	return cmd
 }
 

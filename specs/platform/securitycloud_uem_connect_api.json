@@ -248,11 +248,13 @@
             "type": "string"
           },
           "uemGroups": {
-            "description": "Optional UEM groups to scope the deployment to. If omitted or empty, deploys to all UEM groups.",
+            "description": "Optional UEM group IDs to scope the deployment to.\n\nGroup names are not accepted. These are the UEM's own group IDs — for Jamf Pro, obtain\nthem from the Jamf Pro API (`GET /v1/computer-groups`, `GET /v1/mobile-device-groups`).\nAn ID is either bare numeric (`\"123\"`) or device-type-prefixed (`\"computer_123\"`,\n`\"mobile_456\"`); a prefix, when present, must match the device type the `platform`\ndeploys to. IDs are scoped to a single UEM instance.\n\nScoping is additive: the IDs are merged into the configuration profile's existing scope,\nso a later deploy can widen the scope but cannot narrow or clear it. Omitting the field\nor sending an empty array leaves any existing scope untouched — on the first deploy of a\nprofile it means no group scope is set, not that the profile is scoped to every group.\n",
             "example": [
-              "All Managed Devices"
+              "mobile_456",
+              "789"
             ],
             "items": {
+              "example": "mobile_456",
               "minLength": 1,
               "type": "string"
             },
@@ -318,6 +320,89 @@
         ],
         "type": "object"
       },
+      "CitrixCloudConfig": {
+        "additionalProperties": true,
+        "description": "Citrix Cloud administrator credentials for the CITRIX_CLOUD_ADMIN strategy.",
+        "properties": {
+          "applicationId": {
+            "description": "Citrix Cloud API client (application) id",
+            "example": "app-1234",
+            "minLength": 1,
+            "type": "string"
+          },
+          "applicationSecret": {
+            "description": "Citrix Cloud API client secret",
+            "example": "abcXYZ123secret",
+            "format": "password",
+            "minLength": 1,
+            "type": "string",
+            "writeOnly": true
+          },
+          "customerId": {
+            "description": "Citrix Cloud customer id",
+            "example": "citrix-customer",
+            "minLength": 1,
+            "type": "string"
+          },
+          "url": {
+            "description": "Citrix Cloud API URL",
+            "example": "https://api.cloud.com",
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "customerId",
+          "applicationId",
+          "applicationSecret",
+          "url"
+        ],
+        "type": "object"
+      },
+      "CitrixCloudOauthConfig": {
+        "additionalProperties": true,
+        "description": "Citrix Cloud OAuth credentials for the CITRIX_CLOUD_ADMIN_OAUTH strategy.",
+        "properties": {
+          "applicationId": {
+            "description": "Citrix Cloud API client (application) id",
+            "example": "app-1234",
+            "minLength": 1,
+            "type": "string"
+          },
+          "applicationSecret": {
+            "description": "Citrix Cloud API client secret",
+            "example": "abcXYZ123secret",
+            "format": "password",
+            "minLength": 1,
+            "type": "string",
+            "writeOnly": true
+          },
+          "customerId": {
+            "description": "Citrix Cloud customer id",
+            "example": "citrix-customer",
+            "minLength": 1,
+            "type": "string"
+          },
+          "region": {
+            "description": "Citrix Cloud region — determines the API endpoint",
+            "enum": [
+              "ASIA_PACIFIC",
+              "EU",
+              "USA",
+              "JAPAN"
+            ],
+            "example": "USA",
+            "type": "string"
+          }
+        },
+        "required": [
+          "customerId",
+          "applicationId",
+          "applicationSecret",
+          "region"
+        ],
+        "type": "object"
+      },
       "ConnectorConfig": {
         "additionalProperties": true,
         "description": "Connector configuration. Contains both core fields and vendor-specific fields.\nAdditional vendor-specific properties may appear alongside the documented ones.\nSecret fields (credentials) are write-only and are never returned.\n",
@@ -357,7 +442,15 @@
             "$ref": "#/components/schemas/DeviceSyncAuth"
           },
           "deviceUnmanagedThreshold": {
-            "description": "Number of consecutive syncs a device may be absent from the UEM platform before it is\ntreated as unmanaged. `0` disables the grace period.\n",
+            "description": "Number of days since last check-in before a device is treated as unmanaged.\n`0` uses the platform default (3 days). Not applicable for JAMF_PRO — any value\nsent for that vendor is silently ignored (device status is taken exclusively from the UEM).\n",
+            "enum": [
+              0,
+              1,
+              3,
+              5,
+              7,
+              14
+            ],
             "example": 3,
             "minimum": 0,
             "type": "integer"
@@ -409,9 +502,18 @@
           },
           "refreshRateMinutes": {
             "description": "Sync refresh interval in minutes",
+            "enum": [
+              60,
+              120,
+              240,
+              480,
+              720,
+              1440
+            ],
             "example": 1440,
             "format": "int64",
-            "minimum": 1,
+            "maximum": 1440,
+            "minimum": 60,
             "type": "integer"
           },
           "scheduled": {
@@ -460,57 +562,20 @@
         ],
         "type": "object"
       },
-      "ConnectorCreateRequest": {
-        "additionalProperties": true,
-        "description": "Request to create a connector. Contains the UEM server connection details. Vendor-specific\nfields may also be included; the `vendor` field determines which are applicable. Secret\nfields (credentials) are write-only and are never returned in responses.\n\n`JAMF_PRO` is not accepted here — it has a dedicated fully typed contract, see\n`JamfProConnectorCreateRequest`.\n",
-        "properties": {
-          "isoCountry": {
-            "description": "ISO country code for the UEM instance, when applicable",
-            "example": "US",
-            "type": "string"
-          },
-          "url": {
-            "description": "UEM server URL",
-            "example": "https://yourcompany.jamfcloud.com",
-            "type": "string"
-          },
-          "vendor": {
-            "description": "UEM vendor name",
-            "enum": [
-              "INTUNE",
-              "XENMOBILE",
-              "MAAS360",
-              "AIRWATCH",
-              "JAMF_SCHOOL",
-              "MOBILEIRONCLOUD",
-              "MOBILEIRONCORE",
-              "GOOGLE",
-              "WIZY"
-            ],
-            "example": "JAMF_PRO",
-            "type": "string"
-          }
-        },
-        "required": [
-          "vendor",
-          "url"
-        ],
-        "type": "object"
-      },
       "ConnectorCreateRequestBody": {
-        "description": "The connector to create. The `vendor` field selects the contract: `JAMF_PRO` uses the fully\ntyped `JamfProConnectorCreateRequest`; every other vendor uses the generic\n`ConnectorCreateRequest`.\n",
+        "description": "The connector to create. The `vendor` field selects the contract: each vendor has its own\nfully typed request schema describing the fields it requires. Secret fields (credentials)\nare write-only — accepted on creation but never returned in any response.\n",
         "discriminator": {
           "mapping": {
-            "AIRWATCH": "#/components/schemas/ConnectorCreateRequest",
-            "GOOGLE": "#/components/schemas/ConnectorCreateRequest",
-            "INTUNE": "#/components/schemas/ConnectorCreateRequest",
+            "AIRWATCH": "#/components/schemas/WorkspaceOneConnectorCreateRequest",
+            "GOOGLE": "#/components/schemas/GoogleConnectorCreateRequest",
+            "INTUNE": "#/components/schemas/IntuneConnectorCreateRequest",
             "JAMF_PRO": "#/components/schemas/JamfProConnectorCreateRequest",
-            "JAMF_SCHOOL": "#/components/schemas/ConnectorCreateRequest",
-            "MAAS360": "#/components/schemas/ConnectorCreateRequest",
-            "MOBILEIRONCLOUD": "#/components/schemas/ConnectorCreateRequest",
-            "MOBILEIRONCORE": "#/components/schemas/ConnectorCreateRequest",
-            "WIZY": "#/components/schemas/ConnectorCreateRequest",
-            "XENMOBILE": "#/components/schemas/ConnectorCreateRequest"
+            "JAMF_SCHOOL": "#/components/schemas/JamfSchoolConnectorCreateRequest",
+            "MAAS360": "#/components/schemas/Maas360ConnectorCreateRequest",
+            "MOBILEIRONCLOUD": "#/components/schemas/MobileIronCloudConnectorCreateRequest",
+            "MOBILEIRONCORE": "#/components/schemas/MobileIronCoreConnectorCreateRequest",
+            "WIZY": "#/components/schemas/WizyConnectorCreateRequest",
+            "XENMOBILE": "#/components/schemas/XenMobileConnectorCreateRequest"
           },
           "propertyName": "vendor"
         },
@@ -519,7 +584,31 @@
             "$ref": "#/components/schemas/JamfProConnectorCreateRequest"
           },
           {
-            "$ref": "#/components/schemas/ConnectorCreateRequest"
+            "$ref": "#/components/schemas/IntuneConnectorCreateRequest"
+          },
+          {
+            "$ref": "#/components/schemas/XenMobileConnectorCreateRequest"
+          },
+          {
+            "$ref": "#/components/schemas/Maas360ConnectorCreateRequest"
+          },
+          {
+            "$ref": "#/components/schemas/WorkspaceOneConnectorCreateRequest"
+          },
+          {
+            "$ref": "#/components/schemas/JamfSchoolConnectorCreateRequest"
+          },
+          {
+            "$ref": "#/components/schemas/MobileIronCloudConnectorCreateRequest"
+          },
+          {
+            "$ref": "#/components/schemas/MobileIronCoreConnectorCreateRequest"
+          },
+          {
+            "$ref": "#/components/schemas/GoogleConnectorCreateRequest"
+          },
+          {
+            "$ref": "#/components/schemas/WizyConnectorCreateRequest"
           }
         ]
       },
@@ -686,12 +775,73 @@
         ],
         "type": "object"
       },
+      "GoogleApiSettings": {
+        "additionalProperties": true,
+        "description": "OAuth client credentials for the Google API.",
+        "properties": {
+          "clientId": {
+            "description": "OAuth client id",
+            "example": "1a2b3c4d-5e6f-7a8b-9c0d-1e2f3a4b5c6d",
+            "minLength": 1,
+            "type": "string"
+          },
+          "clientSecret": {
+            "description": "OAuth client secret",
+            "example": "abcXYZ123secret",
+            "format": "password",
+            "type": "string",
+            "writeOnly": true
+          }
+        },
+        "required": [
+          "clientId"
+        ],
+        "type": "object"
+      },
+      "GoogleConnectorCreateRequest": {
+        "additionalProperties": true,
+        "description": "Connector creation request for Google (Chrome / Android Enterprise). The OAuth client\ncredentials (`apiSettings`) and the `authUrl` override are optional; JSC falls back to\nGoogle defaults when they are omitted.\n",
+        "properties": {
+          "apiSettings": {
+            "$ref": "#/components/schemas/GoogleApiSettings"
+          },
+          "authUrl": {
+            "description": "Override for the Google authentication URL",
+            "example": "https://accounts.google.com",
+            "type": "string"
+          },
+          "isoCountry": {
+            "description": "ISO country code for the UEM instance, when applicable",
+            "example": "US",
+            "type": "string"
+          },
+          "url": {
+            "description": "Google API URL",
+            "example": "https://www.googleapis.com",
+            "minLength": 1,
+            "type": "string"
+          },
+          "vendor": {
+            "description": "UEM vendor discriminator",
+            "enum": [
+              "GOOGLE"
+            ],
+            "example": "GOOGLE",
+            "type": "string"
+          }
+        },
+        "required": [
+          "vendor",
+          "url"
+        ],
+        "type": "object"
+      },
       "GroupMapping": {
         "description": "A single UEM-group-to-JSC-group assignment.\n\nBoth property names retain legacy internal product names (`emm` for UEM, `wandera` for\nJSC). They are the names the service serializes and accepts today, so they are documented\nas-is; renaming them would break existing callers.\n",
         "properties": {
           "emmGroupId": {
-            "description": "Group identifier in the UEM platform",
-            "example": "uem-group-1",
+            "description": "Group ID in the UEM platform. Group names are not accepted.\n\nFor Jamf Pro the device-type prefix is **required** here — `computer_\u003cid\u003e` or\n`mobile_\u003cid\u003e` — unlike `ActivationProfileDeployRequest.uemGroups`, where a bare numeric\nID is also accepted. A value without the prefix is rejected.\n",
+            "example": "computer_123",
             "minLength": 1,
             "type": "string"
           },
@@ -734,8 +884,90 @@
         },
         "type": "object"
       },
+      "IntuneApiCredentials": {
+        "additionalProperties": true,
+        "description": "OAuth client credentials for a single Intune API.",
+        "properties": {
+          "clientId": {
+            "description": "OAuth client (application) id",
+            "example": "1a2b3c4d-5e6f-7a8b-9c0d-1e2f3a4b5c6d",
+            "minLength": 1,
+            "type": "string"
+          },
+          "clientSecret": {
+            "description": "OAuth client secret",
+            "example": "abcXYZ123secret",
+            "format": "password",
+            "type": "string",
+            "writeOnly": true
+          }
+        },
+        "required": [
+          "clientId"
+        ],
+        "type": "object"
+      },
+      "IntuneConnectorCreateRequest": {
+        "additionalProperties": true,
+        "description": "Connector creation request for Microsoft Intune.\n\nJSC talks to three Intune APIs — lifecycle management (`lcm`), Mobile Threat Defense\n(`mtd`), and device tagging (`tag`) — each authenticated with its own OAuth client\ncredentials. The endpoint-URL overrides are optional and default to Microsoft's public\nendpoints when omitted.\n",
+        "properties": {
+          "graphAuthUrl": {
+            "description": "Override for the Microsoft Graph authentication URL",
+            "example": "https://login.microsoftonline.com",
+            "type": "string"
+          },
+          "graphUrl": {
+            "description": "Override for the Microsoft Graph API URL",
+            "example": "https://graph.microsoft.com",
+            "type": "string"
+          },
+          "isoCountry": {
+            "description": "ISO country code for the UEM instance, when applicable",
+            "example": "US",
+            "type": "string"
+          },
+          "lcm": {
+            "$ref": "#/components/schemas/IntuneApiCredentials"
+          },
+          "mtd": {
+            "$ref": "#/components/schemas/IntuneApiCredentials"
+          },
+          "mtdUrl": {
+            "description": "Override for the Mobile Threat Defense API URL",
+            "example": "https://graph.microsoft.com",
+            "type": "string"
+          },
+          "otherApisAuthUrl": {
+            "description": "Override for the authentication URL of the non-Graph Intune APIs",
+            "example": "https://login.microsoftonline.com",
+            "type": "string"
+          },
+          "tag": {
+            "$ref": "#/components/schemas/IntuneApiCredentials"
+          },
+          "url": {
+            "description": "Intune (Microsoft Graph) server URL",
+            "example": "https://graph.microsoft.com",
+            "minLength": 1,
+            "type": "string"
+          },
+          "vendor": {
+            "description": "UEM vendor discriminator",
+            "enum": [
+              "INTUNE"
+            ],
+            "example": "INTUNE",
+            "type": "string"
+          }
+        },
+        "required": [
+          "vendor",
+          "url"
+        ],
+        "type": "object"
+      },
       "JamfProConnectorCreateRequest": {
-        "additionalProperties": false,
+        "additionalProperties": true,
         "description": "Connector creation request for Jamf Pro.\n\nThe `authStrategy` field selects how JSC authenticates to Jamf Pro and determines which\nfurther fields are required:\n\n- `JAMF_PRO_OAUTH` — provide `deviceSyncAuth.clientId` and `deviceSyncAuth.clientSecret`\n  (Jamf Pro API-role OAuth client credentials).\n- `BASIC` — provide `deviceSyncAuth.username` and `deviceSyncAuth.password`.\n- `M2M` — provide `tenantId`; `deviceSyncAuth` must be omitted (JSC authenticates through the\n  shared machine-to-machine trust rather than per-connector credentials).\n\nThe credential fields (`deviceSyncAuth.password`, `deviceSyncAuth.clientSecret`) are\nwrite-only. `tenantId` is likewise write-only: it is accepted on creation but not returned\nin responses. Write-only fields are never echoed back in any response.\n",
         "properties": {
           "authStrategy": {
@@ -765,6 +997,7 @@
           "url": {
             "description": "Jamf Pro server URL",
             "example": "https://yourcompany.jamfcloud.com",
+            "minLength": 1,
             "type": "string"
           },
           "vendor": {
@@ -784,7 +1017,7 @@
         "type": "object"
       },
       "JamfProCredentials": {
-        "additionalProperties": false,
+        "additionalProperties": true,
         "description": "Jamf Pro connection credentials. Provide the OAuth pair (`clientId` + `clientSecret`) when\n`authStrategy` is `JAMF_PRO_OAUTH`, or the basic pair (`username` + `password`) when\n`authStrategy` is `BASIC`. Omit entirely for `M2M`.\n",
         "properties": {
           "clientId": {
@@ -813,6 +1046,52 @@
             "type": "string"
           }
         },
+        "type": "object"
+      },
+      "JamfSchoolConnectorCreateRequest": {
+        "additionalProperties": true,
+        "description": "Connector creation request for Jamf School.",
+        "properties": {
+          "apiKey": {
+            "description": "Jamf School API key",
+            "example": "abcXYZ123secret",
+            "format": "password",
+            "minLength": 1,
+            "type": "string",
+            "writeOnly": true
+          },
+          "isoCountry": {
+            "description": "ISO country code for the UEM instance, when applicable",
+            "example": "US",
+            "type": "string"
+          },
+          "networkId": {
+            "description": "Jamf School network id",
+            "example": "123456",
+            "minLength": 1,
+            "type": "string"
+          },
+          "url": {
+            "description": "Jamf School server URL",
+            "example": "https://yourcompany.jamfcloud.com",
+            "minLength": 1,
+            "type": "string"
+          },
+          "vendor": {
+            "description": "UEM vendor discriminator",
+            "enum": [
+              "JAMF_SCHOOL"
+            ],
+            "example": "JAMF_SCHOOL",
+            "type": "string"
+          }
+        },
+        "required": [
+          "vendor",
+          "url",
+          "networkId",
+          "apiKey"
+        ],
         "type": "object"
       },
       "LatestSync": {
@@ -895,6 +1174,179 @@
         },
         "required": [
           "status"
+        ],
+        "type": "object"
+      },
+      "Maas360ConnectorCreateRequest": {
+        "additionalProperties": true,
+        "description": "Connector creation request for IBM MaaS360.",
+        "properties": {
+          "appAccessKey": {
+            "description": "MaaS360 application access key",
+            "example": "abcXYZ123secret",
+            "format": "password",
+            "minLength": 1,
+            "type": "string",
+            "writeOnly": true
+          },
+          "appId": {
+            "description": "MaaS360 registered application id",
+            "example": "com.jamf.jsc",
+            "minLength": 1,
+            "type": "string"
+          },
+          "appVersion": {
+            "description": "MaaS360 registered application version",
+            "example": "1.0",
+            "minLength": 1,
+            "type": "string"
+          },
+          "billingId": {
+            "description": "MaaS360 billing (account) id",
+            "example": "1234567",
+            "minLength": 1,
+            "type": "string"
+          },
+          "emmPassword": {
+            "description": "MaaS360 API password",
+            "example": "s3cr3t",
+            "format": "password",
+            "minLength": 1,
+            "type": "string",
+            "writeOnly": true
+          },
+          "emmUsername": {
+            "description": "MaaS360 API username",
+            "example": "svc-jsc",
+            "minLength": 1,
+            "type": "string"
+          },
+          "isoCountry": {
+            "description": "ISO country code for the UEM instance, when applicable",
+            "example": "US",
+            "type": "string"
+          },
+          "url": {
+            "description": "MaaS360 server URL",
+            "example": "https://services.fiberlink.com",
+            "minLength": 1,
+            "type": "string"
+          },
+          "vendor": {
+            "description": "UEM vendor discriminator",
+            "enum": [
+              "MAAS360"
+            ],
+            "example": "MAAS360",
+            "type": "string"
+          }
+        },
+        "required": [
+          "vendor",
+          "url",
+          "billingId",
+          "emmUsername",
+          "emmPassword",
+          "appId",
+          "appVersion",
+          "appAccessKey"
+        ],
+        "type": "object"
+      },
+      "MobileIronCloudConnectorCreateRequest": {
+        "additionalProperties": true,
+        "description": "Connector creation request for Ivanti Neurons for MDM (MobileIron Cloud).\n\nNote: the `vendor` discriminator value is `MOBILEIRONCLOUD`.\n",
+        "properties": {
+          "emmPassword": {
+            "description": "MobileIron Cloud API password",
+            "example": "s3cr3t",
+            "format": "password",
+            "minLength": 1,
+            "type": "string",
+            "writeOnly": true
+          },
+          "emmUsername": {
+            "description": "MobileIron Cloud API username",
+            "example": "svc-jsc",
+            "minLength": 1,
+            "type": "string"
+          },
+          "isoCountry": {
+            "description": "ISO country code for the UEM instance, when applicable",
+            "example": "US",
+            "type": "string"
+          },
+          "url": {
+            "description": "MobileIron Cloud server URL",
+            "example": "https://eu1.mobileiron.com",
+            "minLength": 1,
+            "type": "string"
+          },
+          "vendor": {
+            "description": "UEM vendor discriminator",
+            "enum": [
+              "MOBILEIRONCLOUD"
+            ],
+            "example": "MOBILEIRONCLOUD",
+            "type": "string"
+          }
+        },
+        "required": [
+          "vendor",
+          "url",
+          "emmUsername",
+          "emmPassword"
+        ],
+        "type": "object"
+      },
+      "MobileIronCoreConnectorCreateRequest": {
+        "additionalProperties": true,
+        "description": "Connector creation request for Ivanti EPMM (MobileIron Core).\n\nNote: the `vendor` discriminator value is `MOBILEIRONCORE`.\n",
+        "properties": {
+          "emmPassword": {
+            "description": "MobileIron Core API password",
+            "example": "s3cr3t",
+            "format": "password",
+            "minLength": 1,
+            "type": "string",
+            "writeOnly": true
+          },
+          "emmUsername": {
+            "description": "MobileIron Core API username",
+            "example": "svc-jsc",
+            "minLength": 1,
+            "type": "string"
+          },
+          "isoCountry": {
+            "description": "ISO country code for the UEM instance, when applicable",
+            "example": "US",
+            "type": "string"
+          },
+          "rootCertificate": {
+            "description": "Optional PEM-encoded root certificate for TLS verification",
+            "example": "-----BEGIN CERTIFICATE-----\n...\n-----END CERTIFICATE-----",
+            "type": "string"
+          },
+          "url": {
+            "description": "MobileIron Core server URL",
+            "example": "https://core.example.com",
+            "minLength": 1,
+            "type": "string"
+          },
+          "vendor": {
+            "description": "UEM vendor discriminator",
+            "enum": [
+              "MOBILEIRONCORE"
+            ],
+            "example": "MOBILEIRONCORE",
+            "type": "string"
+          }
+        },
+        "required": [
+          "vendor",
+          "url",
+          "emmUsername",
+          "emmPassword"
         ],
         "type": "object"
       },
@@ -1083,7 +1535,15 @@
           },
           "deviceUnmanagedThreshold": {
             "default": 0,
-            "description": "Number of consecutive syncs a device may be absent from the UEM platform before it is\ntreated as unmanaged. `0` disables the grace period.\n",
+            "description": "Number of days since last check-in before a device is treated as unmanaged.\n`0` uses the platform default (3 days). Not applicable for JAMF_PRO — any value\nsent for that vendor is silently ignored (device status is taken exclusively from the UEM).\n",
+            "enum": [
+              0,
+              1,
+              3,
+              5,
+              7,
+              14
+            ],
             "example": 3,
             "minimum": 0,
             "type": "integer"
@@ -1099,10 +1559,19 @@
           },
           "refreshRateMinutes": {
             "default": 1440,
-            "description": "Sync refresh interval in minutes",
+            "description": "Sync refresh interval in minutes.",
+            "enum": [
+              60,
+              120,
+              240,
+              480,
+              720,
+              1440
+            ],
             "example": 1440,
             "format": "int64",
-            "minimum": 1,
+            "maximum": 1440,
+            "minimum": 60,
             "type": "integer"
           },
           "scheduled": {
@@ -1135,6 +1604,162 @@
           "deviceFieldMappings"
         ],
         "type": "object"
+      },
+      "WizyConnectorCreateRequest": {
+        "additionalProperties": true,
+        "description": "Connector creation request for Wizy.",
+        "properties": {
+          "isoCountry": {
+            "description": "ISO country code for the UEM instance, when applicable",
+            "example": "US",
+            "type": "string"
+          },
+          "namespace": {
+            "description": "Wizy namespace",
+            "example": "acme",
+            "minLength": 1,
+            "type": "string"
+          },
+          "url": {
+            "description": "Wizy server URL",
+            "example": "https://api.wizy.io",
+            "minLength": 1,
+            "type": "string"
+          },
+          "vendor": {
+            "description": "UEM vendor discriminator",
+            "enum": [
+              "WIZY"
+            ],
+            "example": "WIZY",
+            "type": "string"
+          }
+        },
+        "required": [
+          "vendor",
+          "url",
+          "namespace"
+        ],
+        "type": "object"
+      },
+      "WorkspaceOneConnectorCreateRequest": {
+        "additionalProperties": true,
+        "description": "Connector creation request for VMware Workspace ONE.\n\nNote: the `vendor` discriminator value is `AIRWATCH`, the identifier the service uses for\nWorkspace ONE (formerly AirWatch).\n",
+        "properties": {
+          "emmPassword": {
+            "description": "Workspace ONE API password",
+            "example": "s3cr3t",
+            "format": "password",
+            "minLength": 1,
+            "type": "string",
+            "writeOnly": true
+          },
+          "emmUsername": {
+            "description": "Workspace ONE API username",
+            "example": "svc-jsc",
+            "minLength": 1,
+            "type": "string"
+          },
+          "isoCountry": {
+            "description": "ISO country code for the UEM instance, when applicable",
+            "example": "US",
+            "type": "string"
+          },
+          "rootCertificate": {
+            "description": "Optional PEM-encoded root certificate for TLS verification",
+            "example": "-----BEGIN CERTIFICATE-----\n...\n-----END CERTIFICATE-----",
+            "type": "string"
+          },
+          "tenantCode": {
+            "description": "Workspace ONE REST API tenant code (aw-tenant-code)",
+            "example": "abcXYZ123tenant",
+            "format": "password",
+            "minLength": 1,
+            "type": "string",
+            "writeOnly": true
+          },
+          "url": {
+            "description": "Workspace ONE server URL",
+            "example": "https://as1234.awmdm.com",
+            "minLength": 1,
+            "type": "string"
+          },
+          "vendor": {
+            "description": "UEM vendor discriminator",
+            "enum": [
+              "AIRWATCH"
+            ],
+            "example": "AIRWATCH",
+            "type": "string"
+          }
+        },
+        "required": [
+          "vendor",
+          "url",
+          "emmUsername",
+          "emmPassword",
+          "tenantCode"
+        ],
+        "type": "object"
+      },
+      "XenMobileConnectorCreateRequest": {
+        "additionalProperties": true,
+        "description": "Connector creation request for Citrix Endpoint Management (XenMobile).\n\nThe `authStrategy` field selects the authentication method and determines which further\nfields are required:\n\n- `USERNAME_PASSWORD` — provide `emmUsername` and `emmPassword`.\n- `CITRIX_CLOUD_ADMIN` — provide `citrixCloudConfig`.\n- `CITRIX_CLOUD_ADMIN_OAUTH` — provide `citrixCloudOauthConfig`.\n",
+        "properties": {
+          "authStrategy": {
+            "description": "Authentication strategy used to connect to XenMobile. See the schema description for the\nfields each strategy requires.\n",
+            "enum": [
+              "USERNAME_PASSWORD",
+              "CITRIX_CLOUD_ADMIN",
+              "CITRIX_CLOUD_ADMIN_OAUTH"
+            ],
+            "example": "USERNAME_PASSWORD",
+            "type": "string"
+          },
+          "citrixCloudConfig": {
+            "$ref": "#/components/schemas/CitrixCloudConfig"
+          },
+          "citrixCloudOauthConfig": {
+            "$ref": "#/components/schemas/CitrixCloudOauthConfig"
+          },
+          "emmPassword": {
+            "description": "XenMobile password (USERNAME_PASSWORD strategy)",
+            "example": "s3cr3t",
+            "format": "password",
+            "type": "string",
+            "writeOnly": true
+          },
+          "emmUsername": {
+            "description": "XenMobile username (USERNAME_PASSWORD strategy)",
+            "example": "admin",
+            "type": "string"
+          },
+          "isoCountry": {
+            "description": "ISO country code for the UEM instance, when applicable",
+            "example": "US",
+            "type": "string"
+          },
+          "url": {
+            "description": "XenMobile server URL",
+            "example": "https://xenmobile.example.com",
+            "minLength": 1,
+            "type": "string"
+          },
+          "vendor": {
+            "description": "UEM vendor discriminator",
+            "enum": [
+              "XENMOBILE"
+            ],
+            "example": "XENMOBILE",
+            "type": "string"
+          }
+        },
+        "required": [
+          "vendor",
+          "url",
+          "authStrategy"
+        ],
+        "type": "object"
       }
     },
     "securitySchemes": {
@@ -1148,7 +1773,7 @@
               "uem-connect:read": "",
               "uem-connect:update": ""
             },
-            "tokenUrl": "https://{region}.api.stage.platform.jamflabs.com/auth/token"
+            "tokenUrl": "https://{region}.api.jamfcloud.com/auth/token"
           }
         },
         "type": "oauth2"
@@ -1162,7 +1787,7 @@
     },
     "description": "API for managing UEM Connect connectors",
     "termsOfService": "https://www.jamf.com/developer-resources/api-license-agreement/",
-    "title": "JSC UEM Connect API (STAGE)",
+    "title": "JSC UEM Connect API",
     "version": "1.0.0"
   },
   "openapi": "3.0.3",
@@ -1184,7 +1809,11 @@
             "application/json": {
               "example": {
                 "platform": "SUPERVISED_IOS",
-                "uem": "JAMF"
+                "uem": "JAMF",
+                "uemGroups": [
+                  "mobile_456",
+                  "789"
+                ]
               },
               "schema": {
                 "$ref": "#/components/schemas/ActivationProfileDeployRequest"
@@ -1722,14 +2351,16 @@
   ],
   "servers": [
     {
-      "description": "Jamf Beta API Gateway - stage",
-      "url": "https://{region}.api.stage.platform.jamflabs.com/api/securitycloud",
+      "description": "Jamf Beta API Gateway - prod",
+      "url": "https://{region}.api.jamfcloud.com/securitycloud",
       "variables": {
         "region": {
-          "default": "us1",
+          "default": "us",
           "description": "Geographic deployment region",
           "enum": [
-            "us1"
+            "us",
+            "eu",
+            "apac"
           ]
         }
       }

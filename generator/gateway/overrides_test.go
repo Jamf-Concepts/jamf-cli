@@ -19,6 +19,18 @@ const specsDir = "../../specs"
 type gatewayOp struct{ method, path string }
 
 // gatewayOps is every request this CLI can send, modern and Classic.
+//
+// The consolidation passes have to run, not just ParseSpec. Three spec files
+// declare computers-inventory at v2, v3 and v4 and only one of them becomes a
+// command; parsing alone counts all three, so a version this CLI cannot send is
+// weighed as heavily as one it does — and the withdrawn versions are exactly
+// what a gateway spec drop removes. Left out, the refusal count read 105 of 811
+// where the shipped surface accounts for 46, and the ratio guard below fired on
+// resources that are not commands.
+//
+// Only the passes that decide which resource survives or rewrite a path are
+// replayed, in generator/main.go's order. The rest set names, columns and
+// lookup fields, none of which a verdict reads.
 func gatewayOps(t *testing.T) []gatewayOp {
 	t.Helper()
 	var out []gatewayOp
@@ -27,14 +39,26 @@ func gatewayOps(t *testing.T) []gatewayOp {
 	if err != nil || len(specs) == 0 {
 		t.Fatalf("no specs found under %s: %v", specsDir, err)
 	}
+	var resources []*parser.Resource
 	for _, s := range specs {
-		resources, err := parser.ParseSpec(s)
+		parsed, err := parser.ParseSpec(s)
 		if err != nil {
 			continue // a spec this generator cannot parse is not this test's subject
 		}
-		for _, r := range resources {
-			for _, op := range r.Operations {
-				out = append(out, gatewayOp{op.Method, gateway.NormalisePath(gateway.ProPrefix + op.Path)})
+		resources = append(resources, parsed...)
+	}
+	resources = parser.DeduplicateVersioned(resources)
+	parser.ApplyNameOverrides(resources)
+	parser.ApplyListDetailPaths(resources)
+	parser.ApplyGetDetailPaths(resources)
+
+	for _, r := range resources {
+		for _, op := range r.Operations {
+			out = append(out, gatewayOp{op.Method, gateway.NormalisePath(gateway.ProPrefix + op.Path)})
+			// A get with --section keeps its own path and reaches the detail
+			// endpoint otherwise, so both are requests this CLI sends.
+			if op.Name == "get" && r.GetDetailPath != "" {
+				out = append(out, gatewayOp{op.Method, gateway.NormalisePath(gateway.ProPrefix + r.GetDetailPath)})
 			}
 		}
 	}

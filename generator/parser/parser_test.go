@@ -609,6 +609,65 @@ func TestDeduplicateVersioned(t *testing.T) {
 	}
 }
 
+// makeVersionedResource is makeResource with one operation, so the resource has
+// an API version to be ranked by. The version has to come off a path — a
+// resource's name says which family it is in, not which version it serves.
+func makeVersionedResource(name, path string) *Resource {
+	return &Resource{Name: name, Operations: []*Operation{{Name: "list", Method: "GET", Path: path}}}
+}
+
+// The real shape of specs/ComputersInventory{,V2,V3}.yaml: three spec files, one
+// family, and the highest version is the one whose *name* carries no version
+// suffix — because that file declares /v1 and /v4 together and the within-file
+// deduplication leaves it holding v4.
+//
+// Read by name alone, the v4 resource looks like the legacy base and is
+// suppressed, so every pro computers-inventory command shipped /v3 and the two
+// v4-only operations (erase, remove-mdm-profile) were never generated. Nothing
+// failed: v3 answered, and the gateway published all four versions. Its 11.31.0
+// drop now publishes v4 alone, which turned the silent wrong choice into a
+// command refused before a request is sent.
+func TestDeduplicateVersioned_BaseWinsWhenItServesTheHigherVersion(t *testing.T) {
+	base := makeVersionedResource("computers-inventories", "/v4/computers-inventory")
+	got := DeduplicateVersioned([]*Resource{
+		base,
+		makeVersionedResource("computers-inventory-v-2s", "/v2/computers-inventory"),
+		makeVersionedResource("computers-inventory-v-3s", "/v3/computers-inventory"),
+	})
+
+	if len(got) != 1 {
+		t.Fatalf("DeduplicateVersioned() returned %v, want the v4 resource alone", resourceNames(got))
+	}
+	if got[0] != base {
+		t.Errorf("winner is %q serving %s, want the base resource serving /v4 — the name suffix is not the version",
+			got[0].Name, got[0].Operations[0].Path)
+	}
+}
+
+// The suppression rule still has to hold the other way round, which is the case
+// it was written for: inventory-preload's base file declares v1 (plus one
+// unversioned path with no v2 equivalent) and InventoryPreloadV2.yaml declares
+// v2, so the versioned sibling is genuinely the newer one and the base goes.
+func TestDeduplicateVersioned_BaseStillLosesWhenItIsOlder(t *testing.T) {
+	base := &Resource{Name: "inventory-preloads", Operations: []*Operation{
+		{Name: "list", Method: "GET", Path: "/v1/inventory-preload"},
+		{Name: "notes", Method: "POST", Path: "/inventory-preload/history/notes"},
+	}}
+	winner := makeVersionedResource("inventory-preload-v-2s", "/v2/inventory-preload")
+
+	got := DeduplicateVersioned([]*Resource{base, winner})
+	if len(got) != 1 {
+		t.Fatalf("DeduplicateVersioned() returned %v, want the v2 resource alone", resourceNames(got))
+	}
+	if got[0] != winner {
+		t.Errorf("winner serves %s, want /v2 — an unversioned path alongside v1 must not out-rank v2",
+			got[0].Operations[0].Path)
+	}
+	if got[0].Name != "inventory-preloads" {
+		t.Errorf("Name = %q, want the canonical inventory-preloads", got[0].Name)
+	}
+}
+
 func TestDeduplicateVersioned_WinnerFieldsRenamed(t *testing.T) {
 	r := makeResource("mobile-device-prestages-v-3s")
 	result := DeduplicateVersioned([]*Resource{r})

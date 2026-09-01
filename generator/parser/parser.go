@@ -386,10 +386,14 @@ var resourceGetDetailPathOverrides = map[string]struct {
 	DetailPath string   // Path to use for "get" (must contain {id})
 	Remove     []string // Operation names to remove (now redundant)
 }{
-	// /v3/computers-inventory/{id} returns only requested sections;
-	// /v3/computers-inventory-detail/{id} returns all sections — better for "get".
+	// /v4/computers-inventory/{id} returns only requested sections;
+	// /v4/computers-inventory-detail/{id} returns all sections — better for "get".
+	//
+	// Version-pinned by hand, so it has to move with the resource: the gateway's
+	// published 11.31.0 spec carries v4 alone, and this table kept `get` on the
+	// withdrawn /v3 detail path after DeduplicateVersioned started serving v4.
 	"computers-inventory": {
-		DetailPath: "/v3/computers-inventory-detail/{id}",
+		DetailPath: "/v4/computers-inventory-detail/{id}",
 	},
 	// /v2/mobile-devices/{id} returns basic info;
 	// /v2/mobile-devices/{id}/detail returns full detail — better for "get".
@@ -2363,6 +2367,24 @@ var versionedName = regexp.MustCompile(`^(.*)-v-(\d+)s?$`)
 //   - For each version family, keeps only the highest version
 //   - Renames the winning resource to the clean canonical name (no version suffix)
 //   - Suppresses any non-versioned base resource that the versioned family supersedes
+//
+// A resource whose *name* carries no version suffix is not therefore the older
+// one, and assuming it was cost the CLI its newest computer inventory endpoint.
+// ComputersInventory.yaml declares both /v1 and /v4 computers-inventory, so the
+// within-file deduplication leaves one resource named "computers-inventories"
+// serving v4 — while ComputersInventoryV2.yaml and ComputersInventoryV3.yaml
+// name theirs "computers-inventory-v-2s" and "-v-3s". The suffix rule read the
+// v4 resource as the legacy base and suppressed it, so every
+// `pro computers-inventory` command sent /v3 and the two v4-only operations
+// (erase, remove-mdm-profile) never became commands at all. Nothing failed: v3
+// answers, and the gateway published all four versions.
+//
+// The gateway's published spec is what exposed it. Its 11.31.0 drop now carries
+// v4 alone — v1, v2 and v3 are withdrawn — so the version this CLI happened to
+// send became the one refused before a request is sent, and the version it had
+// all along became the only one served. So the family is ranked by the API
+// version each resource actually serves, read off its operation paths, with the
+// name suffix only telling us which resources are in the family.
 func DeduplicateVersioned(resources []*Resource) []*Resource {
 	type entry struct {
 		res     *Resource
@@ -2394,6 +2416,22 @@ func DeduplicateVersioned(resources []*Resource) []*Resource {
 		hasVersioned[name] = true
 	}
 
+	// Let the non-versioned base compete on the version it serves. Only the
+	// bases of an existing family are considered, so a resource with no
+	// versioned sibling is untouched.
+	for _, r := range resources {
+		if versionedName.MatchString(r.Name) {
+			continue
+		}
+		cur, ok := latest[r.Name]
+		if !ok {
+			continue
+		}
+		if v := resourceAPIVersion(r); v > cur.version {
+			latest[r.Name] = entry{res: r, version: v}
+		}
+	}
+
 	// Second pass: emit only keepers, renaming the winner to the canonical name.
 	result := make([]*Resource, 0, len(resources))
 	for _, r := range resources {
@@ -2411,13 +2449,33 @@ func DeduplicateVersioned(resources []*Resource) []*Resource {
 			result = append(result, r)
 			continue
 		}
-		// Non-versioned resource: suppress if a versioned family covers the same name.
-		if hasVersioned[r.Name] {
+		// Non-versioned resource: suppress if a versioned family covers the same
+		// name — unless it is the family's own winner, which is the case when it
+		// serves the highest API version.
+		if hasVersioned[r.Name] && latest[r.Name].res != r {
 			continue
 		}
 		result = append(result, r)
 	}
 	return result
+}
+
+// resourceAPIVersion is the API version a resource actually serves, read off its
+// operation paths rather than off its name.
+//
+// The highest one it carries, because deduplicateVersionedOps has already
+// dropped every endpoint a newer version displaced: an operation left at a lower
+// version is one the newer version never replaced — inventory-preload keeps
+// /inventory-preload/history/notes with no v2 equivalent — not evidence that the
+// resource as a whole is older.
+func resourceAPIVersion(r *Resource) int {
+	highest := 0
+	for _, op := range r.Operations {
+		if v := apiVersionRank(op.Path); v > highest {
+			highest = v
+		}
+	}
+	return highest
 }
 
 // isDestructiveAction returns true for operations that modify/delete data

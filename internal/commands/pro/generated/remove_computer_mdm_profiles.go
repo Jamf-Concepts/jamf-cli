@@ -39,7 +39,7 @@ func newRemoveComputerMdmProfilesRemoveMdmProfileCmd(ctx *registry.CLIContext) *
 		Use:         "remove-mdm-profile <id>",
 		Short:       "Remove a computer's MDM profile",
 		Long:        "Remove a computer's MDM profile",
-		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Send Computer Unmanage Command", "jamf:api": "pro", "jamf:gateway-privileges": "destructive-device-actions:execute"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Send Computer Unmanage Command", "jamf:api": "pro", "jamf:gateway": "unserved", "jamf:gateway-basis": "unpublished", "jamf:gateway-detail": "not declared by the gateway's Jamf Pro API 11.31.0"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

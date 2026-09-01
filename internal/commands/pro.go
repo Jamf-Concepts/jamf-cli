@@ -61,7 +61,7 @@ func newProCmd(cliCtx *registry.CLIContext) *cobra.Command {
 
 	// Suppress generated Classic "computers" (basic v1 list) — replaced by
 	// "computers-inventory" which is aliased to "computers"/"comp" and has the
-	// full modern v3 CRUD plus curated table output. MDM actions continue to be
+	// full modern v4 CRUD plus curated table output. MDM actions continue to be
 	// wired into "computers" via addSubcommand (resolves via alias).
 	removeSubcommand(cmd, []string{}, "computers")
 
@@ -91,7 +91,14 @@ func newProCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	addSubcommand(cmd, []string{"jamf-protect-deployment-tasks"}, newJamfProtectDeploymentRetryFailedCmd(cliCtx))
 
 	// Add device action subcommands to generated resource parents
-	addSubcommand(cmd, []string{"computers-inventory"}, newComputerEraseCmd(cliCtx))
+	// Both replace a generated v4 sibling rather than sitting beside it. The
+	// generated erase/remove-mdm-profile pair arrived with v4 computers-inventory
+	// and takes an <id> alone; these target by serial, name or group, confirm a
+	// destructive action, honour --dry-run and carry the Find My PIN body. A
+	// second `erase` under one parent is also not a choice cobra can make —
+	// before this, `pro comp --help` listed the name twice.
+	replaceSubcommand(cmd, []string{"computers-inventory"}, "erase", newComputerEraseCmd(cliCtx))
+	removeSubcommand(cmd, []string{"computers-inventory"}, "remove-mdm-profile")
 	addSubcommand(cmd, []string{"computers-inventory"}, newComputerRemoveMDMCmd(cliCtx))
 	addSubcommand(cmd, []string{"computers-inventory"}, newComputerRedeployFrameworkCmd(cliCtx))
 	addSubcommand(cmd, []string{"computers-inventory"}, newComputerBlankPushCmd(cliCtx))

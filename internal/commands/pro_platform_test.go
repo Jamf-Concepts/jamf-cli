@@ -1868,18 +1868,31 @@ func TestIsPortableScopeFormat(t *testing.T) {
 	}
 }
 
+// The two `get` subcommands these used to exercise are gone. Both were
+// deprecated in favour of a sibling on the same resource that the CLI already
+// shipped — GET /v1/declarations/{id} → .../devices and
+// GET /v1/devices/{id} → .../declarations — and the SDK's v1942 ingest dropped
+// them from the declaration-reporting spec. So the routing assertion moves onto
+// the successors rather than being deleted: what is worth pinning is that the
+// hand-written `ddm-reports` parent still wires its generated subcommands to the
+// right paths, and that is as true of the successor as it was of the deprecated
+// one.
+//
+// Both successors declare `filter` required, which the deprecated pair did not,
+// so the tautological ddmAllDeclarationsFilter the hand-written commands already
+// use is what stands in for "no filter" here too.
 func TestDDMReportsDeclarationRouting(t *testing.T) {
 	cliCtx, mux, _ := newTestPlatformContext(t)
 	called := false
-	mux.HandleFunc("/ddm/report/v1/declarations/com.example.decl", func(w http.ResponseWriter, _ *http.Request) {
+	mux.HandleFunc("/ddm/report/v1/declarations/com.example.decl/devices", func(w http.ResponseWriter, _ *http.Request) {
 		called = true
 		writeJSON(w, map[string]any{"results": []any{}})
 	})
 
 	cmd := newDDMReportsCmd(cliCtx)
-	cmd.SetArgs([]string{"declaration", "get", "com.example.decl"})
+	cmd.SetArgs([]string{"declaration", "devices", "com.example.decl", "--filter", ddmAllDeclarationsFilter})
 	if err := cmd.Execute(); err != nil {
-		t.Fatalf("ddm-reports declaration get: %v", err)
+		t.Fatalf("ddm-reports declaration devices: %v", err)
 	}
 	if !called {
 		t.Error("declaration report endpoint was not called")
@@ -1889,18 +1902,33 @@ func TestDDMReportsDeclarationRouting(t *testing.T) {
 func TestDDMReportsDeviceRouting(t *testing.T) {
 	cliCtx, mux, _ := newTestPlatformContext(t)
 	called := false
-	mux.HandleFunc("/ddm/report/v1/devices/device-uuid-123", func(w http.ResponseWriter, _ *http.Request) {
+	mux.HandleFunc("/ddm/report/v1/devices/device-uuid-123/declarations", func(w http.ResponseWriter, _ *http.Request) {
 		called = true
-		writeJSON(w, map[string]any{"channels": []any{}})
+		writeJSON(w, map[string]any{"results": []any{}})
 	})
 
 	cmd := newDDMReportsCmd(cliCtx)
-	cmd.SetArgs([]string{"device", "get", "device-uuid-123"})
+	cmd.SetArgs([]string{"device", "declarations", "device-uuid-123", "--filter", ddmAllDeclarationsFilter})
 	if err := cmd.Execute(); err != nil {
-		t.Fatalf("ddm-reports device get: %v", err)
+		t.Fatalf("ddm-reports device declarations: %v", err)
 	}
 	if !called {
 		t.Error("device report endpoint was not called")
+	}
+}
+
+// The withdrawn `get` subcommands must not come back by accident: their paths
+// are still routed by the gateway, so nothing on the wire would flag a spec drop
+// that re-added them, and a `get` beside a `devices`/`declarations` sibling on
+// the same resource reads as the natural choice while being the deprecated one.
+func TestDDMReportsDroppedTheDeprecatedGets(t *testing.T) {
+	cliCtx, _, _ := newTestPlatformContext(t)
+	for _, parent := range []string{"declaration", "device"} {
+		cmd := newDDMReportsCmd(cliCtx)
+		sub, _, err := cmd.Find([]string{parent, "get"})
+		if err == nil && sub.Name() == "get" {
+			t.Errorf("ddm-reports %s get is back — it is the deprecated endpoint, superseded by a sibling on the same resource", parent)
+		}
 	}
 }
 

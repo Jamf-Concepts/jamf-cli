@@ -142,6 +142,15 @@ func (dt *deviceTarget) resolveMobileDevicesCmd(cmd *cobra.Command, client regis
 }
 
 // --- Computer action commands ---
+//
+// erase and remove-mdm are the only two hand-written commands that assemble a
+// computers-inventory path, so they do not move with the generated ones and have
+// to be version-pinned here. Both sent /v1/computer-inventory/{id}/... until the
+// gateway's published 11.31.0 spec withdrew v1, v2 and v3 in favour of v4;
+// /v4/computers-inventory/{id}/{erase,remove-mdm-profile} is the successor and
+// the only version the gateway now declares. Keep them in step with
+// resourceGetDetailPathOverrides in generator/parser/parser.go, which pins the
+// other hand-maintained computers-inventory path.
 
 func newComputerEraseCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	var (
@@ -187,7 +196,7 @@ body can provide a Find My PIN (6 digits) via stdin or --body-file.`,
 				destructive: true,
 				bodyFile:    bodyFile,
 				execSingle: func(d *resolve.DeviceIdentifiers, body io.Reader) error {
-					path := fmt.Sprintf("/v1/computer-inventory/%s/erase", url.PathEscape(d.ID))
+					path := fmt.Sprintf("/v4/computers-inventory/%s/erase", url.PathEscape(d.ID))
 					return doPostAction(cmd, cliCtx, path, body)
 				},
 			})
@@ -223,7 +232,7 @@ func newComputerRemoveMDMCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				deviceType:  "computer",
 				destructive: true,
 				execSingle: func(d *resolve.DeviceIdentifiers, _ io.Reader) error {
-					path := fmt.Sprintf("/v1/computer-inventory/%s/remove-mdm-profile", url.PathEscape(d.ID))
+					path := fmt.Sprintf("/v4/computers-inventory/%s/remove-mdm-profile", url.PathEscape(d.ID))
 					return doPostAction(cmd, cliCtx, path, nil)
 				},
 			})
