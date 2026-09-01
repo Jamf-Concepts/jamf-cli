@@ -125,7 +125,7 @@ func ParsePlatformSpec(specPath string) ([]*Resource, error) {
 				// ("/blueprints/v1/blueprints" → "blueprints-v1-blueprints").
 				// Platform paths share the /{service}/v{n}/ prefix; strip it
 				// so names stay short and match the spec resource (e.g. "blueprints").
-				fam.Name = applyResourceNameOverride(service, trimPlatformPathPrefix(fam.Name))
+				fam.Name = applyResourceNameOverride(platformNamespace(fam.Operations), service, trimPlatformPathPrefix(fam.Name))
 				fam.NameSingular = fam.Name
 				fam.GoName = strcase.ToCamel(fam.Name)
 				if detectSingleton(fam.Operations) {
@@ -142,7 +142,7 @@ func ParsePlatformSpec(specPath string) ([]*Resource, error) {
 			continue
 		}
 
-		name := applyResourceNameOverride(service, strcase.ToKebab(tag))
+		name := applyResourceNameOverride(platformNamespace(ops), service, strcase.ToKebab(tag))
 		idField := detectIDField(schemas, ops)
 
 		r := &Resource{
@@ -470,9 +470,19 @@ func serviceSegment(doc map[string]any) string {
 }
 
 // platformResourceNameOverrides renames tag-derived resource names that would
-// otherwise be ambiguous or collide. Keys are "{service}/{name}" — the service
-// being the gateway namespace from the spec's servers[0].url — falling back to
-// a bare "{name}" that matches any service.
+// otherwise be ambiguous or collide. Keys are tried most-specific first:
+// "{namespace}/{name}", where the namespace is everything before the version
+// segment of the resource's own paths; then "{service}/{name}", the namespace
+// from the spec's servers[0].url; then a bare "{name}" matching any service.
+//
+// The namespace key exists because a service is not fine-grained enough to name
+// a resource within it. Two Security Cloud specs tag a resource
+// "activation-profiles" — uem-connect, which deploys a profile to a UEM, and
+// the enrollment API, which mints and lists them — and both declare the service
+// "securitycloud", so one "securitycloud/activation-profiles" entry renamed
+// both and the two resources merged into one file redeclaring each other's
+// constructors. Their paths do differ (/securitycloud/uem-connect/v1/... vs
+// /securitycloud/v1/...), which is what the namespace key reads.
 //
 // Two reasons an entry exists here:
 //
@@ -530,24 +540,55 @@ var platformResourceNameOverrides = map[string]string{
 	"securitycloud/categories": "content-categories",
 
 	// Jamf Security Cloud — UEM Connect. One spec, five tags, all describing
-	// the connector and its sub-resources.
-	"securitycloud/connectors":           "uem-connectors",
-	"securitycloud/connector-enablement": "uem-connector-enablement",
-	"securitycloud/sync-configuration":   "uem-sync-settings",
-	"securitycloud/sync-execution":       "uem-sync",
-	"securitycloud/activation-profiles":  "uem-activation-profiles",
+	// the connector and its sub-resources. Keyed on the full namespace rather
+	// than the service, because "activation-profiles" is a tag this spec shares
+	// with the enrollment API below — see the lookup order above.
+	"securitycloud/uem-connect/connectors":           "uem-connectors",
+	"securitycloud/uem-connect/connector-enablement": "uem-connector-enablement",
+	"securitycloud/uem-connect/sync-configuration":   "uem-sync-settings",
+	"securitycloud/uem-connect/sync-execution":       "uem-sync",
+	"securitycloud/uem-connect/activation-profiles":  "uem-activation-profiles",
+
+	// Jamf Security Cloud — enrollment. The same "activation-profiles" tag as
+	// uem-connect's, on the service that owns the object: this is where a
+	// profile is created, read, paused, resumed and deleted, where uem-connect
+	// holds only the deploy-to-UEM action on a code minted here. Prefixed for
+	// the reason every other Security Cloud resource is — the tag is a bare
+	// noun once it sits beside every other Jamf resource — and the two cannot
+	// share a name.
+	"securitycloud/activation-profiles": "enrollment-activation-profiles",
 }
 
 // applyResourceNameOverride applies platformResourceNameOverrides, preferring a
-// service-scoped entry over a bare-name one.
-func applyResourceNameOverride(service, name string) string {
-	if override, ok := platformResourceNameOverrides[service+"/"+name]; ok {
-		return override
-	}
-	if override, ok := platformResourceNameOverrides[name]; ok {
-		return override
+// namespace-scoped entry over a service-scoped one, and either over a bare name.
+func applyResourceNameOverride(namespace, service, name string) string {
+	for _, key := range []string{namespace + "/" + name, service + "/" + name, name} {
+		if override, ok := platformResourceNameOverrides[key]; ok {
+			return override
+		}
 	}
 	return name
+}
+
+// platformNamespace returns the gateway namespace the given operations sit
+// under: everything before the version segment of their (already normalised)
+// path. Paths in one resource share a namespace, so the first operation
+// answers for all of them.
+//
+// It is the parser-side twin of the platform emitter's namespaceFromPath, which
+// keys platformTableColumns and platformNameLookupFields the same way. Kept
+// local because generator/platform imports this package, not the reverse.
+func platformNamespace(ops []*Operation) string {
+	if len(ops) == 0 {
+		return ""
+	}
+	segments := strings.Split(strings.Trim(ops[0].Path, "/"), "/")
+	for i, seg := range segments {
+		if len(seg) >= 2 && seg[0] == 'v' && seg[1] >= '0' && seg[1] <= '9' {
+			return strings.Join(segments[:i], "/")
+		}
+	}
+	return ""
 }
 
 // trimPlatformPathPrefix strips the leading "{service}-v{n}-" segments from a

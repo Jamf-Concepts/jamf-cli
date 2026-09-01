@@ -18,6 +18,7 @@ var gatewayServedSecurityResources = []string{
 	"content-categories", "device-groups",
 	"uem-connectors", "uem-connector-enablement",
 	"uem-sync-settings", "uem-sync", "uem-activation-profiles",
+	"enrollment-activation-profiles",
 }
 
 func findSecurityCmd(t *testing.T) *cobra.Command {

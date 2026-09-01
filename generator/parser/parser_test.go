@@ -2958,6 +2958,72 @@ func TestPlatformUnroutedOpsAreDeclared(t *testing.T) {
 // `platform audit audit`. Nothing failed; the command was simply misnamed,
 // which is why this asserts the resulting name rather than the absence of an
 // error.
+// TestTwoSpecsSharingATagGetDistinctResourceNames pins the namespace key in
+// platformResourceNameOverrides, and asserts the resulting *names* rather than
+// the absence of an error, because absence of an error was the symptom.
+//
+// Two Security Cloud specs tag a resource "activation-profiles": uem-connect,
+// which only deploys a profile to a UEM, and the enrollment API, which mints,
+// reads, pauses, resumes and deletes them. Both declare the service
+// "securitycloud", so a single service-keyed override renamed both to
+// uem-activation-profiles and generator/platform's mergeInto folded them into
+// one resource — seven operations under one command, six of them enrollment's,
+// filed under UEM Connect. checkOperationNameCollisions could not catch it:
+// deploy-to-uem collides with none of the six, so `make generate` exited 0 and
+// the only visible sign was a command tree that had quietly moved.
+func TestTwoSpecsSharingATagGetDistinctResourceNames(t *testing.T) {
+	specFiles, err := filepath.Glob(filepath.Join("..", "..", "specs", "platform", "*.json"))
+	if err != nil {
+		t.Fatalf("globbing specs: %v", err)
+	}
+	if len(specFiles) == 0 {
+		t.Fatal("no specs in specs/platform/ — nothing to check the table against")
+	}
+
+	// resource name → the paths it was built from, across every spec.
+	paths := make(map[string][]string)
+	for _, path := range specFiles {
+		resources, err := ParsePlatformSpec(path)
+		if err != nil {
+			t.Fatalf("ParsePlatformSpec(%s): %v", path, err)
+		}
+		for _, r := range resources {
+			for _, op := range r.Operations {
+				paths[r.Name] = append(paths[r.Name], op.Path)
+			}
+		}
+	}
+
+	for name, want := range map[string]string{
+		"uem-activation-profiles":        "/securitycloud/uem-connect/v1/",
+		"enrollment-activation-profiles": "/securitycloud/v1/",
+	} {
+		got, ok := paths[name]
+		if !ok {
+			t.Errorf("no resource named %q — the two activation-profiles tags have merged again, "+
+				"or one was renamed; check platformResourceNameOverrides", name)
+			continue
+		}
+		for _, p := range got {
+			if !strings.HasPrefix(p, want) {
+				t.Errorf("resource %q carries %s, which is not under %s — two specs' operations "+
+					"have merged into one resource", name, p, want)
+			}
+		}
+	}
+
+	// Every override value has to name a resource that ships, or the entry is
+	// keyed at a level nothing matches — the way the uem-connect entries would
+	// be if their namespace changed. A stale key renames nothing and reports
+	// nothing.
+	for key, value := range platformResourceNameOverrides {
+		if _, ok := paths[value]; !ok {
+			t.Errorf("platformResourceNameOverrides[%q] = %q, but no shipped resource carries that name — "+
+				"the key no longer matches any spec's namespace or service", key, value)
+		}
+	}
+}
+
 func TestPlatformOperationNameOverridesWinOverDerivation(t *testing.T) {
 	specsDir, err := filepath.Abs("../../specs/platform")
 	if err != nil {

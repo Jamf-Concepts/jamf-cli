@@ -107,6 +107,11 @@ func applySchoolAliases(parent *cobra.Command) {
 // securityAliases maps Jamf Security Cloud command names to their short aliases.
 var securityAliases = map[string][]string{
 	"device-lifecycle": {"lifecycle", "dl"},
+
+	// "enrollment-activation-profiles" is the full name because the tag it
+	// derives from ("activation-profiles") is shared with UEM Connect's
+	// deploy-only resource. Nobody should have to type it.
+	"enrollment-activation-profiles": {"eap"},
 }
 
 // applySecurityAliases appends aliases to security subcommands.

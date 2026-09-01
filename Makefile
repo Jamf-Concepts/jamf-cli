@@ -209,6 +209,7 @@ PLATFORM_SDK_SPECS = \
 	securitycloud_categories_api.json \
 	securitycloud_device_groups_api.json \
 	securitycloud_dns_api.json \
+	securitycloud_enrollment_api.json \
 	securitycloud_uem_connect_api.json \
 	securitycloud_ztna_api.json
 

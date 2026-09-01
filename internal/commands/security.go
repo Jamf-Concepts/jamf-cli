@@ -59,6 +59,13 @@ func newSecurityCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(platformgen.NewUemSyncCmd(cliCtx))
 	cmd.AddCommand(platformgen.NewUemActivationProfilesCmd(cliCtx))
 
+	// Enrollment activation profiles. The object uem-activation-profiles
+	// deploys: this resource mints, reads, pauses, resumes and deletes a
+	// profile, and uem-connect holds only the deploy-to-UEM action on a code
+	// minted here. Two commands rather than one because they are two specs
+	// under two gateway namespaces.
+	cmd.AddCommand(platformgen.NewEnrollmentActivationProfilesCmd(cliCtx))
+
 	applySecurityAliases(cmd)
 	applySecurityGroups(cmd)
 

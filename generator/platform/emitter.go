@@ -182,10 +182,21 @@ var platformNameLookupFields = map[string]string{
 //     substituting it produced GET /sso/v1/domains/allocation/1552 and a 404
 //     "Domain not found" — the flag actively broke a call that works when the
 //     domain is passed positionally.
+//
+// Enrollment's activation profiles are the first case where the *whole read
+// model* rules the flag out: ActivationProfile carries a code and nothing else
+// — no name under any spelling — so a create's name is not readable back and
+// there is nothing for ResolveIDByName to match. Its list would also refuse the
+// lookup's request outright, requiring an `origin` parameter the resolver does
+// not send.
 var platformNoNameLookup = map[string]bool{
 	"GET /audit/v1/audit/resources/{resourceId}/lineage": true,
 	"GET /audit/v1/audit/transactions/{txId}":            true,
 	"GET /sso/v1/domains/allocation/{domain}":            true,
+
+	"GET /securitycloud/v1/activation-profiles/{activationProfileId}":         true,
+	"POST /securitycloud/v1/activation-profiles/{activationProfileId}/pause":  true,
+	"POST /securitycloud/v1/activation-profiles/{activationProfileId}/resume": true,
 }
 
 // crossResourceNameLookupPath maps a resource name to a list endpoint owned by

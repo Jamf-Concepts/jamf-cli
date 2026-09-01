@@ -627,6 +627,7 @@ const (
 	groupSecurityZTNA    = "security-ztna"
 	groupSecurityDevices = "security-devices"
 	groupSecurityUEM     = "security-uem"
+	groupSecurityEnroll  = "security-enrollment"
 )
 
 var securityGroups = []*cobra.Group{
@@ -637,6 +638,7 @@ var securityGroups = []*cobra.Group{
 	{ID: groupSecurityZTNA, Title: "Zero Trust Network Access:"},
 	{ID: groupSecurityDevices, Title: "Device Groups:"},
 	{ID: groupSecurityUEM, Title: "UEM Connect:"},
+	{ID: groupSecurityEnroll, Title: "Enrollment:"},
 }
 
 var securityGroupMap = map[string]string{
@@ -671,6 +673,8 @@ var securityGroupMap = map[string]string{
 	"uem-sync-settings":        groupSecurityUEM,
 	"uem-sync":                 groupSecurityUEM,
 	"uem-activation-profiles":  groupSecurityUEM,
+
+	"enrollment-activation-profiles": groupSecurityEnroll,
 }
 
 func applySecurityGroups(security *cobra.Command) {
