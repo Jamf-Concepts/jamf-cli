@@ -1,5 +1,5 @@
-github.com/Jamf-Concepts/jamfplatform-go-sdk v0.19.1-0.20260901134819-a307a11ab382 h1:p+a7hXrAHUqw4t6jQEvlw29x01+szOUvYOQJX0dLAIs=
-github.com/Jamf-Concepts/jamfplatform-go-sdk v0.19.1-0.20260901134819-a307a11ab382/go.mod h1:gUL5YSSzFcEQ758X7/b8sAxVLEoHq4DcdrmRYYyxbiU=
+github.com/Jamf-Concepts/jamfplatform-go-sdk v0.19.1-0.20260901162318-1595bd990695 h1:TLuvTEye30LpjCoY90yTG9rfQAF7Z7Zs89yMMzQtD8c=
+github.com/Jamf-Concepts/jamfplatform-go-sdk v0.19.1-0.20260901162318-1595bd990695/go.mod h1:gUL5YSSzFcEQ758X7/b8sAxVLEoHq4DcdrmRYYyxbiU=
 github.com/Jamf-Concepts/jamfprotect-go-sdk v0.8.0 h1:AiP8KiPpTMLnAEY4E9T8PtBOihVMjeQ3/lnLcpbR/yc=
 github.com/Jamf-Concepts/jamfprotect-go-sdk v0.8.0/go.mod h1:IoRB8uP1p0XxxFr/ZbP4+HSmoYd66LES1l0xev0GaxM=
 github.com/Jamf-Concepts/jamfschool-go-sdk v0.1.2 h1:+YHY9leMdyP6oEDJtqIrLNTLnVVuyRW+kN5tZBvwmQY=
