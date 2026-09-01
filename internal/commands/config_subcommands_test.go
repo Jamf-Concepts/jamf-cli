@@ -644,3 +644,96 @@ func TestConfigAutoDefault_FirstProfile(t *testing.T) {
 		t.Errorf("DefaultProfile = %q, want %q (should not change when adding second profile)", reloaded.DefaultProfile, "first")
 	}
 }
+
+// --- config set-report-dir tests ---
+
+func TestConfigSetReportDir_CreatesDirectoryAndSavesToConfig(t *testing.T) {
+	jDir := setupTempConfig(t)
+	_ = os.WriteFile(filepath.Join(jDir, "config.yaml"), []byte("default-profile: test\n"), 0o600)
+
+	target := filepath.Join(t.TempDir(), "new-reports")
+
+	buf := &bytes.Buffer{}
+	cmd := newConfigSetReportDirCmd()
+	cmd.SetOut(buf)
+	cmd.SetErr(buf)
+
+	if err := cmd.RunE(cmd, []string{target}); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Directory should be created with 0700.
+	info, err := os.Stat(target)
+	if err != nil {
+		t.Fatalf("expected directory to be created: %v", err)
+	}
+	if !info.IsDir() {
+		t.Errorf("expected a directory at %s", target)
+	}
+	if info.Mode().Perm() != 0o700 {
+		t.Errorf("expected perms 0700, got %04o", info.Mode().Perm())
+	}
+
+	// Config should persist the path.
+	loaded, err := config.Load()
+	if err != nil {
+		t.Fatalf("loading config: %v", err)
+	}
+	if loaded.ReportDir != target {
+		t.Errorf("ReportDir = %q, want %q", loaded.ReportDir, target)
+	}
+
+	// Confirmation should name the path.
+	if !strings.Contains(buf.String(), target) {
+		t.Errorf("expected path in output, got: %s", buf.String())
+	}
+}
+
+func TestConfigSetReportDir_AcceptsExistingDirectory(t *testing.T) {
+	jDir := setupTempConfig(t)
+	_ = os.WriteFile(filepath.Join(jDir, "config.yaml"), []byte("default-profile: test\n"), 0o600)
+
+	existing := t.TempDir() // already exists
+
+	cmd := newConfigSetReportDirCmd()
+	cmd.SetOut(io.Discard)
+	cmd.SetErr(io.Discard)
+
+	if err := cmd.RunE(cmd, []string{existing}); err != nil {
+		t.Fatalf("unexpected error for existing directory: %v", err)
+	}
+
+	loaded, _ := config.Load()
+	if loaded.ReportDir != existing {
+		t.Errorf("ReportDir = %q, want %q", loaded.ReportDir, existing)
+	}
+}
+
+func TestConfigSetReportDir_RequiresExactlyOneArg(t *testing.T) {
+	cmd := newConfigSetReportDirCmd()
+	cmd.SetOut(io.Discard)
+	cmd.SetErr(io.Discard)
+
+	if err := cmd.Args(cmd, []string{}); err == nil {
+		t.Error("expected error with no args, got nil")
+	}
+	if err := cmd.Args(cmd, []string{"/a", "/b"}); err == nil {
+		t.Error("expected error with two args, got nil")
+	}
+}
+
+func TestConfigSetReportDir_RefusesWhenPathIsAFile(t *testing.T) {
+	jDir := setupTempConfig(t)
+	_ = os.WriteFile(filepath.Join(jDir, "config.yaml"), []byte("default-profile: test\n"), 0o600)
+
+	f := filepath.Join(t.TempDir(), "not-a-dir")
+	_ = os.WriteFile(f, []byte("data"), 0o600)
+
+	cmd := newConfigSetReportDirCmd()
+	cmd.SetOut(io.Discard)
+	cmd.SetErr(io.Discard)
+
+	if err := cmd.RunE(cmd, []string{f}); err == nil {
+		t.Error("expected error when path is a file, got nil")
+	}
+}

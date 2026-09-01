@@ -217,7 +217,7 @@ func TestReportFileName_StaysInsideReportDir(t *testing.T) {
 // The MCP report path has no destination parameter, so an unusable report-dir is
 // a refusal rather than something to work around. In particular a missing
 // directory is not created: a typo'd report-dir silently materialising a
-// directory tree is worse than an error, and `pro setup --report-dir` already
+// directory tree is worse than an error, and `config set-report-dir` already
 // does the MkdirAll when the administrator names one.
 
 func TestResolveReportDir_RefusesWhenUnset(t *testing.T) {
@@ -225,13 +225,8 @@ func TestResolveReportDir_RefusesWhenUnset(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected a refusal when report-dir is unset, got nil")
 	}
-	if !strings.Contains(err.Error(), "pro setup --report-dir") {
+	if !strings.Contains(err.Error(), "config set-report-dir") {
 		t.Errorf("refusal must name the command that sets it, got: %v", err)
-	}
-	// `config` has no `set` subcommand; naming one that does not exist is worse
-	// than naming none.
-	if strings.Contains(err.Error(), "config set") {
-		t.Errorf("refusal must not name a nonexistent command, got: %v", err)
 	}
 }
 
@@ -443,7 +438,7 @@ func TestRunReportChild_RefusesBeforeStartingAChildWhenReportDirUnset(t *testing
 	if res == nil || !res.IsError {
 		t.Fatalf("expected an error result, got %+v", res)
 	}
-	if !strings.Contains(mcpResultText(res), "pro setup --report-dir") {
+	if !strings.Contains(mcpResultText(res), "config set-report-dir") {
 		t.Errorf("refusal must name the command that sets it, got: %s", mcpResultText(res))
 	}
 }
@@ -548,5 +543,22 @@ func TestNewMCPCmd_DocumentsGenerateReport(t *testing.T) {
 	}
 	if serve == nil {
 		t.Fatal("mcp serve subcommand missing")
+	}
+}
+
+func TestMCPServeStartupHint_PrintsWhenReportDirUnset(t *testing.T) {
+	var buf strings.Builder
+	printMCPStartupHints(&buf, &config.Config{})
+	if !strings.Contains(buf.String(), "config set-report-dir") {
+		t.Errorf("expected startup hint naming config set-report-dir, got: %s", buf.String())
+	}
+}
+
+func TestMCPServeStartupHint_SilentWhenReportDirSet(t *testing.T) {
+	dir := t.TempDir()
+	var buf strings.Builder
+	printMCPStartupHints(&buf, &config.Config{ReportDir: dir})
+	if buf.Len() > 0 {
+		t.Errorf("expected no hint when report-dir is set, got: %s", buf.String())
 	}
 }

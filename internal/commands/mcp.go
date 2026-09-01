@@ -46,8 +46,12 @@ never passed over the protocol. Children run with --no-input, so commands that
 would prompt (setup, unconfirmed destructive ops) fail fast instead of hanging;
 the model must pass --yes to confirm a destructive command.
 
+For the richest session, use a Platform profile (auth-method: platform). One set
+of Platform Gateway credentials covers both the Jamf Pro API and Platform-specific
+commands (blueprints, compliance benchmarks, DDM reports).
+
 generate_report needs a report directory, which the connecting AI cannot
-choose. Set one with: jamf-cli pro setup --report-dir <dir>`,
+choose. Set one with: jamf-cli config set-report-dir <dir>`,
 	}
 	cmd.AddCommand(newMCPServeCmd())
 	return cmd
@@ -79,6 +83,11 @@ Configure it in an MCP client (example for Claude Desktop's config):
 			// child invocation targets the same instance.
 			serverProfile := profile
 
+			if !noHints {
+				cfg, _ := config.Load()
+				printMCPStartupHints(cmd.ErrOrStderr(), cfg)
+			}
+
 			server := mcp.NewServer(&mcp.Implementation{
 				Name:    "jamf-cli",
 				Version: cmd.Root().Version,
@@ -109,15 +118,18 @@ Configure it in an MCP client (example for Claude Desktop's config):
 
 			mcp.AddTool(server, &mcp.Tool{
 				Name: "generate_report",
-				Description: "Generate a shareable, self-contained HTML fleet report across " +
-					"Jamf Pro, Protect, and Platform, and write it into the report directory " +
-					"the administrator configured. Returns the file path, its size, and any " +
-					"warnings — never the HTML, which is far too large for a conversation. " +
-					"Use this when the administrator wants something to share or action " +
-					"rather than read now; use run_command for questions answered by a table. " +
+				Description: "Generate a shareable, self-contained HTML fleet report and write " +
+					"it into the report directory the administrator configured. Returns the " +
+					"file path, its size, and any warnings — never the HTML, which is far " +
+					"too large for a conversation. Use this when the administrator wants " +
+					"something to share or action rather than read now; use run_command for " +
+					"questions answered by a table. The report covers the profile this server " +
+					"was started with. A Platform profile (auth-method: platform) gives the " +
+					"most comprehensive report: it authenticates one set of credentials " +
+					"against the Jamf Platform Gateway and collects both Jamf Pro data and " +
+					"Platform-specific data (blueprints, compliance benchmarks, DDM reports). " +
 					"The destination and file name are server-derived and cannot be set per " +
-					"call, and the report covers only the profile this server was started " +
-					"with. After calling it, tell the administrator the path and summarize " +
+					"call. After calling it, tell the administrator the path and summarize " +
 					"what the report says.",
 			}, func(ctx context.Context, _ *mcp.CallToolRequest, in generateReportInput) (*mcp.CallToolResult, any, error) {
 				return runReportChild(ctx, executable, serverProfile, in, time.Now()), nil, nil
@@ -242,6 +254,14 @@ func buildChildArgs(serverProfile string, args []string) ([]string, error) {
 	return childArgs, nil
 }
 
+// printMCPStartupHints writes advisory hints to w when the server starts with a
+// configuration that will cause a tool call to fail. Only called when !noHints.
+func printMCPStartupHints(w io.Writer, cfg *config.Config) {
+	if cfg == nil || cfg.ReportDirPath() == "" {
+		_, _ = fmt.Fprintf(w, "hint: no report directory configured — generate_report will refuse until you run:\n      jamf-cli config set-report-dir <dir>\n")
+	}
+}
+
 // reportFileName derives the HTML report's filename from the pinned profile and
 // a UTC timestamp. It takes no title, so a model-supplied string cannot reach a
 // path. The profile segment goes through protectFileNameSafe, so whatever an
@@ -255,10 +275,7 @@ func reportFileName(serverProfile string, now time.Time) string {
 		protectFileNameSafe(name), now.UTC().Format("20060102T150405Z"))
 }
 
-// reportDirHint is the one way to set a report directory. `config` has no `set`
-// subcommand (show, path, list, add-profile, remove-profile, set-default,
-// validate), and naming a command that does not exist is worse than naming none.
-const reportDirHint = "Set one with: jamf-cli pro setup --report-dir <dir>"
+const reportDirHint = "Set one with: jamf-cli config set-report-dir <dir>"
 
 // resolveReportDir returns the directory reports are written to, or a refusal.
 // Every failure here is returned before any child process starts. A missing
