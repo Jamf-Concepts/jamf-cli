@@ -5,6 +5,7 @@ package platform
 import (
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"testing"
@@ -635,5 +636,73 @@ func TestSuppressedNameLookupOpsEmitNoNameFlag(t *testing.T) {
 				t.Errorf("%s: NameLookupField = %q, want %q", key, op.NameLookupField, want)
 			}
 		}
+	}
+}
+
+// TestBuildEnumChoices_ReachesAllOfComposedUnionVariants pins the two hops the
+// three account specs need and that no other spec in the tree exercises.
+//
+// Every enum in those specs is authored as `allOf: [{$ref: SomeEnum}]` on the
+// property — the OpenAPI idiom for "this named scalar, plus a description of my
+// own" — so the values sit on the composed item, not on the property. And
+// account_sso's `connection` is a bare oneOf over four provider variants that
+// are themselves `allOf[BaseConnectionSettings, {…}]`, so a branch adopted from
+// that union carries no properties of its own either. The values were therefore
+// two levels out of reach of a properties-only walk: `sso-connections create
+// --help` named no allowed values at all, for connectionType or for any
+// connection setting, and the region enum could gain a value with nowhere to
+// surface it. `make generate` exits 0 either way, which is why this asserts the
+// paths and values rather than the absence of an error.
+func TestBuildEnumChoices_ReachesAllOfComposedUnionVariants(t *testing.T) {
+	specsDir, err := filepath.Abs("../../specs/platform")
+	if err != nil {
+		t.Fatalf("resolving specs dir: %v", err)
+	}
+	resources, _, err := LoadResources(specsDir)
+	if err != nil {
+		t.Fatalf("LoadResources: %v", err)
+	}
+
+	got := map[string][]string{}
+	for _, r := range resources {
+		if r.Name != "sso-connections" {
+			continue
+		}
+		for _, op := range r.Operations {
+			if op.Name != "create" {
+				continue
+			}
+			for _, c := range buildEnumChoices(op) {
+				got[c.Path] = c.Values
+			}
+		}
+	}
+	if len(got) == 0 {
+		t.Fatal("sso-connections create has no enum choices — is specs/platform/account_sso_api.json populated?")
+	}
+
+	// A property-level allOf wrapping an enum component.
+	if vals, ok := got["connectionType"]; !ok {
+		t.Errorf("connectionType enum missing; paths: %v", keysOf(got))
+	} else if !slices.Contains(vals, "WAAD") {
+		t.Errorf("connectionType = %v, expected it to carry WAAD", vals)
+	}
+
+	// A property-reached union whose variants are allOf-composed: the path
+	// existing at all is the union hop, and the values come off the composed
+	// BaseConnectionSettings rather than off any variant's own properties.
+	for _, field := range []string{"region", "tokenEndpointAuthMethod"} {
+		path := "connection." + field
+		vals, ok := got[path]
+		if !ok {
+			t.Errorf("%s enum missing; paths: %v", path, keysOf(got))
+			continue
+		}
+		if len(vals) == 0 {
+			t.Errorf("%s recorded with no values", path)
+		}
+	}
+	if vals := got["connection.region"]; len(vals) > 0 && !slices.Contains(vals, "US") {
+		t.Errorf("connection.region = %v, expected it to carry US", vals)
 	}
 }

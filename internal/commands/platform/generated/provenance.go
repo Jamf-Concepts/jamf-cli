@@ -14,7 +14,7 @@ type SpecSource struct {
 var Sources = []SpecSource{
 	{File: "specs/platform/account_licensing_api.json", SHA256: "12dc1dd124d8a38706ac6be70882c0d915be67abef424bf01558510ed9a7e97c"},
 	{File: "specs/platform/account_partners_api.json", SHA256: "8dd8b18cc99a0cdb108dbd4442f047e269a27f7c5e59224f1a0f51eadb18aa89"},
-	{File: "specs/platform/account_sso_api.json", SHA256: "cc8ee943151399faefff6dccc7de719a59391d70b99830000cb1b50e2881c970"},
+	{File: "specs/platform/account_sso_api.json", SHA256: "1666b749cd3af48e15d4b7ab0f6360665205767541eb63fd328976baf6214b09"},
 	{File: "specs/platform/ai_governance_policies_api.json", SHA256: "7c0ba60fecae405a33f290073a7868c61dd5c08b2bca3d2c987f3dc074f91a0d"},
 	{File: "specs/platform/audit_api.json", SHA256: "5ef33c3cd2de1d1f56aeee90ccdbdbc24e4e8d39183f4ebc30877ed24aeb3c75"},
 	{File: "specs/platform/blueprints_api.json", SHA256: "021958edc47e689f6edbc0631a47f4fa420edfd61477636402da7bbfb7762480"},
@@ -27,6 +27,6 @@ var Sources = []SpecSource{
 	{File: "specs/platform/securitycloud_device_groups_api.json", SHA256: "24d75bf0be735ca39c8a307e5768a566d9ab1a3d046112ceb0e936b2b39d9a2d"},
 	{File: "specs/platform/securitycloud_dns_api.json", SHA256: "86052770d98228ac5f04c382e875c30b1f981e6b6c8696612b3453bb487013ef"},
 	{File: "specs/platform/securitycloud_enrollment_api.json", SHA256: "7ca02f49ebc4fb3236775c1469ffd24255eaadd0901ffe03b2d890a8d48d4ab9"},
-	{File: "specs/platform/securitycloud_uem_connect_api.json", SHA256: "e607b4f987b0837a0e714d72e8d8da87b9306f611930b671f0f51054c4168063"},
+	{File: "specs/platform/securitycloud_uem_connect_api.json", SHA256: "55a2dbaa65b0745729d4843302933ea6261afb84b55175af04958d1253ce269e"},
 	{File: "specs/platform/securitycloud_ztna_api.json", SHA256: "ee1b8688b322cd2116eee36c90a33210cdc5ec0c671f6321d028a14e2b656873"},
 }

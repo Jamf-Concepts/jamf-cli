@@ -1845,6 +1845,57 @@ func enumValueString(v any) (string, bool) {
 	}
 }
 
+// composedPropSources returns every property map that makes up a schema: its own,
+// plus those of its allOf items and their nested allOf items. allOf is schema
+// composition (PostComputerPrestageV3 = allOf[ComputerPrestageV3, {…}]), and
+// kin-openapi resolves $ref inline, so an item's .Value.Properties is populated.
+//
+// It has to be reachable from the union path as well as the top level. A variant
+// that is itself allOf-composed — every one of account_sso's four connection
+// shapes is allOf[BaseConnectionSettings, {…}] — carries no properties of its
+// own, so reading .Properties off the branch adopted nothing and the union
+// parsed to an empty object: no scaffold fields and no "Allowed values:" line,
+// with make generate exiting 0.
+func composedPropSources(schema *openapi3.Schema) []openapi3.Schemas {
+	sources := []openapi3.Schemas{schema.Properties}
+	for _, item := range schema.AllOf {
+		if item == nil || item.Value == nil {
+			continue
+		}
+		sources = append(sources, item.Value.Properties)
+		for _, nested := range item.Value.AllOf {
+			if nested != nil && nested.Value != nil {
+				sources = append(sources, nested.Value.Properties)
+			}
+		}
+	}
+	return sources
+}
+
+// composedRequired returns a schema's required fields including those its allOf
+// items declare, since a composed variant's own list omits everything it
+// inherits — BaseConnectionSettings requires name and region, not the variant.
+func composedRequired(schema *openapi3.Schema) []string {
+	required := schema.Required
+	for _, item := range schema.AllOf {
+		if item == nil || item.Value == nil {
+			continue
+		}
+		for _, r := range item.Value.Required {
+			required = appendUniqueString(required, r)
+		}
+		for _, nested := range item.Value.AllOf {
+			if nested == nil || nested.Value == nil {
+				continue
+			}
+			for _, r := range nested.Value.Required {
+				required = appendUniqueString(required, r)
+			}
+		}
+	}
+	return required
+}
+
 func parseSchemaDepth(name string, schema *openapi3.Schema, depth int) *Schema {
 	s := &Schema{
 		Name:       name,
@@ -1870,22 +1921,7 @@ func parseSchemaDepth(name string, schema *openapi3.Schema, depth int) *Schema {
 		}
 	}
 
-	// Collect properties from direct properties and allOf items.
-	// allOf is used for schema composition (e.g. PostComputerPrestageV3 =
-	// allOf[ComputerPrestageV3, {accountSettings, recoveryLockPassword}]).
-	// kin-openapi resolves $ref inline, so allOf item .Value.Properties is populated.
-	propSources := []openapi3.Schemas{schema.Properties}
-	for _, item := range schema.AllOf {
-		if item != nil && item.Value != nil {
-			propSources = append(propSources, item.Value.Properties)
-			// Recurse into nested allOf (e.g. ComputerPrestageV3 → DeviceEnrollmentPrestageV2)
-			for _, nested := range item.Value.AllOf {
-				if nested != nil && nested.Value != nil {
-					propSources = append(propSources, nested.Value.Properties)
-				}
-			}
-		}
-	}
+	propSources := composedPropSources(schema)
 
 	// A discriminated union request body (a bare oneOf/anyOf) carries no
 	// properties of its own, so without this the whole body parses to nothing —
@@ -1912,17 +1948,19 @@ func parseSchemaDepth(name string, schema *openapi3.Schema, depth int) *Schema {
 				}
 				s.Variants = append(s.Variants, refName(branch.Ref))
 				if i == 0 {
-					propSources = append(propSources, branch.Value.Properties)
-					s.Required = branch.Value.Required
+					propSources = append(propSources, composedPropSources(branch.Value)...)
+					s.Required = composedRequired(branch.Value)
 					continue
 				}
-				for propName, propRef := range branch.Value.Properties {
-					if propRef == nil || propRef.Value == nil {
-						continue
-					}
-					for _, v := range propRef.Value.Enum {
-						if str, ok := enumValueString(v); ok {
-							variantEnums[propName] = appendUniqueString(variantEnums[propName], str)
+				for _, props := range composedPropSources(branch.Value) {
+					for propName, propRef := range props {
+						if propRef == nil || propRef.Value == nil {
+							continue
+						}
+						for _, v := range propRef.Value.Enum {
+							if str, ok := enumValueString(v); ok {
+								variantEnums[propName] = appendUniqueString(variantEnums[propName], str)
+							}
 						}
 					}
 				}
@@ -1952,6 +1990,31 @@ func parseSchemaDepth(name string, schema *openapi3.Schema, depth int) *Schema {
 					p.Enum = append(p.Enum, s)
 				}
 			}
+			// A property written as `allOf: [{$ref: Region}]` — the OpenAPI
+			// idiom for "this named scalar, plus a description of my own" —
+			// carries its type and enum on the composed item, not on itself.
+			// Every enum in the three account specs is authored that way, so
+			// without this `sso-connections create --help` named no allowed
+			// values for connectionType, region or the Entra options, and the
+			// v2018 spec adding a region (RAMP) had no CLI surface at all.
+			// allOf is an intersection, so adopting an item's constraints is
+			// not a choice between shapes the way a oneOf branch would be.
+			wantEnum := len(p.Enum) == 0
+			for _, item := range prop.AllOf {
+				if item == nil || item.Value == nil {
+					continue
+				}
+				if p.Type == "" && len(item.Value.Type.Slice()) > 0 {
+					p.Type = item.Value.Type.Slice()[0]
+				}
+				if wantEnum {
+					for _, v := range item.Value.Enum {
+						if str, ok := enumValueString(v); ok {
+							p.Enum = appendUniqueString(p.Enum, str)
+						}
+					}
+				}
+			}
 			// Capture the referenced component schema name so the generator can
 			// resolve nested object fields (e.g. for --set dot-notation paths).
 			if propRef.Ref != "" {
@@ -1964,6 +2027,23 @@ func parseSchemaDepth(name string, schema *openapi3.Schema, depth int) *Schema {
 			// kin-openapi resolves $ref inline, so prop.Properties is always populated.
 			if len(prop.Properties) > 0 && depth < maxSchemaDepth {
 				p.Nested = parseSchemaDepth(propName, prop, depth+1)
+			}
+			// A property whose own schema is a bare oneOf/anyOf — the shape
+			// account_sso's `connection` takes, four provider variants under one
+			// field — has no properties of its own, so the properties-only walk
+			// above stopped dead at it: `sso-connections create --help` named no
+			// allowed values for region, pkceAuthType or tokenEndpointAuthMethod,
+			// and the v2018 region addition (RAMP) had nowhere to surface. Reuse
+			// the same rule the top-level body already applies: adopt the first
+			// variant's shape and union the branches' top-level enums, which is
+			// what parseSchemaDepth does for a bare union.
+			if p.Nested == nil && len(prop.Properties) == 0 && depth < maxSchemaDepth {
+				if len(unionBranches(prop)) > 0 {
+					p.Nested = parseSchemaDepth(propName, prop, depth+1)
+					if p.Type == "" {
+						p.Type = "object"
+					}
+				}
 			}
 			// Populate Items for array types so a scaffold can show one element.
 			// Same cap as Nested, and load-bearing here rather than defensive —

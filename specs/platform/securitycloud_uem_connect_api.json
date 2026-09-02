@@ -106,6 +106,26 @@
         },
         "description": "Conflict — the request cannot proceed against the current state of the tenant's connectors. Error codes: `CONNECTOR_DISABLED` — the connector is disabled (`triggerSync`, `deployActivationProfile`); `CONNECTOR_CONFIG_ALREADY_EXISTS` — the tenant already has a connector whose UEM vendor cannot coexist with the requested one, only Jamf Pro and Wizy may coexist (`createConnector`); `UNSUPPORTED_UEM_VERSION` — the UEM platform reported a version this integration does not support (`createConnector`); `MULTIPLE_ACTIVATION_PROFILES` — the tenant has more than one active activation profile, so the deployment target is ambiguous (`deployActivationProfile`). Not every code applies to every operation — check the individual operation's description.\n"
       },
+      "NotAcceptable": {
+        "content": {
+          "application/json": {
+            "example": {
+              "errors": [
+                {
+                  "code": "NOT_ACCEPTABLE",
+                  "description": "No acceptable representation available"
+                }
+              ],
+              "httpStatus": 406,
+              "traceId": "80f198ee56343ba864fe8b2a57d3eff7"
+            },
+            "schema": {
+              "$ref": "#/components/schemas/ApiError"
+            }
+          }
+        },
+        "description": "Not acceptable — the request `Accept` header cannot be satisfied by this operation, which only produces `application/json`. Error code: `NOT_ACCEPTABLE`.\n"
+      },
       "NotFound": {
         "content": {
           "application/json": {
@@ -214,6 +234,19 @@
                   "httpStatus": 422,
                   "traceId": "80f198ee56343ba864fe8b2a57d3eff7"
                 }
+              },
+              "vendorMismatch": {
+                "summary": "Body vendor does not match the stored connector",
+                "value": {
+                  "errors": [
+                    {
+                      "code": "VENDOR_MISMATCH",
+                      "description": "vendor 'INTUNE' in request body does not match stored vendor 'JAMF_PRO'"
+                    }
+                  ],
+                  "httpStatus": 422,
+                  "traceId": "80f198ee56343ba864fe8b2a57d3eff7"
+                }
               }
             },
             "schema": {
@@ -221,7 +254,27 @@
             }
           }
         },
-        "description": "Unprocessable entity. This API returns `422` for **both** schema-level and business-rule failures. Error codes: `VALIDATION_FAILED` — malformed JSON, a missing or mistyped required field, or a constraint violation (the `field` property identifies the offending body field where known); `CONNECTOR_NOT_CONNECTED` — the connector's credentials are not valid against the UEM platform; `CONNECTOR_MISCONFIGURED` — the UEM platform rejected the connector configuration.\nNote that connector creation can also fail with `400` when the connection test itself fails — see the `400` response on that operation.\n"
+        "description": "Unprocessable entity. This API returns `422` for **both** schema-level and business-rule failures. Error codes: `VALIDATION_FAILED` — malformed JSON, a missing or mistyped required field, or a constraint violation (the `field` property identifies the offending body field where known); `VENDOR_MISMATCH` — the body `vendor` of an `updateSyncSettings` request does not match the connector's stored vendor; `CONNECTOR_NOT_CONNECTED` — the connector's credentials are not valid against the UEM platform; `CONNECTOR_MISCONFIGURED` — the UEM platform rejected the connector configuration.\nNote that connector creation can also fail with `400` when the connection test itself fails — see the `400` response on that operation.\n"
+      },
+      "UnsupportedMediaType": {
+        "content": {
+          "application/json": {
+            "example": {
+              "errors": [
+                {
+                  "code": "UNSUPPORTED_MEDIA_TYPE",
+                  "description": "The request media type is not supported"
+                }
+              ],
+              "httpStatus": 415,
+              "traceId": "80f198ee56343ba864fe8b2a57d3eff7"
+            },
+            "schema": {
+              "$ref": "#/components/schemas/ApiError"
+            }
+          }
+        },
+        "description": "Unsupported media type — the request body `Content-Type` is not one this operation accepts, or it was omitted. Send `application/json`. Error code: `UNSUPPORTED_MEDIA_TYPE`.\n"
       }
     },
     "schemas": {
@@ -1581,7 +1634,7 @@
             "type": "boolean"
           },
           "vendor": {
-            "description": "UEM vendor name — determines the shape of vendor-specific fields",
+            "description": "UEM vendor name — determines the shape of vendor-specific fields. Must match the stored\nconnector's vendor; a value that disagrees with it is rejected with `422 VENDOR_MISMATCH`.\nThis field selects the applicable vendor-specific fields, it does not change which\nconnector is updated (that is the path `configId`) nor the connector's vendor.\n",
             "enum": [
               "INTUNE",
               "XENMOBILE",
@@ -1832,6 +1885,9 @@
           "409": {
             "$ref": "#/components/responses/Conflict"
           },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
           "422": {
             "$ref": "#/components/responses/UnprocessableEntity"
           },
@@ -1875,6 +1931,9 @@
               }
             },
             "description": "Connectors retrieved successfully"
+          },
+          "406": {
+            "$ref": "#/components/responses/NotAcceptable"
           }
         },
         "security": [
@@ -1924,8 +1983,14 @@
           "400": {
             "$ref": "#/components/responses/BadRequest"
           },
+          "406": {
+            "$ref": "#/components/responses/NotAcceptable"
+          },
           "409": {
             "$ref": "#/components/responses/Conflict"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
           },
           "422": {
             "$ref": "#/components/responses/UnprocessableEntity"
@@ -2006,6 +2071,9 @@
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
+          },
+          "406": {
+            "$ref": "#/components/responses/NotAcceptable"
           }
         },
         "security": [
@@ -2088,6 +2156,9 @@
           "404": {
             "$ref": "#/components/responses/NotFound"
           },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
+          },
           "422": {
             "$ref": "#/components/responses/UnprocessableEntity"
           },
@@ -2137,6 +2208,9 @@
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
+          },
+          "406": {
+            "$ref": "#/components/responses/NotAcceptable"
           }
         },
         "security": [
@@ -2155,7 +2229,7 @@
         ]
       },
       "put": {
-        "description": "Updates the sync settings for the specified connector. Supported settings vary by UEM vendor.\nUpdated settings take effect on the next sync operation.\n\n\n**Required Permissions:** `uem-connect:update`",
+        "description": "Updates the sync settings for the specified connector. Supported settings vary by UEM vendor.\nUpdated settings take effect on the next sync operation.\n\nThe `vendor` in the body must match the connector's stored vendor. It selects which\nvendor-specific fields are applicable, not which connector is updated — the connector is\nalways identified by `configId`. A `vendor` that disagrees with the stored one is rejected\nwith `422 VENDOR_MISMATCH`; the vendor of an existing connector cannot be changed through\nthis operation.\n\n\n**Required Permissions:** `uem-connect:update`",
         "operationId": "updateSyncSettings",
         "parameters": [
           {
@@ -2181,6 +2255,9 @@
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
+          },
+          "415": {
+            "$ref": "#/components/responses/UnsupportedMediaType"
           },
           "422": {
             "$ref": "#/components/responses/UnprocessableEntity"
@@ -2247,6 +2324,9 @@
               }
             },
             "description": "Sync run history retrieved successfully"
+          },
+          "406": {
+            "$ref": "#/components/responses/NotAcceptable"
           }
         },
         "security": [

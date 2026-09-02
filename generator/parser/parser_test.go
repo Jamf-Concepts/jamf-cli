@@ -3062,3 +3062,157 @@ func TestPlatformOperationNameOverridesWinOverDerivation(t *testing.T) {
 		}
 	}
 }
+
+// TestParseSchema_PropertyAllOfCarriesTypeAndEnum covers the property-level
+// composition idiom: `allOf: [{$ref: Enum}]` beside a description of the
+// property's own. The constraint and the type sit on the composed item, so a
+// property that reads them off itself alone comes out untyped and unconstrained
+// — which is how every enum in the three account specs was invisible in help.
+func TestParseSchema_PropertyAllOfCarriesTypeAndEnum(t *testing.T) {
+	schema := &openapi3.Schema{
+		Properties: openapi3.Schemas{
+			"region": {Value: &openapi3.Schema{
+				Description: "Auth0 region.",
+				AllOf: openapi3.SchemaRefs{
+					{Value: &openapi3.Schema{
+						Type: &openapi3.Types{"string"},
+						Enum: []any{"US", "EU", "RAMP"},
+					}},
+				},
+			}},
+		},
+	}
+	s := parseSchema("ConnectionSettings", schema)
+	p := s.Properties["region"]
+	if p == nil {
+		t.Fatal("region property missing")
+	}
+	if p.Type != "string" {
+		t.Errorf("Type = %q, want string — an untyped property drops out of --set completion", p.Type)
+	}
+	if len(p.Enum) != 3 {
+		t.Fatalf("Enum = %v, want the three composed values", p.Enum)
+	}
+	// The property's own description must survive: it is the reason the spec
+	// wraps the ref in an allOf at all.
+	if p.Description != "Auth0 region." {
+		t.Errorf("Description = %q, want the property's own", p.Description)
+	}
+}
+
+// TestParseSchema_PropertyAllOfDoesNotOverrideItsOwn pins the precedence: an
+// enum or type declared on the property wins over a composed one, so the
+// composition is a fallback rather than a rewrite.
+func TestParseSchema_PropertyAllOfDoesNotOverrideItsOwn(t *testing.T) {
+	schema := &openapi3.Schema{
+		Properties: openapi3.Schemas{
+			"mode": {Value: &openapi3.Schema{
+				Type: &openapi3.Types{"string"},
+				Enum: []any{"OWN"},
+				AllOf: openapi3.SchemaRefs{
+					{Value: &openapi3.Schema{Type: &openapi3.Types{"integer"}, Enum: []any{"COMPOSED"}}},
+				},
+			}},
+		},
+	}
+	s := parseSchema("T", schema)
+	p := s.Properties["mode"]
+	if p.Type != "string" {
+		t.Errorf("Type = %q, want the property's own", p.Type)
+	}
+	if len(p.Enum) != 1 || p.Enum[0] != "OWN" {
+		t.Errorf("Enum = %v, want only the property's own", p.Enum)
+	}
+}
+
+// TestParseSchema_UnionVariantsAreAllOfComposed covers a bare oneOf whose
+// variants carry no properties of their own — every one of account_sso's four
+// connection shapes is allOf[BaseConnectionSettings, {…}]. Reading .Properties
+// off the adopted branch got nothing, so the union parsed to an empty object:
+// no scaffold fields, no enum lines, and make generate exiting 0.
+func TestParseSchema_UnionVariantsAreAllOfComposed(t *testing.T) {
+	base := &openapi3.Schema{
+		Properties: openapi3.Schemas{
+			"name":   {Value: &openapi3.Schema{Type: &openapi3.Types{"string"}}},
+			"region": {Value: &openapi3.Schema{Type: &openapi3.Types{"string"}, Enum: []any{"US"}}},
+		},
+		Required: []string{"name", "region"},
+	}
+	composed := func(own openapi3.Schemas, required []string) *openapi3.Schema {
+		return &openapi3.Schema{
+			AllOf: openapi3.SchemaRefs{
+				{Value: base},
+				{Value: &openapi3.Schema{Properties: own, Required: required}},
+			},
+		}
+	}
+	schema := &openapi3.Schema{
+		OneOf: openapi3.SchemaRefs{
+			{Ref: "#/components/schemas/OidcConnectionSettings", Value: composed(openapi3.Schemas{
+				"issuer": {Value: &openapi3.Schema{Type: &openapi3.Types{"string"}}},
+			}, []string{"issuer"})},
+			{Ref: "#/components/schemas/EntraConnectionSettings", Value: composed(openapi3.Schemas{
+				"identityApi": {Value: &openapi3.Schema{Type: &openapi3.Types{"string"}, Enum: []any{"AZURE_ACTIVE_DIRECTORY_V1"}}},
+			}, nil)},
+		},
+	}
+
+	s := parseSchema("ConnectionRequest", schema)
+	for _, name := range []string{"name", "region", "issuer"} {
+		if _, ok := s.Properties[name]; !ok {
+			t.Errorf("missing property %q from the adopted variant; got %v", name, propKeys(s.Properties))
+		}
+	}
+	// Inherited required fields belong to the variant as much as its own do.
+	for _, want := range []string{"name", "region", "issuer"} {
+		if !slices.Contains(s.Required, want) {
+			t.Errorf("Required = %v, missing %q", s.Required, want)
+		}
+	}
+	// A sibling variant's enum is still named, and marked as belonging to no
+	// scaffolded field.
+	p := s.Properties["identityApi"]
+	if p == nil {
+		t.Fatalf("sibling variant's property missing; got %v", propKeys(s.Properties))
+	}
+	if !p.VariantOnly {
+		t.Error("sibling-only property not marked VariantOnly — it would be scaffolded into a body that does not accept it")
+	}
+	if len(p.Enum) != 1 {
+		t.Errorf("Enum = %v, want the sibling variant's composed value", p.Enum)
+	}
+}
+
+// TestParseSchema_PropertyReachedUnion covers a union one level in: a property
+// whose own schema is a bare oneOf. Without it the walk stops dead at the
+// property, which is where account_sso keeps its whole connection shape.
+func TestParseSchema_PropertyReachedUnion(t *testing.T) {
+	schema := &openapi3.Schema{
+		Properties: openapi3.Schemas{
+			"connection": {Value: &openapi3.Schema{
+				OneOf: openapi3.SchemaRefs{
+					{Value: &openapi3.Schema{Properties: openapi3.Schemas{
+						"issuer": {Value: &openapi3.Schema{Type: &openapi3.Types{"string"}}},
+					}}},
+					{Value: &openapi3.Schema{Properties: openapi3.Schemas{
+						"tenantDomain": {Value: &openapi3.Schema{Type: &openapi3.Types{"string"}}},
+					}}},
+				},
+			}},
+		},
+	}
+	s := parseSchema("ConnectionRequest", schema)
+	p := s.Properties["connection"]
+	if p == nil {
+		t.Fatal("connection property missing")
+	}
+	if p.Type != "object" {
+		t.Errorf("Type = %q, want object", p.Type)
+	}
+	if p.Nested == nil {
+		t.Fatal("Nested not populated — the union's fields are unreachable")
+	}
+	if _, ok := p.Nested.Properties["issuer"]; !ok {
+		t.Errorf("first variant's fields not adopted; got %v", propKeys(p.Nested.Properties))
+	}
+}

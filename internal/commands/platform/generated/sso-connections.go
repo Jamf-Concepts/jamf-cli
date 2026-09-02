@@ -86,7 +86,7 @@ func newSsoConnectionsCreateCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "create",
 		Short:       "Add Connection",
-		Long:        "Creates an identity provider connection and assigns it to the domains and products named in the request, in a single call. Returns the created connection as `GET /connections/{connectionId}` would.",
+		Long:        "Creates an identity provider connection and assigns it to the domains and products named in the request, in a single call. Returns the created connection as `GET /connections/{connectionId}` would.\n\nAllowed values:\n  connection.pkceAuthType: PLAIN, S256, AUTO, DISABLED\n  connection.region: US, EU, AU, JP, RAMP\n  connection.tokenEndpointAuthMethod: CLIENT_SECRET_POST, PRIVATE_KEY_JWT\n  connectionType: OIDC, WAAD, OKTA, GOOGLE_APPS\n  enabledEnvironments[].product: ACCOUNT, PRO, PROTECT, SCHOOL, SECURITY_CLOUD, JETP, ROUTINES, INSIGHTS, ELEVATE\n  enabledProducts[].product: ACCOUNT, PRO, PROTECT, SCHOOL, SECURITY_CLOUD, JETP, ROUTINES, INSIGHTS, ELEVATE",
 		Annotations: map[string]string{"jamf:api": "platform-gateway"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if scaffoldFlag {
@@ -250,7 +250,7 @@ func newSsoConnectionsUpdateCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "update <connectionId>",
 		Short:       "Update Connection",
-		Long:        "Replaces the settings of a connection and reapplies which domains and products it serves, so a change to either takes effect in the same call. Returns the updated connection as `GET /connections/{connectionId}` would.",
+		Long:        "Replaces the settings of a connection and reapplies which domains and products it serves, so a change to either takes effect in the same call. Returns the updated connection as `GET /connections/{connectionId}` would.\n\nAllowed values:\n  connection.pkceAuthType: PLAIN, S256, AUTO, DISABLED\n  connection.region: US, EU, AU, JP, RAMP\n  connection.tokenEndpointAuthMethod: CLIENT_SECRET_POST, PRIVATE_KEY_JWT\n  connectionType: OIDC, WAAD, OKTA, GOOGLE_APPS\n  enabledEnvironments[].product: ACCOUNT, PRO, PROTECT, SCHOOL, SECURITY_CLOUD, JETP, ROUTINES, INSIGHTS, ELEVATE\n  enabledProducts[].product: ACCOUNT, PRO, PROTECT, SCHOOL, SECURITY_CLOUD, JETP, ROUTINES, INSIGHTS, ELEVATE",
 		Annotations: map[string]string{"jamf:api": "platform-gateway"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {

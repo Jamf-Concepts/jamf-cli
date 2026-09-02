@@ -1553,7 +1553,8 @@
           "US",
           "EU",
           "AU",
-          "JP"
+          "JP",
+          "RAMP"
         ],
         "example": "US",
         "type": "string"

@@ -359,8 +359,17 @@ sync-gateway-coverage:
 	@# commit into the manifest as the SDK's. A manifest whose provenance is
 	@# confidently wrong is worse than one that admits it does not know, so the
 	@# path is tested before it is used.
+	@#
+	@# The test is -e rather than -d because in a linked git worktree — the
+	@# natural way to ingest one specific SDK revision without disturbing a
+	@# checkout — .git is a FILE, not a directory. Under -d the guard failed
+	@# silently, no revision was written, and CarryForwardProvenance then kept
+	@# the PREVIOUS commit: the manifest confidently named an SDK revision that
+	@# was not the one ingested, which is the exact failure the -d test was
+	@# added to prevent. -e still requires a work-tree root, so it cannot be
+	@# satisfied by an empty variable or by any path inside this repo.
 	@rm -f .gateway-sdk-rev
-	@if [ -n "$(JAMFPLATFORM_SDK_PATH)" ] && [ -d "$(JAMFPLATFORM_SDK_PATH)/.git" ]; then \
+	@if [ -n "$(JAMFPLATFORM_SDK_PATH)" ] && [ -e "$(JAMFPLATFORM_SDK_PATH)/.git" ]; then \
 		git -C "$(JAMFPLATFORM_SDK_PATH)" rev-parse --short HEAD > .gateway-sdk-rev 2>/dev/null || true; \
 	fi
 	go run ./generator --specs ./specs --output ./internal/commands/pro/generated \
