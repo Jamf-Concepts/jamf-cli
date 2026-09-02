@@ -36,14 +36,29 @@ type ClassicResource struct {
 	// no subsets.
 	Subsets []string
 	// GatewayLevel and GatewayDetail record whether the Jamf Platform gateway
-	// exposes this resource, from specs/gateway/coverage.json. Resource-level
-	// rather than per-operation because a Classic resource's paths are built at
-	// runtime from Path plus the lookup in play, and the gateway's Classic
-	// coverage is whole-resource in practice. Empty when the gateway serves it
-	// or when no manifest was available.
+	// exposes this resource at all, from specs/gateway/coverage.json.
+	// Resource-level because a Classic resource's paths are built at runtime
+	// from Path plus the lookup in play, so there is no fixed set of paths to
+	// enumerate. Empty when the gateway serves it or when no manifest was
+	// available.
 	GatewayLevel  string
 	GatewayBasis  string
 	GatewayDetail string
+	// GatewayMethods narrows that verdict to the HTTP method a subcommand
+	// sends, keyed by method. A resource can be served and still have a dead
+	// subcommand: Classic API 11.28.0 withdrew every read on patchsoftwaretitles
+	// while keeping POST /patchsoftwaretitles/id/{}, so the resource is carried
+	// and `list`, `get`, `update` and `delete` are all refused. The method is
+	// fixed at generate time even though the path is not, and a method the
+	// gateway declares nowhere beneath the resource cannot work under any
+	// lookup. Absent key or empty Level means served.
+	GatewayMethods map[string]GatewayVerdict
+	// GatewayList is the verdict for the collection GET — /JSSResource/{Path}
+	// with no lookup, the one Classic path that IS fixed at generate time. It is
+	// separate from GatewayMethods["GET"] because a resource can keep GET on its
+	// {id} paths and lose it on the collection, which is what 11.28.0 did to
+	// patchpolicies: `get` works, `list` does not.
+	GatewayList GatewayVerdict
 	// GatewayPrivileges are the Jamf Account capability permissions the gateway
 	// requires, keyed by HTTP method — per method rather than per resource
 	// because that is the granularity that differs (accounts:read for a GET,
@@ -51,6 +66,16 @@ type ClassicResource struct {
 	// is resource-wide. A different vocabulary from Jamf Pro's own privilege
 	// names, and Classic commands carry none of those.
 	GatewayPrivileges map[string][]string
+}
+
+// GatewayVerdict is one gateway-coverage verdict in the three string values
+// the template renders as annotations. Strings rather than generator/gateway's
+// own types so this package needs no dependency on it — generator/main.go
+// converts at the one point the two meet.
+type GatewayVerdict struct {
+	Level  string
+	Basis  string
+	Detail string
 }
 
 // ClassicFileField declares a resource field whose value is sourced from a

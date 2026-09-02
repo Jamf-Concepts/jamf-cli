@@ -12,10 +12,10 @@
       "file": "classic_api_resource_documentation.json",
       "title": "Classic API",
       "version": "11.28.0",
-      "paths": 273,
-      "operations": 606
+      "paths": 263,
+      "operations": 575
     },
-    "sdkCommit": "26d4272"
+    "sdkCommit": "c91fce8"
   },
   "spec": {
     "/pro/devices/extensionAttributes": [
@@ -1898,23 +1898,12 @@
     "/proclassic/computerreports/name/{}": [
       "GET"
     ],
-    "/proclassic/computers": [
-      "GET"
-    ],
     "/proclassic/computers/id/{}": [
       "DELETE",
-      "GET",
-      "POST",
-      "PUT"
-    ],
-    "/proclassic/computers/id/{}/subset/{}": [
-      "GET"
+      "POST"
     ],
     "/proclassic/computers/macaddress/{}": [
-      "DELETE",
-      "GET",
-      "POST",
-      "PUT"
+      "POST"
     ],
     "/proclassic/computers/match/name/{}": [
       "GET"
@@ -1923,25 +1912,13 @@
       "GET"
     ],
     "/proclassic/computers/name/{}": [
-      "DELETE",
-      "GET",
-      "POST",
-      "PUT"
+      "POST"
     ],
     "/proclassic/computers/serialnumber/{}": [
-      "DELETE",
-      "GET",
-      "POST",
-      "PUT"
-    ],
-    "/proclassic/computers/subset/basic": [
-      "GET"
+      "POST"
     ],
     "/proclassic/computers/udid/{}": [
-      "DELETE",
-      "GET",
-      "POST",
-      "PUT"
+      "POST"
     ],
     "/proclassic/departments": [
       "GET"
@@ -2449,18 +2426,6 @@
     "/proclassic/patchavailabletitles/sourceid/{}": [
       "GET"
     ],
-    "/proclassic/patches": [
-      "GET"
-    ],
-    "/proclassic/patches/id/{}": [
-      "DELETE",
-      "GET",
-      "POST",
-      "PUT"
-    ],
-    "/proclassic/patches/id/{}/version/{}": [
-      "GET"
-    ],
     "/proclassic/patches/name/{}": [
       "GET"
     ],
@@ -2488,9 +2453,6 @@
     "/proclassic/patchinternalsources/name/{}": [
       "GET"
     ],
-    "/proclassic/patchpolicies": [
-      "GET"
-    ],
     "/proclassic/patchpolicies/id/{}": [
       "DELETE",
       "GET",
@@ -2500,23 +2462,10 @@
       "GET"
     ],
     "/proclassic/patchpolicies/softwaretitleconfig/id/{}": [
-      "GET",
       "POST"
     ],
-    "/proclassic/patchreports/patchsoftwaretitleid/{}": [
-      "GET"
-    ],
-    "/proclassic/patchreports/patchsoftwaretitleid/{}/version/{}": [
-      "GET"
-    ],
-    "/proclassic/patchsoftwaretitles": [
-      "GET"
-    ],
     "/proclassic/patchsoftwaretitles/id/{}": [
-      "DELETE",
-      "GET",
-      "POST",
-      "PUT"
+      "POST"
     ],
     "/proclassic/policies": [
       "GET"
@@ -6095,46 +6044,19 @@
         "device-history:read"
       ]
     },
-    "/proclassic/computers": {
-      "GET": [
-        "devices:read"
-      ]
-    },
     "/proclassic/computers/id/{}": {
       "DELETE": [
         "destructive-device-actions:execute"
       ],
-      "GET": [
-        "devices:read"
-      ],
       "POST": [
         "devices:create",
         "users:create"
-      ],
-      "PUT": [
-        "devices:update",
-        "users:update"
-      ]
-    },
-    "/proclassic/computers/id/{}/subset/{}": {
-      "GET": [
-        "devices:read"
       ]
     },
     "/proclassic/computers/macaddress/{}": {
-      "DELETE": [
-        "destructive-device-actions:execute"
-      ],
-      "GET": [
-        "devices:read"
-      ],
       "POST": [
         "devices:create",
         "users:create"
-      ],
-      "PUT": [
-        "devices:update",
-        "users:update"
       ]
     },
     "/proclassic/computers/match/name/{}": {
@@ -6148,56 +6070,21 @@
       ]
     },
     "/proclassic/computers/name/{}": {
-      "DELETE": [
-        "destructive-device-actions:execute"
-      ],
-      "GET": [
-        "devices:read"
-      ],
       "POST": [
         "devices:create",
         "users:create"
-      ],
-      "PUT": [
-        "devices:update",
-        "users:update"
       ]
     },
     "/proclassic/computers/serialnumber/{}": {
-      "DELETE": [
-        "destructive-device-actions:execute"
-      ],
-      "GET": [
-        "devices:read"
-      ],
       "POST": [
         "devices:create",
         "users:create"
-      ],
-      "PUT": [
-        "devices:update",
-        "users:update"
-      ]
-    },
-    "/proclassic/computers/subset/basic": {
-      "GET": [
-        "devices:read"
       ]
     },
     "/proclassic/computers/udid/{}": {
-      "DELETE": [
-        "destructive-device-actions:execute"
-      ],
-      "GET": [
-        "devices:read"
-      ],
       "POST": [
         "devices:create",
         "users:create"
-      ],
-      "PUT": [
-        "devices:update",
-        "users:update"
       ]
     },
     "/proclassic/departments": {
@@ -7261,30 +7148,6 @@
         "patch-management-software-titles:read"
       ]
     },
-    "/proclassic/patches": {
-      "GET": [
-        "patch-management-software-titles:read"
-      ]
-    },
-    "/proclassic/patches/id/{}": {
-      "DELETE": [
-        "patch-management-software-titles:delete"
-      ],
-      "GET": [
-        "patch-management-software-titles:read"
-      ],
-      "POST": [
-        "patch-management-software-titles:create"
-      ],
-      "PUT": [
-        "patch-management-software-titles:update"
-      ]
-    },
-    "/proclassic/patches/id/{}/version/{}": {
-      "GET": [
-        "patch-management-software-titles:read"
-      ]
-    },
     "/proclassic/patches/name/{}": {
       "GET": [
         "patch-management-software-titles:read"
@@ -7338,11 +7201,6 @@
         "patch-internal-source:read"
       ]
     },
-    "/proclassic/patchpolicies": {
-      "GET": [
-        "patch-policies:read"
-      ]
-    },
     "/proclassic/patchpolicies/id/{}": {
       "DELETE": [
         "patch-policies:delete"
@@ -7360,40 +7218,13 @@
       ]
     },
     "/proclassic/patchpolicies/softwaretitleconfig/id/{}": {
-      "GET": [
-        "patch-policies:read"
-      ],
       "POST": [
         "patch-policies:create"
       ]
     },
-    "/proclassic/patchreports/patchsoftwaretitleid/{}": {
-      "GET": [
-        "patch-management-software-titles:read"
-      ]
-    },
-    "/proclassic/patchreports/patchsoftwaretitleid/{}/version/{}": {
-      "GET": [
-        "patch-management-software-titles:read"
-      ]
-    },
-    "/proclassic/patchsoftwaretitles": {
-      "GET": [
-        "patch-management-software-titles:read"
-      ]
-    },
     "/proclassic/patchsoftwaretitles/id/{}": {
-      "DELETE": [
-        "patch-management-software-titles:delete"
-      ],
-      "GET": [
-        "patch-management-software-titles:read"
-      ],
       "POST": [
         "patch-management-software-titles:create"
-      ],
-      "PUT": [
-        "patch-management-software-titles:update"
       ]
     },
     "/proclassic/policies": {

@@ -71,13 +71,28 @@ func TestAnnotateDistributorScopeError(t *testing.T) {
 		t.Errorf("note must not replace the original error, got %q", got)
 	}
 
-	// Both markers are required. A 400 from these endpoints can legitimately
-	// mean a malformed purchase order, and a bare invalid_scope from elsewhere
-	// is not this bug.
+	// The second wire form, as of 2026-09-01: the account service's own
+	// envelope, naming the service and carrying no scope. It replaced the form
+	// above without the surface becoming usable, so it has to be matched too —
+	// otherwise these commands answer a bare [UPSTREAM_ERROR] with no
+	// explanation, which is what the annotation exists to prevent.
+	newForm := errors.New(`get: API request failed with status 400 Bad Request: {"classification":"NONE","fields":[],"message":"[UPSTREAM_ERROR] Failed to retrieve distributor configuration via Skyway distributor service"}`)
+	got = annotateDistributorScopeError(newForm)
+	if !strings.Contains(got.Error(), "upstream fault") {
+		t.Errorf("the UPSTREAM_ERROR form should carry the note, got %q", got)
+	}
+	if !strings.Contains(got.Error(), "Skyway distributor service") {
+		t.Errorf("note must not replace the original error, got %q", got)
+	}
+
+	// Both markers are required for the OAuth form. A 400 from these endpoints
+	// can legitimately mean a malformed purchase order, and a bare invalid_scope
+	// from elsewhere is not this bug.
 	for _, other := range []string{
 		`400 [INVALID_FIELD] quoteNumber: must not be blank`,
 		`400 {"error":"invalid_scope","error_description":"Invalid scopes: something-else"}`,
 		`404 [DISTRIBUTOR_NOT_FOUND] not a registered distributor`,
+		`400 [UPSTREAM_ERROR] Failed to reach some other service`,
 	} {
 		if got := annotateDistributorScopeError(errors.New(other)); got.Error() != other {
 			t.Errorf("error %q should be untouched, got %q", other, got)

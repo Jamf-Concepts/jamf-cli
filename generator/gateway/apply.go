@@ -37,19 +37,27 @@ func Apply(cov *Coverage, ops []Op) []Entry {
 	var entries []Entry
 	seen := map[string]bool{}
 	for _, op := range ops {
-		v := cov.Verdict(op.Method, op.GatewayPath)
-		if op.Wildcard {
-			// A wildcard entry covers a subtree, so it is judged on the
-			// subtree — see Coverage.VerdictSubtree.
+		var v Verdict
+		switch op.Scope {
+		case ScopeSubtree:
+			// Covers a subtree, so it is judged on the subtree — see
+			// Coverage.VerdictSubtree.
 			v = cov.VerdictSubtree(op.GatewayPath)
+		case ScopeSubtreeMethod:
+			v = cov.VerdictSubtreeMethod(op.GatewayPath, op.Method)
+		default:
+			v = cov.Verdict(op.Method, op.GatewayPath)
 		}
 		op.Set(v)
 		if v.Level == Served {
 			continue
 		}
 		method, path := strings.ToUpper(op.Method), NormalisePath(op.GatewayPath)
-		if op.Wildcard {
+		switch op.Scope {
+		case ScopeSubtree:
 			method, path = AnyMethod, strings.TrimSuffix(path, "/")+"/"+AnySubpath
+		case ScopeSubtreeMethod:
+			path = strings.TrimSuffix(path, "/") + "/" + AnySubpath
 		}
 		key := method + " " + path
 		if seen[key] {
@@ -67,18 +75,36 @@ func Apply(cov *Coverage, ops []Op) []Entry {
 	return entries
 }
 
+// Scope selects how an Op is judged and how its entry is emitted.
+type Scope int
+
+const (
+	// ScopeExact is one method on one path — the modern API's shape, where the
+	// path is fixed at generate time.
+	ScopeExact Scope = iota
+	// ScopeSubtree is every method at or beneath the path, emitted as
+	// "* <path>/**". A Classic *resource* is judged this way: a Classic command
+	// builds its path at runtime from the resource path plus whichever lookup is
+	// in play (/id/{}, /name/{}, /serialnumber/{} …), so enumerating op paths at
+	// generate time would mean re-deriving the template's own logic and would
+	// miss a shape the day one is added.
+	ScopeSubtree
+	// ScopeSubtreeMethod is one method anywhere at or beneath the path, emitted
+	// as "<METHOD> <path>/**". A Classic *subcommand* is judged this way,
+	// because the method it sends is fixed even though its path is not: a method
+	// the gateway declares nowhere beneath the resource cannot work under any
+	// lookup. Without it, a resource that keeps one method and loses the rest
+	// reports every subcommand as served — which is what Classic 11.28.0's
+	// patchsoftwaretitles withdrawal did.
+	ScopeSubtreeMethod
+)
+
 // Op is one operation to be judged, decoupled from the parser types.
 type Op struct {
 	Method      string
 	GatewayPath string
-	// Wildcard asks for the emitted entry to cover every method at
-	// GatewayPath and everything beneath it, as "* <path>/**". Set for Classic
-	// resources, whose verdict is resource-wide: a Classic command builds its
-	// path at runtime from the resource path plus whichever lookup is in play
-	// (/id/{}, /name/{}, /serialnumber/{} …), so enumerating op paths at
-	// generate time would mean re-deriving the template's own logic and would
-	// miss a shape the day one is added.
-	Wildcard bool
+	// Scope is the granularity of the verdict; see Scope.
+	Scope Scope
 	// Set records the verdict back onto whatever the caller parsed. It takes the
 	// whole Verdict rather than its strings because the scopes travel with it —
 	// per operation for a modern path, per method for a Classic subtree.

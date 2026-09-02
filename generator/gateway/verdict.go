@@ -188,6 +188,49 @@ func (c *Coverage) VerdictSubtree(path string) Verdict {
 	}
 }
 
+// VerdictSubtreeMethod answers for one method across a whole subtree: does the
+// gateway declare that method on any path at or beneath path?
+//
+// This is the granularity a Classic *subcommand* needs, and VerdictSubtree is
+// too coarse for it. A Classic resource is judged as a whole because its paths
+// are assembled at runtime from the resource path plus whichever lookup is in
+// play — but the METHOD each subcommand sends is fixed at generate time, and a
+// method the gateway declares nowhere beneath the resource cannot work under any
+// lookup. Classic API 11.28.0 withdrew every read on patchsoftwaretitles while
+// keeping POST /patchsoftwaretitles/id/{}, so the resource is served and
+// `list`, `get`, `update` and `delete` are all dead — a shape the whole-resource
+// verdict reports as fine.
+func (c *Coverage) VerdictSubtreeMethod(path, method string) Verdict {
+	key := strings.TrimSuffix(NormalisePath(path), "/")
+	method = strings.ToUpper(method)
+
+	if reason, ok := matchPrefix(forceServed, method, key); ok {
+		return Verdict{Level: Served, Detail: reason}
+	}
+	if reason, ok := matchPrefix(probedUnserved, method, key); ok {
+		return Verdict{Level: Unserved, Basis: BasisProbe, Detail: reason}
+	}
+	if c == nil {
+		return Verdict{}
+	}
+	for p, methods := range c.Spec {
+		if p != key && !strings.HasPrefix(p, key+"/") {
+			continue
+		}
+		if contains(methods, method) {
+			return Verdict{Level: Served, ScopesByMethod: c.subtreeScopes(key)}
+		}
+	}
+
+	_, apiName, apiVersion := c.namespace(key)
+	return Verdict{
+		Level: Unserved,
+		Basis: BasisUnpublished,
+		Detail: fmt.Sprintf("the gateway's %s %s declares no %s on this resource",
+			apiName, apiVersion, method),
+	}
+}
+
 // subtreeScopes unions the scopes of every operation at or beneath key, keyed by
 // method.
 //

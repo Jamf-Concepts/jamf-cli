@@ -19,7 +19,7 @@ func NewClassicPatchReportsCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:         "classic-patch-reports",
 		Short:       "Patch management reports (Classic API)",
 		Long:        `Manage patch management reports via the Jamf Pro Classic API (/JSSResource/).`,
-		Annotations: map[string]string{"jamf:api": "pro-classic"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway": "unserved", "jamf:gateway-basis": "unpublished", "jamf:gateway-detail": "not declared by the gateway's Classic API 11.28.0, which trails the Pro API's version"},
 	}
 
 	cmd.AddCommand(newClassicPatchReportsGetCmd(ctx))
@@ -37,7 +37,7 @@ func newClassicPatchReportsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a patch_report and output as YAML
   jamf-cli pro classic-patch-reports get 1 -o yaml`,
-		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "patch-management-software-titles:read"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway": "unserved", "jamf:gateway-basis": "unpublished", "jamf:gateway-detail": "not declared by the gateway's Classic API 11.28.0, which trails the Pro API's version"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

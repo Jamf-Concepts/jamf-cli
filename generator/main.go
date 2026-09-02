@@ -5,6 +5,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"net/http"
 	"os"
 	"path/filepath"
 	"sort"
@@ -760,25 +761,67 @@ func modernGatewayOps(resources []*parser.Resource) []gateway.Op {
 	return ops
 }
 
-// classicGatewayOps adapts the Classic manifest. One wildcard op per resource:
-// the gateway's Classic coverage is whole-resource, and a Classic command's path
-// is assembled at runtime from the resource path plus whichever lookup is in
-// play, so there is no fixed set of op paths to enumerate here.
+// classicGatewayMethods are the HTTP methods a Classic subcommand can send.
+// Judged per method across the resource's subtree — see gateway.ScopeSubtreeMethod.
+var classicGatewayMethods = []string{http.MethodGet, http.MethodPost, http.MethodPut, http.MethodDelete}
+
+// classicGatewayOps adapts the Classic manifest, at three granularities,
+// because a Classic resource's paths are assembled at runtime from the resource
+// path plus whichever lookup is in play and there is no fixed set of op paths to
+// enumerate here.
 //
-// GET is the method judged because every Classic resource has a list or a get;
-// create and update sit on the same collection, so a resource the gateway does
-// not carry does not carry them either.
+//   - One subtree op per resource: does the gateway carry the resource at all.
+//   - One subtree-method op per resource per method: a method the gateway
+//     declares nowhere beneath the resource cannot work under any lookup, so
+//     every subcommand sending it is refused. The method a subcommand sends is
+//     fixed at generate time even though its path is not.
+//   - One exact op for the collection GET, the single Classic path that IS fixed.
+//
+// The last two exist because "the resource is carried" stopped implying "every
+// verb on it is carried". Classic API 11.28.0 withdrew every read on
+// patchsoftwaretitles while keeping POST /patchsoftwaretitles/id/{}, and
+// withdrew GET /patchpolicies while keeping GET /patchpolicies/id/{} — so the
+// whole-resource verdict reported `list`, `get`, `update` and `delete` on the
+// first and `list` on the second as served, and each would have gone out to a
+// bare 403 the refusal exists to pre-empt.
 func classicGatewayOps(resources []classic.ClassicResource) []gateway.Op {
-	ops := make([]gateway.Op, 0, len(resources))
+	ops := make([]gateway.Op, 0, len(resources)*(len(classicGatewayMethods)+2))
 	for i := range resources {
 		r := &resources[i]
+		path := gateway.ClassicPrefix + "/" + r.Path
 		ops = append(ops, gateway.Op{
-			Method:      "GET",
-			GatewayPath: gateway.ClassicPrefix + "/" + r.Path,
-			Wildcard:    true,
+			Method:      http.MethodGet,
+			GatewayPath: path,
+			Scope:       gateway.ScopeSubtree,
 			Set: func(v gateway.Verdict) {
 				r.GatewayLevel, r.GatewayBasis, r.GatewayDetail = string(v.Level), string(v.Basis), v.Detail
 				r.GatewayPrivileges = v.ScopesByMethod
+			},
+		})
+		for _, m := range classicGatewayMethods {
+			m := m
+			ops = append(ops, gateway.Op{
+				Method:      m,
+				GatewayPath: path,
+				Scope:       gateway.ScopeSubtreeMethod,
+				Set: func(v gateway.Verdict) {
+					if r.GatewayMethods == nil {
+						r.GatewayMethods = map[string]classic.GatewayVerdict{}
+					}
+					r.GatewayMethods[m] = classic.GatewayVerdict{
+						Level: string(v.Level), Basis: string(v.Basis), Detail: v.Detail,
+					}
+				},
+			})
+		}
+		ops = append(ops, gateway.Op{
+			Method:      http.MethodGet,
+			GatewayPath: path,
+			Scope:       gateway.ScopeExact,
+			Set: func(v gateway.Verdict) {
+				r.GatewayList = classic.GatewayVerdict{
+					Level: string(v.Level), Basis: string(v.Basis), Detail: v.Detail,
+				}
 			},
 		})
 	}

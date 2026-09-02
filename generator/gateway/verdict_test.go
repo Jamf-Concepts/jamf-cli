@@ -2,7 +2,10 @@
 
 package gateway
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 // fixture mirrors the shape of a real manifest: Pro paths (one declaring GET
 // only), Classic paths, and scopes on some but not all operations — 44 Jamf Pro
@@ -191,13 +194,75 @@ func TestApplyWildcardJudgesTheSubtree(t *testing.T) {
 		Spec:    map[string][]string{"/proclassic/computerhistory/id/{}": {"GET"}},
 	}
 	entries := Apply(cov, []Op{
-		{Method: "GET", GatewayPath: "/proclassic/computerhistory", Wildcard: true, Set: func(Verdict) {}},
-		{Method: "GET", GatewayPath: "/proclassic/computerconfigurations", Wildcard: true, Set: func(Verdict) {}},
+		{Method: "GET", GatewayPath: "/proclassic/computerhistory", Scope: ScopeSubtree, Set: func(Verdict) {}},
+		{Method: "GET", GatewayPath: "/proclassic/computerconfigurations", Scope: ScopeSubtree, Set: func(Verdict) {}},
 	})
 	if len(entries) != 1 {
 		t.Fatalf("entries: got %d (%v), want 1", len(entries), entries)
 	}
 	if entries[0].Method != AnyMethod || entries[0].Path != "/proclassic/computerconfigurations/"+AnySubpath {
 		t.Errorf("wildcard entry: got %s %s", entries[0].Method, entries[0].Path)
+	}
+}
+
+// A Classic resource can keep one method and lose the rest, which the
+// whole-resource verdict reports as fine. Classic 11.28.0 did exactly that to
+// patchsoftwaretitles: POST /patchsoftwaretitles/id/{} survived and every read
+// and write on it was withdrawn.
+func TestVerdictSubtreeMethodCatchesAMethodWithdrawnFromAServedResource(t *testing.T) {
+	cov := &Coverage{
+		Sources: Sources{Classic: SpecSource{Title: "Classic API", Version: "11.28.0"}},
+		Spec:    map[string][]string{"/proclassic/patchsoftwaretitles/id/{}": {"POST"}},
+	}
+
+	if v := cov.VerdictSubtree("/proclassic/patchsoftwaretitles"); v.Level != Served {
+		t.Fatalf("the resource is still carried: got %q", v.Level)
+	}
+	if v := cov.VerdictSubtreeMethod("/proclassic/patchsoftwaretitles", "POST"); v.Level != Served {
+		t.Errorf("POST survives the withdrawal: got %q %q", v.Level, v.Detail)
+	}
+	for _, m := range []string{"GET", "PUT", "DELETE"} {
+		v := cov.VerdictSubtreeMethod("/proclassic/patchsoftwaretitles", m)
+		if v.Level != Unserved || v.Basis != BasisUnpublished {
+			t.Errorf("%s: got %q/%q, want unserved/unpublished", m, v.Level, v.Basis)
+		}
+		if !strings.Contains(v.Detail, "no "+m) {
+			t.Errorf("%s: the detail does not name the method: %q", m, v.Detail)
+		}
+	}
+}
+
+// The collection GET is judged exactly, not across the subtree: Classic 11.28.0
+// withdrew GET /patchpolicies while keeping GET /patchpolicies/id/{}, so `list`
+// is dead and `get` is not. A subtree-method verdict cannot separate those.
+func TestExactVerdictSeparatesAWithdrawnCollectionGetFromASurvivingDetailGet(t *testing.T) {
+	cov := &Coverage{
+		Sources: Sources{Classic: SpecSource{Title: "Classic API", Version: "11.28.0"}},
+		Spec:    map[string][]string{"/proclassic/patchpolicies/id/{}": {"GET", "PUT", "DELETE"}},
+	}
+	if v := cov.VerdictSubtreeMethod("/proclassic/patchpolicies", "GET"); v.Level != Served {
+		t.Errorf("a detail GET survives, so the subtree carries GET: got %q", v.Level)
+	}
+	if v := cov.Verdict("GET", "/proclassic/patchpolicies"); v.Level != Unserved {
+		t.Errorf("the collection GET is withdrawn: got %q", v.Level)
+	}
+}
+
+// A subtree-method entry has to reach the runtime keyed by its own method, or
+// the refusal is either absent or applied to every method on the resource.
+func TestApplyEmitsASubtreeMethodEntryUnderThatMethod(t *testing.T) {
+	cov := &Coverage{
+		Sources: Sources{Classic: SpecSource{Title: "Classic API", Version: "11.28.0"}},
+		Spec:    map[string][]string{"/proclassic/patchsoftwaretitles/id/{}": {"POST"}},
+	}
+	entries := Apply(cov, []Op{
+		{Method: "GET", GatewayPath: "/proclassic/patchsoftwaretitles", Scope: ScopeSubtreeMethod, Set: func(Verdict) {}},
+		{Method: "POST", GatewayPath: "/proclassic/patchsoftwaretitles", Scope: ScopeSubtreeMethod, Set: func(Verdict) {}},
+	})
+	if len(entries) != 1 {
+		t.Fatalf("entries: got %d (%v), want 1 (POST is served)", len(entries), entries)
+	}
+	if entries[0].Method != "GET" || entries[0].Path != "/proclassic/patchsoftwaretitles/"+AnySubpath {
+		t.Errorf("got %s %s, want GET /proclassic/patchsoftwaretitles/**", entries[0].Method, entries[0].Path)
 	}
 }

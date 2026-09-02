@@ -381,3 +381,62 @@ func TestCommandsCatalogRendersPermissionsAsJamfAccountShowsThem(t *testing.T) {
 		t.Errorf("apply row = %q, want one row carrying all three actions", got)
 	}
 }
+
+// A Classic resource the gateway still carries can have subcommands it no
+// longer serves, and the whole-resource verdict reports those as fine.
+//
+// Classic API 11.28.0 is the case: it withdrew every read and write on
+// patchsoftwaretitles while keeping POST /patchsoftwaretitles/id/{}, and
+// withdrew GET /patchpolicies while keeping GET /patchpolicies/id/{}. So the
+// resources are carried, and `classic-patch-titles list/get/update/delete` and
+// `classic-patch-policies list` are dead. Each would otherwise pass the
+// pre-flight refusal and go out to a bare 403 — the exact failure the refusal
+// exists to pre-empt — while `jamf:gateway-privileges` named a permission that
+// cannot make it work, because the subtree scope union still carries the read
+// from the paths that survived.
+func TestClassicSubcommandsRefusedWhenTheirMethodIsWithdrawn(t *testing.T) {
+	root := NewRootCmd("test", "", "", "")
+	byName := map[string]commandEntry{}
+	for _, e := range collectCommands(root, "", "", "") {
+		byName[e.Command] = e
+	}
+
+	refused := []string{
+		"pro classic-patch-titles list",
+		"pro classic-patch-titles get",
+		"pro classic-patch-titles update",
+		"pro classic-patch-titles delete",
+		"pro classic-patch-titles apply",
+		"pro classic-patch-policies list",
+	}
+	for _, name := range refused {
+		e, ok := byName[name]
+		if !ok {
+			t.Errorf("%s is missing from the catalog", name)
+			continue
+		}
+		if e.Gateway != string(gateway.Unserved) {
+			t.Errorf("%s: gateway verdict %q, want %q", name, e.Gateway, gateway.Unserved)
+		}
+		if len(e.GatewayPrivileges) != 0 {
+			t.Errorf("%s is refused and must name no permission, got %v", name, e.GatewayPrivileges)
+		}
+	}
+
+	// The surviving method keeps working, and keeps its permission. Refusing
+	// the whole resource would be the easy over-correction.
+	served := []string{"pro classic-patch-titles create", "pro classic-patch-policies get"}
+	for _, name := range served {
+		e, ok := byName[name]
+		if !ok {
+			t.Errorf("%s is missing from the catalog", name)
+			continue
+		}
+		if e.Gateway != "" {
+			t.Errorf("%s: gateway verdict %q, want served", name, e.Gateway)
+		}
+		if len(e.GatewayPrivileges) == 0 {
+			t.Errorf("%s is served and lost its gateway permission", name)
+		}
+	}
+}

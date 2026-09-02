@@ -112,12 +112,12 @@ func requireUSGateway(cliCtx *registry.CLIContext) error {
 //
 // Two facts a caller cannot get from the spec. The operations require the
 // calling organization to be a registered Jamf distributor — public-apis-oas
-// documents a 404 DistributorNotFound for that — and as of 2026-08-31 they do
-// not work for anyone, because the answer on the wire is an undocumented
-// 400 naming a Skyway OAuth scope. See distributorScopeNote.
+// documents a 404 DistributorNotFound for that — and as of 2026-09-01 they do
+// not work for anyone, because the answer on the wire is an undocumented 400
+// naming the Skyway distributor service. See distributorScopeNote.
 const distributorNote = `
 Distributor operations additionally require the calling organization to be a
-registered Jamf distributor. As of 2026-08-31 they answer an undocumented 400
+registered Jamf distributor. As of 2026-09-01 they answer an undocumented 400
 for every caller — see the note the command prints on that error.`
 
 func applyDistributorNote(cmd *cobra.Command) {
@@ -135,38 +135,57 @@ func applyDistributorNote(cmd *cobra.Command) {
 
 // distributorScopeNote explains the leaked upstream error the distributor
 // endpoints answer, because the untreated form sends the operator hunting for a
-// scope no credential can hold.
+// grant no credential can hold.
 //
-// The wire answer is 400 {"error":"invalid_scope","error_description":"Invalid
-// scopes: skyway-use2-product"}. That is not the caller's scope: the gateway's
-// own /auth/token echoes back verbatim whatever scope was requested and refuses
-// it, so the string names what jamf-account asked *its* issuer for and was
-// refused — and `use2` is the dev deployment, where prod's Skyway definitions
-// are use1. Probed 2026-08-31: requesting skyway-use1-product,
-// skyway-product or account-api-external-product-us from
-// us.api.jamfcloud.com/auth/token is refused identically, and prod's Skyway
-// api-definitions are tagged internal-use1 against a different JWT source, so
-// no external customer or distributor credential can hold one. Nothing on the
-// caller's side changes this answer.
+// The fault is jamf-account's own call to the Skyway distributor service, and it
+// has surfaced in two forms without the surface becoming usable in between:
+//
+//   - Until at least 2026-08-27, an OAuth error on a resource path:
+//     400 {"error":"invalid_scope","error_description":"Invalid scopes:
+//     skyway-use2-product"}. That is not the caller's scope. The gateway's own
+//     /auth/token echoes back verbatim whatever scope was requested and refuses
+//     it, so the string names what jamf-account asked *its* issuer for — and
+//     `use2` is the dev deployment, where prod's Skyway definitions are use1.
+//     Probed 2026-08-31: skyway-use1-product, skyway-product and
+//     account-api-external-product-us are all refused identically from
+//     us.api.jamfcloud.com/auth/token, and prod's Skyway api-definitions are
+//     tagged internal-use1 against a different JWT source, so no external
+//     customer or distributor credential can hold one.
+//   - As of 2026-09-01, the account service's own envelope:
+//     400 [UPSTREAM_ERROR] "Failed to <verb> ... via Skyway distributor
+//     service", identical on two different organization credentials, which
+//     rules out a per-credential grant problem.
+//
+// The note is worded for both, so it names no scope: the second form carries
+// none, and a note quoting a string absent from the error reads as a mismatch.
 const distributorScopeNote = "\n\nnote: this is an upstream fault, not a problem with your credential or " +
-	"privileges. The scope named in the error is the one Jamf Account asked its own token issuer " +
-	"for and was refused — prod requests a dev-deployment Skyway scope — so no credential, " +
-	"privilege grant or distributor registration changes the answer. Report it to Jamf with the " +
-	"traceId if one is present."
+	"privileges. Jamf Account's own call to the Skyway distributor service fails before your " +
+	"request is evaluated, so no credential, privilege grant or distributor registration changes " +
+	"the answer. Report it to Jamf with the traceId if one is present."
 
 // annotateDistributorScopeError appends distributorScopeNote to the leaked
-// invalid_scope error and leaves every other error alone.
+// upstream fault and leaves every other error alone.
 //
-// Gated on both markers rather than on the status: a 400 from these endpoints
+// Both wire forms are matched, because the second replaced the first without the
+// surface becoming usable — see distributorScopeNote. Matching only the first
+// left the commands answering a bare [UPSTREAM_ERROR] with no explanation from
+// 2026-09-01 on, which is the failure the annotation exists to prevent.
+//
+// Gated on the fault text rather than on the status: a 400 from these endpoints
 // can legitimately mean a malformed purchase order, and a bare invalid_scope
 // from somewhere else is not this bug. A false positive has to cost a paragraph
-// rather than a confidently wrong exclusive explanation.
+// rather than a confidently wrong exclusive explanation. The old form needs both
+// its markers for that reason; the new one names the service outright, so the
+// service name alone is specific enough.
 func annotateDistributorScopeError(err error) error {
 	if err == nil {
 		return nil
 	}
 	msg := err.Error()
-	if !strings.Contains(msg, "invalid_scope") || !strings.Contains(msg, "skyway") {
+	lower := strings.ToLower(msg)
+	oldForm := strings.Contains(lower, "invalid_scope") && strings.Contains(lower, "skyway")
+	newForm := strings.Contains(lower, "skyway distributor service")
+	if !oldForm && !newForm {
 		return err
 	}
 	return fmt.Errorf("%s%s", msg, distributorScopeNote)

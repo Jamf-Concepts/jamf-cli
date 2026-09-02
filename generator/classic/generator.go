@@ -4,6 +4,7 @@ package classic
 
 import (
 	"fmt"
+	"net/http"
 	"os"
 	"path/filepath"
 	"slices"
@@ -13,6 +14,36 @@ import (
 
 	"github.com/iancoleman/strcase"
 )
+
+// classicListMethod is the pseudo-method the template passes for a collection
+// GET. The collection path is the one Classic path fixed at generate time, so it
+// is judged exactly rather than across the subtree — see ClassicResource's
+// GatewayList.
+const classicListMethod = "list"
+
+// classicGatewayVerdict picks the verdict that applies to one subcommand: the
+// whole-resource one when it refuses, otherwise the first of the subcommand's
+// own methods that does.
+//
+// First rather than a merge, because a command that always sends a refused
+// method is refused whatever else it sends, and one reason is what a refusal
+// message can carry. Methods are consulted in the order the template lists them,
+// which is the order the command sends them.
+func classicGatewayVerdict(r ClassicResource, methods ...string) GatewayVerdict {
+	if r.GatewayLevel != "" {
+		return GatewayVerdict{Level: r.GatewayLevel, Basis: r.GatewayBasis, Detail: r.GatewayDetail}
+	}
+	for _, m := range methods {
+		v := r.GatewayList
+		if m != classicListMethod {
+			v = r.GatewayMethods[m]
+		}
+		if v.Level != "" {
+			return v
+		}
+	}
+	return GatewayVerdict{}
+}
 
 // CodegenHeader is the marker line at the top of every classic API generated file.
 // Must match the first line of classicResourceTemplate and classicRegistryTemplate.
@@ -103,20 +134,29 @@ func templateFuncs() template.FuncMap {
 		"hasLookup":          hasLookup,
 		"extraLookups":       extraLookups,
 		"scopeResolveByList": func(r ClassicResource) bool { return !r.HasLookup("name") },
-		// gatewayAnn renders the gateway-coverage annotation pairs for a
-		// resource the Jamf Platform gateway is not known to serve. Rendered as
-		// a suffix onto the jamf:api literal rather than as a whole map, so the
-		// seven annotation sites in this template keep reading as literals.
-		// Resource-level because that is the granularity of the verdict — see
-		// classicGatewayOps in generator/main.go.
-		"gatewayAnn": func(r ClassicResource) string {
-			if r.GatewayLevel == "" {
+		// gatewayAnn renders the gateway-coverage annotation pairs for a command
+		// the Jamf Platform gateway is not known to serve. Rendered as a suffix
+		// onto the jamf:api literal rather than as a whole map, so the seven
+		// annotation sites in this template keep reading as literals.
+		//
+		// methods are the same values passed to gatewayPrivAnn — the HTTP methods
+		// this subcommand always sends, with the pseudo-method "list" for the
+		// collection GET. None means the resource root, which carries the
+		// whole-resource verdict only.
+		//
+		// The resource verdict wins when it refuses, being the broader fact. A
+		// served resource is then narrowed per method, because a resource can be
+		// carried and still have a dead subcommand — see ClassicResource's
+		// GatewayMethods.
+		"gatewayAnn": func(r ClassicResource, methods ...string) string {
+			v := classicGatewayVerdict(r, methods...)
+			if v.Level == "" {
 				return ""
 			}
 			return fmt.Sprintf(", %q: %q, %q: %q, %q: %q",
-				"jamf:gateway", r.GatewayLevel,
-				"jamf:gateway-basis", r.GatewayBasis,
-				"jamf:gateway-detail", r.GatewayDetail)
+				"jamf:gateway", v.Level,
+				"jamf:gateway-basis", v.Basis,
+				"jamf:gateway-detail", v.Detail)
 		},
 		// gatewayPrivAnn renders the jamf:gateway-privileges pair for one
 		// Classic subcommand, given the HTTP methods that subcommand always
@@ -132,8 +172,19 @@ func templateFuncs() template.FuncMap {
 		// this catalog is what a least-privilege integration gets sized from.
 		// apply is the exception that really does always read.
 		"gatewayPrivAnn": func(r ClassicResource, methods ...string) string {
+			// A refused command needs no permission and must not name one. The
+			// subtree scope union is the trap here: patchpolicies keeps
+			// patch-policies:read on /id/{} after the collection GET was
+			// withdrawn, so a refused `list` would otherwise advertise a grant
+			// that cannot make it work.
+			if classicGatewayVerdict(r, methods...).Level != "" {
+				return ""
+			}
 			var scopes []string
 			for _, m := range methods {
+				if m == classicListMethod {
+					m = http.MethodGet
+				}
 				for _, sc := range r.GatewayPrivileges[m] {
 					if !slices.Contains(scopes, sc) {
 						scopes = append(scopes, sc)
@@ -456,7 +507,7 @@ func new{{ .GoName }}ListCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:   "list",
 		Short: "List all {{ .Name }}",
 		Example: ` + "`" + `{{ classicExample . "list" }}` + "`" + `,
-		Annotations: map[string]string{"jamf:api": "pro-classic"{{ gatewayAnn $ }}{{ gatewayPrivAnn $ "GET" }}},
+		Annotations: map[string]string{"jamf:api": "pro-classic"{{ gatewayAnn $ "list" }}{{ gatewayPrivAnn $ "list" }}},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/{{ .Path }}", nil)
@@ -531,7 +582,7 @@ func new{{ .GoName }}GetCmd(ctx *registry.CLIContext) *cobra.Command {
 {{ else }}		Use:   "get <id>",
 {{ end }}		Short: "Get a {{ .Singular }} by ID",
 		Example: ` + "`" + `{{ classicExample . "get" }}` + "`" + `,
-		Annotations: map[string]string{"jamf:api": "pro-classic"{{ gatewayAnn $ }}{{ gatewayPrivAnn $ "GET" }}},
+		Annotations: map[string]string{"jamf:api": "pro-classic"{{ gatewayAnn $ "GET" }}{{ gatewayPrivAnn $ "GET" }}},
 {{ if extraLookups .Lookups }}		Args:  cobra.MaximumNArgs(1),
 {{ else }}		Args:  cobra.ExactArgs(1),
 {{ end }}		RunE: func(cmd *cobra.Command, args []string) error {
@@ -620,7 +671,7 @@ func new{{ .GoName }}CreateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:   "create",
 		Short: "Create a {{ .Singular }}",
 		Long:  "Create a new {{ .Singular }}. Reads the XML body from --from-file or stdin.",
-		Annotations: map[string]string{"jamf:api": "pro-classic"{{ gatewayAnn $ }}{{ gatewayPrivAnn $ "POST" }}},
+		Annotations: map[string]string{"jamf:api": "pro-classic"{{ gatewayAnn $ "POST" }}{{ gatewayPrivAnn $ "POST" }}},
 		Example: ` + "`" + `{{ classicExample . "create" }}` + "`" + `,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -732,7 +783,7 @@ func new{{ .GoName }}UpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 {{ else }}		Use:   "update <id>",
 {{ end }}		Short: "Update a {{ .Singular }}",
 		Long:  "Update an existing {{ .Singular }} by ID. Reads the XML body from --from-file or stdin.",
-		Annotations: map[string]string{"jamf:api": "pro-classic"{{ gatewayAnn $ }}{{ gatewayPrivAnn $ "PUT" }}},
+		Annotations: map[string]string{"jamf:api": "pro-classic"{{ gatewayAnn $ "PUT" }}{{ gatewayPrivAnn $ "PUT" }}},
 		Example: ` + "`" + `{{ classicExample . "update" }}` + "`" + `,
 {{ if hasLookup .Lookups "name" }}		Args:  cobra.MaximumNArgs(1),
 {{ else }}		Args:  cobra.ExactArgs(1),
@@ -940,7 +991,7 @@ func new{{ .GoName }}DeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 {{ else }}		Use:   "delete <id>",
 {{ end }}		Short: "Delete a {{ .Singular }}",
 		Example: ` + "`" + `{{ classicExample . "delete" }}` + "`" + `,
-		Annotations: map[string]string{"jamf:destructive": "true", "jamf:api": "pro-classic"{{ gatewayAnn $ }}{{ gatewayPrivAnn $ "DELETE" }}},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:api": "pro-classic"{{ gatewayAnn $ "DELETE" }}{{ gatewayPrivAnn $ "DELETE" }}},
 {{ if hasDeleteByName . }}		Args:  cobra.MaximumNArgs(1),
 {{ else }}		Args:  cobra.ExactArgs(1),
 {{ end }}		RunE: func(cmd *cobra.Command, args []string) error {
@@ -1217,7 +1268,7 @@ func new{{ .GoName }}ApplyCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "apply",
 		Short: "Create or replace a {{ .Singular }} by name",
-		Annotations: map[string]string{"jamf:api": "pro-classic"{{ gatewayAnn $ }}{{ gatewayPrivAnn $ "GET" "POST" "PUT" }}},
+		Annotations: map[string]string{"jamf:api": "pro-classic"{{ gatewayAnn $ "list" "POST" "PUT" }}{{ gatewayPrivAnn $ "list" "POST" "PUT" }}},
 		Long: ` + "`" + `Create or replace a {{ .Singular }}. Reads XML from --from-file or stdin.
 
 The name field in the input XML is used to check if the resource already

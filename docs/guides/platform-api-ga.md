@@ -5,7 +5,7 @@ change, and what the CLI now does for you.
 
 > **Provisional, and subject to change without notice.** The Platform API is still moving
 > ahead of GA. Version numbers, the refused-command list and the permission names quoted
-> here all track a specific SDK ingest — currently `jamfplatform-go-sdk` `a307a11`, whose
+> here all track a specific SDK ingest — currently `jamfplatform-go-sdk` `c91fce8`, whose
 > published surface is Jamf Pro API 11.31.0 and Classic API 11.28.0. Re-read this against
 > the release you are actually upgrading to.
 
@@ -240,9 +240,25 @@ commands are **refused before a request is sent** on a gateway profile, with exi
 | `pro mdm-commands commands` | 1 | the gateway declares GET on that path, not POST |
 | `pro classic-computer-configs` | 7 | outside the published Classic API 11.28.0 |
 | `pro static-computer-groups` | 5 | the deprecated v2 endpoint — use `pro computer-groups-static-groups` |
+| `pro classic-patch-reports` | 2 | withdrawn from the published Classic API 11.28.0 |
+| `pro classic-patch-titles` | 5 | `list`, `get`, `update`, `delete`, `apply` — withdrawn; `create` still works |
+| `pro classic-patch-policies` | 1 | `list` — withdrawn; `get`, `create`, `update`, `delete` still work |
 
-55 operations in total. **Nothing else changes for the ~1,700 other commands** — Pro and
-Classic still route through the gateway as before.
+63 commands in total (a wholly-refused resource contributes its group node too).
+**Nothing else changes for the ~1,700 other commands** — Pro and Classic still route
+through the gateway as before.
+
+The last three rows are the shape to expect from here on: a withdrawal can take **part of a
+command group**. `pro classic-patch-titles create` is served and `list` is not, because the
+gateway still publishes `POST /patchsoftwaretitles/id/{id}` — the only call that mints a
+`softwareTitleId` — and nothing else on that resource. Check `--help` on the individual
+subcommand rather than the group; a refused one says so in its first paragraph.
+
+To see the current list for the binary you have, without a profile:
+
+```
+jamf-cli commands -o json | jq -r '.[] | select(.gateway=="unserved") | .command'
+```
 
 `pro static-computer-groups` is the one entry with a working replacement already in the
 CLI, and it is worth understanding because more will follow it. The gateway's published
