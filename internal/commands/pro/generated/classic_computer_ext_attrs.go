@@ -17,6 +17,51 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// bodySpecClassicComputerExtAttrs is this resource's request-body contract, derived from
+// specs/classic/schemas.json at generation time. Empty when the Classic API spec
+// declares no schema for it, in which case create/update/apply read their body
+// from --from-file or stdin with no --scaffold and no --set.
+var bodySpecClassicComputerExtAttrs = classicBodySpec{
+	Root:   "computer_extension_attribute",
+	Schema: "computer_extension_attribute",
+	Scaffold: `<computer_extension_attribute>
+  <id>1</id>
+  <name>Battery Cycle Count</name>
+  <data_type></data_type>
+  <description>Number of charge cycles logged on the current battery</description>
+  <enabled>true</enabled>
+  <input_type>
+    <platform></platform>
+    <popup_choices>
+      <choice></choice>
+    </popup_choices>
+    <script></script>
+    <type></type>
+  </input_type>
+  <inventory_display></inventory_display>
+</computer_extension_attribute>
+`,
+	FieldTypes: map[string]string{
+		"data_type":                       "string",
+		"description":                     "string",
+		"enabled":                         "boolean",
+		"id":                              "integer",
+		"input_type":                      "object",
+		"input_type.platform":             "string",
+		"input_type.popup_choices":        "object",
+		"input_type.popup_choices.choice": "array",
+		"input_type.script":               "string",
+		"input_type.type":                 "string",
+		"inventory_display":               "string",
+		"name":                            "string",
+	},
+	Enums: map[string][]string{
+		"data_type":         {"String", "Integer", "Date"},
+		"input_type.type":   {"script", "Text Field", "LDAP Mapping", "Pop-up Menu"},
+		"inventory_display": {"General", "Hardware", "Operating System", "User and Location", "Purchasing", "Extension Attributes"},
+	},
+}
+
 // NewClassicComputerExtAttrsCmd creates the classic-computer-ext-attrs command group
 func NewClassicComputerExtAttrsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
@@ -160,12 +205,28 @@ func newClassicComputerExtAttrsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
 func newClassicComputerExtAttrsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
-		fromFile string
+		fromFile     string
+		flagScaffold bool
+		flagSet      []string
 	)
 	cmd := &cobra.Command{
-		Use:         "create",
-		Short:       "Create a computer_extension_attribute",
-		Long:        "Create a new computer_extension_attribute. Reads the XML body from --from-file or stdin.",
+		Use:   "create",
+		Short: "Create a computer_extension_attribute",
+		Long: `Create a new computer_extension_attribute. Reads the XML body from --from-file, --set or stdin.
+
+Body fields are derived from the Classic API spec (schema "computer_extension_attribute").
+Run with --scaffold to print a complete XML template.
+
+Required: name
+Optional sections: data_type, description, enabled, id, input_type, inventory_display
+
+Allowed values:
+  data_type: String | Integer | Date
+  input_type.type: script | Text Field | LDAP Mapping | Pop-up Menu
+  inventory_display: General | Hardware | Operating System | User and Location | Purchasing | Extension Attributes
+
+The Classic API does not reject an out-of-range value — it substitutes
+its default silently — so --set refuses one rather than letting it through.`,
 		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "extension-attributes:create"},
 		Example: `  # Create a computer_extension_attribute from an XML file
   jamf-cli pro classic-computer-ext-attrs create --from-file computer_extension_attribute.xml
@@ -173,9 +234,12 @@ func newClassicComputerExtAttrsCreateCmd(ctx *registry.CLIContext) *cobra.Comman
   # Create a computer_extension_attribute from XML on stdin
   cat computer_extension_attribute.xml | jamf-cli pro classic-computer-ext-attrs create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if flagScaffold {
+				return printClassicScaffold(bodySpecClassicComputerExtAttrs)
+			}
 			reqCtx := cmd.Context()
 
-			bodyBytes, err := readClassicBody(fromFile)
+			bodyBytes, err := readClassicBodyOrSet(fromFile, flagSet, bodySpecClassicComputerExtAttrs)
 			if err != nil {
 				return err
 			}
@@ -194,28 +258,57 @@ func newClassicComputerExtAttrsCreateCmd(ctx *registry.CLIContext) *cobra.Comman
 		},
 	}
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to XML input file (or pipe XML to stdin)")
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print an XML body template for this resource and exit")
+	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Set a body field in dot notation (key=value, repeatable). Builds the whole body, so it cannot be combined with --from-file")
+	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+		return []string{"data_type=", "description=", "enabled=", "id=", "input_type.platform=", "input_type.script=", "input_type.type=", "inventory_display=", "name="}, cobra.ShellCompDirectiveNoSpace
+	})
 	return cmd
 }
 
 func newClassicComputerExtAttrsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var fromFile string
+	var (
+		flagScaffold bool
+		flagSet      []string
+	)
 	var flagName string
 
 	cmd := &cobra.Command{
-		Use:         "update [<id>]",
-		Short:       "Update a computer_extension_attribute",
-		Long:        "Update an existing computer_extension_attribute by ID. Reads the XML body from --from-file or stdin.",
+		Use:   "update [<id>]",
+		Short: "Update a computer_extension_attribute",
+		Long: `Update an existing computer_extension_attribute by ID. Reads the XML body from --from-file, --set or stdin.
+
+The Classic API applies a partial update: fields the body omits keep their
+current values, so a body carrying one element changes only that element.
+
+Body fields are derived from the Classic API spec (schema "computer_extension_attribute").
+Run with --scaffold to print a complete XML template.
+
+Required: name
+Optional sections: data_type, description, enabled, id, input_type, inventory_display
+
+Allowed values:
+  data_type: String | Integer | Date
+  input_type.type: script | Text Field | LDAP Mapping | Pop-up Menu
+  inventory_display: General | Hardware | Operating System | User and Location | Purchasing | Extension Attributes
+
+The Classic API does not reject an out-of-range value — it substitutes
+its default silently — so --set refuses one rather than letting it through.`,
 		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "extension-attributes:update"},
 		Example: `  # Update a computer_extension_attribute from an XML file
   jamf-cli pro classic-computer-ext-attrs update 1 --from-file computer_extension_attribute.xml
 
   # Update a computer_extension_attribute from XML on stdin
   cat computer_extension_attribute.xml | jamf-cli pro classic-computer-ext-attrs update 1`,
-		Args: cobra.MaximumNArgs(1),
+		Args: classicScaffoldArgs(&flagScaffold, cobra.MaximumNArgs(1)),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if flagScaffold {
+				return printClassicScaffold(bodySpecClassicComputerExtAttrs)
+			}
 			reqCtx := cmd.Context()
 
-			bodyBytes, bodyErr := readClassicBody(fromFile)
+			bodyBytes, bodyErr := readClassicBodyOrSet(fromFile, flagSet, bodySpecClassicComputerExtAttrs)
 			if bodyErr != nil {
 				return bodyErr
 			}
@@ -244,6 +337,11 @@ func newClassicComputerExtAttrsUpdateCmd(ctx *registry.CLIContext) *cobra.Comman
 	}
 
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to XML input file (or pipe XML to stdin)")
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print an XML body template for this resource and exit")
+	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Set a body field in dot notation (key=value, repeatable). Builds the whole body, so it cannot be combined with --from-file")
+	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+		return []string{"data_type=", "description=", "enabled=", "id=", "input_type.platform=", "input_type.script=", "input_type.type=", "inventory_display=", "name="}, cobra.ShellCompDirectiveNoSpace
+	})
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up computer_extension_attribute by name")
 
 	return cmd
@@ -433,20 +531,36 @@ func newClassicComputerExtAttrsDeleteCmd(ctx *registry.CLIContext) *cobra.Comman
 
 func newClassicComputerExtAttrsApplyCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
-		fromFile   string
-		flagYes    bool
-		flagDryRun bool
+		fromFile     string
+		flagYes      bool
+		flagDryRun   bool
+		flagScaffold bool
+		flagSet      []string
 	)
 
 	cmd := &cobra.Command{
 		Use:         "apply",
 		Short:       "Create or replace a computer_extension_attribute by name",
 		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "extension-attributes:create,extension-attributes:read,extension-attributes:update"},
-		Long: `Create or replace a computer_extension_attribute. Reads XML from --from-file or stdin.
+		Long: `Create or replace a computer_extension_attribute. Reads XML from --from-file, --set or stdin.
 
 The name field in the input XML is used to check if the resource already
 exists. If it does, the resource is replaced (with confirmation).
-If not, a new resource is created.`,
+If not, a new resource is created.
+
+Body fields are derived from the Classic API spec (schema "computer_extension_attribute").
+Run with --scaffold to print a complete XML template.
+
+Required: name
+Optional sections: data_type, description, enabled, id, input_type, inventory_display
+
+Allowed values:
+  data_type: String | Integer | Date
+  input_type.type: script | Text Field | LDAP Mapping | Pop-up Menu
+  inventory_display: General | Hardware | Operating System | User and Location | Purchasing | Extension Attributes
+
+The Classic API does not reject an out-of-range value — it substitutes
+its default silently — so --set refuses one rather than letting it through.`,
 		Example: `  # Apply a computer_extension_attribute from an XML file
   jamf-cli pro classic-computer-ext-attrs apply --from-file computer_extension_attribute.xml
 
@@ -456,6 +570,9 @@ If not, a new resource is created.`,
   # Apply without replacement confirmation
   jamf-cli pro classic-computer-ext-attrs apply --from-file computer_extension_attribute.xml --yes`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			if flagScaffold {
+				return printClassicScaffold(bodySpecClassicComputerExtAttrs)
+			}
 			reqCtx := cmd.Context()
 
 			// Read input
@@ -528,6 +645,12 @@ If not, a new resource is created.`,
 	}
 
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to XML input file (or pipe XML to stdin)")
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print an XML body template for this resource and exit")
+	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Set a body field in dot notation (key=value, repeatable). Builds the whole body, so it cannot be combined with --from-file")
+	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+		return []string{"data_type=", "description=", "enabled=", "id=", "input_type.platform=", "input_type.script=", "input_type.type=", "inventory_display=", "name="}, cobra.ShellCompDirectiveNoSpace
+	})
+
 	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt when replacing")
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
 

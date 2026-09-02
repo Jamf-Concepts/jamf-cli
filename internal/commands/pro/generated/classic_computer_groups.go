@@ -17,6 +17,55 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// bodySpecClassicComputerGroups is this resource's request-body contract, derived from
+// specs/classic/schemas.json at generation time. Empty when the Classic API spec
+// declares no schema for it, in which case create/update/apply read their body
+// from --from-file or stdin with no --scaffold and no --set.
+var bodySpecClassicComputerGroups = classicBodySpec{
+	Root:   "computer_group",
+	Schema: "computer_group_post",
+	Scaffold: `<computer_group>
+  <id>1</id>
+  <name>Group Name</name>
+  <computers>
+    <computer>
+      <id>1</id>
+      <name>Joes iMac</name>
+      <alt_mac_address>E0:AC:CB:67:36:T4</alt_mac_address>
+      <mac_address>E0:AC:CB:97:36:G4</mac_address>
+      <serial_number>C02Q7KHTGFWF</serial_number>
+    </computer>
+  </computers>
+  <criteria>
+    <criterion>
+      <name>Last Inventory Update</name>
+      <and_or></and_or>
+      <closing_paren>false</closing_paren>
+      <opening_paren>false</opening_paren>
+      <priority>0</priority>
+      <search_type>more than x days ago</search_type>
+      <value>7</value>
+    </criterion>
+  </criteria>
+  <is_smart>false</is_smart>
+  <site>
+    <id>0</id>
+    <name>None</name>
+  </site>
+</computer_group>
+`,
+	FieldTypes: map[string]string{
+		"computers": "array",
+		"criteria":  "array",
+		"id":        "integer",
+		"is_smart":  "boolean",
+		"name":      "string",
+		"site":      "object",
+		"site.id":   "integer",
+		"site.name": "string",
+	},
+}
+
 // NewClassicComputerGroupsCmd creates the classic-computer-groups command group
 func NewClassicComputerGroupsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
@@ -160,12 +209,29 @@ func newClassicComputerGroupsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
 func newClassicComputerGroupsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
-		fromFile string
+		fromFile     string
+		flagScaffold bool
+		flagSet      []string
 	)
 	cmd := &cobra.Command{
-		Use:         "create",
-		Short:       "Create a computer_group",
-		Long:        "Create a new computer_group. Reads the XML body from --from-file or stdin.",
+		Use:   "create",
+		Short: "Create a computer_group",
+		Long: `Create a new computer_group. Reads the XML body from --from-file, --set or stdin.
+
+Body fields are derived from the Classic API spec (schema "computer_group_post").
+Run with --scaffold to print a complete XML template.
+The template populates every optional section with one specimen entry,
+including references whose <id> points at nothing on your instance — delete
+the sections you do not need. A dangling reference is answered with a 500.
+
+Required: is_smart, name
+Optional sections: computers, criteria, id, site
+
+Allowed values:
+  criteria[].and_or: and | or
+
+The Classic API does not reject an out-of-range value — it substitutes
+its default silently — so --set refuses one rather than letting it through.`,
 		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "device-groups:create"},
 		Example: `  # Create a computer_group from an XML file
   jamf-cli pro classic-computer-groups create --from-file computer_group.xml
@@ -173,9 +239,12 @@ func newClassicComputerGroupsCreateCmd(ctx *registry.CLIContext) *cobra.Command 
   # Create a computer_group from XML on stdin
   cat computer_group.xml | jamf-cli pro classic-computer-groups create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if flagScaffold {
+				return printClassicScaffold(bodySpecClassicComputerGroups)
+			}
 			reqCtx := cmd.Context()
 
-			bodyBytes, err := readClassicBody(fromFile)
+			bodyBytes, err := readClassicBodyOrSet(fromFile, flagSet, bodySpecClassicComputerGroups)
 			if err != nil {
 				return err
 			}
@@ -194,28 +263,58 @@ func newClassicComputerGroupsCreateCmd(ctx *registry.CLIContext) *cobra.Command 
 		},
 	}
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to XML input file (or pipe XML to stdin)")
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print an XML body template for this resource and exit")
+	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Set a body field in dot notation (key=value, repeatable). Builds the whole body, so it cannot be combined with --from-file")
+	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+		return []string{"id=", "is_smart=", "name=", "site.id=", "site.name="}, cobra.ShellCompDirectiveNoSpace
+	})
 	return cmd
 }
 
 func newClassicComputerGroupsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var fromFile string
+	var (
+		flagScaffold bool
+		flagSet      []string
+	)
 	var flagName string
 
 	cmd := &cobra.Command{
-		Use:         "update [<id>]",
-		Short:       "Update a computer_group",
-		Long:        "Update an existing computer_group by ID. Reads the XML body from --from-file or stdin.",
+		Use:   "update [<id>]",
+		Short: "Update a computer_group",
+		Long: `Update an existing computer_group by ID. Reads the XML body from --from-file, --set or stdin.
+
+The Classic API applies a partial update: fields the body omits keep their
+current values, so a body carrying one element changes only that element.
+
+Body fields are derived from the Classic API spec (schema "computer_group_post").
+Run with --scaffold to print a complete XML template.
+The template populates every optional section with one specimen entry,
+including references whose <id> points at nothing on your instance — delete
+the sections you do not need. A dangling reference is answered with a 500.
+
+Required: is_smart, name
+Optional sections: computers, criteria, id, site
+
+Allowed values:
+  criteria[].and_or: and | or
+
+The Classic API does not reject an out-of-range value — it substitutes
+its default silently — so --set refuses one rather than letting it through.`,
 		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "device-groups:update"},
 		Example: `  # Update a computer_group from an XML file
   jamf-cli pro classic-computer-groups update 1 --from-file computer_group.xml
 
   # Update a computer_group from XML on stdin
   cat computer_group.xml | jamf-cli pro classic-computer-groups update 1`,
-		Args: cobra.MaximumNArgs(1),
+		Args: classicScaffoldArgs(&flagScaffold, cobra.MaximumNArgs(1)),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if flagScaffold {
+				return printClassicScaffold(bodySpecClassicComputerGroups)
+			}
 			reqCtx := cmd.Context()
 
-			bodyBytes, bodyErr := readClassicBody(fromFile)
+			bodyBytes, bodyErr := readClassicBodyOrSet(fromFile, flagSet, bodySpecClassicComputerGroups)
 			if bodyErr != nil {
 				return bodyErr
 			}
@@ -244,6 +343,11 @@ func newClassicComputerGroupsUpdateCmd(ctx *registry.CLIContext) *cobra.Command 
 	}
 
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to XML input file (or pipe XML to stdin)")
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print an XML body template for this resource and exit")
+	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Set a body field in dot notation (key=value, repeatable). Builds the whole body, so it cannot be combined with --from-file")
+	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+		return []string{"id=", "is_smart=", "name=", "site.id=", "site.name="}, cobra.ShellCompDirectiveNoSpace
+	})
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up computer_group by name")
 
 	return cmd
@@ -433,20 +537,37 @@ func newClassicComputerGroupsDeleteCmd(ctx *registry.CLIContext) *cobra.Command 
 
 func newClassicComputerGroupsApplyCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
-		fromFile   string
-		flagYes    bool
-		flagDryRun bool
+		fromFile     string
+		flagYes      bool
+		flagDryRun   bool
+		flagScaffold bool
+		flagSet      []string
 	)
 
 	cmd := &cobra.Command{
 		Use:         "apply",
 		Short:       "Create or replace a computer_group by name",
 		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "device-groups:create,device-groups:read,device-groups:update"},
-		Long: `Create or replace a computer_group. Reads XML from --from-file or stdin.
+		Long: `Create or replace a computer_group. Reads XML from --from-file, --set or stdin.
 
 The name field in the input XML is used to check if the resource already
 exists. If it does, the resource is replaced (with confirmation).
-If not, a new resource is created.`,
+If not, a new resource is created.
+
+Body fields are derived from the Classic API spec (schema "computer_group_post").
+Run with --scaffold to print a complete XML template.
+The template populates every optional section with one specimen entry,
+including references whose <id> points at nothing on your instance — delete
+the sections you do not need. A dangling reference is answered with a 500.
+
+Required: is_smart, name
+Optional sections: computers, criteria, id, site
+
+Allowed values:
+  criteria[].and_or: and | or
+
+The Classic API does not reject an out-of-range value — it substitutes
+its default silently — so --set refuses one rather than letting it through.`,
 		Example: `  # Apply a computer_group from an XML file
   jamf-cli pro classic-computer-groups apply --from-file computer_group.xml
 
@@ -456,6 +577,9 @@ If not, a new resource is created.`,
   # Apply without replacement confirmation
   jamf-cli pro classic-computer-groups apply --from-file computer_group.xml --yes`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			if flagScaffold {
+				return printClassicScaffold(bodySpecClassicComputerGroups)
+			}
 			reqCtx := cmd.Context()
 
 			// Read input
@@ -528,6 +652,12 @@ If not, a new resource is created.`,
 	}
 
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to XML input file (or pipe XML to stdin)")
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print an XML body template for this resource and exit")
+	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Set a body field in dot notation (key=value, repeatable). Builds the whole body, so it cannot be combined with --from-file")
+	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+		return []string{"id=", "is_smart=", "name=", "site.id=", "site.name="}, cobra.ShellCompDirectiveNoSpace
+	})
+
 	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt when replacing")
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
 

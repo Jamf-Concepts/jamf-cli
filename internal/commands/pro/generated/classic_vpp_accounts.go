@@ -17,6 +17,54 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// bodySpecClassicVppAccounts is this resource's request-body contract, derived from
+// specs/classic/schemas.json at generation time. Empty when the Classic API spec
+// declares no schema for it, in which case create/update/apply read their body
+// from --from-file or stdin with no --scaffold and no --set.
+var bodySpecClassicVppAccounts = classicBodySpec{
+	Root:   "vpp_account",
+	Schema: "vpp_account",
+	Scaffold: `<vpp_account>
+  <id>1</id>
+  <name>Company VPP Account</name>
+  <account_name>Company Name</account_name>
+  <apple_id>vpp@company.com</apple_id>
+  <auto_register_managed_users>false</auto_register_managed_users>
+  <contact>Company Admin</contact>
+  <country>US</country>
+  <expiration_date>2018/09/13</expiration_date>
+  <location_name></location_name>
+  <notify_disassociation>false</notify_disassociation>
+  <populate_catalog_from_vpp_content>false</populate_catalog_from_vpp_content>
+  <service_token>eyJvcmdOYWadveaz40d2FyZSIsImV4cERhdGUiOiIyMDE3LTA5LTEzVDA5OjQ5OjA5LTA3MDAiLCJ0b2tlbiI6Ik5yVUtPK1RXeityUXQyWFpIeENtd0xxby8ydUFmSFU1NW40V1FTZU8wR1E5eFh4UUZTckVJQjlzbGdYei95WkpaeVZ3SklJbW0rWEhJdGtKM1BEZGRRPT0ifQ==</service_token>
+  <site>
+    <id>0</id>
+    <name>None</name>
+  </site>
+</vpp_account>
+`,
+	FieldTypes: map[string]string{
+		"account_name":                      "string",
+		"apple_id":                          "string",
+		"auto_register_managed_users":       "boolean",
+		"contact":                           "string",
+		"country":                           "string",
+		"expiration_date":                   "string",
+		"id":                                "integer",
+		"location_name":                     "string",
+		"name":                              "string",
+		"notify_disassociation":             "boolean",
+		"populate_catalog_from_vpp_content": "boolean",
+		"service_token":                     "string",
+		"site":                              "object",
+		"site.id":                           "integer",
+		"site.name":                         "string",
+	},
+	Credentials: map[string]bool{
+		"service_token": true,
+	},
+}
+
 // NewClassicVppAccountsCmd creates the classic-vpp-accounts command group
 func NewClassicVppAccountsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
@@ -141,12 +189,24 @@ func newClassicVppAccountsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
 func newClassicVppAccountsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
-		fromFile string
+		fromFile     string
+		flagScaffold bool
+		flagSet      []string
 	)
 	cmd := &cobra.Command{
-		Use:         "create",
-		Short:       "Create a vpp_account",
-		Long:        "Create a new vpp_account. Reads the XML body from --from-file or stdin.",
+		Use:   "create",
+		Short: "Create a vpp_account",
+		Long: `Create a new vpp_account. Reads the XML body from --from-file, --set or stdin.
+
+Body fields are derived from the Classic API spec (schema "vpp_account").
+Run with --scaffold to print a complete XML template.
+
+Required: name, service_token
+Optional sections: account_name, apple_id, auto_register_managed_users, contact, country,
+  expiration_date, id, location_name, notify_disassociation,
+  populate_catalog_from_vpp_content, site
+
+Credential fields (--from-file only, never --set): service_token`,
 		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "volume-purchasing-locations:create"},
 		Example: `  # Create a vpp_account from an XML file
   jamf-cli pro classic-vpp-accounts create --from-file vpp_account.xml
@@ -154,9 +214,12 @@ func newClassicVppAccountsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
   # Create a vpp_account from XML on stdin
   cat vpp_account.xml | jamf-cli pro classic-vpp-accounts create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if flagScaffold {
+				return printClassicScaffold(bodySpecClassicVppAccounts)
+			}
 			reqCtx := cmd.Context()
 
-			bodyBytes, err := readClassicBody(fromFile)
+			bodyBytes, err := readClassicBodyOrSet(fromFile, flagSet, bodySpecClassicVppAccounts)
 			if err != nil {
 				return err
 			}
@@ -175,27 +238,52 @@ func newClassicVppAccountsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to XML input file (or pipe XML to stdin)")
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print an XML body template for this resource and exit")
+	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Set a body field in dot notation (key=value, repeatable). Builds the whole body, so it cannot be combined with --from-file")
+	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+		return []string{"account_name=", "apple_id=", "auto_register_managed_users=", "contact=", "country=", "expiration_date=", "id=", "location_name=", "name=", "notify_disassociation=", "populate_catalog_from_vpp_content=", "site.id=", "site.name="}, cobra.ShellCompDirectiveNoSpace
+	})
 	return cmd
 }
 
 func newClassicVppAccountsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var fromFile string
+	var (
+		flagScaffold bool
+		flagSet      []string
+	)
 
 	cmd := &cobra.Command{
-		Use:         "update <id>",
-		Short:       "Update a vpp_account",
-		Long:        "Update an existing vpp_account by ID. Reads the XML body from --from-file or stdin.",
+		Use:   "update <id>",
+		Short: "Update a vpp_account",
+		Long: `Update an existing vpp_account by ID. Reads the XML body from --from-file, --set or stdin.
+
+The Classic API applies a partial update: fields the body omits keep their
+current values, so a body carrying one element changes only that element.
+
+Body fields are derived from the Classic API spec (schema "vpp_account").
+Run with --scaffold to print a complete XML template.
+
+Required: name, service_token
+Optional sections: account_name, apple_id, auto_register_managed_users, contact, country,
+  expiration_date, id, location_name, notify_disassociation,
+  populate_catalog_from_vpp_content, site
+
+Credential fields (--from-file only, never --set): service_token`,
 		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "volume-purchasing-locations:update"},
 		Example: `  # Update a vpp_account from an XML file
   jamf-cli pro classic-vpp-accounts update 1 --from-file vpp_account.xml
 
   # Update a vpp_account from XML on stdin
   cat vpp_account.xml | jamf-cli pro classic-vpp-accounts update 1`,
-		Args: cobra.ExactArgs(1),
+		Args: classicScaffoldArgs(&flagScaffold, cobra.ExactArgs(1)),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if flagScaffold {
+				return printClassicScaffold(bodySpecClassicVppAccounts)
+			}
 			reqCtx := cmd.Context()
 
-			bodyBytes, bodyErr := readClassicBody(fromFile)
+			bodyBytes, bodyErr := readClassicBodyOrSet(fromFile, flagSet, bodySpecClassicVppAccounts)
 			if bodyErr != nil {
 				return bodyErr
 			}
@@ -217,6 +305,11 @@ func newClassicVppAccountsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to XML input file (or pipe XML to stdin)")
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print an XML body template for this resource and exit")
+	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Set a body field in dot notation (key=value, repeatable). Builds the whole body, so it cannot be combined with --from-file")
+	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+		return []string{"account_name=", "apple_id=", "auto_register_managed_users=", "contact=", "country=", "expiration_date=", "id=", "location_name=", "name=", "notify_disassociation=", "populate_catalog_from_vpp_content=", "site.id=", "site.name="}, cobra.ShellCompDirectiveNoSpace
+	})
 
 	return cmd
 }

@@ -17,6 +17,56 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// bodySpecClassicMobileInvitations is this resource's request-body contract, derived from
+// specs/classic/schemas.json at generation time. Empty when the Classic API spec
+// declares no schema for it, in which case create/update/apply read their body
+// from --from-file or stdin with no --scaffold and no --set.
+var bodySpecClassicMobileInvitations = classicBodySpec{
+	Root:   "mobile_device_invitation",
+	Schema: "mobile_device_invitation_post",
+	Scaffold: `<mobile_device_invitation>
+  <id>1</id>
+  <allow_multiple_uses>false</allow_multiple_uses>
+  <enroll_into_site>
+    <id>0</id>
+    <name></name>
+  </enroll_into_site>
+  <expiration_date>2012-05-07T11:13:35.000Z</expiration_date>
+  <invitation_type>USER_INITATIED_EMAIL</invitation_type>
+  <keep_existing_site_membership>false</keep_existing_site_membership>
+  <login_required>false</login_required>
+  <message></message>
+  <multiple_uses_allowed>false</multiple_uses_allowed>
+  <require_login>false</require_login>
+  <site>
+    <id>0</id>
+    <name>None</name>
+  </site>
+  <target_ios>iOS 4</target_ios>
+  <username></username>
+</mobile_device_invitation>
+`,
+	FieldTypes: map[string]string{
+		"allow_multiple_uses":           "boolean",
+		"enroll_into_site":              "object",
+		"enroll_into_site.id":           "integer",
+		"enroll_into_site.name":         "string",
+		"expiration_date":               "string",
+		"id":                            "integer",
+		"invitation_type":               "string",
+		"keep_existing_site_membership": "boolean",
+		"login_required":                "boolean",
+		"message":                       "string",
+		"multiple_uses_allowed":         "boolean",
+		"require_login":                 "boolean",
+		"site":                          "object",
+		"site.id":                       "integer",
+		"site.name":                     "string",
+		"target_ios":                    "string",
+		"username":                      "string",
+	},
+}
+
 // NewClassicMobileInvitationsCmd creates the classic-mobile-invitations command group
 func NewClassicMobileInvitationsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
@@ -153,12 +203,21 @@ func newClassicMobileInvitationsGetCmd(ctx *registry.CLIContext) *cobra.Command 
 
 func newClassicMobileInvitationsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
-		fromFile string
+		fromFile     string
+		flagScaffold bool
+		flagSet      []string
 	)
 	cmd := &cobra.Command{
-		Use:         "create",
-		Short:       "Create a mobile_device_invitation",
-		Long:        "Create a new mobile_device_invitation. Reads the XML body from --from-file or stdin.",
+		Use:   "create",
+		Short: "Create a mobile_device_invitation",
+		Long: `Create a new mobile_device_invitation. Reads the XML body from --from-file, --set or stdin.
+
+Body fields are derived from the Classic API spec (schema "mobile_device_invitation_post").
+Run with --scaffold to print a complete XML template.
+Optional sections: allow_multiple_uses, enroll_into_site, expiration_date, id,
+  invitation_type, keep_existing_site_membership, login_required,
+  message, multiple_uses_allowed, require_login, site, target_ios,
+  username`,
 		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "enrollment-invitations:create"},
 		Example: `  # Create a mobile_device_invitation from an XML file
   jamf-cli pro classic-mobile-invitations create --from-file mobile_device_invitation.xml
@@ -166,9 +225,12 @@ func newClassicMobileInvitationsCreateCmd(ctx *registry.CLIContext) *cobra.Comma
   # Create a mobile_device_invitation from XML on stdin
   cat mobile_device_invitation.xml | jamf-cli pro classic-mobile-invitations create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if flagScaffold {
+				return printClassicScaffold(bodySpecClassicMobileInvitations)
+			}
 			reqCtx := cmd.Context()
 
-			bodyBytes, err := readClassicBody(fromFile)
+			bodyBytes, err := readClassicBodyOrSet(fromFile, flagSet, bodySpecClassicMobileInvitations)
 			if err != nil {
 				return err
 			}
@@ -187,6 +249,11 @@ func newClassicMobileInvitationsCreateCmd(ctx *registry.CLIContext) *cobra.Comma
 		},
 	}
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to XML input file (or pipe XML to stdin)")
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print an XML body template for this resource and exit")
+	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Set a body field in dot notation (key=value, repeatable). Builds the whole body, so it cannot be combined with --from-file")
+	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+		return []string{"allow_multiple_uses=", "enroll_into_site.id=", "enroll_into_site.name=", "expiration_date=", "id=", "invitation_type=", "keep_existing_site_membership=", "login_required=", "message=", "multiple_uses_allowed=", "require_login=", "site.id=", "site.name=", "target_ios=", "username="}, cobra.ShellCompDirectiveNoSpace
+	})
 	return cmd
 }
 

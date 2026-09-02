@@ -18,6 +18,104 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// bodySpecClassicVppAssignments is this resource's request-body contract, derived from
+// specs/classic/schemas.json at generation time. Empty when the Classic API spec
+// declares no schema for it, in which case create/update/apply read their body
+// from --from-file or stdin with no --scaffold and no --set.
+var bodySpecClassicVppAssignments = classicBodySpec{
+	Root:   "vpp_assignment",
+	Schema: "vpp_assignment_post",
+	Scaffold: `<vpp_assignment>
+  <ebooks>
+    <ebook>
+      <name>Algebra 1</name>
+      <adam_id>1058120411</adam_id>
+    </ebook>
+  </ebooks>
+  <general>
+    <id>1</id>
+    <name>9th Grade VPP Assignments</name>
+    <vpp_admin_account_id>1</vpp_admin_account_id>
+    <vpp_admin_account_name>Company Name</vpp_admin_account_name>
+  </general>
+  <ios_apps>
+    <ios_app>
+      <name>Angry Birds</name>
+      <adam_id>767319014</adam_id>
+    </ios_app>
+  </ios_apps>
+  <mac_apps>
+    <mac_app>
+      <name>Slack</name>
+      <adam_id>803453959</adam_id>
+    </mac_app>
+  </mac_apps>
+  <scope>
+    <all_jss_users>false</all_jss_users>
+    <exclusions>
+      <jss_user_groups>
+        <user_group>
+          <id>1</id>
+          <name></name>
+        </user_group>
+      </jss_user_groups>
+      <jss_users>
+        <user>
+          <id>1</id>
+          <name></name>
+        </user>
+      </jss_users>
+      <user_groups>
+        <user_group>
+          <name>LDAP User Group Name</name>
+        </user_group>
+      </user_groups>
+    </exclusions>
+    <jss_user_groups>
+      <user_group>
+        <id>1</id>
+        <name></name>
+      </user_group>
+    </jss_user_groups>
+    <jss_users>
+      <user>
+        <id>1</id>
+        <name></name>
+      </user>
+    </jss_users>
+    <limitations>
+      <user_groups>
+        <user_group>
+          <id>1</id>
+          <name></name>
+        </user_group>
+      </user_groups>
+    </limitations>
+  </scope>
+</vpp_assignment>
+`,
+	FieldTypes: map[string]string{
+		"ebooks":                           "array",
+		"general":                          "object",
+		"general.id":                       "integer",
+		"general.name":                     "string",
+		"general.vpp_admin_account_id":     "integer",
+		"general.vpp_admin_account_name":   "string",
+		"ios_apps":                         "array",
+		"mac_apps":                         "array",
+		"scope":                            "object",
+		"scope.all_jss_users":              "boolean",
+		"scope.exclusions":                 "object",
+		"scope.exclusions.jss_user_groups": "array",
+		"scope.exclusions.jss_users":       "array",
+		"scope.exclusions.user_groups":     "array",
+		"scope.jss_user_groups":            "array",
+		"scope.jss_users":                  "array",
+		"scope.limitations":                "object",
+		"scope.limitations.user_groups":    "array",
+	},
+}
+
 // NewClassicVppAssignmentsCmd creates the classic-vpp-assignments command group
 func NewClassicVppAssignmentsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
@@ -148,12 +246,21 @@ func newClassicVppAssignmentsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
 func newClassicVppAssignmentsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
-		fromFile string
+		fromFile     string
+		flagScaffold bool
+		flagSet      []string
 	)
 	cmd := &cobra.Command{
-		Use:         "create",
-		Short:       "Create a vpp_assignment",
-		Long:        "Create a new vpp_assignment. Reads the XML body from --from-file or stdin.",
+		Use:   "create",
+		Short: "Create a vpp_assignment",
+		Long: `Create a new vpp_assignment. Reads the XML body from --from-file, --set or stdin.
+
+Body fields are derived from the Classic API spec (schema "vpp_assignment_post").
+Run with --scaffold to print a complete XML template.
+The template populates every optional section with one specimen entry,
+including references whose <id> points at nothing on your instance — delete
+the sections you do not need. A dangling reference is answered with a 500.
+Optional sections: ebooks, general, ios_apps, mac_apps, scope`,
 		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "volume-purchasing-locations:create"},
 		Example: `  # Create a vpp_assignment from an XML file
   jamf-cli pro classic-vpp-assignments create --from-file vpp_assignment.xml
@@ -161,9 +268,12 @@ func newClassicVppAssignmentsCreateCmd(ctx *registry.CLIContext) *cobra.Command 
   # Create a vpp_assignment from XML on stdin
   cat vpp_assignment.xml | jamf-cli pro classic-vpp-assignments create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if flagScaffold {
+				return printClassicScaffold(bodySpecClassicVppAssignments)
+			}
 			reqCtx := cmd.Context()
 
-			bodyBytes, err := readClassicBody(fromFile)
+			bodyBytes, err := readClassicBodyOrSet(fromFile, flagSet, bodySpecClassicVppAssignments)
 			if err != nil {
 				return err
 			}
@@ -182,27 +292,49 @@ func newClassicVppAssignmentsCreateCmd(ctx *registry.CLIContext) *cobra.Command 
 		},
 	}
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to XML input file (or pipe XML to stdin)")
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print an XML body template for this resource and exit")
+	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Set a body field in dot notation (key=value, repeatable). Builds the whole body, so it cannot be combined with --from-file")
+	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+		return []string{"general.id=", "general.name=", "general.vpp_admin_account_id=", "general.vpp_admin_account_name=", "scope.all_jss_users="}, cobra.ShellCompDirectiveNoSpace
+	})
 	return cmd
 }
 
 func newClassicVppAssignmentsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var fromFile string
+	var (
+		flagScaffold bool
+		flagSet      []string
+	)
 
 	cmd := &cobra.Command{
-		Use:         "update <id>",
-		Short:       "Update a vpp_assignment",
-		Long:        "Update an existing vpp_assignment by ID. Reads the XML body from --from-file or stdin.",
+		Use:   "update <id>",
+		Short: "Update a vpp_assignment",
+		Long: `Update an existing vpp_assignment by ID. Reads the XML body from --from-file, --set or stdin.
+
+The Classic API applies a partial update: fields the body omits keep their
+current values, so a body carrying one element changes only that element.
+
+Body fields are derived from the Classic API spec (schema "vpp_assignment_post").
+Run with --scaffold to print a complete XML template.
+The template populates every optional section with one specimen entry,
+including references whose <id> points at nothing on your instance — delete
+the sections you do not need. A dangling reference is answered with a 500.
+Optional sections: ebooks, general, ios_apps, mac_apps, scope`,
 		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "volume-purchasing-locations:update"},
 		Example: `  # Update a vpp_assignment from an XML file
   jamf-cli pro classic-vpp-assignments update 1 --from-file vpp_assignment.xml
 
   # Update a vpp_assignment from XML on stdin
   cat vpp_assignment.xml | jamf-cli pro classic-vpp-assignments update 1`,
-		Args: cobra.ExactArgs(1),
+		Args: classicScaffoldArgs(&flagScaffold, cobra.ExactArgs(1)),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if flagScaffold {
+				return printClassicScaffold(bodySpecClassicVppAssignments)
+			}
 			reqCtx := cmd.Context()
 
-			bodyBytes, bodyErr := readClassicBody(fromFile)
+			bodyBytes, bodyErr := readClassicBodyOrSet(fromFile, flagSet, bodySpecClassicVppAssignments)
 			if bodyErr != nil {
 				return bodyErr
 			}
@@ -224,6 +356,11 @@ func newClassicVppAssignmentsUpdateCmd(ctx *registry.CLIContext) *cobra.Command 
 	}
 
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to XML input file (or pipe XML to stdin)")
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print an XML body template for this resource and exit")
+	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Set a body field in dot notation (key=value, repeatable). Builds the whole body, so it cannot be combined with --from-file")
+	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+		return []string{"general.id=", "general.name=", "general.vpp_admin_account_id=", "general.vpp_admin_account_name=", "scope.all_jss_users="}, cobra.ShellCompDirectiveNoSpace
+	})
 
 	return cmd
 }

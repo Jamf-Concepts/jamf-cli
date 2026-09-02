@@ -17,6 +17,113 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// bodySpecClassicClasses is this resource's request-body contract, derived from
+// specs/classic/schemas.json at generation time. Empty when the Classic API spec
+// declares no schema for it, in which case create/update/apply read their body
+// from --from-file or stdin with no --scaffold and no --set.
+var bodySpecClassicClasses = classicBodySpec{
+	Root:   "class",
+	Schema: "class_post",
+	Scaffold: `<class>
+  <id>1</id>
+  <name>Math 101</name>
+  <apple_tvs>
+    <apple_tv>
+      <name>Apple TV</name>
+      <airplay_password>password</airplay_password>
+      <device_id>E0:AC:CB:97:36:g5</device_id>
+      <udid>3e8c9775cb3302ed9e645adf632cfa533adc3aa8</udid>
+      <wifi_mac_address>E0:AC:CB:97:36:G4</wifi_mac_address>
+    </apple_tv>
+  </apple_tvs>
+  <description></description>
+  <meeting_times>
+    <meeting_time>
+      <days>M W F</days>
+      <end_time>1345</end_time>
+      <start_time>1300</start_time>
+    </meeting_time>
+  </meeting_times>
+  <mobile_device_group>
+    <id>1</id>
+    <name></name>
+  </mobile_device_group>
+  <mobile_device_group_ids>
+    <id></id>
+  </mobile_device_group_ids>
+  <mobile_devices>
+    <mobile_device>
+      <name>Tinas iPad</name>
+      <udid>270aae10800b6e61a2ee2bbc285eb967050b5984</udid>
+      <wifi_mac_address>E0:AC:CB:97:36:G4</wifi_mac_address>
+    </mobile_device>
+  </mobile_devices>
+  <site>
+    <id>0</id>
+    <name>None</name>
+  </site>
+  <source>N/A</source>
+  <student_group_ids>
+    <id></id>
+  </student_group_ids>
+  <student_ids>
+    <id></id>
+  </student_ids>
+  <students>
+    <student></student>
+  </students>
+  <teacher_group_ids>
+    <id></id>
+  </teacher_group_ids>
+  <teacher_ids>
+    <id></id>
+  </teacher_ids>
+  <teachers>
+    <teacher></teacher>
+  </teachers>
+</class>
+`,
+	FieldTypes: map[string]string{
+		"apple_tvs":                             "array",
+		"description":                           "string",
+		"id":                                    "integer",
+		"meeting_times":                         "object",
+		"meeting_times.meeting_time":            "object",
+		"meeting_times.meeting_time.days":       "string",
+		"meeting_times.meeting_time.end_time":   "integer",
+		"meeting_times.meeting_time.start_time": "integer",
+		"mobile_device_group":                   "object",
+		"mobile_device_group.id":                "integer",
+		"mobile_device_group.name":              "string",
+		"mobile_device_group_ids":               "object",
+		"mobile_device_group_ids.id":            "array",
+		"mobile_devices":                        "array",
+		"name":                                  "string",
+		"site":                                  "object",
+		"site.id":                               "integer",
+		"site.name":                             "string",
+		"source":                                "string",
+		"student_group_ids":                     "object",
+		"student_group_ids.id":                  "array",
+		"student_ids":                           "object",
+		"student_ids.id":                        "array",
+		"students":                              "object",
+		"students.student":                      "array",
+		"teacher_group_ids":                     "object",
+		"teacher_group_ids.id":                  "array",
+		"teacher_ids":                           "object",
+		"teacher_ids.id":                        "array",
+		"teachers":                              "object",
+		"teachers.teacher":                      "array",
+	},
+	Enums: map[string][]string{
+		"meeting_times.meeting_time.days": {"M", "T", "W", "Th", "F", "Sa", "Su"},
+	},
+	Credentials: map[string]bool{
+		"apple_tvs[].airplay_password": true,
+	},
+}
+
 // NewClassicClassesCmd creates the classic-classes command group
 func NewClassicClassesCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
@@ -160,12 +267,34 @@ func newClassicClassesGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
 func newClassicClassesCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
-		fromFile string
+		fromFile     string
+		flagScaffold bool
+		flagSet      []string
 	)
 	cmd := &cobra.Command{
-		Use:         "create",
-		Short:       "Create a class",
-		Long:        "Create a new class. Reads the XML body from --from-file or stdin.",
+		Use:   "create",
+		Short: "Create a class",
+		Long: `Create a new class. Reads the XML body from --from-file, --set or stdin.
+
+Body fields are derived from the Classic API spec (schema "class_post").
+Run with --scaffold to print a complete XML template.
+The template populates every optional section with one specimen entry,
+including references whose <id> points at nothing on your instance — delete
+the sections you do not need. A dangling reference is answered with a 500.
+
+Required: name
+Optional sections: apple_tvs, description, id, meeting_times, mobile_device_group,
+  mobile_device_group_ids, mobile_devices, site, source,
+  student_group_ids, student_ids, students, teacher_group_ids,
+  teacher_ids, teachers
+
+Allowed values:
+  meeting_times.meeting_time.days: M | T | W | Th | F | Sa | Su
+
+The Classic API does not reject an out-of-range value — it substitutes
+its default silently — so --set refuses one rather than letting it through.
+
+Credential fields (--from-file only, never --set): apple_tvs[].airplay_password`,
 		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "classes:create"},
 		Example: `  # Create a class from an XML file
   jamf-cli pro classic-classes create --from-file class.xml
@@ -173,9 +302,12 @@ func newClassicClassesCreateCmd(ctx *registry.CLIContext) *cobra.Command {
   # Create a class from XML on stdin
   cat class.xml | jamf-cli pro classic-classes create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if flagScaffold {
+				return printClassicScaffold(bodySpecClassicClasses)
+			}
 			reqCtx := cmd.Context()
 
-			bodyBytes, err := readClassicBody(fromFile)
+			bodyBytes, err := readClassicBodyOrSet(fromFile, flagSet, bodySpecClassicClasses)
 			if err != nil {
 				return err
 			}
@@ -194,28 +326,63 @@ func newClassicClassesCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to XML input file (or pipe XML to stdin)")
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print an XML body template for this resource and exit")
+	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Set a body field in dot notation (key=value, repeatable). Builds the whole body, so it cannot be combined with --from-file")
+	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+		return []string{"description=", "id=", "meeting_times.meeting_time.days=", "meeting_times.meeting_time.end_time=", "meeting_times.meeting_time.start_time=", "mobile_device_group.id=", "mobile_device_group.name=", "name=", "site.id=", "site.name=", "source="}, cobra.ShellCompDirectiveNoSpace
+	})
 	return cmd
 }
 
 func newClassicClassesUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var fromFile string
+	var (
+		flagScaffold bool
+		flagSet      []string
+	)
 	var flagName string
 
 	cmd := &cobra.Command{
-		Use:         "update [<id>]",
-		Short:       "Update a class",
-		Long:        "Update an existing class by ID. Reads the XML body from --from-file or stdin.",
+		Use:   "update [<id>]",
+		Short: "Update a class",
+		Long: `Update an existing class by ID. Reads the XML body from --from-file, --set or stdin.
+
+The Classic API applies a partial update: fields the body omits keep their
+current values, so a body carrying one element changes only that element.
+
+Body fields are derived from the Classic API spec (schema "class_post").
+Run with --scaffold to print a complete XML template.
+The template populates every optional section with one specimen entry,
+including references whose <id> points at nothing on your instance — delete
+the sections you do not need. A dangling reference is answered with a 500.
+
+Required: name
+Optional sections: apple_tvs, description, id, meeting_times, mobile_device_group,
+  mobile_device_group_ids, mobile_devices, site, source,
+  student_group_ids, student_ids, students, teacher_group_ids,
+  teacher_ids, teachers
+
+Allowed values:
+  meeting_times.meeting_time.days: M | T | W | Th | F | Sa | Su
+
+The Classic API does not reject an out-of-range value — it substitutes
+its default silently — so --set refuses one rather than letting it through.
+
+Credential fields (--from-file only, never --set): apple_tvs[].airplay_password`,
 		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "classes:update"},
 		Example: `  # Update a class from an XML file
   jamf-cli pro classic-classes update 1 --from-file class.xml
 
   # Update a class from XML on stdin
   cat class.xml | jamf-cli pro classic-classes update 1`,
-		Args: cobra.MaximumNArgs(1),
+		Args: classicScaffoldArgs(&flagScaffold, cobra.MaximumNArgs(1)),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if flagScaffold {
+				return printClassicScaffold(bodySpecClassicClasses)
+			}
 			reqCtx := cmd.Context()
 
-			bodyBytes, bodyErr := readClassicBody(fromFile)
+			bodyBytes, bodyErr := readClassicBodyOrSet(fromFile, flagSet, bodySpecClassicClasses)
 			if bodyErr != nil {
 				return bodyErr
 			}
@@ -244,6 +411,11 @@ func newClassicClassesUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to XML input file (or pipe XML to stdin)")
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print an XML body template for this resource and exit")
+	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Set a body field in dot notation (key=value, repeatable). Builds the whole body, so it cannot be combined with --from-file")
+	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+		return []string{"description=", "id=", "meeting_times.meeting_time.days=", "meeting_times.meeting_time.end_time=", "meeting_times.meeting_time.start_time=", "mobile_device_group.id=", "mobile_device_group.name=", "name=", "site.id=", "site.name=", "source="}, cobra.ShellCompDirectiveNoSpace
+	})
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up class by name")
 
 	return cmd
@@ -433,20 +605,42 @@ func newClassicClassesDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 
 func newClassicClassesApplyCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
-		fromFile   string
-		flagYes    bool
-		flagDryRun bool
+		fromFile     string
+		flagYes      bool
+		flagDryRun   bool
+		flagScaffold bool
+		flagSet      []string
 	)
 
 	cmd := &cobra.Command{
 		Use:         "apply",
 		Short:       "Create or replace a class by name",
 		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "classes:create,classes:read,classes:update"},
-		Long: `Create or replace a class. Reads XML from --from-file or stdin.
+		Long: `Create or replace a class. Reads XML from --from-file, --set or stdin.
 
 The name field in the input XML is used to check if the resource already
 exists. If it does, the resource is replaced (with confirmation).
-If not, a new resource is created.`,
+If not, a new resource is created.
+
+Body fields are derived from the Classic API spec (schema "class_post").
+Run with --scaffold to print a complete XML template.
+The template populates every optional section with one specimen entry,
+including references whose <id> points at nothing on your instance — delete
+the sections you do not need. A dangling reference is answered with a 500.
+
+Required: name
+Optional sections: apple_tvs, description, id, meeting_times, mobile_device_group,
+  mobile_device_group_ids, mobile_devices, site, source,
+  student_group_ids, student_ids, students, teacher_group_ids,
+  teacher_ids, teachers
+
+Allowed values:
+  meeting_times.meeting_time.days: M | T | W | Th | F | Sa | Su
+
+The Classic API does not reject an out-of-range value — it substitutes
+its default silently — so --set refuses one rather than letting it through.
+
+Credential fields (--from-file only, never --set): apple_tvs[].airplay_password`,
 		Example: `  # Apply a class from an XML file
   jamf-cli pro classic-classes apply --from-file class.xml
 
@@ -456,6 +650,9 @@ If not, a new resource is created.`,
   # Apply without replacement confirmation
   jamf-cli pro classic-classes apply --from-file class.xml --yes`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			if flagScaffold {
+				return printClassicScaffold(bodySpecClassicClasses)
+			}
 			reqCtx := cmd.Context()
 
 			// Read input
@@ -528,6 +725,12 @@ If not, a new resource is created.`,
 	}
 
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to XML input file (or pipe XML to stdin)")
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print an XML body template for this resource and exit")
+	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Set a body field in dot notation (key=value, repeatable). Builds the whole body, so it cannot be combined with --from-file")
+	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+		return []string{"description=", "id=", "meeting_times.meeting_time.days=", "meeting_times.meeting_time.end_time=", "meeting_times.meeting_time.start_time=", "mobile_device_group.id=", "mobile_device_group.name=", "name=", "site.id=", "site.name=", "source="}, cobra.ShellCompDirectiveNoSpace
+	})
+
 	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt when replacing")
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
 

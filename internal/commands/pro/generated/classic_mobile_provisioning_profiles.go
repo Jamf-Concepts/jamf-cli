@@ -17,6 +17,50 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// bodySpecClassicMobileProvisioningProfiles is this resource's request-body contract, derived from
+// specs/classic/schemas.json at generation time. Empty when the Classic API spec
+// declares no schema for it, in which case create/update/apply read their body
+// from --from-file or stdin with no --scaffold and no --set.
+var bodySpecClassicMobileProvisioningProfiles = classicBodySpec{
+	Root:   "mobile_device_provisioning_profile",
+	Schema: "mobile_device_provisioning_profile",
+	Scaffold: `<mobile_device_provisioning_profile>
+  <general>
+    <id>1</id>
+    <name>in-house app profile</name>
+    <creation_date_epoch>0</creation_date_epoch>
+    <creation_date_utc></creation_date_utc>
+    <display_name>in-house app profile</display_name>
+    <expiration_date_epoch>0</expiration_date_epoch>
+    <expiration_date_utc></expiration_date_utc>
+    <profile>
+      <id>0</id>
+      <name></name>
+      <data></data>
+      <uri></uri>
+    </profile>
+    <uuid>116AF1E6-7EB5-4335-B598-276CDE5E015B</uuid>
+  </general>
+</mobile_device_provisioning_profile>
+`,
+	FieldTypes: map[string]string{
+		"general":                       "object",
+		"general.creation_date_epoch":   "integer",
+		"general.creation_date_utc":     "string",
+		"general.display_name":          "string",
+		"general.expiration_date_epoch": "integer",
+		"general.expiration_date_utc":   "string",
+		"general.id":                    "integer",
+		"general.name":                  "string",
+		"general.profile":               "object",
+		"general.profile.data":          "string",
+		"general.profile.id":            "integer",
+		"general.profile.name":          "string",
+		"general.profile.uri":           "string",
+		"general.uuid":                  "string",
+	},
+}
+
 // NewClassicMobileProvisioningProfilesCmd creates the classic-mobile-provisioning-profiles command group
 func NewClassicMobileProvisioningProfilesCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
@@ -160,12 +204,18 @@ func newClassicMobileProvisioningProfilesGetCmd(ctx *registry.CLIContext) *cobra
 
 func newClassicMobileProvisioningProfilesCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
-		fromFile string
+		fromFile     string
+		flagScaffold bool
+		flagSet      []string
 	)
 	cmd := &cobra.Command{
-		Use:         "create",
-		Short:       "Create a mobile_device_provisioning_profile",
-		Long:        "Create a new mobile_device_provisioning_profile. Reads the XML body from --from-file or stdin.",
+		Use:   "create",
+		Short: "Create a mobile_device_provisioning_profile",
+		Long: `Create a new mobile_device_provisioning_profile. Reads the XML body from --from-file, --set or stdin.
+
+Body fields are derived from the Classic API spec (schema "mobile_device_provisioning_profile").
+Run with --scaffold to print a complete XML template.
+Optional sections: general`,
 		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "provisioning-profiles:create"},
 		Example: `  # Create a mobile_device_provisioning_profile from an XML file
   jamf-cli pro classic-mobile-provisioning-profiles create --from-file mobile_device_provisioning_profile.xml
@@ -173,9 +223,12 @@ func newClassicMobileProvisioningProfilesCreateCmd(ctx *registry.CLIContext) *co
   # Create a mobile_device_provisioning_profile from XML on stdin
   cat mobile_device_provisioning_profile.xml | jamf-cli pro classic-mobile-provisioning-profiles create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if flagScaffold {
+				return printClassicScaffold(bodySpecClassicMobileProvisioningProfiles)
+			}
 			reqCtx := cmd.Context()
 
-			bodyBytes, err := readClassicBody(fromFile)
+			bodyBytes, err := readClassicBodyOrSet(fromFile, flagSet, bodySpecClassicMobileProvisioningProfiles)
 			if err != nil {
 				return err
 			}
@@ -194,28 +247,47 @@ func newClassicMobileProvisioningProfilesCreateCmd(ctx *registry.CLIContext) *co
 		},
 	}
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to XML input file (or pipe XML to stdin)")
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print an XML body template for this resource and exit")
+	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Set a body field in dot notation (key=value, repeatable). Builds the whole body, so it cannot be combined with --from-file")
+	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+		return []string{"general.creation_date_epoch=", "general.creation_date_utc=", "general.display_name=", "general.expiration_date_epoch=", "general.expiration_date_utc=", "general.id=", "general.name=", "general.profile.data=", "general.profile.id=", "general.profile.name=", "general.profile.uri=", "general.uuid="}, cobra.ShellCompDirectiveNoSpace
+	})
 	return cmd
 }
 
 func newClassicMobileProvisioningProfilesUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var fromFile string
+	var (
+		flagScaffold bool
+		flagSet      []string
+	)
 	var flagName string
 
 	cmd := &cobra.Command{
-		Use:         "update [<id>]",
-		Short:       "Update a mobile_device_provisioning_profile",
-		Long:        "Update an existing mobile_device_provisioning_profile by ID. Reads the XML body from --from-file or stdin.",
+		Use:   "update [<id>]",
+		Short: "Update a mobile_device_provisioning_profile",
+		Long: `Update an existing mobile_device_provisioning_profile by ID. Reads the XML body from --from-file, --set or stdin.
+
+The Classic API applies a partial update: fields the body omits keep their
+current values, so a body carrying one element changes only that element.
+
+Body fields are derived from the Classic API spec (schema "mobile_device_provisioning_profile").
+Run with --scaffold to print a complete XML template.
+Optional sections: general`,
 		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "provisioning-profiles:update"},
 		Example: `  # Update a mobile_device_provisioning_profile from an XML file
   jamf-cli pro classic-mobile-provisioning-profiles update 1 --from-file mobile_device_provisioning_profile.xml
 
   # Update a mobile_device_provisioning_profile from XML on stdin
   cat mobile_device_provisioning_profile.xml | jamf-cli pro classic-mobile-provisioning-profiles update 1`,
-		Args: cobra.MaximumNArgs(1),
+		Args: classicScaffoldArgs(&flagScaffold, cobra.MaximumNArgs(1)),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if flagScaffold {
+				return printClassicScaffold(bodySpecClassicMobileProvisioningProfiles)
+			}
 			reqCtx := cmd.Context()
 
-			bodyBytes, bodyErr := readClassicBody(fromFile)
+			bodyBytes, bodyErr := readClassicBodyOrSet(fromFile, flagSet, bodySpecClassicMobileProvisioningProfiles)
 			if bodyErr != nil {
 				return bodyErr
 			}
@@ -244,6 +316,11 @@ func newClassicMobileProvisioningProfilesUpdateCmd(ctx *registry.CLIContext) *co
 	}
 
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to XML input file (or pipe XML to stdin)")
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print an XML body template for this resource and exit")
+	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Set a body field in dot notation (key=value, repeatable). Builds the whole body, so it cannot be combined with --from-file")
+	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+		return []string{"general.creation_date_epoch=", "general.creation_date_utc=", "general.display_name=", "general.expiration_date_epoch=", "general.expiration_date_utc=", "general.id=", "general.name=", "general.profile.data=", "general.profile.id=", "general.profile.name=", "general.profile.uri=", "general.uuid="}, cobra.ShellCompDirectiveNoSpace
+	})
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up mobile_device_provisioning_profile by name")
 
 	return cmd
@@ -433,20 +510,26 @@ func newClassicMobileProvisioningProfilesDeleteCmd(ctx *registry.CLIContext) *co
 
 func newClassicMobileProvisioningProfilesApplyCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
-		fromFile   string
-		flagYes    bool
-		flagDryRun bool
+		fromFile     string
+		flagYes      bool
+		flagDryRun   bool
+		flagScaffold bool
+		flagSet      []string
 	)
 
 	cmd := &cobra.Command{
 		Use:         "apply",
 		Short:       "Create or replace a mobile_device_provisioning_profile by name",
 		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "provisioning-profiles:create,provisioning-profiles:read,provisioning-profiles:update"},
-		Long: `Create or replace a mobile_device_provisioning_profile. Reads XML from --from-file or stdin.
+		Long: `Create or replace a mobile_device_provisioning_profile. Reads XML from --from-file, --set or stdin.
 
 The name field in the input XML is used to check if the resource already
 exists. If it does, the resource is replaced (with confirmation).
-If not, a new resource is created.`,
+If not, a new resource is created.
+
+Body fields are derived from the Classic API spec (schema "mobile_device_provisioning_profile").
+Run with --scaffold to print a complete XML template.
+Optional sections: general`,
 		Example: `  # Apply a mobile_device_provisioning_profile from an XML file
   jamf-cli pro classic-mobile-provisioning-profiles apply --from-file mobile_device_provisioning_profile.xml
 
@@ -456,6 +539,9 @@ If not, a new resource is created.`,
   # Apply without replacement confirmation
   jamf-cli pro classic-mobile-provisioning-profiles apply --from-file mobile_device_provisioning_profile.xml --yes`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			if flagScaffold {
+				return printClassicScaffold(bodySpecClassicMobileProvisioningProfiles)
+			}
 			reqCtx := cmd.Context()
 
 			// Read input
@@ -528,6 +614,12 @@ If not, a new resource is created.`,
 	}
 
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to XML input file (or pipe XML to stdin)")
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print an XML body template for this resource and exit")
+	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Set a body field in dot notation (key=value, repeatable). Builds the whole body, so it cannot be combined with --from-file")
+	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+		return []string{"general.creation_date_epoch=", "general.creation_date_utc=", "general.display_name=", "general.expiration_date_epoch=", "general.expiration_date_utc=", "general.id=", "general.name=", "general.profile.data=", "general.profile.id=", "general.profile.name=", "general.profile.uri=", "general.uuid="}, cobra.ShellCompDirectiveNoSpace
+	})
+
 	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt when replacing")
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
 

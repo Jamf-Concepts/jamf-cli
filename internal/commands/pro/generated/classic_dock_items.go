@@ -17,6 +17,33 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// bodySpecClassicDockItems is this resource's request-body contract, derived from
+// specs/classic/schemas.json at generation time. Empty when the Classic API spec
+// declares no schema for it, in which case create/update/apply read their body
+// from --from-file or stdin with no --scaffold and no --set.
+var bodySpecClassicDockItems = classicBodySpec{
+	Root:   "dock_item",
+	Schema: "dock_item",
+	Scaffold: `<dock_item>
+  <id>1</id>
+  <name>Safari</name>
+  <contents></contents>
+  <path>file://localhost/Applications/Safari.app/</path>
+  <type></type>
+</dock_item>
+`,
+	FieldTypes: map[string]string{
+		"contents": "string",
+		"id":       "integer",
+		"name":     "string",
+		"path":     "string",
+		"type":     "string",
+	},
+	Enums: map[string][]string{
+		"type": {"App", "File", "Folder"},
+	},
+}
+
 // NewClassicDockItemsCmd creates the classic-dock-items command group
 func NewClassicDockItemsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
@@ -160,12 +187,26 @@ func newClassicDockItemsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
 func newClassicDockItemsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
-		fromFile string
+		fromFile     string
+		flagScaffold bool
+		flagSet      []string
 	)
 	cmd := &cobra.Command{
-		Use:         "create",
-		Short:       "Create a dock_item",
-		Long:        "Create a new dock_item. Reads the XML body from --from-file or stdin.",
+		Use:   "create",
+		Short: "Create a dock_item",
+		Long: `Create a new dock_item. Reads the XML body from --from-file, --set or stdin.
+
+Body fields are derived from the Classic API spec (schema "dock_item").
+Run with --scaffold to print a complete XML template.
+
+Required: name, path, type
+Optional sections: contents, id
+
+Allowed values:
+  type: App | File | Folder
+
+The Classic API does not reject an out-of-range value — it substitutes
+its default silently — so --set refuses one rather than letting it through.`,
 		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "dock-items:create"},
 		Example: `  # Create a dock_item from an XML file
   jamf-cli pro classic-dock-items create --from-file dock_item.xml
@@ -173,9 +214,12 @@ func newClassicDockItemsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
   # Create a dock_item from XML on stdin
   cat dock_item.xml | jamf-cli pro classic-dock-items create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if flagScaffold {
+				return printClassicScaffold(bodySpecClassicDockItems)
+			}
 			reqCtx := cmd.Context()
 
-			bodyBytes, err := readClassicBody(fromFile)
+			bodyBytes, err := readClassicBodyOrSet(fromFile, flagSet, bodySpecClassicDockItems)
 			if err != nil {
 				return err
 			}
@@ -194,28 +238,55 @@ func newClassicDockItemsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to XML input file (or pipe XML to stdin)")
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print an XML body template for this resource and exit")
+	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Set a body field in dot notation (key=value, repeatable). Builds the whole body, so it cannot be combined with --from-file")
+	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+		return []string{"contents=", "id=", "name=", "path=", "type="}, cobra.ShellCompDirectiveNoSpace
+	})
 	return cmd
 }
 
 func newClassicDockItemsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var fromFile string
+	var (
+		flagScaffold bool
+		flagSet      []string
+	)
 	var flagName string
 
 	cmd := &cobra.Command{
-		Use:         "update [<id>]",
-		Short:       "Update a dock_item",
-		Long:        "Update an existing dock_item by ID. Reads the XML body from --from-file or stdin.",
+		Use:   "update [<id>]",
+		Short: "Update a dock_item",
+		Long: `Update an existing dock_item by ID. Reads the XML body from --from-file, --set or stdin.
+
+The Classic API applies a partial update: fields the body omits keep their
+current values, so a body carrying one element changes only that element.
+
+Body fields are derived from the Classic API spec (schema "dock_item").
+Run with --scaffold to print a complete XML template.
+
+Required: name, path, type
+Optional sections: contents, id
+
+Allowed values:
+  type: App | File | Folder
+
+The Classic API does not reject an out-of-range value — it substitutes
+its default silently — so --set refuses one rather than letting it through.`,
 		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "dock-items:update"},
 		Example: `  # Update a dock_item from an XML file
   jamf-cli pro classic-dock-items update 1 --from-file dock_item.xml
 
   # Update a dock_item from XML on stdin
   cat dock_item.xml | jamf-cli pro classic-dock-items update 1`,
-		Args: cobra.MaximumNArgs(1),
+		Args: classicScaffoldArgs(&flagScaffold, cobra.MaximumNArgs(1)),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if flagScaffold {
+				return printClassicScaffold(bodySpecClassicDockItems)
+			}
 			reqCtx := cmd.Context()
 
-			bodyBytes, bodyErr := readClassicBody(fromFile)
+			bodyBytes, bodyErr := readClassicBodyOrSet(fromFile, flagSet, bodySpecClassicDockItems)
 			if bodyErr != nil {
 				return bodyErr
 			}
@@ -244,6 +315,11 @@ func newClassicDockItemsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to XML input file (or pipe XML to stdin)")
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print an XML body template for this resource and exit")
+	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Set a body field in dot notation (key=value, repeatable). Builds the whole body, so it cannot be combined with --from-file")
+	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+		return []string{"contents=", "id=", "name=", "path=", "type="}, cobra.ShellCompDirectiveNoSpace
+	})
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up dock_item by name")
 
 	return cmd
@@ -433,20 +509,34 @@ func newClassicDockItemsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 
 func newClassicDockItemsApplyCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
-		fromFile   string
-		flagYes    bool
-		flagDryRun bool
+		fromFile     string
+		flagYes      bool
+		flagDryRun   bool
+		flagScaffold bool
+		flagSet      []string
 	)
 
 	cmd := &cobra.Command{
 		Use:         "apply",
 		Short:       "Create or replace a dock_item by name",
 		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "dock-items:create,dock-items:read,dock-items:update"},
-		Long: `Create or replace a dock_item. Reads XML from --from-file or stdin.
+		Long: `Create or replace a dock_item. Reads XML from --from-file, --set or stdin.
 
 The name field in the input XML is used to check if the resource already
 exists. If it does, the resource is replaced (with confirmation).
-If not, a new resource is created.`,
+If not, a new resource is created.
+
+Body fields are derived from the Classic API spec (schema "dock_item").
+Run with --scaffold to print a complete XML template.
+
+Required: name, path, type
+Optional sections: contents, id
+
+Allowed values:
+  type: App | File | Folder
+
+The Classic API does not reject an out-of-range value — it substitutes
+its default silently — so --set refuses one rather than letting it through.`,
 		Example: `  # Apply a dock_item from an XML file
   jamf-cli pro classic-dock-items apply --from-file dock_item.xml
 
@@ -456,6 +546,9 @@ If not, a new resource is created.`,
   # Apply without replacement confirmation
   jamf-cli pro classic-dock-items apply --from-file dock_item.xml --yes`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			if flagScaffold {
+				return printClassicScaffold(bodySpecClassicDockItems)
+			}
 			reqCtx := cmd.Context()
 
 			// Read input
@@ -528,6 +621,12 @@ If not, a new resource is created.`,
 	}
 
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to XML input file (or pipe XML to stdin)")
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print an XML body template for this resource and exit")
+	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Set a body field in dot notation (key=value, repeatable). Builds the whole body, so it cannot be combined with --from-file")
+	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+		return []string{"contents=", "id=", "name=", "path=", "type="}, cobra.ShellCompDirectiveNoSpace
+	})
+
 	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt when replacing")
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
 

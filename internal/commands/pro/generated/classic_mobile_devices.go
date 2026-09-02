@@ -17,6 +17,313 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// bodySpecClassicMobileDevices is this resource's request-body contract, derived from
+// specs/classic/schemas.json at generation time. Empty when the Classic API spec
+// declares no schema for it, in which case create/update/apply read their body
+// from --from-file or stdin with no --scaffold and no --set.
+var bodySpecClassicMobileDevices = classicBodySpec{
+	Root:   "mobile_device",
+	Schema: "mobile_device_post",
+	Scaffold: `<mobile_device>
+  <applications>
+    <application>
+      <application_name>Self Service Mobile</application_name>
+      <application_version>10.1.1</application_version>
+      <identifier>com.jamfsoftware.selfservice</identifier>
+    </application>
+  </applications>
+  <certificates>
+    <certificate>
+      <common_name>JSS Built-in Certificate Authority</common_name>
+      <identity>false</identity>
+    </certificate>
+  </certificates>
+  <configuration_profiles>
+    <configuration_profile>
+      <display_name>WiFi</display_name>
+      <identifier>279889AF-1564-4480-A61D-860DF5EFDF26</identifier>
+      <uuid>279889AF-1564-4480-A61D-860DF5EFDF26</uuid>
+      <version>1</version>
+    </configuration_profile>
+  </configuration_profiles>
+  <extension_attributes>
+    <id>1</id>
+    <name>Asset Selector</name>
+    <type>String</type>
+    <value>Sample Value</value>
+  </extension_attributes>
+  <general>
+    <id>1</id>
+    <name>Tinas iPad</name>
+    <asset_tag></asset_tag>
+    <available>11487</available>
+    <available_mb>11487</available_mb>
+    <battery_level>95</battery_level>
+    <ble_capable>false</ble_capable>
+    <bluetooth_mac_address>E0:AC:CB:97:36:G6</bluetooth_mac_address>
+    <capacity>12159</capacity>
+    <capacity_mb>12159</capacity_mb>
+    <cloud_backup_enabled>false</cloud_backup_enabled>
+    <device_locator_service_enabled>false</device_locator_service_enabled>
+    <device_name>Tinas iPad</device_name>
+    <device_ownership_level>Institutional</device_ownership_level>
+    <display_name>Tinas iPad</display_name>
+    <do_not_disturb_enabled>false</do_not_disturb_enabled>
+    <exchange_activesync_device_identifier>TUCLLFJHPL779ACL9DCJQFN39F</exchange_activesync_device_identifier>
+    <initial_entry_date_epoch>1499470624555</initial_entry_date_epoch>
+    <initial_entry_date_utc>2017-07-07T18:37:04.555-0500</initial_entry_date_utc>
+    <ip_address>192.0.0.1</ip_address>
+    <itunes_store_account_is_active>false</itunes_store_account_is_active>
+    <last_backup_time_epoch>1499470624555</last_backup_time_epoch>
+    <last_backup_time_utc>2017-07-07T18:37:04.555-0500</last_backup_time_utc>
+    <last_cloud_backup_date_epoch>1499470624555</last_cloud_backup_date_epoch>
+    <last_cloud_backup_date_utc>2017-07-07T18:37:04.555-0500</last_cloud_backup_date_utc>
+    <last_enrollment_epoch>1499470624555</last_enrollment_epoch>
+    <last_enrollment_utc>2017-07-07T18:37:04.555-0500</last_enrollment_utc>
+    <last_inventory_update>2017-07-07T18:37:04.000Z</last_inventory_update>
+    <last_inventory_update_epoch>1499470624555</last_inventory_update_epoch>
+    <last_inventory_update_utc>2017-07-07T18:37:04.555-0500</last_inventory_update_utc>
+    <location_services_enabled>false</location_services_enabled>
+    <managed>false</managed>
+    <model>iPhone 6S</model>
+    <model_display>iPhone 6S</model_display>
+    <model_identifier>iPhone8,1</model_identifier>
+    <model_number>MKRY2LL</model_number>
+    <modem_firmware>2.61.00</modem_firmware>
+    <os_build>14F89</os_build>
+    <os_type>iOS</os_type>
+    <os_version>10.3.2</os_version>
+    <percentage_used>5</percentage_used>
+    <phone_number>123-555-6789</phone_number>
+    <serial_number>C02Q7KHTGFWF</serial_number>
+    <shared></shared>
+    <supervised>false</supervised>
+    <tethered></tethered>
+    <udid>270aae10800b6e61a2ee2bbc285eb967050b5984</udid>
+    <wifi_mac_address>E0:AC:CB:97:36:G4</wifi_mac_address>
+  </general>
+  <location>
+    <building>New York Office</building>
+    <department>Sales Staff</department>
+    <email_address>jbetty@company.com</email_address>
+    <phone>123-555-6789</phone>
+    <phone_number>123-555-6789</phone_number>
+    <position>Systems Engineer</position>
+    <real_name>Betty Jackson</real_name>
+    <realname>Betty Jackson</realname>
+    <room>1159</room>
+    <username>JBetty</username>
+  </location>
+  <mobile_device_groups>
+    <mobile_device_group>
+      <id>1</id>
+      <name></name>
+    </mobile_device_group>
+  </mobile_device_groups>
+  <network>
+    <carrier_settings_version>20</carrier_settings_version>
+    <cellular_technology>Unknown</cellular_technology>
+    <current_carrier_network></current_carrier_network>
+    <current_mobile_country_code>311</current_mobile_country_code>
+    <current_mobile_network_code>480</current_mobile_network_code>
+    <data_roaming_enabled>false</data_roaming_enabled>
+    <home_carrier_network>Verizon</home_carrier_network>
+    <home_mobile_country_code>311</home_mobile_country_code>
+    <home_mobile_network_code>480</home_mobile_network_code>
+    <iccid>8914 8000 0010 0254 6259</iccid>
+    <imei>35 200706 056227 1</imei>
+    <phone_number>5555555555</phone_number>
+    <voice_roaming_enabled>Yes</voice_roaming_enabled>
+  </network>
+  <provisioning_profiles>
+    <mobile_device_provisioning_profile>
+      <display_name>In-House App Provisioning Profile</display_name>
+      <expiration_date>2018-01-29T00:00:00.000Z</expiration_date>
+      <expiration_date_epoch>0</expiration_date_epoch>
+      <expiration_date_utc>2018-01-29T14:18:02.000-0600</expiration_date_utc>
+      <uuid>279889AF-1564-4480-A61D-860DF5EFDF26</uuid>
+    </mobile_device_provisioning_profile>
+  </provisioning_profiles>
+  <purchasing>
+    <applecare_id></applecare_id>
+    <is_leased>false</is_leased>
+    <is_purchased>false</is_purchased>
+    <lease_expires></lease_expires>
+    <lease_expires_epoch>0</lease_expires_epoch>
+    <lease_expires_utc></lease_expires_utc>
+    <life_expectancy>0</life_expectancy>
+    <po_date></po_date>
+    <po_date_epoch>0</po_date_epoch>
+    <po_date_utc></po_date_utc>
+    <po_number></po_number>
+    <purchase_price></purchase_price>
+    <purchasing_account></purchasing_account>
+    <purchasing_contact></purchasing_contact>
+    <vendor></vendor>
+    <warranty_expires></warranty_expires>
+    <warranty_expires_epoch>0</warranty_expires_epoch>
+    <warranty_expires_utc></warranty_expires_utc>
+  </purchasing>
+  <security_object>
+    <activation_lock_enabled>false</activation_lock_enabled>
+    <block_level_encryption_capable>false</block_level_encryption_capable>
+    <data_protection>false</data_protection>
+    <file_level_encryption_capable>false</file_level_encryption_capable>
+    <hardware_encryption></hardware_encryption>
+    <jailbreak_detected>Normal</jailbreak_detected>
+    <lost_location_altitude>242.88067627</lost_location_altitude>
+    <lost_location_course>-1</lost_location_course>
+    <lost_location_epoch>1517598680459</lost_location_epoch>
+    <lost_location_horizontal_accuracy>65</lost_location_horizontal_accuracy>
+    <lost_location_latitude>44.81436821</lost_location_latitude>
+    <lost_location_longitude>-91.502672</lost_location_longitude>
+    <lost_location_speed>-1</lost_location_speed>
+    <lost_location_utc>2018-02-02T13:11:20.459-0600</lost_location_utc>
+    <lost_location_vertical_accuracy>10</lost_location_vertical_accuracy>
+    <lost_mode_enable_issued_epoch>1517598768512</lost_mode_enable_issued_epoch>
+    <lost_mode_enable_issued_utc>2018-02-02T13:12:48.512-0600</lost_mode_enable_issued_utc>
+    <lost_mode_enabled>true</lost_mode_enabled>
+    <lost_mode_enforced>true</lost_mode_enforced>
+    <lost_mode_footnote></lost_mode_footnote>
+    <lost_mode_message>Please return to Company</lost_mode_message>
+    <lost_mode_phone>555-555-5555</lost_mode_phone>
+    <passcode_compliant>false</passcode_compliant>
+    <passcode_compliant_with_profile>false</passcode_compliant_with_profile>
+    <passcode_lock_grace_period_enforced>Not Available</passcode_lock_grace_period_enforced>
+    <passcode_present>false</passcode_present>
+  </security_object>
+</mobile_device>
+`,
+	FieldTypes: map[string]string{
+		"applications":                                        "array",
+		"certificates":                                        "array",
+		"configuration_profiles":                              "array",
+		"extension_attributes":                                "array",
+		"general":                                             "object",
+		"general.asset_tag":                                   "string",
+		"general.available":                                   "integer",
+		"general.available_mb":                                "integer",
+		"general.battery_level":                               "integer",
+		"general.ble_capable":                                 "boolean",
+		"general.bluetooth_mac_address":                       "string",
+		"general.capacity":                                    "integer",
+		"general.capacity_mb":                                 "integer",
+		"general.cloud_backup_enabled":                        "boolean",
+		"general.device_locator_service_enabled":              "boolean",
+		"general.device_name":                                 "string",
+		"general.device_ownership_level":                      "string",
+		"general.display_name":                                "string",
+		"general.do_not_disturb_enabled":                      "boolean",
+		"general.exchange_activesync_device_identifier":       "string",
+		"general.id":                                          "integer",
+		"general.initial_entry_date_epoch":                    "integer",
+		"general.initial_entry_date_utc":                      "string",
+		"general.ip_address":                                  "string",
+		"general.itunes_store_account_is_active":              "boolean",
+		"general.last_backup_time_epoch":                      "integer",
+		"general.last_backup_time_utc":                        "string",
+		"general.last_cloud_backup_date_epoch":                "integer",
+		"general.last_cloud_backup_date_utc":                  "string",
+		"general.last_enrollment_epoch":                       "integer",
+		"general.last_enrollment_utc":                         "string",
+		"general.last_inventory_update":                       "string",
+		"general.last_inventory_update_epoch":                 "integer",
+		"general.last_inventory_update_utc":                   "string",
+		"general.location_services_enabled":                   "boolean",
+		"general.managed":                                     "boolean",
+		"general.model":                                       "string",
+		"general.model_display":                               "string",
+		"general.model_identifier":                            "string",
+		"general.model_number":                                "string",
+		"general.modem_firmware":                              "string",
+		"general.name":                                        "string",
+		"general.os_build":                                    "string",
+		"general.os_type":                                     "string",
+		"general.os_version":                                  "string",
+		"general.percentage_used":                             "integer",
+		"general.phone_number":                                "string",
+		"general.serial_number":                               "string",
+		"general.shared":                                      "string",
+		"general.supervised":                                  "boolean",
+		"general.tethered":                                    "string",
+		"general.udid":                                        "string",
+		"general.wifi_mac_address":                            "string",
+		"location":                                            "object",
+		"location.building":                                   "string",
+		"location.department":                                 "string",
+		"location.email_address":                              "string",
+		"location.phone":                                      "string",
+		"location.phone_number":                               "string",
+		"location.position":                                   "string",
+		"location.real_name":                                  "string",
+		"location.realname":                                   "string",
+		"location.room":                                       "string",
+		"location.username":                                   "string",
+		"mobile_device_groups":                                "array",
+		"network":                                             "object",
+		"network.carrier_settings_version":                    "string",
+		"network.cellular_technology":                         "string",
+		"network.current_carrier_network":                     "string",
+		"network.current_mobile_country_code":                 "string",
+		"network.current_mobile_network_code":                 "string",
+		"network.data_roaming_enabled":                        "boolean",
+		"network.home_carrier_network":                        "string",
+		"network.home_mobile_country_code":                    "string",
+		"network.home_mobile_network_code":                    "string",
+		"network.iccid":                                       "string",
+		"network.imei":                                        "string",
+		"network.phone_number":                                "string",
+		"network.voice_roaming_enabled":                       "string",
+		"provisioning_profiles":                               "array",
+		"purchasing":                                          "object",
+		"purchasing.applecare_id":                             "string",
+		"purchasing.is_leased":                                "boolean",
+		"purchasing.is_purchased":                             "boolean",
+		"purchasing.lease_expires":                            "string",
+		"purchasing.lease_expires_epoch":                      "integer",
+		"purchasing.lease_expires_utc":                        "string",
+		"purchasing.life_expectancy":                          "integer",
+		"purchasing.po_date":                                  "string",
+		"purchasing.po_date_epoch":                            "integer",
+		"purchasing.po_date_utc":                              "string",
+		"purchasing.po_number":                                "string",
+		"purchasing.purchase_price":                           "string",
+		"purchasing.purchasing_account":                       "string",
+		"purchasing.purchasing_contact":                       "string",
+		"purchasing.vendor":                                   "string",
+		"purchasing.warranty_expires":                         "string",
+		"purchasing.warranty_expires_epoch":                   "integer",
+		"purchasing.warranty_expires_utc":                     "string",
+		"security_object":                                     "object",
+		"security_object.activation_lock_enabled":             "boolean",
+		"security_object.block_level_encryption_capable":      "boolean",
+		"security_object.data_protection":                     "boolean",
+		"security_object.file_level_encryption_capable":       "boolean",
+		"security_object.hardware_encryption":                 "string",
+		"security_object.jailbreak_detected":                  "string",
+		"security_object.lost_location_altitude":              "string",
+		"security_object.lost_location_course":                "string",
+		"security_object.lost_location_epoch":                 "integer",
+		"security_object.lost_location_horizontal_accuracy":   "string",
+		"security_object.lost_location_latitude":              "string",
+		"security_object.lost_location_longitude":             "string",
+		"security_object.lost_location_speed":                 "string",
+		"security_object.lost_location_utc":                   "string",
+		"security_object.lost_location_vertical_accuracy":     "string",
+		"security_object.lost_mode_enable_issued_epoch":       "integer",
+		"security_object.lost_mode_enable_issued_utc":         "string",
+		"security_object.lost_mode_enabled":                   "string",
+		"security_object.lost_mode_enforced":                  "boolean",
+		"security_object.lost_mode_footnote":                  "string",
+		"security_object.lost_mode_message":                   "string",
+		"security_object.lost_mode_phone":                     "string",
+		"security_object.passcode_compliant":                  "boolean",
+		"security_object.passcode_compliant_with_profile":     "boolean",
+		"security_object.passcode_lock_grace_period_enforced": "string",
+		"security_object.passcode_present":                    "boolean",
+	},
+}
+
 // NewClassicMobileDevicesCmd creates the classic-mobile-devices command group
 func NewClassicMobileDevicesCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
@@ -173,12 +480,23 @@ func newClassicMobileDevicesGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
 func newClassicMobileDevicesCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
-		fromFile string
+		fromFile     string
+		flagScaffold bool
+		flagSet      []string
 	)
 	cmd := &cobra.Command{
-		Use:         "create",
-		Short:       "Create a mobile_device",
-		Long:        "Create a new mobile_device. Reads the XML body from --from-file or stdin.",
+		Use:   "create",
+		Short: "Create a mobile_device",
+		Long: `Create a new mobile_device. Reads the XML body from --from-file, --set or stdin.
+
+Body fields are derived from the Classic API spec (schema "mobile_device_post").
+Run with --scaffold to print a complete XML template.
+The template populates every optional section with one specimen entry,
+including references whose <id> points at nothing on your instance — delete
+the sections you do not need. A dangling reference is answered with a 500.
+Optional sections: applications, certificates, configuration_profiles,
+  extension_attributes, general, location, mobile_device_groups,
+  network, provisioning_profiles, purchasing, security_object`,
 		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "devices:create,users:create"},
 		Example: `  # Create a mobile_device from an XML file
   jamf-cli pro classic-mobile-devices create --from-file mobile_device.xml
@@ -186,9 +504,12 @@ func newClassicMobileDevicesCreateCmd(ctx *registry.CLIContext) *cobra.Command {
   # Create a mobile_device from XML on stdin
   cat mobile_device.xml | jamf-cli pro classic-mobile-devices create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if flagScaffold {
+				return printClassicScaffold(bodySpecClassicMobileDevices)
+			}
 			reqCtx := cmd.Context()
 
-			bodyBytes, err := readClassicBody(fromFile)
+			bodyBytes, err := readClassicBodyOrSet(fromFile, flagSet, bodySpecClassicMobileDevices)
 			if err != nil {
 				return err
 			}
@@ -207,28 +528,52 @@ func newClassicMobileDevicesCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to XML input file (or pipe XML to stdin)")
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print an XML body template for this resource and exit")
+	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Set a body field in dot notation (key=value, repeatable). Builds the whole body, so it cannot be combined with --from-file")
+	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+		return []string{"general.asset_tag=", "general.available=", "general.available_mb=", "general.battery_level=", "general.ble_capable=", "general.bluetooth_mac_address=", "general.capacity=", "general.capacity_mb=", "general.cloud_backup_enabled=", "general.device_locator_service_enabled=", "general.device_name=", "general.device_ownership_level=", "general.display_name=", "general.do_not_disturb_enabled=", "general.exchange_activesync_device_identifier=", "general.id=", "general.initial_entry_date_epoch=", "general.initial_entry_date_utc=", "general.ip_address=", "general.itunes_store_account_is_active=", "general.last_backup_time_epoch=", "general.last_backup_time_utc=", "general.last_cloud_backup_date_epoch=", "general.last_cloud_backup_date_utc=", "general.last_enrollment_epoch=", "general.last_enrollment_utc=", "general.last_inventory_update=", "general.last_inventory_update_epoch=", "general.last_inventory_update_utc=", "general.location_services_enabled=", "general.managed=", "general.model=", "general.model_display=", "general.model_identifier=", "general.model_number=", "general.modem_firmware=", "general.name=", "general.os_build=", "general.os_type=", "general.os_version=", "general.percentage_used=", "general.phone_number=", "general.serial_number=", "general.shared=", "general.supervised=", "general.tethered=", "general.udid=", "general.wifi_mac_address=", "location.building=", "location.department=", "location.email_address=", "location.phone=", "location.phone_number=", "location.position=", "location.real_name=", "location.realname=", "location.room=", "location.username=", "network.carrier_settings_version=", "network.cellular_technology=", "network.current_carrier_network=", "network.current_mobile_country_code=", "network.current_mobile_network_code=", "network.data_roaming_enabled=", "network.home_carrier_network=", "network.home_mobile_country_code=", "network.home_mobile_network_code=", "network.iccid=", "network.imei=", "network.phone_number=", "network.voice_roaming_enabled=", "purchasing.applecare_id=", "purchasing.is_leased=", "purchasing.is_purchased=", "purchasing.lease_expires=", "purchasing.lease_expires_epoch=", "purchasing.lease_expires_utc=", "purchasing.life_expectancy=", "purchasing.po_date=", "purchasing.po_date_epoch=", "purchasing.po_date_utc=", "purchasing.po_number=", "purchasing.purchase_price=", "purchasing.purchasing_account=", "purchasing.purchasing_contact=", "purchasing.vendor=", "purchasing.warranty_expires=", "purchasing.warranty_expires_epoch=", "purchasing.warranty_expires_utc=", "security_object.activation_lock_enabled=", "security_object.block_level_encryption_capable=", "security_object.data_protection=", "security_object.file_level_encryption_capable=", "security_object.hardware_encryption=", "security_object.jailbreak_detected=", "security_object.lost_location_altitude=", "security_object.lost_location_course=", "security_object.lost_location_epoch=", "security_object.lost_location_horizontal_accuracy=", "security_object.lost_location_latitude=", "security_object.lost_location_longitude=", "security_object.lost_location_speed=", "security_object.lost_location_utc=", "security_object.lost_location_vertical_accuracy=", "security_object.lost_mode_enable_issued_epoch=", "security_object.lost_mode_enable_issued_utc=", "security_object.lost_mode_enabled=", "security_object.lost_mode_enforced=", "security_object.lost_mode_footnote=", "security_object.lost_mode_message=", "security_object.lost_mode_phone=", "security_object.passcode_compliant=", "security_object.passcode_compliant_with_profile=", "security_object.passcode_lock_grace_period_enforced=", "security_object.passcode_present="}, cobra.ShellCompDirectiveNoSpace
+	})
 	return cmd
 }
 
 func newClassicMobileDevicesUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var fromFile string
+	var (
+		flagScaffold bool
+		flagSet      []string
+	)
 	var flagName string
 
 	cmd := &cobra.Command{
-		Use:         "update [<id>]",
-		Short:       "Update a mobile_device",
-		Long:        "Update an existing mobile_device by ID. Reads the XML body from --from-file or stdin.",
+		Use:   "update [<id>]",
+		Short: "Update a mobile_device",
+		Long: `Update an existing mobile_device by ID. Reads the XML body from --from-file, --set or stdin.
+
+The Classic API applies a partial update: fields the body omits keep their
+current values, so a body carrying one element changes only that element.
+
+Body fields are derived from the Classic API spec (schema "mobile_device_post").
+Run with --scaffold to print a complete XML template.
+The template populates every optional section with one specimen entry,
+including references whose <id> points at nothing on your instance — delete
+the sections you do not need. A dangling reference is answered with a 500.
+Optional sections: applications, certificates, configuration_profiles,
+  extension_attributes, general, location, mobile_device_groups,
+  network, provisioning_profiles, purchasing, security_object`,
 		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "devices:update,users:update"},
 		Example: `  # Update a mobile_device from an XML file
   jamf-cli pro classic-mobile-devices update 1 --from-file mobile_device.xml
 
   # Update a mobile_device from XML on stdin
   cat mobile_device.xml | jamf-cli pro classic-mobile-devices update 1`,
-		Args: cobra.MaximumNArgs(1),
+		Args: classicScaffoldArgs(&flagScaffold, cobra.MaximumNArgs(1)),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if flagScaffold {
+				return printClassicScaffold(bodySpecClassicMobileDevices)
+			}
 			reqCtx := cmd.Context()
 
-			bodyBytes, bodyErr := readClassicBody(fromFile)
+			bodyBytes, bodyErr := readClassicBodyOrSet(fromFile, flagSet, bodySpecClassicMobileDevices)
 			if bodyErr != nil {
 				return bodyErr
 			}
@@ -257,6 +602,11 @@ func newClassicMobileDevicesUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to XML input file (or pipe XML to stdin)")
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print an XML body template for this resource and exit")
+	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Set a body field in dot notation (key=value, repeatable). Builds the whole body, so it cannot be combined with --from-file")
+	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+		return []string{"general.asset_tag=", "general.available=", "general.available_mb=", "general.battery_level=", "general.ble_capable=", "general.bluetooth_mac_address=", "general.capacity=", "general.capacity_mb=", "general.cloud_backup_enabled=", "general.device_locator_service_enabled=", "general.device_name=", "general.device_ownership_level=", "general.display_name=", "general.do_not_disturb_enabled=", "general.exchange_activesync_device_identifier=", "general.id=", "general.initial_entry_date_epoch=", "general.initial_entry_date_utc=", "general.ip_address=", "general.itunes_store_account_is_active=", "general.last_backup_time_epoch=", "general.last_backup_time_utc=", "general.last_cloud_backup_date_epoch=", "general.last_cloud_backup_date_utc=", "general.last_enrollment_epoch=", "general.last_enrollment_utc=", "general.last_inventory_update=", "general.last_inventory_update_epoch=", "general.last_inventory_update_utc=", "general.location_services_enabled=", "general.managed=", "general.model=", "general.model_display=", "general.model_identifier=", "general.model_number=", "general.modem_firmware=", "general.name=", "general.os_build=", "general.os_type=", "general.os_version=", "general.percentage_used=", "general.phone_number=", "general.serial_number=", "general.shared=", "general.supervised=", "general.tethered=", "general.udid=", "general.wifi_mac_address=", "location.building=", "location.department=", "location.email_address=", "location.phone=", "location.phone_number=", "location.position=", "location.real_name=", "location.realname=", "location.room=", "location.username=", "network.carrier_settings_version=", "network.cellular_technology=", "network.current_carrier_network=", "network.current_mobile_country_code=", "network.current_mobile_network_code=", "network.data_roaming_enabled=", "network.home_carrier_network=", "network.home_mobile_country_code=", "network.home_mobile_network_code=", "network.iccid=", "network.imei=", "network.phone_number=", "network.voice_roaming_enabled=", "purchasing.applecare_id=", "purchasing.is_leased=", "purchasing.is_purchased=", "purchasing.lease_expires=", "purchasing.lease_expires_epoch=", "purchasing.lease_expires_utc=", "purchasing.life_expectancy=", "purchasing.po_date=", "purchasing.po_date_epoch=", "purchasing.po_date_utc=", "purchasing.po_number=", "purchasing.purchase_price=", "purchasing.purchasing_account=", "purchasing.purchasing_contact=", "purchasing.vendor=", "purchasing.warranty_expires=", "purchasing.warranty_expires_epoch=", "purchasing.warranty_expires_utc=", "security_object.activation_lock_enabled=", "security_object.block_level_encryption_capable=", "security_object.data_protection=", "security_object.file_level_encryption_capable=", "security_object.hardware_encryption=", "security_object.jailbreak_detected=", "security_object.lost_location_altitude=", "security_object.lost_location_course=", "security_object.lost_location_epoch=", "security_object.lost_location_horizontal_accuracy=", "security_object.lost_location_latitude=", "security_object.lost_location_longitude=", "security_object.lost_location_speed=", "security_object.lost_location_utc=", "security_object.lost_location_vertical_accuracy=", "security_object.lost_mode_enable_issued_epoch=", "security_object.lost_mode_enable_issued_utc=", "security_object.lost_mode_enabled=", "security_object.lost_mode_enforced=", "security_object.lost_mode_footnote=", "security_object.lost_mode_message=", "security_object.lost_mode_phone=", "security_object.passcode_compliant=", "security_object.passcode_compliant_with_profile=", "security_object.passcode_lock_grace_period_enforced=", "security_object.passcode_present="}, cobra.ShellCompDirectiveNoSpace
+	})
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up mobile_device by name")
 
 	return cmd
@@ -535,20 +885,31 @@ func newClassicMobileDevicesDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 
 func newClassicMobileDevicesApplyCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
-		fromFile   string
-		flagYes    bool
-		flagDryRun bool
+		fromFile     string
+		flagYes      bool
+		flagDryRun   bool
+		flagScaffold bool
+		flagSet      []string
 	)
 
 	cmd := &cobra.Command{
 		Use:         "apply",
 		Short:       "Create or replace a mobile_device by name",
 		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "devices:create,devices:read,devices:update,users:create,users:update"},
-		Long: `Create or replace a mobile_device. Reads XML from --from-file or stdin.
+		Long: `Create or replace a mobile_device. Reads XML from --from-file, --set or stdin.
 
 The name field in the input XML is used to check if the resource already
 exists. If it does, the resource is replaced (with confirmation).
-If not, a new resource is created.`,
+If not, a new resource is created.
+
+Body fields are derived from the Classic API spec (schema "mobile_device_post").
+Run with --scaffold to print a complete XML template.
+The template populates every optional section with one specimen entry,
+including references whose <id> points at nothing on your instance — delete
+the sections you do not need. A dangling reference is answered with a 500.
+Optional sections: applications, certificates, configuration_profiles,
+  extension_attributes, general, location, mobile_device_groups,
+  network, provisioning_profiles, purchasing, security_object`,
 		Example: `  # Apply a mobile_device from an XML file
   jamf-cli pro classic-mobile-devices apply --from-file mobile_device.xml
 
@@ -558,6 +919,9 @@ If not, a new resource is created.`,
   # Apply without replacement confirmation
   jamf-cli pro classic-mobile-devices apply --from-file mobile_device.xml --yes`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			if flagScaffold {
+				return printClassicScaffold(bodySpecClassicMobileDevices)
+			}
 			reqCtx := cmd.Context()
 
 			// Read input
@@ -630,6 +994,12 @@ If not, a new resource is created.`,
 	}
 
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to XML input file (or pipe XML to stdin)")
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print an XML body template for this resource and exit")
+	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Set a body field in dot notation (key=value, repeatable). Builds the whole body, so it cannot be combined with --from-file")
+	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+		return []string{"general.asset_tag=", "general.available=", "general.available_mb=", "general.battery_level=", "general.ble_capable=", "general.bluetooth_mac_address=", "general.capacity=", "general.capacity_mb=", "general.cloud_backup_enabled=", "general.device_locator_service_enabled=", "general.device_name=", "general.device_ownership_level=", "general.display_name=", "general.do_not_disturb_enabled=", "general.exchange_activesync_device_identifier=", "general.id=", "general.initial_entry_date_epoch=", "general.initial_entry_date_utc=", "general.ip_address=", "general.itunes_store_account_is_active=", "general.last_backup_time_epoch=", "general.last_backup_time_utc=", "general.last_cloud_backup_date_epoch=", "general.last_cloud_backup_date_utc=", "general.last_enrollment_epoch=", "general.last_enrollment_utc=", "general.last_inventory_update=", "general.last_inventory_update_epoch=", "general.last_inventory_update_utc=", "general.location_services_enabled=", "general.managed=", "general.model=", "general.model_display=", "general.model_identifier=", "general.model_number=", "general.modem_firmware=", "general.name=", "general.os_build=", "general.os_type=", "general.os_version=", "general.percentage_used=", "general.phone_number=", "general.serial_number=", "general.shared=", "general.supervised=", "general.tethered=", "general.udid=", "general.wifi_mac_address=", "location.building=", "location.department=", "location.email_address=", "location.phone=", "location.phone_number=", "location.position=", "location.real_name=", "location.realname=", "location.room=", "location.username=", "network.carrier_settings_version=", "network.cellular_technology=", "network.current_carrier_network=", "network.current_mobile_country_code=", "network.current_mobile_network_code=", "network.data_roaming_enabled=", "network.home_carrier_network=", "network.home_mobile_country_code=", "network.home_mobile_network_code=", "network.iccid=", "network.imei=", "network.phone_number=", "network.voice_roaming_enabled=", "purchasing.applecare_id=", "purchasing.is_leased=", "purchasing.is_purchased=", "purchasing.lease_expires=", "purchasing.lease_expires_epoch=", "purchasing.lease_expires_utc=", "purchasing.life_expectancy=", "purchasing.po_date=", "purchasing.po_date_epoch=", "purchasing.po_date_utc=", "purchasing.po_number=", "purchasing.purchase_price=", "purchasing.purchasing_account=", "purchasing.purchasing_contact=", "purchasing.vendor=", "purchasing.warranty_expires=", "purchasing.warranty_expires_epoch=", "purchasing.warranty_expires_utc=", "security_object.activation_lock_enabled=", "security_object.block_level_encryption_capable=", "security_object.data_protection=", "security_object.file_level_encryption_capable=", "security_object.hardware_encryption=", "security_object.jailbreak_detected=", "security_object.lost_location_altitude=", "security_object.lost_location_course=", "security_object.lost_location_epoch=", "security_object.lost_location_horizontal_accuracy=", "security_object.lost_location_latitude=", "security_object.lost_location_longitude=", "security_object.lost_location_speed=", "security_object.lost_location_utc=", "security_object.lost_location_vertical_accuracy=", "security_object.lost_mode_enable_issued_epoch=", "security_object.lost_mode_enable_issued_utc=", "security_object.lost_mode_enabled=", "security_object.lost_mode_enforced=", "security_object.lost_mode_footnote=", "security_object.lost_mode_message=", "security_object.lost_mode_phone=", "security_object.passcode_compliant=", "security_object.passcode_compliant_with_profile=", "security_object.passcode_lock_grace_period_enforced=", "security_object.passcode_present="}, cobra.ShellCompDirectiveNoSpace
+	})
+
 	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt when replacing")
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
 

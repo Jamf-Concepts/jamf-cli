@@ -11,6 +11,12 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// bodySpecClassicComputerCommands is this resource's request-body contract, derived from
+// specs/classic/schemas.json at generation time. Empty when the Classic API spec
+// declares no schema for it, in which case create/update/apply read their body
+// from --from-file or stdin with no --scaffold and no --set.
+var bodySpecClassicComputerCommands = classicBodySpec{}
+
 // NewClassicComputerCommandsCmd creates the classic-computer-commands command group
 func NewClassicComputerCommandsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{

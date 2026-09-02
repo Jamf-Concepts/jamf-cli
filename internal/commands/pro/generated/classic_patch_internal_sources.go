@@ -13,6 +13,12 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// bodySpecClassicPatchInternalSources is this resource's request-body contract, derived from
+// specs/classic/schemas.json at generation time. Empty when the Classic API spec
+// declares no schema for it, in which case create/update/apply read their body
+// from --from-file or stdin with no --scaffold and no --set.
+var bodySpecClassicPatchInternalSources = classicBodySpec{}
+
 // NewClassicPatchInternalSourcesCmd creates the classic-patch-internal-sources command group
 func NewClassicPatchInternalSourcesCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{

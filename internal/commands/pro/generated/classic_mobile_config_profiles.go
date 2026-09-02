@@ -18,6 +18,250 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// bodySpecClassicMobileConfigProfiles is this resource's request-body contract, derived from
+// specs/classic/schemas.json at generation time. Empty when the Classic API spec
+// declares no schema for it, in which case create/update/apply read their body
+// from --from-file or stdin with no --scaffold and no --set.
+var bodySpecClassicMobileConfigProfiles = classicBodySpec{
+	Root:   "configuration_profile",
+	Schema: "mobile_device_configuration_profile",
+	Scaffold: `<configuration_profile>
+  <general>
+    <id>1</id>
+    <name>Corporate Wireless</name>
+    <category>
+      <id>0</id>
+      <name></name>
+    </category>
+    <deployment_method></deployment_method>
+    <description></description>
+    <level></level>
+    <payloads></payloads>
+    <redeploy_days_before_certificate_expires>0</redeploy_days_before_certificate_expires>
+    <redeploy_on_update>Newly Assigned</redeploy_on_update>
+    <site>
+      <id>0</id>
+      <name>None</name>
+    </site>
+    <uuid>55900BDC-347C-58B1-D249-F32244B11D30</uuid>
+  </general>
+  <scope>
+    <all_jss_users>false</all_jss_users>
+    <all_mobile_devices>false</all_mobile_devices>
+    <buildings>
+      <building>
+        <id>1</id>
+        <name></name>
+      </building>
+    </buildings>
+    <departments>
+      <department>
+        <id>1</id>
+        <name></name>
+      </department>
+    </departments>
+    <exclusions>
+      <buildings>
+        <building>
+          <id>1</id>
+          <name></name>
+        </building>
+      </buildings>
+      <departments>
+        <department>
+          <id>1</id>
+          <name></name>
+        </department>
+      </departments>
+      <ibeacons>
+        <ibeacon>
+          <id>1</id>
+          <name></name>
+        </ibeacon>
+      </ibeacons>
+      <jss_user_groups>
+        <user_group>
+          <id>1</id>
+          <name></name>
+        </user_group>
+      </jss_user_groups>
+      <jss_users>
+        <user>
+          <id>1</id>
+          <name></name>
+        </user>
+      </jss_users>
+      <mobile_device_groups>
+        <mobile_device_group>
+          <id>1</id>
+          <name></name>
+        </mobile_device_group>
+      </mobile_device_groups>
+      <mobile_devices>
+        <mobile_device>
+          <id>1</id>
+          <name>Johns iPad</name>
+          <udid>270aae10800b6e61a2ee2bbc285eb967050b5984</udid>
+          <wifi_mac_address>E0:AC:CB:97:36:G4</wifi_mac_address>
+        </mobile_device>
+      </mobile_devices>
+      <network_segments>
+        <network_segment>
+          <id>1</id>
+          <name>New York</name>
+          <uid></uid>
+        </network_segment>
+      </network_segments>
+      <user_groups>
+        <user_group>
+          <id>1</id>
+          <name></name>
+        </user_group>
+      </user_groups>
+      <users>
+        <user>
+          <name>Adam</name>
+        </user>
+      </users>
+    </exclusions>
+    <jss_user_groups>
+      <user_group>
+        <id>1</id>
+        <name></name>
+      </user_group>
+    </jss_user_groups>
+    <jss_users>
+      <user>
+        <id>1</id>
+        <name></name>
+      </user>
+    </jss_users>
+    <limitations>
+      <ibeacons>
+        <ibeacon>
+          <id>1</id>
+          <name></name>
+        </ibeacon>
+      </ibeacons>
+      <network_segments>
+        <network_segment>
+          <id>1</id>
+          <name></name>
+        </network_segment>
+      </network_segments>
+      <user_groups>
+        <user_group>
+          <id>1</id>
+          <name></name>
+        </user_group>
+      </user_groups>
+      <users>
+        <user>
+          <id>1</id>
+          <name></name>
+        </user>
+      </users>
+    </limitations>
+    <mobile_device_groups>
+      <mobile_device_group>
+        <id>1</id>
+        <name></name>
+      </mobile_device_group>
+    </mobile_device_groups>
+    <mobile_devices>
+      <mobile_device>
+        <id>1</id>
+        <name>Admins iPad</name>
+        <udid>270aae10800b6e61a2ee2bbc285eb967050b5984</udid>
+        <wifi_mac_address>E0:AC:CB:97:36:G4</wifi_mac_address>
+      </mobile_device>
+    </mobile_devices>
+  </scope>
+  <self_service>
+    <feature_on_main_page>false</feature_on_main_page>
+    <security>
+      <password></password>
+      <removal_disallowed>Never</removal_disallowed>
+    </security>
+    <self_service_categories>
+      <category>
+        <id>1</id>
+        <name>Applications</name>
+        <priority>0</priority>
+      </category>
+    </self_service_categories>
+    <self_service_description>Install this profile to access resources on the corporate network</self_service_description>
+    <self_service_icon>
+      <data></data>
+      <filename>WiFi.png</filename>
+      <uri>https://company.jamfcloud.com/iconservelet/?id=1</uri>
+    </self_service_icon>
+  </self_service>
+</configuration_profile>
+`,
+	FieldTypes: map[string]string{
+		"general":                   "object",
+		"general.category":          "object",
+		"general.category.id":       "integer",
+		"general.category.name":     "string",
+		"general.deployment_method": "string",
+		"general.description":       "string",
+		"general.id":                "integer",
+		"general.level":             "string",
+		"general.name":              "string",
+		"general.payloads":          "string",
+		"general.redeploy_days_before_certificate_expires": "integer",
+		"general.redeploy_on_update":                       "string",
+		"general.site":                                     "object",
+		"general.site.id":                                  "integer",
+		"general.site.name":                                "string",
+		"general.uuid":                                     "string",
+		"scope":                                            "object",
+		"scope.all_jss_users":                              "boolean",
+		"scope.all_mobile_devices":                         "boolean",
+		"scope.buildings":                                  "array",
+		"scope.departments":                                "array",
+		"scope.exclusions":                                 "object",
+		"scope.exclusions.buildings":                       "array",
+		"scope.exclusions.departments":                     "array",
+		"scope.exclusions.ibeacons":                        "array",
+		"scope.exclusions.jss_user_groups":                 "array",
+		"scope.exclusions.jss_users":                       "array",
+		"scope.exclusions.mobile_device_groups":            "array",
+		"scope.exclusions.mobile_devices":                  "array",
+		"scope.exclusions.network_segments":                "array",
+		"scope.exclusions.user_groups":                     "array",
+		"scope.exclusions.users":                           "array",
+		"scope.jss_user_groups":                            "array",
+		"scope.jss_users":                                  "array",
+		"scope.limitations":                                "object",
+		"scope.limitations.ibeacons":                       "array",
+		"scope.limitations.network_segments":               "array",
+		"scope.limitations.user_groups":                    "array",
+		"scope.limitations.users":                          "array",
+		"scope.mobile_device_groups":                       "array",
+		"scope.mobile_devices":                             "array",
+		"self_service":                                     "object",
+		"self_service.feature_on_main_page":                "boolean",
+		"self_service.security":                            "object",
+		"self_service.security.password":                   "string",
+		"self_service.security.removal_disallowed":         "string",
+		"self_service.self_service_categories":             "array",
+		"self_service.self_service_description":            "string",
+		"self_service.self_service_icon":                   "object",
+		"self_service.self_service_icon.data":              "string",
+		"self_service.self_service_icon.filename":          "string",
+		"self_service.self_service_icon.uri":               "string",
+	},
+	Enums: map[string][]string{
+		"general.deployment_method": {"Install Automatically", "Make Available in Self Service"},
+		"general.level":             {"System", "User"},
+	},
+	Credentials: map[string]bool{
+		"self_service.security.password": true,
+	},
+}
+
 // NewClassicMobileConfigProfilesCmd creates the classic-mobile-config-profiles command group
 func NewClassicMobileConfigProfilesCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
@@ -167,12 +411,30 @@ func newClassicMobileConfigProfilesGetCmd(ctx *registry.CLIContext) *cobra.Comma
 func newClassicMobileConfigProfilesCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		fromFile             string
+		flagScaffold         bool
+		flagSet              []string
 		flagMobileconfigFile string
 	)
 	cmd := &cobra.Command{
-		Use:         "create",
-		Short:       "Create a configuration_profile",
-		Long:        "Create a new configuration_profile. Reads the XML body from --from-file or stdin.",
+		Use:   "create",
+		Short: "Create a configuration_profile",
+		Long: `Create a new configuration_profile. Reads the XML body from --from-file, --set or stdin.
+
+Body fields are derived from the Classic API spec (schema "mobile_device_configuration_profile").
+Run with --scaffold to print a complete XML template.
+The template populates every optional section with one specimen entry,
+including references whose <id> points at nothing on your instance — delete
+the sections you do not need. A dangling reference is answered with a 500.
+Optional sections: general, scope, self_service
+
+Allowed values:
+  general.deployment_method: Install Automatically | Make Available in Self Service
+  general.level: System | User
+
+The Classic API does not reject an out-of-range value — it substitutes
+its default silently — so --set refuses one rather than letting it through.
+
+Credential fields (--from-file only, never --set): self_service.security.password`,
 		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "configuration-profiles:create"},
 		Example: `  # Create a configuration_profile from an XML file
   jamf-cli pro classic-mobile-config-profiles create --from-file configuration_profile.xml
@@ -180,9 +442,12 @@ func newClassicMobileConfigProfilesCreateCmd(ctx *registry.CLIContext) *cobra.Co
   # Create a configuration_profile from XML on stdin
   cat configuration_profile.xml | jamf-cli pro classic-mobile-config-profiles create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if flagScaffold {
+				return printClassicScaffold(bodySpecClassicMobileConfigProfiles)
+			}
 			reqCtx := cmd.Context()
 
-			bodyBytes, err := readClassicBody(fromFile)
+			bodyBytes, err := readClassicBodyOrSet(fromFile, flagSet, bodySpecClassicMobileConfigProfiles)
 			if err != nil {
 				return err
 			}
@@ -213,6 +478,11 @@ func newClassicMobileConfigProfilesCreateCmd(ctx *registry.CLIContext) *cobra.Co
 		},
 	}
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to XML input file (or pipe XML to stdin)")
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print an XML body template for this resource and exit")
+	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Set a body field in dot notation (key=value, repeatable). Builds the whole body, so it cannot be combined with --from-file")
+	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+		return []string{"general.category.id=", "general.category.name=", "general.deployment_method=", "general.description=", "general.id=", "general.level=", "general.name=", "general.payloads=", "general.redeploy_days_before_certificate_expires=", "general.redeploy_on_update=", "general.site.id=", "general.site.name=", "general.uuid=", "scope.all_jss_users=", "scope.all_mobile_devices=", "self_service.feature_on_main_page=", "self_service.security.removal_disallowed=", "self_service.self_service_description=", "self_service.self_service_icon.data=", "self_service.self_service_icon.filename=", "self_service.self_service_icon.uri="}, cobra.ShellCompDirectiveNoSpace
+	})
 
 	cmd.Flags().StringVar(&flagMobileconfigFile, "mobileconfig-file", "", "Path to a .mobileconfig file; contents are CDATA-wrapped into <general><payloads>")
 	return cmd
@@ -220,26 +490,52 @@ func newClassicMobileConfigProfilesCreateCmd(ctx *registry.CLIContext) *cobra.Co
 
 func newClassicMobileConfigProfilesUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var fromFile string
+	var (
+		flagScaffold bool
+		flagSet      []string
+	)
 	var flagName string
 	var (
 		flagMobileconfigFile string
 	)
 
 	cmd := &cobra.Command{
-		Use:         "update [<id>]",
-		Short:       "Update a configuration_profile",
-		Long:        "Update an existing configuration_profile by ID. Reads the XML body from --from-file or stdin.",
+		Use:   "update [<id>]",
+		Short: "Update a configuration_profile",
+		Long: `Update an existing configuration_profile by ID. Reads the XML body from --from-file, --set or stdin.
+
+The Classic API applies a partial update: fields the body omits keep their
+current values, so a body carrying one element changes only that element.
+
+Body fields are derived from the Classic API spec (schema "mobile_device_configuration_profile").
+Run with --scaffold to print a complete XML template.
+The template populates every optional section with one specimen entry,
+including references whose <id> points at nothing on your instance — delete
+the sections you do not need. A dangling reference is answered with a 500.
+Optional sections: general, scope, self_service
+
+Allowed values:
+  general.deployment_method: Install Automatically | Make Available in Self Service
+  general.level: System | User
+
+The Classic API does not reject an out-of-range value — it substitutes
+its default silently — so --set refuses one rather than letting it through.
+
+Credential fields (--from-file only, never --set): self_service.security.password`,
 		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "configuration-profiles:update"},
 		Example: `  # Update a configuration_profile from an XML file
   jamf-cli pro classic-mobile-config-profiles update 1 --from-file configuration_profile.xml
 
   # Update a configuration_profile from XML on stdin
   cat configuration_profile.xml | jamf-cli pro classic-mobile-config-profiles update 1`,
-		Args: cobra.MaximumNArgs(1),
+		Args: classicScaffoldArgs(&flagScaffold, cobra.MaximumNArgs(1)),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if flagScaffold {
+				return printClassicScaffold(bodySpecClassicMobileConfigProfiles)
+			}
 			reqCtx := cmd.Context()
 
-			bodyBytes, bodyErr := readClassicBody(fromFile)
+			bodyBytes, bodyErr := readClassicBodyOrSet(fromFile, flagSet, bodySpecClassicMobileConfigProfiles)
 			if bodyErr != nil {
 				return bodyErr
 			}
@@ -297,6 +593,11 @@ func newClassicMobileConfigProfilesUpdateCmd(ctx *registry.CLIContext) *cobra.Co
 	}
 
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to XML input file (or pipe XML to stdin)")
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print an XML body template for this resource and exit")
+	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Set a body field in dot notation (key=value, repeatable). Builds the whole body, so it cannot be combined with --from-file")
+	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+		return []string{"general.category.id=", "general.category.name=", "general.deployment_method=", "general.description=", "general.id=", "general.level=", "general.name=", "general.payloads=", "general.redeploy_days_before_certificate_expires=", "general.redeploy_on_update=", "general.site.id=", "general.site.name=", "general.uuid=", "scope.all_jss_users=", "scope.all_mobile_devices=", "self_service.feature_on_main_page=", "self_service.security.removal_disallowed=", "self_service.self_service_description=", "self_service.self_service_icon.data=", "self_service.self_service_icon.filename=", "self_service.self_service_icon.uri="}, cobra.ShellCompDirectiveNoSpace
+	})
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up configuration_profile by name")
 
 	cmd.Flags().StringVar(&flagMobileconfigFile, "mobileconfig-file", "", "Path to a .mobileconfig file; contents are CDATA-wrapped into <general><payloads>")
@@ -490,6 +791,8 @@ func newClassicMobileConfigProfilesApplyCmd(ctx *registry.CLIContext) *cobra.Com
 		fromFile             string
 		flagYes              bool
 		flagDryRun           bool
+		flagScaffold         bool
+		flagSet              []string
 		flagMobileconfigFile string
 	)
 
@@ -497,11 +800,27 @@ func newClassicMobileConfigProfilesApplyCmd(ctx *registry.CLIContext) *cobra.Com
 		Use:         "apply",
 		Short:       "Create or replace a configuration_profile by name",
 		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "configuration-profiles:create,configuration-profiles:read,configuration-profiles:update"},
-		Long: `Create or replace a configuration_profile. Reads XML from --from-file or stdin.
+		Long: `Create or replace a configuration_profile. Reads XML from --from-file, --set or stdin.
 
 The name field in the input XML is used to check if the resource already
 exists. If it does, the resource is replaced (with confirmation).
-If not, a new resource is created.`,
+If not, a new resource is created.
+
+Body fields are derived from the Classic API spec (schema "mobile_device_configuration_profile").
+Run with --scaffold to print a complete XML template.
+The template populates every optional section with one specimen entry,
+including references whose <id> points at nothing on your instance — delete
+the sections you do not need. A dangling reference is answered with a 500.
+Optional sections: general, scope, self_service
+
+Allowed values:
+  general.deployment_method: Install Automatically | Make Available in Self Service
+  general.level: System | User
+
+The Classic API does not reject an out-of-range value — it substitutes
+its default silently — so --set refuses one rather than letting it through.
+
+Credential fields (--from-file only, never --set): self_service.security.password`,
 		Example: `  # Apply a configuration_profile from an XML file
   jamf-cli pro classic-mobile-config-profiles apply --from-file configuration_profile.xml
 
@@ -511,6 +830,9 @@ If not, a new resource is created.`,
   # Apply without replacement confirmation
   jamf-cli pro classic-mobile-config-profiles apply --from-file configuration_profile.xml --yes`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			if flagScaffold {
+				return printClassicScaffold(bodySpecClassicMobileConfigProfiles)
+			}
 			reqCtx := cmd.Context()
 
 			// Read input
@@ -608,6 +930,12 @@ If not, a new resource is created.`,
 	}
 
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to XML input file (or pipe XML to stdin)")
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print an XML body template for this resource and exit")
+	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Set a body field in dot notation (key=value, repeatable). Builds the whole body, so it cannot be combined with --from-file")
+	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+		return []string{"general.category.id=", "general.category.name=", "general.deployment_method=", "general.description=", "general.id=", "general.level=", "general.name=", "general.payloads=", "general.redeploy_days_before_certificate_expires=", "general.redeploy_on_update=", "general.site.id=", "general.site.name=", "general.uuid=", "scope.all_jss_users=", "scope.all_mobile_devices=", "self_service.feature_on_main_page=", "self_service.security.removal_disallowed=", "self_service.self_service_description=", "self_service.self_service_icon.data=", "self_service.self_service_icon.filename=", "self_service.self_service_icon.uri="}, cobra.ShellCompDirectiveNoSpace
+	})
+
 	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt when replacing")
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
 

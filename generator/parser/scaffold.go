@@ -5,6 +5,8 @@ package parser
 import (
 	"encoding/json"
 	"fmt"
+
+	"github.com/getkin/kin-openapi/openapi3"
 )
 
 // ScaffoldJSON returns a pretty-printed JSON template for a request body,
@@ -156,4 +158,22 @@ func HasScaffoldShape(s *Schema) bool {
 		return true
 	}
 	return s.Type == "array" && s.Items != nil && len(s.Items.Properties) > 0
+}
+
+// SchemaFromOpenAPI parses one resolved OpenAPI schema into the generator's own
+// Schema tree. It is the exported door onto parseSchema, opened for the Classic
+// API generator: Classic resources are declared by a YAML manifest rather than
+// by a spec, so generator/classic has schemas to parse but no operation to parse
+// them from.
+//
+// Exported rather than reimplemented because the schema walk is where the
+// interesting decisions live — allOf composition, discriminated unions, the
+// array-element recursion cap, enum value rendering — and a second copy of it
+// would drift the way the three --scaffold builders did before
+// docs/solutions/conventions/one-scaffold-walker-2026-08-20.md.
+func SchemaFromOpenAPI(name string, s *openapi3.Schema) *Schema {
+	if s == nil {
+		return nil
+	}
+	return parseSchema(name, s)
 }

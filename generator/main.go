@@ -13,6 +13,7 @@ import (
 	"text/template"
 
 	"github.com/Jamf-Concepts/jamf-cli/generator/classic"
+	"github.com/Jamf-Concepts/jamf-cli/generator/classicschema"
 	"github.com/Jamf-Concepts/jamf-cli/generator/gateway"
 	"github.com/Jamf-Concepts/jamf-cli/generator/monolith"
 	"github.com/Jamf-Concepts/jamf-cli/generator/parser"
@@ -62,8 +63,12 @@ func main() {
 	flag.StringVar(&specsDir, "specs", "./specs", "Directory containing per-resource OpenAPI spec files")
 	flag.StringVar(&outputDir, "output", "./internal/commands/pro/generated", "Directory to write generated Go files into")
 	flag.StringVar(&monolithPath, "monolith", "", "Optional consolidated OpenAPI document to split into per-resource spec files before generation. Accepts a local path or http(s):// URL")
-	flag.StringVar(&gatewaySource, "gateway-source", "", "Optional directory holding the SDK's pro_api.json and classic_api_resource_documentation.json, to re-derive specs/gateway/coverage.json from before generation")
-	flag.StringVar(&gatewaySDKRev, "gateway-sdk-rev", "", "Optional jamfplatform-go-sdk revision to record as the coverage manifest's provenance")
+	// One flag rather than two, because both artifacts derive from the same
+	// drop directory and the same two SDK specs. A second flag that must always
+	// carry the same value is a code path nothing exercises independently, which
+	// is how the gateway URL-shape bug survived weeks.
+	flag.StringVar(&gatewaySource, "gateway-source", "", "Optional directory holding the SDK's pro_api.json and classic_api_resource_documentation.json, to re-derive specs/gateway/coverage.json and specs/classic/schemas.json from before generation")
+	flag.StringVar(&gatewaySDKRev, "gateway-sdk-rev", "", "Optional jamfplatform-go-sdk revision to record as the derived manifests' provenance")
 	flag.Parse()
 
 	fmt.Println("jamf-cli code generator")
@@ -268,6 +273,42 @@ func main() {
 		}
 
 		gatewayEntries = append(gatewayEntries, gateway.Apply(coverage, classicGatewayOps(classicResources))...)
+
+		// Re-derive the Classic schema artifact when an SDK drop was pointed at,
+		// then load it. Derivation needs the manifest, which is why this sits
+		// here rather than beside the gateway derivation above. A missing
+		// artifact is the "unknown" answer: Classic commands then ship with no
+		// body help, which is what they shipped before this existed.
+		classicSchemaPath := filepath.Join(specsDir, classicschema.ArtifactFile)
+		if gatewaySource != "" {
+			art, warnings, err := classicschema.Extract(gatewaySource, gatewaySDKRev, classicManifestEntries(classicResources))
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Error deriving classic schemas: %v\n", err)
+				os.Exit(1)
+			}
+			if prev, err := classicschema.Load(classicSchemaPath); err == nil {
+				classicschema.CarryForwardProvenance(art, prev)
+			}
+			if err := classicschema.Write(art, classicSchemaPath); err != nil {
+				fmt.Fprintf(os.Stderr, "Error writing classic schemas: %v\n", err)
+				os.Exit(1)
+			}
+			for _, w := range warnings {
+				fmt.Fprintln(os.Stderr, "  note:", w)
+			}
+			fmt.Printf("Derived: %s (%d schemas, %d of %d resources bound)\n",
+				classicSchemaPath, art.Source.Schemas, art.Source.Resources, len(classicResources))
+		}
+
+		classicSchemas, err := classicschema.Load(classicSchemaPath)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error loading classic schemas: %v\n", err)
+			os.Exit(1)
+		}
+		if err := classic.AttachSchemas(classicResources, classicSchemas); err != nil {
+			fmt.Fprintf(os.Stderr, "Error attaching classic schemas: %v\n", err)
+			os.Exit(1)
+		}
 
 		classicGen := classic.NewGenerator(outputDir)
 		for _, r := range classicResources {
@@ -834,4 +875,30 @@ func orUnknown(s string) string {
 		return "(revision not recorded)"
 	}
 	return s
+}
+
+// classicManifestEntries adapts the parsed Classic manifest to the subset
+// generator/classicschema needs, so that package stays free of the manifest
+// format and generator/classic stays its only reader.
+func classicManifestEntries(resources []classic.ClassicResource) []classicschema.ManifestEntry {
+	entries := make([]classicschema.ManifestEntry, 0, len(resources))
+	for _, r := range resources {
+		// Only write-capable resources are bound. The artifact describes request
+		// bodies, and a resource with no create or update has none — asking for
+		// one binds the wrong schema rather than nothing, because a read-only
+		// Classic resource's "detail" endpoint can answer with a collection:
+		// /accounts and /patchavailabletitles/sourceid/{id} resolve to the plural
+		// `accounts` and `patch_available_titles` schemas, which are list
+		// wrappers and not the shape of anything a caller would send.
+		if !r.HasOperation("create") && !r.HasOperation("update") {
+			continue
+		}
+		entries = append(entries, classicschema.ManifestEntry{
+			Name:     r.Name,
+			Path:     r.Path,
+			Singular: r.Singular,
+			IDPath:   r.IDPath,
+		})
+	}
+	return entries
 }

@@ -14,6 +14,33 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// bodySpecClassicGsxConnection is this resource's request-body contract, derived from
+// specs/classic/schemas.json at generation time. Empty when the Classic API spec
+// declares no schema for it, in which case create/update/apply read their body
+// from --from-file or stdin with no --scaffold and no --set.
+var bodySpecClassicGsxConnection = classicBodySpec{
+	Root:   "gsx_connection",
+	Schema: "gsx_connection",
+	Scaffold: `<gsx_connection>
+  <account_number>123456</account_number>
+  <enabled>false</enabled>
+  <region></region>
+  <uri>https://gsxws2.apple.com/gsx-ws/services/am/asp</uri>
+  <username>applegsx@company.com</username>
+</gsx_connection>
+`,
+	FieldTypes: map[string]string{
+		"account_number": "integer",
+		"enabled":        "boolean",
+		"region":         "string",
+		"uri":            "string",
+		"username":       "string",
+	},
+	Enums: map[string][]string{
+		"region": {"Americas", "APAC", "EMEA", "LatinAmerica"},
+	},
+}
+
 // NewClassicGsxConnectionCmd creates the classic-gsx-connection command group
 func NewClassicGsxConnectionCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
@@ -82,22 +109,42 @@ func newClassicGsxConnectionGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
 func newClassicGsxConnectionUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var fromFile string
+	var (
+		flagScaffold bool
+		flagSet      []string
+	)
 
 	cmd := &cobra.Command{
-		Use:         "update <id>",
-		Short:       "Update a gsx_connection",
-		Long:        "Update an existing gsx_connection by ID. Reads the XML body from --from-file or stdin.",
+		Use:   "update <id>",
+		Short: "Update a gsx_connection",
+		Long: `Update an existing gsx_connection by ID. Reads the XML body from --from-file, --set or stdin.
+
+The Classic API applies a partial update: fields the body omits keep their
+current values, so a body carrying one element changes only that element.
+
+Body fields are derived from the Classic API spec (schema "gsx_connection").
+Run with --scaffold to print a complete XML template.
+Optional sections: account_number, enabled, region, uri, username
+
+Allowed values:
+  region: Americas | APAC | EMEA | LatinAmerica
+
+The Classic API does not reject an out-of-range value — it substitutes
+its default silently — so --set refuses one rather than letting it through.`,
 		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "gsx-connection:update"},
 		Example: `  # Update a gsx_connection from an XML file
   jamf-cli pro classic-gsx-connection update 1 --from-file gsx_connection.xml
 
   # Update a gsx_connection from XML on stdin
   cat gsx_connection.xml | jamf-cli pro classic-gsx-connection update 1`,
-		Args: cobra.ExactArgs(1),
+		Args: classicScaffoldArgs(&flagScaffold, cobra.ExactArgs(1)),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if flagScaffold {
+				return printClassicScaffold(bodySpecClassicGsxConnection)
+			}
 			reqCtx := cmd.Context()
 
-			bodyBytes, bodyErr := readClassicBody(fromFile)
+			bodyBytes, bodyErr := readClassicBodyOrSet(fromFile, flagSet, bodySpecClassicGsxConnection)
 			if bodyErr != nil {
 				return bodyErr
 			}
@@ -119,6 +166,11 @@ func newClassicGsxConnectionUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to XML input file (or pipe XML to stdin)")
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print an XML body template for this resource and exit")
+	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Set a body field in dot notation (key=value, repeatable). Builds the whole body, so it cannot be combined with --from-file")
+	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+		return []string{"account_number=", "enabled=", "region=", "uri=", "username="}, cobra.ShellCompDirectiveNoSpace
+	})
 
 	return cmd
 }

@@ -1,4 +1,4 @@
-.PHONY: audit-coverage build test clean generate sync-specs sync-spec sync-platform-specs sync-platform-specs-from-sdk sync-security-specs sync-gateway-coverage sync-gateway-coverage-from-sdk verify-gateway-coverage install lint lint-dead verify-generated verify-platform-specs verify-security-specs verify-gateway-coverage verify-site verify-site-output smoke smoke-seed smoke-cleanup release-check site
+.PHONY: audit-coverage build test clean generate sync-specs sync-spec sync-platform-specs sync-platform-specs-from-sdk sync-security-specs sync-gateway-coverage sync-gateway-coverage-from-sdk verify-gateway-coverage verify-classic-schemas install lint lint-dead verify-generated verify-platform-specs verify-security-specs verify-gateway-coverage verify-site verify-site-output smoke smoke-seed smoke-cleanup release-check site
 
 # Build variables
 VERSION         ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
@@ -214,9 +214,12 @@ PLATFORM_SDK_SPECS = \
 	securitycloud_ztna_api.json
 
 # PLATFORM_SDK_COVERAGE_SPECS are the two SDK specs read for gateway *coverage*
-# only — which Jamf Pro and Classic endpoints the gateway publishes, and the
-# gateway scope each requires. They are copied into the drop directory by
-# sync-platform-specs-from-sdk and consumed by sync-gateway-coverage.
+# — which Jamf Pro and Classic endpoints the gateway publishes, and the gateway
+# scope each requires — and, for the Classic one, for the Classic request-body
+# schemas behind --scaffold and --set on classic commands. They are copied into
+# the drop directory by sync-platform-specs-from-sdk and consumed by
+# sync-gateway-coverage, which derives both specs/gateway/coverage.json and
+# specs/classic/schemas.json in one generator run.
 #
 # They must never join PLATFORM_SDK_SPECS. They describe Jamf Pro APIs this repo
 # already generates from specs/*.yaml, so handing them to the platform generator
@@ -335,6 +338,12 @@ sync-security-specs:
 #
 # The manifest is committed so `make generate` and CI stay hermetic: nobody needs
 # an SDK checkout to build, and the drop directory is gitignored.
+#
+# The same run also derives specs/classic/schemas.json, the Classic API request-body
+# schemas behind --scaffold, --set and the required/enum help on classic write
+# commands (see generator/classicschema). Same source spec, same drop directory,
+# same hermetic-artifact reasoning — so one flag, not two: a second flag that has
+# to carry the same value is a code path nothing exercises on its own.
 sync-gateway-coverage:
 	@for f in $(PLATFORM_SDK_COVERAGE_SPECS); do \
 		if [ ! -f "specs/.platform-source/$$f" ]; then \
@@ -359,7 +368,7 @@ sync-gateway-coverage:
 		--gateway-sdk-rev "$$(cat .gateway-sdk-rev 2>/dev/null || true)"
 	@rm -f .gateway-sdk-rev
 	@go fmt ./internal/commands/pro/generated/... ./internal/gateway/... > /dev/null
-	@echo "Done! Review changes with: git diff specs/gateway internal/gateway internal/commands"
+	@echo "Done! Review changes with: git diff specs/gateway specs/classic internal/gateway internal/commands"
 
 # Copy the two coverage specs from an SDK checkout, then derive. Recording the
 # SDK revision is the point of routing through here: a manifest that cannot say
@@ -408,6 +417,28 @@ verify-gateway-coverage:
 		fi; \
 	done
 	@echo "Gateway coverage manifest and table are up to date."
+
+# Verify the committed Classic schema artifact is what the SDK spec implies
+# (CI-safe). A no-op pass when the coverage specs are absent, like
+# verify-gateway-coverage — CI has no SDK checkout, and the committed artifact is
+# the contract that `make verify-generated` then checks the commands against.
+#
+# git status --porcelain rather than git diff, for the reason the gateway target
+# records: git diff cannot see an untracked file, so the first run after adding
+# specs/classic/schemas.json reported clean against a file that was not committed
+# at all.
+verify-classic-schemas:
+	@if [ -n "$(JAMFPLATFORM_SDK_PATH)" ] || [ -f "specs/.platform-source/classic_api_resource_documentation.json" ]; then \
+		$(MAKE) sync-gateway-coverage JAMFPLATFORM_SDK_PATH="$(JAMFPLATFORM_SDK_PATH)" > /dev/null; \
+	else \
+		$(MAKE) generate > /dev/null; \
+	fi
+	@if [ -n "$$(git status --porcelain -- specs/classic/schemas.json)" ]; then \
+		echo "Error: specs/classic/schemas.json is not what is committed — run 'make sync-gateway-coverage' and commit"; \
+		git status --short -- specs/classic/schemas.json; \
+		exit 1; \
+	fi
+	@echo "Classic schema artifact is up to date."
 
 # Generate CLI commands from OpenAPI specs and Classic API manifest.
 # If JAMF_MONOLITH_SPEC is set, the monolith is split into per-resource spec

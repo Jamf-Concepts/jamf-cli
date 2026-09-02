@@ -13,6 +13,12 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// bodySpecClassicPatchReports is this resource's request-body contract, derived from
+// specs/classic/schemas.json at generation time. Empty when the Classic API spec
+// declares no schema for it, in which case create/update/apply read their body
+// from --from-file or stdin with no --scaffold and no --set.
+var bodySpecClassicPatchReports = classicBodySpec{}
+
 // NewClassicPatchReportsCmd creates the classic-patch-reports command group
 func NewClassicPatchReportsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{

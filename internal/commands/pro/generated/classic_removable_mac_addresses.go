@@ -17,6 +17,24 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// bodySpecClassicRemovableMacAddresses is this resource's request-body contract, derived from
+// specs/classic/schemas.json at generation time. Empty when the Classic API spec
+// declares no schema for it, in which case create/update/apply read their body
+// from --from-file or stdin with no --scaffold and no --set.
+var bodySpecClassicRemovableMacAddresses = classicBodySpec{
+	Root:   "removable_mac_address",
+	Schema: "removable_mac_address",
+	Scaffold: `<removable_mac_address>
+  <id>1</id>
+  <name>E0:AC:CB:97:36:G4</name>
+</removable_mac_address>
+`,
+	FieldTypes: map[string]string{
+		"id":   "integer",
+		"name": "string",
+	},
+}
+
 // NewClassicRemovableMacAddressesCmd creates the classic-removable-mac-addresses command group
 func NewClassicRemovableMacAddressesCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
@@ -160,12 +178,18 @@ func newClassicRemovableMacAddressesGetCmd(ctx *registry.CLIContext) *cobra.Comm
 
 func newClassicRemovableMacAddressesCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
-		fromFile string
+		fromFile     string
+		flagScaffold bool
+		flagSet      []string
 	)
 	cmd := &cobra.Command{
-		Use:         "create",
-		Short:       "Create a removable_mac_address",
-		Long:        "Create a new removable_mac_address. Reads the XML body from --from-file or stdin.",
+		Use:   "create",
+		Short: "Create a removable_mac_address",
+		Long: `Create a new removable_mac_address. Reads the XML body from --from-file, --set or stdin.
+
+Body fields are derived from the Classic API spec (schema "removable_mac_address").
+Run with --scaffold to print a complete XML template.
+Optional sections: id, name`,
 		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "removable-mac-address:create"},
 		Example: `  # Create a removable_mac_address from an XML file
   jamf-cli pro classic-removable-mac-addresses create --from-file removable_mac_address.xml
@@ -173,9 +197,12 @@ func newClassicRemovableMacAddressesCreateCmd(ctx *registry.CLIContext) *cobra.C
   # Create a removable_mac_address from XML on stdin
   cat removable_mac_address.xml | jamf-cli pro classic-removable-mac-addresses create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if flagScaffold {
+				return printClassicScaffold(bodySpecClassicRemovableMacAddresses)
+			}
 			reqCtx := cmd.Context()
 
-			bodyBytes, err := readClassicBody(fromFile)
+			bodyBytes, err := readClassicBodyOrSet(fromFile, flagSet, bodySpecClassicRemovableMacAddresses)
 			if err != nil {
 				return err
 			}
@@ -194,28 +221,47 @@ func newClassicRemovableMacAddressesCreateCmd(ctx *registry.CLIContext) *cobra.C
 		},
 	}
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to XML input file (or pipe XML to stdin)")
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print an XML body template for this resource and exit")
+	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Set a body field in dot notation (key=value, repeatable). Builds the whole body, so it cannot be combined with --from-file")
+	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+		return []string{"id=", "name="}, cobra.ShellCompDirectiveNoSpace
+	})
 	return cmd
 }
 
 func newClassicRemovableMacAddressesUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var fromFile string
+	var (
+		flagScaffold bool
+		flagSet      []string
+	)
 	var flagName string
 
 	cmd := &cobra.Command{
-		Use:         "update [<id>]",
-		Short:       "Update a removable_mac_address",
-		Long:        "Update an existing removable_mac_address by ID. Reads the XML body from --from-file or stdin.",
+		Use:   "update [<id>]",
+		Short: "Update a removable_mac_address",
+		Long: `Update an existing removable_mac_address by ID. Reads the XML body from --from-file, --set or stdin.
+
+The Classic API applies a partial update: fields the body omits keep their
+current values, so a body carrying one element changes only that element.
+
+Body fields are derived from the Classic API spec (schema "removable_mac_address").
+Run with --scaffold to print a complete XML template.
+Optional sections: id, name`,
 		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "removable-mac-address:update"},
 		Example: `  # Update a removable_mac_address from an XML file
   jamf-cli pro classic-removable-mac-addresses update 1 --from-file removable_mac_address.xml
 
   # Update a removable_mac_address from XML on stdin
   cat removable_mac_address.xml | jamf-cli pro classic-removable-mac-addresses update 1`,
-		Args: cobra.MaximumNArgs(1),
+		Args: classicScaffoldArgs(&flagScaffold, cobra.MaximumNArgs(1)),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if flagScaffold {
+				return printClassicScaffold(bodySpecClassicRemovableMacAddresses)
+			}
 			reqCtx := cmd.Context()
 
-			bodyBytes, bodyErr := readClassicBody(fromFile)
+			bodyBytes, bodyErr := readClassicBodyOrSet(fromFile, flagSet, bodySpecClassicRemovableMacAddresses)
 			if bodyErr != nil {
 				return bodyErr
 			}
@@ -244,6 +290,11 @@ func newClassicRemovableMacAddressesUpdateCmd(ctx *registry.CLIContext) *cobra.C
 	}
 
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to XML input file (or pipe XML to stdin)")
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print an XML body template for this resource and exit")
+	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Set a body field in dot notation (key=value, repeatable). Builds the whole body, so it cannot be combined with --from-file")
+	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+		return []string{"id=", "name="}, cobra.ShellCompDirectiveNoSpace
+	})
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up removable_mac_address by name")
 
 	return cmd
@@ -433,20 +484,26 @@ func newClassicRemovableMacAddressesDeleteCmd(ctx *registry.CLIContext) *cobra.C
 
 func newClassicRemovableMacAddressesApplyCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
-		fromFile   string
-		flagYes    bool
-		flagDryRun bool
+		fromFile     string
+		flagYes      bool
+		flagDryRun   bool
+		flagScaffold bool
+		flagSet      []string
 	)
 
 	cmd := &cobra.Command{
 		Use:         "apply",
 		Short:       "Create or replace a removable_mac_address by name",
 		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "removable-mac-address:create,removable-mac-address:read,removable-mac-address:update"},
-		Long: `Create or replace a removable_mac_address. Reads XML from --from-file or stdin.
+		Long: `Create or replace a removable_mac_address. Reads XML from --from-file, --set or stdin.
 
 The name field in the input XML is used to check if the resource already
 exists. If it does, the resource is replaced (with confirmation).
-If not, a new resource is created.`,
+If not, a new resource is created.
+
+Body fields are derived from the Classic API spec (schema "removable_mac_address").
+Run with --scaffold to print a complete XML template.
+Optional sections: id, name`,
 		Example: `  # Apply a removable_mac_address from an XML file
   jamf-cli pro classic-removable-mac-addresses apply --from-file removable_mac_address.xml
 
@@ -456,6 +513,9 @@ If not, a new resource is created.`,
   # Apply without replacement confirmation
   jamf-cli pro classic-removable-mac-addresses apply --from-file removable_mac_address.xml --yes`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			if flagScaffold {
+				return printClassicScaffold(bodySpecClassicRemovableMacAddresses)
+			}
 			reqCtx := cmd.Context()
 
 			// Read input
@@ -528,6 +588,12 @@ If not, a new resource is created.`,
 	}
 
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to XML input file (or pipe XML to stdin)")
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print an XML body template for this resource and exit")
+	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Set a body field in dot notation (key=value, repeatable). Builds the whole body, so it cannot be combined with --from-file")
+	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+		return []string{"id=", "name="}, cobra.ShellCompDirectiveNoSpace
+	})
+
 	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt when replacing")
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
 

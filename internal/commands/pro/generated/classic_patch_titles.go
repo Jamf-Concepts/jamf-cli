@@ -17,6 +17,12 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// bodySpecClassicPatchTitles is this resource's request-body contract, derived from
+// specs/classic/schemas.json at generation time. Empty when the Classic API spec
+// declares no schema for it, in which case create/update/apply read their body
+// from --from-file or stdin with no --scaffold and no --set.
+var bodySpecClassicPatchTitles = classicBodySpec{}
+
 // NewClassicPatchTitlesCmd creates the classic-patch-titles command group
 func NewClassicPatchTitlesCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
@@ -165,7 +171,7 @@ func newClassicPatchTitlesCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "create",
 		Short:       "Create a patch_software_title",
-		Long:        "Create a new patch_software_title. Reads the XML body from --from-file or stdin.",
+		Long:        `Create a new patch_software_title. Reads the XML body from --from-file, --set or stdin.`,
 		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "patch-management-software-titles:create"},
 		Example: `  # Create a patch_software_title from an XML file
   jamf-cli pro classic-patch-titles create --from-file patch_software_title.xml
@@ -175,7 +181,7 @@ func newClassicPatchTitlesCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
-			bodyBytes, err := readClassicBody(fromFile)
+			bodyBytes, err := readClassicBodyOrSet(fromFile, nil, bodySpecClassicPatchTitles)
 			if err != nil {
 				return err
 			}
@@ -202,9 +208,12 @@ func newClassicPatchTitlesUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var flagName string
 
 	cmd := &cobra.Command{
-		Use:         "update [<id>]",
-		Short:       "Update a patch_software_title",
-		Long:        "Update an existing patch_software_title by ID. Reads the XML body from --from-file or stdin.",
+		Use:   "update [<id>]",
+		Short: "Update a patch_software_title",
+		Long: `Update an existing patch_software_title by ID. Reads the XML body from --from-file, --set or stdin.
+
+The Classic API applies a partial update: fields the body omits keep their
+current values, so a body carrying one element changes only that element.`,
 		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway": "unserved", "jamf:gateway-basis": "unpublished", "jamf:gateway-detail": "the gateway's Classic API 11.28.0 declares no PUT on this resource"},
 		Example: `  # Update a patch_software_title from an XML file
   jamf-cli pro classic-patch-titles update 1 --from-file patch_software_title.xml
@@ -215,7 +224,7 @@ func newClassicPatchTitlesUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
-			bodyBytes, bodyErr := readClassicBody(fromFile)
+			bodyBytes, bodyErr := readClassicBodyOrSet(fromFile, nil, bodySpecClassicPatchTitles)
 			if bodyErr != nil {
 				return bodyErr
 			}
@@ -442,7 +451,7 @@ func newClassicPatchTitlesApplyCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:         "apply",
 		Short:       "Create or replace a patch_software_title by name",
 		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway": "unserved", "jamf:gateway-basis": "unpublished", "jamf:gateway-detail": "not declared by the gateway's Classic API 11.28.0"},
-		Long: `Create or replace a patch_software_title. Reads XML from --from-file or stdin.
+		Long: `Create or replace a patch_software_title. Reads XML from --from-file, --set or stdin.
 
 The name field in the input XML is used to check if the resource already
 exists. If it does, the resource is replaced (with confirmation).
@@ -528,6 +537,7 @@ If not, a new resource is created.`,
 	}
 
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to XML input file (or pipe XML to stdin)")
+
 	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt when replacing")
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
 

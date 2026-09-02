@@ -2,7 +2,11 @@
 
 package classic
 
-import "slices"
+import (
+	"slices"
+
+	"github.com/Jamf-Concepts/jamf-cli/generator/parser"
+)
 
 // ClassicResource represents a Classic API resource parsed from the YAML manifest.
 type ClassicResource struct {
@@ -66,6 +70,26 @@ type ClassicResource struct {
 	// is resource-wide. A different vocabulary from Jamf Pro's own privilege
 	// names, and Classic commands carry none of those.
 	GatewayPrivileges map[string][]string
+	// BodySchema is the request-body shape for create/update/apply, parsed from
+	// the committed specs/classic/schemas.json artifact. Nil when the artifact
+	// is absent or names no schema for this resource — six of the manifest's
+	// resources have none, four of them withdrawn from the Classic API
+	// altogether — in which case the resource ships without --scaffold, --set or
+	// field help, exactly as every Classic resource did before the artifact
+	// existed.
+	//
+	// The Classic manifest is hand-written and carries no field information, so
+	// this is the only route by which a Classic write command can say what goes
+	// in its body.
+	BodySchema *parser.Schema
+	// BodyRoot is the XML root element a request body must be wrapped in, e.g.
+	// "policy". Read off the spec (a schema's xml.name, else its component key)
+	// rather than reused from Singular, so a disagreement between the two is
+	// reported at derivation time instead of silently picking one.
+	BodyRoot string
+	// BodySchemaName is the component schema key BodySchema was parsed from,
+	// recorded so generated help can name its provenance.
+	BodySchemaName string
 }
 
 // GatewayVerdict is one gateway-coverage verdict in the three string values

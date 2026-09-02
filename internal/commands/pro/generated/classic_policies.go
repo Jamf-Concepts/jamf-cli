@@ -18,6 +18,534 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// bodySpecClassicPolicies is this resource's request-body contract, derived from
+// specs/classic/schemas.json at generation time. Empty when the Classic API spec
+// declares no schema for it, in which case create/update/apply read their body
+// from --from-file or stdin with no --scaffold and no --set.
+var bodySpecClassicPolicies = classicBodySpec{
+	Root:   "policy",
+	Schema: "policy_post",
+	Scaffold: `<policy>
+  <account_maintenance>
+    <accounts>
+      <account>
+        <action></action>
+        <admin>false</admin>
+        <archive_home_directory>false</archive_home_directory>
+        <archive_home_directory_to>/Users/Deleted Users/admin.dmg</archive_home_directory_to>
+        <filevault_enabled>false</filevault_enabled>
+        <hint></hint>
+        <home>/Users/admin</home>
+        <password></password>
+        <password_sha256></password_sha256>
+        <picture>/Library/User Pictures/Animals/Eagle.tif</picture>
+        <realname>Administrator</realname>
+        <secure_token_allowed>false</secure_token_allowed>
+        <username>admin</username>
+      </account>
+    </accounts>
+    <directory_bindings>
+      <binding>
+        <id>1</id>
+        <name></name>
+      </binding>
+    </directory_bindings>
+    <management_account>
+      <action></action>
+      <managed_password></managed_password>
+      <managed_password_length>8</managed_password_length>
+    </management_account>
+    <open_firmware_efi_password>
+      <of_mode></of_mode>
+      <of_password></of_password>
+      <of_password_sha256></of_password_sha256>
+    </open_firmware_efi_password>
+  </account_maintenance>
+  <disk_encryption>
+    <action></action>
+    <auth_restart>false</auth_restart>
+    <disk_encryption_configuration_id>1</disk_encryption_configuration_id>
+    <remediate_disk_encryption_configuration_id>1</remediate_disk_encryption_configuration_id>
+    <remediate_key_type></remediate_key_type>
+  </disk_encryption>
+  <dock_items>
+    <dock_item>
+      <id>1</id>
+      <name>Safari</name>
+      <action></action>
+    </dock_item>
+  </dock_items>
+  <files_processes>
+    <delete_file>false</delete_file>
+    <kill_process>false</kill_process>
+    <locate_file>/Library/Fonts/testFont.ttc</locate_file>
+    <run_command>echo "foobar"</run_command>
+    <search_by_path>/Applications/appName.app</search_by_path>
+    <search_for_process>processName</search_for_process>
+    <spotlight_search>Screenshot.pdf</spotlight_search>
+    <update_locate_database>false</update_locate_database>
+  </files_processes>
+  <general>
+    <id>1</id>
+    <name>Disk Encryption</name>
+    <category>
+      <id>0</id>
+      <name></name>
+    </category>
+    <date_time_limitations>
+      <activation_date>2017-07-07T18:37:04.000Z</activation_date>
+      <activation_date_epoch>1499470624555</activation_date_epoch>
+      <activation_date_utc>2017-07-07T18:37:04.555-0500</activation_date_utc>
+      <expiration_date>2017-07-07T18:37:04.000Z</expiration_date>
+      <expiration_date_epoch>1499470624555</expiration_date_epoch>
+      <expiration_date_utc>2017-07-07T18:37:04.555-0500</expiration_date_utc>
+      <no_execute_end>4:00 AM</no_execute_end>
+      <no_execute_on>
+        <day></day>
+      </no_execute_on>
+      <no_execute_start>2:00 AM</no_execute_start>
+    </date_time_limitations>
+    <enabled>false</enabled>
+    <frequency></frequency>
+    <location_user_only>false</location_user_only>
+    <network_limitations>
+      <any_ip_address>false</any_ip_address>
+      <minimum_network_connection></minimum_network_connection>
+      <network_segments>
+        <network_segment>
+          <id>1</id>
+          <name></name>
+        </network_segment>
+      </network_segments>
+    </network_limitations>
+    <network_requirements></network_requirements>
+    <notify_on_each_failed_retry>false</notify_on_each_failed_retry>
+    <offline>false</offline>
+    <override_default_settings>
+      <distribution_point></distribution_point>
+      <force_afp_smb>false</force_afp_smb>
+      <sus></sus>
+      <target_drive></target_drive>
+    </override_default_settings>
+    <retry_attempts>0</retry_attempts>
+    <retry_event></retry_event>
+    <site>
+      <id>0</id>
+      <name>None</name>
+    </site>
+    <target_drive>/</target_drive>
+    <trigger></trigger>
+    <trigger_checkin>false</trigger_checkin>
+    <trigger_enrollment_complete>false</trigger_enrollment_complete>
+    <trigger_login>false</trigger_login>
+    <trigger_logout>false</trigger_logout>
+    <trigger_network_state_changed>false</trigger_network_state_changed>
+    <trigger_other></trigger_other>
+    <trigger_startup>false</trigger_startup>
+  </general>
+  <maintenance>
+    <byhost>false</byhost>
+    <heal>false</heal>
+    <install_all_cached_packages>false</install_all_cached_packages>
+    <permissions>false</permissions>
+    <prebindings>false</prebindings>
+    <recon>false</recon>
+    <reset_name>false</reset_name>
+    <system_cache>false</system_cache>
+    <user_cache>false</user_cache>
+    <verify>false</verify>
+  </maintenance>
+  <package_configuration>
+    <distribution_point></distribution_point>
+    <packages>
+      <package>
+        <id>1</id>
+        <name>Firefox.dmg</name>
+        <action></action>
+        <feu>false</feu>
+        <fut>false</fut>
+        <update_autorun>false</update_autorun>
+      </package>
+    </packages>
+  </package_configuration>
+  <printers>
+    <leave_existing_default>false</leave_existing_default>
+    <printer>
+      <id>0</id>
+      <name></name>
+      <action></action>
+      <make_default>false</make_default>
+    </printer>
+  </printers>
+  <reboot>
+    <file_vault_2_reboot>false</file_vault_2_reboot>
+    <message></message>
+    <minutes_until_reboot>0</minutes_until_reboot>
+    <no_user_logged_in></no_user_logged_in>
+    <specify_startup></specify_startup>
+    <start_reboot_timer_immediately>false</start_reboot_timer_immediately>
+    <startup_disk></startup_disk>
+    <user_logged_in></user_logged_in>
+  </reboot>
+  <scope>
+    <all_computers>false</all_computers>
+    <all_jss_users>false</all_jss_users>
+    <buildings>
+      <building>
+        <id>1</id>
+        <name></name>
+      </building>
+    </buildings>
+    <computer_groups>
+      <computer_group>
+        <id>1</id>
+        <name></name>
+      </computer_group>
+    </computer_groups>
+    <computers>
+      <computer>
+        <id>1</id>
+        <name>Admins MacBook Pro</name>
+        <udid>55900BDC-347C-58B1-D249-F32244B11D30</udid>
+      </computer>
+    </computers>
+    <departments>
+      <department>
+        <id>1</id>
+        <name></name>
+      </department>
+    </departments>
+    <exclusions>
+      <buildings>
+        <building>
+          <id>1</id>
+          <name></name>
+        </building>
+      </buildings>
+      <computer_groups>
+        <computer_group>
+          <id>1</id>
+          <name></name>
+        </computer_group>
+      </computer_groups>
+      <computers>
+        <computer>
+          <id>1</id>
+          <name>Johns iMac</name>
+          <udid>55900BDC-347C-58B1-D249-F32244B11D30</udid>
+        </computer>
+      </computers>
+      <departments>
+        <department>
+          <id>1</id>
+          <name></name>
+        </department>
+      </departments>
+      <ibeacons>
+        <ibeacon>
+          <id>1</id>
+          <name></name>
+        </ibeacon>
+      </ibeacons>
+      <jss_user_groups>
+        <user_group>
+          <id>1</id>
+          <name></name>
+        </user_group>
+      </jss_user_groups>
+      <jss_users>
+        <user>
+          <id>1</id>
+          <name></name>
+        </user>
+      </jss_users>
+      <network_segments>
+        <network_segment>
+          <id>0</id>
+          <name>New York</name>
+          <uid></uid>
+        </network_segment>
+      </network_segments>
+      <user_groups>
+        <user_group>
+          <id>1</id>
+          <name></name>
+        </user_group>
+      </user_groups>
+      <users>
+        <user>
+          <name>Adam</name>
+        </user>
+      </users>
+    </exclusions>
+    <jss_user_groups>
+      <user_group>
+        <id>1</id>
+        <name></name>
+      </user_group>
+    </jss_user_groups>
+    <jss_users>
+      <user>
+        <id>1</id>
+        <name></name>
+      </user>
+    </jss_users>
+    <limit_to_users>
+      <user_groups>
+        <user_group></user_group>
+      </user_groups>
+    </limit_to_users>
+    <limitations>
+      <ibeacons>
+        <ibeacon>
+          <id>1</id>
+          <name></name>
+        </ibeacon>
+      </ibeacons>
+      <network_segments>
+        <network_segment>
+          <id>1</id>
+          <name></name>
+        </network_segment>
+      </network_segments>
+      <user_groups>
+        <user_group>
+          <id>1</id>
+          <name></name>
+        </user_group>
+      </user_groups>
+      <users>
+        <user>
+          <id>1</id>
+          <name></name>
+        </user>
+      </users>
+    </limitations>
+  </scope>
+  <scripts>
+    <script>
+      <id>1</id>
+      <name>mountNetworkShare.sh</name>
+      <parameter10></parameter10>
+      <parameter11></parameter11>
+      <parameter4></parameter4>
+      <parameter5></parameter5>
+      <parameter6></parameter6>
+      <parameter7></parameter7>
+      <parameter8></parameter8>
+      <parameter9></parameter9>
+      <priority></priority>
+    </script>
+  </scripts>
+  <self_service>
+    <feature_on_main_page>false</feature_on_main_page>
+    <force_users_to_view_description>false</force_users_to_view_description>
+    <install_button_text>Encrypt</install_button_text>
+    <notification>false</notification>
+    <notification_message></notification_message>
+    <notification_subject></notification_subject>
+    <notification_type></notification_type>
+    <reinstall_button_text>Re-encrypt</reinstall_button_text>
+    <self_service_categories>
+      <category>
+        <id>0</id>
+        <name></name>
+        <display_in>false</display_in>
+        <feature_in>false</feature_in>
+      </category>
+    </self_service_categories>
+    <self_service_description>Encrypt the boot drive of this device</self_service_description>
+    <self_service_display_name>Disk Encryption</self_service_display_name>
+    <self_service_icon>
+      <id>1</id>
+      <filename>Encryption.png</filename>
+      <uri>https://jssURL.jamfcloud.com/iconservlet/?id=1</uri>
+    </self_service_icon>
+    <use_for_self_service>false</use_for_self_service>
+  </self_service>
+  <user_interaction>
+    <allow_deferral_minutes>0</allow_deferral_minutes>
+    <allow_deferral_until_utc>2019-01-01T01:00:00.000-0600</allow_deferral_until_utc>
+    <allow_users_to_defer>false</allow_users_to_defer>
+    <message_finish>Policy completed</message_finish>
+    <message_start>Policy is begining execution</message_start>
+  </user_interaction>
+</policy>
+`,
+	FieldTypes: map[string]string{
+		"account_maintenance":                                               "object",
+		"account_maintenance.accounts":                                      "array",
+		"account_maintenance.directory_bindings":                            "array",
+		"account_maintenance.management_account":                            "object",
+		"account_maintenance.management_account.action":                     "string",
+		"account_maintenance.management_account.managed_password":           "string",
+		"account_maintenance.management_account.managed_password_length":    "integer",
+		"account_maintenance.open_firmware_efi_password":                    "object",
+		"account_maintenance.open_firmware_efi_password.of_mode":            "string",
+		"account_maintenance.open_firmware_efi_password.of_password":        "string",
+		"account_maintenance.open_firmware_efi_password.of_password_sha256": "string",
+		"disk_encryption":                                            "object",
+		"disk_encryption.action":                                     "string",
+		"disk_encryption.auth_restart":                               "boolean",
+		"disk_encryption.disk_encryption_configuration_id":           "integer",
+		"disk_encryption.remediate_disk_encryption_configuration_id": "integer",
+		"disk_encryption.remediate_key_type":                         "string",
+		"dock_items":                                                 "array",
+		"files_processes":                                            "object",
+		"files_processes.delete_file":                                "boolean",
+		"files_processes.kill_process":                               "boolean",
+		"files_processes.locate_file":                                "string",
+		"files_processes.run_command":                                "string",
+		"files_processes.search_by_path":                             "string",
+		"files_processes.search_for_process":                         "string",
+		"files_processes.spotlight_search":                           "string",
+		"files_processes.update_locate_database":                     "boolean",
+		"general":                                                    "object",
+		"general.category":                                           "object",
+		"general.category.id":                                        "integer",
+		"general.category.name":                                      "string",
+		"general.date_time_limitations":                              "object",
+		"general.date_time_limitations.activation_date":              "string",
+		"general.date_time_limitations.activation_date_epoch":        "integer",
+		"general.date_time_limitations.activation_date_utc":          "string",
+		"general.date_time_limitations.expiration_date":              "string",
+		"general.date_time_limitations.expiration_date_epoch":        "integer",
+		"general.date_time_limitations.expiration_date_utc":          "string",
+		"general.date_time_limitations.no_execute_end":               "string",
+		"general.date_time_limitations.no_execute_on":                "object",
+		"general.date_time_limitations.no_execute_on.day":            "array",
+		"general.date_time_limitations.no_execute_start":             "string",
+		"general.enabled":                                            "boolean",
+		"general.frequency":                                          "string",
+		"general.id":                                                 "integer",
+		"general.location_user_only":                                 "boolean",
+		"general.name":                                               "string",
+		"general.network_limitations":                                "object",
+		"general.network_limitations.any_ip_address":                 "boolean",
+		"general.network_limitations.minimum_network_connection":     "string",
+		"general.network_limitations.network_segments":               "array",
+		"general.network_requirements":                               "string",
+		"general.notify_on_each_failed_retry":                        "boolean",
+		"general.offline":                                            "boolean",
+		"general.override_default_settings":                          "object",
+		"general.override_default_settings.distribution_point":       "string",
+		"general.override_default_settings.force_afp_smb":            "boolean",
+		"general.override_default_settings.sus":                      "string",
+		"general.override_default_settings.target_drive":             "string",
+		"general.retry_attempts":                                     "integer",
+		"general.retry_event":                                        "string",
+		"general.site":                                               "object",
+		"general.site.id":                                            "integer",
+		"general.site.name":                                          "string",
+		"general.target_drive":                                       "string",
+		"general.trigger":                                            "string",
+		"general.trigger_checkin":                                    "boolean",
+		"general.trigger_enrollment_complete":                        "boolean",
+		"general.trigger_login":                                      "boolean",
+		"general.trigger_logout":                                     "boolean",
+		"general.trigger_network_state_changed":                      "boolean",
+		"general.trigger_other":                                      "string",
+		"general.trigger_startup":                                    "boolean",
+		"maintenance":                                                "object",
+		"maintenance.byhost":                                         "boolean",
+		"maintenance.heal":                                           "boolean",
+		"maintenance.install_all_cached_packages":                    "boolean",
+		"maintenance.permissions":                                    "boolean",
+		"maintenance.prebindings":                                    "boolean",
+		"maintenance.recon":                                          "boolean",
+		"maintenance.reset_name":                                     "boolean",
+		"maintenance.system_cache":                                   "boolean",
+		"maintenance.user_cache":                                     "boolean",
+		"maintenance.verify":                                         "boolean",
+		"package_configuration":                                      "object",
+		"package_configuration.distribution_point":                   "string",
+		"package_configuration.packages":                             "array",
+		"printers":                                                   "object",
+		"printers.leave_existing_default":                            "boolean",
+		"printers.printer":                                           "array",
+		"reboot":                                                     "object",
+		"reboot.file_vault_2_reboot":                                 "boolean",
+		"reboot.message":                                             "string",
+		"reboot.minutes_until_reboot":                                "integer",
+		"reboot.no_user_logged_in":                                   "string",
+		"reboot.specify_startup":                                     "string",
+		"reboot.start_reboot_timer_immediately":                      "boolean",
+		"reboot.startup_disk":                                        "string",
+		"reboot.user_logged_in":                                      "string",
+		"scope":                                                      "object",
+		"scope.all_computers":                                        "boolean",
+		"scope.all_jss_users":                                        "boolean",
+		"scope.buildings":                                            "array",
+		"scope.computer_groups":                                      "array",
+		"scope.computers":                                            "array",
+		"scope.departments":                                          "array",
+		"scope.exclusions":                                           "object",
+		"scope.exclusions.buildings":                                 "array",
+		"scope.exclusions.computer_groups":                           "array",
+		"scope.exclusions.computers":                                 "array",
+		"scope.exclusions.departments":                               "array",
+		"scope.exclusions.ibeacons":                                  "array",
+		"scope.exclusions.jss_user_groups":                           "array",
+		"scope.exclusions.jss_users":                                 "array",
+		"scope.exclusions.network_segments":                          "array",
+		"scope.exclusions.user_groups":                               "array",
+		"scope.exclusions.users":                                     "array",
+		"scope.jss_user_groups":                                      "array",
+		"scope.jss_users":                                            "array",
+		"scope.limit_to_users":                                       "object",
+		"scope.limit_to_users.user_groups":                           "object",
+		"scope.limit_to_users.user_groups.user_group":                "array",
+		"scope.limitations":                                          "object",
+		"scope.limitations.ibeacons":                                 "array",
+		"scope.limitations.network_segments":                         "array",
+		"scope.limitations.user_groups":                              "array",
+		"scope.limitations.users":                                    "array",
+		"scripts":                                                    "object",
+		"scripts.script":                                             "array",
+		"self_service":                                               "object",
+		"self_service.feature_on_main_page":                          "boolean",
+		"self_service.force_users_to_view_description":               "boolean",
+		"self_service.install_button_text":                           "string",
+		"self_service.notification":                                  "boolean",
+		"self_service.notification_message":                          "string",
+		"self_service.notification_subject":                          "string",
+		"self_service.notification_type":                             "string",
+		"self_service.reinstall_button_text":                         "string",
+		"self_service.self_service_categories":                       "object",
+		"self_service.self_service_categories.category":              "array",
+		"self_service.self_service_description":                      "string",
+		"self_service.self_service_display_name":                     "string",
+		"self_service.self_service_icon":                             "object",
+		"self_service.self_service_icon.filename":                    "string",
+		"self_service.self_service_icon.id":                          "integer",
+		"self_service.self_service_icon.uri":                         "string",
+		"self_service.use_for_self_service":                          "boolean",
+		"user_interaction":                                           "object",
+		"user_interaction.allow_deferral_minutes":                    "integer",
+		"user_interaction.allow_deferral_until_utc":                  "string",
+		"user_interaction.allow_users_to_defer":                      "boolean",
+		"user_interaction.message_finish":                            "string",
+		"user_interaction.message_start":                             "string",
+	},
+	Enums: map[string][]string{
+		"account_maintenance.management_account.action":          {"rotate", "doNotChange"},
+		"account_maintenance.open_firmware_efi_password.of_mode": {"command", "none"},
+		"disk_encryption.action":                                 {"apply", "remediate"},
+		"disk_encryption.remediate_key_type":                     {"Individual", "Institutional", "Individual And Institutional"},
+		"general.frequency":                                      {"Once per computer", "Once per user per computer", "Once per user", "Once every day", "Once every week", "Once every month", "Ongoing"},
+		"general.network_limitations.minimum_network_connection": {"No Minimum", "Ethernet"},
+		"general.network_requirements":                           {"Any", "Ethernet"},
+		"general.retry_event":                                    {"none", "trigger", "check-in"},
+	},
+	Credentials: map[string]bool{
+		"account_maintenance.accounts[].password":                           true,
+		"account_maintenance.accounts[].password_sha256":                    true,
+		"account_maintenance.management_account.managed_password":           true,
+		"account_maintenance.open_firmware_efi_password.of_password":        true,
+		"account_maintenance.open_firmware_efi_password.of_password_sha256": true,
+	},
+}
+
 // NewClassicPoliciesCmd creates the classic-policies command group
 func NewClassicPoliciesCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
@@ -166,12 +694,43 @@ func newClassicPoliciesGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
 func newClassicPoliciesCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
-		fromFile string
+		fromFile     string
+		flagScaffold bool
+		flagSet      []string
 	)
 	cmd := &cobra.Command{
-		Use:         "create",
-		Short:       "Create a policy",
-		Long:        "Create a new policy. Reads the XML body from --from-file or stdin.",
+		Use:   "create",
+		Short: "Create a policy",
+		Long: `Create a new policy. Reads the XML body from --from-file, --set or stdin.
+
+Body fields are derived from the Classic API spec (schema "policy_post").
+Run with --scaffold to print a complete XML template.
+The template populates every optional section with one specimen entry,
+including references whose <id> points at nothing on your instance — delete
+the sections you do not need. A dangling reference is answered with a 500.
+Optional sections: account_maintenance, disk_encryption, dock_items, files_processes,
+  general, maintenance, package_configuration, printers, reboot, scope,
+  scripts, self_service, user_interaction
+
+Allowed values:
+  account_maintenance.accounts[].action: Create | Reset | Delete | DisableFileVault
+  account_maintenance.management_account.action: rotate | doNotChange
+  account_maintenance.open_firmware_efi_password.of_mode: command | none
+  disk_encryption.action: apply | remediate
+  disk_encryption.remediate_key_type: Individual | Institutional | Individual And Institutional
+  dock_items[].action: Add To Beginning | Add To End | Remove
+  general.frequency: Once per computer | Once per user per computer | Once per user | Once every day | Once every week | Once every month | Ongoing
+  general.network_limitations.minimum_network_connection: No Minimum | Ethernet
+  general.network_requirements: Any | Ethernet
+  general.retry_event: none | trigger | check-in
+  package_configuration.packages[].action: Install | Cache | Install Cached
+  printers.printer[].action: install | uninstall
+  scripts.script[].priority: Before | After
+
+The Classic API does not reject an out-of-range value — it substitutes
+its default silently — so --set refuses one rather than letting it through.
+
+Credential fields (--from-file only, never --set): account_maintenance.accounts[].password, account_maintenance.accounts[].password_sha256, account_maintenance.management_account.managed_password, account_maintenance.open_firmware_efi_password.of_password, account_maintenance.open_firmware_efi_password.of_password_sha256`,
 		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "policies:create"},
 		Example: `  # Create a policy from an XML file
   jamf-cli pro classic-policies create --from-file policy.xml
@@ -179,9 +738,12 @@ func newClassicPoliciesCreateCmd(ctx *registry.CLIContext) *cobra.Command {
   # Create a policy from XML on stdin
   cat policy.xml | jamf-cli pro classic-policies create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if flagScaffold {
+				return printClassicScaffold(bodySpecClassicPolicies)
+			}
 			reqCtx := cmd.Context()
 
-			bodyBytes, err := readClassicBody(fromFile)
+			bodyBytes, err := readClassicBodyOrSet(fromFile, flagSet, bodySpecClassicPolicies)
 			if err != nil {
 				return err
 			}
@@ -200,28 +762,72 @@ func newClassicPoliciesCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to XML input file (or pipe XML to stdin)")
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print an XML body template for this resource and exit")
+	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Set a body field in dot notation (key=value, repeatable). Builds the whole body, so it cannot be combined with --from-file")
+	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+		return []string{"account_maintenance.management_account.action=", "account_maintenance.management_account.managed_password_length=", "account_maintenance.open_firmware_efi_password.of_mode=", "disk_encryption.action=", "disk_encryption.auth_restart=", "disk_encryption.disk_encryption_configuration_id=", "disk_encryption.remediate_disk_encryption_configuration_id=", "disk_encryption.remediate_key_type=", "files_processes.delete_file=", "files_processes.kill_process=", "files_processes.locate_file=", "files_processes.run_command=", "files_processes.search_by_path=", "files_processes.search_for_process=", "files_processes.spotlight_search=", "files_processes.update_locate_database=", "general.category.id=", "general.category.name=", "general.date_time_limitations.activation_date=", "general.date_time_limitations.activation_date_epoch=", "general.date_time_limitations.activation_date_utc=", "general.date_time_limitations.expiration_date=", "general.date_time_limitations.expiration_date_epoch=", "general.date_time_limitations.expiration_date_utc=", "general.date_time_limitations.no_execute_end=", "general.date_time_limitations.no_execute_start=", "general.enabled=", "general.frequency=", "general.id=", "general.location_user_only=", "general.name=", "general.network_limitations.any_ip_address=", "general.network_limitations.minimum_network_connection=", "general.network_requirements=", "general.notify_on_each_failed_retry=", "general.offline=", "general.override_default_settings.distribution_point=", "general.override_default_settings.force_afp_smb=", "general.override_default_settings.sus=", "general.override_default_settings.target_drive=", "general.retry_attempts=", "general.retry_event=", "general.site.id=", "general.site.name=", "general.target_drive=", "general.trigger=", "general.trigger_checkin=", "general.trigger_enrollment_complete=", "general.trigger_login=", "general.trigger_logout=", "general.trigger_network_state_changed=", "general.trigger_other=", "general.trigger_startup=", "maintenance.byhost=", "maintenance.heal=", "maintenance.install_all_cached_packages=", "maintenance.permissions=", "maintenance.prebindings=", "maintenance.recon=", "maintenance.reset_name=", "maintenance.system_cache=", "maintenance.user_cache=", "maintenance.verify=", "package_configuration.distribution_point=", "printers.leave_existing_default=", "reboot.file_vault_2_reboot=", "reboot.message=", "reboot.minutes_until_reboot=", "reboot.no_user_logged_in=", "reboot.specify_startup=", "reboot.start_reboot_timer_immediately=", "reboot.startup_disk=", "reboot.user_logged_in=", "scope.all_computers=", "scope.all_jss_users=", "self_service.feature_on_main_page=", "self_service.force_users_to_view_description=", "self_service.install_button_text=", "self_service.notification=", "self_service.notification_message=", "self_service.notification_subject=", "self_service.notification_type=", "self_service.reinstall_button_text=", "self_service.self_service_description=", "self_service.self_service_display_name=", "self_service.self_service_icon.filename=", "self_service.self_service_icon.id=", "self_service.self_service_icon.uri=", "self_service.use_for_self_service=", "user_interaction.allow_deferral_minutes=", "user_interaction.allow_deferral_until_utc=", "user_interaction.allow_users_to_defer=", "user_interaction.message_finish=", "user_interaction.message_start="}, cobra.ShellCompDirectiveNoSpace
+	})
 	return cmd
 }
 
 func newClassicPoliciesUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var fromFile string
+	var (
+		flagScaffold bool
+		flagSet      []string
+	)
 	var flagName string
 
 	cmd := &cobra.Command{
-		Use:         "update [<id>]",
-		Short:       "Update a policy",
-		Long:        "Update an existing policy by ID. Reads the XML body from --from-file or stdin.",
+		Use:   "update [<id>]",
+		Short: "Update a policy",
+		Long: `Update an existing policy by ID. Reads the XML body from --from-file, --set or stdin.
+
+The Classic API applies a partial update: fields the body omits keep their
+current values, so a body carrying one element changes only that element.
+
+Body fields are derived from the Classic API spec (schema "policy_post").
+Run with --scaffold to print a complete XML template.
+The template populates every optional section with one specimen entry,
+including references whose <id> points at nothing on your instance — delete
+the sections you do not need. A dangling reference is answered with a 500.
+Optional sections: account_maintenance, disk_encryption, dock_items, files_processes,
+  general, maintenance, package_configuration, printers, reboot, scope,
+  scripts, self_service, user_interaction
+
+Allowed values:
+  account_maintenance.accounts[].action: Create | Reset | Delete | DisableFileVault
+  account_maintenance.management_account.action: rotate | doNotChange
+  account_maintenance.open_firmware_efi_password.of_mode: command | none
+  disk_encryption.action: apply | remediate
+  disk_encryption.remediate_key_type: Individual | Institutional | Individual And Institutional
+  dock_items[].action: Add To Beginning | Add To End | Remove
+  general.frequency: Once per computer | Once per user per computer | Once per user | Once every day | Once every week | Once every month | Ongoing
+  general.network_limitations.minimum_network_connection: No Minimum | Ethernet
+  general.network_requirements: Any | Ethernet
+  general.retry_event: none | trigger | check-in
+  package_configuration.packages[].action: Install | Cache | Install Cached
+  printers.printer[].action: install | uninstall
+  scripts.script[].priority: Before | After
+
+The Classic API does not reject an out-of-range value — it substitutes
+its default silently — so --set refuses one rather than letting it through.
+
+Credential fields (--from-file only, never --set): account_maintenance.accounts[].password, account_maintenance.accounts[].password_sha256, account_maintenance.management_account.managed_password, account_maintenance.open_firmware_efi_password.of_password, account_maintenance.open_firmware_efi_password.of_password_sha256`,
 		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "policies:update"},
 		Example: `  # Update a policy from an XML file
   jamf-cli pro classic-policies update 1 --from-file policy.xml
 
   # Update a policy from XML on stdin
   cat policy.xml | jamf-cli pro classic-policies update 1`,
-		Args: cobra.MaximumNArgs(1),
+		Args: classicScaffoldArgs(&flagScaffold, cobra.MaximumNArgs(1)),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if flagScaffold {
+				return printClassicScaffold(bodySpecClassicPolicies)
+			}
 			reqCtx := cmd.Context()
 
-			bodyBytes, bodyErr := readClassicBody(fromFile)
+			bodyBytes, bodyErr := readClassicBodyOrSet(fromFile, flagSet, bodySpecClassicPolicies)
 			if bodyErr != nil {
 				return bodyErr
 			}
@@ -250,6 +856,11 @@ func newClassicPoliciesUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to XML input file (or pipe XML to stdin)")
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print an XML body template for this resource and exit")
+	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Set a body field in dot notation (key=value, repeatable). Builds the whole body, so it cannot be combined with --from-file")
+	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+		return []string{"account_maintenance.management_account.action=", "account_maintenance.management_account.managed_password_length=", "account_maintenance.open_firmware_efi_password.of_mode=", "disk_encryption.action=", "disk_encryption.auth_restart=", "disk_encryption.disk_encryption_configuration_id=", "disk_encryption.remediate_disk_encryption_configuration_id=", "disk_encryption.remediate_key_type=", "files_processes.delete_file=", "files_processes.kill_process=", "files_processes.locate_file=", "files_processes.run_command=", "files_processes.search_by_path=", "files_processes.search_for_process=", "files_processes.spotlight_search=", "files_processes.update_locate_database=", "general.category.id=", "general.category.name=", "general.date_time_limitations.activation_date=", "general.date_time_limitations.activation_date_epoch=", "general.date_time_limitations.activation_date_utc=", "general.date_time_limitations.expiration_date=", "general.date_time_limitations.expiration_date_epoch=", "general.date_time_limitations.expiration_date_utc=", "general.date_time_limitations.no_execute_end=", "general.date_time_limitations.no_execute_start=", "general.enabled=", "general.frequency=", "general.id=", "general.location_user_only=", "general.name=", "general.network_limitations.any_ip_address=", "general.network_limitations.minimum_network_connection=", "general.network_requirements=", "general.notify_on_each_failed_retry=", "general.offline=", "general.override_default_settings.distribution_point=", "general.override_default_settings.force_afp_smb=", "general.override_default_settings.sus=", "general.override_default_settings.target_drive=", "general.retry_attempts=", "general.retry_event=", "general.site.id=", "general.site.name=", "general.target_drive=", "general.trigger=", "general.trigger_checkin=", "general.trigger_enrollment_complete=", "general.trigger_login=", "general.trigger_logout=", "general.trigger_network_state_changed=", "general.trigger_other=", "general.trigger_startup=", "maintenance.byhost=", "maintenance.heal=", "maintenance.install_all_cached_packages=", "maintenance.permissions=", "maintenance.prebindings=", "maintenance.recon=", "maintenance.reset_name=", "maintenance.system_cache=", "maintenance.user_cache=", "maintenance.verify=", "package_configuration.distribution_point=", "printers.leave_existing_default=", "reboot.file_vault_2_reboot=", "reboot.message=", "reboot.minutes_until_reboot=", "reboot.no_user_logged_in=", "reboot.specify_startup=", "reboot.start_reboot_timer_immediately=", "reboot.startup_disk=", "reboot.user_logged_in=", "scope.all_computers=", "scope.all_jss_users=", "self_service.feature_on_main_page=", "self_service.force_users_to_view_description=", "self_service.install_button_text=", "self_service.notification=", "self_service.notification_message=", "self_service.notification_subject=", "self_service.notification_type=", "self_service.reinstall_button_text=", "self_service.self_service_description=", "self_service.self_service_display_name=", "self_service.self_service_icon.filename=", "self_service.self_service_icon.id=", "self_service.self_service_icon.uri=", "self_service.use_for_self_service=", "user_interaction.allow_deferral_minutes=", "user_interaction.allow_deferral_until_utc=", "user_interaction.allow_users_to_defer=", "user_interaction.message_finish=", "user_interaction.message_start="}, cobra.ShellCompDirectiveNoSpace
+	})
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up policy by name")
 
 	return cmd
@@ -439,20 +1050,51 @@ func newClassicPoliciesDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 
 func newClassicPoliciesApplyCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
-		fromFile   string
-		flagYes    bool
-		flagDryRun bool
+		fromFile     string
+		flagYes      bool
+		flagDryRun   bool
+		flagScaffold bool
+		flagSet      []string
 	)
 
 	cmd := &cobra.Command{
 		Use:         "apply",
 		Short:       "Create or replace a policy by name",
 		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "policies:create,policies:read,policies:update"},
-		Long: `Create or replace a policy. Reads XML from --from-file or stdin.
+		Long: `Create or replace a policy. Reads XML from --from-file, --set or stdin.
 
 The name field in the input XML is used to check if the resource already
 exists. If it does, the resource is replaced (with confirmation).
-If not, a new resource is created.`,
+If not, a new resource is created.
+
+Body fields are derived from the Classic API spec (schema "policy_post").
+Run with --scaffold to print a complete XML template.
+The template populates every optional section with one specimen entry,
+including references whose <id> points at nothing on your instance — delete
+the sections you do not need. A dangling reference is answered with a 500.
+Optional sections: account_maintenance, disk_encryption, dock_items, files_processes,
+  general, maintenance, package_configuration, printers, reboot, scope,
+  scripts, self_service, user_interaction
+
+Allowed values:
+  account_maintenance.accounts[].action: Create | Reset | Delete | DisableFileVault
+  account_maintenance.management_account.action: rotate | doNotChange
+  account_maintenance.open_firmware_efi_password.of_mode: command | none
+  disk_encryption.action: apply | remediate
+  disk_encryption.remediate_key_type: Individual | Institutional | Individual And Institutional
+  dock_items[].action: Add To Beginning | Add To End | Remove
+  general.frequency: Once per computer | Once per user per computer | Once per user | Once every day | Once every week | Once every month | Ongoing
+  general.network_limitations.minimum_network_connection: No Minimum | Ethernet
+  general.network_requirements: Any | Ethernet
+  general.retry_event: none | trigger | check-in
+  package_configuration.packages[].action: Install | Cache | Install Cached
+  printers.printer[].action: install | uninstall
+  scripts.script[].priority: Before | After
+
+The Classic API does not reject an out-of-range value — it substitutes
+its default silently — so --set refuses one rather than letting it through.
+
+Credential fields (--from-file only, never --set): account_maintenance.accounts[].password, account_maintenance.accounts[].password_sha256, account_maintenance.management_account.managed_password, account_maintenance.open_firmware_efi_password.of_password, account_maintenance.open_firmware_efi_password.of_password_sha256`,
 		Example: `  # Apply a policy from an XML file
   jamf-cli pro classic-policies apply --from-file policy.xml
 
@@ -462,6 +1104,9 @@ If not, a new resource is created.`,
   # Apply without replacement confirmation
   jamf-cli pro classic-policies apply --from-file policy.xml --yes`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			if flagScaffold {
+				return printClassicScaffold(bodySpecClassicPolicies)
+			}
 			reqCtx := cmd.Context()
 
 			// Read input
@@ -534,6 +1179,12 @@ If not, a new resource is created.`,
 	}
 
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to XML input file (or pipe XML to stdin)")
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print an XML body template for this resource and exit")
+	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Set a body field in dot notation (key=value, repeatable). Builds the whole body, so it cannot be combined with --from-file")
+	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+		return []string{"account_maintenance.management_account.action=", "account_maintenance.management_account.managed_password_length=", "account_maintenance.open_firmware_efi_password.of_mode=", "disk_encryption.action=", "disk_encryption.auth_restart=", "disk_encryption.disk_encryption_configuration_id=", "disk_encryption.remediate_disk_encryption_configuration_id=", "disk_encryption.remediate_key_type=", "files_processes.delete_file=", "files_processes.kill_process=", "files_processes.locate_file=", "files_processes.run_command=", "files_processes.search_by_path=", "files_processes.search_for_process=", "files_processes.spotlight_search=", "files_processes.update_locate_database=", "general.category.id=", "general.category.name=", "general.date_time_limitations.activation_date=", "general.date_time_limitations.activation_date_epoch=", "general.date_time_limitations.activation_date_utc=", "general.date_time_limitations.expiration_date=", "general.date_time_limitations.expiration_date_epoch=", "general.date_time_limitations.expiration_date_utc=", "general.date_time_limitations.no_execute_end=", "general.date_time_limitations.no_execute_start=", "general.enabled=", "general.frequency=", "general.id=", "general.location_user_only=", "general.name=", "general.network_limitations.any_ip_address=", "general.network_limitations.minimum_network_connection=", "general.network_requirements=", "general.notify_on_each_failed_retry=", "general.offline=", "general.override_default_settings.distribution_point=", "general.override_default_settings.force_afp_smb=", "general.override_default_settings.sus=", "general.override_default_settings.target_drive=", "general.retry_attempts=", "general.retry_event=", "general.site.id=", "general.site.name=", "general.target_drive=", "general.trigger=", "general.trigger_checkin=", "general.trigger_enrollment_complete=", "general.trigger_login=", "general.trigger_logout=", "general.trigger_network_state_changed=", "general.trigger_other=", "general.trigger_startup=", "maintenance.byhost=", "maintenance.heal=", "maintenance.install_all_cached_packages=", "maintenance.permissions=", "maintenance.prebindings=", "maintenance.recon=", "maintenance.reset_name=", "maintenance.system_cache=", "maintenance.user_cache=", "maintenance.verify=", "package_configuration.distribution_point=", "printers.leave_existing_default=", "reboot.file_vault_2_reboot=", "reboot.message=", "reboot.minutes_until_reboot=", "reboot.no_user_logged_in=", "reboot.specify_startup=", "reboot.start_reboot_timer_immediately=", "reboot.startup_disk=", "reboot.user_logged_in=", "scope.all_computers=", "scope.all_jss_users=", "self_service.feature_on_main_page=", "self_service.force_users_to_view_description=", "self_service.install_button_text=", "self_service.notification=", "self_service.notification_message=", "self_service.notification_subject=", "self_service.notification_type=", "self_service.reinstall_button_text=", "self_service.self_service_description=", "self_service.self_service_display_name=", "self_service.self_service_icon.filename=", "self_service.self_service_icon.id=", "self_service.self_service_icon.uri=", "self_service.use_for_self_service=", "user_interaction.allow_deferral_minutes=", "user_interaction.allow_deferral_until_utc=", "user_interaction.allow_users_to_defer=", "user_interaction.message_finish=", "user_interaction.message_start="}, cobra.ShellCompDirectiveNoSpace
+	})
+
 	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt when replacing")
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
 

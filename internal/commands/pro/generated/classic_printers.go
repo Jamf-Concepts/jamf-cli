@@ -17,6 +17,52 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// bodySpecClassicPrinters is this resource's request-body contract, derived from
+// specs/classic/schemas.json at generation time. Empty when the Classic API spec
+// declares no schema for it, in which case create/update/apply read their body
+// from --from-file or stdin with no --scaffold and no --set.
+var bodySpecClassicPrinters = classicBodySpec{
+	Root:   "printer",
+	Schema: "printer",
+	Scaffold: `<printer>
+  <id>1</id>
+  <name>HP 9th Floor</name>
+  <CUPS_name>HP_9th_Floor</CUPS_name>
+  <category>Printers</category>
+  <info></info>
+  <location></location>
+  <make_default>false</make_default>
+  <model>HP LaserJet 500 color MFP M575</model>
+  <notes></notes>
+  <os_requirements></os_requirements>
+  <ppd>9th_Floor_HP.ppd</ppd>
+  <ppd_contents></ppd_contents>
+  <ppd_path>/System/Library/Frameworks/ApplicationServices.framework/Versions/A/Frameworks/PrintCore.framework/Resources/Generic.ppd</ppd_path>
+  <shared>false</shared>
+  <uri>lpd://10.1.20.204/</uri>
+  <use_generic>false</use_generic>
+</printer>
+`,
+	FieldTypes: map[string]string{
+		"CUPS_name":       "string",
+		"category":        "string",
+		"id":              "integer",
+		"info":            "string",
+		"location":        "string",
+		"make_default":    "boolean",
+		"model":           "string",
+		"name":            "string",
+		"notes":           "string",
+		"os_requirements": "string",
+		"ppd":             "string",
+		"ppd_contents":    "string",
+		"ppd_path":        "string",
+		"shared":          "boolean",
+		"uri":             "string",
+		"use_generic":     "boolean",
+	},
+}
+
 // NewClassicPrintersCmd creates the classic-printers command group
 func NewClassicPrintersCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
@@ -160,12 +206,21 @@ func newClassicPrintersGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
 func newClassicPrintersCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
-		fromFile string
+		fromFile     string
+		flagScaffold bool
+		flagSet      []string
 	)
 	cmd := &cobra.Command{
-		Use:         "create",
-		Short:       "Create a printer",
-		Long:        "Create a new printer. Reads the XML body from --from-file or stdin.",
+		Use:   "create",
+		Short: "Create a printer",
+		Long: `Create a new printer. Reads the XML body from --from-file, --set or stdin.
+
+Body fields are derived from the Classic API spec (schema "printer").
+Run with --scaffold to print a complete XML template.
+
+Required: name
+Optional sections: CUPS_name, category, id, info, location, make_default, model, notes,
+  os_requirements, ppd, ppd_contents, ppd_path, shared, uri, use_generic`,
 		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "printers:create"},
 		Example: `  # Create a printer from an XML file
   jamf-cli pro classic-printers create --from-file printer.xml
@@ -173,9 +228,12 @@ func newClassicPrintersCreateCmd(ctx *registry.CLIContext) *cobra.Command {
   # Create a printer from XML on stdin
   cat printer.xml | jamf-cli pro classic-printers create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if flagScaffold {
+				return printClassicScaffold(bodySpecClassicPrinters)
+			}
 			reqCtx := cmd.Context()
 
-			bodyBytes, err := readClassicBody(fromFile)
+			bodyBytes, err := readClassicBodyOrSet(fromFile, flagSet, bodySpecClassicPrinters)
 			if err != nil {
 				return err
 			}
@@ -194,28 +252,50 @@ func newClassicPrintersCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to XML input file (or pipe XML to stdin)")
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print an XML body template for this resource and exit")
+	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Set a body field in dot notation (key=value, repeatable). Builds the whole body, so it cannot be combined with --from-file")
+	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+		return []string{"CUPS_name=", "category=", "id=", "info=", "location=", "make_default=", "model=", "name=", "notes=", "os_requirements=", "ppd=", "ppd_contents=", "ppd_path=", "shared=", "uri=", "use_generic="}, cobra.ShellCompDirectiveNoSpace
+	})
 	return cmd
 }
 
 func newClassicPrintersUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var fromFile string
+	var (
+		flagScaffold bool
+		flagSet      []string
+	)
 	var flagName string
 
 	cmd := &cobra.Command{
-		Use:         "update [<id>]",
-		Short:       "Update a printer",
-		Long:        "Update an existing printer by ID. Reads the XML body from --from-file or stdin.",
+		Use:   "update [<id>]",
+		Short: "Update a printer",
+		Long: `Update an existing printer by ID. Reads the XML body from --from-file, --set or stdin.
+
+The Classic API applies a partial update: fields the body omits keep their
+current values, so a body carrying one element changes only that element.
+
+Body fields are derived from the Classic API spec (schema "printer").
+Run with --scaffold to print a complete XML template.
+
+Required: name
+Optional sections: CUPS_name, category, id, info, location, make_default, model, notes,
+  os_requirements, ppd, ppd_contents, ppd_path, shared, uri, use_generic`,
 		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "printers:update"},
 		Example: `  # Update a printer from an XML file
   jamf-cli pro classic-printers update 1 --from-file printer.xml
 
   # Update a printer from XML on stdin
   cat printer.xml | jamf-cli pro classic-printers update 1`,
-		Args: cobra.MaximumNArgs(1),
+		Args: classicScaffoldArgs(&flagScaffold, cobra.MaximumNArgs(1)),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if flagScaffold {
+				return printClassicScaffold(bodySpecClassicPrinters)
+			}
 			reqCtx := cmd.Context()
 
-			bodyBytes, bodyErr := readClassicBody(fromFile)
+			bodyBytes, bodyErr := readClassicBodyOrSet(fromFile, flagSet, bodySpecClassicPrinters)
 			if bodyErr != nil {
 				return bodyErr
 			}
@@ -244,6 +324,11 @@ func newClassicPrintersUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to XML input file (or pipe XML to stdin)")
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print an XML body template for this resource and exit")
+	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Set a body field in dot notation (key=value, repeatable). Builds the whole body, so it cannot be combined with --from-file")
+	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+		return []string{"CUPS_name=", "category=", "id=", "info=", "location=", "make_default=", "model=", "name=", "notes=", "os_requirements=", "ppd=", "ppd_contents=", "ppd_path=", "shared=", "uri=", "use_generic="}, cobra.ShellCompDirectiveNoSpace
+	})
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up printer by name")
 
 	return cmd
@@ -433,20 +518,29 @@ func newClassicPrintersDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 
 func newClassicPrintersApplyCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
-		fromFile   string
-		flagYes    bool
-		flagDryRun bool
+		fromFile     string
+		flagYes      bool
+		flagDryRun   bool
+		flagScaffold bool
+		flagSet      []string
 	)
 
 	cmd := &cobra.Command{
 		Use:         "apply",
 		Short:       "Create or replace a printer by name",
 		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "printers:create,printers:read,printers:update"},
-		Long: `Create or replace a printer. Reads XML from --from-file or stdin.
+		Long: `Create or replace a printer. Reads XML from --from-file, --set or stdin.
 
 The name field in the input XML is used to check if the resource already
 exists. If it does, the resource is replaced (with confirmation).
-If not, a new resource is created.`,
+If not, a new resource is created.
+
+Body fields are derived from the Classic API spec (schema "printer").
+Run with --scaffold to print a complete XML template.
+
+Required: name
+Optional sections: CUPS_name, category, id, info, location, make_default, model, notes,
+  os_requirements, ppd, ppd_contents, ppd_path, shared, uri, use_generic`,
 		Example: `  # Apply a printer from an XML file
   jamf-cli pro classic-printers apply --from-file printer.xml
 
@@ -456,6 +550,9 @@ If not, a new resource is created.`,
   # Apply without replacement confirmation
   jamf-cli pro classic-printers apply --from-file printer.xml --yes`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			if flagScaffold {
+				return printClassicScaffold(bodySpecClassicPrinters)
+			}
 			reqCtx := cmd.Context()
 
 			// Read input
@@ -528,6 +625,12 @@ If not, a new resource is created.`,
 	}
 
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to XML input file (or pipe XML to stdin)")
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print an XML body template for this resource and exit")
+	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Set a body field in dot notation (key=value, repeatable). Builds the whole body, so it cannot be combined with --from-file")
+	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+		return []string{"CUPS_name=", "category=", "id=", "info=", "location=", "make_default=", "model=", "name=", "notes=", "os_requirements=", "ppd=", "ppd_contents=", "ppd_path=", "shared=", "uri=", "use_generic="}, cobra.ShellCompDirectiveNoSpace
+	})
+
 	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt when replacing")
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
 

@@ -1121,8 +1121,11 @@ func TestGenerate_CreateAndUpdateTakeFromFile(t *testing.T) {
 	if got := strings.Count(code, `"from-file", "", "Path to XML input file`); got != 2 {
 		t.Errorf("body --from-file registrations = %d, want 2 (create and update)", got)
 	}
-	if strings.Count(code, "readClassicBody(fromFile)") != 2 {
-		t.Errorf("expected create and update to read their body through readClassicBody:\n%s", code)
+	// readClassicBodyOrSet delegates to readClassicBody when no --set pair is
+	// given, so this is still the "a body may come from a file" assertion; the
+	// call gained the --set arguments when Classic writes gained --set.
+	if strings.Count(code, "readClassicBodyOrSet(fromFile, ") != 2 {
+		t.Errorf("expected create and update to read their body through readClassicBodyOrSet:\n%s", code)
 	}
 	// The old message told the caller stdin was the only route.
 	if strings.Contains(code, "request body required on stdin") {

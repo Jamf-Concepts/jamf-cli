@@ -17,6 +17,66 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// bodySpecClassicAdvancedMobileDeviceSearches is this resource's request-body contract, derived from
+// specs/classic/schemas.json at generation time. Empty when the Classic API spec
+// declares no schema for it, in which case create/update/apply read their body
+// from --from-file or stdin with no --scaffold and no --set.
+var bodySpecClassicAdvancedMobileDeviceSearches = classicBodySpec{
+	Root:   "advanced_mobile_device_search",
+	Schema: "advanced_mobile_device_search",
+	Scaffold: `<advanced_mobile_device_search>
+  <id>1</id>
+  <name>Advanced Search Name</name>
+  <criteria>
+    <criterion>
+      <name>Last Inventory Update</name>
+      <and_or></and_or>
+      <closing_paren>false</closing_paren>
+      <opening_paren>false</opening_paren>
+      <priority>0</priority>
+      <search_type>more than x days ago</search_type>
+      <value>7</value>
+    </criterion>
+  </criteria>
+  <display_fields>
+    <display_field>
+      <name>IP Address</name>
+    </display_field>
+  </display_fields>
+  <mobile_devices>
+    <mobile_device>
+      <id>1</id>
+      <name>Tinas iPad</name>
+      <Display_Name>Tinas iPad</Display_Name>
+      <udid>270aae10800b6e61a2ee2bbc285eb967050b5984</udid>
+    </mobile_device>
+  </mobile_devices>
+  <site>
+    <id>0</id>
+    <name>None</name>
+  </site>
+  <sort_1></sort_1>
+  <sort_2></sort_2>
+  <sort_3></sort_3>
+  <view_as>Standard Web Page</view_as>
+</advanced_mobile_device_search>
+`,
+	FieldTypes: map[string]string{
+		"criteria":       "array",
+		"display_fields": "array",
+		"id":             "integer",
+		"mobile_devices": "array",
+		"name":           "string",
+		"site":           "object",
+		"site.id":        "integer",
+		"site.name":      "string",
+		"sort_1":         "string",
+		"sort_2":         "string",
+		"sort_3":         "string",
+		"view_as":        "string",
+	},
+}
+
 // NewClassicAdvancedMobileDeviceSearchesCmd creates the classic-advanced-mobile-device-searches command group
 func NewClassicAdvancedMobileDeviceSearchesCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
@@ -160,12 +220,30 @@ func newClassicAdvancedMobileDeviceSearchesGetCmd(ctx *registry.CLIContext) *cob
 
 func newClassicAdvancedMobileDeviceSearchesCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
-		fromFile string
+		fromFile     string
+		flagScaffold bool
+		flagSet      []string
 	)
 	cmd := &cobra.Command{
-		Use:         "create",
-		Short:       "Create a advanced_mobile_device_search",
-		Long:        "Create a new advanced_mobile_device_search. Reads the XML body from --from-file or stdin.",
+		Use:   "create",
+		Short: "Create a advanced_mobile_device_search",
+		Long: `Create a new advanced_mobile_device_search. Reads the XML body from --from-file, --set or stdin.
+
+Body fields are derived from the Classic API spec (schema "advanced_mobile_device_search").
+Run with --scaffold to print a complete XML template.
+The template populates every optional section with one specimen entry,
+including references whose <id> points at nothing on your instance — delete
+the sections you do not need. A dangling reference is answered with a 500.
+
+Required: name
+Optional sections: criteria, display_fields, id, mobile_devices, site, sort_1, sort_2, sort_3,
+  view_as
+
+Allowed values:
+  criteria[].and_or: and | or
+
+The Classic API does not reject an out-of-range value — it substitutes
+its default silently — so --set refuses one rather than letting it through.`,
 		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "advanced-device-searches:create"},
 		Example: `  # Create a advanced_mobile_device_search from an XML file
   jamf-cli pro classic-advanced-mobile-device-searches create --from-file advanced_mobile_device_search.xml
@@ -173,9 +251,12 @@ func newClassicAdvancedMobileDeviceSearchesCreateCmd(ctx *registry.CLIContext) *
   # Create a advanced_mobile_device_search from XML on stdin
   cat advanced_mobile_device_search.xml | jamf-cli pro classic-advanced-mobile-device-searches create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if flagScaffold {
+				return printClassicScaffold(bodySpecClassicAdvancedMobileDeviceSearches)
+			}
 			reqCtx := cmd.Context()
 
-			bodyBytes, err := readClassicBody(fromFile)
+			bodyBytes, err := readClassicBodyOrSet(fromFile, flagSet, bodySpecClassicAdvancedMobileDeviceSearches)
 			if err != nil {
 				return err
 			}
@@ -194,28 +275,59 @@ func newClassicAdvancedMobileDeviceSearchesCreateCmd(ctx *registry.CLIContext) *
 		},
 	}
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to XML input file (or pipe XML to stdin)")
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print an XML body template for this resource and exit")
+	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Set a body field in dot notation (key=value, repeatable). Builds the whole body, so it cannot be combined with --from-file")
+	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+		return []string{"id=", "name=", "site.id=", "site.name=", "sort_1=", "sort_2=", "sort_3=", "view_as="}, cobra.ShellCompDirectiveNoSpace
+	})
 	return cmd
 }
 
 func newClassicAdvancedMobileDeviceSearchesUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var fromFile string
+	var (
+		flagScaffold bool
+		flagSet      []string
+	)
 	var flagName string
 
 	cmd := &cobra.Command{
-		Use:         "update [<id>]",
-		Short:       "Update a advanced_mobile_device_search",
-		Long:        "Update an existing advanced_mobile_device_search by ID. Reads the XML body from --from-file or stdin.",
+		Use:   "update [<id>]",
+		Short: "Update a advanced_mobile_device_search",
+		Long: `Update an existing advanced_mobile_device_search by ID. Reads the XML body from --from-file, --set or stdin.
+
+The Classic API applies a partial update: fields the body omits keep their
+current values, so a body carrying one element changes only that element.
+
+Body fields are derived from the Classic API spec (schema "advanced_mobile_device_search").
+Run with --scaffold to print a complete XML template.
+The template populates every optional section with one specimen entry,
+including references whose <id> points at nothing on your instance — delete
+the sections you do not need. A dangling reference is answered with a 500.
+
+Required: name
+Optional sections: criteria, display_fields, id, mobile_devices, site, sort_1, sort_2, sort_3,
+  view_as
+
+Allowed values:
+  criteria[].and_or: and | or
+
+The Classic API does not reject an out-of-range value — it substitutes
+its default silently — so --set refuses one rather than letting it through.`,
 		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "advanced-device-searches:update"},
 		Example: `  # Update a advanced_mobile_device_search from an XML file
   jamf-cli pro classic-advanced-mobile-device-searches update 1 --from-file advanced_mobile_device_search.xml
 
   # Update a advanced_mobile_device_search from XML on stdin
   cat advanced_mobile_device_search.xml | jamf-cli pro classic-advanced-mobile-device-searches update 1`,
-		Args: cobra.MaximumNArgs(1),
+		Args: classicScaffoldArgs(&flagScaffold, cobra.MaximumNArgs(1)),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if flagScaffold {
+				return printClassicScaffold(bodySpecClassicAdvancedMobileDeviceSearches)
+			}
 			reqCtx := cmd.Context()
 
-			bodyBytes, bodyErr := readClassicBody(fromFile)
+			bodyBytes, bodyErr := readClassicBodyOrSet(fromFile, flagSet, bodySpecClassicAdvancedMobileDeviceSearches)
 			if bodyErr != nil {
 				return bodyErr
 			}
@@ -244,6 +356,11 @@ func newClassicAdvancedMobileDeviceSearchesUpdateCmd(ctx *registry.CLIContext) *
 	}
 
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to XML input file (or pipe XML to stdin)")
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print an XML body template for this resource and exit")
+	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Set a body field in dot notation (key=value, repeatable). Builds the whole body, so it cannot be combined with --from-file")
+	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+		return []string{"id=", "name=", "site.id=", "site.name=", "sort_1=", "sort_2=", "sort_3=", "view_as="}, cobra.ShellCompDirectiveNoSpace
+	})
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up advanced_mobile_device_search by name")
 
 	return cmd
@@ -433,20 +550,38 @@ func newClassicAdvancedMobileDeviceSearchesDeleteCmd(ctx *registry.CLIContext) *
 
 func newClassicAdvancedMobileDeviceSearchesApplyCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
-		fromFile   string
-		flagYes    bool
-		flagDryRun bool
+		fromFile     string
+		flagYes      bool
+		flagDryRun   bool
+		flagScaffold bool
+		flagSet      []string
 	)
 
 	cmd := &cobra.Command{
 		Use:         "apply",
 		Short:       "Create or replace a advanced_mobile_device_search by name",
 		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "advanced-device-searches:create,advanced-device-searches:read,advanced-device-searches:update"},
-		Long: `Create or replace a advanced_mobile_device_search. Reads XML from --from-file or stdin.
+		Long: `Create or replace a advanced_mobile_device_search. Reads XML from --from-file, --set or stdin.
 
 The name field in the input XML is used to check if the resource already
 exists. If it does, the resource is replaced (with confirmation).
-If not, a new resource is created.`,
+If not, a new resource is created.
+
+Body fields are derived from the Classic API spec (schema "advanced_mobile_device_search").
+Run with --scaffold to print a complete XML template.
+The template populates every optional section with one specimen entry,
+including references whose <id> points at nothing on your instance — delete
+the sections you do not need. A dangling reference is answered with a 500.
+
+Required: name
+Optional sections: criteria, display_fields, id, mobile_devices, site, sort_1, sort_2, sort_3,
+  view_as
+
+Allowed values:
+  criteria[].and_or: and | or
+
+The Classic API does not reject an out-of-range value — it substitutes
+its default silently — so --set refuses one rather than letting it through.`,
 		Example: `  # Apply a advanced_mobile_device_search from an XML file
   jamf-cli pro classic-advanced-mobile-device-searches apply --from-file advanced_mobile_device_search.xml
 
@@ -456,6 +591,9 @@ If not, a new resource is created.`,
   # Apply without replacement confirmation
   jamf-cli pro classic-advanced-mobile-device-searches apply --from-file advanced_mobile_device_search.xml --yes`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			if flagScaffold {
+				return printClassicScaffold(bodySpecClassicAdvancedMobileDeviceSearches)
+			}
 			reqCtx := cmd.Context()
 
 			// Read input
@@ -528,6 +666,12 @@ If not, a new resource is created.`,
 	}
 
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to XML input file (or pipe XML to stdin)")
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print an XML body template for this resource and exit")
+	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Set a body field in dot notation (key=value, repeatable). Builds the whole body, so it cannot be combined with --from-file")
+	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+		return []string{"id=", "name=", "site.id=", "site.name=", "sort_1=", "sort_2=", "sort_3=", "view_as="}, cobra.ShellCompDirectiveNoSpace
+	})
+
 	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt when replacing")
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
 

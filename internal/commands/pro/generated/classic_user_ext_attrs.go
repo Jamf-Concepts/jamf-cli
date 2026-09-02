@@ -17,6 +17,42 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// bodySpecClassicUserExtAttrs is this resource's request-body contract, derived from
+// specs/classic/schemas.json at generation time. Empty when the Classic API spec
+// declares no schema for it, in which case create/update/apply read their body
+// from --from-file or stdin with no --scaffold and no --set.
+var bodySpecClassicUserExtAttrs = classicBodySpec{
+	Root:   "user_extension_attribute",
+	Schema: "user_extension_attribute",
+	Scaffold: `<user_extension_attribute>
+  <id>1</id>
+  <name>User Attributes</name>
+  <data_type></data_type>
+  <description>Text field for logging custom data</description>
+  <input_type>
+    <popup_choices>
+      <choice></choice>
+    </popup_choices>
+    <type></type>
+  </input_type>
+</user_extension_attribute>
+`,
+	FieldTypes: map[string]string{
+		"data_type":                       "string",
+		"description":                     "string",
+		"id":                              "integer",
+		"input_type":                      "object",
+		"input_type.popup_choices":        "object",
+		"input_type.popup_choices.choice": "array",
+		"input_type.type":                 "string",
+		"name":                            "string",
+	},
+	Enums: map[string][]string{
+		"data_type":       {"String", "Integer", "Date"},
+		"input_type.type": {"Text Field", "Pop-up Menu"},
+	},
+}
+
 // NewClassicUserExtAttrsCmd creates the classic-user-ext-attrs command group
 func NewClassicUserExtAttrsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
@@ -160,12 +196,27 @@ func newClassicUserExtAttrsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
 func newClassicUserExtAttrsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
-		fromFile string
+		fromFile     string
+		flagScaffold bool
+		flagSet      []string
 	)
 	cmd := &cobra.Command{
-		Use:         "create",
-		Short:       "Create a user_extension_attribute",
-		Long:        "Create a new user_extension_attribute. Reads the XML body from --from-file or stdin.",
+		Use:   "create",
+		Short: "Create a user_extension_attribute",
+		Long: `Create a new user_extension_attribute. Reads the XML body from --from-file, --set or stdin.
+
+Body fields are derived from the Classic API spec (schema "user_extension_attribute").
+Run with --scaffold to print a complete XML template.
+
+Required: name
+Optional sections: data_type, description, id, input_type
+
+Allowed values:
+  data_type: String | Integer | Date
+  input_type.type: Text Field | Pop-up Menu
+
+The Classic API does not reject an out-of-range value — it substitutes
+its default silently — so --set refuses one rather than letting it through.`,
 		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "user-extension-attributes:create"},
 		Example: `  # Create a user_extension_attribute from an XML file
   jamf-cli pro classic-user-ext-attrs create --from-file user_extension_attribute.xml
@@ -173,9 +224,12 @@ func newClassicUserExtAttrsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
   # Create a user_extension_attribute from XML on stdin
   cat user_extension_attribute.xml | jamf-cli pro classic-user-ext-attrs create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if flagScaffold {
+				return printClassicScaffold(bodySpecClassicUserExtAttrs)
+			}
 			reqCtx := cmd.Context()
 
-			bodyBytes, err := readClassicBody(fromFile)
+			bodyBytes, err := readClassicBodyOrSet(fromFile, flagSet, bodySpecClassicUserExtAttrs)
 			if err != nil {
 				return err
 			}
@@ -194,28 +248,56 @@ func newClassicUserExtAttrsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to XML input file (or pipe XML to stdin)")
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print an XML body template for this resource and exit")
+	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Set a body field in dot notation (key=value, repeatable). Builds the whole body, so it cannot be combined with --from-file")
+	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+		return []string{"data_type=", "description=", "id=", "input_type.type=", "name="}, cobra.ShellCompDirectiveNoSpace
+	})
 	return cmd
 }
 
 func newClassicUserExtAttrsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var fromFile string
+	var (
+		flagScaffold bool
+		flagSet      []string
+	)
 	var flagName string
 
 	cmd := &cobra.Command{
-		Use:         "update [<id>]",
-		Short:       "Update a user_extension_attribute",
-		Long:        "Update an existing user_extension_attribute by ID. Reads the XML body from --from-file or stdin.",
+		Use:   "update [<id>]",
+		Short: "Update a user_extension_attribute",
+		Long: `Update an existing user_extension_attribute by ID. Reads the XML body from --from-file, --set or stdin.
+
+The Classic API applies a partial update: fields the body omits keep their
+current values, so a body carrying one element changes only that element.
+
+Body fields are derived from the Classic API spec (schema "user_extension_attribute").
+Run with --scaffold to print a complete XML template.
+
+Required: name
+Optional sections: data_type, description, id, input_type
+
+Allowed values:
+  data_type: String | Integer | Date
+  input_type.type: Text Field | Pop-up Menu
+
+The Classic API does not reject an out-of-range value — it substitutes
+its default silently — so --set refuses one rather than letting it through.`,
 		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "user-extension-attributes:update"},
 		Example: `  # Update a user_extension_attribute from an XML file
   jamf-cli pro classic-user-ext-attrs update 1 --from-file user_extension_attribute.xml
 
   # Update a user_extension_attribute from XML on stdin
   cat user_extension_attribute.xml | jamf-cli pro classic-user-ext-attrs update 1`,
-		Args: cobra.MaximumNArgs(1),
+		Args: classicScaffoldArgs(&flagScaffold, cobra.MaximumNArgs(1)),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if flagScaffold {
+				return printClassicScaffold(bodySpecClassicUserExtAttrs)
+			}
 			reqCtx := cmd.Context()
 
-			bodyBytes, bodyErr := readClassicBody(fromFile)
+			bodyBytes, bodyErr := readClassicBodyOrSet(fromFile, flagSet, bodySpecClassicUserExtAttrs)
 			if bodyErr != nil {
 				return bodyErr
 			}
@@ -244,6 +326,11 @@ func newClassicUserExtAttrsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to XML input file (or pipe XML to stdin)")
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print an XML body template for this resource and exit")
+	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Set a body field in dot notation (key=value, repeatable). Builds the whole body, so it cannot be combined with --from-file")
+	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+		return []string{"data_type=", "description=", "id=", "input_type.type=", "name="}, cobra.ShellCompDirectiveNoSpace
+	})
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up user_extension_attribute by name")
 
 	return cmd
@@ -433,20 +520,35 @@ func newClassicUserExtAttrsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 
 func newClassicUserExtAttrsApplyCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
-		fromFile   string
-		flagYes    bool
-		flagDryRun bool
+		fromFile     string
+		flagYes      bool
+		flagDryRun   bool
+		flagScaffold bool
+		flagSet      []string
 	)
 
 	cmd := &cobra.Command{
 		Use:         "apply",
 		Short:       "Create or replace a user_extension_attribute by name",
 		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "user-extension-attributes:create,user-extension-attributes:read,user-extension-attributes:update"},
-		Long: `Create or replace a user_extension_attribute. Reads XML from --from-file or stdin.
+		Long: `Create or replace a user_extension_attribute. Reads XML from --from-file, --set or stdin.
 
 The name field in the input XML is used to check if the resource already
 exists. If it does, the resource is replaced (with confirmation).
-If not, a new resource is created.`,
+If not, a new resource is created.
+
+Body fields are derived from the Classic API spec (schema "user_extension_attribute").
+Run with --scaffold to print a complete XML template.
+
+Required: name
+Optional sections: data_type, description, id, input_type
+
+Allowed values:
+  data_type: String | Integer | Date
+  input_type.type: Text Field | Pop-up Menu
+
+The Classic API does not reject an out-of-range value — it substitutes
+its default silently — so --set refuses one rather than letting it through.`,
 		Example: `  # Apply a user_extension_attribute from an XML file
   jamf-cli pro classic-user-ext-attrs apply --from-file user_extension_attribute.xml
 
@@ -456,6 +558,9 @@ If not, a new resource is created.`,
   # Apply without replacement confirmation
   jamf-cli pro classic-user-ext-attrs apply --from-file user_extension_attribute.xml --yes`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			if flagScaffold {
+				return printClassicScaffold(bodySpecClassicUserExtAttrs)
+			}
 			reqCtx := cmd.Context()
 
 			// Read input
@@ -528,6 +633,12 @@ If not, a new resource is created.`,
 	}
 
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to XML input file (or pipe XML to stdin)")
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print an XML body template for this resource and exit")
+	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Set a body field in dot notation (key=value, repeatable). Builds the whole body, so it cannot be combined with --from-file")
+	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+		return []string{"data_type=", "description=", "id=", "input_type.type=", "name="}, cobra.ShellCompDirectiveNoSpace
+	})
+
 	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt when replacing")
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
 

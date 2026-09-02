@@ -17,6 +17,64 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// bodySpecClassicWebhooks is this resource's request-body contract, derived from
+// specs/classic/schemas.json at generation time. Empty when the Classic API spec
+// declares no schema for it, in which case create/update/apply read their body
+// from --from-file or stdin with no --scaffold and no --set.
+var bodySpecClassicWebhooks = classicBodySpec{
+	Root:   "webhook",
+	Schema: "webhook",
+	Scaffold: `<webhook>
+  <id>1</id>
+  <name>Computer Enrolled Hook</name>
+  <authentication_type></authentication_type>
+  <connection_timeout>0</connection_timeout>
+  <content_type></content_type>
+  <display_fields>
+    <display_field>
+      <name>IP Address</name>
+    </display_field>
+  </display_fields>
+  <enable_display_fields_for_group_object>false</enable_display_fields_for_group_object>
+  <enabled>false</enabled>
+  <event></event>
+  <hash_algorithm></hash_algorithm>
+  <header></header>
+  <password></password>
+  <read_timeout>0</read_timeout>
+  <smart_group_id>0</smart_group_id>
+  <url>https://requestb.in/wsfasfws</url>
+  <username>webhook_admin</username>
+</webhook>
+`,
+	FieldTypes: map[string]string{
+		"authentication_type":                    "string",
+		"connection_timeout":                     "integer",
+		"content_type":                           "string",
+		"display_fields":                         "array",
+		"enable_display_fields_for_group_object": "boolean",
+		"enabled":                                "boolean",
+		"event":                                  "string",
+		"hash_algorithm":                         "string",
+		"header":                                 "string",
+		"id":                                     "integer",
+		"name":                                   "string",
+		"password":                               "string",
+		"read_timeout":                           "integer",
+		"smart_group_id":                         "integer",
+		"url":                                    "string",
+		"username":                               "string",
+	},
+	Enums: map[string][]string{
+		"authentication_type": {"NONE", "BASIC"},
+		"content_type":        {"text/xml", "application/json"},
+		"event":               {"ComputerAdded", "ComputerCheckIn", "ComputerInventoryCompleted", "ComputerPolicyFinished", "ComputerPushCapabilityChanged", "JSSShutdown", "JSSStartup", "MobileDeviceCheckIn", "MobileDeviceCommandCompleted", "MobileDeviceEnrolled", "MobileDevicePushSent", "MobileDeviceUnEnrolled", "PatchSoftwareTitleUpdated", "PushSent", "RestAPIOperation", "SCEPChallenge", "SmartGroupComputerMembershipChange", "SmartGroupMobileDeviceMembershipChange"},
+	},
+	Credentials: map[string]bool{
+		"password": true,
+	},
+}
+
 // NewClassicWebhooksCmd creates the classic-webhooks command group
 func NewClassicWebhooksCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
@@ -160,12 +218,35 @@ func newClassicWebhooksGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
 func newClassicWebhooksCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
-		fromFile string
+		fromFile     string
+		flagScaffold bool
+		flagSet      []string
 	)
 	cmd := &cobra.Command{
-		Use:         "create",
-		Short:       "Create a webhook",
-		Long:        "Create a new webhook. Reads the XML body from --from-file or stdin.",
+		Use:   "create",
+		Short: "Create a webhook",
+		Long: `Create a new webhook. Reads the XML body from --from-file, --set or stdin.
+
+Body fields are derived from the Classic API spec (schema "webhook").
+Run with --scaffold to print a complete XML template.
+The template populates every optional section with one specimen entry,
+including references whose <id> points at nothing on your instance — delete
+the sections you do not need. A dangling reference is answered with a 500.
+
+Required: event, name, url
+Optional sections: authentication_type, connection_timeout, content_type, display_fields,
+  enable_display_fields_for_group_object, enabled, hash_algorithm,
+  header, id, password, read_timeout, smart_group_id, username
+
+Allowed values:
+  authentication_type: NONE | BASIC
+  content_type: text/xml | application/json
+  event: ComputerAdded | ComputerCheckIn | ComputerInventoryCompleted | ComputerPolicyFinished | ComputerPushCapabilityChanged | JSSShutdown | JSSStartup | MobileDeviceCheckIn | MobileDeviceCommandCompleted | MobileDeviceEnrolled | MobileDevicePushSent | MobileDeviceUnEnrolled | PatchSoftwareTitleUpdated | PushSent | RestAPIOperation | SCEPChallenge | SmartGroupComputerMembershipChange | SmartGroupMobileDeviceMembershipChange
+
+The Classic API does not reject an out-of-range value — it substitutes
+its default silently — so --set refuses one rather than letting it through.
+
+Credential fields (--from-file only, never --set): password`,
 		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "webhooks:create"},
 		Example: `  # Create a webhook from an XML file
   jamf-cli pro classic-webhooks create --from-file webhook.xml
@@ -173,9 +254,12 @@ func newClassicWebhooksCreateCmd(ctx *registry.CLIContext) *cobra.Command {
   # Create a webhook from XML on stdin
   cat webhook.xml | jamf-cli pro classic-webhooks create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if flagScaffold {
+				return printClassicScaffold(bodySpecClassicWebhooks)
+			}
 			reqCtx := cmd.Context()
 
-			bodyBytes, err := readClassicBody(fromFile)
+			bodyBytes, err := readClassicBodyOrSet(fromFile, flagSet, bodySpecClassicWebhooks)
 			if err != nil {
 				return err
 			}
@@ -194,28 +278,64 @@ func newClassicWebhooksCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to XML input file (or pipe XML to stdin)")
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print an XML body template for this resource and exit")
+	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Set a body field in dot notation (key=value, repeatable). Builds the whole body, so it cannot be combined with --from-file")
+	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+		return []string{"authentication_type=", "connection_timeout=", "content_type=", "enable_display_fields_for_group_object=", "enabled=", "event=", "hash_algorithm=", "header=", "id=", "name=", "read_timeout=", "smart_group_id=", "url=", "username="}, cobra.ShellCompDirectiveNoSpace
+	})
 	return cmd
 }
 
 func newClassicWebhooksUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var fromFile string
+	var (
+		flagScaffold bool
+		flagSet      []string
+	)
 	var flagName string
 
 	cmd := &cobra.Command{
-		Use:         "update [<id>]",
-		Short:       "Update a webhook",
-		Long:        "Update an existing webhook by ID. Reads the XML body from --from-file or stdin.",
+		Use:   "update [<id>]",
+		Short: "Update a webhook",
+		Long: `Update an existing webhook by ID. Reads the XML body from --from-file, --set or stdin.
+
+The Classic API applies a partial update: fields the body omits keep their
+current values, so a body carrying one element changes only that element.
+
+Body fields are derived from the Classic API spec (schema "webhook").
+Run with --scaffold to print a complete XML template.
+The template populates every optional section with one specimen entry,
+including references whose <id> points at nothing on your instance — delete
+the sections you do not need. A dangling reference is answered with a 500.
+
+Required: event, name, url
+Optional sections: authentication_type, connection_timeout, content_type, display_fields,
+  enable_display_fields_for_group_object, enabled, hash_algorithm,
+  header, id, password, read_timeout, smart_group_id, username
+
+Allowed values:
+  authentication_type: NONE | BASIC
+  content_type: text/xml | application/json
+  event: ComputerAdded | ComputerCheckIn | ComputerInventoryCompleted | ComputerPolicyFinished | ComputerPushCapabilityChanged | JSSShutdown | JSSStartup | MobileDeviceCheckIn | MobileDeviceCommandCompleted | MobileDeviceEnrolled | MobileDevicePushSent | MobileDeviceUnEnrolled | PatchSoftwareTitleUpdated | PushSent | RestAPIOperation | SCEPChallenge | SmartGroupComputerMembershipChange | SmartGroupMobileDeviceMembershipChange
+
+The Classic API does not reject an out-of-range value — it substitutes
+its default silently — so --set refuses one rather than letting it through.
+
+Credential fields (--from-file only, never --set): password`,
 		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "webhooks:update"},
 		Example: `  # Update a webhook from an XML file
   jamf-cli pro classic-webhooks update 1 --from-file webhook.xml
 
   # Update a webhook from XML on stdin
   cat webhook.xml | jamf-cli pro classic-webhooks update 1`,
-		Args: cobra.MaximumNArgs(1),
+		Args: classicScaffoldArgs(&flagScaffold, cobra.MaximumNArgs(1)),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if flagScaffold {
+				return printClassicScaffold(bodySpecClassicWebhooks)
+			}
 			reqCtx := cmd.Context()
 
-			bodyBytes, bodyErr := readClassicBody(fromFile)
+			bodyBytes, bodyErr := readClassicBodyOrSet(fromFile, flagSet, bodySpecClassicWebhooks)
 			if bodyErr != nil {
 				return bodyErr
 			}
@@ -244,6 +364,11 @@ func newClassicWebhooksUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to XML input file (or pipe XML to stdin)")
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print an XML body template for this resource and exit")
+	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Set a body field in dot notation (key=value, repeatable). Builds the whole body, so it cannot be combined with --from-file")
+	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+		return []string{"authentication_type=", "connection_timeout=", "content_type=", "enable_display_fields_for_group_object=", "enabled=", "event=", "hash_algorithm=", "header=", "id=", "name=", "read_timeout=", "smart_group_id=", "url=", "username="}, cobra.ShellCompDirectiveNoSpace
+	})
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up webhook by name")
 
 	return cmd
@@ -433,20 +558,43 @@ func newClassicWebhooksDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 
 func newClassicWebhooksApplyCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
-		fromFile   string
-		flagYes    bool
-		flagDryRun bool
+		fromFile     string
+		flagYes      bool
+		flagDryRun   bool
+		flagScaffold bool
+		flagSet      []string
 	)
 
 	cmd := &cobra.Command{
 		Use:         "apply",
 		Short:       "Create or replace a webhook by name",
 		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "webhooks:create,webhooks:read,webhooks:update"},
-		Long: `Create or replace a webhook. Reads XML from --from-file or stdin.
+		Long: `Create or replace a webhook. Reads XML from --from-file, --set or stdin.
 
 The name field in the input XML is used to check if the resource already
 exists. If it does, the resource is replaced (with confirmation).
-If not, a new resource is created.`,
+If not, a new resource is created.
+
+Body fields are derived from the Classic API spec (schema "webhook").
+Run with --scaffold to print a complete XML template.
+The template populates every optional section with one specimen entry,
+including references whose <id> points at nothing on your instance — delete
+the sections you do not need. A dangling reference is answered with a 500.
+
+Required: event, name, url
+Optional sections: authentication_type, connection_timeout, content_type, display_fields,
+  enable_display_fields_for_group_object, enabled, hash_algorithm,
+  header, id, password, read_timeout, smart_group_id, username
+
+Allowed values:
+  authentication_type: NONE | BASIC
+  content_type: text/xml | application/json
+  event: ComputerAdded | ComputerCheckIn | ComputerInventoryCompleted | ComputerPolicyFinished | ComputerPushCapabilityChanged | JSSShutdown | JSSStartup | MobileDeviceCheckIn | MobileDeviceCommandCompleted | MobileDeviceEnrolled | MobileDevicePushSent | MobileDeviceUnEnrolled | PatchSoftwareTitleUpdated | PushSent | RestAPIOperation | SCEPChallenge | SmartGroupComputerMembershipChange | SmartGroupMobileDeviceMembershipChange
+
+The Classic API does not reject an out-of-range value — it substitutes
+its default silently — so --set refuses one rather than letting it through.
+
+Credential fields (--from-file only, never --set): password`,
 		Example: `  # Apply a webhook from an XML file
   jamf-cli pro classic-webhooks apply --from-file webhook.xml
 
@@ -456,6 +604,9 @@ If not, a new resource is created.`,
   # Apply without replacement confirmation
   jamf-cli pro classic-webhooks apply --from-file webhook.xml --yes`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			if flagScaffold {
+				return printClassicScaffold(bodySpecClassicWebhooks)
+			}
 			reqCtx := cmd.Context()
 
 			// Read input
@@ -528,6 +679,12 @@ If not, a new resource is created.`,
 	}
 
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to XML input file (or pipe XML to stdin)")
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print an XML body template for this resource and exit")
+	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Set a body field in dot notation (key=value, repeatable). Builds the whole body, so it cannot be combined with --from-file")
+	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+		return []string{"authentication_type=", "connection_timeout=", "content_type=", "enable_display_fields_for_group_object=", "enabled=", "event=", "hash_algorithm=", "header=", "id=", "name=", "read_timeout=", "smart_group_id=", "url=", "username="}, cobra.ShellCompDirectiveNoSpace
+	})
+
 	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt when replacing")
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
 
