@@ -8,10 +8,12 @@ import (
 	"os"
 	"strconv"
 	"strings"
+
+	"github.com/Jamf-Concepts/jamf-cli/internal/bodyinput"
 )
 
-// ReadBody assembles a JSON-marshallable request body from --file (JSON file
-// path) and --set overrides ("key=value", "nested.key=value"). When file is
+// ReadBody assembles a JSON-marshallable request body from --file (a JSON or
+// YAML file path) and --set overrides ("key=value", "nested.key=value"). When file is
 // empty an empty object is the starting point. Set values are JSON-decoded
 // when they look like JSON (true/false/null/number/[]/{}/"...") and treated
 // as strings otherwise. Dot-separated keys descend into nested maps.
@@ -26,8 +28,9 @@ func ReadBody(file string, sets []string) (any, error) {
 		if err != nil {
 			return nil, fmt.Errorf("reading body file: %w", err)
 		}
-		if err := json.Unmarshal(raw, &body); err != nil {
-			return nil, fmt.Errorf("parsing body file: %w", err)
+		body, err = bodyinput.Normalize(raw)
+		if err != nil {
+			return nil, fmt.Errorf("parsing body file %s: %w", file, err)
 		}
 	}
 	if len(sets) == 0 {

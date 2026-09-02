@@ -21,7 +21,7 @@ package platform
 // Current scope:
 //   - GET (with or without path params, no body)
 //   - POST actions (bodyless, with --yes for destructive)
-//   - POST/PUT/PATCH with JSON body via --file/--set; POST and PUT use
+//   - POST/PUT/PATCH with a JSON or YAML body via --file/--set; POST and PUT use
 //     application/json, PATCH uses application/merge-patch+json
 //   - DELETE with --yes confirmation
 //   - Op-specific success status codes from spec responses
@@ -305,7 +305,7 @@ func new{{$.GoName}}{{.GoName}}Cmd(cliCtx *registry.CLIContext) *cobra.Command {
 		},
 	}
 {{- if .HasBody }}
-	cmd.Flags().StringVar(&bodyFile, "file", "", "Path to JSON file containing the request body")
+	cmd.Flags().StringVar(&bodyFile, "file", "", "Path to a JSON or YAML file containing the request body")
 	cmd.Flags().StringArrayVar(&setFlags, "set", nil, "Override body values (key=value, repeatable, supports nested.keys)")
 {{- end }}
 {{- if .HasScaffold }}

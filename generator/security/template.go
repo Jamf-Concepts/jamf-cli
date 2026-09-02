@@ -12,7 +12,7 @@ package security
 // Security's 12 total operations never need path params, name-based lookup,
 // or PATCH/merge-patch):
 //   - GET (no body)
-//   - PUT/POST/DELETE actions, with or without a JSON body via --file/--set
+//   - PUT/POST/DELETE actions, with or without a JSON or YAML body via --file/--set
 //     (+ --scaffold), and --yes confirmation for destructive ones
 //   - The one paginated op (risk list) always fetches every page and prints
 //     the aggregated array — no --all flag, mirroring the Platform
@@ -211,7 +211,7 @@ func new{{$.GoName}}{{.GoName}}Cmd(cliCtx *registry.CLIContext) *cobra.Command {
 		},
 	}
 {{- if .HasBody }}
-	cmd.Flags().StringVar(&bodyFile, "file", "", "Path to JSON file containing the request body")
+	cmd.Flags().StringVar(&bodyFile, "file", "", "Path to a JSON or YAML file containing the request body")
 	cmd.Flags().StringArrayVar(&setFlags, "set", nil, "Override body values (key=value, repeatable, supports nested.keys)")
 {{- end }}
 {{- if .HasScaffold }}
