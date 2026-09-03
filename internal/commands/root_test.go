@@ -1239,6 +1239,56 @@ func TestClassifyError(t *testing.T) {
 	}
 }
 
+// TestClassifyError_MissingRequiredFlagIsAUsageError drives a real command
+// through Execute rather than asserting on a literal, because the string
+// ClassifyError matches is cobra's own format and nothing on this side owns it.
+// A cobra upgrade that reworded the message would otherwise silently return
+// every command with a required flag to exit 1, the generic-failure code, which
+// is exactly the state this fixes: `pro backup --nosuchflag` exited 2 while
+// `pro backup` with no --output exited 1.
+func TestClassifyError_MissingRequiredFlagIsAUsageError(t *testing.T) {
+	// Credentials have to resolve first: cobra runs PersistentPreRunE before
+	// ValidateRequiredFlags, so without them the auth error arrives instead and
+	// the required-flag path is never reached.
+	resetGlobals()
+	t.Setenv("JAMF_URL", "https://test.jamfcloud.com")
+	t.Setenv("JAMF_TOKEN", "test-token")
+	t.Setenv("JAMF_CLIENT_ID", "")
+	t.Setenv("JAMF_CLIENT_SECRET", "")
+	t.Setenv("JAMF_PROFILE", "")
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+
+	root := NewRootCmd("test", "none", "none", "none")
+	root.SetArgs([]string{"pro", "backup"})
+	root.SetOut(io.Discard)
+	root.SetErr(io.Discard)
+
+	err := root.Execute()
+	if err == nil {
+		t.Fatal("pro backup with no --output should fail")
+	}
+	if !strings.Contains(err.Error(), "required flag") {
+		t.Fatalf("cobra reworded the message; ClassifyError's prefix needs updating: %q", err.Error())
+	}
+	if got := exitcode.CodeFrom(ClassifyError(err)); got != exitcode.Usage {
+		t.Errorf("missing required flag -> exit %d, want %d (usage)", got, exitcode.Usage)
+	}
+}
+
+// TestClassifyError_UnrelatedPlainErrorStaysGeneral guards the widening: the
+// prefix list must not swallow a request failure into a usage code.
+func TestClassifyError_UnrelatedPlainErrorStaysGeneral(t *testing.T) {
+	for _, msg := range []string{
+		"the request required a flag we could not send",
+		"boom",
+		"unknown field in the response body",
+	} {
+		if got := exitcode.CodeFrom(ClassifyError(errors.New(msg))); got != exitcode.General {
+			t.Errorf("%q -> exit %d, want %d (general)", msg, got, exitcode.General)
+		}
+	}
+}
+
 func TestGuardUnknownSubcommands(t *testing.T) {
 	// A typo at a group-parent level must error with a usage code and a
 	// suggestion, not silently print help and exit 0 (cobra's default).

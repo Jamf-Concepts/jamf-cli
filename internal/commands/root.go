@@ -1729,10 +1729,18 @@ func FprintError(w io.Writer, err error) {
 }
 
 // ClassifyError normalizes framework errors that carry no explicit exit code so
-// they map to the documented codes. Cobra reports an unknown command as a plain
-// error (default exit 1); classify it as a usage error (2) to match the
-// unknown-flag path handled by SetFlagErrorFunc. Errors that already carry an
-// exit code (including wrapped unknown-flag errors) pass through unchanged.
+// they map to the documented codes. Cobra reports both an unknown command and a
+// missing required flag as a plain error (default exit 1); classify each as a
+// usage error (2) to match the unknown-flag path handled by SetFlagErrorFunc.
+// Errors that already carry an exit code (including wrapped unknown-flag errors)
+// pass through unchanged.
+//
+// The required-flag prefix was missing, so `pro backup` with no --output exited
+// 1 while `pro backup --nosuchflag` exited 2 — the two halves of one mistake
+// answering differently, on every command in the CLI that calls
+// MarkFlagRequired. Exit 1 is this CLI's generic failure, so a wrapper could not
+// tell "you invoked it wrong" from "the request failed", which is the whole
+// distinction exitcode.Usage exists to draw.
 func ClassifyError(err error) error {
 	if err == nil {
 		return nil
@@ -1741,10 +1749,21 @@ func ClassifyError(err error) error {
 	if errors.As(err, &e) {
 		return err
 	}
-	if strings.HasPrefix(err.Error(), "unknown command") {
-		return exitcode.Wrap(exitcode.Usage, err)
+	for _, p := range usageErrorPrefixes {
+		if strings.HasPrefix(err.Error(), p) {
+			return exitcode.Wrap(exitcode.Usage, err)
+		}
 	}
 	return err
+}
+
+// usageErrorPrefixes are the cobra messages that mean the invocation was wrong
+// rather than the request. Matched on a prefix because cobra returns them as
+// plain errors with no type to assert on; each string is cobra's own format
+// literal, so a cobra upgrade that reworded one shows up as a test failure.
+var usageErrorPrefixes = []string{
+	"unknown command",
+	"required flag(s)",
 }
 
 // groupParentAnnotation marks a parent command that guardUnknownSubcommands made
