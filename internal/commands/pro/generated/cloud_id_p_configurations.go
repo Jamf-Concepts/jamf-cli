@@ -19,9 +19,10 @@ import (
 // NewCloudIdPConfigurationsCmd creates the cloud-id-p-configurations command group
 func NewCloudIdPConfigurationsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "cloud-id-p-configurations",
-		Short: "Manage cloud-id-p-configurations",
-		Long:  `Manage cloud-id-p-configurations in Jamf Pro.`,
+		Use:         "cloud-id-p-configurations",
+		Short:       "Manage cloud-id-p-configurations",
+		Long:        `Manage cloud-id-p-configurations in Jamf Pro.`,
+		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
 	cmd.AddCommand(newCloudIdPConfigurationsListCmd(ctx))
@@ -49,7 +50,7 @@ func newCloudIdPConfigurationsListCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # List cloud-id-p-configurations and extract IDs
   jamf-cli pro cloud-id-p-configurations list --field id`,
-		Annotations: map[string]string{"jamf:privileges": "Read LDAP Servers"},
+		Annotations: map[string]string{"jamf:privileges": "Read LDAP Servers", "jamf:api": "pro", "jamf:gateway-privileges": "ldap-servers:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -75,7 +76,10 @@ func newCloudIdPConfigurationsListCmd(ctx *registry.CLIContext) *cobra.Command {
 
 			// Auto-pagination: fetch all pages when --all is set and --page was not manually specified
 			if flagAll && flagPage == 0 {
-				var allResults []json.RawMessage
+				// Initialised empty, not nil — a nil slice marshals to "null", so
+				// "list --all" on an empty collection used to answer "null" where
+				// the single-page path answers "[]".
+				allResults := []json.RawMessage{}
 				prog := ctx.Output.PaginationProgress()
 				defer prog.Stop()
 				reqCtx = spinner.WithSuppressed(reqCtx)
@@ -197,7 +201,7 @@ func newCloudIdPConfigurationsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a cloud-id-p-configuration and output as YAML
   jamf-cli pro cloud-id-p-configurations get 1 -o yaml`,
-		Annotations: map[string]string{"jamf:privileges": "Read LDAP Servers"},
+		Annotations: map[string]string{"jamf:privileges": "Read LDAP Servers", "jamf:api": "pro", "jamf:gateway-privileges": "ldap-servers:read"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -261,7 +265,7 @@ func newCloudIdPConfigurationsExportCmd(ctx *registry.CLIContext) *cobra.Command
 		Long:  "Export Cloud Identity Providers collection",
 		Example: `  # Export cloud-id-p-configurations to CSV
   jamf-cli pro cloud-id-p-configurations export --out-file cloud-id-p-configurations.csv`,
-		Annotations: map[string]string{"jamf:privileges": "Read LDAP Servers"},
+		Annotations: map[string]string{"jamf:privileges": "Read LDAP Servers", "jamf:api": "pro", "jamf:gateway-privileges": "ldap-servers:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			reqCtx = registry.WithAccept(reqCtx, "*/*")

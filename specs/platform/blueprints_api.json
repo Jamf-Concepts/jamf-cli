@@ -1,10 +1,10 @@
 {
   "components": {
     "parameters": {
-      "tenantId": {
-        "description": "The tenant UUID identifier",
-        "in": "path",
-        "name": "tenantId",
+      "X-Tenant-Id": {
+        "description": "The tenant UUID identifier.",
+        "in": "header",
+        "name": "X-Tenant-Id",
         "required": true,
         "schema": {
           "example": "e77c1408-10c8-4007-b177-abc9157fbcaa",
@@ -740,7 +740,7 @@
       "CreateResponse": {
         "properties": {
           "href": {
-            "example": "https://us.apigw.jamf.com/blueprints/v1/blueprints/15812829-95c1-451c-9239-f1f61a3d3a94",
+            "example": "https://us.api.jamfcloud.com/blueprints/v1/blueprints/15812829-95c1-451c-9239-f1f61a3d3a94",
             "format": "uri",
             "type": "string"
           },
@@ -2374,11 +2374,21 @@
       }
     },
     "securitySchemes": {
-      "bearerAuth": {
-        "bearerFormat": "JWT",
-        "description": "JWT Bearer token authentication. Obtain a token from the Jamf API Gateway.",
-        "scheme": "bearer",
-        "type": "http"
+      "oauth2": {
+        "description": "Obtain an access token by calling the API Gateway's token endpoint using the OAuth2 client-credentials flow.",
+        "flows": {
+          "clientCredentials": {
+            "scopes": {
+              "blueprints:create": "",
+              "blueprints:delete": "",
+              "blueprints:deploy": "",
+              "blueprints:read": "",
+              "blueprints:update": ""
+            },
+            "tokenUrl": "https://{region}.api.jamfcloud.com/auth/token"
+          }
+        },
+        "type": "oauth2"
       }
     }
   },
@@ -2394,13 +2404,13 @@
   },
   "openapi": "3.1.0",
   "paths": {
-    "/v1/tenant/{tenantId}/blueprint-components": {
+    "/v1/blueprint-components": {
       "get": {
-        "description": "Get list of available blueprint components\n\n**Required Permissions:** `read:pro:blueprints`, `read:school:blueprints`",
+        "description": "Get list of available blueprint components\n\n**Required Permissions:** `blueprints:read`",
         "operationId": "listComponents",
         "parameters": [
           {
-            "$ref": "#/components/parameters/tenantId"
+            "$ref": "#/components/parameters/X-Tenant-Id"
           },
           {
             "description": "Zero-based page index (0..N)",
@@ -2439,27 +2449,27 @@
         },
         "security": [
           {
-            "bearerAuth": []
+            "oauth2": [
+              "blueprints:read"
+            ]
           }
         ],
         "summary": "List available blueprint components",
         "tags": [
           "blueprints"
         ],
-        "x-authentication-required": true,
         "x-required-privileges": [
-          "read:pro:blueprints",
-          "read:school:blueprints"
+          "blueprints:read"
         ]
       }
     },
-    "/v1/tenant/{tenantId}/blueprint-components/{identifier}": {
+    "/v1/blueprint-components/{identifier}": {
       "get": {
-        "description": "Get component by identifier\n\n**Required Permissions:** `read:pro:blueprints`, `read:school:blueprints`",
+        "description": "Get component by identifier\n\n**Required Permissions:** `blueprints:read`",
         "operationId": "getComponent",
         "parameters": [
           {
-            "$ref": "#/components/parameters/tenantId"
+            "$ref": "#/components/parameters/X-Tenant-Id"
           },
           {
             "description": "Identifier of the component",
@@ -2495,27 +2505,27 @@
         },
         "security": [
           {
-            "bearerAuth": []
+            "oauth2": [
+              "blueprints:read"
+            ]
           }
         ],
         "summary": "Get component",
         "tags": [
           "blueprints"
         ],
-        "x-authentication-required": true,
         "x-required-privileges": [
-          "read:pro:blueprints",
-          "read:school:blueprints"
+          "blueprints:read"
         ]
       }
     },
-    "/v1/tenant/{tenantId}/blueprints": {
+    "/v1/blueprints": {
       "get": {
-        "description": "Get list of blueprints\n\n**Required Permissions:** `read:pro:blueprints`, `read:school:blueprints`",
+        "description": "Get list of blueprints\n\n**Required Permissions:** `blueprints:read`",
         "operationId": "listBlueprints",
         "parameters": [
           {
-            "$ref": "#/components/parameters/tenantId"
+            "$ref": "#/components/parameters/X-Tenant-Id"
           },
           {
             "description": "Zero-based page index (0..N)",
@@ -2573,25 +2583,25 @@
         },
         "security": [
           {
-            "bearerAuth": []
+            "oauth2": [
+              "blueprints:read"
+            ]
           }
         ],
         "summary": "List blueprints",
         "tags": [
           "blueprints"
         ],
-        "x-authentication-required": true,
         "x-required-privileges": [
-          "read:pro:blueprints",
-          "read:school:blueprints"
+          "blueprints:read"
         ]
       },
       "post": {
-        "description": "Create a new blueprint\n\n**Required Permissions:** `create:pro:blueprints`, `create:school:blueprints`",
+        "description": "Create a new blueprint\n\n**Required Permissions:** `blueprints:create`",
         "operationId": "createBlueprint",
         "parameters": [
           {
-            "$ref": "#/components/parameters/tenantId"
+            "$ref": "#/components/parameters/X-Tenant-Id"
           }
         ],
         "requestBody": {
@@ -2634,31 +2644,41 @@
               }
             },
             "description": "Blueprint is invalid"
+          },
+          "415": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Unsupported media type"
           }
         },
         "security": [
           {
-            "bearerAuth": []
+            "oauth2": [
+              "blueprints:create"
+            ]
           }
         ],
         "summary": "Create a new blueprint",
         "tags": [
           "blueprints"
         ],
-        "x-authentication-required": true,
         "x-required-privileges": [
-          "create:pro:blueprints",
-          "create:school:blueprints"
+          "blueprints:create"
         ]
       }
     },
-    "/v1/tenant/{tenantId}/blueprints/{blueprintId}": {
+    "/v1/blueprints/{blueprintId}": {
       "delete": {
-        "description": "Delete a blueprint\n\n**Required Permissions:** `delete:pro:blueprints`, `delete:school:blueprints`",
+        "description": "Delete a blueprint\n\n**Required Permissions:** `blueprints:delete`",
         "operationId": "deleteBlueprint",
         "parameters": [
           {
-            "$ref": "#/components/parameters/tenantId"
+            "$ref": "#/components/parameters/X-Tenant-Id"
           },
           {
             "description": "Blueprint ID",
@@ -2688,25 +2708,25 @@
         },
         "security": [
           {
-            "bearerAuth": []
+            "oauth2": [
+              "blueprints:delete"
+            ]
           }
         ],
         "summary": "Delete a blueprint",
         "tags": [
           "blueprints"
         ],
-        "x-authentication-required": true,
         "x-required-privileges": [
-          "delete:pro:blueprints",
-          "delete:school:blueprints"
+          "blueprints:delete"
         ]
       },
       "get": {
-        "description": "Get a blueprint\n\n**Required Permissions:** `read:pro:blueprints`, `read:school:blueprints`",
+        "description": "Get a blueprint\n\n**Required Permissions:** `blueprints:read`",
         "operationId": "getBlueprint",
         "parameters": [
           {
-            "$ref": "#/components/parameters/tenantId"
+            "$ref": "#/components/parameters/X-Tenant-Id"
           },
           {
             "description": "Blueprint ID",
@@ -2743,25 +2763,25 @@
         },
         "security": [
           {
-            "bearerAuth": []
+            "oauth2": [
+              "blueprints:read"
+            ]
           }
         ],
         "summary": "Get a blueprint",
         "tags": [
           "blueprints"
         ],
-        "x-authentication-required": true,
         "x-required-privileges": [
-          "read:pro:blueprints",
-          "read:school:blueprints"
+          "blueprints:read"
         ]
       },
       "patch": {
-        "description": "Updates a blueprint configuration.\n\n**Required Permissions:** `update:pro:blueprints`, `update:school:blueprints`",
+        "description": "Updates a blueprint configuration.\n\nDivision assignment is managed outside of this API. A `divisionId` field in the\nrequest body is rejected with a `400` and error code `DIVISION_ASSIGNMENT_NOT_ALLOWED`,\nwhether it carries a value or `null`. A blueprint that is already assigned to a division\ncannot be updated here at all, and any update to it is rejected with a `409` and error\ncode `DIVISION_PATCH_NOT_ALLOWED`.\n\n\n**Required Permissions:** `blueprints:update`",
         "operationId": "patchBlueprint",
         "parameters": [
           {
-            "$ref": "#/components/parameters/tenantId"
+            "$ref": "#/components/parameters/X-Tenant-Id"
           },
           {
             "description": "Blueprint ID",
@@ -2796,7 +2816,7 @@
                 }
               }
             },
-            "description": "Blueprint update is not valid"
+            "description": "Blueprint update is not valid, or contains fields that cannot be set through this API, such as `divisionId`"
           },
           "404": {
             "content": {
@@ -2807,31 +2827,51 @@
               }
             },
             "description": "Blueprint wasn't found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Blueprint is assigned to a division and cannot be updated through this API"
+          },
+          "415": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Unsupported media type"
           }
         },
         "security": [
           {
-            "bearerAuth": []
+            "oauth2": [
+              "blueprints:update"
+            ]
           }
         ],
         "summary": "Updates a blueprint configuration",
         "tags": [
           "blueprints"
         ],
-        "x-authentication-required": true,
         "x-required-privileges": [
-          "update:pro:blueprints",
-          "update:school:blueprints"
+          "blueprints:update"
         ]
       }
     },
-    "/v1/tenant/{tenantId}/blueprints/{blueprintId}/deploy": {
+    "/v1/blueprints/{blueprintId}/deploy": {
       "post": {
-        "description": "Deploy blueprint\n\n**Required Permissions:** `deploy:pro:blueprints`, `deploy:school:blueprints`",
+        "description": "Deploy blueprint\n\n**Required Permissions:** `blueprints:deploy`",
         "operationId": "deployBlueprint",
         "parameters": [
           {
-            "$ref": "#/components/parameters/tenantId"
+            "$ref": "#/components/parameters/X-Tenant-Id"
           },
           {
             "description": "Blueprint ID",
@@ -2871,7 +2911,9 @@
         },
         "security": [
           {
-            "bearerAuth": []
+            "oauth2": [
+              "blueprints:deploy"
+            ]
           }
         ],
         "summary": "Deploy blueprint",
@@ -2879,20 +2921,18 @@
           "blueprints"
         ],
         "x-action": true,
-        "x-authentication-required": true,
         "x-required-privileges": [
-          "deploy:pro:blueprints",
-          "deploy:school:blueprints"
+          "blueprints:deploy"
         ]
       }
     },
-    "/v1/tenant/{tenantId}/blueprints/{blueprintId}/report": {
+    "/v1/blueprints/{blueprintId}/report": {
       "get": {
-        "description": "Retrieve deployment status report for a specified blueprint.\n\n**Required Permissions:** `read:pro:blueprints`, `read:school:blueprints`",
+        "description": "Retrieve deployment status report for a specified blueprint.\n\n**Required Permissions:** `blueprints:read`",
         "operationId": "getBlueprintStatus",
         "parameters": [
           {
-            "$ref": "#/components/parameters/tenantId"
+            "$ref": "#/components/parameters/X-Tenant-Id"
           },
           {
             "description": "Blueprint ID",
@@ -2929,27 +2969,27 @@
         },
         "security": [
           {
-            "bearerAuth": []
+            "oauth2": [
+              "blueprints:read"
+            ]
           }
         ],
         "summary": "Get blueprint status report",
         "tags": [
           "blueprints"
         ],
-        "x-authentication-required": true,
         "x-required-privileges": [
-          "read:pro:blueprints",
-          "read:school:blueprints"
+          "blueprints:read"
         ]
       }
     },
-    "/v1/tenant/{tenantId}/blueprints/{blueprintId}/undeploy": {
+    "/v1/blueprints/{blueprintId}/undeploy": {
       "post": {
-        "description": "Undeploy blueprint\n\n**Required Permissions:** `deploy:pro:blueprints`, `deploy:school:blueprints`",
+        "description": "Undeploy blueprint\n\n**Required Permissions:** `blueprints:deploy`",
         "operationId": "undeployBlueprint",
         "parameters": [
           {
-            "$ref": "#/components/parameters/tenantId"
+            "$ref": "#/components/parameters/X-Tenant-Id"
           },
           {
             "description": "Blueprint ID",
@@ -2979,7 +3019,9 @@
         },
         "security": [
           {
-            "bearerAuth": []
+            "oauth2": [
+              "blueprints:deploy"
+            ]
           }
         ],
         "summary": "Undeploy blueprint",
@@ -2987,23 +3029,21 @@
           "blueprints"
         ],
         "x-action": true,
-        "x-authentication-required": true,
         "x-required-privileges": [
-          "deploy:pro:blueprints",
-          "deploy:school:blueprints"
+          "blueprints:deploy"
         ]
       }
     }
   },
   "security": [
     {
-      "bearerAuth": []
+      "oauth2": []
     }
   ],
   "servers": [
     {
       "description": "Jamf Beta API Gateway - prod",
-      "url": "https://{region}.apigw.jamf.com/api/blueprints",
+      "url": "https://{region}.api.jamfcloud.com/blueprints",
       "variables": {
         "region": {
           "default": "us",
@@ -3022,5 +3062,8 @@
       "description": "Blueprint management",
       "name": "blueprints"
     }
+  ],
+  "x-scope-types": [
+    "tenant"
   ]
 }

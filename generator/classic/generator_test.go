@@ -1121,8 +1121,11 @@ func TestGenerate_CreateAndUpdateTakeFromFile(t *testing.T) {
 	if got := strings.Count(code, `"from-file", "", "Path to XML input file`); got != 2 {
 		t.Errorf("body --from-file registrations = %d, want 2 (create and update)", got)
 	}
-	if strings.Count(code, "readClassicBody(fromFile)") != 2 {
-		t.Errorf("expected create and update to read their body through readClassicBody:\n%s", code)
+	// readClassicBodyOrSet delegates to readClassicBody when no --set pair is
+	// given, so this is still the "a body may come from a file" assertion; the
+	// call gained the --set arguments when Classic writes gained --set.
+	if strings.Count(code, "readClassicBodyOrSet(fromFile, ") != 2 {
+		t.Errorf("expected create and update to read their body through readClassicBodyOrSet:\n%s", code)
 	}
 	// The old message told the caller stdin was the only route.
 	if strings.Contains(code, "request body required on stdin") {
@@ -1133,5 +1136,61 @@ func TestGenerate_CreateAndUpdateTakeFromFile(t *testing.T) {
 	}
 	if !strings.Contains(code, "update 1 --from-file computer_invitation.xml") {
 		t.Error("expected the update example to show --from-file")
+	}
+}
+
+// TestGenerateRegistry_EnumGuardRejectsAnEmptyValue pins the tightened enum
+// check in classicSetValue.
+//
+// The guard used to read `if values, ok := spec.Enums[key]; ok && raw != ""`,
+// so "" — the one value that is out of range for every enum in the table — was
+// the one value waved through. A CI job running
+// `--set general.frequency="$FREQ"` with FREQ unset sent
+// <frequency></frequency>, the Classic API answered 200, and the policy's
+// execution frequency silently became "Once per computer". The typo (FREQ=Bogus)
+// was refused and the empty variable, the more common mistake, was not — while
+// bodyHelp promised the opposite in --help.
+//
+// Asserted against the emitted source because the check lives inside
+// classicRegistryTemplate; the behaviour itself is covered by the tests beside
+// the generated package.
+func TestGenerateRegistry_EnumGuardRejectsAnEmptyValue(t *testing.T) {
+	dir := t.TempDir()
+	gen := NewGenerator(dir)
+
+	outPath, err := gen.GenerateRegistry([]ClassicResource{
+		{CLIName: "classic-policies", GoName: "ClassicPolicies"},
+	})
+	if err != nil {
+		t.Fatalf("GenerateRegistry() error = %v", err)
+	}
+	content, err := os.ReadFile(outPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	code := string(content)
+
+	if strings.Contains(code, `spec.Enums[key]; ok && raw != ""`) {
+		t.Error("the enum check still skips an empty value, which is out of range for every enum in the table")
+	}
+	if !strings.Contains(code, "if values, ok := spec.Enums[key]; ok {") {
+		t.Error("expected the enum check to run for every value")
+	}
+	// Two branches, because the remedy differs: a bad value is retyped, an
+	// empty one usually means a shell variable expanded to nothing.
+	if !strings.Contains(code, "an empty value is not one of") {
+		t.Error("expected an empty value to be refused with the legal set named")
+	}
+	if !strings.Contains(code, "a shell variable that expanded to nothing is the usual cause") {
+		t.Error("expected the empty-value refusal to name the usual cause")
+	}
+	if !strings.Contains(code, "is not one of %s (the Classic API accepts an out-of-range value") {
+		t.Error("the out-of-range refusal for a non-empty value must survive")
+	}
+
+	// A non-enum field must still take an empty value: clearing a Classic string
+	// field is a legitimate edit, and a Classic PUT is a partial update.
+	if strings.Contains(code, `if raw == "" {`) && !strings.Contains(code, "spec.Enums[key]") {
+		t.Error("the empty-value refusal must sit inside the enum branch, not above it")
 	}
 }

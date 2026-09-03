@@ -12,9 +12,10 @@ import (
 // NewJamfProVersionsCmd creates the jamf-pro-versions command group
 func NewJamfProVersionsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "jamf-pro-versions",
-		Short: "Manage jamf-pro-versions",
-		Long:  `Manage jamf-pro-versions in Jamf Pro.`,
+		Use:         "jamf-pro-versions",
+		Short:       "Manage jamf-pro-versions",
+		Long:        `Manage jamf-pro-versions in Jamf Pro.`,
+		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
 	cmd.AddCommand(newJamfProVersionsListCmd(ctx))
@@ -34,6 +35,7 @@ func newJamfProVersionsListCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # List jamf-pro-versions and extract IDs
   jamf-cli pro jamf-pro-versions list --field id`,
+		Annotations: map[string]string{"jamf:api": "pro"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

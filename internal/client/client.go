@@ -17,7 +17,9 @@ import (
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/auth"
 	"github.com/Jamf-Concepts/jamf-cli/internal/exitcode"
+	"github.com/Jamf-Concepts/jamf-cli/internal/gateway"
 	"github.com/Jamf-Concepts/jamf-cli/internal/httptransport"
+	"github.com/Jamf-Concepts/jamf-cli/internal/privileges"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 )
 
@@ -26,8 +28,14 @@ type Client struct {
 	baseURL      string
 	httpClient   *http.Client
 	auth         auth.Provider
-	verboseLevel int    // 1 = request/response lines, 2 = +headers
-	tenantID     string // non-empty when using platform gateway auth
+	verboseLevel int // 1 = request/response lines, 2 = +headers
+	// gateway is set when requests route through the Jamf Platform Gateway:
+	// paths are mapped into their gateway namespace and the scope travels as a
+	// header. It is separate from scope because an organization-scoped
+	// credential is gateway auth with no header at all, so the presence of an
+	// ID cannot stand in for "this is the gateway".
+	gateway bool
+	scope   auth.Scope
 }
 
 // Option configures the client
@@ -40,11 +48,15 @@ func WithVerbose(level int) Option {
 	}
 }
 
-// WithTenantID enables platform gateway mode, where API paths are rewritten
-// to include the tenant identifier for routing through the Jamf Platform Gateway.
-func WithTenantID(id string) Option {
+// WithGatewayScope enables platform gateway mode: paths are rewritten into their
+// gateway namespace (/api/v1/x -> /pro/v1/x, /JSSResource/x ->
+// /proclassic/x) and the scope travels as a request header —
+// X-Environment-Id or X-Tenant-Id, or nothing for an organization-scoped
+// credential, which the gateway resolves from the access token.
+func WithGatewayScope(scope auth.Scope) Option {
 	return func(c *Client) {
-		c.tenantID = id
+		c.gateway = true
+		c.scope = scope
 	}
 }
 
@@ -82,11 +94,12 @@ func (c *Client) Do(ctx context.Context, method, path string, body io.Reader) (*
 		path = "/api" + path
 	}
 
-	// Platform gateway mode: rewrite paths to include tenant routing.
-	//   /JSSResource/* → /api/proclassic/tenant/{id}/*
-	//   /api/v*        → /api/pro/v*/tenant/{id}/*
-	if c.tenantID != "" {
-		path = rewritePathForGateway(path, c.tenantID)
+	// Platform gateway mode: map the path into its gateway namespace. The
+	// tenant is sent as a header, not a path segment — see setScopeHeader.
+	//   /JSSResource/* → /proclassic/*
+	//   /api/v*        → /pro/v*
+	if c.gateway {
+		path = rewritePathForGateway(path)
 	}
 
 	// Buffer the request body so it can be replayed on retries.
@@ -111,10 +124,11 @@ func (c *Client) Do(ctx context.Context, method, path string, body io.Reader) (*
 
 	req.Header.Set("Authorization", "Bearer "+token)
 	req.Header.Set("User-Agent", "jamf-cli/1.0 (+https://github.com/Jamf-Concepts/jamf-cli)")
+	c.setScopeHeader(req)
 
 	// Classic API endpoints use XML; modern API uses JSON.
 	// An explicit Accept override in the context takes precedence (used by binary download commands).
-	isClassic := strings.HasPrefix(path, "/JSSResource") || strings.HasPrefix(path, "/api/proclassic")
+	isClassic := strings.HasPrefix(path, "/JSSResource") || strings.HasPrefix(path, "/proclassic")
 	if override := registry.AcceptFromContext(ctx); override != "" {
 		req.Header.Set("Accept", override)
 	} else if isClassic {
@@ -139,7 +153,7 @@ func (c *Client) Do(ctx context.Context, method, path string, body io.Reader) (*
 		logHeaders(os.Stderr, req.Header, true)
 	}
 	if c.verboseLevel >= 3 {
-		logBody(os.Stderr, bodyData)
+		logBody(os.Stderr, redactBodyForLog(bodyData))
 	}
 
 	resp, err := c.doWithRetry(ctx, req, bodyData)
@@ -161,7 +175,7 @@ func (c *Client) Do(ctx context.Context, method, path string, body io.Reader) (*
 		body, _ := io.ReadAll(io.LimitReader(resp.Body, bodyLogLimit))
 		_ = resp.Body.Close()
 		if c.verboseLevel >= 3 {
-			logBody(os.Stderr, body)
+			logBody(os.Stderr, redactBodyForLog(body))
 		}
 		return nil, httpStatusError(resp.StatusCode, method, path, body)
 	}
@@ -169,7 +183,7 @@ func (c *Client) Do(ctx context.Context, method, path string, body io.Reader) (*
 	if c.verboseLevel >= 3 {
 		preview, _ := io.ReadAll(io.LimitReader(resp.Body, bodyLogLimit))
 		resp.Body = io.NopCloser(io.MultiReader(bytes.NewReader(preview), resp.Body))
-		logBody(os.Stderr, preview)
+		logBody(os.Stderr, redactBodyForLog(preview))
 	}
 
 	return resp, nil
@@ -187,8 +201,8 @@ func (c *Client) Upload(ctx context.Context, path string, body io.Reader, conten
 	if !strings.HasPrefix(path, "/api") && !strings.HasPrefix(path, "/JSSResource") {
 		path = "/api" + path
 	}
-	if c.tenantID != "" {
-		path = rewritePathForGateway(path, c.tenantID)
+	if c.gateway {
+		path = rewritePathForGateway(path)
 	}
 
 	seeker, _ := body.(io.Seeker)
@@ -216,6 +230,7 @@ func (c *Client) Upload(ctx context.Context, path string, body io.Reader, conten
 
 		req.Header.Set("Authorization", "Bearer "+token)
 		req.Header.Set("User-Agent", "jamf-cli/1.0 (+https://github.com/Jamf-Concepts/jamf-cli)")
+		c.setScopeHeader(req)
 		req.Header.Set("Content-Type", contentType)
 		req.Header.Set("Accept", "application/json")
 		req.ContentLength = contentLength
@@ -263,7 +278,7 @@ func (c *Client) Upload(ctx context.Context, path string, body io.Reader, conten
 			respBody, _ := io.ReadAll(io.LimitReader(resp.Body, bodyLogLimit))
 			_ = resp.Body.Close()
 			if c.verboseLevel >= 3 {
-				logBody(os.Stderr, respBody)
+				logBody(os.Stderr, redactBodyForLog(respBody))
 			}
 			if resp.StatusCode == http.StatusTooManyRequests {
 				return nil, exitcode.New(exitcode.RateLimited, fmt.Sprintf("upload rate limited (HTTP 429) after %d attempt(s): %s", attempt+1, string(respBody)))
@@ -274,7 +289,7 @@ func (c *Client) Upload(ctx context.Context, path string, body io.Reader, conten
 		if c.verboseLevel >= 3 {
 			preview, _ := io.ReadAll(io.LimitReader(resp.Body, bodyLogLimit))
 			resp.Body = io.NopCloser(io.MultiReader(bytes.NewReader(preview), resp.Body))
-			logBody(os.Stderr, preview)
+			logBody(os.Stderr, redactBodyForLog(preview))
 		}
 
 		return resp, nil
@@ -390,6 +405,73 @@ func RedactTokenBody(data []byte) []byte {
 	return tokenFieldRe.ReplaceAll(data, []byte(`$1"[REDACTED]"`))
 }
 
+// credentialNamePattern is the field-name alternation the three body redactors
+// below share. Deliberately name-based and generous rather than schema-aware:
+// a body reaches the log as bytes with no schema attached, and over-redacting a
+// log line costs nothing while under-redacting one writes a secret to stderr
+// and into whatever collects it.
+const credentialNamePattern = `[a-zA-Z0-9_.\[\]-]*(?:client[_-]?secret|password|passwd|passphrase|secret|private[_-]?key|encryption[_-]?key|recovery[_-]?key|signing[_-]?key|api[_-]?key|service[_-]?token|shared[_-]?secret)[a-zA-Z0-9_.\[\]-]*`
+
+var (
+	// credentialJSONFieldRe matches a JSON string value whose key names a
+	// credential. Covers both spellings a Jamf body uses (clientSecret,
+	// client_secret) and the nested Classic ones.
+	credentialJSONFieldRe = regexp.MustCompile(`(?i)("` + credentialNamePattern + `"\s*:\s*)"(?:[^"\\]|\\.)*"`)
+
+	// credentialFormFieldRe matches an application/x-www-form-urlencoded
+	// parameter whose name names a credential. This is the one that mattered:
+	// the SDK's clientcredentials.Config uses the auto-detect AuthStyle, which
+	// retries with AuthStyleInParams on any first-attempt error — so a rotated
+	// secret, a WAF 403 or a 5xx on the first token attempt is followed by one
+	// whose *body* carries client_secret in plaintext.
+	credentialFormFieldRe = regexp.MustCompile(`(?i)(^|&)(` + credentialNamePattern + `)=[^&]*`)
+
+	// credentialXMLElementRe matches a Classic API element whose tag names a
+	// credential — a distribution point, SMTP server, LDAP server, directory
+	// binding, VPP account or disk-encryption configuration all carry one.
+	//
+	// The text run is [^<]* and the closing tag is matched generically rather
+	// than by backreference, which RE2 does not have. That is exact for a leaf
+	// element, which is what every credential field in the Classic schemas is:
+	// the run stops at the next '<', so it cannot swallow a sibling.
+	credentialXMLElementRe = regexp.MustCompile(`(?i)<(` + credentialNamePattern + `)(\s[^>]*)?>([^<]*)</[^>]*>`)
+)
+
+// RedactCredentialBody replaces credential values in a request or response body
+// with "[REDACTED]", across the three encodings this CLI logs: JSON, form-
+// encoded and Classic XML.
+//
+// Request bodies were logged verbatim at -vvv while responses were redacted,
+// which is the wrong way round for the one body that is guaranteed to carry a
+// secret — the token exchange's. Bodies also carry credentials on the way in by
+// design: the credential policy routes an SMTP or LDAP account password through
+// --from-file precisely so it stays out of argv, and logging it here would put
+// it back in the CI job output.
+//
+// Applied to responses too, composed with RedactTokenBody: a Classic read of a
+// distribution point or an SMTP server returns its password field.
+func RedactCredentialBody(data []byte) []byte {
+	if len(data) == 0 {
+		return data
+	}
+	out := credentialJSONFieldRe.ReplaceAll(data, []byte(`$1"[REDACTED]"`))
+	out = credentialXMLElementRe.ReplaceAll(out, []byte(`<${1}${2}>[REDACTED]</${1}>`))
+	out = credentialFormFieldRe.ReplaceAll(out, []byte(`${1}${2}=[REDACTED]`))
+	return out
+}
+
+// redactBodyForLog is what every -vvv body log goes through.
+func redactBodyForLog(data []byte) []byte {
+	return RedactCredentialBody(RedactTokenBody(data))
+}
+
+// RedactBodyForLog is the exported alias of redactBodyForLog, for transports
+// wrapped outside this package (the Platform Gateway client wired through the
+// SDK).
+func RedactBodyForLog(data []byte) []byte {
+	return redactBodyForLog(data)
+}
+
 // logHeaders prints HTTP headers to w in sorted order. When redactAuth is true,
 // the Authorization header value is replaced with "[redacted]".
 func logHeaders(w io.Writer, h http.Header, redactAuth bool) {
@@ -425,13 +507,20 @@ func httpStatusError(status int, method, path string, body []byte) error {
 			fmt.Sprintf("authentication failed (HTTP 401): %s", string(body))).
 			WithHint("run 'jamf-cli config validate', or check JAMF_TOKEN / client credentials")
 	case http.StatusForbidden:
+		if note := edgeBlockedNote(body); note != "" {
+			return exitcode.New(exitcode.PermissionDenied,
+				"request blocked at the Jamf gateway edge (HTTP 403), before it reached Jamf").
+				WithHint(note)
+		}
 		return exitcode.New(exitcode.PermissionDenied,
 			fmt.Sprintf("permission denied (HTTP 403): %s", string(body))).
-			WithHint("the authenticated account lacks the required API privileges; check its API role")
+			WithHint(withGatewayUnservedNote(forbiddenHint(method, path), method, path, body))
 	case http.StatusNotFound:
 		return exitcode.New(exitcode.NotFound,
 			fmt.Sprintf("resource not found (HTTP 404): %s %s", method, path)).
-			WithHint("run the matching 'list' command to see valid IDs/names")
+			WithHint(withGatewayUnservedNote(
+				"run the matching 'list' command to see valid IDs/names",
+				method, path, body))
 	case http.StatusTooManyRequests:
 		return exitcode.New(exitcode.RateLimited,
 			"rate limited (HTTP 429): server is throttling requests").
@@ -439,6 +528,130 @@ func httpStatusError(status int, method, path string, body []byte) error {
 	default:
 		return exitcode.Wrap(exitcode.General, fmt.Errorf("request failed (HTTP %d): %s", status, string(body)))
 	}
+}
+
+// edgeBlockedNote recognises a CloudFront/WAF refusal and returns a hint for it,
+// or "" when the body is not one.
+//
+// The GA gateway sits behind CloudFront, and its WAF refuses some requests before
+// Jamf ever sees them. Left alone this surfaces as "permission denied (HTTP 403)"
+// with a full HTML page dumped into the message and a hint telling the operator
+// to check their API role — wrong twice over: the credential is fine, and no role
+// change will help.
+//
+// The tell is the response body: an HTML error page carrying CloudFront's own
+// wording. There is also a "Server: CloudFront" header, but it is not available
+// here and the body is unambiguous, which keeps this a pure function.
+//
+// Known triggers, wire-established 2026-08-28 against EU:
+//
+//   - "file://" anywhere in the request body. Verified as a 2x2 where that
+//     substring was the only variable. A legitimate value in Jamf Classic
+//     payloads — a dock item's path is exactly where it belongs — so this
+//     refuses real requests.
+//   - .pkg upload content, matched inside the xar table of contents.
+//   - A burst of writes, seemingly rate- or volume-based: 13 Classic creates
+//     fired straight after ~440 requests were all refused, and none of them
+//     reproduces in isolation.
+//
+// The hint names all of them and does NOT claim which one fired, because the
+// response cannot say: the same page comes back for a content match and for a
+// volume block, with no traceId and nothing identifying the rule. An earlier
+// version of this asserted a specific trigger inferred from probes run inside a
+// volume block, and the correlation was spurious.
+//
+// Deliberately no client-side workaround. Rewriting a caller-supplied body to
+// dodge a WAF rule would be silent, lossy on a path where the content is
+// meaningful, and would go on happening after the rule was fixed.
+func edgeBlockedNote(body []byte) string {
+	if !bytes.Contains(body, []byte("Request blocked")) &&
+		!bytes.Contains(body, []byte("The request could not be satisfied")) {
+		return ""
+	}
+	// The response is CloudFront's page, so it cannot say which rule fired —
+	// name every known trigger and let the caller match on what they sent.
+	return "This is the gateway's CDN/WAF, not Jamf and not your API privileges, so no role change will help. " +
+		"Known triggers: \"file://\" anywhere in the request body (a legitimate value in some Classic payloads), .pkg upload content, and a burst of writes. " +
+		"The response cannot say which one fired. There is no client-side fix — retry a single request cold, and report it to Jamf."
+}
+
+// isGatewayPath reports whether a path is in gateway form. The rewrite to
+// /pro/ or /proclassic/ happens before a request is sent and those prefixes
+// exist only in gateway mode, so this is also the answer to "were these
+// credentials a platform gateway credential" — no flag needs threading down
+// here.
+func isGatewayPath(path string) bool {
+	return strings.HasPrefix(path, "/pro/") || strings.HasPrefix(path, "/proclassic/")
+}
+
+// forbiddenHint names the permission a 403 wanted, in the vocabulary that
+// matches the credential that sent the request.
+//
+// The two are not interchangeable and neither is derivable from the other. A
+// Jamf Pro instance enforces API-role privileges ("Read Categories"), granted in
+// Jamf Pro; the gateway enforces GA capability permissions (categories:read),
+// granted in Jamf Account when the API integration is created, and the GA
+// consolidation folded several privileges into one capability. So a gateway 403
+// answered with Jamf Pro privilege names sends the operator to a console where
+// the grant it names does not exist — which is the same class of wrong answer as
+// the unrouted-endpoint 403 that gatewayUnservedNote exists for.
+//
+// The command's own jamf:privileges annotation is deliberately not used here:
+// it is the Jamf Pro vocabulary for a Pro command, and a hand-written command
+// fanning out over many endpoints carries one annotation for the whole batch,
+// where only the request knows which endpoint was refused.
+func forbiddenHint(method, path string) string {
+	if !isGatewayPath(path) {
+		return "the authenticated account lacks the required API privileges; check its API role"
+	}
+	if hint := privileges.Hint(gateway.Scopes(method, path)); hint != "" {
+		return hint
+	}
+	return privileges.GatewayFallbackHint()
+}
+
+// withGatewayUnservedNote appends an explanation when a failure looks like the
+// platform gateway declining to serve a Jamf Pro or Classic namespace it does
+// not expose.
+//
+// The gateway's answer for a path it does not route is 403 BAD_PERMISSIONS or
+// Tyk's bare "404 page not found", and neither says anything about the gateway
+// — 403 BAD_PERMISSIONS in particular is exactly what a real missing privilege
+// looks like, so an operator reads it as "grant me the privilege" and goes
+// looking for a role that will never help.
+//
+// This is the response-side half of the pair. The other half refuses an
+// Unserved command before it is sent (checkGatewayCoverage in
+// internal/commands/root.go), which is the better error because it names the
+// command rather than the URL. This half still matters for two reasons: the
+// Undeclared level is deliberately not refused, and a hand-written command that
+// fans out over many endpoints — pro overview makes ~41 calls, pro backup and
+// pro diff more — carries one command annotation for a whole batch, so only the
+// request itself knows which endpoint was refused.
+//
+// The note is APPENDED rather than substituted, deliberately. Both signals can
+// legitimately mean what they normally mean — a 404 for a deployment ID that
+// really is gone, a 403 for a role that really is short a privilege — so the
+// cost of a false positive has to be one extra sentence, never a confidently
+// wrong exclusive answer. The path is already the rewritten gateway one by the
+// time this is called, and /pro/ and /proclassic/ only exist in gateway mode, so
+// no gateway flag needs threading down here.
+func withGatewayUnservedNote(hint, method, path string, body []byte) string {
+	if !isGatewayPath(path) {
+		return hint
+	}
+	note := gateway.NoteForRequest(method, path)
+	if note == "" {
+		return hint
+	}
+	// Tyk's unrouted 404 is a plain-text page, not a JSON envelope; a JSON body
+	// means the request reached Jamf Pro and the 404 is about the resource.
+	if bytes.Contains(body, []byte("404 page not found")) ||
+		bytes.Contains(body, []byte("BAD_PERMISSIONS")) ||
+		len(bytes.TrimSpace(body)) == 0 {
+		return strings.TrimRight(hint, ". ") + ". " + note
+	}
+	return hint
 }
 
 // logBody prints body bytes to w indented by four spaces. Truncates at bodyLogLimit
@@ -454,30 +667,56 @@ func logBody(w io.Writer, data []byte) {
 	}
 }
 
-// rewritePathForGateway transforms an API path for the Jamf Platform Gateway.
+// rewritePathForGateway maps an instance API path onto its Jamf Platform
+// Gateway namespace.
 //
-//	/JSSResource/computers        → /api/proclassic/tenant/{id}/computers
-//	/api/v1/accounts              → /api/pro/v1/tenant/{id}/accounts
-//	/api/preview/computers        → /api/pro/preview/tenant/{id}/computers
-func rewritePathForGateway(path, tenantID string) string {
+//	/JSSResource/computers        → /proclassic/computers
+//	/api/v1/accounts              → /pro/v1/accounts
+//	/api/preview/computers        → /pro/preview/computers
+//
+// There is NO /api segment on the gateway. The GA gateway at
+// {region}.api.jamfcloud.com mounts each namespace at the root and answers
+// 404 "page not found" — the unknown-namespace tell — for anything under /api;
+// the retired {region}.apigw.jamf.com required it. Wire-verified 2026-08-28
+// against EU: /pro/v1/categories and /proclassic/categories both answered 200
+// on the same credential in the same run where their /api forms answered 404.
+// Dropped outright rather than selected per host, the same call as the tenant
+// path→header migration below: a second code path nothing exercises is how
+// that URL-shape bug went unnoticed for weeks.
+//
+// The tenant is NOT in the path. Until 2026-08-25 every gateway URL embedded it
+// — /api/pro/{version}/tenant/{tenantID}/{resource} — and Tyk resolved the
+// request context from `path`; `header` became an allowed source in prod on that
+// date (tyk-gateway-management 0793131b, "JSC-73421 Enable header context
+// support - Prod") and the published specs dropped the segment in GitOps build
+// v1495 in favour of a required X-Tenant-Id header. Both forms answer during the
+// transition window, so this follows the platform SDK onto headers only rather
+// than keeping a second code path nothing exercises.
+func rewritePathForGateway(path string) string {
 	if after, ok := strings.CutPrefix(path, "/JSSResource/"); ok {
-		suffix := after
-		return "/api/proclassic/tenant/" + tenantID + "/" + suffix
+		return "/proclassic/" + after
 	}
 	if after, ok := strings.CutPrefix(path, "/JSSResource"); ok {
-		suffix := after
-		return "/api/proclassic/tenant/" + tenantID + suffix
+		return "/proclassic" + after
 	}
-	// Modern API: /api/v1/..., /api/v2/..., /api/preview/..., etc.
-	// Version segment goes before /tenant/{id} to match the Platform SDK convention:
-	//   /api/{namespace}/{version}/tenant/{tenantID}/{resource}
+	// Modern API: /api/v1/..., /api/v2/..., /api/preview/..., etc. The /api the
+	// caller-facing path carries is the instance's, not the gateway's — it is
+	// replaced by the namespace here, never prefixed onto it.
 	if after, ok := strings.CutPrefix(path, "/api/"); ok {
-		// after = "v1/accounts" → version = "v1", rest = "accounts"
-		version, rest, _ := strings.Cut(after, "/")
-		if rest == "" {
-			return "/api/pro/" + version + "/tenant/" + tenantID
-		}
-		return "/api/pro/" + version + "/tenant/" + tenantID + "/" + rest
+		return "/pro/" + after
 	}
 	return path
+}
+
+// setScopeHeader stamps the gateway scope header on a request. Only in gateway
+// mode, and only when there is one to send: a direct-to-instance request is not
+// scoped at all, and an organization-scoped gateway credential carries its scope
+// in the token rather than a header.
+func (c *Client) setScopeHeader(req *http.Request) {
+	if !c.gateway {
+		return
+	}
+	if name, value := c.scope.Header(); name != "" {
+		req.Header.Set(name, value)
+	}
 }

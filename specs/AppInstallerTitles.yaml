@@ -1,112 +1,370 @@
-openapi: 3.0.1
+components:
+  parameters:
+    page:
+      explode: true
+      in: query
+      name: page
+      schema:
+        default: 0
+        type: integer
+      style: form
+    page-size:
+      explode: true
+      in: query
+      name: page-size
+      schema:
+        default: 100
+        type: integer
+      style: form
+  schemas:
+    ApiError:
+      properties:
+        errors:
+          items:
+            $ref: '#/components/schemas/ApiErrorCause'
+          type: array
+        httpStatus:
+          description: HTTP status of the response
+          example: 400
+          type: integer
+      type: object
+    ApiErrorCause:
+      properties:
+        code:
+          description: Error-specific code that can be used to identify localization string, etc.
+          example: "8675309"
+          type: string
+        description:
+          description: A general description of error for troubleshooting/debugging. Generally this text should not be displayed to a user; instead refer to errorCode and it's localized text
+          example: I've just picked up a fault in the AE35 unit. It's going to go 100% failure in 72 hours
+          type: string
+        field:
+          description: Name of the field that caused the error.
+          example: Name
+          type: string
+        id:
+          description: id of object with error. Optional.
+          example: "3"
+          nullable: true
+          type: string
+      required:
+        - field
+      type: object
+    AppTitle:
+      properties:
+        bundleId:
+          description: Bundle ID
+          example: com.jamf.JamfConnect
+          readOnly: true
+          type: string
+        iconUrl:
+          description: URL that provides an icon for the application
+          example: http://localhost:8080/example_icon
+          readOnly: true
+          type: string
+        id:
+          description: Unique App Title identifier that represents an application in the App Installers system
+          example: JamfConnect
+          readOnly: true
+          type: string
+        installationPathShared:
+          description: If set to true - another App ID might be installed on the same path
+          example: false
+          readOnly: true
+          type: boolean
+        publisher:
+          description: Publisher name
+          example: Jamf
+          readOnly: true
+          type: string
+        titleName:
+          description: Human readable name of the application
+          example: Jamf Connect
+          readOnly: true
+          type: string
+        version:
+          description: Version
+          example: "1"
+          readOnly: true
+          type: string
+      type: object
+    AppTitleDetails:
+      allOf:
+        - $ref: '#/components/schemas/AppTitle'
+        - description: Extended information about App Title.
+          properties:
+            architecture:
+              description: |
+                Computer architecture type supported by this version of the App.
+                Values:
+                - **universal** - the app can be installed on computers with arm64 or x86_64 processor
+                - **x86_64** - the app can be installed on computers with x86_64 processor
+                - **arm64** - the app can be installed on computers with arm64 processor
+              example: universal
+              type: string
+            availabilityDate:
+              description: Date when the app version was made available in Jamf App Catalog
+              example: "2020-02-20T10:10:10Z"
+              type: string
+            installerPackageHash:
+              description: Hash used to verify integrity of the final package
+              example: 04259e4989c8187e23813bb6fe915d1f
+              type: string
+            installerPackageHashType:
+              description: Type of package integrity hash for final package
+              example: MD5
+              type: string
+            language:
+              description: Language included if app has locale-specific build
+              example: en_US
+              type: string
+            launchDaemonIncluded:
+              description: If a launch daemon is included
+              example: true
+              type: boolean
+            mediaSourceType:
+              description: |
+                Indication on the source which app is downloaded from
+                Values:
+                - **EXTERNAL_URL** - app is downloaded from external source which usually means vendor site
+                - **JAMF_SERVER** - app is downloaded from JAMF server
+              enum:
+                - EXTERNAL_URL
+                - JAMF_SERVER
+              example: EXTERNAL_URL
+              type: string
+            minimumOsVersion:
+              description: Minimal operating system version required for this app
+              example: 10.11.0
+              type: string
+            notificationAvailable:
+              description: If notifications are enabled
+              example: true
+              type: boolean
+            originalMediaSources:
+              description: An array of original media sources
+              items:
+                $ref: '#/components/schemas/OriginalMediaSource'
+              type: array
+            originalTermsAndConditions:
+              description: An array of terms and conditions URLs provided by the software vendor
+              example:
+                - https://example-terms/eula1
+                - https://example-terms/eula2
+              items:
+                type: string
+              type: array
+            packageSigningIdentity:
+              description: Entity that signed the final package
+              example: Jamf
+              type: string
+            shortVersion:
+              description: Application version string visible on device
+              example: 10.1.0
+              type: string
+            sizeInBytes:
+              description: Package size in bytes
+              example: 500
+              type: integer
+            suppressAutoUpdate:
+              description: If auto update of the App Title are suppressed
+              example: true
+              type: boolean
+          type: object
+    AppTitleVersionAndMediaSourceType:
+      properties:
+        mediaSourceType:
+          description: |
+            Indication on the source which app is downloaded from
+            Values:
+            - **EXTERNAL_URL** - app is downloaded from external source which usually means vendor site
+            - **JAMF_SERVER** - app is downloaded from JAMF server
+          enum:
+            - EXTERNAL_URL
+            - JAMF_SERVER
+          example: EXTERNAL_URL
+          type: string
+        version:
+          description: App Installer version
+          example: 89.0.2
+          nullable: true
+          type: string
+      type: object
+    AppTitleVersionsResult:
+      properties:
+        results:
+          description: list of available versions for app installer
+          items:
+            $ref: '#/components/schemas/AppTitleVersionAndMediaSourceType'
+          readOnly: true
+          type: array
+        totalCount:
+          example: 13
+          type: integer
+      type: object
+    AppTitlesResult:
+      properties:
+        results:
+          items:
+            $ref: '#/components/schemas/AppTitle'
+          type: array
+        totalCount:
+          example: 1
+          type: integer
+      type: object
+    OriginalMediaSource:
+      properties:
+        hash:
+          description: Hash used to verify integrity of the source package
+          example: 04259e4989c8187e23813bb6fe915d1f
+          type: string
+        hashType:
+          description: Type of package integrity hash for source package
+          enum:
+            - MD5
+            - SHA256
+          example: MD5
+          type: string
+        url:
+          description: Source URL for the app
+          example: jamf.com
+          type: string
+      required:
+        - hashType
+        - hash
+        - url
+      type: object
 info:
+  description: Browse the Jamf App Catalog of available App Installer titles and their versions. Titles are read-only catalog entries provided by Jamf.
   title: Jamf Pro API - App Installer Titles
-  description: Browse the Jamf App Catalog of available App Installer titles. Titles are read-only catalog entries provided by Jamf.
   version: 0.0.1
+openapi: 3.0.1
 paths:
   /v1/app-installers/titles:
     get:
-      tags:
-      - app-installer-titles
-      summary: Get all available App Installer titles
-      description: Retrieves all available App Installer titles from the Jamf App Catalog with pagination support
+      description: |-
+        Get a list of all App Titles available in the App Installers system. App Title is used as a definition for App Installer.
+
+        **Required Permissions:** `applications:read`
       parameters:
-      - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page'
-      - $ref: 'DefinitionsLibrary.yaml#/components/parameters/page-size'
+        - $ref: '#/components/parameters/page'
+        - $ref: '#/components/parameters/page-size'
+        - description: 'Sorting criteria in the format: property:asc/desc. Default sort is id:asc. Multiple sort criteria are supported and must be separated with a comma. Example: sort=titleName:desc,publisher:asc'
+          explode: true
+          in: query
+          name: sort
+          schema:
+            default:
+              - id:asc
+            items:
+              type: string
+            type: array
+        - description: 'Query in the RSQL format, allowing to filter app titles collection. Default filter is empty query - returning all results for the requested page. Fields allowed in the query: id, titleName, publisher, version. Example: titleName=="*appInstaller*"'
+          in: query
+          name: filter
+          schema:
+            default: ""
+            type: string
       responses:
         200:
-          description: Successful response
           content:
-            'application/json':
+            application/json:
               schema:
-                $ref: '#/components/schemas/AppInstallerTitleSearchResults'
+                $ref: '#/components/schemas/AppTitlesResult'
+          description: Success.
+        403:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+          description: Cloud Services Connection has not been established.
+      summary: Get a list of all App Titles available in the App Installers system
+      tags:
+        - app-installers
       x-required-privileges:
-      - Read App Installers
+        - Read Mac Applications
   /v1/app-installers/titles/{id}:
     get:
-      tags:
-      - app-installer-titles
-      summary: Get an App Installer title by ID
-      description: Retrieves a specific App Installer title from the catalog
+      description: |-
+        Get details about App Title version available in the App Installers system. The version is specified by a query parameter, if missing the newest version is returned.
+
+        **Required Permissions:** `applications:read`
       parameters:
-      - name: id
-        in: path
-        description: ID of the App Installer title
-        required: true
-        schema:
-          type: string
+        - description: App Title identifier
+          example: 0B3
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
+        - description: Allow requesting specific app installer version
+          example: 89.0.2
+          explode: true
+          in: query
+          name: version
+          schema:
+            default: ""
+            type: string
+          style: form
       responses:
         200:
-          description: Successful response
           content:
-            'application/json':
+            application/json:
               schema:
-                $ref: '#/components/schemas/AppInstallerTitle'
-        404:
-          description: Title not found
+                $ref: '#/components/schemas/AppTitleDetails'
+          description: Success.
+        403:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+          description: Cloud Services Connection has not been established.
+      summary: Get details about App Title version available in the App Installers system
+      tags:
+        - app-installers
       x-required-privileges:
-      - Read App Installers
-components:
-  schemas:
-    AppInstallerTitleSearchResults:
-      type: object
-      properties:
-        totalCount:
-          type: integer
-        results:
-          type: array
-          items:
-            $ref: '#/components/schemas/AppInstallerTitle'
-    AppInstallerTitle:
-      type: object
-      properties:
-        id:
-          type: string
-        bundleId:
-          type: string
-        titleName:
-          type: string
-          description: Display name of the application
-        publisher:
-          type: string
-        iconUrl:
-          type: string
-        version:
-          type: string
-        sizeInBytes:
-          type: integer
-        minimumOsVersion:
-          type: string
-        language:
-          type: string
-        availabilityDate:
-          type: string
-        shortVersion:
-          type: string
-        architecture:
-          type: string
-        packageSigningIdentity:
-          type: string
-        installerPackageHashType:
-          type: string
-        installerPackageHash:
-          type: string
-        originalMediaSources:
-          type: array
-          items:
-            $ref: '#/components/schemas/OriginalMediaSource'
-        launchDaemonIncluded:
-          type: boolean
-        notificationAvailable:
-          type: boolean
-        suppressAutoUpdate:
-          type: boolean
-    OriginalMediaSource:
-      type: object
-      properties:
-        hashType:
-          type: string
-        hash:
-          type: string
-        url:
-          type: string
+        - Read Mac Applications
+  /v1/app-installers/titles/{id}/versions:
+    get:
+      description: |-
+        Get ordered list of App Title versions available in the App Installers system.
+
+        **Required Permissions:** `applications:read`
+      parameters:
+        - description: App Title identifier
+          example: 0B3
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
+        - description: endpoint will return only versions higher than start-version
+          in: query
+          name: start-version
+          schema:
+            default: ""
+            example: "1.0"
+            type: string
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AppTitleVersionsResult'
+          description: OK
+        403:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+          description: Cloud Services Connection has not been established.
+      summary: Get ordered list of App Title versions available in the App Installers system
+      tags:
+        - app-installers
+      x-action: true
+      x-required-privileges:
+        - Read Mac Applications

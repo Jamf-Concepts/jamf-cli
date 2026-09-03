@@ -1398,3 +1398,69 @@ func TestCommandEntriesToMaps_PrivilegesPositiveOnly(t *testing.T) {
 		t.Error("entry without privileges must omit the 'privileges' key entirely")
 	}
 }
+
+// TestChainSkip_RootOnlyNamesDoNotSkipNestedCommands asserts that a subcommand
+// named "version" or "commands" still resolves auth.
+//
+// chainSkip matches by command name anywhere in the chain, which is right for
+// "config" and "setup" but wrong for ordinary English words a resource can use
+// as an operation name. AI Governance's GET /policies/{id}/versions/{n} is
+// generated as `platform ai-policies version`, and while "version" was matched
+// anywhere that command silently skipped auth and then failed at its own gate
+// with "this command requires platform gateway auth" — sending the operator to
+// fix credentials that were already correct. The failure is invisible from the
+// generator side: nothing about the spec or the emitted code is wrong.
+func TestChainSkip_RootOnlyNamesDoNotSkipNestedCommands(t *testing.T) {
+	for _, args := range [][]string{
+		{"platform", "ai-policies", "version", "some-id", "1"},
+		{"pro", "mdm-commands", "commands"},
+	} {
+		t.Run(strings.Join(args, " "), func(t *testing.T) {
+			resetGlobals()
+			t.Setenv("JAMF_URL", "https://test.jamfcloud.com")
+			t.Setenv("JAMF_TOKEN", "")
+			t.Setenv("JAMF_CLIENT_ID", "")
+			t.Setenv("JAMF_CLIENT_SECRET", "")
+			t.Setenv("JAMF_PROFILE", "")
+			t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+
+			root := NewRootCmd("test", "abc123", "2024-01-01", "unknown")
+			root.SetArgs(args)
+
+			err := root.Execute()
+			if err == nil {
+				t.Fatal("expected an auth error — the command skipped auth resolution")
+			}
+			if !strings.Contains(err.Error(), "authentication required") {
+				t.Errorf("error = %q, want the auth-resolution error; a product gate's own "+
+					"message here means auth was skipped", err.Error())
+			}
+		})
+	}
+}
+
+// TestChainSkip_RootLevelVersionAndCommandsStillSkip is the other half: the
+// root-level `version` and `commands` must keep working with no credentials at
+// all, which is the whole reason they are in the skip set.
+func TestChainSkip_RootLevelVersionAndCommandsStillSkip(t *testing.T) {
+	for _, args := range [][]string{{"version"}, {"commands"}} {
+		t.Run(args[0], func(t *testing.T) {
+			resetGlobals()
+			t.Setenv("JAMF_URL", "")
+			t.Setenv("JAMF_TOKEN", "")
+			t.Setenv("JAMF_CLIENT_ID", "")
+			t.Setenv("JAMF_CLIENT_SECRET", "")
+			t.Setenv("JAMF_PROFILE", "")
+			t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+
+			root := NewRootCmd("test", "abc123", "2024-01-01", "unknown")
+			root.SetArgs(args)
+			root.SetOut(io.Discard)
+			root.SetErr(io.Discard)
+
+			if err := root.Execute(); err != nil {
+				t.Errorf("%v with no credentials: %v", args, err)
+			}
+		})
+	}
+}

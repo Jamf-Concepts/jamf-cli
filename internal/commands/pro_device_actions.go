@@ -13,6 +13,7 @@ import (
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
 
+	"github.com/Jamf-Concepts/jamf-cli/internal/gateway"
 	"github.com/Jamf-Concepts/jamf-cli/internal/output"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 	"github.com/Jamf-Concepts/jamf-cli/internal/resolve"
@@ -39,6 +40,73 @@ func destructiveAnnotation(name string, destructive bool) map[string]string {
 		return map[string]string{"jamf:destructive": "true"}
 	}
 	return nil
+}
+
+// mdmCommandsPath is the modern-API MDM command endpoint. Every subcommand
+// built on sendComputerModernMDMCommand or sendMobileModernMDMCommand POSTs
+// here and nowhere else.
+//
+// The two send helpers deliberately keep the literal rather than referring to
+// this constant: TestHandWrittenPathsAreServed greps the source for path
+// literals, so a request path reachable only through a constant is invisible to
+// the guard — and this is precisely the path the guard has an accepted
+// exception for.
+const mdmCommandsPath = "/v2/mdm/commands"
+
+// markGatewayCoverage stamps the jamf:api and jamf:gateway* annotations the
+// generators stamp, for a hand-written command whose every request goes to one
+// Pro or Classic endpoint. checkAPIMatch then refuses it before anything is
+// sent on a gateway profile and applyGatewayCoverageHelp adds the caveat to
+// --help, exactly as for a generated command on the same path.
+//
+// It exists because the same wire operation was refused under one command name
+// and sent under a dozen others. POST /v2/mdm/commands is unserved, so the
+// generated `pro mdm-commands create` is refused — while `pro comp lock`,
+// `restart`, `shutdown`, `enable-remote-desktop`, `set-recovery-lock` and the
+// mobile-device actions POST the identical path and carried no annotation. The
+// operator was told the endpoint is outside the supported API and could then
+// bulk-issue it across a whole group.
+//
+// Only for a command whose whole job is that one request. A fan-out command
+// (pro overview, pro backup) must not be refused for one endpoint out of
+// dozens — the response-side gatewayUnservedNote answers those, from the
+// request that was actually refused.
+//
+// Read from the runtime table rather than written out, so the refusal tracks
+// specs/gateway/coverage.json: when the gateway publishes the operation the
+// annotation stops being stamped, with no edit here. Nothing is stamped for a
+// served operation.
+func markGatewayCoverage(cmd *cobra.Command, method, path string) *cobra.Command {
+	f, ok := gateway.Lookup(method, gatewayFormPath(path))
+	if !ok || f.Level != gateway.Unserved {
+		return cmd
+	}
+	if cmd.Annotations == nil {
+		cmd.Annotations = map[string]string{}
+	}
+	api := apiPro
+	if strings.HasPrefix(path, "/JSSResource") {
+		api = apiProClassic
+	}
+	cmd.Annotations[annotationAPI] = api
+	cmd.Annotations[annotationGateway] = string(f.Level)
+	cmd.Annotations[annotationGatewayBasis] = string(f.Basis)
+	cmd.Annotations[annotationGatewayDetail] = f.Detail
+	return cmd
+}
+
+// gatewayFormPath maps a caller-facing Jamf Pro or Classic path onto the
+// gateway namespace the coverage table is keyed on.
+//
+// Mirrors client.rewritePathForGateway, which is unexported and runs at request
+// time. Note the /api segment a Pro path gains inside client.Do is *replaced*
+// by the namespace there rather than prefixed onto it, so it is never added
+// here.
+func gatewayFormPath(path string) string {
+	if after, ok := strings.CutPrefix(path, "/JSSResource"); ok {
+		return "/proclassic" + after
+	}
+	return "/pro" + path
 }
 
 // destructiveByVerb is the verb-name allowlist consulted by
@@ -142,6 +210,15 @@ func (dt *deviceTarget) resolveMobileDevicesCmd(cmd *cobra.Command, client regis
 }
 
 // --- Computer action commands ---
+//
+// erase and remove-mdm are the only two hand-written commands that assemble a
+// computers-inventory path, so they do not move with the generated ones and have
+// to be version-pinned here. Both sent /v1/computer-inventory/{id}/... until the
+// gateway's published 11.31.0 spec withdrew v1, v2 and v3 in favour of v4;
+// /v4/computers-inventory/{id}/{erase,remove-mdm-profile} is the successor and
+// the only version the gateway now declares. Keep them in step with
+// resourceGetDetailPathOverrides in generator/parser/parser.go, which pins the
+// other hand-maintained computers-inventory path.
 
 func newComputerEraseCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	var (
@@ -187,7 +264,7 @@ body can provide a Find My PIN (6 digits) via stdin or --body-file.`,
 				destructive: true,
 				bodyFile:    bodyFile,
 				execSingle: func(d *resolve.DeviceIdentifiers, body io.Reader) error {
-					path := fmt.Sprintf("/v1/computer-inventory/%s/erase", url.PathEscape(d.ID))
+					path := fmt.Sprintf("/v4/computers-inventory/%s/erase", url.PathEscape(d.ID))
 					return doPostAction(cmd, cliCtx, path, body)
 				},
 			})
@@ -223,7 +300,7 @@ func newComputerRemoveMDMCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				deviceType:  "computer",
 				destructive: true,
 				execSingle: func(d *resolve.DeviceIdentifiers, _ io.Reader) error {
-					path := fmt.Sprintf("/v1/computer-inventory/%s/remove-mdm-profile", url.PathEscape(d.ID))
+					path := fmt.Sprintf("/v4/computers-inventory/%s/remove-mdm-profile", url.PathEscape(d.ID))
 					return doPostAction(cmd, cliCtx, path, nil)
 				},
 			})
@@ -689,7 +766,7 @@ func newModernComputerMDMCmd(cliCtx *registry.CLIContext, name, commandType, sho
 	if destructive {
 		cmd.Flags().BoolVar(&confirmDestructive, "confirm-destructive", false, "required for bulk destructive operations")
 	}
-	return cmd
+	return markGatewayCoverage(cmd, "POST", mdmCommandsPath)
 }
 
 func newComputerLockCmd(cliCtx *registry.CLIContext) *cobra.Command {
@@ -756,7 +833,7 @@ func newComputerRestartCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	dt.addFlags(cmd)
 	cmd.Flags().BoolVar(&yes, "yes", false, "skip confirmation for bulk operations")
 	cmd.Flags().BoolVar(&rebuildKernelCache, "rebuild-kernel-cache", false, "rebuild the kernel cache before restarting")
-	return cmd
+	return markGatewayCoverage(cmd, "POST", mdmCommandsPath)
 }
 
 func newComputerShutdownCmd(cliCtx *registry.CLIContext) *cobra.Command {
@@ -811,7 +888,7 @@ lock a user out of their machine.`,
 	cmd.Flags().BoolVar(&yes, "yes", false, "skip confirmation prompt")
 	cmd.Flags().BoolVar(&confirmDestructive, "confirm-destructive", false, "required for bulk destructive operations")
 	cmd.Flags().StringVar(&newPassword, "new-password", "", "Recovery Lock password (omit to clear)")
-	return cmd
+	return markGatewayCoverage(cmd, "POST", mdmCommandsPath)
 }
 
 // --- Modern API mobile device MDM commands ---
@@ -867,7 +944,7 @@ func newModernMobileMDMCmd(cliCtx *registry.CLIContext, name, commandType, short
 	if destructive {
 		cmd.Flags().BoolVar(&confirmDestructive, "confirm-destructive", false, "required for bulk destructive operations")
 	}
-	return cmd
+	return markGatewayCoverage(cmd, "POST", mdmCommandsPath)
 }
 
 func newMobileRestartCmd(cliCtx *registry.CLIContext) *cobra.Command {
@@ -972,7 +1049,7 @@ func newMobileLockCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd.Flags().StringVar(&message, "message", "", "message to display on the locked screen")
 	cmd.Flags().StringVar(&phoneNumber, "phone-number", "", "phone number to display on the locked screen")
 	cmd.Flags().StringVar(&pin, "pin", "", "6-digit PIN required to unlock (supervised devices)")
-	return cmd
+	return markGatewayCoverage(cmd, "POST", mdmCommandsPath)
 }
 
 func newMobileClearPasscodeCmd(cliCtx *registry.CLIContext) *cobra.Command {
@@ -1006,7 +1083,7 @@ func newMobileClearPasscodeCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd.Flags().BoolVar(&confirmDestructive, "confirm-destructive", false, "required for bulk destructive operations")
 	cmd.Flags().StringVar(&unlockToken, "unlock-token", "", "base64-encoded unlock token (required for supervised devices)")
 	_ = cmd.MarkFlagRequired("unlock-token")
-	return cmd
+	return markGatewayCoverage(cmd, "POST", mdmCommandsPath)
 }
 
 func newMobileEnableLostModeCmd(cliCtx *registry.CLIContext) *cobra.Command {
@@ -1054,7 +1131,7 @@ func newMobileEnableLostModeCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd.Flags().StringVar(&message, "message", "", "message to display in Lost Mode")
 	cmd.Flags().StringVar(&phone, "phone", "", "phone number to display in Lost Mode")
 	cmd.Flags().StringVar(&footnote, "footnote", "", "footnote to display in Lost Mode")
-	return cmd
+	return markGatewayCoverage(cmd, "POST", mdmCommandsPath)
 }
 
 func newMobileDisableLostModeCmd(cliCtx *registry.CLIContext) *cobra.Command {
@@ -1211,7 +1288,7 @@ Default application flags accept an app bundle identifier.`,
 	cmd.Flags().StringVar(&personalHotspot, "personal-hotspot", "", "enable or disable personal hotspot (true/false)")
 	cmd.Flags().StringVar(&timeZone, "time-zone", "", "IANA time zone (e.g. America/New_York)")
 	cmd.Flags().StringVar(&updateCadence, "software-update-cadence", "", "ALLOW_ALL_UPDATES, ONLY_ALLOW_LEAST_CURRENT_UPDATE, or ONLY_ALLOW_MOST_CURRENT_UPDATE")
-	return cmd
+	return markGatewayCoverage(cmd, "POST", mdmCommandsPath)
 }
 
 func newComputerSettingsCmd(cliCtx *registry.CLIContext) *cobra.Command {
@@ -1265,7 +1342,7 @@ At least one setting flag must be provided. Boolean settings accept "true" or "f
 	cmd.Flags().StringVar(&bluetooth, "bluetooth", "", "enable or disable bluetooth (true/false)")
 	cmd.Flags().StringVar(&timeZone, "time-zone", "", "IANA time zone (e.g. America/New_York)")
 	cmd.Flags().StringVar(&updateCadence, "software-update-cadence", "", "ALLOW_ALL_UPDATES, ONLY_ALLOW_LEAST_CURRENT_UPDATE, or ONLY_ALLOW_MOST_CURRENT_UPDATE")
-	return cmd
+	return markGatewayCoverage(cmd, "POST", mdmCommandsPath)
 }
 
 // --- Additional mobile action commands ---
@@ -1314,7 +1391,7 @@ One of --destination-id or --destination-name is required.`,
 	cmd.Flags().StringVar(&destinationName, "destination-name", "", "name of the AirPlay destination")
 	cmd.Flags().IntVar(&scanTime, "scan-time", 0, "seconds to scan for the destination device")
 	cmd.MarkFlagsMutuallyExclusive("destination-id", "destination-name")
-	return cmd
+	return markGatewayCoverage(cmd, "POST", mdmCommandsPath)
 }
 
 func newMobileStopMirroringCmd(cliCtx *registry.CLIContext) *cobra.Command {
@@ -1355,7 +1432,7 @@ func newMobileRefreshCellularPlansCmd(cliCtx *registry.CLIContext) *cobra.Comman
 	cmd.Flags().BoolVar(&yes, "yes", false, "skip confirmation for bulk operations")
 	cmd.Flags().StringVar(&esimServerURL, "esim-server-url", "", "URL of the eSIM server (required)")
 	_ = cmd.MarkFlagRequired("esim-server-url")
-	return cmd
+	return markGatewayCoverage(cmd, "POST", mdmCommandsPath)
 }
 
 func newMobileApplyRedemptionCodeCmd(cliCtx *registry.CLIContext) *cobra.Command {
@@ -1390,7 +1467,7 @@ func newMobileApplyRedemptionCodeCmd(cliCtx *registry.CLIContext) *cobra.Command
 	cmd.Flags().StringVar(&redemptionCode, "code", "", "redemption code (required)")
 	_ = cmd.MarkFlagRequired("app")
 	_ = cmd.MarkFlagRequired("code")
-	return cmd
+	return markGatewayCoverage(cmd, "POST", mdmCommandsPath)
 }
 
 // --- Shared iPad / multi-user commands ---
@@ -1444,7 +1521,7 @@ This is a destructive operation.`,
 	cmd.Flags().BoolVar(&forceDeletion, "force", false, "force deletion even if the user is logged in")
 	cmd.Flags().BoolVar(&deleteAll, "all", false, "delete all users from the device")
 	cmd.MarkFlagsMutuallyExclusive("user-name", "all")
-	return cmd
+	return markGatewayCoverage(cmd, "POST", mdmCommandsPath)
 }
 
 func newMobileLogOutUserCmd(cliCtx *registry.CLIContext) *cobra.Command {
@@ -1486,7 +1563,7 @@ func newMobileUnlockUserAccountCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd.Flags().BoolVar(&yes, "yes", false, "skip confirmation for bulk operations")
 	cmd.Flags().StringVar(&userName, "user-name", "", "username of the account to unlock (required)")
 	_ = cmd.MarkFlagRequired("user-name")
-	return cmd
+	return markGatewayCoverage(cmd, "POST", mdmCommandsPath)
 }
 
 // --- Additional computer action commands ---
@@ -1609,5 +1686,5 @@ It is never accepted as a flag value.`,
 	cmd.Flags().BoolVar(&confirmDestructive, "confirm-destructive", false, "required for bulk destructive operations")
 	cmd.Flags().StringVar(&userName, "user-name", "", "username of the admin account (default: MDM-created account)")
 	cmd.Flags().StringVar(&passwordFile, "password-file", "", "file containing the new password")
-	return cmd
+	return markGatewayCoverage(cmd, "POST", mdmCommandsPath)
 }

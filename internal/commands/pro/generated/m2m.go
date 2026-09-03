@@ -12,9 +12,10 @@ import (
 // NewM2MCmd creates the m2m command group
 func NewM2MCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "m2m",
-		Short: "Manage m2m",
-		Long:  `Manage m2m in Jamf Pro.`,
+		Use:         "m2m",
+		Short:       "Manage m2m",
+		Long:        `Manage m2m in Jamf Pro.`,
+		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
 	cmd.AddCommand(newM2MListCmd(ctx))
@@ -34,6 +35,7 @@ func newM2MListCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # List m2m and extract IDs
   jamf-cli pro m2m list --field id`,
+		Annotations: map[string]string{"jamf:api": "pro", "jamf:gateway-privileges": "m2m:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

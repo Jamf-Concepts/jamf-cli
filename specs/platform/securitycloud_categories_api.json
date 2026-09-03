@@ -1,0 +1,330 @@
+{
+  "components": {
+    "parameters": {
+      "X-Tenant-Id": {
+        "description": "The tenant UUID identifier.",
+        "in": "header",
+        "name": "X-Tenant-Id",
+        "required": true,
+        "schema": {
+          "example": "e77c1408-10c8-4007-b177-abc9157fbcaa",
+          "format": "uuid",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "type": "string"
+        }
+      }
+    },
+    "responses": {
+      "tooManyRequests": {
+        "content": {
+          "application/json": {
+            "example": {
+              "errors": [
+                {
+                  "code": "RATE_LIMIT_EXCEEDED",
+                  "description": "Too many requests. Retry after the indicated period."
+                }
+              ],
+              "httpStatus": 429,
+              "traceId": "ecf2ca07e23c0abc12393472f2b783df"
+            },
+            "schema": {
+              "$ref": "#/components/schemas/ApiError"
+            }
+          }
+        },
+        "description": "Rate limit exceeded. Retry after the period indicated by `Retry-After`.",
+        "headers": {
+          "Retry-After": {
+            "description": "Number of seconds to wait before retrying.",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        }
+      }
+    },
+    "schemas": {
+      "ApiError": {
+        "description": "Standard error response body per ADG-54. Returned for all non-2xx responses.\n",
+        "properties": {
+          "errors": {
+            "description": "One entry per problem in the request.",
+            "items": {
+              "properties": {
+                "code": {
+                  "description": "Machine-readable error code.",
+                  "example": "RATE_LIMIT_EXCEEDED",
+                  "type": "string"
+                },
+                "description": {
+                  "description": "Human-readable description for debugging. Do not display to end users.",
+                  "example": "Too many requests. Retry after the indicated period.",
+                  "type": "string"
+                }
+              },
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "httpStatus": {
+            "example": 400,
+            "maximum": 599,
+            "minimum": 400,
+            "type": "integer"
+          },
+          "traceId": {
+            "description": "Trace ID for correlating this error across Tyk, JAG, and the backend service (ADG-400). Include this value when reporting issues to Jamf support.\n",
+            "example": "ecf2ca07e23c0abc12393472f2b783df",
+            "type": "string"
+          }
+        },
+        "required": [
+          "httpStatus"
+        ],
+        "type": "object"
+      },
+      "Category": {
+        "description": "A content category from `content-block-service`. Use `displayName` as `categoryName` when creating or updating an App — TRS validates against `displayName`, not `name`.\n",
+        "properties": {
+          "displayName": {
+            "description": "Human-readable label (e.g. `\"Social\"`). This is the value to pass as `categoryName` when creating or updating an App — TRS validates `categoryName` against this field via `ContentBlockServiceClient.getCategories()` which maps `Category::getDisplayName`.\n",
+            "example": "Social",
+            "type": "string"
+          },
+          "id": {
+            "description": "Unique category identifier.",
+            "example": "c2723189-c531-46ac-a794-a0acb5350b3a",
+            "format": "uuid",
+            "type": "string"
+          },
+          "name": {
+            "description": "Internal category name (e.g. `Category - Social`). Informational only — do not use as `categoryName`; use `displayName`, which TRS validates against.\n",
+            "example": "Category - Social",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "displayName"
+        ],
+        "type": "object"
+      },
+      "CategoryListResponse": {
+        "description": "Full list of content categories. Not paginated; the same list is returned for all tenants.",
+        "properties": {
+          "results": {
+            "items": {
+              "$ref": "#/components/schemas/Category"
+            },
+            "type": "array"
+          },
+          "totalCount": {
+            "description": "Total number of content categories.",
+            "example": 42,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "totalCount",
+          "results"
+        ],
+        "type": "object"
+      }
+    },
+    "securitySchemes": {
+      "oauth2": {
+        "description": "Obtain an access token by calling the API Gateway's token endpoint using the OAuth2 client-credentials flow.",
+        "flows": {
+          "clientCredentials": {
+            "scopes": {
+              "content-categories:read": ""
+            },
+            "tokenUrl": "https://{region}.api.jamfcloud.com/auth/token"
+          }
+        },
+        "type": "oauth2"
+      }
+    }
+  },
+  "info": {
+    "contact": {
+      "name": "Jamf Developer",
+      "url": "https://developer.jamf.com"
+    },
+    "description": "Generic JSC content categories — used as categoryName in ZTNA Apps",
+    "termsOfService": "https://www.jamf.com/developer-resources/api-license-agreement/",
+    "title": "Jamf JSC Categories API",
+    "version": "1.0.0"
+  },
+  "openapi": "3.0.3",
+  "paths": {
+    "/v1/categories": {
+      "get": {
+        "description": "List all content categories. Not paginated.\n\n**Required Permissions:** `content-categories:read`",
+        "operationId": "listCategories",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/X-Tenant-Id"
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "results": [
+                    {
+                      "displayName": "Social",
+                      "id": "c2723189-c531-46ac-a794-a0acb5350b3a",
+                      "name": "Category - Social"
+                    },
+                    {
+                      "displayName": "Business \u0026 Industry",
+                      "id": "659282da-a8c0-454f-8b55-6b5c41daeeac",
+                      "name": "Category - Business \u0026 Industry"
+                    }
+                  ],
+                  "totalCount": 2
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/CategoryListResponse"
+                }
+              }
+            },
+            "description": "List of content categories."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "errors": [
+                    {
+                      "code": "MISSING_JSC_CUSTOMER_ID",
+                      "description": "JSC CustomerId is not present in the request."
+                    }
+                  ],
+                  "httpStatus": 401,
+                  "traceId": "ecf2ca07e23c0abc12393472f2b783df"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Authentication failed. The normal application response carries code `MISSING_JSC_CUSTOMER_ID`; requests rejected before dispatch carry `UNAUTHORIZED`.\n"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "errors": [
+                    {
+                      "code": "FORBIDDEN",
+                      "description": "The caller lacks the read:jsc:all privilege."
+                    }
+                  ],
+                  "httpStatus": 403,
+                  "traceId": "ecf2ca07e23c0abc12393472f2b783df"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "The caller lacks the privilege required to list categories."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "errors": [
+                    {
+                      "code": "NOT_FOUND",
+                      "description": "Not found."
+                    }
+                  ],
+                  "httpStatus": 404,
+                  "traceId": "ecf2ca07e23c0abc12393472f2b783df"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "The requested resource was not found. A downstream 404 body is passed through unchanged."
+          },
+          "429": {
+            "$ref": "#/components/responses/tooManyRequests"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "errors": [
+                    {
+                      "code": "INTERNAL_SERVER_ERROR",
+                      "description": "An unexpected error occurred. Contact Jamf support with the traceId."
+                    }
+                  ],
+                  "httpStatus": 500,
+                  "traceId": "ecf2ca07e23c0abc12393472f2b783df"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "content-categories:read"
+            ]
+          }
+        ],
+        "summary": "List Categories",
+        "tags": [
+          "categories"
+        ],
+        "x-required-privileges": [
+          "content-categories:read"
+        ]
+      }
+    }
+  },
+  "security": [
+    {
+      "oauth2": []
+    }
+  ],
+  "servers": [
+    {
+      "description": "Jamf Beta API Gateway - prod",
+      "url": "https://{region}.api.jamfcloud.com/securitycloud",
+      "variables": {
+        "region": {
+          "default": "us",
+          "description": "Geographic deployment region",
+          "enum": [
+            "us",
+            "eu",
+            "apac"
+          ]
+        }
+      }
+    }
+  ],
+  "tags": [
+    {
+      "description": "JSC content categories. **List only** — no get-by-id.\n",
+      "name": "categories"
+    }
+  ],
+  "x-scope-types": [
+    "tenant"
+  ]
+}

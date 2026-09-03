@@ -5,7 +5,14 @@ package platform
 // resourceTemplate emits one Go file per platform resource. Generated commands
 // take *jamfplatform.Client from CLIContext.PlatformSDKClient and call
 // .Transport().DoExpect{,WithContentType}() for every API request — the SDK
-// transport handles auth, retry, and tenant injection.
+// transport handles auth and retry.
+//
+// The scope travels as an X-Tenant-Id header set by the transport, so a path is
+// used verbatim and every namespace dispatches through the one client — a
+// profile carries a single tenant:
+// Jamf Security Cloud is a separate product with its own tenant identifier, so
+// a profile reaching both Pro and Security Cloud carries two, and the
+// client-wide value is wrong for one of them.
 //
 // Each generated file exposes a single constructor New<Resource>Cmd(cliCtx)
 // returning a *cobra.Command tree. Hand-written code in pro.go, school.go etc.
@@ -14,8 +21,8 @@ package platform
 // Current scope:
 //   - GET (with or without path params, no body)
 //   - POST actions (bodyless, with --yes for destructive)
-//   - POST/PATCH with JSON body via --file/--set; POST uses application/json,
-//     PATCH uses application/merge-patch+json
+//   - POST/PUT/PATCH with a JSON or YAML body via --file/--set; POST and PUT use
+//     application/json, PATCH uses application/merge-patch+json
 //   - DELETE with --yes confirmation
 //   - Op-specific success status codes from spec responses
 //   - url.PathEscape on path parameters
@@ -24,6 +31,9 @@ package platform
 //     result array and emits a single flat JSON array
 //   - List response unwrapping for non-paginated lists with exactly one
 //     array property
+//   - Documented non-2xx results (platformDocumentedStatusResults) routed
+//     through platform.DoExpectDocumented so an endpoint's own empty-state
+//     response renders instead of becoming an exit-code error
 //
 // Still pending: --name → ID resolution, table column hints, scaffold output.
 const resourceTemplate = `// Copyright 2026, Jamf Software LLC
@@ -50,10 +60,11 @@ import (
 func New{{.GoName}}Cmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "{{.Name}}",
-		Short: "Manage {{.Name}} (Platform API)",
+		Short: "Manage {{.Name}} ({{.APILabel}})",
 {{- if .Long }}
 		Long:  {{printf "%q" .Long}},
 {{- end }}
+		Annotations: map[string]string{"jamf:api": "platform-gateway"},
 	}
 {{- range .Operations }}
 	cmd.AddCommand(new{{$.GoName}}{{.GoName}}Cmd(cliCtx))
@@ -124,8 +135,12 @@ func new{{$.GoName}}{{.GoName}}Cmd(cliCtx *registry.CLIContext) *cobra.Command {
 {{- if .SupportsNameLookup }}
 			var resolvedID string
 			if nameFlag != "" {
-				listPath := strings.Replace({{printf "%q" .ListPath}}, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantID()), 1)
+				listPath := {{printf "%q" .ListPath}}
+{{- if .NameLookupField }}
+				id, err := platform.ResolveIDByNameInField(cmd.Context(), cliCtx.PlatformSDKClient, listPath, nameFlag, {{printf "%q" .NameLookupField}})
+{{- else }}
 				id, err := platform.ResolveIDByName(cmd.Context(), cliCtx.PlatformSDKClient, listPath, nameFlag)
+{{- end }}
 				if err != nil {
 					return err
 				}
@@ -136,13 +151,7 @@ func new{{$.GoName}}{{.GoName}}Cmd(cliCtx *registry.CLIContext) *cobra.Command {
 				return fmt.Errorf("provide a positional ID or --name")
 			}
 {{- end }}
-{{- if .IsDestructive }}
-			if err := platform.ConfirmAction("{{.Name}}", {{if .SupportsNameLookup}}resolvedID{{else if .PathParams}}args[0]{{else}}"{{.Name}}"{{end}}, yes); err != nil {
-				return err
-			}
-{{- end }}
 			path := {{printf "%q" .Path}}
-			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantID()), 1)
 {{- $op := . }}
 {{- range $i, $p := .PathParams }}
 {{- if $op.SupportsNameLookup }}
@@ -180,8 +189,17 @@ func new{{$.GoName}}{{.GoName}}Cmd(cliCtx *registry.CLIContext) *cobra.Command {
 			var body any
 {{- end }}
 {{- if .Paginate }}
+{{- if .IsDestructive }}
+{{ confirmStmt . }}
+{{- end }}
 			const pageSize = 100
-			var aggregated []json.RawMessage
+			// Initialised empty, not nil: a nil slice marshals to "null", so an
+			// empty collection used to answer -o json with "null" while the
+			// unpaginated list path answered "[]" for the identical wire response
+			// ({"totalCount":0,"results":[]}). Anything piping the output to jq
+			// then failed on "Cannot iterate over null" only for tenants where the
+			// collection happened to be empty.
+			aggregated := []json.RawMessage{}
 			for page := 0; ; page++ {
 				pq := url.Values{}
 				for k, v := range q {
@@ -220,6 +238,30 @@ func new{{$.GoName}}{{.GoName}}Cmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if encoded := q.Encode(); encoded != "" {
 				path += "?" + encoded
 			}
+{{- if ne .Method "GET" }}
+			// --dry-run is a global flag advertised as "preview changes without
+			// executing", and it used to preview nothing here: the Pro client is
+			// wrapped by a dry-run decorator, this one is not, so every generated
+			// platform and Security Cloud mutation executed for real under -n.
+			// A create reported the object it had just made and a delete reported
+			// nothing, both exiting 0.
+			//
+			// Ahead of the confirmation, not after it. ConfirmAction errors when
+			// --yes is absent and stdin is not a terminal, so a preview of a
+			// destructive command used to be unobtainable in CI without also
+			// pre-authorising the real thing — and the day -n falls off that
+			// command line (or out of JAMF_CLI_ARGS) the delete runs with its
+			// confirmation already suppressed. Interactively the old order
+			// prompted first and printed [dry-run] second, teaching the operator
+			// that confirming is harmless. Name resolution stays ahead of both,
+			// so the preview reports the resolved path.
+			if cliCtx.DryRun {
+				return platform.ReportDryRun(cmd.ErrOrStderr(), {{methodConstant .Method}}, path, body)
+			}
+{{- end }}
+{{- if .IsDestructive }}
+{{ confirmStmt . }}
+{{- end }}
 {{- if .HasResult }}
 			var result any
 {{- end }}
@@ -227,8 +269,16 @@ func new{{$.GoName}}{{.GoName}}Cmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err := cliCtx.PlatformSDKClient.Transport().DoWithContentType(cmd.Context(), {{methodConstant .Method}}, path, body, "application/merge-patch+json", {{statusConstant .SuccessCode}}, {{if .HasResult}}&result{{else}}nil{{end}}); err != nil {
 				return fmt.Errorf("{{.Name}}: %w", err)
 			}
-{{- else if and .HasBody (eq .Method "POST") }}
+{{- else if and .HasBody (or (eq .Method "POST") (eq .Method "PUT")) }}
 			if err := cliCtx.PlatformSDKClient.Transport().DoWithContentType(cmd.Context(), {{methodConstant .Method}}, path, body, "application/json", {{statusConstant .SuccessCode}}, {{if .HasResult}}&result{{else}}nil{{end}}); err != nil {
+				return fmt.Errorf("{{.Name}}: %w", err)
+			}
+{{- else if .DocumentedStatuses }}
+			if err := platform.DoExpectDocumented(cmd.Context(), cliCtx.PlatformSDKClient, {{methodConstant .Method}}, path, body, {{statusConstant .SuccessCode}}, []platform.DocumentedStatus{
+			{{- range .DocumentedStatuses }}
+				{Code: {{.Code}}, ErrorCode: {{printf "%q" .ErrorCode}}, Empty: {{.Empty}}},
+			{{- end }}
+			}, {{if .HasResult}}&result{{else}}nil{{end}}); err != nil {
 				return fmt.Errorf("{{.Name}}: %w", err)
 			}
 {{- else }}
@@ -266,7 +316,7 @@ func new{{$.GoName}}{{.GoName}}Cmd(cliCtx *registry.CLIContext) *cobra.Command {
 		},
 	}
 {{- if .HasBody }}
-	cmd.Flags().StringVar(&bodyFile, "file", "", "Path to JSON file containing the request body")
+	cmd.Flags().StringVar(&bodyFile, "file", "", "Path to a JSON or YAML file containing the request body")
 	cmd.Flags().StringArrayVar(&setFlags, "set", nil, "Override body values (key=value, repeatable, supports nested.keys)")
 {{- end }}
 {{- if .HasScaffold }}

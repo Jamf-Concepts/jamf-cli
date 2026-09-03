@@ -17,9 +17,10 @@ import (
 // NewIconsCmd creates the icons command group
 func NewIconsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "icons",
-		Short: "Manage icons",
-		Long:  `Manage icons in Jamf Pro.`,
+		Use:         "icons",
+		Short:       "Manage icons",
+		Long:        `Manage icons in Jamf Pro.`,
+		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
 	cmd.AddCommand(newIconsGetCmd(ctx))
@@ -41,7 +42,8 @@ func newIconsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a icon and output as YAML
   jamf-cli pro icons get 1 -o yaml`,
-		Args: cobra.ExactArgs(1),
+		Annotations: map[string]string{"jamf:api": "pro"},
+		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -75,9 +77,10 @@ func newIconsUploadCmd(ctx *registry.CLIContext) *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "upload",
-		Short: "Upload an icon",
-		Long:  "Uploads an icon",
+		Use:         "upload",
+		Short:       "Upload an icon",
+		Long:        "Uploads an icon",
+		Annotations: map[string]string{"jamf:api": "pro"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -137,7 +140,8 @@ func newIconsDownloadCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Pipe to stdout
   jamf-cli pro icons download <id> > output.bin`,
-		Args: cobra.ExactArgs(1),
+		Annotations: map[string]string{"jamf:api": "pro"},
+		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			reqCtx = registry.WithAccept(reqCtx, "*/*")

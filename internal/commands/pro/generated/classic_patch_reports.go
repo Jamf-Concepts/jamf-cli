@@ -13,12 +13,19 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// bodySpecClassicPatchReports is this resource's request-body contract, derived from
+// specs/classic/schemas.json at generation time. Empty when the Classic API spec
+// declares no schema for it, in which case create/update/apply read their body
+// from --from-file or stdin with no --scaffold and no --set.
+var bodySpecClassicPatchReports = classicBodySpec{}
+
 // NewClassicPatchReportsCmd creates the classic-patch-reports command group
 func NewClassicPatchReportsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "classic-patch-reports",
-		Short: "Patch management reports (Classic API)",
-		Long:  `Manage patch management reports via the Jamf Pro Classic API (/JSSResource/).`,
+		Use:         "classic-patch-reports",
+		Short:       "Patch management reports (Classic API)",
+		Long:        `Manage patch management reports via the Jamf Pro Classic API (/JSSResource/).`,
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway": "unserved", "jamf:gateway-basis": "unpublished", "jamf:gateway-detail": "not declared by the gateway's Classic API 11.28.0, which trails the Pro API's version"},
 	}
 
 	cmd.AddCommand(newClassicPatchReportsGetCmd(ctx))
@@ -36,7 +43,8 @@ func newClassicPatchReportsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a patch_report and output as YAML
   jamf-cli pro classic-patch-reports get 1 -o yaml`,
-		Args: cobra.ExactArgs(1),
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway": "unserved", "jamf:gateway-basis": "unpublished", "jamf:gateway-detail": "not declared by the gateway's Classic API 11.28.0, which trails the Pro API's version"},
+		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			path := fmt.Sprintf("/JSSResource/patchreports/patchsoftwaretitleid/%s", url.PathEscape(args[0]))

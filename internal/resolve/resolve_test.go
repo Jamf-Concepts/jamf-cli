@@ -110,7 +110,7 @@ const mobileV2DetailResponse = `{
 
 func TestResolveComputer_BySerial(t *testing.T) {
 	client := &mockClient{responses: map[string]mockResponse{
-		"v3/computers-inventory?": {200, computerV3Response},
+		"v4/computers-inventory?": {200, computerV3Response},
 	}}
 	d, err := ResolveComputer(context.Background(), client, "C02X1234", "", "")
 	if err != nil {
@@ -135,7 +135,7 @@ func TestResolveComputer_BySerial(t *testing.T) {
 
 func TestResolveComputer_ByName(t *testing.T) {
 	client := &mockClient{responses: map[string]mockResponse{
-		"v3/computers-inventory?": {200, computerV3Response},
+		"v4/computers-inventory?": {200, computerV3Response},
 	}}
 	d, err := ResolveComputer(context.Background(), client, "", "Neil's MacBook", "")
 	if err != nil {
@@ -148,7 +148,7 @@ func TestResolveComputer_ByName(t *testing.T) {
 
 func TestResolveComputer_ByID(t *testing.T) {
 	client := &mockClient{responses: map[string]mockResponse{
-		"v3/computers-inventory/42": {200, computerV3DetailResponse},
+		"v4/computers-inventory/42": {200, computerV3DetailResponse},
 	}}
 	d, err := ResolveComputer(context.Background(), client, "", "", "42")
 	if err != nil {
@@ -164,7 +164,7 @@ func TestResolveComputer_ByID(t *testing.T) {
 
 func TestResolveComputer_NotFound(t *testing.T) {
 	client := &mockClient{responses: map[string]mockResponse{
-		"v3/computers-inventory?": {200, `{"totalCount": 0, "results": []}`},
+		"v4/computers-inventory?": {200, `{"totalCount": 0, "results": []}`},
 	}}
 	_, err := ResolveComputer(context.Background(), client, "NOSUCH", "", "")
 	if err == nil {
@@ -185,7 +185,7 @@ func TestResolveComputer_MultipleMatches(t *testing.T) {
 		]
 	}`
 	client := &mockClient{responses: map[string]mockResponse{
-		"v3/computers-inventory?": {200, multiResponse},
+		"v4/computers-inventory?": {200, multiResponse},
 	}}
 	_, err := ResolveComputer(context.Background(), client, "", "Mac", "")
 	if err == nil {
@@ -302,7 +302,7 @@ func TestResolveComputersFromFile_BatchesIDs(t *testing.T) {
 	}
 	// The per-ID GET path must not be used at all.
 	for _, c := range client.calls {
-		if strings.Contains(c, "/v3/computers-inventory/") {
+		if strings.Contains(c, "/v4/computers-inventory/") {
 			t.Errorf("unexpected per-ID lookup: %s", c)
 		}
 	}
@@ -581,8 +581,8 @@ func TestResolveComputerGroup(t *testing.T) {
 	client := &mockClient{responses: map[string]mockResponse{
 		"GET /JSSResource/computergroups":  {200, groupListResponse},
 		"/JSSResource/computergroups/id/5": {200, groupDetailResponse},
-		"v3/computers-inventory/42":        {200, computerV3DetailResponse},
-		"v3/computers-inventory/43":        {200, strings.ReplaceAll(computerV3DetailResponse, `"42"`, `"43"`)},
+		"v4/computers-inventory/42":        {200, computerV3DetailResponse},
+		"v4/computers-inventory/43":        {200, strings.ReplaceAll(computerV3DetailResponse, `"42"`, `"43"`)},
 	}}
 
 	results, err := ResolveComputerGroup(context.Background(), client, "All Macs")

@@ -21,9 +21,10 @@ import (
 // resource. Wire it into a product namespace via AddCommand.
 func NewDevicesCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "devices",
-		Short: "Manage devices (Platform API)",
-		Long:  "Management API for Device Groups - Create, manage, and organize device groups with membership controls",
+		Use:         "devices",
+		Short:       "Manage devices (Platform API)",
+		Long:        "Management API for Device Groups - Create, manage, and organize device groups with membership controls",
+		Annotations: map[string]string{"jamf:api": "platform-gateway"},
 	}
 	cmd.AddCommand(newDevicesDeviceGroupsCmd(cliCtx))
 	cmd.AddCommand(newDevicesListCmd(cliCtx))
@@ -40,7 +41,7 @@ func newDevicesDeviceGroupsCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Use:         "device-groups <id>",
 		Short:       "Get device groups for a device",
 		Long:        "Retrieve all device groups to which a specific device ID belongs<br/> If no device by the specified ID exists or the device ID is not a member of any groups, an empty array will be returned.",
-		Annotations: map[string]string{"jamf:privileges": "read:pro:device-groups"},
+		Annotations: map[string]string{"jamf:privileges": "device-groups:read", "jamf:api": "platform-gateway"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
@@ -48,7 +49,7 @@ func newDevicesDeviceGroupsCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			}
 			var resolvedID string
 			if nameFlag != "" {
-				listPath := strings.Replace("/api/devices/v1/tenant/{tenantId}/devices", "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantID()), 1)
+				listPath := "/devices/v1/devices"
 				id, err := platform.ResolveIDByName(cmd.Context(), cliCtx.PlatformSDKClient, listPath, nameFlag)
 				if err != nil {
 					return err
@@ -59,8 +60,7 @@ func newDevicesDeviceGroupsCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			} else {
 				return fmt.Errorf("provide a positional ID or --name")
 			}
-			path := "/api/device-groups/v1/tenant/{tenantId}/devices/{id}/device-groups"
-			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantID()), 1)
+			path := "/device-groups/v1/devices/{id}/device-groups"
 			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
 			q := url.Values{}
 			var body any
@@ -92,13 +92,12 @@ func newDevicesListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Use:         "list",
 		Short:       "Get all devices",
 		Long:        "Retrieve a paginated list of all devices",
-		Annotations: map[string]string{"jamf:privileges": "read:pro:devices"},
+		Annotations: map[string]string{"jamf:privileges": "devices:read", "jamf:api": "platform-gateway"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err
 			}
-			path := "/api/devices/v1/tenant/{tenantId}/devices"
-			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantID()), 1)
+			path := "/devices/v1/devices"
 			q := url.Values{}
 			if sort != "" {
 				q.Set("sort", sort)
@@ -108,7 +107,13 @@ func newDevicesListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			}
 			var body any
 			const pageSize = 100
-			var aggregated []json.RawMessage
+			// Initialised empty, not nil: a nil slice marshals to "null", so an
+			// empty collection used to answer -o json with "null" while the
+			// unpaginated list path answered "[]" for the identical wire response
+			// ({"totalCount":0,"results":[]}). Anything piping the output to jq
+			// then failed on "Cannot iterate over null" only for tenants where the
+			// collection happened to be empty.
+			aggregated := []json.RawMessage{}
 			for page := 0; ; page++ {
 				pq := url.Values{}
 				for k, v := range q {
@@ -159,7 +164,7 @@ func newDevicesDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Use:         "delete <id>",
 		Short:       "Delete a device",
 		Long:        "Delete an existing device",
-		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "delete:pro:devices"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "destructive-device-actions:execute", "jamf:api": "platform-gateway"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
@@ -167,7 +172,7 @@ func newDevicesDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			}
 			var resolvedID string
 			if nameFlag != "" {
-				listPath := strings.Replace("/api/devices/v1/tenant/{tenantId}/devices", "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantID()), 1)
+				listPath := "/devices/v1/devices"
 				id, err := platform.ResolveIDByName(cmd.Context(), cliCtx.PlatformSDKClient, listPath, nameFlag)
 				if err != nil {
 					return err
@@ -178,16 +183,34 @@ func newDevicesDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			} else {
 				return fmt.Errorf("provide a positional ID or --name")
 			}
-			if err := platform.ConfirmAction("delete", resolvedID, yes); err != nil {
-				return err
-			}
-			path := "/api/devices/v1/tenant/{tenantId}/devices/{id}"
-			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantID()), 1)
+			path := "/devices/v1/devices/{id}"
 			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
 			q := url.Values{}
 			var body any
 			if encoded := q.Encode(); encoded != "" {
 				path += "?" + encoded
+			}
+			// --dry-run is a global flag advertised as "preview changes without
+			// executing", and it used to preview nothing here: the Pro client is
+			// wrapped by a dry-run decorator, this one is not, so every generated
+			// platform and Security Cloud mutation executed for real under -n.
+			// A create reported the object it had just made and a delete reported
+			// nothing, both exiting 0.
+			//
+			// Ahead of the confirmation, not after it. ConfirmAction errors when
+			// --yes is absent and stdin is not a terminal, so a preview of a
+			// destructive command used to be unobtainable in CI without also
+			// pre-authorising the real thing — and the day -n falls off that
+			// command line (or out of JAMF_CLI_ARGS) the delete runs with its
+			// confirmation already suppressed. Interactively the old order
+			// prompted first and printed [dry-run] second, teaching the operator
+			// that confirming is harmless. Name resolution stays ahead of both,
+			// so the preview reports the resolved path.
+			if cliCtx.DryRun {
+				return platform.ReportDryRun(cmd.ErrOrStderr(), http.MethodDelete, path, body)
+			}
+			if err := platform.ConfirmAction("delete", resolvedID, yes); err != nil {
+				return err
 			}
 			if err := cliCtx.PlatformSDKClient.Transport().DoExpect(cmd.Context(), http.MethodDelete, path, body, http.StatusNoContent, nil); err != nil {
 				return fmt.Errorf("delete: %w", err)
@@ -206,7 +229,7 @@ func newDevicesGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Use:         "get <id>",
 		Short:       "Get a device by ID",
 		Long:        "Retrieve a specific device by its ID",
-		Annotations: map[string]string{"jamf:privileges": "read:pro:devices"},
+		Annotations: map[string]string{"jamf:privileges": "devices:read", "jamf:api": "platform-gateway"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
@@ -214,7 +237,7 @@ func newDevicesGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			}
 			var resolvedID string
 			if nameFlag != "" {
-				listPath := strings.Replace("/api/devices/v1/tenant/{tenantId}/devices", "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantID()), 1)
+				listPath := "/devices/v1/devices"
 				id, err := platform.ResolveIDByName(cmd.Context(), cliCtx.PlatformSDKClient, listPath, nameFlag)
 				if err != nil {
 					return err
@@ -225,8 +248,7 @@ func newDevicesGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			} else {
 				return fmt.Errorf("provide a positional ID or --name")
 			}
-			path := "/api/devices/v1/tenant/{tenantId}/devices/{id}"
-			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantID()), 1)
+			path := "/devices/v1/devices/{id}"
 			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
 			q := url.Values{}
 			var body any
@@ -260,7 +282,7 @@ func newDevicesPatchCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Use:         "patch <id>",
 		Short:       "Update a device",
 		Long:        "Update an existing device",
-		Annotations: map[string]string{"jamf:privileges": "update:pro:devices"},
+		Annotations: map[string]string{"jamf:privileges": "devices:update", "jamf:api": "platform-gateway"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if scaffoldFlag {
@@ -274,7 +296,7 @@ func newDevicesPatchCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			}
 			var resolvedID string
 			if nameFlag != "" {
-				listPath := strings.Replace("/api/devices/v1/tenant/{tenantId}/devices", "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantID()), 1)
+				listPath := "/devices/v1/devices"
 				id, err := platform.ResolveIDByName(cmd.Context(), cliCtx.PlatformSDKClient, listPath, nameFlag)
 				if err != nil {
 					return err
@@ -285,8 +307,7 @@ func newDevicesPatchCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			} else {
 				return fmt.Errorf("provide a positional ID or --name")
 			}
-			path := "/api/devices/v1/tenant/{tenantId}/devices/{id}"
-			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantID()), 1)
+			path := "/devices/v1/devices/{id}"
 			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
 			q := url.Values{}
 			body, err := platform.ReadBody(bodyFile, setFlags)
@@ -296,13 +317,32 @@ func newDevicesPatchCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if encoded := q.Encode(); encoded != "" {
 				path += "?" + encoded
 			}
+			// --dry-run is a global flag advertised as "preview changes without
+			// executing", and it used to preview nothing here: the Pro client is
+			// wrapped by a dry-run decorator, this one is not, so every generated
+			// platform and Security Cloud mutation executed for real under -n.
+			// A create reported the object it had just made and a delete reported
+			// nothing, both exiting 0.
+			//
+			// Ahead of the confirmation, not after it. ConfirmAction errors when
+			// --yes is absent and stdin is not a terminal, so a preview of a
+			// destructive command used to be unobtainable in CI without also
+			// pre-authorising the real thing — and the day -n falls off that
+			// command line (or out of JAMF_CLI_ARGS) the delete runs with its
+			// confirmation already suppressed. Interactively the old order
+			// prompted first and printed [dry-run] second, teaching the operator
+			// that confirming is harmless. Name resolution stays ahead of both,
+			// so the preview reports the resolved path.
+			if cliCtx.DryRun {
+				return platform.ReportDryRun(cmd.ErrOrStderr(), http.MethodPatch, path, body)
+			}
 			if err := cliCtx.PlatformSDKClient.Transport().DoExpect(cmd.Context(), http.MethodPatch, path, body, http.StatusNoContent, nil); err != nil {
 				return fmt.Errorf("patch: %w", err)
 			}
 			return nil
 		},
 	}
-	cmd.Flags().StringVar(&bodyFile, "file", "", "Path to JSON file containing the request body")
+	cmd.Flags().StringVar(&bodyFile, "file", "", "Path to a JSON or YAML file containing the request body")
 	cmd.Flags().StringArrayVar(&setFlags, "set", nil, "Override body values (key=value, repeatable, supports nested.keys)")
 	cmd.Flags().BoolVar(&scaffoldFlag, "scaffold", false, "Print an example request body and exit")
 	cmd.Flags().StringVar(&nameFlag, "name", "", "Resolve target by name instead of ID (uses the resource list endpoint)")
@@ -317,7 +357,7 @@ func newDevicesApplicationsCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Use:         "applications <id>",
 		Short:       "Get installed applications for a device",
 		Long:        "Retrieve a paginated list of applications installed on a specific device",
-		Annotations: map[string]string{"jamf:privileges": "read:pro:devices"},
+		Annotations: map[string]string{"jamf:privileges": "devices:read", "jamf:api": "platform-gateway"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
@@ -325,7 +365,7 @@ func newDevicesApplicationsCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			}
 			var resolvedID string
 			if nameFlag != "" {
-				listPath := strings.Replace("/api/devices/v1/tenant/{tenantId}/devices", "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantID()), 1)
+				listPath := "/devices/v1/devices"
 				id, err := platform.ResolveIDByName(cmd.Context(), cliCtx.PlatformSDKClient, listPath, nameFlag)
 				if err != nil {
 					return err
@@ -336,8 +376,7 @@ func newDevicesApplicationsCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			} else {
 				return fmt.Errorf("provide a positional ID or --name")
 			}
-			path := "/api/devices/v1/tenant/{tenantId}/devices/{id}/applications"
-			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantID()), 1)
+			path := "/devices/v1/devices/{id}/applications"
 			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
 			q := url.Values{}
 			if sort != "" {
@@ -348,7 +387,13 @@ func newDevicesApplicationsCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			}
 			var body any
 			const pageSize = 100
-			var aggregated []json.RawMessage
+			// Initialised empty, not nil: a nil slice marshals to "null", so an
+			// empty collection used to answer -o json with "null" while the
+			// unpaginated list path answered "[]" for the identical wire response
+			// ({"totalCount":0,"results":[]}). Anything piping the output to jq
+			// then failed on "Cannot iterate over null" only for tenants where the
+			// collection happened to be empty.
+			aggregated := []json.RawMessage{}
 			for page := 0; ; page++ {
 				pq := url.Values{}
 				for k, v := range q {

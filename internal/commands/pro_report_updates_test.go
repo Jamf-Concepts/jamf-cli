@@ -183,7 +183,7 @@ func TestRunReportUpdateStatus_WithErrors(t *testing.T) {
 					{"status": "INSTALL_FAILED", "device": {"deviceId": "3", "objectType": "MOBILE_DEVICE"}, "productKey": "iOS18", "updated": "2026-04-02"}
 				]
 			}`},
-			"/v3/computers-inventory": {200, `{
+			"/v4/computers-inventory": {200, `{
 				"totalCount": 2,
 				"results": [
 					{"id": "1", "general": {"name": "Mac-Good"}, "hardware": {"serialNumber": "S1"}, "operatingSystem": {"version": "15.0"}, "userAndLocation": {"username": "alice"}},
@@ -227,7 +227,7 @@ func TestRunReportUpdateStatus_StaleDevicesDropped(t *testing.T) {
 					{"planUuid": "bbb", "device": {"deviceId": "999", "objectType": "APPLE_TV"}, "updateAction": "DOWNLOAD_INSTALL", "versionType": "LATEST_ANY", "status": {"state": "PlanFailed", "errorReasons": ["EXISTING_PLAN_FOR_DEVICE_IN_PROGRESS"]}}
 				]
 			}`},
-			"/v3/computers-inventory": {200, `{
+			"/v4/computers-inventory": {200, `{
 				"totalCount": 1,
 				"results": [
 					{"id": "2", "general": {"name": "Mac-Bad"}, "hardware": {"serialNumber": "S2"}, "operatingSystem": {"version": "14.5"}, "userAndLocation": {"username": "bob"}}
@@ -358,7 +358,7 @@ func TestExtractLastEventType_BadJSON(t *testing.T) {
 func TestFetchUpdateDeviceLookup_Computers(t *testing.T) {
 	client := &overviewMockClient{
 		responses: map[string]overviewMockResponse{
-			"/v3/computers-inventory": {200, `{
+			"/v4/computers-inventory": {200, `{
 				"totalCount": 1,
 				"results": [
 					{"id": "42", "general": {"name": "MacBook"}, "hardware": {"serialNumber": "C02X"}, "operatingSystem": {"version": "15.3"}, "userAndLocation": {"username": "jsmith"}}

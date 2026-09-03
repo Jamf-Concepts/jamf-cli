@@ -18,9 +18,10 @@ import (
 // NewEraseDeviceMobilesCmd creates the erase-device-mobiles command group
 func NewEraseDeviceMobilesCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "erase-device-mobiles",
-		Short: "Manage erase-device-mobiles",
-		Long:  `Manage erase-device-mobiles in Jamf Pro.`,
+		Use:         "erase-device-mobiles",
+		Short:       "Manage erase-device-mobiles",
+		Long:        `Manage erase-device-mobiles in Jamf Pro.`,
+		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
 	cmd.AddCommand(newEraseDeviceMobilesEraseCmd(ctx))
@@ -39,7 +40,7 @@ func newEraseDeviceMobilesEraseCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:         "erase <id>",
 		Short:       "Erase a Mobile Device",
 		Long:        "Erase a Mobile Device",
-		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Send Mobile Device Remote Wipe Command"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Send Mobile Device Remote Wipe Command", "jamf:api": "pro", "jamf:gateway-privileges": "destructive-device-actions:execute"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

@@ -16,9 +16,10 @@ import (
 // NewRenewMdmProfilesCmd creates the renew-mdm-profiles command group
 func NewRenewMdmProfilesCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "renew-mdm-profiles",
-		Short: "Manage renew-mdm-profiles",
-		Long:  `Manage renew-mdm-profiles in Jamf Pro.`,
+		Use:         "renew-mdm-profiles",
+		Short:       "Manage renew-mdm-profiles",
+		Long:        `Manage renew-mdm-profiles in Jamf Pro.`,
+		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
 	cmd.AddCommand(newRenewMdmProfilesRenewProfileCmd(ctx))
@@ -35,7 +36,7 @@ func newRenewMdmProfilesRenewProfileCmd(ctx *registry.CLIContext) *cobra.Command
 		Use:         "renew-profile",
 		Short:       "Renew MDM Profile",
 		Long:        "Renews the device's MDM Profile, including the device identity certificate within the MDM Profile.",
-		Annotations: map[string]string{"jamf:privileges": "Send Command to Renew MDM Profile"},
+		Annotations: map[string]string{"jamf:privileges": "Send Command to Renew MDM Profile", "jamf:api": "pro", "jamf:gateway-privileges": "device-actions:execute"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

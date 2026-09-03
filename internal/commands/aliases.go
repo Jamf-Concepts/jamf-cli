@@ -107,12 +107,43 @@ func applySchoolAliases(parent *cobra.Command) {
 // securityAliases maps Jamf Security Cloud command names to their short aliases.
 var securityAliases = map[string][]string{
 	"device-lifecycle": {"lifecycle", "dl"},
+
+	// "enrollment-activation-profiles" is the full name because the tag it
+	// derives from ("activation-profiles") is shared with UEM Connect's
+	// deploy-only resource. Nobody should have to type it.
+	"enrollment-activation-profiles": {"eap"},
 }
 
 // applySecurityAliases appends aliases to security subcommands.
 func applySecurityAliases(parent *cobra.Command) {
 	for _, cmd := range parent.Commands() {
 		if aliases, ok := securityAliases[cmd.Name()]; ok {
+			cmd.Aliases = append(cmd.Aliases, aliases...)
+		}
+	}
+}
+
+// platformAliases maps Jamf Platform command names to their short aliases.
+var platformAliases = map[string][]string{
+	"ai-policies": {"aip"},
+	"ai-tools":    {"ait"},
+
+	// Jamf Account. "lic" rather than "al" because the resource is renamed
+	// account-licenses only to keep it distinct from Jamf Pro's licensing
+	// surfaces; what an operator is after is licences.
+	"account-licenses":            {"lic"},
+	"deal-registrations":          {"deals"},
+	"distributor-configuration":   {"dcfg"},
+	"distributor-purchase-orders": {"dpo"},
+	"distributor-quotes":          {"dq"},
+	"sso-connections":             {"ssoc"},
+	"sso-domains":                 {"ssod"},
+}
+
+// applyPlatformAliases appends aliases to platform subcommands.
+func applyPlatformAliases(parent *cobra.Command) {
+	for _, cmd := range parent.Commands() {
+		if aliases, ok := platformAliases[cmd.Name()]; ok {
 			cmd.Aliases = append(cmd.Aliases, aliases...)
 		}
 	}

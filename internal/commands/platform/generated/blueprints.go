@@ -21,9 +21,10 @@ import (
 // resource. Wire it into a product namespace via AddCommand.
 func NewBlueprintsCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "blueprints",
-		Short: "Manage blueprints (Platform API)",
-		Long:  "Blueprints simplify the creation of complex workflows by leveraging declarative device management to ensure devices meet a particular management state. You can use blueprints to scope management settings to devices using customizable components that include payloads and their configurable settings, all in one location.",
+		Use:         "blueprints",
+		Short:       "Manage blueprints (Platform API)",
+		Long:        "Blueprints simplify the creation of complex workflows by leveraging declarative device management to ensure devices meet a particular management state. You can use blueprints to scope management settings to devices using customizable components that include payloads and their configurable settings, all in one location.",
+		Annotations: map[string]string{"jamf:api": "platform-gateway"},
 	}
 	cmd.AddCommand(newBlueprintsListCmd(cliCtx))
 	cmd.AddCommand(newBlueprintsCreateCmd(cliCtx))
@@ -43,13 +44,12 @@ func newBlueprintsListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Use:         "list",
 		Short:       "List blueprints",
 		Long:        "Get list of blueprints",
-		Annotations: map[string]string{"jamf:privileges": "read:pro:blueprints,read:school:blueprints"},
+		Annotations: map[string]string{"jamf:privileges": "blueprints:read", "jamf:api": "platform-gateway"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err
 			}
-			path := "/api/blueprints/v1/tenant/{tenantId}/blueprints"
-			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantID()), 1)
+			path := "/blueprints/v1/blueprints"
 			q := url.Values{}
 			if sort != "" {
 				q.Set("sort", sort)
@@ -59,7 +59,13 @@ func newBlueprintsListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			}
 			var body any
 			const pageSize = 100
-			var aggregated []json.RawMessage
+			// Initialised empty, not nil: a nil slice marshals to "null", so an
+			// empty collection used to answer -o json with "null" while the
+			// unpaginated list path answered "[]" for the identical wire response
+			// ({"totalCount":0,"results":[]}). Anything piping the output to jq
+			// then failed on "Cannot iterate over null" only for tenants where the
+			// collection happened to be empty.
+			aggregated := []json.RawMessage{}
 			for page := 0; ; page++ {
 				pq := url.Values{}
 				for k, v := range q {
@@ -110,7 +116,7 @@ func newBlueprintsCreateCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Use:         "create",
 		Short:       "Create a new blueprint",
 		Long:        "Create a new blueprint",
-		Annotations: map[string]string{"jamf:privileges": "create:pro:blueprints,create:school:blueprints"},
+		Annotations: map[string]string{"jamf:privileges": "blueprints:create", "jamf:api": "platform-gateway"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if scaffoldFlag {
 				// Scaffold prints raw JSON regardless of -o, so the output
@@ -121,8 +127,7 @@ func newBlueprintsCreateCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err
 			}
-			path := "/api/blueprints/v1/tenant/{tenantId}/blueprints"
-			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantID()), 1)
+			path := "/blueprints/v1/blueprints"
 			q := url.Values{}
 			body, err := platform.ReadBody(bodyFile, setFlags)
 			if err != nil {
@@ -130,6 +135,25 @@ func newBlueprintsCreateCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			}
 			if encoded := q.Encode(); encoded != "" {
 				path += "?" + encoded
+			}
+			// --dry-run is a global flag advertised as "preview changes without
+			// executing", and it used to preview nothing here: the Pro client is
+			// wrapped by a dry-run decorator, this one is not, so every generated
+			// platform and Security Cloud mutation executed for real under -n.
+			// A create reported the object it had just made and a delete reported
+			// nothing, both exiting 0.
+			//
+			// Ahead of the confirmation, not after it. ConfirmAction errors when
+			// --yes is absent and stdin is not a terminal, so a preview of a
+			// destructive command used to be unobtainable in CI without also
+			// pre-authorising the real thing — and the day -n falls off that
+			// command line (or out of JAMF_CLI_ARGS) the delete runs with its
+			// confirmation already suppressed. Interactively the old order
+			// prompted first and printed [dry-run] second, teaching the operator
+			// that confirming is harmless. Name resolution stays ahead of both,
+			// so the preview reports the resolved path.
+			if cliCtx.DryRun {
+				return platform.ReportDryRun(cmd.ErrOrStderr(), http.MethodPost, path, body)
 			}
 			var result any
 			if err := cliCtx.PlatformSDKClient.Transport().DoWithContentType(cmd.Context(), http.MethodPost, path, body, "application/json", http.StatusCreated, &result); err != nil {
@@ -145,7 +169,7 @@ func newBlueprintsCreateCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			return cliCtx.Output.PrintRaw(b)
 		},
 	}
-	cmd.Flags().StringVar(&bodyFile, "file", "", "Path to JSON file containing the request body")
+	cmd.Flags().StringVar(&bodyFile, "file", "", "Path to a JSON or YAML file containing the request body")
 	cmd.Flags().StringArrayVar(&setFlags, "set", nil, "Override body values (key=value, repeatable, supports nested.keys)")
 	cmd.Flags().BoolVar(&scaffoldFlag, "scaffold", false, "Print an example request body and exit")
 	return cmd
@@ -158,7 +182,7 @@ func newBlueprintsDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Use:         "delete <blueprintId>",
 		Short:       "Delete a blueprint",
 		Long:        "Delete a blueprint",
-		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "delete:pro:blueprints,delete:school:blueprints"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "blueprints:delete", "jamf:api": "platform-gateway"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
@@ -166,7 +190,7 @@ func newBlueprintsDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			}
 			var resolvedID string
 			if nameFlag != "" {
-				listPath := strings.Replace("/api/blueprints/v1/tenant/{tenantId}/blueprints", "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantID()), 1)
+				listPath := "/blueprints/v1/blueprints"
 				id, err := platform.ResolveIDByName(cmd.Context(), cliCtx.PlatformSDKClient, listPath, nameFlag)
 				if err != nil {
 					return err
@@ -177,16 +201,34 @@ func newBlueprintsDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			} else {
 				return fmt.Errorf("provide a positional ID or --name")
 			}
-			if err := platform.ConfirmAction("delete", resolvedID, yes); err != nil {
-				return err
-			}
-			path := "/api/blueprints/v1/tenant/{tenantId}/blueprints/{blueprintId}"
-			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantID()), 1)
+			path := "/blueprints/v1/blueprints/{blueprintId}"
 			path = strings.Replace(path, "{blueprintId}", url.PathEscape(resolvedID), 1)
 			q := url.Values{}
 			var body any
 			if encoded := q.Encode(); encoded != "" {
 				path += "?" + encoded
+			}
+			// --dry-run is a global flag advertised as "preview changes without
+			// executing", and it used to preview nothing here: the Pro client is
+			// wrapped by a dry-run decorator, this one is not, so every generated
+			// platform and Security Cloud mutation executed for real under -n.
+			// A create reported the object it had just made and a delete reported
+			// nothing, both exiting 0.
+			//
+			// Ahead of the confirmation, not after it. ConfirmAction errors when
+			// --yes is absent and stdin is not a terminal, so a preview of a
+			// destructive command used to be unobtainable in CI without also
+			// pre-authorising the real thing — and the day -n falls off that
+			// command line (or out of JAMF_CLI_ARGS) the delete runs with its
+			// confirmation already suppressed. Interactively the old order
+			// prompted first and printed [dry-run] second, teaching the operator
+			// that confirming is harmless. Name resolution stays ahead of both,
+			// so the preview reports the resolved path.
+			if cliCtx.DryRun {
+				return platform.ReportDryRun(cmd.ErrOrStderr(), http.MethodDelete, path, body)
+			}
+			if err := platform.ConfirmAction("delete", resolvedID, yes); err != nil {
+				return err
 			}
 			if err := cliCtx.PlatformSDKClient.Transport().DoExpect(cmd.Context(), http.MethodDelete, path, body, http.StatusNoContent, nil); err != nil {
 				return fmt.Errorf("delete: %w", err)
@@ -205,7 +247,7 @@ func newBlueprintsGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Use:         "get <blueprintId>",
 		Short:       "Get a blueprint",
 		Long:        "Get a blueprint",
-		Annotations: map[string]string{"jamf:privileges": "read:pro:blueprints,read:school:blueprints"},
+		Annotations: map[string]string{"jamf:privileges": "blueprints:read", "jamf:api": "platform-gateway"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
@@ -213,7 +255,7 @@ func newBlueprintsGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			}
 			var resolvedID string
 			if nameFlag != "" {
-				listPath := strings.Replace("/api/blueprints/v1/tenant/{tenantId}/blueprints", "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantID()), 1)
+				listPath := "/blueprints/v1/blueprints"
 				id, err := platform.ResolveIDByName(cmd.Context(), cliCtx.PlatformSDKClient, listPath, nameFlag)
 				if err != nil {
 					return err
@@ -224,8 +266,7 @@ func newBlueprintsGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			} else {
 				return fmt.Errorf("provide a positional ID or --name")
 			}
-			path := "/api/blueprints/v1/tenant/{tenantId}/blueprints/{blueprintId}"
-			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantID()), 1)
+			path := "/blueprints/v1/blueprints/{blueprintId}"
 			path = strings.Replace(path, "{blueprintId}", url.PathEscape(resolvedID), 1)
 			q := url.Values{}
 			var body any
@@ -259,7 +300,7 @@ func newBlueprintsPatchCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Use:         "patch <blueprintId>",
 		Short:       "Updates a blueprint configuration",
 		Long:        "Updates a blueprint configuration.",
-		Annotations: map[string]string{"jamf:privileges": "update:pro:blueprints,update:school:blueprints"},
+		Annotations: map[string]string{"jamf:privileges": "blueprints:update", "jamf:api": "platform-gateway"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if scaffoldFlag {
@@ -273,7 +314,7 @@ func newBlueprintsPatchCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			}
 			var resolvedID string
 			if nameFlag != "" {
-				listPath := strings.Replace("/api/blueprints/v1/tenant/{tenantId}/blueprints", "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantID()), 1)
+				listPath := "/blueprints/v1/blueprints"
 				id, err := platform.ResolveIDByName(cmd.Context(), cliCtx.PlatformSDKClient, listPath, nameFlag)
 				if err != nil {
 					return err
@@ -284,8 +325,7 @@ func newBlueprintsPatchCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			} else {
 				return fmt.Errorf("provide a positional ID or --name")
 			}
-			path := "/api/blueprints/v1/tenant/{tenantId}/blueprints/{blueprintId}"
-			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantID()), 1)
+			path := "/blueprints/v1/blueprints/{blueprintId}"
 			path = strings.Replace(path, "{blueprintId}", url.PathEscape(resolvedID), 1)
 			q := url.Values{}
 			body, err := platform.ReadBody(bodyFile, setFlags)
@@ -295,13 +335,32 @@ func newBlueprintsPatchCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if encoded := q.Encode(); encoded != "" {
 				path += "?" + encoded
 			}
+			// --dry-run is a global flag advertised as "preview changes without
+			// executing", and it used to preview nothing here: the Pro client is
+			// wrapped by a dry-run decorator, this one is not, so every generated
+			// platform and Security Cloud mutation executed for real under -n.
+			// A create reported the object it had just made and a delete reported
+			// nothing, both exiting 0.
+			//
+			// Ahead of the confirmation, not after it. ConfirmAction errors when
+			// --yes is absent and stdin is not a terminal, so a preview of a
+			// destructive command used to be unobtainable in CI without also
+			// pre-authorising the real thing — and the day -n falls off that
+			// command line (or out of JAMF_CLI_ARGS) the delete runs with its
+			// confirmation already suppressed. Interactively the old order
+			// prompted first and printed [dry-run] second, teaching the operator
+			// that confirming is harmless. Name resolution stays ahead of both,
+			// so the preview reports the resolved path.
+			if cliCtx.DryRun {
+				return platform.ReportDryRun(cmd.ErrOrStderr(), http.MethodPatch, path, body)
+			}
 			if err := cliCtx.PlatformSDKClient.Transport().DoWithContentType(cmd.Context(), http.MethodPatch, path, body, "application/merge-patch+json", http.StatusNoContent, nil); err != nil {
 				return fmt.Errorf("patch: %w", err)
 			}
 			return nil
 		},
 	}
-	cmd.Flags().StringVar(&bodyFile, "file", "", "Path to JSON file containing the request body")
+	cmd.Flags().StringVar(&bodyFile, "file", "", "Path to a JSON or YAML file containing the request body")
 	cmd.Flags().StringArrayVar(&setFlags, "set", nil, "Override body values (key=value, repeatable, supports nested.keys)")
 	cmd.Flags().BoolVar(&scaffoldFlag, "scaffold", false, "Print an example request body and exit")
 	cmd.Flags().StringVar(&nameFlag, "name", "", "Resolve target by name instead of ID (uses the resource list endpoint)")
@@ -314,7 +373,7 @@ func newBlueprintsDeployCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Use:         "deploy <blueprintId>",
 		Short:       "Deploy blueprint",
 		Long:        "Deploy blueprint",
-		Annotations: map[string]string{"jamf:privileges": "deploy:pro:blueprints,deploy:school:blueprints"},
+		Annotations: map[string]string{"jamf:privileges": "blueprints:deploy", "jamf:api": "platform-gateway"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
@@ -322,7 +381,7 @@ func newBlueprintsDeployCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			}
 			var resolvedID string
 			if nameFlag != "" {
-				listPath := strings.Replace("/api/blueprints/v1/tenant/{tenantId}/blueprints", "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantID()), 1)
+				listPath := "/blueprints/v1/blueprints"
 				id, err := platform.ResolveIDByName(cmd.Context(), cliCtx.PlatformSDKClient, listPath, nameFlag)
 				if err != nil {
 					return err
@@ -333,13 +392,31 @@ func newBlueprintsDeployCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			} else {
 				return fmt.Errorf("provide a positional ID or --name")
 			}
-			path := "/api/blueprints/v1/tenant/{tenantId}/blueprints/{blueprintId}/deploy"
-			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantID()), 1)
+			path := "/blueprints/v1/blueprints/{blueprintId}/deploy"
 			path = strings.Replace(path, "{blueprintId}", url.PathEscape(resolvedID), 1)
 			q := url.Values{}
 			var body any
 			if encoded := q.Encode(); encoded != "" {
 				path += "?" + encoded
+			}
+			// --dry-run is a global flag advertised as "preview changes without
+			// executing", and it used to preview nothing here: the Pro client is
+			// wrapped by a dry-run decorator, this one is not, so every generated
+			// platform and Security Cloud mutation executed for real under -n.
+			// A create reported the object it had just made and a delete reported
+			// nothing, both exiting 0.
+			//
+			// Ahead of the confirmation, not after it. ConfirmAction errors when
+			// --yes is absent and stdin is not a terminal, so a preview of a
+			// destructive command used to be unobtainable in CI without also
+			// pre-authorising the real thing — and the day -n falls off that
+			// command line (or out of JAMF_CLI_ARGS) the delete runs with its
+			// confirmation already suppressed. Interactively the old order
+			// prompted first and printed [dry-run] second, teaching the operator
+			// that confirming is harmless. Name resolution stays ahead of both,
+			// so the preview reports the resolved path.
+			if cliCtx.DryRun {
+				return platform.ReportDryRun(cmd.ErrOrStderr(), http.MethodPost, path, body)
 			}
 			if err := cliCtx.PlatformSDKClient.Transport().DoExpect(cmd.Context(), http.MethodPost, path, body, http.StatusAccepted, nil); err != nil {
 				return fmt.Errorf("deploy: %w", err)
@@ -357,7 +434,7 @@ func newBlueprintsReportCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Use:         "report <blueprintId>",
 		Short:       "Get blueprint status report",
 		Long:        "Retrieve deployment status report for a specified blueprint.",
-		Annotations: map[string]string{"jamf:privileges": "read:pro:blueprints,read:school:blueprints"},
+		Annotations: map[string]string{"jamf:privileges": "blueprints:read", "jamf:api": "platform-gateway"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
@@ -365,7 +442,7 @@ func newBlueprintsReportCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			}
 			var resolvedID string
 			if nameFlag != "" {
-				listPath := strings.Replace("/api/blueprints/v1/tenant/{tenantId}/blueprints", "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantID()), 1)
+				listPath := "/blueprints/v1/blueprints"
 				id, err := platform.ResolveIDByName(cmd.Context(), cliCtx.PlatformSDKClient, listPath, nameFlag)
 				if err != nil {
 					return err
@@ -376,8 +453,7 @@ func newBlueprintsReportCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			} else {
 				return fmt.Errorf("provide a positional ID or --name")
 			}
-			path := "/api/blueprints/v1/tenant/{tenantId}/blueprints/{blueprintId}/report"
-			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantID()), 1)
+			path := "/blueprints/v1/blueprints/{blueprintId}/report"
 			path = strings.Replace(path, "{blueprintId}", url.PathEscape(resolvedID), 1)
 			q := url.Values{}
 			var body any
@@ -408,7 +484,7 @@ func newBlueprintsUndeployCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Use:         "undeploy <blueprintId>",
 		Short:       "Undeploy blueprint",
 		Long:        "Undeploy blueprint",
-		Annotations: map[string]string{"jamf:privileges": "deploy:pro:blueprints,deploy:school:blueprints"},
+		Annotations: map[string]string{"jamf:privileges": "blueprints:deploy", "jamf:api": "platform-gateway"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
@@ -416,7 +492,7 @@ func newBlueprintsUndeployCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			}
 			var resolvedID string
 			if nameFlag != "" {
-				listPath := strings.Replace("/api/blueprints/v1/tenant/{tenantId}/blueprints", "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantID()), 1)
+				listPath := "/blueprints/v1/blueprints"
 				id, err := platform.ResolveIDByName(cmd.Context(), cliCtx.PlatformSDKClient, listPath, nameFlag)
 				if err != nil {
 					return err
@@ -427,13 +503,31 @@ func newBlueprintsUndeployCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			} else {
 				return fmt.Errorf("provide a positional ID or --name")
 			}
-			path := "/api/blueprints/v1/tenant/{tenantId}/blueprints/{blueprintId}/undeploy"
-			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantID()), 1)
+			path := "/blueprints/v1/blueprints/{blueprintId}/undeploy"
 			path = strings.Replace(path, "{blueprintId}", url.PathEscape(resolvedID), 1)
 			q := url.Values{}
 			var body any
 			if encoded := q.Encode(); encoded != "" {
 				path += "?" + encoded
+			}
+			// --dry-run is a global flag advertised as "preview changes without
+			// executing", and it used to preview nothing here: the Pro client is
+			// wrapped by a dry-run decorator, this one is not, so every generated
+			// platform and Security Cloud mutation executed for real under -n.
+			// A create reported the object it had just made and a delete reported
+			// nothing, both exiting 0.
+			//
+			// Ahead of the confirmation, not after it. ConfirmAction errors when
+			// --yes is absent and stdin is not a terminal, so a preview of a
+			// destructive command used to be unobtainable in CI without also
+			// pre-authorising the real thing — and the day -n falls off that
+			// command line (or out of JAMF_CLI_ARGS) the delete runs with its
+			// confirmation already suppressed. Interactively the old order
+			// prompted first and printed [dry-run] second, teaching the operator
+			// that confirming is harmless. Name resolution stays ahead of both,
+			// so the preview reports the resolved path.
+			if cliCtx.DryRun {
+				return platform.ReportDryRun(cmd.ErrOrStderr(), http.MethodPost, path, body)
 			}
 			if err := cliCtx.PlatformSDKClient.Transport().DoExpect(cmd.Context(), http.MethodPost, path, body, http.StatusAccepted, nil); err != nil {
 				return fmt.Errorf("undeploy: %w", err)

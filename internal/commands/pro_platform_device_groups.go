@@ -32,7 +32,7 @@ func newPlatformDeviceGroupsCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	needsType := map[string]bool{
 		"get": true, "delete": true, "patch": true, "members": true, "patch-members": true,
 	}
-	for _, sub := range platformgen.NewDeviceGroupsCmd(cliCtx).Commands() {
+	for _, sub := range platformgen.NewPlatformDeviceGroupsCmd(cliCtx).Commands() {
 		if needsType[sub.Name()] {
 			continue
 		}
@@ -54,9 +54,18 @@ func newPlatformDeviceGroupsCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-// pdgListPath returns the tenant-prefixed list endpoint for device groups.
-func pdgListPath(c *jamfplatform.Client) string {
-	return "/api/device-groups/v1/tenant/" + url.PathEscape(c.Transport().TenantID()) + "/device-groups"
+// pdgListPath returns the list endpoint device-group name lookups filter over.
+//
+// No scope in the path: it travels as an X-Environment-Id or X-Tenant-Id header
+// set by the transport, which is what the generated commands in this namespace
+// send. This was missed when the scope moved out of the URL — the old form is
+// still routed during the transition window, so it kept working while reading
+// the tenant back through Transport().TenantID(), an accessor that answers ""
+// for environment scope and "" again for organization scope. Under either it
+// built /device-groups/v1/tenant//device-groups, so every --name lookup here
+// would have failed for exactly the scope Jamf wants integrations to use.
+func pdgListPath(_ *jamfplatform.Client) string {
+	return "/device-groups/v1/device-groups"
 }
 
 // pdgResolveID resolves a device group name to its ID, optionally filtering by

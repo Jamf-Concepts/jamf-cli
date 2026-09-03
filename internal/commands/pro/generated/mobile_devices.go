@@ -19,9 +19,10 @@ import (
 // NewMobileDevicesCmd creates the mobile-devices command group
 func NewMobileDevicesCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "mobile-devices",
-		Short: "Manage mobile-devices",
-		Long:  `Manage mobile-devices in Jamf Pro.`,
+		Use:         "mobile-devices",
+		Short:       "Manage mobile-devices",
+		Long:        `Manage mobile-devices in Jamf Pro.`,
+		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
 	cmd.AddCommand(newMobileDevicesListCmd(ctx))
@@ -50,7 +51,7 @@ func newMobileDevicesListCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # List mobile-devices and extract IDs
   jamf-cli pro mobile-devices list --field id`,
-		Annotations: map[string]string{"jamf:privileges": "Read Mobile Devices"},
+		Annotations: map[string]string{"jamf:privileges": "Read Mobile Devices", "jamf:api": "pro", "jamf:gateway-privileges": "devices:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -85,7 +86,10 @@ func newMobileDevicesListCmd(ctx *registry.CLIContext) *cobra.Command {
 
 			// Auto-pagination: fetch all pages when --all is set and --page was not manually specified
 			if flagAll && flagPage == 0 {
-				var allResults []json.RawMessage
+				// Initialised empty, not nil — a nil slice marshals to "null", so
+				// "list --all" on an empty collection used to answer "null" where
+				// the single-page path answers "[]".
+				allResults := []json.RawMessage{}
 				prog := ctx.Output.PaginationProgress()
 				defer prog.Stop()
 				reqCtx = spinner.WithSuppressed(reqCtx)
@@ -218,7 +222,7 @@ func newMobileDevicesGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a mobile-device and output as YAML
   jamf-cli pro mobile-devices get 1 -o yaml`,
-		Annotations: map[string]string{"jamf:privileges": "Read Mobile Devices"},
+		Annotations: map[string]string{"jamf:privileges": "Read Mobile Devices", "jamf:api": "pro", "jamf:gateway-privileges": "devices:read"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -312,7 +316,7 @@ func newMobileDevicesPatchCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Patch from a file
   jamf-cli pro mobile-devices patch 1 --from-file changes.json`,
-		Annotations: map[string]string{"jamf:privileges": "Update Mobile Devices"},
+		Annotations: map[string]string{"jamf:privileges": "Update Mobile Devices", "jamf:api": "pro", "jamf:gateway-privileges": "devices:update"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

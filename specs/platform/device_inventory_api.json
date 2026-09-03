@@ -66,10 +66,10 @@
           "type": "string"
         }
       },
-      "tenantId": {
-        "description": "The tenant UUID identifier",
-        "in": "path",
-        "name": "tenantId",
+      "X-Tenant-Id": {
+        "description": "The tenant UUID identifier.",
+        "in": "header",
+        "name": "X-Tenant-Id",
         "required": true,
         "schema": {
           "example": "e77c1408-10c8-4007-b177-abc9157fbcaa",
@@ -560,11 +560,19 @@
       }
     },
     "securitySchemes": {
-      "bearerAuth": {
-        "bearerFormat": "JWT",
-        "description": "JWT Bearer token authentication. Obtain a token from the Jamf API Gateway.",
-        "scheme": "bearer",
-        "type": "http"
+      "oauth2": {
+        "description": "Obtain an access token by calling the API Gateway's token endpoint using the OAuth2 client-credentials flow.",
+        "flows": {
+          "clientCredentials": {
+            "scopes": {
+              "destructive-device-actions:execute": "",
+              "devices:read": "",
+              "devices:update": ""
+            },
+            "tokenUrl": "https://{region}.api.jamfcloud.com/auth/token"
+          }
+        },
+        "type": "oauth2"
       }
     }
   },
@@ -580,12 +588,12 @@
   },
   "openapi": "3.0.1",
   "paths": {
-    "/v1/tenant/{tenantId}/devices": {
+    "/v1/devices": {
       "get": {
-        "description": "Retrieve a paginated list of all devices\n\n**Required Permissions:** `read:pro:devices`",
+        "description": "Retrieve a paginated list of all devices\n\n**Required Permissions:** `devices:read`",
         "parameters": [
           {
-            "$ref": "#/components/parameters/tenantId"
+            "$ref": "#/components/parameters/X-Tenant-Id"
           },
           {
             "$ref": "#/components/parameters/PageIndex"
@@ -620,34 +628,26 @@
         },
         "security": [
           {
-            "bearerAuth": []
+            "oauth2": [
+              "devices:read"
+            ]
           }
         ],
         "summary": "Get all devices",
         "tags": [
           "devices"
         ],
-        "x-authentication-required": true,
         "x-required-privileges": [
-          "read:pro:devices"
+          "devices:read"
         ]
       }
     },
-    "/v1/tenant/{tenantId}/devices/{id}": {
+    "/v1/devices/{id}": {
       "delete": {
-        "description": "Delete an existing device\n\n**Required Permissions:** `delete:pro:devices`",
+        "description": "Delete an existing device\n\n**Required Permissions:** `destructive-device-actions:execute`",
         "parameters": [
           {
-            "$ref": "#/components/parameters/tenantId"
-          },
-          {
-            "description": "Path parameter id",
-            "in": "path",
-            "name": "id",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
+            "$ref": "#/components/parameters/X-Tenant-Id"
           }
         ],
         "responses": {
@@ -677,32 +677,24 @@
         },
         "security": [
           {
-            "bearerAuth": []
+            "oauth2": [
+              "destructive-device-actions:execute"
+            ]
           }
         ],
         "summary": "Delete a device",
         "tags": [
           "devices"
         ],
-        "x-authentication-required": true,
         "x-required-privileges": [
-          "delete:pro:devices"
+          "destructive-device-actions:execute"
         ]
       },
       "get": {
-        "description": "Retrieve a specific device by its ID\n\n**Required Permissions:** `read:pro:devices`",
+        "description": "Retrieve a specific device by its ID\n\n**Required Permissions:** `devices:read`",
         "parameters": [
           {
-            "$ref": "#/components/parameters/tenantId"
-          },
-          {
-            "description": "Path parameter id",
-            "in": "path",
-            "name": "id",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
+            "$ref": "#/components/parameters/X-Tenant-Id"
           }
         ],
         "responses": {
@@ -729,16 +721,17 @@
         },
         "security": [
           {
-            "bearerAuth": []
+            "oauth2": [
+              "devices:read"
+            ]
           }
         ],
         "summary": "Get a device by ID",
         "tags": [
           "devices"
         ],
-        "x-authentication-required": true,
         "x-required-privileges": [
-          "read:pro:devices"
+          "devices:read"
         ]
       },
       "parameters": [
@@ -747,19 +740,10 @@
         }
       ],
       "patch": {
-        "description": "Update an existing device\n\n**Required Permissions:** `update:pro:devices`",
+        "description": "Update an existing device\n\n**Required Permissions:** `devices:update`",
         "parameters": [
           {
-            "$ref": "#/components/parameters/tenantId"
-          },
-          {
-            "description": "Path parameter id",
-            "in": "path",
-            "name": "id",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
+            "$ref": "#/components/parameters/X-Tenant-Id"
           }
         ],
         "requestBody": {
@@ -789,25 +773,26 @@
         },
         "security": [
           {
-            "bearerAuth": []
+            "oauth2": [
+              "devices:update"
+            ]
           }
         ],
         "summary": "Update a device",
         "tags": [
           "devices"
         ],
-        "x-authentication-required": true,
         "x-required-privileges": [
-          "update:pro:devices"
+          "devices:update"
         ]
       }
     },
-    "/v1/tenant/{tenantId}/devices/{id}/applications": {
+    "/v1/devices/{id}/applications": {
       "get": {
-        "description": "Retrieve a paginated list of applications installed on a specific device\n\n**Required Permissions:** `read:pro:devices`",
+        "description": "Retrieve a paginated list of applications installed on a specific device\n\n**Required Permissions:** `devices:read`",
         "parameters": [
           {
-            "$ref": "#/components/parameters/tenantId"
+            "$ref": "#/components/parameters/X-Tenant-Id"
           },
           {
             "$ref": "#/components/parameters/PageIndex"
@@ -826,15 +811,6 @@
               "default": "",
               "type": "string"
             }
-          },
-          {
-            "description": "Path parameter id",
-            "in": "path",
-            "name": "id",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
           }
         ],
         "responses": {
@@ -851,16 +827,17 @@
         },
         "security": [
           {
-            "bearerAuth": []
+            "oauth2": [
+              "devices:read"
+            ]
           }
         ],
         "summary": "Get installed applications for a device",
         "tags": [
           "devices"
         ],
-        "x-authentication-required": true,
         "x-required-privileges": [
-          "read:pro:devices"
+          "devices:read"
         ]
       },
       "parameters": [
@@ -869,12 +846,12 @@
         }
       ]
     },
-    "/v1/tenant/{tenantId}/users/{id}/devices": {
+    "/v1/users/{id}/devices": {
       "get": {
-        "description": "Retrieve a paginated list of devices associated with a specific user\n\n**Required Permissions:** `read:pro:devices`",
+        "description": "Retrieve a paginated list of devices associated with a specific user\n\n**Required Permissions:** `devices:read`",
         "parameters": [
           {
-            "$ref": "#/components/parameters/tenantId"
+            "$ref": "#/components/parameters/X-Tenant-Id"
           },
           {
             "$ref": "#/components/parameters/PageIndex"
@@ -893,15 +870,6 @@
               "default": "",
               "type": "string"
             }
-          },
-          {
-            "description": "Path parameter id",
-            "in": "path",
-            "name": "id",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
           }
         ],
         "responses": {
@@ -918,16 +886,17 @@
         },
         "security": [
           {
-            "bearerAuth": []
+            "oauth2": [
+              "devices:read"
+            ]
           }
         ],
         "summary": "Get devices for a user",
         "tags": [
           "users"
         ],
-        "x-authentication-required": true,
         "x-required-privileges": [
-          "read:pro:devices"
+          "devices:read"
         ]
       },
       "parameters": [
@@ -939,13 +908,13 @@
   },
   "security": [
     {
-      "bearerAuth": []
+      "oauth2": []
     }
   ],
   "servers": [
     {
       "description": "Jamf Beta API Gateway - prod",
-      "url": "https://{region}.apigw.jamf.com/api/devices",
+      "url": "https://{region}.api.jamfcloud.com/devices",
       "variables": {
         "region": {
           "default": "us",
@@ -958,5 +927,8 @@
         }
       }
     }
+  ],
+  "x-scope-types": [
+    "tenant"
   ]
 }

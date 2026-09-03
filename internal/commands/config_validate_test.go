@@ -338,3 +338,100 @@ profiles:
 		t.Errorf("expected 'not resolvable' in output:\n%s", out)
 	}
 }
+
+// TestConfigValidate_PlatformSecurityCloudTenantOnly covers a platform profile
+// scoped to Jamf Security Cloud alone.
+//
+// Security Cloud paths carry their own tenant, so reaching them needs no Jamf
+// Pro tenant ID — every wire probe of that surface ran with a deliberately
+// bogus one. Demanding tenant-id here would make `platform setup` a dead end
+// for anyone who only has Security Cloud, forcing them to invent a value they
+// never use.
+// TestConfigValidate_PlatformScopeLevels covers the three levels an integration
+// can be created at. A platform profile naming neither ID is organization-scoped
+// and valid — the gateway resolves it from the access token — so the only fault
+// is naming both, where the credential can only match one.
+func TestConfigValidate_PlatformScopeLevels(t *testing.T) {
+	cases := []struct {
+		name     string
+		scope    string
+		wantFail bool
+		wantText string
+	}{
+		{name: "environment", scope: "    environment-id: env-1", wantText: "environment-id"},
+		{name: "tenant", scope: "    tenant-id: ten-1", wantText: "tenant-id"},
+		{name: "organization", scope: "", wantText: "organization-scoped"},
+		{
+			name:     "both levels",
+			scope:    "    environment-id: env-1\n    tenant-id: ten-1",
+			wantFail: true,
+			wantText: "one level",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Setenv("TEST_SCOPE_CLIENT_ID", "my-client")
+			t.Setenv("TEST_SCOPE_CLIENT_SECRET", "my-secret")
+			yaml := `
+default-profile: scoped
+profiles:
+  scoped:
+    url: https://eu.api.jamfcloud.com
+    auth-method: platform
+    client-id: "env:TEST_SCOPE_CLIENT_ID"
+    client-secret: "env:TEST_SCOPE_CLIENT_SECRET"
+` + tc.scope + "\n"
+
+			out, _ := runValidateCmd(t, yaml)
+			if got := strings.Contains(out, `"fail"`); got != tc.wantFail {
+				t.Errorf("fail=%v, want %v; output:\n%s", got, tc.wantFail, out)
+			}
+			if !strings.Contains(out, tc.wantText) {
+				t.Errorf("output missing %q:\n%s", tc.wantText, out)
+			}
+		})
+	}
+}
+
+// TestConfigValidateFlagsTheRetiredGateway pins the base-URL migration being
+// reported per profile.
+//
+// `config validate` is the command that answers "what is wrong with my config",
+// and every platform profile written before 2026-08-28 names
+// {region}.apigw.jamf.com — a host that is retired and that required an /api
+// segment the GA gateway does not serve. An operator with several such profiles
+// wants all of them named at once, not one failed command at a time.
+func TestConfigValidateFlagsTheRetiredGateway(t *testing.T) {
+	t.Setenv("TEST_RETIRED_CLIENT_ID", "my-client")
+	t.Setenv("TEST_RETIRED_CLIENT_SECRET", "my-secret")
+	yaml := `
+default-profile: ga
+profiles:
+  ga:
+    url: https://eu.api.jamfcloud.com
+    auth-method: platform
+    client-id: "env:TEST_RETIRED_CLIENT_ID"
+    client-secret: "env:TEST_RETIRED_CLIENT_SECRET"
+    tenant-id: t
+  old:
+    url: https://us.apigw.jamf.com
+    auth-method: platform
+    client-id: "env:TEST_RETIRED_CLIENT_ID"
+    client-secret: "env:TEST_RETIRED_CLIENT_SECRET"
+    tenant-id: t
+`
+	out, _ := runValidateCmd(t, yaml)
+	if !strings.Contains(out, "retired Jamf Platform gateway") {
+		t.Errorf("the retired host was not reported:\n%s", out)
+	}
+	// The replacement URL has to be in the message — naming the problem without
+	// the fix leaves the operator to guess the new host.
+	if !strings.Contains(out, "https://us.api.jamfcloud.com") {
+		t.Errorf("the message does not name the replacement URL:\n%s", out)
+	}
+	// And the GA profile must not be swept up in it.
+	if strings.Count(out, "retired Jamf Platform gateway") != 1 {
+		t.Errorf("expected exactly one profile flagged, got:\n%s", out)
+	}
+}

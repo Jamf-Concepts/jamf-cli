@@ -2,7 +2,11 @@
 
 package classic
 
-import "slices"
+import (
+	"slices"
+
+	"github.com/Jamf-Concepts/jamf-cli/generator/parser"
+)
 
 // ClassicResource represents a Classic API resource parsed from the YAML manifest.
 type ClassicResource struct {
@@ -35,6 +39,67 @@ type ClassicResource struct {
 	// verbatim, so unknown values still work. Empty when the resource declares
 	// no subsets.
 	Subsets []string
+	// GatewayLevel and GatewayDetail record whether the Jamf Platform gateway
+	// exposes this resource at all, from specs/gateway/coverage.json.
+	// Resource-level because a Classic resource's paths are built at runtime
+	// from Path plus the lookup in play, so there is no fixed set of paths to
+	// enumerate. Empty when the gateway serves it or when no manifest was
+	// available.
+	GatewayLevel  string
+	GatewayBasis  string
+	GatewayDetail string
+	// GatewayMethods narrows that verdict to the HTTP method a subcommand
+	// sends, keyed by method. A resource can be served and still have a dead
+	// subcommand: Classic API 11.28.0 withdrew every read on patchsoftwaretitles
+	// while keeping POST /patchsoftwaretitles/id/{}, so the resource is carried
+	// and `list`, `get`, `update` and `delete` are all refused. The method is
+	// fixed at generate time even though the path is not, and a method the
+	// gateway declares nowhere beneath the resource cannot work under any
+	// lookup. Absent key or empty Level means served.
+	GatewayMethods map[string]GatewayVerdict
+	// GatewayList is the verdict for the collection GET — /JSSResource/{Path}
+	// with no lookup, the one Classic path that IS fixed at generate time. It is
+	// separate from GatewayMethods["GET"] because a resource can keep GET on its
+	// {id} paths and lose it on the collection, which is what 11.28.0 did to
+	// patchpolicies: `get` works, `list` does not.
+	GatewayList GatewayVerdict
+	// GatewayPrivileges are the Jamf Account capability permissions the gateway
+	// requires, keyed by HTTP method — per method rather than per resource
+	// because that is the granularity that differs (accounts:read for a GET,
+	// accounts:update for a PUT), even though the served/unserved verdict above
+	// is resource-wide. A different vocabulary from Jamf Pro's own privilege
+	// names, and Classic commands carry none of those.
+	GatewayPrivileges map[string][]string
+	// BodySchema is the request-body shape for create/update/apply, parsed from
+	// the committed specs/classic/schemas.json artifact. Nil when the artifact
+	// is absent or names no schema for this resource — six of the manifest's
+	// resources have none, four of them withdrawn from the Classic API
+	// altogether — in which case the resource ships without --scaffold, --set or
+	// field help, exactly as every Classic resource did before the artifact
+	// existed.
+	//
+	// The Classic manifest is hand-written and carries no field information, so
+	// this is the only route by which a Classic write command can say what goes
+	// in its body.
+	BodySchema *parser.Schema
+	// BodyRoot is the XML root element a request body must be wrapped in, e.g.
+	// "policy". Read off the spec (a schema's xml.name, else its component key)
+	// rather than reused from Singular, so a disagreement between the two is
+	// reported at derivation time instead of silently picking one.
+	BodyRoot string
+	// BodySchemaName is the component schema key BodySchema was parsed from,
+	// recorded so generated help can name its provenance.
+	BodySchemaName string
+}
+
+// GatewayVerdict is one gateway-coverage verdict in the three string values
+// the template renders as annotations. Strings rather than generator/gateway's
+// own types so this package needs no dependency on it — generator/main.go
+// converts at the one point the two meet.
+type GatewayVerdict struct {
+	Level  string
+	Basis  string
+	Detail string
 }
 
 // ClassicFileField declares a resource field whose value is sourced from a

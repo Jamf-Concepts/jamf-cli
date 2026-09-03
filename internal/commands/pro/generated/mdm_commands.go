@@ -19,9 +19,10 @@ import (
 // NewMdmCommandsCmd creates the mdm-commands command group
 func NewMdmCommandsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "mdm-commands",
-		Short: "Manage mdm-commands",
-		Long:  `Manage mdm-commands in Jamf Pro.`,
+		Use:         "mdm-commands",
+		Short:       "Manage mdm-commands",
+		Long:        `Manage mdm-commands in Jamf Pro.`,
+		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
 	cmd.AddCommand(newMdmCommandsListCmd(ctx))
@@ -50,7 +51,7 @@ func newMdmCommandsListCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # List mdm-commands and extract IDs
   jamf-cli pro mdm-commands list --field id`,
-		Annotations: map[string]string{"jamf:privileges": "View MDM command information in Jamf Pro API"},
+		Annotations: map[string]string{"jamf:privileges": "View MDM command information in Jamf Pro API", "jamf:api": "pro", "jamf:gateway-privileges": "device-actions:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -80,7 +81,10 @@ func newMdmCommandsListCmd(ctx *registry.CLIContext) *cobra.Command {
 
 			// Auto-pagination: fetch all pages when --all is set and --page was not manually specified
 			if flagAll && flagPage == 0 {
-				var allResults []json.RawMessage
+				// Initialised empty, not nil — a nil slice marshals to "null", so
+				// "list --all" on an empty collection used to answer "null" where
+				// the single-page path answers "[]".
+				allResults := []json.RawMessage{}
 				prog := ctx.Output.PaginationProgress()
 				defer prog.Stop()
 				reqCtx = spinner.WithSuppressed(reqCtx)
@@ -195,7 +199,7 @@ func newMdmCommandsBlankPushCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:         "blank-push",
 		Short:       "Send blank push notifications to a list of client management IDs.",
 		Long:        "Accepts a list of client management IDs and sends a blank push notification to each. Returns a list of UUIDs that encountered errors.",
-		Annotations: map[string]string{"jamf:privileges": "View MDM command information in Jamf Pro API"},
+		Annotations: map[string]string{"jamf:privileges": "View MDM command information in Jamf Pro API", "jamf:api": "pro", "jamf:gateway-privileges": "device-actions:execute"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -258,7 +262,7 @@ func newMdmCommandsCommandsCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:         "commands",
 		Short:       "Post a command for creation and queuing",
 		Long:        "Provided an MDM command type and appropriate information, will create and then queue said command. A separate privilege is required for each device type and MDM command you want to view or send.",
-		Annotations: map[string]string{"jamf:privileges": "View MDM command information in Jamf Pro API"},
+		Annotations: map[string]string{"jamf:privileges": "View MDM command information in Jamf Pro API", "jamf:api": "pro", "jamf:gateway": "unserved", "jamf:gateway-basis": "unpublished", "jamf:gateway-detail": "the gateway's Jamf Pro API 11.31.0 declares GET on this path but not POST"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

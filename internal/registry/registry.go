@@ -353,7 +353,13 @@ type CLIContext struct {
 	// interface, because hand-written commands need its CustomerID() helper
 	// alongside Do/DoSSE — mirrors PlatformSDKClient's approach for SDKs that
 	// live inside this repo rather than an external package.
-	SecurityClient      *security.Client
+	SecurityClient *security.Client
+	// DryRun mirrors the root -n/--dry-run flag. Pro commands get it for free
+	// from a wrapped HTTPClient; the Platform SDK client and the Security Cloud
+	// client are not wrapped (their transports assert an exact success status,
+	// so a synthetic response cannot stand in), so their generated commands read
+	// this and report the request instead of sending it.
+	DryRun              bool
 	Uploader            FileUploader   // non-nil for Pro commands; supports streaming uploads
 	ProfileName         string         // resolved profile name; empty when using env-var auth
 	DestructiveCooldown *time.Duration // nil = use default (10s); 0 = disabled

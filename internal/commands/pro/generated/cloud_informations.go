@@ -12,9 +12,10 @@ import (
 // NewCloudInformationsCmd creates the cloud-informations command group
 func NewCloudInformationsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "cloud-informations",
-		Short: "Manage cloud-informations",
-		Long:  `Manage cloud-informations in Jamf Pro.`,
+		Use:         "cloud-informations",
+		Short:       "Manage cloud-informations",
+		Long:        `Manage cloud-informations in Jamf Pro.`,
+		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
 	cmd.AddCommand(newCloudInformationsListCmd(ctx))
@@ -34,6 +35,7 @@ func newCloudInformationsListCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # List cloud-informations and extract IDs
   jamf-cli pro cloud-informations list --field id`,
+		Annotations: map[string]string{"jamf:api": "pro"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

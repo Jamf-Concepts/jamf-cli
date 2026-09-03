@@ -47,7 +47,7 @@ const oneSerialBody = `{"totalCount":1,"results":[` +
 const noMatchBody = `{"totalCount":0,"results":[]}`
 
 const (
-	serialPath  = "/v3/computers-inventory"
+	serialPath  = "/v4/computers-inventory"
 	serialField = "hardware.serialNumber"
 )
 
@@ -169,7 +169,7 @@ func TestFilterResultsByName_NarrowsOnHardwareSection(t *testing.T) {
 func TestLookupMatchingIDs_SectionQueryJoin(t *testing.T) {
 	client := &resolveNameMockClient{body: oneSerialBody}
 	if _, err := lookupMatchingIDs(context.Background(), client,
-		"/v3/computers-inventory?section=HARDWARE", serialField, "id", "C02X1234"); err != nil {
+		"/v4/computers-inventory?section=HARDWARE", serialField, "id", "C02X1234"); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	got := client.paths[0]

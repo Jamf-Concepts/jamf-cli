@@ -19,9 +19,10 @@ import (
 // NewJamfConnectDeploymentTasksCmd creates the jamf-connect-deployment-tasks command group
 func NewJamfConnectDeploymentTasksCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "jamf-connect-deployment-tasks",
-		Short: "Manage jamf-connect-deployment-tasks",
-		Long:  `Manage jamf-connect-deployment-tasks in Jamf Pro.`,
+		Use:         "jamf-connect-deployment-tasks",
+		Short:       "Manage jamf-connect-deployment-tasks",
+		Long:        `Manage jamf-connect-deployment-tasks in Jamf Pro.`,
+		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
 	cmd.AddCommand(newJamfConnectDeploymentTasksCreateCmd(ctx))
@@ -47,7 +48,7 @@ func newJamfConnectDeploymentTasksCreateCmd(ctx *registry.CLIContext) *cobra.Com
 
   # Get a jamf-connect-deployment-task, modify it, and create a copy
   jamf-cli pro jamf-connect-deployment-tasks get 1 -o json | jq '.name = "Copy"' | jamf-cli pro jamf-connect-deployment-tasks create`,
-		Annotations: map[string]string{"jamf:privileges": "Jamf Connect Deployment Retry"},
+		Annotations: map[string]string{"jamf:privileges": "Jamf Connect Deployment Retry", "jamf:api": "pro", "jamf:gateway-privileges": "jamf-connect-deployments:deploy"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -114,7 +115,7 @@ func newJamfConnectDeploymentTasksTasksCmd(ctx *registry.CLIContext) *cobra.Comm
 		Use:         "tasks <id>",
 		Short:       "Search for deployment tasks for a config profile linked to Jamf Connect",
 		Long:        "Search for config profiles linked to Jamf Connect",
-		Annotations: map[string]string{"jamf:privileges": "Read Jamf Connect Deployments"},
+		Annotations: map[string]string{"jamf:privileges": "Read Jamf Connect Deployments", "jamf:api": "pro", "jamf:gateway-privileges": "jamf-connect-deployments:read"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -145,7 +146,10 @@ func newJamfConnectDeploymentTasksTasksCmd(ctx *registry.CLIContext) *cobra.Comm
 
 			// Auto-pagination: fetch all pages when --all is set and --page was not manually specified
 			if flagAll && flagPage == 0 {
-				var allResults []json.RawMessage
+				// Initialised empty, not nil — a nil slice marshals to "null", so
+				// "list --all" on an empty collection used to answer "null" where
+				// the single-page path answers "[]".
+				allResults := []json.RawMessage{}
 				prog := ctx.Output.PaginationProgress()
 				defer prog.Stop()
 				reqCtx = spinner.WithSuppressed(reqCtx)

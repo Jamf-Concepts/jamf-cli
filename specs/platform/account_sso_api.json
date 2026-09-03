@@ -1,0 +1,2312 @@
+{
+  "components": {
+    "parameters": {
+      "connectionId": {
+        "description": "Identifier of the connection, as returned in the `id` field of a connection.",
+        "in": "path",
+        "name": "connectionId",
+        "required": true,
+        "schema": {
+          "example": "con_9Xk2LpQr7TvB3mNd",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "domain": {
+        "description": "The domain name itself, as returned in the `domain` field of a domain. Domains have no separate opaque identifier for allocation lookups.",
+        "in": "path",
+        "name": "domain",
+        "required": true,
+        "schema": {
+          "example": "example.com",
+          "maxLength": 253,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "domainId": {
+        "description": "Jamf-assigned identifier of the domain, as returned in the `id` field of a domain. Treat it as an opaque string: it is currently a decimal number, and a value that is not one is rejected with `400`.",
+        "in": "path",
+        "name": "domainId",
+        "required": true,
+        "schema": {
+          "example": "4812",
+          "maxLength": 10,
+          "minLength": 1,
+          "pattern": "^[0-9]{1,10}$",
+          "type": "string"
+        }
+      }
+    },
+    "responses": {
+      "BadRequest": {
+        "content": {
+          "application/json": {
+            "example": {
+              "errors": [
+                {
+                  "code": "FIELD_VALIDATION",
+                  "description": "must not be blank",
+                  "field": "domain"
+                }
+              ],
+              "httpStatus": 400,
+              "traceId": "80f198ee56343ba864fe8b2a57d3eff7"
+            },
+            "schema": {
+              "$ref": "#/components/schemas/ApiError"
+            }
+          }
+        },
+        "description": "Bad Request. A field failed validation (`FIELD_VALIDATION`, with `field` naming it), the request was rejected for another reason the caller can correct (`BAD_REQUEST`), or the body could not be parsed as JSON (`MALFORMED_REQUEST_BODY`)."
+      },
+      "ConnectionNotFound": {
+        "content": {
+          "application/json": {
+            "example": {
+              "errors": [
+                {
+                  "code": "NOT_FOUND",
+                  "description": "No configured connections found for ID con_9Xk2LpQr7TvB3mNd",
+                  "field": null
+                }
+              ],
+              "httpStatus": 404,
+              "traceId": "80f198ee56343ba864fe8b2a57d3eff7"
+            },
+            "schema": {
+              "$ref": "#/components/schemas/ApiError"
+            }
+          }
+        },
+        "description": "Not Found. No connection with this identifier is configured for the organization."
+      },
+      "DomainConflict": {
+        "content": {
+          "application/json": {
+            "example": {
+              "errors": [
+                {
+                  "code": "CONFLICT",
+                  "description": "Domain is already verified",
+                  "field": null
+                }
+              ],
+              "httpStatus": 409,
+              "traceId": "80f198ee56343ba864fe8b2a57d3eff7"
+            },
+            "schema": {
+              "$ref": "#/components/schemas/ApiError"
+            }
+          }
+        },
+        "description": "Conflict. The domain is already claimed by this organization, or it has already been verified by a different organization. A domain can only be verified by one organization at a time."
+      },
+      "DomainForbidden": {
+        "content": {
+          "application/json": {
+            "example": {
+              "errors": [
+                {
+                  "code": "FORBIDDEN",
+                  "description": "Unable to edit domain",
+                  "field": null
+                }
+              ],
+              "httpStatus": 403,
+              "traceId": "80f198ee56343ba864fe8b2a57d3eff7"
+            },
+            "schema": {
+              "$ref": "#/components/schemas/ApiError"
+            }
+          }
+        },
+        "description": "Forbidden. The domain belongs to a different organization, or it is shared to this organization but cannot be changed by it."
+      },
+      "DomainIdBadRequest": {
+        "content": {
+          "application/json": {
+            "example": {
+              "errors": [
+                {
+                  "code": "BAD_REQUEST",
+                  "description": "Invalid domain id: not-a-number",
+                  "field": null
+                }
+              ],
+              "httpStatus": 400,
+              "traceId": "80f198ee56343ba864fe8b2a57d3eff7"
+            },
+            "schema": {
+              "$ref": "#/components/schemas/ApiError"
+            }
+          }
+        },
+        "description": "Bad Request. `domainId` is not a valid domain identifier. Ids are strings on the wire but are currently decimal numbers, and a value that is not one cannot name a domain."
+      },
+      "DomainNotFound": {
+        "content": {
+          "application/json": {
+            "example": {
+              "errors": [
+                {
+                  "code": "NOT_FOUND",
+                  "description": "Domain not found",
+                  "field": null
+                }
+              ],
+              "httpStatus": 404,
+              "traceId": "80f198ee56343ba864fe8b2a57d3eff7"
+            },
+            "schema": {
+              "$ref": "#/components/schemas/ApiError"
+            }
+          }
+        },
+        "description": "Not Found. No such domain exists for this organization."
+      },
+      "Forbidden": {
+        "content": {
+          "application/json": {
+            "example": {
+              "errors": [
+                {
+                  "code": "FORBIDDEN",
+                  "description": "M2M token missing required scope",
+                  "field": null
+                }
+              ],
+              "httpStatus": 403,
+              "traceId": "80f198ee56343ba864fe8b2a57d3eff7"
+            },
+            "schema": {
+              "$ref": "#/components/schemas/ApiError"
+            }
+          }
+        },
+        "description": "Forbidden. The token is not an external M2M token, or it does not carry the privilege required to reach this endpoint."
+      },
+      "InternalServerError": {
+        "content": {
+          "application/json": {
+            "example": {
+              "errors": [
+                {
+                  "code": "INTERNAL_ERROR",
+                  "description": "The request could not be completed",
+                  "field": null
+                }
+              ],
+              "httpStatus": 500,
+              "traceId": "80f198ee56343ba864fe8b2a57d3eff7"
+            },
+            "schema": {
+              "$ref": "#/components/schemas/ApiError"
+            }
+          }
+        },
+        "description": "Internal Server Error. The organization in the token could not be resolved, or an upstream dependency failed. The `description` is deliberately generic; quote `traceId` when reporting the failure."
+      },
+      "Unauthorized": {
+        "content": {
+          "application/json": {
+            "example": {
+              "errors": [
+                {
+                  "code": "UNAUTHORIZED",
+                  "description": "The access token is missing, invalid, or expired.",
+                  "field": null
+                }
+              ],
+              "httpStatus": 401,
+              "traceId": "80f198ee56343ba864fe8b2a57d3eff7"
+            },
+            "schema": {
+              "$ref": "#/components/schemas/ApiError"
+            }
+          }
+        },
+        "description": "Unauthorized. The access token is missing, invalid, or expired. The API Gateway rejects the request before it reaches the service."
+      },
+      "VerificationBadRequest": {
+        "content": {
+          "application/json": {
+            "example": {
+              "errors": [
+                {
+                  "code": "BAD_REQUEST",
+                  "description": "Can only verify once every five minutes",
+                  "field": null
+                }
+              ],
+              "httpStatus": 400,
+              "traceId": "80f198ee56343ba864fe8b2a57d3eff7"
+            },
+            "schema": {
+              "$ref": "#/components/schemas/ApiError"
+            }
+          }
+        },
+        "description": "Bad Request. A verification attempt was made inside the five-minute rate limit window — wait and try again — or `domainId` is not a valid domain identifier."
+      }
+    },
+    "schemas": {
+      "ApiError": {
+        "description": "Standard Jamf error response body, returned for every non-2xx response raised by the service.",
+        "properties": {
+          "errors": {
+            "description": "Every problem found with the request. Always holds at least one entry.",
+            "items": {
+              "$ref": "#/components/schemas/ApiErrorItem"
+            },
+            "type": "array"
+          },
+          "httpStatus": {
+            "description": "HTTP status code of the response.",
+            "example": 400,
+            "type": "integer"
+          },
+          "traceId": {
+            "description": "Trace identifier correlating the response with Jamf server-side logs. Quote it when reporting a failure. Null when the request carried no active trace.",
+            "example": "80f198ee56343ba864fe8b2a57d3eff7",
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "required": [
+          "httpStatus",
+          "errors"
+        ],
+        "type": "object"
+      },
+      "ApiErrorItem": {
+        "description": "A single problem with the request.",
+        "properties": {
+          "code": {
+            "description": "Machine-readable, stable classification of the problem. Values used by this API include `MALFORMED_REQUEST_BODY`, `FIELD_VALIDATION`, `BAD_REQUEST`, `UNAUTHORIZED`, `FORBIDDEN`, `NOT_FOUND`, `CONFLICT`, and `INTERNAL_ERROR`. Prefer this over matching on `description`.",
+            "example": "FIELD_VALIDATION",
+            "type": "string"
+          },
+          "description": {
+            "description": "Human-readable explanation, for troubleshooting rather than display to an end user. Generic for server-side failures, which are correlated through `traceId` instead.",
+            "example": "must not be blank",
+            "type": "string"
+          },
+          "field": {
+            "description": "Request field the problem relates to, in dotted notation for a nested field. Null when the problem is not about one field.",
+            "example": "domain",
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "description"
+        ],
+        "type": "object"
+      },
+      "BaseConnectionSettings": {
+        "description": "Settings common to every connection type. Not used on its own — see the per-type settings schemas.",
+        "properties": {
+          "aliasLoginHintToIdp": {
+            "description": "Whether the signing-in user's email address is forwarded to the provider as a login hint, so they do not have to type it twice.",
+            "example": true,
+            "type": "boolean"
+          },
+          "attributeMap": {
+            "description": "JSON document, as a string, mapping provider claims onto Jamf user attributes. Null to use the provider's default mapping.",
+            "example": "{\"mappingMode\":\"bind_all\"}",
+            "nullable": true,
+            "type": "string"
+          },
+          "clientId": {
+            "description": "Client identifier of the application registered with the provider.",
+            "example": "8f14e45f-ceea-467a-9c1e-2b3a4d5e6f70",
+            "nullable": true,
+            "type": "string"
+          },
+          "clientSecret": {
+            "description": "Client secret of the application registered with the provider. Write-only: supply it to set or rotate the secret, omit it on update to keep the stored value, and expect it to be omitted from every response.",
+            "example": "REPLACE_WITH_YOUR_CLIENT_SECRET",
+            "format": "password",
+            "nullable": true,
+            "type": "string",
+            "writeOnly": true
+          },
+          "customUsernameClaimName": {
+            "description": "Claim to read the username from, when the provider does not put it in the standard claim.",
+            "example": "preferred_username",
+            "nullable": true,
+            "type": "string"
+          },
+          "groupNameFilter": {
+            "description": "Pattern limiting which provider groups are passed through to Jamf, for directories with more groups than Jamf needs.",
+            "example": "jamf-*",
+            "nullable": true,
+            "type": "string"
+          },
+          "name": {
+            "description": "Display name for the connection, shown to administrators in Jamf Account.",
+            "example": "Example Corp Entra",
+            "maxLength": 128,
+            "minLength": 1,
+            "type": "string"
+          },
+          "pkceAuthType": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PkceAuthType"
+              }
+            ],
+            "description": "Proof Key for Code Exchange method used with the provider. Defaults to `DISABLED`.",
+            "example": "DISABLED"
+          },
+          "region": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/Region"
+              }
+            ],
+            "description": "Auth0 region to create the connection in. Cannot be changed once the connection exists.",
+            "example": "US"
+          },
+          "sendNonce": {
+            "description": "Whether a nonce is sent on the authentication request. Leave unset unless the provider requires it.",
+            "example": true,
+            "nullable": true,
+            "type": "boolean"
+          },
+          "sessionInfo": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SessionInfo"
+              }
+            ],
+            "description": "Session lifetime limits for users signing in through this connection. Null to use the Jamf defaults.",
+            "example": {
+              "maxInactivityTimeInMinutes": 60,
+              "maxSessionTimeInMinutes": 480
+            }
+          },
+          "syncUserProfileAttributesAtLogin": {
+            "description": "Whether the user's profile attributes are refreshed from the provider on every sign-in. Defaults to true.",
+            "example": true,
+            "nullable": true,
+            "type": "boolean"
+          },
+          "tokenEndpointAuthMethod": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/TokenEndpointAuthMethod"
+              }
+            ],
+            "description": "How Jamf authenticates to the provider's token endpoint. Defaults to `CLIENT_SECRET_POST`.",
+            "example": "CLIENT_SECRET_POST"
+          },
+          "usernameDomain": {
+            "description": "Domain appended to a bare username from the provider to form the user's email address.",
+            "example": "example.com",
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "region",
+          "aliasLoginHintToIdp"
+        ],
+        "type": "object"
+      },
+      "Connection": {
+        "description": "A connection as returned by a read. Client secrets are never included. The provider settings appear in the options object matching `type`; the others are null.",
+        "properties": {
+          "aliasLoginHintToIdp": {
+            "description": "Whether the signing-in user's email address is forwarded to the provider as a login hint.",
+            "example": true,
+            "type": "boolean"
+          },
+          "attributeMap": {
+            "description": "JSON document, as a string, mapping provider claims onto Jamf user attributes. Null when the provider's default mapping is used.",
+            "example": "{\"mappingMode\":\"bind_all\"}",
+            "nullable": true,
+            "type": "string"
+          },
+          "azureOptions": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/EntraOptions"
+              }
+            ],
+            "description": "Entra-specific settings. Present only when `type` is `WAAD`.",
+            "example": {
+              "domain": "example.onmicrosoft.com",
+              "groupsScope": "GROUP_READ_ALL",
+              "identityApi": "MICROSOFT_IDENTITY_PLATFORM_V2",
+              "maxGroups": 250,
+              "tenantDomain": "example.onmicrosoft.com"
+            }
+          },
+          "clientId": {
+            "description": "Client identifier of the application registered with the provider. Null for a connection using Entra admin consent, which has no client of its own.",
+            "example": "8f14e45f-ceea-467a-9c1e-2b3a4d5e6f70",
+            "nullable": true,
+            "type": "string"
+          },
+          "consentFlow": {
+            "description": "Whether the connection authenticates through Entra admin consent rather than a client registered by the administrator. Managed by Jamf; `clientId` is null when true.",
+            "example": false,
+            "readOnly": true,
+            "type": "boolean"
+          },
+          "customUsernameClaimName": {
+            "description": "Claim the username is read from, when it is not the standard one.",
+            "example": "preferred_username",
+            "nullable": true,
+            "type": "string"
+          },
+          "domains": {
+            "description": "Verified domains the connection signs users in for.",
+            "example": [
+              "example.com"
+            ],
+            "items": {
+              "description": "A verified domain.",
+              "example": "example.com",
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "easyConfig": {
+            "description": "Whether the connection was created by Jamf's guided setup rather than configured directly.",
+            "example": false,
+            "type": "boolean"
+          },
+          "googleOptions": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/GoogleOptions"
+              }
+            ],
+            "description": "Google Workspace-specific settings. Present only when `type` is `GOOGLE_APPS`.",
+            "example": {
+              "domain": "example.com",
+              "extGroups": true
+            }
+          },
+          "groupNameFilter": {
+            "description": "Pattern limiting which provider groups are passed through to Jamf.",
+            "example": "jamf-*",
+            "nullable": true,
+            "type": "string"
+          },
+          "id": {
+            "description": "Identifier of the connection.",
+            "example": "con_9Xk2LpQr7TvB3mNd",
+            "type": "string"
+          },
+          "name": {
+            "description": "Display name of the connection.",
+            "example": "Example Corp Entra",
+            "type": "string"
+          },
+          "oidcOptions": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/OidcOptions"
+              }
+            ],
+            "description": "Generic OIDC endpoints. Present only when `type` is `OIDC`.",
+            "example": {
+              "issuerUrl": "https://idp.example.com/",
+              "tokenEndpoint": "https://idp.example.com/oauth2/token"
+            }
+          },
+          "oktaOptions": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/OktaOptions"
+              }
+            ],
+            "description": "Okta-specific settings. Present only when `type` is `OKTA`.",
+            "example": {
+              "domain": "example.okta.com",
+              "issuerUrl": "https://example.okta.com"
+            }
+          },
+          "pkceAuthType": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PkceAuthType"
+              }
+            ],
+            "description": "Proof Key for Code Exchange method used with the provider.",
+            "example": "DISABLED"
+          },
+          "region": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/Region"
+              }
+            ],
+            "description": "Auth0 region the connection lives in.",
+            "example": "US"
+          },
+          "scopes": {
+            "description": "Space-separated OAuth scopes requested from the provider. Null for types that do not use configurable scopes.",
+            "example": "openid profile email",
+            "nullable": true,
+            "type": "string"
+          },
+          "sendNonce": {
+            "description": "Whether a nonce is sent on the authentication request.",
+            "example": true,
+            "type": "boolean"
+          },
+          "sessionInfo": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SessionInfo"
+              }
+            ],
+            "description": "Session lifetime limits for users signing in through this connection. Null when the Jamf defaults apply.",
+            "example": {
+              "maxInactivityTimeInMinutes": 60,
+              "maxSessionTimeInMinutes": 480
+            }
+          },
+          "syncUserProfileAttributesAtLogin": {
+            "description": "Whether the user's profile attributes are refreshed from the provider on every sign-in.",
+            "example": true,
+            "type": "boolean"
+          },
+          "tokenEndpointAuthMethod": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/TokenEndpointAuthMethod"
+              }
+            ],
+            "description": "How Jamf authenticates to the provider's token endpoint.",
+            "example": "CLIENT_SECRET_POST"
+          },
+          "type": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ConnectionType"
+              }
+            ],
+            "description": "Provider type of the connection.",
+            "example": "WAAD"
+          },
+          "usernameDomain": {
+            "description": "Domain appended to a bare username from the provider to form the user's email address.",
+            "example": "example.com",
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "ConnectionRequest": {
+        "description": "A connection to create or replace, together with the domains and products it serves.",
+        "properties": {
+          "connection": {
+            "description": "Provider settings, in the shape matching `connectionType`.",
+            "example": {
+              "clientId": "8f14e45f-ceea-467a-9c1e-2b3a4d5e6f70",
+              "domain": "example.onmicrosoft.com",
+              "identityApi": "MICROSOFT_IDENTITY_PLATFORM_V2",
+              "name": "Example Corp Entra",
+              "region": "US",
+              "tenantDomain": "example.onmicrosoft.com"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/OidcConnectionSettings"
+              },
+              {
+                "$ref": "#/components/schemas/EntraConnectionSettings"
+              },
+              {
+                "$ref": "#/components/schemas/OktaConnectionSettings"
+              },
+              {
+                "$ref": "#/components/schemas/GoogleConnectionSettings"
+              }
+            ]
+          },
+          "connectionType": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ConnectionType"
+              }
+            ],
+            "description": "Provider type, which selects the settings expected in `connection`.",
+            "example": "WAAD"
+          },
+          "domains": {
+            "description": "Verified domains the connection signs users in for. Every domain must already be verified for the organization.",
+            "example": [
+              "example.com"
+            ],
+            "items": {
+              "description": "A verified domain.",
+              "example": "example.com",
+              "type": "string"
+            },
+            "minItems": 1,
+            "type": "array"
+          },
+          "enabledEnvironments": {
+            "description": "Products scoped by environment rather than by tenant, if any. Omit unless a product requires it.",
+            "items": {
+              "$ref": "#/components/schemas/EnabledEnvironment"
+            },
+            "nullable": true,
+            "type": "array"
+          },
+          "enabledProducts": {
+            "description": "Products, and the tenants of those products, the connection is enabled for. Send an empty array to enable the connection for no tenant-scoped product.",
+            "items": {
+              "$ref": "#/components/schemas/EnabledProduct"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "connectionType",
+          "connection",
+          "domains",
+          "enabledProducts"
+        ],
+        "type": "object"
+      },
+      "ConnectionSummary": {
+        "description": "A connection as it appears in a list, without the provider settings. Read a single connection for those.",
+        "properties": {
+          "domains": {
+            "description": "Verified domains the connection signs users in for.",
+            "example": [
+              "example.com"
+            ],
+            "items": {
+              "description": "A verified domain.",
+              "example": "example.com",
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "easyConfig": {
+            "description": "Whether the connection was created by Jamf's guided setup rather than configured directly.",
+            "example": false,
+            "type": "boolean"
+          },
+          "enabledApplications": {
+            "description": "Jamf products the connection is enabled for.",
+            "example": [
+              "PRO",
+              "ACCOUNT"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/Product"
+            },
+            "type": "array"
+          },
+          "id": {
+            "description": "Identifier of the connection.",
+            "example": "con_9Xk2LpQr7TvB3mNd",
+            "type": "string"
+          },
+          "name": {
+            "description": "Display name of the connection.",
+            "example": "Example Corp Entra",
+            "type": "string"
+          },
+          "region": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/Region"
+              }
+            ],
+            "description": "Auth0 region the connection lives in.",
+            "example": "US"
+          },
+          "syncUserProfileAttributesAtLogin": {
+            "description": "Whether the user's profile attributes are refreshed from the provider on every sign-in.",
+            "example": true,
+            "type": "boolean"
+          },
+          "ticketUrl": {
+            "description": "Relative path to the Google Workspace admin consent request for the connection. Null for every type other than `GOOGLE_APPS`, and for Google connections that need no consent.",
+            "example": "/p/9Xk2LpQr7TvB3mNd",
+            "nullable": true,
+            "type": "string"
+          },
+          "tokenEndpointAuthMethod": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/TokenEndpointAuthMethod"
+              }
+            ],
+            "description": "How Jamf authenticates to the provider's token endpoint.",
+            "example": "CLIENT_SECRET_POST"
+          },
+          "type": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ConnectionType"
+              }
+            ],
+            "description": "Provider type of the connection.",
+            "example": "WAAD"
+          }
+        },
+        "type": "object"
+      },
+      "ConnectionSummaryList": {
+        "description": "The connections enabled for the organization.",
+        "properties": {
+          "results": {
+            "description": "The connections enabled for the organization.",
+            "items": {
+              "$ref": "#/components/schemas/ConnectionSummary"
+            },
+            "type": "array"
+          },
+          "totalCount": {
+            "description": "Number of connections in `results`.",
+            "example": 1,
+            "readOnly": true,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "totalCount",
+          "results"
+        ],
+        "type": "object"
+      },
+      "ConnectionType": {
+        "description": "Provider type of a connection. `OIDC` is the generic type and works with any OpenID Connect provider; the other three carry provider-specific settings and should be preferred where they apply.",
+        "enum": [
+          "OIDC",
+          "WAAD",
+          "OKTA",
+          "GOOGLE_APPS"
+        ],
+        "example": "WAAD",
+        "type": "string"
+      },
+      "Domain": {
+        "description": "A DNS domain claimed by an organization, and the state of its ownership verification.",
+        "properties": {
+          "accountId": {
+            "description": "Salesforce account the domain belongs to. For a shared domain this is the owning organization's account, not the caller's.",
+            "example": "0013600001AbCdEfGhI",
+            "type": "string"
+          },
+          "createdByName": {
+            "description": "Name of the Jamf Account user who added the domain. Null when the domain was added over this API, which has no user.",
+            "example": "Alex Rivera",
+            "nullable": true,
+            "type": "string"
+          },
+          "createdDate": {
+            "description": "When the domain was claimed.",
+            "example": "2026-05-04T14:22:31Z",
+            "format": "date-time",
+            "type": "string"
+          },
+          "domain": {
+            "description": "The DNS domain, lower-cased.",
+            "example": "example.com",
+            "type": "string"
+          },
+          "domainStatus": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/DomainStatus"
+              }
+            ],
+            "description": "Current verification status of the domain.",
+            "example": "VERIFIED"
+          },
+          "id": {
+            "description": "Jamf-assigned identifier of the domain. Use it to verify or delete the domain. Treat it as an opaque string, even though it is currently a decimal number.",
+            "example": "4812",
+            "type": "string"
+          },
+          "lastModifiedDate": {
+            "description": "When the domain last changed. Also the point the five-minute verification rate limit is measured from.",
+            "example": "2026-05-04T14:31:08Z",
+            "format": "date-time",
+            "type": "string"
+          },
+          "lastVerificationDate": {
+            "description": "When ownership was last successfully verified. Null for a domain that has never verified.",
+            "example": "2026-05-04T14:31:08Z",
+            "format": "date-time",
+            "nullable": true,
+            "type": "string"
+          },
+          "sharedDomain": {
+            "description": "Whether the domain is owned by another organization and shared with this one. A shared domain can be assigned to a connection but not changed or deleted.",
+            "example": false,
+            "type": "boolean"
+          },
+          "verificationExpirationDate": {
+            "description": "When the current verification lapses, being 14 days after the last successful verification, or after the domain was claimed if it has never verified.",
+            "example": "2026-05-18T14:31:08Z",
+            "format": "date-time",
+            "type": "string"
+          },
+          "verificationKey": {
+            "description": "Value to publish as a TXT record on the domain to prove ownership. Reissued if the domain is deleted and claimed again.",
+            "example": "hK7fQ2mZ9pR4tX1wYb3cVg",
+            "type": "string"
+          },
+          "verifiedTldId": {
+            "description": "Identifier of the verified parent domain this subdomain inherits its verification from, in the same form as `id`. Null for a domain verified in its own right.",
+            "example": "4812",
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "DomainAllocation": {
+        "description": "The connections a domain is currently assigned to, and whether Jamf ID sign-in is enabled for it.",
+        "properties": {
+          "connections": {
+            "description": "Connections the domain is assigned to. Empty when the domain is verified but not yet in use by any connection.",
+            "items": {
+              "$ref": "#/components/schemas/DomainAllocationConnection"
+            },
+            "type": "array"
+          },
+          "domain": {
+            "description": "The domain the allocation is for.",
+            "example": "example.com",
+            "type": "string"
+          },
+          "jamfIdEnabled": {
+            "description": "Whether users on this domain can still sign in with a Jamf ID alongside the identity provider.",
+            "example": false,
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "domain",
+          "connections",
+          "jamfIdEnabled"
+        ],
+        "type": "object"
+      },
+      "DomainAllocationConnection": {
+        "description": "A connection a domain is assigned to.",
+        "properties": {
+          "assignedConnection": {
+            "description": "Identifier of the connection, as accepted by `GET /connections/{connectionId}`.",
+            "example": "con_9Xk2LpQr7TvB3mNd",
+            "type": "string"
+          },
+          "assignedConnectionOrgId": {
+            "description": "Identifier of the Auth0 organization the connection is assigned through. Managed by Jamf; informational only.",
+            "example": "org_7Yt4RmZq2WbK",
+            "type": "string"
+          },
+          "authZeroRegion": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/Region"
+              }
+            ],
+            "description": "Auth0 region the connection lives in.",
+            "example": "US"
+          }
+        },
+        "required": [
+          "assignedConnection",
+          "assignedConnectionOrgId",
+          "authZeroRegion"
+        ],
+        "type": "object"
+      },
+      "DomainList": {
+        "description": "The domains claimed by, or shared with, the organization.",
+        "properties": {
+          "results": {
+            "description": "The domains claimed by, or shared with, the organization.",
+            "items": {
+              "$ref": "#/components/schemas/Domain"
+            },
+            "type": "array"
+          },
+          "totalCount": {
+            "description": "Number of domains in `results`.",
+            "example": 2,
+            "readOnly": true,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "totalCount",
+          "results"
+        ],
+        "type": "object"
+      },
+      "DomainRequest": {
+        "description": "A request to claim a domain. Only `domain` is read; every other field on a domain is assigned by Jamf.",
+        "properties": {
+          "domain": {
+            "description": "The DNS domain to claim, such as `example.com`. Lower-cased on storage, so casing in the request is not significant.",
+            "example": "example.com",
+            "maxLength": 253,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "domain"
+        ],
+        "type": "object"
+      },
+      "DomainStatus": {
+        "description": "Verification status of a domain. `PENDING` is awaiting its first successful check. `VERIFIED` has current, valid verification. `UNVERIFIED` verified at some point but its most recent check failed, and it stays claimed and assignable. `MANUALLY_VERIFIED` and `MS_VERIFIED` were verified by Jamf or by Microsoft rather than by a DNS record, and behave as verified.",
+        "enum": [
+          "PENDING",
+          "VERIFIED",
+          "UNVERIFIED",
+          "MANUALLY_VERIFIED",
+          "MS_VERIFIED"
+        ],
+        "example": "VERIFIED",
+        "type": "string"
+      },
+      "EnabledEnvironment": {
+        "description": "A product the connection is enabled for, and the environments of that product it applies to. Only products scoped by environment use this.",
+        "properties": {
+          "enabledEnvironments": {
+            "description": "Environments of the product the connection applies to.",
+            "example": [
+              "env-7Yt4Rm"
+            ],
+            "items": {
+              "description": "Identifier of an environment of the product.",
+              "example": "env-7Yt4Rm",
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "managedAccountId": {
+            "description": "Set only when the environments belong to a managed account rather than the caller's own.",
+            "example": "0013600001JkLmNoPqR",
+            "nullable": true,
+            "type": "string"
+          },
+          "product": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/Product"
+              }
+            ],
+            "description": "The Jamf product.",
+            "example": "PRO"
+          }
+        },
+        "required": [
+          "product",
+          "enabledEnvironments"
+        ],
+        "type": "object"
+      },
+      "EnabledProduct": {
+        "description": "A product the connection is enabled for, and the tenants of that product it applies to.",
+        "properties": {
+          "enabledTenants": {
+            "description": "Tenants of the product the connection applies to. Empty for products scoped to the organization rather than to a tenant, such as `ACCOUNT`.",
+            "example": [
+              "tenant-9Xk2Lp"
+            ],
+            "items": {
+              "description": "Identifier of a tenant of the product.",
+              "example": "tenant-9Xk2Lp",
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "managedAccountId": {
+            "description": "Set only when the tenants belong to a managed account rather than the caller's own, as a Jamf partner managing a customer.",
+            "example": "0013600001JkLmNoPqR",
+            "nullable": true,
+            "type": "string"
+          },
+          "product": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/Product"
+              }
+            ],
+            "description": "The Jamf product.",
+            "example": "PRO"
+          }
+        },
+        "required": [
+          "product",
+          "enabledTenants"
+        ],
+        "type": "object"
+      },
+      "EntraConnectionSettings": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/BaseConnectionSettings"
+          },
+          {
+            "properties": {
+              "basicProfile": {
+                "description": "Whether the user's basic profile is read from Entra on sign-in.",
+                "example": true,
+                "type": "boolean"
+              },
+              "domain": {
+                "description": "Primary domain of the Entra tenant.",
+                "example": "example.onmicrosoft.com",
+                "type": "string"
+              },
+              "enableUsersApi": {
+                "description": "Whether the Microsoft Graph users API is used to read attributes the token does not carry. Requires the application to hold the corresponding Graph permission.",
+                "example": false,
+                "type": "boolean"
+              },
+              "extendedProfile": {
+                "description": "Whether the user's extended profile attributes are read from Entra on sign-in.",
+                "example": true,
+                "type": "boolean"
+              },
+              "groups": {
+                "description": "Whether the user's Entra group memberships are passed through to Jamf.",
+                "example": true,
+                "type": "boolean"
+              },
+              "groupsScope": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/EntraGroupsScope"
+                  }
+                ],
+                "description": "Graph permission used to read groups. `GROUP_READ_ALL` is the narrower of the two and is the right choice for new connections; `DEFAULT` is `DIRECTORY_READ_ALL`, kept for existing ones.",
+                "example": "GROUP_READ_ALL"
+              },
+              "identityApi": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/EntraIdentityApi"
+                  }
+                ],
+                "description": "Microsoft identity platform version the connection targets.",
+                "example": "MICROSOFT_IDENTITY_PLATFORM_V2"
+              },
+              "maxGroups": {
+                "description": "Maximum number of groups read for a user. Entra truncates group claims on large directories, so raising this only helps up to what the provider will return.",
+                "example": 250,
+                "format": "int32",
+                "minimum": 1,
+                "type": "integer"
+              },
+              "nestedGroups": {
+                "description": "Whether groups inherited through nested group membership are included. Only meaningful when `groups` is true.",
+                "example": false,
+                "type": "boolean"
+              },
+              "setEmailsVerified": {
+                "description": "Whether email addresses from this provider are treated as already verified, so users are not asked to confirm them again.",
+                "example": true,
+                "type": "boolean"
+              },
+              "tenantDomain": {
+                "description": "Domain identifying the Entra tenant to authenticate against. Usually the same as `domain`.",
+                "example": "example.onmicrosoft.com",
+                "type": "string"
+              },
+              "useCommonEndpoint": {
+                "description": "Whether the multi-tenant common endpoint is used instead of the tenant-specific one. Required for a multi-tenant application, in which case `clientId` may be omitted.",
+                "example": false,
+                "type": "boolean"
+              },
+              "useWsfed": {
+                "description": "Whether WS-Federation is used instead of OIDC. Leave false unless the tenant requires it.",
+                "example": false,
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "domain",
+              "tenantDomain",
+              "useWsfed",
+              "useCommonEndpoint",
+              "identityApi",
+              "basicProfile",
+              "enableUsersApi",
+              "maxGroups",
+              "setEmailsVerified",
+              "groups",
+              "nestedGroups",
+              "extendedProfile"
+            ],
+            "type": "object"
+          }
+        ],
+        "description": "Settings for a Microsoft Entra ID connection (`connectionType: WAAD`)."
+      },
+      "EntraExtendedOptions": {
+        "description": "Entra group and profile options, which control what is read from the directory beyond the token's claims.",
+        "properties": {
+          "extendedProfile": {
+            "description": "Whether the user's extended profile attributes are read from Entra.",
+            "example": true,
+            "nullable": true,
+            "type": "boolean"
+          },
+          "groups": {
+            "description": "Whether the user's Entra group memberships are passed through to Jamf.",
+            "example": true,
+            "nullable": true,
+            "type": "boolean"
+          },
+          "nestedGroups": {
+            "description": "Whether groups inherited through nested group membership are included.",
+            "example": false,
+            "nullable": true,
+            "type": "boolean"
+          }
+        },
+        "type": "object"
+      },
+      "EntraGroupsScope": {
+        "description": "Microsoft Graph permission used to read a user's groups. `GROUP_READ_ALL` reads groups only and is the narrower of the two; `DIRECTORY_READ_ALL` reads the whole directory and is retained for existing connections.",
+        "enum": [
+          "GROUP_READ_ALL",
+          "DIRECTORY_READ_ALL"
+        ],
+        "example": "GROUP_READ_ALL",
+        "type": "string"
+      },
+      "EntraIdentityApi": {
+        "description": "Microsoft identity platform version a connection targets. `MICROSOFT_IDENTITY_PLATFORM_V2` is current; the v1 endpoint is retained for connections that predate it.",
+        "enum": [
+          "MICROSOFT_IDENTITY_PLATFORM_V2",
+          "AZURE_ACTIVE_DIRECTORY_V1"
+        ],
+        "example": "MICROSOFT_IDENTITY_PLATFORM_V2",
+        "type": "string"
+      },
+      "EntraOptions": {
+        "description": "Entra-specific settings of a connection.",
+        "properties": {
+          "basicProfile": {
+            "description": "Whether the user's basic profile is read from Entra on sign-in.",
+            "example": true,
+            "nullable": true,
+            "type": "boolean"
+          },
+          "domain": {
+            "description": "Primary domain of the Entra tenant.",
+            "example": "example.onmicrosoft.com",
+            "nullable": true,
+            "type": "string"
+          },
+          "enableUsersApi": {
+            "description": "Whether the Microsoft Graph users API is used to read attributes the token does not carry.",
+            "example": false,
+            "nullable": true,
+            "type": "boolean"
+          },
+          "extOptions": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/EntraExtendedOptions"
+              }
+            ],
+            "description": "Group and profile options read from the directory.",
+            "example": {
+              "extendedProfile": true,
+              "groups": true,
+              "nestedGroups": false
+            }
+          },
+          "groupsScope": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/EntraGroupsScope"
+              }
+            ],
+            "description": "Graph permission used to read groups.",
+            "example": "GROUP_READ_ALL"
+          },
+          "identityApi": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/EntraIdentityApi"
+              }
+            ],
+            "description": "Microsoft identity platform version the connection targets.",
+            "example": "MICROSOFT_IDENTITY_PLATFORM_V2"
+          },
+          "maxGroups": {
+            "description": "Maximum number of groups read for a user.",
+            "example": 250,
+            "format": "int32",
+            "nullable": true,
+            "type": "integer"
+          },
+          "setEmailsVerified": {
+            "description": "Whether email addresses from this provider are treated as already verified.",
+            "example": true,
+            "nullable": true,
+            "type": "boolean"
+          },
+          "tenantDomain": {
+            "description": "Domain identifying the Entra tenant authenticated against.",
+            "example": "example.onmicrosoft.com",
+            "nullable": true,
+            "type": "string"
+          },
+          "useCommonEndpoint": {
+            "description": "Whether the multi-tenant common endpoint is used instead of the tenant-specific one.",
+            "example": false,
+            "nullable": true,
+            "type": "boolean"
+          },
+          "useWsfed": {
+            "description": "Whether WS-Federation is used instead of OIDC.",
+            "example": false,
+            "nullable": true,
+            "type": "boolean"
+          }
+        },
+        "type": "object"
+      },
+      "GoogleConnectionSettings": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/BaseConnectionSettings"
+          },
+          {
+            "properties": {
+              "apiEnableUsers": {
+                "description": "Whether the Google Directory users API is used to read attributes the token does not carry.",
+                "example": false,
+                "type": "boolean"
+              },
+              "domain": {
+                "description": "Primary domain of the Google Workspace account.",
+                "example": "example.com",
+                "type": "string"
+              },
+              "extendedGroups": {
+                "description": "Whether groups are read through the Google Directory API rather than from the token, which returns groups the token omits. Defaults to false.",
+                "example": false,
+                "type": "boolean"
+              },
+              "groups": {
+                "description": "Whether the user's Google Workspace group memberships are passed through to Jamf.",
+                "example": true,
+                "type": "boolean"
+              },
+              "scopes": {
+                "description": "Space-separated OAuth scopes requested from Google. Null to use the defaults Jamf requests.",
+                "example": "openid profile email",
+                "nullable": true,
+                "type": "string"
+              }
+            },
+            "required": [
+              "domain",
+              "clientId",
+              "groups",
+              "apiEnableUsers"
+            ],
+            "type": "object"
+          }
+        ],
+        "description": "Settings for a Google Workspace connection (`connectionType: GOOGLE_APPS`)."
+      },
+      "GoogleOptions": {
+        "description": "Google Workspace-specific settings of a connection.",
+        "properties": {
+          "domain": {
+            "description": "Primary domain of the Google Workspace account.",
+            "example": "example.com",
+            "nullable": true,
+            "type": "string"
+          },
+          "enableUsersApi": {
+            "description": "Whether the Google Directory users API is used to read attributes the token does not carry.",
+            "example": false,
+            "nullable": true,
+            "type": "boolean"
+          },
+          "extGroups": {
+            "description": "Whether the user's Google Workspace group memberships are passed through to Jamf.",
+            "example": true,
+            "nullable": true,
+            "type": "boolean"
+          },
+          "extGroupsExtended": {
+            "description": "Whether groups are read through the Google Directory API rather than from the token.",
+            "example": false,
+            "nullable": true,
+            "type": "boolean"
+          },
+          "ticketUrl": {
+            "description": "Relative path to the Google Workspace admin consent request for the connection. Null when no consent is outstanding.",
+            "example": "/p/9Xk2LpQr7TvB3mNd",
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "OidcConnectionSettings": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/BaseConnectionSettings"
+          },
+          {
+            "properties": {
+              "authorizationEndpoint": {
+                "description": "Authorization endpoint users are redirected to.",
+                "example": "https://idp.example.com/oauth2/authorize",
+                "type": "string"
+              },
+              "issuerUrl": {
+                "description": "Issuer URL of the provider, as it appears in its tokens.",
+                "example": "https://idp.example.com/",
+                "type": "string"
+              },
+              "jwksUri": {
+                "description": "JWKS endpoint the provider publishes its signing keys at.",
+                "example": "https://idp.example.com/oauth2/keys",
+                "type": "string"
+              },
+              "scopes": {
+                "description": "Space-separated OAuth scopes requested from the provider. Must include the scopes needed for the profile attributes Jamf reads.",
+                "example": "openid profile email",
+                "type": "string"
+              },
+              "tokenEndpoint": {
+                "description": "Token endpoint the authorization code is exchanged at.",
+                "example": "https://idp.example.com/oauth2/token",
+                "type": "string"
+              },
+              "userInfoEndpoint": {
+                "description": "Userinfo endpoint profile attributes are read from. Null when the provider returns everything needed in the ID token.",
+                "example": "https://idp.example.com/oauth2/userinfo",
+                "nullable": true,
+                "type": "string"
+              }
+            },
+            "required": [
+              "issuerUrl",
+              "authorizationEndpoint",
+              "jwksUri",
+              "tokenEndpoint",
+              "clientId",
+              "scopes"
+            ],
+            "type": "object"
+          }
+        ],
+        "description": "Settings for a generic OIDC connection (`connectionType: OIDC`). Use this for any provider without a dedicated type."
+      },
+      "OidcOptions": {
+        "description": "Endpoints of a generic OIDC connection.",
+        "properties": {
+          "authorizationEndpoint": {
+            "description": "Authorization endpoint users are redirected to.",
+            "example": "https://idp.example.com/oauth2/authorize",
+            "nullable": true,
+            "type": "string"
+          },
+          "issuerUrl": {
+            "description": "Issuer URL of the provider, as it appears in its tokens.",
+            "example": "https://idp.example.com/",
+            "nullable": true,
+            "type": "string"
+          },
+          "jwksUri": {
+            "description": "JWKS endpoint the provider publishes its signing keys at.",
+            "example": "https://idp.example.com/oauth2/keys",
+            "nullable": true,
+            "type": "string"
+          },
+          "tokenEndpoint": {
+            "description": "Token endpoint the authorization code is exchanged at.",
+            "example": "https://idp.example.com/oauth2/token",
+            "nullable": true,
+            "type": "string"
+          },
+          "userInfoEndpoint": {
+            "description": "Userinfo endpoint profile attributes are read from.",
+            "example": "https://idp.example.com/oauth2/userinfo",
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "OktaConnectionSettings": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/BaseConnectionSettings"
+          },
+          {
+            "properties": {
+              "domain": {
+                "description": "Okta org domain, without a scheme.",
+                "example": "example.okta.com",
+                "type": "string"
+              },
+              "scopes": {
+                "description": "Space-separated OAuth scopes requested from Okta.",
+                "example": "openid profile email groups",
+                "type": "string"
+              }
+            },
+            "type": "object"
+          }
+        ],
+        "description": "Settings for an Okta connection (`connectionType: OKTA`). Native Okta connections are preferred over configuring Okta as generic OIDC.",
+        "required": [
+          "domain",
+          "clientId",
+          "scopes"
+        ]
+      },
+      "OktaOptions": {
+        "description": "Okta-specific settings of a connection.",
+        "properties": {
+          "authorizationEndpoint": {
+            "description": "Authorization endpoint users are redirected to.",
+            "example": "https://example.okta.com/oauth2/v1/authorize",
+            "nullable": true,
+            "type": "string"
+          },
+          "domain": {
+            "description": "Okta org domain, derived from the issuer URL.",
+            "example": "example.okta.com",
+            "nullable": true,
+            "type": "string"
+          },
+          "issuerUrl": {
+            "description": "Issuer URL of the Okta authorization server.",
+            "example": "https://example.okta.com",
+            "nullable": true,
+            "type": "string"
+          },
+          "jwksUri": {
+            "description": "JWKS endpoint Okta publishes its signing keys at.",
+            "example": "https://example.okta.com/oauth2/v1/keys",
+            "nullable": true,
+            "type": "string"
+          },
+          "tokenEndpoint": {
+            "description": "Token endpoint the authorization code is exchanged at.",
+            "example": "https://example.okta.com/oauth2/v1/token",
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "PkceAuthType": {
+        "description": "Proof Key for Code Exchange method used with the provider. `AUTO` lets the provider's metadata decide, and `DISABLED` sends no challenge.",
+        "enum": [
+          "PLAIN",
+          "S256",
+          "AUTO",
+          "DISABLED"
+        ],
+        "example": "DISABLED",
+        "type": "string"
+      },
+      "Product": {
+        "description": "A Jamf product a connection can be enabled for.",
+        "enum": [
+          "ACCOUNT",
+          "PRO",
+          "PROTECT",
+          "SCHOOL",
+          "SECURITY_CLOUD",
+          "JETP",
+          "ROUTINES",
+          "INSIGHTS",
+          "ELEVATE"
+        ],
+        "example": "PRO",
+        "type": "string"
+      },
+      "Region": {
+        "description": "Auth0 region a connection lives in. A connection cannot be moved between regions once created.",
+        "enum": [
+          "US",
+          "EU",
+          "AU",
+          "JP",
+          "RAMP"
+        ],
+        "example": "US",
+        "type": "string"
+      },
+      "SessionInfo": {
+        "description": "Session lifetime limits for users signing in through a connection.",
+        "properties": {
+          "maxInactivityTimeInMinutes": {
+            "description": "How long a session survives without activity before the user must sign in again. Null to use the Jamf default.",
+            "example": 60,
+            "format": "int32",
+            "minimum": 1,
+            "nullable": true,
+            "type": "integer"
+          },
+          "maxSessionTimeInMinutes": {
+            "description": "How long a session lasts before the user must sign in again, regardless of activity. Null to use the Jamf default.",
+            "example": 480,
+            "format": "int32",
+            "minimum": 1,
+            "nullable": true,
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "TokenEndpointAuthMethod": {
+        "description": "How Jamf authenticates to the provider's token endpoint. `CLIENT_SECRET_POST` sends the client secret in the request body; `PRIVATE_KEY_JWT` signs an assertion instead and needs no shared secret.",
+        "enum": [
+          "CLIENT_SECRET_POST",
+          "PRIVATE_KEY_JWT"
+        ],
+        "example": "CLIENT_SECRET_POST",
+        "type": "string"
+      }
+    },
+    "securitySchemes": {
+      "OAuth2ClientCredentials": {
+        "description": "Obtain an access token by calling the API Gateway's token endpoint using the OAuth2 client-credentials flow.",
+        "flows": {
+          "clientCredentials": {
+            "scopes": {},
+            "tokenUrl": "https://{region}.api.jamfcloud.com/auth/token"
+          }
+        },
+        "type": "oauth2"
+      }
+    }
+  },
+  "info": {
+    "contact": {
+      "name": "Jamf Developer",
+      "url": "https://developer.jamf.com"
+    },
+    "description": "Verified domains and identity provider connections for single sign-on to Jamf products",
+    "termsOfService": "https://www.jamf.com/developer-resources/api-license-agreement/",
+    "title": "Jamf Account SSO API",
+    "version": "1.0.0"
+  },
+  "openapi": "3.0.3",
+  "paths": {
+    "/v1/connections": {
+      "get": {
+        "description": "Returns every identity provider connection enabled for the organization resolved from the access token, across all Auth0 regions, with the verified domains each connection serves and the Jamf products it is enabled for.\n\nThis is a summary view: it does not include the provider settings. Read a single connection with `GET /connections/{connectionId}` for those. The response is wrapped in the standard collection envelope. The full set is returned in a single response and `totalCount` reflects it; the endpoint is not paginated. An organization with no connections returns an empty `results` array and a `totalCount` of 0.",
+        "operationId": "listConnections",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "results": [
+                    {
+                      "domains": [
+                        "example.com"
+                      ],
+                      "easyConfig": false,
+                      "enabledApplications": [
+                        "PRO",
+                        "ACCOUNT"
+                      ],
+                      "id": "con_9Xk2LpQr7TvB3mNd",
+                      "name": "Example Corp Entra",
+                      "region": "US",
+                      "syncUserProfileAttributesAtLogin": true,
+                      "ticketUrl": null,
+                      "tokenEndpointAuthMethod": "CLIENT_SECRET_POST",
+                      "type": "WAAD"
+                    }
+                  ],
+                  "totalCount": 1
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ConnectionSummaryList"
+                }
+              }
+            },
+            "description": "The connections enabled for the organization. `results` is empty when it has none."
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        },
+        "security": [
+          {
+            "OAuth2ClientCredentials": []
+          }
+        ],
+        "summary": "List Connections",
+        "tags": [
+          "connections"
+        ]
+      },
+      "post": {
+        "description": "Creates an identity provider connection and assigns it to the domains and products named in the request, in a single call. Returns the created connection as `GET /connections/{connectionId}` would.\n\n`connectionType` selects which provider settings are expected in `connection`; `connection.region` selects the Auth0 region the connection is created in. `domains` must all be verified — see `POST /domains/{domainId}/actions/verify`. `enabledProducts` names the products, and the tenants of those products, the connection signs users in to; use `enabledEnvironments` instead for products scoped by environment.\n\nCreation and assignment are applied together: if the connection is created but cannot be assigned, it is deleted again rather than left behind for you to find. Only `OIDC`, `WAAD`, `OKTA`, and `GOOGLE_APPS` connections can be created.",
+        "operationId": "addConnection",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "example": {
+                "connection": {
+                  "aliasLoginHintToIdp": true,
+                  "basicProfile": true,
+                  "clientId": "8f14e45f-ceea-467a-9c1e-2b3a4d5e6f70",
+                  "clientSecret": "REPLACE_WITH_YOUR_CLIENT_SECRET",
+                  "domain": "example.onmicrosoft.com",
+                  "enableUsersApi": false,
+                  "extendedProfile": true,
+                  "groups": true,
+                  "groupsScope": "GROUP_READ_ALL",
+                  "identityApi": "MICROSOFT_IDENTITY_PLATFORM_V2",
+                  "maxGroups": 250,
+                  "name": "Example Corp Entra",
+                  "nestedGroups": false,
+                  "region": "US",
+                  "setEmailsVerified": true,
+                  "syncUserProfileAttributesAtLogin": true,
+                  "tenantDomain": "example.onmicrosoft.com",
+                  "tokenEndpointAuthMethod": "CLIENT_SECRET_POST",
+                  "useCommonEndpoint": false,
+                  "useWsfed": false
+                },
+                "connectionType": "WAAD",
+                "domains": [
+                  "example.com"
+                ],
+                "enabledProducts": [
+                  {
+                    "enabledTenants": [
+                      "tenant-9Xk2Lp"
+                    ],
+                    "product": "PRO"
+                  },
+                  {
+                    "enabledTenants": [],
+                    "product": "ACCOUNT"
+                  }
+                ]
+              },
+              "schema": {
+                "$ref": "#/components/schemas/ConnectionRequest"
+              }
+            }
+          },
+          "description": "The connection to create, and what it is enabled for.",
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Connection"
+                }
+              }
+            },
+            "description": "The created connection. No `Location` header is returned; the created connection is in the body."
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        },
+        "security": [
+          {
+            "OAuth2ClientCredentials": []
+          }
+        ],
+        "summary": "Add Connection",
+        "tags": [
+          "connections"
+        ]
+      }
+    },
+    "/v1/connections/{connectionId}": {
+      "delete": {
+        "description": "Deletes a connection belonging to the organization resolved from the access token. Users on the domains it served stop being redirected to the identity provider and fall back to whatever else is configured for those domains; the domains themselves stay claimed and verified.\n\nThe region the connection lives in is resolved for you, so it is not part of the request. The response has no body.",
+        "operationId": "deleteConnection",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/connectionId"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "The connection was deleted. The response has no body."
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/ConnectionNotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        },
+        "security": [
+          {
+            "OAuth2ClientCredentials": []
+          }
+        ],
+        "summary": "Delete Connection",
+        "tags": [
+          "connections"
+        ]
+      },
+      "get": {
+        "description": "Returns a single connection belonging to the organization resolved from the access token, including the provider settings for its type and the verified domains it serves.\n\nClient secrets are never returned — `clientSecret` is omitted from every response. The provider settings appear in the options object matching the connection's `type`: `azureOptions` for `WAAD`, `oktaOptions` for `OKTA`, `googleOptions` for `GOOGLE_APPS`, and `oidcOptions` for `OIDC`. The other three are null.",
+        "operationId": "getConnection",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/connectionId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "aliasLoginHintToIdp": true,
+                  "attributeMap": null,
+                  "azureOptions": {
+                    "basicProfile": true,
+                    "domain": "example.onmicrosoft.com",
+                    "enableUsersApi": false,
+                    "extOptions": {
+                      "extendedProfile": true,
+                      "groups": true,
+                      "nestedGroups": false
+                    },
+                    "groupsScope": "GROUP_READ_ALL",
+                    "identityApi": "MICROSOFT_IDENTITY_PLATFORM_V2",
+                    "maxGroups": 250,
+                    "setEmailsVerified": true,
+                    "tenantDomain": "example.onmicrosoft.com",
+                    "useCommonEndpoint": false,
+                    "useWsfed": false
+                  },
+                  "clientId": "8f14e45f-ceea-467a-9c1e-2b3a4d5e6f70",
+                  "consentFlow": false,
+                  "customUsernameClaimName": null,
+                  "domains": [
+                    "example.com"
+                  ],
+                  "easyConfig": false,
+                  "googleOptions": null,
+                  "groupNameFilter": null,
+                  "id": "con_9Xk2LpQr7TvB3mNd",
+                  "name": "Example Corp Entra",
+                  "oidcOptions": null,
+                  "oktaOptions": null,
+                  "pkceAuthType": "DISABLED",
+                  "region": "US",
+                  "scopes": null,
+                  "sendNonce": true,
+                  "sessionInfo": {
+                    "maxInactivityTimeInMinutes": 60,
+                    "maxSessionTimeInMinutes": 480
+                  },
+                  "syncUserProfileAttributesAtLogin": true,
+                  "tokenEndpointAuthMethod": "CLIENT_SECRET_POST",
+                  "type": "WAAD",
+                  "usernameDomain": null
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/Connection"
+                }
+              }
+            },
+            "description": "The requested connection."
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/ConnectionNotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        },
+        "security": [
+          {
+            "OAuth2ClientCredentials": []
+          }
+        ],
+        "summary": "Get Connection",
+        "tags": [
+          "connections"
+        ]
+      },
+      "put": {
+        "description": "Replaces the settings of a connection and reapplies which domains and products it serves, so a change to either takes effect in the same call. Returns the updated connection as `GET /connections/{connectionId}` would.\n\nThe request body is the same as `POST /connections` and is a full replacement, not a patch: omitting a field clears it rather than leaving it unchanged, so read the connection first and send back the complete settings. `connectionType` and `connection.region` must match the existing connection — this endpoint cannot move a connection to another provider type or region.\n\nOmit `clientSecret` to leave the stored secret in place; supply it to rotate it. Removing a domain from `domains` stops users on that domain being redirected to this provider.",
+        "operationId": "updateConnection",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/connectionId"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "example": {
+                "connection": {
+                  "aliasLoginHintToIdp": true,
+                  "basicProfile": true,
+                  "clientId": "8f14e45f-ceea-467a-9c1e-2b3a4d5e6f70",
+                  "domain": "example.onmicrosoft.com",
+                  "enableUsersApi": false,
+                  "extendedProfile": true,
+                  "groups": true,
+                  "groupsScope": "GROUP_READ_ALL",
+                  "identityApi": "MICROSOFT_IDENTITY_PLATFORM_V2",
+                  "maxGroups": 250,
+                  "name": "Example Corp Entra",
+                  "nestedGroups": false,
+                  "region": "US",
+                  "setEmailsVerified": true,
+                  "syncUserProfileAttributesAtLogin": true,
+                  "tenantDomain": "example.onmicrosoft.com",
+                  "tokenEndpointAuthMethod": "CLIENT_SECRET_POST",
+                  "useCommonEndpoint": false,
+                  "useWsfed": false
+                },
+                "connectionType": "WAAD",
+                "domains": [
+                  "example.com",
+                  "eu.example.com"
+                ],
+                "enabledProducts": [
+                  {
+                    "enabledTenants": [
+                      "tenant-9Xk2Lp"
+                    ],
+                    "product": "PRO"
+                  }
+                ]
+              },
+              "schema": {
+                "$ref": "#/components/schemas/ConnectionRequest"
+              }
+            }
+          },
+          "description": "The complete connection settings, and what it is enabled for.",
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Connection"
+                }
+              }
+            },
+            "description": "The updated connection."
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/ConnectionNotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        },
+        "security": [
+          {
+            "OAuth2ClientCredentials": []
+          }
+        ],
+        "summary": "Update Connection",
+        "tags": [
+          "connections"
+        ]
+      }
+    },
+    "/v1/domains": {
+      "get": {
+        "description": "Returns every domain claimed by the organization resolved from the access token, in every status, together with the domains other organizations have shared with it. A shared domain is marked with `sharedDomain: true` and carries the owning organization's `accountId`.\n\nThe response is wrapped in the standard collection envelope. The full set is returned in a single response and `totalCount` reflects it; the endpoint is not paginated. An organization with no domains returns an empty `results` array and a `totalCount` of 0.",
+        "operationId": "listDomains",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "results": [
+                    {
+                      "accountId": "0013600001AbCdEfGhI",
+                      "createdByName": "Alex Rivera",
+                      "createdDate": "2026-05-04T14:22:31Z",
+                      "domain": "example.com",
+                      "domainStatus": "VERIFIED",
+                      "id": "4812",
+                      "lastModifiedDate": "2026-05-04T14:31:08Z",
+                      "lastVerificationDate": "2026-05-04T14:31:08Z",
+                      "sharedDomain": false,
+                      "verificationExpirationDate": "2026-05-18T14:31:08Z",
+                      "verificationKey": "hK7fQ2mZ9pR4tX1wYb3cVg",
+                      "verifiedTldId": null
+                    },
+                    {
+                      "accountId": "0013600001AbCdEfGhI",
+                      "createdByName": null,
+                      "createdDate": "2026-05-06T09:10:02Z",
+                      "domain": "eu.example.com",
+                      "domainStatus": "PENDING",
+                      "id": "4813",
+                      "lastModifiedDate": "2026-05-06T09:10:02Z",
+                      "lastVerificationDate": null,
+                      "sharedDomain": false,
+                      "verificationExpirationDate": "2026-05-20T09:10:02Z",
+                      "verificationKey": "aQ8nL5vT2yD6sJ0uEr7bXm",
+                      "verifiedTldId": "4812"
+                    }
+                  ],
+                  "totalCount": 2
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/DomainList"
+                }
+              }
+            },
+            "description": "The domains claimed by, or shared with, the organization. `results` is empty when it has none."
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        },
+        "security": [
+          {
+            "OAuth2ClientCredentials": []
+          }
+        ],
+        "summary": "List Domains",
+        "tags": [
+          "domains"
+        ]
+      },
+      "post": {
+        "description": "Claims a domain for the organization resolved from the access token and returns it with the `verificationKey` to publish. The domain is created in `PENDING` status and cannot be assigned to a connection until it has been verified.\n\nPublish the returned `verificationKey` as a TXT record on the domain, then call `POST /domains/{domainId}/actions/verify`. The key stays valid for 14 days from `verificationExpirationDate`; a domain whose key has lapsed must be added again.\n\nOnly the `domain` field is read from the request body — every other field is assigned by Jamf and is ignored if supplied. A domain already claimed by this organization is rejected with `409`; a domain already verified by a different organization is rejected on verification, not here.",
+        "operationId": "addDomain",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "example": {
+                "domain": "example.com"
+              },
+              "schema": {
+                "$ref": "#/components/schemas/DomainRequest"
+              }
+            }
+          },
+          "description": "The domain to claim.",
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "accountId": "0013600001AbCdEfGhI",
+                  "createdByName": null,
+                  "createdDate": "2026-05-04T14:22:31Z",
+                  "domain": "example.com",
+                  "domainStatus": "PENDING",
+                  "id": "4812",
+                  "lastModifiedDate": "2026-05-04T14:22:31Z",
+                  "lastVerificationDate": null,
+                  "sharedDomain": false,
+                  "verificationExpirationDate": "2026-05-18T14:22:31Z",
+                  "verificationKey": "hK7fQ2mZ9pR4tX1wYb3cVg",
+                  "verifiedTldId": null
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/Domain"
+                }
+              }
+            },
+            "description": "The claimed domain, including the `verificationKey` to publish. No `Location` header is returned; the created domain is in the body."
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "409": {
+            "$ref": "#/components/responses/DomainConflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        },
+        "security": [
+          {
+            "OAuth2ClientCredentials": []
+          }
+        ],
+        "summary": "Add Domain",
+        "tags": [
+          "domains"
+        ]
+      }
+    },
+    "/v1/domains/allocation/{domain}": {
+      "get": {
+        "description": "Returns the connections a single domain is currently assigned to, and whether Jamf ID sign-in is enabled for it. Use this to tell whether a domain is already in use before changing or deleting the connection that serves it.\n\nA domain that is verified but not yet assigned to any connection returns an empty `connections` array with `jamfIdEnabled: true`. The domain must be owned by, or shared with, the organization resolved from the access token.",
+        "operationId": "getDomainAllocation",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/domain"
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "connections": [
+                    {
+                      "assignedConnection": "con_9Xk2LpQr7TvB3mNd",
+                      "assignedConnectionOrgId": "org_7Yt4RmZq2WbK",
+                      "authZeroRegion": "US"
+                    }
+                  ],
+                  "domain": "example.com",
+                  "jamfIdEnabled": false
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/DomainAllocation"
+                }
+              }
+            },
+            "description": "The connections the domain is assigned to."
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/DomainForbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/DomainNotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        },
+        "security": [
+          {
+            "OAuth2ClientCredentials": []
+          }
+        ],
+        "summary": "Get Domain Allocation",
+        "tags": [
+          "domains"
+        ]
+      }
+    },
+    "/v1/domains/{domainId}": {
+      "delete": {
+        "description": "Removes a domain from the organization resolved from the access token.\n\nDeleting a verified domain also removes it from the connection it is assigned to, so users on that domain stop being redirected to the identity provider. Read `GET /domains/allocation/{domain}` first if you need to know what the deletion will affect. The domain can be claimed again afterwards, but a new `verificationKey` is issued and must be published again.\n\nThe response has no body.",
+        "operationId": "deleteDomain",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/domainId"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "The domain was deleted. The response has no body."
+          },
+          "400": {
+            "$ref": "#/components/responses/DomainIdBadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/DomainForbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/DomainNotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        },
+        "security": [
+          {
+            "OAuth2ClientCredentials": []
+          }
+        ],
+        "summary": "Delete Domain",
+        "tags": [
+          "domains"
+        ]
+      }
+    },
+    "/v1/domains/{domainId}/actions/verify": {
+      "post": {
+        "description": "Checks the domain's DNS records for the TXT record matching its `verificationKey` and returns the domain with the outcome in `domainStatus`: `VERIFIED` when the record was found, and the previous status when it was not. A failed check is not an error response — inspect `domainStatus`.\n\nDNS propagation is not instant, so a check that runs immediately after the record is published can legitimately fail. Verification is rate limited to once every five minutes, except for the first attempt on a newly added domain; an attempt inside that window is rejected with `400`.\n\nThe request has no body. A domain another organization has already verified is rejected with `409`.",
+        "operationId": "verifyDomain",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/domainId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "accountId": "0013600001AbCdEfGhI",
+                  "createdByName": null,
+                  "createdDate": "2026-05-04T14:22:31Z",
+                  "domain": "example.com",
+                  "domainStatus": "VERIFIED",
+                  "id": "4812",
+                  "lastModifiedDate": "2026-05-04T14:31:08Z",
+                  "lastVerificationDate": "2026-05-04T14:31:08Z",
+                  "sharedDomain": false,
+                  "verificationExpirationDate": "2026-05-18T14:31:08Z",
+                  "verificationKey": "hK7fQ2mZ9pR4tX1wYb3cVg",
+                  "verifiedTldId": null
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/Domain"
+                }
+              }
+            },
+            "description": "The domain, with `domainStatus` reflecting the outcome of the check."
+          },
+          "400": {
+            "$ref": "#/components/responses/VerificationBadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/DomainForbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/DomainNotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/DomainConflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        },
+        "security": [
+          {
+            "OAuth2ClientCredentials": []
+          }
+        ],
+        "summary": "Verify Domain",
+        "tags": [
+          "domains"
+        ],
+        "x-action": true
+      }
+    }
+  },
+  "security": [
+    {
+      "OAuth2ClientCredentials": []
+    }
+  ],
+  "servers": [
+    {
+      "description": "Jamf Production API Gateway",
+      "url": "https://{region}.api.jamfcloud.com/sso",
+      "variables": {
+        "region": {
+          "default": "us",
+          "description": "Select the regional gateway",
+          "enum": [
+            "us",
+            "eu",
+            "apac"
+          ]
+        }
+      }
+    }
+  ],
+  "tags": [
+    {
+      "description": "Operations for the domains claimed by the organization resolved from the access token, including verifying them and reading which connections a domain is currently assigned to.",
+      "name": "domains"
+    },
+    {
+      "description": "Operations for the identity provider connections of the organization resolved from the access token.",
+      "name": "connections"
+    }
+  ]
+}

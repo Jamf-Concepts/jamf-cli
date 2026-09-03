@@ -18,12 +18,124 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// bodySpecClassicRestrictedSoftware is this resource's request-body contract, derived from
+// specs/classic/schemas.json at generation time. Empty when the Classic API spec
+// declares no schema for it, in which case create/update/apply read their body
+// from --from-file or stdin with no --scaffold and no --set.
+var bodySpecClassicRestrictedSoftware = classicBodySpec{
+	Root:   "restricted_software",
+	Schema: "restricted_software",
+	Scaffold: `<restricted_software>
+  <general>
+    <id>1</id>
+    <name>Restrict High Sierra</name>
+    <delete_executable>false</delete_executable>
+    <display_message>High Sierra is not yet supported, check Self Service after public release.</display_message>
+    <kill_process>false</kill_process>
+    <match_exact_process_name>false</match_exact_process_name>
+    <process_name>Install macOS High Sierra.app</process_name>
+    <send_notification>false</send_notification>
+    <site>
+      <id>0</id>
+      <name>None</name>
+    </site>
+  </general>
+  <scope>
+    <all_computers>false</all_computers>
+    <buildings>
+      <building>
+        <id>1</id>
+        <name></name>
+      </building>
+    </buildings>
+    <computer_groups>
+      <computer_group>
+        <id>1</id>
+        <name></name>
+      </computer_group>
+    </computer_groups>
+    <computers>
+      <computer>
+        <id>1</id>
+        <name></name>
+      </computer>
+    </computers>
+    <departments>
+      <department>
+        <id>1</id>
+        <name></name>
+      </department>
+    </departments>
+    <exclusions>
+      <buildings>
+        <building>
+          <id>1</id>
+          <name></name>
+        </building>
+      </buildings>
+      <computer_groups>
+        <computer_group>
+          <id>1</id>
+          <name></name>
+        </computer_group>
+      </computer_groups>
+      <computers>
+        <computer>
+          <id>1</id>
+          <name></name>
+        </computer>
+      </computers>
+      <departments>
+        <department>
+          <id>1</id>
+          <name></name>
+        </department>
+      </departments>
+      <users>
+        <user>
+          <id>1</id>
+          <name></name>
+        </user>
+      </users>
+    </exclusions>
+  </scope>
+</restricted_software>
+`,
+	FieldTypes: map[string]string{
+		"general":                          "object",
+		"general.delete_executable":        "boolean",
+		"general.display_message":          "string",
+		"general.id":                       "integer",
+		"general.kill_process":             "boolean",
+		"general.match_exact_process_name": "boolean",
+		"general.name":                     "string",
+		"general.process_name":             "string",
+		"general.send_notification":        "boolean",
+		"general.site":                     "object",
+		"general.site.id":                  "integer",
+		"general.site.name":                "string",
+		"scope":                            "object",
+		"scope.all_computers":              "boolean",
+		"scope.buildings":                  "array",
+		"scope.computer_groups":            "array",
+		"scope.computers":                  "array",
+		"scope.departments":                "array",
+		"scope.exclusions":                 "object",
+		"scope.exclusions.buildings":       "array",
+		"scope.exclusions.computer_groups": "array",
+		"scope.exclusions.computers":       "array",
+		"scope.exclusions.departments":     "array",
+		"scope.exclusions.users":           "array",
+	},
+}
+
 // NewClassicRestrictedSoftwareCmd creates the classic-restricted-software command group
 func NewClassicRestrictedSoftwareCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "classic-restricted-software",
-		Short: "Restricted software entries (Classic API)",
-		Long:  `Manage restricted software entries via the Jamf Pro Classic API (/JSSResource/).`,
+		Use:         "classic-restricted-software",
+		Short:       "Restricted software entries (Classic API)",
+		Long:        `Manage restricted software entries via the Jamf Pro Classic API (/JSSResource/).`,
+		Annotations: map[string]string{"jamf:api": "pro-classic"},
 	}
 
 	cmd.AddCommand(newClassicRestrictedSoftwareListCmd(ctx))
@@ -55,6 +167,7 @@ func newClassicRestrictedSoftwareListCmd(ctx *registry.CLIContext) *cobra.Comman
 
   # List restrictedsoftware and extract IDs
   jamf-cli pro classic-restricted-software list --field id`,
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "restricted-software:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/restrictedsoftware", nil)
@@ -111,7 +224,8 @@ func newClassicRestrictedSoftwareGetCmd(ctx *registry.CLIContext) *cobra.Command
 
   # Get a restricted_software and output as YAML
   jamf-cli pro classic-restricted-software get 1 -o yaml`,
-		Args: cobra.MaximumNArgs(1),
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "restricted-software:read"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -163,21 +277,34 @@ func newClassicRestrictedSoftwareGetCmd(ctx *registry.CLIContext) *cobra.Command
 
 func newClassicRestrictedSoftwareCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
-		fromFile string
+		fromFile     string
+		flagScaffold bool
+		flagSet      []string
 	)
 	cmd := &cobra.Command{
 		Use:   "create",
 		Short: "Create a restricted_software",
-		Long:  "Create a new restricted_software. Reads the XML body from --from-file or stdin.",
+		Long: `Create a new restricted_software. Reads the XML body from --from-file, --set or stdin.
+
+Body fields are derived from the Classic API spec (schema "restricted_software").
+Run with --scaffold to print a complete XML template.
+The template populates every optional section with one specimen entry,
+including references whose <id> points at nothing on your instance — delete
+the sections you do not need. A dangling reference is answered with a 500.
+Optional sections: general, scope`,
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "restricted-software:create"},
 		Example: `  # Create a restricted_software from an XML file
   jamf-cli pro classic-restricted-software create --from-file restricted_software.xml
 
   # Create a restricted_software from XML on stdin
   cat restricted_software.xml | jamf-cli pro classic-restricted-software create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if flagScaffold {
+				return printClassicScaffold(bodySpecClassicRestrictedSoftware)
+			}
 			reqCtx := cmd.Context()
 
-			bodyBytes, err := readClassicBody(fromFile)
+			bodyBytes, err := readClassicBodyOrSet(fromFile, flagSet, bodySpecClassicRestrictedSoftware)
 			if err != nil {
 				return err
 			}
@@ -196,27 +323,50 @@ func newClassicRestrictedSoftwareCreateCmd(ctx *registry.CLIContext) *cobra.Comm
 		},
 	}
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to XML input file (or pipe XML to stdin)")
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print an XML body template for this resource and exit")
+	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Set a body field in dot notation (key=value, repeatable). Builds the whole body, so it cannot be combined with --from-file")
+	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+		return []string{"general.delete_executable=", "general.display_message=", "general.id=", "general.kill_process=", "general.match_exact_process_name=", "general.name=", "general.process_name=", "general.send_notification=", "general.site.id=", "general.site.name=", "scope.all_computers="}, cobra.ShellCompDirectiveNoSpace
+	})
 	return cmd
 }
 
 func newClassicRestrictedSoftwareUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var fromFile string
+	var (
+		flagScaffold bool
+		flagSet      []string
+	)
 	var flagName string
 
 	cmd := &cobra.Command{
 		Use:   "update [<id>]",
 		Short: "Update a restricted_software",
-		Long:  "Update an existing restricted_software by ID. Reads the XML body from --from-file or stdin.",
+		Long: `Update an existing restricted_software by ID. Reads the XML body from --from-file, --set or stdin.
+
+The Classic API applies a partial update: fields the body omits keep their
+current values, so a body carrying one element changes only that element.
+
+Body fields are derived from the Classic API spec (schema "restricted_software").
+Run with --scaffold to print a complete XML template.
+The template populates every optional section with one specimen entry,
+including references whose <id> points at nothing on your instance — delete
+the sections you do not need. A dangling reference is answered with a 500.
+Optional sections: general, scope`,
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "restricted-software:update"},
 		Example: `  # Update a restricted_software from an XML file
   jamf-cli pro classic-restricted-software update 1 --from-file restricted_software.xml
 
   # Update a restricted_software from XML on stdin
   cat restricted_software.xml | jamf-cli pro classic-restricted-software update 1`,
-		Args: cobra.MaximumNArgs(1),
+		Args: classicScaffoldArgs(&flagScaffold, cobra.MaximumNArgs(1)),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if flagScaffold {
+				return printClassicScaffold(bodySpecClassicRestrictedSoftware)
+			}
 			reqCtx := cmd.Context()
 
-			bodyBytes, bodyErr := readClassicBody(fromFile)
+			bodyBytes, bodyErr := readClassicBodyOrSet(fromFile, flagSet, bodySpecClassicRestrictedSoftware)
 			if bodyErr != nil {
 				return bodyErr
 			}
@@ -245,6 +395,11 @@ func newClassicRestrictedSoftwareUpdateCmd(ctx *registry.CLIContext) *cobra.Comm
 	}
 
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to XML input file (or pipe XML to stdin)")
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print an XML body template for this resource and exit")
+	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Set a body field in dot notation (key=value, repeatable). Builds the whole body, so it cannot be combined with --from-file")
+	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+		return []string{"general.delete_executable=", "general.display_message=", "general.id=", "general.kill_process=", "general.match_exact_process_name=", "general.name=", "general.process_name=", "general.send_notification=", "general.site.id=", "general.site.name=", "scope.all_computers="}, cobra.ShellCompDirectiveNoSpace
+	})
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up restricted_software by name")
 
 	return cmd
@@ -269,7 +424,7 @@ func newClassicRestrictedSoftwareDeleteCmd(ctx *registry.CLIContext) *cobra.Comm
 
   # Delete without confirmation prompt
   jamf-cli pro classic-restricted-software delete 1 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:api": "pro-classic", "jamf:gateway-privileges": "restricted-software:delete"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -434,19 +589,29 @@ func newClassicRestrictedSoftwareDeleteCmd(ctx *registry.CLIContext) *cobra.Comm
 
 func newClassicRestrictedSoftwareApplyCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
-		fromFile   string
-		flagYes    bool
-		flagDryRun bool
+		fromFile     string
+		flagYes      bool
+		flagDryRun   bool
+		flagScaffold bool
+		flagSet      []string
 	)
 
 	cmd := &cobra.Command{
-		Use:   "apply",
-		Short: "Create or replace a restricted_software by name",
-		Long: `Create or replace a restricted_software. Reads XML from --from-file or stdin.
+		Use:         "apply",
+		Short:       "Create or replace a restricted_software by name",
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "restricted-software:create,restricted-software:read,restricted-software:update"},
+		Long: `Create or replace a restricted_software. Reads XML from --from-file, --set or stdin.
 
 The name field in the input XML is used to check if the resource already
 exists. If it does, the resource is replaced (with confirmation).
-If not, a new resource is created.`,
+If not, a new resource is created.
+
+Body fields are derived from the Classic API spec (schema "restricted_software").
+Run with --scaffold to print a complete XML template.
+The template populates every optional section with one specimen entry,
+including references whose <id> points at nothing on your instance — delete
+the sections you do not need. A dangling reference is answered with a 500.
+Optional sections: general, scope`,
 		Example: `  # Apply a restricted_software from an XML file
   jamf-cli pro classic-restricted-software apply --from-file restricted_software.xml
 
@@ -456,6 +621,9 @@ If not, a new resource is created.`,
   # Apply without replacement confirmation
   jamf-cli pro classic-restricted-software apply --from-file restricted_software.xml --yes`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			if flagScaffold {
+				return printClassicScaffold(bodySpecClassicRestrictedSoftware)
+			}
 			reqCtx := cmd.Context()
 
 			// Read input
@@ -528,6 +696,12 @@ If not, a new resource is created.`,
 	}
 
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to XML input file (or pipe XML to stdin)")
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print an XML body template for this resource and exit")
+	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Set a body field in dot notation (key=value, repeatable). Builds the whole body, so it cannot be combined with --from-file")
+	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+		return []string{"general.delete_executable=", "general.display_message=", "general.id=", "general.kill_process=", "general.match_exact_process_name=", "general.name=", "general.process_name=", "general.send_notification=", "general.site.id=", "general.site.name=", "scope.all_computers="}, cobra.ShellCompDirectiveNoSpace
+	})
+
 	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt when replacing")
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
 

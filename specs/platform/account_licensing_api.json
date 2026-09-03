@@ -1,0 +1,501 @@
+{
+  "components": {
+    "responses": {
+      "Forbidden": {
+        "content": {
+          "application/json": {
+            "example": {
+              "errors": [
+                {
+                  "code": "FORBIDDEN",
+                  "description": "M2M token missing required scope",
+                  "field": null
+                }
+              ],
+              "httpStatus": 403,
+              "traceId": "80f198ee56343ba864fe8b2a57d3eff7"
+            },
+            "schema": {
+              "$ref": "#/components/schemas/ApiError"
+            }
+          }
+        },
+        "description": "Forbidden. The token is not an external M2M token, or it does not carry the scope required to reach this endpoint."
+      },
+      "InternalServerError": {
+        "content": {
+          "application/json": {
+            "example": {
+              "errors": [
+                {
+                  "code": "UPSTREAM_ERROR",
+                  "description": "The request could not be completed",
+                  "field": null
+                }
+              ],
+              "httpStatus": 500,
+              "traceId": "80f198ee56343ba864fe8b2a57d3eff7"
+            },
+            "schema": {
+              "$ref": "#/components/schemas/ApiError"
+            }
+          }
+        },
+        "description": "Internal Server Error. The organization in the token could not be resolved, or an upstream licensing dependency failed."
+      },
+      "Unauthorized": {
+        "content": {
+          "application/json": {
+            "example": {
+              "errors": [
+                {
+                  "code": "UNAUTHORIZED",
+                  "description": "The access token is missing, invalid, or expired.",
+                  "field": null
+                }
+              ],
+              "httpStatus": 401,
+              "traceId": "80f198ee56343ba864fe8b2a57d3eff7"
+            },
+            "schema": {
+              "$ref": "#/components/schemas/ApiError"
+            }
+          }
+        },
+        "description": "Unauthorized. The access token is missing, invalid, or expired. The API Gateway rejects the request before it reaches the service."
+      }
+    },
+    "schemas": {
+      "AddOnType": {
+        "description": "Add-on classification for products sold as add-ons to a parent product.",
+        "enum": [
+          "JAMF_INFRASTRUCTURE_MANAGER",
+          "JAMF_PKI_PROXY",
+          "JAMF_PRO_SERVER_TOOLS",
+          "AD_CS_CONNECTOR",
+          "SCCM_PLUGIN",
+          "SELF_SERVICE_PLUS",
+          "JAMF_TRUST",
+          "JSDE",
+          "MSP_TOOLKIT",
+          "COMPOSER"
+        ],
+        "example": "SELF_SERVICE_PLUS",
+        "type": "string"
+      },
+      "ApiError": {
+        "description": "Standard Jamf error response body, returned for every non-2xx response raised by the service.",
+        "properties": {
+          "errors": {
+            "description": "Every problem found with the request. Always holds at least one entry.",
+            "items": {
+              "$ref": "#/components/schemas/ApiErrorItem"
+            },
+            "type": "array"
+          },
+          "httpStatus": {
+            "description": "HTTP status code of the response.",
+            "example": 403,
+            "type": "integer"
+          },
+          "traceId": {
+            "description": "Trace identifier correlating the response with Jamf server-side logs. Quote it when reporting a failure. Null when the request carried no active trace.",
+            "example": "80f198ee56343ba864fe8b2a57d3eff7",
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "required": [
+          "httpStatus",
+          "errors"
+        ],
+        "type": "object"
+      },
+      "ApiErrorItem": {
+        "description": "A single problem with the request.",
+        "properties": {
+          "code": {
+            "description": "Machine-readable, stable classification of the problem. Values used by this API include `BAD_REQUEST`, `UNAUTHORIZED`, `FORBIDDEN`, `NOT_FOUND`, `UPSTREAM_ERROR`, and `INTERNAL_ERROR`. Prefer this over matching on `description`.",
+            "example": "FORBIDDEN",
+            "type": "string"
+          },
+          "description": {
+            "description": "Human-readable explanation, for troubleshooting rather than display to an end user. Generic for server-side failures, which are correlated through `traceId` instead.",
+            "example": "M2M token missing required scope",
+            "type": "string"
+          },
+          "field": {
+            "description": "Request field the problem relates to. Null when the problem is not about one field.",
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "description"
+        ],
+        "type": "object"
+      },
+      "License": {
+        "description": "A single license held by the organization.",
+        "properties": {
+          "activationCode": {
+            "description": "Activation code for the licensed product, where the product uses one.",
+            "example": "ABC1-DEF2-GHI3-JKL4",
+            "nullable": true,
+            "type": "string"
+          },
+          "addOnType": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/AddOnType"
+              }
+            ],
+            "description": "Add-on classification. Populated only for add-on products whose type is computed by bundle purchases; null otherwise.",
+            "example": "SELF_SERVICE_PLUS",
+            "nullable": true
+          },
+          "assetId": {
+            "description": "Identifier of the license asset in Jamf systems.",
+            "example": "5e806493-91ca-4957-871a-76c6df6d0fbc",
+            "nullable": true,
+            "type": "string"
+          },
+          "bundleProductCode": {
+            "description": "Code of the bundle this license was sold under, when it was sold as part of a bundle.",
+            "example": "JAMF-BUSINESS",
+            "nullable": true,
+            "type": "string"
+          },
+          "contactId": {
+            "description": "Identifier of the contact the license is registered against.",
+            "example": "c429780b-abe3-4018-9e4d-80148b70f7d6",
+            "nullable": true,
+            "type": "string"
+          },
+          "endDate": {
+            "description": "Date the license term ends.",
+            "example": "2027-03-31T00:00:00Z",
+            "format": "date-time",
+            "nullable": true,
+            "type": "string"
+          },
+          "licenseType": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/LicenseType"
+              }
+            ],
+            "description": "Commercial type of the license.",
+            "example": "SUBSCRIPTION"
+          },
+          "productName": {
+            "description": "Name of the licensed product.",
+            "example": "Jamf Pro",
+            "nullable": true,
+            "type": "string"
+          },
+          "productParent": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ProductParent"
+              }
+            ],
+            "description": "Product family the `productTopLine` rolls up to. Derived from `productTopLine`; null when `productTopLine` is null.",
+            "example": "PRO",
+            "nullable": true
+          },
+          "productTopLine": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ProductTopLine"
+              }
+            ],
+            "description": "Product top line the license belongs to. Null when the source record is not mapped to a top line.",
+            "example": "PRO",
+            "nullable": true
+          },
+          "purchasedSeats": {
+            "description": "Number of seats purchased under this license. Zero when the source record specifies no seat count.",
+            "example": 500,
+            "format": "int32",
+            "type": "integer"
+          },
+          "renewalDate": {
+            "description": "Date the license renews. Null when the source record carries no end date.",
+            "example": "2027-03-31T00:00:00Z",
+            "format": "date-time",
+            "nullable": true,
+            "type": "string"
+          },
+          "sku": {
+            "description": "Stock-keeping unit the license was sold under.",
+            "example": "JAMF-PRO-SUB",
+            "nullable": true,
+            "type": "string"
+          },
+          "startDate": {
+            "description": "Date the license term begins.",
+            "example": "2026-04-01T00:00:00Z",
+            "format": "date-time",
+            "nullable": true,
+            "type": "string"
+          },
+          "title": {
+            "description": "Display title of the license.",
+            "example": "Jamf Pro",
+            "type": "string"
+          },
+          "type": {
+            "deprecated": true,
+            "description": "Legacy asset-type classification of the license.",
+            "example": "JAMF_PRO_SUBSCRIPTION",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "LicenseList": {
+        "description": "The licenses held by the organization.",
+        "properties": {
+          "results": {
+            "description": "The licenses held by the organization.",
+            "items": {
+              "$ref": "#/components/schemas/License"
+            },
+            "type": "array"
+          },
+          "totalCount": {
+            "description": "Number of licenses in `results`.",
+            "example": 1,
+            "readOnly": true,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "totalCount",
+          "results"
+        ],
+        "type": "object"
+      },
+      "LicenseType": {
+        "description": "Commercial type of a license.",
+        "enum": [
+          "TRIAL",
+          "NFR",
+          "SANDBOX_DEV",
+          "SUBSCRIPTION",
+          "ANNUAL_MAINTENANCE",
+          "LICENSE",
+          "PREPAID",
+          "BETA",
+          "NA"
+        ],
+        "example": "SUBSCRIPTION",
+        "type": "string"
+      },
+      "ProductParent": {
+        "description": "Top-level product family a product top line rolls up to.",
+        "enum": [
+          "PRO",
+          "NOW",
+          "CONNECT",
+          "PROTECT",
+          "SCHOOL",
+          "ADDON",
+          "SECURITY_CLOUD",
+          "BUNDLES",
+          "TRAINING",
+          "SUPPORT",
+          "OTHER",
+          "JETP",
+          "CLOUD",
+          "HIGH_COMPLIANCE",
+          "SERVICES",
+          "ELEVATE",
+          "RAPID_IDENTITY"
+        ],
+        "example": "PRO",
+        "type": "string"
+      },
+      "ProductTopLine": {
+        "description": "Product top line a license belongs to. Mirrors the top-line taxonomy of the Jamf commercial asset ledger.",
+        "enum": [
+          "APPLE_UNLIMITED",
+          "COMPLIANCE_REPORTER",
+          "DATA_CAPPING",
+          "DEVICE_IDENTITY",
+          "EDUCATION_ENHANCED",
+          "EDUCATION_ULTIMATE",
+          "JAMF_APP_PACK",
+          "JAMF_BYOD",
+          "JAMF_CONNECT",
+          "JAMF_CONNECT_BASIC",
+          "JAMF_DATA_POLICY",
+          "JAMF_BUSINESS",
+          "JAMF_ENTERPRISE",
+          "JAMF_EVENT",
+          "JAMF_EXECUTIVE_THREAT_PROTECTION",
+          "JAMF_NOW",
+          "JAMF_PRIVATE_ACCESS",
+          "JAMF_PRO",
+          "JAMF_PROTECT",
+          "JAMF_SAFE_INTERNET",
+          "JAMF_SCHOOL",
+          "JAMF_THREAT_DEFENSE",
+          "NETWORK_TRAFFIC_STREAM",
+          "OTHER",
+          "PREMIUM_CLOUD",
+          "PREMIUM_SUPPORT",
+          "SERVICE",
+          "SOLUTION_PARTNER",
+          "TRAINING_AND_CERTIFICATIONS",
+          "TRUST",
+          "WORKFLOWS",
+          "ADD_ON",
+          "BUSINESS",
+          "CARRIER_SECURITY",
+          "SECURITY_CLOUD",
+          "CONNECT",
+          "COURSES_AND_TRAINING",
+          "ENTERPRISE",
+          "EVENT",
+          "EXECUTIVE_THREAT_PROTECTION",
+          "FUNDAMENTALS",
+          "HEALTHCARE",
+          "ONBOARDING_AND_IMPLEMENTATIONS",
+          "PAID_PARTNERSHIPS",
+          "PRO",
+          "PRO_SERVICES",
+          "PROTECT",
+          "SCHOOL",
+          "JAMF_INFRASTRUCTURE_MANAGER",
+          "COMPOSER",
+          "JAMF_PKI_PROXY",
+          "JAMF_PRO_SERVER_TOOLS",
+          "AD_CS_CONNECTOR",
+          "SCCM_PLUGIN",
+          "SELF_SERVICE_PLUS",
+          "SELF_SERVICE",
+          "JSDE",
+          "MSP_TOOLKIT",
+          "ELEVATE",
+          "RAPID_IDENTITY"
+        ],
+        "example": "PRO",
+        "type": "string"
+      }
+    },
+    "securitySchemes": {
+      "OAuth2ClientCredentials": {
+        "description": "Obtain an access token by calling the API Gateway's token endpoint using the OAuth2 client-credentials flow.",
+        "flows": {
+          "clientCredentials": {
+            "scopes": {},
+            "tokenUrl": "https://{region}.api.jamfcloud.com/auth/token"
+          }
+        },
+        "type": "oauth2"
+      }
+    }
+  },
+  "info": {
+    "contact": {
+      "name": "Jamf Developer",
+      "url": "https://developer.jamf.com"
+    },
+    "description": "Read the licenses held by your Jamf organization",
+    "termsOfService": "https://www.jamf.com/developer-resources/api-license-agreement/",
+    "title": "Jamf Account Licensing API",
+    "version": "1.0.0"
+  },
+  "openapi": "3.0.3",
+  "paths": {
+    "/v1/licenses": {
+      "get": {
+        "description": "Returns every license held by the organization resolved from the access token, wrapped in the standard collection envelope. The full set is returned in a single response and `totalCount` reflects it; the endpoint is not paginated. An organization with no licenses returns an empty `results` array and a `totalCount` of 0.",
+        "operationId": "listLicenses",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "results": [
+                    {
+                      "activationCode": "ABC1-DEF2-GHI3-JKL4",
+                      "assetId": "5e806493-91ca-4957-871a-76c6df6d0fbc",
+                      "bundleProductCode": "JAMF-BUSINESS",
+                      "contactId": "c429780b-abe3-4018-9e4d-80148b70f7d6",
+                      "endDate": "2027-03-31T00:00:00Z",
+                      "licenseType": "SUBSCRIPTION",
+                      "productName": "Jamf Pro",
+                      "productParent": "PRO",
+                      "productTopLine": "PRO",
+                      "purchasedSeats": 500,
+                      "renewalDate": "2027-03-31T00:00:00Z",
+                      "sku": "JAMF-PRO-SUB",
+                      "startDate": "2026-04-01T00:00:00Z",
+                      "title": "Jamf Pro",
+                      "type": "JAMF_PRO_SUBSCRIPTION"
+                    }
+                  ],
+                  "totalCount": 1
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/LicenseList"
+                }
+              }
+            },
+            "description": "The licenses held by the organization. `results` is empty when the organization holds none."
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        },
+        "security": [
+          {
+            "OAuth2ClientCredentials": []
+          }
+        ],
+        "summary": "List Licenses",
+        "tags": [
+          "licenses"
+        ]
+      }
+    }
+  },
+  "security": [
+    {
+      "OAuth2ClientCredentials": []
+    }
+  ],
+  "servers": [
+    {
+      "description": "Jamf Production API Gateway",
+      "url": "https://{region}.api.jamfcloud.com/licensing",
+      "variables": {
+        "region": {
+          "default": "us",
+          "description": "Select the regional gateway",
+          "enum": [
+            "us",
+            "eu",
+            "apac"
+          ]
+        }
+      }
+    }
+  ],
+  "tags": [
+    {
+      "description": "Operations for the licenses held by the organization.",
+      "name": "licenses"
+    }
+  ]
+}

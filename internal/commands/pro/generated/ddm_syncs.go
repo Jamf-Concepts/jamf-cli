@@ -17,9 +17,10 @@ import (
 // NewDdmSyncsCmd creates the ddm-syncs command group
 func NewDdmSyncsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "ddm-syncs",
-		Short: "Manage ddm-syncs",
-		Long:  `Manage ddm-syncs in Jamf Pro.`,
+		Use:         "ddm-syncs",
+		Short:       "Manage ddm-syncs",
+		Long:        `Manage ddm-syncs in Jamf Pro.`,
+		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
 	cmd.AddCommand(newDdmSyncsSyncCmd(ctx))
@@ -34,7 +35,7 @@ func newDdmSyncsSyncCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:         "sync <id>",
 		Short:       "Force a device DDM sync",
 		Long:        "Force a device to sync by queuing a new DeclarativeManagementCommand",
-		Annotations: map[string]string{"jamf:privileges": "Send Declarative Management Command"},
+		Annotations: map[string]string{"jamf:privileges": "Send Declarative Management Command", "jamf:api": "pro", "jamf:gateway-privileges": "device-actions:execute"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

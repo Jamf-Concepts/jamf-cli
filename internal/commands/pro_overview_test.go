@@ -1399,7 +1399,7 @@ func TestBuildInstanceItems_DirectAuth_TrailingSlash(t *testing.T) {
 
 func TestBuildInstanceItems_PlatformAuth(t *testing.T) {
 	oldURL := serverURL
-	serverURL = "https://eu.apigw.jamf.com"
+	serverURL = "https://eu.api.jamfcloud.com"
 	defer func() { serverURL = oldURL }()
 
 	get := func(key string) string {
@@ -1425,14 +1425,14 @@ func TestBuildInstanceItems_PlatformAuth(t *testing.T) {
 	if found["Server URL"] != "https://acme.jamfcloud.com" {
 		t.Errorf("Server URL = %q, want %q", found["Server URL"], "https://acme.jamfcloud.com")
 	}
-	if found["Gateway URL"] != "https://eu.apigw.jamf.com" {
-		t.Errorf("Gateway URL = %q, want %q", found["Gateway URL"], "https://eu.apigw.jamf.com")
+	if found["Gateway URL"] != "https://eu.api.jamfcloud.com" {
+		t.Errorf("Gateway URL = %q, want %q", found["Gateway URL"], "https://eu.api.jamfcloud.com")
 	}
 }
 
 func TestBuildInstanceItems_ProURLFetchFailed(t *testing.T) {
 	oldURL := serverURL
-	serverURL = "https://eu.apigw.jamf.com"
+	serverURL = "https://eu.api.jamfcloud.com"
 	defer func() { serverURL = oldURL }()
 
 	get := func(key string) string {
@@ -1456,8 +1456,8 @@ func TestBuildInstanceItems_ProURLFetchFailed(t *testing.T) {
 		found[it.Resource] = it.Value
 	}
 	// Falls back to serverURL when pro_url fetch fails
-	if found["Server URL"] != "https://eu.apigw.jamf.com" {
-		t.Errorf("Server URL = %q, want %q (fallback to serverURL)", found["Server URL"], "https://eu.apigw.jamf.com")
+	if found["Server URL"] != "https://eu.api.jamfcloud.com" {
+		t.Errorf("Server URL = %q, want %q (fallback to serverURL)", found["Server URL"], "https://eu.api.jamfcloud.com")
 	}
 	if _, ok := found["Gateway URL"]; ok {
 		t.Error("Gateway URL should not be present when pro_url fallback matches serverURL")
@@ -1470,7 +1470,7 @@ func TestRunOverview_PlatformAuth_ServerURL(t *testing.T) {
 	mock.responses["/v1/jamf-pro-server-url"] = overviewMockResponse{200, `{"url":"https://acme.jamfcloud.com"}`}
 
 	oldURL := serverURL
-	serverURL = "https://eu.apigw.jamf.com"
+	serverURL = "https://eu.api.jamfcloud.com"
 	defer func() { serverURL = oldURL }()
 
 	cliCtx := &registry.CLIContext{Client: mock}
@@ -1491,8 +1491,8 @@ func TestRunOverview_PlatformAuth_ServerURL(t *testing.T) {
 	if values["Server URL"] != "https://acme.jamfcloud.com" {
 		t.Errorf("Server URL = %q, want %q", values["Server URL"], "https://acme.jamfcloud.com")
 	}
-	if values["Gateway URL"] != "https://eu.apigw.jamf.com" {
-		t.Errorf("Gateway URL = %q, want %q", values["Gateway URL"], "https://eu.apigw.jamf.com")
+	if values["Gateway URL"] != "https://eu.api.jamfcloud.com" {
+		t.Errorf("Gateway URL = %q, want %q", values["Gateway URL"], "https://eu.api.jamfcloud.com")
 	}
 }
 
@@ -1515,10 +1515,10 @@ func buildFullOverviewMock() *overviewMockClient {
 			"/v1/buildings":                                  {200, `{"totalCount":3,"results":[]}`},
 			"/v1/departments":                                {200, `{"totalCount":5,"results":[]}`},
 			"/v1/categories":                                 {200, `{"totalCount":12,"results":[]}`},
-			"/v2/computer-groups/smart-groups":               {200, `{"totalCount":5,"results":[]}`},
-			"/v2/computer-groups/static-groups":              {200, `{"totalCount":3,"results":[]}`},
-			"/v1/mobile-device-groups/smart-groups":          {200, `{"totalCount":8,"results":[]}`},
-			"/v1/mobile-device-groups/static-groups":         {200, `{"totalCount":2,"results":[]}`},
+			"/v3/computer-groups/smart-groups":               {200, `{"totalCount":5,"results":[]}`},
+			"/v3/computer-groups/static-groups":              {200, `{"totalCount":3,"results":[]}`},
+			"/v2/mobile-device-groups/smart-groups":          {200, `{"totalCount":8,"results":[]}`},
+			"/v2/mobile-device-groups/static-groups":         {200, `{"totalCount":2,"results":[]}`},
 			"/v1/scripts":                                    {200, `{"totalCount":25,"results":[]}`},
 			"/v1/ebooks":                                     {200, `{"totalCount":0,"results":[]}`},
 			"/v1/cloud-distribution-point/files":             {200, `{"totalCount":0,"results":[]}`},
@@ -1535,7 +1535,7 @@ func buildFullOverviewMock() *overviewMockClient {
 			"/JSSResource/osxconfigurationprofiles":          {200, `{"os_x_configuration_profiles":[{"id":1},{"id":2}]}`},
 			"/JSSResource/mobiledeviceconfigurationprofiles": {200, `{"configuration_profiles":[]}`},
 			"/JSSResource/packages":                          {200, `{"packages":[{"id":1},{"id":2},{"id":3}]}`},
-			"/JSSResource/patchsoftwaretitles":               {200, `{"patch_software_titles":[{"id":1}]}`},
+			"/v3/patch-software-title-configurations":        {200, `[{"id":"1"}]`},
 			"/JSSResource/webhooks":                          {200, `{"webhooks":[]}`},
 			"/ldap/servers":                                  {200, `[{"id":"1"}]`},
 		},

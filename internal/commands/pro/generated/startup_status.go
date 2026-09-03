@@ -12,9 +12,10 @@ import (
 // NewStartupStatusCmd creates the startup-status command group
 func NewStartupStatusCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "startup-status",
-		Short: "Manage startup-status",
-		Long:  `Manage startup-status in Jamf Pro.`,
+		Use:         "startup-status",
+		Short:       "Manage startup-status",
+		Long:        `Manage startup-status in Jamf Pro.`,
+		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
 	cmd.AddCommand(newStartupStatusListCmd(ctx))
@@ -34,6 +35,7 @@ func newStartupStatusListCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # List startup-status and extract IDs
   jamf-cli pro startup-status list --field id`,
+		Annotations: map[string]string{"jamf:api": "pro"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

@@ -131,7 +131,7 @@ func TestComputerFlushCommands_DryRun_ByID(t *testing.T) {
 
 	mock := &flushMockClient{
 		responses: map[string]flushMockResponse{
-			"v3/computers-inventory/42": {200, `{"id":"42","udid":"U","general":{"name":"Test Mac","managementId":"m"},"hardware":{"serialNumber":"C02X1234"}}`},
+			"v4/computers-inventory/42": {200, `{"id":"42","udid":"U","general":{"name":"Test Mac","managementId":"m"},"hardware":{"serialNumber":"C02X1234"}}`},
 		},
 	}
 	cliCtx := &registry.CLIContext{Client: mock, Output: &discardOutput{}}
@@ -213,7 +213,7 @@ func TestComputerFlushCommands_NoInputGuard(t *testing.T) {
 
 	mock := &flushMockClient{
 		responses: map[string]flushMockResponse{
-			"v3/computers-inventory/42": {200, `{"id":"42","udid":"U","general":{"name":"Test Mac","managementId":"m"},"hardware":{"serialNumber":"C02X1234"}}`},
+			"v4/computers-inventory/42": {200, `{"id":"42","udid":"U","general":{"name":"Test Mac","managementId":"m"},"hardware":{"serialNumber":"C02X1234"}}`},
 		},
 	}
 	cliCtx := &registry.CLIContext{Client: mock, Output: &discardOutput{}}
@@ -240,7 +240,7 @@ func TestComputerFlushCommands_WithYes_ByID(t *testing.T) {
 
 	mock := &flushMockClient{
 		responses: map[string]flushMockResponse{
-			"v3/computers-inventory/42":                         {200, `{"id":"42","udid":"U","general":{"name":"Test Mac","managementId":"m"},"hardware":{"serialNumber":"C02X1234"}}`},
+			"v4/computers-inventory/42":                         {200, `{"id":"42","udid":"U","general":{"name":"Test Mac","managementId":"m"},"hardware":{"serialNumber":"C02X1234"}}`},
 			"DELETE /JSSResource/commandflush/computers/id/42/": {200, commandFlushXML},
 		},
 	}
@@ -290,7 +290,7 @@ func TestComputerFlushCommands_StatusBoth_URLEncoded(t *testing.T) {
 
 	mock := &flushMockClient{
 		responses: map[string]flushMockResponse{
-			"v3/computers-inventory/42":                         {200, `{"id":"42","udid":"U","general":{"name":"Test Mac","managementId":"m"},"hardware":{"serialNumber":"C02X1234"}}`},
+			"v4/computers-inventory/42":                         {200, `{"id":"42","udid":"U","general":{"name":"Test Mac","managementId":"m"},"hardware":{"serialNumber":"C02X1234"}}`},
 			"DELETE /JSSResource/commandflush/computers/id/42/": {200, commandFlushXML},
 		},
 	}

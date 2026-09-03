@@ -19,9 +19,10 @@ import (
 // NewJamfConnectsCmd creates the jamf-connects command group
 func NewJamfConnectsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "jamf-connects",
-		Short: "Manage jamf-connects",
-		Long:  `Manage jamf-connects in Jamf Pro.`,
+		Use:         "jamf-connects",
+		Short:       "Manage jamf-connects",
+		Long:        `Manage jamf-connects in Jamf Pro.`,
+		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
 	cmd.AddCommand(newJamfConnectsListCmd(ctx))
@@ -52,7 +53,7 @@ func newJamfConnectsListCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # List jamf-connects and extract IDs
   jamf-cli pro jamf-connects list --field id`,
-		Annotations: map[string]string{"jamf:privileges": "Read Jamf Connect Deployments"},
+		Annotations: map[string]string{"jamf:privileges": "Read Jamf Connect Deployments", "jamf:api": "pro", "jamf:gateway-privileges": "jamf-connect-deployments:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -81,7 +82,10 @@ func newJamfConnectsListCmd(ctx *registry.CLIContext) *cobra.Command {
 
 			// Auto-pagination: fetch all pages when --all is set and --page was not manually specified
 			if flagAll && flagPage == 0 {
-				var allResults []json.RawMessage
+				// Initialised empty, not nil — a nil slice marshals to "null", so
+				// "list --all" on an empty collection used to answer "null" where
+				// the single-page path answers "[]".
+				allResults := []json.RawMessage{}
 				prog := ctx.Output.PaginationProgress()
 				defer prog.Stop()
 				reqCtx = spinner.WithSuppressed(reqCtx)
@@ -205,7 +209,7 @@ func newJamfConnectsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a jamf-connect, modify, and update
   jamf-cli pro jamf-connects get 1 -o json | jq '.name = "New Name"' | jamf-cli pro jamf-connects update 1`,
-		Annotations: map[string]string{"jamf:privileges": "Update Jamf Connect Deployments"},
+		Annotations: map[string]string{"jamf:privileges": "Update Jamf Connect Deployments", "jamf:api": "pro", "jamf:gateway-privileges": "jamf-connect-deployments:update"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -292,7 +296,7 @@ func newJamfConnectsHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 		Long:  "Get Jamf Connect history",
 		Example: `  # Get history for a jamf-connect
   jamf-cli pro jamf-connects history 1`,
-		Annotations: map[string]string{"jamf:privileges": "Read Jamf Connect Settings"},
+		Annotations: map[string]string{"jamf:privileges": "Read Jamf Connect Settings", "jamf:api": "pro", "jamf:gateway-privileges": "jamf-connect-deployments:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -321,7 +325,10 @@ func newJamfConnectsHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 
 			// Auto-pagination: fetch all pages when --all is set and --page was not manually specified
 			if flagAll && flagPage == 0 {
-				var allResults []json.RawMessage
+				// Initialised empty, not nil — a nil slice marshals to "null", so
+				// "list --all" on an empty collection used to answer "null" where
+				// the single-page path answers "[]".
+				allResults := []json.RawMessage{}
 				prog := ctx.Output.PaginationProgress()
 				defer prog.Stop()
 				reqCtx = spinner.WithSuppressed(reqCtx)
@@ -436,7 +443,7 @@ func newJamfConnectsAddHistoryNoteCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:         "add-history-note",
 		Short:       "Add Jamf Connect history notes",
 		Long:        "Add Jamf Connect history notes",
-		Annotations: map[string]string{"jamf:privileges": "Update Jamf Connect Settings"},
+		Annotations: map[string]string{"jamf:privileges": "Update Jamf Connect Settings", "jamf:api": "pro", "jamf:gateway-privileges": "jamf-connect-deployments:update"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -494,7 +501,7 @@ func newJamfConnectsJamfConnectCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:         "jamf-connect",
 		Short:       "Get the Jamf Connect settings that you have access to see",
 		Long:        "Get the Jamf Connect settings that you have access to see.",
-		Annotations: map[string]string{"jamf:privileges": "Read Jamf Connect Settings,Read Jamf Connect Deployments"},
+		Annotations: map[string]string{"jamf:privileges": "Read Jamf Connect Settings,Read Jamf Connect Deployments", "jamf:api": "pro", "jamf:gateway-privileges": "jamf-connect-deployments:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

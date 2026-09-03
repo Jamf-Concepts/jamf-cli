@@ -55,10 +55,10 @@
           "type": "string"
         }
       },
-      "tenantId": {
-        "description": "The tenant UUID identifier",
-        "in": "path",
-        "name": "tenantId",
+      "X-Tenant-Id": {
+        "description": "The tenant UUID identifier.",
+        "in": "header",
+        "name": "X-Tenant-Id",
         "required": true,
         "schema": {
           "example": "e77c1408-10c8-4007-b177-abc9157fbcaa",
@@ -541,11 +541,20 @@
       }
     },
     "securitySchemes": {
-      "bearerAuth": {
-        "bearerFormat": "JWT",
-        "description": "JWT Bearer token authentication. Obtain a token from the Jamf API Gateway.",
-        "scheme": "bearer",
-        "type": "http"
+      "oauth2": {
+        "description": "Obtain an access token by calling the API Gateway's token endpoint using the OAuth2 client-credentials flow.",
+        "flows": {
+          "clientCredentials": {
+            "scopes": {
+              "device-groups:create": "",
+              "device-groups:delete": "",
+              "device-groups:read": "",
+              "device-groups:update": ""
+            },
+            "tokenUrl": "https://{region}.api.jamfcloud.com/auth/token"
+          }
+        },
+        "type": "oauth2"
       }
     }
   },
@@ -561,12 +570,12 @@
   },
   "openapi": "3.0.1",
   "paths": {
-    "/v1/tenant/{tenantId}/device-groups": {
+    "/v1/device-groups": {
       "get": {
-        "description": "Retrieve a paginated list of all device groups for the tenant\n\n**Required Permissions:** `read:pro:device-groups`",
+        "description": "Retrieve a paginated list of all device groups for the tenant\n\n**Required Permissions:** `device-groups:read`",
         "parameters": [
           {
-            "$ref": "#/components/parameters/tenantId"
+            "$ref": "#/components/parameters/X-Tenant-Id"
           },
           {
             "$ref": "#/components/parameters/PageIndex"
@@ -601,23 +610,24 @@
         },
         "security": [
           {
-            "bearerAuth": []
+            "oauth2": [
+              "device-groups:read"
+            ]
           }
         ],
         "summary": "Get all device groups",
         "tags": [
           "device-groups"
         ],
-        "x-authentication-required": true,
         "x-required-privileges": [
-          "read:pro:device-groups"
+          "device-groups:read"
         ]
       },
       "post": {
-        "description": "Create a new device group in Jamf Pro\n\n**Required Permissions:** `create:pro:device-groups`",
+        "description": "Create a new device group in Jamf Pro\n\n**Required Permissions:** `device-groups:create`",
         "parameters": [
           {
-            "$ref": "#/components/parameters/tenantId"
+            "$ref": "#/components/parameters/X-Tenant-Id"
           }
         ],
         "requestBody": {
@@ -654,34 +664,26 @@
         },
         "security": [
           {
-            "bearerAuth": []
+            "oauth2": [
+              "device-groups:create"
+            ]
           }
         ],
         "summary": "Create a new device group",
         "tags": [
           "device-groups"
         ],
-        "x-authentication-required": true,
         "x-required-privileges": [
-          "create:pro:device-groups"
+          "device-groups:create"
         ]
       }
     },
-    "/v1/tenant/{tenantId}/device-groups/{id}": {
+    "/v1/device-groups/{id}": {
       "delete": {
-        "description": "Delete an existing device group\n\n**Required Permissions:** `delete:pro:device-groups`",
+        "description": "Delete an existing device group\n\n**Required Permissions:** `device-groups:delete`",
         "parameters": [
           {
-            "$ref": "#/components/parameters/tenantId"
-          },
-          {
-            "description": "Path parameter id",
-            "in": "path",
-            "name": "id",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
+            "$ref": "#/components/parameters/X-Tenant-Id"
           }
         ],
         "responses": {
@@ -701,32 +703,24 @@
         },
         "security": [
           {
-            "bearerAuth": []
+            "oauth2": [
+              "device-groups:delete"
+            ]
           }
         ],
         "summary": "Delete a device group",
         "tags": [
           "device-groups"
         ],
-        "x-authentication-required": true,
         "x-required-privileges": [
-          "delete:pro:device-groups"
+          "device-groups:delete"
         ]
       },
       "get": {
-        "description": "Retrieve a specific device group by its ID\n\n**Required Permissions:** `read:pro:device-groups`",
+        "description": "Retrieve a specific device group by its ID\n\n**Required Permissions:** `device-groups:read`",
         "parameters": [
           {
-            "$ref": "#/components/parameters/tenantId"
-          },
-          {
-            "description": "Path parameter id",
-            "in": "path",
-            "name": "id",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
+            "$ref": "#/components/parameters/X-Tenant-Id"
           }
         ],
         "responses": {
@@ -753,16 +747,17 @@
         },
         "security": [
           {
-            "bearerAuth": []
+            "oauth2": [
+              "device-groups:read"
+            ]
           }
         ],
         "summary": "Get a device group by ID",
         "tags": [
           "device-groups"
         ],
-        "x-authentication-required": true,
         "x-required-privileges": [
-          "read:pro:device-groups"
+          "device-groups:read"
         ]
       },
       "parameters": [
@@ -771,19 +766,10 @@
         }
       ],
       "patch": {
-        "description": "Update an existing device group\n\n**Required Permissions:** `update:pro:device-groups`",
+        "description": "Update an existing device group\n\n**Required Permissions:** `device-groups:update`",
         "parameters": [
           {
-            "$ref": "#/components/parameters/tenantId"
-          },
-          {
-            "description": "Path parameter id",
-            "in": "path",
-            "name": "id",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
+            "$ref": "#/components/parameters/X-Tenant-Id"
           }
         ],
         "requestBody": {
@@ -813,34 +799,26 @@
         },
         "security": [
           {
-            "bearerAuth": []
+            "oauth2": [
+              "device-groups:update"
+            ]
           }
         ],
         "summary": "Update a device group",
         "tags": [
           "device-groups"
         ],
-        "x-authentication-required": true,
         "x-required-privileges": [
-          "update:pro:device-groups"
+          "device-groups:update"
         ]
       }
     },
-    "/v1/tenant/{tenantId}/device-groups/{id}/members": {
+    "/v1/device-groups/{id}/members": {
       "get": {
-        "description": "Retrieve all members of a device group\n\n**Required Permissions:** `read:pro:device-groups`",
+        "description": "Retrieve all members of a device group\n\n**Required Permissions:** `device-groups:read`",
         "parameters": [
           {
-            "$ref": "#/components/parameters/tenantId"
-          },
-          {
-            "description": "Path parameter id",
-            "in": "path",
-            "name": "id",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
+            "$ref": "#/components/parameters/X-Tenant-Id"
           }
         ],
         "responses": {
@@ -867,16 +845,17 @@
         },
         "security": [
           {
-            "bearerAuth": []
+            "oauth2": [
+              "device-groups:read"
+            ]
           }
         ],
         "summary": "Get group members",
         "tags": [
           "device-groups"
         ],
-        "x-authentication-required": true,
         "x-required-privileges": [
-          "read:pro:device-groups"
+          "device-groups:read"
         ]
       },
       "parameters": [
@@ -885,19 +864,10 @@
         }
       ],
       "patch": {
-        "description": "Add devices to or remove devices from a static device group. Cannot be used with smart groups.\n\n**Required Permissions:** `update:pro:device-groups`",
+        "description": "Add devices to or remove devices from a static device group. Cannot be used with smart groups.\n\n**Required Permissions:** `device-groups:update`",
         "parameters": [
           {
-            "$ref": "#/components/parameters/tenantId"
-          },
-          {
-            "description": "Path parameter id",
-            "in": "path",
-            "name": "id",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
+            "$ref": "#/components/parameters/X-Tenant-Id"
           }
         ],
         "requestBody": {
@@ -927,7 +897,9 @@
         },
         "security": [
           {
-            "bearerAuth": []
+            "oauth2": [
+              "device-groups:update"
+            ]
           }
         ],
         "summary": "Update device group members",
@@ -935,27 +907,17 @@
           "device-groups"
         ],
         "x-action": true,
-        "x-authentication-required": true,
         "x-required-privileges": [
-          "update:pro:device-groups"
+          "device-groups:update"
         ]
       }
     },
-    "/v1/tenant/{tenantId}/devices/{id}/device-groups": {
+    "/v1/devices/{id}/device-groups": {
       "get": {
-        "description": "Retrieve all device groups to which a specific device ID belongs\u003cbr/\u003e If no device by the specified ID exists or the device ID is not a member of any groups, an empty array will be returned.\n\n**Required Permissions:** `read:pro:device-groups`",
+        "description": "Retrieve all device groups to which a specific device ID belongs\u003cbr/\u003e If no device by the specified ID exists or the device ID is not a member of any groups, an empty array will be returned.\n\n**Required Permissions:** `device-groups:read`",
         "parameters": [
           {
-            "$ref": "#/components/parameters/tenantId"
-          },
-          {
-            "description": "Path parameter id",
-            "in": "path",
-            "name": "id",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
+            "$ref": "#/components/parameters/X-Tenant-Id"
           }
         ],
         "responses": {
@@ -972,16 +934,17 @@
         },
         "security": [
           {
-            "bearerAuth": []
+            "oauth2": [
+              "device-groups:read"
+            ]
           }
         ],
         "summary": "Get device groups for a device",
         "tags": [
           "devices"
         ],
-        "x-authentication-required": true,
         "x-required-privileges": [
-          "read:pro:device-groups"
+          "device-groups:read"
         ]
       },
       "parameters": [
@@ -993,13 +956,13 @@
   },
   "security": [
     {
-      "bearerAuth": []
+      "oauth2": []
     }
   ],
   "servers": [
     {
       "description": "Jamf Beta API Gateway - prod",
-      "url": "https://{region}.apigw.jamf.com/api/device-groups",
+      "url": "https://{region}.api.jamfcloud.com/device-groups",
       "variables": {
         "region": {
           "default": "us",
@@ -1012,5 +975,8 @@
         }
       }
     }
+  ],
+  "x-scope-types": [
+    "tenant"
   ]
 }

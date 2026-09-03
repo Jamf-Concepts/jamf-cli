@@ -3,9 +3,11 @@
 package parser
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/getkin/kin-openapi/openapi3"
@@ -604,6 +606,65 @@ func TestDeduplicateVersioned(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+// makeVersionedResource is makeResource with one operation, so the resource has
+// an API version to be ranked by. The version has to come off a path — a
+// resource's name says which family it is in, not which version it serves.
+func makeVersionedResource(name, path string) *Resource {
+	return &Resource{Name: name, Operations: []*Operation{{Name: "list", Method: "GET", Path: path}}}
+}
+
+// The real shape of specs/ComputersInventory{,V2,V3}.yaml: three spec files, one
+// family, and the highest version is the one whose *name* carries no version
+// suffix — because that file declares /v1 and /v4 together and the within-file
+// deduplication leaves it holding v4.
+//
+// Read by name alone, the v4 resource looks like the legacy base and is
+// suppressed, so every pro computers-inventory command shipped /v3 and the two
+// v4-only operations (erase, remove-mdm-profile) were never generated. Nothing
+// failed: v3 answered, and the gateway published all four versions. Its 11.31.0
+// drop now publishes v4 alone, which turned the silent wrong choice into a
+// command refused before a request is sent.
+func TestDeduplicateVersioned_BaseWinsWhenItServesTheHigherVersion(t *testing.T) {
+	base := makeVersionedResource("computers-inventories", "/v4/computers-inventory")
+	got := DeduplicateVersioned([]*Resource{
+		base,
+		makeVersionedResource("computers-inventory-v-2s", "/v2/computers-inventory"),
+		makeVersionedResource("computers-inventory-v-3s", "/v3/computers-inventory"),
+	})
+
+	if len(got) != 1 {
+		t.Fatalf("DeduplicateVersioned() returned %v, want the v4 resource alone", resourceNames(got))
+	}
+	if got[0] != base {
+		t.Errorf("winner is %q serving %s, want the base resource serving /v4 — the name suffix is not the version",
+			got[0].Name, got[0].Operations[0].Path)
+	}
+}
+
+// The suppression rule still has to hold the other way round, which is the case
+// it was written for: inventory-preload's base file declares v1 (plus one
+// unversioned path with no v2 equivalent) and InventoryPreloadV2.yaml declares
+// v2, so the versioned sibling is genuinely the newer one and the base goes.
+func TestDeduplicateVersioned_BaseStillLosesWhenItIsOlder(t *testing.T) {
+	base := &Resource{Name: "inventory-preloads", Operations: []*Operation{
+		{Name: "list", Method: "GET", Path: "/v1/inventory-preload"},
+		{Name: "notes", Method: "POST", Path: "/inventory-preload/history/notes"},
+	}}
+	winner := makeVersionedResource("inventory-preload-v-2s", "/v2/inventory-preload")
+
+	got := DeduplicateVersioned([]*Resource{base, winner})
+	if len(got) != 1 {
+		t.Fatalf("DeduplicateVersioned() returned %v, want the v2 resource alone", resourceNames(got))
+	}
+	if got[0] != winner {
+		t.Errorf("winner serves %s, want /v2 — an unversioned path alongside v1 must not out-rank v2",
+			got[0].Operations[0].Path)
+	}
+	if got[0].Name != "inventory-preloads" {
+		t.Errorf("Name = %q, want the canonical inventory-preloads", got[0].Name)
 	}
 }
 
@@ -2517,4 +2578,641 @@ func TestApplyDocumentedStatusResults(t *testing.T) {
 				op.StatusResults, op.NoContentDescription)
 		}
 	})
+}
+
+func TestStripVersionSegments(t *testing.T) {
+	tests := []struct {
+		name string
+		path string
+		want string
+	}{
+		{"leading version, as Jamf Pro paths carry it", "/v1/computers-inventory", "/computers-inventory"},
+		{"preview counts as a version", "/preview/x", "/x"},
+		{"no version is left alone", "/no-version/foo", "/no-version/foo"},
+		{
+			// The shape stripVersionPrefix could not see: the gateway puts the
+			// version after the service namespace.
+			"version after the service namespace",
+			"/securitycloud/v1/groups",
+			"/securitycloud/groups",
+		},
+		{
+			"the v2 sibling collapses onto the same key",
+			"/securitycloud/v2/groups",
+			"/securitycloud/groups",
+		},
+		{
+			// UEM Connect nests a service version deeper still.
+			"version deep in the path",
+			"/securitycloud/uem-connect/v1/connectors",
+			"/securitycloud/uem-connect/connectors",
+		},
+		{
+			"two version segments are both removed",
+			"/securitycloud/v1/uem-connect/v2/connectors",
+			"/securitycloud/uem-connect/connectors",
+		},
+		{
+			// A segment merely starting with "v" is not a version. The old
+			// leading-segment check accepted any such segment.
+			"a segment that only starts with v is kept",
+			"/securitycloud/venafi/groups",
+			"/securitycloud/venafi/groups",
+		},
+		{"trailing version segment", "/securitycloud/groups/v2", "/securitycloud/groups"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := stripVersionSegments(tt.path); got != tt.want {
+				t.Errorf("stripVersionSegments(%q) = %q, want %q", tt.path, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestAPIVersionRank(t *testing.T) {
+	tests := []struct {
+		path string
+		want int
+	}{
+		{"/v1/foo", 1},
+		{"/v3/foo", 3},
+		{"/v10/foo", 10},
+		{"/preview/foo", -1},
+		{"/foo/bar", 0},
+		// Ranked by the version wherever it sits. Reading only the leading
+		// segment scored both of these 0, which made "prefer the higher
+		// version" a tie decided by map iteration order.
+		{"/securitycloud/v1/groups", 1},
+		{"/securitycloud/v2/groups", 2},
+		// The outermost version wins when a path carries two: it is the one
+		// that distinguishes siblings.
+		{"/securitycloud/v1/uem-connect/v2/connectors", 1},
+	}
+	for _, tt := range tests {
+		t.Run(tt.path, func(t *testing.T) {
+			if got := apiVersionRank(tt.path); got != tt.want {
+				t.Errorf("apiVersionRank(%q) = %d, want %d", tt.path, got, tt.want)
+			}
+		})
+	}
+}
+
+// TestDeduplicateVersionedOps_GatewayPathShape covers the case that shipped two
+// commands for one endpoint: Jamf Security Cloud published a v2 device-groups
+// list beside the deprecated v1, and because the version sits after the service
+// namespace the dedup key never collided, so both survived — the deprecated one
+// holding the plain "list" name.
+func TestDeduplicateVersionedOps_GatewayPathShape(t *testing.T) {
+	v1 := &Operation{Name: "list", Method: "GET", Path: "/securitycloud/v1/groups"}
+	v2 := &Operation{Name: "groups", Method: "GET", Path: "/securitycloud/v2/groups"}
+
+	got := deduplicateVersionedOps([]*Operation{v1, v2})
+
+	if len(got) != 1 {
+		t.Fatalf("expected the two versions to collapse to one op, got %d: %v", len(got), got)
+	}
+	if got[0] != v2 {
+		t.Errorf("expected the v2 op to win, got %s", got[0].Path)
+	}
+	if len(got[0].FallbackPaths) != 1 || got[0].FallbackPaths[0] != v1.Path {
+		t.Errorf("expected v1's path recorded as a fallback, got %v", got[0].FallbackPaths)
+	}
+}
+
+// TestDeduplicateVersionedOps_DistinctGatewayServicesSurvive guards the other
+// direction: stripping every version segment must not merge endpoints that
+// merely share a terminal segment across different services.
+func TestDeduplicateVersionedOps_DistinctGatewayServicesSurvive(t *testing.T) {
+	ops := []*Operation{
+		{Name: "list", Method: "GET", Path: "/securitycloud/v1/groups"},
+		{Name: "list", Method: "GET", Path: "/device-groups/v1/device-groups"},
+		{Name: "list", Method: "GET", Path: "/securitycloud/uem-connect/v1/connectors"},
+	}
+	if got := deduplicateVersionedOps(ops); len(got) != 3 {
+		t.Errorf("expected all 3 distinct endpoints to survive, got %d", len(got))
+	}
+}
+
+// TestNormalisePlatformPathsDropsTheTenant pins the scope leaving the URL. The
+// specs disagree with each other: Security Cloud dropped /tenant/{tenantId} in
+// GitOps build v1495, while blueprints, benchmarks, devices, pro and classic
+// still declare it. Both have to come out as /{service}[/{version}]{path},
+// because the tenant now travels as an X-Tenant-Id header and a tenant segment
+// left in a generated path would be sent as a literal.
+func TestNormalisePlatformPathsDropsTheTenant(t *testing.T) {
+	cases := []struct {
+		name    string
+		service string
+		version string
+		in      string
+		want    string
+	}{
+		{
+			name:    "declared tenant segment is removed",
+			service: "blueprints",
+			in:      "/v1/tenant/{tenantId}/blueprints",
+			want:    "/blueprints/v1/blueprints",
+		},
+		{
+			name:    "header-scoped spec is left alone",
+			service: "securitycloud",
+			in:      "/v1/ztna/apps",
+			want:    "/securitycloud/v1/ztna/apps",
+		},
+		{
+			name:    "tenant ahead of a sub-namespace version",
+			service: "securitycloud",
+			in:      "/tenant/{tenantId}/uem-connect/v1/connectors",
+			want:    "/securitycloud/uem-connect/v1/connectors",
+		},
+		{
+			name:    "version supplied by the extension",
+			service: "securitycloud",
+			version: "v1",
+			in:      "/tenant/{tenantId}/categories",
+			want:    "/securitycloud/v1/categories",
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			doc := map[string]any{"paths": map[string]any{c.in: map[string]any{}}}
+			normalisePlatformPaths(doc, c.service, c.version)
+			paths := doc["paths"].(map[string]any)
+			if _, ok := paths[c.want]; !ok {
+				got := make([]string, 0, len(paths))
+				for p := range paths {
+					got = append(got, p)
+				}
+				t.Errorf("paths = %v, want %q", got, c.want)
+			}
+			for p := range paths {
+				if strings.Contains(p, "tenant") {
+					t.Errorf("path %q still carries a tenant segment", p)
+				}
+			}
+		})
+	}
+}
+
+// TestParseSchema_NonStringEnumsAreCaptured pins the enum values generated help
+// prints for a numeric enum. Security Cloud's recoveryDelayInSec is an enum of
+// five integers, required on create, and 0 — the value a caller gets by
+// forgetting the field — is rejected; dropping non-strings left the help with
+// nothing to list for exactly the field that most needed it.
+func TestParseSchema_NonStringEnumsAreCaptured(t *testing.T) {
+	schema := &openapi3.Schema{
+		Type: &openapi3.Types{"object"},
+		Properties: openapi3.Schemas{
+			"recoveryDelayInSec": &openapi3.SchemaRef{Value: &openapi3.Schema{
+				Type: &openapi3.Types{"integer"},
+				// JSON numbers decode to float64, which is what the parser sees.
+				Enum: []any{float64(300), float64(1800), float64(28800)},
+			}},
+			"routingStrategy": &openapi3.SchemaRef{Value: &openapi3.Schema{
+				Type: &openapi3.Types{"string"},
+				Enum: []any{"RANDOM", "NEAREST"},
+			}},
+			"enabled": &openapi3.SchemaRef{Value: &openapi3.Schema{
+				Type: &openapi3.Types{"boolean"},
+				Enum: []any{true},
+			}},
+			// A value with no useful literal form is dropped rather than
+			// printed as Go's default formatting of a composite.
+			"weird": &openapi3.SchemaRef{Value: &openapi3.Schema{
+				Type: &openapi3.Types{"object"},
+				Enum: []any{map[string]any{"a": 1}, nil},
+			}},
+		},
+	}
+
+	got := parseSchema("GroupedGatewayCreate", schema)
+	want := map[string][]string{
+		"recoveryDelayInSec": {"300", "1800", "28800"},
+		"routingStrategy":    {"RANDOM", "NEAREST"},
+		"enabled":            {"true"},
+		"weird":              nil,
+	}
+	for name, wantEnum := range want {
+		prop := got.Properties[name]
+		if prop == nil {
+			t.Fatalf("property %q missing from parsed schema", name)
+		}
+		if !slices.Equal(prop.Enum, wantEnum) {
+			t.Errorf("%s enum = %v, want %v", name, prop.Enum, wantEnum)
+		}
+	}
+}
+
+// TestServiceSegment pins the namespace read off servers[0].url, including the
+// two shapes one spec drop legitimately mixes.
+//
+// The GA gateway mounts each namespace at the root, and GitOps build v1807
+// dropped /api from the published specs — but the Security Cloud four are
+// generated from a different upstream tree that still declares it, so both
+// forms arrive together and both have to yield the same namespace.
+//
+// The "host is not the namespace" case is why this is matched on the URL's path
+// rather than on an "/api/" marker: the old implementation cut the URL on
+// "/api/", which "{region}.api.jamfcloud.com" does not contain (the host's api
+// is dot-delimited, not slash-delimited). It therefore returned "" for every
+// v1807 spec, and an empty service silently drops the namespace from every
+// generated path — no error, no warning, every command 404s.
+func TestServiceSegment(t *testing.T) {
+	cases := []struct {
+		name string
+		url  string
+		want string
+	}{
+		{"GA shape", "https://{region}.api.jamfcloud.com/blueprints", "blueprints"},
+		{"multi-segment namespace", "https://{region}.api.jamfcloud.com/ddm/report", "ddm/report"},
+		{"pre-v1807 /api still yields the namespace", "https://{region}.apigw.jamf.com/api/blueprints", "blueprints"},
+		{"Security Cloud's stage host keeps /api", "https://{region}.api.stage.platform.jamflabs.com/api/securitycloud", "securitycloud"},
+		{"trailing slash", "https://{region}.api.jamfcloud.com/devices/", "devices"},
+		{"host only", "https://{region}.api.jamfcloud.com", ""},
+		{"host with bare /api", "https://{region}.apigw.jamf.com/api", ""},
+		{"no servers url", "", ""},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			doc := map[string]any{"servers": []any{map[string]any{"url": c.url}}}
+			if got := serviceSegment(doc); got != c.want {
+				t.Errorf("serviceSegment(%q) = %q, want %q", c.url, got, c.want)
+			}
+		})
+	}
+
+	t.Run("no servers block", func(t *testing.T) {
+		if got := serviceSegment(map[string]any{}); got != "" {
+			t.Errorf("serviceSegment(no servers) = %q, want \"\"", got)
+		}
+	})
+}
+
+// TestDropUnroutedPlatformOps pins the withholding of an operation a published
+// spec declares but the gateway does not route.
+//
+// The mechanism exists for one case: Security Cloud's device groups, where
+// build v1865 declares PUT /v2/groups/{groupId} as the successor to the v1 PUT
+// it deprecates, while v2 answers 403 BAD_PERMISSIONS and v1 answers 200. Left
+// in, deduplicateVersionedOps prefers the higher version — correctly, by its own
+// rule — and turns a working `security device-groups update` into a permanent
+// 403 indistinguishable from a missing privilege.
+func TestDropUnroutedPlatformOps(t *testing.T) {
+	ops := []*Operation{
+		{Name: "update", Method: "PUT", Path: "/securitycloud/v1/groups/{groupId}"},
+		{Name: "update", Method: "PUT", Path: "/securitycloud/v2/groups/{groupId}"},
+		{Name: "list", Method: "GET", Path: "/securitycloud/v2/groups"},
+	}
+
+	kept := dropUnroutedPlatformOps(ops)
+
+	if len(kept) != 2 {
+		t.Fatalf("kept %d ops, want 2: %+v", len(kept), kept)
+	}
+	for _, op := range kept {
+		if op.Path == "/securitycloud/v2/groups/{groupId}" {
+			t.Errorf("unrouted %s %s survived the drop", op.Method, op.Path)
+		}
+	}
+	// The working v1 PUT and the routed v2 list both survive — the drop is
+	// per-operation, not per-version.
+	var sawV1Put, sawV2List bool
+	for _, op := range kept {
+		switch {
+		case op.Method == "PUT" && op.Path == "/securitycloud/v1/groups/{groupId}":
+			sawV1Put = true
+		case op.Method == "GET" && op.Path == "/securitycloud/v2/groups":
+			sawV2List = true
+		}
+	}
+	if !sawV1Put {
+		t.Error("v1 PUT was dropped; only the paths named in platformUnroutedOps may be")
+	}
+	if !sawV2List {
+		t.Error("v2 list was dropped; the drop is keyed on method+path, not on version")
+	}
+}
+
+// TestPlatformUnroutedOpsAreDeclared fails when an entry in
+// platformUnroutedOps no longer matches any operation in the shipped specs.
+//
+// An entry is removed when the gateway starts routing the endpoint, which no
+// spec signal announces — that takes a probe. This covers the other way an
+// entry goes stale: upstream withdrawing the path, after which the entry
+// silently guards nothing and the next reader takes it as current wire
+// knowledge.
+func TestPlatformUnroutedOpsAreDeclared(t *testing.T) {
+	specsDir, err := filepath.Abs("../../specs/platform")
+	if err != nil {
+		t.Fatalf("resolving specs dir: %v", err)
+	}
+	specFiles, err := filepath.Glob(filepath.Join(specsDir, "*.json"))
+	if err != nil {
+		t.Fatalf("globbing specs: %v", err)
+	}
+	if len(specFiles) == 0 {
+		t.Fatal("no specs in specs/platform/ — nothing to check the table against")
+	}
+
+	declared := make(map[string]bool)
+	for _, path := range specFiles {
+		raw, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatalf("reading %s: %v", path, err)
+		}
+		var doc map[string]any
+		if err := json.Unmarshal(raw, &doc); err != nil {
+			t.Fatalf("decoding %s: %v", path, err)
+		}
+		service := serviceSegment(doc)
+		normalisePlatformPaths(doc, service, tenantPathVersion(doc))
+		paths, _ := doc["paths"].(map[string]any)
+		for p, item := range paths {
+			pi, _ := item.(map[string]any)
+			for _, method := range []string{"get", "post", "put", "patch", "delete"} {
+				if _, ok := pi[method]; ok {
+					declared[strings.ToUpper(method)+" "+p] = true
+				}
+			}
+		}
+	}
+
+	for key := range platformUnroutedOps {
+		if !declared[key] {
+			t.Errorf("platformUnroutedOps names %q, which no shipped spec declares — "+
+				"remove the entry, or fix its key if a path was renamed", key)
+		}
+	}
+}
+
+// TestPlatformOperationNameOverridesWinOverDerivation pins that an override is
+// the final word on an operation's name, and that every entry still matches a
+// shipped operation.
+//
+// Overrides used to be applied before the name-derivation passes, where a pass
+// could quietly undo one. Audit is the case that exposed it: two no-param GETs
+// under the audit tag (/audit and /audit/sources) both derived "list", so
+// resolveNoParamConflicts renamed *both* to their terminal segment — and the
+// override naming /audit/v1/audit "list" was lost, shipping the stutter
+// `platform audit audit`. Nothing failed; the command was simply misnamed,
+// which is why this asserts the resulting name rather than the absence of an
+// error.
+// TestTwoSpecsSharingATagGetDistinctResourceNames pins the namespace key in
+// platformResourceNameOverrides, and asserts the resulting *names* rather than
+// the absence of an error, because absence of an error was the symptom.
+//
+// Two Security Cloud specs tag a resource "activation-profiles": uem-connect,
+// which only deploys a profile to a UEM, and the enrollment API, which mints,
+// reads, pauses, resumes and deletes them. Both declare the service
+// "securitycloud", so a single service-keyed override renamed both to
+// uem-activation-profiles and generator/platform's mergeInto folded them into
+// one resource — seven operations under one command, six of them enrollment's,
+// filed under UEM Connect. checkOperationNameCollisions could not catch it:
+// deploy-to-uem collides with none of the six, so `make generate` exited 0 and
+// the only visible sign was a command tree that had quietly moved.
+func TestTwoSpecsSharingATagGetDistinctResourceNames(t *testing.T) {
+	specFiles, err := filepath.Glob(filepath.Join("..", "..", "specs", "platform", "*.json"))
+	if err != nil {
+		t.Fatalf("globbing specs: %v", err)
+	}
+	if len(specFiles) == 0 {
+		t.Fatal("no specs in specs/platform/ — nothing to check the table against")
+	}
+
+	// resource name → the paths it was built from, across every spec.
+	paths := make(map[string][]string)
+	for _, path := range specFiles {
+		resources, err := ParsePlatformSpec(path)
+		if err != nil {
+			t.Fatalf("ParsePlatformSpec(%s): %v", path, err)
+		}
+		for _, r := range resources {
+			for _, op := range r.Operations {
+				paths[r.Name] = append(paths[r.Name], op.Path)
+			}
+		}
+	}
+
+	for name, want := range map[string]string{
+		"uem-activation-profiles":        "/securitycloud/uem-connect/v1/",
+		"enrollment-activation-profiles": "/securitycloud/v1/",
+	} {
+		got, ok := paths[name]
+		if !ok {
+			t.Errorf("no resource named %q — the two activation-profiles tags have merged again, "+
+				"or one was renamed; check platformResourceNameOverrides", name)
+			continue
+		}
+		for _, p := range got {
+			if !strings.HasPrefix(p, want) {
+				t.Errorf("resource %q carries %s, which is not under %s — two specs' operations "+
+					"have merged into one resource", name, p, want)
+			}
+		}
+	}
+
+	// Every override value has to name a resource that ships, or the entry is
+	// keyed at a level nothing matches — the way the uem-connect entries would
+	// be if their namespace changed. A stale key renames nothing and reports
+	// nothing.
+	for key, value := range platformResourceNameOverrides {
+		if _, ok := paths[value]; !ok {
+			t.Errorf("platformResourceNameOverrides[%q] = %q, but no shipped resource carries that name — "+
+				"the key no longer matches any spec's namespace or service", key, value)
+		}
+	}
+}
+
+func TestPlatformOperationNameOverridesWinOverDerivation(t *testing.T) {
+	specsDir, err := filepath.Abs("../../specs/platform")
+	if err != nil {
+		t.Fatalf("resolving specs dir: %v", err)
+	}
+	specFiles, err := filepath.Glob(filepath.Join(specsDir, "*.json"))
+	if err != nil {
+		t.Fatalf("globbing specs: %v", err)
+	}
+	if len(specFiles) == 0 {
+		t.Fatal("no specs in specs/platform/ — nothing to check the table against")
+	}
+
+	got := make(map[string]string) // "METHOD path" → operation name
+	for _, path := range specFiles {
+		resources, err := ParsePlatformSpec(path)
+		if err != nil {
+			t.Fatalf("ParsePlatformSpec(%s): %v", path, err)
+		}
+		for _, r := range resources {
+			for _, op := range r.Operations {
+				got[strings.ToUpper(op.Method)+" "+op.Path] = op.Name
+			}
+		}
+	}
+
+	for key, want := range platformOperationNameOverrides {
+		name, ok := got[key]
+		if !ok {
+			t.Errorf("platformOperationNameOverrides names %q, which no shipped spec declares — "+
+				"remove the entry, or fix its key if a path was renamed", key)
+			continue
+		}
+		if name != want {
+			t.Errorf("%s: operation name = %q, want the override %q — a derivation pass overwrote it", key, name, want)
+		}
+	}
+}
+
+// TestParseSchema_PropertyAllOfCarriesTypeAndEnum covers the property-level
+// composition idiom: `allOf: [{$ref: Enum}]` beside a description of the
+// property's own. The constraint and the type sit on the composed item, so a
+// property that reads them off itself alone comes out untyped and unconstrained
+// — which is how every enum in the three account specs was invisible in help.
+func TestParseSchema_PropertyAllOfCarriesTypeAndEnum(t *testing.T) {
+	schema := &openapi3.Schema{
+		Properties: openapi3.Schemas{
+			"region": {Value: &openapi3.Schema{
+				Description: "Auth0 region.",
+				AllOf: openapi3.SchemaRefs{
+					{Value: &openapi3.Schema{
+						Type: &openapi3.Types{"string"},
+						Enum: []any{"US", "EU", "RAMP"},
+					}},
+				},
+			}},
+		},
+	}
+	s := parseSchema("ConnectionSettings", schema)
+	p := s.Properties["region"]
+	if p == nil {
+		t.Fatal("region property missing")
+	}
+	if p.Type != "string" {
+		t.Errorf("Type = %q, want string — an untyped property drops out of --set completion", p.Type)
+	}
+	if len(p.Enum) != 3 {
+		t.Fatalf("Enum = %v, want the three composed values", p.Enum)
+	}
+	// The property's own description must survive: it is the reason the spec
+	// wraps the ref in an allOf at all.
+	if p.Description != "Auth0 region." {
+		t.Errorf("Description = %q, want the property's own", p.Description)
+	}
+}
+
+// TestParseSchema_PropertyAllOfDoesNotOverrideItsOwn pins the precedence: an
+// enum or type declared on the property wins over a composed one, so the
+// composition is a fallback rather than a rewrite.
+func TestParseSchema_PropertyAllOfDoesNotOverrideItsOwn(t *testing.T) {
+	schema := &openapi3.Schema{
+		Properties: openapi3.Schemas{
+			"mode": {Value: &openapi3.Schema{
+				Type: &openapi3.Types{"string"},
+				Enum: []any{"OWN"},
+				AllOf: openapi3.SchemaRefs{
+					{Value: &openapi3.Schema{Type: &openapi3.Types{"integer"}, Enum: []any{"COMPOSED"}}},
+				},
+			}},
+		},
+	}
+	s := parseSchema("T", schema)
+	p := s.Properties["mode"]
+	if p.Type != "string" {
+		t.Errorf("Type = %q, want the property's own", p.Type)
+	}
+	if len(p.Enum) != 1 || p.Enum[0] != "OWN" {
+		t.Errorf("Enum = %v, want only the property's own", p.Enum)
+	}
+}
+
+// TestParseSchema_UnionVariantsAreAllOfComposed covers a bare oneOf whose
+// variants carry no properties of their own — every one of account_sso's four
+// connection shapes is allOf[BaseConnectionSettings, {…}]. Reading .Properties
+// off the adopted branch got nothing, so the union parsed to an empty object:
+// no scaffold fields, no enum lines, and make generate exiting 0.
+func TestParseSchema_UnionVariantsAreAllOfComposed(t *testing.T) {
+	base := &openapi3.Schema{
+		Properties: openapi3.Schemas{
+			"name":   {Value: &openapi3.Schema{Type: &openapi3.Types{"string"}}},
+			"region": {Value: &openapi3.Schema{Type: &openapi3.Types{"string"}, Enum: []any{"US"}}},
+		},
+		Required: []string{"name", "region"},
+	}
+	composed := func(own openapi3.Schemas, required []string) *openapi3.Schema {
+		return &openapi3.Schema{
+			AllOf: openapi3.SchemaRefs{
+				{Value: base},
+				{Value: &openapi3.Schema{Properties: own, Required: required}},
+			},
+		}
+	}
+	schema := &openapi3.Schema{
+		OneOf: openapi3.SchemaRefs{
+			{Ref: "#/components/schemas/OidcConnectionSettings", Value: composed(openapi3.Schemas{
+				"issuer": {Value: &openapi3.Schema{Type: &openapi3.Types{"string"}}},
+			}, []string{"issuer"})},
+			{Ref: "#/components/schemas/EntraConnectionSettings", Value: composed(openapi3.Schemas{
+				"identityApi": {Value: &openapi3.Schema{Type: &openapi3.Types{"string"}, Enum: []any{"AZURE_ACTIVE_DIRECTORY_V1"}}},
+			}, nil)},
+		},
+	}
+
+	s := parseSchema("ConnectionRequest", schema)
+	for _, name := range []string{"name", "region", "issuer"} {
+		if _, ok := s.Properties[name]; !ok {
+			t.Errorf("missing property %q from the adopted variant; got %v", name, propKeys(s.Properties))
+		}
+	}
+	// Inherited required fields belong to the variant as much as its own do.
+	for _, want := range []string{"name", "region", "issuer"} {
+		if !slices.Contains(s.Required, want) {
+			t.Errorf("Required = %v, missing %q", s.Required, want)
+		}
+	}
+	// A sibling variant's enum is still named, and marked as belonging to no
+	// scaffolded field.
+	p := s.Properties["identityApi"]
+	if p == nil {
+		t.Fatalf("sibling variant's property missing; got %v", propKeys(s.Properties))
+	}
+	if !p.VariantOnly {
+		t.Error("sibling-only property not marked VariantOnly — it would be scaffolded into a body that does not accept it")
+	}
+	if len(p.Enum) != 1 {
+		t.Errorf("Enum = %v, want the sibling variant's composed value", p.Enum)
+	}
+}
+
+// TestParseSchema_PropertyReachedUnion covers a union one level in: a property
+// whose own schema is a bare oneOf. Without it the walk stops dead at the
+// property, which is where account_sso keeps its whole connection shape.
+func TestParseSchema_PropertyReachedUnion(t *testing.T) {
+	schema := &openapi3.Schema{
+		Properties: openapi3.Schemas{
+			"connection": {Value: &openapi3.Schema{
+				OneOf: openapi3.SchemaRefs{
+					{Value: &openapi3.Schema{Properties: openapi3.Schemas{
+						"issuer": {Value: &openapi3.Schema{Type: &openapi3.Types{"string"}}},
+					}}},
+					{Value: &openapi3.Schema{Properties: openapi3.Schemas{
+						"tenantDomain": {Value: &openapi3.Schema{Type: &openapi3.Types{"string"}}},
+					}}},
+				},
+			}},
+		},
+	}
+	s := parseSchema("ConnectionRequest", schema)
+	p := s.Properties["connection"]
+	if p == nil {
+		t.Fatal("connection property missing")
+	}
+	if p.Type != "object" {
+		t.Errorf("Type = %q, want object", p.Type)
+	}
+	if p.Nested == nil {
+		t.Fatal("Nested not populated — the union's fields are unreachable")
+	}
+	if _, ok := p.Nested.Properties["issuer"]; !ok {
+		t.Errorf("first variant's fields not adopted; got %v", propKeys(p.Nested.Properties))
+	}
 }

@@ -624,7 +624,7 @@ func bootPartitionPercentUsed(c map[string]any) int {
 func runPolicyFailureScan(ctx context.Context, client registry.HTTPClient, days, limit int) ([]policyFailureSummary, []computerFailureSummary, int, error) {
 	// Fetch all computer IDs from inventory
 	computers, err := FetchAllPaginated(ctx, client,
-		"/v3/computers-inventory?section=GENERAL&section=HARDWARE&section=OPERATING_SYSTEM&section=USER_AND_LOCATION&section=STORAGE", 2000)
+		"/v4/computers-inventory?section=GENERAL&section=HARDWARE&section=OPERATING_SYSTEM&section=USER_AND_LOCATION&section=STORAGE", 2000)
 	if err != nil {
 		return nil, nil, 0, fmt.Errorf("fetching computer inventory: %w", err)
 	}
@@ -647,7 +647,7 @@ func runPolicyFailureScan(ctx context.Context, client registry.HTTPClient, days,
 		name := strVal(general, "name")
 		serial := strVal(hardware, "serialNumber")
 		osVersion := strVal(osInfo, "version")
-		lastContact := strVal(general, "lastContactTime")
+		lastContact := lastCheckInOf(general)
 
 		username := strVal(userLoc, "username")
 		diskPct := bootPartitionPercentUsed(c)

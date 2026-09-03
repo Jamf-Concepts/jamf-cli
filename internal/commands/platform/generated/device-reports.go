@@ -21,49 +21,13 @@ import (
 // resource. Wire it into a product namespace via AddCommand.
 func NewDeviceReportsCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "device-reports",
-		Short: "Manage device-reports (Platform API)",
-		Long:  "API for accessing device and declaration status reports",
+		Use:         "device-reports",
+		Short:       "Manage device-reports (Platform API)",
+		Long:        "API for accessing device and declaration status reports",
+		Annotations: map[string]string{"jamf:api": "platform-gateway"},
 	}
-	cmd.AddCommand(newDeviceReportsGetCmd(cliCtx))
 	cmd.AddCommand(newDeviceReportsChannelsCmd(cliCtx))
 	cmd.AddCommand(newDeviceReportsDeclarationsCmd(cliCtx))
-	return cmd
-}
-
-func newDeviceReportsGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
-	cmd := &cobra.Command{
-		Use:         "get <deviceId>",
-		Short:       "Get device report declarations",
-		Long:        "**Deprecated** — use `GET /v1/devices/{deviceId}/declarations` instead.",
-		Annotations: map[string]string{"jamf:privileges": "read:pro:declaration-reporting,read:school:declaration-reporting"},
-		Args:        cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
-				return err
-			}
-			path := "/api/ddm/report/v1/tenant/{tenantId}/devices/{deviceId}"
-			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantID()), 1)
-			path = strings.Replace(path, "{deviceId}", url.PathEscape(args[0]), 1)
-			q := url.Values{}
-			var body any
-			if encoded := q.Encode(); encoded != "" {
-				path += "?" + encoded
-			}
-			var result any
-			if err := cliCtx.PlatformSDKClient.Transport().DoExpect(cmd.Context(), http.MethodGet, path, body, http.StatusOK, &result); err != nil {
-				return fmt.Errorf("get: %w", err)
-			}
-			if result == nil {
-				return nil
-			}
-			b, err := json.MarshalIndent(result, "", "  ")
-			if err != nil {
-				return err
-			}
-			return cliCtx.Output.PrintRaw(b)
-		},
-	}
 	return cmd
 }
 
@@ -72,14 +36,13 @@ func newDeviceReportsChannelsCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Use:         "channels <deviceId>",
 		Short:       "Get device channels",
 		Long:        "Get a list of all channels available for the provided deviceId.",
-		Annotations: map[string]string{"jamf:privileges": "read:pro:declaration-reporting,read:school:declaration-reporting"},
+		Annotations: map[string]string{"jamf:privileges": "declarations:read", "jamf:api": "platform-gateway"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err
 			}
-			path := "/api/ddm/report/v1/tenant/{tenantId}/devices/{deviceId}/channels"
-			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantID()), 1)
+			path := "/ddm/report/v1/devices/{deviceId}/channels"
 			path = strings.Replace(path, "{deviceId}", url.PathEscape(args[0]), 1)
 			q := url.Values{}
 			var body any
@@ -105,24 +68,27 @@ func newDeviceReportsChannelsCmd(cliCtx *registry.CLIContext) *cobra.Command {
 
 func newDeviceReportsDeclarationsCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	var filter string
+	var page int
 	var size int
 	var sort string
 	cmd := &cobra.Command{
 		Use:         "declarations <deviceId>",
 		Short:       "Get filtered device report declarations",
 		Long:        "Get a device report containing the filtered declarations reported for the provided deviceId. Supports pagination, sorting, and filtering with RSQL syntax. **Filtering:** Filters only apply to declarations already on the device (excludes PENDING status). Supported filter fields: `declarationIdentifier`, `active`, `declarationType`, `validityState`, `dateUpdated`, `channel`. **Note:** Wildcard matching on declarationIdentifier (e.g. `declarationIdentifier==Blueprint_*`) is case-insensitive. **Sorting:** Use `?sort=field,direction` (e.g., `?sort=declarationType,asc&sort=declarationIdentifier,desc`). Supported sort fields: declarationIdentifier, declarationType, active, validityState, dateUpdated. Results are returned in database order if no sort parameter is provided. For more information on RSQL, see [Jamf Developer Portal](https://developer.jamf.com)",
-		Annotations: map[string]string{"jamf:privileges": "read:pro:declaration-reporting,read:school:declaration-reporting"},
+		Annotations: map[string]string{"jamf:privileges": "declarations:read", "jamf:api": "platform-gateway"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err
 			}
-			path := "/api/ddm/report/v1/tenant/{tenantId}/devices/{deviceId}/declarations"
-			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantID()), 1)
+			path := "/ddm/report/v1/devices/{deviceId}/declarations"
 			path = strings.Replace(path, "{deviceId}", url.PathEscape(args[0]), 1)
 			q := url.Values{}
 			if filter != "" {
 				q.Set("filter", filter)
+			}
+			if cmd.Flags().Changed("page") {
+				q.Set("page", strconv.Itoa(page))
 			}
 			if cmd.Flags().Changed("size") {
 				q.Set("size", strconv.Itoa(size))
@@ -150,6 +116,7 @@ func newDeviceReportsDeclarationsCmd(cliCtx *registry.CLIContext) *cobra.Command
 	}
 	cmd.Flags().StringVar(&filter, "filter", "", "RSQL filter expression. Allowed fields: declarationIdentifier, active, validityState, declarationType, dateUpdated, channel")
 	_ = cmd.MarkFlagRequired("filter")
+	cmd.Flags().IntVar(&page, "page", 0, "Zero-based page index (0..N)")
 	cmd.Flags().IntVar(&size, "size", 0, "The size of the page to be returned")
 	cmd.Flags().StringVar(&sort, "sort", "", "Sorting criteria in the format: property,(asc|desc). Default sort order is ascending. Multiple sort criteria are supported.")
 	return cmd

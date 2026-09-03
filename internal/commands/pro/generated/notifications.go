@@ -17,9 +17,10 @@ import (
 // NewNotificationsCmd creates the notifications command group
 func NewNotificationsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "notifications",
-		Short: "Manage notifications",
-		Long:  `Manage notifications in Jamf Pro.`,
+		Use:         "notifications",
+		Short:       "Manage notifications",
+		Long:        `Manage notifications in Jamf Pro.`,
+		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
 	cmd.AddCommand(newNotificationsListCmd(ctx))
@@ -40,6 +41,7 @@ func newNotificationsListCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # List notifications and extract IDs
   jamf-cli pro notifications list --field id`,
+		Annotations: map[string]string{"jamf:api": "pro"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -81,7 +83,7 @@ func newNotificationsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Delete without confirmation prompt
   jamf-cli pro notifications delete 1 2 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Dismiss Notifications"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Dismiss Notifications", "jamf:api": "pro", "jamf:gateway-privileges": "dismiss-notifications:execute"},
 		Args:        cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

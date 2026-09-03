@@ -16,9 +16,10 @@ import (
 // NewRemoteAdministrationConfigurationsCmd creates the remote-administration-configurations command group
 func NewRemoteAdministrationConfigurationsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "remote-administration-configurations",
-		Short: "Manage remote-administration-configurations",
-		Long:  `Manage remote-administration-configurations in Jamf Pro.`,
+		Use:         "remote-administration-configurations",
+		Short:       "Manage remote-administration-configurations",
+		Long:        `Manage remote-administration-configurations in Jamf Pro.`,
+		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
 	cmd.AddCommand(newRemoteAdministrationConfigurationsListCmd(ctx))
@@ -43,7 +44,7 @@ func newRemoteAdministrationConfigurationsListCmd(ctx *registry.CLIContext) *cob
 
   # List remote-administration-configurations and extract IDs
   jamf-cli pro remote-administration-configurations list --field id`,
-		Annotations: map[string]string{"jamf:privileges": "Read Remote Administration"},
+		Annotations: map[string]string{"jamf:privileges": "Read Remote Administration", "jamf:api": "pro", "jamf:gateway-privileges": "remote-administration:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -64,7 +65,10 @@ func newRemoteAdministrationConfigurationsListCmd(ctx *registry.CLIContext) *cob
 
 			// Auto-pagination: fetch all pages when --all is set and --page was not manually specified
 			if flagAll && flagPage == 0 {
-				var allResults []json.RawMessage
+				// Initialised empty, not nil — a nil slice marshals to "null", so
+				// "list --all" on an empty collection used to answer "null" where
+				// the single-page path answers "[]".
+				allResults := []json.RawMessage{}
 				prog := ctx.Output.PaginationProgress()
 				defer prog.Stop()
 				reqCtx = spinner.WithSuppressed(reqCtx)

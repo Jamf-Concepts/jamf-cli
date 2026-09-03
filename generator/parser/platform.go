@@ -15,7 +15,7 @@ import (
 )
 
 // ParsePlatformSpec parses a Platform Gateway OpenAPI spec and returns one
-// Resource per operation tag. Platform paths share a /v1/tenant/{tenantId}/
+// Resource per operation tag. Platform paths share an /api/{service}/{version}/
 // prefix that the runtime fills from auth context — it is not a per-call
 // parameter. This loader strips the prefix to /v1/ and removes the tenantId
 // path parameter from each operation before parsing.
@@ -33,8 +33,7 @@ func ParsePlatformSpec(specPath string) ([]*Resource, error) {
 		return nil, fmt.Errorf("decoding platform spec: %w", err)
 	}
 	service := serviceSegment(rawDoc)
-	stripTenantPrefix(rawDoc)
-	prependServiceSegment(rawDoc, service)
+	expectedStatuses := normalisePlatformPaths(rawDoc, service, tenantPathVersion(rawDoc))
 
 	tmpPath, err := writeNormalisedTempSpec(specPath, rawDoc)
 	if err != nil {
@@ -54,6 +53,8 @@ func ParsePlatformSpec(specPath string) ([]*Resource, error) {
 	if len(allOps) == 0 {
 		return nil, nil
 	}
+	applyPlatformPathMetadata(allOps, expectedStatuses)
+	allOps = dropUnroutedPlatformOps(allOps)
 
 	schemas := make(map[string]*Schema)
 	if doc.Components != nil {
@@ -101,6 +102,16 @@ func ParsePlatformSpec(specPath string) ([]*Resource, error) {
 		ops = deduplicateVersionedOps(ops)
 		resolveNoParamConflicts(ops)
 		disambiguateSameTerminalOps(ops)
+		// Overrides are applied last, after the derivation passes, because an
+		// override is the final word on a name. Applying them earlier let a
+		// pass overwrite one silently: two no-param GETs under the audit tag
+		// both derived "list", so resolveNoParamConflicts renamed *both* to
+		// their terminal segment and the override naming /audit/v1/audit
+		// "list" was undone — shipping `platform audit audit`. A collision an
+		// override introduces is caught downstream by the platform generator's
+		// duplicate-operation check, so overriding after the passes cannot
+		// produce two same-named commands unnoticed.
+		applyPlatformOperationNameOverrides(ops)
 
 		// Each tag may span multiple collection roots (e.g. the "blueprints"
 		// tag covers both /blueprints and /blueprint-components). Reuse the
@@ -111,10 +122,10 @@ func ParsePlatformSpec(specPath string) ([]*Resource, error) {
 		if families != nil {
 			for _, fam := range families {
 				// splitByPathFamilies derives names from the full collection path
-				// ("/api/blueprints/v1/blueprints" → "api-blueprints-v1-blueprints").
-				// Platform paths share the /api/{service}/v{n}/ prefix; strip it
+				// ("/blueprints/v1/blueprints" → "blueprints-v1-blueprints").
+				// Platform paths share the /{service}/v{n}/ prefix; strip it
 				// so names stay short and match the spec resource (e.g. "blueprints").
-				fam.Name = applyResourceNameOverride(trimPlatformPathPrefix(fam.Name))
+				fam.Name = applyResourceNameOverride(platformNamespace(fam.Operations), service, trimPlatformPathPrefix(fam.Name))
 				fam.NameSingular = fam.Name
 				fam.GoName = strcase.ToCamel(fam.Name)
 				if detectSingleton(fam.Operations) {
@@ -131,7 +142,7 @@ func ParsePlatformSpec(specPath string) ([]*Resource, error) {
 			continue
 		}
 
-		name := applyResourceNameOverride(strcase.ToKebab(tag))
+		name := applyResourceNameOverride(platformNamespace(ops), service, strcase.ToKebab(tag))
 		idField := detectIDField(schemas, ops)
 
 		r := &Resource{
@@ -197,28 +208,238 @@ func parsePlatformOps(doc *openapi3.T) ([]*Operation, map[*Operation]string) {
 	return ops, tagOf
 }
 
-// stripTenantPrefix rewrites /v1/tenant/{tenantId}/... paths to /v1/... and
-// removes the tenantId parameter from every operation. Mutates doc in place.
-func stripTenantPrefix(doc map[string]any) {
-	paths, ok := doc["paths"].(map[string]any)
-	if !ok {
-		return
-	}
-	rewritten := make(map[string]any, len(paths))
-	for path, item := range paths {
-		newPath := stripTenantSegment(path)
-		if pi, ok := item.(map[string]any); ok {
-			stripTenantParam(pi)
-		}
-		rewritten[newPath] = item
-	}
-	doc["paths"] = rewritten
+// tenantPathVersionExt is the published-spec extension naming the URL version
+// segment an operation's path needs but does not carry. The Jamf Security Cloud
+// -beta specs inject /tenant/{tenantId} without the version, and the gateway
+// answers 403 BAD_PERMISSIONS for the versionless form, so the SDK records the
+// correct version here when it publishes the spec.
+const tenantPathVersionExt = "x-jamf-tenant-path-version"
+
+// expectedStatusExt is the published-spec extension naming the success status
+// the server actually answers, where the spec's declared status is wrong.
+const expectedStatusExt = "x-jamf-expected-status"
+
+// tenantPathVersion returns the document-level tenant path version, or "" when
+// the spec's own paths already carry their version.
+func tenantPathVersion(doc map[string]any) string {
+	v, _ := doc[tenantPathVersionExt].(string)
+	return v
 }
 
-// serviceSegment extracts the "{service}" path component from the spec's
-// servers[0].url (e.g. "https://{region}.apigw.jamf.com/api/blueprints" →
-// "blueprints"). Returns empty string when the URL does not match the expected
-// gateway shape.
+// normalisePlatformPaths rewrites every path key to its gateway form
+// ("/{service}[/{version}]{specPath}"), dropping /tenant/{tenantId} wherever a
+// spec still declares it.
+//
+// There is no /api segment. The GA gateway at {region}.api.jamfcloud.com mounts
+// each namespace at the root and answers 404 "page not found" for anything
+// under /api; the retired {region}.apigw.jamf.com required it. See
+// serviceSegment, which drops the segment specs published before GitOps build
+// v1807 still declare.
+//
+// The scope is not in the path any more. Until 2026-08-25 every Jamf URL
+// embedded it and the gateway's Tyk config resolved the request context from
+// `path`; `header` became an allowed source in prod on that date, and the
+// published specs dropped the segment in GitOps build v1495 in favour of a
+// required X-Tenant-Id header. The Security Cloud specs have already lost it;
+// blueprints, benchmarks, devices, pro and classic still declare it, so this
+// strips it for them and the transport supplies the header instead. That is why
+// there is no stripped→full mapping any more: the stripped path *is* the
+// request path, and nothing has to guess where a tenant segment belonged.
+//
+// The return value maps "<path> <METHOD>" to the operation's expected-status
+// override, which has to be read off the raw document before kin-openapi
+// re-serialises it but applied to operations keyed by their rewritten path.
+//
+// Mutates doc in place.
+func normalisePlatformPaths(doc map[string]any, service, version string) (expectedStatuses map[string]int) {
+	paths, ok := doc["paths"].(map[string]any)
+	if !ok {
+		return nil
+	}
+	var prefix string
+	if service != "" {
+		prefix = "/" + service
+	}
+	if version != "" {
+		prefix += "/" + version
+	}
+
+	rewritten := make(map[string]any, len(paths))
+	expectedStatuses = make(map[string]int)
+	for path, item := range paths {
+		stripped := stripTenantSegment(prefix + path)
+		if pi, ok := item.(map[string]any); ok {
+			collectExpectedStatuses(pi, stripped, expectedStatuses)
+			stripTenantParam(pi)
+		}
+		rewritten[stripped] = item
+	}
+	doc["paths"] = rewritten
+	return expectedStatuses
+}
+
+// collectExpectedStatuses records any x-jamf-expected-status on a path item's
+// operations, keyed by "<strippedPath> <METHOD>".
+func collectExpectedStatuses(pathItem map[string]any, strippedPath string, out map[string]int) {
+	for _, method := range []string{"get", "post", "put", "patch", "delete"} {
+		op, ok := pathItem[method].(map[string]any)
+		if !ok {
+			continue
+		}
+		// JSON numbers decode to float64.
+		code, ok := op[expectedStatusExt].(float64)
+		if !ok || code == 0 {
+			continue
+		}
+		out[strippedPath+" "+strings.ToUpper(method)] = int(code)
+	}
+}
+
+// platformOperationNameOverrides renames operations whose auto-derived name —
+// taken from the last meaningful path segment — reads badly as a CLI verb.
+// Keyed "{METHOD} {path}", the same form the generated command dispatches.
+//
+// UEM Connect models sync as a collection of runs, so the derived names come
+// out as "runs"/"create-runs"/"current" — describing the resource rather than
+// the action. The SDK names the same three operations List/Trigger/Cancel.
+var platformOperationNameOverrides = map[string]string{
+	// AI Governance names a collection sub-path and its {id} child. Both are
+	// GETs carrying a path param, so both infer "get", and the disambiguation
+	// passes cannot separate them: they key on a shared non-param terminal
+	// segment, and the child's terminal is "{versionNumber}". Naming them here
+	// also reads better than any generic rule could — "versions"/"version" and
+	// "schema" say what they fetch, where a derived name would carry the path
+	// parameter into the command name.
+	"GET /ai/governance/policies/v1/policies/{policyId}/versions":                 "versions",
+	"GET /ai/governance/policies/v1/policies/{policyId}/versions/{versionNumber}": "version",
+	"GET /ai/governance/policies/v1/policies/{policyId}/deployment":               "deployment",
+	"GET /ai/governance/policies/v1/tools/{toolId}/schemas/{schemaVersion}":       "schema",
+
+	// Jamf Account — audit. The events collection is /audit inside the audit
+	// namespace, so the derived name stutters ("platform audit audit"). The two
+	// keyed reads are named for what they fetch rather than for the identifier
+	// they take: "get <txId>" would read as fetching an audit event by id,
+	// which is not what it does.
+	"GET /audit/v1/audit":                     "list",
+	"GET /audit/v1/audit/transactions/{txId}": "transaction",
+
+	// Jamf Account — SSO. There is no get-a-domain-by-id operation at all;
+	// this one answers which identity provider connection a domain is
+	// allocated to, so "get" would name the wrong thing rather than merely
+	// read awkwardly.
+	"GET /sso/v1/domains/allocation/{domain}": "allocation",
+
+	// Jamf Account — partners. The distributor configuration is a singleton
+	// (GET + PATCH, no {id}), which detectSingleton does not recognise: it
+	// requires a GET paired with a PUT, so the collection-shaped GET came out
+	// as "list". And the validate operation repeats the resource name it is
+	// already nested under.
+	"GET /partners/v1/distributor/configuration":            "get",
+	"POST /partners/v1/distributor/validate-purchase-order": "validate",
+
+	"GET /securitycloud/uem-connect/v1/connectors/{configId}/sync/runs":            "list",
+	"POST /securitycloud/uem-connect/v1/connectors/{configId}/sync/runs":           "trigger",
+	"DELETE /securitycloud/uem-connect/v1/connectors/{configId}/sync/runs/current": "cancel",
+
+	// Enablement is a sub-resource written with PUT and cleared with DELETE;
+	// named for the path it reads as "enablement"/"delete-enablement". The SDK
+	// calls the same pair Enable/Disable.
+	"PUT /securitycloud/uem-connect/v1/connectors/{configId}/enablement":    "enable",
+	"DELETE /securitycloud/uem-connect/v1/connectors/{configId}/enablement": "disable",
+
+	// Sync settings are a singleton under the connector, so the terminal
+	// segment repeats the resource name it is already nested under.
+	"GET /securitycloud/uem-connect/v1/connectors/{configId}/sync-settings": "get",
+	"PUT /securitycloud/uem-connect/v1/connectors/{configId}/sync-settings": "update",
+}
+
+// platformUnroutedOps names operations a published spec declares that the
+// gateway does not route, keyed "{METHOD} {path}" in the same normalised form
+// platformOperationNameOverrides uses. They are dropped before name
+// disambiguation and before deduplicateVersionedOps, so they neither ship as a
+// command nor displace the working operation they claim to succeed.
+//
+// A dropped operation needs a recorded wire probe behind it, and dropping is
+// only right when the alternative is worse. Security Cloud's device groups is
+// the case that forced it: build v1865 declares PUT /v2/groups/{groupId} as the
+// successor to the v1 PUT it deprecates, but v2 answers 403 BAD_PERMISSIONS
+// while v1 answers 200 with the updated group — probed 7/7 by the SDK on
+// 2026-08-29 against a group created and deleted inside the same run, with a v1
+// write on the same group as the control. Left in, deduplicateVersionedOps
+// would correctly prefer the higher version, and `security device-groups
+// update` — a command that works today — would become a permanent 403 whose
+// message is indistinguishable from a missing privilege. FallbackPaths is no
+// escape: it is populated for GETs and DELETEs only, and the platform template
+// ignores it deliberately, because falling back on a 403 turns a permission
+// failure into a silent downgrade.
+//
+// This is the CLI declining to follow the SDK, which whitelisted its
+// UpdateDeviceGroupV2 method so that a // Deprecated: marker had a named
+// successor to point at. A library can ship a method that fails; a CLI command
+// that always 403s is worse than an absent one.
+//
+// Remove an entry when the endpoint becomes routed — nothing in the spec says
+// so, so it takes a probe. TestPlatformUnroutedOpsAreDeclared fails if an entry
+// stops matching any shipped spec, which catches the other way an entry goes
+// stale: upstream withdrawing the path.
+var platformUnroutedOps = map[string]bool{
+	"PUT /securitycloud/v2/groups/{groupId}": true,
+}
+
+// dropUnroutedPlatformOps removes every operation named in platformUnroutedOps,
+// reporting each on stderr so a generate run says what it withheld rather than
+// leaving a silently missing command.
+func dropUnroutedPlatformOps(ops []*Operation) []*Operation {
+	kept := make([]*Operation, 0, len(ops))
+	for _, op := range ops {
+		key := strings.ToUpper(op.Method) + " " + op.Path
+		if platformUnroutedOps[key] {
+			fmt.Fprintf(os.Stderr, "  Info: dropping %s — declared but not routed by the gateway\n", key)
+			continue
+		}
+		kept = append(kept, op)
+	}
+	return kept
+}
+
+// applyPlatformPathMetadata attaches any expected-status override to each
+// parsed operation. Name overrides are applied separately, and later — see
+// applyPlatformOperationNameOverrides.
+func applyPlatformPathMetadata(ops []*Operation, expectedStatuses map[string]int) {
+	for _, op := range ops {
+		if code, ok := expectedStatuses[op.Path+" "+strings.ToUpper(op.Method)]; ok {
+			op.ExpectedStatus = code
+		}
+	}
+}
+
+// applyPlatformOperationNameOverrides renames every operation named in
+// platformOperationNameOverrides. Called after the name-derivation passes so an
+// override wins over whatever they inferred.
+func applyPlatformOperationNameOverrides(ops []*Operation) {
+	for _, op := range ops {
+		if name, ok := platformOperationNameOverrides[strings.ToUpper(op.Method)+" "+op.Path]; ok {
+			op.Name = name
+		}
+	}
+}
+
+// serviceSegment extracts the "{service}" namespace from the spec's
+// servers[0].url (e.g. "https://{region}.api.jamfcloud.com/blueprints" →
+// "blueprints", "https://{region}.api.jamfcloud.com/ddm/report" → "ddm/report").
+// Returns empty string when the URL carries no path at all.
+//
+// A leading "api/" is dropped rather than required. The GA gateway mounts each
+// namespace at the root and answers 404 "page not found" for anything under
+// /api — wire-checked 2026-08-28 on eu.api.jamfcloud.com, where every namespace
+// answered under its bare name and 404 under /api. GitOps build v1807 dropped
+// the segment from the published specs, but the Security Cloud four are
+// generated from a different upstream tree that still carries it, so the two
+// forms have to coexist in one drop. Matching on the URL's path rather than on
+// an "/api/" marker is also what stops the host from being read as the
+// namespace: "{region}.api.jamfcloud.com" has no slash-delimited "api" segment,
+// so the old Cut found no marker and silently returned "" — every path would
+// have lost its namespace with no error anywhere.
 func serviceSegment(doc map[string]any) string {
 	servers, _ := doc["servers"].([]any)
 	if len(servers) == 0 {
@@ -228,63 +449,157 @@ func serviceSegment(doc map[string]any) string {
 	if srv == nil {
 		return ""
 	}
-	url, _ := srv["url"].(string)
-	const marker = "/api/"
-	_, after, ok := strings.Cut(url, marker)
+	rawURL, _ := srv["url"].(string)
+	// Take the path portion. net/url would do, but the host is a template
+	// ("{region}.api.jamfcloud.com") and this only needs the first slash.
+	if _, after, ok := strings.Cut(rawURL, "://"); ok {
+		rawURL = after
+	}
+	_, path, ok := strings.Cut(rawURL, "/")
 	if !ok {
 		return ""
 	}
-	return after
+	path = strings.Trim(path, "/")
+	if rest, ok := strings.CutPrefix(path, "api/"); ok {
+		return strings.Trim(rest, "/")
+	}
+	if path == "api" {
+		return ""
+	}
+	return path
 }
 
-// prependServiceSegment rewrites every path key from "/v1/foo" to
-// "/api/{service}/v1/foo" so each operation carries its full URL path. Mutates
-// doc in place.
-func prependServiceSegment(doc map[string]any, service string) {
-	if service == "" {
-		return
-	}
-	paths, ok := doc["paths"].(map[string]any)
-	if !ok {
-		return
-	}
-	rewritten := make(map[string]any, len(paths))
-	for path, item := range paths {
-		rewritten["/api/"+service+path] = item
-	}
-	doc["paths"] = rewritten
-}
-
-// platformResourceNameOverrides maps tag-derived resource names to renamed
-// CLI/Go names where the natural tag would collide with another product's
-// resource (notably "users" — Pro, Protect, and School all have one).
+// platformResourceNameOverrides renames tag-derived resource names that would
+// otherwise be ambiguous or collide. Keys are tried most-specific first:
+// "{namespace}/{name}", where the namespace is everything before the version
+// segment of the resource's own paths; then "{service}/{name}", the namespace
+// from the spec's servers[0].url; then a bare "{name}" matching any service.
+//
+// The namespace key exists because a service is not fine-grained enough to name
+// a resource within it. Two Security Cloud specs tag a resource
+// "activation-profiles" — uem-connect, which deploys a profile to a UEM, and
+// the enrollment API, which mints and lists them — and both declare the service
+// "securitycloud", so one "securitycloud/activation-profiles" entry renamed
+// both and the two resources merged into one file redeclaring each other's
+// constructors. Their paths do differ (/securitycloud/uem-connect/v1/... vs
+// /securitycloud/v1/...), which is what the namespace key reads.
+//
+// Two reasons an entry exists here:
+//
+//   - Collision. Every platform spec emits into one Go package, so two specs
+//     whose tags kebab to the same name would merge into one file and redeclare
+//     each other's constructors. Jamf Platform and Jamf Security Cloud both tag
+//     a resource "device-groups"; the Platform one is renamed because it is
+//     already presented as "platform-device-groups" under `pro`.
+//   - Ambiguity. Security Cloud's tags are bare nouns ("zones", "Apps",
+//     "gateways") that say nothing about which service they belong to once they
+//     sit alongside every other Jamf resource. They take the prefix their
+//     product uses ("dns-", "ztna-", "uem-").
 var platformResourceNameOverrides = map[string]string{
 	// "users" is a reserved CLI name shared with Pro/Protect/School;
 	// the platform's users tag covers /users/{id}/devices only.
 	"users": "platform-users",
+
+	// Jamf Platform device groups — renamed so Security Cloud's device-groups
+	// tag keeps the unprefixed name, matching how each is surfaced (this one
+	// under `pro` as platform-device-groups, that one under `security`).
+	"device-groups/device-groups": "platform-device-groups",
+
+	// Jamf Account. Three specs whose tags are bare nouns that say nothing
+	// about which service they belong to once they sit alongside every other
+	// Jamf resource — and "connections" is already a Jamf Protect concept
+	// (identity provider connections) while "licenses" reads as a Jamf Pro
+	// one. The partners spec needs no entry: its four tags
+	// ("deal-registrations", "distributor-*") name themselves.
+	"licensing/licenses": "account-licenses",
+	"sso/connections":    "sso-connections",
+	"sso/domains":        "sso-domains",
+
+	// Jamf AI Governance. The spec's two tags are bare nouns — "policies"
+	// collides with Jamf Pro's own policies and "tools" says nothing about
+	// what it lists. Keyed on the full service, which is "ai/governance/
+	// policies" rather than a single segment: the gateway routes ai/governance
+	// as the product with policies and visibility as capabilities beneath it.
+	"ai/governance/policies/policies": "ai-policies",
+	"ai/governance/policies/tools":    "ai-tools",
+
+	// Jamf Security Cloud — DNS.
+	"securitycloud/zones":                    "dns-zones",
+	"securitycloud/search-domains":           "dns-search-domains",
+	"securitycloud/custom-hostname-mappings": "dns-custom-hostname-mappings",
+
+	// Jamf Security Cloud — ZTNA.
+	"securitycloud/apps":             "ztna-apps",
+	"securitycloud/gateways":         "ztna-gateways",
+	"securitycloud/grouped-gateways": "ztna-grouped-gateways",
+	"securitycloud/shared-gateways":  "ztna-shared-gateways",
+	"securitycloud/predefined-apps":  "ztna-predefined-apps",
+
+	// Jamf Security Cloud — content categories. "categories" alone collides
+	// conceptually with Pro's categories.
+	"securitycloud/categories": "content-categories",
+
+	// Jamf Security Cloud — UEM Connect. One spec, five tags, all describing
+	// the connector and its sub-resources. Keyed on the full namespace rather
+	// than the service, because "activation-profiles" is a tag this spec shares
+	// with the enrollment API below — see the lookup order above.
+	"securitycloud/uem-connect/connectors":           "uem-connectors",
+	"securitycloud/uem-connect/connector-enablement": "uem-connector-enablement",
+	"securitycloud/uem-connect/sync-configuration":   "uem-sync-settings",
+	"securitycloud/uem-connect/sync-execution":       "uem-sync",
+	"securitycloud/uem-connect/activation-profiles":  "uem-activation-profiles",
+
+	// Jamf Security Cloud — enrollment. The same "activation-profiles" tag as
+	// uem-connect's, on the service that owns the object: this is where a
+	// profile is created, read, paused, resumed and deleted, where uem-connect
+	// holds only the deploy-to-UEM action on a code minted here. Prefixed for
+	// the reason every other Security Cloud resource is — the tag is a bare
+	// noun once it sits beside every other Jamf resource — and the two cannot
+	// share a name.
+	"securitycloud/activation-profiles": "enrollment-activation-profiles",
 }
 
-// applyResourceNameOverride applies platformResourceNameOverrides if present.
-func applyResourceNameOverride(name string) string {
-	if override, ok := platformResourceNameOverrides[name]; ok {
-		return override
+// applyResourceNameOverride applies platformResourceNameOverrides, preferring a
+// namespace-scoped entry over a service-scoped one, and either over a bare name.
+func applyResourceNameOverride(namespace, service, name string) string {
+	for _, key := range []string{namespace + "/" + name, service + "/" + name, name} {
+		if override, ok := platformResourceNameOverrides[key]; ok {
+			return override
+		}
 	}
 	return name
 }
 
-// trimPlatformPathPrefix strips the leading "api-{service}-v{n}-" segment from a
+// platformNamespace returns the gateway namespace the given operations sit
+// under: everything before the version segment of their (already normalised)
+// path. Paths in one resource share a namespace, so the first operation
+// answers for all of them.
+//
+// It is the parser-side twin of the platform emitter's namespaceFromPath, which
+// keys platformTableColumns and platformNameLookupFields the same way. Kept
+// local because generator/platform imports this package, not the reverse.
+func platformNamespace(ops []*Operation) string {
+	if len(ops) == 0 {
+		return ""
+	}
+	segments := strings.Split(strings.Trim(ops[0].Path, "/"), "/")
+	for i, seg := range segments {
+		if len(seg) >= 2 && seg[0] == 'v' && seg[1] >= '0' && seg[1] <= '9' {
+			return strings.Join(segments[:i], "/")
+		}
+	}
+	return ""
+}
+
+// trimPlatformPathPrefix strips the leading "{service}-v{n}-" segments from a
 // path-derived resource name. Platform paths all share that shape, so the
 // remainder is the actual collection name (e.g. "blueprints",
-// "blueprint-components"). Returns the input unchanged when the expected
-// prefix isn't present.
+// "blueprint-components"). Returns the input unchanged when no version segment
+// is present.
 func trimPlatformPathPrefix(name string) string {
-	if !strings.HasPrefix(name, "api-") {
-		return name
-	}
-	rest := strings.TrimPrefix(name, "api-")
-	// rest = "blueprints-v1-blueprints" — split on '-' and drop everything up
+	// name = "blueprints-v1-blueprints" — split on '-' and drop everything up
 	// to and including the first segment that starts with 'v' followed by a digit.
-	parts := strings.Split(rest, "-")
+	parts := strings.Split(name, "-")
 	for i, p := range parts {
 		if len(p) >= 2 && p[0] == 'v' && p[1] >= '0' && p[1] <= '9' {
 			if i+1 < len(parts) {

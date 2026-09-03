@@ -22,9 +22,10 @@ import (
 // NewEnrollmentCustomizationsCmd creates the enrollment-customizations command group
 func NewEnrollmentCustomizationsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "enrollment-customizations",
-		Short: "Manage enrollment-customizations",
-		Long:  `Manage enrollment-customizations in Jamf Pro.`,
+		Use:         "enrollment-customizations",
+		Short:       "Manage enrollment-customizations",
+		Long:        `Manage enrollment-customizations in Jamf Pro.`,
+		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
 	cmd.AddCommand(newEnrollmentCustomizationsListCmd(ctx))
@@ -60,7 +61,7 @@ func newEnrollmentCustomizationsListCmd(ctx *registry.CLIContext) *cobra.Command
 
   # List enrollment-customizations and extract IDs
   jamf-cli pro enrollment-customizations list --field id`,
-		Annotations: map[string]string{"jamf:privileges": "Read Enrollment Customizations"},
+		Annotations: map[string]string{"jamf:privileges": "Read Enrollment Customizations", "jamf:api": "pro", "jamf:gateway-privileges": "enrollment-customization:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -86,7 +87,10 @@ func newEnrollmentCustomizationsListCmd(ctx *registry.CLIContext) *cobra.Command
 
 			// Auto-pagination: fetch all pages when --all is set and --page was not manually specified
 			if flagAll && flagPage == 0 {
-				var allResults []json.RawMessage
+				// Initialised empty, not nil — a nil slice marshals to "null", so
+				// "list --all" on an empty collection used to answer "null" where
+				// the single-page path answers "[]".
+				allResults := []json.RawMessage{}
 				prog := ctx.Output.PaginationProgress()
 				defer prog.Stop()
 				reqCtx = spinner.WithSuppressed(reqCtx)
@@ -208,7 +212,7 @@ func newEnrollmentCustomizationsGetCmd(ctx *registry.CLIContext) *cobra.Command 
 
   # Get a enrollment-customization and output as YAML
   jamf-cli pro enrollment-customizations get 1 -o yaml`,
-		Annotations: map[string]string{"jamf:privileges": "Read Enrollment Customizations"},
+		Annotations: map[string]string{"jamf:privileges": "Read Enrollment Customizations", "jamf:api": "pro", "jamf:gateway-privileges": "enrollment-customization:read"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -271,7 +275,7 @@ func newEnrollmentCustomizationsCreateCmd(ctx *registry.CLIContext) *cobra.Comma
 
   # Get a enrollment-customization, modify it, and create a copy
   jamf-cli pro enrollment-customizations get 1 -o json | jq '.name = "Copy"' | jamf-cli pro enrollment-customizations create`,
-		Annotations: map[string]string{"jamf:privileges": "Create Enrollment Customizations"},
+		Annotations: map[string]string{"jamf:privileges": "Create Enrollment Customizations", "jamf:api": "pro", "jamf:gateway-privileges": "enrollment-customization:create"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -354,7 +358,7 @@ func newEnrollmentCustomizationsUpdateCmd(ctx *registry.CLIContext) *cobra.Comma
 
   # Get a enrollment-customization, modify, and update
   jamf-cli pro enrollment-customizations get 1 -o json | jq '.name = "New Name"' | jamf-cli pro enrollment-customizations update 1`,
-		Annotations: map[string]string{"jamf:privileges": "Update Enrollment Customizations"},
+		Annotations: map[string]string{"jamf:privileges": "Update Enrollment Customizations", "jamf:api": "pro", "jamf:gateway-privileges": "enrollment-customization:update"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -492,7 +496,7 @@ func newEnrollmentCustomizationsDeleteCmd(ctx *registry.CLIContext) *cobra.Comma
 
   # Delete without confirmation prompt
   jamf-cli pro enrollment-customizations delete 1 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Delete Enrollment Customizations,Read Enrollment Customizations"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Delete Enrollment Customizations,Read Enrollment Customizations", "jamf:api": "pro", "jamf:gateway-privileges": "enrollment-customization:delete,enrollment-customization:read"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -703,7 +707,7 @@ func newEnrollmentCustomizationsHistoryCmd(ctx *registry.CLIContext) *cobra.Comm
 
   # Get history by name
   jamf-cli pro enrollment-customizations history --name "Example"`,
-		Annotations: map[string]string{"jamf:privileges": "Read Enrollment Customizations"},
+		Annotations: map[string]string{"jamf:privileges": "Read Enrollment Customizations", "jamf:api": "pro", "jamf:gateway-privileges": "enrollment-customization:read"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -746,7 +750,10 @@ func newEnrollmentCustomizationsHistoryCmd(ctx *registry.CLIContext) *cobra.Comm
 
 			// Auto-pagination: fetch all pages when --all is set and --page was not manually specified
 			if flagAll && flagPage == 0 {
-				var allResults []json.RawMessage
+				// Initialised empty, not nil — a nil slice marshals to "null", so
+				// "list --all" on an empty collection used to answer "null" where
+				// the single-page path answers "[]".
+				allResults := []json.RawMessage{}
 				prog := ctx.Output.PaginationProgress()
 				defer prog.Stop()
 				reqCtx = spinner.WithSuppressed(reqCtx)
@@ -864,7 +871,7 @@ func newEnrollmentCustomizationsAddHistoryNoteCmd(ctx *registry.CLIContext) *cob
 		Use:         "add-history-note [<id>]",
 		Short:       "Add Enrollment Customization history object notes",
 		Long:        "Adds enrollment customization history object notes",
-		Annotations: map[string]string{"jamf:privileges": "Update Enrollment Customizations"},
+		Annotations: map[string]string{"jamf:privileges": "Update Enrollment Customizations", "jamf:api": "pro", "jamf:gateway-privileges": "enrollment-customization:update"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -943,7 +950,7 @@ func newEnrollmentCustomizationsUploadCmd(ctx *registry.CLIContext) *cobra.Comma
 		Use:         "upload",
 		Short:       "Upload an image",
 		Long:        "Uploads an image",
-		Annotations: map[string]string{"jamf:privileges": "Update Enrollment Customizations"},
+		Annotations: map[string]string{"jamf:privileges": "Update Enrollment Customizations", "jamf:api": "pro", "jamf:gateway-privileges": "enrollment-customization:update"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -1002,7 +1009,8 @@ func newEnrollmentCustomizationsDownloadCmd(ctx *registry.CLIContext) *cobra.Com
 
   # Pipe to stdout
   jamf-cli pro enrollment-customizations download <id> > output.bin`,
-		Args: cobra.MaximumNArgs(1),
+		Annotations: map[string]string{"jamf:api": "pro"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			reqCtx = registry.WithAccept(reqCtx, "*/*")
@@ -1072,7 +1080,7 @@ func newEnrollmentCustomizationsPrestagesCmd(ctx *registry.CLIContext) *cobra.Co
 		Use:         "prestages [<id>]",
 		Short:       "Retrieve the list of Prestages using this Enrollment Customization",
 		Long:        "Retrieves the list of Prestages using this Enrollment Customization",
-		Annotations: map[string]string{"jamf:privileges": "Read Enrollment Customizations"},
+		Annotations: map[string]string{"jamf:privileges": "Read Enrollment Customizations", "jamf:api": "pro", "jamf:gateway-privileges": "enrollment-customization:read"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -1127,8 +1135,9 @@ func newEnrollmentCustomizationsApplyCmd(ctx *registry.CLIContext) *cobra.Comman
 	)
 
 	cmd := &cobra.Command{
-		Use:   "apply",
-		Short: "Create or replace a enrollment-customization by name",
+		Use:         "apply",
+		Short:       "Create or replace a enrollment-customization by name",
+		Annotations: map[string]string{"jamf:api": "pro", "jamf:gateway-privileges": "enrollment-customization:create,enrollment-customization:read,enrollment-customization:update"},
 		Long: `Create or replace a enrollment-customization. Reads JSON or YAML from --from-file or stdin.
 
 The displayName field in the input is used to check if the resource

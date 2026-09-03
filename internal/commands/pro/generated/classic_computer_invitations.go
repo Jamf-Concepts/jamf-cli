@@ -17,12 +17,64 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// bodySpecClassicComputerInvitations is this resource's request-body contract, derived from
+// specs/classic/schemas.json at generation time. Empty when the Classic API spec
+// declares no schema for it, in which case create/update/apply read their body
+// from --from-file or stdin with no --scaffold and no --set.
+var bodySpecClassicComputerInvitations = classicBodySpec{
+	Root:   "computer_invitation",
+	Schema: "computer_invitation",
+	Scaffold: `<computer_invitation>
+  <id>1</id>
+  <create_account_if_does_not_exist>false</create_account_if_does_not_exist>
+  <enroll_into_site>
+    <id>0</id>
+    <name></name>
+  </enroll_into_site>
+  <expiration_date>2012-05-07T11:13:35.000Z</expiration_date>
+  <hide_account>false</hide_account>
+  <invitation_type>USER_INITATIED_EMAIL</invitation_type>
+  <keep_existing_site_membership>false</keep_existing_site_membership>
+  <lock_down_ssh>false</lock_down_ssh>
+  <multiple_uses_allowed>false</multiple_uses_allowed>
+  <site>
+    <id>0</id>
+    <name>None</name>
+  </site>
+  <ssh_password>accountpassword</ssh_password>
+  <ssh_username>jamfadmin</ssh_username>
+</computer_invitation>
+`,
+	FieldTypes: map[string]string{
+		"create_account_if_does_not_exist": "boolean",
+		"enroll_into_site":                 "object",
+		"enroll_into_site.id":              "integer",
+		"enroll_into_site.name":            "string",
+		"expiration_date":                  "string",
+		"hide_account":                     "boolean",
+		"id":                               "integer",
+		"invitation_type":                  "string",
+		"keep_existing_site_membership":    "boolean",
+		"lock_down_ssh":                    "boolean",
+		"multiple_uses_allowed":            "boolean",
+		"site":                             "object",
+		"site.id":                          "integer",
+		"site.name":                        "string",
+		"ssh_password":                     "string",
+		"ssh_username":                     "string",
+	},
+	Credentials: map[string]bool{
+		"ssh_password": true,
+	},
+}
+
 // NewClassicComputerInvitationsCmd creates the classic-computer-invitations command group
 func NewClassicComputerInvitationsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "classic-computer-invitations",
-		Short: "Computer enrollment invitations (Classic API)",
-		Long:  `Manage computer enrollment invitations via the Jamf Pro Classic API (/JSSResource/).`,
+		Use:         "classic-computer-invitations",
+		Short:       "Computer enrollment invitations (Classic API)",
+		Long:        `Manage computer enrollment invitations via the Jamf Pro Classic API (/JSSResource/).`,
+		Annotations: map[string]string{"jamf:api": "pro-classic"},
 	}
 
 	cmd.AddCommand(newClassicComputerInvitationsListCmd(ctx))
@@ -45,6 +97,7 @@ func newClassicComputerInvitationsListCmd(ctx *registry.CLIContext) *cobra.Comma
 
   # List computerinvitations and extract IDs
   jamf-cli pro classic-computer-invitations list --field id`,
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "enrollment-invitations:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/computerinvitations", nil)
@@ -102,7 +155,8 @@ func newClassicComputerInvitationsGetCmd(ctx *registry.CLIContext) *cobra.Comman
 
   # Get a computer_invitation and output as YAML
   jamf-cli pro classic-computer-invitations get 1 -o yaml`,
-		Args: cobra.MaximumNArgs(1),
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "enrollment-invitations:read"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -157,21 +211,36 @@ func newClassicComputerInvitationsGetCmd(ctx *registry.CLIContext) *cobra.Comman
 
 func newClassicComputerInvitationsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
-		fromFile string
+		fromFile     string
+		flagScaffold bool
+		flagSet      []string
 	)
 	cmd := &cobra.Command{
 		Use:   "create",
 		Short: "Create a computer_invitation",
-		Long:  "Create a new computer_invitation. Reads the XML body from --from-file or stdin.",
+		Long: `Create a new computer_invitation. Reads the XML body from --from-file, --set or stdin.
+
+Body fields are derived from the Classic API spec (schema "computer_invitation").
+Run with --scaffold to print a complete XML template.
+Optional sections: create_account_if_does_not_exist, enroll_into_site, expiration_date,
+  hide_account, id, invitation_type, keep_existing_site_membership,
+  lock_down_ssh, multiple_uses_allowed, site, ssh_password,
+  ssh_username
+
+Credential fields (--from-file only, never --set): ssh_password`,
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "enrollment-invitations:create"},
 		Example: `  # Create a computer_invitation from an XML file
   jamf-cli pro classic-computer-invitations create --from-file computer_invitation.xml
 
   # Create a computer_invitation from XML on stdin
   cat computer_invitation.xml | jamf-cli pro classic-computer-invitations create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if flagScaffold {
+				return printClassicScaffold(bodySpecClassicComputerInvitations)
+			}
 			reqCtx := cmd.Context()
 
-			bodyBytes, err := readClassicBody(fromFile)
+			bodyBytes, err := readClassicBodyOrSet(fromFile, flagSet, bodySpecClassicComputerInvitations)
 			if err != nil {
 				return err
 			}
@@ -190,6 +259,11 @@ func newClassicComputerInvitationsCreateCmd(ctx *registry.CLIContext) *cobra.Com
 		},
 	}
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to XML input file (or pipe XML to stdin)")
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print an XML body template for this resource and exit")
+	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Set a body field in dot notation (key=value, repeatable). Builds the whole body, so it cannot be combined with --from-file")
+	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+		return []string{"create_account_if_does_not_exist=", "enroll_into_site.id=", "enroll_into_site.name=", "expiration_date=", "hide_account=", "id=", "invitation_type=", "keep_existing_site_membership=", "lock_down_ssh=", "multiple_uses_allowed=", "site.id=", "site.name=", "ssh_username="}, cobra.ShellCompDirectiveNoSpace
+	})
 	return cmd
 }
 
@@ -212,7 +286,7 @@ func newClassicComputerInvitationsDeleteCmd(ctx *registry.CLIContext) *cobra.Com
 
   # Delete without confirmation prompt
   jamf-cli pro classic-computer-invitations delete 1 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:api": "pro-classic", "jamf:gateway-privileges": "enrollment-invitations:delete"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

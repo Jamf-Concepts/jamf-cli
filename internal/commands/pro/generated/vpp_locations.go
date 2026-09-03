@@ -21,9 +21,10 @@ import (
 // NewVppLocationsCmd creates the vpp-locations command group
 func NewVppLocationsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "vpp-locations",
-		Short: "Manage vpp-locations",
-		Long:  `Manage vpp-locations in Jamf Pro.`,
+		Use:         "vpp-locations",
+		Short:       "Manage vpp-locations",
+		Long:        `Manage vpp-locations in Jamf Pro.`,
+		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
 	cmd.AddCommand(newVppLocationsListCmd(ctx))
@@ -60,7 +61,7 @@ func newVppLocationsListCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # List vpp-locations and extract IDs
   jamf-cli pro vpp-locations list --field id`,
-		Annotations: map[string]string{"jamf:privileges": "Read Volume Purchasing Locations"},
+		Annotations: map[string]string{"jamf:privileges": "Read Volume Purchasing Locations", "jamf:api": "pro", "jamf:gateway-privileges": "volume-purchasing-locations:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -89,7 +90,10 @@ func newVppLocationsListCmd(ctx *registry.CLIContext) *cobra.Command {
 
 			// Auto-pagination: fetch all pages when --all is set and --page was not manually specified
 			if flagAll && flagPage == 0 {
-				var allResults []json.RawMessage
+				// Initialised empty, not nil — a nil slice marshals to "null", so
+				// "list --all" on an empty collection used to answer "null" where
+				// the single-page path answers "[]".
+				allResults := []json.RawMessage{}
 				prog := ctx.Output.PaginationProgress()
 				defer prog.Stop()
 				reqCtx = spinner.WithSuppressed(reqCtx)
@@ -212,7 +216,7 @@ func newVppLocationsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a vpp-location and output as YAML
   jamf-cli pro vpp-locations get 1 -o yaml`,
-		Annotations: map[string]string{"jamf:privileges": "Read Volume Purchasing Locations"},
+		Annotations: map[string]string{"jamf:privileges": "Read Volume Purchasing Locations", "jamf:api": "pro", "jamf:gateway-privileges": "volume-purchasing-locations:read"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -278,7 +282,7 @@ func newVppLocationsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a vpp-location, modify it, and create a copy
   jamf-cli pro vpp-locations get 1 -o json | jq '.name = "Copy"' | jamf-cli pro vpp-locations create`,
-		Annotations: map[string]string{"jamf:privileges": "Create Volume Purchasing Locations"},
+		Annotations: map[string]string{"jamf:privileges": "Create Volume Purchasing Locations", "jamf:api": "pro", "jamf:gateway-privileges": "volume-purchasing-locations:create"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -371,7 +375,7 @@ func newVppLocationsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Delete without confirmation prompt
   jamf-cli pro vpp-locations delete 1 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Delete Volume Purchasing Locations"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Delete Volume Purchasing Locations", "jamf:api": "pro", "jamf:gateway-privileges": "volume-purchasing-locations:delete"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -583,7 +587,7 @@ func newVppLocationsHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get history by name
   jamf-cli pro vpp-locations history --name "Example"`,
-		Annotations: map[string]string{"jamf:privileges": "Read Volume Purchasing Locations"},
+		Annotations: map[string]string{"jamf:privileges": "Read Volume Purchasing Locations", "jamf:api": "pro", "jamf:gateway-privileges": "volume-purchasing-locations:read"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -629,7 +633,10 @@ func newVppLocationsHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 
 			// Auto-pagination: fetch all pages when --all is set and --page was not manually specified
 			if flagAll && flagPage == 0 {
-				var allResults []json.RawMessage
+				// Initialised empty, not nil — a nil slice marshals to "null", so
+				// "list --all" on an empty collection used to answer "null" where
+				// the single-page path answers "[]".
+				allResults := []json.RawMessage{}
 				prog := ctx.Output.PaginationProgress()
 				defer prog.Stop()
 				reqCtx = spinner.WithSuppressed(reqCtx)
@@ -748,7 +755,7 @@ func newVppLocationsAddHistoryNoteCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:         "add-history-note [<id>]",
 		Short:       "Add specified Volume Purchasing Location history object notes",
 		Long:        "Adds specified Volume Purchasing Location history object notes",
-		Annotations: map[string]string{"jamf:privileges": "Update Volume Purchasing Locations"},
+		Annotations: map[string]string{"jamf:privileges": "Update Volume Purchasing Locations", "jamf:api": "pro", "jamf:gateway-privileges": "volume-purchasing-locations:update"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -843,7 +850,7 @@ func newVppLocationsPatchCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Patch from a file
   jamf-cli pro vpp-locations patch 1 --from-file changes.json`,
-		Annotations: map[string]string{"jamf:privileges": "Update Volume Purchasing Locations"},
+		Annotations: map[string]string{"jamf:privileges": "Update Volume Purchasing Locations", "jamf:api": "pro", "jamf:gateway-privileges": "volume-purchasing-locations:update"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -967,7 +974,7 @@ func newVppLocationsContentCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:         "content [<id>]",
 		Short:       "Retrieve the Volume Purchasing Content for the Volume Purchasing Location with the supplied id",
 		Long:        "Retrieves the Volume Purchasing Content for the Volume Purchasing Location with the supplied id",
-		Annotations: map[string]string{"jamf:privileges": "Read Volume Purchasing Locations"},
+		Annotations: map[string]string{"jamf:privileges": "Read Volume Purchasing Locations", "jamf:api": "pro", "jamf:gateway-privileges": "volume-purchasing-locations:read"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -1013,7 +1020,10 @@ func newVppLocationsContentCmd(ctx *registry.CLIContext) *cobra.Command {
 
 			// Auto-pagination: fetch all pages when --all is set and --page was not manually specified
 			if flagAll && flagPage == 0 {
-				var allResults []json.RawMessage
+				// Initialised empty, not nil — a nil slice marshals to "null", so
+				// "list --all" on an empty collection used to answer "null" where
+				// the single-page path answers "[]".
+				allResults := []json.RawMessage{}
 				prog := ctx.Output.PaginationProgress()
 				defer prog.Stop()
 				reqCtx = spinner.WithSuppressed(reqCtx)
@@ -1131,7 +1141,7 @@ func newVppLocationsReclaimCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:         "reclaim [<id>]",
 		Short:       "Reclaim a Volume Purchasing Location with the supplied id",
 		Long:        "Reclaims a Volume Purchasing Location with the supplied id",
-		Annotations: map[string]string{"jamf:privileges": "Update Volume Purchasing Locations"},
+		Annotations: map[string]string{"jamf:privileges": "Update Volume Purchasing Locations", "jamf:api": "pro", "jamf:gateway-privileges": "volume-purchasing-locations:update"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -1203,7 +1213,7 @@ func newVppLocationsRevokeLicensesCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:         "revoke-licenses [<id>]",
 		Short:       "Revoke licenses for a Volume Purchasing Location with the supplied id",
 		Long:        "Revokes licenses for a Volume Purchasing Location with the supplied id. The licenses must be revokable - any asset whose licenses are irrevocable will not be revoked.",
-		Annotations: map[string]string{"jamf:privileges": "Update Volume Purchasing Locations"},
+		Annotations: map[string]string{"jamf:privileges": "Update Volume Purchasing Locations", "jamf:api": "pro", "jamf:gateway-privileges": "volume-purchasing-locations:update"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -1278,8 +1288,9 @@ func newVppLocationsApplyCmd(ctx *registry.CLIContext) *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "apply",
-		Short: "Create or replace a vpp-location by name",
+		Use:         "apply",
+		Short:       "Create or replace a vpp-location by name",
+		Annotations: map[string]string{"jamf:api": "pro", "jamf:gateway-privileges": "volume-purchasing-locations:create,volume-purchasing-locations:read"},
 		Long: `Create or replace a vpp-location. Reads JSON or YAML from --from-file or stdin.
 
 The name field in the input is used to check if the resource

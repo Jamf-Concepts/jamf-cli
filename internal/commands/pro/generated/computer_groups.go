@@ -13,9 +13,10 @@ import (
 // NewComputerGroupsCmd creates the computer-groups command group
 func NewComputerGroupsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "computer-groups",
-		Short: "Manage computer-groups",
-		Long:  `Manage computer-groups in Jamf Pro.`,
+		Use:         "computer-groups",
+		Short:       "Manage computer-groups",
+		Long:        `Manage computer-groups in Jamf Pro.`,
+		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
 	cmd.AddCommand(newComputerGroupsGetCmd(ctx))
@@ -35,7 +36,7 @@ func newComputerGroupsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a computer-group and output as YAML
   jamf-cli pro computer-groups get 1 -o yaml`,
-		Annotations: map[string]string{"jamf:privileges": "Read Smart Computer Groups"},
+		Annotations: map[string]string{"jamf:privileges": "Read Smart Computer Groups", "jamf:api": "pro", "jamf:gateway-privileges": "device-groups:read"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

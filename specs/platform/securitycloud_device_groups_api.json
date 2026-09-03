@@ -1,0 +1,772 @@
+{
+  "components": {
+    "parameters": {
+      "X-Tenant-Id": {
+        "description": "The tenant UUID identifier.",
+        "in": "header",
+        "name": "X-Tenant-Id",
+        "required": true,
+        "schema": {
+          "example": "e77c1408-10c8-4007-b177-abc9157fbcaa",
+          "format": "uuid",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "type": "string"
+        }
+      }
+    },
+    "schemas": {
+      "ApiError": {
+        "description": "Standard Jamf API error response.",
+        "properties": {
+          "errors": {
+            "items": {
+              "$ref": "#/components/schemas/ApiErrorItem"
+            },
+            "minItems": 1,
+            "type": "array"
+          },
+          "httpStatus": {
+            "description": "HTTP status of the response",
+            "example": 400,
+            "maximum": 599,
+            "minimum": 400,
+            "type": "integer"
+          },
+          "traceId": {
+            "description": "Trace ID for debugging purposes",
+            "example": "ecf2ca07e23c0abc12393472f2b783df",
+            "type": "string"
+          }
+        },
+        "required": [
+          "httpStatus",
+          "traceId",
+          "errors"
+        ],
+        "type": "object"
+      },
+      "ApiErrorItem": {
+        "description": "A single error cause within an API error response.",
+        "properties": {
+          "code": {
+            "description": "Error-specific code for localization",
+            "example": "INVALID_FIELD",
+            "minLength": 1,
+            "type": "string"
+          },
+          "description": {
+            "description": "General description of the error for troubleshooting",
+            "example": "The field is invalid",
+            "minLength": 1,
+            "type": "string"
+          },
+          "field": {
+            "description": "Name of the field that caused the error",
+            "example": "name",
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "field",
+          "description"
+        ],
+        "type": "object"
+      },
+      "CreateGroupRequest": {
+        "description": "Request body for creating a new device group.",
+        "properties": {
+          "name": {
+            "description": "Name of the group",
+            "example": "Engineering Team",
+            "maxLength": 255,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "type": "object"
+      },
+      "Group": {
+        "description": "Represents a device group in Security Cloud.",
+        "properties": {
+          "id": {
+            "description": "Unique group identifier",
+            "example": "550e8400-e29b-41d4-a716-446655440000",
+            "type": "string"
+          },
+          "name": {
+            "description": "Display name of the group",
+            "example": "Engineering Devices",
+            "maxLength": 255,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ],
+        "type": "object"
+      },
+      "GroupListItem": {
+        "description": "A device group as returned by the list endpoints. Identical to Group, except that the implicit \"Default Group\" entry has no identifier and so omits the id field.",
+        "properties": {
+          "id": {
+            "description": "Unique group identifier. Omitted for the implicit \"Default Group\" entry, which is not a stored group.",
+            "example": "550e8400-e29b-41d4-a716-446655440000",
+            "type": "string"
+          },
+          "name": {
+            "description": "Display name of the group",
+            "example": "Engineering Devices",
+            "maxLength": 255,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "type": "object"
+      },
+      "GroupListResponse": {
+        "description": "List of device groups for the authenticated customer. Always contains at least the implicit \"Default Group\" entry.",
+        "items": {
+          "$ref": "#/components/schemas/GroupListItem"
+        },
+        "maxItems": 10000,
+        "minItems": 1,
+        "type": "array"
+      },
+      "GroupListResponseV2": {
+        "description": "List of device groups for the authenticated customer.",
+        "properties": {
+          "groups": {
+            "description": "Device groups belonging to the customer. Always contains at least the implicit \"Default Group\" entry.",
+            "items": {
+              "$ref": "#/components/schemas/GroupListItem"
+            },
+            "maxItems": 10000,
+            "minItems": 1,
+            "type": "array"
+          }
+        },
+        "required": [
+          "groups"
+        ],
+        "type": "object"
+      },
+      "UpdateGroupRequest": {
+        "description": "Request body for updating an existing device group.",
+        "properties": {
+          "name": {
+            "description": "New name for the group",
+            "example": "Engineering Team",
+            "maxLength": 255,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "type": "object"
+      }
+    },
+    "securitySchemes": {
+      "oauth2": {
+        "description": "Obtain an access token by calling the API Gateway's token endpoint using the OAuth2 client-credentials flow.",
+        "flows": {
+          "clientCredentials": {
+            "scopes": {
+              "device-groups:create": "",
+              "device-groups:delete": "",
+              "device-groups:read": "",
+              "device-groups:update": ""
+            },
+            "tokenUrl": "https://{region}.api.jamfcloud.com/auth/token"
+          }
+        },
+        "type": "oauth2"
+      }
+    }
+  },
+  "info": {
+    "contact": {
+      "name": "Jamf Developer",
+      "url": "https://developer.jamf.com"
+    },
+    "description": "API for accessing Security Cloud device information",
+    "termsOfService": "https://www.jamf.com/developer-resources/api-license-agreement/",
+    "title": "Security Cloud Devices API",
+    "version": "1.0.0"
+  },
+  "openapi": "3.0.3",
+  "paths": {
+    "/v1/groups": {
+      "get": {
+        "deprecated": true,
+        "description": "Retrieves all device groups for the authenticated customer.\n\n**Required Permissions:** `device-groups:read`",
+        "operationId": "listGroups",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/X-Tenant-Id"
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupListResponse"
+                }
+              }
+            },
+            "description": "Groups retrieved successfully",
+            "headers": {
+              "Deprecation": {
+                "description": "RFC 9745 deprecation timestamp",
+                "schema": {
+                  "example": "@1786492800",
+                  "type": "string"
+                },
+                "style": "simple"
+              },
+              "Link": {
+                "description": "Link to successor endpoint",
+                "schema": {
+                  "example": "\u003c/v2/groups\u003e; rel=\"successor-version\"",
+                  "type": "string"
+                },
+                "style": "simple"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "device-groups:read"
+            ]
+          }
+        ],
+        "summary": "List all device groups for a customer",
+        "tags": [
+          "device-groups"
+        ],
+        "x-deprecation-date": "2026-08-12",
+        "x-required-privileges": [
+          "device-groups:read"
+        ],
+        "x-successor-endpoint": "GET /v2/groups",
+        "x-sunset-date": "2027-08-12"
+      },
+      "post": {
+        "description": "Creates a new device group for the authenticated customer.\n\n**Required Permissions:** `device-groups:create`",
+        "operationId": "createGroup",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/X-Tenant-Id"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateGroupRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Group"
+                }
+              }
+            },
+            "description": "Group created successfully",
+            "headers": {
+              "Location": {
+                "description": "URL of the newly created group",
+                "example": "/v1/groups/550e8400-e29b-41d4-a716-446655440000",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Invalid request or reserved group name"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Group with the same name already exists for this customer"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "device-groups:create"
+            ]
+          }
+        ],
+        "summary": "Create a new device group",
+        "tags": [
+          "device-groups"
+        ],
+        "x-required-privileges": [
+          "device-groups:create"
+        ]
+      }
+    },
+    "/v1/groups/{groupId}": {
+      "delete": {
+        "description": "Deletes a device group. The default group cannot be deleted.\n\n**Required Permissions:** `device-groups:delete`",
+        "operationId": "deleteGroup",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/X-Tenant-Id"
+          },
+          {
+            "description": "Unique identifier of the group to delete",
+            "in": "path",
+            "name": "groupId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Group deleted successfully or did not exist"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Cannot delete default group"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Unauthorized - authentication required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Forbidden - insufficient permissions"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "device-groups:delete"
+            ]
+          }
+        ],
+        "summary": "Delete a device group",
+        "tags": [
+          "device-groups"
+        ],
+        "x-required-privileges": [
+          "device-groups:delete"
+        ]
+      },
+      "get": {
+        "description": "Retrieves a single device group by its ID.\n\n**Required Permissions:** `device-groups:read`",
+        "operationId": "getGroup",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/X-Tenant-Id"
+          },
+          {
+            "description": "Unique identifier of the group to retrieve",
+            "in": "path",
+            "name": "groupId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Group"
+                }
+              }
+            },
+            "description": "Group found successfully"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Unauthorized - authentication required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Forbidden - insufficient permissions"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Group not found"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "device-groups:read"
+            ]
+          }
+        ],
+        "summary": "Get a device group by ID",
+        "tags": [
+          "device-groups"
+        ],
+        "x-required-privileges": [
+          "device-groups:read"
+        ]
+      },
+      "put": {
+        "deprecated": true,
+        "description": "Updates the name of an existing device group.\n\n**Required Permissions:** `device-groups:update`",
+        "operationId": "updateGroup",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/X-Tenant-Id"
+          },
+          {
+            "description": "Unique identifier of the group to update",
+            "in": "path",
+            "name": "groupId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateGroupRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Group"
+                }
+              }
+            },
+            "description": "Group updated successfully",
+            "headers": {
+              "Deprecation": {
+                "description": "RFC 9745 deprecation timestamp",
+                "schema": {
+                  "example": "@1787616000",
+                  "type": "string"
+                }
+              },
+              "Link": {
+                "description": "Link to successor endpoint",
+                "schema": {
+                  "example": "\u003c/v2/groups/{groupId}\u003e; rel=\"successor-version\"",
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Invalid request, reserved group name, or cannot update default group"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Unauthorized - authentication required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Forbidden - insufficient permissions"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Group not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Group with the same name already exists for this tenant"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "device-groups:update"
+            ]
+          }
+        ],
+        "summary": "Update a device group",
+        "tags": [
+          "device-groups"
+        ],
+        "x-deprecation-date": "2026-08-25",
+        "x-required-privileges": [
+          "device-groups:update"
+        ],
+        "x-successor-endpoint": "PUT /v2/groups/{groupId}",
+        "x-sunset-date": "2027-08-25"
+      }
+    },
+    "/v2/groups": {
+      "get": {
+        "description": "Retrieves all device groups for the authenticated customer.\n\n**Required Permissions:** `device-groups:read`",
+        "operationId": "listGroupsV2",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/X-Tenant-Id"
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupListResponseV2"
+                }
+              }
+            },
+            "description": "Groups retrieved successfully"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "device-groups:read"
+            ]
+          }
+        ],
+        "summary": "List all device groups for a customer",
+        "tags": [
+          "device-groups"
+        ],
+        "x-required-privileges": [
+          "device-groups:read"
+        ]
+      }
+    },
+    "/v2/groups/{groupId}": {
+      "put": {
+        "description": "Updates the name of an existing device group.\n\n**Required Permissions:** `device-groups:update`",
+        "operationId": "updateGroupV2",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/X-Tenant-Id"
+          },
+          {
+            "description": "Unique identifier of the group to update",
+            "in": "path",
+            "name": "groupId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateGroupRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Group updated successfully"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Invalid request, reserved group name, or cannot update default group"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Unauthorized - authentication required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Forbidden - insufficient permissions"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Group not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Group with the same name already exists for this customer"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "device-groups:update"
+            ]
+          }
+        ],
+        "summary": "Update a device group",
+        "tags": [
+          "device-groups"
+        ],
+        "x-required-privileges": [
+          "device-groups:update"
+        ]
+      }
+    }
+  },
+  "security": [
+    {
+      "oauth2": []
+    }
+  ],
+  "servers": [
+    {
+      "description": "Jamf Beta API Gateway - prod",
+      "url": "https://{region}.api.jamfcloud.com/securitycloud",
+      "variables": {
+        "region": {
+          "default": "us",
+          "description": "Geographic deployment region",
+          "enum": [
+            "us",
+            "eu",
+            "apac"
+          ]
+        }
+      }
+    }
+  ],
+  "x-scope-types": [
+    "tenant"
+  ]
+}

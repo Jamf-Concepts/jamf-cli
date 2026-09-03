@@ -169,7 +169,7 @@ func TestDo_SetsXMLHeaders_PlatformGatewayClassic(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	c := New(srv.URL, auth.NewTokenProvider("test-token"), WithTenantID("tid"))
+	c := New(srv.URL, auth.NewTokenProvider("test-token"), WithGatewayScope(auth.TenantScope("tid")))
 
 	body := strings.NewReader(`<policy><name>Test</name></policy>`)
 	_, err := c.Do(context.Background(), "POST", "/JSSResource/policies/id/0", body)
@@ -491,12 +491,12 @@ func TestRewritePathForGateway_ClassicAPI(t *testing.T) {
 		input string
 		want  string
 	}{
-		{"/JSSResource/computers", "/api/proclassic/tenant/abc-123/computers"},
-		{"/JSSResource/policies/id/5", "/api/proclassic/tenant/abc-123/policies/id/5"},
-		{"/JSSResource/mobiledevices", "/api/proclassic/tenant/abc-123/mobiledevices"},
+		{"/JSSResource/computers", "/proclassic/computers"},
+		{"/JSSResource/policies/id/5", "/proclassic/policies/id/5"},
+		{"/JSSResource/mobiledevices", "/proclassic/mobiledevices"},
 	}
 	for _, tt := range tests {
-		got := rewritePathForGateway(tt.input, "abc-123")
+		got := rewritePathForGateway(tt.input)
 		if got != tt.want {
 			t.Errorf("rewritePathForGateway(%q) = %q, want %q", tt.input, got, tt.want)
 		}
@@ -508,13 +508,13 @@ func TestRewritePathForGateway_ModernAPI(t *testing.T) {
 		input string
 		want  string
 	}{
-		{"/api/v1/buildings", "/api/pro/v1/tenant/abc-123/buildings"},
-		{"/api/v2/mobile-devices", "/api/pro/v2/tenant/abc-123/mobile-devices"},
-		{"/api/v1/accounts/userid/1", "/api/pro/v1/tenant/abc-123/accounts/userid/1"},
-		{"/api/preview/computers", "/api/pro/preview/tenant/abc-123/computers"},
+		{"/api/v1/buildings", "/pro/v1/buildings"},
+		{"/api/v2/mobile-devices", "/pro/v2/mobile-devices"},
+		{"/api/v1/accounts/userid/1", "/pro/v1/accounts/userid/1"},
+		{"/api/preview/computers", "/pro/preview/computers"},
 	}
 	for _, tt := range tests {
-		got := rewritePathForGateway(tt.input, "abc-123")
+		got := rewritePathForGateway(tt.input)
 		if got != tt.want {
 			t.Errorf("rewritePathForGateway(%q) = %q, want %q", tt.input, got, tt.want)
 		}
@@ -528,7 +528,7 @@ func TestRewritePathForGateway_NoRewrite(t *testing.T) {
 		"/healthCheck.html",
 	}
 	for _, input := range tests {
-		got := rewritePathForGateway(input, "abc-123")
+		got := rewritePathForGateway(input)
 		if got != input {
 			t.Errorf("rewritePathForGateway(%q) = %q, want unchanged", input, got)
 		}
@@ -544,13 +544,13 @@ func TestDo_PlatformGateway_ClassicPath(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	c := New(srv.URL, auth.NewTokenProvider("test-token"), WithTenantID("tenant-uuid"))
+	c := New(srv.URL, auth.NewTokenProvider("test-token"), WithGatewayScope(auth.TenantScope("tenant-uuid")))
 	_, err := c.Do(context.Background(), "GET", "/JSSResource/computers", nil)
 	if err != nil {
 		t.Fatalf("Do() error = %v", err)
 	}
 
-	want := "/api/proclassic/tenant/tenant-uuid/computers"
+	want := "/proclassic/computers"
 	if gotPath != want {
 		t.Errorf("path = %q, want %q", gotPath, want)
 	}
@@ -565,14 +565,15 @@ func TestDo_PlatformGateway_ModernPath(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	c := New(srv.URL, auth.NewTokenProvider("test-token"), WithTenantID("tenant-uuid"))
-	// Path without /api prefix — should get /api prepended, then rewritten
+	c := New(srv.URL, auth.NewTokenProvider("test-token"), WithGatewayScope(auth.TenantScope("tenant-uuid")))
+	// Path without /api prefix — gets /api prepended, then the gateway
+	// rewrite replaces that segment with the namespace.
 	_, err := c.Do(context.Background(), "GET", "/v1/buildings", nil)
 	if err != nil {
 		t.Fatalf("Do() error = %v", err)
 	}
 
-	want := "/api/pro/v1/tenant/tenant-uuid/buildings"
+	want := "/pro/v1/buildings"
 	if gotPath != want {
 		t.Errorf("path = %q, want %q", gotPath, want)
 	}
@@ -587,36 +588,91 @@ func TestDo_PlatformGateway_ExplicitAPIPrefix(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	c := New(srv.URL, auth.NewTokenProvider("test-token"), WithTenantID("tenant-uuid"))
+	c := New(srv.URL, auth.NewTokenProvider("test-token"), WithGatewayScope(auth.TenantScope("tenant-uuid")))
 	_, err := c.Do(context.Background(), "GET", "/api/v2/users", nil)
 	if err != nil {
 		t.Fatalf("Do() error = %v", err)
 	}
 
-	want := "/api/pro/v2/tenant/tenant-uuid/users"
+	want := "/pro/v2/users"
 	if gotPath != want {
 		t.Errorf("path = %q, want %q", gotPath, want)
 	}
 }
 
-func TestWithTenantID_SetsField(t *testing.T) {
+func TestWithGatewayScope_SetsScope(t *testing.T) {
 	c := New("https://example.com", auth.NewTokenProvider("tok"))
-	if c.tenantID != "" {
-		t.Error("tenantID should default to empty")
+	if c.gateway {
+		t.Error("gateway mode should default off: a direct-to-instance client must not rewrite paths")
 	}
 
-	c = New("https://example.com", auth.NewTokenProvider("tok"), WithTenantID("my-tenant"))
-	if c.tenantID != "my-tenant" {
-		t.Errorf("tenantID = %q, want %q", c.tenantID, "my-tenant")
+	c = New("https://example.com", auth.NewTokenProvider("tok"), WithGatewayScope(auth.TenantScope("my-tenant")))
+	if !c.gateway {
+		t.Error("gateway mode should be on")
+	}
+	if name, value := c.scope.Header(); name != "X-Tenant-Id" || value != "my-tenant" {
+		t.Errorf("scope header = (%q, %q), want (X-Tenant-Id, my-tenant)", name, value)
+	}
+
+	// Organization scope is gateway mode with no header at all — the gateway
+	// resolves it from the access token — so the absence of an ID must not turn
+	// gateway mode back off.
+	c = New("https://example.com", auth.NewTokenProvider("tok"), WithGatewayScope(auth.Scope{}))
+	if !c.gateway {
+		t.Error("organization scope is still gateway mode")
+	}
+	if name, _ := c.scope.Header(); name != "" {
+		t.Errorf("organization scope sent header %q, want none", name)
+	}
+}
+
+// TestGatewayScopeHeaderPerKind pins which header each level travels in, and
+// that an organization-scoped client sends neither. Crossing them over is a 403
+// OWNERSHIP_FORBIDDEN even within one customer, so sending the wrong one is not
+// a cosmetic error.
+func TestGatewayScopeHeaderPerKind(t *testing.T) {
+	cases := []struct {
+		name       string
+		scope      auth.Scope
+		wantHeader string
+	}{
+		{name: "environment", scope: auth.EnvironmentScope("env-1"), wantHeader: "X-Environment-Id"},
+		{name: "tenant", scope: auth.TenantScope("ten-1"), wantHeader: "X-Tenant-Id"},
+		{name: "organization", scope: auth.Scope{}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			var got http.Header
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				got = r.Header.Clone()
+				w.Header().Set("Content-Type", "application/json")
+				_, _ = w.Write([]byte(`{}`))
+			}))
+			defer srv.Close()
+
+			c := New(srv.URL, auth.NewTokenProvider("tok"), WithGatewayScope(tc.scope))
+			if _, err := c.Do(context.Background(), "GET", "/v1/buildings", nil); err != nil {
+				t.Fatalf("Do: %v", err)
+			}
+			for _, h := range []string{"X-Environment-Id", "X-Tenant-Id"} {
+				want := ""
+				if h == tc.wantHeader {
+					want = tc.scope.ID
+				}
+				if got.Get(h) != want {
+					t.Errorf("%s = %q, want %q", h, got.Get(h), want)
+				}
+			}
+		})
 	}
 }
 
 // --- Upload tests ---
 
 func TestUpload_NonSeekable_NoRetry(t *testing.T) {
-	var attempts int32
+	var attempts atomic.Int32
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		atomic.AddInt32(&attempts, 1)
+		attempts.Add(1)
 		w.Header().Set("Retry-After", "1")
 		w.WriteHeader(http.StatusTooManyRequests)
 		_, _ = w.Write([]byte("slow down"))
@@ -631,17 +687,17 @@ func TestUpload_NonSeekable_NoRetry(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error on 429")
 	}
-	if got := atomic.LoadInt32(&attempts); got != 1 {
+	if got := attempts.Load(); got != 1 {
 		t.Errorf("attempts = %d, want 1 (non-seekable should not retry)", got)
 	}
 }
 
 func TestUpload_Seekable_RetriesOn429(t *testing.T) {
-	var attempts int32
+	var attempts atomic.Int32
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Drain body so upload reader is exhausted each attempt.
 		_, _ = io.Copy(io.Discard, r.Body)
-		n := atomic.AddInt32(&attempts, 1)
+		n := attempts.Add(1)
 		if n < 2 {
 			w.Header().Set("Retry-After", "1")
 			w.WriteHeader(http.StatusTooManyRequests)
@@ -662,7 +718,7 @@ func TestUpload_Seekable_RetriesOn429(t *testing.T) {
 	}
 	defer func() { _ = resp.Body.Close() }()
 
-	if got := atomic.LoadInt32(&attempts); got != 2 {
+	if got := attempts.Load(); got != 2 {
 		t.Errorf("attempts = %d, want 2 (should retry seekable body)", got)
 	}
 }
@@ -703,10 +759,10 @@ func TestUpload_Seekable_RewindsBetweenAttempts(t *testing.T) {
 }
 
 func TestUpload_Seekable_MaxRetriesExhausted(t *testing.T) {
-	var attempts int32
+	var attempts atomic.Int32
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = io.Copy(io.Discard, r.Body)
-		atomic.AddInt32(&attempts, 1)
+		attempts.Add(1)
 		// Retry-After "0" keeps the test fast; value is validated by
 		// TestParseRetryAfter.
 		w.Header().Set("Retry-After", "0")
@@ -730,7 +786,7 @@ func TestUpload_Seekable_MaxRetriesExhausted(t *testing.T) {
 	if ec.Code != exitcode.RateLimited {
 		t.Errorf("exit code = %v, want %v", ec.Code, exitcode.RateLimited)
 	}
-	if got := atomic.LoadInt32(&attempts); got != 3 {
+	if got := attempts.Load(); got != 3 {
 		t.Errorf("attempts = %d, want 3 (all retries should fire)", got)
 	}
 }
@@ -754,5 +810,286 @@ func TestParseRetryAfter(t *testing.T) {
 				t.Errorf("parseRetryAfter(%q, %v) = %v, want %v", tt.header, tt.fallback, got, tt.want)
 			}
 		})
+	}
+}
+
+// TestGatewayTenantTravelsInHeader pins the scope moving out of the URL. Until
+// 2026-08-25 the tenant was a path segment and Tyk resolved the request context
+// from the path; prod then gained `header` as an allowed source and the specs
+// dropped the segment. A path carrying a tenant would still be routed during the
+// transition window, so nothing fails loudly if this regresses — hence a test
+// that asserts the header is sent AND that no tenant reaches the URL.
+func TestGatewayTenantTravelsInHeader(t *testing.T) {
+	var gotPath, gotHeader string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotPath = r.URL.Path
+		gotHeader = r.Header.Get("X-Tenant-Id")
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{}`))
+	}))
+	defer srv.Close()
+
+	c := New(srv.URL, auth.NewTokenProvider("test-token"), WithGatewayScope(auth.TenantScope("abc-123")))
+	if _, err := c.Do(context.Background(), "GET", "/v1/buildings", nil); err != nil {
+		t.Fatalf("Do: %v", err)
+	}
+	if want := "/pro/v1/buildings"; gotPath != want {
+		t.Errorf("path = %q, want %q", gotPath, want)
+	}
+	if gotHeader != "abc-123" {
+		t.Errorf("X-Tenant-Id = %q, want %q", gotHeader, "abc-123")
+	}
+	if strings.Contains(gotPath, "tenant") {
+		t.Errorf("path %q still carries a tenant segment", gotPath)
+	}
+}
+
+// TestDirectInstanceSendsNoTenantHeader guards the other direction: a
+// direct-to-instance client has no tenant and must not invent one.
+func TestDirectInstanceSendsNoTenantHeader(t *testing.T) {
+	var gotHeader, gotPath string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotHeader = r.Header.Get("X-Tenant-Id")
+		gotPath = r.URL.Path
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{}`))
+	}))
+	defer srv.Close()
+
+	c := New(srv.URL, auth.NewTokenProvider("test-token"))
+	if _, err := c.Do(context.Background(), "GET", "/v1/buildings", nil); err != nil {
+		t.Fatalf("Do: %v", err)
+	}
+	if gotHeader != "" {
+		t.Errorf("X-Tenant-Id = %q, want it absent", gotHeader)
+	}
+	if want := "/api/v1/buildings"; gotPath != want {
+		t.Errorf("path = %q, want %q", gotPath, want)
+	}
+}
+
+// TestGatewayUnservedNote pins the gateway-coverage explanation and the
+// false-positive containment around it.
+//
+// The gateway's answer for an endpoint outside its published surface is 403
+// BAD_PERMISSIONS or Tyk's bare "404 page not found" — the 403 being
+// indistinguishable from a real missing privilege, which sends an operator
+// looking for a grant that cannot help.
+//
+// The note is appended, never substituted, so the cases below also check it does
+// NOT fire for a Jamf-Pro-issued 404 (an ID that really is gone), for a
+// direct-to-instance path, or for a namespace the gateway serves.
+//
+// App Installers appears here as the served case, having been the refused one
+// until 2026-09-03: it is the surface this mechanism was built around, and both
+// halves of the containment now depend on the same paths answering the other
+// way. The definitive "does not serve this endpoint" wording has no shipped
+// entry left to exercise it — probedUnserved is empty — and is pinned in
+// internal/gateway's TestRefusalNamesTheCommandAndTheRemedy instead.
+func TestGatewayUnservedNote(t *testing.T) {
+	const proNotFound = `{"httpStatus":404,"errors":[]}`
+	cases := []struct {
+		name     string
+		status   int
+		path     string
+		body     string
+		wantNote bool
+	}{
+		{
+			// 403 BAD_PERMISSIONS on a served namespace is a genuine privilege
+			// problem, and the note would send the operator hunting a routing
+			// fault instead. This path carried the note until the gateway
+			// opened App Installers. POST /titles/{id}/cache-update, which
+			// v2051 withdrew in the same build, gets no note either — the
+			// runtime table carries only operations this CLI can send, and no
+			// command sends a path the spec no longer declares.
+			name:     "gateway 403 on app-installers keeps the plain hint",
+			status:   http.StatusForbidden,
+			path:     "/pro/v1/app-installers/titles",
+			body:     `{"httpStatus":403,"errors":[{"code":"BAD_PERMISSIONS"}]}`,
+			wantNote: false,
+		},
+		{
+			name:     "Tyk unrouted 404 outside the published surface",
+			status:   http.StatusNotFound,
+			path:     "/pro/v1/api-roles",
+			body:     "404 page not found\n",
+			wantNote: true,
+		},
+		{
+			// The request reached Jamf Pro, which answered its own 404 for a
+			// deployment that does not exist. That is not a gateway problem and
+			// the note would be a red herring.
+			name:     "Jamf Pro's own 404 for a missing deployment",
+			status:   http.StatusNotFound,
+			path:     "/pro/v1/app-installers/deployments/does-not-exist",
+			body:     proNotFound,
+			wantNote: false,
+		},
+		{
+			// No gateway involved: /api/ rather than /pro/.
+			name:     "direct-to-instance path is untouched",
+			status:   http.StatusForbidden,
+			path:     "/api/v1/api-roles",
+			body:     `{"httpStatus":403,"errors":[{"code":"BAD_PERMISSIONS"}]}`,
+			wantNote: false,
+		},
+		{
+			// A different Pro namespace through the gateway is served; a 403
+			// there is a genuine privilege problem.
+			name:     "another gateway Pro namespace keeps the plain hint",
+			status:   http.StatusForbidden,
+			path:     "/pro/v1/categories",
+			body:     `{"httpStatus":403,"errors":[{"code":"BAD_PERMISSIONS"}]}`,
+			wantNote: false,
+		},
+		{
+			// Outside the published surface but not wire-probed. The note fires,
+			// but it must not claim the endpoint is gone: several such endpoints
+			// still answer today, and telling someone whose command works that
+			// it is unserved reads as a CLI bug.
+			name:     "an endpoint the published spec omits gets the transitional note",
+			status:   http.StatusForbidden,
+			path:     "/pro/v2/environment-type",
+			body:     `{"httpStatus":403,"errors":[{"code":"BAD_PERMISSIONS"}]}`,
+			wantNote: true,
+		},
+		{
+			// Classic entries are whole-subtree with a wildcard method, because
+			// a Classic path is assembled at runtime from the resource plus the
+			// lookup in play.
+			name:     "a Classic resource the gateway omits, reached by an id lookup",
+			status:   http.StatusForbidden,
+			path:     "/proclassic/computerconfigurations/id/3",
+			body:     `{"httpStatus":403,"errors":[{"code":"BAD_PERMISSIONS"}]}`,
+			wantNote: true,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := StatusError(tc.status, "GET", tc.path, []byte(tc.body))
+			var e *exitcode.Error
+			if !errors.As(err, &e) {
+				t.Fatalf("expected a structured exit error, got %T", err)
+			}
+			got := strings.Contains(e.Hint, "Jamf Platform gateway")
+			if got != tc.wantNote {
+				t.Errorf("note present = %v, want %v; hint = %q", got, tc.wantNote, e.Hint)
+			}
+			// The original remediation must survive in every case — the note is
+			// additive, so replacing the hint would be a regression too.
+			if e.Hint == "" {
+				t.Error("hint was emptied")
+			}
+			if !tc.wantNote {
+				return
+			}
+			// Every noted case here is unpublished rather than wire-probed, and
+			// an unpublished refusal must not state the endpoint is gone: the
+			// gateway still routes several of them, and telling someone whose
+			// command works that it is unserved reads as a CLI bug.
+			if strings.Contains(e.Hint, "does not serve this endpoint") {
+				t.Errorf("undeclared endpoint got the definitive wording: %q", e.Hint)
+			}
+		})
+	}
+}
+
+// TestUpload_PlatformGatewayPath covers the second call site of
+// rewritePathForGateway.
+//
+// Client.Upload builds its own request rather than going through Do, so it is a
+// separate path-rewriting and scope-header site — the same reason the tenant
+// path->header migration had to be verified on it independently. Every other
+// Upload test uses a direct-to-instance client, so nothing asserted its gateway
+// shape until now.
+//
+// This one cannot be checked on the wire: the GA edge's WAF refuses .pkg uploads
+// with a CloudFront 403 before the request reaches Jamf, so a live probe cannot
+// distinguish a wrong path from the WAF. That makes the unit assertion the only
+// coverage there is.
+func TestUpload_PlatformGatewayPath(t *testing.T) {
+	var gotPath, gotScope string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotPath = r.URL.Path
+		gotScope = r.Header.Get("X-Tenant-Id")
+		w.WriteHeader(http.StatusCreated)
+	}))
+	defer srv.Close()
+
+	c := New(srv.URL, auth.NewTokenProvider("test-token"), WithGatewayScope(auth.TenantScope("abc-123")))
+	body := strings.NewReader("payload")
+	if _, err := c.Upload(context.Background(), "/v1/packages/1/upload", body, "application/octet-stream", int64(body.Len())); err != nil {
+		t.Fatalf("Upload: %v", err)
+	}
+
+	if want := "/pro/v1/packages/1/upload"; gotPath != want {
+		t.Errorf("path = %q, want %q", gotPath, want)
+	}
+	if strings.HasPrefix(gotPath, "/api/") {
+		t.Errorf("path is under /api, which the GA gateway does not serve: %q", gotPath)
+	}
+	if strings.Contains(gotPath, "tenant") {
+		t.Errorf("path %q still carries a tenant segment", gotPath)
+	}
+	if gotScope != "abc-123" {
+		t.Errorf("X-Tenant-Id = %q, want %q", gotScope, "abc-123")
+	}
+}
+
+// TestEdgeBlockedNote pins the CloudFront/WAF refusal being reported as what it
+// is rather than as a privilege problem.
+//
+// The GA gateway sits behind CloudFront, whose WAF refuses some requests before
+// Jamf sees them — wire-established 2026-08-28: "file://" anywhere in the body
+// earns a 403 "Request blocked", while the identical body with a POSIX path
+// reaches Jamf. That is a legitimate value in Classic payloads (a dock item's
+// path), and the untreated form of this error told an operator with a perfectly
+// good credential to go and fix their API role.
+//
+// The hint must not assert WHICH rule fired: the same page is returned for a
+// content match and for a volume block, with no traceId and nothing naming the
+// rule.
+func TestEdgeBlockedNote(t *testing.T) {
+	const cloudfront = `<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML><HEAD><TITLE>ERROR: The request could not be satisfied</TITLE></HEAD>
+<BODY><H1>403 ERROR</H1><H2>The request could not be satisfied.</H2>
+Request blocked.</BODY></HTML>`
+
+	err := StatusError(http.StatusForbidden, "POST", "/proclassic/dockitems/id/0", []byte(cloudfront))
+	var e *exitcode.Error
+	if !errors.As(err, &e) {
+		t.Fatalf("expected a structured exit error, got %T", err)
+	}
+	if !strings.Contains(e.Error(), "blocked at the Jamf gateway edge") {
+		t.Errorf("message does not identify the edge as the refuser: %q", e.Error())
+	}
+	// The whole point is that the operator is NOT sent to their API role.
+	if strings.Contains(e.Hint, "check its API role") {
+		t.Errorf("hint still blames the API role: %q", e.Hint)
+	}
+	if !strings.Contains(e.Hint, "file://") {
+		t.Errorf("hint does not name the known file:// trigger: %q", e.Hint)
+	}
+	if !strings.Contains(e.Hint, "cannot say which one fired") {
+		t.Errorf("hint claims to know which rule fired: %q", e.Hint)
+	}
+	// And the HTML page must not be pasted into the message.
+	if strings.Contains(e.Error(), "DOCTYPE") {
+		t.Errorf("the HTML page leaked into the message: %q", e.Error())
+	}
+
+	// A genuine Jamf 403 keeps the privilege hint.
+	jamf := StatusError(http.StatusForbidden, "GET", "/pro/v1/categories",
+		[]byte(`{"httpStatus":403,"errors":[{"code":"ACCESS_DENIED"}]}`))
+	var je *exitcode.Error
+	if !errors.As(jamf, &je) {
+		t.Fatalf("expected a structured exit error, got %T", jamf)
+	}
+	// The path is gateway-form, so the permission hint is the Jamf Account
+	// vocabulary rather than a Jamf Pro API role — see forbiddenHint.
+	if !strings.Contains(je.Hint, "categories:read") || !strings.Contains(je.Hint, "Jamf Account") {
+		t.Errorf("a real Jamf 403 lost its privilege hint: %q", je.Hint)
 	}
 }

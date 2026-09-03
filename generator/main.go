@@ -5,6 +5,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"net/http"
 	"os"
 	"path/filepath"
 	"sort"
@@ -12,6 +13,8 @@ import (
 	"text/template"
 
 	"github.com/Jamf-Concepts/jamf-cli/generator/classic"
+	"github.com/Jamf-Concepts/jamf-cli/generator/classicschema"
+	"github.com/Jamf-Concepts/jamf-cli/generator/gateway"
 	"github.com/Jamf-Concepts/jamf-cli/generator/monolith"
 	"github.com/Jamf-Concepts/jamf-cli/generator/parser"
 	"github.com/Jamf-Concepts/jamf-cli/generator/platform"
@@ -51,13 +54,21 @@ type backupEntry struct {
 
 func main() {
 	var (
-		specsDir     string
-		outputDir    string
-		monolithPath string
+		specsDir      string
+		outputDir     string
+		monolithPath  string
+		gatewaySource string
+		gatewaySDKRev string
 	)
 	flag.StringVar(&specsDir, "specs", "./specs", "Directory containing per-resource OpenAPI spec files")
 	flag.StringVar(&outputDir, "output", "./internal/commands/pro/generated", "Directory to write generated Go files into")
 	flag.StringVar(&monolithPath, "monolith", "", "Optional consolidated OpenAPI document to split into per-resource spec files before generation. Accepts a local path or http(s):// URL")
+	// One flag rather than two, because both artifacts derive from the same
+	// drop directory and the same two SDK specs. A second flag that must always
+	// carry the same value is a code path nothing exercises independently, which
+	// is how the gateway URL-shape bug survived weeks.
+	flag.StringVar(&gatewaySource, "gateway-source", "", "Optional directory holding the SDK's pro_api.json and classic_api_resource_documentation.json, to re-derive specs/gateway/coverage.json and specs/classic/schemas.json from before generation")
+	flag.StringVar(&gatewaySDKRev, "gateway-sdk-rev", "", "Optional jamfplatform-go-sdk revision to record as the derived manifests' provenance")
 	flag.Parse()
 
 	fmt.Println("jamf-cli code generator")
@@ -90,6 +101,68 @@ func main() {
 			fmt.Fprintln(os.Stderr, "  note:", w)
 		}
 		fmt.Printf("  Wrote %d spec files (incl. %s)\n\n", len(written), monolith.LibraryFilename)
+	}
+
+	// Re-derive the gateway coverage manifest from a bundle drop, when one was
+	// pointed at. Done before generation so the same invocation that refreshes
+	// the manifest also stamps the verdicts it implies.
+	coveragePath := filepath.Join(specsDir, gateway.CoverageFile)
+	if gatewaySource != "" {
+		fmt.Println("Deriving gateway coverage")
+		fmt.Println("-------------------------")
+		cov, err := gateway.Extract(gatewaySource, gatewaySDKRev)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error deriving gateway coverage: %v\n", err)
+			os.Exit(1)
+		}
+		// Keep provenance this run could not determine for itself — see
+		// gateway.CarryForwardProvenance.
+		if prev, err := gateway.Load(coveragePath); err == nil {
+			gateway.CarryForwardProvenance(cov, prev)
+		}
+		if err := gateway.Write(cov, coveragePath); err != nil {
+			fmt.Fprintf(os.Stderr, "Error writing gateway coverage: %v\n", err)
+			os.Exit(1)
+		}
+		fmt.Printf("  %s: %s %s (%d paths, %d ops), %s %s (%d paths, %d ops), SDK %s\n\n",
+			coveragePath,
+			cov.Sources.Pro.Title, cov.Sources.Pro.Version, cov.Sources.Pro.Paths, cov.Sources.Pro.Operations,
+			cov.Sources.Classic.Title, cov.Sources.Classic.Version, cov.Sources.Classic.Paths, cov.Sources.Classic.Operations,
+			orUnknown(cov.Sources.SDKCommit))
+	}
+
+	// Derive the App Installer specs from the same drop. They are the one Jamf
+	// Pro surface no monolith carries — see monolith.ExtractSubtree — so the
+	// only place they can come from is the gateway's published Pro API spec,
+	// which is the file gateway coverage was just derived from. Same source,
+	// same run, same reason the classic schemas are derived here: an artefact
+	// that has to be refreshed alongside another one is not a second flag.
+	//
+	// Before the spec glob below, so the files this writes are the ones parsed.
+	if gatewaySource != "" {
+		fmt.Println("Deriving App Installer specs")
+		fmt.Println("----------------------------")
+		written, warnings, err := monolith.ExtractSubtree(
+			filepath.Join(gatewaySource, gateway.ProSpecFile),
+			specsDir, monolith.AppInstallerSubtree, monolith.AppInstallerSpecs)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error deriving App Installer specs: %v\n", err)
+			os.Exit(1)
+		}
+		for _, w := range warnings {
+			fmt.Fprintln(os.Stderr, "  note:", w)
+		}
+		fmt.Printf("  Wrote %d spec file(s)\n\n", len(written))
+	}
+
+	// Load it for the verdict passes below. A missing manifest is not an error:
+	// it is the "unknown" answer, and the passes then stamp nothing so no
+	// command is refused. `make generate` has to work in a tree where nobody
+	// has fetched a bundle.
+	coverage, err := gateway.Load(coveragePath)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error loading gateway coverage: %v\n", err)
+		os.Exit(1)
 	}
 
 	// Find all YAML specs
@@ -171,6 +244,12 @@ func main() {
 	// Swap "get" operation paths to richer detail endpoints where available.
 	parser.ApplyGetDetailPaths(resources)
 
+	// Stamp each operation with whether the Jamf Platform gateway serves it, now
+	// that every path-rewriting pass above has settled — ApplyListDetailPaths
+	// and ApplyGetDetailPaths both move an op onto a different endpoint, and the
+	// verdict has to be about the path the command will actually send.
+	gatewayEntries := gateway.Apply(coverage, modernGatewayOps(resources))
+
 	// Track every file we write so we can delete stale files from previous generator runs.
 	generatedFiles := make(map[string]bool)
 
@@ -217,6 +296,44 @@ func main() {
 			os.Exit(1)
 		}
 
+		gatewayEntries = append(gatewayEntries, gateway.Apply(coverage, classicGatewayOps(classicResources))...)
+
+		// Re-derive the Classic schema artifact when an SDK drop was pointed at,
+		// then load it. Derivation needs the manifest, which is why this sits
+		// here rather than beside the gateway derivation above. A missing
+		// artifact is the "unknown" answer: Classic commands then ship with no
+		// body help, which is what they shipped before this existed.
+		classicSchemaPath := filepath.Join(specsDir, classicschema.ArtifactFile)
+		if gatewaySource != "" {
+			art, warnings, err := classicschema.Extract(gatewaySource, gatewaySDKRev, classicManifestEntries(classicResources))
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Error deriving classic schemas: %v\n", err)
+				os.Exit(1)
+			}
+			if prev, err := classicschema.Load(classicSchemaPath); err == nil {
+				classicschema.CarryForwardProvenance(art, prev)
+			}
+			if err := classicschema.Write(art, classicSchemaPath); err != nil {
+				fmt.Fprintf(os.Stderr, "Error writing classic schemas: %v\n", err)
+				os.Exit(1)
+			}
+			for _, w := range warnings {
+				fmt.Fprintln(os.Stderr, "  note:", w)
+			}
+			fmt.Printf("Derived: %s (%d schemas, %d of %d resources bound)\n",
+				classicSchemaPath, art.Source.Schemas, art.Source.Resources, len(classicResources))
+		}
+
+		classicSchemas, err := classicschema.Load(classicSchemaPath)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error loading classic schemas: %v\n", err)
+			os.Exit(1)
+		}
+		if err := classic.AttachSchemas(classicResources, classicSchemas); err != nil {
+			fmt.Fprintf(os.Stderr, "Error attaching classic schemas: %v\n", err)
+			os.Exit(1)
+		}
+
 		classicGen := classic.NewGenerator(outputDir)
 		for _, r := range classicResources {
 			outPath, err := classicGen.Generate(r)
@@ -250,6 +367,19 @@ func main() {
 	}
 	generatedFiles["provenance.go"] = true
 	fmt.Printf("Generated: %s\n", filepath.Join(outputDir, "provenance.go"))
+
+	// ── Gateway coverage table ───────────────────────────────────
+	// Emitted after both Pro passes so it holds the modern and Classic verdicts
+	// together. Written unconditionally, including when there is no manifest:
+	// an empty table is the honest "unknown" state, and leaving a previous
+	// run's table behind would keep refusing commands on evidence that is no
+	// longer in the tree.
+	const gatewayTablePath = "./internal/gateway/coverage_gen.go"
+	if err := gateway.Emit(coverage, gatewayEntries, gatewayTablePath); err != nil {
+		fmt.Fprintf(os.Stderr, "Error writing gateway coverage table: %v\n", err)
+		os.Exit(1)
+	}
+	fmt.Printf("Generated: %s (%s)\n", gatewayTablePath, gateway.Summary(gatewayEntries))
 
 	// ── Platform Gateway commands ────────────────────────────────
 	platformSpecsDir := filepath.Join(specsDir, "platform")
@@ -673,3 +803,124 @@ var BackupEndpoints = map[string]BackupEndpoint{
 {{- end }}
 }
 `
+
+// modernGatewayOps adapts the parsed modern resources into the shape
+// generator/gateway judges. The gateway path is the caller-facing one with the
+// /pro namespace prefixed, which is exactly what client.rewritePathForGateway
+// produces at runtime.
+func modernGatewayOps(resources []*parser.Resource) []gateway.Op {
+	var ops []gateway.Op
+	for _, r := range resources {
+		for _, op := range r.Operations {
+			ops = append(ops, gateway.Op{
+				Method:      op.Method,
+				GatewayPath: gateway.ProPrefix + op.Path,
+				Set: func(v gateway.Verdict) {
+					op.GatewayLevel, op.GatewayBasis, op.GatewayDetail = string(v.Level), string(v.Basis), v.Detail
+					op.GatewayPrivileges = v.Scopes
+				},
+			})
+		}
+	}
+	return ops
+}
+
+// classicGatewayMethods are the HTTP methods a Classic subcommand can send.
+// Judged per method across the resource's subtree — see gateway.ScopeSubtreeMethod.
+var classicGatewayMethods = []string{http.MethodGet, http.MethodPost, http.MethodPut, http.MethodDelete}
+
+// classicGatewayOps adapts the Classic manifest, at three granularities,
+// because a Classic resource's paths are assembled at runtime from the resource
+// path plus whichever lookup is in play and there is no fixed set of op paths to
+// enumerate here.
+//
+//   - One subtree op per resource: does the gateway carry the resource at all.
+//   - One subtree-method op per resource per method: a method the gateway
+//     declares nowhere beneath the resource cannot work under any lookup, so
+//     every subcommand sending it is refused. The method a subcommand sends is
+//     fixed at generate time even though its path is not.
+//   - One exact op for the collection GET, the single Classic path that IS fixed.
+//
+// The last two exist because "the resource is carried" stopped implying "every
+// verb on it is carried". Classic API 11.28.0 withdrew every read on
+// patchsoftwaretitles while keeping POST /patchsoftwaretitles/id/{}, and
+// withdrew GET /patchpolicies while keeping GET /patchpolicies/id/{} — so the
+// whole-resource verdict reported `list`, `get`, `update` and `delete` on the
+// first and `list` on the second as served, and each would have gone out to a
+// bare 403 the refusal exists to pre-empt.
+func classicGatewayOps(resources []classic.ClassicResource) []gateway.Op {
+	ops := make([]gateway.Op, 0, len(resources)*(len(classicGatewayMethods)+2))
+	for i := range resources {
+		r := &resources[i]
+		path := gateway.ClassicPrefix + "/" + r.Path
+		ops = append(ops, gateway.Op{
+			Method:      http.MethodGet,
+			GatewayPath: path,
+			Scope:       gateway.ScopeSubtree,
+			Set: func(v gateway.Verdict) {
+				r.GatewayLevel, r.GatewayBasis, r.GatewayDetail = string(v.Level), string(v.Basis), v.Detail
+				r.GatewayPrivileges = v.ScopesByMethod
+			},
+		})
+		for _, m := range classicGatewayMethods {
+			ops = append(ops, gateway.Op{
+				Method:      m,
+				GatewayPath: path,
+				Scope:       gateway.ScopeSubtreeMethod,
+				Set: func(v gateway.Verdict) {
+					if r.GatewayMethods == nil {
+						r.GatewayMethods = map[string]classic.GatewayVerdict{}
+					}
+					r.GatewayMethods[m] = classic.GatewayVerdict{
+						Level: string(v.Level), Basis: string(v.Basis), Detail: v.Detail,
+					}
+				},
+			})
+		}
+		ops = append(ops, gateway.Op{
+			Method:      http.MethodGet,
+			GatewayPath: path,
+			Scope:       gateway.ScopeExact,
+			Set: func(v gateway.Verdict) {
+				r.GatewayList = classic.GatewayVerdict{
+					Level: string(v.Level), Basis: string(v.Basis), Detail: v.Detail,
+				}
+			},
+		})
+	}
+	return ops
+}
+
+// orUnknown renders an empty provenance string as something a reader can act on.
+func orUnknown(s string) string {
+	if s == "" {
+		return "(revision not recorded)"
+	}
+	return s
+}
+
+// classicManifestEntries adapts the parsed Classic manifest to the subset
+// generator/classicschema needs, so that package stays free of the manifest
+// format and generator/classic stays its only reader.
+func classicManifestEntries(resources []classic.ClassicResource) []classicschema.ManifestEntry {
+	entries := make([]classicschema.ManifestEntry, 0, len(resources))
+	for _, r := range resources {
+		// Only write-capable resources are bound. The artifact describes request
+		// bodies, and a resource with no create or update has none — asking for
+		// one binds the wrong schema rather than nothing, because a read-only
+		// Classic resource's "detail" endpoint can answer with a collection:
+		// /accounts and /patchavailabletitles/sourceid/{id} resolve to the plural
+		// `accounts` and `patch_available_titles` schemas, which are list
+		// wrappers and not the shape of anything a caller would send.
+		if !r.HasOperation("create") && !r.HasOperation("update") {
+			continue
+		}
+		entries = append(entries, classicschema.ManifestEntry{
+			Name:     r.Name,
+			Path:     r.Path,
+			Singular: r.Singular,
+			IDPath:   r.IDPath,
+		})
+	}
+	return entries
+}

@@ -17,9 +17,10 @@ import (
 // NewSelfServicePlusCmd creates the self-service-plus command group
 func NewSelfServicePlusCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "self-service-plus",
-		Short: "Manage self-service-plus",
-		Long:  `Manage self-service-plus in Jamf Pro.`,
+		Use:         "self-service-plus",
+		Short:       "Manage self-service-plus",
+		Long:        `Manage self-service-plus in Jamf Pro.`,
+		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
 	cmd.AddCommand(newSelfServicePlusGetCmd(ctx))
@@ -41,7 +42,7 @@ func newSelfServicePlusGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get self-service-plus and output as YAML
   jamf-cli pro self-service-plus get -o yaml`,
-		Annotations: map[string]string{"jamf:privileges": "Read Self Service"},
+		Annotations: map[string]string{"jamf:privileges": "Read Self Service", "jamf:api": "pro", "jamf:gateway-privileges": "self-service:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -86,7 +87,7 @@ func newSelfServicePlusUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Update from a file
   jamf-cli pro self-service-plus update --from-file self-service-plus.json`,
-		Annotations: map[string]string{"jamf:privileges": "Update Self Service"},
+		Annotations: map[string]string{"jamf:privileges": "Update Self Service", "jamf:api": "pro", "jamf:gateway-privileges": "self-service:update"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -180,9 +181,10 @@ func newSelfServicePlusEnabledCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{
-		Use:   "enabled",
-		Short: "Determines if Self Service Plus feature toggle is enabled.",
-		Long:  "This endpoint is used to determine if the Self Service Plus feature toggle is enabled.",
+		Use:         "enabled",
+		Short:       "Determines if Self Service Plus feature toggle is enabled.",
+		Long:        "This endpoint is used to determine if the Self Service Plus feature toggle is enabled.",
+		Annotations: map[string]string{"jamf:api": "pro"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

@@ -19,9 +19,10 @@ import (
 // NewJamfProtectPlansCmd creates the jamf-protect-plans command group
 func NewJamfProtectPlansCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "jamf-protect-plans",
-		Short: "Manage jamf-protect-plans",
-		Long:  `Manage jamf-protect-plans in Jamf Pro.`,
+		Use:         "jamf-protect-plans",
+		Short:       "Manage jamf-protect-plans",
+		Long:        `Manage jamf-protect-plans in Jamf Pro.`,
+		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
 	cmd.AddCommand(newJamfProtectPlansListCmd(ctx))
@@ -49,7 +50,7 @@ func newJamfProtectPlansListCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # List jamf-protect-plans and extract IDs
   jamf-cli pro jamf-protect-plans list --field id`,
-		Annotations: map[string]string{"jamf:privileges": "Read Jamf Protect Deployments"},
+		Annotations: map[string]string{"jamf:privileges": "Read Jamf Protect Deployments", "jamf:api": "pro", "jamf:gateway-privileges": "jamf-protect-deployments:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -78,7 +79,10 @@ func newJamfProtectPlansListCmd(ctx *registry.CLIContext) *cobra.Command {
 
 			// Auto-pagination: fetch all pages when --all is set and --page was not manually specified
 			if flagAll && flagPage == 0 {
-				var allResults []json.RawMessage
+				// Initialised empty, not nil — a nil slice marshals to "null", so
+				// "list --all" on an empty collection used to answer "null" where
+				// the single-page path answers "[]".
+				allResults := []json.RawMessage{}
 				prog := ctx.Output.PaginationProgress()
 				defer prog.Stop()
 				reqCtx = spinner.WithSuppressed(reqCtx)
@@ -191,7 +195,7 @@ func newJamfProtectPlansSyncCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:         "sync",
 		Short:       "Sync Plans with Jamf Protect",
 		Long:        "Sync Plans with Jamf Protect. Configuration profiles associated with new plans will be imported to Jamf Pro.",
-		Annotations: map[string]string{"jamf:privileges": "Read Jamf Protect Settings"},
+		Annotations: map[string]string{"jamf:privileges": "Read Jamf Protect Settings", "jamf:api": "pro", "jamf:gateway-privileges": "jamf-protect-deployments:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

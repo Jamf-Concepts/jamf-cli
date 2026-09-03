@@ -12,9 +12,10 @@ import (
 // NewCountryCodesCmd creates the country-codes command group
 func NewCountryCodesCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "country-codes",
-		Short: "Manage country-codes",
-		Long:  `Manage country-codes in Jamf Pro.`,
+		Use:         "country-codes",
+		Short:       "Manage country-codes",
+		Long:        `Manage country-codes in Jamf Pro.`,
+		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
 	cmd.AddCommand(newCountryCodesListCmd(ctx))
@@ -34,6 +35,7 @@ func newCountryCodesListCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # List country-codes and extract IDs
   jamf-cli pro country-codes list --field id`,
+		Annotations: map[string]string{"jamf:api": "pro"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

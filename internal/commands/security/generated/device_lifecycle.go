@@ -19,8 +19,9 @@ import (
 // Security Cloud resource. Wire it into the "security" product command via AddCommand.
 func NewDeviceLifecycleCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "device-lifecycle",
-		Short: "Manage device-lifecycle (Jamf Security Cloud)",
+		Use:         "device-lifecycle",
+		Short:       "Manage device-lifecycle (Security Cloud · Radar API)",
+		Annotations: map[string]string{"jamf:api": "radar"},
 	}
 	cmd.AddCommand(newDeviceLifecyclePurgeCmd(cliCtx))
 	return cmd
@@ -34,7 +35,7 @@ func newDeviceLifecyclePurgeCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "purge",
 		Short:       "Purge devices from Jamf Security Cloud",
-		Annotations: map[string]string{"jamf:destructive": "true"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:api": "radar"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if scaffoldFlag {
 				// Scaffold prints raw JSON regardless of -o, so the output
@@ -55,6 +56,21 @@ func newDeviceLifecyclePurgeCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if body == nil {
 				return fmt.Errorf("purge requires --file or --set specifying a scope; refusing an unscoped purge")
 			}
+			// --dry-run previewed nothing before: the Pro client is wrapped by a
+			// dry-run decorator, this one is not, so a risk override or a
+			// device-lifecycle purge executed for real under -n while the flag
+			// advertised "preview changes without executing".
+			//
+			// Ahead of the confirmation, not after it. ConfirmAction errors when
+			// --yes is absent and stdin is not a terminal, so previewing a purge
+			// in CI used to require pre-authorising the real one — and the day -n
+			// falls off that command line (or out of JAMF_CLI_ARGS) the purge
+			// runs with its confirmation already suppressed. The unscoped-body
+			// refusal above stays ahead of both: it is a validation, and there is
+			// nothing worth previewing about a purge with no scope.
+			if cliCtx.DryRun {
+				return security.ReportDryRun(cmd.ErrOrStderr(), "POST", path, body)
+			}
 			if err := security.ConfirmAction(fmt.Sprintf("purge for customer %q", customerID), "device-lifecycle", yes); err != nil {
 				return err
 			}
@@ -72,7 +88,7 @@ func newDeviceLifecyclePurgeCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			return cliCtx.Output.PrintRaw(b)
 		},
 	}
-	cmd.Flags().StringVar(&bodyFile, "file", "", "Path to JSON file containing the request body")
+	cmd.Flags().StringVar(&bodyFile, "file", "", "Path to a JSON or YAML file containing the request body")
 	cmd.Flags().StringArrayVar(&setFlags, "set", nil, "Override body values (key=value, repeatable, supports nested.keys)")
 	cmd.Flags().BoolVar(&scaffoldFlag, "scaffold", false, "Print an example request body and exit")
 	cmd.Flags().BoolVar(&yes, "yes", false, "Skip confirmation prompt")

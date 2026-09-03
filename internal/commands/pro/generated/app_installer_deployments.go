@@ -21,9 +21,10 @@ import (
 // NewAppInstallerDeploymentsCmd creates the app-installer-deployments command group
 func NewAppInstallerDeploymentsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "app-installer-deployments",
-		Short: "Manage app-installer-deployments",
-		Long:  `Manage app-installer-deployments in Jamf Pro.`,
+		Use:         "app-installer-deployments",
+		Short:       "Manage app-installer-deployments",
+		Long:        `Manage app-installer-deployments in Jamf Pro.`,
+		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
 	cmd.AddCommand(newAppInstallerDeploymentsListCmd(ctx))
@@ -48,20 +49,22 @@ func newAppInstallerDeploymentsListCmd(ctx *registry.CLIContext) *cobra.Command 
 	var (
 		flagPage     int
 		flagPageSize int
+		flagSort     []string
+		flagFilter   string
 		flagAll      bool
 		flagLimit    int
 	)
 
 	cmd := &cobra.Command{
 		Use:   "list",
-		Short: "Get all App Installer deployments",
-		Long:  "Retrieves all App Installer deployment configurations (enabled or not). Results are paginated; the response carries the unfiltered totalCount so callers can page through the full set.",
+		Short: "Read App Installer deployments summary",
+		Long:  "Read App Installer deployments summary.  **Required Permissions:** 'applications:read'",
 		Example: `  # List all app-installer-deployments
   jamf-cli pro app-installer-deployments list
 
   # List app-installer-deployments and extract IDs
   jamf-cli pro app-installer-deployments list --field id`,
-		Annotations: map[string]string{"jamf:privileges": "Read App Installers"},
+		Annotations: map[string]string{"jamf:privileges": "Read Mac Applications", "jamf:api": "pro", "jamf:gateway-privileges": "applications:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -76,13 +79,24 @@ func newAppInstallerDeploymentsListCmd(ctx *registry.CLIContext) *cobra.Command 
 			if flagPageSize != 0 {
 				queryParts = append(queryParts, fmt.Sprintf("page-size=%d", flagPageSize))
 			}
+			if len(flagSort) > 0 {
+				for _, v := range flagSort {
+					queryParts = append(queryParts, "sort="+url.QueryEscape(fmt.Sprintf("%v", v)))
+				}
+			}
+			if flagFilter != "" {
+				queryParts = append(queryParts, "filter="+url.QueryEscape(flagFilter))
+			}
 			if len(queryParts) > 0 {
 				path = path + "?" + strings.Join(queryParts, "&")
 			}
 
 			// Auto-pagination: fetch all pages when --all is set and --page was not manually specified
 			if flagAll && flagPage == 0 {
-				var allResults []json.RawMessage
+				// Initialised empty, not nil — a nil slice marshals to "null", so
+				// "list --all" on an empty collection used to answer "null" where
+				// the single-page path answers "[]".
+				allResults := []json.RawMessage{}
 				prog := ctx.Output.PaginationProgress()
 				defer prog.Stop()
 				reqCtx = spinner.WithSuppressed(reqCtx)
@@ -179,8 +193,10 @@ func newAppInstallerDeploymentsListCmd(ctx *registry.CLIContext) *cobra.Command 
 		},
 	}
 
-	cmd.Flags().IntVar(&flagPage, "page", 0, "Zero-based page index. Defaults to 0 when omitted.")
-	cmd.Flags().IntVar(&flagPageSize, "page-size", 100, "Number of results per page. Defaults to 100 when omitted.")
+	cmd.Flags().IntVar(&flagPage, "page", 0, "")
+	cmd.Flags().IntVar(&flagPageSize, "page-size", 100, "")
+	cmd.Flags().StringSliceVar(&flagSort, "sort", nil, "Sorting criteria in the format: property:asc/desc. Default sort is id:asc. Multiple sort criteria are supported and must be separated with a comma. Example: sort=name:desc")
+	cmd.Flags().StringVar(&flagFilter, "filter", "", "Query in the RSQL format, allowing to filter app titles collection. Default filter is empty query - returning all results for the requested page. Fields allowed in the query: 'id', 'name', 'app.deployedVersion', 'app.bundleId', 'deploymentType', 'updateBehavior', 'app.versionAction'. Example: name==\"*appInstaller*\"")
 	cmd.Flags().BoolVar(&flagAll, "all", true, "Fetch all pages (set --all=false for single page)")
 	cmd.Flags().IntVar(&flagLimit, "limit", 0, "Maximum total results to return (0 = unlimited)")
 	return cmd
@@ -193,8 +209,8 @@ func newAppInstallerDeploymentsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "get [<id>]",
-		Short: "Get an App Installer deployment by ID",
-		Long:  "Retrieves a specific App Installer deployment by its ID",
+		Short: "Get details about App Installer deployment.",
+		Long:  "Get details about App Installer deployment.  **Required Permissions:** 'applications:read'",
 		Example: `  # Get a app-installer-deployment by ID
   jamf-cli pro app-installer-deployments get 1
 
@@ -203,7 +219,7 @@ func newAppInstallerDeploymentsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a app-installer-deployment and output as YAML
   jamf-cli pro app-installer-deployments get 1 -o yaml`,
-		Annotations: map[string]string{"jamf:privileges": "Read App Installers"},
+		Annotations: map[string]string{"jamf:privileges": "Read Mac Applications", "jamf:api": "pro", "jamf:gateway-privileges": "applications:read"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -256,8 +272,8 @@ func newAppInstallerDeploymentsCreateCmd(ctx *registry.CLIContext) *cobra.Comman
 
 	cmd := &cobra.Command{
 		Use:   "create",
-		Short: "Create an App Installer deployment",
-		Long:  "Creates a new App Installer deployment configuration",
+		Short: "Create a new App Installer deployment",
+		Long:  "Create a new App Installer deployment. The deployment has a specific app version and might be scoped to a smart group.  **Required Permissions:** 'applications:create'",
 		Example: `  # Show the JSON template for creating a app-installer-deployment
   jamf-cli pro app-installer-deployments create --scaffold
 
@@ -266,44 +282,39 @@ func newAppInstallerDeploymentsCreateCmd(ctx *registry.CLIContext) *cobra.Comman
 
   # Get a app-installer-deployment, modify it, and create a copy
   jamf-cli pro app-installer-deployments get 1 -o json | jq '.name = "Copy"' | jamf-cli pro app-installer-deployments create`,
-		Annotations: map[string]string{"jamf:privileges": "Create App Installers"},
+		Annotations: map[string]string{"jamf:privileges": "Create Mac Applications", "jamf:api": "pro", "jamf:gateway-privileges": "applications:create"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
 				return printScaffoldOutput(`{
-  "appTitleId": "",
-  "categoryId": "",
-  "deploymentType": "",
+  "appTitleId": "2",
+  "categoryId": "1",
+  "deploymentType": "INSTALL_AUTOMATICALLY",
   "enabled": false,
   "installPredefinedConfigProfiles": false,
-  "name": "",
+  "name": "Jamf Connect for IT",
   "notificationSettings": {
-    "completeMessage": "",
-    "deadline": 0,
-    "deadlineMessage": "",
-    "notificationInterval": 0,
-    "notificationMessage": "",
-    "quitDelay": 0,
-    "relaunch": false,
-    "suppress": false
+    "completeMessage": null,
+    "deadline": null,
+    "deadlineMessage": null,
+    "notificationInterval": null,
+    "notificationMessage": null,
+    "quitDelay": null,
+    "relaunch": null,
+    "suppress": null
   },
   "selfServiceSettings": {
-    "categories": [
-      {
-        "featured": false,
-        "id": ""
-      }
-    ],
-    "description": "",
+    "categories": null,
+    "description": null,
     "forceViewDescription": false,
     "includeInComplianceCategory": false,
     "includeInFeaturedCategory": false
   },
-  "siteId": "",
-  "smartGroupId": "",
+  "siteId": "1",
+  "smartGroupId": "1",
   "triggerAdminNotifications": false,
-  "updateBehavior": ""
+  "updateBehavior": "AUTOMATIC"
 }`, ctx.Output.Format())
 			}
 
@@ -358,8 +369,8 @@ func newAppInstallerDeploymentsUpdateCmd(ctx *registry.CLIContext) *cobra.Comman
 
 	cmd := &cobra.Command{
 		Use:   "update [<id>]",
-		Short: "Update an App Installer deployment",
-		Long:  "Updates an existing App Installer deployment configuration\n\nIdentify the resource by ID (positional arg), --name.\n\nUse --set KEY=VALUE to update individual fields (repeatable). The current resource is fetched, your changes are merged in, read-only fields are dropped, and the whole record is written back. Omitted fields keep their current values.\n\nAvailable fields:\n  appTitleId                                   string\n  categoryId                                   string\n  deploymentType                               string\n  enabled                                      boolean\n  installPredefinedConfigProfiles              boolean\n  name                                         string\n  notificationSettings.completeMessage         string\n  notificationSettings.deadline                integer\n  notificationSettings.deadlineMessage         string\n  notificationSettings.notificationInterval    integer\n  notificationSettings.notificationMessage     string\n  notificationSettings.quitDelay               integer\n  notificationSettings.relaunch                boolean\n  notificationSettings.suppress                boolean\n  selfServiceSettings.description              string\n  selfServiceSettings.forceViewDescription     boolean\n  selfServiceSettings.includeInComplianceCategory boolean\n  selfServiceSettings.includeInFeaturedCategory boolean\n  siteId                                       string\n  smartGroupId                                 string\n  triggerAdminNotifications                    boolean\n  updateBehavior                               string\n\nArray and object fields accept a JSON value (e.g. --set field='[\"a\",\"b\"]'):\n  notificationSettings                         object\n  selfServiceSettings                          object\n  selfServiceSettings.categories               array\n\nWithout --set, pipe a full JSON document to stdin to replace the resource entirely.",
+		Short: "Updates App Installer deployment.",
+		Long:  "Updates App Installer deployment.\n\n**Required Permissions:** 'applications:update'\n\nIdentify the resource by ID (positional arg), --name.\n\nUse --set KEY=VALUE to update individual fields (repeatable). The current resource is fetched, your changes are merged in, read-only fields are dropped, and the whole record is written back. Omitted fields keep their current values.\n\nAvailable fields:\n  appTitleId                                   string\n  categoryId                                   string\n  deploymentType                               string\n  enabled                                      boolean\n  installPredefinedConfigProfiles              boolean\n  name                                         string\n  notificationSettings.completeMessage         string\n  notificationSettings.deadline                integer\n  notificationSettings.deadlineMessage         string\n  notificationSettings.notificationInterval    integer\n  notificationSettings.notificationMessage     string\n  notificationSettings.quitDelay               integer\n  notificationSettings.relaunch                boolean\n  notificationSettings.suppress                boolean\n  selfServiceSettings.description              string\n  selfServiceSettings.forceViewDescription     boolean\n  selfServiceSettings.includeInComplianceCategory boolean\n  selfServiceSettings.includeInFeaturedCategory boolean\n  siteId                                       string\n  smartGroupId                                 string\n  triggerAdminNotifications                    boolean\n  updateBehavior                               string\n\nArray and object fields accept a JSON value (e.g. --set field='[\"a\",\"b\"]'):\n  notificationSettings                         object\n  selfServiceSettings                          object\n  selfServiceSettings.categories               array\n\nWithout --set, pipe a full JSON document to stdin to replace the resource entirely.",
 		Example: `  # Update individual fields (fetch-merge-replace)
   jamf-cli pro app-installer-deployments update 1 --set field=value
 
@@ -371,45 +382,40 @@ func newAppInstallerDeploymentsUpdateCmd(ctx *registry.CLIContext) *cobra.Comman
 
   # Get a app-installer-deployment, modify, and update
   jamf-cli pro app-installer-deployments get 1 -o json | jq '.name = "New Name"' | jamf-cli pro app-installer-deployments update 1`,
-		Annotations: map[string]string{"jamf:privileges": "Update App Installers"},
+		Annotations: map[string]string{"jamf:privileges": "Update Mac Applications", "jamf:api": "pro", "jamf:gateway-privileges": "applications:update"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
 				return printScaffoldOutput(`{
-  "appTitleId": "",
-  "categoryId": "",
-  "deploymentType": "",
+  "appTitleId": "2",
+  "categoryId": "1",
+  "deploymentType": "INSTALL_AUTOMATICALLY",
   "enabled": false,
   "installPredefinedConfigProfiles": false,
-  "name": "",
+  "name": "Jamf Connect for IT",
   "notificationSettings": {
-    "completeMessage": "",
-    "deadline": 0,
-    "deadlineMessage": "",
-    "notificationInterval": 0,
-    "notificationMessage": "",
-    "quitDelay": 0,
-    "relaunch": false,
-    "suppress": false
+    "completeMessage": null,
+    "deadline": null,
+    "deadlineMessage": null,
+    "notificationInterval": null,
+    "notificationMessage": null,
+    "quitDelay": null,
+    "relaunch": null,
+    "suppress": null
   },
   "selfServiceSettings": {
-    "categories": [
-      {
-        "featured": false,
-        "id": ""
-      }
-    ],
-    "description": "",
+    "categories": null,
+    "description": null,
     "forceViewDescription": false,
     "includeInComplianceCategory": false,
     "includeInFeaturedCategory": false
   },
-  "siteId": "",
-  "smartGroupId": "",
+  "siteId": "1",
+  "smartGroupId": "1",
   "triggerAdminNotifications": false,
-  "updateBehavior": ""
+  "updateBehavior": "AUTOMATIC"
 }`, ctx.Output.Format())
 			}
 
@@ -522,7 +528,7 @@ func newAppInstallerDeploymentsDeleteCmd(ctx *registry.CLIContext) *cobra.Comman
 	cmd := &cobra.Command{
 		Use:   "delete [<id>]",
 		Short: "Delete an App Installer deployment",
-		Long:  "Deletes an App Installer deployment by ID",
+		Long:  "Delete an new App Installer deployment. The given application is left installed on the end user’s computer. Future updates won’t be deployed to the selected Smart Group.  **Required Permissions:** 'applications:delete'",
 		Example: `  # Delete a app-installer-deployment (with confirmation)
   jamf-cli pro app-installer-deployments delete 1
 
@@ -531,7 +537,7 @@ func newAppInstallerDeploymentsDeleteCmd(ctx *registry.CLIContext) *cobra.Comman
 
   # Delete without confirmation prompt
   jamf-cli pro app-installer-deployments delete 1 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Delete App Installers"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Delete Mac Applications", "jamf:api": "pro", "jamf:gateway-privileges": "applications:delete"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -736,14 +742,14 @@ func newAppInstallerDeploymentsHistoryCmd(ctx *registry.CLIContext) *cobra.Comma
 
 	cmd := &cobra.Command{
 		Use:   "history [<id>]",
-		Short: "Get history for an App Installer deployment",
-		Long:  "Retrieves the object history (notes and change details) for a deployment. Results are paginated.",
+		Short: "Get specified App Installer deployment history object",
+		Long:  "Get specified App Installer deployment history object  **Required Permissions:** 'applications:read'",
 		Example: `  # Get history for a app-installer-deployment by ID
   jamf-cli pro app-installer-deployments history 1
 
   # Get history by name
   jamf-cli pro app-installer-deployments history --name "Example"`,
-		Annotations: map[string]string{"jamf:privileges": "Read App Installers"},
+		Annotations: map[string]string{"jamf:privileges": "Read Mac Applications", "jamf:api": "pro", "jamf:gateway-privileges": "applications:read"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -789,7 +795,10 @@ func newAppInstallerDeploymentsHistoryCmd(ctx *registry.CLIContext) *cobra.Comma
 
 			// Auto-pagination: fetch all pages when --all is set and --page was not manually specified
 			if flagAll && flagPage == 0 {
-				var allResults []json.RawMessage
+				// Initialised empty, not nil — a nil slice marshals to "null", so
+				// "list --all" on an empty collection used to answer "null" where
+				// the single-page path answers "[]".
+				allResults := []json.RawMessage{}
 				prog := ctx.Output.PaginationProgress()
 				defer prog.Stop()
 				reqCtx = spinner.WithSuppressed(reqCtx)
@@ -887,10 +896,10 @@ func newAppInstallerDeploymentsHistoryCmd(ctx *registry.CLIContext) *cobra.Comma
 		},
 	}
 
-	cmd.Flags().IntVar(&flagPage, "page", 0, "Zero-based page index. Defaults to 0 when omitted.")
-	cmd.Flags().IntVar(&flagPageSize, "page-size", 100, "Number of results per page. Defaults to 100 when omitted.")
-	cmd.Flags().StringSliceVar(&flagSort, "sort", nil, "Sorting criteria in the format: property:asc/desc. Default sort is date:desc.")
-	cmd.Flags().StringVar(&flagFilter, "filter", "", "RSQL filter over history fields: username, date, note, details.")
+	cmd.Flags().IntVar(&flagPage, "page", 0, "")
+	cmd.Flags().IntVar(&flagPageSize, "page-size", 100, "")
+	cmd.Flags().StringSliceVar(&flagSort, "sort", nil, "Sorting criteria in the format: property:asc/desc. Default sort is date:desc. Multiple sort criteria are supported and must be separated with a comma. Example: sort=date:desc,name:asc ")
+	cmd.Flags().StringVar(&flagFilter, "filter", "", "Query in the RSQL format, allowing to filter history notes collection. Default filter is empty query - returning all results for the requested page. Fields allowed in the query: username, date, note, details. This param can be combined with paging and sorting. Example: filter=username!=admin and details==*disabled* and date<2019-12-15")
 	cmd.Flags().BoolVar(&flagAll, "all", true, "Fetch all pages (set --all=false for single page)")
 	cmd.Flags().IntVar(&flagLimit, "limit", 0, "Maximum total results to return (0 = unlimited)")
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up app-installer-deployment by name")
@@ -906,16 +915,16 @@ func newAppInstallerDeploymentsAddHistoryNoteCmd(ctx *registry.CLIContext) *cobr
 
 	cmd := &cobra.Command{
 		Use:         "add-history-note [<id>]",
-		Short:       "Add a history note to an App Installer deployment",
-		Long:        "Adds a note to the deployment's object history",
-		Annotations: map[string]string{"jamf:privileges": "Update App Installers"},
+		Short:       "Add specified App Installer deployment history object notes",
+		Long:        "Adds specified App Installer deployment history object notes  **Required Permissions:** 'applications:update'",
+		Annotations: map[string]string{"jamf:privileges": "Update Mac Applications", "jamf:api": "pro", "jamf:gateway-privileges": "applications:update"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
 				return printScaffoldOutput(`{
-  "note": ""
+  "note": "A generic note can sometimes be useful, but generally not."
 }`, ctx.Output.Format())
 			}
 
@@ -980,25 +989,73 @@ func newAppInstallerDeploymentsAddHistoryNoteCmd(ctx *registry.CLIContext) *cobr
 
 func newAppInstallerDeploymentsExportCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
-		flagSaveTo string
+		flagExportFields []string
+		flagExportLabels []string
+		flagPage         int
+		flagPageSize     int
+		flagSort         []string
+		flagFilter       string
+		flagScaffold     bool
+		flagSaveTo       string
 	)
 
 	cmd := &cobra.Command{
 		Use:   "export",
-		Short: "Export App Installer deployments",
-		Long:  "Exports all App Installer deployment configurations as CSV.",
+		Short: "Export App Installer deployment summary",
+		Long:  "Export App Installer deployment summary  **Required Permissions:** 'applications:read'",
 		Example: `  # Export app-installer-deployments to CSV
   jamf-cli pro app-installer-deployments export --out-file app-installer-deployments.csv`,
-		Annotations: map[string]string{"jamf:privileges": "Read App Installers"},
+		Annotations: map[string]string{"jamf:privileges": "Read Mac Applications", "jamf:api": "pro", "jamf:gateway-privileges": "applications:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			reqCtx = registry.WithAccept(reqCtx, "*/*")
+
+			if flagScaffold {
+				return printScaffoldOutput(`{
+  "fields": [
+    {
+      "fieldLabelOverride": "identiteit",
+      "fieldName": "id"
+    }
+  ],
+  "filter": "id\u003e=100",
+  "page": 0,
+  "pageSize": 100,
+  "sort": [
+    "id:asc"
+  ]
+}`, ctx.Output.Format())
+			}
 
 			// Build request path
 			path := "/v1/app-installers/deployments/export"
 
 			// Build query string
 			var queryParts []string
+			if len(flagExportFields) > 0 {
+				for _, v := range flagExportFields {
+					queryParts = append(queryParts, "export-fields="+url.QueryEscape(fmt.Sprintf("%v", v)))
+				}
+			}
+			if len(flagExportLabels) > 0 {
+				for _, v := range flagExportLabels {
+					queryParts = append(queryParts, "export-labels="+url.QueryEscape(fmt.Sprintf("%v", v)))
+				}
+			}
+			if flagPage != 0 {
+				queryParts = append(queryParts, fmt.Sprintf("page=%d", flagPage))
+			}
+			if flagPageSize != 0 {
+				queryParts = append(queryParts, fmt.Sprintf("page-size=%d", flagPageSize))
+			}
+			if len(flagSort) > 0 {
+				for _, v := range flagSort {
+					queryParts = append(queryParts, "sort="+url.QueryEscape(fmt.Sprintf("%v", v)))
+				}
+			}
+			if flagFilter != "" {
+				queryParts = append(queryParts, "filter="+url.QueryEscape(flagFilter))
+			}
 			if len(queryParts) > 0 {
 				path = path + "?" + strings.Join(queryParts, "&")
 			}
@@ -1045,20 +1102,33 @@ func newAppInstallerDeploymentsExportCmd(ctx *registry.CLIContext) *cobra.Comman
 		},
 	}
 
+	cmd.Flags().StringSliceVar(&flagExportFields, "export-fields", nil, "Export fields parameter, used to change default order or ignore some of the response properties. Default is empty array, which means that all fields of the response entity will be serialized. Example: export-fields=id,username")
+	cmd.Flags().StringSliceVar(&flagExportLabels, "export-labels", nil, "Export labels parameter, used to customize fieldnames/columns in the exported file. Default is empty array, which means that response properties names will be used. Number of the provided labels must match the number of export-fields Example: export-labels=identifier,name with matching: export-fields=id,username")
+	cmd.Flags().IntVar(&flagPage, "page", 0, "")
+	cmd.Flags().IntVar(&flagPageSize, "page-size", 100, "")
+	cmd.Flags().StringSliceVar(&flagSort, "sort", nil, "Sorting criteria in the format: property:asc/desc. Default sort is id:desc. Multiple sort criteria are supported and must be separated with a comma. Example: sort=id:desc,name:asc ")
+	cmd.Flags().StringVar(&flagFilter, "filter", "", "Query in the RSQL format, allowing to filter history notes collection. Default filter is empty query - returning all results for the requested page. Fields allowed in the query: 'id', 'name', 'app.deployedVersion', 'bundleId', 'deploymentType', 'updateBehavior', 'app.versionAction'. This param can be combined with paging and sorting. Example: name==\"*appInstaller*\"")
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 	cmd.Flags().StringVarP(&flagSaveTo, "save-to", "O", "", "Save output to file instead of stdout")
 	return cmd
 }
 
 func newAppInstallerDeploymentsComputersCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
-		flagName string
+		flagPage     int
+		flagPageSize int
+		flagSort     []string
+		flagFilter   string
+		flagAll      bool
+		flagLimit    int
+		flagName     string
 	)
 
 	cmd := &cobra.Command{
 		Use:         "computers [<id>]",
-		Short:       "Get computers for an App Installer deployment",
-		Long:        "Retrieves per-computer installation status for a deployment",
-		Annotations: map[string]string{"jamf:privileges": "Read App Installers"},
+		Short:       "Get app Installers deployment computers.",
+		Long:        "Get a list of all computers assigned to specific App Installers deployment together with its name and overall installation status.  **Required Permissions:** 'applications:read', 'devices:read'",
+		Annotations: map[string]string{"jamf:privileges": "Read Mac Applications,Read Computers", "jamf:api": "pro", "jamf:gateway-privileges": "applications:read,devices:read"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -1084,8 +1154,97 @@ func newAppInstallerDeploymentsComputersCmd(ctx *registry.CLIContext) *cobra.Com
 
 			// Build query string
 			var queryParts []string
+			if flagPage != 0 {
+				queryParts = append(queryParts, fmt.Sprintf("page=%d", flagPage))
+			}
+			if flagPageSize != 0 {
+				queryParts = append(queryParts, fmt.Sprintf("page-size=%d", flagPageSize))
+			}
+			if len(flagSort) > 0 {
+				for _, v := range flagSort {
+					queryParts = append(queryParts, "sort="+url.QueryEscape(fmt.Sprintf("%v", v)))
+				}
+			}
+			if flagFilter != "" {
+				queryParts = append(queryParts, "filter="+url.QueryEscape(flagFilter))
+			}
 			if len(queryParts) > 0 {
 				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Auto-pagination: fetch all pages when --all is set and --page was not manually specified
+			if flagAll && flagPage == 0 {
+				// Initialised empty, not nil — a nil slice marshals to "null", so
+				// "list --all" on an empty collection used to answer "null" where
+				// the single-page path answers "[]".
+				allResults := []json.RawMessage{}
+				prog := ctx.Output.PaginationProgress()
+				defer prog.Stop()
+				reqCtx = spinner.WithSuppressed(reqCtx)
+				pageNum := 0
+				pageSize := 100
+
+				for {
+					// Build page-specific query
+					pagePath := "/v1/app-installers/deployments/{id}/computers"
+					pagePath = strings.Replace(pagePath, "{id}", url.PathEscape(resolvedID), 1)
+					var pageQuery []string
+					// Carry forward non-pagination query params
+					for _, qp := range queryParts {
+						if !strings.HasPrefix(qp, "page=") && !strings.HasPrefix(qp, "page-size=") && !strings.HasPrefix(qp, "pagesize=") {
+							pageQuery = append(pageQuery, qp)
+						}
+					}
+					pageQuery = append(pageQuery, fmt.Sprintf("page=%d", pageNum))
+					pageQuery = append(pageQuery, fmt.Sprintf("page-size=%d", pageSize))
+					pagePath = pagePath + "?" + strings.Join(pageQuery, "&")
+
+					resp, err := ctx.Client.Do(reqCtx, "GET", pagePath, nil)
+					if err != nil {
+						return err
+					}
+
+					body, err := io.ReadAll(resp.Body)
+					resp.Body.Close()
+					if err != nil {
+						return err
+					}
+
+					// Parse pagination response: {"totalCount": N, "results": [...]}
+					var pageResp struct {
+						TotalCount int               `json:"totalCount"`
+						Results    []json.RawMessage `json:"results"`
+					}
+					if err := json.Unmarshal(body, &pageResp); err != nil {
+						// Not a paginated response; output as-is
+						return ctx.Output.PrintRaw(body)
+					}
+
+					allResults = append(allResults, pageResp.Results...)
+					prog.Update(len(allResults), pageResp.TotalCount)
+
+					// Check limit
+					if flagLimit > 0 && len(allResults) >= flagLimit {
+						allResults = allResults[:flagLimit]
+						break
+					}
+
+					// Check if we've fetched everything
+					if len(pageResp.Results) < pageSize || len(allResults) >= pageResp.TotalCount {
+						break
+					}
+
+					pageNum++
+				}
+
+				prog.Stop()
+
+				// Output combined results as JSON array
+				combined, err := json.MarshalIndent(allResults, "", "  ")
+				if err != nil {
+					return err
+				}
+				return ctx.Output.PrintRaw(combined)
 			}
 
 			// Make request
@@ -1095,10 +1254,33 @@ func newAppInstallerDeploymentsComputersCmd(ctx *registry.CLIContext) *cobra.Com
 			}
 			defer resp.Body.Close()
 
+			if ctx.Output.Format() == "ndjson" {
+				ndjsonBody, ndjsonErr := io.ReadAll(resp.Body)
+				if ndjsonErr != nil {
+					return ndjsonErr
+				}
+				var ndjsonWrap struct {
+					Results []json.RawMessage `json:"results"`
+				}
+				if err := json.Unmarshal(ndjsonBody, &ndjsonWrap); err == nil && ndjsonWrap.Results != nil {
+					arr, marshalErr := json.Marshal(ndjsonWrap.Results)
+					if marshalErr != nil {
+						return marshalErr
+					}
+					return ctx.Output.PrintRaw(arr)
+				}
+				return ctx.Output.PrintRaw(ndjsonBody)
+			}
 			return ctx.Output.PrintResponse(resp)
 		},
 	}
 
+	cmd.Flags().IntVar(&flagPage, "page", 0, "")
+	cmd.Flags().IntVar(&flagPageSize, "page-size", 100, "")
+	cmd.Flags().StringSliceVar(&flagSort, "sort", nil, "Sorting criteria in the format: property:asc/desc. Default sort is id:asc. Multiple sort criteria are supported and must be separated with a comma. Example: sort=computerName:desc,status:asc")
+	cmd.Flags().StringVar(&flagFilter, "filter", "", "Query in the RSQL format, allowing to filter deployment computers collection. Default filter is empty query - returning all results for the requested page. Fields allowed in the query: computerName, status. Example: computerName==\"*mac*\"")
+	cmd.Flags().BoolVar(&flagAll, "all", true, "Fetch all pages (set --all=false for single page)")
+	cmd.Flags().IntVar(&flagLimit, "limit", 0, "Maximum total results to return (0 = unlimited)")
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up app-installer-deployment by name")
 
 	return cmd
@@ -1113,9 +1295,9 @@ func newAppInstallerDeploymentsInstallationRetryCmd(ctx *registry.CLIContext) *c
 
 	cmd := &cobra.Command{
 		Use:         "installation-retry [<id>]",
-		Short:       "Retry all failed installations for a deployment",
-		Long:        "Issues a retry for all failed App Installer installations in a deployment",
-		Annotations: map[string]string{"jamf:privileges": "Update App Installers"},
+		Short:       "Retry installation for all failed computers in App Installer deployment.",
+		Long:        "Retry installation for all failed computers in App Installer deployment.  **Required Permissions:** 'applications:update'",
+		Annotations: map[string]string{"jamf:privileges": "Update Mac Applications", "jamf:api": "pro", "jamf:gateway-privileges": "applications:update"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -1216,9 +1398,9 @@ func newAppInstallerDeploymentsInstallationRetryByComputerIdCmd(ctx *registry.CL
 
 	cmd := &cobra.Command{
 		Use:         "installation-retry-by-computer-id <id> <computerId>",
-		Short:       "Retry a failed installation on a specific computer",
-		Long:        "Issues a retry for a failed App Installer installation on a single computer within a deployment",
-		Annotations: map[string]string{"jamf:privileges": "Update App Installers"},
+		Short:       "Retry installation for specified failed computer in App Installer deployment.",
+		Long:        "Retry installation for specified failed computer in App Installer deployment.  **Required Permissions:** 'applications:update'",
+		Annotations: map[string]string{"jamf:privileges": "Update Mac Applications", "jamf:api": "pro", "jamf:gateway-privileges": "applications:update"},
 		Args:        cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -1272,9 +1454,9 @@ func newAppInstallerDeploymentsInstallationSummaryCmd(ctx *registry.CLIContext) 
 
 	cmd := &cobra.Command{
 		Use:         "installation-summary [<id>]",
-		Short:       "Get installation summary for an App Installer deployment",
-		Long:        "Retrieves aggregate installation status counts for a deployment",
-		Annotations: map[string]string{"jamf:privileges": "Read App Installers"},
+		Short:       "Get installation summary for App Installer deployment.",
+		Long:        "Get installation summary for App Installer deployment.  **Required Permissions:** 'applications:read'",
+		Annotations: map[string]string{"jamf:privileges": "Read Mac Applications", "jamf:api": "pro", "jamf:gateway-privileges": "applications:read"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -1322,17 +1504,24 @@ func newAppInstallerDeploymentsInstallationSummaryCmd(ctx *registry.CLIContext) 
 
 func newAppInstallerDeploymentsVersionUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
-		flagName string
+		flagScaffold bool
+		flagName     string
 	)
 
 	cmd := &cobra.Command{
 		Use:         "version-update [<id>]",
-		Short:       "Update an App Installer deployment to the latest version",
-		Long:        "Triggers a version update for the deployment's app title",
-		Annotations: map[string]string{"jamf:privileges": "Update App Installers"},
+		Short:       "Update app title version for deployment.",
+		Long:        "Update app title version for deployment.  **Required Permissions:** 'applications:update'",
+		Annotations: map[string]string{"jamf:privileges": "Update Mac Applications", "jamf:api": "pro", "jamf:gateway-privileges": "applications:update"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
+
+			if flagScaffold {
+				return printScaffoldOutput(`{
+  "version": "89.0.2"
+}`, ctx.Output.Format())
+			}
 
 			// Resolve resource ID from positional arg, --name, or lookup flags
 			var resolvedID string
@@ -1387,6 +1576,7 @@ func newAppInstallerDeploymentsVersionUpdateCmd(ctx *registry.CLIContext) *cobra
 		},
 	}
 
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up app-installer-deployment by name")
 
 	return cmd
@@ -1401,8 +1591,9 @@ func newAppInstallerDeploymentsApplyCmd(ctx *registry.CLIContext) *cobra.Command
 	)
 
 	cmd := &cobra.Command{
-		Use:   "apply",
-		Short: "Create or replace a app-installer-deployment by name",
+		Use:         "apply",
+		Short:       "Create or replace a app-installer-deployment by name",
+		Annotations: map[string]string{"jamf:api": "pro", "jamf:gateway-privileges": "applications:create,applications:read,applications:update"},
 		Long: `Create or replace a app-installer-deployment. Reads JSON or YAML from --from-file or stdin.
 
 The name field in the input is used to check if the resource
@@ -1426,38 +1617,33 @@ If not, a new resource is created.`,
 			reqCtx := cmd.Context()
 			if flagScaffold {
 				return printScaffoldOutput(`{
-  "appTitleId": "",
-  "categoryId": "",
-  "deploymentType": "",
+  "appTitleId": "2",
+  "categoryId": "1",
+  "deploymentType": "INSTALL_AUTOMATICALLY",
   "enabled": false,
   "installPredefinedConfigProfiles": false,
-  "name": "",
+  "name": "Jamf Connect for IT",
   "notificationSettings": {
-    "completeMessage": "",
-    "deadline": 0,
-    "deadlineMessage": "",
-    "notificationInterval": 0,
-    "notificationMessage": "",
-    "quitDelay": 0,
-    "relaunch": false,
-    "suppress": false
+    "completeMessage": null,
+    "deadline": null,
+    "deadlineMessage": null,
+    "notificationInterval": null,
+    "notificationMessage": null,
+    "quitDelay": null,
+    "relaunch": null,
+    "suppress": null
   },
   "selfServiceSettings": {
-    "categories": [
-      {
-        "featured": false,
-        "id": ""
-      }
-    ],
-    "description": "",
+    "categories": null,
+    "description": null,
     "forceViewDescription": false,
     "includeInComplianceCategory": false,
     "includeInFeaturedCategory": false
   },
-  "siteId": "",
-  "smartGroupId": "",
+  "siteId": "1",
+  "smartGroupId": "1",
   "triggerAdminNotifications": false,
-  "updateBehavior": ""
+  "updateBehavior": "AUTOMATIC"
 }`, ctx.Output.Format())
 			}
 

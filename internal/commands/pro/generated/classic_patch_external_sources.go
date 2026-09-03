@@ -17,12 +17,41 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// bodySpecClassicPatchExternalSources is this resource's request-body contract, derived from
+// specs/classic/schemas.json at generation time. Empty when the Classic API spec
+// declares no schema for it, in which case create/update/apply read their body
+// from --from-file or stdin with no --scaffold and no --set.
+var bodySpecClassicPatchExternalSources = classicBodySpec{
+	Root:   "patch_external_source",
+	Schema: "patch_external_source",
+	Scaffold: `<patch_external_source>
+  <id>2</id>
+  <name>Company Currated Patches</name>
+  <certificate_validation_enabled>false</certificate_validation_enabled>
+  <enabled>false</enabled>
+  <host_name>patch.url.com/v1</host_name>
+  <port>0</port>
+  <ssl_enabled>false</ssl_enabled>
+</patch_external_source>
+`,
+	FieldTypes: map[string]string{
+		"certificate_validation_enabled": "boolean",
+		"enabled":                        "boolean",
+		"host_name":                      "string",
+		"id":                             "integer",
+		"name":                           "string",
+		"port":                           "integer",
+		"ssl_enabled":                    "boolean",
+	},
+}
+
 // NewClassicPatchExternalSourcesCmd creates the classic-patch-external-sources command group
 func NewClassicPatchExternalSourcesCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "classic-patch-external-sources",
-		Short: "Patch management external sources (Classic API)",
-		Long:  `Manage patch management external sources via the Jamf Pro Classic API (/JSSResource/).`,
+		Use:         "classic-patch-external-sources",
+		Short:       "Patch management external sources (Classic API)",
+		Long:        `Manage patch management external sources via the Jamf Pro Classic API (/JSSResource/).`,
+		Annotations: map[string]string{"jamf:api": "pro-classic"},
 	}
 
 	cmd.AddCommand(newClassicPatchExternalSourcesListCmd(ctx))
@@ -49,6 +78,7 @@ func newClassicPatchExternalSourcesListCmd(ctx *registry.CLIContext) *cobra.Comm
 
   # List patchexternalsources and extract IDs
   jamf-cli pro classic-patch-external-sources list --field id`,
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "patch-external-source:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/patchexternalsources", nil)
@@ -105,7 +135,8 @@ func newClassicPatchExternalSourcesGetCmd(ctx *registry.CLIContext) *cobra.Comma
 
   # Get a patch_external_source and output as YAML
   jamf-cli pro classic-patch-external-sources get 1 -o yaml`,
-		Args: cobra.MaximumNArgs(1),
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "patch-external-source:read"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -157,21 +188,34 @@ func newClassicPatchExternalSourcesGetCmd(ctx *registry.CLIContext) *cobra.Comma
 
 func newClassicPatchExternalSourcesCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
-		fromFile string
+		fromFile     string
+		flagScaffold bool
+		flagSet      []string
 	)
 	cmd := &cobra.Command{
 		Use:   "create",
 		Short: "Create a patch_external_source",
-		Long:  "Create a new patch_external_source. Reads the XML body from --from-file or stdin.",
+		Long: `Create a new patch_external_source. Reads the XML body from --from-file, --set or stdin.
+
+Body fields are derived from the Classic API spec (schema "patch_external_source").
+Run with --scaffold to print a complete XML template.
+
+Required: name
+Optional sections: certificate_validation_enabled, enabled, host_name, id, port,
+  ssl_enabled`,
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "patch-external-source:create"},
 		Example: `  # Create a patch_external_source from an XML file
   jamf-cli pro classic-patch-external-sources create --from-file patch_external_source.xml
 
   # Create a patch_external_source from XML on stdin
   cat patch_external_source.xml | jamf-cli pro classic-patch-external-sources create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if flagScaffold {
+				return printClassicScaffold(bodySpecClassicPatchExternalSources)
+			}
 			reqCtx := cmd.Context()
 
-			bodyBytes, err := readClassicBody(fromFile)
+			bodyBytes, err := readClassicBodyOrSet(fromFile, flagSet, bodySpecClassicPatchExternalSources)
 			if err != nil {
 				return err
 			}
@@ -190,27 +234,50 @@ func newClassicPatchExternalSourcesCreateCmd(ctx *registry.CLIContext) *cobra.Co
 		},
 	}
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to XML input file (or pipe XML to stdin)")
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print an XML body template for this resource and exit")
+	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Set a body field in dot notation (key=value, repeatable). Builds the whole body, so it cannot be combined with --from-file")
+	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+		return []string{"certificate_validation_enabled=", "enabled=", "host_name=", "id=", "name=", "port=", "ssl_enabled="}, cobra.ShellCompDirectiveNoSpace
+	})
 	return cmd
 }
 
 func newClassicPatchExternalSourcesUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var fromFile string
+	var (
+		flagScaffold bool
+		flagSet      []string
+	)
 	var flagName string
 
 	cmd := &cobra.Command{
 		Use:   "update [<id>]",
 		Short: "Update a patch_external_source",
-		Long:  "Update an existing patch_external_source by ID. Reads the XML body from --from-file or stdin.",
+		Long: `Update an existing patch_external_source by ID. Reads the XML body from --from-file, --set or stdin.
+
+The Classic API applies a partial update: fields the body omits keep their
+current values, so a body carrying one element changes only that element.
+
+Body fields are derived from the Classic API spec (schema "patch_external_source").
+Run with --scaffold to print a complete XML template.
+
+Required: name
+Optional sections: certificate_validation_enabled, enabled, host_name, id, port,
+  ssl_enabled`,
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "patch-external-source:update"},
 		Example: `  # Update a patch_external_source from an XML file
   jamf-cli pro classic-patch-external-sources update 1 --from-file patch_external_source.xml
 
   # Update a patch_external_source from XML on stdin
   cat patch_external_source.xml | jamf-cli pro classic-patch-external-sources update 1`,
-		Args: cobra.MaximumNArgs(1),
+		Args: classicScaffoldArgs(&flagScaffold, cobra.MaximumNArgs(1)),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if flagScaffold {
+				return printClassicScaffold(bodySpecClassicPatchExternalSources)
+			}
 			reqCtx := cmd.Context()
 
-			bodyBytes, bodyErr := readClassicBody(fromFile)
+			bodyBytes, bodyErr := readClassicBodyOrSet(fromFile, flagSet, bodySpecClassicPatchExternalSources)
 			if bodyErr != nil {
 				return bodyErr
 			}
@@ -239,6 +306,11 @@ func newClassicPatchExternalSourcesUpdateCmd(ctx *registry.CLIContext) *cobra.Co
 	}
 
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to XML input file (or pipe XML to stdin)")
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print an XML body template for this resource and exit")
+	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Set a body field in dot notation (key=value, repeatable). Builds the whole body, so it cannot be combined with --from-file")
+	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+		return []string{"certificate_validation_enabled=", "enabled=", "host_name=", "id=", "name=", "port=", "ssl_enabled="}, cobra.ShellCompDirectiveNoSpace
+	})
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up patch_external_source by name")
 
 	return cmd
@@ -263,7 +335,7 @@ func newClassicPatchExternalSourcesDeleteCmd(ctx *registry.CLIContext) *cobra.Co
 
   # Delete without confirmation prompt
   jamf-cli pro classic-patch-external-sources delete 1 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:api": "pro-classic", "jamf:gateway-privileges": "patch-external-source:delete"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -428,19 +500,29 @@ func newClassicPatchExternalSourcesDeleteCmd(ctx *registry.CLIContext) *cobra.Co
 
 func newClassicPatchExternalSourcesApplyCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
-		fromFile   string
-		flagYes    bool
-		flagDryRun bool
+		fromFile     string
+		flagYes      bool
+		flagDryRun   bool
+		flagScaffold bool
+		flagSet      []string
 	)
 
 	cmd := &cobra.Command{
-		Use:   "apply",
-		Short: "Create or replace a patch_external_source by name",
-		Long: `Create or replace a patch_external_source. Reads XML from --from-file or stdin.
+		Use:         "apply",
+		Short:       "Create or replace a patch_external_source by name",
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "patch-external-source:create,patch-external-source:read,patch-external-source:update"},
+		Long: `Create or replace a patch_external_source. Reads XML from --from-file, --set or stdin.
 
 The name field in the input XML is used to check if the resource already
 exists. If it does, the resource is replaced (with confirmation).
-If not, a new resource is created.`,
+If not, a new resource is created.
+
+Body fields are derived from the Classic API spec (schema "patch_external_source").
+Run with --scaffold to print a complete XML template.
+
+Required: name
+Optional sections: certificate_validation_enabled, enabled, host_name, id, port,
+  ssl_enabled`,
 		Example: `  # Apply a patch_external_source from an XML file
   jamf-cli pro classic-patch-external-sources apply --from-file patch_external_source.xml
 
@@ -450,6 +532,9 @@ If not, a new resource is created.`,
   # Apply without replacement confirmation
   jamf-cli pro classic-patch-external-sources apply --from-file patch_external_source.xml --yes`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			if flagScaffold {
+				return printClassicScaffold(bodySpecClassicPatchExternalSources)
+			}
 			reqCtx := cmd.Context()
 
 			// Read input
@@ -522,6 +607,12 @@ If not, a new resource is created.`,
 	}
 
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to XML input file (or pipe XML to stdin)")
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print an XML body template for this resource and exit")
+	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Set a body field in dot notation (key=value, repeatable). Builds the whole body, so it cannot be combined with --from-file")
+	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+		return []string{"certificate_validation_enabled=", "enabled=", "host_name=", "id=", "name=", "port=", "ssl_enabled="}, cobra.ShellCompDirectiveNoSpace
+	})
+
 	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt when replacing")
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
 

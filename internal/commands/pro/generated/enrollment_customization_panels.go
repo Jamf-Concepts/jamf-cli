@@ -20,9 +20,10 @@ import (
 // NewEnrollmentCustomizationPanelsCmd creates the enrollment-customization-panels command group
 func NewEnrollmentCustomizationPanelsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "enrollment-customization-panels",
-		Short: "Manage enrollment-customization-panels",
-		Long:  `Manage enrollment-customization-panels in Jamf Pro.`,
+		Use:         "enrollment-customization-panels",
+		Short:       "Manage enrollment-customization-panels",
+		Long:        `Manage enrollment-customization-panels in Jamf Pro.`,
+		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
 	cmd.AddCommand(newEnrollmentCustomizationPanelsCreateCmd(ctx))
@@ -55,7 +56,7 @@ func newEnrollmentCustomizationPanelsCreateCmd(ctx *registry.CLIContext) *cobra.
 
   # Get a enrollment-customization-panel, modify it, and create a copy
   jamf-cli pro enrollment-customization-panels get 1 -o json | jq '.name = "Copy"' | jamf-cli pro enrollment-customization-panels create`,
-		Annotations: map[string]string{"jamf:privileges": "Update Enrollment Customizations"},
+		Annotations: map[string]string{"jamf:privileges": "Update Enrollment Customizations", "jamf:api": "pro", "jamf:gateway-privileges": "enrollment-customization:update"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -135,7 +136,7 @@ func newEnrollmentCustomizationPanelsUpdateCmd(ctx *registry.CLIContext) *cobra.
 
   # Get a enrollment-customization-panel, modify, and update
   jamf-cli pro enrollment-customization-panels get 1 2 -o json | jq '.name = "New Name"' | jamf-cli pro enrollment-customization-panels update 1 2`,
-		Annotations: map[string]string{"jamf:privileges": "Update Enrollment Customizations"},
+		Annotations: map[string]string{"jamf:privileges": "Update Enrollment Customizations", "jamf:api": "pro", "jamf:gateway-privileges": "enrollment-customization:update"},
 		Args:        cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -255,7 +256,7 @@ func newEnrollmentCustomizationPanelsDeleteCmd(ctx *registry.CLIContext) *cobra.
 
   # Delete without confirmation prompt
   jamf-cli pro enrollment-customization-panels delete 1 2 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Update Enrollment Customizations"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Update Enrollment Customizations", "jamf:api": "pro", "jamf:gateway-privileges": "enrollment-customization:update"},
 		Args:        cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -330,7 +331,7 @@ func newEnrollmentCustomizationPanelsParseMarkdownCmd(ctx *registry.CLIContext) 
 		Use:         "parse-markdown",
 		Short:       "Parse the given string as markdown text and return Html output",
 		Long:        "Parse the given string as markdown text and return Html output",
-		Annotations: map[string]string{"jamf:privileges": "Read Enrollment Customizations"},
+		Annotations: map[string]string{"jamf:privileges": "Read Enrollment Customizations", "jamf:api": "pro", "jamf:gateway-privileges": "enrollment-customization:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -388,7 +389,7 @@ func newEnrollmentCustomizationPanelsAllCmd(ctx *registry.CLIContext) *cobra.Com
 		Use:         "all <id>",
 		Short:       "Get all Panels for single Enrollment Customization",
 		Long:        "Get all panels for single enrollment customization",
-		Annotations: map[string]string{"jamf:privileges": "Read Enrollment Customizations"},
+		Annotations: map[string]string{"jamf:privileges": "Read Enrollment Customizations", "jamf:api": "pro", "jamf:gateway-privileges": "enrollment-customization:read"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -424,7 +425,7 @@ func newEnrollmentCustomizationPanelsLdapCmd(ctx *registry.CLIContext) *cobra.Co
 		Use:         "ldap <id> <panel-id>",
 		Short:       "Get a single LDAP panel for a single Enrollment Customization",
 		Long:        "Get a single LDAP panel for a single enrollment customization",
-		Annotations: map[string]string{"jamf:privileges": "Read Enrollment Customizations"},
+		Annotations: map[string]string{"jamf:privileges": "Read Enrollment Customizations", "jamf:api": "pro", "jamf:gateway-privileges": "enrollment-customization:read"},
 		Args:        cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -461,7 +462,7 @@ func newEnrollmentCustomizationPanelsSsoCmd(ctx *registry.CLIContext) *cobra.Com
 		Use:         "sso <id> <panel-id>",
 		Short:       "Get a single SSO Panel for a single Enrollment Customization",
 		Long:        "Get a single SSO panel for a single enrollment customization",
-		Annotations: map[string]string{"jamf:privileges": "Read Enrollment Customizations"},
+		Annotations: map[string]string{"jamf:privileges": "Read Enrollment Customizations", "jamf:api": "pro", "jamf:gateway-privileges": "enrollment-customization:read"},
 		Args:        cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -498,7 +499,7 @@ func newEnrollmentCustomizationPanelsTextCmd(ctx *registry.CLIContext) *cobra.Co
 		Use:         "text <id> <panel-id>",
 		Short:       "Get a single Text Panel for a single Enrollment Customization",
 		Long:        "Get a single Text panel for a single enrollment customization",
-		Annotations: map[string]string{"jamf:privileges": "Read Enrollment Customizations"},
+		Annotations: map[string]string{"jamf:privileges": "Read Enrollment Customizations", "jamf:api": "pro", "jamf:gateway-privileges": "enrollment-customization:read"},
 		Args:        cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -535,7 +536,7 @@ func newEnrollmentCustomizationPanelsMarkdownCmd(ctx *registry.CLIContext) *cobr
 		Use:         "markdown <id> <panel-id>",
 		Short:       "Get the markdown output of a single Text Panel for a single Enrollment",
 		Long:        "Get the markdown output of a single Text panel for a single enrollment customization",
-		Annotations: map[string]string{"jamf:privileges": "Read Enrollment Customizations"},
+		Annotations: map[string]string{"jamf:privileges": "Read Enrollment Customizations", "jamf:api": "pro", "jamf:gateway-privileges": "enrollment-customization:read"},
 		Args:        cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

@@ -13,6 +13,8 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"slices"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -106,6 +108,366 @@ func readClassicBody(fromFile string) ([]byte, error) {
 	}
 
 	return nil, nil
+}
+
+// ── Schema-derived request bodies (--scaffold and --set) ──────────────────
+//
+// The Classic API takes XML and its manifest (specs/classic/resources.yaml)
+// describes URLs, not bodies, so a Classic write command could only ever tell a
+// caller to pipe XML at it. These helpers are fed by specs/classic/schemas.json,
+// derived from the SDK's published Classic spec — see package classicschema.
+
+// classicBodySpec is one resource's request-body contract, baked in at
+// generation time so the CLI carries no schema at runtime.
+type classicBodySpec struct {
+	// Root is the XML root element a body must be wrapped in, e.g. "policy".
+	Root string
+	// Scaffold is the rendered XML template --scaffold prints.
+	Scaffold string
+	// Schema is the component schema Scaffold was rendered from, named in help
+	// so a surprising template can be traced to the spec.
+	Schema string
+	// FieldTypes maps every settable dotted path to its spec type. A path absent
+	// from this map is refused rather than sent: the Classic API silently
+	// discards an element it does not recognise (wire-checked 2026-09-02 — a
+	// create carrying <bogus_unknown_element> answered 201 and dropped it), so a
+	// typo'd --set would otherwise be accepted by both the CLI and the server
+	// and change nothing.
+	FieldTypes map[string]string
+	// Enums constrains a field to a value set. Validated client-side because the
+	// server does not validate it at all: a policy created with
+	// frequency="Twice per fortnight" answers 201 and reads back
+	// "Once per computer", and a criterion with and_or="maybe" reads back "and".
+	// A silently substituted default is the failure this check exists to turn
+	// into an error.
+	Enums map[string][]string
+	// Credentials names the fields whose value is a secret. --set refuses them,
+	// because a flag value lands in shell history, in ps output and in CI logs.
+	Credentials map[string]bool
+}
+
+// classicScaffoldArgs relaxes a command's positional-argument validator when
+// --scaffold is set.
+//
+// Cobra validates Args BEFORE RunE, so an update that requires an <id> refused
+// "update --scaffold" with "accepts 1 arg(s), received 0" and never reached the
+// early return that prints the template. --scaffold describes a body; it needs
+// no identifier, makes no request and skips auth, so requiring one is the same
+// class of mistake as requiring credentials for it.
+//
+// Only the classic update commands need this: create takes no positional and
+// apply keys off the body's own name. The modern Pro generator does not hit it
+// because its update accepts zero args anyway — it has a --name alternative, so
+// its validator is MaximumNArgs(1), while a classic resource with no name lookup
+// is ExactArgs(1).
+func classicScaffoldArgs(scaffold *bool, inner cobra.PositionalArgs) cobra.PositionalArgs {
+	return func(cmd *cobra.Command, args []string) error {
+		if scaffold != nil && *scaffold {
+			return nil
+		}
+		if inner == nil {
+			return nil
+		}
+		return inner(cmd, args)
+	}
+}
+
+// printClassicScaffold writes the resource's XML body template to stdout.
+//
+// Straight to stdout, bypassing the output formatter, which is what the modern
+// Pro generator's printScaffoldOutput and the platform commands' printScaffold
+// both do. Going through the formatter actively broke it here: classic commands
+// default to pretty-printed XML, so the formatter re-indented an already
+// indented template and returned it double-spaced.
+func printClassicScaffold(spec classicBodySpec) error {
+	_, err := os.Stdout.WriteString(spec.Scaffold)
+	return err
+}
+
+// readClassicBodyOrSet reads a body from --set, --from-file or stdin.
+//
+// --set and --from-file are mutually exclusive here, where the Platform and
+// Security Cloud --set overlay onto a --file body. Two reasons, both specific to
+// Classic:
+//
+//   - Overlaying would mean parsing the caller's XML, merging, and re-marshalling
+//     it. A Classic config-profile body carries a mobileconfig inside a CDATA
+//     section, and PI-827 records that the server extra-decodes those bodies —
+//     so a round trip through a generic XML map is exactly how a payload gets
+//     mangled, and the failure is a 409 naming nothing.
+//   - It is not needed. A Classic PUT is a partial update: wire-checked
+//     2026-09-02, a body of <network_segment><name>x</name></network_segment>
+//     renamed the segment and left its address range, its override flags and a
+//     computer group's whole criteria array intact. So --set alone builds a
+//     valid update, with no fetch-merge cycle of the kind the modern Pro
+//     generator's update --set needs.
+func readClassicBodyOrSet(fromFile string, setFlags []string, spec classicBodySpec) ([]byte, error) {
+	if len(setFlags) == 0 {
+		return readClassicBody(fromFile)
+	}
+	if fromFile != "" {
+		return nil, fmt.Errorf("--set and --from-file are mutually exclusive; --set builds the whole body, so pass the file alone or set fields alone")
+	}
+	// A warning rather than a refusal, matching the modern Pro generator's
+	// update --set. Refusing looked tidier and was wrong: this test is "stdin is
+	// not a character device", which is true of a pipe carrying a body AND of
+	// the empty or closed stdin a CI runner hands every process — so it failed
+	// "create --set name=x" in exactly the automated case --set exists for,
+	// with a message about a body nobody sent.
+	if stat, _ := os.Stdin.Stat(); stat != nil && (stat.Mode()&os.ModeCharDevice) == 0 {
+		fmt.Fprintln(os.Stderr, "warning: --set builds the whole body; ignoring stdin")
+	}
+	return buildClassicXMLFromSet(setFlags, spec)
+}
+
+// buildClassicXMLFromSet turns key=value pairs into an XML body.
+func buildClassicXMLFromSet(setFlags []string, spec classicBodySpec) ([]byte, error) {
+	root := classicSetNode{children: map[string]*classicSetNode{}}
+
+	for _, pair := range setFlags {
+		key, raw, found := strings.Cut(pair, "=")
+		if !found {
+			return nil, fmt.Errorf("--set %q: expected key=value", pair)
+		}
+		if key == "" {
+			return nil, fmt.Errorf("--set %q: empty field name before =", pair)
+		}
+		if spec.Credentials[key] {
+			return nil, fmt.Errorf("--set %s: %s carries a credential and cannot be passed as a flag value, where it would land in shell history, ps output and CI logs; put the whole body in a file and use --from-file", key, key)
+		}
+		if err := classicSetParentKind(key, spec); err != nil {
+			return nil, err
+		}
+		kind, known := spec.FieldTypes[key]
+		if !known {
+			return nil, classicUnknownSetField(key, spec)
+		}
+		switch kind {
+		case "object":
+			return nil, fmt.Errorf("--set %s: %s is a section, not a value; set the fields inside it (e.g. --set %s.name=...), or pass the whole body with --from-file", key, key, key)
+		case "array":
+			return nil, fmt.Errorf("--set %s: %s is a repeated element, which --set cannot express; run --scaffold to see its shape and pass the body with --from-file", key, key)
+		}
+		value, err := classicSetValue(key, raw, kind, spec)
+		if err != nil {
+			return nil, err
+		}
+		if err := root.set(strings.Split(key, "."), value); err != nil {
+			return nil, fmt.Errorf("--set %s: %w", key, err)
+		}
+	}
+
+	var b strings.Builder
+	root.writeXML(&b, spec.Root, 0)
+	return []byte(b.String()), nil
+}
+
+// classicSetParentKind refuses a dotted path that descends through something it
+// cannot descend through, before the leaf is looked up.
+//
+// Without it the message is wrong rather than merely unhelpful: criteria is a
+// repeated element, so --set criteria.name=x can never work, but the leaf
+// "criteria.name" is simply absent from FieldTypes and the caller was told the
+// field does not exist — sending them to check their spelling instead of telling
+// them the section needs --from-file. Mirrors checkSetParentKind in the modern
+// Pro generator.
+func classicSetParentKind(key string, spec classicBodySpec) error {
+	// "[]" is how --help and --scaffold spell a repeated element's fields
+	// (criteria[].and_or), so a caller copying a path out of the help text
+	// lands here. Answer with the repeated-element message rather than
+	// "no such field", which would read as a typo in the help.
+	if i := strings.Index(key, "[]"); i >= 0 {
+		return fmt.Errorf("--set %s: %s is a repeated element, and --set cannot say which member it means; run --scaffold to see its shape and pass the body with --from-file", key, key[:i])
+	}
+	parts := strings.Split(key, ".")
+	for i := 1; i < len(parts); i++ {
+		prefix := strings.Join(parts[:i], ".")
+		switch spec.FieldTypes[prefix] {
+		case "array":
+			return fmt.Errorf("--set %s: %s is a repeated element, and --set cannot say which member it means; run --scaffold to see its shape and pass the body with --from-file", key, prefix)
+		case "string", "integer", "number", "boolean":
+			return fmt.Errorf("--set %s: %s is a value, not a section, so it has no field %q", key, prefix, strings.Join(parts[i:], "."))
+		}
+	}
+	return nil
+}
+
+// classicUnknownSetField explains a path the schema does not declare, naming the
+// nearest settable paths so a typo is obvious.
+//
+// Suggestions rather than a bare refusal because the schema is the only place
+// the field list exists — the server accepts anything and discards what it does
+// not know, so "no such field" with nothing else would leave a caller guessing.
+func classicUnknownSetField(key string, spec classicBodySpec) error {
+	prefix := key
+	if i := strings.LastIndex(key, "."); i >= 0 {
+		prefix = key[:i+1]
+	} else {
+		prefix = ""
+	}
+	var siblings []string
+	for path, kind := range spec.FieldTypes {
+		if kind == "object" || kind == "array" || !strings.HasPrefix(path, prefix) {
+			continue
+		}
+		if strings.Contains(strings.TrimPrefix(path, prefix), ".") {
+			continue
+		}
+		// Never suggest a field --set is going to refuse. A webhook's siblings
+		// include "password", and naming it here invites the caller to type a
+		// secret onto a command line — the same reason credential fields are
+		// kept out of shell completion.
+		if spec.Credentials[path] {
+			continue
+		}
+		siblings = append(siblings, path)
+	}
+	sort.Strings(siblings)
+	if len(siblings) == 0 {
+		return fmt.Errorf("--set %s: %s declares no such field; run --scaffold to see the body shape, or pass a field the spec does not know with --from-file", key, spec.Schema)
+	}
+	if len(siblings) > 12 {
+		siblings = append(siblings[:12], "...")
+	}
+	return fmt.Errorf("--set %s: %s declares no such field. Settable here: %s. Run --scaffold for the whole shape, or use --from-file for a field the spec does not know", key, spec.Schema, strings.Join(siblings, ", "))
+}
+
+// classicSetValue coerces and validates one value against its spec type.
+//
+// Coercion is schema-driven rather than a looks-like-JSON heuristic, following
+// the modern Pro generator — see
+// docs/solutions/logic-errors/set-array-object-stringification-2026-07-24.md.
+// It matters more here, not less: Classic XML is untyped on the wire, so a
+// number written where a string belongs is accepted silently, and there is no
+// response field that would reveal it.
+func classicSetValue(key, raw, kind string, spec classicBodySpec) (string, error) {
+	// No raw != "" carve-out. "" is out of range for every enum in the table, so
+	// it is precisely what the message below describes — and it is the mistake a
+	// CI job makes, not the typo: --set general.frequency="$FREQ" with FREQ unset
+	// sent <frequency></frequency>, the server answered 200, and the policy's
+	// execution frequency became "Once per computer" with nothing said. The
+	// wording is split because the remedy differs: a bad value is retyped, an
+	// empty one usually means a variable expanded to nothing and the flag should
+	// be dropped. A non-enum field can still be set to "", which is how a
+	// Classic string field is cleared.
+	if values, ok := spec.Enums[key]; ok {
+		if !slices.Contains(values, raw) {
+			if raw == "" {
+				return "", fmt.Errorf("--set %s: an empty value is not one of %s; omit the flag to leave the field unchanged (a shell variable that expanded to nothing is the usual cause)", key, strings.Join(values, ", "))
+			}
+			return "", fmt.Errorf("--set %s: %q is not one of %s (the Classic API accepts an out-of-range value and silently substitutes its default, so this is refused here)", key, raw, strings.Join(values, ", "))
+		}
+	}
+	switch kind {
+	case "boolean":
+		b, err := strconv.ParseBool(raw)
+		if err != nil {
+			return "", fmt.Errorf("--set %s: %s is a boolean; use true or false, got %q", key, key, raw)
+		}
+		return strconv.FormatBool(b), nil
+	case "integer":
+		if _, err := strconv.ParseInt(raw, 10, 64); err != nil {
+			return "", fmt.Errorf("--set %s: %s is an integer; %q is not a valid integer", key, key, raw)
+		}
+		return raw, nil
+	case "number":
+		if _, err := strconv.ParseFloat(raw, 64); err != nil {
+			return "", fmt.Errorf("--set %s: %s is a number; %q is not a valid number", key, key, raw)
+		}
+		return raw, nil
+	}
+	return raw, nil
+}
+
+// classicSetNode is one element in the tree --set builds.
+type classicSetNode struct {
+	value    string
+	isLeaf   bool
+	children map[string]*classicSetNode
+}
+
+// set places a value at a dotted path, creating intermediate elements.
+func (n *classicSetNode) set(path []string, value string) error {
+	cur := n
+	for i, segment := range path {
+		if i == len(path)-1 {
+			if child, ok := cur.children[segment]; ok && !child.isLeaf {
+				return fmt.Errorf("cannot set %q as a value: it already holds nested fields", segment)
+			}
+			cur.children[segment] = &classicSetNode{value: value, isLeaf: true}
+			return nil
+		}
+		child, ok := cur.children[segment]
+		if !ok {
+			child = &classicSetNode{children: map[string]*classicSetNode{}}
+			cur.children[segment] = child
+		}
+		if child.isLeaf {
+			return fmt.Errorf("cannot set a nested field under %q, which is already set to a value", segment)
+		}
+		cur = child
+	}
+	return nil
+}
+
+// writeXML renders the tree, ordering children the way --scaffold does so a
+// body built with --set and one edited from a scaffold read the same.
+func (n *classicSetNode) writeXML(b *strings.Builder, name string, depth int) {
+	indent := strings.Repeat("  ", depth)
+	if n.isLeaf {
+		fmt.Fprintf(b, "%s<%s>%s</%s>\n", indent, name, classicXMLText(n.value), name)
+		return
+	}
+	fmt.Fprintf(b, "%s<%s>\n", indent, name)
+	for _, child := range classicSortedChildren(n.children) {
+		n.children[child].writeXML(b, child, depth+1)
+	}
+	fmt.Fprintf(b, "%s</%s>\n", indent, name)
+}
+
+// classicSortedChildren orders element names: id, then name, then alphabetical.
+// Matches parser.ScaffoldXML's ordering.
+func classicSortedChildren(children map[string]*classicSetNode) []string {
+	names := make([]string, 0, len(children))
+	for name := range children {
+		names = append(names, name)
+	}
+	rank := func(s string) int {
+		switch s {
+		case "id":
+			return 0
+		case "name":
+			return 1
+		}
+		return 2
+	}
+	sort.Slice(names, func(i, j int) bool {
+		if ri, rj := rank(names[i]), rank(names[j]); ri != rj {
+			return ri < rj
+		}
+		return names[i] < names[j]
+	})
+	return names
+}
+
+// classicXMLText escapes element content. & matters most: PI-827 records that
+// the Classic API extra-decodes some element bodies, so an under-escaped & is
+// refused on upload with a 409 that names nothing.
+func classicXMLText(s string) string {
+	var b strings.Builder
+	for _, r := range s {
+		switch r {
+		case '&':
+			b.WriteString("&amp;")
+		case '<':
+			b.WriteString("&lt;")
+		case '>':
+			b.WriteString("&gt;")
+		default:
+			b.WriteRune(r)
+		}
+	}
+	return b.String()
 }
 
 // Classic apply/delete-by-name helpers. These share the generated package with

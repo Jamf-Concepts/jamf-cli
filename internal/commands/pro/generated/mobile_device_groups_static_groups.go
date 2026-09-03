@@ -21,9 +21,10 @@ import (
 // NewMobileDeviceGroupsStaticGroupsCmd creates the mobile-device-groups-static-groups command group
 func NewMobileDeviceGroupsStaticGroupsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "mobile-device-groups-static-groups",
-		Short: "Manage mobile-device-groups-static-groups",
-		Long:  `Manage mobile-device-groups-static-groups in Jamf Pro.`,
+		Use:         "mobile-device-groups-static-groups",
+		Short:       "Manage mobile-device-groups-static-groups",
+		Long:        `Manage mobile-device-groups-static-groups in Jamf Pro.`,
+		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
 	cmd.AddCommand(newMobileDeviceGroupsStaticGroupsListCmd(ctx))
@@ -55,7 +56,7 @@ func newMobileDeviceGroupsStaticGroupsListCmd(ctx *registry.CLIContext) *cobra.C
 
   # List mobile-device-groups-static-groups and extract IDs
   jamf-cli pro mobile-device-groups-static-groups list --field id`,
-		Annotations: map[string]string{"jamf:privileges": "Read Static Mobile Device Groups"},
+		Annotations: map[string]string{"jamf:privileges": "Read Static Mobile Device Groups", "jamf:api": "pro", "jamf:gateway-privileges": "device-groups:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -85,7 +86,10 @@ func newMobileDeviceGroupsStaticGroupsListCmd(ctx *registry.CLIContext) *cobra.C
 
 			// Auto-pagination: fetch all pages when --all is set and --page was not manually specified
 			if flagAll && flagPage == 0 {
-				var allResults []json.RawMessage
+				// Initialised empty, not nil — a nil slice marshals to "null", so
+				// "list --all" on an empty collection used to answer "null" where
+				// the single-page path answers "[]".
+				allResults := []json.RawMessage{}
 				prog := ctx.Output.PaginationProgress()
 				defer prog.Stop()
 				reqCtx = spinner.WithSuppressed(reqCtx)
@@ -208,7 +212,7 @@ func newMobileDeviceGroupsStaticGroupsGetCmd(ctx *registry.CLIContext) *cobra.Co
 
   # Get a mobile-device-groups-static-groups and output as YAML
   jamf-cli pro mobile-device-groups-static-groups get 1 -o yaml`,
-		Annotations: map[string]string{"jamf:privileges": "Read Static Mobile Device Groups"},
+		Annotations: map[string]string{"jamf:privileges": "Read Static Mobile Device Groups", "jamf:api": "pro", "jamf:gateway-privileges": "device-groups:read"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -273,7 +277,7 @@ func newMobileDeviceGroupsStaticGroupsCreateCmd(ctx *registry.CLIContext) *cobra
 
   # Get a mobile-device-groups-static-groups, modify it, and create a copy
   jamf-cli pro mobile-device-groups-static-groups get 1 -o json | jq '.name = "Copy"' | jamf-cli pro mobile-device-groups-static-groups create`,
-		Annotations: map[string]string{"jamf:privileges": "Create Static Mobile Device Groups"},
+		Annotations: map[string]string{"jamf:privileges": "Create Static Mobile Device Groups", "jamf:api": "pro", "jamf:gateway-privileges": "device-groups:create"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -356,7 +360,7 @@ func newMobileDeviceGroupsStaticGroupsDeleteCmd(ctx *registry.CLIContext) *cobra
 
   # Delete without confirmation prompt
   jamf-cli pro mobile-device-groups-static-groups delete 1 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Delete Static Mobile Device Groups"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Delete Static Mobile Device Groups", "jamf:api": "pro", "jamf:gateway-privileges": "device-groups:delete"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -572,7 +576,7 @@ func newMobileDeviceGroupsStaticGroupsPatchCmd(ctx *registry.CLIContext) *cobra.
 
   # Patch from a file
   jamf-cli pro mobile-device-groups-static-groups patch 1 --from-file changes.json`,
-		Annotations: map[string]string{"jamf:privileges": "Update Static Mobile Device Groups"},
+		Annotations: map[string]string{"jamf:privileges": "Update Static Mobile Device Groups", "jamf:api": "pro", "jamf:gateway-privileges": "device-groups:update"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -680,8 +684,9 @@ func newMobileDeviceGroupsStaticGroupsApplyCmd(ctx *registry.CLIContext) *cobra.
 	)
 
 	cmd := &cobra.Command{
-		Use:   "apply",
-		Short: "Create or replace a mobile-device-groups-static-groups by name",
+		Use:         "apply",
+		Short:       "Create or replace a mobile-device-groups-static-groups by name",
+		Annotations: map[string]string{"jamf:api": "pro", "jamf:gateway-privileges": "device-groups:create,device-groups:read"},
 		Long: `Create or replace a mobile-device-groups-static-groups. Reads JSON or YAML from --from-file or stdin.
 
 The groupName field in the input is used to check if the resource

@@ -21,9 +21,10 @@ import (
 // NewAdcsSettingsCmd creates the adcs-settings command group
 func NewAdcsSettingsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "adcs-settings",
-		Short: "Manage adcs-settings",
-		Long:  `Manage adcs-settings in Jamf Pro.`,
+		Use:         "adcs-settings",
+		Short:       "Manage adcs-settings",
+		Long:        `Manage adcs-settings in Jamf Pro.`,
+		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
 	cmd.AddCommand(newAdcsSettingsGetCmd(ctx))
@@ -51,7 +52,7 @@ func newAdcsSettingsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a adcs-setting and output as YAML
   jamf-cli pro adcs-settings get 1 -o yaml`,
-		Annotations: map[string]string{"jamf:privileges": "Read AD CS Settings"},
+		Annotations: map[string]string{"jamf:privileges": "Read AD CS Settings", "jamf:api": "pro", "jamf:gateway-privileges": "ad-cs-settings:read"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -97,7 +98,7 @@ func newAdcsSettingsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a adcs-setting, modify it, and create a copy
   jamf-cli pro adcs-settings get 1 -o json | jq '.name = "Copy"' | jamf-cli pro adcs-settings create`,
-		Annotations: map[string]string{"jamf:privileges": "Create AD CS Settings"},
+		Annotations: map[string]string{"jamf:privileges": "Create AD CS Settings", "jamf:api": "pro", "jamf:gateway-privileges": "ad-cs-settings:create"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -179,7 +180,7 @@ func newAdcsSettingsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Delete without confirmation prompt
   jamf-cli pro adcs-settings delete 1 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Delete AD CS Settings"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Delete AD CS Settings", "jamf:api": "pro", "jamf:gateway-privileges": "ad-cs-settings:delete"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -260,7 +261,7 @@ func newAdcsSettingsHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 		Long:  "Get specified AD CS Settings history object.",
 		Example: `  # Get history for a adcs-setting
   jamf-cli pro adcs-settings history 1`,
-		Annotations: map[string]string{"jamf:privileges": "Read AD CS Settings"},
+		Annotations: map[string]string{"jamf:privileges": "Read AD CS Settings", "jamf:api": "pro", "jamf:gateway-privileges": "ad-cs-settings:read"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -291,7 +292,10 @@ func newAdcsSettingsHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 
 			// Auto-pagination: fetch all pages when --all is set and --page was not manually specified
 			if flagAll && flagPage == 0 {
-				var allResults []json.RawMessage
+				// Initialised empty, not nil — a nil slice marshals to "null", so
+				// "list --all" on an empty collection used to answer "null" where
+				// the single-page path answers "[]".
+				allResults := []json.RawMessage{}
 				prog := ctx.Output.PaginationProgress()
 				defer prog.Stop()
 				reqCtx = spinner.WithSuppressed(reqCtx)
@@ -407,7 +411,7 @@ func newAdcsSettingsAddHistoryNoteCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:         "add-history-note <id>",
 		Short:       "Add specified AD CS Settings object note",
 		Long:        "Adds specified AD CS Settings object note.",
-		Annotations: map[string]string{"jamf:privileges": "Update AD CS Settings"},
+		Annotations: map[string]string{"jamf:privileges": "Update AD CS Settings", "jamf:api": "pro", "jamf:gateway-privileges": "ad-cs-settings:update"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -469,7 +473,7 @@ func newAdcsSettingsValidateCertificateCmd(ctx *registry.CLIContext) *cobra.Comm
 		Use:         "validate-certificate",
 		Short:       "Validate AD CS Settings server certificate",
 		Long:        "Validate AD CS Settings server certificate for file format. Must be base64-encoded X.509 file content, obtainable by 'openssl base64 < /file/path/filename.pfx | tr -d '\\n' | pbcopy' in linux terminal, or similar parsing methods.",
-		Annotations: map[string]string{"jamf:privileges": "Update AD CS Settings,Create AD CS Settings"},
+		Annotations: map[string]string{"jamf:privileges": "Update AD CS Settings,Create AD CS Settings", "jamf:api": "pro", "jamf:gateway-privileges": "ad-cs-settings:create,ad-cs-settings:update"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -531,7 +535,7 @@ func newAdcsSettingsValidateClientCertificateCmd(ctx *registry.CLIContext) *cobr
 		Use:         "validate-client-certificate",
 		Short:       "Validate AD CS Settings client certificate",
 		Long:        "Validate AD CS Settings client certificate for file format and correct password. Must be base64-encoded PKCS#12 file content, obtainable by 'openssl base64 < /file/path/filename.pfx | tr -d '\\n' | pbcopy' in linux terminal, or similar parsing methods. This should only contain a single X.509 certificate.",
-		Annotations: map[string]string{"jamf:privileges": "Update AD CS Settings,Create AD CS Settings"},
+		Annotations: map[string]string{"jamf:privileges": "Update AD CS Settings,Create AD CS Settings", "jamf:api": "pro", "jamf:gateway-privileges": "ad-cs-settings:create,ad-cs-settings:update"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -603,7 +607,7 @@ func newAdcsSettingsPatchCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Patch from a file
   jamf-cli pro adcs-settings patch 1 --from-file changes.json`,
-		Annotations: map[string]string{"jamf:privileges": "Update AD CS Settings"},
+		Annotations: map[string]string{"jamf:privileges": "Update AD CS Settings", "jamf:api": "pro", "jamf:gateway-privileges": "ad-cs-settings:update"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -700,7 +704,7 @@ func newAdcsSettingsDependenciesCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:         "dependencies <id>",
 		Short:       "Retrieve list of AD CS Settings dependencies",
 		Long:        "Retrieve list of AD CS Settings dependencies",
-		Annotations: map[string]string{"jamf:privileges": "Read AD CS Settings"},
+		Annotations: map[string]string{"jamf:privileges": "Read AD CS Settings", "jamf:api": "pro", "jamf:gateway-privileges": "ad-cs-settings:read"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

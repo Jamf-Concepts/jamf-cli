@@ -23,8 +23,10 @@ import (
 //   - {"<resource>": [...]}                       — non-paginated single-array (baselines)
 //   - [...]                                       — bare array
 //
-// listPath is the full path including /api/{service}/v{n}/tenant/{tenantId}/<collection>
-// with {tenantId} pre-substituted by the caller. Items are matched by checking
+// listPath is the full gateway path, /{service}/v{n}/<collection>. There is no
+// /api segment and no tenant segment: the GA gateway mounts each namespace at
+// the root, and the scope travels as an X-Tenant-Id or X-Environment-Id header
+// set by the transport. Items are matched by checking
 // "name", "title", and "displayName" properties in that order. The ID is read
 // from "id" (and falls back to "blueprintId", "groupId", "deviceId" for
 // resources that use a non-standard ID field).
@@ -35,12 +37,31 @@ func ResolveIDByName(ctx context.Context, client *jamfplatform.Client, listPath 
 	return ResolveIDByNameFiltered(ctx, client, listPath, name, "")
 }
 
+// ResolveIDByNameInField is ResolveIDByName with one extra property consulted
+// ahead of the standard three.
+//
+// Some resources carry their human-readable identifier under a field of their
+// own: an SSO domain's is "domain", so a --name lookup against the domains
+// collection matched nothing and reported "no item with name …" — indis-
+// tinguishable from a typo, on a resource whose only other handle is an opaque
+// integer ID. The extra field is named per resource by the generator's
+// platformNameLookupFields table rather than added to defaultNameFields,
+// because a global "domain" match would let a resource that happens to carry an
+// unrelated domain property resolve on it.
+func ResolveIDByNameInField(ctx context.Context, client *jamfplatform.Client, listPath, name, nameField string) (string, error) {
+	return resolveIDByName(ctx, client, listPath, name, "", nameField)
+}
+
 // ResolveIDByNameFiltered is like ResolveIDByName but narrows the server-side
 // results with an RSQL filter expression appended as ?filter=<expr> before the
 // name walk begins. Pass an empty string for no additional filtering.
 //
 // Example: ResolveIDByNameFiltered(ctx, c, path, "My Group", `deviceType=="COMPUTER"`)
 func ResolveIDByNameFiltered(ctx context.Context, client *jamfplatform.Client, listPath string, name string, filter string) (string, error) {
+	return resolveIDByName(ctx, client, listPath, name, filter, "")
+}
+
+func resolveIDByName(ctx context.Context, client *jamfplatform.Client, listPath, name, filter, nameField string) (string, error) {
 	if name == "" {
 		return "", fmt.Errorf("empty name")
 	}
@@ -65,7 +86,7 @@ func ResolveIDByNameFiltered(ctx context.Context, client *jamfplatform.Client, l
 		return "", fmt.Errorf("listing %s: %w", listPath, err)
 	}
 	items, paged := extractItems(raw)
-	if id, err := firstMatch(items, name); err != nil {
+	if id, err := firstMatch(items, name, nameField); err != nil {
 		return "", err
 	} else if id != "" {
 		return id, nil
@@ -88,7 +109,7 @@ func ResolveIDByNameFiltered(ctx context.Context, client *jamfplatform.Client, l
 				return "", fmt.Errorf("listing %s: %w", listPath, err)
 			}
 			pageItems, _ := extractItems(pageRaw)
-			if id, err := firstMatch(pageItems, name); err != nil {
+			if id, err := firstMatch(pageItems, name, nameField); err != nil {
 				return "", err
 			} else if id != "" {
 				return id, nil
@@ -141,10 +162,10 @@ func extractItems(raw json.RawMessage) ([]map[string]any, bool) {
 // firstMatch scans items for entries whose name matches. Returns the ID of the
 // first match, or an error when multiple items share the name within this page
 // (ambiguous). Returns ("", nil) when no match is found.
-func firstMatch(items []map[string]any, name string) (string, error) {
+func firstMatch(items []map[string]any, name, nameField string) (string, error) {
 	var matched []string
 	for _, item := range items {
-		if matchesName(item, name) {
+		if matchesNameIn(item, name, nameField) {
 			if id := extractID(item); id != "" {
 				matched = append(matched, id)
 			}
@@ -160,8 +181,19 @@ func firstMatch(items []map[string]any, name string) (string, error) {
 	}
 }
 
-func matchesName(item map[string]any, name string) bool {
-	for _, key := range []string{"name", "title", "displayName"} {
+// defaultNameFields are the keys a resource's human-readable name is found
+// under across the platform surface.
+var defaultNameFields = []string{"name", "title", "displayName"}
+
+// extraNameField, when non-empty, is consulted in addition to
+// defaultNameFields. Set per call by ResolveIDByNameInField for resources whose
+// name lives somewhere else — an SSO domain's is "domain".
+func matchesNameIn(item map[string]any, name, extraNameField string) bool {
+	keys := defaultNameFields
+	if extraNameField != "" {
+		keys = append([]string{extraNameField}, defaultNameFields...)
+	}
+	for _, key := range keys {
 		if v, ok := item[key].(string); ok && v == name {
 			return true
 		}
@@ -171,9 +203,35 @@ func matchesName(item map[string]any, name string) bool {
 
 func extractID(item map[string]any) string {
 	for _, key := range []string{"id", "blueprintId", "groupId", "deviceId", "benchmarkId", "baselineId"} {
-		if v, ok := item[key].(string); ok && v != "" {
+		if v := idString(item[key]); v != "" {
 			return v
 		}
 	}
 	return ""
+}
+
+// idString renders an ID that may not be a string on the wire.
+//
+// Every platform resource but one keys on a UUID, so this only ever had to
+// handle strings — and then an SSO domain's ID turned out to be a small
+// integer. The failure was silent and read as the wrong thing entirely: the
+// name matched, extractID's type assertion did not, so firstMatch counted zero
+// matches and --name reported `no item with name "example.com"`, which looks
+// like a typo rather than an ID it could not read.
+//
+// json.Number keeps an integer exact where float64 would not; the encoder
+// leaves numbers as float64 unless UseNumber is set, so both are handled. A
+// non-integral float is formatted without a trailing ".0" and is not an ID
+// anyway — nothing on this surface has one.
+func idString(v any) string {
+	switch id := v.(type) {
+	case string:
+		return id
+	case json.Number:
+		return id.String()
+	case float64:
+		return strconv.FormatFloat(id, 'f', -1, 64)
+	default:
+		return ""
+	}
 }

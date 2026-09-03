@@ -17,12 +17,98 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// bodySpecClassicAccountGroups is this resource's request-body contract, derived from
+// specs/classic/schemas.json at generation time. Empty when the Classic API spec
+// declares no schema for it, in which case create/update/apply read their body
+// from --from-file or stdin with no --scaffold and no --set.
+var bodySpecClassicAccountGroups = classicBodySpec{
+	Root:   "group",
+	Schema: "group",
+	Scaffold: `<group>
+  <id>1</id>
+  <name>Administrators</name>
+  <access_level></access_level>
+  <ldap_server>
+    <id>0</id>
+    <name></name>
+  </ldap_server>
+  <members>
+    <user>
+      <id>1</id>
+      <name></name>
+    </user>
+  </members>
+  <privilege_set></privilege_set>
+  <privileges>
+    <casper_admin>
+      <privilege></privilege>
+    </casper_admin>
+    <casper_imaging>
+      <privilege></privilege>
+    </casper_imaging>
+    <casper_remote>
+      <privilege></privilege>
+    </casper_remote>
+    <jss_actions>
+      <privilege></privilege>
+    </jss_actions>
+    <jss_objects>
+      <privilege></privilege>
+    </jss_objects>
+    <jss_settings>
+      <privilege></privilege>
+    </jss_settings>
+    <recon>
+      <privilege></privilege>
+    </recon>
+  </privileges>
+  <site>
+    <id>1</id>
+    <name>Minneapolis</name>
+  </site>
+</group>
+`,
+	FieldTypes: map[string]string{
+		"access_level":                        "string",
+		"id":                                  "integer",
+		"ldap_server":                         "object",
+		"ldap_server.id":                      "integer",
+		"ldap_server.name":                    "string",
+		"members":                             "array",
+		"name":                                "string",
+		"privilege_set":                       "string",
+		"privileges":                          "object",
+		"privileges.casper_admin":             "object",
+		"privileges.casper_admin.privilege":   "array",
+		"privileges.casper_imaging":           "object",
+		"privileges.casper_imaging.privilege": "array",
+		"privileges.casper_remote":            "object",
+		"privileges.casper_remote.privilege":  "array",
+		"privileges.jss_actions":              "object",
+		"privileges.jss_actions.privilege":    "array",
+		"privileges.jss_objects":              "object",
+		"privileges.jss_objects.privilege":    "array",
+		"privileges.jss_settings":             "object",
+		"privileges.jss_settings.privilege":   "array",
+		"privileges.recon":                    "object",
+		"privileges.recon.privilege":          "array",
+		"site":                                "object",
+		"site.id":                             "integer",
+		"site.name":                           "string",
+	},
+	Enums: map[string][]string{
+		"access_level":  {"Full Access", "Site Access", "Group Access"},
+		"privilege_set": {"Administrator", "Auditor", "Enrollment Only", "Custom"},
+	},
+}
+
 // NewClassicAccountGroupsCmd creates the classic-account-groups command group
 func NewClassicAccountGroupsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "classic-account-groups",
-		Short: "Jamf Pro account groups (Classic API)",
-		Long:  `Manage jamf pro account groups via the Jamf Pro Classic API (/JSSResource/).`,
+		Use:         "classic-account-groups",
+		Short:       "Jamf Pro account groups (Classic API)",
+		Long:        `Manage jamf pro account groups via the Jamf Pro Classic API (/JSSResource/).`,
+		Annotations: map[string]string{"jamf:api": "pro-classic"},
 	}
 
 	cmd.AddCommand(newClassicAccountGroupsListCmd(ctx))
@@ -47,6 +133,7 @@ func newClassicAccountGroupsListCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # List account-groups and extract IDs
   jamf-cli pro classic-account-groups list --field id`,
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "accounts:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/accounts", nil)
@@ -95,7 +182,8 @@ func newClassicAccountGroupsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a account_group and output as YAML
   jamf-cli pro classic-account-groups get 1 -o yaml`,
-		Args: cobra.MaximumNArgs(1),
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "accounts:read"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -147,21 +235,43 @@ func newClassicAccountGroupsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
 func newClassicAccountGroupsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
-		fromFile string
+		fromFile     string
+		flagScaffold bool
+		flagSet      []string
 	)
 	cmd := &cobra.Command{
 		Use:   "create",
 		Short: "Create a account_group",
-		Long:  "Create a new account_group. Reads the XML body from --from-file or stdin.",
+		Long: `Create a new account_group. Reads the XML body from --from-file, --set or stdin.
+
+Body fields are derived from the Classic API spec (schema "group").
+Run with --scaffold to print a complete XML template.
+The template populates every optional section with one specimen entry,
+including references whose <id> points at nothing on your instance — delete
+the sections you do not need. A dangling reference is answered with a 500.
+
+Required: name
+Optional sections: access_level, id, ldap_server, members, privilege_set, privileges, site
+
+Allowed values:
+  access_level: Full Access | Site Access | Group Access
+  privilege_set: Administrator | Auditor | Enrollment Only | Custom
+
+The Classic API does not reject an out-of-range value — it substitutes
+its default silently — so --set refuses one rather than letting it through.`,
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "accounts:create"},
 		Example: `  # Create a account_group from an XML file
   jamf-cli pro classic-account-groups create --from-file account_group.xml
 
   # Create a account_group from XML on stdin
   cat account_group.xml | jamf-cli pro classic-account-groups create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if flagScaffold {
+				return printClassicScaffold(bodySpecClassicAccountGroups)
+			}
 			reqCtx := cmd.Context()
 
-			bodyBytes, err := readClassicBody(fromFile)
+			bodyBytes, err := readClassicBodyOrSet(fromFile, flagSet, bodySpecClassicAccountGroups)
 			if err != nil {
 				return err
 			}
@@ -180,26 +290,58 @@ func newClassicAccountGroupsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to XML input file (or pipe XML to stdin)")
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print an XML body template for this resource and exit")
+	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Set a body field in dot notation (key=value, repeatable). Builds the whole body, so it cannot be combined with --from-file")
+	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+		return []string{"access_level=", "id=", "ldap_server.id=", "ldap_server.name=", "name=", "privilege_set=", "site.id=", "site.name="}, cobra.ShellCompDirectiveNoSpace
+	})
 	return cmd
 }
 
 func newClassicAccountGroupsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var fromFile string
+	var (
+		flagScaffold bool
+		flagSet      []string
+	)
 
 	cmd := &cobra.Command{
 		Use:   "update <id>",
 		Short: "Update a account_group",
-		Long:  "Update an existing account_group by ID. Reads the XML body from --from-file or stdin.",
+		Long: `Update an existing account_group by ID. Reads the XML body from --from-file, --set or stdin.
+
+The Classic API applies a partial update: fields the body omits keep their
+current values, so a body carrying one element changes only that element.
+
+Body fields are derived from the Classic API spec (schema "group").
+Run with --scaffold to print a complete XML template.
+The template populates every optional section with one specimen entry,
+including references whose <id> points at nothing on your instance — delete
+the sections you do not need. A dangling reference is answered with a 500.
+
+Required: name
+Optional sections: access_level, id, ldap_server, members, privilege_set, privileges, site
+
+Allowed values:
+  access_level: Full Access | Site Access | Group Access
+  privilege_set: Administrator | Auditor | Enrollment Only | Custom
+
+The Classic API does not reject an out-of-range value — it substitutes
+its default silently — so --set refuses one rather than letting it through.`,
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "accounts:update"},
 		Example: `  # Update a account_group from an XML file
   jamf-cli pro classic-account-groups update 1 --from-file account_group.xml
 
   # Update a account_group from XML on stdin
   cat account_group.xml | jamf-cli pro classic-account-groups update 1`,
-		Args: cobra.ExactArgs(1),
+		Args: classicScaffoldArgs(&flagScaffold, cobra.ExactArgs(1)),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if flagScaffold {
+				return printClassicScaffold(bodySpecClassicAccountGroups)
+			}
 			reqCtx := cmd.Context()
 
-			bodyBytes, bodyErr := readClassicBody(fromFile)
+			bodyBytes, bodyErr := readClassicBodyOrSet(fromFile, flagSet, bodySpecClassicAccountGroups)
 			if bodyErr != nil {
 				return bodyErr
 			}
@@ -221,6 +363,11 @@ func newClassicAccountGroupsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to XML input file (or pipe XML to stdin)")
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print an XML body template for this resource and exit")
+	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Set a body field in dot notation (key=value, repeatable). Builds the whole body, so it cannot be combined with --from-file")
+	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+		return []string{"access_level=", "id=", "ldap_server.id=", "ldap_server.name=", "name=", "privilege_set=", "site.id=", "site.name="}, cobra.ShellCompDirectiveNoSpace
+	})
 
 	return cmd
 }
@@ -239,7 +386,7 @@ func newClassicAccountGroupsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Delete without confirmation prompt
   jamf-cli pro classic-account-groups delete 1 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:api": "pro-classic", "jamf:gateway-privileges": "accounts:delete"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

@@ -14,17 +14,17 @@ import (
 func TestRunReportPatchStatus_Basic(t *testing.T) {
 	client := &overviewMockClient{
 		responses: map[string]overviewMockResponse{
-			"/v2/patch-software-title-configurations": {200, `{
+			"/v3/patch-software-title-configurations": {200, `{
 				"totalCount": 2,
 				"results": [
 					{"id": "1", "displayName": "Google Chrome"},
 					{"id": "2", "displayName": "Firefox"}
 				]
 			}`},
-			"/v2/patch-software-title-configurations/1/patch-summary": {200, `{
+			"/v3/patch-software-title-configurations/1/patch-summary": {200, `{
 				"title": "Google Chrome", "latestVersion": "123.0", "upToDate": 80, "outOfDate": 20
 			}`},
-			"/v2/patch-software-title-configurations/2/patch-summary": {200, `{
+			"/v3/patch-software-title-configurations/2/patch-summary": {200, `{
 				"title": "Firefox", "latestVersion": "124.0", "upToDate": 50, "outOfDate": 0
 			}`},
 		},
@@ -60,7 +60,7 @@ func TestRunReportPatchStatus_Basic(t *testing.T) {
 func TestRunReportPatchStatus_Empty(t *testing.T) {
 	client := &overviewMockClient{
 		responses: map[string]overviewMockResponse{
-			"/v2/patch-software-title-configurations": {200, `{"totalCount":0,"results":[]}`},
+			"/v3/patch-software-title-configurations": {200, `{"totalCount":0,"results":[]}`},
 		},
 	}
 
@@ -76,11 +76,11 @@ func TestRunReportPatchStatus_Empty(t *testing.T) {
 func TestRunReportPatchStatus_NoTotal(t *testing.T) {
 	client := &overviewMockClient{
 		responses: map[string]overviewMockResponse{
-			"/v2/patch-software-title-configurations": {200, `{
+			"/v3/patch-software-title-configurations": {200, `{
 				"totalCount": 1,
 				"results": [{"id": "1", "displayName": "Zoom"}]
 			}`},
-			"/v2/patch-software-title-configurations/1/patch-summary": {200, `{
+			"/v3/patch-software-title-configurations/1/patch-summary": {200, `{
 				"title": "Zoom", "upToDate": 0, "outOfDate": 0
 			}`},
 		},
@@ -101,7 +101,7 @@ func TestRunReportPatchStatus_NoTotal(t *testing.T) {
 func TestRunReportPatchStatus_FetchError(t *testing.T) {
 	client := &overviewMockClient{
 		responses: map[string]overviewMockResponse{
-			"/v2/patch-software-title-configurations": {500, `internal error`},
+			"/v3/patch-software-title-configurations": {500, `internal error`},
 		},
 	}
 
@@ -115,11 +115,11 @@ func TestRunReportPatchStatus_FetchError(t *testing.T) {
 func TestRunReportPatchStatus_FallbackToDisplayName(t *testing.T) {
 	client := &overviewMockClient{
 		responses: map[string]overviewMockResponse{
-			"/v2/patch-software-title-configurations": {200, `{
+			"/v3/patch-software-title-configurations": {200, `{
 				"totalCount": 1,
 				"results": [{"id": "99", "displayName": "MyApp"}]
 			}`},
-			"/v2/patch-software-title-configurations/99/patch-summary": {200, `{
+			"/v3/patch-software-title-configurations/99/patch-summary": {200, `{
 				"title": "MyApp", "upToDate": 5, "outOfDate": 5
 			}`},
 		},
@@ -135,17 +135,17 @@ func TestRunReportPatchStatus_FallbackToDisplayName(t *testing.T) {
 }
 
 func TestRunReportPatchStatus_ArrayResponse(t *testing.T) {
-	// Real /v2/patch-software-title-configurations returns a plain array, not paginated
+	// Real /v3/patch-software-title-configurations returns a plain array, not paginated
 	client := &overviewMockClient{
 		responses: map[string]overviewMockResponse{
-			"/v2/patch-software-title-configurations": {200, `[
+			"/v3/patch-software-title-configurations": {200, `[
 				{"id": "1", "displayName": "Google Chrome"},
 				{"id": "2", "displayName": "Slack"}
 			]`},
-			"/v2/patch-software-title-configurations/1/patch-summary": {200, `{
+			"/v3/patch-software-title-configurations/1/patch-summary": {200, `{
 				"title": "Google Chrome", "latestVersion": "123.0", "upToDate": 80, "outOfDate": 20
 			}`},
-			"/v2/patch-software-title-configurations/2/patch-summary": {200, `{
+			"/v3/patch-software-title-configurations/2/patch-summary": {200, `{
 				"title": "Slack", "latestVersion": "4.0", "upToDate": 0, "outOfDate": 0
 			}`},
 		},
@@ -176,14 +176,14 @@ func TestRunReportPatchStatus_ArrayResponse(t *testing.T) {
 func TestRunReportDeviceCompliance_Basic(t *testing.T) {
 	client := &paginatedMockClient{
 		pages: map[string]string{
-			"/v3/computers-inventory?section=GENERAL&section=HARDWARE&section=OPERATING_SYSTEM&page=0&page-size=100": `{
+			"/v4/computers-inventory?section=GENERAL&section=HARDWARE&section=OPERATING_SYSTEM&page=0&page-size=100": `{
 				"totalCount": 2,
 				"results": [
 					{
 						"id": "1",
 						"general": {
 							"name": "MacBook-001",
-							"lastContactTime": "2026-01-01T00:00:00Z",
+							"lastCheckIn": "2026-01-01T00:00:00Z",
 							"remoteManagement": {"managed": true}
 						},
 						"hardware": {
@@ -197,7 +197,7 @@ func TestRunReportDeviceCompliance_Basic(t *testing.T) {
 						"id": "2",
 						"general": {
 							"name": "MacBook-002",
-							"lastContactTime": "2026-03-14T00:00:00Z",
+							"lastCheckIn": "2026-03-14T00:00:00Z",
 							"remoteManagement": {"managed": false}
 						},
 						"hardware": {
@@ -237,6 +237,13 @@ func TestRunReportDeviceCompliance_Basic(t *testing.T) {
 	if row0["os_version"] != "14.4" {
 		t.Errorf("os_version = %q, want 14.4", row0["os_version"])
 	}
+	// days_since_contact must be computed, not "N/A". A reader asking for a
+	// field the v4 response does not carry leaves it "N/A" on every row with
+	// stale=false, which reads as a healthy fleet — so assert the value, not
+	// just the flag.
+	if row0["days_since_contact"] == "N/A" {
+		t.Errorf("days_since_contact = %v, want a computed value", row0["days_since_contact"])
+	}
 	// Verify failed_commands was removed
 	if _, hasFC := row0["failed_commands"]; hasFC {
 		t.Error("failed_commands should not be present")
@@ -252,7 +259,7 @@ func TestRunReportDeviceCompliance_Basic(t *testing.T) {
 func TestRunReportDeviceCompliance_Empty(t *testing.T) {
 	client := &paginatedMockClient{
 		pages: map[string]string{
-			"/v3/computers-inventory?section=GENERAL&section=HARDWARE&section=OPERATING_SYSTEM&page=0&page-size=100": `{"totalCount":0,"results":[]}`,
+			"/v4/computers-inventory?section=GENERAL&section=HARDWARE&section=OPERATING_SYSTEM&page=0&page-size=100": `{"totalCount":0,"results":[]}`,
 		},
 	}
 
@@ -268,7 +275,7 @@ func TestRunReportDeviceCompliance_Empty(t *testing.T) {
 func TestRunReportDeviceCompliance_MissingGeneral(t *testing.T) {
 	client := &paginatedMockClient{
 		pages: map[string]string{
-			"/v3/computers-inventory?section=GENERAL&section=HARDWARE&section=OPERATING_SYSTEM&page=0&page-size=100": `{
+			"/v4/computers-inventory?section=GENERAL&section=HARDWARE&section=OPERATING_SYSTEM&page=0&page-size=100": `{
 				"totalCount": 1,
 				"results": [{"id": "42"}]
 			}`,
@@ -292,11 +299,11 @@ func TestRunReportDeviceCompliance_MissingGeneral(t *testing.T) {
 }
 
 func TestRunReportDeviceCompliance_FetchError(t *testing.T) {
-	// overviewMockClient strips query params, so /v3/computers-inventory
+	// overviewMockClient strips query params, so /v4/computers-inventory
 	// will match and return HTTP 500, triggering an error in FetchAllPaginated.
 	errClient := &overviewMockClient{
 		responses: map[string]overviewMockResponse{
-			"/v3/computers-inventory": {500, `{}`},
+			"/v4/computers-inventory": {500, `{}`},
 		},
 	}
 	_, err := runReportDeviceCompliance(context.Background(), errClient, 14)
@@ -313,7 +320,7 @@ func TestRunReportDeviceCompliance_FetchError(t *testing.T) {
 func TestRunReportInventorySummary_Basic(t *testing.T) {
 	client := &paginatedMockClient{
 		pages: map[string]string{
-			"/v3/computers-inventory?section=HARDWARE&section=OPERATING_SYSTEM&page=0&page-size=100": `{
+			"/v4/computers-inventory?section=HARDWARE&section=OPERATING_SYSTEM&page=0&page-size=100": `{
 				"totalCount": 3,
 				"results": [
 					{
@@ -380,7 +387,7 @@ func TestRunReportInventorySummary_Basic(t *testing.T) {
 func TestRunReportInventorySummary_UnknownModel(t *testing.T) {
 	client := &paginatedMockClient{
 		pages: map[string]string{
-			"/v3/computers-inventory?section=HARDWARE&section=OPERATING_SYSTEM&page=0&page-size=100": `{
+			"/v4/computers-inventory?section=HARDWARE&section=OPERATING_SYSTEM&page=0&page-size=100": `{
 				"totalCount": 1,
 				"results": [{"id": "1"}]
 			}`,
@@ -402,7 +409,7 @@ func TestRunReportInventorySummary_UnknownModel(t *testing.T) {
 func TestRunReportInventorySummary_Empty(t *testing.T) {
 	client := &paginatedMockClient{
 		pages: map[string]string{
-			"/v3/computers-inventory?section=HARDWARE&section=OPERATING_SYSTEM&page=0&page-size=100": `{"totalCount":0,"results":[]}`,
+			"/v4/computers-inventory?section=HARDWARE&section=OPERATING_SYSTEM&page=0&page-size=100": `{"totalCount":0,"results":[]}`,
 		},
 	}
 
@@ -424,11 +431,11 @@ func TestRunReportDuplicateSerials_Basic(t *testing.T) {
 		responses: map[string]overviewMockResponse{
 			// C02X1234 shared by ids 2 and 10 (logic-board swap); C02Z9999 unique;
 			// two records with blank serials must not be treated as duplicates.
-			"/v3/computers-inventory": {200, `{
+			"/v4/computers-inventory": {200, `{
 				"totalCount": 5,
 				"results": [
-					{"id":"10","general":{"name":"Mac-new","lastContactTime":"2026-06-01T00:00:00Z"},"hardware":{"serialNumber":"C02X1234"}},
-					{"id":"2","general":{"name":"Mac-old","lastContactTime":"2025-01-01T00:00:00Z"},"hardware":{"serialNumber":"C02X1234"}},
+					{"id":"10","general":{"name":"Mac-new","lastCheckIn":"2026-06-01T00:00:00Z"},"hardware":{"serialNumber":"C02X1234"}},
+					{"id":"2","general":{"name":"Mac-old","lastCheckIn":"2025-01-01T00:00:00Z"},"hardware":{"serialNumber":"C02X1234"}},
 					{"id":"3","general":{"name":"Mac-unique"},"hardware":{"serialNumber":"C02Z9999"}},
 					{"id":"4","general":{"name":"Pending-A"},"hardware":{"serialNumber":""}},
 					{"id":"5","general":{"name":"Pending-B"},"hardware":{"serialNumber":"  "}}
@@ -460,7 +467,7 @@ func TestRunReportDuplicateSerials_Basic(t *testing.T) {
 func TestRunReportDuplicateSerials_NoneWhenAllUnique(t *testing.T) {
 	client := &overviewMockClient{
 		responses: map[string]overviewMockResponse{
-			"/v3/computers-inventory": {200, `{
+			"/v4/computers-inventory": {200, `{
 				"totalCount": 2,
 				"results": [
 					{"id":"1","general":{"name":"A"},"hardware":{"serialNumber":"S1"}},
@@ -482,7 +489,7 @@ func TestRunReportDuplicateSerials_NoneWhenAllUnique(t *testing.T) {
 func TestRunReportDuplicateSerials_FetchError(t *testing.T) {
 	client := &overviewMockClient{
 		responses: map[string]overviewMockResponse{
-			"/v3/computers-inventory": {500, `{}`},
+			"/v4/computers-inventory": {500, `{}`},
 		},
 	}
 
@@ -497,7 +504,7 @@ func TestRunReportDuplicateSerials_FetchError(t *testing.T) {
 func TestRunReportDuplicateSerials_WhitespaceCollision(t *testing.T) {
 	client := &overviewMockClient{
 		responses: map[string]overviewMockResponse{
-			"/v3/computers-inventory": {200, `{
+			"/v4/computers-inventory": {200, `{
 				"totalCount": 2,
 				"results": [
 					{"id":"1","general":{"name":"A"},"hardware":{"serialNumber":"C02X1234"}},
@@ -544,7 +551,7 @@ func TestIDLess(t *testing.T) {
 func TestRunReportSoftwareInstalls_Basic(t *testing.T) {
 	client := &paginatedMockClient{
 		pages: map[string]string{
-			"/v3/computers-inventory?section=APPLICATIONS&page=0&page-size=100": `{
+			"/v4/computers-inventory?section=APPLICATIONS&page=0&page-size=100": `{
 				"totalCount": 2,
 				"results": [
 					{
@@ -598,7 +605,7 @@ func TestRunReportSoftwareInstalls_Basic(t *testing.T) {
 func TestRunReportSoftwareInstalls_TitleFilter(t *testing.T) {
 	client := &paginatedMockClient{
 		pages: map[string]string{
-			"/v3/computers-inventory?section=APPLICATIONS&page=0&page-size=100": `{
+			"/v4/computers-inventory?section=APPLICATIONS&page=0&page-size=100": `{
 				"totalCount": 1,
 				"results": [
 					{
@@ -628,7 +635,7 @@ func TestRunReportSoftwareInstalls_TitleFilter(t *testing.T) {
 func TestRunReportSoftwareInstalls_NoMatchFilter(t *testing.T) {
 	client := &paginatedMockClient{
 		pages: map[string]string{
-			"/v3/computers-inventory?section=APPLICATIONS&page=0&page-size=100": `{
+			"/v4/computers-inventory?section=APPLICATIONS&page=0&page-size=100": `{
 				"totalCount": 1,
 				"results": [
 					{
@@ -650,7 +657,7 @@ func TestRunReportSoftwareInstalls_NoMatchFilter(t *testing.T) {
 func TestRunReportSoftwareInstalls_Empty(t *testing.T) {
 	client := &paginatedMockClient{
 		pages: map[string]string{
-			"/v3/computers-inventory?section=APPLICATIONS&page=0&page-size=100": `{"totalCount":0,"results":[]}`,
+			"/v4/computers-inventory?section=APPLICATIONS&page=0&page-size=100": `{"totalCount":0,"results":[]}`,
 		},
 	}
 
@@ -676,7 +683,7 @@ func TestRunReportEAResults_Basic(t *testing.T) {
 					{"id": 2, "name": "Department"}
 				]
 			}`},
-			"/v3/computers-inventory": {200, `{
+			"/v4/computers-inventory": {200, `{
 				"totalCount": 2,
 				"results": [
 					{
@@ -730,7 +737,7 @@ func TestRunReportEAResults_NameFilter(t *testing.T) {
 					{"id": 2, "name": "Department"}
 				]
 			}`},
-			"/v3/computers-inventory": {200, `{
+			"/v4/computers-inventory": {200, `{
 				"totalCount": 1,
 				"results": [
 					{
@@ -814,7 +821,7 @@ func TestRunReportEAResults_EAFetchError(t *testing.T) {
 func TestRunReportSecurity_Basic(t *testing.T) {
 	client := &overviewMockClient{
 		responses: map[string]overviewMockResponse{
-			"/v3/computers-inventory": {200, `{
+			"/v4/computers-inventory": {200, `{
 				"totalCount": 3,
 				"results": [
 					{
@@ -915,7 +922,7 @@ func TestRunReportSecurity_Basic(t *testing.T) {
 func TestRunReportSecurity_Empty(t *testing.T) {
 	client := &overviewMockClient{
 		responses: map[string]overviewMockResponse{
-			"/v3/computers-inventory": {200, `{"totalCount":0,"results":[]}`},
+			"/v4/computers-inventory": {200, `{"totalCount":0,"results":[]}`},
 		},
 	}
 
@@ -931,7 +938,7 @@ func TestRunReportSecurity_Empty(t *testing.T) {
 func TestRunReportSecurity_FetchError(t *testing.T) {
 	client := &overviewMockClient{
 		responses: map[string]overviewMockResponse{
-			"/v3/computers-inventory": {500, `{}`},
+			"/v4/computers-inventory": {500, `{}`},
 		},
 	}
 
@@ -945,7 +952,7 @@ func TestRunReportSecurity_FetchError(t *testing.T) {
 func TestRunReportSecurity_OSDistribution(t *testing.T) {
 	client := &overviewMockClient{
 		responses: map[string]overviewMockResponse{
-			"/v3/computers-inventory": {200, `{
+			"/v4/computers-inventory": {200, `{
 				"totalCount": 3,
 				"results": [
 					{"id":"1","general":{"name":"A"},"hardware":{"serialNumber":"S1"},"operatingSystem":{"version":"15.3"},"security":{"gatekeeperStatus":"ENABLED","sipStatus":"ENABLED","firewallEnabled":true},"diskEncryption":{"bootPartitionEncryptionDetails":{"partitionFileVault2State":"ENCRYPTED"}}},

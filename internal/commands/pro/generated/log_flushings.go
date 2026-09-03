@@ -19,9 +19,10 @@ import (
 // NewLogFlushingsCmd creates the log-flushings command group
 func NewLogFlushingsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "log-flushings",
-		Short: "Manage log-flushings",
-		Long:  `Manage log-flushings in Jamf Pro.`,
+		Use:         "log-flushings",
+		Short:       "Manage log-flushings",
+		Long:        `Manage log-flushings in Jamf Pro.`,
+		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
 	cmd.AddCommand(newLogFlushingsListCmd(ctx))
@@ -45,7 +46,7 @@ func newLogFlushingsListCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # List log-flushings and extract IDs
   jamf-cli pro log-flushings list --field id`,
-		Annotations: map[string]string{"jamf:privileges": "Read Retention Policy"},
+		Annotations: map[string]string{"jamf:privileges": "Read Retention Policy", "jamf:api": "pro", "jamf:gateway-privileges": "retention-policy:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -89,7 +90,7 @@ func newLogFlushingsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a log-flushing and output as YAML
   jamf-cli pro log-flushings get 1 -o yaml`,
-		Annotations: map[string]string{"jamf:privileges": "Read Retention Policy"},
+		Annotations: map[string]string{"jamf:privileges": "Read Retention Policy", "jamf:api": "pro", "jamf:gateway-privileges": "retention-policy:read"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -155,7 +156,7 @@ func newLogFlushingsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Delete without confirmation prompt
   jamf-cli pro log-flushings delete 1 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Update Retention Policy"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Update Retention Policy", "jamf:api": "pro", "jamf:gateway-privileges": "retention-policy:update"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -354,7 +355,7 @@ func newLogFlushingsLogFlushingCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:         "log-flushing",
 		Short:       "Get log flushing settings",
 		Long:        "Get all log flushing and retention policy settings",
-		Annotations: map[string]string{"jamf:privileges": "Read Retention Policy"},
+		Annotations: map[string]string{"jamf:privileges": "Read Retention Policy", "jamf:api": "pro", "jamf:gateway-privileges": "retention-policy:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -390,7 +391,7 @@ func newLogFlushingsTaskCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:         "task",
 		Short:       "Queue a log flushing task",
 		Long:        "Queue a log flushing task",
-		Annotations: map[string]string{"jamf:privileges": "Update Retention Policy"},
+		Annotations: map[string]string{"jamf:privileges": "Update Retention Policy", "jamf:api": "pro", "jamf:gateway-privileges": "retention-policy:update"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

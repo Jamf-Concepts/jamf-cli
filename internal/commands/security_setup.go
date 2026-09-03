@@ -51,6 +51,62 @@ func securityCredentialPair(out *os.File, reader *bufio.Reader, label string) (i
 	return id, secret, nil
 }
 
+// mergeSecurityProfileBase starts the Radar half of a profile from whatever the
+// profile already holds, so the gateway credentials `platform setup` writes are
+// not zeroed — see the matching note on mergePlatformProfile.
+//
+// Product and auth-method are only filled when unset, so running `security
+// setup` second against a platform profile does not demote it: auth-method
+// "platform" is what ResolveAuthForProfile reads to enter gateway auth for the
+// `pro` and `platform` namespaces, and nothing requires the value "security" —
+// the `security` tree is selected by the command namespace, not by this field.
+// writeSecurityCredentialSummary reports each Radar pair's state in the
+// profile that was SAVED, not the prompts that were answered.
+//
+// The setup command merges into an existing profile, so a pair whose
+// application ID was left blank keeps its stored keychain references. Listing
+// only the pairs entered on this run therefore told an operator who pressed
+// Enter at a prompt — as the command's own help instructs — that the pair was
+// gone, while `security stream get` went on using the stored credential and
+// failed inside the token exchange. Hand-editing config.yaml was the only way
+// out, which is what setup exists to avoid.
+//
+// The merge itself is load-bearing and stays: a profile carries every
+// product's credentials, so replacing it wholesale zeroed whatever
+// `platform setup` had written. What changed is that the summary now
+// describes the result.
+func writeSecurityCredentialSummary(out io.Writer, prof config.Profile, riskID, lifecycleID, sseID string) {
+	for _, pair := range []struct {
+		label   string
+		entered string
+		saved   string
+	}{
+		{"Risk API", riskID, prof.RiskClientID},
+		{"Device Lifecycle API", lifecycleID, prof.LifecycleClientID},
+		{"Shared Signals & Events", sseID, prof.SSEClientID},
+	} {
+		switch {
+		case pair.entered != "":
+			_, _ = fmt.Fprintf(out, "  %-24s application ID %s, secret stored in system keychain\n", pair.label+":", pair.entered)
+		case pair.saved != "":
+			_, _ = fmt.Fprintf(out, "  %-24s retained from a previous run (unchanged)\n", pair.label+":")
+		default:
+			_, _ = fmt.Fprintf(out, "  %-24s not configured\n", pair.label+":")
+		}
+	}
+}
+
+func mergeSecurityProfileBase(existing config.Profile) config.Profile {
+	p := existing
+	if p.Product == "" {
+		p.Product = "security"
+	}
+	if p.AuthMethod == "" {
+		p.AuthMethod = "security"
+	}
+	return p
+}
+
 func newSecuritySetupCmd() *cobra.Command {
 	var setupProfile string
 
@@ -67,8 +123,21 @@ Settings > Security Integrations in the Radar portal. Configure whichever
 you have access to; leave an application ID blank to skip that API. At
 least one pair is required.
 
+On a re-run, a skipped pair is LEFT AS IT WAS rather than removed — this
+command merges into the profile, so it can be run once per API without the
+later run discarding the earlier one's credentials (a profile also carries
+the platform credentials "jamf-cli platform setup" writes). The closing
+summary says which pairs were entered and which were retained. To remove a
+pair, delete the profile with "jamf-cli config remove-profile <name>" and
+run setup again with only the pairs you want.
+
 There's no per-tenant URL to configure — all three APIs share Jamf's global
-production host, and tenancy is carried inside the credentials themselves.`,
+production host, and tenancy is carried inside the credentials themselves.
+
+This command covers the Radar APIs only. The rest of Jamf Security Cloud —
+dns-*, ztna-*, content-categories, device-groups and uem-* — is served on the
+Jamf Platform gateway with platform client credentials and a Security Cloud
+tenant ID; configure that with "jamf-cli platform setup".`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			out := os.Stdout
 			reader := bufio.NewReader(os.Stdin)
@@ -111,11 +180,13 @@ production host, and tenancy is carried inside the credentials themselves.`,
 			}
 
 			// Store secrets in keychain
-			store := config.GetKeychainStore()
-			prof := config.Profile{
-				Product:    "security",
-				AuthMethod: "security",
+			cfg, err := config.Load()
+			if err != nil {
+				return err
 			}
+
+			store := config.GetKeychainStore()
+			prof := mergeSecurityProfileBase(cfg.Profiles[setupProfile])
 			if riskID != "" {
 				if err := store.Set(keychain.DefaultService, setupProfile+"/risk-client-id", riskID); err != nil {
 					return keychain.WriteError("Risk API application ID", err)
@@ -147,11 +218,6 @@ production host, and tenancy is carried inside the credentials themselves.`,
 				prof.SSEClientSecret = keychain.KeychainRef(setupProfile, "sse-client-secret")
 			}
 
-			// Save profile to config
-			cfg, err := config.Load()
-			if err != nil {
-				return err
-			}
 			cfg.Profiles[setupProfile] = prof
 			cfg.DefaultProfile = setupProfile
 
@@ -161,15 +227,17 @@ production host, and tenancy is carried inside the credentials themselves.`,
 
 			_, _ = fmt.Fprintf(out, "\n✓ Profile %q saved and set as default.\n", setupProfile)
 			_, _ = fmt.Fprintln(out, "  Product:       Jamf Security Cloud")
-			if riskID != "" {
-				_, _ = fmt.Fprintf(out, "  Risk API:              application ID %s, secret stored in system keychain\n", riskID)
-			}
-			if lifecycleID != "" {
-				_, _ = fmt.Fprintf(out, "  Device Lifecycle API:  application ID %s, secret stored in system keychain\n", lifecycleID)
-			}
-			if sseID != "" {
-				_, _ = fmt.Fprintf(out, "  Shared Signals & Events: application ID %s, secret stored in system keychain\n", sseID)
-			}
+			writeSecurityCredentialSummary(out, prof, riskID, lifecycleID, sseID)
+
+			// The rest of Jamf Security Cloud is served on the platform gateway
+			// and takes different credentials. `platform setup` owns that; say
+			// so here, because `security --help` is where someone configuring
+			// this product looks first and nothing else would point them on.
+			_, _ = fmt.Fprintln(out)
+			_, _ = fmt.Fprintln(out, "The dns-*, ztna-*, content-categories, device-groups and uem-* commands are")
+			_, _ = fmt.Fprintln(out, "served on the Jamf Platform gateway and need platform credentials plus a")
+			_, _ = fmt.Fprintln(out, "Jamf Security Cloud tenant ID. Configure those with:")
+			_, _ = fmt.Fprintln(out, "  jamf-cli platform setup")
 
 			return nil
 		},

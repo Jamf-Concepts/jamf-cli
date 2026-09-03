@@ -11,7 +11,7 @@
     { label: 'Software & Content', groups: ['Apps & Patching', 'Distribution & JCDS', 'Scripts & Policies', 'Self Service', 'Jamf App Integrations'] },
     { label: 'Identity & Access',  groups: ['Users & Groups', 'Admin Accounts', 'Identity Providers', 'Admin SSO', 'API Access'] },
     { label: 'Infrastructure',     groups: ['MDM & Certificates', 'OS Updates', 'Security', 'Server Health', 'System Integrations'] },
-    { label: 'Platform API',       groups: ['Platform - Configuration', 'Platform - Compliance', 'Platform - Devices & Users', 'Platform'] },
+    { label: 'Platform API',       groups: ['Platform - Configuration', 'Platform - Compliance', 'Platform - Devices & Users', 'Platform', 'AI Governance'] },
     { label: 'Classic API',        groups: ['Classic - Computers', 'Classic - Mobile Devices', 'Classic - Configuration', 'Classic - Administration', 'Classic - Patch Management'] }
   ];
 

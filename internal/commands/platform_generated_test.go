@@ -3,9 +3,13 @@
 package commands
 
 import (
+	"bytes"
+	"io"
 	"net/http"
 	"strings"
 	"testing"
+
+	"github.com/spf13/cobra"
 
 	platformgen "github.com/Jamf-Concepts/jamf-cli/internal/commands/platform/generated"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
@@ -18,7 +22,7 @@ func TestGeneratedBlueprintsGet(t *testing.T) {
 	sdk, mux := newTestPlatformSDK(t)
 
 	const blueprintID = "bp-123"
-	wantPath := "/api/blueprints/v1/tenant/" + testTenantID + "/blueprints/" + blueprintID
+	wantPath := "/blueprints/v1/blueprints/" + blueprintID
 	mux.HandleFunc(wantPath, func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, map[string]any{
 			"id":              blueprintID,
@@ -50,13 +54,13 @@ func TestGeneratedBlueprintsGet(t *testing.T) {
 	}
 }
 
-// TestGeneratedDeviceGroupsGet validates that `device-groups get` returns the
+// TestGeneratedDeviceGroupsGet validates that `platform-device-groups get` returns the
 // full group object — not just the criteria array. Same regression as blueprints.
-func TestGeneratedDeviceGroupsGet(t *testing.T) {
+func TestGeneratedPlatformDeviceGroupsGet(t *testing.T) {
 	sdk, mux := newTestPlatformSDK(t)
 
 	const groupID = "dg-456"
-	wantPath := "/api/device-groups/v1/tenant/" + testTenantID + "/device-groups/" + groupID
+	wantPath := "/device-groups/v1/device-groups/" + groupID
 	mux.HandleFunc(wantPath, func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, map[string]any{
 			"id":          groupID,
@@ -71,7 +75,7 @@ func TestGeneratedDeviceGroupsGet(t *testing.T) {
 	cliCtx.PlatformSDKClient = sdk
 	cliCtx.Output = out
 
-	cmd := platformgen.NewDeviceGroupsCmd(cliCtx)
+	cmd := platformgen.NewPlatformDeviceGroupsCmd(cliCtx)
 	cmd.SetArgs([]string{"get", groupID})
 	if err := cmd.Execute(); err != nil {
 		t.Fatalf("device-groups get: %v", err)
@@ -125,7 +129,7 @@ func TestGeneratedCommandNilClientError(t *testing.T) {
 func TestGeneratedBaselinesList(t *testing.T) {
 	sdk, mux := newTestPlatformSDK(t)
 
-	const wantPath = "/api/compliance-benchmarks/v1/tenant/" + testTenantID + "/baselines"
+	const wantPath = "/compliance-benchmarks/v1/baselines"
 	var seenPath string
 	mux.HandleFunc(wantPath, func(w http.ResponseWriter, r *http.Request) {
 		seenPath = r.URL.Path
@@ -168,7 +172,7 @@ func TestGeneratedRulesListWithQueryParam(t *testing.T) {
 	sdk, mux := newTestPlatformSDK(t)
 
 	var seenQuery string
-	mux.HandleFunc("/api/compliance-benchmarks/v1/tenant/"+testTenantID+"/rules", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/compliance-benchmarks/v1/rules", func(w http.ResponseWriter, r *http.Request) {
 		seenQuery = r.URL.RawQuery
 		writeJSON(w, map[string]any{
 			"rules":   []map[string]any{{"id": "rule-1", "title": "Some rule"}},
@@ -195,4 +199,211 @@ func TestGeneratedRulesListWithQueryParam(t *testing.T) {
 	if strings.Contains(seenQuery, "baselineId") {
 		t.Errorf("sent the camelCase parameter the server ignores: %q", seenQuery)
 	}
+}
+
+// TestGeneratedSecurityCloudListPathAndEmptyIsAnArray covers two things that are
+// only visible at runtime, on one request.
+//
+// The path: the generated command holds it as a literal, so nothing the SDK
+// does can correct it. It must carry no tenant segment (the scope is a header)
+// and no /api prefix (the GA gateway mounts each namespace at the root and
+// answers 404 for anything under /api). An exact mux registration is what
+// catches a regression — a wrong shape fails on the wire as a bare 404 or a 403
+// BAD_PERMISSIONS, neither of which names the URL as the problem.
+//
+// The body: the paginated list path aggregates into a slice, and a nil slice
+// marshals to "null". An empty collection therefore used to print "null" while
+// the unpaginated path printed "[]" for the identical wire response, which broke
+// any jq consumer on exactly the tenants where the collection was empty.
+func TestGeneratedSecurityCloudListPathAndEmptyIsAnArray(t *testing.T) {
+	sdk, mux := newTestPlatformSDK(t)
+
+	const wantPath = "/securitycloud/v1/ztna/gateways"
+	var seenPath string
+	mux.HandleFunc(wantPath, func(w http.ResponseWriter, r *http.Request) {
+		seenPath = r.URL.Path
+		// The empty state every Security Cloud collection answers with.
+		writeJSON(w, map[string]any{"totalCount": 0, "results": []any{}})
+	})
+
+	out := &captureOutput{}
+	cliCtx := &registry.CLIContext{PlatformSDKClient: sdk, Output: out}
+	cmd := platformgen.NewZtnaGatewaysCmd(cliCtx)
+	cmd.SetArgs([]string{"list"})
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("ztna-gateways list: %v", err)
+	}
+
+	if seenPath != wantPath {
+		t.Errorf("server saw path %q, want %q", seenPath, wantPath)
+	}
+	if got := strings.TrimSpace(string(out.rawData)); got != "[]" {
+		t.Errorf("empty list printed %q, want %q", got, "[]")
+	}
+}
+
+// TestGeneratedPlatformMutationsHonourDryRun pins the P0 that --dry-run used to
+// be a lie outside Jamf Pro. The root flag is advertised as "preview changes
+// without executing" and is wired by wrapping the Pro HTTPClient in
+// dryRunClient — a decorator the Platform SDK client and the Security Cloud
+// client never pass through. So every generated platform and gateway-served
+// Security Cloud mutation executed for real under -n: a create returned the
+// object it had just made, a delete deleted and reported nothing, both exiting
+// 0. Anyone could destroy production data believing they were simulating.
+//
+// The assertion is that the server is never touched, not merely that the output
+// looks like a preview.
+func TestGeneratedPlatformMutationsHonourDryRun(t *testing.T) {
+	cases := []struct {
+		name    string
+		path    string
+		newCmd  func(*registry.CLIContext) *cobra.Command
+		args    []string
+		wantPre string
+	}{
+		{
+			name:    "create",
+			path:    "/securitycloud/v1/groups",
+			newCmd:  platformgen.NewDeviceGroupsCmd,
+			args:    []string{"create", "--set", "name=dry-run-probe"},
+			wantPre: "[dry-run] POST /securitycloud/v1/groups",
+		},
+		{
+			name:    "delete",
+			path:    "/securitycloud/v1/groups/abc123",
+			newCmd:  platformgen.NewDeviceGroupsCmd,
+			args:    []string{"delete", "abc123", "--yes"},
+			wantPre: "[dry-run] DELETE /securitycloud/v1/groups/abc123",
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			sdk, mux := newTestPlatformSDK(t)
+			var hits int
+			mux.HandleFunc(tc.path, func(w http.ResponseWriter, _ *http.Request) {
+				hits++
+				writeJSON(w, map[string]any{"id": "abc123"})
+			})
+
+			cliCtx := &registry.CLIContext{PlatformSDKClient: sdk, Output: &captureOutput{}, DryRun: true}
+			cmd := tc.newCmd(cliCtx)
+			var stderr bytes.Buffer
+			cmd.SetErr(&stderr)
+			cmd.SetArgs(tc.args)
+			if err := cmd.Execute(); err != nil {
+				t.Fatalf("%s: %v", tc.name, err)
+			}
+			if hits != 0 {
+				t.Errorf("server saw %d request(s) under --dry-run, want 0", hits)
+			}
+			if got := stderr.String(); !strings.Contains(got, tc.wantPre) {
+				t.Errorf("stderr = %q, want it to contain %q", got, tc.wantPre)
+			}
+		})
+	}
+}
+
+// TestDryRunGuardRefusesUnpreviewedWrites covers the backstop for the
+// hand-written platform commands, which orchestrate several SDK calls and have
+// no per-command preview. Refusing at the transport is the conservative
+// reading: nothing is sent and the exit code is non-zero, rather than writing
+// under a flag that promised otherwise.
+//
+// It answers with a 412 rather than a transport error on purpose. The SDK's
+// retry client treats a nil response as always retryable, so refusing by error
+// made -n hang through the full backoff ladder before reporting anything.
+func TestDryRunGuardRefusesUnpreviewedWrites(t *testing.T) {
+	cases := []struct {
+		name       string
+		method     string
+		path       string
+		wantPassed bool
+	}{
+		{name: "post refused", method: http.MethodPost, path: "/securitycloud/v1/groups"},
+		{name: "patch refused", method: http.MethodPatch, path: "/securitycloud/v1/groups/1"},
+		{name: "delete refused", method: http.MethodDelete, path: "/securitycloud/v1/groups/1"},
+		{name: "get passes", method: http.MethodGet, path: "/securitycloud/v1/groups", wantPassed: true},
+		{name: "token passes", method: http.MethodPost, path: "/auth/token", wantPassed: true},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			inner := &recordingRoundTripper{}
+			rt := &dryRunGuardTransport{inner: inner}
+			req, err := http.NewRequest(tc.method, "https://gw.example.com"+tc.path, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			resp, err := rt.RoundTrip(req)
+			if err != nil {
+				t.Fatalf("RoundTrip returned an error (%v); a nil response is retried by the SDK, so the guard must answer with a status", err)
+			}
+			if tc.wantPassed {
+				if inner.calls != 1 {
+					t.Errorf("inner transport called %d time(s), want 1", inner.calls)
+				}
+				return
+			}
+			if inner.calls != 0 {
+				t.Errorf("inner transport called %d time(s) for a refused write, want 0", inner.calls)
+			}
+			if resp.StatusCode != http.StatusPreconditionFailed {
+				t.Errorf("status = %d, want %d", resp.StatusCode, http.StatusPreconditionFailed)
+			}
+			body, _ := io.ReadAll(resp.Body)
+			if !strings.Contains(string(body), "DRY_RUN") {
+				t.Errorf("body = %q, want it to name DRY_RUN", body)
+			}
+		})
+	}
+}
+
+// TestIdentityEncodingOnWrites covers the workaround for a gateway bug: a
+// gzipped create response comes back with "href": null and no Location header,
+// and an uncompressed one carries both. Go asks for gzip on every request, so
+// every create through this CLI saw null for a field the schema declares
+// required. Reads keep gzip — a full list is where it earns its keep.
+func TestIdentityEncodingOnWrites(t *testing.T) {
+	cases := []struct {
+		method string
+		want   string
+	}{
+		{http.MethodPost, "identity"},
+		{http.MethodPut, "identity"},
+		{http.MethodPatch, "identity"},
+		{http.MethodGet, ""},
+		{http.MethodDelete, ""},
+	}
+	for _, tc := range cases {
+		t.Run(tc.method, func(t *testing.T) {
+			inner := &recordingRoundTripper{}
+			rt := &identityEncodingOnWrites{inner: inner}
+			req, err := http.NewRequest(tc.method, "https://gw.example.com/x", nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err := rt.RoundTrip(req); err != nil {
+				t.Fatal(err)
+			}
+			if got := inner.lastHeader.Get("Accept-Encoding"); got != tc.want {
+				t.Errorf("Accept-Encoding = %q, want %q", got, tc.want)
+			}
+		})
+	}
+}
+
+// recordingRoundTripper counts calls and keeps the last request's headers.
+type recordingRoundTripper struct {
+	calls      int
+	lastHeader http.Header
+}
+
+func (r *recordingRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
+	r.calls++
+	r.lastHeader = req.Header.Clone()
+	return &http.Response{
+		StatusCode: http.StatusOK,
+		Header:     make(http.Header),
+		Body:       io.NopCloser(strings.NewReader("{}")),
+		Request:    req,
+	}, nil
 }

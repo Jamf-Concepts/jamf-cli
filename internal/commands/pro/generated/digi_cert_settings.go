@@ -19,9 +19,10 @@ import (
 // NewDigiCertSettingsCmd creates the digi-cert-settings command group
 func NewDigiCertSettingsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "digi-cert-settings",
-		Short: "Manage digi-cert-settings",
-		Long:  `Manage digi-cert-settings in Jamf Pro.`,
+		Use:         "digi-cert-settings",
+		Short:       "Manage digi-cert-settings",
+		Long:        `Manage digi-cert-settings in Jamf Pro.`,
+		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
 	cmd.AddCommand(newDigiCertSettingsGetCmd(ctx))
@@ -48,7 +49,7 @@ func newDigiCertSettingsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a digi-cert-setting and output as YAML
   jamf-cli pro digi-cert-settings get 1 -o yaml`,
-		Annotations: map[string]string{"jamf:privileges": "Read DigiCert Settings"},
+		Annotations: map[string]string{"jamf:privileges": "Read DigiCert Settings", "jamf:api": "pro", "jamf:gateway-privileges": "digicert-settings:read"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -94,7 +95,7 @@ func newDigiCertSettingsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a digi-cert-setting, modify it, and create a copy
   jamf-cli pro digi-cert-settings get 1 -o json | jq '.name = "Copy"' | jamf-cli pro digi-cert-settings create`,
-		Annotations: map[string]string{"jamf:privileges": "Create DigiCert Settings"},
+		Annotations: map[string]string{"jamf:privileges": "Create DigiCert Settings", "jamf:api": "pro", "jamf:gateway-privileges": "digicert-settings:create"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -167,7 +168,7 @@ func newDigiCertSettingsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Delete without confirmation prompt
   jamf-cli pro digi-cert-settings delete 1 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Delete DigiCert Settings"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Delete DigiCert Settings", "jamf:api": "pro", "jamf:gateway-privileges": "digicert-settings:delete"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -241,7 +242,7 @@ func newDigiCertSettingsValidateClientCertificateCmd(ctx *registry.CLIContext) *
 		Use:         "validate-client-certificate",
 		Short:       "Validate DigiCert Trust Lifecycle Manager client certificate",
 		Long:        "Validate DigiCert Trust Lifecycle Manager client certificate for file format and correct password. Must be base64-encoded PKCS#12 file content, obtainable by 'openssl base64 < /file/path/filename.p12 | tr -d '\\n' | pbcopy' in linux terminal, or similar parsing methods.",
-		Annotations: map[string]string{"jamf:privileges": "Create DigiCert Settings,Update DigiCert Settings"},
+		Annotations: map[string]string{"jamf:privileges": "Create DigiCert Settings,Update DigiCert Settings", "jamf:api": "pro", "jamf:gateway-privileges": "digicert-settings:create,digicert-settings:update"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -313,7 +314,7 @@ func newDigiCertSettingsPatchCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Patch from a file
   jamf-cli pro digi-cert-settings patch 1 --from-file changes.json`,
-		Annotations: map[string]string{"jamf:privileges": "Update DigiCert Settings"},
+		Annotations: map[string]string{"jamf:privileges": "Update DigiCert Settings", "jamf:api": "pro", "jamf:gateway-privileges": "digicert-settings:update"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -401,7 +402,7 @@ func newDigiCertSettingsConnectionStatusCmd(ctx *registry.CLIContext) *cobra.Com
 		Use:         "connection-status <id>",
 		Short:       "Get connection status of DigiCert Trust Lifecycle Manager for a given ID",
 		Long:        "Get connection status of DigiCert Trust Lifecycle Manager for a given ID.",
-		Annotations: map[string]string{"jamf:privileges": "Read DigiCert Settings"},
+		Annotations: map[string]string{"jamf:privileges": "Read DigiCert Settings", "jamf:api": "pro", "jamf:gateway-privileges": "digicert-settings:read"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -437,7 +438,7 @@ func newDigiCertSettingsDependenciesCmd(ctx *registry.CLIContext) *cobra.Command
 		Use:         "dependencies <id>",
 		Short:       "Retrieve list of DigiCert Trust Lifecycle Manager Settings dependencies",
 		Long:        "Retrieve list of DigiCert Trust Lifecycle Manager Settings dependencies.",
-		Annotations: map[string]string{"jamf:privileges": "Read DigiCert Settings"},
+		Annotations: map[string]string{"jamf:privileges": "Read DigiCert Settings", "jamf:api": "pro", "jamf:gateway-privileges": "digicert-settings:read"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -473,7 +474,7 @@ func newDigiCertSettingsPrivilegeCheckCmd(ctx *registry.CLIContext) *cobra.Comma
 		Use:         "privilege-check <id>",
 		Short:       "Check DigiCert account permissions for certificate deployment",
 		Long:        "Checks that the DigiCert account associated with the given ID holds all permissions required to deploy certificates via the Trust Lifecycle Manager. Returns 204 if all required permissions are present. Returns 403 with a list of missing permission names if any are absent.",
-		Annotations: map[string]string{"jamf:privileges": "Read DigiCert Settings"},
+		Annotations: map[string]string{"jamf:privileges": "Read DigiCert Settings", "jamf:api": "pro", "jamf:gateway-privileges": "digicert-settings:read"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

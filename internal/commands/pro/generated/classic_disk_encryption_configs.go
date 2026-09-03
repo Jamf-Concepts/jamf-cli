@@ -17,12 +17,58 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// bodySpecClassicDiskEncryptionConfigs is this resource's request-body contract, derived from
+// specs/classic/schemas.json at generation time. Empty when the Classic API spec
+// declares no schema for it, in which case create/update/apply read their body
+// from --from-file or stdin with no --scaffold and no --set.
+var bodySpecClassicDiskEncryptionConfigs = classicBodySpec{
+	Root:   "disk_encryption_configuration",
+	Schema: "disk_encryption_configuration",
+	Scaffold: `<disk_encryption_configuration>
+  <id>1</id>
+  <name>Corporate Encryption</name>
+  <file_vault_enabled_users></file_vault_enabled_users>
+  <institutional_recovery_key>
+    <certificate_type></certificate_type>
+    <data></data>
+    <key></key>
+    <password></password>
+    <password_sha256></password_sha256>
+  </institutional_recovery_key>
+  <key_type></key_type>
+</disk_encryption_configuration>
+`,
+	FieldTypes: map[string]string{
+		"file_vault_enabled_users":   "string",
+		"id":                         "integer",
+		"institutional_recovery_key": "object",
+		"institutional_recovery_key.certificate_type": "string",
+		"institutional_recovery_key.data":             "string",
+		"institutional_recovery_key.key":              "string",
+		"institutional_recovery_key.password":         "string",
+		"institutional_recovery_key.password_sha256":  "string",
+		"key_type": "string",
+		"name":     "string",
+	},
+	Enums: map[string][]string{
+		"file_vault_enabled_users": {"Current or Next User", "Management Account"},
+		"key_type":                 {"Individual", "Institutional", "Individual And Institutional"},
+	},
+	Credentials: map[string]bool{
+		"institutional_recovery_key.data":            true,
+		"institutional_recovery_key.key":             true,
+		"institutional_recovery_key.password":        true,
+		"institutional_recovery_key.password_sha256": true,
+	},
+}
+
 // NewClassicDiskEncryptionConfigsCmd creates the classic-disk-encryption-configs command group
 func NewClassicDiskEncryptionConfigsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "classic-disk-encryption-configs",
-		Short: "Disk encryption configurations (Classic API)",
-		Long:  `Manage disk encryption configurations via the Jamf Pro Classic API (/JSSResource/).`,
+		Use:         "classic-disk-encryption-configs",
+		Short:       "Disk encryption configurations (Classic API)",
+		Long:        `Manage disk encryption configurations via the Jamf Pro Classic API (/JSSResource/).`,
+		Annotations: map[string]string{"jamf:api": "pro-classic"},
 	}
 
 	cmd.AddCommand(newClassicDiskEncryptionConfigsListCmd(ctx))
@@ -49,6 +95,7 @@ func newClassicDiskEncryptionConfigsListCmd(ctx *registry.CLIContext) *cobra.Com
 
   # List diskencryptionconfigurations and extract IDs
   jamf-cli pro classic-disk-encryption-configs list --field id`,
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "disk-encryption-configurations:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/diskencryptionconfigurations", nil)
@@ -105,7 +152,8 @@ func newClassicDiskEncryptionConfigsGetCmd(ctx *registry.CLIContext) *cobra.Comm
 
   # Get a disk_encryption_configuration and output as YAML
   jamf-cli pro classic-disk-encryption-configs get 1 -o yaml`,
-		Args: cobra.MaximumNArgs(1),
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "disk-encryption-configurations:read"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -157,21 +205,42 @@ func newClassicDiskEncryptionConfigsGetCmd(ctx *registry.CLIContext) *cobra.Comm
 
 func newClassicDiskEncryptionConfigsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
-		fromFile string
+		fromFile     string
+		flagScaffold bool
+		flagSet      []string
 	)
 	cmd := &cobra.Command{
 		Use:   "create",
 		Short: "Create a disk_encryption_configuration",
-		Long:  "Create a new disk_encryption_configuration. Reads the XML body from --from-file or stdin.",
+		Long: `Create a new disk_encryption_configuration. Reads the XML body from --from-file, --set or stdin.
+
+Body fields are derived from the Classic API spec (schema "disk_encryption_configuration").
+Run with --scaffold to print a complete XML template.
+
+Required: name
+Optional sections: file_vault_enabled_users, id, institutional_recovery_key, key_type
+
+Allowed values:
+  file_vault_enabled_users: Current or Next User | Management Account
+  key_type: Individual | Institutional | Individual And Institutional
+
+The Classic API does not reject an out-of-range value — it substitutes
+its default silently — so --set refuses one rather than letting it through.
+
+Credential fields (--from-file only, never --set): institutional_recovery_key.data, institutional_recovery_key.key, institutional_recovery_key.password, institutional_recovery_key.password_sha256`,
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "disk-encryption-configurations:create"},
 		Example: `  # Create a disk_encryption_configuration from an XML file
   jamf-cli pro classic-disk-encryption-configs create --from-file disk_encryption_configuration.xml
 
   # Create a disk_encryption_configuration from XML on stdin
   cat disk_encryption_configuration.xml | jamf-cli pro classic-disk-encryption-configs create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if flagScaffold {
+				return printClassicScaffold(bodySpecClassicDiskEncryptionConfigs)
+			}
 			reqCtx := cmd.Context()
 
-			bodyBytes, err := readClassicBody(fromFile)
+			bodyBytes, err := readClassicBodyOrSet(fromFile, flagSet, bodySpecClassicDiskEncryptionConfigs)
 			if err != nil {
 				return err
 			}
@@ -190,27 +259,58 @@ func newClassicDiskEncryptionConfigsCreateCmd(ctx *registry.CLIContext) *cobra.C
 		},
 	}
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to XML input file (or pipe XML to stdin)")
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print an XML body template for this resource and exit")
+	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Set a body field in dot notation (key=value, repeatable). Builds the whole body, so it cannot be combined with --from-file")
+	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+		return []string{"file_vault_enabled_users=", "id=", "institutional_recovery_key.certificate_type=", "key_type=", "name="}, cobra.ShellCompDirectiveNoSpace
+	})
 	return cmd
 }
 
 func newClassicDiskEncryptionConfigsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var fromFile string
+	var (
+		flagScaffold bool
+		flagSet      []string
+	)
 	var flagName string
 
 	cmd := &cobra.Command{
 		Use:   "update [<id>]",
 		Short: "Update a disk_encryption_configuration",
-		Long:  "Update an existing disk_encryption_configuration by ID. Reads the XML body from --from-file or stdin.",
+		Long: `Update an existing disk_encryption_configuration by ID. Reads the XML body from --from-file, --set or stdin.
+
+The Classic API applies a partial update: fields the body omits keep their
+current values, so a body carrying one element changes only that element.
+
+Body fields are derived from the Classic API spec (schema "disk_encryption_configuration").
+Run with --scaffold to print a complete XML template.
+
+Required: name
+Optional sections: file_vault_enabled_users, id, institutional_recovery_key, key_type
+
+Allowed values:
+  file_vault_enabled_users: Current or Next User | Management Account
+  key_type: Individual | Institutional | Individual And Institutional
+
+The Classic API does not reject an out-of-range value — it substitutes
+its default silently — so --set refuses one rather than letting it through.
+
+Credential fields (--from-file only, never --set): institutional_recovery_key.data, institutional_recovery_key.key, institutional_recovery_key.password, institutional_recovery_key.password_sha256`,
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "disk-encryption-configurations:update"},
 		Example: `  # Update a disk_encryption_configuration from an XML file
   jamf-cli pro classic-disk-encryption-configs update 1 --from-file disk_encryption_configuration.xml
 
   # Update a disk_encryption_configuration from XML on stdin
   cat disk_encryption_configuration.xml | jamf-cli pro classic-disk-encryption-configs update 1`,
-		Args: cobra.MaximumNArgs(1),
+		Args: classicScaffoldArgs(&flagScaffold, cobra.MaximumNArgs(1)),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if flagScaffold {
+				return printClassicScaffold(bodySpecClassicDiskEncryptionConfigs)
+			}
 			reqCtx := cmd.Context()
 
-			bodyBytes, bodyErr := readClassicBody(fromFile)
+			bodyBytes, bodyErr := readClassicBodyOrSet(fromFile, flagSet, bodySpecClassicDiskEncryptionConfigs)
 			if bodyErr != nil {
 				return bodyErr
 			}
@@ -239,6 +339,11 @@ func newClassicDiskEncryptionConfigsUpdateCmd(ctx *registry.CLIContext) *cobra.C
 	}
 
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to XML input file (or pipe XML to stdin)")
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print an XML body template for this resource and exit")
+	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Set a body field in dot notation (key=value, repeatable). Builds the whole body, so it cannot be combined with --from-file")
+	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+		return []string{"file_vault_enabled_users=", "id=", "institutional_recovery_key.certificate_type=", "key_type=", "name="}, cobra.ShellCompDirectiveNoSpace
+	})
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up disk_encryption_configuration by name")
 
 	return cmd
@@ -263,7 +368,7 @@ func newClassicDiskEncryptionConfigsDeleteCmd(ctx *registry.CLIContext) *cobra.C
 
   # Delete without confirmation prompt
   jamf-cli pro classic-disk-encryption-configs delete 1 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:api": "pro-classic", "jamf:gateway-privileges": "disk-encryption-configurations:delete"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -428,19 +533,37 @@ func newClassicDiskEncryptionConfigsDeleteCmd(ctx *registry.CLIContext) *cobra.C
 
 func newClassicDiskEncryptionConfigsApplyCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
-		fromFile   string
-		flagYes    bool
-		flagDryRun bool
+		fromFile     string
+		flagYes      bool
+		flagDryRun   bool
+		flagScaffold bool
+		flagSet      []string
 	)
 
 	cmd := &cobra.Command{
-		Use:   "apply",
-		Short: "Create or replace a disk_encryption_configuration by name",
-		Long: `Create or replace a disk_encryption_configuration. Reads XML from --from-file or stdin.
+		Use:         "apply",
+		Short:       "Create or replace a disk_encryption_configuration by name",
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "disk-encryption-configurations:create,disk-encryption-configurations:read,disk-encryption-configurations:update"},
+		Long: `Create or replace a disk_encryption_configuration. Reads XML from --from-file, --set or stdin.
 
 The name field in the input XML is used to check if the resource already
 exists. If it does, the resource is replaced (with confirmation).
-If not, a new resource is created.`,
+If not, a new resource is created.
+
+Body fields are derived from the Classic API spec (schema "disk_encryption_configuration").
+Run with --scaffold to print a complete XML template.
+
+Required: name
+Optional sections: file_vault_enabled_users, id, institutional_recovery_key, key_type
+
+Allowed values:
+  file_vault_enabled_users: Current or Next User | Management Account
+  key_type: Individual | Institutional | Individual And Institutional
+
+The Classic API does not reject an out-of-range value — it substitutes
+its default silently — so --set refuses one rather than letting it through.
+
+Credential fields (--from-file only, never --set): institutional_recovery_key.data, institutional_recovery_key.key, institutional_recovery_key.password, institutional_recovery_key.password_sha256`,
 		Example: `  # Apply a disk_encryption_configuration from an XML file
   jamf-cli pro classic-disk-encryption-configs apply --from-file disk_encryption_configuration.xml
 
@@ -450,6 +573,9 @@ If not, a new resource is created.`,
   # Apply without replacement confirmation
   jamf-cli pro classic-disk-encryption-configs apply --from-file disk_encryption_configuration.xml --yes`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			if flagScaffold {
+				return printClassicScaffold(bodySpecClassicDiskEncryptionConfigs)
+			}
 			reqCtx := cmd.Context()
 
 			// Read input
@@ -522,6 +648,12 @@ If not, a new resource is created.`,
 	}
 
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to XML input file (or pipe XML to stdin)")
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print an XML body template for this resource and exit")
+	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Set a body field in dot notation (key=value, repeatable). Builds the whole body, so it cannot be combined with --from-file")
+	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+		return []string{"file_vault_enabled_users=", "id=", "institutional_recovery_key.certificate_type=", "key_type=", "name="}, cobra.ShellCompDirectiveNoSpace
+	})
+
 	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt when replacing")
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
 

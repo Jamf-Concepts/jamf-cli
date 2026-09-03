@@ -11,12 +11,19 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// bodySpecClassicMobileCommands is this resource's request-body contract, derived from
+// specs/classic/schemas.json at generation time. Empty when the Classic API spec
+// declares no schema for it, in which case create/update/apply read their body
+// from --from-file or stdin with no --scaffold and no --set.
+var bodySpecClassicMobileCommands = classicBodySpec{}
+
 // NewClassicMobileCommandsCmd creates the classic-mobile-commands command group
 func NewClassicMobileCommandsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "classic-mobile-commands",
-		Short: "Mobile device management commands (Classic API)",
-		Long:  `Manage mobile device management commands via the Jamf Pro Classic API (/JSSResource/).`,
+		Use:         "classic-mobile-commands",
+		Short:       "Mobile device management commands (Classic API)",
+		Long:        `Manage mobile device management commands via the Jamf Pro Classic API (/JSSResource/).`,
+		Annotations: map[string]string{"jamf:api": "pro-classic"},
 	}
 
 	cmd.AddCommand(newClassicMobileCommandsListCmd(ctx))
@@ -33,6 +40,7 @@ func newClassicMobileCommandsListCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # List mobiledevicecommands and extract IDs
   jamf-cli pro classic-mobile-commands list --field id`,
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "device-actions:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/mobiledevicecommands", nil)

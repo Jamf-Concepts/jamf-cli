@@ -209,7 +209,7 @@ func TestPlatformOAuth2Provider_GetToken_Success(t *testing.T) {
 	}))
 	defer server.Close()
 
-	p := NewPlatformOAuth2Provider(server.URL, "platform-client-id", "platform-client-secret", "tenant-uuid")
+	p := NewPlatformOAuth2Provider(server.URL, "platform-client-id", "platform-client-secret", TenantScope("tenant-uuid"))
 	token, err := p.GetToken(context.Background())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -232,7 +232,7 @@ func TestPlatformOAuth2Provider_GetToken_CachesToken(t *testing.T) {
 	}))
 	defer server.Close()
 
-	p := NewPlatformOAuth2Provider(server.URL, "id", "secret", "tenant")
+	p := NewPlatformOAuth2Provider(server.URL, "id", "secret", TenantScope("tenant"))
 
 	token1, _ := p.GetToken(context.Background())
 	token2, _ := p.GetToken(context.Background())
@@ -252,7 +252,7 @@ func TestPlatformOAuth2Provider_GetToken_InvalidCredentials(t *testing.T) {
 	}))
 	defer server.Close()
 
-	p := NewPlatformOAuth2Provider(server.URL, "bad-id", "bad-secret", "tenant")
+	p := NewPlatformOAuth2Provider(server.URL, "bad-id", "bad-secret", TenantScope("tenant"))
 	_, err := p.GetToken(context.Background())
 	if err == nil {
 		t.Fatal("expected error for invalid credentials")
@@ -271,7 +271,7 @@ func TestPlatformOAuth2Provider_GetToken_EmptyAccessToken(t *testing.T) {
 	}))
 	defer server.Close()
 
-	p := NewPlatformOAuth2Provider(server.URL, "id", "secret", "tenant")
+	p := NewPlatformOAuth2Provider(server.URL, "id", "secret", TenantScope("tenant"))
 	_, err := p.GetToken(context.Background())
 	if err == nil {
 		t.Fatal("expected error for empty access_token")
@@ -290,7 +290,7 @@ func TestPlatformOAuth2Provider_GetToken_ZeroExpiresIn(t *testing.T) {
 	}))
 	defer server.Close()
 
-	p := NewPlatformOAuth2Provider(server.URL, "id", "secret", "tenant")
+	p := NewPlatformOAuth2Provider(server.URL, "id", "secret", TenantScope("tenant"))
 	_, err := p.GetToken(context.Background())
 	if err == nil {
 		t.Fatal("expected error for zero expires_in")
@@ -298,15 +298,34 @@ func TestPlatformOAuth2Provider_GetToken_ZeroExpiresIn(t *testing.T) {
 	}
 }
 
-func TestPlatformOAuth2Provider_TenantID(t *testing.T) {
-	p := NewPlatformOAuth2Provider("", "", "", "my-tenant-uuid")
-	if p.TenantID() != "my-tenant-uuid" {
-		t.Errorf("expected my-tenant-uuid, got %s", p.TenantID())
+func TestPlatformOAuth2Provider_Scope(t *testing.T) {
+	cases := []struct {
+		name       string
+		scope      Scope
+		wantHeader string
+		wantValue  string
+	}{
+		{name: "tenant", scope: TenantScope("my-tenant-uuid"), wantHeader: "X-Tenant-Id", wantValue: "my-tenant-uuid"},
+		{name: "environment", scope: EnvironmentScope("my-env-uuid"), wantHeader: "X-Environment-Id", wantValue: "my-env-uuid"},
+		// Organization scope sends nothing: the gateway resolves it from the
+		// access token, so an empty header name is the correct answer rather
+		// than a missing value.
+		{name: "organization", scope: Scope{}},
+		{name: "kind without an id", scope: Scope{Kind: ScopeTenant}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			p := NewPlatformOAuth2Provider("", "", "", tc.scope)
+			name, value := p.Scope().Header()
+			if name != tc.wantHeader || value != tc.wantValue {
+				t.Errorf("Header() = (%q, %q), want (%q, %q)", name, value, tc.wantHeader, tc.wantValue)
+			}
+		})
 	}
 }
 
 func TestPlatformOAuth2Provider_Name(t *testing.T) {
-	p := NewPlatformOAuth2Provider("", "", "", "")
+	p := NewPlatformOAuth2Provider("", "", "", Scope{})
 	if p.Name() != "platform" {
 		t.Errorf("expected platform, got %s", p.Name())
 	}
@@ -322,7 +341,7 @@ func TestOAuth2Provider_HasCookieJar(t *testing.T) {
 }
 
 func TestPlatformOAuth2Provider_HasCookieJar(t *testing.T) {
-	p := NewPlatformOAuth2Provider("https://us.api.platform.jamf.com", "id", "secret", "tenant")
+	p := NewPlatformOAuth2Provider("https://us.api.platform.jamf.com", "id", "secret", TenantScope("tenant"))
 	if p.Jar() == nil {
 		t.Error("expected non-nil cookie jar")
 	}
@@ -473,7 +492,7 @@ func TestPlatformOAuth2Provider_GetToken_SavesToDiskCache(t *testing.T) {
 	}))
 	defer server.Close()
 
-	p := NewPlatformOAuth2Provider(server.URL, "plat-disk-id", "plat-secret", "tenant")
+	p := NewPlatformOAuth2Provider(server.URL, "plat-disk-id", "plat-secret", TenantScope("tenant"))
 	cachePath := tokenCachePath(server.URL, "plat-disk-id")
 	defer func() { _ = os.Remove(cachePath) }()
 
@@ -510,7 +529,7 @@ func TestPlatformOAuth2Provider_GetToken_LoadsFromDiskCache(t *testing.T) {
 
 	saveTokenCache(cachePath, cachedTok, time.Now().Add(5*time.Minute))
 
-	p := NewPlatformOAuth2Provider(fakeURL, fakeClientID, "secret", "tenant")
+	p := NewPlatformOAuth2Provider(fakeURL, fakeClientID, "secret", TenantScope("tenant"))
 	token, err := p.GetToken(context.Background())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -538,7 +557,7 @@ func TestPlatformOAuth2Provider_GetToken_IgnoresExpiredDiskCache(t *testing.T) {
 
 	saveTokenCache(cachePath, "plat-stale-token", time.Now().Add(-1*time.Minute))
 
-	p := NewPlatformOAuth2Provider(server.URL, "plat-exp-id", "secret", "tenant")
+	p := NewPlatformOAuth2Provider(server.URL, "plat-exp-id", "secret", TenantScope("tenant"))
 	token, err := p.GetToken(context.Background())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -569,7 +588,7 @@ func TestPlatformOAuth2Provider_GetToken_IgnoresMalformedDiskCache(t *testing.T)
 
 	_ = os.WriteFile(cachePath, []byte("not json at all {{{{"), 0o600)
 
-	p := NewPlatformOAuth2Provider(server.URL, "plat-bad-id", "secret", "tenant")
+	p := NewPlatformOAuth2Provider(server.URL, "plat-bad-id", "secret", TenantScope("tenant"))
 	token, err := p.GetToken(context.Background())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)

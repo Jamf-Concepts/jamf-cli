@@ -1,0 +1,687 @@
+{
+  "components": {
+    "parameters": {
+      "X-Tenant-Id": {
+        "description": "The tenant UUID identifier.",
+        "in": "header",
+        "name": "X-Tenant-Id",
+        "required": true,
+        "schema": {
+          "example": "e77c1408-10c8-4007-b177-abc9157fbcaa",
+          "format": "uuid",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "type": "string"
+        }
+      }
+    },
+    "schemas": {
+      "ActivationProfile": {
+        "description": "A single activation profile resource.",
+        "properties": {
+          "code": {
+            "description": "Unique identifier code for the activation profile",
+            "example": "123abc",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code"
+        ],
+        "type": "object"
+      },
+      "ActivationProfileResponse": {
+        "description": "Response body returned after successfully creating an activation profile.",
+        "properties": {
+          "href": {
+            "description": "URL of the created activation profile",
+            "example": "/v1/activation-profiles/245def",
+            "type": "string"
+          },
+          "id": {
+            "description": "Unique identifier code for the newly created activation profile",
+            "example": "245def",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "href"
+        ],
+        "type": "object"
+      },
+      "ActivationProfilesResponse": {
+        "description": "List of activation profiles for the customer.",
+        "properties": {
+          "activationProfiles": {
+            "description": "List of activation profiles. Returns empty array if no profiles exist.",
+            "items": {
+              "$ref": "#/components/schemas/ActivationProfile"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "activationProfiles"
+        ],
+        "type": "object"
+      },
+      "ApiError": {
+        "description": "Standard Jamf API error response.",
+        "properties": {
+          "errors": {
+            "items": {
+              "properties": {
+                "code": {
+                  "description": "Error-specific code that can be used to identify localization string, etc.",
+                  "example": "INVALID_FIELD",
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "description": {
+                  "description": "A general description of error for troubleshooting/debugging.",
+                  "example": "The field value is invalid.",
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "field": {
+                  "description": "Name of the field that caused the error.",
+                  "example": "name",
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "id": {
+                  "description": "id of object with error. Optional.",
+                  "example": "3",
+                  "minLength": 1,
+                  "type": "string"
+                }
+              },
+              "type": "object"
+            },
+            "minItems": 1,
+            "type": "array"
+          },
+          "httpStatus": {
+            "description": "HTTP status of the response",
+            "example": 400,
+            "maximum": 599,
+            "minimum": 400,
+            "type": "integer"
+          },
+          "traceId": {
+            "example": "ecf2ca07e23c0abc12393472f2b783df",
+            "type": "string"
+          }
+        },
+        "required": [
+          "httpStatus"
+        ],
+        "type": "object"
+      },
+      "BulkDeleteActivationProfilesRequest": {
+        "additionalProperties": false,
+        "description": "Request body for bulk-deleting activation profiles by code.",
+        "properties": {
+          "codes": {
+            "description": "Codes of the activation profiles to delete.",
+            "example": [
+              "123abc",
+              "245def"
+            ],
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100,
+            "minItems": 1,
+            "type": "array",
+            "uniqueItems": true
+          }
+        },
+        "required": [
+          "codes"
+        ],
+        "type": "object"
+      },
+      "PublicApiCapabilities": {
+        "additionalProperties": false,
+        "description": "Capability configuration. At least one capability must be enabled.",
+        "maxProperties": 4,
+        "minProperties": 1,
+        "properties": {
+          "dataPolicy": {
+            "default": false,
+            "description": "Enable data policy capability.",
+            "type": "boolean"
+          },
+          "networkSecurity": {
+            "default": false,
+            "description": "Enable network security capability.",
+            "type": "boolean"
+          },
+          "note": {
+            "description": "Optional note for this capability configuration.",
+            "example": "Enabled for compliance requirements",
+            "maxLength": 255,
+            "type": "string"
+          },
+          "vulnerabilityManagement": {
+            "default": false,
+            "description": "Enable vulnerability management capability.",
+            "type": "boolean"
+          }
+        },
+        "type": "object"
+      },
+      "PublicApiCreateActivationProfileRequest": {
+        "additionalProperties": false,
+        "description": "Request body for creating a new activation profile via the public API.",
+        "properties": {
+          "capabilities": {
+            "$ref": "#/components/schemas/PublicApiCapabilities"
+          },
+          "groupId": {
+            "description": "Optional group ID to associate with the activation profile.",
+            "example": "group-123",
+            "nullable": true,
+            "type": "string"
+          },
+          "name": {
+            "description": "Name of the activation profile.",
+            "example": "My Activation profile",
+            "maxLength": 100,
+            "type": "string"
+          },
+          "origin": {
+            "description": "Creation origin.",
+            "enum": [
+              "PUBLIC_API"
+            ],
+            "example": "PUBLIC_API",
+            "type": "string"
+          },
+          "platforms": {
+            "description": "Target platforms for this activation profile.",
+            "example": [
+              "iOS"
+            ],
+            "items": {
+              "enum": [
+                "iOS",
+                "MAC"
+              ],
+              "type": "string"
+            },
+            "maxItems": 2,
+            "minItems": 1,
+            "type": "array"
+          }
+        },
+        "required": [
+          "origin",
+          "name",
+          "platforms",
+          "capabilities"
+        ],
+        "type": "object"
+      }
+    },
+    "securitySchemes": {
+      "oauth2": {
+        "description": "Obtain an access token by calling the API Gateway's token endpoint using the OAuth2 client-credentials flow.",
+        "flows": {
+          "clientCredentials": {
+            "scopes": {
+              "activation-profiles:create": "",
+              "activation-profiles:delete": "",
+              "activation-profiles:read": "",
+              "activation-profiles:update": ""
+            },
+            "tokenUrl": "https://{region}.api.jamfcloud.com/auth/token"
+          }
+        },
+        "type": "oauth2"
+      }
+    }
+  },
+  "info": {
+    "contact": {
+      "name": "Jamf Developer",
+      "url": "https://developer.jamf.com"
+    },
+    "description": "API for managing activation profiles used during device enrollment",
+    "termsOfService": "https://www.jamf.com/developer-resources/api-license-agreement/",
+    "title": "Security Cloud Enrollment API",
+    "version": "1.0.0"
+  },
+  "openapi": "3.0.3",
+  "paths": {
+    "/v1/activation-profiles": {
+      "get": {
+        "description": "Retrieves activation profiles for a given customer filtered by creation origin.\n\n**Required Permissions:** `activation-profiles:read`",
+        "operationId": "searchActivationProfiles",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/X-Tenant-Id"
+          },
+          {
+            "description": "Creation origin - the feature or context that created the activation profile.",
+            "example": "PUBLIC_API",
+            "in": "query",
+            "name": "origin",
+            "required": true,
+            "schema": {
+              "enum": [
+                "PUBLIC_API"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "examples": {
+                  "emptyList": {
+                    "summary": "Response when no profiles exist",
+                    "value": {
+                      "activationProfiles": []
+                    }
+                  },
+                  "withProfiles": {
+                    "summary": "Response with activation profiles",
+                    "value": {
+                      "activationProfiles": [
+                        {
+                          "code": "123abc"
+                        }
+                      ]
+                    }
+                  }
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ActivationProfilesResponse"
+                }
+              }
+            },
+            "description": "List of activation profiles matching the criteria"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "errors": [
+                    {
+                      "code": "INVALID_PARAMETER",
+                      "description": "Only 'PUBLIC_API' value is accepted as origin.",
+                      "field": "origin"
+                    }
+                  ],
+                  "httpStatus": 400,
+                  "traceId": "ecf2ca07e23c0abc12393472f2b783df"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Bad request - origin parameter has an invalid value"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "activation-profiles:read"
+            ]
+          }
+        ],
+        "summary": "Search activation profiles",
+        "tags": [
+          "activation-profiles"
+        ],
+        "x-required-privileges": [
+          "activation-profiles:read"
+        ]
+      },
+      "post": {
+        "description": "Creates a new activation profile.\n\n**Required Permissions:** `activation-profiles:create`",
+        "operationId": "createActivationProfile",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/X-Tenant-Id"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "example": {
+                "capabilities": {
+                  "dataPolicy": true,
+                  "networkSecurity": true,
+                  "vulnerabilityManagement": true
+                },
+                "name": "awesome AP",
+                "origin": "PUBLIC_API",
+                "platforms": [
+                  "iOS"
+                ]
+              },
+              "schema": {
+                "$ref": "#/components/schemas/PublicApiCreateActivationProfileRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "href": "/v1/activation-profiles/245def",
+                  "id": "245def"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ActivationProfileResponse"
+                }
+              }
+            },
+            "description": "Activation profile created successfully",
+            "headers": {
+              "Location": {
+                "description": "URL of the created activation profile",
+                "example": "/v1/activation-profiles/245def",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "errors": [
+                    {
+                      "code": "INVALID_FIELD",
+                      "description": "The origin field is required and must be 'PUBLIC_API'",
+                      "field": "origin"
+                    }
+                  ],
+                  "httpStatus": 400,
+                  "traceId": "ecf2ca07e23c0abc12393472f2b783df"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Bad request - origin field is missing or invalid"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "activation-profiles:create"
+            ]
+          }
+        ],
+        "summary": "Create activation profile",
+        "tags": [
+          "activation-profiles"
+        ],
+        "x-jamf-expected-status": 201,
+        "x-required-privileges": [
+          "activation-profiles:create"
+        ]
+      }
+    },
+    "/v1/activation-profiles/delete-multiple": {
+      "post": {
+        "description": "Deletes a batch of activation profiles. Each requested code is processed independently - codes that cannot be deleted, because they do not exist, are restricted from deletion by their origin, or are currently used by an unfinished device transition, are silently skipped. The request succeeds as long as the payload is valid.\n\n**Required Permissions:** `activation-profiles:delete`",
+        "operationId": "deleteActivationProfiles",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/X-Tenant-Id"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "example": {
+                "codes": [
+                  "123abc",
+                  "245def"
+                ]
+              },
+              "schema": {
+                "$ref": "#/components/schemas/BulkDeleteActivationProfilesRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Activation profiles deleted successfully"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Bad request - the codes list is missing, empty, or exceeds the maximum allowed size"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "activation-profiles:delete"
+            ]
+          }
+        ],
+        "summary": "Delete multiple activation profiles",
+        "tags": [
+          "activation-profiles"
+        ],
+        "x-action": true,
+        "x-jamf-expected-status": 204,
+        "x-required-privileges": [
+          "activation-profiles:delete"
+        ]
+      }
+    },
+    "/v1/activation-profiles/{activationProfileId}": {
+      "get": {
+        "description": "Retrieves a single activation profile for the current customer by its ID.\n\n**Required Permissions:** `activation-profiles:read`",
+        "operationId": "getActivationProfile",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/X-Tenant-Id"
+          },
+          {
+            "description": "Unique code identifying the activation profile",
+            "example": "123abc",
+            "in": "path",
+            "name": "activationProfileId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "code": "123abc"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ActivationProfile"
+                }
+              }
+            },
+            "description": "Activation profile found"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Activation profile not found"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "activation-profiles:read"
+            ]
+          }
+        ],
+        "summary": "Get activation profile",
+        "tags": [
+          "activation-profiles"
+        ],
+        "x-required-privileges": [
+          "activation-profiles:read"
+        ]
+      }
+    },
+    "/v1/activation-profiles/{activationProfileId}/pause": {
+      "post": {
+        "description": "Pauses an activation profile, preventing it from being used during enrollment.\n\n**Required Permissions:** `activation-profiles:update`",
+        "operationId": "pauseActivationProfile",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/X-Tenant-Id"
+          },
+          {
+            "description": "Unique code identifying the activation profile",
+            "example": "123abc",
+            "in": "path",
+            "name": "activationProfileId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Activation profile paused successfully"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Activation profile not found"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "activation-profiles:update"
+            ]
+          }
+        ],
+        "summary": "Pause activation profile",
+        "tags": [
+          "activation-profiles"
+        ],
+        "x-action": true,
+        "x-jamf-expected-status": 204,
+        "x-required-privileges": [
+          "activation-profiles:update"
+        ]
+      }
+    },
+    "/v1/activation-profiles/{activationProfileId}/resume": {
+      "post": {
+        "description": "Resumes a paused activation profile, allowing it to be used during enrollment.\n\n**Required Permissions:** `activation-profiles:update`",
+        "operationId": "resumeActivationProfile",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/X-Tenant-Id"
+          },
+          {
+            "description": "Unique code identifying the activation profile",
+            "example": "123abc",
+            "in": "path",
+            "name": "activationProfileId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Activation profile resumed successfully"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Activation profile not found"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "activation-profiles:update"
+            ]
+          }
+        ],
+        "summary": "Resume activation profile",
+        "tags": [
+          "activation-profiles"
+        ],
+        "x-action": true,
+        "x-jamf-expected-status": 204,
+        "x-required-privileges": [
+          "activation-profiles:update"
+        ]
+      }
+    }
+  },
+  "security": [
+    {
+      "oauth2": []
+    }
+  ],
+  "servers": [
+    {
+      "description": "Jamf Beta API Gateway - prod",
+      "url": "https://{region}.api.jamfcloud.com/securitycloud",
+      "variables": {
+        "region": {
+          "default": "us",
+          "description": "Geographic deployment region",
+          "enum": [
+            "us",
+            "eu",
+            "apac"
+          ]
+        }
+      }
+    }
+  ],
+  "x-scope-types": [
+    "tenant"
+  ]
+}

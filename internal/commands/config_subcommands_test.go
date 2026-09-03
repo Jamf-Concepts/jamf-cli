@@ -157,6 +157,95 @@ profiles:
 	}
 }
 
+// The scope columns are the point of these three, and the trap is that a table's
+// columns are the keys of its *first* row. Profiles list alphabetically, so the
+// fixture puts an instance profile first on purpose: with omitempty on
+// environment-id, that one row used to decide that no profile below it had a
+// scope worth showing.
+const configListScopeFixture = `default-profile: zeta-tenant
+profiles:
+  alpha-instance:
+    url: https://alpha.jamfcloud.com
+    auth-method: oauth2
+  mid-env:
+    url: https://eu.api.jamfcloud.com
+    auth-method: platform
+    environment-id: 11111111-2222-3333-4444-555555555555
+  zeta-tenant:
+    url: https://eu.api.jamfcloud.com
+    auth-method: platform
+    tenant-id: aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee
+`
+
+func runConfigList(t *testing.T, format, yaml string) string {
+	t.Helper()
+	jDir := setupTempConfig(t)
+	if err := os.WriteFile(filepath.Join(jDir, "config.yaml"), []byte(yaml), 0o600); err != nil {
+		t.Fatalf("writing the fixture config: %v", err)
+	}
+	buf := &bytes.Buffer{}
+	cmd := newConfigListCmd(newTestCtx(buf, format))
+	cmd.SetOut(buf)
+	cmd.SetErr(buf)
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("config list -o %s: %v", format, err)
+	}
+	return buf.String()
+}
+
+func TestConfigList_TableShowsEnvironmentIDEvenWhenTheFirstProfileHasNone(t *testing.T) {
+	out := runConfigList(t, "table", configListScopeFixture)
+
+	if !strings.Contains(out, "ENVIRONMENT-ID") {
+		t.Errorf("no ENVIRONMENT-ID column — a table's columns come from its first row, and that row is an instance profile:\n%s", out)
+	}
+	if !strings.Contains(out, "11111111-2222-3333-4444-555555555555") {
+		t.Errorf("the environment ID itself is missing from the table:\n%s", out)
+	}
+	// default is omitempty too, and the default profile here sorts last, so the
+	// table used to stop saying which profile was active.
+	if !strings.Contains(out, "DEFAULT") {
+		t.Errorf("no DEFAULT column, with a default profile that does not sort first:\n%s", out)
+	}
+}
+
+func TestConfigList_TableShowsEnvironmentIDInsteadOfTenantID(t *testing.T) {
+	for _, format := range []string{"table", "csv"} {
+		out := runConfigList(t, format, configListScopeFixture)
+		if strings.Contains(strings.ToLower(out), "tenant-id") {
+			t.Errorf("-o %s names tenant-id; environment is the level to show and tenant stays in the structured formats:\n%s", format, out)
+		}
+		if strings.Contains(out, "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee") {
+			t.Errorf("-o %s prints a tenant ID value:\n%s", format, out)
+		}
+	}
+}
+
+// Dropping tenant-id is a column-layout decision, not a decision to stop
+// reporting it: anything parsing this command still needs the real scope.
+func TestConfigList_JSONKeepsTenantID(t *testing.T) {
+	out := runConfigList(t, "json", configListScopeFixture)
+
+	var rows []map[string]any
+	if err := json.Unmarshal([]byte(out), &rows); err != nil {
+		t.Fatalf("output is not valid JSON: %v\n%s", err, out)
+	}
+	byName := map[string]map[string]any{}
+	for _, r := range rows {
+		byName[r["name"].(string)] = r
+	}
+	if got := byName["zeta-tenant"]["tenant-id"]; got != "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee" {
+		t.Errorf("tenant-id = %v, want it carried through to JSON", got)
+	}
+	if got := byName["mid-env"]["environment-id"]; got != "11111111-2222-3333-4444-555555555555" {
+		t.Errorf("environment-id = %v, want it carried through to JSON", got)
+	}
+	// omitempty still applies here — an instance profile has neither.
+	if _, ok := byName["alpha-instance"]["environment-id"]; ok {
+		t.Error("an instance profile should not carry an empty environment-id in JSON")
+	}
+}
+
 // --- config remove-profile tests ---
 
 func TestConfigRemoveProfile_Exists(t *testing.T) {

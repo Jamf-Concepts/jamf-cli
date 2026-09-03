@@ -17,12 +17,70 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// bodySpecClassicPackages is this resource's request-body contract, derived from
+// specs/classic/schemas.json at generation time. Empty when the Classic API spec
+// declares no schema for it, in which case create/update/apply read their body
+// from --from-file or stdin with no --scaffold and no --set.
+var bodySpecClassicPackages = classicBodySpec{
+	Root:   "package",
+	Schema: "package",
+	Scaffold: `<package>
+  <id>1</id>
+  <name>Firefox.dmg</name>
+  <allow_uninstalled>false</allow_uninstalled>
+  <category>Unknown</category>
+  <filename>Firefox.dmg</filename>
+  <fill_existing_users>false</fill_existing_users>
+  <fill_user_template>false</fill_user_template>
+  <hash_type>SHA_512</hash_type>
+  <hash_value>a0fce3a820ae8247ef1a6b6c93ef496f5e4d222c969fde8387a98bb8a51c3830326df4bc5c817489669e10b9ee7c64501799b98de4a1798a9a0235251c8f644d</hash_value>
+  <info></info>
+  <install_if_reported_available>false</install_if_reported_available>
+  <notes></notes>
+  <os_requirements></os_requirements>
+  <priority>5</priority>
+  <reboot_required>false</reboot_required>
+  <reinstall_option>Do Not Reinstall</reinstall_option>
+  <required_processor></required_processor>
+  <send_notification>false</send_notification>
+  <switch_with_package>Do Not Install</switch_with_package>
+  <triggering_files></triggering_files>
+</package>
+`,
+	FieldTypes: map[string]string{
+		"allow_uninstalled":             "boolean",
+		"category":                      "string",
+		"filename":                      "string",
+		"fill_existing_users":           "boolean",
+		"fill_user_template":            "boolean",
+		"hash_type":                     "string",
+		"hash_value":                    "string",
+		"id":                            "integer",
+		"info":                          "string",
+		"install_if_reported_available": "boolean",
+		"name":                          "string",
+		"notes":                         "string",
+		"os_requirements":               "string",
+		"priority":                      "integer",
+		"reboot_required":               "boolean",
+		"reinstall_option":              "string",
+		"required_processor":            "string",
+		"send_notification":             "boolean",
+		"switch_with_package":           "string",
+		"triggering_files":              "string",
+	},
+	Enums: map[string][]string{
+		"required_processor": {"None", "ppc", "x86"},
+	},
+}
+
 // NewClassicPackagesCmd creates the classic-packages command group
 func NewClassicPackagesCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "classic-packages",
-		Short: "Software packages (Classic API)",
-		Long:  `Manage software packages via the Jamf Pro Classic API (/JSSResource/).`,
+		Use:         "classic-packages",
+		Short:       "Software packages (Classic API)",
+		Long:        `Manage software packages via the Jamf Pro Classic API (/JSSResource/).`,
+		Annotations: map[string]string{"jamf:api": "pro-classic"},
 	}
 
 	cmd.AddCommand(newClassicPackagesListCmd(ctx))
@@ -49,6 +107,7 @@ func newClassicPackagesListCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # List packages and extract IDs
   jamf-cli pro classic-packages list --field id`,
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "packages:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/packages", nil)
@@ -105,7 +164,8 @@ func newClassicPackagesGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a package and output as YAML
   jamf-cli pro classic-packages get 1 -o yaml`,
-		Args: cobra.MaximumNArgs(1),
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "packages:read"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -157,21 +217,43 @@ func newClassicPackagesGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
 func newClassicPackagesCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
-		fromFile string
+		fromFile     string
+		flagScaffold bool
+		flagSet      []string
 	)
 	cmd := &cobra.Command{
 		Use:   "create",
 		Short: "Create a package",
-		Long:  "Create a new package. Reads the XML body from --from-file or stdin.",
+		Long: `Create a new package. Reads the XML body from --from-file, --set or stdin.
+
+Body fields are derived from the Classic API spec (schema "package").
+Run with --scaffold to print a complete XML template.
+
+Required: filename, name
+Optional sections: allow_uninstalled, category, fill_existing_users, fill_user_template,
+  hash_type, hash_value, id, info, install_if_reported_available, notes,
+  os_requirements, priority, reboot_required, reinstall_option,
+  required_processor, send_notification, switch_with_package,
+  triggering_files
+
+Allowed values:
+  required_processor: None | ppc | x86
+
+The Classic API does not reject an out-of-range value — it substitutes
+its default silently — so --set refuses one rather than letting it through.`,
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "packages:create"},
 		Example: `  # Create a package from an XML file
   jamf-cli pro classic-packages create --from-file package.xml
 
   # Create a package from XML on stdin
   cat package.xml | jamf-cli pro classic-packages create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if flagScaffold {
+				return printClassicScaffold(bodySpecClassicPackages)
+			}
 			reqCtx := cmd.Context()
 
-			bodyBytes, err := readClassicBody(fromFile)
+			bodyBytes, err := readClassicBodyOrSet(fromFile, flagSet, bodySpecClassicPackages)
 			if err != nil {
 				return err
 			}
@@ -190,27 +272,59 @@ func newClassicPackagesCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to XML input file (or pipe XML to stdin)")
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print an XML body template for this resource and exit")
+	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Set a body field in dot notation (key=value, repeatable). Builds the whole body, so it cannot be combined with --from-file")
+	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+		return []string{"allow_uninstalled=", "category=", "filename=", "fill_existing_users=", "fill_user_template=", "hash_type=", "hash_value=", "id=", "info=", "install_if_reported_available=", "name=", "notes=", "os_requirements=", "priority=", "reboot_required=", "reinstall_option=", "required_processor=", "send_notification=", "switch_with_package=", "triggering_files="}, cobra.ShellCompDirectiveNoSpace
+	})
 	return cmd
 }
 
 func newClassicPackagesUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var fromFile string
+	var (
+		flagScaffold bool
+		flagSet      []string
+	)
 	var flagName string
 
 	cmd := &cobra.Command{
 		Use:   "update [<id>]",
 		Short: "Update a package",
-		Long:  "Update an existing package by ID. Reads the XML body from --from-file or stdin.",
+		Long: `Update an existing package by ID. Reads the XML body from --from-file, --set or stdin.
+
+The Classic API applies a partial update: fields the body omits keep their
+current values, so a body carrying one element changes only that element.
+
+Body fields are derived from the Classic API spec (schema "package").
+Run with --scaffold to print a complete XML template.
+
+Required: filename, name
+Optional sections: allow_uninstalled, category, fill_existing_users, fill_user_template,
+  hash_type, hash_value, id, info, install_if_reported_available, notes,
+  os_requirements, priority, reboot_required, reinstall_option,
+  required_processor, send_notification, switch_with_package,
+  triggering_files
+
+Allowed values:
+  required_processor: None | ppc | x86
+
+The Classic API does not reject an out-of-range value — it substitutes
+its default silently — so --set refuses one rather than letting it through.`,
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "packages:update"},
 		Example: `  # Update a package from an XML file
   jamf-cli pro classic-packages update 1 --from-file package.xml
 
   # Update a package from XML on stdin
   cat package.xml | jamf-cli pro classic-packages update 1`,
-		Args: cobra.MaximumNArgs(1),
+		Args: classicScaffoldArgs(&flagScaffold, cobra.MaximumNArgs(1)),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if flagScaffold {
+				return printClassicScaffold(bodySpecClassicPackages)
+			}
 			reqCtx := cmd.Context()
 
-			bodyBytes, bodyErr := readClassicBody(fromFile)
+			bodyBytes, bodyErr := readClassicBodyOrSet(fromFile, flagSet, bodySpecClassicPackages)
 			if bodyErr != nil {
 				return bodyErr
 			}
@@ -239,6 +353,11 @@ func newClassicPackagesUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to XML input file (or pipe XML to stdin)")
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print an XML body template for this resource and exit")
+	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Set a body field in dot notation (key=value, repeatable). Builds the whole body, so it cannot be combined with --from-file")
+	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+		return []string{"allow_uninstalled=", "category=", "filename=", "fill_existing_users=", "fill_user_template=", "hash_type=", "hash_value=", "id=", "info=", "install_if_reported_available=", "name=", "notes=", "os_requirements=", "priority=", "reboot_required=", "reinstall_option=", "required_processor=", "send_notification=", "switch_with_package=", "triggering_files="}, cobra.ShellCompDirectiveNoSpace
+	})
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up package by name")
 
 	return cmd
@@ -263,7 +382,7 @@ func newClassicPackagesDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Delete without confirmation prompt
   jamf-cli pro classic-packages delete 1 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:api": "pro-classic", "jamf:gateway-privileges": "packages:delete"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -428,19 +547,38 @@ func newClassicPackagesDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 
 func newClassicPackagesApplyCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
-		fromFile   string
-		flagYes    bool
-		flagDryRun bool
+		fromFile     string
+		flagYes      bool
+		flagDryRun   bool
+		flagScaffold bool
+		flagSet      []string
 	)
 
 	cmd := &cobra.Command{
-		Use:   "apply",
-		Short: "Create or replace a package by name",
-		Long: `Create or replace a package. Reads XML from --from-file or stdin.
+		Use:         "apply",
+		Short:       "Create or replace a package by name",
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "packages:create,packages:read,packages:update"},
+		Long: `Create or replace a package. Reads XML from --from-file, --set or stdin.
 
 The name field in the input XML is used to check if the resource already
 exists. If it does, the resource is replaced (with confirmation).
-If not, a new resource is created.`,
+If not, a new resource is created.
+
+Body fields are derived from the Classic API spec (schema "package").
+Run with --scaffold to print a complete XML template.
+
+Required: filename, name
+Optional sections: allow_uninstalled, category, fill_existing_users, fill_user_template,
+  hash_type, hash_value, id, info, install_if_reported_available, notes,
+  os_requirements, priority, reboot_required, reinstall_option,
+  required_processor, send_notification, switch_with_package,
+  triggering_files
+
+Allowed values:
+  required_processor: None | ppc | x86
+
+The Classic API does not reject an out-of-range value — it substitutes
+its default silently — so --set refuses one rather than letting it through.`,
 		Example: `  # Apply a package from an XML file
   jamf-cli pro classic-packages apply --from-file package.xml
 
@@ -450,6 +588,9 @@ If not, a new resource is created.`,
   # Apply without replacement confirmation
   jamf-cli pro classic-packages apply --from-file package.xml --yes`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			if flagScaffold {
+				return printClassicScaffold(bodySpecClassicPackages)
+			}
 			reqCtx := cmd.Context()
 
 			// Read input
@@ -522,6 +663,12 @@ If not, a new resource is created.`,
 	}
 
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to XML input file (or pipe XML to stdin)")
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print an XML body template for this resource and exit")
+	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Set a body field in dot notation (key=value, repeatable). Builds the whole body, so it cannot be combined with --from-file")
+	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+		return []string{"allow_uninstalled=", "category=", "filename=", "fill_existing_users=", "fill_user_template=", "hash_type=", "hash_value=", "id=", "info=", "install_if_reported_available=", "name=", "notes=", "os_requirements=", "priority=", "reboot_required=", "reinstall_option=", "required_processor=", "send_notification=", "switch_with_package=", "triggering_files="}, cobra.ShellCompDirectiveNoSpace
+	})
+
 	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt when replacing")
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
 

@@ -18,12 +18,270 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// bodySpecClassicMacosConfigProfiles is this resource's request-body contract, derived from
+// specs/classic/schemas.json at generation time. Empty when the Classic API spec
+// declares no schema for it, in which case create/update/apply read their body
+// from --from-file or stdin with no --scaffold and no --set.
+var bodySpecClassicMacosConfigProfiles = classicBodySpec{
+	Root:   "os_x_configuration_profile",
+	Schema: "os_x_configuration_profile",
+	Scaffold: `<os_x_configuration_profile>
+  <general>
+    <id>1</id>
+    <name>Corporate Wireless</name>
+    <category>
+      <id>0</id>
+      <name></name>
+    </category>
+    <description></description>
+    <distribution_method></distribution_method>
+    <level></level>
+    <payloads></payloads>
+    <redeploy_on_update>Newly Assigned</redeploy_on_update>
+    <site>
+      <id>0</id>
+      <name>None</name>
+    </site>
+    <user_removable>false</user_removable>
+    <uuid>88F8C1DB-D92A-4D10-95FB-CE7EDE82B93E</uuid>
+  </general>
+  <scope>
+    <all_computers>false</all_computers>
+    <all_jss_users>false</all_jss_users>
+    <buildings>
+      <building>
+        <id>1</id>
+        <name></name>
+      </building>
+    </buildings>
+    <computer_groups>
+      <computer_group>
+        <id>1</id>
+        <name></name>
+      </computer_group>
+    </computer_groups>
+    <computers>
+      <computer>
+        <id>1</id>
+        <name>Admins MacBook Pro</name>
+        <udid>55900BDC-347C-58B1-D249-F32244B11D30</udid>
+      </computer>
+    </computers>
+    <departments>
+      <department>
+        <id>1</id>
+        <name></name>
+      </department>
+    </departments>
+    <exclusions>
+      <buildings>
+        <building>
+          <id>1</id>
+          <name></name>
+        </building>
+      </buildings>
+      <computer_groups>
+        <computer_group>
+          <id>1</id>
+          <name></name>
+        </computer_group>
+      </computer_groups>
+      <computers>
+        <computer>
+          <id>1</id>
+          <name>Johns iMac</name>
+          <udid>55900BDC-347C-58B1-D249-F32244B11D30</udid>
+        </computer>
+      </computers>
+      <departments>
+        <department>
+          <id>1</id>
+          <name></name>
+        </department>
+      </departments>
+      <ibeacons>
+        <ibeacon>
+          <id>1</id>
+          <name></name>
+        </ibeacon>
+      </ibeacons>
+      <jss_user_groups>
+        <user_group>
+          <id>1</id>
+          <name></name>
+        </user_group>
+      </jss_user_groups>
+      <jss_users>
+        <user>
+          <id>1</id>
+          <name></name>
+        </user>
+      </jss_users>
+      <network_segments>
+        <network_segment>
+          <id>1</id>
+          <name>New York</name>
+          <uid></uid>
+        </network_segment>
+      </network_segments>
+      <user_groups>
+        <user_group>
+          <id>1</id>
+          <name></name>
+        </user_group>
+      </user_groups>
+      <users>
+        <user>
+          <name>Adam</name>
+        </user>
+      </users>
+    </exclusions>
+    <jss_user_groups>
+      <jss_user_group>
+        <id>1</id>
+        <name></name>
+      </jss_user_group>
+    </jss_user_groups>
+    <jss_users>
+      <user>
+        <id>1</id>
+        <name></name>
+      </user>
+    </jss_users>
+    <limitations>
+      <ibeacons>
+        <ibeacon>
+          <id>1</id>
+          <name></name>
+        </ibeacon>
+      </ibeacons>
+      <network_segments>
+        <network_segment>
+          <id>0</id>
+          <name></name>
+          <uid></uid>
+        </network_segment>
+      </network_segments>
+      <user_groups>
+        <user_group>
+          <id>1</id>
+          <name></name>
+        </user_group>
+      </user_groups>
+      <users>
+        <user>
+          <id>1</id>
+          <name></name>
+        </user>
+      </users>
+    </limitations>
+  </scope>
+  <self_service>
+    <feature_on_main_page>false</feature_on_main_page>
+    <force_users_to_view_description>false</force_users_to_view_description>
+    <install_button_text>Install</install_button_text>
+    <notification></notification>
+    <notification_message>You need access to corporate resources. Install this profile to get the premium WiFis.</notification_message>
+    <notification_subject>Install Me!!!</notification_subject>
+    <security>
+      <password></password>
+      <removal_disallowed></removal_disallowed>
+    </security>
+    <self_service_categories>
+      <category>
+        <id>0</id>
+        <name></name>
+        <display_in>false</display_in>
+        <feature_in>false</feature_in>
+      </category>
+    </self_service_categories>
+    <self_service_description></self_service_description>
+    <self_service_display_name></self_service_display_name>
+    <self_service_icon>
+      <id>1</id>
+      <data></data>
+      <uri>https://company.jamfcloud.com/iconservlet/?id=1</uri>
+    </self_service_icon>
+  </self_service>
+</os_x_configuration_profile>
+`,
+	FieldTypes: map[string]string{
+		"general":                                       "object",
+		"general.category":                              "object",
+		"general.category.id":                           "integer",
+		"general.category.name":                         "string",
+		"general.description":                           "string",
+		"general.distribution_method":                   "string",
+		"general.id":                                    "integer",
+		"general.level":                                 "string",
+		"general.name":                                  "string",
+		"general.payloads":                              "string",
+		"general.redeploy_on_update":                    "string",
+		"general.site":                                  "object",
+		"general.site.id":                               "integer",
+		"general.site.name":                             "string",
+		"general.user_removable":                        "boolean",
+		"general.uuid":                                  "string",
+		"scope":                                         "object",
+		"scope.all_computers":                           "boolean",
+		"scope.all_jss_users":                           "boolean",
+		"scope.buildings":                               "array",
+		"scope.computer_groups":                         "array",
+		"scope.computers":                               "array",
+		"scope.departments":                             "array",
+		"scope.exclusions":                              "object",
+		"scope.exclusions.buildings":                    "array",
+		"scope.exclusions.computer_groups":              "array",
+		"scope.exclusions.computers":                    "array",
+		"scope.exclusions.departments":                  "array",
+		"scope.exclusions.ibeacons":                     "array",
+		"scope.exclusions.jss_user_groups":              "array",
+		"scope.exclusions.jss_users":                    "array",
+		"scope.exclusions.network_segments":             "array",
+		"scope.exclusions.user_groups":                  "array",
+		"scope.exclusions.users":                        "array",
+		"scope.jss_user_groups":                         "array",
+		"scope.jss_users":                               "array",
+		"scope.limitations":                             "object",
+		"scope.limitations.ibeacons":                    "array",
+		"scope.limitations.network_segments":            "array",
+		"scope.limitations.user_groups":                 "array",
+		"scope.limitations.users":                       "array",
+		"self_service":                                  "object",
+		"self_service.feature_on_main_page":             "boolean",
+		"self_service.force_users_to_view_description":  "boolean",
+		"self_service.install_button_text":              "string",
+		"self_service.notification":                     "string",
+		"self_service.notification_message":             "string",
+		"self_service.notification_subject":             "string",
+		"self_service.security":                         "object",
+		"self_service.security.password":                "string",
+		"self_service.security.removal_disallowed":      "string",
+		"self_service.self_service_categories":          "object",
+		"self_service.self_service_categories.category": "array",
+		"self_service.self_service_description":         "string",
+		"self_service.self_service_display_name":        "string",
+		"self_service.self_service_icon":                "object",
+		"self_service.self_service_icon.data":           "string",
+		"self_service.self_service_icon.id":             "integer",
+		"self_service.self_service_icon.uri":            "string",
+	},
+	Enums: map[string][]string{
+		"general.distribution_method": {"Install Automatically", "Make Available in Self Service"},
+		"general.level":               {"computer", "user"},
+	},
+	Credentials: map[string]bool{
+		"self_service.security.password": true,
+	},
+}
+
 // NewClassicMacosConfigProfilesCmd creates the classic-macos-config-profiles command group
 func NewClassicMacosConfigProfilesCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "classic-macos-config-profiles",
-		Short: "macOS configuration profiles (Classic API)",
-		Long:  `Manage macos configuration profiles via the Jamf Pro Classic API (/JSSResource/).`,
+		Use:         "classic-macos-config-profiles",
+		Short:       "macOS configuration profiles (Classic API)",
+		Long:        `Manage macos configuration profiles via the Jamf Pro Classic API (/JSSResource/).`,
+		Annotations: map[string]string{"jamf:api": "pro-classic"},
 	}
 
 	cmd.AddCommand(newClassicMacosConfigProfilesListCmd(ctx))
@@ -55,6 +313,7 @@ func newClassicMacosConfigProfilesListCmd(ctx *registry.CLIContext) *cobra.Comma
 
   # List osxconfigurationprofiles and extract IDs
   jamf-cli pro classic-macos-config-profiles list --field id`,
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "configuration-profiles:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/osxconfigurationprofiles", nil)
@@ -111,7 +370,8 @@ func newClassicMacosConfigProfilesGetCmd(ctx *registry.CLIContext) *cobra.Comman
 
   # Get a os_x_configuration_profile and output as YAML
   jamf-cli pro classic-macos-config-profiles get 1 -o yaml`,
-		Args: cobra.MaximumNArgs(1),
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "configuration-profiles:read"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -164,6 +424,8 @@ func newClassicMacosConfigProfilesGetCmd(ctx *registry.CLIContext) *cobra.Comman
 func newClassicMacosConfigProfilesCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		fromFile                string
+		flagScaffold            bool
+		flagSet                 []string
 		flagMobileconfigFile    string
 		flagCustomPayloadFiles  []string
 		flagCustomPayloadDomain string
@@ -171,16 +433,36 @@ func newClassicMacosConfigProfilesCreateCmd(ctx *registry.CLIContext) *cobra.Com
 	cmd := &cobra.Command{
 		Use:   "create",
 		Short: "Create a os_x_configuration_profile",
-		Long:  "Create a new os_x_configuration_profile. Reads the XML body from --from-file or stdin.",
+		Long: `Create a new os_x_configuration_profile. Reads the XML body from --from-file, --set or stdin.
+
+Body fields are derived from the Classic API spec (schema "os_x_configuration_profile").
+Run with --scaffold to print a complete XML template.
+The template populates every optional section with one specimen entry,
+including references whose <id> points at nothing on your instance — delete
+the sections you do not need. A dangling reference is answered with a 500.
+Optional sections: general, scope, self_service
+
+Allowed values:
+  general.distribution_method: Install Automatically | Make Available in Self Service
+  general.level: computer | user
+
+The Classic API does not reject an out-of-range value — it substitutes
+its default silently — so --set refuses one rather than letting it through.
+
+Credential fields (--from-file only, never --set): self_service.security.password`,
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "configuration-profiles:create"},
 		Example: `  # Create a os_x_configuration_profile from an XML file
   jamf-cli pro classic-macos-config-profiles create --from-file os_x_configuration_profile.xml
 
   # Create a os_x_configuration_profile from XML on stdin
   cat os_x_configuration_profile.xml | jamf-cli pro classic-macos-config-profiles create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if flagScaffold {
+				return printClassicScaffold(bodySpecClassicMacosConfigProfiles)
+			}
 			reqCtx := cmd.Context()
 
-			bodyBytes, err := readClassicBody(fromFile)
+			bodyBytes, err := readClassicBodyOrSet(fromFile, flagSet, bodySpecClassicMacosConfigProfiles)
 			if err != nil {
 				return err
 			}
@@ -230,6 +512,11 @@ func newClassicMacosConfigProfilesCreateCmd(ctx *registry.CLIContext) *cobra.Com
 		},
 	}
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to XML input file (or pipe XML to stdin)")
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print an XML body template for this resource and exit")
+	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Set a body field in dot notation (key=value, repeatable). Builds the whole body, so it cannot be combined with --from-file")
+	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+		return []string{"general.category.id=", "general.category.name=", "general.description=", "general.distribution_method=", "general.id=", "general.level=", "general.name=", "general.payloads=", "general.redeploy_on_update=", "general.site.id=", "general.site.name=", "general.user_removable=", "general.uuid=", "scope.all_computers=", "scope.all_jss_users=", "self_service.feature_on_main_page=", "self_service.force_users_to_view_description=", "self_service.install_button_text=", "self_service.notification=", "self_service.notification_message=", "self_service.notification_subject=", "self_service.security.removal_disallowed=", "self_service.self_service_description=", "self_service.self_service_display_name=", "self_service.self_service_icon.data=", "self_service.self_service_icon.id=", "self_service.self_service_icon.uri="}, cobra.ShellCompDirectiveNoSpace
+	})
 
 	cmd.Flags().StringVar(&flagMobileconfigFile, "mobileconfig-file", "", "Path to a .mobileconfig file; contents are CDATA-wrapped into <general><payloads>")
 	cmd.Flags().StringArrayVar(&flagCustomPayloadFiles, "custom-payload-file", nil, "Path to a preference plist (XML or binary); wrapped into a com.apple.ManagedClient.preferences payload (repeatable; mutually exclusive with --mobileconfig-file)")
@@ -239,6 +526,10 @@ func newClassicMacosConfigProfilesCreateCmd(ctx *registry.CLIContext) *cobra.Com
 
 func newClassicMacosConfigProfilesUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var fromFile string
+	var (
+		flagScaffold bool
+		flagSet      []string
+	)
 	var flagName string
 	var (
 		flagMobileconfigFile    string
@@ -249,17 +540,40 @@ func newClassicMacosConfigProfilesUpdateCmd(ctx *registry.CLIContext) *cobra.Com
 	cmd := &cobra.Command{
 		Use:   "update [<id>]",
 		Short: "Update a os_x_configuration_profile",
-		Long:  "Update an existing os_x_configuration_profile by ID. Reads the XML body from --from-file or stdin.",
+		Long: `Update an existing os_x_configuration_profile by ID. Reads the XML body from --from-file, --set or stdin.
+
+The Classic API applies a partial update: fields the body omits keep their
+current values, so a body carrying one element changes only that element.
+
+Body fields are derived from the Classic API spec (schema "os_x_configuration_profile").
+Run with --scaffold to print a complete XML template.
+The template populates every optional section with one specimen entry,
+including references whose <id> points at nothing on your instance — delete
+the sections you do not need. A dangling reference is answered with a 500.
+Optional sections: general, scope, self_service
+
+Allowed values:
+  general.distribution_method: Install Automatically | Make Available in Self Service
+  general.level: computer | user
+
+The Classic API does not reject an out-of-range value — it substitutes
+its default silently — so --set refuses one rather than letting it through.
+
+Credential fields (--from-file only, never --set): self_service.security.password`,
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "configuration-profiles:update"},
 		Example: `  # Update a os_x_configuration_profile from an XML file
   jamf-cli pro classic-macos-config-profiles update 1 --from-file os_x_configuration_profile.xml
 
   # Update a os_x_configuration_profile from XML on stdin
   cat os_x_configuration_profile.xml | jamf-cli pro classic-macos-config-profiles update 1`,
-		Args: cobra.MaximumNArgs(1),
+		Args: classicScaffoldArgs(&flagScaffold, cobra.MaximumNArgs(1)),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if flagScaffold {
+				return printClassicScaffold(bodySpecClassicMacosConfigProfiles)
+			}
 			reqCtx := cmd.Context()
 
-			bodyBytes, bodyErr := readClassicBody(fromFile)
+			bodyBytes, bodyErr := readClassicBodyOrSet(fromFile, flagSet, bodySpecClassicMacosConfigProfiles)
 			if bodyErr != nil {
 				return bodyErr
 			}
@@ -334,6 +648,11 @@ func newClassicMacosConfigProfilesUpdateCmd(ctx *registry.CLIContext) *cobra.Com
 	}
 
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to XML input file (or pipe XML to stdin)")
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print an XML body template for this resource and exit")
+	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Set a body field in dot notation (key=value, repeatable). Builds the whole body, so it cannot be combined with --from-file")
+	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+		return []string{"general.category.id=", "general.category.name=", "general.description=", "general.distribution_method=", "general.id=", "general.level=", "general.name=", "general.payloads=", "general.redeploy_on_update=", "general.site.id=", "general.site.name=", "general.user_removable=", "general.uuid=", "scope.all_computers=", "scope.all_jss_users=", "self_service.feature_on_main_page=", "self_service.force_users_to_view_description=", "self_service.install_button_text=", "self_service.notification=", "self_service.notification_message=", "self_service.notification_subject=", "self_service.security.removal_disallowed=", "self_service.self_service_description=", "self_service.self_service_display_name=", "self_service.self_service_icon.data=", "self_service.self_service_icon.id=", "self_service.self_service_icon.uri="}, cobra.ShellCompDirectiveNoSpace
+	})
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up os_x_configuration_profile by name")
 
 	cmd.Flags().StringVar(&flagMobileconfigFile, "mobileconfig-file", "", "Path to a .mobileconfig file; contents are CDATA-wrapped into <general><payloads>")
@@ -361,7 +680,7 @@ func newClassicMacosConfigProfilesDeleteCmd(ctx *registry.CLIContext) *cobra.Com
 
   # Delete without confirmation prompt
   jamf-cli pro classic-macos-config-profiles delete 1 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:api": "pro-classic", "jamf:gateway-privileges": "configuration-profiles:delete"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -529,6 +848,8 @@ func newClassicMacosConfigProfilesApplyCmd(ctx *registry.CLIContext) *cobra.Comm
 		fromFile                string
 		flagYes                 bool
 		flagDryRun              bool
+		flagScaffold            bool
+		flagSet                 []string
 		flagMobileconfigFile    string
 		flagCustomPayloadFiles  []string
 		flagCustomPayloadDomain string
@@ -536,13 +857,30 @@ func newClassicMacosConfigProfilesApplyCmd(ctx *registry.CLIContext) *cobra.Comm
 	)
 
 	cmd := &cobra.Command{
-		Use:   "apply",
-		Short: "Create or replace a os_x_configuration_profile by name",
-		Long: `Create or replace a os_x_configuration_profile. Reads XML from --from-file or stdin.
+		Use:         "apply",
+		Short:       "Create or replace a os_x_configuration_profile by name",
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "configuration-profiles:create,configuration-profiles:read,configuration-profiles:update"},
+		Long: `Create or replace a os_x_configuration_profile. Reads XML from --from-file, --set or stdin.
 
 The name field in the input XML is used to check if the resource already
 exists. If it does, the resource is replaced (with confirmation).
-If not, a new resource is created.`,
+If not, a new resource is created.
+
+Body fields are derived from the Classic API spec (schema "os_x_configuration_profile").
+Run with --scaffold to print a complete XML template.
+The template populates every optional section with one specimen entry,
+including references whose <id> points at nothing on your instance — delete
+the sections you do not need. A dangling reference is answered with a 500.
+Optional sections: general, scope, self_service
+
+Allowed values:
+  general.distribution_method: Install Automatically | Make Available in Self Service
+  general.level: computer | user
+
+The Classic API does not reject an out-of-range value — it substitutes
+its default silently — so --set refuses one rather than letting it through.
+
+Credential fields (--from-file only, never --set): self_service.security.password`,
 		Example: `  # Apply a os_x_configuration_profile from an XML file
   jamf-cli pro classic-macos-config-profiles apply --from-file os_x_configuration_profile.xml
 
@@ -552,6 +890,9 @@ If not, a new resource is created.`,
   # Apply without replacement confirmation
   jamf-cli pro classic-macos-config-profiles apply --from-file os_x_configuration_profile.xml --yes`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			if flagScaffold {
+				return printClassicScaffold(bodySpecClassicMacosConfigProfiles)
+			}
 			reqCtx := cmd.Context()
 
 			// Read input
@@ -672,6 +1013,12 @@ If not, a new resource is created.`,
 	}
 
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to XML input file (or pipe XML to stdin)")
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print an XML body template for this resource and exit")
+	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Set a body field in dot notation (key=value, repeatable). Builds the whole body, so it cannot be combined with --from-file")
+	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+		return []string{"general.category.id=", "general.category.name=", "general.description=", "general.distribution_method=", "general.id=", "general.level=", "general.name=", "general.payloads=", "general.redeploy_on_update=", "general.site.id=", "general.site.name=", "general.user_removable=", "general.uuid=", "scope.all_computers=", "scope.all_jss_users=", "self_service.feature_on_main_page=", "self_service.force_users_to_view_description=", "self_service.install_button_text=", "self_service.notification=", "self_service.notification_message=", "self_service.notification_subject=", "self_service.security.removal_disallowed=", "self_service.self_service_description=", "self_service.self_service_display_name=", "self_service.self_service_icon.data=", "self_service.self_service_icon.id=", "self_service.self_service_icon.uri="}, cobra.ShellCompDirectiveNoSpace
+	})
+
 	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt when replacing")
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
 

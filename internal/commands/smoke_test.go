@@ -15,6 +15,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Jamf-Concepts/jamf-cli/internal/auth"
 	"github.com/Jamf-Concepts/jamf-cli/internal/client"
 	"github.com/Jamf-Concepts/jamf-cli/internal/commands/pro/generated"
 	"github.com/Jamf-Concepts/jamf-cli/internal/config"
@@ -38,17 +39,29 @@ func smokeClient(t *testing.T) registry.HTTPClient {
 
 	profileName := os.Getenv("JAMF_PROFILE")
 	url, provider, err := ResolveAuthForProfile(cfg, AuthParams{
-		Profile:      profileName,
-		ServerURL:    os.Getenv("JAMF_URL"),
-		Token:        os.Getenv("JAMF_TOKEN"),
-		ClientID:     os.Getenv("JAMF_CLIENT_ID"),
-		ClientSecret: os.Getenv("JAMF_CLIENT_SECRET"),
+		Profile:       profileName,
+		ServerURL:     os.Getenv("JAMF_URL"),
+		Token:         os.Getenv("JAMF_TOKEN"),
+		ClientID:      os.Getenv("JAMF_CLIENT_ID"),
+		ClientSecret:  os.Getenv("JAMF_CLIENT_SECRET"),
+		TenantID:      os.Getenv("JAMF_TENANT_ID"),
+		EnvironmentID: os.Getenv("JAMF_ENVIRONMENT_ID"),
 	})
 	if err != nil {
 		t.Skipf("cannot resolve auth: %v", err)
 	}
 
-	return &cliClient{client.New(url, provider)}
+	// Enable gateway mode for a platform credential, the way root.go's
+	// PersistentPreRunE does. Without this the suite sent instance-shaped
+	// /api/v1/... paths to the gateway host, so every request 404'd and the
+	// whole sweep skipped itself — leaving the suite structurally blind to
+	// gateway mode, which is exactly where the URL shape changed at GA.
+	var opts []client.Option
+	if p, ok := provider.(*auth.PlatformOAuth2Provider); ok {
+		opts = append(opts, client.WithGatewayScope(p.Scope()))
+	}
+
+	return &cliClient{client.New(url, provider, opts...)}
 }
 
 // ---------------------------------------------------------------------------
@@ -265,22 +278,22 @@ type tier2Check struct {
 var tier2Checks = []tier2Check{
 	{
 		Name:       "device-compliance/GENERAL+HARDWARE",
-		Path:       "/v3/computers-inventory?section=GENERAL&section=HARDWARE&page-size=1",
-		FieldPaths: []string{"results.0.general.name", "results.0.general.lastContactTime", "results.0.hardware.serialNumber"},
+		Path:       "/v4/computers-inventory?section=GENERAL&section=HARDWARE&page-size=1",
+		FieldPaths: []string{"results.0.general.name", "results.0.general.lastCheckIn", "results.0.hardware.serialNumber"},
 	},
 	{
 		Name:       "inventory-summary/HARDWARE+OS",
-		Path:       "/v3/computers-inventory?section=HARDWARE&section=OPERATING_SYSTEM&page-size=1",
+		Path:       "/v4/computers-inventory?section=HARDWARE&section=OPERATING_SYSTEM&page-size=1",
 		FieldPaths: []string{"results.0.hardware.model", "results.0.operatingSystem.version"},
 	},
 	{
 		Name:       "software-installs/APPLICATIONS",
-		Path:       "/v3/computers-inventory?section=APPLICATIONS&page-size=1",
+		Path:       "/v4/computers-inventory?section=APPLICATIONS&page-size=1",
 		FieldPaths: []string{"results.0.applications"},
 	},
 	{
 		Name:       "ea-results/EXTENSION_ATTRIBUTES",
-		Path:       "/v3/computers-inventory?section=EXTENSION_ATTRIBUTES&page-size=1",
+		Path:       "/v4/computers-inventory?section=EXTENSION_ATTRIBUTES&page-size=1",
 		FieldPaths: []string{"results.0.extensionAttributes.0.definitionId", "results.0.extensionAttributes.0.name"},
 	},
 	{

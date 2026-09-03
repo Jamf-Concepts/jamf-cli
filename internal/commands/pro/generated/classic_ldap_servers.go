@@ -17,12 +17,171 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// bodySpecClassicLdapServers is this resource's request-body contract, derived from
+// specs/classic/schemas.json at generation time. Empty when the Classic API spec
+// declares no schema for it, in which case create/update/apply read their body
+// from --from-file or stdin with no --scaffold and no --set.
+var bodySpecClassicLdapServers = classicBodySpec{
+	Root:   "ldap_server",
+	Schema: "ldap_server_post",
+	Scaffold: `<ldap_server>
+  <connection>
+    <id>1</id>
+    <name>Company Active Directory</name>
+    <account>
+      <distinguished_username>CN=Administrator,CN=Users,DC=Company,DC=com</distinguished_username>
+      <password>password</password>
+      <password_sha256></password_sha256>
+    </account>
+    <authentication_type></authentication_type>
+    <certificates_used></certificates_used>
+    <hostname>company.ad.com</hostname>
+    <is_enabled>false</is_enabled>
+    <migrated_to_id>0</migrated_to_id>
+    <open_close_timeout>15</open_close_timeout>
+    <port>389</port>
+    <referral_response></referral_response>
+    <search_timeout>60</search_timeout>
+    <server_type></server_type>
+    <use_ssl>false</use_ssl>
+    <use_wildcards>false</use_wildcards>
+  </connection>
+  <mappings_for_users>
+    <user_group_mappings>
+      <map_group_id>uSNCreated</map_group_id>
+      <map_group_name>name</map_group_name>
+      <map_group_uuid>objectGUID</map_group_uuid>
+      <map_object_class_to_any_or_all></map_object_class_to_any_or_all>
+      <object_classes>top, group</object_classes>
+      <search_base>DC=Company,DC=com</search_base>
+      <search_scope></search_scope>
+    </user_group_mappings>
+    <user_group_membership_mappings>
+      <append_to_username>company.com</append_to_username>
+      <group_id>uSNCreated</group_id>
+      <group_membership_enabled_when_user_membership_selected>false</group_membership_enabled_when_user_membership_selected>
+      <map_group_membership_to_user_field>memberOf</map_group_membership_to_user_field>
+      <map_object_class_to_any_or_all></map_object_class_to_any_or_all>
+      <map_user_membership_to_group_field>false</map_user_membership_to_group_field>
+      <map_user_membership_use_dn>false</map_user_membership_use_dn>
+      <membership_scoping_optimization>false</membership_scoping_optimization>
+      <object_classes>group</object_classes>
+      <recursive_lookups>false</recursive_lookups>
+      <search_base>DC=Company,DC=com</search_base>
+      <search_scope></search_scope>
+      <use_dn>false</use_dn>
+      <user_group_membership_stored_in></user_group_membership_stored_in>
+      <user_group_membership_use_ldap_compare>false</user_group_membership_use_ldap_compare>
+      <username>sAMAccountName</username>
+    </user_group_membership_mappings>
+    <user_mappings>
+      <append_to_email_results>company.com</append_to_email_results>
+      <map_building>streetAddress</map_building>
+      <map_department>department</map_department>
+      <map_email_address>mail</map_email_address>
+      <map_object_class_to_any_or_all></map_object_class_to_any_or_all>
+      <map_phone>telephoneNumber</map_phone>
+      <map_position>title</map_position>
+      <map_realname>displayName</map_realname>
+      <map_room>room</map_room>
+      <map_user_id>uSNCreated</map_user_id>
+      <map_user_uuid>objectGUID</map_user_uuid>
+      <map_username>sAMAccountName</map_username>
+      <object_classes>organizationalPerson, user</object_classes>
+      <search_base>DC=Company,DC=com</search_base>
+      <search_scope></search_scope>
+    </user_mappings>
+  </mappings_for_users>
+</ldap_server>
+`,
+	FieldTypes: map[string]string{
+		"connection":         "object",
+		"connection.account": "object",
+		"connection.account.distinguished_username":                             "string",
+		"connection.account.password":                                           "string",
+		"connection.account.password_sha256":                                    "string",
+		"connection.authentication_type":                                        "string",
+		"connection.certificates_used":                                          "string",
+		"connection.hostname":                                                   "string",
+		"connection.id":                                                         "integer",
+		"connection.is_enabled":                                                 "boolean",
+		"connection.migrated_to_id":                                             "integer",
+		"connection.name":                                                       "string",
+		"connection.open_close_timeout":                                         "integer",
+		"connection.port":                                                       "integer",
+		"connection.referral_response":                                          "string",
+		"connection.search_timeout":                                             "integer",
+		"connection.server_type":                                                "string",
+		"connection.use_ssl":                                                    "boolean",
+		"connection.use_wildcards":                                              "boolean",
+		"mappings_for_users":                                                    "object",
+		"mappings_for_users.user_group_mappings":                                "object",
+		"mappings_for_users.user_group_mappings.map_group_id":                   "string",
+		"mappings_for_users.user_group_mappings.map_group_name":                 "string",
+		"mappings_for_users.user_group_mappings.map_group_uuid":                 "string",
+		"mappings_for_users.user_group_mappings.map_object_class_to_any_or_all": "string",
+		"mappings_for_users.user_group_mappings.object_classes":                 "string",
+		"mappings_for_users.user_group_mappings.search_base":                    "string",
+		"mappings_for_users.user_group_mappings.search_scope":                   "string",
+		"mappings_for_users.user_group_membership_mappings":                     "object",
+		"mappings_for_users.user_group_membership_mappings.append_to_username":  "string",
+		"mappings_for_users.user_group_membership_mappings.group_id":            "string",
+		"mappings_for_users.user_group_membership_mappings.group_membership_enabled_when_user_membership_selected": "boolean",
+		"mappings_for_users.user_group_membership_mappings.map_group_membership_to_user_field":                     "string",
+		"mappings_for_users.user_group_membership_mappings.map_object_class_to_any_or_all":                         "string",
+		"mappings_for_users.user_group_membership_mappings.map_user_membership_to_group_field":                     "boolean",
+		"mappings_for_users.user_group_membership_mappings.map_user_membership_use_dn":                             "boolean",
+		"mappings_for_users.user_group_membership_mappings.membership_scoping_optimization":                        "boolean",
+		"mappings_for_users.user_group_membership_mappings.object_classes":                                         "string",
+		"mappings_for_users.user_group_membership_mappings.recursive_lookups":                                      "boolean",
+		"mappings_for_users.user_group_membership_mappings.search_base":                                            "string",
+		"mappings_for_users.user_group_membership_mappings.search_scope":                                           "string",
+		"mappings_for_users.user_group_membership_mappings.use_dn":                                                 "boolean",
+		"mappings_for_users.user_group_membership_mappings.user_group_membership_stored_in":                        "string",
+		"mappings_for_users.user_group_membership_mappings.user_group_membership_use_ldap_compare":                 "boolean",
+		"mappings_for_users.user_group_membership_mappings.username":                                               "string",
+		"mappings_for_users.user_mappings":                                                                         "object",
+		"mappings_for_users.user_mappings.append_to_email_results":                                                 "string",
+		"mappings_for_users.user_mappings.map_building":                                                            "string",
+		"mappings_for_users.user_mappings.map_department":                                                          "string",
+		"mappings_for_users.user_mappings.map_email_address":                                                       "string",
+		"mappings_for_users.user_mappings.map_object_class_to_any_or_all":                                          "string",
+		"mappings_for_users.user_mappings.map_phone":                                                               "string",
+		"mappings_for_users.user_mappings.map_position":                                                            "string",
+		"mappings_for_users.user_mappings.map_realname":                                                            "string",
+		"mappings_for_users.user_mappings.map_room":                                                                "string",
+		"mappings_for_users.user_mappings.map_user_id":                                                             "string",
+		"mappings_for_users.user_mappings.map_user_uuid":                                                           "string",
+		"mappings_for_users.user_mappings.map_username":                                                            "string",
+		"mappings_for_users.user_mappings.object_classes":                                                          "string",
+		"mappings_for_users.user_mappings.search_base":                                                             "string",
+		"mappings_for_users.user_mappings.search_scope":                                                            "string",
+	},
+	Enums: map[string][]string{
+		"connection.authentication_type":                                                    {"simple", "CRAM-MD5", "DIGEST-MD5", "none"},
+		"connection.referral_response":                                                      {"ignore", "follow"},
+		"connection.server_type":                                                            {"Active Directory", "Open Directory", "eDirectory", "Custom"},
+		"mappings_for_users.user_group_mappings.map_object_class_to_any_or_all":             {"all", "any"},
+		"mappings_for_users.user_group_mappings.search_scope":                               {"All Subtrees", "First Level Only"},
+		"mappings_for_users.user_group_membership_mappings.map_object_class_to_any_or_all":  {"all", "any"},
+		"mappings_for_users.user_group_membership_mappings.search_scope":                    {"All Subtrees", "First Level Only"},
+		"mappings_for_users.user_group_membership_mappings.user_group_membership_stored_in": {"user object", "group object"},
+		"mappings_for_users.user_mappings.map_object_class_to_any_or_all":                   {"all", "any"},
+		"mappings_for_users.user_mappings.search_scope":                                     {"All Subtrees", "First Level Only"},
+	},
+	Credentials: map[string]bool{
+		"connection.account.password":        true,
+		"connection.account.password_sha256": true,
+	},
+}
+
 // NewClassicLdapServersCmd creates the classic-ldap-servers command group
 func NewClassicLdapServersCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "classic-ldap-servers",
-		Short: "On-prem LDAP servers (Classic API)",
-		Long:  `Manage on-prem ldap servers via the Jamf Pro Classic API (/JSSResource/).`,
+		Use:         "classic-ldap-servers",
+		Short:       "On-prem LDAP servers (Classic API)",
+		Long:        `Manage on-prem ldap servers via the Jamf Pro Classic API (/JSSResource/).`,
+		Annotations: map[string]string{"jamf:api": "pro-classic"},
 	}
 
 	cmd.AddCommand(newClassicLdapServersListCmd(ctx))
@@ -49,6 +208,7 @@ func newClassicLdapServersListCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # List ldapservers and extract IDs
   jamf-cli pro classic-ldap-servers list --field id`,
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "ldap-servers:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/ldapservers", nil)
@@ -105,7 +265,8 @@ func newClassicLdapServersGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a ldap_server and output as YAML
   jamf-cli pro classic-ldap-servers get 1 -o yaml`,
-		Args: cobra.MaximumNArgs(1),
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "ldap-servers:read"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -157,21 +318,48 @@ func newClassicLdapServersGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
 func newClassicLdapServersCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
-		fromFile string
+		fromFile     string
+		flagScaffold bool
+		flagSet      []string
 	)
 	cmd := &cobra.Command{
 		Use:   "create",
 		Short: "Create a ldap_server",
-		Long:  "Create a new ldap_server. Reads the XML body from --from-file or stdin.",
+		Long: `Create a new ldap_server. Reads the XML body from --from-file, --set or stdin.
+
+Body fields are derived from the Classic API spec (schema "ldap_server_post").
+Run with --scaffold to print a complete XML template.
+Optional sections: connection, mappings_for_users
+
+Allowed values:
+  connection.authentication_type: simple | CRAM-MD5 | DIGEST-MD5 | none
+  connection.referral_response: ignore | follow
+  connection.server_type: Active Directory | Open Directory | eDirectory | Custom
+  mappings_for_users.user_group_mappings.map_object_class_to_any_or_all: all | any
+  mappings_for_users.user_group_mappings.search_scope: All Subtrees | First Level Only
+  mappings_for_users.user_group_membership_mappings.map_object_class_to_any_or_all: all | any
+  mappings_for_users.user_group_membership_mappings.search_scope: All Subtrees | First Level Only
+  mappings_for_users.user_group_membership_mappings.user_group_membership_stored_in: user object | group object
+  mappings_for_users.user_mappings.map_object_class_to_any_or_all: all | any
+  mappings_for_users.user_mappings.search_scope: All Subtrees | First Level Only
+
+The Classic API does not reject an out-of-range value — it substitutes
+its default silently — so --set refuses one rather than letting it through.
+
+Credential fields (--from-file only, never --set): connection.account.password, connection.account.password_sha256`,
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "ldap-servers:create"},
 		Example: `  # Create a ldap_server from an XML file
   jamf-cli pro classic-ldap-servers create --from-file ldap_server.xml
 
   # Create a ldap_server from XML on stdin
   cat ldap_server.xml | jamf-cli pro classic-ldap-servers create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if flagScaffold {
+				return printClassicScaffold(bodySpecClassicLdapServers)
+			}
 			reqCtx := cmd.Context()
 
-			bodyBytes, err := readClassicBody(fromFile)
+			bodyBytes, err := readClassicBodyOrSet(fromFile, flagSet, bodySpecClassicLdapServers)
 			if err != nil {
 				return err
 			}
@@ -190,27 +378,64 @@ func newClassicLdapServersCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to XML input file (or pipe XML to stdin)")
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print an XML body template for this resource and exit")
+	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Set a body field in dot notation (key=value, repeatable). Builds the whole body, so it cannot be combined with --from-file")
+	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+		return []string{"connection.account.distinguished_username=", "connection.authentication_type=", "connection.certificates_used=", "connection.hostname=", "connection.id=", "connection.is_enabled=", "connection.migrated_to_id=", "connection.name=", "connection.open_close_timeout=", "connection.port=", "connection.referral_response=", "connection.search_timeout=", "connection.server_type=", "connection.use_ssl=", "connection.use_wildcards=", "mappings_for_users.user_group_mappings.map_group_id=", "mappings_for_users.user_group_mappings.map_group_name=", "mappings_for_users.user_group_mappings.map_group_uuid=", "mappings_for_users.user_group_mappings.map_object_class_to_any_or_all=", "mappings_for_users.user_group_mappings.object_classes=", "mappings_for_users.user_group_mappings.search_base=", "mappings_for_users.user_group_mappings.search_scope=", "mappings_for_users.user_group_membership_mappings.append_to_username=", "mappings_for_users.user_group_membership_mappings.group_id=", "mappings_for_users.user_group_membership_mappings.group_membership_enabled_when_user_membership_selected=", "mappings_for_users.user_group_membership_mappings.map_group_membership_to_user_field=", "mappings_for_users.user_group_membership_mappings.map_object_class_to_any_or_all=", "mappings_for_users.user_group_membership_mappings.map_user_membership_to_group_field=", "mappings_for_users.user_group_membership_mappings.map_user_membership_use_dn=", "mappings_for_users.user_group_membership_mappings.membership_scoping_optimization=", "mappings_for_users.user_group_membership_mappings.object_classes=", "mappings_for_users.user_group_membership_mappings.recursive_lookups=", "mappings_for_users.user_group_membership_mappings.search_base=", "mappings_for_users.user_group_membership_mappings.search_scope=", "mappings_for_users.user_group_membership_mappings.use_dn=", "mappings_for_users.user_group_membership_mappings.user_group_membership_stored_in=", "mappings_for_users.user_group_membership_mappings.user_group_membership_use_ldap_compare=", "mappings_for_users.user_group_membership_mappings.username=", "mappings_for_users.user_mappings.append_to_email_results=", "mappings_for_users.user_mappings.map_building=", "mappings_for_users.user_mappings.map_department=", "mappings_for_users.user_mappings.map_email_address=", "mappings_for_users.user_mappings.map_object_class_to_any_or_all=", "mappings_for_users.user_mappings.map_phone=", "mappings_for_users.user_mappings.map_position=", "mappings_for_users.user_mappings.map_realname=", "mappings_for_users.user_mappings.map_room=", "mappings_for_users.user_mappings.map_user_id=", "mappings_for_users.user_mappings.map_user_uuid=", "mappings_for_users.user_mappings.map_username=", "mappings_for_users.user_mappings.object_classes=", "mappings_for_users.user_mappings.search_base=", "mappings_for_users.user_mappings.search_scope="}, cobra.ShellCompDirectiveNoSpace
+	})
 	return cmd
 }
 
 func newClassicLdapServersUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var fromFile string
+	var (
+		flagScaffold bool
+		flagSet      []string
+	)
 	var flagName string
 
 	cmd := &cobra.Command{
 		Use:   "update [<id>]",
 		Short: "Update a ldap_server",
-		Long:  "Update an existing ldap_server by ID. Reads the XML body from --from-file or stdin.",
+		Long: `Update an existing ldap_server by ID. Reads the XML body from --from-file, --set or stdin.
+
+The Classic API applies a partial update: fields the body omits keep their
+current values, so a body carrying one element changes only that element.
+
+Body fields are derived from the Classic API spec (schema "ldap_server_post").
+Run with --scaffold to print a complete XML template.
+Optional sections: connection, mappings_for_users
+
+Allowed values:
+  connection.authentication_type: simple | CRAM-MD5 | DIGEST-MD5 | none
+  connection.referral_response: ignore | follow
+  connection.server_type: Active Directory | Open Directory | eDirectory | Custom
+  mappings_for_users.user_group_mappings.map_object_class_to_any_or_all: all | any
+  mappings_for_users.user_group_mappings.search_scope: All Subtrees | First Level Only
+  mappings_for_users.user_group_membership_mappings.map_object_class_to_any_or_all: all | any
+  mappings_for_users.user_group_membership_mappings.search_scope: All Subtrees | First Level Only
+  mappings_for_users.user_group_membership_mappings.user_group_membership_stored_in: user object | group object
+  mappings_for_users.user_mappings.map_object_class_to_any_or_all: all | any
+  mappings_for_users.user_mappings.search_scope: All Subtrees | First Level Only
+
+The Classic API does not reject an out-of-range value — it substitutes
+its default silently — so --set refuses one rather than letting it through.
+
+Credential fields (--from-file only, never --set): connection.account.password, connection.account.password_sha256`,
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "ldap-servers:update"},
 		Example: `  # Update a ldap_server from an XML file
   jamf-cli pro classic-ldap-servers update 1 --from-file ldap_server.xml
 
   # Update a ldap_server from XML on stdin
   cat ldap_server.xml | jamf-cli pro classic-ldap-servers update 1`,
-		Args: cobra.MaximumNArgs(1),
+		Args: classicScaffoldArgs(&flagScaffold, cobra.MaximumNArgs(1)),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if flagScaffold {
+				return printClassicScaffold(bodySpecClassicLdapServers)
+			}
 			reqCtx := cmd.Context()
 
-			bodyBytes, bodyErr := readClassicBody(fromFile)
+			bodyBytes, bodyErr := readClassicBodyOrSet(fromFile, flagSet, bodySpecClassicLdapServers)
 			if bodyErr != nil {
 				return bodyErr
 			}
@@ -239,6 +464,11 @@ func newClassicLdapServersUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to XML input file (or pipe XML to stdin)")
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print an XML body template for this resource and exit")
+	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Set a body field in dot notation (key=value, repeatable). Builds the whole body, so it cannot be combined with --from-file")
+	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+		return []string{"connection.account.distinguished_username=", "connection.authentication_type=", "connection.certificates_used=", "connection.hostname=", "connection.id=", "connection.is_enabled=", "connection.migrated_to_id=", "connection.name=", "connection.open_close_timeout=", "connection.port=", "connection.referral_response=", "connection.search_timeout=", "connection.server_type=", "connection.use_ssl=", "connection.use_wildcards=", "mappings_for_users.user_group_mappings.map_group_id=", "mappings_for_users.user_group_mappings.map_group_name=", "mappings_for_users.user_group_mappings.map_group_uuid=", "mappings_for_users.user_group_mappings.map_object_class_to_any_or_all=", "mappings_for_users.user_group_mappings.object_classes=", "mappings_for_users.user_group_mappings.search_base=", "mappings_for_users.user_group_mappings.search_scope=", "mappings_for_users.user_group_membership_mappings.append_to_username=", "mappings_for_users.user_group_membership_mappings.group_id=", "mappings_for_users.user_group_membership_mappings.group_membership_enabled_when_user_membership_selected=", "mappings_for_users.user_group_membership_mappings.map_group_membership_to_user_field=", "mappings_for_users.user_group_membership_mappings.map_object_class_to_any_or_all=", "mappings_for_users.user_group_membership_mappings.map_user_membership_to_group_field=", "mappings_for_users.user_group_membership_mappings.map_user_membership_use_dn=", "mappings_for_users.user_group_membership_mappings.membership_scoping_optimization=", "mappings_for_users.user_group_membership_mappings.object_classes=", "mappings_for_users.user_group_membership_mappings.recursive_lookups=", "mappings_for_users.user_group_membership_mappings.search_base=", "mappings_for_users.user_group_membership_mappings.search_scope=", "mappings_for_users.user_group_membership_mappings.use_dn=", "mappings_for_users.user_group_membership_mappings.user_group_membership_stored_in=", "mappings_for_users.user_group_membership_mappings.user_group_membership_use_ldap_compare=", "mappings_for_users.user_group_membership_mappings.username=", "mappings_for_users.user_mappings.append_to_email_results=", "mappings_for_users.user_mappings.map_building=", "mappings_for_users.user_mappings.map_department=", "mappings_for_users.user_mappings.map_email_address=", "mappings_for_users.user_mappings.map_object_class_to_any_or_all=", "mappings_for_users.user_mappings.map_phone=", "mappings_for_users.user_mappings.map_position=", "mappings_for_users.user_mappings.map_realname=", "mappings_for_users.user_mappings.map_room=", "mappings_for_users.user_mappings.map_user_id=", "mappings_for_users.user_mappings.map_user_uuid=", "mappings_for_users.user_mappings.map_username=", "mappings_for_users.user_mappings.object_classes=", "mappings_for_users.user_mappings.search_base=", "mappings_for_users.user_mappings.search_scope="}, cobra.ShellCompDirectiveNoSpace
+	})
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up ldap_server by name")
 
 	return cmd
@@ -263,7 +493,7 @@ func newClassicLdapServersDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Delete without confirmation prompt
   jamf-cli pro classic-ldap-servers delete 1 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:api": "pro-classic", "jamf:gateway-privileges": "ldap-servers:delete"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -428,19 +658,43 @@ func newClassicLdapServersDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 
 func newClassicLdapServersApplyCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
-		fromFile   string
-		flagYes    bool
-		flagDryRun bool
+		fromFile     string
+		flagYes      bool
+		flagDryRun   bool
+		flagScaffold bool
+		flagSet      []string
 	)
 
 	cmd := &cobra.Command{
-		Use:   "apply",
-		Short: "Create or replace a ldap_server by name",
-		Long: `Create or replace a ldap_server. Reads XML from --from-file or stdin.
+		Use:         "apply",
+		Short:       "Create or replace a ldap_server by name",
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "ldap-servers:create,ldap-servers:read,ldap-servers:update"},
+		Long: `Create or replace a ldap_server. Reads XML from --from-file, --set or stdin.
 
 The name field in the input XML is used to check if the resource already
 exists. If it does, the resource is replaced (with confirmation).
-If not, a new resource is created.`,
+If not, a new resource is created.
+
+Body fields are derived from the Classic API spec (schema "ldap_server_post").
+Run with --scaffold to print a complete XML template.
+Optional sections: connection, mappings_for_users
+
+Allowed values:
+  connection.authentication_type: simple | CRAM-MD5 | DIGEST-MD5 | none
+  connection.referral_response: ignore | follow
+  connection.server_type: Active Directory | Open Directory | eDirectory | Custom
+  mappings_for_users.user_group_mappings.map_object_class_to_any_or_all: all | any
+  mappings_for_users.user_group_mappings.search_scope: All Subtrees | First Level Only
+  mappings_for_users.user_group_membership_mappings.map_object_class_to_any_or_all: all | any
+  mappings_for_users.user_group_membership_mappings.search_scope: All Subtrees | First Level Only
+  mappings_for_users.user_group_membership_mappings.user_group_membership_stored_in: user object | group object
+  mappings_for_users.user_mappings.map_object_class_to_any_or_all: all | any
+  mappings_for_users.user_mappings.search_scope: All Subtrees | First Level Only
+
+The Classic API does not reject an out-of-range value — it substitutes
+its default silently — so --set refuses one rather than letting it through.
+
+Credential fields (--from-file only, never --set): connection.account.password, connection.account.password_sha256`,
 		Example: `  # Apply a ldap_server from an XML file
   jamf-cli pro classic-ldap-servers apply --from-file ldap_server.xml
 
@@ -450,6 +704,9 @@ If not, a new resource is created.`,
   # Apply without replacement confirmation
   jamf-cli pro classic-ldap-servers apply --from-file ldap_server.xml --yes`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			if flagScaffold {
+				return printClassicScaffold(bodySpecClassicLdapServers)
+			}
 			reqCtx := cmd.Context()
 
 			// Read input
@@ -522,6 +779,12 @@ If not, a new resource is created.`,
 	}
 
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to XML input file (or pipe XML to stdin)")
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print an XML body template for this resource and exit")
+	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Set a body field in dot notation (key=value, repeatable). Builds the whole body, so it cannot be combined with --from-file")
+	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+		return []string{"connection.account.distinguished_username=", "connection.authentication_type=", "connection.certificates_used=", "connection.hostname=", "connection.id=", "connection.is_enabled=", "connection.migrated_to_id=", "connection.name=", "connection.open_close_timeout=", "connection.port=", "connection.referral_response=", "connection.search_timeout=", "connection.server_type=", "connection.use_ssl=", "connection.use_wildcards=", "mappings_for_users.user_group_mappings.map_group_id=", "mappings_for_users.user_group_mappings.map_group_name=", "mappings_for_users.user_group_mappings.map_group_uuid=", "mappings_for_users.user_group_mappings.map_object_class_to_any_or_all=", "mappings_for_users.user_group_mappings.object_classes=", "mappings_for_users.user_group_mappings.search_base=", "mappings_for_users.user_group_mappings.search_scope=", "mappings_for_users.user_group_membership_mappings.append_to_username=", "mappings_for_users.user_group_membership_mappings.group_id=", "mappings_for_users.user_group_membership_mappings.group_membership_enabled_when_user_membership_selected=", "mappings_for_users.user_group_membership_mappings.map_group_membership_to_user_field=", "mappings_for_users.user_group_membership_mappings.map_object_class_to_any_or_all=", "mappings_for_users.user_group_membership_mappings.map_user_membership_to_group_field=", "mappings_for_users.user_group_membership_mappings.map_user_membership_use_dn=", "mappings_for_users.user_group_membership_mappings.membership_scoping_optimization=", "mappings_for_users.user_group_membership_mappings.object_classes=", "mappings_for_users.user_group_membership_mappings.recursive_lookups=", "mappings_for_users.user_group_membership_mappings.search_base=", "mappings_for_users.user_group_membership_mappings.search_scope=", "mappings_for_users.user_group_membership_mappings.use_dn=", "mappings_for_users.user_group_membership_mappings.user_group_membership_stored_in=", "mappings_for_users.user_group_membership_mappings.user_group_membership_use_ldap_compare=", "mappings_for_users.user_group_membership_mappings.username=", "mappings_for_users.user_mappings.append_to_email_results=", "mappings_for_users.user_mappings.map_building=", "mappings_for_users.user_mappings.map_department=", "mappings_for_users.user_mappings.map_email_address=", "mappings_for_users.user_mappings.map_object_class_to_any_or_all=", "mappings_for_users.user_mappings.map_phone=", "mappings_for_users.user_mappings.map_position=", "mappings_for_users.user_mappings.map_realname=", "mappings_for_users.user_mappings.map_room=", "mappings_for_users.user_mappings.map_user_id=", "mappings_for_users.user_mappings.map_user_uuid=", "mappings_for_users.user_mappings.map_username=", "mappings_for_users.user_mappings.object_classes=", "mappings_for_users.user_mappings.search_base=", "mappings_for_users.user_mappings.search_scope="}, cobra.ShellCompDirectiveNoSpace
+	})
+
 	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt when replacing")
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
 

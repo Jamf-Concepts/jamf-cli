@@ -13,12 +13,19 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// bodySpecClassicComputerHistory is this resource's request-body contract, derived from
+// specs/classic/schemas.json at generation time. Empty when the Classic API spec
+// declares no schema for it, in which case create/update/apply read their body
+// from --from-file or stdin with no --scaffold and no --set.
+var bodySpecClassicComputerHistory = classicBodySpec{}
+
 // NewClassicComputerHistoryCmd creates the classic-computer-history command group
 func NewClassicComputerHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "classic-computer-history",
-		Short: "Computer history records (Classic API)",
-		Long:  `Manage computer history records via the Jamf Pro Classic API (/JSSResource/).`,
+		Use:         "classic-computer-history",
+		Short:       "Computer history records (Classic API)",
+		Long:        `Manage computer history records via the Jamf Pro Classic API (/JSSResource/).`,
+		Annotations: map[string]string{"jamf:api": "pro-classic"},
 	}
 
 	cmd.AddCommand(newClassicComputerHistoryGetCmd(ctx))
@@ -47,7 +54,8 @@ func newClassicComputerHistoryGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a computer_history and output as YAML
   jamf-cli pro classic-computer-history get 1 -o yaml`,
-		Args: cobra.MaximumNArgs(1),
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "device-history:read"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

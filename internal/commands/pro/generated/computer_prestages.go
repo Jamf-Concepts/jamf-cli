@@ -21,9 +21,10 @@ import (
 // NewComputerPrestagesCmd creates the computer-prestages command group
 func NewComputerPrestagesCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "computer-prestages",
-		Short: "Manage computer-prestages",
-		Long:  `Manage computer-prestages in Jamf Pro.`,
+		Use:         "computer-prestages",
+		Short:       "Manage computer-prestages",
+		Long:        `Manage computer-prestages in Jamf Pro.`,
+		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
 	cmd.AddCommand(newComputerPrestagesListCmd(ctx))
@@ -54,7 +55,7 @@ func newComputerPrestagesListCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # List computer-prestages and extract IDs
   jamf-cli pro computer-prestages list --field id`,
-		Annotations: map[string]string{"jamf:privileges": "Read Computer PreStage Enrollments"},
+		Annotations: map[string]string{"jamf:privileges": "Read Computer PreStage Enrollments", "jamf:api": "pro", "jamf:gateway-privileges": "prestage-enrollments:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -80,7 +81,10 @@ func newComputerPrestagesListCmd(ctx *registry.CLIContext) *cobra.Command {
 
 			// Auto-pagination: fetch all pages when --all is set and --page was not manually specified
 			if flagAll && flagPage == 0 {
-				var allResults []json.RawMessage
+				// Initialised empty, not nil — a nil slice marshals to "null", so
+				// "list --all" on an empty collection used to answer "null" where
+				// the single-page path answers "[]".
+				allResults := []json.RawMessage{}
 				prog := ctx.Output.PaginationProgress()
 				defer prog.Stop()
 				reqCtx = spinner.WithSuppressed(reqCtx)
@@ -202,7 +206,7 @@ func newComputerPrestagesGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a computer-prestage and output as YAML
   jamf-cli pro computer-prestages get 1 -o yaml`,
-		Annotations: map[string]string{"jamf:privileges": "Read Computer PreStage Enrollments"},
+		Annotations: map[string]string{"jamf:privileges": "Read Computer PreStage Enrollments", "jamf:api": "pro", "jamf:gateway-privileges": "prestage-enrollments:read"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -265,7 +269,7 @@ func newComputerPrestagesCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a computer-prestage, modify it, and create a copy
   jamf-cli pro computer-prestages get 1 -o json | jq '.name = "Copy"' | jamf-cli pro computer-prestages create`,
-		Annotations: map[string]string{"jamf:privileges": "Create Computer PreStage Enrollments"},
+		Annotations: map[string]string{"jamf:privileges": "Create Computer PreStage Enrollments", "jamf:api": "pro", "jamf:gateway-privileges": "prestage-enrollments:create"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -421,7 +425,7 @@ func newComputerPrestagesUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a computer-prestage, modify, and update
   jamf-cli pro computer-prestages get 1 -o json | jq '.name = "New Name"' | jamf-cli pro computer-prestages update 1`,
-		Annotations: map[string]string{"jamf:privileges": "Update Computer PreStage Enrollments"},
+		Annotations: map[string]string{"jamf:privileges": "Update Computer PreStage Enrollments", "jamf:api": "pro", "jamf:gateway-privileges": "prestage-enrollments:update"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -649,7 +653,7 @@ func newComputerPrestagesDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Delete without confirmation prompt
   jamf-cli pro computer-prestages delete 1 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Delete Computer PreStage Enrollments"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Delete Computer PreStage Enrollments", "jamf:api": "pro", "jamf:gateway-privileges": "prestage-enrollments:delete"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -850,8 +854,9 @@ func newComputerPrestagesApplyCmd(ctx *registry.CLIContext) *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "apply",
-		Short: "Create or replace a computer-prestage by name",
+		Use:         "apply",
+		Short:       "Create or replace a computer-prestage by name",
+		Annotations: map[string]string{"jamf:api": "pro", "jamf:gateway-privileges": "prestage-enrollments:create,prestage-enrollments:read,prestage-enrollments:update"},
 		Long: `Create or replace a computer-prestage. Reads JSON or YAML from --from-file or stdin.
 
 The displayName field in the input is used to check if the resource

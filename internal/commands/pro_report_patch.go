@@ -217,7 +217,7 @@ func runReportPatchPolicyFailures(ctx context.Context, client registry.HTTPClien
 // runReportPatchStatus fetches patch title configurations and their summaries
 // to compute per-title compliance metrics.
 func runReportPatchStatus(ctx context.Context, client registry.HTTPClient) ([]map[string]any, error) {
-	titles, err := FetchAllPaginated(ctx, client, "/v2/patch-software-title-configurations", 100)
+	titles, err := FetchAllPaginated(ctx, client, "/v3/patch-software-title-configurations", 100)
 	if err != nil {
 		return nil, fmt.Errorf("fetching patch title configurations: %w", err)
 	}
@@ -238,7 +238,7 @@ func runReportPatchStatus(ctx context.Context, client registry.HTTPClient) ([]ma
 				titleName = titleID
 			}
 
-			path := fmt.Sprintf("/v2/patch-software-title-configurations/%s/patch-summary", titleID)
+			path := fmt.Sprintf("/v3/patch-software-title-configurations/%s/patch-summary", titleID)
 			summary, err := fetchJSON(ctx, client, path)
 			if err != nil {
 				return titleWithSummary{id: titleID, name: titleName}, nil // non-fatal

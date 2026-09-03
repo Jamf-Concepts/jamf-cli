@@ -13,9 +13,10 @@ import (
 // NewLdapRsCmd creates the ldap-rs command group
 func NewLdapRsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "ldap-rs",
-		Short: "Manage ldap-rs",
-		Long:  `Manage ldap-rs in Jamf Pro.`,
+		Use:         "ldap-rs",
+		Short:       "Manage ldap-rs",
+		Long:        `Manage ldap-rs in Jamf Pro.`,
+		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
 	cmd.AddCommand(newLdapRsGroupsCmd(ctx))
@@ -34,7 +35,7 @@ func newLdapRsGroupsCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:         "groups",
 		Short:       "Retrieve the configured access groups that contain the text in the search param",
 		Long:        "Retrieves the configured access groups that contain the text in the searchParam.",
-		Annotations: map[string]string{"jamf:privileges": "Read LDAP Servers"},
+		Annotations: map[string]string{"jamf:privileges": "Read LDAP Servers", "jamf:api": "pro", "jamf:gateway-privileges": "ldap-servers:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -73,7 +74,7 @@ func newLdapRsServersCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:         "servers",
 		Short:       "Retrieve all Servers including LDAP and Cloud Identity Providers.",
 		Long:        "Retrieve all active Servers including LDAP and Cloud Identity Providers.",
-		Annotations: map[string]string{"jamf:privileges": "Read LDAP Servers"},
+		Annotations: map[string]string{"jamf:privileges": "Read LDAP Servers", "jamf:api": "pro", "jamf:gateway-privileges": "ldap-servers:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -108,7 +109,7 @@ func newLdapRsLdapServersCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:         "ldap-servers",
 		Short:       "Retrieve all LDAP Servers.",
 		Long:        "Retrieves all not migrated, LDAP Servers.",
-		Annotations: map[string]string{"jamf:privileges": "Read LDAP Servers"},
+		Annotations: map[string]string{"jamf:privileges": "Read LDAP Servers", "jamf:api": "pro", "jamf:gateway-privileges": "ldap-servers:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

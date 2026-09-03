@@ -18,6 +18,7 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/config"
+	"github.com/Jamf-Concepts/jamf-cli/internal/exitcode"
 	"github.com/Jamf-Concepts/jamf-cli/internal/keychain"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 )
@@ -43,16 +44,79 @@ func newConfigCmd(cliCtx *registry.CLIContext) *cobra.Command {
 // Fields use JSON tags so the output formatter renders stable column names
 // across table/json/yaml/csv.
 type configProfileRow struct {
-	Name         string `json:"name"`
-	URL          string `json:"url"`
-	AuthMethod   string `json:"auth-method"`
-	TenantID     string `json:"tenant-id,omitempty"`
-	Default      bool   `json:"default,omitempty"`
-	Token        string `json:"token,omitempty"`
-	ClientID     string `json:"client-id,omitempty"`
-	ClientSecret string `json:"client-secret,omitempty"`
-	Status       string `json:"status,omitempty"`
-	Healthy      *bool  `json:"healthy,omitempty"`
+	Name       string `json:"name"`
+	URL        string `json:"url"`
+	AuthMethod string `json:"auth-method"`
+	TenantID   string `json:"tenant-id,omitempty"`
+	// EnvironmentID appears alongside TenantID rather than replacing it: which
+	// level a profile is scoped to decides which commands can work, so listing
+	// profiles has to show it.
+	//
+	// Both are omitempty, which is why `list` narrows the row set itself for the
+	// column-based formats — see listRowForFormat.
+	EnvironmentID string `json:"environment-id,omitempty"`
+	Default       bool   `json:"default,omitempty"`
+	Token         string `json:"token,omitempty"`
+	ClientID      string `json:"client-id,omitempty"`
+	ClientSecret  string `json:"client-secret,omitempty"`
+	Status        string `json:"status,omitempty"`
+	Healthy       *bool  `json:"healthy,omitempty"`
+}
+
+// configProfileTableRow is the `config list` row shape for the column-based
+// formats. It exists to carry no omitempty on the three fields whose presence
+// decides whether a column exists at all — see listRowsForFormat.
+type configProfileTableRow struct {
+	Name          string `json:"name"`
+	URL           string `json:"url"`
+	AuthMethod    string `json:"auth-method"`
+	EnvironmentID string `json:"environment-id"`
+	Default       bool   `json:"default"`
+	Status        string `json:"status,omitempty"`
+	Healthy       *bool  `json:"healthy,omitempty"`
+}
+
+// listRowsForFormat adapts the `config list` rows to the output format.
+//
+// The column-based formats get environment-id on every row and no tenant-id;
+// json, yaml and ndjson get the rows untouched, tenant-id included. Two reasons,
+// and only the second is a preference:
+//
+// A table's columns are the keys of its *first* row (`sortedKeys(rows[0])` in
+// internal/output), so an omitempty field is a column only when the first row
+// happens to carry it. Profiles are listed alphabetically, so one instance
+// profile sorting first hid the scope of every platform profile below it — and
+// --wide did not help, because that reads rows[0] too. Writing environment-id
+// as an empty string rather than omitting it is what makes the column exist at
+// all. (`default` has the same problem for the same reason and is fixed the same
+// way: with a default profile that did not sort first, the table simply stopped
+// saying which profile was active.) The underlying formatter behaviour is not
+// changed here: unioning keys across rows would alter every table in the CLI.
+//
+// Which leaves the choice of one scope column rather than two. Environment is
+// the level Jamf wants integrations created at and tenant is the legacy one, so
+// environment-id is the column. A tenant-scoped profile is not left unexplained
+// — auth-method already reads `platform`, and `config list -o json` still
+// carries tenant-id for anything parsing the output.
+func listRowsForFormat(rows []configProfileRow, format string) any {
+	switch format {
+	case "table", "csv", "plain":
+		out := make([]configProfileTableRow, 0, len(rows))
+		for _, r := range rows {
+			out = append(out, configProfileTableRow{
+				Name:          r.Name,
+				URL:           r.URL,
+				AuthMethod:    r.AuthMethod,
+				EnvironmentID: r.EnvironmentID,
+				Default:       r.Default,
+				Status:        r.Status,
+				Healthy:       r.Healthy,
+			})
+		}
+		return out
+	default:
+		return rows
+	}
 }
 
 // activeProfileName returns the profile currently in effect: flag > env > default.
@@ -83,14 +147,15 @@ func newConfigShowCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			for _, name := range names {
 				p := cfg.Profiles[name]
 				profiles = append(profiles, configProfileRow{
-					Name:         name,
-					URL:          p.URL,
-					AuthMethod:   p.AuthMethod,
-					TenantID:     p.TenantID,
-					Default:      name == active,
-					Token:        p.Token,
-					ClientID:     p.ClientID,
-					ClientSecret: p.ClientSecret,
+					Name:          name,
+					URL:           p.URL,
+					AuthMethod:    p.AuthMethod,
+					TenantID:      p.TenantID,
+					EnvironmentID: p.EnvironmentID,
+					Default:       name == active,
+					Token:         p.Token,
+					ClientID:      p.ClientID,
+					ClientSecret:  p.ClientSecret,
 				})
 			}
 
@@ -198,11 +263,12 @@ func newConfigListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			for _, name := range names {
 				p := cfg.Profiles[name]
 				row := configProfileRow{
-					Name:       name,
-					URL:        p.URL,
-					AuthMethod: p.AuthMethod,
-					TenantID:   p.TenantID,
-					Default:    name == active,
+					Name:          name,
+					URL:           p.URL,
+					AuthMethod:    p.AuthMethod,
+					TenantID:      p.TenantID,
+					EnvironmentID: p.EnvironmentID,
+					Default:       name == active,
 				}
 				if status {
 					r := results[name]
@@ -213,7 +279,7 @@ func newConfigListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				rows = append(rows, row)
 			}
 
-			data, err := json.Marshal(rows)
+			data, err := json.Marshal(listRowsForFormat(rows, cliCtx.Output.Format()))
 			if err != nil {
 				return fmt.Errorf("marshalling profiles: %w", err)
 			}
@@ -234,6 +300,9 @@ func newConfigAddProfileCmd() *cobra.Command {
 		profileClientID  string
 		profileClientSec string
 		profileTenantID  string
+		// profileEnvironmentID is the level to prefer; mutually exclusive with
+		// profileTenantID.
+		profileEnvironmentID string
 	)
 
 	cmd := &cobra.Command{
@@ -288,17 +357,21 @@ func newConfigAddProfileCmd() *cobra.Command {
 				}
 			}
 
-			// platform additionally requires tenant-id
-			if authMethod == "platform" && profileTenantID == "" {
-				_, _ = fmt.Fprint(w, "Tenant ID: ")
-				line, err := reader.ReadString('\n')
-				if err != nil {
-					return fmt.Errorf("reading tenant ID: %w", err)
-				}
-				profileTenantID = strings.TrimSpace(line)
-				if profileTenantID == "" {
-					return fmt.Errorf("tenant ID is required")
-				}
+			// platform requires a tenant, but either one will do: Security Cloud
+			// paths carry their own tenant and do not need the Jamf Pro one, so a
+			// profile scoped to Security Cloud alone is complete without it.
+			if profileTenantID != "" && profileEnvironmentID != "" {
+				return exitcode.New(exitcode.Usage,
+					"--environment-id and --tenant-id are mutually exclusive: an API integration is created at one level (organization, platform environment, or tenant) and its credential only works with that level's header")
+			}
+			// Platform auth no longer requires an ID: an organization-scoped
+			// integration names none, and the gateway resolves it from the
+			// access token. Say so rather than prompting, because a profile
+			// created without an ID is a valid thing that reaches a much
+			// smaller surface — better stated at creation than discovered as a
+			// 400 on the first product command.
+			if authMethod == "platform" && profileTenantID == "" && profileEnvironmentID == "" {
+				_, _ = fmt.Fprintln(w, "No --environment-id or --tenant-id: saving as an organization-scoped profile.")
 			}
 
 			// token auth requires a bearer token
@@ -321,9 +394,10 @@ func newConfigAddProfileCmd() *cobra.Command {
 			}
 
 			p := config.Profile{
-				URL:        normalizedURL,
-				AuthMethod: authMethod,
-				TenantID:   profileTenantID,
+				URL:           normalizedURL,
+				AuthMethod:    authMethod,
+				TenantID:      profileTenantID,
+				EnvironmentID: profileEnvironmentID,
 			}
 
 			// Store secrets: values with env: or file: prefix are written
@@ -360,7 +434,8 @@ func newConfigAddProfileCmd() *cobra.Command {
 
 	cmd.Flags().StringVar(&profileURL, "url", "", "Jamf Pro server URL (instance URL or platform gateway URL)")
 	cmd.Flags().StringVar(&authMethod, "auth-method", "token", "authentication method: token, oauth2, platform")
-	cmd.Flags().StringVar(&profileTenantID, "tenant-id", "", "Jamf Pro tenant ID (required for platform auth)")
+	cmd.Flags().StringVar(&profileTenantID, "tenant-id", "", "tenant ID for platform auth (legacy level; mutually exclusive with --environment-id)")
+	cmd.Flags().StringVar(&profileEnvironmentID, "environment-id", "", "platform environment ID for platform auth (preferred level; mutually exclusive with --tenant-id)")
 	_ = cmd.MarkFlagRequired("url")
 
 	return cmd
@@ -575,12 +650,32 @@ func newConfigValidateCmd(cliCtx *registry.CLIContext) *cobra.Command {
 				// Auth-method-specific fields
 				switch authMethod {
 				case "platform":
+					// The GA gateway host. Reported here as well as refused at
+					// request time, because this is the command that answers
+					// "what is wrong with my config" — and every platform
+					// profile written before 2026-08-28 names the retired host,
+					// so an operator with six of them wants all six at once
+					// rather than one failed command at a time.
+					if ga := platformGatewayURLForRegion(p.URL); ga != "" {
+						fail(name, "url", fmt.Sprintf("%s is the retired Jamf Platform gateway; use %s", p.URL, ga))
+					} else if p.URL != "" {
+						pass(name, "gateway-url")
+					}
 					checkSecretField(&checks, name, "client-id", p.ClientID)
 					checkSecretField(&checks, name, "client-secret", p.ClientSecret)
-					if p.TenantID == "" {
-						fail(name, "tenant-id", "missing")
-					} else {
+					// One level per profile: environment or tenant, or neither
+					// for an organization-scoped integration. Both is the only
+					// fault — the credential works with one level's header, so
+					// the other is guaranteed wrong.
+					switch {
+					case p.EnvironmentID != "" && p.TenantID != "":
+						fail(name, "environment-id", "also sets tenant-id; an integration is created at one level, so keep only the one it was created for")
+					case p.EnvironmentID != "":
+						pass(name, "environment-id")
+					case p.TenantID != "":
 						pass(name, "tenant-id")
+					default:
+						pass(name, "organization-scoped (no environment-id or tenant-id)")
 					}
 				case "oauth2":
 					checkSecretField(&checks, name, "client-id", p.ClientID)

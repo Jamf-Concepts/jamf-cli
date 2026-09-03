@@ -17,12 +17,37 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// bodySpecClassicSoftwareUpdateServers is this resource's request-body contract, derived from
+// specs/classic/schemas.json at generation time. Empty when the Classic API spec
+// declares no schema for it, in which case create/update/apply read their body
+// from --from-file or stdin with no --scaffold and no --set.
+var bodySpecClassicSoftwareUpdateServers = classicBodySpec{
+	Root:   "software_update_server",
+	Schema: "software_update_server",
+	Scaffold: `<software_update_server>
+  <id>1</id>
+  <name>New York SUS</name>
+  <ip_address>10.10.51.248</ip_address>
+  <port>8088</port>
+  <set_system_wide>false</set_system_wide>
+</software_update_server>
+`,
+	FieldTypes: map[string]string{
+		"id":              "integer",
+		"ip_address":      "string",
+		"name":            "string",
+		"port":            "integer",
+		"set_system_wide": "boolean",
+	},
+}
+
 // NewClassicSoftwareUpdateServersCmd creates the classic-software-update-servers command group
 func NewClassicSoftwareUpdateServersCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "classic-software-update-servers",
-		Short: "Software update servers (Classic API)",
-		Long:  `Manage software update servers via the Jamf Pro Classic API (/JSSResource/).`,
+		Use:         "classic-software-update-servers",
+		Short:       "Software update servers (Classic API)",
+		Long:        `Manage software update servers via the Jamf Pro Classic API (/JSSResource/).`,
+		Annotations: map[string]string{"jamf:api": "pro-classic"},
 	}
 
 	cmd.AddCommand(newClassicSoftwareUpdateServersListCmd(ctx))
@@ -49,6 +74,7 @@ func newClassicSoftwareUpdateServersListCmd(ctx *registry.CLIContext) *cobra.Com
 
   # List softwareupdateservers and extract IDs
   jamf-cli pro classic-software-update-servers list --field id`,
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "software-update-servers:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/softwareupdateservers", nil)
@@ -105,7 +131,8 @@ func newClassicSoftwareUpdateServersGetCmd(ctx *registry.CLIContext) *cobra.Comm
 
   # Get a software_update_server and output as YAML
   jamf-cli pro classic-software-update-servers get 1 -o yaml`,
-		Args: cobra.MaximumNArgs(1),
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "software-update-servers:read"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -157,21 +184,33 @@ func newClassicSoftwareUpdateServersGetCmd(ctx *registry.CLIContext) *cobra.Comm
 
 func newClassicSoftwareUpdateServersCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
-		fromFile string
+		fromFile     string
+		flagScaffold bool
+		flagSet      []string
 	)
 	cmd := &cobra.Command{
 		Use:   "create",
 		Short: "Create a software_update_server",
-		Long:  "Create a new software_update_server. Reads the XML body from --from-file or stdin.",
+		Long: `Create a new software_update_server. Reads the XML body from --from-file, --set or stdin.
+
+Body fields are derived from the Classic API spec (schema "software_update_server").
+Run with --scaffold to print a complete XML template.
+
+Required: ip_address, name
+Optional sections: id, port, set_system_wide`,
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "software-update-servers:create"},
 		Example: `  # Create a software_update_server from an XML file
   jamf-cli pro classic-software-update-servers create --from-file software_update_server.xml
 
   # Create a software_update_server from XML on stdin
   cat software_update_server.xml | jamf-cli pro classic-software-update-servers create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if flagScaffold {
+				return printClassicScaffold(bodySpecClassicSoftwareUpdateServers)
+			}
 			reqCtx := cmd.Context()
 
-			bodyBytes, err := readClassicBody(fromFile)
+			bodyBytes, err := readClassicBodyOrSet(fromFile, flagSet, bodySpecClassicSoftwareUpdateServers)
 			if err != nil {
 				return err
 			}
@@ -190,27 +229,49 @@ func newClassicSoftwareUpdateServersCreateCmd(ctx *registry.CLIContext) *cobra.C
 		},
 	}
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to XML input file (or pipe XML to stdin)")
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print an XML body template for this resource and exit")
+	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Set a body field in dot notation (key=value, repeatable). Builds the whole body, so it cannot be combined with --from-file")
+	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+		return []string{"id=", "ip_address=", "name=", "port=", "set_system_wide="}, cobra.ShellCompDirectiveNoSpace
+	})
 	return cmd
 }
 
 func newClassicSoftwareUpdateServersUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var fromFile string
+	var (
+		flagScaffold bool
+		flagSet      []string
+	)
 	var flagName string
 
 	cmd := &cobra.Command{
 		Use:   "update [<id>]",
 		Short: "Update a software_update_server",
-		Long:  "Update an existing software_update_server by ID. Reads the XML body from --from-file or stdin.",
+		Long: `Update an existing software_update_server by ID. Reads the XML body from --from-file, --set or stdin.
+
+The Classic API applies a partial update: fields the body omits keep their
+current values, so a body carrying one element changes only that element.
+
+Body fields are derived from the Classic API spec (schema "software_update_server").
+Run with --scaffold to print a complete XML template.
+
+Required: ip_address, name
+Optional sections: id, port, set_system_wide`,
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "software-update-servers:update"},
 		Example: `  # Update a software_update_server from an XML file
   jamf-cli pro classic-software-update-servers update 1 --from-file software_update_server.xml
 
   # Update a software_update_server from XML on stdin
   cat software_update_server.xml | jamf-cli pro classic-software-update-servers update 1`,
-		Args: cobra.MaximumNArgs(1),
+		Args: classicScaffoldArgs(&flagScaffold, cobra.MaximumNArgs(1)),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if flagScaffold {
+				return printClassicScaffold(bodySpecClassicSoftwareUpdateServers)
+			}
 			reqCtx := cmd.Context()
 
-			bodyBytes, bodyErr := readClassicBody(fromFile)
+			bodyBytes, bodyErr := readClassicBodyOrSet(fromFile, flagSet, bodySpecClassicSoftwareUpdateServers)
 			if bodyErr != nil {
 				return bodyErr
 			}
@@ -239,6 +300,11 @@ func newClassicSoftwareUpdateServersUpdateCmd(ctx *registry.CLIContext) *cobra.C
 	}
 
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to XML input file (or pipe XML to stdin)")
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print an XML body template for this resource and exit")
+	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Set a body field in dot notation (key=value, repeatable). Builds the whole body, so it cannot be combined with --from-file")
+	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+		return []string{"id=", "ip_address=", "name=", "port=", "set_system_wide="}, cobra.ShellCompDirectiveNoSpace
+	})
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up software_update_server by name")
 
 	return cmd
@@ -263,7 +329,7 @@ func newClassicSoftwareUpdateServersDeleteCmd(ctx *registry.CLIContext) *cobra.C
 
   # Delete without confirmation prompt
   jamf-cli pro classic-software-update-servers delete 1 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:api": "pro-classic", "jamf:gateway-privileges": "software-update-servers:delete"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -428,19 +494,28 @@ func newClassicSoftwareUpdateServersDeleteCmd(ctx *registry.CLIContext) *cobra.C
 
 func newClassicSoftwareUpdateServersApplyCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
-		fromFile   string
-		flagYes    bool
-		flagDryRun bool
+		fromFile     string
+		flagYes      bool
+		flagDryRun   bool
+		flagScaffold bool
+		flagSet      []string
 	)
 
 	cmd := &cobra.Command{
-		Use:   "apply",
-		Short: "Create or replace a software_update_server by name",
-		Long: `Create or replace a software_update_server. Reads XML from --from-file or stdin.
+		Use:         "apply",
+		Short:       "Create or replace a software_update_server by name",
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "software-update-servers:create,software-update-servers:read,software-update-servers:update"},
+		Long: `Create or replace a software_update_server. Reads XML from --from-file, --set or stdin.
 
 The name field in the input XML is used to check if the resource already
 exists. If it does, the resource is replaced (with confirmation).
-If not, a new resource is created.`,
+If not, a new resource is created.
+
+Body fields are derived from the Classic API spec (schema "software_update_server").
+Run with --scaffold to print a complete XML template.
+
+Required: ip_address, name
+Optional sections: id, port, set_system_wide`,
 		Example: `  # Apply a software_update_server from an XML file
   jamf-cli pro classic-software-update-servers apply --from-file software_update_server.xml
 
@@ -450,6 +525,9 @@ If not, a new resource is created.`,
   # Apply without replacement confirmation
   jamf-cli pro classic-software-update-servers apply --from-file software_update_server.xml --yes`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			if flagScaffold {
+				return printClassicScaffold(bodySpecClassicSoftwareUpdateServers)
+			}
 			reqCtx := cmd.Context()
 
 			// Read input
@@ -522,6 +600,12 @@ If not, a new resource is created.`,
 	}
 
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to XML input file (or pipe XML to stdin)")
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print an XML body template for this resource and exit")
+	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Set a body field in dot notation (key=value, repeatable). Builds the whole body, so it cannot be combined with --from-file")
+	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+		return []string{"id=", "ip_address=", "name=", "port=", "set_system_wide="}, cobra.ShellCompDirectiveNoSpace
+	})
+
 	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt when replacing")
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
 

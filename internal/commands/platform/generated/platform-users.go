@@ -21,9 +21,10 @@ import (
 // resource. Wire it into a product namespace via AddCommand.
 func NewPlatformUsersCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "platform-users",
-		Short: "Manage platform-users (Platform API)",
-		Long:  "Management API for device inventory - Query and manage devices across your organization",
+		Use:         "platform-users",
+		Short:       "Manage platform-users (Platform API)",
+		Long:        "Management API for device inventory - Query and manage devices across your organization",
+		Annotations: map[string]string{"jamf:api": "platform-gateway"},
 	}
 	cmd.AddCommand(newPlatformUsersDevicesCmd(cliCtx))
 	return cmd
@@ -36,14 +37,13 @@ func newPlatformUsersDevicesCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Use:         "devices <id>",
 		Short:       "Get devices for a user",
 		Long:        "Retrieve a paginated list of devices associated with a specific user",
-		Annotations: map[string]string{"jamf:privileges": "read:pro:devices"},
+		Annotations: map[string]string{"jamf:privileges": "devices:read", "jamf:api": "platform-gateway"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err
 			}
-			path := "/api/devices/v1/tenant/{tenantId}/users/{id}/devices"
-			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantID()), 1)
+			path := "/devices/v1/users/{id}/devices"
 			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
 			q := url.Values{}
 			if sort != "" {
@@ -54,7 +54,13 @@ func newPlatformUsersDevicesCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			}
 			var body any
 			const pageSize = 100
-			var aggregated []json.RawMessage
+			// Initialised empty, not nil: a nil slice marshals to "null", so an
+			// empty collection used to answer -o json with "null" while the
+			// unpaginated list path answered "[]" for the identical wire response
+			// ({"totalCount":0,"results":[]}). Anything piping the output to jq
+			// then failed on "Cannot iterate over null" only for tenants where the
+			// collection happened to be empty.
+			aggregated := []json.RawMessage{}
 			for page := 0; ; page++ {
 				pq := url.Values{}
 				for k, v := range q {

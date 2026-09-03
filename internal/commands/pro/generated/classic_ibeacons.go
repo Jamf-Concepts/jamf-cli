@@ -17,12 +17,37 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// bodySpecClassicIbeacons is this resource's request-body contract, derived from
+// specs/classic/schemas.json at generation time. Empty when the Classic API spec
+// declares no schema for it, in which case create/update/apply read their body
+// from --from-file or stdin with no --scaffold and no --set.
+var bodySpecClassicIbeacons = classicBodySpec{
+	Root:   "ibeacon",
+	Schema: "ibeacon",
+	Scaffold: `<ibeacon>
+  <id>1</id>
+  <name>Room 123 Beacon</name>
+  <major>-1</major>
+  <minor>-1</minor>
+  <uuid>55900BDC-347C-58B1-D249-F32244B11D30</uuid>
+</ibeacon>
+`,
+	FieldTypes: map[string]string{
+		"id":    "integer",
+		"major": "string",
+		"minor": "string",
+		"name":  "string",
+		"uuid":  "string",
+	},
+}
+
 // NewClassicIbeaconsCmd creates the classic-ibeacons command group
 func NewClassicIbeaconsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "classic-ibeacons",
-		Short: "iBeacon configurations (Classic API)",
-		Long:  `Manage ibeacon configurations via the Jamf Pro Classic API (/JSSResource/).`,
+		Use:         "classic-ibeacons",
+		Short:       "iBeacon configurations (Classic API)",
+		Long:        `Manage ibeacon configurations via the Jamf Pro Classic API (/JSSResource/).`,
+		Annotations: map[string]string{"jamf:api": "pro-classic"},
 	}
 
 	cmd.AddCommand(newClassicIbeaconsListCmd(ctx))
@@ -49,6 +74,7 @@ func newClassicIbeaconsListCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # List ibeacons and extract IDs
   jamf-cli pro classic-ibeacons list --field id`,
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "ibeacon:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/ibeacons", nil)
@@ -105,7 +131,8 @@ func newClassicIbeaconsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a ibeacon and output as YAML
   jamf-cli pro classic-ibeacons get 1 -o yaml`,
-		Args: cobra.MaximumNArgs(1),
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "ibeacon:read"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -157,21 +184,33 @@ func newClassicIbeaconsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
 func newClassicIbeaconsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
-		fromFile string
+		fromFile     string
+		flagScaffold bool
+		flagSet      []string
 	)
 	cmd := &cobra.Command{
 		Use:   "create",
 		Short: "Create a ibeacon",
-		Long:  "Create a new ibeacon. Reads the XML body from --from-file or stdin.",
+		Long: `Create a new ibeacon. Reads the XML body from --from-file, --set or stdin.
+
+Body fields are derived from the Classic API spec (schema "ibeacon").
+Run with --scaffold to print a complete XML template.
+
+Required: name, uuid
+Optional sections: id, major, minor`,
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "ibeacon:create"},
 		Example: `  # Create a ibeacon from an XML file
   jamf-cli pro classic-ibeacons create --from-file ibeacon.xml
 
   # Create a ibeacon from XML on stdin
   cat ibeacon.xml | jamf-cli pro classic-ibeacons create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if flagScaffold {
+				return printClassicScaffold(bodySpecClassicIbeacons)
+			}
 			reqCtx := cmd.Context()
 
-			bodyBytes, err := readClassicBody(fromFile)
+			bodyBytes, err := readClassicBodyOrSet(fromFile, flagSet, bodySpecClassicIbeacons)
 			if err != nil {
 				return err
 			}
@@ -190,27 +229,49 @@ func newClassicIbeaconsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to XML input file (or pipe XML to stdin)")
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print an XML body template for this resource and exit")
+	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Set a body field in dot notation (key=value, repeatable). Builds the whole body, so it cannot be combined with --from-file")
+	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+		return []string{"id=", "major=", "minor=", "name=", "uuid="}, cobra.ShellCompDirectiveNoSpace
+	})
 	return cmd
 }
 
 func newClassicIbeaconsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var fromFile string
+	var (
+		flagScaffold bool
+		flagSet      []string
+	)
 	var flagName string
 
 	cmd := &cobra.Command{
 		Use:   "update [<id>]",
 		Short: "Update a ibeacon",
-		Long:  "Update an existing ibeacon by ID. Reads the XML body from --from-file or stdin.",
+		Long: `Update an existing ibeacon by ID. Reads the XML body from --from-file, --set or stdin.
+
+The Classic API applies a partial update: fields the body omits keep their
+current values, so a body carrying one element changes only that element.
+
+Body fields are derived from the Classic API spec (schema "ibeacon").
+Run with --scaffold to print a complete XML template.
+
+Required: name, uuid
+Optional sections: id, major, minor`,
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "ibeacon:update"},
 		Example: `  # Update a ibeacon from an XML file
   jamf-cli pro classic-ibeacons update 1 --from-file ibeacon.xml
 
   # Update a ibeacon from XML on stdin
   cat ibeacon.xml | jamf-cli pro classic-ibeacons update 1`,
-		Args: cobra.MaximumNArgs(1),
+		Args: classicScaffoldArgs(&flagScaffold, cobra.MaximumNArgs(1)),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if flagScaffold {
+				return printClassicScaffold(bodySpecClassicIbeacons)
+			}
 			reqCtx := cmd.Context()
 
-			bodyBytes, bodyErr := readClassicBody(fromFile)
+			bodyBytes, bodyErr := readClassicBodyOrSet(fromFile, flagSet, bodySpecClassicIbeacons)
 			if bodyErr != nil {
 				return bodyErr
 			}
@@ -239,6 +300,11 @@ func newClassicIbeaconsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to XML input file (or pipe XML to stdin)")
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print an XML body template for this resource and exit")
+	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Set a body field in dot notation (key=value, repeatable). Builds the whole body, so it cannot be combined with --from-file")
+	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+		return []string{"id=", "major=", "minor=", "name=", "uuid="}, cobra.ShellCompDirectiveNoSpace
+	})
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up ibeacon by name")
 
 	return cmd
@@ -263,7 +329,7 @@ func newClassicIbeaconsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Delete without confirmation prompt
   jamf-cli pro classic-ibeacons delete 1 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:api": "pro-classic", "jamf:gateway-privileges": "ibeacon:delete"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -428,19 +494,28 @@ func newClassicIbeaconsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 
 func newClassicIbeaconsApplyCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
-		fromFile   string
-		flagYes    bool
-		flagDryRun bool
+		fromFile     string
+		flagYes      bool
+		flagDryRun   bool
+		flagScaffold bool
+		flagSet      []string
 	)
 
 	cmd := &cobra.Command{
-		Use:   "apply",
-		Short: "Create or replace a ibeacon by name",
-		Long: `Create or replace a ibeacon. Reads XML from --from-file or stdin.
+		Use:         "apply",
+		Short:       "Create or replace a ibeacon by name",
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "ibeacon:create,ibeacon:read,ibeacon:update"},
+		Long: `Create or replace a ibeacon. Reads XML from --from-file, --set or stdin.
 
 The name field in the input XML is used to check if the resource already
 exists. If it does, the resource is replaced (with confirmation).
-If not, a new resource is created.`,
+If not, a new resource is created.
+
+Body fields are derived from the Classic API spec (schema "ibeacon").
+Run with --scaffold to print a complete XML template.
+
+Required: name, uuid
+Optional sections: id, major, minor`,
 		Example: `  # Apply a ibeacon from an XML file
   jamf-cli pro classic-ibeacons apply --from-file ibeacon.xml
 
@@ -450,6 +525,9 @@ If not, a new resource is created.`,
   # Apply without replacement confirmation
   jamf-cli pro classic-ibeacons apply --from-file ibeacon.xml --yes`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			if flagScaffold {
+				return printClassicScaffold(bodySpecClassicIbeacons)
+			}
 			reqCtx := cmd.Context()
 
 			// Read input
@@ -522,6 +600,12 @@ If not, a new resource is created.`,
 	}
 
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to XML input file (or pipe XML to stdin)")
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print an XML body template for this resource and exit")
+	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Set a body field in dot notation (key=value, repeatable). Builds the whole body, so it cannot be combined with --from-file")
+	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+		return []string{"id=", "major=", "minor=", "name=", "uuid="}, cobra.ShellCompDirectiveNoSpace
+	})
+
 	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt when replacing")
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
 

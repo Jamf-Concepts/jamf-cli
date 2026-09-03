@@ -15,9 +15,10 @@ import (
 // NewSelfServiceBrandingImagesCmd creates the self-service-branding-images command group
 func NewSelfServiceBrandingImagesCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "self-service-branding-images",
-		Short: "Manage self-service-branding-images",
-		Long:  `Manage self-service-branding-images in Jamf Pro.`,
+		Use:         "self-service-branding-images",
+		Short:       "Manage self-service-branding-images",
+		Long:        `Manage self-service-branding-images in Jamf Pro.`,
+		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
 	cmd.AddCommand(newSelfServiceBrandingImagesUploadCmd(ctx))
@@ -34,7 +35,7 @@ func newSelfServiceBrandingImagesUploadCmd(ctx *registry.CLIContext) *cobra.Comm
 		Use:         "upload",
 		Short:       "Upload an image",
 		Long:        "Uploads an image",
-		Annotations: map[string]string{"jamf:privileges": "Update Self Service Branding Configuration"},
+		Annotations: map[string]string{"jamf:privileges": "Update Self Service Branding Configuration", "jamf:api": "pro", "jamf:gateway-privileges": "self-service:update"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

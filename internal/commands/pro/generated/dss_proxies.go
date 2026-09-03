@@ -13,9 +13,10 @@ import (
 // NewDssProxiesCmd creates the dss-proxies command group
 func NewDssProxiesCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "dss-proxies",
-		Short: "Manage dss-proxies",
-		Long:  `Manage dss-proxies in Jamf Pro.`,
+		Use:         "dss-proxies",
+		Short:       "Manage dss-proxies",
+		Long:        `Manage dss-proxies in Jamf Pro.`,
+		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
 	cmd.AddCommand(newDssProxiesGetCmd(ctx))
@@ -35,7 +36,7 @@ func newDssProxiesGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a dss-proxy and output as YAML
   jamf-cli pro dss-proxies get 1 -o yaml`,
-		Annotations: map[string]string{"jamf:privileges": "Read Mobile Devices,Read Computers"},
+		Annotations: map[string]string{"jamf:privileges": "Read Mobile Devices,Read Computers", "jamf:api": "pro", "jamf:gateway-privileges": "declarations:read"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

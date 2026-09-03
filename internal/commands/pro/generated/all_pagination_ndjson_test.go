@@ -72,7 +72,7 @@ func newComputersInventoryClient() *paginatedClient {
 	return &paginatedClient{
 		totalCount: 150,
 		pageSize:   100,
-		pathPrefix: "/v3/computers-inventory",
+		pathPrefix: "/v4/computers-inventory",
 	}
 }
 
