@@ -17,6 +17,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
@@ -689,11 +690,68 @@ func normalizeInputToJSON(data []byte) ([]byte, error) {
 	if err := yaml.Unmarshal(data, &v); err != nil {
 		return nil, fmt.Errorf("input is not valid JSON or YAML: %w", err)
 	}
-	out, err := json.Marshal(v)
+	safe, err := jsonSafeYAML(v)
+	if err != nil {
+		return nil, err
+	}
+	out, err := json.Marshal(safe)
 	if err != nil {
 		return nil, fmt.Errorf("re-marshaling YAML as JSON: %w", err)
 	}
 	return out, nil
+}
+
+// jsonSafeYAML rewrites the two yaml.v3 shapes encoding/json cannot marshal
+// into ones it can: a mapping with any non-string key (map[any]any) and a
+// timestamp scalar (time.Time). Without it, json.Marshal above is the very call
+// that refuses them, so a YAML body carrying either — a numeric mapping key, or
+// a bare 2026-09-02T10:00:00Z — came back as "re-marshaling YAML as JSON: json:
+// unsupported type", reported as malformed input for a valid file.
+//
+// A key is spelled with fmt.Sprint, so "80: http" reaches the server as "80".
+// Nothing guards against a composite key, which YAML permits and JSON has no
+// spelling for, because yaml.v3 refuses it before this is reached with
+// "yaml: invalid map key" naming the key.
+//
+// Mirrors internal/bodyinput.jsonSafe, which the platform and Security Cloud
+// commands use; generated code stands alone, so the two are copies on purpose.
+func jsonSafeYAML(v any) (any, error) {
+	switch x := v.(type) {
+	case map[string]any:
+		out := make(map[string]any, len(x))
+		for k, val := range x {
+			sv, err := jsonSafeYAML(val)
+			if err != nil {
+				return nil, err
+			}
+			out[k] = sv
+		}
+		return out, nil
+	case map[any]any:
+		out := make(map[string]any, len(x))
+		for k, val := range x {
+			sv, err := jsonSafeYAML(val)
+			if err != nil {
+				return nil, err
+			}
+			out[fmt.Sprint(k)] = sv
+		}
+		return out, nil
+	case []any:
+		out := make([]any, len(x))
+		for i, val := range x {
+			sv, err := jsonSafeYAML(val)
+			if err != nil {
+				return nil, err
+			}
+			out[i] = sv
+		}
+		return out, nil
+	case time.Time:
+		return x.Format(time.RFC3339Nano), nil
+	default:
+		return v, nil
+	}
 }
 
 // escapeJSONStringLiterals escapes any U+0000–U+001F control character that
