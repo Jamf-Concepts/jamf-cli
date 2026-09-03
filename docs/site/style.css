@@ -364,6 +364,11 @@ html {
   --shadow-lg: 0 8px 32px -8px light-dark(rgba(0, 0, 0, 0.18), rgba(0, 0, 0, 0.65));
   --shadow-sticky: 0 12px 16px -13px light-dark(rgba(0, 0, 0, 0.18), rgba(0, 0, 0, 0.55));
 
+  /* Hero glow. A brand-blue radial wash behind the headline and the
+     terminal, from the design mock. Light keeps it faint; dark can carry
+     more chroma. */
+  --hero-glow: light-dark(rgba(18, 104, 236, 0.07), rgba(47, 163, 255, 0.14));
+
   /* Search match highlight. A tint of the brand hue, so a mark reads as a
      hit rather than as a new color. */
   --search-highlight: color-mix(in srgb, var(--primary) 22%, transparent);
@@ -660,6 +665,7 @@ a[target="_blank"]:hover::after {
   margin: 0 auto;
   padding: 96px 130px 72px;
   box-sizing: border-box;
+  background: radial-gradient(ellipse 70% 60% at 80% 20%, var(--hero-glow) 0%, transparent 70%);
 }
 .hero-copy { display: flex; flex-direction: column; gap: 24px; }
 .eyebrow {
