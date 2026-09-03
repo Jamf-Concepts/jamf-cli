@@ -729,7 +729,11 @@ func findCommandPath(t *testing.T, root *cobra.Command, path string) *cobra.Comm
 // replacement — two answers to the same question.
 func TestCatalogCarriesTheSuccessorForARefusedCommand(t *testing.T) {
 	root := NewRootCmd("test", "commit", "date", "11.31.0")
-	entries := collectCommands(root, "jamf-cli", "", "")
+	// The empty prefix is what `commands -o json` passes. Handing this a
+	// "jamf-cli" prefix instead is what let the successor lookup stay broken:
+	// the extra field absorbed gateway.Successor's binary-name strip, so the
+	// test passed against a call shape production never makes.
+	entries := collectCommands(root, "", "", "")
 
 	var refused, withSuccessor int
 	for _, e := range entries {

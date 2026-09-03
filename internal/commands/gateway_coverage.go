@@ -363,11 +363,18 @@ func gatewayPermissionsOf(cmd *cobra.Command) []string {
 // use, so the catalog cannot say something different from what an operator is
 // told. A served command never carries one: naming a replacement for a working
 // command would read as a deprecation this CLI is not making.
-func gatewaySuccessorOf(cmd *cobra.Command, fullPath string) string {
+//
+// The path comes from cobra rather than from collectCommands' prefix, because
+// gateway.Successor takes a path whose first field is the binary name and
+// strips it, while the prefix is deliberately binary-less (it becomes the
+// catalog's own "command" field). Passing the prefix looked up
+// "static-computer-groups" against a table keyed "pro static-computer-groups",
+// so every lookup missed and the field was never emitted.
+func gatewaySuccessorOf(cmd *cobra.Command) string {
 	if cmd.Annotations[annotationGateway] != string(gateway.Unserved) {
 		return ""
 	}
-	command, _, ok := gateway.Successor(fullPath)
+	command, _, ok := gateway.Successor(cmd.CommandPath())
 	if !ok {
 		return ""
 	}
