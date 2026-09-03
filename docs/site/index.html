@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="Explore all jamf-cli commands — unified CLI for Jamf Platform API Gateway, Jamf Pro, Jamf Protect, Jamf School, and Jamf Security Cloud">
+  <meta name="description" content="Explore all jamf-cli commands — unified CLI for Jamf Platform API, Jamf Pro, Jamf Protect, Jamf School, and Jamf Security Cloud">
   <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large">
   <title>jamf-cli — Your fleet, one command away</title>
   <link rel="canonical" href="https://jamf-concepts.github.io/jamf-cli/">
@@ -31,11 +31,11 @@
   <!-- Open Graph / Social -->
   <meta property="og:type" content="website">
   <meta property="og:title" content="jamf-cli — Your fleet, one command away">
-  <meta property="og:description" content="Unified CLI for Jamf Platform API Gateway, Jamf Pro, Jamf Protect, Jamf School, and Jamf Security Cloud. __COMMAND_COUNT__ commands. Full API coverage. Zero clicks.">
+  <meta property="og:description" content="Unified CLI for Jamf Platform API, Jamf Pro, Jamf Protect, Jamf School, and Jamf Security Cloud. __COMMAND_COUNT__ commands. Full API coverage. Zero clicks.">
   <meta property="og:url" content="https://jamf-concepts.github.io/jamf-cli/">
   <meta name="twitter:card" content="summary">
   <meta name="twitter:title" content="jamf-cli — Your fleet, one command away">
-  <meta name="twitter:description" content="Unified CLI for Jamf Platform API Gateway, Jamf Pro, Jamf Protect, Jamf School, and Jamf Security Cloud. __COMMAND_COUNT__ commands. Full API coverage. Zero clicks.">
+  <meta name="twitter:description" content="Unified CLI for Jamf Platform API, Jamf Pro, Jamf Protect, Jamf School, and Jamf Security Cloud. __COMMAND_COUNT__ commands. Full API coverage. Zero clicks.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,400;0,500;0,600;0,700;1,700&family=Noto+Sans+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -51,7 +51,7 @@
     "@type": "SoftwareApplication",
     "name": "jamf-cli",
     "alternateName": "Jamf CLI",
-    "description": "Unified command-line interface for Jamf Platform API Gateway, Jamf Pro, Jamf Protect, Jamf School, and Jamf Security Cloud. Open source.",
+    "description": "Unified command-line interface for Jamf Platform API, Jamf Pro, Jamf Protect, Jamf School, and Jamf Security Cloud. Open source.",
     "applicationCategory": "DeveloperApplication",
     "applicationSubCategory": "Command Line Interface",
     "operatingSystem": "macOS, Linux, Windows",
@@ -278,7 +278,7 @@
   <section id="faq">
     <h2>Questions</h2>
     <div class="faq-grid">
-      <div class="faq-item"><h3>What is jamf-cli?</h3><p>A single binary that manages Jamf Platform API Gateway, Jamf Pro, Jamf Protect, Jamf School, and Jamf Security Cloud from the shell.</p></div>
+      <div class="faq-item"><h3>What is jamf-cli?</h3><p>A single binary that manages Jamf Platform API, Jamf Pro, Jamf Protect, Jamf School, and Jamf Security Cloud from the shell.</p></div>
       <div class="faq-item"><h3>How are credentials handled?</h3><p>Interactive prompts, <code>JAMF_*</code> environment variables, or keychain-backed profiles. Never flags, never stdin.</p></div>
       <div class="faq-item"><h3>Does it cover the Classic API?</h3><p>Yes. Classic and modern Jamf Pro APIs both live under <code>pro</code>. Every classic write takes <code>--from-file</code>.</p></div>
       <div class="faq-item"><h3>Can AI agents use it?</h3><p>Yes. The site publishes <a href="llms.txt">llms.txt</a> and <a href="commands.json">commands.json</a>, and the binary has <code>mcp</code> and <code>agent-context</code> commands.</p></div>
@@ -297,7 +297,7 @@
         "name": "What is jamf-cli?",
         "acceptedAnswer": {
           "@type": "Answer",
-          "text": "A single binary that manages Jamf Platform API Gateway, Jamf Pro, Jamf Protect, Jamf School, and Jamf Security Cloud from the shell."
+          "text": "A single binary that manages Jamf Platform API, Jamf Pro, Jamf Protect, Jamf School, and Jamf Security Cloud from the shell."
         }
       },
       {
@@ -391,6 +391,7 @@
   { "command": "jamf-cli pro device jamf-mini" },
   { "command": "jamf-cli pro comp list -o table --filter \"osVersion>=15\"" },
   { "command": "jamf-cli protect analytics list -o table" },
+  { "command": "jamf-cli platform ai-policies list -o table" },
   { "command": "jamf-cli pro comp erase --serial H2WDT4RGQ6P0 --yes" },
   { "command": "jamf-cli pro backup --output ./backup/" }
 ]
@@ -425,6 +426,10 @@
   "pro comp erase": {
     "example": "jamf-cli pro comp erase --serial H2WDT4RGQ6P0",
     "output": "[dry-run] Would erase computer H2WDT4RGQ6P0 (jamf-mini)\nUse --yes --confirm-destructive to execute."
+  },
+  "platform ai-policies list": {
+    "example": "jamf-cli platform ai-policies list -o table",
+    "output": "RESULTS (3 total)\n\n NAME                        STATUS     VERSION\n Default AI policy           published  v2\n Engineering copilots        published  v1\n Contractors                 draft      -"
   },
   "protect analytics list": {
     "example": "jamf-cli protect analytics list -o table",
