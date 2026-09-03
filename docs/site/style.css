@@ -933,8 +933,11 @@ a[target="_blank"]:hover::after {
   z-index: 2;
   height: 44px;
   background: var(--structure-secondary);
-  border-bottom: 1px solid var(--border-base);
   border-radius: var(--r-base) var(--r-base) 0 0;
+  /* A shadow, not a border: it paints on the same pixel as the first row's
+     border-top, so it keeps the sticky header's edge defined while it
+     scrolls over the rows without doubling the line when it is parked. */
+  box-shadow: 0 1px 0 var(--border-base);
   font-weight: 700;
 }
 /* A group where no row earned a mark drops the third column rather than
@@ -958,7 +961,7 @@ a[target="_blank"]:hover::after {
   padding-top: 12px;
   padding-bottom: 8px;
   padding-right: 16px;
-  border-bottom: 1px solid var(--border-secondary);
+  border-top: 1px solid var(--border-secondary);
   background: var(--structure-secondary);
 }
 .resource-head-cell { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; }
@@ -967,36 +970,30 @@ a[target="_blank"]:hover::after {
 .resource-head:focus-visible { outline: none; box-shadow: inset 0 0 0 2px var(--focus); }
 .resource-head.is-command.expanded .resource-path { text-decoration: underline; }
 .resource-path { font-family: var(--font-mono); font-size: 13px; font-weight: 700; }
+.resource-path.copied { color: var(--success); }
 .resource-desc { color: var(--font-secondary); font-size: 13px; }
 .resource-count { color: var(--font-tertiary); font-family: var(--font-mono); font-size: 12px; }
+/* Every separator is a *top* border, on the rows and heads alike. overflow:
+   hidden had to come off .cmd-table — it would kill the sticky header — so
+   the table cannot clip a trailing border off its last row, and no CSS
+   selector can name "the last row in the table" once blocks nest: a
+   :last-child chain is only right for the depth it spells out, and inverting
+   it strips the border from a mid-table nested block instead. With the
+   separator on the leading edge nothing carries a trailing border at all,
+   the table's own bottom border is the closing line at any depth, and the
+   first row's top border doubles as the header rule. */
 .command-row {
   min-height: 48px;
   padding-top: 8px;
   padding-bottom: 8px;
-  border-bottom: 1px solid var(--border-secondary);
+  border-top: 1px solid var(--border-secondary);
   cursor: pointer;
-}
-/* The table can no longer clip its own corners — overflow: hidden would
-   kill the sticky header — so the closing border and radius are put on
-   whichever row actually ends the table. Resource depth is capped at 2, so
-   three levels of nesting covers every case. */
-.cmd-table > .command-row:last-child,
-.cmd-table > .resource-block:last-child > .command-row:last-child,
-.cmd-table > .resource-block:last-child > .resource-block:last-child > .command-row:last-child {
-  border-bottom: 0;
-  border-radius: 0 0 var(--r-base) var(--r-base);
 }
 .command-row:hover { background: var(--structure-secondary); }
 .command-row:focus-visible { outline: none; box-shadow: inset 0 0 0 2px var(--focus); }
-.command-row.expanded { background: var(--structure-secondary); border-bottom-color: transparent; }
+/* The drawer belongs to the row above it, so no line separates the two. */
+.command-row.expanded { background: var(--structure-secondary); }
 .command-name { display: flex; align-items: center; gap: 8px; font-family: var(--font-mono); font-size: 13px; }
-.cmd-product { color: var(--font-tertiary); }
-.command-row[data-product="pro"] .cmd-product { color: var(--product-pro); }
-.command-row[data-product="protect"] .cmd-product { color: var(--product-protect); }
-.command-row[data-product="school"] .cmd-product { color: var(--product-school); }
-.command-row[data-product="security"] .cmd-product { color: var(--product-security); }
-.command-row[data-product="platform"] .cmd-product { color: var(--product-platform); }
-.cmd-prefix { color: var(--font-tertiary); }
 .cmd-action { font-weight: 600; }
 .command-copy-icon { border: 0; background: none; color: var(--font-tertiary); width: 24px; height: 24px; padding: 4px; border-radius: var(--r-small); cursor: pointer; opacity: 0; }
 .command-copy-icon svg { width: 14px; height: 14px; }
@@ -1007,7 +1004,7 @@ a[target="_blank"]:hover::after {
 mark, .search-highlight { background: var(--search-highlight); color: inherit; border-radius: 2px; }
 
 /* Drawer */
-.command-detail { padding: 4px 16px 20px; background: var(--structure-secondary); border-bottom: 1px solid var(--border-secondary); }
+.command-detail { padding: 4px 16px 20px; background: var(--structure-secondary); }
 .detail-grid { display: grid; grid-template-columns: 240px minmax(0, 1fr); gap: 24px; }
 .detail-col { display: flex; flex-direction: column; gap: 12px; }
 .detail-heading { font-size: 12px; line-height: 16px; font-weight: 700; }

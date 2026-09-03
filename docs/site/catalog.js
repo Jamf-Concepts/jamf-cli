@@ -855,6 +855,9 @@
       (function (cmd) {
         head.classList.add('is-command');
         head.setAttribute('data-command', cmd.command);
+        // The keyboard "c" shortcut reads this off the focused head, the way
+        // it reads .command-name's copy of it off a focused row.
+        pathEl.setAttribute('data-copy', 'jamf-cli ' + cmd.command);
         head.setAttribute('tabindex', '0');
         head.setAttribute('aria-expanded', 'false');
         head.title = 'jamf-cli ' + cmd.command;
@@ -1404,7 +1407,13 @@
       allExpanded = !allExpanded;
       var catalog = document.getElementById('catalog');
       if (catalog) {
-        var rows = catalog.querySelectorAll('.command-row');
+        // Expanding opens the verb rows only — a head's drawer repeats what
+        // the head already says. Collapsing has to reach every drawer that
+        // can be open, a hand-opened head's included, or "Collapse all"
+        // leaves one behind with its .expanded class still on.
+        var rows = catalog.querySelectorAll(allExpanded
+          ? '.command-row'
+          : '.command-row, .resource-head[data-command]');
         for (var i = 0; i < rows.length; i++) {
           var open = rows[i].nextElementSibling;
           var isOpen = !!(open && open.classList.contains('command-detail'));
@@ -1513,24 +1522,42 @@
       var rows = catalog.querySelectorAll('.command-row');
       if (rows.length === 0) return;
 
+      var active = document.activeElement;
       var currentIndex = -1;
       for (var i = 0; i < rows.length; i++) {
-        if (rows[i] === document.activeElement || rows[i].contains(document.activeElement)) {
+        if (rows[i] === active || rows[i].contains(active)) {
           currentIndex = i;
           break;
         }
       }
 
+      // A resource head is Tab-focusable but is not a .command-row, so it has
+      // no index of its own. Left at -1 it read as "nothing is focused" and
+      // sent j to the top of the catalog. Anchor on the first row that
+      // follows the head — its own first verb — so j steps into the resource
+      // and k steps back out to the row above it.
+      var head = null;
+      if (currentIndex === -1 && active && active.closest) {
+        head = active.closest('.resource-head[data-command]');
+      }
+      var headIndex = -1;
+      if (head) {
+        for (var h = 0; h < rows.length; h++) {
+          // 4 is Node.DOCUMENT_POSITION_FOLLOWING.
+          if (head.compareDocumentPosition(rows[h]) & 4) { headIndex = h; break; }
+        }
+      }
+
       if (e.key === 'ArrowDown' || e.key === 'j') {
         e.preventDefault();
-        var next = currentIndex + 1;
-        if (next < rows.length) {
+        var next = headIndex >= 0 ? headIndex : currentIndex + 1;
+        if (next >= 0 && next < rows.length) {
           rows[next].focus();
           rows[next].scrollIntoView({ block: 'nearest', behavior: 'smooth' });
         }
       } else if (e.key === 'ArrowUp' || e.key === 'k') {
         e.preventDefault();
-        var prev = currentIndex - 1;
+        var prev = (headIndex >= 0 ? headIndex : currentIndex) - 1;
         if (prev >= 0) {
           rows[prev].focus();
           rows[prev].scrollIntoView({ block: 'nearest', behavior: 'smooth' });
@@ -1538,9 +1565,12 @@
       } else if (e.key === 'Enter' && currentIndex >= 0) {
         e.preventDefault();
         rows[currentIndex].click();
-      } else if (e.key === 'c' && currentIndex >= 0) {
+      } else if (e.key === 'c' && (currentIndex >= 0 || head)) {
         e.preventDefault();
-        var nameEl = rows[currentIndex].querySelector('.command-name');
+        // A head copies the container command, not the verb it sits above.
+        var nameEl = head
+          ? head.querySelector('.resource-path')
+          : rows[currentIndex].querySelector('.command-name');
         if (nameEl) {
           var copyText = nameEl.getAttribute('data-copy');
           if (copyText) copyWithFeedback(copyText, nameEl);
