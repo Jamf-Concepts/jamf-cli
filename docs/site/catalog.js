@@ -92,7 +92,6 @@
     setupStatCards();
     setupToggleAll();
     setupKeyboardNav();
-    setupNavScroll();
     setupCopyButtons();
     setupDeepLinking();
     fetchCommands();
@@ -155,6 +154,7 @@
     var generatedAt = data.generatedAt || '';
 
     setText('command-count', count.toLocaleString());
+    setText('nav-command-count', count.toLocaleString());
     setText('stat-commands', count.toLocaleString());
 
     var search = document.getElementById('search');
@@ -1161,6 +1161,14 @@
       }, 200);
     });
 
+    var navSearch = document.querySelector('.nav-search');
+    if (navSearch) {
+      navSearch.addEventListener('click', function () {
+        if (window.openCommandPalette) window.openCommandPalette();
+        else { var s = document.getElementById('search'); if (s) s.focus(); }
+      });
+    }
+
     if (clearBtn) {
       clearBtn.addEventListener('click', function () {
         search.value = '';
@@ -1270,22 +1278,6 @@
       }
       search.dispatchEvent(new Event('input'));
     });
-  }
-
-  function setupNavScroll() {
-    var hero = document.getElementById('hero');
-    var nav = document.querySelector('nav');
-    if (!hero || !nav || !('IntersectionObserver' in window)) return;
-
-    var observer = new IntersectionObserver(function (entries) {
-      if (entries[0].isIntersecting) {
-        nav.classList.remove('scrolled');
-      } else {
-        nav.classList.add('scrolled');
-      }
-    }, { threshold: 0 });
-
-    observer.observe(hero);
   }
 
   // ===== Copy Buttons =====
