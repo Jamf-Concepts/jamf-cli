@@ -384,6 +384,7 @@
     var nav = document.getElementById('group-nav');
     if (!nav) return;
     nav.innerHTML = '';
+    renderGroupSelect(productGroups, sharedGroups);
 
     var order = Object.keys(PRODUCT_LABELS).concat(['core']);
     for (var i = 0; i < order.length; i++) {
@@ -426,6 +427,31 @@
         }
         nav.appendChild(renderGroupNavItem(groups[k], prod));
       }
+    }
+  }
+
+  // Below 1024px the sidebar is hidden and this select takes its place.
+  // Both controls are always in the DOM; only CSS decides which one shows.
+  function renderGroupSelect(productGroups, sharedGroups) {
+    var select = document.getElementById('group-select');
+    if (!select) return;
+    select.innerHTML = '';
+    var orderS = Object.keys(PRODUCT_LABELS).concat(['core']);
+    for (var s = 0; s < orderS.length; s++) {
+      var prod = orderS[s];
+      var gs = prod === 'core' ? sharedGroups : (productGroups[prod] || []);
+      if (!gs.length) continue;
+      var og = document.createElement('optgroup');
+      og.label = prod === 'core' ? 'Core' : PRODUCT_LABELS[prod];
+      for (var t = 0; t < gs.length; t++) {
+        var opt = document.createElement('option');
+        opt.value = gs[t].name;
+        opt.setAttribute('data-product', prod);
+        opt.textContent = gs[t].name + ' (' + gs[t].commands.length + ')';
+        if (gs[t].name === selectedGroup && prod === selectedProduct) opt.selected = true;
+        og.appendChild(opt);
+      }
+      select.appendChild(og);
     }
   }
 
@@ -1058,6 +1084,16 @@
         activateProductTab(this.getAttribute('data-filter'));
       });
     }
+
+    var gsel = document.getElementById('group-select');
+    if (gsel) gsel.addEventListener('change', function () {
+      selectedGroup = this.value;
+      var chosen = this.options[this.selectedIndex];
+      selectedProduct = chosen ? chosen.getAttribute('data-product') : null;
+      var search = document.getElementById('search');
+      if (search) search.value = '';
+      renderCatalog(allCommands, '', activeProduct);
+    });
   }
 
   function setupToggleAll() {

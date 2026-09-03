@@ -1263,141 +1263,99 @@ footer {
 }
 
 /* ===== Responsive ===== */
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.group-select-wrap { display: none; }
+#group-select {
+  width: 100%;
+  height: 44px;
+  padding: 0 12px;
+  border: 1px solid var(--border-base);
+  border-radius: var(--r-base);
+  background: var(--structure-base);
+  color: var(--font-base);
+  font: inherit;
+}
+
+@media (max-width: 1280px) {
+  #hero, #facts, #quickstart, #commands, #faq, footer { padding-left: 64px; padding-right: 64px; }
+  #hero { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 48px; }
+  #hero h1 { font-size: 48px; line-height: 56px; }
+  .cmd-table-header, .command-row { grid-template-columns: 300px minmax(0, 1fr) 140px; }
+  .detail-grid { grid-template-columns: 300px minmax(0, 1fr); }
+}
+
+@media (max-width: 1024px) {
+  nav { padding: 0 24px; }
+  .nav-search { width: 200px; }
+  #hero { grid-template-columns: minmax(0, 1fr); }
+  .hero-install { width: 100%; }
+  #facts { grid-template-columns: minmax(0, 1fr); gap: 24px; }
+  .steps { grid-template-columns: minmax(0, 1fr); }
+  .catalog-layout { grid-template-columns: minmax(0, 1fr); }
+  .group-nav { display: none; }
+  .group-select-wrap { display: block; }
+  #faq { grid-template-columns: minmax(0, 1fr); gap: 24px; }
+  .faq-grid { grid-template-columns: minmax(0, 1fr); }
+  .cmd-table-header { display: none; }
+  .command-row { grid-template-columns: minmax(0, 1fr); gap: 4px; padding: 12px 16px; }
+  .command-marks { justify-content: flex-start; }
+  .detail-grid { grid-template-columns: minmax(0, 1fr); }
+}
+
 @media (max-width: 768px) {
-  nav {
-    padding: 0.75rem 1.25rem;
-    flex-wrap: wrap;
-  }
-
-  .nav-links {
-    display: none;
-    position: absolute;
-    top: 100%;
-    left: 0;
-    right: 0;
+  nav { height: 56px; padding: 0 16px; gap: 8px; }
+  .nav-links, .nav-search { display: none; }
+  .hamburger {
+    display: inline-flex;
     flex-direction: column;
-    background: var(--page-bg);
-    padding: 1rem 1.25rem;
-    gap: 1rem;
-    border-top: 1px solid var(--border);
-    box-shadow: var(--shadow-2);
-    z-index: 99;
+    justify-content: center;
+    gap: 4px;
+    width: 44px;
+    height: 44px;
+    margin-left: auto;
+    border: 0;
+    background: none;
+    cursor: pointer;
   }
-
+  .hamburger span { display: block; width: 18px; height: 2px; margin: 0 auto; background: var(--font-base); }
   nav.nav-open .nav-links {
     display: flex;
-  }
-
-  .hamburger {
-    display: flex;
-    order: 2;
-  }
-
-  .theme-toggle {
-    order: 3;
-  }
-
-  .nav-brand {
-    order: 1;
-  }
-
-  #hero {
-    padding: 5rem 1.25rem 2rem;
-  }
-
-  #hero h1 {
-    font-size: 1.75rem;
-  }
-
-  #hero .subtitle {
-    font-size: 0.95rem;
-  }
-
-  #terminal {
-    margin-left: -0.5rem;
-    margin-right: -0.5rem;
-    border-radius: 8px;
-  }
-
-  #commands {
-    padding: 24px 1.25rem 48px;
-  }
-
-  /* The sidebar stops being sticky and stacks above the table. */
-  .catalog-layout {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 24px;
-  }
-
-  .group-nav {
-    position: static;
-    max-height: 240px;
-    padding: 0 0 12px;
-    border-right: 0;
+    flex-direction: column;
+    gap: 0;
+    position: absolute;
+    top: 56px;
+    left: 0;
+    right: 0;
+    padding: 8px 16px 16px;
+    background: var(--structure-base);
     border-bottom: 1px solid var(--border-base);
   }
+  nav.nav-open .nav-links a { display: block; padding: 12px 0; }
+  .nav-sep { display: none; }
+  #hero, #facts, #quickstart, #commands, #faq, footer { padding-left: 20px; padding-right: 20px; }
+  #hero { padding-top: 40px; padding-bottom: 28px; gap: 24px; }
+  #hero h1 { font-size: 38px; line-height: 42px; }
+  #hero .subtitle { font-size: 16px; line-height: 24px; }
+  .hero-actions { flex-direction: column; }
+  .btn { height: 44px; }
+  .btn-small { height: var(--h-small); }
+  #terminal { min-height: 0; font-size: 11.5px; line-height: 17px; padding: 14px 16px; }
+  .tabs { overflow-x: auto; gap: 16px; scrollbar-width: none; }
+  .tab { white-space: nowrap; }
+  .catalog-controls { flex-wrap: wrap; }
+  .search-wrap { flex-basis: 100%; height: 44px; }
+  .group-nav-item, #group-select { height: 44px; }
+  footer { flex-direction: column; align-items: flex-start; gap: 12px; }
+  .footer-links { margin-left: 0; flex-wrap: wrap; gap: 12px 20px; }
 
-  .tabs {
-    gap: 16px;
-    overflow-x: auto;
-  }
-
-  .tab {
-    white-space: nowrap;
-  }
-
-  .catalog-controls {
-    flex-wrap: wrap;
-  }
-
-  .search-wrap {
-    flex-basis: 100%;
-  }
-
-  /* iOS Safari zooms the page when a focused input is under 16px —
-     keep inputs at 1rem on mobile (desktop sizes are set above) */
+  /* Carried forward: touch-only behavior the desktop layout gets from hover. */
+  /* iOS Safari zooms the page when a focused input is under 16px. */
   #search,
-  .palette-input {
-    font-size: 1rem;
-  }
-
-  /* One column per row: the grid collapses to a stack. */
-  .cmd-table-header {
-    display: none;
-  }
-
-  .command-row {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 4px;
-  }
-
-  .detail-grid {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .command-copy-icon {
-    opacity: 1;
-  }
-
-  /* Footer links: hide external icons on mobile */
-  .footer-links a[target="_blank"]::after {
-    display: none;
-  }
-
-  #facts {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 24px;
-    padding: 32px 1.25rem;
-  }
-
-  #quickstart {
-    padding: 3rem 1.25rem;
-  }
-
-  .steps {
-    grid-template-columns: minmax(0, 1fr);
-  }
+  .palette-input { font-size: 1rem; }
+  .command-copy-icon { opacity: 1; }
+  .footer-links a[target="_blank"]::after { display: none; }
 }
+
 
 /* ===== Theme Toggle ===== */
 .theme-toggle {
