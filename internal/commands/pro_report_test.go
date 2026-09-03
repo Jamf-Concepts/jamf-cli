@@ -575,7 +575,7 @@ func TestRunReportSoftwareInstalls_Basic(t *testing.T) {
 		},
 	}
 
-	rows, err := runReportSoftwareInstalls(context.Background(), client, "", true)
+	rows, err := runReportSoftwareInstalls(context.Background(), client, "", true, false, false)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -620,7 +620,7 @@ func TestRunReportSoftwareInstalls_TitleFilter(t *testing.T) {
 		},
 	}
 
-	rows, err := runReportSoftwareInstalls(context.Background(), client, "chrome", true)
+	rows, err := runReportSoftwareInstalls(context.Background(), client, "chrome", true, false, false)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -647,7 +647,7 @@ func TestRunReportSoftwareInstalls_NoMatchFilter(t *testing.T) {
 		},
 	}
 
-	_, err := runReportSoftwareInstalls(context.Background(), client, "nonexistent-app-xyz", true)
+	_, err := runReportSoftwareInstalls(context.Background(), client, "nonexistent-app-xyz", true, false, false)
 	if err == nil {
 		t.Fatal("expected error for no matches with filter, got nil")
 		return
@@ -661,12 +661,221 @@ func TestRunReportSoftwareInstalls_Empty(t *testing.T) {
 		},
 	}
 
-	rows, err := runReportSoftwareInstalls(context.Background(), client, "", true)
+	rows, err := runReportSoftwareInstalls(context.Background(), client, "", true, false, false)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if len(rows) != 0 {
 		t.Errorf("got %d rows, want 0", len(rows))
+	}
+}
+
+// --bundle-id must extend the grouping key, not merely add a column: these two
+// installs share a title and version, so a display-only column would collapse
+// them into one row and hide a bundle ID.
+func TestRunReportSoftwareInstalls_BundleIDExtendsTheGroupingKey(t *testing.T) {
+	client := &paginatedMockClient{
+		pages: map[string]string{
+			"/v4/computers-inventory?section=APPLICATIONS&page=0&page-size=100": `{
+				"totalCount": 3,
+				"results": [
+					{
+						"id": "1",
+						"applications": [
+							{"name": "Zoom", "version": "5.0", "bundleId": "us.zoom.xos", "path": "/Applications/zoom.us.app"}
+						]
+					},
+					{
+						"id": "2",
+						"applications": [
+							{"name": "Zoom", "version": "5.0", "bundleId": "us.zoom.xos", "path": "/Applications/zoom.us.app"}
+						]
+					},
+					{
+						"id": "3",
+						"applications": [
+							{"name": "Zoom", "version": "5.0", "bundleId": "com.example.zoom-repack", "path": "/Applications/zoom.us.app"}
+						]
+					}
+				]
+			}`,
+		},
+	}
+
+	rows, err := runReportSoftwareInstalls(context.Background(), client, "", true, true, false)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(rows) != 2 {
+		t.Fatalf("got %d rows, want 2 (one per bundle ID)", len(rows))
+	}
+
+	counts := map[string]any{}
+	for _, r := range rows {
+		bundleID, ok := r["bundle_id"].(string)
+		if !ok {
+			t.Fatalf("row %v carries no bundle_id", r)
+		}
+		counts[bundleID] = r["device_count"]
+	}
+	if counts["us.zoom.xos"] != 2 {
+		t.Errorf("us.zoom.xos device_count = %v, want 2", counts["us.zoom.xos"])
+	}
+	if counts["com.example.zoom-repack"] != 1 {
+		t.Errorf("com.example.zoom-repack device_count = %v, want 1", counts["com.example.zoom-repack"])
+	}
+}
+
+// Same shape as the bundle-ID case, for --path: one title and version installed
+// at two different paths must not merge.
+func TestRunReportSoftwareInstalls_PathExtendsTheGroupingKey(t *testing.T) {
+	client := &paginatedMockClient{
+		pages: map[string]string{
+			"/v4/computers-inventory?section=APPLICATIONS&page=0&page-size=100": `{
+				"totalCount": 3,
+				"results": [
+					{
+						"id": "1",
+						"applications": [
+							{"name": "Slack", "version": "4.0", "path": "/Applications/Slack.app"}
+						]
+					},
+					{
+						"id": "2",
+						"applications": [
+							{"name": "Slack", "version": "4.0", "path": "/Applications/Slack.app"}
+						]
+					},
+					{
+						"id": "3",
+						"applications": [
+							{"name": "Slack", "version": "4.0", "path": "/Users/bob/Applications/Slack.app"}
+						]
+					}
+				]
+			}`,
+		},
+	}
+
+	rows, err := runReportSoftwareInstalls(context.Background(), client, "", true, false, true)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(rows) != 2 {
+		t.Fatalf("got %d rows, want 2 (one per install path)", len(rows))
+	}
+
+	counts := map[string]any{}
+	for _, r := range rows {
+		path, ok := r["path"].(string)
+		if !ok {
+			t.Fatalf("row %v carries no path", r)
+		}
+		counts[path] = r["device_count"]
+	}
+	if counts["/Applications/Slack.app"] != 2 {
+		t.Errorf("/Applications/Slack.app device_count = %v, want 2", counts["/Applications/Slack.app"])
+	}
+	if counts["/Users/bob/Applications/Slack.app"] != 1 {
+		t.Errorf("/Users/bob/Applications/Slack.app device_count = %v, want 1", counts["/Users/bob/Applications/Slack.app"])
+	}
+}
+
+// With both flags off the row map must carry exactly the three original keys —
+// an extra key would change the column set of every existing user's table.
+func TestRunReportSoftwareInstalls_DefaultRowsCarryOnlyTheThreeOriginalKeys(t *testing.T) {
+	client := &paginatedMockClient{
+		pages: map[string]string{
+			"/v4/computers-inventory?section=APPLICATIONS&page=0&page-size=100": `{
+				"totalCount": 1,
+				"results": [
+					{
+						"id": "1",
+						"applications": [
+							{"name": "Zoom", "version": "5.0", "bundleId": "us.zoom.xos", "path": "/Applications/zoom.us.app"},
+							{"name": "Slack", "version": "4.0", "bundleId": "com.tinyspeck.slackmacgap", "path": "/Applications/Slack.app"}
+						]
+					}
+				]
+			}`,
+		},
+	}
+
+	rows, err := runReportSoftwareInstalls(context.Background(), client, "", true, false, false)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(rows) != 2 {
+		t.Fatalf("got %d rows, want 2", len(rows))
+	}
+	for _, r := range rows {
+		if len(r) != 3 {
+			t.Errorf("row %v has %d keys, want 3", r, len(r))
+		}
+		if _, ok := r["bundle_id"]; ok {
+			t.Errorf("row %v carries bundle_id with --bundle-id off", r)
+		}
+		if _, ok := r["path"]; ok {
+			t.Errorf("row %v carries path with --path off", r)
+		}
+		for _, want := range []string{"title", "version", "device_count"} {
+			if _, ok := r[want]; !ok {
+				t.Errorf("row %v is missing key %q", r, want)
+			}
+		}
+	}
+}
+
+// Both flags on: the two fields are independent parts of the key, so one title
+// and version spanning two bundle IDs and two paths reports a row per pair.
+func TestRunReportSoftwareInstalls_BundleIDAndPathTogether(t *testing.T) {
+	client := &paginatedMockClient{
+		pages: map[string]string{
+			"/v4/computers-inventory?section=APPLICATIONS&page=0&page-size=100": `{
+				"totalCount": 3,
+				"results": [
+					{
+						"id": "1",
+						"applications": [
+							{"name": "Zoom", "version": "5.0", "bundleId": "us.zoom.xos", "path": "/Applications/zoom.us.app"}
+						]
+					},
+					{
+						"id": "2",
+						"applications": [
+							{"name": "Zoom", "version": "5.0", "bundleId": "us.zoom.xos", "path": "/Users/bob/Applications/zoom.us.app"}
+						]
+					},
+					{
+						"id": "3",
+						"applications": [
+							{"name": "Zoom", "version": "5.0", "bundleId": "com.example.zoom-repack", "path": "/Applications/zoom.us.app"}
+						]
+					}
+				]
+			}`,
+		},
+	}
+
+	rows, err := runReportSoftwareInstalls(context.Background(), client, "", true, true, true)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(rows) != 3 {
+		t.Fatalf("got %d rows, want 3 (one per bundle ID + path pair)", len(rows))
+	}
+	for _, r := range rows {
+		if len(r) != 5 {
+			t.Errorf("row %v has %d keys, want 5", r, len(r))
+		}
+		for _, want := range []string{"title", "version", "device_count", "bundle_id", "path"} {
+			if _, ok := r[want]; !ok {
+				t.Errorf("row %v is missing key %q", r, want)
+			}
+		}
+		if r["device_count"] != 1 {
+			t.Errorf("row %v device_count = %v, want 1", r, r["device_count"])
+		}
 	}
 }
 
