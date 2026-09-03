@@ -273,38 +273,14 @@
        scripts/verify-site-output.sh fails if a FAQPage question is missing
        from this visible section, so they can't silently drift apart. -->
   <section id="faq">
-    <div class="faq-inner">
-      <h2>FAQ</h2>
-
-      <div class="faq-item">
-        <h3>What is jamf-cli?</h3>
-        <p>jamf-cli is a unified command-line interface for the Jamf platform. A single binary manages Jamf Platform API Gateway, Jamf Pro, Jamf Protect, Jamf School, and Jamf Security Cloud — __COMMAND_COUNT__ commands covering the full API surface, with structured output built for scripting and automation.</p>
-      </div>
-
-      <div class="faq-item">
-        <h3>How do I install jamf-cli?</h3>
-        <p>Install it with Homebrew (<code>brew install Jamf-Concepts/tap/jamf-cli</code>), with Go (<code>go install github.com/Jamf-Concepts/jamf-cli/cmd/jamf-cli@latest</code>), or by downloading a pre-built binary for macOS, Linux, or Windows from the GitHub releases page.</p>
-      </div>
-
-      <div class="faq-item">
-        <h3>How do I authenticate jamf-cli without exposing credentials?</h3>
-        <p>jamf-cli supports OAuth2 client credentials, bearer tokens, and Jamf Platform Gateway authentication. Credentials are never accepted through command-line flags or stdin, so they stay out of shell history and process listings — use interactive prompts, JAMF_* environment variables, or keychain-backed configuration profiles.</p>
-      </div>
-
-      <div class="faq-item">
-        <h3>Does jamf-cli support Jamf Pro, Jamf Protect, and Jamf School?</h3>
-        <p>Yes. One binary covers Jamf Pro (both the classic and modern APIs), Jamf Protect, Jamf School, Jamf Security Cloud, and cross-product Jamf Platform API Gateway commands, each under its own namespace (pro, protect, school, security).</p>
-      </div>
-
-      <div class="faq-item">
-        <h3>Can I use jamf-cli in CI/CD pipelines and with AI agents?</h3>
-        <p>Yes. Every command supports structured output (<code>-o json</code>, <code>yaml</code>, or <code>csv</code>), stable exit codes, and unattended flags (<code>--no-input</code>, <code>--quiet</code>). It also publishes an llms.txt and a machine-readable command index so scripts and AI agents can discover and call commands reliably.</p>
-      </div>
-
-      <div class="faq-item">
-        <h3>Is jamf-cli free and open source?</h3>
-        <p>Yes. jamf-cli is free and open source under its repository license, built and maintained by Jamf Concepts.</p>
-      </div>
+    <h2>Questions</h2>
+    <div class="faq-grid">
+      <div class="faq-item"><h3>What is jamf-cli?</h3><p>A single binary that manages Jamf Platform API Gateway, Jamf Pro, Jamf Protect, Jamf School, and Jamf Security Cloud from the shell.</p></div>
+      <div class="faq-item"><h3>How are credentials handled?</h3><p>Interactive prompts, <code>JAMF_*</code> environment variables, or keychain-backed profiles. Never flags, never stdin.</p></div>
+      <div class="faq-item"><h3>Does it cover the Classic API?</h3><p>Yes. Classic and modern Jamf Pro APIs both live under <code>pro</code>. Every classic write takes <code>--from-file</code>.</p></div>
+      <div class="faq-item"><h3>Can AI agents use it?</h3><p>Yes. The site publishes <a href="llms.txt">llms.txt</a> and <a href="commands.json">commands.json</a>, and the binary has <code>mcp</code> and <code>agent-context</code> commands.</p></div>
+      <div class="faq-item"><h3>How current is this catalog?</h3><p>It is generated from the built binary on every merge to main. Commands added since the last release carry a New tag.</p></div>
+      <div class="faq-item"><h3>Is it free?</h3><p>Yes. Open source under the repository license, built and maintained by Jamf Concepts.</p></div>
     </div>
   </section>
 
@@ -318,47 +294,47 @@
         "name": "What is jamf-cli?",
         "acceptedAnswer": {
           "@type": "Answer",
-          "text": "jamf-cli is a unified command-line interface for the Jamf platform. A single binary manages Jamf Platform API Gateway, Jamf Pro, Jamf Protect, Jamf School, and Jamf Security Cloud — __COMMAND_COUNT__ commands covering the full API surface, with structured output built for scripting and automation."
+          "text": "A single binary that manages Jamf Platform API Gateway, Jamf Pro, Jamf Protect, Jamf School, and Jamf Security Cloud from the shell."
         }
       },
       {
         "@type": "Question",
-        "name": "How do I install jamf-cli?",
+        "name": "How are credentials handled?",
         "acceptedAnswer": {
           "@type": "Answer",
-          "text": "Install it with Homebrew (brew install Jamf-Concepts/tap/jamf-cli), with Go (go install github.com/Jamf-Concepts/jamf-cli/cmd/jamf-cli@latest), or by downloading a pre-built binary for macOS, Linux, or Windows from the GitHub releases page."
+          "text": "Interactive prompts, JAMF_* environment variables, or keychain-backed profiles. Never flags, never stdin."
         }
       },
       {
         "@type": "Question",
-        "name": "How do I authenticate jamf-cli without exposing credentials?",
+        "name": "Does it cover the Classic API?",
         "acceptedAnswer": {
           "@type": "Answer",
-          "text": "jamf-cli supports OAuth2 client credentials, bearer tokens, and Jamf Platform Gateway authentication. Credentials are never accepted through command-line flags or stdin, so they stay out of shell history and process listings — use interactive prompts, JAMF_* environment variables, or keychain-backed configuration profiles."
+          "text": "Yes. Classic and modern Jamf Pro APIs both live under pro. Every classic write takes --from-file."
         }
       },
       {
         "@type": "Question",
-        "name": "Does jamf-cli support Jamf Pro, Jamf Protect, and Jamf School?",
+        "name": "Can AI agents use it?",
         "acceptedAnswer": {
           "@type": "Answer",
-          "text": "Yes. One binary covers Jamf Pro (both the classic and modern APIs), Jamf Protect, Jamf School, Jamf Security Cloud, and cross-product Jamf Platform API Gateway commands, each under its own namespace (pro, protect, school, security)."
+          "text": "Yes. The site publishes llms.txt and commands.json, and the binary has mcp and agent-context commands."
         }
       },
       {
         "@type": "Question",
-        "name": "Can I use jamf-cli in CI/CD pipelines and with AI agents?",
+        "name": "How current is this catalog?",
         "acceptedAnswer": {
           "@type": "Answer",
-          "text": "Yes. Every command supports structured output (-o json, yaml, or csv), stable exit codes, and unattended flags (--no-input, --quiet). It also publishes an llms.txt and a machine-readable command index so scripts and AI agents can discover and call commands reliably."
+          "text": "It is generated from the built binary on every merge to main. Commands added since the last release carry a New tag."
         }
       },
       {
         "@type": "Question",
-        "name": "Is jamf-cli free and open source?",
+        "name": "Is it free?",
         "acceptedAnswer": {
           "@type": "Answer",
-          "text": "Yes. jamf-cli is free and open source under its repository license, built and maintained by Jamf Concepts."
+          "text": "Yes. Open source under the repository license, built and maintained by Jamf Concepts."
         }
       }
     ]
@@ -387,17 +363,16 @@
 
   <!-- ===== Footer ===== -->
   <footer>
+    <span class="footer-meta mono"><span id="footer-version"></span><span id="last-updated"></span></span>
     <ul class="footer-links">
-      <li><a href="https://concepts.jamf.com" target="_blank" rel="noopener">Concepts</a></li>
+      <li><a href="https://concepts.jamf.com" target="_blank" rel="noopener">Jamf Concepts</a></li>
       <li><a href="https://github.com/Jamf-Concepts/jamf-cli" target="_blank" rel="noopener">GitHub</a></li>
       <li><a href="https://github.com/Jamf-Concepts/jamf-cli/wiki" target="_blank" rel="noopener">Wiki</a></li>
       <li><a href="https://github.com/Jamf-Concepts/jamf-cli/releases" target="_blank" rel="noopener">Releases</a></li>
+      <li><a href="llms.txt" class="mono">llms.txt</a></li>
+      <li><a href="commands.json" class="mono">commands.json</a></li>
+      <li>Press <kbd class="footer-kbd">?</kbd> for shortcuts</li>
     </ul>
-    <p>Auto-generated on every merge to main · Press <kbd class="footer-kbd">?</kbd> for keyboard shortcuts</p>
-    <p class="footer-meta">
-      <span id="last-updated"></span>
-      <span id="footer-version"></span>
-    </p>
   </footer>
 
   <!-- ===== Back to Top ===== -->

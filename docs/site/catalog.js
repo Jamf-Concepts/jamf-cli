@@ -202,12 +202,12 @@
 
     var lastUpdated = document.getElementById('last-updated');
     if (lastUpdated && generatedAt) {
-      lastUpdated.textContent = 'Updated ' + formatDate(generatedAt);
+      lastUpdated.textContent = ' · generated ' + formatDate(generatedAt);
     }
 
     var footerVersion = document.getElementById('footer-version');
     if (footerVersion && version) {
-      footerVersion.textContent = ' · v' + version;
+      footerVersion.textContent = 'jamf-cli v' + version;
     }
   }
 
