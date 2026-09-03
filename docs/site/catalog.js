@@ -155,7 +155,6 @@
 
     setText('command-count', count.toLocaleString());
     setText('nav-command-count', count.toLocaleString());
-    setText('stat-commands', count.toLocaleString());
 
     var search = document.getElementById('search');
     if (search) search.placeholder = 'Search ' + count.toLocaleString() + ' commands... (press / to focus)';
@@ -184,17 +183,6 @@
     animateCount('stat-platform', platformCount);
     animateCount('stat-core', coreCount);
 
-    // Count unique top-level resources (second path segment, e.g. "pro computers list" → "computers")
-    var resources = {};
-    for (var r = 0; r < data.commands.length; r++) {
-      var parts = data.commands[r].command.split(' ');
-      if (parts.length >= 2) {
-        var key = parts.slice(0, 2).join(' ');
-        resources[key] = true;
-      }
-    }
-    setText('stat-resources', Object.keys(resources).length.toLocaleString());
-
     var versionBadge = document.getElementById('version-badge');
     if (versionBadge && version) {
       versionBadge.textContent = 'v' + version;
@@ -216,17 +204,14 @@
     if (!el) return;
 
     // Zero-state: a product with no commands in the deployed catalog (e.g. a
-    // namespace merged after the last release the site builds from) renders a
-    // muted "Soon" rather than a stark "0", which reads as broken. Auto-clears
-    // to the real number once that product ships in a release.
-    var card = el.closest('.stat-card');
+    // namespace merged after the last release the site builds from) reads
+    // "Soon" rather than a stark "0", which reads as broken. Auto-clears to
+    // the real number once that product ships in a release.
     if (target === 0) {
-      if (card) card.classList.add('zero-state');
       el.textContent = 'Soon';
       el.classList.add('loaded');
       return;
     }
-    if (card) card.classList.remove('zero-state');
 
     var duration = 1200;
     var start = null;
@@ -1230,9 +1215,9 @@
   }
 
   function setupStatCards() {
-    var cards = document.querySelectorAll('.stat-card[data-tab]');
-    for (var i = 0; i < cards.length; i++) {
-      cards[i].addEventListener('click', function () {
+    var links = document.querySelectorAll('#hero [data-tab]');
+    for (var i = 0; i < links.length; i++) {
+      links[i].addEventListener('click', function () {
         activateProductTab(this.getAttribute('data-tab'));
       });
     }

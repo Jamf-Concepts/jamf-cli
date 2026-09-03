@@ -1,70 +1,3 @@
-/* ===== Hero first-load reveal ===== */
-/* One-time orchestrated cascade — fades + slides each hero element in
-   on a stagger so the page feels composed, not assembled. Skipped under
-   prefers-reduced-motion. `backwards` fill keeps elements invisible
-   during their delay, so the cascade starts cleanly. */
-@keyframes reveal {
-  from { opacity: 0; transform: translateY(10px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
-
-#hero .hero-icon,
-#hero h1,
-#hero .subtitle,
-#hero .stat-cards .stat-card,
-#hero .stat-secondary,
-#hero #terminal,
-#hero .hero-install {
-  animation: reveal 0.65s cubic-bezier(0.16, 1, 0.3, 1) backwards;
-}
-
-#hero .hero-icon          { animation-delay: 0.05s; }
-#hero h1                  { animation-delay: 0.18s; }
-#hero .subtitle           { animation-delay: 0.32s; }
-#hero .stat-cards .stat-card:nth-child(1) { animation-delay: 0.44s; }
-#hero .stat-cards .stat-card:nth-child(2) { animation-delay: 0.52s; }
-#hero .stat-cards .stat-card:nth-child(3) { animation-delay: 0.60s; }
-#hero .stat-cards .stat-card:nth-child(4) { animation-delay: 0.68s; }
-#hero .stat-secondary     { animation-delay: 0.78s; }
-#hero #terminal           { animation-delay: 0.90s; }
-#hero .hero-install       { animation-delay: 1.05s; }
-
-@media (prefers-reduced-motion: reduce) {
-  #hero .hero-icon,
-  #hero h1,
-  #hero .subtitle,
-  #hero .stat-cards .stat-card,
-  #hero .stat-secondary,
-  #hero #terminal,
-  #hero .hero-install {
-    animation: none;
-  }
-}
-
-/* Hero glyph twinkle — cathode flicker. Driven by inline JS in
-   index.html (random glyph picked every 1.5–3.5s, occasional satellite).
-   The keyframe brightens the glyph (cyan → white → cyan) and blooms a
-   drop-shadow glow at peak, then decays. Asymmetric easing — snappy
-   attack, slow decay — mirrors how phosphors actually behave. */
-@keyframes glyph-twinkle {
-  0%   { fill: currentColor; filter: none; transform: scale(1); }
-  18%  { fill: light-dark(#00348a, #6ec5ff); filter: drop-shadow(0 0 8px rgba(110, 197, 255, 0.65)); transform: scale(1.04); }
-  42%  { fill: light-dark(#056ae6, #ffffff); filter: drop-shadow(0 0 18px rgba(140, 210, 255, 0.95)); transform: scale(1.06); }
-  68%  { fill: light-dark(#00348a, #6ec5ff); filter: drop-shadow(0 0 10px rgba(110, 197, 255, 0.5)); transform: scale(1.03); }
-  100% { fill: currentColor; filter: none; transform: scale(1); }
-}
-
-.hero-glyph.twinkle {
-  animation: glyph-twinkle 1.8s cubic-bezier(0.22, 1, 0.36, 1);
-  transform-origin: center;
-  transform-box: fill-box;       /* scale SVG <text> around its own bbox */
-  will-change: transform, filter, fill;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .hero-glyph.twinkle { animation: none; }
-}
-
 /* ===== Cmd+K Command Palette ===== */
 .cmd-palette {
   position: fixed;
@@ -469,8 +402,6 @@ html {
   --shadow-1: var(--shadow-xs);
   --shadow-2: var(--shadow-md);
   --shadow-3: var(--shadow-lg);
-  --hero-glyph: light-dark(rgba(18, 104, 236, 0.18), rgba(47, 163, 255, 0.16));
-  --hero-glow: light-dark(rgba(18, 104, 236, 0.05), rgba(47, 163, 255, 0.05));
 }
 
 /* Manual theme override. Flipping color-scheme flips every light-dark()
@@ -621,334 +552,194 @@ a[target="_blank"]:hover::after {
   transform: translateY(-7px) rotate(-45deg);
 }
 
-/* ===== Hero ===== */
-#hero {
-  /* --hero-glow is transparent in dark mode, so the wash is light-only */
-  background:
-    radial-gradient(ellipse 60% 50% at 50% 0%, var(--hero-glow) 0%, transparent 65%),
-    var(--page-bg);
-  color: var(--text-primary);
-  text-align: center;
-  padding: 7rem 2rem 2rem;
-  position: relative;
-  overflow: hidden;
-}
-
-/* CLI-themed decorative background */
-.hero-pattern {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  user-select: none;
-  color: var(--hero-glyph);
-  z-index: 0;
-  -webkit-mask-image: radial-gradient(ellipse 50% 50% at 50% 45%, transparent 30%, black 75%);
-  mask-image: radial-gradient(ellipse 50% 50% at 50% 45%, transparent 30%, black 75%);
-}
-
-#hero > *:not(.hero-pattern) {
-  position: relative;
-  z-index: 1;
-}
-
-.hero-pattern-svg {
-  width: 100%;
-  height: 100%;
-}
-
-.hero-icon {
-  height: 64px;
-  width: auto;
-  margin-bottom: 1.25rem;
-}
-
-#hero h1 {
-  font-size: 2.5rem;
-  font-weight: 700;
-  margin-bottom: 0.75rem;
-  letter-spacing: -0.02em;
-}
-
-#hero .subtitle {
-  color: var(--text-secondary);
-  font-size: 1.1rem;
-  max-width: 700px;
-  margin: 0 auto 2.5rem;
-  line-height: 1.6;
-  text-wrap: balance;
-}
-
-#command-count {
-  font-variant-numeric: tabular-nums;
-}
-
-/* Stat Cards */
-.stat-cards {
-  display: flex;
-  justify-content: center;
-  gap: 1.25rem;
-  margin-bottom: 3rem;
-  flex-wrap: wrap;
-}
-
-.stat-card {
-  background: var(--card-bg);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 1.15rem 1.5rem;
-  min-width: 140px;
-  flex: 1;
-  max-width: 180px;
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  transition: transform 0.15s, border-color 0.15s, box-shadow 0.15s, scale 0.15s ease;
-  cursor: pointer;
-}
-
-a.stat-card {
-  text-decoration: none;
-  color: inherit;
-}
-
-a.stat-card:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-2);
-}
-
-.stat-card[data-product="total"] {
-  border-color: var(--product-pro);
-}
-.stat-card[data-product="total"] .stat-value { color: var(--accent); }
-
-.stat-card[data-product="pro"] {
-  border-color: color-mix(in srgb, var(--product-pro) 45%, transparent);
-}
-.stat-card[data-product="pro"] .stat-value { color: var(--product-pro); }
-
-.stat-card[data-product="protect"] {
-  border-color: color-mix(in srgb, var(--product-protect) 45%, transparent);
-}
-.stat-card[data-product="protect"] .stat-value { color: var(--product-protect); }
-
-.stat-card[data-product="school"] {
-  border-color: color-mix(in srgb, var(--product-school) 45%, transparent);
-}
-
-.stat-card[data-product="security"] {
-  border-color: color-mix(in srgb, var(--product-security) 45%, transparent);
-}
-.stat-card[data-product="school"] .stat-value { color: var(--product-school); }
-.stat-card[data-product="security"] .stat-value { color: var(--product-security); }
-
-.stat-card[data-product="platform"] {
-  border-color: color-mix(in srgb, var(--product-platform) 45%, transparent);
-}
-.stat-card[data-product="platform"] .stat-value { color: var(--product-platform); }
-
-.stat-card[data-product="core"] {
-  border-color: var(--border);
-}
-.stat-card[data-product="core"] .stat-value { color: var(--text-secondary); }
-
-.stat-card .stat-value {
-  font-size: 2.5rem;
-  font-weight: 700;
-  display: block;
-  line-height: 1.1;
-  letter-spacing: -0.02em;
-  /* the variant property composes with the body's inherited
-     font-feature-settings ("ss01", "cv11") instead of replacing them */
-  font-variant-numeric: tabular-nums;
-  margin-bottom: 0.4rem;
-}
-
-/* A product not yet in the deployed catalog shows a muted "Soon" instead of a
-   count. Desaturate the whole card and shrink the label so it reads as
-   intentional, not a rendering failure. */
-.stat-card.zero-state {
-  border-color: var(--border);
-  opacity: 0.7;
-}
-.stat-card.zero-state .stat-value {
-  font-size: 1.5rem;
-  font-weight: 600;
-  color: var(--text-secondary);
-  letter-spacing: 0;
-}
-
-.stat-card .stat-label {
-  font-size: 0.8rem;
-  font-weight: 600;
-  color: var(--text-primary);
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-  text-align: center;
-  line-height: 1.35;
-}
-
-/* Two-line label: "Jamf" (with icon) on the first line, product name on the
-   second. Keeps every card uniform and lets long names like "Security Cloud"
-   sit on their own line instead of overrunning the card. */
-.stat-card .stat-label .stat-brand,
-.stat-card .stat-label .stat-product {
-  display: block;
-}
-
-.stat-card .stat-label .product-icon {
-  color: var(--brand-blue);
-}
-
-.stat-card[data-product="pro"] .stat-label .product-icon {
-  color: var(--product-pro);
-}
-
-.stat-card[data-product="protect"] .stat-label .product-icon {
-  color: var(--product-protect);
-}
-
-.stat-card[data-product="school"] .stat-label .product-icon {
-  color: var(--product-school);
-}
-
-.stat-card[data-product="security"] .stat-label .product-icon {
-  color: var(--product-security);
-}
-
-.stat-card[data-product="platform"] .stat-label .product-icon {
-  color: var(--product-platform);
-}
-
-.stat-secondary {
-  display: flex;
-  justify-content: center;
+/* ===== Nebula components shared across sections ===== */
+.btn {
+  display: inline-flex;
   align-items: center;
-  gap: 0.75rem;
-  margin-bottom: 2.5rem;
-  font-size: 0.85rem;
-  color: var(--text-secondary);
-}
-
-.stat-secondary strong {
-  color: var(--text-primary);
+  justify-content: center;
+  gap: 6px;
+  height: var(--h-action);
+  padding: 0 16px;
+  border-radius: var(--r-base);
+  border: 1px solid transparent;
+  font: inherit;
   font-weight: 600;
-  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  text-decoration: none;
+  white-space: nowrap;
 }
+.btn:hover { text-decoration: none; }
+.btn:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--focus); }
+.btn svg { width: 14px; height: 14px; }
+.btn-primary { background: var(--primary); color: #ffffff; }
+.btn-primary:hover { background: var(--primary-active); color: #ffffff; }
+.btn-secondary { background: var(--structure-base); color: var(--font-base); border-color: var(--border-base); }
+.btn-secondary:hover { background: var(--structure-secondary); color: var(--font-base); }
+.btn-dark { background: var(--structure-inverse); color: var(--font-inverse); }
+.btn-dark:hover { opacity: 0.9; color: var(--font-inverse); }
+.btn-small { height: var(--h-small); padding: 0 10px; font-size: 12px; }
+.btn-small svg { width: 12px; height: 12px; }
 
-.stat-dot {
-  color: var(--border);
+.tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: var(--h-small);
+  padding: 0 8px;
+  border-radius: var(--r-small);
+  font-size: 14px;
+  font-weight: 500;
+  background: var(--tag-core-bg);
+  color: var(--tag-core-fg);
+  text-decoration: none;
+  white-space: nowrap;
 }
+.tag:hover { text-decoration: none; filter: brightness(0.96); }
+.tag-count { font-family: var(--font-mono); font-size: 12px; font-weight: 400; }
+.tag[data-product="pro"] { background: var(--tag-pro-bg); color: var(--tag-pro-fg); }
+.tag[data-product="protect"] { background: var(--tag-protect-bg); color: var(--tag-protect-fg); }
+.tag[data-product="school"] { background: var(--tag-school-bg); color: var(--tag-school-fg); }
+.tag[data-product="security"] { background: var(--tag-security-bg); color: var(--tag-security-fg); }
+.tag[data-product="platform"] { background: var(--tag-platform-bg); color: var(--tag-platform-fg); }
+.tag[data-product="core"] { background: var(--tag-core-bg); color: var(--tag-core-fg); }
+.tag-danger { background: var(--danger-bg); color: var(--danger); }
+.tag-new { background: var(--tag-new-bg); color: var(--tag-new-fg); }
+.tag-mono { font-family: var(--font-mono); font-size: 12px; font-weight: 400; }
 
-/* Stat-card tooltip — used on the Platform card to disclose that its count
-   overlaps with Pro (Pro commands routed through the Platform Gateway are
-   surfaced under both lenses). */
-.stat-card[data-tip] {
+/* Disclosure tooltip. Carried by the Platform tag, whose count overlaps with
+   Jamf Pro (Pro commands routed through the Platform Gateway). */
+[data-tip] {
   position: relative;
 }
 
-.stat-card[data-tip]::after {
+[data-tip]::after {
   content: attr(data-tip);
   position: absolute;
   bottom: calc(100% + 8px);
   left: 50%;
   transform: translateX(-50%);
-  background: #000;
-  color: rgba(255, 255, 255, 0.9);
-  font-size: 0.75rem;
+  background: var(--structure-inverse);
+  color: var(--font-inverse);
+  font-family: var(--font-family);
+  font-size: 12px;
   font-weight: 400;
-  padding: 0.45rem 0.8rem;
-  border-radius: 6px;
+  padding: 6px 10px;
+  border-radius: var(--r-small);
   width: max-content;
   max-width: 280px;
   white-space: normal;
   text-align: center;
-  line-height: 1.35;
+  line-height: 16px;
   pointer-events: none;
   opacity: 0;
   transition: opacity 0.15s;
   z-index: 10;
 }
 
-.stat-card[data-tip]:hover::after,
-.stat-card[data-tip]:focus-visible::after {
+[data-tip]:hover::after,
+[data-tip]:focus-visible::after {
   opacity: 1;
 }
 
-.stat-tip {
-  position: relative;
-  cursor: help;
-  padding: 0.3rem 0.7rem;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  transition: border-color 0.15s, background 0.15s;
-}
-
-.stat-tip:hover {
-  border-color: var(--brand-blue);
-  background: var(--card-bg);
-}
-
-.stat-tip::after {
-  content: attr(data-tip);
-  position: absolute;
-  bottom: calc(100% + 8px);
-  left: 50%;
-  transform: translateX(-50%);
-  background: #000;
-  color: rgba(255, 255, 255, 0.85);
-  font-size: 0.75rem;
-  font-weight: 400;
-  padding: 0.4rem 0.75rem;
-  border-radius: 6px;
-  white-space: nowrap;
-  pointer-events: none;
-  opacity: 0;
-  transition: opacity 0.15s;
-  z-index: 10;
-}
-
-.stat-tip:hover::after {
-  opacity: 1;
-}
-
-/* Terminal */
-#terminal {
-  max-width: 640px;
-  margin: 0 auto 3rem;
-  background: var(--terminal-bg);
-  border: 1px solid var(--terminal-border);
-  border-radius: 10px;
-  overflow: hidden;
-  text-align: left;
-  box-shadow: var(--shadow-2);
-}
-
-.terminal-titlebar {
+.code-block {
   display: flex;
   align-items: center;
+  gap: 12px;
+  min-height: 44px;
+  padding: 6px 6px 6px 16px;
+  background: var(--code-bg);
+  color: var(--code-fg);
+  border-radius: var(--r-base);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 20px;
+}
+.code-block code { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.code-prompt { color: var(--code-muted); }
+/* The success fill needs the label and the check in white — the check's own
+   rule under "Interaction polish" tints it green, which the fill swallows. */
+.code-block .copy-btn.copied { background: var(--success); color: #ffffff; }
+.code-block .copy-btn.copied .icon-check { color: #ffffff; }
+
+.example-frame {
+  border: 1px solid var(--border-base);
+  border-radius: var(--r-base);
+  overflow: hidden;
+  background: var(--structure-base);
+  box-shadow: var(--shadow-lg);
+}
+.example-tabs { display: flex; border-bottom: 1px solid var(--border-base); }
+.example-tab {
+  display: flex;
+  align-items: center;
+  height: 40px;
+  padding: 0 14px;
+  color: var(--font-tertiary);
+}
+.example-tab.active { font-weight: 700; color: var(--font-base); border-right: 1px solid var(--border-base); }
+.example-footer {
+  display: flex;
+  justify-content: flex-end;
   gap: 8px;
   padding: 12px 16px;
-  background: rgba(0, 0, 0, 0.25);
+  background: var(--structure-tertiary);
 }
 
-.terminal-dot {
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
+/* ===== Hero ===== */
+#hero {
+  display: grid;
+  grid-template-columns: 560px minmax(0, 1fr);
+  gap: 96px;
+  align-items: center;
+  max-width: 1440px;
+  margin: 0 auto;
+  padding: 96px 130px 72px;
+  box-sizing: border-box;
 }
+.hero-copy { display: flex; flex-direction: column; gap: 24px; }
+.eyebrow {
+  margin: 0;
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--font-secondary);
+}
+#hero h1 {
+  margin: 0;
+  font-size: 64px;
+  line-height: 72px;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  text-wrap: balance;
+}
+#hero h1 em { color: var(--primary); font-style: italic; }
+#hero .subtitle {
+  margin: 0;
+  font-size: 20px;
+  line-height: 28px;
+  color: var(--font-secondary);
+  text-wrap: pretty;
+}
+#command-count {
+  font-variant-numeric: tabular-nums;
+}
+.hero-actions { display: flex; gap: 12px; }
+.hero-install { width: 460px; max-width: 100%; }
+.product-strip { display: flex; flex-wrap: wrap; gap: 8px; padding-top: 8px; }
 
-.terminal-dot.red { background: #ff5f57; }
-.terminal-dot.yellow { background: #febc2e; }
-.terminal-dot.green { background: #28c840; }
-
-#terminal-output {
-  padding: 1rem 1.25rem;
-  font-family: var(--font-mono);
-  font-size: 0.85rem;
-  line-height: 1.65;
+#terminal {
+  background: var(--terminal-bg);
   color: var(--terminal-text);
-  height: 50px;
-  overflow: hidden;
+  padding: 20px 22px;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 20px;
+  min-height: 520px;
+  text-align: left;
 }
+#terminal-output { white-space: pre; overflow: hidden; }
 
 #terminal-output .prompt {
   color: var(--terminal-prompt);
@@ -995,58 +786,22 @@ a.stat-card:hover {
   }
 }
 
-/* Hero Install */
-.hero-install {
-  max-width: 480px;
-  margin: 0 auto;
+/* First-load reveal. Skipped under prefers-reduced-motion. */
+@keyframes reveal {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
-
-.hero-install .code-block {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  background: var(--terminal-bg);
-  border: 1px solid var(--terminal-border);
-  border-radius: 8px;
-  padding: 0.75rem 1rem;
-  font-family: var(--font-mono);
-  font-size: 0.85rem;
-  color: var(--terminal-text);
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
-}
-
-.hero-install .code-block code {
-  flex: 1;
-  user-select: all;
-}
-
-/* ===== Hero Examples ===== */
-.hero-examples {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 0.5rem;
-  max-width: 640px;
-  margin: 2.5rem auto 0;
-}
-
-.hero-example-btn {
-  background: light-dark(rgba(20, 25, 32, 0.05), rgba(255, 255, 255, 0.06));
-  border: 1px solid light-dark(rgba(20, 25, 32, 0.12), rgba(255, 255, 255, 0.1));
-  border-radius: 6px;
-  padding: 0.35rem 0.75rem;
-  color: var(--text-secondary);
-  font-family: var(--font-mono);
-  font-size: 0.75rem;
-  cursor: pointer;
-  transition: background 0.15s, color 0.15s, border-color 0.15s;
-}
-
-.hero-example-btn:hover,
-.hero-example-btn.active {
-  background: color-mix(in srgb, var(--accent) 15%, transparent);
-  border-color: color-mix(in srgb, var(--accent) 40%, transparent);
-  color: var(--text-primary);
+.hero-copy > *,
+.hero-terminal { animation: reveal 0.6s cubic-bezier(0.16, 1, 0.3, 1) backwards; }
+.hero-copy > :nth-child(1) { animation-delay: 0.05s; }
+.hero-copy > :nth-child(2) { animation-delay: 0.15s; }
+.hero-copy > :nth-child(3) { animation-delay: 0.25s; }
+.hero-copy > :nth-child(4) { animation-delay: 0.35s; }
+.hero-copy > :nth-child(5) { animation-delay: 0.45s; }
+.hero-copy > :nth-child(6) { animation-delay: 0.55s; }
+.hero-terminal { animation-delay: 0.4s; }
+@media (prefers-reduced-motion: reduce) {
+  .hero-copy > *, .hero-terminal { animation: none; }
 }
 
 /* ===== Commands Catalog ===== */
@@ -2185,8 +1940,9 @@ pre.example-command.copied::after {
   text-decoration: none;
 }
 
-/* Copy Button */
-.copy-btn {
+/* Copy Button — scoped to this section: the hero's copy buttons carry the
+   shared .btn classes, whose fill this bare .copy-btn rule would override. */
+.install-card .copy-btn {
   background: none;
   border: none;
   color: rgba(255, 255, 255, 0.4);
@@ -2197,18 +1953,17 @@ pre.example-command.copied::after {
   justify-content: center;
   transition: color 0.15s, scale 0.15s ease;
   flex-shrink: 0;
-  position: relative;
 }
 
-.copy-btn:hover {
+.install-card .copy-btn:hover {
   color: rgba(255, 255, 255, 0.8);
 }
 
-.copy-btn.copied {
+.install-card .copy-btn.copied {
   color: var(--terminal-success);
 }
 
-.copy-btn svg {
+.install-card .copy-btn svg {
   width: 16px;
   height: 16px;
 }
@@ -2293,18 +2048,13 @@ footer .footer-meta {
   50% { opacity: 1; }
 }
 
-.stat-value:empty,
-.stat-value:only-child {
-  min-width: 2ch;
-}
-
 /* Pulse the dash placeholders until data loads */
-#stat-commands, #stat-pro, #stat-protect, #stat-resources {
+#stat-pro, #stat-protect {
   animation: skeleton-pulse 1.5s ease-in-out infinite;
 }
 
 /* Stop pulsing once populated (JS removes the dash) */
-#stat-commands.loaded, #stat-pro.loaded, #stat-protect.loaded, #stat-resources.loaded {
+#stat-pro.loaded, #stat-protect.loaded {
   animation: none;
 }
 
@@ -2467,25 +2217,6 @@ footer .footer-meta {
     font-size: 0.95rem;
   }
 
-  .stat-cards {
-    flex-direction: column;
-    align-items: center;
-  }
-
-  .stat-card {
-    width: 100%;
-    max-width: 260px;
-  }
-
-  .stat-secondary {
-    flex-wrap: wrap;
-    gap: 0.5rem;
-  }
-
-  .stat-dot {
-    display: none;
-  }
-
   #terminal {
     margin-left: -0.5rem;
     margin-right: -0.5rem;
@@ -2579,10 +2310,6 @@ footer .footer-meta {
     padding-left: 0.25rem;
   }
 
-  .hero-icon {
-    height: 48px;
-  }
-
   /* Example blocks: smaller text, horizontal scroll */
   pre.example-command {
     font-size: 0.65rem;
@@ -2664,7 +2391,7 @@ footer .footer-meta {
 
 /* Scale on press (#12) — subtle tactile feedback on click. Uses the
    independent `scale` property so it composes with elements that already
-   animate `transform` (the translateY lift on .stat-card / .back-to-top).
+   animate `transform` (the translateY lift on .back-to-top).
    0.96 is the skill's floor; anything below reads as exaggerated.
    Gated on no-preference so reduced-motion users never get the scale —
    no separate reset rule needed. */
@@ -2676,7 +2403,6 @@ footer .footer-meta {
   .theme-toggle:active,
   .install-card .btn:active,
   .search-clear:active,
-  a.stat-card:active,
   .back-to-top:active {
     scale: 0.96;
   }
@@ -2685,6 +2411,16 @@ footer .footer-meta {
 /* Minimum hit area (#16) — the copy button's visible target is ~24px.
    Extend it to a 40px comfortable target (dense-desktop floor) without
    affecting layout. Clicks on the pseudo count as clicks on the button. */
+.copy-btn { position: relative; }
+
+/* Icon slot — anchors the check over the copy glyph (injected by an inline
+   IIFE in index.html) so a labelled button keeps the check off its text. */
+.copy-icons {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
 .copy-btn::after {
   content: "";
   position: absolute;
