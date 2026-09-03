@@ -165,6 +165,64 @@
     </div>
   </section>
 
+  <!-- ===== Facts band ===== -->
+  <section id="facts" aria-label="What you get">
+    <div class="fact">
+      <h2 class="h5">Structured output</h2>
+      <p>Every command prints <code>json</code>, <code>yaml</code>, <code>csv</code>, <code>table</code>, <code>plain</code>, or a single field.</p>
+    </div>
+    <div class="fact">
+      <h2 class="h5">Credentials stay off the command line</h2>
+      <p>OAuth2 client credentials, bearer token, or Platform Gateway. Secrets live in the keychain, env vars, or files. Never in argv.</p>
+    </div>
+    <div class="fact">
+      <h2 class="h5">Built for scripts and agents</h2>
+      <p>Stable exit codes, <code>--no-input</code>, <code>--quiet</code>, an <a href="llms.txt">llms.txt</a>, and a <a href="commands.json">JSON command index</a>.</p>
+    </div>
+  </section>
+
+  <!-- ===== Quick start ===== -->
+  <section id="quickstart">
+    <div class="section-head">
+      <h2>Up and running in three commands</h2>
+      <p id="install">Homebrew, <code>go install</code>, or a <a href="https://github.com/Jamf-Concepts/jamf-cli/releases" target="_blank" rel="noopener">binary from GitHub Releases</a> for macOS, Linux, and Windows.</p>
+    </div>
+    <div class="steps">
+      <div class="card step">
+        <div class="step-head"><span class="step-num">1</span><h3>Install</h3></div>
+        <div class="code-block">
+          <code>brew install Jamf-Concepts/tap/jamf-cli</code>
+          <button class="btn btn-primary btn-small copy-btn" type="button" data-copy="brew install Jamf-Concepts/tap/jamf-cli" aria-label="Copy">Copy</button>
+        </div>
+        <p>One binary. Shell completion for bash, zsh, fish, and PowerShell.</p>
+        <details class="alt-install">
+          <summary>Other install options</summary>
+          <div class="code-block"><code>go install github.com/Jamf-Concepts/jamf-cli/cmd/jamf-cli@latest</code><button class="btn btn-primary btn-small copy-btn" type="button" data-copy="go install github.com/Jamf-Concepts/jamf-cli/cmd/jamf-cli@latest" aria-label="Copy">Copy</button></div>
+        </details>
+      </div>
+      <div class="card step">
+        <div class="step-head"><span class="step-num">2</span><h3>Connect</h3></div>
+        <div class="code-block">
+          <code>jamf-cli <span class="tok-pro">pro</span> setup <span class="tok-flag">--url</span> https://jamf.company.com</code>
+          <button class="btn btn-primary btn-small copy-btn" type="button" data-copy="jamf-cli pro setup --url https://jamf.company.com" aria-label="Copy">Copy</button>
+        </div>
+        <p>Prompts for credentials and saves a profile to the keychain. Nothing lands in shell history.</p>
+      </div>
+      <div class="card step">
+        <div class="step-head"><span class="step-num">3</span><h3>Run</h3></div>
+        <div class="code-block">
+          <code>jamf-cli <span class="tok-pro">pro</span> overview <span class="tok-flag">-o json</span></code>
+          <button class="btn btn-primary btn-small copy-btn" type="button" data-copy="jamf-cli pro overview -o json" aria-label="Copy">Copy</button>
+        </div>
+        <p>Add <code>-p staging</code> to target another profile. Pipe the JSON anywhere.</p>
+      </div>
+    </div>
+    <div class="alert alert-info" role="note">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+      <p><strong>Running in CI?</strong> Set <code>JAMF_URL</code>, <code>JAMF_CLIENT_ID</code>, and <code>JAMF_CLIENT_SECRET</code> and skip setup. Add <code>JAMF_CLI_ARGS='--quiet --no-input'</code> for unattended runs.</p>
+    </div>
+  </section>
+
   <!-- ===== Commands Catalog ===== -->
   <section id="commands">
     <div class="commands-sticky">
@@ -201,50 +259,6 @@
       </div>
     </noscript>
     <div id="catalog"></div>
-  </section>
-
-  <!-- ===== Install ===== -->
-  <section id="install">
-    <div class="install-inner">
-      <h2>Install</h2>
-      <div class="install-grid">
-
-        <div class="install-card">
-          <h3>🍺 Homebrew</h3>
-          <div class="code-block">
-            <code>brew install Jamf-Concepts/tap/jamf-cli</code>
-            <button class="copy-btn" aria-label="Copy Homebrew command" data-copy="brew install Jamf-Concepts/tap/jamf-cli">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-              </svg>
-            </button>
-          </div>
-        </div>
-
-        <div class="install-card">
-          <h3>🛠️ Source</h3>
-          <div class="code-block">
-            <code>go install github.com/Jamf-Concepts/jamf-cli/cmd/jamf-cli@latest</code>
-            <button class="copy-btn" aria-label="Copy go install command" data-copy="go install github.com/Jamf-Concepts/jamf-cli/cmd/jamf-cli@latest">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-              </svg>
-            </button>
-          </div>
-        </div>
-
-        <div class="install-card">
-          <h3>📦 Binary</h3>
-          <p>Download pre-built binaries for macOS, Linux, and Windows.</p>
-          <a class="btn" href="https://github.com/Jamf-Concepts/jamf-cli/releases" target="_blank" rel="noopener">
-            Download from GitHub
-          </a>
-        </div>
-
-      </div>
-    </div>
   </section>
 
   <!-- ===== FAQ ===== -->

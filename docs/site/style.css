@@ -1806,25 +1806,84 @@ pre.example-command.copied::after {
   border: none;
 }
 
-/* ===== Install Section ===== */
-#install {
-  scroll-margin-top: 60px;
-  background: var(--card-bg);
-  padding: 4rem 2rem;
-}
-
-.install-inner {
-  max-width: 960px;
+/* ===== Facts band ===== */
+#facts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 48px;
+  max-width: 1440px;
   margin: 0 auto;
+  padding: 40px 130px;
+  box-sizing: border-box;
+  border-top: 1px solid var(--border-base);
+  border-bottom: 1px solid var(--border-base);
+}
+.fact { display: flex; flex-direction: column; gap: 4px; }
+.h5, .fact h2 { margin: 0; font-size: 16px; line-height: 24px; font-weight: 700; }
+.fact p { margin: 0; color: var(--font-secondary); text-wrap: pretty; }
+.fact code {
+  font-size: 12px;
+  padding: 1px 4px;
+  border-radius: var(--r-small);
+  background: var(--structure-secondary);
 }
 
-#install h2 {
-  font-size: 1.5rem;
+/* ===== Quick start ===== */
+#quickstart {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+  max-width: 1440px;
+  margin: 0 auto;
+  padding: 80px 130px 64px;
+  box-sizing: border-box;
+  scroll-margin-top: 60px;
+}
+#install { scroll-margin-top: 60px; }
+.section-head { display: flex; flex-direction: column; gap: 8px; }
+.section-head h2 { margin: 0; font-size: 28px; line-height: 36px; font-weight: 700; }
+.section-head p { margin: 0; color: var(--font-secondary); }
+.steps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; }
+.card {
+  background: var(--structure-base);
+  border: 1px solid var(--border-base);
+  border-radius: var(--r-base);
+  box-shadow: var(--shadow-xs);
+}
+.step { display: flex; flex-direction: column; gap: 16px; padding: 24px; }
+.step-head { display: flex; align-items: center; gap: 12px; }
+.step-head h3 { margin: 0; font-size: 20px; line-height: 24px; font-weight: 700; }
+.step-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: var(--r-pill);
+  background: var(--primary);
+  color: #ffffff;
+  font-size: 12px;
   font-weight: 700;
-  margin-bottom: 2rem;
-  text-align: center;
 }
+.step p { margin: 0; color: var(--font-secondary); }
+.step .code-block { font-size: 12px; line-height: 16px; min-height: 40px; }
+.tok-pro { color: var(--terminal-pro); }
+.tok-flag { color: var(--code-muted); }
+.alt-install summary { cursor: pointer; color: var(--primary); font-weight: 500; }
+.alt-install .code-block { margin-top: 12px; }
+.alert {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 16px;
+  border-radius: var(--r-base);
+}
+.alert svg { width: 18px; height: 18px; flex-shrink: 0; margin-top: 1px; }
+.alert p { margin: 0; }
+.alert-info { background: var(--info-bg); border: 1px solid var(--info-border); color: var(--font-base); }
+.alert-info svg { color: var(--primary); }
 
+/* ===== FAQ ===== */
 #faq {
   scroll-margin-top: 60px;
   padding: 4rem 2rem;
@@ -1870,102 +1929,6 @@ pre.example-command.copied::after {
   border: 1px solid var(--border);
   border-radius: 4px;
   padding: 0.1em 0.35em;
-}
-
-.install-grid {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-  max-width: 800px;
-  margin: 0 auto;
-}
-
-.install-card {
-  background: var(--page-bg);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 1rem 1.5rem;
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-}
-
-.install-card h3 {
-  font-size: 0.9rem;
-  font-weight: 600;
-  white-space: nowrap;
-  min-width: 7rem;
-}
-
-.install-card .code-block {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  background: var(--terminal-bg);
-  color: var(--terminal-text);
-  border: 1px solid var(--terminal-border);
-  border-radius: 6px;
-  padding: 0.6rem 0.75rem;
-  font-family: var(--font-mono);
-  font-size: 0.75rem;
-  overflow-x: auto;
-  flex: 1;
-  min-width: 0;
-}
-
-.install-card .code-block code {
-  white-space: nowrap;
-}
-
-.install-card p {
-  font-size: 0.85rem;
-  color: var(--text-secondary);
-  flex: 1;
-}
-
-.install-card .btn {
-  display: inline-block;
-  padding: 0.5rem 1.25rem;
-  background: var(--brand-blue);
-  color: #fff;
-  border-radius: 6px;
-  font-size: 0.85rem;
-  font-weight: 500;
-  white-space: nowrap;
-  transition: opacity 0.15s, scale 0.15s ease;
-}
-
-.install-card .btn:hover {
-  opacity: 0.85;
-  text-decoration: none;
-}
-
-/* Copy Button — scoped to this section: the hero's copy buttons carry the
-   shared .btn classes, whose fill this bare .copy-btn rule would override. */
-.install-card .copy-btn {
-  background: none;
-  border: none;
-  color: rgba(255, 255, 255, 0.4);
-  cursor: pointer;
-  padding: 4px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: color 0.15s, scale 0.15s ease;
-  flex-shrink: 0;
-}
-
-.install-card .copy-btn:hover {
-  color: rgba(255, 255, 255, 0.8);
-}
-
-.install-card .copy-btn.copied {
-  color: var(--terminal-success);
-}
-
-.install-card .copy-btn svg {
-  width: 16px;
-  height: 16px;
 }
 
 /* ===== Footer ===== */
@@ -2329,17 +2292,18 @@ footer .footer-meta {
     display: none;
   }
 
-  .install-card {
-    flex-direction: column;
-    align-items: flex-start;
+  #facts {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 24px;
+    padding: 32px 1.25rem;
   }
 
-  .install-card h3 {
-    min-width: auto;
-  }
-
-  #install {
+  #quickstart {
     padding: 3rem 1.25rem;
+  }
+
+  .steps {
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 
@@ -2401,7 +2365,6 @@ footer .footer-meta {
   .toggle-all-btn:active,
   .kbd-hint-btn:active,
   .theme-toggle:active,
-  .install-card .btn:active,
   .search-clear:active,
   .back-to-top:active {
     scale: 0.96;
@@ -2480,15 +2443,14 @@ footer .footer-meta {
    has it). Ignored by the browser above ~6 lines, so headings-only. */
 #hero h1,
 .commands-header h2,
-#install h2,
+#quickstart h2,
 #faq h2,
 .faq-item h3 {
   text-wrap: balance;
 }
 
 /* pretty: prevents a lone orphan word on the last line of body copy. */
-.faq-item p,
-.install-card p {
+.faq-item p {
   text-wrap: pretty;
 }
 
