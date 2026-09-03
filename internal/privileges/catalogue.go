@@ -16,15 +16,27 @@ package privileges
 // with the rule in CLAUDE.md against hand-supplying the account APIs' missing
 // privilege names: a row with no spec pointing at it renders nothing.
 //
-// Source: the permissionsMapURL below. Transcribed 2026-08-31, from the same
-// revision terraform-provider-jamfplatform's internal/common/permissions
-// transcribes — the two files are copies on purpose, since neither repo can
-// import the other and Jamf publishes the mapping as prose. Re-verify against
-// the article rather than against the other copy.
+// Source: the permissionsMapURL below, whose markdown rendering is committed
+// beside this file as permissions-map.md and refreshed by
+// `make sync-permissions-map`. Transcribed 2026-08-31 from the same revision
+// terraform-provider-jamfplatform's internal/common/permissions transcribes —
+// the two files are copies on purpose, since neither repo can import the other.
 //
-// No test asserts what an entry SAYS. TestCatalogueCoversEveryScopeThisCLISends
-// checks only that a required capability HAS a row, so a wrong section or a
-// wrong permission name is invisible to it. Re-verify by reading the article.
+// TestCatalogueMatchesThePublishedMap now asserts every row's section and name
+// against that copy. It replaces a note here that said the article carried no
+// machine-readable form, which jamfplatform-go-sdk v0.21.0 disproved by
+// committing a snapshot of the same page and parsing it as a privilege oracle.
+// Four names were wrong when the check was first run — this file expanded
+// "AD Certificate Services connector", "Intune conditional access
+// configuration", "Inventory collection custom file paths" and "Provisioning
+// profiles" into longer phrases that the picker, which is searched by name,
+// does not contain. That is the class of defect the check exists for.
+//
+// What it does NOT prove: the SDK's parser reads only the Capability column,
+// so the section and name are the two dimensions nobody upstream consumes.
+// Agreement here means our transcription matches the article, not that the
+// article matches Jamf Account's picker. Nothing reachable from code can
+// establish the latter.
 //
 // The transcription is deliberately complete rather than trimmed to what this
 // CLI calls: an entry costs one line, and keeping the file a faithful copy of
@@ -37,13 +49,14 @@ package privileges
 // from a slug to the box to tick.
 const permissionsMapURL = "https://developer.jamf.com/platform-api/reference/jamf-pro-permissions-map"
 
-// Category names in sentence case, as terraform-provider-jamfplatform's copy
-// spells them. The article's own headings are Title Case ("Organizational
-// Context", "Global Settings"), and which of the two Jamf Account's picker uses
-// is unverified from here — the difference is cosmetic for finding a section, so
-// the two transcriptions are kept identical rather than one of them guessing.
-// Verified against the article's v1882-ai-governance revision on 2026-08-31:
-// every permission name below is verbatim, all 125 rows.
+// Category names as the article's own "###" headings spell them, which is
+// sentence case on the 2026-09-03 revision — an earlier note here recorded them
+// as Title Case ("Organizational Context", "Global Settings"), so either the
+// page changed or that reading was wrong; the committed copy settles it either
+// way. TestCatalogueMatchesThePublishedMap checks all fifteen, with one
+// recorded exception: the article's first heading is "Organization management
+// scope" and both transcriptions drop the trailing word, which describes the
+// API scope level rather than naming a section.
 //
 // Declared in the order the article groups them so this file
 // stays diffable against it. Nothing is derived from that order: a rendered
@@ -141,7 +154,7 @@ var catalogue = map[string]entry{
 	"jamf-packages-action":             {catAppLifecycle, "App package information"},
 	"volume-purchasing-locations":      {catAppLifecycle, "Volume purchasing"},
 	"ebooks":                           {catAppLifecycle, "eBooks"},
-	"provisioning-profiles":            {catAppLifecycle, "Provisioning profiles for in-house apps"},
+	"provisioning-profiles":            {catAppLifecycle, "Provisioning profiles"},
 	"licensed-software":                {catAppLifecycle, "Licensed software"},
 	"restricted-software":              {catAppLifecycle, "Restricted software"},
 	"patch-policies":                   {catAppLifecycle, "Patch policies"},
@@ -186,7 +199,7 @@ var catalogue = map[string]entry{
 
 	// Global settings.
 	"uem-connect":                            {catGlobalSettings, "UEM Connect configuration"},
-	"conditional-access":                     {catGlobalSettings, "Microsoft Intune conditional access configuration"},
+	"conditional-access":                     {catGlobalSettings, "Intune conditional access configuration"},
 	"self-service":                           {catGlobalSettings, "Self Service configuration"},
 	"app-request":                            {catGlobalSettings, "App request settings"},
 	"onboarding":                             {catGlobalSettings, "Onboarding configuration"},
@@ -201,7 +214,7 @@ var catalogue = map[string]entry{
 	"remote-administration":                  {catGlobalSettings, "TeamViewer configuration"},
 	"computer-check-in":                      {catGlobalSettings, "Device check-in configuration"},
 	"computer-inventory-collection-settings": {catGlobalSettings, "Device inventory collection settings"},
-	"custom-paths":                           {catGlobalSettings, "Device inventory collection custom file paths"},
+	"custom-paths":                           {catGlobalSettings, "Inventory collection custom file paths"},
 	"removable-mac-address":                  {catGlobalSettings, "Removable MAC addresses"},
 	"inventory-preload-records":              {catGlobalSettings, "Inventory preload"},
 	"mdm-profile-renewal-settings":           {catGlobalSettings, "MDM profile renewal settings"},
@@ -214,7 +227,7 @@ var catalogue = map[string]entry{
 	// Infrastructure.
 	"device-enrollment-program-instances":   {catInfrastructure, "Automated Device Enrollment connection"},
 	"pki":                                   {catInfrastructure, "PKI certificates"},
-	"ad-cs-settings":                        {catInfrastructure, "Active Directory Certificate Services connector"},
+	"ad-cs-settings":                        {catInfrastructure, "AD Certificate Services connector"},
 	"digicert-settings":                     {catInfrastructure, "DigiCert Trust Lifecycle Manager"},
 	"push-certificates":                     {catInfrastructure, "APNS certificate"},
 	"gsx-connection":                        {catInfrastructure, "Apple GSX connection"},

@@ -1,4 +1,4 @@
-.PHONY: audit-coverage build test clean generate sync-specs sync-spec sync-platform-specs sync-platform-specs-from-sdk sync-security-specs sync-gateway-coverage sync-gateway-coverage-from-sdk verify-gateway-coverage verify-classic-schemas install lint lint-dead verify-generated verify-platform-specs verify-security-specs verify-gateway-coverage verify-site verify-site-output smoke smoke-seed smoke-cleanup release-check site
+.PHONY: audit-coverage build test clean generate sync-specs sync-spec sync-platform-specs sync-platform-specs-from-sdk sync-security-specs sync-gateway-coverage sync-gateway-coverage-from-sdk sync-permissions-map verify-gateway-coverage verify-classic-schemas install lint lint-dead verify-generated verify-platform-specs verify-security-specs verify-gateway-coverage verify-site verify-site-output smoke smoke-seed smoke-cleanup release-check site
 
 # Build variables
 VERSION         ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
@@ -428,6 +428,25 @@ sync-gateway-coverage:
 #   make sync-gateway-coverage-from-sdk                              # main
 #   make sync-gateway-coverage-from-sdk JAMFPLATFORM_SDK_REF=v0.20.1
 #   make sync-gateway-coverage-from-sdk JAMFPLATFORM_SDK_PATH=../jamfplatform-go-sdk
+# Refresh the committed copy of Jamf's published permissions map.
+#
+# internal/privileges/catalogue.go turns a gateway capability slug into the
+# section and permission name Jamf Account's picker prints, and this article is
+# the only artefact that carries either. TestCatalogueMatchesThePublishedMap
+# asserts the transcription against this copy, so refreshing it is how a
+# renamed permission reaches the CLI.
+#
+# Read the diff rather than committing it blind: a name moving changes what an
+# operator is told to search for in the picker. Byte-identical to the copy
+# jamfplatform-go-sdk parses as its privilege oracle (`make permmap` there), by
+# construction — same URL.
+sync-permissions-map:
+	@curl -fsS --remove-on-error \
+		https://developer.jamf.com/platform-api/reference/jamf-pro-permissions-map.md \
+		-o internal/privileges/permissions-map.md.tmp
+	@mv internal/privileges/permissions-map.md.tmp internal/privileges/permissions-map.md
+	@echo "refreshed internal/privileges/permissions-map.md — review the diff, then: make test"
+
 sync-gateway-coverage-from-sdk:
 	@mkdir -p specs/.platform-source
 	@if [ -n "$(JAMFPLATFORM_SDK_PATH)" ]; then \
