@@ -383,7 +383,12 @@ html {
 body {
   font-family: var(--font-family);
   color: var(--font-base);
-  background: var(--structure-base);
+  /* The hero glow is painted here, not on #hero, so it spans the full
+     viewport instead of stopping at the section's 1440px edge. The
+     gradient is one non-repeating tile the height of the hero band. */
+  background:
+    radial-gradient(ellipse 55% 70% at 78% 30%, var(--hero-glow) 0%, transparent 70%) no-repeat 0 0 / 100% 960px,
+    var(--structure-base);
   font-size: 14px;
   line-height: 20px;
   -webkit-font-smoothing: antialiased;
@@ -665,7 +670,6 @@ a[target="_blank"]:hover::after {
   margin: 0 auto;
   padding: 96px 130px 72px;
   box-sizing: border-box;
-  background: radial-gradient(ellipse 70% 60% at 80% 20%, var(--hero-glow) 0%, transparent 70%);
 }
 .hero-copy { display: flex; flex-direction: column; gap: 24px; }
 .eyebrow {
