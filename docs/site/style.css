@@ -115,7 +115,7 @@
   border-bottom: 1px solid var(--border);
 }
 .palette-prompt {
-  font-family: 'Geist Mono', 'SF Mono', monospace;
+  font-family: var(--font-mono);
   font-weight: 600;
   color: var(--accent);
   font-size: 1rem;
@@ -126,13 +126,13 @@
   border: none;
   outline: none;
   color: var(--text-primary);
-  font-family: 'Geist Mono', 'SF Mono', monospace;
+  font-family: var(--font-mono);
   font-size: 0.95rem;
   padding: 0;
 }
 .palette-input::placeholder { color: var(--text-secondary); }
 .palette-kbd, .palette-footer kbd {
-  font-family: 'Geist Mono', 'SF Mono', monospace;
+  font-family: var(--font-mono);
   font-size: 0.7rem;
   padding: 0.1rem 0.4rem;
   background: var(--page-bg);
@@ -182,12 +182,12 @@
 }
 .palette-item-prefix {
   color: var(--text-secondary);
-  font-family: 'Geist Mono', 'SF Mono', monospace;
+  font-family: var(--font-mono);
   font-size: 0.78rem;
   flex-shrink: 0;
 }
 .palette-item-name {
-  font-family: 'Geist Mono', 'SF Mono', monospace;
+  font-family: var(--font-mono);
   flex: 1;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -231,7 +231,7 @@
   color: var(--text-primary);
 }
 .palette-cmd {
-  font-family: 'Geist Mono', 'SF Mono', monospace;
+  font-family: var(--font-mono);
   font-size: 0.85rem;
   font-weight: 500;
   word-break: break-word;
@@ -283,7 +283,7 @@
 .palette-flags { display: flex; flex-wrap: wrap; gap: 0.3rem; }
 .palette-flags code,
 .palette-aliases code {
-  font-family: 'Geist Mono', 'SF Mono', monospace;
+  font-family: var(--font-mono);
   font-size: 0.72rem;
   padding: 0.1rem 0.4rem;
   background: var(--page-bg);
@@ -342,126 +342,151 @@ html {
   }
 }
 
-/* ===== Custom Properties (Nebula Design System) =====
-
-   Every token is defined ONCE via light-dark(). `color-scheme: light dark`
-   tells the browser both modes exist (and themes scrollbars/form controls
-   for free); the manual toggle only has to flip `color-scheme` and every
-   token follows. No duplicated dark block, no per-component reset blocks.
-
-   Light mode — "cool paper terminal":
-     * page slightly cool-grey instead of warm near-white (less eye-blast)
-     * cards recede ~6% from the page so the catalog reads as set INTO
-       the surface, not floating on bleach-white
-     * text stays high-contrast but trades pure black for a cool dark
-       grey (#1a1d23) — easier on long sessions, still WCAG AA
-   Dark mode — designed, not dimmed:
-     * secondary text at 62% white (was 74% — too close to primary's 87%
-       to read as a second level)
-     * every product accent gets a lifted dark variant at matched
-       perceptual lightness — not just pro/protect */
+/* ===== Custom Properties (Nebula v5 tokens) =====
+   Source: jamf/ds-nebula shared/style-dictionary/properties/v2 and
+   global/color/coreV2.json. Every color is one light-dark() declaration.
+   color-scheme on :root[data-theme] is the whole override mechanism. */
 :root {
   color-scheme: light dark;
 
-  /* Constants (both modes) */
-  --brand-blue: #056ae6;  /* FILLED surfaces only (version badge, active tab, buttons, toasts) — white text sits on it */
-  --hero-bg: #141920;
-  --terminal-bg: #141920;
-  --terminal-border: #ffffff1f;
-  --terminal-text: #ffffffde;
-  --terminal-success: #00b300;
-  --terminal-prompt: #ffffffbd;
-  --new-indicator: #ff9500;
+  /* Type */
+  --font-family: 'Inter', 'Helvetica Neue', system-ui, -apple-system, sans-serif;
+  --font-mono: 'Noto Sans Mono', ui-monospace, Menlo, monospace;
 
-  /* Terminal product syntax — the terminal is ALWAYS dark, so these are
-     fixed dark-tuned values, never light-dark() (which would resolve to
-     light-mode hues while the terminal stays ink) */
-  --terminal-pro: #22d3ee;
-  --terminal-protect: #32d74b;
-  --terminal-school: #fbbf24;
-  --terminal-security: #ef4444;
-  --terminal-platform: #4c8dff;
-  --terminal-flag: #ffffff8a;
+  /* Brand */
+  --primary: light-dark(#1268ec, #2fa3ff);
+  --primary-active: light-dark(#1f47cd, #0093ff);
+  --primary-subdued: light-dark(rgba(18, 104, 236, 0.07), rgba(47, 163, 255, 0.12));
+  --focus: #008fff;
 
-  /* Semantic danger — destructive-command marking. Same red family as
-     Security Cloud but a distinct role token; the "destructive" label
-     carries the meaning (Never-Color-Alone), color only reinforces. */
-  --danger: light-dark(#dc2626, #ef4444);
+  /* Structure */
+  --structure-base: light-dark(#ffffff, #141920);
+  --structure-secondary: light-dark(#f5f7f8, #1f242b);
+  --structure-tertiary: light-dark(#eceef1, #2b2f36);
+  --structure-inverse: light-dark(#141920, #ffffff);
+  --border-base: light-dark(rgba(20, 25, 32, 0.12), rgba(255, 255, 255, 0.12));
+  --border-secondary: light-dark(rgba(20, 25, 32, 0.09), rgba(255, 255, 255, 0.09));
 
-  /* Accents — text/border/icon roles, lifted in dark for contrast */
-  --accent: light-dark(#056ae6, #5290ff);
-  --link-blue: light-dark(#5050bc, #7b79e8);
+  /* Text */
+  --font-base: light-dark(rgba(0, 0, 0, 0.87), rgba(255, 255, 255, 0.87));
+  --font-secondary: light-dark(rgba(0, 0, 0, 0.74), rgba(255, 255, 255, 0.74));
+  --font-tertiary: light-dark(rgba(0, 0, 0, 0.6), rgba(255, 255, 255, 0.6));
+  --font-inverse: light-dark(#ffffff, rgba(0, 0, 0, 0.87));
 
-  /* Product colors — add new products here */
-  --product-pro: light-dark(#06b6d4, #22d3ee);
-  --product-protect: light-dark(#00b300, #32d74b);
-  --product-school: light-dark(#f59e0b, #fbbf24);
-  --product-security: light-dark(#dc2626, #ef4444);
-  --product-platform: light-dark(#056ae6, #5290ff);
-  /* --product-connect: light-dark(#a135d7, #c065ec); */
+  /* Code blocks are always dark. The dark theme steps them one shade deeper. */
+  --code-bg: light-dark(#141920, #0b0e12);
+  --code-fg: #ffffff;
+  --code-muted: rgba(255, 255, 255, 0.6);
+  --code-string: #ffd24f;
+  --code-success: #32d74b;
 
-  /* Surfaces & text — "gallery paper, phosphor ink":
-     light = white cards floating on near-white (separation from hairlines
-     and soft shadows, not grey recession); dark = deep blue-cast near-black
-     with surfaces stepped ~4% up. Neutrals carry a whisper of brand-blue
-     chroma so the UI coheres with the accent without reading as tinted. */
-  --page-bg: light-dark(#fbfcfd, #0f1217);
-  --card-bg: light-dark(#ffffff, #171b22);
-  --border: light-dark(#14192014, #ffffff1a);
-  --text-primary: light-dark(#1a1d23, #ffffffde);
-  --text-secondary: light-dark(#5a6068, #ffffff9e);
-  --tab-inactive-bg: var(--card-bg);
+  /* Semantic */
+  --danger: light-dark(#ca1e25, #ed7577);
+  --danger-bg: rgba(255, 59, 48, 0.16);
+  --success: light-dark(#00ab00, #32d74b);
+  --warning: light-dark(#d17800, #fbe504);
+  --info-bg: light-dark(rgba(18, 104, 236, 0.05), rgba(47, 163, 255, 0.1));
+  --info-border: light-dark(rgba(18, 104, 236, 0.25), rgba(47, 163, 255, 0.35));
 
-  /* Derived product tints — mixed over --page-bg so they're OPAQUE
-     (sticky group headers must not show scrolling rows through them)
-     and automatically produce the right tint in both modes.
+  /* Product tags: Nebula themed tags. Font on a 16% tint of the hue.
      Add new products here. */
-  --tint-pro: color-mix(in srgb, var(--product-pro) 10%, var(--page-bg));
-  --tint-protect: color-mix(in srgb, var(--product-protect) 10%, var(--page-bg));
-  --tint-school: color-mix(in srgb, var(--product-school) 12%, var(--page-bg));
-  --tint-security: color-mix(in srgb, var(--product-security) 12%, var(--page-bg));
-  --tint-platform: color-mix(in srgb, var(--product-platform) 10%, var(--page-bg));
-  --accent-tint: color-mix(in srgb, var(--accent) 8%, var(--page-bg));
-  --accent-tint-hover: color-mix(in srgb, var(--accent) 14%, var(--page-bg));
-  --highlight: color-mix(in srgb, var(--accent) 22%, transparent);
+  --product-pro: light-dark(#0c5393, #87d9f8);
+  --product-protect: light-dark(#006f00, #9ae89c);
+  --product-school: light-dark(#a05a00, #fff495);
+  --product-security: light-dark(#c30001, #f59c9d);
+  --product-platform: light-dark(#1f47cd, #8cc9ff);
+  --product-core: var(--font-base);
+  --tag-pro-fg: var(--product-pro);
+  --tag-pro-bg: rgba(85, 190, 240, 0.16);
+  --tag-protect-fg: var(--product-protect);
+  --tag-protect-bg: rgba(40, 205, 65, 0.16);
+  --tag-school-fg: var(--product-school);
+  --tag-school-bg: rgba(255, 204, 0, 0.16);
+  --tag-security-fg: var(--product-security);
+  --tag-security-bg: rgba(255, 59, 48, 0.16);
+  --tag-platform-fg: var(--product-platform);
+  --tag-platform-bg: rgba(0, 122, 255, 0.16);
+  --tag-core-fg: var(--font-base);
+  --tag-core-bg: rgba(142, 142, 147, 0.16);
+  --tag-new-fg: light-dark(#36219e, #c7c2f2);
+  --tag-new-bg: light-dark(linear-gradient(90deg, #bbe2ff, #cccdf4), rgba(88, 86, 214, 0.28));
 
-  /* Muted UI (pills, badges, shared/core group headers) */
-  --pill-bg: light-dark(rgba(142, 142, 147, 0.08), rgba(142, 142, 147, 0.12));
-  --pill-text: light-dark(#8e8e93, #86898d);
-  --badge-bg: light-dark(rgba(0, 0, 0, 0.07), rgba(255, 255, 255, 0.1));
-  --muted-header-text: light-dark(#535358, #ffffff9e);
-  --muted-header-border: light-dark(#8e8e93, #ffffff1f);
-  --muted-header-bg: light-dark(#f2f4f6, #171b22);
+  /* Terminal syntax (terminal.js). The terminal is always dark, so these
+     are fixed dark-tuned values. */
+  --terminal-bg: var(--code-bg);
+  --terminal-border: rgba(255, 255, 255, 0.12);
+  --terminal-text: #ffffff;
+  --terminal-prompt: rgba(255, 255, 255, 0.6);
+  --terminal-flag: rgba(255, 255, 255, 0.6);
+  --terminal-success: #32d74b;
+  --terminal-pro: #5ac8f5;
+  --terminal-protect: #32d74b;
+  --terminal-school: #fff068;
+  --terminal-security: #f85454;
+  --terminal-platform: #5ab4ff;
 
-  /* Elevation — light-dark() only accepts <color> values, so the theme
-     variance lives in the shadow's color component (light: soft grey
-     shadows; dark: deeper black — subtle shadows vanish on dark surfaces) */
-  --shadow-1: 0 1px 3px light-dark(rgba(20, 25, 32, 0.06), rgba(0, 0, 0, 0.35));
-  --shadow-2: 0 4px 18px light-dark(rgba(20, 25, 32, 0.12), rgba(0, 0, 0, 0.5));
-  --shadow-3: 0 16px 48px -8px light-dark(rgba(20, 25, 32, 0.16), rgba(0, 0, 0, 0.6));
+  /* Shape and size */
+  --r-small: 4px;
+  --r-base: 8px;
+  --r-pill: 100px;
+  --h-action: 36px;
+  --h-small: 24px;
+
+  /* Elevation. light-dark() only accepts colors, so the variance lives in
+     the shadow color. */
+  --shadow-xs: 0 2px 4px -1px light-dark(rgba(0, 0, 0, 0.1), rgba(0, 0, 0, 0.5));
+  --shadow-md: 0 4px 10px -2px light-dark(rgba(0, 0, 0, 0.14), rgba(0, 0, 0, 0.55));
+  --shadow-lg: 0 8px 32px -8px light-dark(rgba(0, 0, 0, 0.18), rgba(0, 0, 0, 0.65));
   --shadow-sticky: 0 12px 16px -13px light-dark(rgba(0, 0, 0, 0.18), rgba(0, 0, 0, 0.55));
 
-  /* Hero decoration — ~18% glyph ink on paper (the near-white page needs
-     less than the old grey did), ~16% glow on the deep dark; a faint
-     brand wash tops both modes */
-  --hero-glyph: light-dark(rgba(5, 106, 230, 0.18), rgba(5, 106, 230, 0.16));
-  --hero-glow: light-dark(rgba(5, 106, 230, 0.05), rgba(82, 144, 255, 0.05));
+  /* ---- Transitional aliases. Old rules read these. Task 9 deletes them
+     together with the rules that read them. ---- */
+  --brand-blue: var(--primary);
+  --accent: var(--primary);
+  --link-blue: var(--primary);
+  --page-bg: var(--structure-base);
+  --card-bg: var(--structure-secondary);
+  --border: var(--border-base);
+  --text-primary: var(--font-base);
+  --text-secondary: var(--font-secondary);
+  --tab-inactive-bg: var(--structure-base);
+  --hero-bg: var(--structure-base);
+  --new-indicator: light-dark(#d17800, #fbe504);
+  --tint-pro: var(--tag-pro-bg);
+  --tint-protect: var(--tag-protect-bg);
+  --tint-school: var(--tag-school-bg);
+  --tint-security: var(--tag-security-bg);
+  --tint-platform: var(--tag-platform-bg);
+  --accent-tint: var(--primary-subdued);
+  --accent-tint-hover: color-mix(in srgb, var(--primary) 14%, var(--structure-base));
+  --highlight: color-mix(in srgb, var(--primary) 22%, transparent);
+  --pill-bg: var(--tag-core-bg);
+  --pill-text: var(--font-tertiary);
+  --badge-bg: var(--tag-core-bg);
+  --muted-header-text: var(--font-secondary);
+  --muted-header-border: var(--border-base);
+  --muted-header-bg: var(--structure-secondary);
+  --shadow-1: var(--shadow-xs);
+  --shadow-2: var(--shadow-md);
+  --shadow-3: var(--shadow-lg);
+  --hero-glyph: light-dark(rgba(18, 104, 236, 0.18), rgba(47, 163, 255, 0.16));
+  --hero-glow: light-dark(rgba(18, 104, 236, 0.05), rgba(47, 163, 255, 0.05));
 }
 
-/* Manual theme override — flipping color-scheme flips every light-dark()
-   token above. This is the entire override mechanism. */
+/* Manual theme override. Flipping color-scheme flips every light-dark()
+   token above. */
 :root[data-theme="light"] { color-scheme: light; }
 :root[data-theme="dark"] { color-scheme: dark; }
 
 /* ===== Typography ===== */
 body {
-  font-family: 'Geist', -apple-system, system-ui, sans-serif;
-  color: var(--text-primary);
-  background: var(--page-bg);
-  line-height: 1.6;
+  font-family: var(--font-family);
+  color: var(--font-base);
+  background: var(--structure-base);
+  font-size: 14px;
+  line-height: 20px;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  font-feature-settings: "ss01", "cv11";
   /* Missing weights/styles must fail visibly, not render browser-faked */
   font-synthesis: none;
 }
@@ -469,11 +494,11 @@ body {
 code,
 pre,
 .mono {
-  font-family: 'Geist Mono', 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+  font-family: var(--font-mono);
 }
 
 a {
-  color: var(--link-blue);
+  color: var(--primary);
   text-decoration: none;
   /* Underlines from the font's own metrics instead of browser guesses */
   text-underline-position: from-font;
@@ -481,6 +506,7 @@ a {
 }
 
 a:hover {
+  color: var(--primary-active);
   text-decoration: underline;
 }
 
@@ -508,7 +534,7 @@ nav.scrolled {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  font-family: 'Geist Mono', 'SF Mono', 'Fira Code', monospace;
+  font-family: var(--font-mono);
   font-weight: 600;
   font-size: 1.05rem;
   letter-spacing: -0.01em;
@@ -942,7 +968,7 @@ a.stat-card:hover {
 
 #terminal-output {
   padding: 1rem 1.25rem;
-  font-family: 'Geist Mono', 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+  font-family: var(--font-mono);
   font-size: 0.85rem;
   line-height: 1.65;
   color: var(--terminal-text);
@@ -1009,7 +1035,7 @@ a.stat-card:hover {
   border: 1px solid var(--terminal-border);
   border-radius: 8px;
   padding: 0.75rem 1rem;
-  font-family: 'Geist Mono', 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+  font-family: var(--font-mono);
   font-size: 0.85rem;
   color: var(--terminal-text);
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
@@ -1036,7 +1062,7 @@ a.stat-card:hover {
   border-radius: 6px;
   padding: 0.35rem 0.75rem;
   color: var(--text-secondary);
-  font-family: 'Geist Mono', 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+  font-family: var(--font-mono);
   font-size: 0.75rem;
   cursor: pointer;
   transition: background 0.15s, color 0.15s, border-color 0.15s;
@@ -1169,7 +1195,7 @@ a.stat-card:hover {
 }
 
 .toggle-all-btn {
-  font-family: 'Geist', -apple-system, system-ui, sans-serif;
+  font-family: var(--font-family);
   font-size: 0.8rem;
   font-weight: 500;
   color: var(--text-secondary);
@@ -1195,7 +1221,7 @@ a.stat-card:hover {
   background: var(--card-bg);
   color: var(--text-primary);
   font-size: 0.9rem;
-  font-family: 'Geist', -apple-system, system-ui, sans-serif;
+  font-family: var(--font-family);
   outline: none;
   transition: border-color 0.15s;
 }
@@ -1268,7 +1294,7 @@ a.stat-card:hover {
 
 /* Pillar dividers — running-header style labels that chunk the 28+ groups
    into ~7 conceptual pillars (Devices, Software & Content, Identity & Access,
-   etc). Geist Mono + heavy tracking + fading hairline keeps them quiet
+   etc). Monospace + heavy tracking + fading hairline keeps them quiet
    enough to ignore when scanning rows, present enough to anchor your
    position when orienting. Editorial, not navigational. */
 .pillar-divider {
@@ -1284,7 +1310,7 @@ a.stat-card:hover {
 }
 
 .pillar-label {
-  font-family: 'Geist Mono', 'SF Mono', 'Fira Code', monospace;
+  font-family: var(--font-mono);
   font-size: 0.65rem;
   font-weight: 500;
   letter-spacing: 0.22em;
@@ -1316,7 +1342,7 @@ a.stat-card:hover {
   gap: 0.4rem;
   padding: 0.4rem 0.75rem;
   cursor: pointer;
-  font-family: 'Geist Mono', 'SF Mono', monospace;
+  font-family: var(--font-mono);
   font-size: 0.82rem;
   color: var(--text-secondary);
   user-select: none;
@@ -1351,7 +1377,7 @@ a.stat-card:hover {
 }
 
 .resource-count-badge {
-  font-family: 'Geist', -apple-system, system-ui, sans-serif;
+  font-family: var(--font-family);
   font-size: 0.65rem;
   font-weight: 500;
   padding: 0.05rem 0.4rem;
@@ -1631,7 +1657,7 @@ a.stat-card:hover {
 }
 
 .command-name {
-  font-family: 'Geist Mono', 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+  font-family: var(--font-mono);
   font-size: 0.95rem;
   color: var(--accent);
 }
@@ -1685,7 +1711,7 @@ a.stat-card:hover {
 
 .command-name.copied::after {
   content: 'Copied!';
-  font-family: 'Geist', -apple-system, system-ui, sans-serif;
+  font-family: var(--font-family);
   font-size: 0.65rem;
   font-weight: 600;
   font-style: normal;
@@ -1696,7 +1722,7 @@ a.stat-card:hover {
 .new-badge {
   display: inline-flex;
   align-items: center;
-  font-family: 'Geist', -apple-system, system-ui, sans-serif;
+  font-family: var(--font-family);
   font-size: 0.6rem;
   font-weight: 500;
   text-transform: uppercase;
@@ -1908,7 +1934,7 @@ a.stat-card:hover {
 
 .detail-parent-link {
   color: var(--accent);
-  font-family: 'Geist Mono', 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+  font-family: var(--font-mono);
   font-size: 0.8rem;
   text-decoration: none;
 }
@@ -1926,7 +1952,7 @@ a.stat-card:hover {
 
 .sibling-link {
   display: inline-block;
-  font-family: 'Geist Mono', 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+  font-family: var(--font-mono);
   font-size: 0.75rem;
   font-weight: 500;
   padding: 0.25rem 0.6rem;
@@ -2006,7 +2032,7 @@ pre.example-command.copied {
 pre.example-command.copied::after {
   content: 'Copied!';
   float: right;
-  font-family: 'Geist', -apple-system, system-ui, sans-serif;
+  font-family: var(--font-family);
   font-size: 0.65rem;
   font-weight: 600;
   color: var(--terminal-success);
@@ -2027,7 +2053,7 @@ pre.example-command.copied::after {
 /* Flag pills */
 .flag-pill {
   display: inline-block;
-  font-family: 'Geist Mono', 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+  font-family: var(--font-mono);
   font-size: 0.6rem;
   background: var(--pill-bg);
   color: var(--pill-text);
@@ -2041,7 +2067,7 @@ pre.example-command.copied::after {
 /* Alias badge */
 .alias-badge {
   display: inline-block;
-  font-family: 'Geist Mono', 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+  font-family: var(--font-mono);
   font-size: 0.6rem;
   background: var(--pill-bg);
   color: var(--pill-text);
@@ -2109,7 +2135,7 @@ pre.example-command.copied::after {
 }
 
 .faq-item code {
-  font-family: 'Geist Mono', 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+  font-family: var(--font-mono);
   font-size: 0.82em;
   background: var(--page-bg);
   border: 1px solid var(--border);
@@ -2151,7 +2177,7 @@ pre.example-command.copied::after {
   border: 1px solid var(--terminal-border);
   border-radius: 6px;
   padding: 0.6rem 0.75rem;
-  font-family: 'Geist Mono', 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+  font-family: var(--font-mono);
   font-size: 0.75rem;
   overflow-x: auto;
   flex: 1;
@@ -2375,7 +2401,7 @@ footer .footer-meta {
 .kbd-row kbd,
 .footer-kbd {
   display: inline-block;
-  font-family: 'Geist Mono', 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+  font-family: var(--font-mono);
   font-size: 0.7rem;
   background: var(--card-bg);
   color: var(--text-primary);
@@ -2809,7 +2835,7 @@ input:focus-visible {
   display: inline-flex;
   align-items: center;
   gap: 0.25rem;
-  font-family: 'Geist', -apple-system, system-ui, sans-serif;
+  font-family: var(--font-family);
   font-size: 0.6rem;
   font-weight: 600;
   text-transform: uppercase;
