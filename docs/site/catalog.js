@@ -484,8 +484,10 @@
       var search = document.getElementById('search');
       if (search && search.value) { search.value = ''; }
       renderCatalog(allCommands, '', activeProduct);
-      var main = document.querySelector('.catalog-main');
-      if (main) main.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      // Land on the Commands heading (it carries scroll-margin-top for the
+      // sticky nav) rather than on the table, which tucked under the bar.
+      var section = document.getElementById('commands');
+      if (section) section.scrollIntoView({ behavior: 'smooth', block: 'start' });
     });
     return item;
   }
