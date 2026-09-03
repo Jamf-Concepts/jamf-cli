@@ -94,10 +94,13 @@ Splitter behaviour and its knobs live in `generator/monolith/`:
   fall-through is reported as a `Warning:` line, so read the generator output.
 - **`DroppedTags`** — tags never emitted (legacy preview endpoints that shadow a
   canonical resource).
-- **`PreservedSpecs`** — spec files maintained outside the public monolith
-  (private endpoints, e.g. the App Installer specs). The splitter leaves these
-  files alone and treats their paths as invisible, so the monolith cannot
-  clobber them. Library files they `$ref` are auto-preserved.
+- **`PreservedSpecs`** — spec files sourced outside the public monolith. The
+  splitter leaves these files alone and treats their paths as invisible, so the
+  monolith cannot clobber them. Library files they `$ref` are auto-preserved.
+  The four `specs/AppInstaller*.yaml` are the current members: App Installers
+  sits under `hiddenapi/` in Jamf Pro's source, so no monolith carries it, and
+  those files are derived from the gateway's published Pro API spec by
+  `monolith.ExtractSubtree` — see `make sync-platform-specs-from-sdk`.
 - **Components** — a schema used by one spec file is inlined into it; a schema
   shared by two or more is emitted to `specs/_MonolithLibrary.yaml` and
   referenced by external `$ref`.

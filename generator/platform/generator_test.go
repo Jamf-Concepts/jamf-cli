@@ -706,3 +706,91 @@ func TestBuildEnumChoices_ReachesAllOfComposedUnionVariants(t *testing.T) {
 		t.Errorf("connection.region = %v, expected it to carry US", vals)
 	}
 }
+
+// A paging parameter is filtered out only when the runtime loop owns it.
+//
+// hasPaginationParams requires page AND page-size, and three live operations
+// declare neither pair: audit's list and lineage page by page-size + cursor,
+// and the two DDM report ops page by page + size. Filtering unconditionally
+// dropped whichever half matched the names — so audit lost --page-size while
+// keeping --cursor, and the report ops lost --page while keeping --size, each
+// leaving the caller with half a pager and no loop to make up the difference.
+func TestNonPaginatedOpsKeepTheirPagingFlags(t *testing.T) {
+	params := []*parser.Parameter{
+		{Name: "page-size", In: "query", Type: "integer"},
+		{Name: "cursor", In: "query", Type: "string"},
+	}
+	if got := hasPaginationParams(params); got {
+		t.Fatalf("hasPaginationParams on a cursor pager = %v, want false", got)
+	}
+	names := func(qs []queryParam) []string {
+		var out []string
+		for _, q := range qs {
+			out = append(out, q.FlagName)
+		}
+		return out
+	}
+	kept := names(buildQueryParams(params, "audit", false))
+	if !slices.Contains(kept, "page-size") || !slices.Contains(kept, "cursor") {
+		t.Errorf("cursor pager flags = %v, want both page-size and cursor", kept)
+	}
+
+	// Both halves present: the loop owns them and a flag would fight it.
+	loop := []*parser.Parameter{
+		{Name: "page", In: "query", Type: "integer"},
+		{Name: "page-size", In: "query", Type: "integer"},
+		{Name: "filter", In: "query", Type: "string"},
+	}
+	if !hasPaginationParams(loop) {
+		t.Fatal("hasPaginationParams on page+page-size = false")
+	}
+	managed := names(buildQueryParams(loop, "pro", true))
+	if slices.Contains(managed, "page") || slices.Contains(managed, "page-size") {
+		t.Errorf("paginated op flags = %v, want the pager managed internally", managed)
+	}
+	if !slices.Contains(managed, "filter") {
+		t.Errorf("paginated op flags = %v, want filter kept", managed)
+	}
+}
+
+// The live specs, so the fix cannot rot into covering nothing: an operation
+// declaring one paging parameter without its partner must expose it.
+func TestLivePagingFlagsAreNotSilentlyDropped(t *testing.T) {
+	specsDir, err := filepath.Abs("../../specs/platform")
+	if err != nil {
+		t.Fatalf("resolving specs dir: %v", err)
+	}
+	resources, _, err := LoadResources(specsDir)
+	if err != nil {
+		t.Fatalf("LoadResources: %v", err)
+	}
+	var checked int
+	for _, r := range resources {
+		for _, op := range r.Operations {
+			if hasPaginationParams(op.Parameters) {
+				continue
+			}
+			declared := map[string]bool{}
+			for _, p := range op.Parameters {
+				if p != nil && p.In == "query" {
+					declared[p.Name] = true
+				}
+			}
+			emitted := map[string]bool{}
+			for _, q := range buildQueryParams(op.Parameters, serviceFromPath(op.Path), false) {
+				emitted[q.Name] = true
+			}
+			for _, name := range []string{"page", "page-size", "size", "cursor"} {
+				if declared[name] {
+					checked++
+					if !emitted[name] {
+						t.Errorf("%s %s declares %s and emits no flag for it", op.Method, op.Path, name)
+					}
+				}
+			}
+		}
+	}
+	if checked == 0 {
+		t.Error("no non-paginated op declares a paging parameter — this test is covering nothing")
+	}
+}

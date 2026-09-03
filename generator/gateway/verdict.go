@@ -77,14 +77,21 @@ type Verdict struct {
 // (/nosuchnamespace/v1/x) and nothing finer. So an entry here needs corroboration
 // — the same credential reaching the rest of the namespace in the same run,
 // across regions — not just one 403.
-var probedUnserved = map[string]string{
-	// Wire-confirmed 2026-08-28 against EU and US, re-confirmed on EU
-	// 2026-08-31: every /pro/v1/app-installers path answers 403 BAD_PERMISSIONS
-	// on a credential that reads Pro, Classic and Platform in the same run. The
-	// surface never had a published spec (the SDK dropped it in 7ed7af2) and
-	// stays instance-only.
-	"/pro/v1/app-installers": "wire-confirmed unserved on EU and US, 2026-08-28, re-confirmed 2026-08-31",
-}
+// Empty, and it was not always: /pro/v1/app-installers held the only entry for
+// three months. That is the shape to expect an entry to end in. It was probed
+// unrouted on EU and US on 2026-08-28 and re-probed on 2026-08-31, both times
+// against a credential reading the rest of the namespace in the same run — and
+// the reason was never a gateway defect: the surface sits under hiddenapi/ in
+// jamf/jss, so no bundle published it and no route existed. public-apis-oas#430
+// published all 23 operations on 2026-09-03 and the gateway opened the same day
+// (verified here: GET /pro/v1/app-installers/titles returns 363 titles on EU
+// against a bogus-path 403 control in the same run), so the manifest now
+// declares them and the entry would refuse a working surface.
+//
+// Which is the argument for the test that asserts every key still matches a
+// shipped path: nothing in a spec announces that routing has landed, and a
+// stale entry here keeps refusing an endpoint that works.
+var probedUnserved = map[string]string{}
 
 // forceServed keeps an operation available despite being absent from the
 // gateway's published spec. Keyed the same way as probedUnserved.

@@ -35,7 +35,7 @@ func newPolicyPropertiesPolicyPropertiesCmd(ctx *registry.CLIContext) *cobra.Com
 		Use:         "policy-properties",
 		Short:       "Get Policy Properties object",
 		Long:        "Gets 'Policy Properties' object.",
-		Annotations: map[string]string{"jamf:privileges": "Read Policies", "jamf:api": "pro", "jamf:gateway-privileges": "policies:read"},
+		Annotations: map[string]string{"jamf:privileges": "Read Policies", "jamf:api": "pro", "jamf:gateway": "unserved", "jamf:gateway-basis": "unpublished", "jamf:gateway-detail": "not declared by the gateway's Jamf Pro API 11.31.0"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -71,7 +71,7 @@ func newPolicyPropertiesUpdatePolicyPropertiesCmd(ctx *registry.CLIContext) *cob
 		Use:         "update-policy-properties",
 		Short:       "Update Policy Properties object",
 		Long:        "Update Policy Properties object",
-		Annotations: map[string]string{"jamf:privileges": "Update Policies", "jamf:api": "pro", "jamf:gateway-privileges": "policies:update"},
+		Annotations: map[string]string{"jamf:privileges": "Update Policies", "jamf:api": "pro", "jamf:gateway": "unserved", "jamf:gateway-basis": "unpublished", "jamf:gateway-detail": "not declared by the gateway's Jamf Pro API 11.31.0"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

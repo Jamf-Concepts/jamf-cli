@@ -871,15 +871,21 @@ func TestDirectInstanceSendsNoTenantHeader(t *testing.T) {
 // TestGatewayUnservedNote pins the gateway-coverage explanation and the
 // false-positive containment around it.
 //
-// App installers are reachable only against a Jamf Pro instance directly, not
-// through the platform gateway. The gateway's answer for a namespace it does not
-// route is 403 BAD_PERMISSIONS or Tyk's bare "404 page not found" — 403
-// BAD_PERMISSIONS being indistinguishable from a real missing privilege, which
-// sends an operator looking for an API role that cannot help.
+// The gateway's answer for an endpoint outside its published surface is 403
+// BAD_PERMISSIONS or Tyk's bare "404 page not found" — the 403 being
+// indistinguishable from a real missing privilege, which sends an operator
+// looking for a grant that cannot help.
 //
 // The note is appended, never substituted, so the cases below also check it does
-// NOT fire for a Jamf-Pro-issued 404 (a deployment ID that really is gone) or
-// for a direct-to-instance path.
+// NOT fire for a Jamf-Pro-issued 404 (an ID that really is gone), for a
+// direct-to-instance path, or for a namespace the gateway serves.
+//
+// App Installers appears here as the served case, having been the refused one
+// until 2026-09-03: it is the surface this mechanism was built around, and both
+// halves of the containment now depend on the same paths answering the other
+// way. The definitive "does not serve this endpoint" wording has no shipped
+// entry left to exercise it — probedUnserved is empty — and is pinned in
+// internal/gateway's TestRefusalNamesTheCommandAndTheRemedy instead.
 func TestGatewayUnservedNote(t *testing.T) {
 	const proNotFound = `{"httpStatus":404,"errors":[]}`
 	cases := []struct {
@@ -888,22 +894,25 @@ func TestGatewayUnservedNote(t *testing.T) {
 		path     string
 		body     string
 		wantNote bool
-		// wantWeak asserts the unpublished-basis wording, which says the
-		// endpoint may still answer today, rather than the probed wording,
-		// which states outright that the gateway does not serve it.
-		wantWeak bool
 	}{
 		{
-			name:     "gateway 403 BAD_PERMISSIONS on app-installers",
+			// 403 BAD_PERMISSIONS on a served namespace is a genuine privilege
+			// problem, and the note would send the operator hunting a routing
+			// fault instead. This path carried the note until the gateway
+			// opened App Installers. POST /titles/{id}/cache-update, which
+			// v2051 withdrew in the same build, gets no note either — the
+			// runtime table carries only operations this CLI can send, and no
+			// command sends a path the spec no longer declares.
+			name:     "gateway 403 on app-installers keeps the plain hint",
 			status:   http.StatusForbidden,
 			path:     "/pro/v1/app-installers/titles",
 			body:     `{"httpStatus":403,"errors":[{"code":"BAD_PERMISSIONS"}]}`,
-			wantNote: true,
+			wantNote: false,
 		},
 		{
-			name:     "Tyk unrouted 404 on app-installers",
+			name:     "Tyk unrouted 404 outside the published surface",
 			status:   http.StatusNotFound,
-			path:     "/pro/v1/app-installers/deployments",
+			path:     "/pro/v1/api-roles",
 			body:     "404 page not found\n",
 			wantNote: true,
 		},
@@ -918,10 +927,10 @@ func TestGatewayUnservedNote(t *testing.T) {
 			wantNote: false,
 		},
 		{
-			// Same resource, no gateway involved: /api/ rather than /pro/.
+			// No gateway involved: /api/ rather than /pro/.
 			name:     "direct-to-instance path is untouched",
 			status:   http.StatusForbidden,
-			path:     "/api/v1/app-installers/titles",
+			path:     "/api/v1/api-roles",
 			body:     `{"httpStatus":403,"errors":[{"code":"BAD_PERMISSIONS"}]}`,
 			wantNote: false,
 		},
@@ -944,7 +953,6 @@ func TestGatewayUnservedNote(t *testing.T) {
 			path:     "/pro/v2/environment-type",
 			body:     `{"httpStatus":403,"errors":[{"code":"BAD_PERMISSIONS"}]}`,
 			wantNote: true,
-			wantWeak: true,
 		},
 		{
 			// Classic entries are whole-subtree with a wildcard method, because
@@ -955,7 +963,6 @@ func TestGatewayUnservedNote(t *testing.T) {
 			path:     "/proclassic/computerconfigurations/id/3",
 			body:     `{"httpStatus":403,"errors":[{"code":"BAD_PERMISSIONS"}]}`,
 			wantNote: true,
-			wantWeak: true,
 		},
 	}
 
@@ -978,16 +985,12 @@ func TestGatewayUnservedNote(t *testing.T) {
 			if !tc.wantNote {
 				return
 			}
-			// A probed entry states the fact; an unpublished one must not,
-			// because the gateway still routes some of them. Getting these the
-			// wrong way round is the failure this whole mechanism exists to
-			// prevent, pointing the other way.
-			strong := strings.Contains(e.Hint, "does not serve this endpoint")
-			if tc.wantWeak && strong {
+			// Every noted case here is unpublished rather than wire-probed, and
+			// an unpublished refusal must not state the endpoint is gone: the
+			// gateway still routes several of them, and telling someone whose
+			// command works that it is unserved reads as a CLI bug.
+			if strings.Contains(e.Hint, "does not serve this endpoint") {
 				t.Errorf("undeclared endpoint got the definitive wording: %q", e.Hint)
-			}
-			if !tc.wantWeak && !strong {
-				t.Errorf("wire-probed endpoint got the hedged wording: %q", e.Hint)
 			}
 		})
 	}

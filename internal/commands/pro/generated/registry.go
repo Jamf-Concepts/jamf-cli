@@ -44,6 +44,7 @@ func RegisterCommands(root *cobra.Command, ctx *registry.CLIContext) {
 	root.AddCommand(NewAppInstallerDeploymentsCmd(ctx))
 	root.AddCommand(NewAppInstallerGlobalSettingsCmd(ctx))
 	root.AddCommand(NewAppInstallerTitlesCmd(ctx))
+	root.AddCommand(NewAppInstallersCmd(ctx))
 	root.AddCommand(NewAppRequestsCmd(ctx))
 	root.AddCommand(NewAuthenticationsCmd(ctx))
 	root.AddCommand(NewBuildingsCmd(ctx))

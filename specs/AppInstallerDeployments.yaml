@@ -1,653 +1,1202 @@
-openapi: 3.0.1
+components:
+  parameters:
+    export-fields:
+      description: 'Export fields parameter, used to change default order or ignore some of the response properties. Default is empty array, which means that all fields of the response entity will be serialized. Example: export-fields=id,username'
+      explode: true
+      in: query
+      name: export-fields
+      schema:
+        default: []
+        items:
+          type: string
+        type: array
+      style: form
+    export-labels:
+      description: 'Export labels parameter, used to customize fieldnames/columns in the exported file. Default is empty array, which means that response properties names will be used. Number of the provided labels must match the number of export-fields Example: export-labels=identifier,name with matching: export-fields=id,username'
+      explode: true
+      in: query
+      name: export-labels
+      schema:
+        default: []
+        items:
+          type: string
+        type: array
+      style: form
+    page:
+      explode: true
+      in: query
+      name: page
+      schema:
+        default: 0
+        type: integer
+      style: form
+    page-size:
+      explode: true
+      in: query
+      name: page-size
+      schema:
+        default: 100
+        type: integer
+      style: form
+  schemas:
+    ApiError:
+      properties:
+        errors:
+          items:
+            $ref: '#/components/schemas/ApiErrorCause'
+          type: array
+        httpStatus:
+          description: HTTP status of the response
+          example: 400
+          type: integer
+      type: object
+    ApiErrorCause:
+      properties:
+        code:
+          description: Error-specific code that can be used to identify localization string, etc.
+          example: "8675309"
+          type: string
+        description:
+          description: A general description of error for troubleshooting/debugging. Generally this text should not be displayed to a user; instead refer to errorCode and it's localized text
+          example: I've just picked up a fault in the AE35 unit. It's going to go 100% failure in 72 hours
+          type: string
+        field:
+          description: Name of the field that caused the error.
+          example: Name
+          type: string
+        id:
+          description: id of object with error. Optional.
+          example: "3"
+          nullable: true
+          type: string
+      required:
+        - field
+      type: object
+    AppInstallersCategory:
+      nullable: true
+      properties:
+        id:
+          default: -1
+          description: An identifier of a category to which the deployment is assigned. A value of '-1' means no assignment.
+          example: "1"
+          readOnly: true
+          type: string
+        name:
+          description: A name of a category to which the deployment is assigned. A value of null means no assignment or no permission to read categories.
+          example: Category Katowice
+          nullable: true
+          readOnly: true
+          type: string
+      type: object
+    AppInstallersInstallationSummary:
+      properties:
+        available:
+          description: Number of computers with an available app from the App Installer deployment in Self Service. If the App Installer deployment has distribution method different than 'SELF_SERVICE', this value will be always indicate 0.
+          example: 1
+          type: integer
+        failed:
+          description: Number of computers with failed installation of app from App Installer deployment.
+          example: 1
+          type: integer
+        inProgress:
+          description: Number of computers with in progress installation of app from App Installer deployment.
+          example: 1
+          type: integer
+        installed:
+          description: Number of computers with installed app from App Installer deployment.
+          example: 1
+          type: integer
+        unqualified:
+          description: Number of computers in scope for App Installer deployment but assign to another deployment.
+          example: 1
+          type: integer
+      type: object
+    AppInstallersSite:
+      nullable: true
+      properties:
+        id:
+          default: -1
+          description: An identifier of a site to which the deployment is assigned. A value of '-1' means no assignment.
+          example: "1"
+          readOnly: true
+          type: string
+        name:
+          description: A name of a site to which the deployment is assigned. A value of null means no assignment or no permission to read the sites.
+          example: Site Katowice
+          nullable: true
+          readOnly: true
+          type: string
+      type: object
+    AppInstallersSmartGroup:
+      nullable: true
+      properties:
+        id:
+          default: -1
+          description: An identifier of a smart group to which the deployment is assigned. A value of '-1' means no assignment.
+          example: "1"
+          readOnly: true
+          type: string
+        name:
+          description: A name of a smart group to which the deployment is assigned. A value of null means no assignment or no permission to read the smart groups.
+          example: Smart Group Katowice
+          nullable: true
+          readOnly: true
+          type: string
+      type: object
+    AppTitleDeployment:
+      properties:
+        appTitleId:
+          description: ID of app titles to be deployed
+          example: "2"
+          type: string
+        categoryId:
+          default: -1
+          description: A category that this deployment should be assigned to, '-1' means no assignment
+          example: "1"
+          type: string
+        deploymentType:
+          description: |
+            Defines the 'deployment type' for an App Title.
+            - **INSTALL_AUTOMATICALLY** - the app will be installed as soon as possible
+            - **SELF_SERVICE** - the app will be available in Self Service where user can decide if the app should be installed
+          enum:
+            - INSTALL_AUTOMATICALLY
+            - SELF_SERVICE
+          example: INSTALL_AUTOMATICALLY
+          type: string
+        enabled:
+          default: false
+          description: Is deployment active or is it a draft.
+          example: false
+          type: boolean
+        id:
+          example: "1"
+          readOnly: true
+          type: string
+        installPredefinedConfigProfiles:
+          default: false
+          description: Determines whether the predefined configuration profiles will be automatically installed on client computers
+          example: false
+          type: boolean
+        name:
+          description: Human readable name of the deployment
+          example: Jamf Connect for IT
+          maxLength: 255
+          minLength: 1
+          type: string
+        notificationSettings:
+          description: Computer notification settings for running app with pending update; Settings are used only if version of the app supports notifications
+          example:
+            completeMessage: null
+            deadline: null
+            deadlineMessage: null
+            notificationInterval: null
+            notificationMessage: null
+            quitDelay: null
+            relaunch: null
+            suppress: null
+          nullable: true
+          properties:
+            completeMessage:
+              description: Custom notification displayed on computers when an app update has been successfully completed. Default value will be used if set to null.
+              example: My custom complete message
+              maxLength: 150
+              minLength: 1
+              nullable: true
+              type: string
+            deadline:
+              description: Duration in hours before the app is forcefully closed.
+              example: 604800
+              format: int64
+              minimum: 1
+              nullable: true
+              type: integer
+            deadlineMessage:
+              description: Custom notification message displayed on computers when app is about to be forcefully closed. Default value will be used if set to null.
+              example: My custom deadline notification message
+              maxLength: 150
+              minLength: 1
+              nullable: true
+              type: string
+            notificationInterval:
+              description: Custom interval in hours to display notifications on computers. Default value will be used if set to null.
+              example: 86400
+              format: int64
+              minimum: 1
+              nullable: true
+              type: integer
+            notificationMessage:
+              description: Custom notification message to display on computers when app update is available but the app is running. Default value will be used if set to null.
+              example: My custom notification message
+              maxLength: 150
+              minLength: 1
+              nullable: true
+              type: string
+            quitDelay:
+              description: Additional duration in minutes before the app is forcefully closed. Default value will be used if set to null.
+              example: 604800
+              format: int64
+              minimum: 1
+              nullable: true
+              type: integer
+            relaunch:
+              description: Determines whether the app should be restarted after a successful update.
+              example: false
+              nullable: true
+              type: boolean
+            suppress:
+              description: Determines whether all notifications should be suppressed.
+              example: false
+              nullable: true
+              type: boolean
+          type: object
+        selfServiceSettings:
+          description: Self Service settings to be used when deployment type is set to SELF_SERVICE
+          example:
+            categories: null
+            description: null
+            forceViewDescription: false
+            includeInComplianceCategory: false
+            includeInFeaturedCategory: false
+          nullable: true
+          properties:
+            categories:
+              description: List of categories
+              example:
+                - featured: false
+                  id: 7
+                - featured: true
+                  id: 8
+              items:
+                properties:
+                  featured:
+                    default: false
+                    description: App will be featured in given displayed category
+                    example: false
+                    type: boolean
+                  id:
+                    description: category id
+                    example: "1"
+                    type: string
+                required:
+                  - id
+                type: object
+              nullable: true
+              type: array
+            description:
+              description: Custom text to display as a description for the app
+              example: My description
+              maxLength: 4000
+              minLength: 1
+              nullable: true
+              type: string
+            forceViewDescription:
+              default: false
+              description: Computer user will be forced to view description when installing the app
+              example: false
+              type: boolean
+            includeInComplianceCategory:
+              default: false
+              description: App will be displayed in 'Compliance' category if system configuration supports it
+              example: false
+              type: boolean
+            includeInFeaturedCategory:
+              default: false
+              description: App will be displayed in 'Featured' category
+              example: false
+              type: boolean
+          type: object
+        siteId:
+          default: -1
+          description: A site that this deployment should be assigned to, '-1' means no assigment
+          example: "1"
+          type: string
+        smartGroupId:
+          default: -1
+          description: A smart group to which the app should be deployed. Default value, which means that the app installer will not be deployed, will be used if it is set to null and deployment is not active
+          example: "1"
+          type: string
+        titleAvailableInAis:
+          default: true
+          description: If the app title is available in App Installer Service
+          example: false
+          readOnly: true
+          type: boolean
+        triggerAdminNotifications:
+          default: false
+          description: Determines whether events related to this deployment will trigger admin notifications
+          example: false
+          type: boolean
+        updateBehavior:
+          description: |
+            Strategy for app updates.
+            - **MANUAL** - the app will not get automatic updates without admin interaction
+            - **AUTOMATIC** - the app will get automatic updates
+          enum:
+            - MANUAL
+            - AUTOMATIC
+          example: AUTOMATIC
+          type: string
+      required:
+        - name
+        - appTitleId
+        - deploymentType
+        - updateBehavior
+      type: object
+    AppTitleDeploymentRead:
+      allOf:
+        - $ref: '#/components/schemas/AppTitleDeployment'
+        - properties:
+            latestAvailableVersion:
+              description: Latest available app version
+              example: "10.1"
+              type: string
+            selectedVersion:
+              description: App version to use for this deployment, contains value only if 'update behavior' is set to **MANUAL**
+              example: ""
+              type: string
+            versionRemoved:
+              default: false
+              description: If the app title version was removed from App Installer Service
+              example: false
+              type: boolean
+          type: object
+    AppTitleDeploymentSummary:
+      properties:
+        app:
+          $ref: '#/components/schemas/AppTitleDeploymentSummaryApp'
+        category:
+          $ref: '#/components/schemas/AppInstallersCategory'
+        computerStatuses:
+          $ref: '#/components/schemas/AppInstallersInstallationSummary'
+        deploymentType:
+          description: |
+            Defines the 'deployment type' for an App Title.
+            - **INSTALL_AUTOMATICALLY** - the app will be installed as soon as possible
+            - **SELF_SERVICE** - the app will be available in Self Service where user can decide if the app should be installed
+          enum:
+            - INSTALL_AUTOMATICALLY
+            - SELF_SERVICE
+          example: INSTALL_AUTOMATICALLY
+          readOnly: true
+          type: string
+        enabled:
+          default: false
+          description: Is deployment active or is it a draft.
+          example: false
+          readOnly: true
+          type: boolean
+        id:
+          description: Deployment id
+          example: "1"
+          readOnly: true
+          type: string
+        name:
+          description: Human readable name of the deployment
+          example: Jamf Connect for IT
+          readOnly: true
+          type: string
+        site:
+          $ref: '#/components/schemas/AppInstallersSite'
+        smartGroup:
+          $ref: '#/components/schemas/AppInstallersSmartGroup'
+        updateBehavior:
+          description: |
+            Strategy for app updates.
+            - **MANUAL** - the app will not get automatic updates without admin interaction
+            - **AUTOMATIC** - the app will get automatic updates
+          enum:
+            - MANUAL
+            - AUTOMATIC
+          example: AUTOMATIC
+          readOnly: true
+          type: string
+      type: object
+    AppTitleDeploymentSummaryApp:
+      properties:
+        bundleId:
+          description: Bundle ID of app title from deployment
+          example: com.jamf.JamfConnect
+          nullable: true
+          readOnly: true
+          type: string
+        deployedVersion:
+          description: App version to be deployed on end user's computers
+          example: "1"
+          readOnly: true
+          type: string
+        iconUrl:
+          description: URL that provides an icon for the application
+          example: http://localhost:8080/example_icon
+          nullable: true
+          readOnly: true
+          type: string
+        id:
+          description: App Title identifier
+          example: 0B3
+          readOnly: true
+          type: string
+        latestVersion:
+          description: Latest version of app title from deployment
+          example: "1"
+          nullable: true
+          readOnly: true
+          type: string
+        mediaSourceType:
+          description: |
+            Indication on the source which app is downloaded from
+            Values:
+            - **EXTERNAL_URL** - app is downloaded from external source which usually means vendor site
+            - **JAMF_SERVER** - app is downloaded from JAMF server
+          enum:
+            - EXTERNAL_URL
+            - JAMF_SERVER
+          example: EXTERNAL_URL
+          readOnly: true
+          type: string
+        selectedVersion:
+          description: App version to use for this deployment, contains value only if 'update behavior' is set to **MANUAL**
+          example: ""
+          readOnly: true
+          type: string
+        titleAvailableInAis:
+          description: If the app title is available in App Installer Service
+          example: false
+          readOnly: true
+          type: boolean
+        versionRemoved:
+          default: false
+          description: If selected app title version was removed from App Installer Service
+          example: false
+          type: boolean
+      type: object
+    AppTitleDeploymentsSummaryResult:
+      properties:
+        results:
+          items:
+            $ref: '#/components/schemas/AppTitleDeploymentSummary'
+          type: array
+        totalCount:
+          example: 1
+          type: integer
+      type: object
+    AppTitleVersion:
+      properties:
+        version:
+          description: App Installer version
+          example: 89.0.2
+          nullable: true
+          type: string
+      type: object
+    DeploymentComputer:
+      properties:
+        computerName:
+          description: Human readable name of the computer.
+          example: Harry's computer
+          type: string
+        error:
+          description: Optional error code describing deployment failure.
+          example: FEATURE_DOES_NOT_SUPPORT_OS_VERSION
+          type: string
+        id:
+          description: ID of computer.
+          example: "1"
+          type: string
+        retryable:
+          description: Is it possible to retry app installation for the current computer.
+          example: true
+          type: boolean
+        status:
+          description: Current status of deploying app on computer.
+          enum:
+            - UNQUALIFIED
+            - AVAILABLE
+            - IN_PROGRESS
+            - INSTALLED
+            - FAILED
+          example: IN_PROGRESS
+          type: string
+      required:
+        - id
+        - computerName
+        - status
+        - retryable
+      type: object
+    DeploymentComputersResult:
+      properties:
+        results:
+          items:
+            $ref: '#/components/schemas/DeploymentComputer'
+          type: array
+        totalCount:
+          example: 1
+          type: integer
+      type: object
+    ExportField:
+      description: Field to be included in the export operation.
+      properties:
+        fieldLabelOverride:
+          description: Name which should be used for the label in the response - can be in any language. When null the fieldName itself will be used as the label.
+          example: identiteit
+          nullable: true
+          type: string
+        fieldName:
+          description: English name of the field to be exported.
+          example: id
+          type: string
+      type: object
+    ExportParameters:
+      properties:
+        fields:
+          description: Used to change default order or ignore some of the fields. When null or empty array, all fields will be exported.
+          items:
+            $ref: '#/components/schemas/ExportField'
+          nullable: true
+          type: array
+        filter:
+          example: id>=100
+          nullable: true
+          type: string
+        page:
+          default: 0
+          example: 0
+          nullable: true
+          type: integer
+        pageSize:
+          default: 100
+          example: 100
+          nullable: true
+          type: integer
+        sort:
+          default:
+            - id:desc
+          description: 'Sorting criteria in the format: [<property>[:asc/desc]. Default direction when not stated is ascending.'
+          example:
+            - id:asc
+          items:
+            type: string
+          nullable: true
+          type: array
+      type: object
+    HistorySearchResults:
+      properties:
+        results:
+          items:
+            $ref: '#/components/schemas/ObjectHistory'
+          type: array
+        totalCount:
+          example: 1
+          minimum: 0
+          type: integer
+      type: object
+    HrefResponse:
+      properties:
+        href:
+          example: https://yourJamfProUrl.jamf/api/v1/resource/1
+          type: string
+        id:
+          example: "1"
+          minLength: 1
+          type: string
+      type: object
+    ObjectHistory:
+      properties:
+        date:
+          example: "2019-02-04T21:09:31.661Z"
+          type: string
+        details:
+          example: Is SSO Enabled false\nSelected SSO Provider
+          nullable: true
+          type: string
+        id:
+          example: 1
+          minimum: 1
+          type: integer
+        note:
+          example: Sso settings update
+          type: string
+        username:
+          example: admin
+          type: string
+      type: object
+    ObjectHistoryNote:
+      properties:
+        note:
+          example: A generic note can sometimes be useful, but generally not.
+          type: string
+      required:
+        - note
+      type: object
 info:
+  description: Deploy App Installer titles to computers, manage each deployment's version and update behaviour, and read per-computer installation state.
   title: Jamf Pro API - App Installer Deployments
-  description: Manage App Installer deployment configurations in Jamf Pro. Deployments define which App Installer titles are deployed to which smart groups, along with update behavior and notification settings.
   version: 0.0.1
+openapi: 3.0.1
 paths:
   /v1/app-installers/deployments:
     get:
-      tags:
-      - app-installer-deployments
-      summary: Get all App Installer deployments
-      description: Retrieves all App Installer deployment configurations (enabled or not). Results are paginated; the response carries the unfiltered totalCount so callers can page through the full set.
+      description: |-
+        Read App Installer deployments summary.
+
+        **Required Permissions:** `applications:read`
       parameters:
-      - name: page
-        in: query
-        description: Zero-based page index. Defaults to 0 when omitted.
-        required: false
-        schema:
-          type: integer
-          format: int32
-          default: 0
-          minimum: 0
-      - name: page-size
-        in: query
-        description: Number of results per page. Defaults to 100 when omitted.
-        required: false
-        schema:
-          type: integer
-          format: int32
-          default: 100
-          minimum: 1
-          maximum: 1000
+        - $ref: '#/components/parameters/page'
+        - $ref: '#/components/parameters/page-size'
+        - description: 'Sorting criteria in the format: property:asc/desc. Default sort is id:asc. Multiple sort criteria are supported and must be separated with a comma. Example: sort=name:desc'
+          explode: true
+          in: query
+          name: sort
+          schema:
+            default:
+              - id:asc
+            items:
+              type: string
+            type: array
+        - description: 'Query in the RSQL format, allowing to filter app titles collection. Default filter is empty query - returning all results for the requested page. Fields allowed in the query: `id`, `name`, `app.deployedVersion`, `app.bundleId`, `deploymentType`, `updateBehavior`, `app.versionAction`. Example: name=="*appInstaller*"'
+          in: query
+          name: filter
+          schema:
+            default: ""
+            type: string
       responses:
         200:
-          description: Successful response
           content:
-            'application/json':
+            application/json:
               schema:
-                $ref: '#/components/schemas/AppInstallerDeploymentSearchResults'
-      x-required-privileges:
-      - Read App Installers
-    post:
+                $ref: '#/components/schemas/AppTitleDeploymentsSummaryResult'
+          description: Success.
+      summary: Read App Installer deployments summary
       tags:
-      - app-installer-deployments
-      summary: Create an App Installer deployment
-      description: Creates a new App Installer deployment configuration
+        - app-installers
+      x-required-privileges:
+        - Read Mac Applications
+    post:
+      description: |-
+        Create a new App Installer deployment. The deployment has a specific app version and might be scoped to a smart group.
+
+        **Required Permissions:** `applications:create`
+      parameters: []
       requestBody:
-        description: App Installer deployment to create
         content:
-          'application/json':
+          application/json:
             schema:
-              $ref: '#/components/schemas/AppInstallerDeploymentCreate'
+              $ref: '#/components/schemas/AppTitleDeployment'
+        description: app installer to create
         required: true
       responses:
         201:
-          description: Deployment created
           content:
-            'application/json':
+            application/json:
               schema:
-                $ref: '#/components/schemas/AppInstallerDeploymentRef'
-      x-required-privileges:
-      - Create App Installers
-  /v1/app-installers/deployments/{id}:
-    get:
-      tags:
-      - app-installer-deployments
-      summary: Get an App Installer deployment by ID
-      description: Retrieves a specific App Installer deployment by its ID
-      parameters:
-      - name: id
-        in: path
-        description: ID of the deployment
-        required: true
-        schema:
-          type: string
-      responses:
-        200:
-          description: Successful response
+                $ref: '#/components/schemas/HrefResponse'
+          description: App Installer Deployment was created
+        403:
           content:
-            'application/json':
+            application/json:
               schema:
-                $ref: '#/components/schemas/AppInstallerDeployment'
-        404:
-          description: Deployment not found
-      x-required-privileges:
-      - Read App Installers
-    put:
+                $ref: '#/components/schemas/ApiError'
+          description: Cloud Services Connection has not been established.
+      summary: Create a new App Installer deployment
       tags:
-      - app-installer-deployments
-      summary: Update an App Installer deployment
-      description: Updates an existing App Installer deployment configuration
-      parameters:
-      - name: id
-        in: path
-        description: ID of the deployment
-        required: true
-        schema:
-          type: string
-      requestBody:
-        description: Updated deployment configuration
-        content:
-          'application/json':
-            schema:
-              $ref: '#/components/schemas/AppInstallerDeploymentCreate'
-        required: true
-      responses:
-        200:
-          description: Deployment updated
-          content:
-            'application/json':
-              schema:
-                $ref: '#/components/schemas/AppInstallerDeployment'
+        - app-installers
+      x-jamf-expected-status: 201
       x-required-privileges:
-      - Update App Installers
-    delete:
-      tags:
-      - app-installer-deployments
-      summary: Delete an App Installer deployment
-      description: Deletes an App Installer deployment by ID
-      parameters:
-      - name: id
-        in: path
-        description: ID of the deployment
-        required: true
-        schema:
-          type: string
-      responses:
-        204:
-          description: Deployment deleted
-      x-required-privileges:
-      - Delete App Installers
-  /v1/app-installers/deployments/{id}/computers:
-    get:
-      tags:
-      - app-installer-deployments
-      summary: Get computers for an App Installer deployment
-      description: Retrieves per-computer installation status for a deployment
-      parameters:
-      - name: id
-        in: path
-        description: ID of the deployment
-        required: true
-        schema:
-          type: string
-      responses:
-        200:
-          description: Successful response
-          content:
-            'application/json':
-              schema:
-                $ref: '#/components/schemas/DeploymentComputerSearchResults'
-        404:
-          description: Deployment not found
-      x-required-privileges:
-      - Read App Installers
-  /v1/app-installers/deployments/{id}/installation-summary:
-    get:
-      tags:
-      - app-installer-deployments
-      summary: Get installation summary for an App Installer deployment
-      description: Retrieves aggregate installation status counts for a deployment
-      parameters:
-      - name: id
-        in: path
-        description: ID of the deployment
-        required: true
-        schema:
-          type: string
-      responses:
-        200:
-          description: Successful response
-          content:
-            'application/json':
-              schema:
-                $ref: '#/components/schemas/InstallationSummary'
-        404:
-          description: Deployment not found
-      x-required-privileges:
-      - Read App Installers
-  /v1/app-installers/deployments/{id}/computers/installation-retry:
-    post:
-      tags:
-      - app-installer-deployments
-      summary: Retry all failed installations for a deployment
-      description: Issues a retry for all failed App Installer installations in a deployment
-      parameters:
-      - name: id
-        in: path
-        description: ID of the deployment
-        required: true
-        schema:
-          type: string
-      responses:
-        204:
-          description: Retry submitted
-        404:
-          description: Deployment not found
-      x-action: true
-      x-required-privileges:
-      - Update App Installers
+        - Create Mac Applications
   /v1/app-installers/deployments/computers/installation-retry:
     post:
-      tags:
-      - app-installer-deployments
-      summary: Retry all failed installations across all deployments
-      description: Issues a retry for all failed App Installer installations across every deployment in a single server-side call. Surfaced on the deployment installation-retry command as --all.
+      description: |-
+        Retry installation for all computers whose installation failed in any App Installer deployment.
+
+        **Required Permissions:** `applications:update`
+      parameters: []
       responses:
         204:
-          description: Retry submitted
-      x-action: true
-      x-required-privileges:
-      - Update App Installers
-  /v1/app-installers/deployments/{id}/computers/{computerId}/installation-retry:
-    post:
-      tags:
-      - app-installer-deployments
-      summary: Retry a failed installation on a specific computer
-      description: Issues a retry for a failed App Installer installation on a single computer within a deployment
-      parameters:
-      - name: id
-        in: path
-        description: ID of the deployment
-        required: true
-        schema:
-          type: string
-      - name: computerId
-        in: path
-        description: ID of the computer
-        required: true
-        schema:
-          type: string
-      responses:
-        204:
-          description: Retry submitted
+          description: Successful retry installation.
         404:
-          description: Deployment or computer not found
-      x-action: true
-      x-required-privileges:
-      - Update App Installers
-  /v1/app-installers/deployments/{id}/version-update:
-    post:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+          description: Failed computers do not exist in any App Installer deployment.
+      summary: Retry installation for all computers whose installation failed in any App Installer deployment.
       tags:
-      - app-installer-deployments
-      summary: Update an App Installer deployment to the latest version
-      description: Triggers a version update for the deployment's app title
-      parameters:
-      - name: id
-        in: path
-        description: ID of the deployment
-        required: true
-        schema:
-          type: string
-      responses:
-        204:
-          description: Version update triggered
-        404:
-          description: Deployment not found
+        - app-installers
       x-action: true
+      x-jamf-expected-status: 204
       x-required-privileges:
-      - Update App Installers
+        - Update Mac Applications
   /v1/app-installers/deployments/export:
     post:
-      tags:
-      - app-installer-deployments
-      summary: Export App Installer deployments
-      description: Exports all App Installer deployment configurations as CSV.
+      description: |-
+        Export App Installer deployment summary
+
+        **Required Permissions:** `applications:read`
+      parameters:
+        - $ref: '#/components/parameters/export-fields'
+        - $ref: '#/components/parameters/export-labels'
+        - $ref: '#/components/parameters/page'
+        - $ref: '#/components/parameters/page-size'
+        - description: 'Sorting criteria in the format: property:asc/desc. Default sort is id:desc. Multiple sort criteria are supported and must be separated with a comma. Example: sort=id:desc,name:asc '
+          explode: true
+          in: query
+          name: sort
+          schema:
+            default:
+              - id:asc
+            items:
+              type: string
+            type: array
+        - description: 'Query in the RSQL format, allowing to filter history notes collection. Default filter is empty query - returning all results for the requested page. Fields allowed in the query: `id`, `name`, `app.deployedVersion`, `bundleId`, `deploymentType`, `updateBehavior`, `app.versionAction`. This param can be combined with paging and sorting. Example: name=="*appInstaller*"'
+          in: query
+          name: filter
+          schema:
+            default: ""
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExportParameters'
+        description: Optional. Override query parameters since they can make URI exceed 2,000 character limit.
       responses:
         200:
-          description: Export successful
           content:
             text/csv:
               schema:
-                type: string
+                example: |
+                  id,name
+                  1,Deployment1
+                  2,Deployment2
                 format: binary
+          description: Export successful
+        400:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+          description: Export fields specified incorrectly - non-existing column or duplicate on the list.
+        503:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+          description: Export currently unavailable, all export-related resources are in use. Try again later.
+      summary: Export App Installer deployment summary
+      tags:
+        - app-installers
       x-action: true
       x-required-privileges:
-      - Read App Installers
-  /v1/app-installers/deployments/{id}/history:
-    get:
-      tags:
-      - app-installer-deployments
-      summary: Get history for an App Installer deployment
-      description: Retrieves the object history (notes and change details) for a deployment. Results are paginated.
+        - Read Mac Applications
+  /v1/app-installers/deployments/{id}:
+    delete:
+      description: |-
+        Delete an new App Installer deployment. The given application is left installed on the end user’s computer. Future updates won’t be deployed to the selected Smart Group.
+
+        **Required Permissions:** `applications:delete`
       parameters:
-      - name: id
-        in: path
-        description: ID of the deployment
-        required: true
-        schema:
-          type: string
-      - name: page
-        in: query
-        description: Zero-based page index. Defaults to 0 when omitted.
-        required: false
-        schema:
-          type: integer
-          format: int32
-          default: 0
-          minimum: 0
-      - name: page-size
-        in: query
-        description: Number of results per page. Defaults to 100 when omitted.
-        required: false
-        schema:
-          type: integer
-          format: int32
-          default: 100
-          minimum: 1
-          maximum: 2000
-      - name: sort
-        in: query
-        description: 'Sorting criteria in the format: property:asc/desc. Default sort is date:desc.'
-        required: false
-        schema:
-          type: array
-          items:
+        - description: App Title deployment identifier
+          example: "123"
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
             type: string
-          default:
-          - date:desc
-      - name: filter
-        in: query
-        description: 'RSQL filter over history fields: username, date, note, details.'
-        required: false
-        schema:
-          type: string
+          style: simple
+      responses:
+        204:
+          description: App Installer deployment record was deleted
+        403:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+          description: Cloud Services Connection has not been established.
+        404:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+          description: Specified App Installer deployment object does not exist.
+      summary: Delete an App Installer deployment
+      tags:
+        - app-installers
+      x-jamf-expected-status: 204
+      x-required-privileges:
+        - Delete Mac Applications
+    get:
+      description: |-
+        Get details about App Installer deployment.
+
+        **Required Permissions:** `applications:read`
+      parameters:
+        - description: App Title deployment identifier
+          example: "123"
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
       responses:
         200:
-          description: Successful response
           content:
-            'application/json':
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AppTitleDeploymentRead'
+          description: Success.
+        403:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+          description: Cloud Services Connection has not been established.
+      summary: Get details about App Installer deployment.
+      tags:
+        - app-installers
+      x-required-privileges:
+        - Read Mac Applications
+    put:
+      description: |-
+        Updates App Installer deployment.
+
+        **Required Permissions:** `applications:update`
+      parameters:
+        - description: App Title deployment identifier
+          example: "123"
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AppTitleDeployment'
+        description: App Installer deployment object to update
+        required: true
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AppTitleDeploymentRead'
+          description: Success.
+        403:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+          description: Cloud Services Connection has not been established.
+      summary: Updates App Installer deployment.
+      tags:
+        - app-installers
+      x-required-privileges:
+        - Update Mac Applications
+  /v1/app-installers/deployments/{id}/computers:
+    get:
+      description: |-
+        Get a list of all computers assigned to specific App Installers deployment together with its name and overall installation status.
+
+        **Required Permissions:** `applications:read`, `devices:read`
+      parameters:
+        - description: App Title deployment identifier
+          example: "123"
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
+        - $ref: '#/components/parameters/page'
+        - $ref: '#/components/parameters/page-size'
+        - description: 'Sorting criteria in the format: property:asc/desc. Default sort is id:asc. Multiple sort criteria are supported and must be separated with a comma. Example: sort=computerName:desc,status:asc'
+          explode: true
+          in: query
+          name: sort
+          schema:
+            default:
+              - id:asc
+            items:
+              type: string
+            type: array
+        - description: 'Query in the RSQL format, allowing to filter deployment computers collection. Default filter is empty query - returning all results for the requested page. Fields allowed in the query: computerName, status. Example: computerName=="*mac*"'
+          in: query
+          name: filter
+          schema:
+            default: ""
+            type: string
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeploymentComputersResult'
+          description: Success.
+        404:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+          description: Specified App Installer deployment object does not exist.
+      summary: Get app Installers deployment computers.
+      tags:
+        - app-installers
+      x-action: true
+      x-required-privileges:
+        - Read Mac Applications
+        - Read Computers
+  /v1/app-installers/deployments/{id}/computers/installation-retry:
+    post:
+      description: |-
+        Retry installation for all failed computers in App Installer deployment.
+
+        **Required Permissions:** `applications:update`
+      parameters:
+        - description: App Title deployment identifier
+          example: "123"
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
+      responses:
+        204:
+          description: Successful retry installation.
+        404:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+          description: Failed App Installer deployment computers do not exist for specified deploymentId.
+      summary: Retry installation for all failed computers in App Installer deployment.
+      tags:
+        - app-installers
+      x-action: true
+      x-jamf-expected-status: 204
+      x-required-privileges:
+        - Update Mac Applications
+  /v1/app-installers/deployments/{id}/computers/{computerId}/installation-retry:
+    post:
+      description: |-
+        Retry installation for specified failed computer in App Installer deployment.
+
+        **Required Permissions:** `applications:update`
+      parameters:
+        - description: App Title deployment identifier
+          example: "123"
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
+        - description: instance id of computer in App Installer deployment
+          in: path
+          name: computerId
+          required: true
+          schema:
+            type: string
+      responses:
+        204:
+          description: Successful retry installation.
+        404:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+          description: Failed App Installer deployment computer does not exist for specified deploymentId.
+      summary: Retry installation for specified failed computer in App Installer deployment.
+      tags:
+        - app-installers
+      x-action: true
+      x-jamf-expected-status: 204
+      x-required-privileges:
+        - Update Mac Applications
+  /v1/app-installers/deployments/{id}/history:
+    get:
+      description: |-
+        Get specified App Installer deployment history object
+
+        **Required Permissions:** `applications:read`
+      parameters:
+        - description: instance id of App Installer deployment history record
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - $ref: '#/components/parameters/page'
+        - $ref: '#/components/parameters/page-size'
+        - description: 'Sorting criteria in the format: property:asc/desc. Default sort is date:desc. Multiple sort criteria are supported and must be separated with a comma. Example: sort=date:desc,name:asc '
+          explode: true
+          in: query
+          name: sort
+          schema:
+            default:
+              - date:desc
+            items:
+              type: string
+            type: array
+        - description: 'Query in the RSQL format, allowing to filter history notes collection. Default filter is empty query - returning all results for the requested page. Fields allowed in the query: username, date, note, details. This param can be combined with paging and sorting. Example: filter=username!=admin and details==*disabled* and date<2019-12-15'
+          in: query
+          name: filter
+          schema:
+            default: ""
+            type: string
+      responses:
+        200:
+          content:
+            application/json:
               schema:
                 $ref: '#/components/schemas/HistorySearchResults'
-        404:
-          description: Deployment not found
-      x-required-privileges:
-      - Read App Installers
-    post:
+          description: Details of App Installer deployment history were found
+      summary: Get specified App Installer deployment history object
       tags:
-      - app-installer-deployments
-      summary: Add a history note to an App Installer deployment
-      description: Adds a note to the deployment's object history
+        - app-installers
+      x-action: true
+      x-required-privileges:
+        - Read Mac Applications
+    post:
+      description: |-
+        Adds specified App Installer deployment history object notes
+
+        **Required Permissions:** `applications:update`
       parameters:
-      - name: id
-        in: path
-        description: ID of the deployment
-        required: true
-        schema:
-          type: string
+        - description: instance id of App Installer deployment history record
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
       requestBody:
-        description: History note to add
         content:
-          'application/json':
+          application/json:
             schema:
               $ref: '#/components/schemas/ObjectHistoryNote'
+        description: history note to create
         required: true
       responses:
         201:
-          description: History note created
           content:
-            'application/json':
+            application/json:
               schema:
-                $ref: '#/components/schemas/ObjectHistoryNote'
+                $ref: '#/components/schemas/ObjectHistory'
+          description: Notes of App Installer deployment history were added
+        404:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+          description: Specified App Installer deployment object does not exist.
+        503:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+          description: App Installer deployment history can not be saved
+      summary: Add specified App Installer deployment history object notes
+      tags:
+        - app-installers
+      x-action: true
+      x-jamf-expected-status: 200
       x-required-privileges:
-      - Update App Installers
-components:
-  schemas:
-    AppInstallerDeploymentSearchResults:
-      type: object
-      properties:
-        totalCount:
-          type: integer
-        results:
-          type: array
-          items:
-            $ref: '#/components/schemas/AppInstallerDeploymentListItem'
-    AppInstallerDeploymentListItem:
-      type: object
-      properties:
-        id:
-          type: string
-          readOnly: true
-        name:
-          type: string
-        enabled:
-          type: boolean
-        deploymentType:
-          type: string
-          enum:
-          - INSTALL_AUTOMATICALLY
-          - SELF_SERVICE
-        updateBehavior:
-          type: string
-          enum:
-          - AUTOMATIC
-          - MANUAL
-        app:
-          $ref: '#/components/schemas/AppInstallerApp'
-        site:
-          $ref: '#/components/schemas/IdName'
-        smartGroup:
-          $ref: '#/components/schemas/IdName'
-        category:
-          $ref: '#/components/schemas/IdName'
-        computerStatuses:
-          $ref: '#/components/schemas/ComputerStatuses'
-    AppInstallerApp:
-      type: object
-      description: Resolved app-catalog reference as returned in the list response. All fields are read-only server-assigned values.
-      properties:
-        id:
-          type: string
-          description: App Installer title ID
-          readOnly: true
-        bundleId:
-          type: string
-          readOnly: true
-        iconUrl:
-          type: string
-          readOnly: true
-        latestVersion:
-          type: string
-          readOnly: true
-        selectedVersion:
-          type: string
-          readOnly: true
-        deployedVersion:
-          type: string
-          readOnly: true
-        versionRemoved:
-          type: boolean
-          readOnly: true
-        titleAvailableInAis:
-          type: boolean
-          readOnly: true
-        mediaSourceType:
-          type: string
-          readOnly: true
-    AppInstallerDeployment:
-      type: object
-      properties:
-        id:
-          type: string
-          readOnly: true
-        name:
-          type: string
-        enabled:
-          type: boolean
-        appTitleId:
-          type: string
-          description: ID of the App Installer title to deploy
-        deploymentType:
-          type: string
-          enum:
-          - INSTALL_AUTOMATICALLY
-          - SELF_SERVICE
-        updateBehavior:
-          type: string
-          enum:
-          - AUTOMATIC
-          - MANUAL
-        siteId:
-          type: string
-        smartGroupId:
-          type: string
-        installPredefinedConfigProfiles:
-          type: boolean
-        titleAvailableInAis:
-          type: boolean
-          readOnly: true
-        triggerAdminNotifications:
-          type: boolean
-        notificationSettings:
-          $ref: '#/components/schemas/NotificationSettings'
-        selfServiceSettings:
-          $ref: '#/components/schemas/SelfServiceSettings'
-        selectedVersion:
-          type: string
-        latestAvailableVersion:
-          type: string
-          readOnly: true
-        versionRemoved:
-          type: boolean
-          readOnly: true
-    AppInstallerDeploymentCreate:
-      type: object
-      required:
-      - name
-      - appTitleId
-      - deploymentType
-      - updateBehavior
-      properties:
-        name:
-          type: string
-        enabled:
-          type: boolean
-        appTitleId:
-          type: string
-          description: ID of the App Installer title to deploy
-        siteId:
-          type: string
-        categoryId:
-          type: string
-        smartGroupId:
-          type: string
-        deploymentType:
-          type: string
-          enum:
-          - INSTALL_AUTOMATICALLY
-          - SELF_SERVICE
-        updateBehavior:
-          type: string
-          description: Required on create. Must be a valid enum value; the server rejects a missing, empty, or unrecognised value with 400 INVALID_FIELD.
-          enum:
-          - AUTOMATIC
-          - MANUAL
-        notificationSettings:
-          $ref: '#/components/schemas/NotificationSettings'
-        selfServiceSettings:
-          $ref: '#/components/schemas/SelfServiceSettings'
-        installPredefinedConfigProfiles:
-          type: boolean
-        triggerAdminNotifications:
-          type: boolean
-    NotificationSettings:
-      type: object
-      properties:
-        notificationMessage:
-          type: string
-        notificationInterval:
-          type: integer
-        deadlineMessage:
-          type: string
-        deadline:
-          type: integer
-        quitDelay:
-          type: integer
-        completeMessage:
-          type: string
-        relaunch:
-          type: boolean
-        suppress:
-          type: boolean
-    SelfServiceSettings:
-      type: object
-      properties:
-        includeInFeaturedCategory:
-          type: boolean
-        includeInComplianceCategory:
-          type: boolean
-        forceViewDescription:
-          type: boolean
-        description:
-          type: string
-        categories:
-          type: array
-          items:
-            $ref: '#/components/schemas/SelfServiceCategory'
-    SelfServiceCategory:
-      type: object
-      properties:
-        id:
-          type: string
-        featured:
-          type: boolean
-    DeploymentComputerSearchResults:
-      type: object
-      properties:
-        totalCount:
-          type: integer
-        results:
-          type: array
-          items:
-            $ref: '#/components/schemas/DeploymentComputer'
-    DeploymentComputer:
-      type: object
-      properties:
-        id:
-          type: string
-        status:
-          type: string
-        error:
-          type: string
-        retryable:
-          type: boolean
-        computerName:
-          type: string
-    InstallationSummary:
-      type: object
-      properties:
-        installed:
-          type: integer
-        available:
-          type: integer
-        inProgress:
-          type: integer
-        failed:
-          type: integer
-        unqualified:
-          type: integer
-    ComputerStatuses:
-      type: object
-      properties:
-        installed:
-          type: integer
-        available:
-          type: integer
-        inProgress:
-          type: integer
-        failed:
-          type: integer
-        unqualified:
-          type: integer
-    AppInstallerDeploymentRef:
-      type: object
-      properties:
-        id:
-          type: string
-        href:
-          type: string
-    IdName:
-      type: object
-      properties:
-        id:
-          type: string
-        name:
-          type: string
-    HistorySearchResults:
-      type: object
-      properties:
-        totalCount:
-          type: integer
-        results:
-          type: array
-          items:
-            $ref: '#/components/schemas/ObjectHistory'
-    ObjectHistory:
-      type: object
-      properties:
-        id:
-          type: integer
-        username:
-          type: string
-        date:
-          type: string
-        note:
-          type: string
-        details:
-          type: string
-    ObjectHistoryNote:
-      type: object
-      properties:
-        note:
-          type: string
+        - Update Mac Applications
+  /v1/app-installers/deployments/{id}/installation-summary:
+    get:
+      description: |-
+        Get installation summary for App Installer deployment.
+
+        **Required Permissions:** `applications:read`
+      parameters:
+        - description: App Title deployment identifier
+          example: "123"
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AppInstallersInstallationSummary'
+          description: Success.
+        404:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+          description: Specified App Installer deployment object does not exist.
+      summary: Get installation summary for App Installer deployment.
+      tags:
+        - app-installers
+      x-action: true
+      x-required-privileges:
+        - Read Mac Applications
+  /v1/app-installers/deployments/{id}/version-update:
+    post:
+      description: |-
+        Update app title version for deployment.
+
+        **Required Permissions:** `applications:update`
+      parameters:
+        - description: App Title deployment identifier
+          example: "123"
+          explode: false
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          style: simple
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AppTitleVersion'
+        description: App title version to update
+        required: true
+      responses:
+        204:
+          description: Successful version update.
+        400:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+          description: |
+            This status code is returned when one of the following situations occurs:
+            - Attempted to update the current version for deployment with **AUTOMATIC** update behavior
+            - Attempted to update the current version for deployment with unavailable app title
+            - Current version cannot be updated to the new specified version
+        403:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+          description: Cloud Services Connection has not been established.
+        404:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+          description: Specified App Installer deployment object does not exist.
+      summary: Update app title version for deployment.
+      tags:
+        - app-installers
+      x-action: true
+      x-jamf-expected-status: 204
+      x-required-privileges:
+        - Update Mac Applications

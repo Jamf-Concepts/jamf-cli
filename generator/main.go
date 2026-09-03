@@ -131,6 +131,30 @@ func main() {
 			orUnknown(cov.Sources.SDKCommit))
 	}
 
+	// Derive the App Installer specs from the same drop. They are the one Jamf
+	// Pro surface no monolith carries — see monolith.ExtractSubtree — so the
+	// only place they can come from is the gateway's published Pro API spec,
+	// which is the file gateway coverage was just derived from. Same source,
+	// same run, same reason the classic schemas are derived here: an artefact
+	// that has to be refreshed alongside another one is not a second flag.
+	//
+	// Before the spec glob below, so the files this writes are the ones parsed.
+	if gatewaySource != "" {
+		fmt.Println("Deriving App Installer specs")
+		fmt.Println("----------------------------")
+		written, warnings, err := monolith.ExtractSubtree(
+			filepath.Join(gatewaySource, gateway.ProSpecFile),
+			specsDir, monolith.AppInstallerSubtree, monolith.AppInstallerSpecs)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error deriving App Installer specs: %v\n", err)
+			os.Exit(1)
+		}
+		for _, w := range warnings {
+			fmt.Fprintln(os.Stderr, "  note:", w)
+		}
+		fmt.Printf("  Wrote %d spec file(s)\n\n", len(written))
+	}
+
 	// Load it for the verdict passes below. A missing manifest is not an error:
 	// it is the "unknown" answer, and the passes then stamp nothing so no
 	// command is refused. `make generate` has to work in a tree where nobody

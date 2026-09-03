@@ -119,6 +119,8 @@ wording and nothing else:
 
 - **`probe`** — a recorded, corroborated wire probe found it unrouted. The
   message states the fact. One entry: `/pro/v1/app-installers`, 17 operations.
+  **Superseded 2026-09-03** — see the addendum at the foot of this file. The
+  entry is gone and `probedUnserved` is empty; the mechanism is unchanged.
 - **`unpublished`** — absent from the published artefacts. The message says the
   endpoint may still answer today, that this is transitional, and that it is
   refused now rather than later. 27 operations: `api-roles`,
@@ -218,3 +220,42 @@ whose own resolver returns before this check and already hints about the base UR
 5. **An override table that immediately needs five entries is telling you
    something.** Here it was telling me the oracle was being read with the wrong
    question, not that the data needed patching. The five entries are gone.
+
+## Addendum, 2026-09-03: the probe entry retired, and why that is the expected end
+
+`public-apis-oas#430` published App Installers' 23 operations into the gateway's
+Jamf Pro API spec (GitOps v2043) and the gateway opened them the same day —
+`GET /pro/v1/app-installers/titles` returns 363 titles on EU against a
+bogus-path 403 control in the same run. So `probedUnserved` is now **empty**, and
+the entry it held was never evidence of a gateway defect: the endpoints sit under
+`hiddenapi/` in `jamf/jss`, so no bundle ever published them and no route ever
+existed. The probe was right about the wire and the publication was the thing
+that had to move.
+
+Three things this file argued are unchanged, and one is worth restating. The
+`probe` / `unpublished` split still selects wording only, and the wording is now
+pinned by a temporary entry in `TestProbedEntriesCarryTheProbeBasis` rather than
+a live one — the same way `forceServed` has always been tested, for the same
+reason: a table whose point is to be empty most of the time cannot be covered by
+whatever happens to be in it. `TestEveryOverrideStillMatchesACommandThisCLISends`
+is what makes retirement noticeable at all, since nothing in a spec announces
+that routing has landed.
+
+One footnote on the ingest itself: SDK `v0.20.1` corrected
+`x-jamf-expected-status` to 200 on both App Installer history-note `POST`s,
+which the spec declares as 201 only. That is inert here — the extension is read
+by `generator/platform`, not the Pro generator, and this CLI's Pro client accepts
+any 2xx — but it is the shape of correction to expect from a write surface being
+exercised for the first time, and it arrives in the derived
+`specs/AppInstaller*.yaml` rather than in anything hand-maintained.
+
+And the same v2051 drop supplied the counter-example that keeps the
+`unpublished` wording honest. It withdrew `GET`/`PUT
+/settings/obj/policyProperties`, which **still answer 200 with real data** —
+verified the same day — so `pro policy-properties` is now refused while working,
+exactly the case the hedged wording exists for. It also withdrew
+`POST /v1/app-installers/titles/{id}/cache-update`, which stopped being routed
+in the same build (403 `BAD_PERMISSIONS`, the unrouted tell). One spec drop, two
+withdrawals, one coordinated and one not: the spec is still the contract either
+way, and the difference decides whether a consumer loses a capability or only its
+documentation.

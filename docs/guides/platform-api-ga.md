@@ -5,7 +5,7 @@ change, and what the CLI now does for you.
 
 > **Provisional, and subject to change without notice.** The Platform API is still moving
 > ahead of GA. Version numbers, the refused-command list and the permission names quoted
-> here all track a specific SDK ingest — currently `jamfplatform-go-sdk` `c91fce8`, whose
+> here all track a specific SDK ingest — currently `jamfplatform-go-sdk` `v0.20.1`, whose
 > published surface is Jamf Pro API 11.31.0 and Classic API 11.28.0. Re-read this against
 > the release you are actually upgrading to.
 
@@ -225,9 +225,6 @@ commands are **refused before a request is sent** on a gateway profile, with exi
 
 | Command group | Subcommands | Why |
 |---|---|---|
-| `pro app-installer-deployments` | 13 | wire-confirmed unrouted (EU and US, 2026-08-28, re-confirmed 2026-08-31) |
-| `pro app-installer-titles` | 2 | as above |
-| `pro app-installer-global-settings` | 2 | as above |
 | `pro api-integrations` | 6 | outside the published API — withdrawn to close a privilege-escalation path |
 | `pro api-roles` | 5 | as above |
 | `pro api-roles-privileges` | 2 | as above |
@@ -243,8 +240,9 @@ commands are **refused before a request is sent** on a gateway profile, with exi
 | `pro classic-patch-reports` | 2 | withdrawn from the published Classic API 11.28.0 |
 | `pro classic-patch-titles` | 5 | `list`, `get`, `update`, `delete`, `apply` — withdrawn; `create` still works |
 | `pro classic-patch-policies` | 1 | `list` — withdrawn; `get`, `create`, `update`, `delete` still work |
+| `pro policy-properties` | 2 | `GET`/`PUT /settings/obj/policyProperties`, withdrawn from the published API |
 
-63 commands in total (a wholly-refused resource contributes its group node too).
+48 commands in total (a wholly-refused resource contributes its group node too).
 **Nothing else changes for the ~1,700 other commands** — Pro and Classic still route
 through the gateway as before.
 
@@ -277,9 +275,8 @@ pro computer-groups-static-groups     # v3 — use this
 Both still work against a Jamf Pro instance profile. The refusal does not name the
 replacement today.
 
-The refusal explains itself, and the wording differs by evidence. For the app-installer
-family the gateway demonstrably does not route it. For the rest, the endpoint **may still
-answer today** — that is transitional, and the refusal says so:
+The refusal explains itself. Every endpoint on the list today **may still answer** — that is
+transitional, and the refusal says so rather than claiming the endpoint is gone:
 
 ```
 $ jamf-cli -p platform-prod pro api-roles list
@@ -305,7 +302,17 @@ route that is going away, the eventual failure gets more expensive, and it arriv
 
 **The remedy is a second profile.** These endpoints exist on your Jamf Pro instance; keep an
 `oauth2` profile alongside the platform one and select it with `-p` for the affected
-commands. App installers in particular are instance-only and will stay that way.
+commands.
+
+The list moves in both directions. **App Installers used to head it — 17 commands,
+instance-only — and no longer appears at all.** The endpoints were absent from every
+published spec because they sit under `hiddenapi/` in Jamf Pro's source, so nothing routed
+them and the CLI refused them on a recorded wire probe. Upstream published all 23 on
+2026-09-03 and the gateway opened them the same day, so `pro app-installer-titles`,
+`app-installer-deployments`, `app-installer-global-settings` and the new `pro app-installers`
+now work on a gateway profile like any other Pro command. `pro policy-properties` moved the
+other way in the same spec drop, and still answers on the wire — which is the case the
+transitional wording exists for.
 
 The reverse direction is refused too: a Platform-only command (`pro blueprints`,
 `platform ai-policies`, `security ztna-apps`, …) on an instance profile names the profile,
@@ -328,6 +335,14 @@ Additive — no action needed.
 - **Platform audit:** `platform audit`. Environment scope only; an organization-scoped
   profile gets an error explaining that. Not to be confused with `pro audit`, which runs
   health checks on a Jamf Pro instance.
+- **App Installers on the gateway:** `pro app-installer-titles`,
+  `app-installer-deployments`, `app-installer-global-settings` and a new `pro app-installers`
+  (whether the feature is available and which features the Cloud Services Connection
+  enables). Previously instance-only and refused on a gateway profile; the endpoints are now
+  published, and the commands are generated from that published spec rather than from a
+  reverse-engineered one, which also added `titles versions`,
+  `global-settings deployment-controls`, and `global-settings history` /
+  `add-history-note`.
 - **Jamf Security Cloud through the gateway:** `security dns-*`, `ztna-*`,
   `content-categories`, `device-groups`, `uem-*`. Every `security` command says which API
   serves it — `(Security Cloud · platform gateway)` or `(Security Cloud · Radar API)` — in

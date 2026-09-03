@@ -1,0 +1,81 @@
+components:
+  schemas:
+    ApiError:
+      properties:
+        errors:
+          items:
+            $ref: '#/components/schemas/ApiErrorCause'
+          type: array
+        httpStatus:
+          description: HTTP status of the response
+          example: 400
+          type: integer
+      type: object
+    ApiErrorCause:
+      properties:
+        code:
+          description: Error-specific code that can be used to identify localization string, etc.
+          example: "8675309"
+          type: string
+        description:
+          description: A general description of error for troubleshooting/debugging. Generally this text should not be displayed to a user; instead refer to errorCode and it's localized text
+          example: I've just picked up a fault in the AE35 unit. It's going to go 100% failure in 72 hours
+          type: string
+        field:
+          description: Name of the field that caused the error.
+          example: Name
+          type: string
+        id:
+          description: id of object with error. Optional.
+          example: "3"
+          nullable: true
+          type: string
+      required:
+        - field
+      type: object
+    AppInstallerFeatureState:
+      properties:
+        cloudServicesEnabled:
+          description: Describes if client is authorized for App Installers.
+          example: false
+          readOnly: true
+          type: boolean
+        features:
+          description: An array of enabled features
+          example: []
+          items:
+            type: string
+          readOnly: true
+          type: array
+      type: object
+info:
+  description: Reports whether the App Installers feature is available on this instance, and which App Installer features the Cloud Services Connection enables.
+  title: Jamf Pro API - App Installers
+  version: 0.0.1
+openapi: 3.0.1
+paths:
+  /v1/app-installers:
+    get:
+      description: |-
+        Checks if App Installers feature is available. If it's enabled then it returns the Cloud Services Connection state.
+
+        **Required Permissions:** `applications:read`
+      parameters: []
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AppInstallerFeatureState'
+          description: App Installers feature is available.
+        404:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+          description: App Installers feature is not available.
+      summary: Checks if App Installers feature is available.
+      tags:
+        - app-installers
+      x-required-privileges:
+        - Read Mac Applications

@@ -42,12 +42,15 @@ import (
 // api/ filenames exactly, so a refresh is a copy with no mapping to keep in step
 // — the same rule specs/platform/ follows.
 const (
-	proSpecFile     = "pro_api.json"
+	// ProSpecFile is exported because it is not only a coverage source: it is
+	// also the only published spec carrying the App Installers surface, which
+	// generator/monolith derives specs/AppInstaller*.yaml from in the same run.
+	ProSpecFile     = "pro_api.json"
 	classicSpecFile = "classic_api_resource_documentation.json"
 )
 
 // SourceFiles is the set sync-gateway-coverage copies out of an SDK checkout.
-var SourceFiles = []string{proSpecFile, classicSpecFile}
+var SourceFiles = []string{ProSpecFile, classicSpecFile}
 
 // Gateway path prefixes. A caller-facing Jamf Pro path is rewritten onto one of
 // these by client.rewritePathForGateway before it is sent, so the manifest is
@@ -133,7 +136,7 @@ func Extract(srcDir, sdkCommit string) (*Coverage, error) {
 		prefix string
 		dst    *SpecSource
 	}{
-		{proSpecFile, ProPrefix, &cov.Sources.Pro},
+		{ProSpecFile, ProPrefix, &cov.Sources.Pro},
 		{classicSpecFile, ClassicPrefix, &cov.Sources.Classic},
 	} {
 		src, err := parseSpec(filepath.Join(srcDir, s.file), s.prefix, cov)

@@ -426,7 +426,7 @@ func buildTemplateResource(r *parser.Resource) (templateResource, error) {
 			UsesMergePatch: opCopy.RequestBody != nil && opCopy.RequestBody.IsMergePatch,
 			SuccessCode:    successCode,
 			HasResult:      hasResult,
-			QueryParams:    buildQueryParams(opCopy.Parameters, serviceFromPath(opCopy.Path)),
+			QueryParams:    buildQueryParams(opCopy.Parameters, serviceFromPath(opCopy.Path), hasPaginationParams(opCopy.Parameters)),
 			Paginate:       hasPaginationParams(opCopy.Parameters),
 			ListArrayKey: func() string {
 				if opCopy.Name == "list" || opCopy.IsList {
@@ -768,18 +768,28 @@ var platformDocumentedStatusResults = map[string][]documentedStatus{
 }
 
 // buildQueryParams returns the user-facing query flags for an operation.
-// page/page-size are filtered out — pagination is handled by the runtime
-// loop, not exposed as flags. tenantId would never be query (it's path) so
-// no special-case is needed here.
-func buildQueryParams(params []*parser.Parameter, service string) []queryParam {
+// tenantId would never be query (it's path) so no special-case is needed here.
+//
+// page/page-size are filtered out only when the op actually paginates, because
+// then the runtime loop owns them and a flag would fight it. When it does not,
+// they are ordinary query parameters and dropping them silently removes a
+// control the spec declares: audit's list and lineage declare page-size with
+// **cursor** rather than page, so hasPaginationParams is false, no loop is
+// generated — and --page-size disappeared while --cursor was emitted beside it,
+// leaving the one operation that pages by hand unable to say how big a page is.
+// Latent until 2026-09-03, when the credential to reach audit at all first
+// existed.
+func buildQueryParams(params []*parser.Parameter, service string, paginate bool) []queryParam {
 	var out []queryParam
 	for _, p := range params {
 		if p == nil || p.In != "query" {
 			continue
 		}
-		switch p.Name {
-		case "page", "page-size":
-			continue // managed by pagination
+		if paginate {
+			switch p.Name {
+			case "page", "page-size":
+				continue // managed by the pagination loop
+			}
 		}
 		goType := "string"
 		switch p.Type {

@@ -5,8 +5,8 @@
       "file": "pro_api.json",
       "title": "Jamf Pro API",
       "version": "11.31.0",
-      "paths": 451,
-      "operations": 666
+      "paths": 467,
+      "operations": 687
     },
     "classic": {
       "file": "classic_api_resource_documentation.json",
@@ -15,7 +15,7 @@
       "paths": 263,
       "operations": 575
     },
-    "sdkCommit": "ae2f76f"
+    "sdkCommit": "b5eabdc"
   },
   "spec": {
     "/pro/devices/extensionAttributes": [
@@ -65,10 +65,6 @@
     ],
     "/pro/settings/issueTomcatSslCertificate": [
       "POST"
-    ],
-    "/pro/settings/obj/policyProperties": [
-      "GET",
-      "PUT"
     ],
     "/pro/startup-status": [
       "GET"
@@ -146,6 +142,63 @@
     ],
     "/pro/v1/apns-client-push-status/enable-client": [
       "POST"
+    ],
+    "/pro/v1/app-installers": [
+      "GET"
+    ],
+    "/pro/v1/app-installers/deployments": [
+      "GET",
+      "POST"
+    ],
+    "/pro/v1/app-installers/deployments/computers/installation-retry": [
+      "POST"
+    ],
+    "/pro/v1/app-installers/deployments/export": [
+      "POST"
+    ],
+    "/pro/v1/app-installers/deployments/{}": [
+      "DELETE",
+      "GET",
+      "PUT"
+    ],
+    "/pro/v1/app-installers/deployments/{}/computers": [
+      "GET"
+    ],
+    "/pro/v1/app-installers/deployments/{}/computers/installation-retry": [
+      "POST"
+    ],
+    "/pro/v1/app-installers/deployments/{}/computers/{}/installation-retry": [
+      "POST"
+    ],
+    "/pro/v1/app-installers/deployments/{}/history": [
+      "GET",
+      "POST"
+    ],
+    "/pro/v1/app-installers/deployments/{}/installation-summary": [
+      "GET"
+    ],
+    "/pro/v1/app-installers/deployments/{}/version-update": [
+      "POST"
+    ],
+    "/pro/v1/app-installers/global-settings": [
+      "GET",
+      "PUT"
+    ],
+    "/pro/v1/app-installers/global-settings/defaults/deployment-controls": [
+      "GET"
+    ],
+    "/pro/v1/app-installers/global-settings/history": [
+      "GET",
+      "POST"
+    ],
+    "/pro/v1/app-installers/titles": [
+      "GET"
+    ],
+    "/pro/v1/app-installers/titles/{}": [
+      "GET"
+    ],
+    "/pro/v1/app-installers/titles/{}/versions": [
+      "GET"
     ],
     "/pro/v1/app-request/form-input-fields": [
       "GET",
@@ -2773,14 +2826,6 @@
         "apache-tomcat-settings:update"
       ]
     },
-    "/pro/settings/obj/policyProperties": {
-      "GET": [
-        "policies:read"
-      ],
-      "PUT": [
-        "policies:update"
-      ]
-    },
     "/pro/user": {
       "GET": [
         "accounts:read"
@@ -2912,6 +2957,110 @@
     "/pro/v1/apns-client-push-status/enable-client": {
       "POST": [
         "device-actions:execute"
+      ]
+    },
+    "/pro/v1/app-installers": {
+      "GET": [
+        "applications:read"
+      ]
+    },
+    "/pro/v1/app-installers/deployments": {
+      "GET": [
+        "applications:read"
+      ],
+      "POST": [
+        "applications:create"
+      ]
+    },
+    "/pro/v1/app-installers/deployments/computers/installation-retry": {
+      "POST": [
+        "applications:update"
+      ]
+    },
+    "/pro/v1/app-installers/deployments/export": {
+      "POST": [
+        "applications:read"
+      ]
+    },
+    "/pro/v1/app-installers/deployments/{}": {
+      "DELETE": [
+        "applications:delete"
+      ],
+      "GET": [
+        "applications:read"
+      ],
+      "PUT": [
+        "applications:update"
+      ]
+    },
+    "/pro/v1/app-installers/deployments/{}/computers": {
+      "GET": [
+        "applications:read",
+        "devices:read"
+      ]
+    },
+    "/pro/v1/app-installers/deployments/{}/computers/installation-retry": {
+      "POST": [
+        "applications:update"
+      ]
+    },
+    "/pro/v1/app-installers/deployments/{}/computers/{}/installation-retry": {
+      "POST": [
+        "applications:update"
+      ]
+    },
+    "/pro/v1/app-installers/deployments/{}/history": {
+      "GET": [
+        "applications:read"
+      ],
+      "POST": [
+        "applications:update"
+      ]
+    },
+    "/pro/v1/app-installers/deployments/{}/installation-summary": {
+      "GET": [
+        "applications:read"
+      ]
+    },
+    "/pro/v1/app-installers/deployments/{}/version-update": {
+      "POST": [
+        "applications:update"
+      ]
+    },
+    "/pro/v1/app-installers/global-settings": {
+      "GET": [
+        "applications:read"
+      ],
+      "PUT": [
+        "applications:update"
+      ]
+    },
+    "/pro/v1/app-installers/global-settings/defaults/deployment-controls": {
+      "GET": [
+        "applications:read"
+      ]
+    },
+    "/pro/v1/app-installers/global-settings/history": {
+      "GET": [
+        "applications:read"
+      ],
+      "POST": [
+        "applications:update"
+      ]
+    },
+    "/pro/v1/app-installers/titles": {
+      "GET": [
+        "applications:read"
+      ]
+    },
+    "/pro/v1/app-installers/titles/{}": {
+      "GET": [
+        "applications:read"
+      ]
+    },
+    "/pro/v1/app-installers/titles/{}/versions": {
+      "GET": [
+        "applications:read"
       ]
     },
     "/pro/v1/app-request/form-input-fields": {

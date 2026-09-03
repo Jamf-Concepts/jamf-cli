@@ -269,6 +269,17 @@ var resourceNameFieldOverrides = map[string]string{
 	// inventory-preloads records are keyed by serialNumber, not a "name" field.
 	// Override so --name lookups and backup file naming both use serial number.
 	"inventory-preloads": "serialNumber",
+	// App Installer titles carry titleName, and the published spec marks it
+	// readOnly — correctly, being a Jamf catalogue entry nobody writes — so
+	// detectNameField skips it and the detector falls back to a plain "name"
+	// that no title has. The reverse-engineered spec this replaced did not mark
+	// it, which is why the override is only needed now. It matters more here
+	// than the usual filter-field case: the titles collection declares no
+	// filter parameter at all, so the lookup always lands in the client-side
+	// re-fetch path in lookupMatchingIDs, where the field name is the whole
+	// match — get --name reported "no resource found" for every one of the 363
+	// titles.
+	"app-installer-titles": "titleName",
 }
 
 // resourceNameLookupPathOverrides maps resource names to an alternate list path
@@ -1214,6 +1225,10 @@ func detectVersionLock(ops []*Operation) bool {
 var readOnlySingletonPaths = map[string]bool{
 	// Reports the one cloud-services environment this instance talks to.
 	"/v2/environment-type": true,
+	// Reports whether App Installers is available and which features the
+	// Cloud Services Connection enables. One object, no collection: it is the
+	// feature probe the rest of the surface depends on, not a list of anything.
+	"/v1/app-installers": true,
 }
 
 func detectSingleton(ops []*Operation) bool {

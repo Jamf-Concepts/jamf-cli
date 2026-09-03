@@ -172,6 +172,48 @@ func TestAlmostEveryRequestResolvesAsServed(t *testing.T) {
 	}
 }
 
+// App Installers is the surface this mechanism was first built around, and the
+// answer has now flipped. It was refused by probe for three months — the
+// endpoints sit under hiddenapi/ in jamf/jss, so no bundle published them and no
+// route existed — until public-apis-oas#430 published all 23 operations and the
+// gateway opened them on 2026-09-03 (verified: GET /pro/v1/app-installers/titles
+// returns 363 titles on EU, against a bogus-path 403 control in the same run).
+//
+// Pinned against the committed manifest rather than the override table, because
+// the two ways this regresses are a probedUnserved entry coming back and a spec
+// drop withdrawing the paths — and only the manifest sees the second.
+func TestAppInstallersResolveAsServed(t *testing.T) {
+	cov := loadCoverage(t)
+	for _, op := range []struct{ method, path string }{
+		{"GET", "/pro/v1/app-installers"},
+		{"GET", "/pro/v1/app-installers/titles"},
+		{"GET", "/pro/v1/app-installers/titles/{}/versions"},
+		{"GET", "/pro/v1/app-installers/deployments"},
+		{"POST", "/pro/v1/app-installers/deployments"},
+		{"DELETE", "/pro/v1/app-installers/deployments/{}"},
+		{"POST", "/pro/v1/app-installers/deployments/{}/version-update"},
+		{"GET", "/pro/v1/app-installers/global-settings"},
+		{"PUT", "/pro/v1/app-installers/global-settings"},
+		{"GET", "/pro/v1/app-installers/global-settings/defaults/deployment-controls"},
+	} {
+		v := cov.Verdict(op.method, op.path)
+		if v.Level != gateway.Served {
+			t.Errorf("%s %s: %q (%s: %s), want Served", op.method, op.path, v.Level, v.Basis, v.Detail)
+		}
+		if len(v.Scopes) == 0 {
+			t.Errorf("%s %s: served with no gateway scope, so a 403 there names no permission", op.method, op.path)
+		}
+	}
+	// The one operation v2043 published and v2051 withdrew 80 minutes later. It
+	// ran jss's assertDebugModeEnabled() and 404'd without the toggle; the OPA
+	// rule went with the spec, so it now answers 403 BAD_PERMISSIONS — a
+	// coordinated withdrawal, unlike the policyProperties pair dropped in the
+	// same build, which still answer 200.
+	if v := cov.Verdict("POST", "/pro/v1/app-installers/titles/{}/cache-update"); v.Level != gateway.Unserved {
+		t.Errorf("cache-update: %q, want Unserved — v2051 withdrew it and the gateway stopped routing it", v.Level)
+	}
+}
+
 func loadCoverage(t *testing.T) *gateway.Coverage {
 	t.Helper()
 	cov, err := gateway.Load(filepath.Join(specsDir, gateway.CoverageFile))

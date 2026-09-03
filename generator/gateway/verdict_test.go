@@ -85,13 +85,25 @@ func TestDerivedAbsenceRefusesAsUnpublished(t *testing.T) {
 
 // A probe states the fact; the derived verdict hedges. Same refusal, different
 // wording, which is the only thing Basis controls.
+//
+// Tested through a temporary entry rather than a shipped one, because
+// probedUnserved is now empty: its only entry, /pro/v1/app-installers, was
+// removed when public-apis-oas#430 published that surface and the gateway
+// opened it on 2026-09-03. Same reasoning as forceServed below — a table whose
+// whole point is to be empty most of the time cannot be covered by whatever
+// happens to be in it, and the wording it selects still has to be right for the
+// next probe.
 func TestProbedEntriesCarryTheProbeBasis(t *testing.T) {
+	const probed = "/pro/v1/probed-example"
+	probedUnserved[probed] = "wire-confirmed unserved on EU and US, 2026-08-28"
+	defer delete(probedUnserved, probed)
+
 	cov := fixture()
 	// The entry is a bare path, so it covers every method beneath it.
 	for _, tc := range []struct{ method, path string }{
-		{"GET", "/pro/v1/app-installers/titles"},
-		{"POST", "/pro/v1/app-installers/deployments"},
-		{"GET", "/pro/v1/app-installers"},
+		{"GET", probed},
+		{"POST", probed + "/deployments"},
+		{"GET", probed + "/{}/history"},
 	} {
 		v := cov.Verdict(tc.method, tc.path)
 		if v.Level != Unserved {
@@ -106,7 +118,7 @@ func TestProbedEntriesCarryTheProbeBasis(t *testing.T) {
 	}
 	// A sibling that merely starts with the same characters must not pick up the
 	// probe — it is refused as unpublished instead, which is a different message.
-	if v := cov.Verdict("GET", "/pro/v1/app-installers-elsewhere"); v.Basis == BasisProbe {
+	if v := cov.Verdict("GET", probed+"-elsewhere"); v.Basis == BasisProbe {
 		t.Error("prefix match bled into a sibling path")
 	}
 }
@@ -143,8 +155,12 @@ func TestNilCoverageStampsNothing(t *testing.T) {
 	if v := cov.Verdict("GET", "/pro/v1/categories"); v.Level != Served {
 		t.Fatalf("nil coverage: got %q, want Served", v.Level)
 	}
-	// A probe still applies — it does not depend on the manifest.
-	if v := cov.Verdict("GET", "/pro/v1/app-installers/titles"); v.Level != Unserved {
+	// A probe still applies — it does not depend on the manifest. Installed for
+	// the test, probedUnserved being empty; see TestProbedEntriesCarryTheProbeBasis.
+	const probed = "/pro/v1/probed-example"
+	probedUnserved[probed] = "wire-confirmed unserved on EU and US, 2026-08-28"
+	defer delete(probedUnserved, probed)
+	if v := cov.Verdict("GET", probed+"/titles"); v.Level != Unserved {
 		t.Fatalf("nil coverage, probed path: got %q, want Unserved", v.Level)
 	}
 }

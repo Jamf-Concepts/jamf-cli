@@ -68,6 +68,7 @@ func newDeviceReportsChannelsCmd(cliCtx *registry.CLIContext) *cobra.Command {
 
 func newDeviceReportsDeclarationsCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	var filter string
+	var page int
 	var size int
 	var sort string
 	cmd := &cobra.Command{
@@ -85,6 +86,9 @@ func newDeviceReportsDeclarationsCmd(cliCtx *registry.CLIContext) *cobra.Command
 			q := url.Values{}
 			if filter != "" {
 				q.Set("filter", filter)
+			}
+			if cmd.Flags().Changed("page") {
+				q.Set("page", strconv.Itoa(page))
 			}
 			if cmd.Flags().Changed("size") {
 				q.Set("size", strconv.Itoa(size))
@@ -112,6 +116,7 @@ func newDeviceReportsDeclarationsCmd(cliCtx *registry.CLIContext) *cobra.Command
 	}
 	cmd.Flags().StringVar(&filter, "filter", "", "RSQL filter expression. Allowed fields: declarationIdentifier, active, validityState, declarationType, dateUpdated, channel")
 	_ = cmd.MarkFlagRequired("filter")
+	cmd.Flags().IntVar(&page, "page", 0, "Zero-based page index (0..N)")
 	cmd.Flags().IntVar(&size, "size", 0, "The size of the page to be returned")
 	cmd.Flags().StringVar(&sort, "sort", "", "Sorting criteria in the format: property,(asc|desc). Default sort order is ascending. Multiple sort criteria are supported.")
 	return cmd

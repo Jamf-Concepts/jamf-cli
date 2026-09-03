@@ -1,97 +1,125 @@
-openapi: 3.0.1
-info:
-  title: Jamf Pro API - App Installer Global Settings
-  description: Global settings for App Installer deployments, controlling end-user experience notifications and deployment process controls.
-  version: 0.0.1
-paths:
-  /v1/app-installers/global-settings:
-    get:
-      tags:
-      - app-installer-global-settings
-      summary: Get App Installer global settings
-      description: Retrieves the global settings for App Installer deployments.
-      responses:
-        200:
-          description: Successful response
-          content:
-            'application/json':
-              schema:
-                $ref: '#/components/schemas/AppInstallerGlobalSettings'
-      x-required-privileges:
-      - Read App Installers
-    put:
-      tags:
-      - app-installer-global-settings
-      summary: Update App Installer global settings
-      description: Replaces all global settings for App Installer deployments. Fields omitted or null are cleared to their unset state.
-      requestBody:
-        description: Updated global settings
-        content:
-          'application/json':
-            schema:
-              $ref: '#/components/schemas/AppInstallerGlobalSettings'
-        required: true
-      responses:
-        200:
-          description: Settings updated
-          content:
-            'application/json':
-              schema:
-                $ref: '#/components/schemas/AppInstallerGlobalSettings'
-      x-required-privileges:
-      - Update App Installers
 components:
+  parameters:
+    page:
+      explode: true
+      in: query
+      name: page
+      schema:
+        default: 0
+        type: integer
+      style: form
+    page-size:
+      explode: true
+      in: query
+      name: page-size
+      schema:
+        default: 100
+        type: integer
+      style: form
   schemas:
-    AppInstallerGlobalSettings:
-      type: object
+    ApiError:
       properties:
-        endUserExperienceSettings:
-          $ref: '#/components/schemas/AppInstallerEndUserExperienceSettings'
-        deploymentProcessControls:
-          $ref: '#/components/schemas/AppInstallerDeploymentProcessControls'
-    AppInstallerEndUserExperienceSettings:
-      type: object
-      properties:
-        notificationMessage:
-          type: string
-          nullable: true
-        notificationInterval:
-          type: integer
-          nullable: true
-        deadlineMessage:
-          type: string
-          nullable: true
-        deadline:
-          type: integer
-          nullable: true
-        quitDelay:
-          type: integer
-          nullable: true
-        completeMessage:
-          type: string
-          nullable: true
-        relaunch:
-          type: boolean
-          nullable: true
-        suppress:
-          type: boolean
-          nullable: true
-    AppInstallerDeploymentProcessControls:
-      type: object
-      properties:
-        commandsBatchSize:
-          type: integer
-          nullable: true
-        batchFrequencyInMinutes:
-          type: integer
-          nullable: true
-          description: Frequency in minutes between deployment batches. Must be between 10 and 1440.
-        daysOfWeek:
-          type: array
-          nullable: true
+        errors:
           items:
-            type: string
+            $ref: '#/components/schemas/ApiErrorCause'
+          type: array
+        httpStatus:
+          description: HTTP status of the response
+          example: 400
+          type: integer
+      type: object
+    ApiErrorCause:
+      properties:
+        code:
+          description: Error-specific code that can be used to identify localization string, etc.
+          example: "8675309"
+          type: string
+        description:
+          description: A general description of error for troubleshooting/debugging. Generally this text should not be displayed to a user; instead refer to errorCode and it's localized text
+          example: I've just picked up a fault in the AE35 unit. It's going to go 100% failure in 72 hours
+          type: string
+        field:
+          description: Name of the field that caused the error.
+          example: Name
+          type: string
+        id:
+          description: id of object with error. Optional.
+          example: "3"
+          nullable: true
+          type: string
+      required:
+        - field
+      type: object
+    AppInstallersDeploymentProcessControls:
+      description: Controls time and frequency when deployments are queued for device delivery.
+      example:
+        batchFrequencyInMinutes: 15
+        commandsBatchSize: 10
+        daysOfWeek:
+          - MONDAY
+          - TUESDAY
+        fromTimeOfDay: 09:00:00Z
+        toTimeOfDay: 17:00:00Z
+      nullable: true
+      properties:
+        batchFrequencyInMinutes:
+          description: The frequency in minutes at which batches of deployments are queued. Must be between 10 and 1440.
+          example: 15
+          maximum: 1440
+          minimum: 10
+          nullable: true
+          type: integer
+        commandsBatchSize:
+          description: The size of the batch of deployments to be processed. Must be between 1 and 50,000.
+          example: 10
+          maximum: 50000
+          minimum: 1
+          nullable: true
+          type: integer
+        daysOfWeek:
+          description: The days of the week when the deployments are going to be queued for device delivery.
+          example:
+            - MONDAY
+            - TUESDAY
+          items:
             enum:
+              - MONDAY
+              - TUESDAY
+              - WEDNESDAY
+              - THURSDAY
+              - FRIDAY
+              - SATURDAY
+              - SUNDAY
+            type: string
+          nullable: true
+          type: array
+        fromTimeOfDay:
+          description: The UTC start time of day when the deployments are going to be queued for device delivery.
+          example: 09:00:00Z
+          nullable: true
+          type: string
+        toTimeOfDay:
+          description: The UTC end time of day when the deployments are going to be queued for device delivery.
+          example: 17:00:00Z
+          nullable: true
+          type: string
+      type: object
+    AppInstallersDeploymentProcessControlsDefaultSettings:
+      description: Default settings for App Installers Deployment Process Controls.
+      properties:
+        batchFrequencyInMinutes:
+          description: The frequency in minutes at which batches of deployments are queued.
+          example: 15
+          readOnly: true
+          type: integer
+        commandsBatchSize:
+          description: The size of the batch of deployments to be processed.
+          example: 10
+          readOnly: true
+          type: integer
+        daysOfWeek:
+          description: The days of the week when the deployments are going to be queued for device delivery.
+          example:
             - MONDAY
             - TUESDAY
             - WEDNESDAY
@@ -99,11 +127,282 @@ components:
             - FRIDAY
             - SATURDAY
             - SUNDAY
+          items:
+            enum:
+              - MONDAY
+              - TUESDAY
+              - WEDNESDAY
+              - THURSDAY
+              - FRIDAY
+              - SATURDAY
+              - SUNDAY
+            type: string
+          readOnly: true
+          type: array
         fromTimeOfDay:
+          description: The UTC start time of day when the deployments are going to be queued for device delivery.
+          example: 00:00:00Z
+          readOnly: true
           type: string
-          nullable: true
-          description: Start of the daily deployment window in OffsetTime format (e.g. "08:00:00Z").
         toTimeOfDay:
+          description: The UTC end time of day when the deployments are going to be queued for device delivery.
+          example: 23:59:59Z
+          readOnly: true
           type: string
+      type: object
+    AppInstallersGlobalSettings:
+      description: Global settings for app installers.
+      properties:
+        deploymentProcessControls:
+          $ref: '#/components/schemas/AppInstallersDeploymentProcessControls'
           nullable: true
-          description: End of the daily deployment window in OffsetTime format (e.g. "18:00:00Z").
+        endUserExperienceSettings:
+          $ref: '#/components/schemas/GlobalSettingsEndUserExperience'
+      required:
+        - endUserExperienceSettings
+      type: object
+    GlobalSettingsEndUserExperience:
+      description: End user experience settings in global app installers settings
+      example:
+        completeMessage: null
+        deadline: null
+        deadlineMessage: null
+        notificationInterval: null
+        notificationMessage: null
+        quitDelay: null
+        relaunch: null
+        suppress: null
+      properties:
+        completeMessage:
+          description: Custom notification displayed on computers when an app update has been successfully completed. Default value will be used if set to null.
+          example: My custom complete message
+          maxLength: 150
+          minLength: 1
+          nullable: true
+          type: string
+        deadline:
+          description: Duration in hours before the app is forcefully closed.
+          example: 604800
+          format: int64
+          minimum: 1
+          nullable: true
+          type: integer
+        deadlineMessage:
+          description: Custom notification message displayed on computers when app is about to be forcefully closed. Default value will be used if set to null.
+          example: My custom deadline notification message
+          maxLength: 150
+          minLength: 1
+          nullable: true
+          type: string
+        notificationInterval:
+          description: Custom interval in hours to display notifications on computers. Default value will be used if set to null.
+          example: 86400
+          format: int64
+          minimum: 1
+          nullable: true
+          type: integer
+        notificationMessage:
+          description: Custom notification message to display on computers when app update is available but the app is running. Default value will be used if set to null.
+          example: My custom notification message
+          maxLength: 150
+          minLength: 1
+          nullable: true
+          type: string
+        quitDelay:
+          description: Additional duration in minutes before the app is forcefully closed. Default value will be used if set to null.
+          example: 604800
+          format: int64
+          minimum: 1
+          nullable: true
+          type: integer
+        relaunch:
+          description: Determines whether the app should be restarted after a successful update.
+          example: false
+          nullable: true
+          type: boolean
+        suppress:
+          description: Determines whether all notifications should be suppressed.
+          example: false
+          nullable: true
+          type: boolean
+      type: object
+    HistorySearchResults:
+      properties:
+        results:
+          items:
+            $ref: '#/components/schemas/ObjectHistory'
+          type: array
+        totalCount:
+          example: 1
+          minimum: 0
+          type: integer
+      type: object
+    ObjectHistory:
+      properties:
+        date:
+          example: "2019-02-04T21:09:31.661Z"
+          type: string
+        details:
+          example: Is SSO Enabled false\nSelected SSO Provider
+          nullable: true
+          type: string
+        id:
+          example: 1
+          minimum: 1
+          type: integer
+        note:
+          example: Sso settings update
+          type: string
+        username:
+          example: admin
+          type: string
+      type: object
+    ObjectHistoryNote:
+      properties:
+        note:
+          example: A generic note can sometimes be useful, but generally not.
+          type: string
+      required:
+        - note
+      type: object
+info:
+  description: Global settings for App Installer deployments, controlling end-user experience notifications and deployment process controls.
+  title: Jamf Pro API - App Installer Global Settings
+  version: 0.0.1
+openapi: 3.0.1
+paths:
+  /v1/app-installers/global-settings:
+    get:
+      description: |-
+        Get global settings for app installers.
+
+        **Required Permissions:** `applications:read`
+      parameters: []
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AppInstallersGlobalSettings'
+          description: Success.
+      summary: Get global settings for app installers.
+      tags:
+        - app-installers
+      x-required-privileges:
+        - Read Mac Applications
+    put:
+      description: |-
+        Update global settings for app installers.
+
+        **Required Permissions:** `applications:update`
+      parameters: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AppInstallersGlobalSettings'
+        description: Global settings to update.
+        required: true
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AppInstallersGlobalSettings'
+          description: Success.
+      summary: Update global settings for app installers.
+      tags:
+        - app-installers
+      x-required-privileges:
+        - Update Mac Applications
+  /v1/app-installers/global-settings/defaults/deployment-controls:
+    get:
+      description: |-
+        Get default Global Deployment Process Controls settings for app installers.
+
+        **Required Permissions:** `applications:read`
+      parameters: []
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AppInstallersDeploymentProcessControlsDefaultSettings'
+          description: Success.
+      summary: Get default Global Deployment Process Controls settings for app installers.
+      tags:
+        - app-installers
+      x-action: true
+      x-required-privileges:
+        - Read Mac Applications
+  /v1/app-installers/global-settings/history:
+    get:
+      description: |-
+        Get App Installer global settings history object
+
+        **Required Permissions:** `applications:read`
+      parameters:
+        - $ref: '#/components/parameters/page'
+        - $ref: '#/components/parameters/page-size'
+        - description: 'Sorting criteria in the format: property:asc/desc. Default sort is date:desc. Multiple sort criteria are supported and must be separated with a comma. Example: sort=date:desc,name:asc '
+          explode: true
+          in: query
+          name: sort
+          schema:
+            default:
+              - date:desc
+            items:
+              type: string
+            type: array
+        - description: 'Query in the RSQL format, allowing to filter history notes collection. Default filter is empty query - returning all results for the requested page. Fields allowed in the query: username, date, note, details. This param can be combined with paging and sorting. Example: filter=username!=admin and details==*disabled* and date<2019-12-15'
+          in: query
+          name: filter
+          schema:
+            default: ""
+            type: string
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HistorySearchResults'
+          description: Details of App Installer global settings history were found
+      summary: Get App Installer global settings history object
+      tags:
+        - app-installers
+      x-action: true
+      x-required-privileges:
+        - Read Mac Applications
+    post:
+      description: |-
+        Add App Installer global settings history object note
+
+        **Required Permissions:** `applications:update`
+      parameters: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ObjectHistoryNote'
+        description: history note to create
+        required: true
+      responses:
+        201:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ObjectHistory'
+          description: Note of App Installer global settings history was added
+        503:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+          description: App Installer global settings history note can not be saved
+      summary: Add App Installer global settings history object note
+      tags:
+        - app-installers
+      x-action: true
+      x-jamf-expected-status: 200
+      x-required-privileges:
+        - Update Mac Applications

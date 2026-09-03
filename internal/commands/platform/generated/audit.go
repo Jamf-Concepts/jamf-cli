@@ -40,6 +40,7 @@ func newAuditListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	var resourceId string
 	var since string
 	var until string
+	var pageSize int
 	var cursor string
 	cmd := &cobra.Command{
 		Use:         "list",
@@ -69,6 +70,9 @@ func newAuditListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			}
 			if until != "" {
 				q.Set("until", until)
+			}
+			if cmd.Flags().Changed("page-size") {
+				q.Set("page-size", strconv.Itoa(pageSize))
 			}
 			if cursor != "" {
 				q.Set("cursor", cursor)
@@ -111,6 +115,7 @@ func newAuditListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd.Flags().StringVar(&since, "since", "", "Inclusive lower bound on event time (ISO-8601, required).")
 	_ = cmd.MarkFlagRequired("since")
 	cmd.Flags().StringVar(&until, "until", "", "Inclusive upper bound on event time (ISO-8601); defaults to now.")
+	cmd.Flags().IntVar(&pageSize, "page-size", 0, "Page size (1-200, default 50).")
 	cmd.Flags().StringVar(&cursor, "cursor", "", "Pagination cursor from a prior response.")
 	return cmd
 }
@@ -119,6 +124,7 @@ func newAuditLineageCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	var auditType string
 	var since string
 	var until string
+	var pageSize int
 	var cursor string
 	cmd := &cobra.Command{
 		Use:         "lineage <resourceId>",
@@ -141,6 +147,9 @@ func newAuditLineageCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			}
 			if until != "" {
 				q.Set("until", until)
+			}
+			if cmd.Flags().Changed("page-size") {
+				q.Set("page-size", strconv.Itoa(pageSize))
 			}
 			if cursor != "" {
 				q.Set("cursor", cursor)
@@ -166,6 +175,7 @@ func newAuditLineageCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd.Flags().StringVar(&auditType, "audit-type", "", "Optional event type filter. Supports trailing wildcards like `blueprint.*`.")
 	cmd.Flags().StringVar(&since, "since", "", "Optional lower bound on event time (ISO-8601).")
 	cmd.Flags().StringVar(&until, "until", "", "Optional upper bound on event time (ISO-8601).")
+	cmd.Flags().IntVar(&pageSize, "page-size", 0, "Transactions per page (1-100, default 25).")
 	cmd.Flags().StringVar(&cursor, "cursor", "", "Pagination cursor from a prior response.")
 	return cmd
 }

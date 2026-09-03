@@ -188,9 +188,8 @@ sync-spec:
 # nothing else.
 #
 # It is a list rather than a wildcard for two reasons. The SDK's api/ also holds
-# pro_api.json, the Classic documentation and the app-installer specs — Jamf Pro
-# APIs generated here from specs/*.yaml, which would emit bogus platform commands
-# from Pro paths. And specs/.platform-source/ is gitignored, so its contents are
+# pro_api.json and the Classic documentation — Jamf Pro APIs generated here from
+# specs/*.yaml, which would emit bogus platform commands from Pro paths. And specs/.platform-source/ is gitignored, so its contents are
 # whatever a developer last left there and differ per working tree; a wildcard
 # made `make verify-platform-specs` depend on that, and an unrelated spec sitting
 # in the directory would silently join the build on any branch.
@@ -215,11 +214,13 @@ PLATFORM_SDK_SPECS = \
 
 # PLATFORM_SDK_COVERAGE_SPECS are the two SDK specs read for gateway *coverage*
 # — which Jamf Pro and Classic endpoints the gateway publishes, and the gateway
-# scope each requires — and, for the Classic one, for the Classic request-body
-# schemas behind --scaffold and --set on classic commands. They are copied into
-# the drop directory by sync-platform-specs-from-sdk and consumed by
-# sync-gateway-coverage, which derives both specs/gateway/coverage.json and
-# specs/classic/schemas.json in one generator run.
+# scope each requires — and for two further artefacts derived from the same two
+# files: the Classic request-body schemas behind --scaffold and --set on classic
+# commands (from the Classic one), and specs/AppInstaller*.yaml (from the Pro
+# one, whose published surface is the only place App Installers is described).
+# They are copied into the drop directory by sync-platform-specs-from-sdk and
+# consumed by sync-gateway-coverage, which derives all three in one generator
+# run.
 #
 # They must never join PLATFORM_SDK_SPECS. They describe Jamf Pro APIs this repo
 # already generates from specs/*.yaml, so handing them to the platform generator
@@ -319,9 +320,9 @@ sync-security-specs:
 # Which Jamf Pro and Classic endpoints the platform gateway publishes. Derived
 # into the committed specs/gateway/coverage.json, which the generator reads to
 # stamp a jamf:gateway annotation on the commands outside that surface — so
-# `pro app-installer-titles list` on a platform profile is refused with an
-# explanation instead of the gateway's 403 BAD_PERMISSIONS, which is
-# byte-identical to a missing API-role privilege.
+# `pro api-roles list` on a platform profile is refused with an explanation
+# instead of the gateway's 403 BAD_PERMISSIONS, which is byte-identical to a
+# missing API-role privilege.
 #
 # The source is jamfplatform-go-sdk's api/, the same place specs/platform/ comes
 # from: pro_api.json and classic_api_resource_documentation.json, listed above as
@@ -344,6 +345,13 @@ sync-security-specs:
 # commands (see generator/classicschema). Same source spec, same drop directory,
 # same hermetic-artifact reasoning — so one flag, not two: a second flag that has
 # to carry the same value is a code path nothing exercises on its own.
+#
+# And specs/AppInstaller*.yaml, for the same reason again (see
+# monolith.ExtractSubtree). App Installers sits under hiddenapi/ in jamf/jss, so
+# neither the jss bundle nor an instance's own /api/schema/ carries it, and
+# pro_api.json is the only published spec that does — the specs this repo used
+# before it was published were reverse-engineered. They are written before the
+# spec glob so the same invocation regenerates the commands they describe.
 sync-gateway-coverage:
 	@for f in $(PLATFORM_SDK_COVERAGE_SPECS); do \
 		if [ ! -f "specs/.platform-source/$$f" ]; then \

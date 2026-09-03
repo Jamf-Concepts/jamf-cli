@@ -38,9 +38,26 @@ func TestMatchPathSegmentWise(t *testing.T) {
 }
 
 func TestLookupIgnoresAQueryString(t *testing.T) {
-	// Every shipped app-installer entry is a probe, so this is stable.
-	if _, ok := Lookup("GET", "/pro/v1/app-installers/titles?page=0&page-size=100"); !ok {
+	// api-roles is refused as unpublished and is a paginated list, so it is a
+	// request the CLI really sends with a query string attached. It replaced
+	// app-installers here, which was the stable example until the gateway
+	// started serving it on 2026-09-03.
+	if _, ok := Lookup("GET", "/pro/v1/api-roles?page=0&page-size=100"); !ok {
 		t.Error("a query string defeated the lookup")
+	}
+}
+
+// The surface that used to be this package's canonical refusal. Nothing about
+// the lookup changed; the manifest did.
+func TestAppInstallersAreNoLongerRefused(t *testing.T) {
+	for _, path := range []string{
+		"/pro/v1/app-installers",
+		"/pro/v1/app-installers/titles?page=0&page-size=100",
+		"/pro/v1/app-installers/deployments/7/history",
+	} {
+		if f, ok := Lookup("GET", path); ok {
+			t.Errorf("%s is refused (%s: %s); the gateway serves App Installers as of 2026-09-03", path, f.Basis, f.Detail)
+		}
 	}
 }
 
@@ -104,9 +121,13 @@ func TestNoteWordsTheTwoBasesDifferently(t *testing.T) {
 }
 
 func TestRefusalNamesTheCommandAndTheRemedy(t *testing.T) {
-	probe := Refusal("pro app-installer-titles list", BasisProbe, "wire-confirmed unserved on EU and US, 2026-08-28")
+	// No shipped entry carries the probe basis — probedUnserved is empty since
+	// App Installers moved onto the gateway — so the command name here is
+	// hypothetical. The wording it selects still has to be right for the next
+	// probe, which is why it is pinned rather than deleted.
+	probe := Refusal("pro example-resource list", BasisProbe, "wire-confirmed unserved on EU and US, 2026-08-28")
 	for _, want := range []string{
-		"pro app-installer-titles list",
+		"pro example-resource list",
 		"is not served by the Jamf Platform gateway",
 		"Wire-confirmed unserved",
 		"auth-method is oauth2 or token",
