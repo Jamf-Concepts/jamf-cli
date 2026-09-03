@@ -282,20 +282,12 @@
 
   // ===== Rendering =====
 
-  function renderCatalog(commands, searchQuery, productFilter) {
-    var catalog = document.getElementById('catalog');
-    if (!catalog) return;
-
-    currentSearchQuery = (searchQuery || '').trim().toLowerCase();
-    expandedCommand = null;
-    var filtered = filterCommands(commands, searchQuery, productFilter);
-    var groups = groupCommands(filtered);
-    var sorted = sortGroups(groups);
-    var hasSearch = !!currentSearchQuery;
-
-    // Split groups by product. A mixed group splits into one per product.
-    var sharedGroups = [];
-    var productGroups = {};
+  // Split sorted groups by product. A group holding several products
+  // becomes one entry per product, keyed by product; commands carrying no
+  // product go to the shared list under the virtual "core" product.
+  function splitByProduct(sorted) {
+    var shared = [];
+    var products = {};
     for (var i = 0; i < sorted.length; i++) {
       var byProduct = {};
       var noProd = [];
@@ -304,50 +296,49 @@
         if (c.product) { (byProduct[c.product] = byProduct[c.product] || []).push(c); }
         else noProd.push(c);
       }
-      if (noProd.length) sharedGroups.push({ name: sorted[i].name, commands: noProd });
+      if (noProd.length) shared.push({ name: sorted[i].name, commands: noProd });
       var keys = Object.keys(byProduct);
       for (var k = 0; k < keys.length; k++) {
-        (productGroups[keys[k]] = productGroups[keys[k]] || []).push({ name: sorted[i].name, commands: byProduct[keys[k]] });
+        (products[keys[k]] = products[keys[k]] || []).push({ name: sorted[i].name, commands: byProduct[keys[k]] });
       }
     }
+    return { shared: shared, products: products };
+  }
 
-    // Sidebar: full groups for the whole product filter, never narrowed by search.
-    var navFiltered = filterCommands(commands, '', productFilter);
-    var navSorted = sortGroups(groupCommands(navFiltered));
-    var navShared = [], navProducts = {};
-    for (var n = 0; n < navSorted.length; n++) {
-      var byP = {}, np = [];
-      for (var m = 0; m < navSorted[n].commands.length; m++) {
-        var cc = navSorted[n].commands[m];
-        if (cc.product) { (byP[cc.product] = byP[cc.product] || []).push(cc); } else np.push(cc);
-      }
-      if (np.length) navShared.push({ name: navSorted[n].name, commands: np });
-      (function (entry) {
-        Object.keys(byP).forEach(function (p) {
-          (navProducts[p] = navProducts[p] || []).push({ name: entry.name, commands: byP[p] });
-        });
-      })(navSorted[n]);
+  // Flatten a split into the render order: every product in PRODUCT_LABELS
+  // order, then the shared groups.
+  function orderedTables(split) {
+    var out = [];
+    var order = Object.keys(PRODUCT_LABELS);
+    for (var i = 0; i < order.length; i++) {
+      var groups = split.products[order[i]] || [];
+      for (var g = 0; g < groups.length; g++) out.push({ group: groups[g], product: order[i] });
     }
+    for (var sh = 0; sh < split.shared.length; sh++) {
+      out.push({ group: split.shared[sh], product: 'core' });
+    }
+    return out;
+  }
+
+  function renderCatalog(commands, searchQuery, productFilter) {
+    var catalog = document.getElementById('catalog');
+    if (!catalog) return;
+
+    currentSearchQuery = (searchQuery || '').trim().toLowerCase();
+    expandedCommand = null;
+    var hasSearch = !!currentSearchQuery;
+
+    // Sidebar: full groups for the whole product filter, never narrowed by
+    // search. With no search the table comes from this same split, so the
+    // search-side pass only runs when there is a search to run it for.
+    var nav = splitByProduct(sortGroups(groupCommands(filterCommands(commands, '', productFilter))));
 
     // Pick the table content.
     var tables = [];
     if (hasSearch) {
-      var order = Object.keys(PRODUCT_LABELS);
-      for (var o = 0; o < order.length; o++) {
-        (function (prod) {
-          (productGroups[prod] || []).forEach(function (g) { tables.push({ group: g, product: prod }); });
-        })(order[o]);
-      }
-      sharedGroups.forEach(function (g) { tables.push({ group: g, product: 'core' }); });
+      tables = orderedTables(splitByProduct(sortGroups(groupCommands(filterCommands(commands, searchQuery, productFilter)))));
     } else {
-      var all = [];
-      var ord = Object.keys(PRODUCT_LABELS);
-      for (var q = 0; q < ord.length; q++) {
-        (function (prod) {
-          (navProducts[prod] || []).forEach(function (g) { all.push({ group: g, product: prod }); });
-        })(ord[q]);
-      }
-      navShared.forEach(function (g) { all.push({ group: g, product: 'core' }); });
+      var all = orderedTables(nav);
       // Prefer the exact group-and-product pair, then the name alone (a
       // stale selectedProduct from another tab), then the first group.
       var pick = null;
@@ -363,7 +354,7 @@
       if (pick) { selectedProduct = pick.product; tables.push(pick); }
     }
 
-    renderGroupNav(navProducts, navShared, productFilter);
+    renderGroupNav(nav.products, nav.shared, productFilter);
 
     catalog.innerHTML = '';
     if (tables.length === 0) {
@@ -415,7 +406,12 @@
       head.appendChild(totalEl);
       nav.appendChild(head);
 
-      var expanded = activeFilter === 'all' || activeFilter === prod || (prod === 'core' && activeFilter === 'all');
+      // The platform filter cross-cuts products: filterCommands admits Pro
+      // and School commands whose group starts with "Platform", so those
+      // headings have to open too. A collapsed heading is a count with no
+      // selectable item under it, and the table-pick list can still select
+      // one of its groups.
+      var expanded = activeFilter === 'all' || activeFilter === 'platform' || activeFilter === prod;
       if (!expanded) continue;
 
       var lastPillar = null;
@@ -722,10 +718,22 @@
     }
     row.appendChild(marks);
 
-    // Expand on click or Enter. The drawer is a sibling so the grid row stays 3 cells.
+    // Expand on click, Enter or Space. The drawer is a sibling so the grid
+    // row stays 3 cells.
+    //
+    // The document-level handler in setupKeyboardNav also acts on Enter, by
+    // clicking the focused row. Both firing toggled the drawer twice — it
+    // opened and shut in one keypress and pushed two history entries — so
+    // this handler stops Enter and Space from reaching it. When the key
+    // lands on a control inside the row (the copy button), the toggle is
+    // skipped and the control's own activation runs alone.
     row.addEventListener('click', function () { toggleRowDetail(row, cmd); });
     row.addEventListener('keydown', function (e) {
-      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleRowDetail(row, cmd); }
+      if (e.key !== 'Enter' && e.key !== ' ') return;
+      e.stopPropagation();
+      if (e.target !== row) return;
+      e.preventDefault();
+      toggleRowDetail(row, cmd);
     });
     return row;
   }
