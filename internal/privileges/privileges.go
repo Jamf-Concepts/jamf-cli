@@ -22,6 +22,7 @@ package privileges
 
 import (
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 )
@@ -199,10 +200,8 @@ func splitScope(scope string) (capability, action string, ok bool) {
 }
 
 func appendUnique(s []string, v string) []string {
-	for _, existing := range s {
-		if existing == v {
-			return s
-		}
+	if slices.Contains(s, v) {
+		return s
 	}
 	return append(s, v)
 }

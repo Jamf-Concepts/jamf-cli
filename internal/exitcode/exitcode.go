@@ -80,8 +80,7 @@ func CodeName(code int) string {
 // CodeFrom extracts the exit code from an error. If the error contains an
 // *Error anywhere in its chain, that code is returned. Otherwise returns General (1).
 func CodeFrom(err error) int {
-	var e *Error
-	if errors.As(err, &e) {
+	if e, ok := errors.AsType[*Error](err); ok {
 		return e.Code
 	}
 	return General

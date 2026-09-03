@@ -812,7 +812,6 @@ func modernGatewayOps(resources []*parser.Resource) []gateway.Op {
 	var ops []gateway.Op
 	for _, r := range resources {
 		for _, op := range r.Operations {
-			op := op
 			ops = append(ops, gateway.Op{
 				Method:      op.Method,
 				GatewayPath: gateway.ProPrefix + op.Path,
@@ -864,7 +863,6 @@ func classicGatewayOps(resources []classic.ClassicResource) []gateway.Op {
 			},
 		})
 		for _, m := range classicGatewayMethods {
-			m := m
 			ops = append(ops, gateway.Op{
 				Method:      m,
 				GatewayPath: path,

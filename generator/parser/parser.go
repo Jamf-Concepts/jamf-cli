@@ -1162,7 +1162,7 @@ func stripVersionSegments(path string) string {
 // service version under the gateway namespace — and it is the outermost one
 // that distinguishes siblings.
 func apiVersionRank(path string) int {
-	for _, s := range strings.Split(path, "/") {
+	for s := range strings.SplitSeq(path, "/") {
 		if !versionSegment.MatchString(s) {
 			continue
 		}
@@ -2109,10 +2109,8 @@ func refName(ref string) string {
 }
 
 func appendUniqueString(s []string, v string) []string {
-	for _, existing := range s {
-		if existing == v {
-			return s
-		}
+	if slices.Contains(s, v) {
+		return s
 	}
 	return append(s, v)
 }

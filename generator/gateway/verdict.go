@@ -4,6 +4,7 @@ package gateway
 
 import (
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 )
@@ -315,12 +316,7 @@ func parent(p string) string {
 }
 
 func contains(s []string, v string) bool {
-	for _, x := range s {
-		if x == v {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(s, v)
 }
 
 // OverrideKeys returns the declared override keys, sorted, so a test can assert

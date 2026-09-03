@@ -670,9 +670,9 @@ func TestGatewayScopeHeaderPerKind(t *testing.T) {
 // --- Upload tests ---
 
 func TestUpload_NonSeekable_NoRetry(t *testing.T) {
-	var attempts int32
+	var attempts atomic.Int32
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		atomic.AddInt32(&attempts, 1)
+		attempts.Add(1)
 		w.Header().Set("Retry-After", "1")
 		w.WriteHeader(http.StatusTooManyRequests)
 		_, _ = w.Write([]byte("slow down"))
@@ -687,17 +687,17 @@ func TestUpload_NonSeekable_NoRetry(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error on 429")
 	}
-	if got := atomic.LoadInt32(&attempts); got != 1 {
+	if got := attempts.Load(); got != 1 {
 		t.Errorf("attempts = %d, want 1 (non-seekable should not retry)", got)
 	}
 }
 
 func TestUpload_Seekable_RetriesOn429(t *testing.T) {
-	var attempts int32
+	var attempts atomic.Int32
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Drain body so upload reader is exhausted each attempt.
 		_, _ = io.Copy(io.Discard, r.Body)
-		n := atomic.AddInt32(&attempts, 1)
+		n := attempts.Add(1)
 		if n < 2 {
 			w.Header().Set("Retry-After", "1")
 			w.WriteHeader(http.StatusTooManyRequests)
@@ -718,7 +718,7 @@ func TestUpload_Seekable_RetriesOn429(t *testing.T) {
 	}
 	defer func() { _ = resp.Body.Close() }()
 
-	if got := atomic.LoadInt32(&attempts); got != 2 {
+	if got := attempts.Load(); got != 2 {
 		t.Errorf("attempts = %d, want 2 (should retry seekable body)", got)
 	}
 }
@@ -759,10 +759,10 @@ func TestUpload_Seekable_RewindsBetweenAttempts(t *testing.T) {
 }
 
 func TestUpload_Seekable_MaxRetriesExhausted(t *testing.T) {
-	var attempts int32
+	var attempts atomic.Int32
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = io.Copy(io.Discard, r.Body)
-		atomic.AddInt32(&attempts, 1)
+		attempts.Add(1)
 		// Retry-After "0" keeps the test fast; value is validated by
 		// TestParseRetryAfter.
 		w.Header().Set("Retry-After", "0")
@@ -786,7 +786,7 @@ func TestUpload_Seekable_MaxRetriesExhausted(t *testing.T) {
 	if ec.Code != exitcode.RateLimited {
 		t.Errorf("exit code = %v, want %v", ec.Code, exitcode.RateLimited)
 	}
-	if got := atomic.LoadInt32(&attempts); got != 3 {
+	if got := attempts.Load(); got != 3 {
 		t.Errorf("attempts = %d, want 3 (all retries should fire)", got)
 	}
 }

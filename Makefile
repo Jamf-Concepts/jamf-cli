@@ -499,14 +499,32 @@ verify-classic-schemas:
 # Generate CLI commands from OpenAPI specs and Classic API manifest.
 # If JAMF_MONOLITH_SPEC is set, the monolith is split into per-resource spec
 # files before parsing, preserving the existing filename layout.
+# Generated code is formatted by the toolchain go.mod declares, not by whatever
+# `go` happens to be on PATH, because gofmt's alignment rules move between
+# releases. Go 1.26 breaks a map literal's alignment group at a long key where
+# 1.27 keeps one group, so the same tree regenerated on the two toolchains
+# differs in a handful of files — and CI reads `go-version-file: go.mod`, so
+# `make verify-generated` failed there on a whitespace diff that reproduced
+# nowhere locally. Worse on 1.26: one gofmt pass over the generator's output was
+# not a fixed point there, so whether the check passed came down to how many
+# times gofmt had historically run over the committed copy.
+#
+# GOTOOLCHAIN=auto (the default) treats go.mod's version as a *minimum*, so a
+# newer local toolchain is picked up silently and the drift is invisible until
+# CI. Naming it exactly is what makes the artifact reproducible; the toolchain is
+# downloaded once and cached, and it is the same one CI runs. Keep this pinned
+# even while go.mod and every developer agree — agreement is what it is for.
+GO_PINNED_TOOLCHAIN := $(shell awk '/^go [0-9]/{print "go"$$2; exit}' go.mod)
+
+generate: export GOTOOLCHAIN = $(GO_PINNED_TOOLCHAIN)
 generate:
-	@echo "Generating commands from OpenAPI specs and Classic API manifest..."
+	@echo "Generating commands from OpenAPI specs and Classic API manifest ($(GO_PINNED_TOOLCHAIN))..."
 ifneq ($(JAMF_MONOLITH_SPEC),)
 	go run ./generator --specs ./specs --output ./internal/commands/pro/generated --monolith "$(JAMF_MONOLITH_SPEC)"
 else
 	go run ./generator --specs ./specs --output ./internal/commands/pro/generated
 endif
-	@go fmt ./internal/commands/pro/generated/...
+	@go fmt ./internal/commands/pro/generated/... > /dev/null
 	@-go fmt ./internal/blueprintcomponents/... 2>/dev/null
 	@echo "Generated commands:"
 	@ls internal/commands/pro/generated/*.go | grep -v registry | grep -v classic_ | wc -l | xargs echo "  Modern API resource files:"
@@ -627,6 +645,18 @@ smoke-cleanup:
 release-check: test smoke
 
 # Format code
+# FMT_GO is every Go file whose formatting is ours to own — which is everything
+# except the generated trees. Theirs belongs to `make generate`, which runs plain
+# `go fmt` over them; gofumpt's stricter style disagrees with it, so a bare
+# `gofumpt -w .` dirtied a generated file that the next `make generate` reverted,
+# a flip-flop that makes `make verify-generated` look broken while nothing is
+# wrong. golangci-lint excludes generated files as well, so nothing checks what
+# this skips.
+FMT_GO := $(shell find . -type f -name '*.go' \
+	-not -path './internal/commands/*/generated/*' -not -name '*_gen.go' 2>/dev/null)
+
+fmt: export GOTOOLCHAIN = $(GO_PINNED_TOOLCHAIN)
 fmt:
 	go fmt ./...
-	gofumpt -w .
+	@gofumpt -l -w $(FMT_GO)
+	@echo "gofumpt: $(words $(FMT_GO)) file(s) checked (generated trees skipped)"

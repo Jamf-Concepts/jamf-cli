@@ -31,12 +31,15 @@ import (
 // The round trip alone cannot do that job, which is the trap this once fell
 // into: json.Marshal is the call that refuses map[any]any, so handing it the
 // value straight turned the two shapes it exists to fix into
-// "re-marshaling YAML as JSON: json: unsupported type" — the malformed-input
+// "re-marshaling YAML as JSON: json: unsupported ..." — the malformed-input
 // error, for a perfectly good YAML file. jsonSafe converts them first and the
-// round trip then only settles number types. Go 1.27's encoding/json marshals
-// map[any]any happily, so a developer on it sees none of this while CI on the
-// toolchain go.mod declares fails; that is why the test pins the shapes rather
-// than the error string.
+// round trip then only settles number types.
+//
+// What json.Marshal refuses has moved: Go 1.26 rejects any map[any]any, while
+// 1.27 spells an *integer* key and still rejects a boolean, float or null one
+// ("object member name must be a string"). YAML permits all four, so the walker
+// is still doing work on the current toolchain — and the test pins the resulting
+// shapes rather than an error string, since which keys fail is a moving target.
 //
 // Input carrying no content is an error rather than a nil body. A nil body
 // means "send no body" to every caller here, so an empty file, a file of YAML

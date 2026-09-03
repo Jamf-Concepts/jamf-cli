@@ -1,6 +1,6 @@
 module github.com/Jamf-Concepts/jamf-cli
 
-go 1.26.6
+go 1.27.0
 
 require (
 	github.com/Jamf-Concepts/jamfplatform-go-sdk v0.20.1

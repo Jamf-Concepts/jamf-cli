@@ -34,12 +34,20 @@ secureDns: true
 // A YAML body must come back as JSON-native types, not as yaml.v3's own. The
 // failure this pins is not a wrong value but a body that decodes here and then
 // fails to marshal in the transport, where it reads as an internal error.
+//
+// The keys are chosen for what json.Marshal refuses, which moved with the
+// toolchain and is why this pins shapes rather than an error. Any non-string key
+// decodes to map[any]any, which Go 1.26's encoding/json rejects outright; 1.27's
+// accepts an *integer* key (spelling it "80") and still rejects a boolean, float
+// or null one — "object member name must be a string". So an integer key alone
+// would no longer catch a regression here.
 func TestNormalizeYAMLProducesMarshalableTypes(t *testing.T) {
-	// Non-string keys decode to map[any]any under yaml.v3; a timestamp
-	// scalar decodes to time.Time. json.Marshal refuses the first outright.
 	raw := []byte(`ports:
   80: http
   443: https
+enabled:
+  true: always
+  1.5: sometimes
 notAfter: 2026-09-02T10:00:00Z
 `)
 	v, err := Normalize(raw)
@@ -53,8 +61,22 @@ notAfter: 2026-09-02T10:00:00Z
 	if !ok {
 		t.Fatalf("want map[string]any, got %T", v)
 	}
-	if _, ok := m["ports"].(map[string]any); !ok {
-		t.Errorf("nested mapping not normalised: %T", m["ports"])
+	ports, ok := m["ports"].(map[string]any)
+	if !ok {
+		t.Fatalf("nested mapping not normalised: %T", m["ports"])
+	}
+	if ports["80"] != "http" || ports["443"] != "https" {
+		t.Errorf("integer keys not spelled as strings: %#v", ports)
+	}
+	enabled, ok := m["enabled"].(map[string]any)
+	if !ok {
+		t.Fatalf("mapping with non-integer scalar keys not normalised: %T", m["enabled"])
+	}
+	if enabled["true"] != "always" || enabled["1.5"] != "sometimes" {
+		t.Errorf("boolean and float keys not spelled as strings: %#v", enabled)
+	}
+	if s, ok := m["notAfter"].(string); !ok || s == "" {
+		t.Errorf("notAfter: got %#v, want an RFC 3339 string", m["notAfter"])
 	}
 }
 

@@ -107,8 +107,8 @@ func TestEveryOverrideStillMatchesACommandThisCLISends(t *testing.T) {
 		for _, key := range table.keys {
 			// A key is either "{METHOD} {path}" or a bare path prefix.
 			path := key
-			if i := strings.IndexByte(key, ' '); i >= 0 {
-				path = key[i+1:]
+			if _, after, ok := strings.Cut(key, " "); ok {
+				path = after
 			}
 			matched := false
 			for _, p := range paths {

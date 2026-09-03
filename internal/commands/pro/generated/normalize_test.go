@@ -110,11 +110,12 @@ func TestNormalizeInputToJSON(t *testing.T) {
 // JSON: json: unsupported type" — malformed input, for a valid file — until
 // jsonSafeYAML converted them first.
 //
-// Pinned as shapes rather than as an error string because Go 1.27's
-// encoding/json marshals map[any]any happily: a developer on it sees nothing
-// wrong while CI on the toolchain go.mod declares fails.
+// Pinned as shapes rather than as an error string because what json.Marshal
+// refuses moved with the toolchain: Go 1.26 rejects any map[any]any, while 1.27
+// accepts an integer key and still rejects a boolean, float or null one. Hence a
+// boolean key here — an integer key alone no longer catches a regression.
 func TestNormalizeInputToJSON_YAMLShapesJSONCannotMarshal(t *testing.T) {
-	out, err := normalizeInputToJSON([]byte("ports:\n  80: http\n  443: https\nnotAfter: 2026-09-02T10:00:00Z\n"))
+	out, err := normalizeInputToJSON([]byte("ports:\n  80: http\n  true: always\nnotAfter: 2026-09-02T10:00:00Z\n"))
 	if err != nil {
 		t.Fatalf("normalizeInputToJSON: %v", err)
 	}
@@ -126,8 +127,8 @@ func TestNormalizeInputToJSON_YAMLShapesJSONCannotMarshal(t *testing.T) {
 	if !ok {
 		t.Fatalf("ports: got %T, want map[string]any", got["ports"])
 	}
-	if ports["80"] != "http" || ports["443"] != "https" {
-		t.Errorf("numeric keys not carried through as strings: %#v", ports)
+	if ports["80"] != "http" || ports["true"] != "always" {
+		t.Errorf("non-string keys not carried through as strings: %#v", ports)
 	}
 	if s, ok := got["notAfter"].(string); !ok || s == "" {
 		t.Errorf("notAfter: got %#v, want an RFC 3339 string", got["notAfter"])

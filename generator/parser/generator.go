@@ -3767,9 +3767,11 @@ func normalizeInputToJSON(data []byte) ([]byte, error) {
 // jsonSafeYAML rewrites the two yaml.v3 shapes encoding/json cannot marshal
 // into ones it can: a mapping with any non-string key (map[any]any) and a
 // timestamp scalar (time.Time). Without it, json.Marshal above is the very call
-// that refuses them, so a YAML body carrying either — a numeric mapping key, or
-// a bare 2026-09-02T10:00:00Z — came back as "re-marshaling YAML as JSON: json:
-// unsupported type", reported as malformed input for a valid file.
+// that refuses them, so a YAML body carrying either came back as
+// "re-marshaling YAML as JSON: json: unsupported ...", reported as malformed
+// input for a valid file. Go 1.26 refuses any non-string key; 1.27 spells an
+// integer one and still refuses a boolean, float or null key, all of which YAML
+// permits.
 //
 // A key is spelled with fmt.Sprint, so "80: http" reaches the server as "80".
 // Nothing guards against a composite key, which YAML permits and JSON has no
