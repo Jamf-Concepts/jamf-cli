@@ -21,9 +21,10 @@ import (
 // NewCloudDistributionPointsCmd creates the cloud-distribution-points command group
 func NewCloudDistributionPointsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "cloud-distribution-points",
-		Short: "Manage cloud-distribution-points",
-		Long:  `Manage cloud-distribution-points in Jamf Pro.`,
+		Use:         "cloud-distribution-points",
+		Short:       "Manage cloud-distribution-points",
+		Long:        `Manage cloud-distribution-points in Jamf Pro.`,
+		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
 	cmd.AddCommand(newCloudDistributionPointsCreateCmd(ctx))
@@ -58,7 +59,7 @@ func newCloudDistributionPointsCreateCmd(ctx *registry.CLIContext) *cobra.Comman
 
   # Get a cloud-distribution-point, modify it, and create a copy
   jamf-cli pro cloud-distribution-points get 1 -o json | jq '.name = "Copy"' | jamf-cli pro cloud-distribution-points create`,
-		Annotations: map[string]string{"jamf:privileges": "Update Cloud Distribution Point"},
+		Annotations: map[string]string{"jamf:privileges": "Update Cloud Distribution Point", "jamf:api": "pro", "jamf:gateway-privileges": "cloud-distribution-point:update"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -137,7 +138,7 @@ func newCloudDistributionPointsDeleteCmd(ctx *registry.CLIContext) *cobra.Comman
 
   # Delete without confirmation prompt
   jamf-cli pro cloud-distribution-points delete 1 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Update Cloud Distribution Point"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Update Cloud Distribution Point", "jamf:api": "pro", "jamf:gateway-privileges": "cloud-distribution-point:update"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -216,7 +217,7 @@ func newCloudDistributionPointsHistoryCmd(ctx *registry.CLIContext) *cobra.Comma
 		Long:  "Get cloud distribution point history details",
 		Example: `  # Get history for a cloud-distribution-point
   jamf-cli pro cloud-distribution-points history 1`,
-		Annotations: map[string]string{"jamf:privileges": "Read Cloud Distribution Point"},
+		Annotations: map[string]string{"jamf:privileges": "Read Cloud Distribution Point", "jamf:api": "pro", "jamf:gateway-privileges": "cloud-distribution-point:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -245,7 +246,10 @@ func newCloudDistributionPointsHistoryCmd(ctx *registry.CLIContext) *cobra.Comma
 
 			// Auto-pagination: fetch all pages when --all is set and --page was not manually specified
 			if flagAll && flagPage == 0 {
-				var allResults []json.RawMessage
+				// Initialised empty, not nil — a nil slice marshals to "null", so
+				// "list --all" on an empty collection used to answer "null" where
+				// the single-page path answers "[]".
+				allResults := []json.RawMessage{}
 				prog := ctx.Output.PaginationProgress()
 				defer prog.Stop()
 				reqCtx = spinner.WithSuppressed(reqCtx)
@@ -360,7 +364,7 @@ func newCloudDistributionPointsAddHistoryNoteCmd(ctx *registry.CLIContext) *cobr
 		Use:         "add-history-note",
 		Short:       "Add specified cloud distribution point history object notes",
 		Long:        "Add specified cloud distribution point history object notes",
-		Annotations: map[string]string{"jamf:privileges": "Update Cloud Distribution Point"},
+		Annotations: map[string]string{"jamf:privileges": "Update Cloud Distribution Point", "jamf:api": "pro", "jamf:gateway-privileges": "cloud-distribution-point:update"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -418,7 +422,7 @@ func newCloudDistributionPointsCloudDistributionPointCmd(ctx *registry.CLIContex
 		Use:         "cloud-distribution-point",
 		Short:       "Get the cloud distribution point Details.",
 		Long:        "Retrieves the details of the cloud distribution point. The distribution point exists only when a content delivery network (CDN) is configured, such as Jamf Cloud(JAMF_CLOUD), Rackspace Cloud Files(RACKSPACE_CLOUD_FILES), Amazon Web Services(AMAZON_S3) or Akamai(AKAMAI). If the **cdnType** is **NONE** the response will be NONE empty CDP object, indicating no distribution point is set up.",
-		Annotations: map[string]string{"jamf:privileges": "Read Cloud Distribution Point"},
+		Annotations: map[string]string{"jamf:privileges": "Read Cloud Distribution Point", "jamf:api": "pro", "jamf:gateway-privileges": "cloud-distribution-point:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -461,7 +465,7 @@ func newCloudDistributionPointsPatchCmd(ctx *registry.CLIContext) *cobra.Command
 
   # Update using JSON
   jamf-cli pro cloud-distribution-points get -o json | jq '.field = "value"' | jamf-cli pro cloud-distribution-points patch`,
-		Annotations: map[string]string{"jamf:privileges": "Update Cloud Distribution Point"},
+		Annotations: map[string]string{"jamf:privileges": "Update Cloud Distribution Point", "jamf:api": "pro", "jamf:gateway-privileges": "cloud-distribution-point:update"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -556,7 +560,7 @@ func newCloudDistributionPointsActionCmd(ctx *registry.CLIContext) *cobra.Comman
 		Use:         "action <id>",
 		Short:       "Marks a specific file upload as failed for the currently configured cloud distribution point.",
 		Long:        "Marks a specific file upload as failed for the currently configured cloud distribution point.",
-		Annotations: map[string]string{"jamf:privileges": "Update Cloud Distribution Point"},
+		Annotations: map[string]string{"jamf:privileges": "Update Cloud Distribution Point", "jamf:api": "pro", "jamf:gateway-privileges": "cloud-distribution-point:update"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -624,7 +628,7 @@ func newCloudDistributionPointsFilesCmd(ctx *registry.CLIContext) *cobra.Command
 		Use:         "files",
 		Short:       "Get the cloud distribution point Inventory files details",
 		Long:        "Retrieves the details of the inventory files associated with a cloud distribution point.This includes information about the files used for content distribution, such as their type, status, and categorization.The response provides a comprehensive list of inventory files, which may include packages, ebooks, or mobile device apps, allowing users to view the current state and metadata for each file in the distribution system.",
-		Annotations: map[string]string{"jamf:privileges": "Read Cloud Distribution Point"},
+		Annotations: map[string]string{"jamf:privileges": "Read Cloud Distribution Point", "jamf:api": "pro", "jamf:gateway-privileges": "cloud-distribution-point:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -653,7 +657,10 @@ func newCloudDistributionPointsFilesCmd(ctx *registry.CLIContext) *cobra.Command
 
 			// Auto-pagination: fetch all pages when --all is set and --page was not manually specified
 			if flagAll && flagPage == 0 {
-				var allResults []json.RawMessage
+				// Initialised empty, not nil — a nil slice marshals to "null", so
+				// "list --all" on an empty collection used to answer "null" where
+				// the single-page path answers "[]".
+				allResults := []json.RawMessage{}
 				prog := ctx.Output.PaginationProgress()
 				defer prog.Stop()
 				reqCtx = spinner.WithSuppressed(reqCtx)
@@ -768,7 +775,7 @@ func newCloudDistributionPointsRefreshInventoryCmd(ctx *registry.CLIContext) *co
 		Use:         "refresh-inventory",
 		Short:       "Updates inventory data for the currently configured cloud distribution point.",
 		Long:        "Updates inventory data for the currently configured cloud distribution point.",
-		Annotations: map[string]string{"jamf:privileges": "Read Cloud Distribution Point"},
+		Annotations: map[string]string{"jamf:privileges": "Read Cloud Distribution Point", "jamf:api": "pro", "jamf:gateway-privileges": "cloud-distribution-point:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -823,7 +830,7 @@ func newCloudDistributionPointsTestConnectionCmd(ctx *registry.CLIContext) *cobr
 		Use:         "test-connection",
 		Short:       "Get the cloud distribution point test connection details.",
 		Long:        "Verifies the connection to the cloud distribution point after updating its configuration.  This endpoint returns the connection status and a message indicating whether the connection is successful or failed.",
-		Annotations: map[string]string{"jamf:privileges": "Read Cloud Distribution Point"},
+		Annotations: map[string]string{"jamf:privileges": "Read Cloud Distribution Point", "jamf:api": "pro", "jamf:gateway-privileges": "cloud-distribution-point:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -854,9 +861,10 @@ func newCloudDistributionPointsUploadCapabilityCmd(ctx *registry.CLIContext) *co
 	var ()
 
 	cmd := &cobra.Command{
-		Use:   "upload-capability",
-		Short: "Finds specific information for the currently configured cloud distribution point.",
-		Long:  "Finds a variety of values based on the currently configured cloud distribution point.",
+		Use:         "upload-capability",
+		Short:       "Finds specific information for the currently configured cloud distribution point.",
+		Long:        "Finds a variety of values based on the currently configured cloud distribution point.",
+		Annotations: map[string]string{"jamf:api": "pro"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

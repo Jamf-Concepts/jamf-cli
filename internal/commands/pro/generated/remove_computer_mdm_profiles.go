@@ -18,9 +18,10 @@ import (
 // NewRemoveComputerMdmProfilesCmd creates the remove-computer-mdm-profiles command group
 func NewRemoveComputerMdmProfilesCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "remove-computer-mdm-profiles",
-		Short: "Manage remove-computer-mdm-profiles",
-		Long:  `Manage remove-computer-mdm-profiles in Jamf Pro.`,
+		Use:         "remove-computer-mdm-profiles",
+		Short:       "Manage remove-computer-mdm-profiles",
+		Long:        `Manage remove-computer-mdm-profiles in Jamf Pro.`,
+		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
 	cmd.AddCommand(newRemoveComputerMdmProfilesRemoveMdmProfileCmd(ctx))
@@ -38,7 +39,7 @@ func newRemoveComputerMdmProfilesRemoveMdmProfileCmd(ctx *registry.CLIContext) *
 		Use:         "remove-mdm-profile <id>",
 		Short:       "Remove a computer's MDM profile",
 		Long:        "Remove a computer's MDM profile",
-		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Send Computer Unmanage Command"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Send Computer Unmanage Command", "jamf:api": "pro", "jamf:gateway": "unserved", "jamf:gateway-basis": "unpublished", "jamf:gateway-detail": "not declared by the gateway's Jamf Pro API 11.31.0"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

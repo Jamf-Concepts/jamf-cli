@@ -17,12 +17,139 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// bodySpecClassicDirectoryBindings is this resource's request-body contract, derived from
+// specs/classic/schemas.json at generation time. Empty when the Classic API spec
+// declares no schema for it, in which case create/update/apply read their body
+// from --from-file or stdin with no --scaffold and no --set.
+var bodySpecClassicDirectoryBindings = classicBodySpec{
+	Root:   "directory_binding",
+	Schema: "directory_binding",
+	Scaffold: `<directory_binding>
+  <id>1</id>
+  <name>AD Binding</name>
+  <active_directory>
+    <admin_groups></admin_groups>
+    <cache_last_user>false</cache_last_user>
+    <default_shell></default_shell>
+    <forest></forest>
+    <gid></gid>
+    <local_home>false</local_home>
+    <mount_style></mount_style>
+    <multiple_domains>false</multiple_domains>
+    <preferred_domain></preferred_domain>
+    <require_confirmation>false</require_confirmation>
+    <uid></uid>
+    <use_unc_path>false</use_unc_path>
+    <user_gid></user_gid>
+  </active_directory>
+  <admitmac>
+    <add_user_to_local>false</add_user_to_local>
+    <admin_group></admin_group>
+    <cached_credentials>0</cached_credentials>
+    <default_shell></default_shell>
+    <gid></gid>
+    <groups_ou></groups_ou>
+    <local_home></local_home>
+    <mount_network_home>false</mount_network_home>
+    <mount_style></mount_style>
+    <place_home_folders></place_home_folders>
+    <printers_ou></printers_ou>
+    <require_confirmation>false</require_confirmation>
+    <shared_folders_ou></shared_folders_ou>
+    <uid></uid>
+    <user_gid></user_gid>
+    <users_ou></users_ou>
+  </admitmac>
+  <centrify>
+    <overwrite_existing>false</overwrite_existing>
+    <preferred_domain_server></preferred_domain_server>
+    <update_PAM>false</update_PAM>
+    <workstation_mode>false</workstation_mode>
+    <zone></zone>
+  </centrify>
+  <computer_ou>CN=Computers,DC=ad,DC=company,DC=com</computer_ou>
+  <domain>ad.company.com</domain>
+  <open_directory>
+    <encrypt_using_ssl>false</encrypt_using_ssl>
+    <perform_secure_bind>false</perform_secure_bind>
+    <use_for_authentication>false</use_for_authentication>
+    <use_for_contacts>false</use_for_contacts>
+  </open_directory>
+  <password></password>
+  <password_sha256></password_sha256>
+  <powerbroker_identity_services></powerbroker_identity_services>
+  <priority>1</priority>
+  <type>Active Directory</type>
+  <username>AD\Administrator</username>
+</directory_binding>
+`,
+	FieldTypes: map[string]string{
+		"active_directory":                      "object",
+		"active_directory.admin_groups":         "string",
+		"active_directory.cache_last_user":      "boolean",
+		"active_directory.default_shell":        "string",
+		"active_directory.forest":               "string",
+		"active_directory.gid":                  "string",
+		"active_directory.local_home":           "boolean",
+		"active_directory.mount_style":          "string",
+		"active_directory.multiple_domains":     "boolean",
+		"active_directory.preferred_domain":     "string",
+		"active_directory.require_confirmation": "boolean",
+		"active_directory.uid":                  "string",
+		"active_directory.use_unc_path":         "boolean",
+		"active_directory.user_gid":             "string",
+		"admitmac":                              "object",
+		"admitmac.add_user_to_local":            "boolean",
+		"admitmac.admin_group":                  "string",
+		"admitmac.cached_credentials":           "integer",
+		"admitmac.default_shell":                "string",
+		"admitmac.gid":                          "string",
+		"admitmac.groups_ou":                    "string",
+		"admitmac.local_home":                   "string",
+		"admitmac.mount_network_home":           "boolean",
+		"admitmac.mount_style":                  "string",
+		"admitmac.place_home_folders":           "string",
+		"admitmac.printers_ou":                  "string",
+		"admitmac.require_confirmation":         "boolean",
+		"admitmac.shared_folders_ou":            "string",
+		"admitmac.uid":                          "string",
+		"admitmac.user_gid":                     "string",
+		"admitmac.users_ou":                     "string",
+		"centrify":                              "object",
+		"centrify.overwrite_existing":           "boolean",
+		"centrify.preferred_domain_server":      "string",
+		"centrify.update_PAM":                   "boolean",
+		"centrify.workstation_mode":             "boolean",
+		"centrify.zone":                         "string",
+		"computer_ou":                           "string",
+		"domain":                                "string",
+		"id":                                    "integer",
+		"name":                                  "string",
+		"open_directory":                        "object",
+		"open_directory.encrypt_using_ssl":      "boolean",
+		"open_directory.perform_secure_bind":    "boolean",
+		"open_directory.use_for_authentication": "boolean",
+		"open_directory.use_for_contacts":       "boolean",
+		"password":                              "string",
+		"password_sha256":                       "string",
+		"powerbroker_identity_services":         "object",
+		"priority":                              "integer",
+		"type":                                  "string",
+		"username":                              "string",
+	},
+	Credentials: map[string]bool{
+		"password":        true,
+		"password_sha256": true,
+	},
+}
+
 // NewClassicDirectoryBindingsCmd creates the classic-directory-bindings command group
 func NewClassicDirectoryBindingsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "classic-directory-bindings",
-		Short: "Directory bindings (Classic API)",
-		Long:  `Manage directory bindings via the Jamf Pro Classic API (/JSSResource/).`,
+		Use:         "classic-directory-bindings",
+		Short:       "Directory bindings (Classic API)",
+		Long:        `Manage directory bindings via the Jamf Pro Classic API (/JSSResource/).`,
+		Annotations: map[string]string{"jamf:api": "pro-classic"},
 	}
 
 	cmd.AddCommand(newClassicDirectoryBindingsListCmd(ctx))
@@ -49,6 +176,7 @@ func newClassicDirectoryBindingsListCmd(ctx *registry.CLIContext) *cobra.Command
 
   # List directorybindings and extract IDs
   jamf-cli pro classic-directory-bindings list --field id`,
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "directory-bindings:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/directorybindings", nil)
@@ -105,7 +233,8 @@ func newClassicDirectoryBindingsGetCmd(ctx *registry.CLIContext) *cobra.Command 
 
   # Get a directory_binding and output as YAML
   jamf-cli pro classic-directory-bindings get 1 -o yaml`,
-		Args: cobra.MaximumNArgs(1),
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "directory-bindings:read"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -157,21 +286,37 @@ func newClassicDirectoryBindingsGetCmd(ctx *registry.CLIContext) *cobra.Command 
 
 func newClassicDirectoryBindingsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
-		fromFile string
+		fromFile     string
+		flagScaffold bool
+		flagSet      []string
 	)
 	cmd := &cobra.Command{
 		Use:   "create",
 		Short: "Create a directory_binding",
-		Long:  "Create a new directory_binding. Reads the XML body from --from-file or stdin.",
+		Long: `Create a new directory_binding. Reads the XML body from --from-file, --set or stdin.
+
+Body fields are derived from the Classic API spec (schema "directory_binding").
+Run with --scaffold to print a complete XML template.
+
+Required: name
+Optional sections: active_directory, admitmac, centrify, computer_ou, domain, id,
+  open_directory, password, password_sha256,
+  powerbroker_identity_services, priority, type, username
+
+Credential fields (--from-file only, never --set): password, password_sha256`,
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "directory-bindings:create"},
 		Example: `  # Create a directory_binding from an XML file
   jamf-cli pro classic-directory-bindings create --from-file directory_binding.xml
 
   # Create a directory_binding from XML on stdin
   cat directory_binding.xml | jamf-cli pro classic-directory-bindings create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if flagScaffold {
+				return printClassicScaffold(bodySpecClassicDirectoryBindings)
+			}
 			reqCtx := cmd.Context()
 
-			bodyBytes, err := readClassicBody(fromFile)
+			bodyBytes, err := readClassicBodyOrSet(fromFile, flagSet, bodySpecClassicDirectoryBindings)
 			if err != nil {
 				return err
 			}
@@ -190,27 +335,53 @@ func newClassicDirectoryBindingsCreateCmd(ctx *registry.CLIContext) *cobra.Comma
 		},
 	}
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to XML input file (or pipe XML to stdin)")
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print an XML body template for this resource and exit")
+	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Set a body field in dot notation (key=value, repeatable). Builds the whole body, so it cannot be combined with --from-file")
+	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+		return []string{"active_directory.admin_groups=", "active_directory.cache_last_user=", "active_directory.default_shell=", "active_directory.forest=", "active_directory.gid=", "active_directory.local_home=", "active_directory.mount_style=", "active_directory.multiple_domains=", "active_directory.preferred_domain=", "active_directory.require_confirmation=", "active_directory.uid=", "active_directory.use_unc_path=", "active_directory.user_gid=", "admitmac.add_user_to_local=", "admitmac.admin_group=", "admitmac.cached_credentials=", "admitmac.default_shell=", "admitmac.gid=", "admitmac.groups_ou=", "admitmac.local_home=", "admitmac.mount_network_home=", "admitmac.mount_style=", "admitmac.place_home_folders=", "admitmac.printers_ou=", "admitmac.require_confirmation=", "admitmac.shared_folders_ou=", "admitmac.uid=", "admitmac.user_gid=", "admitmac.users_ou=", "centrify.overwrite_existing=", "centrify.preferred_domain_server=", "centrify.update_PAM=", "centrify.workstation_mode=", "centrify.zone=", "computer_ou=", "domain=", "id=", "name=", "open_directory.encrypt_using_ssl=", "open_directory.perform_secure_bind=", "open_directory.use_for_authentication=", "open_directory.use_for_contacts=", "priority=", "type=", "username="}, cobra.ShellCompDirectiveNoSpace
+	})
 	return cmd
 }
 
 func newClassicDirectoryBindingsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var fromFile string
+	var (
+		flagScaffold bool
+		flagSet      []string
+	)
 	var flagName string
 
 	cmd := &cobra.Command{
 		Use:   "update [<id>]",
 		Short: "Update a directory_binding",
-		Long:  "Update an existing directory_binding by ID. Reads the XML body from --from-file or stdin.",
+		Long: `Update an existing directory_binding by ID. Reads the XML body from --from-file, --set or stdin.
+
+The Classic API applies a partial update: fields the body omits keep their
+current values, so a body carrying one element changes only that element.
+
+Body fields are derived from the Classic API spec (schema "directory_binding").
+Run with --scaffold to print a complete XML template.
+
+Required: name
+Optional sections: active_directory, admitmac, centrify, computer_ou, domain, id,
+  open_directory, password, password_sha256,
+  powerbroker_identity_services, priority, type, username
+
+Credential fields (--from-file only, never --set): password, password_sha256`,
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "directory-bindings:update"},
 		Example: `  # Update a directory_binding from an XML file
   jamf-cli pro classic-directory-bindings update 1 --from-file directory_binding.xml
 
   # Update a directory_binding from XML on stdin
   cat directory_binding.xml | jamf-cli pro classic-directory-bindings update 1`,
-		Args: cobra.MaximumNArgs(1),
+		Args: classicScaffoldArgs(&flagScaffold, cobra.MaximumNArgs(1)),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if flagScaffold {
+				return printClassicScaffold(bodySpecClassicDirectoryBindings)
+			}
 			reqCtx := cmd.Context()
 
-			bodyBytes, bodyErr := readClassicBody(fromFile)
+			bodyBytes, bodyErr := readClassicBodyOrSet(fromFile, flagSet, bodySpecClassicDirectoryBindings)
 			if bodyErr != nil {
 				return bodyErr
 			}
@@ -239,6 +410,11 @@ func newClassicDirectoryBindingsUpdateCmd(ctx *registry.CLIContext) *cobra.Comma
 	}
 
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to XML input file (or pipe XML to stdin)")
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print an XML body template for this resource and exit")
+	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Set a body field in dot notation (key=value, repeatable). Builds the whole body, so it cannot be combined with --from-file")
+	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+		return []string{"active_directory.admin_groups=", "active_directory.cache_last_user=", "active_directory.default_shell=", "active_directory.forest=", "active_directory.gid=", "active_directory.local_home=", "active_directory.mount_style=", "active_directory.multiple_domains=", "active_directory.preferred_domain=", "active_directory.require_confirmation=", "active_directory.uid=", "active_directory.use_unc_path=", "active_directory.user_gid=", "admitmac.add_user_to_local=", "admitmac.admin_group=", "admitmac.cached_credentials=", "admitmac.default_shell=", "admitmac.gid=", "admitmac.groups_ou=", "admitmac.local_home=", "admitmac.mount_network_home=", "admitmac.mount_style=", "admitmac.place_home_folders=", "admitmac.printers_ou=", "admitmac.require_confirmation=", "admitmac.shared_folders_ou=", "admitmac.uid=", "admitmac.user_gid=", "admitmac.users_ou=", "centrify.overwrite_existing=", "centrify.preferred_domain_server=", "centrify.update_PAM=", "centrify.workstation_mode=", "centrify.zone=", "computer_ou=", "domain=", "id=", "name=", "open_directory.encrypt_using_ssl=", "open_directory.perform_secure_bind=", "open_directory.use_for_authentication=", "open_directory.use_for_contacts=", "priority=", "type=", "username="}, cobra.ShellCompDirectiveNoSpace
+	})
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up directory_binding by name")
 
 	return cmd
@@ -263,7 +439,7 @@ func newClassicDirectoryBindingsDeleteCmd(ctx *registry.CLIContext) *cobra.Comma
 
   # Delete without confirmation prompt
   jamf-cli pro classic-directory-bindings delete 1 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:api": "pro-classic", "jamf:gateway-privileges": "directory-bindings:delete"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -428,19 +604,32 @@ func newClassicDirectoryBindingsDeleteCmd(ctx *registry.CLIContext) *cobra.Comma
 
 func newClassicDirectoryBindingsApplyCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
-		fromFile   string
-		flagYes    bool
-		flagDryRun bool
+		fromFile     string
+		flagYes      bool
+		flagDryRun   bool
+		flagScaffold bool
+		flagSet      []string
 	)
 
 	cmd := &cobra.Command{
-		Use:   "apply",
-		Short: "Create or replace a directory_binding by name",
-		Long: `Create or replace a directory_binding. Reads XML from --from-file or stdin.
+		Use:         "apply",
+		Short:       "Create or replace a directory_binding by name",
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "directory-bindings:create,directory-bindings:read,directory-bindings:update"},
+		Long: `Create or replace a directory_binding. Reads XML from --from-file, --set or stdin.
 
 The name field in the input XML is used to check if the resource already
 exists. If it does, the resource is replaced (with confirmation).
-If not, a new resource is created.`,
+If not, a new resource is created.
+
+Body fields are derived from the Classic API spec (schema "directory_binding").
+Run with --scaffold to print a complete XML template.
+
+Required: name
+Optional sections: active_directory, admitmac, centrify, computer_ou, domain, id,
+  open_directory, password, password_sha256,
+  powerbroker_identity_services, priority, type, username
+
+Credential fields (--from-file only, never --set): password, password_sha256`,
 		Example: `  # Apply a directory_binding from an XML file
   jamf-cli pro classic-directory-bindings apply --from-file directory_binding.xml
 
@@ -450,6 +639,9 @@ If not, a new resource is created.`,
   # Apply without replacement confirmation
   jamf-cli pro classic-directory-bindings apply --from-file directory_binding.xml --yes`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			if flagScaffold {
+				return printClassicScaffold(bodySpecClassicDirectoryBindings)
+			}
 			reqCtx := cmd.Context()
 
 			// Read input
@@ -522,6 +714,12 @@ If not, a new resource is created.`,
 	}
 
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to XML input file (or pipe XML to stdin)")
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print an XML body template for this resource and exit")
+	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Set a body field in dot notation (key=value, repeatable). Builds the whole body, so it cannot be combined with --from-file")
+	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+		return []string{"active_directory.admin_groups=", "active_directory.cache_last_user=", "active_directory.default_shell=", "active_directory.forest=", "active_directory.gid=", "active_directory.local_home=", "active_directory.mount_style=", "active_directory.multiple_domains=", "active_directory.preferred_domain=", "active_directory.require_confirmation=", "active_directory.uid=", "active_directory.use_unc_path=", "active_directory.user_gid=", "admitmac.add_user_to_local=", "admitmac.admin_group=", "admitmac.cached_credentials=", "admitmac.default_shell=", "admitmac.gid=", "admitmac.groups_ou=", "admitmac.local_home=", "admitmac.mount_network_home=", "admitmac.mount_style=", "admitmac.place_home_folders=", "admitmac.printers_ou=", "admitmac.require_confirmation=", "admitmac.shared_folders_ou=", "admitmac.uid=", "admitmac.user_gid=", "admitmac.users_ou=", "centrify.overwrite_existing=", "centrify.preferred_domain_server=", "centrify.update_PAM=", "centrify.workstation_mode=", "centrify.zone=", "computer_ou=", "domain=", "id=", "name=", "open_directory.encrypt_using_ssl=", "open_directory.perform_secure_bind=", "open_directory.use_for_authentication=", "open_directory.use_for_contacts=", "priority=", "type=", "username="}, cobra.ShellCompDirectiveNoSpace
+	})
+
 	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt when replacing")
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
 

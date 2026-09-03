@@ -12,9 +12,10 @@ import (
 // NewLastLoginsCmd creates the last-logins command group
 func NewLastLoginsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "last-logins",
-		Short: "Manage last-logins",
-		Long:  `Manage last-logins in Jamf Pro.`,
+		Use:         "last-logins",
+		Short:       "Manage last-logins",
+		Long:        `Manage last-logins in Jamf Pro.`,
+		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
 	cmd.AddCommand(newLastLoginsListCmd(ctx))
@@ -34,7 +35,7 @@ func newLastLoginsListCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # List last-logins and extract IDs
   jamf-cli pro last-logins list --field id`,
-		Annotations: map[string]string{"jamf:privileges": "Read Last Login"},
+		Annotations: map[string]string{"jamf:privileges": "Read Last Login", "jamf:api": "pro", "jamf:gateway-privileges": "user-sessions:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

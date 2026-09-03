@@ -64,7 +64,7 @@ func runDeviceDeepDive(ctx context.Context, cliCtx *registry.CLIContext, identif
 	}
 
 	// 2. Fetch full detail.
-	detail, err := fetchJSON(ctx, client, "/v3/computers-inventory-detail/"+deviceID)
+	detail, err := fetchJSON(ctx, client, "/v4/computers-inventory-detail/"+deviceID)
 	if err != nil {
 		return nil, fmt.Errorf("fetching device detail: %w", err)
 	}
@@ -146,7 +146,7 @@ func buildIdentitySection(id, name string, general map[string]any) overviewSecti
 			{Resource: "MDM Capable", Value: nestedBoolStr(general, "mdmCapable", "capable")},
 			{Resource: "Supervised", Value: boolDisplay(boolVal(general, "supervised"))},
 			{Resource: "DEP Enrolled", Value: boolDisplay(boolVal(general, "enrolledViaAutomatedDeviceEnrollment"))},
-			{Resource: "Last Contact", Value: strVal(general, "lastContactTime")},
+			{Resource: "Last Contact", Value: lastCheckInOf(general)},
 		},
 	}
 }

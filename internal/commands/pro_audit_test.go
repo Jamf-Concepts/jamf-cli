@@ -226,7 +226,7 @@ func TestCheckEmptySmartGroups(t *testing.T) {
 func TestCheckUnencryptedDevices_Found(t *testing.T) {
 	client := &overviewMockClient{
 		responses: map[string]overviewMockResponse{
-			"/v3/computers-inventory": {200, `{"totalCount":3,"results":[
+			"/v4/computers-inventory": {200, `{"totalCount":3,"results":[
 				{"id":"1","diskEncryption":{"bootPartitionEncryptionDetails":{"partitionFileVault2State":"ENCRYPTED"}}},
 				{"id":"2","diskEncryption":{"bootPartitionEncryptionDetails":{"partitionFileVault2State":"UNENCRYPTED"}}},
 				{"id":"3","diskEncryption":{"bootPartitionEncryptionDetails":{"partitionFileVault2State":"DECRYPTED"}}}
@@ -253,7 +253,7 @@ func TestCheckUnencryptedDevices_Found(t *testing.T) {
 func TestCheckUnencryptedDevices_AllClean(t *testing.T) {
 	client := &overviewMockClient{
 		responses: map[string]overviewMockResponse{
-			"/v3/computers-inventory": {200, `{"totalCount":2,"results":[
+			"/v4/computers-inventory": {200, `{"totalCount":2,"results":[
 				{"id":"1","diskEncryption":{"bootPartitionEncryptionDetails":{"partitionFileVault2State":"ENCRYPTED"}}},
 				{"id":"2","diskEncryption":{"bootPartitionEncryptionDetails":{"partitionFileVault2State":"ENCRYPTED"}}}
 			]}`},
@@ -272,7 +272,7 @@ func TestCheckUnencryptedDevices_AllClean(t *testing.T) {
 func TestCheckUnencryptedDevices_NoDiskEncryptionSection(t *testing.T) {
 	client := &overviewMockClient{
 		responses: map[string]overviewMockResponse{
-			"/v3/computers-inventory": {200, `{"totalCount":1,"results":[
+			"/v4/computers-inventory": {200, `{"totalCount":1,"results":[
 				{"id":"1","general":{"name":"Mac1"}}
 			]}`},
 		},
@@ -292,7 +292,7 @@ func TestCheckUnencryptedDevices_EmptyDiskEncryptionSection(t *testing.T) {
 	// returns "" which must not be counted as unencrypted.
 	client := &overviewMockClient{
 		responses: map[string]overviewMockResponse{
-			"/v3/computers-inventory": {200, `{"totalCount":1,"results":[
+			"/v4/computers-inventory": {200, `{"totalCount":1,"results":[
 				{"id":"1","diskEncryption":{}}
 			]}`},
 		},
@@ -310,7 +310,7 @@ func TestCheckUnencryptedDevices_EmptyDiskEncryptionSection(t *testing.T) {
 func TestCheckGatekeeper_Found(t *testing.T) {
 	client := &overviewMockClient{
 		responses: map[string]overviewMockResponse{
-			"/v3/computers-inventory": {200, `{"totalCount":3,"results":[
+			"/v4/computers-inventory": {200, `{"totalCount":3,"results":[
 				{"id":"1","security":{"gatekeeperStatus":"ENABLED"}},
 				{"id":"2","security":{"gatekeeperStatus":"DISABLED"}},
 				{"id":"3","security":{"gatekeeperStatus":"Disabled"}}
@@ -337,7 +337,7 @@ func TestCheckGatekeeper_Found(t *testing.T) {
 func TestCheckGatekeeper_AllEnabled(t *testing.T) {
 	client := &overviewMockClient{
 		responses: map[string]overviewMockResponse{
-			"/v3/computers-inventory": {200, `{"totalCount":1,"results":[
+			"/v4/computers-inventory": {200, `{"totalCount":1,"results":[
 				{"id":"1","security":{"gatekeeperStatus":"ENABLED"}}
 			]}`},
 		},
@@ -463,7 +463,7 @@ func TestCheckDuplicateSerials_Found(t *testing.T) {
 	client := &overviewMockClient{
 		responses: map[string]overviewMockResponse{
 			// C02X shared by two records (logic-board swap), C02Z unique.
-			"/v3/computers-inventory": {200, `{"totalCount":4,"results":[
+			"/v4/computers-inventory": {200, `{"totalCount":4,"results":[
 				{"id":"1","hardware":{"serialNumber":"C02X1234"}},
 				{"id":"2","hardware":{"serialNumber":"C02X1234"}},
 				{"id":"3","hardware":{"serialNumber":"C02Z9999"}},
@@ -492,7 +492,7 @@ func TestCheckDuplicateSerials_AllUnique(t *testing.T) {
 	client := &overviewMockClient{
 		responses: map[string]overviewMockResponse{
 			// Blank serials must never count as duplicates of each other.
-			"/v3/computers-inventory": {200, `{"totalCount":3,"results":[
+			"/v4/computers-inventory": {200, `{"totalCount":3,"results":[
 				{"id":"1","hardware":{"serialNumber":"C02X1234"}},
 				{"id":"2","hardware":{"serialNumber":"C02Z9999"}},
 				{"id":"3","hardware":{"serialNumber":""}},
@@ -513,7 +513,7 @@ func TestCheckDuplicateSerials_AllUnique(t *testing.T) {
 func TestCheckDuplicateSerials_FetchError(t *testing.T) {
 	client := &overviewMockClient{
 		responses: map[string]overviewMockResponse{
-			"/v3/computers-inventory": {500, `{}`},
+			"/v4/computers-inventory": {500, `{}`},
 		},
 	}
 
@@ -526,7 +526,7 @@ func TestRunAudit_FilterByCategory(t *testing.T) {
 	// Only set up compliance mocks
 	mock := &overviewMockClient{
 		responses: map[string]overviewMockResponse{
-			"/v3/computers-inventory": {200, `{"totalCount":0,"results":[]}`},
+			"/v4/computers-inventory": {200, `{"totalCount":0,"results":[]}`},
 			"/v2/mdm/commands":        {200, `{"totalCount":5,"results":[]}`},
 		},
 	}

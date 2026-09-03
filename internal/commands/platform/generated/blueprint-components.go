@@ -21,9 +21,10 @@ import (
 // resource. Wire it into a product namespace via AddCommand.
 func NewBlueprintComponentsCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "blueprint-components",
-		Short: "Manage blueprint-components (Platform API)",
-		Long:  "Blueprints simplify the creation of complex workflows by leveraging declarative device management to ensure devices meet a particular management state. You can use blueprints to scope management settings to devices using customizable components that include payloads and their configurable settings, all in one location.",
+		Use:         "blueprint-components",
+		Short:       "Manage blueprint-components (Platform API)",
+		Long:        "Blueprints simplify the creation of complex workflows by leveraging declarative device management to ensure devices meet a particular management state. You can use blueprints to scope management settings to devices using customizable components that include payloads and their configurable settings, all in one location.",
+		Annotations: map[string]string{"jamf:api": "platform-gateway"},
 	}
 	cmd.AddCommand(newBlueprintComponentsListCmd(cliCtx))
 	cmd.AddCommand(newBlueprintComponentsGetCmd(cliCtx))
@@ -35,17 +36,22 @@ func newBlueprintComponentsListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Use:         "list",
 		Short:       "List available blueprint components",
 		Long:        "Get list of available blueprint components",
-		Annotations: map[string]string{"jamf:privileges": "read:pro:blueprints,read:school:blueprints"},
+		Annotations: map[string]string{"jamf:privileges": "blueprints:read", "jamf:api": "platform-gateway"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err
 			}
-			path := "/api/blueprints/v1/tenant/{tenantId}/blueprint-components"
-			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantID()), 1)
+			path := "/blueprints/v1/blueprint-components"
 			q := url.Values{}
 			var body any
 			const pageSize = 100
-			var aggregated []json.RawMessage
+			// Initialised empty, not nil: a nil slice marshals to "null", so an
+			// empty collection used to answer -o json with "null" while the
+			// unpaginated list path answered "[]" for the identical wire response
+			// ({"totalCount":0,"results":[]}). Anything piping the output to jq
+			// then failed on "Cannot iterate over null" only for tenants where the
+			// collection happened to be empty.
+			aggregated := []json.RawMessage{}
 			for page := 0; ; page++ {
 				pq := url.Values{}
 				for k, v := range q {
@@ -84,7 +90,7 @@ func newBlueprintComponentsGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Use:         "get <identifier>",
 		Short:       "Get component",
 		Long:        "Get component by identifier",
-		Annotations: map[string]string{"jamf:privileges": "read:pro:blueprints,read:school:blueprints"},
+		Annotations: map[string]string{"jamf:privileges": "blueprints:read", "jamf:api": "platform-gateway"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
@@ -92,7 +98,7 @@ func newBlueprintComponentsGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			}
 			var resolvedID string
 			if nameFlag != "" {
-				listPath := strings.Replace("/api/blueprints/v1/tenant/{tenantId}/blueprint-components", "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantID()), 1)
+				listPath := "/blueprints/v1/blueprint-components"
 				id, err := platform.ResolveIDByName(cmd.Context(), cliCtx.PlatformSDKClient, listPath, nameFlag)
 				if err != nil {
 					return err
@@ -103,8 +109,7 @@ func newBlueprintComponentsGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			} else {
 				return fmt.Errorf("provide a positional ID or --name")
 			}
-			path := "/api/blueprints/v1/tenant/{tenantId}/blueprint-components/{identifier}"
-			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantID()), 1)
+			path := "/blueprints/v1/blueprint-components/{identifier}"
 			path = strings.Replace(path, "{identifier}", url.PathEscape(resolvedID), 1)
 			q := url.Values{}
 			var body any

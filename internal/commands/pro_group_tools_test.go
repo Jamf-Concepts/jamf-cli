@@ -32,11 +32,11 @@ func groupToolsMockClient() *overviewMockClient {
 				]
 			}`},
 			// Smart group membership (id=1) — v2 returns integer IDs
-			"/v2/computer-groups/smart-group-membership/1": {200, `{
+			"/v3/computer-groups/smart-group-membership/1": {200, `{
 				"members": [10, 11]
 			}`},
 			// Smart group membership (id=3)
-			"/v2/computer-groups/smart-group-membership/3": {200, `{
+			"/v3/computer-groups/smart-group-membership/3": {200, `{
 				"members": [20, 21, 22]
 			}`},
 			// Static group detail (id=2) — Classic API, empty group
@@ -244,7 +244,7 @@ func TestGroupToolsMembers_SmartGroup(t *testing.T) {
 	}
 
 	// Fetch smart group membership via v2 endpoint
-	detail, err := FetchJSON(ctx, client, fmt.Sprintf("/v2/computer-groups/smart-group-membership/%s", groupID))
+	detail, err := FetchJSON(ctx, client, fmt.Sprintf("/v3/computer-groups/smart-group-membership/%s", groupID))
 	if err != nil {
 		t.Fatalf("fetching smart group membership: %v", err)
 	}

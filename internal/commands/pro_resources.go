@@ -60,11 +60,20 @@ var BackupResources = []BackupResource{
 	{Key: "mobile-device-extension-attributes", FilterName: "extension-attributes", SubDir: "extension-attributes/mobile"},
 	{Key: "classic-user-ext-attrs", FilterName: "extension-attributes", SubDir: "extension-attributes/user"},
 
-	// Computer groups — modern v2 endpoints (separate smart/static avoids the
-	// deprecated /v1/computer-groups combined endpoint that triggers 403s on
-	// role configurations without the legacy umbrella privilege).
+	// Computer groups — separate smart/static endpoints avoid the deprecated
+	// /v1/computer-groups combined endpoint that triggers 403s on role
+	// configurations without the legacy umbrella privilege.
+	//
+	// Both keys are the v3 resources. `static-computer-groups` names the same
+	// objects on v2, whose five operations the gateway withdrew, so an entry on
+	// it made `backup` and `diff` send a request that
+	// `pro static-computer-groups list` refuses on the same profile — and under
+	// --allow-partial-failure produced a backup silently missing every static
+	// computer group. DeduplicateVersioned keys a family on a V<n> name suffix,
+	// so a pair whose derived names differ is never collapsed and both survive:
+	// picking between them is this file's job.
 	{Key: "computer-groups-smart-groups", FilterName: "smart-groups", SubDir: "smart-groups/computers"},
-	{Key: "static-computer-groups", FilterName: "static-groups", SubDir: "static-groups/computers"},
+	{Key: "computer-groups-static-groups", FilterName: "static-groups", SubDir: "static-groups/computers"},
 
 	// Mobile device groups
 	{Key: "mobile-device-groups-smart-groups", FilterName: "smart-groups", SubDir: "smart-groups/mobile"},
@@ -91,7 +100,12 @@ var BackupResources = []BackupResource{
 	{Key: "classic-network-segments", FilterName: "network-segments", SubDir: "network-segments"},
 	{Key: "classic-restricted-software", FilterName: "restricted-software", SubDir: "restricted-software"},
 	{Key: "classic-disk-encryption-configs", FilterName: "disk-encryption", SubDir: "disk-encryption"},
-	{Key: "classic-patch-titles", FilterName: "patch-titles", SubDir: "patch-titles"},
+	// Patch software titles — the Pro API's configurations, not Classic's
+	// /patchsoftwaretitles. capi v1993 withdrew every read on that Classic
+	// resource (only POST /id/{} survives), so the classic key's ListPath and
+	// GetPath are both refused on a gateway profile. Same objects, and the
+	// modern-over-classic preference above already pointed here.
+	{Key: "patch-software-title-configurations", FilterName: "patch-titles", SubDir: "patch-titles"},
 
 	// Administration — accounts (users + groups, split by classic list_subset)
 	{Key: "classic-account-users", FilterName: "accounts", SubDir: "accounts/users"},

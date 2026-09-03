@@ -1,0 +1,1627 @@
+{
+  "components": {
+    "headers": {
+      "RateLimit-Limit": {
+        "description": "The request quota allotted for the current rate-limit window.",
+        "schema": {
+          "example": 100,
+          "type": "integer"
+        }
+      },
+      "RateLimit-Remaining": {
+        "description": "The number of requests remaining in the current rate-limit window.",
+        "schema": {
+          "example": 99,
+          "type": "integer"
+        }
+      },
+      "RateLimit-Reset": {
+        "description": "Seconds until the current rate-limit window resets and the quota is refilled.",
+        "schema": {
+          "example": 3600,
+          "type": "integer"
+        }
+      }
+    },
+    "parameters": {
+      "X-Tenant-Id": {
+        "description": "The tenant UUID identifier.",
+        "in": "header",
+        "name": "X-Tenant-Id",
+        "required": true,
+        "schema": {
+          "example": "e77c1408-10c8-4007-b177-abc9157fbcaa",
+          "format": "uuid",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "type": "string"
+        }
+      }
+    },
+    "responses": {
+      "Forbidden": {
+        "content": {
+          "application/json": {
+            "example": {
+              "errors": [
+                {
+                  "description": "The principal lacks the privilege required for this operation.",
+                  "field": null,
+                  "id": null
+                }
+              ],
+              "httpStatus": 403,
+              "traceId": "ecf2ca07e23c0abc12393472f2b783df"
+            },
+            "schema": {
+              "$ref": "#/components/schemas/ApiError"
+            }
+          }
+        },
+        "description": "Forbidden. The authenticated principal does not hold the privilege required to perform this operation.",
+        "headers": {
+          "RateLimit-Limit": {
+            "$ref": "#/components/headers/RateLimit-Limit"
+          },
+          "RateLimit-Remaining": {
+            "$ref": "#/components/headers/RateLimit-Remaining"
+          },
+          "RateLimit-Reset": {
+            "$ref": "#/components/headers/RateLimit-Reset"
+          }
+        }
+      },
+      "RateLimited": {
+        "content": {
+          "application/json": {
+            "example": {
+              "errors": [
+                {
+                  "description": "Rate limit exceeded for this endpoint.",
+                  "field": null,
+                  "id": null
+                }
+              ],
+              "httpStatus": 429,
+              "traceId": "ecf2ca07e23c0abc12393472f2b783df"
+            },
+            "schema": {
+              "$ref": "#/components/schemas/ApiError"
+            }
+          }
+        },
+        "description": "Too Many Requests. The client has exceeded the rate limit for this endpoint. Inspect the `RateLimit-*` and `Retry-After` headers to determine when to retry.",
+        "headers": {
+          "RateLimit-Limit": {
+            "$ref": "#/components/headers/RateLimit-Limit"
+          },
+          "RateLimit-Remaining": {
+            "description": "The number of requests remaining in the current rate-limit window.",
+            "schema": {
+              "example": 0,
+              "type": "integer"
+            }
+          },
+          "RateLimit-Reset": {
+            "$ref": "#/components/headers/RateLimit-Reset"
+          },
+          "Retry-After": {
+            "description": "Seconds the client SHOULD wait before issuing another request.",
+            "schema": {
+              "example": 3600,
+              "type": "integer"
+            }
+          }
+        }
+      },
+      "SearchDomainNotSet": {
+        "content": {
+          "application/json": {
+            "example": {
+              "errors": [
+                {
+                  "code": "SEARCH_DOMAIN_NOT_SET",
+                  "description": "No Search Domain is currently set for the tenant.",
+                  "field": null,
+                  "id": null
+                }
+              ],
+              "httpStatus": 404,
+              "traceId": "ecf2ca07e23c0abc12393472f2b783df"
+            },
+            "schema": {
+              "$ref": "#/components/schemas/ApiError"
+            }
+          }
+        },
+        "description": "Not Found. No Search Domain is currently set for the tenant.",
+        "headers": {
+          "RateLimit-Limit": {
+            "$ref": "#/components/headers/RateLimit-Limit"
+          },
+          "RateLimit-Remaining": {
+            "$ref": "#/components/headers/RateLimit-Remaining"
+          },
+          "RateLimit-Reset": {
+            "$ref": "#/components/headers/RateLimit-Reset"
+          }
+        }
+      },
+      "Unauthorized": {
+        "content": {
+          "application/json": {
+            "example": {
+              "errors": [
+                {
+                  "description": "The access token is missing, invalid, or expired.",
+                  "field": "Authorization",
+                  "id": null
+                }
+              ],
+              "httpStatus": 401,
+              "traceId": "ecf2ca07e23c0abc12393472f2b783df"
+            },
+            "schema": {
+              "$ref": "#/components/schemas/ApiError"
+            }
+          }
+        },
+        "description": "Unauthorized. The access token is missing, invalid, or expired, or the token belongs to a different organization than the tenant in the request path.",
+        "headers": {
+          "RateLimit-Limit": {
+            "$ref": "#/components/headers/RateLimit-Limit"
+          },
+          "RateLimit-Remaining": {
+            "$ref": "#/components/headers/RateLimit-Remaining"
+          },
+          "RateLimit-Reset": {
+            "$ref": "#/components/headers/RateLimit-Reset"
+          }
+        }
+      },
+      "ZoneNotFound": {
+        "content": {
+          "application/json": {
+            "example": {
+              "errors": [
+                {
+                  "code": "ZONE_NOT_FOUND",
+                  "description": "No DNS Zone with the supplied identifier exists for the tenant.",
+                  "field": "id",
+                  "id": "3f1a2b3c-4d5e-6f70-8a9b-0c1d2e3f4a5b"
+                }
+              ],
+              "httpStatus": 404,
+              "traceId": "ecf2ca07e23c0abc12393472f2b783df"
+            },
+            "schema": {
+              "$ref": "#/components/schemas/ApiError"
+            }
+          }
+        },
+        "description": "Not Found. No DNS Zone with the supplied identifier exists for the tenant, or the Zone is owned by a different tenant.",
+        "headers": {
+          "RateLimit-Limit": {
+            "$ref": "#/components/headers/RateLimit-Limit"
+          },
+          "RateLimit-Remaining": {
+            "$ref": "#/components/headers/RateLimit-Remaining"
+          },
+          "RateLimit-Reset": {
+            "$ref": "#/components/headers/RateLimit-Reset"
+          }
+        }
+      }
+    },
+    "schemas": {
+      "ApiError": {
+        "description": "Standard Jamf error response body returned for non-2xx/3xx responses.",
+        "properties": {
+          "errors": {
+            "description": "The list of individual errors that occurred while processing the request.",
+            "items": {
+              "$ref": "#/components/schemas/ApiErrorItem"
+            },
+            "type": "array"
+          },
+          "httpStatus": {
+            "description": "HTTP status code of the response.",
+            "example": 422,
+            "type": "integer"
+          },
+          "traceId": {
+            "description": "Trace identifier correlating the response with server-side logs. May be absent on infrastructure errors such as bare 500/503.",
+            "example": "ecf2ca07e23c0abc12393472f2b783df",
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "required": [
+          "httpStatus",
+          "errors"
+        ],
+        "type": "object"
+      },
+      "ApiErrorItem": {
+        "description": "A single error detail within an ApiError response.",
+        "properties": {
+          "code": {
+            "description": "Error-specific code that can be used to identify a localization string, etc.",
+            "enum": [
+              "INVALID_FIELD",
+              "LIST_SIZE_EXCEEDED",
+              "DOMAIN_CONFLICT",
+              "GATEWAY_NOT_FOUND",
+              "NAMESERVER_IP_OUT_OF_RANGE",
+              "NAMESERVER_IP_RESTRICTED",
+              "ZONE_NOT_FOUND",
+              "SEARCH_DOMAIN_NOT_SET",
+              "NOT_ENTITLED"
+            ],
+            "example": "INVALID_FIELD",
+            "type": "string"
+          },
+          "description": {
+            "description": "A general description of the error for troubleshooting and debugging. Generally this text should not be displayed to a user; instead refer to the code and its localized text. May be null.",
+            "example": "The supplied zone name is already in use.",
+            "nullable": true,
+            "type": "string"
+          },
+          "field": {
+            "description": "Name of the field that caused the error. Optional.",
+            "example": "name",
+            "nullable": true,
+            "type": "string"
+          },
+          "id": {
+            "description": "Identifier of the object with the error. Optional.",
+            "example": "3f1a2b3c-4d5e-6f70-8a9b-0c1d2e3f4a5b",
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "Mapping": {
+        "description": "A custom hostname mapping that overrides DNS resolution for a host.",
+        "properties": {
+          "aRecords": {
+            "description": "IPv4 (A record) addresses the hostname resolves to. May be null or absent when no IPv4 records are configured. Maximum 10 entries.",
+            "example": [
+              "203.0.113.10"
+            ],
+            "items": {
+              "description": "An IPv4 address.",
+              "example": "203.0.113.10",
+              "format": "ipv4",
+              "type": "string"
+            },
+            "maxItems": 10,
+            "nullable": true,
+            "type": "array"
+          },
+          "aaaaRecords": {
+            "description": "IPv6 (AAAA record) addresses the hostname resolves to. May be null or absent when no IPv6 records are configured. Maximum 10 entries.",
+            "example": [
+              "2001:db8::10"
+            ],
+            "items": {
+              "description": "An IPv6 address.",
+              "example": "2001:db8::10",
+              "format": "ipv6",
+              "type": "string"
+            },
+            "maxItems": 10,
+            "nullable": true,
+            "type": "array"
+          },
+          "hostname": {
+            "description": "The fully qualified hostname this mapping applies to.",
+            "example": "app.example.com",
+            "minLength": 1,
+            "type": "string"
+          },
+          "secureDns": {
+            "default": false,
+            "description": "Whether Secure DNS (DoH/DoT) is enabled for this mapping.",
+            "type": "boolean"
+          },
+          "ztna": {
+            "default": false,
+            "description": "Whether this mapping is routed through Zero Trust Network Access (ZTNA).",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "hostname"
+        ],
+        "type": "object"
+      },
+      "MappingList": {
+        "description": "A list of custom hostname mappings for the tenant, returned with the standard collection envelope. `totalCount` is server-computed and ignored on write.",
+        "properties": {
+          "results": {
+            "description": "The custom hostname mappings. Contains at most 500 entries.",
+            "items": {
+              "$ref": "#/components/schemas/Mapping"
+            },
+            "maxItems": 500,
+            "type": "array"
+          },
+          "totalCount": {
+            "description": "Total number of custom hostname mappings returned.",
+            "example": 1,
+            "readOnly": true,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "totalCount",
+          "results"
+        ],
+        "type": "object"
+      },
+      "NameServer": {
+        "description": "A name server entry that resolves queries for a DNS Zone.",
+        "properties": {
+          "gatewayId": {
+            "description": "Public identifier for the gateway. This is the public-facing name for the internal route identifier.",
+            "example": "gw-eu-01",
+            "minLength": 1,
+            "type": "string"
+          },
+          "ip": {
+            "description": "IPv4 address of the name server.",
+            "example": "203.0.113.53",
+            "format": "ipv4",
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "ip",
+          "gatewayId"
+        ],
+        "type": "object"
+      },
+      "SearchDomain": {
+        "description": "The tenant Search Domain — a singleton resource holding a single optional search-domain suffix.",
+        "properties": {
+          "suffix": {
+            "description": "The DNS search suffix appended to unqualified host names. Bounded to the maximum DNS name length of 253 characters (RFC 1035).",
+            "example": "corp.example.com",
+            "maxLength": 253,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "suffix"
+        ],
+        "type": "object"
+      },
+      "Zone": {
+        "description": "A DNS Zone configured for the tenant.",
+        "properties": {
+          "domains": {
+            "description": "The list of domains served by this DNS Zone.",
+            "example": [
+              "example.com"
+            ],
+            "items": {
+              "description": "A fully qualified domain served by the Zone.",
+              "example": "example.com",
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "id": {
+            "description": "Server-assigned unique identifier of the DNS Zone.",
+            "example": "3f1a2b3c-4d5e-6f70-8a9b-0c1d2e3f4a5b",
+            "pattern": "^[A-Za-z0-9_-]{16,64}$",
+            "readOnly": true,
+            "type": "string"
+          },
+          "name": {
+            "description": "Human-readable name of the DNS Zone. Maximum length 100 characters.",
+            "example": "corp-internal",
+            "maxLength": 100,
+            "type": "string"
+          },
+          "nameServers": {
+            "description": "The list of name servers that resolve queries for this Zone.",
+            "items": {
+              "$ref": "#/components/schemas/NameServer"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "domains",
+          "nameServers"
+        ],
+        "type": "object"
+      },
+      "ZoneList": {
+        "description": "A list of DNS Zones for the tenant.",
+        "properties": {
+          "results": {
+            "description": "The DNS Zones for the tenant.",
+            "items": {
+              "$ref": "#/components/schemas/Zone"
+            },
+            "type": "array"
+          },
+          "totalCount": {
+            "description": "Total number of DNS Zones returned in the list.",
+            "example": 2,
+            "readOnly": true,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "totalCount",
+          "results"
+        ],
+        "type": "object"
+      },
+      "ZonePatch": {
+        "description": "JSON Merge Patch (RFC 7396) request body for updating a DNS Zone. Any subset of the writable Zone fields may be supplied; omitted fields are left unchanged. A field set to `null` clears it where the field is optional; setting a required field to `null` is rejected (400, per ADG-302).",
+        "properties": {
+          "domains": {
+            "description": "Updated list of domains served by this DNS Zone. Omit to leave unchanged.",
+            "example": [
+              "example.com"
+            ],
+            "items": {
+              "description": "A fully qualified domain served by the Zone.",
+              "example": "example.com",
+              "type": "string"
+            },
+            "maxItems": 100,
+            "minItems": 1,
+            "type": "array"
+          },
+          "name": {
+            "description": "Updated name of the DNS Zone. 1 to 100 characters when supplied. Omit to leave unchanged.",
+            "example": "corp-internal",
+            "maxLength": 100,
+            "minLength": 1,
+            "type": "string"
+          },
+          "nameServers": {
+            "description": "Updated list of name servers for this Zone. Omit to leave unchanged.",
+            "items": {
+              "$ref": "#/components/schemas/NameServer"
+            },
+            "maxItems": 20,
+            "minItems": 1,
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
+      "ZoneRef": {
+        "description": "A reference to a DNS Zone, returned upon creation.",
+        "properties": {
+          "href": {
+            "description": "Canonical URL of the DNS Zone.",
+            "example": "/api/securitycloud/tenant/00000000-0000-0000-0000-000000000000/dns/zones/3f1a2b3c-4d5e-6f70-8a9b-0c1d2e3f4a5b",
+            "readOnly": true,
+            "type": "string"
+          },
+          "id": {
+            "description": "Server-assigned unique identifier of the DNS Zone.",
+            "example": "3f1a2b3c-4d5e-6f70-8a9b-0c1d2e3f4a5b",
+            "pattern": "^[A-Za-z0-9_-]{16,64}$",
+            "readOnly": true,
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "href"
+        ],
+        "type": "object"
+      },
+      "ZoneWrite": {
+        "description": "Request body for creating a DNS Zone.",
+        "properties": {
+          "domains": {
+            "description": "The list of domains served by this DNS Zone. Must contain between 1 and 100 entries.",
+            "example": [
+              "example.com"
+            ],
+            "items": {
+              "description": "A fully qualified domain served by the Zone.",
+              "example": "example.com",
+              "type": "string"
+            },
+            "maxItems": 100,
+            "minItems": 1,
+            "type": "array"
+          },
+          "name": {
+            "description": "Human-readable name of the DNS Zone. 1 to 100 characters.",
+            "example": "corp-internal",
+            "maxLength": 100,
+            "minLength": 1,
+            "type": "string"
+          },
+          "nameServers": {
+            "description": "The list of name servers that resolve queries for this Zone. Must contain between 1 and 20 entries.",
+            "items": {
+              "$ref": "#/components/schemas/NameServer"
+            },
+            "maxItems": 20,
+            "minItems": 1,
+            "type": "array"
+          }
+        },
+        "required": [
+          "name",
+          "domains",
+          "nameServers"
+        ],
+        "type": "object"
+      }
+    },
+    "securitySchemes": {
+      "oauth2": {
+        "description": "Obtain an access token by calling the API Gateway's token endpoint using the OAuth2 client-credentials flow.",
+        "flows": {
+          "clientCredentials": {
+            "scopes": {
+              "custom-hostname-mappings:delete": "",
+              "custom-hostname-mappings:read": "",
+              "custom-hostname-mappings:update": "",
+              "search-domains:delete": "",
+              "search-domains:read": "",
+              "search-domains:update": "",
+              "ztna:create": "",
+              "ztna:delete": "",
+              "ztna:read": "",
+              "ztna:update": ""
+            },
+            "tokenUrl": "https://{region}.api.jamfcloud.com/auth/token"
+          }
+        },
+        "type": "oauth2"
+      }
+    }
+  },
+  "info": {
+    "contact": {
+      "name": "Jamf Developer",
+      "url": "https://developer.jamf.com"
+    },
+    "description": "Manage DNS Zones, Search Domains, and Custom Hostname Mappings",
+    "termsOfService": "https://www.jamf.com/developer-resources/api-license-agreement/",
+    "title": "Security Cloud DNS API",
+    "version": "1.0.0"
+  },
+  "openapi": "3.0.3",
+  "paths": {
+    "/v1/dns/custom-hostname-mappings": {
+      "delete": {
+        "description": "Clears all tenant Custom Hostname Mappings.\n\n**Required Permissions:** `custom-hostname-mappings:delete`",
+        "operationId": "clearCustomHostnameMappings",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/X-Tenant-Id"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "The Custom Hostname Mappings were cleared. No content is returned."
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "custom-hostname-mappings:delete"
+            ]
+          }
+        ],
+        "summary": "Clear Custom Hostname Mappings",
+        "tags": [
+          "custom-hostname-mappings"
+        ],
+        "x-required-privileges": [
+          "custom-hostname-mappings:delete"
+        ]
+      },
+      "get": {
+        "description": "Returns the tenant Custom Hostname Mappings as a MappingList object (standard collection envelope). The full bounded set is returned in a single response and `totalCount` reflects the complete set. Pagination is currently not supported.\n\n**Required Permissions:** `custom-hostname-mappings:read`",
+        "operationId": "getCustomHostnameMappings",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/X-Tenant-Id"
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "results": [
+                    {
+                      "aRecords": [
+                        "203.0.113.10"
+                      ],
+                      "aaaaRecords": [
+                        "2001:db8::10"
+                      ],
+                      "hostname": "app.example.com",
+                      "secureDns": true,
+                      "ztna": false
+                    }
+                  ],
+                  "totalCount": 1
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/MappingList"
+                }
+              }
+            },
+            "description": "The tenant Custom Hostname Mappings.",
+            "headers": {
+              "RateLimit-Limit": {
+                "$ref": "#/components/headers/RateLimit-Limit"
+              },
+              "RateLimit-Remaining": {
+                "$ref": "#/components/headers/RateLimit-Remaining"
+              },
+              "RateLimit-Reset": {
+                "$ref": "#/components/headers/RateLimit-Reset"
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "custom-hostname-mappings:read"
+            ]
+          }
+        ],
+        "summary": "Get Custom Hostname Mappings",
+        "tags": [
+          "custom-hostname-mappings"
+        ],
+        "x-required-privileges": [
+          "custom-hostname-mappings:read"
+        ]
+      },
+      "put": {
+        "description": "Replaces the entire set of tenant Custom Hostname Mappings with the supplied JSON list. The previous mappings are fully overwritten.\n\n**Required Permissions:** `custom-hostname-mappings:update`",
+        "operationId": "replaceCustomHostnameMappings",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/X-Tenant-Id"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "example": [
+                {
+                  "aRecords": [
+                    "203.0.113.10"
+                  ],
+                  "aaaaRecords": [
+                    "2001:db8::10"
+                  ],
+                  "hostname": "app.example.com",
+                  "secureDns": true,
+                  "ztna": false
+                }
+              ],
+              "schema": {
+                "description": "The full set of custom hostname mappings to set — whole-list replace, at most 500 entries. The previous mappings are fully overwritten.",
+                "items": {
+                  "$ref": "#/components/schemas/Mapping"
+                },
+                "maxItems": 500,
+                "type": "array"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "The Custom Hostname Mappings were replaced. No content is returned."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "examples": {
+                  "json": {
+                    "summary": "JSON body validation failure",
+                    "value": {
+                      "errors": [
+                        {
+                          "code": "INVALID_FIELD",
+                          "description": "A record value is not a valid IPv4 address.",
+                          "field": "[0].aRecords",
+                          "id": null
+                        }
+                      ],
+                      "httpStatus": 400,
+                      "traceId": "ecf2ca07e23c0abc12393472f2b783df"
+                    }
+                  },
+                  "listSize": {
+                    "summary": "Whole-list size cap exceeded",
+                    "value": {
+                      "errors": [
+                        {
+                          "code": "LIST_SIZE_EXCEEDED",
+                          "description": "At most 500 custom hostname mappings may be configured.",
+                          "field": null,
+                          "id": null
+                        }
+                      ],
+                      "httpStatus": 400,
+                      "traceId": "ecf2ca07e23c0abc12393472f2b783df"
+                    }
+                  }
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Bad Request. The request body failed validation — a malformed field such as an invalid hostname or IP address (`INVALID_FIELD`), or the list exceeds the 500-entry maximum (`LIST_SIZE_EXCEEDED`)."
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "errors": [
+                    {
+                      "code": "NOT_ENTITLED",
+                      "description": "The tenant is not entitled to ZTNA routing for this mapping.",
+                      "field": "[0].ztna",
+                      "id": "app.example.com"
+                    }
+                  ],
+                  "httpStatus": 422,
+                  "traceId": "ecf2ca07e23c0abc12393472f2b783df"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Unprocessable Entity. **Reserved — not enforced in the current release:** the DNS public API is gated solely by its feature flag, with no per-record SKU entitlement check. `NOT_ENTITLED` is documented for forward-compatibility only; once SKU enforcement lands (out of scope for the current release) it would be returned per record when a mapping requests a capability the tenant is not licensed for, such as Secure DNS or ZTNA routing."
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "custom-hostname-mappings:update"
+            ]
+          }
+        ],
+        "summary": "Replace Custom Hostname Mappings",
+        "tags": [
+          "custom-hostname-mappings"
+        ],
+        "x-required-privileges": [
+          "custom-hostname-mappings:update"
+        ]
+      }
+    },
+    "/v1/dns/search-domains": {
+      "delete": {
+        "description": "Clears the tenant Search Domain, removing the configured suffix.\n\n**Required Permissions:** `search-domains:delete`",
+        "operationId": "clearSearchDomain",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/X-Tenant-Id"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "The Search Domain was cleared. No content is returned."
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "search-domains:delete"
+            ]
+          }
+        ],
+        "summary": "Clear the Search Domain",
+        "tags": [
+          "search-domains"
+        ],
+        "x-required-privileges": [
+          "search-domains:delete"
+        ]
+      },
+      "get": {
+        "description": "Returns the tenant Search Domain — a singleton resource holding a single optional search-domain suffix. Returns 200 with the search domain when one is set, or 404 when none is set.\n\n**Required Permissions:** `search-domains:read`",
+        "operationId": "getSearchDomain",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/X-Tenant-Id"
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "suffix": "corp.example.com"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/SearchDomain"
+                }
+              }
+            },
+            "description": "The tenant Search Domain.",
+            "headers": {
+              "RateLimit-Limit": {
+                "$ref": "#/components/headers/RateLimit-Limit"
+              },
+              "RateLimit-Remaining": {
+                "$ref": "#/components/headers/RateLimit-Remaining"
+              },
+              "RateLimit-Reset": {
+                "$ref": "#/components/headers/RateLimit-Reset"
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/SearchDomainNotSet"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "search-domains:read"
+            ]
+          }
+        ],
+        "summary": "Get the Search Domain",
+        "tags": [
+          "search-domains"
+        ],
+        "x-required-privileges": [
+          "search-domains:read"
+        ]
+      },
+      "put": {
+        "description": "Sets the tenant Search Domain to the supplied suffix. Any previously set search domain is overwritten.\n\n**Required Permissions:** `search-domains:update`",
+        "operationId": "setSearchDomain",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/X-Tenant-Id"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "example": {
+                "suffix": "corp.example.com"
+              },
+              "schema": {
+                "$ref": "#/components/schemas/SearchDomain"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "The Search Domain was set. No content is returned."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "errors": [
+                    {
+                      "code": "INVALID_FIELD",
+                      "description": "The search-domain suffix is malformed.",
+                      "field": "suffix",
+                      "id": null
+                    }
+                  ],
+                  "httpStatus": 400,
+                  "traceId": "ecf2ca07e23c0abc12393472f2b783df"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Bad Request. The request body failed validation — for example, a malformed search-domain suffix (`INVALID_FIELD`)."
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "search-domains:update"
+            ]
+          }
+        ],
+        "summary": "Set the Search Domain",
+        "tags": [
+          "search-domains"
+        ],
+        "x-required-privileges": [
+          "search-domains:update"
+        ]
+      }
+    },
+    "/v1/dns/zones": {
+      "get": {
+        "description": "Returns the full list of DNS Zones configured for the tenant. The list is not paginated and is bounded by a per-customer maximum zone cap. The full bounded set is returned in a single response and `totalCount` reflects the complete set. Pagination is currently not supported.\n\n**Required Permissions:** `ztna:read`",
+        "operationId": "listDnsZones",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/X-Tenant-Id"
+          },
+          {
+            "description": "Sort expression in the form `field:direction`, where direction is `asc` or `desc`. Defaults to ascending order when direction is omitted. The only supported sort field is `name`.",
+            "in": "query",
+            "name": "sort",
+            "schema": {
+              "default": "name:asc",
+              "enum": [
+                "name:asc",
+                "name:desc",
+                "name"
+              ],
+              "example": "name:asc",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "results": [
+                    {
+                      "domains": [
+                        "example.com"
+                      ],
+                      "id": "3f1a2b3c-4d5e-6f70-8a9b-0c1d2e3f4a5b",
+                      "name": "corp-internal",
+                      "nameServers": [
+                        {
+                          "gatewayId": "gw-eu-01",
+                          "ip": "203.0.113.53"
+                        }
+                      ]
+                    },
+                    {
+                      "domains": [
+                        "lab.example.com"
+                      ],
+                      "id": "7c2d4e6f-8a0b-1c2d-3e4f-5a6b7c8d9e0f",
+                      "name": "lab-dns",
+                      "nameServers": [
+                        {
+                          "gatewayId": "gw-eu-02",
+                          "ip": "203.0.113.54"
+                        }
+                      ]
+                    }
+                  ],
+                  "totalCount": 2
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ZoneList"
+                }
+              }
+            },
+            "description": "The list of DNS Zones for the tenant.",
+            "headers": {
+              "RateLimit-Limit": {
+                "$ref": "#/components/headers/RateLimit-Limit"
+              },
+              "RateLimit-Remaining": {
+                "$ref": "#/components/headers/RateLimit-Remaining"
+              },
+              "RateLimit-Reset": {
+                "$ref": "#/components/headers/RateLimit-Reset"
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "errors": [
+                    {
+                      "code": "INVALID_FIELD",
+                      "description": "The sort expression is malformed or names an unsupported field.",
+                      "field": "sort",
+                      "id": null
+                    }
+                  ],
+                  "httpStatus": 400,
+                  "traceId": "ecf2ca07e23c0abc12393472f2b783df"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Bad Request. The `sort` query parameter is malformed or names an unsupported field (`INVALID_FIELD`)."
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "ztna:read"
+            ]
+          }
+        ],
+        "summary": "List DNS Zones",
+        "tags": [
+          "zones"
+        ],
+        "x-required-privileges": [
+          "ztna:read"
+        ]
+      },
+      "post": {
+        "description": "Creates a new DNS Zone for the tenant from the supplied definition. Returns a reference to the newly created Zone, including its identifier and canonical URL. A tenant may hold at most a per-customer maximum number of DNS Zones (value TBD); a request that would exceed this per-customer cap is rejected with 400 `LIST_SIZE_EXCEEDED`.\n\n**Required Permissions:** `ztna:create`",
+        "operationId": "createDnsZone",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/X-Tenant-Id"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "example": {
+                "domains": [
+                  "example.com"
+                ],
+                "name": "corp-internal",
+                "nameServers": [
+                  {
+                    "gatewayId": "gw-eu-01",
+                    "ip": "203.0.113.53"
+                  }
+                ]
+              },
+              "schema": {
+                "$ref": "#/components/schemas/ZoneWrite"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "href": "/api/securitycloud/tenant/00000000-0000-0000-0000-000000000000/dns/zones/3f1a2b3c-4d5e-6f70-8a9b-0c1d2e3f4a5b",
+                  "id": "3f1a2b3c-4d5e-6f70-8a9b-0c1d2e3f4a5b"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ZoneRef"
+                }
+              }
+            },
+            "description": "The DNS Zone was created. A reference to the new Zone is returned.",
+            "headers": {
+              "Location": {
+                "description": "Canonical URL of the newly created DNS Zone.",
+                "schema": {
+                  "example": "/api/securitycloud/tenant/00000000-0000-0000-0000-000000000000/dns/zones/3f1a2b3c-4d5e-6f70-8a9b-0c1d2e3f4a5b",
+                  "type": "string"
+                }
+              },
+              "RateLimit-Limit": {
+                "$ref": "#/components/headers/RateLimit-Limit"
+              },
+              "RateLimit-Remaining": {
+                "$ref": "#/components/headers/RateLimit-Remaining"
+              },
+              "RateLimit-Reset": {
+                "$ref": "#/components/headers/RateLimit-Reset"
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "errors": [
+                    {
+                      "code": "INVALID_FIELD",
+                      "description": "The zone name must not be blank.",
+                      "field": "name",
+                      "id": null
+                    }
+                  ],
+                  "httpStatus": 400,
+                  "traceId": "ecf2ca07e23c0abc12393472f2b783df"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Bad Request. The request body failed bean or format validation — a missing required field or a malformed value (`INVALID_FIELD`), or an array field exceeds its maximum size such as more than 100 `domains` or 20 `nameServers`, or the per-customer zone cap (value TBD) would be exceeded (`LIST_SIZE_EXCEEDED`)."
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "errors": [
+                    {
+                      "code": "DOMAIN_CONFLICT",
+                      "description": "A zone already serves an overlapping domain.",
+                      "field": "domains",
+                      "id": null
+                    }
+                  ],
+                  "httpStatus": 409,
+                  "traceId": "ecf2ca07e23c0abc12393472f2b783df"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Conflict. A DNS Zone with the same name or overlapping domain already exists for the tenant."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "errors": [
+                    {
+                      "code": "GATEWAY_NOT_FOUND",
+                      "description": "The referenced gateway is unknown or not owned by the tenant.",
+                      "field": "nameServers",
+                      "id": "gw-eu-99"
+                    }
+                  ],
+                  "httpStatus": 422,
+                  "traceId": "ecf2ca07e23c0abc12393472f2b783df"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Unprocessable Entity. The request is well formed but cannot be processed: the referenced gateway is unknown or not owned by the tenant (`GATEWAY_NOT_FOUND`), a name server IP falls outside the permitted range (`NAMESERVER_IP_OUT_OF_RANGE`) or is otherwise restricted (`NAMESERVER_IP_RESTRICTED`)."
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "errors": [
+                    {
+                      "description": "The route-ownership service is temporarily unavailable. Retry the request.",
+                      "field": null,
+                      "id": null
+                    }
+                  ],
+                  "httpStatus": 503,
+                  "traceId": "ecf2ca07e23c0abc12393472f2b783df"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Service Unavailable. A downstream dependency required to validate route ownership was unavailable. The request may be retried."
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "ztna:create"
+            ]
+          }
+        ],
+        "summary": "Create a DNS Zone",
+        "tags": [
+          "zones"
+        ],
+        "x-required-privileges": [
+          "ztna:create"
+        ]
+      }
+    },
+    "/v1/dns/zones/{id}": {
+      "delete": {
+        "description": "Deletes the DNS Zone identified by its UUID.\n\n**Required Permissions:** `ztna:delete`",
+        "operationId": "deleteDnsZone",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/X-Tenant-Id"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "The DNS Zone was deleted. No content is returned."
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/ZoneNotFound"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "ztna:delete"
+            ]
+          }
+        ],
+        "summary": "Delete a DNS Zone",
+        "tags": [
+          "zones"
+        ],
+        "x-required-privileges": [
+          "ztna:delete"
+        ]
+      },
+      "get": {
+        "description": "Returns a single DNS Zone identified by its UUID.\n\n**Required Permissions:** `ztna:read`",
+        "operationId": "getDnsZone",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/X-Tenant-Id"
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "domains": [
+                    "example.com"
+                  ],
+                  "id": "3f1a2b3c-4d5e-6f70-8a9b-0c1d2e3f4a5b",
+                  "name": "corp-internal",
+                  "nameServers": [
+                    {
+                      "gatewayId": "gw-eu-01",
+                      "ip": "203.0.113.53"
+                    }
+                  ]
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/Zone"
+                }
+              }
+            },
+            "description": "The requested DNS Zone.",
+            "headers": {
+              "RateLimit-Limit": {
+                "$ref": "#/components/headers/RateLimit-Limit"
+              },
+              "RateLimit-Remaining": {
+                "$ref": "#/components/headers/RateLimit-Remaining"
+              },
+              "RateLimit-Reset": {
+                "$ref": "#/components/headers/RateLimit-Reset"
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/ZoneNotFound"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "ztna:read"
+            ]
+          }
+        ],
+        "summary": "Get a DNS Zone",
+        "tags": [
+          "zones"
+        ],
+        "x-required-privileges": [
+          "ztna:read"
+        ]
+      },
+      "parameters": [
+        {
+          "description": "Identifier of the DNS Zone to operate on.",
+          "in": "path",
+          "name": "id",
+          "required": true,
+          "schema": {
+            "example": "3f1a2b3c-4d5e-6f70-8a9b-0c1d2e3f4a5b",
+            "pattern": "^[A-Za-z0-9_-]{16,64}$",
+            "type": "string"
+          }
+        }
+      ],
+      "patch": {
+        "description": "Partially updates a DNS Zone using JSON Merge Patch (RFC 7396). Any subset of the writable Zone fields may be supplied. A field set to a new value is overwritten; an omitted field is left unchanged; a field set to `null` clears it where the field is optional. Setting a required field to `null` is rejected (400, per ADG-302). No optimistic locking is in place for this release — consider ADG-148 (`VersionId` + `409 OPTIMISTIC_LOCK_FAILED`) in a follow-up if this becomes a concern.\n\n**Required Permissions:** `ztna:update`",
+        "operationId": "updateDnsZone",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/X-Tenant-Id"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/merge-patch+json": {
+              "example": {
+                "domains": [
+                  "example.com",
+                  "corp.example.com"
+                ],
+                "name": "corp-internal-renamed"
+              },
+              "schema": {
+                "$ref": "#/components/schemas/ZonePatch"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "The DNS Zone was updated. No content is returned."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "errors": [
+                    {
+                      "code": "INVALID_FIELD",
+                      "description": "A required field must not be set to null.",
+                      "field": "name",
+                      "id": null
+                    }
+                  ],
+                  "httpStatus": 400,
+                  "traceId": "ecf2ca07e23c0abc12393472f2b783df"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Bad Request. The merge patch failed validation — a field carries a malformed value, or a required field was explicitly set to `null` (per ADG-302) (`INVALID_FIELD`), or an array field exceeds its maximum size such as more than 100 `domains` or 20 `nameServers` (`LIST_SIZE_EXCEEDED`)."
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/ZoneNotFound"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "errors": [
+                    {
+                      "code": "DOMAIN_CONFLICT",
+                      "description": "A zone already serves an overlapping domain.",
+                      "field": "domains",
+                      "id": null
+                    }
+                  ],
+                  "httpStatus": 409,
+                  "traceId": "ecf2ca07e23c0abc12393472f2b783df"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Conflict. The update would collide with an existing DNS Zone on name or an overlapping domain."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "errors": [
+                    {
+                      "code": "NAMESERVER_IP_OUT_OF_RANGE",
+                      "description": "A name server IP falls outside the permitted range.",
+                      "field": "nameServers",
+                      "id": null
+                    }
+                  ],
+                  "httpStatus": 422,
+                  "traceId": "ecf2ca07e23c0abc12393472f2b783df"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Unprocessable Entity. The request is well formed but cannot be processed: the referenced gateway is unknown or not owned by the tenant (`GATEWAY_NOT_FOUND`), a name server IP falls outside the permitted range (`NAMESERVER_IP_OUT_OF_RANGE`) or is otherwise restricted (`NAMESERVER_IP_RESTRICTED`)."
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "errors": [
+                    {
+                      "description": "The route-ownership service is temporarily unavailable. Retry the request.",
+                      "field": null,
+                      "id": null
+                    }
+                  ],
+                  "httpStatus": 503,
+                  "traceId": "ecf2ca07e23c0abc12393472f2b783df"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Service Unavailable. A downstream dependency required to validate route ownership was unavailable. The request may be retried."
+          }
+        },
+        "security": [
+          {
+            "oauth2": [
+              "ztna:update"
+            ]
+          }
+        ],
+        "summary": "Update a DNS Zone",
+        "tags": [
+          "zones"
+        ],
+        "x-required-privileges": [
+          "ztna:update"
+        ]
+      }
+    }
+  },
+  "security": [
+    {
+      "oauth2": []
+    }
+  ],
+  "servers": [
+    {
+      "description": "Jamf Beta API Gateway - prod",
+      "url": "https://{region}.api.jamfcloud.com/securitycloud",
+      "variables": {
+        "region": {
+          "default": "us",
+          "description": "Geographic deployment region",
+          "enum": [
+            "us",
+            "eu",
+            "apac"
+          ]
+        }
+      }
+    }
+  ],
+  "tags": [
+    {
+      "description": "Operations for managing DNS Zones within a tenant.",
+      "name": "zones"
+    },
+    {
+      "description": "Operations for managing the tenant Search Domain (a single optional search-domain suffix).",
+      "name": "search-domains"
+    },
+    {
+      "description": "Operations for managing tenant Custom Hostname Mappings.",
+      "name": "custom-hostname-mappings"
+    }
+  ],
+  "x-scope-types": [
+    "tenant"
+  ]
+}

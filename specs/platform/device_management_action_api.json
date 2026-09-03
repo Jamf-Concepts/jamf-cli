@@ -12,10 +12,10 @@
           "type": "string"
         }
       },
-      "tenantId": {
-        "description": "The tenant UUID identifier",
-        "in": "path",
-        "name": "tenantId",
+      "X-Tenant-Id": {
+        "description": "The tenant UUID identifier.",
+        "in": "header",
+        "name": "X-Tenant-Id",
         "required": true,
         "schema": {
           "example": "e77c1408-10c8-4007-b177-abc9157fbcaa",
@@ -27,6 +27,7 @@
     },
     "schemas": {
       "ApiError": {
+        "description": "Standard error response returned when a request cannot be completed.",
         "properties": {
           "errors": {
             "items": {
@@ -79,6 +80,7 @@
         "type": "object"
       },
       "DeviceCommandResponse": {
+        "description": "The result of a management action command issued to a device, including the created command's identifier.",
         "properties": {
           "commandId": {
             "description": "The ID of the command that was created to perform the requested action",
@@ -100,6 +102,7 @@
         "type": "object"
       },
       "EraseDeviceRequest": {
+        "description": "Options that control how a device is erased.",
         "properties": {
           "clearActivationLock": {
             "default": false,
@@ -138,11 +141,18 @@
       }
     },
     "securitySchemes": {
-      "bearerAuth": {
-        "bearerFormat": "JWT",
-        "description": "JWT Bearer token authentication. Obtain a token from the Jamf API Gateway.",
-        "scheme": "bearer",
-        "type": "http"
+      "oauth2": {
+        "description": "Obtain an access token by calling the API Gateway's token endpoint using the OAuth2 client-credentials flow.",
+        "flows": {
+          "clientCredentials": {
+            "scopes": {
+              "destructive-device-actions:execute": "",
+              "device-actions:execute": ""
+            },
+            "tokenUrl": "https://{region}.api.jamfcloud.com/auth/token"
+          }
+        },
+        "type": "oauth2"
       }
     }
   },
@@ -158,26 +168,17 @@
   },
   "openapi": "3.0.1",
   "paths": {
-    "/v1/tenant/{tenantId}/devices/{id}/check-in": {
+    "/v1/devices/{id}/check-in": {
       "parameters": [
         {
           "$ref": "#/components/parameters/DeviceId"
         }
       ],
       "post": {
-        "description": "Requests that a device check for pending commands\n\n**Required Permissions:** `execute:pro:device-actions`",
+        "description": "Requests that a device check for pending commands\n\n**Required Permissions:** `device-actions:execute`",
         "parameters": [
           {
-            "$ref": "#/components/parameters/tenantId"
-          },
-          {
-            "description": "Path parameter id",
-            "in": "path",
-            "name": "id",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
+            "$ref": "#/components/parameters/X-Tenant-Id"
           }
         ],
         "responses": {
@@ -207,7 +208,9 @@
         },
         "security": [
           {
-            "bearerAuth": []
+            "oauth2": [
+              "device-actions:execute"
+            ]
           }
         ],
         "summary": "Request a device check in",
@@ -215,32 +218,22 @@
           "device-actions"
         ],
         "x-action": true,
-        "x-authentication-required": true,
         "x-required-privileges": [
-          "execute:pro:device-actions"
+          "device-actions:execute"
         ]
       }
     },
-    "/v1/tenant/{tenantId}/devices/{id}/erase": {
+    "/v1/devices/{id}/erase": {
       "parameters": [
         {
           "$ref": "#/components/parameters/DeviceId"
         }
       ],
       "post": {
-        "description": "Requests that a device erase its content and settings\n\n**Required Permissions:** `execute:pro:device-actions`",
+        "description": "Requests that a device erase its content and settings\n\n**Required Permissions:** `destructive-device-actions:execute`",
         "parameters": [
           {
-            "$ref": "#/components/parameters/tenantId"
-          },
-          {
-            "description": "Path parameter id",
-            "in": "path",
-            "name": "id",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
+            "$ref": "#/components/parameters/X-Tenant-Id"
           }
         ],
         "requestBody": {
@@ -290,7 +283,9 @@
         },
         "security": [
           {
-            "bearerAuth": []
+            "oauth2": [
+              "destructive-device-actions:execute"
+            ]
           }
         ],
         "summary": "Erase a device",
@@ -298,32 +293,22 @@
           "device-actions"
         ],
         "x-action": true,
-        "x-authentication-required": true,
         "x-required-privileges": [
-          "execute:pro:device-actions"
+          "destructive-device-actions:execute"
         ]
       }
     },
-    "/v1/tenant/{tenantId}/devices/{id}/restart": {
+    "/v1/devices/{id}/restart": {
       "parameters": [
         {
           "$ref": "#/components/parameters/DeviceId"
         }
       ],
       "post": {
-        "description": "Requests that a device restart\n\n**Required Permissions:** `execute:pro:device-actions`",
+        "description": "Requests that a device restart\n\n**Required Permissions:** `device-actions:execute`",
         "parameters": [
           {
-            "$ref": "#/components/parameters/tenantId"
-          },
-          {
-            "description": "Path parameter id",
-            "in": "path",
-            "name": "id",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
+            "$ref": "#/components/parameters/X-Tenant-Id"
           }
         ],
         "responses": {
@@ -363,7 +348,9 @@
         },
         "security": [
           {
-            "bearerAuth": []
+            "oauth2": [
+              "device-actions:execute"
+            ]
           }
         ],
         "summary": "Restart a device",
@@ -371,32 +358,22 @@
           "device-actions"
         ],
         "x-action": true,
-        "x-authentication-required": true,
         "x-required-privileges": [
-          "execute:pro:device-actions"
+          "device-actions:execute"
         ]
       }
     },
-    "/v1/tenant/{tenantId}/devices/{id}/shutdown": {
+    "/v1/devices/{id}/shutdown": {
       "parameters": [
         {
           "$ref": "#/components/parameters/DeviceId"
         }
       ],
       "post": {
-        "description": "Requests that a device shut down\n\n**Required Permissions:** `execute:pro:device-actions`",
+        "description": "Requests that a device shut down\n\n**Required Permissions:** `device-actions:execute`",
         "parameters": [
           {
-            "$ref": "#/components/parameters/tenantId"
-          },
-          {
-            "description": "Path parameter id",
-            "in": "path",
-            "name": "id",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
+            "$ref": "#/components/parameters/X-Tenant-Id"
           }
         ],
         "responses": {
@@ -436,7 +413,9 @@
         },
         "security": [
           {
-            "bearerAuth": []
+            "oauth2": [
+              "device-actions:execute"
+            ]
           }
         ],
         "summary": "Shut down a device",
@@ -444,32 +423,22 @@
           "device-actions"
         ],
         "x-action": true,
-        "x-authentication-required": true,
         "x-required-privileges": [
-          "execute:pro:device-actions"
+          "device-actions:execute"
         ]
       }
     },
-    "/v1/tenant/{tenantId}/devices/{id}/unmanage": {
+    "/v1/devices/{id}/unmanage": {
       "parameters": [
         {
           "$ref": "#/components/parameters/DeviceId"
         }
       ],
       "post": {
-        "description": "Removes remote management from a device\n\n**Required Permissions:** `execute:pro:device-actions`",
+        "description": "Removes remote management from a device\n\n**Required Permissions:** `destructive-device-actions:execute`",
         "parameters": [
           {
-            "$ref": "#/components/parameters/tenantId"
-          },
-          {
-            "description": "Path parameter id",
-            "in": "path",
-            "name": "id",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
+            "$ref": "#/components/parameters/X-Tenant-Id"
           }
         ],
         "responses": {
@@ -509,7 +478,9 @@
         },
         "security": [
           {
-            "bearerAuth": []
+            "oauth2": [
+              "destructive-device-actions:execute"
+            ]
           }
         ],
         "summary": "Unmanage a device",
@@ -517,22 +488,21 @@
           "device-actions"
         ],
         "x-action": true,
-        "x-authentication-required": true,
         "x-required-privileges": [
-          "execute:pro:device-actions"
+          "destructive-device-actions:execute"
         ]
       }
     }
   },
   "security": [
     {
-      "bearerAuth": []
+      "oauth2": []
     }
   ],
   "servers": [
     {
       "description": "Jamf Beta API Gateway - prod",
-      "url": "https://{region}.apigw.jamf.com/api/device-actions",
+      "url": "https://{region}.api.jamfcloud.com/device-actions",
       "variables": {
         "region": {
           "default": "us",
@@ -545,5 +515,8 @@
         }
       }
     }
+  ],
+  "x-scope-types": [
+    "tenant"
   ]
 }

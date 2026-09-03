@@ -430,12 +430,13 @@ func (p *OAuth2Provider) Name() string {
 // PlatformOAuth2Provider uses the Jamf Platform Gateway for authentication.
 // Instead of authenticating directly against a Jamf Pro instance, it obtains
 // tokens from a regional platform gateway (e.g., https://us.api.platform.jamf.com)
-// and routes all API requests through that gateway using tenant-scoped URL paths.
+// and routes all API requests through that gateway, scoped by the header its
+// Scope names.
 type PlatformOAuth2Provider struct {
 	baseURL      string
 	clientID     string
 	clientSecret string
-	tenantID     string
+	scope        Scope
 	httpClient   *http.Client
 	jar          *diskCookieJar
 
@@ -446,13 +447,13 @@ type PlatformOAuth2Provider struct {
 	refreshBuffer time.Duration
 }
 
-func NewPlatformOAuth2Provider(baseURL, clientID, clientSecret, tenantID string) *PlatformOAuth2Provider {
+func NewPlatformOAuth2Provider(baseURL, clientID, clientSecret string, scope Scope) *PlatformOAuth2Provider {
 	jar := newDiskCookieJar(cookieJarPath(baseURL, clientID))
 	return &PlatformOAuth2Provider{
 		baseURL:      baseURL,
 		clientID:     clientID,
 		clientSecret: clientSecret,
-		tenantID:     tenantID,
+		scope:        scope,
 		jar:          jar,
 		httpClient: &http.Client{
 			Transport: httptransport.New(),
@@ -557,9 +558,11 @@ func (p *PlatformOAuth2Provider) ExpiresAt() time.Time {
 	return p.expiresAt
 }
 
-// TenantID returns the tenant identifier used for gateway URL path rewriting.
-func (p *PlatformOAuth2Provider) TenantID() string {
-	return p.tenantID
+// Scope returns the level this integration is scoped to, and the identifier that
+// names it. Callers use it to stamp the right request header — or none, for an
+// organization-scoped credential.
+func (p *PlatformOAuth2Provider) Scope() Scope {
+	return p.scope
 }
 
 // ClientID returns the OAuth2 client ID. Used to construct SDK clients that

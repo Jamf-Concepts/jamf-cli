@@ -42,7 +42,7 @@ func newResolveTestClient(t *testing.T, mux *http.ServeMux) *jamfplatform.Client
 func TestResolveIDByName_NonPaginated(t *testing.T) {
 	mux := http.NewServeMux()
 	var capturedQuery string
-	path := "/api/benchmarks/v1/tenant/" + resolveTestTenantID + "/benchmarks"
+	path := "/benchmarks/v1/tenant/" + resolveTestTenantID + "/benchmarks"
 	mux.HandleFunc(path, func(w http.ResponseWriter, r *http.Request) {
 		capturedQuery = r.URL.RawQuery
 		w.Header().Set("Content-Type", "application/json")
@@ -72,7 +72,7 @@ func TestResolveIDByName_NonPaginated(t *testing.T) {
 // which is used by benchmarks (not "name").
 func TestResolveIDByName_MatchesByTitle(t *testing.T) {
 	mux := http.NewServeMux()
-	path := "/api/some/v1/tenant/" + resolveTestTenantID + "/items"
+	path := "/some/v1/tenant/" + resolveTestTenantID + "/items"
 	mux.HandleFunc(path, func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(map[string]any{
@@ -100,7 +100,7 @@ func TestResolveIDByName_MatchesByTitle(t *testing.T) {
 func TestResolveIDByName_PaginatedMultiPage(t *testing.T) {
 	const pageSize = 100
 	mux := http.NewServeMux()
-	path := "/api/res/v1/tenant/" + resolveTestTenantID + "/items"
+	path := "/res/v1/tenant/" + resolveTestTenantID + "/items"
 
 	mux.HandleFunc(path, func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -140,7 +140,7 @@ func TestResolveIDByName_PaginatedMultiPage(t *testing.T) {
 // TestResolveIDByName_NotFound verifies ErrNotFound when no item matches.
 func TestResolveIDByName_NotFound(t *testing.T) {
 	mux := http.NewServeMux()
-	path := "/api/res/v1/tenant/" + resolveTestTenantID + "/items"
+	path := "/res/v1/tenant/" + resolveTestTenantID + "/items"
 	mux.HandleFunc(path, func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(map[string]any{
@@ -160,7 +160,7 @@ func TestResolveIDByName_NotFound(t *testing.T) {
 // name on the same page, an error is returned rather than silently picking one.
 func TestResolveIDByName_Ambiguous(t *testing.T) {
 	mux := http.NewServeMux()
-	path := "/api/device-groups/v1/tenant/" + resolveTestTenantID + "/device-groups"
+	path := "/device-groups/v1/tenant/" + resolveTestTenantID + "/device-groups"
 	mux.HandleFunc(path, func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(map[string]any{
@@ -186,7 +186,7 @@ func TestResolveIDByName_Ambiguous(t *testing.T) {
 // as a query param and narrows the result to the matching device type.
 func TestResolveIDByNameFiltered(t *testing.T) {
 	mux := http.NewServeMux()
-	path := "/api/device-groups/v1/tenant/" + resolveTestTenantID + "/device-groups"
+	path := "/device-groups/v1/tenant/" + resolveTestTenantID + "/device-groups"
 	var capturedFilter string
 	mux.HandleFunc(path, func(w http.ResponseWriter, r *http.Request) {
 		capturedFilter = r.URL.Query().Get("filter")
@@ -215,7 +215,7 @@ func TestResolveIDByNameFiltered(t *testing.T) {
 // TestResolveIDByName_BareArray verifies matching against bare-array responses.
 func TestResolveIDByName_BareArray(t *testing.T) {
 	mux := http.NewServeMux()
-	path := "/api/res/v1/tenant/" + resolveTestTenantID + "/items"
+	path := "/res/v1/tenant/" + resolveTestTenantID + "/items"
 	mux.HandleFunc(path, func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode([]any{
@@ -230,5 +230,61 @@ func TestResolveIDByName_BareArray(t *testing.T) {
 	}
 	if id != "arr-1" {
 		t.Errorf("id = %q, want %q", id, "arr-1")
+	}
+}
+
+// TestExtractIDNonStringID pins that an ID which is not a string on the wire is
+// still read.
+//
+// Every platform resource but one keys on a UUID, so extractID only ever had to
+// handle strings — and then an SSO domain's ID turned out to be a small
+// integer. The failure was silent and read as the wrong thing entirely: the
+// name matched, the type assertion did not, so firstMatch counted zero matches
+// and --name reported `no item with name "example.com"`, indistinguishable from
+// a typo.
+func TestExtractIDNonStringID(t *testing.T) {
+	cases := []struct {
+		name string
+		item map[string]any
+		want string
+	}{
+		{"string uuid", map[string]any{"id": "8a2d0ff2-4336-44ca-bd61-1e7e88258740"}, "8a2d0ff2-4336-44ca-bd61-1e7e88258740"},
+		{"float64 integer", map[string]any{"id": float64(1552)}, "1552"},
+		{"json.Number", map[string]any{"id": json.Number("1552")}, "1552"},
+		// A float64 large enough to lose precision as a string is not something
+		// this surface produces, but it must not render in exponent form.
+		{"large float64", map[string]any{"id": float64(20250831123456)}, "20250831123456"},
+		{"alternate key", map[string]any{"blueprintId": "bp-1"}, "bp-1"},
+		{"no id", map[string]any{"domain": "example.com"}, ""},
+		{"unusable type", map[string]any{"id": true}, ""},
+	}
+	for _, tc := range cases {
+		if got := extractID(tc.item); got != tc.want {
+			t.Errorf("%s: extractID = %q, want %q", tc.name, got, tc.want)
+		}
+	}
+}
+
+// TestMatchesNameInExtraField pins the per-resource name property.
+//
+// The extra field is consulted per call rather than added to the default list
+// because a global "domain" match would let any resource carrying an unrelated
+// domain property resolve on it.
+func TestMatchesNameInExtraField(t *testing.T) {
+	domain := map[string]any{"domain": "example.com", "id": float64(1552)}
+
+	if matchesNameIn(domain, "example.com", "") {
+		t.Error("without the extra field, a domain must not match on the default keys")
+	}
+	if !matchesNameIn(domain, "example.com", "domain") {
+		t.Error("with the extra field, a domain must match")
+	}
+	// The defaults still apply alongside the extra field.
+	named := map[string]any{"name": "Example Corp", "id": "con_1"}
+	if !matchesNameIn(named, "Example Corp", "domain") {
+		t.Error("naming an extra field must not disable the default keys")
+	}
+	if matchesNameIn(domain, "other.com", "domain") {
+		t.Error("a non-matching value must not match")
 	}
 }

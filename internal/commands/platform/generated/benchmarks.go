@@ -21,9 +21,10 @@ import (
 // resource. Wire it into a product namespace via AddCommand.
 func NewBenchmarksCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "benchmarks",
-		Short: "Manage benchmarks (Platform API)",
-		Long:  "Jamf Compliance Benchmarks API allows you to manage, enforce, and validate compliance on Apple devices",
+		Use:         "benchmarks",
+		Short:       "Manage benchmarks (Platform API)",
+		Long:        "Jamf Compliance Benchmarks API allows you to manage, enforce, and validate compliance on Apple devices",
+		Annotations: map[string]string{"jamf:api": "platform-gateway"},
 	}
 	cmd.AddCommand(newBenchmarksListCmd(cliCtx))
 	cmd.AddCommand(newBenchmarksCreateCmd(cliCtx))
@@ -37,13 +38,12 @@ func newBenchmarksListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Use:         "list",
 		Short:       "Returns list of tenant benchmarks",
 		Long:        "Returns list of tenant benchmarks (if any)",
-		Annotations: map[string]string{"jamf:privileges": "read:pro:compliance-benchmarks"},
+		Annotations: map[string]string{"jamf:privileges": "compliance-benchmarks:read", "jamf:api": "platform-gateway"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err
 			}
-			path := "/api/compliance-benchmarks/v1/tenant/{tenantId}/benchmarks"
-			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantID()), 1)
+			path := "/compliance-benchmarks/v1/benchmarks"
 			q := url.Values{}
 			var body any
 			if encoded := q.Encode(); encoded != "" {
@@ -86,20 +86,19 @@ func newBenchmarksCreateCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "create",
 		Short:       "Creates a new benchmark from provided benchmark request",
-		Long:        "Creates a new benchmark from provided benchmark request and deploys associated artifacts to the MDM",
-		Annotations: map[string]string{"jamf:privileges": "create:pro:compliance-benchmarks"},
+		Long:        "Creates a new benchmark from provided benchmark request and deploys associated artifacts to the MDM\n\nAllowed values:\n  enforcementMode: MONITOR, MONITOR_AND_ENFORCE\n  selectedOsVersions[].osType: MAC_OS, IOS, VISION_OS",
+		Annotations: map[string]string{"jamf:privileges": "compliance-benchmarks:create", "jamf:api": "platform-gateway"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if scaffoldFlag {
 				// Scaffold prints raw JSON regardless of -o, so the output
 				// can be piped straight back into --file.
-				fmt.Println("{\n  \"description\": \"Security benchmark for macOS 26 Tahoe\",\n  \"enforcementMode\": \"MONITOR\",\n  \"rules\": [\n    {\n      \"enabled\": true,\n      \"id\": \"os_install_log_retention_configure\",\n      \"odv\": null\n    }\n  ],\n  \"selectedOsVersions\": [\n    {\n      \"osType\": \"MAC_OS\",\n      \"osVersion\": 26\n    }\n  ],\n  \"sourceBaselineId\": \"cis_lvl1\",\n  \"target\": {\n    \"deviceGroups\": [\n      \"56681d76-f139-48bc-bab6-145ffb2d4696\"\n    ]\n  },\n  \"title\": \"CIS Level 1 example benchmark\"\n}")
+				fmt.Println("{\n  \"description\": \"Security benchmark for macOS 26 Tahoe\",\n  \"enforcementMode\": \"MONITOR\",\n  \"rules\": [\n    {\n      \"enabled\": true,\n      \"id\": \"os_install_log_retention_configure\",\n      \"odv\": {\n        \"value\": \"365\"\n      }\n    }\n  ],\n  \"selectedOsVersions\": [\n    {\n      \"osType\": \"MAC_OS\",\n      \"osVersion\": 26\n    }\n  ],\n  \"sourceBaselineId\": \"cis_lvl1\",\n  \"target\": {\n    \"deviceGroups\": [\n      \"56681d76-f139-48bc-bab6-145ffb2d4696\"\n    ]\n  },\n  \"title\": \"CIS Level 1 example benchmark\"\n}")
 				return nil
 			}
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err
 			}
-			path := "/api/compliance-benchmarks/v1/tenant/{tenantId}/benchmarks"
-			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantID()), 1)
+			path := "/compliance-benchmarks/v1/benchmarks"
 			q := url.Values{}
 			body, err := platform.ReadBody(bodyFile, setFlags)
 			if err != nil {
@@ -107,6 +106,25 @@ func newBenchmarksCreateCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			}
 			if encoded := q.Encode(); encoded != "" {
 				path += "?" + encoded
+			}
+			// --dry-run is a global flag advertised as "preview changes without
+			// executing", and it used to preview nothing here: the Pro client is
+			// wrapped by a dry-run decorator, this one is not, so every generated
+			// platform and Security Cloud mutation executed for real under -n.
+			// A create reported the object it had just made and a delete reported
+			// nothing, both exiting 0.
+			//
+			// Ahead of the confirmation, not after it. ConfirmAction errors when
+			// --yes is absent and stdin is not a terminal, so a preview of a
+			// destructive command used to be unobtainable in CI without also
+			// pre-authorising the real thing — and the day -n falls off that
+			// command line (or out of JAMF_CLI_ARGS) the delete runs with its
+			// confirmation already suppressed. Interactively the old order
+			// prompted first and printed [dry-run] second, teaching the operator
+			// that confirming is harmless. Name resolution stays ahead of both,
+			// so the preview reports the resolved path.
+			if cliCtx.DryRun {
+				return platform.ReportDryRun(cmd.ErrOrStderr(), http.MethodPost, path, body)
 			}
 			var result any
 			if err := cliCtx.PlatformSDKClient.Transport().DoWithContentType(cmd.Context(), http.MethodPost, path, body, "application/json", http.StatusAccepted, &result); err != nil {
@@ -122,7 +140,7 @@ func newBenchmarksCreateCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			return cliCtx.Output.PrintRaw(b)
 		},
 	}
-	cmd.Flags().StringVar(&bodyFile, "file", "", "Path to JSON file containing the request body")
+	cmd.Flags().StringVar(&bodyFile, "file", "", "Path to a JSON or YAML file containing the request body")
 	cmd.Flags().StringArrayVar(&setFlags, "set", nil, "Override body values (key=value, repeatable, supports nested.keys)")
 	cmd.Flags().BoolVar(&scaffoldFlag, "scaffold", false, "Print an example request body and exit")
 	return cmd
@@ -135,7 +153,7 @@ func newBenchmarksDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Use:         "delete <id>",
 		Short:       "Removes benchmark with given benchmark ID",
 		Long:        "Removes benchmark with given benchmark and removes associated draft (if any) and artifacts from the MDM",
-		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "delete:pro:compliance-benchmarks"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "compliance-benchmarks:delete", "jamf:api": "platform-gateway"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
@@ -143,7 +161,7 @@ func newBenchmarksDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			}
 			var resolvedID string
 			if nameFlag != "" {
-				listPath := strings.Replace("/api/compliance-benchmarks/v1/tenant/{tenantId}/benchmarks", "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantID()), 1)
+				listPath := "/compliance-benchmarks/v1/benchmarks"
 				id, err := platform.ResolveIDByName(cmd.Context(), cliCtx.PlatformSDKClient, listPath, nameFlag)
 				if err != nil {
 					return err
@@ -154,16 +172,34 @@ func newBenchmarksDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			} else {
 				return fmt.Errorf("provide a positional ID or --name")
 			}
-			if err := platform.ConfirmAction("delete", resolvedID, yes); err != nil {
-				return err
-			}
-			path := "/api/compliance-benchmarks/v1/tenant/{tenantId}/benchmarks/{id}"
-			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantID()), 1)
+			path := "/compliance-benchmarks/v1/benchmarks/{id}"
 			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
 			q := url.Values{}
 			var body any
 			if encoded := q.Encode(); encoded != "" {
 				path += "?" + encoded
+			}
+			// --dry-run is a global flag advertised as "preview changes without
+			// executing", and it used to preview nothing here: the Pro client is
+			// wrapped by a dry-run decorator, this one is not, so every generated
+			// platform and Security Cloud mutation executed for real under -n.
+			// A create reported the object it had just made and a delete reported
+			// nothing, both exiting 0.
+			//
+			// Ahead of the confirmation, not after it. ConfirmAction errors when
+			// --yes is absent and stdin is not a terminal, so a preview of a
+			// destructive command used to be unobtainable in CI without also
+			// pre-authorising the real thing — and the day -n falls off that
+			// command line (or out of JAMF_CLI_ARGS) the delete runs with its
+			// confirmation already suppressed. Interactively the old order
+			// prompted first and printed [dry-run] second, teaching the operator
+			// that confirming is harmless. Name resolution stays ahead of both,
+			// so the preview reports the resolved path.
+			if cliCtx.DryRun {
+				return platform.ReportDryRun(cmd.ErrOrStderr(), http.MethodDelete, path, body)
+			}
+			if err := platform.ConfirmAction("delete", resolvedID, yes); err != nil {
+				return err
 			}
 			if err := cliCtx.PlatformSDKClient.Transport().DoExpect(cmd.Context(), http.MethodDelete, path, body, http.StatusNoContent, nil); err != nil {
 				return fmt.Errorf("delete: %w", err)
@@ -182,7 +218,7 @@ func newBenchmarksGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Use:         "get <id>",
 		Short:       "Returns benchmark for given benchmark ID",
 		Long:        "Returns benchmark with full configuration for given benchmark ID, or 404 if not found",
-		Annotations: map[string]string{"jamf:privileges": "read:pro:compliance-benchmarks"},
+		Annotations: map[string]string{"jamf:privileges": "compliance-benchmarks:read", "jamf:api": "platform-gateway"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
@@ -190,7 +226,7 @@ func newBenchmarksGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			}
 			var resolvedID string
 			if nameFlag != "" {
-				listPath := strings.Replace("/api/compliance-benchmarks/v1/tenant/{tenantId}/benchmarks", "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantID()), 1)
+				listPath := "/compliance-benchmarks/v1/benchmarks"
 				id, err := platform.ResolveIDByName(cmd.Context(), cliCtx.PlatformSDKClient, listPath, nameFlag)
 				if err != nil {
 					return err
@@ -201,8 +237,7 @@ func newBenchmarksGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			} else {
 				return fmt.Errorf("provide a positional ID or --name")
 			}
-			path := "/api/compliance-benchmarks/v1/tenant/{tenantId}/benchmarks/{id}"
-			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantID()), 1)
+			path := "/compliance-benchmarks/v1/benchmarks/{id}"
 			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
 			q := url.Values{}
 			var body any

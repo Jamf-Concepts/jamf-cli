@@ -19,9 +19,10 @@ import (
 // NewJcdsCmd creates the jcds command group
 func NewJcdsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "jcds",
-		Short: "Manage jcds",
-		Long:  `Manage jcds in Jamf Pro.`,
+		Use:         "jcds",
+		Short:       "Manage jcds",
+		Long:        `Manage jcds in Jamf Pro.`,
+		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
 	cmd.AddCommand(newJcdsListCmd(ctx))
@@ -46,7 +47,7 @@ func newJcdsListCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # List jcds and extract IDs
   jamf-cli pro jcds list --field id`,
-		Annotations: map[string]string{"jamf:privileges": "Read Jamf Cloud Distribution Service Files"},
+		Annotations: map[string]string{"jamf:privileges": "Read Jamf Cloud Distribution Service Files", "jamf:api": "pro", "jamf:gateway-privileges": "jamf-cloud-distribution-service-files:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -90,7 +91,7 @@ func newJcdsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a jcd and output as YAML
   jamf-cli pro jcds get 1 -o yaml`,
-		Annotations: map[string]string{"jamf:privileges": "Read Jamf Cloud Distribution Service Files"},
+		Annotations: map[string]string{"jamf:privileges": "Read Jamf Cloud Distribution Service Files", "jamf:api": "pro", "jamf:gateway-privileges": "jamf-cloud-distribution-service-files:read"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -156,7 +157,7 @@ func newJcdsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Delete without confirmation prompt
   jamf-cli pro jcds delete 1 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Delete Jamf Cloud Distribution Service Files"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Delete Jamf Cloud Distribution Service Files", "jamf:api": "pro", "jamf:gateway-privileges": "jamf-cloud-distribution-service-files:delete"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -355,7 +356,7 @@ func newJcdsFilesCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:         "files",
 		Short:       "Initiate an upload to the Jamf Cloud Distribution Service",
 		Long:        "Creates a temporary record and returns the credentials and information needed for uploading the file to the Jamf Cloud Distribution Service.",
-		Annotations: map[string]string{"jamf:privileges": "Create Jamf Cloud Distribution Service Files"},
+		Annotations: map[string]string{"jamf:privileges": "Create Jamf Cloud Distribution Service Files", "jamf:api": "pro", "jamf:gateway-privileges": "jamf-cloud-distribution-service-files:create"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -408,7 +409,7 @@ func newJcdsRefreshInventoryCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:         "refresh-inventory",
 		Short:       "Refreshes the inventory and status of uploads in Jamf Pro. This will update the  status of uploads in the Jamf Pro database and allow the uploads to be deployed.",
 		Long:        "Refreshes the inventory and status of uploads in Jamf Pro. This will update the  status of uploads in the Jamf Pro database and allow the uploads to be deployed. Using the filename as a query parameter will query JCDS for the availability of the file using an exponential back-off during the allocated time period. If the filename is not supplied, all inventory will be refreshed, and this action is limited to once every 15 seconds.",
-		Annotations: map[string]string{"jamf:privileges": "Read Jamf Cloud Distribution Service Files"},
+		Annotations: map[string]string{"jamf:privileges": "Read Jamf Cloud Distribution Service Files", "jamf:api": "pro", "jamf:gateway-privileges": "jamf-cloud-distribution-service-files:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -463,7 +464,7 @@ func newJcdsRenewCredentialsCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:         "renew-credentials",
 		Short:       "Renew credentials for an upload to the Jamf Cloud Distribution Service",
 		Long:        "Renews the credentials needed for uploading the file to the Jamf Cloud Distribution Service.",
-		Annotations: map[string]string{"jamf:privileges": "Create Jamf Cloud Distribution Service Files"},
+		Annotations: map[string]string{"jamf:privileges": "Create Jamf Cloud Distribution Service Files", "jamf:api": "pro", "jamf:gateway-privileges": "jamf-cloud-distribution-service-files:create"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

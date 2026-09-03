@@ -12,7 +12,7 @@ package security
 // Security's 12 total operations never need path params, name-based lookup,
 // or PATCH/merge-patch):
 //   - GET (no body)
-//   - PUT/POST/DELETE actions, with or without a JSON body via --file/--set
+//   - PUT/POST/DELETE actions, with or without a JSON or YAML body via --file/--set
 //     (+ --scaffold), and --yes confirmation for destructive ones
 //   - The one paginated op (risk list) always fetches every page and prints
 //     the aggregated array — no --all flag, mirroring the Platform
@@ -41,7 +41,8 @@ import (
 func New{{.GoName}}Cmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "{{.Name}}",
-		Short: "Manage {{.Name}} (Jamf Security Cloud)",
+		Short: "Manage {{.Name}} (Security Cloud · Radar API)",
+		Annotations: map[string]string{"jamf:api": "radar"},
 	}
 {{- range .Operations }}
 	cmd.AddCommand(new{{$.GoName}}{{.GoName}}Cmd(cliCtx))
@@ -106,23 +107,19 @@ func new{{$.GoName}}{{.GoName}}Cmd(cliCtx *registry.CLIContext) *cobra.Command {
 				return fmt.Errorf("{{.Name}} requires --file or --set specifying a scope; refusing an unscoped {{.Name}}")
 			}
 {{- end }}
-{{- if .NeedsCustomerID }}
-			if err := security.ConfirmAction(fmt.Sprintf("{{.Name}} for customer %q", customerID), {{printf "%q" $.Name}}, yes); err != nil {
-				return err
-			}
-{{- else }}
-			if err := security.ConfirmAction({{printf "%q" .Name}}, {{printf "%q" $.Name}}, yes); err != nil {
-				return err
-			}
-{{- end }}
 {{- end }}
 {{- if .Paginate }}
+{{- if .IsDestructive }}
+{{ confirmStmt . $.Name }}
+{{- end }}
 			const pageSize = 100
 			// maxPages is a sanity backstop: if the server ignores the page
 			// parameter and keeps returning full pages, fail loudly instead
 			// of hanging with an unbounded aggregated slice.
 			const maxPages = 10000
-			var aggregated []json.RawMessage
+			// Initialised empty, not nil — a nil slice marshals to "null", which
+			// makes an empty collection unusable to anything piping -o json.
+			aggregated := []json.RawMessage{}
 			for page := 0; ; page++ {
 				if page >= maxPages {
 					return fmt.Errorf("{{.Name}}: exceeded %d pages without reaching the end; the server may not be honoring the page parameter", maxPages)
@@ -183,6 +180,26 @@ func new{{$.GoName}}{{.GoName}}Cmd(cliCtx *registry.CLIContext) *cobra.Command {
 				path += "?" + encoded
 			}
 {{- end }}
+{{- if ne .Method "GET" }}
+			// --dry-run previewed nothing before: the Pro client is wrapped by a
+			// dry-run decorator, this one is not, so a risk override or a
+			// device-lifecycle purge executed for real under -n while the flag
+			// advertised "preview changes without executing".
+			//
+			// Ahead of the confirmation, not after it. ConfirmAction errors when
+			// --yes is absent and stdin is not a terminal, so previewing a purge
+			// in CI used to require pre-authorising the real one — and the day -n
+			// falls off that command line (or out of JAMF_CLI_ARGS) the purge
+			// runs with its confirmation already suppressed. The unscoped-body
+			// refusal above stays ahead of both: it is a validation, and there is
+			// nothing worth previewing about a purge with no scope.
+			if cliCtx.DryRun {
+				return security.ReportDryRun(cmd.ErrOrStderr(), {{printf "%q" .Method}}, path, body)
+			}
+{{- end }}
+{{- if .IsDestructive }}
+{{ confirmStmt . $.Name }}
+{{- end }}
 			var result any
 			if err := cliCtx.SecurityClient.DoExpect{{$.Scope}}(cmd.Context(), {{printf "%q" .Method}}, path, body, &result); err != nil {
 				return fmt.Errorf("{{.Name}}: %w", err)
@@ -199,7 +216,7 @@ func new{{$.GoName}}{{.GoName}}Cmd(cliCtx *registry.CLIContext) *cobra.Command {
 		},
 	}
 {{- if .HasBody }}
-	cmd.Flags().StringVar(&bodyFile, "file", "", "Path to JSON file containing the request body")
+	cmd.Flags().StringVar(&bodyFile, "file", "", "Path to a JSON or YAML file containing the request body")
 	cmd.Flags().StringArrayVar(&setFlags, "set", nil, "Override body values (key=value, repeatable, supports nested.keys)")
 {{- end }}
 {{- if .HasScaffold }}

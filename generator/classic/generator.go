@@ -4,6 +4,7 @@ package classic
 
 import (
 	"fmt"
+	"net/http"
 	"os"
 	"path/filepath"
 	"slices"
@@ -13,6 +14,36 @@ import (
 
 	"github.com/iancoleman/strcase"
 )
+
+// classicListMethod is the pseudo-method the template passes for a collection
+// GET. The collection path is the one Classic path fixed at generate time, so it
+// is judged exactly rather than across the subtree — see ClassicResource's
+// GatewayList.
+const classicListMethod = "list"
+
+// classicGatewayVerdict picks the verdict that applies to one subcommand: the
+// whole-resource one when it refuses, otherwise the first of the subcommand's
+// own methods that does.
+//
+// First rather than a merge, because a command that always sends a refused
+// method is refused whatever else it sends, and one reason is what a refusal
+// message can carry. Methods are consulted in the order the template lists them,
+// which is the order the command sends them.
+func classicGatewayVerdict(r ClassicResource, methods ...string) GatewayVerdict {
+	if r.GatewayLevel != "" {
+		return GatewayVerdict{Level: r.GatewayLevel, Basis: r.GatewayBasis, Detail: r.GatewayDetail}
+	}
+	for _, m := range methods {
+		v := r.GatewayList
+		if m != classicListMethod {
+			v = r.GatewayMethods[m]
+		}
+		if v.Level != "" {
+			return v
+		}
+	}
+	return GatewayVerdict{}
+}
 
 // CodegenHeader is the marker line at the top of every classic API generated file.
 // Must match the first line of classicResourceTemplate and classicRegistryTemplate.
@@ -103,6 +134,69 @@ func templateFuncs() template.FuncMap {
 		"hasLookup":          hasLookup,
 		"extraLookups":       extraLookups,
 		"scopeResolveByList": func(r ClassicResource) bool { return !r.HasLookup("name") },
+		// gatewayAnn renders the gateway-coverage annotation pairs for a command
+		// the Jamf Platform gateway is not known to serve. Rendered as a suffix
+		// onto the jamf:api literal rather than as a whole map, so the seven
+		// annotation sites in this template keep reading as literals.
+		//
+		// methods are the same values passed to gatewayPrivAnn — the HTTP methods
+		// this subcommand always sends, with the pseudo-method "list" for the
+		// collection GET. None means the resource root, which carries the
+		// whole-resource verdict only.
+		//
+		// The resource verdict wins when it refuses, being the broader fact. A
+		// served resource is then narrowed per method, because a resource can be
+		// carried and still have a dead subcommand — see ClassicResource's
+		// GatewayMethods.
+		"gatewayAnn": func(r ClassicResource, methods ...string) string {
+			v := classicGatewayVerdict(r, methods...)
+			if v.Level == "" {
+				return ""
+			}
+			return fmt.Sprintf(", %q: %q, %q: %q, %q: %q",
+				"jamf:gateway", v.Level,
+				"jamf:gateway-basis", v.Basis,
+				"jamf:gateway-detail", v.Detail)
+		},
+		// gatewayPrivAnn renders the jamf:gateway-privileges pair for one
+		// Classic subcommand, given the HTTP methods that subcommand always
+		// sends. Per method rather than per resource because that is where the
+		// scopes differ — accounts:read for a GET, accounts:update for a PUT —
+		// even though the served/unserved verdict is resource-wide.
+		//
+		// Only the methods a command ALWAYS sends. A --name, --serial or --udid
+		// lookup additionally GETs the collection to resolve the identifier, so
+		// those invocations also need the resource's read permission; that is
+		// left out rather than folded in, because the alternative is telling
+		// everyone running `delete <id>` to grant a read they do not need, and
+		// this catalog is what a least-privilege integration gets sized from.
+		// apply is the exception that really does always read.
+		"gatewayPrivAnn": func(r ClassicResource, methods ...string) string {
+			// A refused command needs no permission and must not name one. The
+			// subtree scope union is the trap here: patchpolicies keeps
+			// patch-policies:read on /id/{} after the collection GET was
+			// withdrawn, so a refused `list` would otherwise advertise a grant
+			// that cannot make it work.
+			if classicGatewayVerdict(r, methods...).Level != "" {
+				return ""
+			}
+			var scopes []string
+			for _, m := range methods {
+				if m == classicListMethod {
+					m = http.MethodGet
+				}
+				for _, sc := range r.GatewayPrivileges[m] {
+					if !slices.Contains(scopes, sc) {
+						scopes = append(scopes, sc)
+					}
+				}
+			}
+			if len(scopes) == 0 {
+				return ""
+			}
+			slices.Sort(scopes)
+			return fmt.Sprintf(", %q: %q", "jamf:gateway-privileges", strings.Join(scopes, ","))
+		},
 		"classicExample": func(r ClassicResource, op string) string {
 			bin := "jamf-cli pro"
 			name := r.CLIName
@@ -193,6 +287,34 @@ func templateFuncs() template.FuncMap {
 				}
 			}
 			return false
+		},
+		// anyHasBodySchema gates the shared --scaffold/--set helpers in the
+		// registry, so a tree with no classic schema artifact still compiles.
+		"anyHasBodySchema": func(resources []ClassicResource) bool {
+			for _, r := range resources {
+				if r.HasBodySchema() {
+					return true
+				}
+			}
+			return false
+		},
+		// bodySpecLiteral renders one resource's classicBodySpec as a Go literal.
+		"bodySpecLiteral": bodySpecLiteral,
+		// bodySpecVar names the package-level classicBodySpec var for a
+		// resource. Always emitted, even for the four resources with no schema,
+		// so the four call sites in the resource template stay unconditional —
+		// an empty spec makes readClassicBodyOrSet fall through to
+		// readClassicBody, which is the pre-artifact behaviour.
+		"bodySpecVar": func(r ClassicResource) string { return "bodySpec" + r.GoName },
+		// bodyHelp renders the required/optional/enum tail appended to a write
+		// command's Long help.
+		"bodyHelp": bodyHelp,
+		"setCompletions": func(r ClassicResource) string {
+			var b strings.Builder
+			for _, c := range r.SetCompletions() {
+				fmt.Fprintf(&b, "%q, ", c)
+			}
+			return b.String()
 		},
 		"anyNeedsClassicNameResolve": func(resources []ClassicResource) bool {
 			for _, r := range resources {
@@ -369,12 +491,19 @@ import (
 {{- end }}
 )
 
+// bodySpec{{ .GoName }} is this resource's request-body contract, derived from
+// specs/classic/schemas.json at generation time. Empty when the Classic API spec
+// declares no schema for it, in which case create/update/apply read their body
+// from --from-file or stdin with no --scaffold and no --set.
+var bodySpec{{ .GoName }} = {{ if .HasBodySchema }}{{ bodySpecLiteral . }}{{ else }}classicBodySpec{}{{ end }}
+
 // New{{ .GoName }}Cmd creates the {{ .CLIName }} command group
 func New{{ .GoName }}Cmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "{{ .CLIName }}",
 		Short: "{{ .Description }} (Classic API)",
 		Long:  ` + "`" + `Manage {{ .Description | toLower }} via the Jamf Pro Classic API (/JSSResource/).` + "`" + `,
+		Annotations: map[string]string{"jamf:api": "pro-classic"{{ gatewayAnn $ }}},
 	}
 {{ if hasOp .Operations "list" }}
 	cmd.AddCommand(new{{ .GoName }}ListCmd(ctx))
@@ -412,6 +541,7 @@ func new{{ .GoName }}ListCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:   "list",
 		Short: "List all {{ .Name }}",
 		Example: ` + "`" + `{{ classicExample . "list" }}` + "`" + `,
+		Annotations: map[string]string{"jamf:api": "pro-classic"{{ gatewayAnn $ "list" }}{{ gatewayPrivAnn $ "list" }}},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/{{ .Path }}", nil)
@@ -486,6 +616,7 @@ func new{{ .GoName }}GetCmd(ctx *registry.CLIContext) *cobra.Command {
 {{ else }}		Use:   "get <id>",
 {{ end }}		Short: "Get a {{ .Singular }} by ID",
 		Example: ` + "`" + `{{ classicExample . "get" }}` + "`" + `,
+		Annotations: map[string]string{"jamf:api": "pro-classic"{{ gatewayAnn $ "GET" }}{{ gatewayPrivAnn $ "GET" }}},
 {{ if extraLookups .Lookups }}		Args:  cobra.MaximumNArgs(1),
 {{ else }}		Args:  cobra.ExactArgs(1),
 {{ end }}		RunE: func(cmd *cobra.Command, args []string) error {
@@ -566,20 +697,26 @@ func new{{ .GoName }}GetCmd(ctx *registry.CLIContext) *cobra.Command {
 func new{{ .GoName }}CreateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		fromFile string
-{{ if .FileFields }}{{ range .FileFields }}		flag{{ lookupCamel .Flag }} string
+{{ if .HasBodySchema }}		flagScaffold bool
+		flagSet      []string
+{{ end }}{{ if .FileFields }}{{ range .FileFields }}		flag{{ lookupCamel .Flag }} string
 {{ end }}{{ if .HasCustomPayload }}		flagCustomPayloadFiles  []string
 		flagCustomPayloadDomain string
 {{ end }}{{ end }}	)
 	cmd := &cobra.Command{
 		Use:   "create",
 		Short: "Create a {{ .Singular }}",
-		Long:  "Create a new {{ .Singular }}. Reads the XML body from --from-file or stdin.",
+		Long:  ` + "`" + `Create a new {{ .Singular }}. Reads the XML body from --from-file, --set or stdin.{{ bodyHelp . }}` + "`" + `,
+		Annotations: map[string]string{"jamf:api": "pro-classic"{{ gatewayAnn $ "POST" }}{{ gatewayPrivAnn $ "POST" }}},
 		Example: ` + "`" + `{{ classicExample . "create" }}` + "`" + `,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := cmd.Context()
+{{ if .HasBodySchema }}			if flagScaffold {
+				return printClassicScaffold(bodySpec{{ .GoName }})
+			}
+{{ end }}			reqCtx := cmd.Context()
 
 {{ if .FileFields }}
-			bodyBytes, err := readClassicBody(fromFile)
+			bodyBytes, err := readClassicBodyOrSet(fromFile, {{ if .HasBodySchema }}flagSet{{ else }}nil{{ end }}, {{ bodySpecVar . }})
 			if err != nil {
 				return err
 			}
@@ -644,7 +781,7 @@ func new{{ .GoName }}CreateCmd(ctx *registry.CLIContext) *cobra.Command {
 			return ctx.Output.PrintResponse(resp)
 {{ end -}}
 {{ else }}
-			bodyBytes, err := readClassicBody(fromFile)
+			bodyBytes, err := readClassicBodyOrSet(fromFile, {{ if .HasBodySchema }}flagSet{{ else }}nil{{ end }}, {{ bodySpecVar . }})
 			if err != nil {
 				return err
 			}
@@ -663,7 +800,12 @@ func new{{ .GoName }}CreateCmd(ctx *registry.CLIContext) *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to XML input file (or pipe XML to stdin)")
-{{ if .FileFields }}
+{{ if .HasBodySchema }}	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print an XML body template for this resource and exit")
+	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Set a body field in dot notation (key=value, repeatable). Builds the whole body, so it cannot be combined with --from-file")
+	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+		return []string{ {{ setCompletions . }} }, cobra.ShellCompDirectiveNoSpace
+	})
+{{ end }}{{ if .FileFields }}
 {{ range .FileFields }}	cmd.Flags().StringVar(&flag{{ lookupCamel .Flag }}, "{{ .Flag }}", "", "{{ .Desc }}")
 {{ end }}{{ end }}{{ if .HasCustomPayload }}	cmd.Flags().StringArrayVar(&flagCustomPayloadFiles, "custom-payload-file", nil, "Path to a preference plist (XML or binary); wrapped into a com.apple.ManagedClient.preferences payload (repeatable; mutually exclusive with --mobileconfig-file)")
 	cmd.Flags().StringVar(&flagCustomPayloadDomain, "custom-payload-domain", "", "Preference domain override (inferred from filename by default; only valid with a single --custom-payload-file)")
@@ -673,7 +815,11 @@ func new{{ .GoName }}CreateCmd(ctx *registry.CLIContext) *cobra.Command {
 {{ if hasOp .Operations "update" }}
 func new{{ .GoName }}UpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var fromFile string
-{{ if hasLookup .Lookups "name" }}	var flagName string
+{{ if .HasBodySchema }}	var (
+		flagScaffold bool
+		flagSet      []string
+	)
+{{ end }}{{ if hasLookup .Lookups "name" }}	var flagName string
 {{ end }}{{ if .FileFields }}	var (
 {{ range .FileFields }}		flag{{ lookupCamel .Flag }} string
 {{ end }}{{ if .HasCustomPayload }}		flagCustomPayloadFiles  []string
@@ -684,15 +830,23 @@ func new{{ .GoName }}UpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 {{ if hasLookup .Lookups "name" }}		Use:   "update [<id>]",
 {{ else }}		Use:   "update <id>",
 {{ end }}		Short: "Update a {{ .Singular }}",
-		Long:  "Update an existing {{ .Singular }} by ID. Reads the XML body from --from-file or stdin.",
+		Long:  ` + "`" + `Update an existing {{ .Singular }} by ID. Reads the XML body from --from-file, --set or stdin.
+
+The Classic API applies a partial update: fields the body omits keep their
+current values, so a body carrying one element changes only that element.{{ bodyHelp . }}` + "`" + `,
+		Annotations: map[string]string{"jamf:api": "pro-classic"{{ gatewayAnn $ "PUT" }}{{ gatewayPrivAnn $ "PUT" }}},
 		Example: ` + "`" + `{{ classicExample . "update" }}` + "`" + `,
-{{ if hasLookup .Lookups "name" }}		Args:  cobra.MaximumNArgs(1),
+{{ if .HasBodySchema }}		Args:  classicScaffoldArgs(&flagScaffold, {{ if hasLookup .Lookups "name" }}cobra.MaximumNArgs(1){{ else }}cobra.ExactArgs(1){{ end }}),
+{{ else if hasLookup .Lookups "name" }}		Args:  cobra.MaximumNArgs(1),
 {{ else }}		Args:  cobra.ExactArgs(1),
 {{ end }}		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := cmd.Context()
+{{ if .HasBodySchema }}			if flagScaffold {
+				return printClassicScaffold(bodySpec{{ .GoName }})
+			}
+{{ end }}			reqCtx := cmd.Context()
 
 {{ if or .IsConfigProfile .FileFields }}
-			bodyBytes, bodyErr := readClassicBody(fromFile)
+			bodyBytes, bodyErr := readClassicBodyOrSet(fromFile, {{ if .HasBodySchema }}flagSet{{ else }}nil{{ end }}, {{ bodySpecVar . }})
 			if bodyErr != nil {
 				return bodyErr
 			}
@@ -836,7 +990,7 @@ func new{{ .GoName }}UpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 			resp, err := ctx.Client.Do(reqCtx, "PUT", path, bytes.NewReader(bodyBytes))
 {{ end }}
 {{ else }}
-			bodyBytes, bodyErr := readClassicBody(fromFile)
+			bodyBytes, bodyErr := readClassicBodyOrSet(fromFile, {{ if .HasBodySchema }}flagSet{{ else }}nil{{ end }}, {{ bodySpecVar . }})
 			if bodyErr != nil {
 				return bodyErr
 			}
@@ -868,7 +1022,12 @@ func new{{ .GoName }}UpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to XML input file (or pipe XML to stdin)")
-{{ if hasLookup .Lookups "name" }}	cmd.Flags().StringVar(&flagName, "name", "", "Look up {{ .Singular }} by name")
+{{ if .HasBodySchema }}	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print an XML body template for this resource and exit")
+	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Set a body field in dot notation (key=value, repeatable). Builds the whole body, so it cannot be combined with --from-file")
+	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+		return []string{ {{ setCompletions . }} }, cobra.ShellCompDirectiveNoSpace
+	})
+{{ end }}{{ if hasLookup .Lookups "name" }}	cmd.Flags().StringVar(&flagName, "name", "", "Look up {{ .Singular }} by name")
 {{ end }}
 {{ if .FileFields }}
 {{ range .FileFields }}	cmd.Flags().StringVar(&flag{{ lookupCamel .Flag }}, "{{ .Flag }}", "", "{{ .Desc }}")
@@ -892,7 +1051,7 @@ func new{{ .GoName }}DeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 {{ else }}		Use:   "delete <id>",
 {{ end }}		Short: "Delete a {{ .Singular }}",
 		Example: ` + "`" + `{{ classicExample . "delete" }}` + "`" + `,
-		Annotations: map[string]string{"jamf:destructive": "true"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:api": "pro-classic"{{ gatewayAnn $ "DELETE" }}{{ gatewayPrivAnn $ "DELETE" }}},
 {{ if hasDeleteByName . }}		Args:  cobra.MaximumNArgs(1),
 {{ else }}		Args:  cobra.ExactArgs(1),
 {{ end }}		RunE: func(cmd *cobra.Command, args []string) error {
@@ -1159,7 +1318,9 @@ func new{{ .GoName }}ApplyCmd(ctx *registry.CLIContext) *cobra.Command {
 		fromFile   string
 		flagYes    bool
 		flagDryRun bool
-{{ if hasFetchMergePut . }}		flagName   string
+{{ if .HasBodySchema }}		flagScaffold bool
+		flagSet      []string
+{{ end }}{{ if hasFetchMergePut . }}		flagName   string
 {{ end }}{{ if .FileFields }}{{ range .FileFields }}		flag{{ lookupCamel .Flag }} string
 {{ end }}{{ end }}{{ if .HasCustomPayload }}		flagCustomPayloadFiles  []string
 		flagCustomPayloadDomain string
@@ -1169,14 +1330,18 @@ func new{{ .GoName }}ApplyCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "apply",
 		Short: "Create or replace a {{ .Singular }} by name",
-		Long: ` + "`" + `Create or replace a {{ .Singular }}. Reads XML from --from-file or stdin.
+		Annotations: map[string]string{"jamf:api": "pro-classic"{{ gatewayAnn $ "list" "POST" "PUT" }}{{ gatewayPrivAnn $ "list" "POST" "PUT" }}},
+		Long: ` + "`" + `Create or replace a {{ .Singular }}. Reads XML from --from-file, --set or stdin.
 
 The name field in the input XML is used to check if the resource already
 exists. If it does, the resource is replaced (with confirmation).
-If not, a new resource is created.` + "`" + `,
+If not, a new resource is created.{{ bodyHelp . }}` + "`" + `,
 		Example: ` + "`" + `{{ classicExample . "apply" }}` + "`" + `,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			reqCtx := cmd.Context()
+{{ if .HasBodySchema }}			if flagScaffold {
+				return printClassicScaffold(bodySpec{{ .GoName }})
+			}
+{{ end }}			reqCtx := cmd.Context()
 
 			// Read input
 			data, err := readApplyInput(fromFile)
@@ -1351,6 +1516,12 @@ If not, a new resource is created.` + "`" + `,
 	}
 
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to XML input file (or pipe XML to stdin)")
+{{ if .HasBodySchema }}	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print an XML body template for this resource and exit")
+	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Set a body field in dot notation (key=value, repeatable). Builds the whole body, so it cannot be combined with --from-file")
+	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+		return []string{ {{ setCompletions . }} }, cobra.ShellCompDirectiveNoSpace
+	})
+{{ end }}
 	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt when replacing")
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
 {{ if hasFetchMergePut . }}	cmd.Flags().StringVar(&flagName, "name", "", "Name of the existing {{ .Singular }} to update (required when body is empty)")
@@ -1377,11 +1548,11 @@ import (
 	"encoding/json"
 	"encoding/xml"
 	"path/filepath"
+{{- end }}
+	"slices"
+	"sort"
 	"strings"
-{{- end }}
-{{- if anyIsConfigProfile . }}
 	"strconv"
-{{- end }}
 	"fmt"
 {{- if or (anyIsConfigProfile .) (anyClassicFileFields .) (anyListSubset .) (anyClassicExtraLookups .) (anyHasGroupPath .) }}
 	"bytes"
@@ -1440,6 +1611,366 @@ func readClassicBody(fromFile string) ([]byte, error) {
 	}
 
 	return nil, nil
+}
+
+// ── Schema-derived request bodies (--scaffold and --set) ──────────────────
+//
+// The Classic API takes XML and its manifest (specs/classic/resources.yaml)
+// describes URLs, not bodies, so a Classic write command could only ever tell a
+// caller to pipe XML at it. These helpers are fed by specs/classic/schemas.json,
+// derived from the SDK's published Classic spec — see package classicschema.
+
+// classicBodySpec is one resource's request-body contract, baked in at
+// generation time so the CLI carries no schema at runtime.
+type classicBodySpec struct {
+	// Root is the XML root element a body must be wrapped in, e.g. "policy".
+	Root string
+	// Scaffold is the rendered XML template --scaffold prints.
+	Scaffold string
+	// Schema is the component schema Scaffold was rendered from, named in help
+	// so a surprising template can be traced to the spec.
+	Schema string
+	// FieldTypes maps every settable dotted path to its spec type. A path absent
+	// from this map is refused rather than sent: the Classic API silently
+	// discards an element it does not recognise (wire-checked 2026-09-02 — a
+	// create carrying <bogus_unknown_element> answered 201 and dropped it), so a
+	// typo'd --set would otherwise be accepted by both the CLI and the server
+	// and change nothing.
+	FieldTypes map[string]string
+	// Enums constrains a field to a value set. Validated client-side because the
+	// server does not validate it at all: a policy created with
+	// frequency="Twice per fortnight" answers 201 and reads back
+	// "Once per computer", and a criterion with and_or="maybe" reads back "and".
+	// A silently substituted default is the failure this check exists to turn
+	// into an error.
+	Enums map[string][]string
+	// Credentials names the fields whose value is a secret. --set refuses them,
+	// because a flag value lands in shell history, in ps output and in CI logs.
+	Credentials map[string]bool
+}
+
+// classicScaffoldArgs relaxes a command's positional-argument validator when
+// --scaffold is set.
+//
+// Cobra validates Args BEFORE RunE, so an update that requires an <id> refused
+// "update --scaffold" with "accepts 1 arg(s), received 0" and never reached the
+// early return that prints the template. --scaffold describes a body; it needs
+// no identifier, makes no request and skips auth, so requiring one is the same
+// class of mistake as requiring credentials for it.
+//
+// Only the classic update commands need this: create takes no positional and
+// apply keys off the body's own name. The modern Pro generator does not hit it
+// because its update accepts zero args anyway — it has a --name alternative, so
+// its validator is MaximumNArgs(1), while a classic resource with no name lookup
+// is ExactArgs(1).
+func classicScaffoldArgs(scaffold *bool, inner cobra.PositionalArgs) cobra.PositionalArgs {
+	return func(cmd *cobra.Command, args []string) error {
+		if scaffold != nil && *scaffold {
+			return nil
+		}
+		if inner == nil {
+			return nil
+		}
+		return inner(cmd, args)
+	}
+}
+
+// printClassicScaffold writes the resource's XML body template to stdout.
+//
+// Straight to stdout, bypassing the output formatter, which is what the modern
+// Pro generator's printScaffoldOutput and the platform commands' printScaffold
+// both do. Going through the formatter actively broke it here: classic commands
+// default to pretty-printed XML, so the formatter re-indented an already
+// indented template and returned it double-spaced.
+func printClassicScaffold(spec classicBodySpec) error {
+	_, err := os.Stdout.WriteString(spec.Scaffold)
+	return err
+}
+
+// readClassicBodyOrSet reads a body from --set, --from-file or stdin.
+//
+// --set and --from-file are mutually exclusive here, where the Platform and
+// Security Cloud --set overlay onto a --file body. Two reasons, both specific to
+// Classic:
+//
+//   - Overlaying would mean parsing the caller's XML, merging, and re-marshalling
+//     it. A Classic config-profile body carries a mobileconfig inside a CDATA
+//     section, and PI-827 records that the server extra-decodes those bodies —
+//     so a round trip through a generic XML map is exactly how a payload gets
+//     mangled, and the failure is a 409 naming nothing.
+//   - It is not needed. A Classic PUT is a partial update: wire-checked
+//     2026-09-02, a body of <network_segment><name>x</name></network_segment>
+//     renamed the segment and left its address range, its override flags and a
+//     computer group's whole criteria array intact. So --set alone builds a
+//     valid update, with no fetch-merge cycle of the kind the modern Pro
+//     generator's update --set needs.
+func readClassicBodyOrSet(fromFile string, setFlags []string, spec classicBodySpec) ([]byte, error) {
+	if len(setFlags) == 0 {
+		return readClassicBody(fromFile)
+	}
+	if fromFile != "" {
+		return nil, fmt.Errorf("--set and --from-file are mutually exclusive; --set builds the whole body, so pass the file alone or set fields alone")
+	}
+	// A warning rather than a refusal, matching the modern Pro generator's
+	// update --set. Refusing looked tidier and was wrong: this test is "stdin is
+	// not a character device", which is true of a pipe carrying a body AND of
+	// the empty or closed stdin a CI runner hands every process — so it failed
+	// "create --set name=x" in exactly the automated case --set exists for,
+	// with a message about a body nobody sent.
+	if stat, _ := os.Stdin.Stat(); stat != nil && (stat.Mode()&os.ModeCharDevice) == 0 {
+		fmt.Fprintln(os.Stderr, "warning: --set builds the whole body; ignoring stdin")
+	}
+	return buildClassicXMLFromSet(setFlags, spec)
+}
+
+// buildClassicXMLFromSet turns key=value pairs into an XML body.
+func buildClassicXMLFromSet(setFlags []string, spec classicBodySpec) ([]byte, error) {
+	root := classicSetNode{children: map[string]*classicSetNode{}}
+
+	for _, pair := range setFlags {
+		key, raw, found := strings.Cut(pair, "=")
+		if !found {
+			return nil, fmt.Errorf("--set %q: expected key=value", pair)
+		}
+		if key == "" {
+			return nil, fmt.Errorf("--set %q: empty field name before =", pair)
+		}
+		if spec.Credentials[key] {
+			return nil, fmt.Errorf("--set %s: %s carries a credential and cannot be passed as a flag value, where it would land in shell history, ps output and CI logs; put the whole body in a file and use --from-file", key, key)
+		}
+		if err := classicSetParentKind(key, spec); err != nil {
+			return nil, err
+		}
+		kind, known := spec.FieldTypes[key]
+		if !known {
+			return nil, classicUnknownSetField(key, spec)
+		}
+		switch kind {
+		case "object":
+			return nil, fmt.Errorf("--set %s: %s is a section, not a value; set the fields inside it (e.g. --set %s.name=...), or pass the whole body with --from-file", key, key, key)
+		case "array":
+			return nil, fmt.Errorf("--set %s: %s is a repeated element, which --set cannot express; run --scaffold to see its shape and pass the body with --from-file", key, key)
+		}
+		value, err := classicSetValue(key, raw, kind, spec)
+		if err != nil {
+			return nil, err
+		}
+		if err := root.set(strings.Split(key, "."), value); err != nil {
+			return nil, fmt.Errorf("--set %s: %w", key, err)
+		}
+	}
+
+	var b strings.Builder
+	root.writeXML(&b, spec.Root, 0)
+	return []byte(b.String()), nil
+}
+
+// classicSetParentKind refuses a dotted path that descends through something it
+// cannot descend through, before the leaf is looked up.
+//
+// Without it the message is wrong rather than merely unhelpful: criteria is a
+// repeated element, so --set criteria.name=x can never work, but the leaf
+// "criteria.name" is simply absent from FieldTypes and the caller was told the
+// field does not exist — sending them to check their spelling instead of telling
+// them the section needs --from-file. Mirrors checkSetParentKind in the modern
+// Pro generator.
+func classicSetParentKind(key string, spec classicBodySpec) error {
+	// "[]" is how --help and --scaffold spell a repeated element's fields
+	// (criteria[].and_or), so a caller copying a path out of the help text
+	// lands here. Answer with the repeated-element message rather than
+	// "no such field", which would read as a typo in the help.
+	if i := strings.Index(key, "[]"); i >= 0 {
+		return fmt.Errorf("--set %s: %s is a repeated element, and --set cannot say which member it means; run --scaffold to see its shape and pass the body with --from-file", key, key[:i])
+	}
+	parts := strings.Split(key, ".")
+	for i := 1; i < len(parts); i++ {
+		prefix := strings.Join(parts[:i], ".")
+		switch spec.FieldTypes[prefix] {
+		case "array":
+			return fmt.Errorf("--set %s: %s is a repeated element, and --set cannot say which member it means; run --scaffold to see its shape and pass the body with --from-file", key, prefix)
+		case "string", "integer", "number", "boolean":
+			return fmt.Errorf("--set %s: %s is a value, not a section, so it has no field %q", key, prefix, strings.Join(parts[i:], "."))
+		}
+	}
+	return nil
+}
+
+// classicUnknownSetField explains a path the schema does not declare, naming the
+// nearest settable paths so a typo is obvious.
+//
+// Suggestions rather than a bare refusal because the schema is the only place
+// the field list exists — the server accepts anything and discards what it does
+// not know, so "no such field" with nothing else would leave a caller guessing.
+func classicUnknownSetField(key string, spec classicBodySpec) error {
+	prefix := key
+	if i := strings.LastIndex(key, "."); i >= 0 {
+		prefix = key[:i+1]
+	} else {
+		prefix = ""
+	}
+	var siblings []string
+	for path, kind := range spec.FieldTypes {
+		if kind == "object" || kind == "array" || !strings.HasPrefix(path, prefix) {
+			continue
+		}
+		if strings.Contains(strings.TrimPrefix(path, prefix), ".") {
+			continue
+		}
+		// Never suggest a field --set is going to refuse. A webhook's siblings
+		// include "password", and naming it here invites the caller to type a
+		// secret onto a command line — the same reason credential fields are
+		// kept out of shell completion.
+		if spec.Credentials[path] {
+			continue
+		}
+		siblings = append(siblings, path)
+	}
+	sort.Strings(siblings)
+	if len(siblings) == 0 {
+		return fmt.Errorf("--set %s: %s declares no such field; run --scaffold to see the body shape, or pass a field the spec does not know with --from-file", key, spec.Schema)
+	}
+	if len(siblings) > 12 {
+		siblings = append(siblings[:12], "...")
+	}
+	return fmt.Errorf("--set %s: %s declares no such field. Settable here: %s. Run --scaffold for the whole shape, or use --from-file for a field the spec does not know", key, spec.Schema, strings.Join(siblings, ", "))
+}
+
+// classicSetValue coerces and validates one value against its spec type.
+//
+// Coercion is schema-driven rather than a looks-like-JSON heuristic, following
+// the modern Pro generator — see
+// docs/solutions/logic-errors/set-array-object-stringification-2026-07-24.md.
+// It matters more here, not less: Classic XML is untyped on the wire, so a
+// number written where a string belongs is accepted silently, and there is no
+// response field that would reveal it.
+func classicSetValue(key, raw, kind string, spec classicBodySpec) (string, error) {
+	// No raw != "" carve-out. "" is out of range for every enum in the table, so
+	// it is precisely what the message below describes — and it is the mistake a
+	// CI job makes, not the typo: --set general.frequency="$FREQ" with FREQ unset
+	// sent <frequency></frequency>, the server answered 200, and the policy's
+	// execution frequency became "Once per computer" with nothing said. The
+	// wording is split because the remedy differs: a bad value is retyped, an
+	// empty one usually means a variable expanded to nothing and the flag should
+	// be dropped. A non-enum field can still be set to "", which is how a
+	// Classic string field is cleared.
+	if values, ok := spec.Enums[key]; ok {
+		if !slices.Contains(values, raw) {
+			if raw == "" {
+				return "", fmt.Errorf("--set %s: an empty value is not one of %s; omit the flag to leave the field unchanged (a shell variable that expanded to nothing is the usual cause)", key, strings.Join(values, ", "))
+			}
+			return "", fmt.Errorf("--set %s: %q is not one of %s (the Classic API accepts an out-of-range value and silently substitutes its default, so this is refused here)", key, raw, strings.Join(values, ", "))
+		}
+	}
+	switch kind {
+	case "boolean":
+		b, err := strconv.ParseBool(raw)
+		if err != nil {
+			return "", fmt.Errorf("--set %s: %s is a boolean; use true or false, got %q", key, key, raw)
+		}
+		return strconv.FormatBool(b), nil
+	case "integer":
+		if _, err := strconv.ParseInt(raw, 10, 64); err != nil {
+			return "", fmt.Errorf("--set %s: %s is an integer; %q is not a valid integer", key, key, raw)
+		}
+		return raw, nil
+	case "number":
+		if _, err := strconv.ParseFloat(raw, 64); err != nil {
+			return "", fmt.Errorf("--set %s: %s is a number; %q is not a valid number", key, key, raw)
+		}
+		return raw, nil
+	}
+	return raw, nil
+}
+
+// classicSetNode is one element in the tree --set builds.
+type classicSetNode struct {
+	value    string
+	isLeaf   bool
+	children map[string]*classicSetNode
+}
+
+// set places a value at a dotted path, creating intermediate elements.
+func (n *classicSetNode) set(path []string, value string) error {
+	cur := n
+	for i, segment := range path {
+		if i == len(path)-1 {
+			if child, ok := cur.children[segment]; ok && !child.isLeaf {
+				return fmt.Errorf("cannot set %q as a value: it already holds nested fields", segment)
+			}
+			cur.children[segment] = &classicSetNode{value: value, isLeaf: true}
+			return nil
+		}
+		child, ok := cur.children[segment]
+		if !ok {
+			child = &classicSetNode{children: map[string]*classicSetNode{}}
+			cur.children[segment] = child
+		}
+		if child.isLeaf {
+			return fmt.Errorf("cannot set a nested field under %q, which is already set to a value", segment)
+		}
+		cur = child
+	}
+	return nil
+}
+
+// writeXML renders the tree, ordering children the way --scaffold does so a
+// body built with --set and one edited from a scaffold read the same.
+func (n *classicSetNode) writeXML(b *strings.Builder, name string, depth int) {
+	indent := strings.Repeat("  ", depth)
+	if n.isLeaf {
+		fmt.Fprintf(b, "%s<%s>%s</%s>\n", indent, name, classicXMLText(n.value), name)
+		return
+	}
+	fmt.Fprintf(b, "%s<%s>\n", indent, name)
+	for _, child := range classicSortedChildren(n.children) {
+		n.children[child].writeXML(b, child, depth+1)
+	}
+	fmt.Fprintf(b, "%s</%s>\n", indent, name)
+}
+
+// classicSortedChildren orders element names: id, then name, then alphabetical.
+// Matches parser.ScaffoldXML's ordering.
+func classicSortedChildren(children map[string]*classicSetNode) []string {
+	names := make([]string, 0, len(children))
+	for name := range children {
+		names = append(names, name)
+	}
+	rank := func(s string) int {
+		switch s {
+		case "id":
+			return 0
+		case "name":
+			return 1
+		}
+		return 2
+	}
+	sort.Slice(names, func(i, j int) bool {
+		if ri, rj := rank(names[i]), rank(names[j]); ri != rj {
+			return ri < rj
+		}
+		return names[i] < names[j]
+	})
+	return names
+}
+
+// classicXMLText escapes element content. & matters most: PI-827 records that
+// the Classic API extra-decodes some element bodies, so an under-escaped & is
+// refused on upload with a 409 that names nothing.
+func classicXMLText(s string) string {
+	var b strings.Builder
+	for _, r := range s {
+		switch r {
+		case '&':
+			b.WriteString("&amp;")
+		case '<':
+			b.WriteString("&lt;")
+		case '>':
+			b.WriteString("&gt;")
+		default:
+			b.WriteRune(r)
+		}
+	}
+	return b.String()
 }
 {{ if anyNeedsClassicNameResolve . }}
 // Classic apply/delete-by-name helpers. These share the generated package with

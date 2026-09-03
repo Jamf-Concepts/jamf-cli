@@ -44,7 +44,7 @@ const fullDeviceDetailJSON = `{
 		"mdmCapable": {"capable": true},
 		"enrolledViaAutomatedDeviceEnrollment": true,
 		"supervised": false,
-		"lastContactTime": "2026-03-30T14:22:00Z"
+		"lastCheckIn": "2026-03-30T14:22:00Z"
 	},
 	"hardware": {
 		"make": "Apple",
@@ -122,7 +122,7 @@ func TestRunDeviceDeepDive_Basic(t *testing.T) {
 		handler: func(_, path string) (int, string, error) {
 			switch {
 			// Device resolution — direct ID lookup
-			case path == "/v3/computers-inventory-detail/42":
+			case path == "/v4/computers-inventory-detail/42":
 				return 200, fullDeviceDetailJSON, nil
 			// MDM command history
 			case strings.HasPrefix(path, "/v2/mdm/commands"):
@@ -254,11 +254,11 @@ func TestRunDeviceDeepDive_NotFound(t *testing.T) {
 	client := &deviceMockClient{
 		handler: func(_, path string) (int, string, error) {
 			// ID lookup fails
-			if strings.HasPrefix(path, "/v3/computers-inventory-detail/") {
+			if strings.HasPrefix(path, "/v4/computers-inventory-detail/") {
 				return 404, `{"errors":[]}`, nil
 			}
 			// Serial and name searches return 0 results
-			if strings.HasPrefix(path, "/v3/computers-inventory") {
+			if strings.HasPrefix(path, "/v4/computers-inventory") {
 				return 200, `{"totalCount":0,"results":[]}`, nil
 			}
 			return 0, "", fmt.Errorf("unexpected path: %s", path)
@@ -279,7 +279,7 @@ func TestRunDeviceDeepDive_PartialFailure(t *testing.T) {
 	client := &deviceMockClient{
 		handler: func(_, path string) (int, string, error) {
 			switch {
-			case path == "/v3/computers-inventory-detail/42":
+			case path == "/v4/computers-inventory-detail/42":
 				return 200, fullDeviceDetailJSON, nil
 			// MDM history fails
 			case strings.HasPrefix(path, "/v2/mdm/commands"):

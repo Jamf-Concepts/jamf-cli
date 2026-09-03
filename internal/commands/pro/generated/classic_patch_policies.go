@@ -17,12 +17,212 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// bodySpecClassicPatchPolicies is this resource's request-body contract, derived from
+// specs/classic/schemas.json at generation time. Empty when the Classic API spec
+// declares no schema for it, in which case create/update/apply read their body
+// from --from-file or stdin with no --scaffold and no --set.
+var bodySpecClassicPatchPolicies = classicBodySpec{
+	Root:   "patch_policy",
+	Schema: "patch_policy",
+	Scaffold: `<patch_policy>
+  <general>
+    <id>1</id>
+    <name>Google Chrome - 62.0.3202.75</name>
+    <allow_downgrade>false</allow_downgrade>
+    <distribution_method></distribution_method>
+    <enabled>true</enabled>
+    <incremental_update>false</incremental_update>
+    <kill_apps>
+      <kill_app>
+        <kill_app_bundle_id>com.google.Chrome</kill_app_bundle_id>
+        <kill_app_name>Google Chrome.app</kill_app_name>
+      </kill_app>
+    </kill_apps>
+    <minimum_os>10.9</minimum_os>
+    <patch_unknown>false</patch_unknown>
+    <reboot>false</reboot>
+    <release_date>1509048027663</release_date>
+    <target_version>62.0.3202.75</target_version>
+  </general>
+  <scope>
+    <all_computers>false</all_computers>
+    <buildings>
+      <building>
+        <id>1</id>
+        <name></name>
+      </building>
+    </buildings>
+    <computer_groups>
+      <computer_group>
+        <id>1</id>
+        <name></name>
+      </computer_group>
+    </computer_groups>
+    <computers>
+      <computer>
+        <id>1</id>
+        <name>Joe's MacBook Pro</name>
+        <udid>55900BDC-347C-58B1-D249-F32244B11D30</udid>
+      </computer>
+    </computers>
+    <departments>
+      <department>
+        <id>1</id>
+        <name></name>
+      </department>
+    </departments>
+    <exclusions>
+      <buildings>
+        <building>
+          <id>1</id>
+          <name></name>
+        </building>
+      </buildings>
+      <computer_groups>
+        <computer_group>
+          <id>1</id>
+          <name></name>
+        </computer_group>
+      </computer_groups>
+      <computers>
+        <computer>
+          <id>1</id>
+          <name>Joe's MacBook Pro</name>
+          <udid>55900BDC-347C-58B1-D249-F32244B11D30</udid>
+        </computer>
+      </computers>
+      <departments>
+        <department>
+          <id>1</id>
+          <name></name>
+        </department>
+      </departments>
+      <ibeacons>
+        <ibeacon>
+          <id>1</id>
+          <name></name>
+        </ibeacon>
+      </ibeacons>
+      <network_segments>
+        <network_segment>
+          <id>1</id>
+          <name></name>
+        </network_segment>
+      </network_segments>
+    </exclusions>
+    <limitations>
+      <ibeacons>
+        <ibeacon>
+          <id>1</id>
+          <name></name>
+        </ibeacon>
+      </ibeacons>
+      <network_segments>
+        <network_segment>
+          <id>1</id>
+          <name></name>
+        </network_segment>
+      </network_segments>
+    </limitations>
+  </scope>
+  <software_title_configuration_id>1</software_title_configuration_id>
+  <user_interaction>
+    <deadlines>
+      <deadline_enabled>true</deadline_enabled>
+      <deadline_period>7</deadline_period>
+    </deadlines>
+    <grace_period>
+      <grace_period_duration>15</grace_period_duration>
+      <message>$APP_NAMES will quit in $DELAY_MINUTES minutes so that $SOFTWARE_TITLE can be updated. Save anything you are working on and quit the app(s)</message>
+      <notification_center_subject>Important</notification_center_subject>
+    </grace_period>
+    <install_button_text>Update</install_button_text>
+    <notifications>
+      <notification_enabled>true</notification_enabled>
+      <notification_message>An update for Google Chrome is available within Self Service</notification_message>
+      <notification_subject>Google Chrome Update Available</notification_subject>
+      <notification_type></notification_type>
+      <reminders>
+        <notification_reminder_frequency>1</notification_reminder_frequency>
+        <notification_reminders_enabled>true</notification_reminders_enabled>
+      </reminders>
+    </notifications>
+    <self_service_description>Latest update for Google Chrome</self_service_description>
+    <self_service_icon>
+      <id>1</id>
+      <filename>Chrome.png</filename>
+      <uri>https://jssURL.jamfcloud.com/iconservlet/?id=1</uri>
+    </self_service_icon>
+  </user_interaction>
+</patch_policy>
+`,
+	FieldTypes: map[string]string{
+		"general":                                                   "object",
+		"general.allow_downgrade":                                   "boolean",
+		"general.distribution_method":                               "string",
+		"general.enabled":                                           "boolean",
+		"general.id":                                                "integer",
+		"general.incremental_update":                                "boolean",
+		"general.kill_apps":                                         "array",
+		"general.minimum_os":                                        "string",
+		"general.name":                                              "string",
+		"general.patch_unknown":                                     "boolean",
+		"general.reboot":                                            "boolean",
+		"general.release_date":                                      "integer",
+		"general.target_version":                                    "string",
+		"scope":                                                     "object",
+		"scope.all_computers":                                       "boolean",
+		"scope.buildings":                                           "array",
+		"scope.computer_groups":                                     "array",
+		"scope.computers":                                           "array",
+		"scope.departments":                                         "array",
+		"scope.exclusions":                                          "object",
+		"scope.exclusions.buildings":                                "array",
+		"scope.exclusions.computer_groups":                          "array",
+		"scope.exclusions.computers":                                "array",
+		"scope.exclusions.departments":                              "array",
+		"scope.exclusions.ibeacons":                                 "array",
+		"scope.exclusions.network_segments":                         "array",
+		"scope.limitations":                                         "object",
+		"scope.limitations.ibeacons":                                "array",
+		"scope.limitations.network_segments":                        "array",
+		"software_title_configuration_id":                           "integer",
+		"user_interaction":                                          "object",
+		"user_interaction.deadlines":                                "object",
+		"user_interaction.deadlines.deadline_enabled":               "boolean",
+		"user_interaction.deadlines.deadline_period":                "integer",
+		"user_interaction.grace_period":                             "object",
+		"user_interaction.grace_period.grace_period_duration":       "integer",
+		"user_interaction.grace_period.message":                     "string",
+		"user_interaction.grace_period.notification_center_subject": "string",
+		"user_interaction.install_button_text":                      "string",
+		"user_interaction.notifications":                            "object",
+		"user_interaction.notifications.notification_enabled":       "boolean",
+		"user_interaction.notifications.notification_message":       "string",
+		"user_interaction.notifications.notification_subject":       "string",
+		"user_interaction.notifications.notification_type":          "string",
+		"user_interaction.notifications.reminders":                  "object",
+		"user_interaction.notifications.reminders.notification_reminder_frequency": "integer",
+		"user_interaction.notifications.reminders.notification_reminders_enabled":  "boolean",
+		"user_interaction.self_service_description":                                "string",
+		"user_interaction.self_service_icon":                                       "object",
+		"user_interaction.self_service_icon.filename":                              "string",
+		"user_interaction.self_service_icon.id":                                    "integer",
+		"user_interaction.self_service_icon.uri":                                   "string",
+	},
+	Enums: map[string][]string{
+		"general.distribution_method":                      {"selfservice", "prompt"},
+		"user_interaction.notifications.notification_type": {"Self Service", "Self Service and Notification Center"},
+	},
+}
+
 // NewClassicPatchPoliciesCmd creates the classic-patch-policies command group
 func NewClassicPatchPoliciesCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "classic-patch-policies",
-		Short: "Patch policies (Classic API)",
-		Long:  `Manage patch policies via the Jamf Pro Classic API (/JSSResource/).`,
+		Use:         "classic-patch-policies",
+		Short:       "Patch policies (Classic API)",
+		Long:        `Manage patch policies via the Jamf Pro Classic API (/JSSResource/).`,
+		Annotations: map[string]string{"jamf:api": "pro-classic"},
 	}
 
 	cmd.AddCommand(newClassicPatchPoliciesListCmd(ctx))
@@ -47,6 +247,7 @@ func newClassicPatchPoliciesListCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # List patchpolicies and extract IDs
   jamf-cli pro classic-patch-policies list --field id`,
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway": "unserved", "jamf:gateway-basis": "unpublished", "jamf:gateway-detail": "not declared by the gateway's Classic API 11.28.0"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/patchpolicies", nil)
@@ -97,7 +298,8 @@ func newClassicPatchPoliciesGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a patch_policy and output as YAML
   jamf-cli pro classic-patch-policies get 1 -o yaml`,
-		Args: cobra.ExactArgs(1),
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "patch-policies:read"},
+		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			path := fmt.Sprintf("/JSSResource/patchpolicies/id/%s", url.PathEscape(args[0]))
@@ -138,21 +340,41 @@ func newClassicPatchPoliciesGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
 func newClassicPatchPoliciesCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
-		fromFile string
+		fromFile     string
+		flagScaffold bool
+		flagSet      []string
 	)
 	cmd := &cobra.Command{
 		Use:   "create",
 		Short: "Create a patch_policy",
-		Long:  "Create a new patch_policy. Reads the XML body from --from-file or stdin.",
+		Long: `Create a new patch_policy. Reads the XML body from --from-file, --set or stdin.
+
+Body fields are derived from the Classic API spec (schema "patch_policy").
+Run with --scaffold to print a complete XML template.
+The template populates every optional section with one specimen entry,
+including references whose <id> points at nothing on your instance — delete
+the sections you do not need. A dangling reference is answered with a 500.
+Optional sections: general, scope, software_title_configuration_id, user_interaction
+
+Allowed values:
+  general.distribution_method: selfservice | prompt
+  user_interaction.notifications.notification_type: Self Service | Self Service and Notification Center
+
+The Classic API does not reject an out-of-range value — it substitutes
+its default silently — so --set refuses one rather than letting it through.`,
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "patch-policies:create"},
 		Example: `  # Create a patch_policy from an XML file
   jamf-cli pro classic-patch-policies create --from-file patch_policy.xml
 
   # Create a patch_policy from XML on stdin
   cat patch_policy.xml | jamf-cli pro classic-patch-policies create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if flagScaffold {
+				return printClassicScaffold(bodySpecClassicPatchPolicies)
+			}
 			reqCtx := cmd.Context()
 
-			bodyBytes, err := readClassicBody(fromFile)
+			bodyBytes, err := readClassicBodyOrSet(fromFile, flagSet, bodySpecClassicPatchPolicies)
 			if err != nil {
 				return err
 			}
@@ -171,26 +393,56 @@ func newClassicPatchPoliciesCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to XML input file (or pipe XML to stdin)")
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print an XML body template for this resource and exit")
+	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Set a body field in dot notation (key=value, repeatable). Builds the whole body, so it cannot be combined with --from-file")
+	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+		return []string{"general.allow_downgrade=", "general.distribution_method=", "general.enabled=", "general.id=", "general.incremental_update=", "general.minimum_os=", "general.name=", "general.patch_unknown=", "general.reboot=", "general.release_date=", "general.target_version=", "scope.all_computers=", "software_title_configuration_id=", "user_interaction.deadlines.deadline_enabled=", "user_interaction.deadlines.deadline_period=", "user_interaction.grace_period.grace_period_duration=", "user_interaction.grace_period.message=", "user_interaction.grace_period.notification_center_subject=", "user_interaction.install_button_text=", "user_interaction.notifications.notification_enabled=", "user_interaction.notifications.notification_message=", "user_interaction.notifications.notification_subject=", "user_interaction.notifications.notification_type=", "user_interaction.notifications.reminders.notification_reminder_frequency=", "user_interaction.notifications.reminders.notification_reminders_enabled=", "user_interaction.self_service_description=", "user_interaction.self_service_icon.filename=", "user_interaction.self_service_icon.id=", "user_interaction.self_service_icon.uri="}, cobra.ShellCompDirectiveNoSpace
+	})
 	return cmd
 }
 
 func newClassicPatchPoliciesUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var fromFile string
+	var (
+		flagScaffold bool
+		flagSet      []string
+	)
 
 	cmd := &cobra.Command{
 		Use:   "update <id>",
 		Short: "Update a patch_policy",
-		Long:  "Update an existing patch_policy by ID. Reads the XML body from --from-file or stdin.",
+		Long: `Update an existing patch_policy by ID. Reads the XML body from --from-file, --set or stdin.
+
+The Classic API applies a partial update: fields the body omits keep their
+current values, so a body carrying one element changes only that element.
+
+Body fields are derived from the Classic API spec (schema "patch_policy").
+Run with --scaffold to print a complete XML template.
+The template populates every optional section with one specimen entry,
+including references whose <id> points at nothing on your instance — delete
+the sections you do not need. A dangling reference is answered with a 500.
+Optional sections: general, scope, software_title_configuration_id, user_interaction
+
+Allowed values:
+  general.distribution_method: selfservice | prompt
+  user_interaction.notifications.notification_type: Self Service | Self Service and Notification Center
+
+The Classic API does not reject an out-of-range value — it substitutes
+its default silently — so --set refuses one rather than letting it through.`,
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "patch-policies:update"},
 		Example: `  # Update a patch_policy from an XML file
   jamf-cli pro classic-patch-policies update 1 --from-file patch_policy.xml
 
   # Update a patch_policy from XML on stdin
   cat patch_policy.xml | jamf-cli pro classic-patch-policies update 1`,
-		Args: cobra.ExactArgs(1),
+		Args: classicScaffoldArgs(&flagScaffold, cobra.ExactArgs(1)),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if flagScaffold {
+				return printClassicScaffold(bodySpecClassicPatchPolicies)
+			}
 			reqCtx := cmd.Context()
 
-			bodyBytes, bodyErr := readClassicBody(fromFile)
+			bodyBytes, bodyErr := readClassicBodyOrSet(fromFile, flagSet, bodySpecClassicPatchPolicies)
 			if bodyErr != nil {
 				return bodyErr
 			}
@@ -212,6 +464,11 @@ func newClassicPatchPoliciesUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to XML input file (or pipe XML to stdin)")
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print an XML body template for this resource and exit")
+	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Set a body field in dot notation (key=value, repeatable). Builds the whole body, so it cannot be combined with --from-file")
+	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+		return []string{"general.allow_downgrade=", "general.distribution_method=", "general.enabled=", "general.id=", "general.incremental_update=", "general.minimum_os=", "general.name=", "general.patch_unknown=", "general.reboot=", "general.release_date=", "general.target_version=", "scope.all_computers=", "software_title_configuration_id=", "user_interaction.deadlines.deadline_enabled=", "user_interaction.deadlines.deadline_period=", "user_interaction.grace_period.grace_period_duration=", "user_interaction.grace_period.message=", "user_interaction.grace_period.notification_center_subject=", "user_interaction.install_button_text=", "user_interaction.notifications.notification_enabled=", "user_interaction.notifications.notification_message=", "user_interaction.notifications.notification_subject=", "user_interaction.notifications.notification_type=", "user_interaction.notifications.reminders.notification_reminder_frequency=", "user_interaction.notifications.reminders.notification_reminders_enabled=", "user_interaction.self_service_description=", "user_interaction.self_service_icon.filename=", "user_interaction.self_service_icon.id=", "user_interaction.self_service_icon.uri="}, cobra.ShellCompDirectiveNoSpace
+	})
 
 	return cmd
 }
@@ -230,7 +487,7 @@ func newClassicPatchPoliciesDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Delete without confirmation prompt
   jamf-cli pro classic-patch-policies delete 1 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:api": "pro-classic", "jamf:gateway-privileges": "patch-policies:delete"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

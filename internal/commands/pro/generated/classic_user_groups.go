@@ -17,12 +17,64 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// bodySpecClassicUserGroups is this resource's request-body contract, derived from
+// specs/classic/schemas.json at generation time. Empty when the Classic API spec
+// declares no schema for it, in which case create/update/apply read their body
+// from --from-file or stdin with no --scaffold and no --set.
+var bodySpecClassicUserGroups = classicBodySpec{
+	Root:   "user_group",
+	Schema: "user_group",
+	Scaffold: `<user_group>
+  <id>1</id>
+  <name>Teachers</name>
+  <criteria>
+    <criterion>
+      <name>Email Address</name>
+      <and_or></and_or>
+      <closing_paren>false</closing_paren>
+      <opening_paren>false</opening_paren>
+      <priority>0</priority>
+      <search_type>like</search_type>
+      <value>company.com</value>
+    </criterion>
+  </criteria>
+  <is_notify_on_change>false</is_notify_on_change>
+  <is_smart>false</is_smart>
+  <site>
+    <id>0</id>
+    <name>None</name>
+  </site>
+  <users>
+    <user>
+      <id>1</id>
+      <email_address>aharrison@company.com</email_address>
+      <full_name>Ashley Harrison</full_name>
+      <phone_number>123-555-6789</phone_number>
+      <username>AHarrison</username>
+    </user>
+  </users>
+</user_group>
+`,
+	FieldTypes: map[string]string{
+		"criteria":            "array",
+		"id":                  "integer",
+		"is_notify_on_change": "boolean",
+		"is_smart":            "boolean",
+		"name":                "string",
+		"site":                "object",
+		"site.id":             "integer",
+		"site.name":           "string",
+		"users":               "array",
+	},
+}
+
 // NewClassicUserGroupsCmd creates the classic-user-groups command group
 func NewClassicUserGroupsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "classic-user-groups",
-		Short: "JSS user groups (referenced in policy/ebook scope limitations) (Classic API)",
-		Long:  `Manage jss user groups (referenced in policy/ebook scope limitations) via the Jamf Pro Classic API (/JSSResource/).`,
+		Use:         "classic-user-groups",
+		Short:       "JSS user groups (referenced in policy/ebook scope limitations) (Classic API)",
+		Long:        `Manage jss user groups (referenced in policy/ebook scope limitations) via the Jamf Pro Classic API (/JSSResource/).`,
+		Annotations: map[string]string{"jamf:api": "pro-classic"},
 	}
 
 	cmd.AddCommand(newClassicUserGroupsListCmd(ctx))
@@ -49,6 +101,7 @@ func newClassicUserGroupsListCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # List usergroups and extract IDs
   jamf-cli pro classic-user-groups list --field id`,
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "user-groups:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/usergroups", nil)
@@ -105,7 +158,8 @@ func newClassicUserGroupsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a user_group and output as YAML
   jamf-cli pro classic-user-groups get 1 -o yaml`,
-		Args: cobra.MaximumNArgs(1),
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "user-groups:read"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -157,21 +211,42 @@ func newClassicUserGroupsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
 func newClassicUserGroupsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
-		fromFile string
+		fromFile     string
+		flagScaffold bool
+		flagSet      []string
 	)
 	cmd := &cobra.Command{
 		Use:   "create",
 		Short: "Create a user_group",
-		Long:  "Create a new user_group. Reads the XML body from --from-file or stdin.",
+		Long: `Create a new user_group. Reads the XML body from --from-file, --set or stdin.
+
+Body fields are derived from the Classic API spec (schema "user_group").
+Run with --scaffold to print a complete XML template.
+The template populates every optional section with one specimen entry,
+including references whose <id> points at nothing on your instance — delete
+the sections you do not need. A dangling reference is answered with a 500.
+
+Required: is_smart, name
+Optional sections: criteria, id, is_notify_on_change, site, users
+
+Allowed values:
+  criteria[].and_or: and | or
+
+The Classic API does not reject an out-of-range value — it substitutes
+its default silently — so --set refuses one rather than letting it through.`,
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "user-groups:create"},
 		Example: `  # Create a user_group from an XML file
   jamf-cli pro classic-user-groups create --from-file user_group.xml
 
   # Create a user_group from XML on stdin
   cat user_group.xml | jamf-cli pro classic-user-groups create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if flagScaffold {
+				return printClassicScaffold(bodySpecClassicUserGroups)
+			}
 			reqCtx := cmd.Context()
 
-			bodyBytes, err := readClassicBody(fromFile)
+			bodyBytes, err := readClassicBodyOrSet(fromFile, flagSet, bodySpecClassicUserGroups)
 			if err != nil {
 				return err
 			}
@@ -190,27 +265,58 @@ func newClassicUserGroupsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to XML input file (or pipe XML to stdin)")
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print an XML body template for this resource and exit")
+	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Set a body field in dot notation (key=value, repeatable). Builds the whole body, so it cannot be combined with --from-file")
+	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+		return []string{"id=", "is_notify_on_change=", "is_smart=", "name=", "site.id=", "site.name="}, cobra.ShellCompDirectiveNoSpace
+	})
 	return cmd
 }
 
 func newClassicUserGroupsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var fromFile string
+	var (
+		flagScaffold bool
+		flagSet      []string
+	)
 	var flagName string
 
 	cmd := &cobra.Command{
 		Use:   "update [<id>]",
 		Short: "Update a user_group",
-		Long:  "Update an existing user_group by ID. Reads the XML body from --from-file or stdin.",
+		Long: `Update an existing user_group by ID. Reads the XML body from --from-file, --set or stdin.
+
+The Classic API applies a partial update: fields the body omits keep their
+current values, so a body carrying one element changes only that element.
+
+Body fields are derived from the Classic API spec (schema "user_group").
+Run with --scaffold to print a complete XML template.
+The template populates every optional section with one specimen entry,
+including references whose <id> points at nothing on your instance — delete
+the sections you do not need. A dangling reference is answered with a 500.
+
+Required: is_smart, name
+Optional sections: criteria, id, is_notify_on_change, site, users
+
+Allowed values:
+  criteria[].and_or: and | or
+
+The Classic API does not reject an out-of-range value — it substitutes
+its default silently — so --set refuses one rather than letting it through.`,
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "user-groups:update"},
 		Example: `  # Update a user_group from an XML file
   jamf-cli pro classic-user-groups update 1 --from-file user_group.xml
 
   # Update a user_group from XML on stdin
   cat user_group.xml | jamf-cli pro classic-user-groups update 1`,
-		Args: cobra.MaximumNArgs(1),
+		Args: classicScaffoldArgs(&flagScaffold, cobra.MaximumNArgs(1)),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if flagScaffold {
+				return printClassicScaffold(bodySpecClassicUserGroups)
+			}
 			reqCtx := cmd.Context()
 
-			bodyBytes, bodyErr := readClassicBody(fromFile)
+			bodyBytes, bodyErr := readClassicBodyOrSet(fromFile, flagSet, bodySpecClassicUserGroups)
 			if bodyErr != nil {
 				return bodyErr
 			}
@@ -239,6 +345,11 @@ func newClassicUserGroupsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to XML input file (or pipe XML to stdin)")
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print an XML body template for this resource and exit")
+	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Set a body field in dot notation (key=value, repeatable). Builds the whole body, so it cannot be combined with --from-file")
+	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+		return []string{"id=", "is_notify_on_change=", "is_smart=", "name=", "site.id=", "site.name="}, cobra.ShellCompDirectiveNoSpace
+	})
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up user_group by name")
 
 	return cmd
@@ -263,7 +374,7 @@ func newClassicUserGroupsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Delete without confirmation prompt
   jamf-cli pro classic-user-groups delete 1 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:api": "pro-classic", "jamf:gateway-privileges": "user-groups:delete"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -428,19 +539,37 @@ func newClassicUserGroupsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 
 func newClassicUserGroupsApplyCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
-		fromFile   string
-		flagYes    bool
-		flagDryRun bool
+		fromFile     string
+		flagYes      bool
+		flagDryRun   bool
+		flagScaffold bool
+		flagSet      []string
 	)
 
 	cmd := &cobra.Command{
-		Use:   "apply",
-		Short: "Create or replace a user_group by name",
-		Long: `Create or replace a user_group. Reads XML from --from-file or stdin.
+		Use:         "apply",
+		Short:       "Create or replace a user_group by name",
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "user-groups:create,user-groups:read,user-groups:update"},
+		Long: `Create or replace a user_group. Reads XML from --from-file, --set or stdin.
 
 The name field in the input XML is used to check if the resource already
 exists. If it does, the resource is replaced (with confirmation).
-If not, a new resource is created.`,
+If not, a new resource is created.
+
+Body fields are derived from the Classic API spec (schema "user_group").
+Run with --scaffold to print a complete XML template.
+The template populates every optional section with one specimen entry,
+including references whose <id> points at nothing on your instance — delete
+the sections you do not need. A dangling reference is answered with a 500.
+
+Required: is_smart, name
+Optional sections: criteria, id, is_notify_on_change, site, users
+
+Allowed values:
+  criteria[].and_or: and | or
+
+The Classic API does not reject an out-of-range value — it substitutes
+its default silently — so --set refuses one rather than letting it through.`,
 		Example: `  # Apply a user_group from an XML file
   jamf-cli pro classic-user-groups apply --from-file user_group.xml
 
@@ -450,6 +579,9 @@ If not, a new resource is created.`,
   # Apply without replacement confirmation
   jamf-cli pro classic-user-groups apply --from-file user_group.xml --yes`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			if flagScaffold {
+				return printClassicScaffold(bodySpecClassicUserGroups)
+			}
 			reqCtx := cmd.Context()
 
 			// Read input
@@ -522,6 +654,12 @@ If not, a new resource is created.`,
 	}
 
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to XML input file (or pipe XML to stdin)")
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print an XML body template for this resource and exit")
+	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Set a body field in dot notation (key=value, repeatable). Builds the whole body, so it cannot be combined with --from-file")
+	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+		return []string{"id=", "is_notify_on_change=", "is_smart=", "name=", "site.id=", "site.name="}, cobra.ShellCompDirectiveNoSpace
+	})
+
 	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt when replacing")
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
 

@@ -17,9 +17,10 @@ import (
 // NewRedeployJamfManagementFrameworksCmd creates the redeploy-jamf-management-frameworks command group
 func NewRedeployJamfManagementFrameworksCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "redeploy-jamf-management-frameworks",
-		Short: "Manage redeploy-jamf-management-frameworks",
-		Long:  `Manage redeploy-jamf-management-frameworks in Jamf Pro.`,
+		Use:         "redeploy-jamf-management-frameworks",
+		Short:       "Manage redeploy-jamf-management-frameworks",
+		Long:        `Manage redeploy-jamf-management-frameworks in Jamf Pro.`,
+		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
 	cmd.AddCommand(newRedeployJamfManagementFrameworksActionCmd(ctx))
@@ -34,7 +35,7 @@ func newRedeployJamfManagementFrameworksActionCmd(ctx *registry.CLIContext) *cob
 		Use:         "action <id>",
 		Short:       "Redeploy Jamf Management Framework",
 		Long:        "Redeploys the Jamf Management Framework for enrolled device",
-		Annotations: map[string]string{"jamf:privileges": "Send Computer Remote Command to Install Package,Read Computer Check-In"},
+		Annotations: map[string]string{"jamf:privileges": "Send Computer Remote Command to Install Package,Read Computer Check-In", "jamf:api": "pro", "jamf:gateway-privileges": "computer-check-in:read,device-actions:execute"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

@@ -12,9 +12,10 @@ import (
 // NewInventoryInformationsCmd creates the inventory-informations command group
 func NewInventoryInformationsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "inventory-informations",
-		Short: "Manage inventory-informations",
-		Long:  `Manage inventory-informations in Jamf Pro.`,
+		Use:         "inventory-informations",
+		Short:       "Manage inventory-informations",
+		Long:        `Manage inventory-informations in Jamf Pro.`,
+		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
 	cmd.AddCommand(newInventoryInformationsListCmd(ctx))
@@ -34,6 +35,7 @@ func newInventoryInformationsListCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # List inventory-informations and extract IDs
   jamf-cli pro inventory-informations list --field id`,
+		Annotations: map[string]string{"jamf:api": "pro"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

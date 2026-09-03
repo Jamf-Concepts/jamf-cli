@@ -138,12 +138,13 @@ func runBackup(ctx context.Context, cliCtx *registry.CLIContext, opts backupOpti
 		fmt.Fprintf(os.Stderr, "WARNING: could not resolve Jamf Pro URL for _meta: %v\n", err)
 	}
 
-	// Resolve tenant ID for _meta. The package-level tenantID var only holds
+	// Resolve the scope ID for _meta. The package-level tenantID var only holds
 	// the CLI flag / env override; the authoritative value lives on the
-	// resolved platform auth provider (loaded from config + keychain).
+	// resolved platform auth provider (loaded from config + keychain). An
+	// organization-scoped credential has no ID, which records as empty.
 	resolvedTenant := tenantID
 	if p, ok := cliCtx.AuthProvider.(*auth.PlatformOAuth2Provider); ok && resolvedTenant == "" {
-		resolvedTenant = p.TenantID()
+		resolvedTenant = p.Scope().ID
 	}
 
 	newMeta := func(resourceType string) backupMeta {

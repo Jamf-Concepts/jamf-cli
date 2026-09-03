@@ -12,9 +12,10 @@ import (
 // NewUserSessionsCmd creates the user-sessions command group
 func NewUserSessionsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "user-sessions",
-		Short: "Manage user-sessions",
-		Long:  `Manage user-sessions in Jamf Pro.`,
+		Use:         "user-sessions",
+		Short:       "Manage user-sessions",
+		Long:        `Manage user-sessions in Jamf Pro.`,
+		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
 	cmd.AddCommand(newUserSessionsActiveCmd(ctx))
@@ -30,7 +31,7 @@ func newUserSessionsActiveCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:         "active",
 		Short:       "Get active user sessions.",
 		Long:        "Returns detailed information about currently logged in users.",
-		Annotations: map[string]string{"jamf:privileges": "Read User"},
+		Annotations: map[string]string{"jamf:privileges": "Read User", "jamf:api": "pro", "jamf:gateway-privileges": "user-sessions:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -64,7 +65,7 @@ func newUserSessionsCountCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:         "count",
 		Short:       "Get count of active user sessions.",
 		Long:        "Returns the number of currently logged in users.",
-		Annotations: map[string]string{"jamf:privileges": "Read User"},
+		Annotations: map[string]string{"jamf:privileges": "Read User", "jamf:api": "pro", "jamf:gateway-privileges": "user-sessions:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

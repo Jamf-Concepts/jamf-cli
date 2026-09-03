@@ -16,9 +16,10 @@ import (
 // NewSystemsCmd creates the systems command group
 func NewSystemsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "systems",
-		Short: "Manage systems",
-		Long:  `Manage systems in Jamf Pro.`,
+		Use:         "systems",
+		Short:       "Manage systems",
+		Long:        `Manage systems in Jamf Pro.`,
+		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
 	cmd.AddCommand(newSystemsInitializeCmd(ctx))
@@ -33,9 +34,10 @@ func newSystemsInitializeCmd(ctx *registry.CLIContext) *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "initialize",
-		Short: "Set up fresh installed Jamf Pro Server",
-		Long:  "Set up fresh installed Jamf Pro Server",
+		Use:         "initialize",
+		Short:       "Set up fresh installed Jamf Pro Server",
+		Long:        "Set up fresh installed Jamf Pro Server",
+		Annotations: map[string]string{"jamf:api": "pro", "jamf:gateway": "unserved", "jamf:gateway-basis": "unpublished", "jamf:gateway-detail": "not declared by the gateway's Jamf Pro API 11.31.0"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -98,9 +100,10 @@ func newSystemsPlatformInitializeCmd(ctx *registry.CLIContext) *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "platform-initialize",
-		Short: "Set up fresh installed Jamf Pro Server for Platform",
-		Long:  "Set up fresh installed Jamf Pro Server with OIDC SSO enabled and single federated user",
+		Use:         "platform-initialize",
+		Short:       "Set up fresh installed Jamf Pro Server for Platform",
+		Long:        "Set up fresh installed Jamf Pro Server with OIDC SSO enabled and single federated user",
+		Annotations: map[string]string{"jamf:api": "pro", "jamf:gateway": "unserved", "jamf:gateway-basis": "unpublished", "jamf:gateway-detail": "not declared by the gateway's Jamf Pro API 11.31.0"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

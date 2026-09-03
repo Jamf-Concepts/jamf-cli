@@ -21,9 +21,10 @@ import (
 // resource. Wire it into a product namespace via AddCommand.
 func NewDeviceActionsCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "device-actions",
-		Short: "Manage device-actions (Platform API)",
-		Long:  "API for invoking common management tasks against managed devices",
+		Use:         "device-actions",
+		Short:       "Manage device-actions (Platform API)",
+		Long:        "API for invoking common management tasks against managed devices",
+		Annotations: map[string]string{"jamf:api": "platform-gateway"},
 	}
 	cmd.AddCommand(newDeviceActionsCheckInCmd(cliCtx))
 	cmd.AddCommand(newDeviceActionsEraseCmd(cliCtx))
@@ -38,19 +39,37 @@ func newDeviceActionsCheckInCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Use:         "check-in <id>",
 		Short:       "Request a device check in",
 		Long:        "Requests that a device check for pending commands",
-		Annotations: map[string]string{"jamf:privileges": "execute:pro:device-actions"},
+		Annotations: map[string]string{"jamf:privileges": "device-actions:execute", "jamf:api": "platform-gateway"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err
 			}
-			path := "/api/device-actions/v1/tenant/{tenantId}/devices/{id}/check-in"
-			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantID()), 1)
+			path := "/device-actions/v1/devices/{id}/check-in"
 			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
 			q := url.Values{}
 			var body any
 			if encoded := q.Encode(); encoded != "" {
 				path += "?" + encoded
+			}
+			// --dry-run is a global flag advertised as "preview changes without
+			// executing", and it used to preview nothing here: the Pro client is
+			// wrapped by a dry-run decorator, this one is not, so every generated
+			// platform and Security Cloud mutation executed for real under -n.
+			// A create reported the object it had just made and a delete reported
+			// nothing, both exiting 0.
+			//
+			// Ahead of the confirmation, not after it. ConfirmAction errors when
+			// --yes is absent and stdin is not a terminal, so a preview of a
+			// destructive command used to be unobtainable in CI without also
+			// pre-authorising the real thing — and the day -n falls off that
+			// command line (or out of JAMF_CLI_ARGS) the delete runs with its
+			// confirmation already suppressed. Interactively the old order
+			// prompted first and printed [dry-run] second, teaching the operator
+			// that confirming is harmless. Name resolution stays ahead of both,
+			// so the preview reports the resolved path.
+			if cliCtx.DryRun {
+				return platform.ReportDryRun(cmd.ErrOrStderr(), http.MethodPost, path, body)
 			}
 			if err := cliCtx.PlatformSDKClient.Transport().DoExpect(cmd.Context(), http.MethodPost, path, body, http.StatusNoContent, nil); err != nil {
 				return fmt.Errorf("check-in: %w", err)
@@ -70,7 +89,7 @@ func newDeviceActionsEraseCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Use:         "erase <id>",
 		Short:       "Erase a device",
 		Long:        "Requests that a device erase its content and settings",
-		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "execute:pro:device-actions"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "destructive-device-actions:execute", "jamf:api": "platform-gateway"},
 		Args: func(cmd *cobra.Command, args []string) error {
 			if scaffoldFlag {
 				return nil
@@ -87,11 +106,7 @@ func newDeviceActionsEraseCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err
 			}
-			if err := platform.ConfirmAction("erase", args[0], yes); err != nil {
-				return err
-			}
-			path := "/api/device-actions/v1/tenant/{tenantId}/devices/{id}/erase"
-			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantID()), 1)
+			path := "/device-actions/v1/devices/{id}/erase"
 			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
 			q := url.Values{}
 			body, err := platform.ReadBody(bodyFile, setFlags)
@@ -100,6 +115,28 @@ func newDeviceActionsEraseCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			}
 			if encoded := q.Encode(); encoded != "" {
 				path += "?" + encoded
+			}
+			// --dry-run is a global flag advertised as "preview changes without
+			// executing", and it used to preview nothing here: the Pro client is
+			// wrapped by a dry-run decorator, this one is not, so every generated
+			// platform and Security Cloud mutation executed for real under -n.
+			// A create reported the object it had just made and a delete reported
+			// nothing, both exiting 0.
+			//
+			// Ahead of the confirmation, not after it. ConfirmAction errors when
+			// --yes is absent and stdin is not a terminal, so a preview of a
+			// destructive command used to be unobtainable in CI without also
+			// pre-authorising the real thing — and the day -n falls off that
+			// command line (or out of JAMF_CLI_ARGS) the delete runs with its
+			// confirmation already suppressed. Interactively the old order
+			// prompted first and printed [dry-run] second, teaching the operator
+			// that confirming is harmless. Name resolution stays ahead of both,
+			// so the preview reports the resolved path.
+			if cliCtx.DryRun {
+				return platform.ReportDryRun(cmd.ErrOrStderr(), http.MethodPost, path, body)
+			}
+			if err := platform.ConfirmAction("erase", args[0], yes); err != nil {
+				return err
 			}
 			var result any
 			if err := cliCtx.PlatformSDKClient.Transport().DoWithContentType(cmd.Context(), http.MethodPost, path, body, "application/json", http.StatusCreated, &result); err != nil {
@@ -115,7 +152,7 @@ func newDeviceActionsEraseCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			return cliCtx.Output.PrintRaw(b)
 		},
 	}
-	cmd.Flags().StringVar(&bodyFile, "file", "", "Path to JSON file containing the request body")
+	cmd.Flags().StringVar(&bodyFile, "file", "", "Path to a JSON or YAML file containing the request body")
 	cmd.Flags().StringArrayVar(&setFlags, "set", nil, "Override body values (key=value, repeatable, supports nested.keys)")
 	cmd.Flags().BoolVar(&scaffoldFlag, "scaffold", false, "Print an example request body and exit")
 	cmd.Flags().BoolVar(&yes, "yes", false, "Skip confirmation prompt")
@@ -128,22 +165,40 @@ func newDeviceActionsRestartCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Use:         "restart <id>",
 		Short:       "Restart a device",
 		Long:        "Requests that a device restart",
-		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "execute:pro:device-actions"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "device-actions:execute", "jamf:api": "platform-gateway"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err
 			}
-			if err := platform.ConfirmAction("restart", args[0], yes); err != nil {
-				return err
-			}
-			path := "/api/device-actions/v1/tenant/{tenantId}/devices/{id}/restart"
-			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantID()), 1)
+			path := "/device-actions/v1/devices/{id}/restart"
 			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
 			q := url.Values{}
 			var body any
 			if encoded := q.Encode(); encoded != "" {
 				path += "?" + encoded
+			}
+			// --dry-run is a global flag advertised as "preview changes without
+			// executing", and it used to preview nothing here: the Pro client is
+			// wrapped by a dry-run decorator, this one is not, so every generated
+			// platform and Security Cloud mutation executed for real under -n.
+			// A create reported the object it had just made and a delete reported
+			// nothing, both exiting 0.
+			//
+			// Ahead of the confirmation, not after it. ConfirmAction errors when
+			// --yes is absent and stdin is not a terminal, so a preview of a
+			// destructive command used to be unobtainable in CI without also
+			// pre-authorising the real thing — and the day -n falls off that
+			// command line (or out of JAMF_CLI_ARGS) the delete runs with its
+			// confirmation already suppressed. Interactively the old order
+			// prompted first and printed [dry-run] second, teaching the operator
+			// that confirming is harmless. Name resolution stays ahead of both,
+			// so the preview reports the resolved path.
+			if cliCtx.DryRun {
+				return platform.ReportDryRun(cmd.ErrOrStderr(), http.MethodPost, path, body)
+			}
+			if err := platform.ConfirmAction("restart", args[0], yes); err != nil {
+				return err
 			}
 			var result any
 			if err := cliCtx.PlatformSDKClient.Transport().DoExpect(cmd.Context(), http.MethodPost, path, body, http.StatusCreated, &result); err != nil {
@@ -169,22 +224,40 @@ func newDeviceActionsShutdownCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Use:         "shutdown <id>",
 		Short:       "Shut down a device",
 		Long:        "Requests that a device shut down",
-		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "execute:pro:device-actions"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "device-actions:execute", "jamf:api": "platform-gateway"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err
 			}
-			if err := platform.ConfirmAction("shutdown", args[0], yes); err != nil {
-				return err
-			}
-			path := "/api/device-actions/v1/tenant/{tenantId}/devices/{id}/shutdown"
-			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantID()), 1)
+			path := "/device-actions/v1/devices/{id}/shutdown"
 			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
 			q := url.Values{}
 			var body any
 			if encoded := q.Encode(); encoded != "" {
 				path += "?" + encoded
+			}
+			// --dry-run is a global flag advertised as "preview changes without
+			// executing", and it used to preview nothing here: the Pro client is
+			// wrapped by a dry-run decorator, this one is not, so every generated
+			// platform and Security Cloud mutation executed for real under -n.
+			// A create reported the object it had just made and a delete reported
+			// nothing, both exiting 0.
+			//
+			// Ahead of the confirmation, not after it. ConfirmAction errors when
+			// --yes is absent and stdin is not a terminal, so a preview of a
+			// destructive command used to be unobtainable in CI without also
+			// pre-authorising the real thing — and the day -n falls off that
+			// command line (or out of JAMF_CLI_ARGS) the delete runs with its
+			// confirmation already suppressed. Interactively the old order
+			// prompted first and printed [dry-run] second, teaching the operator
+			// that confirming is harmless. Name resolution stays ahead of both,
+			// so the preview reports the resolved path.
+			if cliCtx.DryRun {
+				return platform.ReportDryRun(cmd.ErrOrStderr(), http.MethodPost, path, body)
+			}
+			if err := platform.ConfirmAction("shutdown", args[0], yes); err != nil {
+				return err
 			}
 			var result any
 			if err := cliCtx.PlatformSDKClient.Transport().DoExpect(cmd.Context(), http.MethodPost, path, body, http.StatusCreated, &result); err != nil {
@@ -210,22 +283,40 @@ func newDeviceActionsUnmanageCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Use:         "unmanage <id>",
 		Short:       "Unmanage a device",
 		Long:        "Removes remote management from a device",
-		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "execute:pro:device-actions"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "destructive-device-actions:execute", "jamf:api": "platform-gateway"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err
 			}
-			if err := platform.ConfirmAction("unmanage", args[0], yes); err != nil {
-				return err
-			}
-			path := "/api/device-actions/v1/tenant/{tenantId}/devices/{id}/unmanage"
-			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantID()), 1)
+			path := "/device-actions/v1/devices/{id}/unmanage"
 			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
 			q := url.Values{}
 			var body any
 			if encoded := q.Encode(); encoded != "" {
 				path += "?" + encoded
+			}
+			// --dry-run is a global flag advertised as "preview changes without
+			// executing", and it used to preview nothing here: the Pro client is
+			// wrapped by a dry-run decorator, this one is not, so every generated
+			// platform and Security Cloud mutation executed for real under -n.
+			// A create reported the object it had just made and a delete reported
+			// nothing, both exiting 0.
+			//
+			// Ahead of the confirmation, not after it. ConfirmAction errors when
+			// --yes is absent and stdin is not a terminal, so a preview of a
+			// destructive command used to be unobtainable in CI without also
+			// pre-authorising the real thing — and the day -n falls off that
+			// command line (or out of JAMF_CLI_ARGS) the delete runs with its
+			// confirmation already suppressed. Interactively the old order
+			// prompted first and printed [dry-run] second, teaching the operator
+			// that confirming is harmless. Name resolution stays ahead of both,
+			// so the preview reports the resolved path.
+			if cliCtx.DryRun {
+				return platform.ReportDryRun(cmd.ErrOrStderr(), http.MethodPost, path, body)
+			}
+			if err := platform.ConfirmAction("unmanage", args[0], yes); err != nil {
+				return err
 			}
 			var result any
 			if err := cliCtx.PlatformSDKClient.Transport().DoExpect(cmd.Context(), http.MethodPost, path, body, http.StatusCreated, &result); err != nil {

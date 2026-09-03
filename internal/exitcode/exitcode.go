@@ -17,6 +17,15 @@ const (
 	PermissionDenied = 5
 	RateLimited      = 6
 	PartialFailure   = 7
+	// Unsupported (8) is a policy refusal: the command is real and correctly
+	// invoked, but the resolved credentials cannot reach the API that serves it.
+	// Distinct from Usage (2) because 2 is also every cobra flag error, unknown
+	// subcommand, missing URL and missing credential — so a wrapper script could
+	// not tell "refused by policy on this credential" from "you invoked it
+	// wrong", which is exactly the distinction a pipeline needs in order to
+	// degrade rather than fail. Not NotFound (4) either: a script iterating
+	// commands treats 4 as "no such object, carry on" and would swallow it.
+	Unsupported = 8
 )
 
 // Error is an error that carries a specific exit code.
@@ -72,6 +81,8 @@ func CodeName(code int) string {
 		return "rate_limited"
 	case PartialFailure:
 		return "partial_failure"
+	case Unsupported:
+		return "unsupported"
 	default:
 		return "general"
 	}
@@ -80,8 +91,7 @@ func CodeName(code int) string {
 // CodeFrom extracts the exit code from an error. If the error contains an
 // *Error anywhere in its chain, that code is returned. Otherwise returns General (1).
 func CodeFrom(err error) int {
-	var e *Error
-	if errors.As(err, &e) {
+	if e, ok := errors.AsType[*Error](err); ok {
 		return e.Code
 	}
 	return General

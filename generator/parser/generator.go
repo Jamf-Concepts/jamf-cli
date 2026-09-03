@@ -52,6 +52,82 @@ func safeFilename(resourceName string) string {
 	return base + ".go"
 }
 
+// applyGatewayAnn renders the gateway-coverage annotations for the
+// synthesized `apply`, which has no spec operation of its own: it lists
+// to resolve the name, then creates or replaces. So both the verdict and
+// the permissions come from those three operations, the same way the
+// Classic generator computes its own apply from `gatewayAnn $ "list"
+// "POST" "PUT"`.
+//
+// The verdict has to be here rather than left absent, because
+// checkAPIMatch refuses only on jamf:gateway == "unserved": without it
+// every sibling verb on a withdrawn resource was refused pre-flight
+// while `apply` — the command a workflow is actually built out of —
+// went out to the wire and answered a bare 500.
+//
+// When apply is refused it carries no privileges. A refused command must
+// not advertise a grant that cannot make it work; gatewayPrivAnn returns
+// nothing for a refused Classic command for exactly that reason, and the
+// union here is the same trap in a different shape — a resource whose
+// `list` is withdrawn can still declare scopes on the create it kept.
+//
+// Otherwise only the union. Splitting it into "read plus one of
+// create/update" would be more precise and unusable: which half runs
+// depends on whether the object already exists, so an integration that
+// holds one of them works until the day it does not. Stating the union
+// is the whole point — apply is the command most likely to 403 on an
+// integration sized from create alone.
+func applyGatewayAnn(r *Resource) string {
+	if v := applyGatewayVerdict(r); v != nil {
+		return fmt.Sprintf(", %q: %q, %q: %q, %q: %q",
+			"jamf:gateway", v.GatewayLevel,
+			"jamf:gateway-basis", v.GatewayBasis,
+			"jamf:gateway-detail", v.GatewayDetail)
+	}
+	var scopes []string
+	for _, name := range applyGatewayOpNames {
+		for _, op := range r.Operations {
+			if op.Name != name {
+				continue
+			}
+			for _, sc := range op.GatewayPrivileges {
+				if !slices.Contains(scopes, sc) {
+					scopes = append(scopes, sc)
+				}
+			}
+		}
+	}
+	if len(scopes) == 0 {
+		return ""
+	}
+	slices.Sort(scopes)
+	return fmt.Sprintf(", %q: %q", "jamf:gateway-privileges", strings.Join(scopes, ","))
+}
+
+// applyGatewayOpNames are the operations the synthesized `apply` sends, in the
+// order it sends them: it lists to resolve the name, then creates or replaces.
+// The same set the Classic template passes as `"list" "POST" "PUT"`.
+var applyGatewayOpNames = []string{"list", "create", "update"}
+
+// applyGatewayVerdict returns the operation whose gateway verdict applies to
+// `apply` — the first of the operations it sends that the gateway does not
+// serve — or nil when every one of them is served.
+//
+// First rather than a merge, mirroring the Classic generator's
+// classicGatewayVerdict: a command that always sends a refused operation is
+// refused whatever else it sends, and one reason is what a refusal message can
+// carry. Consulted in send order so the reason names the earliest failure.
+func applyGatewayVerdict(r *Resource) *Operation {
+	for _, name := range applyGatewayOpNames {
+		for _, op := range r.Operations {
+			if op.Name == name && op.GatewayLevel != "" {
+				return op
+			}
+		}
+	}
+	return nil
+}
+
 // Generator generates Go code from parsed resources
 type Generator struct {
 	outputDir string
@@ -95,11 +171,36 @@ func (g *Generator) Generate(resource *Resource) (string, error) {
 			if len(op.Privileges) > 0 {
 				pairs = append(pairs, fmt.Sprintf("%q: %q", "jamf:privileges", strings.Join(op.Privileges, ",")))
 			}
+			// Which Jamf API serves this command. Always set, so the catalog can
+			// distinguish "no privileges declared" from "not a Pro API command"
+			// — and so a namespace mixing APIs (pro carries Pro, Classic and
+			// Platform) stays legible without inferring from the command path.
+			pairs = append(pairs, fmt.Sprintf("%q: %q", "jamf:api", "pro"))
+			// Whether the Jamf Platform gateway serves this endpoint. Set only
+			// when it does not, in which case a gateway profile is refused
+			// before a request is sent. jamf:gateway-basis is the evidence —
+			// "probe" or "unpublished" — and selects the wording only. See
+			// generator/gateway.
+			if op.GatewayLevel != "" {
+				pairs = append(pairs, fmt.Sprintf("%q: %q", "jamf:gateway", op.GatewayLevel))
+				pairs = append(pairs, fmt.Sprintf("%q: %q", "jamf:gateway-basis", op.GatewayBasis))
+				pairs = append(pairs, fmt.Sprintf("%q: %q", "jamf:gateway-detail", op.GatewayDetail))
+			}
+			// The capability permissions the gateway requires, for the same
+			// endpoint jamf:privileges names in Jamf Pro's vocabulary. Both are
+			// carried because neither converts to the other and which one an
+			// operator needs depends on the credential: without this, sizing a
+			// Platform API integration from the catalog is impossible and the
+			// only route to the answer is provoking a 403.
+			if len(op.GatewayPrivileges) > 0 {
+				pairs = append(pairs, fmt.Sprintf("%q: %q", "jamf:gateway-privileges", strings.Join(op.GatewayPrivileges, ",")))
+			}
 			if len(pairs) == 0 {
 				return ""
 			}
 			return "map[string]string{" + strings.Join(pairs, ", ") + "}"
 		},
+		"applyGatewayAnn": applyGatewayAnn,
 		"hasSectionParam": func(op *Operation) bool {
 			for _, p := range op.Parameters {
 				if p.In == "query" && p.Name == "section" {
@@ -1813,6 +1914,7 @@ func New{{ .GoName }}Cmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:   "{{ .Name }}",
 		Short: "Manage {{ .Name }}",
 		Long:  ` + "`" + `Manage {{ .Name }} in Jamf Pro.` + "`" + `,
+		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 {{ range dedupeOps (sortOps .Operations) }}
 	cmd.AddCommand(new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx))
@@ -2335,7 +2437,10 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 
 			// Auto-pagination: fetch all pages when --all is set and --page was not manually specified
 			if flagAll && flagPage == 0 {
-				var allResults []json.RawMessage
+				// Initialised empty, not nil — a nil slice marshals to "null", so
+				// "list --all" on an empty collection used to answer "null" where
+				// the single-page path answers "[]".
+				allResults := []json.RawMessage{}
 				prog := ctx.Output.PaginationProgress()
 				defer prog.Stop()
 				reqCtx = spinner.WithSuppressed(reqCtx)
@@ -2900,6 +3005,7 @@ func new{{ .GoName }}ApplyCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "apply",
 		Short: "Create or replace a {{ .NameSingular }} by name",
+		Annotations: map[string]string{"jamf:api": "pro"{{ applyGatewayAnn $ }}},
 		Long: ` + "`" + `Create or replace a {{ .NameSingular }}. Reads JSON or YAML from --from-file or stdin.
 
 The {{ .NameField }} field in the input is used to check if the resource
@@ -3182,6 +3288,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
@@ -3693,11 +3800,70 @@ func normalizeInputToJSON(data []byte) ([]byte, error) {
 	if err := yaml.Unmarshal(data, &v); err != nil {
 		return nil, fmt.Errorf("input is not valid JSON or YAML: %w", err)
 	}
-	out, err := json.Marshal(v)
+	safe, err := jsonSafeYAML(v)
+	if err != nil {
+		return nil, err
+	}
+	out, err := json.Marshal(safe)
 	if err != nil {
 		return nil, fmt.Errorf("re-marshaling YAML as JSON: %w", err)
 	}
 	return out, nil
+}
+
+// jsonSafeYAML rewrites the two yaml.v3 shapes encoding/json cannot marshal
+// into ones it can: a mapping with any non-string key (map[any]any) and a
+// timestamp scalar (time.Time). Without it, json.Marshal above is the very call
+// that refuses them, so a YAML body carrying either came back as
+// "re-marshaling YAML as JSON: json: unsupported ...", reported as malformed
+// input for a valid file. Go 1.26 refuses any non-string key; 1.27 spells an
+// integer one and still refuses a boolean, float or null key, all of which YAML
+// permits.
+//
+// A key is spelled with fmt.Sprint, so "80: http" reaches the server as "80".
+// Nothing guards against a composite key, which YAML permits and JSON has no
+// spelling for, because yaml.v3 refuses it before this is reached with
+// "yaml: invalid map key" naming the key.
+//
+// Mirrors internal/bodyinput.jsonSafe, which the platform and Security Cloud
+// commands use; generated code stands alone, so the two are copies on purpose.
+func jsonSafeYAML(v any) (any, error) {
+	switch x := v.(type) {
+	case map[string]any:
+		out := make(map[string]any, len(x))
+		for k, val := range x {
+			sv, err := jsonSafeYAML(val)
+			if err != nil {
+				return nil, err
+			}
+			out[k] = sv
+		}
+		return out, nil
+	case map[any]any:
+		out := make(map[string]any, len(x))
+		for k, val := range x {
+			sv, err := jsonSafeYAML(val)
+			if err != nil {
+				return nil, err
+			}
+			out[fmt.Sprint(k)] = sv
+		}
+		return out, nil
+	case []any:
+		out := make([]any, len(x))
+		for i, val := range x {
+			sv, err := jsonSafeYAML(val)
+			if err != nil {
+				return nil, err
+			}
+			out[i] = sv
+		}
+		return out, nil
+	case time.Time:
+		return x.Format(time.RFC3339Nano), nil
+	default:
+		return v, nil
+	}
 }
 
 // escapeJSONStringLiterals escapes any U+0000–U+001F control character that

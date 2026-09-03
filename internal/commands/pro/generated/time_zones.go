@@ -12,9 +12,10 @@ import (
 // NewTimeZonesCmd creates the time-zones command group
 func NewTimeZonesCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "time-zones",
-		Short: "Manage time-zones",
-		Long:  `Manage time-zones in Jamf Pro.`,
+		Use:         "time-zones",
+		Short:       "Manage time-zones",
+		Long:        `Manage time-zones in Jamf Pro.`,
+		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
 	cmd.AddCommand(newTimeZonesListCmd(ctx))
@@ -34,6 +35,7 @@ func newTimeZonesListCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # List time-zones and extract IDs
   jamf-cli pro time-zones list --field id`,
+		Annotations: map[string]string{"jamf:api": "pro"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

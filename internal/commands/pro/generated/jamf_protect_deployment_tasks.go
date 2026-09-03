@@ -19,9 +19,10 @@ import (
 // NewJamfProtectDeploymentTasksCmd creates the jamf-protect-deployment-tasks command group
 func NewJamfProtectDeploymentTasksCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "jamf-protect-deployment-tasks",
-		Short: "Manage jamf-protect-deployment-tasks",
-		Long:  `Manage jamf-protect-deployment-tasks in Jamf Pro.`,
+		Use:         "jamf-protect-deployment-tasks",
+		Short:       "Manage jamf-protect-deployment-tasks",
+		Long:        `Manage jamf-protect-deployment-tasks in Jamf Pro.`,
+		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
 	cmd.AddCommand(newJamfProtectDeploymentTasksTasksCmd(ctx))
@@ -44,7 +45,7 @@ func newJamfProtectDeploymentTasksTasksCmd(ctx *registry.CLIContext) *cobra.Comm
 		Use:         "tasks <id>",
 		Short:       "Search for deployment tasks for a config profile linked to Jamf Protect",
 		Long:        "Search for config profiles linked to Jamf Protect",
-		Annotations: map[string]string{"jamf:privileges": "Read Jamf Protect Deployments"},
+		Annotations: map[string]string{"jamf:privileges": "Read Jamf Protect Deployments", "jamf:api": "pro", "jamf:gateway-privileges": "jamf-protect-deployments:read"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -75,7 +76,10 @@ func newJamfProtectDeploymentTasksTasksCmd(ctx *registry.CLIContext) *cobra.Comm
 
 			// Auto-pagination: fetch all pages when --all is set and --page was not manually specified
 			if flagAll && flagPage == 0 {
-				var allResults []json.RawMessage
+				// Initialised empty, not nil — a nil slice marshals to "null", so
+				// "list --all" on an empty collection used to answer "null" where
+				// the single-page path answers "[]".
+				allResults := []json.RawMessage{}
 				prog := ctx.Output.PaginationProgress()
 				defer prog.Stop()
 				reqCtx = spinner.WithSuppressed(reqCtx)
@@ -191,7 +195,7 @@ func newJamfProtectDeploymentTasksRetryCmd(ctx *registry.CLIContext) *cobra.Comm
 		Use:         "retry <id>",
 		Short:       "Request a retry of Protect install tasks",
 		Long:        "Request a retry of Protect install tasks",
-		Annotations: map[string]string{"jamf:privileges": "Jamf Protect Deployment Retry"},
+		Annotations: map[string]string{"jamf:privileges": "Jamf Protect Deployment Retry", "jamf:api": "pro", "jamf:gateway-privileges": "jamf-protect-deployments:deploy"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

@@ -7,23 +7,29 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net/url"
 	"os"
 	"strings"
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
+	"github.com/Jamf-Concepts/jamf-cli/internal/spinner"
 	"github.com/spf13/cobra"
 )
 
 // NewAppInstallerGlobalSettingsCmd creates the app-installer-global-settings command group
 func NewAppInstallerGlobalSettingsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "app-installer-global-settings",
-		Short: "Manage app-installer-global-settings",
-		Long:  `Manage app-installer-global-settings in Jamf Pro.`,
+		Use:         "app-installer-global-settings",
+		Short:       "Manage app-installer-global-settings",
+		Long:        `Manage app-installer-global-settings in Jamf Pro.`,
+		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
 	cmd.AddCommand(newAppInstallerGlobalSettingsGetCmd(ctx))
 	cmd.AddCommand(newAppInstallerGlobalSettingsUpdateCmd(ctx))
+	cmd.AddCommand(newAppInstallerGlobalSettingsHistoryCmd(ctx))
+	cmd.AddCommand(newAppInstallerGlobalSettingsAddHistoryNoteCmd(ctx))
+	cmd.AddCommand(newAppInstallerGlobalSettingsDeploymentControlsCmd(ctx))
 
 	return cmd
 }
@@ -33,14 +39,14 @@ func newAppInstallerGlobalSettingsGetCmd(ctx *registry.CLIContext) *cobra.Comman
 
 	cmd := &cobra.Command{
 		Use:   "get",
-		Short: "Get App Installer global settings",
-		Long:  "Retrieves the global settings for App Installer deployments.",
+		Short: "Get global settings for app installers.",
+		Long:  "Get global settings for app installers.  **Required Permissions:** 'applications:read'",
 		Example: `  # Get app-installer-global-settings
   jamf-cli pro app-installer-global-settings get
 
   # Get app-installer-global-settings and output as YAML
   jamf-cli pro app-installer-global-settings get -o yaml`,
-		Annotations: map[string]string{"jamf:privileges": "Read App Installers"},
+		Annotations: map[string]string{"jamf:privileges": "Read Mac Applications", "jamf:api": "pro", "jamf:gateway-privileges": "applications:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -75,8 +81,8 @@ func newAppInstallerGlobalSettingsUpdateCmd(ctx *registry.CLIContext) *cobra.Com
 
 	cmd := &cobra.Command{
 		Use:   "update",
-		Short: "Update App Installer global settings",
-		Long:  "Replaces all global settings for App Installer deployments. Fields omitted or null are cleared to their unset state.\n\nUse --set KEY=VALUE to update individual fields (repeatable). The current resource is fetched, your changes are merged in, read-only fields are dropped, and the whole record is written back. Omitted fields keep their current values.\n\nAvailable fields:\n  deploymentProcessControls.batchFrequencyInMinutes integer\n  deploymentProcessControls.commandsBatchSize  integer\n  deploymentProcessControls.fromTimeOfDay      string\n  deploymentProcessControls.toTimeOfDay        string\n  endUserExperienceSettings.completeMessage    string\n  endUserExperienceSettings.deadline           integer\n  endUserExperienceSettings.deadlineMessage    string\n  endUserExperienceSettings.notificationInterval integer\n  endUserExperienceSettings.notificationMessage string\n  endUserExperienceSettings.quitDelay          integer\n  endUserExperienceSettings.relaunch           boolean\n  endUserExperienceSettings.suppress           boolean\n\nArray and object fields accept a JSON value (e.g. --set field='[\"a\",\"b\"]'):\n  deploymentProcessControls                    object\n  deploymentProcessControls.daysOfWeek         array\n  endUserExperienceSettings                    object\n\nWithout --set, pipe a full JSON document to stdin to replace the resource entirely.",
+		Short: "Update global settings for app installers.",
+		Long:  "Update global settings for app installers.\n\n**Required Permissions:** 'applications:update'\n\nUse --set KEY=VALUE to update individual fields (repeatable). The current resource is fetched, your changes are merged in, read-only fields are dropped, and the whole record is written back. Omitted fields keep their current values.\n\nAvailable fields:\n  deploymentProcessControls.batchFrequencyInMinutes integer\n  deploymentProcessControls.commandsBatchSize  integer\n  deploymentProcessControls.fromTimeOfDay      string\n  deploymentProcessControls.toTimeOfDay        string\n  endUserExperienceSettings.completeMessage    string\n  endUserExperienceSettings.deadline           integer\n  endUserExperienceSettings.deadlineMessage    string\n  endUserExperienceSettings.notificationInterval integer\n  endUserExperienceSettings.notificationMessage string\n  endUserExperienceSettings.quitDelay          integer\n  endUserExperienceSettings.relaunch           boolean\n  endUserExperienceSettings.suppress           boolean\n\nArray and object fields accept a JSON value (e.g. --set field='[\"a\",\"b\"]'):\n  deploymentProcessControls                    object\n  deploymentProcessControls.daysOfWeek         array\n  endUserExperienceSettings                    object\n\nWithout --set, pipe a full JSON document to stdin to replace the resource entirely.",
 		Example: `  # Update individual fields (fetch-merge-replace)
   jamf-cli pro app-installer-global-settings update --set field=value
 
@@ -85,28 +91,31 @@ func newAppInstallerGlobalSettingsUpdateCmd(ctx *registry.CLIContext) *cobra.Com
 
   # Update from a file
   jamf-cli pro app-installer-global-settings update --from-file app-installer-global-settings.json`,
-		Annotations: map[string]string{"jamf:privileges": "Update App Installers"},
+		Annotations: map[string]string{"jamf:privileges": "Update Mac Applications", "jamf:api": "pro", "jamf:gateway-privileges": "applications:update"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
 				return printScaffoldOutput(`{
   "deploymentProcessControls": {
-    "batchFrequencyInMinutes": 0,
-    "commandsBatchSize": 0,
-    "daysOfWeek": [],
-    "fromTimeOfDay": "",
-    "toTimeOfDay": ""
+    "batchFrequencyInMinutes": 15,
+    "commandsBatchSize": 10,
+    "daysOfWeek": [
+      "MONDAY",
+      "TUESDAY"
+    ],
+    "fromTimeOfDay": "09:00:00Z",
+    "toTimeOfDay": "17:00:00Z"
   },
   "endUserExperienceSettings": {
-    "completeMessage": "",
-    "deadline": 0,
-    "deadlineMessage": "",
-    "notificationInterval": 0,
-    "notificationMessage": "",
-    "quitDelay": 0,
-    "relaunch": false,
-    "suppress": false
+    "completeMessage": null,
+    "deadline": null,
+    "deadlineMessage": null,
+    "notificationInterval": null,
+    "notificationMessage": null,
+    "quitDelay": null,
+    "relaunch": null,
+    "suppress": null
   }
 }`, ctx.Output.Format())
 			}
@@ -188,5 +197,253 @@ func newAppInstallerGlobalSettingsUpdateCmd(ctx *registry.CLIContext) *cobra.Com
 			"deploymentProcessControls.batchFrequencyInMinutes=", "deploymentProcessControls.commandsBatchSize=", "deploymentProcessControls.fromTimeOfDay=", "deploymentProcessControls.toTimeOfDay=", "endUserExperienceSettings.completeMessage=", "endUserExperienceSettings.deadline=", "endUserExperienceSettings.deadlineMessage=", "endUserExperienceSettings.notificationInterval=", "endUserExperienceSettings.notificationMessage=", "endUserExperienceSettings.quitDelay=", "endUserExperienceSettings.relaunch=", "endUserExperienceSettings.suppress=",
 		}, cobra.ShellCompDirectiveNoSpace
 	})
+	return cmd
+}
+
+func newAppInstallerGlobalSettingsHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
+	var (
+		flagPage     int
+		flagPageSize int
+		flagSort     []string
+		flagFilter   string
+		flagAll      bool
+		flagLimit    int
+	)
+
+	cmd := &cobra.Command{
+		Use:   "history",
+		Short: "Get App Installer global settings history object",
+		Long:  "Get App Installer global settings history object  **Required Permissions:** 'applications:read'",
+		Example: `  # Get history for a app-installer-global-settings
+  jamf-cli pro app-installer-global-settings history 1`,
+		Annotations: map[string]string{"jamf:privileges": "Read Mac Applications", "jamf:api": "pro", "jamf:gateway-privileges": "applications:read"},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			// Build request path
+			path := "/v1/app-installers/global-settings/history"
+
+			// Build query string
+			var queryParts []string
+			if flagPage != 0 {
+				queryParts = append(queryParts, fmt.Sprintf("page=%d", flagPage))
+			}
+			if flagPageSize != 0 {
+				queryParts = append(queryParts, fmt.Sprintf("page-size=%d", flagPageSize))
+			}
+			if len(flagSort) > 0 {
+				for _, v := range flagSort {
+					queryParts = append(queryParts, "sort="+url.QueryEscape(fmt.Sprintf("%v", v)))
+				}
+			}
+			if flagFilter != "" {
+				queryParts = append(queryParts, "filter="+url.QueryEscape(flagFilter))
+			}
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Auto-pagination: fetch all pages when --all is set and --page was not manually specified
+			if flagAll && flagPage == 0 {
+				// Initialised empty, not nil — a nil slice marshals to "null", so
+				// "list --all" on an empty collection used to answer "null" where
+				// the single-page path answers "[]".
+				allResults := []json.RawMessage{}
+				prog := ctx.Output.PaginationProgress()
+				defer prog.Stop()
+				reqCtx = spinner.WithSuppressed(reqCtx)
+				pageNum := 0
+				pageSize := 100
+
+				for {
+					// Build page-specific query
+					pagePath := "/v1/app-installers/global-settings/history"
+					var pageQuery []string
+					// Carry forward non-pagination query params
+					for _, qp := range queryParts {
+						if !strings.HasPrefix(qp, "page=") && !strings.HasPrefix(qp, "page-size=") && !strings.HasPrefix(qp, "pagesize=") {
+							pageQuery = append(pageQuery, qp)
+						}
+					}
+					pageQuery = append(pageQuery, fmt.Sprintf("page=%d", pageNum))
+					pageQuery = append(pageQuery, fmt.Sprintf("page-size=%d", pageSize))
+					pagePath = pagePath + "?" + strings.Join(pageQuery, "&")
+
+					resp, err := ctx.Client.Do(reqCtx, "GET", pagePath, nil)
+					if err != nil {
+						return err
+					}
+
+					body, err := io.ReadAll(resp.Body)
+					resp.Body.Close()
+					if err != nil {
+						return err
+					}
+
+					// Parse pagination response: {"totalCount": N, "results": [...]}
+					var pageResp struct {
+						TotalCount int               `json:"totalCount"`
+						Results    []json.RawMessage `json:"results"`
+					}
+					if err := json.Unmarshal(body, &pageResp); err != nil {
+						// Not a paginated response; output as-is
+						return ctx.Output.PrintRaw(body)
+					}
+
+					allResults = append(allResults, pageResp.Results...)
+					prog.Update(len(allResults), pageResp.TotalCount)
+
+					// Check limit
+					if flagLimit > 0 && len(allResults) >= flagLimit {
+						allResults = allResults[:flagLimit]
+						break
+					}
+
+					// Check if we've fetched everything
+					if len(pageResp.Results) < pageSize || len(allResults) >= pageResp.TotalCount {
+						break
+					}
+
+					pageNum++
+				}
+
+				prog.Stop()
+
+				// Output combined results as JSON array
+				combined, err := json.MarshalIndent(allResults, "", "  ")
+				if err != nil {
+					return err
+				}
+				return ctx.Output.PrintRaw(combined)
+			}
+
+			// Make request
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			if ctx.Output.Format() == "ndjson" {
+				ndjsonBody, ndjsonErr := io.ReadAll(resp.Body)
+				if ndjsonErr != nil {
+					return ndjsonErr
+				}
+				var ndjsonWrap struct {
+					Results []json.RawMessage `json:"results"`
+				}
+				if err := json.Unmarshal(ndjsonBody, &ndjsonWrap); err == nil && ndjsonWrap.Results != nil {
+					arr, marshalErr := json.Marshal(ndjsonWrap.Results)
+					if marshalErr != nil {
+						return marshalErr
+					}
+					return ctx.Output.PrintRaw(arr)
+				}
+				return ctx.Output.PrintRaw(ndjsonBody)
+			}
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	cmd.Flags().IntVar(&flagPage, "page", 0, "")
+	cmd.Flags().IntVar(&flagPageSize, "page-size", 100, "")
+	cmd.Flags().StringSliceVar(&flagSort, "sort", nil, "Sorting criteria in the format: property:asc/desc. Default sort is date:desc. Multiple sort criteria are supported and must be separated with a comma. Example: sort=date:desc,name:asc ")
+	cmd.Flags().StringVar(&flagFilter, "filter", "", "Query in the RSQL format, allowing to filter history notes collection. Default filter is empty query - returning all results for the requested page. Fields allowed in the query: username, date, note, details. This param can be combined with paging and sorting. Example: filter=username!=admin and details==*disabled* and date<2019-12-15")
+	cmd.Flags().BoolVar(&flagAll, "all", true, "Fetch all pages (set --all=false for single page)")
+	cmd.Flags().IntVar(&flagLimit, "limit", 0, "Maximum total results to return (0 = unlimited)")
+	return cmd
+}
+
+func newAppInstallerGlobalSettingsAddHistoryNoteCmd(ctx *registry.CLIContext) *cobra.Command {
+	var (
+		flagScaffold bool
+	)
+
+	cmd := &cobra.Command{
+		Use:         "add-history-note",
+		Short:       "Add App Installer global settings history object note",
+		Long:        "Add App Installer global settings history object note  **Required Permissions:** 'applications:update'",
+		Annotations: map[string]string{"jamf:privileges": "Update Mac Applications", "jamf:api": "pro", "jamf:gateway-privileges": "applications:update"},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			if flagScaffold {
+				return printScaffoldOutput(`{
+  "note": "A generic note can sometimes be useful, but generally not."
+}`, ctx.Output.Format())
+			}
+
+			// Build request path
+			path := "/v1/app-installers/global-settings/history"
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			// Read body from stdin if available
+			var body io.Reader
+			var normalized []byte
+			stat, _ := os.Stdin.Stat()
+			if (stat.Mode() & os.ModeCharDevice) == 0 {
+				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
+				if err != nil {
+					return fmt.Errorf("reading stdin: %w", err)
+				}
+				normalized, err = normalizeInputToJSON(raw)
+				if err != nil {
+					return err
+				}
+			}
+			if len(normalized) > 0 {
+				body = bytes.NewReader(normalized)
+			}
+			resp, err := ctx.Client.Do(reqCtx, "POST", path, body)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
+	return cmd
+}
+
+func newAppInstallerGlobalSettingsDeploymentControlsCmd(ctx *registry.CLIContext) *cobra.Command {
+	var ()
+
+	cmd := &cobra.Command{
+		Use:         "deployment-controls",
+		Short:       "Get default Global Deployment Process Controls settings for app installers.",
+		Long:        "Get default Global Deployment Process Controls settings for app installers.  **Required Permissions:** 'applications:read'",
+		Annotations: map[string]string{"jamf:privileges": "Read Mac Applications", "jamf:api": "pro", "jamf:gateway-privileges": "applications:read"},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			// Build request path
+			path := "/v1/app-installers/global-settings/defaults/deployment-controls"
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
 	return cmd
 }

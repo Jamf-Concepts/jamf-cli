@@ -92,6 +92,8 @@ func TestCodeName(t *testing.T) {
 		{NotFound, "not_found"},
 		{PermissionDenied, "permission_denied"},
 		{RateLimited, "rate_limited"},
+		{PartialFailure, "partial_failure"},
+		{Unsupported, "unsupported"},
 		{99, "general"}, // unknown code falls back to general
 	}
 
@@ -152,5 +154,23 @@ func TestPartialOrPropagate(t *testing.T) {
 	}
 	if PartialOrPropagate(5, 0, nil, "") != nil {
 		t.Fatal("no failures should return nil")
+	}
+}
+
+// Unsupported is a policy refusal: the command is real and correctly invoked and
+// only the credentials cannot reach the API serving it. It has to be its own
+// code, because Usage is also every flag error, unknown subcommand, missing URL,
+// missing credential, retired host and scope conflict — so a wrapper script
+// reading 2 cannot tell a refusal it should degrade around from an invocation
+// bug it should stop on.
+func TestCodeName_Unsupported(t *testing.T) {
+	if got := CodeName(Unsupported); got != "unsupported" {
+		t.Fatalf("CodeName(Unsupported) = %q, want %q", got, "unsupported")
+	}
+	if Unsupported != 8 {
+		t.Fatalf("Unsupported = %d, want 8 — the value is documented in README and in the Platform API GA guide", Unsupported)
+	}
+	if Unsupported == Usage {
+		t.Fatal("a policy refusal must not share an exit code with a usage error")
 	}
 }

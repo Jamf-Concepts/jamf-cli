@@ -19,8 +19,9 @@ import (
 // Security Cloud resource. Wire it into the "security" product command via AddCommand.
 func NewStatusCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "status",
-		Short: "Manage status (Jamf Security Cloud)",
+		Use:         "status",
+		Short:       "Manage status (Security Cloud · Radar API)",
+		Annotations: map[string]string{"jamf:api": "radar"},
 	}
 	cmd.AddCommand(newStatusGetCmd(cliCtx))
 	cmd.AddCommand(newStatusUpdateCmd(cliCtx))
@@ -29,8 +30,9 @@ func NewStatusCmd(cliCtx *registry.CLIContext) *cobra.Command {
 
 func newStatusGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "get",
-		Short: "Get the current stream status",
+		Use:         "get",
+		Short:       "Get the current stream status",
+		Annotations: map[string]string{"jamf:api": "radar"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			path := "/sse/v1/status"
 			var body any
@@ -56,8 +58,9 @@ func newStatusUpdateCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	var setFlags []string
 	var scaffoldFlag bool
 	cmd := &cobra.Command{
-		Use:   "update",
-		Short: "Update the stream status",
+		Use:         "update",
+		Short:       "Update the stream status",
+		Annotations: map[string]string{"jamf:api": "radar"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if scaffoldFlag {
 				// Scaffold prints raw JSON regardless of -o, so the output
@@ -69,6 +72,21 @@ func newStatusUpdateCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			body, err := security.ReadBody(bodyFile, setFlags)
 			if err != nil {
 				return err
+			}
+			// --dry-run previewed nothing before: the Pro client is wrapped by a
+			// dry-run decorator, this one is not, so a risk override or a
+			// device-lifecycle purge executed for real under -n while the flag
+			// advertised "preview changes without executing".
+			//
+			// Ahead of the confirmation, not after it. ConfirmAction errors when
+			// --yes is absent and stdin is not a terminal, so previewing a purge
+			// in CI used to require pre-authorising the real one — and the day -n
+			// falls off that command line (or out of JAMF_CLI_ARGS) the purge
+			// runs with its confirmation already suppressed. The unscoped-body
+			// refusal above stays ahead of both: it is a validation, and there is
+			// nothing worth previewing about a purge with no scope.
+			if cliCtx.DryRun {
+				return security.ReportDryRun(cmd.ErrOrStderr(), "POST", path, body)
 			}
 			var result any
 			if err := cliCtx.SecurityClient.DoExpectSSE(cmd.Context(), "POST", path, body, &result); err != nil {
@@ -84,7 +102,7 @@ func newStatusUpdateCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			return cliCtx.Output.PrintRaw(b)
 		},
 	}
-	cmd.Flags().StringVar(&bodyFile, "file", "", "Path to JSON file containing the request body")
+	cmd.Flags().StringVar(&bodyFile, "file", "", "Path to a JSON or YAML file containing the request body")
 	cmd.Flags().StringArrayVar(&setFlags, "set", nil, "Override body values (key=value, repeatable, supports nested.keys)")
 	cmd.Flags().BoolVar(&scaffoldFlag, "scaffold", false, "Print an example request body and exit")
 	return cmd

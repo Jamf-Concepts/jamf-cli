@@ -21,9 +21,10 @@ import (
 // resource. Wire it into a product namespace via AddCommand.
 func NewRulesCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "rules",
-		Short: "Manage rules (Platform API)",
-		Long:  "Jamf Compliance Benchmarks API allows you to manage, enforce, and validate compliance on Apple devices",
+		Use:         "rules",
+		Short:       "Manage rules (Platform API)",
+		Long:        "Jamf Compliance Benchmarks API allows you to manage, enforce, and validate compliance on Apple devices",
+		Annotations: map[string]string{"jamf:api": "platform-gateway"},
 	}
 	cmd.AddCommand(newRulesListCmd(cliCtx))
 	return cmd
@@ -33,15 +34,14 @@ func newRulesListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	var baselineId string
 	cmd := &cobra.Command{
 		Use:         "list",
-		Short:       "Get list of rules for given baseline",
-		Long:        "Returns list of the rules for given mSCP baseline together with sources that provide them",
-		Annotations: map[string]string{"jamf:privileges": "read:pro:compliance-benchmarks"},
+		Short:       "Returns list of rules for specific baseline",
+		Long:        "Returns list of rules for specific baseline and their sources",
+		Annotations: map[string]string{"jamf:privileges": "compliance-benchmarks:read", "jamf:api": "platform-gateway"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err
 			}
-			path := "/api/compliance-benchmarks/v1/tenant/{tenantId}/rules"
-			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantID()), 1)
+			path := "/compliance-benchmarks/v1/rules"
 			q := url.Values{}
 			if baselineId != "" {
 				q.Set("baseline-id", baselineId)

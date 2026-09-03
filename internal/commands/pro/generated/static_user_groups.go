@@ -14,9 +14,10 @@ import (
 // NewStaticUserGroupsCmd creates the static-user-groups command group
 func NewStaticUserGroupsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "static-user-groups",
-		Short: "Manage static-user-groups",
-		Long:  `Manage static-user-groups in Jamf Pro.`,
+		Use:         "static-user-groups",
+		Short:       "Manage static-user-groups",
+		Long:        `Manage static-user-groups in Jamf Pro.`,
+		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
 	cmd.AddCommand(newStaticUserGroupsListCmd(ctx))
@@ -37,7 +38,7 @@ func newStaticUserGroupsListCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # List static-user-groups and extract IDs
   jamf-cli pro static-user-groups list --field id`,
-		Annotations: map[string]string{"jamf:privileges": "Read Static User Groups"},
+		Annotations: map[string]string{"jamf:privileges": "Read Static User Groups", "jamf:api": "pro", "jamf:gateway-privileges": "user-groups:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -81,7 +82,7 @@ func newStaticUserGroupsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a static-user-group and output as YAML
   jamf-cli pro static-user-groups get 1 -o yaml`,
-		Annotations: map[string]string{"jamf:privileges": "Read Static User Groups"},
+		Annotations: map[string]string{"jamf:privileges": "Read Static User Groups", "jamf:api": "pro", "jamf:gateway-privileges": "user-groups:read"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

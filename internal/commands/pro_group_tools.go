@@ -153,10 +153,10 @@ func runGroupToolsMembers(ctx context.Context, cliCtx *registry.CLIContext, name
 		return fmt.Errorf("group %q not found", name)
 	}
 
-	// Smart groups use the v2 membership endpoint; static groups use Classic API
+	// Smart groups use the v3 membership endpoint; static groups use Classic API
 	var rows []map[string]any
 	if isSmart {
-		detail, err := FetchJSON(ctx, cliCtx.Client, fmt.Sprintf("/v2/computer-groups/smart-group-membership/%s", groupID))
+		detail, err := FetchJSON(ctx, cliCtx.Client, fmt.Sprintf("/v3/computer-groups/smart-group-membership/%s", groupID))
 		if err != nil {
 			return fmt.Errorf("fetching smart group membership: %w", err)
 		}

@@ -17,12 +17,51 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// bodySpecClassicNetworkSegments is this resource's request-body contract, derived from
+// specs/classic/schemas.json at generation time. Empty when the Classic API spec
+// declares no schema for it, in which case create/update/apply read their body
+// from --from-file or stdin with no --scaffold and no --set.
+var bodySpecClassicNetworkSegments = classicBodySpec{
+	Root:   "network_segment",
+	Schema: "network_segment_post",
+	Scaffold: `<network_segment>
+  <id>1</id>
+  <name>Amsterdam Office</name>
+  <building></building>
+  <department></department>
+  <distribution_point></distribution_point>
+  <distribution_server></distribution_server>
+  <ending_address>10.10.1.1</ending_address>
+  <override_buildings>false</override_buildings>
+  <override_departments>false</override_departments>
+  <starting_address>10.1.1.1</starting_address>
+  <swu_server></swu_server>
+  <url></url>
+</network_segment>
+`,
+	FieldTypes: map[string]string{
+		"building":             "string",
+		"department":           "string",
+		"distribution_point":   "string",
+		"distribution_server":  "string",
+		"ending_address":       "string",
+		"id":                   "integer",
+		"name":                 "string",
+		"override_buildings":   "boolean",
+		"override_departments": "boolean",
+		"starting_address":     "string",
+		"swu_server":           "string",
+		"url":                  "string",
+	},
+}
+
 // NewClassicNetworkSegmentsCmd creates the classic-network-segments command group
 func NewClassicNetworkSegmentsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "classic-network-segments",
-		Short: "Network segments (Classic API)",
-		Long:  `Manage network segments via the Jamf Pro Classic API (/JSSResource/).`,
+		Use:         "classic-network-segments",
+		Short:       "Network segments (Classic API)",
+		Long:        `Manage network segments via the Jamf Pro Classic API (/JSSResource/).`,
+		Annotations: map[string]string{"jamf:api": "pro-classic"},
 	}
 
 	cmd.AddCommand(newClassicNetworkSegmentsListCmd(ctx))
@@ -49,6 +88,7 @@ func newClassicNetworkSegmentsListCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # List networksegments and extract IDs
   jamf-cli pro classic-network-segments list --field id`,
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "network-segments:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/networksegments", nil)
@@ -105,7 +145,8 @@ func newClassicNetworkSegmentsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a network_segment and output as YAML
   jamf-cli pro classic-network-segments get 1 -o yaml`,
-		Args: cobra.MaximumNArgs(1),
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "network-segments:read"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -157,21 +198,34 @@ func newClassicNetworkSegmentsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
 func newClassicNetworkSegmentsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
-		fromFile string
+		fromFile     string
+		flagScaffold bool
+		flagSet      []string
 	)
 	cmd := &cobra.Command{
 		Use:   "create",
 		Short: "Create a network_segment",
-		Long:  "Create a new network_segment. Reads the XML body from --from-file or stdin.",
+		Long: `Create a new network_segment. Reads the XML body from --from-file, --set or stdin.
+
+Body fields are derived from the Classic API spec (schema "network_segment_post").
+Run with --scaffold to print a complete XML template.
+
+Required: ending_address, name, starting_address
+Optional sections: building, department, distribution_point, distribution_server, id,
+  override_buildings, override_departments, swu_server, url`,
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "network-segments:create"},
 		Example: `  # Create a network_segment from an XML file
   jamf-cli pro classic-network-segments create --from-file network_segment.xml
 
   # Create a network_segment from XML on stdin
   cat network_segment.xml | jamf-cli pro classic-network-segments create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if flagScaffold {
+				return printClassicScaffold(bodySpecClassicNetworkSegments)
+			}
 			reqCtx := cmd.Context()
 
-			bodyBytes, err := readClassicBody(fromFile)
+			bodyBytes, err := readClassicBodyOrSet(fromFile, flagSet, bodySpecClassicNetworkSegments)
 			if err != nil {
 				return err
 			}
@@ -190,27 +244,50 @@ func newClassicNetworkSegmentsCreateCmd(ctx *registry.CLIContext) *cobra.Command
 		},
 	}
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to XML input file (or pipe XML to stdin)")
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print an XML body template for this resource and exit")
+	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Set a body field in dot notation (key=value, repeatable). Builds the whole body, so it cannot be combined with --from-file")
+	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+		return []string{"building=", "department=", "distribution_point=", "distribution_server=", "ending_address=", "id=", "name=", "override_buildings=", "override_departments=", "starting_address=", "swu_server=", "url="}, cobra.ShellCompDirectiveNoSpace
+	})
 	return cmd
 }
 
 func newClassicNetworkSegmentsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var fromFile string
+	var (
+		flagScaffold bool
+		flagSet      []string
+	)
 	var flagName string
 
 	cmd := &cobra.Command{
 		Use:   "update [<id>]",
 		Short: "Update a network_segment",
-		Long:  "Update an existing network_segment by ID. Reads the XML body from --from-file or stdin.",
+		Long: `Update an existing network_segment by ID. Reads the XML body from --from-file, --set or stdin.
+
+The Classic API applies a partial update: fields the body omits keep their
+current values, so a body carrying one element changes only that element.
+
+Body fields are derived from the Classic API spec (schema "network_segment_post").
+Run with --scaffold to print a complete XML template.
+
+Required: ending_address, name, starting_address
+Optional sections: building, department, distribution_point, distribution_server, id,
+  override_buildings, override_departments, swu_server, url`,
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "network-segments:update"},
 		Example: `  # Update a network_segment from an XML file
   jamf-cli pro classic-network-segments update 1 --from-file network_segment.xml
 
   # Update a network_segment from XML on stdin
   cat network_segment.xml | jamf-cli pro classic-network-segments update 1`,
-		Args: cobra.MaximumNArgs(1),
+		Args: classicScaffoldArgs(&flagScaffold, cobra.MaximumNArgs(1)),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if flagScaffold {
+				return printClassicScaffold(bodySpecClassicNetworkSegments)
+			}
 			reqCtx := cmd.Context()
 
-			bodyBytes, bodyErr := readClassicBody(fromFile)
+			bodyBytes, bodyErr := readClassicBodyOrSet(fromFile, flagSet, bodySpecClassicNetworkSegments)
 			if bodyErr != nil {
 				return bodyErr
 			}
@@ -239,6 +316,11 @@ func newClassicNetworkSegmentsUpdateCmd(ctx *registry.CLIContext) *cobra.Command
 	}
 
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to XML input file (or pipe XML to stdin)")
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print an XML body template for this resource and exit")
+	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Set a body field in dot notation (key=value, repeatable). Builds the whole body, so it cannot be combined with --from-file")
+	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+		return []string{"building=", "department=", "distribution_point=", "distribution_server=", "ending_address=", "id=", "name=", "override_buildings=", "override_departments=", "starting_address=", "swu_server=", "url="}, cobra.ShellCompDirectiveNoSpace
+	})
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up network_segment by name")
 
 	return cmd
@@ -263,7 +345,7 @@ func newClassicNetworkSegmentsDeleteCmd(ctx *registry.CLIContext) *cobra.Command
 
   # Delete without confirmation prompt
   jamf-cli pro classic-network-segments delete 1 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:api": "pro-classic", "jamf:gateway-privileges": "network-segments:delete"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -428,19 +510,29 @@ func newClassicNetworkSegmentsDeleteCmd(ctx *registry.CLIContext) *cobra.Command
 
 func newClassicNetworkSegmentsApplyCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
-		fromFile   string
-		flagYes    bool
-		flagDryRun bool
+		fromFile     string
+		flagYes      bool
+		flagDryRun   bool
+		flagScaffold bool
+		flagSet      []string
 	)
 
 	cmd := &cobra.Command{
-		Use:   "apply",
-		Short: "Create or replace a network_segment by name",
-		Long: `Create or replace a network_segment. Reads XML from --from-file or stdin.
+		Use:         "apply",
+		Short:       "Create or replace a network_segment by name",
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "network-segments:create,network-segments:read,network-segments:update"},
+		Long: `Create or replace a network_segment. Reads XML from --from-file, --set or stdin.
 
 The name field in the input XML is used to check if the resource already
 exists. If it does, the resource is replaced (with confirmation).
-If not, a new resource is created.`,
+If not, a new resource is created.
+
+Body fields are derived from the Classic API spec (schema "network_segment_post").
+Run with --scaffold to print a complete XML template.
+
+Required: ending_address, name, starting_address
+Optional sections: building, department, distribution_point, distribution_server, id,
+  override_buildings, override_departments, swu_server, url`,
 		Example: `  # Apply a network_segment from an XML file
   jamf-cli pro classic-network-segments apply --from-file network_segment.xml
 
@@ -450,6 +542,9 @@ If not, a new resource is created.`,
   # Apply without replacement confirmation
   jamf-cli pro classic-network-segments apply --from-file network_segment.xml --yes`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			if flagScaffold {
+				return printClassicScaffold(bodySpecClassicNetworkSegments)
+			}
 			reqCtx := cmd.Context()
 
 			// Read input
@@ -522,6 +617,12 @@ If not, a new resource is created.`,
 	}
 
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to XML input file (or pipe XML to stdin)")
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print an XML body template for this resource and exit")
+	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Set a body field in dot notation (key=value, repeatable). Builds the whole body, so it cannot be combined with --from-file")
+	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+		return []string{"building=", "department=", "distribution_point=", "distribution_server=", "ending_address=", "id=", "name=", "override_buildings=", "override_departments=", "starting_address=", "swu_server=", "url="}, cobra.ShellCompDirectiveNoSpace
+	})
+
 	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt when replacing")
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
 

@@ -17,12 +17,40 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// bodySpecClassicJwtConfigs is this resource's request-body contract, derived from
+// specs/classic/schemas.json at generation time. Empty when the Classic API spec
+// declares no schema for it, in which case create/update/apply read their body
+// from --from-file or stdin with no --scaffold and no --set.
+var bodySpecClassicJwtConfigs = classicBodySpec{
+	Root:   "json_web_token_configuration",
+	Schema: "json_web_token_configuration",
+	Scaffold: `<json_web_token_configuration>
+  <id>1</id>
+  <name>JSON Token Name</name>
+  <disabled>false</disabled>
+  <encryption_key></encryption_key>
+  <token_expiry>0</token_expiry>
+</json_web_token_configuration>
+`,
+	FieldTypes: map[string]string{
+		"disabled":       "boolean",
+		"encryption_key": "string",
+		"id":             "integer",
+		"name":           "string",
+		"token_expiry":   "integer",
+	},
+	Credentials: map[string]bool{
+		"encryption_key": true,
+	},
+}
+
 // NewClassicJwtConfigsCmd creates the classic-jwt-configs command group
 func NewClassicJwtConfigsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "classic-jwt-configs",
-		Short: "JSON Web Token configurations (Classic API)",
-		Long:  `Manage json web token configurations via the Jamf Pro Classic API (/JSSResource/).`,
+		Use:         "classic-jwt-configs",
+		Short:       "JSON Web Token configurations (Classic API)",
+		Long:        `Manage json web token configurations via the Jamf Pro Classic API (/JSSResource/).`,
+		Annotations: map[string]string{"jamf:api": "pro-classic"},
 	}
 
 	cmd.AddCommand(newClassicJwtConfigsListCmd(ctx))
@@ -47,6 +75,7 @@ func newClassicJwtConfigsListCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # List jsonwebtokenconfigurations and extract IDs
   jamf-cli pro classic-jwt-configs list --field id`,
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "json-web-token-configuration:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/jsonwebtokenconfigurations", nil)
@@ -97,7 +126,8 @@ func newClassicJwtConfigsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a json_web_token_configuration and output as YAML
   jamf-cli pro classic-jwt-configs get 1 -o yaml`,
-		Args: cobra.ExactArgs(1),
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "json-web-token-configuration:read"},
+		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			path := fmt.Sprintf("/JSSResource/jsonwebtokenconfigurations/id/%s", url.PathEscape(args[0]))
@@ -138,21 +168,35 @@ func newClassicJwtConfigsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
 func newClassicJwtConfigsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
-		fromFile string
+		fromFile     string
+		flagScaffold bool
+		flagSet      []string
 	)
 	cmd := &cobra.Command{
 		Use:   "create",
 		Short: "Create a json_web_token_configuration",
-		Long:  "Create a new json_web_token_configuration. Reads the XML body from --from-file or stdin.",
+		Long: `Create a new json_web_token_configuration. Reads the XML body from --from-file, --set or stdin.
+
+Body fields are derived from the Classic API spec (schema "json_web_token_configuration").
+Run with --scaffold to print a complete XML template.
+
+Required: name
+Optional sections: disabled, encryption_key, id, token_expiry
+
+Credential fields (--from-file only, never --set): encryption_key`,
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "json-web-token-configuration:create"},
 		Example: `  # Create a json_web_token_configuration from an XML file
   jamf-cli pro classic-jwt-configs create --from-file json_web_token_configuration.xml
 
   # Create a json_web_token_configuration from XML on stdin
   cat json_web_token_configuration.xml | jamf-cli pro classic-jwt-configs create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if flagScaffold {
+				return printClassicScaffold(bodySpecClassicJwtConfigs)
+			}
 			reqCtx := cmd.Context()
 
-			bodyBytes, err := readClassicBody(fromFile)
+			bodyBytes, err := readClassicBodyOrSet(fromFile, flagSet, bodySpecClassicJwtConfigs)
 			if err != nil {
 				return err
 			}
@@ -171,26 +215,50 @@ func newClassicJwtConfigsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to XML input file (or pipe XML to stdin)")
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print an XML body template for this resource and exit")
+	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Set a body field in dot notation (key=value, repeatable). Builds the whole body, so it cannot be combined with --from-file")
+	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+		return []string{"disabled=", "id=", "name=", "token_expiry="}, cobra.ShellCompDirectiveNoSpace
+	})
 	return cmd
 }
 
 func newClassicJwtConfigsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var fromFile string
+	var (
+		flagScaffold bool
+		flagSet      []string
+	)
 
 	cmd := &cobra.Command{
 		Use:   "update <id>",
 		Short: "Update a json_web_token_configuration",
-		Long:  "Update an existing json_web_token_configuration by ID. Reads the XML body from --from-file or stdin.",
+		Long: `Update an existing json_web_token_configuration by ID. Reads the XML body from --from-file, --set or stdin.
+
+The Classic API applies a partial update: fields the body omits keep their
+current values, so a body carrying one element changes only that element.
+
+Body fields are derived from the Classic API spec (schema "json_web_token_configuration").
+Run with --scaffold to print a complete XML template.
+
+Required: name
+Optional sections: disabled, encryption_key, id, token_expiry
+
+Credential fields (--from-file only, never --set): encryption_key`,
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "json-web-token-configuration:update"},
 		Example: `  # Update a json_web_token_configuration from an XML file
   jamf-cli pro classic-jwt-configs update 1 --from-file json_web_token_configuration.xml
 
   # Update a json_web_token_configuration from XML on stdin
   cat json_web_token_configuration.xml | jamf-cli pro classic-jwt-configs update 1`,
-		Args: cobra.ExactArgs(1),
+		Args: classicScaffoldArgs(&flagScaffold, cobra.ExactArgs(1)),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if flagScaffold {
+				return printClassicScaffold(bodySpecClassicJwtConfigs)
+			}
 			reqCtx := cmd.Context()
 
-			bodyBytes, bodyErr := readClassicBody(fromFile)
+			bodyBytes, bodyErr := readClassicBodyOrSet(fromFile, flagSet, bodySpecClassicJwtConfigs)
 			if bodyErr != nil {
 				return bodyErr
 			}
@@ -212,6 +280,11 @@ func newClassicJwtConfigsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to XML input file (or pipe XML to stdin)")
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print an XML body template for this resource and exit")
+	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Set a body field in dot notation (key=value, repeatable). Builds the whole body, so it cannot be combined with --from-file")
+	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+		return []string{"disabled=", "id=", "name=", "token_expiry="}, cobra.ShellCompDirectiveNoSpace
+	})
 
 	return cmd
 }
@@ -230,7 +303,7 @@ func newClassicJwtConfigsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Delete without confirmation prompt
   jamf-cli pro classic-jwt-configs delete 1 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:api": "pro-classic", "jamf:gateway-privileges": "json-web-token-configuration:delete"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

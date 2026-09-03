@@ -21,9 +21,10 @@ import (
 // NewPatchPoliciesCmd creates the patch-policies command group
 func NewPatchPoliciesCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "patch-policies",
-		Short: "Manage patch-policies",
-		Long:  `Manage patch-policies in Jamf Pro.`,
+		Use:         "patch-policies",
+		Short:       "Manage patch-policies",
+		Long:        `Manage patch-policies in Jamf Pro.`,
+		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
 	cmd.AddCommand(newPatchPoliciesListCmd(ctx))
@@ -54,7 +55,7 @@ func newPatchPoliciesListCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # List patch-policies and extract IDs
   jamf-cli pro patch-policies list --field id`,
-		Annotations: map[string]string{"jamf:privileges": "Read Patch Policies"},
+		Annotations: map[string]string{"jamf:privileges": "Read Patch Policies", "jamf:api": "pro", "jamf:gateway-privileges": "patch-policies:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -83,7 +84,10 @@ func newPatchPoliciesListCmd(ctx *registry.CLIContext) *cobra.Command {
 
 			// Auto-pagination: fetch all pages when --all is set and --page was not manually specified
 			if flagAll && flagPage == 0 {
-				var allResults []json.RawMessage
+				// Initialised empty, not nil — a nil slice marshals to "null", so
+				// "list --all" on an empty collection used to answer "null" where
+				// the single-page path answers "[]".
+				allResults := []json.RawMessage{}
 				prog := ctx.Output.PaginationProgress()
 				defer prog.Stop()
 				reqCtx = spinner.WithSuppressed(reqCtx)
@@ -209,7 +213,7 @@ func newPatchPoliciesDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Delete without confirmation prompt
   jamf-cli pro patch-policies delete 1 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Read Patch Policies"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Read Patch Policies", "jamf:api": "pro", "jamf:gateway-privileges": "patch-policies:read"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -415,7 +419,7 @@ func newPatchPoliciesPolicyDetailsCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:         "policy-details",
 		Short:       "Retrieve Patch Policies",
 		Long:        "Retrieves a list of patch policies.",
-		Annotations: map[string]string{"jamf:privileges": "Read Patch Policies"},
+		Annotations: map[string]string{"jamf:privileges": "Read Patch Policies", "jamf:api": "pro", "jamf:gateway-privileges": "patch-policies:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -444,7 +448,10 @@ func newPatchPoliciesPolicyDetailsCmd(ctx *registry.CLIContext) *cobra.Command {
 
 			// Auto-pagination: fetch all pages when --all is set and --page was not manually specified
 			if flagAll && flagPage == 0 {
-				var allResults []json.RawMessage
+				// Initialised empty, not nil — a nil slice marshals to "null", so
+				// "list --all" on an empty collection used to answer "null" where
+				// the single-page path answers "[]".
+				allResults := []json.RawMessage{}
 				prog := ctx.Output.PaginationProgress()
 				defer prog.Stop()
 				reqCtx = spinner.WithSuppressed(reqCtx)
@@ -559,7 +566,7 @@ func newPatchPoliciesDashboardCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:         "dashboard [<id>]",
 		Short:       "Return whether or not the requested patch policy is on the dashboard",
 		Long:        "Returns whether or not the requested patch policy is on the dashboard",
-		Annotations: map[string]string{"jamf:privileges": "Read Patch Policies"},
+		Annotations: map[string]string{"jamf:privileges": "Read Patch Policies", "jamf:api": "pro", "jamf:gateway-privileges": "patch-policies:read"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -614,7 +621,7 @@ func newPatchPoliciesCreateDashboardCmd(ctx *registry.CLIContext) *cobra.Command
 		Use:         "create-dashboard [<id>]",
 		Short:       "Add a patch policy to the dashboard",
 		Long:        "Adds a patch policy to the dashboard.",
-		Annotations: map[string]string{"jamf:privileges": "Read Patch Policies"},
+		Annotations: map[string]string{"jamf:privileges": "Read Patch Policies", "jamf:api": "pro", "jamf:gateway-privileges": "patch-policies:read"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

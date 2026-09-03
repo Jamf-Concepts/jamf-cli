@@ -14,12 +14,52 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// bodySpecClassicSmtpServer is this resource's request-body contract, derived from
+// specs/classic/schemas.json at generation time. Empty when the Classic API spec
+// declares no schema for it, in which case create/update/apply read their body
+// from --from-file or stdin with no --scaffold and no --set.
+var bodySpecClassicSmtpServer = classicBodySpec{
+	Root:   "smtp_server",
+	Schema: "smtp_server",
+	Scaffold: `<smtp_server>
+  <authorization_required>false</authorization_required>
+  <enabled>false</enabled>
+  <host>smtp.gmail.com</host>
+  <password></password>
+  <port>587</port>
+  <send_from_email>jamf@company.com</send_from_email>
+  <send_from_name>Jamf Software Server</send_from_name>
+  <ssl>false</ssl>
+  <timeout>5</timeout>
+  <tls>false</tls>
+  <username></username>
+</smtp_server>
+`,
+	FieldTypes: map[string]string{
+		"authorization_required": "boolean",
+		"enabled":                "boolean",
+		"host":                   "string",
+		"password":               "string",
+		"port":                   "integer",
+		"send_from_email":        "string",
+		"send_from_name":         "string",
+		"ssl":                    "boolean",
+		"timeout":                "integer",
+		"tls":                    "boolean",
+		"username":               "string",
+	},
+	Credentials: map[string]bool{
+		"password": true,
+	},
+}
+
 // NewClassicSmtpServerCmd creates the classic-smtp-server command group
 func NewClassicSmtpServerCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "classic-smtp-server",
-		Short: "SMTP server configuration (Classic API)",
-		Long:  `Manage smtp server configuration via the Jamf Pro Classic API (/JSSResource/).`,
+		Use:         "classic-smtp-server",
+		Short:       "SMTP server configuration (Classic API)",
+		Long:        `Manage smtp server configuration via the Jamf Pro Classic API (/JSSResource/).`,
+		Annotations: map[string]string{"jamf:api": "pro-classic"},
 	}
 
 	cmd.AddCommand(newClassicSmtpServerGetCmd(ctx))
@@ -39,7 +79,8 @@ func newClassicSmtpServerGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a smtp_server and output as YAML
   jamf-cli pro classic-smtp-server get 1 -o yaml`,
-		Args: cobra.ExactArgs(1),
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "smtp-server:read"},
+		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			path := fmt.Sprintf("/JSSResource/smtpserver/id/%s", url.PathEscape(args[0]))
@@ -80,21 +121,39 @@ func newClassicSmtpServerGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
 func newClassicSmtpServerUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var fromFile string
+	var (
+		flagScaffold bool
+		flagSet      []string
+	)
 
 	cmd := &cobra.Command{
 		Use:   "update <id>",
 		Short: "Update a smtp_server",
-		Long:  "Update an existing smtp_server by ID. Reads the XML body from --from-file or stdin.",
+		Long: `Update an existing smtp_server by ID. Reads the XML body from --from-file, --set or stdin.
+
+The Classic API applies a partial update: fields the body omits keep their
+current values, so a body carrying one element changes only that element.
+
+Body fields are derived from the Classic API spec (schema "smtp_server").
+Run with --scaffold to print a complete XML template.
+Optional sections: authorization_required, enabled, host, password, port, send_from_email,
+  send_from_name, ssl, timeout, tls, username
+
+Credential fields (--from-file only, never --set): password`,
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "smtp-server:update"},
 		Example: `  # Update a smtp_server from an XML file
   jamf-cli pro classic-smtp-server update 1 --from-file smtp_server.xml
 
   # Update a smtp_server from XML on stdin
   cat smtp_server.xml | jamf-cli pro classic-smtp-server update 1`,
-		Args: cobra.ExactArgs(1),
+		Args: classicScaffoldArgs(&flagScaffold, cobra.ExactArgs(1)),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if flagScaffold {
+				return printClassicScaffold(bodySpecClassicSmtpServer)
+			}
 			reqCtx := cmd.Context()
 
-			bodyBytes, bodyErr := readClassicBody(fromFile)
+			bodyBytes, bodyErr := readClassicBodyOrSet(fromFile, flagSet, bodySpecClassicSmtpServer)
 			if bodyErr != nil {
 				return bodyErr
 			}
@@ -116,6 +175,11 @@ func newClassicSmtpServerUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to XML input file (or pipe XML to stdin)")
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print an XML body template for this resource and exit")
+	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Set a body field in dot notation (key=value, repeatable). Builds the whole body, so it cannot be combined with --from-file")
+	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+		return []string{"authorization_required=", "enabled=", "host=", "port=", "send_from_email=", "send_from_name=", "ssl=", "timeout=", "tls=", "username="}, cobra.ShellCompDirectiveNoSpace
+	})
 
 	return cmd
 }

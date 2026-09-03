@@ -3,6 +3,7 @@
 package parser
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -268,6 +269,17 @@ var resourceNameFieldOverrides = map[string]string{
 	// inventory-preloads records are keyed by serialNumber, not a "name" field.
 	// Override so --name lookups and backup file naming both use serial number.
 	"inventory-preloads": "serialNumber",
+	// App Installer titles carry titleName, and the published spec marks it
+	// readOnly — correctly, being a Jamf catalogue entry nobody writes — so
+	// detectNameField skips it and the detector falls back to a plain "name"
+	// that no title has. The reverse-engineered spec this replaced did not mark
+	// it, which is why the override is only needed now. It matters more here
+	// than the usual filter-field case: the titles collection declares no
+	// filter parameter at all, so the lookup always lands in the client-side
+	// re-fetch path in lookupMatchingIDs, where the field name is the whole
+	// match — get --name reported "no resource found" for every one of the 363
+	// titles.
+	"app-installer-titles": "titleName",
 }
 
 // resourceNameLookupPathOverrides maps resource names to an alternate list path
@@ -312,7 +324,9 @@ var resourceTableColumns = map[string][]TableColumn{
 		{Field: "hardware.serialNumber", Label: "serial"},
 		{Field: "hardware.model", Label: "model"},
 		{Field: "operatingSystem.version", Label: "osVersion"},
-		{Field: "general.lastContactTime", Label: "lastContactTime"},
+		// v4 renamed lastContactTime to lastCheckIn; computers-inventory now
+		// serves v4, and the old key rendered an empty column on every row.
+		{Field: "general.lastCheckIn", Label: "lastCheckIn"},
 	},
 	"mobile-devices": {
 		{Field: "mobileDeviceId", Label: "id"},
@@ -385,10 +399,14 @@ var resourceGetDetailPathOverrides = map[string]struct {
 	DetailPath string   // Path to use for "get" (must contain {id})
 	Remove     []string // Operation names to remove (now redundant)
 }{
-	// /v3/computers-inventory/{id} returns only requested sections;
-	// /v3/computers-inventory-detail/{id} returns all sections — better for "get".
+	// /v4/computers-inventory/{id} returns only requested sections;
+	// /v4/computers-inventory-detail/{id} returns all sections — better for "get".
+	//
+	// Version-pinned by hand, so it has to move with the resource: the gateway's
+	// published 11.31.0 spec carries v4 alone, and this table kept `get` on the
+	// withdrawn /v3 detail path after DeduplicateVersioned started serving v4.
 	"computers-inventory": {
-		DetailPath: "/v3/computers-inventory-detail/{id}",
+		DetailPath: "/v4/computers-inventory-detail/{id}",
 	},
 	// /v2/mobile-devices/{id} returns basic info;
 	// /v2/mobile-devices/{id}/detail returns full detail — better for "get".
@@ -1098,6 +1116,69 @@ func stripVersionPrefix(path string) string {
 	return path
 }
 
+// versionSegment matches a path segment that names an API version — "v1",
+// "v12", or the pre-release "preview".
+var versionSegment = regexp.MustCompile(`^(v\d+|preview)$`)
+
+// stripVersionSegments removes every version segment from a path, wherever it
+// sits, leaving the rest of the path intact.
+//
+// This is the version-blind identity of an endpoint, and it is what
+// deduplicateVersionedOps keys on. stripVersionPrefix only handles a *leading*
+// version, which is enough for Jamf Pro ("/v1/computers-inventory") but blind
+// to the shape the Platform Gateway uses, where the version follows the service
+// namespace ("/securitycloud/v1/groups") or a sub-namespace
+// ("/securitycloud/uem-connect/v1/connectors"). Without this, two versions
+// of the same gateway endpoint hash to different keys and both ship as
+// commands — which is how Security Cloud's device groups ended up with a "list"
+// on the deprecated v1 alongside a "list-v2" on its successor.
+//
+// Removing every segment rather than the first is safe rather than merely
+// convenient: across all Jamf Pro specs and every published platform spec it
+// introduces exactly one new collision, the v1/v2 device-groups list it is
+// meant to catch.
+func stripVersionSegments(path string) string {
+	if !strings.Contains(path, "/v") && !strings.Contains(path, "/preview") {
+		return path
+	}
+	segs := strings.Split(path, "/")
+	kept := segs[:0:len(segs)]
+	for i, s := range segs {
+		// i == 0 is the empty string before the leading slash; keep it so the
+		// result stays absolute.
+		if i > 0 && versionSegment.MatchString(s) {
+			continue
+		}
+		kept = append(kept, s)
+	}
+	return strings.Join(kept, "/")
+}
+
+// apiVersionRank ranks a path by the first version segment it carries, wherever
+// that sits: a numeric version scores its own number, "preview" scores below
+// any of them as a pre-release, and a path carrying no version at all scores 0
+// (legacy, beaten by any explicit version).
+//
+// The first segment rather than the highest, because a path carrying two is
+// versioning two different things — Security Cloud's UEM Connect nests a
+// service version under the gateway namespace — and it is the outermost one
+// that distinguishes siblings.
+func apiVersionRank(path string) int {
+	for s := range strings.SplitSeq(path, "/") {
+		if !versionSegment.MatchString(s) {
+			continue
+		}
+		if s == "preview" {
+			return -1
+		}
+		var n int
+		if _, err := fmt.Sscanf(s[1:], "%d", &n); err == nil {
+			return n
+		}
+	}
+	return 0
+}
+
 // pathToResourceName converts an API path to a kebab-case resource name.
 // Strips the version prefix and replaces slashes with dashes.
 // e.g. /v1/self-service/branding/macos → self-service-branding-macos
@@ -1146,6 +1227,10 @@ func detectVersionLock(ops []*Operation) bool {
 var readOnlySingletonPaths = map[string]bool{
 	// Reports the one cloud-services environment this instance talks to.
 	"/v2/environment-type": true,
+	// Reports whether App Installers is available and which features the
+	// Cloud Services Connection enables. One object, no collection: it is the
+	// feature probe the rest of the surface depends on, not a list of anything.
+	"/v1/app-installers": true,
 }
 
 func detectSingleton(ops []*Operation) bool {
@@ -1195,7 +1280,7 @@ func deduplicateVersionedOps(ops []*Operation) []*Operation {
 	result := make([]*Operation, 0, len(ops))
 
 	for _, op := range ops {
-		k := key{op.Method, stripVersionPrefix(op.Path)}
+		k := key{op.Method, stripVersionSegments(op.Path)}
 		prev, exists := seen[k]
 		if !exists {
 			seen[k] = op
@@ -1243,28 +1328,14 @@ func deduplicateVersionedOps(ops []*Operation) []*Operation {
 // compareAPIVersions returns >0 if path1 should be preferred over path2.
 // Comparison order: explicit /v3 > /v2 > /v1 > unversioned > preview (treated as
 // pre-release, kept for now but lower than any numeric version).
+//
+// The version is read from wherever it sits in the path, not just the leading
+// segment — see apiVersionRank. A gateway path carries it after the service
+// namespace, and ranking those by their leading segment scored every one of
+// them 0, making the "prefer the higher version" branch a coin toss decided by
+// map iteration order.
 func compareAPIVersions(path1, path2 string) int {
-	rank := func(path string) int {
-		trimmed := strings.TrimPrefix(path, "/")
-		before, _, ok := strings.Cut(trimmed, "/")
-		var prefix string
-		if ok {
-			prefix = before
-		} else {
-			prefix = trimmed
-		}
-		if prefix == "preview" {
-			return -1 // lower than any versioned path
-		}
-		if strings.HasPrefix(prefix, "v") {
-			var n int
-			if _, err := fmt.Sscanf(prefix[1:], "%d", &n); err == nil {
-				return n
-			}
-		}
-		return 0 // unversioned legacy path
-	}
-	r1, r2 := rank(path1), rank(path2)
+	r1, r2 := apiVersionRank(path1), apiVersionRank(path2)
 	if r1 > r2 {
 		return 1
 	}
@@ -1758,6 +1829,90 @@ func parseSchema(name string, schema *openapi3.Schema) *Schema {
 // degrades to a shallower scaffold rather than crashing generation.
 const maxSchemaDepth = 8
 
+// enumValueString renders one spec enum value for the "Allowed values:" line
+// generated help carries. Reports false for a value with no useful literal form
+// — null, or a composite — so it is dropped rather than printed as Go's default
+// formatting of a map or slice.
+//
+// Non-string values matter: Security Cloud's grouped-gateway recoveryDelayInSec
+// is an enum of five integers, required on create, and 0 — the value a caller
+// gets by leaving the field at its zero value — is rejected with a 400. A
+// string-only walk dropped the whole set, so the help listed nothing and the
+// scaffold showed one arbitrary number with no sign the others existed.
+// JSON numbers decode to float64, so an integral value is printed without a
+// trailing ".0" and a fractional one keeps its digits.
+func enumValueString(v any) (string, bool) {
+	switch val := v.(type) {
+	case string:
+		return val, true
+	case bool:
+		return strconv.FormatBool(val), true
+	case float64:
+		return strconv.FormatFloat(val, 'f', -1, 64), true
+	case float32:
+		return strconv.FormatFloat(float64(val), 'f', -1, 32), true
+	case int:
+		return strconv.Itoa(val), true
+	case int64:
+		return strconv.FormatInt(val, 10), true
+	case json.Number:
+		return val.String(), true
+	default:
+		return "", false
+	}
+}
+
+// composedPropSources returns every property map that makes up a schema: its own,
+// plus those of its allOf items and their nested allOf items. allOf is schema
+// composition (PostComputerPrestageV3 = allOf[ComputerPrestageV3, {…}]), and
+// kin-openapi resolves $ref inline, so an item's .Value.Properties is populated.
+//
+// It has to be reachable from the union path as well as the top level. A variant
+// that is itself allOf-composed — every one of account_sso's four connection
+// shapes is allOf[BaseConnectionSettings, {…}] — carries no properties of its
+// own, so reading .Properties off the branch adopted nothing and the union
+// parsed to an empty object: no scaffold fields and no "Allowed values:" line,
+// with make generate exiting 0.
+func composedPropSources(schema *openapi3.Schema) []openapi3.Schemas {
+	sources := []openapi3.Schemas{schema.Properties}
+	for _, item := range schema.AllOf {
+		if item == nil || item.Value == nil {
+			continue
+		}
+		sources = append(sources, item.Value.Properties)
+		for _, nested := range item.Value.AllOf {
+			if nested != nil && nested.Value != nil {
+				sources = append(sources, nested.Value.Properties)
+			}
+		}
+	}
+	return sources
+}
+
+// composedRequired returns a schema's required fields including those its allOf
+// items declare, since a composed variant's own list omits everything it
+// inherits — BaseConnectionSettings requires name and region, not the variant.
+func composedRequired(schema *openapi3.Schema) []string {
+	required := schema.Required
+	for _, item := range schema.AllOf {
+		if item == nil || item.Value == nil {
+			continue
+		}
+		for _, r := range item.Value.Required {
+			required = appendUniqueString(required, r)
+		}
+		for _, nested := range item.Value.AllOf {
+			if nested == nil || nested.Value == nil {
+				continue
+			}
+			for _, r := range nested.Value.Required {
+				required = appendUniqueString(required, r)
+			}
+		}
+	}
+	return required
+}
+
 func parseSchemaDepth(name string, schema *openapi3.Schema, depth int) *Schema {
 	s := &Schema{
 		Name:       name,
@@ -1770,6 +1925,11 @@ func parseSchemaDepth(name string, schema *openapi3.Schema, depth int) *Schema {
 		s.Type = schema.Type.Slice()[0]
 	}
 
+	for _, v := range schema.Enum {
+		if str, ok := enumValueString(v); ok {
+			s.Enum = append(s.Enum, str)
+		}
+	}
 	// A schema that is itself an array carries its shape in items, not in
 	// properties — a bare-array request body has no properties at all.
 	if s.Type == "array" && depth < maxSchemaDepth {
@@ -1778,18 +1938,48 @@ func parseSchemaDepth(name string, schema *openapi3.Schema, depth int) *Schema {
 		}
 	}
 
-	// Collect properties from direct properties and allOf items.
-	// allOf is used for schema composition (e.g. PostComputerPrestageV3 =
-	// allOf[ComputerPrestageV3, {accountSettings, recoveryLockPassword}]).
-	// kin-openapi resolves $ref inline, so allOf item .Value.Properties is populated.
-	propSources := []openapi3.Schemas{schema.Properties}
-	for _, item := range schema.AllOf {
-		if item != nil && item.Value != nil {
-			propSources = append(propSources, item.Value.Properties)
-			// Recurse into nested allOf (e.g. ComputerPrestageV3 → DeviceEnrollmentPrestageV2)
-			for _, nested := range item.Value.AllOf {
-				if nested != nil && nested.Value != nil {
-					propSources = append(propSources, nested.Value.Properties)
+	propSources := composedPropSources(schema)
+
+	// A discriminated union request body (a bare oneOf/anyOf) carries no
+	// properties of its own, so without this the whole body parses to nothing —
+	// which silently costs --scaffold and every "Allowed values:" line, with no
+	// error anywhere. uem-connect's ConnectorCreateRequestBody became one of
+	// these when the SDK split JAMF_PRO onto its own typed contract.
+	//
+	// The first variant is adopted as the schema's own shape, because every
+	// consumer downstream wants one concrete object: a scaffold has to be a body
+	// that can be piped into --file, and merging the branches would render one
+	// that satisfies no variant. Enum values are then unioned across the
+	// remaining variants, top level only — the discriminator is by definition a
+	// top-level property, and it is the field where naming only the scaffolded
+	// variant's value would read as "the other nine vendors are invalid".
+	variantEnums := map[string][]string{}
+	if len(schema.Properties) == 0 {
+		if branches := unionBranches(schema); len(branches) > 0 {
+			if schema.Discriminator != nil {
+				s.Discriminator = schema.Discriminator.PropertyName
+			}
+			for i, branch := range branches {
+				if branch == nil || branch.Value == nil {
+					continue
+				}
+				s.Variants = append(s.Variants, refName(branch.Ref))
+				if i == 0 {
+					propSources = append(propSources, composedPropSources(branch.Value)...)
+					s.Required = composedRequired(branch.Value)
+					continue
+				}
+				for _, props := range composedPropSources(branch.Value) {
+					for propName, propRef := range props {
+						if propRef == nil || propRef.Value == nil {
+							continue
+						}
+						for _, v := range propRef.Value.Enum {
+							if str, ok := enumValueString(v); ok {
+								variantEnums[propName] = appendUniqueString(variantEnums[propName], str)
+							}
+						}
+					}
 				}
 			}
 		}
@@ -1812,6 +2002,36 @@ func parseSchemaDepth(name string, schema *openapi3.Schema, depth int) *Schema {
 			if len(prop.Type.Slice()) > 0 {
 				p.Type = prop.Type.Slice()[0]
 			}
+			for _, v := range prop.Enum {
+				if s, ok := enumValueString(v); ok {
+					p.Enum = append(p.Enum, s)
+				}
+			}
+			// A property written as `allOf: [{$ref: Region}]` — the OpenAPI
+			// idiom for "this named scalar, plus a description of my own" —
+			// carries its type and enum on the composed item, not on itself.
+			// Every enum in the three account specs is authored that way, so
+			// without this `sso-connections create --help` named no allowed
+			// values for connectionType, region or the Entra options, and the
+			// v2018 spec adding a region (RAMP) had no CLI surface at all.
+			// allOf is an intersection, so adopting an item's constraints is
+			// not a choice between shapes the way a oneOf branch would be.
+			wantEnum := len(p.Enum) == 0
+			for _, item := range prop.AllOf {
+				if item == nil || item.Value == nil {
+					continue
+				}
+				if p.Type == "" && len(item.Value.Type.Slice()) > 0 {
+					p.Type = item.Value.Type.Slice()[0]
+				}
+				if wantEnum {
+					for _, v := range item.Value.Enum {
+						if str, ok := enumValueString(v); ok {
+							p.Enum = appendUniqueString(p.Enum, str)
+						}
+					}
+				}
+			}
 			// Capture the referenced component schema name so the generator can
 			// resolve nested object fields (e.g. for --set dot-notation paths).
 			if propRef.Ref != "" {
@@ -1825,6 +2045,23 @@ func parseSchemaDepth(name string, schema *openapi3.Schema, depth int) *Schema {
 			if len(prop.Properties) > 0 && depth < maxSchemaDepth {
 				p.Nested = parseSchemaDepth(propName, prop, depth+1)
 			}
+			// A property whose own schema is a bare oneOf/anyOf — the shape
+			// account_sso's `connection` takes, four provider variants under one
+			// field — has no properties of its own, so the properties-only walk
+			// above stopped dead at it: `sso-connections create --help` named no
+			// allowed values for region, pkceAuthType or tokenEndpointAuthMethod,
+			// and the v2018 region addition (RAMP) had nowhere to surface. Reuse
+			// the same rule the top-level body already applies: adopt the first
+			// variant's shape and union the branches' top-level enums, which is
+			// what parseSchemaDepth does for a bare union.
+			if p.Nested == nil && len(prop.Properties) == 0 && depth < maxSchemaDepth {
+				if len(unionBranches(prop)) > 0 {
+					p.Nested = parseSchemaDepth(propName, prop, depth+1)
+					if p.Type == "" {
+						p.Type = "object"
+					}
+				}
+			}
 			// Populate Items for array types so a scaffold can show one element.
 			// Same cap as Nested, and load-bearing here rather than defensive —
 			// see maxSchemaDepth.
@@ -1833,11 +2070,51 @@ func parseSchemaDepth(name string, schema *openapi3.Schema, depth int) *Schema {
 					p.Items = parseSchemaDepth(propName, prop.Items.Value, depth+1)
 				}
 			}
+			for _, v := range variantEnums[propName] {
+				p.Enum = appendUniqueString(p.Enum, v)
+			}
 			s.Properties[propName] = p
 		}
 	}
+	// A property only the other variants declare still belongs in the help: it
+	// is a legal field of a legal body. Rendered enum-only, since the scaffolded
+	// variant does not carry its type.
+	for propName, values := range variantEnums {
+		if _, ok := s.Properties[propName]; ok {
+			continue
+		}
+		s.Properties[propName] = &Property{Name: propName, Enum: values, VariantOnly: true}
+	}
 
 	return s
+}
+
+// unionBranches returns a schema's oneOf branches, or its anyOf branches when it
+// declares no oneOf. Both spell "one of these shapes" for a request body; the
+// distinction (exactly one versus at least one) has no bearing on which concrete
+// object to render.
+func unionBranches(schema *openapi3.Schema) openapi3.SchemaRefs {
+	if len(schema.OneOf) > 0 {
+		return schema.OneOf
+	}
+	return schema.AnyOf
+}
+
+// refName is the component name at the tail of a $ref, or "" for an inline
+// schema. An inline variant is left unnamed rather than given a placeholder:
+// the help lists the names it can name and says how many there are either way.
+func refName(ref string) string {
+	if idx := strings.LastIndex(ref, "/"); idx != -1 {
+		return ref[idx+1:]
+	}
+	return ref
+}
+
+func appendUniqueString(s []string, v string) []string {
+	if slices.Contains(s, v) {
+		return s
+	}
+	return append(s, v)
 }
 
 // pluralize handles basic English pluralization
@@ -2185,6 +2462,24 @@ var versionedName = regexp.MustCompile(`^(.*)-v-(\d+)s?$`)
 //   - For each version family, keeps only the highest version
 //   - Renames the winning resource to the clean canonical name (no version suffix)
 //   - Suppresses any non-versioned base resource that the versioned family supersedes
+//
+// A resource whose *name* carries no version suffix is not therefore the older
+// one, and assuming it was cost the CLI its newest computer inventory endpoint.
+// ComputersInventory.yaml declares both /v1 and /v4 computers-inventory, so the
+// within-file deduplication leaves one resource named "computers-inventories"
+// serving v4 — while ComputersInventoryV2.yaml and ComputersInventoryV3.yaml
+// name theirs "computers-inventory-v-2s" and "-v-3s". The suffix rule read the
+// v4 resource as the legacy base and suppressed it, so every
+// `pro computers-inventory` command sent /v3 and the two v4-only operations
+// (erase, remove-mdm-profile) never became commands at all. Nothing failed: v3
+// answers, and the gateway published all four versions.
+//
+// The gateway's published spec is what exposed it. Its 11.31.0 drop now carries
+// v4 alone — v1, v2 and v3 are withdrawn — so the version this CLI happened to
+// send became the one refused before a request is sent, and the version it had
+// all along became the only one served. So the family is ranked by the API
+// version each resource actually serves, read off its operation paths, with the
+// name suffix only telling us which resources are in the family.
 func DeduplicateVersioned(resources []*Resource) []*Resource {
 	type entry struct {
 		res     *Resource
@@ -2216,6 +2511,22 @@ func DeduplicateVersioned(resources []*Resource) []*Resource {
 		hasVersioned[name] = true
 	}
 
+	// Let the non-versioned base compete on the version it serves. Only the
+	// bases of an existing family are considered, so a resource with no
+	// versioned sibling is untouched.
+	for _, r := range resources {
+		if versionedName.MatchString(r.Name) {
+			continue
+		}
+		cur, ok := latest[r.Name]
+		if !ok {
+			continue
+		}
+		if v := resourceAPIVersion(r); v > cur.version {
+			latest[r.Name] = entry{res: r, version: v}
+		}
+	}
+
 	// Second pass: emit only keepers, renaming the winner to the canonical name.
 	result := make([]*Resource, 0, len(resources))
 	for _, r := range resources {
@@ -2233,13 +2544,33 @@ func DeduplicateVersioned(resources []*Resource) []*Resource {
 			result = append(result, r)
 			continue
 		}
-		// Non-versioned resource: suppress if a versioned family covers the same name.
-		if hasVersioned[r.Name] {
+		// Non-versioned resource: suppress if a versioned family covers the same
+		// name — unless it is the family's own winner, which is the case when it
+		// serves the highest API version.
+		if hasVersioned[r.Name] && latest[r.Name].res != r {
 			continue
 		}
 		result = append(result, r)
 	}
 	return result
+}
+
+// resourceAPIVersion is the API version a resource actually serves, read off its
+// operation paths rather than off its name.
+//
+// The highest one it carries, because deduplicateVersionedOps has already
+// dropped every endpoint a newer version displaced: an operation left at a lower
+// version is one the newer version never replaced — inventory-preload keeps
+// /inventory-preload/history/notes with no v2 equivalent — not evidence that the
+// resource as a whole is older.
+func resourceAPIVersion(r *Resource) int {
+	highest := 0
+	for _, op := range r.Operations {
+		if v := apiVersionRank(op.Path); v > highest {
+			highest = v
+		}
+	}
+	return highest
 }
 
 // isDestructiveAction returns true for operations that modify/delete data

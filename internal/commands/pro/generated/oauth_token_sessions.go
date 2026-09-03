@@ -12,9 +12,10 @@ import (
 // NewOauthTokenSessionsCmd creates the oauth-token-sessions command group
 func NewOauthTokenSessionsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "oauth-token-sessions",
-		Short: "Manage oauth-token-sessions",
-		Long:  `Manage oauth-token-sessions in Jamf Pro.`,
+		Use:         "oauth-token-sessions",
+		Short:       "Manage oauth-token-sessions",
+		Long:        `Manage oauth-token-sessions in Jamf Pro.`,
+		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
 	cmd.AddCommand(newOauthTokenSessionsListCmd(ctx))
@@ -34,6 +35,7 @@ func newOauthTokenSessionsListCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # List oauth-token-sessions and extract IDs
   jamf-cli pro oauth-token-sessions list --field id`,
+		Annotations: map[string]string{"jamf:api": "pro", "jamf:gateway": "unserved", "jamf:gateway-basis": "unpublished", "jamf:gateway-detail": "not declared by the gateway's Jamf Pro API 11.31.0"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

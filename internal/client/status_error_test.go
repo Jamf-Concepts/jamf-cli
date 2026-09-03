@@ -36,8 +36,7 @@ func TestHTTPStatusError_Hints(t *testing.T) {
 	}
 
 	// Unmapped status -> General, no hint.
-	var e *exitcode.Error
-	if errors.As(httpStatusError(500, "GET", "/x", []byte("boom")), &e) {
+	if e, ok := errors.AsType[*exitcode.Error](httpStatusError(500, "GET", "/x", []byte("boom"))); ok {
 		if e.Code != exitcode.General {
 			t.Fatalf("500 code = %d, want General(%d)", e.Code, exitcode.General)
 		}

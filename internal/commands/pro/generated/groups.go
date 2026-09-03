@@ -21,9 +21,10 @@ import (
 // NewGroupsCmd creates the groups command group
 func NewGroupsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "groups",
-		Short: "Manage groups",
-		Long:  `Manage groups in Jamf Pro.`,
+		Use:         "groups",
+		Short:       "Manage groups",
+		Long:        `Manage groups in Jamf Pro.`,
+		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
 	cmd.AddCommand(newGroupsListCmd(ctx))
@@ -53,6 +54,7 @@ func newGroupsListCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # List groups and extract IDs
   jamf-cli pro groups list --field id`,
+		Annotations: map[string]string{"jamf:api": "pro", "jamf:gateway-privileges": "device-groups:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -82,7 +84,10 @@ func newGroupsListCmd(ctx *registry.CLIContext) *cobra.Command {
 
 			// Auto-pagination: fetch all pages when --all is set and --page was not manually specified
 			if flagAll && flagPage == 0 {
-				var allResults []json.RawMessage
+				// Initialised empty, not nil — a nil slice marshals to "null", so
+				// "list --all" on an empty collection used to answer "null" where
+				// the single-page path answers "[]".
+				allResults := []json.RawMessage{}
 				prog := ctx.Output.PaginationProgress()
 				defer prog.Stop()
 				reqCtx = spinner.WithSuppressed(reqCtx)
@@ -205,7 +210,8 @@ func newGroupsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a group and output as YAML
   jamf-cli pro groups get 1 -o yaml`,
-		Args: cobra.MaximumNArgs(1),
+		Annotations: map[string]string{"jamf:api": "pro", "jamf:gateway-privileges": "device-groups:read"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -271,7 +277,7 @@ func newGroupsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Delete without confirmation prompt
   jamf-cli pro groups delete 1 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:api": "pro", "jamf:gateway-privileges": "device-groups:delete"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -487,7 +493,8 @@ func newGroupsPatchCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Patch from a file
   jamf-cli pro groups patch 1 --from-file changes.json`,
-		Args: cobra.MaximumNArgs(1),
+		Annotations: map[string]string{"jamf:api": "pro", "jamf:gateway-privileges": "device-groups:update"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

@@ -17,9 +17,10 @@ import (
 // NewCloudLdapMappingsCmd creates the cloud-ldap-mappings command group
 func NewCloudLdapMappingsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "cloud-ldap-mappings",
-		Short: "Manage cloud-ldap-mappings",
-		Long:  `Manage cloud-ldap-mappings in Jamf Pro.`,
+		Use:         "cloud-ldap-mappings",
+		Short:       "Manage cloud-ldap-mappings",
+		Long:        `Manage cloud-ldap-mappings in Jamf Pro.`,
+		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
 	cmd.AddCommand(newCloudLdapMappingsMappingsCmd(ctx))
@@ -35,7 +36,7 @@ func newCloudLdapMappingsMappingsCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:         "mappings <id>",
 		Short:       "Get mappings configurations for Cloud Identity Providers server configuration.",
 		Long:        "Get all mappings configurations for Cloud Identity Providers server configuration.",
-		Annotations: map[string]string{"jamf:privileges": "Read LDAP Servers"},
+		Annotations: map[string]string{"jamf:privileges": "Read LDAP Servers", "jamf:api": "pro", "jamf:gateway-privileges": "ldap-servers:read"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -73,7 +74,7 @@ func newCloudLdapMappingsUpdateMappingsCmd(ctx *registry.CLIContext) *cobra.Comm
 		Use:         "update-mappings <id>",
 		Short:       "Update Cloud Identity Provider mappings configuration.",
 		Long:        "Update Cloud Identity Provider mappings configuration. Cannot be used for partial updates, all content body must be sent.",
-		Annotations: map[string]string{"jamf:privileges": "Update LDAP Servers"},
+		Annotations: map[string]string{"jamf:privileges": "Update LDAP Servers", "jamf:api": "pro", "jamf:gateway-privileges": "ldap-servers:update"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

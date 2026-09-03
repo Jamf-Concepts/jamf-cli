@@ -18,9 +18,10 @@ import (
 // NewRemoveMobileDeviceMdmProfilesCmd creates the remove-mobile-device-mdm-profiles command group
 func NewRemoveMobileDeviceMdmProfilesCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "remove-mobile-device-mdm-profiles",
-		Short: "Manage remove-mobile-device-mdm-profiles",
-		Long:  `Manage remove-mobile-device-mdm-profiles in Jamf Pro.`,
+		Use:         "remove-mobile-device-mdm-profiles",
+		Short:       "Manage remove-mobile-device-mdm-profiles",
+		Long:        `Manage remove-mobile-device-mdm-profiles in Jamf Pro.`,
+		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
 	cmd.AddCommand(newRemoveMobileDeviceMdmProfilesUnmanageCmd(ctx))
@@ -38,7 +39,7 @@ func newRemoveMobileDeviceMdmProfilesUnmanageCmd(ctx *registry.CLIContext) *cobr
 		Use:         "unmanage <id>",
 		Short:       "Unmanage a Mobile Device",
 		Long:        "Unmanage a Mobile Device",
-		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Unmanage Mobile Devices"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Unmanage Mobile Devices", "jamf:api": "pro", "jamf:gateway-privileges": "destructive-device-actions:execute"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

@@ -13,9 +13,10 @@ import (
 // NewApiRolesPrivilegesCmd creates the api-roles-privileges command group
 func NewApiRolesPrivilegesCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "api-roles-privileges",
-		Short: "Manage api-roles-privileges",
-		Long:  `Manage api-roles-privileges in Jamf Pro.`,
+		Use:         "api-roles-privileges",
+		Short:       "Manage api-roles-privileges",
+		Long:        `Manage api-roles-privileges in Jamf Pro.`,
+		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
 	cmd.AddCommand(newApiRolesPrivilegesApiRolePrivilegesCmd(ctx))
@@ -31,7 +32,7 @@ func newApiRolesPrivilegesApiRolePrivilegesCmd(ctx *registry.CLIContext) *cobra.
 		Use:         "api-role-privileges",
 		Short:       "Get the current Jamf API Role Privileges",
 		Long:        "Get role privileges",
-		Annotations: map[string]string{"jamf:privileges": "Read API Roles"},
+		Annotations: map[string]string{"jamf:privileges": "Read API Roles", "jamf:api": "pro", "jamf:gateway": "unserved", "jamf:gateway-basis": "unpublished", "jamf:gateway-detail": "not declared by the gateway's Jamf Pro API 11.31.0"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -68,7 +69,7 @@ func newApiRolesPrivilegesSearchCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:         "search",
 		Short:       "Search the current Jamf API Role Privileges",
 		Long:        "Search role privileges",
-		Annotations: map[string]string{"jamf:privileges": "Read API Roles"},
+		Annotations: map[string]string{"jamf:privileges": "Read API Roles", "jamf:api": "pro", "jamf:gateway": "unserved", "jamf:gateway-basis": "unpublished", "jamf:gateway-detail": "not declared by the gateway's Jamf Pro API 11.31.0"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

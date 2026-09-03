@@ -22,6 +22,9 @@ Download from [GitHub Releases](https://github.com/Jamf-Concepts/jamf-cli/releas
 
 ### From source
 
+Requires Go 1.27 or newer — `go.mod` declares `go 1.27.0`, and the default
+`GOTOOLCHAIN=auto` fetches that toolchain if your local one is older.
+
 ```bash
 go install github.com/Jamf-Concepts/jamf-cli/cmd/jamf-cli@latest
 ```
@@ -184,12 +187,17 @@ profiles:
 
   # Platform Gateway auth (routes Jamf Pro through regional gateway)
   platform-prod:
-    url: https://us.apigw.jamf.com
+    url: https://us.api.jamfcloud.com
     auth-method: platform
     client-id: env:PLATFORM_CLIENT_ID
     client-secret: env:PLATFORM_CLIENT_SECRET
-    tenant-id: e5b39e85-5ecd-4d40-9d13-02c7cf21c762
+    environment-id: 4b21c0de-1f7a-4a83-9f0b-6d2c9a51e884
 ```
+
+> **The Platform API went GA on 2026-09-01.** If you are coming from the public beta, the
+> gateway host, the scope key and the credentials all changed, and a handful of Jamf Pro
+> endpoints are no longer served through the gateway. See [The Platform API at
+> GA](docs/guides/platform-api-ga.md).
 
 Jamf Pro supports three auth methods: `oauth2`, `token`, and `platform`. Jamf Protect uses `oauth2` only. Three secret formats: `env:VAR`, `file:/path`, `keychain:service/account`.
 
@@ -237,15 +245,27 @@ Full command catalog: [Command Reference](https://github.com/Jamf-Concepts/jamf-
 
 ## Exit Codes
 
-| Code | Meaning |
-|------|---------|
-| 0 | Success |
-| 1 | General error |
-| 2 | Invalid usage |
-| 3 | Authentication error |
-| 4 | Not found |
-| 5 | Permission denied |
-| 6 | Rate limited |
+The `exitCodeName` column is the literal string in the `-o json` error
+envelope, which is what a script should match on; the meaning is for readers.
+
+| Code | `exitCodeName` | Meaning |
+|------|----------------|---------|
+| 0 | `success` | Success |
+| 1 | `general` | General error |
+| 2 | `usage` | Invalid usage |
+| 3 | `authentication` | Authentication error |
+| 4 | `not_found` | Not found |
+| 5 | `permission_denied` | Permission denied |
+| 6 | `rate_limited` | Rate limited |
+| 7 | `partial_failure` | Partial failure (some items in a batch succeeded) |
+| 8 | `unsupported` | Refused by policy — the command is correctly invoked, but the resolved credentials cannot reach the API that serves it |
+
+Exit 8 is what a Jamf Pro or Classic command outside the Jamf Platform gateway's published
+API returns on a gateway profile, and what a Platform API command returns on a Jamf Pro
+instance profile. It is separate from exit 2 so a script can tell a policy refusal from a
+malformed invocation. As a stopgap, `JAMF_CLI_ALLOW_UNPUBLISHED=1` downgrades the first of
+those to a warning on stderr and sends the request anyway — see
+[the Platform API GA guide](docs/guides/platform-api-ga.md#commands-refused-on-a-gateway-profile).
 
 See [Error Handling & Exit Codes](https://github.com/Jamf-Concepts/jamf-cli/wiki/Error-Handling-&-Exit-Codes) for structured JSON errors, retry logic, and scripting patterns.
 
@@ -318,6 +338,17 @@ Please file an issue in [GitHub Issues](https://github.com/Jamf-Concepts/jamf-cl
 ## Changelog
 
 See [GitHub Releases](https://github.com/Jamf-Concepts/jamf-cli/releases) for release notes and version history.
+
+[CHANGELOG.md](CHANGELOG.md) covers what an auto-generated list of pull requests cannot:
+which changes are breaking, what the migration is, and why. Read it before upgrading if you
+automate against this CLI.
+
+For the current release that means [The Platform API at GA](docs/guides/platform-api-ga.md)
+— the gateway host, credentials and scope key all changed, a set of Jamf Pro and Classic
+commands is now refused on a gateway profile, and its "Other CLI changes" section covers the
+breaking changes that are not about the gateway at all (`pro ddm-reports declaration get`
+and `device get` removed, `pro comp erase` / `remove-mdm` on v4, `config list` columns, an
+empty list printing `[]` rather than `null`).
 
 ## License
 

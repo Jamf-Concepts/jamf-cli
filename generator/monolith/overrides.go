@@ -49,9 +49,59 @@ var DroppedTags = map[string]bool{
 // Use this for specs sourced outside the public monolith (e.g. private or
 // preview endpoints that only ship in internal documentation).
 var PreservedSpecs = map[string]bool{
-	// App Installer deployments and titles are not exposed in the public
-	// /api/schema/ monolith; their specs are maintained from a private source.
+	// App Installers is published only on the gateway — the endpoints sit under
+	// hiddenapi/ in jamf/jss, so neither the jss bundle nor the instance's own
+	// /api/schema/ monolith carries them. These four files are derived from the
+	// SDK's api/pro_api.json by ExtractSubtree (see AppInstallerSpecs below), so
+	// the monolith splitter must leave them alone rather than delete a resource
+	// the public monolith cannot describe.
+	"AppInstallers.yaml":              true,
 	"AppInstallerDeployments.yaml":    true,
 	"AppInstallerGlobalSettings.yaml": true,
 	"AppInstallerTitles.yaml":         true,
+}
+
+// AppInstallerSubtree is the path subtree ExtractSubtree derives the App
+// Installer specs from, and AppInstallerSpecs routes its four families into one
+// spec file each.
+//
+// One tag covers all 23 operations upstream ("app-installers"), so tag-based
+// routing cannot separate them, and the parser's own splitByPathFamilies is no
+// help either: it fires only on sibling collection paths that each have a
+// /{param} child, which titles and deployments have and global-settings does
+// not — it would emit two resources named after their paths and drop the other
+// two families' operations entirely. Hence an explicit route per family, whose
+// filenames are the command names this CLI has shipped since the endpoints were
+// reverse-engineered.
+//
+// A path under the subtree that no route owns is an error, not a warning: a new
+// family is a spec file whose name is a judgement call, and dropping it would
+// lose the endpoint with nothing to notice.
+const AppInstallerSubtree = "/v1/app-installers"
+
+var AppInstallerSpecs = []SubtreeSpec{
+	{
+		Prefix:      "/v1/app-installers",
+		Filename:    "AppInstallers.yaml",
+		Title:       "Jamf Pro API - App Installers",
+		Description: "Reports whether the App Installers feature is available on this instance, and which App Installer features the Cloud Services Connection enables.",
+	},
+	{
+		Prefix:      "/v1/app-installers/titles",
+		Filename:    "AppInstallerTitles.yaml",
+		Title:       "Jamf Pro API - App Installer Titles",
+		Description: "Browse the Jamf App Catalog of available App Installer titles and their versions. Titles are read-only catalog entries provided by Jamf.",
+	},
+	{
+		Prefix:      "/v1/app-installers/deployments",
+		Filename:    "AppInstallerDeployments.yaml",
+		Title:       "Jamf Pro API - App Installer Deployments",
+		Description: "Deploy App Installer titles to computers, manage each deployment's version and update behaviour, and read per-computer installation state.",
+	},
+	{
+		Prefix:      "/v1/app-installers/global-settings",
+		Filename:    "AppInstallerGlobalSettings.yaml",
+		Title:       "Jamf Pro API - App Installer Global Settings",
+		Description: "Global settings for App Installer deployments, controlling end-user experience notifications and deployment process controls.",
+	},
 }

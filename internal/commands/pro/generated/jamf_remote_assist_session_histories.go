@@ -19,9 +19,10 @@ import (
 // NewJamfRemoteAssistSessionHistoriesCmd creates the jamf-remote-assist-session-histories command group
 func NewJamfRemoteAssistSessionHistoriesCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "jamf-remote-assist-session-histories",
-		Short: "Manage jamf-remote-assist-session-histories",
-		Long:  `Manage jamf-remote-assist-session-histories in Jamf Pro.`,
+		Use:         "jamf-remote-assist-session-histories",
+		Short:       "Manage jamf-remote-assist-session-histories",
+		Long:        `Manage jamf-remote-assist-session-histories in Jamf Pro.`,
+		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
 	cmd.AddCommand(newJamfRemoteAssistSessionHistoriesListCmd(ctx))
@@ -50,7 +51,7 @@ func newJamfRemoteAssistSessionHistoriesListCmd(ctx *registry.CLIContext) *cobra
 
   # List jamf-remote-assist-session-histories and extract IDs
   jamf-cli pro jamf-remote-assist-session-histories list --field id`,
-		Annotations: map[string]string{"jamf:privileges": "Read Remote Assist"},
+		Annotations: map[string]string{"jamf:privileges": "Read Remote Assist", "jamf:api": "pro", "jamf:gateway-privileges": "remote-assist:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -79,7 +80,10 @@ func newJamfRemoteAssistSessionHistoriesListCmd(ctx *registry.CLIContext) *cobra
 
 			// Auto-pagination: fetch all pages when --all is set and --page was not manually specified
 			if flagAll && flagPage == 0 {
-				var allResults []json.RawMessage
+				// Initialised empty, not nil — a nil slice marshals to "null", so
+				// "list --all" on an empty collection used to answer "null" where
+				// the single-page path answers "[]".
+				allResults := []json.RawMessage{}
 				prog := ctx.Output.PaginationProgress()
 				defer prog.Stop()
 				reqCtx = spinner.WithSuppressed(reqCtx)
@@ -202,7 +206,7 @@ func newJamfRemoteAssistSessionHistoriesGetCmd(ctx *registry.CLIContext) *cobra.
 
   # Get a jamf-remote-assist-session-history and output as YAML
   jamf-cli pro jamf-remote-assist-session-histories get 1 -o yaml`,
-		Annotations: map[string]string{"jamf:privileges": "Read Remote Assist"},
+		Annotations: map[string]string{"jamf:privileges": "Read Remote Assist", "jamf:api": "pro", "jamf:gateway-privileges": "remote-assist:read"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -260,7 +264,7 @@ func newJamfRemoteAssistSessionHistoriesExportCmd(ctx *registry.CLIContext) *cob
 		Long:  "Export Jamf Remote Assist sessions history",
 		Example: `  # Export jamf-remote-assist-session-histories to CSV
   jamf-cli pro jamf-remote-assist-session-histories export --out-file jamf-remote-assist-session-histories.csv`,
-		Annotations: map[string]string{"jamf:privileges": "Read Remote Assist"},
+		Annotations: map[string]string{"jamf:privileges": "Read Remote Assist", "jamf:api": "pro", "jamf:gateway-privileges": "remote-assist:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			reqCtx = registry.WithAccept(reqCtx, "*/*")

@@ -170,3 +170,73 @@ func TestReadBody_FileOnlyRoundTrips(t *testing.T) {
 		t.Errorf("ReadBody() = %v, want %v", gotM, wantM)
 	}
 }
+
+func TestReadBody_YAMLFile(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "body.yaml")
+	raw := "delivery:\n  method: pull\nkept: \"yes\"\nenabled: true\n"
+	if err := os.WriteFile(path, []byte(raw), 0o600); err != nil {
+		t.Fatalf("WriteFile() error = %v", err)
+	}
+
+	body, err := ReadBody(path, nil)
+	if err != nil {
+		t.Fatalf("ReadBody() error = %v", err)
+	}
+	// yaml.v3 follows the YAML 1.2 core schema, so "yes" stays a string and
+	// only true/false are booleans — worth pinning, since YAML 1.1 parsers
+	// would turn "yes" into a boolean and change what gets sent.
+	want := map[string]any{"delivery": map[string]any{"method": "pull"}, "kept": "yes", "enabled": true}
+	if !reflect.DeepEqual(body, want) {
+		t.Errorf("ReadBody() = %#v, want %#v", body, want)
+	}
+}
+
+// --set has to descend into a YAML-supplied body exactly as it does a JSON one;
+// the two formats share one decode path so that they cannot diverge here.
+func TestReadBody_YAMLFileAndSetMerge(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "body.yaml")
+	if err := os.WriteFile(path, []byte("delivery:\n  method: pull\nkept: \"yes\"\n"), 0o600); err != nil {
+		t.Fatalf("WriteFile() error = %v", err)
+	}
+
+	body, err := ReadBody(path, []string{"delivery.method=push"})
+	if err != nil {
+		t.Fatalf("ReadBody() error = %v", err)
+	}
+	want := map[string]any{"delivery": map[string]any{"method": "push"}, "kept": "yes"}
+	if !reflect.DeepEqual(body, want) {
+		t.Errorf("ReadBody() = %#v, want %#v", body, want)
+	}
+}
+
+// An empty file used to decode to a nil body, which every caller reads as
+// "send no body" — a write that silently sent nothing.
+func TestReadBody_EmptyFileErrors(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "body.yaml")
+	if err := os.WriteFile(path, nil, 0o600); err != nil {
+		t.Fatalf("WriteFile() error = %v", err)
+	}
+
+	if _, err := ReadBody(path, nil); err == nil {
+		t.Fatal("ReadBody() error = nil, want error")
+	}
+}
+
+func TestReadBody_UnparseableFileNamesTheFile(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "body.yaml")
+	if err := os.WriteFile(path, []byte("{this is: [not valid, either\n"), 0o600); err != nil {
+		t.Fatalf("WriteFile() error = %v", err)
+	}
+
+	_, err := ReadBody(path, nil)
+	if err == nil {
+		t.Fatal("ReadBody() error = nil, want error")
+	}
+	if !strings.Contains(err.Error(), path) {
+		t.Errorf("error should name the file, got %q", err)
+	}
+}

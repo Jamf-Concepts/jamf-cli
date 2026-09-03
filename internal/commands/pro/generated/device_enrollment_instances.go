@@ -22,9 +22,10 @@ import (
 // NewDeviceEnrollmentInstancesCmd creates the device-enrollment-instances command group
 func NewDeviceEnrollmentInstancesCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "device-enrollment-instances",
-		Short: "Manage device-enrollment-instances",
-		Long:  `Manage device-enrollment-instances in Jamf Pro.`,
+		Use:         "device-enrollment-instances",
+		Short:       "Manage device-enrollment-instances",
+		Long:        `Manage device-enrollment-instances in Jamf Pro.`,
+		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
 	cmd.AddCommand(newDeviceEnrollmentInstancesListCmd(ctx))
@@ -60,7 +61,7 @@ func newDeviceEnrollmentInstancesListCmd(ctx *registry.CLIContext) *cobra.Comman
 
   # List device-enrollment-instances and extract IDs
   jamf-cli pro device-enrollment-instances list --field id`,
-		Annotations: map[string]string{"jamf:privileges": "Read Device Enrollment Program Instances"},
+		Annotations: map[string]string{"jamf:privileges": "Read Device Enrollment Program Instances", "jamf:api": "pro", "jamf:gateway-privileges": "device-enrollment-program-instances:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -86,7 +87,10 @@ func newDeviceEnrollmentInstancesListCmd(ctx *registry.CLIContext) *cobra.Comman
 
 			// Auto-pagination: fetch all pages when --all is set and --page was not manually specified
 			if flagAll && flagPage == 0 {
-				var allResults []json.RawMessage
+				// Initialised empty, not nil — a nil slice marshals to "null", so
+				// "list --all" on an empty collection used to answer "null" where
+				// the single-page path answers "[]".
+				allResults := []json.RawMessage{}
 				prog := ctx.Output.PaginationProgress()
 				defer prog.Stop()
 				reqCtx = spinner.WithSuppressed(reqCtx)
@@ -208,7 +212,7 @@ func newDeviceEnrollmentInstancesGetCmd(ctx *registry.CLIContext) *cobra.Command
 
   # Get a device-enrollment-instance and output as YAML
   jamf-cli pro device-enrollment-instances get 1 -o yaml`,
-		Annotations: map[string]string{"jamf:privileges": "Read Device Enrollment Program Instances"},
+		Annotations: map[string]string{"jamf:privileges": "Read Device Enrollment Program Instances", "jamf:api": "pro", "jamf:gateway-privileges": "device-enrollment-program-instances:read"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -274,7 +278,7 @@ func newDeviceEnrollmentInstancesCreateCmd(ctx *registry.CLIContext) *cobra.Comm
 
   # Get a device-enrollment-instance, modify it, and create a copy
   jamf-cli pro device-enrollment-instances get 1 -o json | jq '.name = "Copy"' | jamf-cli pro device-enrollment-instances create`,
-		Annotations: map[string]string{"jamf:privileges": "Create Device Enrollment Program Instances"},
+		Annotations: map[string]string{"jamf:privileges": "Create Device Enrollment Program Instances", "jamf:api": "pro", "jamf:gateway-privileges": "device-enrollment-program-instances:create"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -388,7 +392,7 @@ func newDeviceEnrollmentInstancesUpdateCmd(ctx *registry.CLIContext) *cobra.Comm
 
   # Get a device-enrollment-instance, modify, and update
   jamf-cli pro device-enrollment-instances get 1 -o json | jq '.name = "New Name"' | jamf-cli pro device-enrollment-instances update 1`,
-		Annotations: map[string]string{"jamf:privileges": "Update Device Enrollment Program Instances"},
+		Annotations: map[string]string{"jamf:privileges": "Update Device Enrollment Program Instances", "jamf:api": "pro", "jamf:gateway-privileges": "device-enrollment-program-instances:update"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -515,7 +519,7 @@ func newDeviceEnrollmentInstancesDeleteCmd(ctx *registry.CLIContext) *cobra.Comm
 
   # Delete without confirmation prompt
   jamf-cli pro device-enrollment-instances delete 1 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Delete Device Enrollment Program Instances"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Delete Device Enrollment Program Instances", "jamf:api": "pro", "jamf:gateway-privileges": "device-enrollment-program-instances:delete"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -727,7 +731,7 @@ func newDeviceEnrollmentInstancesHistoryCmd(ctx *registry.CLIContext) *cobra.Com
 
   # Get history by name
   jamf-cli pro device-enrollment-instances history --name "Example"`,
-		Annotations: map[string]string{"jamf:privileges": "Read Device Enrollment Program Instances"},
+		Annotations: map[string]string{"jamf:privileges": "Read Device Enrollment Program Instances", "jamf:api": "pro", "jamf:gateway-privileges": "device-enrollment-program-instances:read"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -773,7 +777,10 @@ func newDeviceEnrollmentInstancesHistoryCmd(ctx *registry.CLIContext) *cobra.Com
 
 			// Auto-pagination: fetch all pages when --all is set and --page was not manually specified
 			if flagAll && flagPage == 0 {
-				var allResults []json.RawMessage
+				// Initialised empty, not nil — a nil slice marshals to "null", so
+				// "list --all" on an empty collection used to answer "null" where
+				// the single-page path answers "[]".
+				allResults := []json.RawMessage{}
 				prog := ctx.Output.PaginationProgress()
 				defer prog.Stop()
 				reqCtx = spinner.WithSuppressed(reqCtx)
@@ -892,7 +899,7 @@ func newDeviceEnrollmentInstancesAddHistoryNoteCmd(ctx *registry.CLIContext) *co
 		Use:         "add-history-note [<id>]",
 		Short:       "Add Device Enrollment history object notes",
 		Long:        "Adds device enrollment history object notes",
-		Annotations: map[string]string{"jamf:privileges": "Update Device Enrollment Program Instances"},
+		Annotations: map[string]string{"jamf:privileges": "Update Device Enrollment Program Instances", "jamf:api": "pro", "jamf:gateway-privileges": "device-enrollment-program-instances:update"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -976,7 +983,7 @@ func newDeviceEnrollmentInstancesPublicKeyCmd(ctx *registry.CLIContext) *cobra.C
 
   # Pipe to stdout
   jamf-cli pro device-enrollment-instances public-key > output.bin`,
-		Annotations: map[string]string{"jamf:privileges": "Read Device Enrollment Program Instances"},
+		Annotations: map[string]string{"jamf:privileges": "Read Device Enrollment Program Instances", "jamf:api": "pro", "jamf:gateway-privileges": "device-enrollment-program-instances:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			reqCtx = registry.WithAccept(reqCtx, "*/*")
@@ -1028,7 +1035,7 @@ func newDeviceEnrollmentInstancesDevicesCmd(ctx *registry.CLIContext) *cobra.Com
 		Use:         "devices [<id>]",
 		Short:       "Retrieve a list of Devices assigned to the supplied id",
 		Long:        "Retrieves a list of devices assigned to the supplied id",
-		Annotations: map[string]string{"jamf:privileges": "Read Device Enrollment Program Instances"},
+		Annotations: map[string]string{"jamf:privileges": "Read Device Enrollment Program Instances", "jamf:api": "pro", "jamf:gateway-privileges": "device-enrollment-program-instances:read"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -1084,7 +1091,7 @@ func newDeviceEnrollmentInstancesDisownCmd(ctx *registry.CLIContext) *cobra.Comm
 		Use:         "disown [<id>]",
 		Short:       "Disown devices from the given Device Enrollment Instance",
 		Long:        "Disowns devices from the given device enrollment instance",
-		Annotations: map[string]string{"jamf:privileges": "Update Device Enrollment Program Instances"},
+		Annotations: map[string]string{"jamf:privileges": "Update Device Enrollment Program Instances", "jamf:api": "pro", "jamf:gateway-privileges": "device-enrollment-program-instances:update"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -1169,8 +1176,9 @@ func newDeviceEnrollmentInstancesApplyCmd(ctx *registry.CLIContext) *cobra.Comma
 	)
 
 	cmd := &cobra.Command{
-		Use:   "apply",
-		Short: "Create or replace a device-enrollment-instance by name",
+		Use:         "apply",
+		Short:       "Create or replace a device-enrollment-instance by name",
+		Annotations: map[string]string{"jamf:api": "pro", "jamf:gateway-privileges": "device-enrollment-program-instances:create,device-enrollment-program-instances:read,device-enrollment-program-instances:update"},
 		Long: `Create or replace a device-enrollment-instance. Reads JSON or YAML from --from-file or stdin.
 
 The name field in the input is used to check if the resource

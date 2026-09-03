@@ -17,12 +17,103 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// bodySpecClassicDistributionPoints is this resource's request-body contract, derived from
+// specs/classic/schemas.json at generation time. Empty when the Classic API spec
+// declares no schema for it, in which case create/update/apply read their body
+// from --from-file or stdin with no --scaffold and no --set.
+var bodySpecClassicDistributionPoints = classicBodySpec{
+	Root:   "distribution_point",
+	Schema: "distribution_point_post",
+	Scaffold: `<distribution_point>
+  <id>1</id>
+  <name>New York Share</name>
+  <connection_type></connection_type>
+  <context>CasperShare</context>
+  <enable_load_balancing>false</enable_load_balancing>
+  <failover_point></failover_point>
+  <failover_point_url></failover_point_url>
+  <http_downloads_enabled>true</http_downloads_enabled>
+  <http_password></http_password>
+  <http_password_sha256></http_password_sha256>
+  <http_url>http://ny.company.com/CasperShare</http_url>
+  <http_username>casperinstall</http_username>
+  <ip_address>ny.company.com</ip_address>
+  <is_master>false</is_master>
+  <local_path></local_path>
+  <no_authentication_required>false</no_authentication_required>
+  <password>password</password>
+  <port>80</port>
+  <protocol></protocol>
+  <read_only_password>password</read_only_password>
+  <read_only_password_sha256></read_only_password_sha256>
+  <read_only_username>casperinstall</read_only_username>
+  <read_write_password>password</read_write_password>
+  <read_write_password_sha256></read_write_password_sha256>
+  <read_write_username>casperwrite</read_write_username>
+  <share_name>Caspershare</share_name>
+  <share_port>139</share_port>
+  <ssh_password_sha256></ssh_password_sha256>
+  <ssh_username>username</ssh_username>
+  <username_password_required>false</username_password_required>
+  <workgroup_or_domain>COMPANY</workgroup_or_domain>
+</distribution_point>
+`,
+	FieldTypes: map[string]string{
+		"connection_type":            "string",
+		"context":                    "string",
+		"enable_load_balancing":      "boolean",
+		"failover_point":             "string",
+		"failover_point_url":         "string",
+		"http_downloads_enabled":     "boolean",
+		"http_password":              "string",
+		"http_password_sha256":       "string",
+		"http_url":                   "string",
+		"http_username":              "string",
+		"id":                         "integer",
+		"ip_address":                 "string",
+		"is_master":                  "boolean",
+		"local_path":                 "string",
+		"name":                       "string",
+		"no_authentication_required": "boolean",
+		"password":                   "string",
+		"port":                       "integer",
+		"protocol":                   "string",
+		"read_only_password":         "string",
+		"read_only_password_sha256":  "string",
+		"read_only_username":         "string",
+		"read_write_password":        "string",
+		"read_write_password_sha256": "string",
+		"read_write_username":        "string",
+		"share_name":                 "string",
+		"share_port":                 "integer",
+		"ssh_password_sha256":        "string",
+		"ssh_username":               "string",
+		"username_password_required": "boolean",
+		"workgroup_or_domain":        "string",
+	},
+	Enums: map[string][]string{
+		"connection_type": {"SMB", "AFP"},
+		"protocol":        {"http", "https"},
+	},
+	Credentials: map[string]bool{
+		"http_password":              true,
+		"http_password_sha256":       true,
+		"password":                   true,
+		"read_only_password":         true,
+		"read_only_password_sha256":  true,
+		"read_write_password":        true,
+		"read_write_password_sha256": true,
+		"ssh_password_sha256":        true,
+	},
+}
+
 // NewClassicDistributionPointsCmd creates the classic-distribution-points command group
 func NewClassicDistributionPointsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "classic-distribution-points",
-		Short: "File distribution points (Classic API)",
-		Long:  `Manage file distribution points via the Jamf Pro Classic API (/JSSResource/).`,
+		Use:         "classic-distribution-points",
+		Short:       "File distribution points (Classic API)",
+		Long:        `Manage file distribution points via the Jamf Pro Classic API (/JSSResource/).`,
+		Annotations: map[string]string{"jamf:api": "pro-classic"},
 	}
 
 	cmd.AddCommand(newClassicDistributionPointsListCmd(ctx))
@@ -49,6 +140,7 @@ func newClassicDistributionPointsListCmd(ctx *registry.CLIContext) *cobra.Comman
 
   # List distributionpoints and extract IDs
   jamf-cli pro classic-distribution-points list --field id`,
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "distribution-points:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/distributionpoints", nil)
@@ -105,7 +197,8 @@ func newClassicDistributionPointsGetCmd(ctx *registry.CLIContext) *cobra.Command
 
   # Get a distribution_point and output as YAML
   jamf-cli pro classic-distribution-points get 1 -o yaml`,
-		Args: cobra.MaximumNArgs(1),
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "distribution-points:read"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -157,21 +250,49 @@ func newClassicDistributionPointsGetCmd(ctx *registry.CLIContext) *cobra.Command
 
 func newClassicDistributionPointsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
-		fromFile string
+		fromFile     string
+		flagScaffold bool
+		flagSet      []string
 	)
 	cmd := &cobra.Command{
 		Use:   "create",
 		Short: "Create a distribution_point",
-		Long:  "Create a new distribution_point. Reads the XML body from --from-file or stdin.",
+		Long: `Create a new distribution_point. Reads the XML body from --from-file, --set or stdin.
+
+Body fields are derived from the Classic API spec (schema "distribution_point_post").
+Run with --scaffold to print a complete XML template.
+
+Required: name, read_only_username, read_write_username, share_name
+Optional sections: connection_type, context, enable_load_balancing, failover_point,
+  failover_point_url, http_downloads_enabled, http_password,
+  http_password_sha256, http_url, http_username, id, ip_address,
+  is_master, local_path, no_authentication_required, password, port,
+  protocol, read_only_password, read_only_password_sha256,
+  read_write_password, read_write_password_sha256, share_port,
+  ssh_password_sha256, ssh_username, username_password_required,
+  workgroup_or_domain
+
+Allowed values:
+  connection_type: SMB | AFP
+  protocol: http | https
+
+The Classic API does not reject an out-of-range value — it substitutes
+its default silently — so --set refuses one rather than letting it through.
+
+Credential fields (--from-file only, never --set): http_password, http_password_sha256, password, read_only_password, read_only_password_sha256, read_write_password, read_write_password_sha256, ssh_password_sha256`,
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "distribution-points:create"},
 		Example: `  # Create a distribution_point from an XML file
   jamf-cli pro classic-distribution-points create --from-file distribution_point.xml
 
   # Create a distribution_point from XML on stdin
   cat distribution_point.xml | jamf-cli pro classic-distribution-points create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if flagScaffold {
+				return printClassicScaffold(bodySpecClassicDistributionPoints)
+			}
 			reqCtx := cmd.Context()
 
-			bodyBytes, err := readClassicBody(fromFile)
+			bodyBytes, err := readClassicBodyOrSet(fromFile, flagSet, bodySpecClassicDistributionPoints)
 			if err != nil {
 				return err
 			}
@@ -190,27 +311,65 @@ func newClassicDistributionPointsCreateCmd(ctx *registry.CLIContext) *cobra.Comm
 		},
 	}
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to XML input file (or pipe XML to stdin)")
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print an XML body template for this resource and exit")
+	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Set a body field in dot notation (key=value, repeatable). Builds the whole body, so it cannot be combined with --from-file")
+	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+		return []string{"connection_type=", "context=", "enable_load_balancing=", "failover_point=", "failover_point_url=", "http_downloads_enabled=", "http_url=", "http_username=", "id=", "ip_address=", "is_master=", "local_path=", "name=", "no_authentication_required=", "port=", "protocol=", "read_only_username=", "read_write_username=", "share_name=", "share_port=", "ssh_username=", "username_password_required=", "workgroup_or_domain="}, cobra.ShellCompDirectiveNoSpace
+	})
 	return cmd
 }
 
 func newClassicDistributionPointsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var fromFile string
+	var (
+		flagScaffold bool
+		flagSet      []string
+	)
 	var flagName string
 
 	cmd := &cobra.Command{
 		Use:   "update [<id>]",
 		Short: "Update a distribution_point",
-		Long:  "Update an existing distribution_point by ID. Reads the XML body from --from-file or stdin.",
+		Long: `Update an existing distribution_point by ID. Reads the XML body from --from-file, --set or stdin.
+
+The Classic API applies a partial update: fields the body omits keep their
+current values, so a body carrying one element changes only that element.
+
+Body fields are derived from the Classic API spec (schema "distribution_point_post").
+Run with --scaffold to print a complete XML template.
+
+Required: name, read_only_username, read_write_username, share_name
+Optional sections: connection_type, context, enable_load_balancing, failover_point,
+  failover_point_url, http_downloads_enabled, http_password,
+  http_password_sha256, http_url, http_username, id, ip_address,
+  is_master, local_path, no_authentication_required, password, port,
+  protocol, read_only_password, read_only_password_sha256,
+  read_write_password, read_write_password_sha256, share_port,
+  ssh_password_sha256, ssh_username, username_password_required,
+  workgroup_or_domain
+
+Allowed values:
+  connection_type: SMB | AFP
+  protocol: http | https
+
+The Classic API does not reject an out-of-range value — it substitutes
+its default silently — so --set refuses one rather than letting it through.
+
+Credential fields (--from-file only, never --set): http_password, http_password_sha256, password, read_only_password, read_only_password_sha256, read_write_password, read_write_password_sha256, ssh_password_sha256`,
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "distribution-points:update"},
 		Example: `  # Update a distribution_point from an XML file
   jamf-cli pro classic-distribution-points update 1 --from-file distribution_point.xml
 
   # Update a distribution_point from XML on stdin
   cat distribution_point.xml | jamf-cli pro classic-distribution-points update 1`,
-		Args: cobra.MaximumNArgs(1),
+		Args: classicScaffoldArgs(&flagScaffold, cobra.MaximumNArgs(1)),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if flagScaffold {
+				return printClassicScaffold(bodySpecClassicDistributionPoints)
+			}
 			reqCtx := cmd.Context()
 
-			bodyBytes, bodyErr := readClassicBody(fromFile)
+			bodyBytes, bodyErr := readClassicBodyOrSet(fromFile, flagSet, bodySpecClassicDistributionPoints)
 			if bodyErr != nil {
 				return bodyErr
 			}
@@ -239,6 +398,11 @@ func newClassicDistributionPointsUpdateCmd(ctx *registry.CLIContext) *cobra.Comm
 	}
 
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to XML input file (or pipe XML to stdin)")
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print an XML body template for this resource and exit")
+	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Set a body field in dot notation (key=value, repeatable). Builds the whole body, so it cannot be combined with --from-file")
+	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+		return []string{"connection_type=", "context=", "enable_load_balancing=", "failover_point=", "failover_point_url=", "http_downloads_enabled=", "http_url=", "http_username=", "id=", "ip_address=", "is_master=", "local_path=", "name=", "no_authentication_required=", "port=", "protocol=", "read_only_username=", "read_write_username=", "share_name=", "share_port=", "ssh_username=", "username_password_required=", "workgroup_or_domain="}, cobra.ShellCompDirectiveNoSpace
+	})
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up distribution_point by name")
 
 	return cmd
@@ -263,7 +427,7 @@ func newClassicDistributionPointsDeleteCmd(ctx *registry.CLIContext) *cobra.Comm
 
   # Delete without confirmation prompt
   jamf-cli pro classic-distribution-points delete 1 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:api": "pro-classic", "jamf:gateway-privileges": "distribution-points:delete"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -428,19 +592,44 @@ func newClassicDistributionPointsDeleteCmd(ctx *registry.CLIContext) *cobra.Comm
 
 func newClassicDistributionPointsApplyCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
-		fromFile   string
-		flagYes    bool
-		flagDryRun bool
+		fromFile     string
+		flagYes      bool
+		flagDryRun   bool
+		flagScaffold bool
+		flagSet      []string
 	)
 
 	cmd := &cobra.Command{
-		Use:   "apply",
-		Short: "Create or replace a distribution_point by name",
-		Long: `Create or replace a distribution_point. Reads XML from --from-file or stdin.
+		Use:         "apply",
+		Short:       "Create or replace a distribution_point by name",
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "distribution-points:create,distribution-points:read,distribution-points:update"},
+		Long: `Create or replace a distribution_point. Reads XML from --from-file, --set or stdin.
 
 The name field in the input XML is used to check if the resource already
 exists. If it does, the resource is replaced (with confirmation).
-If not, a new resource is created.`,
+If not, a new resource is created.
+
+Body fields are derived from the Classic API spec (schema "distribution_point_post").
+Run with --scaffold to print a complete XML template.
+
+Required: name, read_only_username, read_write_username, share_name
+Optional sections: connection_type, context, enable_load_balancing, failover_point,
+  failover_point_url, http_downloads_enabled, http_password,
+  http_password_sha256, http_url, http_username, id, ip_address,
+  is_master, local_path, no_authentication_required, password, port,
+  protocol, read_only_password, read_only_password_sha256,
+  read_write_password, read_write_password_sha256, share_port,
+  ssh_password_sha256, ssh_username, username_password_required,
+  workgroup_or_domain
+
+Allowed values:
+  connection_type: SMB | AFP
+  protocol: http | https
+
+The Classic API does not reject an out-of-range value — it substitutes
+its default silently — so --set refuses one rather than letting it through.
+
+Credential fields (--from-file only, never --set): http_password, http_password_sha256, password, read_only_password, read_only_password_sha256, read_write_password, read_write_password_sha256, ssh_password_sha256`,
 		Example: `  # Apply a distribution_point from an XML file
   jamf-cli pro classic-distribution-points apply --from-file distribution_point.xml
 
@@ -450,6 +639,9 @@ If not, a new resource is created.`,
   # Apply without replacement confirmation
   jamf-cli pro classic-distribution-points apply --from-file distribution_point.xml --yes`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			if flagScaffold {
+				return printClassicScaffold(bodySpecClassicDistributionPoints)
+			}
 			reqCtx := cmd.Context()
 
 			// Read input
@@ -522,6 +714,12 @@ If not, a new resource is created.`,
 	}
 
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to XML input file (or pipe XML to stdin)")
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print an XML body template for this resource and exit")
+	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Set a body field in dot notation (key=value, repeatable). Builds the whole body, so it cannot be combined with --from-file")
+	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+		return []string{"connection_type=", "context=", "enable_load_balancing=", "failover_point=", "failover_point_url=", "http_downloads_enabled=", "http_url=", "http_username=", "id=", "ip_address=", "is_master=", "local_path=", "name=", "no_authentication_required=", "port=", "protocol=", "read_only_username=", "read_write_username=", "share_name=", "share_port=", "ssh_username=", "username_password_required=", "workgroup_or_domain="}, cobra.ShellCompDirectiveNoSpace
+	})
+
 	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt when replacing")
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
 

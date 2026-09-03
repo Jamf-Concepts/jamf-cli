@@ -18,12 +18,120 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// bodySpecClassicVppInvitations is this resource's request-body contract, derived from
+// specs/classic/schemas.json at generation time. Empty when the Classic API spec
+// declares no schema for it, in which case create/update/apply read their body
+// from --from-file or stdin with no --scaffold and no --set.
+var bodySpecClassicVppInvitations = classicBodySpec{
+	Root:   "vpp_invitation",
+	Schema: "vpp_invitation",
+	Scaffold: `<vpp_invitation>
+  <general>
+    <id>1</id>
+    <name>User VPP Invitations</name>
+    <auto_register_managed_users>false</auto_register_managed_users>
+    <distribution_method></distribution_method>
+    <message></message>
+    <require_login>false</require_login>
+    <sender_email_address></sender_email_address>
+    <sender_name></sender_name>
+    <subject></subject>
+    <vpp_account>
+      <id>1</id>
+    </vpp_account>
+  </general>
+  <invitation_usages>
+    <usage>
+      <id>1</id>
+      <name>Username</name>
+      <email_address>user@company.com</email_address>
+      <last_action_date_epoch>0</last_action_date_epoch>
+      <last_action_date_utc>2017-07-07T18:37:04.555-0500</last_action_date_utc>
+      <status>MDM Invitations was sent</status>
+      <vpp_account>Company VPP Account</vpp_account>
+    </usage>
+  </invitation_usages>
+  <scope>
+    <all_jss_users>false</all_jss_users>
+    <exclusions>
+      <jss_user_groups>
+        <user_group>
+          <id>1</id>
+          <name></name>
+        </user_group>
+      </jss_user_groups>
+      <jss_users>
+        <user>
+          <id>1</id>
+          <name></name>
+        </user>
+      </jss_users>
+      <user_groups>
+        <user_group>
+          <name>LDAP User Group Name</name>
+        </user_group>
+      </user_groups>
+    </exclusions>
+    <jss_user_groups>
+      <user_group>
+        <id>1</id>
+        <name></name>
+      </user_group>
+    </jss_user_groups>
+    <jss_users>
+      <user>
+        <id>1</id>
+        <name></name>
+      </user>
+    </jss_users>
+    <limitations>
+      <user_groups>
+        <user_group>
+          <id>1</id>
+          <name></name>
+        </user_group>
+      </user_groups>
+    </limitations>
+  </scope>
+</vpp_invitation>
+`,
+	FieldTypes: map[string]string{
+		"general":                             "object",
+		"general.auto_register_managed_users": "boolean",
+		"general.distribution_method":         "string",
+		"general.id":                          "integer",
+		"general.message":                     "string",
+		"general.name":                        "string",
+		"general.require_login":               "boolean",
+		"general.sender_email_address":        "string",
+		"general.sender_name":                 "string",
+		"general.subject":                     "string",
+		"general.vpp_account":                 "object",
+		"general.vpp_account.id":              "integer",
+		"invitation_usages":                   "array",
+		"scope":                               "object",
+		"scope.all_jss_users":                 "boolean",
+		"scope.exclusions":                    "object",
+		"scope.exclusions.jss_user_groups":    "array",
+		"scope.exclusions.jss_users":          "array",
+		"scope.exclusions.user_groups":        "array",
+		"scope.jss_user_groups":               "array",
+		"scope.jss_users":                     "array",
+		"scope.limitations":                   "object",
+		"scope.limitations.user_groups":       "array",
+	},
+	Enums: map[string][]string{
+		"general.distribution_method": {"Prompt users to accept/make available in Self Service", "Send emails", "Make available in Self Service only"},
+	},
+}
+
 // NewClassicVppInvitationsCmd creates the classic-vpp-invitations command group
 func NewClassicVppInvitationsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "classic-vpp-invitations",
-		Short: "VPP invitations (Classic API)",
-		Long:  `Manage vpp invitations via the Jamf Pro Classic API (/JSSResource/).`,
+		Use:         "classic-vpp-invitations",
+		Short:       "VPP invitations (Classic API)",
+		Long:        `Manage vpp invitations via the Jamf Pro Classic API (/JSSResource/).`,
+		Annotations: map[string]string{"jamf:api": "pro-classic"},
 	}
 
 	cmd.AddCommand(newClassicVppInvitationsListCmd(ctx))
@@ -52,6 +160,7 @@ func newClassicVppInvitationsListCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # List vppinvitations and extract IDs
   jamf-cli pro classic-vpp-invitations list --field id`,
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "volume-purchasing-locations:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/vppinvitations", nil)
@@ -102,7 +211,8 @@ func newClassicVppInvitationsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a vpp_invitation and output as YAML
   jamf-cli pro classic-vpp-invitations get 1 -o yaml`,
-		Args: cobra.ExactArgs(1),
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "volume-purchasing-locations:read"},
+		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			path := fmt.Sprintf("/JSSResource/vppinvitations/id/%s", url.PathEscape(args[0]))
@@ -143,21 +253,40 @@ func newClassicVppInvitationsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
 func newClassicVppInvitationsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
-		fromFile string
+		fromFile     string
+		flagScaffold bool
+		flagSet      []string
 	)
 	cmd := &cobra.Command{
 		Use:   "create",
 		Short: "Create a vpp_invitation",
-		Long:  "Create a new vpp_invitation. Reads the XML body from --from-file or stdin.",
+		Long: `Create a new vpp_invitation. Reads the XML body from --from-file, --set or stdin.
+
+Body fields are derived from the Classic API spec (schema "vpp_invitation").
+Run with --scaffold to print a complete XML template.
+The template populates every optional section with one specimen entry,
+including references whose <id> points at nothing on your instance — delete
+the sections you do not need. A dangling reference is answered with a 500.
+Optional sections: general, invitation_usages, scope
+
+Allowed values:
+  general.distribution_method: Prompt users to accept/make available in Self Service | Send emails | Make available in Self Service only
+
+The Classic API does not reject an out-of-range value — it substitutes
+its default silently — so --set refuses one rather than letting it through.`,
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "volume-purchasing-locations:create"},
 		Example: `  # Create a vpp_invitation from an XML file
   jamf-cli pro classic-vpp-invitations create --from-file vpp_invitation.xml
 
   # Create a vpp_invitation from XML on stdin
   cat vpp_invitation.xml | jamf-cli pro classic-vpp-invitations create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if flagScaffold {
+				return printClassicScaffold(bodySpecClassicVppInvitations)
+			}
 			reqCtx := cmd.Context()
 
-			bodyBytes, err := readClassicBody(fromFile)
+			bodyBytes, err := readClassicBodyOrSet(fromFile, flagSet, bodySpecClassicVppInvitations)
 			if err != nil {
 				return err
 			}
@@ -176,6 +305,11 @@ func newClassicVppInvitationsCreateCmd(ctx *registry.CLIContext) *cobra.Command 
 		},
 	}
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to XML input file (or pipe XML to stdin)")
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print an XML body template for this resource and exit")
+	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Set a body field in dot notation (key=value, repeatable). Builds the whole body, so it cannot be combined with --from-file")
+	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+		return []string{"general.auto_register_managed_users=", "general.distribution_method=", "general.id=", "general.message=", "general.name=", "general.require_login=", "general.sender_email_address=", "general.sender_name=", "general.subject=", "general.vpp_account.id=", "scope.all_jss_users="}, cobra.ShellCompDirectiveNoSpace
+	})
 	return cmd
 }
 
@@ -193,7 +327,7 @@ func newClassicVppInvitationsDeleteCmd(ctx *registry.CLIContext) *cobra.Command 
 
   # Delete without confirmation prompt
   jamf-cli pro classic-vpp-invitations delete 1 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:api": "pro-classic", "jamf:gateway-privileges": "volume-purchasing-locations:delete"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

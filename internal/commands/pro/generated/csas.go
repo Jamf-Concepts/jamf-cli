@@ -16,9 +16,10 @@ import (
 // NewCsasCmd creates the csas command group
 func NewCsasCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "csas",
-		Short: "Manage csas",
-		Long:  `Manage csas in Jamf Pro.`,
+		Use:         "csas",
+		Short:       "Manage csas",
+		Long:        `Manage csas in Jamf Pro.`,
+		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
 	cmd.AddCommand(newCsasDeleteCmd(ctx))
@@ -43,7 +44,7 @@ func newCsasDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Delete without confirmation prompt
   jamf-cli pro csas delete 1 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Update Cloud Services Settings"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Update Cloud Services Settings", "jamf:api": "pro", "jamf:gateway-privileges": "cloud-services-settings:update"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -110,9 +111,10 @@ func newCsasTenantIdCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{
-		Use:   "tenant-id",
-		Short: "Returns the CSA tenant ID.",
-		Long:  "Returns the CSA tenant ID.",
+		Use:         "tenant-id",
+		Short:       "Returns the CSA tenant ID.",
+		Long:        "Returns the CSA tenant ID.",
+		Annotations: map[string]string{"jamf:api": "pro"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -146,7 +148,7 @@ func newCsasTokenCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:         "token",
 		Short:       "Get details regarding the CSA token exchange",
 		Long:        "Get details regarding the CSA token exchange",
-		Annotations: map[string]string{"jamf:privileges": "Read Cloud Services Settings"},
+		Annotations: map[string]string{"jamf:privileges": "Read Cloud Services Settings", "jamf:api": "pro", "jamf:gateway-privileges": "cloud-services-settings:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

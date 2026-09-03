@@ -325,7 +325,7 @@ func fetchDeviceLookup(ctx context.Context, client registry.HTTPClient) map[stri
 	lookup := make(map[string]mdmDeviceMeta)
 
 	// Computers
-	computers, err := FetchAllPaginated(ctx, client, "/v3/computers-inventory?section=GENERAL&section=HARDWARE&section=OPERATING_SYSTEM&section=USER_AND_LOCATION", 2000)
+	computers, err := FetchAllPaginated(ctx, client, "/v4/computers-inventory?section=GENERAL&section=HARDWARE&section=OPERATING_SYSTEM&section=USER_AND_LOCATION", 2000)
 	if err == nil {
 		for _, c := range computers {
 			mgmtID := strVal(c, "managementId")

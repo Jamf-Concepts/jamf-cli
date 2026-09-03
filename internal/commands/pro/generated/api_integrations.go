@@ -21,9 +21,10 @@ import (
 // NewApiIntegrationsCmd creates the api-integrations command group
 func NewApiIntegrationsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "api-integrations",
-		Short: "Manage api-integrations",
-		Long:  `Manage api-integrations in Jamf Pro.`,
+		Use:         "api-integrations",
+		Short:       "Manage api-integrations",
+		Long:        `Manage api-integrations in Jamf Pro.`,
+		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
 	cmd.AddCommand(newApiIntegrationsListCmd(ctx))
@@ -56,7 +57,7 @@ func newApiIntegrationsListCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # List api-integrations and extract IDs
   jamf-cli pro api-integrations list --field id`,
-		Annotations: map[string]string{"jamf:privileges": "Read API Integrations"},
+		Annotations: map[string]string{"jamf:privileges": "Read API Integrations", "jamf:api": "pro", "jamf:gateway": "unserved", "jamf:gateway-basis": "unpublished", "jamf:gateway-detail": "not declared by the gateway's Jamf Pro API 11.31.0"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -85,7 +86,10 @@ func newApiIntegrationsListCmd(ctx *registry.CLIContext) *cobra.Command {
 
 			// Auto-pagination: fetch all pages when --all is set and --page was not manually specified
 			if flagAll && flagPage == 0 {
-				var allResults []json.RawMessage
+				// Initialised empty, not nil — a nil slice marshals to "null", so
+				// "list --all" on an empty collection used to answer "null" where
+				// the single-page path answers "[]".
+				allResults := []json.RawMessage{}
 				prog := ctx.Output.PaginationProgress()
 				defer prog.Stop()
 				reqCtx = spinner.WithSuppressed(reqCtx)
@@ -208,7 +212,7 @@ func newApiIntegrationsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a api-integration and output as YAML
   jamf-cli pro api-integrations get 1 -o yaml`,
-		Annotations: map[string]string{"jamf:privileges": "Read API Integrations"},
+		Annotations: map[string]string{"jamf:privileges": "Read API Integrations", "jamf:api": "pro", "jamf:gateway": "unserved", "jamf:gateway-basis": "unpublished", "jamf:gateway-detail": "not declared by the gateway's Jamf Pro API 11.31.0"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -271,7 +275,7 @@ func newApiIntegrationsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a api-integration, modify it, and create a copy
   jamf-cli pro api-integrations get 1 -o json | jq '.name = "Copy"' | jamf-cli pro api-integrations create`,
-		Annotations: map[string]string{"jamf:privileges": "Create API Integrations"},
+		Annotations: map[string]string{"jamf:privileges": "Create API Integrations", "jamf:api": "pro", "jamf:gateway": "unserved", "jamf:gateway-basis": "unpublished", "jamf:gateway-detail": "not declared by the gateway's Jamf Pro API 11.31.0"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -351,7 +355,7 @@ func newApiIntegrationsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a api-integration, modify, and update
   jamf-cli pro api-integrations get 1 -o json | jq '.name = "New Name"' | jamf-cli pro api-integrations update 1`,
-		Annotations: map[string]string{"jamf:privileges": "Update API Integrations"},
+		Annotations: map[string]string{"jamf:privileges": "Update API Integrations", "jamf:api": "pro", "jamf:gateway": "unserved", "jamf:gateway-basis": "unpublished", "jamf:gateway-detail": "not declared by the gateway's Jamf Pro API 11.31.0"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -486,7 +490,7 @@ func newApiIntegrationsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Delete without confirmation prompt
   jamf-cli pro api-integrations delete 1 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Delete API Integrations"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Delete API Integrations", "jamf:api": "pro", "jamf:gateway": "unserved", "jamf:gateway-basis": "unpublished", "jamf:gateway-detail": "not declared by the gateway's Jamf Pro API 11.31.0"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -687,7 +691,7 @@ func newApiIntegrationsClientCredentialsCmd(ctx *registry.CLIContext) *cobra.Com
 		Use:         "client-credentials [<id>]",
 		Short:       "Create client credentials for specified API integration",
 		Long:        "Create client credentials for specified API integration",
-		Annotations: map[string]string{"jamf:privileges": "Create API Integrations"},
+		Annotations: map[string]string{"jamf:privileges": "Create API Integrations", "jamf:api": "pro", "jamf:gateway": "unserved", "jamf:gateway-basis": "unpublished", "jamf:gateway-detail": "not declared by the gateway's Jamf Pro API 11.31.0"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -759,8 +763,9 @@ func newApiIntegrationsApplyCmd(ctx *registry.CLIContext) *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "apply",
-		Short: "Create or replace a api-integration by name",
+		Use:         "apply",
+		Short:       "Create or replace a api-integration by name",
+		Annotations: map[string]string{"jamf:api": "pro", "jamf:gateway": "unserved", "jamf:gateway-basis": "unpublished", "jamf:gateway-detail": "not declared by the gateway's Jamf Pro API 11.31.0"},
 		Long: `Create or replace a api-integration. Reads JSON or YAML from --from-file or stdin.
 
 The displayName field in the input is used to check if the resource

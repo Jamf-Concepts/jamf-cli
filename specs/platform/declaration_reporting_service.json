@@ -1,10 +1,10 @@
 {
   "components": {
     "parameters": {
-      "tenantId": {
-        "description": "The tenant UUID identifier",
-        "in": "path",
-        "name": "tenantId",
+      "X-Tenant-Id": {
+        "description": "The tenant UUID identifier.",
+        "in": "header",
+        "name": "X-Tenant-Id",
         "required": true,
         "schema": {
           "example": "e77c1408-10c8-4007-b177-abc9157fbcaa",
@@ -42,87 +42,6 @@
         ],
         "type": "object"
       },
-      "DeclarationReportClientDto": {
-        "properties": {
-          "active": {
-            "description": "The active state of the declaration",
-            "example": true,
-            "type": "boolean"
-          },
-          "channel": {
-            "description": "The platform channel",
-            "example": "SYSTEM",
-            "type": "string"
-          },
-          "dateUpdated": {
-            "description": "The timestamp when this declaration status was last updated for the device",
-            "format": "date-time",
-            "type": "string"
-          },
-          "deviceId": {
-            "description": "The platform deviceId",
-            "example": "179a77b6-aafb-45be-83de-915f531e4e39",
-            "type": "string"
-          },
-          "reasons": {
-            "description": "Reasons associated with the declaration, if any",
-            "items": {
-              "$ref": "#/components/schemas/StatusReportDeclarationReasonDto"
-            },
-            "type": "array"
-          },
-          "serverToken": {
-            "description": "The server token for the declaration",
-            "example": "2c9e3ec8907bf6e58fd93f2e28a02883ac58dde58906671003074deb84de6ff8",
-            "type": "string"
-          },
-          "validityState": {
-            "description": "The validity state of the declaration",
-            "enum": [
-              "VALID",
-              "INVALID",
-              "UNKNOWN"
-            ],
-            "example": "VALID",
-            "type": "string"
-          }
-        },
-        "required": [
-          "active",
-          "channel",
-          "deviceId",
-          "serverToken",
-          "validityState"
-        ],
-        "type": "object"
-      },
-      "DeclarationReportDto": {
-        "properties": {
-          "declarationIdentifier": {
-            "description": "The identifier of the declaration",
-            "example": "ea6ddcb3-729f-42b1-a67d-940008419baa",
-            "type": "string"
-          },
-          "results": {
-            "description": "The clients reporting the declaration",
-            "items": {
-              "$ref": "#/components/schemas/DeclarationReportClientDto"
-            },
-            "type": "array"
-          },
-          "totalCount": {
-            "description": "The total number of clients reporting the declaration",
-            "format": "int64",
-            "type": "integer"
-          }
-        },
-        "required": [
-          "declarationIdentifier",
-          "results",
-          "totalCount"
-        ],
-        "type": "object"
-      },
       "DeviceChannelsDto": {
         "properties": {
           "channels": {
@@ -136,43 +55,6 @@
             "description": "The platform deviceId",
             "example": "179a77b6-aafb-45be-83de-915f531e4e39",
             "type": "string"
-          }
-        },
-        "type": "object"
-      },
-      "DeviceReportChannelDto": {
-        "properties": {
-          "channel": {
-            "description": "The channel of the client from which the report is sent",
-            "example": "SYSTEM",
-            "type": "string"
-          },
-          "declarations": {
-            "description": "The declarations associated with the channel",
-            "items": {
-              "$ref": "#/components/schemas/StatusReportDeclarationDto"
-            },
-            "type": "array"
-          },
-          "lastReportTime": {
-            "description": "The last report received from the channel",
-            "format": "date-time",
-            "type": "string"
-          }
-        },
-        "required": [
-          "lastReportTime"
-        ],
-        "type": "object"
-      },
-      "DeviceReportDto": {
-        "properties": {
-          "channels": {
-            "description": "The channels associated with the device",
-            "items": {
-              "$ref": "#/components/schemas/DeviceReportChannelDto"
-            },
-            "type": "array"
           }
         },
         "type": "object"
@@ -360,87 +242,6 @@
         ],
         "type": "object"
       },
-      "StatusReportDeclarationDto": {
-        "externalDocs": {
-          "description": "Apple Documentation: Status Management Declarations",
-          "url": "https://developer.apple.com/documentation/devicemanagement/statusmanagementdeclarationsdeclarationobject"
-        },
-        "properties": {
-          "active": {
-            "description": "The active state of the declaration",
-            "example": true,
-            "type": "boolean"
-          },
-          "dateUpdated": {
-            "description": "The timestamp when this declaration status was last updated for the device",
-            "format": "date-time",
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "declarationIdentifier": {
-            "description": "The identifier of the declaration",
-            "example": "ea6ddcb3-729f-42b1-a67d-940008419baa",
-            "type": "string"
-          },
-          "reasons": {
-            "description": "Reasons associated with the declaration, if any",
-            "items": {
-              "$ref": "#/components/schemas/StatusReportDeclarationReasonDto"
-            },
-            "type": "array"
-          },
-          "serverToken": {
-            "description": "The server token for the declaration",
-            "example": "2c9e3ec8907bf6e58fd93f2e28a02883ac58dde58906671003074deb84de6ff8",
-            "type": "string"
-          },
-          "status": {
-            "description": "The installation status of the declaration",
-            "enum": [
-              "PENDING",
-              "SUCCESSFUL",
-              "AWAITING_SYNC",
-              "UNSUCCESSFUL",
-              "UNKNOWN"
-            ],
-            "example": "PENDING",
-            "type": "string"
-          },
-          "type": {
-            "description": "The type of the declaration",
-            "enum": [
-              "ASSET",
-              "MANAGEMENT",
-              "CONFIGURATION",
-              "ACTIVATION",
-              "UNKNOWN"
-            ],
-            "example": "CONFIGURATION",
-            "type": "string"
-          },
-          "validityState": {
-            "description": "The validity state of the declaration",
-            "enum": [
-              "VALID",
-              "INVALID",
-              "UNKNOWN"
-            ],
-            "example": "VALID",
-            "type": "string"
-          }
-        },
-        "required": [
-          "active",
-          "declarationIdentifier",
-          "serverToken",
-          "status",
-          "type",
-          "validityState"
-        ],
-        "type": "object"
-      },
       "StatusReportDeclarationReasonDetailDto": {
         "properties": {
           "description": {
@@ -488,12 +289,14 @@
       }
     },
     "securitySchemes": {
-      "OAuth2ClientCredentials": {
+      "oauth2": {
         "description": "Obtain an access token by calling the API Gateway's token endpoint using the OAuth2 client-credentials flow.",
         "flows": {
           "clientCredentials": {
-            "scopes": {},
-            "tokenUrl": "https://{region}.apigw.jamf.com/oauth2/token"
+            "scopes": {
+              "declarations:read": ""
+            },
+            "tokenUrl": "https://{region}.api.jamfcloud.com/auth/token"
           }
         },
         "type": "oauth2"
@@ -512,187 +315,13 @@
   },
   "openapi": "3.1.0",
   "paths": {
-    "/v1/tenant/{tenantId}/declarations/{declarationIdentifier}": {
+    "/v1/declarations/{declarationIdentifier}/devices": {
       "get": {
-        "deprecated": true,
-        "description": "**Deprecated** — use `GET /v1/declarations/{declarationIdentifier}/devices` instead.\n\n**Required Permissions:** `read:pro:declaration-reporting`, `read:school:declaration-reporting`",
-        "operationId": "getDeclarationReport",
-        "parameters": [
-          {
-            "$ref": "#/components/parameters/tenantId"
-          },
-          {
-            "description": "The declarationIdentifier present on a status report",
-            "example": "179a77b6-aafb-45be-83de-915f531e4e39",
-            "in": "path",
-            "name": "declarationIdentifier",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "description": "Zero-based page index (0..N)",
-            "in": "query",
-            "name": "page",
-            "schema": {
-              "default": 0,
-              "minimum": 0,
-              "type": "integer"
-            }
-          },
-          {
-            "description": "The size of the page to be returned",
-            "in": "query",
-            "name": "size",
-            "schema": {
-              "default": 20,
-              "minimum": 1,
-              "type": "integer"
-            }
-          },
-          {
-            "description": "Sorting criteria in the format: property,(asc|desc). Default sort order is ascending. Multiple sort criteria are supported.",
-            "in": "query",
-            "name": "sort",
-            "schema": {
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DeclarationReportDto"
-                }
-              }
-            },
-            "description": "Successfully retrieved the declaration report",
-            "headers": {
-              "Deprecation": {
-                "description": "RFC 9745 deprecation timestamp",
-                "schema": {
-                  "example": "@1778976000",
-                  "type": "string"
-                },
-                "style": "simple"
-              },
-              "Link": {
-                "description": "Link to successor endpoint",
-                "schema": {
-                  "example": "\u003c/v1/declarations/{declarationIdentifier}/devices\u003e; rel=\"successor-version\"",
-                  "type": "string"
-                },
-                "style": "simple"
-              },
-              "Sunset": {
-                "description": "RFC 8594 planned removal date",
-                "schema": {
-                  "example": "Sun, 17 May 2027 00:00:00 GMT",
-                  "type": "string"
-                },
-                "style": "simple"
-              }
-            }
-          },
-          "400": {
-            "content": {
-              "application/json": {
-                "example": {
-                  "errors": [
-                    {
-                      "code": null,
-                      "description": "Failed to process status report",
-                      "field": null,
-                      "id": null
-                    }
-                  ],
-                  "httpStatus": 400,
-                  "traceId": "3e3819a63ae0f231"
-                },
-                "schema": {
-                  "$ref": "#/components/schemas/ApiErrorDto"
-                }
-              }
-            },
-            "description": "Bad request"
-          },
-          "500": {
-            "content": {
-              "application/json": {
-                "example": {
-                  "errors": [
-                    {
-                      "code": null,
-                      "description": "An unexpected error occurred",
-                      "field": null,
-                      "id": null
-                    }
-                  ],
-                  "httpStatus": 500,
-                  "traceId": "3e3819a63ae0f231"
-                },
-                "schema": {
-                  "$ref": "#/components/schemas/ApiErrorDto"
-                }
-              }
-            },
-            "description": "Unknown error occurred"
-          },
-          "503": {
-            "content": {
-              "application/json": {
-                "example": {
-                  "errors": [
-                    {
-                      "code": "BULKHEAD_LIMIT_REACHED",
-                      "description": "Bulkhead limit reached",
-                      "field": null,
-                      "id": null
-                    }
-                  ],
-                  "httpStatus": 503,
-                  "traceId": "3e3819a63ae0f231"
-                },
-                "schema": {
-                  "$ref": "#/components/schemas/ApiErrorDto"
-                }
-              }
-            },
-            "description": "Too many requests - bulkhead limit reached"
-          }
-        },
-        "security": [
-          {
-            "OAuth2ClientCredentials": []
-          }
-        ],
-        "summary": "Get declaration report devices",
-        "tags": [
-          "declaration-reports"
-        ],
-        "x-authentication-required": true,
-        "x-deprecation-date": "2026-05-17",
-        "x-required-privileges": [
-          "read:pro:declaration-reporting",
-          "read:school:declaration-reporting"
-        ],
-        "x-successor-endpoint": "GET /v1/declarations/{declarationIdentifier}/devices",
-        "x-sunset-date": "2027-05-17"
-      }
-    },
-    "/v1/tenant/{tenantId}/declarations/{declarationIdentifier}/devices": {
-      "get": {
-        "description": "Get a declaration report containing the filtered devices currently reporting the provided declarationIdentifier. Supports pagination, sorting, and filtering with RSQL syntax. **Filtering:** Filters only apply to declarations already on the device (excludes PENDING status). Supported filter fields: `deviceId`, `channel`, `lastReportTime`, `active`, `validityState`, `declarationType`, `dateUpdated`. **Sorting:** Use `?sort=field,direction` (e.g., `?sort=declarationType,asc`). For more information on RSQL, see [Jamf Developer Portal](https://developer.jamf.com)\n\n**Required Permissions:** `read:pro:declaration-reporting`, `read:school:declaration-reporting`",
+        "description": "Get a declaration report containing the filtered devices currently reporting the provided declarationIdentifier. Supports pagination, sorting, and filtering with RSQL syntax. **Filtering:** Filters only apply to declarations already on the device (excludes PENDING status). Supported filter fields: `deviceId`, `channel`, `lastReportTime`, `active`, `validityState`, `declarationType`, `dateUpdated`. **Sorting:** Use `?sort=field,direction` (e.g., `?sort=declarationType,asc`). For more information on RSQL, see [Jamf Developer Portal](https://developer.jamf.com)\n\n**Required Permissions:** `declarations:read`",
         "operationId": "getDeclarationReportByFilter",
         "parameters": [
           {
-            "$ref": "#/components/parameters/tenantId"
+            "$ref": "#/components/parameters/X-Tenant-Id"
           },
           {
             "description": "The declarationIdentifier present on a status report",
@@ -826,170 +455,27 @@
         },
         "security": [
           {
-            "OAuth2ClientCredentials": []
+            "oauth2": [
+              "declarations:read"
+            ]
           }
         ],
         "summary": "Get filtered declaration report devices",
         "tags": [
           "declaration-reports"
         ],
-        "x-authentication-required": true,
         "x-required-privileges": [
-          "read:pro:declaration-reporting",
-          "read:school:declaration-reporting"
+          "declarations:read"
         ]
       }
     },
-    "/v1/tenant/{tenantId}/devices/{deviceId}": {
+    "/v1/devices/{deviceId}/channels": {
       "get": {
-        "deprecated": true,
-        "description": "**Deprecated** — use `GET /v1/devices/{deviceId}/declarations` instead.\n\n**Required Permissions:** `read:pro:declaration-reporting`, `read:school:declaration-reporting`",
-        "operationId": "getDeviceReport",
-        "parameters": [
-          {
-            "$ref": "#/components/parameters/tenantId"
-          },
-          {
-            "description": "The platform deviceId",
-            "example": "179a77b6-aafb-45be-83de-915f531e4e39",
-            "in": "path",
-            "name": "deviceId",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DeviceReportDto"
-                }
-              }
-            },
-            "description": "Successfully retrieved the device report",
-            "headers": {
-              "Deprecation": {
-                "description": "RFC 9745 deprecation timestamp",
-                "schema": {
-                  "example": "@1778976000",
-                  "type": "string"
-                },
-                "style": "simple"
-              },
-              "Link": {
-                "description": "Link to successor endpoint",
-                "schema": {
-                  "example": "\u003c/v1/devices/{deviceId}/declarations\u003e; rel=\"successor-version\"",
-                  "type": "string"
-                },
-                "style": "simple"
-              },
-              "Sunset": {
-                "description": "RFC 8594 planned removal date",
-                "schema": {
-                  "example": "Sun, 17 May 2027 00:00:00 GMT",
-                  "type": "string"
-                },
-                "style": "simple"
-              }
-            }
-          },
-          "400": {
-            "content": {
-              "application/json": {
-                "example": {
-                  "errors": [
-                    {
-                      "code": null,
-                      "description": "Failed to process status report",
-                      "field": null,
-                      "id": null
-                    }
-                  ],
-                  "httpStatus": 400,
-                  "traceId": "3e3819a63ae0f231"
-                },
-                "schema": {
-                  "$ref": "#/components/schemas/ApiErrorDto"
-                }
-              }
-            },
-            "description": "Bad request"
-          },
-          "500": {
-            "content": {
-              "application/json": {
-                "example": {
-                  "errors": [
-                    {
-                      "code": null,
-                      "description": "An unexpected error occurred",
-                      "field": null,
-                      "id": null
-                    }
-                  ],
-                  "httpStatus": 500,
-                  "traceId": "3e3819a63ae0f231"
-                },
-                "schema": {
-                  "$ref": "#/components/schemas/ApiErrorDto"
-                }
-              }
-            },
-            "description": "Unknown error occurred"
-          },
-          "503": {
-            "content": {
-              "application/json": {
-                "example": {
-                  "errors": [
-                    {
-                      "code": "BULKHEAD_LIMIT_REACHED",
-                      "description": "Bulkhead limit reached",
-                      "field": null,
-                      "id": null
-                    }
-                  ],
-                  "httpStatus": 503,
-                  "traceId": "3e3819a63ae0f231"
-                },
-                "schema": {
-                  "$ref": "#/components/schemas/ApiErrorDto"
-                }
-              }
-            },
-            "description": "Too many requests - bulkhead limit reached"
-          }
-        },
-        "security": [
-          {
-            "OAuth2ClientCredentials": []
-          }
-        ],
-        "summary": "Get device report declarations",
-        "tags": [
-          "device-reports"
-        ],
-        "x-authentication-required": true,
-        "x-deprecation-date": "2026-05-17",
-        "x-required-privileges": [
-          "read:pro:declaration-reporting",
-          "read:school:declaration-reporting"
-        ],
-        "x-successor-endpoint": "GET /v1/devices/{deviceId}/declarations",
-        "x-sunset-date": "2027-05-17"
-      }
-    },
-    "/v1/tenant/{tenantId}/devices/{deviceId}/channels": {
-      "get": {
-        "description": "Get a list of all channels available for the provided deviceId.\n\n**Required Permissions:** `read:pro:declaration-reporting`, `read:school:declaration-reporting`",
+        "description": "Get a list of all channels available for the provided deviceId.\n\n**Required Permissions:** `declarations:read`",
         "operationId": "getDeviceChannels",
         "parameters": [
           {
-            "$ref": "#/components/parameters/tenantId"
+            "$ref": "#/components/parameters/X-Tenant-Id"
           },
           {
             "description": "The platform deviceId",
@@ -1082,27 +568,27 @@
         },
         "security": [
           {
-            "OAuth2ClientCredentials": []
+            "oauth2": [
+              "declarations:read"
+            ]
           }
         ],
         "summary": "Get device channels",
         "tags": [
           "device-reports"
         ],
-        "x-authentication-required": true,
         "x-required-privileges": [
-          "read:pro:declaration-reporting",
-          "read:school:declaration-reporting"
+          "declarations:read"
         ]
       }
     },
-    "/v1/tenant/{tenantId}/devices/{deviceId}/declarations": {
+    "/v1/devices/{deviceId}/declarations": {
       "get": {
-        "description": "Get a device report containing the filtered declarations reported for the provided deviceId. Supports pagination, sorting, and filtering with RSQL syntax. **Filtering:** Filters only apply to declarations already on the device (excludes PENDING status). Supported filter fields: `declarationIdentifier`, `active`, `declarationType`, `validityState`, `dateUpdated`, `channel`. **Note:** Wildcard matching on declarationIdentifier (e.g. `declarationIdentifier==Blueprint_*`) is case-insensitive. **Sorting:** Use `?sort=field,direction` (e.g., `?sort=declarationType,asc\u0026sort=declarationIdentifier,desc`). Supported sort fields: declarationIdentifier, declarationType, active, validityState, dateUpdated. Results are returned in database order if no sort parameter is provided. For more information on RSQL, see [Jamf Developer Portal](https://developer.jamf.com)\n\n**Required Permissions:** `read:pro:declaration-reporting`, `read:school:declaration-reporting`",
+        "description": "Get a device report containing the filtered declarations reported for the provided deviceId. Supports pagination, sorting, and filtering with RSQL syntax. **Filtering:** Filters only apply to declarations already on the device (excludes PENDING status). Supported filter fields: `declarationIdentifier`, `active`, `declarationType`, `validityState`, `dateUpdated`, `channel`. **Note:** Wildcard matching on declarationIdentifier (e.g. `declarationIdentifier==Blueprint_*`) is case-insensitive. **Sorting:** Use `?sort=field,direction` (e.g., `?sort=declarationType,asc\u0026sort=declarationIdentifier,desc`). Supported sort fields: declarationIdentifier, declarationType, active, validityState, dateUpdated. Results are returned in database order if no sort parameter is provided. For more information on RSQL, see [Jamf Developer Portal](https://developer.jamf.com)\n\n**Required Permissions:** `declarations:read`",
         "operationId": "getDeviceReportByFilter",
         "parameters": [
           {
-            "$ref": "#/components/parameters/tenantId"
+            "$ref": "#/components/parameters/X-Tenant-Id"
           },
           {
             "description": "The platform deviceId",
@@ -1236,30 +722,30 @@
         },
         "security": [
           {
-            "OAuth2ClientCredentials": []
+            "oauth2": [
+              "declarations:read"
+            ]
           }
         ],
         "summary": "Get filtered device report declarations",
         "tags": [
           "device-reports"
         ],
-        "x-authentication-required": true,
         "x-required-privileges": [
-          "read:pro:declaration-reporting",
-          "read:school:declaration-reporting"
+          "declarations:read"
         ]
       }
     }
   },
   "security": [
     {
-      "OAuth2ClientCredentials": []
+      "oauth2": []
     }
   ],
   "servers": [
     {
       "description": "Jamf Beta API Gateway - prod",
-      "url": "https://{region}.apigw.jamf.com/api/ddm/report",
+      "url": "https://{region}.api.jamfcloud.com/ddm/report",
       "variables": {
         "region": {
           "default": "us",
@@ -1280,5 +766,8 @@
     {
       "name": "declaration report"
     }
+  ],
+  "x-scope-types": [
+    "tenant"
   ]
 }

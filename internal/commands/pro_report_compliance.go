@@ -44,7 +44,7 @@ Output columns: name, serial, managed, os_version, last_contact, days_since_cont
 // produces a compliance row for each device indicating management status,
 // OS version, and stale check-in status.
 func runReportDeviceCompliance(ctx context.Context, client registry.HTTPClient, staleThresholdDays int) ([]map[string]any, error) {
-	computers, err := FetchAllPaginated(ctx, client, "/v3/computers-inventory?section=GENERAL&section=HARDWARE&section=OPERATING_SYSTEM", 100)
+	computers, err := FetchAllPaginated(ctx, client, "/v4/computers-inventory?section=GENERAL&section=HARDWARE&section=OPERATING_SYSTEM", 100)
 	if err != nil {
 		return nil, fmt.Errorf("fetching computer inventory: %w", err)
 	}
@@ -63,7 +63,7 @@ func runReportDeviceCompliance(ctx context.Context, client registry.HTTPClient, 
 
 		if general != nil {
 			name, _ = general["name"].(string)
-			lastContact, _ = general["lastContactTime"].(string)
+			lastContact = lastCheckInOf(general)
 			if rm, ok := general["remoteManagement"].(map[string]any); ok {
 				managed, _ = rm["managed"].(bool)
 			}

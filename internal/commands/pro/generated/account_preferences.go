@@ -16,9 +16,10 @@ import (
 // NewAccountPreferencesCmd creates the account-preferences command group
 func NewAccountPreferencesCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "account-preferences",
-		Short: "Manage account-preferences",
-		Long:  `Manage account-preferences in Jamf Pro.`,
+		Use:         "account-preferences",
+		Short:       "Manage account-preferences",
+		Long:        `Manage account-preferences in Jamf Pro.`,
+		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
 	cmd.AddCommand(newAccountPreferencesListCmd(ctx))
@@ -39,6 +40,7 @@ func newAccountPreferencesListCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # List account-preferences and extract IDs
   jamf-cli pro account-preferences list --field id`,
+		Annotations: map[string]string{"jamf:api": "pro"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -82,6 +84,7 @@ func newAccountPreferencesPatchCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Update using JSON
   jamf-cli pro account-preferences get -o json | jq '.field = "value"' | jamf-cli pro account-preferences patch`,
+		Annotations: map[string]string{"jamf:api": "pro"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

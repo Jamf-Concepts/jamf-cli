@@ -56,11 +56,23 @@ func Generate(resources []*parser.Resource, scopeOf map[string]string, outputDir
 	}
 
 	tmpl, err := template.New("resource").Funcs(template.FuncMap{
+		// confirmStmt renders the destructive-action confirmation. A function
+		// rather than a literal because the statement is emitted at two points
+		// — after the dry-run preview on the single-request path, and before the
+		// loop on the paginated one, which has no preview to sit behind — and a
+		// second copy of the wording is a second place for the two to drift.
+		"confirmStmt": confirmStmt,
 		"opAnnotations": func(op templateOp) string {
-			if !op.IsDestructive {
-				return ""
+			var pairs []string
+			if op.IsDestructive {
+				pairs = append(pairs, `"jamf:destructive": "true"`)
 			}
-			return `map[string]string{"jamf:destructive": "true"}`
+			// Which API serves this command, and so which credentials it needs.
+			// The `security` namespace also carries commands served through the
+			// platform gateway, which annotate themselves "platform-gateway";
+			// these reach Radar directly with per-API scoped credentials.
+			pairs = append(pairs, `"jamf:api": "radar"`)
+			return "map[string]string{" + strings.Join(pairs, ", ") + "}"
 		},
 	}).Parse(resourceTemplate)
 	if err != nil {
@@ -270,4 +282,17 @@ func escapeQuote(s string) string {
 		out = append(out, r)
 	}
 	return string(out)
+}
+
+// confirmStmt renders the security.ConfirmAction guard for a destructive
+// operation. The Device Lifecycle ops name the customer the resolved
+// {customerId} points at, because that identifier is never user-facing — it
+// comes off the Lifecycle JWT — so a purge is otherwise confirmed without
+// saying whose devices it purges.
+func confirmStmt(op templateOp, resourceName string) string {
+	action := fmt.Sprintf("%q", op.Name)
+	if op.NeedsCustomerID {
+		action = fmt.Sprintf("fmt.Sprintf(%q, customerID)", op.Name+" for customer %q")
+	}
+	return fmt.Sprintf("\t\t\tif err := security.ConfirmAction(%s, %q, yes); err != nil {\n\t\t\t\treturn err\n\t\t\t}", action, resourceName)
 }

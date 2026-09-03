@@ -21,83 +21,54 @@ import (
 // resource. Wire it into a product namespace via AddCommand.
 func NewDeviceGroupsCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "device-groups",
-		Short: "Manage device-groups (Platform API)",
-		Long:  "Management API for Device Groups - Create, manage, and organize device groups with membership controls",
+		Use:         "device-groups",
+		Short:       "Manage device-groups (Security Cloud · platform gateway)",
+		Long:        "API for accessing Security Cloud device information",
+		Annotations: map[string]string{"jamf:api": "platform-gateway"},
 	}
 	cmd.AddCommand(newDeviceGroupsListCmd(cliCtx))
 	cmd.AddCommand(newDeviceGroupsCreateCmd(cliCtx))
 	cmd.AddCommand(newDeviceGroupsDeleteCmd(cliCtx))
 	cmd.AddCommand(newDeviceGroupsGetCmd(cliCtx))
-	cmd.AddCommand(newDeviceGroupsPatchCmd(cliCtx))
-	cmd.AddCommand(newDeviceGroupsMembersCmd(cliCtx))
-	cmd.AddCommand(newDeviceGroupsPatchMembersCmd(cliCtx))
+	cmd.AddCommand(newDeviceGroupsUpdateCmd(cliCtx))
 	return cmd
 }
 
 func newDeviceGroupsListCmd(cliCtx *registry.CLIContext) *cobra.Command {
-	var sort string
-	var filter string
 	cmd := &cobra.Command{
 		Use:         "list",
-		Short:       "Get all device groups",
-		Long:        "Retrieve a paginated list of all device groups for the tenant",
-		Annotations: map[string]string{"jamf:privileges": "read:pro:device-groups"},
+		Short:       "List all device groups for a customer",
+		Long:        "Retrieves all device groups for the authenticated customer.",
+		Annotations: map[string]string{"jamf:privileges": "device-groups:read", "jamf:api": "platform-gateway"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err
 			}
-			path := "/api/device-groups/v1/tenant/{tenantId}/device-groups"
-			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantID()), 1)
+			path := "/securitycloud/v2/groups"
 			q := url.Values{}
-			if sort != "" {
-				q.Set("sort", sort)
-			}
-			if filter != "" {
-				q.Set("filter", filter)
-			}
 			var body any
-			const pageSize = 100
-			var aggregated []json.RawMessage
-			for page := 0; ; page++ {
-				pq := url.Values{}
-				for k, v := range q {
-					pq[k] = v
-				}
-				pq.Set("page", strconv.Itoa(page))
-				pq.Set("page-size", strconv.Itoa(pageSize))
-				endpoint := path
-				if encoded := pq.Encode(); encoded != "" {
-					endpoint += "?" + encoded
-				}
-				var pageResult struct {
-					Results []json.RawMessage `json:"results"`
-				}
-				if err := cliCtx.PlatformSDKClient.Transport().DoExpect(cmd.Context(), http.MethodGet, endpoint, body, http.StatusOK, &pageResult); err != nil {
-					return fmt.Errorf("list: %w", err)
-				}
-				aggregated = append(aggregated, pageResult.Results...)
-				if len(pageResult.Results) < pageSize {
-					break
+			if encoded := q.Encode(); encoded != "" {
+				path += "?" + encoded
+			}
+			var result any
+			if err := cliCtx.PlatformSDKClient.Transport().DoExpect(cmd.Context(), http.MethodGet, path, body, http.StatusOK, &result); err != nil {
+				return fmt.Errorf("list: %w", err)
+			}
+			if result == nil {
+				return nil
+			}
+			if obj, ok := result.(map[string]any); ok {
+				if arr, ok := obj["groups"].([]any); ok {
+					result = arr
 				}
 			}
-			b, err := json.MarshalIndent(aggregated, "", "  ")
+			b, err := json.MarshalIndent(result, "", "  ")
 			if err != nil {
 				return err
 			}
-			b = platform.SelectTableColumns(b, []platform.TableColumn{
-				{Field: "id", Label: "id"},
-				{Field: "name", Label: "name"},
-				{Field: "description", Label: "description"},
-				{Field: "deviceType", Label: "deviceType"},
-				{Field: "groupType", Label: "groupType"},
-				{Field: "memberCount", Label: "memberCount"},
-			}, cliCtx.Output.Format())
 			return cliCtx.Output.PrintRaw(b)
 		},
 	}
-	cmd.Flags().StringVar(&sort, "sort", "", "Fields to sort by and their orders.</br> Fields allowed for sorting: `name`, `description`, `deviceType`, `groupType`.")
-	cmd.Flags().StringVar(&filter, "filter", "", "Filter query in RSQL format. Includes all results, by default.</br> Fields allowed in the query: `name`, `description`, `deviceType`, `groupType`.</br> This param can be combined with paging.</br> Example: `name==\"*Managed*\" and deviceType==\"MOBILE\"`")
 	return cmd
 }
 
@@ -108,20 +79,19 @@ func newDeviceGroupsCreateCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "create",
 		Short:       "Create a new device group",
-		Long:        "Create a new device group in Jamf Pro",
-		Annotations: map[string]string{"jamf:privileges": "create:pro:device-groups"},
+		Long:        "Creates a new device group for the authenticated customer.",
+		Annotations: map[string]string{"jamf:privileges": "device-groups:create", "jamf:api": "platform-gateway"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if scaffoldFlag {
 				// Scaffold prints raw JSON regardless of -o, so the output
 				// can be piped straight back into --file.
-				fmt.Println("{\n  \"criteria\": [\n    {\n      \"attributeName\": \"Device Name\",\n      \"attributeValue\": \"Some Device Name\",\n      \"hasClosingParenthesis\": false,\n      \"hasOpeningParenthesis\": false,\n      \"joinType\": \"\",\n      \"operator\": \"IS\",\n      \"order\": 0\n    }\n  ],\n  \"description\": \"A custom group of devices\",\n  \"deviceType\": \"\",\n  \"groupType\": \"\",\n  \"members\": [],\n  \"name\": \"New Device Group\"\n}")
+				fmt.Println("{\n  \"name\": \"Engineering Team\"\n}")
 				return nil
 			}
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err
 			}
-			path := "/api/device-groups/v1/tenant/{tenantId}/device-groups"
-			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantID()), 1)
+			path := "/securitycloud/v1/groups"
 			q := url.Values{}
 			body, err := platform.ReadBody(bodyFile, setFlags)
 			if err != nil {
@@ -129,6 +99,25 @@ func newDeviceGroupsCreateCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			}
 			if encoded := q.Encode(); encoded != "" {
 				path += "?" + encoded
+			}
+			// --dry-run is a global flag advertised as "preview changes without
+			// executing", and it used to preview nothing here: the Pro client is
+			// wrapped by a dry-run decorator, this one is not, so every generated
+			// platform and Security Cloud mutation executed for real under -n.
+			// A create reported the object it had just made and a delete reported
+			// nothing, both exiting 0.
+			//
+			// Ahead of the confirmation, not after it. ConfirmAction errors when
+			// --yes is absent and stdin is not a terminal, so a preview of a
+			// destructive command used to be unobtainable in CI without also
+			// pre-authorising the real thing — and the day -n falls off that
+			// command line (or out of JAMF_CLI_ARGS) the delete runs with its
+			// confirmation already suppressed. Interactively the old order
+			// prompted first and printed [dry-run] second, teaching the operator
+			// that confirming is harmless. Name resolution stays ahead of both,
+			// so the preview reports the resolved path.
+			if cliCtx.DryRun {
+				return platform.ReportDryRun(cmd.ErrOrStderr(), http.MethodPost, path, body)
 			}
 			var result any
 			if err := cliCtx.PlatformSDKClient.Transport().DoWithContentType(cmd.Context(), http.MethodPost, path, body, "application/json", http.StatusCreated, &result); err != nil {
@@ -144,7 +133,7 @@ func newDeviceGroupsCreateCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			return cliCtx.Output.PrintRaw(b)
 		},
 	}
-	cmd.Flags().StringVar(&bodyFile, "file", "", "Path to JSON file containing the request body")
+	cmd.Flags().StringVar(&bodyFile, "file", "", "Path to a JSON or YAML file containing the request body")
 	cmd.Flags().StringArrayVar(&setFlags, "set", nil, "Override body values (key=value, repeatable, supports nested.keys)")
 	cmd.Flags().BoolVar(&scaffoldFlag, "scaffold", false, "Print an example request body and exit")
 	return cmd
@@ -154,10 +143,10 @@ func newDeviceGroupsDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	var yes bool
 	var nameFlag string
 	cmd := &cobra.Command{
-		Use:         "delete <id>",
+		Use:         "delete <groupId>",
 		Short:       "Delete a device group",
-		Long:        "Delete an existing device group",
-		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "delete:pro:device-groups"},
+		Long:        "Deletes a device group. The default group cannot be deleted.",
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "device-groups:delete", "jamf:api": "platform-gateway"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
@@ -165,7 +154,7 @@ func newDeviceGroupsDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			}
 			var resolvedID string
 			if nameFlag != "" {
-				listPath := strings.Replace("/api/device-groups/v1/tenant/{tenantId}/device-groups", "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantID()), 1)
+				listPath := "/securitycloud/v2/groups"
 				id, err := platform.ResolveIDByName(cmd.Context(), cliCtx.PlatformSDKClient, listPath, nameFlag)
 				if err != nil {
 					return err
@@ -176,16 +165,34 @@ func newDeviceGroupsDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			} else {
 				return fmt.Errorf("provide a positional ID or --name")
 			}
-			if err := platform.ConfirmAction("delete", resolvedID, yes); err != nil {
-				return err
-			}
-			path := "/api/device-groups/v1/tenant/{tenantId}/device-groups/{id}"
-			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantID()), 1)
-			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
+			path := "/securitycloud/v1/groups/{groupId}"
+			path = strings.Replace(path, "{groupId}", url.PathEscape(resolvedID), 1)
 			q := url.Values{}
 			var body any
 			if encoded := q.Encode(); encoded != "" {
 				path += "?" + encoded
+			}
+			// --dry-run is a global flag advertised as "preview changes without
+			// executing", and it used to preview nothing here: the Pro client is
+			// wrapped by a dry-run decorator, this one is not, so every generated
+			// platform and Security Cloud mutation executed for real under -n.
+			// A create reported the object it had just made and a delete reported
+			// nothing, both exiting 0.
+			//
+			// Ahead of the confirmation, not after it. ConfirmAction errors when
+			// --yes is absent and stdin is not a terminal, so a preview of a
+			// destructive command used to be unobtainable in CI without also
+			// pre-authorising the real thing — and the day -n falls off that
+			// command line (or out of JAMF_CLI_ARGS) the delete runs with its
+			// confirmation already suppressed. Interactively the old order
+			// prompted first and printed [dry-run] second, teaching the operator
+			// that confirming is harmless. Name resolution stays ahead of both,
+			// so the preview reports the resolved path.
+			if cliCtx.DryRun {
+				return platform.ReportDryRun(cmd.ErrOrStderr(), http.MethodDelete, path, body)
+			}
+			if err := platform.ConfirmAction("delete", resolvedID, yes); err != nil {
+				return err
 			}
 			if err := cliCtx.PlatformSDKClient.Transport().DoExpect(cmd.Context(), http.MethodDelete, path, body, http.StatusNoContent, nil); err != nil {
 				return fmt.Errorf("delete: %w", err)
@@ -201,10 +208,10 @@ func newDeviceGroupsDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
 func newDeviceGroupsGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	var nameFlag string
 	cmd := &cobra.Command{
-		Use:         "get <id>",
+		Use:         "get <groupId>",
 		Short:       "Get a device group by ID",
-		Long:        "Retrieve a specific device group by its ID",
-		Annotations: map[string]string{"jamf:privileges": "read:pro:device-groups"},
+		Long:        "Retrieves a single device group by its ID.",
+		Annotations: map[string]string{"jamf:privileges": "device-groups:read", "jamf:api": "platform-gateway"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
@@ -212,7 +219,7 @@ func newDeviceGroupsGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			}
 			var resolvedID string
 			if nameFlag != "" {
-				listPath := strings.Replace("/api/device-groups/v1/tenant/{tenantId}/device-groups", "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantID()), 1)
+				listPath := "/securitycloud/v2/groups"
 				id, err := platform.ResolveIDByName(cmd.Context(), cliCtx.PlatformSDKClient, listPath, nameFlag)
 				if err != nil {
 					return err
@@ -223,9 +230,8 @@ func newDeviceGroupsGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			} else {
 				return fmt.Errorf("provide a positional ID or --name")
 			}
-			path := "/api/device-groups/v1/tenant/{tenantId}/device-groups/{id}"
-			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantID()), 1)
-			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
+			path := "/securitycloud/v1/groups/{groupId}"
+			path = strings.Replace(path, "{groupId}", url.PathEscape(resolvedID), 1)
 			q := url.Values{}
 			var body any
 			if encoded := q.Encode(); encoded != "" {
@@ -249,22 +255,22 @@ func newDeviceGroupsGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newDeviceGroupsPatchCmd(cliCtx *registry.CLIContext) *cobra.Command {
+func newDeviceGroupsUpdateCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	var bodyFile string
 	var setFlags []string
 	var scaffoldFlag bool
 	var nameFlag string
 	cmd := &cobra.Command{
-		Use:         "patch <id>",
+		Use:         "update <groupId>",
 		Short:       "Update a device group",
-		Long:        "Update an existing device group",
-		Annotations: map[string]string{"jamf:privileges": "update:pro:device-groups"},
+		Long:        "Updates the name of an existing device group.",
+		Annotations: map[string]string{"jamf:privileges": "device-groups:update", "jamf:api": "platform-gateway"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if scaffoldFlag {
 				// Scaffold prints raw JSON regardless of -o, so the output
 				// can be piped straight back into --file.
-				fmt.Println("{\n  \"criteria\": [\n    {\n      \"attributeName\": \"Device Name\",\n      \"attributeValue\": \"Some Device Name\",\n      \"hasClosingParenthesis\": false,\n      \"hasOpeningParenthesis\": false,\n      \"joinType\": \"\",\n      \"operator\": \"IS\",\n      \"order\": 0\n    }\n  ],\n  \"description\": \"A custom group of devices\",\n  \"name\": \"Some Device Group\"\n}")
+				fmt.Println("{\n  \"name\": \"Engineering Team\"\n}")
 				return nil
 			}
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
@@ -272,7 +278,7 @@ func newDeviceGroupsPatchCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			}
 			var resolvedID string
 			if nameFlag != "" {
-				listPath := strings.Replace("/api/device-groups/v1/tenant/{tenantId}/device-groups", "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantID()), 1)
+				listPath := "/securitycloud/v2/groups"
 				id, err := platform.ResolveIDByName(cmd.Context(), cliCtx.PlatformSDKClient, listPath, nameFlag)
 				if err != nil {
 					return err
@@ -283,9 +289,8 @@ func newDeviceGroupsPatchCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			} else {
 				return fmt.Errorf("provide a positional ID or --name")
 			}
-			path := "/api/device-groups/v1/tenant/{tenantId}/device-groups/{id}"
-			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantID()), 1)
-			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
+			path := "/securitycloud/v1/groups/{groupId}"
+			path = strings.Replace(path, "{groupId}", url.PathEscape(resolvedID), 1)
 			q := url.Values{}
 			body, err := platform.ReadBody(bodyFile, setFlags)
 			if err != nil {
@@ -294,55 +299,28 @@ func newDeviceGroupsPatchCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if encoded := q.Encode(); encoded != "" {
 				path += "?" + encoded
 			}
-			if err := cliCtx.PlatformSDKClient.Transport().DoExpect(cmd.Context(), http.MethodPatch, path, body, http.StatusNoContent, nil); err != nil {
-				return fmt.Errorf("patch: %w", err)
-			}
-			return nil
-		},
-	}
-	cmd.Flags().StringVar(&bodyFile, "file", "", "Path to JSON file containing the request body")
-	cmd.Flags().StringArrayVar(&setFlags, "set", nil, "Override body values (key=value, repeatable, supports nested.keys)")
-	cmd.Flags().BoolVar(&scaffoldFlag, "scaffold", false, "Print an example request body and exit")
-	cmd.Flags().StringVar(&nameFlag, "name", "", "Resolve target by name instead of ID (uses the resource list endpoint)")
-	return cmd
-}
-
-func newDeviceGroupsMembersCmd(cliCtx *registry.CLIContext) *cobra.Command {
-	var nameFlag string
-	cmd := &cobra.Command{
-		Use:         "members <id>",
-		Short:       "Get group members",
-		Long:        "Retrieve all members of a device group",
-		Annotations: map[string]string{"jamf:privileges": "read:pro:device-groups"},
-		Args:        cobra.MaximumNArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
-				return err
-			}
-			var resolvedID string
-			if nameFlag != "" {
-				listPath := strings.Replace("/api/device-groups/v1/tenant/{tenantId}/device-groups", "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantID()), 1)
-				id, err := platform.ResolveIDByName(cmd.Context(), cliCtx.PlatformSDKClient, listPath, nameFlag)
-				if err != nil {
-					return err
-				}
-				resolvedID = id
-			} else if len(args) == 1 {
-				resolvedID = args[0]
-			} else {
-				return fmt.Errorf("provide a positional ID or --name")
-			}
-			path := "/api/device-groups/v1/tenant/{tenantId}/device-groups/{id}/members"
-			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantID()), 1)
-			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
-			q := url.Values{}
-			var body any
-			if encoded := q.Encode(); encoded != "" {
-				path += "?" + encoded
+			// --dry-run is a global flag advertised as "preview changes without
+			// executing", and it used to preview nothing here: the Pro client is
+			// wrapped by a dry-run decorator, this one is not, so every generated
+			// platform and Security Cloud mutation executed for real under -n.
+			// A create reported the object it had just made and a delete reported
+			// nothing, both exiting 0.
+			//
+			// Ahead of the confirmation, not after it. ConfirmAction errors when
+			// --yes is absent and stdin is not a terminal, so a preview of a
+			// destructive command used to be unobtainable in CI without also
+			// pre-authorising the real thing — and the day -n falls off that
+			// command line (or out of JAMF_CLI_ARGS) the delete runs with its
+			// confirmation already suppressed. Interactively the old order
+			// prompted first and printed [dry-run] second, teaching the operator
+			// that confirming is harmless. Name resolution stays ahead of both,
+			// so the preview reports the resolved path.
+			if cliCtx.DryRun {
+				return platform.ReportDryRun(cmd.ErrOrStderr(), http.MethodPut, path, body)
 			}
 			var result any
-			if err := cliCtx.PlatformSDKClient.Transport().DoExpect(cmd.Context(), http.MethodGet, path, body, http.StatusOK, &result); err != nil {
-				return fmt.Errorf("members: %w", err)
+			if err := cliCtx.PlatformSDKClient.Transport().DoWithContentType(cmd.Context(), http.MethodPut, path, body, "application/json", http.StatusOK, &result); err != nil {
+				return fmt.Errorf("update: %w", err)
 			}
 			if result == nil {
 				return nil
@@ -354,62 +332,7 @@ func newDeviceGroupsMembersCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			return cliCtx.Output.PrintRaw(b)
 		},
 	}
-	cmd.Flags().StringVar(&nameFlag, "name", "", "Resolve target by name instead of ID (uses the resource list endpoint)")
-	return cmd
-}
-
-func newDeviceGroupsPatchMembersCmd(cliCtx *registry.CLIContext) *cobra.Command {
-	var bodyFile string
-	var setFlags []string
-	var scaffoldFlag bool
-	var nameFlag string
-	cmd := &cobra.Command{
-		Use:         "patch-members <id>",
-		Short:       "Update device group members",
-		Long:        "Add devices to or remove devices from a static device group. Cannot be used with smart groups.",
-		Annotations: map[string]string{"jamf:privileges": "update:pro:device-groups"},
-		Args:        cobra.MaximumNArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			if scaffoldFlag {
-				// Scaffold prints raw JSON regardless of -o, so the output
-				// can be piped straight back into --file.
-				fmt.Println("{\n  \"added\": [],\n  \"removed\": []\n}")
-				return nil
-			}
-			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
-				return err
-			}
-			var resolvedID string
-			if nameFlag != "" {
-				listPath := strings.Replace("/api/device-groups/v1/tenant/{tenantId}/device-groups", "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantID()), 1)
-				id, err := platform.ResolveIDByName(cmd.Context(), cliCtx.PlatformSDKClient, listPath, nameFlag)
-				if err != nil {
-					return err
-				}
-				resolvedID = id
-			} else if len(args) == 1 {
-				resolvedID = args[0]
-			} else {
-				return fmt.Errorf("provide a positional ID or --name")
-			}
-			path := "/api/device-groups/v1/tenant/{tenantId}/device-groups/{id}/members"
-			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantID()), 1)
-			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
-			q := url.Values{}
-			body, err := platform.ReadBody(bodyFile, setFlags)
-			if err != nil {
-				return err
-			}
-			if encoded := q.Encode(); encoded != "" {
-				path += "?" + encoded
-			}
-			if err := cliCtx.PlatformSDKClient.Transport().DoExpect(cmd.Context(), http.MethodPatch, path, body, http.StatusNoContent, nil); err != nil {
-				return fmt.Errorf("patch-members: %w", err)
-			}
-			return nil
-		},
-	}
-	cmd.Flags().StringVar(&bodyFile, "file", "", "Path to JSON file containing the request body")
+	cmd.Flags().StringVar(&bodyFile, "file", "", "Path to a JSON or YAML file containing the request body")
 	cmd.Flags().StringArrayVar(&setFlags, "set", nil, "Override body values (key=value, repeatable, supports nested.keys)")
 	cmd.Flags().BoolVar(&scaffoldFlag, "scaffold", false, "Print an example request body and exit")
 	cmd.Flags().StringVar(&nameFlag, "name", "", "Resolve target by name instead of ID (uses the resource list endpoint)")

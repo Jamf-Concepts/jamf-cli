@@ -18,12 +18,312 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// bodySpecClassicMobileApps is this resource's request-body contract, derived from
+// specs/classic/schemas.json at generation time. Empty when the Classic API spec
+// declares no schema for it, in which case create/update/apply read their body
+// from --from-file or stdin with no --scaffold and no --set.
+var bodySpecClassicMobileApps = classicBodySpec{
+	Root:   "mobile_device_application",
+	Schema: "mobile_device_application",
+	Scaffold: `<mobile_device_application>
+  <app_configuration>
+    <preferences></preferences>
+  </app_configuration>
+  <general>
+    <id>1</id>
+    <name>Self Service Mobile</name>
+    <allow_user_to_delete>false</allow_user_to_delete>
+    <bundle_id>com.jamfsoftware.selfservice</bundle_id>
+    <category>
+      <id>0</id>
+      <name></name>
+    </category>
+    <deploy_as_managed_app>false</deploy_as_managed_app>
+    <deploy_automatically>false</deploy_automatically>
+    <deployment_type></deployment_type>
+    <description></description>
+    <display_name>Self Service Mobile</display_name>
+    <external_url>https://itunes.apple.com/us/app/self-service-mobile/id718509958?mt=8&amp;amp;uo=4</external_url>
+    <free>false</free>
+    <host_externally>false</host_externally>
+    <icon>
+      <id>1</id>
+      <name>1024x1024bb.png</name>
+      <data></data>
+      <uri>https://company.jamfcloud.com/iconservlet/?id=1018&amp;amp;scale=1</uri>
+    </icon>
+    <internal_app>false</internal_app>
+    <ipa>
+      <name>Self Service Mobile.ipa</name>
+      <data></data>
+      <uri></uri>
+    </ipa>
+    <itunes_country_region></itunes_country_region>
+    <itunes_store_url></itunes_store_url>
+    <itunes_sync_time>0</itunes_sync_time>
+    <keep_app_updated_on_devices>false</keep_app_updated_on_devices>
+    <keep_description_and_icon_up_to_date>false</keep_description_and_icon_up_to_date>
+    <make_available_after_install>false</make_available_after_install>
+    <mobile_device_provisioning_profile>0</mobile_device_provisioning_profile>
+    <os_type></os_type>
+    <prevent_backup_of_app_data>false</prevent_backup_of_app_data>
+    <remove_app_when_mdm_profile_is_removed>false</remove_app_when_mdm_profile_is_removed>
+    <require_network_tethered>false</require_network_tethered>
+    <site>
+      <id>0</id>
+      <name>None</name>
+    </site>
+    <take_over_management>false</take_over_management>
+    <version>9.98</version>
+  </general>
+  <scope>
+    <all_jss_users>false</all_jss_users>
+    <all_mobile_devices>false</all_mobile_devices>
+    <buildings>
+      <building>
+        <id>1</id>
+        <name></name>
+      </building>
+    </buildings>
+    <departments>
+      <department>
+        <id>1</id>
+        <name></name>
+      </department>
+    </departments>
+    <exclusions>
+      <buildings>
+        <building>
+          <id>1</id>
+          <name></name>
+        </building>
+      </buildings>
+      <departments>
+        <department>
+          <id>1</id>
+          <name></name>
+        </department>
+      </departments>
+      <jss_user_groups>
+        <user_group>
+          <id>1</id>
+          <name></name>
+        </user_group>
+      </jss_user_groups>
+      <jss_users>
+        <user>
+          <id>1</id>
+          <name></name>
+        </user>
+      </jss_users>
+      <mobile_device_groups>
+        <mobile_device_group>
+          <id>1</id>
+          <name></name>
+        </mobile_device_group>
+      </mobile_device_groups>
+      <mobile_devices>
+        <mobile_device>
+          <id>1</id>
+          <name>Johns iPad</name>
+          <udid>270aae10800b6e61a2ee2bbc285eb967050b5984</udid>
+          <wifi_mac_address>E0:AC:CB:97:36:G4</wifi_mac_address>
+        </mobile_device>
+      </mobile_devices>
+      <network_segments>
+        <network_segment>
+          <id>1</id>
+          <name>New York</name>
+          <uid></uid>
+        </network_segment>
+      </network_segments>
+      <user_groups>
+        <user_group>
+          <id>1</id>
+          <name></name>
+        </user_group>
+      </user_groups>
+      <users>
+        <user>
+          <name>Adam</name>
+        </user>
+      </users>
+    </exclusions>
+    <jss_user_groups>
+      <user_group>
+        <id>1</id>
+        <name></name>
+      </user_group>
+    </jss_user_groups>
+    <jss_users>
+      <user>
+        <id>1</id>
+        <name></name>
+      </user>
+    </jss_users>
+    <limitations>
+      <network_segments>
+        <network_segment>
+          <id>1</id>
+          <name></name>
+        </network_segment>
+      </network_segments>
+      <user_groups>
+        <user_group>
+          <id>1</id>
+          <name></name>
+        </user_group>
+      </user_groups>
+      <users>
+        <user>
+          <id>1</id>
+          <name></name>
+        </user>
+      </users>
+    </limitations>
+    <mobile_device_groups>
+      <mobile_device_group>
+        <id>1</id>
+        <name></name>
+      </mobile_device_group>
+    </mobile_device_groups>
+    <mobile_devices>
+      <mobile_device>
+        <id>1</id>
+        <name>Admins iPad</name>
+        <udid>270aae10800b6e61a2ee2bbc285eb967050b5984</udid>
+        <wifi_mac_address>E0:AC:CB:97:36:G4</wifi_mac_address>
+      </mobile_device>
+    </mobile_devices>
+  </scope>
+  <self_service>
+    <feature_on_main_page>false</feature_on_main_page>
+    <notification>false</notification>
+    <notification_message>Click here to open Self Service and install this new application!</notification_message>
+    <notification_subject>New App Avaialble</notification_subject>
+    <self_service_after_install_button_text></self_service_after_install_button_text>
+    <self_service_categories>
+      <category>
+        <id>1</id>
+        <name>Education Tools</name>
+        <display_in>false</display_in>
+      </category>
+    </self_service_categories>
+    <self_service_description></self_service_description>
+    <self_service_icon>
+      <id>1</id>
+      <name>1024x1024bb.png</name>
+      <data></data>
+      <filename></filename>
+      <uri>https://company.jamfcloud.com/iconservlet/?id=1018&amp;amp;scale=1</uri>
+    </self_service_icon>
+    <self_service_install_button_text></self_service_install_button_text>
+  </self_service>
+  <vpp>
+    <assign_vpp_device_based_licenses>false</assign_vpp_device_based_licenses>
+    <vpp_admin_account_id>-1</vpp_admin_account_id>
+  </vpp>
+</mobile_device_application>
+`,
+	FieldTypes: map[string]string{
+		"app_configuration":                                   "object",
+		"app_configuration.preferences":                       "string",
+		"general":                                             "object",
+		"general.allow_user_to_delete":                        "boolean",
+		"general.bundle_id":                                   "string",
+		"general.category":                                    "object",
+		"general.category.id":                                 "integer",
+		"general.category.name":                               "string",
+		"general.deploy_as_managed_app":                       "boolean",
+		"general.deploy_automatically":                        "boolean",
+		"general.deployment_type":                             "string",
+		"general.description":                                 "string",
+		"general.display_name":                                "string",
+		"general.external_url":                                "string",
+		"general.free":                                        "boolean",
+		"general.host_externally":                             "boolean",
+		"general.icon":                                        "object",
+		"general.icon.data":                                   "string",
+		"general.icon.id":                                     "integer",
+		"general.icon.name":                                   "string",
+		"general.icon.uri":                                    "string",
+		"general.id":                                          "integer",
+		"general.internal_app":                                "boolean",
+		"general.ipa":                                         "object",
+		"general.ipa.data":                                    "string",
+		"general.ipa.name":                                    "string",
+		"general.ipa.uri":                                     "string",
+		"general.itunes_country_region":                       "string",
+		"general.itunes_store_url":                            "string",
+		"general.itunes_sync_time":                            "integer",
+		"general.keep_app_updated_on_devices":                 "boolean",
+		"general.keep_description_and_icon_up_to_date":        "boolean",
+		"general.make_available_after_install":                "boolean",
+		"general.mobile_device_provisioning_profile":          "integer",
+		"general.name":                                        "string",
+		"general.os_type":                                     "string",
+		"general.prevent_backup_of_app_data":                  "boolean",
+		"general.remove_app_when_mdm_profile_is_removed":      "boolean",
+		"general.require_network_tethered":                    "boolean",
+		"general.site":                                        "object",
+		"general.site.id":                                     "integer",
+		"general.site.name":                                   "string",
+		"general.take_over_management":                        "boolean",
+		"general.version":                                     "string",
+		"scope":                                               "object",
+		"scope.all_jss_users":                                 "boolean",
+		"scope.all_mobile_devices":                            "boolean",
+		"scope.buildings":                                     "array",
+		"scope.departments":                                   "array",
+		"scope.exclusions":                                    "object",
+		"scope.exclusions.buildings":                          "array",
+		"scope.exclusions.departments":                        "array",
+		"scope.exclusions.jss_user_groups":                    "array",
+		"scope.exclusions.jss_users":                          "array",
+		"scope.exclusions.mobile_device_groups":               "array",
+		"scope.exclusions.mobile_devices":                     "array",
+		"scope.exclusions.network_segments":                   "array",
+		"scope.exclusions.user_groups":                        "array",
+		"scope.exclusions.users":                              "array",
+		"scope.jss_user_groups":                               "array",
+		"scope.jss_users":                                     "array",
+		"scope.limitations":                                   "object",
+		"scope.limitations.network_segments":                  "array",
+		"scope.limitations.user_groups":                       "array",
+		"scope.limitations.users":                             "array",
+		"scope.mobile_device_groups":                          "array",
+		"scope.mobile_devices":                                "array",
+		"self_service":                                        "object",
+		"self_service.feature_on_main_page":                   "boolean",
+		"self_service.notification":                           "boolean",
+		"self_service.notification_message":                   "string",
+		"self_service.notification_subject":                   "string",
+		"self_service.self_service_after_install_button_text": "string",
+		"self_service.self_service_categories":                "array",
+		"self_service.self_service_description":               "string",
+		"self_service.self_service_icon":                      "object",
+		"self_service.self_service_icon.data":                 "string",
+		"self_service.self_service_icon.filename":             "string",
+		"self_service.self_service_icon.id":                   "integer",
+		"self_service.self_service_icon.name":                 "string",
+		"self_service.self_service_icon.uri":                  "string",
+		"self_service.self_service_install_button_text":       "string",
+		"vpp":                                  "object",
+		"vpp.assign_vpp_device_based_licenses": "boolean",
+		"vpp.vpp_admin_account_id":             "integer",
+	},
+	Enums: map[string][]string{
+		"general.deployment_type": {"Make Available in Self Service", "Install Automatically/Prompt Users to Install"},
+	},
+}
+
 // NewClassicMobileAppsCmd creates the classic-mobile-apps command group
 func NewClassicMobileAppsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "classic-mobile-apps",
-		Short: "Mobile device applications (Classic API)",
-		Long:  `Manage mobile device applications via the Jamf Pro Classic API (/JSSResource/).`,
+		Use:         "classic-mobile-apps",
+		Short:       "Mobile device applications (Classic API)",
+		Long:        `Manage mobile device applications via the Jamf Pro Classic API (/JSSResource/).`,
+		Annotations: map[string]string{"jamf:api": "pro-classic"},
 	}
 
 	cmd.AddCommand(newClassicMobileAppsListCmd(ctx))
@@ -55,6 +355,7 @@ func newClassicMobileAppsListCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # List mobiledeviceapplications and extract IDs
   jamf-cli pro classic-mobile-apps list --field id`,
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "applications:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/mobiledeviceapplications", nil)
@@ -111,7 +412,8 @@ func newClassicMobileAppsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a mobile_device_application and output as YAML
   jamf-cli pro classic-mobile-apps get 1 -o yaml`,
-		Args: cobra.MaximumNArgs(1),
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "applications:read"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -164,21 +466,40 @@ func newClassicMobileAppsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 func newClassicMobileAppsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		fromFile          string
+		flagScaffold      bool
+		flagSet           []string
 		flagAppconfigFile string
 	)
 	cmd := &cobra.Command{
 		Use:   "create",
 		Short: "Create a mobile_device_application",
-		Long:  "Create a new mobile_device_application. Reads the XML body from --from-file or stdin.",
+		Long: `Create a new mobile_device_application. Reads the XML body from --from-file, --set or stdin.
+
+Body fields are derived from the Classic API spec (schema "mobile_device_application").
+Run with --scaffold to print a complete XML template.
+The template populates every optional section with one specimen entry,
+including references whose <id> points at nothing on your instance — delete
+the sections you do not need. A dangling reference is answered with a 500.
+Optional sections: app_configuration, general, scope, self_service, vpp
+
+Allowed values:
+  general.deployment_type: Make Available in Self Service | Install Automatically/Prompt Users to Install
+
+The Classic API does not reject an out-of-range value — it substitutes
+its default silently — so --set refuses one rather than letting it through.`,
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "applications:create"},
 		Example: `  # Create a mobile_device_application from an XML file
   jamf-cli pro classic-mobile-apps create --from-file mobile_device_application.xml
 
   # Create a mobile_device_application from XML on stdin
   cat mobile_device_application.xml | jamf-cli pro classic-mobile-apps create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if flagScaffold {
+				return printClassicScaffold(bodySpecClassicMobileApps)
+			}
 			reqCtx := cmd.Context()
 
-			bodyBytes, err := readClassicBody(fromFile)
+			bodyBytes, err := readClassicBodyOrSet(fromFile, flagSet, bodySpecClassicMobileApps)
 			if err != nil {
 				return err
 			}
@@ -203,6 +524,11 @@ func newClassicMobileAppsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to XML input file (or pipe XML to stdin)")
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print an XML body template for this resource and exit")
+	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Set a body field in dot notation (key=value, repeatable). Builds the whole body, so it cannot be combined with --from-file")
+	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+		return []string{"app_configuration.preferences=", "general.allow_user_to_delete=", "general.bundle_id=", "general.category.id=", "general.category.name=", "general.deploy_as_managed_app=", "general.deploy_automatically=", "general.deployment_type=", "general.description=", "general.display_name=", "general.external_url=", "general.free=", "general.host_externally=", "general.icon.data=", "general.icon.id=", "general.icon.name=", "general.icon.uri=", "general.id=", "general.internal_app=", "general.ipa.data=", "general.ipa.name=", "general.ipa.uri=", "general.itunes_country_region=", "general.itunes_store_url=", "general.itunes_sync_time=", "general.keep_app_updated_on_devices=", "general.keep_description_and_icon_up_to_date=", "general.make_available_after_install=", "general.mobile_device_provisioning_profile=", "general.name=", "general.os_type=", "general.prevent_backup_of_app_data=", "general.remove_app_when_mdm_profile_is_removed=", "general.require_network_tethered=", "general.site.id=", "general.site.name=", "general.take_over_management=", "general.version=", "scope.all_jss_users=", "scope.all_mobile_devices=", "self_service.feature_on_main_page=", "self_service.notification=", "self_service.notification_message=", "self_service.notification_subject=", "self_service.self_service_after_install_button_text=", "self_service.self_service_description=", "self_service.self_service_icon.data=", "self_service.self_service_icon.filename=", "self_service.self_service_icon.id=", "self_service.self_service_icon.name=", "self_service.self_service_icon.uri=", "self_service.self_service_install_button_text=", "vpp.assign_vpp_device_based_licenses=", "vpp.vpp_admin_account_id="}, cobra.ShellCompDirectiveNoSpace
+	})
 
 	cmd.Flags().StringVar(&flagAppconfigFile, "appconfig-file", "", "Path to an AppConfig plist; contents populate <app_configuration><preferences>")
 	return cmd
@@ -210,6 +536,10 @@ func newClassicMobileAppsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 
 func newClassicMobileAppsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var fromFile string
+	var (
+		flagScaffold bool
+		flagSet      []string
+	)
 	var flagName string
 	var (
 		flagAppconfigFile string
@@ -218,17 +548,37 @@ func newClassicMobileAppsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "update [<id>]",
 		Short: "Update a mobile_device_application",
-		Long:  "Update an existing mobile_device_application by ID. Reads the XML body from --from-file or stdin.",
+		Long: `Update an existing mobile_device_application by ID. Reads the XML body from --from-file, --set or stdin.
+
+The Classic API applies a partial update: fields the body omits keep their
+current values, so a body carrying one element changes only that element.
+
+Body fields are derived from the Classic API spec (schema "mobile_device_application").
+Run with --scaffold to print a complete XML template.
+The template populates every optional section with one specimen entry,
+including references whose <id> points at nothing on your instance — delete
+the sections you do not need. A dangling reference is answered with a 500.
+Optional sections: app_configuration, general, scope, self_service, vpp
+
+Allowed values:
+  general.deployment_type: Make Available in Self Service | Install Automatically/Prompt Users to Install
+
+The Classic API does not reject an out-of-range value — it substitutes
+its default silently — so --set refuses one rather than letting it through.`,
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "applications:update"},
 		Example: `  # Update a mobile_device_application from an XML file
   jamf-cli pro classic-mobile-apps update 1 --from-file mobile_device_application.xml
 
   # Update a mobile_device_application from XML on stdin
   cat mobile_device_application.xml | jamf-cli pro classic-mobile-apps update 1`,
-		Args: cobra.MaximumNArgs(1),
+		Args: classicScaffoldArgs(&flagScaffold, cobra.MaximumNArgs(1)),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if flagScaffold {
+				return printClassicScaffold(bodySpecClassicMobileApps)
+			}
 			reqCtx := cmd.Context()
 
-			bodyBytes, bodyErr := readClassicBody(fromFile)
+			bodyBytes, bodyErr := readClassicBodyOrSet(fromFile, flagSet, bodySpecClassicMobileApps)
 			if bodyErr != nil {
 				return bodyErr
 			}
@@ -300,6 +650,11 @@ func newClassicMobileAppsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to XML input file (or pipe XML to stdin)")
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print an XML body template for this resource and exit")
+	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Set a body field in dot notation (key=value, repeatable). Builds the whole body, so it cannot be combined with --from-file")
+	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+		return []string{"app_configuration.preferences=", "general.allow_user_to_delete=", "general.bundle_id=", "general.category.id=", "general.category.name=", "general.deploy_as_managed_app=", "general.deploy_automatically=", "general.deployment_type=", "general.description=", "general.display_name=", "general.external_url=", "general.free=", "general.host_externally=", "general.icon.data=", "general.icon.id=", "general.icon.name=", "general.icon.uri=", "general.id=", "general.internal_app=", "general.ipa.data=", "general.ipa.name=", "general.ipa.uri=", "general.itunes_country_region=", "general.itunes_store_url=", "general.itunes_sync_time=", "general.keep_app_updated_on_devices=", "general.keep_description_and_icon_up_to_date=", "general.make_available_after_install=", "general.mobile_device_provisioning_profile=", "general.name=", "general.os_type=", "general.prevent_backup_of_app_data=", "general.remove_app_when_mdm_profile_is_removed=", "general.require_network_tethered=", "general.site.id=", "general.site.name=", "general.take_over_management=", "general.version=", "scope.all_jss_users=", "scope.all_mobile_devices=", "self_service.feature_on_main_page=", "self_service.notification=", "self_service.notification_message=", "self_service.notification_subject=", "self_service.self_service_after_install_button_text=", "self_service.self_service_description=", "self_service.self_service_icon.data=", "self_service.self_service_icon.filename=", "self_service.self_service_icon.id=", "self_service.self_service_icon.name=", "self_service.self_service_icon.uri=", "self_service.self_service_install_button_text=", "vpp.assign_vpp_device_based_licenses=", "vpp.vpp_admin_account_id="}, cobra.ShellCompDirectiveNoSpace
+	})
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up mobile_device_application by name")
 
 	cmd.Flags().StringVar(&flagAppconfigFile, "appconfig-file", "", "Path to an AppConfig plist; contents populate <app_configuration><preferences>")
@@ -325,7 +680,7 @@ func newClassicMobileAppsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Delete without confirmation prompt
   jamf-cli pro classic-mobile-apps delete 1 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:api": "pro-classic", "jamf:gateway-privileges": "applications:delete"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -493,18 +848,34 @@ func newClassicMobileAppsApplyCmd(ctx *registry.CLIContext) *cobra.Command {
 		fromFile          string
 		flagYes           bool
 		flagDryRun        bool
+		flagScaffold      bool
+		flagSet           []string
 		flagName          string
 		flagAppconfigFile string
 	)
 
 	cmd := &cobra.Command{
-		Use:   "apply",
-		Short: "Create or replace a mobile_device_application by name",
-		Long: `Create or replace a mobile_device_application. Reads XML from --from-file or stdin.
+		Use:         "apply",
+		Short:       "Create or replace a mobile_device_application by name",
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "applications:create,applications:read,applications:update"},
+		Long: `Create or replace a mobile_device_application. Reads XML from --from-file, --set or stdin.
 
 The name field in the input XML is used to check if the resource already
 exists. If it does, the resource is replaced (with confirmation).
-If not, a new resource is created.`,
+If not, a new resource is created.
+
+Body fields are derived from the Classic API spec (schema "mobile_device_application").
+Run with --scaffold to print a complete XML template.
+The template populates every optional section with one specimen entry,
+including references whose <id> points at nothing on your instance — delete
+the sections you do not need. A dangling reference is answered with a 500.
+Optional sections: app_configuration, general, scope, self_service, vpp
+
+Allowed values:
+  general.deployment_type: Make Available in Self Service | Install Automatically/Prompt Users to Install
+
+The Classic API does not reject an out-of-range value — it substitutes
+its default silently — so --set refuses one rather than letting it through.`,
 		Example: `  # Apply a mobile_device_application from an XML file
   jamf-cli pro classic-mobile-apps apply --from-file mobile_device_application.xml
 
@@ -514,6 +885,9 @@ If not, a new resource is created.`,
   # Apply without replacement confirmation
   jamf-cli pro classic-mobile-apps apply --from-file mobile_device_application.xml --yes`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			if flagScaffold {
+				return printClassicScaffold(bodySpecClassicMobileApps)
+			}
 			reqCtx := cmd.Context()
 
 			// Read input
@@ -606,6 +980,12 @@ If not, a new resource is created.`,
 	}
 
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to XML input file (or pipe XML to stdin)")
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print an XML body template for this resource and exit")
+	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Set a body field in dot notation (key=value, repeatable). Builds the whole body, so it cannot be combined with --from-file")
+	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+		return []string{"app_configuration.preferences=", "general.allow_user_to_delete=", "general.bundle_id=", "general.category.id=", "general.category.name=", "general.deploy_as_managed_app=", "general.deploy_automatically=", "general.deployment_type=", "general.description=", "general.display_name=", "general.external_url=", "general.free=", "general.host_externally=", "general.icon.data=", "general.icon.id=", "general.icon.name=", "general.icon.uri=", "general.id=", "general.internal_app=", "general.ipa.data=", "general.ipa.name=", "general.ipa.uri=", "general.itunes_country_region=", "general.itunes_store_url=", "general.itunes_sync_time=", "general.keep_app_updated_on_devices=", "general.keep_description_and_icon_up_to_date=", "general.make_available_after_install=", "general.mobile_device_provisioning_profile=", "general.name=", "general.os_type=", "general.prevent_backup_of_app_data=", "general.remove_app_when_mdm_profile_is_removed=", "general.require_network_tethered=", "general.site.id=", "general.site.name=", "general.take_over_management=", "general.version=", "scope.all_jss_users=", "scope.all_mobile_devices=", "self_service.feature_on_main_page=", "self_service.notification=", "self_service.notification_message=", "self_service.notification_subject=", "self_service.self_service_after_install_button_text=", "self_service.self_service_description=", "self_service.self_service_icon.data=", "self_service.self_service_icon.filename=", "self_service.self_service_icon.id=", "self_service.self_service_icon.name=", "self_service.self_service_icon.uri=", "self_service.self_service_install_button_text=", "vpp.assign_vpp_device_based_licenses=", "vpp.vpp_admin_account_id="}, cobra.ShellCompDirectiveNoSpace
+	})
+
 	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt when replacing")
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
 	cmd.Flags().StringVar(&flagName, "name", "", "Name of the existing mobile_device_application to update (required when body is empty)")

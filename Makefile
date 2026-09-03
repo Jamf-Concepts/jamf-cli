@@ -1,4 +1,4 @@
-.PHONY: build test clean generate sync-specs sync-spec sync-platform-specs sync-platform-specs-from-sdk sync-security-specs install lint lint-dead verify-generated verify-platform-specs verify-security-specs verify-site verify-site-output smoke smoke-seed smoke-cleanup release-check site
+.PHONY: audit-coverage build test clean generate sync-specs sync-spec sync-platform-specs sync-platform-specs-from-sdk sync-security-specs sync-gateway-coverage sync-gateway-coverage-from-sdk sync-permissions-map verify-gateway-coverage verify-classic-schemas install lint lint-dead verify-generated verify-platform-specs verify-security-specs verify-gateway-coverage verify-site verify-site-output smoke smoke-seed smoke-cleanup release-check site
 
 # Build variables
 VERSION         ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
@@ -188,19 +188,46 @@ sync-spec:
 # nothing else.
 #
 # It is a list rather than a wildcard for two reasons. The SDK's api/ also holds
-# pro_api.json, the Classic documentation and the app-installer specs — Jamf Pro
-# APIs generated here from specs/*.yaml, which would emit bogus platform commands
-# from Pro paths. And specs/.platform-source/ is gitignored, so its contents are
+# pro_api.json and the Classic documentation — Jamf Pro APIs generated here from
+# specs/*.yaml, which would emit bogus platform commands from Pro paths. And specs/.platform-source/ is gitignored, so its contents are
 # whatever a developer last left there and differ per working tree; a wildcard
 # made `make verify-platform-specs` depend on that, and an unrelated spec sitting
 # in the directory would silently join the build on any branch.
 PLATFORM_SDK_SPECS = \
+	account_licensing_api.json \
+	account_partners_api.json \
+	account_sso_api.json \
+	ai_governance_policies_api.json \
+	audit_api.json \
 	blueprints_api.json \
 	compliance_benchmark_engine.json \
 	declaration_reporting_service.json \
 	device_group_inventory_api.json \
 	device_inventory_api.json \
-	device_management_action_api.json
+	device_management_action_api.json \
+	securitycloud_categories_api.json \
+	securitycloud_device_groups_api.json \
+	securitycloud_dns_api.json \
+	securitycloud_enrollment_api.json \
+	securitycloud_uem_connect_api.json \
+	securitycloud_ztna_api.json
+
+# PLATFORM_SDK_COVERAGE_SPECS are the two SDK specs read for gateway *coverage*
+# — which Jamf Pro and Classic endpoints the gateway publishes, and the gateway
+# scope each requires — and for two further artefacts derived from the same two
+# files: the Classic request-body schemas behind --scaffold and --set on classic
+# commands (from the Classic one), and specs/AppInstaller*.yaml (from the Pro
+# one, whose published surface is the only place App Installers is described).
+# They are copied into the drop directory by sync-platform-specs-from-sdk and
+# consumed by sync-gateway-coverage, which derives all three in one generator
+# run.
+#
+# They must never join PLATFORM_SDK_SPECS. They describe Jamf Pro APIs this repo
+# already generates from specs/*.yaml, so handing them to the platform generator
+# emits a second set of Pro commands built from gateway paths.
+PLATFORM_SDK_COVERAGE_SPECS = \
+	pro_api.json \
+	classic_api_resource_documentation.json
 
 # Platform Gateway specs are sourced from jamfplatform-go-sdk's published api/
 # directory — see sync-platform-specs-from-sdk below, which is the supported
@@ -237,33 +264,60 @@ sync-platform-specs:
 	@$(MAKE) generate
 	@echo "Done! Review changes with: git diff specs/platform internal/commands/platform/generated"
 
-# Copy the Platform Gateway specs from a jamfplatform-go-sdk checkout into the
-# drop directory, then run the normal sync. This is the supported way to refresh
-# them: the SDK publishes api/*.json from its own generator, having applied its
-# schema corrections and validated them with acceptance tests against a live
-# tenant, so it is the only source that is both normalised and verified.
+# Where the SDK's published specs come from. jamfplatform-go-sdk's api/ is the
+# source of truth for every spec this repo ingests — the only place they are
+# normalised and wire-verified against a live tenant — and the SDK is always
+# updated before this repo ingests. So the default is the repository itself, at
+# the ref below, rather than a checkout somebody has to remember to pull: a stale
+# local clone is exactly how a spec drifts, and the compliance-benchmark case is
+# what that costs (a renamed query parameter answering 0 rules for every
+# baseline, with a required flag and no error).
 #
+# Set JAMFPLATFORM_SDK_PATH to override with a local checkout — an unpublished
+# branch, a worktree pinned to one revision, or an offline machine.
+JAMFPLATFORM_SDK_REPO ?= Jamf-Concepts/jamfplatform-go-sdk
+JAMFPLATFORM_SDK_REF ?= main
+JAMFPLATFORM_SDK_PATH ?=
+
+# Fetch the Platform Gateway specs from the SDK into the drop directory, then run
+# the normal sync. This is the supported way to refresh them: the SDK publishes
+# api/*.json from its own generator, having applied its schema corrections and
+# validated them with acceptance tests against a live tenant, so it is the only
+# source that is both normalised and verified.
+#
+#   make sync-platform-specs-from-sdk                              # main
+#   make sync-platform-specs-from-sdk JAMFPLATFORM_SDK_REF=v0.20.1 # a tag or SHA
 #   make sync-platform-specs-from-sdk JAMFPLATFORM_SDK_PATH=../jamfplatform-go-sdk
+#
+# Both routes end in the same place — files in specs/.platform-source/ and one
+# recorded revision — so only the fetch differs. The revision is passed down
+# explicitly rather than re-derived, because the remote route has no checkout for
+# sync-gateway-coverage's git probe to read and a manifest that cannot say which
+# SDK it came from is one nobody can check for staleness.
 sync-platform-specs-from-sdk:
-	@if [ -z "$(JAMFPLATFORM_SDK_PATH)" ]; then \
-		echo "Error: JAMFPLATFORM_SDK_PATH is required"; \
-		echo "Usage: make sync-platform-specs-from-sdk JAMFPLATFORM_SDK_PATH=/path/to/jamfplatform-go-sdk"; \
-		exit 1; \
-	fi
-	@if [ ! -d "$(JAMFPLATFORM_SDK_PATH)/api" ]; then \
-		echo "Error: $(JAMFPLATFORM_SDK_PATH)/api not found — is that a jamfplatform-go-sdk checkout?"; \
-		exit 1; \
-	fi
 	@mkdir -p specs/.platform-source
-	@for f in $(PLATFORM_SDK_SPECS); do \
-		if [ ! -f "$(JAMFPLATFORM_SDK_PATH)/api/$$f" ]; then \
-			echo "Error: $$f missing from $(JAMFPLATFORM_SDK_PATH)/api"; \
+	@if [ -n "$(JAMFPLATFORM_SDK_PATH)" ]; then \
+		if [ ! -d "$(JAMFPLATFORM_SDK_PATH)/api" ]; then \
+			echo "Error: $(JAMFPLATFORM_SDK_PATH)/api not found — is that a jamfplatform-go-sdk checkout?"; \
 			exit 1; \
 		fi; \
-		cp "$(JAMFPLATFORM_SDK_PATH)/api/$$f" "specs/.platform-source/$$f"; \
-	done
-	@echo "Copied $$(echo $(PLATFORM_SDK_SPECS) | wc -w | tr -d ' ') spec(s) from $(JAMFPLATFORM_SDK_PATH)/api"
+		for f in $(PLATFORM_SDK_SPECS) $(PLATFORM_SDK_COVERAGE_SPECS); do \
+			if [ ! -f "$(JAMFPLATFORM_SDK_PATH)/api/$$f" ]; then \
+				echo "Error: $$f missing from $(JAMFPLATFORM_SDK_PATH)/api"; \
+				exit 1; \
+			fi; \
+			cp "$(JAMFPLATFORM_SDK_PATH)/api/$$f" "specs/.platform-source/$$f"; \
+		done; \
+		echo "Copied $$(echo $(PLATFORM_SDK_SPECS) $(PLATFORM_SDK_COVERAGE_SPECS) | wc -w | tr -d ' ') spec(s) from $(JAMFPLATFORM_SDK_PATH)/api"; \
+	else \
+		scripts/fetch-sdk-specs.sh "$(JAMFPLATFORM_SDK_REPO)" "$(JAMFPLATFORM_SDK_REF)" \
+			specs/.platform-source $(PLATFORM_SDK_SPECS) $(PLATFORM_SDK_COVERAGE_SPECS) > .gateway-sdk-rev; \
+	fi
 	@$(MAKE) sync-platform-specs
+	@$(MAKE) sync-gateway-coverage \
+		JAMFPLATFORM_SDK_PATH="$(JAMFPLATFORM_SDK_PATH)" \
+		JAMFPLATFORM_SDK_REV="$$(cat .gateway-sdk-rev 2>/dev/null || true)"
+	@rm -f .gateway-sdk-rev
 
 # Copy private Jamf Security Cloud specs (Risk, Device Lifecycle, Shared
 # Signals & Events) from the gitignored specs/.security-source/ drop location
@@ -287,17 +341,209 @@ sync-security-specs:
 	@echo "Copied $$(ls specs/security/*.json | wc -l | tr -d ' ') security spec(s) to specs/security/"
 	@echo "Done! Review changes with: git diff specs/security"
 
+# ── Jamf Platform gateway coverage ────────────────────────────────────────
+#
+# Which Jamf Pro and Classic endpoints the platform gateway publishes. Derived
+# into the committed specs/gateway/coverage.json, which the generator reads to
+# stamp a jamf:gateway annotation on the commands outside that surface — so
+# `pro api-roles list` on a platform profile is refused with an explanation
+# instead of the gateway's 403 BAD_PERMISSIONS, which is byte-identical to a
+# missing API-role privilege.
+#
+# The source is jamfplatform-go-sdk's api/, the same place specs/platform/ comes
+# from: pro_api.json and classic_api_resource_documentation.json, listed above as
+# PLATFORM_SDK_COVERAGE_SPECS. Both are complete as of SDK adb8d7b (528 and 273
+# paths, method-for-method identical to the gateway's own drops) and each
+# operation carries x-required-privileges in the gateway scope vocabulary.
+#
+# That last part is why the SDK is now sufficient alone. Coverage was previously
+# derived from the jamf/public-apis-oas GitOps bundle, because only its
+# _permissions/routes.yaml carried the scope map. The SDK's x-required-privileges
+# now reproduces it exactly — 1352 operations, zero disagreements, none on either
+# side alone — so the bundle route is gone rather than kept as a second path
+# nothing exercises.
+#
+# The manifest is committed so `make generate` and CI stay hermetic: nobody needs
+# an SDK checkout to build, and the drop directory is gitignored.
+#
+# The same run also derives specs/classic/schemas.json, the Classic API request-body
+# schemas behind --scaffold, --set and the required/enum help on classic write
+# commands (see generator/classicschema). Same source spec, same drop directory,
+# same hermetic-artifact reasoning — so one flag, not two: a second flag that has
+# to carry the same value is a code path nothing exercises on its own.
+#
+# And specs/AppInstaller*.yaml, for the same reason again (see
+# monolith.ExtractSubtree). App Installers sits under hiddenapi/ in jamf/jss, so
+# neither the jss bundle nor an instance's own /api/schema/ carries it, and
+# pro_api.json is the only published spec that does — the specs this repo used
+# before it was published were reverse-engineered. They are written before the
+# spec glob so the same invocation regenerates the commands they describe.
+sync-gateway-coverage:
+	@for f in $(PLATFORM_SDK_COVERAGE_SPECS); do \
+		if [ ! -f "specs/.platform-source/$$f" ]; then \
+			echo "Error: specs/.platform-source/$$f not found"; \
+			echo "Fetch it with: make sync-gateway-coverage-from-sdk JAMFPLATFORM_SDK_PATH=/path/to/jamfplatform-go-sdk"; \
+			exit 1; \
+		fi; \
+	done
+	@# Record the SDK revision. JAMFPLATFORM_SDK_REV is the answer when the caller
+	@# already knows it — the remote fetch resolves a ref to a commit and passes it
+	@# down, having no checkout here for the git probe below to read.
+	@#
+	@# Otherwise, only when we were actually given an SDK checkout.
+	@# `cd ''` is a no-op that SUCCEEDS, so the obvious one-liner
+	@#   cd '$(JAMFPLATFORM_SDK_PATH)' && git rev-parse --short HEAD
+	@# stays in THIS repo when the variable is empty and stamps jamfpro-cli's own
+	@# commit into the manifest as the SDK's. A manifest whose provenance is
+	@# confidently wrong is worse than one that admits it does not know, so the
+	@# path is tested before it is used.
+	@#
+	@# The test is -e rather than -d because in a linked git worktree — the
+	@# natural way to ingest one specific SDK revision without disturbing a
+	@# checkout — .git is a FILE, not a directory. Under -d the guard failed
+	@# silently, no revision was written, and CarryForwardProvenance then kept
+	@# the PREVIOUS commit: the manifest confidently named an SDK revision that
+	@# was not the one ingested, which is the exact failure the -d test was
+	@# added to prevent. -e still requires a work-tree root, so it cannot be
+	@# satisfied by an empty variable or by any path inside this repo.
+	@rm -f .gateway-sdk-rev
+	@if [ -n "$(JAMFPLATFORM_SDK_REV)" ]; then \
+		printf '%s\n' "$(JAMFPLATFORM_SDK_REV)" > .gateway-sdk-rev; \
+	elif [ -n "$(JAMFPLATFORM_SDK_PATH)" ] && [ -e "$(JAMFPLATFORM_SDK_PATH)/.git" ]; then \
+		git -C "$(JAMFPLATFORM_SDK_PATH)" rev-parse --short HEAD > .gateway-sdk-rev 2>/dev/null || true; \
+	fi
+	go run ./generator --specs ./specs --output ./internal/commands/pro/generated \
+		--gateway-source ./specs/.platform-source \
+		--gateway-sdk-rev "$$(cat .gateway-sdk-rev 2>/dev/null || true)"
+	@rm -f .gateway-sdk-rev
+	@go fmt ./internal/commands/pro/generated/... ./internal/gateway/... > /dev/null
+	@echo "Done! Review changes with: git diff specs/gateway specs/classic internal/gateway internal/commands"
+
+# Fetch the two coverage specs from the SDK, then derive. Recording the SDK
+# revision is the point of routing through here: a manifest that cannot say which
+# SDK it came from is one nobody can check for staleness. Same dual source as
+# sync-platform-specs-from-sdk — the repo by default, a checkout when
+# JAMFPLATFORM_SDK_PATH is set.
+#
+#   make sync-gateway-coverage-from-sdk                              # main
+#   make sync-gateway-coverage-from-sdk JAMFPLATFORM_SDK_REF=v0.20.1
+#   make sync-gateway-coverage-from-sdk JAMFPLATFORM_SDK_PATH=../jamfplatform-go-sdk
+# Refresh the committed copy of Jamf's published permissions map.
+#
+# internal/privileges/catalogue.go turns a gateway capability slug into the
+# section and permission name Jamf Account's picker prints, and this article is
+# the only artefact that carries either. TestCatalogueMatchesThePublishedMap
+# asserts the transcription against this copy, so refreshing it is how a
+# renamed permission reaches the CLI.
+#
+# Read the diff rather than committing it blind: a name moving changes what an
+# operator is told to search for in the picker. Byte-identical to the copy
+# jamfplatform-go-sdk parses as its privilege oracle (`make permmap` there), by
+# construction — same URL.
+sync-permissions-map:
+	@curl -fsS --remove-on-error \
+		https://developer.jamf.com/platform-api/reference/jamf-pro-permissions-map.md \
+		-o internal/privileges/permissions-map.md.tmp
+	@mv internal/privileges/permissions-map.md.tmp internal/privileges/permissions-map.md
+	@echo "refreshed internal/privileges/permissions-map.md — review the diff, then: make test"
+
+sync-gateway-coverage-from-sdk:
+	@mkdir -p specs/.platform-source
+	@if [ -n "$(JAMFPLATFORM_SDK_PATH)" ]; then \
+		if [ ! -d "$(JAMFPLATFORM_SDK_PATH)/api" ]; then \
+			echo "Error: $(JAMFPLATFORM_SDK_PATH)/api not found — is that a jamfplatform-go-sdk checkout?"; \
+			exit 1; \
+		fi; \
+		for f in $(PLATFORM_SDK_COVERAGE_SPECS); do \
+			if [ ! -f "$(JAMFPLATFORM_SDK_PATH)/api/$$f" ]; then \
+				echo "Error: $$f missing from $(JAMFPLATFORM_SDK_PATH)/api"; \
+				exit 1; \
+			fi; \
+			cp "$(JAMFPLATFORM_SDK_PATH)/api/$$f" "specs/.platform-source/$$f"; \
+		done; \
+	else \
+		scripts/fetch-sdk-specs.sh "$(JAMFPLATFORM_SDK_REPO)" "$(JAMFPLATFORM_SDK_REF)" \
+			specs/.platform-source $(PLATFORM_SDK_COVERAGE_SPECS) > .gateway-sdk-rev; \
+	fi
+	@$(MAKE) sync-gateway-coverage \
+		JAMFPLATFORM_SDK_PATH="$(JAMFPLATFORM_SDK_PATH)" \
+		JAMFPLATFORM_SDK_REV="$$(cat .gateway-sdk-rev 2>/dev/null || true)"
+	@rm -f .gateway-sdk-rev
+
+# Verify the committed manifest and the generated table are in sync (CI-safe).
+# A no-op pass when the coverage specs are absent, like verify-security-specs —
+# CI has no SDK checkout, and the committed manifest is the contract.
+# git status --porcelain rather than git diff, because git diff cannot see an
+# untracked file: the first run after adding specs/gateway/ regenerated the
+# manifest with different provenance and still reported clean. Porcelain covers
+# modified, staged and untracked alike, which is the honest reading of "this is
+# not what is committed".
+verify-gateway-coverage:
+	@if [ -n "$(JAMFPLATFORM_SDK_PATH)" ] || [ -f "specs/.platform-source/pro_api.json" ]; then \
+		$(MAKE) sync-gateway-coverage JAMFPLATFORM_SDK_PATH="$(JAMFPLATFORM_SDK_PATH)" > /dev/null; \
+	else \
+		$(MAKE) generate > /dev/null; \
+	fi
+	@for f in specs/gateway/coverage.json internal/gateway/coverage_gen.go; do \
+		if [ -n "$$(git status --porcelain -- $$f)" ]; then \
+			echo "Error: $$f is not what is committed — run 'make sync-gateway-coverage' and commit"; \
+			git status --short -- $$f; \
+			exit 1; \
+		fi; \
+	done
+	@echo "Gateway coverage manifest and table are up to date."
+
+# Verify the committed Classic schema artifact is what the SDK spec implies
+# (CI-safe). A no-op pass when the coverage specs are absent, like
+# verify-gateway-coverage — CI has no SDK checkout, and the committed artifact is
+# the contract that `make verify-generated` then checks the commands against.
+#
+# git status --porcelain rather than git diff, for the reason the gateway target
+# records: git diff cannot see an untracked file, so the first run after adding
+# specs/classic/schemas.json reported clean against a file that was not committed
+# at all.
+verify-classic-schemas:
+	@if [ -n "$(JAMFPLATFORM_SDK_PATH)" ] || [ -f "specs/.platform-source/classic_api_resource_documentation.json" ]; then \
+		$(MAKE) sync-gateway-coverage JAMFPLATFORM_SDK_PATH="$(JAMFPLATFORM_SDK_PATH)" > /dev/null; \
+	else \
+		$(MAKE) generate > /dev/null; \
+	fi
+	@if [ -n "$$(git status --porcelain -- specs/classic/schemas.json)" ]; then \
+		echo "Error: specs/classic/schemas.json is not what is committed — run 'make sync-gateway-coverage' and commit"; \
+		git status --short -- specs/classic/schemas.json; \
+		exit 1; \
+	fi
+	@echo "Classic schema artifact is up to date."
+
 # Generate CLI commands from OpenAPI specs and Classic API manifest.
 # If JAMF_MONOLITH_SPEC is set, the monolith is split into per-resource spec
 # files before parsing, preserving the existing filename layout.
+# Generated code is formatted by the toolchain go.mod declares, not by whatever
+# `go` happens to be on PATH, because gofmt's alignment rules move between
+# releases. Go 1.26 breaks a map literal's alignment group at a long key where
+# 1.27 keeps one group, so the same tree regenerated on the two toolchains
+# differs in a handful of files — and CI reads `go-version-file: go.mod`, so
+# `make verify-generated` failed there on a whitespace diff that reproduced
+# nowhere locally. Worse on 1.26: one gofmt pass over the generator's output was
+# not a fixed point there, so whether the check passed came down to how many
+# times gofmt had historically run over the committed copy.
+#
+# GOTOOLCHAIN=auto (the default) treats go.mod's version as a *minimum*, so a
+# newer local toolchain is picked up silently and the drift is invisible until
+# CI. Naming it exactly is what makes the artifact reproducible; the toolchain is
+# downloaded once and cached, and it is the same one CI runs. Keep this pinned
+# even while go.mod and every developer agree — agreement is what it is for.
+GO_PINNED_TOOLCHAIN := $(shell awk '/^go [0-9]/{print "go"$$2; exit}' go.mod)
+
+generate: export GOTOOLCHAIN = $(GO_PINNED_TOOLCHAIN)
 generate:
-	@echo "Generating commands from OpenAPI specs and Classic API manifest..."
+	@echo "Generating commands from OpenAPI specs and Classic API manifest ($(GO_PINNED_TOOLCHAIN))..."
 ifneq ($(JAMF_MONOLITH_SPEC),)
 	go run ./generator --specs ./specs --output ./internal/commands/pro/generated --monolith "$(JAMF_MONOLITH_SPEC)"
 else
 	go run ./generator --specs ./specs --output ./internal/commands/pro/generated
 endif
-	@go fmt ./internal/commands/pro/generated/...
+	@go fmt ./internal/commands/pro/generated/... > /dev/null
 	@-go fmt ./internal/blueprintcomponents/... 2>/dev/null
 	@echo "Generated commands:"
 	@ls internal/commands/pro/generated/*.go | grep -v registry | grep -v classic_ | wc -l | xargs echo "  Modern API resource files:"
@@ -342,6 +588,16 @@ verify-site-output: build
 		--site-dir docs/site
 
 # Verify generated code is up to date (CI-safe)
+# Report which mutating gateway requests this CLI sends are covered by a Tyk
+# audit rule. Needs a jamf/tyk-gateway-management checkout, and a ref: a local
+# checkout is easily behind the deployed state.
+#
+#   make audit-coverage TYK_PATH=/path/to/tyk-gateway-management TYK_REF=origin/main
+TYK_PATH ?= /Users/Shared/GitHub/jamf/tyk-gateway-management
+TYK_REF ?= HEAD
+audit-coverage:
+	@python3 scripts/audit-coverage.py "$(TYK_PATH)" "$(TYK_REF)"
+
 verify-generated:
 	@ls internal/commands/pro/generated/*.go | grep -v '_test\.go' | xargs rm -f
 	@$(MAKE) generate
@@ -389,8 +645,12 @@ verify-security-specs:
 	@echo "Security specs and generated code are up to date."
 
 # Smoke test against a real Jamf Pro instance (reads from default config profile)
+# Read-only sweep: every GET across all resources. The pattern is deliberately
+# TestSmoke_Tier and not TestSmoke — the latter also matches TestSmoke_Seed,
+# which CREATES objects on the target tenant, so `make smoke` used to mutate the
+# instance it was asked to inspect. Seeding is `make smoke-seed`, explicitly.
 smoke:
-	JAMF_SMOKE_TEST=1 go test -v -run 'TestSmoke' -timeout 10m -count=1 ./internal/commands/...
+	JAMF_SMOKE_TEST=1 go test -v -run 'TestSmoke_Tier' -timeout 10m -count=1 ./internal/commands/...
 
 # Seed test instance with minimal _smoke-test resources
 smoke-seed:
@@ -404,6 +664,18 @@ smoke-cleanup:
 release-check: test smoke
 
 # Format code
+# FMT_GO is every Go file whose formatting is ours to own — which is everything
+# except the generated trees. Theirs belongs to `make generate`, which runs plain
+# `go fmt` over them; gofumpt's stricter style disagrees with it, so a bare
+# `gofumpt -w .` dirtied a generated file that the next `make generate` reverted,
+# a flip-flop that makes `make verify-generated` look broken while nothing is
+# wrong. golangci-lint excludes generated files as well, so nothing checks what
+# this skips.
+FMT_GO := $(shell find . -type f -name '*.go' \
+	-not -path './internal/commands/*/generated/*' -not -name '*_gen.go' 2>/dev/null)
+
+fmt: export GOTOOLCHAIN = $(GO_PINNED_TOOLCHAIN)
 fmt:
 	go fmt ./...
-	gofumpt -w .
+	@gofumpt -l -w $(FMT_GO)
+	@echo "gofumpt: $(words $(FMT_GO)) file(s) checked (generated trees skipped)"

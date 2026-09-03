@@ -21,9 +21,10 @@ import (
 // NewSelfServiceBrandingMacosCmd creates the self-service-branding-macos command group
 func NewSelfServiceBrandingMacosCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "self-service-branding-macos",
-		Short: "Manage self-service-branding-macos",
-		Long:  `Manage self-service-branding-macos in Jamf Pro.`,
+		Use:         "self-service-branding-macos",
+		Short:       "Manage self-service-branding-macos",
+		Long:        `Manage self-service-branding-macos in Jamf Pro.`,
+		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
 	cmd.AddCommand(newSelfServiceBrandingMacosListCmd(ctx))
@@ -54,7 +55,7 @@ func newSelfServiceBrandingMacosListCmd(ctx *registry.CLIContext) *cobra.Command
 
   # List self-service-branding-macos and extract IDs
   jamf-cli pro self-service-branding-macos list --field id`,
-		Annotations: map[string]string{"jamf:privileges": "Read Self Service Branding Configuration,Read Self Service"},
+		Annotations: map[string]string{"jamf:privileges": "Read Self Service Branding Configuration,Read Self Service", "jamf:api": "pro", "jamf:gateway-privileges": "self-service:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -80,7 +81,10 @@ func newSelfServiceBrandingMacosListCmd(ctx *registry.CLIContext) *cobra.Command
 
 			// Auto-pagination: fetch all pages when --all is set and --page was not manually specified
 			if flagAll && flagPage == 0 {
-				var allResults []json.RawMessage
+				// Initialised empty, not nil — a nil slice marshals to "null", so
+				// "list --all" on an empty collection used to answer "null" where
+				// the single-page path answers "[]".
+				allResults := []json.RawMessage{}
 				prog := ctx.Output.PaginationProgress()
 				defer prog.Stop()
 				reqCtx = spinner.WithSuppressed(reqCtx)
@@ -202,7 +206,7 @@ func newSelfServiceBrandingMacosGetCmd(ctx *registry.CLIContext) *cobra.Command 
 
   # Get a self-service-branding-macos and output as YAML
   jamf-cli pro self-service-branding-macos get 1 -o yaml`,
-		Annotations: map[string]string{"jamf:privileges": "Read Self Service Branding Configuration"},
+		Annotations: map[string]string{"jamf:privileges": "Read Self Service Branding Configuration", "jamf:api": "pro", "jamf:gateway-privileges": "self-service:read"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -265,7 +269,7 @@ func newSelfServiceBrandingMacosCreateCmd(ctx *registry.CLIContext) *cobra.Comma
 
   # Get a self-service-branding-macos, modify it, and create a copy
   jamf-cli pro self-service-branding-macos get 1 -o json | jq '.name = "Copy"' | jamf-cli pro self-service-branding-macos create`,
-		Annotations: map[string]string{"jamf:privileges": "Create Self Service Branding Configuration"},
+		Annotations: map[string]string{"jamf:privileges": "Create Self Service Branding Configuration", "jamf:api": "pro", "jamf:gateway-privileges": "self-service:create"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -345,7 +349,7 @@ func newSelfServiceBrandingMacosUpdateCmd(ctx *registry.CLIContext) *cobra.Comma
 
   # Get a self-service-branding-macos, modify, and update
   jamf-cli pro self-service-branding-macos get 1 -o json | jq '.name = "New Name"' | jamf-cli pro self-service-branding-macos update 1`,
-		Annotations: map[string]string{"jamf:privileges": "Update Self Service Branding Configuration"},
+		Annotations: map[string]string{"jamf:privileges": "Update Self Service Branding Configuration", "jamf:api": "pro", "jamf:gateway-privileges": "self-service:update"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -480,7 +484,7 @@ func newSelfServiceBrandingMacosDeleteCmd(ctx *registry.CLIContext) *cobra.Comma
 
   # Delete without confirmation prompt
   jamf-cli pro self-service-branding-macos delete 1 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Delete Self Service Branding Configuration"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Delete Self Service Branding Configuration", "jamf:api": "pro", "jamf:gateway-privileges": "self-service:delete"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -681,8 +685,9 @@ func newSelfServiceBrandingMacosApplyCmd(ctx *registry.CLIContext) *cobra.Comman
 	)
 
 	cmd := &cobra.Command{
-		Use:   "apply",
-		Short: "Create or replace a self-service-branding-macos by name",
+		Use:         "apply",
+		Short:       "Create or replace a self-service-branding-macos by name",
+		Annotations: map[string]string{"jamf:api": "pro", "jamf:gateway-privileges": "self-service:create,self-service:read,self-service:update"},
 		Long: `Create or replace a self-service-branding-macos. Reads JSON or YAML from --from-file or stdin.
 
 The brandingName field in the input is used to check if the resource

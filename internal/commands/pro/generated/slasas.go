@@ -16,9 +16,10 @@ import (
 // NewSlasasCmd creates the slasas command group
 func NewSlasasCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "slasas",
-		Short: "Manage slasas",
-		Long:  `Manage slasas in Jamf Pro.`,
+		Use:         "slasas",
+		Short:       "Manage slasas",
+		Long:        `Manage slasas in Jamf Pro.`,
+		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
 	cmd.AddCommand(newSlasasListCmd(ctx))
@@ -39,6 +40,7 @@ func newSlasasListCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # List slasas and extract IDs
   jamf-cli pro slasas list --field id`,
+		Annotations: map[string]string{"jamf:api": "pro"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -72,7 +74,7 @@ func newSlasasSlasaCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:         "slasa",
 		Short:       "Accept the SLASA",
 		Long:        "Accept the SLASA for Jamf Pro.",
-		Annotations: map[string]string{"jamf:privileges": "Update License Information,View JSS Information"},
+		Annotations: map[string]string{"jamf:privileges": "Update License Information,View JSS Information", "jamf:api": "pro", "jamf:gateway-privileges": "activation-code:update,jss-information:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

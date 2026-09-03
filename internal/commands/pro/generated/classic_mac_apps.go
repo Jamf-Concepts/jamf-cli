@@ -18,12 +18,247 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// bodySpecClassicMacApps is this resource's request-body contract, derived from
+// specs/classic/schemas.json at generation time. Empty when the Classic API spec
+// declares no schema for it, in which case create/update/apply read their body
+// from --from-file or stdin with no --scaffold and no --set.
+var bodySpecClassicMacApps = classicBodySpec{
+	Root:   "mac_application",
+	Schema: "mac_application",
+	Scaffold: `<mac_application>
+  <general>
+    <id>1</id>
+    <name>TextWrangler.app</name>
+    <bundle_id>com.barebones.textwrangler</bundle_id>
+    <category>
+      <id>0</id>
+      <name></name>
+    </category>
+    <deployment_type></deployment_type>
+    <is_free>false</is_free>
+    <site>
+      <id>0</id>
+      <name>None</name>
+    </site>
+    <url>https://itunes.apple.com/us/app/textwrangler/id404010395?mt=12&amp;amp;uo=4</url>
+    <version>5.5.2</version>
+  </general>
+  <scope>
+    <all_computers>false</all_computers>
+    <all_jss_users>false</all_jss_users>
+    <buildings>
+      <building>
+        <id>1</id>
+        <name></name>
+      </building>
+    </buildings>
+    <computer_groups>
+      <computer_group>
+        <id>1</id>
+        <name></name>
+      </computer_group>
+    </computer_groups>
+    <computers>
+      <computer>
+        <id>1</id>
+        <name>Admins MacBook Pro</name>
+        <udid>55900BDC-347C-58B1-D249-F32244B11D30</udid>
+      </computer>
+    </computers>
+    <departments>
+      <department>
+        <id>1</id>
+        <name></name>
+      </department>
+    </departments>
+    <exclusions>
+      <buildings>
+        <building>
+          <id>1</id>
+          <name></name>
+        </building>
+      </buildings>
+      <computer_groups>
+        <computer_group>
+          <id>1</id>
+          <name></name>
+        </computer_group>
+      </computer_groups>
+      <computers>
+        <computer>
+          <id>1</id>
+          <name>Johns iMac</name>
+          <udid>55900BDC-347C-58B1-D249-F32244B11D30</udid>
+        </computer>
+      </computers>
+      <departments>
+        <department>
+          <id>1</id>
+          <name></name>
+        </department>
+      </departments>
+      <jss_user_groups>
+        <user_group>
+          <id>1</id>
+          <name></name>
+        </user_group>
+      </jss_user_groups>
+      <jss_users>
+        <user>
+          <id>1</id>
+          <name></name>
+        </user>
+      </jss_users>
+      <network_segments>
+        <network_segment>
+          <id>1</id>
+          <name>New York</name>
+          <uid></uid>
+        </network_segment>
+      </network_segments>
+      <user_groups>
+        <user_group>
+          <id>1</id>
+          <name></name>
+        </user_group>
+      </user_groups>
+      <users>
+        <user>
+          <name>Adam</name>
+        </user>
+      </users>
+    </exclusions>
+    <jss_user_groups>
+      <user_group>
+        <id>1</id>
+        <name></name>
+      </user_group>
+    </jss_user_groups>
+    <jss_users>
+      <user>
+        <id>1</id>
+        <name></name>
+      </user>
+    </jss_users>
+    <limitations>
+      <network_segments>
+        <network_segment>
+          <id>1</id>
+          <name></name>
+        </network_segment>
+      </network_segments>
+      <user_groups>
+        <user_group>
+          <id>1</id>
+          <name></name>
+        </user_group>
+      </user_groups>
+      <users>
+        <user>
+          <id>1</id>
+          <name></name>
+        </user>
+      </users>
+    </limitations>
+  </scope>
+  <self_service>
+    <feature_on_main_page>false</feature_on_main_page>
+    <force_users_to_view_description>false</force_users_to_view_description>
+    <install_button_text>Install</install_button_text>
+    <notification></notification>
+    <notification_message>You can install TextWrangler by clicking this link or going to Self Service</notification_message>
+    <notification_subject>TextWrangler is Available to Install</notification_subject>
+    <self_service_categories>
+      <category>
+        <id>1</id>
+        <name>Applications</name>
+        <display_in>true</display_in>
+        <feature_in>false</feature_in>
+      </category>
+    </self_service_categories>
+    <self_service_description>Installs the TextWrangler application</self_service_description>
+    <self_service_icon>
+      <id>1</id>
+      <data></data>
+      <uri>https://company.jamfcloud.com/iconservlet/?id=1</uri>
+    </self_service_icon>
+  </self_service>
+  <vpp>
+    <assign_vpp_device_based_licenses>false</assign_vpp_device_based_licenses>
+    <remaining_vpp_licenses>0</remaining_vpp_licenses>
+    <total_vpp_licenses>0</total_vpp_licenses>
+    <used_vpp_licenses>0</used_vpp_licenses>
+    <vpp_admin_account_id>0</vpp_admin_account_id>
+  </vpp>
+</mac_application>
+`,
+	FieldTypes: map[string]string{
+		"general":                                      "object",
+		"general.bundle_id":                            "string",
+		"general.category":                             "object",
+		"general.category.id":                          "integer",
+		"general.category.name":                        "string",
+		"general.deployment_type":                      "string",
+		"general.id":                                   "integer",
+		"general.is_free":                              "boolean",
+		"general.name":                                 "string",
+		"general.site":                                 "object",
+		"general.site.id":                              "integer",
+		"general.site.name":                            "string",
+		"general.url":                                  "string",
+		"general.version":                              "string",
+		"scope":                                        "object",
+		"scope.all_computers":                          "boolean",
+		"scope.all_jss_users":                          "boolean",
+		"scope.buildings":                              "array",
+		"scope.computer_groups":                        "array",
+		"scope.computers":                              "array",
+		"scope.departments":                            "array",
+		"scope.exclusions":                             "object",
+		"scope.exclusions.buildings":                   "array",
+		"scope.exclusions.computer_groups":             "array",
+		"scope.exclusions.computers":                   "array",
+		"scope.exclusions.departments":                 "array",
+		"scope.exclusions.jss_user_groups":             "array",
+		"scope.exclusions.jss_users":                   "array",
+		"scope.exclusions.network_segments":            "array",
+		"scope.exclusions.user_groups":                 "array",
+		"scope.exclusions.users":                       "array",
+		"scope.jss_user_groups":                        "array",
+		"scope.jss_users":                              "array",
+		"scope.limitations":                            "object",
+		"scope.limitations.network_segments":           "array",
+		"scope.limitations.user_groups":                "array",
+		"scope.limitations.users":                      "array",
+		"self_service":                                 "object",
+		"self_service.feature_on_main_page":            "boolean",
+		"self_service.force_users_to_view_description": "boolean",
+		"self_service.install_button_text":             "string",
+		"self_service.notification":                    "string",
+		"self_service.notification_message":            "string",
+		"self_service.notification_subject":            "string",
+		"self_service.self_service_categories":         "array",
+		"self_service.self_service_description":        "string",
+		"self_service.self_service_icon":               "object",
+		"self_service.self_service_icon.data":          "string",
+		"self_service.self_service_icon.id":            "integer",
+		"self_service.self_service_icon.uri":           "string",
+		"vpp":                                          "object",
+		"vpp.assign_vpp_device_based_licenses":         "boolean",
+		"vpp.remaining_vpp_licenses":                   "integer",
+		"vpp.total_vpp_licenses":                       "integer",
+		"vpp.used_vpp_licenses":                        "integer",
+		"vpp.vpp_admin_account_id":                     "integer",
+	},
+}
+
 // NewClassicMacAppsCmd creates the classic-mac-apps command group
 func NewClassicMacAppsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "classic-mac-apps",
-		Short: "Mac App Store applications (Classic API)",
-		Long:  `Manage mac app store applications via the Jamf Pro Classic API (/JSSResource/).`,
+		Use:         "classic-mac-apps",
+		Short:       "Mac App Store applications (Classic API)",
+		Long:        `Manage mac app store applications via the Jamf Pro Classic API (/JSSResource/).`,
+		Annotations: map[string]string{"jamf:api": "pro-classic"},
 	}
 
 	cmd.AddCommand(newClassicMacAppsListCmd(ctx))
@@ -55,6 +290,7 @@ func newClassicMacAppsListCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # List macapplications and extract IDs
   jamf-cli pro classic-mac-apps list --field id`,
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "applications:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/macapplications", nil)
@@ -111,7 +347,8 @@ func newClassicMacAppsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a mac_application and output as YAML
   jamf-cli pro classic-mac-apps get 1 -o yaml`,
-		Args: cobra.MaximumNArgs(1),
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "applications:read"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -164,21 +401,34 @@ func newClassicMacAppsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 func newClassicMacAppsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		fromFile          string
+		flagScaffold      bool
+		flagSet           []string
 		flagAppconfigFile string
 	)
 	cmd := &cobra.Command{
 		Use:   "create",
 		Short: "Create a mac_application",
-		Long:  "Create a new mac_application. Reads the XML body from --from-file or stdin.",
+		Long: `Create a new mac_application. Reads the XML body from --from-file, --set or stdin.
+
+Body fields are derived from the Classic API spec (schema "mac_application").
+Run with --scaffold to print a complete XML template.
+The template populates every optional section with one specimen entry,
+including references whose <id> points at nothing on your instance — delete
+the sections you do not need. A dangling reference is answered with a 500.
+Optional sections: general, scope, self_service, vpp`,
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "applications:create"},
 		Example: `  # Create a mac_application from an XML file
   jamf-cli pro classic-mac-apps create --from-file mac_application.xml
 
   # Create a mac_application from XML on stdin
   cat mac_application.xml | jamf-cli pro classic-mac-apps create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if flagScaffold {
+				return printClassicScaffold(bodySpecClassicMacApps)
+			}
 			reqCtx := cmd.Context()
 
-			bodyBytes, err := readClassicBody(fromFile)
+			bodyBytes, err := readClassicBodyOrSet(fromFile, flagSet, bodySpecClassicMacApps)
 			if err != nil {
 				return err
 			}
@@ -203,6 +453,11 @@ func newClassicMacAppsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to XML input file (or pipe XML to stdin)")
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print an XML body template for this resource and exit")
+	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Set a body field in dot notation (key=value, repeatable). Builds the whole body, so it cannot be combined with --from-file")
+	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+		return []string{"general.bundle_id=", "general.category.id=", "general.category.name=", "general.deployment_type=", "general.id=", "general.is_free=", "general.name=", "general.site.id=", "general.site.name=", "general.url=", "general.version=", "scope.all_computers=", "scope.all_jss_users=", "self_service.feature_on_main_page=", "self_service.force_users_to_view_description=", "self_service.install_button_text=", "self_service.notification=", "self_service.notification_message=", "self_service.notification_subject=", "self_service.self_service_description=", "self_service.self_service_icon.data=", "self_service.self_service_icon.id=", "self_service.self_service_icon.uri=", "vpp.assign_vpp_device_based_licenses=", "vpp.remaining_vpp_licenses=", "vpp.total_vpp_licenses=", "vpp.used_vpp_licenses=", "vpp.vpp_admin_account_id="}, cobra.ShellCompDirectiveNoSpace
+	})
 
 	cmd.Flags().StringVar(&flagAppconfigFile, "appconfig-file", "", "Path to an AppConfig plist; contents populate <app_configuration><preferences>")
 	return cmd
@@ -210,6 +465,10 @@ func newClassicMacAppsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 
 func newClassicMacAppsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var fromFile string
+	var (
+		flagScaffold bool
+		flagSet      []string
+	)
 	var flagName string
 	var (
 		flagAppconfigFile string
@@ -218,17 +477,31 @@ func newClassicMacAppsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "update [<id>]",
 		Short: "Update a mac_application",
-		Long:  "Update an existing mac_application by ID. Reads the XML body from --from-file or stdin.",
+		Long: `Update an existing mac_application by ID. Reads the XML body from --from-file, --set or stdin.
+
+The Classic API applies a partial update: fields the body omits keep their
+current values, so a body carrying one element changes only that element.
+
+Body fields are derived from the Classic API spec (schema "mac_application").
+Run with --scaffold to print a complete XML template.
+The template populates every optional section with one specimen entry,
+including references whose <id> points at nothing on your instance — delete
+the sections you do not need. A dangling reference is answered with a 500.
+Optional sections: general, scope, self_service, vpp`,
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "applications:update"},
 		Example: `  # Update a mac_application from an XML file
   jamf-cli pro classic-mac-apps update 1 --from-file mac_application.xml
 
   # Update a mac_application from XML on stdin
   cat mac_application.xml | jamf-cli pro classic-mac-apps update 1`,
-		Args: cobra.MaximumNArgs(1),
+		Args: classicScaffoldArgs(&flagScaffold, cobra.MaximumNArgs(1)),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if flagScaffold {
+				return printClassicScaffold(bodySpecClassicMacApps)
+			}
 			reqCtx := cmd.Context()
 
-			bodyBytes, bodyErr := readClassicBody(fromFile)
+			bodyBytes, bodyErr := readClassicBodyOrSet(fromFile, flagSet, bodySpecClassicMacApps)
 			if bodyErr != nil {
 				return bodyErr
 			}
@@ -300,6 +573,11 @@ func newClassicMacAppsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to XML input file (or pipe XML to stdin)")
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print an XML body template for this resource and exit")
+	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Set a body field in dot notation (key=value, repeatable). Builds the whole body, so it cannot be combined with --from-file")
+	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+		return []string{"general.bundle_id=", "general.category.id=", "general.category.name=", "general.deployment_type=", "general.id=", "general.is_free=", "general.name=", "general.site.id=", "general.site.name=", "general.url=", "general.version=", "scope.all_computers=", "scope.all_jss_users=", "self_service.feature_on_main_page=", "self_service.force_users_to_view_description=", "self_service.install_button_text=", "self_service.notification=", "self_service.notification_message=", "self_service.notification_subject=", "self_service.self_service_description=", "self_service.self_service_icon.data=", "self_service.self_service_icon.id=", "self_service.self_service_icon.uri=", "vpp.assign_vpp_device_based_licenses=", "vpp.remaining_vpp_licenses=", "vpp.total_vpp_licenses=", "vpp.used_vpp_licenses=", "vpp.vpp_admin_account_id="}, cobra.ShellCompDirectiveNoSpace
+	})
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up mac_application by name")
 
 	cmd.Flags().StringVar(&flagAppconfigFile, "appconfig-file", "", "Path to an AppConfig plist; contents populate <app_configuration><preferences>")
@@ -325,7 +603,7 @@ func newClassicMacAppsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Delete without confirmation prompt
   jamf-cli pro classic-mac-apps delete 1 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:api": "pro-classic", "jamf:gateway-privileges": "applications:delete"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -493,18 +771,28 @@ func newClassicMacAppsApplyCmd(ctx *registry.CLIContext) *cobra.Command {
 		fromFile          string
 		flagYes           bool
 		flagDryRun        bool
+		flagScaffold      bool
+		flagSet           []string
 		flagName          string
 		flagAppconfigFile string
 	)
 
 	cmd := &cobra.Command{
-		Use:   "apply",
-		Short: "Create or replace a mac_application by name",
-		Long: `Create or replace a mac_application. Reads XML from --from-file or stdin.
+		Use:         "apply",
+		Short:       "Create or replace a mac_application by name",
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "applications:create,applications:read,applications:update"},
+		Long: `Create or replace a mac_application. Reads XML from --from-file, --set or stdin.
 
 The name field in the input XML is used to check if the resource already
 exists. If it does, the resource is replaced (with confirmation).
-If not, a new resource is created.`,
+If not, a new resource is created.
+
+Body fields are derived from the Classic API spec (schema "mac_application").
+Run with --scaffold to print a complete XML template.
+The template populates every optional section with one specimen entry,
+including references whose <id> points at nothing on your instance — delete
+the sections you do not need. A dangling reference is answered with a 500.
+Optional sections: general, scope, self_service, vpp`,
 		Example: `  # Apply a mac_application from an XML file
   jamf-cli pro classic-mac-apps apply --from-file mac_application.xml
 
@@ -514,6 +802,9 @@ If not, a new resource is created.`,
   # Apply without replacement confirmation
   jamf-cli pro classic-mac-apps apply --from-file mac_application.xml --yes`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			if flagScaffold {
+				return printClassicScaffold(bodySpecClassicMacApps)
+			}
 			reqCtx := cmd.Context()
 
 			// Read input
@@ -606,6 +897,12 @@ If not, a new resource is created.`,
 	}
 
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to XML input file (or pipe XML to stdin)")
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print an XML body template for this resource and exit")
+	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Set a body field in dot notation (key=value, repeatable). Builds the whole body, so it cannot be combined with --from-file")
+	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+		return []string{"general.bundle_id=", "general.category.id=", "general.category.name=", "general.deployment_type=", "general.id=", "general.is_free=", "general.name=", "general.site.id=", "general.site.name=", "general.url=", "general.version=", "scope.all_computers=", "scope.all_jss_users=", "self_service.feature_on_main_page=", "self_service.force_users_to_view_description=", "self_service.install_button_text=", "self_service.notification=", "self_service.notification_message=", "self_service.notification_subject=", "self_service.self_service_description=", "self_service.self_service_icon.data=", "self_service.self_service_icon.id=", "self_service.self_service_icon.uri=", "vpp.assign_vpp_device_based_licenses=", "vpp.remaining_vpp_licenses=", "vpp.total_vpp_licenses=", "vpp.used_vpp_licenses=", "vpp.vpp_admin_account_id="}, cobra.ShellCompDirectiveNoSpace
+	})
+
 	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt when replacing")
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
 	cmd.Flags().StringVar(&flagName, "name", "", "Name of the existing mac_application to update (required when body is empty)")

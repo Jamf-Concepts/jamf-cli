@@ -17,9 +17,10 @@ import (
 // NewComputersCmd creates the computers command group
 func NewComputersCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "computers",
-		Short: "Manage computers",
-		Long:  `Manage computers in Jamf Pro.`,
+		Use:         "computers",
+		Short:       "Manage computers",
+		Long:        `Manage computers in Jamf Pro.`,
+		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
 	cmd.AddCommand(newComputersListCmd(ctx))
@@ -47,7 +48,7 @@ func newComputersListCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # List computers and extract IDs
   jamf-cli pro computers list --field id`,
-		Annotations: map[string]string{"jamf:privileges": "Read Computers"},
+		Annotations: map[string]string{"jamf:privileges": "Read Computers", "jamf:api": "pro", "jamf:gateway-privileges": "devices:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -77,7 +78,10 @@ func newComputersListCmd(ctx *registry.CLIContext) *cobra.Command {
 
 			// Auto-pagination: fetch all pages when --all is set and --page was not manually specified
 			if flagAll && flagPage == 0 {
-				var allResults []json.RawMessage
+				// Initialised empty, not nil — a nil slice marshals to "null", so
+				// "list --all" on an empty collection used to answer "null" where
+				// the single-page path answers "[]".
+				allResults := []json.RawMessage{}
 				prog := ctx.Output.PaginationProgress()
 				defer prog.Stop()
 				reqCtx = spinner.WithSuppressed(reqCtx)

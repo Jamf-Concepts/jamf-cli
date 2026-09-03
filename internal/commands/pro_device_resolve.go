@@ -32,7 +32,7 @@ func resolveDeviceByIdentifier(ctx context.Context, client registry.HTTPClient, 
 
 	// 2. Try as serial number.
 	filter := fmt.Sprintf(`hardware.serialNumber=="%s"`, resolve.EscapeRSQL(identifier))
-	serialPath := "/v3/computers-inventory?section=GENERAL&page-size=2&filter=" + url.QueryEscape(filter)
+	serialPath := "/v4/computers-inventory?section=GENERAL&page-size=2&filter=" + url.QueryEscape(filter)
 	count, id, name, err := searchInventoryForDevice(ctx, client, serialPath)
 	if err != nil {
 		return "", "", fmt.Errorf("searching by serial number: %w", err)
@@ -46,7 +46,7 @@ func resolveDeviceByIdentifier(ctx context.Context, client registry.HTTPClient, 
 
 	// 3. Try as name.
 	filter = fmt.Sprintf(`general.name=="%s"`, resolve.EscapeRSQL(identifier))
-	namePath := "/v3/computers-inventory?section=GENERAL&page-size=5&filter=" + url.QueryEscape(filter)
+	namePath := "/v4/computers-inventory?section=GENERAL&page-size=5&filter=" + url.QueryEscape(filter)
 	count, id, name, err = searchInventoryForDevice(ctx, client, namePath)
 	if err != nil {
 		return "", "", fmt.Errorf("searching by name: %w", err)
@@ -64,7 +64,7 @@ func resolveDeviceByIdentifier(ctx context.Context, client registry.HTTPClient, 
 // tryDeviceByID attempts to fetch a device directly by its Jamf ID.
 // Returns id, name, error. A non-200 response is treated as a miss (returns error).
 func tryDeviceByID(ctx context.Context, client registry.HTTPClient, id string) (string, string, error) {
-	obj, err := fetchJSON(ctx, client, "/v3/computers-inventory-detail/"+id)
+	obj, err := fetchJSON(ctx, client, "/v4/computers-inventory-detail/"+id)
 	if err != nil {
 		return "", "", err
 	}

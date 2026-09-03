@@ -12,9 +12,10 @@ import (
 // NewJamfProInformationsCmd creates the jamf-pro-informations command group
 func NewJamfProInformationsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "jamf-pro-informations",
-		Short: "Manage jamf-pro-informations",
-		Long:  `Manage jamf-pro-informations in Jamf Pro.`,
+		Use:         "jamf-pro-informations",
+		Short:       "Manage jamf-pro-informations",
+		Long:        `Manage jamf-pro-informations in Jamf Pro.`,
+		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
 	cmd.AddCommand(newJamfProInformationsListCmd(ctx))
@@ -34,6 +35,7 @@ func newJamfProInformationsListCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # List jamf-pro-informations and extract IDs
   jamf-cli pro jamf-pro-informations list --field id`,
+		Annotations: map[string]string{"jamf:api": "pro"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

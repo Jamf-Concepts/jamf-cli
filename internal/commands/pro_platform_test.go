@@ -13,8 +13,12 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/Jamf-Concepts/jamf-cli/internal/auth"
+	"github.com/Jamf-Concepts/jamf-cli/internal/config"
 	"github.com/Jamf-Concepts/jamf-cli/internal/progress"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
+
+	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform"
 	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform/blueprints"
 	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform/compliancebenchmarks"
 	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform/ddmreport"
@@ -54,10 +58,10 @@ func TestCheckUndeployedBlueprints_AllDeployed(t *testing.T) {
 
 func TestCheckBlueprintFailures(t *testing.T) {
 	cliCtx, mux, _ := newTestPlatformContext(t)
-	mux.HandleFunc("/api/blueprints/v1/tenant/"+testTenantID+"/blueprints/bp-1/report", func(w http.ResponseWriter, _ *http.Request) {
+	mux.HandleFunc("/blueprints/v1/blueprints/bp-1/report", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, &blueprints.BlueprintStatusDetail{Succeeded: 10})
 	})
-	mux.HandleFunc("/api/blueprints/v1/tenant/"+testTenantID+"/blueprints/bp-2/report", func(w http.ResponseWriter, _ *http.Request) {
+	mux.HandleFunc("/blueprints/v1/blueprints/bp-2/report", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, &blueprints.BlueprintStatusDetail{Succeeded: 8, Failed: 2})
 	})
 	bps := []blueprints.BlueprintOverview{
@@ -97,10 +101,10 @@ func TestCheckBenchmarkUpdates(t *testing.T) {
 
 func TestCheckEmptyPlatformScope(t *testing.T) {
 	cliCtx, mux, _ := newTestPlatformContext(t)
-	mux.HandleFunc("/api/blueprints/v1/tenant/"+testTenantID+"/blueprints/bp-1", func(w http.ResponseWriter, _ *http.Request) {
+	mux.HandleFunc("/blueprints/v1/blueprints/bp-1", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, &blueprints.BlueprintDetail{Scope: &blueprints.BlueprintScope{DeviceGroups: []string{"g1"}}})
 	})
-	mux.HandleFunc("/api/blueprints/v1/tenant/"+testTenantID+"/blueprints/bp-2", func(w http.ResponseWriter, _ *http.Request) {
+	mux.HandleFunc("/blueprints/v1/blueprints/bp-2", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, &blueprints.BlueprintDetail{Scope: &blueprints.BlueprintScope{DeviceGroups: nil}})
 	})
 	bps := []blueprints.BlueprintOverview{{ID: "bp-1"}, {ID: "bp-2"}}
@@ -121,17 +125,17 @@ func TestCheckEmptyPlatformScope(t *testing.T) {
 
 func TestCheckFailedDDMDeclarations(t *testing.T) {
 	cliCtx, mux, _ := newTestPlatformContext(t)
-	mux.HandleFunc("/api/devices/v1/tenant/"+testTenantID+"/devices", func(w http.ResponseWriter, _ *http.Request) {
+	mux.HandleFunc("/devices/v1/devices", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, map[string]any{
 			"results": []devices.DeviceListReadRepresentationV1{{ID: "dev-1"}, {ID: "dev-2"}},
 		})
 	})
-	mux.HandleFunc("/api/ddm/report/v1/tenant/"+testTenantID+"/devices/dev-1/declarations", func(w http.ResponseWriter, _ *http.Request) {
+	mux.HandleFunc("/ddm/report/v1/devices/dev-1/declarations", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, &ddmreport.FilteredDeviceReportDto{TotalCount: 1, Results: []ddmreport.FilteredResultDto{
 			{Status: "SUCCESSFUL", ValidityState: "VALID"},
 		}})
 	})
-	mux.HandleFunc("/api/ddm/report/v1/tenant/"+testTenantID+"/devices/dev-2/declarations", func(w http.ResponseWriter, _ *http.Request) {
+	mux.HandleFunc("/ddm/report/v1/devices/dev-2/declarations", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, &ddmreport.FilteredDeviceReportDto{TotalCount: 1, Results: []ddmreport.FilteredResultDto{
 			{Status: "UNSUCCESSFUL", ValidityState: "INVALID", Reasons: []ddmreport.StatusReportDeclarationReasonDto{
 				{Code: "Error.ProfileFailed", Description: "Profile installation failed"},
@@ -150,12 +154,12 @@ func TestCheckFailedDDMDeclarations(t *testing.T) {
 
 func TestCheckFailedDDMDeclarations_IgnoresInfoReasons(t *testing.T) {
 	cliCtx, mux, _ := newTestPlatformContext(t)
-	mux.HandleFunc("/api/devices/v1/tenant/"+testTenantID+"/devices", func(w http.ResponseWriter, _ *http.Request) {
+	mux.HandleFunc("/devices/v1/devices", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, map[string]any{
 			"results": []devices.DeviceListReadRepresentationV1{{ID: "dev-1"}},
 		})
 	})
-	mux.HandleFunc("/api/ddm/report/v1/tenant/"+testTenantID+"/devices/dev-1/declarations", func(w http.ResponseWriter, _ *http.Request) {
+	mux.HandleFunc("/ddm/report/v1/devices/dev-1/declarations", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, &ddmreport.FilteredDeviceReportDto{TotalCount: 1, Results: []ddmreport.FilteredResultDto{
 			{Status: "UNSUCCESSFUL", ValidityState: "INVALID", Reasons: []ddmreport.StatusReportDeclarationReasonDto{
 				{Code: "Info.DeclarationNotInstalled", Description: "not applicable"},
@@ -172,7 +176,7 @@ func TestCheckFailedDDMDeclarations_IgnoresInfoReasons(t *testing.T) {
 
 func TestFetchPlatformOverview(t *testing.T) {
 	cliCtx, mux, _ := newTestPlatformContext(t)
-	mux.HandleFunc("/api/blueprints/v1/tenant/"+testTenantID+"/blueprints", func(w http.ResponseWriter, _ *http.Request) {
+	mux.HandleFunc("/blueprints/v1/blueprints", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, map[string]any{
 			"results": []blueprints.BlueprintOverview{
 				{ID: "bp-1", DeploymentState: &blueprints.DeploymentState{State: "DEPLOYED"}},
@@ -180,14 +184,14 @@ func TestFetchPlatformOverview(t *testing.T) {
 			},
 		})
 	})
-	mux.HandleFunc("/api/compliance-benchmarks/v1/tenant/"+testTenantID+"/benchmarks", func(w http.ResponseWriter, _ *http.Request) {
+	mux.HandleFunc("/compliance-benchmarks/v1/benchmarks", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, &compliancebenchmarks.BenchmarksResponseV2{
 			Benchmarks: []compliancebenchmarks.BenchmarkV2{
 				{ID: "bm-1", UpdateAvailable: true},
 			},
 		})
 	})
-	mux.HandleFunc("/api/compliance-benchmarks/v1/tenant/"+testTenantID+"/benchmarks/bm-1/compliance-percentage", func(w http.ResponseWriter, _ *http.Request) {
+	mux.HandleFunc("/compliance-benchmarks/v1/benchmarks/bm-1/compliance-percentage", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, &compliancebenchmarks.CompliancePercentage{CompliancePercentage: 92.5})
 	})
 
@@ -206,21 +210,21 @@ func TestFetchPlatformOverview(t *testing.T) {
 
 func TestFetchPlatformOverview_UsesAllMockData(t *testing.T) {
 	cliCtx, mux, _ := newTestPlatformContext(t)
-	mux.HandleFunc("/api/blueprints/v1/tenant/"+testTenantID+"/blueprints", func(w http.ResponseWriter, _ *http.Request) {
+	mux.HandleFunc("/blueprints/v1/blueprints", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, map[string]any{
 			"results": []blueprints.BlueprintOverview{
 				{ID: "bp-1", Name: "Test", DeploymentState: &blueprints.DeploymentState{State: "DEPLOYED"}},
 			},
 		})
 	})
-	mux.HandleFunc("/api/compliance-benchmarks/v1/tenant/"+testTenantID+"/benchmarks", func(w http.ResponseWriter, _ *http.Request) {
+	mux.HandleFunc("/compliance-benchmarks/v1/benchmarks", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, &compliancebenchmarks.BenchmarksResponseV2{
 			Benchmarks: []compliancebenchmarks.BenchmarkV2{
 				{ID: "bm-1", Title: "CIS Benchmark"},
 			},
 		})
 	})
-	mux.HandleFunc("/api/compliance-benchmarks/v1/tenant/"+testTenantID+"/benchmarks/bm-1/compliance-percentage", func(w http.ResponseWriter, _ *http.Request) {
+	mux.HandleFunc("/compliance-benchmarks/v1/benchmarks/bm-1/compliance-percentage", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, &compliancebenchmarks.CompliancePercentage{CompliancePercentage: 95.0})
 	})
 
@@ -541,14 +545,14 @@ func TestCBScaffold_StaticTemplate(t *testing.T) {
 
 func TestCBScaffoldFromBaseline(t *testing.T) {
 	cliCtx, mux, _ := newTestPlatformContext(t)
-	mux.HandleFunc("/api/compliance-benchmarks/v1/tenant/"+testTenantID+"/baselines", func(w http.ResponseWriter, _ *http.Request) {
+	mux.HandleFunc("/compliance-benchmarks/v1/baselines", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, &compliancebenchmarks.BaselinesResponse{
 			Baselines: []compliancebenchmarks.BaselineInfo{
 				{ID: "bl-uuid-1", Title: "macOS Security Compliance", Description: "CIS Level 1 for macOS"},
 			},
 		})
 	})
-	mux.HandleFunc("/api/compliance-benchmarks/v1/tenant/"+testTenantID+"/rules", func(w http.ResponseWriter, _ *http.Request) {
+	mux.HandleFunc("/compliance-benchmarks/v1/rules", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, &compliancebenchmarks.SourcedRules{
 			Sources: []compliancebenchmarks.Source{{Branch: "main"}},
 			Rules: []compliancebenchmarks.RuleInfo{
@@ -653,7 +657,7 @@ func TestCBScaffoldFromBaseline(t *testing.T) {
 
 func TestCBScaffoldFromBaseline_UnknownID(t *testing.T) {
 	cliCtx, mux, _ := newTestPlatformContext(t)
-	mux.HandleFunc("/api/compliance-benchmarks/v1/tenant/"+testTenantID+"/rules", func(w http.ResponseWriter, _ *http.Request) {
+	mux.HandleFunc("/compliance-benchmarks/v1/rules", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSONStatus(w, http.StatusNotFound, map[string]string{"error": "not found"})
 	})
 
@@ -667,14 +671,14 @@ func TestCBScaffoldFromBaseline_UnknownID(t *testing.T) {
 
 func TestCBExport(t *testing.T) {
 	cliCtx, mux, _ := newTestPlatformContext(t)
-	mux.HandleFunc("/api/compliance-benchmarks/v1/tenant/"+testTenantID+"/benchmarks", func(w http.ResponseWriter, _ *http.Request) {
+	mux.HandleFunc("/compliance-benchmarks/v1/benchmarks", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, &compliancebenchmarks.BenchmarksResponseV2{
 			Benchmarks: []compliancebenchmarks.BenchmarkV2{
 				{ID: "bm-1", Title: "CIS Level 1"},
 			},
 		})
 	})
-	mux.HandleFunc("/api/compliance-benchmarks/v1/tenant/"+testTenantID+"/benchmarks/bm-1", func(w http.ResponseWriter, _ *http.Request) {
+	mux.HandleFunc("/compliance-benchmarks/v1/benchmarks/bm-1", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, &compliancebenchmarks.BenchmarkResponseV2{
 			BenchmarkID:     "bm-1",
 			Title:           "CIS Level 1",
@@ -685,7 +689,7 @@ func TestCBExport(t *testing.T) {
 			Target:          &compliancebenchmarks.TargetV2{DeviceGroups: []string{"grp-123"}},
 		})
 	})
-	mux.HandleFunc("/api/device-groups/v1/tenant/"+testTenantID+"/device-groups", func(w http.ResponseWriter, _ *http.Request) {
+	mux.HandleFunc("/device-groups/v1/device-groups", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, map[string]any{
 			"results": []devicegroups.DeviceGroupListReadRepresentationV1{
 				{ID: "grp-123", Name: "All Mac Clients", DeviceType: "COMPUTER", GroupType: "SMART"},
@@ -729,7 +733,7 @@ func TestCBExport(t *testing.T) {
 func TestCBClone(t *testing.T) {
 	cliCtx, mux, _ := newTestPlatformContext(t)
 	var captured *compliancebenchmarks.BenchmarkRequestV2
-	mux.HandleFunc("/api/compliance-benchmarks/v1/tenant/"+testTenantID+"/benchmarks", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/compliance-benchmarks/v1/benchmarks", func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodGet:
 			writeJSON(w, &compliancebenchmarks.BenchmarksResponseV2{
@@ -742,7 +746,7 @@ func TestCBClone(t *testing.T) {
 			writeJSONStatus(w, http.StatusAccepted, &compliancebenchmarks.BenchmarkResponseV2{BenchmarkID: "new-id"})
 		}
 	})
-	mux.HandleFunc("/api/compliance-benchmarks/v1/tenant/"+testTenantID+"/benchmarks/bm-src", func(w http.ResponseWriter, _ *http.Request) {
+	mux.HandleFunc("/compliance-benchmarks/v1/benchmarks/bm-src", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, &compliancebenchmarks.BenchmarkResponseV2{
 			BenchmarkID:        "bm-src",
 			Title:              "Source Benchmark",
@@ -798,7 +802,7 @@ func TestCBClone(t *testing.T) {
 func TestCBClone_WithComputerGroupOverride(t *testing.T) {
 	cliCtx, mux, _ := newTestPlatformContext(t)
 	var captured *compliancebenchmarks.BenchmarkRequestV2
-	mux.HandleFunc("/api/compliance-benchmarks/v1/tenant/"+testTenantID+"/benchmarks", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/compliance-benchmarks/v1/benchmarks", func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodGet:
 			writeJSON(w, &compliancebenchmarks.BenchmarksResponseV2{
@@ -811,14 +815,14 @@ func TestCBClone_WithComputerGroupOverride(t *testing.T) {
 			writeJSONStatus(w, http.StatusAccepted, &compliancebenchmarks.BenchmarkResponseV2{BenchmarkID: "new-id"})
 		}
 	})
-	mux.HandleFunc("/api/compliance-benchmarks/v1/tenant/"+testTenantID+"/benchmarks/bm-src", func(w http.ResponseWriter, _ *http.Request) {
+	mux.HandleFunc("/compliance-benchmarks/v1/benchmarks/bm-src", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, &compliancebenchmarks.BenchmarkResponseV2{
 			Title:      "Source",
 			BaselineID: "bl-1",
 			Target:     &compliancebenchmarks.TargetV2{DeviceGroups: []string{"old-grp-id"}},
 		})
 	})
-	mux.HandleFunc("/api/device-groups/v1/tenant/"+testTenantID+"/device-groups", func(w http.ResponseWriter, _ *http.Request) {
+	mux.HandleFunc("/device-groups/v1/device-groups", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, map[string]any{
 			"results": []devicegroups.DeviceGroupListReadRepresentationV1{
 				{ID: "new-grp-id", Name: "New Group"},
@@ -844,7 +848,7 @@ func TestCBClone_WithComputerGroupOverride(t *testing.T) {
 
 func TestCBDeleteByID(t *testing.T) {
 	cliCtx, mux, _ := newTestPlatformContext(t)
-	mux.HandleFunc("/api/compliance-benchmarks/v1/tenant/"+testTenantID+"/benchmarks/bm-abc-123", func(w http.ResponseWriter, _ *http.Request) {
+	mux.HandleFunc("/compliance-benchmarks/v1/benchmarks/bm-abc-123", func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNoContent)
 	})
 
@@ -857,14 +861,14 @@ func TestCBDeleteByID(t *testing.T) {
 
 func TestCBDeleteByName(t *testing.T) {
 	cliCtx, mux, _ := newTestPlatformContext(t)
-	mux.HandleFunc("/api/compliance-benchmarks/v1/tenant/"+testTenantID+"/benchmarks", func(w http.ResponseWriter, _ *http.Request) {
+	mux.HandleFunc("/compliance-benchmarks/v1/benchmarks", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, map[string]any{
 			"benchmarks": []map[string]any{
 				{"id": "bm-named-id", "title": "Named Benchmark"},
 			},
 		})
 	})
-	mux.HandleFunc("/api/compliance-benchmarks/v1/tenant/"+testTenantID+"/benchmarks/bm-named-id", func(w http.ResponseWriter, _ *http.Request) {
+	mux.HandleFunc("/compliance-benchmarks/v1/benchmarks/bm-named-id", func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNoContent)
 	})
 
@@ -890,7 +894,7 @@ func TestCBDeleteNoArgs(t *testing.T) {
 // the create-benchmark request, optional GET returns the named device groups.
 func cbApplyHandlers(mux *http.ServeMux, groups []devicegroups.DeviceGroupListReadRepresentationV1) **compliancebenchmarks.BenchmarkRequestV2 {
 	captured := new(*compliancebenchmarks.BenchmarkRequestV2)
-	mux.HandleFunc("/api/compliance-benchmarks/v1/tenant/"+testTenantID+"/benchmarks", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/compliance-benchmarks/v1/benchmarks", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			http.NotFound(w, r)
 			return
@@ -902,7 +906,7 @@ func cbApplyHandlers(mux *http.ServeMux, groups []devicegroups.DeviceGroupListRe
 		writeJSONStatus(w, http.StatusAccepted, &compliancebenchmarks.BenchmarkResponseV2{BenchmarkID: "new-id"})
 	})
 	if groups != nil {
-		mux.HandleFunc("/api/device-groups/v1/tenant/"+testTenantID+"/device-groups", func(w http.ResponseWriter, _ *http.Request) {
+		mux.HandleFunc("/device-groups/v1/device-groups", func(w http.ResponseWriter, _ *http.Request) {
 			writeJSON(w, map[string]any{"results": groups})
 		})
 	}
@@ -1185,7 +1189,7 @@ func TestResolveBlueprintID_IDFromArgs(t *testing.T) {
 
 func TestResolveBlueprintID_NameFlag(t *testing.T) {
 	cliCtx, mux, _ := newTestPlatformContext(t)
-	mux.HandleFunc("/api/blueprints/v1/tenant/"+testTenantID+"/blueprints", func(w http.ResponseWriter, _ *http.Request) {
+	mux.HandleFunc("/blueprints/v1/blueprints", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, map[string]any{
 			"results": []blueprints.BlueprintOverview{
 				{ID: "bp-id-1", Name: "Test BP"},
@@ -1601,7 +1605,7 @@ func TestDownloadClassicProfile_NilClient(t *testing.T) {
 
 func TestReverseResolveGroups(t *testing.T) {
 	cliCtx, mux, _ := newTestPlatformContext(t)
-	mux.HandleFunc("/api/device-groups/v1/tenant/"+testTenantID+"/device-groups", func(w http.ResponseWriter, _ *http.Request) {
+	mux.HandleFunc("/device-groups/v1/device-groups", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, map[string]any{
 			"results": []devicegroups.DeviceGroupListReadRepresentationV1{
 				{ID: "uuid-1", Name: "Lab Macs", DeviceType: "COMPUTER"},
@@ -1778,7 +1782,7 @@ func TestParseBlueprintApplyInput_NoName(t *testing.T) {
 
 func TestBlueprintExportRoundTrip(t *testing.T) {
 	cliCtx, mux, _ := newTestPlatformContext(t)
-	mux.HandleFunc("/api/device-groups/v1/tenant/"+testTenantID+"/device-groups", func(w http.ResponseWriter, _ *http.Request) {
+	mux.HandleFunc("/device-groups/v1/device-groups", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, map[string]any{
 			"results": []devicegroups.DeviceGroupListReadRepresentationV1{
 				{ID: "source-uuid", Name: "Lab Macs", DeviceType: "COMPUTER"},
@@ -1864,18 +1868,31 @@ func TestIsPortableScopeFormat(t *testing.T) {
 	}
 }
 
+// The two `get` subcommands these used to exercise are gone. Both were
+// deprecated in favour of a sibling on the same resource that the CLI already
+// shipped — GET /v1/declarations/{id} → .../devices and
+// GET /v1/devices/{id} → .../declarations — and the SDK's v1942 ingest dropped
+// them from the declaration-reporting spec. So the routing assertion moves onto
+// the successors rather than being deleted: what is worth pinning is that the
+// hand-written `ddm-reports` parent still wires its generated subcommands to the
+// right paths, and that is as true of the successor as it was of the deprecated
+// one.
+//
+// Both successors declare `filter` required, which the deprecated pair did not,
+// so the tautological ddmAllDeclarationsFilter the hand-written commands already
+// use is what stands in for "no filter" here too.
 func TestDDMReportsDeclarationRouting(t *testing.T) {
 	cliCtx, mux, _ := newTestPlatformContext(t)
 	called := false
-	mux.HandleFunc("/api/ddm/report/v1/tenant/"+testTenantID+"/declarations/com.example.decl", func(w http.ResponseWriter, _ *http.Request) {
+	mux.HandleFunc("/ddm/report/v1/declarations/com.example.decl/devices", func(w http.ResponseWriter, _ *http.Request) {
 		called = true
 		writeJSON(w, map[string]any{"results": []any{}})
 	})
 
 	cmd := newDDMReportsCmd(cliCtx)
-	cmd.SetArgs([]string{"declaration", "get", "com.example.decl"})
+	cmd.SetArgs([]string{"declaration", "devices", "com.example.decl", "--filter", ddmAllDeclarationsFilter})
 	if err := cmd.Execute(); err != nil {
-		t.Fatalf("ddm-reports declaration get: %v", err)
+		t.Fatalf("ddm-reports declaration devices: %v", err)
 	}
 	if !called {
 		t.Error("declaration report endpoint was not called")
@@ -1885,18 +1902,33 @@ func TestDDMReportsDeclarationRouting(t *testing.T) {
 func TestDDMReportsDeviceRouting(t *testing.T) {
 	cliCtx, mux, _ := newTestPlatformContext(t)
 	called := false
-	mux.HandleFunc("/api/ddm/report/v1/tenant/"+testTenantID+"/devices/device-uuid-123", func(w http.ResponseWriter, _ *http.Request) {
+	mux.HandleFunc("/ddm/report/v1/devices/device-uuid-123/declarations", func(w http.ResponseWriter, _ *http.Request) {
 		called = true
-		writeJSON(w, map[string]any{"channels": []any{}})
+		writeJSON(w, map[string]any{"results": []any{}})
 	})
 
 	cmd := newDDMReportsCmd(cliCtx)
-	cmd.SetArgs([]string{"device", "get", "device-uuid-123"})
+	cmd.SetArgs([]string{"device", "declarations", "device-uuid-123", "--filter", ddmAllDeclarationsFilter})
 	if err := cmd.Execute(); err != nil {
-		t.Fatalf("ddm-reports device get: %v", err)
+		t.Fatalf("ddm-reports device declarations: %v", err)
 	}
 	if !called {
 		t.Error("device report endpoint was not called")
+	}
+}
+
+// The withdrawn `get` subcommands must not come back by accident: their paths
+// are still routed by the gateway, so nothing on the wire would flag a spec drop
+// that re-added them, and a `get` beside a `devices`/`declarations` sibling on
+// the same resource reads as the natural choice while being the deprecated one.
+func TestDDMReportsDroppedTheDeprecatedGets(t *testing.T) {
+	cliCtx, _, _ := newTestPlatformContext(t)
+	for _, parent := range []string{"declaration", "device"} {
+		cmd := newDDMReportsCmd(cliCtx)
+		sub, _, err := cmd.Find([]string{parent, "get"})
+		if err == nil && sub.Name() == "get" {
+			t.Errorf("ddm-reports %s get is back — it is the deprecated endpoint, superseded by a sibling on the same resource", parent)
+		}
 	}
 }
 
@@ -1904,7 +1936,7 @@ func TestReverseResolveGroups_ListError(t *testing.T) {
 	// Empty list response simulates the degraded path: all groups become
 	// UUID-only since the lookup table has nothing to resolve them to.
 	cliCtx, mux, _ := newTestPlatformContext(t)
-	mux.HandleFunc("/api/device-groups/v1/tenant/"+testTenantID+"/device-groups", func(w http.ResponseWriter, _ *http.Request) {
+	mux.HandleFunc("/device-groups/v1/device-groups", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, map[string]any{"results": []any{}})
 	})
 	groups := reverseResolveGroups(context.Background(), cliCtx.PlatformSDKClient, []string{"uuid-1"})
@@ -1914,5 +1946,177 @@ func TestReverseResolveGroups_ListError(t *testing.T) {
 	}
 	if groups[0].ID != "uuid-1" || groups[0].Name != "" {
 		t.Errorf("expected UUID-only fallback, got %+v", groups[0])
+	}
+}
+
+// TestResolveScope covers all three levels an API integration can be created at.
+// They are mutually exclusive — the credential carries the choice, and the
+// gateway refuses the other level's header with 403 OWNERSHIP_FORBIDDEN — so
+// resolution has to land on exactly one, and organization scope has to resolve
+// to no header rather than to a missing value.
+func TestResolveScope(t *testing.T) {
+	cases := []struct {
+		name       string
+		env        map[string]string
+		profile    config.Profile
+		wantKind   auth.ScopeKind
+		wantID     string
+		wantHeader string
+	}{
+		{
+			name:       "environment from the profile",
+			profile:    config.Profile{AuthMethod: "platform", EnvironmentID: "env-1"},
+			wantKind:   auth.ScopeEnvironment,
+			wantID:     "env-1",
+			wantHeader: "X-Environment-Id",
+		},
+		{
+			name:       "tenant from the profile",
+			profile:    config.Profile{AuthMethod: "platform", TenantID: "ten-1"},
+			wantKind:   auth.ScopeTenant,
+			wantID:     "ten-1",
+			wantHeader: "X-Tenant-Id",
+		},
+		{
+			name:     "organization when the profile names neither",
+			profile:  config.Profile{AuthMethod: "platform"},
+			wantKind: auth.ScopeOrganization,
+		},
+		{
+			name:       "JAMF_ENVIRONMENT_ID overrides the profile",
+			env:        map[string]string{"JAMF_ENVIRONMENT_ID": "env-env"},
+			profile:    config.Profile{AuthMethod: "platform", TenantID: "ten-1"},
+			wantKind:   auth.ScopeEnvironment,
+			wantID:     "env-env",
+			wantHeader: "X-Environment-Id",
+		},
+		{
+			name:       "JAMF_TENANT_ID overrides the profile",
+			env:        map[string]string{"JAMF_TENANT_ID": "ten-env"},
+			profile:    config.Profile{AuthMethod: "platform", EnvironmentID: "env-1"},
+			wantKind:   auth.ScopeTenant,
+			wantID:     "ten-env",
+			wantHeader: "X-Tenant-Id",
+		},
+		{
+			name:       "environment wins over tenant in one profile",
+			profile:    config.Profile{AuthMethod: "platform", EnvironmentID: "env-1", TenantID: "ten-1"},
+			wantKind:   auth.ScopeEnvironment,
+			wantID:     "env-1",
+			wantHeader: "X-Environment-Id",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Setenv("JAMF_ENVIRONMENT_ID", tc.env["JAMF_ENVIRONMENT_ID"])
+			t.Setenv("JAMF_TENANT_ID", tc.env["JAMF_TENANT_ID"])
+			cfg := &config.Config{
+				DefaultProfile: "p",
+				Profiles:       map[string]config.Profile{"p": tc.profile},
+			}
+
+			got := resolveScope(cfg, "p")
+			if got.Kind != tc.wantKind || got.ID != tc.wantID {
+				t.Errorf("resolveScope = {%v %q}, want {%v %q}", got.Kind, got.ID, tc.wantKind, tc.wantID)
+			}
+			name, value := got.Header()
+			if name != tc.wantHeader || value != tc.wantID {
+				t.Errorf("Header() = (%q, %q), want (%q, %q)", name, value, tc.wantHeader, tc.wantID)
+			}
+		})
+	}
+}
+
+// TestCheckScopeConflict pins the one combination that has to be refused rather
+// than resolved: a profile naming both levels. Precedence would hide it, and the
+// symptom is a 403 from whichever half the credential does not match.
+func TestCheckScopeConflict(t *testing.T) {
+	both := &config.Config{
+		DefaultProfile: "p",
+		Profiles: map[string]config.Profile{
+			"p": {AuthMethod: "platform", EnvironmentID: "env-1", TenantID: "ten-1"},
+		},
+	}
+	err := checkScopeConflict(both, "p")
+	if err == nil {
+		t.Fatal("a profile naming both levels must be refused")
+	}
+	for _, want := range []string{"env-1", "ten-1", "one level"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("error does not mention %q: %v", want, err)
+		}
+	}
+
+	for _, p := range []config.Profile{
+		{AuthMethod: "platform", EnvironmentID: "env-1"},
+		{AuthMethod: "platform", TenantID: "ten-1"},
+		{AuthMethod: "platform"},
+	} {
+		cfg := &config.Config{DefaultProfile: "p", Profiles: map[string]config.Profile{"p": p}}
+		if err := checkScopeConflict(cfg, "p"); err != nil {
+			t.Errorf("unexpected conflict for %+v: %v", p, err)
+		}
+	}
+}
+
+// TestNewPlatformSDKClientScope pins the mapping from a resolved auth.Scope onto
+// the SDK client's own scope, using the accessor v0.18.0 added.
+//
+// Nothing checked this before: newPlatformSDKClient passed WithEnvironmentID or
+// WithTenantID and the result was unobservable, so a wrong branch would have
+// shown up only as a 403 from the gateway — or, for organization scope, as a
+// header sent where none belongs. Reading it back is the difference between
+// asserting the call we make and asserting the state it produces.
+func TestNewPlatformSDKClientScope(t *testing.T) {
+	cases := []struct {
+		name       string
+		scope      auth.Scope
+		wantKind   jamfplatform.ScopeKind
+		wantID     string
+		wantHeader string
+	}{
+		{
+			name:       "environment",
+			scope:      auth.EnvironmentScope("env-1"),
+			wantKind:   jamfplatform.ScopeEnvironment,
+			wantID:     "env-1",
+			wantHeader: "X-Environment-Id",
+		},
+		{
+			name:       "tenant",
+			scope:      auth.TenantScope("ten-1"),
+			wantKind:   jamfplatform.ScopeTenant,
+			wantID:     "ten-1",
+			wantHeader: "X-Tenant-Id",
+		},
+		{
+			// Organization scope must reach the SDK as no scope at all. The
+			// gateway resolves it from the access token, and there is no
+			// constant for it precisely because there is no header.
+			name: "organization",
+		},
+		{
+			// A kind with no ID is not a scope. Sending its header with an empty
+			// value would be worse than sending nothing.
+			name:  "kind without an id",
+			scope: auth.Scope{Kind: auth.ScopeEnvironment},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			c, err := newPlatformSDKClient("https://gw.example.com", "id", "secret", tc.scope, false)
+			if err != nil {
+				t.Fatalf("newPlatformSDKClient: %v", err)
+			}
+			kind, id := c.Scope()
+			if kind != tc.wantKind || id != tc.wantID {
+				t.Errorf("Scope() = (%v, %q), want (%v, %q)", kind, id, tc.wantKind, tc.wantID)
+			}
+			if got := kind.ScopeHeader(); got != tc.wantHeader {
+				t.Errorf("ScopeHeader() = %q, want %q", got, tc.wantHeader)
+			}
+		})
 	}
 }

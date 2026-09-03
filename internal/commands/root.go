@@ -43,6 +43,7 @@ var (
 	verboseLevel        int
 	noInput             bool
 	noColor             bool
+	environmentID       string
 	dryRun              bool
 	wide                bool
 	compact             bool
@@ -353,7 +354,11 @@ type AuthParams struct {
 	TokenStdin   bool
 	ClientID     string
 	ClientSecret string
-	TenantID     string
+	// TenantID and EnvironmentID are the two scope identifiers a platform
+	// integration can name, and they are mutually exclusive — see the scope
+	// handling in ResolveAuthForProfile. Neither set means organization scope.
+	TenantID      string
+	EnvironmentID string
 }
 
 // ResolveAuthForProfile determines the server URL and auth provider for a
@@ -367,6 +372,13 @@ func ResolveAuthForProfile(cfg *config.Config, params AuthParams) (string, auth.
 	cid := params.ClientID
 	csecret := params.ClientSecret
 	tid := params.TenantID
+	eid := params.EnvironmentID
+	// An explicitly supplied scope — flag or env var — settles the level, so the
+	// profile's other level must not be merged in beside it. Without this, a
+	// profile carrying tenant-id plus JAMF_ENVIRONMENT_ID read as "both levels"
+	// and was refused, when the caller had in fact overridden the profile the way
+	// every other env var here overrides it.
+	scopeFromParams := tid != "" || eid != ""
 	isPlatform := false
 
 	// Config profile: fill remaining gaps.
@@ -399,7 +411,10 @@ func ResolveAuthForProfile(cfg *config.Config, params AuthParams) (string, auth.
 						}
 						csecret = resolved
 					}
-					if tid == "" && p.TenantID != "" {
+					if !scopeFromParams && p.EnvironmentID != "" {
+						eid = p.EnvironmentID
+					}
+					if !scopeFromParams && tid == "" && p.TenantID != "" {
 						tid = p.TenantID
 					}
 				case "oauth2":
@@ -463,15 +478,43 @@ func ResolveAuthForProfile(cfg *config.Config, params AuthParams) (string, auth.
 		return "", nil, exitcode.New(exitcode.Usage, "client ID is required when client secret is provided: set JAMF_CLIENT_ID env var or use a config profile")
 	}
 
-	// Platform gateway auth: requires client credentials + tenant ID
-	if isPlatform || tid != "" {
+	// Platform gateway auth. Client credentials are required; a scope is not.
+	// An integration is created at one of three levels and its credential
+	// carries that choice: organization-scoped credentials name no ID at all
+	// (the gateway reads the scope from the access token), while environment-
+	// and tenant-scoped ones name theirs. Both IDs at once cannot be honoured,
+	// since the credential only works with one level's header.
+	//
+	// The gateway host counts as a request for platform auth in its own right.
+	// Without that, the only env-var route into this branch was a tenant or
+	// environment ID — so an *organization*-scoped credential, which names no
+	// ID at all by definition, could only be used from a saved profile and
+	// JAMF_URL + JAMF_CLIENT_ID + JAMF_CLIENT_SECRET fell through to oauth2
+	// against a URL that is not a Jamf Pro instance. Nothing exercised it until
+	// the Jamf Account commands arrived: they are the first surface that is
+	// organization-scoped only, and CI/CD is exactly the env-var case.
+	if isPlatform || tid != "" || eid != "" || isPlatformGatewayURL(url) {
 		if cid == "" || csecret == "" {
 			return "", nil, exitcode.New(exitcode.Usage, "client ID and client secret are required for platform gateway auth: set JAMF_CLIENT_ID/JAMF_CLIENT_SECRET env vars or use a config profile")
 		}
-		if tid == "" {
-			return "", nil, exitcode.New(exitcode.Usage, "--tenant-id is required for platform gateway auth")
+		// Refuse the retired gateway host by name, before the token exchange.
+		// Shared with newPlatformSDKClient rather than spelled twice: the
+		// wording is the whole value of the refusal, and two copies drift.
+		if err := refuseRetiredGatewayURL(url); err != nil {
+			return "", nil, err
 		}
-		return url, auth.NewPlatformOAuth2Provider(url, cid, csecret, tid), nil
+		// Both set can now only mean both were supplied together — the profile
+		// cannot contribute a second level past scopeFromParams — so this is a
+		// genuine "you asked for two levels at once" rather than an override.
+		if tid != "" && eid != "" {
+			return "", nil, exitcode.New(exitcode.Usage,
+				"--environment-id and --tenant-id are mutually exclusive: an API integration is created at one level, and its credential only works with that level's header")
+		}
+		scope := auth.TenantScope(tid)
+		if eid != "" {
+			scope = auth.EnvironmentScope(eid)
+		}
+		return url, auth.NewPlatformOAuth2Provider(url, cid, csecret, scope), nil
 	}
 
 	// Construct auth provider
@@ -506,8 +549,20 @@ func resolveAuth(cfg *config.Config) (string, auth.Provider, error) {
 	if clientSecret == "" {
 		clientSecret = os.Getenv("JAMF_CLIENT_SECRET")
 	}
-	if tenantID == "" {
+	// A scope flag settles the level, so the OTHER level must not be backfilled
+	// from the environment beside it. Backfilling both independently made
+	// `--tenant-id X` with JAMF_ENVIRONMENT_ID exported arrive at
+	// ResolveAuthForProfile as two levels supplied together, which it refuses —
+	// while the same pair on the `security` path let the flag win, because
+	// PersistentPreRunE returns before this function and checkScopeConflict
+	// reads the flag vars unbackfilled. Measured on the built binary: exit 2
+	// "mutually exclusive" on `pro blueprints list`, and a request against the
+	// flag's tenant on `security device-groups list`. One documented rule, two
+	// answers. The env var still overrides the profile; what it no longer does
+	// is contradict a flag on one path only.
+	if tenantID == "" && environmentID == "" {
 		tenantID = os.Getenv("JAMF_TENANT_ID")
+		environmentID = os.Getenv("JAMF_ENVIRONMENT_ID")
 	}
 
 	// Token from file
@@ -520,13 +575,14 @@ func resolveAuth(cfg *config.Config) (string, auth.Provider, error) {
 	}
 
 	url, provider, err := ResolveAuthForProfile(cfg, AuthParams{
-		Profile:      profile,
-		ServerURL:    serverURL,
-		Token:        token,
-		TokenFile:    tokenFile,
-		ClientID:     clientID,
-		ClientSecret: clientSecret,
-		TenantID:     tenantID,
+		Profile:       profile,
+		ServerURL:     serverURL,
+		Token:         token,
+		TokenFile:     tokenFile,
+		ClientID:      clientID,
+		ClientSecret:  clientSecret,
+		TenantID:      tenantID,
+		EnvironmentID: environmentID,
 	})
 	if err != nil {
 		return "", nil, err
@@ -630,6 +686,11 @@ in the config file. It never runs in CI, when output is piped, or under
 			formatter.SetNoHints(noHints)
 			formatter.SetExplicitNoColor(explicitNoColor)
 			cliCtx.Output = &cliOutput{formatter}
+			// Set before any product branch: the Protect, School and Security
+			// Cloud paths return from here directly, so an assignment made
+			// alongside the Pro client would leave DryRun false for exactly the
+			// commands whose transports cannot be wrapped by dryRunClient.
+			cliCtx.DryRun = dryRun
 
 			// Release advisory — probes at most once per 24 h, in the
 			// background, and prints in PersistentPostRunE so it can neither
@@ -649,13 +710,20 @@ in the config file. It never runs in CI, when output is piped, or under
 			// Skip auth for commands that don't need it. Most are matched
 			// anywhere in the chain (e.g. "config" covers all subcommands,
 			// "setup" covers both "pro setup" and "protect setup").
-			// "commands" is intentionally root-child-only: the root-level
-			// "jamf-cli commands" listing command must be skipped, but
-			// "pro mdm-commands commands" must NOT be skipped.
+			//
+			// rootOnlySkip names the ones that must match a direct child of the
+			// root and nothing else, because they are ordinary English words a
+			// resource can legitimately use for an operation. Matching them
+			// anywhere is a silent auth bypass: the command runs with no client
+			// and fails at its own gate with "this command requires platform
+			// gateway auth", which sends the operator to fix credentials that
+			// were never the problem. "commands" was already here because
+			// "pro mdm-commands commands" must not skip; "version" joined it
+			// when AI Governance's GET /policies/{id}/versions/{n} became
+			// "platform ai-policies version" and stopped authenticating.
 			chainSkip := map[string]bool{
 				"completion":    true,
 				"help":          true,
-				"version":       true,
 				"config":        true,
 				"diff":          true,
 				"setup":         true,
@@ -664,12 +732,15 @@ in the config file. It never runs in CI, when output is piped, or under
 				"mcp":           true,
 				"agent-context": true,
 			}
+			rootOnlySkip := map[string]bool{
+				"commands": true,
+				"version":  true,
+			}
 			for c := cmd; c != nil; c = c.Parent() {
 				if chainSkip[c.Name()] {
 					return nil
 				}
-				// "commands" only skips when it is a direct child of the root.
-				if c.Name() == "commands" && c.Parent() != nil && c.Parent().Parent() == nil {
+				if rootOnlySkip[c.Name()] && c.Parent() != nil && c.Parent().Parent() == nil {
 					return nil
 				}
 			}
@@ -705,7 +776,7 @@ in the config file. It never runs in CI, when output is piped, or under
 			}
 			clientOpts := []client.Option{client.WithVerbose(verboseLevel)}
 			if p, ok := authProvider.(*auth.PlatformOAuth2Provider); ok {
-				clientOpts = append(clientOpts, client.WithTenantID(p.TenantID()))
+				clientOpts = append(clientOpts, client.WithGatewayScope(p.Scope()))
 			}
 			if jp, ok := authProvider.(jarProvider); ok {
 				clientOpts = append(clientOpts, client.WithCookieJar(jp.Jar()))
@@ -737,15 +808,32 @@ in the config file. It never runs in CI, when output is piped, or under
 				}
 			}
 
+			// Refuse an API the resolved credentials cannot reach, before any
+			// request goes out — a Pro or Classic endpoint the gateway does not
+			// expose, or a Platform command on an instance profile. Placed
+			// after the clients are built but before anything is sent (the
+			// version check below is the first request), because it needs the
+			// resolved profile name to say which credentials are in play.
+			if err := checkAPIMatch(cmd, authProvider, resolvedProfile); err != nil {
+				return err
+			}
+
 			// When platform gateway auth is active, also construct the
 			// Platform SDK client for platform-native commands (blueprints,
 			// compliance-benchmarks, etc.). The SDK manages its own OAuth2
 			// token lifecycle independently from the Pro HTTP client.
 			if p, ok := authProvider.(*auth.PlatformOAuth2Provider); ok {
-				cliCtx.PlatformSDKClient = newPlatformSDKClient(
-					resolvedURL, p.ClientID(), p.ClientSecret(), p.TenantID(),
+				if err := checkScopeConflict(cfg, resolvedProfile); err != nil {
+					return err
+				}
+				sdk, err := newPlatformSDKClient(
+					resolvedURL, p.ClientID(), p.ClientSecret(), p.Scope(),
 					shouldShowSpinner(),
 				)
+				if err != nil {
+					return err
+				}
+				cliCtx.PlatformSDKClient = sdk
 			}
 
 			// Tenant version check — probes once per 24 h per profile and warns if
@@ -808,7 +896,8 @@ in the config file. It never runs in CI, when output is piped, or under
 	// Connection flags
 	cmd.PersistentFlags().StringVar(&serverURL, "url", "", "Jamf Pro server URL (or JAMF_URL env)")
 	cmd.PersistentFlags().StringVar(&tokenFile, "token-file", "", "path to file containing API token")
-	cmd.PersistentFlags().StringVar(&tenantID, "tenant-id", "", "Jamf Pro tenant ID for platform gateway auth (or JAMF_TENANT_ID env)")
+	cmd.PersistentFlags().StringVar(&tenantID, "tenant-id", "", "tenant ID for platform gateway auth (or JAMF_TENANT_ID env); mutually exclusive with --environment-id")
+	cmd.PersistentFlags().StringVar(&environmentID, "environment-id", "", "platform environment ID for platform gateway auth (or JAMF_ENVIRONMENT_ID env); mutually exclusive with --tenant-id")
 	cmd.PersistentFlags().BoolVar(&noVersionCheck, "no-version-check", false, "skip tenant version compatibility check (also: JAMF_NO_VERSION_CHECK env)")
 	cmd.PersistentFlags().BoolVar(&noUpdateCheck, "no-update-check", false, "skip the daily check for a newer jamf-cli release (also: JAMF_CLI_NO_UPDATE_CHECK env, or update-check: false in config)")
 
@@ -855,6 +944,10 @@ in the config file. It never runs in CI, when output is piped, or under
 	applyRootAliases(cmd)
 	applyRootGroups(cmd)
 
+	// Say in --help which Pro and Classic commands the platform gateway does
+	// not carry, so it is discoverable without running one and failing.
+	applyGatewayCoverageHelp(cmd)
+
 	// cobra only rejects unknown subcommands at the root; extend that to every
 	// non-runnable parent so typos like `pro buildings lst` error with a hint
 	// instead of silently printing help and exiting 0.
@@ -873,6 +966,52 @@ type commandEntry struct {
 	Group       string   `json:"group,omitempty"`
 	Destructive bool     `json:"destructive,omitempty"`
 	Privileges  []string `json:"privileges,omitempty"`
+	// API is which Jamf API serves the command, and so which credentials it
+	// needs — "platform-gateway" or "radar". It matters most under `security`,
+	// where both appear side by side and take different credentials.
+	API string `json:"api,omitempty"`
+	// Gateway is set to "unserved" when the Jamf Platform gateway's published API
+	// does not carry this Pro or Classic endpoint, in which case a gateway
+	// profile is refused before a request is sent. GatewayBasis is the evidence
+	// — "probe" (wire-confirmed unrouted) or "unpublished" (absent from the
+	// published surface; the gateway may still route it today, transitionally) —
+	// and GatewayDetail spells it out. Absent when the gateway serves it.
+	// GatewaySuccessor names a command that ships in this binary, does the same
+	// job, and is served by the gateway — the answer to "then what do I run".
+	// Present only for a refused command that has one, from the curated table
+	// in internal/gateway; the runtime refusal and the --help caveat render the
+	// same entry, so a script and an operator get the same answer.
+	Gateway          string `json:"gateway,omitempty"`
+	GatewayBasis     string `json:"gatewayBasis,omitempty"`
+	GatewayDetail    string `json:"gatewayDetail,omitempty"`
+	GatewaySuccessor string `json:"gatewaySuccessor,omitempty"`
+	// GatewayPrivileges are the Jamf Account capability permissions the gateway
+	// requires for this Pro or Classic command — a different vocabulary from
+	// Privileges above, not a translation of it, since the GA consolidation
+	// folded several Jamf Pro privileges into one capability and Jamf Account no
+	// longer offers the old names. Both are carried so a Platform API
+	// integration can be sized from this catalog rather than by provoking 403s.
+	//
+	// Absent for an unserved endpoint (the published spec declares no scope for
+	// what it does not publish), for the 44 unauthenticated Jamf Pro endpoints,
+	// and for hand-written commands, which send no single endpoint. A --name,
+	// --serial or --udid lookup additionally resolves the identifier through the
+	// resource's collection, so those invocations also need its read permission.
+	GatewayPrivileges []string `json:"gatewayPrivileges,omitempty"`
+	// GatewayPermissions is the same requirement in the words Jamf Account
+	// prints — "Organizational context > Categories: Read (categories:read)",
+	// one row per permission, deduplicated across actions.
+	//
+	// It is not a convenience over GatewayPrivileges, it is the only actionable
+	// form: an integration can only be created in the Jamf Account UI, whose
+	// picker is a list of named permissions with a checkbox per action and shows
+	// the capability slug nowhere. A reader handed only slugs has to go to Jamf's
+	// permissions-map article to act, and the names differ enough that guessing
+	// fails — computer-inventory-collection-settings is "Device inventory
+	// collection settings". The slugs stay beside it because that is what the
+	// gateway's own errors and the specs use, so a script matching on them keeps
+	// a stable key.
+	GatewayPermissions []string `json:"gatewayPermissions,omitempty"`
 }
 
 // isFullDetailFormat reports whether an output format carries the full
@@ -911,7 +1050,14 @@ func newCommandsCmd(root *cobra.Command) *cobra.Command {
 func collectCommands(cmd *cobra.Command, prefix, product, group string) []commandEntry {
 	var entries []commandEntry
 	for _, child := range cmd.Commands() {
-		if child.Hidden || child.Name() == "help" || child.Name() == "commands" {
+		// "commands" is skipped only at the root, where it is this catalog
+		// command itself. Matching the name at any depth is the same mistake
+		// chainSkip made with "version": it silently dropped
+		// `pro mdm-commands commands` — a real generated operation, and one the
+		// gateway refuses, so the catalog was missing exactly the entry a reader
+		// consults it for. "help" stays unconditional: cobra gives every command
+		// one.
+		if child.Hidden || child.Name() == "help" || (child.Name() == "commands" && prefix == "") {
 			continue
 		}
 
@@ -948,6 +1094,15 @@ func collectCommands(cmd *cobra.Command, prefix, product, group string) []comman
 				Group:       childGroup,
 				Destructive: child.Annotations["jamf:destructive"] == "true",
 				Privileges:  privileges,
+				API:         child.Annotations["jamf:api"],
+
+				Gateway:          child.Annotations[annotationGateway],
+				GatewayBasis:     child.Annotations[annotationGatewayBasis],
+				GatewayDetail:    child.Annotations[annotationGatewayDetail],
+				GatewaySuccessor: gatewaySuccessorOf(child, fullPath),
+
+				GatewayPrivileges:  gatewayPrivilegesOf(child),
+				GatewayPermissions: gatewayPermissionsOf(child),
 			}
 
 			// Collect aliases: for leaf commands under a top-level group
@@ -1015,29 +1170,61 @@ func commandEntriesToMaps(entries []commandEntry, full bool) []map[string]any {
 			if len(e.Privileges) > 0 {
 				m["privileges"] = e.Privileges
 			}
+			// Positive-only for the same reason as privileges: hand-written
+			// commands declare no API, and an empty string in every row would
+			// read as a claim rather than an absence.
+			if e.API != "" {
+				m["api"] = e.API
+			}
+			// Positive-only, likewise: an empty "gateway" on every row would
+			// read as "known to be served", which is a stronger claim than the
+			// coverage manifest supports — most commands are simply not
+			// annotated. The detail travels with it so a reader can weigh the
+			// evidence rather than take the level on faith.
+			if e.Gateway != "" {
+				m["gateway"] = e.Gateway
+				m["gatewayBasis"] = e.GatewayBasis
+				m["gatewayDetail"] = e.GatewayDetail
+				// Positive-only again: most refused commands have no
+				// successor, and an empty string on every row would read as
+				// "no replacement exists" rather than "none is recorded".
+				if e.GatewaySuccessor != "" {
+					m["gatewaySuccessor"] = e.GatewaySuccessor
+				}
+			}
+			// Positive-only, as privileges is, and for the same reason: absent
+			// means "no capability recorded", which is not "needs none".
+			if len(e.GatewayPrivileges) > 0 {
+				m["gatewayPrivileges"] = e.GatewayPrivileges
+			}
+			// Emitted independently of the slugs above: a Platform command's own
+			// privileges are already the capability vocabulary, so it has a
+			// Jamf Account rendering without a second slug list to carry.
+			if len(e.GatewayPermissions) > 0 {
+				m["gatewayPermissions"] = e.GatewayPermissions
+			}
 		}
 		result[i] = m
 	}
 	return result
 }
 
-// resolveProduct determines the product type from the profile. Returns "pro" or "protect".
-// resolveProduct determines the product type. It checks the command hierarchy
-// first (a command under "protect" is always protect), then falls back to the
-// config profile's product field.
+// resolveProduct determines the product type. The command's own namespace is
+// definitive when it has one; otherwise the config profile's product field
+// decides.
+//
+// Only the top-level namespace counts, and matching at any depth is what made
+// `pro report security` resolve as Jamf Security Cloud: the walk started at the
+// leaf, so the innermost name won. PersistentPreRunE then returned early on the
+// security branch without building cliCtx.Client, and the command dereferenced
+// a nil one — a SIGSEGV where the same input used to be a clean error, because
+// securityPlatformSDKClient now succeeds from the generic JAMF_* credentials
+// where resolveSecurityClient used to fail for want of Radar ones. This is the
+// same hazard collectCommands guards with rootOnlySkip; the catalog walk was
+// fixed and the auth walk was not.
 func resolveProduct(cmd *cobra.Command, cfg *config.Config) string {
-	// Check command hierarchy: if any parent is a product, that's definitive
-	for c := cmd; c != nil; c = c.Parent() {
-		switch c.Name() {
-		case "protect":
-			return "protect"
-		case "school":
-			return "school"
-		case "security":
-			return "security"
-		case "pro":
-			return "pro"
-		}
+	if ns := topLevelNamespace(cmd); ns != "" {
+		return ns
 	}
 
 	// Fall back to profile product field
@@ -1065,6 +1252,31 @@ func resolveProduct(cmd *cobra.Command, cfg *config.Config) string {
 	default:
 		return "pro"
 	}
+}
+
+// topLevelNamespace returns the product namespace cmd sits under — the name of
+// its ancestor that is a direct child of the root — or "" when cmd is the root
+// itself or its namespace is not a product.
+//
+// Deliberately not a match at any depth: a subcommand may legitimately be named
+// after a namespace (`pro report security`), and only the top level says which
+// product's credentials and client the invocation needs.
+func topLevelNamespace(cmd *cobra.Command) string {
+	if cmd == nil {
+		return ""
+	}
+	top := cmd
+	for top.Parent() != nil && top.Parent().Parent() != nil {
+		top = top.Parent()
+	}
+	if top.Parent() == nil {
+		return "" // cmd is the root
+	}
+	switch top.Name() {
+	case "protect", "school", "security", "pro":
+		return top.Name()
+	}
+	return ""
 }
 
 // clearableProtectCache is a jamfprotect.TokenCache that stores tokens on disk
@@ -1334,10 +1546,16 @@ func resolveSchoolClient(cfg *config.Config, cliCtx *registry.CLIContext) error 
 	// When platform credentials are present, also construct the Platform SDK
 	// client for blueprint and DDM report commands.
 	if platformURL != "" && cid != "" && csecret != "" && tid != "" {
-		cliCtx.PlatformSDKClient = newPlatformSDKClient(
-			platformURL, cid, csecret, tid,
+		// School reaches the Platform API for blueprints and DDM reports only;
+		// Security Cloud is not part of that surface, so it has no tenant here.
+		sdk, err := newPlatformSDKClient(
+			platformURL, cid, csecret, auth.TenantScope(tid),
 			shouldShowSpinner(),
 		)
+		if err != nil {
+			return err
+		}
+		cliCtx.PlatformSDKClient = sdk
 	}
 
 	return nil
@@ -1423,8 +1641,23 @@ func resolveSecurityClient(cfg *config.Config, cliCtx *registry.CLIContext) erro
 		}
 	}
 
-	if riskID == "" && lifecycleID == "" && sseID == "" {
-		return exitcode.New(exitcode.Usage, "no Jamf Security Cloud credentials configured: run 'jamf-cli security setup', or set JAMFSECURITY_RISK_CLIENT_ID/SECRET, JAMFSECURITY_LIFECYCLE_CLIENT_ID/SECRET, and/or JAMFSECURITY_SSE_CLIENT_ID/SECRET env vars")
+	// Part of Jamf Security Cloud is served on the platform gateway
+	// (/api/securitycloud — DNS, ZTNA, content categories, device groups, UEM
+	// Connect) rather than on api.wandera.com, and reached with platform
+	// client-credentials plus a Security Cloud tenant ID instead of the scoped
+	// pairs above. A profile may carry either set or both, so this is resolved
+	// independently and neither half is required.
+	if err := checkScopeConflict(cfg, profileName); err != nil {
+		return err
+	}
+	platformSDK, err := securityPlatformSDKClient(cfg, profileName)
+	if err != nil {
+		return err
+	}
+	cliCtx.PlatformSDKClient = platformSDK
+
+	if riskID == "" && lifecycleID == "" && sseID == "" && cliCtx.PlatformSDKClient == nil {
+		return exitcode.New(exitcode.Usage, "no Jamf Security Cloud credentials configured: run 'jamf-cli security setup', or set JAMFSECURITY_RISK_CLIENT_ID/SECRET, JAMFSECURITY_LIFECYCLE_CLIENT_ID/SECRET, and/or JAMFSECURITY_SSE_CLIENT_ID/SECRET env vars. For the gateway-served commands (dns-*, ztna-*, content-categories, device-groups, uem-*) configure a platform profile: 'jamf-cli config add-profile <name> --auth-method platform --tenant-id <id>'")
 	}
 
 	if strings.HasPrefix(url, "http://") || strings.HasPrefix(sseURL, "http://") {

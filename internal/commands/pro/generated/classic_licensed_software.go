@@ -17,12 +17,120 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// bodySpecClassicLicensedSoftware is this resource's request-body contract, derived from
+// specs/classic/schemas.json at generation time. Empty when the Classic API spec
+// declares no schema for it, in which case create/update/apply read their body
+// from --from-file or stdin with no --scaffold and no --set.
+var bodySpecClassicLicensedSoftware = classicBodySpec{
+	Root:   "licensed_software",
+	Schema: "licensed_software",
+	Scaffold: `<licensed_software>
+  <computers>
+    <computer>
+      <id>0</id>
+      <name></name>
+      <udid></udid>
+    </computer>
+  </computers>
+  <font_definitions>
+    <definition>
+      <name></name>
+      <compare_type></compare_type>
+      <version>14</version>
+    </definition>
+  </font_definitions>
+  <general>
+    <id>1</id>
+    <name>Adobe Creative Suite</name>
+    <exclude_titles_purchased_from_app_store>false</exclude_titles_purchased_from_app_store>
+    <notes></notes>
+    <platform>Mac</platform>
+    <publisher>Adobe Systems Incorporated</publisher>
+    <remove_titles_from_inventory_reports>false</remove_titles_from_inventory_reports>
+    <send_email_on_violation>false</send_email_on_violation>
+    <site>
+      <id>0</id>
+      <name>None</name>
+    </site>
+  </general>
+  <licenses>
+    <license>
+      <attachments>
+        <attachment>
+          <id>1</id>
+          <filename>icon.png</filename>
+          <uri>https://example.jamfcloud/attachment.html?id=1&amp;amp;o=r</uri>
+        </attachment>
+      </attachments>
+      <license_count>500</license_count>
+      <license_type></license_type>
+      <notes></notes>
+      <organization_name></organization_name>
+      <purchasing>
+        <is_annual>false</is_annual>
+        <is_perpetual>false</is_perpetual>
+        <license_expires></license_expires>
+        <license_expires_epoch>0</license_expires_epoch>
+        <license_expires_utc></license_expires_utc>
+        <life_expectancy>0</life_expectancy>
+        <po_date></po_date>
+        <po_date_epoch>0</po_date_epoch>
+        <po_date_utc></po_date_utc>
+        <po_number></po_number>
+        <purchase_price></purchase_price>
+        <purchasing_account></purchasing_account>
+        <purchasing_contact></purchasing_contact>
+        <vendor></vendor>
+      </purchasing>
+      <registered_to></registered_to>
+      <serial_number_1></serial_number_1>
+      <serial_number_2></serial_number_2>
+    </license>
+  </licenses>
+  <plugin_definitions>
+    <definition>
+      <name></name>
+      <compare_type></compare_type>
+      <version>14</version>
+    </definition>
+  </plugin_definitions>
+  <software_definitions>
+    <definition>
+      <name></name>
+      <compare_type></compare_type>
+      <version>14</version>
+    </definition>
+  </software_definitions>
+</licensed_software>
+`,
+	FieldTypes: map[string]string{
+		"computers":        "array",
+		"font_definitions": "array",
+		"general":          "object",
+		"general.exclude_titles_purchased_from_app_store": "boolean",
+		"general.id":        "integer",
+		"general.name":      "string",
+		"general.notes":     "string",
+		"general.platform":  "string",
+		"general.publisher": "string",
+		"general.remove_titles_from_inventory_reports": "boolean",
+		"general.send_email_on_violation":              "boolean",
+		"general.site":                                 "object",
+		"general.site.id":                              "integer",
+		"general.site.name":                            "string",
+		"licenses":                                     "array",
+		"plugin_definitions":                           "array",
+		"software_definitions":                         "array",
+	},
+}
+
 // NewClassicLicensedSoftwareCmd creates the classic-licensed-software command group
 func NewClassicLicensedSoftwareCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "classic-licensed-software",
-		Short: "Licensed software records (Classic API)",
-		Long:  `Manage licensed software records via the Jamf Pro Classic API (/JSSResource/).`,
+		Use:         "classic-licensed-software",
+		Short:       "Licensed software records (Classic API)",
+		Long:        `Manage licensed software records via the Jamf Pro Classic API (/JSSResource/).`,
+		Annotations: map[string]string{"jamf:api": "pro-classic"},
 	}
 
 	cmd.AddCommand(newClassicLicensedSoftwareListCmd(ctx))
@@ -49,6 +157,7 @@ func newClassicLicensedSoftwareListCmd(ctx *registry.CLIContext) *cobra.Command 
 
   # List licensedsoftware and extract IDs
   jamf-cli pro classic-licensed-software list --field id`,
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "licensed-software:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/licensedsoftware", nil)
@@ -105,7 +214,8 @@ func newClassicLicensedSoftwareGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a licensed_software and output as YAML
   jamf-cli pro classic-licensed-software get 1 -o yaml`,
-		Args: cobra.MaximumNArgs(1),
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "licensed-software:read"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -157,21 +267,44 @@ func newClassicLicensedSoftwareGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
 func newClassicLicensedSoftwareCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
-		fromFile string
+		fromFile     string
+		flagScaffold bool
+		flagSet      []string
 	)
 	cmd := &cobra.Command{
 		Use:   "create",
 		Short: "Create a licensed_software",
-		Long:  "Create a new licensed_software. Reads the XML body from --from-file or stdin.",
+		Long: `Create a new licensed_software. Reads the XML body from --from-file, --set or stdin.
+
+Body fields are derived from the Classic API spec (schema "licensed_software").
+Run with --scaffold to print a complete XML template.
+The template populates every optional section with one specimen entry,
+including references whose <id> points at nothing on your instance — delete
+the sections you do not need. A dangling reference is answered with a 500.
+Optional sections: computers, font_definitions, general, licenses, plugin_definitions,
+  software_definitions
+
+Allowed values:
+  font_definitions[].compare_type: like | is
+  licenses[].license_type: Standard | Concurrent | Site License
+  plugin_definitions[].compare_type: like | is
+  software_definitions[].compare_type: like | is
+
+The Classic API does not reject an out-of-range value — it substitutes
+its default silently — so --set refuses one rather than letting it through.`,
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "licensed-software:create"},
 		Example: `  # Create a licensed_software from an XML file
   jamf-cli pro classic-licensed-software create --from-file licensed_software.xml
 
   # Create a licensed_software from XML on stdin
   cat licensed_software.xml | jamf-cli pro classic-licensed-software create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if flagScaffold {
+				return printClassicScaffold(bodySpecClassicLicensedSoftware)
+			}
 			reqCtx := cmd.Context()
 
-			bodyBytes, err := readClassicBody(fromFile)
+			bodyBytes, err := readClassicBodyOrSet(fromFile, flagSet, bodySpecClassicLicensedSoftware)
 			if err != nil {
 				return err
 			}
@@ -190,27 +323,60 @@ func newClassicLicensedSoftwareCreateCmd(ctx *registry.CLIContext) *cobra.Comman
 		},
 	}
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to XML input file (or pipe XML to stdin)")
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print an XML body template for this resource and exit")
+	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Set a body field in dot notation (key=value, repeatable). Builds the whole body, so it cannot be combined with --from-file")
+	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+		return []string{"general.exclude_titles_purchased_from_app_store=", "general.id=", "general.name=", "general.notes=", "general.platform=", "general.publisher=", "general.remove_titles_from_inventory_reports=", "general.send_email_on_violation=", "general.site.id=", "general.site.name="}, cobra.ShellCompDirectiveNoSpace
+	})
 	return cmd
 }
 
 func newClassicLicensedSoftwareUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var fromFile string
+	var (
+		flagScaffold bool
+		flagSet      []string
+	)
 	var flagName string
 
 	cmd := &cobra.Command{
 		Use:   "update [<id>]",
 		Short: "Update a licensed_software",
-		Long:  "Update an existing licensed_software by ID. Reads the XML body from --from-file or stdin.",
+		Long: `Update an existing licensed_software by ID. Reads the XML body from --from-file, --set or stdin.
+
+The Classic API applies a partial update: fields the body omits keep their
+current values, so a body carrying one element changes only that element.
+
+Body fields are derived from the Classic API spec (schema "licensed_software").
+Run with --scaffold to print a complete XML template.
+The template populates every optional section with one specimen entry,
+including references whose <id> points at nothing on your instance — delete
+the sections you do not need. A dangling reference is answered with a 500.
+Optional sections: computers, font_definitions, general, licenses, plugin_definitions,
+  software_definitions
+
+Allowed values:
+  font_definitions[].compare_type: like | is
+  licenses[].license_type: Standard | Concurrent | Site License
+  plugin_definitions[].compare_type: like | is
+  software_definitions[].compare_type: like | is
+
+The Classic API does not reject an out-of-range value — it substitutes
+its default silently — so --set refuses one rather than letting it through.`,
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "licensed-software:update"},
 		Example: `  # Update a licensed_software from an XML file
   jamf-cli pro classic-licensed-software update 1 --from-file licensed_software.xml
 
   # Update a licensed_software from XML on stdin
   cat licensed_software.xml | jamf-cli pro classic-licensed-software update 1`,
-		Args: cobra.MaximumNArgs(1),
+		Args: classicScaffoldArgs(&flagScaffold, cobra.MaximumNArgs(1)),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if flagScaffold {
+				return printClassicScaffold(bodySpecClassicLicensedSoftware)
+			}
 			reqCtx := cmd.Context()
 
-			bodyBytes, bodyErr := readClassicBody(fromFile)
+			bodyBytes, bodyErr := readClassicBodyOrSet(fromFile, flagSet, bodySpecClassicLicensedSoftware)
 			if bodyErr != nil {
 				return bodyErr
 			}
@@ -239,6 +405,11 @@ func newClassicLicensedSoftwareUpdateCmd(ctx *registry.CLIContext) *cobra.Comman
 	}
 
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to XML input file (or pipe XML to stdin)")
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print an XML body template for this resource and exit")
+	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Set a body field in dot notation (key=value, repeatable). Builds the whole body, so it cannot be combined with --from-file")
+	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+		return []string{"general.exclude_titles_purchased_from_app_store=", "general.id=", "general.name=", "general.notes=", "general.platform=", "general.publisher=", "general.remove_titles_from_inventory_reports=", "general.send_email_on_violation=", "general.site.id=", "general.site.name="}, cobra.ShellCompDirectiveNoSpace
+	})
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up licensed_software by name")
 
 	return cmd
@@ -263,7 +434,7 @@ func newClassicLicensedSoftwareDeleteCmd(ctx *registry.CLIContext) *cobra.Comman
 
   # Delete without confirmation prompt
   jamf-cli pro classic-licensed-software delete 1 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:api": "pro-classic", "jamf:gateway-privileges": "licensed-software:delete"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -428,19 +599,39 @@ func newClassicLicensedSoftwareDeleteCmd(ctx *registry.CLIContext) *cobra.Comman
 
 func newClassicLicensedSoftwareApplyCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
-		fromFile   string
-		flagYes    bool
-		flagDryRun bool
+		fromFile     string
+		flagYes      bool
+		flagDryRun   bool
+		flagScaffold bool
+		flagSet      []string
 	)
 
 	cmd := &cobra.Command{
-		Use:   "apply",
-		Short: "Create or replace a licensed_software by name",
-		Long: `Create or replace a licensed_software. Reads XML from --from-file or stdin.
+		Use:         "apply",
+		Short:       "Create or replace a licensed_software by name",
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "licensed-software:create,licensed-software:read,licensed-software:update"},
+		Long: `Create or replace a licensed_software. Reads XML from --from-file, --set or stdin.
 
 The name field in the input XML is used to check if the resource already
 exists. If it does, the resource is replaced (with confirmation).
-If not, a new resource is created.`,
+If not, a new resource is created.
+
+Body fields are derived from the Classic API spec (schema "licensed_software").
+Run with --scaffold to print a complete XML template.
+The template populates every optional section with one specimen entry,
+including references whose <id> points at nothing on your instance — delete
+the sections you do not need. A dangling reference is answered with a 500.
+Optional sections: computers, font_definitions, general, licenses, plugin_definitions,
+  software_definitions
+
+Allowed values:
+  font_definitions[].compare_type: like | is
+  licenses[].license_type: Standard | Concurrent | Site License
+  plugin_definitions[].compare_type: like | is
+  software_definitions[].compare_type: like | is
+
+The Classic API does not reject an out-of-range value — it substitutes
+its default silently — so --set refuses one rather than letting it through.`,
 		Example: `  # Apply a licensed_software from an XML file
   jamf-cli pro classic-licensed-software apply --from-file licensed_software.xml
 
@@ -450,6 +641,9 @@ If not, a new resource is created.`,
   # Apply without replacement confirmation
   jamf-cli pro classic-licensed-software apply --from-file licensed_software.xml --yes`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			if flagScaffold {
+				return printClassicScaffold(bodySpecClassicLicensedSoftware)
+			}
 			reqCtx := cmd.Context()
 
 			// Read input
@@ -522,6 +716,12 @@ If not, a new resource is created.`,
 	}
 
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to XML input file (or pipe XML to stdin)")
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print an XML body template for this resource and exit")
+	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Set a body field in dot notation (key=value, repeatable). Builds the whole body, so it cannot be combined with --from-file")
+	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+		return []string{"general.exclude_titles_purchased_from_app_store=", "general.id=", "general.name=", "general.notes=", "general.platform=", "general.publisher=", "general.remove_titles_from_inventory_reports=", "general.send_email_on_violation=", "general.site.id=", "general.site.name="}, cobra.ShellCompDirectiveNoSpace
+	})
+
 	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt when replacing")
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
 

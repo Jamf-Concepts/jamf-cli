@@ -21,9 +21,10 @@ import (
 // resource. Wire it into a product namespace via AddCommand.
 func NewBenchmarkReportsCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "benchmark-reports",
-		Short: "Manage benchmark-reports (Platform API)",
-		Long:  "Jamf Compliance Benchmarks API allows you to manage, enforce, and validate compliance on Apple devices",
+		Use:         "benchmark-reports",
+		Short:       "Manage benchmark-reports (Platform API)",
+		Long:        "Jamf Compliance Benchmarks API allows you to manage, enforce, and validate compliance on Apple devices",
+		Annotations: map[string]string{"jamf:api": "platform-gateway"},
 	}
 	cmd.AddCommand(newBenchmarkReportsCompliancePercentageCmd(cliCtx))
 	cmd.AddCommand(newBenchmarkReportsDevicesCmd(cliCtx))
@@ -37,7 +38,7 @@ func newBenchmarkReportsCompliancePercentageCmd(cliCtx *registry.CLIContext) *co
 		Use:         "compliance-percentage <id>",
 		Short:       "Get compliance percentage for a benchmark report",
 		Long:        "Calculates and returns the overall compliance percentage for a specific benchmark report as sum of device compliance scores divided by number of devices",
-		Annotations: map[string]string{"jamf:privileges": "read:pro:compliance-benchmarks"},
+		Annotations: map[string]string{"jamf:privileges": "compliance-benchmarks:read", "jamf:api": "platform-gateway"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
@@ -45,7 +46,7 @@ func newBenchmarkReportsCompliancePercentageCmd(cliCtx *registry.CLIContext) *co
 			}
 			var resolvedID string
 			if nameFlag != "" {
-				listPath := strings.Replace("/api/compliance-benchmarks/v1/tenant/{tenantId}/benchmarks", "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantID()), 1)
+				listPath := "/compliance-benchmarks/v1/benchmarks"
 				id, err := platform.ResolveIDByName(cmd.Context(), cliCtx.PlatformSDKClient, listPath, nameFlag)
 				if err != nil {
 					return err
@@ -56,8 +57,7 @@ func newBenchmarkReportsCompliancePercentageCmd(cliCtx *registry.CLIContext) *co
 			} else {
 				return fmt.Errorf("provide a positional ID or --name")
 			}
-			path := "/api/compliance-benchmarks/v1/tenant/{tenantId}/benchmarks/{id}/compliance-percentage"
-			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantID()), 1)
+			path := "/compliance-benchmarks/v1/benchmarks/{id}/compliance-percentage"
 			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
 			q := url.Values{}
 			var body any
@@ -92,7 +92,7 @@ func newBenchmarkReportsDevicesCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Use:         "devices <id>",
 		Short:       "Get devices for a benchmark report rule",
 		Long:        "Provides devices filtered report for a specific benchmark rule",
-		Annotations: map[string]string{"jamf:privileges": "read:pro:compliance-benchmarks"},
+		Annotations: map[string]string{"jamf:privileges": "compliance-benchmarks:read", "jamf:api": "platform-gateway"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
@@ -100,7 +100,7 @@ func newBenchmarkReportsDevicesCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			}
 			var resolvedID string
 			if nameFlag != "" {
-				listPath := strings.Replace("/api/compliance-benchmarks/v1/tenant/{tenantId}/benchmarks", "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantID()), 1)
+				listPath := "/compliance-benchmarks/v1/benchmarks"
 				id, err := platform.ResolveIDByName(cmd.Context(), cliCtx.PlatformSDKClient, listPath, nameFlag)
 				if err != nil {
 					return err
@@ -111,8 +111,7 @@ func newBenchmarkReportsDevicesCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			} else {
 				return fmt.Errorf("provide a positional ID or --name")
 			}
-			path := "/api/compliance-benchmarks/v1/tenant/{tenantId}/benchmarks/{id}/devices"
-			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantID()), 1)
+			path := "/compliance-benchmarks/v1/benchmarks/{id}/devices"
 			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
 			q := url.Values{}
 			if ruleId != "" {
@@ -129,7 +128,13 @@ func newBenchmarkReportsDevicesCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			}
 			var body any
 			const pageSize = 100
-			var aggregated []json.RawMessage
+			// Initialised empty, not nil: a nil slice marshals to "null", so an
+			// empty collection used to answer -o json with "null" while the
+			// unpaginated list path answered "[]" for the identical wire response
+			// ({"totalCount":0,"results":[]}). Anything piping the output to jq
+			// then failed on "Cannot iterate over null" only for tenants where the
+			// collection happened to be empty.
+			aggregated := []json.RawMessage{}
 			for page := 0; ; page++ {
 				pq := url.Values{}
 				for k, v := range q {
@@ -176,7 +181,7 @@ func newBenchmarkReportsRulesCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Use:         "rules <id>",
 		Short:       "Get benchmark rules for a tenant",
 		Long:        "Provides benchmark rules stats for a specific benchmark",
-		Annotations: map[string]string{"jamf:privileges": "read:pro:compliance-benchmarks"},
+		Annotations: map[string]string{"jamf:privileges": "compliance-benchmarks:read", "jamf:api": "platform-gateway"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
@@ -184,7 +189,7 @@ func newBenchmarkReportsRulesCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			}
 			var resolvedID string
 			if nameFlag != "" {
-				listPath := strings.Replace("/api/compliance-benchmarks/v1/tenant/{tenantId}/benchmarks", "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantID()), 1)
+				listPath := "/compliance-benchmarks/v1/benchmarks"
 				id, err := platform.ResolveIDByName(cmd.Context(), cliCtx.PlatformSDKClient, listPath, nameFlag)
 				if err != nil {
 					return err
@@ -195,8 +200,7 @@ func newBenchmarkReportsRulesCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			} else {
 				return fmt.Errorf("provide a positional ID or --name")
 			}
-			path := "/api/compliance-benchmarks/v1/tenant/{tenantId}/benchmarks/{id}/rules"
-			path = strings.Replace(path, "{tenantId}", url.PathEscape(cliCtx.PlatformSDKClient.Transport().TenantID()), 1)
+			path := "/compliance-benchmarks/v1/benchmarks/{id}/rules"
 			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
 			q := url.Values{}
 			if ruleSearch != "" {
@@ -207,7 +211,13 @@ func newBenchmarkReportsRulesCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			}
 			var body any
 			const pageSize = 100
-			var aggregated []json.RawMessage
+			// Initialised empty, not nil: a nil slice marshals to "null", so an
+			// empty collection used to answer -o json with "null" while the
+			// unpaginated list path answered "[]" for the identical wire response
+			// ({"totalCount":0,"results":[]}). Anything piping the output to jq
+			// then failed on "Cannot iterate over null" only for tenants where the
+			// collection happened to be empty.
+			aggregated := []json.RawMessage{}
 			for page := 0; ; page++ {
 				pq := url.Values{}
 				for k, v := range q {

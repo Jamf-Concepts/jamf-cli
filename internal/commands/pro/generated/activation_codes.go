@@ -19,9 +19,10 @@ import (
 // NewActivationCodesCmd creates the activation-codes command group
 func NewActivationCodesCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "activation-codes",
-		Short: "Manage activation-codes",
-		Long:  `Manage activation-codes in Jamf Pro.`,
+		Use:         "activation-codes",
+		Short:       "Manage activation-codes",
+		Long:        `Manage activation-codes in Jamf Pro.`,
+		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
 	cmd.AddCommand(newActivationCodesUpdateCmd(ctx))
@@ -47,7 +48,7 @@ func newActivationCodesUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Update from a file
   jamf-cli pro activation-codes update --from-file activation-codes.json`,
-		Annotations: map[string]string{"jamf:privileges": "Update License Information"},
+		Annotations: map[string]string{"jamf:privileges": "Update License Information", "jamf:api": "pro", "jamf:gateway-privileges": "activation-code:update"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -114,7 +115,7 @@ func newActivationCodesHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 		Long:  "Get Activation Code history object",
 		Example: `  # Get history for a activation-code
   jamf-cli pro activation-codes history 1`,
-		Annotations: map[string]string{"jamf:privileges": "Read License Information"},
+		Annotations: map[string]string{"jamf:privileges": "Read License Information", "jamf:api": "pro", "jamf:gateway-privileges": "activation-code:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -143,7 +144,10 @@ func newActivationCodesHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 
 			// Auto-pagination: fetch all pages when --all is set and --page was not manually specified
 			if flagAll && flagPage == 0 {
-				var allResults []json.RawMessage
+				// Initialised empty, not nil — a nil slice marshals to "null", so
+				// "list --all" on an empty collection used to answer "null" where
+				// the single-page path answers "[]".
+				allResults := []json.RawMessage{}
 				prog := ctx.Output.PaginationProgress()
 				defer prog.Stop()
 				reqCtx = spinner.WithSuppressed(reqCtx)
@@ -258,7 +262,7 @@ func newActivationCodesAddHistoryNoteCmd(ctx *registry.CLIContext) *cobra.Comman
 		Use:         "add-history-note",
 		Short:       "Add Activation Code object note",
 		Long:        "Adds Activation Code object note.",
-		Annotations: map[string]string{"jamf:privileges": "Update License Information"},
+		Annotations: map[string]string{"jamf:privileges": "Update License Information", "jamf:api": "pro", "jamf:gateway-privileges": "activation-code:update"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -330,7 +334,7 @@ func newActivationCodesHistoryExportCmd(ctx *registry.CLIContext) *cobra.Command
 
   # Pipe to stdout
   jamf-cli pro activation-codes history-export > output.bin`,
-		Annotations: map[string]string{"jamf:privileges": "Read License Information"},
+		Annotations: map[string]string{"jamf:privileges": "Read License Information", "jamf:api": "pro", "jamf:gateway-privileges": "activation-code:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			reqCtx = registry.WithAccept(reqCtx, "*/*")
@@ -454,7 +458,7 @@ func newActivationCodesPatchCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Update using JSON
   jamf-cli pro activation-codes get -o json | jq '.field = "value"' | jamf-cli pro activation-codes patch`,
-		Annotations: map[string]string{"jamf:privileges": "Update License Information"},
+		Annotations: map[string]string{"jamf:privileges": "Update License Information", "jamf:api": "pro", "jamf:gateway-privileges": "activation-code:update"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

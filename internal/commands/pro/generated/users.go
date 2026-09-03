@@ -21,9 +21,10 @@ import (
 // NewUsersCmd creates the users command group
 func NewUsersCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "users",
-		Short: "Manage users",
-		Long:  `Manage users in Jamf Pro.`,
+		Use:         "users",
+		Short:       "Manage users",
+		Long:        `Manage users in Jamf Pro.`,
+		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
 	cmd.AddCommand(newUsersListCmd(ctx))
@@ -56,7 +57,7 @@ func newUsersListCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # List users and extract IDs
   jamf-cli pro users list --field id`,
-		Annotations: map[string]string{"jamf:privileges": "Read User"},
+		Annotations: map[string]string{"jamf:privileges": "Read User", "jamf:api": "pro", "jamf:gateway-privileges": "users:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -88,7 +89,10 @@ func newUsersListCmd(ctx *registry.CLIContext) *cobra.Command {
 
 			// Auto-pagination: fetch all pages when --all is set and --page was not manually specified
 			if flagAll && flagPage == 0 {
-				var allResults []json.RawMessage
+				// Initialised empty, not nil — a nil slice marshals to "null", so
+				// "list --all" on an empty collection used to answer "null" where
+				// the single-page path answers "[]".
+				allResults := []json.RawMessage{}
 				prog := ctx.Output.PaginationProgress()
 				defer prog.Stop()
 				reqCtx = spinner.WithSuppressed(reqCtx)
@@ -213,7 +217,7 @@ func newUsersGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a user and output as YAML
   jamf-cli pro users get 1 -o yaml`,
-		Annotations: map[string]string{"jamf:privileges": "Read User"},
+		Annotations: map[string]string{"jamf:privileges": "Read User", "jamf:api": "pro", "jamf:gateway-privileges": "users:read"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -281,7 +285,7 @@ func newUsersCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a user, modify it, and create a copy
   jamf-cli pro users get 1 -o json | jq '.name = "Copy"' | jamf-cli pro users create`,
-		Annotations: map[string]string{"jamf:privileges": "Create User"},
+		Annotations: map[string]string{"jamf:privileges": "Create User", "jamf:api": "pro", "jamf:gateway-privileges": "users:create"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -366,7 +370,7 @@ func newUsersUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a user, modify, and update
   jamf-cli pro users get 1 -o json | jq '.name = "New Name"' | jamf-cli pro users update 1`,
-		Annotations: map[string]string{"jamf:privileges": "Update User"},
+		Annotations: map[string]string{"jamf:privileges": "Update User", "jamf:api": "pro", "jamf:gateway-privileges": "users:update"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -502,7 +506,7 @@ func newUsersDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Delete without confirmation prompt
   jamf-cli pro users delete 1 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Delete User"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Delete User", "jamf:api": "pro", "jamf:gateway-privileges": "users:delete"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -703,8 +707,9 @@ func newUsersApplyCmd(ctx *registry.CLIContext) *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "apply",
-		Short: "Create or replace a user by name",
+		Use:         "apply",
+		Short:       "Create or replace a user by name",
+		Annotations: map[string]string{"jamf:api": "pro", "jamf:gateway-privileges": "users:create,users:read,users:update"},
 		Long: `Create or replace a user. Reads JSON or YAML from --from-file or stdin.
 
 The username field in the input is used to check if the resource

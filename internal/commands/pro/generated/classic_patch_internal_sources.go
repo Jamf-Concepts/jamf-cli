@@ -13,12 +13,19 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// bodySpecClassicPatchInternalSources is this resource's request-body contract, derived from
+// specs/classic/schemas.json at generation time. Empty when the Classic API spec
+// declares no schema for it, in which case create/update/apply read their body
+// from --from-file or stdin with no --scaffold and no --set.
+var bodySpecClassicPatchInternalSources = classicBodySpec{}
+
 // NewClassicPatchInternalSourcesCmd creates the classic-patch-internal-sources command group
 func NewClassicPatchInternalSourcesCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "classic-patch-internal-sources",
-		Short: "Patch management internal sources (Classic API)",
-		Long:  `Manage patch management internal sources via the Jamf Pro Classic API (/JSSResource/).`,
+		Use:         "classic-patch-internal-sources",
+		Short:       "Patch management internal sources (Classic API)",
+		Long:        `Manage patch management internal sources via the Jamf Pro Classic API (/JSSResource/).`,
+		Annotations: map[string]string{"jamf:api": "pro-classic"},
 	}
 
 	cmd.AddCommand(newClassicPatchInternalSourcesListCmd(ctx))
@@ -37,6 +44,7 @@ func newClassicPatchInternalSourcesListCmd(ctx *registry.CLIContext) *cobra.Comm
 
   # List patchinternalsources and extract IDs
   jamf-cli pro classic-patch-internal-sources list --field id`,
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "patch-internal-source:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/patchinternalsources", nil)
@@ -93,7 +101,8 @@ func newClassicPatchInternalSourcesGetCmd(ctx *registry.CLIContext) *cobra.Comma
 
   # Get a patch_internal_source and output as YAML
   jamf-cli pro classic-patch-internal-sources get 1 -o yaml`,
-		Args: cobra.MaximumNArgs(1),
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "patch-internal-source:read"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
