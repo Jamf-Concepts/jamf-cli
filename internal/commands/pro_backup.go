@@ -22,6 +22,7 @@ import (
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/auth"
 	"github.com/Jamf-Concepts/jamf-cli/internal/exitcode"
+	"github.com/Jamf-Concepts/jamf-cli/internal/output"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform/blueprints"
 	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform/compliancebenchmarks"
@@ -76,6 +77,7 @@ func newBackupCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "backup",
 		Short: "Export all Jamf Pro configuration to a local directory",
+		Args:  refuseStrayArgs,
 		Long: `Export configuration objects from a Jamf Pro instance to a local directory.
 
 Each object is saved as an individual YAML or JSON file. Server-generated fields
@@ -103,13 +105,45 @@ reliable download path and are skipped with a warning.`,
 
 	cmd.Flags().StringVar(&outputDir, "output", "", "destination directory (required)")
 	cmd.Flags().StringVar(&format, "format", "yaml", "output format: yaml or json")
-	cmd.Flags().StringVar(&resources, "resources", "", "comma-separated resource filter (e.g., policies,scripts)")
+	cmd.Flags().StringVar(&resources, "resources", "", "comma-separated resource filter (e.g., policies,scripts); tokens: 'pro backup list-resources'")
 	cmd.Flags().BoolVar(&includeIDs, "include-ids", false, "retain server-generated IDs in output")
 	cmd.Flags().IntVar(&concurrency, "concurrency", backupDefaultConcurrency, fmt.Sprintf("max parallel API requests (ceiling %d)", backupMaxConcurrency))
 	cmd.Flags().BoolVar(&downloadPackages, "download-packages", false, "also download package binaries hosted on JCDS to packages/files/")
 	_ = cmd.MarkFlagRequired("output")
+	_ = cmd.RegisterFlagCompletionFunc("resources", backupResourceCompletion)
+
+	cmd.AddCommand(newBackupListResourcesCmd())
 
 	return cmd
+}
+
+// backupResourceCompletion completes the --resources vocabulary shared by
+// `pro backup` and `pro diff`. One function for both flags: two would be two
+// places for the vocabulary to drift from BackupFilterNames.
+func backupResourceCompletion(*cobra.Command, []string, string) ([]string, cobra.ShellCompDirective) {
+	return BackupFilterNames(), cobra.ShellCompDirectiveNoFileComp
+}
+
+func newBackupListResourcesCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "list-resources",
+		Short: "List the resource tokens accepted by --resources",
+		Long: `List every resource token accepted by --resources on 'pro backup' and 'pro diff'.
+
+Output columns: resource (the token), objects (the backing commands, or a note
+for a resource handled outside the generated registry), source (the API or
+mechanism each token reads from).`,
+		Annotations: map[string]string{noAuthAnnotation: "true"},
+		Args:        refuseStrayArgs,
+		RunE: func(_ *cobra.Command, _ []string) error {
+			rows, err := backupResourceRows()
+			if err != nil {
+				return err
+			}
+			formatter := output.New(outputFmt, noColor, wide)
+			return formatter.Print(rows)
+		},
+	}
 }
 
 type backupOptions struct {

@@ -692,3 +692,54 @@ func TestUnwrapClassicDetail(t *testing.T) {
 		t.Errorf("multi-key map should pass through, got %v", result2)
 	}
 }
+
+// TestNoAuthAnnotation_ListResourcesSkipsAuth covers both halves of the
+// annotation skip. `backup list-resources` reads two in-process tables and must
+// run with no credentials at all; its sibling `backup` carries no annotation and
+// must still resolve auth, because a skip that leaks onto a sibling is invisible
+// — the command runs with no client and fails later with a message that sends
+// the operator to fix credentials that were never the problem.
+func TestNoAuthAnnotation_ListResourcesSkipsAuth(t *testing.T) {
+	t.Run("list-resources runs with no credentials", func(t *testing.T) {
+		resetGlobals()
+		t.Setenv("JAMF_URL", "")
+		t.Setenv("JAMF_TOKEN", "")
+		t.Setenv("JAMF_CLIENT_ID", "")
+		t.Setenv("JAMF_CLIENT_SECRET", "")
+		t.Setenv("JAMF_PROFILE", "")
+		t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+
+		root := NewRootCmd("test", "abc123", "2024-01-01", "unknown")
+		root.SetArgs([]string{"pro", "backup", "list-resources"})
+		root.SetOut(io.Discard)
+		root.SetErr(io.Discard)
+
+		if err := root.Execute(); err != nil {
+			t.Errorf("pro backup list-resources with no credentials: %v", err)
+		}
+	})
+
+	t.Run("backup itself still resolves auth", func(t *testing.T) {
+		resetGlobals()
+		t.Setenv("JAMF_URL", "https://test.jamfcloud.com")
+		t.Setenv("JAMF_TOKEN", "")
+		t.Setenv("JAMF_CLIENT_ID", "")
+		t.Setenv("JAMF_CLIENT_SECRET", "")
+		t.Setenv("JAMF_PROFILE", "")
+		t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+
+		root := NewRootCmd("test", "abc123", "2024-01-01", "unknown")
+		root.SetArgs([]string{"pro", "backup", "--output", t.TempDir()})
+		root.SetOut(io.Discard)
+		root.SetErr(io.Discard)
+
+		err := root.Execute()
+		if err == nil {
+			t.Fatal("expected an auth error — the sibling skipped auth resolution")
+		}
+		if !strings.Contains(err.Error(), "authentication required") {
+			t.Errorf("error = %q, want the auth-resolution error; any other message "+
+				"here means auth was skipped and the command failed later", err.Error())
+		}
+	})
+}

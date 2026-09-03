@@ -1268,12 +1268,108 @@ func TestGuardUnknownSubcommands(t *testing.T) {
 	}
 }
 
+// TestRefuseStrayArgs_ProBackup pins that a stray positional on `pro backup`
+// is refused before anything runs. The regression is not a missing error: with
+// no Args validator cobra discarded the positional and started a full backup,
+// writing files and warning per resource. So this asserts the output directory
+// is still empty afterwards.
+func TestRefuseStrayArgs_ProBackup(t *testing.T) {
+	dir := t.TempDir()
+
+	root := NewRootCmd("test", "none", "none", "none")
+	root.SetArgs([]string{"pro", "backup", "list-resourcez", "--output", dir})
+	root.SetOut(io.Discard)
+	root.SetErr(io.Discard)
+
+	err := root.Execute()
+	if err == nil {
+		t.Fatal("pro backup accepted a stray positional")
+	}
+	if code := exitcode.CodeFrom(err); code != exitcode.Usage {
+		t.Errorf("exit code = %d, want %d (usage)", code, exitcode.Usage)
+	}
+	if !strings.Contains(err.Error(), "list-resourcez") {
+		t.Errorf("error should name the typo, got %q", err.Error())
+	}
+
+	entries, readErr := os.ReadDir(dir)
+	if readErr != nil {
+		t.Fatalf("reading output dir: %v", readErr)
+	}
+	if len(entries) != 0 {
+		names := make([]string, 0, len(entries))
+		for _, e := range entries {
+			names = append(names, e.Name())
+		}
+		t.Errorf("backup ran despite the refusal: %v", names)
+	}
+}
+
+// TestRefuseStrayArgs_SuggestsRealSubcommand covers the reason `pro backup`
+// needs the suggestion block at all: it owns a subcommand, so the stray
+// positional is usually a typo of it.
+func TestRefuseStrayArgs_SuggestsRealSubcommand(t *testing.T) {
+	root := NewRootCmd("test", "none", "none", "none")
+	root.SetArgs([]string{"pro", "backup", "list-resourcez", "--output", t.TempDir()})
+	root.SetOut(io.Discard)
+	root.SetErr(io.Discard)
+
+	err := root.Execute()
+	if err == nil {
+		t.Fatal("pro backup accepted a stray positional")
+	}
+	if !strings.Contains(err.Error(), "list-resources") {
+		t.Errorf("error should suggest 'list-resources', got %q", err.Error())
+	}
+}
+
+// TestRefuseStrayArgs_ProDiff covers the no-subcommands case: the message with
+// no suggestion block. `pro diff` also carries required flags, and the Args
+// validator has to win over those so the message names the real mistake.
+func TestRefuseStrayArgs_ProDiff(t *testing.T) {
+	root := NewRootCmd("test", "none", "none", "none")
+	root.SetArgs([]string{"pro", "diff", "somegarbage"})
+	root.SetOut(io.Discard)
+	root.SetErr(io.Discard)
+
+	err := root.Execute()
+	if err == nil {
+		t.Fatal("pro diff accepted a stray positional")
+	}
+	if code := exitcode.CodeFrom(err); code != exitcode.Usage {
+		t.Errorf("exit code = %d, want %d (usage)", code, exitcode.Usage)
+	}
+	if !strings.Contains(err.Error(), "somegarbage") {
+		t.Errorf("error should name the typo, got %q", err.Error())
+	}
+}
+
+// TestRefuseStrayArgs_LeavesRealSubcommandAlone asserts the validator on the
+// parent cannot reach a positional cobra has already resolved as a subcommand.
+func TestRefuseStrayArgs_LeavesRealSubcommandAlone(t *testing.T) {
+	root := NewRootCmd("test", "none", "none", "none")
+	root.SetArgs([]string{"pro", "backup", "list-resources"})
+	root.SetOut(io.Discard)
+	root.SetErr(io.Discard)
+
+	var err error
+	captureStdout(t, func() { err = root.Execute() })
+	if err != nil {
+		t.Fatalf("pro backup list-resources should still run, got %v", err)
+	}
+}
+
 // TestGuardUnknownSubcommands_CoversAllGroupParents walks the entire command
 // tree and asserts every group parent (a command that owns subcommands) is
-// guarded: it must carry the group-parent annotation and reject an unknown
-// subcommand with a usage exit code. Because it walks the whole tree, a new
-// command group — generated or hand-written, at any depth — is covered
-// automatically; if one is ever left unguarded, this fails.
+// guarded: a typo must not print help and exit 0. Because it walks the whole
+// tree, a new command group — generated or hand-written, at any depth — is
+// covered automatically; if one is ever left unguarded, this fails.
+//
+// A non-runnable parent is guarded by guardUnknownSubcommands, which annotates
+// it and attaches a RunE. A runnable parent (`pro backup`) is guarded by an
+// Args validator instead, and must NOT be given groupParentAnnotation:
+// PersistentPreRunE reads that annotation to skip auth, so annotating a parent
+// that calls an API would run it with a nil client.
 func TestGuardUnknownSubcommands_CoversAllGroupParents(t *testing.T) {
 	root := NewRootCmd("test", "none", "none", "none")
 
@@ -1288,7 +1384,13 @@ func TestGuardUnknownSubcommands_CoversAllGroupParents(t *testing.T) {
 				parents++
 				switch {
 				case sub.Annotations[groupParentAnnotation] != "true":
-					t.Errorf("group parent %q is not guarded: a typo would print help and exit 0", subPath)
+					if sub.Args == nil {
+						t.Errorf("group parent %q is not guarded: a typo would print help and exit 0", subPath)
+					} else if err := sub.Args(sub, []string{bogus}); err == nil {
+						t.Errorf("runnable group parent %q accepted unknown subcommand %q", subPath, bogus)
+					} else if code := exitcode.CodeFrom(err); code != exitcode.Usage {
+						t.Errorf("runnable group parent %q: unknown subcommand exit %d, want %d (usage)", subPath, code, exitcode.Usage)
+					}
 				case sub.RunE == nil:
 					t.Errorf("group parent %q is annotated but has no RunE", subPath)
 				default:

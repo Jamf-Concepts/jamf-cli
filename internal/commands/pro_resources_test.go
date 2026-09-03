@@ -167,3 +167,105 @@ func TestBackupFilterNames(t *testing.T) {
 		}
 	}
 }
+
+// TestResolveBackupResources_AdvancedSearches pins the split across two APIs.
+// There is no modern advanced-computer-searches spec, so the computer half must
+// stay classic while the mobile half stays modern; a future modern spec is
+// welcome to flip the computer key, but it must not silently drop either half.
+func TestResolveBackupResources_AdvancedSearches(t *testing.T) {
+	got, err := ResolveBackupResources([]string{"advanced-searches"})
+	if err != nil {
+		t.Fatalf("ResolveBackupResources: %v", err)
+	}
+	if len(got) != 2 {
+		t.Fatalf("expected 2 resolved entries for advanced-searches filter, got %d", len(got))
+	}
+
+	var keys, subdirs []string
+	for _, r := range got {
+		keys = append(keys, r.Key)
+		subdirs = append(subdirs, r.SubDir)
+	}
+	slices.Sort(keys)
+	slices.Sort(subdirs)
+
+	wantKeys := []string{"advanced-mobile-device-searches", "classic-advanced-computer-searches"}
+	if !slices.Equal(keys, wantKeys) {
+		t.Errorf("advanced-searches keys = %v, want %v — fix BackupResources in pro_resources.go", keys, wantKeys)
+	}
+	wantSubDirs := []string{"advanced-searches/computers", "advanced-searches/mobile"}
+	if !slices.Equal(subdirs, wantSubDirs) {
+		t.Errorf("advanced-searches subdirs = %v, want %v", subdirs, wantSubDirs)
+	}
+}
+
+// TestBackupResourceRows_EverySourceIsDerived sweeps the live tables so a token
+// added with no source fails here rather than rendering a blank column. A
+// curated token derives its source from BackupEndpoint.IsClassic; a
+// non-standard one has no endpoint to read, so it states Source in
+// nonStandardBackupFilters.
+func TestBackupResourceRows_EverySourceIsDerived(t *testing.T) {
+	rows, err := backupResourceRows()
+	if err != nil {
+		t.Fatalf("backupResourceRows: %v", err)
+	}
+
+	tokens := BackupFilterNames()
+	if len(tokens) == 0 {
+		t.Fatal("BackupFilterNames is empty — the sweep below would pass vacuously")
+	}
+	if len(rows) != len(tokens) {
+		t.Fatalf("backupResourceRows returned %d rows for %d tokens", len(rows), len(tokens))
+	}
+
+	seen := make(map[string]bool, len(rows))
+	for i, row := range rows {
+		name, _ := row["resource"].(string)
+		if name == "" {
+			t.Fatalf("row %d has no resource token", i)
+		}
+		seen[name] = true
+		if s, _ := row["source"].(string); s == "" {
+			t.Errorf("token %q has no source — a curated token needs an endpoint in "+
+				"generated.BackupEndpoints, a non-standard one needs Source set in "+
+				"nonStandardBackupFilters (pro_resources.go)", name)
+		}
+		if o, _ := row["objects"].(string); o == "" {
+			t.Errorf("token %q has no objects note (pro_resources.go)", name)
+		}
+	}
+	for _, want := range tokens {
+		if !seen[want] {
+			t.Errorf("token %q is accepted by --resources but backupResourceRows does not list it", want)
+		}
+	}
+}
+
+// TestBackupResourceRows_MixedTokenNamesBothAPIs guards the derivation itself:
+// advanced-searches and extension-attributes each span both APIs, so a source
+// that reported only the first endpoint's API would still look plausible.
+func TestBackupResourceRows_MixedTokenNamesBothAPIs(t *testing.T) {
+	rows, err := backupResourceRows()
+	if err != nil {
+		t.Fatalf("backupResourceRows: %v", err)
+	}
+
+	sources := make(map[string]string, len(rows))
+	for _, row := range rows {
+		name, _ := row["resource"].(string)
+		src, _ := row["source"].(string)
+		sources[name] = src
+	}
+
+	for _, token := range []string{"advanced-searches", "extension-attributes"} {
+		if got := sources[token]; got != "classic api, pro api" {
+			t.Errorf("source for %q = %q, want %q", token, got, "classic api, pro api")
+		}
+	}
+	if got := sources["scripts"]; got != "pro api" {
+		t.Errorf("source for %q = %q, want %q", "scripts", got, "pro api")
+	}
+	if got := sources["policies"]; got != "classic api" {
+		t.Errorf("source for %q = %q, want %q", "policies", got, "classic api")
+	}
+}

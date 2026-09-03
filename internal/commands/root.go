@@ -745,6 +745,11 @@ in the config file. It never runs in CI, when output is piped, or under
 				}
 			}
 
+			// A command that opts out for itself, wherever it sits in the tree.
+			if cmd.Annotations[noAuthAnnotation] == "true" {
+				return nil
+			}
+
 			// --scaffold just prints a JSON template — no auth needed.
 			if scaffold, _ := cmd.Flags().GetBool("scaffold"); scaffold {
 				return nil
@@ -1747,6 +1752,13 @@ func ClassifyError(err error) error {
 	return err
 }
 
+// noAuthAnnotation marks a single command that calls no API, so PersistentPreRunE
+// skips auth for it. An annotation travels with the one command it is set on,
+// which a third name map could not: matching a name is what makes chainSkip a
+// silent auth bypass for any other command that happens to share it, and what
+// rootOnlySkip exists to contain.
+const noAuthAnnotation = "jamf:no-auth"
+
 // groupParentAnnotation marks a parent command that guardUnknownSubcommands made
 // runnable solely to reject unknown subcommands. PersistentPreRunE skips auth for
 // these — a group parent never calls an API itself.
@@ -1769,11 +1781,6 @@ func guardUnknownSubcommands(cmd *cobra.Command) {
 	if !cmd.HasParent() || !cmd.HasSubCommands() || cmd.Runnable() {
 		return
 	}
-	// SuggestionsFor reads this directly with no default; child commands leave
-	// it at 0, which would suppress all but exact matches.
-	if cmd.SuggestionsMinimumDistance <= 0 {
-		cmd.SuggestionsMinimumDistance = 2
-	}
 	if cmd.Annotations == nil {
 		cmd.Annotations = map[string]string{}
 	}
@@ -1782,12 +1789,43 @@ func guardUnknownSubcommands(cmd *cobra.Command) {
 		if len(args) == 0 {
 			return c.Help() // bare parent (e.g. `pro buildings`) shows help
 		}
-		msg := fmt.Sprintf("unknown command %q for %q", args[0], c.CommandPath())
-		if s := c.SuggestionsFor(args[0]); len(s) > 0 {
-			msg += "\n\nDid you mean this?\n\t" + strings.Join(s, "\n\t")
-		}
-		return exitcode.Wrap(exitcode.Usage, errors.New(msg))
+		return unknownSubcommandError(c, args[0])
 	}
+}
+
+// refuseStrayArgs rejects any positional argument with the same message and
+// usage exit code guardUnknownSubcommands gives a group parent. It covers the
+// case that guard cannot: a command that is already runnable, which cobra
+// routes straight to RunE with the stray positional silently discarded. `pro
+// backup` and `pro diff` both take their whole input as flags, and `pro backup`
+// owns a subcommand, so a subcommand typo there would otherwise start a full
+// backup.
+//
+// A runnable command must NOT be given groupParentAnnotation instead:
+// PersistentPreRunE reads that annotation to skip auth, so annotating one that
+// calls an API would run it with a nil client.
+func refuseStrayArgs(cmd *cobra.Command, args []string) error {
+	if len(args) == 0 {
+		return nil
+	}
+	return unknownSubcommandError(cmd, args[0])
+}
+
+// unknownSubcommandError reports arg as an unresolvable subcommand of cmd, in
+// the wording and exit code cobra's own root-level handling uses. A command with
+// no subcommands simply gets no suggestion block.
+func unknownSubcommandError(cmd *cobra.Command, arg string) error {
+	// SuggestionsFor reads this directly with no default, and a child command
+	// leaves it at 0, which suppresses all but exact matches. Cobra's own
+	// findSuggestions defaults it the same way at the same point.
+	if cmd.SuggestionsMinimumDistance <= 0 {
+		cmd.SuggestionsMinimumDistance = 2
+	}
+	msg := fmt.Sprintf("unknown command %q for %q", arg, cmd.CommandPath())
+	if s := cmd.SuggestionsFor(arg); len(s) > 0 {
+		msg += "\n\nDid you mean this?\n\t" + strings.Join(s, "\n\t")
+	}
+	return exitcode.Wrap(exitcode.Usage, errors.New(msg))
 }
 
 // suggestFlag returns the closest known flag name to unknown, or "" when none
