@@ -143,7 +143,7 @@
         <a href="#commands" class="tag" data-product="school" data-tab="school">Jamf School <span class="tag-count" id="stat-school">&mdash;</span></a>
         <a href="#commands" class="tag" data-product="security" data-tab="security">Security Cloud <span class="tag-count" id="stat-security">&mdash;</span></a>
         <a href="#commands" class="tag" data-product="platform" data-tab="platform" data-tip="Includes Pro commands routed through the Platform Gateway. Counts overlap with Jamf Pro.">Platform API <span class="tag-count" id="stat-platform">&mdash;</span></a>
-        <a href="#commands" class="tag" data-product="core" data-tab="all">Core <span class="tag-count" id="stat-core">&mdash;</span></a>
+        <a href="#commands" class="tag" data-product="core" data-tab="core">Core <span class="tag-count" id="stat-core">&mdash;</span></a>
       </div>
     </div>
 
@@ -225,40 +225,46 @@
 
   <!-- ===== Commands Catalog ===== -->
   <section id="commands">
-    <div class="commands-sticky">
-      <div class="commands-header">
-        <h2>Commands</h2>
-        <div class="tabs">
-          <button class="tab active" data-filter="all">All</button>
-          <button class="tab" data-filter="platform"><svg class="product-icon" viewBox="0 0 43 43" fill="none"><path fill-rule="evenodd" clip-rule="evenodd" d="M33.63 6.96c-5.52 0-8.78 2.33-10.27 7.31l-3.84 11.88c-1.41 3.91-3.68 5.52-7.82 5.52H2.19A2.19 2.19 0 000 33.87v6.06c0 1.16.94 2.1 2.1 2.1h38.57a2.19 2.19 0 002.19-2.19V9.08c0-1.17-.95-2.12-2.11-2.12h-7.12z" fill="currentColor"/><path fill-rule="evenodd" clip-rule="evenodd" d="M2.35 0A2.35 2.35 0 000 2.35v16.22a2.29 2.29 0 002.29 2.29h8.17c3.74 0 8.88-.77 10.29-7.41l2.23-10.6A2.35 2.35 0 0020.68 0H2.35z" fill="currentColor"/></svg> Jamf Platform</button>
-          <button class="tab" data-filter="pro"><svg class="product-icon" viewBox="0 0 43 43" fill="none"><path fill-rule="evenodd" clip-rule="evenodd" d="M33.63 6.96c-5.52 0-8.78 2.33-10.27 7.31l-3.84 11.88c-1.41 3.91-3.68 5.52-7.82 5.52H2.19A2.19 2.19 0 000 33.87v6.06c0 1.16.94 2.1 2.1 2.1h38.57a2.19 2.19 0 002.19-2.19V9.08c0-1.17-.95-2.12-2.11-2.12h-7.12z" fill="currentColor"/><path fill-rule="evenodd" clip-rule="evenodd" d="M2.35 0A2.35 2.35 0 000 2.35v16.22a2.29 2.29 0 002.29 2.29h8.17c3.74 0 8.88-.77 10.29-7.41l2.23-10.6A2.35 2.35 0 0020.68 0H2.35z" fill="currentColor"/></svg> Jamf Pro</button>
-          <button class="tab" data-filter="protect"><svg class="product-icon" viewBox="0 0 43 43" fill="none"><path fill-rule="evenodd" clip-rule="evenodd" d="M33.63 6.96c-5.52 0-8.78 2.33-10.27 7.31l-3.84 11.88c-1.41 3.91-3.68 5.52-7.82 5.52H2.19A2.19 2.19 0 000 33.87v6.06c0 1.16.94 2.1 2.1 2.1h38.57a2.19 2.19 0 002.19-2.19V9.08c0-1.17-.95-2.12-2.11-2.12h-7.12z" fill="currentColor"/><path fill-rule="evenodd" clip-rule="evenodd" d="M2.35 0A2.35 2.35 0 000 2.35v16.22a2.29 2.29 0 002.29 2.29h8.17c3.74 0 8.88-.77 10.29-7.41l2.23-10.6A2.35 2.35 0 0020.68 0H2.35z" fill="currentColor"/></svg> Jamf Protect</button>
-          <button class="tab" data-filter="school"><svg class="product-icon" viewBox="0 0 43 43" fill="none"><path fill-rule="evenodd" clip-rule="evenodd" d="M33.63 6.96c-5.52 0-8.78 2.33-10.27 7.31l-3.84 11.88c-1.41 3.91-3.68 5.52-7.82 5.52H2.19A2.19 2.19 0 000 33.87v6.06c0 1.16.94 2.1 2.1 2.1h38.57a2.19 2.19 0 002.19-2.19V9.08c0-1.17-.95-2.12-2.11-2.12h-7.12z" fill="currentColor"/><path fill-rule="evenodd" clip-rule="evenodd" d="M2.35 0A2.35 2.35 0 000 2.35v16.22a2.29 2.29 0 002.29 2.29h8.17c3.74 0 8.88-.77 10.29-7.41l2.23-10.6A2.35 2.35 0 0020.68 0H2.35z" fill="currentColor"/></svg> Jamf School</button>
-          <button class="tab" data-filter="security"><svg class="product-icon" viewBox="0 0 43 43" fill="none"><path fill-rule="evenodd" clip-rule="evenodd" d="M33.63 6.96c-5.52 0-8.78 2.33-10.27 7.31l-3.84 11.88c-1.41 3.91-3.68 5.52-7.82 5.52H2.19A2.19 2.19 0 000 33.87v6.06c0 1.16.94 2.1 2.1 2.1h38.57a2.19 2.19 0 002.19-2.19V9.08c0-1.17-.95-2.12-2.11-2.12h-7.12z" fill="currentColor"/><path fill-rule="evenodd" clip-rule="evenodd" d="M2.35 0A2.35 2.35 0 000 2.35v16.22a2.29 2.29 0 002.29 2.29h8.17c3.74 0 8.88-.77 10.29-7.41l2.23-10.6A2.35 2.35 0 0020.68 0H2.35z" fill="currentColor"/></svg> Jamf Security Cloud</button>
+    <div class="section-head">
+      <h2>Commands</h2>
+      <p><span id="commands-total">&mdash;</span> commands, regenerated from the binary on every merge to main.</p>
+    </div>
+    <div class="tabs" role="tablist" aria-label="Filter by product">
+      <button class="tab active" role="tab" data-filter="all" type="button">All</button>
+      <button class="tab" role="tab" data-filter="platform" type="button">Platform API</button>
+      <button class="tab" role="tab" data-filter="pro" type="button">Jamf Pro</button>
+      <button class="tab" role="tab" data-filter="protect" type="button">Jamf Protect</button>
+      <button class="tab" role="tab" data-filter="school" type="button">Jamf School</button>
+      <button class="tab" role="tab" data-filter="security" type="button">Security Cloud</button>
+      <button class="tab" role="tab" data-filter="core" type="button">Core</button>
+    </div>
+    <div class="catalog-layout">
+      <nav class="group-nav" id="group-nav" aria-label="Command groups"></nav>
+      <div class="catalog-main">
+        <div class="catalog-controls">
+          <div class="search-wrap">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input id="search" type="text" placeholder="Search commands (press / to focus)" aria-label="Search commands">
+            <button id="search-clear" class="search-clear" aria-label="Clear search" type="button">&times;</button>
+          </div>
+          <button id="toggle-all" class="btn btn-secondary" type="button" title="Expand or collapse every row">Expand all</button>
+          <button class="btn btn-secondary kbd-hint-btn" id="kbd-hint-btn" type="button" title="Keyboard shortcuts (?)" aria-label="Keyboard shortcuts"><kbd>?</kbd></button>
         </div>
-      </div>
-      <div class="catalog-controls">
-        <div class="search-wrap">
-          <input id="search" type="text" placeholder="Search commands... (press / to focus)" aria-label="Search commands">
-          <button id="search-clear" class="search-clear" aria-label="Clear search" type="button">&times;</button>
-        </div>
-        <button id="toggle-all" class="toggle-all-btn" title="Expand/collapse all groups">Expand All</button>
-        <button class="kbd-hint-btn" id="kbd-hint-btn" title="Keyboard shortcuts (?)" aria-label="Keyboard shortcuts"><kbd>?</kbd></button>
+        <div id="catalog-loading">Loading commands...</div>
+        <noscript>
+          <div class="noscript-fallback">
+            <p>The interactive command catalog needs JavaScript. The full command reference is also available in plain text:</p>
+            <ul>
+              <li><a href="llms-full.txt">llms-full.txt</a> — every command, description, flags, and aliases as markdown (auto-generated, AI-friendly)</li>
+              <li><a href="llms.txt">llms.txt</a> — high-level project index for AI agents</li>
+              <li><a href="commands.json">commands.json</a> — machine-readable JSON</li>
+              <li><a href="https://github.com/Jamf-Concepts/jamf-cli/wiki" target="_blank" rel="noopener">Wiki</a> — full documentation</li>
+            </ul>
+          </div>
+        </noscript>
+        <div id="catalog"></div>
       </div>
     </div>
-    <div id="catalog-loading">Loading commands...</div>
-    <noscript>
-      <div class="noscript-fallback">
-        <p>The interactive command catalog needs JavaScript. The full command reference is also available in plain text:</p>
-        <ul>
-          <li><a href="llms-full.txt">llms-full.txt</a> — every command, description, flags, and aliases as markdown (auto-generated, AI-friendly)</li>
-          <li><a href="llms.txt">llms.txt</a> — high-level project index for AI agents</li>
-          <li><a href="commands.json">commands.json</a> — machine-readable JSON</li>
-          <li><a href="https://github.com/Jamf-Concepts/jamf-cli/wiki" target="_blank" rel="noopener">Wiki</a> — full documentation</li>
-        </ul>
-      </div>
-    </noscript>
-    <div id="catalog"></div>
   </section>
 
   <!-- ===== FAQ ===== -->
@@ -483,17 +489,6 @@
       this.setAttribute('aria-expanded', String(!expanded));
       document.querySelector('nav').classList.toggle('nav-open', !expanded);
     });
-
-    // Sticky commands bar — add shadow when stuck
-    (function () {
-      var sticky = document.querySelector('.commands-sticky');
-      if (!sticky) return;
-      var observer = new IntersectionObserver(function (entries) {
-        sticky.classList.toggle('stuck', !entries[0].isIntersecting);
-      }, { threshold: 1, rootMargin: '-57px 0px 0px 0px' });
-      var sentinel = document.getElementById('commands');
-      if (sentinel) observer.observe(sentinel);
-    })();
 
     // Theme toggle — three states cycling system → light → dark. System is
     // the default (no data-theme attribute, no stored value), so the page

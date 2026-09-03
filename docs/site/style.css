@@ -804,1006 +804,209 @@ a[target="_blank"]:hover::after {
   .hero-copy > *, .hero-terminal { animation: none; }
 }
 
-/* ===== Commands Catalog ===== */
+/* ===== Commands ===== */
 #commands {
-  scroll-margin-top: 60px;
-  padding: 2.5rem 2rem;
-  max-width: 960px;
-  margin: 0 auto;
-}
-
-.commands-sticky {
-  position: sticky;
-  top: 57px;
-  z-index: 10;
-  background: var(--page-bg);
-  padding-bottom: 0.75rem;
-  margin-left: -2rem;
-  margin-right: -2rem;
-  padding-left: 2rem;
-  padding-right: 2rem;
-  transition: box-shadow 0.2s;
-}
-
-/* Bleed mask — covers gap between sticky bar and content below */
-.commands-sticky::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: -0.5rem;
-  height: 0.5rem;
-  background: var(--page-bg);
-  pointer-events: none;
-}
-
-/* Bottom border — appears when stuck */
-.commands-sticky::after {
-  content: '';
-  position: absolute;
-  left: 2rem;
-  right: 2rem;
-  bottom: 0;
-  height: 1px;
-  background: var(--border);
-  opacity: 0;
-  transition: opacity 0.25s;
-}
-
-.commands-sticky.stuck {
-  box-shadow: var(--shadow-sticky);
-}
-
-.commands-sticky.stuck::after {
-  opacity: 1;
-}
-
-.commands-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 1rem;
-  margin-bottom: 0.75rem;
-}
-
-.commands-header h2 {
-  font-size: 1.5rem;
-  font-weight: 700;
-}
-
-/* Tabs */
-.tabs {
-  display: flex;
-  gap: 0.5rem;
-}
-
-.tab {
-  padding: 0.4rem 1rem;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: var(--tab-inactive-bg);
-  color: var(--text-secondary);
-  font-size: 0.85rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background 0.15s, color 0.15s, border-color 0.15s, scale 0.15s ease;
-}
-
-.tab:hover {
-  color: var(--text-primary);
-}
-
-.tab.active {
-  background: var(--brand-blue);
-  color: #fff;
-  border-color: var(--brand-blue);
-}
-
-.tab[data-filter="pro"] { color: var(--product-pro); }
-.tab[data-filter="protect"] { color: var(--product-protect); }
-.tab[data-filter="pro"].active { background: var(--product-pro); border-color: var(--product-pro); color: #fff; }
-.tab[data-filter="protect"].active { background: var(--product-protect); border-color: var(--product-protect); color: #fff; }
-.tab[data-filter="school"] { color: var(--product-school); }
-.tab[data-filter="security"] { color: var(--product-security); }
-.tab[data-filter="school"].active { background: var(--product-school); border-color: var(--product-school); color: #fff; }
-.tab[data-filter="security"].active { background: var(--product-security); border-color: var(--product-security); color: #fff; }
-.tab[data-filter="platform"] { color: var(--product-platform); }
-.tab[data-filter="platform"].active { background: var(--product-platform); border-color: var(--product-platform); color: #fff; }
-
-/* Search */
-.catalog-controls {
-  display: flex;
-  gap: 0.75rem;
-  align-items: center;
-}
-
-.search-wrap {
-  position: relative;
-  flex: 1;
-}
-
-.toggle-all-btn {
-  font-family: var(--font-family);
-  font-size: 0.8rem;
-  font-weight: 500;
-  color: var(--text-secondary);
-  background: var(--card-bg);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 0.65rem 1rem;
-  cursor: pointer;
-  white-space: nowrap;
-  transition: border-color 0.15s, color 0.15s, scale 0.15s ease;
-}
-
-.toggle-all-btn:hover {
-  border-color: var(--text-secondary);
-  color: var(--text-primary);
-}
-
-#search {
-  width: 100%;
-  padding: 0.65rem 2.5rem 0.65rem 1rem;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--card-bg);
-  color: var(--text-primary);
-  font-size: 0.9rem;
-  font-family: var(--font-family);
-  outline: none;
-  transition: border-color 0.15s;
-}
-
-.search-clear {
-  position: absolute;
-  right: 0.5rem;
-  top: 50%;
-  transform: translateY(-50%);
-  background: none;
-  border: none;
-  color: var(--text-secondary);
-  font-size: 1.2rem;
-  cursor: pointer;
-  padding: 0.2rem 0.4rem;
-  line-height: 1;
-  border-radius: 4px;
-  display: none;
-  transition: color 0.15s, background 0.15s, scale 0.15s ease;
-}
-
-.search-clear:hover {
-  color: var(--text-primary);
-  background: var(--border);
-}
-
-.search-wrap.has-value .search-clear {
-  display: block;
-}
-
-#search::placeholder {
-  color: var(--text-secondary);
-}
-
-#search:focus {
-  border-color: var(--accent);
-}
-
-/* Search highlights */
-.search-highlight {
-  background: var(--highlight);
-  color: inherit;
-  border-radius: 2px;
-  padding: 0 1px;
-}
-
-/* Noscript fallback — visible only when JS is disabled (and to crawlers
-   that ignore <noscript>, harmless). Provides direct links to the
-   AI/markdown/JSON dumps so non-JS clients still find the catalog. */
-.noscript-fallback {
-  max-width: 720px;
-  margin: 1.5rem auto;
-  padding: 1.5rem;
-  background: var(--card-bg);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  font-size: 0.95rem;
-}
-.noscript-fallback p {
-  margin-bottom: 0.75rem;
-}
-.noscript-fallback ul {
-  margin-left: 1.25rem;
-  line-height: 1.8;
-}
-.noscript-fallback a {
-  color: var(--accent);
-  text-decoration: underline;
-}
-
-/* Pillar dividers — running-header style labels that chunk the 28+ groups
-   into ~7 conceptual pillars (Devices, Software & Content, Identity & Access,
-   etc). Monospace + heavy tracking + fading hairline keeps them quiet
-   enough to ignore when scanning rows, present enough to anchor your
-   position when orienting. Editorial, not navigational. */
-.pillar-divider {
-  display: flex;
-  align-items: center;
-  gap: 0.85rem;
-  margin: 1.75rem 0 0.5rem;
-  padding: 0 0.25rem;
-}
-
-.pillar-divider:first-child {
-  margin-top: 0.25rem;
-}
-
-.pillar-label {
-  font-family: var(--font-mono);
-  font-size: 0.65rem;
-  font-weight: 500;
-  letter-spacing: 0.22em;
-  text-transform: uppercase;
-  color: var(--text-secondary);
-  opacity: 0.65;
-  white-space: nowrap;
-  flex-shrink: 0;
-}
-
-.pillar-rule {
-  flex: 1;
-  height: 1px;
-  background: linear-gradient(to right, var(--border), transparent 75%);
-}
-
-/* Resource sub-buckets — when a group has 8+ commands across 2+ resources,
-   catalog.js sub-buckets the leaf commands by resource (second word of the
-   command path). Each bucket is its own collapsible row with a count badge,
-   indented under the parent group with a left rule for visual hierarchy. */
-.resource-bucket {
-  margin: 0.15rem 0 0.15rem 0.5rem;
-  border-left: 2px solid var(--border);
-}
-
-.resource-header {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  padding: 0.4rem 0.75rem;
-  cursor: pointer;
-  font-family: var(--font-mono);
-  font-size: 0.82rem;
-  color: var(--text-secondary);
-  user-select: none;
-  border-radius: 0 4px 4px 0;
-  transition: background 0.12s, color 0.12s;
-}
-
-.resource-header:hover,
-.resource-header:focus-visible {
-  background: color-mix(in srgb, var(--accent) 8%, transparent);
-  color: var(--text-primary);
-}
-
-.resource-chevron {
-  display: inline-block;
-  font-size: 0.55rem;
-  transition: transform 0.15s ease;
-  flex-shrink: 0;
-  color: var(--text-secondary);
-}
-
-.resource-header[aria-expanded="true"] .resource-chevron {
-  transform: rotate(90deg);
-}
-
-.resource-name {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.resource-count-badge {
-  font-family: var(--font-family);
-  font-size: 0.65rem;
-  font-weight: 500;
-  padding: 0.05rem 0.4rem;
-  background: var(--card-bg);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  color: var(--text-secondary);
-  flex-shrink: 0;
-}
-
-.resource-commands {
-  padding: 0.1rem 0 0.1rem 0.5rem;
-}
-
-/* Catalog */
-#catalog-loading {
-  text-align: center;
-  color: var(--text-secondary);
-  padding: 3rem 0;
-  font-size: 0.95rem;
-}
-
-/* Product section dividers */
-.product-divider {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  margin: 1.25rem 0 0.75rem;
-  padding: 0.75rem 0.25rem;
-  position: sticky;
-  top: 158px;
-  z-index: 7;
-  background: var(--page-bg);
-}
-
-.product-divider:first-child {
-  margin-top: 0.25rem;
-}
-
-.product-divider-label {
-  font-size: 0.9rem;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  white-space: nowrap;
-}
-
-.product-divider::after {
-  content: '';
-  flex: 1;
-  height: 1px;
-}
-
-/* Product divider colors — add new products here */
-.product-divider[data-product="pro"] .product-divider-label { color: var(--product-pro); }
-.product-divider[data-product="pro"]::after { background: var(--product-pro); opacity: 0.3; }
-.product-divider[data-product="protect"] .product-divider-label { color: var(--product-protect); }
-.product-divider[data-product="protect"]::after { background: var(--product-protect); opacity: 0.3; }
-.product-divider[data-product="school"] .product-divider-label { color: var(--product-school); }
-.product-divider[data-product="security"] .product-divider-label { color: var(--product-security); }
-.product-divider[data-product="school"]::after { background: var(--product-school); opacity: 0.3; }
-.product-divider[data-product="security"]::after { background: var(--product-security); opacity: 0.3; }
-.product-divider[data-product="platform"] .product-divider-label { color: var(--product-platform); }
-.product-divider[data-product="platform"]::after { background: var(--product-platform); opacity: 0.3; }
-
-/* Count badge on group headers */
-.group-count-badge {
-  display: inline-block;
-  font-size: 0.65rem;
-  font-weight: 600;
-  padding: 0.1rem 0.45rem;
-  border-radius: 10px;
-  margin-left: 0.35rem;
-  vertical-align: middle;
-  background: var(--badge-bg);
-  color: var(--text-secondary);
-  font-variant-numeric: tabular-nums;
-}
-
-.group-new-dot {
-  display: inline-block;
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--new-indicator);
-  margin-left: 0.3rem;
-  vertical-align: middle;
-}
-
-/* Product badges wrapper in group headers */
-.header-badges {
-  margin-left: auto;
-  display: flex;
-  gap: 0.35rem;
-}
-
-.header-badges .cmd-product-badge {
-  position: static;
-  text-transform: none;
-}
-
-.product-icon {
-  width: 1em;
-  height: 1em;
-  vertical-align: -0.15em;
-}
-
-.catalog-group {
-  margin-bottom: 0.5rem;
-}
-
-.catalog-group-header {
-  display: flex;
-  align-items: center;
-  font-size: 0.8rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--accent);
-  padding: 0.75rem 1rem;
-  margin-bottom: 0;
-  cursor: pointer;
-  user-select: none;
-  background: var(--accent-tint);
-  border-left: 3px solid var(--accent);
-  border-radius: 4px;
-  position: sticky;
-  top: 196px;
-  z-index: 5;
-}
-
-/* Shared/core groups (no data-product) use gray */
-.catalog-group:not([data-product]) .catalog-group-header {
-  color: var(--muted-header-text);
-  border-left-color: var(--muted-header-border);
-  background: var(--muted-header-bg);
-}
-
-/* Product-colored group headers — add new products here */
-.catalog-group.getting-started .catalog-group-header {
-  border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
-  box-shadow: 0 0 6px color-mix(in srgb, var(--accent) 15%, transparent);
-  font-weight: 700;
-}
-
-.catalog-group.getting-started[data-product="pro"] .catalog-group-header {
-  border: 1px solid color-mix(in srgb, var(--product-pro) 30%, transparent);
-  box-shadow: 0 0 6px color-mix(in srgb, var(--product-pro) 15%, transparent);
-}
-
-.catalog-group.getting-started[data-product="protect"] .catalog-group-header {
-  border: 1px solid color-mix(in srgb, var(--product-protect) 30%, transparent);
-  box-shadow: 0 0 6px color-mix(in srgb, var(--product-protect) 15%, transparent);
-}
-.catalog-group.getting-started[data-product="school"] .catalog-group-header {
-  border: 1px solid color-mix(in srgb, var(--product-school) 30%, transparent);
-  box-shadow: 0 0 6px color-mix(in srgb, var(--product-school) 15%, transparent);
-}
-
-.catalog-group.getting-started[data-product="security"] .catalog-group-header {
-  border: 1px solid color-mix(in srgb, var(--product-security) 30%, transparent);
-  box-shadow: 0 0 6px color-mix(in srgb, var(--product-security) 15%, transparent);
-}
-.catalog-group.getting-started[data-product="platform"] .catalog-group-header {
-  border: 1px solid color-mix(in srgb, var(--product-platform) 30%, transparent);
-  box-shadow: 0 0 6px color-mix(in srgb, var(--product-platform) 15%, transparent);
-}
-
-.catalog-group[data-product="pro"] .catalog-group-header {
-  border-left-color: var(--product-pro);
-  color: var(--product-pro);
-  background: var(--tint-pro);
-}
-.catalog-group[data-product="protect"] .catalog-group-header {
-  border-left-color: var(--product-protect);
-  color: var(--product-protect);
-  background: var(--tint-protect);
-}
-.catalog-group[data-product="school"] .catalog-group-header {
-  border-left-color: var(--product-school);
-  color: var(--product-school);
-  background: var(--tint-school);
-}
-
-.catalog-group[data-product="security"] .catalog-group-header {
-  border-left-color: var(--product-security);
-  color: var(--product-security);
-  background: var(--tint-security);
-}
-.catalog-group[data-product="platform"] .catalog-group-header {
-  border-left-color: var(--product-platform);
-  color: var(--product-platform);
-  background: var(--tint-platform);
-}
-
-.catalog-group-header:hover {
-  color: var(--link-blue);
-  background: var(--accent-tint-hover);
-}
-
-.group-chevron {
-  display: inline-block;
-  font-size: 0.6rem;
-  margin-right: 0.4rem;
-  transition: transform 0.15s;
-}
-
-.catalog-group-header[aria-expanded="true"] .group-chevron {
-  transform: rotate(90deg);
-}
-
-.command-row {
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
-  padding: 0.6rem 1rem;
-  margin: 0.25rem 0;
-  border-radius: 6px;
-  cursor: pointer;
-  transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
-  background: var(--card-bg);
-  border: 1px solid var(--border);
-  box-shadow: var(--shadow-1);
-  position: relative;
+  gap: 24px;
+  max-width: 1440px;
+  margin: 0 auto;
+  padding: 24px 130px 64px;
+  box-sizing: border-box;
+  scroll-margin-top: 80px;
 }
-
-/* Row expand chevron */
-.row-chevron {
-  font-size: 1rem;
-  color: var(--text-secondary);
-  opacity: 0.3;
-  transition: transform 0.15s, opacity 0.15s;
-  pointer-events: none;
-  flex-shrink: 0;
-  margin-left: auto;
-  padding-left: 0.5rem;
-}
-
-/* When the row already carries a cross-product flow (`Pro › Protect`), the
-   row-expand chevron at the far right reads as a redundant second arrow.
-   Hide it on those rows — the whole row is still clickable, and the xref
-   itself is the visual cue that this command is interesting. */
-.command-desc-line:has(.xref-badge) .row-chevron {
-  display: none;
-}
-
-.command-row:hover .row-chevron {
-  opacity: 0.6;
-}
-
-.command-row.expanded .row-chevron {
-  transform: rotate(90deg);
-  opacity: 0.8;
-}
-
-/* One-time expand hint */
-.expand-hint {
-  display: block;
-  text-align: center;
-  font-size: 0.65rem;
-  color: var(--text-secondary);
-  opacity: 0.5;
-  animation: hint-pulse 2s ease-in-out infinite;
-  pointer-events: none;
-  padding-top: 0.25rem;
-}
-
-@keyframes hint-pulse {
-  0%, 100% { opacity: 0.4; }
-  50% { opacity: 0.8; }
-}
-
-.command-row:hover,
-.command-row:focus-visible {
-  border-color: var(--text-secondary);
-  background: var(--page-bg);
-}
-
-.command-name {
-  font-family: var(--font-mono);
-  font-size: 0.95rem;
-  color: var(--accent);
-}
-
-.command-name {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-}
-
-.command-copy-icon {
-  width: 13px;
-  height: 13px;
-  color: var(--text-secondary);
-  cursor: pointer;
-  flex-shrink: 0;
-  opacity: 0;
-  transition: opacity 0.1s;
-  vertical-align: middle;
-  margin-top: -2px;
-}
-
-.command-name:hover .command-copy-icon {
-  opacity: 0.5;
-}
-
-.command-copy-icon:hover {
-  opacity: 1;
-  color: var(--accent);
-}
-
-.command-name.copied .command-copy-icon {
-  color: var(--terminal-success);
-  opacity: 1;
-}
-
-.command-name.copied {
-  background: rgba(40, 200, 64, 0.1);
-  border-radius: 4px;
-  padding: 0.1rem 0.3rem;
-  margin: -0.1rem -0.3rem;
-}
-
-.command-name.copied .cmd-action,
-.command-name.copied .cmd-product,
-.command-name.copied .cmd-prefix {
-  color: var(--terminal-success);
-  opacity: 1;
-}
-
-.command-name.copied::after {
-  content: 'Copied!';
-  font-family: var(--font-family);
-  font-size: 0.65rem;
-  font-weight: 600;
-  font-style: normal;
-  color: var(--terminal-success);
-  margin-left: 0.5rem;
-}
-
-.new-badge {
-  display: inline-flex;
-  align-items: center;
-  font-family: var(--font-family);
-  font-size: 0.6rem;
+.tabs { display: flex; gap: 24px; border-bottom: 1px solid var(--border-base); }
+.tab {
+  padding: 10px 0;
+  margin-bottom: -1px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: none;
+  color: var(--font-secondary);
+  font: inherit;
   font-weight: 500;
+  cursor: pointer;
+}
+.tab:hover { color: var(--font-base); }
+.tab.active { color: var(--primary); border-bottom-color: var(--primary); }
+.tab:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--focus); border-radius: var(--r-small); }
+/* verify-site needs one selector per product tab */
+.tab[data-filter="pro"], .tab[data-filter="protect"], .tab[data-filter="school"],
+.tab[data-filter="security"], .tab[data-filter="platform"] { position: relative; }
+
+.catalog-layout { display: grid; grid-template-columns: 280px minmax(0, 1fr); gap: 32px; align-items: start; }
+
+/* Side navigation.
+   The sidebar is a <nav>, so it also matches the bare `nav` selector that
+   styles the top navigation. That rule's height, padding, background,
+   border-bottom and z-index are reset here — without the height reset the
+   sidebar collapsed to the top nav's 64px and hid every group but the
+   first, and without the flex-wrap reset the mobile `nav` rule's
+   `flex-wrap: wrap` broke the group list into side-by-side columns. */
+.group-nav {
+  position: sticky;
+  top: 80px;
+  z-index: 1;
+  height: auto;
+  max-height: calc(100vh - 96px);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  flex-wrap: nowrap;
+  align-items: stretch;
+  gap: 4px;
+  padding: 0 24px 0 0;
+  background: none;
+  border-bottom: 0;
+  border-right: 1px solid var(--border-base);
+}
+.group-nav-product {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 12px 4px;
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 700;
+}
+.group-nav-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--font-tertiary); }
+.group-nav-product[data-product="pro"] .group-nav-dot { background: var(--product-pro); }
+.group-nav-product[data-product="protect"] .group-nav-dot { background: var(--product-protect); }
+.group-nav-product[data-product="school"] .group-nav-dot { background: var(--product-school); }
+.group-nav-product[data-product="security"] .group-nav-dot { background: var(--product-security); }
+.group-nav-product[data-product="platform"] .group-nav-dot { background: var(--product-platform); }
+.group-nav-pillar {
+  padding: 8px 12px 0;
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--font-tertiary);
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  background: color-mix(in srgb, var(--new-indicator) 10%, transparent);
-  color: var(--new-indicator);
-  padding: 0.1rem 0.4rem;
-  border-radius: 4px;
-  white-space: nowrap;
-  flex-shrink: 0;
 }
-
-.command-name .cmd-product {
-  font-weight: 500;
-  opacity: 0.7;
-}
-
-.command-name .cmd-prefix {
-  font-weight: 400;
-  color: var(--text-secondary);
-}
-
-.command-name .cmd-action {
-  font-weight: 700;
-  color: var(--text-primary);
-}
-
-/* Product-specific command colors — add new products here */
-.command-row[data-product="pro"] .command-name { color: var(--product-pro); }
-.command-row[data-product="protect"] .command-name { color: var(--product-protect); }
-.command-row[data-product="school"] .command-name { color: var(--product-school); }
-.command-row[data-product="security"] .command-name { color: var(--product-security); }
-.command-row[data-product="platform"] .command-name { color: var(--product-platform); }
-/* .command-row[data-product="connect"] .command-name { color: var(--product-connect); } */
-
-.command-desc {
-  font-size: 0.85rem;
-  color: var(--text-secondary);
-  line-height: 1.4;
-}
-
-.command-meta {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.25rem;
-}
-
-/* Command expanded state */
-.command-expanded {
-  display: none;
-  padding: 0.75rem 1rem 0.75rem 1.25rem;
-  margin: 0 0 0.25rem;
-  background: var(--card-bg);
-  border-left: 3px solid var(--accent);
-  border-radius: 0 0 6px 6px;
-}
-
-.command-expanded.open {
-  display: block;
-}
-
-/* Connect command row to its expanded detail */
-.command-row:has(+ .command-expanded.open) {
-  border-radius: 6px 6px 0 0;
-  border-left: 3px solid var(--accent);
-  margin-bottom: 0;
-}
-
-.command-row[data-product="protect"]:has(+ .command-expanded.open) {
-  border-left-color: var(--product-protect);
-}
-
-/* Product-colored left border on expanded panel */
-.command-row[data-product="protect"] + .command-expanded {
-  border-left-color: var(--product-protect);
-}
-
-.command-desc-line {
+.group-nav-item {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  position: relative;
-}
-
-.command-desc-line .command-desc {
-  flex: 1;
-}
-
-.cmd-product-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.2rem;
-  font-size: 0.6rem;
-  font-weight: 500;
-  padding: 0.1rem 0.4rem;
-  border-radius: 4px;
-  white-space: nowrap;
-  flex-shrink: 0;
-}
-
-.cmd-product-badge[data-product="pro"] {
-  color: var(--product-pro);
-  background: color-mix(in srgb, var(--product-pro) 8%, transparent);
-}
-
-.cmd-product-badge[data-product="protect"] {
-  color: var(--product-protect);
-  background: color-mix(in srgb, var(--product-protect) 8%, transparent);
-}
-
-.cmd-product-badge[data-product="school"] {
-  color: var(--product-school);
-  background: color-mix(in srgb, var(--product-school) 8%, transparent);
-}
-
-.cmd-product-badge[data-product="security"] {
-  color: var(--product-security);
-  background: color-mix(in srgb, var(--product-security) 8%, transparent);
-}
-
-.cmd-product-badge[data-product="platform"] {
-  color: var(--product-platform);
-  background: color-mix(in srgb, var(--product-platform) 8%, transparent);
-}
-
-/* Right-aligned "Jamf Platform" pill on Platform-* group headers — mirrors
-   the cmd-product-badge style on command rows. Uses --text-primary so the
-   text and icon auto-flip to black in light / white in dark, against a
-   subtle theme-neutral background pulled from --border. */
-.platform-section-badge {
-  margin-left: auto;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.2rem;
-  font-size: 0.6rem;
-  font-weight: 500;
-  padding: 0.1rem 0.4rem;
-  border-radius: 4px;
-  color: var(--text-primary);
-  background: var(--border);
-  white-space: nowrap;
-  flex-shrink: 0;
-  text-transform: none;
-  letter-spacing: 0;
-}
-
-.platform-section-badge .product-icon {
-  width: 12px;
-  height: 12px;
-  color: var(--text-primary);
-}
-
-/* Cross-product flow connector — sits between the source product badge
-   and the xref badge to read as "Pro → Protect". Inline-flex with
-   align-items:center so the glyph aligns to the badges' visual center
-   instead of the typographic baseline. */
-.cmd-product-arrow {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  width: 0.9rem;
-  font-size: 0.95rem;
-  line-height: 1;
-  color: var(--text-secondary);
-  opacity: 0.55;
-  user-select: none;
-}
-
-/* Cross-product reference badge */
-.xref-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.2rem;
-  font-size: 0.6rem;
-  font-weight: 600;
-  padding: 0.15rem 0.5rem;
-  border-radius: 10px;
-  white-space: nowrap;
-  flex-shrink: 0;
-}
-
-.xref-badge[data-product="pro"] {
-  background: color-mix(in srgb, var(--product-pro) 10%, transparent);
-  color: var(--product-pro);
-}
-
-.xref-badge[data-product="protect"] {
-  background: color-mix(in srgb, var(--product-protect) 10%, transparent);
-  color: var(--product-protect);
-}
-
-.xref-badge[data-product="school"] {
-  background: color-mix(in srgb, var(--product-school) 10%, transparent);
-  color: var(--product-school);
-}
-
-.xref-badge[data-product="security"] {
-  background: color-mix(in srgb, var(--product-security) 10%, transparent);
-  color: var(--product-security);
-}
-
-.detail-breadcrumb {
-  font-size: 0.8rem;
-  color: var(--text-secondary);
-  margin-bottom: 0.75rem;
-}
-
-.detail-parent-link {
-  color: var(--accent);
-  font-family: var(--font-mono);
-  font-size: 0.8rem;
-  text-decoration: none;
-}
-
-.detail-parent-link:hover {
-  text-decoration: underline;
-}
-
-.detail-siblings {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.35rem;
-  margin-top: 0.35rem;
-}
-
-.sibling-link {
-  display: inline-block;
-  font-family: var(--font-mono);
-  font-size: 0.75rem;
-  font-weight: 500;
-  padding: 0.25rem 0.6rem;
-  border-radius: 6px;
-  text-decoration: none;
-  background: var(--card-bg);
-  color: var(--accent);
-  border: 1px solid var(--border);
-  transition: background 0.1s, border-color 0.1s;
-}
-
-.sibling-link:hover {
-  border-color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 8%, transparent);
-}
-
-.sibling-link[data-product="protect"] {
-  color: var(--product-protect);
-}
-
-.sibling-link[data-product="protect"]:hover {
-  border-color: var(--product-protect);
-  background: color-mix(in srgb, var(--product-protect) 8%, transparent);
-}
-
-.detail-heading {
-  font-size: 0.75rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--text-secondary);
-  margin-bottom: 0.35rem;
-  margin-top: 0.75rem;
-}
-
-.detail-heading:first-child {
-  margin-top: 0;
-}
-
-/* Example blocks */
-.example-block {
-  margin-bottom: 0.5rem;
-}
-
-.example-block:last-child {
-  margin-bottom: 0;
-}
-
-.example-desc {
-  font-size: 0.8rem;
-  color: var(--text-secondary);
-  margin-bottom: 0.25rem;
-}
-
-pre.example-command {
-  background: var(--terminal-bg);
-  color: var(--terminal-text);
-  border: 1px solid var(--terminal-border);
-  border-radius: 6px;
-  padding: 0.5rem 0.75rem;
-  font-size: 0.72rem;
-  line-height: 1.5;
-  overflow-x: auto;
-  margin: 0;
+  height: var(--h-action);
+  padding: 0 12px;
+  border: 1px solid transparent;
+  border-radius: var(--r-base);
+  background: none;
+  color: var(--font-base);
+  font: inherit;
+  text-align: left;
   cursor: pointer;
-  transition: border-color 0.15s;
 }
+.group-nav-item:hover { background: var(--structure-secondary); }
+.group-nav-item.active { background: var(--structure-secondary); border-color: var(--border-base); font-weight: 700; }
+.group-nav-item:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--focus); }
+.group-nav-label { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.group-nav-count { margin-left: auto; font-family: var(--font-mono); font-size: 12px; color: var(--font-tertiary); font-weight: 400; }
 
-pre.example-command:hover {
-  border-color: var(--accent);
+/* Controls */
+.catalog-main { display: flex; flex-direction: column; gap: 16px; }
+.catalog-controls { display: flex; align-items: center; gap: 12px; }
+.search-wrap {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: var(--h-action);
+  padding: 0 12px;
+  border: 1px solid var(--border-base);
+  border-radius: var(--r-base);
+  background: var(--structure-base);
+  color: var(--font-tertiary);
 }
+.search-wrap:focus-within { border-color: var(--primary); box-shadow: 0 0 0 2px var(--focus); }
+.search-wrap svg { width: 14px; height: 14px; flex-shrink: 0; }
+#search { flex: 1; border: 0; outline: 0; background: none; color: var(--font-base); font: inherit; }
+#search::placeholder { color: var(--font-tertiary); }
+.search-clear { border: 0; background: none; color: var(--font-tertiary); font-size: 18px; cursor: pointer; }
+#catalog-loading, .catalog-empty { padding: 32px 0; text-align: center; color: var(--font-tertiary); }
+.noscript-fallback { padding: 16px; border: 1px solid var(--border-base); border-radius: var(--r-base); }
+.noscript-fallback p { margin: 0 0 8px; }
+.noscript-fallback ul { margin: 0; padding-left: 20px; }
 
-pre.example-command.copied {
-  border-color: var(--terminal-success);
+/* Group table */
+.group-table { display: flex; flex-direction: column; gap: 16px; }
+.group-table + .group-table { margin-top: 32px; }
+.group-table-head { display: flex; align-items: baseline; gap: 16px; }
+.group-table-head h3 { margin: 0; font-size: 24px; line-height: 28px; font-weight: 700; }
+.group-table-meta { color: var(--font-secondary); }
+.cmd-table { border: 1px solid var(--border-base); border-radius: var(--r-base); overflow: hidden; }
+.cmd-table-header,
+.command-row {
+  display: grid;
+  grid-template-columns: 360px minmax(0, 1fr) 160px;
+  gap: 16px;
+  align-items: center;
+  padding: 0 16px;
+  box-sizing: border-box;
 }
-
-pre.example-command.copied::after {
-  content: 'Copied!';
-  float: right;
-  font-family: var(--font-family);
-  font-size: 0.65rem;
-  font-weight: 600;
-  color: var(--terminal-success);
+.cmd-table-header {
+  height: 44px;
+  background: var(--structure-secondary);
+  border-bottom: 1px solid var(--border-base);
+  font-weight: 700;
 }
-
-.command-expanded pre {
-  background: var(--terminal-bg);
-  color: var(--terminal-text);
-  border: 1px solid var(--terminal-border);
-  border-radius: 6px;
-  padding: 0.75rem 1rem;
-  font-size: 0.8rem;
-  line-height: 1.6;
-  overflow-x: auto;
-  margin-top: 0.5rem;
+.command-row {
+  min-height: 48px;
+  padding-top: 8px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border-secondary);
+  cursor: pointer;
 }
+.command-row:last-child { border-bottom: 0; }
+.command-row:hover { background: var(--structure-secondary); }
+.command-row:focus-visible { outline: none; box-shadow: inset 0 0 0 2px var(--focus); }
+.command-row.expanded { background: var(--structure-secondary); border-bottom-color: transparent; }
+.command-name { display: flex; align-items: center; gap: 8px; font-family: var(--font-mono); font-size: 13px; }
+.cmd-product { color: var(--font-tertiary); }
+.command-row[data-product="pro"] .cmd-product { color: var(--product-pro); }
+.command-row[data-product="protect"] .cmd-product { color: var(--product-protect); }
+.command-row[data-product="school"] .cmd-product { color: var(--product-school); }
+.command-row[data-product="security"] .cmd-product { color: var(--product-security); }
+.command-row[data-product="platform"] .cmd-product { color: var(--product-platform); }
+.cmd-prefix { color: var(--font-tertiary); }
+.cmd-action { font-weight: 600; }
+.command-copy-icon { border: 0; background: none; color: var(--font-tertiary); width: 24px; height: 24px; padding: 4px; border-radius: var(--r-small); cursor: pointer; opacity: 0; }
+.command-copy-icon svg { width: 14px; height: 14px; }
+.command-row:hover .command-copy-icon, .command-copy-icon:focus-visible { opacity: 1; }
+.command-name.copied .command-copy-icon { color: var(--success); opacity: 1; }
+.command-desc { color: var(--font-secondary); }
+.command-marks { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-start; }
+mark { background: var(--highlight); color: inherit; border-radius: 2px; }
 
-/* Flag pills */
-.flag-pill {
-  display: inline-block;
+/* Drawer */
+.command-detail { padding: 4px 16px 20px; background: var(--structure-secondary); border-bottom: 1px solid var(--border-secondary); }
+.detail-grid { display: grid; grid-template-columns: 360px minmax(0, 1fr); gap: 24px; }
+.detail-col { display: flex; flex-direction: column; gap: 12px; }
+.detail-heading { font-size: 12px; line-height: 16px; font-weight: 700; }
+.detail-flags { display: flex; flex-wrap: wrap; gap: 6px; }
+.detail-meta { font-size: 12px; line-height: 16px; color: var(--font-tertiary); }
+.detail-meta strong { color: var(--font-base); font-weight: 500; }
+.detail-breadcrumb { font-size: 12px; color: var(--font-tertiary); }
+.command-detail .code-block { font-size: 12px; line-height: 18px; }
+.detail-example { display: flex; flex-direction: column; gap: 6px; }
+/* Capped for the same reason as .detail-output: a top-level command's
+   parent path is the product itself, so its sibling list is every resource
+   under that product. */
+.detail-siblings { display: flex; flex-wrap: wrap; gap: 6px; max-height: 132px; overflow-y: auto; }
+.sibling-link,
+.detail-parent-link { font-family: var(--font-mono); font-size: 12px; }
+/* Capped: a hero example's captured output runs to hundreds of lines, and
+   an uncapped <pre> made the drawer several screens tall. */
+.detail-output {
+  margin: 0;
+  max-height: 320px;
+  overflow: auto;
+  padding: 12px;
+  border-radius: var(--r-base);
+  background: var(--code-bg);
+  color: var(--code-fg);
   font-family: var(--font-mono);
-  font-size: 0.6rem;
-  background: var(--pill-bg);
-  color: var(--pill-text);
-  padding: 0.15rem 0.5rem;
-  border-radius: 4px;
-  margin-right: 0.25rem;
-  margin-bottom: 0.25rem;
-  border: none;
-}
-
-/* Alias badge */
-.alias-badge {
-  display: inline-block;
-  font-family: var(--font-mono);
-  font-size: 0.6rem;
-  background: var(--pill-bg);
-  color: var(--pill-text);
-  padding: 0.15rem 0.5rem;
-  border-radius: 4px;
-  margin-right: 0.25rem;
-  border: none;
+  font-size: 12px;
+  line-height: 18px;
 }
 
 /* ===== Facts band ===== */
@@ -2187,37 +1390,38 @@ footer .footer-meta {
   }
 
   #commands {
-    padding: 2rem 1rem;
+    padding: 24px 1.25rem 48px;
   }
 
-  .commands-sticky {
-    top: 50px;
-    margin-left: -1rem;
-    margin-right: -1rem;
-    padding-left: 1rem;
-    padding-right: 1rem;
+  /* The sidebar stops being sticky and stacks above the table. */
+  .catalog-layout {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 24px;
   }
 
-  .commands-header {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 0.75rem;
+  .group-nav {
+    position: static;
+    max-height: 240px;
+    padding: 0 0 12px;
+    border-right: 0;
+    border-bottom: 1px solid var(--border-base);
   }
 
   .tabs {
-    width: 100%;
+    gap: 16px;
+    overflow-x: auto;
   }
 
   .tab {
-    flex: 1;
-    text-align: center;
-    font-size: 0.75rem;
-    padding: 0.5rem 0.5rem;
+    white-space: nowrap;
   }
 
   .catalog-controls {
-    flex-direction: column;
-    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+
+  .search-wrap {
+    flex-basis: 100%;
   }
 
   /* iOS Safari zooms the page when a focused input is under 16px —
@@ -2227,64 +1431,22 @@ footer .footer-meta {
     font-size: 1rem;
   }
 
-  .toggle-all-btn {
-    width: 100%;
-  }
-
-  .product-divider {
-    top: 248px;
-  }
-
-  .catalog-group-header {
-    top: 286px;
-    font-size: 0.7rem;
-    padding: 0.6rem 0.75rem;
-  }
-
-  .header-badges {
+  /* One column per row: the grid collapses to a stack. */
+  .cmd-table-header {
     display: none;
   }
 
-  .command-name {
-    font-size: 0.75rem;
+  .command-row {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 4px;
   }
 
-  .command-desc {
-    font-size: 0.8rem;
+  .detail-grid {
+    grid-template-columns: minmax(0, 1fr);
   }
 
-  .flag-pill,
-  .alias-badge {
-    font-size: 0.6rem;
-    padding: 0.1rem 0.35rem;
-  }
-
-  .cmd-product-badge {
-    font-size: 0.5rem;
-  }
-
-  /* Hide product badge on mobile — product is shown in the divider */
-  .command-desc-line .cmd-product-badge {
-    display: none;
-  }
-
-  .row-chevron {
-    font-size: 0.9rem;
-    padding-left: 0.25rem;
-  }
-
-  /* Example blocks: smaller text, horizontal scroll */
-  pre.example-command {
-    font-size: 0.65rem;
-  }
-
-  .example-desc {
-    font-size: 0.75rem;
-  }
-
-  /* Expand hint */
-  .expand-hint {
-    font-size: 0.6rem;
+  .command-copy-icon {
+    opacity: 1;
   }
 
   /* Footer links: hide external icons on mobile */
@@ -2362,7 +1524,7 @@ footer .footer-meta {
 @media (prefers-reduced-motion: no-preference) {
   .copy-btn:active,
   .tab:active,
-  .toggle-all-btn:active,
+  .btn:active,
   .kbd-hint-btn:active,
   .theme-toggle:active,
   .search-clear:active,
@@ -2442,7 +1604,6 @@ footer .footer-meta {
 /* balance: even line lengths on short headings (the hero subtitle already
    has it). Ignored by the browser above ~6 lines, so headings-only. */
 #hero h1,
-.commands-header h2,
 #quickstart h2,
 #faq h2,
 .faq-item h3 {
@@ -2473,29 +1634,4 @@ footer .footer-meta {
 
 input:focus-visible {
   outline: none;
-}
-
-/* Destructive-command badge — semantic danger, always paired with the
-   "destructive" label so meaning survives grayscale and screen readers */
-.danger-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.25rem;
-  font-family: var(--font-family);
-  font-size: 0.6rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--danger);
-  background: color-mix(in srgb, var(--danger) 8%, transparent);
-  padding: 0.1rem 0.4rem;
-  border-radius: 4px;
-  white-space: nowrap;
-  flex-shrink: 0;
-}
-
-.danger-badge svg {
-  width: 10px;
-  height: 10px;
-  flex-shrink: 0;
 }
