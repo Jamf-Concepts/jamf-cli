@@ -326,6 +326,7 @@
 
     currentSearchQuery = (searchQuery || '').trim().toLowerCase();
     expandedCommand = null;
+    resetToggleAll();
     var hasSearch = !!currentSearchQuery;
 
     // Sidebar: full groups for the whole product filter, never narrowed by
@@ -764,6 +765,23 @@
     return row;
   }
 
+  // One drawer build for both callers. role="row" needs a cell child, so the
+  // detail content sits inside a single cell that spans the three columns.
+  function openDrawer(row, cmd) {
+    var detail = document.createElement('div');
+    detail.className = 'command-detail';
+    detail.setAttribute('role', 'row');
+    var cell = document.createElement('div');
+    cell.className = 'detail-cell';
+    cell.setAttribute('role', 'cell');
+    cell.setAttribute('aria-colspan', '3');
+    cell.appendChild(buildDetailContent(cmd));
+    detail.appendChild(cell);
+    row.parentNode.insertBefore(detail, row.nextSibling);
+    row.classList.add('expanded');
+    row.setAttribute('aria-expanded', 'true');
+  }
+
   function toggleRowDetail(row, cmd) {
     var next = row.nextElementSibling;
     if (next && next.classList.contains('command-detail')) {
@@ -781,13 +799,7 @@
       open[i].previousElementSibling.setAttribute('aria-expanded', 'false');
       open[i].remove();
     }
-    var detail = document.createElement('div');
-    detail.className = 'command-detail';
-    detail.setAttribute('role', 'row');
-    detail.appendChild(buildDetailContent(cmd));
-    row.parentNode.insertBefore(detail, row.nextSibling);
-    row.classList.add('expanded');
-    row.setAttribute('aria-expanded', 'true');
+    openDrawer(row, cmd);
     expandedCommand = cmd.command;
     updateCommandHash(cmd.command);
   }
@@ -816,10 +828,11 @@
   }
 
   function copyWithFeedback(text, element) {
+    if (!navigator.clipboard) return;
     navigator.clipboard.writeText(text).then(function () {
       element.classList.add('copied');
       setTimeout(function () { element.classList.remove('copied'); }, 1500);
-    });
+    }).catch(function () {});
   }
 
   function createDetailHeading(text) {
@@ -1064,10 +1077,9 @@
   function activateProductTab(filter) {
     var tabs = document.querySelectorAll('.tab');
     for (var j = 0; j < tabs.length; j++) {
-      tabs[j].classList.remove('active');
-      if (tabs[j].getAttribute('data-filter') === filter) {
-        tabs[j].classList.add('active');
-      }
+      var isActive = tabs[j].getAttribute('data-filter') === filter;
+      tabs[j].classList.toggle('active', isActive);
+      tabs[j].setAttribute('aria-selected', isActive ? 'true' : 'false');
     }
     activeProduct = filter;
     selectedGroup = null; // first group of the new product
@@ -1096,10 +1108,19 @@
     });
   }
 
+  // Every render replaces the rows, so each drawer closes. The button label
+  // and the flag must go back to the collapsed state with them.
+  var allExpanded = false;
+
+  function resetToggleAll() {
+    allExpanded = false;
+    var btn = document.getElementById('toggle-all');
+    if (btn) btn.textContent = 'Expand all';
+  }
+
   function setupToggleAll() {
     var btn = document.getElementById('toggle-all');
     if (!btn) return;
-    var allExpanded = false;
 
     btn.addEventListener('click', function () {
       allExpanded = !allExpanded;
@@ -1133,13 +1154,7 @@
       if (expandedCommand === cmd.command) expandedCommand = null;
       return;
     }
-    var detail = document.createElement('div');
-    detail.className = 'command-detail';
-    detail.setAttribute('role', 'row');
-    detail.appendChild(buildDetailContent(cmd));
-    row.parentNode.insertBefore(detail, row.nextSibling);
-    row.classList.add('expanded');
-    row.setAttribute('aria-expanded', 'true');
+    openDrawer(row, cmd);
   }
 
   function commandByPath(command) {
@@ -1212,7 +1227,7 @@
     document.addEventListener('keydown', function (e) {
       // Only handle when not in an input
       var tag = document.activeElement.tagName;
-      if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
 
       var rows = catalog.querySelectorAll('.command-row');
       if (rows.length === 0) return;
@@ -1260,10 +1275,11 @@
       e.stopPropagation();
       var text = btn.getAttribute('data-copy');
       if (!text) return;
+      if (!navigator.clipboard) return;
       navigator.clipboard.writeText(text).then(function () {
         btn.classList.add('copied');
         setTimeout(function () { btn.classList.remove('copied'); }, 2000);
-      });
+      }).catch(function () {});
     });
   }
 

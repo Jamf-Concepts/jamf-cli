@@ -118,7 +118,7 @@
   text-overflow: ellipsis;
 }
 .palette-item-name mark {
-  background: color-mix(in srgb, var(--primary) 22%, transparent);
+  background: var(--search-highlight);
   color: inherit;
   border-radius: 2px;
   padding: 0 1px;
@@ -536,8 +536,8 @@ a[target="_blank"]:hover::after {
 .btn:hover { text-decoration: none; }
 .btn:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--focus); }
 .btn svg { width: 14px; height: 14px; }
-.btn-primary { background: var(--primary); color: #ffffff; }
-.btn-primary:hover { background: var(--primary-active); color: #ffffff; }
+.btn-primary { background: var(--primary); color: var(--font-inverse); }
+.btn-primary:hover { background: var(--primary-active); color: var(--font-inverse); }
 .btn-secondary { background: var(--structure-base); color: var(--font-base); border-color: var(--border-base); }
 .btn-secondary:hover { background: var(--structure-secondary); color: var(--font-base); }
 .btn-dark { background: var(--structure-inverse); color: var(--font-inverse); }
@@ -639,9 +639,9 @@ a[target="_blank"]:hover::after {
   align-items: center;
   height: 40px;
   padding: 0 14px;
-  color: var(--font-tertiary);
+  font-weight: 700;
+  color: var(--font-base);
 }
-.example-tab.active { font-weight: 700; color: var(--font-base); border-right: 1px solid var(--border-base); }
 .example-footer {
   display: flex;
   justify-content: flex-end;
@@ -943,7 +943,7 @@ a[target="_blank"]:hover::after {
 .command-name.copied .command-copy-icon { color: var(--success); opacity: 1; }
 .command-desc { color: var(--font-secondary); }
 .command-marks { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-start; }
-mark { background: var(--search-highlight); color: inherit; border-radius: 2px; }
+mark, .search-highlight { background: var(--search-highlight); color: inherit; border-radius: 2px; }
 
 /* Drawer */
 .command-detail { padding: 4px 16px 20px; background: var(--structure-secondary); border-bottom: 1px solid var(--border-secondary); }
@@ -1008,9 +1008,9 @@ mark { background: var(--search-highlight); color: inherit; border-radius: 2px; 
   margin: 0 auto;
   padding: 80px 130px 64px;
   box-sizing: border-box;
-  scroll-margin-top: 60px;
+  scroll-margin-top: 64px;
 }
-#install { scroll-margin-top: 60px; }
+#install { scroll-margin-top: 64px; }
 .section-head { display: flex; flex-direction: column; gap: 8px; }
 .section-head h2 { margin: 0; font-size: 28px; line-height: 36px; font-weight: 700; }
 .section-head p { margin: 0; color: var(--font-secondary); }
@@ -1032,7 +1032,7 @@ mark { background: var(--search-highlight); color: inherit; border-radius: 2px; 
   height: 24px;
   border-radius: var(--r-pill);
   background: var(--primary);
-  color: #ffffff;
+  color: var(--font-inverse);
   font-size: 12px;
   font-weight: 700;
 }
@@ -1064,7 +1064,7 @@ mark { background: var(--search-highlight); color: inherit; border-radius: 2px; 
   padding: 56px 130px;
   box-sizing: border-box;
   border-top: 1px solid var(--border-base);
-  scroll-margin-top: 60px;
+  scroll-margin-top: 64px;
 }
 #faq h2 { margin: 0; font-size: 28px; line-height: 36px; font-weight: 700; }
 .faq-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 28px 48px; }
@@ -1127,7 +1127,7 @@ footer {
 
 .back-to-top:hover {
   background: var(--primary);
-  color: #fff;
+  color: var(--font-inverse);
   border-color: var(--primary);
 }
 
@@ -1143,12 +1143,12 @@ footer {
 }
 
 /* Pulse the dash placeholders until data loads */
-#stat-pro, #stat-protect {
+#stat-pro, #stat-protect, #stat-school, #stat-security, #stat-platform, #stat-core {
   animation: skeleton-pulse 1.5s ease-in-out infinite;
 }
 
 /* Stop pulsing once populated (JS removes the dash) */
-#stat-pro.loaded, #stat-protect.loaded {
+#stat-pro.loaded, #stat-protect.loaded, #stat-school.loaded, #stat-security.loaded, #stat-platform.loaded, #stat-core.loaded {
   animation: none;
 }
 
@@ -1336,6 +1336,7 @@ footer {
 /* ===== Theme Toggle ===== */
 .theme-toggle {
   position: relative;
+  flex-shrink: 0;
   width: var(--h-action);
   height: var(--h-action);
   border: 1px solid var(--border-base);
@@ -1467,16 +1468,10 @@ footer {
 
 /* balance: even line lengths on short headings (the hero subtitle already
    has it). Ignored by the browser above ~6 lines, so headings-only. */
-#hero h1,
 #quickstart h2,
 #faq h2,
 .faq-item h3 {
   text-wrap: balance;
-}
-
-/* pretty: prevents a lone orphan word on the last line of body copy. */
-.faq-item p {
-  text-wrap: pretty;
 }
 
 /* ===== Colorize (impeccable) — semantic color reach ===== */

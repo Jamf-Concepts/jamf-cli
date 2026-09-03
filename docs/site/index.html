@@ -149,8 +149,7 @@
 
     <div class="example-frame hero-terminal">
       <div class="example-tabs">
-        <span class="example-tab active">Terminal</span>
-        <span class="example-tab">Output as JSON</span>
+        <span class="example-tab">Terminal</span>
       </div>
       <div id="terminal">
         <div id="terminal-output"></div>
@@ -230,13 +229,13 @@
       <p><span id="commands-total">&mdash;</span> commands, regenerated from the binary on every merge to main.</p>
     </div>
     <div class="tabs" role="tablist" aria-label="Filter by product">
-      <button class="tab active" role="tab" data-filter="all" type="button">All</button>
-      <button class="tab" role="tab" data-filter="platform" type="button">Platform API</button>
-      <button class="tab" role="tab" data-filter="pro" type="button">Jamf Pro</button>
-      <button class="tab" role="tab" data-filter="protect" type="button">Jamf Protect</button>
-      <button class="tab" role="tab" data-filter="school" type="button">Jamf School</button>
-      <button class="tab" role="tab" data-filter="security" type="button">Security Cloud</button>
-      <button class="tab" role="tab" data-filter="core" type="button">Core</button>
+      <button class="tab active" role="tab" aria-selected="true" aria-controls="catalog" data-filter="all" type="button">All</button>
+      <button class="tab" role="tab" aria-selected="false" aria-controls="catalog" data-filter="platform" type="button">Platform API</button>
+      <button class="tab" role="tab" aria-selected="false" aria-controls="catalog" data-filter="pro" type="button">Jamf Pro</button>
+      <button class="tab" role="tab" aria-selected="false" aria-controls="catalog" data-filter="protect" type="button">Jamf Protect</button>
+      <button class="tab" role="tab" aria-selected="false" aria-controls="catalog" data-filter="school" type="button">Jamf School</button>
+      <button class="tab" role="tab" aria-selected="false" aria-controls="catalog" data-filter="security" type="button">Security Cloud</button>
+      <button class="tab" role="tab" aria-selected="false" aria-controls="catalog" data-filter="core" type="button">Core</button>
     </div>
     <div class="catalog-layout">
       <nav class="group-nav" id="group-nav" aria-label="Command groups"></nav>
@@ -266,7 +265,7 @@
             </ul>
           </div>
         </noscript>
-        <div id="catalog"></div>
+        <div id="catalog" role="tabpanel"></div>
       </div>
     </div>
   </section>
@@ -560,14 +559,14 @@
     document.addEventListener('keydown', function (e) {
       if (e.key === '/' && !e.ctrlKey && !e.metaKey && !e.altKey) {
         var tag = document.activeElement.tagName;
-        if (tag === 'INPUT' || tag === 'TEXTAREA' || document.activeElement.isContentEditable) return;
+        if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || document.activeElement.isContentEditable) return;
         e.preventDefault();
         var search = document.getElementById('search');
         if (search) search.focus();
       }
       if (e.key === '?' && !e.ctrlKey && !e.metaKey) {
         var tag = document.activeElement.tagName;
-        if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+        if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
         e.preventDefault();
         document.getElementById('kbd-modal').classList.toggle('open');
       }

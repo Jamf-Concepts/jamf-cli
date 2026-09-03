@@ -223,7 +223,7 @@ Site at `docs/site/` auto-deploys on push to `main` via `.github/workflows/deplo
 
 Adding a product or reclassifying groups needs manual edits in `index.html`, `style.css`, `catalog.js` — `make verify-site` enforces in CI. Local dev: `make site`.
 
-The site uses Nebula v5 tokens (`jamf/ds-nebula`, v2 token set) declared once in `:root` with `light-dark()`. Theme follows the system by default; the toggle cycles system → light → dark and stores `light`/`dark` in `localStorage.theme`. Products map to Nebula tag themes (`--tag-<product>-fg`/`-bg`), so adding a product means adding one hue pair there, one `.tag[data-product]` rule, one `.group-nav-product` dot rule, one `.command-row .cmd-product` rule, a tab, and a hero tag with `id="stat-<product>"`. `make verify-site` enforces the hooks.
+The site uses Nebula v5 tokens (`jamf/ds-nebula`, v2 token set) declared once in `:root` with `light-dark()`. Theme follows the system by default; the toggle cycles system → light → dark and stores `light`/`dark` in `localStorage.theme`. Products map to Nebula tag themes (`--tag-<product>-fg`/`-bg`), so adding a product means adding one hue pair there, one `.tag[data-product]` rule, one `.group-nav-product` dot rule, one `.command-row .cmd-product` rule, a tab, a hero tag with `id="stat-<product>"`, one `.tab[data-filter="<product>"]` rule in `style.css`, and one `'<product>'` entry in `PRODUCT_LABELS` in `catalog.js`. `make verify-site` enforces the hooks.
 
 ### Runtime Flow
 
