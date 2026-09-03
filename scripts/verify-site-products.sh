@@ -50,9 +50,9 @@ for product in $PRODUCTS; do
   echo "Checking product: $product"
 
   # index.html
-  check docs/site/index.html "id=\"stat-${product}\"" "stat card element"
+  check docs/site/index.html "id=\"stat-${product}\"" "product tag counter"
   check docs/site/index.html "data-filter=\"${product}\"" "command filter tab"
-  check docs/site/index.html "data-tab=\"${product}\"" "hero stat card link"
+  check docs/site/index.html "data-tab=\"${product}\"" "hero product tag link"
 
   # style.css
   check docs/site/style.css "--product-${product}" "CSS custom property"
@@ -60,7 +60,7 @@ for product in $PRODUCTS; do
   check docs/site/style.css "data-filter=\"${product}\"]" "tab filter selector"
 
   # catalog.js
-  check docs/site/catalog.js "stat-${product}" "stat counter (setText call)"
+  check docs/site/catalog.js "stat-${product}" "product tag counter (animateCount call)"
   check docs/site/catalog.js "'${product}'" "product label in PRODUCT_LABELS"
 done
 

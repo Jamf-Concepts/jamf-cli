@@ -147,7 +147,7 @@
       .catch(function (err) {
         var catalog = document.getElementById('catalog');
         if (catalog) {
-          catalog.innerHTML = '<p style="text-align:center;color:var(--text-secondary);padding:2rem 0;">Failed to load commands. ' +
+          catalog.innerHTML = '<p style="text-align:center;color:var(--font-secondary);padding:2rem 0;">Failed to load commands. ' +
             '<a href="https://github.com/Jamf-Concepts/jamf-cli">View on GitHub</a> instead.</p>';
         }
         hideCatalogLoading();

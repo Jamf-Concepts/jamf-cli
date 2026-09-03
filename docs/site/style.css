@@ -364,36 +364,9 @@ html {
   --shadow-lg: 0 8px 32px -8px light-dark(rgba(0, 0, 0, 0.18), rgba(0, 0, 0, 0.65));
   --shadow-sticky: 0 12px 16px -13px light-dark(rgba(0, 0, 0, 0.18), rgba(0, 0, 0, 0.55));
 
-  /* ---- Transitional aliases. Old rules read these. Task 9 deletes them
-     together with the rules that read them. ---- */
-  --brand-blue: var(--primary);
-  --accent: var(--primary);
-  --link-blue: var(--primary);
-  --page-bg: var(--structure-base);
-  --card-bg: var(--structure-secondary);
-  --border: var(--border-base);
-  --text-primary: var(--font-base);
-  --text-secondary: var(--font-secondary);
-  --tab-inactive-bg: var(--structure-base);
-  --hero-bg: var(--structure-base);
-  --new-indicator: light-dark(#d17800, #fbe504);
-  --tint-pro: var(--tag-pro-bg);
-  --tint-protect: var(--tag-protect-bg);
-  --tint-school: var(--tag-school-bg);
-  --tint-security: var(--tag-security-bg);
-  --tint-platform: var(--tag-platform-bg);
-  --accent-tint: var(--primary-subdued);
-  --accent-tint-hover: color-mix(in srgb, var(--primary) 14%, var(--structure-base));
-  --highlight: color-mix(in srgb, var(--primary) 22%, transparent);
-  --pill-bg: var(--tag-core-bg);
-  --pill-text: var(--font-tertiary);
-  --badge-bg: var(--tag-core-bg);
-  --muted-header-text: var(--font-secondary);
-  --muted-header-border: var(--border-base);
-  --muted-header-bg: var(--structure-secondary);
-  --shadow-1: var(--shadow-xs);
-  --shadow-2: var(--shadow-md);
-  --shadow-3: var(--shadow-lg);
+  /* Search match highlight. A tint of the brand hue, so a mark reads as a
+     hit rather than as a new color. */
+  --search-highlight: color-mix(in srgb, var(--primary) 22%, transparent);
 }
 
 /* Manual theme override. Flipping color-scheme flips every light-dark()
@@ -527,7 +500,7 @@ a[target="_blank"]:hover::after {
   display: block;
   width: 22px;
   height: 2px;
-  background: var(--text-primary);
+  background: var(--font-base);
   border-radius: 1px;
   transition: transform 0.2s, opacity 0.2s;
 }
@@ -913,7 +886,10 @@ a[target="_blank"]:hover::after {
 .search-wrap svg { width: 14px; height: 14px; flex-shrink: 0; }
 #search { flex: 1; border: 0; outline: 0; background: none; color: var(--font-base); font: inherit; }
 #search::placeholder { color: var(--font-tertiary); }
-.search-clear { border: 0; background: none; color: var(--font-tertiary); font-size: 18px; cursor: pointer; }
+/* The clear button appears only when the field holds text. catalog.js and
+   palette.js toggle .has-value on the wrapper. */
+.search-clear { display: none; border: 0; background: none; color: var(--font-tertiary); font-size: 18px; cursor: pointer; }
+.search-wrap.has-value .search-clear { display: inline; }
 #catalog-loading, .catalog-empty { padding: 32px 0; text-align: center; color: var(--font-tertiary); }
 .noscript-fallback { padding: 16px; border: 1px solid var(--border-base); border-radius: var(--r-base); }
 .noscript-fallback p { margin: 0 0 8px; }
@@ -967,7 +943,7 @@ a[target="_blank"]:hover::after {
 .command-name.copied .command-copy-icon { color: var(--success); opacity: 1; }
 .command-desc { color: var(--font-secondary); }
 .command-marks { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-start; }
-mark { background: var(--highlight); color: inherit; border-radius: 2px; }
+mark { background: var(--search-highlight); color: inherit; border-radius: 2px; }
 
 /* Drawer */
 .command-detail { padding: 4px 16px 20px; background: var(--structure-secondary); border-bottom: 1px solid var(--border-secondary); }
@@ -1129,9 +1105,9 @@ footer {
   width: 40px;
   height: 40px;
   border-radius: 50%;
-  border: 1px solid var(--border);
-  background: var(--card-bg);
-  color: var(--text-secondary);
+  border: 1px solid var(--border-base);
+  background: var(--structure-secondary);
+  color: var(--font-secondary);
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -1140,7 +1116,7 @@ footer {
   transform: translateY(10px);
   pointer-events: none;
   transition: opacity 0.2s, transform 0.2s, background 0.15s, scale 0.15s ease;
-  box-shadow: var(--shadow-2);
+  box-shadow: var(--shadow-md);
 }
 
 .back-to-top.visible {
@@ -1150,9 +1126,9 @@ footer {
 }
 
 .back-to-top:hover {
-  background: var(--brand-blue);
+  background: var(--primary);
   color: #fff;
-  border-color: var(--brand-blue);
+  border-color: var(--primary);
 }
 
 .back-to-top svg {
@@ -1508,7 +1484,7 @@ footer {
 /* Branded text selection — accent tint, no color flip, so it stays
    legible over paper, cards, and the always-dark terminal alike */
 ::selection {
-  background: color-mix(in srgb, var(--accent) 25%, transparent);
+  background: color-mix(in srgb, var(--primary) 25%, transparent);
 }
 
 /* Keyboard focus — the One Signal Rule extended to :focus-visible.
@@ -1516,7 +1492,7 @@ footer {
    a mouse user gets from hover. Inputs keep their border-color focus
    treatment instead (the border IS their focus state). */
 :focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--primary);
   outline-offset: 2px;
 }
 

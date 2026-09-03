@@ -112,7 +112,7 @@ This is not housekeeping. A stale copy of the compliance-benchmark spec left `pr
 | Change global flags or root command behavior | `internal/commands/root.go` |
 | Change config file handling | `internal/config/` |
 | Change shared CLI interfaces (CLIContext, etc.) | `internal/registry/` |
-| Modify the GitHub Pages showcase site | `docs/site/index.html`, `docs/site/style.css`, `docs/site/catalog.js`, `docs/site/terminal.js` |
+| Modify the GitHub Pages showcase site | `docs/site/index.html`, `docs/site/style.css`, `docs/site/catalog.js`, `docs/site/palette.js`, `docs/site/terminal.js` |
 | Change how commands.json is generated for the site | `generator/site/main.go` |
 
 ## Build & Dev Commands
@@ -222,6 +222,8 @@ Name-resolution helpers (in `registry.go` / `classic_registry.go`): `readApplyIn
 Site at `docs/site/` auto-deploys on push to `main` via `.github/workflows/deploy-site.yaml`. Introspects the built binary to generate `commands.json` — command list, counts, groups, products, flags, aliases auto-update.
 
 Adding a product or reclassifying groups needs manual edits in `index.html`, `style.css`, `catalog.js` — `make verify-site` enforces in CI. Local dev: `make site`.
+
+The site uses Nebula v5 tokens (`jamf/ds-nebula`, v2 token set) declared once in `:root` with `light-dark()`. Theme follows the system by default; the toggle cycles system → light → dark and stores `light`/`dark` in `localStorage.theme`. Products map to Nebula tag themes (`--tag-<product>-fg`/`-bg`), so adding a product means adding one hue pair there, one `.tag[data-product]` rule, one `.group-nav-product` dot rule, one `.command-row .cmd-product` rule, a tab, and a hero tag with `id="stat-<product>"`. `make verify-site` enforces the hooks.
 
 ### Runtime Flow
 
