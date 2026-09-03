@@ -29,6 +29,14 @@
     return _pillarIndex[groupName] || null;
   }
 
+  // Position of a group's pillar in PILLARS; groups with no pillar sort last.
+  function pillarRank(groupName) {
+    var label = pillarFor(groupName);
+    if (!label) return PILLARS.length;
+    for (var i = 0; i < PILLARS.length; i++) if (PILLARS[i].label === label) return i;
+    return PILLARS.length;
+  }
+
   var GROUP_ORDER = [
     'Getting Started',
     'Platform - Configuration',
@@ -423,9 +431,19 @@
       var expanded = activeFilter === 'all' || activeFilter === 'platform' || activeFilter === prod;
       if (!expanded) continue;
 
+      // Jamf Pro: order by pillar first so each pillar label appears once.
+      // GROUP_ORDER interleaves pillars (it also drives search results),
+      // so a stable sort by pillar position keeps that order inside a pillar
+      // and sends pillar-less groups to the end.
+      var navGroups = groups;
+      if (prod === 'pro') {
+        navGroups = groups.map(function (g, idx) { return { g: g, idx: idx, p: pillarRank(g.name) }; })
+          .sort(function (a, b) { return a.p - b.p || a.idx - b.idx; })
+          .map(function (x) { return x.g; });
+      }
       var lastPillar = null;
-      for (var k = 0; k < groups.length; k++) {
-        var pillar = prod === 'pro' ? pillarFor(groups[k].name) : null;
+      for (var k = 0; k < navGroups.length; k++) {
+        var pillar = prod === 'pro' ? pillarFor(navGroups[k].name) : null;
         if (pillar && pillar !== lastPillar) {
           var pl = document.createElement('div');
           pl.className = 'group-nav-pillar';
@@ -433,7 +451,7 @@
           nav.appendChild(pl);
           lastPillar = pillar;
         }
-        nav.appendChild(renderGroupNavItem(groups[k], prod));
+        nav.appendChild(renderGroupNavItem(navGroups[k], prod));
       }
     }
   }
