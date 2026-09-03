@@ -146,7 +146,7 @@ func buildIdentitySection(id, name string, general map[string]any) overviewSecti
 			{Resource: "MDM Capable", Value: nestedBoolStr(general, "mdmCapable", "capable")},
 			{Resource: "Supervised", Value: boolDisplay(boolVal(general, "supervised"))},
 			{Resource: "DEP Enrolled", Value: boolDisplay(boolVal(general, "enrolledViaAutomatedDeviceEnrollment"))},
-			{Resource: "Last Contact", Value: strVal(general, "lastContactTime")},
+			{Resource: "Last Contact", Value: lastCheckInOf(general)},
 		},
 	}
 }

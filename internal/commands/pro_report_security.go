@@ -228,6 +228,28 @@ func strVal(m map[string]any, key string) string {
 	return v
 }
 
+// lastCheckInOf reads a computer's last-contact timestamp out of a
+// computers-inventory GENERAL section, across the v1→v4 rename.
+//
+// v4 renamed v1's general.lastContactTime to general.lastCheckIn and added a
+// separate general.lastContact beside it. The two are NOT interchangeable:
+// wire-checked 2026-09-03 against nmartin.jamfcloud.com, the same computer
+// answered lastContactTime == lastCheckIn == "2024-06-21T08:37:34.65Z" on
+// /v1 and /v4 respectively, while v4's lastContact came back null. So
+// lastCheckIn is the rename and lastContact is a new field — reading the
+// latter as a substitute yields an empty value on a populated record, and as
+// an RSQL filter field it matches every null row (probed: a `<` comparison on
+// lastContact returned the unfiltered totalCount).
+//
+// The lastContactTime fallback is for an instance profile still answering the
+// older version, which the generated commands reach via FallbackPaths.
+func lastCheckInOf(general map[string]any) string {
+	if v := strVal(general, "lastCheckIn"); v != "" {
+		return v
+	}
+	return strVal(general, "lastContactTime")
+}
+
 // boolVal safely extracts a bool value from a map.
 func boolVal(m map[string]any, key string) bool {
 	if m == nil {

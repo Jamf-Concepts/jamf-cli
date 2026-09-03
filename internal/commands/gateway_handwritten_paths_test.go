@@ -65,14 +65,33 @@ func loadCoverageManifest(t *testing.T) coverageManifest {
 }
 
 // methodsFor returns every method the published surface declares for a
-// gateway-form path, matched segment-wise. A "{}" on either side matches one
-// segment: the manifest renders its own path parameters that way, and a path
-// lifted out of a fmt.Sprintf carries one wherever a verb was.
+// gateway-form path, mirroring internal/gateway's own two-pass lookup: literal
+// patterns before parameterised ones.
+//
+// The two passes are the fix for a matcher that skipped the comparison whenever
+// EITHER side carried a "{}" and then unioned the methods of every pattern that
+// matched. A code path's "{}" therefore matched a manifest pattern's literal
+// segment, so /pro/v1/packages/{} matched the real {} pattern (DELETE/GET/PUT)
+// and ALSO /pro/v1/packages/delete-multiple and /export (both POST) — reporting
+// POST as published on a path where the gateway declares none. And a literal
+// whose leading segment was substituted matched everything at that arity, so
+// two live sites were counted as checked and constrained by nothing.
+//
+// A code "{}" now matches only a manifest "{}". The reverse direction is kept,
+// because it is what the real lookup does: /pro/v1/computers-inventory/detail
+// legitimately matches both .../detail and .../{}, and the literal has to win.
 func (m coverageManifest) methodsFor(path string) []string {
+	if out := m.methodsMatching(path, false); len(out) > 0 {
+		return out
+	}
+	return m.methodsMatching(path, true)
+}
+
+func (m coverageManifest) methodsMatching(path string, allowParameterised bool) []string {
 	var out []string
 	seen := map[string]bool{}
 	for pattern, methods := range m.Spec {
-		if !manifestPathMatches(pattern, path) {
+		if !manifestPathMatches(pattern, path, allowParameterised) {
 			continue
 		}
 		for _, meth := range methods {
@@ -86,17 +105,29 @@ func (m coverageManifest) methodsFor(path string) []string {
 	return out
 }
 
-func manifestPathMatches(pattern, path string) bool {
+// manifestPathMatches compares a manifest pattern against a gateway-form code
+// path. A "{}" in the code path matches only a "{}" in the pattern. A "{}" in
+// the pattern matches a literal code segment only when allowParameterised is
+// set, which is the second pass.
+func manifestPathMatches(pattern, path string, allowParameterised bool) bool {
 	ps := strings.Split(strings.Trim(pattern, "/"), "/")
 	cs := strings.Split(strings.Trim(path, "/"), "/")
 	if len(ps) != len(cs) {
 		return false
 	}
 	for i := range ps {
-		if ps[i] == "{}" || cs[i] == "{}" {
-			continue
-		}
-		if ps[i] != cs[i] {
+		switch {
+		case ps[i] == cs[i]:
+			// Equal, "{}" against "{}" included.
+		case cs[i] == "{}":
+			// The code substitutes a value here, so only a pattern parameter
+			// can be what it addresses. A literal cannot.
+			return false
+		case ps[i] == "{}":
+			if !allowParameterised {
+				return false
+			}
+		default:
 			return false
 		}
 	}
@@ -189,7 +220,181 @@ func methodsAtSite(lines []string, i int) []string {
 	case postHelperCall.MatchString(ctx):
 		return []string{"POST"}
 	}
+
+	// The ±3 window is deliberately tight, and it misses the common shape of a
+	// path built at the top of a function and sent at the bottom. Widen to the
+	// enclosing function, but accept the answer only when it is UNAMBIGUOUS —
+	// exactly one distinct method in the whole function. A function that sends
+	// two methods says nothing about which one this path takes, and guessing
+	// there is how a POST-only const came to be checked against GET.
+	lo, hi = enclosingFuncRange(lines, i)
+	ctx = strings.Join(lines[lo:hi], "\n")
+	out = nil
+	seen = map[string]bool{}
+	for _, m := range methodLiteral.FindAllStringSubmatch(ctx, -1) {
+		if !seen[m[1]] {
+			seen[m[1]] = true
+			out = append(out, m[1])
+		}
+	}
+	// Helper calls count towards the ambiguity, not only towards the answer.
+	// Counting only the method literals made verifyPackageUpload — which POSTs
+	// a JCDS refresh and polls the package through a GET helper — report POST
+	// for the poll path, because the single literal looked unambiguous. The
+	// widened window is only worth trusting when the whole function speaks one
+	// method.
+	if getHelperCall.MatchString(ctx) && !seen["GET"] {
+		seen["GET"] = true
+		out = append(out, "GET")
+	}
+	if postHelperCall.MatchString(ctx) && !seen["POST"] {
+		seen["POST"] = true
+		out = append(out, "POST")
+	}
+	if len(out) == 1 {
+		return out
+	}
 	return nil
+}
+
+// enclosingFuncRange returns the [lo, hi) line range of the function containing
+// line i, or the whole file when the line sits above the first declaration.
+func enclosingFuncRange(lines []string, i int) (int, int) {
+	lo := 0
+	for j := i; j >= 0; j-- {
+		if strings.HasPrefix(lines[j], "func ") {
+			lo = j
+			break
+		}
+	}
+	hi := len(lines)
+	for j := i + 1; j < len(lines); j++ {
+		if strings.HasPrefix(lines[j], "func ") {
+			hi = j
+			break
+		}
+	}
+	return lo, hi
+}
+
+// handWrittenDynamicCollections expands a path whose LEADING segment is
+// substituted into the concrete paths the code can actually build, keyed on the
+// normalised gateway-form path.
+//
+// Two live helpers assemble a Classic collection name from a closed set:
+// internal/resolve's resolveClassicGroupID takes "computergroups" or
+// "mobiledevicegroups", and pro_blueprints.go's classicProfilePath takes
+// "osxconfigurationprofiles" or "mobiledeviceconfigurationprofiles". The
+// resulting literal is "/JSSResource/%s/name/%s", which under the old matcher
+// matched every manifest pattern of the same arity and was therefore counted as
+// checked while being constrained by nothing. Expanded here, each concrete path
+// is checked like any other.
+//
+// A new entry needs the call sites read: the value is the set of collection
+// names the callers pass, not the set the helper could accept.
+var handWrittenDynamicCollections = map[string][]string{
+	// internal/resolve/resolve.go, resolveClassicGroupID — callers pass
+	// "computergroups" (resolveComputerGroupID) and "mobiledevicegroups"
+	// (resolveMobileDeviceGroupID).
+	"/proclassic/{}/name/{}": {
+		"/proclassic/computergroups/name/{}",
+		"/proclassic/mobiledevicegroups/name/{}",
+	},
+	// pro_blueprints.go, classicProfilePath — classicProfileCollection returns
+	// "osxconfigurationprofiles" for "computer" and
+	// "mobiledeviceconfigurationprofiles" for "mobile".
+	"/proclassic/{}": {
+		"/proclassic/osxconfigurationprofiles/id/{}",
+		"/proclassic/mobiledeviceconfigurationprofiles/id/{}",
+	},
+}
+
+// expandDynamicCollections returns the concrete paths a normalised path stands
+// for, or the path itself when it is already concrete.
+func expandDynamicCollections(path string) []string {
+	if expanded, ok := handWrittenDynamicCollections[path]; ok {
+		return expanded
+	}
+	return []string{path}
+}
+
+// handWrittenUndeterminedMethods names the methods a call site sends where
+// methodsAtSite cannot read them off the ±3 lines — a path assigned to a const
+// or a variable and sent elsewhere. Keyed on the normalised gateway-form path.
+//
+// It exists because the fallback for "method undetermined" used to be the
+// weaker question, "is this path published under ANY method", and unioning
+// every matching pattern's methods made that weaker still. The sharpest case
+// was in the guard's own subject file: pro_device_actions.go's
+// `const mdmCommandsPath = "/v2/mdm/commands"` has no method in its window, so
+// it passed on GET being published — the one method the gateway serves, and the
+// opposite of what the const is used for.
+var handWrittenUndeterminedMethods = map[string][]string{
+	// pro_device_actions.go, mdmCommandsPath — every use is a POST
+	// (sendComputerModernMDMCommand, sendMobileModernMDMCommand). The gateway
+	// declares GET here and not POST, which is why the POST entry in
+	// unservedHandWrittenPaths below exists and why markGatewayCoverage stamps
+	// the senders. This is the entry the tightening was written for: under the
+	// old "published under any method" fallback the const passed on GET.
+	"/pro/v2/mdm/commands": {"POST"},
+
+	// pro_packages_upload.go — the multipart upload goes through
+	// client.Upload rather than client.Do, so no method literal appears
+	// anywhere in the function. The other case the tightening catches: a POST
+	// that the old fallback checked against whatever /pro/v1/packages/{}
+	// declares.
+	"/pro/v1/packages/{}/upload": {"POST"},
+
+	// pro_packages_upload.go, verifyPackageUpload — this one function POSTs the
+	// JCDS refresh and polls the package record with a GET, so the whole
+	// function is genuinely ambiguous and each path has to say which it is.
+	"/pro/v1/cloud-distribution-point/refresh-inventory": {"POST"},
+	"/pro/v1/packages/{}":                                {"GET"},
+
+	// internal/resolve/resolve.go — the Classic static-group fallback paths are
+	// arguments to fetchClassicGroupMemberIDs, which reads the collection and
+	// filters client-side.
+	"/proclassic/computergroups":     {"GET"},
+	"/proclassic/mobiledevicegroups": {"GET"},
+
+	// internal/resolve/resolve.go — fileEntrySpec.basePath, a field in a
+	// package-level struct literal consumed by the batch lookup's reader.
+	"/pro/v4/computers-inventory":   {"GET"},
+	"/pro/v2/mobile-devices/detail": {"GET"},
+
+	// internal/resolve/resolve.go — the smart mobile group lookup and its
+	// membership fetch, both read paths (resolveGroupIDByName, fetchAllPages).
+	"/pro/v2/mobile-device-groups/smart-groups":              {"GET"},
+	"/pro/v2/mobile-device-groups/smart-group-membership/{}": {"GET"},
+
+	// pro_backup.go — the path appears only in a backupFailure record; the
+	// request itself is jcdsListFiles, a read.
+	"/pro/v1/jcds/files": {"GET"},
+
+	// pro_blueprints.go, classicProfilePath — the helper only assembles the
+	// path; its one caller reads the profile (`Do(ctx, "GET", ...)`).
+	// Also expanded by handWrittenDynamicCollections above, since the
+	// collection segment is substituted.
+	"/proclassic/{}": {"GET"},
+
+	// pro_group_tools.go, scopeableResources — a table of Classic list and
+	// detail endpoints that `group-tools analyze --unused` reads to find
+	// unreferenced computer groups. Reads only.
+	"/proclassic/policies":                       {"GET"},
+	"/proclassic/policies/id/{}":                 {"GET"},
+	"/proclassic/osxconfigurationprofiles":       {"GET"},
+	"/proclassic/osxconfigurationprofiles/id/{}": {"GET"},
+	"/proclassic/restrictedsoftware":             {"GET"},
+	"/proclassic/restrictedsoftware/id/{}":       {"GET"},
+	"/proclassic/ebooks":                         {"GET"},
+	"/proclassic/ebooks/id/{}":                   {"GET"},
+	"/proclassic/patchpolicies":                  {"GET"},
+	"/proclassic/patchpolicies/id/{}":            {"GET"},
+
+	// pro_resources.go, BackupResources.ScopePath — read by `pro backup` and
+	// `pro diff` to capture a prestage's device scope.
+	"/pro/v2/computer-prestages/{}/scope":      {"GET"},
+	"/pro/v2/mobile-device-prestages/{}/scope": {"GET"},
 }
 
 // unservedHandWrittenPath is one accepted exception, keyed "METHOD gateway-path"
@@ -211,7 +416,7 @@ var unservedHandWrittenPaths = map[string]string{
 	// so the other four still answer and the response carries
 	// gatewayUnservedNote. Refusing the whole command would cost four working
 	// resources to report one.
-	"* /proclassic/patchpolicies": "no successor: /patchpolicies/id/{} survives but the collection listing does not, and Pro's /v2/patch-policies has no per-id read",
+	"GET /proclassic/patchpolicies": "no successor: /patchpolicies/id/{} survives but the collection listing does not, and Pro's /v2/patch-policies has no per-id read",
 
 	// pro_bulk.go — capi v1993 withdrew the whole Classic /computers GET
 	// surface. The successor is Pro's /v4/computers-inventory, a different
@@ -260,6 +465,8 @@ func TestHandWrittenPathsAreServed(t *testing.T) {
 	sort.Strings(files)
 
 	used := map[string]bool{}
+	usedDynamic := map[string]bool{}
+	usedUndetermined := map[string]bool{}
 	checked := 0
 
 	for _, file := range files {
@@ -280,48 +487,53 @@ func TestHandWrittenPathsAreServed(t *testing.T) {
 				if !isRequestPath(literal) {
 					continue
 				}
-				path := gatewayFormPath(literal)
-				published := manifest.methodsFor(path)
-				methods := methodsAtSite(lines, i)
+				normalised := gatewayFormPath(literal)
 				checked++
 
+				methods := methodsAtSite(lines, i)
 				if len(methods) == 0 {
-					// Method unknown: the weaker question, "does the gateway
-					// publish this path at all". A withdrawn version answers no.
-					if len(published) > 0 {
+					// "Method undetermined" is no longer allowed to pass on
+					// the weaker "published under any method" question: that is
+					// what let a POST-only const pass on GET. It needs an
+					// explicit entry naming what the code sends.
+					declared, ok := handWrittenUndeterminedMethods[normalised]
+					if !ok {
+						usedUndetermined[normalised] = true
+						t.Errorf("%s:%d sends %s and no method could be read from the surrounding lines.\n"+
+							"Name the methods this site sends in handWrittenUndeterminedMethods, so the "+
+							"path is checked against them rather than against whatever the manifest "+
+							"declares under any method.", file, i+1, normalised)
 						continue
 					}
-					key := "* " + path
-					if reason, ok := unservedHandWrittenPaths[key]; ok {
-						used[key] = true
-						t.Logf("known gap %s:%d %s (%s)", file, i+1, path, reason)
-						continue
-					}
-					t.Errorf("%s:%d sends %s, which the gateway's published Pro/Classic surface does not declare under any method.\n"+
-						"Re-version it onto the published path, or add an entry to unservedHandWrittenPaths saying why it cannot be moved.",
-						file, i+1, path)
-					continue
+					usedUndetermined[normalised] = true
+					methods = declared
 				}
 
-				for _, meth := range methods {
-					if slices.Contains(published, meth) {
-						// Published, but a recorded wire probe can still say the
-						// gateway does not route it.
-						if f, ok := gateway.Lookup(meth, path); ok && f.Level == gateway.Unserved {
-							t.Errorf("%s:%d sends %s %s, which internal/gateway reports Unserved (%s: %s)",
-								file, i+1, meth, path, f.Basis, f.Detail)
+				for _, path := range expandDynamicCollections(normalised) {
+					if path != normalised {
+						usedDynamic[normalised] = true
+					}
+					published := manifest.methodsFor(path)
+					for _, meth := range methods {
+						if slices.Contains(published, meth) {
+							// Published, but a recorded wire probe can still say
+							// the gateway does not route it.
+							if f, ok := gateway.Lookup(meth, path); ok && f.Level == gateway.Unserved {
+								t.Errorf("%s:%d sends %s %s, which internal/gateway reports Unserved (%s: %s)",
+									file, i+1, meth, path, f.Basis, f.Detail)
+							}
+							continue
 						}
-						continue
+						key := meth + " " + path
+						if reason, ok := unservedHandWrittenPaths[key]; ok {
+							used[key] = true
+							t.Logf("known gap %s:%d %s %s (%s)", file, i+1, meth, path, reason)
+							continue
+						}
+						t.Errorf("%s:%d sends %s %s, which the gateway's published Pro/Classic surface does not declare (it declares %v).\n"+
+							"Re-version it onto the published path, or add an entry to unservedHandWrittenPaths saying why it cannot be moved.",
+							file, i+1, meth, path, published)
 					}
-					key := meth + " " + path
-					if reason, ok := unservedHandWrittenPaths[key]; ok {
-						used[key] = true
-						t.Logf("known gap %s:%d %s %s (%s)", file, i+1, meth, path, reason)
-						continue
-					}
-					t.Errorf("%s:%d sends %s %s, which the gateway's published Pro/Classic surface does not declare (it declares %v).\n"+
-						"Re-version it onto the published path, or add an entry to unservedHandWrittenPaths saying why it cannot be moved.",
-						file, i+1, meth, path, published)
 				}
 			}
 		}
@@ -336,6 +548,16 @@ func TestHandWrittenPathsAreServed(t *testing.T) {
 	for key := range unservedHandWrittenPaths {
 		if !used[key] {
 			t.Errorf("unservedHandWrittenPaths entry %q matches no hand-written path any more — the path was fixed or removed, so drop the entry", key)
+		}
+	}
+	for key := range handWrittenDynamicCollections {
+		if !usedDynamic[key] {
+			t.Errorf("handWrittenDynamicCollections entry %q matches no hand-written path any more — the helper was changed or removed, so drop the entry", key)
+		}
+	}
+	for key := range handWrittenUndeterminedMethods {
+		if !usedUndetermined[key] {
+			t.Errorf("handWrittenUndeterminedMethods entry %q matches no hand-written path whose method is undetermined any more — the call site now names its method, so drop the entry", key)
 		}
 	}
 }

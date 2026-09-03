@@ -324,7 +324,9 @@ var resourceTableColumns = map[string][]TableColumn{
 		{Field: "hardware.serialNumber", Label: "serial"},
 		{Field: "hardware.model", Label: "model"},
 		{Field: "operatingSystem.version", Label: "osVersion"},
-		{Field: "general.lastContactTime", Label: "lastContactTime"},
+		// v4 renamed lastContactTime to lastCheckIn; computers-inventory now
+		// serves v4, and the old key rendered an empty column on every row.
+		{Field: "general.lastCheckIn", Label: "lastCheckIn"},
 	},
 	"mobile-devices": {
 		{Field: "mobileDeviceId", Label: "id"},

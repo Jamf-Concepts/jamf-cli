@@ -549,10 +549,19 @@ func resolveAuth(cfg *config.Config) (string, auth.Provider, error) {
 	if clientSecret == "" {
 		clientSecret = os.Getenv("JAMF_CLIENT_SECRET")
 	}
-	if tenantID == "" {
+	// A scope flag settles the level, so the OTHER level must not be backfilled
+	// from the environment beside it. Backfilling both independently made
+	// `--tenant-id X` with JAMF_ENVIRONMENT_ID exported arrive at
+	// ResolveAuthForProfile as two levels supplied together, which it refuses —
+	// while the same pair on the `security` path let the flag win, because
+	// PersistentPreRunE returns before this function and checkScopeConflict
+	// reads the flag vars unbackfilled. Measured on the built binary: exit 2
+	// "mutually exclusive" on `pro blueprints list`, and a request against the
+	// flag's tenant on `security device-groups list`. One documented rule, two
+	// answers. The env var still overrides the profile; what it no longer does
+	// is contradict a flag on one path only.
+	if tenantID == "" && environmentID == "" {
 		tenantID = os.Getenv("JAMF_TENANT_ID")
-	}
-	if environmentID == "" {
 		environmentID = os.Getenv("JAMF_ENVIRONMENT_ID")
 	}
 

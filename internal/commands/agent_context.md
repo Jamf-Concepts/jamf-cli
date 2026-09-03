@@ -38,7 +38,10 @@ Set session defaults with `JAMF_CLI_ARGS`, e.g. `JAMF_CLI_ARGS='--quiet --no-inp
 
 ## Exit codes
 
-React to a non-zero exit without parsing the message:
+React to a non-zero exit without parsing the message. The Name column is the
+literal `exitCodeName` value in the `-o json` error envelope, so it can be
+matched exactly; README's exit-code table gives the same codes prose names for
+human readers.
 
 | Code | Name              | Agent action                                        |
 |------|-------------------|-----------------------------------------------------|
@@ -50,6 +53,7 @@ React to a non-zero exit without parsing the message:
 | 5    | permission_denied | account lacks API privileges — not retryable as-is; hint names the specific required privilege(s) |
 | 6    | rate_limited      | back off and retry                                  |
 | 7    | partial_failure   | batch: some succeeded, some failed                  |
+| 8    | unsupported       | refused by policy — do NOT retry; the command is correctly invoked but the resolved credentials cannot reach the API that serves it. On a platform gateway profile this means the endpoint is outside the gateway's published API; the message names a replacement command where one exists. `JAMF_CLI_ALLOW_UNPUBLISHED=1` downgrades the refusal to a warning if the transitional route is genuinely needed |
 
 Errors print a one-line remediation hint and, with `-o json`, a structured error
 envelope.

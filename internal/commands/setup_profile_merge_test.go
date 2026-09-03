@@ -3,9 +3,12 @@
 package commands
 
 import (
+	"bytes"
+	"strings"
 	"testing"
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/config"
+	"github.com/Jamf-Concepts/jamf-cli/internal/keychain"
 )
 
 // radarHalf is what `security setup` writes: the three scoped application pairs
@@ -120,4 +123,90 @@ func TestMergeSecurityProfileBaseIsIdempotent(t *testing.T) {
 	if first != second {
 		t.Errorf("not idempotent: %+v then %+v", first, second)
 	}
+}
+
+// TestSecuritySetupSummaryAgreesWithTheSavedProfile pins the review finding
+// that the merge removed the only way to un-configure a Radar pair while the
+// closing summary still reported it as gone.
+//
+// mergeSecurityProfileBase means a pair whose application ID is left blank on
+// a re-run keeps its stored keychain references — which is correct, since one
+// profile carries every product's credentials and replacing it wholesale zeroed
+// whatever `platform setup` had written. The defect was that the summary
+// listed only the pairs entered on this run, so pressing Enter at the SSE
+// prompt (as the command's help instructs) read as "SSE is now unconfigured"
+// while `security stream get` went on using the stored credential.
+func TestSecuritySetupSummaryAgreesWithTheSavedProfile(t *testing.T) {
+	// A profile with all three pairs already configured, as a first run leaves it.
+	configured := config.Profile{
+		RiskClientID:          keychain.KeychainRef("p", "risk-client-id"),
+		RiskClientSecret:      keychain.KeychainRef("p", "risk-client-secret"),
+		LifecycleClientID:     keychain.KeychainRef("p", "lifecycle-client-id"),
+		LifecycleClientSecret: keychain.KeychainRef("p", "lifecycle-client-secret"),
+		SSEClientID:           keychain.KeychainRef("p", "sse-client-id"),
+		SSEClientSecret:       keychain.KeychainRef("p", "sse-client-secret"),
+	}
+
+	// The re-run: only Risk entered, the other two prompts skipped. The merge
+	// keeps their references, so the saved profile still holds all three.
+	prof := mergeSecurityProfileBase(configured)
+	prof.RiskClientID = keychain.KeychainRef("p", "risk-client-id")
+	prof.RiskClientSecret = keychain.KeychainRef("p", "risk-client-secret")
+
+	var buf bytes.Buffer
+	writeSecurityCredentialSummary(&buf, prof, "risk-app-id", "", "")
+	got := buf.String()
+
+	// Risk was entered: reported with its application ID.
+	if !strings.Contains(got, "risk-app-id") {
+		t.Errorf("summary does not report the Risk pair that was entered:\n%s", got)
+	}
+	// The two skipped pairs are still in the profile, so the summary must say
+	// retained — not omit them, which reads as removed.
+	for _, label := range []string{"Device Lifecycle API", "Shared Signals & Events"} {
+		line := lineContaining(got, label)
+		if line == "" {
+			t.Errorf("summary omits %s entirely; a pair still in the profile must be "+
+				"reported, or the operator reads its absence as removal:\n%s", label, got)
+			continue
+		}
+		if !strings.Contains(line, "retained") {
+			t.Errorf("summary line for %s does not say the pair was retained, but the "+
+				"saved profile still holds its credentials: %q", label, line)
+		}
+	}
+
+	// A pair that was never configured must read as absent, not retained —
+	// otherwise the summary claims a credential the profile does not hold.
+	var fresh bytes.Buffer
+	writeSecurityCredentialSummary(&fresh, config.Profile{}, "risk-app-id", "", "")
+	for _, label := range []string{"Device Lifecycle API", "Shared Signals & Events"} {
+		line := lineContaining(fresh.String(), label)
+		if !strings.Contains(line, "not configured") {
+			t.Errorf("on a fresh profile, %s should read as not configured: %q", label, line)
+		}
+	}
+}
+
+// TestSecuritySetupHelpDoesNotPromiseABlankPromptRemovesAPair: the help text is
+// what sends an operator down this path, so it has to describe the merge.
+func TestSecuritySetupHelpDoesNotPromiseABlankPromptRemovesAPair(t *testing.T) {
+	long := newSecuritySetupCmd().Long
+	for _, want := range []string{"LEFT AS IT WAS", "config remove-profile"} {
+		if !strings.Contains(long, want) {
+			t.Errorf("security setup --help does not mention %q, so nothing tells the "+
+				"operator that a skipped prompt retains the pair or how to remove one:\n%s",
+				want, long)
+		}
+	}
+}
+
+// lineContaining returns the first line of s containing sub, or "".
+func lineContaining(s, sub string) string {
+	for _, line := range strings.Split(s, "\n") {
+		if strings.Contains(line, sub) {
+			return line
+		}
+	}
+	return ""
 }

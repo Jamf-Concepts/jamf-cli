@@ -649,8 +649,23 @@ func TestGatewaySuccessorsNameCommandsTheBinaryShips(t *testing.T) {
 			t.Errorf("successor entry %q names no command this binary ships — remove it, or fix the path", refused)
 			continue
 		}
-		if findCommandPath(t, root, replacement) == nil {
+		replacementCmd := findCommandPath(t, root, replacement)
+		if replacementCmd == nil {
 			t.Errorf("the successor for %q is %q, which this binary does not ship — a refusal would send an operator to a command that does not exist", refused, replacement)
+		} else if n, total := refusedLeafCount(replacementCmd); n > 0 {
+			// SuccessorNote renders "It ships in this binary AND IS SERVED BY
+			// THE GATEWAY", and until this check only the first half was
+			// guarded: the test read the refused side's annotation and never
+			// the replacement's. The one live entry is correct today, so this
+			// closes a guard gap rather than a wrong answer — but the event
+			// that withdrew the v2 endpoint is the same kind of event that
+			// would withdraw v3, and that would leave the refusal recommending
+			// a refused command inside a sentence promising it is served, with
+			// every test green. note.go's own argument is that a wrong answer
+			// here is worse than no answer, so the property that makes an
+			// answer right is the one that has to be asserted.
+			t.Errorf("the successor for %q is %q, and %d of its %d subcommands are themselves refused on a gateway profile — SuccessorNote claims the replacement \"is served by the gateway\", so this entry now renders a false promise. Point it at a served command or remove it",
+				refused, replacement, n, total)
 		}
 		// "Any leaf", not "every leaf", and the difference is a live gap rather
 		// than laxity: the synthesized `apply` carries no verdict in the

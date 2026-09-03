@@ -647,7 +647,7 @@ func runPolicyFailureScan(ctx context.Context, client registry.HTTPClient, days,
 		name := strVal(general, "name")
 		serial := strVal(hardware, "serialNumber")
 		osVersion := strVal(osInfo, "version")
-		lastContact := strVal(general, "lastContactTime")
+		lastContact := lastCheckInOf(general)
 
 		username := strVal(userLoc, "username")
 		diskPct := bootPartitionPercentUsed(c)

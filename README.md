@@ -245,17 +245,20 @@ Full command catalog: [Command Reference](https://github.com/Jamf-Concepts/jamf-
 
 ## Exit Codes
 
-| Code | Meaning |
-|------|---------|
-| 0 | Success |
-| 1 | General error |
-| 2 | Invalid usage |
-| 3 | Authentication error |
-| 4 | Not found |
-| 5 | Permission denied |
-| 6 | Rate limited |
-| 7 | Partial failure (some items in a batch succeeded) |
-| 8 | Refused by policy — the command is correctly invoked, but the resolved credentials cannot reach the API that serves it |
+The `exitCodeName` column is the literal string in the `-o json` error
+envelope, which is what a script should match on; the meaning is for readers.
+
+| Code | `exitCodeName` | Meaning |
+|------|----------------|---------|
+| 0 | `success` | Success |
+| 1 | `general` | General error |
+| 2 | `usage` | Invalid usage |
+| 3 | `authentication` | Authentication error |
+| 4 | `not_found` | Not found |
+| 5 | `permission_denied` | Permission denied |
+| 6 | `rate_limited` | Rate limited |
+| 7 | `partial_failure` | Partial failure (some items in a batch succeeded) |
+| 8 | `unsupported` | Refused by policy — the command is correctly invoked, but the resolved credentials cannot reach the API that serves it |
 
 Exit 8 is what a Jamf Pro or Classic command outside the Jamf Platform gateway's published
 API returns on a gateway profile, and what a Platform API command returns on a Jamf Pro

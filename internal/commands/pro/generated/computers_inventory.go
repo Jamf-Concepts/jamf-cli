@@ -180,7 +180,7 @@ func newComputersInventoryListCmd(ctx *registry.CLIContext) *cobra.Command {
 					{field: "hardware.serialNumber", label: "serial"},
 					{field: "hardware.model", label: "model"},
 					{field: "operatingSystem.version", label: "osVersion"},
-					{field: "general.lastContactTime", label: "lastContactTime"},
+					{field: "general.lastCheckIn", label: "lastCheckIn"},
 				}, ctx.Output.Format())
 				return ctx.Output.PrintRaw(combined)
 			}
@@ -1102,7 +1102,7 @@ func newComputersInventoryFilevaultCmd(ctx *registry.CLIContext) *cobra.Command 
 					{field: "hardware.serialNumber", label: "serial"},
 					{field: "hardware.model", label: "model"},
 					{field: "operatingSystem.version", label: "osVersion"},
-					{field: "general.lastContactTime", label: "lastContactTime"},
+					{field: "general.lastCheckIn", label: "lastCheckIn"},
 				}, ctx.Output.Format())
 				return ctx.Output.PrintRaw(combined)
 			}

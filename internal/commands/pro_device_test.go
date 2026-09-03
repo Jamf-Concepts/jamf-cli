@@ -44,7 +44,7 @@ const fullDeviceDetailJSON = `{
 		"mdmCapable": {"capable": true},
 		"enrolledViaAutomatedDeviceEnrollment": true,
 		"supervised": false,
-		"lastContactTime": "2026-03-30T14:22:00Z"
+		"lastCheckIn": "2026-03-30T14:22:00Z"
 	},
 	"hardware": {
 		"make": "Apple",

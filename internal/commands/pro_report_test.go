@@ -183,7 +183,7 @@ func TestRunReportDeviceCompliance_Basic(t *testing.T) {
 						"id": "1",
 						"general": {
 							"name": "MacBook-001",
-							"lastContactTime": "2026-01-01T00:00:00Z",
+							"lastCheckIn": "2026-01-01T00:00:00Z",
 							"remoteManagement": {"managed": true}
 						},
 						"hardware": {
@@ -197,7 +197,7 @@ func TestRunReportDeviceCompliance_Basic(t *testing.T) {
 						"id": "2",
 						"general": {
 							"name": "MacBook-002",
-							"lastContactTime": "2026-03-14T00:00:00Z",
+							"lastCheckIn": "2026-03-14T00:00:00Z",
 							"remoteManagement": {"managed": false}
 						},
 						"hardware": {
@@ -236,6 +236,13 @@ func TestRunReportDeviceCompliance_Basic(t *testing.T) {
 	}
 	if row0["os_version"] != "14.4" {
 		t.Errorf("os_version = %q, want 14.4", row0["os_version"])
+	}
+	// days_since_contact must be computed, not "N/A". A reader asking for a
+	// field the v4 response does not carry leaves it "N/A" on every row with
+	// stale=false, which reads as a healthy fleet — so assert the value, not
+	// just the flag.
+	if row0["days_since_contact"] == "N/A" {
+		t.Errorf("days_since_contact = %v, want a computed value", row0["days_since_contact"])
 	}
 	// Verify failed_commands was removed
 	if _, hasFC := row0["failed_commands"]; hasFC {
@@ -427,8 +434,8 @@ func TestRunReportDuplicateSerials_Basic(t *testing.T) {
 			"/v4/computers-inventory": {200, `{
 				"totalCount": 5,
 				"results": [
-					{"id":"10","general":{"name":"Mac-new","lastContactTime":"2026-06-01T00:00:00Z"},"hardware":{"serialNumber":"C02X1234"}},
-					{"id":"2","general":{"name":"Mac-old","lastContactTime":"2025-01-01T00:00:00Z"},"hardware":{"serialNumber":"C02X1234"}},
+					{"id":"10","general":{"name":"Mac-new","lastCheckIn":"2026-06-01T00:00:00Z"},"hardware":{"serialNumber":"C02X1234"}},
+					{"id":"2","general":{"name":"Mac-old","lastCheckIn":"2025-01-01T00:00:00Z"},"hardware":{"serialNumber":"C02X1234"}},
 					{"id":"3","general":{"name":"Mac-unique"},"hardware":{"serialNumber":"C02Z9999"}},
 					{"id":"4","general":{"name":"Pending-A"},"hardware":{"serialNumber":""}},
 					{"id":"5","general":{"name":"Pending-B"},"hardware":{"serialNumber":"  "}}

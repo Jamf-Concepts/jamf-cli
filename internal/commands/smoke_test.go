@@ -279,7 +279,7 @@ var tier2Checks = []tier2Check{
 	{
 		Name:       "device-compliance/GENERAL+HARDWARE",
 		Path:       "/v4/computers-inventory?section=GENERAL&section=HARDWARE&page-size=1",
-		FieldPaths: []string{"results.0.general.name", "results.0.general.lastContactTime", "results.0.hardware.serialNumber"},
+		FieldPaths: []string{"results.0.general.name", "results.0.general.lastCheckIn", "results.0.hardware.serialNumber"},
 	},
 	{
 		Name:       "inventory-summary/HARDWARE+OS",

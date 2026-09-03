@@ -234,7 +234,12 @@ func checkGatekeeper(ctx context.Context, client registry.HTTPClient, _ int) (*a
 func checkStaleCheckin(ctx context.Context, client registry.HTTPClient, days int) (*auditResult, error) {
 	// Compute the ISO 8601 cutoff date
 	cutoff := timeNow().AddDate(0, 0, -days).UTC().Format("2006-01-02")
-	path := fmt.Sprintf("/v4/computers-inventory?section=GENERAL&page-size=1&filter=general.lastContactTime%%3C%s", cutoff)
+	// v4's filter parameter declares general.lastCheckIn and general.lastContact;
+	// v1's general.lastContactTime is rejected outright (wire-checked: 400
+	// INVALID_FIELD naming the legal set). lastCheckIn is the rename — see
+	// lastCheckInOf. Filtering on lastContact instead would report the whole
+	// fleet as stale, because a `<` comparison matches its null rows.
+	path := fmt.Sprintf("/v4/computers-inventory?section=GENERAL&page-size=1&filter=general.lastCheckIn%%3C%s", cutoff)
 	data, err := fetchJSON(ctx, client, path)
 	if err != nil {
 		return nil, err

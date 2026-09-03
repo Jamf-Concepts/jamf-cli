@@ -72,7 +72,7 @@ func runReportDuplicateSerials(ctx context.Context, client registry.HTTPClient) 
 		rec := record{id: extractID(c)}
 		if gen, ok := c["general"].(map[string]any); ok {
 			rec.name, _ = gen["name"].(string)
-			rec.lastContact, _ = gen["lastContactTime"].(string)
+			rec.lastContact = lastCheckInOf(gen)
 		}
 		if rec.name == "" {
 			rec.name = rec.id

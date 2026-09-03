@@ -160,6 +160,18 @@ func validatePlatformGatewayCredentials(ctx context.Context, w io.Writer, creds 
 	case creds.TenantID != "":
 		opts = append(opts, jamfplatform.WithTenantID(creds.TenantID))
 	}
+	// This is the one construction site that does not go through
+	// newPlatformSDKClient — it wants no retries, no file token cache and none
+	// of the dry-run/verbose/spinner transports — so it repeats the
+	// retired-host refusal rather than inheriting it. The prompt path above
+	// already refuses, and today every caller comes through it; the refusal is
+	// here anyway because "today every caller does" is not a property a test
+	// preserves, and it is what TestOnlyTheGuardedWrapperConstructsAPlatformClient
+	// requires of a file it exempts.
+	if err := refuseRetiredGatewayURL(creds.GatewayURL); err != nil {
+		_, _ = fmt.Fprintln(w, "failed")
+		return false, err
+	}
 	pc := jamfplatform.NewClient(creds.GatewayURL, creds.ClientID, creds.ClientSecret, opts...)
 
 	if err := pc.ValidateCredentials(ctx); err != nil {
