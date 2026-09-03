@@ -263,11 +263,15 @@ value is a code path nothing exercises on its own — the way the gateway URL-sh
 bug survived weeks.
 
 ```bash
-make sync-platform-specs-from-sdk JAMFPLATFORM_SDK_PATH=/path/to/jamfplatform-go-sdk
+make sync-platform-specs-from-sdk
 # or the coverage half alone:
-make sync-gateway-coverage-from-sdk JAMFPLATFORM_SDK_PATH=…
-make verify-classic-schemas   # CI-safe; a no-op pass with no SDK checkout
+make sync-gateway-coverage-from-sdk
+make verify-classic-schemas   # CI-safe; a no-op pass with no spec drop
 ```
+
+(Both fetch the SDK's `api/` from its `main` as of the v0.20.1 ingest —
+`JAMFPLATFORM_SDK_REF` pins a tag or SHA, `JAMFPLATFORM_SDK_PATH` still takes a
+local checkout. When this was written the path was the only route.)
 
 The artifact is committed so `make generate` and CI stay hermetic, and it is
 byte-stable across runs so `verify-classic-schemas` stays meaningful.

@@ -264,34 +264,60 @@ sync-platform-specs:
 	@$(MAKE) generate
 	@echo "Done! Review changes with: git diff specs/platform internal/commands/platform/generated"
 
-# Copy the Platform Gateway specs from a jamfplatform-go-sdk checkout into the
-# drop directory, then run the normal sync. This is the supported way to refresh
-# them: the SDK publishes api/*.json from its own generator, having applied its
-# schema corrections and validated them with acceptance tests against a live
-# tenant, so it is the only source that is both normalised and verified.
+# Where the SDK's published specs come from. jamfplatform-go-sdk's api/ is the
+# source of truth for every spec this repo ingests — the only place they are
+# normalised and wire-verified against a live tenant — and the SDK is always
+# updated before this repo ingests. So the default is the repository itself, at
+# the ref below, rather than a checkout somebody has to remember to pull: a stale
+# local clone is exactly how a spec drifts, and the compliance-benchmark case is
+# what that costs (a renamed query parameter answering 0 rules for every
+# baseline, with a required flag and no error).
 #
+# Set JAMFPLATFORM_SDK_PATH to override with a local checkout — an unpublished
+# branch, a worktree pinned to one revision, or an offline machine.
+JAMFPLATFORM_SDK_REPO ?= Jamf-Concepts/jamfplatform-go-sdk
+JAMFPLATFORM_SDK_REF ?= main
+JAMFPLATFORM_SDK_PATH ?=
+
+# Fetch the Platform Gateway specs from the SDK into the drop directory, then run
+# the normal sync. This is the supported way to refresh them: the SDK publishes
+# api/*.json from its own generator, having applied its schema corrections and
+# validated them with acceptance tests against a live tenant, so it is the only
+# source that is both normalised and verified.
+#
+#   make sync-platform-specs-from-sdk                              # main
+#   make sync-platform-specs-from-sdk JAMFPLATFORM_SDK_REF=v0.20.1 # a tag or SHA
 #   make sync-platform-specs-from-sdk JAMFPLATFORM_SDK_PATH=../jamfplatform-go-sdk
+#
+# Both routes end in the same place — files in specs/.platform-source/ and one
+# recorded revision — so only the fetch differs. The revision is passed down
+# explicitly rather than re-derived, because the remote route has no checkout for
+# sync-gateway-coverage's git probe to read and a manifest that cannot say which
+# SDK it came from is one nobody can check for staleness.
 sync-platform-specs-from-sdk:
-	@if [ -z "$(JAMFPLATFORM_SDK_PATH)" ]; then \
-		echo "Error: JAMFPLATFORM_SDK_PATH is required"; \
-		echo "Usage: make sync-platform-specs-from-sdk JAMFPLATFORM_SDK_PATH=/path/to/jamfplatform-go-sdk"; \
-		exit 1; \
-	fi
-	@if [ ! -d "$(JAMFPLATFORM_SDK_PATH)/api" ]; then \
-		echo "Error: $(JAMFPLATFORM_SDK_PATH)/api not found — is that a jamfplatform-go-sdk checkout?"; \
-		exit 1; \
-	fi
 	@mkdir -p specs/.platform-source
-	@for f in $(PLATFORM_SDK_SPECS) $(PLATFORM_SDK_COVERAGE_SPECS); do \
-		if [ ! -f "$(JAMFPLATFORM_SDK_PATH)/api/$$f" ]; then \
-			echo "Error: $$f missing from $(JAMFPLATFORM_SDK_PATH)/api"; \
+	@if [ -n "$(JAMFPLATFORM_SDK_PATH)" ]; then \
+		if [ ! -d "$(JAMFPLATFORM_SDK_PATH)/api" ]; then \
+			echo "Error: $(JAMFPLATFORM_SDK_PATH)/api not found — is that a jamfplatform-go-sdk checkout?"; \
 			exit 1; \
 		fi; \
-		cp "$(JAMFPLATFORM_SDK_PATH)/api/$$f" "specs/.platform-source/$$f"; \
-	done
-	@echo "Copied $$(echo $(PLATFORM_SDK_SPECS) $(PLATFORM_SDK_COVERAGE_SPECS) | wc -w | tr -d ' ') spec(s) from $(JAMFPLATFORM_SDK_PATH)/api"
+		for f in $(PLATFORM_SDK_SPECS) $(PLATFORM_SDK_COVERAGE_SPECS); do \
+			if [ ! -f "$(JAMFPLATFORM_SDK_PATH)/api/$$f" ]; then \
+				echo "Error: $$f missing from $(JAMFPLATFORM_SDK_PATH)/api"; \
+				exit 1; \
+			fi; \
+			cp "$(JAMFPLATFORM_SDK_PATH)/api/$$f" "specs/.platform-source/$$f"; \
+		done; \
+		echo "Copied $$(echo $(PLATFORM_SDK_SPECS) $(PLATFORM_SDK_COVERAGE_SPECS) | wc -w | tr -d ' ') spec(s) from $(JAMFPLATFORM_SDK_PATH)/api"; \
+	else \
+		scripts/fetch-sdk-specs.sh "$(JAMFPLATFORM_SDK_REPO)" "$(JAMFPLATFORM_SDK_REF)" \
+			specs/.platform-source $(PLATFORM_SDK_SPECS) $(PLATFORM_SDK_COVERAGE_SPECS) > .gateway-sdk-rev; \
+	fi
 	@$(MAKE) sync-platform-specs
-	@$(MAKE) sync-gateway-coverage JAMFPLATFORM_SDK_PATH="$(JAMFPLATFORM_SDK_PATH)"
+	@$(MAKE) sync-gateway-coverage \
+		JAMFPLATFORM_SDK_PATH="$(JAMFPLATFORM_SDK_PATH)" \
+		JAMFPLATFORM_SDK_REV="$$(cat .gateway-sdk-rev 2>/dev/null || true)"
+	@rm -f .gateway-sdk-rev
 
 # Copy private Jamf Security Cloud specs (Risk, Device Lifecycle, Shared
 # Signals & Events) from the gitignored specs/.security-source/ drop location
@@ -360,7 +386,11 @@ sync-gateway-coverage:
 			exit 1; \
 		fi; \
 	done
-	@# Record the SDK revision only when we were actually given an SDK checkout.
+	@# Record the SDK revision. JAMFPLATFORM_SDK_REV is the answer when the caller
+	@# already knows it — the remote fetch resolves a ref to a commit and passes it
+	@# down, having no checkout here for the git probe below to read.
+	@#
+	@# Otherwise, only when we were actually given an SDK checkout.
 	@# `cd ''` is a no-op that SUCCEEDS, so the obvious one-liner
 	@#   cd '$(JAMFPLATFORM_SDK_PATH)' && git rev-parse --short HEAD
 	@# stays in THIS repo when the variable is empty and stamps jamfpro-cli's own
@@ -377,7 +407,9 @@ sync-gateway-coverage:
 	@# added to prevent. -e still requires a work-tree root, so it cannot be
 	@# satisfied by an empty variable or by any path inside this repo.
 	@rm -f .gateway-sdk-rev
-	@if [ -n "$(JAMFPLATFORM_SDK_PATH)" ] && [ -e "$(JAMFPLATFORM_SDK_PATH)/.git" ]; then \
+	@if [ -n "$(JAMFPLATFORM_SDK_REV)" ]; then \
+		printf '%s\n' "$(JAMFPLATFORM_SDK_REV)" > .gateway-sdk-rev; \
+	elif [ -n "$(JAMFPLATFORM_SDK_PATH)" ] && [ -e "$(JAMFPLATFORM_SDK_PATH)/.git" ]; then \
 		git -C "$(JAMFPLATFORM_SDK_PATH)" rev-parse --short HEAD > .gateway-sdk-rev 2>/dev/null || true; \
 	fi
 	go run ./generator --specs ./specs --output ./internal/commands/pro/generated \
@@ -387,30 +419,37 @@ sync-gateway-coverage:
 	@go fmt ./internal/commands/pro/generated/... ./internal/gateway/... > /dev/null
 	@echo "Done! Review changes with: git diff specs/gateway specs/classic internal/gateway internal/commands"
 
-# Copy the two coverage specs from an SDK checkout, then derive. Recording the
-# SDK revision is the point of routing through here: a manifest that cannot say
-# which SDK it came from is one nobody can check for staleness.
+# Fetch the two coverage specs from the SDK, then derive. Recording the SDK
+# revision is the point of routing through here: a manifest that cannot say which
+# SDK it came from is one nobody can check for staleness. Same dual source as
+# sync-platform-specs-from-sdk — the repo by default, a checkout when
+# JAMFPLATFORM_SDK_PATH is set.
 #
+#   make sync-gateway-coverage-from-sdk                              # main
+#   make sync-gateway-coverage-from-sdk JAMFPLATFORM_SDK_REF=v0.20.1
 #   make sync-gateway-coverage-from-sdk JAMFPLATFORM_SDK_PATH=../jamfplatform-go-sdk
 sync-gateway-coverage-from-sdk:
-	@if [ -z "$(JAMFPLATFORM_SDK_PATH)" ]; then \
-		echo "Error: JAMFPLATFORM_SDK_PATH is required"; \
-		echo "Usage: make sync-gateway-coverage-from-sdk JAMFPLATFORM_SDK_PATH=/path/to/jamfplatform-go-sdk"; \
-		exit 1; \
-	fi
-	@if [ ! -d "$(JAMFPLATFORM_SDK_PATH)/api" ]; then \
-		echo "Error: $(JAMFPLATFORM_SDK_PATH)/api not found — is that a jamfplatform-go-sdk checkout?"; \
-		exit 1; \
-	fi
 	@mkdir -p specs/.platform-source
-	@for f in $(PLATFORM_SDK_COVERAGE_SPECS); do \
-		if [ ! -f "$(JAMFPLATFORM_SDK_PATH)/api/$$f" ]; then \
-			echo "Error: $$f missing from $(JAMFPLATFORM_SDK_PATH)/api"; \
+	@if [ -n "$(JAMFPLATFORM_SDK_PATH)" ]; then \
+		if [ ! -d "$(JAMFPLATFORM_SDK_PATH)/api" ]; then \
+			echo "Error: $(JAMFPLATFORM_SDK_PATH)/api not found — is that a jamfplatform-go-sdk checkout?"; \
 			exit 1; \
 		fi; \
-		cp "$(JAMFPLATFORM_SDK_PATH)/api/$$f" "specs/.platform-source/$$f"; \
-	done
-	@$(MAKE) sync-gateway-coverage JAMFPLATFORM_SDK_PATH="$(JAMFPLATFORM_SDK_PATH)"
+		for f in $(PLATFORM_SDK_COVERAGE_SPECS); do \
+			if [ ! -f "$(JAMFPLATFORM_SDK_PATH)/api/$$f" ]; then \
+				echo "Error: $$f missing from $(JAMFPLATFORM_SDK_PATH)/api"; \
+				exit 1; \
+			fi; \
+			cp "$(JAMFPLATFORM_SDK_PATH)/api/$$f" "specs/.platform-source/$$f"; \
+		done; \
+	else \
+		scripts/fetch-sdk-specs.sh "$(JAMFPLATFORM_SDK_REPO)" "$(JAMFPLATFORM_SDK_REF)" \
+			specs/.platform-source $(PLATFORM_SDK_COVERAGE_SPECS) > .gateway-sdk-rev; \
+	fi
+	@$(MAKE) sync-gateway-coverage \
+		JAMFPLATFORM_SDK_PATH="$(JAMFPLATFORM_SDK_PATH)" \
+		JAMFPLATFORM_SDK_REV="$$(cat .gateway-sdk-rev 2>/dev/null || true)"
+	@rm -f .gateway-sdk-rev
 
 # Verify the committed manifest and the generated table are in sync (CI-safe).
 # A no-op pass when the coverage specs are absent, like verify-security-specs —
