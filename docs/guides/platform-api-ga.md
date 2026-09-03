@@ -1,13 +1,15 @@
-# Preparing for the Platform API GA
+# The Platform API at GA
 
-The Jamf Platform API is leaving public beta. This page is what a jamf-cli user has to
-change, and what the CLI now does for you.
+The Jamf Platform API reached general availability on **2026-09-01**, and the public beta is
+over. This page is what a jamf-cli user has to change coming from the beta, and what the CLI
+now does for you.
 
-> **Provisional, and subject to change without notice.** The Platform API is still moving
-> ahead of GA. Version numbers, the refused-command list and the permission names quoted
-> here all track a specific SDK ingest — currently `jamfplatform-go-sdk` `v0.20.1`, whose
-> published surface is Jamf Pro API 11.31.0 and Classic API 11.28.0. Re-read this against
-> the release you are actually upgrading to.
+> **The API is GA; the numbers on this page are a snapshot.** Version numbers, the
+> refused-command list and the permission names quoted here track a specific SDK ingest —
+> currently `jamfplatform-go-sdk` `v0.20.1`, whose published surface is Jamf Pro API 11.31.0
+> and Classic API 11.28.0. The published surface still moves at GA (endpoints are added, and
+> superseded versions are withdrawn), so read the refused-command list against the build you
+> are actually running: `jamf-cli commands -o json` always reports the current answer.
 
 **Nothing about a Jamf Pro instance profile changes.** If you authenticate with
 `auth-method: oauth2` or `token` against `https://your.jamfcloud.com`, none of this applies
@@ -23,25 +25,25 @@ model and the scope levels; it is worth reading alongside this if you use both.
 
 ## Action needed
 
-Per platform profile. The first group applies as soon as you take a build carrying this
-change, including before GA. The second only at GA.
-
-**Now:**
+Three changes per platform profile, all of them now due — GA has happened, so nothing here
+is waiting on a date. A profile still carrying beta values does not work.
 
 1. **Point `url` at the GA gateway.** `https://{region}.api.jamfcloud.com`, replacing
    `https://{region}.apigw.jamf.com`. See [Base URL](#base-url).
-
-**At GA:**
-
 2. **Register a replacement API integration in Jamf Account and update the profile's
-   credentials.** Beta credentials are revoked at GA and a beta client cannot be migrated.
-   Record what each beta integration could reach first, so you can pick the equivalent
-   permissions. See [Credentials and permissions](#credentials-and-permissions).
+   credentials.** Beta credentials were revoked at GA and a beta client cannot be migrated.
+   If you still have a beta integration's configuration to hand, record what it could reach
+   before replacing it, so you can pick the equivalent permissions. See [Credentials and
+   permissions](#credentials-and-permissions).
 3. **Replace `tenant-id` with `environment-id`**, unless single-product access is
    deliberately what you want. See [Scope](#scope).
 
 There is no state to migrate and no config-file schema change beyond those keys. Re-running
-`jamf-cli platform setup` does all three interactively and writes a fresh profile.
+`jamf-cli platform setup` does all three interactively and writes a fresh profile — which is
+the shortest path if you are starting from a beta profile.
+
+If you are setting up a platform profile for the first time, none of the above is a
+migration: run `jamf-cli platform setup` and read [Scope](#scope) to pick the level.
 
 ## Base URL
 
@@ -74,8 +76,8 @@ neither the host nor the reason. The CLI does not rewrite the URL for you — th
 disk stays wrong for every other tool reading it, and a URL you did not type is a bad thing
 to send a credential to.
 
-The GA host is already live and accepts a public-beta integration, so you can make and
-verify this change before GA, independently of the credential swap.
+The GA host is the only host now — `apigw.jamf.com` is retired, not deprecated — so this
+change and the credential swap have to land together.
 
 ## Scope
 
@@ -322,9 +324,9 @@ problem.
 `jamf-cli commands -o json` reports the verdict per command as `gateway`, `gatewayBasis` and
 `gatewayDetail`, so a script can check the whole surface without running anything.
 
-## New at GA
+## What GA added
 
-Additive — no action needed.
+Additive — no action needed, and all of it is live now.
 
 - **Jamf AI Governance:** `platform ai-policies`, `platform ai-tools`. Environment or
   organization scope.
@@ -366,4 +368,4 @@ Additive — no action needed.
 | `… is not part of the Jamf Platform gateway's published API` (exit 2) | Expected. Run it against a Jamf Pro instance profile — see [Commands refused on a gateway profile](#commands-refused-on-a-gateway-profile). |
 | `… is served by the Jamf Platform API, which the active credentials do not reach` (exit 2) | A platform command on an instance profile. Use `-p <platform profile>`. |
 | `--environment-id and --tenant-id are mutually exclusive` | Both levels supplied. Unset whichever the credential was not created for, including in the environment. |
-| Authentication fails outright after GA | Beta credentials. Register a replacement integration in Jamf Account and re-run `jamf-cli platform setup`. |
+| Authentication fails outright with credentials that used to work | Beta credentials, revoked at GA. Register a replacement integration in Jamf Account and re-run `jamf-cli platform setup`. |
