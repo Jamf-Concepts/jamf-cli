@@ -2648,60 +2648,38 @@ footer .footer-meta {
 
 /* ===== Theme Toggle ===== */
 .theme-toggle {
-  background: none;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 0.4rem;
+  position: relative;
+  width: var(--h-action);
+  height: var(--h-action);
+  border: 1px solid var(--border-base);
+  border-radius: var(--r-base);
+  background: var(--structure-base);
+  color: var(--font-secondary);
   cursor: pointer;
-  color: var(--text-secondary);
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  transition: color 0.15s, border-color 0.15s, scale 0.15s ease;
-  flex-shrink: 0;
 }
+.theme-toggle:hover { background: var(--structure-secondary); color: var(--font-base); }
+.theme-toggle:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--focus); }
 
-.theme-toggle:hover {
-  color: var(--text-primary);
-  border-color: var(--text-secondary);
-}
-
-.theme-toggle svg {
+.theme-icon {
+  position: absolute;
   width: 18px;
   height: 18px;
+  opacity: 0;
+  scale: 0.5;
+  transition: opacity 0.2s ease, scale 0.2s ease;
 }
-
-/* Sun in dark mode, moon in light mode — both stay in the DOM stacked on
-   one grid cell and cross-fade (scale + blur, same recipe as the copy→check
-   swap) instead of popping via display. light-dark() only drives colors, so
-   these visibility states are the one spot that still needs the explicit
-   media + data-theme selectors. */
-.theme-toggle { display: grid; place-items: center; }
-.theme-icon-sun,
-.theme-icon-moon {
-  grid-area: 1 / 1;
-  transition: opacity 0.3s cubic-bezier(0.2, 0, 0, 1),
-              scale 0.3s cubic-bezier(0.2, 0, 0, 1),
-              filter 0.3s cubic-bezier(0.2, 0, 0, 1);
+.theme-toggle[data-mode="system"] .theme-icon-system,
+.theme-toggle[data-mode="light"] .theme-icon-sun,
+.theme-toggle[data-mode="dark"] .theme-icon-moon {
+  opacity: 1;
+  scale: 1;
 }
-.theme-icon-sun { opacity: 0; scale: 0.25; filter: blur(4px); }
-.theme-icon-moon { opacity: 1; scale: 1; filter: blur(0); }
-
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) .theme-icon-sun { opacity: 1; scale: 1; filter: blur(0); }
-  :root:not([data-theme="light"]) .theme-icon-moon { opacity: 0; scale: 0.25; filter: blur(4px); }
-}
-
-:root[data-theme="dark"] .theme-icon-sun { opacity: 1; scale: 1; filter: blur(0); }
-:root[data-theme="dark"] .theme-icon-moon { opacity: 0; scale: 0.25; filter: blur(4px); }
 
 @media (prefers-reduced-motion: reduce) {
-  .theme-icon-sun,
-  .theme-icon-moon {
-    transition-property: opacity;
-    scale: 1 !important;
-    filter: none !important;
-  }
+  .theme-icon { transition: none; scale: 1; }
 }
 
 /* View-transition radial theme reveal — the toggle JS animates a circular
