@@ -578,6 +578,9 @@ a[target="_blank"]:hover::after {
 .tag[data-product="platform"] { background: var(--tag-platform-bg); color: var(--tag-platform-fg); }
 .tag[data-product="core"] { background: var(--tag-core-bg); color: var(--tag-core-fg); }
 .tag-danger { background: var(--danger-bg); color: var(--danger); }
+/* Write mark. Borrows the Platform hue so read/write/destructive reads as
+   one three-step scale against the default gray .tag and .tag-danger. */
+.tag-write { background: var(--tag-platform-bg); color: var(--product-platform); }
 .tag-new { background: var(--tag-new-bg); color: var(--tag-new-fg); }
 .tag-mono { font-family: var(--font-mono); font-size: 12px; font-weight: 400; }
 
@@ -911,22 +914,61 @@ a[target="_blank"]:hover::after {
 .group-table-head { display: flex; align-items: baseline; gap: 16px; }
 .group-table-head h3 { margin: 0; font-size: 24px; line-height: 28px; font-weight: 700; }
 .group-table-meta { color: var(--font-secondary); }
-.cmd-table { border: 1px solid var(--border-base); border-radius: var(--r-base); overflow: hidden; }
+.cmd-table { border: 1px solid var(--border-base); border-radius: var(--r-base); }
 .cmd-table-header,
 .command-row {
   display: grid;
-  grid-template-columns: 360px minmax(0, 1fr) 160px;
+  grid-template-columns: 240px minmax(0, 1fr) 160px;
   gap: 16px;
   align-items: center;
   padding: 0 16px;
   box-sizing: border-box;
 }
+/* Sticky under the 64px nav so the column meanings survive a long group.
+   The sidebar sits at top: 80px and is a separate column, so the two do
+   not overlap. */
 .cmd-table-header {
+  position: sticky;
+  top: 64px;
+  z-index: 2;
   height: 44px;
   background: var(--structure-secondary);
   border-bottom: 1px solid var(--border-base);
+  border-radius: var(--r-base) var(--r-base) 0 0;
   font-weight: 700;
 }
+/* A group where no row earned a mark drops the third column rather than
+   showing an empty one. */
+.group-table.no-marks .cmd-table-header,
+.group-table.no-marks .command-row { grid-template-columns: 240px minmax(0, 1fr); }
+.group-table.no-marks .cmd-table-header span:nth-child(3),
+.group-table.no-marks .command-marks { display: none; }
+
+/* Resource block: one head naming the resource, then its verb rows. The
+   indent comes from --depth, set per block by renderResourceBlock. */
+.resource-block { --depth: 0; }
+.resource-block .command-row,
+.resource-head { padding-left: calc(16px + var(--depth) * 20px); }
+.resource-block .resource-block { border-left: 1px solid var(--border-secondary); }
+.resource-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px;
+  padding-top: 12px;
+  padding-bottom: 8px;
+  padding-right: 16px;
+  border-bottom: 1px solid var(--border-secondary);
+  background: var(--structure-secondary);
+}
+.resource-head-cell { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; }
+.resource-head.is-command { cursor: pointer; }
+.resource-head.is-command:hover .resource-path { text-decoration: underline; }
+.resource-head:focus-visible { outline: none; box-shadow: inset 0 0 0 2px var(--focus); }
+.resource-head.is-command.expanded .resource-path { text-decoration: underline; }
+.resource-path { font-family: var(--font-mono); font-size: 13px; font-weight: 700; }
+.resource-desc { color: var(--font-secondary); font-size: 13px; }
+.resource-count { color: var(--font-tertiary); font-family: var(--font-mono); font-size: 12px; }
 .command-row {
   min-height: 48px;
   padding-top: 8px;
@@ -934,7 +976,16 @@ a[target="_blank"]:hover::after {
   border-bottom: 1px solid var(--border-secondary);
   cursor: pointer;
 }
-.command-row:last-child { border-bottom: 0; }
+/* The table can no longer clip its own corners — overflow: hidden would
+   kill the sticky header — so the closing border and radius are put on
+   whichever row actually ends the table. Resource depth is capped at 2, so
+   three levels of nesting covers every case. */
+.cmd-table > .command-row:last-child,
+.cmd-table > .resource-block:last-child > .command-row:last-child,
+.cmd-table > .resource-block:last-child > .resource-block:last-child > .command-row:last-child {
+  border-bottom: 0;
+  border-radius: 0 0 var(--r-base) var(--r-base);
+}
 .command-row:hover { background: var(--structure-secondary); }
 .command-row:focus-visible { outline: none; box-shadow: inset 0 0 0 2px var(--focus); }
 .command-row.expanded { background: var(--structure-secondary); border-bottom-color: transparent; }
@@ -957,12 +1008,13 @@ mark, .search-highlight { background: var(--search-highlight); color: inherit; b
 
 /* Drawer */
 .command-detail { padding: 4px 16px 20px; background: var(--structure-secondary); border-bottom: 1px solid var(--border-secondary); }
-.detail-grid { display: grid; grid-template-columns: 360px minmax(0, 1fr); gap: 24px; }
+.detail-grid { display: grid; grid-template-columns: 240px minmax(0, 1fr); gap: 24px; }
 .detail-col { display: flex; flex-direction: column; gap: 12px; }
 .detail-heading { font-size: 12px; line-height: 16px; font-weight: 700; }
 .detail-flags { display: flex; flex-wrap: wrap; gap: 6px; }
 .detail-meta { font-size: 12px; line-height: 16px; color: var(--font-tertiary); }
 .detail-meta strong { color: var(--font-base); font-weight: 500; }
+.detail-aliases { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px; }
 .detail-breadcrumb { font-size: 12px; color: var(--font-tertiary); }
 .command-detail .code-block { font-size: 12px; line-height: 18px; }
 .detail-example { display: flex; flex-direction: column; gap: 6px; }
@@ -1266,8 +1318,10 @@ footer {
   #hero, #facts, #quickstart, #commands, #faq, footer { padding-left: 64px; padding-right: 64px; }
   #hero { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 48px; }
   #hero h1 { font-size: 48px; line-height: 56px; }
-  .cmd-table-header, .command-row { grid-template-columns: 300px minmax(0, 1fr) 140px; }
-  .detail-grid { grid-template-columns: 300px minmax(0, 1fr); }
+  .cmd-table-header, .command-row { grid-template-columns: 200px minmax(0, 1fr) 140px; }
+  .group-table.no-marks .cmd-table-header,
+  .group-table.no-marks .command-row { grid-template-columns: 200px minmax(0, 1fr); }
+  .detail-grid { grid-template-columns: 200px minmax(0, 1fr); }
 }
 
 @media (max-width: 1024px) {
@@ -1284,6 +1338,8 @@ footer {
   .faq-grid { grid-template-columns: minmax(0, 1fr); }
   .cmd-table-header { display: none; }
   .command-row { grid-template-columns: minmax(0, 1fr); gap: 4px; padding: 12px 16px; }
+  .group-table.no-marks .command-row { grid-template-columns: minmax(0, 1fr); }
+  .resource-block .command-row, .resource-head { padding-left: calc(16px + var(--depth) * 12px); }
   .command-marks { justify-content: flex-start; }
   .detail-grid { grid-template-columns: minmax(0, 1fr); }
 }

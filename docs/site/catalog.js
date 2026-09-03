@@ -641,6 +641,103 @@
     return result;
   }
 
+  // ===== Resource grouping =====
+  //
+  // A group's commands form a path tree. A node with children is a
+  // *resource* (`pro blueprints`, `pro blueprints components`); a leaf is a
+  // *verb*. The table renders one .resource-block per resource so the
+  // command column can carry the verb alone instead of repeating the whole
+  // resource path on every row.
+  //
+  // The tree is built from path segments rather than from the command list,
+  // because a search shows only the matching commands: a resource whose
+  // container command did not match still needs a head so its verbs have
+  // context. Such a node carries no cmd of its own and falls back to the
+  // full catalog for its description and aliases.
+  function buildResourceTree(commands) {
+    var byPath = {};
+    var i;
+    for (i = 0; i < commands.length; i++) byPath[commands[i].command] = commands[i];
+    // Sorted so a container is always seen before its children, which is
+    // what lets a node adopt its own command as it is created.
+    var sorted = commands.slice().sort(function (a, b) {
+      return a.command < b.command ? -1 : (a.command > b.command ? 1 : 0);
+    });
+    var nodes = {};
+    var roots = [];
+    for (i = 0; i < sorted.length; i++) {
+      var parts = sorted[i].command.split(' ');
+      // The product word is the table's context, not part of any label —
+      // except on the bare product command itself (`pro`, in the Products
+      // group), where stripping it would leave no label and no row at all.
+      var base = (parts.length > 1 && sorted[i].product && parts[0] === sorted[i].product) ? 1 : 0;
+      var parent = null;
+      for (var d = base + 1; d <= parts.length; d++) {
+        var path = parts.slice(0, d).join(' ');
+        var node = nodes[path];
+        if (!node) {
+          node = {
+            path: path,
+            label: parts.slice(base, d).join(' '),
+            leaf: parts[d - 1],
+            cmd: byPath[path] || null,
+            depth: d - base - 1,
+            children: []
+          };
+          nodes[path] = node;
+          if (parent) parent.children.push(node);
+          else roots.push(node);
+        }
+        parent = node;
+      }
+    }
+    return roots;
+  }
+
+  // Commands the block holds, its own container included, so the count in
+  // the head matches what the reader can open beneath it.
+  function countCommands(node) {
+    var n = node.cmd ? 1 : 0;
+    for (var i = 0; i < node.children.length; i++) n += countCommands(node.children[i]);
+    return n;
+  }
+
+  // A trailing API marker is noise inside a group whose name already says
+  // which API it is, and generated descriptions start lower-case.
+  function cleanDescription(cmd, groupName) {
+    var text = (cmd && cmd.description) || '';
+    if (groupName && (groupName.indexOf('Platform') === 0 || groupName.indexOf('Classic') === 0)) {
+      text = text.replace(/ \((?:Platform|Classic) API\)$/, '');
+    }
+    if (!text) return '';
+    return text.charAt(0).toUpperCase() + text.slice(1);
+  }
+
+  // Read / write / destructive is the fact a fleet admin wants at a glance,
+  // and a command's last path word carries it. Anything unrecognised is left
+  // unmarked rather than guessed at — a whole group of unmarked rows drops
+  // the Marks column instead of showing an empty one.
+  var WRITE_VERBS = {
+    create: 1, update: 1, apply: 1, patch: 1, delete: 1, set: 1, enable: 1, disable: 1,
+    deploy: 1, undeploy: 1, publish: 1, assign: 1, unassign: 1, add: 1, remove: 1,
+    'import': 1, restore: 1, run: 1, send: 1, trigger: 1, override: 1, purge: 1
+  };
+  var READ_VERBS = {
+    list: 1, get: 1, 'export': 1, report: 1, show: 1, status: 1, versions: 1,
+    version: 1, history: 1, search: 1, download: 1, check: 1
+  };
+  var WRITE_PREFIX_RE = /^(add|remove|enable|disable)-/;
+  var READ_PREFIX_RE = /^(list|get)-/;
+
+  function verbClass(cmd) {
+    if (isDestructiveCommand(cmd)) return 'destructive';
+    var parts = cmd.command.split(' ');
+    var last = parts[parts.length - 1];
+    if (WRITE_VERBS[last] || WRITE_PREFIX_RE.test(last)) return 'write';
+    if (READ_VERBS[last] || READ_PREFIX_RE.test(last)) return 'read';
+    return null;
+  }
+
   function renderGroupTable(group, product, showProduct) {
     var wrap = document.createElement('section');
     wrap.className = 'group-table';
@@ -678,14 +775,115 @@
       hdr.appendChild(cell);
     });
     table.appendChild(hdr);
-    for (var i = 0; i < group.commands.length; i++) {
-      table.appendChild(renderCommandRow(group.commands[i]));
+
+    // ctx.marks records whether any row in this table earned a mark, so a
+    // group that earned none can collapse the third column.
+    var ctx = { group: group.name, marks: false };
+    var roots = buildResourceTree(group.commands);
+    var flat = [];
+    var blocks = [];
+    for (var r = 0; r < roots.length; r++) {
+      if (roots[r].children.length) blocks.push(roots[r]);
+      else flat.push(roots[r]);
+    }
+    // Commands that own no resource of their own (`pro overview`, `doctor`)
+    // read as a preamble to the resources, so they come first.
+    for (var f = 0; f < flat.length; f++) {
+      if (flat[f].cmd) table.appendChild(renderCommandRow(flat[f].cmd, flat[f].label, ctx));
+    }
+    for (var b = 0; b < blocks.length; b++) {
+      table.appendChild(renderResourceBlock(blocks[b], ctx));
     }
     wrap.appendChild(table);
+    if (!ctx.marks) wrap.classList.add('no-marks');
     return wrap;
   }
 
-  function renderCommandRow(cmd) {
+  // One resource: a head that names it, its verb rows, then any nested
+  // resource. The head is a heading rather than a .command-row, but when the
+  // container command exists it is still that command's control — it carries
+  // data-command and opens the same drawer, so nothing addressable is lost.
+  function renderResourceBlock(node, ctx) {
+    var block = document.createElement('div');
+    block.className = 'resource-block';
+    block.setAttribute('role', 'rowgroup');
+    // Indent by resource depth, capped so a deep path cannot walk the column
+    // off the left edge of the description.
+    block.style.setProperty('--depth', String(Math.min(node.depth, 2)));
+
+    var container = node.cmd || commandByPath(node.path);
+    var head = document.createElement('div');
+    head.className = 'resource-head';
+    head.setAttribute('role', 'row');
+    var cell = document.createElement('div');
+    cell.className = 'resource-head-cell';
+    cell.setAttribute('role', 'cell');
+    cell.setAttribute('aria-colspan', '3');
+
+    var pathEl = document.createElement('span');
+    pathEl.className = 'resource-path';
+    highlightText(node.label, pathEl);
+    cell.appendChild(pathEl);
+
+    var desc = cleanDescription(container, ctx.group);
+    if (desc) {
+      var descEl = document.createElement('span');
+      descEl.className = 'resource-desc';
+      highlightText(desc, descEl);
+      cell.appendChild(descEl);
+    }
+
+    var aliases = container && container.aliases ? container.aliases : null;
+    if (aliases && aliases.length) {
+      for (var a = 0; a < aliases.length; a++) {
+        var chip = document.createElement('span');
+        chip.className = 'tag tag-mono';
+        chip.title = 'Alias for ' + node.label;
+        chip.textContent = aliases[a];
+        cell.appendChild(chip);
+      }
+    }
+
+    var count = countCommands(node);
+    var cnt = document.createElement('span');
+    cnt.className = 'resource-count';
+    cnt.textContent = count + (count === 1 ? ' command' : ' commands');
+    cell.appendChild(cnt);
+    head.appendChild(cell);
+
+    if (node.cmd) {
+      (function (cmd) {
+        head.classList.add('is-command');
+        head.setAttribute('data-command', cmd.command);
+        head.setAttribute('tabindex', '0');
+        head.setAttribute('aria-expanded', 'false');
+        head.title = 'jamf-cli ' + cmd.command;
+        head.addEventListener('click', function () { toggleRowDetail(head, cmd); });
+        head.addEventListener('keydown', function (e) {
+          if (e.key !== 'Enter' && e.key !== ' ') return;
+          e.stopPropagation();
+          if (e.target !== head) return;
+          e.preventDefault();
+          toggleRowDetail(head, cmd);
+        });
+      })(node.cmd);
+    }
+    block.appendChild(head);
+
+    var nested = [];
+    for (var i = 0; i < node.children.length; i++) {
+      var child = node.children[i];
+      if (child.children.length) { nested.push(child); continue; }
+      if (child.cmd) block.appendChild(renderCommandRow(child.cmd, child.leaf, ctx));
+    }
+    for (var n = 0; n < nested.length; n++) block.appendChild(renderResourceBlock(nested[n], ctx));
+    return block;
+  }
+
+  // label is what the command column shows: the verb alone under a resource,
+  // or the whole command minus the product word for a resource-less one.
+  function renderCommandRow(cmd, label, ctx) {
+    var groupName = ctx ? ctx.group : (cmd.group || '');
     var row = document.createElement('div');
     row.className = 'command-row';
     row.setAttribute('role', 'row');
@@ -699,25 +897,12 @@
     nameCell.setAttribute('role', 'cell');
     // The keyboard "c" shortcut reads this attribute off the focused row.
     nameCell.setAttribute('data-copy', 'jamf-cli ' + cmd.command);
-    var parts = cmd.command.split(' ');
-    if (parts.length >= 2) {
-      var prodSpan = document.createElement('span');
-      prodSpan.className = 'cmd-product';
-      highlightText(parts[0] + ' ', prodSpan);
-      nameCell.appendChild(prodSpan);
-      if (parts.length > 2) {
-        var mid = document.createElement('span');
-        mid.className = 'cmd-prefix';
-        highlightText(parts.slice(1, -1).join(' ') + ' ', mid);
-        nameCell.appendChild(mid);
-      }
-      var action = document.createElement('span');
-      action.className = 'cmd-action';
-      highlightText(parts[parts.length - 1], action);
-      nameCell.appendChild(action);
-    } else {
-      highlightText(cmd.command, nameCell);
-    }
+    // The column shows the verb, so the full path lives in the tooltip.
+    nameCell.title = 'jamf-cli ' + cmd.command;
+    var action = document.createElement('span');
+    action.className = 'cmd-action';
+    highlightText(label || cmd.command, action);
+    nameCell.appendChild(action);
     var copyIcon = document.createElement('button');
     copyIcon.type = 'button';
     copyIcon.className = 'command-copy-icon';
@@ -733,30 +918,19 @@
     var desc = document.createElement('span');
     desc.className = 'command-desc';
     desc.setAttribute('role', 'cell');
-    highlightText(cmd.description || '', desc);
+    highlightText(cleanDescription(cmd, groupName), desc);
     row.appendChild(desc);
 
     var marks = document.createElement('span');
     marks.className = 'command-marks';
     marks.setAttribute('role', 'cell');
+    var marked = false;
     if (newCommandSet[cmd.command]) {
       var nb = document.createElement('span');
       nb.className = 'tag tag-new';
       nb.textContent = 'New';
       marks.appendChild(nb);
-    }
-    // Destructive mark — a fleet admin scanning the catalog should see at a
-    // glance which commands can nuke a device. Ground truth is the CLI's own
-    // --confirm-destructive flag; the verb fallback covers namespaces whose
-    // destructive ops do not carry it (school/platform erase, security
-    // purge). Plain `delete` is deliberately excluded: resource deletion is
-    // routine, device destruction is not.
-    if (isDestructiveCommand(cmd)) {
-      var db = document.createElement('span');
-      db.className = 'tag tag-danger';
-      db.title = 'Destructive. Requires --confirm-destructive to run.';
-      db.textContent = 'Destructive';
-      marks.appendChild(db);
+      marked = true;
     }
     // Cross-product flow: `pro jamf-protect add-history-note` is a Pro
     // command that operates on Protect data, so the row carries the other
@@ -769,8 +943,36 @@
       xb.title = 'Operates on ' + PRODUCT_LABELS[related] + ' data';
       xb.textContent = PRODUCT_LABELS[related];
       marks.appendChild(xb);
+      marked = true;
+    }
+    // Verb class. Destructive is the CLI's own --confirm-destructive flag
+    // (ground truth) plus device-destructive verbs for namespaces that do
+    // not carry it; write and read come from the last path word.
+    var vc = verbClass(cmd);
+    if (vc === 'destructive') {
+      var db = document.createElement('span');
+      db.className = 'tag tag-danger';
+      db.title = 'Destructive. Requires --confirm-destructive to run.';
+      db.textContent = 'Destructive';
+      marks.appendChild(db);
+      marked = true;
+    } else if (vc === 'write') {
+      var wb = document.createElement('span');
+      wb.className = 'tag tag-write';
+      wb.title = 'Changes state on the server.';
+      wb.textContent = 'Write';
+      marks.appendChild(wb);
+      marked = true;
+    } else if (vc === 'read') {
+      var rb = document.createElement('span');
+      rb.className = 'tag tag-read';
+      rb.title = 'Read-only.';
+      rb.textContent = 'Read';
+      marks.appendChild(rb);
+      marked = true;
     }
     row.appendChild(marks);
+    if (marked && ctx) ctx.marks = true;
 
     // Expand on click, Enter or Space. The drawer is a sibling so the grid
     // row stays 3 cells.
@@ -819,7 +1021,10 @@
       updateCommandHash(null);
       return;
     }
-    var table = row.parentNode;
+    // The one-at-a-time rule is per table, not per resource block: a row
+    // nested in a .resource-block has the block as its parentNode, so
+    // scanning parentNode would leave a drawer open in a sibling block.
+    var table = row.closest ? row.closest('.cmd-table') : row.parentNode;
     var open = table.querySelectorAll('.command-detail');
     for (var i = 0; i < open.length; i++) {
       open[i].previousElementSibling.classList.remove('expanded');
@@ -938,14 +1143,28 @@
       left.appendChild(flagWrap);
     }
 
-    // Aliases
-    if (cmd.aliases && cmd.aliases.length > 0) {
+    // Aliases. A verb inherits the resource's aliases in commands.json, but
+    // when it does not, the container is where they live — the drawer is the
+    // one place that answers "what can I type instead", so it always says.
+    var aliasList = (cmd.aliases && cmd.aliases.length > 0) ? cmd.aliases : null;
+    if (!aliasList && parent) {
+      var containerCmd = commandByPath(parent);
+      if (containerCmd && containerCmd.aliases && containerCmd.aliases.length > 0) {
+        aliasList = containerCmd.aliases;
+      }
+    }
+    if (aliasList) {
       var aliases = document.createElement('div');
-      aliases.className = 'detail-meta';
+      aliases.className = 'detail-meta detail-aliases';
       var aliasLabel = document.createElement('strong');
       aliasLabel.textContent = 'Aliases: ';
       aliases.appendChild(aliasLabel);
-      aliases.appendChild(document.createTextNode(cmd.aliases.join(', ')));
+      for (var al = 0; al < aliasList.length; al++) {
+        var aliasChip = document.createElement('span');
+        aliasChip.className = 'tag tag-mono';
+        aliasChip.textContent = aliasList[al];
+        aliases.appendChild(aliasChip);
+      }
       left.appendChild(aliases);
     }
 
@@ -972,7 +1191,7 @@
         var sibAction = sibParts[sibParts.length - 1];
 
         var sibEl = document.createElement('a');
-        sibEl.className = 'sibling-link';
+        sibEl.className = 'tag tag-mono sibling-link';
         sibEl.href = '#';
         sibEl.setAttribute('data-product', sibCmd.product || '');
         sibEl.textContent = sibAction;
@@ -1009,11 +1228,43 @@
         right.appendChild(buildExampleBlock(examples[ex].command, examples[ex].description));
       }
     }
+    // Most commands carry neither a hero nor a documented example, and a
+    // drawer with no shell line at all leaves the reader to assemble one
+    // from the flag chips. The synthesized line is labelled so it is not
+    // mistaken for a captured one.
+    if (!heroKey && !(examples && examples.length > 0)) {
+      right.appendChild(createDetailHeading('Example (generated)'));
+      right.appendChild(buildExampleBlock(generatedExample(cmd), null));
+    }
 
     grid.appendChild(left);
     grid.appendChild(right);
     frag.appendChild(grid);
     return frag;
+  }
+
+  // A plausible invocation built from the command's own flags. The first
+  // identifying flag it declares gets a placeholder, and a read gets
+  // `-o json` because that is the form a script wants.
+  var EXAMPLE_FLAGS = [
+    ['--name', '--name "<name>"'],
+    ['--id', '--id <id>'],
+    ['--serial', '--serial <serial>'],
+    ['--from-file', '--from-file <file>']
+  ];
+
+  function generatedExample(cmd) {
+    var text = 'jamf-cli ' + cmd.command;
+    if (cmd.flags && cmd.flags.length) {
+      for (var i = 0; i < EXAMPLE_FLAGS.length; i++) {
+        if (cmd.flags.indexOf(EXAMPLE_FLAGS[i][0]) !== -1) {
+          text += ' ' + EXAMPLE_FLAGS[i][1];
+          break;
+        }
+      }
+    }
+    if (verbClass(cmd) === 'read') text += ' -o json';
+    return text;
   }
 
   // A copyable shell line. The copy button is the shared .copy-btn the
@@ -1210,7 +1461,10 @@
     var search = document.getElementById('search');
     if (search) search.value = '';
     renderCatalog(allCommands, '', activeProduct);
-    var row = document.querySelector('.command-row[data-command="' + command.replace(/"/g, '\\"') + '"]');
+    // A container command is rendered as its resource head rather than as a
+    // .command-row, so a deep link to one has to match both.
+    var esc = command.replace(/"/g, '\\"');
+    var row = document.querySelector('.command-row[data-command="' + esc + '"], .resource-head[data-command="' + esc + '"]');
     if (row) {
       toggleRowDetail(row, cmd);
       row.scrollIntoView({ behavior: 'smooth', block: 'center' });
