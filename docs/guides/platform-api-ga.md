@@ -223,7 +223,7 @@ Three things the fields deliberately do not claim:
 ## Commands refused on a gateway profile
 
 Some Jamf Pro and Classic endpoints are not part of the gateway's published API. Those
-commands are **refused before a request is sent** on a gateway profile, with exit code 2:
+commands are **refused before a request is sent** on a gateway profile, with **exit code 8**:
 
 | Command group | Subcommands | Why |
 |---|---|---|
@@ -274,8 +274,10 @@ pro static-computer-groups            # v2 — refused on a gateway profile
 pro computer-groups-static-groups     # v3 — use this
 ```
 
-Both still work against a Jamf Pro instance profile. The refusal does not name the
-replacement today.
+Both still work against a Jamf Pro instance profile, and **the refusal names the
+replacement**: where a working successor ships in the same binary, it is offered first, ahead
+of the instance-profile remedy. `pro static-computer-groups --help` says the same thing on
+the group itself, so you do not have to run a subcommand to find out.
 
 The refusal explains itself. Every endpoint on the list today **may still answer** — that is
 transitional, and the refusal says so rather than claiming the endpoint is gone:
@@ -296,6 +298,41 @@ auth-method is oauth2 or token.
 
 Published surface: Jamf Pro API 11.31.0, Classic API 11.28.0.
 hint: auth-method platform against the gateway, from profile "platform-prod"
+$ echo $?
+8
+```
+
+`pro api-roles` has no successor in the CLI, so the only remedy offered is the instance
+profile. A command that does have one names it first:
+
+```
+$ jamf-cli -p platform-prod pro static-computer-groups list
+jamf-cli pro static-computer-groups list is not part of the Jamf Platform gateway's published API
+
+Not declared by the gateway's Jamf Pro API 11.31.0.
+
+...
+
+Use `jamf-cli pro computer-groups-static-groups` instead — the same resource on the v3
+endpoint the gateway publishes, where this command is the withdrawn v2. It ships in this
+binary and is served by the gateway.
+
+Failing that, run it against a Jamf Pro instance directly — a profile whose url is your
+instance and whose auth-method is oauth2 or token.
+```
+
+**Exit code 8, not 2.** A refusal is a policy answer about the credentials in hand, not a
+malformed invocation, and exit 2 is also what a bad flag, an unknown subcommand, a missing
+URL, a missing credential, the retired gateway host and a scope conflict all return. A
+wrapper that wants to skip refused commands and fail on everything else keys on 8:
+
+```bash
+jamf-cli -p platform-prod pro api-roles list
+case $? in
+  0) ;;
+  8) echo "refused on this credential — skipping" >&2 ;;
+  *) exit 1 ;;
+esac
 ```
 
 Refusing something that works is deliberate: every day a workflow keeps running against a
@@ -323,6 +360,42 @@ problem.
 
 `jamf-cli commands -o json` reports the verdict per command as `gateway`, `gatewayBasis` and
 `gatewayDetail`, so a script can check the whole surface without running anything.
+
+### The stopgap: `JAMF_CLI_ALLOW_UNPUBLISHED`
+
+Some of these endpoints demonstrably answer today. `GET /pro/settings/obj/policyProperties`
+returns real data, and the build that withdrew it from the published spec did not stop
+routing it — so an upgrade can refuse a command that was working an hour earlier, with no
+route back until a release moves it.
+
+Setting `JAMF_CLI_ALLOW_UNPUBLISHED=1` downgrades that refusal to a warning and sends the
+request:
+
+```
+$ JAMF_CLI_ALLOW_UNPUBLISHED=1 jamf-cli -p platform-prod pro policy-properties policy-properties
+warning: jamf-cli pro policy-properties policy-properties is not part of the Jamf Platform
+gateway's published API, and JAMF_CLI_ALLOW_UNPUBLISHED is set — sending it anyway.
+Not declared by the gateway's Jamf Pro API 11.31.0.
+The gateway routes it today; that is transitional and it will stop answering without notice,
+at which point the failure arrives as a bare 403 BAD_PERMISSIONS. This is a stopgap, not a
+supported mode — move the workflow onto a Jamf Pro instance profile.
+```
+
+Read the terms before using it:
+
+- **It is a stopgap, not a supported mode.** Nothing has committed to keeping these routes.
+  When one is withdrawn, the command starts failing with a bare `403 BAD_PERMISSIONS` and the
+  variable will not help.
+- **The warning cannot be silenced.** It goes to stderr on every affected invocation, and
+  neither `--quiet` nor `--no-hints` suppresses it. Being told is what the variable trades
+  the refusal for.
+- **It covers only endpoints that are merely unpublished.** An endpoint a wire probe found
+  unrouted is refused regardless, because letting it through buys a 403 and nothing else.
+- **It is value-parsed**, like `JAMF_CLI_NO_HINTS`: `JAMF_CLI_ALLOW_UNPUBLISHED=0` leaves the
+  refusal in place, so a runner that exports it unconditionally can turn it off without
+  unsetting it.
+- **It changes nothing about the endpoint.** Prefer a second `oauth2` profile for anything
+  scheduled; use the variable for a one-off job you are already planning to migrate.
 
 ## What GA added
 
@@ -365,7 +438,156 @@ Additive — no action needed, and all of it is live now.
 | `400 INVALID_REQUEST_CONTEXT_TYPE` | The level sent is not the level that endpoint accepts; the message names both. `platform audit` accepts environment only. |
 | `permission denied (HTTP 403)` with a permission hint | The integration lacks that permission. Grant it in Jamf Account by the section and name the hint prints. |
 | `403 BAD_PERMISSIONS` with no permission named | The endpoint has no recorded capability, or the namespace is not entitled for this tenant. Check the integration's permissions and the tenant's entitlements. |
-| `… is not part of the Jamf Platform gateway's published API` (exit 2) | Expected. Run it against a Jamf Pro instance profile — see [Commands refused on a gateway profile](#commands-refused-on-a-gateway-profile). |
-| `… is served by the Jamf Platform API, which the active credentials do not reach` (exit 2) | A platform command on an instance profile. Use `-p <platform profile>`. |
+| `… is not part of the Jamf Platform gateway's published API` (exit 8) | Expected. Use the successor the message names, if it names one, or run it against a Jamf Pro instance profile — see [Commands refused on a gateway profile](#commands-refused-on-a-gateway-profile). `JAMF_CLI_ALLOW_UNPUBLISHED=1` is the stopgap. |
+| `… is served by the Jamf Platform API, which the active credentials do not reach` (exit 8) | A platform command on an instance profile. Use `-p <platform profile>`. |
 | `--environment-id and --tenant-id are mutually exclusive` | Both levels supplied. Unset whichever the credential was not created for, including in the environment. |
 | Authentication fails outright with credentials that used to work | Beta credentials, revoked at GA. Register a replacement integration in Jamf Account and re-run `jamf-cli platform setup`. |
+
+## Other CLI changes in this release
+
+The gateway migration is not the only user-visible change shipping here. Everything in this
+section except [A CDN refusal is named as one](#a-cdn-refusal-is-named-as-one) applies to a
+Jamf Pro instance profile as much as to a gateway one.
+
+### `pro ddm-reports declaration get` and `device get` are gone
+
+Both endpoints were deprecated upstream in favour of a sibling on the same resource, and the
+CLI already shipped both siblings, so the capability survives under a different subcommand
+name:
+
+| Removed | Replacement |
+|---|---|
+| `pro ddm-reports declaration get <declaration-id>` | `pro ddm-reports declaration devices <declaration-id> --filter …` |
+| `pro ddm-reports device get <device-id>` | `pro ddm-reports device declarations <device-id> --filter …` |
+
+The two successors declare `filter` **required** where the deprecated pair did not, so there
+is no unfiltered read left on either resource. The CLI enforces the flag before sending, so
+omitting it is a usage error rather than a 400. Where you want everything,
+`active=in=(true,false)` is the tautology that stands in for an absent filter:
+
+```bash
+jamf-cli pro ddm-reports device declarations <device-id> --filter 'active=in=(true,false)'
+```
+
+Both successors also gained `--page`. They page on `page` + `size` and only `size` was being
+sent, so until now just the first page was reachable.
+
+Hand-written commands that read DDM state — `pro ddm-reports errors`, and the DDM sections
+of `pro device`, `pro report` and `pro audit` — already used the filtered endpoints and are
+unaffected.
+
+### `pro computers-inventory` sends v4
+
+Every `pro computers-inventory` (`pro comp`, `pro computers`) subcommand now sends `/v4`
+instead of `/v3`, and `get` reads the v4 detail endpoint. Nothing renamed and no flag moved.
+Generated subcommands retry the `/v1` path on a 404 and print a one-line warning to stderr,
+so an instance that does not serve v4 still answers.
+
+Two commands are the exception, because they are hand-written and assemble their own paths:
+`pro comp erase` and `pro comp remove-mdm` were pinned to `/v1/computer-inventory/{id}/…`
+and are now pinned to `/v4/computers-inventory/{id}/…`, with no fallback. Against an
+instance that does not serve v4 they answer 404 rather than retrying v1.
+
+The v4 endpoints also arrive as generated `erase` and `remove-mdm-profile` subcommands, and
+those are suppressed in favour of the hand-written pair — a duplicate subcommand name is not
+something cobra can resolve. So the names, targeting and safety behaviour are unchanged:
+`pro comp erase` and `pro comp remove-mdm` still take `--serial`, `--name`, `--group` or
+`--from-file`, confirm a destructive action, honour `-n, --dry-run`, and accept the Find My
+PIN body through `--body-file`.
+
+### Classic writes gained `--scaffold`, `--set` and field help
+
+`create`, `update` and `apply` on 43 of the 54 Classic resources — 111 of 117 commands —
+now take `--scaffold` (print an XML body template and exit) and `--set key=value` (build
+the body from flags), and their `--help` lists required fields and enum values. The body
+shapes come from a committed schema artifact derived from the same Classic spec the gateway
+coverage manifest reads. The two unbound resources worth naming are `classic-computer-configs`
+(dead) and `classic-patch-titles` (its reads are withdrawn upstream).
+
+`--set` **builds the whole body** and is therefore mutually exclusive with `--from-file`,
+unlike the Platform and Security Cloud `--set`, which overlays onto a `--file` body. That is
+workable because a Classic `PUT` is a partial update: a body carrying only `<name>` renames
+the object and leaves everything else intact, so `--set name=…` alone is a valid update with
+no fetch-merge cycle.
+
+`--set` also refuses three things the server accepts, which is the only validation the CLI
+does that Jamf Pro does not:
+
+- **An unknown field**, because the Classic API answers `201` and silently drops it.
+- **An out-of-enum value**, because the Classic API answers `201` and reads back its default
+  (`frequency: "Twice per fortnight"` becomes `Once per computer`).
+- **A credential field** — a distribution point, SMTP server, LDAP server, directory
+  binding, VPP account and disk-encryption configuration all carry one. A password in a flag
+  value lands in shell history, `ps` output and CI logs. Put the whole body in a file and use
+  `--from-file`.
+
+A scaffold is a template to edit, not to pipe unread. A policy scaffold in particular cannot
+be sent as-is: `general.category.id`'s spec example is `0`, which answers
+`409 No match found for category 0`, and the `scope` and `account_maintenance` specimens
+reference objects that do not exist on your instance. Delete the sections you do not need.
+
+### `--file` accepts YAML on Platform and Security Cloud commands
+
+Every generated Platform and Security Cloud `--file` now sniffs the content and accepts YAML
+as well as JSON, matching what Pro's `--from-file` already did. `--scaffold` still prints
+JSON; a YAML file is converted before the request is built, so `--set` overlays behave
+identically either way.
+
+A YAML body carrying a timestamp scalar or a non-string mapping key — both legal YAML, and
+neither expressible in JSON — used to be reported as malformed input. It is now converted
+rather than refused.
+
+### An empty list prints `[]`, not `null`
+
+`list -o json` on an empty collection previously answered `null` for any command that
+aggregates pages: Pro's `list --all`, and every Platform and Security Cloud list. Anything
+piping to `jq` failed with "Cannot iterate over null" on exactly the tenants where the
+collection was empty. All three now emit `[]`.
+
+### `config list` shows the scope level
+
+The table, CSV and plain output of `jamf-cli config list` now always carries an
+`environment-id` column and a `default` column, and no longer carries `tenant-id`.
+`-o json` and `-o yaml` are unchanged and still include `tenant-id`.
+
+Two reasons. A table's columns are the keys of its *first* row, so a field that is only
+sometimes present was only sometimes a column — profiles are listed alphabetically, so one
+instance profile sorting first hid the scope of every platform profile below it, and hid
+which profile was the default. And one scope column rather than two, because environment is
+the level Jamf wants integrations created at. A tenant-scoped profile is not left
+unexplained: `auth-method` still reads `platform`, and `-o json` still carries the ID.
+
+If you parse `config list` in a script, read `-o json` rather than the table.
+
+### A CDN refusal is named as one
+
+The GA gateway sits behind a CDN whose WAF refuses some requests before Jamf sees them.
+Left alone that arrives as `permission denied (HTTP 403)` with an HTML error page in the
+message and a hint about API roles — wrong twice over, since the credential is fine and no
+role change helps. The CLI now recognises the response and says so:
+
+```
+Error: request blocked at the Jamf gateway edge (HTTP 403), before it reached Jamf
+hint: This is the gateway's CDN/WAF, not Jamf and not your API privileges, so no role change
+will help. Known triggers: "file://" anywhere in the request body (a legitimate value in
+some Classic payloads), .pkg upload content, and a burst of writes. The response cannot say
+which one fired. There is no client-side fix — retry a single request cold, and report it to
+Jamf.
+```
+
+It exits 5, like any other permission failure. The hint names every known trigger and does
+not claim which one fired, because the response carries no `traceId` and nothing identifying
+the rule — the same page comes back for a content match and for a volume block. There is
+deliberately no client-side workaround: rewriting a body to dodge a WAF rule would be
+silent, lossy where the content is meaningful, and would go on happening after the rule was
+fixed.
+
+The practical consequence today is that a `.pkg` upload through a gateway profile is refused
+(the match is inside the package's table of contents). Upload through a Jamf Pro instance
+profile.
+
+### Building from source needs Go 1.27
+
+`go.mod` declares `go 1.27.0`, up from `1.26.6`. With the default `GOTOOLCHAIN=auto` an
+older local toolchain downloads it, so `go install` keeps working; a pinned
+`GOTOOLCHAIN=go1.26.x` does not. Binary releases and the Homebrew formula are unaffected.

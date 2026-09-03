@@ -914,7 +914,7 @@ func TestAddToGroup_FromFile_BatchesLookups(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	lookups := mock.callsMatching("GET /v3/computers-inventory")
+	lookups := mock.callsMatching("GET /v4/computers-inventory")
 	if len(lookups) != 1 {
 		t.Errorf("made %d inventory lookups for 3 IDs, want 1 batched query: %v", len(lookups), lookups)
 	}

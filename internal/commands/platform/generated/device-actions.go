@@ -58,6 +58,16 @@ func newDeviceActionsCheckInCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			// platform and Security Cloud mutation executed for real under -n.
 			// A create reported the object it had just made and a delete reported
 			// nothing, both exiting 0.
+			//
+			// Ahead of the confirmation, not after it. ConfirmAction errors when
+			// --yes is absent and stdin is not a terminal, so a preview of a
+			// destructive command used to be unobtainable in CI without also
+			// pre-authorising the real thing — and the day -n falls off that
+			// command line (or out of JAMF_CLI_ARGS) the delete runs with its
+			// confirmation already suppressed. Interactively the old order
+			// prompted first and printed [dry-run] second, teaching the operator
+			// that confirming is harmless. Name resolution stays ahead of both,
+			// so the preview reports the resolved path.
 			if cliCtx.DryRun {
 				return platform.ReportDryRun(cmd.ErrOrStderr(), http.MethodPost, path, body)
 			}
@@ -96,9 +106,6 @@ func newDeviceActionsEraseCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err
 			}
-			if err := platform.ConfirmAction("erase", args[0], yes); err != nil {
-				return err
-			}
 			path := "/device-actions/v1/devices/{id}/erase"
 			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
 			q := url.Values{}
@@ -115,8 +122,21 @@ func newDeviceActionsEraseCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			// platform and Security Cloud mutation executed for real under -n.
 			// A create reported the object it had just made and a delete reported
 			// nothing, both exiting 0.
+			//
+			// Ahead of the confirmation, not after it. ConfirmAction errors when
+			// --yes is absent and stdin is not a terminal, so a preview of a
+			// destructive command used to be unobtainable in CI without also
+			// pre-authorising the real thing — and the day -n falls off that
+			// command line (or out of JAMF_CLI_ARGS) the delete runs with its
+			// confirmation already suppressed. Interactively the old order
+			// prompted first and printed [dry-run] second, teaching the operator
+			// that confirming is harmless. Name resolution stays ahead of both,
+			// so the preview reports the resolved path.
 			if cliCtx.DryRun {
 				return platform.ReportDryRun(cmd.ErrOrStderr(), http.MethodPost, path, body)
+			}
+			if err := platform.ConfirmAction("erase", args[0], yes); err != nil {
+				return err
 			}
 			var result any
 			if err := cliCtx.PlatformSDKClient.Transport().DoWithContentType(cmd.Context(), http.MethodPost, path, body, "application/json", http.StatusCreated, &result); err != nil {
@@ -151,9 +171,6 @@ func newDeviceActionsRestartCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err
 			}
-			if err := platform.ConfirmAction("restart", args[0], yes); err != nil {
-				return err
-			}
 			path := "/device-actions/v1/devices/{id}/restart"
 			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
 			q := url.Values{}
@@ -167,8 +184,21 @@ func newDeviceActionsRestartCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			// platform and Security Cloud mutation executed for real under -n.
 			// A create reported the object it had just made and a delete reported
 			// nothing, both exiting 0.
+			//
+			// Ahead of the confirmation, not after it. ConfirmAction errors when
+			// --yes is absent and stdin is not a terminal, so a preview of a
+			// destructive command used to be unobtainable in CI without also
+			// pre-authorising the real thing — and the day -n falls off that
+			// command line (or out of JAMF_CLI_ARGS) the delete runs with its
+			// confirmation already suppressed. Interactively the old order
+			// prompted first and printed [dry-run] second, teaching the operator
+			// that confirming is harmless. Name resolution stays ahead of both,
+			// so the preview reports the resolved path.
 			if cliCtx.DryRun {
 				return platform.ReportDryRun(cmd.ErrOrStderr(), http.MethodPost, path, body)
+			}
+			if err := platform.ConfirmAction("restart", args[0], yes); err != nil {
+				return err
 			}
 			var result any
 			if err := cliCtx.PlatformSDKClient.Transport().DoExpect(cmd.Context(), http.MethodPost, path, body, http.StatusCreated, &result); err != nil {
@@ -200,9 +230,6 @@ func newDeviceActionsShutdownCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err
 			}
-			if err := platform.ConfirmAction("shutdown", args[0], yes); err != nil {
-				return err
-			}
 			path := "/device-actions/v1/devices/{id}/shutdown"
 			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
 			q := url.Values{}
@@ -216,8 +243,21 @@ func newDeviceActionsShutdownCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			// platform and Security Cloud mutation executed for real under -n.
 			// A create reported the object it had just made and a delete reported
 			// nothing, both exiting 0.
+			//
+			// Ahead of the confirmation, not after it. ConfirmAction errors when
+			// --yes is absent and stdin is not a terminal, so a preview of a
+			// destructive command used to be unobtainable in CI without also
+			// pre-authorising the real thing — and the day -n falls off that
+			// command line (or out of JAMF_CLI_ARGS) the delete runs with its
+			// confirmation already suppressed. Interactively the old order
+			// prompted first and printed [dry-run] second, teaching the operator
+			// that confirming is harmless. Name resolution stays ahead of both,
+			// so the preview reports the resolved path.
 			if cliCtx.DryRun {
 				return platform.ReportDryRun(cmd.ErrOrStderr(), http.MethodPost, path, body)
+			}
+			if err := platform.ConfirmAction("shutdown", args[0], yes); err != nil {
+				return err
 			}
 			var result any
 			if err := cliCtx.PlatformSDKClient.Transport().DoExpect(cmd.Context(), http.MethodPost, path, body, http.StatusCreated, &result); err != nil {
@@ -249,9 +289,6 @@ func newDeviceActionsUnmanageCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err
 			}
-			if err := platform.ConfirmAction("unmanage", args[0], yes); err != nil {
-				return err
-			}
 			path := "/device-actions/v1/devices/{id}/unmanage"
 			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
 			q := url.Values{}
@@ -265,8 +302,21 @@ func newDeviceActionsUnmanageCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			// platform and Security Cloud mutation executed for real under -n.
 			// A create reported the object it had just made and a delete reported
 			// nothing, both exiting 0.
+			//
+			// Ahead of the confirmation, not after it. ConfirmAction errors when
+			// --yes is absent and stdin is not a terminal, so a preview of a
+			// destructive command used to be unobtainable in CI without also
+			// pre-authorising the real thing — and the day -n falls off that
+			// command line (or out of JAMF_CLI_ARGS) the delete runs with its
+			// confirmation already suppressed. Interactively the old order
+			// prompted first and printed [dry-run] second, teaching the operator
+			// that confirming is harmless. Name resolution stays ahead of both,
+			// so the preview reports the resolved path.
 			if cliCtx.DryRun {
 				return platform.ReportDryRun(cmd.ErrOrStderr(), http.MethodPost, path, body)
+			}
+			if err := platform.ConfirmAction("unmanage", args[0], yes); err != nil {
+				return err
 			}
 			var result any
 			if err := cliCtx.PlatformSDKClient.Transport().DoExpect(cmd.Context(), http.MethodPost, path, body, http.StatusCreated, &result); err != nil {

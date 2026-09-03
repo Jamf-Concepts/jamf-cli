@@ -51,6 +51,26 @@ func securityCredentialPair(out *os.File, reader *bufio.Reader, label string) (i
 	return id, secret, nil
 }
 
+// mergeSecurityProfileBase starts the Radar half of a profile from whatever the
+// profile already holds, so the gateway credentials `platform setup` writes are
+// not zeroed — see the matching note on mergePlatformProfile.
+//
+// Product and auth-method are only filled when unset, so running `security
+// setup` second against a platform profile does not demote it: auth-method
+// "platform" is what ResolveAuthForProfile reads to enter gateway auth for the
+// `pro` and `platform` namespaces, and nothing requires the value "security" —
+// the `security` tree is selected by the command namespace, not by this field.
+func mergeSecurityProfileBase(existing config.Profile) config.Profile {
+	p := existing
+	if p.Product == "" {
+		p.Product = "security"
+	}
+	if p.AuthMethod == "" {
+		p.AuthMethod = "security"
+	}
+	return p
+}
+
 func newSecuritySetupCmd() *cobra.Command {
 	var setupProfile string
 
@@ -116,11 +136,13 @@ tenant ID; configure that with "jamf-cli platform setup".`,
 			}
 
 			// Store secrets in keychain
-			store := config.GetKeychainStore()
-			prof := config.Profile{
-				Product:    "security",
-				AuthMethod: "security",
+			cfg, err := config.Load()
+			if err != nil {
+				return err
 			}
+
+			store := config.GetKeychainStore()
+			prof := mergeSecurityProfileBase(cfg.Profiles[setupProfile])
 			if riskID != "" {
 				if err := store.Set(keychain.DefaultService, setupProfile+"/risk-client-id", riskID); err != nil {
 					return keychain.WriteError("Risk API application ID", err)
@@ -152,11 +174,6 @@ tenant ID; configure that with "jamf-cli platform setup".`,
 				prof.SSEClientSecret = keychain.KeychainRef(setupProfile, "sse-client-secret")
 			}
 
-			// Save profile to config
-			cfg, err := config.Load()
-			if err != nil {
-				return err
-			}
 			cfg.Profiles[setupProfile] = prof
 			cfg.DefaultProfile = setupProfile
 

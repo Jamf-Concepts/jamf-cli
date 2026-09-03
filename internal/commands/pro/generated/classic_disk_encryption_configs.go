@@ -55,6 +55,8 @@ var bodySpecClassicDiskEncryptionConfigs = classicBodySpec{
 		"key_type":                 {"Individual", "Institutional", "Individual And Institutional"},
 	},
 	Credentials: map[string]bool{
+		"institutional_recovery_key.data":            true,
+		"institutional_recovery_key.key":             true,
 		"institutional_recovery_key.password":        true,
 		"institutional_recovery_key.password_sha256": true,
 	},
@@ -225,7 +227,7 @@ Allowed values:
 The Classic API does not reject an out-of-range value — it substitutes
 its default silently — so --set refuses one rather than letting it through.
 
-Credential fields (--from-file only, never --set): institutional_recovery_key.password, institutional_recovery_key.password_sha256`,
+Credential fields (--from-file only, never --set): institutional_recovery_key.data, institutional_recovery_key.key, institutional_recovery_key.password, institutional_recovery_key.password_sha256`,
 		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "disk-encryption-configurations:create"},
 		Example: `  # Create a disk_encryption_configuration from an XML file
   jamf-cli pro classic-disk-encryption-configs create --from-file disk_encryption_configuration.xml
@@ -260,7 +262,7 @@ Credential fields (--from-file only, never --set): institutional_recovery_key.pa
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print an XML body template for this resource and exit")
 	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Set a body field in dot notation (key=value, repeatable). Builds the whole body, so it cannot be combined with --from-file")
 	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
-		return []string{"file_vault_enabled_users=", "id=", "institutional_recovery_key.certificate_type=", "institutional_recovery_key.data=", "institutional_recovery_key.key=", "key_type=", "name="}, cobra.ShellCompDirectiveNoSpace
+		return []string{"file_vault_enabled_users=", "id=", "institutional_recovery_key.certificate_type=", "key_type=", "name="}, cobra.ShellCompDirectiveNoSpace
 	})
 	return cmd
 }
@@ -294,7 +296,7 @@ Allowed values:
 The Classic API does not reject an out-of-range value — it substitutes
 its default silently — so --set refuses one rather than letting it through.
 
-Credential fields (--from-file only, never --set): institutional_recovery_key.password, institutional_recovery_key.password_sha256`,
+Credential fields (--from-file only, never --set): institutional_recovery_key.data, institutional_recovery_key.key, institutional_recovery_key.password, institutional_recovery_key.password_sha256`,
 		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "disk-encryption-configurations:update"},
 		Example: `  # Update a disk_encryption_configuration from an XML file
   jamf-cli pro classic-disk-encryption-configs update 1 --from-file disk_encryption_configuration.xml
@@ -340,7 +342,7 @@ Credential fields (--from-file only, never --set): institutional_recovery_key.pa
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print an XML body template for this resource and exit")
 	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Set a body field in dot notation (key=value, repeatable). Builds the whole body, so it cannot be combined with --from-file")
 	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
-		return []string{"file_vault_enabled_users=", "id=", "institutional_recovery_key.certificate_type=", "institutional_recovery_key.data=", "institutional_recovery_key.key=", "key_type=", "name="}, cobra.ShellCompDirectiveNoSpace
+		return []string{"file_vault_enabled_users=", "id=", "institutional_recovery_key.certificate_type=", "key_type=", "name="}, cobra.ShellCompDirectiveNoSpace
 	})
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up disk_encryption_configuration by name")
 
@@ -561,7 +563,7 @@ Allowed values:
 The Classic API does not reject an out-of-range value — it substitutes
 its default silently — so --set refuses one rather than letting it through.
 
-Credential fields (--from-file only, never --set): institutional_recovery_key.password, institutional_recovery_key.password_sha256`,
+Credential fields (--from-file only, never --set): institutional_recovery_key.data, institutional_recovery_key.key, institutional_recovery_key.password, institutional_recovery_key.password_sha256`,
 		Example: `  # Apply a disk_encryption_configuration from an XML file
   jamf-cli pro classic-disk-encryption-configs apply --from-file disk_encryption_configuration.xml
 
@@ -649,7 +651,7 @@ Credential fields (--from-file only, never --set): institutional_recovery_key.pa
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print an XML body template for this resource and exit")
 	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Set a body field in dot notation (key=value, repeatable). Builds the whole body, so it cannot be combined with --from-file")
 	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
-		return []string{"file_vault_enabled_users=", "id=", "institutional_recovery_key.certificate_type=", "institutional_recovery_key.data=", "institutional_recovery_key.key=", "key_type=", "name="}, cobra.ShellCompDirectiveNoSpace
+		return []string{"file_vault_enabled_users=", "id=", "institutional_recovery_key.certificate_type=", "key_type=", "name="}, cobra.ShellCompDirectiveNoSpace
 	})
 
 	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt when replacing")

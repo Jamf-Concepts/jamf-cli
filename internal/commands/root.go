@@ -497,14 +497,11 @@ func ResolveAuthForProfile(cfg *config.Config, params AuthParams) (string, auth.
 		if cid == "" || csecret == "" {
 			return "", nil, exitcode.New(exitcode.Usage, "client ID and client secret are required for platform gateway auth: set JAMF_CLIENT_ID/JAMF_CLIENT_SECRET env vars or use a config profile")
 		}
-		// Refuse the retired gateway host by name. It is checked here rather
-		// than at the request, because the failure it produces lands in the
-		// token exchange — before the command the user typed is sent — as an
-		// edge-level 403 with an HTML body that says nothing about the host.
-		if ga := platformGatewayURLForRegion(url); ga != "" {
-			return "", nil, exitcode.New(exitcode.Usage, fmt.Sprintf(
-				"%s is the retired Jamf Platform gateway and does not serve the GA API paths.\nSet url: %s in this profile (jamf-cli config path prints the file), or re-run `jamf-cli platform setup`.",
-				url, ga))
+		// Refuse the retired gateway host by name, before the token exchange.
+		// Shared with newPlatformSDKClient rather than spelled twice: the
+		// wording is the whole value of the refusal, and two copies drift.
+		if err := refuseRetiredGatewayURL(url); err != nil {
+			return "", nil, err
 		}
 		// Both set can now only mean both were supplied together — the profile
 		// cannot contribute a second level past scopeFromParams — so this is a
@@ -820,10 +817,14 @@ in the config file. It never runs in CI, when output is piped, or under
 				if err := checkScopeConflict(cfg, resolvedProfile); err != nil {
 					return err
 				}
-				cliCtx.PlatformSDKClient = newPlatformSDKClient(
+				sdk, err := newPlatformSDKClient(
 					resolvedURL, p.ClientID(), p.ClientSecret(), p.Scope(),
 					shouldShowSpinner(),
 				)
+				if err != nil {
+					return err
+				}
+				cliCtx.PlatformSDKClient = sdk
 			}
 
 			// Tenant version check — probes once per 24 h per profile and warns if
@@ -966,9 +967,15 @@ type commandEntry struct {
 	// — "probe" (wire-confirmed unrouted) or "unpublished" (absent from the
 	// published surface; the gateway may still route it today, transitionally) —
 	// and GatewayDetail spells it out. Absent when the gateway serves it.
-	Gateway       string `json:"gateway,omitempty"`
-	GatewayBasis  string `json:"gatewayBasis,omitempty"`
-	GatewayDetail string `json:"gatewayDetail,omitempty"`
+	// GatewaySuccessor names a command that ships in this binary, does the same
+	// job, and is served by the gateway — the answer to "then what do I run".
+	// Present only for a refused command that has one, from the curated table
+	// in internal/gateway; the runtime refusal and the --help caveat render the
+	// same entry, so a script and an operator get the same answer.
+	Gateway          string `json:"gateway,omitempty"`
+	GatewayBasis     string `json:"gatewayBasis,omitempty"`
+	GatewayDetail    string `json:"gatewayDetail,omitempty"`
+	GatewaySuccessor string `json:"gatewaySuccessor,omitempty"`
 	// GatewayPrivileges are the Jamf Account capability permissions the gateway
 	// requires for this Pro or Classic command — a different vocabulary from
 	// Privileges above, not a translation of it, since the GA consolidation
@@ -1080,9 +1087,10 @@ func collectCommands(cmd *cobra.Command, prefix, product, group string) []comman
 				Privileges:  privileges,
 				API:         child.Annotations["jamf:api"],
 
-				Gateway:       child.Annotations[annotationGateway],
-				GatewayBasis:  child.Annotations[annotationGatewayBasis],
-				GatewayDetail: child.Annotations[annotationGatewayDetail],
+				Gateway:          child.Annotations[annotationGateway],
+				GatewayBasis:     child.Annotations[annotationGatewayBasis],
+				GatewayDetail:    child.Annotations[annotationGatewayDetail],
+				GatewaySuccessor: gatewaySuccessorOf(child, fullPath),
 
 				GatewayPrivileges:  gatewayPrivilegesOf(child),
 				GatewayPermissions: gatewayPermissionsOf(child),
@@ -1168,6 +1176,12 @@ func commandEntriesToMaps(entries []commandEntry, full bool) []map[string]any {
 				m["gateway"] = e.Gateway
 				m["gatewayBasis"] = e.GatewayBasis
 				m["gatewayDetail"] = e.GatewayDetail
+				// Positive-only again: most refused commands have no
+				// successor, and an empty string on every row would read as
+				// "no replacement exists" rather than "none is recorded".
+				if e.GatewaySuccessor != "" {
+					m["gatewaySuccessor"] = e.GatewaySuccessor
+				}
 			}
 			// Positive-only, as privileges is, and for the same reason: absent
 			// means "no capability recorded", which is not "needs none".
@@ -1186,23 +1200,22 @@ func commandEntriesToMaps(entries []commandEntry, full bool) []map[string]any {
 	return result
 }
 
-// resolveProduct determines the product type from the profile. Returns "pro" or "protect".
-// resolveProduct determines the product type. It checks the command hierarchy
-// first (a command under "protect" is always protect), then falls back to the
-// config profile's product field.
+// resolveProduct determines the product type. The command's own namespace is
+// definitive when it has one; otherwise the config profile's product field
+// decides.
+//
+// Only the top-level namespace counts, and matching at any depth is what made
+// `pro report security` resolve as Jamf Security Cloud: the walk started at the
+// leaf, so the innermost name won. PersistentPreRunE then returned early on the
+// security branch without building cliCtx.Client, and the command dereferenced
+// a nil one — a SIGSEGV where the same input used to be a clean error, because
+// securityPlatformSDKClient now succeeds from the generic JAMF_* credentials
+// where resolveSecurityClient used to fail for want of Radar ones. This is the
+// same hazard collectCommands guards with rootOnlySkip; the catalog walk was
+// fixed and the auth walk was not.
 func resolveProduct(cmd *cobra.Command, cfg *config.Config) string {
-	// Check command hierarchy: if any parent is a product, that's definitive
-	for c := cmd; c != nil; c = c.Parent() {
-		switch c.Name() {
-		case "protect":
-			return "protect"
-		case "school":
-			return "school"
-		case "security":
-			return "security"
-		case "pro":
-			return "pro"
-		}
+	if ns := topLevelNamespace(cmd); ns != "" {
+		return ns
 	}
 
 	// Fall back to profile product field
@@ -1230,6 +1243,31 @@ func resolveProduct(cmd *cobra.Command, cfg *config.Config) string {
 	default:
 		return "pro"
 	}
+}
+
+// topLevelNamespace returns the product namespace cmd sits under — the name of
+// its ancestor that is a direct child of the root — or "" when cmd is the root
+// itself or its namespace is not a product.
+//
+// Deliberately not a match at any depth: a subcommand may legitimately be named
+// after a namespace (`pro report security`), and only the top level says which
+// product's credentials and client the invocation needs.
+func topLevelNamespace(cmd *cobra.Command) string {
+	if cmd == nil {
+		return ""
+	}
+	top := cmd
+	for top.Parent() != nil && top.Parent().Parent() != nil {
+		top = top.Parent()
+	}
+	if top.Parent() == nil {
+		return "" // cmd is the root
+	}
+	switch top.Name() {
+	case "protect", "school", "security", "pro":
+		return top.Name()
+	}
+	return ""
 }
 
 // clearableProtectCache is a jamfprotect.TokenCache that stores tokens on disk
@@ -1501,10 +1539,14 @@ func resolveSchoolClient(cfg *config.Config, cliCtx *registry.CLIContext) error 
 	if platformURL != "" && cid != "" && csecret != "" && tid != "" {
 		// School reaches the Platform API for blueprints and DDM reports only;
 		// Security Cloud is not part of that surface, so it has no tenant here.
-		cliCtx.PlatformSDKClient = newPlatformSDKClient(
+		sdk, err := newPlatformSDKClient(
 			platformURL, cid, csecret, auth.TenantScope(tid),
 			shouldShowSpinner(),
 		)
+		if err != nil {
+			return err
+		}
+		cliCtx.PlatformSDKClient = sdk
 	}
 
 	return nil
@@ -1599,7 +1641,11 @@ func resolveSecurityClient(cfg *config.Config, cliCtx *registry.CLIContext) erro
 	if err := checkScopeConflict(cfg, profileName); err != nil {
 		return err
 	}
-	cliCtx.PlatformSDKClient = securityPlatformSDKClient(cfg, profileName)
+	platformSDK, err := securityPlatformSDKClient(cfg, profileName)
+	if err != nil {
+		return err
+	}
+	cliCtx.PlatformSDKClient = platformSDK
 
 	if riskID == "" && lifecycleID == "" && sseID == "" && cliCtx.PlatformSDKClient == nil {
 		return exitcode.New(exitcode.Usage, "no Jamf Security Cloud credentials configured: run 'jamf-cli security setup', or set JAMFSECURITY_RISK_CLIENT_ID/SECRET, JAMFSECURITY_LIFECYCLE_CLIENT_ID/SECRET, and/or JAMFSECURITY_SSE_CLIENT_ID/SECRET env vars. For the gateway-served commands (dns-*, ztna-*, content-categories, device-groups, uem-*) configure a platform profile: 'jamf-cli config add-profile <name> --auth-method platform --tenant-id <id>'")

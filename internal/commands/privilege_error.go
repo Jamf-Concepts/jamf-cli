@@ -6,6 +6,7 @@ import (
 	"errors"
 	"strings"
 
+	jamfplatform "github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform"
 	"github.com/spf13/cobra"
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/exitcode"
@@ -19,6 +20,35 @@ import (
 // reachable only by standing up an HTTP server and driving a real SDK call.
 type statusCarrier interface {
 	HasStatus(int) bool
+}
+
+// detailCarrier reads the structured error details off the same SDK error, for
+// the one 403 that is not a permissions problem. Also matched by behaviour, and
+// for a second reason beyond statusCarrier's: ErrorDetail's fields are
+// exported, so a test double can carry a real code where it cannot carry a real
+// *APIResponseError.
+type detailCarrier interface {
+	Details() []jamfplatform.ErrorDetail
+}
+
+// gatewayOwnershipForbidden is the gateway's code for a scope-level mismatch —
+// an environment ID sent for a tenant-scoped integration, or the reverse. It
+// shares its status with a genuine permissions failure and shares nothing else:
+// the grants are already correct and the fix is one line of the profile.
+const gatewayOwnershipForbidden = "OWNERSHIP_FORBIDDEN"
+
+// hasGatewayErrorCode reports whether err carries the named structured code.
+func hasGatewayErrorCode(err error, code string) bool {
+	var d detailCarrier
+	if !errors.As(err, &d) {
+		return false
+	}
+	for _, detail := range d.Details() {
+		if strings.EqualFold(detail.Code, code) {
+			return true
+		}
+	}
+	return false
 }
 
 // EnrichPrivilegeError names the permission a 403 wanted, in the vocabulary of
@@ -103,7 +133,31 @@ func enrichPlatformPrivilegeError(privs string, err error) error {
 	if !errors.As(err, &apiErr) || !apiErr.HasStatus(403) {
 		return err
 	}
+	// Two unrelated causes share this status, and the permissions hint is the
+	// wrong answer for one of them. OWNERSHIP_FORBIDDEN means the scope header
+	// does not match the level the credential was minted at — the grants are
+	// already correct, and sending the operator (or their Jamf Account admin)
+	// to grant capability permissions works a remediation that cannot help.
+	// platform_audit.go already inspects the code before adding its note; this
+	// is the same inspection.
+	if hasGatewayErrorCode(err, gatewayOwnershipForbidden) {
+		return exitcode.Wrap(exitcode.PermissionDenied, err).WithHint(scopeMismatchHint())
+	}
 	return exitcode.Wrap(exitcode.PermissionDenied, err).WithHint(platformPrivilegeHint(privs))
+}
+
+// scopeMismatchHint names the profile field to check for an OWNERSHIP_FORBIDDEN
+// 403. It deliberately does not guess which level is right: a gateway token is
+// opaque and carries an empty scope, so nothing on this side can read the level
+// the credential belongs to — the header is the only signal, and a mismatch is
+// only discoverable by sending it.
+func scopeMismatchHint() string {
+	return "The credential's scope level does not match the scope header sent. " +
+		"An API integration is created at one level in Jamf Account — organization, " +
+		"platform environment, or tenant — and only works with that level's header. " +
+		"Check environment-id / tenant-id in this profile (jamf-cli config list shows " +
+		"the scope; jamf-cli config path prints the file): an organization-scoped " +
+		"credential must name neither. The capability permissions are not the problem here."
 }
 
 // platformPrivilegeHint renders the capability permissions, falling back to the

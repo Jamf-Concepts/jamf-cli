@@ -691,7 +691,7 @@ func newStaticComputerGroupsApplyCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "apply",
 		Short:       "Create or replace a static-computer-group by name",
-		Annotations: map[string]string{"jamf:api": "pro"},
+		Annotations: map[string]string{"jamf:api": "pro", "jamf:gateway": "unserved", "jamf:gateway-basis": "unpublished", "jamf:gateway-detail": "not declared by the gateway's Jamf Pro API 11.31.0"},
 		Long: `Create or replace a static-computer-group. Reads JSON or YAML from --from-file or stdin.
 
 The name field in the input is used to check if the resource

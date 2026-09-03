@@ -221,7 +221,15 @@ func loadCoverage(t *testing.T) *gateway.Coverage {
 		t.Fatalf("loading the coverage manifest: %v", err)
 	}
 	if cov == nil {
-		t.Skip("no coverage manifest committed")
+		// Not a skip. gateway.Load answers (nil, nil) for a missing file, and
+		// specs/gateway/coverage.json is a committed artefact — its absence is a
+		// broken tree, not a reason to stand down. Skipping here disabled every
+		// guard in this file at once: (*Coverage).Verdict answers Served for a
+		// nil receiver, so a sync target writing to a renamed path or a
+		// .gitignore edit dropping the artefact would leave `make test` green
+		// with nothing refused and every unpublished endpoint shipped.
+		t.Fatalf("no coverage manifest at %s — it is a committed artefact; run `make sync-gateway-coverage-from-sdk`",
+			filepath.Join(specsDir, gateway.CoverageFile))
 	}
 	return cov
 }

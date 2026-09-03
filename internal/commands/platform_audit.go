@@ -65,9 +65,14 @@ const auditScopeNote = "\n\nnote: audit is reachable only from an environment-sc
 // Only REQUEST_CONTEXT_NOT_PROVIDED is annotated. INVALID_REQUEST_CONTEXT_TYPE
 // — what a tenant-scoped profile earns — already names both the level it sent
 // and the level expected, so there is nothing to add.
+// The note is appended with %w, not %s. These wrappers are installed as RunE
+// decorators, so they run *before* ClassifyError, EnrichPrivilegeError and
+// exitcode.CodeFrom — all of which work by errors.As. Formatting with %s
+// flattens the chain, so any error whose text matched lost its classification
+// and fell back to exit 1.
 func annotateAuditScopeError(err error) error {
 	if err == nil || !strings.Contains(err.Error(), "REQUEST_CONTEXT_NOT_PROVIDED") {
 		return err
 	}
-	return fmt.Errorf("%s%s", err.Error(), auditScopeNote)
+	return fmt.Errorf("%w%s", err, auditScopeNote)
 }

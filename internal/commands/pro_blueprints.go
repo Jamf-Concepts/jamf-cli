@@ -433,7 +433,7 @@ func newBlueprintsScopeAddCmd(cliCtx *registry.CLIContext) *cobra.Command {
 
 Groups can be specified by platform UUID (--group-id) or by name
 (--computer-group, --mobile-device-group). Names are resolved to
-platform UUIDs via the /v1/groups API.
+platform UUIDs via the /v2/groups API.
 
 Examples:
   jamf-cli pro blueprints scope add <bp-id> --group-id <uuid>
@@ -1559,7 +1559,7 @@ func extractAndResolveScope(ctx context.Context, client registry.HTTPClient, xml
 		return nil, warnings
 	}
 
-	// Resolve each group name to a platform UUID via /v1/groups
+	// Resolve each group name to a platform UUID via /v2/groups
 	var platformIDs []string
 	for _, ref := range refs {
 		id, err := resolveGroupPlatformID(ctx, client, ref.name, ref.groupType)
@@ -1574,16 +1574,23 @@ func extractAndResolveScope(ctx context.Context, client registry.HTTPClient, xml
 	return platformIDs, warnings
 }
 
-// resolveGroupPlatformID queries /v1/groups with an RSQL filter to find the
+// resolveGroupPlatformID queries /v2/groups with an RSQL filter to find the
 // platform UUID for a group by name. groupType may be "COMPUTER", "MOBILE",
 // or "" to match any type.
+//
+// v2, not v1: the gateway publishes only /pro/v2/groups, and Groups.yaml marks
+// the v1 pair deprecated with an x-deprecation-date of 2026-05-28. Both answer
+// GroupSearchResult with the same results[].groupPlatformId, and the filter
+// fields this uses — groupName and groupType — are allowed on both, so this is
+// a version bump and not a shape change. (v2's filter drops groupPlatformId,
+// which nothing here sends.)
 func resolveGroupPlatformID(ctx context.Context, client registry.HTTPClient, groupName, groupType string) (string, error) {
 	escaped := strings.NewReplacer(`\`, `\\`, `"`, `\"`, `*`, `\*`, `(`, `\(`, `)`, `\)`, `;`, `\;`).Replace(groupName)
 	filter := fmt.Sprintf(`groupName=="%s"`, escaped)
 	if groupType != "" {
 		filter += fmt.Sprintf(` and groupType=="%s"`, groupType)
 	}
-	path := "/v1/groups?page-size=1&filter=" + url.QueryEscape(filter)
+	path := "/v2/groups?page-size=1&filter=" + url.QueryEscape(filter)
 
 	resp, err := client.Do(ctx, "GET", path, nil)
 	if err != nil {
@@ -1766,7 +1773,7 @@ func resolvePortableScopeGroups(ctx context.Context, client registry.HTTPClient,
 }
 
 // deviceTypeToGroupType maps the Platform SDK DeviceType value to the
-// /v1/groups API groupType filter value.
+// /v2/groups API groupType filter value.
 func deviceTypeToGroupType(deviceType string) string {
 	switch {
 	case strings.HasPrefix(deviceType, "COMPUTER"):

@@ -341,8 +341,20 @@ func classicUnknownSetField(key string, spec classicBodySpec) error {
 // number written where a string belongs is accepted silently, and there is no
 // response field that would reveal it.
 func classicSetValue(key, raw, kind string, spec classicBodySpec) (string, error) {
-	if values, ok := spec.Enums[key]; ok && raw != "" {
+	// No raw != "" carve-out. "" is out of range for every enum in the table, so
+	// it is precisely what the message below describes — and it is the mistake a
+	// CI job makes, not the typo: --set general.frequency="$FREQ" with FREQ unset
+	// sent <frequency></frequency>, the server answered 200, and the policy's
+	// execution frequency became "Once per computer" with nothing said. The
+	// wording is split because the remedy differs: a bad value is retyped, an
+	// empty one usually means a variable expanded to nothing and the flag should
+	// be dropped. A non-enum field can still be set to "", which is how a
+	// Classic string field is cleared.
+	if values, ok := spec.Enums[key]; ok {
 		if !slices.Contains(values, raw) {
+			if raw == "" {
+				return "", fmt.Errorf("--set %s: an empty value is not one of %s; omit the flag to leave the field unchanged (a shell variable that expanded to nothing is the usual cause)", key, strings.Join(values, ", "))
+			}
 			return "", fmt.Errorf("--set %s: %q is not one of %s (the Classic API accepts an out-of-range value and silently substitutes its default, so this is refused here)", key, raw, strings.Join(values, ", "))
 		}
 	}

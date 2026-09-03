@@ -106,6 +106,16 @@ func newZtnaGroupedGatewaysCreateCmd(cliCtx *registry.CLIContext) *cobra.Command
 			// platform and Security Cloud mutation executed for real under -n.
 			// A create reported the object it had just made and a delete reported
 			// nothing, both exiting 0.
+			//
+			// Ahead of the confirmation, not after it. ConfirmAction errors when
+			// --yes is absent and stdin is not a terminal, so a preview of a
+			// destructive command used to be unobtainable in CI without also
+			// pre-authorising the real thing — and the day -n falls off that
+			// command line (or out of JAMF_CLI_ARGS) the delete runs with its
+			// confirmation already suppressed. Interactively the old order
+			// prompted first and printed [dry-run] second, teaching the operator
+			// that confirming is harmless. Name resolution stays ahead of both,
+			// so the preview reports the resolved path.
 			if cliCtx.DryRun {
 				return platform.ReportDryRun(cmd.ErrOrStderr(), http.MethodPost, path, body)
 			}
@@ -155,9 +165,6 @@ func newZtnaGroupedGatewaysDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command
 			} else {
 				return fmt.Errorf("provide a positional ID or --name")
 			}
-			if err := platform.ConfirmAction("delete", resolvedID, yes); err != nil {
-				return err
-			}
 			path := "/securitycloud/v1/ztna/grouped-gateways/{groupedGatewayId}"
 			path = strings.Replace(path, "{groupedGatewayId}", url.PathEscape(resolvedID), 1)
 			q := url.Values{}
@@ -171,8 +178,21 @@ func newZtnaGroupedGatewaysDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command
 			// platform and Security Cloud mutation executed for real under -n.
 			// A create reported the object it had just made and a delete reported
 			// nothing, both exiting 0.
+			//
+			// Ahead of the confirmation, not after it. ConfirmAction errors when
+			// --yes is absent and stdin is not a terminal, so a preview of a
+			// destructive command used to be unobtainable in CI without also
+			// pre-authorising the real thing — and the day -n falls off that
+			// command line (or out of JAMF_CLI_ARGS) the delete runs with its
+			// confirmation already suppressed. Interactively the old order
+			// prompted first and printed [dry-run] second, teaching the operator
+			// that confirming is harmless. Name resolution stays ahead of both,
+			// so the preview reports the resolved path.
 			if cliCtx.DryRun {
 				return platform.ReportDryRun(cmd.ErrOrStderr(), http.MethodDelete, path, body)
+			}
+			if err := platform.ConfirmAction("delete", resolvedID, yes); err != nil {
+				return err
 			}
 			if err := cliCtx.PlatformSDKClient.Transport().DoExpect(cmd.Context(), http.MethodDelete, path, body, http.StatusNoContent, nil); err != nil {
 				return fmt.Errorf("delete: %w", err)
@@ -285,6 +305,16 @@ func newZtnaGroupedGatewaysPatchCmd(cliCtx *registry.CLIContext) *cobra.Command 
 			// platform and Security Cloud mutation executed for real under -n.
 			// A create reported the object it had just made and a delete reported
 			// nothing, both exiting 0.
+			//
+			// Ahead of the confirmation, not after it. ConfirmAction errors when
+			// --yes is absent and stdin is not a terminal, so a preview of a
+			// destructive command used to be unobtainable in CI without also
+			// pre-authorising the real thing — and the day -n falls off that
+			// command line (or out of JAMF_CLI_ARGS) the delete runs with its
+			// confirmation already suppressed. Interactively the old order
+			// prompted first and printed [dry-run] second, teaching the operator
+			// that confirming is harmless. Name resolution stays ahead of both,
+			// so the preview reports the resolved path.
 			if cliCtx.DryRun {
 				return platform.ReportDryRun(cmd.ErrOrStderr(), http.MethodPatch, path, body)
 			}

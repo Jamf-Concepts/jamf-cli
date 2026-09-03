@@ -451,7 +451,7 @@ func fetchUpdateDeviceLookup(ctx context.Context, client registry.HTTPClient) ma
 
 	// Computers (sectioned format for OS version and username)
 	computers, err := FetchAllPaginated(ctx, client,
-		"/v3/computers-inventory?section=GENERAL&section=HARDWARE&section=OPERATING_SYSTEM&section=USER_AND_LOCATION", 2000)
+		"/v4/computers-inventory?section=GENERAL&section=HARDWARE&section=OPERATING_SYSTEM&section=USER_AND_LOCATION", 2000)
 	if err == nil {
 		for _, c := range computers {
 			id := extractID(c)

@@ -152,3 +152,99 @@ func TestRefusalNamesTheCommandAndTheRemedy(t *testing.T) {
 		}
 	}
 }
+
+// The refusal used to offer exactly one remedy — provision a second credential
+// against a Jamf Pro instance — even for a command whose replacement ships in
+// the same binary and works on the profile already in hand.
+func TestRefusalNamesACuratedSuccessorFirst(t *testing.T) {
+	msg := Refusal("jamf-cli pro static-computer-groups list", BasisUnpublished,
+		"not declared by the gateway's Jamf Pro API 11.31.0")
+	for _, want := range []string{
+		"Use `jamf-cli pro computer-groups-static-groups` instead",
+		"served by the gateway",
+		// The instance remedy stays, demoted: it is still the answer for anyone
+		// who wants the withdrawn endpoint itself rather than its replacement.
+		"Failing that, run it against a Jamf Pro instance",
+	} {
+		if !strings.Contains(msg, want) {
+			t.Errorf("refusal is missing %q:\n%s", want, msg)
+		}
+	}
+	if strings.Index(msg, "instead") > strings.Index(msg, "Failing that") {
+		t.Error("the successor must come before the instance remedy — it is the cheaper fix by a long way")
+	}
+}
+
+// A curated key covers every subcommand beneath it, and the binary name is taken
+// from the invocation rather than assumed, so a renamed binary still renders a
+// runnable command.
+func TestSuccessorMatchesTheLongestCommandPathPrefix(t *testing.T) {
+	for _, tc := range []struct {
+		path string
+		want string
+	}{
+		{"jamf-cli pro static-computer-groups list", "jamf-cli pro computer-groups-static-groups"},
+		{"jamf-cli pro static-computer-groups delete", "jamf-cli pro computer-groups-static-groups"},
+		{"jamf pro static-computer-groups apply", "jamf pro computer-groups-static-groups"},
+		{"jamf-cli pro api-roles list", ""},
+		{"jamf-cli", ""},
+		{"", ""},
+	} {
+		got, _, ok := Successor(tc.path)
+		if tc.want == "" {
+			if ok {
+				t.Errorf("Successor(%q) invented %q", tc.path, got)
+			}
+			continue
+		}
+		if !ok || got != tc.want {
+			t.Errorf("Successor(%q) = %q (%v), want %q", tc.path, got, ok, tc.want)
+		}
+	}
+}
+
+// Every curated entry has to be renderable: a Why that is empty or a Command
+// that is blank produces a sentence pointing nowhere. Whether the commands
+// actually exist is checked in internal/commands, which has the tree.
+func TestEverySuccessorEntryRenders(t *testing.T) {
+	if len(successors) == 0 {
+		t.Skip("no successors curated")
+	}
+	for key, s := range successors {
+		if s.Command == "" || s.Why == "" {
+			t.Errorf("%q: incomplete entry %+v", key, s)
+		}
+		note := SuccessorNote("jamf-cli " + key + " list")
+		if !strings.Contains(note, s.Command) || !strings.Contains(note, s.Why) {
+			t.Errorf("%q renders as %q, which drops part of the entry", key, note)
+		}
+	}
+	if len(SuccessorTable()) != len(successors) {
+		t.Error("SuccessorTable does not expose every entry, so the staleness test cannot see them all")
+	}
+}
+
+// The override warning is the whole of what the escape hatch trades away, so it
+// has to name the endpoint, the variable, and the fact that the route is not
+// committed to.
+func TestUnpublishedOverrideWarningIsLoudAndSpecific(t *testing.T) {
+	w := UnpublishedOverrideWarning("jamf-cli pro policy-properties policy-properties",
+		"not declared by the gateway's Jamf Pro API 11.31.0")
+	for _, want := range []string{
+		"warning:",
+		"jamf-cli pro policy-properties policy-properties",
+		"JAMF_CLI_ALLOW_UNPUBLISHED",
+		"transitional",
+		"without notice",
+		"403 BAD_PERMISSIONS",
+		"stopgap",
+	} {
+		if !strings.Contains(w, want) {
+			t.Errorf("the warning does not say %q:\n%s", want, w)
+		}
+	}
+	// The detail is optional — a hand-written command can carry none.
+	if bare := UnpublishedOverrideWarning("jamf-cli pro x list", ""); strings.Contains(bare, "..") {
+		t.Errorf("an empty detail rendered as punctuation:\n%s", bare)
+	}
+}

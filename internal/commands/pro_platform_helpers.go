@@ -85,7 +85,15 @@ func (t *platformVerboseTransport) RoundTrip(req *http.Request) (*http.Response,
 		raw, err := io.ReadAll(io.LimitReader(req.Body, jamfclient.BodyLogLimit))
 		_ = req.Body.Close()
 		if err == nil {
-			jamfclient.LogBody(os.Stderr, raw)
+			// Redacted, unlike before: the response side was already redacted
+			// and the request side was not, which is backwards for the one
+			// body guaranteed to carry a secret. The SDK's token exchange runs
+			// through this transport, and clientcredentials.Config's
+			// auto-detect AuthStyle retries with AuthStyleInParams after any
+			// first-attempt error — so a rotated secret, the WAF 403 or a 5xx
+			// is followed by an attempt whose form body carries client_secret
+			// in plaintext.
+			jamfclient.LogBody(os.Stderr, jamfclient.RedactBodyForLog(raw))
 			req.Body = io.NopCloser(bytes.NewReader(raw))
 			req.ContentLength = int64(len(raw))
 		}
@@ -109,7 +117,7 @@ func (t *platformVerboseTransport) RoundTrip(req *http.Request) (*http.Response,
 	if t.level >= 3 && resp.Body != nil {
 		preview, _ := io.ReadAll(io.LimitReader(resp.Body, jamfclient.BodyLogLimit))
 		_ = resp.Body.Close()
-		jamfclient.LogBody(os.Stderr, jamfclient.RedactTokenBody(preview))
+		jamfclient.LogBody(os.Stderr, jamfclient.RedactBodyForLog(preview))
 		resp.Body = io.NopCloser(bytes.NewReader(preview))
 	}
 	return resp, nil
@@ -199,7 +207,21 @@ func requirePlatformClient(cliCtx *registry.CLIContext) error {
 // command code (both hand-written and spec-generated). The SDK transport
 // handles auth, retry, and tenant injection; hand-written commands construct
 // SDK subpackage clients per call (cheap — they share this transport).
-func newPlatformSDKClient(url, clientID, clientSecret string, scope auth.Scope, showSpinner bool) *jamfplatform.Client {
+//
+// The retired-host refusal lives here, in the constructor, rather than at each
+// caller: it is the one place every path that builds a platform client must
+// pass through, and two of those paths did not have it. ResolveAuthForProfile
+// checked it and the `security` and `school` resolvers did not, because
+// PersistentPreRunE returns early for both products — so a profile still
+// naming `{region}.apigw.jamf.com` reached the gateway-served Security Cloud
+// commands and `school blueprints` and failed inside the token exchange, which
+// is exactly the symptom the refusal exists to replace. A guard on a
+// constructor cannot be forgotten by the next caller; a guard beside one
+// caller can.
+func newPlatformSDKClient(url, clientID, clientSecret string, scope auth.Scope, showSpinner bool) (*jamfplatform.Client, error) {
+	if err := refuseRetiredGatewayURL(url); err != nil {
+		return nil, err
+	}
 	opts := []jamfplatform.Option{
 		jamfplatform.WithUserAgent("jamf-cli/" + cliVersion),
 	}
@@ -249,7 +271,7 @@ func newPlatformSDKClient(url, clientID, clientSecret string, scope auth.Scope, 
 	}
 	opts = append(opts, jamfplatform.WithHTTPClient(stdClient))
 
-	return jamfplatform.NewClient(url, clientID, clientSecret, opts...)
+	return jamfplatform.NewClient(url, clientID, clientSecret, opts...), nil
 }
 
 // printScaffold marshals the given value to stdout, respecting the -o flag.
@@ -281,12 +303,28 @@ func printScaffold(v any) error {
 // environment; organization-scoped credentials name neither, and the gateway
 // resolves them from the access token.
 //
-// Env vars win over the profile so CI can retarget one profile, and environment
-// wins over tenant when both are somehow present, matching the SDK's own
-// precedence. A profile carrying both is rejected earlier, by
+// Precedence is flag, then env var, then the profile — the same ladder
+// resolveAuth applies to every other credential input, so `--tenant-id B`
+// against a profile holding tenant A retargets it the way `JAMF_TENANT_ID=B`
+// already did. Reading only the env vars was worse than not honouring the flag
+// at all: the `security` product never reaches ResolveAuthForProfile, so
+// nothing on that path read the flag, and `--tenant-id B security device-groups
+// delete <id>` deleted in the profile's tenant A and exited 0 with nothing in
+// the output naming the tenant it used. --url is honoured here, so the two
+// documented ways to override a profile's scope disagreed and only the failing
+// one was silent.
+//
+// Environment wins over tenant when both are somehow present, matching the
+// SDK's own precedence; a source naming both is rejected earlier, by
 // checkScopeConflict, since the pair is a configuration mistake rather than a
 // combination worth resolving silently.
 func resolveScope(cfg *config.Config, profileName string) auth.Scope {
+	if environmentID != "" {
+		return auth.EnvironmentScope(environmentID)
+	}
+	if tenantID != "" {
+		return auth.TenantScope(tenantID)
+	}
 	if id := os.Getenv("JAMF_ENVIRONMENT_ID"); id != "" {
 		return auth.EnvironmentScope(id)
 	}
@@ -317,10 +355,23 @@ func resolveScope(cfg *config.Config, profileName string) auth.Scope {
 // by precedence would report that as a permission error from whichever half
 // lost.
 func checkScopeConflict(cfg *config.Config, profileName string) error {
-	// Env vars first: they override the profile, so a pair exported into the
-	// environment is the same mistake one level up. Checking only the profile
-	// let `JAMF_TENANT_ID=… JAMF_ENVIRONMENT_ID=… jamf-cli security …` through
-	// to a request built from whichever won.
+	// Flags first, then env vars: both override the profile, so a pair supplied
+	// at either level is the same mistake one level up. Checking only the
+	// profile let `--tenant-id … --environment-id …` and the JAMF_* pair
+	// through to a request built from whichever won.
+	if tenantID != "" && environmentID != "" {
+		return exitcode.New(exitcode.Usage, fmt.Sprintf(
+			"--environment-id (%s) and --tenant-id (%s) are both set\n\n"+
+				"An API integration is created at one level — organization, platform environment, or\n"+
+				"tenant — and its credential only works with that level's header. Pass only the one\n"+
+				"this credential was created for.",
+			environmentID, tenantID))
+	}
+	// A flag that names one level settles it, whatever the environment or the
+	// profile says.
+	if tenantID != "" || environmentID != "" {
+		return nil
+	}
 	envTenant, envEnvironment := os.Getenv("JAMF_TENANT_ID"), os.Getenv("JAMF_ENVIRONMENT_ID")
 	if envTenant != "" && envEnvironment != "" {
 		return exitcode.New(exitcode.Usage, fmt.Sprintf(
@@ -357,11 +408,14 @@ func checkScopeConflict(cfg *config.Config, profileName string) error {
 // gateway-hosted part of Jamf Security Cloud, or returns nil when the profile
 // carries no platform credentials.
 //
-// Returning nil is a normal outcome, not an error: a profile configured only
+// A nil client with a nil error is a normal outcome: a profile configured only
 // for Risk/Device Lifecycle/SSE still gets a working `security` tree, and the
 // gateway-served subcommands report what to configure via
-// platform.RequirePlatformClient when they run.
-func securityPlatformSDKClient(cfg *config.Config, profileName string) *jamfplatform.Client {
+// platform.RequirePlatformClient when they run. An error means the credentials
+// are present but unusable — today, a profile still naming the retired gateway
+// host — which has to be reported rather than degraded into "no credentials
+// configured".
+func securityPlatformSDKClient(cfg *config.Config, profileName string) (*jamfplatform.Client, error) {
 	url := serverURL
 	if url == "" {
 		url = os.Getenv("JAMF_URL")
@@ -382,17 +436,28 @@ func securityPlatformSDKClient(cfg *config.Config, profileName string) *jamfplat
 		}
 		// An id/secret pair is atomic — the same splicing hazard the scoped
 		// pairs guard against — so the profile fills both or neither.
+		//
+		// A failed resolve is reported, not swallowed. Discarding it turned a
+		// deleted keychain item, a locked login keychain or a moved file: path
+		// into "no Jamf Security Cloud credentials configured", which sends the
+		// operator to re-enter credentials that were already stored. Both
+		// sibling copies — ResolveAuthForProfile and resolveSecurityClient's
+		// fillPair — wrap and return; this one is no exception.
 		if clientID == "" && clientSecret == "" {
-			id, idErr := config.ResolveSecret(p.ClientID)
-			secret, secretErr := config.ResolveSecret(p.ClientSecret)
-			if idErr == nil && secretErr == nil {
-				clientID, clientSecret = id, secret
+			id, err := config.ResolveSecret(p.ClientID)
+			if err != nil {
+				return nil, fmt.Errorf("resolving client-id for profile %q: %w", profileName, err)
 			}
+			secret, err := config.ResolveSecret(p.ClientSecret)
+			if err != nil {
+				return nil, fmt.Errorf("resolving client-secret for profile %q: %w", profileName, err)
+			}
+			clientID, clientSecret = id, secret
 		}
 	}
 
 	if url == "" || clientID == "" || clientSecret == "" {
-		return nil
+		return nil, nil
 	}
 	// A scope is not required: an organization-scoped integration carries its
 	// scope in the token. What is required is credentials.

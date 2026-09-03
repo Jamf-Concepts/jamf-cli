@@ -107,17 +107,11 @@ func new{{$.GoName}}{{.GoName}}Cmd(cliCtx *registry.CLIContext) *cobra.Command {
 				return fmt.Errorf("{{.Name}} requires --file or --set specifying a scope; refusing an unscoped {{.Name}}")
 			}
 {{- end }}
-{{- if .NeedsCustomerID }}
-			if err := security.ConfirmAction(fmt.Sprintf("{{.Name}} for customer %q", customerID), {{printf "%q" $.Name}}, yes); err != nil {
-				return err
-			}
-{{- else }}
-			if err := security.ConfirmAction({{printf "%q" .Name}}, {{printf "%q" $.Name}}, yes); err != nil {
-				return err
-			}
-{{- end }}
 {{- end }}
 {{- if .Paginate }}
+{{- if .IsDestructive }}
+{{ confirmStmt . $.Name }}
+{{- end }}
 			const pageSize = 100
 			// maxPages is a sanity backstop: if the server ignores the page
 			// parameter and keeps returning full pages, fail loudly instead
@@ -191,9 +185,20 @@ func new{{$.GoName}}{{.GoName}}Cmd(cliCtx *registry.CLIContext) *cobra.Command {
 			// dry-run decorator, this one is not, so a risk override or a
 			// device-lifecycle purge executed for real under -n while the flag
 			// advertised "preview changes without executing".
+			//
+			// Ahead of the confirmation, not after it. ConfirmAction errors when
+			// --yes is absent and stdin is not a terminal, so previewing a purge
+			// in CI used to require pre-authorising the real one — and the day -n
+			// falls off that command line (or out of JAMF_CLI_ARGS) the purge
+			// runs with its confirmation already suppressed. The unscoped-body
+			// refusal above stays ahead of both: it is a validation, and there is
+			// nothing worth previewing about a purge with no scope.
 			if cliCtx.DryRun {
 				return security.ReportDryRun(cmd.ErrOrStderr(), {{printf "%q" .Method}}, path, body)
 			}
+{{- end }}
+{{- if .IsDestructive }}
+{{ confirmStmt . $.Name }}
 {{- end }}
 			var result any
 			if err := cliCtx.SecurityClient.DoExpect{{$.Scope}}(cmd.Context(), {{printf "%q" .Method}}, path, body, &result); err != nil {

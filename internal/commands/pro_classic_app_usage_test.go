@@ -164,7 +164,7 @@ func (m *appUsageMockClient) Do(ctx context.Context, _, path string, _ io.Reader
 }
 
 func TestResolveAppUsageComputerID_UDID(t *testing.T) {
-	// resolveComputerByFilter hits /v3/computers-inventory (query stripped by mock).
+	// resolveComputerByFilter hits /v4/computers-inventory (query stripped by mock).
 	// The inventory response must contain id and udid at the top level plus a
 	// general section (required by parseComputerInventory).
 	inventoryResp := `{
@@ -179,7 +179,7 @@ func TestResolveAppUsageComputerID_UDID(t *testing.T) {
 
 	client := &appUsageMockClient{
 		responses: map[string]string{
-			"/v3/computers-inventory": inventoryResp,
+			"/v4/computers-inventory": inventoryResp,
 		},
 	}
 
@@ -317,9 +317,9 @@ func TestFlattenAppUsage_SingleObject(t *testing.T) {
 }
 
 func TestResolveAppUsageComputerID_Serial(t *testing.T) {
-	// resolveDeviceByIdentifier tries the id-detail path first (/v3/computers-inventory-detail/<val>).
+	// resolveDeviceByIdentifier tries the id-detail path first (/v4/computers-inventory-detail/<val>).
 	// For a serial value that path returns 404 (no route in mock), so it falls back to the
-	// serial RSQL filter on /v3/computers-inventory. The mock strips query strings, so the
+	// serial RSQL filter on /v4/computers-inventory. The mock strips query strings, so the
 	// inventory path matches regardless of filter params.
 	inventoryResp := `{
 		"totalCount": 1,
@@ -333,8 +333,8 @@ func TestResolveAppUsageComputerID_Serial(t *testing.T) {
 
 	client := &appUsageMockClient{
 		responses: map[string]string{
-			// No route for /v3/computers-inventory-detail/C02XL0SERIAL → 404, triggers fallback.
-			"/v3/computers-inventory": inventoryResp,
+			// No route for /v4/computers-inventory-detail/C02XL0SERIAL → 404, triggers fallback.
+			"/v4/computers-inventory": inventoryResp,
 		},
 	}
 

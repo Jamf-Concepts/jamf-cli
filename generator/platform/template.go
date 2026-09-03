@@ -151,11 +151,6 @@ func new{{$.GoName}}{{.GoName}}Cmd(cliCtx *registry.CLIContext) *cobra.Command {
 				return fmt.Errorf("provide a positional ID or --name")
 			}
 {{- end }}
-{{- if .IsDestructive }}
-			if err := platform.ConfirmAction("{{.Name}}", {{if .SupportsNameLookup}}resolvedID{{else if .PathParams}}args[0]{{else}}"{{.Name}}"{{end}}, yes); err != nil {
-				return err
-			}
-{{- end }}
 			path := {{printf "%q" .Path}}
 {{- $op := . }}
 {{- range $i, $p := .PathParams }}
@@ -194,6 +189,9 @@ func new{{$.GoName}}{{.GoName}}Cmd(cliCtx *registry.CLIContext) *cobra.Command {
 			var body any
 {{- end }}
 {{- if .Paginate }}
+{{- if .IsDestructive }}
+{{ confirmStmt . }}
+{{- end }}
 			const pageSize = 100
 			// Initialised empty, not nil: a nil slice marshals to "null", so an
 			// empty collection used to answer -o json with "null" while the
@@ -247,9 +245,22 @@ func new{{$.GoName}}{{.GoName}}Cmd(cliCtx *registry.CLIContext) *cobra.Command {
 			// platform and Security Cloud mutation executed for real under -n.
 			// A create reported the object it had just made and a delete reported
 			// nothing, both exiting 0.
+			//
+			// Ahead of the confirmation, not after it. ConfirmAction errors when
+			// --yes is absent and stdin is not a terminal, so a preview of a
+			// destructive command used to be unobtainable in CI without also
+			// pre-authorising the real thing — and the day -n falls off that
+			// command line (or out of JAMF_CLI_ARGS) the delete runs with its
+			// confirmation already suppressed. Interactively the old order
+			// prompted first and printed [dry-run] second, teaching the operator
+			// that confirming is harmless. Name resolution stays ahead of both,
+			// so the preview reports the resolved path.
 			if cliCtx.DryRun {
 				return platform.ReportDryRun(cmd.ErrOrStderr(), {{methodConstant .Method}}, path, body)
 			}
+{{- end }}
+{{- if .IsDestructive }}
+{{ confirmStmt . }}
 {{- end }}
 {{- if .HasResult }}
 			var result any

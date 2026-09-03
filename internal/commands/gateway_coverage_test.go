@@ -3,6 +3,8 @@
 package commands
 
 import (
+	"bytes"
+	"io"
 	"strings"
 	"testing"
 
@@ -34,11 +36,13 @@ func TestCheckAPIMatchRefusesAProbedProEndpointOnAGatewayProfile(t *testing.T) {
 	if err == nil {
 		t.Fatal("a wire-probed unserved endpoint was allowed through on a gateway profile")
 	}
-	// Usage, not NotFound: a script that iterates commands treats 4 as "no such
-	// object, carry on" and would swallow this.
+	// Unsupported, not Usage and not NotFound: the command is real and correctly
+	// invoked, so 2 would be indistinguishable from a flag error, and a script
+	// that iterates commands treats 4 as "no such object, carry on" and would
+	// swallow this.
 	var ec *exitcode.Error
-	if !asExitcode(err, &ec) || ec.Code != exitcode.Usage {
-		t.Errorf("exit code: got %v, want %d", err, exitcode.Usage)
+	if !asExitcode(err, &ec) || ec.Code != exitcode.Unsupported {
+		t.Errorf("exit code: got %v, want %d", err, exitcode.Unsupported)
 	}
 	if !strings.Contains(err.Error(), "pro list") {
 		t.Errorf("the refusal does not name the command: %v", err)
@@ -438,5 +442,311 @@ func TestClassicSubcommandsRefusedWhenTheirMethodIsWithdrawn(t *testing.T) {
 		if len(e.GatewayPrivileges) == 0 {
 			t.Errorf("%s is served and lost its gateway permission", name)
 		}
+	}
+}
+
+// unservedLeaf is a refused leaf under a named resource, so a test can exercise
+// the successor table against a real command path.
+func unservedLeaf(resource, leafName string, basis gateway.Basis) (root, group, leaf *cobra.Command) {
+	root = &cobra.Command{Use: "jamf-cli"}
+	pro := &cobra.Command{Use: "pro"}
+	group = &cobra.Command{Use: resource, Short: "Manage " + resource}
+	leaf = &cobra.Command{Use: leafName, Short: "List things", Annotations: map[string]string{
+		annotationAPI:           apiPro,
+		annotationGateway:       string(gateway.Unserved),
+		annotationGatewayBasis:  string(basis),
+		annotationGatewayDetail: "not declared by the gateway's Jamf Pro API 11.31.0",
+		// A leaf with no RunE is not Runnable, and everyLeafRefused ignores
+		// those — a group of them would otherwise earn a caveat for nothing.
+	}, RunE: func(*cobra.Command, []string) error { return nil }}
+	group.AddCommand(leaf)
+	pro.AddCommand(group)
+	root.AddCommand(pro)
+	return root, group, leaf
+}
+
+// A policy refusal has to be distinguishable from a malformed invocation. Both
+// were exit 2, which is also every cobra flag error, unknown subcommand, missing
+// URL, missing credential, retired host and scope conflict — so a wrapper script
+// could not tell "this credential cannot reach this API" (degrade and carry on)
+// from "you typed it wrong" (stop).
+func TestBothDirectionsOfTheRefusalExitUnsupportedNotUsage(t *testing.T) {
+	proOnGateway := cmdWith(map[string]string{
+		annotationAPI:           apiPro,
+		annotationGateway:       string(gateway.Unserved),
+		annotationGatewayBasis:  string(gateway.BasisUnpublished),
+		annotationGatewayDetail: "not declared by the gateway's Jamf Pro API 11.31.0",
+	})
+	platformOnInstance := cmdWith(map[string]string{annotationAPI: apiPlatformGateway})
+
+	for _, tc := range []struct {
+		name     string
+		cmd      *cobra.Command
+		provider auth.Provider
+	}{
+		{"Pro command on a gateway profile", proOnGateway, &auth.PlatformOAuth2Provider{}},
+		{"Platform command on an instance profile", platformOnInstance, &auth.OAuth2Provider{}},
+	} {
+		err := checkAPIMatch(tc.cmd, tc.provider, "p")
+		var ec *exitcode.Error
+		if !asExitcode(err, &ec) {
+			t.Fatalf("%s: not an exitcode error: %v", tc.name, err)
+		}
+		if ec.Code != exitcode.Unsupported {
+			t.Errorf("%s: exit %d, want %d (unsupported)", tc.name, ec.Code, exitcode.Unsupported)
+		}
+		if ec.Code == exitcode.Usage {
+			t.Errorf("%s: still exit 2, which a script cannot tell from a flag error", tc.name)
+		}
+	}
+	if got := exitcode.CodeName(exitcode.Unsupported); got != "unsupported" {
+		t.Errorf("CodeName(%d) = %q — the JSON envelope reports this name", exitcode.Unsupported, got)
+	}
+}
+
+// The escape hatch exists because forceServed is a compile-time table: a
+// customer whose pro policy-properties demonstrably answers 200 had no route at
+// all after upgrading. It downgrades the refusal, and it has to be loud about it.
+func TestAllowUnpublishedDowngradesTheRefusalToALoudWarning(t *testing.T) {
+	t.Setenv(envAllowUnpublished, "1")
+	_, _, leaf := unservedLeaf("api-roles", "list", gateway.BasisUnpublished)
+	var stderr bytes.Buffer
+	leaf.SetErr(&stderr)
+
+	if err := checkAPIMatch(leaf, &auth.PlatformOAuth2Provider{}, "platform-ga"); err != nil {
+		t.Fatalf("the override did not let the request proceed: %v", err)
+	}
+	warn := stderr.String()
+	for _, want := range []string{
+		"warning:",                    // it is a warning, not an aside
+		"jamf-cli pro api-roles list", // which endpoint
+		envAllowUnpublished,           // and why it was allowed
+		"transitional",                // the route is not committed to
+		"without notice",              // and can stop at any time
+		"stopgap",                     // this is not a supported mode
+	} {
+		if !strings.Contains(warn, want) {
+			t.Errorf("the warning does not say %q:\n%s", want, warn)
+		}
+	}
+}
+
+// Value-parsed, matching JAMF_CLI_NO_HINTS, so a CI runner that exports the
+// variable unconditionally can turn it off without unsetting it.
+func TestAllowUnpublishedIsValueParsed(t *testing.T) {
+	for _, v := range []string{"0", "false", "", "maybe"} {
+		t.Setenv(envAllowUnpublished, v)
+		_, _, leaf := unservedLeaf("api-roles", "list", gateway.BasisUnpublished)
+		leaf.SetErr(io.Discard)
+		if err := checkAPIMatch(leaf, &auth.PlatformOAuth2Provider{}, "p"); err == nil {
+			t.Errorf("%s=%q allowed the request through", envAllowUnpublished, v)
+		}
+	}
+}
+
+// A probed endpoint has no route at all, so allowing it buys the operator a bare
+// 403 and nothing else. The override is for endpoints the gateway still answers.
+func TestAllowUnpublishedDoesNotApplyToAProbedEndpoint(t *testing.T) {
+	t.Setenv(envAllowUnpublished, "true")
+	_, _, leaf := unservedLeaf("app-installer-titles", "list", gateway.BasisProbe)
+	leaf.SetErr(io.Discard)
+	err := checkAPIMatch(leaf, &auth.PlatformOAuth2Provider{}, "p")
+	if err == nil {
+		t.Fatal("a wire-probed unrouted endpoint was allowed through — the override only covers unpublished ones")
+	}
+}
+
+// The refusal used to offer one remedy — provision a second credential against a
+// Jamf Pro instance — even where swapping one command name on the profile in hand
+// would do. Where a replacement ships in this same binary, say so first.
+func TestTheRefusalNamesAWorkingSuccessorWhereOneShips(t *testing.T) {
+	_, _, leaf := unservedLeaf("static-computer-groups", "list", gateway.BasisUnpublished)
+	err := checkAPIMatch(leaf, &auth.PlatformOAuth2Provider{}, "platform-ga")
+	if err == nil {
+		t.Fatal("expected a refusal")
+	}
+	msg := err.Error()
+	if !strings.Contains(msg, "jamf-cli pro computer-groups-static-groups") {
+		t.Errorf("the refusal does not name the successor:\n%s", msg)
+	}
+	// The instance remedy stays, demoted: it is still the answer for anyone who
+	// wants the withdrawn endpoint itself.
+	if !strings.Contains(msg, "Failing that, run it against a Jamf Pro instance") {
+		t.Errorf("the instance remedy went missing or was not demoted:\n%s", msg)
+	}
+	// A refused command with no curated successor must not gain a sentence.
+	_, _, plain := unservedLeaf("api-roles", "list", gateway.BasisUnpublished)
+	if err := checkAPIMatch(plain, &auth.PlatformOAuth2Provider{}, "p"); err == nil {
+		t.Fatal("expected a refusal")
+	} else if strings.Contains(err.Error(), "instead") {
+		t.Errorf("a successor was invented for a command that has none:\n%s", err)
+	}
+}
+
+// gatewayCoverageHelp fires only for a command carrying the verdict itself, and
+// the verdict is stamped per operation — so the group node, which is the natural
+// first `--help`, listed every subcommand with no caveat when all of them are
+// refused.
+func TestGroupHelpCarriesTheCaveatWhenEveryLeafIsRefused(t *testing.T) {
+	root, group, _ := unservedLeaf("static-computer-groups", "list", gateway.BasisUnpublished)
+	applyGatewayCoverageHelp(root)
+	if !strings.Contains(group.Long, gatewayHelpMarker) {
+		t.Fatalf("the group carries no caveat though every leaf is refused:\n%q", group.Long)
+	}
+	for _, want := range []string{"every subcommand here is refused", "jamf-cli pro computer-groups-static-groups"} {
+		if !strings.Contains(group.Long, want) {
+			t.Errorf("the group caveat does not say %q:\n%s", want, group.Long)
+		}
+	}
+	// Idempotent, like the leaf note: NewRootCmd is built more than once.
+	once := group.Long
+	applyGatewayCoverageHelp(root)
+	if group.Long != once {
+		t.Errorf("the group caveat was appended twice:\n%s", group.Long)
+	}
+}
+
+// A partially-refused group must stay quiet. That shape is real and growing — the
+// gateway publishes POST /patchsoftwaretitles/id/{id} and nothing else on that
+// resource — and a group-level caveat would read as covering the subcommands that
+// work.
+func TestGroupHelpStaysQuietWhenOnlySomeLeavesAreRefused(t *testing.T) {
+	root, group, _ := unservedLeaf("classic-patch-titles", "list", gateway.BasisUnpublished)
+	group.AddCommand(&cobra.Command{
+		Use: "create", Short: "Create one",
+		Annotations: map[string]string{annotationAPI: apiProClassic},
+		RunE:        func(*cobra.Command, []string) error { return nil },
+	})
+	applyGatewayCoverageHelp(root)
+	if strings.Contains(group.Long, gatewayHelpMarker) {
+		t.Errorf("a group with a served subcommand was labelled refused:\n%s", group.Long)
+	}
+}
+
+// A leafless grouping node earns nothing: everyLeafRefused is false with no
+// runnable leaf beneath, or a bare namespace node would advertise a refusal it
+// knows nothing about.
+func TestGroupHelpNeedsARunnableLeaf(t *testing.T) {
+	root := &cobra.Command{Use: "jamf-cli"}
+	empty := &cobra.Command{Use: "shell", Short: "A group with nothing in it"}
+	root.AddCommand(empty)
+	applyGatewayCoverageHelp(root)
+	if strings.Contains(empty.Long, gatewayHelpMarker) {
+		t.Errorf("a leafless group earned a caveat:\n%s", empty.Long)
+	}
+}
+
+// The successor table is hand-curated and nothing derives it, so the guard that
+// it has not gone stale is this test. It fails three ways, and each is a real way
+// an entry rots: the refused command disappears or is renamed, the replacement
+// disappears or is renamed, or the gateway starts serving the refused command
+// again and the entry becomes advice to abandon a working command.
+func TestGatewaySuccessorsNameCommandsTheBinaryShips(t *testing.T) {
+	root := NewRootCmd("test", "abc123", "2024-01-01", "unknown")
+	for refused, replacement := range gateway.SuccessorTable() {
+		refusedCmd := findCommandPath(t, root, refused)
+		if refusedCmd == nil {
+			t.Errorf("successor entry %q names no command this binary ships — remove it, or fix the path", refused)
+			continue
+		}
+		if findCommandPath(t, root, replacement) == nil {
+			t.Errorf("the successor for %q is %q, which this binary does not ship — a refusal would send an operator to a command that does not exist", refused, replacement)
+		}
+		// "Any leaf", not "every leaf", and the difference is a live gap rather
+		// than laxity: the synthesized `apply` carries no verdict in the
+		// committed generated code, so a resource whose every spec operation is
+		// withdrawn still ships one unannotated subcommand until the tree is
+		// regenerated. An entry is stale when *nothing* under it is refused any
+		// more — that is the state in which the advice becomes "abandon a working
+		// command". Whether a group is refused in full is what the group-note
+		// tests assert, over a synthetic tree that cannot drift with a regenerate.
+		if n, total := refusedLeafCount(refusedCmd); n == 0 {
+			t.Errorf("none of %q's %d subcommands are refused on a gateway profile any more, so the successor entry pointing at %q is now advice to abandon a working command — remove the entry", refused, total, replacement)
+		}
+	}
+}
+
+// refusedLeafCount counts the runnable leaves beneath cmd and how many of them
+// the gateway refuses.
+func refusedLeafCount(cmd *cobra.Command) (refused, total int) {
+	var walk func(*cobra.Command)
+	walk = func(c *cobra.Command) {
+		subs := c.Commands()
+		if len(subs) == 0 {
+			if !c.Runnable() {
+				return
+			}
+			total++
+			if gateway.Level(c.Annotations[annotationGateway]) == gateway.Unserved {
+				refused++
+			}
+			return
+		}
+		for _, sub := range subs {
+			walk(sub)
+		}
+	}
+	walk(cmd)
+	return refused, total
+}
+
+// findCommandPath resolves a space-separated command path under root, or nil.
+// cobra's Find is used so an alias resolves the same way a user's invocation
+// would, and the result is checked to be the command actually named rather than
+// the deepest ancestor Find fell back to.
+func findCommandPath(t *testing.T, root *cobra.Command, path string) *cobra.Command {
+	t.Helper()
+	args := strings.Fields(path)
+	found, _, err := root.Find(args)
+	if err != nil || found == nil {
+		return nil
+	}
+	if !strings.HasSuffix(found.CommandPath(), " "+path) && found.CommandPath() != path {
+		return nil // Find fell back to an ancestor
+	}
+	return found
+}
+
+// TestCatalogCarriesTheSuccessorForARefusedCommand: the JSON catalog is what a
+// script or an agent reads instead of running --help, so the successor has to
+// reach it too. Without this the catalog told a consumer the command was
+// unserved and nothing more, while the runtime refusal named a working
+// replacement — two answers to the same question.
+func TestCatalogCarriesTheSuccessorForARefusedCommand(t *testing.T) {
+	root := NewRootCmd("test", "commit", "date", "11.31.0")
+	entries := collectCommands(root, "jamf-cli", "", "")
+
+	var refused, withSuccessor int
+	for _, e := range entries {
+		if e.Gateway != string(gateway.Unserved) {
+			// A served command must never advertise a replacement: that would
+			// read as a deprecation this CLI is not making.
+			if e.GatewaySuccessor != "" {
+				t.Errorf("%s is served but names successor %q", e.Command, e.GatewaySuccessor)
+			}
+			continue
+		}
+		refused++
+		if e.GatewaySuccessor == "" {
+			continue
+		}
+		withSuccessor++
+		// The successor must be a command the binary actually ships, or the
+		// catalog sends a consumer to something that does not exist.
+		fields := strings.Fields(e.GatewaySuccessor)
+		if len(fields) < 2 {
+			t.Errorf("%s: successor %q is not a command path", e.Command, e.GatewaySuccessor)
+			continue
+		}
+		if _, _, err := root.Find(fields[1:]); err != nil {
+			t.Errorf("%s: successor %q is not a shipped command: %v", e.Command, e.GatewaySuccessor, err)
+		}
+	}
+
+	if refused == 0 {
+		t.Fatal("no refused command in the catalog — the coverage manifest is not being read")
+	}
+	if withSuccessor == 0 {
+		t.Fatal("no refused command carries a successor; gateway.Successor is not reaching the catalog")
 	}
 }

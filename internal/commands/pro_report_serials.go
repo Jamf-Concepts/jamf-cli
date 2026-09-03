@@ -48,7 +48,7 @@ restore unambiguous lookups.`,
 // share an empty serial. Rows are ordered by serial, then by numeric ID, so
 // duplicates cluster together.
 func runReportDuplicateSerials(ctx context.Context, client registry.HTTPClient) ([]map[string]any, error) {
-	computers, err := FetchAllPaginated(ctx, client, "/v3/computers-inventory?section=GENERAL&section=HARDWARE", 100)
+	computers, err := FetchAllPaginated(ctx, client, "/v4/computers-inventory?section=GENERAL&section=HARDWARE", 100)
 	if err != nil {
 		return nil, fmt.Errorf("fetching computer inventory: %w", err)
 	}

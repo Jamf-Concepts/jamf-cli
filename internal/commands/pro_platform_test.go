@@ -2106,7 +2106,10 @@ func TestNewPlatformSDKClientScope(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			c := newPlatformSDKClient("https://gw.example.com", "id", "secret", tc.scope, false)
+			c, err := newPlatformSDKClient("https://gw.example.com", "id", "secret", tc.scope, false)
+			if err != nil {
+				t.Fatalf("newPlatformSDKClient: %v", err)
+			}
 			kind, id := c.Scope()
 			if kind != tc.wantKind || id != tc.wantID {
 				t.Errorf("Scope() = (%v, %q), want (%v, %q)", kind, id, tc.wantKind, tc.wantID)

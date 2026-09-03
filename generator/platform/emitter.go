@@ -274,6 +274,13 @@ func Generate(resources []*parser.Resource, outputDir string) ([]string, error) 
 	tmpl, err := template.New("resource").Funcs(template.FuncMap{
 		"statusConstant": statusConstant,
 		"methodConstant": methodConstant,
+		// confirmStmt renders the destructive-action confirmation. A function
+		// rather than a literal because the statement is emitted at two points
+		// — after the dry-run preview on the single-request path, and before the
+		// loop on the paginated one, which has no preview to sit behind — and a
+		// second copy of the identifier expression is a second place for the two
+		// to drift apart.
+		"confirmStmt": confirmStmt,
 		"opAnnotations": func(op templateOp) string {
 			var pairs []string
 			if op.IsDestructive {
@@ -874,6 +881,21 @@ func successStatus(op *parser.Operation) (code int, hasResult bool) {
 	resp := op.Responses[strconv.Itoa(code)]
 	hasResult = resp != nil && resp.Schema != nil
 	return code, hasResult
+}
+
+// confirmStmt renders the platform.ConfirmAction guard for a destructive
+// operation, identifying the target the same way the command resolves it: the
+// name-resolved ID where the operation supports --name, the first positional
+// otherwise, and the operation's own name when it takes no identifier at all.
+func confirmStmt(op templateOp) string {
+	target := fmt.Sprintf("%q", op.Name)
+	switch {
+	case op.SupportsNameLookup:
+		target = "resolvedID"
+	case len(op.PathParams) > 0:
+		target = "args[0]"
+	}
+	return fmt.Sprintf("\t\t\tif err := platform.ConfirmAction(%q, %s, yes); err != nil {\n\t\t\t\treturn err\n\t\t\t}", op.Name, target)
 }
 
 // statusConstant returns the net/http constant name for a status code (e.g.

@@ -260,15 +260,42 @@ func TestBuildClassicXMLFromSet_EscapesElementContent(t *testing.T) {
 	}
 }
 
-func TestBuildClassicXMLFromSet_EmptyValueIsAllowed(t *testing.T) {
-	// Clearing a field is a legitimate edit, and an empty value skips the enum
-	// check for the same reason.
+func TestBuildClassicXMLFromSet_EmptyValueIsAllowedOnANonEnumField(t *testing.T) {
+	// Clearing a field is a legitimate edit, so a non-enum field still takes
+	// key= and still renders an empty element.
 	got, err := buildClassicXMLFromSet([]string{"name="}, groupSpec)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(string(got), "<name></name>") {
 		t.Errorf("got:\n%s", got)
+	}
+}
+
+// TestBuildClassicXMLFromSet_EmptyValueIsRefusedOnAnEnumField pins the other
+// half. The enum guard used to carry a `raw != ""` carve-out, so "" — which is
+// out of range for every enum in the table, and therefore precisely the case
+// the check exists for — was the one value it waved through. A CI job running
+// `--set general.frequency="$FREQ"` with FREQ unset sent an empty element, the
+// Classic API answered 200, and the field was silently set to its default. The
+// guard fired for the typo and not for the empty variable, which is the more
+// common CI mistake.
+func TestBuildClassicXMLFromSet_EmptyValueIsRefusedOnAnEnumField(t *testing.T) {
+	_, err := buildClassicXMLFromSet([]string{"access_level="}, groupSpec)
+	if err == nil {
+		t.Fatal("an empty value for an enum field must be refused")
+	}
+	// The message has to name the legal set — that is the part the wire will
+	// not teach you, since it accepts the empty value and substitutes a default.
+	for _, want := range []string{"access_level", "Full Access", "Site Access"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("error does not mention %q: %v", want, err)
+		}
+	}
+	// And it has to say what to do instead, since the usual cause is a shell
+	// variable that expanded to nothing rather than a deliberate clear.
+	if !strings.Contains(err.Error(), "omit the flag") {
+		t.Errorf("error does not name the remedy: %v", err)
 	}
 }
 

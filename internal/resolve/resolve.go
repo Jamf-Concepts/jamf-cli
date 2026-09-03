@@ -33,7 +33,7 @@ type DeviceIdentifiers struct {
 }
 
 // ResolveComputer looks up a computer by serial, name, or ID using the
-// v3 computers-inventory API and returns all identifier forms.
+// v4 computers-inventory API and returns all identifier forms.
 // Exactly one of serial, name, or id must be non-empty.
 func ResolveComputer(ctx context.Context, client registry.HTTPClient, serial, name, id string) (*DeviceIdentifiers, error) {
 	switch {
@@ -163,7 +163,7 @@ type fileEntrySpec struct {
 
 var computerEntrySpec = fileEntrySpec{
 	label:       "computer",
-	basePath:    "/v3/computers-inventory?section=GENERAL&section=HARDWARE",
+	basePath:    "/v4/computers-inventory?section=GENERAL&section=HARDWARE",
 	idField:     "id",
 	serialField: "hardware.serialNumber",
 	parse:       parseComputerInventory,
@@ -333,7 +333,7 @@ func (s fileEntrySpec) fetchFiltered(ctx context.Context, client registry.HTTPCl
 
 func resolveComputerByFilter(ctx context.Context, client registry.HTTPClient, filter, desc string) (*DeviceIdentifiers, error) {
 	// Use page-size=2 to detect ambiguity (multiple matches).
-	path := fmt.Sprintf("/v3/computers-inventory?section=GENERAL&section=HARDWARE&page-size=2&filter=%s",
+	path := fmt.Sprintf("/v4/computers-inventory?section=GENERAL&section=HARDWARE&page-size=2&filter=%s",
 		url.QueryEscape(filter))
 
 	results, total, err := fetchInventoryPage(ctx, client, path)
@@ -350,7 +350,7 @@ func resolveComputerByFilter(ctx context.Context, client registry.HTTPClient, fi
 }
 
 func resolveComputerByID(ctx context.Context, client registry.HTTPClient, id string) (*DeviceIdentifiers, error) {
-	path := fmt.Sprintf("/v3/computers-inventory/%s?section=GENERAL&section=HARDWARE", url.PathEscape(id))
+	path := fmt.Sprintf("/v4/computers-inventory/%s?section=GENERAL&section=HARDWARE", url.PathEscape(id))
 	resp, err := client.Do(ctx, "GET", path, nil)
 	if err != nil {
 		return nil, fmt.Errorf("looking up computer ID %s: %w", id, err)
@@ -473,17 +473,19 @@ func parseMobileDevice(obj map[string]any) (*DeviceIdentifiers, error) {
 // --- Smart group resolution (modern API) ---
 
 // fetchSmartComputerGroupMemberIDs finds a smart computer group by name via
-// the v2 API and returns its member IDs.
+// the v3 API and returns its member IDs. v3 rather than v2 because the gateway
+// publishes only v3; the search-result and membership schemas are the same on
+// both, so this is a version bump and not a shape change.
 func fetchSmartComputerGroupMemberIDs(ctx context.Context, client registry.HTTPClient, groupName string) ([]string, error) {
 	// Look up group by name with RSQL filter.
 	groupID, err := resolveGroupIDByName(ctx, client,
-		"/v2/computer-groups/smart-groups", "name", groupName)
+		"/v3/computer-groups/smart-groups", "name", groupName)
 	if err != nil {
 		return nil, err
 	}
 
 	// Fetch membership: returns {"members": [1, 2, 3]}.
-	path := fmt.Sprintf("/v2/computer-groups/smart-group-membership/%s", url.PathEscape(groupID))
+	path := fmt.Sprintf("/v3/computer-groups/smart-group-membership/%s", url.PathEscape(groupID))
 	resp, err := client.Do(ctx, "GET", path, nil)
 	if err != nil {
 		return nil, fmt.Errorf("fetching smart group membership: %w", err)
@@ -514,16 +516,18 @@ func fetchSmartComputerGroupMemberIDs(ctx context.Context, client registry.HTTPC
 }
 
 // fetchSmartMobileGroupMemberIDs finds a smart mobile device group by name via
-// the v1 API and returns its member IDs.
+// the v2 API and returns its member IDs. v2 rather than v1 for the same reason
+// as the computer groups above: v1 is withdrawn from the gateway's published
+// surface and the GET response schemas are identical.
 func fetchSmartMobileGroupMemberIDs(ctx context.Context, client registry.HTTPClient, groupName string) ([]string, error) {
 	groupID, err := resolveGroupIDByName(ctx, client,
-		"/v1/mobile-device-groups/smart-groups", "groupName", groupName)
+		"/v2/mobile-device-groups/smart-groups", "groupName", groupName)
 	if err != nil {
 		return nil, err
 	}
 
 	// Fetch membership: paginated response with device details.
-	path := fmt.Sprintf("/v1/mobile-device-groups/smart-group-membership/%s", url.PathEscape(groupID))
+	path := fmt.Sprintf("/v2/mobile-device-groups/smart-group-membership/%s", url.PathEscape(groupID))
 	results, err := fetchAllPages(ctx, client, path)
 	if err != nil {
 		return nil, fmt.Errorf("fetching smart mobile group membership: %w", err)

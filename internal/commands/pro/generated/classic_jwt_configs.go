@@ -39,6 +39,9 @@ var bodySpecClassicJwtConfigs = classicBodySpec{
 		"name":           "string",
 		"token_expiry":   "integer",
 	},
+	Credentials: map[string]bool{
+		"encryption_key": true,
+	},
 }
 
 // NewClassicJwtConfigsCmd creates the classic-jwt-configs command group
@@ -178,7 +181,9 @@ Body fields are derived from the Classic API spec (schema "json_web_token_config
 Run with --scaffold to print a complete XML template.
 
 Required: name
-Optional sections: disabled, encryption_key, id, token_expiry`,
+Optional sections: disabled, encryption_key, id, token_expiry
+
+Credential fields (--from-file only, never --set): encryption_key`,
 		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "json-web-token-configuration:create"},
 		Example: `  # Create a json_web_token_configuration from an XML file
   jamf-cli pro classic-jwt-configs create --from-file json_web_token_configuration.xml
@@ -213,7 +218,7 @@ Optional sections: disabled, encryption_key, id, token_expiry`,
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print an XML body template for this resource and exit")
 	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Set a body field in dot notation (key=value, repeatable). Builds the whole body, so it cannot be combined with --from-file")
 	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
-		return []string{"disabled=", "encryption_key=", "id=", "name=", "token_expiry="}, cobra.ShellCompDirectiveNoSpace
+		return []string{"disabled=", "id=", "name=", "token_expiry="}, cobra.ShellCompDirectiveNoSpace
 	})
 	return cmd
 }
@@ -237,7 +242,9 @@ Body fields are derived from the Classic API spec (schema "json_web_token_config
 Run with --scaffold to print a complete XML template.
 
 Required: name
-Optional sections: disabled, encryption_key, id, token_expiry`,
+Optional sections: disabled, encryption_key, id, token_expiry
+
+Credential fields (--from-file only, never --set): encryption_key`,
 		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "json-web-token-configuration:update"},
 		Example: `  # Update a json_web_token_configuration from an XML file
   jamf-cli pro classic-jwt-configs update 1 --from-file json_web_token_configuration.xml
@@ -276,7 +283,7 @@ Optional sections: disabled, encryption_key, id, token_expiry`,
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print an XML body template for this resource and exit")
 	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Set a body field in dot notation (key=value, repeatable). Builds the whole body, so it cannot be combined with --from-file")
 	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
-		return []string{"disabled=", "encryption_key=", "id=", "name=", "token_expiry="}, cobra.ShellCompDirectiveNoSpace
+		return []string{"disabled=", "id=", "name=", "token_expiry="}, cobra.ShellCompDirectiveNoSpace
 	})
 
 	return cmd

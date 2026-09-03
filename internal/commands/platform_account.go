@@ -188,5 +188,8 @@ func annotateDistributorScopeError(err error) error {
 	if !oldForm && !newForm {
 		return err
 	}
-	return fmt.Errorf("%s%s", msg, distributorScopeNote)
+	// %w, not %s — see annotateAuditScopeError. This decorator runs ahead of
+	// every errors.As-based classifier, so flattening the chain here costs the
+	// exit code.
+	return fmt.Errorf("%w%s", err, distributorScopeNote)
 }

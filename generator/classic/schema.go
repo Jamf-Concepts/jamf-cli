@@ -321,8 +321,9 @@ func (r ClassicResource) RepeatedElementKeys() []string {
 // caller reaches for. So Classic refuses the pair and names --from-file
 // instead, rather than inheriting a hazard the policy already rules out.
 //
-// Matched on the field name, not on a schema marker: the Classic spec declares
-// writeOnly 28 times in total and on none of these fields.
+// Matched on the field name — or, where the leaf name alone is too generic to
+// be safe, on the dotted path — and not on a schema marker: the Classic spec
+// declares writeOnly 28 times in total and on none of these fields.
 func (r ClassicResource) CredentialFields() []string {
 	if r.BodySchema == nil {
 		return nil
@@ -331,10 +332,13 @@ func (r ClassicResource) CredentialFields() []string {
 	seen := map[string]bool{}
 	walkSchema(r.BodySchema, "", func(path string, s *parser.Schema) {
 		for name, prop := range s.Properties {
-			if prop == nil || !isCredentialField(name, prop.Type) {
+			if prop == nil {
 				continue
 			}
 			full := joinPath(path, name)
+			if !isCredentialField(full, name, prop.Type) {
+				continue
+			}
 			if !seen[full] {
 				seen[full] = true
 				out = append(out, full)
@@ -356,6 +360,28 @@ var credentialFieldNames = []string{
 	"private_key",
 	"keystore_password",
 	"shared_secret",
+	// json_web_token_configuration.encryption_key is the JWT signing key —
+	// whoever holds it can mint a token Jamf Pro will trust. Named in full
+	// rather than as a bare "key", which would match key_type, remediate_key_type
+	// and certificate_type, none of which is a secret.
+	"encryption_key",
+}
+
+// credentialFieldPaths are matched against the whole dotted path, for fields
+// whose leaf name alone is too generic to match safely.
+//
+// A disk encryption configuration's institutional keystore is the case that
+// needs it: `.key` and `.data` together are the base64 `.p12` and its key
+// material — the private key that decrypts every institutionally-encrypted
+// FileVault volume in the fleet — while the leaf names `key` and `data` are also
+// worn by `key_type` and by the base64 icon, `.ipa` and `.mobileconfig` blobs on
+// six other resources, which are not credentials and must stay settable.
+//
+// Matched on a path suffix, so the same object refused at the root of a
+// disk encryption configuration is still refused if a future schema nests it.
+var credentialFieldPaths = []string{
+	"institutional_recovery_key.key",
+	"institutional_recovery_key.data",
 }
 
 // isCredentialField reports whether a body field carries a secret value.
@@ -365,13 +391,19 @@ var credentialFieldNames = []string{
 // and whose value is not one. Refusing --set on it would block a legitimate
 // setting and send the caller to --from-file for no reason, so only a
 // string-valued field counts.
-func isCredentialField(name, kind string) bool {
+func isCredentialField(path, name, kind string) bool {
 	if kind != "string" {
 		return false
 	}
 	lower := strings.ToLower(name)
 	for _, c := range credentialFieldNames {
 		if strings.Contains(lower, c) {
+			return true
+		}
+	}
+	lowerPath := strings.ToLower(path)
+	for _, p := range credentialFieldPaths {
+		if lowerPath == p || strings.HasSuffix(lowerPath, "."+p) {
 			return true
 		}
 	}

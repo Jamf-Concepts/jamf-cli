@@ -52,6 +52,82 @@ func safeFilename(resourceName string) string {
 	return base + ".go"
 }
 
+// applyGatewayAnn renders the gateway-coverage annotations for the
+// synthesized `apply`, which has no spec operation of its own: it lists
+// to resolve the name, then creates or replaces. So both the verdict and
+// the permissions come from those three operations, the same way the
+// Classic generator computes its own apply from `gatewayAnn $ "list"
+// "POST" "PUT"`.
+//
+// The verdict has to be here rather than left absent, because
+// checkAPIMatch refuses only on jamf:gateway == "unserved": without it
+// every sibling verb on a withdrawn resource was refused pre-flight
+// while `apply` — the command a workflow is actually built out of —
+// went out to the wire and answered a bare 500.
+//
+// When apply is refused it carries no privileges. A refused command must
+// not advertise a grant that cannot make it work; gatewayPrivAnn returns
+// nothing for a refused Classic command for exactly that reason, and the
+// union here is the same trap in a different shape — a resource whose
+// `list` is withdrawn can still declare scopes on the create it kept.
+//
+// Otherwise only the union. Splitting it into "read plus one of
+// create/update" would be more precise and unusable: which half runs
+// depends on whether the object already exists, so an integration that
+// holds one of them works until the day it does not. Stating the union
+// is the whole point — apply is the command most likely to 403 on an
+// integration sized from create alone.
+func applyGatewayAnn(r *Resource) string {
+	if v := applyGatewayVerdict(r); v != nil {
+		return fmt.Sprintf(", %q: %q, %q: %q, %q: %q",
+			"jamf:gateway", v.GatewayLevel,
+			"jamf:gateway-basis", v.GatewayBasis,
+			"jamf:gateway-detail", v.GatewayDetail)
+	}
+	var scopes []string
+	for _, name := range applyGatewayOpNames {
+		for _, op := range r.Operations {
+			if op.Name != name {
+				continue
+			}
+			for _, sc := range op.GatewayPrivileges {
+				if !slices.Contains(scopes, sc) {
+					scopes = append(scopes, sc)
+				}
+			}
+		}
+	}
+	if len(scopes) == 0 {
+		return ""
+	}
+	slices.Sort(scopes)
+	return fmt.Sprintf(", %q: %q", "jamf:gateway-privileges", strings.Join(scopes, ","))
+}
+
+// applyGatewayOpNames are the operations the synthesized `apply` sends, in the
+// order it sends them: it lists to resolve the name, then creates or replaces.
+// The same set the Classic template passes as `"list" "POST" "PUT"`.
+var applyGatewayOpNames = []string{"list", "create", "update"}
+
+// applyGatewayVerdict returns the operation whose gateway verdict applies to
+// `apply` — the first of the operations it sends that the gateway does not
+// serve — or nil when every one of them is served.
+//
+// First rather than a merge, mirroring the Classic generator's
+// classicGatewayVerdict: a command that always sends a refused operation is
+// refused whatever else it sends, and one reason is what a refusal message can
+// carry. Consulted in send order so the reason names the earliest failure.
+func applyGatewayVerdict(r *Resource) *Operation {
+	for _, name := range applyGatewayOpNames {
+		for _, op := range r.Operations {
+			if op.Name == name && op.GatewayLevel != "" {
+				return op
+			}
+		}
+	}
+	return nil
+}
+
 // Generator generates Go code from parsed resources
 type Generator struct {
 	outputDir string
@@ -124,36 +200,7 @@ func (g *Generator) Generate(resource *Resource) (string, error) {
 			}
 			return "map[string]string{" + strings.Join(pairs, ", ") + "}"
 		},
-		// applyGatewayAnn renders jamf:gateway-privileges for the synthesized
-		// `apply`, which has no spec operation of its own: it lists to resolve
-		// the name, then creates or replaces. So its permissions are the union
-		// of those three, and stating them is the whole point — apply is the
-		// command most likely to 403 on an integration sized from create alone.
-		//
-		// Only the union. Splitting it into "read plus one of create/update"
-		// would be more precise and unusable: which half runs depends on whether
-		// the object already exists, so an integration that holds one of them
-		// works until the day it does not.
-		"applyGatewayAnn": func(r *Resource) string {
-			var scopes []string
-			for _, op := range r.Operations {
-				switch op.Name {
-				case "list", "create", "update":
-				default:
-					continue
-				}
-				for _, sc := range op.GatewayPrivileges {
-					if !slices.Contains(scopes, sc) {
-						scopes = append(scopes, sc)
-					}
-				}
-			}
-			if len(scopes) == 0 {
-				return ""
-			}
-			slices.Sort(scopes)
-			return fmt.Sprintf(", %q: %q", "jamf:gateway-privileges", strings.Join(scopes, ","))
-		},
+		"applyGatewayAnn": applyGatewayAnn,
 		"hasSectionParam": func(op *Operation) bool {
 			for _, p := range op.Parameters {
 				if p.In == "query" && p.Name == "section" {

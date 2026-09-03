@@ -113,6 +113,16 @@ func newEnrollmentActivationProfilesCreateCmd(cliCtx *registry.CLIContext) *cobr
 			// platform and Security Cloud mutation executed for real under -n.
 			// A create reported the object it had just made and a delete reported
 			// nothing, both exiting 0.
+			//
+			// Ahead of the confirmation, not after it. ConfirmAction errors when
+			// --yes is absent and stdin is not a terminal, so a preview of a
+			// destructive command used to be unobtainable in CI without also
+			// pre-authorising the real thing — and the day -n falls off that
+			// command line (or out of JAMF_CLI_ARGS) the delete runs with its
+			// confirmation already suppressed. Interactively the old order
+			// prompted first and printed [dry-run] second, teaching the operator
+			// that confirming is harmless. Name resolution stays ahead of both,
+			// so the preview reports the resolved path.
 			if cliCtx.DryRun {
 				return platform.ReportDryRun(cmd.ErrOrStderr(), http.MethodPost, path, body)
 			}
@@ -156,9 +166,6 @@ func newEnrollmentActivationProfilesDeleteMultipleCmd(cliCtx *registry.CLIContex
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err
 			}
-			if err := platform.ConfirmAction("delete-multiple", "delete-multiple", yes); err != nil {
-				return err
-			}
 			path := "/securitycloud/v1/activation-profiles/delete-multiple"
 			q := url.Values{}
 			body, err := platform.ReadBody(bodyFile, setFlags)
@@ -174,8 +181,21 @@ func newEnrollmentActivationProfilesDeleteMultipleCmd(cliCtx *registry.CLIContex
 			// platform and Security Cloud mutation executed for real under -n.
 			// A create reported the object it had just made and a delete reported
 			// nothing, both exiting 0.
+			//
+			// Ahead of the confirmation, not after it. ConfirmAction errors when
+			// --yes is absent and stdin is not a terminal, so a preview of a
+			// destructive command used to be unobtainable in CI without also
+			// pre-authorising the real thing — and the day -n falls off that
+			// command line (or out of JAMF_CLI_ARGS) the delete runs with its
+			// confirmation already suppressed. Interactively the old order
+			// prompted first and printed [dry-run] second, teaching the operator
+			// that confirming is harmless. Name resolution stays ahead of both,
+			// so the preview reports the resolved path.
 			if cliCtx.DryRun {
 				return platform.ReportDryRun(cmd.ErrOrStderr(), http.MethodPost, path, body)
+			}
+			if err := platform.ConfirmAction("delete-multiple", "delete-multiple", yes); err != nil {
+				return err
 			}
 			if err := cliCtx.PlatformSDKClient.Transport().DoWithContentType(cmd.Context(), http.MethodPost, path, body, "application/json", http.StatusNoContent, nil); err != nil {
 				return fmt.Errorf("delete-multiple: %w", err)
@@ -249,6 +269,16 @@ func newEnrollmentActivationProfilesPauseCmd(cliCtx *registry.CLIContext) *cobra
 			// platform and Security Cloud mutation executed for real under -n.
 			// A create reported the object it had just made and a delete reported
 			// nothing, both exiting 0.
+			//
+			// Ahead of the confirmation, not after it. ConfirmAction errors when
+			// --yes is absent and stdin is not a terminal, so a preview of a
+			// destructive command used to be unobtainable in CI without also
+			// pre-authorising the real thing — and the day -n falls off that
+			// command line (or out of JAMF_CLI_ARGS) the delete runs with its
+			// confirmation already suppressed. Interactively the old order
+			// prompted first and printed [dry-run] second, teaching the operator
+			// that confirming is harmless. Name resolution stays ahead of both,
+			// so the preview reports the resolved path.
 			if cliCtx.DryRun {
 				return platform.ReportDryRun(cmd.ErrOrStderr(), http.MethodPost, path, body)
 			}
@@ -285,6 +315,16 @@ func newEnrollmentActivationProfilesResumeCmd(cliCtx *registry.CLIContext) *cobr
 			// platform and Security Cloud mutation executed for real under -n.
 			// A create reported the object it had just made and a delete reported
 			// nothing, both exiting 0.
+			//
+			// Ahead of the confirmation, not after it. ConfirmAction errors when
+			// --yes is absent and stdin is not a terminal, so a preview of a
+			// destructive command used to be unobtainable in CI without also
+			// pre-authorising the real thing — and the day -n falls off that
+			// command line (or out of JAMF_CLI_ARGS) the delete runs with its
+			// confirmation already suppressed. Interactively the old order
+			// prompted first and printed [dry-run] second, teaching the operator
+			// that confirming is harmless. Name resolution stays ahead of both,
+			// so the preview reports the resolved path.
 			if cliCtx.DryRun {
 				return platform.ReportDryRun(cmd.ErrOrStderr(), http.MethodPost, path, body)
 			}

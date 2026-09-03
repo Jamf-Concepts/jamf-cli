@@ -12,6 +12,7 @@ import (
 
 	platformgen "github.com/Jamf-Concepts/jamf-cli/internal/commands/platform/generated"
 	"github.com/Jamf-Concepts/jamf-cli/internal/config"
+	"github.com/Jamf-Concepts/jamf-cli/internal/exitcode"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 )
 
@@ -121,6 +122,57 @@ func platformGatewayURLForRegion(rawURL string) string {
 	return "https://" + region + ".api.jamfcloud.com"
 }
 
+// refuseRetiredGatewayURL rejects the pre-GA gateway host by name, or returns
+// nil for any other URL.
+//
+// It is checked before a client is built rather than at the request, because
+// the failure the retired host produces lands in the *token exchange* — before
+// the command the user typed is sent — as an edge-level 403 with an HTML body
+// that names neither the host nor the reason. An operator reads that as an
+// authentication failure and rotates a working client secret.
+//
+// Rewriting the URL silently was the other option and is worse: the profile on
+// disk stays wrong for every other tool reading it, and a URL the user did not
+// type is a bad thing to send a credential to. So it names the replacement and
+// the user edits the profile.
+func refuseRetiredGatewayURL(rawURL string) error {
+	ga := platformGatewayURLForRegion(rawURL)
+	if ga == "" {
+		return nil
+	}
+	return exitcode.New(exitcode.Usage, fmt.Sprintf(
+		"%s is the retired Jamf Platform gateway and does not serve the GA API paths.\nSet url: %s in this profile (jamf-cli config path prints the file), or re-run `jamf-cli platform setup`.",
+		rawURL, ga))
+}
+
+// mergePlatformProfile writes the gateway half of a profile onto whatever the
+// profile already holds, leaving every field this command does not own alone.
+//
+// A fresh config.Profile literal was the bug: the struct carries every
+// product's credentials, so replacing the entry silently zeroed the Radar
+// pairs, SSEURL and Product that `security setup` writes. That was harmless
+// while the two products used disjoint profiles and is not any more — `security
+// setup` now closes by pointing here, and securityPlatformSDKClient is built
+// around a profile carrying both credential sets. Replacing meant running the
+// two setups against one profile name dropped whichever ran first, and
+// re-running that one to fix it dropped the other back out. The keychain
+// entries survive either way, so nothing looks deleted: the operator just sees
+// credentials they know they entered reported as absent.
+func mergePlatformProfile(existing config.Profile, creds *platformGatewayCredentials, clientIDRef, clientSecretRef string) config.Profile {
+	p := existing
+	p.URL = creds.GatewayURL
+	// auth-method platform is what ResolveAuthForProfile reads to enter
+	// gateway auth, so it is set unconditionally: it is the whole point of
+	// running this command, and the `security` tree is selected by the command
+	// namespace rather than by this field.
+	p.AuthMethod = "platform"
+	p.TenantID = creds.TenantID
+	p.EnvironmentID = creds.EnvironmentID
+	p.ClientID = clientIDRef
+	p.ClientSecret = clientSecretRef
+	return p
+}
+
 func newPlatformSetupCmd() *cobra.Command {
 	var setupProfile string
 
@@ -186,14 +238,8 @@ Create API client credentials in the Jamf Account portal
 				return err
 			}
 
-			cfg.Profiles[setupProfile] = config.Profile{
-				URL:           creds.GatewayURL,
-				AuthMethod:    "platform",
-				TenantID:      creds.TenantID,
-				EnvironmentID: creds.EnvironmentID,
-				ClientID:      clientIDRef,
-				ClientSecret:  clientSecretRef,
-			}
+			cfg.Profiles[setupProfile] = mergePlatformProfile(
+				cfg.Profiles[setupProfile], creds, clientIDRef, clientSecretRef)
 			cfg.DefaultProfile = setupProfile
 
 			if err := config.Save(cfg); err != nil {

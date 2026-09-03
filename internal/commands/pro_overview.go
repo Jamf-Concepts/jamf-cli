@@ -720,28 +720,28 @@ func runOverview(ctx context.Context, cliCtx *registry.CLIContext) ([]overviewSe
 	wg.Go(func() {
 		sem <- struct{}{}
 		defer func() { <-sem }()
-		v, err := fetchPaginatedCount(ctx, client, "/v2/computer-groups/smart-groups")
+		v, err := fetchPaginatedCount(ctx, client, "/v3/computer-groups/smart-groups")
 		send("computer_smart_groups", v, err)
 	})
 
 	wg.Go(func() {
 		sem <- struct{}{}
 		defer func() { <-sem }()
-		v, err := fetchPaginatedCount(ctx, client, "/v2/computer-groups/static-groups")
+		v, err := fetchPaginatedCount(ctx, client, "/v3/computer-groups/static-groups")
 		send("computer_static_groups", v, err)
 	})
 
 	wg.Go(func() {
 		sem <- struct{}{}
 		defer func() { <-sem }()
-		v, err := fetchPaginatedCount(ctx, client, "/v1/mobile-device-groups/smart-groups")
+		v, err := fetchPaginatedCount(ctx, client, "/v2/mobile-device-groups/smart-groups")
 		send("md_smart_groups", v, err)
 	})
 
 	wg.Go(func() {
 		sem <- struct{}{}
 		defer func() { <-sem }()
-		v, err := fetchPaginatedCount(ctx, client, "/v1/mobile-device-groups/static-groups")
+		v, err := fetchPaginatedCount(ctx, client, "/v2/mobile-device-groups/static-groups")
 		send("md_static_groups", v, err)
 	})
 
@@ -989,11 +989,15 @@ func runOverview(ctx context.Context, cliCtx *registry.CLIContext) ([]overviewSe
 		send("packages", v, err)
 	})
 
-	// 14. Patch Management (Classic API)
+	// 14. Patch Management. The Pro API's patch software title configurations,
+	// not Classic's /patchsoftwaretitles: capi v1993 withdrew every read on that
+	// resource, so the Classic count is refused on a gateway profile while the
+	// v3 Pro list is published. Same objects, and the list is a plain array
+	// rather than a paged envelope, hence fetchArrayCount.
 	wg.Go(func() {
 		sem <- struct{}{}
 		defer func() { <-sem }()
-		v, err := fetchClassicCount(ctx, client, "/JSSResource/patchsoftwaretitles", "patch_software_titles")
+		v, err := fetchArrayCount(ctx, client, "/v3/patch-software-title-configurations")
 		send("patch_titles", v, err)
 	})
 

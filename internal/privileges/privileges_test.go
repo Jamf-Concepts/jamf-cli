@@ -135,7 +135,11 @@ func scopesFromGatewayManifest(t *testing.T, root string) map[string]string {
 	path := filepath.Join(root, "specs", "gateway", "coverage.json")
 	data, err := os.ReadFile(path)
 	if err != nil {
-		t.Skipf("no gateway manifest to check: %v", err)
+		// Not a skip. The manifest is a committed artefact, so its absence is a
+		// broken tree — and skipping stood this guard down silently, which is
+		// the one failure it exists to catch: with no manifest read, no scope
+		// reaches the catalogue check and a missing row ships green.
+		t.Fatalf("no gateway manifest at %s — it is a committed artefact; run `make sync-gateway-coverage-from-sdk`: %v", path, err)
 	}
 	var manifest struct {
 		Scopes map[string]map[string][]string `json:"scopes"`
@@ -167,7 +171,10 @@ func scopesFromPlatformSpecs(t *testing.T, root string) map[string]string {
 	t.Helper()
 	files, err := filepath.Glob(filepath.Join(root, "specs", "platform", "*.json"))
 	if err != nil || len(files) == 0 {
-		t.Skipf("no platform specs to check: %v", err)
+		// Committed artefacts, same as the manifest above: absent means the tree
+		// is broken, not that there is nothing to check.
+		t.Fatalf("no platform specs under %s — they are committed artefacts; run `make sync-platform-specs-from-sdk`: %v",
+			filepath.Join(root, "specs", "platform"), err)
 	}
 	out := map[string]string{}
 	for _, f := range files {
