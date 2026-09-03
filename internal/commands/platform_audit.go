@@ -15,10 +15,12 @@ import (
 // newPlatformAuditCmd builds the platform audit command with the scope note applied.
 //
 // Audit is served in every region — unlike the Jamf Account trio — but it is
-// reachable only from an *environment*-scoped profile. The spec says otherwise:
-// audit_api.json declares x-scope-types [environment, organization], and the
-// gateway's own api-product declares the same pair, yet only environment is
-// accepted from a header. Wire-checked 2026-08-31 in US and EU.
+// reachable only from an *environment*-scoped profile. Wire-checked 2026-08-31
+// in US and EU, and the spec now agrees: GitOps build v2056 withdrew
+// organization from audit_api.json's x-scope-types and made X-Environment-Id
+// required, so the pair this CLI used to contradict is gone. The note below
+// survives the correction because the gateway's own 400 still does not name
+// the level that would work.
 func newPlatformAuditCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd := platformgen.NewAuditCmd(cliCtx)
 	applyAuditScopeNote(cmd)
@@ -49,15 +51,16 @@ func applyAuditScopeNote(cmd *cobra.Command) {
 // auditScopeNote names the profile change REQUEST_CONTEXT_NOT_PROVIDED wants.
 //
 // The gateway's message — "The request context could not be detected." — says
-// that a scope was not found without saying which kind would be accepted, and
-// the spec's own x-scope-types lists organization alongside environment, so a
-// reader who checks the spec concludes their organization-scoped profile should
-// have worked. Naming the one level that is accepted is the whole content of
-// the fix.
+// that a scope was not found without saying which kind would be accepted, so
+// naming the one level that is accepted is the whole content of the fix.
+//
+// It used to add that the spec listed organization as allowed while the gateway
+// refused it from a header. Build v2056 withdrew organization from audit's
+// x-scope-types, so that sentence became false and is gone — the note must not
+// tell an operator to distrust a spec that now says the same thing this does.
 const auditScopeNote = "\n\nnote: audit is reachable only from an environment-scoped profile. This one sent no " +
 	"scope header, which means it is organization-scoped. Set an environment ID on the profile " +
-	"(or JAMF_ENVIRONMENT_ID). The spec lists organization as an allowed scope for audit, but the " +
-	"gateway does not accept it from a header."
+	"(or JAMF_ENVIRONMENT_ID)."
 
 // annotateAuditScopeError appends auditScopeNote to the gateway's
 // missing-scope error and leaves every other error alone.

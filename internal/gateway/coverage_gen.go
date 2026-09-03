@@ -21,7 +21,7 @@ package gateway
 const (
 	ProAPIVersion     = "11.31.0"
 	ClassicAPIVersion = "11.28.0"
-	SDKCommit         = "b5eabdc"
+	SDKCommit         = "fc34c1d"
 )
 
 // unserved is sorted by path then method. Paths are gateway-form with every

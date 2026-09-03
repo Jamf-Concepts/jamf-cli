@@ -1543,9 +1543,7 @@
           "default": "us",
           "description": "Select the regional gateway",
           "enum": [
-            "us",
-            "eu",
-            "apac"
+            "us"
           ]
         }
       }

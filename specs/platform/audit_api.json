@@ -23,9 +23,10 @@
         }
       },
       "X-Environment-Id": {
-        "description": "The environment UUID identifier. Send it to address environment scope. This API is also published at organization scope — send no scope header at all.",
+        "description": "The environment UUID identifier.",
         "in": "header",
         "name": "X-Environment-Id",
+        "required": true,
         "schema": {
           "example": "e77c1408-10c8-4007-b177-abc9157fbcaa",
           "format": "uuid",
@@ -440,7 +441,7 @@
   "paths": {
     "/v1/audit": {
       "get": {
-        "description": "Returns audit events matching the supplied filters, newest-first, with pagination.\nAt least one filter (`actor`, `audit-source`, `audit-type`, or `resource-id`) is required.\n\n\n**Required Permissions:** `audit:read` (environment scope, defined in X-Environment-Id header; or organization scope, when X-Environment-Id header not present)",
+        "description": "Returns audit events matching the supplied filters, newest-first, with pagination.\nAt least one filter (`actor`, `audit-source`, `audit-type`, or `resource-id`) is required.\n\n\n**Required Permissions:** `audit:read`",
         "operationId": "filterAuditEvents",
         "parameters": [
           {
@@ -578,7 +579,7 @@
     },
     "/v1/audit/resources/{resourceId}/lineage": {
       "get": {
-        "description": "Returns complete transactions that touched a resource. Each transaction includes\nall its events, not just those matching the resource — providing full context\nfor what triggered each change.\n\n\n**Required Permissions:** `audit:read` (environment scope, defined in X-Environment-Id header; or organization scope, when X-Environment-Id header not present)",
+        "description": "Returns complete transactions that touched a resource. Each transaction includes\nall its events, not just those matching the resource — providing full context\nfor what triggered each change.\n\n\n**Required Permissions:** `audit:read`",
         "operationId": "getResourceLineage",
         "parameters": [
           {
@@ -676,7 +677,7 @@
     },
     "/v1/audit/sources": {
       "get": {
-        "description": "Returns the audit sources available in your environment and the event types\neach has emitted. Use this to populate filter options for the filter endpoint.\n\nThe response always includes these known sources (in order):\n- `api-gateway` — Request context (actor, method, path) for audited operations\n- `blueprints` — Blueprint lifecycle events (create, update, archive)\n- `ai-policy` — AI policy evaluation and enforcement events\n\nGateway events capture *who* made a request; service events (blueprints, ai-policy)\ncapture *what* changed. They share a transaction id, so you can trace an actor\nto the resources they affected.\n\nEach source reports `hasEvents: true` if your environment has events from it\nin the time window, along with the distinct `types` seen. Additional sources\nmay appear if your environment has events from them.\n\n\n**Required Permissions:** `audit:read` (environment scope, defined in X-Environment-Id header; or organization scope, when X-Environment-Id header not present)",
+        "description": "Returns the audit sources available in your environment and the event types\neach has emitted. Use this to populate filter options for the filter endpoint.\n\nThe response always includes these known sources (in order):\n- `api-gateway` — Request context (actor, method, path) for audited operations\n- `blueprints` — Blueprint lifecycle events (create, update, archive)\n- `ai-policy` — AI policy evaluation and enforcement events\n\nGateway events capture *who* made a request; service events (blueprints, ai-policy)\ncapture *what* changed. They share a transaction id, so you can trace an actor\nto the resources they affected.\n\nEach source reports `hasEvents: true` if your environment has events from it\nin the time window, along with the distinct `types` seen. Additional sources\nmay appear if your environment has events from them.\n\n\n**Required Permissions:** `audit:read`",
         "operationId": "listAuditSources",
         "parameters": [
           {
@@ -735,7 +736,7 @@
     },
     "/v1/audit/transactions/{txId}": {
       "get": {
-        "description": "Returns all audit events for a transaction, ordered by time. A transaction\nlinks a gateway request to all downstream service events it triggered.\n\n\n**Required Permissions:** `audit:read` (environment scope, defined in X-Environment-Id header; or organization scope, when X-Environment-Id header not present)",
+        "description": "Returns all audit events for a transaction, ordered by time. A transaction\nlinks a gateway request to all downstream service events it triggered.\n\n\n**Required Permissions:** `audit:read`",
         "operationId": "getTransactionTimeline",
         "parameters": [
           {
@@ -815,7 +816,6 @@
     }
   ],
   "x-scope-types": [
-    "environment",
-    "organization"
+    "environment"
   ]
 }
