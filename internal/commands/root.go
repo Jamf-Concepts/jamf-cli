@@ -953,6 +953,12 @@ in the config file. It never runs in CI, when output is piped, or under
 	// instead of silently printing help and exiting 0.
 	guardUnknownSubcommands(cmd)
 
+	// A sibling walk rather than part of the one above, which returns early for
+	// every command that has an argument validator — a leaf has no subcommands.
+	// Both have to run after the last AddCommand, which is the only thing they
+	// share.
+	classifyArgsErrors(cmd)
+
 	return cmd
 }
 
@@ -1729,11 +1735,12 @@ func FprintError(w io.Writer, err error) {
 }
 
 // ClassifyError normalizes framework errors that carry no explicit exit code so
-// they map to the documented codes. Every cobra validator that runs after flag
-// parsing reports a wrong invocation as a plain error, which defaults to exit 1;
-// classify those as a usage error (2) to match the unknown-flag path handled by
-// SetFlagErrorFunc. Errors that already carry an exit code (including wrapped
-// unknown-flag errors) pass through unchanged.
+// they map to the documented codes. Cobra's flag-group and required-flag
+// validators report a wrong invocation as a plain error, which defaults to exit
+// 1; classify those as a usage error (2) to match the unknown-flag path handled
+// by SetFlagErrorFunc. Errors that already carry an exit code pass through
+// unchanged — including the unknown-flag errors and every argument-count error,
+// which classifyArgsErrors codes at its own call site.
 //
 // Only two prefixes were listed at first, so `pro backup` with no --output
 // exited 1 while `pro backup --nosuchflag` exited 2, the two halves of one
@@ -1765,17 +1772,28 @@ func ClassifyError(err error) error {
 // reword fails TestUsageErrorPrefixesMatchCobrasOwnMessages by name instead of
 // silently returning those invocations to exit 1.
 //
-// usagePrefixAcceptsArgs and usagePrefixRequiresArgs are broader than they look.
-// They are safe because internal/client turns every non-2xx response into an
-// *exitcode.Error, the General catch-all included, so errors.As returns early
-// and the loop above only ever sees plain errors built in this repository's own
-// Go code. No error literal in internal, cmd, generator, the three Jamf SDKs or
-// pflag begins with any of these.
+// Argument counts are deliberately not on this list. classifyArgsErrors codes
+// them where cobra calls the validator, so the two prefixes they used to need,
+// "accepts " and "requires at least ", are gone entirely. Both matched a
+// user-supplied path at character zero: `pro packages upload --file "accepts x"`
+// and `protect backup --output "requires at least a dir"` reported a plain
+// failure as exit 2, while the same commands reported the identical failure as
+// exit 1 for a directory named anything else.
 //
-// `invalid argument ` (cobra's OnlyValidArgs) is deliberately absent. No command
-// here sets ValidArgs, and syscall.EINVAL.Error() is exactly "invalid argument",
-// so the prefix would match an OS error verbatim. pflag's own invalid-argument
-// error already reaches exit 2 through SetFlagErrorFunc.
+// So a candidate prefix has to be judged against the messages this repository
+// can assemble, not against the literals it declares. errors.As returns early
+// for anything internal/client built, which leaves only errors from this
+// repository's own Go code — and several of those interpolate a caller-supplied
+// path or URL at character zero (grep `Errorf("%[sv]`; a `%q` site cannot
+// collide, its first character being a quote). A prefix is safe when landing on
+// it at character zero would take a whole cobra clause reproduced verbatim, as
+// all four below would. A prefix that opens on one ordinary English word is not
+// safe however long the rest of its literal is.
+//
+// `invalid argument ` (cobra's OnlyValidArgs) is absent for a third reason. No
+// command here sets ValidArgs, and syscall.EINVAL.Error() is exactly "invalid
+// argument", so the prefix would match an OS error verbatim. pflag's own
+// invalid-argument error already reaches exit 2 through SetFlagErrorFunc.
 const (
 	usagePrefixUnknownCommand = "unknown command"
 	usagePrefixRequiredFlags  = "required flag(s)"
@@ -1783,8 +1801,6 @@ const (
 	// because cobra opens the two messages with the same clause.
 	usagePrefixFlagGroup      = "if any flags in the group ["
 	usagePrefixFlagGroupOneOf = "at least one of the flags in the group ["
-	usagePrefixRequiresArgs   = "requires at least "
-	usagePrefixAcceptsArgs    = "accepts "
 )
 
 var usageErrorPrefixes = []string{
@@ -1792,8 +1808,53 @@ var usageErrorPrefixes = []string{
 	usagePrefixRequiredFlags,
 	usagePrefixFlagGroup,
 	usagePrefixFlagGroupOneOf,
-	usagePrefixRequiresArgs,
-	usagePrefixAcceptsArgs,
+}
+
+// asUsageError codes err as a usage error unless it already carries a code.
+//
+// exitcode.Wrap builds a fresh *exitcode.Error around whatever it is handed and
+// CodeFrom reads the outermost one, so wrapping an already-coded error would
+// overwrite its code with Usage. The guard is what makes the wrap idempotent.
+func asUsageError(err error) error {
+	var e *exitcode.Error
+	if err == nil || errors.As(err, &e) {
+		return err
+	}
+	return exitcode.Wrap(exitcode.Usage, err)
+}
+
+// classifyArgsErrors wraps every positional-argument validator in the tree so a
+// wrong argument count carries exitcode.Usage from the one place cobra reports
+// it, command.go's single `c.Args(c, args)` call site.
+//
+// The alternative was two more entries in usageErrorPrefixes, and those two had
+// to be "accepts " and "requires at least " — broad enough to match a
+// user-supplied path at character zero, which is documented above the const
+// block. Coding the validator instead removes the guess: the error is known to
+// be an argument-count error because of where it came from, not because of how
+// it reads.
+//
+// A command whose Args is nil must stay nil. Find consults that field to decide
+// whether to run legacyArgs, which is what rejects an unknown command at the
+// root and what guardUnknownSubcommands leaves in place for every group parent
+// below it; assigning a validator to a nil field would silently switch that off.
+//
+// Cobra adds three commands of its own after this walk, from ExecuteC: the help
+// command and the default completion command (which this CLI pre-empts with its
+// own) both leave Args nil, so neither is affected. __complete sets
+// MinimumNArgs(1) and so keeps exit 1 for a malformed shell-completion probe,
+// which no shell reads — completion is consumed from stdout.
+func classifyArgsErrors(cmd *cobra.Command) {
+	for _, c := range cmd.Commands() {
+		classifyArgsErrors(c)
+	}
+	if cmd.Args == nil {
+		return
+	}
+	declared := cmd.Args
+	cmd.Args = func(c *cobra.Command, args []string) error {
+		return asUsageError(declared(c, args))
+	}
 }
 
 // groupParentAnnotation marks a parent command that guardUnknownSubcommands made

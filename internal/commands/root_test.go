@@ -1230,6 +1230,18 @@ func TestClassifyError(t *testing.T) {
 	if got := exitcode.CodeFrom(ClassifyError(authErr)); got != exitcode.Authentication {
 		t.Errorf("pre-coded error -> exit %d, want %d", got, exitcode.Authentication)
 	}
+	// A coded error whose message opens on a usage prefix keeps its own code.
+	// The errors.As early return is the stated basis for matching prefixes at
+	// all — it is what confines the loop to plain errors this repository built —
+	// so the case where the two disagree has to be pinned. Deleting that return,
+	// or moving it after the loop, passes every other test in this file.
+	for _, p := range usageErrorPrefixes {
+		coded := exitcode.New(exitcode.Authentication, p+`"token" was rejected`)
+		if got := exitcode.CodeFrom(ClassifyError(coded)); got != exitcode.Authentication {
+			t.Errorf("coded error opening on %q -> exit %d, want %d (authentication)",
+				p, got, exitcode.Authentication)
+		}
+	}
 	// Unrelated plain errors stay general (1).
 	if got := exitcode.CodeFrom(ClassifyError(errors.New("boom"))); got != exitcode.General {
 		t.Errorf("generic error -> exit %d, want %d (general)", got, exitcode.General)
@@ -1283,11 +1295,11 @@ func TestClassifyError_MissingRequiredFlagIsAUsageError(t *testing.T) {
 // prefix list must not swallow a request failure into a usage code.
 //
 // Every prefix gets two neighbours, because a single unrelated string catches
-// neither way the matcher can go wrong. One starts with a truncation of the
-// prefix and stops short of it, so shortening a prefix fails here. One carries
-// the whole prefix as a mid-sentence substring, so relaxing strings.HasPrefix
-// to strings.Contains fails here. The earlier three strings satisfied neither
-// shape for five of the six prefixes.
+// neither way the matcher can go wrong. One opens on a truncation of the prefix
+// and then diverges, so a shortened prefix fails here when the shortening
+// reaches that far. One carries the whole prefix as a mid-sentence substring, so
+// relaxing strings.HasPrefix to strings.Contains fails here. The earlier three
+// strings satisfied neither shape for five of the six prefixes.
 func TestClassifyError_UnrelatedPlainErrorStaysGeneral(t *testing.T) {
 	for _, msg := range []string{
 		"the request required a flag we could not send",
@@ -1310,9 +1322,45 @@ func TestClassifyError_UnrelatedPlainErrorStaysGeneral(t *testing.T) {
 
 		"accept header was rejected",
 		"the endpoint accepts 2 arg(s), received 0",
+
+		// The two messages that made "accepts " and "requires at least " untenable
+		// as prefixes, verbatim from the binary. Both are a caller-supplied path at
+		// character zero, so re-adding either prefix fails here.
+		"accepts x is a directory, not a file",
+		"requires at least a dir holds backup documents but its _meta cannot be read",
 	} {
 		if got := exitcode.CodeFrom(ClassifyError(errors.New(msg))); got != exitcode.General {
 			t.Errorf("%q -> exit %d, want %d (general)", msg, got, exitcode.General)
+		}
+	}
+
+	// The strings above are hand-picked, so they cover only the prefixes that
+	// existed when someone wrote them and a seventh would arrive unguarded. These
+	// two shapes come off the list itself, one per prefix, so it cannot.
+	//
+	// Neither shape can catch a *shortened* prefix, and it is worth being clear
+	// about why: both are computed from the const, so a shortening moves the
+	// guard with it. Mutating usagePrefixFlagGroup to "if any flags" leaves this
+	// whole suite green, before and after these two shapes were added. What they
+	// do catch is a relaxed comparison, which is the other way the matcher goes
+	// wrong. Shortening is covered only by the hand-picked strings above, and only
+	// where one of them happens to collide — the durable answer is the audit
+	// written above the const block, not a test.
+	for _, p := range usageErrorPrefixes {
+		// All but the last character, so the comparison has to be anchored on the
+		// whole prefix rather than on a near miss.
+		nearMiss := p[:len(p)-1] + "zzz was not the problem"
+		// The whole prefix, carried mid-sentence, which fails if HasPrefix is ever
+		// relaxed to Contains.
+		nested := "the server rejected the body: " + p + " and then stopped"
+		for _, msg := range []string{nearMiss, nested} {
+			if strings.HasPrefix(msg, p) {
+				t.Fatalf("derived guard %q still opens on %q, so it guards nothing", msg, p)
+			}
+			if got := exitcode.CodeFrom(ClassifyError(errors.New(msg))); got != exitcode.General {
+				t.Errorf("derived from %q: %q -> exit %d, want %d (general)",
+					p, msg, got, exitcode.General)
+			}
 		}
 	}
 }
@@ -1322,9 +1370,13 @@ func TestClassifyError_UnrelatedPlainErrorStaysGeneral(t *testing.T) {
 // the prefix as well as the exit code is what makes an upstream reword name the
 // const that needs updating rather than just flipping a code.
 //
-// It calls the validators rather than Execute because MinimumNArgs, RangeArgs
-// and MarkFlagsRequiredTogether have no call site in this CLI, so no real
-// command can produce those three messages.
+// It calls the validators rather than Execute because MarkFlagsRequiredTogether
+// has no call site in this CLI, so no real command can produce that message.
+//
+// The argument-count validators used to be here too. They moved to
+// TestClassifyArgsErrors_CodesEveryCobraArgumentValidator, which asserts the
+// same exit code through classifyArgsErrors and reads none of cobra's text —
+// pinning a literal that nothing matches on any more would assert nothing.
 func TestUsageErrorPrefixesMatchCobrasOwnMessages(t *testing.T) {
 	probe := func() *cobra.Command {
 		cmd := &cobra.Command{Use: "probe", Run: func(*cobra.Command, []string) {}}
@@ -1385,26 +1437,6 @@ func TestUsageErrorPrefixesMatchCobrasOwnMessages(t *testing.T) {
 				cmd.MarkFlagsOneRequired("alpha", "beta")
 				return cmd.ValidateFlagGroups()
 			},
-		},
-		{
-			name:    "ExactArgs",
-			prefix:  usagePrefixAcceptsArgs,
-			produce: func(t *testing.T) error { return cobra.ExactArgs(2)(probe(), nil) },
-		},
-		{
-			name:    "MaximumNArgs",
-			prefix:  usagePrefixAcceptsArgs,
-			produce: func(t *testing.T) error { return cobra.MaximumNArgs(1)(probe(), []string{"a", "b"}) },
-		},
-		{
-			name:    "RangeArgs",
-			prefix:  usagePrefixAcceptsArgs,
-			produce: func(t *testing.T) error { return cobra.RangeArgs(1, 2)(probe(), nil) },
-		},
-		{
-			name:    "MinimumNArgs",
-			prefix:  usagePrefixRequiresArgs,
-			produce: func(t *testing.T) error { return cobra.MinimumNArgs(1)(probe(), nil) },
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -1492,9 +1524,14 @@ func TestClassifyError_OneRequiredFlagGroupIsAUsageError(t *testing.T) {
 	}
 }
 
-// TestClassifyError_ArgCountIsAUsageError covers the argument-count half of the
-// widening through a real command. `pro blueprints clone` is cobra.ExactArgs(2).
-func TestClassifyError_ArgCountIsAUsageError(t *testing.T) {
+// TestArgCountErrorIsAUsageError covers the argument-count half through a real
+// command. `pro blueprints clone` is cobra.ExactArgs(2).
+//
+// The error is read straight off Execute, with no ClassifyError in between,
+// because classifyArgsErrors codes it inside the validator: the code has to be
+// on the error the moment it leaves cobra, or the hand-written platform commands
+// that return their own errors would still depend on the text.
+func TestArgCountErrorIsAUsageError(t *testing.T) {
 	resetGlobals()
 	t.Setenv("JAMF_URL", "https://test.jamfcloud.com")
 	t.Setenv("JAMF_TOKEN", "test-token")
@@ -1512,12 +1549,110 @@ func TestClassifyError_ArgCountIsAUsageError(t *testing.T) {
 	if err == nil {
 		t.Fatal("pro blueprints clone with no arguments should fail")
 	}
-	if !strings.HasPrefix(err.Error(), usagePrefixAcceptsArgs) {
-		t.Fatalf("cobra reworded the message; %q in ClassifyError's prefix list needs updating: %q",
-			usagePrefixAcceptsArgs, err.Error())
+	if got := exitcode.CodeFrom(err); got != exitcode.Usage {
+		t.Errorf("wrong argument count -> exit %d, want %d (usage): %v", got, exitcode.Usage, err)
 	}
-	if got := exitcode.CodeFrom(ClassifyError(err)); got != exitcode.Usage {
-		t.Errorf("wrong argument count -> exit %d, want %d (usage)", got, exitcode.Usage)
+}
+
+// TestClassifyArgsErrors_CodesEveryCobraArgumentValidator drives each cobra
+// validator this CLI can reach through the walk that NewRootCmd runs, so the
+// exit code no longer depends on how cobra words the message.
+//
+// MinimumNArgs and RangeArgs have no call site in this CLI. They are covered
+// anyway because the walk is indiscriminate, so a command adopting either one
+// gets exit 2 without a second edit.
+func TestClassifyArgsErrors_CodesEveryCobraArgumentValidator(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		args cobra.PositionalArgs
+		give []string
+	}{
+		{"ExactArgs", cobra.ExactArgs(2), nil},
+		{"MaximumNArgs", cobra.MaximumNArgs(1), []string{"a", "b"}},
+		{"MinimumNArgs", cobra.MinimumNArgs(1), nil},
+		{"RangeArgs", cobra.RangeArgs(1, 2), nil},
+		{"NoArgs", cobra.NoArgs, []string{"a"}},
+		// The shape both generators emit for a command whose --scaffold relaxes
+		// the count: a closure of this repository's own around a cobra validator.
+		{"a scaffold-relaxing closure", func(c *cobra.Command, args []string) error {
+			return cobra.ExactArgs(1)(c, args)
+		}, nil},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			leaf := &cobra.Command{Use: "leaf", Args: tc.args, Run: func(*cobra.Command, []string) {}}
+			root := &cobra.Command{Use: "root"}
+			root.AddCommand(&cobra.Command{Use: "mid", Short: "mid"})
+			root.Commands()[0].AddCommand(leaf)
+
+			classifyArgsErrors(root)
+
+			err := leaf.Args(leaf, tc.give)
+			if err == nil {
+				t.Fatal("cobra accepted an invocation it used to reject")
+			}
+			if got := exitcode.CodeFrom(err); got != exitcode.Usage {
+				t.Errorf("%v -> exit %d, want %d (usage)", err, got, exitcode.Usage)
+			}
+		})
+	}
+}
+
+// TestClassifyArgsErrors_LeavesANilValidatorNil pins the invariant the walk
+// depends on. Cobra's Find consults Args only for nil, and takes the nil branch
+// to run legacyArgs — which is what rejects an unknown command at the root and
+// what guardUnknownSubcommands relies on staying in place for every group parent
+// below it. Assigning a validator to a nil field switches that off silently.
+func TestClassifyArgsErrors_LeavesANilValidatorNil(t *testing.T) {
+	parent := &cobra.Command{Use: "parent"}
+	parent.AddCommand(&cobra.Command{Use: "leaf", Run: func(*cobra.Command, []string) {}})
+
+	classifyArgsErrors(parent)
+
+	if parent.Args != nil {
+		t.Error("parent gained an Args validator, which disables legacyArgs in Find")
+	}
+	if parent.Commands()[0].Args != nil {
+		t.Error("leaf gained an Args validator")
+	}
+
+	// And through the real tree: the root's unknown-command rejection is the
+	// behaviour that breaks if the walk ever stops honouring nil.
+	resetGlobals()
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	root := NewRootCmd("test", "none", "none", "unknown")
+	root.SetArgs([]string{"nosuchcommand"})
+	root.SetOut(io.Discard)
+	root.SetErr(io.Discard)
+	err := root.Execute()
+	if err == nil {
+		t.Fatal("an unknown root command should fail")
+	}
+	if !strings.HasPrefix(err.Error(), usagePrefixUnknownCommand) {
+		t.Fatalf("legacyArgs no longer runs at the root: %q", err.Error())
+	}
+}
+
+// TestClassifyArgsErrors_KeepsACodedErrorsOwnCode covers the idempotence the
+// wrap needs. exitcode.Wrap builds a fresh *exitcode.Error and CodeFrom reads
+// the outermost one, so a validator returning its own code would have it
+// overwritten with Usage. Running the walk twice must also not change anything,
+// since nothing stops a future caller from walking a subtree that was already
+// walked.
+func TestClassifyArgsErrors_KeepsACodedErrorsOwnCode(t *testing.T) {
+	refused := exitcode.New(exitcode.Unsupported, "this command is refused on a gateway profile")
+	leaf := &cobra.Command{
+		Use:  "leaf",
+		Args: func(*cobra.Command, []string) error { return refused },
+		Run:  func(*cobra.Command, []string) {},
+	}
+	root := &cobra.Command{Use: "root"}
+	root.AddCommand(leaf)
+
+	classifyArgsErrors(root)
+	classifyArgsErrors(root)
+
+	if got := exitcode.CodeFrom(leaf.Args(leaf, nil)); got != exitcode.Unsupported {
+		t.Errorf("coded Args error -> exit %d, want %d (unsupported)", got, exitcode.Unsupported)
 	}
 }
 
