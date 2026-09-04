@@ -12,7 +12,6 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/Jamf-Concepts/jamf-cli/internal/output"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 )
 
@@ -148,7 +147,7 @@ Examples:
 			if !cmd.Flags().Changed("limit") {
 				effectiveLimit = -1
 			}
-			return runPolicyHealthCheck(cmd.Context(), cliCtx.Client, days, effectiveLimit, !scanFailures)
+			return runPolicyHealthCheck(cmd.Context(), cliCtx, days, effectiveLimit, !scanFailures)
 		},
 	}
 
@@ -163,7 +162,8 @@ Examples:
 // Main entry point
 // ---------------------------------------------------------------------------
 
-func runPolicyHealthCheck(ctx context.Context, client registry.HTTPClient, days, limit int, configOnly bool) error {
+func runPolicyHealthCheck(ctx context.Context, cliCtx *registry.CLIContext, days, limit int, configOnly bool) error {
+	client := cliCtx.Client
 	// 1. Config checks (always run)
 	policies, configFindings, fetchErrors, err := fetchAndCheckPolicies(ctx, client)
 	if err != nil {
@@ -225,7 +225,7 @@ func runPolicyHealthCheck(ctx context.Context, client registry.HTTPClient, days,
 		ComputerFailures: computerFails,
 	}
 
-	return printPolicyHealthReport(report, configOnly)
+	return printPolicyHealthReport(cliCtx, report, configOnly)
 }
 
 // ---------------------------------------------------------------------------
@@ -888,8 +888,8 @@ func aggregateComputerFailures(results []computerHistoryResult, lookup map[strin
 // Output
 // ---------------------------------------------------------------------------
 
-func printPolicyHealthReport(report *policyHealthReport, configOnly bool) error {
-	formatter := output.New(outputFmt, noColor, wide)
+func printPolicyHealthReport(cliCtx *registry.CLIContext, report *policyHealthReport, configOnly bool) error {
+	out := writerFor(cliCtx)
 
 	if outputFmt == "json" || outputFmt == "yaml" {
 		combined := map[string]any{
@@ -900,19 +900,19 @@ func printPolicyHealthReport(report *policyHealthReport, configOnly bool) error 
 			combined["policy_failures"] = failuresToRows(report.PolicyFailures)
 			combined["computer_failures"] = computerFailuresToRows(report.ComputerFailures)
 		}
-		return formatter.Print([]map[string]any{combined})
+		return printRows(cliCtx, []map[string]any{combined})
 	}
 
 	// Table: summary
-	fmt.Println("── Policy Health Summary ──")
-	if err := formatter.Print([]map[string]any{summaryToMap(report.Summary, configOnly)}); err != nil {
+	_, _ = fmt.Fprintln(out, "── Policy Health Summary ──")
+	if err := printRows(cliCtx, []map[string]any{summaryToMap(report.Summary, configOnly)}); err != nil {
 		return err
 	}
 
 	// Table: config findings
 	if len(report.ConfigFindings) > 0 {
-		fmt.Printf("\n── Config Findings (%d) ──\n", len(report.ConfigFindings))
-		if err := formatter.Print(findingsToRows(report.ConfigFindings, false)); err != nil {
+		_, _ = fmt.Fprintf(out, "\n── Config Findings (%d) ──\n", len(report.ConfigFindings))
+		if err := printRows(cliCtx, findingsToRows(report.ConfigFindings, false)); err != nil {
 			return err
 		}
 	} else {
@@ -922,8 +922,8 @@ func printPolicyHealthReport(report *policyHealthReport, configOnly bool) error 
 	// Table: policy failures
 	if !configOnly {
 		if len(report.PolicyFailures) > 0 {
-			fmt.Printf("\n── Policy Failures (last %d days) ──\n", report.Summary.Days)
-			if err := formatter.Print(failuresToRows(report.PolicyFailures)); err != nil {
+			_, _ = fmt.Fprintf(out, "\n── Policy Failures (last %d days) ──\n", report.Summary.Days)
+			if err := printRows(cliCtx, failuresToRows(report.PolicyFailures)); err != nil {
 				return err
 			}
 		} else {
@@ -932,8 +932,8 @@ func printPolicyHealthReport(report *policyHealthReport, configOnly bool) error 
 
 		// Table: computers with high failure rates
 		if len(report.ComputerFailures) > 0 {
-			fmt.Printf("\n── Computers With High Failure Rate (>50%%, last %d days) ──\n", report.Summary.Days)
-			if err := formatter.Print(computerFailuresToRows(report.ComputerFailures)); err != nil {
+			_, _ = fmt.Fprintf(out, "\n── Computers With High Failure Rate (>50%%, last %d days) ──\n", report.Summary.Days)
+			if err := printRows(cliCtx, computerFailuresToRows(report.ComputerFailures)); err != nil {
 				return err
 			}
 		}

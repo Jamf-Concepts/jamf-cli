@@ -13,7 +13,6 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/Jamf-Concepts/jamf-cli/internal/output"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 )
 
@@ -96,7 +95,7 @@ Examples:
 			if !cmd.Flags().Changed("output") {
 				outputFmt = "table"
 			}
-			return runMDMHealthReport(cmd.Context(), cliCtx.Client, "INSTALL_PROFILE", "profile", days)
+			return runMDMHealthReport(cmd.Context(), cliCtx, "INSTALL_PROFILE", "profile", days)
 		},
 	}
 
@@ -125,7 +124,7 @@ Examples:
 			if !cmd.Flags().Changed("output") {
 				outputFmt = "table"
 			}
-			return runMDMHealthReport(cmd.Context(), cliCtx.Client, "INSTALL_APPLICATION,INSTALL_ENTERPRISE_APPLICATION", "app", days)
+			return runMDMHealthReport(cmd.Context(), cliCtx, "INSTALL_APPLICATION,INSTALL_ENTERPRISE_APPLICATION", "app", days)
 		},
 	}
 
@@ -137,7 +136,8 @@ Examples:
 // Core logic — shared between profile-status and app-status
 // ---------------------------------------------------------------------------
 
-func runMDMHealthReport(ctx context.Context, client registry.HTTPClient, commandTypes, label string, days int) error {
+func runMDMHealthReport(ctx context.Context, cliCtx *registry.CLIContext, commandTypes, label string, days int) error {
+	client := cliCtx.Client
 	cutoff := time.Now().AddDate(0, 0, -days)
 	cutoffStr := cutoff.UTC().Format("2006-01-02T15:04:05.000Z")
 
@@ -208,7 +208,7 @@ func runMDMHealthReport(ctx context.Context, client registry.HTTPClient, command
 	report.Summary.DevicesHighFailure = len(report.DeviceFailures)
 	report.Summary.DevicesHighPending = len(report.DevicePending)
 
-	return printMDMHealthReport(report, label)
+	return printMDMHealthReport(cliCtx, report, label)
 }
 
 func parseMDMCommand(m map[string]any) mdmCommandResult {
@@ -569,8 +569,8 @@ func aggregateMDMFailures(results []mdmCommandResult, nameLookup map[string]stri
 // Output
 // ---------------------------------------------------------------------------
 
-func printMDMHealthReport(report *mdmHealthReport, label string) error {
-	formatter := output.New(outputFmt, noColor, wide)
+func printMDMHealthReport(cliCtx *registry.CLIContext, report *mdmHealthReport, label string) error {
+	out := writerFor(cliCtx)
 
 	if outputFmt == "json" || outputFmt == "yaml" {
 		combined := map[string]any{
@@ -579,19 +579,19 @@ func printMDMHealthReport(report *mdmHealthReport, label string) error {
 			"device_failures": mdmDevicesToRows(report.DeviceFailures),
 			"device_pending":  mdmDevicesToRows(report.DevicePending),
 		}
-		return formatter.Print([]map[string]any{combined})
+		return printRows(cliCtx, []map[string]any{combined})
 	}
 
 	// Table: summary
-	fmt.Printf("── %s Deployment Health Summary ──\n", capitalise(label))
-	if err := formatter.Print([]map[string]any{mdmSummaryToMap(report.Summary)}); err != nil {
+	_, _ = fmt.Fprintf(out, "── %s Deployment Health Summary ──\n", capitalise(label))
+	if err := printRows(cliCtx, []map[string]any{mdmSummaryToMap(report.Summary)}); err != nil {
 		return err
 	}
 
 	// Table: failures by profile/app
 	if len(report.Failures) > 0 {
-		fmt.Printf("\n── Failed %ss (last %d days) ──\n", capitalise(label), report.Summary.Days)
-		if err := formatter.Print(mdmFailuresToRows(report.Failures)); err != nil {
+		_, _ = fmt.Fprintf(out, "\n── Failed %ss (last %d days) ──\n", capitalise(label), report.Summary.Days)
+		if err := printRows(cliCtx, mdmFailuresToRows(report.Failures)); err != nil {
 			return err
 		}
 	} else {
@@ -600,16 +600,16 @@ func printMDMHealthReport(report *mdmHealthReport, label string) error {
 
 	// Table: devices with high failure count
 	if len(report.DeviceFailures) > 0 {
-		fmt.Printf("\n── Devices With High Failure Count (>5 errors) ──\n")
-		if err := formatter.Print(mdmDevicesToRows(report.DeviceFailures)); err != nil {
+		_, _ = fmt.Fprint(out, "\n── Devices With High Failure Count (>5 errors) ──\n")
+		if err := printRows(cliCtx, mdmDevicesToRows(report.DeviceFailures)); err != nil {
 			return err
 		}
 	}
 
 	// Table: devices with high pending count
 	if len(report.DevicePending) > 0 {
-		fmt.Printf("\n── Devices With Command Backlog (>10 pending) ──\n")
-		if err := formatter.Print(mdmDevicesToRows(report.DevicePending)); err != nil {
+		_, _ = fmt.Fprint(out, "\n── Devices With Command Backlog (>10 pending) ──\n")
+		if err := printRows(cliCtx, mdmDevicesToRows(report.DevicePending)); err != nil {
 			return err
 		}
 	}

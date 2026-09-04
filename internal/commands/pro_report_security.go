@@ -9,7 +9,6 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/Jamf-Concepts/jamf-cli/internal/output"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 )
 
@@ -47,7 +46,7 @@ all three sections.`,
 			if err != nil {
 				return err
 			}
-			return printSecurityReport(report)
+			return printSecurityReport(cliCtx, report)
 		},
 	}
 	return cmd
@@ -154,8 +153,8 @@ func runReportSecurity(ctx context.Context, client registry.HTTPClient) (*securi
 	}, nil
 }
 
-func printSecurityReport(report *securityReport) error {
-	formatter := output.New(outputFmt, noColor, wide)
+func printSecurityReport(cliCtx *registry.CLIContext, report *securityReport) error {
+	out := writerFor(cliCtx)
 
 	if outputFmt == "json" || outputFmt == "yaml" {
 		// Structured output: combine all sections
@@ -170,13 +169,13 @@ func printSecurityReport(report *securityReport) error {
 			o["section"] = "os_version"
 			combined = append(combined, o)
 		}
-		return formatter.Print(combined)
+		return printRows(cliCtx, combined)
 	}
 
 	// Table output: summary first, then flagged devices only
-	fmt.Println("── Security Summary ──")
+	_, _ = fmt.Fprintln(out, "── Security Summary ──")
 	summaryRows := []map[string]any{report.Summary}
-	if err := formatter.Print(summaryRows); err != nil {
+	if err := printRows(cliCtx, summaryRows); err != nil {
 		return err
 	}
 
@@ -196,15 +195,15 @@ func printSecurityReport(report *securityReport) error {
 	}
 
 	if len(flagged) > 0 {
-		fmt.Printf("\n── Flagged Devices (%d) ──\n", len(flagged))
-		if err := formatter.Print(flagged); err != nil {
+		_, _ = fmt.Fprintf(out, "\n── Flagged Devices (%d) ──\n", len(flagged))
+		if err := printRows(cliCtx, flagged); err != nil {
 			return err
 		}
 	}
 
 	if len(report.OSVersions) > 0 {
-		fmt.Println("\n── OS Version Distribution ──")
-		return formatter.Print(report.OSVersions)
+		_, _ = fmt.Fprintln(out, "\n── OS Version Distribution ──")
+		return printRows(cliCtx, report.OSVersions)
 	}
 
 	return nil

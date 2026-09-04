@@ -27,7 +27,7 @@ func newProCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(newAuditCmd(cliCtx))
 	cmd.AddCommand(newBulkCmd(cliCtx))
 	cmd.AddCommand(newReportCmd(cliCtx))
-	cmd.AddCommand(newDiffCmd())
+	cmd.AddCommand(newDiffCmd(cliCtx))
 	cmd.AddCommand(newGroupToolsCmd(cliCtx))
 	cmd.AddCommand(newDeviceCmd(cliCtx))
 	cmd.AddCommand(newClassicComputerAppUsageCmd(cliCtx))

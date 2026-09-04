@@ -20,7 +20,7 @@ import (
 	"github.com/Jamf-Concepts/jamf-cli/internal/auth"
 	"github.com/Jamf-Concepts/jamf-cli/internal/client"
 	"github.com/Jamf-Concepts/jamf-cli/internal/config"
-	"github.com/Jamf-Concepts/jamf-cli/internal/output"
+	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform/blueprints"
 	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform/compliancebenchmarks"
 )
@@ -52,7 +52,7 @@ type diffOptions struct {
 	Resources string
 }
 
-func newDiffCmd() *cobra.Command {
+func newDiffCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	var opts diffOptions
 
 	cmd := &cobra.Command{
@@ -70,7 +70,7 @@ Examples:
   jamf-cli diff --source ./old-backup --target ./new-backup
   jamf-cli diff --source staging --target production --resources policies,scripts`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runDiff(cmd.Context(), opts)
+			return runDiff(cmd.Context(), cliCtx, opts)
 		},
 	}
 
@@ -628,7 +628,7 @@ func formatFieldValue(v any) string {
 }
 
 // runDiff is the main entry point called by the cobra RunE.
-func runDiff(ctx context.Context, opts diffOptions) error {
+func runDiff(ctx context.Context, cliCtx *registry.CLIContext, opts diffOptions) error {
 	// Parse resource filter.
 	var nameFilter []string
 	if opts.Resources != "" {
@@ -674,6 +674,5 @@ func runDiff(ctx context.Context, opts diffOptions) error {
 		rows[i] = row
 	}
 
-	formatter := output.New(outputFmt, noColor, wide)
-	return formatter.Print(rows)
+	return printRows(cliCtx, rows)
 }

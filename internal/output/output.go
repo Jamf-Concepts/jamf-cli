@@ -171,6 +171,15 @@ func New(format string, noColor bool, wide bool) *Formatter {
 	}
 }
 
+// WithFormat returns a copy of f rendering in format, keeping the writer, the
+// projector and the advisory settings. A command whose own argument names the
+// format uses it so --out-file, --select and --compact still apply.
+func (f *Formatter) WithFormat(format string) *Formatter {
+	c := *f
+	c.format = Format(format)
+	return &c
+}
+
 // Print outputs data in the configured format
 func (f *Formatter) Print(data any) error {
 	data = f.applyProjection(data)

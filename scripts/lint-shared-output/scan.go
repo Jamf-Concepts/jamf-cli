@@ -30,8 +30,13 @@ type exemption struct {
 var defaultExemptions = []exemption{
 	{
 		file:   "internal/commands/root.go",
-		fn:     "NewRootCmd",
+		fn:     "buildOutputFormatter",
 		reason: "the shared formatter itself — the setters that carry --out-file, --select, --compact, --quiet and --no-hints are applied here",
+	},
+	{
+		file:   "internal/commands/output_route.go",
+		fn:     "formatterFor",
+		reason: "clones the shared formatter for a command whose own argument names the format; the fresh formatter is the fallback for a caller reached with a test double or before PersistentPreRunE ran, mirroring writerFor's nil guard",
 	},
 	{
 		file:   "internal/commands/pro_bulk.go",

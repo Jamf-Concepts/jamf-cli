@@ -146,6 +146,25 @@ func walkFieldPath(obj map[string]any, parts []string) (any, bool) {
 	return current, true
 }
 
+// buildOutputFormatter assembles the one formatter every command prints
+// through, shared by all products and by the auth-skipped commands. It is the
+// only sanctioned call to output.New in the tree: a formatter built anywhere
+// else receives none of the setters below, so --out-file, --select, --compact,
+// --quiet and --no-hints are parsed and then discarded — with no symptom, since
+// --out-file still creates the file and the payload still reaches standard
+// output. scripts/lint-shared-output refuses a second construction site.
+func buildOutputFormatter(outFileHandle *os.File, explicitNoColor bool) *output.Formatter {
+	formatter := output.New(outputFmt, noColor, wide)
+	if outFileHandle != nil {
+		formatter.SetWriter(outFileHandle)
+	}
+	formatter.SetProjector(output.Projector{Compact: compact, Select: selectFields})
+	formatter.SetQuiet(quiet)
+	formatter.SetNoHints(noHints)
+	formatter.SetExplicitNoColor(explicitNoColor)
+	return formatter
+}
+
 // shouldShowSpinner reports whether HTTP clients should be wrapped to display
 // the loading spinner. The spinner is suppressed when the user has asked for
 // quiet output, has opted out of ANSI escapes via NO_COLOR or --no-color, or
@@ -677,15 +696,7 @@ in the config file. It never runs in CI, when output is piped, or under
 				outFileHandle = f
 				noColor = true
 			}
-			formatter := output.New(outputFmt, noColor, wide)
-			if outFileHandle != nil {
-				formatter.SetWriter(outFileHandle)
-			}
-			formatter.SetProjector(output.Projector{Compact: compact, Select: selectFields})
-			formatter.SetQuiet(quiet)
-			formatter.SetNoHints(noHints)
-			formatter.SetExplicitNoColor(explicitNoColor)
-			cliCtx.Output = &cliOutput{formatter}
+			cliCtx.Output = &cliOutput{buildOutputFormatter(outFileHandle, explicitNoColor)}
 			// Set before any product branch: the Protect, School and Security
 			// Cloud paths return from here directly, so an assignment made
 			// alongside the Pro client would leave DryRun false for exactly the
@@ -914,13 +925,13 @@ in the config file. It never runs in CI, when output is piped, or under
 	cmd.AddCommand(newCompletionCmd())
 
 	// Commands discovery subcommand
-	cmd.AddCommand(newCommandsCmd(cmd))
+	cmd.AddCommand(newCommandsCmd(cmd, cliCtx))
 
 	// Agent operating guide (auth, exit codes, flags, MCP)
 	cmd.AddCommand(newAgentContextCmd())
 
 	// Multi-profile command runner
-	cmd.AddCommand(newMultiCmd())
+	cmd.AddCommand(newMultiCmd(cliCtx))
 
 	// MCP server (exposes the command tree to AI clients over stdio)
 	cmd.AddCommand(newMCPCmd())
@@ -1029,18 +1040,17 @@ func isFullDetailFormat(format string) bool {
 
 // newCommandsCmd creates the "commands" subcommand that outputs the full
 // command tree in a machine-readable format.
-func newCommandsCmd(root *cobra.Command) *cobra.Command {
+func newCommandsCmd(root *cobra.Command, cliCtx *registry.CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "commands",
 		Short: "List all available commands",
 		Long:  `List all available commands in a structured format for discovery by scripts and AI agents.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			entries := collectCommands(root, "", "", "")
-			formatter := output.New(outputFmt, noColor, wide)
 			// Structured formats always get full detail; table/plain
 			// show only command+description unless --wide is set.
 			full := wide || isFullDetailFormat(outputFmt)
-			return formatter.Print(commandEntriesToMaps(entries, full))
+			return printRows(cliCtx, commandEntriesToMaps(entries, full))
 		},
 	}
 }

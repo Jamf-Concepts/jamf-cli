@@ -17,10 +17,10 @@ import (
 	"golang.org/x/term"
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/config"
-	"github.com/Jamf-Concepts/jamf-cli/internal/output"
+	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 )
 
-func newMultiCmd() *cobra.Command {
+func newMultiCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	var (
 		filter      string
 		profilesCSV string
@@ -153,7 +153,7 @@ Examples:
 				}
 
 				if aggregated := tryAggregate(results); aggregated != nil {
-					if err := printAggregated(cmd, aggregated, desiredFmt); err != nil {
+					if err := printAggregated(cliCtx, cmd, aggregated, desiredFmt); err != nil {
 						return err
 					}
 				} else {
@@ -386,7 +386,7 @@ type childResult struct {
 
 // printAggregated renders the merged report using the desired output format.
 // desiredFmt is extracted from the inner command args; empty string defaults to table.
-func printAggregated(cmd *cobra.Command, merged map[string]any, desiredFmt string) error {
+func printAggregated(cliCtx *registry.CLIContext, cmd *cobra.Command, merged map[string]any, desiredFmt string) error {
 	renderFmt := desiredFmt
 	if renderFmt == "" {
 		// No -o in inner args — check if multi itself had -o set, else default to table
@@ -396,7 +396,7 @@ func printAggregated(cmd *cobra.Command, merged map[string]any, desiredFmt strin
 			renderFmt = "table"
 		}
 	}
-	formatter := output.New(renderFmt, noColor, wide)
+	formatter := formatterFor(cliCtx, renderFmt)
 
 	if renderFmt == "json" || renderFmt == "yaml" {
 		// Convert aggregated summary maps back to list format for JSON
