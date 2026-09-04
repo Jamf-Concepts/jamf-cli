@@ -271,6 +271,14 @@
     {
       "description": "Include system apps",
       "command": "jamf-cli pro report software-installs --include-system"
+    },
+    {
+      "description": "Report a row per bundle ID",
+      "command": "jamf-cli pro report software-installs --bundle-id"
+    },
+    {
+      "description": "Report a row per install path",
+      "command": "jamf-cli pro report software-installs --path"
     }
   ],
   "pro report update-status": [
