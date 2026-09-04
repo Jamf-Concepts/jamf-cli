@@ -1828,6 +1828,12 @@ func guardUnknownSubcommands(cmd *cobra.Command) {
 // positional contract. A leaf that documents a placeholder keeps whatever
 // validator it declares, and TestEveryLeafRefusesAnUndocumentedPositional fails
 // when it declares none.
+//
+// It walks what is registered at construction time. Cobra's own default help
+// command is added later, inside ExecuteC, so `help` keeps its stock validator
+// and still discards a stray positional. That is left alone: it prints text and
+// makes no request, and its real arity is a whole command path rather than the
+// single `[command]` its Use suggests.
 func guardStrayPositionals(cmd *cobra.Command) {
 	for _, c := range cmd.Commands() {
 		guardStrayPositionals(c)
@@ -1835,16 +1841,22 @@ func guardStrayPositionals(cmd *cobra.Command) {
 	// A parent belongs to guardUnknownSubcommands instead, whose RunE reads the
 	// argument to name it in the "did you mean" hint; an Args validator would
 	// refuse the call before that hint is built.
-	if !cmd.Runnable() || cmd.HasSubCommands() || cmd.Args != nil {
+	if !cmd.Runnable() || cmd.HasSubCommands() {
 		return
 	}
-	if count, _ := declaredPositionals(cmd.Use, cmd.Name()); count == 0 {
+	count, _ := declaredPositionals(cmd.Use, cmd.Name())
+	if count > 0 {
+		return
+	}
+	// A leaf that declares refuseStrayPositionals by hand keeps it, and still
+	// needs the completion half below, so the two are decided separately.
+	if cmd.Args == nil {
 		cmd.Args = refuseStrayPositionals
-		// Cobra derives no completion from Args, so the leaf would still offer
-		// filenames for the positional it now refuses.
-		if cmd.ValidArgsFunction == nil && len(cmd.ValidArgs) == 0 {
-			cmd.ValidArgsFunction = noPositionalCompletion
-		}
+	}
+	// Cobra derives no completion from Args, so the leaf would still offer
+	// filenames for the positional it refuses.
+	if cmd.ValidArgsFunction == nil && len(cmd.ValidArgs) == 0 {
+		cmd.ValidArgsFunction = noPositionalCompletion
 	}
 }
 

@@ -52,10 +52,10 @@ func newEnrollmentCustomizationPanelsCreateCmd(ctx *registry.CLIContext) *cobra.
   jamf-cli pro enrollment-customization-panels create --scaffold
 
   # Create a enrollment-customization-panel from JSON
-  echo '{"name":"Example"}' | jamf-cli pro enrollment-customization-panels create
+  echo '{"name":"Example"}' | jamf-cli pro enrollment-customization-panels create 1
 
   # Get a enrollment-customization-panel, modify it, and create a copy
-  jamf-cli pro enrollment-customization-panels get 1 -o json | jq '.name = "Copy"' | jamf-cli pro enrollment-customization-panels create`,
+  jamf-cli pro enrollment-customization-panels get 1 -o json | jq '.name = "Copy"' | jamf-cli pro enrollment-customization-panels create 1`,
 		Annotations: map[string]string{"jamf:privileges": "Update Enrollment Customizations", "jamf:api": "pro", "jamf:gateway-privileges": "enrollment-customization:update"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {

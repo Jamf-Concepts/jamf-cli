@@ -244,6 +244,13 @@ func (g *Generator) Generate(resource *Resource) (string, error) {
 					return fmt.Sprintf("  # Upload a file\n  %s %s create --file /path/to/file",
 						bin, resourceName)
 				}
+				// A sub-resource create is addressed under a parent, so its
+				// positional is required and the example has to carry it. The
+				// --scaffold line does not: the flag makes no request.
+				if hasPathParam(op.Path) {
+					return fmt.Sprintf("  # Show the JSON template for creating a %s\n  %s %s create --scaffold\n\n  # Create a %s from JSON\n  echo '{\"name\":\"Example\"}' | %s %s create 1\n\n  # Get a %s, modify it, and create a copy\n  %s %s get 1 -o json | jq '.name = \"Copy\"' | %s %s create 1",
+						nameSingular, bin, resourceName, nameSingular, bin, resourceName, nameSingular, bin, resourceName, bin, resourceName)
+				}
 				return fmt.Sprintf("  # Show the JSON template for creating a %s\n  %s %s create --scaffold\n\n  # Create a %s from JSON\n  echo '{\"name\":\"Example\"}' | %s %s create\n\n  # Get a %s, modify it, and create a copy\n  %s %s get 1 -o json | jq '.name = \"Copy\"' | %s %s create",
 					nameSingular, bin, resourceName, nameSingular, bin, resourceName, nameSingular, bin, resourceName, bin, resourceName)
 			case "update":
@@ -300,6 +307,13 @@ func (g *Generator) Generate(resource *Resource) (string, error) {
 				return fmt.Sprintf("  # Delete a %s (with confirmation)\n  %s %s delete 1\n\n  # Delete without confirmation prompt\n  %s %s delete 1 --yes",
 					nameSingular, bin, resourceName, bin, resourceName)
 			case "delete-multiple":
+				// The path's own parameter is a positional the example has to
+				// carry, or --help teaches a line ExactArgs refuses. --ids names
+				// what to remove; the positional names what to remove it from.
+				if hasPathParam(op.Path) {
+					return fmt.Sprintf("  # Delete multiple %s by IDs\n  %s %s delete-multiple 1 --ids 1,2,3 --yes",
+						resourceName, bin, resourceName)
+				}
 				return fmt.Sprintf("  # Delete multiple %s by IDs\n  %s %s delete-multiple --ids 1,2,3 --yes",
 					resourceName, bin, resourceName)
 			case "history":

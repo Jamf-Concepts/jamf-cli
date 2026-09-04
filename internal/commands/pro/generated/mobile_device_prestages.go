@@ -874,7 +874,7 @@ func newMobileDevicePrestagesDeleteMultipleCmd(ctx *registry.CLIContext) *cobra.
 		Short: "Remove an attachment for a Mobile Device Prestage",
 		Long:  "Remove an attachment for a Mobile Device Prestage",
 		Example: `  # Delete multiple mobile-device-prestages by IDs
-  jamf-cli pro mobile-device-prestages delete-multiple --ids 1,2,3 --yes`,
+  jamf-cli pro mobile-device-prestages delete-multiple 1 --ids 1,2,3 --yes`,
 		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Delete Mobile Device PreStage Enrollments", "jamf:api": "pro", "jamf:gateway-privileges": "prestage-enrollments:delete"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {

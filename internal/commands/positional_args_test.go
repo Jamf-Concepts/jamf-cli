@@ -3,10 +3,15 @@
 package commands
 
 import (
+	"errors"
+	"fmt"
 	"go/ast"
 	"go/parser"
 	gotoken "go/token" // the package already declares a `token` variable
+	"io/fs"
 	"path/filepath"
+	"reflect"
+	"slices"
 	"strings"
 	"testing"
 
@@ -47,6 +52,36 @@ func runnableLeaves(root *cobra.Command) []commandLeaf {
 	}
 	walk(root, "")
 	return leaves
+}
+
+// isNoPositionalCompletion reports whether the guard installed its own
+// completion function, as opposed to the command declaring one.
+func isNoPositionalCompletion(fn func(*cobra.Command, []string, string) ([]string, cobra.ShellCompDirective)) bool {
+	if fn == nil {
+		return false
+	}
+	return reflect.ValueOf(fn).Pointer() == reflect.ValueOf(noPositionalCompletion).Pointer()
+}
+
+// requiredPositionals counts the placeholders a Use string states are not
+// optional, which is the floor where declaredPositionals gives the ceiling. A
+// bracketed placeholder is optional by cobra's own convention: `get [<id>]`
+// takes an id or a --name instead, so its example passing neither is correct.
+//
+// The guard reads only the ceiling, so this lives here rather than beside it.
+func requiredPositionals(use, name string) int {
+	fields := strings.Fields(use)
+	if len(fields) > 0 && fields[0] == name {
+		fields = fields[1:]
+	}
+	required := 0
+	for _, f := range fields {
+		if strings.HasPrefix(f, "[") {
+			continue
+		}
+		required++
+	}
+	return required
 }
 
 func strayArgs(n int) []string {
@@ -107,6 +142,18 @@ func TestEveryLeafRefusesAnUndocumentedPositional(t *testing.T) {
 		if err := l.cmd.Args(l.cmd, strayArgs(count)); err != nil {
 			t.Errorf("leaf %q documents %d positional(s) in Use %q but refused that many: %v", l.path, count, l.cmd.Use, err)
 		}
+
+		// The guard installs a completion function as well as a validator, and
+		// reading only the validator left its clamp unverified: widening the
+		// clamp suppressed completion on all 700 leaves that do take an
+		// identifier, with every assertion above still passing.
+		suppressed := isNoPositionalCompletion(l.cmd.ValidArgsFunction)
+		if count == 0 && l.cmd.ValidArgsFunction == nil {
+			t.Errorf("leaf %q takes no positional but offers file completion for one", l.path)
+		}
+		if count > 0 && suppressed {
+			t.Errorf("leaf %q documents %d positional(s) in Use %q but its completion is suppressed", l.path, count, l.cmd.Use)
+		}
 	}
 
 	for path, reason := range unboundedPositionalLeaves {
@@ -124,6 +171,75 @@ func TestEveryLeafRefusesAnUndocumentedPositional(t *testing.T) {
 	t.Logf("verified %d runnable leaves (%d documenting a positional, %d unbounded)", len(leaves), documented, len(seenUnbounded))
 }
 
+// TestDeclaredPositionals reads the arity reader directly, because the tree walk
+// cannot verify it. Only `multi` carries a [flags], -- or [--] token today, and
+// it is the one leaf the walk skips as variadic, so the arm that drops cobra's
+// own tokens ran on every invocation with nothing asserting it: deleting it left
+// the whole suite green while turning `backup [flags]` into a leaf the guard
+// reads as taking one positional and therefore never clamps.
+func TestDeclaredPositionals(t *testing.T) {
+	for _, tc := range []struct {
+		use, name string
+		count     int
+		variadic  bool
+	}{
+		{"backup", "backup", 0, false},
+		{"backup [flags]", "backup", 0, false},
+		{"update --", "update", 0, false},
+		{"update [--]", "update", 0, false},
+		{"update <id>", "update", 1, false},
+		{"update [<id>]", "update", 1, false},
+		{"get <id> [<name>]", "get", 2, false},
+		{"multi [flags] [--] <command> [args...]", "multi", 2, true},
+		{"doctor [profile]", "doctor", 1, false},
+		// The name is dropped only as the leading token, so a resource whose
+		// placeholder repeats its own name still counts.
+		{"delete <delete>", "delete", 1, false},
+	} {
+		count, variadic := declaredPositionals(tc.use, tc.name)
+		if count != tc.count || variadic != tc.variadic {
+			t.Errorf("declaredPositionals(%q, %q) = (%d, %v), want (%d, %v)", tc.use, tc.name, count, variadic, tc.count, tc.variadic)
+		}
+	}
+}
+
+// TestRefuseStrayPositionalsNamesTheRealMistake pins the wording, which is the
+// whole reason this validator exists rather than cobra.NoArgs. Without it the
+// message could be reverted to cobra's "unknown command" phrasing behind a
+// correct exit code and nothing would fail.
+func TestRefuseStrayPositionalsNamesTheRealMistake(t *testing.T) {
+	cmd := &cobra.Command{Use: "backup"}
+	cmd.SetArgs(nil)
+
+	if err := refuseStrayPositionals(cmd, nil); err != nil {
+		t.Errorf("no positional must be accepted: %v", err)
+	}
+
+	err := refuseStrayPositionals(cmd, []string{"/tmp/out"})
+	if err == nil {
+		t.Fatal("a stray positional must be refused")
+	}
+	var e *exitcode.Error
+	if !errors.As(err, &e) {
+		t.Fatalf("refusal does not carry an exit code: %T", err)
+	}
+	if e.Code != exitcode.Usage {
+		t.Errorf("refusal exits %d, want %d (usage)", e.Code, exitcode.Usage)
+	}
+	if strings.Contains(e.Message, "unknown command") {
+		t.Errorf("refusal reports an unknown command, which is a parent's error, not a leaf's: %q", e.Message)
+	}
+	if !strings.Contains(e.Message, "/tmp/out") {
+		t.Errorf("refusal does not name the offending value: %q", e.Message)
+	}
+	if !strings.Contains(e.Message, "backup") {
+		t.Errorf("refusal does not name the command: %q", e.Message)
+	}
+	if e.Hint == "" {
+		t.Error("refusal carries no hint, so it does not say where to find the flags")
+	}
+}
+
 // unreachableScaffoldLeaves is the number of leaves whose --scaffold cannot be
 // invoked at all, because the modern Pro generator emits a bare ExactArgs and no
 // scaffold relaxation, so an operation under a path parameter with no --name
@@ -133,6 +249,22 @@ func TestEveryLeafRefusesAnUndocumentedPositional(t *testing.T) {
 // its own change. Held as a count so a new one fails this test, and so does the
 // fix, which drops the number to zero.
 const unreachableScaffoldLeaves = 26
+
+// unmatchedExampleLeaves is the number of leaves whose Example resolves to no
+// invocation of that leaf, so this test reads nothing for them.
+//
+// Eighteen are internal/scope's add and remove across nine classic resources,
+// whose examples are written without the binary name (`scope add "Deploy
+// Chrome" …`). The other three carry an example that resolves to a different
+// command than the leaf it sits on: `pro mobile-devices delete` documents
+// `pro classic-mobile-devices delete`, `pro packages sync` documents
+// `pro jcds sync`, and `pro computer-groups get` resolves to a same-named
+// sibling. All three are pre-existing and are a question about the example
+// rather than about arity.
+//
+// Pinned so a reader that stops matching a form it handles today, or a new
+// unmatchable form, fails rather than quietly shrinking the population.
+const unmatchedExampleLeaves = 21
 
 // TestScaffoldKeepsTheDeclaredPositionalCeiling covers the path the walk above
 // cannot see, because that walk reads each validator with no flag set.
@@ -184,23 +316,38 @@ func TestScaffoldKeepsTheDeclaredPositionalCeiling(t *testing.T) {
 // refused. Reading Use and Example apart is what let that ship, so this reads
 // them together.
 //
-// Only the ceiling is asserted. An example the validator refuses for supplying
-// too FEW positionals is the opposite defect, counted by
-// unreachableScaffoldLeaves and not fixed here.
+// Only the ceiling is asserted, because the floor is the opposite defect and is
+// not fixed here: a bounded validator that refuses too FEW positionals is the
+// same too-strict shape unreachableScaffoldLeaves counts, and asserting the
+// floor over every leaf would report all 26 of those as well.
 func TestNoExampleDocumentsAnUndeclaredPositional(t *testing.T) {
-	leaves := runnableLeaves(NewRootCmd("test", "none", "none", "none"))
+	root := NewRootCmd("test", "none", "none", "none")
+	leaves := runnableLeaves(root)
 
-	checked := 0
+	checked, unmatched := 0, 0
 	for _, l := range leaves {
 		count, variadic := declaredPositionals(l.cmd.Use, l.cmd.Name())
 		if variadic {
 			continue
 		}
-		for _, invocation := range exampleInvocations(l.cmd, l.path) {
+		required := requiredPositionals(l.cmd.Use, l.cmd.Name())
+		invocations := exampleInvocations(root, l)
+		if l.cmd.Example != "" && len(invocations) == 0 {
+			unmatched++
+		}
+		for _, invocation := range invocations {
 			checked++
 			if len(invocation.args) > count {
 				t.Errorf("leaf %q documents %d positional(s) in Use %q but its Example says %q, which passes %d",
 					l.path, count, l.cmd.Use, invocation.line, len(invocation.args))
+			}
+			// A --scaffold example is exempt from the floor: the flag makes no
+			// request and needs no identifier, and a validator that demands one
+			// anyway is the pre-existing too-strict defect
+			// unreachableScaffoldLeaves counts.
+			if !invocation.scaffold && len(invocation.args) < required {
+				t.Errorf("leaf %q requires %d positional(s) per Use %q but its Example says %q, which passes %d",
+					l.path, required, l.cmd.Use, invocation.line, len(invocation.args))
 			}
 		}
 	}
@@ -208,26 +355,33 @@ func TestNoExampleDocumentsAnUndeclaredPositional(t *testing.T) {
 	if checked < 500 {
 		t.Fatalf("only %d example invocations parsed — the Example reader is likely not matching command paths", checked)
 	}
-	t.Logf("verified %d example invocations against their declared arity", checked)
+	if unmatched != unmatchedExampleLeaves {
+		t.Errorf("%d leaves carry an Example that resolves to no invocation, want %d: the reader stopped matching a form, or a new one appeared", unmatched, unmatchedExampleLeaves)
+	}
+	t.Logf("verified %d example invocations against their declared arity (%d leaves unmatched)", checked, unmatched)
 }
 
 type exampleInvocation struct {
-	line string
-	args []string
+	line     string
+	args     []string
+	scaffold bool
 }
 
 // exampleInvocations pulls every invocation of this command out of its own
 // Example block, as the positionals it passes.
 //
-// It matches on the command's full path, so a line that pipes a sibling command
-// into this one contributes only this command's own half, and a line naming no
-// leaf contributes nothing. A token is a flag's value, rather than a positional,
-// when the preceding flag is registered on the command and is not boolean.
-func exampleInvocations(cmd *cobra.Command, path string) []exampleInvocation {
-	pathWords := strings.Fields(path)
+// Resolution goes through cobra's own Find rather than a textual path match, so
+// an example written with an alias resolves the way the shell resolves it.
+// Matching the canonical path missed 36 examples on the destructive computer and
+// mobile-device actions, which write `pro comp erase` for
+// `pro computers-inventory erase`. A line that pipes a sibling command into this
+// one contributes only this command's own half, and a line naming another
+// command contributes nothing. A token is a flag's value, rather than a
+// positional, when the preceding flag is registered and is not boolean.
+func exampleInvocations(root *cobra.Command, leaf commandLeaf) []exampleInvocation {
 	var found []exampleInvocation
 
-	for _, line := range strings.Split(cmd.Example, "\n") {
+	for _, line := range strings.Split(leaf.cmd.Example, "\n") {
 		line = strings.TrimSpace(line)
 		if line == "" || strings.HasPrefix(line, "#") {
 			continue
@@ -239,26 +393,33 @@ func exampleInvocations(cmd *cobra.Command, path string) []exampleInvocation {
 			tokens = strings.Fields(line)
 		}
 		for i := 0; i < len(tokens); i++ {
-			if !strings.HasSuffix(tokens[i], "jamf-cli") || !tokensMatch(tokens[i+1:], pathWords) {
+			if !strings.HasSuffix(tokens[i], "jamf-cli") {
 				continue
 			}
-			args := positionalsIn(cmd, tokens[i+1+len(pathWords):])
-			found = append(found, exampleInvocation{line: line, args: args})
+			rest := tokens[i+1:]
+			if end := slices.IndexFunc(rest, isShellSeparator); end >= 0 {
+				rest = rest[:end]
+			}
+			cmd, remaining, err := root.Find(rest)
+			if err != nil || cmd != leaf.cmd {
+				continue
+			}
+			found = append(found, exampleInvocation{
+				line:     line,
+				args:     positionalsIn(cmd, remaining),
+				scaffold: slices.Contains(remaining, "--scaffold"),
+			})
 		}
 	}
 	return found
 }
 
-func tokensMatch(tokens, want []string) bool {
-	if len(tokens) < len(want) {
-		return false
+func isShellSeparator(token string) bool {
+	switch token {
+	case "|", ">", ">>", "&&", ";":
+		return true
 	}
-	for i, w := range want {
-		if tokens[i] != w {
-			return false
-		}
-	}
-	return true
+	return false
 }
 
 // positionalsIn reads the tokens after a command path, up to a shell pipe or
@@ -267,7 +428,7 @@ func positionalsIn(cmd *cobra.Command, tokens []string) []string {
 	var args []string
 	for i := 0; i < len(tokens); i++ {
 		tok := tokens[i]
-		if tok == "|" || tok == ">" || tok == "&&" || tok == ";" {
+		if isShellSeparator(tok) {
 			break
 		}
 		if tok == "--" {
@@ -317,27 +478,27 @@ func flagTakesAValue(cmd *cobra.Command, token string) bool {
 // the Use string. The generator output is scanned too, so a template that starts
 // reading args without emitting Args fails here.
 func TestNoCommandLiteralReadsAnUndeclaredPositional(t *testing.T) {
-	// Every package that builds a command reachable from NewRootCmd. internal/scope
-	// is one: NewScopeCmd contributes get, add and remove to nine classic
-	// resources, and it is the guard's over-reach case that no tree walk can see,
-	// since the walk reads Args after the guard has already set it.
-	dirs := []string{".", "pro/generated", "platform/generated", "security/generated", "../scope"}
+	// Walked rather than listed, so a package added later cannot be silently
+	// unscanned. A hardcoded list of four directories was already one short:
+	// internal/scope contributes get, add and remove to nine classic resources,
+	// and it is the guard's over-reach case no tree walk can see, since the walk
+	// reads Args after the guard has already set it.
+	roots := []string{".", "../scope"}
 
 	fset := gotoken.NewFileSet()
 	literals := 0
-	for _, dir := range dirs {
-		paths, err := filepath.Glob(filepath.Join(dir, "*.go"))
-		if err != nil {
-			t.Fatal(err)
-		}
-		perDir := 0
-		for _, path := range paths {
-			if strings.HasSuffix(path, "_test.go") {
-				continue
-			}
-			file, err := parser.ParseFile(fset, path, nil, 0)
+	perRoot := map[string]int{}
+	for _, root := range roots {
+		err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
 			if err != nil {
-				t.Fatalf("parse %s: %v", path, err)
+				return err
+			}
+			if d.IsDir() || !strings.HasSuffix(path, ".go") || strings.HasSuffix(path, "_test.go") {
+				return nil
+			}
+			file, parseErr := parser.ParseFile(fset, path, nil, 0)
+			if parseErr != nil {
+				return fmt.Errorf("parse %s: %w", path, parseErr)
 			}
 			ast.Inspect(file, func(n ast.Node) bool {
 				lit, ok := n.(*ast.CompositeLit)
@@ -345,22 +506,27 @@ func TestNoCommandLiteralReadsAnUndeclaredPositional(t *testing.T) {
 					return true
 				}
 				literals++
-				perDir++
+				perRoot[root]++
 				if literalReadsArgs(lit) && literalField(lit, "Args") == nil {
 					t.Errorf("%s: cobra.Command %s reads a positional but declares no Args validator",
 						fset.Position(lit.Pos()), literalUse(lit))
 				}
 				return true
 			})
-		}
-		// Per directory, because the total is dominated by two of them: dropping
-		// both platform/generated and security/generated still clears a total
-		// floor, so only this catches a renamed or mistyped path.
-		if perDir == 0 {
-			t.Errorf("directory %q contributed no cobra.Command literals — it was renamed, or the path is wrong", dir)
+			return nil
+		})
+		if err != nil {
+			t.Fatal(err)
 		}
 	}
 
+	// Per root, because the total is dominated by one of them: a root that stops
+	// contributing anything still clears a total floor.
+	for _, root := range roots {
+		if perRoot[root] == 0 {
+			t.Errorf("root %q contributed no cobra.Command literals — it was renamed, or the path is wrong", root)
+		}
+	}
 	if literals < 500 {
 		t.Fatalf("found only %d cobra.Command literals — the scan is likely not reaching the generated trees", literals)
 	}
