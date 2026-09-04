@@ -12,6 +12,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/iancoleman/strcase"
@@ -546,15 +547,53 @@ func singularize(name string) string {
 // Most specs produce a single resource, but specs with multiple sibling
 // collection paths (e.g. /v1/foo/macos and /v1/foo/ios in the same file)
 // produce one resource per family. Returns nil when the file should be skipped.
-func ParseSpec(specPath string) ([]*Resource, error) {
-	loader := openapi3.NewLoader()
-	loader.IsExternalRefsAllowed = true
+// specLoader is shared by every ParseSpec call so that a document is read and
+// unmarshalled once per process rather than once per referring spec. 126 of the
+// 165 committed specs external-$ref specs/_MonolithLibrary.yaml, 100 KB of YAML,
+// and a per-call loader re-parsed it for each of them.
+//
+// Sharing is sound because the loader hands back parsed documents that nothing
+// here writes to: ParseSpec reads doc.Paths and doc.Components.Schemas and
+// builds its own Resource and Schema values from them. Two specs that both
+// $ref the library therefore receive the same *openapi3.T for it, and a single
+// in-place edit would cross-contaminate every other spec's parse. The standing
+// proof is make verify-generated, which regenerates all three command trees and
+// diffs them byte for byte.
+//
+// generator/main.go parses sequentially today. The mutex is not for a race that
+// exists; openapi3.Loader is not safe for concurrent use, and this one is
+// package-level and reachable from anywhere, so a future concurrent caller must
+// not be the thing that discovers that.
+//
+// TestSharedSpecLoaderCachesByPath asserts the caching this depends on, because
+// it is not part of kin-openapi's documented contract: if a version stops
+// caching by path, every spec is unmarshalled again and the win disappears with
+// nothing failing.
+var (
+	specLoaderMu sync.Mutex
+	specLoader   = func() *openapi3.Loader {
+		l := openapi3.NewLoader()
+		l.IsExternalRefsAllowed = true
+		return l
+	}()
+)
 
-	doc, err := loader.LoadFromFile(specPath)
+func ParseSpec(specPath string) ([]*Resource, error) {
+	specLoaderMu.Lock()
+	doc, err := specLoader.LoadFromFile(specPath)
+	specLoaderMu.Unlock()
 	if err != nil {
 		return nil, fmt.Errorf("loading spec: %w", err)
 	}
+	return ParseLoadedSpec(doc, specPath)
+}
 
+// ParseLoadedSpec is ParseSpec over a document a caller has already loaded.
+// specPath supplies the resource name and is not read. It exists for
+// ParsePlatformSpec's untagged fallback, which holds the loaded document
+// already: routing that through ParseSpec re-read and re-unmarshalled the same
+// temp file, and cached it in specLoader under a path the caller then deletes.
+func ParseLoadedSpec(doc *openapi3.T, specPath string) ([]*Resource, error) {
 	// Extract resource name from filename (e.g., "Building.yaml" -> "buildings")
 	baseName := filepath.Base(specPath)
 	baseName = strings.TrimSuffix(baseName, filepath.Ext(baseName))
