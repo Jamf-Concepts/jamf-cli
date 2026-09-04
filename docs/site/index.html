@@ -467,19 +467,26 @@
     // style.css. Progressive enhancement — copy already requires JS.
     (function () {
       var CHECK = '<svg class="icon-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>';
-      document.querySelectorAll('.copy-btn').forEach(function (btn) {
+      var COPY = '<svg class="icon-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
+      // Exposed so catalog.js can decorate the copy buttons it builds later
+      // (drawer examples), which this load-time pass never sees.
+      window.decorateCopyButton = function (btn) {
+        if (!btn || btn.querySelector('.copy-icons')) return;
         var svg = btn.querySelector('svg');
         // Both icons live in their own slot so the check lands on the copy
         // glyph, not on a text label ("Copy") the button may also carry.
         var slot = document.createElement('span');
         slot.className = 'copy-icons';
-        btn.insertBefore(slot, svg || btn.firstChild);
+        btn.insertBefore(slot, svg && svg.parentNode === btn ? svg : btn.firstChild);
         if (svg) {
           svg.classList.add('icon-copy');
           slot.appendChild(svg);
+        } else {
+          slot.insertAdjacentHTML('beforeend', COPY);
         }
         slot.insertAdjacentHTML('beforeend', CHECK);
-      });
+      };
+      document.querySelectorAll('.copy-btn').forEach(window.decorateCopyButton);
     })();
 
     // Hamburger menu toggle

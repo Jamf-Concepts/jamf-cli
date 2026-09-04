@@ -1126,12 +1126,42 @@
     setTimeout(function () { element.classList.remove(cls); }, ms);
   }
 
-  function copyWithFeedback(text, element) {
-    if (!navigator.clipboard) { flash(element, 'copy-failed', 1500); return; }
-    navigator.clipboard.writeText(text).then(function () {
-      flash(element, 'copied', 1500);
-    }).catch(function () {
-      flash(element, 'copy-failed', 1500);
+  // One copy path for every button. The async clipboard API needs a secure
+  // context and a user gesture; when it is missing or refuses, fall back to
+  // a hidden textarea and execCommand, which still works on http previews
+  // and older browsers. Resolves true on success, false when both fail.
+  function copyText(text) {
+    function legacy() {
+      try {
+        var ta = document.createElement('textarea');
+        ta.value = text;
+        ta.setAttribute('readonly', '');
+        ta.style.position = 'fixed';
+        ta.style.top = '-1000px';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        var ok = document.execCommand('copy');
+        document.body.removeChild(ta);
+        return ok;
+      } catch (e) {
+        return false;
+      }
+    }
+    if (!navigator.clipboard || !navigator.clipboard.writeText) {
+      return Promise.resolve(legacy());
+    }
+    return navigator.clipboard.writeText(text).then(function () {
+      return true;
+    }, function () {
+      return legacy();
+    });
+  }
+
+  function copyWithFeedback(text, element, ms) {
+    var hold = ms || 1500;
+    copyText(text).then(function (ok) {
+      flash(element, ok ? 'copied' : 'copy-failed', hold);
     });
   }
 
@@ -1460,6 +1490,9 @@
     btn.setAttribute('data-copy', command);
     btn.setAttribute('aria-label', 'Copy ' + command);
     btn.textContent = 'Copy';
+    // The load-time icon pass in index.html never sees a drawer button, so
+    // decorate it here; without this the button has no icon and no check.
+    if (window.decorateCopyButton) window.decorateCopyButton(btn);
     line.appendChild(btn);
     block.appendChild(line);
     return block;
@@ -1861,12 +1894,7 @@
       e.stopPropagation();
       var text = btn.getAttribute('data-copy');
       if (!text) return;
-      if (!navigator.clipboard) { flash(btn, 'copy-failed', 2000); return; }
-      navigator.clipboard.writeText(text).then(function () {
-        flash(btn, 'copied', 2000);
-      }).catch(function () {
-        flash(btn, 'copy-failed', 2000);
-      });
+      copyWithFeedback(text, btn, 2000);
     });
   }
 

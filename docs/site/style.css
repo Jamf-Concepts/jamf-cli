@@ -637,8 +637,7 @@ a[target="_blank"]:hover::after {
   display: flex;
   align-items: flex-start;
   gap: 12px;
-  min-height: 44px;
-  padding: 10px 6px 10px 16px;
+  padding: 12px 6px 12px 16px;
   background: var(--code-bg);
   color: var(--code-fg);
   border-radius: var(--r-base);
@@ -660,7 +659,9 @@ a[target="_blank"]:hover::after {
   padding-left: 2ch;
   text-indent: -2ch;
 }
-.code-block .copy-btn { margin-top: 2px; }
+/* The 24px button centres on the 20px first line of the command; on a
+   wrapped command it stays beside line one. */
+.code-block .copy-btn { margin-top: -2px; flex-shrink: 0; }
 .code-prompt { color: var(--code-muted); }
 /* The success fill needs the label and the check in white — the check's own
    rule under "Interaction polish" tints it green, which the fill swallows. */
