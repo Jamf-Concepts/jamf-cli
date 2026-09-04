@@ -168,7 +168,7 @@ Examples:
 						} else {
 							_, _ = fmt.Fprintf(w, "\n── %s ──\n", r.profileName)
 						}
-						_, _ = cmd.OutOrStdout().Write(r.stdout)
+						_, _ = writerFor(cliCtx).Write(r.stdout)
 					}
 				}
 			} else {
@@ -188,7 +188,10 @@ Examples:
 
 					cmdArgs := append([]string{"--profile", profileName}, innerArgs...)
 					child := exec.Command(executable, cmdArgs...)
-					child.Stdout = cmd.OutOrStdout()
+					// The child's payload is this command's output, so it
+					// follows --out-file with the aggregated report's. Its
+					// banners stay on stderr, being progress rather than data.
+					child.Stdout = writerFor(cliCtx)
 					child.Stderr = cmd.ErrOrStderr()
 
 					if err := child.Run(); err != nil {
