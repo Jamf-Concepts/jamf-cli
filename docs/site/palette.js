@@ -159,6 +159,8 @@
     setTimeout(function () { input.focus(); }, 0);
   }
 
+  window.openCommandPalette = open;
+
   function close() {
     isOpen = false;
     modal.classList.remove('open');
