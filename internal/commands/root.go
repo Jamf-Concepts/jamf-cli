@@ -953,6 +953,10 @@ in the config file. It never runs in CI, when output is piped, or under
 	// instead of silently printing help and exiting 0.
 	guardUnknownSubcommands(cmd)
 
+	// cobra supplies no default Args validator, so a leaf that takes only flags
+	// accepts any positional and discards it. Refuse it instead.
+	guardStrayPositionals(cmd)
+
 	return cmd
 }
 
@@ -1812,6 +1816,31 @@ func guardUnknownSubcommands(cmd *cobra.Command) {
 			msg += "\n\nDid you mean this?\n\t" + strings.Join(s, "\n\t")
 		}
 		return exitcode.Wrap(exitcode.Usage, errors.New(msg))
+	}
+}
+
+// guardStrayPositionals makes every leaf command that documents no positional
+// argument refuse one. Cobra validates Args per command and has no default, so
+// such a leaf accepted any positional and threw it away — which is how
+// `pro report software-installs --path /Applications/Foo.app` set the boolean
+// --path flag, dropped the path and reported the whole fleet with exit 0.
+//
+// The Use string decides, because it is where each command already states its
+// positional contract. A leaf that documents a placeholder keeps whatever
+// validator it declares, and TestEveryLeafRefusesAnUndocumentedPositional fails
+// when it declares none.
+func guardStrayPositionals(cmd *cobra.Command) {
+	for _, c := range cmd.Commands() {
+		guardStrayPositionals(c)
+	}
+	// A parent belongs to guardUnknownSubcommands instead, whose RunE reads the
+	// argument to name it in the "did you mean" hint; an Args validator would
+	// refuse the call before that hint is built.
+	if !cmd.Runnable() || cmd.HasSubCommands() || cmd.Args != nil {
+		return
+	}
+	if count, _ := declaredPositionals(cmd.Use, cmd.Name()); count == 0 {
+		cmd.Args = cobra.NoArgs
 	}
 }
 

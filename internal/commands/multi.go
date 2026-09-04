@@ -61,6 +61,10 @@ Examples:
 
   # Reuse the same URL file from setup
   jamf-cli multi --from-file instances.txt -- pro buildings apply --from-file b.json --yes`,
+		// Every positional belongs to the inner command. RunE reports an absent
+		// one with the inner-command usage, which a count validator would replace
+		// with cobra's generic message.
+		Args: cobra.ArbitraryArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			w := cmd.ErrOrStderr()
 
