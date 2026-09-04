@@ -871,21 +871,35 @@ a[target="_blank"]:hover::after {
   border-bottom: 0;
   border-right: 1px solid var(--border-base);
 }
+/* Product heading: a Nebula side-nav section header. Same size as the items
+   it labels, bold, with a hairline under it and room above. The product
+   colour is carried by the dot and the count only, so six sections do not
+   become six coloured bars. */
 .group-nav-product {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 12px 12px 4px;
-  font-size: 12px;
-  line-height: 16px;
+  margin-top: 16px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border-base);
+  font-size: 14px;
+  line-height: 20px;
   font-weight: 700;
+  color: var(--font-base);
 }
+.group-nav-product:first-child { margin-top: 0; }
+.group-nav-product .group-nav-count { font-weight: 500; }
 .group-nav-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--font-tertiary); }
 .group-nav-product[data-product="pro"] .group-nav-dot { background: var(--product-pro); }
 .group-nav-product[data-product="protect"] .group-nav-dot { background: var(--product-protect); }
 .group-nav-product[data-product="school"] .group-nav-dot { background: var(--product-school); }
 .group-nav-product[data-product="security"] .group-nav-dot { background: var(--product-security); }
 .group-nav-product[data-product="platform"] .group-nav-dot { background: var(--product-platform); }
+.group-nav-product[data-product="pro"] .group-nav-count { color: var(--product-pro); }
+.group-nav-product[data-product="protect"] .group-nav-count { color: var(--product-protect); }
+.group-nav-product[data-product="school"] .group-nav-count { color: var(--product-school); }
+.group-nav-product[data-product="security"] .group-nav-count { color: var(--product-security); }
+.group-nav-product[data-product="platform"] .group-nav-count { color: var(--product-platform); }
 .group-nav-pillar {
   padding: 8px 12px 0;
   font-size: 12px;
