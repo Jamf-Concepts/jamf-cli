@@ -1,0 +1,73 @@
+// Copyright 2026, Jamf Software LLC
+
+// Command lint-shared-output refuses a command that builds its own output
+// formatter instead of printing through the one PersistentPreRunE assembles.
+//
+// The second formatter is the defect. PersistentPreRunE applies every global
+// output flag to the shared formatter with SetWriter, SetProjector, SetQuiet,
+// SetNoHints and SetExplicitNoColor, so a formatter built anywhere else carries
+// none of them and writes to os.Stdout. The flags are parsed, accepted and
+// discarded: `-o json --out-file titles.json` exited 0, wrote 2934 bytes to
+// standard output and left the file at 0 bytes, which a scheduled job cannot
+// tell from a tenant with no data.
+//
+// It is a lint rather than a note in CLAUDE.md because both people and coding
+// agents copy the pattern that already surrounds the code. 24 commands held the
+// second formatter, every one of them a copy of its neighbour.
+package main
+
+import (
+	"flag"
+	"fmt"
+	"io"
+	"os"
+)
+
+func main() {
+	root := flag.String("root", "internal", "root directory to scan")
+	flag.Parse()
+
+	res, err := scan(*root, defaultExemptions)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "lint-shared-output: %v\n", err)
+		os.Exit(1)
+	}
+
+	if res.clean() {
+		fmt.Printf("Every output.New call under %s is accounted for.\n", *root)
+		return
+	}
+
+	printReport(os.Stdout, res)
+	os.Exit(2)
+}
+
+func printReport(out io.Writer, res result) {
+	if len(res.findings) > 0 {
+		fmt.Fprintf(out, "FORMATTERS OUTSIDE THE SHARED ROUTE (%d):\n", len(res.findings))
+		for _, f := range res.findings {
+			fmt.Fprintf(out, "  %s:%d  in %s\n", f.file, f.line, f.fn)
+		}
+		fmt.Fprintln(out, "")
+		fmt.Fprintln(out, "Print through cliCtx.Output instead, which carries --out-file, --select,")
+		fmt.Fprintln(out, "--field, --compact, --quiet and --no-hints:")
+		fmt.Fprintln(out, "")
+		fmt.Fprintln(out, "  return printRows(cliCtx, rows)          // []map[string]any")
+		fmt.Fprintln(out, "  return printData(cliCtx, combined)      // any other shape")
+		fmt.Fprintln(out, "")
+		fmt.Fprintln(out, "A command whose own flag names the format calls formatterFor(cliCtx, format).")
+		fmt.Fprintln(out, "A site that genuinely cannot use the shared formatter needs an entry in")
+		fmt.Fprintln(out, "defaultExemptions (scripts/lint-shared-output/scan.go) stating why.")
+		fmt.Fprintln(out, "")
+	}
+
+	if len(res.stale) > 0 {
+		fmt.Fprintf(out, "STALE EXEMPTIONS (%d):\n", len(res.stale))
+		for _, e := range res.stale {
+			fmt.Fprintf(out, "  %s  %s  (no longer builds a formatter)\n", e.file, e.fn)
+		}
+		fmt.Fprintln(out, "")
+		fmt.Fprintln(out, "Delete the entry from defaultExemptions.")
+		fmt.Fprintln(out, "")
+	}
+}

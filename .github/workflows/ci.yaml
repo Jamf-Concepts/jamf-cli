@@ -45,6 +45,12 @@ jobs:
         run: make lint-dead
         continue-on-error: true
 
+      # Gating, unlike lint-dead above. A command that builds its own output
+      # formatter discards every global output flag with no symptom: --out-file
+      # exits 0 and leaves the file at 0 bytes.
+      - name: Verify every command prints through the shared formatter
+        run: make lint-shared-output
+
       - name: Build
         run: make build
 
