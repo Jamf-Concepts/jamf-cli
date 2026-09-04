@@ -39,6 +39,10 @@ merged row. Neither flag is on by default, so the default output is unchanged.
 
 Output columns: title, version, device_count (plus bundle_id with --bundle-id,
 path with --path)`,
+		// --bundle-id and --path are boolean, so their names invite a value that
+		// cobra would leave as a positional. Without this the whole report runs
+		// as if the value had never been typed.
+		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			rows, err := runReportSoftwareInstalls(cmd.Context(), cliCtx.Client, titleFilter, includeSystem, showBundleID, showPath)
 			if err != nil {
