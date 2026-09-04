@@ -64,7 +64,10 @@ migration guide** and carries the detail, the error messages verbatim, and the r
   flag. A command that documents a placeholder is unchanged, `multi` still forwards every
   positional to its inner command, and 22 singleton `delete` and `history` commands had
   their `--help` examples corrected, because those examples showed an id the command never
-  accepted.
+  accepted. A further 17 `--help` example lines on 12 resources are corrected for the same
+  reason on the other half of the line: a `create`, `update` or `patch` example opened with
+  a `get` the resource does not ship, or one with a different arity, so half of a documented
+  pipe could not run.
 - **A cobra usage error now exits 2, not 1.** Four classes move: a missing required flag, a
   flag group with no member set, a flag group with mutually exclusive members set together,
   and the wrong number of positional arguments. An unknown flag and an unknown subcommand

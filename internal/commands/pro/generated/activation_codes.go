@@ -43,10 +43,7 @@ func newActivationCodesUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:   "update",
 		Short: "Updates Activation Code",
 		Long:  "Updates Activation Code in Jamf Pro.",
-		Example: `  # Replace activation-codes from a full JSON document
-  jamf-cli pro activation-codes get -o json | jq '.field = "value"' | jamf-cli pro activation-codes update
-
-  # Update from a file
+		Example: `  # Update from a file
   jamf-cli pro activation-codes update --from-file activation-codes.json`,
 		Annotations: map[string]string{"jamf:privileges": "Update License Information", "jamf:api": "pro", "jamf:gateway-privileges": "activation-code:update"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -454,10 +451,7 @@ func newActivationCodesPatchCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Updates Organization Name",
 		Long:  "Updates Organization Name in Jamf Pro.\n\nUse --set KEY=VALUE to update scalar fields (repeatable). Omitted fields are unchanged.\n\nAvailable fields:\n  organizationName                             string\n\nUse --from-file or pipe JSON to stdin for complex updates (bulk changes, deep nesting).",
 		Example: `  # Update a field
-  jamf-cli pro activation-codes patch --set field=value
-
-  # Update using JSON
-  jamf-cli pro activation-codes get -o json | jq '.field = "value"' | jamf-cli pro activation-codes patch`,
+  jamf-cli pro activation-codes patch --set field=value`,
 		Annotations: map[string]string{"jamf:privileges": "Update License Information", "jamf:api": "pro", "jamf:gateway-privileges": "activation-code:update"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

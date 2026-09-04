@@ -54,13 +54,20 @@ func runnableLeaves(root *cobra.Command) []commandLeaf {
 	return leaves
 }
 
+// sameFunc reports whether two function values are the same function. The two
+// arguments are often of different named function types that share an
+// underlying signature, which is what rules out ==.
+func sameFunc(a, b any) bool {
+	return reflect.ValueOf(a).Pointer() == reflect.ValueOf(b).Pointer()
+}
+
 // isNoPositionalCompletion reports whether the guard installed its own
 // completion function, as opposed to the command declaring one.
 func isNoPositionalCompletion(fn func(*cobra.Command, []string, string) ([]string, cobra.ShellCompDirective)) bool {
 	if fn == nil {
 		return false
 	}
-	return reflect.ValueOf(fn).Pointer() == reflect.ValueOf(noPositionalCompletion).Pointer()
+	return sameFunc(fn, noPositionalCompletion)
 }
 
 // requiredPositionals counts the placeholders a Use string states are not
@@ -103,7 +110,7 @@ func TestEveryLeafRefusesAnUndocumentedPositional(t *testing.T) {
 	leaves := runnableLeaves(NewRootCmd("test", "none", "none", "none"))
 
 	seenUnbounded := map[string]bool{}
-	documented := 0
+	documented, unwrapped := 0, 0
 	for _, l := range leaves {
 		count, variadic := declaredPositionals(l.cmd.Use, l.cmd.Name())
 		if reason, listed := unboundedPositionalLeaves[l.path]; listed {
@@ -124,6 +131,15 @@ func TestEveryLeafRefusesAnUndocumentedPositional(t *testing.T) {
 			t.Errorf("leaf %q declares no Args validator: it accepts any positional and discards it", l.path)
 			continue
 		}
+		// A refusal reached without classifyArgsErrors' wrap means the two calls
+		// in NewRootCmd were reordered, and nothing else in the suite can see
+		// it: the guard installs a validator on every leaf that has none, so
+		// running it second leaves each of those unwrapped, which is harmless
+		// only while refuseStrayPositionals classifies itself. Swapping the two
+		// calls left the whole suite green.
+		if count == 0 && sameFunc(l.cmd.Args, refuseStrayPositionals) {
+			unwrapped++
+		}
 		if err := l.cmd.Args(l.cmd, strayArgs(count+1)); err == nil {
 			t.Errorf("leaf %q documents %d positional(s) in Use %q but accepted %d", l.path, count, l.cmd.Use, count+1)
 		} else if count == 0 {
@@ -133,10 +149,22 @@ func TestEveryLeafRefusesAnUndocumentedPositional(t *testing.T) {
 			if code := exitcode.CodeFrom(ClassifyError(err)); code != exitcode.Usage {
 				t.Errorf("leaf %q: stray positional exits %d, want %d (usage)", l.path, code, exitcode.Usage)
 			}
-			// Asserted without ClassifyError too, so the code cannot come to
-			// depend on a message prefix again.
-			if code := exitcode.CodeFrom(err); code != exitcode.Usage {
-				t.Errorf("leaf %q: refusal does not carry its own exit code, got %d", l.path, code)
+			// Wording and hint, not only the code. Two sibling leaves under
+			// `pro report` answered the same mistake two ways for a release,
+			// one of them by declaring cobra.NoArgs by hand, and this walk read
+			// only the code, which both shapes carry. The hint is what a plain
+			// error cannot carry, so it is also what fails if a refusal stops
+			// classifying itself — the code alone cannot, classifyArgsErrors
+			// supplying that at cobra's own call site. That wrap is why the
+			// error is read with errors.As rather than a type assertion.
+			var e *exitcode.Error
+			switch {
+			case !errors.As(err, &e):
+				t.Errorf("leaf %q: refusal carries no exit code: %T", l.path, err)
+			case strings.Contains(e.Message, "unknown command"):
+				t.Errorf("leaf %q: refusal reports an unknown command, which is a parent's mistake, not a leaf's: %q", l.path, e.Message)
+			case e.Hint == "":
+				t.Errorf("leaf %q: refusal carries no hint, so it does not say where to find the flags", l.path)
 			}
 		}
 		if err := l.cmd.Args(l.cmd, strayArgs(count)); err != nil {
@@ -160,6 +188,10 @@ func TestEveryLeafRefusesAnUndocumentedPositional(t *testing.T) {
 		if !seenUnbounded[path] {
 			t.Errorf("unboundedPositionalLeaves names %q (%s), which is not a leaf this binary ships", path, reason)
 		}
+	}
+
+	if unwrapped > 0 {
+		t.Errorf("%d zero-arity leaves carry refuseStrayPositionals unwrapped: guardStrayPositionals must run before classifyArgsErrors in NewRootCmd", unwrapped)
 	}
 
 	if len(leaves) < 700 {
@@ -242,8 +274,9 @@ func TestRefuseStrayPositionalsNamesTheRealMistake(t *testing.T) {
 
 // unreachableScaffoldLeaves is the number of leaves whose --scaffold cannot be
 // invoked at all, because the modern Pro generator emits a bare ExactArgs and no
-// scaffold relaxation, so an operation under a path parameter with no --name
-// lookup demands an identifier its scaffold makes no request with. That is the
+// scaffold relaxation, so an operation under one or more path parameters with no
+// --name lookup demands identifiers its scaffold makes no request with
+// (`enrollment-customization-panels update` sits under two). That is the
 // opposite defect to issue 350 and is not fixed here: relaxing those validators
 // needs each RunE checked for reading args before its scaffold return, which is
 // its own change. Held as a count so a new one fails this test, and so does the
@@ -258,9 +291,12 @@ const unreachableScaffoldLeaves = 26
 // Chrome" …`). The other three carry an example that resolves to a different
 // command than the leaf it sits on: `pro mobile-devices delete` documents
 // `pro classic-mobile-devices delete`, `pro packages sync` documents
-// `pro jcds sync`, and `pro computer-groups get` resolves to a same-named
-// sibling. All three are pre-existing and are a question about the example
-// rather than about arity.
+// `pro jcds sync`, and `pro computer-groups get` belongs to the second of two
+// identical computer-groups subtrees, the generated registry calling
+// NewComputerGroupsCmd twice, so `pro --help` prints the row twice and Find
+// resolves every path under it to the first copy. All three are pre-existing and
+// are a question about the example, or about the registry, rather than about
+// arity.
 //
 // Pinned so a reader that stops matching a form it handles today, or a new
 // unmatchable form, fails rather than quietly shrinking the population.
@@ -383,23 +419,7 @@ func exampleInvocations(root *cobra.Command, leaf commandLeaf) []exampleInvocati
 
 	for _, line := range strings.Split(leaf.cmd.Example, "\n") {
 		line = strings.TrimSpace(line)
-		if line == "" || strings.HasPrefix(line, "#") {
-			continue
-		}
-		// Split the way a shell would, so a quoted value holding a space stays
-		// one token instead of reading as two positionals.
-		tokens, err := shlex.Split(line)
-		if err != nil {
-			tokens = strings.Fields(line)
-		}
-		for i := 0; i < len(tokens); i++ {
-			if !strings.HasSuffix(tokens[i], "jamf-cli") {
-				continue
-			}
-			rest := tokens[i+1:]
-			if end := slices.IndexFunc(rest, isShellSeparator); end >= 0 {
-				rest = rest[:end]
-			}
+		for _, rest := range binaryInvocations(line) {
 			cmd, remaining, err := root.Find(rest)
 			if err != nil || cmd != leaf.cmd {
 				continue
@@ -412,6 +432,91 @@ func exampleInvocations(root *cobra.Command, leaf commandLeaf) []exampleInvocati
 		}
 	}
 	return found
+}
+
+// binaryInvocations splits one Example line into the argument list behind each
+// `jamf-cli` on it, up to the next shell separator. A line that pipes one
+// command into another yields both halves, which is what lets a reader of the
+// head assert on it — exampleInvocations keeps only the half that resolves to
+// the leaf, and so saw no pipe head at all.
+func binaryInvocations(line string) [][]string {
+	line = strings.TrimSpace(line)
+	if line == "" || strings.HasPrefix(line, "#") {
+		return nil
+	}
+	// Split the way a shell would, so a quoted value holding a space stays one
+	// token instead of reading as two positionals.
+	tokens, err := shlex.Split(line)
+	if err != nil {
+		tokens = strings.Fields(line)
+	}
+	var found [][]string
+	for i, tok := range tokens {
+		if !strings.HasSuffix(tok, "jamf-cli") {
+			continue
+		}
+		rest := tokens[i+1:]
+		if end := slices.IndexFunc(rest, isShellSeparator); end >= 0 {
+			rest = rest[:end]
+		}
+		found = append(found, rest)
+	}
+	return found
+}
+
+// TestEveryExampleInvocationNamesACommandThatExists reads every `jamf-cli` on
+// every leaf's Example, where TestNoExampleDocumentsAnUndeclaredPositional reads
+// only the invocations that resolve to the leaf the Example sits on. That filter
+// is what hid the head of every pipe: 13 example lines on 8 resources opened
+// with `<resource> get`, on resources that ship no get, so `--help` taught a
+// command answering `unknown command "get"` — the same defect as the 22
+// singleton examples, on the other half of the same lines.
+//
+// A parent resolving with a positional left over is the interesting case, since
+// cobra's Find stops at the deepest command it knows and reports no error for a
+// non-root parent. The arity check repeats one this file already makes for the
+// resolved half, over a different population: it caught two more pipe heads on
+// resources that do ship a get, of an arity the example had assumed rather than
+// read (`pro jamf-protect create` documented `get 1` against a singleton get,
+// `pro mdm-renewals patch` a bare `get` against one that requires an id).
+func TestEveryExampleInvocationNamesACommandThatExists(t *testing.T) {
+	root := NewRootCmd("test", "none", "none", "none")
+
+	checked := 0
+	for _, l := range runnableLeaves(root) {
+		for _, line := range strings.Split(l.cmd.Example, "\n") {
+			for _, rest := range binaryInvocations(line) {
+				cmd, remaining, err := root.Find(rest)
+				if err != nil {
+					t.Errorf("leaf %q: Example line %q names no command: %v", l.path, strings.TrimSpace(line), err)
+					continue
+				}
+				checked++
+				args := positionalsIn(cmd, remaining)
+				if cmd.HasSubCommands() && len(args) > 0 {
+					t.Errorf("leaf %q: Example line %q resolves to %q, which ships no %q subcommand",
+						l.path, strings.TrimSpace(line), cmd.CommandPath(), args[0])
+					continue
+				}
+				// A --scaffold example is exempt, as it is in the test above:
+				// 26 leaves demand an identifier their scaffold makes no
+				// request with, which is the pre-existing too-strict defect
+				// unreachableScaffoldLeaves counts.
+				if cmd.Args == nil || slices.Contains(remaining, "--scaffold") {
+					continue
+				}
+				if err := cmd.Args(cmd, args); err != nil {
+					t.Errorf("leaf %q: Example line %q passes %d positional(s) to %q, which refuses them: %v",
+						l.path, strings.TrimSpace(line), len(args), cmd.CommandPath(), err)
+				}
+			}
+		}
+	}
+
+	if checked < 1500 {
+		t.Fatalf("only %d example invocations resolved — the line reader is likely not matching the binary name", checked)
+	}
+	t.Logf("verified %d example invocations name a command that exists", checked)
 }
 
 func isShellSeparator(token string) bool {

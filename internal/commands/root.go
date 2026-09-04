@@ -959,8 +959,12 @@ in the config file. It never runs in CI, when output is piped, or under
 
 	// A sibling walk rather than part of the one above, which returns early for
 	// every command that has an argument validator — a leaf has no subcommands.
-	// Both have to run after the last AddCommand, which is the only thing they
-	// share.
+	// It has to run last: the walk above installs a validator on every leaf that
+	// had none, and this one codes only the validators it finds, so reversing the
+	// two leaves every refusal the walk installs unwrapped. Both also have to run
+	// after the last AddCommand, having no way to reach a command added later.
+	// TestEveryLeafRefusesAnUndocumentedPositional holds the order, because
+	// nothing else can: an unwrapped refusal still exits 2 on its own.
 	classifyArgsErrors(cmd)
 
 	return cmd
@@ -1979,10 +1983,12 @@ func guardStrayPositionals(cmd *cobra.Command) {
 // hunting for one: `pro backup /tmp/out` reported an unknown command for a
 // directory --output takes, and named neither the flag nor the real mistake.
 //
-// It classifies itself rather than leaving ClassifyError to match on "unknown
-// command", because that match is what made the exit code a property of cobra's
-// wording. Rewording NoArgs upstream, or replacing it here, would have dropped
-// every one of these refusals from exit 2 to exit 1 with nothing failing.
+// It builds an *exitcode.Error rather than a plain error because that is what
+// carries the Hint, and the hint is the half of the answer that says where the
+// value belongs. The exit code is not the reason: classifyArgsErrors codes every
+// argument error at cobra's own call site, so a plain error from here would
+// still exit 2. The two are independent on purpose, and neither substitutes for
+// the other.
 func refuseStrayPositionals(cmd *cobra.Command, args []string) error {
 	if len(args) == 0 {
 		return nil

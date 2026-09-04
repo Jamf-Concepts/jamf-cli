@@ -53,9 +53,6 @@ func newLocalAdminPasswordsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Example: `  # Update individual fields (fetch-merge-replace)
   jamf-cli pro local-admin-passwords update --set field=value
 
-  # Replace local-admin-passwords from a full JSON document
-  jamf-cli pro local-admin-passwords get -o json | jq '.field = "value"' | jamf-cli pro local-admin-passwords update
-
   # Update from a file
   jamf-cli pro local-admin-passwords update --from-file local-admin-passwords.json`,
 		Annotations: map[string]string{"jamf:privileges": "Update Local Admin Password Settings", "jamf:api": "pro", "jamf:gateway-privileges": "local-admin-passwords:update"},

@@ -92,7 +92,7 @@ func newJamfProtectCreateCmd(ctx *registry.CLIContext) *cobra.Command {
   echo '{"name":"Example"}' | jamf-cli pro jamf-protect create
 
   # Get a jamf-protect, modify it, and create a copy
-  jamf-cli pro jamf-protect get 1 -o json | jq '.name = "Copy"' | jamf-cli pro jamf-protect create`,
+  jamf-cli pro jamf-protect get -o json | jq '.name = "Copy"' | jamf-cli pro jamf-protect create`,
 		Annotations: map[string]string{"jamf:privileges": "Update Jamf Protect Settings", "jamf:api": "pro", "jamf:gateway-privileges": "jamf-protect-deployments:update"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

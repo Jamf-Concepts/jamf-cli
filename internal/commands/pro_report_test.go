@@ -938,8 +938,13 @@ func TestReportSoftwareInstalls_StrayPositionalIsRefused(t *testing.T) {
 	if code := exitcode.CodeFrom(err); code != exitcode.Usage {
 		t.Errorf("exit code = %d, want %d (usage)", code, exitcode.Usage)
 	}
-	if !strings.Contains(err.Error(), `unknown command "junkarg"`) {
+	if !strings.Contains(err.Error(), `"junkarg"`) {
 		t.Errorf("error should name the stray argument, got %q", err.Error())
+	}
+	// The leaf used to answer with cobra.NoArgs, whose wording sends the reader
+	// hunting for a subcommand that could never have been meant.
+	if strings.Contains(err.Error(), "unknown command") {
+		t.Errorf("error reports an unknown command, which is a parent's mistake, not a leaf's: %q", err.Error())
 	}
 	if strings.Contains(err.Error(), "fetching computer inventory") {
 		t.Errorf("the report ran despite the stray positional: %q", err.Error())
