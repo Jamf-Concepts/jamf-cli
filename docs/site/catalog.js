@@ -129,6 +129,11 @@
       try {
         heroExamples = JSON.parse(el.textContent);
       } catch (e) {
+        // Authored at deploy time, so invalid JSON here is a broken build
+        // rather than a condition to absorb. Say so, then carry on.
+        if (window.console && window.console.error) {
+          window.console.error('hero-examples JSON is invalid; examples disabled', e);
+        }
         heroExamples = {};
       }
     }
@@ -158,6 +163,7 @@
         renderCatalog(allCommands, '', activeProduct);
         hideCatalogLoading();
         handleDeepLink();
+        announceCatalog();
       })
       .catch(function (err) {
         var catalog = document.getElementById('catalog');
@@ -339,6 +345,22 @@
     return out;
   }
 
+  // The table is replaced wholesale by a tab, a group choice, a search or a
+  // deep link, and a replaced region announces nothing on its own. Report
+  // what is on screen now through the polite status line in index.html.
+  function announceCatalog() {
+    var status = document.getElementById('catalog-status');
+    if (!status) return;
+    var rows = document.querySelectorAll('#catalog .command-row').length;
+    var head = document.querySelector('#catalog .group-table-head h3');
+    if (!rows && !head) {
+      status.textContent = 'No commands match your search.';
+      return;
+    }
+    var name = head ? head.textContent : 'Commands';
+    status.textContent = name + ', ' + rows + (rows === 1 ? ' command' : ' commands');
+  }
+
   function renderCatalog(commands, searchQuery, productFilter) {
     var catalog = document.getElementById('catalog');
     if (!catalog) return;
@@ -506,6 +528,7 @@
       var search = document.getElementById('search');
       if (search && search.value) { search.value = ''; }
       renderCatalog(allCommands, '', activeProduct);
+      announceCatalog();
       // Land on the Commands heading (it carries scroll-margin-top for the
       // sticky nav) rather than on the table, which tucked under the bar.
       var section = document.getElementById('commands');
@@ -516,18 +539,34 @@
 
   // Detect when a command references another product (e.g., "pro jamf-protect-plans" → protect)
   // Uses word-boundary matching to avoid false positives like "protect" matching "pro"
+  // One pattern per product, built once. This runs per row, and building a
+  // RegExp inside the row loop cost four compiles a row for no gain.
+  var productWordRE = null;
+
+  function productPatterns() {
+    if (productWordRE === null) {
+      productWordRE = {};
+      var names = Object.keys(PRODUCT_LABELS);
+      for (var i = 0; i < names.length; i++) {
+        // Whole word or hyphenated segment, so "jamf-protect" matches
+        // "protect" while "protect ..." does not match "pro".
+        productWordRE[names[i]] = new RegExp('(^|[^a-z])' + names[i] + '([^a-z]|$)');
+      }
+    }
+    return productWordRE;
+  }
+
   function detectRelatedProduct(cmd) {
     if (!cmd.product || !cmd.command) return null;
-    var productNames = Object.keys(PRODUCT_LABELS);
-    // Strip the product prefix to avoid self-matching (e.g., "protect ..." shouldn't match "pro")
+    var res = productPatterns();
+    var productNames = Object.keys(res);
+    // Strip the product prefix so a command cannot match its own product.
     var parts = cmd.command.split(' ');
     var remainder = parts.slice(1).join(' ').toLowerCase();
     for (var i = 0; i < productNames.length; i++) {
       var other = productNames[i];
       if (other === cmd.product) continue;
-      // Match as a whole word or hyphenated segment (e.g., "jamf-protect" contains "protect")
-      var re = new RegExp('(^|[^a-z])' + other + '([^a-z]|$)');
-      if (re.test(remainder)) return other;
+      if (res[other].test(remainder)) return other;
     }
     return null;
   }
@@ -1066,12 +1105,22 @@
     return DESTRUCTIVE_VERB_RE.test(cmd.command);
   }
 
+  // A copy hands the reader a shell line they are about to run, so a failure
+  // that looks like a success is the worst outcome. The clipboard is refused
+  // outright in a frame and in some enterprise policies, and a write can be
+  // rejected after that, so both paths mark the control instead of passing.
+  function flash(element, cls, ms) {
+    element.classList.add(cls);
+    setTimeout(function () { element.classList.remove(cls); }, ms);
+  }
+
   function copyWithFeedback(text, element) {
-    if (!navigator.clipboard) return;
+    if (!navigator.clipboard) { flash(element, 'copy-failed', 1500); return; }
     navigator.clipboard.writeText(text).then(function () {
-      element.classList.add('copied');
-      setTimeout(function () { element.classList.remove('copied'); }, 1500);
-    }).catch(function () {});
+      flash(element, 'copied', 1500);
+    }).catch(function () {
+      flash(element, 'copy-failed', 1500);
+    });
   }
 
   function createDetailHeading(text) {
@@ -1434,6 +1483,7 @@
       debounceTimer = setTimeout(function () {
         var query = search.value.trim();
         renderCatalog(allCommands, query, activeProduct);
+        announceCatalog();
       }, 200);
     });
 
@@ -1450,6 +1500,7 @@
         search.value = '';
         if (wrap) wrap.classList.remove('has-value');
         renderCatalog(allCommands, '', activeProduct);
+        announceCatalog();
         search.focus();
         history.pushState({ search: '', cmd: null }, '', '#commands');
       });
@@ -1458,7 +1509,10 @@
 
   // ===== Product Tabs =====
 
-  function activateProductTab(filter) {
+  // Move the tab and the filter without rendering. A deep link needs this
+  // half on its own: it has already chosen the group to show, so the reset
+  // activateProductTab does would throw that choice away.
+  function selectProductTab(filter) {
     var tabs = document.querySelectorAll('.tab');
     for (var j = 0; j < tabs.length; j++) {
       var isActive = tabs[j].getAttribute('data-filter') === filter;
@@ -1466,11 +1520,16 @@
       tabs[j].setAttribute('aria-selected', isActive ? 'true' : 'false');
     }
     activeProduct = filter;
+  }
+
+  function activateProductTab(filter) {
+    selectProductTab(filter);
     selectedGroup = null; // first group of the new product
     selectedProduct = null;
     var search = document.getElementById('search');
     var query = search ? search.value.trim() : '';
     renderCatalog(allCommands, query, activeProduct);
+    announceCatalog();
   }
 
   function setupTabs() {
@@ -1489,6 +1548,7 @@
       var search = document.getElementById('search');
       if (search) search.value = '';
       renderCatalog(allCommands, '', activeProduct);
+      announceCatalog();
     });
   }
 
@@ -1547,11 +1607,21 @@
     openDrawer(row, cmd);
   }
 
+  // Built once. A broad search followed by Expand all called this several
+  // hundred times, and each call walked the whole catalog.
+  var commandIndex = null;
+
   function commandByPath(command) {
-    for (var i = 0; i < allCommands.length; i++) {
-      if (allCommands[i].command === command) return allCommands[i];
+    if (!command) return null;
+    if (!commandIndex) {
+      commandIndex = {};
+      for (var i = 0; i < allCommands.length; i++) {
+        commandIndex[allCommands[i].command] = allCommands[i];
+      }
     }
-    return null;
+    return Object.prototype.hasOwnProperty.call(commandIndex, command)
+      ? commandIndex[command]
+      : null;
   }
 
   function setupStatCards() {
@@ -1567,12 +1637,38 @@
 
   function navigateToCommand(command) {
     var cmd = commandByPath(command);
-    if (!cmd) return;
+    // A shared link outlives the command it names: the catalog is rebuilt
+    // from the binary on every merge, so a renamed or withdrawn command
+    // reaches this function. Search for the text instead of returning in
+    // silence, which loaded the default view and looked like a bare visit.
+    if (!cmd) {
+      var box = document.getElementById('search');
+      if (box) {
+        box.value = command;
+        var wrap = box.closest('.search-wrap');
+        if (wrap) wrap.classList.add('has-value');
+      }
+      renderCatalog(allCommands, command, activeProduct);
+      announceCatalog();
+      return;
+    }
+    // The product filter is applied before anything else, so a command from
+    // another product is filtered out of the table and the pick falls back
+    // to an unrelated group. Follow the command to its own tab first.
+    var prod = cmd.product || 'core';
+    if (activeProduct !== 'all' && activeProduct !== prod) {
+      var crossesPlatform = activeProduct === 'platform' &&
+        cmd.group && cmd.group.indexOf('Platform') === 0;
+      if (!crossesPlatform) selectProductTab(prod);
+    }
     selectedGroup = cmd.group;
-    selectedProduct = cmd.product || 'core';
+    selectedProduct = prod;
     var search = document.getElementById('search');
     if (search) search.value = '';
+    var searchWrap = search ? search.closest('.search-wrap') : null;
+    if (searchWrap) searchWrap.classList.remove('has-value');
     renderCatalog(allCommands, '', activeProduct);
+    announceCatalog();
     // A container command is rendered as its resource head rather than as a
     // .command-row, so a deep link to one has to match both.
     var esc = command.replace(/"/g, '\\"');
@@ -1692,11 +1788,12 @@
       e.stopPropagation();
       var text = btn.getAttribute('data-copy');
       if (!text) return;
-      if (!navigator.clipboard) return;
+      if (!navigator.clipboard) { flash(btn, 'copy-failed', 2000); return; }
       navigator.clipboard.writeText(text).then(function () {
-        btn.classList.add('copied');
-        setTimeout(function () { btn.classList.remove('copied'); }, 2000);
-      }).catch(function () {});
+        flash(btn, 'copied', 2000);
+      }).catch(function () {
+        flash(btn, 'copy-failed', 2000);
+      });
     });
   }
 

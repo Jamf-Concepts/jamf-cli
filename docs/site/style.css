@@ -660,6 +660,9 @@ a[target="_blank"]:hover::after {
    rule under "Interaction polish" tints it green, which the fill swallows. */
 .code-block .copy-btn.copied { background: var(--success); color: #ffffff; }
 .code-block .copy-btn.copied .icon-check { color: #ffffff; }
+/* A refused clipboard must not look like a completed copy. */
+.copy-btn.copy-failed { background: var(--danger); color: var(--font-inverse); }
+.copy-btn.copy-failed .icon-copy { color: var(--font-inverse); }
 
 .example-frame {
   border: 1px solid var(--border-base);
@@ -994,7 +997,8 @@ a[target="_blank"]:hover::after {
 .resource-head.is-command.expanded .resource-path { text-decoration: underline; }
 .resource-path { font-family: var(--font-mono); font-size: 13px; font-weight: 700; }
 .resource-path.copied { color: var(--success); }
-.resource-desc { color: var(--font-secondary); font-size: 13px; }
+.resource-path.copy-failed { color: var(--danger); }
+.resource-desc { color: var(--font-secondary); font-size: 14px; line-height: 20px; }
 .resource-count { color: var(--font-tertiary); font-family: var(--font-mono); font-size: 12px; }
 /* Every separator is a *top* border, on the rows and heads alike. overflow:
    hidden had to come off .cmd-table — it would kill the sticky header — so
@@ -1022,7 +1026,10 @@ a[target="_blank"]:hover::after {
 .command-copy-icon svg { width: 14px; height: 14px; }
 .command-row:hover .command-copy-icon, .command-copy-icon:focus-visible { opacity: 1; }
 .command-name.copied .command-copy-icon { color: var(--success); opacity: 1; }
-.command-desc { color: var(--font-secondary); font-size: 13px; line-height: 18px; }
+.command-name.copy-failed .command-copy-icon { color: var(--danger); opacity: 1; }
+/* Prose, so it rides the 14/20 body size the spec sets as the floor. The
+   monospace command name beside it stays at the 13px code size. */
+.command-desc { color: var(--font-secondary); font-size: 14px; line-height: 20px; }
 .command-marks { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-start; }
 mark, .search-highlight { background: var(--search-highlight); color: inherit; border-radius: 2px; }
 
@@ -1086,14 +1093,15 @@ mark, .search-highlight { background: var(--search-highlight); color: inherit; b
 /* Prose, not a command: an ellipsis is legible here and the full text is in
    the title attribute. */
 .detail-related-desc {
-  font-size: 13px;
+  font-size: 14px;
+  line-height: 20px;
   color: var(--font-secondary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 .detail-related-more { grid-column: 1 / -1; }
-.detail-related-more a { font-size: 13px; }
+.detail-related-more a { font-size: 14px; }
 /* Uncapped: the longest captured output in #hero-examples is nine lines, so
    there is nothing to scroll past. It wraps rather than clipping. */
 .detail-output {
@@ -1546,7 +1554,9 @@ footer {
   align-items: center;
 }
 
-.copy-btn::after {
+.copy-btn::after,
+.command-copy-icon::after,
+.search-clear::after {
   content: "";
   position: absolute;
   top: 50%;
@@ -1554,6 +1564,22 @@ footer {
   width: 40px;
   height: 40px;
   transform: translate(-50%, -50%);
+}
+
+/* The same extension for the two small controls that lacked one: the copy
+   icon on every command row, and the search field's clear button. */
+.command-copy-icon,
+.search-clear { position: relative; }
+
+/* A phone has no hover, so the row icon is always visible and always
+   tappable. Raise every extended target to the 44px touch floor. */
+@media (max-width: 768px) {
+  .copy-btn::after,
+  .command-copy-icon::after,
+  .search-clear::after {
+    width: 44px;
+    height: 44px;
+  }
 }
 
 /* Contextual icon cross-fade (#7) — on copy success the copy glyph scales
