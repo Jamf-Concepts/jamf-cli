@@ -1,6 +1,6 @@
 # The Platform API at GA
 
-The Jamf Platform API reached general availability on **2026-09-01**, and the public beta is
+The Jamf Platform API reached general availability on **2026-09-03**, and the public beta is
 over. This page is what a jamf-cli user has to change coming from the beta, and what the CLI
 now does for you.
 
