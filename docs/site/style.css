@@ -619,12 +619,15 @@ a[target="_blank"]:hover::after {
   opacity: 1;
 }
 
+/* A shell line is never truncated: an elided command is not copyable by eye,
+   and the Copy button is the only other way out. It wraps instead, with the
+   button pinned to the top-right beside the first line. */
 .code-block {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 12px;
   min-height: 44px;
-  padding: 6px 6px 6px 16px;
+  padding: 10px 6px 10px 16px;
   background: var(--code-bg);
   color: var(--code-fg);
   border-radius: var(--r-base);
@@ -632,7 +635,21 @@ a[target="_blank"]:hover::after {
   font-size: 13px;
   line-height: 20px;
 }
-.code-block code { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* The hanging indent keeps a continuation reading as part of the command:
+   the 2ch negative text-indent cancels the padding on the first line, so the
+   `$ ` prompt still starts at the left edge. */
+.code-block code {
+  flex: 1;
+  display: block;
+  min-width: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  overflow: visible;
+  text-overflow: clip;
+  padding-left: 2ch;
+  text-indent: -2ch;
+}
+.code-block .copy-btn { margin-top: 2px; }
 .code-prompt { color: var(--code-muted); }
 /* The success fill needs the label and the check in white — the check's own
    rule under "Interaction polish" tints it green, which the fill swallows. */
@@ -914,7 +931,7 @@ a[target="_blank"]:hover::after {
 .group-table-head { display: flex; align-items: baseline; gap: 16px; }
 .group-table-head h3 { margin: 0; font-size: 24px; line-height: 28px; font-weight: 700; }
 .group-table-meta { color: var(--font-secondary); }
-.cmd-table { border: 1px solid var(--border-base); border-radius: var(--r-base); }
+.cmd-table { border: 1px solid var(--border-base); border-radius: var(--r-base); overflow: clip; }
 .cmd-table-header,
 .command-row {
   display: grid;
@@ -1005,28 +1022,54 @@ mark, .search-highlight { background: var(--search-highlight); color: inherit; b
 
 /* Drawer */
 .command-detail { padding: 4px 16px 20px; background: var(--structure-secondary); }
-.detail-grid { display: grid; grid-template-columns: 240px minmax(0, 1fr); gap: 24px; }
-.detail-col { display: flex; flex-direction: column; gap: 12px; }
+/* One column. Two columns capped the example block at the width left over
+   after a fixed sidebar, which is what truncated the shell lines. */
+.detail-stack { display: flex; flex-direction: column; gap: 16px; padding: 16px 16px 20px; max-width: none; }
 .detail-heading { font-size: 12px; line-height: 16px; font-weight: 700; }
 .detail-flags { display: flex; flex-wrap: wrap; gap: 6px; }
 .detail-meta { font-size: 12px; line-height: 16px; color: var(--font-tertiary); }
 .detail-meta strong { color: var(--font-base); font-weight: 500; }
-.detail-aliases { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px; }
-.detail-breadcrumb { font-size: 12px; color: var(--font-tertiary); }
+/* The facts line: parent, aliases, privileges, whichever the command has. */
+.detail-facts { display: flex; flex-wrap: wrap; align-items: baseline; gap: 16px; }
+.detail-fact { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px; }
+.detail-parent-link { font-family: var(--font-mono); font-size: 12px; white-space: nowrap; }
 .command-detail .code-block { font-size: 12px; line-height: 18px; }
 .detail-example { display: flex; flex-direction: column; gap: 6px; }
-/* Capped for the same reason as .detail-output: a top-level command's
-   parent path is the product itself, so its sibling list is every resource
-   under that product. */
-.detail-siblings { display: flex; flex-wrap: wrap; gap: 6px; max-height: 132px; overflow-y: auto; }
-.sibling-link,
-.detail-parent-link { font-family: var(--font-mono); font-size: 12px; }
-/* Capped: a hero example's captured output runs to hundreds of lines, and
-   an uncapped <pre> made the drawer several screens tall. */
+/* Related commands read as verb + what it does, two per row. A chip run said
+   only the verb, which is the half a reader already knows. */
+.detail-related {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px 24px;
+}
+.detail-related li {
+  display: grid;
+  grid-template-columns: minmax(120px, max-content) minmax(0, 1fr);
+  gap: 12px;
+  align-items: baseline;
+  min-height: 24px;
+}
+.detail-related-verb { font-size: 13px; color: var(--primary); }
+/* Prose, not a command: an ellipsis is legible here and the full text is in
+   the title attribute. */
+.detail-related-desc {
+  font-size: 13px;
+  color: var(--font-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.detail-related-more { grid-column: 1 / -1; }
+.detail-related-more a { font-size: 13px; }
+/* Uncapped: the longest captured output in #hero-examples is nine lines, so
+   there is nothing to scroll past. It wraps rather than clipping. */
 .detail-output {
   margin: 0;
-  max-height: 320px;
-  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
   padding: 12px;
   border-radius: var(--r-base);
   background: var(--code-bg);
@@ -1318,7 +1361,6 @@ footer {
   .cmd-table-header, .command-row { grid-template-columns: 200px minmax(0, 1fr) 140px; }
   .group-table.no-marks .cmd-table-header,
   .group-table.no-marks .command-row { grid-template-columns: 200px minmax(0, 1fr); }
-  .detail-grid { grid-template-columns: 200px minmax(0, 1fr); }
 }
 
 @media (max-width: 1024px) {
@@ -1338,7 +1380,7 @@ footer {
   .group-table.no-marks .command-row { grid-template-columns: minmax(0, 1fr); }
   .resource-block .command-row, .resource-head { padding-left: calc(16px + var(--depth) * 12px); }
   .command-marks { justify-content: flex-start; }
-  .detail-grid { grid-template-columns: minmax(0, 1fr); }
+  .detail-related { grid-template-columns: minmax(0, 1fr); }
 }
 
 @media (max-width: 768px) {

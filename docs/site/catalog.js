@@ -1103,47 +1103,37 @@
     return siblingMap[parent].filter(function (c) { return c.command !== cmd.command; });
   }
 
+  // Sibling verbs listed in full before the reader is sent to the parent.
+  var MAX_RELATED = 8;
+
   function buildDetailContent(cmd) {
     var frag = document.createDocumentFragment();
-    var grid = document.createElement('div');
-    grid.className = 'detail-grid';
-    var left = document.createElement('div');
-    left.className = 'detail-col';
-    var right = document.createElement('div');
-    right.className = 'detail-col';
-
-    // Breadcrumb: "Subcommand of pro computers"
+    var stack = document.createElement('div');
+    stack.className = 'detail-stack';
     var parent = getParentPath(cmd.command);
+
+    // One facts line — parent, aliases, privileges — each part omitted when
+    // the command carries no data for it.
+    var facts = document.createElement('div');
+    facts.className = 'detail-meta detail-facts';
+    var hasFacts = false;
+
     if (parent) {
-      var breadcrumb = document.createElement('div');
-      breadcrumb.className = 'detail-breadcrumb';
-      breadcrumb.textContent = 'Subcommand of ';
+      var parentFact = document.createElement('div');
+      parentFact.className = 'detail-fact';
+      parentFact.appendChild(document.createTextNode('Subcommand of '));
       var parentLink = document.createElement('a');
       parentLink.className = 'detail-parent-link';
       parentLink.textContent = parent;
-      parentLink.href = '#';
+      parentLink.href = '#cmd/' + parent.replace(/ /g, '/');
       parentLink.addEventListener('click', function (e) {
         e.preventDefault();
         e.stopPropagation();
         navigateToCommand(parent);
       });
-      breadcrumb.appendChild(parentLink);
-      left.appendChild(breadcrumb);
-    }
-
-    // Flags
-    if (cmd.flags && cmd.flags.length > 0) {
-      left.appendChild(createDetailHeading('Flags'));
-      var flagWrap = document.createElement('div');
-      flagWrap.className = 'detail-flags';
-      for (var f = 0; f < cmd.flags.length; f++) {
-        var pill = document.createElement('span');
-        pill.className = 'tag tag-mono';
-        if (cmd.flags[f] === '--confirm-destructive') pill.classList.add('tag-danger');
-        pill.textContent = cmd.flags[f];
-        flagWrap.appendChild(pill);
-      }
-      left.appendChild(flagWrap);
+      parentFact.appendChild(parentLink);
+      facts.appendChild(parentFact);
+      hasFacts = true;
     }
 
     // Aliases. A verb inherits the resource's aliases in commands.json, but
@@ -1158,9 +1148,9 @@
     }
     if (aliasList) {
       var aliases = document.createElement('div');
-      aliases.className = 'detail-meta detail-aliases';
+      aliases.className = 'detail-fact';
       var aliasLabel = document.createElement('strong');
-      aliasLabel.textContent = 'Aliases: ';
+      aliasLabel.textContent = 'Aliases:';
       aliases.appendChild(aliasLabel);
       for (var al = 0; al < aliasList.length; al++) {
         var aliasChip = document.createElement('span');
@@ -1168,67 +1158,42 @@
         aliasChip.textContent = aliasList[al];
         aliases.appendChild(aliasChip);
       }
-      left.appendChild(aliases);
+      facts.appendChild(aliases);
+      hasFacts = true;
     }
 
     // Required privileges, when the catalog carries them.
     if (cmd.privileges && cmd.privileges.length > 0) {
       var privs = document.createElement('div');
-      privs.className = 'detail-meta';
+      privs.className = 'detail-fact';
       var privLabel = document.createElement('strong');
-      privLabel.textContent = 'Privileges: ';
+      privLabel.textContent = 'Privileges:';
       privs.appendChild(privLabel);
       privs.appendChild(document.createTextNode(cmd.privileges.join(', ')));
-      left.appendChild(privs);
+      facts.appendChild(privs);
+      hasFacts = true;
     }
 
-    // Related commands (siblings under same parent)
-    var siblings = findSiblings(cmd);
-    if (siblings.length > 0) {
-      left.appendChild(createDetailHeading('Related commands'));
-      var siblingList = document.createElement('div');
-      siblingList.className = 'detail-siblings';
-      for (var s = 0; s < siblings.length; s++) {
-        var sibCmd = siblings[s];
-        var sibParts = sibCmd.command.split(' ');
-        var sibAction = sibParts[sibParts.length - 1];
-
-        var sibEl = document.createElement('a');
-        sibEl.className = 'tag tag-mono sibling-link';
-        sibEl.href = '#';
-        sibEl.setAttribute('data-product', sibCmd.product || '');
-        sibEl.textContent = sibAction;
-        sibEl.title = 'jamf-cli ' + sibCmd.command;
-        (function (command) {
-          sibEl.addEventListener('click', function (e) {
-            e.preventDefault();
-            e.stopPropagation();
-            navigateToCommand(command);
-          });
-        })(sibCmd.command);
-        siblingList.appendChild(sibEl);
-      }
-      left.appendChild(siblingList);
-    }
+    if (hasFacts) stack.appendChild(facts);
 
     // Hero example: the command plus the output it prints.
     var heroKey = findHeroKey(cmd.command);
     if (heroKey) {
       var hero = heroExamples[heroKey];
-      right.appendChild(createDetailHeading('Example'));
-      right.appendChild(buildExampleBlock(hero.example, null));
+      stack.appendChild(createDetailHeading('Example'));
+      stack.appendChild(buildExampleBlock(hero.example, null));
       var out = document.createElement('pre');
       out.className = 'detail-output';
       out.textContent = hero.output;
-      right.appendChild(out);
+      stack.appendChild(out);
     }
 
     // Usage examples (from examples.json)
     var examples = commandExamples[cmd.command];
     if (examples && examples.length > 0) {
-      right.appendChild(createDetailHeading(heroKey ? 'More examples' : 'Examples'));
+      stack.appendChild(createDetailHeading(heroKey ? 'More examples' : 'Examples'));
       for (var ex = 0; ex < examples.length; ex++) {
-        right.appendChild(buildExampleBlock(examples[ex].command, examples[ex].description));
+        stack.appendChild(buildExampleBlock(examples[ex].command, examples[ex].description));
       }
     }
     // Most commands carry neither a hero nor a documented example, and a
@@ -1236,13 +1201,91 @@
     // from the flag chips. The synthesized line is labelled so it is not
     // mistaken for a captured one.
     if (!heroKey && !(examples && examples.length > 0)) {
-      right.appendChild(createDetailHeading('Example (generated)'));
-      right.appendChild(buildExampleBlock(generatedExample(cmd), null));
+      stack.appendChild(createDetailHeading('Example (generated)'));
+      stack.appendChild(buildExampleBlock(generatedExample(cmd), null));
     }
 
-    grid.appendChild(left);
-    grid.appendChild(right);
-    frag.appendChild(grid);
+    // Flags
+    if (cmd.flags && cmd.flags.length > 0) {
+      stack.appendChild(createDetailHeading('Flags'));
+      var flagWrap = document.createElement('div');
+      flagWrap.className = 'detail-flags';
+      for (var f = 0; f < cmd.flags.length; f++) {
+        var pill = document.createElement('span');
+        pill.className = 'tag tag-mono';
+        if (cmd.flags[f] === '--confirm-destructive') pill.classList.add('tag-danger');
+        pill.textContent = cmd.flags[f];
+        flagWrap.appendChild(pill);
+      }
+      stack.appendChild(flagWrap);
+    }
+
+    // Related commands (siblings under the same parent). Verb plus what it
+    // does: the verb alone is the half the reader already knows.
+    var siblings = findSiblings(cmd);
+    if (siblings.length > 0) {
+      var prefix = parent ? parent.length + 1 : 0;
+      var items = [];
+      for (var s = 0; s < siblings.length; s++) {
+        items.push({
+          command: siblings[s].command,
+          verb: siblings[s].command.slice(prefix),
+          desc: cleanDescription(siblings[s], siblings[s].group)
+        });
+      }
+      items.sort(function (a, b) {
+        if (a.verb === b.verb) return 0;
+        return a.verb < b.verb ? -1 : 1;
+      });
+
+      stack.appendChild(createDetailHeading('Related commands'));
+      var list = document.createElement('ul');
+      list.className = 'detail-related';
+      list.setAttribute('role', 'list');
+      var shown = Math.min(items.length, MAX_RELATED);
+      for (var i = 0; i < shown; i++) {
+        var item = items[i];
+        var li = document.createElement('li');
+        var verbLink = document.createElement('a');
+        verbLink.className = 'detail-related-verb mono';
+        verbLink.href = '#cmd/' + item.command.replace(/ /g, '/');
+        verbLink.textContent = item.verb;
+        verbLink.title = 'jamf-cli ' + item.command;
+        (function (command) {
+          verbLink.addEventListener('click', function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            navigateToCommand(command);
+          });
+        })(item.command);
+        li.appendChild(verbLink);
+        var desc = document.createElement('span');
+        desc.className = 'detail-related-desc';
+        desc.textContent = item.desc;
+        if (item.desc) desc.title = item.desc;
+        li.appendChild(desc);
+        list.appendChild(li);
+      }
+      // The rest live under the parent, which is itself a row the catalog
+      // renders and navigateToCommand already resolves.
+      if (items.length > shown && parent) {
+        var moreLi = document.createElement('li');
+        moreLi.className = 'detail-related-more';
+        var moreLink = document.createElement('a');
+        moreLink.href = '#cmd/' + parent.replace(/ /g, '/');
+        moreLink.textContent = (items.length - shown) + ' more in ' + parent;
+        moreLink.addEventListener('click', function (e) {
+          e.preventDefault();
+          e.stopPropagation();
+          navigateToCommand(parent);
+        });
+        moreLi.appendChild(moreLink);
+        list.appendChild(moreLi);
+      }
+      stack.appendChild(list);
+    }
+
+    frag.appendChild(stack);
     return frag;
   }
 
