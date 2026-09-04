@@ -1018,7 +1018,7 @@ a[target="_blank"]:hover::after {
 .command-copy-icon svg { width: 14px; height: 14px; }
 .command-row:hover .command-copy-icon, .command-copy-icon:focus-visible { opacity: 1; }
 .command-name.copied .command-copy-icon { color: var(--success); opacity: 1; }
-.command-desc { color: var(--font-secondary); }
+.command-desc { color: var(--font-secondary); font-size: 13px; line-height: 18px; }
 .command-marks { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-start; }
 mark, .search-highlight { background: var(--search-highlight); color: inherit; border-radius: 2px; }
 
