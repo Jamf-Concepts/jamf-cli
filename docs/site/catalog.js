@@ -213,6 +213,10 @@
     var versionBadge = document.getElementById('version-badge');
     if (versionBadge && version) {
       versionBadge.textContent = 'v' + version;
+      // Deep-link to this release's notes; the markup's href is the fallback
+      // (the releases index) for the moment before commands.json loads.
+      versionBadge.href = 'https://github.com/Jamf-Concepts/jamf-cli/releases/tag/v' + version;
+      versionBadge.title = 'Release notes for v' + version + ' on GitHub';
     }
 
     var lastUpdated = document.getElementById('last-updated');

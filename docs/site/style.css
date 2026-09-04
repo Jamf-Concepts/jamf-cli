@@ -451,6 +451,8 @@ nav {
   color: var(--font-secondary);
 }
 .version-badge:empty { display: none; }
+.version-badge:hover { color: var(--font-base); border-color: var(--font-tertiary); text-decoration: none; }
+.version-badge:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--focus); }
 .nav-right { margin-left: auto; display: flex; align-items: center; gap: 24px; }
 .nav-search {
   display: flex;
