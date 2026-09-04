@@ -17,6 +17,8 @@ func newReportSoftwareInstallsCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	var (
 		titleFilter   string
 		includeSystem bool
+		showBundleID  bool
+		showPath      bool
 	)
 
 	cmd := &cobra.Command{
@@ -29,9 +31,19 @@ Use --include-system to show all applications.
 
 Use --title to filter to a specific application name (case-insensitive substring match).
 
-Output columns: title, version, device_count`,
+Use --bundle-id to add a bundle_id column, and --path to add a path column.
+Each also becomes part of the grouping, so one title and version that spans
+several bundle IDs or install paths reports a row for each rather than a single
+merged row. Neither flag is on by default, so the default output is unchanged.
+
+Output columns: title, version, device_count (plus bundle_id with --bundle-id,
+path with --path)`,
+		// --bundle-id and --path are boolean, so their names invite a value that
+		// cobra would leave as a positional. Without this the whole report runs
+		// as if the value had never been typed.
+		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			rows, err := runReportSoftwareInstalls(cmd.Context(), cliCtx.Client, titleFilter, includeSystem)
+			rows, err := runReportSoftwareInstalls(cmd.Context(), cliCtx.Client, titleFilter, includeSystem, showBundleID, showPath)
 			if err != nil {
 				return err
 			}
@@ -41,6 +53,8 @@ Output columns: title, version, device_count`,
 
 	cmd.Flags().StringVar(&titleFilter, "title", "", "filter to application names containing this substring (case-insensitive)")
 	cmd.Flags().BoolVar(&includeSystem, "include-system", false, "include system apps from /System/ and /Library/")
+	cmd.Flags().BoolVar(&showBundleID, "bundle-id", false, "add a bundle_id column and group by bundle ID")
+	cmd.Flags().BoolVar(&showPath, "path", false, "add a path column and group by install path")
 
 	return cmd
 }
@@ -55,14 +69,20 @@ func isSystemApp(path string) bool {
 }
 
 // softwareKey groups installs by application name + version.
+//
+// --bundle-id and --path extend this key rather than adding a display column:
+// one title + version can span several bundle IDs or install paths, and a
+// column would print one arbitrary member and silently hide the rest.
 type softwareKey struct {
-	title   string
-	version string
+	title    string
+	version  string
+	bundleID string
+	path     string
 }
 
 // runReportSoftwareInstalls fetches computer inventory with the APPLICATIONS
-// section and aggregates device counts per (title, version).
-func runReportSoftwareInstalls(ctx context.Context, client registry.HTTPClient, titleFilter string, includeSystem bool) ([]map[string]any, error) {
+// section and aggregates device counts per softwareKey.
+func runReportSoftwareInstalls(ctx context.Context, client registry.HTTPClient, titleFilter string, includeSystem, showBundleID, showPath bool) ([]map[string]any, error) {
 	computers, err := FetchAllPaginated(ctx, client, "/v4/computers-inventory?section=APPLICATIONS", 100)
 	if err != nil {
 		return nil, fmt.Errorf("fetching computer inventory: %w", err)
@@ -81,6 +101,7 @@ func runReportSoftwareInstalls(ctx context.Context, client registry.HTTPClient, 
 			name, _ := app["name"].(string)
 			version, _ := app["version"].(string)
 			path, _ := app["path"].(string)
+			bundleID, _ := app["bundleId"].(string)
 
 			if name == "" {
 				continue
@@ -92,7 +113,14 @@ func runReportSoftwareInstalls(ctx context.Context, client registry.HTTPClient, 
 				continue
 			}
 
-			counts[softwareKey{name, version}]++
+			key := softwareKey{title: name, version: version}
+			if showBundleID {
+				key.bundleID = bundleID
+			}
+			if showPath {
+				key.path = path
+			}
+			counts[key]++
 		}
 	}
 
@@ -105,16 +133,29 @@ func runReportSoftwareInstalls(ctx context.Context, client registry.HTTPClient, 
 		if keys[i].title != keys[j].title {
 			return keys[i].title < keys[j].title
 		}
-		return keys[i].version > keys[j].version
+		if keys[i].version != keys[j].version {
+			return keys[i].version > keys[j].version
+		}
+		if keys[i].bundleID != keys[j].bundleID {
+			return keys[i].bundleID < keys[j].bundleID
+		}
+		return keys[i].path < keys[j].path
 	})
 
 	rows := make([]map[string]any, 0, len(keys))
 	for _, k := range keys {
-		rows = append(rows, map[string]any{
+		row := map[string]any{
 			"title":        k.title,
 			"version":      k.version,
 			"device_count": counts[k],
-		})
+		}
+		if showBundleID {
+			row["bundle_id"] = k.bundleID
+		}
+		if showPath {
+			row["path"] = k.path
+		}
+		rows = append(rows, row)
 	}
 
 	if len(rows) == 0 && titleFilter != "" {

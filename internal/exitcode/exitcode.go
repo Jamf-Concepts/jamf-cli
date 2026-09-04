@@ -19,12 +19,13 @@ const (
 	PartialFailure   = 7
 	// Unsupported (8) is a policy refusal: the command is real and correctly
 	// invoked, but the resolved credentials cannot reach the API that serves it.
-	// Distinct from Usage (2) because 2 is also every cobra flag error, unknown
-	// subcommand, missing URL and missing credential — so a wrapper script could
-	// not tell "refused by policy on this credential" from "you invoked it
-	// wrong", which is exactly the distinction a pipeline needs in order to
-	// degrade rather than fail. Not NotFound (4) either: a script iterating
-	// commands treats 4 as "no such object, carry on" and would swallow it.
+	// Distinct from Usage (2) because 2 is also every cobra flag error, a wrong
+	// argument count, an unknown subcommand, a missing URL and a missing
+	// credential — so a wrapper script could not tell "refused by policy on
+	// this credential" from "you invoked it wrong", which is exactly the
+	// distinction a pipeline needs in order to degrade rather than fail. Not
+	// NotFound (4) either: a script iterating commands treats 4 as "no such
+	// object, carry on" and would swallow it.
 	Unsupported = 8
 )
 

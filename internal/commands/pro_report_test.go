@@ -4,7 +4,11 @@ package commands
 
 import (
 	"context"
+	"io"
+	"strings"
 	"testing"
+
+	"github.com/Jamf-Concepts/jamf-cli/internal/exitcode"
 )
 
 // ---------------------------------------------------------------------------
@@ -575,7 +579,7 @@ func TestRunReportSoftwareInstalls_Basic(t *testing.T) {
 		},
 	}
 
-	rows, err := runReportSoftwareInstalls(context.Background(), client, "", true)
+	rows, err := runReportSoftwareInstalls(context.Background(), client, "", true, false, false)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -620,7 +624,7 @@ func TestRunReportSoftwareInstalls_TitleFilter(t *testing.T) {
 		},
 	}
 
-	rows, err := runReportSoftwareInstalls(context.Background(), client, "chrome", true)
+	rows, err := runReportSoftwareInstalls(context.Background(), client, "chrome", true, false, false)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -647,7 +651,7 @@ func TestRunReportSoftwareInstalls_NoMatchFilter(t *testing.T) {
 		},
 	}
 
-	_, err := runReportSoftwareInstalls(context.Background(), client, "nonexistent-app-xyz", true)
+	_, err := runReportSoftwareInstalls(context.Background(), client, "nonexistent-app-xyz", true, false, false)
 	if err == nil {
 		t.Fatal("expected error for no matches with filter, got nil")
 		return
@@ -661,12 +665,455 @@ func TestRunReportSoftwareInstalls_Empty(t *testing.T) {
 		},
 	}
 
-	rows, err := runReportSoftwareInstalls(context.Background(), client, "", true)
+	rows, err := runReportSoftwareInstalls(context.Background(), client, "", true, false, false)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if len(rows) != 0 {
 		t.Errorf("got %d rows, want 0", len(rows))
+	}
+}
+
+// --bundle-id must extend the grouping key, not merely add a column: these two
+// installs share a title and version, so a display-only column would collapse
+// them into one row and hide a bundle ID.
+func TestRunReportSoftwareInstalls_BundleIDExtendsTheGroupingKey(t *testing.T) {
+	client := &paginatedMockClient{
+		pages: map[string]string{
+			"/v4/computers-inventory?section=APPLICATIONS&page=0&page-size=100": `{
+				"totalCount": 3,
+				"results": [
+					{
+						"id": "1",
+						"applications": [
+							{"name": "Zoom", "version": "5.0", "bundleId": "us.zoom.xos", "path": "/Applications/zoom.us.app"}
+						]
+					},
+					{
+						"id": "2",
+						"applications": [
+							{"name": "Zoom", "version": "5.0", "bundleId": "us.zoom.xos", "path": "/Applications/zoom.us.app"}
+						]
+					},
+					{
+						"id": "3",
+						"applications": [
+							{"name": "Zoom", "version": "5.0", "bundleId": "com.example.zoom-repack", "path": "/Applications/zoom.us.app"}
+						]
+					}
+				]
+			}`,
+		},
+	}
+
+	rows, err := runReportSoftwareInstalls(context.Background(), client, "", true, true, false)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(rows) != 2 {
+		t.Fatalf("got %d rows, want 2 (one per bundle ID)", len(rows))
+	}
+
+	counts := map[string]any{}
+	for _, r := range rows {
+		bundleID, ok := r["bundle_id"].(string)
+		if !ok {
+			t.Fatalf("row %v carries no bundle_id", r)
+		}
+		counts[bundleID] = r["device_count"]
+	}
+	if counts["us.zoom.xos"] != 2 {
+		t.Errorf("us.zoom.xos device_count = %v, want 2", counts["us.zoom.xos"])
+	}
+	if counts["com.example.zoom-repack"] != 1 {
+		t.Errorf("com.example.zoom-repack device_count = %v, want 1", counts["com.example.zoom-repack"])
+	}
+}
+
+// Same shape as the bundle-ID case, for --path: one title and version installed
+// at two different paths must not merge.
+func TestRunReportSoftwareInstalls_PathExtendsTheGroupingKey(t *testing.T) {
+	client := &paginatedMockClient{
+		pages: map[string]string{
+			"/v4/computers-inventory?section=APPLICATIONS&page=0&page-size=100": `{
+				"totalCount": 3,
+				"results": [
+					{
+						"id": "1",
+						"applications": [
+							{"name": "Slack", "version": "4.0", "path": "/Applications/Slack.app"}
+						]
+					},
+					{
+						"id": "2",
+						"applications": [
+							{"name": "Slack", "version": "4.0", "path": "/Applications/Slack.app"}
+						]
+					},
+					{
+						"id": "3",
+						"applications": [
+							{"name": "Slack", "version": "4.0", "path": "/Users/bob/Applications/Slack.app"}
+						]
+					}
+				]
+			}`,
+		},
+	}
+
+	rows, err := runReportSoftwareInstalls(context.Background(), client, "", true, false, true)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(rows) != 2 {
+		t.Fatalf("got %d rows, want 2 (one per install path)", len(rows))
+	}
+
+	counts := map[string]any{}
+	for _, r := range rows {
+		path, ok := r["path"].(string)
+		if !ok {
+			t.Fatalf("row %v carries no path", r)
+		}
+		counts[path] = r["device_count"]
+	}
+	if counts["/Applications/Slack.app"] != 2 {
+		t.Errorf("/Applications/Slack.app device_count = %v, want 2", counts["/Applications/Slack.app"])
+	}
+	if counts["/Users/bob/Applications/Slack.app"] != 1 {
+		t.Errorf("/Users/bob/Applications/Slack.app device_count = %v, want 1", counts["/Users/bob/Applications/Slack.app"])
+	}
+}
+
+// With both flags off the row map must carry exactly the three original keys —
+// an extra key would change the column set of every existing user's table.
+//
+// The grouping key is the other half of that contract, and it needs a fixture
+// that can see it. Zoom 5.0 spans two bundle IDs and two paths across two
+// devices, so an unconditional key.bundleID or key.path splits it into two
+// rows. With one bundle ID and one path per title the row count was 2 either
+// way, and assigning both fields unconditionally left the whole package green
+// while the default output rendered Zoom 5.0 twice at half the device count —
+// two byte-identical rows with no column that could explain them.
+func TestRunReportSoftwareInstalls_DefaultRowsCarryOnlyTheThreeOriginalKeys(t *testing.T) {
+	client := &paginatedMockClient{
+		pages: map[string]string{
+			"/v4/computers-inventory?section=APPLICATIONS&page=0&page-size=100": `{
+				"totalCount": 2,
+				"results": [
+					{
+						"id": "1",
+						"applications": [
+							{"name": "Zoom", "version": "5.0", "bundleId": "us.zoom.xos", "path": "/Applications/zoom.us.app"},
+							{"name": "Slack", "version": "4.0", "bundleId": "com.tinyspeck.slackmacgap", "path": "/Applications/Slack.app"}
+						]
+					},
+					{
+						"id": "2",
+						"applications": [
+							{"name": "Zoom", "version": "5.0", "bundleId": "com.example.zoom-repack", "path": "/Users/bob/Applications/zoom.us.app"}
+						]
+					}
+				]
+			}`,
+		},
+	}
+
+	rows, err := runReportSoftwareInstalls(context.Background(), client, "", true, false, false)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(rows) != 2 {
+		t.Fatalf("got %d rows, want 2 (both Zoom installs merge with the flags off)", len(rows))
+	}
+	for _, r := range rows {
+		if len(r) != 3 {
+			t.Errorf("row %v has %d keys, want 3", r, len(r))
+		}
+		if _, ok := r["bundle_id"]; ok {
+			t.Errorf("row %v carries bundle_id with --bundle-id off", r)
+		}
+		if _, ok := r["path"]; ok {
+			t.Errorf("row %v carries path with --path off", r)
+		}
+		for _, want := range []string{"title", "version", "device_count"} {
+			if _, ok := r[want]; !ok {
+				t.Errorf("row %v is missing key %q", r, want)
+			}
+		}
+	}
+
+	counts := map[string]any{}
+	for _, r := range rows {
+		title, ok := r["title"].(string)
+		if !ok {
+			t.Fatalf("row %v carries no title", r)
+		}
+		counts[title] = r["device_count"]
+	}
+	if counts["Zoom"] != 2 {
+		t.Errorf("Zoom device_count = %v, want 2", counts["Zoom"])
+	}
+	if counts["Slack"] != 1 {
+		t.Errorf("Slack device_count = %v, want 1", counts["Slack"])
+	}
+}
+
+// Both flags on: the two fields are independent parts of the key, so one title
+// and version spanning two bundle IDs and two paths reports a row per pair.
+func TestRunReportSoftwareInstalls_BundleIDAndPathTogether(t *testing.T) {
+	client := &paginatedMockClient{
+		pages: map[string]string{
+			"/v4/computers-inventory?section=APPLICATIONS&page=0&page-size=100": `{
+				"totalCount": 3,
+				"results": [
+					{
+						"id": "1",
+						"applications": [
+							{"name": "Zoom", "version": "5.0", "bundleId": "us.zoom.xos", "path": "/Applications/zoom.us.app"}
+						]
+					},
+					{
+						"id": "2",
+						"applications": [
+							{"name": "Zoom", "version": "5.0", "bundleId": "us.zoom.xos", "path": "/Users/bob/Applications/zoom.us.app"}
+						]
+					},
+					{
+						"id": "3",
+						"applications": [
+							{"name": "Zoom", "version": "5.0", "bundleId": "com.example.zoom-repack", "path": "/Applications/zoom.us.app"}
+						]
+					}
+				]
+			}`,
+		},
+	}
+
+	rows, err := runReportSoftwareInstalls(context.Background(), client, "", true, true, true)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(rows) != 3 {
+		t.Fatalf("got %d rows, want 3 (one per bundle ID + path pair)", len(rows))
+	}
+	for _, r := range rows {
+		if len(r) != 5 {
+			t.Errorf("row %v has %d keys, want 5", r, len(r))
+		}
+		for _, want := range []string{"title", "version", "device_count", "bundle_id", "path"} {
+			if _, ok := r[want]; !ok {
+				t.Errorf("row %v is missing key %q", r, want)
+			}
+		}
+		if r["device_count"] != 1 {
+			t.Errorf("row %v device_count = %v, want 1", r, r["device_count"])
+		}
+	}
+}
+
+// --bundle-id and --path are boolean, so `--path /Applications/Foo.app` leaves
+// the value as a positional. Before Args was set the command discarded it and
+// ran the whole report, so the operator got fleet-wide output for what they had
+// typed as a filter. Cobra validates Args ahead of PersistentPreRunE, so the
+// refusal lands before any credential is resolved or request sent.
+func TestReportSoftwareInstalls_StrayPositionalIsRefused(t *testing.T) {
+	// This test executes the real root command. With the Args guard regressed
+	// and a developer's own credentials exported, it ran the paginated
+	// computers-inventory fetch for real — a fleet inventory sweep against
+	// whatever tenant the ambient environment named, out of `go test ./...`.
+	clearAuthEnv(t)
+
+	// "unknown" is the only spec version checkTenantVersion returns early for,
+	// and no assertion below reads the argument that carries it.
+	root := NewRootCmd("test", "abc123", "2024-01-01", "unknown")
+	root.SetArgs([]string{"pro", "report", "software-installs", "junkarg"})
+	root.SetOut(io.Discard)
+	root.SetErr(io.Discard)
+
+	err := ClassifyError(root.Execute())
+	if err == nil {
+		t.Fatal("expected an error for a stray positional, got nil")
+	}
+	if code := exitcode.CodeFrom(err); code != exitcode.Usage {
+		t.Errorf("exit code = %d, want %d (usage)", code, exitcode.Usage)
+	}
+	if !strings.Contains(err.Error(), `unknown command "junkarg"`) {
+		t.Errorf("error should name the stray argument, got %q", err.Error())
+	}
+	if strings.Contains(err.Error(), "fetching computer inventory") {
+		t.Errorf("the report ran despite the stray positional: %q", err.Error())
+	}
+}
+
+// The comparator has four levels and nothing asserted row order at all, so a
+// control mutation flipping even the original title comparison left every test
+// green. This fixture puts a tie at each level in turn: two titles, two
+// versions inside one title, two bundle IDs inside one title and version, and
+// two paths inside one title, version and bundle ID. Both flags are on because
+// the path level is unreachable otherwise — with --path off every key holds the
+// same empty path, so any two keys reaching that comparison are the same key.
+func TestRunReportSoftwareInstalls_RowOrderFollowsEveryComparatorLevel(t *testing.T) {
+	client := &paginatedMockClient{
+		pages: map[string]string{
+			"/v4/computers-inventory?section=APPLICATIONS&page=0&page-size=100": `{
+				"totalCount": 1,
+				"results": [
+					{
+						"id": "1",
+						"applications": [
+							{"name": "Zulu", "version": "1.0", "bundleId": "com.z.one", "path": "/Applications/Z1.app"},
+							{"name": "Alpha", "version": "1.0", "bundleId": "com.a.one", "path": "/Applications/A1.app"},
+							{"name": "Alpha", "version": "2.0", "bundleId": "com.b.two", "path": "/Applications/A1.app"},
+							{"name": "Alpha", "version": "2.0", "bundleId": "com.a.one", "path": "/Applications/A2.app"},
+							{"name": "Alpha", "version": "2.0", "bundleId": "com.a.one", "path": "/Applications/A1.app"}
+						]
+					}
+				]
+			}`,
+		},
+	}
+
+	rows, err := runReportSoftwareInstalls(context.Background(), client, "", true, true, true)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	want := [][4]string{
+		{"Alpha", "2.0", "com.a.one", "/Applications/A1.app"},
+		{"Alpha", "2.0", "com.a.one", "/Applications/A2.app"},
+		{"Alpha", "2.0", "com.b.two", "/Applications/A1.app"},
+		{"Alpha", "1.0", "com.a.one", "/Applications/A1.app"},
+		{"Zulu", "1.0", "com.z.one", "/Applications/Z1.app"},
+	}
+	if len(rows) != len(want) {
+		t.Fatalf("got %d rows, want %d", len(rows), len(want))
+	}
+	for i, w := range want {
+		got := [4]string{
+			rows[i]["title"].(string),
+			rows[i]["version"].(string),
+			rows[i]["bundle_id"].(string),
+			rows[i]["path"].(string),
+		}
+		if got != w {
+			t.Errorf("row %d = %v, want %v", i, got, w)
+		}
+	}
+}
+
+// The row builder gates bundle_id on the flag, never on whether the value is
+// empty, so an application the wire reports with no bundleId still gets a row
+// and still carries the column. Gating on emptiness instead would drop it and
+// take the column with it, since a table's columns are the keys of its first
+// row.
+func TestRunReportSoftwareInstalls_AppWithNoBundleIDKeepsTheKeyWithAnEmptyValue(t *testing.T) {
+	client := &paginatedMockClient{
+		pages: map[string]string{
+			"/v4/computers-inventory?section=APPLICATIONS&page=0&page-size=100": `{
+				"totalCount": 3,
+				"results": [
+					{
+						"id": "1",
+						"applications": [
+							{"name": "Zoom", "version": "5.0", "bundleId": "us.zoom.xos", "path": "/Applications/zoom.us.app"}
+						]
+					},
+					{
+						"id": "2",
+						"applications": [
+							{"name": "Zoom", "version": "5.0", "path": "/Applications/zoom.us.app"}
+						]
+					},
+					{
+						"id": "3",
+						"applications": [
+							{"name": "Zoom", "version": "5.0", "path": "/Applications/zoom.us.app"}
+						]
+					}
+				]
+			}`,
+		},
+	}
+
+	rows, err := runReportSoftwareInstalls(context.Background(), client, "", true, true, false)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(rows) != 2 {
+		t.Fatalf("got %d rows, want 2 (the app with no bundleId keeps its own row)", len(rows))
+	}
+
+	var nameless map[string]any
+	for _, r := range rows {
+		v, ok := r["bundle_id"]
+		if !ok {
+			t.Fatalf("row %v carries no bundle_id key", r)
+		}
+		if v == "" {
+			nameless = r
+		}
+	}
+	if nameless == nil {
+		t.Fatalf("no row for the app with no bundleId, got %v", rows)
+	}
+	if nameless["device_count"] != 2 {
+		t.Errorf("empty bundle_id device_count = %v, want 2", nameless["device_count"])
+	}
+}
+
+// The grouping and row-building halves are the same shape as the bundle-ID
+// case, but an empty path has one consumer a missing bundleId has none of:
+// isSystemApp("") is false, so a path-less application is never filtered as a
+// system app and reaches the report even in the default output. This pins that
+// combination — includeSystem off, --path on, a row with an empty path.
+func TestRunReportSoftwareInstalls_AppWithNoPathSurvivesTheDefaultSystemFilter(t *testing.T) {
+	client := &paginatedMockClient{
+		pages: map[string]string{
+			"/v4/computers-inventory?section=APPLICATIONS&page=0&page-size=100": `{
+				"totalCount": 2,
+				"results": [
+					{
+						"id": "1",
+						"applications": [
+							{"name": "Slack", "version": "4.0", "path": "/Applications/Slack.app"},
+							{"name": "Slack", "version": "4.0"}
+						]
+					},
+					{
+						"id": "2",
+						"applications": [
+							{"name": "Slack", "version": "4.0"}
+						]
+					}
+				]
+			}`,
+		},
+	}
+
+	rows, err := runReportSoftwareInstalls(context.Background(), client, "", false, false, true)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(rows) != 2 {
+		t.Fatalf("got %d rows, want 2 (the app with no path keeps its own row)", len(rows))
+	}
+
+	var pathless map[string]any
+	for _, r := range rows {
+		v, ok := r["path"]
+		if !ok {
+			t.Fatalf("row %v carries no path key", r)
+		}
+		if v == "" {
+			pathless = r
+		}
+	}
+	if pathless == nil {
+		t.Fatalf("no row for the app with no path, got %v", rows)
+	}
+	if pathless["device_count"] != 2 {
+		t.Errorf("empty path device_count = %v, want 2", pathless["device_count"])
 	}
 }
 
