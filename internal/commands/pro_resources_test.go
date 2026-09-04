@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/commands/pro/generated"
+	"github.com/Jamf-Concepts/jamf-cli/internal/output"
 )
 
 func TestBackupResources_NotEmpty(t *testing.T) {
@@ -316,6 +317,99 @@ func TestBackupResourceRowsForFormat_TwoShapes(t *testing.T) {
 			if r["objects"] == nil {
 				t.Fatalf("%s row %d lost objects: %v", format, i, r)
 			}
+		}
+	}
+}
+
+// TestBackupResourceRowsForFormat_UnrecognisedFormatsAreNarrowed pins the
+// polarity of the switch. internal/output normalises no case and its dispatch
+// renders a table for every value it does not recognise, so matching table, csv
+// and plain exactly sent each value below down the keep-everything arm: objects
+// came back as the leading column of a 137-character table at exit 0, with no
+// warning, which is the layout the split exists to remove.
+func TestBackupResourceRowsForFormat_UnrecognisedFormatsAreNarrowed(t *testing.T) {
+	rows, err := backupResourceRows()
+	if err != nil {
+		t.Fatalf("backupResourceRows: %v", err)
+	}
+	if len(rows) == 0 {
+		t.Fatal("no rows — the assertions below would pass vacuously")
+	}
+
+	for _, format := range []string{"", "Table", "TABLE", "tabel", "plaintext", "bogus", "CSV", "Plain", "JSON"} {
+		got := backupResourceRowsForFormat(rows, format)
+		if len(got) != len(rows) {
+			t.Errorf("%q: %d rows, want %d", format, len(got), len(rows))
+		}
+		for i, r := range got {
+			if len(r) != 2 {
+				t.Fatalf("%q row %d has %d keys, want 2: %v", format, i, len(r), r)
+			}
+			if _, ok := r["objects"]; ok {
+				t.Fatalf("%q row %d still carries objects: %v", format, i, r)
+			}
+		}
+	}
+}
+
+// TestBackupResourceRowsForFormat_DataFormatsKeepObjects sweeps the whole
+// keep-everything arm, which adds xml and raw to the three the two-shapes test
+// names. PrintRaw hands raw the bytes verbatim and xml straight to PrintBytes,
+// neither of which runs the JSON-to-rows conversion, so a caller asking for
+// either wants the field rather than a narrower table. The constants come from
+// internal/output so the two sides of the same decision cannot drift.
+func TestBackupResourceRowsForFormat_DataFormatsKeepObjects(t *testing.T) {
+	rows, err := backupResourceRows()
+	if err != nil {
+		t.Fatalf("backupResourceRows: %v", err)
+	}
+	if len(rows) == 0 {
+		t.Fatal("no rows — the assertions below would pass vacuously")
+	}
+
+	formats := []output.Format{
+		output.FormatJSON, output.FormatYAML, output.FormatNDJSON,
+		output.FormatXML, output.FormatRaw,
+	}
+	for _, format := range formats {
+		got := backupResourceRowsForFormat(rows, string(format))
+		if len(got) != len(rows) {
+			t.Errorf("%s: %d rows, want %d", format, len(got), len(rows))
+		}
+		for i, r := range got {
+			if len(r) != 3 {
+				t.Fatalf("%s row %d has %d keys, want all 3: %v", format, i, len(r), r)
+			}
+			if r["objects"] == nil {
+				t.Fatalf("%s row %d lost objects: %v", format, i, r)
+			}
+		}
+	}
+}
+
+// TestBackupResourceRowsForFormat_JSONMultiIsNarrowed pins the one format whose
+// name argues for the other arm. json-multi means JSON on the wire and a table
+// on the screen: `multi` captures every display format as json-multi and
+// re-renders the merged rows, and Print's switch has no case for it, so it
+// reaches printTable. Keeping the column for it therefore put the buried
+// 137-character layout back on a terminal by way of `multi`, which is the only
+// route left after the narrowing above. selectTableColumns
+// (generated/registry.go) excludes it from its own keep-set for this reason.
+func TestBackupResourceRowsForFormat_JSONMultiIsNarrowed(t *testing.T) {
+	rows, err := backupResourceRows()
+	if err != nil {
+		t.Fatalf("backupResourceRows: %v", err)
+	}
+	if len(rows) == 0 {
+		t.Fatal("no rows — the assertions below would pass vacuously")
+	}
+
+	for i, r := range backupResourceRowsForFormat(rows, string(output.FormatJSONMulti)) {
+		if len(r) != 2 {
+			t.Fatalf("json-multi row %d has %d keys, want 2: %v", i, len(r), r)
+		}
+		if _, ok := r["objects"]; ok {
+			t.Fatalf("json-multi row %d still carries objects: %v", i, r)
 		}
 	}
 }

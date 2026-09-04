@@ -1373,6 +1373,79 @@ func TestRefuseStrayArgs_LeavesRealSubcommandAlone(t *testing.T) {
 	}
 }
 
+// TestRefuseStrayArgs_ListResourcesLeaf covers the validator on a leaf command,
+// which nothing else reaches: the group-parent tree walk in
+// TestGuardUnknownSubcommands_CoversAllGroupParents only visits a command that
+// owns subcommands, and every other list-resources test invokes it with zero
+// positionals. Deleting the Args line leaves all of them passing, and
+// `pro backup list-resources somegarbage` then discards the positional and
+// prints the whole listing at exit 0.
+//
+// The spec version is "unknown" so checkTenantVersion returns before its
+// version probe, and the credentials are pinned rather than inherited: either
+// one left ambient sends a live request to a Jamf host from a developer machine
+// that happens to have a profile exported.
+func TestRefuseStrayArgs_ListResourcesLeaf(t *testing.T) {
+	resetGlobals()
+	t.Setenv("JAMF_URL", "https://test.jamfcloud.com")
+	t.Setenv("JAMF_TOKEN", "")
+	t.Setenv("JAMF_CLIENT_ID", "")
+	t.Setenv("JAMF_CLIENT_SECRET", "")
+	t.Setenv("JAMF_PROFILE", "")
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+
+	root := NewRootCmd("test", "none", "none", "unknown")
+	root.SetArgs([]string{"pro", "backup", "list-resources", "somegarbage"})
+	root.SetOut(io.Discard)
+	root.SetErr(io.Discard)
+
+	var err error
+	stdout := captureStdout(t, func() { err = root.Execute() })
+	if err == nil {
+		t.Fatal("pro backup list-resources accepted a stray positional")
+	}
+	if code := exitcode.CodeFrom(err); code != exitcode.Usage {
+		t.Errorf("exit code = %d, want %d (usage)", code, exitcode.Usage)
+	}
+	if !strings.Contains(err.Error(), "somegarbage") {
+		t.Errorf("error should name the typo, got %q", err.Error())
+	}
+	if !strings.Contains(err.Error(), "takes no positional arguments") {
+		t.Errorf("list-resources owns no subcommands, so the message must not call the "+
+			"typo an unknown command, got %q", err.Error())
+	}
+	if strings.TrimSpace(stdout) != "" {
+		t.Errorf("the listing printed despite the refusal, %d bytes: %q", len(stdout), stdout)
+	}
+}
+
+// TestRefuseStrayArgs_ZeroPositionalsPass pins the early return directly.
+// cobra's ValidateArgs calls the validator on every invocation of a command
+// carrying it, so zero positionals is the ordinary path and not an edge case. A
+// regression there panics on args[0] inside whichever unrelated test runs the
+// command first, which crashes the package binary instead of failing one line.
+func TestRefuseStrayArgs_ZeroPositionalsPass(t *testing.T) {
+	cmd := &cobra.Command{Use: "probe"}
+
+	if err := refuseStrayArgs(cmd, nil); err != nil {
+		t.Errorf("nil args: %v", err)
+	}
+	if err := refuseStrayArgs(cmd, []string{}); err != nil {
+		t.Errorf("empty args: %v", err)
+	}
+
+	err := refuseStrayArgs(cmd, []string{"somegarbage"})
+	if err == nil {
+		t.Fatal("a positional was accepted")
+	}
+	if code := exitcode.CodeFrom(err); code != exitcode.Usage {
+		t.Errorf("exit code = %d, want %d (usage)", code, exitcode.Usage)
+	}
+	if !strings.Contains(err.Error(), "somegarbage") {
+		t.Errorf("error should name the positional, got %q", err.Error())
+	}
+}
+
 // TestGuardUnknownSubcommands_CoversAllGroupParents walks the entire command
 // tree and asserts every group parent (a command that owns subcommands) is
 // guarded: a typo must not print help and exit 0. Because it walks the whole

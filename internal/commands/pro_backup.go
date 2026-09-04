@@ -129,10 +129,14 @@ func newBackupListResourcesCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Short: "List the resource tokens accepted by --resources",
 		Long: `List every resource token accepted by --resources on 'pro backup' and 'pro diff'.
 
-table, csv and plain show two columns: resource (the token) and source (the API
-or mechanism each token reads from). json, yaml and ndjson add a third, objects
-(the backing commands, or a note for a resource handled outside the generated
-registry).`,
+Any format that renders a table shows two columns: resource (the token) and
+source (the API or mechanism each token reads from). json, yaml, ndjson, xml and
+raw add a third, objects (the backing commands, or a note for a resource handled
+outside the generated registry).
+
+--wide changes nothing here. It selects every column of a table row, and the
+objects column is not part of the table shape. Use one of the formats above to
+read objects.`,
 		Annotations: map[string]string{noAuthAnnotation: "true"},
 		Args:        refuseStrayArgs,
 		RunE: func(_ *cobra.Command, _ []string) error {
