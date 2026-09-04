@@ -1035,6 +1035,30 @@ mark, .search-highlight { background: var(--search-highlight); color: inherit; b
 .detail-parent-link { font-family: var(--font-mono); font-size: 12px; white-space: nowrap; }
 .command-detail .code-block { font-size: 12px; line-height: 18px; }
 .detail-example { display: flex; flex-direction: column; gap: 6px; }
+/* Collapsed by default, so the drawer opens on the command the reader asked
+   for. The count is on the summary so the list can be judged unopened. */
+.detail-related-toggle > summary {
+  cursor: pointer;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.detail-related-toggle > summary::-webkit-details-marker { display: none; }
+.detail-chevron {
+  width: 12px;
+  height: 12px;
+  flex: none;
+  color: var(--font-tertiary);
+  transition: transform 0.15s;
+}
+.detail-related-toggle[open] > summary .detail-chevron { transform: rotate(90deg); }
+@media (prefers-reduced-motion: reduce) {
+  .detail-chevron { transition: none; }
+}
+.detail-count { font-weight: 400; color: var(--font-tertiary); }
+.detail-related-toggle .detail-related { margin-top: 8px; }
+
 /* Related commands read as verb + what it does, two per row. A chip run said
    only the verb, which is the half a reader already knows. */
 .detail-related {

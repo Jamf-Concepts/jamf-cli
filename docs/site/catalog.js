@@ -1106,6 +1106,42 @@
   // Sibling verbs listed in full before the reader is sent to the parent.
   var MAX_RELATED = 8;
 
+  var RELATED_OPEN_KEY = 'relatedOpen';
+
+  // Storage can be blocked outright (private windows, enterprise policy) and
+  // reading it then throws rather than returning null, so neither direction is
+  // allowed to stop the drawer from rendering.
+  function readRelatedOpen() {
+    try {
+      return window.localStorage.getItem(RELATED_OPEN_KEY) === '1';
+    } catch (e) {
+      return false;
+    }
+  }
+
+  function writeRelatedOpen(open) {
+    try {
+      if (open) window.localStorage.setItem(RELATED_OPEN_KEY, '1');
+      else window.localStorage.removeItem(RELATED_OPEN_KEY);
+    } catch (e) {}
+  }
+
+  function chevronIcon() {
+    var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('class', 'detail-chevron');
+    svg.setAttribute('viewBox', '0 0 24 24');
+    svg.setAttribute('fill', 'none');
+    svg.setAttribute('stroke', 'currentColor');
+    svg.setAttribute('stroke-width', '2');
+    svg.setAttribute('stroke-linecap', 'round');
+    svg.setAttribute('stroke-linejoin', 'round');
+    svg.setAttribute('aria-hidden', 'true');
+    var path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    path.setAttribute('d', 'M9 18l6-6-6-6');
+    svg.appendChild(path);
+    return svg;
+  }
+
   function buildDetailContent(cmd) {
     var frag = document.createDocumentFragment();
     var stack = document.createElement('div');
@@ -1238,7 +1274,27 @@
         return a.verb < b.verb ? -1 : 1;
       });
 
-      stack.appendChild(createDetailHeading('Related commands'));
+      // Collapsed by default: the reader opened the drawer for the command
+      // they clicked, and a list of its siblings is the answer to a different
+      // question. The choice is remembered so a reader who wants it open once
+      // does not reopen it on every drawer.
+      var relatedBox = document.createElement('details');
+      relatedBox.className = 'detail-related-toggle';
+      var relatedSummary = document.createElement('summary');
+      relatedSummary.className = 'detail-heading';
+      relatedSummary.appendChild(chevronIcon());
+      relatedSummary.appendChild(document.createTextNode('Related commands '));
+      var relatedCount = document.createElement('span');
+      relatedCount.className = 'detail-count';
+      relatedCount.textContent = '(' + items.length + ')';
+      relatedSummary.appendChild(relatedCount);
+      relatedBox.appendChild(relatedSummary);
+      if (readRelatedOpen()) relatedBox.open = true;
+      relatedBox.addEventListener('toggle', function () {
+        writeRelatedOpen(relatedBox.open);
+      });
+      stack.appendChild(relatedBox);
+
       var list = document.createElement('ul');
       list.className = 'detail-related';
       list.setAttribute('role', 'list');
@@ -1282,7 +1338,7 @@
         moreLi.appendChild(moreLink);
         list.appendChild(moreLi);
       }
-      stack.appendChild(list);
+      relatedBox.appendChild(list);
     }
 
     frag.appendChild(stack);
@@ -1561,6 +1617,9 @@
       // Only handle when not in an input
       var tag = document.activeElement.tagName;
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+      // A <summary> owns Enter and Space natively, and 'c' typed while it has
+      // focus is a keystroke inside the drawer, not a copy request for a row.
+      if (tag === 'SUMMARY') return;
 
       var rows = catalog.querySelectorAll('.command-row');
       if (rows.length === 0) return;
