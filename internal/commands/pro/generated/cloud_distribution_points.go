@@ -133,11 +133,11 @@ func newCloudDistributionPointsDeleteCmd(ctx *registry.CLIContext) *cobra.Comman
 		Use:   "delete",
 		Short: "Delete cloud distribution point.",
 		Long:  "The cloud distribution point and inventory details to be deleted.",
-		Example: `  # Delete a cloud-distribution-point (with confirmation)
-  jamf-cli pro cloud-distribution-points delete 1
+		Example: `  # Delete the cloud-distribution-point (with confirmation)
+  jamf-cli pro cloud-distribution-points delete
 
   # Delete without confirmation prompt
-  jamf-cli pro cloud-distribution-points delete 1 --yes`,
+  jamf-cli pro cloud-distribution-points delete --yes`,
 		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Update Cloud Distribution Point", "jamf:api": "pro", "jamf:gateway-privileges": "cloud-distribution-point:update"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -215,8 +215,8 @@ func newCloudDistributionPointsHistoryCmd(ctx *registry.CLIContext) *cobra.Comma
 		Use:   "history",
 		Short: "Get cloud distribution point history details",
 		Long:  "Get cloud distribution point history details",
-		Example: `  # Get history for a cloud-distribution-point
-  jamf-cli pro cloud-distribution-points history 1`,
+		Example: `  # Get history for the cloud-distribution-point
+  jamf-cli pro cloud-distribution-points history`,
 		Annotations: map[string]string{"jamf:privileges": "Read Cloud Distribution Point", "jamf:api": "pro", "jamf:gateway-privileges": "cloud-distribution-point:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

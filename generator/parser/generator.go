@@ -278,6 +278,12 @@ func (g *Generator) Generate(resource *Resource) (string, error) {
 				return setEx + fmt.Sprintf("  # Replace a %s from JSON\n  echo '{\"name\":\"Updated\"}' | %s %s update 1\n\n  # Get a %s, modify, and update\n  %s %s get 1 -o json | jq '.name = \"New Name\"' | %s %s update 1",
 					nameSingular, bin, resourceName, nameSingular, bin, resourceName, bin, resourceName)
 			case "delete":
+				// A singleton has no id to take, and guardStrayPositionals gives it
+				// cobra.NoArgs, so an example carrying one is refused as it is read.
+				if !hasPathParam(op.Path) {
+					return fmt.Sprintf("  # Delete the %s (with confirmation)\n  %s %s delete\n\n  # Delete without confirmation prompt\n  %s %s delete --yes",
+						nameSingular, bin, resourceName, bin, resourceName)
+				}
 				if pp := pathParams(op.Parameters); len(pp) > 1 {
 					var argNums []string
 					for i := range pp {
@@ -297,6 +303,10 @@ func (g *Generator) Generate(resource *Resource) (string, error) {
 				return fmt.Sprintf("  # Delete multiple %s by IDs\n  %s %s delete-multiple --ids 1,2,3 --yes",
 					resourceName, bin, resourceName)
 			case "history":
+				if !hasPathParam(op.Path) {
+					return fmt.Sprintf("  # Get history for the %s\n  %s %s history",
+						nameSingular, bin, resourceName)
+				}
 				if pp := pathParams(op.Parameters); len(pp) > 1 {
 					var argNums []string
 					for i := range pp {

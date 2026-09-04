@@ -55,6 +55,16 @@ migration guide** and carries the detail, the error messages verbatim, and the r
 
 ### Breaking — everything else
 
+- **A command that documents no positional argument now refuses one**, with exit 2
+  (`usage`). 736 leaf commands used to accept any positional and discard it in silence, so
+  `pro categories list junkarg` ran the list and `pro backup /tmp/out` ran a whole backup
+  and ignored the directory that `--output` takes. A wrapper or a CI job that passes a
+  stray token now fails where it used to succeed. Remove the argument, or move it to the
+  flag that takes it; the refusal names the command and the value, and `--help` lists every
+  flag. A command that documents a placeholder is unchanged, `multi` still forwards every
+  positional to its inner command, and 22 singleton `delete` and `history` commands had
+  their `--help` examples corrected, because those examples showed an id the command never
+  accepted.
 - **`pro ddm-reports declaration get` and `pro ddm-reports device get` are removed.** Both
   endpoints were deprecated upstream in favour of a sibling the CLI already shipped:
   `declaration devices <id> --filter …` and `device declarations <id> --filter …`. The

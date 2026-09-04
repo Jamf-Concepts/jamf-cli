@@ -264,11 +264,11 @@ func newJamfProtectDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:   "delete",
 		Short: "Delete Jamf Protect API registration.",
 		Long:  "Deletes an existing Jamf Protect API registration if present. Jamf Protect API integration will be disabled.",
-		Example: `  # Delete a jamf-protect (with confirmation)
-  jamf-cli pro jamf-protect delete 1
+		Example: `  # Delete the jamf-protect (with confirmation)
+  jamf-cli pro jamf-protect delete
 
   # Delete without confirmation prompt
-  jamf-cli pro jamf-protect delete 1 --yes`,
+  jamf-cli pro jamf-protect delete --yes`,
 		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Update Jamf Protect Settings", "jamf:api": "pro", "jamf:gateway-privileges": "jamf-protect-deployments:update"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -346,8 +346,8 @@ func newJamfProtectHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:   "history",
 		Short: "Get Jamf Protect history",
 		Long:  "Get Jamf Protect history",
-		Example: `  # Get history for a jamf-protect
-  jamf-cli pro jamf-protect history 1`,
+		Example: `  # Get history for the jamf-protect
+  jamf-cli pro jamf-protect history`,
 		Annotations: map[string]string{"jamf:privileges": "Read Jamf Protect Settings", "jamf:api": "pro", "jamf:gateway-privileges": "jamf-protect-deployments:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

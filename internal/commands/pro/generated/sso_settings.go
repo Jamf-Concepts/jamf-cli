@@ -232,8 +232,8 @@ func newSsoSettingsHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:   "history",
 		Short: "Get SSO history object",
 		Long:  "Gets SSO history object",
-		Example: `  # Get history for a sso-settings
-  jamf-cli pro sso-settings history 1`,
+		Example: `  # Get history for the sso-settings
+  jamf-cli pro sso-settings history`,
 		Annotations: map[string]string{"jamf:privileges": "Read SSO Settings", "jamf:api": "pro", "jamf:gateway-privileges": "sso-settings:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

@@ -60,7 +60,7 @@ Configure it in an MCP client (example for Claude Desktop's config):
       }
     }
   }`,
-		Args: cobra.NoArgs,
+		Args: refuseStrayPositionals,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			executable, err := os.Executable()
 			if err != nil {

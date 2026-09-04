@@ -113,8 +113,8 @@ func newActivationCodesHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:   "history",
 		Short: "Get Activation Code history object",
 		Long:  "Get Activation Code history object",
-		Example: `  # Get history for a activation-code
-  jamf-cli pro activation-codes history 1`,
+		Example: `  # Get history for the activation-code
+  jamf-cli pro activation-codes history`,
 		Annotations: map[string]string{"jamf:privileges": "Read License Information", "jamf:api": "pro", "jamf:gateway-privileges": "activation-code:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

@@ -294,8 +294,8 @@ func newJamfConnectsHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:   "history",
 		Short: "Get Jamf Connect history",
 		Long:  "Get Jamf Connect history",
-		Example: `  # Get history for a jamf-connect
-  jamf-cli pro jamf-connects history 1`,
+		Example: `  # Get history for the jamf-connect
+  jamf-cli pro jamf-connects history`,
 		Annotations: map[string]string{"jamf:privileges": "Read Jamf Connect Settings", "jamf:api": "pro", "jamf:gateway-privileges": "jamf-connect-deployments:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

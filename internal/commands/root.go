@@ -1821,9 +1821,8 @@ func guardUnknownSubcommands(cmd *cobra.Command) {
 
 // guardStrayPositionals makes every leaf command that documents no positional
 // argument refuse one. Cobra validates Args per command and has no default, so
-// such a leaf accepted any positional and threw it away — which is how
-// `pro report software-installs --path /Applications/Foo.app` set the boolean
-// --path flag, dropped the path and reported the whole fleet with exit 0.
+// such a leaf accepted any positional and threw it away: `pro backup /tmp/out`
+// ran a whole backup and ignored the directory, which --output takes.
 //
 // The Use string decides, because it is where each command already states its
 // positional contract. A leaf that documents a placeholder keeps whatever
@@ -1840,8 +1839,41 @@ func guardStrayPositionals(cmd *cobra.Command) {
 		return
 	}
 	if count, _ := declaredPositionals(cmd.Use, cmd.Name()); count == 0 {
-		cmd.Args = cobra.NoArgs
+		cmd.Args = refuseStrayPositionals
+		// Cobra derives no completion from Args, so the leaf would still offer
+		// filenames for the positional it now refuses.
+		if cmd.ValidArgsFunction == nil && len(cmd.ValidArgs) == 0 {
+			cmd.ValidArgsFunction = noPositionalCompletion
+		}
 	}
+}
+
+// refuseStrayPositionals reports a positional given to a command that documents
+// none, and carries its own exit code.
+//
+// cobra.NoArgs is the obvious choice and says `unknown command "x" for "y"`,
+// which is guardUnknownSubcommands' message for a parent. On a leaf there is no
+// subcommand the value could have named, so that wording sends the reader
+// hunting for one: `pro backup /tmp/out` reported an unknown command for a
+// directory --output takes, and named neither the flag nor the real mistake.
+//
+// It classifies itself rather than leaving ClassifyError to match on "unknown
+// command", because that match is what made the exit code a property of cobra's
+// wording. Rewording NoArgs upstream, or replacing it here, would have dropped
+// every one of these refusals from exit 2 to exit 1 with nothing failing.
+func refuseStrayPositionals(cmd *cobra.Command, args []string) error {
+	if len(args) == 0 {
+		return nil
+	}
+	return &exitcode.Error{
+		Code:    exitcode.Usage,
+		Message: fmt.Sprintf("%q takes no positional arguments, but got %q", cmd.CommandPath(), args[0]),
+		Hint:    fmt.Sprintf("run %s --help for the flags it accepts", cmd.CommandPath()),
+	}
+}
+
+func noPositionalCompletion(*cobra.Command, []string, string) ([]string, cobra.ShellCompDirective) {
+	return nil, cobra.ShellCompDirectiveNoFileComp
 }
 
 // suggestFlag returns the closest known flag name to unknown, or "" when none
