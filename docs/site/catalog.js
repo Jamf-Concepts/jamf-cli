@@ -513,7 +513,12 @@
     item.className = 'group-nav-item';
     item.setAttribute('data-group', group.name);
     item.setAttribute('data-product', prod);
-    if (group.name === selectedGroup && prod === selectedProduct) item.classList.add('active');
+    // The sidebar is a plain list of buttons rather than a tablist, so the
+    // highlight has to have an ARIA counterpart or a reader hears every
+    // group alike.
+    var isActive = group.name === selectedGroup && prod === selectedProduct;
+    if (isActive) item.classList.add('active');
+    item.setAttribute('aria-current', isActive ? 'true' : 'false');
     var label = document.createElement('span');
     label.className = 'group-nav-label';
     label.textContent = group.name;
@@ -1518,6 +1523,9 @@
       var isActive = tabs[j].getAttribute('data-filter') === filter;
       tabs[j].classList.toggle('active', isActive);
       tabs[j].setAttribute('aria-selected', isActive ? 'true' : 'false');
+      // One tab stop for the whole tablist, which is what role="tab"
+      // promises. The arrow keys move between them.
+      tabs[j].setAttribute('tabindex', isActive ? '0' : '-1');
       // The panel is one region shared by every tab, so its label has to
       // follow the active tab rather than stay on the one it shipped with.
       if (isActive && tabs[j].id) {
@@ -1538,12 +1546,39 @@
     announceCatalog();
   }
 
+  // Arrow keys move along the tablist and activate as they go, which is the
+  // automatic-activation half of the ARIA tabs pattern. Home and End jump to
+  // the ends.
+  function moveTabFocus(e) {
+    var step = 0;
+    if (e.key === 'ArrowRight') step = 1;
+    else if (e.key === 'ArrowLeft') step = -1;
+    else if (e.key !== 'Home' && e.key !== 'End') return;
+    e.preventDefault();
+    var tabs = document.querySelectorAll('.tab');
+    var at = 0;
+    for (var k = 0; k < tabs.length; k++) {
+      if (tabs[k] === this) { at = k; break; }
+    }
+    var to;
+    if (e.key === 'Home') to = 0;
+    else if (e.key === 'End') to = tabs.length - 1;
+    else to = (at + step + tabs.length) % tabs.length;
+    activateProductTab(tabs[to].getAttribute('data-filter'));
+    tabs[to].focus();
+  }
+
   function setupTabs() {
     var tabs = document.querySelectorAll('.tab');
     for (var i = 0; i < tabs.length; i++) {
+      // The markup ships no tabindex, so every tab is a stop until the
+      // first selectProductTab runs. Seed the roving stop from the class
+      // the markup does carry.
+      tabs[i].setAttribute('tabindex', tabs[i].classList.contains('active') ? '0' : '-1');
       tabs[i].addEventListener('click', function () {
         activateProductTab(this.getAttribute('data-filter'));
       });
+      tabs[i].addEventListener('keydown', moveTabFocus);
     }
 
     var gsel = document.getElementById('group-select');
