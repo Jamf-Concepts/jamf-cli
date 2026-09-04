@@ -5,6 +5,9 @@ package commands
 import (
 	"bytes"
 	"encoding/json"
+	"go/ast"
+	"go/parser"
+	gotoken "go/token" // the package name collides with root.go's token flag var
 	"io"
 	"os"
 	"path/filepath"
@@ -184,9 +187,9 @@ func TestQuietAndNoHintsSuppressTheListHint(t *testing.T) {
 }
 
 // The four overview commands and the five multi-section reports render their
-// own text and reach the destination through writerFor. If it stops answering
-// with the formatter's writer, --out-file silently goes back to leaving an
-// empty file for every one of them.
+// own text and reach the destination through writerFor, so this covers the
+// helper every one of them depends on. It does not cover their call sites;
+// TestOverviewRenderersTakeTheFormattersWriter does.
 func TestWriterForAnswersWithTheFormattersWriter(t *testing.T) {
 	var buf bytes.Buffer
 	formatter := output.New("table", true, false)
@@ -253,5 +256,65 @@ func TestSectionHeadersFollowTheFormatterWriter(t *testing.T) {
 	}
 	if stdout != "" {
 		t.Errorf("standard output carried %q; the whole report belongs to the formatter's writer", stdout)
+	}
+}
+
+// overviewRenderers are the whole-output text renderers that take a writer
+// rather than printing through the formatter, so the writer their caller
+// chooses is the only thing that sends their output to --out-file.
+var overviewRenderers = map[string]bool{
+	"printOverviewTable":        true,
+	"printProtectOverviewTable": true,
+	"printSchoolOverviewTable":  true,
+}
+
+// A revert of any one of these four arguments to cmd.OutOrStdout() restores the
+// defect for that command and breaks no other test: writerFor keeps answering
+// correctly, and nothing else reads the argument. So the argument itself is
+// what has to be pinned.
+func TestOverviewRenderersTakeTheFormattersWriter(t *testing.T) {
+	entries, err := os.ReadDir(".")
+	if err != nil {
+		t.Fatalf("reading package directory: %v", err)
+	}
+
+	checked := 0
+	for _, entry := range entries {
+		name := entry.Name()
+		if entry.IsDir() || !strings.HasSuffix(name, ".go") || strings.HasSuffix(name, "_test.go") {
+			continue
+		}
+
+		fset := gotoken.NewFileSet()
+		file, parseErr := parser.ParseFile(fset, name, nil, 0)
+		if parseErr != nil {
+			t.Fatalf("parsing %s: %v", name, parseErr)
+		}
+
+		ast.Inspect(file, func(n ast.Node) bool {
+			call, ok := n.(*ast.CallExpr)
+			if !ok {
+				return true
+			}
+			callee, ok := call.Fun.(*ast.Ident)
+			if !ok || !overviewRenderers[callee.Name] || len(call.Args) == 0 {
+				return true
+			}
+			checked++
+			pos := fset.Position(call.Lparen)
+			arg, isCall := call.Args[0].(*ast.CallExpr)
+			if !isCall {
+				t.Errorf("%s:%d %s takes %T as its writer, want a writerFor call", name, pos.Line, callee.Name, call.Args[0])
+				return true
+			}
+			if writer, isIdent := arg.Fun.(*ast.Ident); !isIdent || writer.Name != "writerFor" {
+				t.Errorf("%s:%d %s takes a call to something other than writerFor as its writer", name, pos.Line, callee.Name)
+			}
+			return true
+		})
+	}
+
+	if checked != 4 {
+		t.Errorf("checked %d overview renderer calls, want the 4 this rule exists for; update overviewRenderers", checked)
 	}
 }
