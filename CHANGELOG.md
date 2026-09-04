@@ -65,7 +65,6 @@ migration guide** and carries the detail, the error messages verbatim, and the r
   positional to its inner command, and 22 singleton `delete` and `history` commands had
   their `--help` examples corrected, because those examples showed an id the command never
   accepted.
-||||||| 308f7f9
 - **A cobra usage error now exits 2, not 1.** Four classes move: a missing required flag, a
   flag group with no member set, a flag group with mutually exclusive members set together,
   and the wrong number of positional arguments. An unknown flag and an unknown subcommand
