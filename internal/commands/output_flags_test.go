@@ -4,6 +4,7 @@ package commands
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"go/ast"
@@ -317,48 +318,271 @@ func TestWithFormatKeepsTheWriterAndTheProjector(t *testing.T) {
 	}
 }
 
-// overviewRenderers are the whole-output text renderers that take a writer
-// rather than printing through the formatter, so the writer their caller
-// chooses is the only thing that sends their output to --out-file.
-var overviewRenderers = map[string]bool{
-	"printOverviewTable":        true,
-	"printProtectOverviewTable": true,
-	"printSchoolOverviewTable":  true,
-}
-
-// A revert of any one of these four arguments to cmd.OutOrStdout() restores the
-// defect for that command and breaks no other test: writerFor keeps answering
-// correctly, and nothing else reads the argument. So the argument itself is
-// what has to be pinned.
-func TestOverviewRenderersTakeTheFormattersWriter(t *testing.T) {
-	entries, err := os.ReadDir(".")
-	if err != nil {
-		t.Fatalf("reading package directory: %v", err)
+// Every setter the formatter exposes is one global flag reaching the output,
+// and buildOutputFormatter is the only place they are applied. Four of the five
+// are held by a test that observes the flag; SetExplicitNoColor is not, its only
+// reader being PaginationProgress's choice between the interactive counter and
+// NDJSON events, which needs stderr to be a terminal — something no test in this
+// package can arrange, isStderrTTY being unexported. Deleting that one line left
+// the whole package passing.
+//
+// So the wiring is what is pinned, and the set is read off the formatter rather
+// than listed: a sixth setter that buildOutputFormatter never calls is the same
+// defect as a fifth that stopped being called.
+func TestTheSharedFormatterAppliesEverySetterTheFormatterExposes(t *testing.T) {
+	setters := formatterSetterNames(t)
+	if len(setters) < 5 {
+		t.Fatalf("found %d setters on output.Formatter, want at least the 5 that carry the global flags", len(setters))
 	}
 
-	checked := 0
+	fset := gotoken.NewFileSet()
+	file, err := parser.ParseFile(fset, "root.go", nil, 0)
+	if err != nil {
+		t.Fatalf("parsing root.go: %v", err)
+	}
+
+	applied := map[string]bool{}
+	for _, decl := range file.Decls {
+		fn, ok := decl.(*ast.FuncDecl)
+		if !ok || fn.Name.Name != "buildOutputFormatter" {
+			continue
+		}
+		ast.Inspect(fn, func(n ast.Node) bool {
+			if sel, isSel := n.(*ast.SelectorExpr); isSel {
+				applied[sel.Sel.Name] = true
+			}
+			return true
+		})
+	}
+	if len(applied) == 0 {
+		t.Fatal("root.go declares no buildOutputFormatter, so nothing assembles the shared formatter")
+	}
+
+	for _, setter := range setters {
+		if !applied[setter] {
+			t.Errorf("buildOutputFormatter never calls %s, so the flag it carries is parsed and discarded", setter)
+		}
+	}
+}
+
+// formatterSetterNames returns every setter output.Formatter exposes.
+func formatterSetterNames(t *testing.T) []string {
+	t.Helper()
+
+	dir := filepath.Join("..", "output")
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatalf("reading the output package directory: %v", err)
+	}
+
+	var setters []string
 	for _, entry := range entries {
 		name := entry.Name()
 		if entry.IsDir() || !strings.HasSuffix(name, ".go") || strings.HasSuffix(name, "_test.go") {
 			continue
 		}
-
 		fset := gotoken.NewFileSet()
-		file, parseErr := parser.ParseFile(fset, name, nil, 0)
+		file, parseErr := parser.ParseFile(fset, filepath.Join(dir, name), nil, 0)
 		if parseErr != nil {
 			t.Fatalf("parsing %s: %v", name, parseErr)
 		}
+		for _, decl := range file.Decls {
+			fn, ok := decl.(*ast.FuncDecl)
+			if !ok || fn.Recv == nil || len(fn.Recv.List) == 0 {
+				continue
+			}
+			if !strings.HasPrefix(fn.Name.Name, "Set") || receiverTypeName(fn.Recv.List[0].Type) != "Formatter" {
+				continue
+			}
+			setters = append(setters, fn.Name.Name)
+		}
+	}
+	return setters
+}
 
+func receiverTypeName(expr ast.Expr) string {
+	if star, ok := expr.(*ast.StarExpr); ok {
+		expr = star.X
+	}
+	if id, ok := expr.(*ast.Ident); ok {
+		return id.Name
+	}
+	return ""
+}
+
+// formatterFor's fallback is for a caller reached with a test double or before
+// PersistentPreRunE ran. It goes through the shared builder, so the flags a
+// fresh output.New discards apply there too — which also removes the second
+// construction site the lint had to carve out.
+func TestTheFormatterFallbackStillCarriesTheProjection(t *testing.T) {
+	oldSelect := selectFields
+	selectFields = []string{"name"}
+	t.Cleanup(func() { selectFields = oldSelect })
+
+	stdout := captureStdout(t, func() {
+		if err := formatterFor(nil, "json").Print([]map[string]any{{"name": "keep", "drop": "me"}}); err != nil {
+			t.Fatalf("Print error: %v", err)
+		}
+	})
+
+	if !strings.Contains(stdout, "keep") {
+		t.Errorf("the fallback formatter printed nothing usable: %q", shortened(stdout))
+	}
+	if strings.Contains(stdout, "drop") {
+		t.Errorf("the fallback formatter ignored --select: %q", shortened(stdout))
+	}
+}
+
+// The two callers that ask the shared formatter for a format their own
+// argument names, rather than the global -o value. Both were referenced
+// exactly once in the package outside their own definition, and the three
+// TestGroupToolsExport_* cases assert against marshalGroupsJSON and
+// marshalGroupsYAML, helpers runGroupToolsExport does not call. So WithFormat
+// returning an alias instead of a copy was held by its own unit test alone,
+// and a clone defect reachable only through a non-global format argument would
+// have shipped green.
+func TestExportPrintsTheNamedFormatToTheFormattersWriter(t *testing.T) {
+	oldFmt := outputFmt
+	outputFmt = "table"
+	t.Cleanup(func() { outputFmt = oldFmt })
+
+	var buf bytes.Buffer
+	formatter := output.New("table", true, false)
+	formatter.SetWriter(&buf)
+	cliCtx := &registry.CLIContext{
+		Client: groupToolsMockClient(),
+		Output: &cliOutput{formatter},
+	}
+
+	stdout := captureStdout(t, func() {
+		if err := runGroupToolsExport(context.Background(), cliCtx, "yaml"); err != nil {
+			t.Fatalf("runGroupToolsExport error: %v", err)
+		}
+	})
+
+	if !strings.Contains(buf.String(), "name: All Computers") {
+		t.Errorf("--format yaml did not reach the formatter's writer as YAML: %q", shortened(buf.String()))
+	}
+	if strings.Contains(buf.String(), "───") {
+		t.Errorf("the export rendered the global -o table rather than its own --format: %q", shortened(buf.String()))
+	}
+	if stdout != "" {
+		t.Errorf("standard output carried %q; the export belongs to the formatter's writer", shortened(stdout))
+	}
+	// The shared formatter is reused for the rest of the invocation, so a
+	// WithFormat that aliased instead of copying would leave every later
+	// command rendering YAML.
+	if formatter.Format() != "table" {
+		t.Errorf("the shared formatter now renders %q; asking it for one format must not change it for everyone", formatter.Format())
+	}
+}
+
+// multi aggregates its children's output and renders it in the format the
+// inner command named, so it reaches the shared formatter by the same route as
+// the export above. printAggregated was named only in a comment.
+func TestAggregatedReportPrintsToTheFormattersWriter(t *testing.T) {
+	oldFmt := outputFmt
+	outputFmt = "table"
+	t.Cleanup(func() { outputFmt = oldFmt })
+
+	merged := map[string]any{
+		mergedListKey: map[string]map[string]any{
+			"1": {"id": "1", "name": "Mac-01"},
+		},
+	}
+
+	for _, format := range []string{"json", "yaml"} {
+		var buf bytes.Buffer
+		formatter := output.New("table", true, false)
+		formatter.SetWriter(&buf)
+		cliCtx := &registry.CLIContext{Output: &cliOutput{formatter}}
+
+		stdout := captureStdout(t, func() {
+			if err := printAggregated(cliCtx, newMultiCmd(cliCtx), merged, format); err != nil {
+				t.Fatalf("printAggregated(%s) error: %v", format, err)
+			}
+		})
+
+		if !strings.Contains(buf.String(), "Mac-01") {
+			t.Errorf("-o %s did not reach the formatter's writer: %q", format, shortened(buf.String()))
+		}
+		if stdout != "" {
+			t.Errorf("-o %s left %q on standard output", format, shortened(stdout))
+		}
+		if formatter.Format() != "table" {
+			t.Errorf("the shared formatter now renders %q after -o %s", formatter.Format(), format)
+		}
+	}
+}
+
+// shortened keeps a failure message readable when the value is a whole report.
+func shortened(s string) string {
+	if len(s) > 200 {
+		return s[:200] + "…"
+	}
+	return s
+}
+
+// overviewRenderers are the whole-output text renderers that take a writer
+// rather than printing through the formatter, so the writer their caller
+// chooses is the only thing that sends their output to --out-file. The set is
+// derived from the signature every one of them shares — a writer, then the
+// sections to render — so a fifth overview command's renderer is covered
+// without an edit here. A hardcoded list of names could not see one.
+func overviewRenderers(files map[string]*ast.File) map[string]bool {
+	found := map[string]bool{}
+	for _, file := range files {
+		for _, decl := range file.Decls {
+			fn, ok := decl.(*ast.FuncDecl)
+			if !ok || fn.Recv != nil || len(fn.Type.Params.List) < 2 {
+				continue
+			}
+			if !isIOWriterType(fn.Type.Params.List[0].Type) || !isOverviewSectionsType(fn.Type.Params.List[1].Type) {
+				continue
+			}
+			found[fn.Name.Name] = true
+		}
+	}
+	return found
+}
+
+func isIOWriterType(expr ast.Expr) bool {
+	sel, ok := expr.(*ast.SelectorExpr)
+	return ok && sel.Sel.Name == "Writer" && isPackageIdent(sel.X, "io")
+}
+
+func isOverviewSectionsType(expr ast.Expr) bool {
+	arr, ok := expr.(*ast.ArrayType)
+	if !ok || arr.Len != nil {
+		return false
+	}
+	id, ok := arr.Elt.(*ast.Ident)
+	return ok && id.Name == "overviewSection"
+}
+
+// A revert of any one of those renderers' writer arguments to cmd.OutOrStdout()
+// restores the defect for that command and breaks no other test: writerFor
+// keeps answering correctly, and nothing else reads the argument. So the
+// argument itself is what has to be pinned.
+func TestOverviewRenderersTakeTheFormattersWriter(t *testing.T) {
+	fset, files := packageFiles(t)
+	renderers := overviewRenderers(files)
+	if len(renderers) < 3 {
+		t.Fatalf("derived %d overview renderers, want at least the 3 in the tree; the signature they share has moved", len(renderers))
+	}
+
+	called := map[string]int{}
+	for name, file := range files {
 		ast.Inspect(file, func(n ast.Node) bool {
 			call, ok := n.(*ast.CallExpr)
 			if !ok {
 				return true
 			}
 			callee, ok := call.Fun.(*ast.Ident)
-			if !ok || !overviewRenderers[callee.Name] || len(call.Args) == 0 {
+			if !ok || !renderers[callee.Name] || len(call.Args) == 0 {
 				return true
 			}
-			checked++
+			called[callee.Name]++
 			pos := fset.Position(call.Lparen)
 			arg, isCall := call.Args[0].(*ast.CallExpr)
 			if !isCall {
@@ -372,9 +596,37 @@ func TestOverviewRenderersTakeTheFormattersWriter(t *testing.T) {
 		})
 	}
 
-	if checked != 4 {
-		t.Errorf("checked %d overview renderer calls, want the 4 this rule exists for; update overviewRenderers", checked)
+	for renderer := range renderers {
+		if called[renderer] == 0 {
+			t.Errorf("%s renders a whole overview and nothing calls it, so no call site is pinned", renderer)
+		}
 	}
+}
+
+// packageFiles parses every non-test file of this package, keyed by file name,
+// against one FileSet so the positions of any two of them are comparable.
+func packageFiles(t *testing.T) (*gotoken.FileSet, map[string]*ast.File) {
+	t.Helper()
+
+	entries, err := os.ReadDir(".")
+	if err != nil {
+		t.Fatalf("reading package directory: %v", err)
+	}
+
+	fset := gotoken.NewFileSet()
+	files := map[string]*ast.File{}
+	for _, entry := range entries {
+		name := entry.Name()
+		if entry.IsDir() || !strings.HasSuffix(name, ".go") || strings.HasSuffix(name, "_test.go") {
+			continue
+		}
+		file, parseErr := parser.ParseFile(fset, name, nil, 0)
+		if parseErr != nil {
+			t.Fatalf("parsing %s: %v", name, parseErr)
+		}
+		files[name] = file
+	}
+	return fset, files
 }
 
 // The five multi-section reports read writerFor into a local and then write

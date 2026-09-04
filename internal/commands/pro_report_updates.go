@@ -69,7 +69,10 @@ Examples:
   jamf-cli pro report update-status --scan-failures --limit 50
 
   # JSON output for scripting
-  jamf-cli pro report update-status -o json`,
+  jamf-cli pro report update-status -o json
+
+With no -o flag, this report writes a table. Then --out-file receives that
+table, not JSON. Use -o json to write structured data to the file.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !cmd.Flags().Changed("output") {
 				outputFmt = "table"

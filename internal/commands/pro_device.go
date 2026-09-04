@@ -32,7 +32,10 @@ and policy execution logs.
 
 The device can be identified by its Jamf Pro ID, serial number, or name.
 MDM and policy history are fetched in parallel; partial failures are shown
-as warnings on stderr and do not prevent the rest of the report.`,
+as warnings on stderr and do not prevent the rest of the report.
+
+With no -o flag, this command writes a grouped table. Then --out-file receives
+that table, not JSON. Use -o json to write structured data to the file.`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			sections, err := runDeviceDeepDive(cmd.Context(), cliCtx, args[0])

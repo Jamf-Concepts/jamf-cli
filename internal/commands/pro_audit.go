@@ -157,6 +157,10 @@ func runAudit(ctx context.Context, cliCtx *registry.CLIContext, opts auditOption
 		}
 	}
 
+	// This command has no --out-file branch of its own on purpose. It used to:
+	// the flag selected the format as well as the destination, so
+	// `-o table --out-file f` wrote JSON to the file. The file now gets the
+	// format -o names, which is what every other command does.
 	return printRows(cliCtx, rows)
 }
 

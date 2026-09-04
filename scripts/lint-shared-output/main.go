@@ -12,7 +12,7 @@
 // tell from a tenant with no data.
 //
 // It is a lint rather than a note in CLAUDE.md because both people and coding
-// agents copy the pattern that already surrounds the code. 24 commands held the
+// agents copy the pattern that already surrounds the code. 27 commands held the
 // second formatter, every one of them a copy of its neighbour.
 package main
 
@@ -50,7 +50,7 @@ func printReport(out io.Writer, res result) {
 		}
 		_, _ = fmt.Fprintln(out, "")
 		_, _ = fmt.Fprintln(out, "Print through the shared formatter instead, which carries --out-file,")
-		_, _ = fmt.Fprintln(out, "--select, --field, --compact, --quiet and --no-hints:")
+		_, _ = fmt.Fprintln(out, "--select, --compact, --quiet and --no-hints:")
 		_, _ = fmt.Fprintln(out, "")
 		_, _ = fmt.Fprintln(out, "  return printRows(cliCtx, rows)")
 		_, _ = fmt.Fprintln(out, "")
@@ -64,10 +64,21 @@ func printReport(out io.Writer, res result) {
 	if len(res.stale) > 0 {
 		_, _ = fmt.Fprintf(out, "STALE EXEMPTIONS (%d):\n", len(res.stale))
 		for _, e := range res.stale {
-			_, _ = fmt.Fprintf(out, "  %s  %s  (no longer builds a formatter)\n", e.file, e.fn)
+			_, _ = fmt.Fprintf(out, "  %s  %s  (%s)\n", e.file, e.fn, staleAdvice(e.reason))
 		}
 		_, _ = fmt.Fprintln(out, "")
-		_, _ = fmt.Fprintln(out, "Delete the entry from defaultExemptions.")
+		_, _ = fmt.Fprintln(out, "Correct the entry in defaultExemptions, or delete it when its site is gone.")
 		_, _ = fmt.Fprintln(out, "")
+	}
+}
+
+func staleAdvice(reason staleReason) string {
+	switch reason {
+	case fileNotFound:
+		return "names no file under the scanned root — correct the path"
+	case funcNotFound:
+		return "names no function in that file — correct the name"
+	default:
+		return "no longer builds a formatter — delete the entry"
 	}
 }

@@ -310,7 +310,10 @@ func newProtectOverviewCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Long: `Display a grouped summary of your Jamf Protect instance including endpoint
 counts, security configuration, data forwarding status, and access controls.
 
-Makes parallel API calls for fast results. Items that fail to load show "N/A".`,
+Makes parallel API calls for fast results. Items that fail to load show "N/A".
+
+With no -o flag, this command writes a grouped table. Then --out-file receives
+that table, not JSON. Use -o json to write structured data to the file.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			sections, err := runProtectOverview(cmd, cliCtx)
 			if err != nil {

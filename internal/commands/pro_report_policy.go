@@ -136,7 +136,10 @@ Examples:
   jamf-cli pro report policy-status --scan-failures --days 7
 
   # Cap sample size for large fleets
-  jamf-cli pro report policy-status --scan-failures --limit 500`,
+  jamf-cli pro report policy-status --scan-failures --limit 500
+
+With no -o flag, this report writes a table. Then --out-file receives that
+table, not JSON. Use -o json to write structured data to the file.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Default to table output for this report command
 			if !cmd.Flags().Changed("output") {

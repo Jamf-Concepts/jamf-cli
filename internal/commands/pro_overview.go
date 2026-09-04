@@ -1423,7 +1423,10 @@ func newOverviewCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Long: `Display a grouped summary of your Jamf Pro instance including server info,
 feature flags, inventory counts, organizational structure, and more.
 
-Makes parallel API calls for fast results. Items that fail to load show "N/A".`,
+Makes parallel API calls for fast results. Items that fail to load show "N/A".
+
+With no -o flag, this command writes a grouped table. Then --out-file receives
+that table, not JSON. Use -o json to write structured data to the file.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			sections, err := runOverview(cmd.Context(), cliCtx)
 			if err != nil {

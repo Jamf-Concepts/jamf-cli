@@ -13,6 +13,7 @@ func TestScan(t *testing.T) {
 		root        string
 		exemptions  []exemption
 		wantFuncs   []string
+		wantFiles   []string // asserted only where the function name alone cannot separate two sites
 		wantStaleFn []string
 	}{
 		{
@@ -72,6 +73,58 @@ func TestScan(t *testing.T) {
 			wantFuncs:  []string{"report.render"},
 		},
 		{
+			// The exemption key carries the file as well, so exempting one
+			// file's function does not cover a same-named function next to it.
+			// root.go holds the sanctioned site, and a second site in that same
+			// file wrote a 0-byte --out-file for as long as the key was the
+			// function alone.
+			name:       "an exemption for one file does not cover a same-named function in another",
+			root:       "testdata/twofiles",
+			exemptions: []exemption{{file: "testdata/twofiles/a.go", fn: "printThings", reason: "test"}},
+			wantFuncs:  []string{"printThings"},
+			wantFiles:  []string{"testdata/twofiles/b.go"},
+		},
+		{
+			// A test needs a formatter to assemble a CLIContext and sets no
+			// global output flag, so the walk skips _test.go outright. The skip
+			// is what keeps every table-driven test in internal/commands from
+			// being a finding.
+			name: "a formatter in a test file is not a finding",
+			root: "testdata/testfile",
+		},
+		{
+			// new(T) builds the same working formatter as &T{} and names no
+			// constructor at all.
+			name:      "new(output.Formatter) is a finding",
+			root:      "testdata/newexpr",
+			wantFuncs: []string{"printThings"},
+		},
+		{
+			// An element of a slice or map literal may elide its type, so the
+			// node that builds the formatter carries no type for a rule to read.
+			name:      "an element of a literal that elides its type is a finding",
+			root:      "testdata/nestedlit",
+			wantFuncs: []string{"printThings", "printThings", "printThings"},
+		},
+		{
+			// The package exports one constructor today. An exact match on New
+			// would report the tree clean the day it exports a second.
+			name:      "a second constructor is still a finding",
+			root:      "testdata/altctor",
+			wantFuncs: []string{"printThings"},
+		},
+		{
+			// A closure inside an exempt function is its own site: the
+			// exemption records why that function cannot print through the
+			// shared formatter, which says nothing about a callback in it. The
+			// entry is stale as well, the function itself now building nothing.
+			name:        "a closure does not inherit its function's exemption",
+			root:        "testdata/closure",
+			exemptions:  []exemption{{file: "testdata/closure/main.go", fn: "buildFormatter", reason: "test"}},
+			wantFuncs:   []string{"buildFormatter.func1", "buildFormatter.func2"},
+			wantStaleFn: []string{"buildFormatter"},
+		},
+		{
 			// The other direction: a site that stops building its own formatter
 			// must not leave its excuse behind.
 			name:        "an exemption matching nothing is stale",
@@ -95,9 +148,10 @@ func TestScan(t *testing.T) {
 				t.Fatalf("scan(%q) error: %v", tc.root, err)
 			}
 
-			var gotFuncs []string
+			var gotFuncs, gotFiles []string
 			for _, f := range got.findings {
 				gotFuncs = append(gotFuncs, f.fn)
+				gotFiles = append(gotFiles, f.file)
 				if f.line == 0 {
 					t.Errorf("finding in %s carries no line number", f.file)
 				}
@@ -107,6 +161,9 @@ func TestScan(t *testing.T) {
 			}
 			if !equalUnordered(gotFuncs, tc.wantFuncs) {
 				t.Errorf("findings: got %v, want %v", gotFuncs, tc.wantFuncs)
+			}
+			if tc.wantFiles != nil && !equalUnordered(gotFiles, tc.wantFiles) {
+				t.Errorf("finding files: got %v, want %v", gotFiles, tc.wantFiles)
 			}
 
 			var gotStale []string
@@ -119,6 +176,50 @@ func TestScan(t *testing.T) {
 
 			if want := len(tc.wantFuncs) == 0 && len(tc.wantStaleFn) == 0; got.clean() != want {
 				t.Errorf("clean() = %v, want %v", got.clean(), want)
+			}
+		})
+	}
+}
+
+// A stale entry's remedy depends on which half of the key failed, and the two
+// are opposite: a site that stopped building a formatter wants the entry
+// deleted, while a typo'd path or a renamed function wants it corrected. One
+// message for both sent the reader to delete an entry that was merely
+// misspelled.
+func TestStaleExemptionsSayWhichHalfOfTheKeyFailed(t *testing.T) {
+	cases := []struct {
+		name string
+		e    exemption
+		want staleReason
+	}{
+		{
+			name: "the function is there and builds nothing",
+			e:    exemption{file: "testdata/clean/main.go", fn: "printThings", reason: "test"},
+			want: siteBuildsNothing,
+		},
+		{
+			name: "the path names no file the walk reached",
+			e:    exemption{file: "testdata/clean/typo.go", fn: "printThings", reason: "test"},
+			want: fileNotFound,
+		},
+		{
+			name: "the file is there and the function is not",
+			e:    exemption{file: "testdata/clean/main.go", fn: "renamedAway", reason: "test"},
+			want: funcNotFound,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			res, err := scan("testdata/clean", []exemption{tc.e})
+			if err != nil {
+				t.Fatalf("scan error: %v", err)
+			}
+			if len(res.stale) != 1 {
+				t.Fatalf("got %d stale exemptions, want 1", len(res.stale))
+			}
+			if res.stale[0].reason != tc.want {
+				t.Errorf("reason = %v, want %v: %q", res.stale[0].reason, tc.want, staleAdvice(res.stale[0].reason))
 			}
 		})
 	}

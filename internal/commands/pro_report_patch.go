@@ -25,7 +25,10 @@ percentages per title.
 Use --scan-failures to also fetch patch policy failure counts. This
 queries the patch policies list endpoint for per-policy status counts.
 
-Output columns: title, id, on_latest, on_other, total, latest, compliance_pct`,
+Output columns: title, id, on_latest, on_other, total, latest, compliance_pct
+
+With no -o flag, this report writes a table. Then --out-file receives that
+table, not JSON. Use -o json to write structured data to the file.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !cmd.Flags().Changed("output") {
 				outputFmt = "table"

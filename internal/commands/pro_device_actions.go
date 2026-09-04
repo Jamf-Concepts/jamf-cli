@@ -581,6 +581,19 @@ func unresolvedTargetsErr(deviceType string, unresolved int) error {
 	return fmt.Errorf("%d %s target(s) from --from-file could not be resolved", unresolved, deviceType)
 }
 
+// deviceActionPreviewTable prints the bulk-targeting preview, which keeps the
+// contract newBulkCmd's Long documents: preview table on stdout, mutation log
+// on stderr. It stays a table whatever -o says, so it cannot come from the
+// shared formatter.
+//
+// It is its own function so that scripts/lint-shared-output can exempt three
+// lines rather than the whole of executeAction, where a later formatter on a
+// result-printing path would have been exempt before anyone wrote it.
+func deviceActionPreviewTable(rows []map[string]any) {
+	formatter := output.New("table", noColor, wide)
+	_ = formatter.Print(rows)
+}
+
 // executeAction runs cfg against the resolved devices. unresolved is the count
 // of --from-file entries that never resolved: already warned about per entry by
 // the resolver, and folded into the tally here so the exit code reflects them.
@@ -614,8 +627,7 @@ func executeAction(cmd *cobra.Command, dt *deviceTarget, devices []*resolve.Devi
 				"action": cfg.actionName,
 			}
 		}
-		formatter := output.New("table", noColor, wide)
-		_ = formatter.Print(rows)
+		deviceActionPreviewTable(rows)
 
 		if cfg.destructive && !confirmDestructive {
 			_, _ = fmt.Fprintf(stderr, "\n⚠️  This will %s %d %ss. Both --yes and --confirm-destructive are required.\n", cfg.actionName, len(devices), cfg.deviceType)
