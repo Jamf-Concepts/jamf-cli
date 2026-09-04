@@ -1291,6 +1291,9 @@ func TestRefuseStrayArgs_ProBackup(t *testing.T) {
 	if !strings.Contains(err.Error(), "list-resourcez") {
 		t.Errorf("error should name the typo, got %q", err.Error())
 	}
+	if !strings.Contains(err.Error(), "unknown command") {
+		t.Errorf("pro backup owns a subcommand, so the message keeps that wording, got %q", err.Error())
+	}
 
 	entries, readErr := os.ReadDir(dir)
 	if readErr != nil {
@@ -1321,11 +1324,16 @@ func TestRefuseStrayArgs_SuggestsRealSubcommand(t *testing.T) {
 	if !strings.Contains(err.Error(), "list-resources") {
 		t.Errorf("error should suggest 'list-resources', got %q", err.Error())
 	}
+	if !strings.Contains(err.Error(), "Did you mean this?") {
+		t.Errorf("error should carry the suggestion block, got %q", err.Error())
+	}
 }
 
-// TestRefuseStrayArgs_ProDiff covers the no-subcommands case: the message with
-// no suggestion block. `pro diff` also carries required flags, and the Args
-// validator has to win over those so the message names the real mistake.
+// TestRefuseStrayArgs_ProDiff covers the no-subcommands case. `pro diff` owns no
+// subcommands, so "unknown command" would read as though diff were a command
+// group; the message says the command takes no positional arguments instead.
+// `pro diff` also carries required flags, and the Args validator has to win over
+// those so the message names the real mistake.
 func TestRefuseStrayArgs_ProDiff(t *testing.T) {
 	root := NewRootCmd("test", "none", "none", "none")
 	root.SetArgs([]string{"pro", "diff", "somegarbage"})
@@ -1341,6 +1349,12 @@ func TestRefuseStrayArgs_ProDiff(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "somegarbage") {
 		t.Errorf("error should name the typo, got %q", err.Error())
+	}
+	if !strings.Contains(err.Error(), "takes no positional arguments") {
+		t.Errorf("error should say the command takes no positionals, got %q", err.Error())
+	}
+	if strings.Contains(err.Error(), "unknown command") {
+		t.Errorf("pro diff owns no subcommands, so the message must not call it one, got %q", err.Error())
 	}
 }
 
@@ -1370,6 +1384,17 @@ func TestRefuseStrayArgs_LeavesRealSubcommandAlone(t *testing.T) {
 // Args validator instead, and must NOT be given groupParentAnnotation:
 // PersistentPreRunE reads that annotation to skip auth, so annotating a parent
 // that calls an API would run it with a nil client.
+//
+// The runnable arm asserts both directions, because a validator that refuses
+// everything satisfies the refusal half on its own: the bogus positional and the
+// exit code alone would certify a parent whose own flag-only invocation cannot
+// run. Measured against a staged parent whose Args always returns a Usage error,
+// the arm without the zero-positional call passes and reports 322 verified.
+//
+// It is also what makes this walk exercise the zero-argument path at all, for
+// every runnable parent. Deleting the len(args) == 0 early return from
+// refuseStrayArgs still surfaces as an args[0] panic rather than a clean
+// failure, because the panic happens inside the call below.
 func TestGuardUnknownSubcommands_CoversAllGroupParents(t *testing.T) {
 	root := NewRootCmd("test", "none", "none", "none")
 
@@ -1390,6 +1415,8 @@ func TestGuardUnknownSubcommands_CoversAllGroupParents(t *testing.T) {
 						t.Errorf("runnable group parent %q accepted unknown subcommand %q", subPath, bogus)
 					} else if code := exitcode.CodeFrom(err); code != exitcode.Usage {
 						t.Errorf("runnable group parent %q: unknown subcommand exit %d, want %d (usage)", subPath, code, exitcode.Usage)
+					} else if err := sub.Args(sub, []string{}); err != nil {
+						t.Errorf("runnable group parent %q refuses its own zero-positional invocation: %v", subPath, err)
 					}
 				case sub.RunE == nil:
 					t.Errorf("group parent %q is annotated but has no RunE", subPath)

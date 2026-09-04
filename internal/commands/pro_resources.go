@@ -276,7 +276,8 @@ const backupResourceNoCommand = "no generated command"
 //
 // Every row carries all three keys deliberately: a table's columns are the keys
 // of its first row, so a key some rows omit is a column that appears and
-// disappears with the sort order.
+// disappears with the sort order. backupResourceRowsForFormat drops a key from
+// every row at once, which is a different thing.
 func backupResourceRows() ([]map[string]any, error) {
 	resolved, err := ResolveBackupResources(nil)
 	if err != nil {
@@ -325,4 +326,31 @@ func backupResourceRows() ([]map[string]any, error) {
 		})
 	}
 	return rows, nil
+}
+
+// backupResourceRowsForFormat adapts the `pro backup list-resources` rows to the
+// output format, the way listRowsForFormat does for `config list`.
+//
+// The column-based formats get resource and source; json, yaml and ndjson get
+// the rows untouched, objects included. sortedKeys (internal/output) floats only
+// id and name, so the rest are alphabetical: objects led, and being a joined
+// command list it is by far the widest value, which left the token this command
+// exists to report in the middle of a 137-character row. Dropping the column is
+// what the formatter allows, since printTable takes []map[string]any and a
+// struct's field order has nowhere to be read from. Nothing parsing the output
+// loses the backing commands, because the structured formats keep all three keys.
+func backupResourceRowsForFormat(rows []map[string]any, format string) []map[string]any {
+	switch format {
+	case "table", "csv", "plain":
+		out := make([]map[string]any, 0, len(rows))
+		for _, r := range rows {
+			out = append(out, map[string]any{
+				"resource": r["resource"],
+				"source":   r["source"],
+			})
+		}
+		return out
+	default:
+		return rows
+	}
 }

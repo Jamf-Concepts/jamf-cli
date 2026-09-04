@@ -22,7 +22,6 @@ import (
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/auth"
 	"github.com/Jamf-Concepts/jamf-cli/internal/exitcode"
-	"github.com/Jamf-Concepts/jamf-cli/internal/output"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform/blueprints"
 	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform/compliancebenchmarks"
@@ -112,7 +111,7 @@ reliable download path and are skipped with a warning.`,
 	_ = cmd.MarkFlagRequired("output")
 	_ = cmd.RegisterFlagCompletionFunc("resources", backupResourceCompletion)
 
-	cmd.AddCommand(newBackupListResourcesCmd())
+	cmd.AddCommand(newBackupListResourcesCmd(cliCtx))
 
 	return cmd
 }
@@ -124,15 +123,16 @@ func backupResourceCompletion(*cobra.Command, []string, string) ([]string, cobra
 	return BackupFilterNames(), cobra.ShellCompDirectiveNoFileComp
 }
 
-func newBackupListResourcesCmd() *cobra.Command {
+func newBackupListResourcesCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "list-resources",
 		Short: "List the resource tokens accepted by --resources",
 		Long: `List every resource token accepted by --resources on 'pro backup' and 'pro diff'.
 
-Output columns: resource (the token), objects (the backing commands, or a note
-for a resource handled outside the generated registry), source (the API or
-mechanism each token reads from).`,
+table, csv and plain show two columns: resource (the token) and source (the API
+or mechanism each token reads from). json, yaml and ndjson add a third, objects
+(the backing commands, or a note for a resource handled outside the generated
+registry).`,
 		Annotations: map[string]string{noAuthAnnotation: "true"},
 		Args:        refuseStrayArgs,
 		RunE: func(_ *cobra.Command, _ []string) error {
@@ -140,8 +140,14 @@ mechanism each token reads from).`,
 			if err != nil {
 				return err
 			}
-			formatter := output.New(outputFmt, noColor, wide)
-			return formatter.Print(rows)
+			// The shared formatter, not a private one: PersistentPreRunE has
+			// already given it --out-file, --select, --field, --compact,
+			// --quiet and --no-hints, and output.New applies none of them.
+			data, err := json.Marshal(backupResourceRowsForFormat(rows, cliCtx.Output.Format()))
+			if err != nil {
+				return fmt.Errorf("marshalling resource tokens: %w", err)
+			}
+			return cliCtx.Output.PrintRaw(data)
 		},
 	}
 }

@@ -269,3 +269,65 @@ func TestBackupResourceRows_MixedTokenNamesBothAPIs(t *testing.T) {
 		t.Errorf("source for %q = %q, want %q", "policies", got, "classic api")
 	}
 }
+
+// TestBackupResourceRowsForFormat_TwoShapes pins both halves of the split. The
+// column-based formats carry resource and source, so resource wins the
+// alphabetical column order; the structured ones carry objects too, so nothing
+// parsing the output loses the backing commands.
+func TestBackupResourceRowsForFormat_TwoShapes(t *testing.T) {
+	rows, err := backupResourceRows()
+	if err != nil {
+		t.Fatalf("backupResourceRows: %v", err)
+	}
+	if len(rows) == 0 {
+		t.Fatal("no rows — the assertions below would pass vacuously")
+	}
+
+	for _, format := range []string{"table", "csv", "plain"} {
+		got := backupResourceRowsForFormat(rows, format)
+		if len(got) != len(rows) {
+			t.Errorf("%s: %d rows, want %d", format, len(got), len(rows))
+		}
+		for i, r := range got {
+			if len(r) != 2 {
+				t.Fatalf("%s row %d has %d keys, want 2: %v", format, i, len(r), r)
+			}
+			if _, ok := r["objects"]; ok {
+				t.Fatalf("%s row %d still carries objects: %v", format, i, r)
+			}
+			if r["resource"] == nil || r["source"] == nil {
+				t.Fatalf("%s row %d dropped a kept key: %v", format, i, r)
+			}
+		}
+		if first := sortedKeysOf(got[0]); first[0] != "resource" {
+			t.Errorf("%s columns = %v, want resource first", format, first)
+		}
+	}
+
+	for _, format := range []string{"json", "yaml", "ndjson"} {
+		got := backupResourceRowsForFormat(rows, format)
+		if len(got) != len(rows) {
+			t.Errorf("%s: %d rows, want %d", format, len(got), len(rows))
+		}
+		for i, r := range got {
+			if len(r) != 3 {
+				t.Fatalf("%s row %d has %d keys, want all 3: %v", format, i, len(r), r)
+			}
+			if r["objects"] == nil {
+				t.Fatalf("%s row %d lost objects: %v", format, i, r)
+			}
+		}
+	}
+}
+
+// sortedKeysOf mirrors the column order internal/output derives for a table
+// row: id and name float, everything else is alphabetical. Neither key here is
+// one of the two that float, so plain sorting is the same answer.
+func sortedKeysOf(row map[string]any) []string {
+	keys := make([]string, 0, len(row))
+	for k := range row {
+		keys = append(keys, k)
+	}
+	slices.Sort(keys)
+	return keys
+}

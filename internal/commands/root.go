@@ -1793,9 +1793,9 @@ func guardUnknownSubcommands(cmd *cobra.Command) {
 	}
 }
 
-// refuseStrayArgs rejects any positional argument with the same message and
-// usage exit code guardUnknownSubcommands gives a group parent. It covers the
-// case that guard cannot: a command that is already runnable, which cobra
+// refuseStrayArgs rejects any positional argument with the same message builder
+// and usage exit code guardUnknownSubcommands gives a group parent. It covers
+// the case that guard cannot: a command that is already runnable, which cobra
 // routes straight to RunE with the stray positional silently discarded. `pro
 // backup` and `pro diff` both take their whole input as flags, and `pro backup`
 // owns a subcommand, so a subcommand typo there would otherwise start a full
@@ -1811,10 +1811,19 @@ func refuseStrayArgs(cmd *cobra.Command, args []string) error {
 	return unknownSubcommandError(cmd, args[0])
 }
 
-// unknownSubcommandError reports arg as an unresolvable subcommand of cmd, in
-// the wording and exit code cobra's own root-level handling uses. A command with
-// no subcommands simply gets no suggestion block.
+// unknownSubcommandError reports arg as an unresolvable positional of cmd, in
+// the exit code cobra's own root-level handling uses.
+//
+// The wording follows whether cmd owns subcommands, because "unknown command"
+// is only true when there was a command to get wrong. `pro diff` owns none and
+// takes its whole input as flags, so reporting a stray positional as an unknown
+// command read as though diff were a command group, when the mistake is almost
+// always a missing --source or --target.
 func unknownSubcommandError(cmd *cobra.Command, arg string) error {
+	if !cmd.HasSubCommands() {
+		msg := fmt.Sprintf("%q takes no positional arguments, got %q", cmd.CommandPath(), arg)
+		return exitcode.Wrap(exitcode.Usage, errors.New(msg))
+	}
 	// SuggestionsFor reads this directly with no default, and a child command
 	// leaves it at 0, which suppresses all but exact matches. Cobra's own
 	// findSuggestions defaults it the same way at the same point.

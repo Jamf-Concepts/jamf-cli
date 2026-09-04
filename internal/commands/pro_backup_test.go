@@ -743,3 +743,117 @@ func TestNoAuthAnnotation_ListResourcesSkipsAuth(t *testing.T) {
 		}
 	})
 }
+
+// TestBackupListResources_HonoursOutFile pins that list-resources prints
+// through the shared formatter. It used to build its own with output.New, which
+// writes to os.Stdout and applies none of the global flags PersistentPreRunE
+// has already wired onto cliCtx.Output. --out-file created an empty file while
+// the listing went to stdout, and --select, --field and --compact did nothing.
+func TestBackupListResources_HonoursOutFile(t *testing.T) {
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	path := filepath.Join(t.TempDir(), "tokens.json")
+
+	root := NewRootCmd("test", "none", "none", "none")
+	root.SetArgs([]string{"pro", "backup", "list-resources", "-o", "json", "--out-file", path})
+	root.SetOut(io.Discard)
+	root.SetErr(io.Discard)
+
+	var err error
+	stdout := captureStdout(t, func() { err = root.Execute() })
+	if err != nil {
+		t.Fatalf("pro backup list-resources: %v", err)
+	}
+	if strings.TrimSpace(stdout) != "" {
+		t.Errorf("--out-file was given, so stdout must be empty, got %d bytes: %q", len(stdout), stdout)
+	}
+
+	data, readErr := os.ReadFile(path)
+	if readErr != nil {
+		t.Fatalf("reading --out-file target: %v", readErr)
+	}
+	if len(data) == 0 {
+		t.Fatal("--out-file target is empty: the listing went somewhere else")
+	}
+
+	var rows []map[string]any
+	if err := json.Unmarshal(data, &rows); err != nil {
+		t.Fatalf("--out-file target is not the JSON listing: %v", err)
+	}
+	if len(rows) != len(BackupFilterNames()) {
+		t.Errorf("--out-file target holds %d rows, want %d", len(rows), len(BackupFilterNames()))
+	}
+	if _, ok := rows[0]["objects"]; !ok {
+		t.Error("json output must keep the objects key for anything parsing it")
+	}
+}
+
+// TestBackupListResources_HonoursSelect covers the same regression through the
+// projector, which output.New leaves unset.
+func TestBackupListResources_HonoursSelect(t *testing.T) {
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+
+	root := NewRootCmd("test", "none", "none", "none")
+	root.SetArgs([]string{"pro", "backup", "list-resources", "-o", "json", "--select", "resource"})
+	root.SetOut(io.Discard)
+	root.SetErr(io.Discard)
+
+	var err error
+	stdout := captureStdout(t, func() { err = root.Execute() })
+	if err != nil {
+		t.Fatalf("pro backup list-resources: %v", err)
+	}
+
+	var rows []map[string]any
+	if err := json.Unmarshal([]byte(stdout), &rows); err != nil {
+		t.Fatalf("output is not JSON rows: %v (got %q)", err, stdout)
+	}
+	if len(rows) == 0 {
+		t.Fatal("no rows returned")
+	}
+	for i, r := range rows {
+		if len(r) != 1 {
+			t.Fatalf("row %d has %d keys, want 1 after --select resource: %v", i, len(r), r)
+		}
+		if _, ok := r["resource"]; !ok {
+			t.Fatalf("row %d does not carry the selected key: %v", i, r)
+		}
+	}
+}
+
+// TestBackupListResources_TableLeadsWithTheToken renders the real table and
+// pins the two facts the narrowed row shape exists for: resource is the first
+// column, and objects is not a column at all. sortedKeys floats only id and
+// name, so the rest are alphabetical and objects would otherwise lead.
+func TestBackupListResources_TableLeadsWithTheToken(t *testing.T) {
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+
+	root := NewRootCmd("test", "none", "none", "none")
+	root.SetArgs([]string{"pro", "backup", "list-resources", "-o", "table", "--no-color"})
+	root.SetOut(io.Discard)
+	root.SetErr(io.Discard)
+
+	var err error
+	stdout := captureStdout(t, func() { err = root.Execute() })
+	if err != nil {
+		t.Fatalf("pro backup list-resources: %v", err)
+	}
+
+	// The row-count banner precedes the column header, so find the header
+	// rather than assuming it is the first line.
+	header := ""
+	for _, line := range strings.Split(stdout, "\n") {
+		if strings.Contains(strings.ToLower(line), "resource") {
+			header = strings.ToLower(line)
+			break
+		}
+	}
+	if header == "" {
+		t.Fatalf("no column header naming resource in table output: %q", stdout)
+	}
+	if fields := strings.Fields(header); fields[0] != "resource" {
+		t.Errorf("table columns = %v, want resource first", fields)
+	}
+	if strings.Contains(header, "objects") {
+		t.Errorf("table must not carry the objects column, header = %q", header)
+	}
+}
