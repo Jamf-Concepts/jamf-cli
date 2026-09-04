@@ -23,6 +23,38 @@ var unboundedPositionalLeaves = map[string]string{
 	"multi": "forwards every positional after the inner command name to that command",
 }
 
+type commandLeaf struct {
+	path string
+	cmd  *cobra.Command
+}
+
+// runnableLeaves collects every runnable command with no subcommands, named by
+// its full path. Walking the assembled tree is what lets a new command be
+// covered without an edit to the tests that read it.
+func runnableLeaves(root *cobra.Command) []commandLeaf {
+	var leaves []commandLeaf
+	var walk func(c *cobra.Command, path string)
+	walk = func(c *cobra.Command, path string) {
+		for _, sub := range c.Commands() {
+			subPath := strings.TrimSpace(path + " " + sub.Name())
+			if sub.Runnable() && !sub.HasSubCommands() {
+				leaves = append(leaves, commandLeaf{subPath, sub})
+			}
+			walk(sub, subPath)
+		}
+	}
+	walk(root, "")
+	return leaves
+}
+
+func strayArgs(n int) []string {
+	a := make([]string, n)
+	for i := range a {
+		a[i] = "zzstrayargument"
+	}
+	return a
+}
+
 // TestEveryLeafRefusesAnUndocumentedPositional holds every runnable leaf to the
 // positional contract its own Use string declares: it accepts the documented
 // count and refuses one more. Cobra validates Args per command and supplies no
@@ -31,32 +63,7 @@ var unboundedPositionalLeaves = map[string]string{
 // Because it walks the whole tree, a new leaf — generated or hand-written, at
 // any depth — is covered without editing this test.
 func TestEveryLeafRefusesAnUndocumentedPositional(t *testing.T) {
-	root := NewRootCmd("test", "none", "none", "none")
-
-	type leaf struct {
-		path string
-		cmd  *cobra.Command
-	}
-	var leaves []leaf
-	var walk func(c *cobra.Command, path string)
-	walk = func(c *cobra.Command, path string) {
-		for _, sub := range c.Commands() {
-			subPath := strings.TrimSpace(path + " " + sub.Name())
-			if sub.Runnable() && !sub.HasSubCommands() {
-				leaves = append(leaves, leaf{subPath, sub})
-			}
-			walk(sub, subPath)
-		}
-	}
-	walk(root, "")
-
-	dummies := func(n int) []string {
-		a := make([]string, n)
-		for i := range a {
-			a[i] = "zzstrayargument"
-		}
-		return a
-	}
+	leaves := runnableLeaves(NewRootCmd("test", "none", "none", "none"))
 
 	seenUnbounded := map[string]bool{}
 	documented := 0
@@ -80,7 +87,7 @@ func TestEveryLeafRefusesAnUndocumentedPositional(t *testing.T) {
 			t.Errorf("leaf %q declares no Args validator: it accepts any positional and discards it", l.path)
 			continue
 		}
-		if err := l.cmd.Args(l.cmd, dummies(count+1)); err == nil {
+		if err := l.cmd.Args(l.cmd, strayArgs(count+1)); err == nil {
 			t.Errorf("leaf %q documents %d positional(s) in Use %q but accepted %d", l.path, count, l.cmd.Use, count+1)
 		} else if count == 0 {
 			// cobra.NoArgs reports "unknown command", which ClassifyError maps to
@@ -91,7 +98,7 @@ func TestEveryLeafRefusesAnUndocumentedPositional(t *testing.T) {
 				t.Errorf("leaf %q: stray positional exits %d, want %d (usage)", l.path, code, exitcode.Usage)
 			}
 		}
-		if err := l.cmd.Args(l.cmd, dummies(count)); err != nil {
+		if err := l.cmd.Args(l.cmd, strayArgs(count)); err != nil {
 			t.Errorf("leaf %q documents %d positional(s) in Use %q but refused that many: %v", l.path, count, l.cmd.Use, err)
 		}
 	}
@@ -111,8 +118,57 @@ func TestEveryLeafRefusesAnUndocumentedPositional(t *testing.T) {
 	t.Logf("verified %d runnable leaves (%d documenting a positional, %d unbounded)", len(leaves), documented, len(seenUnbounded))
 }
 
-// TestNoCommandLiteralReadsAnUndeclaredPositional guards the one case the tree
-// walk cannot see. guardStrayPositionals reads the Use string, so a command that
+// unreachableScaffoldLeaves is the number of leaves whose --scaffold cannot be
+// invoked at all, because the modern Pro generator emits a bare ExactArgs and no
+// scaffold relaxation, so an operation under a path parameter with no --name
+// lookup demands an identifier its scaffold makes no request with. That is the
+// opposite defect to issue 350 and is not fixed here: relaxing those validators
+// needs each RunE checked for reading args before its scaffold return, which is
+// its own change. Held as a count so a new one fails this test, and so does the
+// fix, which drops the number to zero.
+const unreachableScaffoldLeaves = 26
+
+// TestScaffoldKeepsTheDeclaredPositionalCeiling covers the path the walk above
+// cannot see, because that walk reads each validator with no flag set.
+//
+// The classic and the platform generator both relax a command's Args validator
+// while --scaffold is set, since --scaffold needs no identifier and cobra
+// validates Args before RunE. Relaxing it to no validator at all reopened issue
+// 350 behind a flag: `pro classic-jwt-configs update aaa bbb ccc --scaffold`
+// printed the template and discarded three positionals with exit 0.
+func TestScaffoldKeepsTheDeclaredPositionalCeiling(t *testing.T) {
+	leaves := runnableLeaves(NewRootCmd("test", "none", "none", "none"))
+
+	checked, unreachable := 0, 0
+	for _, l := range leaves {
+		if l.cmd.Flags().Lookup("scaffold") == nil || l.cmd.Args == nil {
+			continue
+		}
+		if err := l.cmd.Flags().Set("scaffold", "true"); err != nil {
+			t.Fatalf("leaf %q: setting --scaffold: %v", l.path, err)
+		}
+		checked++
+
+		count, _ := declaredPositionals(l.cmd.Use, l.cmd.Name())
+		if err := l.cmd.Args(l.cmd, strayArgs(count+1)); err == nil {
+			t.Errorf("leaf %q with --scaffold accepted %d positional(s), one more than its Use %q documents", l.path, count+1, l.cmd.Use)
+		}
+		if l.cmd.Args(l.cmd, nil) != nil {
+			unreachable++
+		}
+	}
+
+	if unreachable != unreachableScaffoldLeaves {
+		t.Errorf("%d leaves cannot reach their own --scaffold, want %d: a relaxation was added or removed without moving unreachableScaffoldLeaves", unreachable, unreachableScaffoldLeaves)
+	}
+	if checked < 100 {
+		t.Fatalf("only %d leaves carry both --scaffold and an Args validator — the walk or the flag name is likely wrong", checked)
+	}
+	t.Logf("verified %d scaffold-bearing leaves keep their declared ceiling (%d cannot reach their scaffold)", checked, unreachable)
+}
+
+// TestNoCommandLiteralReadsAnUndeclaredPositional guards a case no tree walk can
+// see. guardStrayPositionals reads the Use string, so a command that
 // consumes a positional without documenting one would be clamped to NoArgs and
 // stop honouring an argument it accepts today. Requiring every command literal
 // that reads args to declare an Args validator keeps that command out of the

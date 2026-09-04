@@ -40,8 +40,11 @@ func newUemActivationProfilesDeployToUemCmd(cliCtx *registry.CLIContext) *cobra.
 		Long:        "Deploys Jamf Security configuration profiles to the UEM platform for the specified activation profile. This is the final step of automated UEM Connect onboarding.\n\nAllowed values:\n  platform: SUPERVISED_MAC, SUPERVISED_IOS, UNSUPERVISED_IOS, BYOD_IOS\n  uem: JAMF",
 		Annotations: map[string]string{"jamf:privileges": "uem-connect:update", "jamf:api": "platform-gateway"},
 		Args: func(cmd *cobra.Command, args []string) error {
+			// --scaffold needs no identifier, so it lowers the floor to zero. The
+			// ceiling stays, because dropping the validator let a stray positional
+			// through to be discarded.
 			if scaffoldFlag {
-				return nil
+				return cobra.MaximumNArgs(1)(cmd, args)
 			}
 			return cobra.ExactArgs(1)(cmd, args)
 		},
