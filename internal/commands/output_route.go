@@ -46,7 +46,7 @@ func printRows(cliCtx *registry.CLIContext, rows []map[string]any) error {
 func formatterFor(cliCtx *registry.CLIContext, format string) *output.Formatter {
 	if cliCtx != nil {
 		if co, ok := cliCtx.Output.(*cliOutput); ok && co.Formatter != nil {
-			return co.Formatter.WithFormat(format)
+			return co.WithFormat(format)
 		}
 	}
 	// Mirrors writerFor's nil guard: a caller reached with a test double, or

@@ -29,7 +29,7 @@ func main() {
 
 	res, err := scan(*root, defaultExemptions)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "lint-shared-output: %v\n", err)
+		_, _ = fmt.Fprintf(os.Stderr, "lint-shared-output: %v\n", err)
 		os.Exit(1)
 	}
 
@@ -44,30 +44,30 @@ func main() {
 
 func printReport(out io.Writer, res result) {
 	if len(res.findings) > 0 {
-		fmt.Fprintf(out, "FORMATTERS OUTSIDE THE SHARED ROUTE (%d):\n", len(res.findings))
+		_, _ = fmt.Fprintf(out, "FORMATTERS OUTSIDE THE SHARED ROUTE (%d):\n", len(res.findings))
 		for _, f := range res.findings {
-			fmt.Fprintf(out, "  %s:%d  in %s  (%s)\n", f.file, f.line, f.fn, f.form)
+			_, _ = fmt.Fprintf(out, "  %s:%d  in %s  (%s)\n", f.file, f.line, f.fn, f.form)
 		}
-		fmt.Fprintln(out, "")
-		fmt.Fprintln(out, "Print through the shared formatter instead, which carries --out-file,")
-		fmt.Fprintln(out, "--select, --field, --compact, --quiet and --no-hints:")
-		fmt.Fprintln(out, "")
-		fmt.Fprintln(out, "  return printRows(cliCtx, rows)")
-		fmt.Fprintln(out, "")
-		fmt.Fprintln(out, "A command whose own flag names the format calls formatterFor(cliCtx, format).")
-		fmt.Fprintln(out, "A renderer of its own text takes writerFor(cliCtx) as its writer.")
-		fmt.Fprintln(out, "A site that genuinely cannot use the shared formatter needs an entry in")
-		fmt.Fprintln(out, "defaultExemptions (scripts/lint-shared-output/scan.go) stating why.")
-		fmt.Fprintln(out, "")
+		_, _ = fmt.Fprintln(out, "")
+		_, _ = fmt.Fprintln(out, "Print through the shared formatter instead, which carries --out-file,")
+		_, _ = fmt.Fprintln(out, "--select, --field, --compact, --quiet and --no-hints:")
+		_, _ = fmt.Fprintln(out, "")
+		_, _ = fmt.Fprintln(out, "  return printRows(cliCtx, rows)")
+		_, _ = fmt.Fprintln(out, "")
+		_, _ = fmt.Fprintln(out, "A command whose own flag names the format calls formatterFor(cliCtx, format).")
+		_, _ = fmt.Fprintln(out, "A renderer of its own text takes writerFor(cliCtx) as its writer.")
+		_, _ = fmt.Fprintln(out, "A site that genuinely cannot use the shared formatter needs an entry in")
+		_, _ = fmt.Fprintln(out, "defaultExemptions (scripts/lint-shared-output/scan.go) stating why.")
+		_, _ = fmt.Fprintln(out, "")
 	}
 
 	if len(res.stale) > 0 {
-		fmt.Fprintf(out, "STALE EXEMPTIONS (%d):\n", len(res.stale))
+		_, _ = fmt.Fprintf(out, "STALE EXEMPTIONS (%d):\n", len(res.stale))
 		for _, e := range res.stale {
-			fmt.Fprintf(out, "  %s  %s  (no longer builds a formatter)\n", e.file, e.fn)
+			_, _ = fmt.Fprintf(out, "  %s  %s  (no longer builds a formatter)\n", e.file, e.fn)
 		}
-		fmt.Fprintln(out, "")
-		fmt.Fprintln(out, "Delete the entry from defaultExemptions.")
-		fmt.Fprintln(out, "")
+		_, _ = fmt.Fprintln(out, "")
+		_, _ = fmt.Fprintln(out, "Delete the entry from defaultExemptions.")
+		_, _ = fmt.Fprintln(out, "")
 	}
 }
