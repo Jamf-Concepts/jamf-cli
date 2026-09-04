@@ -1126,42 +1126,18 @@
     setTimeout(function () { element.classList.remove(cls); }, ms);
   }
 
-  // One copy path for every button. The async clipboard API needs a secure
-  // context and a user gesture; when it is missing or refuses, fall back to
-  // a hidden textarea and execCommand, which still works on http previews
-  // and older browsers. Resolves true on success, false when both fail.
-  function copyText(text) {
-    function legacy() {
-      try {
-        var ta = document.createElement('textarea');
-        ta.value = text;
-        ta.setAttribute('readonly', '');
-        ta.style.position = 'fixed';
-        ta.style.top = '-1000px';
-        ta.style.opacity = '0';
-        document.body.appendChild(ta);
-        ta.select();
-        var ok = document.execCommand('copy');
-        document.body.removeChild(ta);
-        return ok;
-      } catch (e) {
-        return false;
-      }
-    }
-    if (!navigator.clipboard || !navigator.clipboard.writeText) {
-      return Promise.resolve(legacy());
-    }
-    return navigator.clipboard.writeText(text).then(function () {
-      return true;
-    }, function () {
-      return legacy();
-    });
-  }
-
+  // One copy path for every button. The async Clipboard API is the only
+  // route; where it is unavailable or refuses, the button reports failure.
   function copyWithFeedback(text, element, ms) {
     var hold = ms || 1500;
-    copyText(text).then(function (ok) {
-      flash(element, ok ? 'copied' : 'copy-failed', hold);
+    if (!navigator.clipboard || !navigator.clipboard.writeText) {
+      flash(element, 'copy-failed', hold);
+      return;
+    }
+    navigator.clipboard.writeText(text).then(function () {
+      flash(element, 'copied', hold);
+    }, function () {
+      flash(element, 'copy-failed', hold);
     });
   }
 
@@ -1466,6 +1442,22 @@
 
   // A copyable shell line. The copy button is the shared .copy-btn the
   // index.html IIFE decorates with a check icon.
+  // Every copy button carries both icons in its own markup, so a button built
+  // here looks and behaves like the static ones in index.html. The .copied
+  // class toggled by copyWithFeedback cross-fades copy → check (style.css).
+  var COPY_ICONS = '<span class="copy-icons"><svg class="icon-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg><svg class="icon-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg></span>';
+
+  function copyButton(text, label, ariaLabel) {
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'btn btn-primary btn-small copy-btn';
+    btn.setAttribute('data-copy', text);
+    btn.setAttribute('aria-label', ariaLabel || ('Copy ' + text));
+    btn.innerHTML = COPY_ICONS;
+    btn.appendChild(document.createTextNode(' ' + label));
+    return btn;
+  }
+
   function buildExampleBlock(command, description) {
     var block = document.createElement('div');
     block.className = 'detail-example';
@@ -1484,16 +1476,7 @@
     code.appendChild(prompt);
     code.appendChild(document.createTextNode(command));
     line.appendChild(code);
-    var btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = 'btn btn-primary btn-small copy-btn';
-    btn.setAttribute('data-copy', command);
-    btn.setAttribute('aria-label', 'Copy ' + command);
-    btn.textContent = 'Copy';
-    // The load-time icon pass in index.html never sees a drawer button, so
-    // decorate it here; without this the button has no icon and no check.
-    if (window.decorateCopyButton) window.decorateCopyButton(btn);
-    line.appendChild(btn);
+    line.appendChild(copyButton(command, 'Copy'));
     block.appendChild(line);
     return block;
   }
