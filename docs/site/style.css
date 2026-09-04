@@ -502,9 +502,14 @@ a[target="_blank"]:hover::after {
   opacity: 0.7;
 }
 
+/* One declaration. The X transform below is sized from --burger-gap plus
+   the 2px bar, so a breakpoint that changes the gap must change the token
+   and not re-declare the rule. */
 .hamburger {
+  --burger-gap: 5px;
   flex-direction: column;
-  gap: 5px;
+  justify-content: center;
+  gap: var(--burger-gap);
   background: none;
   border: none;
   cursor: pointer;
@@ -515,13 +520,14 @@ a[target="_blank"]:hover::after {
   display: block;
   width: 22px;
   height: 2px;
+  margin: 0 auto;
   background: var(--font-base);
   border-radius: 1px;
   transition: transform 0.2s, opacity 0.2s;
 }
 
 .hamburger[aria-expanded="true"] span:nth-child(1) {
-  transform: translateY(7px) rotate(45deg);
+  transform: translateY(calc(var(--burger-gap) + 2px)) rotate(45deg);
 }
 
 .hamburger[aria-expanded="true"] span:nth-child(2) {
@@ -529,7 +535,7 @@ a[target="_blank"]:hover::after {
 }
 
 .hamburger[aria-expanded="true"] span:nth-child(3) {
-  transform: translateY(-7px) rotate(-45deg);
+  transform: translateY(calc((var(--burger-gap) + 2px) * -1)) rotate(-45deg);
 }
 
 /* ===== Nebula components shared across sections ===== */
@@ -1424,19 +1430,16 @@ footer {
 @media (max-width: 768px) {
   nav { height: 56px; padding: 0 16px; gap: 8px; }
   .nav-links, .nav-search { display: none; }
+  /* Only what the phone changes. The rest comes from the base rule, so the
+     X transform stays in step with the gap. */
   .hamburger {
+    --burger-gap: 4px;
     display: inline-flex;
-    flex-direction: column;
-    justify-content: center;
-    gap: 4px;
     width: 44px;
     height: 44px;
     margin-left: auto;
-    border: 0;
-    background: none;
-    cursor: pointer;
   }
-  .hamburger span { display: block; width: 18px; height: 2px; margin: 0 auto; background: var(--font-base); }
+  .hamburger span { width: 18px; }
   nav.nav-open .nav-links {
     display: flex;
     flex-direction: column;

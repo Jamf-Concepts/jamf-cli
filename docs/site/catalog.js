@@ -1518,6 +1518,12 @@
       var isActive = tabs[j].getAttribute('data-filter') === filter;
       tabs[j].classList.toggle('active', isActive);
       tabs[j].setAttribute('aria-selected', isActive ? 'true' : 'false');
+      // The panel is one region shared by every tab, so its label has to
+      // follow the active tab rather than stay on the one it shipped with.
+      if (isActive && tabs[j].id) {
+        var panel = document.getElementById('catalog');
+        if (panel) panel.setAttribute('aria-labelledby', tabs[j].id);
+      }
     }
     activeProduct = filter;
   }

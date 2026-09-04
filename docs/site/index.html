@@ -12,12 +12,16 @@
   <!-- Apply the saved manual theme before first paint (prevents a flash of
        the wrong theme) and pin the browser-chrome color to match. -->
   <script>
+    // The one copy of the pair declared on the two theme-color metas above.
+    // syncThemeColor() reads it back to restore them for system mode, and
+    // cannot read the metas themselves because this script overwrites them.
+    window.THEME_COLORS = { light: '#ffffff', dark: '#141920' };
     (function () {
       try {
         var t = localStorage.getItem('theme');
         if (t !== 'dark' && t !== 'light') return;
         document.documentElement.setAttribute('data-theme', t);
-        var c = t === 'dark' ? '#141920' : '#ffffff';
+        var c = window.THEME_COLORS[t];
         var metas = document.querySelectorAll('meta[name="theme-color"]');
         for (var i = 0; i < metas.length; i++) metas[i].setAttribute('content', c);
       } catch (e) { /* storage blocked — fall back to system theme */ }
@@ -40,6 +44,9 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,400;0,500;0,600;0,700;1,700&family=Noto+Sans+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
+  <!-- Without scripts the catalog never loads, so the loading line would
+       stand forever above the noscript block that explains why. -->
+  <noscript><style>#catalog-loading { display: none; }</style></noscript>
   <!-- Schema.org SoftwareApplication — eligibility for Google rich results
        and structured data for AI/search consumers.
        __VERSION__ and __BUILD_DATE__ are substituted with the release version
@@ -229,13 +236,13 @@
       <p><span id="commands-total">&mdash;</span> commands, regenerated from the binary on every merge to main.</p>
     </div>
     <div class="tabs" role="tablist" aria-label="Filter by product">
-      <button class="tab active" role="tab" aria-selected="true" aria-controls="catalog" data-filter="all" type="button">All</button>
-      <button class="tab" role="tab" aria-selected="false" aria-controls="catalog" data-filter="platform" type="button">Platform API</button>
-      <button class="tab" role="tab" aria-selected="false" aria-controls="catalog" data-filter="pro" type="button">Jamf Pro</button>
-      <button class="tab" role="tab" aria-selected="false" aria-controls="catalog" data-filter="protect" type="button">Jamf Protect</button>
-      <button class="tab" role="tab" aria-selected="false" aria-controls="catalog" data-filter="school" type="button">Jamf School</button>
-      <button class="tab" role="tab" aria-selected="false" aria-controls="catalog" data-filter="security" type="button">Security Cloud</button>
-      <button class="tab" role="tab" aria-selected="false" aria-controls="catalog" data-filter="core" type="button">Core</button>
+      <button class="tab active" id="tab-all" role="tab" aria-selected="true" aria-controls="catalog" data-filter="all" type="button">All</button>
+      <button class="tab" id="tab-platform" role="tab" aria-selected="false" aria-controls="catalog" data-filter="platform" type="button">Platform API</button>
+      <button class="tab" id="tab-pro" role="tab" aria-selected="false" aria-controls="catalog" data-filter="pro" type="button">Jamf Pro</button>
+      <button class="tab" id="tab-protect" role="tab" aria-selected="false" aria-controls="catalog" data-filter="protect" type="button">Jamf Protect</button>
+      <button class="tab" id="tab-school" role="tab" aria-selected="false" aria-controls="catalog" data-filter="school" type="button">Jamf School</button>
+      <button class="tab" id="tab-security" role="tab" aria-selected="false" aria-controls="catalog" data-filter="security" type="button">Security Cloud</button>
+      <button class="tab" id="tab-core" role="tab" aria-selected="false" aria-controls="catalog" data-filter="core" type="button">Core</button>
     </div>
     <div class="catalog-layout">
       <nav class="group-nav" id="group-nav" aria-label="Command groups"></nav>
@@ -254,6 +261,10 @@
           <button class="btn btn-secondary kbd-hint-btn" id="kbd-hint-btn" type="button" title="Keyboard shortcuts (?)" aria-label="Keyboard shortcuts"><kbd>?</kbd></button>
         </div>
         <div id="catalog-loading">Loading commands...</div>
+        <!-- The table is replaced wholesale by a tab, a group choice, a
+             search or a deep link. A replaced region announces nothing on
+             its own, so catalog.js writes what is on screen here. -->
+        <p id="catalog-status" class="sr-only" role="status" aria-live="polite"></p>
         <noscript>
           <div class="noscript-fallback">
             <p>The interactive command catalog needs JavaScript. The full command reference is also available in plain text:</p>
@@ -265,7 +276,7 @@
             </ul>
           </div>
         </noscript>
-        <div id="catalog" role="tabpanel"></div>
+        <div id="catalog" role="tabpanel" aria-labelledby="tab-all" tabindex="0"></div>
       </div>
     </div>
   </section>
@@ -345,11 +356,11 @@
   </script>
 
   <!-- ===== Keyboard Shortcuts Modal ===== -->
-  <div class="kbd-modal" id="kbd-modal">
+  <div class="kbd-modal" id="kbd-modal" role="dialog" aria-modal="true" aria-labelledby="kbd-modal-title">
     <div class="kbd-modal-content">
       <div class="kbd-modal-header">
-        <h3>Keyboard Shortcuts</h3>
-        <button class="kbd-modal-close" id="kbd-modal-close">&times;</button>
+        <h3 id="kbd-modal-title">Keyboard Shortcuts</h3>
+        <button class="kbd-modal-close" id="kbd-modal-close" type="button" aria-label="Close">&times;</button>
       </div>
       <div class="kbd-modal-body">
         <div class="kbd-row"><kbd>⌘</kbd> <kbd>K</kbd> <span>Open command palette</span></div>
@@ -491,11 +502,17 @@
       }
 
       // Pin the browser-chrome color to the rendered page background so it
-      // tracks the tokens instead of duplicating their hex.
+      // tracks the tokens instead of duplicating their hex. Each meta is
+      // scoped to one scheme, so a manual choice writes the rendered color
+      // into both (the page ignores the OS then) while system mode restores
+      // the declared pair and lets the browser pick.
       function syncThemeColor() {
+        var manual = current() !== 'system';
         var c = getComputedStyle(document.body).backgroundColor;
         document.querySelectorAll('meta[name="theme-color"]').forEach(function (m) {
-          m.setAttribute('content', c);
+          var media = m.getAttribute('media') || '';
+          var scheme = media.indexOf('dark') !== -1 ? 'dark' : 'light';
+          m.setAttribute('content', manual ? c : window.THEME_COLORS[scheme]);
         });
       }
 
@@ -537,7 +554,10 @@
             { clipPath: ['circle(0px at ' + x + 'px ' + y + 'px)', 'circle(' + radius + 'px at ' + x + 'px ' + y + 'px)'] },
             { duration: 450, easing: 'ease-in-out', pseudoElement: '::view-transition-new(root)' }
           );
-        });
+        // A transition the browser skips (a rapid second click, a hidden
+        // document) rejects vt.ready. The theme still applies, so absorb it
+        // rather than leaving an unhandled rejection in the console.
+        }).catch(function () { /* transition skipped — theme already applied */ });
       });
 
       // System mode follows the OS live.
@@ -573,12 +593,12 @@
         var tag = document.activeElement.tagName;
         if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
         e.preventDefault();
-        document.getElementById('kbd-modal').classList.toggle('open');
+        window.toggleShortcutsModal();
       }
       if (e.key === 'Escape') {
         var modal = document.getElementById('kbd-modal');
         if (modal.classList.contains('open')) {
-          modal.classList.remove('open');
+          window.closeShortcutsModal();
           return;
         }
         var search = document.getElementById('search');
@@ -593,18 +613,45 @@
       }
     });
 
-    // Keyboard shortcuts hint button
-    document.getElementById('kbd-hint-btn').addEventListener('click', function () {
-      document.getElementById('kbd-modal').classList.toggle('open');
-    });
+    // Keyboard shortcuts modal. Opening it has to move focus inside, or a
+    // keyboard reader has to tab through the whole commands table to reach
+    // the one control in it — the dialog sits ahead of the FAQ in the DOM.
+    // Closing gives focus back to whatever opened it.
+    (function () {
+      var modal = document.getElementById('kbd-modal');
+      var closeBtn = document.getElementById('kbd-modal-close');
+      var opener = null;
 
-    // Keyboard shortcuts modal close button
-    document.getElementById('kbd-modal-close').addEventListener('click', function () {
-      document.getElementById('kbd-modal').classList.remove('open');
-    });
-    document.getElementById('kbd-modal').addEventListener('click', function (e) {
-      if (e.target === this) this.classList.remove('open');
-    });
+      function openModal() {
+        opener = document.activeElement;
+        modal.classList.add('open');
+        closeBtn.focus();
+      }
+
+      function closeModal() {
+        modal.classList.remove('open');
+        if (opener && opener.focus) opener.focus();
+        opener = null;
+      }
+
+      window.toggleShortcutsModal = function () {
+        if (modal.classList.contains('open')) closeModal();
+        else openModal();
+      };
+      window.closeShortcutsModal = closeModal;
+
+      document.getElementById('kbd-hint-btn').addEventListener('click', window.toggleShortcutsModal);
+      closeBtn.addEventListener('click', closeModal);
+      modal.addEventListener('click', function (e) {
+        if (e.target === this) closeModal();
+      });
+      // Close is the only control, so Tab and Shift+Tab both stay on it.
+      modal.addEventListener('keydown', function (e) {
+        if (e.key !== 'Tab') return;
+        e.preventDefault();
+        closeBtn.focus();
+      });
+    })();
   </script>
   <script src="terminal.js"></script>
   <script src="catalog.js"></script>
