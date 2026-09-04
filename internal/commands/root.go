@@ -1747,6 +1747,31 @@ func ClassifyError(err error) error {
 	return err
 }
 
+// declaredPositionals reads the positional contract a command states in its Use
+// string: how many placeholders it documents, and whether the last of them is
+// variadic. Cobra's own "[flags]" and "--" tokens are not positionals.
+//
+// The Use string is the only place that contract is written once, so both the
+// stray-positional guard and the test that holds every leaf to it read the
+// arity from here rather than each carrying its own idea of the shape.
+func declaredPositionals(use, name string) (count int, variadic bool) {
+	fields := strings.Fields(use)
+	if len(fields) > 0 && fields[0] == name {
+		fields = fields[1:]
+	}
+	for _, f := range fields {
+		switch f {
+		case "[flags]", "--", "[--]":
+			continue
+		}
+		count++
+		if strings.Contains(f, "...") {
+			variadic = true
+		}
+	}
+	return count, variadic
+}
+
 // groupParentAnnotation marks a parent command that guardUnknownSubcommands made
 // runnable solely to reject unknown subcommands. PersistentPreRunE skips auth for
 // these — a group parent never calls an API itself.
