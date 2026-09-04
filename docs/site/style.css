@@ -282,7 +282,7 @@ html {
   --primary: light-dark(#1268ec, #2fa3ff);
   --primary-active: light-dark(#1f47cd, #0093ff);
   --primary-subdued: light-dark(rgba(18, 104, 236, 0.07), rgba(47, 163, 255, 0.12));
-  --focus: #008fff;
+  --focus: light-dark(#008fff, #008fff);
 
   /* Structure */
   --structure-base: light-dark(#ffffff, #141920);
@@ -334,7 +334,10 @@ html {
   --tag-core-fg: var(--font-base);
   --tag-core-bg: rgba(142, 142, 147, 0.16);
   --tag-new-fg: light-dark(#36219e, #c7c2f2);
-  --tag-new-bg: light-dark(linear-gradient(90deg, #bbe2ff, #cccdf4), rgba(88, 86, 214, 0.28));
+  /* light-dark() takes two colours, never an image, so the light gradient is
+     built from two colour stops. Dark repeats one tint, which paints flat. */
+  --tag-new-from: light-dark(#bbe2ff, rgba(88, 86, 214, 0.28));
+  --tag-new-to: light-dark(#cccdf4, rgba(88, 86, 214, 0.28));
 
   /* Terminal syntax (terminal.js). The terminal is always dark, so these
      are fixed dark-tuned values. */
@@ -583,7 +586,7 @@ a[target="_blank"]:hover::after {
 /* Write mark. Borrows the Platform hue so read/write/destructive reads as
    one three-step scale against the default gray .tag and .tag-danger. */
 .tag-write { background: var(--tag-platform-bg); color: var(--product-platform); }
-.tag-new { background: var(--tag-new-bg); color: var(--tag-new-fg); }
+.tag-new { background: linear-gradient(90deg, var(--tag-new-from), var(--tag-new-to)); color: var(--tag-new-fg); }
 .tag-mono { font-family: var(--font-mono); font-size: 12px; font-weight: 400; }
 
 /* Disclosure tooltip. Carried by the Platform tag, whose count overlaps with
@@ -829,7 +832,8 @@ a[target="_blank"]:hover::after {
 .tab:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--focus); border-radius: var(--r-small); }
 /* verify-site needs one selector per product tab */
 .tab[data-filter="pro"], .tab[data-filter="protect"], .tab[data-filter="school"],
-.tab[data-filter="security"], .tab[data-filter="platform"] { position: relative; }
+.tab[data-filter="security"], .tab[data-filter="platform"],
+.tab[data-filter="core"] { position: relative; }
 
 .catalog-layout { display: grid; grid-template-columns: 280px minmax(0, 1fr); gap: 32px; align-items: start; }
 
