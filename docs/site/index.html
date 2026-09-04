@@ -149,7 +149,12 @@
         <a href="#commands" class="tag" data-product="protect" data-tab="protect">Jamf Protect <span class="tag-count" id="stat-protect">&mdash;</span></a>
         <a href="#commands" class="tag" data-product="school" data-tab="school">Jamf School <span class="tag-count" id="stat-school">&mdash;</span></a>
         <a href="#commands" class="tag" data-product="security" data-tab="security">Security Cloud <span class="tag-count" id="stat-security">&mdash;</span></a>
-        <a href="#commands" class="tag" data-product="platform" data-tab="platform" data-tip="Includes Pro commands routed through the Platform Gateway. Counts overlap with Jamf Pro." aria-label="Platform API — includes Pro commands routed through the Platform Gateway, so counts overlap with Jamf Pro.">Platform API <span class="tag-count" id="stat-platform">&mdash;</span></a>
+        <a href="#commands" class="tag" data-product="platform" data-tab="platform" data-tip="Includes Pro commands routed through the Platform Gateway. Counts overlap with Jamf Pro.">Platform API <span class="tag-count" id="stat-platform">&mdash;</span><!--
+          The caveat rides inside the link as hidden text rather than as an
+          aria-label, so the accessible name still carries the count the
+          other five tags expose through their own text. An aria-label would
+          replace the whole name and drop the number.
+        --><span class="sr-only">. Includes Pro commands routed through the Platform Gateway, so counts overlap with Jamf Pro.</span></a>
         <a href="#commands" class="tag" data-product="core" data-tab="core">Core <span class="tag-count" id="stat-core">&mdash;</span></a>
       </div>
     </div>

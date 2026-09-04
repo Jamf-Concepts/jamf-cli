@@ -69,7 +69,7 @@ for product in $PRODUCTS; do
   check docs/site/style.css "--tag-${product}-fg:" "Nebula tag foreground token"
   check docs/site/style.css "--tag-${product}-bg:" "Nebula tag background token"
   check docs/site/style.css ".tag[data-product=\"${product}\"]" "product tag colour rule"
-  check docs/site/style.css ".group-nav-product[data-product=\"${product}\"]" "sidebar product dot rule"
+  check docs/site/style.css ".group-nav-product[data-product=\"${product}\"] .group-nav-dot" "sidebar product dot rule"
 
   # catalog.js
   check docs/site/catalog.js "stat-${product}" "product tag counter (animateCount call)"

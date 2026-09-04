@@ -166,8 +166,7 @@
         // tab. Without it that entry has a null state, and Back onto it has
         // no product to restore. The empty URL keeps the address bar as is.
         history.replaceState({ search: '', cmd: null, product: activeProduct }, '');
-        handleDeepLink();
-        announceCatalog();
+        if (!handleDeepLink()) announceCatalog();
       })
       .catch(function (err) {
         var catalog = document.getElementById('catalog');
@@ -1729,10 +1728,14 @@
     }
   }
 
+  // Reports whether it navigated, because navigateToCommand announces the
+  // view it lands on. Announcing again on top of that says the same thing
+  // twice for one page load.
   function handleDeepLink() {
     var hash = window.location.hash;
-    if (!hash || hash.indexOf('#cmd/') !== 0) return;
+    if (!hash || hash.indexOf('#cmd/') !== 0) return false;
     navigateToCommand(hash.slice(5).replace(/\//g, ' '));
+    return true;
   }
 
   function setupDeepLinking() {
@@ -1743,17 +1746,19 @@
       else if (hash && hash.indexOf('#cmd/') === 0) command = hash.slice(5).replace(/\//g, ' ');
 
       suppressHashUpdate = true;
-      // Restore the recorded tab first. navigateToCommand still follows the
-      // command to its own product afterwards, so the two do not fight.
-      var prod = e.state && e.state.product;
-      if (prod && prod !== activeProduct) {
-        selectProductTab(prod);
-        selectedGroup = null;
-        selectedProduct = null;
-      }
       if (command) {
+        // navigateToCommand derives the tab from the command itself, so
+        // restoring the recorded one first would repaint twice for one Back.
         navigateToCommand(command);
       } else {
+        // Nothing to derive a tab from here, so the recorded one is the only
+        // way back to the tab a cross-product link flipped away from.
+        var prod = e.state && e.state.product;
+        if (prod && prod !== activeProduct) {
+          selectProductTab(prod);
+          selectedGroup = null;
+          selectedProduct = null;
+        }
         var search = document.getElementById('search');
         if (search) {
           search.value = (e.state && e.state.search) || '';
