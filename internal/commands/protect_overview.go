@@ -318,7 +318,7 @@ Makes parallel API calls for fast results. Items that fail to load show "N/A".`,
 			}
 
 			if !cmd.Flags().Changed("output") || outputFmt == "table" {
-				printProtectOverviewTable(cmd.OutOrStdout(), sections, !noColor)
+				printProtectOverviewTable(writerFor(cliCtx), sections, !noColor)
 				return nil
 			}
 

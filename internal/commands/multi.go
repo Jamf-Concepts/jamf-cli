@@ -438,6 +438,10 @@ func printAggregated(cliCtx *registry.CLIContext, cmd *cobra.Command, merged map
 		return keys[i] < keys[j]
 	})
 
+	// The section headers belong wherever the tables go, or --out-file splits one
+	// report between a file and the terminal.
+	out := formatter.Writer()
+
 	first := true
 	for _, key := range keys {
 		val := merged[key]
@@ -445,9 +449,9 @@ func printAggregated(cliCtx *registry.CLIContext, cmd *cobra.Command, merged map
 		case map[string]any:
 			// Summary dict — print as single-row table
 			if !first {
-				fmt.Println()
+				_, _ = fmt.Fprintln(out)
 			}
-			fmt.Printf("── %s ──\n", formatSectionTitle(key))
+			_, _ = fmt.Fprintf(out, "── %s ──\n", formatSectionTitle(key))
 			if err := formatter.Print([]map[string]any{v}); err != nil {
 				return err
 			}
@@ -468,9 +472,9 @@ func printAggregated(cliCtx *registry.CLIContext, cmd *cobra.Command, merged map
 				return ci > cj
 			})
 			if !first {
-				fmt.Println()
+				_, _ = fmt.Fprintln(out)
 			}
-			fmt.Printf("── %s (%d) ──\n", formatSectionTitle(key), len(rows))
+			_, _ = fmt.Fprintf(out, "── %s (%d) ──\n", formatSectionTitle(key), len(rows))
 			if err := formatter.Print(rows); err != nil {
 				return err
 			}
@@ -491,9 +495,9 @@ func printAggregated(cliCtx *registry.CLIContext, cmd *cobra.Command, merged map
 				continue
 			}
 			if !first {
-				fmt.Println()
+				_, _ = fmt.Fprintln(out)
 			}
-			fmt.Printf("── %s (%d) ──\n", formatSectionTitle(key), len(rows))
+			_, _ = fmt.Fprintf(out, "── %s (%d) ──\n", formatSectionTitle(key), len(rows))
 			if err := formatter.Print(rows); err != nil {
 				return err
 			}

@@ -207,7 +207,7 @@ Makes parallel API calls for fast results. Items that fail to load show "N/A".`,
 			}
 
 			if !cmd.Flags().Changed("output") || outputFmt == "table" {
-				printSchoolOverviewTable(cmd.OutOrStdout(), sections, !noColor)
+				printSchoolOverviewTable(writerFor(cliCtx), sections, !noColor)
 				return nil
 			}
 

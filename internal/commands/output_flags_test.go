@@ -183,6 +183,42 @@ func TestQuietAndNoHintsSuppressTheListHint(t *testing.T) {
 	}
 }
 
+// The four overview commands and the five multi-section reports render their
+// own text and reach the destination through writerFor. If it stops answering
+// with the formatter's writer, --out-file silently goes back to leaving an
+// empty file for every one of them.
+func TestWriterForAnswersWithTheFormattersWriter(t *testing.T) {
+	var buf bytes.Buffer
+	formatter := output.New("table", true, false)
+	formatter.SetWriter(&buf)
+
+	if got := writerFor(&registry.CLIContext{Output: &cliOutput{formatter}}); got != &buf {
+		t.Errorf("writerFor returned %T, want the writer the formatter was given", got)
+	}
+	if got := writerFor(&registry.CLIContext{}); got != os.Stdout {
+		t.Errorf("writerFor with no formatter returned %T, want os.Stdout", got)
+	}
+}
+
+// Two formats have no rendering of their own for a report the CLI assembles.
+// The old per-command formatter sent both to the table renderer, because
+// Print's switch has no case for either and its default arm is the table. The
+// shared route sends them through PrintRaw, so they now render the report's own
+// JSON — the same thing a generated command's -o raw yields for a JSON
+// endpoint, and the only reading of "exact wire bytes" a synthesised report can
+// honour. Pinned because it is a decision rather than an accident.
+func TestRawAndXMLRenderTheReportsOwnJSON(t *testing.T) {
+	for _, format := range []string{"raw", "xml"} {
+		stdout, _, err := runRoot(t, "commands", "-o", format)
+		if err != nil {
+			t.Fatalf("commands -o %s failed: %v", format, err)
+		}
+		if !strings.HasPrefix(strings.TrimSpace(stdout), `[{"command":`) {
+			t.Errorf("-o %s did not render the report as JSON: %.60q", format, stdout)
+		}
+	}
+}
+
 // A report that prints several sections has to send its section headers
 // wherever its tables go. Otherwise --out-file splits one report across a file
 // and a terminal, which is worse than the defect it replaces.

@@ -1432,7 +1432,7 @@ Makes parallel API calls for fast results. Items that fail to load show "N/A".`,
 
 			// Table output uses custom grouped rendering (default for overview)
 			if !cmd.Flags().Changed("output") || outputFmt == "table" {
-				printOverviewTable(cmd.OutOrStdout(), sections, !noColor)
+				printOverviewTable(writerFor(cliCtx), sections, !noColor)
 				return nil
 			}
 
