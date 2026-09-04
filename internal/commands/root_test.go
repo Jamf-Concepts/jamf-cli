@@ -1258,7 +1258,10 @@ func TestClassifyError_MissingRequiredFlagIsAUsageError(t *testing.T) {
 	t.Setenv("JAMF_PROFILE", "")
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 
-	root := NewRootCmd("test", "none", "none", "none")
+	// The spec version must stay "unknown". checkTenantVersion returns early
+	// only on that value, and a completed PersistentPreRunE calls it, so any
+	// other value probes the tenant over the network from a unit test.
+	root := NewRootCmd("test", "none", "none", "unknown")
 	root.SetArgs([]string{"pro", "backup"})
 	root.SetOut(io.Discard)
 	root.SetErr(io.Discard)
@@ -1267,8 +1270,9 @@ func TestClassifyError_MissingRequiredFlagIsAUsageError(t *testing.T) {
 	if err == nil {
 		t.Fatal("pro backup with no --output should fail")
 	}
-	if !strings.Contains(err.Error(), "required flag") {
-		t.Fatalf("cobra reworded the message; ClassifyError's prefix needs updating: %q", err.Error())
+	if !strings.HasPrefix(err.Error(), usagePrefixRequiredFlags) {
+		t.Fatalf("cobra reworded the message; %q in ClassifyError's prefix list needs updating: %q",
+			usagePrefixRequiredFlags, err.Error())
 	}
 	if got := exitcode.CodeFrom(ClassifyError(err)); got != exitcode.Usage {
 		t.Errorf("missing required flag -> exit %d, want %d (usage)", got, exitcode.Usage)
@@ -1277,15 +1281,243 @@ func TestClassifyError_MissingRequiredFlagIsAUsageError(t *testing.T) {
 
 // TestClassifyError_UnrelatedPlainErrorStaysGeneral guards the widening: the
 // prefix list must not swallow a request failure into a usage code.
+//
+// Every prefix gets two neighbours, because a single unrelated string catches
+// neither way the matcher can go wrong. One starts with a truncation of the
+// prefix and stops short of it, so shortening a prefix fails here. One carries
+// the whole prefix as a mid-sentence substring, so relaxing strings.HasPrefix
+// to strings.Contains fails here. The earlier three strings satisfied neither
+// shape for five of the six prefixes.
 func TestClassifyError_UnrelatedPlainErrorStaysGeneral(t *testing.T) {
 	for _, msg := range []string{
 		"the request required a flag we could not send",
 		"boom",
+
 		"unknown field in the response body",
+		"the response body carried an unknown command reference",
+
+		"required inventory data was absent from the response",
+		`the server rejected the body: required flag(s) "name" not set`,
+
+		"if any device is offline the report is partial",
+		"the server said if any flags in the group [a b] are set none of the others can be",
+
+		"at least one device must be enrolled",
+		"the server said at least one of the flags in the group [a b] is required",
+
+		"requires a serial number",
+		"the server said requires at least 2 arg(s), only received 1",
+
+		"accept header was rejected",
+		"the endpoint accepts 2 arg(s), received 0",
 	} {
 		if got := exitcode.CodeFrom(ClassifyError(errors.New(msg))); got != exitcode.General {
 			t.Errorf("%q -> exit %d, want %d (general)", msg, got, exitcode.General)
 		}
+	}
+}
+
+// TestUsageErrorPrefixesMatchCobrasOwnMessages drives cobra's validators
+// directly so the literals cannot drift underneath the prefix list. Asserting
+// the prefix as well as the exit code is what makes an upstream reword name the
+// const that needs updating rather than just flipping a code.
+//
+// It calls the validators rather than Execute because MinimumNArgs, RangeArgs
+// and MarkFlagsRequiredTogether have no call site in this CLI, so no real
+// command can produce those three messages.
+func TestUsageErrorPrefixesMatchCobrasOwnMessages(t *testing.T) {
+	probe := func() *cobra.Command {
+		cmd := &cobra.Command{Use: "probe", Run: func(*cobra.Command, []string) {}}
+		cmd.Flags().String("alpha", "", "")
+		cmd.Flags().String("beta", "", "")
+		return cmd
+	}
+	setFlags := func(t *testing.T, cmd *cobra.Command, names ...string) {
+		t.Helper()
+		for _, n := range names {
+			if err := cmd.Flags().Set(n, "x"); err != nil {
+				t.Fatalf("set --%s: %v", n, err)
+			}
+		}
+	}
+
+	for _, tc := range []struct {
+		name    string
+		prefix  string
+		produce func(t *testing.T) error
+	}{
+		{
+			name:   "MarkFlagRequired unset",
+			prefix: usagePrefixRequiredFlags,
+			produce: func(t *testing.T) error {
+				cmd := probe()
+				if err := cmd.MarkFlagRequired("alpha"); err != nil {
+					t.Fatalf("MarkFlagRequired: %v", err)
+				}
+				return cmd.ValidateRequiredFlags()
+			},
+		},
+		{
+			name:   "MarkFlagsRequiredTogether with one set",
+			prefix: usagePrefixFlagGroup,
+			produce: func(t *testing.T) error {
+				cmd := probe()
+				cmd.MarkFlagsRequiredTogether("alpha", "beta")
+				setFlags(t, cmd, "alpha")
+				return cmd.ValidateFlagGroups()
+			},
+		},
+		{
+			name:   "MarkFlagsMutuallyExclusive with both set",
+			prefix: usagePrefixFlagGroup,
+			produce: func(t *testing.T) error {
+				cmd := probe()
+				cmd.MarkFlagsMutuallyExclusive("alpha", "beta")
+				setFlags(t, cmd, "alpha", "beta")
+				return cmd.ValidateFlagGroups()
+			},
+		},
+		{
+			name:   "MarkFlagsOneRequired with neither set",
+			prefix: usagePrefixFlagGroupOneOf,
+			produce: func(t *testing.T) error {
+				cmd := probe()
+				cmd.MarkFlagsOneRequired("alpha", "beta")
+				return cmd.ValidateFlagGroups()
+			},
+		},
+		{
+			name:    "ExactArgs",
+			prefix:  usagePrefixAcceptsArgs,
+			produce: func(t *testing.T) error { return cobra.ExactArgs(2)(probe(), nil) },
+		},
+		{
+			name:    "MaximumNArgs",
+			prefix:  usagePrefixAcceptsArgs,
+			produce: func(t *testing.T) error { return cobra.MaximumNArgs(1)(probe(), []string{"a", "b"}) },
+		},
+		{
+			name:    "RangeArgs",
+			prefix:  usagePrefixAcceptsArgs,
+			produce: func(t *testing.T) error { return cobra.RangeArgs(1, 2)(probe(), nil) },
+		},
+		{
+			name:    "MinimumNArgs",
+			prefix:  usagePrefixRequiresArgs,
+			produce: func(t *testing.T) error { return cobra.MinimumNArgs(1)(probe(), nil) },
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			err := tc.produce(t)
+			if err == nil {
+				t.Fatal("cobra accepted an invocation it used to reject")
+			}
+			if !strings.HasPrefix(err.Error(), tc.prefix) {
+				t.Errorf("cobra reworded the message; %q in ClassifyError's prefix list needs updating: %q",
+					tc.prefix, err.Error())
+			}
+			if got := exitcode.CodeFrom(ClassifyError(err)); got != exitcode.Usage {
+				t.Errorf("%q -> exit %d, want %d (usage)", err.Error(), got, exitcode.Usage)
+			}
+		})
+	}
+}
+
+// TestClassifyError_ExclusiveFlagGroupIsAUsageError covers the flag-group half
+// of the widening through a real command. `pro comp erase` marks serial, name,
+// id, group and from-file mutually exclusive, and two of them together exited 1
+// before the group prefixes were listed.
+func TestClassifyError_ExclusiveFlagGroupIsAUsageError(t *testing.T) {
+	resetGlobals()
+	t.Setenv("JAMF_URL", "https://test.jamfcloud.com")
+	t.Setenv("JAMF_TOKEN", "test-token")
+	t.Setenv("JAMF_CLIENT_ID", "")
+	t.Setenv("JAMF_CLIENT_SECRET", "")
+	t.Setenv("JAMF_PROFILE", "")
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+
+	root := NewRootCmd("test", "none", "none", "unknown")
+	root.SetArgs([]string{"pro", "comp", "erase", "--serial", "ABC", "--name", "foo"})
+	root.SetOut(io.Discard)
+	root.SetErr(io.Discard)
+
+	err := root.Execute()
+	if err == nil {
+		t.Fatal("pro comp erase with --serial and --name should fail")
+	}
+	if !strings.HasPrefix(err.Error(), usagePrefixFlagGroup) {
+		t.Fatalf("cobra reworded the message; %q in ClassifyError's prefix list needs updating: %q",
+			usagePrefixFlagGroup, err.Error())
+	}
+	if got := exitcode.CodeFrom(ClassifyError(err)); got != exitcode.Usage {
+		t.Errorf("exclusive flag group -> exit %d, want %d (usage)", got, exitcode.Usage)
+	}
+}
+
+// TestClassifyError_OneRequiredFlagGroupIsAUsageError covers MarkFlagsOneRequired
+// through a real command.
+//
+// The credentials are the Jamf Protect ones on purpose. `protect analytics
+// import` resolves no auth from JAMF_URL and JAMF_TOKEN, so with those alone it
+// fails earlier with a credentials error that already exits 2, and the test
+// passes without ever reaching the flag group. JAMF_URL and JAMF_TOKEN are
+// cleared so a developer's own environment cannot change which error arrives.
+func TestClassifyError_OneRequiredFlagGroupIsAUsageError(t *testing.T) {
+	resetGlobals()
+	t.Setenv("JAMFPROTECT_URL", "https://test.protect.jamfcloud.com")
+	t.Setenv("JAMFPROTECT_CLIENT_ID", "test-client")
+	t.Setenv("JAMFPROTECT_CLIENT_SECRET", "test-secret")
+	t.Setenv("JAMF_URL", "")
+	t.Setenv("JAMF_TOKEN", "")
+	t.Setenv("JAMF_CLIENT_ID", "")
+	t.Setenv("JAMF_CLIENT_SECRET", "")
+	t.Setenv("JAMF_PROFILE", "")
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+
+	root := NewRootCmd("test", "none", "none", "unknown")
+	root.SetArgs([]string{"protect", "analytics", "import"})
+	root.SetOut(io.Discard)
+	root.SetErr(io.Discard)
+
+	err := root.Execute()
+	if err == nil {
+		t.Fatal("protect analytics import with neither --file nor --dir should fail")
+	}
+	if !strings.HasPrefix(err.Error(), usagePrefixFlagGroupOneOf) {
+		t.Fatalf("cobra reworded the message; %q in ClassifyError's prefix list needs updating: %q",
+			usagePrefixFlagGroupOneOf, err.Error())
+	}
+	if got := exitcode.CodeFrom(ClassifyError(err)); got != exitcode.Usage {
+		t.Errorf("one-required flag group -> exit %d, want %d (usage)", got, exitcode.Usage)
+	}
+}
+
+// TestClassifyError_ArgCountIsAUsageError covers the argument-count half of the
+// widening through a real command. `pro blueprints clone` is cobra.ExactArgs(2).
+func TestClassifyError_ArgCountIsAUsageError(t *testing.T) {
+	resetGlobals()
+	t.Setenv("JAMF_URL", "https://test.jamfcloud.com")
+	t.Setenv("JAMF_TOKEN", "test-token")
+	t.Setenv("JAMF_CLIENT_ID", "")
+	t.Setenv("JAMF_CLIENT_SECRET", "")
+	t.Setenv("JAMF_PROFILE", "")
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+
+	root := NewRootCmd("test", "none", "none", "unknown")
+	root.SetArgs([]string{"pro", "blueprints", "clone"})
+	root.SetOut(io.Discard)
+	root.SetErr(io.Discard)
+
+	err := root.Execute()
+	if err == nil {
+		t.Fatal("pro blueprints clone with no arguments should fail")
+	}
+	if !strings.HasPrefix(err.Error(), usagePrefixAcceptsArgs) {
+		t.Fatalf("cobra reworded the message; %q in ClassifyError's prefix list needs updating: %q",
+			usagePrefixAcceptsArgs, err.Error())
+	}
+	if got := exitcode.CodeFrom(ClassifyError(err)); got != exitcode.Usage {
+		t.Errorf("wrong argument count -> exit %d, want %d (usage)", got, exitcode.Usage)
 	}
 }
 

@@ -1729,15 +1729,15 @@ func FprintError(w io.Writer, err error) {
 }
 
 // ClassifyError normalizes framework errors that carry no explicit exit code so
-// they map to the documented codes. Cobra reports both an unknown command and a
-// missing required flag as a plain error (default exit 1); classify each as a
-// usage error (2) to match the unknown-flag path handled by SetFlagErrorFunc.
-// Errors that already carry an exit code (including wrapped unknown-flag errors)
-// pass through unchanged.
+// they map to the documented codes. Every cobra validator that runs after flag
+// parsing reports a wrong invocation as a plain error, which defaults to exit 1;
+// classify those as a usage error (2) to match the unknown-flag path handled by
+// SetFlagErrorFunc. Errors that already carry an exit code (including wrapped
+// unknown-flag errors) pass through unchanged.
 //
-// The required-flag prefix was missing, so `pro backup` with no --output exited
-// 1 while `pro backup --nosuchflag` exited 2 — the two halves of one mistake
-// answering differently, on every command in the CLI that calls
+// Only two prefixes were listed at first, so `pro backup` with no --output
+// exited 1 while `pro backup --nosuchflag` exited 2, the two halves of one
+// mistake answering differently on every command in the CLI that calls
 // MarkFlagRequired. Exit 1 is this CLI's generic failure, so a wrapper could not
 // tell "you invoked it wrong" from "the request failed", which is the whole
 // distinction exitcode.Usage exists to draw.
@@ -1757,13 +1757,43 @@ func ClassifyError(err error) error {
 	return err
 }
 
-// usageErrorPrefixes are the cobra messages that mean the invocation was wrong
-// rather than the request. Matched on a prefix because cobra returns them as
-// plain errors with no type to assert on; each string is cobra's own format
-// literal, so a cobra upgrade that reworded one shows up as a test failure.
+// Cobra's own format literals for an invocation that is wrong rather than a
+// request that failed. Prefix matching is forced, not chosen. Cobra returns
+// these as plain errors with no type to assert on, and SetFlagErrorFunc is
+// reached only from ParseFlags, never from ValidateRequiredFlags or
+// ValidateFlagGroups. Each const is cobra's literal verbatim, so an upstream
+// reword fails TestUsageErrorPrefixesMatchCobrasOwnMessages by name instead of
+// silently returning those invocations to exit 1.
+//
+// usagePrefixAcceptsArgs and usagePrefixRequiresArgs are broader than they look.
+// They are safe because internal/client turns every non-2xx response into an
+// *exitcode.Error, the General catch-all included, so errors.As returns early
+// and the loop above only ever sees plain errors built in this repository's own
+// Go code. No error literal in internal, cmd, generator, the three Jamf SDKs or
+// pflag begins with any of these.
+//
+// `invalid argument ` (cobra's OnlyValidArgs) is deliberately absent. No command
+// here sets ValidArgs, and syscall.EINVAL.Error() is exactly "invalid argument",
+// so the prefix would match an OS error verbatim. pflag's own invalid-argument
+// error already reaches exit 2 through SetFlagErrorFunc.
+const (
+	usagePrefixUnknownCommand = "unknown command"
+	usagePrefixRequiredFlags  = "required flag(s)"
+	// Covers MarkFlagsRequiredTogether and MarkFlagsMutuallyExclusive both,
+	// because cobra opens the two messages with the same clause.
+	usagePrefixFlagGroup      = "if any flags in the group ["
+	usagePrefixFlagGroupOneOf = "at least one of the flags in the group ["
+	usagePrefixRequiresArgs   = "requires at least "
+	usagePrefixAcceptsArgs    = "accepts "
+)
+
 var usageErrorPrefixes = []string{
-	"unknown command",
-	"required flag(s)",
+	usagePrefixUnknownCommand,
+	usagePrefixRequiredFlags,
+	usagePrefixFlagGroup,
+	usagePrefixFlagGroupOneOf,
+	usagePrefixRequiresArgs,
+	usagePrefixAcceptsArgs,
 }
 
 // groupParentAnnotation marks a parent command that guardUnknownSubcommands made

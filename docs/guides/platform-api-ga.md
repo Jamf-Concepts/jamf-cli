@@ -322,9 +322,10 @@ instance and whose auth-method is oauth2 or token.
 ```
 
 **Exit code 8, not 2.** A refusal is a policy answer about the credentials in hand, not a
-malformed invocation, and exit 2 is also what a bad flag, an unknown subcommand, a missing
-URL, a missing credential, the retired gateway host and a scope conflict all return. A
-wrapper that wants to skip refused commands and fail on everything else keys on 8:
+malformed invocation, and exit 2 is also what a bad flag, a missing required flag, a flag
+group violation, the wrong number of arguments, an unknown subcommand, a missing URL, a
+missing credential, the retired gateway host and a scope conflict all return. A wrapper
+that wants to skip refused commands and fail on everything else keys on 8:
 
 ```bash
 jamf-cli -p platform-prod pro api-roles list
