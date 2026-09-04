@@ -34,7 +34,7 @@ func main() {
 	}
 
 	if res.clean() {
-		fmt.Printf("Every output.New call under %s is accounted for.\n", *root)
+		fmt.Printf("Every output.Formatter built under %s is accounted for.\n", *root)
 		return
 	}
 
@@ -46,16 +46,16 @@ func printReport(out io.Writer, res result) {
 	if len(res.findings) > 0 {
 		fmt.Fprintf(out, "FORMATTERS OUTSIDE THE SHARED ROUTE (%d):\n", len(res.findings))
 		for _, f := range res.findings {
-			fmt.Fprintf(out, "  %s:%d  in %s\n", f.file, f.line, f.fn)
+			fmt.Fprintf(out, "  %s:%d  in %s  (%s)\n", f.file, f.line, f.fn, f.form)
 		}
 		fmt.Fprintln(out, "")
-		fmt.Fprintln(out, "Print through cliCtx.Output instead, which carries --out-file, --select,")
-		fmt.Fprintln(out, "--field, --compact, --quiet and --no-hints:")
+		fmt.Fprintln(out, "Print through the shared formatter instead, which carries --out-file,")
+		fmt.Fprintln(out, "--select, --field, --compact, --quiet and --no-hints:")
 		fmt.Fprintln(out, "")
-		fmt.Fprintln(out, "  return printRows(cliCtx, rows)          // []map[string]any")
-		fmt.Fprintln(out, "  return printData(cliCtx, combined)      // any other shape")
+		fmt.Fprintln(out, "  return printRows(cliCtx, rows)")
 		fmt.Fprintln(out, "")
 		fmt.Fprintln(out, "A command whose own flag names the format calls formatterFor(cliCtx, format).")
+		fmt.Fprintln(out, "A renderer of its own text takes writerFor(cliCtx) as its writer.")
 		fmt.Fprintln(out, "A site that genuinely cannot use the shared formatter needs an entry in")
 		fmt.Fprintln(out, "defaultExemptions (scripts/lint-shared-output/scan.go) stating why.")
 		fmt.Fprintln(out, "")

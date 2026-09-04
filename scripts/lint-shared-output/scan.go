@@ -36,7 +36,7 @@ var defaultExemptions = []exemption{
 	{
 		file:   "internal/commands/output_route.go",
 		fn:     "formatterFor",
-		reason: "clones the shared formatter for a command whose own argument names the format; the fresh formatter is the fallback for a caller reached with a test double or before PersistentPreRunE ran, mirroring writerFor's nil guard",
+		reason: "clones the shared formatter for every command that prints rows, and for the two whose own argument names the format; the fresh formatter is the fallback for a caller reached with a test double or before PersistentPreRunE ran, mirroring writerFor's nil guard",
 	},
 	{
 		file:   "internal/commands/pro_bulk.go",
@@ -50,16 +50,17 @@ var defaultExemptions = []exemption{
 	},
 }
 
-// finding is one unaccounted call to output.New.
+// finding is one unaccounted construction of an output.Formatter.
 type finding struct {
 	file string
 	line int
 	fn   string
+	form string
 }
 
-// result carries both directions of the check: call sites no exemption covers,
-// and exemptions that cover no call site. A stale entry fails the lint so a
-// fixed site cannot leave its excuse behind.
+// result carries both directions of the check: constructions no exemption
+// covers, and exemptions that cover no construction. A stale entry fails the
+// lint so a fixed site cannot leave its excuse behind.
 type result struct {
 	findings []finding
 	stale    []exemption
@@ -69,10 +70,9 @@ func (r result) clean() bool {
 	return len(r.findings) == 0 && len(r.stale) == 0
 }
 
-// scan walks root and reports every call to the output package's New
-// constructor that no exemption accounts for. Test files are skipped: a test
-// needs a formatter to assemble a CLIContext, and no global output flag is set
-// in a unit test.
+// scan walks root and reports every construction of an output.Formatter that
+// no exemption accounts for. Test files are skipped: a test needs a formatter
+// to assemble a CLIContext, and no global output flag is set in a unit test.
 func scan(root string, exemptions []exemption) (result, error) {
 	var res result
 	matched := make([]bool, len(exemptions))
@@ -97,13 +97,13 @@ func scan(root string, exemptions []exemption) (result, error) {
 			return nil
 		}
 
-		for _, call := range constructorCalls(file, local) {
-			pos := fset.Position(call.pos)
-			if i := exemptionFor(exemptions, rel, call.fn); i >= 0 {
+		for _, built := range constructions(file, local) {
+			pos := fset.Position(built.pos)
+			if i := exemptionFor(exemptions, rel, built.fn); i >= 0 {
 				matched[i] = true
 				continue
 			}
-			res.findings = append(res.findings, finding{file: rel, line: pos.Line, fn: call.fn})
+			res.findings = append(res.findings, finding{file: rel, line: pos.Line, fn: built.fn, form: built.form})
 		}
 		return nil
 	})
@@ -145,47 +145,100 @@ func importName(file *ast.File, pkgPath string) (string, bool) {
 	return "", false
 }
 
-type constructorCall struct {
-	pos token.Pos
-	fn  string
+const (
+	constructorName = "New"
+	formatterType   = "Formatter"
+)
+
+type construction struct {
+	pos  token.Pos
+	fn   string
+	form string
 }
 
-// constructorCalls returns every call to the output package's New in the file,
-// tagged with the function that encloses it. A call outside any function
+// constructions returns every way the file builds an output.Formatter, tagged
+// with the function that encloses it. A construction outside any function
 // declaration reports an empty name, which no exemption can match.
-func constructorCalls(file *ast.File, local string) []constructorCall {
-	var calls []constructorCall
+//
+// Two forms, because the constructor is not the only one. Every field of
+// output.Formatter is unexported but the type and its setters are not, so
+// `&output.Formatter{}` followed by SetWriter builds a working second formatter
+// that never names New. A rule matching only the constructor would report the
+// tree clean while that shape carried the defect, which is worse than no rule,
+// since a reviewer would then trust the silence.
+func constructions(file *ast.File, local string) []construction {
+	var found []construction
 	for _, decl := range file.Decls {
-		fn := ""
-		if fd, ok := decl.(*ast.FuncDecl); ok {
-			fn = fd.Name.Name
-		}
+		fn := enclosingName(decl)
 		ast.Inspect(decl, func(n ast.Node) bool {
-			call, ok := n.(*ast.CallExpr)
-			if !ok {
-				return true
-			}
-			if isConstructor(call.Fun, local) {
-				calls = append(calls, constructorCall{pos: call.Lparen, fn: fn})
+			switch node := n.(type) {
+			case *ast.SelectorExpr:
+				// The selector rather than the call, so `f := output.New`
+				// followed by `f(...)` is not a way past the rule either.
+				if isPackageIdent(node.X, local) && node.Sel.Name == constructorName {
+					found = append(found, construction{node.Sel.Pos(), fn, "output.New"})
+				}
+			case *ast.CompositeLit:
+				if isFormatterType(node.Type, local) {
+					found = append(found, construction{node.Pos(), fn, "output.Formatter literal"})
+				}
+			case *ast.CallExpr:
+				if local != "." {
+					return true
+				}
+				if id, ok := node.Fun.(*ast.Ident); ok && id.Name == constructorName {
+					found = append(found, construction{node.Lparen, fn, "dot-imported New"})
+				}
 			}
 			return true
 		})
 	}
-	return calls
+	return found
 }
 
-// isConstructor reports whether fun names the output package's New. The bare
-// identifier is matched as well as the qualified one, because a dot-import
-// would otherwise be a one-character way past this lint.
-func isConstructor(fun ast.Expr, local string) bool {
+// enclosingName names the function an exemption keys on. A method carries its
+// receiver type, because two same-named methods on different types in one file
+// would otherwise share a single exemption slot: exempting one would silently
+// exempt the other, which is the per-file looseness the per-function key was
+// chosen to avoid.
+func enclosingName(decl ast.Decl) string {
+	fd, ok := decl.(*ast.FuncDecl)
+	if !ok {
+		return ""
+	}
+	if fd.Recv == nil || len(fd.Recv.List) == 0 {
+		return fd.Name.Name
+	}
+	return receiverName(fd.Recv.List[0].Type) + "." + fd.Name.Name
+}
+
+func receiverName(expr ast.Expr) string {
+	if star, ok := expr.(*ast.StarExpr); ok {
+		expr = star.X
+	}
+	if idx, ok := expr.(*ast.IndexExpr); ok { // a generic receiver, Type[T]
+		expr = idx.X
+	}
+	if id, ok := expr.(*ast.Ident); ok {
+		return id.Name
+	}
+	return ""
+}
+
+func isPackageIdent(expr ast.Expr, local string) bool {
+	id, ok := expr.(*ast.Ident)
+	return ok && id.Name == local
+}
+
+// isFormatterType reports whether a composite literal builds an
+// output.Formatter. A reference to the type in any other position is left
+// alone: cliOutput embeds one and formatterFor returns one, and neither
+// constructs anything.
+func isFormatterType(expr ast.Expr, local string) bool {
 	if local == "." {
-		id, ok := fun.(*ast.Ident)
-		return ok && id.Name == "New"
+		id, ok := expr.(*ast.Ident)
+		return ok && id.Name == formatterType
 	}
-	sel, ok := fun.(*ast.SelectorExpr)
-	if !ok || sel.Sel.Name != "New" {
-		return false
-	}
-	pkg, ok := sel.X.(*ast.Ident)
-	return ok && pkg.Name == local
+	sel, ok := expr.(*ast.SelectorExpr)
+	return ok && sel.Sel.Name == formatterType && isPackageIdent(sel.X, local)
 }

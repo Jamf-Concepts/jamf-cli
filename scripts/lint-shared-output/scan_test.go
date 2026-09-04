@@ -48,6 +48,30 @@ func TestScan(t *testing.T) {
 			root: "testdata/decoy",
 		},
 		{
+			// The constructor is not the only way in. Every field of
+			// output.Formatter is unexported, but the type and its setters are
+			// not, so a literal plus SetWriter builds a working second
+			// formatter that never names New.
+			name:      "a Formatter literal is a finding and a type reference is not",
+			root:      "testdata/literal",
+			wantFuncs: []string{"printThings"},
+		},
+		{
+			// Matching the selector rather than the call keeps the constructor
+			// from being smuggled through a function value.
+			name:      "taking New as a value is still a finding",
+			root:      "testdata/funcval",
+			wantFuncs: []string{"printThings"},
+		},
+		{
+			// The exemption key carries the receiver, so exempting one method
+			// does not silently exempt its same-named sibling.
+			name:       "an exemption for one method does not cover a same-named method on another type",
+			root:       "testdata/method",
+			exemptions: []exemption{{file: "testdata/method/main.go", fn: "preview.render", reason: "test"}},
+			wantFuncs:  []string{"report.render"},
+		},
+		{
 			// The other direction: a site that stops building its own formatter
 			// must not leave its excuse behind.
 			name:        "an exemption matching nothing is stale",
