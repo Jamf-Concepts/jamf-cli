@@ -162,6 +162,10 @@
         populateStats(data);
         renderCatalog(allCommands, '', activeProduct);
         hideCatalogLoading();
+        // Stamp the entry the page loaded on before a deep link can flip the
+        // tab. Without it that entry has a null state, and Back onto it has
+        // no product to restore. The empty URL keeps the address bar as is.
+        history.replaceState({ search: '', cmd: null, product: activeProduct }, '');
         handleDeepLink();
         announceCatalog();
       })
@@ -1094,10 +1098,14 @@
     if (suppressHashUpdate) return;
     var search = document.getElementById('search');
     var query = search ? search.value : '';
+    // The product goes in the state because navigateToCommand follows a
+    // cross-product link by flipping the tab, and nothing rolls that back:
+    // popstate rendered with whatever activeProduct held, so Back left the
+    // visitor on a tab they never chose.
     if (command) {
-      history.pushState({ search: query, cmd: command }, '', '#cmd/' + command.replace(/ /g, '/'));
+      history.pushState({ search: query, cmd: command, product: activeProduct }, '', '#cmd/' + command.replace(/ /g, '/'));
     } else {
-      history.pushState({ search: query, cmd: null }, '', '#commands');
+      history.pushState({ search: query, cmd: null, product: activeProduct }, '', '#commands');
     }
   }
 
@@ -1735,6 +1743,14 @@
       else if (hash && hash.indexOf('#cmd/') === 0) command = hash.slice(5).replace(/\//g, ' ');
 
       suppressHashUpdate = true;
+      // Restore the recorded tab first. navigateToCommand still follows the
+      // command to its own product afterwards, so the two do not fight.
+      var prod = e.state && e.state.product;
+      if (prod && prod !== activeProduct) {
+        selectProductTab(prod);
+        selectedGroup = null;
+        selectedProduct = null;
+      }
       if (command) {
         navigateToCommand(command);
       } else {
@@ -1742,6 +1758,7 @@
         if (search) {
           search.value = (e.state && e.state.search) || '';
           renderCatalog(allCommands, search.value.trim(), activeProduct);
+          announceCatalog();
         }
       }
       suppressHashUpdate = false;
@@ -1761,6 +1778,16 @@
       // A <summary> owns Enter and Space natively, and 'c' typed while it has
       // focus is a keystroke inside the drawer, not a copy request for a row.
       if (tag === 'SUMMARY') return;
+      // The shortcuts dialog holds focus on its one control. Row navigation
+      // reads an unmatched focus as "nothing focused" and jumps to the first
+      // row, which takes focus out of the dialog that is listing these very
+      // keys. The same leak fires for any control outside the catalog.
+      var modal = document.getElementById('kbd-modal');
+      if (modal && modal.classList.contains('open')) return;
+      var focused = document.activeElement;
+      if (focused && focused !== document.body &&
+          focused !== document.documentElement &&
+          !catalog.contains(focused)) return;
 
       var rows = catalog.querySelectorAll('.command-row');
       if (rows.length === 0) return;
