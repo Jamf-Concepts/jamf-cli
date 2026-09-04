@@ -5,6 +5,7 @@ package commands
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"go/ast"
 	"go/parser"
 	gotoken "go/token" // the package name collides with root.go's token flag var
@@ -203,21 +204,29 @@ func TestWriterForAnswersWithTheFormattersWriter(t *testing.T) {
 	}
 }
 
-// Two formats have no rendering of their own for a report the CLI assembles.
-// The old per-command formatter sent both to the table renderer, because
-// Print's switch has no case for either and its default arm is the table. The
-// shared route sends them through PrintRaw, so they now render the report's own
-// JSON — the same thing a generated command's -o raw yields for a JSON
-// endpoint, and the only reading of "exact wire bytes" a synthesised report can
-// honour. Pinned because it is a decision rather than an accident.
-func TestRawAndXMLRenderTheReportsOwnJSON(t *testing.T) {
+// Two formats have no rendering of their own for a report the CLI assembles,
+// so Print's switch has no case for either and its default arm renders the
+// table. Routing the rows through PrintRaw instead would reach PrintRaw's own
+// FormatRaw and FormatXML arms and emit the report's marshalled JSON, which is
+// a different answer under a flag documented as "exact wire bytes" on a report
+// that has none. Pinned against the table so the equivalence is the assertion,
+// rather than a byte count that says nothing about why.
+func TestRawAndXMLRenderTheSameAsTable(t *testing.T) {
+	table, _, err := runRoot(t, "commands", "-o", "table")
+	if err != nil {
+		t.Fatalf("commands -o table failed: %v", err)
+	}
+	if table == "" {
+		t.Fatal("commands -o table produced nothing to compare against")
+	}
+
 	for _, format := range []string{"raw", "xml"} {
 		stdout, _, err := runRoot(t, "commands", "-o", format)
 		if err != nil {
 			t.Fatalf("commands -o %s failed: %v", format, err)
 		}
-		if !strings.HasPrefix(strings.TrimSpace(stdout), `[{"command":`) {
-			t.Errorf("-o %s did not render the report as JSON: %.60q", format, stdout)
+		if stdout != table {
+			t.Errorf("-o %s rendered %d bytes against the table's %d; it reached a different renderer", format, len(stdout), len(table))
 		}
 	}
 }
@@ -256,6 +265,55 @@ func TestSectionHeadersFollowTheFormatterWriter(t *testing.T) {
 	}
 	if stdout != "" {
 		t.Errorf("standard output carried %q; the whole report belongs to the formatter's writer", stdout)
+	}
+}
+
+// CLAUDE.md records this as a convention with a past regression behind it: an
+// empty list prints `[]`, never `null`, because `null` breaks a jq pipeline on
+// exactly the tenants where the collection is empty. overviewToRows declares
+// `var rows []map[string]any` and only appends inside a loop, so a report whose
+// every section came back empty reaches printRows with a nil slice.
+func TestPrintRowsRendersANilSliceAsAnEmptyList(t *testing.T) {
+	oldFmt := outputFmt
+	outputFmt = "json"
+	t.Cleanup(func() { outputFmt = oldFmt })
+
+	var buf bytes.Buffer
+	formatter := output.New("json", true, false)
+	formatter.SetWriter(&buf)
+
+	if err := printRows(&registry.CLIContext{Output: &cliOutput{formatter}}, nil); err != nil {
+		t.Fatalf("printRows error: %v", err)
+	}
+	if got := strings.TrimSpace(buf.String()); got != "[]" {
+		t.Errorf("printRows(nil) rendered %q, want []", got)
+	}
+}
+
+// formatterFor exists to keep the writer and the projector that a fresh
+// formatter drops, so a change back to output.New would restore the defect for
+// `multi`, `group-tools export` and every command that prints rows.
+func TestWithFormatKeepsTheWriterAndTheProjector(t *testing.T) {
+	var buf bytes.Buffer
+	formatter := output.New("table", true, false)
+	formatter.SetWriter(&buf)
+	formatter.SetProjector(output.Projector{Select: []string{"name"}})
+
+	clone := formatter.WithFormat("json")
+	if clone.Format() != "json" {
+		t.Errorf("clone format = %q, want json", clone.Format())
+	}
+	if formatter.Format() != "table" {
+		t.Errorf("the original's format changed to %q; WithFormat must copy", formatter.Format())
+	}
+	if err := clone.Print([]map[string]any{{"name": "keep", "drop": "me"}}); err != nil {
+		t.Fatalf("clone Print error: %v", err)
+	}
+	if !strings.Contains(buf.String(), "keep") {
+		t.Errorf("the clone did not write to the original's writer: %q", buf.String())
+	}
+	if strings.Contains(buf.String(), "drop") {
+		t.Errorf("the clone dropped the projector: %q", buf.String())
 	}
 }
 
@@ -317,4 +375,69 @@ func TestOverviewRenderersTakeTheFormattersWriter(t *testing.T) {
 	if checked != 4 {
 		t.Errorf("checked %d overview renderer calls, want the 4 this rule exists for; update overviewRenderers", checked)
 	}
+}
+
+// The five multi-section reports read writerFor into a local and then write
+// their section headers to it. A revert of one header to fmt.Printf splits that
+// report between --out-file and the terminal, and no test in the package calls
+// four of the five functions, so the header itself has nothing holding it. A
+// file that has learned to route its writer must not backslide, which also
+// covers the next file to adopt writerFor.
+func TestFilesThatRouteTheirWriterDoNotPrintToStdout(t *testing.T) {
+	entries, err := os.ReadDir(".")
+	if err != nil {
+		t.Fatalf("reading package directory: %v", err)
+	}
+
+	routed := 0
+	for _, entry := range entries {
+		name := entry.Name()
+		if entry.IsDir() || !strings.HasSuffix(name, ".go") || strings.HasSuffix(name, "_test.go") {
+			continue
+		}
+
+		fset := gotoken.NewFileSet()
+		file, parseErr := parser.ParseFile(fset, name, nil, 0)
+		if parseErr != nil {
+			t.Fatalf("parsing %s: %v", name, parseErr)
+		}
+
+		var routes bool
+		var bare []string
+		ast.Inspect(file, func(n ast.Node) bool {
+			switch node := n.(type) {
+			case *ast.Ident:
+				if node.Name == "writerFor" {
+					routes = true
+				}
+			case *ast.CallExpr:
+				sel, ok := node.Fun.(*ast.SelectorExpr)
+				if !ok || !isPackageIdent(sel.X, "fmt") {
+					return true
+				}
+				switch sel.Sel.Name {
+				case "Print", "Printf", "Println":
+					bare = append(bare, fmt.Sprintf("%s:%d", name, fset.Position(node.Lparen).Line))
+				}
+			}
+			return true
+		})
+
+		if !routes {
+			continue
+		}
+		routed++
+		for _, at := range bare {
+			t.Errorf("%s writes to standard output directly, but this file routes its writer through writerFor", at)
+		}
+	}
+
+	if routed < 10 {
+		t.Errorf("only %d files route through writerFor, want at least the 10 this rule was written over", routed)
+	}
+}
+
+func isPackageIdent(expr ast.Expr, name string) bool {
+	id, ok := expr.(*ast.Ident)
+	return ok && id.Name == name
 }
