@@ -65,6 +65,15 @@ migration guide** and carries the detail, the error messages verbatim, and the r
   positional to its inner command, and 22 singleton `delete` and `history` commands had
   their `--help` examples corrected, because those examples showed an id the command never
   accepted.
+||||||| 308f7f9
+- **A cobra usage error now exits 2, not 1.** Four classes move: a missing required flag, a
+  flag group with no member set, a flag group with mutually exclusive members set together,
+  and the wrong number of positional arguments. An unknown flag and an unknown subcommand
+  already exited 2, so the two halves of one mistake answered differently. `pro backup
+  --nosuchflag` exited 2 and `pro backup` with no `--output` exited 1. Exit 1 is the generic
+  failure code, so a script could not tell a bad invocation from a failed request. The scope
+  is wide: 48 call sites declare a required flag, 118 declare a flag group, and 671 validate
+  an argument count. A wrapper that treats exit 1 as a bad invocation must key on 2 instead.
 - **`pro ddm-reports declaration get` and `pro ddm-reports device get` are removed.** Both
   endpoints were deprecated upstream in favour of a sibling the CLI already shipped:
   `declaration devices <id> --filter …` and `device declarations <id> --filter …`. The

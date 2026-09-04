@@ -3,9 +3,14 @@
 package main
 
 import (
+	"io"
+	"os"
+	"path/filepath"
 	"runtime/debug"
 	"slices"
 	"testing"
+
+	"github.com/Jamf-Concepts/jamf-cli/internal/exitcode"
 )
 
 func TestResolveVersion(t *testing.T) {
@@ -147,5 +152,101 @@ func TestInjectEnvArgs(t *testing.T) {
 				t.Errorf("got %v, want %v", got, tt.want)
 			}
 		})
+	}
+}
+
+// silenceOutput points os.Stdout and os.Stderr at a pipe for the duration of
+// one test. run reports through both, and its callee FormatError writes to
+// os.Stdout directly rather than through cobra's writers, so a cobra writer
+// alone would not cover it.
+func silenceOutput(t *testing.T) {
+	t.Helper()
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("os.Pipe: %v", err)
+	}
+	origOut, origErr := os.Stdout, os.Stderr
+	os.Stdout, os.Stderr = w, w
+	drained := make(chan struct{})
+	go func() {
+		_, _ = io.Copy(io.Discard, r)
+		close(drained)
+	}()
+	t.Cleanup(func() {
+		os.Stdout, os.Stderr = origOut, origErr
+		_ = w.Close()
+		<-drained
+		_ = r.Close()
+	})
+}
+
+// TestRunClassifiesTheExitCode is the only test that exercises the sequence
+// main runs. The four ClassifyError tests in internal/commands call Execute and
+// then call ClassifyError themselves, which verifies the function and re-creates
+// the wiring around it — so deleting the ClassifyError call from run left the
+// whole suite green while every usage exit code in the CLI reverted to 1.
+//
+// `nosuchcommand` is the invocation that pins it. Cobra reports an unknown root
+// command from legacyArgs inside Find, so it is the one usage error that reaches
+// no validator and is coded by ClassifyError alone. It also needs no
+// credentials, since Find fails before PersistentPreRunE runs.
+//
+// The general-failure row is what stops the test passing against a run that
+// returns a constant, and it needs credentials that resolve: the directory check
+// it lands on sits in RunE, after PersistentPreRunE.
+func TestRunClassifiesTheExitCode(t *testing.T) {
+	t.Setenv("JAMF_URL", "https://test.jamfcloud.com")
+	t.Setenv("JAMF_TOKEN", "test-token")
+	t.Setenv("JAMF_CLIENT_ID", "")
+	t.Setenv("JAMF_CLIENT_SECRET", "")
+	t.Setenv("JAMF_PROFILE", "")
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+
+	// A directory, so `pro packages upload` fails with the caller's own path at
+	// character zero of a plain error. That has to stay a general failure; it is
+	// what ruled out matching cobra's "accepts " prefix.
+	dir := filepath.Join(t.TempDir(), "accepts x")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+
+	for _, tc := range []struct {
+		name string
+		argv []string
+		want int
+	}{
+		{"unknown root command", []string{"jamf-cli", "nosuchcommand"}, exitcode.Usage},
+		{"a plain failure carrying a path", []string{"jamf-cli", "pro", "packages", "upload", "--file", dir}, exitcode.General},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			silenceOutput(t)
+			if got := run(tc.argv, ""); got != tc.want {
+				t.Errorf("run(%v) = %d, want %d", tc.argv[1:], got, tc.want)
+			}
+		})
+	}
+}
+
+// TestRunReportsSuccess pins the nil-error branch, which is the one place run
+// can return a code without consulting the error chain at all.
+func TestRunReportsSuccess(t *testing.T) {
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	silenceOutput(t)
+	if got := run([]string{"jamf-cli", "version"}, ""); got != exitcode.Success {
+		t.Errorf("run(version) = %d, want %d", got, exitcode.Success)
+	}
+}
+
+// TestRunAppliesJAMFCLIArgs pins that run still prepends JAMF_CLI_ARGS. main no
+// longer assigns the result back over os.Args, so the injected flags reach cobra
+// through SetArgs or not at all — and a flag that silently stopped being applied
+// would leave every documented CI invocation running with different defaults.
+func TestRunAppliesJAMFCLIArgs(t *testing.T) {
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	silenceOutput(t)
+	// --nosuchflag is rejected by pflag, which is only reachable if the injected
+	// argument arrived at all; without it `version` succeeds.
+	if got := run([]string{"jamf-cli", "version"}, "--nosuchflag"); got != exitcode.Usage {
+		t.Errorf("run(version) with JAMF_CLI_ARGS=--nosuchflag = %d, want %d", got, exitcode.Usage)
 	}
 }

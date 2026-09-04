@@ -58,18 +58,35 @@ func resolveVersion(ldflagsVersion string, readBuildInfo func() (*debug.BuildInf
 	return info.Main.Version
 }
 
-func main() {
-	os.Args = injectEnvArgs(os.Args, os.Getenv("JAMF_CLI_ARGS"))
+// run builds the command tree, executes args against it and returns the process
+// exit code. It exists so the error-classification chain is reachable from a
+// test: os.Exit is not callable from one, and this whole sequence used to live
+// inside main, which meant nothing exercised it. Deleting the ClassifyError call
+// left the entire test suite passing while every documented usage exit code
+// silently reverted to 1.
+//
+// args is os.Args, program name included, and is passed to cobra rather than
+// assigned back over os.Args, which is what made the sequence uncallable —
+// cobra reads os.Args itself only when SetArgs was never called.
+func run(args []string, envArgs string) int {
+	args = injectEnvArgs(args, envArgs)
 	version = resolveVersion(version, debug.ReadBuildInfo)
 
 	cmd := commands.NewRootCmd(version, commit, date, specProVersion)
+	cmd.SetArgs(args[1:])
+
 	executedCmd, err := cmd.ExecuteC()
-	if err != nil {
-		err = commands.ClassifyError(err)
-		err = commands.EnrichPrivilegeError(executedCmd, err)
-		if !commands.FormatError(err) {
-			commands.FprintError(os.Stderr, err)
-		}
-		os.Exit(exitcode.CodeFrom(err))
+	if err == nil {
+		return exitcode.Success
 	}
+	err = commands.ClassifyError(err)
+	err = commands.EnrichPrivilegeError(executedCmd, err)
+	if !commands.FormatError(err) {
+		commands.FprintError(os.Stderr, err)
+	}
+	return exitcode.CodeFrom(err)
+}
+
+func main() {
+	os.Exit(run(os.Args, os.Getenv("JAMF_CLI_ARGS")))
 }
