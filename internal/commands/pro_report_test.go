@@ -787,17 +787,31 @@ func TestRunReportSoftwareInstalls_PathExtendsTheGroupingKey(t *testing.T) {
 
 // With both flags off the row map must carry exactly the three original keys —
 // an extra key would change the column set of every existing user's table.
+//
+// The grouping key is the other half of that contract, and it needs a fixture
+// that can see it. Zoom 5.0 spans two bundle IDs and two paths across two
+// devices, so an unconditional key.bundleID or key.path splits it into two
+// rows. With one bundle ID and one path per title the row count was 2 either
+// way, and assigning both fields unconditionally left the whole package green
+// while the default output rendered Zoom 5.0 twice at half the device count —
+// two byte-identical rows with no column that could explain them.
 func TestRunReportSoftwareInstalls_DefaultRowsCarryOnlyTheThreeOriginalKeys(t *testing.T) {
 	client := &paginatedMockClient{
 		pages: map[string]string{
 			"/v4/computers-inventory?section=APPLICATIONS&page=0&page-size=100": `{
-				"totalCount": 1,
+				"totalCount": 2,
 				"results": [
 					{
 						"id": "1",
 						"applications": [
 							{"name": "Zoom", "version": "5.0", "bundleId": "us.zoom.xos", "path": "/Applications/zoom.us.app"},
 							{"name": "Slack", "version": "4.0", "bundleId": "com.tinyspeck.slackmacgap", "path": "/Applications/Slack.app"}
+						]
+					},
+					{
+						"id": "2",
+						"applications": [
+							{"name": "Zoom", "version": "5.0", "bundleId": "com.example.zoom-repack", "path": "/Users/bob/Applications/zoom.us.app"}
 						]
 					}
 				]
@@ -810,7 +824,7 @@ func TestRunReportSoftwareInstalls_DefaultRowsCarryOnlyTheThreeOriginalKeys(t *t
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if len(rows) != 2 {
-		t.Fatalf("got %d rows, want 2", len(rows))
+		t.Fatalf("got %d rows, want 2 (both Zoom installs merge with the flags off)", len(rows))
 	}
 	for _, r := range rows {
 		if len(r) != 3 {
@@ -827,6 +841,21 @@ func TestRunReportSoftwareInstalls_DefaultRowsCarryOnlyTheThreeOriginalKeys(t *t
 				t.Errorf("row %v is missing key %q", r, want)
 			}
 		}
+	}
+
+	counts := map[string]any{}
+	for _, r := range rows {
+		title, ok := r["title"].(string)
+		if !ok {
+			t.Fatalf("row %v carries no title", r)
+		}
+		counts[title] = r["device_count"]
+	}
+	if counts["Zoom"] != 2 {
+		t.Errorf("Zoom device_count = %v, want 2", counts["Zoom"])
+	}
+	if counts["Slack"] != 1 {
+		t.Errorf("Slack device_count = %v, want 1", counts["Slack"])
 	}
 }
 
@@ -889,7 +918,15 @@ func TestRunReportSoftwareInstalls_BundleIDAndPathTogether(t *testing.T) {
 // typed as a filter. Cobra validates Args ahead of PersistentPreRunE, so the
 // refusal lands before any credential is resolved or request sent.
 func TestReportSoftwareInstalls_StrayPositionalIsRefused(t *testing.T) {
-	root := NewRootCmd("test", "none", "none", "none")
+	// This test executes the real root command. With the Args guard regressed
+	// and a developer's own credentials exported, it ran the paginated
+	// computers-inventory fetch for real — a fleet inventory sweep against
+	// whatever tenant the ambient environment named, out of `go test ./...`.
+	clearAuthEnv(t)
+
+	// "unknown" is the only spec version checkTenantVersion returns early for,
+	// and no assertion below reads the argument that carries it.
+	root := NewRootCmd("test", "abc123", "2024-01-01", "unknown")
 	root.SetArgs([]string{"pro", "report", "software-installs", "junkarg"})
 	root.SetOut(io.Discard)
 	root.SetErr(io.Discard)
