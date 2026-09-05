@@ -222,6 +222,12 @@ func newPlatformSDKClient(url, clientID, clientSecret string, scope auth.Scope, 
 	if err := refuseRetiredGatewayURL(url); err != nil {
 		return nil, err
 	}
+	// Recorded here, not beside a caller, for the same reason
+	// refuseRetiredGatewayURL is: this is the one constructor every platform
+	// path calls, and a guard on it cannot be forgotten by the next caller.
+	// Read by annotateScopeLevelError and scopeMismatchHint, both of which run
+	// after Execute returns and have no config to re-resolve from.
+	resolvedPlatformScope = scope
 	opts := []jamfplatform.Option{
 		jamfplatform.WithUserAgent("jamf-cli/" + cliVersion),
 	}

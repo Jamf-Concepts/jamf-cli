@@ -294,6 +294,21 @@ func Generate(resources []*parser.Resource, outputDir string) ([]string, error) 
 			// wired under, because `security` mixes two transports and `pro`
 			// mixes three.
 			pairs = append(pairs, fmt.Sprintf("%q: %q", "jamf:api", "platform-gateway"))
+			// The scope levels the published spec says a credential must be
+			// created at. A Jamf Platform API integration is created at exactly
+			// one of organization, platform environment or tenant, and the
+			// credential only works with that level — so this is the one
+			// requirement an operator cannot discover from a 403, which names a
+			// permission and says nothing about the level.
+			//
+			// Reported, never enforced. The spec is currently stricter than the
+			// gateway: build v2082 moved six Platform specs to
+			// environment-only, and a tenant credential still reaches
+			// platform-devices and platform-device-groups today. See
+			// parser.Operation.ScopeTypes.
+			if len(op.ScopeTypes) > 0 {
+				pairs = append(pairs, fmt.Sprintf("%q: %q", "jamf:scopes", strings.Join(op.ScopeTypes, ",")))
+			}
 			if len(pairs) == 0 {
 				return ""
 			}

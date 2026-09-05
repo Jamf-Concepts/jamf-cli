@@ -2852,13 +2852,20 @@ func TestServiceSegment(t *testing.T) {
 // TestDropUnroutedPlatformOps pins the withholding of an operation a published
 // spec declares but the gateway does not route.
 //
-// The mechanism exists for one case: Security Cloud's device groups, where
-// build v1865 declares PUT /v2/groups/{groupId} as the successor to the v1 PUT
-// it deprecates, while v2 answers 403 BAD_PERMISSIONS and v1 answers 200. Left
-// in, deduplicateVersionedOps prefers the higher version — correctly, by its own
-// rule — and turns a working `security device-groups update` into a permanent
-// 403 indistinguishable from a missing privilege.
+// platformUnroutedOps is empty — the one entry it ever held is gone, Security
+// Cloud's v2 device-group PUT having been fixed on 2026-09-04 — so the entry
+// here is a test-local one. The mechanism has to stay pinned while the table is
+// empty: the next drop is added under pressure, and a generator pass that
+// silently stopped dropping would ship the operation the entry was written to
+// withhold. Same reasoning as gateway.TestProbedEntriesCarryTheProbeBasis,
+// which pins the probe wording against a temporary entry for want of a live
+// one.
 func TestDropUnroutedPlatformOps(t *testing.T) {
+	const unrouted = "PUT /securitycloud/v2/groups/{groupId}"
+	restore := platformUnroutedOps
+	platformUnroutedOps = map[string]bool{unrouted: true}
+	t.Cleanup(func() { platformUnroutedOps = restore })
+
 	ops := []*Operation{
 		{Name: "update", Method: "PUT", Path: "/securitycloud/v1/groups/{groupId}"},
 		{Name: "update", Method: "PUT", Path: "/securitycloud/v2/groups/{groupId}"},
@@ -2875,7 +2882,7 @@ func TestDropUnroutedPlatformOps(t *testing.T) {
 			t.Errorf("unrouted %s %s survived the drop", op.Method, op.Path)
 		}
 	}
-	// The working v1 PUT and the routed v2 list both survive — the drop is
+	// The v1 PUT and the routed v2 list both survive — the drop is
 	// per-operation, not per-version.
 	var sawV1Put, sawV2List bool
 	for _, op := range kept {
@@ -2891,6 +2898,23 @@ func TestDropUnroutedPlatformOps(t *testing.T) {
 	}
 	if !sawV2List {
 		t.Error("v2 list was dropped; the drop is keyed on method+path, not on version")
+	}
+}
+
+// TestPlatformUnroutedOpsIsEmptyOrEvidenced fails when platformUnroutedOps
+// gains an entry, so that adding one is a deliberate edit to this test rather
+// than a quiet table append.
+//
+// A drop is the CLI asserting the published spec is wrong about what the
+// gateway carries, and it costs a command. The bar is a recorded probe plus a
+// working operation the declared one would displace; both live in the table's
+// own comment. This does not judge the evidence — nothing in code can — it only
+// makes the addition visible.
+func TestPlatformUnroutedOpsIsEmptyOrEvidenced(t *testing.T) {
+	for key := range platformUnroutedOps {
+		t.Errorf("platformUnroutedOps names %q — a drop needs a recorded probe in the "+
+			"table's comment and a working operation it would otherwise displace; "+
+			"state both there, then add the key here", key)
 	}
 }
 

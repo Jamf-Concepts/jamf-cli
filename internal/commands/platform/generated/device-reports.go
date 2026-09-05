@@ -36,7 +36,7 @@ func newDeviceReportsChannelsCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Use:         "channels <deviceId>",
 		Short:       "Get device channels",
 		Long:        "Get a list of all channels available for the provided deviceId.",
-		Annotations: map[string]string{"jamf:privileges": "declarations:read", "jamf:api": "platform-gateway"},
+		Annotations: map[string]string{"jamf:privileges": "declarations:read", "jamf:api": "platform-gateway", "jamf:scopes": "environment"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
@@ -75,7 +75,7 @@ func newDeviceReportsDeclarationsCmd(cliCtx *registry.CLIContext) *cobra.Command
 		Use:         "declarations <deviceId>",
 		Short:       "Get filtered device report declarations",
 		Long:        "Get a device report containing the filtered declarations reported for the provided deviceId. Supports pagination, sorting, and filtering with RSQL syntax. **Filtering:** Filters only apply to declarations already on the device (excludes PENDING status). Supported filter fields: `declarationIdentifier`, `active`, `declarationType`, `validityState`, `dateUpdated`, `channel`. **Note:** Wildcard matching on declarationIdentifier (e.g. `declarationIdentifier==Blueprint_*`) is case-insensitive. **Sorting:** Use `?sort=field,direction` (e.g., `?sort=declarationType,asc&sort=declarationIdentifier,desc`). Supported sort fields: declarationIdentifier, declarationType, active, validityState, dateUpdated. Results are returned in database order if no sort parameter is provided. For more information on RSQL, see [Jamf Developer Portal](https://developer.jamf.com)",
-		Annotations: map[string]string{"jamf:privileges": "declarations:read", "jamf:api": "platform-gateway"},
+		Annotations: map[string]string{"jamf:privileges": "declarations:read", "jamf:api": "platform-gateway", "jamf:scopes": "environment"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {

@@ -3,7 +3,6 @@
 package commands
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -35,47 +34,22 @@ An organization-scoped profile sends no scope header and the gateway answers
 INVALID_REQUEST_CONTEXT_TYPE. Unlike the Jamf Account commands, audit is served
 in every region.`
 
+// applyAuditScopeNote appends the help text and nothing else.
+//
+// The runtime half is gone. annotateAuditScopeError spelled by hand the fact
+// x-scope-types now states — audit is environment-only — and it had already
+// gone stale once: it used to add that the spec listed organization as allowed
+// while the gateway refused it from a header, which build v2056 made false.
+// AnnotateScopeLevelError reads the annotation instead, so the sentence cannot
+// disagree with the artifact, and every platform command gets it rather than
+// the one command whose gap someone happened to hit.
+//
+// The help text stays hand-written because it carries two things no annotation
+// does: the codes each wrong level earns, and that audit is served in every
+// region unlike the Jamf Account trio.
 func applyAuditScopeNote(cmd *cobra.Command) {
 	cmd.Long = strings.TrimRight(cmd.Long, "\n") + "\n" + auditScopeHelp
-	if cmd.RunE != nil {
-		inner := cmd.RunE
-		cmd.RunE = func(c *cobra.Command, args []string) error {
-			return annotateAuditScopeError(inner(c, args))
-		}
-	}
 	for _, sub := range cmd.Commands() {
 		applyAuditScopeNote(sub)
 	}
-}
-
-// auditScopeNote names the profile change REQUEST_CONTEXT_NOT_PROVIDED wants.
-//
-// The gateway's message — "The request context could not be detected." — says
-// that a scope was not found without saying which kind would be accepted, so
-// naming the one level that is accepted is the whole content of the fix.
-//
-// It used to add that the spec listed organization as allowed while the gateway
-// refused it from a header. Build v2056 withdrew organization from audit's
-// x-scope-types, so that sentence became false and is gone — the note must not
-// tell an operator to distrust a spec that now says the same thing this does.
-const auditScopeNote = "\n\nnote: audit is reachable only from an environment-scoped profile. This one sent no " +
-	"scope header, which means it is organization-scoped. Set an environment ID on the profile " +
-	"(or JAMF_ENVIRONMENT_ID)."
-
-// annotateAuditScopeError appends auditScopeNote to the gateway's
-// missing-scope error and leaves every other error alone.
-//
-// Only REQUEST_CONTEXT_NOT_PROVIDED is annotated. INVALID_REQUEST_CONTEXT_TYPE
-// — what a tenant-scoped profile earns — already names both the level it sent
-// and the level expected, so there is nothing to add.
-// The note is appended with %w, not %s. These wrappers are installed as RunE
-// decorators, so they run *before* ClassifyError, EnrichPrivilegeError and
-// exitcode.CodeFrom — all of which work by errors.As. Formatting with %s
-// flattens the chain, so any error whose text matched lost its classification
-// and fell back to exit 1.
-func annotateAuditScopeError(err error) error {
-	if err == nil || !strings.Contains(err.Error(), "REQUEST_CONTEXT_NOT_PROVIDED") {
-		return err
-	}
-	return fmt.Errorf("%w%s", err, auditScopeNote)
 }

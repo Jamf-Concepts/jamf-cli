@@ -21,7 +21,54 @@ import (
 // specs/classic/schemas.json at generation time. Empty when the Classic API spec
 // declares no schema for it, in which case create/update/apply read their body
 // from --from-file or stdin with no --scaffold and no --set.
-var bodySpecClassicPatchTitles = classicBodySpec{}
+var bodySpecClassicPatchTitles = classicBodySpec{
+	Root:   "patch_software_title",
+	Schema: "patch_software_title",
+	Scaffold: `<patch_software_title>
+  <id>1</id>
+  <name>Google Chrome</name>
+  <category>
+    <id>0</id>
+    <name></name>
+  </category>
+  <name_id>GoogleChrome</name_id>
+  <notifications>
+    <email_notification>false</email_notification>
+    <web_notification>false</web_notification>
+  </notifications>
+  <site>
+    <id>0</id>
+    <name>None</name>
+  </site>
+  <source_id>1</source_id>
+  <versions>
+    <version>
+      <package>
+        <id>1</id>
+        <name>Google Chrome.dmg</name>
+      </package>
+      <software_version>65.0.3325.181</software_version>
+    </version>
+  </versions>
+</patch_software_title>
+`,
+	FieldTypes: map[string]string{
+		"category":                         "object",
+		"category.id":                      "integer",
+		"category.name":                    "string",
+		"id":                               "integer",
+		"name":                             "string",
+		"name_id":                          "string",
+		"notifications":                    "object",
+		"notifications.email_notification": "boolean",
+		"notifications.web_notification":   "boolean",
+		"site":                             "object",
+		"site.id":                          "integer",
+		"site.name":                        "string",
+		"source_id":                        "integer",
+		"versions":                         "array",
+	},
+}
 
 // NewClassicPatchTitlesCmd creates the classic-patch-titles command group
 func NewClassicPatchTitlesCmd(ctx *registry.CLIContext) *cobra.Command {
@@ -56,7 +103,7 @@ func newClassicPatchTitlesListCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # List patchsoftwaretitles and extract IDs
   jamf-cli pro classic-patch-titles list --field id`,
-		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway": "unserved", "jamf:gateway-basis": "unpublished", "jamf:gateway-detail": "not declared by the gateway's Classic API 11.28.0"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "patch-management-software-titles:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/patchsoftwaretitles", nil)
@@ -113,7 +160,7 @@ func newClassicPatchTitlesGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Get a patch_software_title and output as YAML
   jamf-cli pro classic-patch-titles get 1 -o yaml`,
-		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway": "unserved", "jamf:gateway-basis": "unpublished", "jamf:gateway-detail": "the gateway's Classic API 11.28.0 declares no GET on this resource"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "patch-management-software-titles:read"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -166,12 +213,21 @@ func newClassicPatchTitlesGetCmd(ctx *registry.CLIContext) *cobra.Command {
 
 func newClassicPatchTitlesCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
-		fromFile string
+		fromFile     string
+		flagScaffold bool
+		flagSet      []string
 	)
 	cmd := &cobra.Command{
-		Use:         "create",
-		Short:       "Create a patch_software_title",
-		Long:        `Create a new patch_software_title. Reads the XML body from --from-file, --set or stdin.`,
+		Use:   "create",
+		Short: "Create a patch_software_title",
+		Long: `Create a new patch_software_title. Reads the XML body from --from-file, --set or stdin.
+
+Body fields are derived from the Classic API spec (schema "patch_software_title").
+Run with --scaffold to print a complete XML template.
+The template populates every optional section with one specimen entry,
+including references whose <id> points at nothing on your instance — delete
+the sections you do not need. A dangling reference is answered with a 500.
+Optional sections: category, id, name, name_id, notifications, site, source_id, versions`,
 		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "patch-management-software-titles:create"},
 		Example: `  # Create a patch_software_title from an XML file
   jamf-cli pro classic-patch-titles create --from-file patch_software_title.xml
@@ -179,9 +235,12 @@ func newClassicPatchTitlesCreateCmd(ctx *registry.CLIContext) *cobra.Command {
   # Create a patch_software_title from XML on stdin
   cat patch_software_title.xml | jamf-cli pro classic-patch-titles create`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if flagScaffold {
+				return printClassicScaffold(bodySpecClassicPatchTitles)
+			}
 			reqCtx := cmd.Context()
 
-			bodyBytes, err := readClassicBodyOrSet(fromFile, nil, bodySpecClassicPatchTitles)
+			bodyBytes, err := readClassicBodyOrSet(fromFile, flagSet, bodySpecClassicPatchTitles)
 			if err != nil {
 				return err
 			}
@@ -200,11 +259,20 @@ func newClassicPatchTitlesCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to XML input file (or pipe XML to stdin)")
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print an XML body template for this resource and exit")
+	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Set a body field in dot notation (key=value, repeatable). Builds the whole body, so it cannot be combined with --from-file")
+	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+		return []string{"category.id=", "category.name=", "id=", "name=", "name_id=", "notifications.email_notification=", "notifications.web_notification=", "site.id=", "site.name=", "source_id="}, cobra.ShellCompDirectiveNoSpace
+	})
 	return cmd
 }
 
 func newClassicPatchTitlesUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var fromFile string
+	var (
+		flagScaffold bool
+		flagSet      []string
+	)
 	var flagName string
 
 	cmd := &cobra.Command{
@@ -213,18 +281,28 @@ func newClassicPatchTitlesUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Long: `Update an existing patch_software_title by ID. Reads the XML body from --from-file, --set or stdin.
 
 The Classic API applies a partial update: fields the body omits keep their
-current values, so a body carrying one element changes only that element.`,
-		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway": "unserved", "jamf:gateway-basis": "unpublished", "jamf:gateway-detail": "the gateway's Classic API 11.28.0 declares no PUT on this resource"},
+current values, so a body carrying one element changes only that element.
+
+Body fields are derived from the Classic API spec (schema "patch_software_title").
+Run with --scaffold to print a complete XML template.
+The template populates every optional section with one specimen entry,
+including references whose <id> points at nothing on your instance — delete
+the sections you do not need. A dangling reference is answered with a 500.
+Optional sections: category, id, name, name_id, notifications, site, source_id, versions`,
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "patch-management-software-titles:update"},
 		Example: `  # Update a patch_software_title from an XML file
   jamf-cli pro classic-patch-titles update 1 --from-file patch_software_title.xml
 
   # Update a patch_software_title from XML on stdin
   cat patch_software_title.xml | jamf-cli pro classic-patch-titles update 1`,
-		Args: cobra.MaximumNArgs(1),
+		Args: classicScaffoldArgs(&flagScaffold, cobra.MaximumNArgs(1)),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if flagScaffold {
+				return printClassicScaffold(bodySpecClassicPatchTitles)
+			}
 			reqCtx := cmd.Context()
 
-			bodyBytes, bodyErr := readClassicBodyOrSet(fromFile, nil, bodySpecClassicPatchTitles)
+			bodyBytes, bodyErr := readClassicBodyOrSet(fromFile, flagSet, bodySpecClassicPatchTitles)
 			if bodyErr != nil {
 				return bodyErr
 			}
@@ -253,6 +331,11 @@ current values, so a body carrying one element changes only that element.`,
 	}
 
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to XML input file (or pipe XML to stdin)")
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print an XML body template for this resource and exit")
+	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Set a body field in dot notation (key=value, repeatable). Builds the whole body, so it cannot be combined with --from-file")
+	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+		return []string{"category.id=", "category.name=", "id=", "name=", "name_id=", "notifications.email_notification=", "notifications.web_notification=", "site.id=", "site.name=", "source_id="}, cobra.ShellCompDirectiveNoSpace
+	})
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up patch_software_title by name")
 
 	return cmd
@@ -277,7 +360,7 @@ func newClassicPatchTitlesDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # Delete without confirmation prompt
   jamf-cli pro classic-patch-titles delete 1 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true", "jamf:api": "pro-classic", "jamf:gateway": "unserved", "jamf:gateway-basis": "unpublished", "jamf:gateway-detail": "the gateway's Classic API 11.28.0 declares no DELETE on this resource"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:api": "pro-classic", "jamf:gateway-privileges": "patch-management-software-titles:delete"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -442,20 +525,29 @@ func newClassicPatchTitlesDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 
 func newClassicPatchTitlesApplyCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
-		fromFile   string
-		flagYes    bool
-		flagDryRun bool
+		fromFile     string
+		flagYes      bool
+		flagDryRun   bool
+		flagScaffold bool
+		flagSet      []string
 	)
 
 	cmd := &cobra.Command{
 		Use:         "apply",
 		Short:       "Create or replace a patch_software_title by name",
-		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway": "unserved", "jamf:gateway-basis": "unpublished", "jamf:gateway-detail": "not declared by the gateway's Classic API 11.28.0"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "patch-management-software-titles:create,patch-management-software-titles:read,patch-management-software-titles:update"},
 		Long: `Create or replace a patch_software_title. Reads XML from --from-file, --set or stdin.
 
 The name field in the input XML is used to check if the resource already
 exists. If it does, the resource is replaced (with confirmation).
-If not, a new resource is created.`,
+If not, a new resource is created.
+
+Body fields are derived from the Classic API spec (schema "patch_software_title").
+Run with --scaffold to print a complete XML template.
+The template populates every optional section with one specimen entry,
+including references whose <id> points at nothing on your instance — delete
+the sections you do not need. A dangling reference is answered with a 500.
+Optional sections: category, id, name, name_id, notifications, site, source_id, versions`,
 		Example: `  # Apply a patch_software_title from an XML file
   jamf-cli pro classic-patch-titles apply --from-file patch_software_title.xml
 
@@ -465,6 +557,9 @@ If not, a new resource is created.`,
   # Apply without replacement confirmation
   jamf-cli pro classic-patch-titles apply --from-file patch_software_title.xml --yes`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			if flagScaffold {
+				return printClassicScaffold(bodySpecClassicPatchTitles)
+			}
 			reqCtx := cmd.Context()
 
 			// Read input
@@ -537,6 +632,11 @@ If not, a new resource is created.`,
 	}
 
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to XML input file (or pipe XML to stdin)")
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print an XML body template for this resource and exit")
+	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Set a body field in dot notation (key=value, repeatable). Builds the whole body, so it cannot be combined with --from-file")
+	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+		return []string{"category.id=", "category.name=", "id=", "name=", "name_id=", "notifications.email_notification=", "notifications.web_notification=", "site.id=", "site.name=", "source_id="}, cobra.ShellCompDirectiveNoSpace
+	})
 
 	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt when replacing")
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")

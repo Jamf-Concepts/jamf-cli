@@ -247,7 +247,7 @@ func newClassicPatchPoliciesListCmd(ctx *registry.CLIContext) *cobra.Command {
 
   # List patchpolicies and extract IDs
   jamf-cli pro classic-patch-policies list --field id`,
-		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway": "unserved", "jamf:gateway-basis": "unpublished", "jamf:gateway-detail": "not declared by the gateway's Classic API 11.28.0"},
+		Annotations: map[string]string{"jamf:api": "pro-classic", "jamf:gateway-privileges": "patch-policies:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 			resp, err := ctx.Client.Do(reqCtx, "GET", "/JSSResource/patchpolicies", nil)

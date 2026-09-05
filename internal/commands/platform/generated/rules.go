@@ -36,7 +36,7 @@ func newRulesListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Use:         "list",
 		Short:       "Returns list of rules for specific baseline",
 		Long:        "Returns list of rules for specific baseline and their sources",
-		Annotations: map[string]string{"jamf:privileges": "compliance-benchmarks:read", "jamf:api": "platform-gateway"},
+		Annotations: map[string]string{"jamf:privileges": "compliance-benchmarks:read", "jamf:api": "platform-gateway", "jamf:scopes": "environment"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err

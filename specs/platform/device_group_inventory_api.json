@@ -55,10 +55,10 @@
           "type": "string"
         }
       },
-      "X-Tenant-Id": {
-        "description": "The tenant UUID identifier.",
+      "X-Environment-Id": {
+        "description": "The environment UUID identifier.",
         "in": "header",
-        "name": "X-Tenant-Id",
+        "name": "X-Environment-Id",
         "required": true,
         "schema": {
           "example": "e77c1408-10c8-4007-b177-abc9157fbcaa",
@@ -575,7 +575,7 @@
         "description": "Retrieve a paginated list of all device groups for the tenant\n\n**Required Permissions:** `device-groups:read`",
         "parameters": [
           {
-            "$ref": "#/components/parameters/X-Tenant-Id"
+            "$ref": "#/components/parameters/X-Environment-Id"
           },
           {
             "$ref": "#/components/parameters/PageIndex"
@@ -627,7 +627,7 @@
         "description": "Create a new device group in Jamf Pro\n\n**Required Permissions:** `device-groups:create`",
         "parameters": [
           {
-            "$ref": "#/components/parameters/X-Tenant-Id"
+            "$ref": "#/components/parameters/X-Environment-Id"
           }
         ],
         "requestBody": {
@@ -683,7 +683,7 @@
         "description": "Delete an existing device group\n\n**Required Permissions:** `device-groups:delete`",
         "parameters": [
           {
-            "$ref": "#/components/parameters/X-Tenant-Id"
+            "$ref": "#/components/parameters/X-Environment-Id"
           }
         ],
         "responses": {
@@ -720,7 +720,7 @@
         "description": "Retrieve a specific device group by its ID\n\n**Required Permissions:** `device-groups:read`",
         "parameters": [
           {
-            "$ref": "#/components/parameters/X-Tenant-Id"
+            "$ref": "#/components/parameters/X-Environment-Id"
           }
         ],
         "responses": {
@@ -769,7 +769,7 @@
         "description": "Update an existing device group\n\n**Required Permissions:** `device-groups:update`",
         "parameters": [
           {
-            "$ref": "#/components/parameters/X-Tenant-Id"
+            "$ref": "#/components/parameters/X-Environment-Id"
           }
         ],
         "requestBody": {
@@ -818,7 +818,7 @@
         "description": "Retrieve all members of a device group\n\n**Required Permissions:** `device-groups:read`",
         "parameters": [
           {
-            "$ref": "#/components/parameters/X-Tenant-Id"
+            "$ref": "#/components/parameters/X-Environment-Id"
           }
         ],
         "responses": {
@@ -867,7 +867,7 @@
         "description": "Add devices to or remove devices from a static device group. Cannot be used with smart groups.\n\n**Required Permissions:** `device-groups:update`",
         "parameters": [
           {
-            "$ref": "#/components/parameters/X-Tenant-Id"
+            "$ref": "#/components/parameters/X-Environment-Id"
           }
         ],
         "requestBody": {
@@ -917,7 +917,7 @@
         "description": "Retrieve all device groups to which a specific device ID belongs\u003cbr/\u003e If no device by the specified ID exists or the device ID is not a member of any groups, an empty array will be returned.\n\n**Required Permissions:** `device-groups:read`",
         "parameters": [
           {
-            "$ref": "#/components/parameters/X-Tenant-Id"
+            "$ref": "#/components/parameters/X-Environment-Id"
           }
         ],
         "responses": {
@@ -977,6 +977,6 @@
     }
   ],
   "x-scope-types": [
-    "tenant"
+    "environment"
   ]
 }

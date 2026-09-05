@@ -79,6 +79,10 @@ func run(args []string, envArgs string) int {
 	if err == nil {
 		return exitcode.Success
 	}
+	// Ahead of ClassifyError, and wrapping with %w, because both of the
+	// steps below work by errors.As and a flattened chain loses the
+	// classification — the trap platform_audit.go's decorator documented.
+	err = commands.AnnotateScopeLevelError(executedCmd, err)
 	err = commands.ClassifyError(err)
 	err = commands.EnrichPrivilegeError(executedCmd, err)
 	if !commands.FormatError(err) {

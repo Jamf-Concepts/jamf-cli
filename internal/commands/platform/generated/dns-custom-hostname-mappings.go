@@ -38,7 +38,7 @@ func newDnsCustomHostnameMappingsDeleteCmd(cliCtx *registry.CLIContext) *cobra.C
 		Use:         "delete",
 		Short:       "Clear Custom Hostname Mappings",
 		Long:        "Clears all tenant Custom Hostname Mappings.",
-		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "custom-hostname-mappings:delete", "jamf:api": "platform-gateway"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "custom-hostname-mappings:delete", "jamf:api": "platform-gateway", "jamf:scopes": "environment,tenant"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err
@@ -86,7 +86,7 @@ func newDnsCustomHostnameMappingsGetCmd(cliCtx *registry.CLIContext) *cobra.Comm
 		Use:         "get",
 		Short:       "Get Custom Hostname Mappings",
 		Long:        "Returns the tenant Custom Hostname Mappings as a MappingList object (standard collection envelope). The full bounded set is returned in a single response and `totalCount` reflects the complete set. Pagination is currently not supported.",
-		Annotations: map[string]string{"jamf:privileges": "custom-hostname-mappings:read", "jamf:api": "platform-gateway"},
+		Annotations: map[string]string{"jamf:privileges": "custom-hostname-mappings:read", "jamf:api": "platform-gateway", "jamf:scopes": "environment,tenant"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err
@@ -122,7 +122,7 @@ func newDnsCustomHostnameMappingsUpdateCmd(cliCtx *registry.CLIContext) *cobra.C
 		Use:         "update",
 		Short:       "Replace Custom Hostname Mappings",
 		Long:        "Replaces the entire set of tenant Custom Hostname Mappings with the supplied JSON list. The previous mappings are fully overwritten.",
-		Annotations: map[string]string{"jamf:privileges": "custom-hostname-mappings:update", "jamf:api": "platform-gateway"},
+		Annotations: map[string]string{"jamf:privileges": "custom-hostname-mappings:update", "jamf:api": "platform-gateway", "jamf:scopes": "environment,tenant"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if scaffoldFlag {
 				// Scaffold prints raw JSON regardless of -o, so the output

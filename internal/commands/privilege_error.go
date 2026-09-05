@@ -83,7 +83,7 @@ func EnrichPrivilegeError(cmd *cobra.Command, err error) error {
 	privs := cmd.Annotations["jamf:privileges"]
 
 	if cmd.Annotations[annotationAPI] == apiPlatformGateway {
-		return enrichPlatformPrivilegeError(privs, err)
+		return enrichPlatformPrivilegeError(privs, scopesOf(cmd), err)
 	}
 
 	if privs == "" {
@@ -119,7 +119,7 @@ func EnrichPrivilegeError(cmd *cobra.Command, err error) error {
 // The annotation is used rather than a path lookup because these commands do not
 // go through internal/client and their annotation is already the capability
 // vocabulary, straight from the spec's x-required-privileges.
-func enrichPlatformPrivilegeError(privs string, err error) error {
+func enrichPlatformPrivilegeError(privs string, levels []string, err error) error {
 	var e *exitcode.Error
 	if errors.As(err, &e) {
 		// Already classified — a dry-run guard, a documented-status render, or
@@ -141,23 +141,34 @@ func enrichPlatformPrivilegeError(privs string, err error) error {
 	// platform_audit.go already inspects the code before adding its note; this
 	// is the same inspection.
 	if hasGatewayErrorCode(err, gatewayOwnershipForbidden) {
-		return exitcode.Wrap(exitcode.PermissionDenied, err).WithHint(scopeMismatchHint())
+		return exitcode.Wrap(exitcode.PermissionDenied, err).WithHint(scopeMismatchHint(levels))
 	}
 	return exitcode.Wrap(exitcode.PermissionDenied, err).WithHint(platformPrivilegeHint(privs))
 }
 
 // scopeMismatchHint names the profile field to check for an OWNERSHIP_FORBIDDEN
-// 403. It deliberately does not guess which level is right: a gateway token is
-// opaque and carries an empty scope, so nothing on this side can read the level
-// the credential belongs to — the header is the only signal, and a mismatch is
-// only discoverable by sending it.
-func scopeMismatchHint() string {
-	return "The credential's scope level does not match the scope header sent. " +
+// 403, and the levels the command's own API declares when it declares any.
+//
+// It still cannot say which level the *credential* belongs to: a gateway token
+// is opaque and carries an empty scope, so the header is the only signal and a
+// mismatch is only discoverable by sending it. What it can now say is which
+// levels the endpoint accepts, read off the command's jamf:scopes annotation —
+// so an operator whose profile sends a tenant ID to an environment-only API is
+// told that rather than left to compare two IDs. Phrased as "declares" because
+// the spec is currently stricter than the gateway (see
+// parser.Operation.ScopeTypes), and omitted entirely when the spec is silent,
+// which is the honest answer for the three Jamf Account specs.
+func scopeMismatchHint(levels []string) string {
+	hint := "The credential's scope level does not match the scope header sent. " +
 		"An API integration is created at one level in Jamf Account — organization, " +
 		"platform environment, or tenant — and only works with that level's header. " +
 		"Check environment-id / tenant-id in this profile (jamf-cli config list shows " +
 		"the scope; jamf-cli config path prints the file): an organization-scoped " +
 		"credential must name neither. The capability permissions are not the problem here."
+	if len(levels) > 0 {
+		hint += " This command's API declares " + renderScopeLevels(levels) + "."
+	}
+	return hint
 }
 
 // platformPrivilegeHint renders the capability permissions, falling back to the

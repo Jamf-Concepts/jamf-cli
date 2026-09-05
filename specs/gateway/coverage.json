@@ -5,17 +5,17 @@
       "file": "pro_api.json",
       "title": "Jamf Pro API",
       "version": "11.31.0",
-      "paths": 467,
-      "operations": 687
+      "paths": 476,
+      "operations": 700
     },
     "classic": {
       "file": "classic_api_resource_documentation.json",
       "title": "Classic API",
       "version": "11.28.0",
-      "paths": 263,
-      "operations": 575
+      "paths": 270,
+      "operations": 589
     },
-    "sdkCommit": "fc34c1d"
+    "sdkCommit": "94cbc28"
   },
   "spec": {
     "/pro/devices/extensionAttributes": [
@@ -1492,6 +1492,37 @@
       "GET",
       "PUT"
     ],
+    "/pro/v3/computers-inventory": [
+      "GET",
+      "POST"
+    ],
+    "/pro/v3/computers-inventory-detail/{}": [
+      "GET",
+      "PATCH"
+    ],
+    "/pro/v3/computers-inventory/filevault": [
+      "GET"
+    ],
+    "/pro/v3/computers-inventory/{}": [
+      "DELETE",
+      "GET"
+    ],
+    "/pro/v3/computers-inventory/{}/attachments": [
+      "POST"
+    ],
+    "/pro/v3/computers-inventory/{}/attachments/{}": [
+      "DELETE",
+      "GET"
+    ],
+    "/pro/v3/computers-inventory/{}/filevault": [
+      "GET"
+    ],
+    "/pro/v3/computers-inventory/{}/view-device-lock-pin": [
+      "GET"
+    ],
+    "/pro/v3/computers-inventory/{}/view-recovery-lock-password": [
+      "GET"
+    ],
     "/pro/v3/enrollment/access-groups": [
       "GET",
       "POST"
@@ -2479,6 +2510,18 @@
     "/proclassic/patchavailabletitles/sourceid/{}": [
       "GET"
     ],
+    "/proclassic/patches": [
+      "GET"
+    ],
+    "/proclassic/patches/id/{}": [
+      "DELETE",
+      "GET",
+      "POST",
+      "PUT"
+    ],
+    "/proclassic/patches/id/{}/version/{}": [
+      "GET"
+    ],
     "/proclassic/patches/name/{}": [
       "GET"
     ],
@@ -2506,6 +2549,9 @@
     "/proclassic/patchinternalsources/name/{}": [
       "GET"
     ],
+    "/proclassic/patchpolicies": [
+      "GET"
+    ],
     "/proclassic/patchpolicies/id/{}": [
       "DELETE",
       "GET",
@@ -2515,10 +2561,23 @@
       "GET"
     ],
     "/proclassic/patchpolicies/softwaretitleconfig/id/{}": [
+      "GET",
       "POST"
     ],
+    "/proclassic/patchreports/patchsoftwaretitleid/{}": [
+      "GET"
+    ],
+    "/proclassic/patchreports/patchsoftwaretitleid/{}/version/{}": [
+      "GET"
+    ],
+    "/proclassic/patchsoftwaretitles": [
+      "GET"
+    ],
     "/proclassic/patchsoftwaretitles/id/{}": [
-      "POST"
+      "DELETE",
+      "GET",
+      "POST",
+      "PUT"
     ],
     "/proclassic/policies": [
       "GET"
@@ -5300,6 +5359,63 @@
         "prestage-enrollments:update"
       ]
     },
+    "/pro/v3/computers-inventory": {
+      "GET": [
+        "devices:read"
+      ],
+      "POST": [
+        "devices:create"
+      ]
+    },
+    "/pro/v3/computers-inventory-detail/{}": {
+      "GET": [
+        "devices:read"
+      ],
+      "PATCH": [
+        "devices:update"
+      ]
+    },
+    "/pro/v3/computers-inventory/filevault": {
+      "GET": [
+        "disk-encryption-recovery-key:read"
+      ]
+    },
+    "/pro/v3/computers-inventory/{}": {
+      "DELETE": [
+        "destructive-device-actions:execute"
+      ],
+      "GET": [
+        "devices:read"
+      ]
+    },
+    "/pro/v3/computers-inventory/{}/attachments": {
+      "POST": [
+        "devices:update"
+      ]
+    },
+    "/pro/v3/computers-inventory/{}/attachments/{}": {
+      "DELETE": [
+        "devices:update"
+      ],
+      "GET": [
+        "devices:read"
+      ]
+    },
+    "/pro/v3/computers-inventory/{}/filevault": {
+      "GET": [
+        "disk-encryption-recovery-key:read"
+      ]
+    },
+    "/pro/v3/computers-inventory/{}/view-device-lock-pin": {
+      "GET": [
+        "computer-device-lock-pin:read"
+      ]
+    },
+    "/pro/v3/computers-inventory/{}/view-recovery-lock-password": {
+      "GET": [
+        "recovery-lock:read"
+      ]
+    },
     "/pro/v3/enrollment/access-groups": {
       "GET": [
         "user-initiated-enrollment:read"
@@ -7297,6 +7413,30 @@
         "patch-management-software-titles:read"
       ]
     },
+    "/proclassic/patches": {
+      "GET": [
+        "patch-management-software-titles:read"
+      ]
+    },
+    "/proclassic/patches/id/{}": {
+      "DELETE": [
+        "patch-management-software-titles:delete"
+      ],
+      "GET": [
+        "patch-management-software-titles:read"
+      ],
+      "POST": [
+        "patch-management-software-titles:create"
+      ],
+      "PUT": [
+        "patch-management-software-titles:update"
+      ]
+    },
+    "/proclassic/patches/id/{}/version/{}": {
+      "GET": [
+        "patch-management-software-titles:read"
+      ]
+    },
     "/proclassic/patches/name/{}": {
       "GET": [
         "patch-management-software-titles:read"
@@ -7350,6 +7490,11 @@
         "patch-internal-source:read"
       ]
     },
+    "/proclassic/patchpolicies": {
+      "GET": [
+        "patch-policies:read"
+      ]
+    },
     "/proclassic/patchpolicies/id/{}": {
       "DELETE": [
         "patch-policies:delete"
@@ -7367,13 +7512,40 @@
       ]
     },
     "/proclassic/patchpolicies/softwaretitleconfig/id/{}": {
+      "GET": [
+        "patch-policies:read"
+      ],
       "POST": [
         "patch-policies:create"
       ]
     },
+    "/proclassic/patchreports/patchsoftwaretitleid/{}": {
+      "GET": [
+        "patch-management-software-titles:read"
+      ]
+    },
+    "/proclassic/patchreports/patchsoftwaretitleid/{}/version/{}": {
+      "GET": [
+        "patch-management-software-titles:read"
+      ]
+    },
+    "/proclassic/patchsoftwaretitles": {
+      "GET": [
+        "patch-management-software-titles:read"
+      ]
+    },
     "/proclassic/patchsoftwaretitles/id/{}": {
+      "DELETE": [
+        "patch-management-software-titles:delete"
+      ],
+      "GET": [
+        "patch-management-software-titles:read"
+      ],
       "POST": [
         "patch-management-software-titles:create"
+      ],
+      "PUT": [
+        "patch-management-software-titles:update"
       ]
     },
     "/proclassic/policies": {

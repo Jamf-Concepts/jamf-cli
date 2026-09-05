@@ -54,6 +54,11 @@ func ParsePlatformSpec(specPath string) ([]*Resource, error) {
 		return nil, nil
 	}
 	applyPlatformPathMetadata(allOps, expectedStatuses)
+	if levels := scopeTypes(rawDoc); len(levels) > 0 {
+		for _, op := range allOps {
+			op.ScopeTypes = levels
+		}
+	}
 	allOps = dropUnroutedPlatformOps(allOps)
 
 	schemas := make(map[string]*Schema)
@@ -219,6 +224,53 @@ const tenantPathVersionExt = "x-jamf-tenant-path-version"
 // the server actually answers, where the spec's declared status is wrong.
 const expectedStatusExt = "x-jamf-expected-status"
 
+// scopeTypesExt is the published-spec extension naming the Jamf Platform API
+// scope levels a credential may be created at to reach the spec's operations.
+// Declared at the document root, since a scope is a property of the service.
+const scopeTypesExt = "x-scope-types"
+
+// knownScopeTypes is every level auth.Scope can express. An unknown value is
+// dropped rather than passed through, because everything downstream compares it
+// against a profile's resolved level and an unrecognised string would render as
+// a requirement nothing can satisfy.
+var knownScopeTypes = map[string]bool{
+	"organization": true,
+	"environment":  true,
+	"tenant":       true,
+}
+
+// scopeTypes returns the document-level scope levels, ordered organization,
+// environment, tenant so a rendered list reads widest-first and two specs
+// declaring the same set render identically.
+//
+// A spec declaring nothing returns nil. That is the honest answer rather than a
+// guessed default: the three account specs declare no x-scope-types at all and
+// are organization-scoped, which the SDK supplies from its own config rather
+// than from the artifact — see the account privileges note in CLAUDE.md for why
+// this repo does not hand-supply values the published spec omits.
+func scopeTypes(doc map[string]any) []string {
+	raw, ok := doc[scopeTypesExt].([]any)
+	if !ok {
+		return nil
+	}
+	seen := make(map[string]bool, len(raw))
+	for _, v := range raw {
+		if s, ok := v.(string); ok && knownScopeTypes[s] {
+			seen[s] = true
+		}
+	}
+	out := make([]string, 0, len(seen))
+	for _, level := range []string{"organization", "environment", "tenant"} {
+		if seen[level] {
+			out = append(out, level)
+		}
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
 // tenantPathVersion returns the document-level tenant path version, or "" when
 // the spec's own paths already carry their version.
 func tenantPathVersion(doc map[string]any) string {
@@ -360,31 +412,36 @@ var platformOperationNameOverrides = map[string]string{
 // command nor displace the working operation they claim to succeed.
 //
 // A dropped operation needs a recorded wire probe behind it, and dropping is
-// only right when the alternative is worse. Security Cloud's device groups is
-// the case that forced it: build v1865 declares PUT /v2/groups/{groupId} as the
-// successor to the v1 PUT it deprecates, but v2 answers 403 BAD_PERMISSIONS
-// while v1 answers 200 with the updated group — probed 7/7 by the SDK on
-// 2026-08-29 against a group created and deleted inside the same run, with a v1
-// write on the same group as the control. Left in, deduplicateVersionedOps
-// would correctly prefer the higher version, and `security device-groups
-// update` — a command that works today — would become a permanent 403 whose
-// message is indistinguishable from a missing privilege. FallbackPaths is no
-// escape: it is populated for GETs and DELETEs only, and the platform template
-// ignores it deliberately, because falling back on a 403 turns a permission
-// failure into a silent downgrade.
+// only right when the alternative is worse. The table is empty, and the entry
+// it held is the shape to expect one to end in. Security Cloud's device groups
+// forced it: build v1865 declared PUT /v2/groups/{groupId} as the successor to
+// the v1 PUT it deprecated, and the gateway did not route it — 403
+// BAD_PERMISSIONS 7/7 on 2026-08-29, then a bare 404 NOT_FOUND on a group
+// GET /v2/groups returned in the same invocation once authorization-policies#265
+// deployed, which was a service defect behind the authorization one rather than
+// the same failure clearing. Left in, deduplicateVersionedOps would correctly
+// prefer the higher version and `security device-groups update` — a command
+// that worked on v1 — would have become a permanent 403 reading as a missing
+// privilege. FallbackPaths is no escape: it is populated for GETs and DELETEs
+// only, and the platform template ignores it deliberately, because falling back
+// on a 403 turns a permission failure into a silent downgrade.
 //
-// This is the CLI declining to follow the SDK, which whitelisted its
-// UpdateDeviceGroupV2 method so that a // Deprecated: marker had a named
-// successor to point at. A library can ship a method that fails; a CLI command
-// that always 403s is worse than an absent one.
+// The v2 handler was fixed on 2026-09-04 and the entry is gone. Re-probed here
+// 2026-09-05 against an EU environment credential: PUT /v2/groups/{groupId}
+// answers 204 3/3 and the rename reads back through GET /v2/groups — a
+// different operation from the one written, so a handler accepting a write and
+// discarding it would not have passed — with PUT /v1/groups/{id} at 200 and a
+// bogus id at a field-attributed 404 GROUP_NOT_FOUND as controls in the same
+// invocation. Build v2082 then withdrew the v1 list and PUT, so v2 is the only
+// update there is: leaving the entry would have shipped no update at all.
 //
-// Remove an entry when the endpoint becomes routed — nothing in the spec says
-// so, so it takes a probe. TestPlatformUnroutedOpsAreDeclared fails if an entry
-// stops matching any shipped spec, which catches the other way an entry goes
-// stale: upstream withdrawing the path.
-var platformUnroutedOps = map[string]bool{
-	"PUT /securitycloud/v2/groups/{groupId}": true,
-}
+// Add an entry only when the endpoint is probed unrouted *and* it would displace
+// a working command; remove it when the endpoint becomes routed, which nothing
+// in a spec announces, so that also takes a probe.
+// TestPlatformUnroutedOpsAreDeclared fails if an entry stops matching any
+// shipped spec, which catches the other way an entry goes stale: upstream
+// withdrawing the path.
+var platformUnroutedOps = map[string]bool{}
 
 // dropUnroutedPlatformOps removes every operation named in platformUnroutedOps,
 // reporting each on stderr so a generate run says what it withheld rather than

@@ -12,10 +12,10 @@
           "type": "string"
         }
       },
-      "X-Tenant-Id": {
-        "description": "The tenant UUID identifier.",
+      "X-Environment-Id": {
+        "description": "The environment UUID identifier.",
         "in": "header",
-        "name": "X-Tenant-Id",
+        "name": "X-Environment-Id",
         "required": true,
         "schema": {
           "example": "e77c1408-10c8-4007-b177-abc9157fbcaa",
@@ -178,7 +178,7 @@
         "description": "Requests that a device check for pending commands\n\n**Required Permissions:** `device-actions:execute`",
         "parameters": [
           {
-            "$ref": "#/components/parameters/X-Tenant-Id"
+            "$ref": "#/components/parameters/X-Environment-Id"
           }
         ],
         "responses": {
@@ -233,7 +233,7 @@
         "description": "Requests that a device erase its content and settings\n\n**Required Permissions:** `destructive-device-actions:execute`",
         "parameters": [
           {
-            "$ref": "#/components/parameters/X-Tenant-Id"
+            "$ref": "#/components/parameters/X-Environment-Id"
           }
         ],
         "requestBody": {
@@ -308,7 +308,7 @@
         "description": "Requests that a device restart\n\n**Required Permissions:** `device-actions:execute`",
         "parameters": [
           {
-            "$ref": "#/components/parameters/X-Tenant-Id"
+            "$ref": "#/components/parameters/X-Environment-Id"
           }
         ],
         "responses": {
@@ -373,7 +373,7 @@
         "description": "Requests that a device shut down\n\n**Required Permissions:** `device-actions:execute`",
         "parameters": [
           {
-            "$ref": "#/components/parameters/X-Tenant-Id"
+            "$ref": "#/components/parameters/X-Environment-Id"
           }
         ],
         "responses": {
@@ -438,7 +438,7 @@
         "description": "Removes remote management from a device\n\n**Required Permissions:** `destructive-device-actions:execute`",
         "parameters": [
           {
-            "$ref": "#/components/parameters/X-Tenant-Id"
+            "$ref": "#/components/parameters/X-Environment-Id"
           }
         ],
         "responses": {
@@ -517,6 +517,6 @@
     }
   ],
   "x-scope-types": [
-    "tenant"
+    "environment"
   ]
 }

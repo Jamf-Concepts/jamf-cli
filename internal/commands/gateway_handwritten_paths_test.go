@@ -406,17 +406,14 @@ var handWrittenUndeterminedMethods = map[string][]string{
 // command still fails on a gateway profile, and the response-side
 // gatewayUnservedNote is what explains it to the operator.
 var unservedHandWrittenPaths = map[string]string{
-	// pro_group_tools.go, scopeableResources — `group-tools analyze --unused`
-	// lists five Classic resources and reads each object's scope to find
-	// unreferenced computer groups. capi v1993 withdrew GET /patchpolicies and
-	// kept GET /patchpolicies/id/{}, so the collection listing has no Classic
-	// successor; the Pro API's /v2/patch-policies declares no per-id read, which
-	// is where the scope lives, so there is nothing to move to. This is a
-	// fan-out: addReferencedGroupsFromClassic warns and continues per resource,
-	// so the other four still answer and the response carries
-	// gatewayUnservedNote. Refusing the whole command would cost four working
-	// resources to report one.
-	"GET /proclassic/patchpolicies": "no successor: /patchpolicies/id/{} survives but the collection listing does not, and Pro's /v2/patch-policies has no per-id read",
+	// Deliberately not here any more: GET /proclassic/patchpolicies, which
+	// pro_group_tools.go's scopeableResources reads for `group-tools analyze
+	// --unused`. capi v1993 withdrew the collection listing while keeping
+	// /patchpolicies/id/{}, and Pro's /v2/patch-policies declares no per-id read,
+	// so there was nowhere to move the scope read to. public-apis-oas#438 restored
+	// the whole patch family in build v2082 and the path resolves as served, so
+	// the entry now guards nothing — the failure mode this test's own comment
+	// names, where a stale entry reads as current wire knowledge.
 
 	// pro_bulk.go — capi v1993 withdrew the whole Classic /computers GET
 	// surface. The successor is Pro's /v4/computers-inventory, a different

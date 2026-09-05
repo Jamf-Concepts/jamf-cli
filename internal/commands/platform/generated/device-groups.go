@@ -26,49 +26,11 @@ func NewDeviceGroupsCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Long:        "API for accessing Security Cloud device information",
 		Annotations: map[string]string{"jamf:api": "platform-gateway"},
 	}
-	cmd.AddCommand(newDeviceGroupsListCmd(cliCtx))
 	cmd.AddCommand(newDeviceGroupsCreateCmd(cliCtx))
 	cmd.AddCommand(newDeviceGroupsDeleteCmd(cliCtx))
 	cmd.AddCommand(newDeviceGroupsGetCmd(cliCtx))
+	cmd.AddCommand(newDeviceGroupsListCmd(cliCtx))
 	cmd.AddCommand(newDeviceGroupsUpdateCmd(cliCtx))
-	return cmd
-}
-
-func newDeviceGroupsListCmd(cliCtx *registry.CLIContext) *cobra.Command {
-	cmd := &cobra.Command{
-		Use:         "list",
-		Short:       "List all device groups for a customer",
-		Long:        "Retrieves all device groups for the authenticated customer.",
-		Annotations: map[string]string{"jamf:privileges": "device-groups:read", "jamf:api": "platform-gateway"},
-		RunE: func(cmd *cobra.Command, args []string) error {
-			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
-				return err
-			}
-			path := "/securitycloud/v2/groups"
-			q := url.Values{}
-			var body any
-			if encoded := q.Encode(); encoded != "" {
-				path += "?" + encoded
-			}
-			var result any
-			if err := cliCtx.PlatformSDKClient.Transport().DoExpect(cmd.Context(), http.MethodGet, path, body, http.StatusOK, &result); err != nil {
-				return fmt.Errorf("list: %w", err)
-			}
-			if result == nil {
-				return nil
-			}
-			if obj, ok := result.(map[string]any); ok {
-				if arr, ok := obj["groups"].([]any); ok {
-					result = arr
-				}
-			}
-			b, err := json.MarshalIndent(result, "", "  ")
-			if err != nil {
-				return err
-			}
-			return cliCtx.Output.PrintRaw(b)
-		},
-	}
 	return cmd
 }
 
@@ -80,7 +42,7 @@ func newDeviceGroupsCreateCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Use:         "create",
 		Short:       "Create a new device group",
 		Long:        "Creates a new device group for the authenticated customer.",
-		Annotations: map[string]string{"jamf:privileges": "device-groups:create", "jamf:api": "platform-gateway"},
+		Annotations: map[string]string{"jamf:privileges": "device-groups:create", "jamf:api": "platform-gateway", "jamf:scopes": "environment,tenant"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if scaffoldFlag {
 				// Scaffold prints raw JSON regardless of -o, so the output
@@ -146,7 +108,7 @@ func newDeviceGroupsDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Use:         "delete <groupId>",
 		Short:       "Delete a device group",
 		Long:        "Deletes a device group. The default group cannot be deleted.",
-		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "device-groups:delete", "jamf:api": "platform-gateway"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "device-groups:delete", "jamf:api": "platform-gateway", "jamf:scopes": "environment,tenant"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
@@ -211,7 +173,7 @@ func newDeviceGroupsGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Use:         "get <groupId>",
 		Short:       "Get a device group by ID",
 		Long:        "Retrieves a single device group by its ID.",
-		Annotations: map[string]string{"jamf:privileges": "device-groups:read", "jamf:api": "platform-gateway"},
+		Annotations: map[string]string{"jamf:privileges": "device-groups:read", "jamf:api": "platform-gateway", "jamf:scopes": "environment,tenant"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
@@ -255,6 +217,44 @@ func newDeviceGroupsGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
+func newDeviceGroupsListCmd(cliCtx *registry.CLIContext) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:         "list",
+		Short:       "List all device groups for a customer",
+		Long:        "Retrieves all device groups for the authenticated customer.",
+		Annotations: map[string]string{"jamf:privileges": "device-groups:read", "jamf:api": "platform-gateway", "jamf:scopes": "environment,tenant"},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
+				return err
+			}
+			path := "/securitycloud/v2/groups"
+			q := url.Values{}
+			var body any
+			if encoded := q.Encode(); encoded != "" {
+				path += "?" + encoded
+			}
+			var result any
+			if err := cliCtx.PlatformSDKClient.Transport().DoExpect(cmd.Context(), http.MethodGet, path, body, http.StatusOK, &result); err != nil {
+				return fmt.Errorf("list: %w", err)
+			}
+			if result == nil {
+				return nil
+			}
+			if obj, ok := result.(map[string]any); ok {
+				if arr, ok := obj["groups"].([]any); ok {
+					result = arr
+				}
+			}
+			b, err := json.MarshalIndent(result, "", "  ")
+			if err != nil {
+				return err
+			}
+			return cliCtx.Output.PrintRaw(b)
+		},
+	}
+	return cmd
+}
+
 func newDeviceGroupsUpdateCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	var bodyFile string
 	var setFlags []string
@@ -264,7 +264,7 @@ func newDeviceGroupsUpdateCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Use:         "update <groupId>",
 		Short:       "Update a device group",
 		Long:        "Updates the name of an existing device group.",
-		Annotations: map[string]string{"jamf:privileges": "device-groups:update", "jamf:api": "platform-gateway"},
+		Annotations: map[string]string{"jamf:privileges": "device-groups:update", "jamf:api": "platform-gateway", "jamf:scopes": "environment,tenant"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if scaffoldFlag {
@@ -289,7 +289,7 @@ func newDeviceGroupsUpdateCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			} else {
 				return fmt.Errorf("provide a positional ID or --name")
 			}
-			path := "/securitycloud/v1/groups/{groupId}"
+			path := "/securitycloud/v2/groups/{groupId}"
 			path = strings.Replace(path, "{groupId}", url.PathEscape(resolvedID), 1)
 			q := url.Values{}
 			body, err := platform.ReadBody(bodyFile, setFlags)
@@ -318,18 +318,10 @@ func newDeviceGroupsUpdateCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if cliCtx.DryRun {
 				return platform.ReportDryRun(cmd.ErrOrStderr(), http.MethodPut, path, body)
 			}
-			var result any
-			if err := cliCtx.PlatformSDKClient.Transport().DoWithContentType(cmd.Context(), http.MethodPut, path, body, "application/json", http.StatusOK, &result); err != nil {
+			if err := cliCtx.PlatformSDKClient.Transport().DoWithContentType(cmd.Context(), http.MethodPut, path, body, "application/json", http.StatusNoContent, nil); err != nil {
 				return fmt.Errorf("update: %w", err)
 			}
-			if result == nil {
-				return nil
-			}
-			b, err := json.MarshalIndent(result, "", "  ")
-			if err != nil {
-				return err
-			}
-			return cliCtx.Output.PrintRaw(b)
+			return nil
 		},
 	}
 	cmd.Flags().StringVar(&bodyFile, "file", "", "Path to a JSON or YAML file containing the request body")

@@ -9,6 +9,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/Jamf-Concepts/jamf-cli/internal/auth"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 )
 
@@ -100,22 +101,61 @@ func TestAnnotateDistributorScopeError(t *testing.T) {
 	}
 }
 
-func TestAnnotateAuditScopeError(t *testing.T) {
-	if got := annotateAuditScopeError(nil); got != nil {
+// The audit runtime note is now the generic one, driven by jamf:scopes. This
+// asserts the replacement covers what TestAnnotateAuditScopeError used to: the
+// missing-scope 400 names the level that works, and the wrong-level 400 is left
+// alone because the gateway already names both levels itself.
+//
+// Asserted against the real `platform audit` command rather than a synthetic
+// one, because the annotation reaching that command is half the mechanism —
+// audit's spec is the one that declares a single level, and a generated command
+// losing the annotation would leave this passing on a hand-made stand-in.
+func TestAuditScopeErrorIsAnnotatedFromTheSpecDeclaredLevel(t *testing.T) {
+	audit := newPlatformAuditCmd(&registry.CLIContext{})
+	var leaf *cobra.Command
+	for _, sub := range audit.Commands() {
+		if sub.Name() == "sources" {
+			leaf = sub
+			break
+		}
+	}
+	if leaf == nil {
+		t.Fatal("platform audit has no sources subcommand")
+	}
+	if got := scopesOf(leaf); len(got) != 1 || got[0] != "environment" {
+		t.Fatalf("jamf:scopes = %v, want [environment] — audit_api.json declares environment only", got)
+	}
+
+	restore := resolvedPlatformScope
+	resolvedPlatformScope = auth.Scope{}
+	t.Cleanup(func() { resolvedPlatformScope = restore })
+
+	if got := AnnotateScopeLevelError(leaf, nil); got != nil {
 		t.Errorf("nil error should stay nil, got %v", got)
 	}
 
 	missing := errors.New("sources: API request failed with status 400: [REQUEST_CONTEXT_NOT_PROVIDED] The request context could not be detected.")
-	got := annotateAuditScopeError(missing)
-	if !strings.Contains(got.Error(), "environment-scoped profile") {
+	got := AnnotateScopeLevelError(leaf, missing)
+	if !strings.Contains(got.Error(), "declares environment scope") {
 		t.Errorf("missing scope should name the level that works, got %q", got)
+	}
+	if !errors.Is(got, missing) {
+		t.Error("the note must wrap with %w — a flattened chain loses the error's classification")
 	}
 
 	// A tenant-scoped profile earns INVALID_REQUEST_CONTEXT_TYPE, which already
 	// names both the level sent and the level expected — nothing to add.
+	resolvedPlatformScope = auth.TenantScope("11111111-1111-1111-1111-111111111111")
 	tenant := "sources: API request failed with status 400: [INVALID_REQUEST_CONTEXT_TYPE] Request context type 'tenant' is invalid. Expected any of 'environment'."
-	if got := annotateAuditScopeError(errors.New(tenant)); got.Error() != tenant {
+	if got := AnnotateScopeLevelError(leaf, errors.New(tenant)); got.Error() != tenant {
 		t.Errorf("INVALID_REQUEST_CONTEXT_TYPE should be untouched, got %q", got)
+	}
+
+	// And a credential already at a declared level is not a scope story: a note
+	// about scope would send the reader away from whatever the failure is.
+	resolvedPlatformScope = auth.EnvironmentScope("22222222-2222-2222-2222-222222222222")
+	if got := AnnotateScopeLevelError(leaf, missing); got.Error() != missing.Error() {
+		t.Errorf("an environment-scoped credential should not be told about scope, got %q", got)
 	}
 }
 

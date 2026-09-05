@@ -1018,6 +1018,25 @@ type commandEntry struct {
 	// gateway's own errors and the specs use, so a script matching on them keeps
 	// a stable key.
 	GatewayPermissions []string `json:"gatewayPermissions,omitempty"`
+	// Scopes are the Jamf Platform API scope levels the published spec says a
+	// credential must be created at to run this command — some subset of
+	// "organization", "environment" and "tenant", widest first. A Platform API
+	// integration is created at exactly one level in Jamf Account and its
+	// credential only works with that level, so this is the one requirement a
+	// 403 cannot teach: the gateway's refusal names a permission and says
+	// nothing about the level.
+	//
+	// Platform-served commands only. A Pro or Classic command routed through
+	// the gateway carries none, because its scope is a property of the gateway
+	// route rather than of the endpoint, and the three Jamf Account specs
+	// declare no x-scope-types at all despite being organization-scoped —
+	// absent here means the spec is silent, not that any level works.
+	//
+	// What the spec claims, which is currently stricter than what the gateway
+	// serves: build v2082 moved six Platform specs to environment-only while a
+	// tenant credential still reaches at least platform-devices and
+	// platform-device-groups. Nothing refuses on it.
+	Scopes []string `json:"scopes,omitempty"`
 }
 
 // isFullDetailFormat reports whether an output format carries the full
@@ -1109,6 +1128,8 @@ func collectCommands(cmd *cobra.Command, prefix, product, group string) []comman
 
 				GatewayPrivileges:  gatewayPrivilegesOf(child),
 				GatewayPermissions: gatewayPermissionsOf(child),
+
+				Scopes: scopesOf(child),
 			}
 
 			// Collect aliases: for leaf commands under a top-level group
@@ -1208,6 +1229,12 @@ func commandEntriesToMaps(entries []commandEntry, full bool) []map[string]any {
 			// Jamf Account rendering without a second slug list to carry.
 			if len(e.GatewayPermissions) > 0 {
 				m["gatewayPermissions"] = e.GatewayPermissions
+			}
+			// Positive-only: a Pro or Classic command carries no declared level
+			// and the three Jamf Account specs declare none either, so an empty
+			// array on every row would read as "any level works".
+			if len(e.Scopes) > 0 {
+				m["scopes"] = e.Scopes
 			}
 		}
 		result[i] = m

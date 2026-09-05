@@ -259,26 +259,17 @@ Create API client credentials in the Jamf Account portal
 			_, _ = fmt.Fprintf(w, "  Client ID:   %s\n", creds.ClientID)
 			_, _ = fmt.Fprintln(w, "  Secrets stored in system keychain")
 			_, _ = fmt.Fprintln(w)
-			// State what the profile actually enables, from what the gateway
-			// answered rather than from which prompt was filled in: one tenant
-			// belongs to one product, and claiming a surface it cannot reach
-			// sends someone chasing a 403 that is really a missing entitlement.
-			switch {
-			case securityCloud:
-				_, _ = fmt.Fprintln(w, "This scope serves the gateway-served Jamf Security Cloud commands")
-				_, _ = fmt.Fprintln(w, "(dns-*, ztna-*, content-categories, device-groups, uem-*).")
-			case creds.EnvironmentID == "" && creds.TenantID == "":
-				// Naming the surfaces beats implying the profile drives Pro or
-				// Security Cloud, which it cannot: an organization-scoped
-				// credential sends no scope header and reaches no product API.
-				_, _ = fmt.Fprintln(w, "This is an organization-scoped credential. It serves the Jamf Account commands")
-				_, _ = fmt.Fprintln(w, "(account-licenses, deal-registrations, distributor-*, sso-connections, sso-domains)")
-				_, _ = fmt.Fprintln(w, "and AI Governance (ai-policies, ai-tools). The Jamf Account ones are US-only.")
-				_, _ = fmt.Fprintln(w, "Set up a profile with an environment or tenant ID to drive Pro, Platform,")
-				_, _ = fmt.Fprintln(w, "Security Cloud or audit.")
-			default:
-				_, _ = fmt.Fprintln(w, "This scope serves the Pro API and Platform API commands.")
-			}
+			// State what the profile actually enables, from the scope levels
+			// the specs declare rather than from which prompt was filled in.
+			// Two things were wrong while this was hand-written prose: a
+			// tenant-scoped profile was told it served "the Platform API
+			// commands" when thirteen platform-level resources declare
+			// environment scope, and an organization-scoped one was told it
+			// served AI Governance, which answers 400
+			// REQUEST_CONTEXT_NOT_PROVIDED with no scope header. Assembling the
+			// sentence from jamf:scopes means it cannot drift from the specs
+			// the commands were generated from.
+			printScopeSummary(w, cmd.Root(), creds, securityCloud)
 
 			return nil
 		},

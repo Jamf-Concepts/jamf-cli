@@ -39,7 +39,7 @@ func newZtnaGatewaysListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Use:         "list",
 		Short:       "List Gateways",
 		Long:        "List dedicated Gateways for the tenant, paginated. Returns only customer-owned gateways. Each item includes datacenter, availability zones, IPSec configuration, and operational status.",
-		Annotations: map[string]string{"jamf:privileges": "ztna:read", "jamf:api": "platform-gateway"},
+		Annotations: map[string]string{"jamf:privileges": "ztna:read", "jamf:api": "platform-gateway", "jamf:scopes": "environment,tenant"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err
@@ -95,7 +95,7 @@ func newZtnaGatewaysCreateCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Use:         "create",
 		Short:       "Create a Gateway",
 		Long:        "Create a dedicated Gateway. Returns `201 {id, href}` + `Location` header.\n\nAllowed values:\n  datacenter: af-south-1, ap-east-1, ap-northeast-1, ap-south-1, ap-southeast-1, ap-southeast-2, ca-central-1, eu-central-1, eu-west-1, eu-west-2, sa-east-1, us-east-1, us-west-2\n  ipsec.esp.dhGroups[]: modp1024, modp1536, modp2048, modp3072, modp4096, ecp256, ecp384, ecp521\n  ipsec.esp.encryption[]: 3des, aes128, aes256\n  ipsec.esp.integrity[]: md5, sha1, sha256, sha512\n  ipsec.ike.dhGroups[]: modp1024, modp1536, modp2048, modp3072, modp4096, ecp256, ecp384, ecp521\n  ipsec.ike.encryption[]: 3des, aes128, aes256\n  ipsec.ike.integrity[]: md5, sha1, sha256, sha512\n  ipsec.keyExchange: ikev1, ikev2\n  ipsec.right.vendor: Checkpoint, Cisco, Fortinet, Juniper, Palo Alto, SonicWall, Sophos, Sourcefire, strongSwan, Watchguard, Other",
-		Annotations: map[string]string{"jamf:privileges": "ztna:create", "jamf:api": "platform-gateway"},
+		Annotations: map[string]string{"jamf:privileges": "ztna:create", "jamf:api": "platform-gateway", "jamf:scopes": "environment,tenant"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if scaffoldFlag {
 				// Scaffold prints raw JSON regardless of -o, so the output
@@ -161,7 +161,7 @@ func newZtnaGatewaysDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Use:         "delete <gatewayId>",
 		Short:       "Delete a Gateway",
 		Long:        "Delete a dedicated Gateway. Returns `204` on success. Returns `404` if the gateway does not exist or belongs to a different tenant — never `403`. Returns `409` if the gateway is still referenced by an App, a Grouped Gateway, or a DNS Zone — disassociate it first, then retry.",
-		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "ztna:delete", "jamf:api": "platform-gateway"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "ztna:delete", "jamf:api": "platform-gateway", "jamf:scopes": "environment,tenant"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
@@ -226,7 +226,7 @@ func newZtnaGatewaysGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Use:         "get <gatewayId>",
 		Short:       "Get a Gateway",
 		Long:        "Get a single dedicated Gateway. All fields are flat at the top level. Returns `404` if the gateway does not exist **or belongs to a different tenant** — never `403`, to avoid confirming the existence of gateways owned by other tenants (Gateway IDs are 16-bit enumerable; a `403` would be an existence oracle).",
-		Annotations: map[string]string{"jamf:privileges": "ztna:read", "jamf:api": "platform-gateway"},
+		Annotations: map[string]string{"jamf:privileges": "ztna:read", "jamf:api": "platform-gateway", "jamf:scopes": "environment,tenant"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
@@ -279,7 +279,7 @@ func newZtnaGatewaysPatchCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Use:         "patch <gatewayId>",
 		Short:       "Partially update a Gateway",
 		Long:        "Partially update a dedicated Gateway. All fields are optional — flat body, no nesting.\n\nAllowed values:\n  datacenter: af-south-1, ap-east-1, ap-northeast-1, ap-south-1, ap-southeast-1, ap-southeast-2, ca-central-1, eu-central-1, eu-west-1, eu-west-2, sa-east-1, us-east-1, us-west-2\n  ipsec.esp.dhGroups[]: modp1024, modp1536, modp2048, modp3072, modp4096, ecp256, ecp384, ecp521\n  ipsec.esp.encryption[]: 3des, aes128, aes256\n  ipsec.esp.integrity[]: md5, sha1, sha256, sha512\n  ipsec.ike.dhGroups[]: modp1024, modp1536, modp2048, modp3072, modp4096, ecp256, ecp384, ecp521\n  ipsec.ike.encryption[]: 3des, aes128, aes256\n  ipsec.ike.integrity[]: md5, sha1, sha256, sha512\n  ipsec.keyExchange: ikev1, ikev2\n  ipsec.right.vendor: Checkpoint, Cisco, Fortinet, Juniper, Palo Alto, SonicWall, Sophos, Sourcefire, strongSwan, Watchguard, Other",
-		Annotations: map[string]string{"jamf:privileges": "ztna:update", "jamf:api": "platform-gateway"},
+		Annotations: map[string]string{"jamf:privileges": "ztna:update", "jamf:api": "platform-gateway", "jamf:scopes": "environment,tenant"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if scaffoldFlag {

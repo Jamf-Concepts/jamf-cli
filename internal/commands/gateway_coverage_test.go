@@ -386,62 +386,85 @@ func TestCommandsCatalogRendersPermissionsAsJamfAccountShowsThem(t *testing.T) {
 	}
 }
 
-// A Classic resource the gateway still carries can have subcommands it no
-// longer serves, and the whole-resource verdict reports those as fine.
+// The Classic patch-management family is served, and this fails if a refusal
+// comes back for it.
 //
-// Classic API 11.28.0 is the case: it withdrew every read and write on
-// patchsoftwaretitles while keeping POST /patchsoftwaretitles/id/{}, and
-// withdrew GET /patchpolicies while keeping GET /patchpolicies/id/{}. So the
-// resources are carried, and `classic-patch-titles list/get/update/delete` and
-// `classic-patch-policies list` are dead. Each would otherwise pass the
-// pre-flight refusal and go out to a bare 403 — the exact failure the refusal
-// exists to pre-empt — while `jamf:gateway-privileges` named a permission that
-// cannot make it work, because the subtree scope union still carries the read
-// from the paths that survived.
-func TestClassicSubcommandsRefusedWhenTheirMethodIsWithdrawn(t *testing.T) {
+// Classic API 11.28.0 as published at SDK v0.21.0 withdrew every read and write
+// on patchsoftwaretitles while keeping POST /patchsoftwaretitles/id/{}, and
+// withdrew GET /patchpolicies while keeping GET /patchpolicies/id/{} — the case
+// that forced the three-granularity Classic verdict, because under a
+// whole-resource verdict all six of those subcommands passed the pre-flight
+// refusal and went out to the bare 403 the refusal exists to pre-empt, with
+// `jamf:gateway-privileges` naming a permission that could not make them work.
+//
+// public-apis-oas#438 restored the whole family in build v2082 ("patch
+// management is where Classic API callers are most concentrated"), so there is
+// no live per-method Classic withdrawal left. The direction that now needs
+// pinning is the other one: these six worked all along on the wire, were
+// refused for a spec build, and the refusal is what an ingest could silently
+// reinstate. The granularity mechanism itself stays covered synthetically in
+// generator/gateway — TestVerdictSubtreeMethodCatchesAMethodWithdrawnFromAServedResource,
+// TestExactVerdictSeparatesAWithdrawnCollectionGetFromASurvivingDetailGet and
+// TestApplyEmitsASubtreeMethodEntryUnderThatMethod — which is where it belongs
+// while no shipped command exercises it.
+func TestClassicPatchFamilyIsServedAndKeepsItsPermissions(t *testing.T) {
 	root := NewRootCmd("test", "", "", "")
 	byName := map[string]commandEntry{}
 	for _, e := range collectCommands(root, "", "", "") {
 		byName[e.Command] = e
 	}
 
-	refused := []string{
+	restored := []string{
 		"pro classic-patch-titles list",
 		"pro classic-patch-titles get",
 		"pro classic-patch-titles update",
 		"pro classic-patch-titles delete",
 		"pro classic-patch-titles apply",
+		"pro classic-patch-titles create",
 		"pro classic-patch-policies list",
+		"pro classic-patch-policies get",
+		"pro classic-patch-reports get",
 	}
-	for _, name := range refused {
-		e, ok := byName[name]
-		if !ok {
-			t.Errorf("%s is missing from the catalog", name)
-			continue
-		}
-		if e.Gateway != string(gateway.Unserved) {
-			t.Errorf("%s: gateway verdict %q, want %q", name, e.Gateway, gateway.Unserved)
-		}
-		if len(e.GatewayPrivileges) != 0 {
-			t.Errorf("%s is refused and must name no permission, got %v", name, e.GatewayPrivileges)
-		}
-	}
-
-	// The surviving method keeps working, and keeps its permission. Refusing
-	// the whole resource would be the easy over-correction.
-	served := []string{"pro classic-patch-titles create", "pro classic-patch-policies get"}
-	for _, name := range served {
+	for _, name := range restored {
 		e, ok := byName[name]
 		if !ok {
 			t.Errorf("%s is missing from the catalog", name)
 			continue
 		}
 		if e.Gateway != "" {
-			t.Errorf("%s: gateway verdict %q, want served", name, e.Gateway)
+			t.Errorf("%s: gateway verdict %q, want served — build v2082 restored the "+
+				"Classic patch family, so a refusal here refuses a working command", name, e.Gateway)
 		}
 		if len(e.GatewayPrivileges) == 0 {
-			t.Errorf("%s is served and lost its gateway permission", name)
+			t.Errorf("%s is served and names no gateway permission", name)
 		}
+	}
+}
+
+// A refused Classic command must name no gateway permission, because the
+// subtree scope union still carries one from whichever paths survived — and
+// advertising a grant that cannot make the command work sends the operator to
+// Jamf Account to tick a box that changes nothing.
+//
+// classic-computer-configs is the live case and is refused whole-resource: the
+// gateway declares no /computerconfigurations at all, and the instance 404s it
+// too, so it is dead rather than merely unpublished.
+func TestARefusedClassicCommandNamesNoPermission(t *testing.T) {
+	root := NewRootCmd("test", "", "", "")
+
+	var refused int
+	for _, e := range collectCommands(root, "", "", "") {
+		if e.Gateway == "" || !strings.HasPrefix(e.Command, "pro classic-") {
+			continue
+		}
+		refused++
+		if len(e.GatewayPrivileges) != 0 {
+			t.Errorf("%s is refused and must name no permission, got %v", e.Command, e.GatewayPrivileges)
+		}
+	}
+	if refused == 0 {
+		t.Fatal("no refused Classic command in the catalog — nothing exercised the rule; " +
+			"if every Classic resource is now served, retire this test rather than leaving it vacuous")
 	}
 }
 
