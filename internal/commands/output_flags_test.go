@@ -11,6 +11,7 @@ import (
 	"go/parser"
 	gotoken "go/token" // the package name collides with root.go's token flag var
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -692,4 +693,138 @@ func TestFilesThatRouteTheirWriterDoNotPrintToStdout(t *testing.T) {
 func isPackageIdent(expr ast.Expr, name string) bool {
 	id, ok := expr.(*ast.Ident)
 	return ok && id.Name == name
+}
+
+// sanctionedFormatterSites is the whole set of places an output.Formatter may
+// be built, keyed by file and enclosing function. A construction anywhere else
+// is a finding. Each reason is recorded at the site itself.
+var sanctionedFormatterSites = map[string]string{
+	// The shared formatter itself. The setters carrying --out-file, --select,
+	// --compact, --quiet and --no-hints are applied here.
+	"commands/root.go": "buildOutputFormatter",
+	// newBulkCmd's Long documents the contract this preview keeps: preview
+	// table on stdout, mutation log on stderr. It stays a table whatever -o
+	// says, so it cannot come from the shared formatter, and it must not follow
+	// --out-file into the data file.
+	"commands/pro_bulk.go": "bulkPreviewTable",
+	// The bulk-targeting preview, keeping the same documented contract.
+	"commands/pro_device_actions.go": "deviceActionPreviewTable",
+}
+
+// buildsFormatter reports whether n produces an output.Formatter, where local
+// is the name internal/output is bound to in the file being read.
+//
+// New is that package's only exported constructor and Formatter's fields are
+// unexported, so these three forms are the whole surface: a call to New, a
+// composite literal of the type, and new() of it.
+func buildsFormatter(n ast.Node, local string) bool {
+	names := func(e ast.Expr, sel string) bool {
+		s, ok := e.(*ast.SelectorExpr)
+		if !ok || s.Sel.Name != sel {
+			return false
+		}
+		id, isIdent := s.X.(*ast.Ident)
+		return isIdent && id.Name == local
+	}
+	switch v := n.(type) {
+	case *ast.CallExpr:
+		if names(v.Fun, "New") {
+			return true
+		}
+		if id, ok := v.Fun.(*ast.Ident); ok && id.Name == "new" && len(v.Args) == 1 {
+			return names(v.Args[0], "Formatter")
+		}
+	case *ast.CompositeLit:
+		return names(v.Type, "Formatter")
+	}
+	return false
+}
+
+// TestNoFileBuildsItsOwnOutputFormatter refuses an output.Formatter built
+// outside the sanctioned sites. Twenty-four commands called output.New
+// directly, so --out-file, --select, --field, --compact, --quiet and --no-hints
+// were parsed and then discarded on every one of them: --out-file created a
+// 0-byte file while 2934 bytes went to stdout.
+//
+// It replaced a 976-line program under scripts/ with its own Makefile target
+// and gating CI step. That program enumerated construction syntax — dot
+// imports, elided composite-literal element types, generic receivers — and was
+// still blind to a shape this same change introduces, Formatter.WithFormat's
+// dereference-copy. This resolves the import instead, so a file that cannot
+// name the package cannot trip any form of the rule, known or not.
+//
+// Attribution is to the enclosing top-level function, so a construction inside
+// a closure inside a sanctioned function is exempt with it. That is why
+// deviceActionPreviewTable was extracted from executeAction: the exemption
+// covers three lines rather than a whole function body where a later
+// result-printing path would have been exempt in advance.
+func TestNoFileBuildsItsOwnOutputFormatter(t *testing.T) {
+	const outputPkg = `"github.com/Jamf-Concepts/jamf-cli/internal/output"`
+
+	found := map[string]string{}
+	walkErr := filepath.WalkDir("..", func(path string, d fs.DirEntry, err error) error {
+		if err != nil || d.IsDir() || !strings.HasSuffix(path, ".go") || strings.HasSuffix(path, "_test.go") {
+			return err
+		}
+		fset := gotoken.NewFileSet()
+		file, parseErr := parser.ParseFile(fset, path, nil, 0)
+		if parseErr != nil {
+			t.Errorf("parsing %s: %v", path, parseErr)
+			return nil
+		}
+		// A file that does not import the package cannot construct one,
+		// whatever syntax it reaches for. internal/output's own files are
+		// skipped here, being the package rather than an importer of it.
+		local := ""
+		for _, imp := range file.Imports {
+			if imp.Path.Value != outputPkg {
+				continue
+			}
+			local = "output"
+			if imp.Name != nil {
+				local = imp.Name.Name
+			}
+		}
+		if local == "" || local == "_" {
+			return nil
+		}
+		// A dot import binds New and Formatter as bare identifiers, which no
+		// selector-based rule can see. Refuse the import rather than grow a
+		// second matcher for it: nothing here needs one.
+		if local == "." {
+			t.Errorf("%s dot-imports internal/output, which puts New and Formatter beyond this rule — import it normally", path)
+			return nil
+		}
+
+		rel := filepath.ToSlash(strings.TrimPrefix(path, "../"))
+		for _, decl := range file.Decls {
+			fn, isFunc := decl.(*ast.FuncDecl)
+			if !isFunc {
+				continue
+			}
+			ast.Inspect(fn, func(n ast.Node) bool {
+				if !buildsFormatter(n, local) {
+					return true
+				}
+				if sanctionedFormatterSites[rel] == fn.Name.Name {
+					found[rel] = fn.Name.Name
+					return true
+				}
+				t.Errorf("%s: %s builds its own output.Formatter, so every global output flag is inert on it — print through printRows or formatterFor instead", rel, fn.Name.Name)
+				return true
+			})
+		}
+		return nil
+	})
+	if walkErr != nil {
+		t.Fatalf("walking internal/: %v", walkErr)
+	}
+
+	// A sanctioned site that moved or was renamed must fail here rather than
+	// silently leaving the rule enforcing nothing.
+	for file, fn := range sanctionedFormatterSites {
+		if found[file] != fn {
+			t.Errorf("sanctioned site %s:%s builds no formatter any more — remove the entry, or point it at the function that does", file, fn)
+		}
+	}
 }

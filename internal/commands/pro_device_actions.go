@@ -586,7 +586,7 @@ func unresolvedTargetsErr(deviceType string, unresolved int) error {
 // on stderr. It stays a table whatever -o says, so it cannot come from the
 // shared formatter.
 //
-// It is its own function so that scripts/lint-shared-output can exempt three
+// It is its own function so that TestNoFileBuildsItsOwnOutputFormatter exempts three
 // lines rather than the whole of executeAction, where a later formatter on a
 // result-printing path would have been exempt before anyone wrote it.
 func deviceActionPreviewTable(rows []map[string]any) {

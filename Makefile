@@ -1,4 +1,4 @@
-.PHONY: audit-coverage build test clean generate sync-specs sync-spec sync-platform-specs sync-platform-specs-from-sdk sync-security-specs sync-gateway-coverage sync-gateway-coverage-from-sdk sync-permissions-map verify-gateway-coverage verify-classic-schemas install lint lint-dead lint-shared-output verify-generated verify-platform-specs verify-security-specs verify-gateway-coverage verify-site verify-site-output smoke smoke-seed smoke-cleanup release-check site
+.PHONY: audit-coverage build test clean generate sync-specs sync-spec sync-platform-specs sync-platform-specs-from-sdk sync-security-specs sync-gateway-coverage sync-gateway-coverage-from-sdk sync-permissions-map verify-gateway-coverage verify-classic-schemas install lint lint-dead verify-generated verify-platform-specs verify-security-specs verify-gateway-coverage verify-site verify-site-output smoke smoke-seed smoke-cleanup release-check site
 
 # Build variables
 VERSION         ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
@@ -40,12 +40,6 @@ lint:
 # Detect dead Cobra flag bindings and unexported helpers (warn-only for now)
 lint-dead:
 	go run ./scripts/lint-dead-code/
-
-# Refuse a command that builds its own output formatter and so discards every
-# global output flag. Gating, not warn-only: the flags are silently dropped, so
-# there is no symptom for a reviewer to notice.
-lint-shared-output:
-	go run ./scripts/lint-shared-output/
 
 # Clean build artifacts
 clean:

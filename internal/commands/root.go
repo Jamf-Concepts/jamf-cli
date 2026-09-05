@@ -152,7 +152,8 @@ func walkFieldPath(obj map[string]any, parts []string) (any, bool) {
 // else receives none of the setters below, so --out-file, --select, --compact,
 // --quiet and --no-hints are parsed and then discarded — with no symptom, since
 // --out-file still creates the file and the payload still reaches standard
-// output. scripts/lint-shared-output refuses a second construction site.
+// output. TestNoFileBuildsItsOwnOutputFormatter refuses a second construction
+// site, this file included.
 func buildOutputFormatter(outFileHandle *os.File, explicitNoColor bool) *output.Formatter {
 	formatter := output.New(outputFmt, noColor, wide)
 	if outFileHandle != nil {
