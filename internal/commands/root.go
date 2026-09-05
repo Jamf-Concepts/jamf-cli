@@ -16,6 +16,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode"
 
 	"github.com/hashicorp/go-retryablehttp"
 	"github.com/spf13/cobra"
@@ -1974,21 +1975,6 @@ func guardStrayPositionals(cmd *cobra.Command) {
 	}
 }
 
-// refuseStrayPositionals reports a positional given to a command that documents
-// none, and carries its own exit code.
-//
-// cobra.NoArgs is the obvious choice and says `unknown command "x" for "y"`,
-// which is guardUnknownSubcommands' message for a parent. On a leaf there is no
-// subcommand the value could have named, so that wording sends the reader
-// hunting for one: `pro backup /tmp/out` reported an unknown command for a
-// directory --output takes, and named neither the flag nor the real mistake.
-//
-// It builds an *exitcode.Error rather than a plain error because that is what
-// carries the Hint, and the hint is the half of the answer that says where the
-// value belongs. The exit code is not the reason: classifyArgsErrors codes every
-// argument error at cobra's own call site, so a plain error from here would
-// still exit 2. The two are independent on purpose, and neither substitutes for
-// the other.
 // secretFlagSegments are the hyphen-delimited flag-name segments that mark a
 // string flag as carrying a credential.
 //
@@ -2007,6 +1993,43 @@ var secretFlagSegments = map[string]bool{
 //
 // A "-file" suffix is excluded: --token-file and --password-file take a path,
 // and a path is worth reporting back so the caller can see the typo.
+// secretShapedAssignment reports whether a stray positional is itself a
+// key=value pair whose key names a credential — the shape a dropped --set
+// leaves behind.
+//
+// carriesASecretFlag cannot see this one. --set is a stringArray, not a string,
+// and its NAME carries no secret word while its value can: `--set` is
+// repeatable, so omitting it before the second pair drops that pair to a
+// positional. CLAUDE.md names `--set deviceSyncAuth.clientSecret=…` as a real
+// invocation it discourages because the value reaches shell history and ps;
+// echoing it here adds the third vector that paragraph names, the CI log.
+//
+// A body key is camelCase where a flag name is hyphenated, so a separator is
+// inserted at each lower-to-upper transition and the one segment set reads
+// both. Keyed on the value rather than on "does this leaf take --set", because
+// the coarse form would hide an ordinary typo on several hundred leaves.
+func secretShapedAssignment(v string) bool {
+	key, _, ok := strings.Cut(v, "=")
+	if !ok {
+		return false
+	}
+	var b strings.Builder
+	for _, r := range key {
+		if unicode.IsUpper(r) {
+			b.WriteByte('-')
+		}
+		b.WriteRune(unicode.ToLower(r))
+	}
+	for _, seg := range strings.FieldsFunc(b.String(), func(r rune) bool {
+		return r == '.' || r == '-' || r == '_'
+	}) {
+		if secretFlagSegments[seg] {
+			return true
+		}
+	}
+	return false
+}
+
 func carriesASecretFlag(cmd *cobra.Command) bool {
 	found := false
 	cmd.Flags().VisitAll(func(f *pflag.Flag) {
@@ -2026,6 +2049,19 @@ func carriesASecretFlag(cmd *cobra.Command) bool {
 // refuseStrayPositionals reports a positional given to a command that documents
 // none, and carries its own exit code.
 //
+// cobra.NoArgs is the obvious choice and says `unknown command "x" for "y"`,
+// which is guardUnknownSubcommands' message for a parent. On a leaf there is no
+// subcommand the value could have named, so that wording sends the reader
+// hunting for one: `pro backup /tmp/out` reported an unknown command for a
+// directory --output takes, and named neither the flag nor the real mistake.
+//
+// It builds an *exitcode.Error rather than a plain error because that is what
+// carries the Hint, and the hint is the half of the answer that says where the
+// value belongs. The exit code is not the reason: classifyArgsErrors codes every
+// argument error at cobra's own call site, so a plain error from here would
+// still exit 2. The two are independent on purpose, and neither substitutes for
+// the other.
+//
 // The value is redacted when the command registers a secret-bearing string
 // flag, because on those the stray positional IS the secret: omitting
 // --new-password while supplying its value leaves the password as args[0], and
@@ -2043,7 +2079,7 @@ func refuseStrayPositionals(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 	value := args[0]
-	if carriesASecretFlag(cmd) {
+	if carriesASecretFlag(cmd) || secretShapedAssignment(value) {
 		value = "<redacted>"
 	}
 	return &exitcode.Error{

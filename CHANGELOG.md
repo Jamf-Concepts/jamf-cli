@@ -76,7 +76,11 @@ migration guide** and carries the detail, the error messages verbatim, and the r
   and ignored the directory that `--output` takes. A wrapper or a CI job that passes a
   stray token now fails where it used to succeed. Remove the argument, or move it to the
   flag that takes it; the refusal names the command and the value, and `--help` lists every
-  flag. A command that documents a placeholder is unchanged for an ordinary invocation.
+  flag. The value is replaced with `<redacted>` when the command registers a credential flag
+  (`--new-password`, `--pin`, `--unlock-token`) or when the positional is itself a
+  `key=value` pair whose key names a credential, such as a dropped
+  `--set account.password=…`, because this message reaches stdout as JSON when output is
+  piped and from there a CI log. A command that documents a placeholder is unchanged for an ordinary invocation.
   Under `--scaffold` it is now bounded too: 43 classic and platform leaves used to accept
   and discard any number of extra positionals with that flag set, and now enforce the
   declared ceiling, so `<resource> update <id> extra --scaffold` is refused where it exited

@@ -846,3 +846,79 @@ func TestGuardKeepsAHandDeclaredValidator(t *testing.T) {
 		t.Error("guardStrayPositionals skipped the completion half for a leaf that declared its own Args")
 	}
 }
+
+// TestSecretShapedAssignment covers the carrier carriesASecretFlag cannot see.
+// --set is a stringArray, not a string, and its NAME holds no secret word while
+// its value can. --set is repeatable, so omitting it before the second pair
+// drops that pair to a positional:
+// `security uem-connectors create --set authStrategy=X deviceSyncAuth.clientSecret=SEKRET`
+// echoed the secret into stdout as JSON, and from there into a CI log.
+//
+// Both directions are load-bearing. Redacting on "does this leaf take --set"
+// instead would hide an ordinary typo on several hundred leaves, so the test
+// pins the values that must still be reported verbatim.
+func TestSecretShapedAssignment(t *testing.T) {
+	for _, tc := range []struct {
+		value string
+		want  bool
+	}{
+		// camelCase body keys: a separator is inserted at lower→upper so the
+		// one segment set reads a body key as well as a flag name.
+		{"deviceSyncAuth.clientSecret=SEKRET", true},
+		{"account.password=SEKRET", true},
+		{"pin=123456", true},
+		{"unlock_token=abc", true},
+		{"apiKey=abc", true},
+		// Not secrets: these must keep naming the value, or a typo is unfixable.
+		{"authStrategy=JAMF_PRO_OAUTH", false},
+		{"general.name=Foo", false},
+		{"mapping=x", false},
+		{"keychain=x", false},
+		// Not an assignment at all.
+		{"/tmp/out", false},
+		{"junkarg", false},
+		{"S3cur3P@ss123", false},
+	} {
+		t.Run(tc.value, func(t *testing.T) {
+			if got := secretShapedAssignment(tc.value); got != tc.want {
+				t.Errorf("secretShapedAssignment(%q) = %v, want %v", tc.value, got, tc.want)
+			}
+		})
+	}
+}
+
+// TestStrayPositionalRedactsASecretShapedAssignment pins the WIRING of the
+// value-side redaction, which TestSecretShapedAssignment cannot: that one
+// checks the predicate alone, and TestStrayPositionalRedactsASecret walks
+// leaves carrying a secret FLAG with a value that is not an assignment. So
+// deleting `|| secretShapedAssignment(value)` from refuseStrayPositionals left
+// both of them passing while the credential went back into the message.
+//
+// It drives an ordinary leaf — one with no credential flag of its own — because
+// that is the population a dropped --set lands on.
+func TestStrayPositionalRedactsASecretShapedAssignment(t *testing.T) {
+	leaf := &cobra.Command{Use: "create", Run: func(*cobra.Command, []string) {}}
+	if carriesASecretFlag(leaf) {
+		t.Fatal("the probe leaf must carry no credential flag, or this proves nothing")
+	}
+
+	err := refuseStrayPositionals(leaf, []string{"deviceSyncAuth.clientSecret=SEKRET"})
+	if err == nil {
+		t.Fatal("the stray positional was accepted")
+	}
+	if strings.Contains(err.Error(), "SEKRET") {
+		t.Errorf("the credential survived into the refusal, which reaches stdout as JSON when piped: %v", err)
+	}
+	if !strings.Contains(err.Error(), "<redacted>") {
+		t.Errorf("nothing was redacted: %v", err)
+	}
+
+	// An ordinary assignment on the same leaf must still name its value.
+	err = refuseStrayPositionals(leaf, []string{"general.name=Foo"})
+	if err == nil {
+		t.Fatal("the stray positional was accepted")
+	}
+	if !strings.Contains(err.Error(), "general.name=Foo") {
+		t.Errorf("an ordinary assignment was redacted, so a typo is unfixable: %v", err)
+	}
+}
