@@ -1970,7 +1970,7 @@ func guardStrayPositionals(cmd *cobra.Command) {
 	// Cobra derives no completion from Args, so the leaf would still offer
 	// filenames for the positional it refuses.
 	if cmd.ValidArgsFunction == nil && len(cmd.ValidArgs) == 0 {
-		cmd.ValidArgsFunction = noPositionalCompletion
+		cmd.ValidArgsFunction = cobra.NoFileCompletions
 	}
 }
 
@@ -1998,10 +1998,6 @@ func refuseStrayPositionals(cmd *cobra.Command, args []string) error {
 		Message: fmt.Sprintf("%q takes no positional arguments, but got %q", cmd.CommandPath(), args[0]),
 		Hint:    fmt.Sprintf("run %s --help for the flags it accepts", cmd.CommandPath()),
 	}
-}
-
-func noPositionalCompletion(*cobra.Command, []string, string) ([]string, cobra.ShellCompDirective) {
-	return nil, cobra.ShellCompDirectiveNoFileComp
 }
 
 // suggestFlag returns the closest known flag name to unknown, or "" when none

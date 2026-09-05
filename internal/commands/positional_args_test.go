@@ -61,13 +61,15 @@ func sameFunc(a, b any) bool {
 	return reflect.ValueOf(a).Pointer() == reflect.ValueOf(b).Pointer()
 }
 
-// isNoPositionalCompletion reports whether the guard installed its own
-// completion function, as opposed to the command declaring one.
+// isNoPositionalCompletion reports whether the guard installed the no-file
+// completion, as opposed to the command declaring a completion of its own.
+// cobra.NoFileCompletions is cobra's own name for the function the guard used
+// to spell out locally.
 func isNoPositionalCompletion(fn func(*cobra.Command, []string, string) ([]string, cobra.ShellCompDirective)) bool {
 	if fn == nil {
 		return false
 	}
-	return sameFunc(fn, noPositionalCompletion)
+	return sameFunc(fn, cobra.NoFileCompletions)
 }
 
 // requiredPositionals counts the placeholders a Use string states are not
