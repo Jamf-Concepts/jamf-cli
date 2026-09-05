@@ -1750,7 +1750,8 @@ func TestRefuseStrayArgs_SuggestsRealSubcommand(t *testing.T) {
 // subcommands, so "unknown command" would read as though diff were a command
 // group; the message says the command takes no positional arguments instead.
 // `pro diff` also carries required flags, and the Args validator has to win over
-// those so the message names the real mistake.
+// those so the message names the real mistake — while still naming the flags, see
+// TestRefuseStrayArgs_ProDiffNamesItsRequiredFlags.
 func TestRefuseStrayArgs_ProDiff(t *testing.T) {
 	root := NewRootCmd("test", "none", "none", "none")
 	root.SetArgs([]string{"pro", "diff", "somegarbage"})
@@ -1772,6 +1773,58 @@ func TestRefuseStrayArgs_ProDiff(t *testing.T) {
 	}
 	if strings.Contains(err.Error(), "unknown command") {
 		t.Errorf("pro diff owns no subcommands, so the message must not call it one, got %q", err.Error())
+	}
+}
+
+// TestRefuseStrayArgs_ProDiffNamesItsRequiredFlags covers the remedy this
+// refusal pre-empts. Cobra runs ValidateArgs (command.go:968) before
+// ValidateRequiredFlags (command.go:1007), so refuseStrayArgs answers first on
+// any invocation carrying a positional and the required-flag error never runs at
+// all. `pro diff` takes its whole input as flags, so an operator copying
+// docs/site/examples.json's example without the flag names was told
+// `required flag(s) "source", "target" not set` before this guard existed and a
+// message about the positional after it — same exit code, with the fix removed.
+//
+// It goes through root.Execute() rather than calling Args directly, because the
+// precedence is the whole point: a direct call would pass even if cobra ran the
+// flag validator first and the clause were unreachable.
+func TestRefuseStrayArgs_ProDiffNamesItsRequiredFlags(t *testing.T) {
+	root := NewRootCmd("test", "none", "none", "none")
+	root.SetArgs([]string{"pro", "diff", "staging", "production"})
+	root.SetOut(io.Discard)
+	root.SetErr(io.Discard)
+
+	err := root.Execute()
+	if err == nil {
+		t.Fatal("pro diff accepted two stray positionals")
+	}
+	if code := exitcode.CodeFrom(err); code != exitcode.Usage {
+		t.Errorf("exit code = %d, want %d (usage)", code, exitcode.Usage)
+	}
+	for _, want := range []string{"--source", "--target"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("message should name %s, got %q", want, err.Error())
+		}
+	}
+}
+
+// TestRefuseStrayArgs_SuppliedRequiredFlagIsNotNamed asserts the clause reports
+// what is actually missing rather than what the command declares. Without the
+// !f.Changed test, every stray-positional message on `pro backup` would
+// recommend --output to an operator who had just passed it — advice that reads
+// as the CLI not having seen the flag.
+func TestRefuseStrayArgs_SuppliedRequiredFlagIsNotNamed(t *testing.T) {
+	root := NewRootCmd("test", "none", "none", "none")
+	root.SetArgs([]string{"pro", "backup", "somegarbage", "--output", t.TempDir()})
+	root.SetOut(io.Discard)
+	root.SetErr(io.Discard)
+
+	err := root.Execute()
+	if err == nil {
+		t.Fatal("pro backup accepted a stray positional")
+	}
+	if strings.Contains(err.Error(), "required flags not set") {
+		t.Errorf("--output was supplied, so nothing is missing, got %q", err.Error())
 	}
 }
 
@@ -1875,18 +1928,27 @@ func TestRefuseStrayArgs_ZeroPositionalsPass(t *testing.T) {
 // PersistentPreRunE reads that annotation to skip auth, so annotating a parent
 // that calls an API would run it with a nil client.
 //
-// The runnable arm asserts both directions, because a validator that refuses
-// everything satisfies the refusal half on its own: the bogus positional and the
-// exit code alone would certify a parent whose own flag-only invocation cannot
-// run. Measured against a staged parent whose Args always returns a Usage error,
-// the arm without the zero-positional call passes and reports 322 verified.
+// Both arms assert both directions, because a guard that refuses everything
+// satisfies the refusal half on its own: the bogus positional and the exit code
+// alone would certify a parent whose own flag-only invocation cannot run.
+// Measured against a staged runnable parent whose Args always returns a Usage
+// error, the runnable arm without its zero-positional call passes and reports
+// 322 verified. The annotated arm had the identical hole: deleting the
+// len(args) == 0 branch from guardUnknownSubcommands' synthesized closure left
+// it passing on all 321 annotated parents, with every bare `pro <group>`
+// printing "unknown command" at exit 2 and CI green.
 //
-// It is also what makes this walk exercise the zero-argument path at all, for
-// every runnable parent. Deleting the len(args) == 0 early return from
-// refuseStrayArgs still surfaces as an args[0] panic rather than a clean
-// failure, because the panic happens inside the call below.
+// The zero-positional calls are also what make this walk exercise that path at
+// all. Deleting the len(args) == 0 early return from refuseStrayArgs surfaces as
+// an args[0] panic rather than a clean failure, because the panic happens inside
+// the call below; the closure's branch fails the same way.
 func TestGuardUnknownSubcommands_CoversAllGroupParents(t *testing.T) {
 	root := NewRootCmd("test", "none", "none", "none")
+	// The zero-positional arms below reach c.Help() on every annotated parent,
+	// which writes to the root's output. Discard it: 300-odd help screens bury
+	// the failure this walk exists to report.
+	root.SetOut(io.Discard)
+	root.SetErr(io.Discard)
 
 	const bogus = "zzdefinitelynotacommand"
 	parents := 0
@@ -1916,6 +1978,8 @@ func TestGuardUnknownSubcommands_CoversAllGroupParents(t *testing.T) {
 						t.Errorf("group parent %q accepted unknown subcommand without error", subPath)
 					} else if code := exitcode.CodeFrom(err); code != exitcode.Usage {
 						t.Errorf("group parent %q: unknown subcommand exit %d, want %d (usage)", subPath, code, exitcode.Usage)
+					} else if err := sub.RunE(sub, []string{}); err != nil {
+						t.Errorf("group parent %q refuses its own zero-positional invocation: %v", subPath, err)
 					}
 				}
 			}

@@ -425,3 +425,58 @@ func sortedKeysOf(row map[string]any) []string {
 	slices.Sort(keys)
 	return keys
 }
+
+// TestBackupSubDirs_NestedCountMatchesTheComment pins the tally BackupSubDirs'
+// own doc comment states. That comment said thirteen while the table held
+// fifteen, because two advanced-searches entries were added and a number in
+// prose has nothing watching it. Nothing else in the suite reads the count, so
+// without this the next entry makes the comment wrong again, silently.
+//
+// It fails in the direction that matters: a sixteenth nested resource fails
+// here, and the message says to update the comment rather than the constant.
+func TestBackupSubDirs_NestedCountMatchesTheComment(t *testing.T) {
+	const stated = 15 // keep in step with BackupSubDirs' doc comment
+
+	nested := 0
+	for _, r := range BackupResources {
+		if strings.Contains(r.SubDir, "/") {
+			nested++
+		}
+	}
+	if nested != stated {
+		t.Errorf("%d curated resources nest two levels deep, BackupSubDirs' comment says %d — update the comment and this constant together", nested, stated)
+	}
+}
+
+// TestNonStandardBackupFilters_SourcesArePinned holds each hand-written Source
+// to its filter name. These three are the only source values in the listing
+// with no derivation behind them, so nothing else in the suite would notice one
+// moving: TestBackupResourceRows_EverySourceIsDerived only asserts they are
+// non-empty, and TestBackupResourceRows_MixedTokenNamesBothAPIs pins exact
+// strings only for the derived tokens. Swapping "csv download" and
+// "platform sdk" between inventory-preloads and blueprints passed the whole
+// suite.
+//
+// Each value names the real mechanism a resource is read through, so a swap
+// misreports it in the one place an operator goes to look it up.
+func TestNonStandardBackupFilters_SourcesArePinned(t *testing.T) {
+	want := map[string]string{
+		"inventory-preloads":    "csv download", // /v2/inventory-preload/csv
+		"blueprints":            "platform sdk", // blueprintToExport
+		"compliance-benchmarks": "platform sdk", // benchmarkToExport
+	}
+
+	if len(nonStandardBackupFilters) != len(want) {
+		t.Fatalf("%d non-standard filters, %d pinned — add the new one here with the mechanism it reads through", len(nonStandardBackupFilters), len(want))
+	}
+	for _, n := range nonStandardBackupFilters {
+		w, ok := want[n.FilterName]
+		if !ok {
+			t.Errorf("filter %q is not pinned here", n.FilterName)
+			continue
+		}
+		if n.Source != w {
+			t.Errorf("filter %q source = %q, want %q", n.FilterName, n.Source, w)
+		}
+	}
+}

@@ -129,6 +129,12 @@ func newBackupListResourcesCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Short: "List the resource tokens accepted by --resources",
 		Long: `List every resource token accepted by --resources on 'pro backup' and 'pro diff'.
 
+This command writes nothing to disk, so --output here is the root format flag
+(table, json, csv, ...) and not the destination directory 'pro backup --output'
+takes one level up: that one is local to the parent and is not inherited. An
+unrecognised value renders a table, so 'list-resources --output ./tokens.txt'
+prints the listing and creates no file. Use --out-file to write one.
+
 Any format that renders a table shows two columns: resource (the token) and
 source (the API or mechanism each token reads from). json, yaml, ndjson, xml and
 raw add a third, objects (the backing commands, or a note for a resource handled

@@ -1929,22 +1929,61 @@ func refuseStrayArgs(cmd *cobra.Command, args []string) error {
 // takes its whole input as flags, so reporting a stray positional as an unknown
 // command read as though diff were a command group, when the mistake is almost
 // always a missing --source or --target.
+//
+// Either wording then names any required flag that was not supplied, because
+// this refusal runs before cobra's own required-flag validator and would
+// otherwise be the last word. See unsetRequiredFlags.
 func unknownSubcommandError(cmd *cobra.Command, arg string) error {
-	if !cmd.HasSubCommands() {
-		msg := fmt.Sprintf("%q takes no positional arguments, got %q", cmd.CommandPath(), arg)
-		return exitcode.Wrap(exitcode.Usage, errors.New(msg))
+	var msg, suggestions string
+	if cmd.HasSubCommands() {
+		// SuggestionsFor reads this directly with no default, and a child
+		// command leaves it at 0, which suppresses all but exact matches.
+		// Cobra's own findSuggestions defaults it the same way at the same
+		// point.
+		if cmd.SuggestionsMinimumDistance <= 0 {
+			cmd.SuggestionsMinimumDistance = 2
+		}
+		msg = fmt.Sprintf("unknown command %q for %q", arg, cmd.CommandPath())
+		if s := cmd.SuggestionsFor(arg); len(s) > 0 {
+			suggestions = "\n\nDid you mean this?\n\t" + strings.Join(s, "\n\t")
+		}
+	} else {
+		msg = fmt.Sprintf("%q takes no positional arguments, got %q", cmd.CommandPath(), arg)
 	}
-	// SuggestionsFor reads this directly with no default, and a child command
-	// leaves it at 0, which suppresses all but exact matches. Cobra's own
-	// findSuggestions defaults it the same way at the same point.
-	if cmd.SuggestionsMinimumDistance <= 0 {
-		cmd.SuggestionsMinimumDistance = 2
+	if req := unsetRequiredFlags(cmd); len(req) > 0 {
+		msg += fmt.Sprintf(" (required flags not set: --%s)", strings.Join(req, ", --"))
 	}
-	msg := fmt.Sprintf("unknown command %q for %q", arg, cmd.CommandPath())
-	if s := cmd.SuggestionsFor(arg); len(s) > 0 {
-		msg += "\n\nDid you mean this?\n\t" + strings.Join(s, "\n\t")
+	return exitcode.Wrap(exitcode.Usage, errors.New(msg+suggestions))
+}
+
+// unsetRequiredFlags names the required flags of cmd that were not supplied, by
+// the same rule and in the same order cobra's own ValidateRequiredFlags uses.
+//
+// It exists because this refusal pre-empts that validator. Cobra runs
+// ValidateArgs (command.go:968) before ValidateRequiredFlags (command.go:1007),
+// so an Args validator answering a stray positional means the required-flag
+// error never runs at all. `pro diff` declares --source and --target required
+// and takes its whole input as flags, so `pro diff staging production` reported
+// the positional and named neither — the remedy the operator needed, dropped by
+// a message about the mistake they made reaching for it.
+//
+// Derived rather than hard-coded, so `pro backup`'s --output is covered by the
+// same clause and a flag marked required later needs no edit here. A flag that
+// WAS supplied is not named, which is what keeps the clause off the messages
+// where nothing is missing.
+func unsetRequiredFlags(cmd *cobra.Command) []string {
+	if cmd.DisableFlagParsing {
+		return nil // cobra skips ValidateRequiredFlags too, so nothing is missing
 	}
-	return exitcode.Wrap(exitcode.Usage, errors.New(msg))
+	var missing []string
+	cmd.Flags().VisitAll(func(f *pflag.Flag) {
+		req, found := f.Annotations[cobra.BashCompOneRequiredFlag]
+		if !found || len(req) == 0 || req[0] != "true" || f.Changed {
+			return
+		}
+		missing = append(missing, f.Name)
+	})
+	return missing
 }
 
 // suggestFlag returns the closest known flag name to unknown, or "" when none

@@ -765,3 +765,113 @@ func TestCatalogCarriesTheSuccessorForARefusedCommand(t *testing.T) {
 		t.Fatal("no refused command carries a successor; gateway.Successor is not reaching the catalog")
 	}
 }
+
+// runnableParentTree stages a group whose child is a runnable parent — the shape
+// everyLeafRefused used to be blind to, because it decided leaf-vs-group on
+// child count alone and so never read a runnable parent's own verdict.
+//
+// The grandchild is deliberately not runnable: that is what removes every other
+// operation from the subtree, leaving the runnable parent as the only verdict
+// there is to read.
+func runnableParentTree(parentAnnotations map[string]string) (root, group *cobra.Command) {
+	root = &cobra.Command{Use: "jamf-cli"}
+	group = &cobra.Command{Use: "widgets", Short: "Manage widgets"}
+	parent := &cobra.Command{
+		Use:         "sub",
+		Short:       "An operation that also owns subcommands",
+		Annotations: parentAnnotations,
+		RunE:        func(*cobra.Command, []string) error { return nil },
+	}
+	parent.AddCommand(&cobra.Command{Use: "nested", Short: "A leafless grouping node"})
+	group.AddCommand(parent)
+	root.AddCommand(group)
+	return root, group
+}
+
+// TestEveryLeafRefused_CountsARunnableParentAsAnOperation pins the fix for a
+// runnable parent's verdict being skipped. `pro backup` is the tree's first
+// runnable parent and carries no gateway annotation, so the live tree cannot
+// exercise this — measured before and after the fix, the same ten commands
+// carry the caveat. Staging it is the only way to hold the shape until
+// markGatewayCoverage stamps one.
+//
+// Refused parent, no other operation beneath it: the group has to earn the
+// caveat. Deciding on child count alone answered "no runnable leaf here" and
+// withheld it, which is the gap the caveat exists to close.
+func TestEveryLeafRefused_CountsARunnableParentAsAnOperation(t *testing.T) {
+	root, group := runnableParentTree(map[string]string{
+		annotationAPI:           apiPro,
+		annotationGateway:       string(gateway.Unserved),
+		annotationGatewayBasis:  string(gateway.BasisUnpublished),
+		annotationGatewayDetail: "not declared by the gateway's Jamf Pro API 11.31.0",
+	})
+	applyGatewayCoverageHelp(root)
+	if !strings.Contains(group.Long, gatewayHelpMarker) {
+		t.Errorf("a group whose only operation is a refused runnable parent earned no caveat:\n%s", group.Long)
+	}
+}
+
+// TestEveryLeafRefused_AServedRunnableParentWithholdsTheCaveat is the other
+// direction, and it was a wrong answer rather than a gap: with the parent's own
+// verdict unread, a served runnable parent above a refused leaf satisfied the
+// walk, so the group advertised "nothing under this command works" over a
+// subcommand that works.
+func TestEveryLeafRefused_AServedRunnableParentWithholdsTheCaveat(t *testing.T) {
+	root := &cobra.Command{Use: "jamf-cli"}
+	group := &cobra.Command{Use: "widgets", Short: "Manage widgets"}
+	parent := &cobra.Command{
+		Use:         "sub",
+		Short:       "A served operation that also owns subcommands",
+		Annotations: map[string]string{annotationAPI: apiPro},
+		RunE:        func(*cobra.Command, []string) error { return nil },
+	}
+	parent.AddCommand(&cobra.Command{
+		Use:   "list",
+		Short: "List things",
+		Annotations: map[string]string{
+			annotationAPI:           apiPro,
+			annotationGateway:       string(gateway.Unserved),
+			annotationGatewayBasis:  string(gateway.BasisUnpublished),
+			annotationGatewayDetail: "not declared by the gateway's Jamf Pro API 11.31.0",
+		},
+		RunE: func(*cobra.Command, []string) error { return nil },
+	})
+	group.AddCommand(parent)
+	root.AddCommand(group)
+
+	applyGatewayCoverageHelp(root)
+	if strings.Contains(group.Long, gatewayHelpMarker) {
+		t.Errorf("the runnable parent itself is served, so the group must not claim nothing works:\n%s", group.Long)
+	}
+}
+
+// TestEveryLeafRefused_IgnoresASynthesizedGroupParent covers the exclusion that
+// keeps the fix above from counting every parent in the tree.
+// guardUnknownSubcommands makes each group parent runnable, and its RunE only
+// refuses a typo — it is not an operation and has no verdict of its own. That
+// guard runs after applyGatewayCoverageHelp today, so this is what keeps the
+// answer right if the two are ever reordered.
+func TestEveryLeafRefused_IgnoresASynthesizedGroupParent(t *testing.T) {
+	root := &cobra.Command{Use: "jamf-cli"}
+	group := &cobra.Command{Use: "widgets", Short: "Manage widgets"}
+	group.AddCommand(&cobra.Command{
+		Use:   "list",
+		Short: "List things",
+		Annotations: map[string]string{
+			annotationAPI:           apiPro,
+			annotationGateway:       string(gateway.Unserved),
+			annotationGatewayBasis:  string(gateway.BasisUnpublished),
+			annotationGatewayDetail: "not declared by the gateway's Jamf Pro API 11.31.0",
+		},
+		RunE: func(*cobra.Command, []string) error { return nil },
+	})
+	root.AddCommand(group)
+	guardUnknownSubcommands(root) // stamps and makes `widgets` runnable
+
+	if group.Annotations[groupParentAnnotation] != "true" {
+		t.Fatal("staging is wrong: guardUnknownSubcommands did not annotate the group parent")
+	}
+	if !everyLeafRefused(group) {
+		t.Error("the synthesized parent was counted as an unrefused operation, hiding its refused leaf")
+	}
+}
