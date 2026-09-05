@@ -3,6 +3,10 @@
 package commands
 
 import (
+	"fmt"
+	"os"
+	"strings"
+
 	"github.com/Jamf-Concepts/jamf-cli/internal/output"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 )
@@ -47,15 +51,65 @@ func printRows(cliCtx *registry.CLIContext, rows []map[string]any) error {
 	// `--select reason` is carried by one section and absent from the rest.
 	// --select was inert on these reports until this change, so the symptom
 	// arrives with it.
-	//
-	// Printing nothing for such a section is the honest answer. It does mean a
-	// whole command whose rows carry none of the named paths prints nothing at
-	// all, which is still better than a banner claiming N results above a blank
-	// header.
-	if (output.Projector{Select: selectFields}).SelectsNothing(rows) {
+	if selectMatchedNothing(rows) {
+		reportSelectMiss()
+		// A structured consumer needs a document, not zero bytes. It is the
+		// same contract the nil-slice normalisation above keeps: returning
+		// early for every format made `-o json --select nosuchfield` write
+		// nothing, which is not valid JSON where `null` at least was.
+		switch output.Format(outputFmt) {
+		case output.FormatJSON, output.FormatYAML, output.FormatNDJSON:
+			return formatterFor(cliCtx, outputFmt).Print([]map[string]any{})
+		}
 		return nil
 	}
 	return formatterFor(cliCtx, outputFmt).Print(rows)
+}
+
+// selectMatchedNothing reports whether --select names nothing these rows carry.
+//
+// One predicate for every renderer. printRows was the only caller of the guard,
+// so `multi`'s aggregated table branch and `group-tools export` — which reach
+// Formatter.Print directly — kept rendering a row count above a blank header.
+// Both became reachable when those two moved onto formatterFor for the
+// --out-file fix, which is what made --select live on them for the first time.
+func selectMatchedNothing(rows []map[string]any) bool {
+	return (output.Projector{Select: selectFields}).SelectsNothing(rows)
+}
+
+// reportSelectMiss says on stderr that --select named nothing, once per
+// section. Without it the skip is silent, and a caller who mistyped a field
+// gets an empty document and exit 0 with nothing explaining either.
+//
+// stderr rather than the formatter's writer, so it never lands in --out-file
+// beside the data. Suppressed by --quiet and --no-hints, being advisory.
+func reportSelectMiss() {
+	if quiet || noHints || len(selectFields) == 0 {
+		return
+	}
+	_, _ = fmt.Fprintf(os.Stderr, "--select %s matched no field here\n", strings.Join(selectFields, ","))
+}
+
+// printSection writes a section header only when a body will follow it.
+//
+// The six hand-written multi-section reports wrote their own banner and then
+// called printRows, so the guard suppressed the body with the banner already on
+// the writer: `pro report security -o table --select nosuchfield` produced 105
+// bytes of nothing but three box-drawing lines, one reading
+// `── Flagged Devices (5) ──`, at exit 0. A CSV consumer received a stream of
+// box-drawing characters. The decision has to be made before the header, and in
+// one place, or the six files disagree about it.
+func printSection(cliCtx *registry.CLIContext, header string, rows []map[string]any) error {
+	if selectMatchedNothing(rows) {
+		reportSelectMiss()
+		return nil
+	}
+	if header != "" {
+		if _, err := fmt.Fprint(writerFor(cliCtx), header); err != nil {
+			return err
+		}
+	}
+	return printRows(cliCtx, rows)
 }
 
 // formatterFor returns the shared formatter rendering in format. printRows asks

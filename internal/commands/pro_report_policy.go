@@ -892,8 +892,6 @@ func aggregateComputerFailures(results []computerHistoryResult, lookup map[strin
 // ---------------------------------------------------------------------------
 
 func printPolicyHealthReport(cliCtx *registry.CLIContext, report *policyHealthReport, configOnly bool) error {
-	out := writerFor(cliCtx)
-
 	if outputFmt == "json" || outputFmt == "yaml" {
 		combined := map[string]any{
 			"summary":         summaryToMap(report.Summary, configOnly),
@@ -907,15 +905,13 @@ func printPolicyHealthReport(cliCtx *registry.CLIContext, report *policyHealthRe
 	}
 
 	// Table: summary
-	_, _ = fmt.Fprintln(out, "── Policy Health Summary ──")
-	if err := printRows(cliCtx, []map[string]any{summaryToMap(report.Summary, configOnly)}); err != nil {
+	if err := printSection(cliCtx, "── Policy Health Summary ──"+"\n", []map[string]any{summaryToMap(report.Summary, configOnly)}); err != nil {
 		return err
 	}
 
 	// Table: config findings
 	if len(report.ConfigFindings) > 0 {
-		_, _ = fmt.Fprintf(out, "\n── Config Findings (%d) ──\n", len(report.ConfigFindings))
-		if err := printRows(cliCtx, findingsToRows(report.ConfigFindings, false)); err != nil {
+		if err := printSection(cliCtx, fmt.Sprintf("\n── Config Findings (%d) ──\n", len(report.ConfigFindings)), findingsToRows(report.ConfigFindings, false)); err != nil {
 			return err
 		}
 	} else {
@@ -925,8 +921,7 @@ func printPolicyHealthReport(cliCtx *registry.CLIContext, report *policyHealthRe
 	// Table: policy failures
 	if !configOnly {
 		if len(report.PolicyFailures) > 0 {
-			_, _ = fmt.Fprintf(out, "\n── Policy Failures (last %d days) ──\n", report.Summary.Days)
-			if err := printRows(cliCtx, failuresToRows(report.PolicyFailures)); err != nil {
+			if err := printSection(cliCtx, fmt.Sprintf("\n── Policy Failures (last %d days) ──\n", report.Summary.Days), failuresToRows(report.PolicyFailures)); err != nil {
 				return err
 			}
 		} else {
@@ -935,8 +930,7 @@ func printPolicyHealthReport(cliCtx *registry.CLIContext, report *policyHealthRe
 
 		// Table: computers with high failure rates
 		if len(report.ComputerFailures) > 0 {
-			_, _ = fmt.Fprintf(out, "\n── Computers With High Failure Rate (>50%%, last %d days) ──\n", report.Summary.Days)
-			if err := printRows(cliCtx, computerFailuresToRows(report.ComputerFailures)); err != nil {
+			if err := printSection(cliCtx, fmt.Sprintf("\n── Computers With High Failure Rate (>50%%, last %d days) ──\n", report.Summary.Days), computerFailuresToRows(report.ComputerFailures)); err != nil {
 				return err
 			}
 		}

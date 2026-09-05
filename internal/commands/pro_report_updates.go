@@ -251,8 +251,6 @@ func runReportUpdateStatus(ctx context.Context, cliCtx *registry.CLIContext, sca
 		planStateMaps[i] = map[string]any{"state": r.state, "count": r.count}
 	}
 
-	out := writerFor(cliCtx)
-
 	// Without --scan-failures: print summary tables only and return early.
 	// This avoids the expensive inventory fetch and per-plan events calls.
 	if !scanFailures {
@@ -267,14 +265,12 @@ func runReportUpdateStatus(ctx context.Context, cliCtx *registry.CLIContext, sca
 		}
 
 		if len(summaryMaps) > 0 {
-			_, _ = fmt.Fprintf(out, "── Managed Software Update Status (%d total) ──\n", len(results))
-			if err := printRows(cliCtx, summaryMaps); err != nil {
+			if err := printSection(cliCtx, fmt.Sprintf("── Managed Software Update Status (%d total) ──\n", len(results)), summaryMaps); err != nil {
 				return err
 			}
 		}
 		if len(planStateMaps) > 0 {
-			_, _ = fmt.Fprintf(out, "\n── Update Plan Status (%d total) ──\n", len(plans))
-			if err := printRows(cliCtx, planStateMaps); err != nil {
+			if err := printSection(cliCtx, fmt.Sprintf("\n── Update Plan Status (%d total) ──\n", len(plans)), planStateMaps); err != nil {
 				return err
 			}
 		}
@@ -414,32 +410,28 @@ func runReportUpdateStatus(ctx context.Context, cliCtx *registry.CLIContext, sca
 
 	// Table: update status summary
 	if len(summaryMaps) > 0 {
-		_, _ = fmt.Fprintf(out, "── Managed Software Update Status (%d total) ──\n", len(results))
-		if err := printRows(cliCtx, summaryMaps); err != nil {
+		if err := printSection(cliCtx, fmt.Sprintf("── Managed Software Update Status (%d total) ──\n", len(results)), summaryMaps); err != nil {
 			return err
 		}
 	}
 
 	// Table: error devices
 	if len(errorRows) > 0 {
-		_, _ = fmt.Fprintf(out, "\n── Devices With Update Errors (%d) ──\n", len(errorRows))
-		if err := printRows(cliCtx, errorRows); err != nil {
+		if err := printSection(cliCtx, fmt.Sprintf("\n── Devices With Update Errors (%d) ──\n", len(errorRows)), errorRows); err != nil {
 			return err
 		}
 	}
 
 	// Table: plan state summary
 	if len(planStateMaps) > 0 {
-		_, _ = fmt.Fprintf(out, "\n── Update Plan Status (%d total) ──\n", len(plans))
-		if err := printRows(cliCtx, planStateMaps); err != nil {
+		if err := printSection(cliCtx, fmt.Sprintf("\n── Update Plan Status (%d total) ──\n", len(plans)), planStateMaps); err != nil {
 			return err
 		}
 	}
 
 	// Table: failed plans
 	if len(failedPlanRows) > 0 {
-		_, _ = fmt.Fprintf(out, "\n── Failed Update Plans (%d) ──\n", len(failedPlanRows))
-		if err := printRows(cliCtx, failedPlanRows); err != nil {
+		if err := printSection(cliCtx, fmt.Sprintf("\n── Failed Update Plans (%d) ──\n", len(failedPlanRows)), failedPlanRows); err != nil {
 			return err
 		}
 	}

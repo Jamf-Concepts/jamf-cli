@@ -589,15 +589,13 @@ func printMDMHealthReport(cliCtx *registry.CLIContext, report *mdmHealthReport, 
 	}
 
 	// Table: summary
-	_, _ = fmt.Fprintf(out, "── %s Deployment Health Summary ──\n", capitalise(label))
-	if err := printRows(cliCtx, []map[string]any{mdmSummaryToMap(report.Summary)}); err != nil {
+	if err := printSection(cliCtx, fmt.Sprintf("── %s Deployment Health Summary ──\n", capitalise(label)), []map[string]any{mdmSummaryToMap(report.Summary)}); err != nil {
 		return err
 	}
 
 	// Table: failures by profile/app
 	if len(report.Failures) > 0 {
-		_, _ = fmt.Fprintf(out, "\n── Failed %ss (last %d days) ──\n", capitalise(label), report.Summary.Days)
-		if err := printRows(cliCtx, mdmFailuresToRows(report.Failures)); err != nil {
+		if err := printSection(cliCtx, fmt.Sprintf("\n── Failed %ss (last %d days) ──\n", capitalise(label), report.Summary.Days), mdmFailuresToRows(report.Failures)); err != nil {
 			return err
 		}
 	} else {

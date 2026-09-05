@@ -52,11 +52,8 @@ func runReportPatchStatusFull(ctx context.Context, cliCtx *registry.CLIContext, 
 		return printRows(cliCtx, rows)
 	}
 
-	out := writerFor(cliCtx)
-
 	// Print compliance section
-	_, _ = fmt.Fprintln(out, "── Patch Title Compliance ──")
-	if err := printRows(cliCtx, rows); err != nil {
+	if err := printSection(cliCtx, "── Patch Title Compliance ──"+"\n", rows); err != nil {
 		return err
 	}
 
@@ -68,8 +65,7 @@ func runReportPatchStatusFull(ctx context.Context, cliCtx *registry.CLIContext, 
 	}
 
 	if len(policyRows) > 0 {
-		_, _ = fmt.Fprintf(out, "\n── Patch Policies With Failures (%d) ──\n", len(policyRows))
-		if err := printRows(cliCtx, policyRows); err != nil {
+		if err := printSection(cliCtx, fmt.Sprintf("\n── Patch Policies With Failures (%d) ──\n", len(policyRows)), policyRows); err != nil {
 			return err
 		}
 
@@ -87,8 +83,7 @@ func runReportPatchStatusFull(ctx context.Context, cliCtx *registry.CLIContext, 
 				rawDeviceRows[i]["os_version"] = meta.osVersion
 				rawDeviceRows[i]["username"] = meta.username
 			}
-			_, _ = fmt.Fprintf(out, "\n── Devices With Patch Failures (%d) ──\n", len(rawDeviceRows))
-			return printRows(cliCtx, rawDeviceRows)
+			return printSection(cliCtx, fmt.Sprintf("\n── Devices With Patch Failures (%d) ──\n", len(rawDeviceRows)), rawDeviceRows)
 		}
 	} else {
 		fmt.Fprintln(os.Stderr, "\nNo patch policy failures found.")

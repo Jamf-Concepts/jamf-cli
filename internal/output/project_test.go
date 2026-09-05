@@ -376,3 +376,53 @@ func TestFormatter_Print_Compact_AllFormats(t *testing.T) {
 		})
 	}
 }
+
+// TestSelectsNothingAgreesWithApply holds the two halves of the Select
+// projection to one answer. They each stated the input pipeline once and
+// diverged: Apply flattened the rows first, SelectsNothing did not, so a nested
+// dot path matched nothing in the guard and everything in the renderer. The
+// guard won, and a whole report was suppressed at exit 0.
+//
+// Both directions matter. A present nested field must not be reported as
+// missing, and a genuinely absent one must still be reported.
+func TestSelectsNothingAgreesWithApply(t *testing.T) {
+	nested := []map[string]any{{
+		"summary": map[string]any{"total_errors": 3, "total_ok": 9},
+	}}
+
+	for _, tc := range []struct {
+		name string
+		rows []map[string]any
+		sel  []string
+		want bool
+	}{
+		{"nested path that exists", nested, []string{"summary.total_errors"}, false},
+		{"nested parent that exists", nested, []string{"summary"}, false},
+		{"nested path that does not", nested, []string{"summary.nosuch"}, true},
+		{"top-level path that does not", nested, []string{"nosuch"}, true},
+		{"flat path that exists", []map[string]any{{"id": "1"}}, []string{"id"}, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			p := Projector{Select: tc.sel}
+			got := p.SelectsNothing(tc.rows)
+			if got != tc.want {
+				t.Errorf("SelectsNothing = %v, want %v", got, tc.want)
+			}
+
+			// The invariant: the guard says "nothing" exactly when Apply
+			// produces no fields. Anything else means the guard suppresses
+			// output the renderer would have rendered, or vice versa.
+			applied := p.Apply(tc.rows)
+			applyEmpty := true
+			for _, row := range applied {
+				if len(row) > 0 {
+					applyEmpty = false
+					break
+				}
+			}
+			if got != applyEmpty {
+				t.Errorf("SelectsNothing = %v but Apply produced empty=%v (%v) — the two run different pipelines", got, applyEmpty, applied)
+			}
+		})
+	}
+}

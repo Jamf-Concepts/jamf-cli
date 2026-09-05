@@ -934,3 +934,90 @@ func TestSelectMatchingNothingPrintsNothing(t *testing.T) {
 		t.Errorf("a section carrying the --select path rendered %q, want the value", buf.String())
 	}
 }
+
+// TestSelectMatchingNothingLeavesNoOrphanBanner covers the caller-side half of
+// the --select skip. Each hand-written multi-section report wrote its own
+// banner and then called printRows, so suppressing the body left the banner on
+// the writer: `pro report security -o table --select nosuchfield` produced 105
+// bytes of nothing but three box-drawing lines, one reading
+// `── Flagged Devices (5) ──`, at exit 0 — and a -o csv consumer received a
+// stream of box-drawing characters. printSection decides before the header.
+func TestSelectMatchingNothingLeavesNoOrphanBanner(t *testing.T) {
+	oldSelect, oldFmt, oldQuiet := selectFields, outputFmt, quiet
+	selectFields, outputFmt, quiet = []string{"nosuchfield"}, "table", true
+	t.Cleanup(func() { selectFields, outputFmt, quiet = oldSelect, oldFmt, oldQuiet })
+
+	var buf bytes.Buffer
+	formatter := output.New("table", true, false)
+	formatter.SetWriter(&buf)
+	formatter.SetProjector(output.Projector{Select: selectFields})
+	cliCtx := &registry.CLIContext{Output: &cliOutput{formatter}}
+
+	if err := printSection(cliCtx, "── Flagged Devices (5) ──\n", []map[string]any{{"id": "1"}}); err != nil {
+		t.Fatalf("printSection: %v", err)
+	}
+	if got := buf.String(); got != "" {
+		t.Errorf("a skipped section still wrote %q — the banner outlives the body it announced", got)
+	}
+
+	// A section that does carry the field keeps its banner AND its body.
+	buf.Reset()
+	selectFields = []string{"id"}
+	formatter.SetProjector(output.Projector{Select: selectFields})
+	if err := printSection(cliCtx, "── Flagged Devices (1) ──\n", []map[string]any{{"id": "1"}}); err != nil {
+		t.Fatalf("printSection: %v", err)
+	}
+	out := buf.String()
+	// The table upper-cases its column names, so assert the rendered value.
+	for _, want := range []string{"── Flagged Devices (1) ──", "RESULTS (1 total)"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("a rendered section is missing %q: %q", want, out)
+		}
+	}
+}
+
+// TestSelectMatchingNothingStillEmitsAStructuredDocument keeps the
+// empty-collection contract printRows documents for a nil slice: `null` breaks
+// a jq pipeline, and zero bytes is worse — it is not a document at all.
+// `pro report security -o json --select nosuchfield` wrote 0 bytes at exit 0,
+// which raises JSONDecodeError, where main emitted a parseable document.
+func TestSelectMatchingNothingStillEmitsAStructuredDocument(t *testing.T) {
+	oldSelect, oldFmt, oldQuiet := selectFields, outputFmt, quiet
+	t.Cleanup(func() { selectFields, outputFmt, quiet = oldSelect, oldFmt, oldQuiet })
+	selectFields, quiet = []string{"nosuchfield"}, true
+
+	for _, tc := range []struct {
+		format string
+		want   string
+	}{
+		{"json", "[]"},
+		{"ndjson", ""},
+		{"yaml", "[]"},
+		// A table or CSV has no empty-document form, and its banner is gone.
+		{"table", ""},
+		{"csv", ""},
+	} {
+		t.Run(tc.format, func(t *testing.T) {
+			outputFmt = tc.format
+			var buf bytes.Buffer
+			formatter := output.New(tc.format, true, false)
+			formatter.SetWriter(&buf)
+			formatter.SetProjector(output.Projector{Select: selectFields})
+			cliCtx := &registry.CLIContext{Output: &cliOutput{formatter}}
+
+			if err := printRows(cliCtx, []map[string]any{{"id": "1"}}); err != nil {
+				t.Fatalf("printRows: %v", err)
+			}
+			got := strings.TrimSpace(buf.String())
+			if tc.want == "" {
+				if got != "" {
+					t.Errorf("-o %s wrote %q, want nothing", tc.format, got)
+				}
+				return
+			}
+			if got != tc.want {
+				t.Errorf("-o %s wrote %q, want %q — a structured consumer needs a document, not zero bytes", tc.format, got, tc.want)
+			}
+		})
+	}
+}

@@ -34,7 +34,7 @@ func (p Projector) Apply(rows []map[string]any) []map[string]any {
 	}
 	switch {
 	case len(p.Select) > 0:
-		return projectSelect(flattenRowsRaw(rows), p.Select)
+		return p.selectRows(rows)
 	case p.Compact:
 		return projectCompact(flattenRows(rows))
 	}
@@ -61,12 +61,27 @@ func (p Projector) SelectsNothing(rows []map[string]any) bool {
 	if len(p.Select) == 0 || len(rows) == 0 {
 		return false
 	}
-	for _, row := range projectSelect(rows, p.Select) {
+	for _, row := range p.selectRows(rows) {
 		if len(row) > 0 {
 			return false
 		}
 	}
 	return true
+}
+
+// selectRows runs the Select projection, and is the only place its input
+// pipeline is written down.
+//
+// Apply and SelectsNothing must answer about the same rows or the guard
+// suppresses output the renderer would have produced. They each spelled the
+// pipeline out once, and diverged: Apply flattened first while SelectsNothing
+// projected raw rows, so a nested path matched nothing, emptied every row and
+// suppressed a whole report at exit 0 — the reports built as one row of nested
+// sections for -o json are exactly the shape the guard was added for.
+// `pro report app-status -o json --select summary.total_errors` wrote 0 bytes
+// where main wrote 201, which is verbatim the signature issue #349 reports.
+func (p Projector) selectRows(rows []map[string]any) []map[string]any {
+	return projectSelect(flattenRowsRaw(rows), p.Select)
 }
 
 func projectSelect(rows []map[string]any, paths []string) []map[string]any {

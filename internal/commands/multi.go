@@ -451,11 +451,21 @@ func printAggregated(cliCtx *registry.CLIContext, cmd *cobra.Command, merged map
 		switch v := val.(type) {
 		case map[string]any:
 			// Summary dict — print as single-row table
+			summaryRows := []map[string]any{v}
+			// Gate before the separator and the header, not after: a --select
+			// naming nothing here would otherwise leave a banner and a blank
+			// table, which is the shape printRows was fixed to stop rendering.
+			// Reachable only since this branch moved onto formatterFor for the
+			// --out-file fix, which is what made --select live here at all.
+			if selectMatchedNothing(summaryRows) {
+				reportSelectMiss()
+				continue
+			}
 			if !first {
 				_, _ = fmt.Fprintln(out)
 			}
 			_, _ = fmt.Fprintf(out, "── %s ──\n", formatSectionTitle(key))
-			if err := formatter.Print([]map[string]any{v}); err != nil {
+			if err := formatter.Print(summaryRows); err != nil {
 				return err
 			}
 			first = false
@@ -474,6 +484,10 @@ func printAggregated(cliCtx *registry.CLIContext, cmd *cobra.Command, merged map
 				cj, _ := rows[j]["count"].(float64)
 				return ci > cj
 			})
+			if selectMatchedNothing(rows) {
+				reportSelectMiss()
+				continue
+			}
 			if !first {
 				_, _ = fmt.Fprintln(out)
 			}
@@ -495,6 +509,10 @@ func printAggregated(cliCtx *registry.CLIContext, cmd *cobra.Command, merged map
 				}
 			}
 			if len(rows) == 0 {
+				continue
+			}
+			if selectMatchedNothing(rows) {
+				reportSelectMiss()
 				continue
 			}
 			if !first {

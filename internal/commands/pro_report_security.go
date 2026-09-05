@@ -154,8 +154,6 @@ func runReportSecurity(ctx context.Context, client registry.HTTPClient) (*securi
 }
 
 func printSecurityReport(cliCtx *registry.CLIContext, report *securityReport) error {
-	out := writerFor(cliCtx)
-
 	if outputFmt == "json" || outputFmt == "yaml" {
 		// Structured output: combine all sections
 		combined := []map[string]any{
@@ -173,9 +171,8 @@ func printSecurityReport(cliCtx *registry.CLIContext, report *securityReport) er
 	}
 
 	// Table output: summary first, then flagged devices only
-	_, _ = fmt.Fprintln(out, "── Security Summary ──")
 	summaryRows := []map[string]any{report.Summary}
-	if err := printRows(cliCtx, summaryRows); err != nil {
+	if err := printSection(cliCtx, "── Security Summary ──\n", summaryRows); err != nil {
 		return err
 	}
 
@@ -195,15 +192,14 @@ func printSecurityReport(cliCtx *registry.CLIContext, report *securityReport) er
 	}
 
 	if len(flagged) > 0 {
-		_, _ = fmt.Fprintf(out, "\n── Flagged Devices (%d) ──\n", len(flagged))
-		if err := printRows(cliCtx, flagged); err != nil {
+		header := fmt.Sprintf("\n── Flagged Devices (%d) ──\n", len(flagged))
+		if err := printSection(cliCtx, header, flagged); err != nil {
 			return err
 		}
 	}
 
 	if len(report.OSVersions) > 0 {
-		_, _ = fmt.Fprintln(out, "\n── OS Version Distribution ──")
-		return printRows(cliCtx, report.OSVersions)
+		return printSection(cliCtx, "\n── OS Version Distribution ──\n", report.OSVersions)
 	}
 
 	return nil

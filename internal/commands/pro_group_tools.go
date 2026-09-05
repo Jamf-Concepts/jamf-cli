@@ -477,6 +477,12 @@ func runGroupToolsExport(ctx context.Context, cliCtx *registry.CLIContext, forma
 		rows = []map[string]any{}
 	}
 
+	// The same guard printRows applies. This command names its own format, so
+	// it keeps formatterFor rather than going through printRows.
+	if selectMatchedNothing(rows) {
+		reportSelectMiss()
+		return nil
+	}
 	return formatterFor(cliCtx, format).Print(rows)
 }
 
