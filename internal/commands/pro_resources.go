@@ -34,6 +34,27 @@ type BackupResource struct {
 	// serial numbers under a "scope" key so the assignment list travels with
 	// the prestage config in a single, diff-friendly file.
 	ScopePath string
+	// DropKeys names top-level response keys that are executed output rather
+	// than configuration, removed by dropResponseKeys in both backup and diff.
+	//
+	// A Classic advanced-search GET runs the search and returns the devices it
+	// currently matches. That membership is not configuration: it churns on
+	// every inventory change, it is never equal between two instances, and it
+	// carries device names and UDIDs into a directory meant for version
+	// control. StripServerFields cannot do this job — it drops ids and
+	// timestamps generically, and it is skipped under --include-ids, which is
+	// about identifiers rather than about membership.
+	DropKeys []string
+}
+
+// dropResponseKeys removes the executed-output keys a resource declares. One
+// function for backup and diff, because a resource whose backup omits a key and
+// whose diff compares it reports a permanent modification on that key.
+func dropResponseKeys(obj map[string]any, keys []string) map[string]any {
+	for _, k := range keys {
+		delete(obj, k)
+	}
+	return obj
 }
 
 // BackupResources is the curated set of resources included in `backup` and
@@ -87,7 +108,7 @@ var BackupResources = []BackupResource{
 	// asymmetry is not a preference but the modern-over-classic rule above
 	// answering differently for the two halves, and all four list/get paths
 	// declare GET in specs/gateway/coverage.json.
-	{Key: "classic-advanced-computer-searches", FilterName: "advanced-searches", SubDir: "advanced-searches/computers"},
+	{Key: "classic-advanced-computer-searches", FilterName: "advanced-searches", SubDir: "advanced-searches/computers", DropKeys: []string{"computers"}},
 	{Key: "advanced-mobile-device-searches", FilterName: "advanced-searches", SubDir: "advanced-searches/mobile"},
 
 	// Supporting objects (modern preferred)

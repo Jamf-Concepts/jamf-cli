@@ -2161,3 +2161,59 @@ func TestChainSkip_RootLevelVersionAndCommandsStillSkip(t *testing.T) {
 		})
 	}
 }
+
+// TestErrorFormat covers how an error is rendered before PersistentPreRunE has
+// run. Cobra validates args and parses flags first, so an Args refusal and a
+// flag error both arrive with outputFmt still holding its flag default.
+//
+// That default used to be "json", which sent both down the machine-envelope
+// path on stdout for a caller who never asked for JSON — while a refusal raised
+// from RunE, after resolution, printed plain text on stderr. The stray-args
+// guard moved `pro backup` and `pro diff` onto the first path, so the message
+// those commands exist to improve reached the human who typed the typo as a
+// six-line JSON blob.
+//
+// It is a function taking stdoutTTY rather than reading the terminal, because a
+// test writes to a pipe and a pipe can never be one.
+func TestErrorFormat(t *testing.T) {
+	for _, tc := range []struct {
+		name       string
+		resolved   string
+		stdoutTTY  bool
+		hasOutFile bool
+		want       string
+	}{
+		// The regression: a terminal, nothing asked for, must not get JSON.
+		{"unresolved on a terminal", "", true, false, "table"},
+		// And a pipe must still get the envelope, or one piped run answers two
+		// ways depending on which side of PersistentPreRunE the error came from.
+		{"unresolved when piped", "", false, false, "json"},
+		// --out-file means the data is not going to the terminal, so the
+		// terminal is not what decides.
+		{"unresolved with --out-file", "", true, true, "json"},
+		// Anything resolved wins outright, in both directions.
+		{"explicit json on a terminal", "json", true, false, "json"},
+		{"explicit table when piped", "table", false, false, "table"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := errorFormat(tc.resolved, tc.stdoutTTY, tc.hasOutFile); got != tc.want {
+				t.Errorf("errorFormat(%q, tty=%v, outFile=%v) = %q, want %q", tc.resolved, tc.stdoutTTY, tc.hasOutFile, got, tc.want)
+			}
+		})
+	}
+}
+
+// TestOutputFlagDefaultsToUnresolved pins the flag default itself. It is the
+// input errorFormat reads, and the value that made every pre-resolution error
+// render as JSON. ResolveFormat ignores it unless the flag was changed, so
+// nothing else reads it and "" is safe.
+func TestOutputFlagDefaultsToUnresolved(t *testing.T) {
+	root := NewRootCmd("test", "none", "none", "none")
+	f := root.PersistentFlags().Lookup("output")
+	if f == nil {
+		t.Fatal("root has no --output flag")
+	}
+	if f.DefValue != "" {
+		t.Errorf("--output default = %q, want empty: a non-empty default is read by every path that runs before PersistentPreRunE and renders their errors in it", f.DefValue)
+	}
+}

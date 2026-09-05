@@ -388,6 +388,7 @@ func loadSnapshotFromProfile(ctx context.Context, profileName string, nameFilter
 				}
 			}
 			data = unwrapClassicDetail(data)
+			data = dropResponseKeys(data, def.DropKeys)
 			data = StripServerFields(data)
 
 			objName := item.Name

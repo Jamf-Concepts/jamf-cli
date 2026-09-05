@@ -884,7 +884,14 @@ in the config file. It never runs in CI, when output is piped, or under
 
 	// Global flags
 	cmd.PersistentFlags().StringVarP(&profile, "profile", "p", "", "config profile to use (or JAMF_PROFILE env)")
-	cmd.PersistentFlags().StringVarP(&outputFmt, "output", "o", "json", "output format: table, json, ndjson, csv, yaml, plain, xml (pretty), raw (classic commands default to xml)")
+	// Empty means "not resolved yet": PersistentPreRunE fills it from the flag,
+	// the profile's default-output or the TTY, and ResolveFormat ignores this
+	// value unless the flag was changed. So the only readers of the default are
+	// the paths that run BEFORE resolution — an Args refusal (cobra validates
+	// args first) and a flag error — and defaulting it to "json" made both
+	// render the machine envelope on stdout for a caller who never asked for
+	// JSON, while a refusal raised from RunE printed plain text on stderr.
+	cmd.PersistentFlags().StringVarP(&outputFmt, "output", "o", "", "output format: table, json, ndjson, csv, yaml, plain, xml (pretty), raw (classic commands default to xml)")
 	cmd.PersistentFlags().BoolVarP(&quiet, "quiet", "q", false, "suppress non-error output")
 	cmd.PersistentFlags().BoolVar(&noHints, "no-hints", false, "suppress advisory hints (e.g. large-result narrowing tips); keeps spinner and progress output (or JAMF_CLI_NO_HINTS env)")
 	cmd.PersistentFlags().CountVarP(&verboseLevel, "verbose", "v", "show HTTP requests/responses (-vv adds headers, -vvv adds bodies)")
@@ -1699,10 +1706,32 @@ func FormatError(err error) bool {
 	return formatErrorTo(os.Stdout, err)
 }
 
+// errorFormat answers which format an error should be rendered in.
+//
+// resolved is outputFmt, empty until PersistentPreRunE fills it. Cobra
+// validates args and parses flags before that runs, so errors from those two
+// paths arrive unresolved, and this reproduces the answer PersistentPreRunE
+// would have given. Without it a piped run got the envelope for a RunE error
+// and plain text for an Args refusal: two answers to one question, which is
+// worse than either alone.
+//
+// Split out from formatErrorTo because the interesting input is whether stdout
+// is a terminal, and a test writing to a pipe can never be one.
+//
+// The profile's default-output is deliberately not consulted. Loading config on
+// the path that prints an error is not worth it, and it differs only for a
+// profile that pins a format while on a terminal.
+func errorFormat(resolved string, stdoutTTY, hasOutFile bool) string {
+	if resolved != "" {
+		return resolved
+	}
+	return output.ResolveFormat(false, "", "", stdoutTTY, hasOutFile)
+}
+
 // formatErrorTo writes the JSON error envelope to w when output is "json",
 // including the remediation hint and any structured details when present.
 func formatErrorTo(w io.Writer, err error) bool {
-	if outputFmt != "json" {
+	if errorFormat(outputFmt, output.IsTerminal(os.Stdout.Fd()), outFile != "") != "json" {
 		return false
 	}
 	code := exitcode.CodeFrom(err)

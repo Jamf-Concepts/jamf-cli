@@ -3,6 +3,9 @@
 package commands
 
 import (
+	"go/ast"
+	"go/parser"
+	gotoken "go/token"
 	"slices"
 	"strings"
 	"testing"
@@ -197,6 +200,20 @@ func TestResolveBackupResources_AdvancedSearches(t *testing.T) {
 	wantSubDirs := []string{"advanced-searches/computers", "advanced-searches/mobile"}
 	if !slices.Equal(subdirs, wantSubDirs) {
 		t.Errorf("advanced-searches subdirs = %v, want %v", subdirs, wantSubDirs)
+	}
+
+	// #341 asks for these by default, and everything above is the
+	// explicit-filter path. TestResolveBackupResources_NoFilter only compares
+	// lengths, which is a tautology against whatever the table holds, so
+	// without this a default-set exclusion would pass the whole suite.
+	all, err := ResolveBackupResources(nil)
+	if err != nil {
+		t.Fatalf("ResolveBackupResources(nil): %v", err)
+	}
+	for _, want := range wantKeys {
+		if !slices.ContainsFunc(all, func(r ResolvedBackupResource) bool { return r.Key == want }) {
+			t.Errorf("%q is absent from the default (unfiltered) backup set", want)
+		}
 	}
 }
 
@@ -456,5 +473,63 @@ func TestNonStandardBackupFilters_SourcesArePinned(t *testing.T) {
 		if n.Source != w {
 			t.Errorf("filter %q source = %q, want %q", n.FilterName, n.Source, w)
 		}
+	}
+}
+
+// TestBackupAndDiffDropTheSameKeys holds the two halves of DropKeys together.
+// A resource whose backup omits a key while its diff keeps it reports that key
+// as permanently modified — the exact symptom DropKeys exists to remove — so
+// the drop is only correct if both call sites have it.
+//
+// Structural rather than behavioural, deliberately. The backup half is covered
+// end to end by TestBackup_AdvancedComputerSearchDropsExecutedResults, but the
+// diff half lives in loadSnapshotFromProfile, which loads config and resolves
+// real auth before it fetches anything; standing that up to observe one deleted
+// map key costs far more than it proves. Deleting the diff call site left the
+// whole suite green, which is what this closes.
+//
+// The rule reads off StripServerFields rather than a file list: that call marks
+// every place a fetched object is normalised for writing, so a fourth site
+// added later is covered without editing this test.
+func TestBackupAndDiffDropTheSameKeys(t *testing.T) {
+	fset := gotoken.NewFileSet()
+	found := 0
+	for _, name := range []string{"pro_backup.go", "pro_diff.go"} {
+		file, err := parser.ParseFile(fset, name, nil, 0)
+		if err != nil {
+			t.Fatalf("parsing %s: %v", name, err)
+		}
+		for _, decl := range file.Decls {
+			fn, isFunc := decl.(*ast.FuncDecl)
+			if !isFunc {
+				continue
+			}
+			strips, drops := false, false
+			ast.Inspect(fn, func(n ast.Node) bool {
+				call, isCall := n.(*ast.CallExpr)
+				if !isCall {
+					return true
+				}
+				if id, ok := call.Fun.(*ast.Ident); ok {
+					switch id.Name {
+					case "StripServerFields":
+						strips = true
+					case "dropResponseKeys":
+						drops = true
+					}
+				}
+				return true
+			})
+			if !strips {
+				continue
+			}
+			found++
+			if !drops {
+				t.Errorf("%s: %s normalises a fetched object with StripServerFields but never calls dropResponseKeys, so a resource's executed output survives here and is reported as a permanent change", name, fn.Name.Name)
+			}
+		}
+	}
+	if found < 2 {
+		t.Errorf("found %d normalising functions across pro_backup.go and pro_diff.go, want at least 2 — the walk is not seeing them, so it proves nothing", found)
 	}
 }

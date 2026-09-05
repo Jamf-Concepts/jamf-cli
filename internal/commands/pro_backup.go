@@ -136,9 +136,10 @@ unrecognised value renders a table, so 'list-resources --output ./tokens.txt'
 prints the listing and creates no file. Use --out-file to write one.
 
 Any format that renders a table shows two columns: resource (the token) and
-source (the API or mechanism each token reads from). json, yaml, ndjson, xml and
-raw add a third, objects (the backing commands, or a note for a resource handled
-outside the generated registry).
+source (the API or mechanism each token reads from). json, yaml and ndjson add a
+third, objects (the backing commands, or a note for a resource handled outside
+the generated registry). --output xml and raw carry objects too, but neither
+converts the rows: both emit the JSON verbatim.
 
 --wide changes nothing here. It selects every column of a table row, and the
 objects column is not part of the table shape. Use one of the formats above to
@@ -317,6 +318,7 @@ func runBackup(ctx context.Context, cliCtx *registry.CLIContext, opts backupOpti
 
 			// Unwrap Classic API single-object wrapper if present
 			obj = unwrapClassicDetail(obj)
+			obj = dropResponseKeys(obj, def.DropKeys)
 
 			if !opts.IncludeIDs {
 				obj = StripServerFields(obj)
