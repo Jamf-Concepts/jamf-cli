@@ -6,7 +6,7 @@ now does for you.
 
 > **The API is GA; the numbers on this page are a snapshot.** Version numbers, the
 > refused-command list and the permission names quoted here track a specific SDK ingest —
-> currently `jamfplatform-go-sdk` `v0.20.1`, whose published surface is Jamf Pro API 11.31.0
+> currently `jamfplatform-go-sdk` `v0.21.0`, whose published surface is Jamf Pro API 11.31.0
 > and Classic API 11.28.0. The published surface still moves at GA (endpoints are added, and
 > superseded versions are withdrawn), so read the refused-command list against the build you
 > are actually running: `jamf-cli commands -o json` always reports the current answer.
@@ -227,8 +227,10 @@ commands are **refused before a request is sent** on a gateway profile, with **e
 
 | Command group | Subcommands | Why |
 |---|---|---|
-| `pro api-integrations` | 6 | outside the published API — withdrawn to close a privilege-escalation path |
-| `pro api-roles` | 5 | as above |
+| `pro mobile-devices` | 16 | the gateway declares GET on those paths, not POST — the MDM device actions, including `lock`, `restart`, `shutdown` and lost mode |
+| `pro computers-inventory` | 8 | as above — `lock`, `restart`, `shutdown`, remote-desktop control, `set-recovery-lock`, `set-auto-admin-password` |
+| `pro api-integrations` | 7 | outside the published API — withdrawn to close a privilege-escalation path |
+| `pro api-roles` | 6 | as above |
 | `pro api-roles-privileges` | 2 | as above |
 | `pro authentications` | 6 | outside the published API |
 | `pro oauth-token-sessions` | 1 | outside the published API |
@@ -238,18 +240,30 @@ commands are **refused before a request is sent** on a gateway profile, with **e
 | `pro mac-os-managed-software-updates` | 1 | `list` (the deprecated available-updates endpoint) |
 | `pro mdm-commands commands` | 1 | the gateway declares GET on that path, not POST |
 | `pro classic-computer-configs` | 7 | outside the published Classic API 11.28.0 |
-| `pro static-computer-groups` | 5 | the deprecated v2 endpoint — use `pro computer-groups-static-groups` |
+| `pro static-computer-groups` | 6 | the deprecated v2 endpoint — use `pro computer-groups-static-groups` |
 | `pro classic-patch-reports` | 2 | withdrawn from the published Classic API 11.28.0 |
 | `pro classic-patch-titles` | 5 | `list`, `get`, `update`, `delete`, `apply` — withdrawn; `create` still works |
 | `pro classic-patch-policies` | 1 | `list` — withdrawn; `get`, `create`, `update`, `delete` still work |
 | `pro policy-properties` | 2 | `GET`/`PUT /settings/obj/policyProperties`, withdrawn from the published API |
 
-48 commands in total (a wholly-refused resource contributes its group node too).
+75 commands in total (a wholly-refused resource contributes its group node too).
 **Nothing else changes for the ~1,700 other commands** — Pro and Classic still route
 through the gateway as before.
 
-The last three rows are the shape to expect from here on: a withdrawal can take **part of a
-command group**. `pro classic-patch-titles create` is served and `list` is not, because the
+**24 of the 75 are MDM device actions, and that is the refusal most likely to be felt.**
+`pro mobile-devices` loses `lock`, `restart`, `shutdown`, `enable-lost-mode`,
+`disable-lost-mode`, `play-lost-mode-sound`, `clear-passcode`, `clear-restrictions-password`,
+`delete-user`, `log-out-user`, `unlock-user-account`, `apply-redemption-code`,
+`refresh-cellular-plans`, `request-mirroring`, `stop-mirroring` and `settings`;
+`pro computers-inventory` loses `lock`, `restart`, `shutdown`, `enable-remote-desktop`,
+`disable-remote-desktop`, `set-recovery-lock`, `set-auto-admin-password` and `settings`. The
+published API declares GET on those paths but not POST, so the refusal is **per method**: the
+inventory reads on both resources are unaffected, and so is everything else under them.
+`pro comp erase` and `pro comp remove-mdm` are hand-written against a different path and are
+**not** refused.
+
+Those two rows and the last three are the shape to expect from here on: a withdrawal can
+take **part of a command group**. `pro classic-patch-titles create` is served and `list` is not, because the
 gateway still publishes `POST /patchsoftwaretitles/id/{id}` — the only call that mints a
 `softwareTitleId` — and nothing else on that resource. Check `--help` on the individual
 subcommand rather than the group; a refused one says so in its first paragraph.
