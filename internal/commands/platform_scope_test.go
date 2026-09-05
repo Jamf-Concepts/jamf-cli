@@ -231,14 +231,18 @@ func TestNewPlatformSDKClientRecordsTheScopeItSent(t *testing.T) {
 	}
 }
 
-// A scope ID the gateway does not know is the one probe answer that invalidates
-// the whole summary, and it used to collapse into the same `false` as "no
-// Security Cloud entitlement" — so setup reported the profile reached sixteen
-// Platform API resources, every one of which answers the same 404.
+// A scope ID the gateway refuses is the one probe answer that invalidates the
+// whole summary, and it used to collapse into the same `false` as "no Security
+// Cloud entitlement" — so setup reported the profile reached sixteen Platform
+// API resources, every one of which answers the same refusal.
 //
-// Wire-probed 2026-09-05: a tenant UUID pasted at the `Platform environment ID`
-// prompt makes GET /securitycloud/v1/categories answer 404
-// ENVIRONMENT_NOT_FOUND naming that exact UUID.
+// Both levels are covered, because the gateway spells the refusal differently
+// per level and only one of the two spellings was matched at first. Wire-probed
+// 2026-09-05, with GET /devices/v1/devices alongside returning identical codes:
+// a bad X-Environment-Id answers 404 ENVIRONMENT_NOT_FOUND, and a bad
+// X-Tenant-Id answers 403 OWNERSHIP_FORBIDDEN, each naming the value. There is
+// no TENANT_NOT_FOUND, which is what the first version matched — so the tenant
+// half of the mis-paste fell through to a plain "no" and kept the claim.
 func TestARejectedScopeIDStopsTheReachabilityClaim(t *testing.T) {
 	srv := gatewayStub(t, http.StatusOK, func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -260,10 +264,10 @@ func TestARejectedScopeIDStopsTheReachabilityClaim(t *testing.T) {
 		t.Error("a 404 on the probe is not Security Cloud access")
 	}
 	if !scopeIDRejected {
-		t.Fatal("ENVIRONMENT_NOT_FOUND must be reported as a rejected scope ID — it is the one " +
-			"failure this probe can attribute precisely, and nothing else catches it")
+		t.Fatal("ENVIRONMENT_NOT_FOUND must be reported as a rejected scope ID — nothing else " +
+			"catches it, and the summary is assembled from a level the gateway just refused")
 	}
-	if !strings.Contains(out.String(), "does not know this scope ID") {
+	if !strings.Contains(out.String(), "does not know this environment ID") {
 		t.Errorf("the probe output does not say what was wrong:\n%s", out.String())
 	}
 
@@ -281,12 +285,37 @@ func TestARejectedScopeIDStopsTheReachabilityClaim(t *testing.T) {
 		}
 	}
 
-	// The entitlement answers stay a plain report: both are consistent with a
-	// perfectly good Jamf Pro profile, so neither may invalidate the summary.
-	for _, code := range []string{"BAD_PERMISSIONS", "OWNERSHIP_FORBIDDEN"} {
-		var b bytes.Buffer
-		if _, rejected := reportSecurityCloudProbe(&b, fmt.Errorf("status 403: [%s] forbidden", code)); rejected {
-			t.Errorf("%s was treated as a rejected scope ID", code)
-		}
+	// The tenant half, which the first version of this got wrong. A bad
+	// X-Tenant-Id is OWNERSHIP_FORBIDDEN and never TENANT_NOT_FOUND, so
+	// matching the latter left the more likely mis-paste — an environment ID
+	// typed at the tenant prompt — reported as a plain "no" with the summary
+	// still claiming a reach.
+	var tenantOut bytes.Buffer
+	_, rejected := reportSecurityCloudProbe(&tenantOut,
+		fmt.Errorf("status 403: [OWNERSHIP_FORBIDDEN] Tenant 'aee3ec71' is not part of your organization"))
+	if !rejected {
+		t.Error("OWNERSHIP_FORBIDDEN must be reported as a rejected scope ID: the gateway will not " +
+			"accept that tenant ID for these credentials, so no scoped request can work")
+	}
+	if !strings.Contains(tenantOut.String(), "will not accept this tenant ID") {
+		t.Errorf("the tenant refusal does not say what was wrong:\n%s", tenantOut.String())
+	}
+	var tenantSummary bytes.Buffer
+	printScopeSummary(&tenantSummary, root, &platformGatewayCredentials{TenantID: "aee3ec71"}, false, true)
+	if got := tenantSummary.String(); !strings.Contains(got, "does not recognise the tenant ID") ||
+		strings.Contains(got, "It also reaches") {
+		t.Errorf("a rejected tenant ID must stop the reachability claim too:\n%s", got)
+	}
+
+	// BAD_PERMISSIONS stays a plain report, and it is the only one that may:
+	// probed on a credential whose own correct tenant answered BAD_PERMISSIONS
+	// on Security Cloud and 200 on /devices/v1/devices, so the scope ID is good
+	// and the entitlement is simply absent. That is a normal Jamf Pro profile
+	// and the summary stands.
+	var entitlement bytes.Buffer
+	if _, rejected := reportSecurityCloudProbe(&entitlement,
+		fmt.Errorf("status 403: [BAD_PERMISSIONS] forbidden")); rejected {
+		t.Error("BAD_PERMISSIONS was treated as a rejected scope ID — it is an entitlement answer, " +
+			"and treating it as a bad ID would suppress the summary for every unentitled Jamf Pro tenant")
 	}
 }

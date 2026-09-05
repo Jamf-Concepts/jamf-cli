@@ -100,10 +100,13 @@ func TestValidatePlatformGatewayCredentials_SecurityCloudTenant(t *testing.T) {
 			wantText: "Checking Jamf Security Cloud access... yes",
 		},
 		{
-			name:     "wrong tenant",
+			// A tenant ID the gateway refuses, which is also how it answers an
+			// environment ID typed at the tenant prompt. Not an entitlement
+			// answer — see reportSecurityCloudProbe.
+			name:     "tenant id the gateway will not accept",
 			status:   http.StatusForbidden,
 			body:     `{"httpStatus":403,"errors":[{"code":"OWNERSHIP_FORBIDDEN"}]}`,
-			wantText: "tenant not owned by this organization",
+			wantText: "will not accept this tenant ID",
 		},
 		{
 			name:     "not entitled",
