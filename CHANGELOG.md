@@ -76,7 +76,11 @@ migration guide** and carries the detail, the error messages verbatim, and the r
   and ignored the directory that `--output` takes. A wrapper or a CI job that passes a
   stray token now fails where it used to succeed. Remove the argument, or move it to the
   flag that takes it; the refusal names the command and the value, and `--help` lists every
-  flag. A command that documents a placeholder is unchanged, `multi` still forwards every
+  flag. A command that documents a placeholder is unchanged for an ordinary invocation.
+  Under `--scaffold` it is now bounded too: 43 classic and platform leaves used to accept
+  and discard any number of extra positionals with that flag set, and now enforce the
+  declared ceiling, so `<resource> update <id> extra --scaffold` is refused where it exited
+  0 before. `multi` still forwards every
   positional to its inner command, and 22 singleton `delete` and `history` commands had
   their `--help` examples corrected, because those examples showed an id the command never
   accepted. A further 17 `--help` example lines on 12 resources are corrected for the same

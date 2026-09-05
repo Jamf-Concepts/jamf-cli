@@ -1676,7 +1676,17 @@ type classicBodySpec struct {
 func classicScaffoldArgs(scaffold *bool, inner cobra.PositionalArgs) cobra.PositionalArgs {
 	return func(cmd *cobra.Command, args []string) error {
 		if scaffold != nil && *scaffold {
-			return cobra.MaximumNArgs(1)(cmd, args)
+			// Lower the floor to zero and keep whatever ceiling the caller
+			// declared, rather than restating an arity the caller already
+			// passed in. Restating it as MaximumNArgs(1) is wrong the day a
+			// classic resource ships an update under two path parameters, and
+			// a mutation to MaximumNArgs(0) left the whole internal/commands
+			// package green while breaking "update <id> --scaffold" on 35
+			// leaves. No backticks in this comment: it is emitted from inside
+			// a raw string literal.
+			if len(args) == 0 {
+				return nil
+			}
 		}
 		if inner == nil {
 			return nil

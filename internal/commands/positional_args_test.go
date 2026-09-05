@@ -329,6 +329,13 @@ func TestScaffoldKeepsTheDeclaredPositionalCeiling(t *testing.T) {
 		if err := l.cmd.Args(l.cmd, strayArgs(count+1)); err == nil {
 			t.Errorf("leaf %q with --scaffold accepted %d positional(s), one more than its Use %q documents", l.path, count+1, l.cmd.Use)
 		}
+		// The ceiling has to be the declared one, not merely bounded. Without
+		// this the assertion above passes for a validator that is too STRICT:
+		// a mutation of the classic relaxation to MaximumNArgs(0) broke
+		// "update <id> --scaffold" on 35 leaves and left this package green.
+		if err := l.cmd.Args(l.cmd, strayArgs(count)); err != nil {
+			t.Errorf("leaf %q with --scaffold refused the %d positional(s) its Use %q documents: %v", l.path, count, l.cmd.Use, err)
+		}
 		if l.cmd.Args(l.cmd, nil) != nil {
 			unreachable++
 		}
@@ -702,4 +709,140 @@ func literalReadsArgs(lit *ast.CompositeLit) bool {
 	}
 	ast.Inspect(lit, inspect)
 	return found
+}
+
+// TestStrayPositionalRedactsASecret covers the case where the stray positional
+// IS the secret. Omitting --new-password while supplying its value leaves the
+// password as args[0], and the refusal reaches stdout as JSON whenever output
+// is piped — the CI case. Measured on the branch before the fix:
+// `pro comp set-recovery-lock --serial C02X1234 --yes 'S3cur3P@ss123'` printed
+// the password verbatim into the error envelope.
+//
+// Refusing the invocation is still right. The same typo on main ran the command
+// with an empty password, and an empty --new-password clears the device's
+// existing Recovery Lock, so the guard made that safer. Only the echo was wrong.
+//
+// The population is derived, not listed: every zero-arity leaf registering a
+// secret-bearing string flag has to redact, so a command that gains such a flag
+// later is covered without editing this test.
+func TestStrayPositionalRedactsASecret(t *testing.T) {
+	root := NewRootCmd("test", "none", "none", "none")
+
+	secret, plain := 0, 0
+	for _, l := range runnableLeaves(root) {
+		count, _ := declaredPositionals(l.cmd.Use, l.cmd.Name())
+		if count > 0 || l.cmd.Args == nil {
+			continue
+		}
+		err := l.cmd.Args(l.cmd, []string{"S3cur3P@ss123"})
+		if err == nil {
+			continue
+		}
+		if carriesASecretFlag(l.cmd) {
+			secret++
+			if strings.Contains(err.Error(), "S3cur3P@ss123") {
+				t.Errorf("leaf %q registers a secret-bearing flag and reproduced the value in its refusal, which reaches a CI log: %v", l.path, err)
+			}
+			if !strings.Contains(err.Error(), "<redacted>") {
+				t.Errorf("leaf %q redacted nothing: %v", l.path, err)
+			}
+			continue
+		}
+		plain++
+		// The value has to survive everywhere else, or every typo becomes
+		// unreportable to fix three commands.
+		if !strings.Contains(err.Error(), "S3cur3P@ss123") {
+			t.Errorf("leaf %q carries no secret-bearing flag but hid the value, so the operator cannot see their typo: %v", l.path, err)
+		}
+	}
+
+	// Both arms must be exercised, or the walk proves nothing.
+	if secret == 0 {
+		t.Error("no leaf registering a secret-bearing string flag was found, so the redaction is untested")
+	}
+	if plain == 0 {
+		t.Error("no ordinary leaf was found, so nothing pins that the value still appears")
+	}
+	t.Logf("checked %d secret-bearing and %d ordinary zero-arity leaves", secret, plain)
+}
+
+// TestCarriesASecretFlag_MatchesSegmentsNotSubstrings pins the matcher's shape.
+// "mapping" contains "pin" and "keychain" contains "key", so a substring test
+// would redact the value of flags that carry no secret at all.
+func TestCarriesASecretFlag_MatchesSegmentsNotSubstrings(t *testing.T) {
+	for _, tc := range []struct {
+		flag string
+		kind string
+		want bool
+	}{
+		{"new-password", "string", true},
+		{"unlock-token", "string", true},
+		{"pin", "string", true},
+		{"client-secret", "string", true},
+		{"api-key", "string", true},
+		// A path is worth reporting: the caller needs to see the typo.
+		{"token-file", "string", false},
+		{"password-file", "string", false},
+		// Substring collisions that must not match.
+		{"field-mapping", "string", false},
+		{"keychain", "string", false},
+		{"monkey", "string", false},
+		// A boolean named like a secret carries no value to leak.
+		{"password", "bool", false},
+	} {
+		t.Run(tc.flag, func(t *testing.T) {
+			cmd := &cobra.Command{Use: "probe"}
+			if tc.kind == "bool" {
+				var b bool
+				cmd.Flags().BoolVar(&b, tc.flag, false, "")
+			} else {
+				var s string
+				cmd.Flags().StringVar(&s, tc.flag, "", "")
+			}
+			if got := carriesASecretFlag(cmd); got != tc.want {
+				t.Errorf("carriesASecretFlag(--%s %s) = %v, want %v", tc.flag, tc.kind, got, tc.want)
+			}
+		})
+	}
+}
+
+// TestGuardKeepsAHandDeclaredValidator pins the `cmd.Args == nil` condition in
+// guardStrayPositionals. Deleting it so the walk overwrites unconditionally
+// left the whole package green: no leaf today documents zero positionals AND
+// declares a validator of its own, so the overwrite is silent.
+//
+// It matters the moment one does. A hand-written zero-arity leaf that declares
+// its own validator — to refuse a value with a message of its own, or to accept
+// one under a flag — would have it replaced by the generic refusal, and nothing
+// would say so.
+func TestGuardKeepsAHandDeclaredValidator(t *testing.T) {
+	sentinelCalled := false
+	sentinel := func(*cobra.Command, []string) error {
+		sentinelCalled = true
+		return nil
+	}
+
+	root := &cobra.Command{Use: "root"}
+	// Use documents no positional, so the guard would otherwise claim it.
+	leaf := &cobra.Command{Use: "leaf", Run: func(*cobra.Command, []string) {}, Args: sentinel}
+	root.AddCommand(leaf)
+
+	guardStrayPositionals(root)
+
+	if !sameFunc(leaf.Args, sentinel) {
+		t.Fatal("guardStrayPositionals replaced a hand-declared Args validator, so a leaf's own refusal is silently discarded")
+	}
+	if err := leaf.Args(leaf, []string{"x"}); err != nil {
+		t.Errorf("the sentinel validator no longer decides: %v", err)
+	}
+	if !sentinelCalled {
+		t.Error("the sentinel was never called, so this test proves nothing about which validator runs")
+	}
+
+	// The completion half is decided separately and must still be installed:
+	// cobra derives no completion from Args, so the leaf would offer filenames
+	// for a positional its own validator may well refuse.
+	if leaf.ValidArgsFunction == nil {
+		t.Error("guardStrayPositionals skipped the completion half for a leaf that declared its own Args")
+	}
 }

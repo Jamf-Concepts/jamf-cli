@@ -1989,13 +1989,66 @@ func guardStrayPositionals(cmd *cobra.Command) {
 // argument error at cobra's own call site, so a plain error from here would
 // still exit 2. The two are independent on purpose, and neither substitutes for
 // the other.
+// secretFlagSegments are the hyphen-delimited flag-name segments that mark a
+// string flag as carrying a credential.
+//
+// Segments rather than substrings: "mapping" contains "pin", and "keychain"
+// contains "key", so a substring test redacts the value of several flags that
+// carry no secret. A segment test reads new-password, unlock-token, pin,
+// client-secret and api-key while leaving those alone.
+var secretFlagSegments = map[string]bool{
+	"password": true, "passcode": true, "pin": true,
+	"token": true, "secret": true, "key": true,
+}
+
+// carriesASecretFlag reports whether cmd registers a string flag whose name
+// names a credential. A stray positional on such a command is most likely that
+// credential typed without its flag name.
+//
+// A "-file" suffix is excluded: --token-file and --password-file take a path,
+// and a path is worth reporting back so the caller can see the typo.
+func carriesASecretFlag(cmd *cobra.Command) bool {
+	found := false
+	cmd.Flags().VisitAll(func(f *pflag.Flag) {
+		if found || f.Value.Type() != "string" || strings.HasSuffix(f.Name, "-file") {
+			return
+		}
+		for _, seg := range strings.Split(f.Name, "-") {
+			if secretFlagSegments[seg] {
+				found = true
+				return
+			}
+		}
+	})
+	return found
+}
+
+// refuseStrayPositionals reports a positional given to a command that documents
+// none, and carries its own exit code.
+//
+// The value is redacted when the command registers a secret-bearing string
+// flag, because on those the stray positional IS the secret: omitting
+// --new-password while supplying its value leaves the password as args[0], and
+// this message reaches stdout as JSON whenever output is piped, which is the CI
+// case. `pro comp set-recovery-lock --serial X --yes 'S3cur3P@ss'` printed the
+// password verbatim into the job log. CLAUDE.md's credential policy names that
+// exposure — shell history, ps output and CI logs — as the thing it exists to
+// prevent.
+//
+// Refusing is still the right answer rather than a regression: the same typo on
+// main ran the command with an EMPTY password, and an empty --new-password
+// clears the device's existing Recovery Lock. Only the echo was wrong.
 func refuseStrayPositionals(cmd *cobra.Command, args []string) error {
 	if len(args) == 0 {
 		return nil
 	}
+	value := args[0]
+	if carriesASecretFlag(cmd) {
+		value = "<redacted>"
+	}
 	return &exitcode.Error{
 		Code:    exitcode.Usage,
-		Message: fmt.Sprintf("%q takes no positional arguments, but got %q", cmd.CommandPath(), args[0]),
+		Message: fmt.Sprintf("%q takes no positional arguments, but got %q", cmd.CommandPath(), value),
 		Hint:    fmt.Sprintf("run %s --help for the flags it accepts", cmd.CommandPath()),
 	}
 }
