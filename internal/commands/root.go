@@ -1703,7 +1703,7 @@ func resolveSecurityClient(cfg *config.Config, cliCtx *registry.CLIContext) erro
 // is "json". Returns true if the error was handled, false otherwise (caller
 // should fall back to plain stderr).
 func FormatError(err error) bool {
-	return formatErrorTo(os.Stdout, err)
+	return formatErrorTo(os.Stdout, err, errorConfigDefault(), output.IsTerminal(os.Stdout.Fd()), outFile != "")
 }
 
 // errorFormat answers which format an error should be rendered in.
@@ -1715,23 +1715,48 @@ func FormatError(err error) bool {
 // and plain text for an Args refusal: two answers to one question, which is
 // worse than either alone.
 //
-// Split out from formatErrorTo because the interesting input is whether stdout
-// is a terminal, and a test writing to a pipe can never be one.
-//
-// The profile's default-output is deliberately not consulted. Loading config on
-// the path that prints an error is not worth it, and it differs only for a
-// profile that pins a format while on a terminal.
-func errorFormat(resolved string, stdoutTTY, hasOutFile bool) string {
+// Split out from formatErrorTo because the interesting inputs are whether
+// stdout is a terminal and what the profile pins, and a test writing to a pipe
+// can never be the first. Both arrive as arguments so this stays a pure
+// decision; errorConfigDefault supplies the second at the one real call site.
+func errorFormat(resolved, configDefault string, stdoutTTY, hasOutFile bool) string {
 	if resolved != "" {
 		return resolved
 	}
-	return output.ResolveFormat(false, "", "", stdoutTTY, hasOutFile)
+	return output.ResolveFormat(false, "", configDefault, stdoutTTY, hasOutFile)
+}
+
+// errorConfigDefault reads the profile's default-output for an error that is
+// being rendered before PersistentPreRunE resolved one.
+//
+// It exists because skipping it gave a profile pinning `default-output: json`
+// two answers to one question on a terminal: an Args refusal printed plain text
+// while a RunE refusal, raised after resolution, printed the envelope. On main
+// both printed the envelope, so this PR introduced the divergence rather than
+// removing one — against the reasoning it is justified by.
+//
+// A failed load answers "", which falls back to the terminal decision. That is
+// the right failure: an unreadable config cannot be what the operator asked
+// for, and the process is already exiting.
+func errorConfigDefault() string {
+	cfg, err := config.Load()
+	if err != nil || cfg == nil {
+		return ""
+	}
+	return cfg.DefaultOutput
 }
 
 // formatErrorTo writes the JSON error envelope to w when output is "json",
 // including the remediation hint and any structured details when present.
-func formatErrorTo(w io.Writer, err error) bool {
-	if errorFormat(outputFmt, output.IsTerminal(os.Stdout.Fd()), outFile != "") != "json" {
+//
+// stdoutTTY and hasOutFile are parameters rather than read here, for the same
+// reason errorFormat takes them: a test writes to a pipe, so nothing that reads
+// the real terminal can exercise the branch where a human is watching.
+// Replacing the IsTerminal argument at the single call site with a literal
+// false — treating every invocation as piped — left every test in this package
+// and in cmd/jamf-cli passing.
+func formatErrorTo(w io.Writer, err error, configDefault string, stdoutTTY, hasOutFile bool) bool {
+	if errorFormat(outputFmt, configDefault, stdoutTTY, hasOutFile) != "json" {
 		return false
 	}
 	code := exitcode.CodeFrom(err)
@@ -1989,8 +2014,18 @@ func unknownSubcommandError(cmd *cobra.Command, arg string) error {
 	// staging production` names --source and --target again. Re-deriving the
 	// rule here meant copying cobra's completion-annotation marker, which is
 	// internal in spirit and would name nothing if cobra ever changed it.
-	if err := cmd.ValidateRequiredFlags(); err != nil {
-		msg += " (" + err.Error() + ")"
+	//
+	// Only when no suggestion was produced. A suggestion means the positional
+	// was meant to be a subcommand, so the parent's required flags are not what
+	// the operator is missing — and naming one is actively wrong here:
+	// `pro backup list-resourcez` recommended --output one line above the
+	// suggestion for `list-resources`, the single subcommand where --output is
+	// the inherited root FORMAT flag rather than a destination directory.
+	// Following that literally writes no file and prints a table.
+	if suggestions == "" {
+		if err := cmd.ValidateRequiredFlags(); err != nil {
+			msg += " (" + err.Error() + ")"
+		}
 	}
 	return &exitcode.Error{Code: exitcode.Usage, Message: msg + suggestions, Hint: hint}
 }

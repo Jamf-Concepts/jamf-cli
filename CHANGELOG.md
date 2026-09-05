@@ -70,6 +70,14 @@ migration guide** and carries the detail, the error messages verbatim, and the r
 
 ### Breaking — everything else
 
+- **`pro backup` and `pro diff` refuse a stray positional argument**, with exit 2
+  (`usage`). Both take their whole input as flags, and cobra supplies no default validator,
+  so a positional was discarded and the command ran anyway: `pro backup somegarbage
+  --output DIR` started a full backup from a typo. A wrapper or a CI job that passes a stray
+  token now fails where it used to succeed. Remove the argument, or move it to the flag that
+  takes it. The refusal names the command and the value, and adds any required flag that is
+  also unset, so `pro diff staging production` still reports `--source` and `--target`
+  rather than replacing that answer with the positional complaint.
 - **A cobra usage error now exits 2, not 1.** Four classes move: a missing required flag, a
   flag group with no member set, a flag group with mutually exclusive members set together,
   and the wrong number of positional arguments. An unknown flag and an unknown subcommand

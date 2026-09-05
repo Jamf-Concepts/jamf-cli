@@ -7,6 +7,9 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"go/ast"
+	"go/parser"
+	gotoken "go/token" // the package name collides with root.go's token flag var
 	"io"
 	"net/http"
 	"os"
@@ -2196,8 +2199,8 @@ func TestErrorFormat(t *testing.T) {
 		{"explicit table when piped", "table", false, false, "table"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			if got := errorFormat(tc.resolved, tc.stdoutTTY, tc.hasOutFile); got != tc.want {
-				t.Errorf("errorFormat(%q, tty=%v, outFile=%v) = %q, want %q", tc.resolved, tc.stdoutTTY, tc.hasOutFile, got, tc.want)
+			if got := errorFormat(tc.resolved, "", tc.stdoutTTY, tc.hasOutFile); got != tc.want {
+				t.Errorf("errorFormat(%q, cfg=%q, tty=%v, outFile=%v) = %q, want %q", tc.resolved, "", tc.stdoutTTY, tc.hasOutFile, got, tc.want)
 			}
 		})
 	}
@@ -2215,5 +2218,192 @@ func TestOutputFlagDefaultsToUnresolved(t *testing.T) {
 	}
 	if f.DefValue != "" {
 		t.Errorf("--output default = %q, want empty: a non-empty default is read by every path that runs before PersistentPreRunE and renders their errors in it", f.DefValue)
+	}
+}
+
+// TestFormatErrorTo_TerminalBranch reaches the branch where a human is
+// watching, which no other test in the tree can: every test here redirects
+// os.Stdout to an os.Pipe, so output.IsTerminal is false in all of them.
+//
+// Replacing the IsTerminal argument at formatErrorTo's call site with a literal
+// false — treating a real terminal as piped — left TestErrorFormat,
+// TestOutputFlagDefaultsToUnresolved, TestRunRendersAStrayPositionalRefusal and
+// every TestFormatError case passing. The piped branch was pinned and the
+// terminal branch was not, and the terminal branch is the one the stray-args
+// guard put a JSON envelope in front of.
+func TestFormatErrorTo_TerminalBranch(t *testing.T) {
+	oldFmt := outputFmt
+	t.Cleanup(func() { outputFmt = oldFmt })
+
+	err := &exitcode.Error{Code: exitcode.Usage, Message: "boom", Hint: "try --help"}
+
+	for _, tc := range []struct {
+		name        string
+		resolved    string
+		stdoutTTY   bool
+		hasOutFile  bool
+		wantHandled bool
+	}{
+		// The regression: unresolved on a terminal must NOT take the envelope.
+		{"unresolved on a terminal", "", true, false, false},
+		// Piped keeps it, so one piped run does not answer two ways.
+		{"unresolved when piped", "", false, false, true},
+		// --out-file means the data is not going to the terminal.
+		{"unresolved with --out-file", "", true, true, true},
+		// An explicit choice wins in both directions.
+		{"explicit json on a terminal", "json", true, false, true},
+		{"explicit table when piped", "table", false, false, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			outputFmt = tc.resolved
+			var buf bytes.Buffer
+			handled := formatErrorTo(&buf, err, "", tc.stdoutTTY, tc.hasOutFile)
+
+			if handled != tc.wantHandled {
+				t.Errorf("formatErrorTo handled = %v, want %v", handled, tc.wantHandled)
+			}
+			if tc.wantHandled {
+				if !strings.Contains(buf.String(), `"error"`) {
+					t.Errorf("expected the JSON envelope, got %q", buf.String())
+				}
+			} else if buf.Len() != 0 {
+				t.Errorf("expected nothing written so the caller prints plain text, got %q", buf.String())
+			}
+		})
+	}
+}
+
+// TestFormatErrorPassesTheRealTerminalState pins the one thing
+// TestFormatErrorTo_TerminalBranch structurally cannot: what the caller passes.
+//
+// That test drives formatErrorTo with explicit values, so a wrong argument at
+// the call site is invisible to it — replacing IsTerminal with a literal false
+// inside FormatError leaves it, TestErrorFormat and every run() test passing,
+// because each of those redirects os.Stdout to a pipe where false is the right
+// answer anyway. The envelope would return in front of an interactive user with
+// the suite green.
+//
+// A pty would be the behavioural way to catch it, and the tree has no harness
+// for one. This reads the wiring instead: the terminal argument has to be a
+// CALL, not a constant.
+func TestFormatErrorPassesTheRealTerminalState(t *testing.T) {
+	fset := gotoken.NewFileSet()
+	file, err := parser.ParseFile(fset, "root.go", nil, 0)
+	if err != nil {
+		t.Fatalf("parsing root.go: %v", err)
+	}
+
+	checked := false
+	for _, decl := range file.Decls {
+		fn, isFunc := decl.(*ast.FuncDecl)
+		if !isFunc || fn.Name.Name != "FormatError" {
+			continue
+		}
+		ast.Inspect(fn, func(n ast.Node) bool {
+			call, isCall := n.(*ast.CallExpr)
+			if !isCall {
+				return true
+			}
+			id, isIdent := call.Fun.(*ast.Ident)
+			if !isIdent || id.Name != "formatErrorTo" {
+				return true
+			}
+			checked = true
+			if len(call.Args) != 5 {
+				t.Fatalf("FormatError passes %d arguments to formatErrorTo, want 5", len(call.Args))
+			}
+			// Argument 4 is stdoutTTY. A constant here is the mutation.
+			inner, isCallExpr := call.Args[3].(*ast.CallExpr)
+			if !isCallExpr {
+				t.Errorf("FormatError passes a constant as formatErrorTo's stdoutTTY, so every invocation is treated as piped and the JSON envelope reaches an interactive user: %T", call.Args[3])
+				return true
+			}
+			sel, isSel := inner.Fun.(*ast.SelectorExpr)
+			if !isSel || sel.Sel.Name != "IsTerminal" {
+				t.Errorf("FormatError does not read the terminal state for formatErrorTo's stdoutTTY argument")
+			}
+			return true
+		})
+	}
+	if !checked {
+		t.Error("no call to formatErrorTo found inside FormatError — this test proves nothing")
+	}
+}
+
+// TestUnknownSubcommandOmitsRequiredFlagsWhenItSuggests covers the interaction
+// between the two halves of unknownSubcommandError's message.
+//
+// Cobra validates Args before ValidateRequiredFlags, so this refusal pre-empts
+// the required-flag error and has to carry it. But on a subcommand typo the
+// positional was meant to be a subcommand, a suggestion is already the remedy,
+// and the flag named belongs to the parent. `pro backup list-resourcez`
+// recommended --output one line above the suggestion for `list-resources`, the
+// single subcommand where --output is the inherited root FORMAT flag rather
+// than a destination directory — so following the message literally writes no
+// file and prints a table, which is the trap that command's Long warns about.
+func TestUnknownSubcommandOmitsRequiredFlagsWhenItSuggests(t *testing.T) {
+	for _, tc := range []struct {
+		name          string
+		argv          []string
+		wantSuggest   bool
+		wantFlagNamed bool
+	}{
+		// A near miss: the remedy is the suggestion, not a flag.
+		{"typo'd subcommand", []string{"pro", "backup", "list-resourcez"}, true, false},
+		// No suggestion possible, so the missing required flag is the answer.
+		{"unsuggestible stray", []string{"pro", "backup", "somegarbage"}, false, true},
+		// A leaf taking only flags keeps naming them: no subcommands to suggest.
+		{"leaf with required flags", []string{"pro", "diff", "staging", "production"}, false, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			root := NewRootCmd("test", "none", "none", "none")
+			root.SetArgs(tc.argv)
+			root.SetOut(&bytes.Buffer{})
+			root.SetErr(&bytes.Buffer{})
+
+			err := root.Execute()
+			if err == nil {
+				t.Fatalf("%v was accepted", tc.argv)
+			}
+			msg := err.Error()
+
+			if got := strings.Contains(msg, "Did you mean"); got != tc.wantSuggest {
+				t.Errorf("suggestion present = %v, want %v: %q", got, tc.wantSuggest, msg)
+			}
+			if got := strings.Contains(msg, "required flag"); got != tc.wantFlagNamed {
+				t.Errorf("required-flag clause present = %v, want %v: %q", got, tc.wantFlagNamed, msg)
+			}
+		})
+	}
+}
+
+// TestErrorFormatHonoursTheProfileDefault covers a profile pinning
+// default-output. Without it such a profile got two answers to one question on
+// a terminal: an Args refusal printed plain text while a RunE refusal, raised
+// after PersistentPreRunE resolved the format, printed the JSON envelope. On
+// main both printed the envelope, so the divergence was introduced by moving
+// the refusal into Args, not inherited.
+//
+// Piped runs were consistent either way, so this is interactive-only — which is
+// exactly where a human reads the message.
+func TestErrorFormatHonoursTheProfileDefault(t *testing.T) {
+	for _, tc := range []struct {
+		name          string
+		configDefault string
+		stdoutTTY     bool
+		want          string
+	}{
+		// The divergence: pinned json must win over the terminal's table.
+		{"pinned json on a terminal", "json", true, "json"},
+		{"pinned table when piped", "table", false, "table"},
+		// Unpinned keeps the terminal decision.
+		{"unpinned on a terminal", "", true, "table"},
+		{"unpinned when piped", "", false, "json"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := errorFormat("", tc.configDefault, tc.stdoutTTY, false); got != tc.want {
+				t.Errorf("errorFormat(unresolved, cfg=%q, tty=%v) = %q, want %q", tc.configDefault, tc.stdoutTTY, got, tc.want)
+			}
+		})
 	}
 }
