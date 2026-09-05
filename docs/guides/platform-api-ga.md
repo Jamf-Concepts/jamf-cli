@@ -156,10 +156,10 @@ assembled from. A refusal keyed on it would refuse working commands.
 
 An API integration is created at one level in Jamf Account and its credential carries that
 choice, so a profile's `environment-id` or `tenant-id` describes the profile's own
-integration. If the client ID comes from `--client-id` or `JAMF_CLIENT_ID`, both of the
-profile's IDs are ignored — an organization-scoped credential must send no scope header at
-all, and a level belonging to another integration is redundant at best and unusable at
-worst.
+integration. If `JAMF_CLIENT_ID` is set for the invocation and names a different client ID
+than the profile's own, both of the profile's IDs are ignored — an organization-scoped
+credential must send no scope header at all, and a level belonging to another integration is
+redundant at best and unusable at worst.
 
 So this reaches Jamf Account correctly even with a tenant-scoped default profile configured:
 
@@ -179,7 +179,9 @@ export JAMF_ENVIRONMENT_ID=...   # or JAMF_TENANT_ID, or --environment-id / --te
 If a command needs a level and none was supplied, the error names the profile whose level
 was passed over and both ways to set one. A profile holding `client-id` with only
 `JAMF_CLIENT_SECRET` injected keeps its level: the client ID is what names the integration,
-so that is still the profile's own.
+so that is still the profile's own. A profile whose own `client-id` is an
+`env:JAMF_CLIENT_ID` reference keeps it too — the variable is how that profile supplies its
+own client ID, not a different integration displacing it.
 
 ## Credentials and permissions
 

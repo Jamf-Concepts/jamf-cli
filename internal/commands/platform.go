@@ -220,8 +220,11 @@ Create API client credentials in the Jamf Account portal
 				return err
 			}
 
-			// 5. Validate. Security Cloud access is reported, not enforced.
-			securityCloud, err := validatePlatformGatewayCredentials(cmd.Context(), w, creds)
+			// 5. Validate. Security Cloud access is reported, not enforced;
+			// a scope ID the gateway does not know is reported too, and is
+			// what stops the closing summary claiming a reach it has just
+			// been told the profile does not have.
+			securityCloud, scopeIDRejected, err := validatePlatformGatewayCredentials(cmd.Context(), w, creds)
 			if err != nil {
 				return err
 			}
@@ -269,7 +272,7 @@ Create API client credentials in the Jamf Account portal
 			// REQUEST_CONTEXT_NOT_PROVIDED with no scope header. Assembling the
 			// sentence from jamf:scopes means it cannot drift from the specs
 			// the commands were generated from.
-			printScopeSummary(w, cmd.Root(), creds, securityCloud)
+			printScopeSummary(w, cmd.Root(), creds, securityCloud, scopeIDRejected)
 
 			return nil
 		},

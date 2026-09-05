@@ -396,7 +396,12 @@ func ResolveAuthForProfile(cfg *config.Config, params AuthParams) (string, auth.
 	// reads the environment directly for the opposite reason: PersistentPreRunE
 	// returns for the `security` product before resolveAuth folds anything, so
 	// there is nothing folded to read on that path.
-	credentialFromInvocation := params.ClientID != ""
+	//
+	// "Supplied on this invocation" is not yet "belongs to another
+	// integration": a profile may name JAMF_CLIENT_ID as its own client-id
+	// reference. The comparison against the profile happens at the switch
+	// below, where the profile is in hand.
+	invocationClientID := params.ClientID
 
 	// Config profile: fill remaining gaps.
 	// Skip profile credential resolution when a token was explicitly provided
@@ -442,7 +447,17 @@ func ResolveAuthForProfile(cfg *config.Config, params AuthParams) (string, auth.
 					case scopeFromParams:
 						// The caller named a level for these credentials; the
 						// profile's is not consulted either way.
-					case credentialFromInvocation:
+					case invocationClientID != "" &&
+						!profileNamesTheInvocationClientID(p.ClientID, invocationClientID):
+						// The invocation's client ID names a different
+						// integration than the profile's, so the profile's
+						// level is not this credential's. A profile whose
+						// client-id is `env:JAMF_CLIENT_ID` names the same
+						// integration and keeps its level — the variable has to
+						// be set for the profile to resolve its own credential
+						// at all, so a rule reading only "was a client ID
+						// supplied?" dropped the scope of every profile using
+						// that documented shape.
 						// resolvedProfileName, not profileName: an empty -p
 						// resolves to default-profile inside GetProfile, and
 						// the note has to be able to name the profile whose
@@ -1544,8 +1559,15 @@ func resolveSchoolClient(cfg *config.Config, cliCtx *registry.CLIContext) error 
 	csecret := os.Getenv("JAMF_CLIENT_SECRET")
 	tid := os.Getenv("JAMF_TENANT_ID")
 
-	// Fill from config profile
-	if p, _, err := config.GetProfile(cfg, profileName); err == nil {
+	// Reset per resolution, for the reason ResolveAuthForProfile and
+	// resolveScope do: this runs more than once in one process, and a stale
+	// record would put a sentence about the wrong profile on a later error.
+	resetWithheldProfileScope()
+
+	// Fill from config profile. resolvedName rather than a discarded blank: an
+	// empty -p resolves to default-profile inside GetProfile, and the withheld
+	// note has to be able to name the profile whose level it passed over.
+	if p, resolvedName, err := config.GetProfile(cfg, profileName); err == nil {
 		if url == "" {
 			url = p.URL
 		}
@@ -1581,8 +1603,20 @@ func resolveSchoolClient(cfg *config.Config, cliCtx *registry.CLIContext) error 
 			}
 			csecret = resolved
 		}
+		// A profile's level belongs to the profile's own integration — the same
+		// rule ResolveAuthForProfile and resolveScope apply. This was the third
+		// copy of the ladder and the one that still spliced: a school profile
+		// carrying platform-url, keychain credentials and tenant-id, in a
+		// pipeline exporting JAMF_CLIENT_ID/JAMF_CLIENT_SECRET for a different
+		// integration, built the platform client from the environment's
+		// credentials and the profile's X-Tenant-Id, with nothing recorded for a
+		// note to explain it.
 		if tid == "" && p.TenantID != "" {
-			tid = p.TenantID
+			if profileScopeAppliesTo(resolvedName, p.ClientID) {
+				tid = p.TenantID
+			} else {
+				recordWithheldProfileScope(resolvedName, "tenant", p.TenantID)
+			}
 		}
 	}
 

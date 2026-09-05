@@ -54,7 +54,7 @@ func ParsePlatformSpec(specPath string) ([]*Resource, error) {
 		return nil, nil
 	}
 	applyPlatformPathMetadata(allOps, expectedStatuses)
-	if levels := scopeTypes(rawDoc); len(levels) > 0 {
+	if levels := scopeTypes(rawDoc, filepath.Base(specPath)); len(levels) > 0 {
 		for _, op := range allOps {
 			op.ScopeTypes = levels
 		}
@@ -233,34 +233,80 @@ const scopeTypesExt = "x-scope-types"
 // dropped rather than passed through, because everything downstream compares it
 // against a profile's resolved level and an unrecognised string would render as
 // a requirement nothing can satisfy.
-var knownScopeTypes = map[string]bool{
-	"organization": true,
-	"environment":  true,
-	"tenant":       true,
-}
-
-// scopeTypes returns the document-level scope levels, ordered organization,
-// environment, tenant so a rendered list reads widest-first and two specs
-// declaring the same set render identically.
 //
-// A spec declaring nothing returns nil. That is the honest answer rather than a
-// guessed default: the three account specs declare no x-scope-types at all and
-// are organization-scoped, which the SDK supplies from its own config rather
-// than from the artifact — see the account privileges note in CLAUDE.md for why
-// this repo does not hand-supply values the published spec omits.
-func scopeTypes(doc map[string]any) []string {
-	raw, ok := doc[scopeTypesExt].([]any)
-	if !ok {
+// scopeLevelOrder is the same set, ordered widest-first, and it is the rendering
+// order every consumer inherits: the jamf:scopes annotation, the commands
+// catalog's scopes array, the runtime scope-level note and platform setup's
+// closing summary all read the slice scopeTypes returns. Two specs declaring the
+// same set therefore render identically, whatever order they wrote it in.
+var (
+	knownScopeTypes = map[string]bool{
+		"organization": true,
+		"environment":  true,
+		"tenant":       true,
+	}
+	scopeLevelOrder = []string{"organization", "environment", "tenant"}
+)
+
+// scopeTypes returns the document-level scope levels named by specName,
+// ordered widest-first per scopeLevelOrder.
+//
+// A spec declaring nothing returns nil, silently. That is the honest answer
+// rather than a guessed default: the three account specs declare no
+// x-scope-types at all and are organization-scoped, which the SDK supplies from
+// its own config rather than from the artifact — see the account privileges note
+// in CLAUDE.md for why this repo does not hand-supply values the published spec
+// omits.
+//
+// A spec declaring the key and giving it something unusable is a different
+// thing, and it is reported on stderr rather than absorbed. The value is
+// case-sensitive and must be an array of the three known strings; a scalar
+// ("environment"), a miscased entry ("Environment") or an empty array all yield
+// nil, and nil is indistinguishable downstream from a spec that never declared
+// the key. So a malformed extension would drop every one of the spec's resources
+// out of *both* buckets platform setup partitions — neither reachable at the
+// profile's level nor listed as needing another one — quietly shrinking the
+// "N of M Platform API resources" count it prints, with make generate exiting 0.
+// That is a spec or ingest defect, and it has to be visible before commit; the
+// warning follows dropUnroutedPlatformOps' shape for the same reason.
+func scopeTypes(doc map[string]any, specName string) []string {
+	declared, present := doc[scopeTypesExt]
+	if !present {
 		return nil
 	}
+
+	raw, ok := declared.([]any)
+	if !ok {
+		fmt.Fprintf(os.Stderr, "  Warning: %s declares %s as %T, not an array — no scope level recorded for its operations\n",
+			specName, scopeTypesExt, declared)
+		return nil
+	}
+	if len(raw) == 0 {
+		fmt.Fprintf(os.Stderr, "  Warning: %s declares an empty %s — no scope level recorded for its operations\n",
+			specName, scopeTypesExt)
+		return nil
+	}
+
 	seen := make(map[string]bool, len(raw))
+	unusable := make([]string, 0, len(raw))
 	for _, v := range raw {
-		if s, ok := v.(string); ok && knownScopeTypes[s] {
+		s, isString := v.(string)
+		switch {
+		case !isString:
+			unusable = append(unusable, fmt.Sprintf("%v", v))
+		case !knownScopeTypes[s]:
+			unusable = append(unusable, s)
+		default:
 			seen[s] = true
 		}
 	}
+	if len(unusable) > 0 {
+		fmt.Fprintf(os.Stderr, "  Warning: %s declares unrecognised %s value(s) %q — dropped; the levels auth.Scope can express are %s\n",
+			specName, scopeTypesExt, unusable, strings.Join(scopeLevelOrder, ", "))
+	}
+
 	out := make([]string, 0, len(seen))
-	for _, level := range []string{"organization", "environment", "tenant"} {
+	for _, level := range scopeLevelOrder {
 		if seen[level] {
 			out = append(out, level)
 		}

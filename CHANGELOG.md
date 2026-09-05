@@ -71,7 +71,7 @@ in hand.
   cannot be served by the resolved credentials. Distinct from 2, which is also every cobra
   flag error.
 - **A profile's scope level is no longer attached to credentials supplied for the
-  invocation.** If the client ID comes from `--client-id` or `JAMF_CLIENT_ID`, the profile's
+  invocation.** If `JAMF_CLIENT_ID` is set for the invocation, the profile's
   `environment-id` and `tenant-id` are both ignored rather than one being used. An
   integration is created at one level in Jamf Account and its credential carries that
   choice, so a profile's level describes the profile's own integration — and an
@@ -82,7 +82,11 @@ in hand.
   `--environment-id` / `--tenant-id` or `JAMF_ENVIRONMENT_ID` / `JAMF_TENANT_ID`; the
   resulting error names the profile whose level was passed over and both ways to set one.
   A profile holding `client-id` with only `JAMF_CLIENT_SECRET` injected is unaffected — the
-  client ID names the integration, so that is still the profile's.
+  client ID names the integration, so that is still the profile's. So is a profile whose own
+  `client-id` is an `env:JAMF_CLIENT_ID` reference, which is the config's documented way for
+  a profile to read its client ID out of the environment: the variable is then how that
+  integration supplies its own credential, not a second integration displacing it, so the
+  profile keeps its level.
 - **A platform command's 403 now exits 5, not 1.** Platform commands previously returned the
   SDK's error untouched, so the one failure with a specific remedy exited with the generic
   code.

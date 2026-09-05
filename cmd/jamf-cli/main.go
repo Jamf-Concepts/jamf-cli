@@ -79,9 +79,17 @@ func run(args []string, envArgs string) int {
 	if err == nil {
 		return exitcode.Success
 	}
-	// Ahead of ClassifyError, and wrapping with %w, because both of the
-	// steps below work by errors.As and a flattened chain loses the
-	// classification — the trap platform_audit.go's decorator documented.
+	// What is load-bearing here is that AnnotateScopeLevelError wraps with %w
+	// rather than %s: both steps below work by errors.As, and a flattened chain
+	// loses the classification — the trap platform_audit.go's decorator
+	// documented. That property holds whatever the order.
+	//
+	// The order itself protects nothing today, because the three trigger sets
+	// are disjoint: AnnotateScopeLevelError fires only on a 400 carrying
+	// REQUEST_CONTEXT_NOT_PROVIDED, ClassifyError matches only its usage-error
+	// prefixes, and EnrichPrivilegeError's platform branch acts on a 403 or an
+	// already-wrapped *exitcode.Error. It is written outermost-first anyway, so
+	// a future overlap resolves in the order a reader would expect.
 	err = commands.AnnotateScopeLevelError(executedCmd, err)
 	err = commands.ClassifyError(err)
 	err = commands.EnrichPrivilegeError(executedCmd, err)

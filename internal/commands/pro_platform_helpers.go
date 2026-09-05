@@ -358,7 +358,14 @@ func resolveScope(cfg *config.Config, profileName string) auth.Scope {
 	// neither a tenant nor an environment ID belonging to another integration
 	// may be attached, and an organization-scoped credential must send no scope
 	// header at all. See profileScopeAppliesTo.
-	if !profileScopeAppliesTo(resolvedName) {
+	//
+	// p.ClientID is passed rather than re-read from config, because the rule has
+	// to compare the invocation's client ID against the one the profile names:
+	// `client-id: env:JAMF_CLIENT_ID` is a documented profile shape whose
+	// variable must be set for the profile to resolve its own credential, and a
+	// rule keyed on the bare presence of a client ID read every such profile as
+	// a foreign credential and dropped its scope.
+	if !profileScopeAppliesTo(resolvedName, p.ClientID) {
 		switch {
 		case p.EnvironmentID != "":
 			recordWithheldProfileScope(resolvedName, "environment", p.EnvironmentID)
