@@ -174,6 +174,12 @@ func New(format string, noColor bool, wide bool) *Formatter {
 // WithFormat returns a copy of f rendering in format, keeping the writer, the
 // projector and the advisory settings. A command whose own argument names the
 // format uses it so --out-file, --select and --compact still apply.
+//
+// The copy is shallow, which is safe only while every field is a value or an
+// immutable reference: Select's backing array is never mutated after
+// SetProjector, and writer is an interface the clone shares deliberately.
+// formatterFor clones once per report section, so a future pointer, map or
+// buffer field would alias mutable state across every section.
 func (f *Formatter) WithFormat(format string) *Formatter {
 	c := *f
 	c.format = Format(format)

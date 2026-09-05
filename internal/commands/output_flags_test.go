@@ -486,33 +486,53 @@ func TestAggregatedReportPrintsToTheFormattersWriter(t *testing.T) {
 	outputFmt = "table"
 	t.Cleanup(func() { outputFmt = oldFmt })
 
+	// A summary dict beside the list, because the two take different arms of
+	// printAggregated's switch and each prints its own section header.
 	merged := map[string]any{
+		"summary": map[string]any{"profiles": "2", "total": "1"},
 		mergedListKey: map[string]map[string]any{
 			"1": {"id": "1", "name": "Mac-01"},
 		},
 	}
 
-	for _, format := range []string{"json", "yaml"} {
-		var buf bytes.Buffer
-		formatter := output.New("table", true, false)
-		formatter.SetWriter(&buf)
-		cliCtx := &registry.CLIContext{Output: &cliOutput{formatter}}
+	// "table" and "" are the arm this PR changed, and the arm `multi` takes
+	// with no -o at all. json and yaml both return early from printAggregated,
+	// so a loop of those two never executed the section-header code: reverting
+	// the header print to fmt.Printf passed the test this replaced.
+	for _, format := range []string{"json", "yaml", "table", ""} {
+		name := format
+		if name == "" {
+			name = "(no -o)"
+		}
+		t.Run(name, func(t *testing.T) {
+			var buf bytes.Buffer
+			formatter := output.New("table", true, false)
+			formatter.SetWriter(&buf)
+			cliCtx := &registry.CLIContext{Output: &cliOutput{formatter}}
 
-		stdout := captureStdout(t, func() {
-			if err := printAggregated(cliCtx, newMultiCmd(cliCtx), merged, format); err != nil {
-				t.Fatalf("printAggregated(%s) error: %v", format, err)
+			stdout := captureStdout(t, func() {
+				if err := printAggregated(cliCtx, newMultiCmd(cliCtx), merged, format); err != nil {
+					t.Fatalf("printAggregated(%s) error: %v", name, err)
+				}
+			})
+
+			if !strings.Contains(buf.String(), "Mac-01") {
+				t.Errorf("-o %s did not reach the formatter's writer: %q", name, shortened(buf.String()))
+			}
+			if stdout != "" {
+				t.Errorf("-o %s left %q on standard output", name, shortened(stdout))
+			}
+			if formatter.Format() != "table" {
+				t.Errorf("the shared formatter now renders %q after -o %s", formatter.Format(), name)
+			}
+			// The section headers have to travel with the tables, or --out-file
+			// takes the rows and the terminal takes the headings.
+			if format == "table" || format == "" {
+				if !strings.Contains(buf.String(), "──") {
+					t.Errorf("-o %s: no section header reached the writer, so the headings and the rows go to different places: %q", name, shortened(buf.String()))
+				}
 			}
 		})
-
-		if !strings.Contains(buf.String(), "Mac-01") {
-			t.Errorf("-o %s did not reach the formatter's writer: %q", format, shortened(buf.String()))
-		}
-		if stdout != "" {
-			t.Errorf("-o %s left %q on standard output", format, shortened(stdout))
-		}
-		if formatter.Format() != "table" {
-			t.Errorf("the shared formatter now renders %q after -o %s", formatter.Format(), format)
-		}
 	}
 }
 
@@ -711,14 +731,20 @@ var sanctionedFormatterSites = map[string]string{
 	"commands/pro_device_actions.go": "deviceActionPreviewTable",
 }
 
-// buildsFormatter reports whether n produces an output.Formatter, where local
-// is the name internal/output is bound to in the file being read.
+// buildsFormatter reports whether n produces or captures an output.Formatter,
+// where local is the name internal/output is bound to in the file being read.
 //
 // New is that package's only exported constructor and Formatter's fields are
-// unexported, so these three forms are the whole surface: a call to New, a
-// composite literal of the type, and new() of it.
+// unexported, so the surface is: a reference to New, a composite literal of the
+// type, and new() of it.
+//
+// It matches the SELECTOR local.New rather than a call to it, which covers both
+// `output.New(…)` and `mk := output.New` in one rule. Matching the call alone
+// missed the second — the constructor taken as a value puts the call one hop
+// away — and the linter this test replaced carried a fixture for exactly that
+// shape, so an earlier version of this rule was a regression against it.
 func buildsFormatter(n ast.Node, local string) bool {
-	names := func(e ast.Expr, sel string) bool {
+	isSel := func(e ast.Expr, sel string) bool {
 		s, ok := e.(*ast.SelectorExpr)
 		if !ok || s.Sel.Name != sel {
 			return false
@@ -727,15 +753,14 @@ func buildsFormatter(n ast.Node, local string) bool {
 		return isIdent && id.Name == local
 	}
 	switch v := n.(type) {
-	case *ast.CallExpr:
-		if names(v.Fun, "New") {
-			return true
-		}
-		if id, ok := v.Fun.(*ast.Ident); ok && id.Name == "new" && len(v.Args) == 1 {
-			return names(v.Args[0], "Formatter")
-		}
+	case *ast.SelectorExpr:
+		return isSel(v, "New")
 	case *ast.CompositeLit:
-		return names(v.Type, "Formatter")
+		return isSel(v.Type, "Formatter")
+	case *ast.CallExpr:
+		if id, ok := v.Fun.(*ast.Ident); ok && id.Name == "new" && len(v.Args) == 1 {
+			return isSel(v.Args[0], "Formatter")
+		}
 	}
 	return false
 }
@@ -798,19 +823,27 @@ func TestNoFileBuildsItsOwnOutputFormatter(t *testing.T) {
 
 		rel := filepath.ToSlash(strings.TrimPrefix(path, "../"))
 		for _, decl := range file.Decls {
-			fn, isFunc := decl.(*ast.FuncDecl)
-			if !isFunc {
-				continue
+			// Every declaration, not only functions. A package-level
+			// `var f = output.New(…)` is an *ast.GenDecl, so skipping
+			// non-functions let the whole shape through: the flags go inert on
+			// that command, --out-file writes 0 bytes at exit 0, and the guard
+			// reports green.
+			site := "package scope"
+			if fn, isFunc := decl.(*ast.FuncDecl); isFunc {
+				site = fn.Name.Name
 			}
-			ast.Inspect(fn, func(n ast.Node) bool {
+			ast.Inspect(decl, func(n ast.Node) bool {
 				if !buildsFormatter(n, local) {
 					return true
 				}
-				if sanctionedFormatterSites[rel] == fn.Name.Name {
-					found[rel] = fn.Name.Name
+				// "package scope" is not a Go identifier, so it can never
+				// match a sanctioned entry: a construction outside a function
+				// is always a finding.
+				if sanctionedFormatterSites[rel] == site {
+					found[rel] = site
 					return true
 				}
-				t.Errorf("%s: %s builds its own output.Formatter, so every global output flag is inert on it — print through printRows or formatterFor instead", rel, fn.Name.Name)
+				t.Errorf("%s: %s builds or captures its own output.Formatter, so every global output flag is inert on it — print through printRows or formatterFor instead", rel, site)
 				return true
 			})
 		}
@@ -826,5 +859,78 @@ func TestNoFileBuildsItsOwnOutputFormatter(t *testing.T) {
 		if found[file] != fn {
 			t.Errorf("sanctioned site %s:%s builds no formatter any more — remove the entry, or point it at the function that does", file, fn)
 		}
+	}
+}
+
+// TestFieldFollowsTheFormatterWriter is the --field half of
+// TestSectionHeadersFollowTheFormatterWriter. printRows sends the section
+// headers of a multi-section report to the formatter's writer, so --field
+// sending its values anywhere else splits one report between two destinations.
+//
+// Wire-measured before the fix: `pro report ddm-status -o table --field source
+// --out-file f` left f holding 28 bytes, the header alone, and put 3917 bytes
+// of values on stdout at exit 0. With no -o, f was 0 bytes — verbatim the
+// signature issue #349 reports and this PR closes.
+func TestFieldFollowsTheFormatterWriter(t *testing.T) {
+	fieldName = "name"
+	t.Cleanup(func() { fieldName = "" })
+
+	var buf bytes.Buffer
+	formatter := output.New("table", true, false)
+	formatter.SetWriter(&buf)
+	cliCtx := &registry.CLIContext{Output: &cliOutput{formatter}}
+
+	rows := []map[string]any{{"id": "1", "name": "Mac-01"}, {"id": "2", "name": "Mac-02"}}
+
+	stdout := captureStdout(t, func() {
+		if err := printRows(cliCtx, rows); err != nil {
+			t.Fatalf("printRows: %v", err)
+		}
+	})
+
+	if got := buf.String(); got != "Mac-01\nMac-02\n" {
+		t.Errorf("writer got %q, want both values", got)
+	}
+	if stdout != "" {
+		t.Errorf("--field left %q on standard output, so --out-file receives only the headers", stdout)
+	}
+}
+
+// TestSelectMatchingNothingPrintsNothing covers a section whose rows carry none
+// of the --select paths. --select was inert on the multi-section reports until
+// this change, so the symptom arrives with it: projectSelect omits a missing
+// path silently and keeps len(rows), so printTable read sortedKeys(rows[0]),
+// got nothing, and still printed "RESULTS (18 total)" above a blank header.
+//
+// A report's sections do not share a schema, so this is the normal case rather
+// than an edge one: `--select reason` is carried by the errors section of
+// `pro report ddm-status` and by none of the others.
+func TestSelectMatchingNothingPrintsNothing(t *testing.T) {
+	oldSelect, oldFmt := selectFields, outputFmt
+	selectFields, outputFmt = []string{"reason"}, "table"
+	t.Cleanup(func() { selectFields, outputFmt = oldSelect, oldFmt })
+
+	var buf bytes.Buffer
+	formatter := output.New("table", true, false)
+	formatter.SetWriter(&buf)
+	formatter.SetProjector(output.Projector{Select: selectFields})
+	cliCtx := &registry.CLIContext{Output: &cliOutput{formatter}}
+
+	// No row carries "reason".
+	if err := printRows(cliCtx, []map[string]any{{"id": "1", "status": "ok"}}); err != nil {
+		t.Fatalf("printRows: %v", err)
+	}
+	if got := buf.String(); got != "" {
+		t.Errorf("a section carrying none of the --select paths rendered %q, which reads as a broken renderer rather than an absent field", got)
+	}
+
+	// A section that does carry it must still render, or the skip is just a
+	// mute button.
+	buf.Reset()
+	if err := printRows(cliCtx, []map[string]any{{"id": "1", "reason": "expired"}}); err != nil {
+		t.Fatalf("printRows: %v", err)
+	}
+	if !strings.Contains(buf.String(), "expired") {
+		t.Errorf("a section carrying the --select path rendered %q, want the value", buf.String())
 	}
 }

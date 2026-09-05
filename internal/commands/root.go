@@ -116,13 +116,33 @@ func (o *cliOutput) PrintRaw(data []byte) error {
 		return fmt.Errorf("cannot extract field %q from scalar value", fieldName)
 	}
 
-	parts := strings.Split(fieldName, ".")
+	w := o.Writer()
+	if w == nil {
+		w = os.Stdout
+	}
+	return printFieldValues(w, objects, fieldName)
+}
+
+// printFieldValues writes one extracted value per line for --field.
+//
+// It takes the writer rather than reaching for os.Stdout, which is what --field
+// used to do. That split one report between two destinations: the section
+// headers of a multi-section report follow --out-file through the formatter
+// while the values went to the terminal, so `--field source --out-file f` left
+// f holding a 28-byte header and put 3917 bytes of values on stdout, exit 0.
+// With no -o at all, f was 0 bytes — verbatim the signature issue #349 reports.
+//
+// Shared by cliOutput.PrintRaw, which parses bytes off the wire first, and by
+// printRows, which already holds the rows. Two callers, one extraction, so the
+// two cannot disagree about what --field means.
+func printFieldValues(w io.Writer, objects []map[string]any, field string) error {
+	parts := strings.Split(field, ".")
 	for _, obj := range objects {
 		val, ok := walkFieldPath(obj, parts)
 		if !ok {
 			continue
 		}
-		if _, err := fmt.Fprintln(os.Stdout, output.FormatValue(val)); err != nil {
+		if _, err := fmt.Fprintln(w, output.FormatValue(val)); err != nil {
 			return err
 		}
 	}

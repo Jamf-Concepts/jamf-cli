@@ -3,9 +3,6 @@
 package commands
 
 import (
-	"encoding/json"
-	"fmt"
-
 	"github.com/Jamf-Concepts/jamf-cli/internal/output"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 )
@@ -13,12 +10,13 @@ import (
 // printRows renders rows through the shared formatter, which is where
 // --out-file, --select, --compact, --quiet and --no-hints are applied.
 //
-// --field is not among them, and does not compose with them. It is implemented
-// in cliOutput.PrintRaw, which writes the extracted values to os.Stdout itself
-// and applies no projector: --out-file does not receive them, --select and
-// --compact do not narrow them, and the advisory hint --quiet and --no-hints
-// suppress is never reached. That is its behaviour on every generated command
-// too, so changing it is a separate piece of work.
+// --field is partly among them. It now follows --out-file, through the shared
+// printFieldValues, which closes the half of issue #352 that mattered: a report
+// used to split between the file and the terminal. It still applies no
+// projector, so --select and --compact do not narrow its values and the
+// advisory hint --quiet and --no-hints suppress is never reached — that is its
+// behaviour on every generated command too, and narrowing an already-extracted
+// scalar means something different from narrowing a row.
 //
 // A nil slice becomes an empty list: `null` breaks a jq pipeline on exactly the
 // tenants where the collection is empty, and the table and CSV writers refuse
@@ -30,19 +28,32 @@ import (
 // parsing the bytes back. That round trip costs a second of CPU and about a
 // gigabyte on a fleet-sized report, turns every integer into a float64, and
 // lands -o raw and -o xml on a renderer Print's own switch never selects. The
-// concrete formatter is reachable here, so none of that has to be paid.
+// concrete formatter is reachable here, so none of that has to be paid. The
+// --field branch above avoids it for the same reason.
 func printRows(cliCtx *registry.CLIContext, rows []map[string]any) error {
 	if rows == nil {
 		rows = []map[string]any{}
 	}
-	// --field takes the byte route, cliOutput.PrintRaw being where it is
-	// implemented. See the note above on what it therefore does not compose with.
-	if fieldName != "" && cliCtx != nil && cliCtx.Output != nil {
-		b, err := json.Marshal(rows)
-		if err != nil {
-			return fmt.Errorf("marshalling output: %w", err)
-		}
-		return cliCtx.Output.PrintRaw(b)
+	// --field extracts straight from the rows. It used to marshal them and hand
+	// the bytes to PrintRaw, which parsed them back to the type they already
+	// were: ~200ms and up to a gigabyte of peak allocation on a fleet-sized
+	// report, to reach the same extraction.
+	if fieldName != "" {
+		return printFieldValues(writerFor(cliCtx), rows, fieldName)
+	}
+	// A --select that matches nothing in these rows leaves every row empty, and
+	// a count over no columns reads as a rendering fault. This is the normal
+	// case on a multi-section report: the sections do not share a schema, so
+	// `--select reason` is carried by one section and absent from the rest.
+	// --select was inert on these reports until this change, so the symptom
+	// arrives with it.
+	//
+	// Printing nothing for such a section is the honest answer. It does mean a
+	// whole command whose rows carry none of the named paths prints nothing at
+	// all, which is still better than a banner claiming N results above a blank
+	// header.
+	if (output.Projector{Select: selectFields}).SelectsNothing(rows) {
+		return nil
 	}
 	return formatterFor(cliCtx, outputFmt).Print(rows)
 }

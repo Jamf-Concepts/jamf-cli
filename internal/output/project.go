@@ -46,6 +46,29 @@ func (p Projector) Apply(rows []map[string]any) []map[string]any {
 // "<path>." — so --select general returns every general.* field, and
 // --select general.name returns just that one. Missing paths are silently
 // omitted (a row may end up empty if no path matched).
+// SelectsNothing reports whether the Select projection would leave every row
+// with no fields at all, which happens when no row carries any of the named
+// paths.
+//
+// It exists because a caller cannot tell that state from a real result after
+// the fact: projectSelect omits a missing path silently and preserves len(rows),
+// so printTable reads sortedKeys(rows[0]), gets nothing, and still prints its
+// "RESULTS (N total)" banner over no columns — and -o csv writes an empty
+// header plus one empty line per row. On a multi-section report, whose sections
+// do not share a schema, that is the normal case for every section that lacks
+// the field, and it reads as a broken renderer rather than as an absent field.
+func (p Projector) SelectsNothing(rows []map[string]any) bool {
+	if len(p.Select) == 0 || len(rows) == 0 {
+		return false
+	}
+	for _, row := range projectSelect(rows, p.Select) {
+		if len(row) > 0 {
+			return false
+		}
+	}
+	return true
+}
+
 func projectSelect(rows []map[string]any, paths []string) []map[string]any {
 	cleaned := make([]string, 0, len(paths))
 	for _, p := range paths {
