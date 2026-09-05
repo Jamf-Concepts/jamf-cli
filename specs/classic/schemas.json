@@ -8,10 +8,10 @@
     "spec": "classic_api_resource_documentation.json",
     "title": "Classic API",
     "version": "11.28.0",
-    "sdkCommit": "fc34c1d",
-    "schemas": 161,
-    "resources": 43,
-    "unresolved": 2
+    "sdkCommit": "94cbc28",
+    "schemas": 165,
+    "resources": 44,
+    "unresolved": 1
   },
   "x-jamf-classic-resources": {
     "account-groups": {
@@ -200,6 +200,12 @@
       "schema": "patch_policy",
       "root": "patch_policy",
       "from": "GET /patchpolicies/id/{id}",
+      "singularAgrees": true
+    },
+    "patchsoftwaretitles": {
+      "schema": "patch_software_title",
+      "root": "patch_software_title",
+      "from": "GET /patchsoftwaretitles/id/{id}",
       "singularAgrees": true
     },
     "policies": {
@@ -12195,6 +12201,50 @@
         },
         "type": "array"
       },
+      "patch_management_software_titles": {
+        "items": {
+          "properties": {
+            "patch_management_software_title": {
+              "properties": {
+                "id": {
+                  "example": 1,
+                  "type": "integer"
+                },
+                "name": {
+                  "example": "Google Chrome",
+                  "type": "string"
+                },
+                "name_id": {
+                  "example": "GoogleChrome",
+                  "type": "string"
+                },
+                "source_id": {
+                  "example": 1,
+                  "type": "integer"
+                }
+              },
+              "type": "object"
+            },
+            "size": {
+              "$ref": "#/components/schemas/size"
+            }
+          }
+        },
+        "type": "array"
+      },
+      "patch_policies": {
+        "items": {
+          "properties": {
+            "patch_policy": {
+              "$ref": "#/components/schemas/id_name"
+            },
+            "size": {
+              "$ref": "#/components/schemas/size"
+            }
+          }
+        },
+        "type": "array"
+      },
       "patch_policy": {
         "properties": {
           "general": {
@@ -12542,6 +12592,67 @@
         },
         "type": "object"
       },
+      "patch_report": {
+        "properties": {
+          "name": {
+            "example": "Google Chrome",
+            "type": "string"
+          },
+          "patch_software_title_id": {
+            "example": 1,
+            "type": "string"
+          },
+          "total_computers": {
+            "example": 1,
+            "type": "integer"
+          },
+          "total_versions": {
+            "example": 1,
+            "type": "integer"
+          },
+          "versions": {
+            "items": {
+              "properties": {
+                "version": {
+                  "properties": {
+                    "computers": {
+                      "items": {
+                        "properties": {
+                          "computer": {
+                            "properties": {
+                              "id": {
+                                "example": 1,
+                                "type": "integer"
+                              },
+                              "name": {
+                                "example": "Admins MacBook Pro",
+                                "type": "string"
+                              }
+                            },
+                            "type": "object"
+                          },
+                          "size": {
+                            "example": 1,
+                            "type": "integer"
+                          }
+                        }
+                      },
+                      "type": "array"
+                    },
+                    "software_version": {
+                      "example": "65.0.3325.181",
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
       "patch_software_title": {
         "properties": {
           "category": {
@@ -12610,6 +12721,37 @@
           }
         },
         "type": "object"
+      },
+      "patch_software_titles": {
+        "items": {
+          "properties": {
+            "patch_software_title": {
+              "properties": {
+                "id": {
+                  "example": 1,
+                  "type": "integer"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "name_id": {
+                  "example": "GoogleChromne",
+                  "type": "string"
+                },
+                "source_id": {
+                  "example": 1,
+                  "type": "integer"
+                }
+              },
+              "type": "object"
+            },
+            "size": {
+              "example": 1,
+              "type": "integer"
+            }
+          }
+        },
+        "type": "array"
       },
       "policies": {
         "items": {

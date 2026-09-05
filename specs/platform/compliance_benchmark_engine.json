@@ -1,10 +1,10 @@
 {
   "components": {
     "parameters": {
-      "X-Tenant-Id": {
-        "description": "The tenant UUID identifier.",
+      "X-Environment-Id": {
+        "description": "The environment UUID identifier.",
         "in": "header",
-        "name": "X-Tenant-Id",
+        "name": "X-Environment-Id",
         "required": true,
         "schema": {
           "example": "e77c1408-10c8-4007-b177-abc9157fbcaa",
@@ -932,7 +932,7 @@
         "operationId": "getBaselines",
         "parameters": [
           {
-            "$ref": "#/components/parameters/X-Tenant-Id"
+            "$ref": "#/components/parameters/X-Environment-Id"
           }
         ],
         "responses": {
@@ -975,7 +975,7 @@
         "operationId": "getTenantBenchmarks",
         "parameters": [
           {
-            "$ref": "#/components/parameters/X-Tenant-Id"
+            "$ref": "#/components/parameters/X-Environment-Id"
           }
         ],
         "responses": {
@@ -1016,7 +1016,7 @@
         "operationId": "postBenchmark",
         "parameters": [
           {
-            "$ref": "#/components/parameters/X-Tenant-Id"
+            "$ref": "#/components/parameters/X-Environment-Id"
           }
         ],
         "requestBody": {
@@ -1076,7 +1076,7 @@
         "operationId": "deleteBenchmark",
         "parameters": [
           {
-            "$ref": "#/components/parameters/X-Tenant-Id"
+            "$ref": "#/components/parameters/X-Environment-Id"
           },
           {
             "description": "Given benchmark ID",
@@ -1122,7 +1122,7 @@
         "operationId": "getBenchmark",
         "parameters": [
           {
-            "$ref": "#/components/parameters/X-Tenant-Id"
+            "$ref": "#/components/parameters/X-Environment-Id"
           },
           {
             "description": "Given benchmark ID",
@@ -1180,7 +1180,7 @@
         "operationId": "v1GetBenchmarkCompliancePercentage",
         "parameters": [
           {
-            "$ref": "#/components/parameters/X-Tenant-Id"
+            "$ref": "#/components/parameters/X-Environment-Id"
           },
           {
             "description": "Tenant's benchmark ID",
@@ -1232,7 +1232,7 @@
         "operationId": "v1GetDevicesForBenchmarkRule",
         "parameters": [
           {
-            "$ref": "#/components/parameters/X-Tenant-Id"
+            "$ref": "#/components/parameters/X-Environment-Id"
           },
           {
             "description": "Tenant's benchmark ID",
@@ -1333,7 +1333,7 @@
         "operationId": "v1GetBenchmarkRulesStats",
         "parameters": [
           {
-            "$ref": "#/components/parameters/X-Tenant-Id"
+            "$ref": "#/components/parameters/X-Environment-Id"
           },
           {
             "description": "Tenant's benchmark ID",
@@ -1419,7 +1419,7 @@
         "operationId": "getRules",
         "parameters": [
           {
-            "$ref": "#/components/parameters/X-Tenant-Id"
+            "$ref": "#/components/parameters/X-Environment-Id"
           },
           {
             "description": "Given baseline ID",
@@ -1487,6 +1487,6 @@
     }
   ],
   "x-scope-types": [
-    "tenant"
+    "environment"
   ]
 }

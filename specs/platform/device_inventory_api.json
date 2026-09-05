@@ -66,10 +66,10 @@
           "type": "string"
         }
       },
-      "X-Tenant-Id": {
-        "description": "The tenant UUID identifier.",
+      "X-Environment-Id": {
+        "description": "The environment UUID identifier.",
         "in": "header",
-        "name": "X-Tenant-Id",
+        "name": "X-Environment-Id",
         "required": true,
         "schema": {
           "example": "e77c1408-10c8-4007-b177-abc9157fbcaa",
@@ -593,7 +593,7 @@
         "description": "Retrieve a paginated list of all devices\n\n**Required Permissions:** `devices:read`",
         "parameters": [
           {
-            "$ref": "#/components/parameters/X-Tenant-Id"
+            "$ref": "#/components/parameters/X-Environment-Id"
           },
           {
             "$ref": "#/components/parameters/PageIndex"
@@ -647,7 +647,7 @@
         "description": "Delete an existing device\n\n**Required Permissions:** `destructive-device-actions:execute`",
         "parameters": [
           {
-            "$ref": "#/components/parameters/X-Tenant-Id"
+            "$ref": "#/components/parameters/X-Environment-Id"
           }
         ],
         "responses": {
@@ -694,7 +694,7 @@
         "description": "Retrieve a specific device by its ID\n\n**Required Permissions:** `devices:read`",
         "parameters": [
           {
-            "$ref": "#/components/parameters/X-Tenant-Id"
+            "$ref": "#/components/parameters/X-Environment-Id"
           }
         ],
         "responses": {
@@ -743,7 +743,7 @@
         "description": "Update an existing device\n\n**Required Permissions:** `devices:update`",
         "parameters": [
           {
-            "$ref": "#/components/parameters/X-Tenant-Id"
+            "$ref": "#/components/parameters/X-Environment-Id"
           }
         ],
         "requestBody": {
@@ -792,7 +792,7 @@
         "description": "Retrieve a paginated list of applications installed on a specific device\n\n**Required Permissions:** `devices:read`",
         "parameters": [
           {
-            "$ref": "#/components/parameters/X-Tenant-Id"
+            "$ref": "#/components/parameters/X-Environment-Id"
           },
           {
             "$ref": "#/components/parameters/PageIndex"
@@ -851,7 +851,7 @@
         "description": "Retrieve a paginated list of devices associated with a specific user\n\n**Required Permissions:** `devices:read`",
         "parameters": [
           {
-            "$ref": "#/components/parameters/X-Tenant-Id"
+            "$ref": "#/components/parameters/X-Environment-Id"
           },
           {
             "$ref": "#/components/parameters/PageIndex"
@@ -929,6 +929,6 @@
     }
   ],
   "x-scope-types": [
-    "tenant"
+    "environment"
   ]
 }

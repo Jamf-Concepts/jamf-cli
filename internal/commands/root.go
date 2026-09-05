@@ -380,6 +380,28 @@ func ResolveAuthForProfile(cfg *config.Config, params AuthParams) (string, auth.
 	// every other env var here overrides it.
 	scopeFromParams := tid != "" || eid != ""
 	isPlatform := false
+	// Reset per resolution: this is called more than once in one process by the
+	// tests and the MCP server, and a stale answer here would put a sentence
+	// about the wrong profile on a later error.
+	resetWithheldProfileScope()
+	// The client ID names the integration, and an integration's scope level is
+	// its own. Read before the profile fill below overwrites cid, because after
+	// it the two sources are indistinguishable.
+	//
+	// params only, deliberately — not the package var or the environment.
+	// resolveAuth folds JAMF_CLIENT_ID into clientID and passes it here as
+	// params.ClientID, so params is already the complete answer on this path,
+	// and reading the mutable package var instead would make this function's
+	// result depend on global state its params exist to isolate. resolveScope
+	// reads the environment directly for the opposite reason: PersistentPreRunE
+	// returns for the `security` product before resolveAuth folds anything, so
+	// there is nothing folded to read on that path.
+	//
+	// "Supplied on this invocation" is not yet "belongs to another
+	// integration": a profile may name JAMF_CLIENT_ID as its own client-id
+	// reference. The comparison against the profile happens at the switch
+	// below, where the profile is in hand.
+	invocationClientID := params.ClientID
 
 	// Config profile: fill remaining gaps.
 	// Skip profile credential resolution when a token was explicitly provided
@@ -388,7 +410,7 @@ func ResolveAuthForProfile(cfg *config.Config, params AuthParams) (string, auth.
 	// bootstrap scripts).
 	explicitToken := tok != ""
 	if len(cfg.Profiles) > 0 {
-		p, _, err := config.GetProfile(cfg, profileName)
+		p, resolvedProfileName, err := config.GetProfile(cfg, profileName)
 		if err == nil {
 			if url == "" {
 				url = p.URL
@@ -411,11 +433,48 @@ func ResolveAuthForProfile(cfg *config.Config, params AuthParams) (string, auth.
 						}
 						csecret = resolved
 					}
-					if !scopeFromParams && p.EnvironmentID != "" {
-						eid = p.EnvironmentID
-					}
-					if !scopeFromParams && tid == "" && p.TenantID != "" {
-						tid = p.TenantID
+					// A profile's scope level only applies to the profile's
+					// own credentials, so it is withheld — both levels, not
+					// one — when the client ID came from this invocation. An
+					// organization-scoped credential must send no scope header
+					// at all, and a level belonging to another integration is
+					// redundant at best and unusable at worst. Recorded here
+					// and in resolveScope, the only two ladders, rather than
+					// re-derived at error time, so there is no third copy of
+					// the precedence rules to drift. See
+					// profileScopeAppliesTo.
+					switch {
+					case scopeFromParams:
+						// The caller named a level for these credentials; the
+						// profile's is not consulted either way.
+					case invocationClientID != "" &&
+						!profileNamesTheInvocationClientID(p.ClientID, invocationClientID):
+						// The invocation's client ID names a different
+						// integration than the profile's, so the profile's
+						// level is not this credential's. A profile whose
+						// client-id is `env:JAMF_CLIENT_ID` names the same
+						// integration and keeps its level — the variable has to
+						// be set for the profile to resolve its own credential
+						// at all, so a rule reading only "was a client ID
+						// supplied?" dropped the scope of every profile using
+						// that documented shape.
+						// resolvedProfileName, not profileName: an empty -p
+						// resolves to default-profile inside GetProfile, and
+						// the note has to be able to name the profile whose
+						// level it passed over.
+						switch {
+						case p.EnvironmentID != "":
+							recordWithheldProfileScope(resolvedProfileName, "environment", p.EnvironmentID)
+						case p.TenantID != "":
+							recordWithheldProfileScope(resolvedProfileName, "tenant", p.TenantID)
+						}
+					default:
+						if p.EnvironmentID != "" {
+							eid = p.EnvironmentID
+						}
+						if tid == "" && p.TenantID != "" {
+							tid = p.TenantID
+						}
 					}
 				case "oauth2":
 					if cid == "" && p.ClientID != "" {
@@ -1018,6 +1077,25 @@ type commandEntry struct {
 	// gateway's own errors and the specs use, so a script matching on them keeps
 	// a stable key.
 	GatewayPermissions []string `json:"gatewayPermissions,omitempty"`
+	// Scopes are the Jamf Platform API scope levels the published spec says a
+	// credential must be created at to run this command — some subset of
+	// "organization", "environment" and "tenant", widest first. A Platform API
+	// integration is created at exactly one level in Jamf Account and its
+	// credential only works with that level, so this is the one requirement a
+	// 403 cannot teach: the gateway's refusal names a permission and says
+	// nothing about the level.
+	//
+	// Platform-served commands only. A Pro or Classic command routed through
+	// the gateway carries none, because its scope is a property of the gateway
+	// route rather than of the endpoint, and the three Jamf Account specs
+	// declare no x-scope-types at all despite being organization-scoped —
+	// absent here means the spec is silent, not that any level works.
+	//
+	// What the spec claims, which is currently stricter than what the gateway
+	// serves: build v2082 moved six Platform specs to environment-only while a
+	// tenant credential still reaches at least platform-devices and
+	// platform-device-groups. Nothing refuses on it.
+	Scopes []string `json:"scopes,omitempty"`
 }
 
 // isFullDetailFormat reports whether an output format carries the full
@@ -1109,6 +1187,8 @@ func collectCommands(cmd *cobra.Command, prefix, product, group string) []comman
 
 				GatewayPrivileges:  gatewayPrivilegesOf(child),
 				GatewayPermissions: gatewayPermissionsOf(child),
+
+				Scopes: scopesOf(child),
 			}
 
 			// Collect aliases: for leaf commands under a top-level group
@@ -1208,6 +1288,12 @@ func commandEntriesToMaps(entries []commandEntry, full bool) []map[string]any {
 			// Jamf Account rendering without a second slug list to carry.
 			if len(e.GatewayPermissions) > 0 {
 				m["gatewayPermissions"] = e.GatewayPermissions
+			}
+			// Positive-only: a Pro or Classic command carries no declared level
+			// and the three Jamf Account specs declare none either, so an empty
+			// array on every row would read as "any level works".
+			if len(e.Scopes) > 0 {
+				m["scopes"] = e.Scopes
 			}
 		}
 		result[i] = m
@@ -1473,8 +1559,15 @@ func resolveSchoolClient(cfg *config.Config, cliCtx *registry.CLIContext) error 
 	csecret := os.Getenv("JAMF_CLIENT_SECRET")
 	tid := os.Getenv("JAMF_TENANT_ID")
 
-	// Fill from config profile
-	if p, _, err := config.GetProfile(cfg, profileName); err == nil {
+	// Reset per resolution, for the reason ResolveAuthForProfile and
+	// resolveScope do: this runs more than once in one process, and a stale
+	// record would put a sentence about the wrong profile on a later error.
+	resetWithheldProfileScope()
+
+	// Fill from config profile. resolvedName rather than a discarded blank: an
+	// empty -p resolves to default-profile inside GetProfile, and the withheld
+	// note has to be able to name the profile whose level it passed over.
+	if p, resolvedName, err := config.GetProfile(cfg, profileName); err == nil {
 		if url == "" {
 			url = p.URL
 		}
@@ -1510,8 +1603,20 @@ func resolveSchoolClient(cfg *config.Config, cliCtx *registry.CLIContext) error 
 			}
 			csecret = resolved
 		}
+		// A profile's level belongs to the profile's own integration — the same
+		// rule ResolveAuthForProfile and resolveScope apply. This was the third
+		// copy of the ladder and the one that still spliced: a school profile
+		// carrying platform-url, keychain credentials and tenant-id, in a
+		// pipeline exporting JAMF_CLIENT_ID/JAMF_CLIENT_SECRET for a different
+		// integration, built the platform client from the environment's
+		// credentials and the profile's X-Tenant-Id, with nothing recorded for a
+		// note to explain it.
 		if tid == "" && p.TenantID != "" {
-			tid = p.TenantID
+			if profileScopeAppliesTo(resolvedName, p.ClientID) {
+				tid = p.TenantID
+			} else {
+				recordWithheldProfileScope(resolvedName, "tenant", p.TenantID)
+			}
 		}
 	}
 

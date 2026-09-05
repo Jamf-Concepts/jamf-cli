@@ -39,7 +39,7 @@ func newZtnaAppsListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Use:         "list",
 		Short:       "List Apps",
 		Long:        "List all Apps (Access Policies) for the tenant, paginated.",
-		Annotations: map[string]string{"jamf:privileges": "ztna:read", "jamf:api": "platform-gateway"},
+		Annotations: map[string]string{"jamf:privileges": "ztna:read", "jamf:api": "platform-gateway", "jamf:scopes": "environment,tenant"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err
@@ -95,7 +95,7 @@ func newZtnaAppsCreateCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Use:         "create",
 		Short:       "Create an App",
 		Long:        "Create an App (Access Policy). Returns `201 {id, href}` + `Location` header.\n\nAllowed values:\n  groupOverrides.routingOverrides[].routing.dnsIpResolutionType: IPv4, IPv6\n  groupOverrides.routingOverrides[].routing.type: CUSTOM, DIRECT\n  routing.dnsIpResolutionType: IPv4, IPv6\n  routing.type: CUSTOM, DIRECT\n  security.riskControls.levelThreshold: LOW, MEDIUM, HIGH",
-		Annotations: map[string]string{"jamf:privileges": "ztna:create", "jamf:api": "platform-gateway"},
+		Annotations: map[string]string{"jamf:privileges": "ztna:create", "jamf:api": "platform-gateway", "jamf:scopes": "environment,tenant"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if scaffoldFlag {
 				// Scaffold prints raw JSON regardless of -o, so the output
@@ -161,7 +161,7 @@ func newZtnaAppsDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Use:         "delete <appId>",
 		Short:       "Delete an App",
 		Long:        "Delete an App (Access Policy). Returns `204` on success. Returns `404` if the App does not exist or is not owned by this customer. Returns `409` if deletion cannot complete due to a conflict.",
-		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "ztna:delete", "jamf:api": "platform-gateway"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "ztna:delete", "jamf:api": "platform-gateway", "jamf:scopes": "environment,tenant"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
@@ -226,7 +226,7 @@ func newZtnaAppsGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Use:         "get <appId>",
 		Short:       "Get an App",
 		Long:        "Get a single App (Access Policy).",
-		Annotations: map[string]string{"jamf:privileges": "ztna:read", "jamf:api": "platform-gateway"},
+		Annotations: map[string]string{"jamf:privileges": "ztna:read", "jamf:api": "platform-gateway", "jamf:scopes": "environment,tenant"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
@@ -279,7 +279,7 @@ func newZtnaAppsPatchCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Use:         "patch <appId>",
 		Short:       "Partially update an App",
 		Long:        "Partially update an App (Access Policy). All fields are optional — include only what you want to change.\n\nAllowed values:\n  groupOverrides.routingOverrides[].routing.dnsIpResolutionType: IPv4, IPv6\n  groupOverrides.routingOverrides[].routing.type: CUSTOM, DIRECT\n  routing.dnsIpResolutionType: IPv4, IPv6\n  routing.type: CUSTOM, DIRECT\n  security.riskControls.levelThreshold: LOW, MEDIUM, HIGH",
-		Annotations: map[string]string{"jamf:privileges": "ztna:update", "jamf:api": "platform-gateway"},
+		Annotations: map[string]string{"jamf:privileges": "ztna:update", "jamf:api": "platform-gateway", "jamf:scopes": "environment,tenant"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if scaffoldFlag {

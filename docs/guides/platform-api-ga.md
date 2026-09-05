@@ -6,10 +6,12 @@ now does for you.
 
 > **The API is GA; the numbers on this page are a snapshot.** Version numbers, the
 > refused-command list and the permission names quoted here track a specific SDK ingest —
-> currently `jamfplatform-go-sdk` `v0.21.0`, whose published surface is Jamf Pro API 11.31.0
-> and Classic API 11.28.0. The published surface still moves at GA (endpoints are added, and
-> superseded versions are withdrawn), so read the refused-command list against the build you
-> are actually running: `jamf-cli commands -o json` always reports the current answer.
+> currently `jamfplatform-go-sdk` `v0.22.0`, whose published surface is Jamf Pro API 11.31.0
+> and Classic API 11.28.0. The published surface moves in both directions at GA: the whole
+> Classic patch-management family was withdrawn in one build and restored in a later one, and
+> `/v3/computers-inventory` came back the same way. So read the refused-command list against
+> the build you are actually running: `jamf-cli commands -o json` always reports the current
+> answer.
 
 **Nothing about a Jamf Pro instance profile changes.** If you authenticate with
 `auth-method: oauth2` or `token` against `https://your.jamfcloud.com`, none of this applies
@@ -119,6 +121,68 @@ Three things to know:
 A customer with several tenants and no platform environment keeps a profile per tenant, as
 before.
 
+### Which level a command's API declares
+
+Each Platform API spec declares the levels its endpoints accept, and the CLI stamps that on
+every generated platform command. `jamf-cli commands -o json` reports it as `scopes`:
+
+```bash
+jamf-cli commands -o json | jq -r '
+  .[] | select(.scopes) | "\(.command)\t\(.scopes | join(","))"
+'
+```
+
+As of this ingest:
+
+- **Environment only** — blueprints, compliance benchmarks (with `baselines`, `rules` and
+  `benchmark-reports`), DDM reports, `platform-devices`, `platform-device-groups`, the
+  platform device actions, AI Governance and audit.
+- **Tenant or environment** — the Jamf Pro API, the Classic API, and every Jamf Security
+  Cloud family (`dns-*`, `ztna-*`, `content-categories`, `device-groups`, `uem-*`,
+  `enrollment-activation-profiles`).
+- **Nothing declared** — the three Jamf Account APIs, which resolve the organization from
+  the credential itself.
+
+**Nothing is refused on this.** The specs are currently stricter than the gateway: a
+tenant-scoped credential still reaches `pro platform-devices list` and
+`pro platform-device-groups list` today, both declared environment-only (probed 2026-09-05).
+So the declaration explains a failure the gateway has already returned rather than
+pre-empting one — it is appended to a `400 REQUEST_CONTEXT_NOT_PROVIDED` and to a
+`403 OWNERSHIP_FORBIDDEN`, where the gateway's own message names a capability permission and
+says nothing about the level — and it is what `platform setup`'s closing summary is
+assembled from. A refusal keyed on it would refuse working commands.
+
+### A profile's scope level is not used with other credentials
+
+An API integration is created at one level in Jamf Account and its credential carries that
+choice, so a profile's `environment-id` or `tenant-id` describes the profile's own
+integration. If `JAMF_CLIENT_ID` is set for the invocation and names a different client ID
+than the profile's own, both of the profile's IDs are ignored — an organization-scoped
+credential must send no scope header at all, and a level belonging to another integration is
+redundant at best and unusable at worst.
+
+So this reaches Jamf Account correctly even with a tenant-scoped default profile configured:
+
+```bash
+export JAMF_URL=https://us.api.jamfcloud.com
+export JAMF_CLIENT_ID=...        # an organization-scoped integration
+export JAMF_CLIENT_SECRET=...
+jamf-cli platform account-licenses list
+```
+
+and this is how you name a level for those credentials:
+
+```bash
+export JAMF_ENVIRONMENT_ID=...   # or JAMF_TENANT_ID, or --environment-id / --tenant-id
+```
+
+If a command needs a level and none was supplied, the error names the profile whose level
+was passed over and both ways to set one. A profile holding `client-id` with only
+`JAMF_CLIENT_SECRET` injected keeps its level: the client ID is what names the integration,
+so that is still the profile's own. A profile whose own `client-id` is an
+`env:JAMF_CLIENT_ID` reference keeps it too — the variable is how that profile supplies its
+own client ID, not a different integration displacing it.
+
 ## Credentials and permissions
 
 Credentials are registered in Jamf Account's Platform API integrations UI. One OAuth 2.0
@@ -127,6 +191,15 @@ setup` prompts for region, client ID and secret, and the scope, validates them a
 gateway, and stores the secrets in the keychain. It also reports whether the credential
 reaches Jamf Security Cloud rather than passing or failing on it — a Jamf Pro tenant
 legitimately cannot.
+
+It closes by saying what the profile actually reaches, assembled from the scope levels the
+specs declare rather than from which prompt you filled in: a tenant-scoped profile is told
+which Platform resources are out of reach at that level, and an organization-scoped one is
+told it serves the Jamf Account commands and nothing else. Both sentences were hand-written
+before and both were wrong — a tenant profile was told it served "the Platform API commands"
+when six Platform specs declare environment only, and an organization profile was told AI
+Governance was served, which answers `400 REQUEST_CONTEXT_NOT_PROVIDED` with no scope
+header.
 
 `jamf-cli security setup` still owns the three Jamf Security Cloud Radar credential pairs
 (Risk, Device Lifecycle, SSE), which are unrelated to the gateway and unaffected by GA.
@@ -182,6 +255,7 @@ keying on exit codes should expect 5 from a platform permission failure.
 | `gatewayPrivileges` | the capability permissions the **gateway** requires for that Pro or Classic endpoint (`categories:read`) |
 | `gatewayPermissions` | the same requirement in Jamf Account's own words — `Organizational context > Categories: Read (categories:read)` |
 | `api` | which API serves it: `pro`, `pro-classic`, `platform-gateway` or `radar` |
+| `scopes` | for a Platform command, the scope levels its API declares — `environment`, or `environment,tenant`. Not a permission; see [Which level a command's API declares](#which-level-a-commands-api-declares) |
 
 `gatewayPermissions` is the field to work from when creating the integration, because the
 Platform API integrations UI is the only place an integration can be created and its picker
@@ -225,32 +299,29 @@ Three things the fields deliberately do not claim:
 Some Jamf Pro and Classic endpoints are not part of the gateway's published API. Those
 commands are **refused before a request is sent** on a gateway profile, with **exit code 8**:
 
-| Command group | Subcommands | Why |
+| Command group | Refused | Why |
 |---|---|---|
 | `pro mobile-devices` | 16 | the gateway declares GET on those paths, not POST — the MDM device actions, including `lock`, `restart`, `shutdown` and lost mode |
 | `pro computers-inventory` | 8 | as above — `lock`, `restart`, `shutdown`, remote-desktop control, `set-recovery-lock`, `set-auto-admin-password` |
 | `pro api-integrations` | 7 | outside the published API — withdrawn to close a privilege-escalation path |
-| `pro api-roles` | 6 | as above |
-| `pro api-roles-privileges` | 2 | as above |
+| `pro classic-computer-configs` | 7 | outside the published Classic API 11.28.0 |
+| `pro api-roles` | 6 | as `pro api-integrations` |
 | `pro authentications` | 6 | outside the published API |
-| `pro oauth-token-sessions` | 1 | outside the published API |
-| `pro environment-type` | 1 | outside the published API |
-| `pro database-connections` | 1 | outside the published API |
+| `pro static-computer-groups` | 6 | the deprecated v2 endpoint — use `pro computer-groups-static-groups` |
+| `pro api-roles-privileges` | 2 | as `pro api-integrations` |
+| `pro policy-properties` | 2 | `GET`/`PUT /settings/obj/policyProperties`, withdrawn from the published API |
 | `pro systems` | 2 | `initialize` / `platform-initialize`, withdrawn upstream |
+| `pro database-connections` | 1 | outside the published API |
+| `pro environment-type` | 1 | outside the published API |
 | `pro mac-os-managed-software-updates` | 1 | `list` (the deprecated available-updates endpoint) |
 | `pro mdm-commands commands` | 1 | the gateway declares GET on that path, not POST |
-| `pro classic-computer-configs` | 7 | outside the published Classic API 11.28.0 |
-| `pro static-computer-groups` | 6 | the deprecated v2 endpoint — use `pro computer-groups-static-groups` |
-| `pro classic-patch-reports` | 2 | withdrawn from the published Classic API 11.28.0 |
-| `pro classic-patch-titles` | 5 | `list`, `get`, `update`, `delete`, `apply` — withdrawn; `create` still works |
-| `pro classic-patch-policies` | 1 | `list` — withdrawn; `get`, `create`, `update`, `delete` still work |
-| `pro policy-properties` | 2 | `GET`/`PUT /settings/obj/policyProperties`, withdrawn from the published API |
+| `pro oauth-token-sessions` | 1 | outside the published API |
 
-75 commands in total (a wholly-refused resource contributes its group node too).
+67 commands in total (a wholly-refused resource contributes its group node too).
 **Nothing else changes for the ~1,700 other commands** — Pro and Classic still route
 through the gateway as before.
 
-**24 of the 75 are MDM device actions, and that is the refusal most likely to be felt.**
+**24 of the 67 are MDM device actions, and that is the refusal most likely to be felt.**
 `pro mobile-devices` loses `lock`, `restart`, `shutdown`, `enable-lost-mode`,
 `disable-lost-mode`, `play-lost-mode-sound`, `clear-passcode`, `clear-restrictions-password`,
 `delete-user`, `log-out-user`, `unlock-user-account`, `apply-redemption-code`,
@@ -262,11 +333,21 @@ inventory reads on both resources are unaffected, and so is everything else unde
 `pro comp erase` and `pro comp remove-mdm` are hand-written against a different path and are
 **not** refused.
 
-Those two rows and the last three are the shape to expect from here on: a withdrawal can
-take **part of a command group**. `pro classic-patch-titles create` is served and `list` is not, because the
-gateway still publishes `POST /patchsoftwaretitles/id/{id}` — the only call that mints a
-`softwareTitleId` — and nothing else on that resource. Check `--help` on the individual
-subcommand rather than the group; a refused one says so in its first paragraph.
+Those first two rows are the shape to expect from here on: a withdrawal can take **part of a
+command group**. `pro mobile-devices list`, `get` and the rest are served while 16 of its
+subcommands are refused. Check `--help` on the individual subcommand rather than the group;
+a refused one says so in its first paragraph.
+
+Classic is judged at three granularities for the same reason — the resource, then each method
+across it, then the collection GET exactly — and **the binary has no live example of the two
+narrower ones today**. The Classic patch-management family supplied it until this ingest:
+`pro classic-patch-titles create` was served while `list`, `get`, `update`, `delete` and
+`apply` were refused, because the gateway published `POST /patchsoftwaretitles/id/{id}` — the
+only call that mints a `softwareTitleId` — and nothing else on that resource. That family is
+restored in full, so all three granularities now agree on it. The mechanism stays, and the
+tests that exercise it are synthetic rather than fixtures of a shipped command, because the
+last Classic withdrawal landed *inside* surviving subtrees rather than on whole resources —
+which is what the next one is expected to do too.
 
 To see the current list for the binary you have, without a profile:
 
@@ -280,6 +361,9 @@ CLI, and it is worth understanding because more will follow it. The gateway's pu
 with a published higher-version successor. In almost every case the CLI simply moved onto
 the successor and you will notice nothing: `pro computers-inventory` now sends `/v4`
 instead of `/v3`, and gained `erase` and `remove-mdm-profile` subcommands in the process.
+(13 of the 122 have since been restored — the `/v3/computers-inventory` family, on the
+grounds that it was deprecated too close to the removal for callers to reach v4. The CLI
+sends v4 either way.)
 Static computer groups are the exception, because the CLI ships the two versions under two
 different command names:
 
@@ -367,6 +451,15 @@ them and the CLI refused them on a recorded wire probe. Upstream published all 2
 now work on a gateway profile like any other Pro command. `pro policy-properties` moved the
 other way in the same spec drop, and still answers on the wire — which is the case the
 transitional wording exists for.
+
+The Classic patch-management family moved the same way and faster. One build withdrew
+`/patches`, `/patchreports`, `/patchsoftwaretitles` and two `/patchpolicies` reads from the
+published Classic API, which refused eight commands here; the next SDK ingest restored every
+one of them, on the stated reasoning that patch management is where Classic API callers are
+most concentrated. `pro classic-patch-reports`, `pro classic-patch-titles` and
+`pro classic-patch-policies list` work on a gateway profile again, and
+`pro classic-patch-titles` also picked up `--scaffold` and `--set` in the process, its body
+schema having come back with the endpoints.
 
 The reverse direction is refused too: a Platform-only command (`pro blueprints`,
 `platform ai-policies`, `security ztna-apps`, …) on an instance profile names the profile,
@@ -512,12 +605,12 @@ PIN body through `--body-file`.
 
 ### Classic writes gained `--scaffold`, `--set` and field help
 
-`create`, `update` and `apply` on 43 of the 54 Classic resources — 111 of 117 commands —
+`create`, `update` and `apply` on 44 of the 54 Classic resources — 114 of 117 commands —
 now take `--scaffold` (print an XML body template and exit) and `--set key=value` (build
 the body from flags), and their `--help` lists required fields and enum values. The body
 shapes come from a committed schema artifact derived from the same Classic spec the gateway
-coverage manifest reads. The two unbound resources worth naming are `classic-computer-configs`
-(dead) and `classic-patch-titles` (its reads are withdrawn upstream).
+coverage manifest reads. The three commands without them are `pro classic-computer-configs`
+`create`, `update` and `apply`: the resource is dead, and a Jamf Pro instance 404s it too.
 
 `--set` **builds the whole body** and is therefore mutually exclusive with `--from-file`,
 unlike the Platform and Security Cloud `--set`, which overlays onto a `--file` body. That is
@@ -558,6 +651,22 @@ rather than refused.
 aggregates pages: Pro's `list --all`, and every Platform and Security Cloud list. Anything
 piping to `jq` failed with "Cannot iterate over null" on exactly the tenants where the
 collection was empty. All three now emit `[]`.
+
+### `security device-groups update` sends v2 and prints nothing
+
+The endpoint moved. `PUT /securitycloud/v1/groups/{groupId}` was deprecated in favour of
+`PUT /securitycloud/v2/groups/{groupId}`, and the published spec has now withdrawn the v1
+form outright along with the v1 list. `list` and `update` send v2; `create`, `get` and
+`delete` stay on v1, which is where the spec keeps them.
+
+The v2 handler answers `204` with no body where v1 answered `200` with the updated group, so
+**a successful `update` now prints nothing** and exits 0. Read the result back with
+`security device-groups get <id>` if you need it.
+
+The CLI withheld this operation until now, because the v2 handler did not work: it answered
+`403 BAD_PERMISSIONS` until 2026-09-03, then a bare `404` on a group its own `list` had just
+returned. It was fixed on 2026-09-04, and a rename through the CLI now returns 204 and reads
+back, so the command is generated from the spec with no override.
 
 ### `config list` shows the scope level
 

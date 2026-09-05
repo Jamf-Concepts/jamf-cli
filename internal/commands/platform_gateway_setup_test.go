@@ -54,7 +54,7 @@ func TestValidatePlatformGatewayCredentials_ReportsSecurityCloudAccess(t *testin
 	creds := &platformGatewayCredentials{
 		GatewayURL: srv.URL, ClientID: "id", ClientSecret: "secret", TenantID: "a-tenant",
 	}
-	securityCloud, err := validatePlatformGatewayCredentials(context.Background(), &out, creds)
+	securityCloud, _, err := validatePlatformGatewayCredentials(context.Background(), &out, creds)
 	if err != nil {
 		t.Fatalf("validate: %v", err)
 	}
@@ -75,7 +75,7 @@ func TestValidatePlatformGatewayCredentials_BadCredentialsAreFatal(t *testing.T)
 	}
 	// Credentials that don't work are worth failing setup over: nothing the
 	// profile could go on to do would succeed.
-	if _, err := validatePlatformGatewayCredentials(context.Background(), &out, creds); err == nil {
+	if _, _, err := validatePlatformGatewayCredentials(context.Background(), &out, creds); err == nil {
 		t.Fatal("expected credential validation to fail")
 	}
 }
@@ -100,10 +100,13 @@ func TestValidatePlatformGatewayCredentials_SecurityCloudTenant(t *testing.T) {
 			wantText: "Checking Jamf Security Cloud access... yes",
 		},
 		{
-			name:     "wrong tenant",
+			// A tenant ID the gateway refuses, which is also how it answers an
+			// environment ID typed at the tenant prompt. Not an entitlement
+			// answer — see reportSecurityCloudProbe.
+			name:     "tenant id the gateway will not accept",
 			status:   http.StatusForbidden,
 			body:     `{"httpStatus":403,"errors":[{"code":"OWNERSHIP_FORBIDDEN"}]}`,
-			wantText: "tenant not owned by this organization",
+			wantText: "will not accept this tenant ID",
 		},
 		{
 			name:     "not entitled",
@@ -137,7 +140,7 @@ func TestValidatePlatformGatewayCredentials_SecurityCloudTenant(t *testing.T) {
 				GatewayURL: srv.URL, ClientID: "id", ClientSecret: "secret",
 				TenantID: "a-tenant",
 			}
-			if _, err := validatePlatformGatewayCredentials(context.Background(), &out, creds); err != nil {
+			if _, _, err := validatePlatformGatewayCredentials(context.Background(), &out, creds); err != nil {
 				t.Fatalf("validate returned an error; a Security Cloud outcome must report and save: %v", err)
 			}
 			if !strings.Contains(out.String(), tc.wantText) {

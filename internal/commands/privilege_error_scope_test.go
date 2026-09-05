@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	jamfplatform "github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform"
+	"github.com/spf13/cobra"
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/exitcode"
 )
@@ -100,4 +101,58 @@ func hintOf(t *testing.T, err error) string {
 		t.Fatalf("error is not an *exitcode.Error: %v", err)
 	}
 	return e.Hint
+}
+
+// platformCmdDeclaringScopes is platformCmd plus the jamf:scopes annotation the
+// platform generator stamps from a spec's x-scope-types. Local to this file
+// rather than folded into platformCmd, because the other tests there assert the
+// hint a command declaring nothing gets — which is the honest answer for the
+// three Jamf Account specs, and a different case.
+func platformCmdDeclaringScopes(privs, scopes string) *cobra.Command {
+	return &cobra.Command{
+		Use: "list",
+		Annotations: map[string]string{
+			"jamf:privileges": privs,
+			"jamf:api":        "platform-gateway",
+			annotationScopes:  scopes,
+		},
+	}
+}
+
+// The scope-mismatch hint cannot say which level the *credential* belongs to —
+// a gateway token is opaque and carries an empty scope — so the levels the
+// endpoint accepts are the only concrete thing it can add, and they are what
+// sends an operator holding a correctly-granted credential to the right
+// remedy instead of comparing two IDs.
+//
+// Pinned because it is one sentence appended to a hint: deleting it leaves the
+// hint reading correctly and says nothing about the level.
+func TestTheScopeMismatchHintNamesTheDeclaredLevels(t *testing.T) {
+	err := EnrichPrivilegeError(platformCmdDeclaringScopes("blueprints:read", "environment"), &fakePlatformAPIError{
+		status: 403,
+		details: []jamfplatform.ErrorDetail{
+			{Code: "OWNERSHIP_FORBIDDEN", Description: "forbidden"},
+		},
+	})
+	hint := hintOf(t, err)
+	if !strings.Contains(hint, "declares environment scope") {
+		t.Errorf("the hint does not name the levels the API declares: %s", hint)
+	}
+	// "declares", never "requires": build v2082 moved six Platform specs to
+	// environment-only while the gateway still answers a tenant credential on
+	// some of them, so nothing here may present the declaration as a rule.
+	if strings.Contains(hint, "requires environment") {
+		t.Errorf("the hint overstates the declaration: %s", hint)
+	}
+
+	// A command whose spec is silent gets no sentence rather than a guess.
+	silent := EnrichPrivilegeError(platformCmdDeclaringScopes("blueprints:read", ""), &fakePlatformAPIError{
+		status: 403,
+		details: []jamfplatform.ErrorDetail{
+			{Code: "OWNERSHIP_FORBIDDEN", Description: "forbidden"},
+		},
+	})
+	if strings.Contains(hintOf(t, silent), "declares") {
+		t.Errorf("a command declaring no level should claim none: %s", hintOf(t, silent))
+	}
 }

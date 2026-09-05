@@ -222,6 +222,12 @@ func newPlatformSDKClient(url, clientID, clientSecret string, scope auth.Scope, 
 	if err := refuseRetiredGatewayURL(url); err != nil {
 		return nil, err
 	}
+	// Recorded here, not beside a caller, for the same reason
+	// refuseRetiredGatewayURL is: this is the one constructor every platform
+	// path calls, and a guard on it cannot be forgotten by the next caller.
+	// Read by annotateScopeLevelError and scopeMismatchHint, both of which run
+	// after Execute returns and have no config to re-resolve from.
+	resolvedPlatformScope = scope
 	opts := []jamfplatform.Option{
 		jamfplatform.WithUserAgent("jamf-cli/" + cliVersion),
 	}
@@ -319,6 +325,7 @@ func printScaffold(v any) error {
 // checkScopeConflict, since the pair is a configuration mistake rather than a
 // combination worth resolving silently.
 func resolveScope(cfg *config.Config, profileName string) auth.Scope {
+	resetWithheldProfileScope()
 	if environmentID != "" {
 		return auth.EnvironmentScope(environmentID)
 	}
@@ -336,8 +343,35 @@ func resolveScope(cfg *config.Config, profileName string) auth.Scope {
 	}
 	// GetProfile resolves an empty name to the default profile, which the
 	// caller may not have expanded yet.
-	p, _, err := config.GetProfile(cfg, profileName)
+	p, resolvedName, err := config.GetProfile(cfg, profileName)
 	if err != nil {
+		return auth.Scope{}
+	}
+	// resolvedName, not profileName: an empty -p resolves to default-profile
+	// here, and passing the empty string on made the rules below read as "there
+	// is no profile" — which dropped the scope of every default-profile user
+	// rather than only of a spliced credential, and left the note with no
+	// profile to name.
+	//
+	// Everything from here is the profile's, and a profile's level only applies
+	// to the profile's own credentials. Both branches are dropped, not one:
+	// neither a tenant nor an environment ID belonging to another integration
+	// may be attached, and an organization-scoped credential must send no scope
+	// header at all. See profileScopeAppliesTo.
+	//
+	// p.ClientID is passed rather than re-read from config, because the rule has
+	// to compare the invocation's client ID against the one the profile names:
+	// `client-id: env:JAMF_CLIENT_ID` is a documented profile shape whose
+	// variable must be set for the profile to resolve its own credential, and a
+	// rule keyed on the bare presence of a client ID read every such profile as
+	// a foreign credential and dropped its scope.
+	if !profileScopeAppliesTo(resolvedName, p.ClientID) {
+		switch {
+		case p.EnvironmentID != "":
+			recordWithheldProfileScope(resolvedName, "environment", p.EnvironmentID)
+		case p.TenantID != "":
+			recordWithheldProfileScope(resolvedName, "tenant", p.TenantID)
+		}
 		return auth.Scope{}
 	}
 	if p.EnvironmentID != "" {

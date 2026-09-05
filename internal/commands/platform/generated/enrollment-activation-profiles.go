@@ -41,7 +41,7 @@ func newEnrollmentActivationProfilesListCmd(cliCtx *registry.CLIContext) *cobra.
 		Use:         "list",
 		Short:       "Search activation profiles",
 		Long:        "Retrieves activation profiles for a given customer filtered by creation origin.",
-		Annotations: map[string]string{"jamf:privileges": "activation-profiles:read", "jamf:api": "platform-gateway"},
+		Annotations: map[string]string{"jamf:privileges": "activation-profiles:read", "jamf:api": "platform-gateway", "jamf:scopes": "environment,tenant"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err
@@ -87,7 +87,7 @@ func newEnrollmentActivationProfilesCreateCmd(cliCtx *registry.CLIContext) *cobr
 		Use:         "create",
 		Short:       "Create activation profile",
 		Long:        "Creates a new activation profile.\n\nAllowed values:\n  origin: PUBLIC_API\n  platforms[]: iOS, MAC",
-		Annotations: map[string]string{"jamf:privileges": "activation-profiles:create", "jamf:api": "platform-gateway"},
+		Annotations: map[string]string{"jamf:privileges": "activation-profiles:create", "jamf:api": "platform-gateway", "jamf:scopes": "environment,tenant"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if scaffoldFlag {
 				// Scaffold prints raw JSON regardless of -o, so the output
@@ -155,7 +155,7 @@ func newEnrollmentActivationProfilesDeleteMultipleCmd(cliCtx *registry.CLIContex
 		Use:         "delete-multiple",
 		Short:       "Delete multiple activation profiles",
 		Long:        "Deletes a batch of activation profiles. Each requested code is processed independently - codes that cannot be deleted, because they do not exist, are restricted from deletion by their origin, or are currently used by an unfinished device transition, are silently skipped. The request succeeds as long as the payload is valid.",
-		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "activation-profiles:delete", "jamf:api": "platform-gateway"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "activation-profiles:delete", "jamf:api": "platform-gateway", "jamf:scopes": "environment,tenant"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if scaffoldFlag {
 				// Scaffold prints raw JSON regardless of -o, so the output
@@ -215,7 +215,7 @@ func newEnrollmentActivationProfilesGetCmd(cliCtx *registry.CLIContext) *cobra.C
 		Use:         "get <activationProfileId>",
 		Short:       "Get activation profile",
 		Long:        "Retrieves a single activation profile for the current customer by its ID.",
-		Annotations: map[string]string{"jamf:privileges": "activation-profiles:read", "jamf:api": "platform-gateway"},
+		Annotations: map[string]string{"jamf:privileges": "activation-profiles:read", "jamf:api": "platform-gateway", "jamf:scopes": "environment,tenant"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
@@ -250,7 +250,7 @@ func newEnrollmentActivationProfilesPauseCmd(cliCtx *registry.CLIContext) *cobra
 		Use:         "pause <activationProfileId>",
 		Short:       "Pause activation profile",
 		Long:        "Pauses an activation profile, preventing it from being used during enrollment.",
-		Annotations: map[string]string{"jamf:privileges": "activation-profiles:update", "jamf:api": "platform-gateway"},
+		Annotations: map[string]string{"jamf:privileges": "activation-profiles:update", "jamf:api": "platform-gateway", "jamf:scopes": "environment,tenant"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
@@ -296,7 +296,7 @@ func newEnrollmentActivationProfilesResumeCmd(cliCtx *registry.CLIContext) *cobr
 		Use:         "resume <activationProfileId>",
 		Short:       "Resume activation profile",
 		Long:        "Resumes a paused activation profile, allowing it to be used during enrollment.",
-		Annotations: map[string]string{"jamf:privileges": "activation-profiles:update", "jamf:api": "platform-gateway"},
+		Annotations: map[string]string{"jamf:privileges": "activation-profiles:update", "jamf:api": "platform-gateway", "jamf:scopes": "environment,tenant"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {

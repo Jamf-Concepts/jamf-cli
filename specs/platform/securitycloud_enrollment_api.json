@@ -1,11 +1,21 @@
 {
   "components": {
     "parameters": {
+      "X-Environment-Id": {
+        "description": "The environment UUID identifier. Send it to address environment scope. This API is also published at tenant scope — send that scope's header instead. Send exactly one scope header per request.",
+        "in": "header",
+        "name": "X-Environment-Id",
+        "schema": {
+          "example": "e77c1408-10c8-4007-b177-abc9157fbcaa",
+          "format": "uuid",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "type": "string"
+        }
+      },
       "X-Tenant-Id": {
-        "description": "The tenant UUID identifier.",
+        "description": "The tenant UUID identifier. Send it to address tenant scope. This API is also published at environment scope — send that scope's header instead. Send exactly one scope header per request.",
         "in": "header",
         "name": "X-Tenant-Id",
-        "required": true,
         "schema": {
           "example": "e77c1408-10c8-4007-b177-abc9157fbcaa",
           "format": "uuid",
@@ -264,6 +274,9 @@
             "$ref": "#/components/parameters/X-Tenant-Id"
           },
           {
+            "$ref": "#/components/parameters/X-Environment-Id"
+          },
+          {
             "description": "Creation origin - the feature or context that created the activation profile.",
             "example": "PUBLIC_API",
             "in": "query",
@@ -349,6 +362,9 @@
         "parameters": [
           {
             "$ref": "#/components/parameters/X-Tenant-Id"
+          },
+          {
+            "$ref": "#/components/parameters/X-Environment-Id"
           }
         ],
         "requestBody": {
@@ -443,6 +459,9 @@
         "parameters": [
           {
             "$ref": "#/components/parameters/X-Tenant-Id"
+          },
+          {
+            "$ref": "#/components/parameters/X-Environment-Id"
           }
         ],
         "requestBody": {
@@ -501,6 +520,9 @@
         "parameters": [
           {
             "$ref": "#/components/parameters/X-Tenant-Id"
+          },
+          {
+            "$ref": "#/components/parameters/X-Environment-Id"
           },
           {
             "description": "Unique code identifying the activation profile",
@@ -563,6 +585,9 @@
             "$ref": "#/components/parameters/X-Tenant-Id"
           },
           {
+            "$ref": "#/components/parameters/X-Environment-Id"
+          },
+          {
             "description": "Unique code identifying the activation profile",
             "example": "123abc",
             "in": "path",
@@ -613,6 +638,9 @@
         "parameters": [
           {
             "$ref": "#/components/parameters/X-Tenant-Id"
+          },
+          {
+            "$ref": "#/components/parameters/X-Environment-Id"
           },
           {
             "description": "Unique code identifying the activation profile",
@@ -682,6 +710,7 @@
     }
   ],
   "x-scope-types": [
-    "tenant"
+    "tenant",
+    "environment"
   ]
 }

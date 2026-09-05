@@ -37,7 +37,7 @@ func newUemSyncListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Use:         "list <configId>",
 		Short:       "List sync run history",
 		Long:        "Retrieves paginated sync run history for the specified connector, ordered from newest to oldest.",
-		Annotations: map[string]string{"jamf:privileges": "uem-connect:read", "jamf:api": "platform-gateway"},
+		Annotations: map[string]string{"jamf:privileges": "uem-connect:read", "jamf:api": "platform-gateway", "jamf:scopes": "environment,tenant"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
@@ -92,7 +92,7 @@ func newUemSyncTriggerCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Use:         "trigger <configId>",
 		Short:       "Trigger sync run",
 		Long:        "Triggers a new sync operation for the specified connector. The sync runs asynchronously; this endpoint returns immediately (`202 Accepted`). Poll `GET /sync/runs` to monitor progress.",
-		Annotations: map[string]string{"jamf:privileges": "uem-connect:update", "jamf:api": "platform-gateway"},
+		Annotations: map[string]string{"jamf:privileges": "uem-connect:update", "jamf:api": "platform-gateway", "jamf:scopes": "environment,tenant"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
@@ -138,7 +138,7 @@ func newUemSyncCancelCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Use:         "cancel <configId>",
 		Short:       "Cancel current sync run",
 		Long:        "Requests cancelation of the currently running sync operation for the specified connector. Cancelation is best-effort; the sync may complete before it takes effect. Check status via `GET /sync/runs`.",
-		Annotations: map[string]string{"jamf:privileges": "uem-connect:update", "jamf:api": "platform-gateway"},
+		Annotations: map[string]string{"jamf:privileges": "uem-connect:update", "jamf:api": "platform-gateway", "jamf:scopes": "environment,tenant"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {

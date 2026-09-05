@@ -38,7 +38,7 @@ func newDnsSearchDomainsDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Use:         "delete",
 		Short:       "Clear the Search Domain",
 		Long:        "Clears the tenant Search Domain, removing the configured suffix.",
-		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "search-domains:delete", "jamf:api": "platform-gateway"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "search-domains:delete", "jamf:api": "platform-gateway", "jamf:scopes": "environment,tenant"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err
@@ -86,7 +86,7 @@ func newDnsSearchDomainsGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Use:         "get",
 		Short:       "Get the Search Domain",
 		Long:        "Returns the tenant Search Domain — a singleton resource holding a single optional search-domain suffix. Returns 200 with the search domain when one is set, or 404 when none is set.",
-		Annotations: map[string]string{"jamf:privileges": "search-domains:read", "jamf:api": "platform-gateway"},
+		Annotations: map[string]string{"jamf:privileges": "search-domains:read", "jamf:api": "platform-gateway", "jamf:scopes": "environment,tenant"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err
@@ -124,7 +124,7 @@ func newDnsSearchDomainsUpdateCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Use:         "update",
 		Short:       "Set the Search Domain",
 		Long:        "Sets the tenant Search Domain to the supplied suffix. Any previously set search domain is overwritten.",
-		Annotations: map[string]string{"jamf:privileges": "search-domains:update", "jamf:api": "platform-gateway"},
+		Annotations: map[string]string{"jamf:privileges": "search-domains:update", "jamf:api": "platform-gateway", "jamf:scopes": "environment,tenant"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if scaffoldFlag {
 				// Scaffold prints raw JSON regardless of -o, so the output

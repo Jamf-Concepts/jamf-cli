@@ -15,6 +15,13 @@ The Jamf Platform API reached general availability on 2026-09-03. Most of this r
 that migration; **[docs/guides/platform-api-ga.md](docs/guides/platform-api-ga.md) is the
 migration guide** and carries the detail, the error messages verbatim, and the reasoning.
 
+The gateway coverage and Platform API surface in this release come from
+`jamfplatform-go-sdk` v0.22.0 (GitOps build v2082): Jamf Pro API 11.31.0 at 476 paths and
+700 operations, Classic API 11.28.0 at 270 paths and 589 operations. Which endpoints the
+gateway publishes decides which commands are refused, so that surface is what the numbers
+below are counted against — `jamf-cli commands -o json` reports the answer for the binary
+in hand.
+
 ### Breaking — Platform gateway (only affects `auth-method: platform` profiles)
 
 - **The gateway base URL is `https://{region}.api.jamfcloud.com`.** The pre-GA
@@ -31,7 +38,7 @@ migration guide** and carries the detail, the error messages verbatim, and the r
   gateway host alone. Supplying two levels at once is refused, in the environment as well as
   in a profile. The scope now travels in an `X-Environment-Id` / `X-Tenant-Id` header
   instead of a `/tenant/{tenantId}` URL segment.
-- **75 Jamf Pro and Classic commands are refused on a gateway profile**, before a request is
+- **67 Jamf Pro and Classic commands are refused on a gateway profile**, before a request is
   sent, with exit code 8 (`Refused by policy`) — they are outside the gateway's published
   API. Several of them still answer today; that is transitional, and refusing now is cheaper
   than the eventual bare `403 BAD_PERMISSIONS`. The remedy is a second `oauth2` profile
@@ -46,14 +53,13 @@ migration guide** and carries the detail, the error messages verbatim, and the r
   `set-auto-admin-password` and `settings`. The gateway's published API declares GET on
   those paths but not POST, so the refusal is per method rather than per resource.
   `pro comp erase` and `pro comp remove-mdm` are hand-written and are **not** affected.
-  The other 51 are `pro api-integrations` (7), `pro classic-computer-configs` (7),
+  The other 43 are `pro api-integrations` (7), `pro classic-computer-configs` (7),
   `pro api-roles` (6), `pro authentications` (6),
   `pro static-computer-groups` (6, use `pro computer-groups-static-groups`),
-  five `pro classic-patch-titles` subcommands, `pro api-roles-privileges` (2),
-  `pro classic-patch-reports` (2), `pro policy-properties` (2), `pro systems` (2),
-  and one each of `pro classic-patch-policies list`, `pro database-connections`,
-  `pro environment-type`, `pro mac-os-managed-software-updates`,
-  `pro mdm-commands commands` and `pro oauth-token-sessions`.
+  `pro api-roles-privileges` (2), `pro policy-properties` (2), `pro systems` (2),
+  and one each of `pro database-connections`, `pro environment-type`,
+  `pro mac-os-managed-software-updates`, `pro mdm-commands commands` and
+  `pro oauth-token-sessions`.
   `jamf-cli commands -o json | jq -r '.[] | select(.gateway=="unserved") | .command'`
   reports the current list for the binary in hand. `JAMF_CLI_ALLOW_UNPUBLISHED=1` downgrades
   an *unpublished* refusal to a stderr warning and sends the request anyway — a stopgap for
@@ -64,9 +70,34 @@ migration guide** and carries the detail, the error messages verbatim, and the r
 - **Exit code 8 is new** — `Refused by policy`, for a command that is correctly invoked but
   cannot be served by the resolved credentials. Distinct from 2, which is also every cobra
   flag error.
+- **A profile's scope level is no longer attached to credentials supplied for the
+  invocation.** If `JAMF_CLIENT_ID` is set for the invocation, the profile's
+  `environment-id` and `tenant-id` are both ignored rather than one being used. An
+  integration is created at one level in Jamf Account and its credential carries that
+  choice, so a profile's level describes the profile's own integration — and an
+  organization-scoped credential must send no scope header at all. Before this,
+  `JAMF_URL` + `JAMF_CLIENT_ID` + `JAMF_CLIENT_SECRET` for an organization-scoped
+  integration sent an `X-Tenant-Id` taken from whatever `default-profile` named, and failed
+  with a level the operator never chose. Supply the level for those credentials with
+  `--environment-id` / `--tenant-id` or `JAMF_ENVIRONMENT_ID` / `JAMF_TENANT_ID`; the
+  resulting error names the profile whose level was passed over and both ways to set one.
+  A profile holding `client-id` with only `JAMF_CLIENT_SECRET` injected is unaffected — the
+  client ID names the integration, so that is still the profile's. So is a profile whose own
+  `client-id` is an `env:JAMF_CLIENT_ID` reference, which is the config's documented way for
+  a profile to read its client ID out of the environment: the variable is then how that
+  integration supplies its own credential, not a second integration displacing it, so the
+  profile keeps its level.
 - **A platform command's 403 now exits 5, not 1.** Platform commands previously returned the
   SDK's error untouched, so the one failure with a specific remedy exited with the generic
   code.
+- **`security device-groups update` prints nothing on success.** It sends
+  `PUT /securitycloud/v2/groups/{groupId}`, which answers `204` with no body, where the
+  deprecated v1 form answered `200` with the updated group. The published spec has now
+  withdrawn v1's update and list outright, and the v2 update handler — broken since it
+  appeared, answering `403` and then a `404` on a group its own list returned — was fixed on
+  2026-09-04, so the CLI no longer withholds the operation. `list` and `update` send v2;
+  `create`, `get` and `delete` stay on v1. Anything reading the group out of an `update` has
+  to follow with a `get`.
 
 ### Breaking — everything else
 
@@ -101,6 +132,17 @@ migration guide** and carries the detail, the error messages verbatim, and the r
   over null" on exactly the tenants where a collection was empty.
 - **`pro computers-inventory` sends `/v4` instead of `/v3`**, and `get` reads the v4 detail
   endpoint. Generated subcommands retry the `/v1` path on a 404 and warn on stderr.
+- **Eight Classic patch-management commands are no longer refused on a gateway profile.**
+  `pro classic-patch-reports` (both subcommands), `pro classic-patch-titles` `list`, `get`,
+  `update`, `delete` and `apply`, and `pro classic-patch-policies list` were refused in
+  v1.28.0 because a published Classic API build had withdrawn `/patches`, `/patchreports`,
+  `/patchsoftwaretitles` and two `/patchpolicies` reads. Upstream restored all of them, on
+  the stated reasoning that patch management is where Classic API callers are most
+  concentrated. `pro classic-patch-titles` also gained `--scaffold` and `--set`, its body
+  schema having come back with the endpoints.
+  `/pro/v3/computers-inventory` was restored in the same build — 13 operations, deprecated
+  too close to the removal for callers to reach v4 — which changes the coverage manifest and
+  no command, since the CLI sends v4.
 - **`pro computer-inventory-collection-settings custom-path` sends v2, whose `scope` accepts
   only `APP`.** v1 served `[APP, FONT, PLUGIN]`, so a `FONT` or `PLUGIN` path that worked
   before now answers a 400. Nothing in `--help` says so — the Pro generator renders no
@@ -127,11 +169,20 @@ migration guide** and carries the detail, the error messages verbatim, and the r
 ### Added
 
 - **Classic writes gained `--scaffold` and `--set`**, plus required-field and enum lists in
-  `--help`: 111 of 117 `create`/`update`/`apply` commands, across 43 of the 54 Classic
-  resources.
+  `--help`: 114 of 117 `create`/`update`/`apply` commands, across 44 of the 54 Classic
+  resources. The three without them are `pro classic-computer-configs` `create`, `update`
+  and `apply`: the resource is dead, and a Jamf Pro instance 404s it too.
   `--set` builds the whole body and is mutually exclusive with `--from-file`; it refuses an
   unknown field, an out-of-enum value and a credential field, because the Classic API
   answers `201` and silently drops or defaults the first two.
+- **`commands -o json` carries a `scopes` array** for every generated Platform command: the
+  Jamf Platform API scope levels its spec declares a credential must be created at
+  (`environment`, or `environment,tenant`). Nothing is refused on it — the specs are
+  currently stricter than the gateway, and a tenant credential still reaches
+  `pro platform-devices list` and `pro platform-device-groups list` despite both being
+  declared environment-only — so it is reported, appended to the gateway's own scope errors,
+  and used to assemble `platform setup`'s summary. Absent means the spec is silent, not that
+  any level works: the three Jamf Account APIs declare nothing and are organization-scoped.
 - **`--file` accepts YAML** on generated Platform and Security Cloud commands, matching
   Pro's `--from-file`.
 - **`protect backup` and `protect restore`** capture and replay a whole Jamf Protect tenant.
@@ -176,3 +227,9 @@ migration guide** and carries the detail, the error messages verbatim, and the r
   collapsed to `/tenant//` under environment or organization scope.
 - `JAMF_ENVIRONMENT_ID` now overrides a tenant-scoped profile rather than colliding with it,
   the way every other environment variable here overrides the profile.
+- **`platform setup`'s closing summary said two things that were not true.** A tenant-scoped
+  profile was told it served "the Pro API and Platform API commands" when six Platform specs
+  declare environment scope only, and an organization-scoped profile was told AI Governance
+  was served, which answers `400 REQUEST_CONTEXT_NOT_PROVIDED` with no scope header. The
+  summary is now assembled from the commands' declared scope levels, so it cannot drift from
+  the specs they were generated from.

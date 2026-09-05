@@ -24,11 +24,21 @@
       }
     },
     "parameters": {
+      "X-Environment-Id": {
+        "description": "The environment UUID identifier. Send it to address environment scope. This API is also published at tenant scope — send that scope's header instead. Send exactly one scope header per request.",
+        "in": "header",
+        "name": "X-Environment-Id",
+        "schema": {
+          "example": "e77c1408-10c8-4007-b177-abc9157fbcaa",
+          "format": "uuid",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "type": "string"
+        }
+      },
       "X-Tenant-Id": {
-        "description": "The tenant UUID identifier.",
+        "description": "The tenant UUID identifier. Send it to address tenant scope. This API is also published at environment scope — send that scope's header instead. Send exactly one scope header per request.",
         "in": "header",
         "name": "X-Tenant-Id",
-        "required": true,
         "schema": {
           "example": "e77c1408-10c8-4007-b177-abc9157fbcaa",
           "format": "uuid",
@@ -610,6 +620,9 @@
         "parameters": [
           {
             "$ref": "#/components/parameters/X-Tenant-Id"
+          },
+          {
+            "$ref": "#/components/parameters/X-Environment-Id"
           }
         ],
         "responses": {
@@ -647,6 +660,9 @@
         "parameters": [
           {
             "$ref": "#/components/parameters/X-Tenant-Id"
+          },
+          {
+            "$ref": "#/components/parameters/X-Environment-Id"
           }
         ],
         "responses": {
@@ -718,6 +734,9 @@
         "parameters": [
           {
             "$ref": "#/components/parameters/X-Tenant-Id"
+          },
+          {
+            "$ref": "#/components/parameters/X-Environment-Id"
           }
         ],
         "requestBody": {
@@ -849,6 +868,9 @@
         "parameters": [
           {
             "$ref": "#/components/parameters/X-Tenant-Id"
+          },
+          {
+            "$ref": "#/components/parameters/X-Environment-Id"
           }
         ],
         "responses": {
@@ -886,6 +908,9 @@
         "parameters": [
           {
             "$ref": "#/components/parameters/X-Tenant-Id"
+          },
+          {
+            "$ref": "#/components/parameters/X-Environment-Id"
           }
         ],
         "responses": {
@@ -947,6 +972,9 @@
         "parameters": [
           {
             "$ref": "#/components/parameters/X-Tenant-Id"
+          },
+          {
+            "$ref": "#/components/parameters/X-Environment-Id"
           }
         ],
         "requestBody": {
@@ -1021,6 +1049,9 @@
         "parameters": [
           {
             "$ref": "#/components/parameters/X-Tenant-Id"
+          },
+          {
+            "$ref": "#/components/parameters/X-Environment-Id"
           },
           {
             "description": "Sort expression in the form `field:direction`, where direction is `asc` or `desc`. Defaults to ascending order when direction is omitted. The only supported sort field is `name`.",
@@ -1144,6 +1175,9 @@
         "parameters": [
           {
             "$ref": "#/components/parameters/X-Tenant-Id"
+          },
+          {
+            "$ref": "#/components/parameters/X-Environment-Id"
           }
         ],
         "requestBody": {
@@ -1321,6 +1355,9 @@
         "parameters": [
           {
             "$ref": "#/components/parameters/X-Tenant-Id"
+          },
+          {
+            "$ref": "#/components/parameters/X-Environment-Id"
           }
         ],
         "responses": {
@@ -1361,6 +1398,9 @@
         "parameters": [
           {
             "$ref": "#/components/parameters/X-Tenant-Id"
+          },
+          {
+            "$ref": "#/components/parameters/X-Environment-Id"
           }
         ],
         "responses": {
@@ -1445,6 +1485,9 @@
         "parameters": [
           {
             "$ref": "#/components/parameters/X-Tenant-Id"
+          },
+          {
+            "$ref": "#/components/parameters/X-Environment-Id"
           }
         ],
         "requestBody": {
@@ -1622,6 +1665,7 @@
     }
   ],
   "x-scope-types": [
-    "tenant"
+    "tenant",
+    "environment"
   ]
 }

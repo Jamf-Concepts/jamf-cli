@@ -36,7 +36,7 @@ func newUemConnectorEnablementDisableCmd(cliCtx *registry.CLIContext) *cobra.Com
 		Use:         "disable <configId>",
 		Short:       "Disable connector synchronization",
 		Long:        "Disables the specified connector to pause data synchronization between JSC and the UEM platform. This operation is idempotent — disabling an already-disabled connector succeeds.",
-		Annotations: map[string]string{"jamf:privileges": "uem-connect:delete", "jamf:api": "platform-gateway"},
+		Annotations: map[string]string{"jamf:privileges": "uem-connect:delete", "jamf:api": "platform-gateway", "jamf:scopes": "environment,tenant"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
@@ -85,7 +85,7 @@ func newUemConnectorEnablementEnableCmd(cliCtx *registry.CLIContext) *cobra.Comm
 		Use:         "enable <configId>",
 		Short:       "Enable connector synchronization",
 		Long:        "Sets the enablement state of the specified connector. Send `enabled: true` to resume data synchronization between JSC and the UEM platform, or `enabled: false` to pause it. This operation is idempotent.",
-		Annotations: map[string]string{"jamf:privileges": "uem-connect:update", "jamf:api": "platform-gateway"},
+		Annotations: map[string]string{"jamf:privileges": "uem-connect:update", "jamf:api": "platform-gateway", "jamf:scopes": "environment,tenant"},
 		Args: func(cmd *cobra.Command, args []string) error {
 			if scaffoldFlag {
 				return nil
