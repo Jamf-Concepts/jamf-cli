@@ -56,7 +56,7 @@ func newPlatformCmd(cliCtx *registry.CLIContext) *cobra.Command {
 // platformGatewayRegions maps friendly names to gateway base URLs.
 //
 // These are the GA gateway hosts. The previous gateway,
-// {region}.apigw.jamf.com, is retired at Platform API GA (2026-09-01) and
+// {region}.apigw.jamf.com, is retired at Platform API GA (2026-09-03) and
 // required an /api segment the new host does not serve — see
 // retiredGatewayHost, which turns a profile still naming it into an
 // instruction rather than an authentication failure.

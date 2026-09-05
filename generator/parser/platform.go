@@ -74,7 +74,7 @@ func ParsePlatformSpec(specPath string) ([]*Resource, error) {
 		}
 	}
 	if !groupable {
-		return ParseSpec(tmpPath)
+		return ParseLoadedSpec(doc, tmpPath)
 	}
 
 	// Group ops by tag.

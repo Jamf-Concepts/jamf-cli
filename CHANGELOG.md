@@ -11,7 +11,7 @@ commit types the repo already uses (`feat!`/`build!` for a breaking change).
 
 ## Unreleased
 
-The Jamf Platform API reached general availability on 2026-09-01. Most of this release is
+The Jamf Platform API reached general availability on 2026-09-03. Most of this release is
 that migration; **[docs/guides/platform-api-ga.md](docs/guides/platform-api-ga.md) is the
 migration guide** and carries the detail, the error messages verbatim, and the reasoning.
 
