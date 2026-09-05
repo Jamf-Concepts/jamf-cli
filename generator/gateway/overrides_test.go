@@ -3,8 +3,11 @@
 package gateway_test
 
 import (
+	"fmt"
 	"path/filepath"
+	"slices"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/Jamf-Concepts/jamf-cli/generator/classic"
@@ -31,13 +34,17 @@ type gatewayOp struct{ method, path string }
 // Only the passes that decide which resource survives or rewrite a path are
 // replayed, in generator/main.go's order. The rest set names, columns and
 // lookup fields, none of which a verdict reads.
-func gatewayOps(t *testing.T) []gatewayOp {
-	t.Helper()
+// Built once per test binary. Three tests in this file need the same fixture and
+// each rebuild parsed all 165 specs again — four fifths of this package's wall
+// time was that redundancy, multiplied by the race detector's bookkeeping over
+// allocation-heavy YAML. The memoized value is plain value data and gatewayOps
+// hands out a copy, so one test cannot contaminate another's view.
+var buildGatewayOps = sync.OnceValues(func() ([]gatewayOp, error) {
 	var out []gatewayOp
 
 	specs, err := filepath.Glob(filepath.Join(specsDir, "*.yaml"))
 	if err != nil || len(specs) == 0 {
-		t.Fatalf("no specs found under %s: %v", specsDir, err)
+		return nil, fmt.Errorf("no specs found under %s: %w", specsDir, err)
 	}
 	var resources []*parser.Resource
 	for _, s := range specs {
@@ -65,12 +72,21 @@ func gatewayOps(t *testing.T) []gatewayOp {
 
 	cls, err := classic.ParseManifest(filepath.Join(specsDir, "classic", "resources.yaml"))
 	if err != nil {
-		t.Fatalf("parsing the classic manifest: %v", err)
+		return nil, fmt.Errorf("parsing the classic manifest: %w", err)
 	}
 	for _, r := range cls {
 		out = append(out, gatewayOp{"GET", gateway.ClassicPrefix + "/" + r.Path})
 	}
-	return out
+	return out, nil
+})
+
+func gatewayOps(t *testing.T) []gatewayOp {
+	t.Helper()
+	ops, err := buildGatewayOps()
+	if err != nil {
+		t.Fatalf("building the gateway op fixture: %v", err)
+	}
+	return slices.Clone(ops)
 }
 
 // gatewayPaths is gatewayOps reduced to distinct paths, for the override checks
