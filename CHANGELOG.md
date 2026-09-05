@@ -9,7 +9,7 @@ release with none of those gets no entry here.
 Versions follow the `vMAJOR.MINOR.PATCH` tags in this repository, and headings match the
 commit types the repo already uses (`feat!`/`build!` for a breaking change).
 
-## Unreleased
+## v1.28.0
 
 The Jamf Platform API reached general availability on 2026-09-03. Most of this release is
 that migration; **[docs/guides/platform-api-ga.md](docs/guides/platform-api-ga.md) is the
@@ -31,14 +31,29 @@ migration guide** and carries the detail, the error messages verbatim, and the r
   gateway host alone. Supplying two levels at once is refused, in the environment as well as
   in a profile. The scope now travels in an `X-Environment-Id` / `X-Tenant-Id` header
   instead of a `/tenant/{tenantId}` URL segment.
-- **48 Jamf Pro and Classic commands are refused on a gateway profile**, before a request is
+- **75 Jamf Pro and Classic commands are refused on a gateway profile**, before a request is
   sent, with exit code 8 (`Refused by policy`) — they are outside the gateway's published
   API. Several of them still answer today; that is transitional, and refusing now is cheaper
-  than the eventual bare `403 BAD_PERMISSIONS`. Notably `pro api-roles`, `pro api-integrations`,
-  `pro authentications`, `pro classic-computer-configs`, `pro static-computer-groups` (use
-  `pro computer-groups-static-groups`), `pro classic-patch-reports`, five
-  `pro classic-patch-titles` subcommands, `pro classic-patch-policies list`, and
-  `pro policy-properties`. The remedy is a second `oauth2` profile against the instance.
+  than the eventual bare `403 BAD_PERMISSIONS`. The remedy is a second `oauth2` profile
+  against the instance.
+- **24 of those are MDM device actions**, which is the refusal most likely to be felt:
+  `pro mobile-devices` loses `lock`, `restart`, `shutdown`, `enable-lost-mode`,
+  `disable-lost-mode`, `play-lost-mode-sound`, `clear-passcode`,
+  `clear-restrictions-password`, `delete-user`, `log-out-user`, `unlock-user-account`,
+  `apply-redemption-code`, `refresh-cellular-plans`, `request-mirroring`, `stop-mirroring`
+  and `settings`; `pro computers-inventory` loses `lock`, `restart`, `shutdown`,
+  `enable-remote-desktop`, `disable-remote-desktop`, `set-recovery-lock`,
+  `set-auto-admin-password` and `settings`. The gateway's published API declares GET on
+  those paths but not POST, so the refusal is per method rather than per resource.
+  `pro comp erase` and `pro comp remove-mdm` are hand-written and are **not** affected.
+  The other 51 are `pro api-integrations` (7), `pro classic-computer-configs` (7),
+  `pro api-roles` (6), `pro authentications` (6),
+  `pro static-computer-groups` (6, use `pro computer-groups-static-groups`),
+  five `pro classic-patch-titles` subcommands, `pro api-roles-privileges` (2),
+  `pro classic-patch-reports` (2), `pro policy-properties` (2), `pro systems` (2),
+  and one each of `pro classic-patch-policies list`, `pro database-connections`,
+  `pro environment-type`, `pro mac-os-managed-software-updates`,
+  `pro mdm-commands commands` and `pro oauth-token-sessions`.
   `jamf-cli commands -o json | jq -r '.[] | select(.gateway=="unserved") | .command'`
   reports the current list for the binary in hand. `JAMF_CLI_ALLOW_UNPUBLISHED=1` downgrades
   an *unpublished* refusal to a stderr warning and sends the request anyway — a stopgap for
@@ -99,11 +114,19 @@ migration guide** and carries the detail, the error messages verbatim, and the r
   over null" on exactly the tenants where a collection was empty.
 - **`pro computers-inventory` sends `/v4` instead of `/v3`**, and `get` reads the v4 detail
   endpoint. Generated subcommands retry the `/v1` path on a 404 and warn on stderr.
+- **`pro computer-inventory-collection-settings custom-path` sends v2, whose `scope` accepts
+  only `APP`.** v1 served `[APP, FONT, PLUGIN]`, so a `FONT` or `PLUGIN` path that worked
+  before now answers a 400. Nothing in `--help` says so — the Pro generator renders no
+  allowed-value lists.
 - **A 403 names the permission in the vocabulary of the API that answered** — capability
   permissions with Jamf Account's own section and permission names for a gateway request,
   Jamf Pro API-role privilege names for an instance request. `commands -o json` carries both
   (`privileges`, `gatewayPrivileges`, `gatewayPermissions`) plus an `api` field naming the
   serving API.
+- **`commands -o json`'s `gatewaySuccessor` reports a value**, where it was documented but
+  emitted on no row at all: six refused commands now name the replacement the runtime
+  refusal and the `--help` caveat already named. A script reading the catalog rather than
+  running `--help` was told only that a command was `unserved`.
 - **A CDN/WAF refusal is reported as one** rather than as `permission denied (HTTP 403)`
   with an HTML page in the message and a hint about API roles. Known triggers: `file://`
   anywhere in a request body, `.pkg` upload content, a burst of writes. A `.pkg` upload
@@ -124,6 +147,21 @@ migration guide** and carries the detail, the error messages verbatim, and the r
   answers `201` and silently drops or defaults the first two.
 - **`--file` accepts YAML** on generated Platform and Security Cloud commands, matching
   Pro's `--from-file`.
+- **`protect backup` and `protect restore`** capture and replay a whole Jamf Protect tenant.
+  Each object is written to its own file in the same portable, name-referenced form the
+  matching `export` produces; restore walks the tree in dependency order, resolving
+  references by name against the target, and never deletes. Both take `--resources` and
+  `--exclude`. Backup prunes documents an earlier run left that no longer match the tenant
+  (`--no-prune` keeps them), and refuses to prune a directory another tenant has written to.
+  Two files carry secrets verbatim and are written `0600` — `action-configs` and
+  `data-forwarding`, because an HTTP report client's bearer token cannot be redacted without
+  breaking restore. Note git records no non-exec permissions, so a clone of a backup repo
+  hands them back `0644`. A mixed result exits 7.
+- **`protect analytics overrides`** manages the tenant overlay on Jamf-managed analytics
+  (`tenantSeverity`, `tenantActions`) — `list`, `get`, `set`, `apply`, `export`, `clear`.
+  `analytics list` reports Jamf's baseline severity rather than the effective one, and
+  `analytics export` omits the overlay entirely, so this is the only route to the
+  customisation a tenant actually made.
 - **Jamf AI Governance:** `platform ai-policies`, `platform ai-tools`.
 - **Jamf Account:** `platform account-licenses`, `deal-registrations`,
   `distributor-configuration`, `distributor-purchase-orders`, `distributor-quotes`,

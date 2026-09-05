@@ -1113,7 +1113,7 @@ func collectCommands(cmd *cobra.Command, prefix, product, group string) []comman
 				Gateway:          child.Annotations[annotationGateway],
 				GatewayBasis:     child.Annotations[annotationGatewayBasis],
 				GatewayDetail:    child.Annotations[annotationGatewayDetail],
-				GatewaySuccessor: gatewaySuccessorOf(child, fullPath),
+				GatewaySuccessor: gatewaySuccessorOf(child),
 
 				GatewayPrivileges:  gatewayPrivilegesOf(child),
 				GatewayPermissions: gatewayPermissionsOf(child),
