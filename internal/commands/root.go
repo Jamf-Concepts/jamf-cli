@@ -380,6 +380,23 @@ func ResolveAuthForProfile(cfg *config.Config, params AuthParams) (string, auth.
 	// every other env var here overrides it.
 	scopeFromParams := tid != "" || eid != ""
 	isPlatform := false
+	// Reset per resolution: this is called more than once in one process by the
+	// tests and the MCP server, and a stale answer here would put a sentence
+	// about the wrong profile on a later error.
+	resetWithheldProfileScope()
+	// The client ID names the integration, and an integration's scope level is
+	// its own. Read before the profile fill below overwrites cid, because after
+	// it the two sources are indistinguishable.
+	//
+	// params only, deliberately — not the package var or the environment.
+	// resolveAuth folds JAMF_CLIENT_ID into clientID and passes it here as
+	// params.ClientID, so params is already the complete answer on this path,
+	// and reading the mutable package var instead would make this function's
+	// result depend on global state its params exist to isolate. resolveScope
+	// reads the environment directly for the opposite reason: PersistentPreRunE
+	// returns for the `security` product before resolveAuth folds anything, so
+	// there is nothing folded to read on that path.
+	credentialFromInvocation := params.ClientID != ""
 
 	// Config profile: fill remaining gaps.
 	// Skip profile credential resolution when a token was explicitly provided
@@ -388,7 +405,7 @@ func ResolveAuthForProfile(cfg *config.Config, params AuthParams) (string, auth.
 	// bootstrap scripts).
 	explicitToken := tok != ""
 	if len(cfg.Profiles) > 0 {
-		p, _, err := config.GetProfile(cfg, profileName)
+		p, resolvedProfileName, err := config.GetProfile(cfg, profileName)
 		if err == nil {
 			if url == "" {
 				url = p.URL
@@ -411,11 +428,38 @@ func ResolveAuthForProfile(cfg *config.Config, params AuthParams) (string, auth.
 						}
 						csecret = resolved
 					}
-					if !scopeFromParams && p.EnvironmentID != "" {
-						eid = p.EnvironmentID
-					}
-					if !scopeFromParams && tid == "" && p.TenantID != "" {
-						tid = p.TenantID
+					// A profile's scope level only applies to the profile's
+					// own credentials, so it is withheld — both levels, not
+					// one — when the client ID came from this invocation. An
+					// organization-scoped credential must send no scope header
+					// at all, and a level belonging to another integration is
+					// redundant at best and unusable at worst. Recorded here
+					// and in resolveScope, the only two ladders, rather than
+					// re-derived at error time, so there is no third copy of
+					// the precedence rules to drift. See
+					// profileScopeAppliesTo.
+					switch {
+					case scopeFromParams:
+						// The caller named a level for these credentials; the
+						// profile's is not consulted either way.
+					case credentialFromInvocation:
+						// resolvedProfileName, not profileName: an empty -p
+						// resolves to default-profile inside GetProfile, and
+						// the note has to be able to name the profile whose
+						// level it passed over.
+						switch {
+						case p.EnvironmentID != "":
+							recordWithheldProfileScope(resolvedProfileName, "environment", p.EnvironmentID)
+						case p.TenantID != "":
+							recordWithheldProfileScope(resolvedProfileName, "tenant", p.TenantID)
+						}
+					default:
+						if p.EnvironmentID != "" {
+							eid = p.EnvironmentID
+						}
+						if tid == "" && p.TenantID != "" {
+							tid = p.TenantID
+						}
 					}
 				case "oauth2":
 					if cid == "" && p.ClientID != "" {

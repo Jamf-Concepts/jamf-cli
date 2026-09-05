@@ -125,7 +125,7 @@ func TestSetupSummarySaysWhatEachLevelActuallyReaches(t *testing.T) {
 // The note is what an operator reads instead of the gateway's own message,
 // which says a scope was not found without saying which kind is accepted.
 func TestScopeLevelNoteNamesTheLevelsAndTheOneInUse(t *testing.T) {
-	one := scopeLevelNote([]string{"environment"}, "tenant")
+	one := scopeLevelNote([]string{"environment"}, "tenant", false)
 	if !strings.Contains(one, "declares environment scope") || !strings.Contains(one, "tenant-scoped") {
 		t.Errorf("both halves must appear, got %q", one)
 	}
@@ -133,11 +133,11 @@ func TestScopeLevelNoteNamesTheLevelsAndTheOneInUse(t *testing.T) {
 		t.Errorf("a wrong-level credential cannot be fixed by editing an ID, got %q", one)
 	}
 
-	two := scopeLevelNote([]string{"environment", "tenant"}, "organization")
+	two := scopeLevelNote([]string{"environment", "tenant"}, "organization", false)
 	if !strings.Contains(two, "environment or tenant scope") {
 		t.Errorf("a two-level set should read as alternatives, got %q", two)
 	}
-	if !strings.Contains(two, "sends no scope header") {
+	if !strings.Contains(two, "No scope header was sent") {
 		t.Errorf("organization scope has no ID to correct, so say so; got %q", two)
 	}
 

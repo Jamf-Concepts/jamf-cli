@@ -5,6 +5,7 @@ package commands
 import (
 	"fmt"
 	"io"
+	"os"
 	"sort"
 	"strings"
 
@@ -38,6 +39,139 @@ const annotationScopes = "jamf:scopes"
 // "organization" are the same state on the wire.
 var resolvedPlatformScope auth.Scope
 
+// withheldProfileScope records a profile's scope level that was deliberately
+// not used, so an error can say why the request carried no scope header.
+//
+// Written by the only two ladders that resolve a scope — ResolveAuthForProfile
+// and resolveScope — and read by the error note. Recorded rather than
+// re-derived at error time for the reason credentialSource gives for reading
+// the resolved package vars: a second copy of the precedence rules is a second
+// thing to drift, and a message that blames the wrong source is the failure
+// these notes exist to remove.
+var withheldProfileScope struct {
+	Profile string
+	Level   string // "environment" or "tenant"
+	ID      string
+}
+
+// recordWithheldProfileScope notes a profile level the resolution passed over.
+func recordWithheldProfileScope(profileName, level, id string) {
+	withheldProfileScope.Profile = profileName
+	withheldProfileScope.Level = level
+	withheldProfileScope.ID = id
+}
+
+// resetWithheldProfileScope clears the record at the top of a resolution.
+// Called per resolution because NewRootCmd and ResolveAuthForProfile run more
+// than once in one process — the tests and the MCP server both do it — and a
+// stale answer would put a sentence about the wrong profile on a later error.
+func resetWithheldProfileScope() {
+	withheldProfileScope.Profile = ""
+	withheldProfileScope.Level = ""
+	withheldProfileScope.ID = ""
+}
+
+// clientIDFromInvocation reports whether a client ID was supplied for this
+// invocation, by the --client-id flag or JAMF_CLIENT_ID.
+//
+// **The environment is read directly here rather than through the folded
+// package var, and that is load-bearing.** resolveAuth folds JAMF_CLIENT_ID
+// into clientID, but PersistentPreRunE returns for the `security` product
+// *before* it runs — so on the path that serves the 52 gateway-served Security
+// Cloud commands the folded var is empty however the credentials were supplied,
+// and a predicate reading it would conclude "the credentials came from the
+// profile" and splice the profile's scope back in. That is the same structural
+// trap that once left --tenant-id unread on this path while --url was honoured:
+// a rule that depends on work a branch skips is a rule that silently does not
+// apply there.
+//
+// The flag var is still consulted first, so a --client-id given on the command
+// line counts even before folding.
+func clientIDFromInvocation() bool {
+	return clientID != "" || os.Getenv("JAMF_CLIENT_ID") != ""
+}
+
+// credentialIdentifiesTheProfilesIntegration reports whether the active client
+// ID came from the profile rather than from this invocation.
+//
+// The client ID is what names a Jamf Account integration, and an integration is
+// created at exactly one scope level whose credential carries that choice — so
+// whoever supplies the client ID supplies the level. A secret alone does not
+// move that: a profile holding client-id with only JAMF_CLIENT_SECRET injected
+// is still the profile's integration, which is a reasonable CI shape and one
+// the config's own `env:` secret references already serve. This is therefore
+// slightly narrower than "credentials came from the environment" and never
+// wider: the full JAMF_CLIENT_ID + JAMF_CLIENT_SECRET pair always trips it.
+func credentialIdentifiesTheProfilesIntegration(profileName string) bool {
+	return profileName != "" && !clientIDFromInvocation()
+}
+
+// profileScopeAppliesTo reports whether a profile's scope level may be attached
+// to the credentials in hand.
+//
+// It is false when the client ID came from the invocation, and that is a
+// behaviour change rather than a diagnostic one. resolveScope's ladder is per
+// input — flag, then env var, then profile — which is right for a URL and wrong
+// for the scope. Supply JAMF_URL + JAMF_CLIENT_ID + JAMF_CLIENT_SECRET for an
+// organization-scoped integration while any default profile happens to carry a
+// tenant-id, and the request went out with an X-Tenant-Id the operator never
+// mentioned. **An organization-scoped credential must never send a scope
+// header**, and there is nothing the CLI can do with a level belonging to some
+// other integration: at best it is redundant, at worst it is a level the
+// credential cannot use.
+//
+// So the level is dropped, not spliced, and the profile's is recorded so the
+// resulting error can name it. Nothing silently reached the wrong tenant while
+// the splice existed — wire-checked 2026-09-05, a tenant ID the credential does
+// not own answers 403 OWNERSHIP_FORBIDDEN, with the owned ID at 200 and no
+// header at 400 REQUEST_CONTEXT_NOT_PROVIDED in the same run — so this fixes a
+// misattributed error rather than a wrong target. It was a bad error: the level
+// named in it appeared in no flag, no variable and no command the operator
+// typed.
+func profileScopeAppliesTo(profileName string) bool {
+	return credentialIdentifiesTheProfilesIntegration(profileName)
+}
+
+// withheldScopeNote explains a request that carried no scope header because the
+// profile's level did not belong to the credentials in hand. "" when there is
+// nothing withheld.
+//
+// This is what makes the drop actionable rather than merely correct: without
+// it, an env-var tenant-scoped credential and no JAMF_TENANT_ID produce a bare
+// 400 whose remedy is invisible, and the level note beside it would describe
+// the credential as organization-scoped, which is a claim about the credential
+// this side cannot make — a gateway token is opaque and carries an empty scope.
+func withheldScopeNote() string {
+	if withheldProfileScope.Profile == "" {
+		return ""
+	}
+	envVar := "JAMF_TENANT_ID"
+	flagName := "--tenant-id"
+	if withheldProfileScope.Level == "environment" {
+		envVar, flagName = "JAMF_ENVIRONMENT_ID", "--environment-id"
+	}
+	return fmt.Sprintf("Profile %q carries a %s ID, which was not used because the client ID came "+
+		"from %s: an integration is created at one level in Jamf Account and its credential carries "+
+		"that choice, so that ID belongs to the profile's own integration. Supply the level for "+
+		"these credentials with %s or %s, or drop them to use the profile's credentials as well as "+
+		"its level.",
+		withheldProfileScope.Profile, withheldProfileScope.Level, clientIDSource(), envVar, flagName)
+}
+
+// clientIDSource names where the active client ID came from, reading the
+// environment directly for the reason clientIDFromInvocation does: the folded
+// package vars are empty on the `security` path, where credentialSource would
+// fall through to its vague default and say "the active credentials" about a
+// JAMF_CLIENT_ID that is plainly set. credentialSource itself is left alone —
+// its callers run after the fold, and its own doc explains why it reads the
+// resolved vars.
+func clientIDSource() string {
+	if clientID != "" && os.Getenv("JAMF_CLIENT_ID") == "" {
+		return "the --client-id flag"
+	}
+	return "the JAMF_CLIENT_ID environment variable"
+}
+
 // scopesOf returns the scope levels a command's annotation declares, or nil.
 //
 // nil means the spec is silent, not that any level works: the three Jamf
@@ -61,14 +195,18 @@ func scopesOf(cmd *cobra.Command) []string {
 // earns. A 400, so EnrichPrivilegeError never sees it and this is the only
 // place the declared levels can reach it.
 //
-// Two sibling codes are deliberately handled elsewhere or not at all.
 // OWNERSHIP_FORBIDDEN is a 403 that already routes to scopeMismatchHint, which
 // names the declared levels itself — one answer beats two overlapping ones.
-// INVALID_REQUEST_CONTEXT_TYPE already names both the level sent and the levels
-// accepted ("Request context type 'tenant' is invalid. Expected any of
-// 'environment'"), so the annotation adds nothing and a second list risks
-// disagreeing with the gateway's own.
 const gatewayMissingScope = "REQUEST_CONTEXT_NOT_PROVIDED"
+
+// INVALID_REQUEST_CONTEXT_TYPE gets nothing, and after the withhold rule it
+// cannot arise from a profile at all: a level now only reaches the wire when
+// the caller named it on this invocation, and the gateway's own message already
+// names both the level sent and the levels accepted. That error was the symptom
+// that found the splice — an organization-scoped credential from JAMF_*
+// variables, with a default profile carrying a tenant-id, produced
+// "Request context type 'tenant' is invalid" naming a level the operator never
+// chose. See profileScopeAppliesTo.
 
 // AnnotateScopeLevelError appends the levels a platform command declares to a
 // gateway scope error, when the credential in hand is not at one of them.
@@ -111,7 +249,19 @@ func AnnotateScopeLevelError(cmd *cobra.Command, err error) error {
 	// EnrichPrivilegeError's errors.As checks, and formatting with %s flattens
 	// the chain — which is how an annotated error lost its classification and
 	// fell back to exit 1.
-	return fmt.Errorf("%w\n\nnote: %s", err, scopeLevelNote(levels, have))
+	withheld := withheldScopeNote()
+	return fmt.Errorf("%w\n\nnote: %s", err, joinNotes(scopeLevelNote(levels, have, withheld != ""), withheld))
+}
+
+// joinNotes runs the sentences together, skipping the empty ones.
+func joinNotes(parts ...string) string {
+	kept := make([]string, 0, len(parts))
+	for _, p := range parts {
+		if p != "" {
+			kept = append(kept, p)
+		}
+	}
+	return strings.Join(kept, " ")
 }
 
 // renderScopeLevels renders a declared level set as prose. Shared with
@@ -126,9 +276,16 @@ func renderScopeLevels(levels []string) string {
 
 // scopeLevelNote renders the sentence. Split out so a test can assert the
 // wording for each level without standing up a gateway error.
-func scopeLevelNote(levels []string, have string) string {
-	note := fmt.Sprintf("this command's API declares %s, and the credential in use is %s-scoped.",
+func scopeLevelNote(levels []string, have string, withheld bool) string {
+	note := fmt.Sprintf("this command's API declares %s, and this invocation is %s-scoped.",
 		renderScopeLevels(levels), have)
+	if withheld {
+		// The remedy belongs to withheldScopeNote, which knows the profile and
+		// the level. Repeating it here produced a note that said "no scope
+		// header was sent" twice and then advised setting an ID on the very
+		// profile whose ID had just been passed over.
+		return note
+	}
 	if have == "organization" {
 		// An organization-scoped credential sends no header at all, so there is
 		// no ID to correct — the answer is a different integration or a profile
@@ -137,8 +294,14 @@ func scopeLevelNote(levels []string, have string) string {
 		if len(levels) == 1 {
 			which = "that level"
 		}
-		return note + " An organization-scoped credential sends no scope header. Set an " +
-			"environment ID on the profile (or JAMF_ENVIRONMENT_ID), or use an integration " +
+		// "organization-scoped" describes the request, not the credential: a
+		// gateway token is opaque and carries an empty scope, so nothing here
+		// can read the level a credential was minted at. Sending no header is
+		// what organization scope is on the wire, and it is also what a
+		// credential whose level was never supplied ends up sending — which is
+		// why withheldScopeNote runs beside this one.
+		return note + " No scope header was sent, which is what organization scope is on the wire. " +
+			"Set an environment ID on the profile (or JAMF_ENVIRONMENT_ID), or use an integration " +
 			"created at " + which + "."
 	}
 	return note + " An integration is created at one level in Jamf Account and only works " +

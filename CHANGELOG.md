@@ -58,6 +58,19 @@ in hand.
 - **Exit code 8 is new** — `Refused by policy`, for a command that is correctly invoked but
   cannot be served by the resolved credentials. Distinct from 2, which is also every cobra
   flag error.
+- **A profile's scope level is no longer attached to credentials supplied for the
+  invocation.** If the client ID comes from `--client-id` or `JAMF_CLIENT_ID`, the profile's
+  `environment-id` and `tenant-id` are both ignored rather than one being used. An
+  integration is created at one level in Jamf Account and its credential carries that
+  choice, so a profile's level describes the profile's own integration — and an
+  organization-scoped credential must send no scope header at all. Before this,
+  `JAMF_URL` + `JAMF_CLIENT_ID` + `JAMF_CLIENT_SECRET` for an organization-scoped
+  integration sent an `X-Tenant-Id` taken from whatever `default-profile` named, and failed
+  with a level the operator never chose. Supply the level for those credentials with
+  `--environment-id` / `--tenant-id` or `JAMF_ENVIRONMENT_ID` / `JAMF_TENANT_ID`; the
+  resulting error names the profile whose level was passed over and both ways to set one.
+  A profile holding `client-id` with only `JAMF_CLIENT_SECRET` injected is unaffected — the
+  client ID names the integration, so that is still the profile's.
 - **A platform command's 403 now exits 5, not 1.** Platform commands previously returned the
   SDK's error untouched, so the one failure with a specific remedy exited with the generic
   code.
