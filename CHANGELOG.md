@@ -46,13 +46,14 @@ migration guide** and carries the detail, the error messages verbatim, and the r
   `set-auto-admin-password` and `settings`. The gateway's published API declares GET on
   those paths but not POST, so the refusal is per method rather than per resource.
   `pro comp erase` and `pro comp remove-mdm` are hand-written and are **not** affected.
-  The rest are `pro api-roles`, `pro api-integrations`, `pro api-roles-privileges`,
-  `pro authentications`, `pro oauth-token-sessions`, `pro classic-computer-configs`,
-  `pro static-computer-groups` (use `pro computer-groups-static-groups`),
-  `pro classic-patch-reports`, five `pro classic-patch-titles` subcommands,
-  `pro classic-patch-policies list`, `pro policy-properties`, `pro systems`,
-  `pro mdm-commands commands`, `pro mac-os-managed-software-updates` and
-  `pro database-connections`.
+  The other 51 are `pro api-integrations` (7), `pro classic-computer-configs` (7),
+  `pro api-roles` (6), `pro authentications` (6),
+  `pro static-computer-groups` (6, use `pro computer-groups-static-groups`),
+  five `pro classic-patch-titles` subcommands, `pro api-roles-privileges` (2),
+  `pro classic-patch-reports` (2), `pro policy-properties` (2), `pro systems` (2),
+  and one each of `pro classic-patch-policies list`, `pro database-connections`,
+  `pro environment-type`, `pro mac-os-managed-software-updates`,
+  `pro mdm-commands commands` and `pro oauth-token-sessions`.
   `jamf-cli commands -o json | jq -r '.[] | select(.gateway=="unserved") | .command'`
   reports the current list for the binary in hand. `JAMF_CLI_ALLOW_UNPUBLISHED=1` downgrades
   an *unpublished* refusal to a stderr warning and sends the request anyway — a stopgap for
@@ -109,6 +110,10 @@ migration guide** and carries the detail, the error messages verbatim, and the r
   Jamf Pro API-role privilege names for an instance request. `commands -o json` carries both
   (`privileges`, `gatewayPrivileges`, `gatewayPermissions`) plus an `api` field naming the
   serving API.
+- **`commands -o json`'s `gatewaySuccessor` reports a value**, where it was documented but
+  emitted on no row at all: six refused commands now name the replacement the runtime
+  refusal and the `--help` caveat already named. A script reading the catalog rather than
+  running `--help` was told only that a command was `unserved`.
 - **A CDN/WAF refusal is reported as one** rather than as `permission denied (HTTP 403)`
   with an HTML page in the message and a hint about API roles. Known triggers: `file://`
   anywhere in a request body, `.pkg` upload content, a burst of writes. A `.pkg` upload
