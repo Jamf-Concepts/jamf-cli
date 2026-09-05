@@ -426,28 +426,6 @@ func sortedKeysOf(row map[string]any) []string {
 	return keys
 }
 
-// TestBackupSubDirs_NestedCountMatchesTheComment pins the tally BackupSubDirs'
-// own doc comment states. That comment said thirteen while the table held
-// fifteen, because two advanced-searches entries were added and a number in
-// prose has nothing watching it. Nothing else in the suite reads the count, so
-// without this the next entry makes the comment wrong again, silently.
-//
-// It fails in the direction that matters: a sixteenth nested resource fails
-// here, and the message says to update the comment rather than the constant.
-func TestBackupSubDirs_NestedCountMatchesTheComment(t *testing.T) {
-	const stated = 15 // keep in step with BackupSubDirs' doc comment
-
-	nested := 0
-	for _, r := range BackupResources {
-		if strings.Contains(r.SubDir, "/") {
-			nested++
-		}
-	}
-	if nested != stated {
-		t.Errorf("%d curated resources nest two levels deep, BackupSubDirs' comment says %d — update the comment and this constant together", nested, stated)
-	}
-}
-
 // TestNonStandardBackupFilters_SourcesArePinned holds each hand-written Source
 // to its filter name. These three are the only source values in the listing
 // with no derivation behind them, so nothing else in the suite would notice one

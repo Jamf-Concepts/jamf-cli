@@ -1774,6 +1774,18 @@ func TestRefuseStrayArgs_ProDiff(t *testing.T) {
 	if strings.Contains(err.Error(), "unknown command") {
 		t.Errorf("pro diff owns no subcommands, so the message must not call it one, got %q", err.Error())
 	}
+	// The hint is the cross-PR contract. #360 installs a tree-wide guard that
+	// holds every zero-arity leaf to carrying one, and `pro diff` is such a
+	// leaf whose validator that guard leaves alone (it only fills a nil Args).
+	// A refusal built with exitcode.Wrap carries no Hint, so this assertion is
+	// what stops the two landing as two wordings for one mistake.
+	var e *exitcode.Error
+	if !errors.As(err, &e) {
+		t.Fatalf("refusal carries no exit-code error: %T", err)
+	}
+	if e.Hint == "" {
+		t.Error("refusal carries no hint, so it does not say where to find the flags")
+	}
 }
 
 // TestRefuseStrayArgs_ProDiffNamesItsRequiredFlags covers the remedy this
@@ -1787,7 +1799,9 @@ func TestRefuseStrayArgs_ProDiff(t *testing.T) {
 //
 // It goes through root.Execute() rather than calling Args directly, because the
 // precedence is the whole point: a direct call would pass even if cobra ran the
-// flag validator first and the clause were unreachable.
+// flag validator first and the clause were unreachable. The wording is cobra's
+// own ValidateRequiredFlags, so it matches what the CLI prints for a missing
+// required flag everywhere else.
 func TestRefuseStrayArgs_ProDiffNamesItsRequiredFlags(t *testing.T) {
 	root := NewRootCmd("test", "none", "none", "none")
 	root.SetArgs([]string{"pro", "diff", "staging", "production"})
@@ -1801,7 +1815,7 @@ func TestRefuseStrayArgs_ProDiffNamesItsRequiredFlags(t *testing.T) {
 	if code := exitcode.CodeFrom(err); code != exitcode.Usage {
 		t.Errorf("exit code = %d, want %d (usage)", code, exitcode.Usage)
 	}
-	for _, want := range []string{"--source", "--target"} {
+	for _, want := range []string{"source", "target"} {
 		if !strings.Contains(err.Error(), want) {
 			t.Errorf("message should name %s, got %q", want, err.Error())
 		}
@@ -1809,10 +1823,10 @@ func TestRefuseStrayArgs_ProDiffNamesItsRequiredFlags(t *testing.T) {
 }
 
 // TestRefuseStrayArgs_SuppliedRequiredFlagIsNotNamed asserts the clause reports
-// what is actually missing rather than what the command declares. Without the
-// !f.Changed test, every stray-positional message on `pro backup` would
-// recommend --output to an operator who had just passed it — advice that reads
-// as the CLI not having seen the flag.
+// what is actually missing rather than what the command declares, which is what
+// keeps it off the messages where nothing is missing. A message recommending
+// --output to an operator who had just passed it reads as the CLI not having
+// seen the flag.
 func TestRefuseStrayArgs_SuppliedRequiredFlagIsNotNamed(t *testing.T) {
 	root := NewRootCmd("test", "none", "none", "none")
 	root.SetArgs([]string{"pro", "backup", "somegarbage", "--output", t.TempDir()})
@@ -1823,7 +1837,7 @@ func TestRefuseStrayArgs_SuppliedRequiredFlagIsNotNamed(t *testing.T) {
 	if err == nil {
 		t.Fatal("pro backup accepted a stray positional")
 	}
-	if strings.Contains(err.Error(), "required flags not set") {
+	if strings.Contains(err.Error(), "required flag") {
 		t.Errorf("--output was supplied, so nothing is missing, got %q", err.Error())
 	}
 }

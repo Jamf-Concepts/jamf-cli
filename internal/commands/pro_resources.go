@@ -252,15 +252,16 @@ func BackupFilterNames() []string {
 // are comparable; it also uses the key set to tell which directories in the
 // backup root a curated resource already owns from those it must key by name.
 //
-// It matters because fifteen of the curated resources nest two levels deep
+// It matters because many of the curated resources nest two levels deep
 // (profiles/macos, smart-groups/computers, accounts/users,
 // advanced-searches/computers, …). `diff` used to treat every top-level
 // directory as a resource and read only the files sitting directly inside it, so
 // every nested resource contributed nothing to either snapshot and its changes
 // were reported as no change at all — silently, exit 0.
 //
-// TestBackupSubDirs_NestedCountMatchesTheComment pins that count, because a
-// tally in a comment is otherwise wrong the first time the table grows.
+// Deliberately no tally: this comment said thirteen while the table held
+// fifteen, and a number nothing reads is wrong again the first time the table
+// grows. Read the table.
 func BackupSubDirs() map[string]string {
 	out := make(map[string]string, len(BackupResources))
 	for _, r := range BackupResources {

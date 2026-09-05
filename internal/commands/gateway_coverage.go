@@ -257,43 +257,25 @@ func gatewayGroupCoverageHelp(cmd *cobra.Command) string {
 		gatewayHelpMarker, successorHelp(cmd))
 }
 
-// everyLeafRefused reports whether cmd has at least one runnable operation
-// beneath it and every one of them is refused.
+// everyLeafRefused reports whether cmd has at least one runnable leaf beneath it
+// and every one of them is refused.
 //
-// Judged over operations rather than direct children so an intermediate group
-// node counts as refused when everything under it is, and false for a leafless
+// Judged over leaves rather than direct children so an intermediate group node
+// counts as refused when everything under it is, and false for a leafless
 // command so a pure grouping node with no operations never earns a note.
-//
-// An operation is any runnable node, whether or not it owns subcommands. That
-// distinction used to be decided on len(subs) alone, which meant a runnable
-// parent's own verdict was never read and it never counted toward the tally:
-// a refused runnable parent whose only children were leafless grouping nodes
-// answered false, so the caveat this feeds was withheld from the one command
-// that needed it. `pro backup` is the tree's first runnable parent and carries
-// no gateway annotation, so nothing changes today — the shape is pinned by
-// TestEveryLeafRefused_CountsARunnableParentAsAnOperation instead of waiting
-// for markGatewayCoverage to stamp one.
-//
-// A synthesized group parent is excluded: guardUnknownSubcommands makes every
-// group parent runnable, and its RunE only refuses a typo, so counting those
-// would make every parent in the tree an operation with no verdict of its own.
-// That guard runs after applyGatewayCoverageHelp today, so the annotation is
-// absent here and the check is defensive — it is what keeps this correct if the
-// two are ever reordered.
 func everyLeafRefused(cmd *cobra.Command) bool {
 	leaves := 0
 	var walk func(*cobra.Command) bool
 	walk = func(c *cobra.Command) bool {
-		self := true
-		if c.Runnable() && c.Annotations[groupParentAnnotation] != "true" {
-			leaves++
-			self = gateway.Level(c.Annotations[annotationGateway]) == gateway.Unserved
-		}
 		subs := c.Commands()
 		if len(subs) == 0 {
-			return self // a non-runnable leaf is not refusable; self stays true
+			if !c.Runnable() {
+				return true // not a leaf that can be refused; ignore it
+			}
+			leaves++
+			return gateway.Level(c.Annotations[annotationGateway]) == gateway.Unserved
 		}
-		all := self
+		all := true
 		for _, sub := range subs {
 			if !walk(sub) {
 				all = false
