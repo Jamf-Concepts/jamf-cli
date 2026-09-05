@@ -299,43 +299,53 @@ commands are **refused before a request is sent** on a gateway profile, with **e
 
 | Command group | Refused | Why |
 |---|---|---|
-| `pro mobile-devices` | 16 of 24 | the MDM device actions — the gateway declares GET on `/v2/mdm/commands`, not POST |
-| `pro computers-inventory` | 8 of 27 | the MDM device actions, as above |
+| `pro mobile-devices` | 16 | the gateway declares GET on those paths, not POST — the MDM device actions, including `lock`, `restart`, `shutdown` and lost mode |
+| `pro computers-inventory` | 8 | as above — `lock`, `restart`, `shutdown`, remote-desktop control, `set-recovery-lock`, `set-auto-admin-password` |
 | `pro api-integrations` | 7 | outside the published API — withdrawn to close a privilege-escalation path |
 | `pro classic-computer-configs` | 7 | outside the published Classic API 11.28.0 |
 | `pro api-roles` | 6 | as `pro api-integrations` |
 | `pro authentications` | 6 | outside the published API |
 | `pro static-computer-groups` | 6 | the deprecated v2 endpoint — use `pro computer-groups-static-groups` |
 | `pro api-roles-privileges` | 2 | as `pro api-integrations` |
-| `pro systems` | 2 | `initialize` / `platform-initialize`, withdrawn upstream |
 | `pro policy-properties` | 2 | `GET`/`PUT /settings/obj/policyProperties`, withdrawn from the published API |
-| `pro oauth-token-sessions` | 1 | outside the published API |
-| `pro environment-type` | 1 | outside the published API |
+| `pro systems` | 2 | `initialize` / `platform-initialize`, withdrawn upstream |
 | `pro database-connections` | 1 | outside the published API |
+| `pro environment-type` | 1 | outside the published API |
 | `pro mac-os-managed-software-updates` | 1 | `list` (the deprecated available-updates endpoint) |
 | `pro mdm-commands commands` | 1 | the gateway declares GET on that path, not POST |
+| `pro oauth-token-sessions` | 1 | outside the published API |
 
-67 commands in total. `pro classic-computer-configs` accounts for 7 of them with 6
-subcommands, because the whole resource is refused and its group node is refused in its own
-right. **Nothing else changes for the ~1,700 other commands** — Pro and Classic still route
+67 commands in total (a wholly-refused resource contributes its group node too).
+**Nothing else changes for the ~1,700 other commands** — Pro and Classic still route
 through the gateway as before.
 
-The top two rows are the shape to expect from here on: a withdrawal can take **part of a
-command group**. `pro mobile-devices list`, `get` and the rest are served while 16 of its
-subcommands are refused, because those 16 send `POST /v2/mdm/commands` and the gateway
-publishes only GET on that path. Check `--help` on the individual subcommand rather than the
-group; a refused one says so in its first paragraph.
+**24 of the 67 are MDM device actions, and that is the refusal most likely to be felt.**
+`pro mobile-devices` loses `lock`, `restart`, `shutdown`, `enable-lost-mode`,
+`disable-lost-mode`, `play-lost-mode-sound`, `clear-passcode`, `clear-restrictions-password`,
+`delete-user`, `log-out-user`, `unlock-user-account`, `apply-redemption-code`,
+`refresh-cellular-plans`, `request-mirroring`, `stop-mirroring` and `settings`;
+`pro computers-inventory` loses `lock`, `restart`, `shutdown`, `enable-remote-desktop`,
+`disable-remote-desktop`, `set-recovery-lock`, `set-auto-admin-password` and `settings`. The
+published API declares GET on those paths but not POST, so the refusal is **per method**: the
+inventory reads on both resources are unaffected, and so is everything else under them.
+`pro comp erase` and `pro comp remove-mdm` are hand-written against a different path and are
+**not** refused.
 
-Classic is judged at three granularities for the same reason — the resource, then each
-method across it, then the collection GET exactly — and **the binary has no live example of
-the two narrower ones today**. The Classic patch-management family supplied it until this
-ingest: `pro classic-patch-titles create` was served while `list`, `get`, `update`, `delete`
-and `apply` were refused, because the gateway published `POST /patchsoftwaretitles/id/{id}`
-and nothing else on that resource. That family is restored in full, so all three
-granularities now agree on it. The mechanism stays, and the tests that exercise it are
-synthetic rather than fixtures of a shipped command, because the last Classic withdrawal
-landed *inside* surviving subtrees rather than on whole resources — which is what the next
-one is expected to do too.
+Those first two rows are the shape to expect from here on: a withdrawal can take **part of a
+command group**. `pro mobile-devices list`, `get` and the rest are served while 16 of its
+subcommands are refused. Check `--help` on the individual subcommand rather than the group;
+a refused one says so in its first paragraph.
+
+Classic is judged at three granularities for the same reason — the resource, then each method
+across it, then the collection GET exactly — and **the binary has no live example of the two
+narrower ones today**. The Classic patch-management family supplied it until this ingest:
+`pro classic-patch-titles create` was served while `list`, `get`, `update`, `delete` and
+`apply` were refused, because the gateway published `POST /patchsoftwaretitles/id/{id}` — the
+only call that mints a `softwareTitleId` — and nothing else on that resource. That family is
+restored in full, so all three granularities now agree on it. The mechanism stays, and the
+tests that exercise it are synthetic rather than fixtures of a shipped command, because the
+last Classic withdrawal landed *inside* surviving subtrees rather than on whole resources —
+which is what the next one is expected to do too.
 
 To see the current list for the binary you have, without a profile:
 

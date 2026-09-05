@@ -752,7 +752,11 @@ func findCommandPath(t *testing.T, root *cobra.Command, path string) *cobra.Comm
 // replacement — two answers to the same question.
 func TestCatalogCarriesTheSuccessorForARefusedCommand(t *testing.T) {
 	root := NewRootCmd("test", "commit", "date", "11.31.0")
-	entries := collectCommands(root, "jamf-cli", "", "")
+	// The empty prefix is what `commands -o json` passes. Handing this a
+	// "jamf-cli" prefix instead is what let the successor lookup stay broken:
+	// the extra field absorbed gateway.Successor's binary-name strip, so the
+	// test passed against a call shape production never makes.
+	entries := collectCommands(root, "", "", "")
 
 	var refused, withSuccessor int
 	for _, e := range entries {
@@ -786,5 +790,53 @@ func TestCatalogCarriesTheSuccessorForARefusedCommand(t *testing.T) {
 	}
 	if withSuccessor == 0 {
 		t.Fatal("no refused command carries a successor; gateway.Successor is not reaching the catalog")
+	}
+}
+
+// TestCatalogJSONCarriesTheSuccessorKey: the test above asserts the struct
+// field, which is one function short of the answer a consumer reads.
+// commandEntriesToMaps is what copies GatewaySuccessor into the
+// `gatewaySuccessor` key `commands -o json` marshals, and that copy sits inside
+// a positive-only block with three other fields — so dropping or renaming it
+// reproduces this PR's own defect one layer down, computed correctly and never
+// reaching the catalog. Deleting the copy left the whole suite green.
+//
+// Asserted on the map keys alone, never on commandEntry, so the test cannot
+// pass by re-reading the value the copy was supposed to move.
+func TestCatalogJSONCarriesTheSuccessorKey(t *testing.T) {
+	root := NewRootCmd("test", "commit", "date", "11.31.0")
+	entries := collectCommands(root, "", "", "")
+	// true is what `commands -o json` passes: isFullDetailFormat covers every
+	// structured format, and the compact table carries none of these fields.
+	maps := commandEntriesToMaps(entries, true)
+
+	var refused, withSuccessor int
+	for _, m := range maps {
+		successor, hasSuccessor := m["gatewaySuccessor"].(string)
+		if m["gateway"] != string(gateway.Unserved) {
+			// A served command must not advertise a replacement, and the key
+			// must be absent rather than empty: an empty string on every row
+			// would read as "no replacement exists".
+			if hasSuccessor {
+				t.Errorf("%v is served but its JSON carries gatewaySuccessor %q", m["command"], successor)
+			}
+			continue
+		}
+		refused++
+		if !hasSuccessor {
+			continue
+		}
+		if successor == "" {
+			t.Errorf("%v: gatewaySuccessor is present but empty", m["command"])
+			continue
+		}
+		withSuccessor++
+	}
+
+	if refused == 0 {
+		t.Fatal("no refused command in the catalog — the coverage manifest is not being read")
+	}
+	if withSuccessor == 0 {
+		t.Fatal("no gatewaySuccessor key in the JSON catalog; the field is computed but not marshaled")
 	}
 }

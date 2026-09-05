@@ -13,11 +13,18 @@ import (
 // nothing. This walks the struct's json tags and requires each to appear as a
 // key on at least one real command.
 //
-// Two fields have already been lost this way: gatewaySuccessor was computed,
-// stored on the struct and never added to the map (PR #345), and `scopes` was
-// about to go the same way — `commands -o json` reported none for all 110
-// commands that carry the annotation, with every unit test passing, because the
-// tests read scopesOf and the annotation directly.
+// Two fields have been lost this way. gatewaySuccessor was computed, stored on
+// the struct and never added to the map — dead in the catalog while the runtime
+// refusal and the --help caveat both named the successor correctly (fixed in
+// #345). And `scopes` was about to go the same way: `commands -o json` reported
+// none for all 110 commands carrying the annotation, with every unit test
+// passing, because the tests read scopesOf and the annotation directly.
+//
+// This is the generic half. TestCatalogJSONCarriesTheSuccessorKey is the
+// specific one and both are wanted: that test pins gatewaySuccessor's
+// positive-only contract in *both* directions (absent for a served command,
+// never present-but-empty), which a key-presence sweep cannot see, while this
+// one covers a field nobody has written a targeted test for yet.
 //
 // Asserted against the whole shipped tree rather than a fixture, because a
 // positive-only field is only present when some command has a value for it: a
@@ -46,33 +53,10 @@ func TestEveryCommandEntryFieldReachesTheCatalog(t *testing.T) {
 			continue
 		}
 		name := strings.Split(tag, ",")[0]
-		if knownMissingCatalogKeys[name] != "" {
-			// Two-way: an allowlisted key that has started appearing means the
-			// fix landed and the entry is now hiding nothing, so it has to go
-			// rather than sit here reading as current knowledge.
-			if present[name] {
-				t.Errorf("%q is in knownMissingCatalogKeys but the catalog now carries it — "+
-					"delete the entry (%s)", name, knownMissingCatalogKeys[name])
-			}
-			continue
-		}
 		if !present[name] {
 			t.Errorf("commandEntry.%s is projected to %q, which no command in the catalog carries — "+
 				"add it to commandEntriesToMaps, or drop the field: a struct field alone does not "+
 				"reach `commands -o json`", typ.Field(i).Name, name)
 		}
 	}
-}
-
-// knownMissingCatalogKeys are keys this test would otherwise fail on, each with
-// the reason and where the fix lives. Deliberately not fixed here: duplicating
-// an open PR's change guarantees a conflict on it.
-var knownMissingCatalogKeys = map[string]string{
-	// gatewaySuccessorOf is called with a command path that has no binary name
-	// on the front, while gateway.Successor drops the first field as the binary
-	// before matching — so "pro static-computer-groups list" is matched as
-	// "static-computer-groups list" and the single curated key never hits. The
-	// field is computed, stored and silently empty for every command. Fixed by
-	// PR #345; delete this entry when that merges.
-	"gatewaySuccessor": "fixed by PR #345",
 }
