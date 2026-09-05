@@ -11,7 +11,7 @@
     { label: 'Software & Content', groups: ['Apps & Patching', 'Distribution & JCDS', 'Scripts & Policies', 'Self Service', 'Jamf App Integrations'] },
     { label: 'Identity & Access',  groups: ['Users & Groups', 'Admin Accounts', 'Identity Providers', 'Admin SSO', 'API Access'] },
     { label: 'Infrastructure',     groups: ['MDM & Certificates', 'OS Updates', 'Security', 'Server Health', 'System Integrations'] },
-    { label: 'Platform API',       groups: ['Platform - Configuration', 'Platform - Compliance', 'Platform - Devices & Users', 'Platform', 'AI Governance'] },
+    { label: 'Platform API',       groups: ['Platform - Configuration', 'Platform - Compliance', 'Platform - Devices & Users', 'Platform', 'Jamf Account (US-only)', 'AI Governance', 'Audit'] },
     { label: 'Classic API',        groups: ['Classic - Computers', 'Classic - Mobile Devices', 'Classic - Configuration', 'Classic - Administration', 'Classic - Patch Management'] }
   ];
 
@@ -29,12 +29,23 @@
     return _pillarIndex[groupName] || null;
   }
 
+  // Position of a group's pillar in PILLARS; groups with no pillar sort last.
+  function pillarRank(groupName) {
+    var label = pillarFor(groupName);
+    if (!label) return PILLARS.length;
+    for (var i = 0; i < PILLARS.length; i++) if (PILLARS[i].label === label) return i;
+    return PILLARS.length;
+  }
+
   var GROUP_ORDER = [
     'Getting Started',
     'Platform - Configuration',
     'Platform - Compliance',
     'Platform - Devices & Users',
     'Platform',
+    'Jamf Account (US-only)',
+    'AI Governance',
+    'Audit',
     'Configuration',
     'Shell Completion',
     'Utilities',
@@ -68,10 +79,13 @@
     'Endpoints',
     'Access & Identity',
     'Device Risk & Lifecycle',
+    'Device Groups',
+    'DNS & Content Filtering',
+    'Zero Trust Network Access',
+    'UEM Connect',
     'Shared Signals & Events'
   ];
 
-  var JAMF_ICON_SVG = '<svg class="product-icon" viewBox="0 0 43 43" fill="none" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" clip-rule="evenodd" d="M33.63 6.96c-5.52 0-8.78 2.33-10.27 7.31l-3.84 11.88c-1.41 3.91-3.68 5.52-7.82 5.52H2.19A2.19 2.19 0 000 33.87v6.06c0 1.16.94 2.1 2.1 2.1h38.57a2.19 2.19 0 002.19-2.19V9.08c0-1.17-.95-2.12-2.11-2.12h-7.12z" fill="currentColor"/><path fill-rule="evenodd" clip-rule="evenodd" d="M2.35 0A2.35 2.35 0 000 2.35v16.22a2.29 2.29 0 002.29 2.29h8.17c3.74 0 8.88-.77 10.29-7.41l2.23-10.6A2.35 2.35 0 0020.68 0H2.35z" fill="currentColor"/></svg>';
 
   var allCommands = [];
   var newCommandSet = {};
@@ -79,8 +93,20 @@
   var commandExamples = {};
   var activeProduct = 'all';
   var expandedCommand = null;
-  var expandHintShown = false;
   var currentSearchQuery = '';
+
+  // The group shown in the table. null means "first group of the current
+  // product". A search shows every matching group and ignores this.
+  var selectedGroup = null;
+
+  // The product the selected group was picked under. A group name repeats
+  // across products ("Getting Started" exists under Platform and under Pro),
+  // so the name alone marked two sidebar items active for one table.
+  var selectedProduct = null;
+
+  // Set while a popstate replay drives the catalog, so re-expanding a row
+  // does not push the entry we are navigating back through.
+  var suppressHashUpdate = false;
 
   // ===== Initialization =====
 
@@ -92,7 +118,6 @@
     setupStatCards();
     setupToggleAll();
     setupKeyboardNav();
-    setupNavScroll();
     setupCopyButtons();
     setupDeepLinking();
     fetchCommands();
@@ -104,6 +129,11 @@
       try {
         heroExamples = JSON.parse(el.textContent);
       } catch (e) {
+        // Authored at deploy time, so invalid JSON here is a broken build
+        // rather than a condition to absorb. Say so, then carry on.
+        if (window.console && window.console.error) {
+          window.console.error('hero-examples JSON is invalid; examples disabled', e);
+        }
         heroExamples = {};
       }
     }
@@ -132,12 +162,16 @@
         populateStats(data);
         renderCatalog(allCommands, '', activeProduct);
         hideCatalogLoading();
-        handleDeepLink();
+        // Stamp the entry the page loaded on before a deep link can flip the
+        // tab. Without it that entry has a null state, and Back onto it has
+        // no product to restore. The empty URL keeps the address bar as is.
+        history.replaceState({ search: '', cmd: null, product: activeProduct }, '');
+        if (!handleDeepLink()) announceCatalog();
       })
       .catch(function (err) {
         var catalog = document.getElementById('catalog');
         if (catalog) {
-          catalog.innerHTML = '<p style="text-align:center;color:var(--text-secondary);padding:2rem 0;">Failed to load commands. ' +
+          catalog.innerHTML = '<p style="text-align:center;color:var(--font-secondary);padding:2rem 0;">Failed to load commands. ' +
             '<a href="https://github.com/Jamf-Concepts/jamf-cli">View on GitHub</a> instead.</p>';
         }
         hideCatalogLoading();
@@ -155,7 +189,8 @@
     var generatedAt = data.generatedAt || '';
 
     setText('command-count', count.toLocaleString());
-    setText('stat-commands', count.toLocaleString());
+    setText('nav-command-count', count.toLocaleString());
+    setText('commands-total', count.toLocaleString());
 
     var search = document.getElementById('search');
     if (search) search.placeholder = 'Search ' + count.toLocaleString() + ' commands... (press / to focus)';
@@ -184,30 +219,23 @@
     animateCount('stat-platform', platformCount);
     animateCount('stat-core', coreCount);
 
-    // Count unique top-level resources (second path segment, e.g. "pro computers list" → "computers")
-    var resources = {};
-    for (var r = 0; r < data.commands.length; r++) {
-      var parts = data.commands[r].command.split(' ');
-      if (parts.length >= 2) {
-        var key = parts.slice(0, 2).join(' ');
-        resources[key] = true;
-      }
-    }
-    setText('stat-resources', Object.keys(resources).length.toLocaleString());
-
     var versionBadge = document.getElementById('version-badge');
     if (versionBadge && version) {
       versionBadge.textContent = 'v' + version;
+      // Deep-link to this release's notes; the markup's href is the fallback
+      // (the releases index) for the moment before commands.json loads.
+      versionBadge.href = 'https://github.com/Jamf-Concepts/jamf-cli/releases/tag/v' + version;
+      versionBadge.title = 'Release notes for v' + version + ' on GitHub';
     }
 
     var lastUpdated = document.getElementById('last-updated');
     if (lastUpdated && generatedAt) {
-      lastUpdated.textContent = 'Updated ' + formatDate(generatedAt);
+      lastUpdated.textContent = ' · generated ' + formatDate(generatedAt);
     }
 
     var footerVersion = document.getElementById('footer-version');
     if (footerVersion && version) {
-      footerVersion.textContent = ' · v' + version;
+      footerVersion.textContent = 'jamf-cli v' + version;
     }
   }
 
@@ -216,17 +244,14 @@
     if (!el) return;
 
     // Zero-state: a product with no commands in the deployed catalog (e.g. a
-    // namespace merged after the last release the site builds from) renders a
-    // muted "Soon" rather than a stark "0", which reads as broken. Auto-clears
-    // to the real number once that product ships in a release.
-    var card = el.closest('.stat-card');
+    // namespace merged after the last release the site builds from) reads
+    // "Soon" rather than a stark "0", which reads as broken. Auto-clears to
+    // the real number once that product ships in a release.
     if (target === 0) {
-      if (card) card.classList.add('zero-state');
       el.textContent = 'Soon';
       el.classList.add('loaded');
       return;
     }
-    if (card) card.classList.remove('zero-state');
 
     var duration = 1200;
     var start = null;
@@ -285,132 +310,112 @@
 
   // ===== Rendering =====
 
+  // Split sorted groups by product. A group holding several products
+  // becomes one entry per product, keyed by product; commands carrying no
+  // product go to the shared list under the virtual "core" product.
+  function splitByProduct(sorted) {
+    var shared = [];
+    var products = {};
+    for (var i = 0; i < sorted.length; i++) {
+      var byProduct = {};
+      var noProd = [];
+      for (var j = 0; j < sorted[i].commands.length; j++) {
+        var c = sorted[i].commands[j];
+        if (c.product) { (byProduct[c.product] = byProduct[c.product] || []).push(c); }
+        else noProd.push(c);
+      }
+      if (noProd.length) shared.push({ name: sorted[i].name, commands: noProd });
+      var keys = Object.keys(byProduct);
+      for (var k = 0; k < keys.length; k++) {
+        (products[keys[k]] = products[keys[k]] || []).push({ name: sorted[i].name, commands: byProduct[keys[k]] });
+      }
+    }
+    return { shared: shared, products: products };
+  }
+
+  // Flatten a split into the render order: every product in PRODUCT_LABELS
+  // order, then the shared groups.
+  function orderedTables(split) {
+    var out = [];
+    var order = Object.keys(PRODUCT_LABELS);
+    for (var i = 0; i < order.length; i++) {
+      var groups = split.products[order[i]] || [];
+      for (var g = 0; g < groups.length; g++) out.push({ group: groups[g], product: order[i] });
+    }
+    for (var sh = 0; sh < split.shared.length; sh++) {
+      out.push({ group: split.shared[sh], product: 'core' });
+    }
+    return out;
+  }
+
+  // The table is replaced wholesale by a tab, a group choice, a search or a
+  // deep link, and a replaced region announces nothing on its own. Report
+  // what is on screen now through the polite status line in index.html.
+  function announceCatalog() {
+    var status = document.getElementById('catalog-status');
+    if (!status) return;
+    var rows = document.querySelectorAll('#catalog .command-row').length;
+    var head = document.querySelector('#catalog .group-table-head h3');
+    if (!rows && !head) {
+      status.textContent = 'No commands match your search.';
+      return;
+    }
+    var name = head ? head.textContent : 'Commands';
+    status.textContent = name + ', ' + rows + (rows === 1 ? ' command' : ' commands');
+  }
+
   function renderCatalog(commands, searchQuery, productFilter) {
     var catalog = document.getElementById('catalog');
     if (!catalog) return;
 
     currentSearchQuery = (searchQuery || '').trim().toLowerCase();
     expandedCommand = null;
-    var filtered = filterCommands(commands, searchQuery, productFilter);
-    var groups = groupCommands(filtered);
-    var sorted = sortGroups(groups);
+    resetToggleAll();
+    var hasSearch = !!currentSearchQuery;
+
+    // Sidebar: full groups for the whole product filter, never narrowed by
+    // search. With no search the table comes from this same split, so the
+    // search-side pass only runs when there is a search to run it for.
+    var nav = splitByProduct(sortGroups(groupCommands(filterCommands(commands, '', productFilter))));
+
+    // Pick the table content.
+    var tables = [];
+    if (hasSearch) {
+      tables = orderedTables(splitByProduct(sortGroups(groupCommands(filterCommands(commands, searchQuery, productFilter)))));
+    } else {
+      var all = orderedTables(nav);
+      // Prefer the exact group-and-product pair, then the name alone (a
+      // stale selectedProduct from another tab), then the first group.
+      var pick = null;
+      for (var a = 0; a < all.length; a++) {
+        if (all[a].group.name === selectedGroup && all[a].product === selectedProduct) { pick = all[a]; break; }
+      }
+      if (!pick) {
+        for (var b = 0; b < all.length; b++) {
+          if (all[b].group.name === selectedGroup) { pick = all[b]; break; }
+        }
+      }
+      if (!pick && all.length) { pick = all[0]; selectedGroup = pick.group.name; }
+      if (pick) { selectedProduct = pick.product; tables.push(pick); }
+    }
+
+    renderGroupNav(nav.products, nav.shared, productFilter);
 
     catalog.innerHTML = '';
-
-    if (sorted.length === 0) {
-      catalog.innerHTML = '<p style="text-align:center;color:var(--text-secondary);padding:2rem 0;">No commands match your search.</p>';
+    if (tables.length === 0) {
+      var empty = document.createElement('p');
+      empty.className = 'catalog-empty';
+      empty.textContent = 'No commands match your search.';
+      catalog.appendChild(empty);
       return;
     }
-
-    var hasSearch = !!(searchQuery && searchQuery.trim());
-
-    // Split groups into shared (no product) and per-product
-    // Multi-product groups get split: commands go under each product separately
-    var sharedGroups = [];
-    var productGroups = {};
-    for (var i = 0; i < sorted.length; i++) {
-      var byProduct = {};
-      var hasNoProduct = false;
-      for (var j = 0; j < sorted[i].commands.length; j++) {
-        var p = sorted[i].commands[j].product;
-        if (p) {
-          if (!byProduct[p]) byProduct[p] = [];
-          byProduct[p].push(sorted[i].commands[j]);
-        } else {
-          hasNoProduct = true;
-        }
-      }
-      var prodKeys = Object.keys(byProduct);
-
-      if (prodKeys.length === 0) {
-        // All commands have no product — truly shared
-        sharedGroups.push(sorted[i]);
-      } else if (prodKeys.length === 1 && !hasNoProduct) {
-        // All commands are one product
-        var prod = prodKeys[0];
-        if (!productGroups[prod]) productGroups[prod] = [];
-        productGroups[prod].push(sorted[i]);
-      } else {
-        // Mixed products or mix of product + no-product — split by product
-        if (hasNoProduct) {
-          var noProdCmds = sorted[i].commands.filter(function (c) { return !c.product; });
-          sharedGroups.push({ name: sorted[i].name, commands: noProdCmds });
-        }
-        for (var pk = 0; pk < prodKeys.length; pk++) {
-          var prd = prodKeys[pk];
-          if (!productGroups[prd]) productGroups[prd] = [];
-          productGroups[prd].push({ name: sorted[i].name, commands: byProduct[prd] });
-        }
-      }
+    for (var t = 0; t < tables.length; t++) {
+      catalog.appendChild(renderGroupTable(tables[t].group, tables[t].product, hasSearch));
     }
-
-    // Render shared groups first (no product divider). Pillars apply here
-    // because shared groups include the Quick Access cluster (Configuration,
-    // Shell Completion, Utilities).
-    renderGroupsWithPillars(catalog, sharedGroups, function () { return hasSearch; }, true);
-
-    // Render each product's groups under a divider. Pillars only apply to
-    // Jamf Pro — Protect/School/Platform have far fewer groups and pillar
-    // chunking actively misleads (a lone "Platform API" header above
-    // School's Platform group makes everything below it look like Platform).
-    var productOrder = Object.keys(PRODUCT_LABELS);
-    for (var pi = 0; pi < productOrder.length; pi++) {
-      var prod = productOrder[pi];
-      if (!productGroups[prod] || productGroups[prod].length === 0) continue;
-      catalog.appendChild(renderProductDivider(prod));
-      renderGroupsWithPillars(catalog, productGroups[prod], function (g) {
-        return hasSearch || g.name === 'Getting Started';
-      }, prod === 'pro');
-    }
-
-    // Any remaining products not in PRODUCT_LABELS (defensive — none today).
-    // No pillars: same reasoning as above.
-    var allProds = Object.keys(productGroups);
-    for (var r = 0; r < allProds.length; r++) {
-      if (PRODUCT_LABELS[allProds[r]]) continue;
-      catalog.appendChild(renderProductDivider(allProds[r]));
-      renderGroupsWithPillars(catalog, productGroups[allProds[r]], function () { return hasSearch; }, false);
-    }
-  }
-
-  // Iterate a list of groups. When enablePillars is true, emit a pillar
-  // divider before the first group of each pillar transition; groups without
-  // a registered pillar render without a divider. expandFn(group) returns
-  // the start-expanded boolean.
-  function renderGroupsWithPillars(parent, groups, expandFn, enablePillars) {
-    var lastPillar = null;
-    for (var i = 0; i < groups.length; i++) {
-      var pillar = enablePillars ? pillarFor(groups[i].name) : null;
-      if (pillar && pillar !== lastPillar) {
-        parent.appendChild(renderPillarDivider(pillar));
-        lastPillar = pillar;
-      } else if (!pillar) {
-        // Reset so the next pillared group emits a divider even after a
-        // gap of pillar-less groups.
-        lastPillar = null;
-      }
-      parent.appendChild(renderGroup(groups[i], !!expandFn(groups[i])));
-    }
-  }
-
-  function renderPillarDivider(label) {
-    var div = document.createElement('div');
-    div.className = 'pillar-divider';
-    div.setAttribute('role', 'separator');
-    div.setAttribute('aria-label', label);
-    var lbl = document.createElement('span');
-    lbl.className = 'pillar-label';
-    lbl.textContent = label;
-    div.appendChild(lbl);
-    var rule = document.createElement('span');
-    rule.className = 'pillar-rule';
-    rule.setAttribute('aria-hidden', 'true');
-    div.appendChild(rule);
-    return div;
   }
 
   var PRODUCT_LABELS = {
-    platform: 'Jamf Platform',
+    platform: 'Platform API',
     pro: 'Jamf Pro',
     protect: 'Jamf Protect',
     school: 'Jamf School',
@@ -418,33 +423,158 @@
     // connect: 'Jamf Connect'
   };
 
-  function renderProductDivider(product) {
-    var divider = document.createElement('div');
-    divider.className = 'product-divider';
-    divider.setAttribute('data-product', product);
+  // Sidebar: one heading per product, one item per group with a count.
+  // A product not in the active filter collapses to its heading.
+  function renderGroupNav(productGroups, sharedGroups, activeFilter) {
+    var nav = document.getElementById('group-nav');
+    if (!nav) return;
+    nav.innerHTML = '';
+    renderGroupSelect(productGroups, sharedGroups);
 
+    var order = Object.keys(PRODUCT_LABELS).concat(['core']);
+    for (var i = 0; i < order.length; i++) {
+      var prod = order[i];
+      var groups = prod === 'core' ? sharedGroups : (productGroups[prod] || []);
+      if (groups.length === 0) continue;
+      var total = 0;
+      for (var g = 0; g < groups.length; g++) total += groups[g].commands.length;
+
+      var head = document.createElement('div');
+      head.className = 'group-nav-product';
+      head.setAttribute('data-product', prod);
+      var dot = document.createElement('span');
+      dot.className = 'group-nav-dot';
+      head.appendChild(dot);
+      head.appendChild(document.createTextNode(prod === 'core' ? 'Core' : PRODUCT_LABELS[prod]));
+      var totalEl = document.createElement('span');
+      totalEl.className = 'group-nav-count';
+      totalEl.textContent = total.toLocaleString();
+      head.appendChild(totalEl);
+      nav.appendChild(head);
+
+      // The platform filter cross-cuts products: filterCommands admits Pro
+      // and School commands whose group starts with "Platform", so those
+      // headings have to open too. A collapsed heading is a count with no
+      // selectable item under it, and the table-pick list can still select
+      // one of its groups.
+      var expanded = activeFilter === 'all' || activeFilter === 'platform' || activeFilter === prod;
+      if (!expanded) continue;
+
+      // Jamf Pro: order by pillar first so each pillar label appears once.
+      // GROUP_ORDER interleaves pillars (it also drives search results),
+      // so a stable sort by pillar position keeps that order inside a pillar
+      // and sends pillar-less groups to the end.
+      var navGroups = groups;
+      if (prod === 'pro') {
+        navGroups = groups.map(function (g, idx) { return { g: g, idx: idx, p: pillarRank(g.name) }; })
+          .sort(function (a, b) { return a.p - b.p || a.idx - b.idx; })
+          .map(function (x) { return x.g; });
+      }
+      var lastPillar = null;
+      for (var k = 0; k < navGroups.length; k++) {
+        var pillar = prod === 'pro' ? pillarFor(navGroups[k].name) : null;
+        if (pillar && pillar !== lastPillar) {
+          var pl = document.createElement('div');
+          pl.className = 'group-nav-pillar';
+          pl.textContent = pillar;
+          nav.appendChild(pl);
+          lastPillar = pillar;
+        }
+        nav.appendChild(renderGroupNavItem(navGroups[k], prod));
+      }
+    }
+  }
+
+  // Below 1024px the sidebar is hidden and this select takes its place.
+  // Both controls are always in the DOM; only CSS decides which one shows.
+  function renderGroupSelect(productGroups, sharedGroups) {
+    var select = document.getElementById('group-select');
+    if (!select) return;
+    select.innerHTML = '';
+    var orderS = Object.keys(PRODUCT_LABELS).concat(['core']);
+    for (var s = 0; s < orderS.length; s++) {
+      var prod = orderS[s];
+      var gs = prod === 'core' ? sharedGroups : (productGroups[prod] || []);
+      if (!gs.length) continue;
+      var og = document.createElement('optgroup');
+      og.label = prod === 'core' ? 'Core' : PRODUCT_LABELS[prod];
+      for (var t = 0; t < gs.length; t++) {
+        var opt = document.createElement('option');
+        opt.value = gs[t].name;
+        opt.setAttribute('data-product', prod);
+        opt.textContent = gs[t].name + ' (' + gs[t].commands.length + ')';
+        if (gs[t].name === selectedGroup && prod === selectedProduct) opt.selected = true;
+        og.appendChild(opt);
+      }
+      select.appendChild(og);
+    }
+  }
+
+  function renderGroupNavItem(group, prod) {
+    var item = document.createElement('button');
+    item.type = 'button';
+    item.className = 'group-nav-item';
+    item.setAttribute('data-group', group.name);
+    item.setAttribute('data-product', prod);
+    // The sidebar is a plain list of buttons rather than a tablist, so the
+    // highlight has to have an ARIA counterpart or a reader hears every
+    // group alike.
+    var isActive = group.name === selectedGroup && prod === selectedProduct;
+    if (isActive) item.classList.add('active');
+    item.setAttribute('aria-current', isActive ? 'true' : 'false');
     var label = document.createElement('span');
-    label.className = 'product-divider-label';
-    label.innerHTML = JAMF_ICON_SVG + ' ' + (PRODUCT_LABELS[product] || product);
-    divider.appendChild(label);
-
-    return divider;
+    label.className = 'group-nav-label';
+    label.textContent = group.name;
+    item.appendChild(label);
+    var count = document.createElement('span');
+    count.className = 'group-nav-count';
+    count.textContent = group.commands.length;
+    item.appendChild(count);
+    item.addEventListener('click', function () {
+      selectedGroup = group.name;
+      selectedProduct = prod;
+      var search = document.getElementById('search');
+      if (search && search.value) { search.value = ''; }
+      renderCatalog(allCommands, '', activeProduct);
+      announceCatalog();
+      // Land on the Commands heading (it carries scroll-margin-top for the
+      // sticky nav) rather than on the table, which tucked under the bar.
+      var section = document.getElementById('commands');
+      if (section) section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+    return item;
   }
 
   // Detect when a command references another product (e.g., "pro jamf-protect-plans" → protect)
   // Uses word-boundary matching to avoid false positives like "protect" matching "pro"
+  // One pattern per product, built once. This runs per row, and building a
+  // RegExp inside the row loop cost four compiles a row for no gain.
+  var productWordRE = null;
+
+  function productPatterns() {
+    if (productWordRE === null) {
+      productWordRE = {};
+      var names = Object.keys(PRODUCT_LABELS);
+      for (var i = 0; i < names.length; i++) {
+        // Whole word or hyphenated segment, so "jamf-protect" matches
+        // "protect" while "protect ..." does not match "pro".
+        productWordRE[names[i]] = new RegExp('(^|[^a-z])' + names[i] + '([^a-z]|$)');
+      }
+    }
+    return productWordRE;
+  }
+
   function detectRelatedProduct(cmd) {
     if (!cmd.product || !cmd.command) return null;
-    var productNames = Object.keys(PRODUCT_LABELS);
-    // Strip the product prefix to avoid self-matching (e.g., "protect ..." shouldn't match "pro")
+    var res = productPatterns();
+    var productNames = Object.keys(res);
+    // Strip the product prefix so a command cannot match its own product.
     var parts = cmd.command.split(' ');
     var remainder = parts.slice(1).join(' ').toLowerCase();
     for (var i = 0; i < productNames.length; i++) {
       var other = productNames[i];
       if (other === cmd.product) continue;
-      // Match as a whole word or hyphenated segment (e.g., "jamf-protect" contains "protect")
-      var re = new RegExp('(^|[^a-z])' + other + '([^a-z]|$)');
-      if (re.test(remainder)) return other;
+      if (res[other].test(remainder)) return other;
     }
     return null;
   }
@@ -498,6 +628,10 @@
 
     if (product && product !== 'all') {
       results = results.filter(function (cmd) {
+        if (product === 'core') {
+          // Core is a virtual product: everything without a namespace.
+          return !cmd.product;
+        }
         if (product === 'platform') {
           // Platform tab cross-cuts by group: every command in any
           // "Platform - …" or "Platform" group counts, regardless of
@@ -558,433 +692,420 @@
     return result;
   }
 
-  function renderGroup(group, startExpanded) {
-    var container = document.createElement('div');
-    container.className = 'catalog-group';
-    if (group.name === 'Getting Started') container.classList.add('getting-started');
-
-    // Determine which products are in this group
-    var products = {};
-    for (var p = 0; p < group.commands.length; p++) {
-      var prod = group.commands[p].product;
-      if (prod) products[prod] = true;
-    }
-    var productKeys = Object.keys(products);
-    if (productKeys.length === 1) {
-      container.setAttribute('data-product', productKeys[0]);
-    }
-
-    var header = document.createElement('div');
-    header.className = 'catalog-group-header';
-    header.setAttribute('role', 'button');
-    var expanded = !!startExpanded;
-    header.setAttribute('aria-expanded', String(expanded));
-    header.setAttribute('tabindex', '0');
-
-    var chevron = document.createElement('span');
-    chevron.className = 'group-chevron';
-    chevron.textContent = '\u25B6';
-    header.appendChild(chevron);
-
-    var headerText = document.createTextNode(' ' + group.name + ' ');
-    header.appendChild(headerText);
-
-    var countBadge = document.createElement('span');
-    countBadge.className = 'group-count-badge';
-    countBadge.textContent = group.commands.length;
-    header.appendChild(countBadge);
-
-    var hasNew = false;
-    for (var nc = 0; nc < group.commands.length; nc++) {
-      if (newCommandSet[group.commands[nc].command]) { hasNew = true; break; }
-    }
-    if (hasNew) {
-      var dot = document.createElement('span');
-      dot.className = 'group-new-dot';
-      header.appendChild(dot);
-    }
-
-    // Right-aligned "Jamf Platform" pill on every Platform-* / Platform group
-    // header so the cross-cut sections stand out wherever they appear (under
-    // Pro or School dividers in the All view, or in the Platform tab itself).
-    // JAMF_ICON_SVG is a hardcoded constant — using insertAdjacentHTML to
-    // satisfy lint without re-encoding the SVG via createElementNS.
-    if (group.name && group.name.indexOf('Platform') === 0) {
-      var platBadge = document.createElement('span');
-      platBadge.className = 'platform-section-badge';
-      platBadge.insertAdjacentHTML('beforeend', JAMF_ICON_SVG);
-      platBadge.appendChild(document.createTextNode(' Jamf Platform'));
-      header.appendChild(platBadge);
-    }
-
-    // Show product badges if group has commands from multiple products, or for Core/shared groups
-    if (productKeys.length > 1 || (productKeys.length === 1 && group.name === 'Core Commands')) {
-      var badgeWrap = document.createElement('span');
-      badgeWrap.className = 'header-badges';
-      for (var b = 0; b < productKeys.length; b++) {
-        var badge = document.createElement('span');
-        badge.className = 'cmd-product-badge';
-        badge.setAttribute('data-product', productKeys[b]);
-        badge.innerHTML = JAMF_ICON_SVG + ' ' + (PRODUCT_LABELS[productKeys[b]] || productKeys[b]);
-        badgeWrap.appendChild(badge);
-      }
-      header.appendChild(badgeWrap);
-    }
-
-    var commandsDiv = document.createElement('div');
-    commandsDiv.className = 'group-commands';
-    commandsDiv.style.display = expanded ? '' : 'none';
-
-    // Store commands as data for lazy rendering
-    commandsDiv._commands = group.commands;
-    commandsDiv._rendered = false;
-    // When the group is auto-expanded (search active or "Expand all"), pop
-    // resource sub-buckets open too so matches stay visible — collapsing
-    // them would defeat the search.
-    commandsDiv._expandResources = expanded;
-
-    if (expanded) {
-      renderGroupCommands(commandsDiv);
-    }
-
-    header.addEventListener('click', function () {
-      toggleGroup(header, commandsDiv);
+  // ===== Resource grouping =====
+  //
+  // A group's commands form a path tree. A node with children is a
+  // *resource* (`pro blueprints`, `pro blueprints components`); a leaf is a
+  // *verb*. The table renders one .resource-block per resource so the
+  // command column can carry the verb alone instead of repeating the whole
+  // resource path on every row.
+  //
+  // The tree is built from path segments rather than from the command list,
+  // because a search shows only the matching commands: a resource whose
+  // container command did not match still needs a head so its verbs have
+  // context. Such a node carries no cmd of its own and falls back to the
+  // full catalog for its description and aliases.
+  function buildResourceTree(commands) {
+    var byPath = {};
+    var i;
+    for (i = 0; i < commands.length; i++) byPath[commands[i].command] = commands[i];
+    // Sorted so a container is always seen before its children, which is
+    // what lets a node adopt its own command as it is created.
+    var sorted = commands.slice().sort(function (a, b) {
+      return a.command < b.command ? -1 : (a.command > b.command ? 1 : 0);
     });
-    header.addEventListener('keydown', function (e) {
-      if (e.key === 'Enter' || e.key === ' ') {
-        e.preventDefault();
-        toggleGroup(header, commandsDiv);
+    var nodes = {};
+    var roots = [];
+    for (i = 0; i < sorted.length; i++) {
+      var parts = sorted[i].command.split(' ');
+      // The product word is the table's context, not part of any label —
+      // except on the bare product command itself (`pro`, in the Products
+      // group), where stripping it would leave no label and no row at all.
+      var base = (parts.length > 1 && sorted[i].product && parts[0] === sorted[i].product) ? 1 : 0;
+      var parent = null;
+      for (var d = base + 1; d <= parts.length; d++) {
+        var path = parts.slice(0, d).join(' ');
+        var node = nodes[path];
+        if (!node) {
+          node = {
+            path: path,
+            label: parts.slice(base, d).join(' '),
+            leaf: parts[d - 1],
+            cmd: byPath[path] || null,
+            depth: d - base - 1,
+            children: []
+          };
+          nodes[path] = node;
+          if (parent) parent.children.push(node);
+          else roots.push(node);
+        }
+        parent = node;
       }
-    });
-
-    container.appendChild(header);
-    container.appendChild(commandsDiv);
-    return container;
-  }
-
-  function renderGroupCommands(commandsDiv) {
-    if (commandsDiv._rendered) return;
-    var cmds = commandsDiv._commands;
-    var bucketed = bucketByResource(cmds);
-
-    if (shouldBucket(bucketed)) {
-      // Free-floating commands (e.g. "pro overview") render flat, before any
-      // resource buckets, so they read like quick-access shortcuts.
-      appendLeafCommands(commandsDiv, bucketed.loose);
-      for (var b = 0; b < bucketed.order.length; b++) {
-        var resource = bucketed.order[b];
-        commandsDiv.appendChild(renderResourceBucket(
-          resource,
-          bucketed.buckets[resource],
-          !!commandsDiv._expandResources
-        ));
-      }
-    } else {
-      appendLeafCommands(commandsDiv, cmds);
     }
-    commandsDiv._rendered = true;
+    return roots;
   }
 
-  // Split a group's commands into resource buckets keyed by the second word
-  // of the command path (e.g. "pro mobile-devices list" → "mobile-devices").
-  // Two-word paths like "pro overview" have no resource and are returned as
-  // "loose" commands rendered flat above the buckets.
-  function bucketByResource(cmds) {
-    var buckets = {};
-    var order = [];
-    var loose = [];
-    for (var i = 0; i < cmds.length; i++) {
-      var parts = cmds[i].command.split(' ');
-      if (parts.length < 3) {
-        loose.push(cmds[i]);
-        continue;
-      }
-      var resource = parts[1];
-      if (!buckets[resource]) {
-        buckets[resource] = [];
-        order.push(resource);
-      }
-      buckets[resource].push(cmds[i]);
+  // Commands the block holds, its own container included, so the count in
+  // the head matches what the reader can open beneath it.
+  function countCommands(node) {
+    var n = node.cmd ? 1 : 0;
+    for (var i = 0; i < node.children.length; i++) n += countCommands(node.children[i]);
+    return n;
+  }
+
+  // A trailing API marker is noise inside a group whose name already says
+  // which API it is, and generated descriptions start lower-case.
+  function cleanDescription(cmd, groupName) {
+    var text = (cmd && cmd.description) || '';
+    if (groupName && (groupName.indexOf('Platform') === 0 || groupName.indexOf('Classic') === 0)) {
+      text = text.replace(/ \((?:Platform|Classic) API\)$/, '');
     }
-    return { buckets: buckets, order: order, loose: loose };
+    if (!text) return '';
+    return text.charAt(0).toUpperCase() + text.slice(1);
   }
 
-  // Heuristic: only sub-bucket when there's actually structure to surface.
-  // Tiny groups (Getting Started, Core Commands, etc.) and groups where every
-  // "resource" has just one command would gain nothing from extra chrome.
-  function shouldBucket(b) {
-    var resourcesWithMultiple = 0;
-    var totalBucketed = 0;
-    for (var r in b.buckets) {
-      totalBucketed += b.buckets[r].length;
-      if (b.buckets[r].length >= 2) resourcesWithMultiple++;
+  // Read / write / destructive is the fact a fleet admin wants at a glance,
+  // and a command's last path word carries it. Anything unrecognised is left
+  // unmarked rather than guessed at — a whole group of unmarked rows drops
+  // the Marks column instead of showing an empty one.
+  var WRITE_VERBS = {
+    create: 1, update: 1, apply: 1, patch: 1, delete: 1, set: 1, enable: 1, disable: 1,
+    deploy: 1, undeploy: 1, publish: 1, assign: 1, unassign: 1, add: 1, remove: 1,
+    'import': 1, restore: 1, run: 1, send: 1, trigger: 1, override: 1, purge: 1
+  };
+  var READ_VERBS = {
+    list: 1, get: 1, 'export': 1, report: 1, show: 1, status: 1, versions: 1,
+    version: 1, history: 1, search: 1, download: 1, check: 1
+  };
+  var WRITE_PREFIX_RE = /^(add|remove|enable|disable)-/;
+  var READ_PREFIX_RE = /^(list|get)-/;
+
+  function verbClass(cmd) {
+    if (isDestructiveCommand(cmd)) return 'destructive';
+    var parts = cmd.command.split(' ');
+    var last = parts[parts.length - 1];
+    if (WRITE_VERBS[last] || WRITE_PREFIX_RE.test(last)) return 'write';
+    if (READ_VERBS[last] || READ_PREFIX_RE.test(last)) return 'read';
+    return null;
+  }
+
+  function renderGroupTable(group, product, showProduct) {
+    var wrap = document.createElement('section');
+    wrap.className = 'group-table';
+    wrap.setAttribute('data-product', product);
+    wrap.setAttribute('data-group', group.name);
+
+    var head = document.createElement('div');
+    head.className = 'group-table-head';
+    var title = document.createElement('h3');
+    title.textContent = group.name;
+    head.appendChild(title);
+    var meta = document.createElement('span');
+    meta.className = 'group-table-meta';
+    meta.textContent = group.commands.length + (group.commands.length === 1 ? ' command' : ' commands');
+    head.appendChild(meta);
+    if (showProduct) {
+      var ptag = document.createElement('span');
+      ptag.className = 'tag';
+      ptag.setAttribute('data-product', product);
+      ptag.textContent = product === 'core' ? 'Core' : PRODUCT_LABELS[product];
+      head.appendChild(ptag);
     }
-    return totalBucketed >= 8 && resourcesWithMultiple >= 2;
-  }
+    wrap.appendChild(head);
 
-  function appendLeafCommands(div, cmds) {
-    for (var i = 0; i < cmds.length; i++) {
-      var pair = renderCommandRow(cmds[i]);
-      div.appendChild(pair.row);
-      div.appendChild(pair.detail);
-    }
-  }
-
-  function renderResourceBucket(name, cmds, startExpanded) {
-    var bucket = document.createElement('div');
-    bucket.className = 'resource-bucket';
-
+    var table = document.createElement('div');
+    table.className = 'cmd-table';
+    table.setAttribute('role', 'table');
     var hdr = document.createElement('div');
-    hdr.className = 'resource-header';
-    hdr.setAttribute('role', 'button');
-    hdr.setAttribute('tabindex', '0');
-    hdr.setAttribute('aria-expanded', String(!!startExpanded));
-
-    var ch = document.createElement('span');
-    ch.className = 'resource-chevron';
-    ch.textContent = '▶';
-    hdr.appendChild(ch);
-
-    var label = document.createElement('span');
-    label.className = 'resource-name';
-    label.textContent = name;
-    hdr.appendChild(label);
-
-    var count = document.createElement('span');
-    count.className = 'resource-count-badge';
-    count.textContent = cmds.length;
-    hdr.appendChild(count);
-
-    bucket.appendChild(hdr);
-
-    var inner = document.createElement('div');
-    inner.className = 'resource-commands';
-    inner.style.display = startExpanded ? '' : 'none';
-    inner._commands = cmds;
-    inner._rendered = false;
-    if (startExpanded) {
-      appendLeafCommands(inner, cmds);
-      inner._rendered = true;
-    }
-
-    hdr.addEventListener('click', function () { toggleResource(hdr, inner); });
-    hdr.addEventListener('keydown', function (e) {
-      if (e.key === 'Enter' || e.key === ' ') {
-        e.preventDefault();
-        toggleResource(hdr, inner);
-      }
+    hdr.className = 'cmd-table-header';
+    hdr.setAttribute('role', 'row');
+    ['Command', 'Description', 'Marks'].forEach(function (h) {
+      var cell = document.createElement('span');
+      cell.setAttribute('role', 'columnheader');
+      cell.textContent = h;
+      hdr.appendChild(cell);
     });
+    table.appendChild(hdr);
 
-    bucket.appendChild(inner);
-    return bucket;
+    // ctx.marks records whether any row in this table earned a mark, so a
+    // group that earned none can collapse the third column.
+    var ctx = { group: group.name, marks: false };
+    var roots = buildResourceTree(group.commands);
+    var flat = [];
+    var blocks = [];
+    for (var r = 0; r < roots.length; r++) {
+      if (roots[r].children.length) blocks.push(roots[r]);
+      else flat.push(roots[r]);
+    }
+    // Commands that own no resource of their own (`pro overview`, `doctor`)
+    // read as a preamble to the resources, so they come first.
+    for (var f = 0; f < flat.length; f++) {
+      if (flat[f].cmd) table.appendChild(renderCommandRow(flat[f].cmd, flat[f].label, ctx));
+    }
+    for (var b = 0; b < blocks.length; b++) {
+      table.appendChild(renderResourceBlock(blocks[b], ctx));
+    }
+    wrap.appendChild(table);
+    if (!ctx.marks) wrap.classList.add('no-marks');
+    return wrap;
   }
 
-  function toggleResource(hdr, inner) {
-    var expanded = hdr.getAttribute('aria-expanded') === 'true';
-    hdr.setAttribute('aria-expanded', String(!expanded));
-    if (!expanded) {
-      if (!inner._rendered) {
-        appendLeafCommands(inner, inner._commands);
-        inner._rendered = true;
+  // One resource: a head that names it, its verb rows, then any nested
+  // resource. The head is a heading rather than a .command-row, but when the
+  // container command exists it is still that command's control — it carries
+  // data-command and opens the same drawer, so nothing addressable is lost.
+  function renderResourceBlock(node, ctx) {
+    var block = document.createElement('div');
+    block.className = 'resource-block';
+    block.setAttribute('role', 'rowgroup');
+    // Indent by resource depth, capped so a deep path cannot walk the column
+    // off the left edge of the description.
+    block.style.setProperty('--depth', String(Math.min(node.depth, 2)));
+
+    var container = node.cmd || commandByPath(node.path);
+    var head = document.createElement('div');
+    head.className = 'resource-head';
+    head.setAttribute('role', 'row');
+    var cell = document.createElement('div');
+    cell.className = 'resource-head-cell';
+    cell.setAttribute('role', 'cell');
+    cell.setAttribute('aria-colspan', '3');
+
+    var pathEl = document.createElement('span');
+    pathEl.className = 'resource-path';
+    highlightText(node.label, pathEl);
+    cell.appendChild(pathEl);
+
+    var desc = cleanDescription(container, ctx.group);
+    if (desc) {
+      var descEl = document.createElement('span');
+      descEl.className = 'resource-desc';
+      highlightText(desc, descEl);
+      cell.appendChild(descEl);
+    }
+
+    var aliases = container && container.aliases ? container.aliases : null;
+    if (aliases && aliases.length) {
+      for (var a = 0; a < aliases.length; a++) {
+        var chip = document.createElement('span');
+        chip.className = 'tag tag-mono';
+        chip.title = 'Alias for ' + node.label;
+        chip.textContent = aliases[a];
+        cell.appendChild(chip);
       }
-      inner.style.display = '';
-    } else {
-      inner.style.display = 'none';
     }
+
+    var count = countCommands(node);
+    var cnt = document.createElement('span');
+    cnt.className = 'resource-count';
+    cnt.textContent = count + (count === 1 ? ' command' : ' commands');
+    cell.appendChild(cnt);
+    head.appendChild(cell);
+
+    if (node.cmd) {
+      (function (cmd) {
+        head.classList.add('is-command');
+        head.setAttribute('data-command', cmd.command);
+        // The keyboard "c" shortcut reads this off the focused head, the way
+        // it reads .command-name's copy of it off a focused row.
+        pathEl.setAttribute('data-copy', 'jamf-cli ' + cmd.command);
+        head.setAttribute('tabindex', '0');
+        head.setAttribute('aria-expanded', 'false');
+        head.title = 'jamf-cli ' + cmd.command;
+        head.addEventListener('click', function () { toggleRowDetail(head, cmd); });
+        head.addEventListener('keydown', function (e) {
+          if (e.key !== 'Enter' && e.key !== ' ') return;
+          e.stopPropagation();
+          if (e.target !== head) return;
+          e.preventDefault();
+          toggleRowDetail(head, cmd);
+        });
+      })(node.cmd);
+    }
+    block.appendChild(head);
+
+    var nested = [];
+    for (var i = 0; i < node.children.length; i++) {
+      var child = node.children[i];
+      if (child.children.length) { nested.push(child); continue; }
+      if (child.cmd) block.appendChild(renderCommandRow(child.cmd, child.leaf, ctx));
+    }
+    for (var n = 0; n < nested.length; n++) block.appendChild(renderResourceBlock(nested[n], ctx));
+    return block;
   }
 
-  function toggleGroup(header, commandsDiv) {
-    var expanded = header.getAttribute('aria-expanded') === 'true';
-    header.setAttribute('aria-expanded', String(!expanded));
-    if (!expanded) {
-      renderGroupCommands(commandsDiv);
-      commandsDiv.style.display = '';
-    } else {
-      commandsDiv.style.display = 'none';
-    }
-  }
-
-  function renderCommandRow(cmd) {
+  // label is what the command column shows: the verb alone under a resource,
+  // or the whole command minus the product word for a resource-less one.
+  function renderCommandRow(cmd, label, ctx) {
+    var groupName = ctx ? ctx.group : (cmd.group || '');
     var row = document.createElement('div');
     row.className = 'command-row';
+    row.setAttribute('role', 'row');
     row.setAttribute('tabindex', '0');
-    if (cmd.product) {
-      row.setAttribute('data-product', cmd.product);
-    }
+    row.setAttribute('data-command', cmd.command);
+    row.setAttribute('aria-expanded', 'false');
+    if (cmd.product) row.setAttribute('data-product', cmd.product);
 
-    var nameSpan = document.createElement('span');
-    nameSpan.className = 'command-name';
-    var parts = cmd.command.split(' ');
-    if (parts.length >= 2) {
-      var prodSpan = document.createElement('span');
-      prodSpan.className = 'cmd-product';
-      highlightText(parts[0] + ' ', prodSpan);
-      nameSpan.appendChild(prodSpan);
-      if (parts.length > 2) {
-        var resource = document.createElement('span');
-        resource.className = 'cmd-prefix';
-        highlightText(parts.slice(1, -1).join(' ') + ' ', resource);
-        nameSpan.appendChild(resource);
-      }
-      var action = document.createElement('span');
-      action.className = 'cmd-action';
-      highlightText(parts[parts.length - 1], action);
-      nameSpan.appendChild(action);
-    } else {
-      nameSpan.textContent = cmd.command;
-    }
-    nameSpan.setAttribute('data-copy', 'jamf-cli ' + cmd.command);
-    var copyIcon = document.createElement('span');
+    var nameCell = document.createElement('span');
+    nameCell.className = 'command-name';
+    nameCell.setAttribute('role', 'cell');
+    // The keyboard "c" shortcut reads this attribute off the focused row.
+    nameCell.setAttribute('data-copy', 'jamf-cli ' + cmd.command);
+    // The column shows the verb, so the full path lives in the tooltip.
+    nameCell.title = 'jamf-cli ' + cmd.command;
+    var action = document.createElement('span');
+    action.className = 'cmd-action';
+    highlightText(label || cmd.command, action);
+    nameCell.appendChild(action);
+    var copyIcon = document.createElement('button');
+    copyIcon.type = 'button';
     copyIcon.className = 'command-copy-icon';
-    copyIcon.setAttribute('title', 'Copy: jamf-cli ' + cmd.command);
-    copyIcon.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
+    copyIcon.setAttribute('aria-label', 'Copy jamf-cli ' + cmd.command);
+    copyIcon.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
     copyIcon.addEventListener('click', function (e) {
       e.stopPropagation();
-      copyWithFeedback('jamf-cli ' + cmd.command, nameSpan);
+      copyWithFeedback('jamf-cli ' + cmd.command, nameCell);
     });
-    nameSpan.appendChild(copyIcon);
-    row.appendChild(nameSpan);
+    nameCell.appendChild(copyIcon);
+    row.appendChild(nameCell);
 
-    var descLine = document.createElement('div');
-    descLine.className = 'command-desc-line';
+    var desc = document.createElement('span');
+    desc.className = 'command-desc';
+    desc.setAttribute('role', 'cell');
+    highlightText(cleanDescription(cmd, groupName), desc);
+    row.appendChild(desc);
 
-    var descSpan = document.createElement('span');
-    descSpan.className = 'command-desc';
-    highlightText(cmd.description || '', descSpan);
-    descLine.appendChild(descSpan);
-
+    var marks = document.createElement('span');
+    marks.className = 'command-marks';
+    marks.setAttribute('role', 'cell');
+    var marked = false;
     if (newCommandSet[cmd.command]) {
-      var newBadge = document.createElement('span');
-      newBadge.className = 'new-badge';
-      newBadge.textContent = 'New';
-      descLine.appendChild(newBadge);
+      var nb = document.createElement('span');
+      nb.className = 'tag tag-new';
+      nb.textContent = 'New';
+      marks.appendChild(nb);
+      marked = true;
     }
-
-    // Destructive-command badge — a fleet admin scanning the catalog should
-    // see at a glance which commands can nuke a device. Ground truth is the
-    // CLI's own --confirm-destructive flag; the verb fallback covers
-    // namespaces whose destructive ops don't carry it (school/platform
-    // erase, security purge). Plain `delete` is deliberately excluded:
-    // resource deletion is routine, device destruction is not.
-    if (isDestructiveCommand(cmd)) {
-      var dangerBadge = document.createElement('span');
-      dangerBadge.className = 'danger-badge';
-      dangerBadge.title = 'Destructive — requires explicit confirmation to run';
-      dangerBadge.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> destructive';
-      descLine.appendChild(dangerBadge);
+    // Cross-product flow: `pro jamf-protect add-history-note` is a Pro
+    // command that operates on Protect data, so the row carries the other
+    // product's tag.
+    var related = detectRelatedProduct(cmd);
+    if (related && PRODUCT_LABELS[related]) {
+      var xb = document.createElement('span');
+      xb.className = 'tag';
+      xb.setAttribute('data-product', related);
+      xb.title = 'Operates on ' + PRODUCT_LABELS[related] + ' data';
+      xb.textContent = PRODUCT_LABELS[related];
+      marks.appendChild(xb);
+      marked = true;
     }
-
-    // Product badge on every command
-    if (cmd.product && PRODUCT_LABELS[cmd.product]) {
-      var prodBadge = document.createElement('span');
-      prodBadge.className = 'cmd-product-badge';
-      prodBadge.setAttribute('data-product', cmd.product);
-      prodBadge.innerHTML = JAMF_ICON_SVG + ' ' + PRODUCT_LABELS[cmd.product];
-      descLine.appendChild(prodBadge);
+    // Verb class. Destructive is the CLI's own --confirm-destructive flag
+    // (ground truth) plus device-destructive verbs for namespaces that do
+    // not carry it; write and read come from the last path word.
+    var vc = verbClass(cmd);
+    if (vc === 'destructive') {
+      var db = document.createElement('span');
+      db.className = 'tag tag-danger';
+      db.title = 'Destructive. Requires --confirm-destructive to run.';
+      db.textContent = 'Destructive';
+      marks.appendChild(db);
+      marked = true;
+    } else if (vc === 'write') {
+      var wb = document.createElement('span');
+      wb.className = 'tag tag-write';
+      wb.title = 'Changes state on the server.';
+      wb.textContent = 'Write';
+      marks.appendChild(wb);
+      marked = true;
+    } else if (vc === 'read') {
+      var rb = document.createElement('span');
+      rb.className = 'tag tag-read';
+      rb.title = 'Read-only.';
+      rb.textContent = 'Read';
+      marks.appendChild(rb);
+      marked = true;
     }
+    row.appendChild(marks);
+    if (marked && ctx) ctx.marks = true;
 
-    // Cross-product flow: when a command crosses products (e.g. `pro
-    // jamf-protect add-history-note` is a Pro command that operates on
-    // Protect data), render a small connector arrow + the related-product
-    // badge directly next to the source badge so the relationship reads as
-    // "Pro \u2192 Protect", not as two unrelated chips.
-    var relatedProduct = detectRelatedProduct(cmd);
-    if (relatedProduct) {
-      var prodArrow = document.createElement('span');
-      prodArrow.className = 'cmd-product-arrow';
-      prodArrow.textContent = '\u203A';
-      prodArrow.setAttribute('aria-hidden', 'true');
-      descLine.appendChild(prodArrow);
-
-      var xrefBadge = document.createElement('span');
-      xrefBadge.className = 'xref-badge';
-      xrefBadge.setAttribute('data-product', relatedProduct);
-      xrefBadge.innerHTML = JAMF_ICON_SVG + ' ' + (PRODUCT_LABELS[relatedProduct] || relatedProduct);
-      descLine.appendChild(xrefBadge);
-    }
-
-    // Row expand chevron \u2014 separate concern, always lives at the far right.
-    var rowChevron = document.createElement('span');
-    rowChevron.className = 'row-chevron';
-    rowChevron.textContent = '\u203A';
-    descLine.appendChild(rowChevron);
-
-    row.appendChild(descLine);
-
-    var hasAliases = cmd.aliases && cmd.aliases.length > 0;
-    var hasFlags = cmd.flags && cmd.flags.length > 0;
-
-    if (hasAliases || hasFlags) {
-      var meta = document.createElement('div');
-      meta.className = 'command-meta';
-
-      if (hasAliases) {
-        for (var a = 0; a < cmd.aliases.length; a++) {
-          var aliasBadge = document.createElement('span');
-          aliasBadge.className = 'alias-badge';
-          aliasBadge.textContent = 'alias: ' + cmd.aliases[a];
-          meta.appendChild(aliasBadge);
-        }
-      }
-
-      if (hasFlags) {
-        for (var f = 0; f < cmd.flags.length; f++) {
-          var pill = document.createElement('span');
-          pill.className = 'flag-pill';
-          pill.textContent = cmd.flags[f];
-          meta.appendChild(pill);
-        }
-      }
-
-      row.appendChild(meta);
-    }
-
-    // One-time expand hint below the command row content
-    var hintEl = null;
-    if (!expandHintShown) {
-      expandHintShown = true;
-      hintEl = document.createElement('div');
-      hintEl.className = 'expand-hint';
-      hintEl.textContent = '\u2193 Click any command to expand';
-      row.appendChild(hintEl);
-    }
-
-    // Detail panel (hidden by default)
-    var detail = document.createElement('div');
-    detail.className = 'command-expanded';
-    detail.appendChild(buildDetailContent(cmd));
-
-    row.addEventListener('click', function () {
-      var isOpen = detail.classList.contains('open');
-
-      // Close any previously expanded command
-      if (expandedCommand && expandedCommand !== detail) {
-        expandedCommand.classList.remove('open');
-        // Reset chevron on previously expanded row
-        var prevRow = expandedCommand.previousElementSibling;
-        if (prevRow) prevRow.classList.remove('expanded');
-      }
-
-      detail.classList.toggle('open');
-      row.classList.toggle('expanded');
-      expandedCommand = isOpen ? null : detail;
-
-      // Remove the one-time hint after first click
-      if (hintEl && hintEl.parentNode) {
-        hintEl.parentNode.removeChild(hintEl);
-        hintEl = null;
-      }
-
-      // Update URL hash for deep linking
-      if (!isOpen) {
-        var cmdHash = '#cmd/' + cmd.command.replace(/ /g, '/');
-        history.pushState({ search: document.getElementById('search').value, cmd: cmd.command }, '', cmdHash);
-      } else {
-        history.pushState({ search: document.getElementById('search').value, cmd: null }, '', '#commands');
-      }
+    // Expand on click, Enter or Space. The drawer is a sibling so the grid
+    // row stays 3 cells.
+    //
+    // The document-level handler in setupKeyboardNav also acts on Enter, by
+    // clicking the focused row. Both firing toggled the drawer twice — it
+    // opened and shut in one keypress and pushed two history entries — so
+    // this handler stops Enter and Space from reaching it. When the key
+    // lands on a control inside the row (the copy button), the toggle is
+    // skipped and the control's own activation runs alone.
+    row.addEventListener('click', function () { toggleRowDetail(row, cmd); });
+    row.addEventListener('keydown', function (e) {
+      if (e.key !== 'Enter' && e.key !== ' ') return;
+      e.stopPropagation();
+      if (e.target !== row) return;
+      e.preventDefault();
+      toggleRowDetail(row, cmd);
     });
+    return row;
+  }
 
-    return { row: row, detail: detail };
+  // One drawer build for both callers. role="row" needs a cell child, so the
+  // detail content sits inside a single cell that spans the three columns.
+  function openDrawer(row, cmd) {
+    var detail = document.createElement('div');
+    detail.className = 'command-detail';
+    detail.setAttribute('role', 'row');
+    var cell = document.createElement('div');
+    cell.className = 'detail-cell';
+    cell.setAttribute('role', 'cell');
+    cell.setAttribute('aria-colspan', '3');
+    cell.appendChild(buildDetailContent(cmd));
+    detail.appendChild(cell);
+    row.parentNode.insertBefore(detail, row.nextSibling);
+    row.classList.add('expanded');
+    row.setAttribute('aria-expanded', 'true');
+  }
+
+  function toggleRowDetail(row, cmd) {
+    var next = row.nextElementSibling;
+    if (next && next.classList.contains('command-detail')) {
+      next.remove();
+      row.classList.remove('expanded');
+      row.setAttribute('aria-expanded', 'false');
+      if (expandedCommand === cmd.command) expandedCommand = null;
+      updateCommandHash(null);
+      return;
+    }
+    // The one-at-a-time rule is per table, not per resource block: a row
+    // nested in a .resource-block has the block as its parentNode, so
+    // scanning parentNode would leave a drawer open in a sibling block.
+    var table = row.closest ? row.closest('.cmd-table') : row.parentNode;
+    var open = table.querySelectorAll('.command-detail');
+    for (var i = 0; i < open.length; i++) {
+      open[i].previousElementSibling.classList.remove('expanded');
+      open[i].previousElementSibling.setAttribute('aria-expanded', 'false');
+      open[i].remove();
+    }
+    openDrawer(row, cmd);
+    expandedCommand = cmd.command;
+    updateCommandHash(cmd.command);
+  }
+
+  // Keep the address bar in step with the open drawer so any row is a
+  // shareable link. A popstate replay sets suppressHashUpdate, because
+  // re-expanding the row would otherwise push the entry it navigated from.
+  function updateCommandHash(command) {
+    if (suppressHashUpdate) return;
+    var search = document.getElementById('search');
+    var query = search ? search.value : '';
+    // The product goes in the state because navigateToCommand follows a
+    // cross-product link by flipping the tab, and nothing rolls that back:
+    // popstate rendered with whatever activeProduct held, so Back left the
+    // visitor on a tab they never chose.
+    if (command) {
+      history.pushState({ search: query, cmd: command, product: activeProduct }, '', '#cmd/' + command.replace(/ /g, '/'));
+    } else {
+      history.pushState({ search: query, cmd: null, product: activeProduct }, '', '#commands');
+    }
   }
 
   // Destructive = the CLI's own --confirm-destructive flag (ground truth),
@@ -996,10 +1117,27 @@
     return DESTRUCTIVE_VERB_RE.test(cmd.command);
   }
 
-  function copyWithFeedback(text, element) {
+  // A copy hands the reader a shell line they are about to run, so a failure
+  // that looks like a success is the worst outcome. The clipboard is refused
+  // outright in a frame and in some enterprise policies, and a write can be
+  // rejected after that, so both paths mark the control instead of passing.
+  function flash(element, cls, ms) {
+    element.classList.add(cls);
+    setTimeout(function () { element.classList.remove(cls); }, ms);
+  }
+
+  // One copy path for every button. The async Clipboard API is the only
+  // route; where it is unavailable or refuses, the button reports failure.
+  function copyWithFeedback(text, element, ms) {
+    var hold = ms || 1500;
+    if (!navigator.clipboard || !navigator.clipboard.writeText) {
+      flash(element, 'copy-failed', hold);
+      return;
+    }
     navigator.clipboard.writeText(text).then(function () {
-      element.classList.add('copied');
-      setTimeout(function () { element.classList.remove('copied'); }, 1500);
+      flash(element, 'copied', hold);
+    }, function () {
+      flash(element, 'copy-failed', hold);
     });
   }
 
@@ -1036,96 +1174,311 @@
     return siblingMap[parent].filter(function (c) { return c.command !== cmd.command; });
   }
 
+  // Sibling verbs listed in full before the reader is sent to the parent.
+  var MAX_RELATED = 8;
+
+  var RELATED_OPEN_KEY = 'relatedOpen';
+
+  // Storage can be blocked outright (private windows, enterprise policy) and
+  // reading it then throws rather than returning null, so neither direction is
+  // allowed to stop the drawer from rendering.
+  function readRelatedOpen() {
+    try {
+      return window.localStorage.getItem(RELATED_OPEN_KEY) === '1';
+    } catch (e) {
+      return false;
+    }
+  }
+
+  function writeRelatedOpen(open) {
+    try {
+      if (open) window.localStorage.setItem(RELATED_OPEN_KEY, '1');
+      else window.localStorage.removeItem(RELATED_OPEN_KEY);
+    } catch (e) {}
+  }
+
+  function chevronIcon() {
+    var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('class', 'detail-chevron');
+    svg.setAttribute('viewBox', '0 0 24 24');
+    svg.setAttribute('fill', 'none');
+    svg.setAttribute('stroke', 'currentColor');
+    svg.setAttribute('stroke-width', '2');
+    svg.setAttribute('stroke-linecap', 'round');
+    svg.setAttribute('stroke-linejoin', 'round');
+    svg.setAttribute('aria-hidden', 'true');
+    var path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    path.setAttribute('d', 'M9 18l6-6-6-6');
+    svg.appendChild(path);
+    return svg;
+  }
+
   function buildDetailContent(cmd) {
     var frag = document.createDocumentFragment();
-
-    // Breadcrumb: "Subcommand of pro computers"
+    var stack = document.createElement('div');
+    stack.className = 'detail-stack';
     var parent = getParentPath(cmd.command);
+
+    // One facts line — parent, aliases, privileges — each part omitted when
+    // the command carries no data for it.
+    var facts = document.createElement('div');
+    facts.className = 'detail-meta detail-facts';
+    var hasFacts = false;
+
     if (parent) {
-      var breadcrumb = document.createElement('div');
-      breadcrumb.className = 'detail-breadcrumb';
-      breadcrumb.textContent = 'Subcommand of ';
+      var parentFact = document.createElement('div');
+      parentFact.className = 'detail-fact';
+      parentFact.appendChild(document.createTextNode('Subcommand of '));
       var parentLink = document.createElement('a');
       parentLink.className = 'detail-parent-link';
       parentLink.textContent = parent;
-      parentLink.href = '#';
+      parentLink.href = '#cmd/' + parent.replace(/ /g, '/');
       parentLink.addEventListener('click', function (e) {
         e.preventDefault();
         e.stopPropagation();
         navigateToCommand(parent);
       });
-      breadcrumb.appendChild(parentLink);
-      frag.appendChild(breadcrumb);
+      parentFact.appendChild(parentLink);
+      facts.appendChild(parentFact);
+      hasFacts = true;
     }
 
-    // Hero example (if available)
+    // Aliases. A verb inherits the resource's aliases in commands.json, but
+    // when it does not, the container is where they live — the drawer is the
+    // one place that answers "what can I type instead", so it always says.
+    var aliasList = (cmd.aliases && cmd.aliases.length > 0) ? cmd.aliases : null;
+    if (!aliasList && parent) {
+      var containerCmd = commandByPath(parent);
+      if (containerCmd && containerCmd.aliases && containerCmd.aliases.length > 0) {
+        aliasList = containerCmd.aliases;
+      }
+    }
+    if (aliasList) {
+      var aliases = document.createElement('div');
+      aliases.className = 'detail-fact';
+      var aliasLabel = document.createElement('strong');
+      aliasLabel.textContent = 'Aliases:';
+      aliases.appendChild(aliasLabel);
+      for (var al = 0; al < aliasList.length; al++) {
+        var aliasChip = document.createElement('span');
+        aliasChip.className = 'tag tag-mono';
+        aliasChip.textContent = aliasList[al];
+        aliases.appendChild(aliasChip);
+      }
+      facts.appendChild(aliases);
+      hasFacts = true;
+    }
+
+    // Required privileges, when the catalog carries them.
+    if (cmd.privileges && cmd.privileges.length > 0) {
+      var privs = document.createElement('div');
+      privs.className = 'detail-fact';
+      var privLabel = document.createElement('strong');
+      privLabel.textContent = 'Privileges:';
+      privs.appendChild(privLabel);
+      privs.appendChild(document.createTextNode(cmd.privileges.join(', ')));
+      facts.appendChild(privs);
+      hasFacts = true;
+    }
+
+    if (hasFacts) stack.appendChild(facts);
+
+    // Hero example: the command plus the output it prints.
     var heroKey = findHeroKey(cmd.command);
     if (heroKey) {
-      var example = heroExamples[heroKey];
-      var pre = document.createElement('pre');
-      var promptLine = '$ ' + example.example + '\n';
-      pre.textContent = promptLine + example.output;
-      frag.appendChild(pre);
+      var hero = heroExamples[heroKey];
+      stack.appendChild(createDetailHeading('Example'));
+      stack.appendChild(buildExampleBlock(hero.example, null));
+      var out = document.createElement('pre');
+      out.className = 'detail-output';
+      out.textContent = hero.output;
+      stack.appendChild(out);
     }
 
     // Usage examples (from examples.json)
     var examples = commandExamples[cmd.command];
     if (examples && examples.length > 0) {
-      frag.appendChild(createDetailHeading('Examples'));
+      stack.appendChild(createDetailHeading(heroKey ? 'More examples' : 'Examples'));
       for (var ex = 0; ex < examples.length; ex++) {
-        var exBlock = document.createElement('div');
-        exBlock.className = 'example-block';
-        if (examples[ex].description) {
-          var exDesc = document.createElement('div');
-          exDesc.className = 'example-desc';
-          exDesc.textContent = examples[ex].description;
-          exBlock.appendChild(exDesc);
-        }
-        var exPre = document.createElement('pre');
-        exPre.className = 'example-command';
-        exPre.textContent = '$ ' + examples[ex].command;
-        exPre.title = 'Click to copy';
-        (function (text, el) {
-          el.addEventListener('click', function (e) {
-            e.stopPropagation();
-            copyWithFeedback(text, el);
-          });
-        })(examples[ex].command, exPre);
-        exBlock.appendChild(exPre);
-        frag.appendChild(exBlock);
+        stack.appendChild(buildExampleBlock(examples[ex].command, examples[ex].description));
       }
     }
+    // Most commands carry neither a hero nor a documented example, and a
+    // drawer with no shell line at all leaves the reader to assemble one
+    // from the flag chips. The synthesized line is labelled so it is not
+    // mistaken for a captured one.
+    if (!heroKey && !(examples && examples.length > 0)) {
+      stack.appendChild(createDetailHeading('Example (generated)'));
+      stack.appendChild(buildExampleBlock(generatedExample(cmd), null));
+    }
 
-    // Related commands (siblings under same parent)
+    // Flags
+    if (cmd.flags && cmd.flags.length > 0) {
+      stack.appendChild(createDetailHeading('Flags'));
+      var flagWrap = document.createElement('div');
+      flagWrap.className = 'detail-flags';
+      for (var f = 0; f < cmd.flags.length; f++) {
+        var pill = document.createElement('span');
+        pill.className = 'tag tag-mono';
+        if (cmd.flags[f] === '--confirm-destructive') pill.classList.add('tag-danger');
+        pill.textContent = cmd.flags[f];
+        flagWrap.appendChild(pill);
+      }
+      stack.appendChild(flagWrap);
+    }
+
+    // Related commands (siblings under the same parent). Verb plus what it
+    // does: the verb alone is the half the reader already knows.
     var siblings = findSiblings(cmd);
     if (siblings.length > 0) {
-      frag.appendChild(createDetailHeading('Related commands'));
-      var siblingList = document.createElement('div');
-      siblingList.className = 'detail-siblings';
+      var prefix = parent ? parent.length + 1 : 0;
+      var items = [];
       for (var s = 0; s < siblings.length; s++) {
-        var sibCmd = siblings[s];
-        var sibParts = sibCmd.command.split(' ');
-        var sibAction = sibParts[sibParts.length - 1];
+        items.push({
+          command: siblings[s].command,
+          verb: siblings[s].command.slice(prefix),
+          desc: cleanDescription(siblings[s], siblings[s].group)
+        });
+      }
+      items.sort(function (a, b) {
+        if (a.verb === b.verb) return 0;
+        return a.verb < b.verb ? -1 : 1;
+      });
 
-        var sibEl = document.createElement('a');
-        sibEl.className = 'sibling-link';
-        sibEl.href = '#';
-        sibEl.setAttribute('data-product', sibCmd.product || '');
-        sibEl.textContent = sibAction;
-        sibEl.title = 'jamf-cli ' + sibCmd.command;
+      // Collapsed by default: the reader opened the drawer for the command
+      // they clicked, and a list of its siblings is the answer to a different
+      // question. The choice is remembered so a reader who wants it open once
+      // does not reopen it on every drawer.
+      var relatedBox = document.createElement('details');
+      relatedBox.className = 'detail-related-toggle';
+      var relatedSummary = document.createElement('summary');
+      relatedSummary.className = 'detail-heading';
+      relatedSummary.appendChild(chevronIcon());
+      relatedSummary.appendChild(document.createTextNode('Related commands '));
+      var relatedCount = document.createElement('span');
+      relatedCount.className = 'detail-count';
+      relatedCount.textContent = '(' + items.length + ')';
+      relatedSummary.appendChild(relatedCount);
+      relatedBox.appendChild(relatedSummary);
+      if (readRelatedOpen()) relatedBox.open = true;
+      relatedBox.addEventListener('toggle', function () {
+        writeRelatedOpen(relatedBox.open);
+      });
+      stack.appendChild(relatedBox);
+
+      var list = document.createElement('ul');
+      list.className = 'detail-related';
+      list.setAttribute('role', 'list');
+      var shown = Math.min(items.length, MAX_RELATED);
+      for (var i = 0; i < shown; i++) {
+        var item = items[i];
+        var li = document.createElement('li');
+        var verbLink = document.createElement('a');
+        verbLink.className = 'detail-related-verb mono';
+        verbLink.href = '#cmd/' + item.command.replace(/ /g, '/');
+        verbLink.textContent = item.verb;
+        verbLink.title = 'jamf-cli ' + item.command;
         (function (command) {
-          sibEl.addEventListener('click', function (e) {
+          verbLink.addEventListener('click', function (e) {
             e.preventDefault();
             e.stopPropagation();
             navigateToCommand(command);
           });
-        })(sibCmd.command);
-        siblingList.appendChild(sibEl);
+        })(item.command);
+        li.appendChild(verbLink);
+        var desc = document.createElement('span');
+        desc.className = 'detail-related-desc';
+        desc.textContent = item.desc;
+        if (item.desc) desc.title = item.desc;
+        li.appendChild(desc);
+        list.appendChild(li);
       }
-      frag.appendChild(siblingList);
+      // The rest live under the parent, which is itself a row the catalog
+      // renders and navigateToCommand already resolves.
+      if (items.length > shown && parent) {
+        var moreLi = document.createElement('li');
+        moreLi.className = 'detail-related-more';
+        var moreLink = document.createElement('a');
+        moreLink.href = '#cmd/' + parent.replace(/ /g, '/');
+        moreLink.textContent = (items.length - shown) + ' more in ' + parent;
+        moreLink.addEventListener('click', function (e) {
+          e.preventDefault();
+          e.stopPropagation();
+          navigateToCommand(parent);
+        });
+        moreLi.appendChild(moreLink);
+        list.appendChild(moreLi);
+      }
+      relatedBox.appendChild(list);
     }
 
+    frag.appendChild(stack);
     return frag;
+  }
+
+  // A plausible invocation built from the command's own flags. The first
+  // identifying flag it declares gets a placeholder, and a read gets
+  // `-o json` because that is the form a script wants.
+  var EXAMPLE_FLAGS = [
+    ['--name', '--name "<name>"'],
+    ['--id', '--id <id>'],
+    ['--serial', '--serial <serial>'],
+    ['--from-file', '--from-file <file>']
+  ];
+
+  function generatedExample(cmd) {
+    var text = 'jamf-cli ' + cmd.command;
+    if (cmd.flags && cmd.flags.length) {
+      for (var i = 0; i < EXAMPLE_FLAGS.length; i++) {
+        if (cmd.flags.indexOf(EXAMPLE_FLAGS[i][0]) !== -1) {
+          text += ' ' + EXAMPLE_FLAGS[i][1];
+          break;
+        }
+      }
+    }
+    if (verbClass(cmd) === 'read') text += ' -o json';
+    return text;
+  }
+
+  // A copyable shell line. The copy button is the shared .copy-btn the
+  // index.html IIFE decorates with a check icon.
+  // Every copy button carries both icons in its own markup, so a button built
+  // here looks and behaves like the static ones in index.html. The .copied
+  // class toggled by copyWithFeedback cross-fades copy → check (style.css).
+  var COPY_ICONS = '<span class="copy-icons"><svg class="icon-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg><svg class="icon-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg></span>';
+
+  function copyButton(text, label, ariaLabel) {
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'btn btn-primary btn-small copy-btn';
+    btn.setAttribute('data-copy', text);
+    btn.setAttribute('aria-label', ariaLabel || ('Copy ' + text));
+    btn.innerHTML = COPY_ICONS;
+    btn.appendChild(document.createTextNode(' ' + label));
+    return btn;
+  }
+
+  function buildExampleBlock(command, description) {
+    var block = document.createElement('div');
+    block.className = 'detail-example';
+    if (description) {
+      var desc = document.createElement('div');
+      desc.className = 'detail-meta';
+      desc.textContent = description;
+      block.appendChild(desc);
+    }
+    var line = document.createElement('div');
+    line.className = 'code-block';
+    var code = document.createElement('code');
+    var prompt = document.createElement('span');
+    prompt.className = 'code-prompt';
+    prompt.textContent = '$ ';
+    code.appendChild(prompt);
+    code.appendChild(document.createTextNode(command));
+    line.appendChild(code);
+    line.appendChild(copyButton(command, 'Copy'));
+    block.appendChild(line);
+    return block;
   }
 
   function findHeroKey(command) {
@@ -1158,14 +1511,24 @@
       debounceTimer = setTimeout(function () {
         var query = search.value.trim();
         renderCatalog(allCommands, query, activeProduct);
+        announceCatalog();
       }, 200);
     });
+
+    var navSearch = document.querySelector('.nav-search');
+    if (navSearch) {
+      navSearch.addEventListener('click', function () {
+        if (window.openCommandPalette) window.openCommandPalette();
+        else { var s = document.getElementById('search'); if (s) s.focus(); }
+      });
+    }
 
     if (clearBtn) {
       clearBtn.addEventListener('click', function () {
         search.value = '';
         if (wrap) wrap.classList.remove('has-value');
         renderCatalog(allCommands, '', activeProduct);
+        announceCatalog();
         search.focus();
         history.pushState({ search: '', cmd: null }, '', '#commands');
       });
@@ -1174,57 +1537,161 @@
 
   // ===== Product Tabs =====
 
-  function activateProductTab(filter) {
+  // Move the tab and the filter without rendering. A deep link needs this
+  // half on its own: it has already chosen the group to show, so the reset
+  // activateProductTab does would throw that choice away.
+  function selectProductTab(filter) {
     var tabs = document.querySelectorAll('.tab');
     for (var j = 0; j < tabs.length; j++) {
-      tabs[j].classList.remove('active');
-      if (tabs[j].getAttribute('data-filter') === filter) {
-        tabs[j].classList.add('active');
+      var isActive = tabs[j].getAttribute('data-filter') === filter;
+      tabs[j].classList.toggle('active', isActive);
+      tabs[j].setAttribute('aria-selected', isActive ? 'true' : 'false');
+      // One tab stop for the whole tablist, which is what role="tab"
+      // promises. The arrow keys move between them.
+      tabs[j].setAttribute('tabindex', isActive ? '0' : '-1');
+      // The panel is one region shared by every tab, so its label has to
+      // follow the active tab rather than stay on the one it shipped with.
+      if (isActive && tabs[j].id) {
+        var panel = document.getElementById('catalog');
+        if (panel) panel.setAttribute('aria-labelledby', tabs[j].id);
       }
     }
     activeProduct = filter;
+  }
+
+  function activateProductTab(filter) {
+    selectProductTab(filter);
+    selectedGroup = null; // first group of the new product
+    selectedProduct = null;
     var search = document.getElementById('search');
     var query = search ? search.value.trim() : '';
     renderCatalog(allCommands, query, activeProduct);
+    announceCatalog();
+  }
+
+  // Arrow keys move along the tablist and activate as they go, which is the
+  // automatic-activation half of the ARIA tabs pattern. Home and End jump to
+  // the ends.
+  function moveTabFocus(e) {
+    var step = 0;
+    if (e.key === 'ArrowRight') step = 1;
+    else if (e.key === 'ArrowLeft') step = -1;
+    else if (e.key !== 'Home' && e.key !== 'End') return;
+    e.preventDefault();
+    var tabs = document.querySelectorAll('.tab');
+    var at = 0;
+    for (var k = 0; k < tabs.length; k++) {
+      if (tabs[k] === this) { at = k; break; }
+    }
+    var to;
+    if (e.key === 'Home') to = 0;
+    else if (e.key === 'End') to = tabs.length - 1;
+    else to = (at + step + tabs.length) % tabs.length;
+    activateProductTab(tabs[to].getAttribute('data-filter'));
+    tabs[to].focus();
   }
 
   function setupTabs() {
     var tabs = document.querySelectorAll('.tab');
     for (var i = 0; i < tabs.length; i++) {
+      // The markup ships no tabindex, so every tab is a stop until the
+      // first selectProductTab runs. Seed the roving stop from the class
+      // the markup does carry.
+      tabs[i].setAttribute('tabindex', tabs[i].classList.contains('active') ? '0' : '-1');
       tabs[i].addEventListener('click', function () {
         activateProductTab(this.getAttribute('data-filter'));
       });
+      tabs[i].addEventListener('keydown', moveTabFocus);
     }
+
+    var gsel = document.getElementById('group-select');
+    if (gsel) gsel.addEventListener('change', function () {
+      selectedGroup = this.value;
+      var chosen = this.options[this.selectedIndex];
+      selectedProduct = chosen ? chosen.getAttribute('data-product') : null;
+      var search = document.getElementById('search');
+      if (search) search.value = '';
+      renderCatalog(allCommands, '', activeProduct);
+      announceCatalog();
+    });
+  }
+
+  // Every render replaces the rows, so each drawer closes. The button label
+  // and the flag must go back to the collapsed state with them.
+  var allExpanded = false;
+
+  function resetToggleAll() {
+    allExpanded = false;
+    var btn = document.getElementById('toggle-all');
+    if (btn) btn.textContent = 'Expand all';
   }
 
   function setupToggleAll() {
     var btn = document.getElementById('toggle-all');
     if (!btn) return;
-    var allExpanded = false;
 
     btn.addEventListener('click', function () {
       allExpanded = !allExpanded;
-      var headers = document.querySelectorAll('.catalog-group-header');
-      for (var i = 0; i < headers.length; i++) {
-        headers[i].setAttribute('aria-expanded', String(allExpanded));
-        var commands = headers[i].nextElementSibling;
-        if (commands && commands.classList.contains('group-commands')) {
-          if (allExpanded) {
-            renderGroupCommands(commands);
-            commands.style.display = '';
-          } else {
-            commands.style.display = 'none';
-          }
+      var catalog = document.getElementById('catalog');
+      if (catalog) {
+        // Expanding opens the verb rows only — a head's drawer repeats what
+        // the head already says. Collapsing has to reach every drawer that
+        // can be open, a hand-opened head's included, or "Collapse all"
+        // leaves one behind with its .expanded class still on.
+        var rows = catalog.querySelectorAll(allExpanded
+          ? '.command-row'
+          : '.command-row, .resource-head[data-command]');
+        for (var i = 0; i < rows.length; i++) {
+          var open = rows[i].nextElementSibling;
+          var isOpen = !!(open && open.classList.contains('command-detail'));
+          if (isOpen === allExpanded) continue;
+          expandRow(rows[i], allExpanded);
         }
       }
-      btn.textContent = allExpanded ? 'Collapse All' : 'Expand All';
+      btn.textContent = allExpanded ? 'Collapse all' : 'Expand all';
     });
   }
 
+  // Open or close one row's drawer without touching its siblings, so
+  // "Expand all" can hold every drawer open at once. toggleRowDetail keeps
+  // the one-at-a-time rule for a click.
+  function expandRow(row, open) {
+    var cmd = commandByPath(row.getAttribute('data-command'));
+    if (!cmd) return;
+    var next = row.nextElementSibling;
+    var isOpen = !!(next && next.classList.contains('command-detail'));
+    if (open === isOpen) return;
+    if (!open) {
+      next.remove();
+      row.classList.remove('expanded');
+      row.setAttribute('aria-expanded', 'false');
+      if (expandedCommand === cmd.command) expandedCommand = null;
+      return;
+    }
+    openDrawer(row, cmd);
+  }
+
+  // Built once. A broad search followed by Expand all called this several
+  // hundred times, and each call walked the whole catalog.
+  var commandIndex = null;
+
+  function commandByPath(command) {
+    if (!command) return null;
+    if (!commandIndex) {
+      commandIndex = {};
+      for (var i = 0; i < allCommands.length; i++) {
+        commandIndex[allCommands[i].command] = allCommands[i];
+      }
+    }
+    return Object.prototype.hasOwnProperty.call(commandIndex, command)
+      ? commandIndex[command]
+      : null;
+  }
+
   function setupStatCards() {
-    var cards = document.querySelectorAll('.stat-card[data-tab]');
-    for (var i = 0; i < cards.length; i++) {
-      cards[i].addEventListener('click', function () {
+    var links = document.querySelectorAll('#hero [data-tab]');
+    for (var i = 0; i < links.length; i++) {
+      links[i].addEventListener('click', function () {
         activateProductTab(this.getAttribute('data-tab'));
       });
     }
@@ -1233,59 +1700,90 @@
   // ===== Deep Linking & Navigation =====
 
   function navigateToCommand(command) {
+    var cmd = commandByPath(command);
+    // A shared link outlives the command it names: the catalog is rebuilt
+    // from the binary on every merge, so a renamed or withdrawn command
+    // reaches this function. Search for the text instead of returning in
+    // silence, which loaded the default view and looked like a bare visit.
+    if (!cmd) {
+      var box = document.getElementById('search');
+      if (box) {
+        box.value = command;
+        var wrap = box.closest('.search-wrap');
+        if (wrap) wrap.classList.add('has-value');
+      }
+      renderCatalog(allCommands, command, activeProduct);
+      announceCatalog();
+      return;
+    }
+    // The product filter is applied before anything else, so a command from
+    // another product is filtered out of the table and the pick falls back
+    // to an unrelated group. Follow the command to its own tab first.
+    var prod = cmd.product || 'core';
+    if (activeProduct !== 'all' && activeProduct !== prod) {
+      var crossesPlatform = activeProduct === 'platform' &&
+        cmd.group && cmd.group.indexOf('Platform') === 0;
+      if (!crossesPlatform) selectProductTab(prod);
+    }
+    selectedGroup = cmd.group;
+    selectedProduct = prod;
     var search = document.getElementById('search');
-    if (search) {
-      var cmdHash = '#cmd/' + command.replace(/ /g, '/');
-      history.pushState({ search: command, cmd: command }, '', cmdHash);
-      search.value = command;
-      search.dispatchEvent(new Event('input'));
-      search.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    if (search) search.value = '';
+    var searchWrap = search ? search.closest('.search-wrap') : null;
+    if (searchWrap) searchWrap.classList.remove('has-value');
+    renderCatalog(allCommands, '', activeProduct);
+    announceCatalog();
+    // A container command is rendered as its resource head rather than as a
+    // .command-row, so a deep link to one has to match both.
+    var esc = command.replace(/"/g, '\\"');
+    var row = document.querySelector('.command-row[data-command="' + esc + '"], .resource-head[data-command="' + esc + '"]');
+    if (row) {
+      toggleRowDetail(row, cmd);
+      row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      row.focus();
     }
   }
 
+  // Reports whether it navigated, because navigateToCommand announces the
+  // view it lands on. Announcing again on top of that says the same thing
+  // twice for one page load.
   function handleDeepLink() {
     var hash = window.location.hash;
-    if (!hash || !hash.startsWith('#cmd/')) return;
-    var command = hash.slice(5).replace(/\//g, ' ');
-    var search = document.getElementById('search');
-    if (search) {
-      search.value = command;
-      search.dispatchEvent(new Event('input'));
-    }
+    if (!hash || hash.indexOf('#cmd/') !== 0) return false;
+    navigateToCommand(hash.slice(5).replace(/\//g, ' '));
+    return true;
   }
 
   function setupDeepLinking() {
     window.addEventListener('popstate', function (e) {
-      var search = document.getElementById('search');
-      if (!search) return;
-      if (e.state && e.state.search != null) {
-        search.value = e.state.search;
+      var hash = window.location.hash;
+      var command = null;
+      if (e.state && e.state.cmd) command = e.state.cmd;
+      else if (hash && hash.indexOf('#cmd/') === 0) command = hash.slice(5).replace(/\//g, ' ');
+
+      suppressHashUpdate = true;
+      if (command) {
+        // navigateToCommand derives the tab from the command itself, so
+        // restoring the recorded one first would repaint twice for one Back.
+        navigateToCommand(command);
       } else {
-        var hash = window.location.hash;
-        if (hash && hash.startsWith('#cmd/')) {
-          search.value = hash.slice(5).replace(/\//g, ' ');
-        } else {
-          search.value = '';
+        // Nothing to derive a tab from here, so the recorded one is the only
+        // way back to the tab a cross-product link flipped away from.
+        var prod = e.state && e.state.product;
+        if (prod && prod !== activeProduct) {
+          selectProductTab(prod);
+          selectedGroup = null;
+          selectedProduct = null;
+        }
+        var search = document.getElementById('search');
+        if (search) {
+          search.value = (e.state && e.state.search) || '';
+          renderCatalog(allCommands, search.value.trim(), activeProduct);
+          announceCatalog();
         }
       }
-      search.dispatchEvent(new Event('input'));
+      suppressHashUpdate = false;
     });
-  }
-
-  function setupNavScroll() {
-    var hero = document.getElementById('hero');
-    var nav = document.querySelector('nav');
-    if (!hero || !nav || !('IntersectionObserver' in window)) return;
-
-    var observer = new IntersectionObserver(function (entries) {
-      if (entries[0].isIntersecting) {
-        nav.classList.remove('scrolled');
-      } else {
-        nav.classList.add('scrolled');
-      }
-    }, { threshold: 0 });
-
-    observer.observe(hero);
   }
 
   // ===== Copy Buttons =====
@@ -1297,29 +1795,60 @@
     document.addEventListener('keydown', function (e) {
       // Only handle when not in an input
       var tag = document.activeElement.tagName;
-      if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+      // A <summary> owns Enter and Space natively, and 'c' typed while it has
+      // focus is a keystroke inside the drawer, not a copy request for a row.
+      if (tag === 'SUMMARY') return;
+      // The shortcuts dialog holds focus on its one control. Row navigation
+      // reads an unmatched focus as "nothing focused" and jumps to the first
+      // row, which takes focus out of the dialog that is listing these very
+      // keys. The same leak fires for any control outside the catalog.
+      var modal = document.getElementById('kbd-modal');
+      if (modal && modal.classList.contains('open')) return;
+      var focused = document.activeElement;
+      if (focused && focused !== document.body &&
+          focused !== document.documentElement &&
+          !catalog.contains(focused)) return;
 
       var rows = catalog.querySelectorAll('.command-row');
       if (rows.length === 0) return;
 
+      var active = document.activeElement;
       var currentIndex = -1;
       for (var i = 0; i < rows.length; i++) {
-        if (rows[i] === document.activeElement || rows[i].contains(document.activeElement)) {
+        if (rows[i] === active || rows[i].contains(active)) {
           currentIndex = i;
           break;
         }
       }
 
+      // A resource head is Tab-focusable but is not a .command-row, so it has
+      // no index of its own. Left at -1 it read as "nothing is focused" and
+      // sent j to the top of the catalog. Anchor on the first row that
+      // follows the head — its own first verb — so j steps into the resource
+      // and k steps back out to the row above it.
+      var head = null;
+      if (currentIndex === -1 && active && active.closest) {
+        head = active.closest('.resource-head[data-command]');
+      }
+      var headIndex = -1;
+      if (head) {
+        for (var h = 0; h < rows.length; h++) {
+          // 4 is Node.DOCUMENT_POSITION_FOLLOWING.
+          if (head.compareDocumentPosition(rows[h]) & 4) { headIndex = h; break; }
+        }
+      }
+
       if (e.key === 'ArrowDown' || e.key === 'j') {
         e.preventDefault();
-        var next = currentIndex + 1;
-        if (next < rows.length) {
+        var next = headIndex >= 0 ? headIndex : currentIndex + 1;
+        if (next >= 0 && next < rows.length) {
           rows[next].focus();
           rows[next].scrollIntoView({ block: 'nearest', behavior: 'smooth' });
         }
       } else if (e.key === 'ArrowUp' || e.key === 'k') {
         e.preventDefault();
-        var prev = currentIndex - 1;
+        var prev = (headIndex >= 0 ? headIndex : currentIndex) - 1;
         if (prev >= 0) {
           rows[prev].focus();
           rows[prev].scrollIntoView({ block: 'nearest', behavior: 'smooth' });
@@ -1327,9 +1856,12 @@
       } else if (e.key === 'Enter' && currentIndex >= 0) {
         e.preventDefault();
         rows[currentIndex].click();
-      } else if (e.key === 'c' && currentIndex >= 0) {
+      } else if (e.key === 'c' && (currentIndex >= 0 || head)) {
         e.preventDefault();
-        var nameEl = rows[currentIndex].querySelector('.command-name');
+        // A head copies the container command, not the verb it sits above.
+        var nameEl = head
+          ? head.querySelector('.resource-path')
+          : rows[currentIndex].querySelector('.command-name');
         if (nameEl) {
           var copyText = nameEl.getAttribute('data-copy');
           if (copyText) copyWithFeedback(copyText, nameEl);
@@ -1345,10 +1877,7 @@
       e.stopPropagation();
       var text = btn.getAttribute('data-copy');
       if (!text) return;
-      navigator.clipboard.writeText(text).then(function () {
-        btn.classList.add('copied');
-        setTimeout(function () { btn.classList.remove('copied'); }, 2000);
-      });
+      copyWithFeedback(text, btn, 2000);
     });
   }
 
