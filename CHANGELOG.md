@@ -75,22 +75,37 @@ migration guide** and carries the detail, the error messages verbatim, and the r
   `pro categories list junkarg` ran the list and `pro backup /tmp/out` ran a whole backup
   and ignored the directory that `--output` takes. A wrapper or a CI job that passes a
   stray token now fails where it used to succeed. Remove the argument, or move it to the
-  flag that takes it; the refusal names the command and the value, and `--help` lists every
-  flag. The value is replaced with `<redacted>` when the command registers a credential flag
-  (`--new-password`, `--pin`, `--unlock-token`) or when the positional is itself a
-  `key=value` pair whose key names a credential, such as a dropped
-  `--set account.password=…`, because this message reaches stdout as JSON when output is
-  piped and from there a CI log. A command that documents a placeholder is unchanged for an ordinary invocation.
-  Under `--scaffold` it is now bounded too: 43 classic and platform leaves used to accept
-  and discard any number of extra positionals with that flag set, and now enforce the
-  declared ceiling, so `<resource> update <id> extra --scaffold` is refused where it exited
-  0 before. `multi` still forwards every
-  positional to its inner command, and 22 singleton `delete` and `history` commands had
-  their `--help` examples corrected, because those examples showed an id the command never
-  accepted. A further 17 `--help` example lines on 12 resources are corrected for the same
-  reason on the other half of the line: a `create`, `update` or `patch` example opened with
-  a `get` the resource does not ship, or one with a different arity, so half of a documented
-  pipe could not run.
+  flag that takes it; the refusal names the command and the value, `--help` lists every
+  flag, and any required flag that is also unset is named too — so
+  `pro diff staging production` still reports `--source` and `--target` rather than
+  replacing that answer with the positional complaint. That clause is conditional: a
+  refusal that can suggest a subcommand instead names no flag, so
+  `pro backup list-resourcez` suggests `list-resources` and stays silent about `--output`,
+  which there is the root format flag rather than a directory. The value is replaced with
+  `<redacted>` when the command registers a credential flag (`--new-password`, `--pin`,
+  `--unlock-token`) or when the positional is itself a `key=value` pair whose key names a
+  credential, such as a dropped `--set account.password=…`, because this message reaches
+  stdout as JSON when output is piped and from there a CI log. A command that documents a
+  placeholder is unchanged for an ordinary invocation. Under `--scaffold` it is now bounded
+  too: 43 classic and platform leaves used to accept and discard any number of extra
+  positionals with that flag set, and now enforce the declared ceiling, so
+  `<resource> update <id> extra --scaffold` is refused where it exited 0 before. `multi`
+  still forwards every positional to its inner command, and 22 singleton `delete` and
+  `history` commands had their `--help` examples corrected, because those examples showed
+  an id the command never accepted. A further 17 `--help` example lines on 12 resources are
+  corrected for the same reason on the other half of the line: a `create`, `update` or
+  `patch` example opened with a `get` the resource does not ship, or one with a different
+  arity, so half of a documented pipe could not run.
+- **An error raised before the output format is resolved now follows `default-output`.** The
+  `-o` default was `json`, so a flag-parse error and an argument refusal always rendered the
+  JSON envelope on stdout — even where the profile pinned another format, and even on a
+  terminal — while the same profile's `RunE` errors, raised after resolution, rendered plain
+  text. Two answers to one question. The default is now empty, meaning unresolved, and both
+  paths answer the same way. A profile pinning `default-output` to a non-json format
+  therefore gets plain text on stderr for those two error classes where it previously got
+  the envelope on stdout, **piped runs included**: a wrapper parsing that envelope must key
+  on the plain-text form, or pass `-o json` explicitly. With no `default-output` set a piped
+  run still gets the envelope, so an unconfigured CI job is unaffected.
 - **A cobra usage error now exits 2, not 1.** Four classes move: a missing required flag, a
   flag group with no member set, a flag group with mutually exclusive members set together,
   and the wrong number of positional arguments. An unknown flag and an unknown subcommand

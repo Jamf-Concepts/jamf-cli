@@ -399,7 +399,7 @@ func parseVersion(output string) string {
 }
 
 // extractRawVersion pulls the raw version string out of `jamf-cli version`
-// output. The command emits JSON by default (the global -o default is json),
+// output. The command emits JSON here because this runs it through a pipe, and a piped invocation resolves to JSON (the -o flag default is empty, meaning unresolved),
 // so we parse that first; older binaries that predate -o support print a
 // "jamf-cli <version>" banner, so we fall back to that. Returns "" when
 // neither yields a version, letting the caller map it to "unknown".
