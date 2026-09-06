@@ -680,7 +680,11 @@ func TestFilesThatRouteTheirWriterDoNotPrintToStdout(t *testing.T) {
 		ast.Inspect(file, func(n ast.Node) bool {
 			switch node := n.(type) {
 			case *ast.Ident:
-				if node.Name == "writerFor" {
+				// printSection counts as routing: it writes the header through
+				// writerFor itself. Two report files stopped naming writerFor
+				// directly when their last banners moved onto it, which is the
+				// rule being followed more completely rather than less.
+				if node.Name == "writerFor" || node.Name == "printSection" {
 					routes = true
 				}
 			case *ast.CallExpr:
@@ -756,11 +760,42 @@ func buildsFormatter(n ast.Node, local string) bool {
 	case *ast.SelectorExpr:
 		return isSel(v, "New")
 	case *ast.CompositeLit:
-		return isSel(v.Type, "Formatter")
+		// The literal's own type, or the element type of the slice, array or
+		// map it belongs to. An inner literal that ELIDES its element type has
+		// Type == nil — `[]*output.Formatter{{}}` builds a complete working
+		// Formatter, every field being unexported while the type and its
+		// setters are not — so only the outer literal names the type at all.
+		return namesFormatterType(v.Type, local)
 	case *ast.CallExpr:
 		if id, ok := v.Fun.(*ast.Ident); ok && id.Name == "new" && len(v.Args) == 1 {
 			return isSel(v.Args[0], "Formatter")
 		}
+	}
+	return false
+}
+
+// namesFormatterType reports whether e denotes output.Formatter, or a pointer,
+// slice, array or map whose element does.
+//
+// It is what catches a composite literal with an elided element type. A
+// go/types walk would collapse every construction shape into one rule and close
+// the unexported-constructor hole too; this stays syntactic, so a construction
+// whose type is only inferrable — a factory returning an interface, say — is
+// still out of reach.
+func namesFormatterType(e ast.Expr, local string) bool {
+	switch t := e.(type) {
+	case *ast.StarExpr:
+		return namesFormatterType(t.X, local)
+	case *ast.ArrayType:
+		return namesFormatterType(t.Elt, local)
+	case *ast.MapType:
+		return namesFormatterType(t.Value, local)
+	case *ast.SelectorExpr:
+		if t.Sel.Name != "Formatter" {
+			return false
+		}
+		id, isIdent := t.X.(*ast.Ident)
+		return isIdent && id.Name == local
 	}
 	return false
 }
@@ -1020,4 +1055,80 @@ func TestSelectMatchingNothingStillEmitsAStructuredDocument(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestNoReportWritesABannerThenPrintRows pins the CALL SITES rather than the
+// helper, which is the gap that let round 2's fix ship incomplete.
+//
+// printSection's contract is that the decision is made before the header. Three
+// sites disagreed with it — two of them inside printMDMHealthReport, whose
+// first two sections already used printSection, so one function applied the
+// rule twice and skipped it twice. Driving that report with a --select naming
+// nothing wrote 117 bytes of nothing but two box-drawing lines at exit 0, and
+// -o csv handed a CSV consumer the same stream.
+//
+// TestSelectMatchingNothingLeavesNoOrphanBanner cannot see it: it calls
+// printSection directly and asserts nothing about who uses it. Both those
+// report functions are 0% covered, so only the argument itself can be pinned —
+// the same reasoning TestOverviewRenderersTakeTheFormattersWriter gives.
+func TestNoReportWritesABannerThenPrintRows(t *testing.T) {
+	_, files := packageFiles(t)
+
+	checked := 0
+	for name, file := range files {
+		if !strings.HasPrefix(name, "pro_report_") && !strings.HasSuffix(name, "overview.go") && name != "multi.go" {
+			continue
+		}
+		ast.Inspect(file, func(n ast.Node) bool {
+			block, ok := n.(*ast.BlockStmt)
+			if !ok {
+				return true
+			}
+			for i := 0; i < len(block.List)-1; i++ {
+				if !writesASectionBanner(block.List[i]) {
+					continue
+				}
+				checked++
+				// The very next statement must not be a printRows call: the
+				// banner is already on the writer by then.
+				if callsPrintRows(block.List[i+1]) {
+					t.Errorf("%s: a section banner is written immediately before printRows — use printSection so the drop decision happens before the header", name)
+				}
+			}
+			return true
+		})
+	}
+	if checked == 0 {
+		t.Error("no section banner was found in any report file, so this test proves nothing")
+	}
+	t.Logf("checked %d section banners", checked)
+}
+
+// writesASectionBanner reports whether stmt writes a `── … ──` header.
+func writesASectionBanner(stmt ast.Stmt) bool {
+	found := false
+	ast.Inspect(stmt, func(n ast.Node) bool {
+		lit, ok := n.(*ast.BasicLit)
+		if ok && strings.Contains(lit.Value, "──") {
+			found = true
+		}
+		return !found
+	})
+	return found
+}
+
+// callsPrintRows reports whether stmt calls printRows.
+func callsPrintRows(stmt ast.Stmt) bool {
+	found := false
+	ast.Inspect(stmt, func(n ast.Node) bool {
+		call, ok := n.(*ast.CallExpr)
+		if !ok {
+			return true
+		}
+		if id, isIdent := call.Fun.(*ast.Ident); isIdent && id.Name == "printRows" {
+			found = true
+		}
+		return !found
+	})
+	return found
 }

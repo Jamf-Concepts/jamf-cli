@@ -576,8 +576,6 @@ func aggregateMDMFailures(results []mdmCommandResult, nameLookup map[string]stri
 // ---------------------------------------------------------------------------
 
 func printMDMHealthReport(cliCtx *registry.CLIContext, report *mdmHealthReport, label string) error {
-	out := writerFor(cliCtx)
-
 	if outputFmt == "json" || outputFmt == "yaml" {
 		combined := map[string]any{
 			"summary":         mdmSummaryToMap(report.Summary),
@@ -604,16 +602,14 @@ func printMDMHealthReport(cliCtx *registry.CLIContext, report *mdmHealthReport, 
 
 	// Table: devices with high failure count
 	if len(report.DeviceFailures) > 0 {
-		_, _ = fmt.Fprint(out, "\n── Devices With High Failure Count (>5 errors) ──\n")
-		if err := printRows(cliCtx, mdmDevicesToRows(report.DeviceFailures)); err != nil {
+		if err := printSection(cliCtx, "\n── Devices With High Failure Count (>5 errors) ──\n", mdmDevicesToRows(report.DeviceFailures)); err != nil {
 			return err
 		}
 	}
 
 	// Table: devices with high pending count
 	if len(report.DevicePending) > 0 {
-		_, _ = fmt.Fprint(out, "\n── Devices With Command Backlog (>10 pending) ──\n")
-		if err := printRows(cliCtx, mdmDevicesToRows(report.DevicePending)); err != nil {
+		if err := printSection(cliCtx, "\n── Devices With Command Backlog (>10 pending) ──\n", mdmDevicesToRows(report.DevicePending)); err != nil {
 			return err
 		}
 	}

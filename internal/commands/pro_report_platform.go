@@ -457,7 +457,6 @@ Requires platform gateway auth.`,
 			}
 
 			if len(deviceErrors) > 0 {
-				_, _ = fmt.Fprintf(writerFor(cliCtx), "\n── Errors (%d) ──\n", len(deviceErrors))
 				errRows := make([]map[string]any, 0, len(deviceErrors))
 				for _, e := range deviceErrors {
 					errRows = append(errRows, map[string]any{
@@ -466,7 +465,8 @@ Requires platform gateway auth.`,
 						"reason":   e.Reason,
 					})
 				}
-				if err := printRows(cliCtx, errRows); err != nil {
+				header := fmt.Sprintf("\n── Errors (%d) ──\n", len(deviceErrors))
+				if err := printSection(cliCtx, header, errRows); err != nil {
 					return err
 				}
 			}

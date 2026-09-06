@@ -137,6 +137,7 @@ func (o *cliOutput) PrintRaw(data []byte) error {
 // two cannot disagree about what --field means.
 func printFieldValues(w io.Writer, objects []map[string]any, field string) error {
 	parts := strings.Split(field, ".")
+	written := 0
 	for _, obj := range objects {
 		val, ok := walkFieldPath(obj, parts)
 		if !ok {
@@ -145,7 +146,15 @@ func printFieldValues(w io.Writer, objects []map[string]any, field string) error
 		if _, err := fmt.Fprintln(w, output.FormatValue(val)); err != nil {
 			return err
 		}
+		written++
 	}
+	// Reported here rather than at either caller, so the byte route through
+	// PrintRaw and the row route through printRows both say it. Its sibling
+	// --select warns on the same input, and without this the two answered
+	// identically-shaped mistakes differently: `commands --field nosuchfield
+	// --out-file f` left f at 0 bytes, exit 0, both streams empty, so a job
+	// could not tell a wrong field name from an empty result.
+	reportFieldMiss(objects, written)
 	return nil
 }
 

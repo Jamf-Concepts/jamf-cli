@@ -45,63 +45,73 @@ func printRows(cliCtx *registry.CLIContext, rows []map[string]any) error {
 	if fieldName != "" {
 		return printFieldValues(writerFor(cliCtx), rows, fieldName)
 	}
-	// A --select that matches nothing in these rows leaves every row empty, and
-	// a count over no columns reads as a rendering fault. This is the normal
-	// case on a multi-section report: the sections do not share a schema, so
-	// `--select reason` is carried by one section and absent from the rest.
-	// --select was inert on these reports until this change, so the symptom
-	// arrives with it.
-	if selectMatchedNothing(rows) {
-		reportSelectMiss()
-		// A structured consumer needs a document, not zero bytes. It is the
-		// same contract the nil-slice normalisation above keeps: returning
-		// early for every format made `-o json --select nosuchfield` write
-		// nothing, which is not valid JSON where `null` at least was.
-		switch output.Format(outputFmt) {
-		case output.FormatJSON, output.FormatYAML, output.FormatNDJSON:
-			return formatterFor(cliCtx, outputFmt).Print([]map[string]any{})
-		}
-		return nil
-	}
+	// Drop the rows --select emptied, rather than asking whether they ALL
+	// emptied. A table and a CSV take their column set from row 0 alone, so
+	// keeping a row the select missed emptied the column set and discarded
+	// every matched value in every later row. Dropping them makes the column
+	// set correct by construction, and leaves zero rows in the case the old
+	// all-or-nothing guard covered — which every renderer already handles as
+	// an empty collection, so no format needs a special early return.
+	rows, dropped := selectSurvivors(rows)
+	reportSelectMiss(dropped)
 	return formatterFor(cliCtx, outputFmt).Print(rows)
 }
 
-// selectMatchedNothing reports whether --select names nothing these rows carry.
+// selectSurvivors drops the rows --select emptied and reports how many.
 //
-// One predicate for every renderer. printRows was the only caller of the guard,
-// so `multi`'s aggregated table branch and `group-tools export` — which reach
-// Formatter.Print directly — kept rendering a row count above a blank header.
-// Both became reachable when those two moved onto formatterFor for the
-// --out-file fix, which is what made --select live on them for the first time.
-func selectMatchedNothing(rows []map[string]any) bool {
-	return (output.Projector{Select: selectFields}).SelectsNothing(rows)
+// One decision for every renderer. The guard it replaced lived only in
+// printRows, so `multi`'s aggregated branches, `group-tools export` and three
+// report sections each answered the same condition differently — an empty
+// collection with a warning here, `[{}]` in silence there, zero bytes
+// elsewhere. Three answers to one question.
+func selectSurvivors(rows []map[string]any) ([]map[string]any, int) {
+	return (output.Projector{Select: selectFields}).DropEmptySelections(rows)
 }
 
-// reportSelectMiss says on stderr that --select named nothing, once per
-// section. Without it the skip is silent, and a caller who mistyped a field
-// gets an empty document and exit 0 with nothing explaining either.
+// reportSelectMiss says on stderr how many rows --select emptied. Without it
+// the drop is silent, and a caller who mistyped a field gets an empty document
+// and exit 0 with nothing explaining either.
 //
 // stderr rather than the formatter's writer, so it never lands in --out-file
 // beside the data. Suppressed by --quiet and --no-hints, being advisory.
-func reportSelectMiss() {
-	if quiet || noHints || len(selectFields) == 0 {
+func reportSelectMiss(dropped int) {
+	if dropped == 0 || quiet || noHints || len(selectFields) == 0 {
 		return
 	}
-	_, _ = fmt.Fprintf(os.Stderr, "--select %s matched no field here\n", strings.Join(selectFields, ","))
+	_, _ = fmt.Fprintf(os.Stderr, "--select %s matched no field in %d row(s)\n", strings.Join(selectFields, ","), dropped)
+}
+
+// reportFieldMiss says on stderr that --field named nothing any row carried.
+//
+// --field's sibling --select warns on the same input, and without this the two
+// answered identically-shaped mistakes differently: `commands --field
+// nosuchfield --out-file f` left f at 0 bytes, exit 0, both streams empty, so a
+// job could not tell a wrong field name from an empty result.
+func reportFieldMiss(rows []map[string]any, written int) {
+	if written > 0 || len(rows) == 0 || quiet || noHints || fieldName == "" {
+		return
+	}
+	_, _ = fmt.Fprintf(os.Stderr, "--field %s matched no field in %d row(s)\n", fieldName, len(rows))
 }
 
 // printSection writes a section header only when a body will follow it.
 //
 // The six hand-written multi-section reports wrote their own banner and then
-// called printRows, so the guard suppressed the body with the banner already on
+// called printRows, so the drop suppressed the body with the banner already on
 // the writer: `pro report security -o table --select nosuchfield` produced 105
 // bytes of nothing but three box-drawing lines, one reading
 // `── Flagged Devices (5) ──`, at exit 0. A CSV consumer received a stream of
 // box-drawing characters. The decision has to be made before the header, and in
-// one place, or the six files disagree about it.
+// one place, or the call sites disagree about it — three of them did.
+//
+// It renders through printRows rather than reproducing its tail, so a section
+// and a whole-command read emit the same bytes for the same format. The two
+// diverged when this reproduced only the early return: a select miss here wrote
+// zero bytes where printRows wrote `[]`.
 func printSection(cliCtx *registry.CLIContext, header string, rows []map[string]any) error {
-	if selectMatchedNothing(rows) {
-		reportSelectMiss()
+	kept, dropped := selectSurvivors(rows)
+	if len(kept) == 0 && dropped > 0 {
+		reportSelectMiss(dropped)
 		return nil
 	}
 	if header != "" {
@@ -109,7 +119,7 @@ func printSection(cliCtx *registry.CLIContext, header string, rows []map[string]
 			return err
 		}
 	}
-	return printRows(cliCtx, rows)
+	return printRows(cliCtx, kept)
 }
 
 // formatterFor returns the shared formatter rendering in format. printRows asks

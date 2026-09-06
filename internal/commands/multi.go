@@ -419,6 +419,14 @@ func printAggregated(cliCtx *registry.CLIContext, cmd *cobra.Command, merged map
 		// Unwrap to a flat array so json/yaml output matches single-instance output.
 		if len(jsonMerged) == 1 {
 			if results, ok := jsonMerged[mergedListKey]; ok {
+				if rows, ok := results.([]map[string]any); ok {
+					// The same drop the table arms below apply. Without it this
+					// branch answered a --select miss with `[{}]` and nothing on
+					// stderr, a third shape for one condition.
+					kept, dropped := selectSurvivors(rows)
+					reportSelectMiss(dropped)
+					return formatter.Print(kept)
+				}
 				return formatter.Print(results)
 			}
 		}
@@ -457,10 +465,12 @@ func printAggregated(cliCtx *registry.CLIContext, cmd *cobra.Command, merged map
 			// table, which is the shape printRows was fixed to stop rendering.
 			// Reachable only since this branch moved onto formatterFor for the
 			// --out-file fix, which is what made --select live here at all.
-			if selectMatchedNothing(summaryRows) {
-				reportSelectMiss()
+			kept, dropped := selectSurvivors(summaryRows)
+			reportSelectMiss(dropped)
+			if len(kept) == 0 {
 				continue
 			}
+			summaryRows = kept
 			if !first {
 				_, _ = fmt.Fprintln(out)
 			}
@@ -484,10 +494,12 @@ func printAggregated(cliCtx *registry.CLIContext, cmd *cobra.Command, merged map
 				cj, _ := rows[j]["count"].(float64)
 				return ci > cj
 			})
-			if selectMatchedNothing(rows) {
-				reportSelectMiss()
+			kept, dropped := selectSurvivors(rows)
+			reportSelectMiss(dropped)
+			if len(kept) == 0 {
 				continue
 			}
+			rows = kept
 			if !first {
 				_, _ = fmt.Fprintln(out)
 			}
@@ -511,10 +523,12 @@ func printAggregated(cliCtx *registry.CLIContext, cmd *cobra.Command, merged map
 			if len(rows) == 0 {
 				continue
 			}
-			if selectMatchedNothing(rows) {
-				reportSelectMiss()
+			kept, dropped := selectSurvivors(rows)
+			reportSelectMiss(dropped)
+			if len(kept) == 0 {
 				continue
 			}
+			rows = kept
 			if !first {
 				_, _ = fmt.Fprintln(out)
 			}

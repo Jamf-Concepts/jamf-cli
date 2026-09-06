@@ -67,10 +67,20 @@ considering the work complete:
    the canonical helper.
 
 2. **Verbose/structured commands** (commands with a `-v` mode like `doctor`
-   and `version`) must route their verbose output through `cliCtx.Output.PrintRaw(...)`
-   when `outputFmt` is `json` or `yaml`, not through hand-written `fmt.Fprintf`
-   on `os.Stdout`. The formatter knows how to honor the global flags; hand-print
-   paths don't.
+   and `version`) must route their verbose output through the shared formatter,
+   not through hand-written `fmt.Fprintf` on `os.Stdout`. The formatter knows
+   how to honor the global flags; hand-print paths don't.
+
+   **The route is `printRows` for rows, `printSection` for a row set under a
+   section header, and `writerFor` for a bespoke text renderer that takes a
+   writer** — all in `internal/commands/output_route.go`, and
+   `TestNoFileBuildsItsOwnOutputFormatter` refuses a formatter built anywhere
+   but the three sanctioned sites. `cliCtx.Output.PrintRaw(...)` is the
+   **wire-bytes** path only, for a response body that is already serialised.
+   Do not reach for it with rows in hand: it parses them back to the type they
+   already were, which measured ~1.0s and up to 1.5GB on a fleet-sized report,
+   and it lands `-o raw` and `-o xml` on a renderer the formatter's own
+   dispatch never selects.
 
 3. **Marshal structs; don't hand-format prose** when the output is structured.
    Define an explicit response struct with JSON tags. Let the formatter handle
