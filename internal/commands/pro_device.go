@@ -13,7 +13,6 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/Jamf-Concepts/jamf-cli/internal/output"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform/blueprints"
 	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform/compliancebenchmarks"
@@ -33,7 +32,10 @@ and policy execution logs.
 
 The device can be identified by its Jamf Pro ID, serial number, or name.
 MDM and policy history are fetched in parallel; partial failures are shown
-as warnings on stderr and do not prevent the rest of the report.`,
+as warnings on stderr and do not prevent the rest of the report.
+
+With no -o flag, this command writes a grouped table. Then --out-file receives
+that table, not JSON. Use -o json to write structured data to the file.`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			sections, err := runDeviceDeepDive(cmd.Context(), cliCtx, args[0])
@@ -42,13 +44,12 @@ as warnings on stderr and do not prevent the rest of the report.`,
 			}
 
 			if !cmd.Flags().Changed("output") || outputFmt == "table" {
-				printOverviewTable(cmd.OutOrStdout(), sections, !noColor, "DEVICE DETAIL")
+				printOverviewTable(writerFor(cliCtx), sections, !noColor, "DEVICE DETAIL")
 				return nil
 			}
 
 			rows := overviewToRows(sections)
-			formatter := output.New(outputFmt, noColor, wide)
-			return formatter.Print(rows)
+			return printRows(cliCtx, rows)
 		},
 	}
 }

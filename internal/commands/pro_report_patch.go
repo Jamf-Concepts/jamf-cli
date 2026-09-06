@@ -10,7 +10,6 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/Jamf-Concepts/jamf-cli/internal/output"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 )
 
@@ -26,12 +25,15 @@ percentages per title.
 Use --scan-failures to also fetch patch policy failure counts. This
 queries the patch policies list endpoint for per-policy status counts.
 
-Output columns: title, id, on_latest, on_other, total, latest, compliance_pct`,
+Output columns: title, id, on_latest, on_other, total, latest, compliance_pct
+
+With no -o flag, this report writes a table. Then --out-file receives that
+table, not JSON. Use -o json to write structured data to the file.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !cmd.Flags().Changed("output") {
 				outputFmt = "table"
 			}
-			return runReportPatchStatusFull(cmd.Context(), cliCtx.Client, scanFailures)
+			return runReportPatchStatusFull(cmd.Context(), cliCtx, scanFailures)
 		},
 	}
 
@@ -39,21 +41,19 @@ Output columns: title, id, on_latest, on_other, total, latest, compliance_pct`,
 	return cmd
 }
 
-func runReportPatchStatusFull(ctx context.Context, client registry.HTTPClient, scanFailures bool) error {
+func runReportPatchStatusFull(ctx context.Context, cliCtx *registry.CLIContext, scanFailures bool) error {
+	client := cliCtx.Client
 	rows, err := runReportPatchStatus(ctx, client)
 	if err != nil {
 		return err
 	}
 
-	formatter := output.New(outputFmt, noColor, wide)
-
 	if !scanFailures {
-		return formatter.Print(rows)
+		return printRows(cliCtx, rows)
 	}
 
 	// Print compliance section
-	fmt.Println("── Patch Title Compliance ──")
-	if err := formatter.Print(rows); err != nil {
+	if err := printSection(cliCtx, "── Patch Title Compliance ──"+"\n", rows); err != nil {
 		return err
 	}
 
@@ -65,8 +65,7 @@ func runReportPatchStatusFull(ctx context.Context, client registry.HTTPClient, s
 	}
 
 	if len(policyRows) > 0 {
-		fmt.Printf("\n── Patch Policies With Failures (%d) ──\n", len(policyRows))
-		if err := formatter.Print(policyRows); err != nil {
+		if err := printSection(cliCtx, fmt.Sprintf("\n── Patch Policies With Failures (%d) ──\n", len(policyRows)), policyRows); err != nil {
 			return err
 		}
 
@@ -84,8 +83,7 @@ func runReportPatchStatusFull(ctx context.Context, client registry.HTTPClient, s
 				rawDeviceRows[i]["os_version"] = meta.osVersion
 				rawDeviceRows[i]["username"] = meta.username
 			}
-			fmt.Printf("\n── Devices With Patch Failures (%d) ──\n", len(rawDeviceRows))
-			return formatter.Print(rawDeviceRows)
+			return printSection(cliCtx, fmt.Sprintf("\n── Devices With Patch Failures (%d) ──\n", len(rawDeviceRows)), rawDeviceRows)
 		}
 	} else {
 		fmt.Fprintln(os.Stderr, "\nNo patch policy failures found.")

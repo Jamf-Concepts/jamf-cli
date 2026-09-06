@@ -70,6 +70,22 @@ migration guide** and carries the detail, the error messages verbatim, and the r
 
 ### Breaking — everything else
 
+- **`--out-file`, `--select`, `--compact`, `--field`, `--quiet` and `--no-hints` now take
+  effect on 27 commands that parsed and discarded them.** Those commands built their own
+  output formatter, which receives none of the global flags, so the flag was accepted and
+  then ignored: `--out-file` exited 0 and left the file at 0 bytes while the payload went to
+  stdout. Two script-visible consequences. A job passing `--out-file` and reading **stdout**
+  now reads nothing, because the payload goes to the file it asked for. And a job passing
+  `--select` or `--compact` and parsing whole rows now receives narrowed rows. Affected are
+  the `pro report` family, `pro audit`, `pro overview`, `protect overview`,
+  `school overview`, `pro group-tools`, `pro classic app-usage`, `multi` and `commands`.
+  A `--select` naming a field a row does not carry drops that row and says so on stderr;
+  `--quiet` and `--no-hints` silence the note, not the drop.
+- **`pro audit -o raw` and `-o xml` render a table rather than JSON.** Both used to marshal
+  the rows and hand the bytes to `PrintRaw`, which passes JSON through unchanged for those
+  two formats; the shared formatter's own dispatch has no case for either and renders a
+  table. Every other format is byte-identical. Use `-o json` for JSON.
+
 - **`pro backup` and `pro diff` refuse a stray positional argument**, with exit 2
   (`usage`). Both take their whole input as flags, and cobra supplies no default validator,
   so a positional was discarded and the command ran anyway: `pro backup somegarbage

@@ -34,7 +34,7 @@ func (p Projector) Apply(rows []map[string]any) []map[string]any {
 	}
 	switch {
 	case len(p.Select) > 0:
-		return projectSelect(flattenRowsRaw(rows), p.Select)
+		return p.selectRows(rows)
 	case p.Compact:
 		return projectCompact(flattenRows(rows))
 	}
@@ -46,6 +46,52 @@ func (p Projector) Apply(rows []map[string]any) []map[string]any {
 // "<path>." — so --select general returns every general.* field, and
 // --select general.name returns just that one. Missing paths are silently
 // omitted (a row may end up empty if no path matched).
+// DropEmptySelections returns the rows whose Select projection keeps at least
+// one field, and how many it dropped.
+//
+// It replaces an all-or-nothing guard that could only answer "did EVERY row
+// come back empty", which is the wrong question for a table or a CSV. Both take
+// their column set from row 0 alone — printCSV's `sortedKeys(v[0])` and
+// printTable's `sortedKeys(rows[0])` — so a row 0 the select missed emptied the
+// column set and discarded every matched value in every later row:
+// `commands -o csv --wide --select api` wrote 1757 newlines and zero other
+// characters while 1375 of those rows carried the field, at exit 0. CLAUDE.md's
+// Conventions section already names that hazard; making --select live on 27
+// commands with heterogeneous rows is the case it warns about.
+//
+// Dropping the emptied rows makes the column set correct by construction, since
+// every surviving row carries at least one selected field. It also removes the
+// need for any format-specific early return: zero surviving rows is an empty
+// collection, which every renderer already handles.
+func (p Projector) DropEmptySelections(rows []map[string]any) ([]map[string]any, int) {
+	if len(p.Select) == 0 || len(rows) == 0 {
+		return rows, 0
+	}
+	projected := p.selectRows(rows)
+	kept := make([]map[string]any, 0, len(rows))
+	for i, row := range projected {
+		if len(row) > 0 {
+			kept = append(kept, rows[i])
+		}
+	}
+	return kept, len(rows) - len(kept)
+}
+
+// selectRows runs the Select projection, and is the only place its input
+// pipeline is written down.
+//
+// Apply and DropEmptySelections must answer about the same rows or the guard
+// suppresses output the renderer would have produced. They each spelled the
+// pipeline out once, and diverged: Apply flattened first while the guard
+// projected raw rows, so a nested path matched nothing, emptied every row and
+// suppressed a whole report at exit 0 — the reports built as one row of nested
+// sections for -o json are exactly the shape the guard was added for.
+// `pro report app-status -o json --select summary.total_errors` wrote 0 bytes
+// where main wrote 201, which is verbatim the signature issue #349 reports.
+func (p Projector) selectRows(rows []map[string]any) []map[string]any {
+	return projectSelect(flattenRowsRaw(rows), p.Select)
+}
+
 func projectSelect(rows []map[string]any, paths []string) []map[string]any {
 	cleaned := make([]string, 0, len(paths))
 	for _, p := range paths {

@@ -17,10 +17,10 @@ import (
 	"golang.org/x/term"
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/config"
-	"github.com/Jamf-Concepts/jamf-cli/internal/output"
+	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 )
 
-func newMultiCmd() *cobra.Command {
+func newMultiCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	var (
 		filter      string
 		profilesCSV string
@@ -153,7 +153,7 @@ Examples:
 				}
 
 				if aggregated := tryAggregate(results); aggregated != nil {
-					if err := printAggregated(cmd, aggregated, desiredFmt); err != nil {
+					if err := printAggregated(cliCtx, cmd, aggregated, desiredFmt); err != nil {
 						return err
 					}
 				} else {
@@ -168,7 +168,7 @@ Examples:
 						} else {
 							_, _ = fmt.Fprintf(w, "\n── %s ──\n", r.profileName)
 						}
-						_, _ = cmd.OutOrStdout().Write(r.stdout)
+						_, _ = writerFor(cliCtx).Write(r.stdout)
 					}
 				}
 			} else {
@@ -188,7 +188,10 @@ Examples:
 
 					cmdArgs := append([]string{"--profile", profileName}, innerArgs...)
 					child := exec.Command(executable, cmdArgs...)
-					child.Stdout = cmd.OutOrStdout()
+					// The child's payload is this command's output, so it
+					// follows --out-file with the aggregated report's. Its
+					// banners stay on stderr, being progress rather than data.
+					child.Stdout = writerFor(cliCtx)
 					child.Stderr = cmd.ErrOrStderr()
 
 					if err := child.Run(); err != nil {
@@ -386,7 +389,7 @@ type childResult struct {
 
 // printAggregated renders the merged report using the desired output format.
 // desiredFmt is extracted from the inner command args; empty string defaults to table.
-func printAggregated(cmd *cobra.Command, merged map[string]any, desiredFmt string) error {
+func printAggregated(cliCtx *registry.CLIContext, cmd *cobra.Command, merged map[string]any, desiredFmt string) error {
 	renderFmt := desiredFmt
 	if renderFmt == "" {
 		// No -o in inner args — check if multi itself had -o set, else default to table
@@ -396,7 +399,7 @@ func printAggregated(cmd *cobra.Command, merged map[string]any, desiredFmt strin
 			renderFmt = "table"
 		}
 	}
-	formatter := output.New(renderFmt, noColor, wide)
+	formatter := formatterFor(cliCtx, renderFmt)
 
 	if renderFmt == "json" || renderFmt == "yaml" {
 		// Convert aggregated summary maps back to list format for JSON
@@ -416,6 +419,14 @@ func printAggregated(cmd *cobra.Command, merged map[string]any, desiredFmt strin
 		// Unwrap to a flat array so json/yaml output matches single-instance output.
 		if len(jsonMerged) == 1 {
 			if results, ok := jsonMerged[mergedListKey]; ok {
+				if rows, ok := results.([]map[string]any); ok {
+					// The same drop the table arms below apply. Without it this
+					// branch answered a --select miss with `[{}]` and nothing on
+					// stderr, a third shape for one condition.
+					kept, dropped := selectSurvivors(rows)
+					reportSelectMiss(dropped)
+					return formatter.Print(kept)
+				}
 				return formatter.Print(results)
 			}
 		}
@@ -438,17 +449,33 @@ func printAggregated(cmd *cobra.Command, merged map[string]any, desiredFmt strin
 		return keys[i] < keys[j]
 	})
 
+	// The section headers belong wherever the tables go, or --out-file splits one
+	// report between a file and the terminal.
+	out := formatter.Writer()
+
 	first := true
 	for _, key := range keys {
 		val := merged[key]
 		switch v := val.(type) {
 		case map[string]any:
 			// Summary dict — print as single-row table
-			if !first {
-				fmt.Println()
+			summaryRows := []map[string]any{v}
+			// Gate before the separator and the header, not after: a --select
+			// naming nothing here would otherwise leave a banner and a blank
+			// table, which is the shape printRows was fixed to stop rendering.
+			// Reachable only since this branch moved onto formatterFor for the
+			// --out-file fix, which is what made --select live here at all.
+			kept, dropped := selectSurvivors(summaryRows)
+			reportSelectMiss(dropped)
+			if len(kept) == 0 {
+				continue
 			}
-			fmt.Printf("── %s ──\n", formatSectionTitle(key))
-			if err := formatter.Print([]map[string]any{v}); err != nil {
+			summaryRows = kept
+			if !first {
+				_, _ = fmt.Fprintln(out)
+			}
+			_, _ = fmt.Fprintf(out, "── %s ──\n", formatSectionTitle(key))
+			if err := formatter.Print(summaryRows); err != nil {
 				return err
 			}
 			first = false
@@ -467,10 +494,16 @@ func printAggregated(cmd *cobra.Command, merged map[string]any, desiredFmt strin
 				cj, _ := rows[j]["count"].(float64)
 				return ci > cj
 			})
-			if !first {
-				fmt.Println()
+			kept, dropped := selectSurvivors(rows)
+			reportSelectMiss(dropped)
+			if len(kept) == 0 {
+				continue
 			}
-			fmt.Printf("── %s (%d) ──\n", formatSectionTitle(key), len(rows))
+			rows = kept
+			if !first {
+				_, _ = fmt.Fprintln(out)
+			}
+			_, _ = fmt.Fprintf(out, "── %s (%d) ──\n", formatSectionTitle(key), len(rows))
 			if err := formatter.Print(rows); err != nil {
 				return err
 			}
@@ -490,10 +523,16 @@ func printAggregated(cmd *cobra.Command, merged map[string]any, desiredFmt strin
 			if len(rows) == 0 {
 				continue
 			}
-			if !first {
-				fmt.Println()
+			kept, dropped := selectSurvivors(rows)
+			reportSelectMiss(dropped)
+			if len(kept) == 0 {
+				continue
 			}
-			fmt.Printf("── %s (%d) ──\n", formatSectionTitle(key), len(rows))
+			rows = kept
+			if !first {
+				_, _ = fmt.Fprintln(out)
+			}
+			_, _ = fmt.Fprintf(out, "── %s (%d) ──\n", formatSectionTitle(key), len(rows))
 			if err := formatter.Print(rows); err != nil {
 				return err
 			}

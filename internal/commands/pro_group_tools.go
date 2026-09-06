@@ -12,7 +12,6 @@ import (
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 
-	"github.com/Jamf-Concepts/jamf-cli/internal/output"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform"
 	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform/blueprints"
@@ -111,8 +110,7 @@ func runGroupToolsList(ctx context.Context, cliCtx *registry.CLIContext, groupTy
 		rows = []map[string]any{}
 	}
 
-	formatter := output.New(outputFmt, noColor, wide)
-	return formatter.Print(rows)
+	return printRows(cliCtx, rows)
 }
 
 // ─────────────────────────────────────────────────────────────────
@@ -208,8 +206,7 @@ func runGroupToolsMembers(ctx context.Context, cliCtx *registry.CLIContext, name
 		rows = []map[string]any{}
 	}
 
-	formatter := output.New(outputFmt, noColor, wide)
-	return formatter.Print(rows)
+	return printRows(cliCtx, rows)
 }
 
 // anyToIDString converts a JSON value (float64 or string) to an ID string.
@@ -310,8 +307,7 @@ func runGroupToolsAnalyzeUnused(ctx context.Context, cliCtx *registry.CLIContext
 		rows = []map[string]any{}
 	}
 
-	formatter := output.New(outputFmt, noColor, wide)
-	return formatter.Print(rows)
+	return printRows(cliCtx, rows)
 }
 
 // addPlatformReferencedGroups adds group names referenced by blueprints
@@ -481,8 +477,16 @@ func runGroupToolsExport(ctx context.Context, cliCtx *registry.CLIContext, forma
 		rows = []map[string]any{}
 	}
 
-	formatter := output.New(format, noColor, wide)
-	return formatter.Print(rows)
+	// The same drop printRows applies. This command names its own format, so it
+	// keeps formatterFor rather than going through printRows.
+	//
+	// Printing the survivors rather than returning early is what keeps the
+	// document: --format accepts only yaml or json, both structured, so a bare
+	// return covered 100% of this command's output surface and left
+	// `--out-file groups.json` at 0 bytes on a mistyped --select.
+	kept, dropped := selectSurvivors(rows)
+	reportSelectMiss(dropped)
+	return formatterFor(cliCtx, format).Print(kept)
 }
 
 // ─────────────────────────────────────────────────────────────────

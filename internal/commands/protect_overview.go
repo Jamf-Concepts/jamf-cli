@@ -10,7 +10,6 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/Jamf-Concepts/jamf-cli/internal/output"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 )
 
@@ -311,7 +310,10 @@ func newProtectOverviewCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Long: `Display a grouped summary of your Jamf Protect instance including endpoint
 counts, security configuration, data forwarding status, and access controls.
 
-Makes parallel API calls for fast results. Items that fail to load show "N/A".`,
+Makes parallel API calls for fast results. Items that fail to load show "N/A".
+
+With no -o flag, this command writes a grouped table. Then --out-file receives
+that table, not JSON. Use -o json to write structured data to the file.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			sections, err := runProtectOverview(cmd, cliCtx)
 			if err != nil {
@@ -319,13 +321,12 @@ Makes parallel API calls for fast results. Items that fail to load show "N/A".`,
 			}
 
 			if !cmd.Flags().Changed("output") || outputFmt == "table" {
-				printProtectOverviewTable(cmd.OutOrStdout(), sections, !noColor)
+				printProtectOverviewTable(writerFor(cliCtx), sections, !noColor)
 				return nil
 			}
 
 			rows := overviewToRows(sections)
-			formatter := output.New(outputFmt, noColor, wide)
-			return formatter.Print(rows)
+			return printRows(cliCtx, rows)
 		},
 	}
 }

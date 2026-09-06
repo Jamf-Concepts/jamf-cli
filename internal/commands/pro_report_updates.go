@@ -13,7 +13,6 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/Jamf-Concepts/jamf-cli/internal/output"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 )
 
@@ -70,7 +69,10 @@ Examples:
   jamf-cli pro report update-status --scan-failures --limit 50
 
   # JSON output for scripting
-  jamf-cli pro report update-status -o json`,
+  jamf-cli pro report update-status -o json
+
+With no -o flag, this report writes a table. Then --out-file receives that
+table, not JSON. Use -o json to write structured data to the file.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !cmd.Flags().Changed("output") {
 				outputFmt = "table"
@@ -80,7 +82,7 @@ Examples:
 			if !cmd.Flags().Changed("limit") {
 				effectiveLimit = -1
 			}
-			return runReportUpdateStatus(cmd.Context(), cliCtx.Client, scanFailures, effectiveLimit)
+			return runReportUpdateStatus(cmd.Context(), cliCtx, scanFailures, effectiveLimit)
 		},
 	}
 
@@ -89,7 +91,8 @@ Examples:
 	return cmd
 }
 
-func runReportUpdateStatus(ctx context.Context, client registry.HTTPClient, scanFailures bool, limit int) error {
+func runReportUpdateStatus(ctx context.Context, cliCtx *registry.CLIContext, scanFailures bool, limit int) error {
+	client := cliCtx.Client
 	// Fetch both update statuses and update plans
 	fmt.Fprintf(os.Stderr, "Fetching managed software update statuses...\n")
 
@@ -248,8 +251,6 @@ func runReportUpdateStatus(ctx context.Context, client registry.HTTPClient, scan
 		planStateMaps[i] = map[string]any{"state": r.state, "count": r.count}
 	}
 
-	formatter := output.New(outputFmt, noColor, wide)
-
 	// Without --scan-failures: print summary tables only and return early.
 	// This avoids the expensive inventory fetch and per-plan events calls.
 	if !scanFailures {
@@ -260,18 +261,16 @@ func runReportUpdateStatus(ctx context.Context, client registry.HTTPClient, scan
 				"plan_total":         len(plans),
 				"plan_state_summary": planStateMaps,
 			}
-			return formatter.Print([]map[string]any{combined})
+			return printRows(cliCtx, []map[string]any{combined})
 		}
 
 		if len(summaryMaps) > 0 {
-			fmt.Printf("── Managed Software Update Status (%d total) ──\n", len(results))
-			if err := formatter.Print(summaryMaps); err != nil {
+			if err := printSection(cliCtx, fmt.Sprintf("── Managed Software Update Status (%d total) ──\n", len(results)), summaryMaps); err != nil {
 				return err
 			}
 		}
 		if len(planStateMaps) > 0 {
-			fmt.Printf("\n── Update Plan Status (%d total) ──\n", len(plans))
-			if err := formatter.Print(planStateMaps); err != nil {
+			if err := printSection(cliCtx, fmt.Sprintf("\n── Update Plan Status (%d total) ──\n", len(plans)), planStateMaps); err != nil {
 				return err
 			}
 		}
@@ -406,37 +405,33 @@ func runReportUpdateStatus(ctx context.Context, client registry.HTTPClient, scan
 			"plan_state_summary": planStateMaps,
 			"failed_plans":       failedPlanRows,
 		}
-		return formatter.Print([]map[string]any{combined})
+		return printRows(cliCtx, []map[string]any{combined})
 	}
 
 	// Table: update status summary
 	if len(summaryMaps) > 0 {
-		fmt.Printf("── Managed Software Update Status (%d total) ──\n", len(results))
-		if err := formatter.Print(summaryMaps); err != nil {
+		if err := printSection(cliCtx, fmt.Sprintf("── Managed Software Update Status (%d total) ──\n", len(results)), summaryMaps); err != nil {
 			return err
 		}
 	}
 
 	// Table: error devices
 	if len(errorRows) > 0 {
-		fmt.Printf("\n── Devices With Update Errors (%d) ──\n", len(errorRows))
-		if err := formatter.Print(errorRows); err != nil {
+		if err := printSection(cliCtx, fmt.Sprintf("\n── Devices With Update Errors (%d) ──\n", len(errorRows)), errorRows); err != nil {
 			return err
 		}
 	}
 
 	// Table: plan state summary
 	if len(planStateMaps) > 0 {
-		fmt.Printf("\n── Update Plan Status (%d total) ──\n", len(plans))
-		if err := formatter.Print(planStateMaps); err != nil {
+		if err := printSection(cliCtx, fmt.Sprintf("\n── Update Plan Status (%d total) ──\n", len(plans)), planStateMaps); err != nil {
 			return err
 		}
 	}
 
 	// Table: failed plans
 	if len(failedPlanRows) > 0 {
-		fmt.Printf("\n── Failed Update Plans (%d) ──\n", len(failedPlanRows))
-		if err := formatter.Print(failedPlanRows); err != nil {
+		if err := printSection(cliCtx, fmt.Sprintf("\n── Failed Update Plans (%d) ──\n", len(failedPlanRows)), failedPlanRows); err != nil {
 			return err
 		}
 	}

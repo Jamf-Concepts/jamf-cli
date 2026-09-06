@@ -10,7 +10,6 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/Jamf-Concepts/jamf-cli/internal/output"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform/blueprints"
 )
@@ -200,7 +199,10 @@ func newSchoolOverviewCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Long: `Display a grouped summary of your Jamf School instance including device
 counts, user counts, classes, profiles, apps, and locations.
 
-Makes parallel API calls for fast results. Items that fail to load show "N/A".`,
+Makes parallel API calls for fast results. Items that fail to load show "N/A".
+
+With no -o flag, this command writes a grouped table. Then --out-file receives
+that table, not JSON. Use -o json to write structured data to the file.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			sections, err := runSchoolOverview(cmd, cliCtx)
 			if err != nil {
@@ -208,13 +210,12 @@ Makes parallel API calls for fast results. Items that fail to load show "N/A".`,
 			}
 
 			if !cmd.Flags().Changed("output") || outputFmt == "table" {
-				printSchoolOverviewTable(cmd.OutOrStdout(), sections, !noColor)
+				printSchoolOverviewTable(writerFor(cliCtx), sections, !noColor)
 				return nil
 			}
 
 			rows := overviewToRows(sections)
-			formatter := output.New(outputFmt, noColor, wide)
-			return formatter.Print(rows)
+			return printRows(cliCtx, rows)
 		},
 	}
 }

@@ -11,7 +11,6 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/Jamf-Concepts/jamf-cli/internal/output"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 	"github.com/Jamf-Concepts/jamf-cli/internal/resolve"
 )
@@ -145,8 +144,7 @@ open is launch count).`,
 				return err
 			}
 
-			formatter := output.New(outputFmt, noColor, wide)
-			return formatter.Print(rows)
+			return printRows(cliCtx, rows)
 		},
 	}
 

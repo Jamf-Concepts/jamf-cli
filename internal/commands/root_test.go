@@ -659,18 +659,27 @@ func TestCLIOutputPrintRaw_FieldExtractArray(t *testing.T) {
 	fieldName = "id"
 	t.Cleanup(func() { fieldName = "" })
 
+	// The values are asserted against the formatter's WRITER, not stdout.
+	// --field used to write to os.Stdout itself, which split one report between
+	// two destinations: a multi-section report's headers followed --out-file
+	// through the formatter while the values went to the terminal.
+	var buf bytes.Buffer
 	formatter := output.New("json", true, false)
+	formatter.SetWriter(&buf)
 	o := &cliOutput{formatter}
 
-	out := captureStdout(t, func() {
+	stdout := captureStdout(t, func() {
 		err := o.PrintRaw([]byte(`[{"id":1,"name":"A"},{"id":2,"name":"B"}]`))
 		if err != nil {
 			t.Fatalf("PrintRaw error: %v", err)
 		}
 	})
 
-	if out != "1\n2\n" {
-		t.Errorf("output = %q, want %q", out, "1\n2\n")
+	if buf.String() != "1\n2\n" {
+		t.Errorf("writer got %q, want %q", buf.String(), "1\n2\n")
+	}
+	if stdout != "" {
+		t.Errorf("--field left %q on standard output, so --out-file receives only part of the report", stdout)
 	}
 }
 
@@ -678,18 +687,27 @@ func TestCLIOutputPrintRaw_FieldExtractSingleObject(t *testing.T) {
 	fieldName = "name"
 	t.Cleanup(func() { fieldName = "" })
 
+	// The values are asserted against the formatter's WRITER, not stdout.
+	// --field used to write to os.Stdout itself, which split one report between
+	// two destinations: a multi-section report's headers followed --out-file
+	// through the formatter while the values went to the terminal.
+	var buf bytes.Buffer
 	formatter := output.New("json", true, false)
+	formatter.SetWriter(&buf)
 	o := &cliOutput{formatter}
 
-	out := captureStdout(t, func() {
+	stdout := captureStdout(t, func() {
 		err := o.PrintRaw([]byte(`{"id":1,"name":"HQ"}`))
 		if err != nil {
 			t.Fatalf("PrintRaw error: %v", err)
 		}
 	})
 
-	if out != "HQ\n" {
-		t.Errorf("output = %q, want %q", out, "HQ\n")
+	if buf.String() != "HQ\n" {
+		t.Errorf("writer got %q, want %q", buf.String(), "HQ\n")
+	}
+	if stdout != "" {
+		t.Errorf("--field left %q on standard output, so --out-file receives only part of the report", stdout)
 	}
 }
 

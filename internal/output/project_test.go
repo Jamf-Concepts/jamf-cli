@@ -376,3 +376,62 @@ func TestFormatter_Print_Compact_AllFormats(t *testing.T) {
 		})
 	}
 }
+
+// TestDropEmptySelectionsAgreesWithApply holds the two halves of the Select
+// projection to one answer. They each stated the input pipeline once and
+// diverged: Apply flattened the rows first, the guard did not, so a nested dot
+// path matched nothing in the guard and everything in the renderer. The guard
+// won, and a whole report was suppressed at exit 0.
+//
+// The some-rows-match row is the one that matters most, and the all-or-nothing
+// guard this replaced could not express it: a table and a CSV take their column
+// set from row 0, so keeping a row the select emptied discarded every matched
+// value in every later row.
+func TestDropEmptySelectionsAgreesWithApply(t *testing.T) {
+	nested := []map[string]any{{
+		"summary": map[string]any{"total_errors": 3, "total_ok": 9},
+	}}
+	// Heterogeneous, and row 0 is the one that misses — the shape that lost
+	// 1375 values on `commands -o csv --select api`.
+	mixed := []map[string]any{
+		{"command": "agent-context"},
+		{"command": "pro categories list", "api": "pro"},
+		{"command": "pro classic-sites list", "api": "pro-classic"},
+	}
+
+	for _, tc := range []struct {
+		name     string
+		rows     []map[string]any
+		sel      []string
+		wantKept int
+		wantDrop int
+	}{
+		{"nested path that exists", nested, []string{"summary.total_errors"}, 1, 0},
+		{"nested parent that exists", nested, []string{"summary"}, 1, 0},
+		{"nested path that does not", nested, []string{"summary.nosuch"}, 0, 1},
+		{"top-level path that does not", nested, []string{"nosuch"}, 0, 1},
+		{"flat path that exists", []map[string]any{{"id": "1"}}, []string{"id"}, 1, 0},
+		{"some rows match, row 0 does not", mixed, []string{"api"}, 2, 1},
+		{"every row matches", mixed, []string{"command"}, 3, 0},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			p := Projector{Select: tc.sel}
+			kept, dropped := p.DropEmptySelections(tc.rows)
+			if len(kept) != tc.wantKept || dropped != tc.wantDrop {
+				t.Errorf("DropEmptySelections = (%d kept, %d dropped), want (%d, %d)", len(kept), dropped, tc.wantKept, tc.wantDrop)
+			}
+
+			// The invariant: a row survives exactly when Apply gives it fields.
+			// Anything else drops data the renderer would have shown, or keeps
+			// a row that empties a table's column set.
+			for _, row := range p.Apply(kept) {
+				if len(row) == 0 {
+					t.Errorf("a surviving row projects to nothing, so it can still empty a table's column set: %v", kept)
+				}
+			}
+			if dropped+len(kept) != len(tc.rows) {
+				t.Errorf("%d kept + %d dropped != %d input rows", len(kept), dropped, len(tc.rows))
+			}
+		})
+	}
+}

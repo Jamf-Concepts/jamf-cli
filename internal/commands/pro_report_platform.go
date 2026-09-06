@@ -3,13 +3,11 @@
 package commands
 
 import (
-	"encoding/json"
 	"fmt"
 	"strings"
 
 	"github.com/spf13/cobra"
 
-	"github.com/Jamf-Concepts/jamf-cli/internal/output"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform/blueprints"
 	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform/compliancebenchmarks"
@@ -77,16 +75,7 @@ failed, and pending device counts. Requires platform gateway auth.`,
 				return nil
 			}
 
-			if outputFmt == "json" || outputFmt == "yaml" {
-				data, err := json.Marshal(rows)
-				if err != nil {
-					return fmt.Errorf("marshalling output: %w", err)
-				}
-				return cliCtx.Output.PrintRaw(data)
-			}
-
-			formatter := output.New(outputFmt, noColor, wide)
-			return formatter.Print(rows)
+			return printRows(cliCtx, rows)
 		},
 	}
 }
@@ -165,16 +154,7 @@ shows only rules that have failing devices).`,
 				return nil
 			}
 
-			if outputFmt == "json" || outputFmt == "yaml" {
-				data, err := json.Marshal(rows)
-				if err != nil {
-					return fmt.Errorf("marshalling output: %w", err)
-				}
-				return cliCtx.Output.PrintRaw(data)
-			}
-
-			formatter := output.New(outputFmt, noColor, wide)
-			return formatter.Print(rows)
+			return printRows(cliCtx, rows)
 		},
 	}
 	cmd.Flags().StringVar(&sortField, "sort", "", "Sort field: failed, passed, unknown, ruleTitle, ruleNumber (e.g. failed:desc)")
@@ -282,16 +262,7 @@ of failing rules.`,
 				})
 			}
 
-			if outputFmt == "json" || outputFmt == "yaml" {
-				data, err := json.Marshal(rows)
-				if err != nil {
-					return fmt.Errorf("marshalling output: %w", err)
-				}
-				return cliCtx.Output.PrintRaw(data)
-			}
-
-			formatter := output.New(outputFmt, noColor, wide)
-			return formatter.Print(rows)
+			return printRows(cliCtx, rows)
 		},
 	}
 	cmd.Flags().StringVar(&stateParam, "state", "", "Filter by result state: PASSED, FAILED, UNKNOWN (default: FAILED)")
@@ -463,16 +434,10 @@ Requires platform gateway auth.`,
 						"unsuccessful": s.Unsuccessful,
 					})
 				}
-				data, err := json.Marshal(rows)
-				if err != nil {
-					return fmt.Errorf("marshalling output: %w", err)
-				}
-				return cliCtx.Output.PrintRaw(data)
+				return printRows(cliCtx, rows)
 			}
 
 			// Table: summary, then devices with errors
-			formatter := output.New(outputFmt, noColor, wide)
-
 			summaryRows := make([]map[string]any, 0, len(agg))
 			for source, s := range agg {
 				if s.Kind == "standalone" {
@@ -487,12 +452,11 @@ Requires platform gateway auth.`,
 					"unsuccessful": s.Unsuccessful,
 				})
 			}
-			if err := formatter.Print(summaryRows); err != nil {
+			if err := printRows(cliCtx, summaryRows); err != nil {
 				return err
 			}
 
 			if len(deviceErrors) > 0 {
-				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "\n── Errors (%d) ──\n", len(deviceErrors))
 				errRows := make([]map[string]any, 0, len(deviceErrors))
 				for _, e := range deviceErrors {
 					errRows = append(errRows, map[string]any{
@@ -501,7 +465,8 @@ Requires platform gateway auth.`,
 						"reason":   e.Reason,
 					})
 				}
-				if err := formatter.Print(errRows); err != nil {
+				header := fmt.Sprintf("\n── Errors (%d) ──\n", len(deviceErrors))
+				if err := printSection(cliCtx, header, errRows); err != nil {
 					return err
 				}
 			}

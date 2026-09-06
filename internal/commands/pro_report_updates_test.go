@@ -9,6 +9,9 @@ import (
 	"io"
 	"os"
 	"testing"
+
+	"github.com/Jamf-Concepts/jamf-cli/internal/output"
+	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 )
 
 // ---------------------------------------------------------------------------
@@ -202,7 +205,7 @@ func TestRunReportUpdateStatus_WithErrors(t *testing.T) {
 		},
 	}
 
-	err := runReportUpdateStatus(context.Background(), client, true, 0)
+	err := runReportUpdateStatus(context.Background(), reportTestCtx(client), true, 0)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -246,7 +249,7 @@ func TestRunReportUpdateStatus_StaleDevicesDropped(t *testing.T) {
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
-	err := runReportUpdateStatus(context.Background(), client, true, 0)
+	err := runReportUpdateStatus(context.Background(), reportTestCtx(client), true, 0)
 	_ = w.Close()
 	os.Stdout = old
 	if err != nil {
@@ -280,7 +283,7 @@ func TestRunReportUpdateStatus_NoStatuses(t *testing.T) {
 		},
 	}
 
-	err := runReportUpdateStatus(context.Background(), client, false, -1)
+	err := runReportUpdateStatus(context.Background(), reportTestCtx(client), false, -1)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -295,7 +298,7 @@ func TestRunReportUpdateStatus_BothFetchesFail(t *testing.T) {
 	}
 
 	// Both failures are warnings, not fatal — returns nil with "no data found" message
-	err := runReportUpdateStatus(context.Background(), client, false, -1)
+	err := runReportUpdateStatus(context.Background(), reportTestCtx(client), false, -1)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -319,7 +322,7 @@ func TestRunReportUpdateStatus_SummaryOnly(t *testing.T) {
 	// The mock has no inventory routes — any call to them would return 500 and
 	// cause fetchUpdateDeviceLookup to silently fail, but the real guard is
 	// that runReportUpdateStatus should return before reaching that code path.
-	err := runReportUpdateStatus(context.Background(), client, false, -1)
+	err := runReportUpdateStatus(context.Background(), reportTestCtx(client), false, -1)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -386,4 +389,11 @@ func TestFetchUpdateDeviceLookup_Computers(t *testing.T) {
 	if meta.deviceType != "Computer" {
 		t.Errorf("deviceType = %q, want Computer", meta.deviceType)
 	}
+}
+
+// reportTestCtx wires a mock client to the same formatter wrapper production
+// uses, so a report command under test prints through the shared route. The
+// format is read at call time, after a test has set outputFmt.
+func reportTestCtx(client registry.HTTPClient) *registry.CLIContext {
+	return &registry.CLIContext{Client: client, Output: &cliOutput{output.New(outputFmt, true, false)}}
 }
