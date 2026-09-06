@@ -70,6 +70,27 @@ migration guide** and carries the detail, the error messages verbatim, and the r
 
 ### Breaking — everything else
 
+- **`pro backup` and `pro diff` refuse a stray positional argument**, with exit 2
+  (`usage`). Both take their whole input as flags, and cobra supplies no default validator,
+  so a positional was discarded and the command ran anyway: `pro backup somegarbage
+  --output DIR` started a full backup from a typo. A wrapper or a CI job that passes a stray
+  token now fails where it used to succeed. Remove the argument, or move it to the flag that
+  takes it. The refusal names the command and the value, and adds any required flag that is
+  also unset, so `pro diff staging production` still reports `--source` and `--target`
+  rather than replacing that answer with the positional complaint. That clause is
+  conditional: a refusal that can suggest a subcommand instead names no flag, so
+  `pro backup list-resourcez` suggests `list-resources` and stays silent about `--output`,
+  which there is the root format flag rather than a directory.
+- **An error raised before the output format is resolved now follows `default-output`.** The
+  `-o` default was `json`, so a flag-parse error and an argument refusal always rendered the
+  JSON envelope on stdout — even where the profile pinned another format, and even on a
+  terminal — while the same profile's `RunE` errors, raised after resolution, rendered plain
+  text. Two answers to one question. The default is now empty, meaning unresolved, and both
+  paths answer the same way. A profile pinning `default-output` to a non-json format
+  therefore gets plain text on stderr for those two error classes where it previously got
+  the envelope on stdout, **piped runs included**: a wrapper parsing that envelope must key
+  on the plain-text form, or pass `-o json` explicitly. With no `default-output` set a piped
+  run still gets the envelope, so an unconfigured CI job is unaffected.
 - **A cobra usage error now exits 2, not 1.** Four classes move: a missing required flag, a
   flag group with no member set, a flag group with mutually exclusive members set together,
   and the wrong number of positional arguments. An unknown flag and an unknown subcommand

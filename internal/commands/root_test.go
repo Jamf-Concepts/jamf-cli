@@ -7,6 +7,9 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"go/ast"
+	"go/parser"
+	gotoken "go/token" // the package name collides with root.go's token flag var
 	"io"
 	"net/http"
 	"os"
@@ -1685,14 +1688,284 @@ func TestGuardUnknownSubcommands(t *testing.T) {
 	}
 }
 
+// TestRefuseStrayArgs_ProBackup pins that a stray positional on `pro backup`
+// is refused before anything runs. The regression is not a missing error: with
+// no Args validator cobra discarded the positional and started a full backup,
+// writing files and warning per resource. So this asserts the output directory
+// is still empty afterwards.
+func TestRefuseStrayArgs_ProBackup(t *testing.T) {
+	dir := t.TempDir()
+
+	root := NewRootCmd("test", "none", "none", "none")
+	root.SetArgs([]string{"pro", "backup", "list-resourcez", "--output", dir})
+	root.SetOut(io.Discard)
+	root.SetErr(io.Discard)
+
+	err := root.Execute()
+	if err == nil {
+		t.Fatal("pro backup accepted a stray positional")
+	}
+	if code := exitcode.CodeFrom(err); code != exitcode.Usage {
+		t.Errorf("exit code = %d, want %d (usage)", code, exitcode.Usage)
+	}
+	if !strings.Contains(err.Error(), "list-resourcez") {
+		t.Errorf("error should name the typo, got %q", err.Error())
+	}
+	if !strings.Contains(err.Error(), "unknown command") {
+		t.Errorf("pro backup owns a subcommand, so the message keeps that wording, got %q", err.Error())
+	}
+
+	entries, readErr := os.ReadDir(dir)
+	if readErr != nil {
+		t.Fatalf("reading output dir: %v", readErr)
+	}
+	if len(entries) != 0 {
+		names := make([]string, 0, len(entries))
+		for _, e := range entries {
+			names = append(names, e.Name())
+		}
+		t.Errorf("backup ran despite the refusal: %v", names)
+	}
+}
+
+// TestRefuseStrayArgs_SuggestsRealSubcommand covers the reason `pro backup`
+// needs the suggestion block at all: it owns a subcommand, so the stray
+// positional is usually a typo of it.
+func TestRefuseStrayArgs_SuggestsRealSubcommand(t *testing.T) {
+	root := NewRootCmd("test", "none", "none", "none")
+	root.SetArgs([]string{"pro", "backup", "list-resourcez", "--output", t.TempDir()})
+	root.SetOut(io.Discard)
+	root.SetErr(io.Discard)
+
+	err := root.Execute()
+	if err == nil {
+		t.Fatal("pro backup accepted a stray positional")
+	}
+	if !strings.Contains(err.Error(), "list-resources") {
+		t.Errorf("error should suggest 'list-resources', got %q", err.Error())
+	}
+	if !strings.Contains(err.Error(), "Did you mean this?") {
+		t.Errorf("error should carry the suggestion block, got %q", err.Error())
+	}
+}
+
+// TestRefuseStrayArgs_ProDiff covers the no-subcommands case. `pro diff` owns no
+// subcommands, so "unknown command" would read as though diff were a command
+// group; the message says the command takes no positional arguments instead.
+// `pro diff` also carries required flags, and the Args validator has to win over
+// those so the message names the real mistake — while still naming the flags, see
+// TestRefuseStrayArgs_ProDiffNamesItsRequiredFlags.
+func TestRefuseStrayArgs_ProDiff(t *testing.T) {
+	root := NewRootCmd("test", "none", "none", "none")
+	root.SetArgs([]string{"pro", "diff", "somegarbage"})
+	root.SetOut(io.Discard)
+	root.SetErr(io.Discard)
+
+	err := root.Execute()
+	if err == nil {
+		t.Fatal("pro diff accepted a stray positional")
+	}
+	if code := exitcode.CodeFrom(err); code != exitcode.Usage {
+		t.Errorf("exit code = %d, want %d (usage)", code, exitcode.Usage)
+	}
+	if !strings.Contains(err.Error(), "somegarbage") {
+		t.Errorf("error should name the typo, got %q", err.Error())
+	}
+	if !strings.Contains(err.Error(), "takes no positional arguments") {
+		t.Errorf("error should say the command takes no positionals, got %q", err.Error())
+	}
+	if strings.Contains(err.Error(), "unknown command") {
+		t.Errorf("pro diff owns no subcommands, so the message must not call it one, got %q", err.Error())
+	}
+	// The hint is the cross-PR contract. #360 installs a tree-wide guard that
+	// holds every zero-arity leaf to carrying one, and `pro diff` is such a
+	// leaf whose validator that guard leaves alone (it only fills a nil Args).
+	// A refusal built with exitcode.Wrap carries no Hint, so this assertion is
+	// what stops the two landing as two wordings for one mistake.
+	var e *exitcode.Error
+	if !errors.As(err, &e) {
+		t.Fatalf("refusal carries no exit-code error: %T", err)
+	}
+	if e.Hint == "" {
+		t.Error("refusal carries no hint, so it does not say where to find the flags")
+	}
+}
+
+// TestRefuseStrayArgs_ProDiffNamesItsRequiredFlags covers the remedy this
+// refusal pre-empts. Cobra runs ValidateArgs (command.go:968) before
+// ValidateRequiredFlags (command.go:1007), so refuseStrayArgs answers first on
+// any invocation carrying a positional and the required-flag error never runs at
+// all. `pro diff` takes its whole input as flags, so an operator copying
+// docs/site/examples.json's example without the flag names was told
+// `required flag(s) "source", "target" not set` before this guard existed and a
+// message about the positional after it — same exit code, with the fix removed.
+//
+// It goes through root.Execute() rather than calling Args directly, because the
+// precedence is the whole point: a direct call would pass even if cobra ran the
+// flag validator first and the clause were unreachable. The wording is cobra's
+// own ValidateRequiredFlags, so it matches what the CLI prints for a missing
+// required flag everywhere else.
+func TestRefuseStrayArgs_ProDiffNamesItsRequiredFlags(t *testing.T) {
+	root := NewRootCmd("test", "none", "none", "none")
+	root.SetArgs([]string{"pro", "diff", "staging", "production"})
+	root.SetOut(io.Discard)
+	root.SetErr(io.Discard)
+
+	err := root.Execute()
+	if err == nil {
+		t.Fatal("pro diff accepted two stray positionals")
+	}
+	if code := exitcode.CodeFrom(err); code != exitcode.Usage {
+		t.Errorf("exit code = %d, want %d (usage)", code, exitcode.Usage)
+	}
+	for _, want := range []string{"source", "target"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("message should name %s, got %q", want, err.Error())
+		}
+	}
+}
+
+// TestRefuseStrayArgs_SuppliedRequiredFlagIsNotNamed asserts the clause reports
+// what is actually missing rather than what the command declares, which is what
+// keeps it off the messages where nothing is missing. A message recommending
+// --output to an operator who had just passed it reads as the CLI not having
+// seen the flag.
+func TestRefuseStrayArgs_SuppliedRequiredFlagIsNotNamed(t *testing.T) {
+	root := NewRootCmd("test", "none", "none", "none")
+	root.SetArgs([]string{"pro", "backup", "somegarbage", "--output", t.TempDir()})
+	root.SetOut(io.Discard)
+	root.SetErr(io.Discard)
+
+	err := root.Execute()
+	if err == nil {
+		t.Fatal("pro backup accepted a stray positional")
+	}
+	if strings.Contains(err.Error(), "required flag") {
+		t.Errorf("--output was supplied, so nothing is missing, got %q", err.Error())
+	}
+}
+
+// TestRefuseStrayArgs_LeavesRealSubcommandAlone asserts the validator on the
+// parent cannot reach a positional cobra has already resolved as a subcommand.
+func TestRefuseStrayArgs_LeavesRealSubcommandAlone(t *testing.T) {
+	root := NewRootCmd("test", "none", "none", "none")
+	root.SetArgs([]string{"pro", "backup", "list-resources"})
+	root.SetOut(io.Discard)
+	root.SetErr(io.Discard)
+
+	var err error
+	captureStdout(t, func() { err = root.Execute() })
+	if err != nil {
+		t.Fatalf("pro backup list-resources should still run, got %v", err)
+	}
+}
+
+// TestRefuseStrayArgs_ListResourcesLeaf covers the validator on a leaf command,
+// which nothing else reaches: the group-parent tree walk in
+// TestGuardUnknownSubcommands_CoversAllGroupParents only visits a command that
+// owns subcommands, and every other list-resources test invokes it with zero
+// positionals. Deleting the Args line leaves all of them passing, and
+// `pro backup list-resources somegarbage` then discards the positional and
+// prints the whole listing at exit 0.
+//
+// The spec version is "unknown" so checkTenantVersion returns before its
+// version probe, and the credentials are pinned rather than inherited: either
+// one left ambient sends a live request to a Jamf host from a developer machine
+// that happens to have a profile exported.
+func TestRefuseStrayArgs_ListResourcesLeaf(t *testing.T) {
+	resetGlobals()
+	t.Setenv("JAMF_URL", "https://test.jamfcloud.com")
+	t.Setenv("JAMF_TOKEN", "")
+	t.Setenv("JAMF_CLIENT_ID", "")
+	t.Setenv("JAMF_CLIENT_SECRET", "")
+	t.Setenv("JAMF_PROFILE", "")
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+
+	root := NewRootCmd("test", "none", "none", "unknown")
+	root.SetArgs([]string{"pro", "backup", "list-resources", "somegarbage"})
+	root.SetOut(io.Discard)
+	root.SetErr(io.Discard)
+
+	var err error
+	stdout := captureStdout(t, func() { err = root.Execute() })
+	if err == nil {
+		t.Fatal("pro backup list-resources accepted a stray positional")
+	}
+	if code := exitcode.CodeFrom(err); code != exitcode.Usage {
+		t.Errorf("exit code = %d, want %d (usage)", code, exitcode.Usage)
+	}
+	if !strings.Contains(err.Error(), "somegarbage") {
+		t.Errorf("error should name the typo, got %q", err.Error())
+	}
+	if !strings.Contains(err.Error(), "takes no positional arguments") {
+		t.Errorf("list-resources owns no subcommands, so the message must not call the "+
+			"typo an unknown command, got %q", err.Error())
+	}
+	if strings.TrimSpace(stdout) != "" {
+		t.Errorf("the listing printed despite the refusal, %d bytes: %q", len(stdout), stdout)
+	}
+}
+
+// TestRefuseStrayArgs_ZeroPositionalsPass pins the early return directly.
+// cobra's ValidateArgs calls the validator on every invocation of a command
+// carrying it, so zero positionals is the ordinary path and not an edge case. A
+// regression there panics on args[0] inside whichever unrelated test runs the
+// command first, which crashes the package binary instead of failing one line.
+func TestRefuseStrayArgs_ZeroPositionalsPass(t *testing.T) {
+	cmd := &cobra.Command{Use: "probe"}
+
+	if err := refuseStrayArgs(cmd, nil); err != nil {
+		t.Errorf("nil args: %v", err)
+	}
+	if err := refuseStrayArgs(cmd, []string{}); err != nil {
+		t.Errorf("empty args: %v", err)
+	}
+
+	err := refuseStrayArgs(cmd, []string{"somegarbage"})
+	if err == nil {
+		t.Fatal("a positional was accepted")
+	}
+	if code := exitcode.CodeFrom(err); code != exitcode.Usage {
+		t.Errorf("exit code = %d, want %d (usage)", code, exitcode.Usage)
+	}
+	if !strings.Contains(err.Error(), "somegarbage") {
+		t.Errorf("error should name the positional, got %q", err.Error())
+	}
+}
+
 // TestGuardUnknownSubcommands_CoversAllGroupParents walks the entire command
 // tree and asserts every group parent (a command that owns subcommands) is
-// guarded: it must carry the group-parent annotation and reject an unknown
-// subcommand with a usage exit code. Because it walks the whole tree, a new
-// command group — generated or hand-written, at any depth — is covered
-// automatically; if one is ever left unguarded, this fails.
+// guarded: a typo must not print help and exit 0. Because it walks the whole
+// tree, a new command group — generated or hand-written, at any depth — is
+// covered automatically; if one is ever left unguarded, this fails.
+//
+// A non-runnable parent is guarded by guardUnknownSubcommands, which annotates
+// it and attaches a RunE. A runnable parent (`pro backup`) is guarded by an
+// Args validator instead, and must NOT be given groupParentAnnotation:
+// PersistentPreRunE reads that annotation to skip auth, so annotating a parent
+// that calls an API would run it with a nil client.
+//
+// Both arms assert both directions, because a guard that refuses everything
+// satisfies the refusal half on its own: the bogus positional and the exit code
+// alone would certify a parent whose own flag-only invocation cannot run.
+// Measured against a staged runnable parent whose Args always returns a Usage
+// error, the runnable arm without its zero-positional call passes and reports
+// 322 verified. The annotated arm had the identical hole: deleting the
+// len(args) == 0 branch from guardUnknownSubcommands' synthesized closure left
+// it passing on all 321 annotated parents, with every bare `pro <group>`
+// printing "unknown command" at exit 2 and CI green.
+//
+// The zero-positional calls are also what make this walk exercise that path at
+// all. Deleting the len(args) == 0 early return from refuseStrayArgs surfaces as
+// an args[0] panic rather than a clean failure, because the panic happens inside
+// the call below; the closure's branch fails the same way.
 func TestGuardUnknownSubcommands_CoversAllGroupParents(t *testing.T) {
 	root := NewRootCmd("test", "none", "none", "none")
+	// The zero-positional arms below reach c.Help() on every annotated parent,
+	// which writes to the root's output. Discard it: 300-odd help screens bury
+	// the failure this walk exists to report.
+	root.SetOut(io.Discard)
+	root.SetErr(io.Discard)
 
 	const bogus = "zzdefinitelynotacommand"
 	parents := 0
@@ -1705,7 +1978,15 @@ func TestGuardUnknownSubcommands_CoversAllGroupParents(t *testing.T) {
 				parents++
 				switch {
 				case sub.Annotations[groupParentAnnotation] != "true":
-					t.Errorf("group parent %q is not guarded: a typo would print help and exit 0", subPath)
+					if sub.Args == nil {
+						t.Errorf("group parent %q is not guarded: a typo would print help and exit 0", subPath)
+					} else if err := sub.Args(sub, []string{bogus}); err == nil {
+						t.Errorf("runnable group parent %q accepted unknown subcommand %q", subPath, bogus)
+					} else if code := exitcode.CodeFrom(err); code != exitcode.Usage {
+						t.Errorf("runnable group parent %q: unknown subcommand exit %d, want %d (usage)", subPath, code, exitcode.Usage)
+					} else if err := sub.Args(sub, []string{}); err != nil {
+						t.Errorf("runnable group parent %q refuses its own zero-positional invocation: %v", subPath, err)
+					}
 				case sub.RunE == nil:
 					t.Errorf("group parent %q is annotated but has no RunE", subPath)
 				default:
@@ -1714,6 +1995,8 @@ func TestGuardUnknownSubcommands_CoversAllGroupParents(t *testing.T) {
 						t.Errorf("group parent %q accepted unknown subcommand without error", subPath)
 					} else if code := exitcode.CodeFrom(err); code != exitcode.Usage {
 						t.Errorf("group parent %q: unknown subcommand exit %d, want %d (usage)", subPath, code, exitcode.Usage)
+					} else if err := sub.RunE(sub, []string{}); err != nil {
+						t.Errorf("group parent %q refuses its own zero-positional invocation: %v", subPath, err)
 					}
 				}
 			}
@@ -1877,6 +2160,249 @@ func TestChainSkip_RootLevelVersionAndCommandsStillSkip(t *testing.T) {
 
 			if err := root.Execute(); err != nil {
 				t.Errorf("%v with no credentials: %v", args, err)
+			}
+		})
+	}
+}
+
+// TestErrorFormat covers how an error is rendered before PersistentPreRunE has
+// run. Cobra validates args and parses flags first, so an Args refusal and a
+// flag error both arrive with outputFmt still holding its flag default.
+//
+// That default used to be "json", which sent both down the machine-envelope
+// path on stdout for a caller who never asked for JSON — while a refusal raised
+// from RunE, after resolution, printed plain text on stderr. The stray-args
+// guard moved `pro backup` and `pro diff` onto the first path, so the message
+// those commands exist to improve reached the human who typed the typo as a
+// six-line JSON blob.
+//
+// It is a function taking stdoutTTY rather than reading the terminal, because a
+// test writes to a pipe and a pipe can never be one.
+func TestErrorFormat(t *testing.T) {
+	for _, tc := range []struct {
+		name       string
+		resolved   string
+		stdoutTTY  bool
+		hasOutFile bool
+		want       string
+	}{
+		// The regression: a terminal, nothing asked for, must not get JSON.
+		{"unresolved on a terminal", "", true, false, "table"},
+		// And a pipe must still get the envelope, or one piped run answers two
+		// ways depending on which side of PersistentPreRunE the error came from.
+		{"unresolved when piped", "", false, false, "json"},
+		// --out-file means the data is not going to the terminal, so the
+		// terminal is not what decides.
+		{"unresolved with --out-file", "", true, true, "json"},
+		// Anything resolved wins outright, in both directions.
+		{"explicit json on a terminal", "json", true, false, "json"},
+		{"explicit table when piped", "table", false, false, "table"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := errorFormat(tc.resolved, "", tc.stdoutTTY, tc.hasOutFile); got != tc.want {
+				t.Errorf("errorFormat(%q, cfg=%q, tty=%v, outFile=%v) = %q, want %q", tc.resolved, "", tc.stdoutTTY, tc.hasOutFile, got, tc.want)
+			}
+		})
+	}
+}
+
+// TestOutputFlagDefaultsToUnresolved pins the flag default itself. It is the
+// input errorFormat reads, and the value that made every pre-resolution error
+// render as JSON. ResolveFormat ignores it unless the flag was changed, so
+// nothing else reads it and "" is safe.
+func TestOutputFlagDefaultsToUnresolved(t *testing.T) {
+	root := NewRootCmd("test", "none", "none", "none")
+	f := root.PersistentFlags().Lookup("output")
+	if f == nil {
+		t.Fatal("root has no --output flag")
+	}
+	if f.DefValue != "" {
+		t.Errorf("--output default = %q, want empty: a non-empty default is read by every path that runs before PersistentPreRunE and renders their errors in it", f.DefValue)
+	}
+}
+
+// TestFormatErrorTo_TerminalBranch reaches the branch where a human is
+// watching, which no other test in the tree can: every test here redirects
+// os.Stdout to an os.Pipe, so output.IsTerminal is false in all of them.
+//
+// Replacing the IsTerminal argument at formatErrorTo's call site with a literal
+// false — treating a real terminal as piped — left TestErrorFormat,
+// TestOutputFlagDefaultsToUnresolved, TestRunRendersAStrayPositionalRefusal and
+// every TestFormatError case passing. The piped branch was pinned and the
+// terminal branch was not, and the terminal branch is the one the stray-args
+// guard put a JSON envelope in front of.
+func TestFormatErrorTo_TerminalBranch(t *testing.T) {
+	oldFmt := outputFmt
+	t.Cleanup(func() { outputFmt = oldFmt })
+
+	err := &exitcode.Error{Code: exitcode.Usage, Message: "boom", Hint: "try --help"}
+
+	for _, tc := range []struct {
+		name        string
+		resolved    string
+		stdoutTTY   bool
+		hasOutFile  bool
+		wantHandled bool
+	}{
+		// The regression: unresolved on a terminal must NOT take the envelope.
+		{"unresolved on a terminal", "", true, false, false},
+		// Piped keeps it, so one piped run does not answer two ways.
+		{"unresolved when piped", "", false, false, true},
+		// --out-file means the data is not going to the terminal.
+		{"unresolved with --out-file", "", true, true, true},
+		// An explicit choice wins in both directions.
+		{"explicit json on a terminal", "json", true, false, true},
+		{"explicit table when piped", "table", false, false, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			outputFmt = tc.resolved
+			var buf bytes.Buffer
+			handled := formatErrorTo(&buf, err, "", tc.stdoutTTY, tc.hasOutFile)
+
+			if handled != tc.wantHandled {
+				t.Errorf("formatErrorTo handled = %v, want %v", handled, tc.wantHandled)
+			}
+			if tc.wantHandled {
+				if !strings.Contains(buf.String(), `"error"`) {
+					t.Errorf("expected the JSON envelope, got %q", buf.String())
+				}
+			} else if buf.Len() != 0 {
+				t.Errorf("expected nothing written so the caller prints plain text, got %q", buf.String())
+			}
+		})
+	}
+}
+
+// TestFormatErrorPassesTheRealTerminalState pins the one thing
+// TestFormatErrorTo_TerminalBranch structurally cannot: what the caller passes.
+//
+// That test drives formatErrorTo with explicit values, so a wrong argument at
+// the call site is invisible to it — replacing IsTerminal with a literal false
+// inside FormatError leaves it, TestErrorFormat and every run() test passing,
+// because each of those redirects os.Stdout to a pipe where false is the right
+// answer anyway. The envelope would return in front of an interactive user with
+// the suite green.
+//
+// A pty would be the behavioural way to catch it, and the tree has no harness
+// for one. This reads the wiring instead: the terminal argument has to be a
+// CALL, not a constant.
+func TestFormatErrorPassesTheRealTerminalState(t *testing.T) {
+	fset := gotoken.NewFileSet()
+	file, err := parser.ParseFile(fset, "root.go", nil, 0)
+	if err != nil {
+		t.Fatalf("parsing root.go: %v", err)
+	}
+
+	checked := false
+	for _, decl := range file.Decls {
+		fn, isFunc := decl.(*ast.FuncDecl)
+		if !isFunc || fn.Name.Name != "FormatError" {
+			continue
+		}
+		ast.Inspect(fn, func(n ast.Node) bool {
+			call, isCall := n.(*ast.CallExpr)
+			if !isCall {
+				return true
+			}
+			id, isIdent := call.Fun.(*ast.Ident)
+			if !isIdent || id.Name != "formatErrorTo" {
+				return true
+			}
+			checked = true
+			if len(call.Args) != 5 {
+				t.Fatalf("FormatError passes %d arguments to formatErrorTo, want 5", len(call.Args))
+			}
+			// Argument 4 is stdoutTTY. A constant here is the mutation.
+			inner, isCallExpr := call.Args[3].(*ast.CallExpr)
+			if !isCallExpr {
+				t.Errorf("FormatError passes a constant as formatErrorTo's stdoutTTY, so every invocation is treated as piped and the JSON envelope reaches an interactive user: %T", call.Args[3])
+				return true
+			}
+			sel, isSel := inner.Fun.(*ast.SelectorExpr)
+			if !isSel || sel.Sel.Name != "IsTerminal" {
+				t.Errorf("FormatError does not read the terminal state for formatErrorTo's stdoutTTY argument")
+			}
+			return true
+		})
+	}
+	if !checked {
+		t.Error("no call to formatErrorTo found inside FormatError — this test proves nothing")
+	}
+}
+
+// TestUnknownSubcommandOmitsRequiredFlagsWhenItSuggests covers the interaction
+// between the two halves of unknownSubcommandError's message.
+//
+// Cobra validates Args before ValidateRequiredFlags, so this refusal pre-empts
+// the required-flag error and has to carry it. But on a subcommand typo the
+// positional was meant to be a subcommand, a suggestion is already the remedy,
+// and the flag named belongs to the parent. `pro backup list-resourcez`
+// recommended --output one line above the suggestion for `list-resources`, the
+// single subcommand where --output is the inherited root FORMAT flag rather
+// than a destination directory — so following the message literally writes no
+// file and prints a table, which is the trap that command's Long warns about.
+func TestUnknownSubcommandOmitsRequiredFlagsWhenItSuggests(t *testing.T) {
+	for _, tc := range []struct {
+		name          string
+		argv          []string
+		wantSuggest   bool
+		wantFlagNamed bool
+	}{
+		// A near miss: the remedy is the suggestion, not a flag.
+		{"typo'd subcommand", []string{"pro", "backup", "list-resourcez"}, true, false},
+		// No suggestion possible, so the missing required flag is the answer.
+		{"unsuggestible stray", []string{"pro", "backup", "somegarbage"}, false, true},
+		// A leaf taking only flags keeps naming them: no subcommands to suggest.
+		{"leaf with required flags", []string{"pro", "diff", "staging", "production"}, false, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			root := NewRootCmd("test", "none", "none", "none")
+			root.SetArgs(tc.argv)
+			root.SetOut(&bytes.Buffer{})
+			root.SetErr(&bytes.Buffer{})
+
+			err := root.Execute()
+			if err == nil {
+				t.Fatalf("%v was accepted", tc.argv)
+			}
+			msg := err.Error()
+
+			if got := strings.Contains(msg, "Did you mean"); got != tc.wantSuggest {
+				t.Errorf("suggestion present = %v, want %v: %q", got, tc.wantSuggest, msg)
+			}
+			if got := strings.Contains(msg, "required flag"); got != tc.wantFlagNamed {
+				t.Errorf("required-flag clause present = %v, want %v: %q", got, tc.wantFlagNamed, msg)
+			}
+		})
+	}
+}
+
+// TestErrorFormatHonoursTheProfileDefault covers a profile pinning
+// default-output. Without it such a profile got two answers to one question on
+// a terminal: an Args refusal printed plain text while a RunE refusal, raised
+// after PersistentPreRunE resolved the format, printed the JSON envelope. On
+// main both printed the envelope, so the divergence was introduced by moving
+// the refusal into Args, not inherited.
+//
+// Piped runs were consistent either way, so this is interactive-only — which is
+// exactly where a human reads the message.
+func TestErrorFormatHonoursTheProfileDefault(t *testing.T) {
+	for _, tc := range []struct {
+		name          string
+		configDefault string
+		stdoutTTY     bool
+		want          string
+	}{
+		// The divergence: pinned json must win over the terminal's table.
+		{"pinned json on a terminal", "json", true, "json"},
+		{"pinned table when piped", "table", false, "table"},
+		// Unpinned keeps the terminal decision.
+		{"unpinned on a terminal", "", true, "table"},
+		{"unpinned when piped", "", false, "json"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := errorFormat("", tc.configDefault, tc.stdoutTTY, false); got != tc.want {
+				t.Errorf("errorFormat(unresolved, cfg=%q, tty=%v) = %q, want %q", tc.configDefault, tc.stdoutTTY, got, tc.want)
 			}
 		})
 	}
