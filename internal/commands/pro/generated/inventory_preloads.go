@@ -749,8 +749,8 @@ func newInventoryPreloadsHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:   "history",
 		Short: "Get Inventory Preload history entries",
 		Long:  "Gets Inventory Preload history entries.",
-		Example: `  # Get history for a inventory-preload
-  jamf-cli pro inventory-preloads history 1`,
+		Example: `  # Get history for the inventory-preload
+  jamf-cli pro inventory-preloads history`,
 		Annotations: map[string]string{"jamf:privileges": "Read Inventory Preload Records", "jamf:api": "pro", "jamf:gateway-privileges": "inventory-preload-records:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

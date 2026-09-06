@@ -202,8 +202,8 @@ func newClientCheckInHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:   "history",
 		Short: "Get Client Check-In history object",
 		Long:  "Gets Client Check-In history object",
-		Example: `  # Get history for a client-check-in
-  jamf-cli pro client-check-in history 1`,
+		Example: `  # Get history for the client-check-in
+  jamf-cli pro client-check-in history`,
 		Annotations: map[string]string{"jamf:privileges": "Read Computer Check-In", "jamf:api": "pro", "jamf:gateway-privileges": "computer-check-in:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

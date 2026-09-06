@@ -55,10 +55,7 @@ func newCloudDistributionPointsCreateCmd(ctx *registry.CLIContext) *cobra.Comman
   jamf-cli pro cloud-distribution-points create --scaffold
 
   # Create a cloud-distribution-point from JSON
-  echo '{"name":"Example"}' | jamf-cli pro cloud-distribution-points create
-
-  # Get a cloud-distribution-point, modify it, and create a copy
-  jamf-cli pro cloud-distribution-points get 1 -o json | jq '.name = "Copy"' | jamf-cli pro cloud-distribution-points create`,
+  echo '{"name":"Example"}' | jamf-cli pro cloud-distribution-points create`,
 		Annotations: map[string]string{"jamf:privileges": "Update Cloud Distribution Point", "jamf:api": "pro", "jamf:gateway-privileges": "cloud-distribution-point:update"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -133,11 +130,11 @@ func newCloudDistributionPointsDeleteCmd(ctx *registry.CLIContext) *cobra.Comman
 		Use:   "delete",
 		Short: "Delete cloud distribution point.",
 		Long:  "The cloud distribution point and inventory details to be deleted.",
-		Example: `  # Delete a cloud-distribution-point (with confirmation)
-  jamf-cli pro cloud-distribution-points delete 1
+		Example: `  # Delete the cloud-distribution-point (with confirmation)
+  jamf-cli pro cloud-distribution-points delete
 
   # Delete without confirmation prompt
-  jamf-cli pro cloud-distribution-points delete 1 --yes`,
+  jamf-cli pro cloud-distribution-points delete --yes`,
 		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Update Cloud Distribution Point", "jamf:api": "pro", "jamf:gateway-privileges": "cloud-distribution-point:update"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -215,8 +212,8 @@ func newCloudDistributionPointsHistoryCmd(ctx *registry.CLIContext) *cobra.Comma
 		Use:   "history",
 		Short: "Get cloud distribution point history details",
 		Long:  "Get cloud distribution point history details",
-		Example: `  # Get history for a cloud-distribution-point
-  jamf-cli pro cloud-distribution-points history 1`,
+		Example: `  # Get history for the cloud-distribution-point
+  jamf-cli pro cloud-distribution-points history`,
 		Annotations: map[string]string{"jamf:privileges": "Read Cloud Distribution Point", "jamf:api": "pro", "jamf:gateway-privileges": "cloud-distribution-point:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -461,10 +458,7 @@ func newCloudDistributionPointsPatchCmd(ctx *registry.CLIContext) *cobra.Command
 		Short: "Update specific fields on a cloud distribution point",
 		Long:  "Update specific fields on a cloud distribution point, then return the updated cloud distribution point details object.\n\nUse --set KEY=VALUE to update scalar fields (repeatable). Omitted fields are unchanged.\n\nAvailable fields:\n  cdnType                                      string\n  directory                                    string\n  downloadUrl                                  string\n  expirationSeconds                            integer\n  keyPairId                                    string\n  master                                       boolean\n  password                                     string\n  privateKey                                   string\n  requireSignedUrls                            boolean\n  secondaryAuthRequired                        boolean\n  secondaryAuthStatusCode                      integer\n  secondaryAuthTimeToLive                      integer\n  uploadUrl                                    string\n  username                                     string\n\nUse --from-file or pipe JSON to stdin for complex updates (bulk changes, deep nesting).",
 		Example: `  # Update a field
-  jamf-cli pro cloud-distribution-points patch --set field=value
-
-  # Update using JSON
-  jamf-cli pro cloud-distribution-points get -o json | jq '.field = "value"' | jamf-cli pro cloud-distribution-points patch`,
+  jamf-cli pro cloud-distribution-points patch --set field=value`,
 		Annotations: map[string]string{"jamf:privileges": "Update Cloud Distribution Point", "jamf:api": "pro", "jamf:gateway-privileges": "cloud-distribution-point:update"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

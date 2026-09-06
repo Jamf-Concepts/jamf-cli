@@ -219,7 +219,7 @@ func newAppRequestsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Replace all Form Input Fields",
 		Long:  "Replace all form input fields. Will delete, update, and create all input fields accordingly.",
 		Example: `  # Replace app-requests from a full JSON document
-  jamf-cli pro app-requests get -o json | jq '.field = "value"' | jamf-cli pro app-requests update
+  jamf-cli pro app-requests get 1 -o json | jq '.field = "value"' | jamf-cli pro app-requests update
 
   # Update from a file
   jamf-cli pro app-requests update --from-file app-requests.json`,

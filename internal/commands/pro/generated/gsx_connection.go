@@ -214,8 +214,8 @@ func newGsxConnectionHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:   "history",
 		Short: "Get specified GSX Connection History object",
 		Long:  "Gets specified GSX Connection history object",
-		Example: `  # Get history for a gsx-connection
-  jamf-cli pro gsx-connection history 1`,
+		Example: `  # Get history for the gsx-connection
+  jamf-cli pro gsx-connection history`,
 		Annotations: map[string]string{"jamf:privileges": "Read GSX Connection", "jamf:api": "pro", "jamf:gateway-privileges": "gsx-connection:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

@@ -168,7 +168,7 @@ func newMdmRenewalsPatchCmd(ctx *registry.CLIContext) *cobra.Command {
   jamf-cli pro mdm-renewals patch --set field=value
 
   # Update using JSON
-  jamf-cli pro mdm-renewals get -o json | jq '.field = "value"' | jamf-cli pro mdm-renewals patch`,
+  jamf-cli pro mdm-renewals get 1 -o json | jq '.field = "value"' | jamf-cli pro mdm-renewals patch`,
 		Annotations: map[string]string{"jamf:privileges": "Send Command to Renew MDM Profile", "jamf:api": "pro", "jamf:gateway-privileges": "device-actions:execute"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

@@ -244,8 +244,21 @@ func (g *Generator) Generate(resource *Resource) (string, error) {
 					return fmt.Sprintf("  # Upload a file\n  %s %s create --file /path/to/file",
 						bin, resourceName)
 				}
-				return fmt.Sprintf("  # Show the JSON template for creating a %s\n  %s %s create --scaffold\n\n  # Create a %s from JSON\n  echo '{\"name\":\"Example\"}' | %s %s create\n\n  # Get a %s, modify it, and create a copy\n  %s %s get 1 -o json | jq '.name = \"Copy\"' | %s %s create",
-					nameSingular, bin, resourceName, nameSingular, bin, resourceName, nameSingular, bin, resourceName, bin, resourceName)
+				// A sub-resource create is addressed under a parent, so its
+				// positional is required and the example has to carry it. The
+				// --scaffold line does not: the flag makes no request.
+				createArg := ""
+				if hasPathParam(op.Path) {
+					createArg = " 1"
+				}
+				return joinExampleBlocks(
+					fmt.Sprintf("  # Show the JSON template for creating a %s\n  %s %s create --scaffold", nameSingular, bin, resourceName),
+					fmt.Sprintf("  # Create a %s from JSON\n  echo '{\"name\":\"Example\"}' | %s %s create%s", nameSingular, bin, resourceName, createArg),
+					getPipeBlock(r, bin,
+						fmt.Sprintf("Get a %s, modify it, and create a copy", nameSingular),
+						`.name = "Copy"`,
+						fmt.Sprintf("%s %s create%s", bin, resourceName, createArg)),
+				)
 			case "update":
 				// For update-set-enabled ops, lead with a --set (fetch-merge-replace)
 				// example. Skipped for multi-param sub-resources (arg shape differs).
@@ -259,8 +272,13 @@ func (g *Generator) Generate(resource *Resource) (string, error) {
 				}
 				if !hasPathParam(op.Path) {
 					// Singleton update — no ID argument
-					return setEx + fmt.Sprintf("  # Replace %s from a full JSON document\n  %s %s get -o json | jq '.field = \"value\"' | %s %s update\n\n  # Update from a file\n  %s %s update --from-file %s.json",
-						resourceName, bin, resourceName, bin, resourceName, bin, resourceName, resourceName)
+					return setEx + joinExampleBlocks(
+						getPipeBlock(r, bin,
+							fmt.Sprintf("Replace %s from a full JSON document", resourceName),
+							`.field = "value"`,
+							fmt.Sprintf("%s %s update", bin, resourceName)),
+						fmt.Sprintf("  # Update from a file\n  %s %s update --from-file %s.json", bin, resourceName, resourceName),
+					)
 				}
 				if pp := pathParams(op.Parameters); len(pp) > 1 {
 					var argNums []string
@@ -268,16 +286,35 @@ func (g *Generator) Generate(resource *Resource) (string, error) {
 						argNums = append(argNums, fmt.Sprintf("%d", i+1))
 					}
 					idStr := strings.Join(argNums, " ")
-					return fmt.Sprintf("  # Update a %s from JSON\n  echo '{\"name\":\"Updated\"}' | %s %s update %s\n\n  # Get a %s, modify, and update\n  %s %s get %s -o json | jq '.name = \"New Name\"' | %s %s update %s",
-						nameSingular, bin, resourceName, idStr, nameSingular, bin, resourceName, idStr, bin, resourceName, idStr)
+					return joinExampleBlocks(
+						fmt.Sprintf("  # Update a %s from JSON\n  echo '{\"name\":\"Updated\"}' | %s %s update %s", nameSingular, bin, resourceName, idStr),
+						getPipeBlock(r, bin,
+							fmt.Sprintf("Get a %s, modify, and update", nameSingular),
+							`.name = "New Name"`,
+							fmt.Sprintf("%s %s update %s", bin, resourceName, idStr)),
+					)
 				}
+				byName := ""
 				if opHasNameLookup(op, r) {
-					return setEx + fmt.Sprintf("  # Replace a %s from JSON\n  echo '{\"name\":\"Updated\"}' | %s %s update 1\n\n  # Update by name\n  %s %s get --name \"Example\" -o json | jq '.field = \"value\"' | %s %s update --name \"Example\"\n\n  # Get a %s, modify, and update\n  %s %s get 1 -o json | jq '.name = \"New Name\"' | %s %s update 1",
-						nameSingular, bin, resourceName, bin, resourceName, bin, resourceName, nameSingular, bin, resourceName, bin, resourceName)
+					byName = getByNamePipeBlock(r, bin, "Update by name", `.field = "value"`,
+						fmt.Sprintf("%s %s update --name \"Example\"", bin, resourceName))
 				}
-				return setEx + fmt.Sprintf("  # Replace a %s from JSON\n  echo '{\"name\":\"Updated\"}' | %s %s update 1\n\n  # Get a %s, modify, and update\n  %s %s get 1 -o json | jq '.name = \"New Name\"' | %s %s update 1",
-					nameSingular, bin, resourceName, nameSingular, bin, resourceName, bin, resourceName)
+				return setEx + joinExampleBlocks(
+					fmt.Sprintf("  # Replace a %s from JSON\n  echo '{\"name\":\"Updated\"}' | %s %s update 1", nameSingular, bin, resourceName),
+					byName,
+					getPipeBlock(r, bin,
+						fmt.Sprintf("Get a %s, modify, and update", nameSingular),
+						`.name = "New Name"`,
+						fmt.Sprintf("%s %s update 1", bin, resourceName)),
+				)
 			case "delete":
+				// A singleton has no id to take, and guardStrayPositionals gives it
+				// a validator that refuses one, so an example carrying one is
+				// refused as it is read.
+				if !hasPathParam(op.Path) {
+					return fmt.Sprintf("  # Delete the %s (with confirmation)\n  %s %s delete\n\n  # Delete without confirmation prompt\n  %s %s delete --yes",
+						nameSingular, bin, resourceName, bin, resourceName)
+				}
 				if pp := pathParams(op.Parameters); len(pp) > 1 {
 					var argNums []string
 					for i := range pp {
@@ -294,9 +331,20 @@ func (g *Generator) Generate(resource *Resource) (string, error) {
 				return fmt.Sprintf("  # Delete a %s (with confirmation)\n  %s %s delete 1\n\n  # Delete without confirmation prompt\n  %s %s delete 1 --yes",
 					nameSingular, bin, resourceName, bin, resourceName)
 			case "delete-multiple":
+				// The path's own parameter is a positional the example has to
+				// carry, or --help teaches a line ExactArgs refuses. --ids names
+				// what to remove; the positional names what to remove it from.
+				if hasPathParam(op.Path) {
+					return fmt.Sprintf("  # Delete multiple %s by IDs\n  %s %s delete-multiple 1 --ids 1,2,3 --yes",
+						resourceName, bin, resourceName)
+				}
 				return fmt.Sprintf("  # Delete multiple %s by IDs\n  %s %s delete-multiple --ids 1,2,3 --yes",
 					resourceName, bin, resourceName)
 			case "history":
+				if !hasPathParam(op.Path) {
+					return fmt.Sprintf("  # Get history for the %s\n  %s %s history",
+						nameSingular, bin, resourceName)
+				}
 				if pp := pathParams(op.Parameters); len(pp) > 1 {
 					var argNums []string
 					for i := range pp {
@@ -313,8 +361,11 @@ func (g *Generator) Generate(resource *Resource) (string, error) {
 					nameSingular, bin, resourceName)
 			case "patch":
 				if !hasPathParam(op.Path) {
-					return fmt.Sprintf("  # Update a field on %s\n  %s %s patch --set field=value\n\n  # Update using JSON\n  %s %s get -o json | jq '.field = \"value\"' | %s %s patch",
-						resourceName, bin, resourceName, bin, resourceName, bin, resourceName)
+					return joinExampleBlocks(
+						fmt.Sprintf("  # Update a field on %s\n  %s %s patch --set field=value", resourceName, bin, resourceName),
+						getPipeBlock(r, bin, "Update using JSON", `.field = "value"`,
+							fmt.Sprintf("%s %s patch", bin, resourceName)),
+					)
 				}
 				return fmt.Sprintf("  # Update a field by ID\n  %s %s patch 1 --set general.managed=true\n\n  # Update multiple fields\n  %s %s patch 1 --set field1=value1 --set field2=value2\n\n  # Patch from a file\n  %s %s patch 1 --from-file changes.json",
 					bin, resourceName, bin, resourceName, bin, resourceName)
@@ -1412,13 +1463,71 @@ func opHasNameLookup(op *Operation, r *Resource) bool {
 	return hasPathParam(op.Path) && strings.Count(op.Path, "{") == 1
 }
 
+// resourceGetOp returns the resource's own get operation, or nil when it ships
+// none.
+func resourceGetOp(r *Resource) *Operation {
+	for _, op := range r.Operations {
+		if op.Name == "get" {
+			return op
+		}
+	}
+	return nil
+}
+
+// getPipeBlock renders an example block that reads the resource with get, edits
+// the JSON and writes it back with write.
+//
+// It renders nothing when the resource ships no get, and takes the positionals
+// from get's own path parameters instead of assuming them. A create, update or
+// patch example opens with such a pipe, and only the tail of it was ever
+// checked: eight resources have one of those verbs and no get at all, so
+// --help taught a line answering `unknown command "get"`, and two more have a
+// get of a different arity than the example assumed, so the head was refused by
+// its own validator. Both halves have to be runnable.
+func getPipeBlock(r *Resource, bin, comment, jq, write string) string {
+	op := resourceGetOp(r)
+	if op == nil {
+		return ""
+	}
+	ids := ""
+	for i := range pathParams(op.Parameters) {
+		ids += fmt.Sprintf(" %d", i+1)
+	}
+	return fmt.Sprintf("  # %s\n  %s %s get%s -o json | jq '%s' | %s", comment, bin, r.Name, ids, jq, write)
+}
+
+// getByNamePipeBlock is getPipeBlock addressing the resource by name rather than
+// by id, so it also needs get to carry the --name lookup.
+func getByNamePipeBlock(r *Resource, bin, comment, jq, write string) string {
+	op := resourceGetOp(r)
+	if op == nil || !opHasNameLookup(op, r) {
+		return ""
+	}
+	return fmt.Sprintf("  # %s\n  %s %s get --name \"Example\" -o json | jq '%s' | %s", comment, bin, r.Name, jq, write)
+}
+
+// joinExampleBlocks joins the blocks that rendered, so one that did not leaves
+// no blank gap behind in --help.
+func joinExampleBlocks(blocks ...string) string {
+	kept := make([]string, 0, len(blocks))
+	for _, b := range blocks {
+		if b != "" {
+			kept = append(kept, b)
+		}
+	}
+	return strings.Join(kept, "\n\n")
+}
+
 // patchExampleText builds the Example string for a unified patch command.
 func patchExampleText(r *Resource, op *Operation) string {
 	bin := "jamf-cli pro"
 	if !hasPathParam(op.Path) {
 		// Singleton PATCH — no ID
-		return fmt.Sprintf("  # Update a field\n  %s %s patch --set field=value\n\n  # Update using JSON\n  %s %s get -o json | jq '.field = \"value\"' | %s %s patch",
-			bin, r.Name, bin, r.Name, bin, r.Name)
+		return joinExampleBlocks(
+			fmt.Sprintf("  # Update a field\n  %s %s patch --set field=value", bin, r.Name),
+			getPipeBlock(r, bin, "Update using JSON", `.field = "value"`,
+				fmt.Sprintf("%s %s patch", bin, r.Name)),
+		)
 	}
 	var base strings.Builder
 	fmt.Fprintf(&base, "  # Update a field by ID\n  %s %s patch 1 --set general.managed=true\n\n  # Update multiple fields\n  %s %s patch 1 --set field1=value1 --set field2=value2",

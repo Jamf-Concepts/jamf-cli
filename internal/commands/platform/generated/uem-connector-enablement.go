@@ -87,8 +87,11 @@ func newUemConnectorEnablementEnableCmd(cliCtx *registry.CLIContext) *cobra.Comm
 		Long:        "Sets the enablement state of the specified connector. Send `enabled: true` to resume data synchronization between JSC and the UEM platform, or `enabled: false` to pause it. This operation is idempotent.",
 		Annotations: map[string]string{"jamf:privileges": "uem-connect:update", "jamf:api": "platform-gateway"},
 		Args: func(cmd *cobra.Command, args []string) error {
+			// --scaffold needs no identifier, so it lowers the floor to zero. The
+			// ceiling stays, because dropping the validator let a stray positional
+			// through to be discarded.
 			if scaffoldFlag {
-				return nil
+				return cobra.MaximumNArgs(1)(cmd, args)
 			}
 			return cobra.ExactArgs(1)(cmd, args)
 		},

@@ -354,7 +354,7 @@ func newManagedSoftwareUpdatesPlansUpdateCmd(ctx *registry.CLIContext) *cobra.Co
   jamf-cli pro managed-software-updates-plans update --set field=value
 
   # Replace managed-software-updates-plans from a full JSON document
-  jamf-cli pro managed-software-updates-plans get -o json | jq '.field = "value"' | jamf-cli pro managed-software-updates-plans update
+  jamf-cli pro managed-software-updates-plans get 1 -o json | jq '.field = "value"' | jamf-cli pro managed-software-updates-plans update
 
   # Update from a file
   jamf-cli pro managed-software-updates-plans update --from-file managed-software-updates-plans.json`,

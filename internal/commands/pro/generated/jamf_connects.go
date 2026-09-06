@@ -202,13 +202,7 @@ func newJamfConnectsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Update the way the Jamf Connect app gets updated on computers within scope of the associated configuration profile.",
 		Long:  "Update the way the Jamf Connect app gets updated on computers within scope of the associated configuration profile.",
 		Example: `  # Replace a jamf-connect from JSON
-  echo '{"name":"Updated"}' | jamf-cli pro jamf-connects update 1
-
-  # Update by name
-  jamf-cli pro jamf-connects get --name "Example" -o json | jq '.field = "value"' | jamf-cli pro jamf-connects update --name "Example"
-
-  # Get a jamf-connect, modify, and update
-  jamf-cli pro jamf-connects get 1 -o json | jq '.name = "New Name"' | jamf-cli pro jamf-connects update 1`,
+  echo '{"name":"Updated"}' | jamf-cli pro jamf-connects update 1`,
 		Annotations: map[string]string{"jamf:privileges": "Update Jamf Connect Deployments", "jamf:api": "pro", "jamf:gateway-privileges": "jamf-connect-deployments:update"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -294,8 +288,8 @@ func newJamfConnectsHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:   "history",
 		Short: "Get Jamf Connect history",
 		Long:  "Get Jamf Connect history",
-		Example: `  # Get history for a jamf-connect
-  jamf-cli pro jamf-connects history 1`,
+		Example: `  # Get history for the jamf-connect
+  jamf-cli pro jamf-connects history`,
 		Annotations: map[string]string{"jamf:privileges": "Read Jamf Connect Settings", "jamf:api": "pro", "jamf:gateway-privileges": "jamf-connect-deployments:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

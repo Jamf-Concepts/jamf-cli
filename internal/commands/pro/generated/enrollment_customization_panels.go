@@ -52,10 +52,7 @@ func newEnrollmentCustomizationPanelsCreateCmd(ctx *registry.CLIContext) *cobra.
   jamf-cli pro enrollment-customization-panels create --scaffold
 
   # Create a enrollment-customization-panel from JSON
-  echo '{"name":"Example"}' | jamf-cli pro enrollment-customization-panels create
-
-  # Get a enrollment-customization-panel, modify it, and create a copy
-  jamf-cli pro enrollment-customization-panels get 1 -o json | jq '.name = "Copy"' | jamf-cli pro enrollment-customization-panels create`,
+  echo '{"name":"Example"}' | jamf-cli pro enrollment-customization-panels create 1`,
 		Annotations: map[string]string{"jamf:privileges": "Update Enrollment Customizations", "jamf:api": "pro", "jamf:gateway-privileges": "enrollment-customization:update"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -132,10 +129,7 @@ func newEnrollmentCustomizationPanelsUpdateCmd(ctx *registry.CLIContext) *cobra.
 		Short: "Update a single LDAP Panel for a single Enrollment Customization",
 		Long:  "Update a single LDAP panel for a single enrollment customization. If multiple LDAP access groups are defined with the same name and id, only one will be saved.\n\nUse --set KEY=VALUE to update individual fields (repeatable). The current resource is fetched, your changes are merged in, read-only fields are dropped, and the whole record is written back. Omitted fields keep their current values.\n\nAvailable fields:\n  backButtonText                               string\n  continueButtonText                           string\n  displayName                                  string\n  passwordLabel                                string\n  rank                                         integer\n  title                                        string\n  usernameLabel                                string\n\nArray and object fields accept a JSON value (e.g. --set field='[\"a\",\"b\"]'):\n  ldapGroupAccess                              array\n\nWithout --set, pipe a full JSON document to stdin to replace the resource entirely.",
 		Example: `  # Update a enrollment-customization-panel from JSON
-  echo '{"name":"Updated"}' | jamf-cli pro enrollment-customization-panels update 1 2
-
-  # Get a enrollment-customization-panel, modify, and update
-  jamf-cli pro enrollment-customization-panels get 1 2 -o json | jq '.name = "New Name"' | jamf-cli pro enrollment-customization-panels update 1 2`,
+  echo '{"name":"Updated"}' | jamf-cli pro enrollment-customization-panels update 1 2`,
 		Annotations: map[string]string{"jamf:privileges": "Update Enrollment Customizations", "jamf:api": "pro", "jamf:gateway-privileges": "enrollment-customization:update"},
 		Args:        cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {

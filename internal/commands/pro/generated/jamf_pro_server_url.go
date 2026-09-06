@@ -195,8 +195,8 @@ func newJamfProServerUrlHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:   "history",
 		Short: "Get Jamf Pro Server URL settings history",
 		Long:  "Gets Jamf Pro Server URL settings history",
-		Example: `  # Get history for a jamf-pro-server-url
-  jamf-cli pro jamf-pro-server-url history 1`,
+		Example: `  # Get history for the jamf-pro-server-url
+  jamf-cli pro jamf-pro-server-url history`,
 		Annotations: map[string]string{"jamf:privileges": "Read JSS URL", "jamf:api": "pro", "jamf:gateway-privileges": "jss-url:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

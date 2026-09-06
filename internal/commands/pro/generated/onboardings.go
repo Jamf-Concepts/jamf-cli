@@ -49,8 +49,8 @@ func newOnboardingsHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:   "history",
 		Short: "Get Onboarding history object",
 		Long:  "Gets Onboarding history object",
-		Example: `  # Get history for a onboarding
-  jamf-cli pro onboardings history 1`,
+		Example: `  # Get history for the onboarding
+  jamf-cli pro onboardings history`,
 		Annotations: map[string]string{"jamf:privileges": "Read Onboarding Configuration", "jamf:api": "pro", "jamf:gateway-privileges": "onboarding:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

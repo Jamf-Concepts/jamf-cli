@@ -91,8 +91,11 @@ func newDeviceActionsEraseCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Long:        "Requests that a device erase its content and settings",
 		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "destructive-device-actions:execute", "jamf:api": "platform-gateway"},
 		Args: func(cmd *cobra.Command, args []string) error {
+			// --scaffold needs no identifier, so it lowers the floor to zero. The
+			// ceiling stays, because dropping the validator let a stray positional
+			// through to be discarded.
 			if scaffoldFlag {
-				return nil
+				return cobra.MaximumNArgs(1)(cmd, args)
 			}
 			return cobra.ExactArgs(1)(cmd, args)
 		},
