@@ -58,6 +58,7 @@ func newDiffCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "diff",
 		Short: "Compare configuration between two Jamf Pro instances or backup directories",
+		Args:  refuseStrayArgs,
 		Long: `Compare configuration objects between two sources.
 
 Each source can be either:
@@ -76,9 +77,10 @@ Examples:
 
 	cmd.Flags().StringVar(&opts.Source, "source", "", "source: config profile name or backup directory path (required)")
 	cmd.Flags().StringVar(&opts.Target, "target", "", "target: config profile name or backup directory path (required)")
-	cmd.Flags().StringVar(&opts.Resources, "resources", "", "comma-separated resource filter (e.g., policies,scripts)")
+	cmd.Flags().StringVar(&opts.Resources, "resources", "", "comma-separated resource filter (e.g., policies,scripts); tokens: 'pro backup list-resources'")
 	_ = cmd.MarkFlagRequired("source")
 	_ = cmd.MarkFlagRequired("target")
+	_ = cmd.RegisterFlagCompletionFunc("resources", backupResourceCompletion)
 
 	return cmd
 }
@@ -386,6 +388,7 @@ func loadSnapshotFromProfile(ctx context.Context, profileName string, nameFilter
 				}
 			}
 			data = unwrapClassicDetail(data)
+			data = dropResponseKeys(data, def.DropKeys)
 			data = StripServerFields(data)
 
 			objName := item.Name

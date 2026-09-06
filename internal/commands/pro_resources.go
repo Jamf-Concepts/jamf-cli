@@ -5,8 +5,10 @@ package commands
 import (
 	"fmt"
 	"sort"
+	"strings"
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/commands/pro/generated"
+	"github.com/Jamf-Concepts/jamf-cli/internal/output"
 )
 
 // BackupResource is a curated entry in the backup/diff resource set. Each entry
@@ -32,6 +34,27 @@ type BackupResource struct {
 	// serial numbers under a "scope" key so the assignment list travels with
 	// the prestage config in a single, diff-friendly file.
 	ScopePath string
+	// DropKeys names top-level response keys that are executed output rather
+	// than configuration, removed by dropResponseKeys in both backup and diff.
+	//
+	// A Classic advanced-search GET runs the search and returns the devices it
+	// currently matches. That membership is not configuration: it churns on
+	// every inventory change, it is never equal between two instances, and it
+	// carries device names and UDIDs into a directory meant for version
+	// control. StripServerFields cannot do this job — it drops ids and
+	// timestamps generically, and it is skipped under --include-ids, which is
+	// about identifiers rather than about membership.
+	DropKeys []string
+}
+
+// dropResponseKeys removes the executed-output keys a resource declares. One
+// function for backup and diff, because a resource whose backup omits a key and
+// whose diff compares it reports a permanent modification on that key.
+func dropResponseKeys(obj map[string]any, keys []string) map[string]any {
+	for _, k := range keys {
+		delete(obj, k)
+	}
+	return obj
 }
 
 // BackupResources is the curated set of resources included in `backup` and
@@ -78,6 +101,15 @@ var BackupResources = []BackupResource{
 	// Mobile device groups
 	{Key: "mobile-device-groups-smart-groups", FilterName: "smart-groups", SubDir: "smart-groups/mobile"},
 	{Key: "mobile-device-groups-static-groups", FilterName: "static-groups", SubDir: "static-groups/mobile"},
+
+	// Advanced searches — one token, two APIs, because there is no modern
+	// advanced-computer-searches spec at all: specs/ carries only
+	// AdvancedMobileDeviceSearch.yaml and AdvancedUserContentSearch.yaml. So the
+	// asymmetry is not a preference but the modern-over-classic rule above
+	// answering differently for the two halves, and all four list/get paths
+	// declare GET in specs/gateway/coverage.json.
+	{Key: "classic-advanced-computer-searches", FilterName: "advanced-searches", SubDir: "advanced-searches/computers", DropKeys: []string{"computers"}},
+	{Key: "advanced-mobile-device-searches", FilterName: "advanced-searches", SubDir: "advanced-searches/mobile"},
 
 	// Supporting objects (modern preferred)
 	{Key: "categories", FilterName: "categories", SubDir: "categories"},
@@ -178,6 +210,11 @@ func isKnownBackupFilter(name string) bool {
 type nonStandardBackupFilter struct {
 	FilterName string
 	NameField  string
+	// Source names the API or mechanism backing the resource, in the same
+	// vocabulary `backup list-resources` derives for a curated entry. It is
+	// stated rather than derived because these resources have no
+	// generated.BackupEndpoint to read IsClassic off.
+	Source string
 }
 
 // nonStandardBackupFilters lists the backup resources that are handled outside
@@ -190,11 +227,11 @@ type nonStandardBackupFilter struct {
 // NameField from here for the resources it finds in the backup root.
 var nonStandardBackupFilters = []nonStandardBackupFilter{
 	// downloaded as a single CSV via /v2/inventory-preload/csv
-	{FilterName: "inventory-preloads"},
+	{FilterName: "inventory-preloads", Source: "csv download"},
 	// Platform SDK; blueprintToExport emits "name"
-	{FilterName: "blueprints"},
+	{FilterName: "blueprints", Source: "platform sdk"},
 	// Platform SDK; benchmarkToExport emits the name as "title"
-	{FilterName: "compliance-benchmarks", NameField: "title"},
+	{FilterName: "compliance-benchmarks", NameField: "title", Source: "platform sdk"},
 }
 
 // nonStandardBackupNameField returns the name field declared for a
@@ -236,15 +273,128 @@ func BackupFilterNames() []string {
 // are comparable; it also uses the key set to tell which directories in the
 // backup root a curated resource already owns from those it must key by name.
 //
-// It matters because thirteen of the curated resources nest two levels deep
-// (profiles/macos, smart-groups/computers, accounts/users, …). `diff` used to
-// treat every top-level directory as a resource and read only the files sitting
-// directly inside it, so those thirteen contributed nothing to either snapshot
-// and their changes were reported as no change at all — silently, exit 0.
+// It matters because many of the curated resources nest two levels deep
+// (profiles/macos, smart-groups/computers, accounts/users,
+// advanced-searches/computers, …). `diff` used to treat every top-level
+// directory as a resource and read only the files sitting directly inside it, so
+// every nested resource contributed nothing to either snapshot and its changes
+// were reported as no change at all — silently, exit 0.
+//
+// Deliberately no tally: this comment said thirteen while the table held
+// fifteen, and a number nothing reads is wrong again the first time the table
+// grows. Read the table.
 func BackupSubDirs() map[string]string {
 	out := make(map[string]string, len(BackupResources))
 	for _, r := range BackupResources {
 		out[r.SubDir] = r.FilterName
+	}
+	return out
+}
+
+// backupResourceNoCommand is the "objects" note for a non-standard filter. The
+// column names the generated commands behind a token, and these tokens are
+// precisely the ones with no entry in generated.BackupEndpoints.
+const backupResourceNoCommand = "no generated command"
+
+// backupResourceRows renders one row per distinct --resources token for
+// `pro backup list-resources`. The token order and the token set both come from
+// BackupFilterNames, so a token that exists for `--resources` cannot go
+// unlisted here.
+//
+// Every row carries all three keys deliberately: a table's columns are the keys
+// of its first row, so a key some rows omit is a column that appears and
+// disappears with the sort order. backupResourceRowsForFormat drops a key from
+// every row at once, which is a different thing.
+func backupResourceRows() ([]map[string]any, error) {
+	resolved, err := ResolveBackupResources(nil)
+	if err != nil {
+		return nil, err
+	}
+
+	objects := make(map[string][]string, len(resolved))
+	apis := make(map[string]map[string]bool, len(resolved))
+	for _, r := range resolved {
+		objects[r.FilterName] = append(objects[r.FilterName], r.Key)
+		api := "pro api"
+		if r.IsClassic {
+			api = "classic api"
+		}
+		if apis[r.FilterName] == nil {
+			apis[r.FilterName] = make(map[string]bool, 2)
+		}
+		apis[r.FilterName][api] = true
+	}
+
+	notes := make(map[string]string, len(objects)+len(nonStandardBackupFilters))
+	sources := make(map[string]string, len(objects)+len(nonStandardBackupFilters))
+	for _, n := range nonStandardBackupFilters {
+		notes[n.FilterName] = backupResourceNoCommand
+		sources[n.FilterName] = n.Source
+	}
+	for name, keys := range objects {
+		sort.Strings(keys)
+		notes[name] = strings.Join(keys, ", ")
+
+		names := make([]string, 0, len(apis[name]))
+		for api := range apis[name] {
+			names = append(names, api)
+		}
+		sort.Strings(names)
+		sources[name] = strings.Join(names, ", ")
+	}
+
+	tokens := BackupFilterNames()
+	rows := make([]map[string]any, 0, len(tokens))
+	for _, t := range tokens {
+		rows = append(rows, map[string]any{
+			"resource": t,
+			"objects":  notes[t],
+			"source":   sources[t],
+		})
+	}
+	return rows, nil
+}
+
+// backupResourceRowsForFormat adapts the `pro backup list-resources` rows to the
+// output format, the way listRowsForFormat does for `config list`.
+//
+// The data-preserving formats get the rows untouched, objects included; every
+// other format gets resource and source. sortedKeys (internal/output) floats
+// only id and name, so the rest are alphabetical: objects led, and being a
+// joined command list it is by far the widest value, which left the token this
+// command exists to report in the middle of a 137-character row. Dropping the
+// column is what the formatter allows, since printTable takes []map[string]any
+// and a struct's field order has nowhere to be read from. Nothing parsing the
+// output loses the backing commands, because the kept formats keep all three.
+//
+// The switch names the formats that keep the column rather than the ones that
+// drop it, because the formatter's own dispatch has a default arm that renders a
+// table and nothing normalises the case of a -o value. Matching table, csv and
+// plain exactly therefore restored the buried column for -o "", -o Table,
+// -o TABLE, -o tabel, -o plaintext and -o bogus, every one of which prints a
+// table at exit 0. Raw and xml are here because PrintRaw hands both of them the
+// bytes without the JSON-to-rows conversion, so a caller asking for either
+// wants the field rather than a narrower table.
+//
+// The list is selectTableColumns' (generated/registry.go) exactly, and
+// json-multi is absent from both for the same reason: it means JSON on the wire
+// and a table on the screen. `multi` captures every display format as
+// json-multi and re-renders it, and Print's switch has no case for it, so it
+// reaches printTable — the one route by which the buried column could still
+// reach a terminal.
+func backupResourceRowsForFormat(rows []map[string]any, format string) []map[string]any {
+	switch output.Format(format) {
+	case output.FormatJSON, output.FormatYAML, output.FormatNDJSON,
+		output.FormatXML, output.FormatRaw:
+		return rows
+	}
+
+	out := make([]map[string]any, 0, len(rows))
+	for _, r := range rows {
+		out = append(out, map[string]any{
+			"resource": r["resource"],
+			"source":   r["source"],
+		})
 	}
 	return out
 }

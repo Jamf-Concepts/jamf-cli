@@ -777,6 +777,11 @@ in the config file. It never runs in CI, when output is piped, or under
 				}
 			}
 
+			// A command that opts out for itself, wherever it sits in the tree.
+			if cmd.Annotations[noAuthAnnotation] == "true" {
+				return nil
+			}
+
 			// --scaffold just prints a JSON template — no auth needed.
 			if scaffold, _ := cmd.Flags().GetBool("scaffold"); scaffold {
 				return nil
@@ -911,7 +916,14 @@ in the config file. It never runs in CI, when output is piped, or under
 
 	// Global flags
 	cmd.PersistentFlags().StringVarP(&profile, "profile", "p", "", "config profile to use (or JAMF_PROFILE env)")
-	cmd.PersistentFlags().StringVarP(&outputFmt, "output", "o", "json", "output format: table, json, ndjson, csv, yaml, plain, xml (pretty), raw (classic commands default to xml)")
+	// Empty means "not resolved yet": PersistentPreRunE fills it from the flag,
+	// the profile's default-output or the TTY, and ResolveFormat ignores this
+	// value unless the flag was changed. So the only readers of the default are
+	// the paths that run BEFORE resolution — an Args refusal (cobra validates
+	// args first) and a flag error — and defaulting it to "json" made both
+	// render the machine envelope on stdout for a caller who never asked for
+	// JSON, while a refusal raised from RunE printed plain text on stderr.
+	cmd.PersistentFlags().StringVarP(&outputFmt, "output", "o", "", "output format: table, json, ndjson, csv, yaml, plain, xml (pretty), raw (classic commands default to xml)")
 	cmd.PersistentFlags().BoolVarP(&quiet, "quiet", "q", false, "suppress non-error output")
 	cmd.PersistentFlags().BoolVar(&noHints, "no-hints", false, "suppress advisory hints (e.g. large-result narrowing tips); keeps spinner and progress output (or JAMF_CLI_NO_HINTS env)")
 	cmd.PersistentFlags().CountVarP(&verboseLevel, "verbose", "v", "show HTTP requests/responses (-vv adds headers, -vvv adds bodies)")
@@ -1722,13 +1734,60 @@ func resolveSecurityClient(cfg *config.Config, cliCtx *registry.CLIContext) erro
 // is "json". Returns true if the error was handled, false otherwise (caller
 // should fall back to plain stderr).
 func FormatError(err error) bool {
-	return formatErrorTo(os.Stdout, err)
+	return formatErrorTo(os.Stdout, err, errorConfigDefault(), output.IsTerminal(os.Stdout.Fd()), outFile != "")
+}
+
+// errorFormat answers which format an error should be rendered in.
+//
+// resolved is outputFmt, empty until PersistentPreRunE fills it. Cobra
+// validates args and parses flags before that runs, so errors from those two
+// paths arrive unresolved, and this reproduces the answer PersistentPreRunE
+// would have given. Without it a piped run got the envelope for a RunE error
+// and plain text for an Args refusal: two answers to one question, which is
+// worse than either alone.
+//
+// Split out from formatErrorTo because the interesting inputs are whether
+// stdout is a terminal and what the profile pins, and a test writing to a pipe
+// can never be the first. Both arrive as arguments so this stays a pure
+// decision; errorConfigDefault supplies the second at the one real call site.
+func errorFormat(resolved, configDefault string, stdoutTTY, hasOutFile bool) string {
+	if resolved != "" {
+		return resolved
+	}
+	return output.ResolveFormat(false, "", configDefault, stdoutTTY, hasOutFile)
+}
+
+// errorConfigDefault reads the profile's default-output for an error that is
+// being rendered before PersistentPreRunE resolved one.
+//
+// It exists because skipping it gave a profile pinning `default-output: json`
+// two answers to one question on a terminal: an Args refusal printed plain text
+// while a RunE refusal, raised after resolution, printed the envelope. On main
+// both printed the envelope, so this PR introduced the divergence rather than
+// removing one — against the reasoning it is justified by.
+//
+// A failed load answers "", which falls back to the terminal decision. That is
+// the right failure: an unreadable config cannot be what the operator asked
+// for, and the process is already exiting.
+func errorConfigDefault() string {
+	cfg, err := config.Load()
+	if err != nil || cfg == nil {
+		return ""
+	}
+	return cfg.DefaultOutput
 }
 
 // formatErrorTo writes the JSON error envelope to w when output is "json",
 // including the remediation hint and any structured details when present.
-func formatErrorTo(w io.Writer, err error) bool {
-	if outputFmt != "json" {
+//
+// stdoutTTY and hasOutFile are parameters rather than read here, for the same
+// reason errorFormat takes them: a test writes to a pipe, so nothing that reads
+// the real terminal can exercise the branch where a human is watching.
+// Replacing the IsTerminal argument at the single call site with a literal
+// false — treating every invocation as piped — left every test in this package
+// and in cmd/jamf-cli passing.
+func formatErrorTo(w io.Writer, err error, configDefault string, stdoutTTY, hasOutFile bool) bool {
+	if errorFormat(outputFmt, configDefault, stdoutTTY, hasOutFile) != "json" {
 		return false
 	}
 	code := exitcode.CodeFrom(err)
@@ -1888,6 +1947,13 @@ func classifyArgsErrors(cmd *cobra.Command) {
 	}
 }
 
+// noAuthAnnotation marks a single command that calls no API, so PersistentPreRunE
+// skips auth for it. An annotation travels with the one command it is set on,
+// which a third name map could not: matching a name is what makes chainSkip a
+// silent auth bypass for any other command that happens to share it, and what
+// rootOnlySkip exists to contain.
+const noAuthAnnotation = "jamf:no-auth"
+
 // groupParentAnnotation marks a parent command that guardUnknownSubcommands made
 // runnable solely to reject unknown subcommands. PersistentPreRunE skips auth for
 // these — a group parent never calls an API itself.
@@ -1910,11 +1976,6 @@ func guardUnknownSubcommands(cmd *cobra.Command) {
 	if !cmd.HasParent() || !cmd.HasSubCommands() || cmd.Runnable() {
 		return
 	}
-	// SuggestionsFor reads this directly with no default; child commands leave
-	// it at 0, which would suppress all but exact matches.
-	if cmd.SuggestionsMinimumDistance <= 0 {
-		cmd.SuggestionsMinimumDistance = 2
-	}
 	if cmd.Annotations == nil {
 		cmd.Annotations = map[string]string{}
 	}
@@ -1923,12 +1984,81 @@ func guardUnknownSubcommands(cmd *cobra.Command) {
 		if len(args) == 0 {
 			return c.Help() // bare parent (e.g. `pro buildings`) shows help
 		}
-		msg := fmt.Sprintf("unknown command %q for %q", args[0], c.CommandPath())
-		if s := c.SuggestionsFor(args[0]); len(s) > 0 {
-			msg += "\n\nDid you mean this?\n\t" + strings.Join(s, "\n\t")
-		}
-		return exitcode.Wrap(exitcode.Usage, errors.New(msg))
+		return unknownSubcommandError(c, args[0])
 	}
+}
+
+// refuseStrayArgs rejects any positional argument with the same message builder
+// and usage exit code guardUnknownSubcommands gives a group parent. It covers
+// the case that guard cannot: a command that is already runnable, which cobra
+// routes straight to RunE with the stray positional silently discarded. `pro
+// backup` and `pro diff` both take their whole input as flags, and `pro backup`
+// owns a subcommand, so a subcommand typo there would otherwise start a full
+// backup.
+//
+// A runnable command must NOT be given groupParentAnnotation instead:
+// PersistentPreRunE reads that annotation to skip auth, so annotating one that
+// calls an API would run it with a nil client.
+func refuseStrayArgs(cmd *cobra.Command, args []string) error {
+	if len(args) == 0 {
+		return nil
+	}
+	return unknownSubcommandError(cmd, args[0])
+}
+
+// unknownSubcommandError reports arg as an unresolvable positional of cmd, in
+// the exit code cobra's own root-level handling uses.
+//
+// The wording follows whether cmd owns subcommands, because "unknown command"
+// is only true when there was a command to get wrong. `pro diff` owns none and
+// takes its whole input as flags, so reporting a stray positional as an unknown
+// command read as though diff were a command group, when the mistake is almost
+// always a missing --source or --target.
+//
+// Either wording then names any required flag that was not supplied, and
+// carries a hint saying where to find the flags — #360's tree-wide guard holds
+// every zero-arity leaf to that, and two wordings for one mistake is what it
+// exists to prevent.
+func unknownSubcommandError(cmd *cobra.Command, arg string) error {
+	var msg, hint, suggestions string
+	if cmd.HasSubCommands() {
+		// SuggestionsFor reads this directly with no default, and a child
+		// command leaves it at 0, which suppresses all but exact matches.
+		// Cobra's own findSuggestions defaults it the same way at the same
+		// point.
+		if cmd.SuggestionsMinimumDistance <= 0 {
+			cmd.SuggestionsMinimumDistance = 2
+		}
+		msg = fmt.Sprintf("unknown command %q for %q", arg, cmd.CommandPath())
+		hint = fmt.Sprintf("run %s --help to list its subcommands", cmd.CommandPath())
+		if s := cmd.SuggestionsFor(arg); len(s) > 0 {
+			suggestions = "\n\nDid you mean this?\n\t" + strings.Join(s, "\n\t")
+		}
+	} else {
+		msg = fmt.Sprintf("%q takes no positional arguments, but got %q", cmd.CommandPath(), arg)
+		hint = fmt.Sprintf("run %s --help for the flags it accepts", cmd.CommandPath())
+	}
+	// Cobra runs ValidateArgs before ValidateRequiredFlags, so this refusal
+	// pre-empts the required-flag error and would otherwise be the last word.
+	// Its own exported validator states the missing set, in the wording the CLI
+	// already prints for a missing required flag everywhere else — so `pro diff
+	// staging production` names --source and --target again. Re-deriving the
+	// rule here meant copying cobra's completion-annotation marker, which is
+	// internal in spirit and would name nothing if cobra ever changed it.
+	//
+	// Only when no suggestion was produced. A suggestion means the positional
+	// was meant to be a subcommand, so the parent's required flags are not what
+	// the operator is missing — and naming one is actively wrong here:
+	// `pro backup list-resourcez` recommended --output one line above the
+	// suggestion for `list-resources`, the single subcommand where --output is
+	// the inherited root FORMAT flag rather than a destination directory.
+	// Following that literally writes no file and prints a table.
+	if suggestions == "" {
+		if err := cmd.ValidateRequiredFlags(); err != nil {
+			msg += " (" + err.Error() + ")"
+		}
+	}
+	return &exitcode.Error{Code: exitcode.Usage, Message: msg + suggestions, Hint: hint}
 }
 
 // suggestFlag returns the closest known flag name to unknown, or "" when none
