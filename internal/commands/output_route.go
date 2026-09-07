@@ -73,9 +73,16 @@ func selectSurvivors(rows []map[string]any) ([]map[string]any, int) {
 // and exit 0 with nothing explaining either.
 //
 // stderr rather than the formatter's writer, so it never lands in --out-file
-// beside the data. Suppressed by --quiet and --no-hints, being advisory.
+// beside the data.
+//
+// NOT suppressed by --quiet or --no-hints, unlike an advisory hint. Since the
+// drop removes RECORDS rather than narrowing them, silencing it loses data
+// silently: `commands -o csv --select privileges --quiet --out-file catalog.csv`
+// wrote 721 lines where the unselected run writes 1757, and a consumer asking
+// for "every command, blank where it has none" could not tell that from "1035
+// fewer commands exist".
 func reportSelectMiss(dropped int) {
-	if dropped == 0 || quiet || noHints || len(selectFields) == 0 {
+	if dropped == 0 || len(selectFields) == 0 {
 		return
 	}
 	_, _ = fmt.Fprintf(os.Stderr, "--select %s matched no field in %d row(s)\n", strings.Join(selectFields, ","), dropped)
@@ -110,15 +117,34 @@ func reportFieldMiss(rows []map[string]any, written int) {
 // zero bytes where printRows wrote `[]`.
 func printSection(cliCtx *registry.CLIContext, header string, rows []map[string]any) error {
 	kept, dropped := selectSurvivors(rows)
-	if len(kept) == 0 && dropped > 0 {
-		reportSelectMiss(dropped)
-		return nil
+	reportSelectMiss(dropped)
+
+	// A structured format has no section headers — a `──` line in a JSON file
+	// is not JSON, and `pro report patch-status --scan-failures -o json
+	// --out-file patch.json` wrote banners interleaved with separate arrays,
+	// which jq rejects at the first one. pro_report_patch.go is the only report
+	// with no json/yaml gate ahead of its printSection calls, so it is the one
+	// that reaches this.
+	structured := false
+	switch output.Format(outputFmt) {
+	case output.FormatJSON, output.FormatYAML, output.FormatNDJSON, output.FormatXML, output.FormatRaw:
+		structured = true
 	}
-	if header != "" {
+
+	// A header only where headers belong, and only above a body. Withholding
+	// the DOCUMENT was the other half of the bug: returning early on a total
+	// miss left 0 bytes for a structured read where printRows writes `[]`, so
+	// the two disagreed about the same input.
+	if !structured && len(kept) > 0 && header != "" {
 		if _, err := fmt.Fprint(writerFor(cliCtx), header); err != nil {
 			return err
 		}
 	}
+	if len(kept) == 0 && !structured {
+		return nil
+	}
+	// kept, not rows: printRows recomputes the survivors, which by construction
+	// drops nothing a second time, so the count above is the only one there is.
 	return printRows(cliCtx, kept)
 }
 

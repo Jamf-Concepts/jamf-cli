@@ -430,7 +430,14 @@ func printAggregated(cliCtx *registry.CLIContext, cmd *cobra.Command, merged map
 				return formatter.Print(results)
 			}
 		}
-		return formatter.Print([]map[string]any{jsonMerged})
+		// The multi-KEY fallback. The single-key arm above consults the guard
+		// and this did not, so a total --select miss answered `[{}]` in
+		// silence while the same command outside `multi` printed the note and
+		// `[]`: one operator mistake, two behaviours, chosen by whether it
+		// went through `multi`.
+		aggregated, dropped := selectSurvivors([]map[string]any{jsonMerged})
+		reportSelectMiss(dropped)
+		return formatter.Print(aggregated)
 	}
 
 	// Table mode: render each section

@@ -791,6 +791,10 @@ func TestBackupListResources_HonoursOutFile(t *testing.T) {
 // projector, which output.New leaves unset.
 func TestBackupListResources_HonoursSelect(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	// The flag vars are package-level and cobra parses into them, so without
+	// this --select leaked into whatever ran next: running this before the
+	// export test made its buffer "[]\n" instead of the YAML.
+	restoreOutputFlags(t)
 
 	root := NewRootCmd("test", "none", "none", "none")
 	root.SetArgs([]string{"pro", "backup", "list-resources", "-o", "json", "--select", "resource"})

@@ -79,8 +79,14 @@ migration guide** and carries the detail, the error messages verbatim, and the r
   `--select` or `--compact` and parsing whole rows now receives narrowed rows. Affected are
   the `pro report` family, `pro audit`, `pro overview`, `protect overview`,
   `school overview`, `pro group-tools`, `pro classic app-usage`, `multi` and `commands`.
-  A `--select` naming a field a row does not carry drops that row and says so on stderr;
-  `--quiet` and `--no-hints` silence the note, not the drop.
+  A `--select` naming a field a row does not carry **drops that row** and says so on stderr.
+  That note is not an advisory hint and `--quiet` and `--no-hints` do not silence it: the
+  drop removes records rather than narrowing them, and
+  `commands -o csv --select privileges --quiet` writes 721 lines where the unselected run
+  writes 1757, so a silent run could not be told from "1035 fewer commands exist".
+  Under `table` and `csv` the column set is the union across the surviving rows while
+  `--select` is active, so a path only some rows carry is still a column; without `--select`
+  the first row decides, as before.
 - **`pro audit -o raw` and `-o xml` render a table rather than JSON.** Both used to marshal
   the rows and hand the bytes to `PrintRaw`, which passes JSON through unchanged for those
   two formats; the shared formatter's own dispatch has no case for either and renders a

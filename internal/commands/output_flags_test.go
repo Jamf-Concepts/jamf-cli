@@ -33,6 +33,21 @@ import (
 // runRoot executes the root command with args and returns what reached standard
 // output and standard error. Both are read in goroutines: `commands -o json` is
 // about a megabyte, which deadlocks a pipe that is drained after the write.
+// restoreOutputFlags saves every global output flag var and puts it back when
+// the test ends. They are package-level and cobra parses into them, so any test
+// that drives the root command leaks its flags into the next one.
+func restoreOutputFlags(t *testing.T) {
+	t.Helper()
+	oFmt, oColor, oWide := outputFmt, noColor, wide
+	oFile, oSelect, oCompact := outFile, selectFields, compact
+	oField, oQuiet, oHints := fieldName, quiet, noHints
+	t.Cleanup(func() {
+		outputFmt, noColor, wide = oFmt, oColor, oWide
+		outFile, selectFields, compact = oFile, oSelect, oCompact
+		fieldName, quiet, noHints = oField, oQuiet, oHints
+	})
+}
+
 func runRoot(t *testing.T, args ...string) (stdout, stderr string, err error) {
 	t.Helper()
 
@@ -48,6 +63,14 @@ func runRoot(t *testing.T, args ...string) (stdout, stderr string, err error) {
 	origOut, origErr := os.Stdout, os.Stderr
 	os.Stdout, os.Stderr = outW, errW
 	t.Cleanup(func() { os.Stdout, os.Stderr = origOut, origErr })
+
+	// Restore the package flag vars too. root.Execute() parses into them, and
+	// they are package-level, so a value set here leaked into whatever test ran
+	// next: `go test -shuffle=4` failed TestSelectMatchingNothingLeavesNoOrphanBanner
+	// with fieldName still "command" from an earlier runRoot, which sent
+	// printRows down the --field branch instead of rendering the table the test
+	// asserts on. Reproduced with no source change at all.
+	restoreOutputFlags(t)
 
 	outDone := make(chan string, 1)
 	errDone := make(chan string, 1)
@@ -695,6 +718,23 @@ func TestFilesThatRouteTheirWriterDoNotPrintToStdout(t *testing.T) {
 				switch sel.Sel.Name {
 				case "Print", "Printf", "Println":
 					bare = append(bare, fmt.Sprintf("%s:%d", name, fset.Position(node.Lparen).Line))
+				case "Fprint", "Fprintf", "Fprintln":
+					// A write guarded on a nil CLIContext is the same fallback
+					// writerFor itself carries, and is unreachable in a real
+					// run. Exempted by name so the rule still sees every other
+					// os.Stdout write in the file.
+					if stdoutFallbackSites[name] {
+						return true
+					}
+					// fmt.Fprintln(os.Stdout, …) is the same bug spelled with a
+					// writer. Replacing one fmt.Fprintln(w) with os.Stdout
+					// inside printSchoolOverviewTable left the whole package
+					// green while half the report went to the terminal instead
+					// of --out-file, and that function is 0% unit-covered, so
+					// this guard is its only feedback loop.
+					if len(node.Args) > 0 && isStdout(node.Args[0]) {
+						bare = append(bare, fmt.Sprintf("%s:%d", name, fset.Position(node.Lparen).Line))
+					}
 				}
 			}
 			return true
@@ -712,6 +752,23 @@ func TestFilesThatRouteTheirWriterDoNotPrintToStdout(t *testing.T) {
 	if routed < 10 {
 		t.Errorf("only %d files route through writerFor, want at least the 10 this rule was written over", routed)
 	}
+}
+
+// stdoutFallbackSites are files whose only os.Stdout write is the fallback for
+// a nil CLIContext — the same shape writerFor carries, and unreachable once
+// PersistentPreRunE has run.
+//
+// renderVersion (version.go): `if cliCtx != nil && cliCtx.Output != nil` routes
+// through the formatter, and the os.Stdout line below it exists for a caller
+// reached with a test double.
+var stdoutFallbackSites = map[string]bool{
+	"version.go": true,
+}
+
+// isStdout reports whether e is os.Stdout.
+func isStdout(e ast.Expr) bool {
+	sel, ok := e.(*ast.SelectorExpr)
+	return ok && sel.Sel.Name == "Stdout" && isPackageIdent(sel.X, "os")
 }
 
 func isPackageIdent(expr ast.Expr, name string) bool {
@@ -1076,36 +1133,49 @@ func TestNoReportWritesABannerThenPrintRows(t *testing.T) {
 
 	checked := 0
 	for name, file := range files {
-		if !strings.HasPrefix(name, "pro_report_") && !strings.HasSuffix(name, "overview.go") && name != "multi.go" {
-			continue
-		}
 		ast.Inspect(file, func(n ast.Node) bool {
 			block, ok := n.(*ast.BlockStmt)
 			if !ok {
 				return true
 			}
-			for i := 0; i < len(block.List)-1; i++ {
-				if !writesASectionBanner(block.List[i]) {
+			for i, stmt := range block.List {
+				if !writesASectionBanner(stmt) {
 					continue
 				}
 				checked++
-				// The very next statement must not be a printRows call: the
-				// banner is already on the writer by then.
-				if callsPrintRows(block.List[i+1]) {
-					t.Errorf("%s: a section banner is written immediately before printRows — use printSection so the drop decision happens before the header", name)
+				// Every LATER statement in the same block, not just the next
+				// one. Inserting `rows := mdmDevicesToRows(…)` between the
+				// banner and its printRows left the old rule green with the
+				// identical runtime bug.
+				for _, later := range block.List[i+1:] {
+					if writesASectionBanner(later) {
+						break // the next section starts; this one is settled
+					}
+					if callsPrintRows(later) {
+						t.Errorf("%s: a section banner is followed by printRows in the same block — use printSection so the drop and the format are decided before the header", name)
+						break
+					}
 				}
 			}
 			return true
 		})
 	}
 	if checked == 0 {
-		t.Error("no section banner was found in any report file, so this test proves nothing")
+		t.Error("no section banner was found anywhere in the package, so this test proves nothing")
 	}
-	t.Logf("checked %d section banners", checked)
+	t.Logf("checked %d section banners across %d files", checked, len(files))
 }
 
-// writesASectionBanner reports whether stmt writes a `── … ──` header.
+// writesASectionBanner reports whether stmt writes a `── … ──` header itself,
+// as opposed to handing one to printSection.
+//
+// A banner passed TO printSection is correct by definition — that is the whole
+// point of the helper — so counting it made every converted report look like a
+// violation the moment any later statement in the block called printRows.
 func writesASectionBanner(stmt ast.Stmt) bool {
+	if callsNamed(stmt, "printSection") {
+		return false
+	}
 	found := false
 	ast.Inspect(stmt, func(n ast.Node) bool {
 		lit, ok := n.(*ast.BasicLit)
@@ -1117,18 +1187,23 @@ func writesASectionBanner(stmt ast.Stmt) bool {
 	return found
 }
 
-// callsPrintRows reports whether stmt calls printRows.
-func callsPrintRows(stmt ast.Stmt) bool {
+// callsNamed reports whether stmt calls the named package-level function.
+func callsNamed(stmt ast.Stmt, name string) bool {
 	found := false
 	ast.Inspect(stmt, func(n ast.Node) bool {
 		call, ok := n.(*ast.CallExpr)
 		if !ok {
 			return true
 		}
-		if id, isIdent := call.Fun.(*ast.Ident); isIdent && id.Name == "printRows" {
+		if id, isIdent := call.Fun.(*ast.Ident); isIdent && id.Name == name {
 			found = true
 		}
 		return !found
 	})
 	return found
+}
+
+// callsPrintRows reports whether stmt calls printRows.
+func callsPrintRows(stmt ast.Stmt) bool {
+	return callsNamed(stmt, "printRows")
 }

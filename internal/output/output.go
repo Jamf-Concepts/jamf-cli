@@ -349,7 +349,7 @@ func (f *Formatter) printCSV(data any) error {
 			return nil
 		}
 		v = flattenRows(v)
-		headers := sortedKeys(v[0])
+		headers := columnKeys(v, len(f.projector.Select) > 0)
 		_ = w.Write(headers)
 		for _, row := range v {
 			vals := make([]string, len(headers))
@@ -399,11 +399,16 @@ func (f *Formatter) printTable(data any) error {
 	// Flatten nested objects to dot-notation columns for readable table output
 	rows = flattenRows(rows)
 
-	allKeys := sortedKeys(rows[0])
+	allKeys := columnKeys(rows, len(f.projector.Select) > 0)
 
-	// Filter columns unless --wide is set
+	// Filter columns unless --wide is set, or --select already named them.
+	//
+	// --select IS the narrowing request, so the default-column heuristic must
+	// not second-guess it: it dropped `api` from
+	// `commands -o table --select command,api`, a field the caller asked for by
+	// name, and only --wide brought it back.
 	var keys []string
-	if f.wide {
+	if f.wide || len(f.projector.Select) > 0 {
 		keys = allKeys
 	} else {
 		keys = defaultColumns(allKeys, rows[0])
@@ -641,6 +646,36 @@ func keyPriority(key string) int {
 
 // sortedKeys returns map keys in deterministic order:
 // "id" first, then "name", then remaining keys alphabetically.
+// columnKeys returns the column set for rows, in sortedKeys' order.
+//
+// Row 0 alone decides it normally, which is the documented convention and what
+// keeps every table without --select byte-identical. A Select projector is the
+// exception: it makes rows heterogeneous BY DESIGN, because a row survives
+// projection when it matched SOME selected path rather than every one of them.
+// With row 0 deciding, a path row 0 does not carry became a column for no row —
+// `commands -o csv --select command,api` wrote a `command`-only header while
+// `-o json` returned 1375 `api` values, at exit 0 with nothing on either
+// stream, since a row-drop count cannot see a row that matched something.
+//
+// Unioning unconditionally would change every table in the CLI, which is why
+// CLAUDE.md rules it out. Gating on the projector changes only the tables that
+// asked to be projected.
+func columnKeys(rows []map[string]any, projected bool) []string {
+	if len(rows) == 0 {
+		return nil
+	}
+	if !projected {
+		return sortedKeys(rows[0])
+	}
+	union := make(map[string]any, len(rows[0]))
+	for _, row := range rows {
+		for k := range row {
+			union[k] = nil
+		}
+	}
+	return sortedKeys(union)
+}
+
 func sortedKeys(m map[string]any) []string {
 	keys := make([]string, 0, len(m))
 	for k := range m {

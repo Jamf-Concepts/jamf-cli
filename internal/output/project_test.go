@@ -435,3 +435,66 @@ func TestDropEmptySelectionsAgreesWithApply(t *testing.T) {
 		})
 	}
 }
+
+// TestSelectUnionsTheRenderedColumnSet asserts the RENDERED columns, which is a
+// different question from whether the projector agrees with Apply.
+//
+// A row survives projection when it matched SOME selected path, never every
+// one of them, so the survivors are heterogeneous by design. With row 0
+// deciding the column set, a path row 0 does not carry was a column for no row:
+// `commands -o csv --select command,api` wrote a `command`-only header while
+// `-o json` returned 1375 `api` values, at exit 0 with nothing on either
+// stream — a row-drop count cannot see a row that matched something.
+//
+// "Correct by construction" held only at ONE path, where "matched something"
+// and "matched every path" coincide. The commit that claimed it measured
+// `--select api`, which is that case.
+func TestSelectUnionsTheRenderedColumnSet(t *testing.T) {
+	// Row 0 carries only path A; a later row carries only path B.
+	rows := []map[string]any{
+		{"command": "agent-context"},
+		{"command": "pro categories list", "api": "pro"},
+	}
+
+	for _, format := range []string{"table", "csv"} {
+		t.Run(format, func(t *testing.T) {
+			var buf bytes.Buffer
+			f := New(format, true, false)
+			f.SetWriter(&buf)
+			f.SetProjector(Projector{Select: []string{"command", "api"}})
+			if err := f.Print(rows); err != nil {
+				t.Fatalf("Print: %v", err)
+			}
+			out := strings.ToUpper(buf.String())
+			for _, want := range []string{"COMMAND", "API"} {
+				if !strings.Contains(out, want) {
+					t.Errorf("-o %s dropped the %s column, so a selected value reaches no row:\n%s", format, want, buf.String())
+				}
+			}
+			if !strings.Contains(buf.String(), "pro") {
+				t.Errorf("-o %s rendered no api value:\n%s", format, buf.String())
+			}
+		})
+	}
+}
+
+// TestNoSelectKeepsRowZeroAsTheColumnSet pins the other half. Unioning
+// unconditionally would change every table in the CLI, which is why CLAUDE.md
+// rules it out; the union is gated on the projector so an unprojected table is
+// byte-identical.
+func TestNoSelectKeepsRowZeroAsTheColumnSet(t *testing.T) {
+	rows := []map[string]any{
+		{"name": "a"},
+		{"name": "b", "extra": "x"},
+	}
+	var buf bytes.Buffer
+	f := New("csv", true, false)
+	f.SetWriter(&buf)
+	if err := f.Print(rows); err != nil {
+		t.Fatalf("Print: %v", err)
+	}
+	header := strings.SplitN(buf.String(), "\n", 2)[0]
+	if header != "name" {
+		t.Errorf("header = %q, want %q — row 0 must still decide without --select", header, "name")
+	}
+}
