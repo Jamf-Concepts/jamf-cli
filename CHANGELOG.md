@@ -85,7 +85,11 @@ migration guide** and carries the detail, the error messages verbatim, and the r
   `<redacted>` when the command registers a credential flag (`--new-password`, `--pin`,
   `--unlock-token`) or when the positional is itself a `key=value` pair whose key names a
   credential, such as a dropped `--set account.password=…`, because this message reaches
-  stdout as JSON when output is piped and from there a CI log. A command that documents a
+  stdout as JSON when output is piped and from there a CI log. The key is read
+  case-insensitively and split on both separators and camelCase boundaries, so `TOKEN=`,
+  `CLIENT_SECRET=`, `CLIENTSECRET=` and `clientsecret=` all redact. A positional carrying no
+  `=` redacts too when `--set` was supplied, which is what `--set <key> <value>` leaves
+  behind when the `=` is lost; without `--set` an ordinary typo still names itself. A command that documents a
   placeholder is unchanged for an ordinary invocation. Under `--scaffold` it is now bounded
   too: 43 classic and platform leaves used to accept and discard any number of extra
   positionals with that flag set, and now enforce the declared ceiling, so

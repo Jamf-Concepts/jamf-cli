@@ -2070,21 +2070,87 @@ func secretShapedAssignment(v string) bool {
 	if !ok {
 		return false
 	}
-	var b strings.Builder
-	for _, r := range key {
-		if unicode.IsUpper(r) {
-			b.WriteByte('-')
-		}
-		b.WriteRune(unicode.ToLower(r))
-	}
-	for _, seg := range strings.FieldsFunc(b.String(), func(r rune) bool {
-		return r == '.' || r == '-' || r == '_'
-	}) {
+	// Split the key on camelCase boundaries as well as separators, then match a
+	// segment exactly; fall back to a suffix for a key with no boundary at all.
+	//
+	// Two boundaries, and the second is what a naive rule misses. A separator
+	// before EVERY uppercase rune shredded a run of capitals into single
+	// letters, so TOKEN= normalised to "-t-o-k-e-n" and matched nothing while
+	// the doc comment claimed a transition rule. Inserting one only at
+	// lower-to-upper then misses the other end of a run: SECRETValue keeps V
+	// attached to SECRET, because V follows an uppercase T.
+	for _, seg := range splitIdentifier(key) {
 		if secretFlagSegments[seg] {
 			return true
 		}
 	}
+	// A key with no boundary and no separator — apikey, clientsecret,
+	// authtoken — is one opaque segment the exact match cannot reach.
+	//
+	// Matched as a SUFFIX rather than anywhere in the segment, because a field
+	// that holds a credential names it last: clientSecret, apiKey, authToken.
+	// A plain substring test caught "pin" inside "mapping" and "key" starting
+	// "keychain", so `--set deviceFieldMappings.userEmailMapping=x` would have
+	// redacted a value that is no secret. Over-redaction is the right bias on
+	// the value side — a false negative prints a credential — but it is not a
+	// reason to stop distinguishing.
+	for _, seg := range splitIdentifier(key) {
+		for word := range secretFlagSegments {
+			if strings.HasSuffix(seg, word) {
+				return true
+			}
+		}
+	}
 	return false
+}
+
+// splitIdentifier lowercases key and splits it into words, on "." "-" "_" and
+// on camelCase boundaries.
+//
+// A boundary sits before an uppercase rune when the previous rune is lowercase
+// or a digit (clientSecret -> client, secret), and also when the previous rune
+// is uppercase and the NEXT is lowercase (SECRETValue -> secret, value). The
+// second case is what carries an env-style prefix with a camel tail; without
+// it, a run of capitals swallows the word that follows it.
+func splitIdentifier(key string) []string {
+	runes := []rune(key)
+	var b strings.Builder
+	for i, r := range runes {
+		if unicode.IsUpper(r) && i > 0 {
+			prev := runes[i-1]
+			nextLower := i+1 < len(runes) && unicode.IsLower(runes[i+1])
+			if !unicode.IsUpper(prev) || nextLower {
+				b.WriteByte('-')
+			}
+		}
+		b.WriteRune(unicode.ToLower(r))
+	}
+	return strings.FieldsFunc(b.String(), func(r rune) bool {
+		return r == '.' || r == '-' || r == '_'
+	})
+}
+
+// setPairSplitByASpace reports whether a stray positional on cmd is most likely
+// the value half of a --set pair typed with a space instead of an "=".
+//
+// --set is repeatable, so `--set deviceSyncAuth.clientSecret SECRET` has cobra
+// take the KEY as the flag's one element and drop the credential to args[0],
+// where no "=" remains for secretShapedAssignment to split on and where
+// carriesASecretFlag cannot help — --set is a stringArray, and its name holds
+// no secret word. That is the invocation CLAUDE.md names as discouraged, one
+// keystroke off.
+//
+// Gated on --set having been SUPPLIED, which is what keeps an ordinary typo
+// readable: 122 zero-arity leaves register the flag, so redacting every
+// "="-less positional on all of them would answer
+// `pro categories create body.json` with <redacted>. Requiring the flag to be
+// present narrows it to the invocation that can actually carry a credential.
+func setPairSplitByASpace(cmd *cobra.Command, value string) bool {
+	if strings.Contains(value, "=") {
+		return false
+	}
+	f := cmd.Flags().Lookup("set")
+	return f != nil && f.Changed
 }
 
 func carriesASecretFlag(cmd *cobra.Command) bool {
@@ -2136,7 +2202,7 @@ func refuseStrayPositionals(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 	value := args[0]
-	if carriesASecretFlag(cmd) || secretShapedAssignment(value) {
+	if carriesASecretFlag(cmd) || secretShapedAssignment(value) || setPairSplitByASpace(cmd, value) {
 		value = "<redacted>"
 	}
 	return &exitcode.Error{

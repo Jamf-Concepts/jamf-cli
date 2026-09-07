@@ -862,19 +862,46 @@ func TestSecretShapedAssignment(t *testing.T) {
 		value string
 		want  bool
 	}{
-		// camelCase body keys: a separator is inserted at lower→upper so the
-		// one segment set reads a body key as well as a flag name.
+		// camelCase body keys: a separator is inserted at each lower→upper
+		// TRANSITION, so the one segment set reads a body key as well as a
+		// flag name.
 		{"deviceSyncAuth.clientSecret=SEKRET", true},
 		{"account.password=SEKRET", true},
 		{"pin=123456", true},
 		{"unlock_token=abc", true},
 		{"apiKey=abc", true},
+		// A run of capitals. Inserting a separator before EVERY uppercase rune
+		// shredded these into single letters — "-t-o-k-e-n" — so none matched
+		// and the credential was echoed verbatim, while the doc comment claimed
+		// the transition rule the code did not implement.
+		{"TOKEN=x", true},
+		{"CLIENT_SECRET=x", true},
+		{"CLIENTSECRET=x", true},
+		{"APIKEY=x", true},
+		// A run of capitals followed by a camel tail. This is the row that
+		// separates the two mechanisms: the transition normalises it to
+		// "secret-value" and the exact match reads "secret", while the suffix
+		// fallback sees "secretvalue" and no secret word ends it. Without the
+		// transition fix nothing catches it — reverting that fix left every
+		// other row here passing, because the fallback covers them.
+		{"SECRETValue=x", true},
+		{"TOKENFile=x", true},
+		// No transition and no separator: one opaque segment the exact match
+		// cannot reach, so a suffix test carries these.
+		{"clientsecret=x", true},
+		{"apikey=x", true},
+		{"authtoken=x", true},
 		// Not secrets: these must keep naming the value, or a typo is unfixable.
 		{"authStrategy=JAMF_PRO_OAUTH", false},
 		{"general.name=Foo", false},
+		// The negatives a plain substring test would have caught: "pin" sits
+		// inside "mapping" and "key" starts "keychain". A credential key names
+		// the credential LAST, so the fallback matches a suffix.
 		{"mapping=x", false},
 		{"keychain=x", false},
-		// Not an assignment at all.
+		{"deviceFieldMappings.userEmailMapping=x", false},
+		// Not an assignment at all. The no-"=" case is handled at the call
+		// site, gated on --set having been supplied, so this row stays false.
 		{"/tmp/out", false},
 		{"junkarg", false},
 		{"S3cur3P@ss123", false},
@@ -920,5 +947,55 @@ func TestStrayPositionalRedactsASecretShapedAssignment(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "general.name=Foo") {
 		t.Errorf("an ordinary assignment was redacted, so a typo is unfixable: %v", err)
+	}
+}
+
+// TestStrayPositionalRedactsASplitSetPair covers the value half of a --set pair
+// typed with a space instead of an "=". Cobra takes the KEY as the flag's one
+// element and drops the credential to args[0], where no "=" remains for
+// secretShapedAssignment to split on and carriesASecretFlag cannot help — --set
+// is a stringArray whose name holds no secret word. That is the invocation
+// CLAUDE.md names as discouraged, one keystroke off.
+//
+// It is gated on --set having been SUPPLIED, which is what the second half
+// pins: 122 zero-arity leaves register the flag, so redacting every "="-less
+// positional on all of them would answer `create body.json` with <redacted>.
+func TestStrayPositionalRedactsASplitSetPair(t *testing.T) {
+	newLeaf := func() *cobra.Command {
+		cmd := &cobra.Command{Use: "create", Run: func(*cobra.Command, []string) {}}
+		var pairs []string
+		cmd.Flags().StringArrayVar(&pairs, "set", nil, "")
+		return cmd
+	}
+
+	// --set supplied, credential left bare: redact.
+	leaf := newLeaf()
+	if err := leaf.Flags().Set("set", "deviceSyncAuth.clientSecret"); err != nil {
+		t.Fatalf("setting --set: %v", err)
+	}
+	err := refuseStrayPositionals(leaf, []string{"S3cr3tRealCred"})
+	if err == nil {
+		t.Fatal("the stray positional was accepted")
+	}
+	if strings.Contains(err.Error(), "S3cr3tRealCred") {
+		t.Errorf("the credential survived into the refusal: %v", err)
+	}
+
+	// --set never supplied: an ordinary typo must still name itself, or the
+	// message is useless on 122 leaves.
+	plain := newLeaf()
+	err = refuseStrayPositionals(plain, []string{"body.json"})
+	if err == nil {
+		t.Fatal("the stray positional was accepted")
+	}
+	if !strings.Contains(err.Error(), "body.json") {
+		t.Errorf("an ordinary typo was redacted on a --set-bearing leaf: %v", err)
+	}
+
+	// A leaf with no --set at all is unaffected either way.
+	bare := &cobra.Command{Use: "list", Run: func(*cobra.Command, []string) {}}
+	err = refuseStrayPositionals(bare, []string{"junkarg"})
+	if err == nil || !strings.Contains(err.Error(), "junkarg") {
+		t.Errorf("a leaf without --set should name its value: %v", err)
 	}
 }
