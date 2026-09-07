@@ -2133,24 +2133,39 @@ func splitIdentifier(key string) []string {
 // setPairSplitByASpace reports whether a stray positional on cmd is most likely
 // the value half of a --set pair typed with a space instead of an "=".
 //
-// --set is repeatable, so `--set deviceSyncAuth.clientSecret SECRET` has cobra
-// take the KEY as the flag's one element and drop the credential to args[0],
-// where no "=" remains for secretShapedAssignment to split on and where
-// carriesASecretFlag cannot help — --set is a stringArray, and its name holds
-// no secret word. That is the invocation CLAUDE.md names as discouraged, one
-// keystroke off.
+// It asks the FLAG SET, not the value. `--set <key> <value>` has cobra take the
+// key as the flag's one element and drop the value to args[0], so what
+// identifies the invocation is that a supplied --set element itself carries no
+// "=" — nothing about the value. Keying on the value failed in both directions
+// at once: an early return on any "=" in it echoed a credential whose value
+// contains one, which is routine for an Intune or Azure application secret
+// (base64 padding, or the character itself), and
+// `--set deviceSyncAuth.clientSecret 'dGVzdHNlY3JldA=='` printed it verbatim;
+// while `--set vendor=JAMF_PRO body.json` redacted an ordinary filename,
+// because supplying --set is exactly what a caller building a body does. So the
+// narrowing this comment used to claim did not hold where it was claimed.
 //
-// Gated on --set having been SUPPLIED, which is what keeps an ordinary typo
-// readable: 122 zero-arity leaves register the flag, so redacting every
-// "="-less positional on all of them would answer
-// `pro categories create body.json` with <redacted>. Requiring the flag to be
-// present narrows it to the invocation that can actually carry a credential.
-func setPairSplitByASpace(cmd *cobra.Command, value string) bool {
-	if strings.Contains(value, "=") {
+// Every --set in the tree is a StringArrayVar with a nil default — 231 sites,
+// checked — so one accessor reaches all of them. The Changed gate is redundant
+// against that default, since an unsupplied flag yields an empty slice and the
+// loop below returns false either way; it is kept because a future non-nil
+// default would otherwise read as a supplied pair, and
+// TestSetPairSplitIgnoresAnUnsuppliedDefault pins that.
+func setPairSplitByASpace(cmd *cobra.Command) bool {
+	f := cmd.Flags().Lookup("set")
+	if f == nil || !f.Changed {
 		return false
 	}
-	f := cmd.Flags().Lookup("set")
-	return f != nil && f.Changed
+	pairs, err := cmd.Flags().GetStringArray("set")
+	if err != nil {
+		return false
+	}
+	for _, pair := range pairs {
+		if !strings.Contains(pair, "=") {
+			return true
+		}
+	}
+	return false
 }
 
 func carriesASecretFlag(cmd *cobra.Command) bool {
@@ -2202,7 +2217,7 @@ func refuseStrayPositionals(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 	value := args[0]
-	if carriesASecretFlag(cmd) || secretShapedAssignment(value) || setPairSplitByASpace(cmd, value) {
+	if carriesASecretFlag(cmd) || secretShapedAssignment(value) || setPairSplitByASpace(cmd) {
 		value = "<redacted>"
 	}
 	return &exitcode.Error{

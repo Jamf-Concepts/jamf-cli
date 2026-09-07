@@ -961,41 +961,95 @@ func TestStrayPositionalRedactsASecretShapedAssignment(t *testing.T) {
 // pins: 122 zero-arity leaves register the flag, so redacting every "="-less
 // positional on all of them would answer `create body.json` with <redacted>.
 func TestStrayPositionalRedactsASplitSetPair(t *testing.T) {
-	newLeaf := func() *cobra.Command {
+	newLeaf := func(setPairs ...string) *cobra.Command {
 		cmd := &cobra.Command{Use: "create", Run: func(*cobra.Command, []string) {}}
 		var pairs []string
 		cmd.Flags().StringArrayVar(&pairs, "set", nil, "")
+		for _, p := range setPairs {
+			if err := cmd.Flags().Set("set", p); err != nil {
+				t.Fatalf("setting --set %q: %v", p, err)
+			}
+		}
 		return cmd
 	}
 
-	// --set supplied, credential left bare: redact.
-	leaf := newLeaf()
-	if err := leaf.Flags().Set("set", "deviceSyncAuth.clientSecret"); err != nil {
-		t.Fatalf("setting --set: %v", err)
-	}
-	err := refuseStrayPositionals(leaf, []string{"S3cr3tRealCred"})
-	if err == nil {
-		t.Fatal("the stray positional was accepted")
-	}
-	if strings.Contains(err.Error(), "S3cr3tRealCred") {
-		t.Errorf("the credential survived into the refusal: %v", err)
-	}
+	const secret = "S3cr3tRealCred"
 
-	// --set never supplied: an ordinary typo must still name itself, or the
-	// message is useless on 122 leaves.
-	plain := newLeaf()
-	err = refuseStrayPositionals(plain, []string{"body.json"})
-	if err == nil {
-		t.Fatal("the stray positional was accepted")
-	}
-	if !strings.Contains(err.Error(), "body.json") {
-		t.Errorf("an ordinary typo was redacted on a --set-bearing leaf: %v", err)
+	for _, tc := range []struct {
+		name string
+		set  []string
+		arg  string
+		want bool // redact
+	}{
+		// The structural signal is a supplied --set element with no "=", not
+		// anything about the value. Keying on the value gave up the moment an
+		// "=" appeared in it — and an Intune or Azure application secret
+		// routinely carries one, as base64 padding or the character itself.
+		{"split pair, plain value", []string{"deviceSyncAuth.clientSecret"}, secret, true},
+		{"split pair, base64 padding", []string{"deviceSyncAuth.clientSecret"}, "dGVzdHNlY3JldA==", true},
+		{"split pair, literal equals", []string{"deviceSyncAuth.clientSecret"}, "abc=def", true},
+		{"split pair, connection string", []string{"deviceSyncAuth.clientSecret"}, "Server=tcp:x;Password=Sup3r=Secret", true},
+		// Every pair well formed: the positional is a typo, not a value, and
+		// hiding it costs the operator the filename they mistyped on any of the
+		// 225 --set-bearing leaves. Supplying --set is exactly what a caller
+		// building a body does, so gating on "was --set supplied" alone was not
+		// the narrowing it claimed to be.
+		{"well-formed pair, filename", []string{"vendor=JAMF_PRO"}, "body.json", false},
+		{"two well-formed pairs, typo", []string{"a=1", "b=2"}, "junkarg", false},
+		// --set never supplied.
+		{"no --set, filename", nil, "body.json", false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			leaf := newLeaf(tc.set...)
+			err := refuseStrayPositionals(leaf, []string{tc.arg})
+			if err == nil {
+				t.Fatal("the stray positional was accepted")
+			}
+			redacted := strings.Contains(err.Error(), "<redacted>")
+			if redacted != tc.want {
+				t.Errorf("redacted = %v, want %v: %v", redacted, tc.want, err)
+			}
+			if tc.want && strings.Contains(err.Error(), tc.arg) {
+				t.Errorf("the credential survived into the refusal: %v", err)
+			}
+			if !tc.want && !strings.Contains(err.Error(), tc.arg) {
+				t.Errorf("an ordinary value was hidden, so the operator cannot see their typo: %v", err)
+			}
+		})
 	}
 
 	// A leaf with no --set at all is unaffected either way.
 	bare := &cobra.Command{Use: "list", Run: func(*cobra.Command, []string) {}}
-	err = refuseStrayPositionals(bare, []string{"junkarg"})
+	err := refuseStrayPositionals(bare, []string{"junkarg"})
 	if err == nil || !strings.Contains(err.Error(), "junkarg") {
 		t.Errorf("a leaf without --set should name its value: %v", err)
+	}
+}
+
+// TestSetPairSplitIgnoresAnUnsuppliedDefault pins the Changed gate in
+// setPairSplitByASpace, which is otherwise unreachable: all 231 --set
+// registrations in the tree use a nil default, so an unsupplied flag yields an
+// empty slice and the element loop returns false without the gate. Deleting the
+// gate therefore left the whole suite green.
+//
+// It matters the moment a --set is registered with a default. That default
+// would read as a supplied pair, and a bare default with no "=" would redact
+// every stray positional on that command.
+func TestSetPairSplitIgnoresAnUnsuppliedDefault(t *testing.T) {
+	cmd := &cobra.Command{Use: "create", Run: func(*cobra.Command, []string) {}}
+	var pairs []string
+	// A default with no "=" — the shape that would trip the element loop.
+	cmd.Flags().StringArrayVar(&pairs, "set", []string{"deviceSyncAuth.clientSecret"}, "")
+
+	if setPairSplitByASpace(cmd) {
+		t.Error("an unsupplied --set default was read as a supplied pair, so every stray positional on this command would redact")
+	}
+
+	// Supplying it is what makes the signal real.
+	if err := cmd.Flags().Set("set", "deviceSyncAuth.clientSecret"); err != nil {
+		t.Fatalf("setting --set: %v", err)
+	}
+	if !setPairSplitByASpace(cmd) {
+		t.Error("a supplied element with no \"=\" is the split-pair signature and was missed")
 	}
 }
