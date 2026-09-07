@@ -4,6 +4,8 @@ package commands
 
 import (
 	"errors"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -11,6 +13,7 @@ import (
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/auth"
 	"github.com/Jamf-Concepts/jamf-cli/internal/config"
+	"github.com/Jamf-Concepts/jamf-cli/internal/platform"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 )
 
@@ -62,6 +65,40 @@ func withholdFixtureNamingJAMFClientID() *config.Config {
 	}
 }
 
+// withholdFixtureWithRef is withholdFixture with the client-id reference
+// replaced, so a case can say which reference form the profile carries. That is
+// the axis the predicate turns on: the comparison is on the resolved *value*,
+// and the only form it declines to resolve is keychain:, because resolving one
+// can prompt on a path that by definition is not using the profile's
+// credentials.
+func withholdFixtureWithRef(clientIDRef func(*testing.T) string) func(*testing.T) *config.Config {
+	return func(t *testing.T) *config.Config {
+		cfg := withholdFixture()
+		p := cfg.Profiles["gw"]
+		p.ClientID = clientIDRef(t)
+		cfg.Profiles["gw"] = p
+		return cfg
+	}
+}
+
+// fileRef writes id to a file under the subtest's temp dir and returns the
+// `file:` reference naming it.
+func fileRef(id string) func(*testing.T) string {
+	return func(t *testing.T) string {
+		t.Helper()
+		path := filepath.Join(t.TempDir(), "client-id")
+		if err := os.WriteFile(path, []byte(id+"\n"), 0o600); err != nil {
+			t.Fatalf("writing the client-id file: %v", err)
+		}
+		return "file:" + path
+	}
+}
+
+// literalRef is for a reference with nothing to write, like keychain:.
+func literalRef(ref string) func(*testing.T) string {
+	return func(*testing.T) string { return ref }
+}
+
 // isolateScopeVars clears the package-level flag vars a scope resolution reads
 // and restores them afterwards. They are globals bound to root's persistent
 // flags, so a case that set one would otherwise leak into every later test in
@@ -72,16 +109,49 @@ func isolateScopeVars(t *testing.T) {
 	eid, tid := environmentID, tenantID
 	clientID, clientSecret, token = "", "", ""
 	environmentID, tenantID = "", ""
-	resetWithheldProfileScope()
+	resetPlatformScopeRecords()
 	t.Cleanup(func() {
 		clientID, clientSecret, token = cid, csec, tok
 		environmentID, tenantID = eid, tid
-		resetWithheldProfileScope()
+		resetPlatformScopeRecords()
 	})
 	t.Setenv("JAMF_CLIENT_ID", "")
 	t.Setenv("JAMF_CLIENT_SECRET", "")
 	t.Setenv("JAMF_TENANT_ID", "")
 	t.Setenv("JAMF_ENVIRONMENT_ID", "")
+}
+
+// Both per-resolution records are cleared together, and only one of them ever
+// was. resolvedPlatformScope is written by newPlatformSDKClient and read by
+// AnnotateScopeLevelError, so a second resolution that builds no client — a
+// profile with no credentials, or school's tenant-less path — used to keep the
+// first one's level and the note said "this invocation is tenant-scoped" about
+// a credential this invocation never used.
+func TestBothPlatformScopeRecordsAreClearedPerResolution(t *testing.T) {
+	isolateScopeVars(t)
+	saved := resolvedPlatformScope
+	t.Cleanup(func() { resolvedPlatformScope = saved })
+
+	// Stand in for a first resolution that built a tenant-scoped client and
+	// withheld a profile's level.
+	resolvedPlatformScope = auth.TenantScope("first-tenant")
+	recordWithheldProfileScope("first", "tenant", "first-tenant")
+
+	// A second resolution over a config with nothing to resolve.
+	_, _, err := ResolveAuthForProfile(&config.Config{Profiles: map[string]config.Profile{}}, AuthParams{})
+	if err == nil {
+		t.Fatal("a config with no profile and no credentials should not resolve")
+	}
+	if got := resolvedPlatformScope.Kind; got != auth.ScopeOrganization {
+		t.Errorf("resolvedPlatformScope.Kind = %v, want the zero value — no client was built, so "+
+			"the previous resolution's level must not stand", got)
+	}
+	if resolvedPlatformScope.ID != "" {
+		t.Errorf("resolvedPlatformScope.ID = %q, want empty", resolvedPlatformScope.ID)
+	}
+	if withheldProfileScope.Profile != "" {
+		t.Errorf("withheldProfileScope = %q, want cleared", withheldProfileScope.Profile)
+	}
 }
 
 // A profile's scope level belongs to the profile's own integration, so it is
@@ -100,8 +170,10 @@ func isolateScopeVars(t *testing.T) {
 // string, because the defect was a header on the wire.
 func TestAProfileScopeIsUsedOnlyWithThatProfilesCredentials(t *testing.T) {
 	for _, tc := range []struct {
-		name         string
-		cfg          func() *config.Config
+		name string
+		// Takes a T because two rows write a client-id file, and a table
+		// literal is evaluated before any subtest exists to own the temp dir.
+		cfg          func(*testing.T) *config.Config
 		env          map[string]string
 		profile      string
 		wantKind     auth.ScopeKind
@@ -170,7 +242,7 @@ func TestAProfileScopeIsUsedOnlyWithThatProfilesCredentials(t *testing.T) {
 			// this row to write: a profile naming JAMF_CLIENT_ID and an
 			// invocation supplying it are the same integration by construction.
 			name:     "the profile's own client-id reference is JAMF_CLIENT_ID",
-			cfg:      withholdFixtureNamingJAMFClientID,
+			cfg:      func(*testing.T) *config.Config { return withholdFixtureNamingJAMFClientID() },
 			env:      map[string]string{"JAMF_CLIENT_ID": "profile-client-id", "JAMF_CLIENT_SECRET": "s"},
 			profile:  "gw",
 			wantKind: auth.ScopeTenant,
@@ -184,6 +256,50 @@ func TestAProfileScopeIsUsedOnlyWithThatProfilesCredentials(t *testing.T) {
 			// one differ only in which variable the profile names.
 			name:         "JAMF_CLIENT_ID names a different integration than the profile",
 			env:          map[string]string{"JAMF_CLIENT_ID": "other-client-id", "JAMF_CLIENT_SECRET": "s"},
+			profile:      "gw",
+			wantKind:     auth.ScopeOrganization,
+			wantID:       "",
+			wantWithheld: true,
+		},
+		{
+			// A file: reference is a plain read, so it can answer the
+			// same-integration question and the profile keeps its level. It was
+			// lumped in with keychain: at first, which made a file-referencing
+			// profile behave like a keychain one for no reason the code could
+			// state — the reason for withholding is the prompt, not the
+			// indirection.
+			name:     "the profile's client-id is a file: reference naming the same integration",
+			cfg:      withholdFixtureWithRef(fileRef("env-client-id")),
+			env:      map[string]string{"JAMF_CLIENT_ID": "env-client-id", "JAMF_CLIENT_SECRET": "s"},
+			profile:  "gw",
+			wantKind: auth.ScopeTenant,
+			wantID:   "profile-tenant",
+		},
+		{
+			// The same form naming a different integration: values differ, so
+			// the level is still withheld. Without this row the row above
+			// passes for a predicate that returns true for any file: reference.
+			name:         "a file: reference naming a different integration",
+			cfg:          withholdFixtureWithRef(fileRef("some-other-id")),
+			env:          map[string]string{"JAMF_CLIENT_ID": "env-client-id", "JAMF_CLIENT_SECRET": "s"},
+			profile:      "gw",
+			wantKind:     auth.ScopeOrganization,
+			wantID:       "",
+			wantWithheld: true,
+		},
+		{
+			// keychain: is the shape `platform setup` writes, and it is
+			// undecidable here: resolving it can prompt. So it reads as a
+			// foreign integration and the level is withheld — a real cost,
+			// documented in the CHANGELOG, and the reason withheldScopeNote has
+			// to carry a usable remedy rather than merely being correct.
+			//
+			// This row is what makes the predicate's final `return false`
+			// load-bearing: returning true from it left the whole
+			// internal/commands suite green.
+			name:         "the profile's client-id is a keychain: reference",
+			cfg:          withholdFixtureWithRef(literalRef("keychain:gw/client-id")),
+			env:          map[string]string{"JAMF_CLIENT_ID": "env-client-id", "JAMF_CLIENT_SECRET": "s"},
 			profile:      "gw",
 			wantKind:     auth.ScopeOrganization,
 			wantID:       "",
@@ -209,10 +325,10 @@ func TestAProfileScopeIsUsedOnlyWithThatProfilesCredentials(t *testing.T) {
 			}
 			newCfg := tc.cfg
 			if newCfg == nil {
-				newCfg = withholdFixture
+				newCfg = func(*testing.T) *config.Config { return withholdFixture() }
 			}
 
-			got := resolveScope(newCfg(), tc.profile)
+			got := resolveScope(newCfg(t), tc.profile)
 			if got.Kind != tc.wantKind || got.ID != tc.wantID {
 				t.Errorf("resolveScope = {%v %q}, want {%v %q}", got.Kind, got.ID, tc.wantKind, tc.wantID)
 			}
@@ -369,20 +485,76 @@ func TestTheWithheldNoteNamesTheProfileTheLevelAndTheRemedy(t *testing.T) {
 	}
 }
 
+// Both levels read as English. "a %s ID" printed "carries a environment ID"
+// for the level Jamf wants integrations created at — a note about a careful
+// precedence rule, misspelling its own common case, and it shipped to the wire
+// before anything read it back.
+func TestTheWithheldNoteGetsTheArticleRight(t *testing.T) {
+	isolateScopeVars(t)
+	for level, want := range map[string]string{
+		"environment": "carries an environment ID",
+		"tenant":      "carries a tenant ID",
+	} {
+		recordWithheldProfileScope("gw", level, "x")
+		if got := withheldScopeNote(nil); !strings.Contains(got, want) {
+			t.Errorf("level %q: note should read %q:\n%s", level, want, got)
+		}
+		// And in the disagreeing branch, which builds the phrase separately.
+		if got := withheldScopeNote([]string{"organization"}); !strings.Contains(got, want) {
+			t.Errorf("level %q: the mismatch branch should read %q too:\n%s", level, want, got)
+		}
+	}
+}
+
 // The level note hands its remedy to the withheld note when there is one.
 // Rendering both produced "no scope header was sent" twice and then advised
 // setting an ID on the very profile whose ID had just been passed over.
 func TestTheLevelNoteDefersItsRemedyToTheWithheldNote(t *testing.T) {
-	withRemedy := scopeLevelNote([]string{"environment"}, "organization", false)
+	withRemedy := scopeLevelNote([]string{"environment"}, "organization", noWithheldNote)
 	if !strings.Contains(withRemedy, "Set an environment ID on the profile") {
 		t.Errorf("with nothing withheld the level note owns the remedy:\n%s", withRemedy)
 	}
-	deferred := scopeLevelNote([]string{"environment"}, "organization", true)
+	deferred := scopeLevelNote([]string{"environment"}, "organization", withheldNoteBeside)
 	if strings.Contains(deferred, "Set an environment ID on the profile") {
 		t.Errorf("with a withheld note the level note must not advise the profile:\n%s", deferred)
 	}
 	if !strings.Contains(deferred, "declares environment scope") {
 		t.Errorf("the declared level still has to be stated:\n%s", deferred)
+	}
+	// And when the withheld note names the declared levels itself — its
+	// disagreeing branch does — the level note has nothing left to add. Both
+	// rendered opened with "this command's API declares ...", so joinNotes ran
+	// the same fact together twice.
+	if got := scopeLevelNote([]string{"environment"}, "organization", withheldNoteNamesLevels); got != "" {
+		t.Errorf("the level note should defer the whole sentence, got %q", got)
+	}
+}
+
+// withheldNoteState has to agree with withheldScopeNote about which branch is
+// rendering, or the suppression fires for the wrong one — dropping the declared
+// level entirely instead of de-duplicating it.
+func TestWithheldNoteStateTracksWhichBranchRenders(t *testing.T) {
+	isolateScopeVars(t)
+	if got := withheldNoteState([]string{"environment"}); got != noWithheldNote {
+		t.Errorf("state = %v, want noWithheldNote when nothing is withheld", got)
+	}
+
+	recordWithheldProfileScope("gw", "tenant", "t")
+	// The withheld level is one the command declares, so withheldScopeNote
+	// renders its remedy branch and says nothing about declared levels.
+	if got := withheldNoteState([]string{"environment", "tenant"}); got != withheldNoteBeside {
+		t.Errorf("state = %v, want withheldNoteBeside when the level is declared", got)
+	}
+	if note := withheldScopeNote([]string{"environment", "tenant"}); strings.Contains(note, "declares") {
+		t.Errorf("that branch must not name declared levels, or the suppression above drops them:\n%s", note)
+	}
+	// And when it is not declared, the withheld note names them and the level
+	// note stands down.
+	if got := withheldNoteState([]string{"environment"}); got != withheldNoteNamesLevels {
+		t.Errorf("state = %v, want withheldNoteNamesLevels when the level is not declared", got)
+	}
+	if note := withheldScopeNote([]string{"environment"}); !strings.Contains(note, "declares environment scope") {
+		t.Errorf("that branch has to name the declared levels, since the level note defers:\n%s", note)
 	}
 }
 
@@ -508,6 +680,29 @@ func TestSchoolWithholdsAProfileScopeFromForeignCredentials(t *testing.T) {
 	if withheldProfileScope.Profile != "sch" || withheldProfileScope.Level != "tenant" {
 		t.Errorf("withheld = {%q %q}, want {\"sch\" \"tenant\"} — a path that records nothing can render no note",
 			withheldProfileScope.Profile, withheldProfileScope.Level)
+	}
+
+	// Recording it is not enough on this path, and that is what separates
+	// school from the other two ladders: resolveSchoolClient requires a tenant
+	// ID before it builds a platform client, so a withheld level leaves the
+	// client nil and NO REQUEST IS SENT. The 400 every other arm of
+	// AnnotateScopeLevelError keys on never arrives, so the note had nowhere to
+	// surface and the operator was told to supply credentials — the profile,
+	// the client ID and the secret — that were all already present.
+	//
+	// Asserted through AnnotateScopeLevelError rather than by calling
+	// withheldScopeNote, because the record and the rendering being correct
+	// while nothing joined them is exactly the state this covers.
+	annotated := AnnotateScopeLevelError(nil, platform.RequirePlatformClient(nil))
+	for _, want := range []string{"sch", "tenant ID", "JAMF_TENANT_ID"} {
+		if !strings.Contains(annotated.Error(), want) {
+			t.Errorf("the no-client error should name %q:\n%s", want, annotated)
+		}
+	}
+	// And the classification survives, which takes a %w wrap: the gate's error
+	// is what exitcode and the platform hint match on.
+	if !errors.Is(annotated, platform.ErrNoPlatformClient) {
+		t.Error("annotating the no-client error flattened the chain")
 	}
 
 	// The profile's own credentials still get the profile's level.

@@ -20,6 +20,7 @@ import (
 	jamfclient "github.com/Jamf-Concepts/jamf-cli/internal/client"
 	"github.com/Jamf-Concepts/jamf-cli/internal/config"
 	"github.com/Jamf-Concepts/jamf-cli/internal/exitcode"
+	"github.com/Jamf-Concepts/jamf-cli/internal/platform"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform"
 )
@@ -194,11 +195,9 @@ func (t *dryRunGuardTransport) RoundTrip(req *http.Request) (*http.Response, err
 // clear message instead of a nil-pointer panic.
 func requirePlatformClient(cliCtx *registry.CLIContext) error {
 	if cliCtx.PlatformSDKClient == nil {
-		return fmt.Errorf("this command requires platform gateway auth\n\n" +
-			"Set up a platform profile:\n" +
-			"  jamf-cli config add-profile <name> --auth-method platform --url <gateway-url> --tenant-id <id>\n\n" +
-			"Or use environment variables:\n" +
-			"  JAMF_URL, JAMF_CLIENT_ID, JAMF_CLIENT_SECRET, JAMF_TENANT_ID")
+		// The same wrapped sentinel the generated commands' gate returns, so
+		// AnnotateScopeLevelError can explain a withheld scope level on either.
+		return platform.RequirePlatformClient(nil)
 	}
 	return nil
 }
@@ -325,7 +324,7 @@ func printScaffold(v any) error {
 // checkScopeConflict, since the pair is a configuration mistake rather than a
 // combination worth resolving silently.
 func resolveScope(cfg *config.Config, profileName string) auth.Scope {
-	resetWithheldProfileScope()
+	resetPlatformScopeRecords()
 	if environmentID != "" {
 		return auth.EnvironmentScope(environmentID)
 	}

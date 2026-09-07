@@ -86,7 +86,15 @@ in hand.
   `client-id` is an `env:JAMF_CLIENT_ID` reference, which is the config's documented way for
   a profile to read its client ID out of the environment: the variable is then how that
   integration supplies its own credential, not a second integration displacing it, so the
-  profile keeps its level.
+  profile keeps its level. A `file:` reference is compared the same way — it is a plain
+  read.
+  **A profile whose `client-id` is a `keychain:` reference is affected, and that is the
+  shape `platform setup` writes.** Resolving one can prompt, on a path that by definition is
+  not using the profile's credentials, so the comparison cannot be made and the level is
+  withheld. If you run such a profile in a shell that also exports `JAMF_CLIENT_ID` for the
+  same integration, either drop that variable so the profile resolves its own credential, or
+  set `JAMF_ENVIRONMENT_ID` / `JAMF_TENANT_ID` beside it. The error names the profile, the
+  level it holds and both remedies.
 - **A platform command's 403 now exits 5, not 1.** Platform commands previously returned the
   SDK's error untouched, so the one failure with a specific remedy exited with the generic
   code.
@@ -253,7 +261,25 @@ in hand.
   declare environment scope only, and an organization-scoped profile was told AI Governance
   was served, which answers `400 REQUEST_CONTEXT_NOT_PROVIDED` with no scope header. The
   summary is now assembled from the commands' declared scope levels, so it cannot drift from
-  the specs they were generated from.
+  the specs they were generated from. It also no longer contradicts itself: every platform
+  resource a tenant credential declares is a Jamf Security Cloud one, so a tenant with no
+  Security Cloud entitlement was told it reached sixteen of them and then, two lines later,
+  that it lacked the entitlement for all sixteen. The entitlement answer now partitions the
+  list instead of disclaiming it, with the two reasons a resource is out of reach reported
+  separately. And a probe that did not complete — a timeout, a 5xx — reports "could not
+  tell" rather than being rendered as an entitlement the gateway never denied.
+- **`platform setup` called a refused environment ID a tenant ID.** The gateway's
+  `OWNERSHIP_FORBIDDEN` is reachable at either level, and the refusal was worded tenant-only
+  while the closing summary named the same value an environment ID — so setup told an
+  operator to use the prompt they had just used. Both now read from the level that was
+  supplied.
+- **A withheld scope level on a `school` profile reported missing credentials.**
+  `school blueprints` and `school ddm-reports` need a platform client, and the school
+  resolver requires a tenant ID before building one — so a level withheld by the rule above
+  left no client and the command answered "this command requires platform gateway auth",
+  with the profile, the client ID and the secret all present. It now names the profile and
+  the withheld level. This is the one path that sends no request, so the note the other two
+  ladders get from the gateway's 400 had nowhere to appear.
 - **`pro classic-macos-config-profiles --scaffold` named the wrong element inside
   `scope.jss_user_groups`.** It rendered `<jss_user_group>` where the wire answers
   `<user_group>` — an upstream typo in the Classic spec, confined to that one property while

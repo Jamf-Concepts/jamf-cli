@@ -362,9 +362,17 @@ type AuthParams struct {
 }
 
 // ResolveAuthForProfile determines the server URL and auth provider for a
-// specific profile name using the given config. Unlike resolveAuth, it does
-// not read or mutate package-level variables, making it safe to call multiple
-// times for different profiles (e.g., in the diff command).
+// specific profile name using the given config. Unlike resolveAuth, it reads
+// none of the package-level flag variables — every input arrives in params —
+// which is what makes it callable per profile (e.g. in the diff command).
+//
+// It does write two package vars, and the contract is that both are per
+// resolution rather than cumulative: withheldProfileScope, reset at the top
+// here so a stale record cannot put a sentence about the wrong profile on a
+// later error, and resolvedPlatformScope, reset for the same reason and then
+// written by newPlatformSDKClient when a client is built. Sequential calls are
+// therefore safe and each answers for the profile it was given; two concurrent
+// ones are not, and `pro diff` resolves its two sides in sequence.
 func ResolveAuthForProfile(cfg *config.Config, params AuthParams) (string, auth.Provider, error) {
 	profileName := params.Profile
 	url := params.ServerURL
@@ -382,8 +390,12 @@ func ResolveAuthForProfile(cfg *config.Config, params AuthParams) (string, auth.
 	isPlatform := false
 	// Reset per resolution: this is called more than once in one process by the
 	// tests and the MCP server, and a stale answer here would put a sentence
-	// about the wrong profile on a later error.
-	resetWithheldProfileScope()
+	// about the wrong profile on a later error. Both vars, not one — the level
+	// note reads resolvedPlatformScope the same way the withheld note reads
+	// withheldProfileScope, and only the first was ever cleared, so a second
+	// resolution that built no client kept the first one's level and the note
+	// described a credential this invocation was not using.
+	resetPlatformScopeRecords()
 	// The client ID names the integration, and an integration's scope level is
 	// its own. Read before the profile fill below overwrites cid, because after
 	// it the two sources are indistinguishable.
@@ -1574,7 +1586,7 @@ func resolveSchoolClient(cfg *config.Config, cliCtx *registry.CLIContext) error 
 	// Reset per resolution, for the reason ResolveAuthForProfile and
 	// resolveScope do: this runs more than once in one process, and a stale
 	// record would put a sentence about the wrong profile on a later error.
-	resetWithheldProfileScope()
+	resetPlatformScopeRecords()
 
 	// Fill from config profile. resolvedName rather than a discarded blank: an
 	// empty -p resolves to default-profile inside GetProfile, and the withheld

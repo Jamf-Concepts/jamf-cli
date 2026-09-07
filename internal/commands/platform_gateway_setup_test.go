@@ -58,8 +58,8 @@ func TestValidatePlatformGatewayCredentials_ReportsSecurityCloudAccess(t *testin
 	if err != nil {
 		t.Fatalf("validate: %v", err)
 	}
-	if !securityCloud {
-		t.Error("gateway served the Security Cloud read but access was reported as unavailable")
+	if securityCloud != securityCloudEntitled {
+		t.Errorf("verdict = %v, want securityCloudEntitled: the gateway served the read", securityCloud)
 	}
 	if !strings.Contains(out.String(), "Checking Jamf Security Cloud access... yes") {
 		t.Errorf("output does not report access:\n%s", out.String())
@@ -88,37 +88,56 @@ func TestValidatePlatformGatewayCredentials_BadCredentialsAreFatal(t *testing.T)
 // them can be treated as a setup failure.
 func TestValidatePlatformGatewayCredentials_SecurityCloudTenant(t *testing.T) {
 	tests := []struct {
-		name     string
-		status   int
-		body     string
-		wantText string
+		name        string
+		status      int
+		body        string
+		wantText    string
+		wantVerdict securityCloudVerdict
 	}{
 		{
-			name:     "reachable",
-			status:   http.StatusOK,
-			body:     `{"results":[],"totalCount":0}`,
-			wantText: "Checking Jamf Security Cloud access... yes",
+			name:        "reachable",
+			status:      http.StatusOK,
+			body:        `{"results":[],"totalCount":0}`,
+			wantText:    "Checking Jamf Security Cloud access... yes",
+			wantVerdict: securityCloudEntitled,
 		},
 		{
 			// A tenant ID the gateway refuses, which is also how it answers an
 			// environment ID typed at the tenant prompt. Not an entitlement
 			// answer — see reportSecurityCloudProbe.
-			name:     "tenant id the gateway will not accept",
-			status:   http.StatusForbidden,
-			body:     `{"httpStatus":403,"errors":[{"code":"OWNERSHIP_FORBIDDEN"}]}`,
-			wantText: "will not accept this tenant ID",
+			name:        "tenant id the gateway will not accept",
+			status:      http.StatusForbidden,
+			body:        `{"httpStatus":403,"errors":[{"code":"OWNERSHIP_FORBIDDEN"}]}`,
+			wantText:    "will not accept this tenant ID",
+			wantVerdict: securityCloudUnknown,
 		},
 		{
-			name:     "not entitled",
-			status:   http.StatusForbidden,
-			body:     `{"httpStatus":403,"errors":[{"code":"BAD_PERMISSIONS"}]}`,
-			wantText: "no (no Security Cloud entitlement)",
+			name:        "not entitled",
+			status:      http.StatusForbidden,
+			body:        `{"httpStatus":403,"errors":[{"code":"BAD_PERMISSIONS"}]}`,
+			wantText:    "no (no Security Cloud entitlement)",
+			wantVerdict: securityCloudUnentitled,
 		},
 		{
-			name:     "unexpected failure is still only a report",
-			status:   http.StatusInternalServerError,
-			body:     `{"httpStatus":500,"errors":[{"code":"BOOM"}]}`,
-			wantText: "no (",
+			// A 500 did not answer the question. It used to return the same
+			// false a BAD_PERMISSIONS did, and the summary then told the
+			// operator this scope lacks a Security Cloud entitlement — a
+			// verdict nothing had established. Asserted on the wording *and*
+			// the verdict, because either alone passes for the old behaviour.
+			name:        "an inconclusive probe is not an entitlement verdict",
+			status:      http.StatusInternalServerError,
+			body:        `{"httpStatus":500,"errors":[{"code":"BOOM"}]}`,
+			wantText:    "could not tell (",
+			wantVerdict: securityCloudUnknown,
+		},
+		{
+			// An environment ID the gateway does not know, which is the level
+			// the ownership branch used to mis-name. 404 rather than 403.
+			name:        "environment id the gateway does not know",
+			status:      http.StatusNotFound,
+			body:        `{"httpStatus":404,"errors":[{"code":"ENVIRONMENT_NOT_FOUND"}]}`,
+			wantText:    "does not know this environment ID",
+			wantVerdict: securityCloudUnknown,
 		},
 	}
 
@@ -140,11 +159,21 @@ func TestValidatePlatformGatewayCredentials_SecurityCloudTenant(t *testing.T) {
 				GatewayURL: srv.URL, ClientID: "id", ClientSecret: "secret",
 				TenantID: "a-tenant",
 			}
-			if _, _, err := validatePlatformGatewayCredentials(context.Background(), &out, creds); err != nil {
+			// The ENVIRONMENT_NOT_FOUND row is the environment-level one, and
+			// the level decides the wording of the refusals.
+			if strings.Contains(tc.wantText, "environment ID") {
+				creds.TenantID, creds.EnvironmentID = "", "an-environment"
+			}
+			verdict, _, err := validatePlatformGatewayCredentials(context.Background(), &out, creds)
+			if err != nil {
 				t.Fatalf("validate returned an error; a Security Cloud outcome must report and save: %v", err)
 			}
 			if !strings.Contains(out.String(), tc.wantText) {
 				t.Errorf("output missing %q:\n%s", tc.wantText, out.String())
+			}
+			if verdict != tc.wantVerdict {
+				t.Errorf("verdict = %v, want %v — the summary claims an entitlement from this",
+					verdict, tc.wantVerdict)
 			}
 		})
 	}

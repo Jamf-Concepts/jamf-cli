@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"slices"
 	"strings"
 	"testing"
 
@@ -82,7 +83,7 @@ func TestSetupSummarySaysWhatEachLevelActuallyReaches(t *testing.T) {
 
 	render := func(c *platformGatewayCredentials) string {
 		var b bytes.Buffer
-		printScopeSummary(&b, root, c, true, false)
+		printScopeSummary(&b, root, c, securityCloudEntitled, false)
 		return b.String()
 	}
 
@@ -137,20 +138,84 @@ func TestSetupSummarySaysWhatEachLevelActuallyReaches(t *testing.T) {
 	// it: a Jamf Pro tenant with no Security Cloud entitlement still drives the
 	// Pro API, and the old summary printed only the Security Cloud sentence.
 	var b bytes.Buffer
-	printScopeSummary(&b, root, &platformGatewayCredentials{TenantID: "t"}, false, false)
+	printScopeSummary(&b, root, &platformGatewayCredentials{TenantID: "t"}, securityCloudUnentitled, false)
 	unentitled := b.String()
 	if !strings.Contains(unentitled, "Pro API and Classic API") {
 		t.Errorf("an unentitled tenant still drives Pro; got:\n%s", unentitled)
 	}
-	if !strings.Contains(unentitled, "answered no to the Jamf Security Cloud check") {
+	if !strings.Contains(unentitled, "not\nentitled to") {
 		t.Errorf("the entitlement answer should be reported; got:\n%s", unentitled)
+	}
+	// And it qualifies the *partition*, which is the whole point: every
+	// platform resource a tenant credential declares is a Security Cloud one,
+	// so an unentitled tenant reaches none of the 29. The summary used to list
+	// all 16 as reached and then disclaim every one of them in the next
+	// sentence.
+	if !strings.Contains(unentitled, "It reaches none of the 29") {
+		t.Errorf("an unentitled tenant reaches no Platform API resource; got:\n%s", unentitled)
+	}
+	if strings.Contains(unentitled, "It also reaches") {
+		t.Errorf("the reachable claim must not survive the entitlement answer; got:\n%s", unentitled)
+	}
+	assertNoResourceIsBothReachedAndDisclaimed(t, unentitled)
+
+	// The same rule at environment level, where the two sets are not the same
+	// shape: an environment credential declares all 29, so the entitlement has
+	// to subtract the 16 from a non-empty reachable set rather than emptying
+	// it. Keying the split on "declares tenant" instead of on the command tree
+	// would have left this case claiming the whole surface.
+	var envUnentitled bytes.Buffer
+	printScopeSummary(&envUnentitled, root, &platformGatewayCredentials{EnvironmentID: "e"}, securityCloudUnentitled, false)
+	got := envUnentitled.String()
+	if strings.Contains(got, "audit and AI Governance included") {
+		t.Errorf("an unentitled environment does not reach the whole surface; got:\n%s", got)
+	}
+	if !strings.Contains(got, "It also reaches 13 of the 29") {
+		t.Errorf("an unentitled environment reaches the 13 non-Security-Cloud resources; got:\n%s", got)
+	}
+	assertNoResourceIsBothReachedAndDisclaimed(t, got)
+}
+
+// assertNoResourceIsBothReachedAndDisclaimed fails when a resource named in the
+// reachable list is also named in an out-of-reach clause. That contradiction is
+// what finding (3) was: the summary is read top to bottom, so a name appearing
+// twice under opposite headings is worse than either claim alone.
+func assertNoResourceIsBothReachedAndDisclaimed(t *testing.T, summary string) {
+	t.Helper()
+	var reached, disclaimed []string
+	target := &reached
+	for _, line := range strings.Split(summary, "\n") {
+		switch {
+		case strings.Contains(line, "It also reaches") || strings.Contains(line, "It reaches none"):
+			target = &reached
+			continue
+		case strings.Contains(line, "declare environment scope") || strings.Contains(line, "are Jamf Security Cloud"):
+			target = &disclaimed
+			continue
+		case !strings.HasPrefix(line, "  ") || strings.Contains(line, "commands -o json"):
+			continue
+		}
+		for _, name := range strings.Split(strings.TrimSuffix(strings.TrimSpace(line), "."), ", ") {
+			if name == "" || strings.HasSuffix(name, "more") {
+				continue
+			}
+			*target = append(*target, name)
+		}
+	}
+	if len(reached) == 0 && len(disclaimed) == 0 {
+		t.Fatalf("neither list was parsed, so this assertion proved nothing:\n%s", summary)
+	}
+	for _, r := range reached {
+		if slices.Contains(disclaimed, r) {
+			t.Errorf("%q is listed as reachable and then disclaimed:\n%s", r, summary)
+		}
 	}
 }
 
 // The note is what an operator reads instead of the gateway's own message,
 // which says a scope was not found without saying which kind is accepted.
 func TestScopeLevelNoteNamesTheLevelsAndTheOneInUse(t *testing.T) {
-	one := scopeLevelNote([]string{"environment"}, "tenant", false)
+	one := scopeLevelNote([]string{"environment"}, "tenant", noWithheldNote)
 	if !strings.Contains(one, "declares environment scope") || !strings.Contains(one, "tenant-scoped") {
 		t.Errorf("both halves must appear, got %q", one)
 	}
@@ -158,7 +223,7 @@ func TestScopeLevelNoteNamesTheLevelsAndTheOneInUse(t *testing.T) {
 		t.Errorf("a wrong-level credential cannot be fixed by editing an ID, got %q", one)
 	}
 
-	two := scopeLevelNote([]string{"environment", "tenant"}, "organization", false)
+	two := scopeLevelNote([]string{"environment", "tenant"}, "organization", noWithheldNote)
 	if !strings.Contains(two, "environment or tenant scope") {
 		t.Errorf("a two-level set should read as alternatives, got %q", two)
 	}
@@ -260,7 +325,7 @@ func TestARejectedScopeIDStopsTheReachabilityClaim(t *testing.T) {
 	if err != nil {
 		t.Fatalf("a rejected scope ID is reported, not returned as an error: %v", err)
 	}
-	if securityCloud {
+	if securityCloud == securityCloudEntitled {
 		t.Error("a 404 on the probe is not Security Cloud access")
 	}
 	if !scopeIDRejected {
@@ -274,7 +339,7 @@ func TestARejectedScopeIDStopsTheReachabilityClaim(t *testing.T) {
 	// And the summary makes no reachability claim from it.
 	root := NewRootCmd("test", "", "", "")
 	var summary bytes.Buffer
-	printScopeSummary(&summary, root, creds, false, true)
+	printScopeSummary(&summary, root, creds, securityCloudUnknown, true)
 	got := summary.String()
 	if !strings.Contains(got, "does not recognise the environment ID") {
 		t.Errorf("the summary should name the rejected level:\n%s", got)
@@ -291,7 +356,7 @@ func TestARejectedScopeIDStopsTheReachabilityClaim(t *testing.T) {
 	// typed at the tenant prompt — reported as a plain "no" with the summary
 	// still claiming a reach.
 	var tenantOut bytes.Buffer
-	_, rejected := reportSecurityCloudProbe(&tenantOut,
+	_, rejected := reportSecurityCloudProbe(&tenantOut, "tenant",
 		fmt.Errorf("status 403: [OWNERSHIP_FORBIDDEN] Tenant 'aee3ec71' is not part of your organization"))
 	if !rejected {
 		t.Error("OWNERSHIP_FORBIDDEN must be reported as a rejected scope ID: the gateway will not " +
@@ -301,10 +366,28 @@ func TestARejectedScopeIDStopsTheReachabilityClaim(t *testing.T) {
 		t.Errorf("the tenant refusal does not say what was wrong:\n%s", tenantOut.String())
 	}
 	var tenantSummary bytes.Buffer
-	printScopeSummary(&tenantSummary, root, &platformGatewayCredentials{TenantID: "aee3ec71"}, false, true)
+	printScopeSummary(&tenantSummary, root, &platformGatewayCredentials{TenantID: "aee3ec71"}, securityCloudUnknown, true)
 	if got := tenantSummary.String(); !strings.Contains(got, "does not recognise the tenant ID") ||
 		strings.Contains(got, "It also reaches") {
 		t.Errorf("a rejected tenant ID must stop the reachability claim too:\n%s", got)
+	}
+
+	// The same code at environment level, which the old wording could not
+	// express: reportSecurityCloudProbe could not see the level, so it called a
+	// refused environment ID a tenant ID and told the operator to use the
+	// prompt they had just used — while printScopeSummary, which reads the
+	// level from creds, called the same value an environment ID in the next
+	// breath. The two must agree.
+	var envOwnership bytes.Buffer
+	if _, rejected := reportSecurityCloudProbe(&envOwnership, "environment",
+		fmt.Errorf("status 403: [OWNERSHIP_FORBIDDEN] not part of your organization")); !rejected {
+		t.Error("OWNERSHIP_FORBIDDEN at environment level must reject the scope ID too")
+	}
+	if got := envOwnership.String(); !strings.Contains(got, "will not accept this environment ID") {
+		t.Errorf("the refusal must name the level the operator supplied:\n%s", got)
+	}
+	if got := envOwnership.String(); strings.Contains(got, "this tenant ID") {
+		t.Errorf("an environment-level refusal must not call the value a tenant ID:\n%s", got)
 	}
 
 	// BAD_PERMISSIONS stays a plain report, and it is the only one that may:
@@ -313,7 +396,7 @@ func TestARejectedScopeIDStopsTheReachabilityClaim(t *testing.T) {
 	// and the entitlement is simply absent. That is a normal Jamf Pro profile
 	// and the summary stands.
 	var entitlement bytes.Buffer
-	if _, rejected := reportSecurityCloudProbe(&entitlement,
+	if _, rejected := reportSecurityCloudProbe(&entitlement, "tenant",
 		fmt.Errorf("status 403: [BAD_PERMISSIONS] forbidden")); rejected {
 		t.Error("BAD_PERMISSIONS was treated as a rejected scope ID — it is an entitlement answer, " +
 			"and treating it as a bad ID would suppress the summary for every unentitled Jamf Pro tenant")
