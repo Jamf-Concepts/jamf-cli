@@ -255,11 +255,12 @@ func TestRunAppliesJAMFCLIArgs(t *testing.T) {
 	}
 }
 
-// captureOutput redirects os.Stdout and os.Stderr into a buffer for one test and
-// returns a reader for what was written. Same reasoning as silenceOutput —
-// FormatError writes to os.Stdout directly rather than through cobra's writers —
-// except the point here is the text, so it is kept rather than discarded.
-func captureOutput(t *testing.T) func() string {
+// captureOutput is silenceOutput's sibling: it points os.Stdout and os.Stderr
+// at a pipe and returns what was written, so a test can assert how run
+// PRESENTED an error rather than only what error Execute returned. That
+// distinction is the point — every existing test here inspects the exit code
+// or the error value, and the rendering is a separate decision made after both.
+func captureOutput(t *testing.T, fn func()) string {
 	t.Helper()
 	r, w, err := os.Pipe()
 	if err != nil {
@@ -267,31 +268,21 @@ func captureOutput(t *testing.T) func() string {
 	}
 	origOut, origErr := os.Stdout, os.Stderr
 	os.Stdout, os.Stderr = w, w
+
 	done := make(chan string, 1)
 	go func() {
-		b, _ := io.ReadAll(r)
-		done <- string(b)
+		var sb strings.Builder
+		_, _ = io.Copy(&sb, r)
+		done <- sb.String()
 	}()
-	var out string
-	var read bool
-	t.Cleanup(func() {
-		if !read {
-			os.Stdout, os.Stderr = origOut, origErr
-			_ = w.Close()
-			<-done
-			_ = r.Close()
-		}
-	})
-	return func() string {
-		if !read {
-			read = true
-			os.Stdout, os.Stderr = origOut, origErr
-			_ = w.Close()
-			out = <-done
-			_ = r.Close()
-		}
-		return out
-	}
+
+	fn()
+
+	os.Stdout, os.Stderr = origOut, origErr
+	_ = w.Close()
+	out := <-done
+	_ = r.Close()
+	return out
 }
 
 // TestRunAnnotatesAScopeLevelError covers the second step of the sequence main
@@ -337,9 +328,10 @@ func TestRunAnnotatesAScopeLevelError(t *testing.T) {
 	t.Setenv("JAMF_ENVIRONMENT_ID", "")
 	t.Setenv("JAMF_TENANT_ID", "a-tenant")
 
-	out := captureOutput(t)
-	code := run([]string{"jamf-cli", "pro", "blueprints", "list", "--no-update-check", "--no-version-check"}, "")
-	got := out()
+	var code int
+	got := captureOutput(t, func() {
+		code = run([]string{"jamf-cli", "pro", "blueprints", "list", "--no-update-check", "--no-version-check"}, "")
+	})
 
 	if code == exitcode.Success {
 		t.Fatalf("the gateway answered 400; run reported success:\n%s", got)
@@ -350,6 +342,47 @@ func TestRunAnnotatesAScopeLevelError(t *testing.T) {
 	} {
 		if !strings.Contains(got, want) {
 			t.Errorf("the scope note is missing %q:\n%s", want, got)
+		}
+	}
+}
+
+// TestRunRendersAStrayPositionalRefusal pins how run presents an Args refusal,
+// which no other test here reaches: cobra validates args before
+// PersistentPreRunE, so outputFmt is still unresolved and the rendering is
+// decided by errorFormat rather than by the resolved format.
+//
+// The test's stdout is a pipe, so this is the piped answer: the envelope, the
+// same shape a RunE error gets when piped. That equality is the invariant —
+// before this, a piped run answered two ways depending on which side of
+// PersistentPreRunE the error came from, and an interactive run got the
+// envelope for a typo a human had just made. The terminal half of the decision
+// is covered by TestErrorFormat, which takes stdoutTTY as an argument because a
+// pipe can never be a terminal.
+func TestRunRendersAStrayPositionalRefusal(t *testing.T) {
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	t.Setenv("JAMF_URL", "")
+	t.Setenv("JAMF_TOKEN", "")
+	t.Setenv("JAMF_PROFILE", "")
+
+	var code int
+	out := captureOutput(t, func() {
+		code = run([]string{"jamf-cli", "pro", "diff", "somegarbage"}, "")
+	})
+
+	if code != exitcode.Usage {
+		t.Errorf("exit code = %d, want %d (usage)", code, exitcode.Usage)
+	}
+	// The envelope, because the pipe is not a terminal.
+	for _, want := range []string{`"error": "usage"`, `"exitCode": 2`, "takes no positional arguments", `"hint"`} {
+		if !strings.Contains(out, want) {
+			t.Errorf("piped refusal should carry %s, got:\n%s", want, out)
+		}
+	}
+	// The required-flag remedy has to survive the presentation chain, not just
+	// the error value: the Args validator pre-empts cobra's own flag check.
+	for _, want := range []string{"source", "target"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("piped refusal should still name the required flag %q, got:\n%s", want, out)
 		}
 	}
 }
