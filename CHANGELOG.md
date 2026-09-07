@@ -16,7 +16,7 @@ that migration; **[docs/guides/platform-api-ga.md](docs/guides/platform-api-ga.m
 migration guide** and carries the detail, the error messages verbatim, and the reasoning.
 
 The gateway coverage and Platform API surface in this release come from
-`jamfplatform-go-sdk` v0.22.0 (GitOps build v2082): Jamf Pro API 11.31.0 at 476 paths and
+`jamfplatform-go-sdk` v0.22.1 (GitOps build v2082): Jamf Pro API 11.31.0 at 476 paths and
 700 operations, Classic API 11.28.0 at 270 paths and 589 operations. Which endpoints the
 gateway publishes decides which commands are refused, so that surface is what the numbers
 below are counted against — `jamf-cli commands -o json` reports the answer for the binary
@@ -254,3 +254,10 @@ in hand.
   was served, which answers `400 REQUEST_CONTEXT_NOT_PROVIDED` with no scope header. The
   summary is now assembled from the commands' declared scope levels, so it cannot drift from
   the specs they were generated from.
+- **`pro classic-macos-config-profiles --scaffold` named the wrong element inside
+  `scope.jss_user_groups`.** It rendered `<jss_user_group>` where the wire answers
+  `<user_group>` — an upstream typo in the Classic spec, confined to that one property while
+  the resource's own `scope.exclusions.jss_user_groups` and all seven sibling resources
+  carrying the same scope block declared it correctly. Corrected upstream and ingested with
+  SDK v0.22.1. Writes were unaffected either way: the Classic API accepts both spellings and
+  reads the scope back as `<user_group>`.

@@ -8,7 +8,7 @@
     "spec": "classic_api_resource_documentation.json",
     "title": "Classic API",
     "version": "11.28.0",
-    "sdkCommit": "94cbc28",
+    "sdkCommit": "52f26bc",
     "schemas": 165,
     "resources": 44,
     "unresolved": 1
@@ -11801,7 +11801,7 @@
               "jss_user_groups": {
                 "items": {
                   "properties": {
-                    "jss_user_group": {
+                    "user_group": {
                       "$ref": "#/components/schemas/id_name"
                     }
                   },
