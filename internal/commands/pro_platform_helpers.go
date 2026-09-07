@@ -449,6 +449,14 @@ func checkScopeConflict(cfg *config.Config, profileName string) error {
 // host — which has to be reported rather than degraded into "no credentials
 // configured".
 func securityPlatformSDKClient(cfg *config.Config, profileName string) (*jamfplatform.Client, error) {
+	// Reset here rather than only beside resolveScope below. This function
+	// returns nil, nil for a profile with no credentials — one of the two paths
+	// resetPlatformScopeRecords' own doc comment names — and that return is
+	// *before* the resolveScope call, so on that path a previous resolution's
+	// level and withheld record stood. A process that resolves twice then put a
+	// sentence about the wrong profile on the second invocation's error.
+	resetPlatformScopeRecords()
+
 	url := serverURL
 	if url == "" {
 		url = os.Getenv("JAMF_URL")

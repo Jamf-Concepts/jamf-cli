@@ -232,10 +232,20 @@ const (
 	securityCloudUnknown securityCloudVerdict = iota
 	// securityCloudEntitled: the read succeeded.
 	securityCloudEntitled
-	// securityCloudUnentitled: the gateway answered BAD_PERMISSIONS, which is
-	// the entitlement answer — wire-probed against a credential whose own
-	// correct tenant answered BAD_PERMISSIONS here and 200 on
-	// /devices/v1/devices in the same run.
+	// securityCloudUnentitled: the gateway answered BAD_PERMISSIONS on the one
+	// Security Cloud read. Wire-probed against a credential whose own correct
+	// tenant answered BAD_PERMISSIONS here and 200 on /devices/v1/devices in
+	// the same run, so the scope ID is good and the request was refused on
+	// grants rather than on routing or ownership.
+	//
+	// **Which grant is missing it cannot say, and neither may anything reading
+	// this verdict.** BAD_PERMISSIONS is the same answer for no Security Cloud
+	// entitlement at all and for an entitled tenant whose integration was
+	// created without content-categories:read — internal/gateway records the
+	// code as indistinguishable from a missing privilege, and the
+	// /devices/v1/devices control proves the *device* grants, not this one. The
+	// name is the common cause, not a licensing finding; printScopeSummary
+	// names both alternatives.
 	securityCloudUnentitled
 )
 
@@ -309,9 +319,11 @@ func reportSecurityCloudProbe(w io.Writer, level string, err error) (verdict sec
 		_, _ = fmt.Fprintln(w, "  the client ID. Check it in Jamf Account and re-run setup.")
 		return securityCloudUnknown, true
 	case strings.Contains(err.Error(), "BAD_PERMISSIONS"):
-		// The scope ID is fine and this tenant has no Security Cloud
-		// entitlement, which is a normal Jamf Pro profile. The summary stands.
-		_, _ = fmt.Fprintln(w, "no (no Security Cloud entitlement)")
+		// The scope ID is fine and the read was refused on grants. Not stated
+		// as a licensing verdict: no Security Cloud entitlement and a missing
+		// content-categories:read grant on an entitled tenant are the same
+		// code, and this one read cannot separate them.
+		_, _ = fmt.Fprintln(w, "no — refused (no entitlement, or the integration lacks this permission)")
 		return securityCloudUnentitled, false
 	}
 	// Anything else did not answer the question: a timeout, a 5xx, a DNS

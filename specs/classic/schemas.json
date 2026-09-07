@@ -8,7 +8,7 @@
     "spec": "classic_api_resource_documentation.json",
     "title": "Classic API",
     "version": "11.28.0",
-    "sdkCommit": "52f26bc",
+    "sdkCommit": "d4ab4f4",
     "schemas": 165,
     "resources": 44,
     "unresolved": 1
@@ -9639,7 +9639,21 @@
                 "items": {
                   "properties": {
                     "category": {
-                      "$ref": "#/components/schemas/category"
+                      "properties": {
+                        "display_in": {
+                          "description": "Required for the category to be stored at all. A \u003ccategory\u003e carrying only \u003cid\u003e, or \u003cid\u003e plus \u003cname\u003e, or \u003cfeature_in\u003e without \u003cdisplay_in\u003e, is silently discarded, and display_in=false is a deletion gesture rather than a stored value. Write-only ON THIS RESOURCE: the GET echoes only \u003cid\u003e and \u003cname\u003e, so no client can read it back or drift-detect it. Do not generalise that — os_x_configuration_profile, policy, ebook, mac_application and mobile_device_application all echo display_in on read, and this is the only one that hides it. Wire-verified on Jamf Pro 11.31.1, 2026-09-07.",
+                          "type": "boolean"
+                        },
+                        "id": {
+                          "example": 64,
+                          "type": "integer"
+                        },
+                        "name": {
+                          "example": "All Desktops",
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
                     }
                   }
                 },

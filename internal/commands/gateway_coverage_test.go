@@ -840,3 +840,52 @@ func TestCatalogJSONCarriesTheSuccessorKey(t *testing.T) {
 		t.Fatal("no gatewaySuccessor key in the JSON catalog; the field is computed but not marshaled")
 	}
 }
+
+// TestCatalogJSONOmitsTheEmptyPositiveOnlyKeys: the sibling above pins one key
+// in both directions; the other three in that block are pinned here for the
+// same reason and against the same mutation. Making any of these assignments
+// unconditional leaves the whole suite green — a key-presence sweep such as
+// TestEveryCommandEntryFieldReachesTheCatalog cannot see it, because the key is
+// then present on *more* rows, not fewer — and the binary emits
+// `"scopes": null` on every Pro and Classic row, which is exactly the "any
+// level works" reading the code comment exists to prevent.
+//
+// Absence is the contract: a Pro or Classic command carries no declared level,
+// the three Jamf Account specs declare none either, and most commands have no
+// recorded capability. Absent means "nothing recorded"; an empty array means
+// "needs none".
+func TestCatalogJSONOmitsTheEmptyPositiveOnlyKeys(t *testing.T) {
+	root := NewRootCmd("test", "commit", "date", "11.31.0")
+	entries := collectCommands(root, "", "", "")
+	maps := commandEntriesToMaps(entries, true)
+
+	// key → the entry field it projects, so a row is judged against the value
+	// the projection was given rather than against another copy of the rule.
+	lists := map[string]func(commandEntry) int{
+		"scopes":             func(e commandEntry) int { return len(e.Scopes) },
+		"privileges":         func(e commandEntry) int { return len(e.Privileges) },
+		"gatewayPrivileges":  func(e commandEntry) int { return len(e.GatewayPrivileges) },
+		"gatewayPermissions": func(e commandEntry) int { return len(e.GatewayPermissions) },
+	}
+	present := map[string]int{}
+	for i, m := range maps {
+		for key, count := range lists {
+			v, ok := m[key]
+			switch {
+			case ok && count(entries[i]) == 0:
+				t.Errorf("%v: %s is present as %#v for an empty field — absent is the contract",
+					m["command"], key, v)
+			case !ok && count(entries[i]) > 0:
+				t.Errorf("%v: %s has %d values that never reached the catalog",
+					m["command"], key, count(entries[i]))
+			case ok:
+				present[key]++
+			}
+		}
+	}
+	for key := range lists {
+		if present[key] == 0 {
+			t.Errorf("no command in the catalog carries %s; the field is computed but not marshaled", key)
+		}
+	}
+}

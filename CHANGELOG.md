@@ -16,7 +16,7 @@ that migration; **[docs/guides/platform-api-ga.md](docs/guides/platform-api-ga.m
 migration guide** and carries the detail, the error messages verbatim, and the reasoning.
 
 The gateway coverage and Platform API surface in this release come from
-`jamfplatform-go-sdk` v0.22.1 (GitOps build v2082): Jamf Pro API 11.31.0 at 476 paths and
+`jamfplatform-go-sdk` v0.22.2 (GitOps build v2082): Jamf Pro API 11.31.0 at 476 paths and
 700 operations, Classic API 11.28.0 at 270 paths and 589 operations. Which endpoints the
 gateway publishes decides which commands are refused, so that surface is what the numbers
 below are counted against — `jamf-cli commands -o json` reports the answer for the binary
@@ -87,7 +87,8 @@ in hand.
   a profile to read its client ID out of the environment: the variable is then how that
   integration supplies its own credential, not a second integration displacing it, so the
   profile keeps its level. A `file:` reference is compared the same way — it is a plain
-  read.
+  read — and when that read fails the error names the path and the read error rather than
+  blaming `JAMF_CLIENT_ID`, since nothing later in the invocation opens that file.
   **A profile whose `client-id` is a `keychain:` reference is affected, and that is the
   shape `platform setup` writes.** Resolving one can prompt, on a path that by definition is
   not using the profile's credentials, so the comparison cannot be made and the level is
@@ -267,7 +268,12 @@ in hand.
   that it lacked the entitlement for all sixteen. The entitlement answer now partitions the
   list instead of disclaiming it, with the two reasons a resource is out of reach reported
   separately. And a probe that did not complete — a timeout, a 5xx — reports "could not
-  tell" rather than being rendered as an entitlement the gateway never denied.
+  tell" rather than being rendered as an entitlement the gateway never denied; the summary
+  then says the entitlement is unknown instead of quietly claiming the whole surface.
+  The refusal it *does* get is not stated as a licensing verdict either: the gateway spells
+  "no Security Cloud entitlement" and "this integration lacks `content-categories:read`"
+  with the same `403 BAD_PERMISSIONS`, so the summary names both and says to check the
+  integration's permissions in Jamf Account before assuming licensing.
 - **`platform setup` called a refused environment ID a tenant ID.** The gateway's
   `OWNERSHIP_FORBIDDEN` is reachable at either level, and the refusal was worded tenant-only
   while the closing summary named the same value an environment ID — so setup told an
@@ -277,9 +283,10 @@ in hand.
   `school blueprints` and `school ddm-reports` need a platform client, and the school
   resolver requires a tenant ID before building one — so a level withheld by the rule above
   left no client and the command answered "this command requires platform gateway auth",
-  with the profile, the client ID and the secret all present. It now names the profile and
-  the withheld level. This is the one path that sends no request, so the note the other two
-  ladders get from the gateway's 400 had nowhere to appear.
+  with the profile, the client ID and the secret all present. It now names the profile, the
+  withheld level, and `JAMF_TENANT_ID` / `--tenant-id` — the one level that resolver can
+  build. This is the one path that sends no request, so the note the other two ladders get
+  from the gateway's 400 had nowhere to appear.
 - **`pro classic-macos-config-profiles --scaffold` named the wrong element inside
   `scope.jss_user_groups`.** It rendered `<jss_user_group>` where the wire answers
   `<user_group>` — an upstream typo in the Classic spec, confined to that one property while
@@ -287,3 +294,15 @@ in hand.
   carrying the same scope block declared it correctly. Corrected upstream and ingested with
   SDK v0.22.1. Writes were unaffected either way: the Classic API accepts both spellings and
   reads the scope back as `<user_group>`.
+- **`pro classic-mobile-config-profiles` writes gained `display_in` inside
+  `self_service.self_service_categories`, and it is the field that decides whether the
+  category is stored at all.** The Classic spec had this one resource `$ref` the shared
+  `category` schema (`{id, name, priority}`), where its five siblings declare the item
+  inline with `display_in`; corrected upstream and ingested with SDK v0.22.2. Wire law, on
+  Jamf Pro 11.31.1: a `<category>` carrying only `<id>`, or `<id>` plus `<name>`, is
+  **silently discarded with a 201**, and `display_in=false` is a deletion gesture rather
+  than a stored value. So `--scaffold` renders `<display_in>false</display_in>` — the
+  boolean placeholder — and that is the one value in the template that must be changed
+  rather than merely filled in. `display_in` is also **write-only on this resource alone**:
+  the GET echoes `<id>` and `<name>` only, so a scaffold round trip cannot recover it. Both
+  facts are carried in the field's description in `specs/classic/schemas.json`.

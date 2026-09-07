@@ -86,6 +86,25 @@ func resetWithheldProfileScope() {
 func resetPlatformScopeRecords() {
 	resetWithheldProfileScope()
 	resolvedPlatformScope = auth.Scope{}
+	unreadableClientIDRef.Path = ""
+	unreadableClientIDRef.Err = nil
+}
+
+// unreadableClientIDRef records a profile `client-id: file:/path` reference the
+// withhold rule could not read, so the note can name the real cause instead of
+// blaming the environment variable.
+//
+// It exists because nothing downstream reads that file. This branch is reached
+// only when the invocation supplied a client ID, and in exactly that case both
+// resolution ladders skip config.ResolveSecret(p.ClientID) — so an unmounted
+// secrets path, a permission error or a typo'd path is observable here and
+// nowhere else. Without it the level was withheld and the note said it "was
+// not used because the client ID came from the JAMF_CLIENT_ID environment
+// variable", which is not why: with the same file readable the same invocation
+// keeps its level and succeeds.
+var unreadableClientIDRef struct {
+	Path string
+	Err  error
 }
 
 // clientIDFromInvocation returns the client ID this invocation supplied through
@@ -154,11 +173,21 @@ func profileNamesTheInvocationClientID(profileClientID, invocationID string) boo
 		return os.Getenv(after) == invocationID
 	}
 	if path, ok := strings.CutPrefix(profileClientID, "file:"); ok {
-		b, err := os.ReadFile(path)
-		// An unreadable file answers no rather than erroring: this is a
-		// same-integration test, and a profile whose client ID cannot be read
-		// is going to fail with a better message further along.
-		return err == nil && strings.TrimSpace(string(b)) == invocationID
+		id, err := readClientIDRefFile(path)
+		if err != nil {
+			// Recorded rather than discarded. "It will fail with a better
+			// message further along" was the earlier justification and it is
+			// false: this branch is reachable only when the invocation supplied
+			// a client ID, and in that case both ladders skip
+			// ResolveSecret(p.ClientID), so nothing downstream ever opens this
+			// file. Undecidable still reads as foreign — the level is withheld,
+			// which is the fail-closed answer — but the note now names the path
+			// and the read error instead of blaming JAMF_CLIENT_ID.
+			unreadableClientIDRef.Path = path
+			unreadableClientIDRef.Err = err
+			return false
+		}
+		return id == invocationID
 	}
 	// keychain:, and nothing else — config.ResolveSecret rejects any other
 	// form outright ("must use env:, file:, or keychain: prefix"), so a bare
@@ -166,6 +195,42 @@ func profileNamesTheInvocationClientID(profileClientID, invocationID string) boo
 	// compare. Undecidable reads as foreign, and withheldScopeNote is what
 	// makes that usable rather than merely correct.
 	return false
+}
+
+// maxClientIDRefBytes bounds a `file:` client-id read. A client ID is a short
+// opaque string, so the cap costs nothing legitimate and is what stops a
+// config naming /dev/zero from growing the read without limit — os.ReadFile
+// pre-sizes from Stat, which reports 0 for a character device and then reads
+// until EOF that never comes.
+const maxClientIDRefBytes = 4096
+
+// readClientIDRefFile reads a profile's `file:` client-id reference for the
+// same-integration comparison, refusing anything that is not a regular file.
+//
+// The refusal is the point: os.ReadFile on a config-named FIFO blocks inside
+// open() with no timeout, which would hang every invocation carrying such a
+// profile on a path that only wants to answer a yes/no question. Stat reports a
+// named pipe's mode without opening it, so the check is cheap and comes first.
+// This deliberately does not reuse config.ResolveSecret, which has neither
+// guard and is called where a blocking read is the caller's own problem.
+func readClientIDRefFile(path string) (string, error) {
+	info, err := os.Stat(path)
+	if err != nil {
+		return "", err
+	}
+	if !info.Mode().IsRegular() {
+		return "", fmt.Errorf("not a regular file (%s)", info.Mode().Type())
+	}
+	f, err := os.Open(path)
+	if err != nil {
+		return "", err
+	}
+	defer func() { _ = f.Close() }()
+	b, err := io.ReadAll(io.LimitReader(f, maxClientIDRefBytes))
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(string(b)), nil
 }
 
 // credentialIdentifiesTheProfilesIntegration reports whether the active client
@@ -235,27 +300,54 @@ func withheldScopeNote(levels []string) string {
 	if withheldProfileScope.Profile == "" {
 		return ""
 	}
-	// The withheld level is only worth re-offering when the command can use it.
-	// Naming JAMF_TENANT_ID under a sentence that has just said this API
-	// declares environment scope reads as a remedy and is the next error:
-	// supplying it earns INVALID_REQUEST_CONTEXT_TYPE. So when the two
-	// disagree, say what the ID was and stop offering it.
-	if len(levels) > 0 && !slices.Contains(levels, withheldProfileScope.Level) {
-		return fmt.Sprintf("Profile %q carries %s, which was not used because the client ID came "+
-			"from %s — and would not have worked here anyway, since this command's API declares %s. "+
-			"Use an integration created at a declared level.",
-			withheldProfileScope.Profile, withheldLevelPhrase(), clientIDSource, renderScopeLevels(levels))
-	}
 	envVar := "JAMF_TENANT_ID"
 	flagName := "--tenant-id"
 	if withheldProfileScope.Level == "environment" {
 		envVar, flagName = "JAMF_ENVIRONMENT_ID", "--environment-id"
 	}
-	return fmt.Sprintf("Profile %q carries %s, which was not used because the client ID came "+
-		"from %s: an integration is created at one level in Jamf Account and its credential carries "+
-		"that choice, so that ID belongs to the profile's own integration. Supply the level for "+
-		"these credentials with %s or %s, or use the profile's own client ID as well as its level.",
-		withheldProfileScope.Profile, withheldLevelPhrase(), clientIDSource, envVar, flagName)
+	// When the command's API declares levels that do not include the withheld
+	// one, say so — and stop there, without saying what the gateway would have
+	// done with a header this invocation never sent.
+	//
+	// This branch used to add "would not have worked here anyway", which is a
+	// *requires* claim of exactly the kind AnnotateScopeLevelError's own doc
+	// comment forbids: the spec is currently stricter than the gateway, and a
+	// tenant credential answers 200 on pro platform-devices list, which
+	// declares environment scope (probed 2026-09-05). It also returned before
+	// the remedy below, so the withheld level's own variable and flag were
+	// never printed — leaving an operator whose one working input was
+	// JAMF_TENANT_ID=<the value the note declined to re-offer> with nothing to
+	// try. Both halves are stated now, in the order of durability.
+	if len(levels) > 0 && !slices.Contains(levels, withheldProfileScope.Level) {
+		return fmt.Sprintf("Profile %q carries %s, %s This command's API declares %s, so an "+
+			"integration created at a declared level is the durable answer; the gateway has not "+
+			"followed the specs everywhere, so %s or %s may still work today.",
+			withheldProfileScope.Profile, withheldLevelPhrase(), withheldReasonClause(),
+			renderScopeLevels(levels), envVar, flagName)
+	}
+	return fmt.Sprintf("Profile %q carries %s, %s An integration is created at one level in Jamf "+
+		"Account and its credential carries that choice, so that ID belongs to the profile's own "+
+		"integration. Supply the level for these credentials with %s or %s, or use the profile's "+
+		"own client ID as well as its level.",
+		withheldProfileScope.Profile, withheldLevelPhrase(), withheldReasonClause(), envVar, flagName)
+}
+
+// withheldReasonClause says why the profile's level was passed over, and there
+// are two reasons rather than one.
+//
+// The usual one is that the invocation supplied the client ID, which names a
+// different integration. The other is that the profile's own `file:` client-id
+// reference could not be read, so the comparison could not be made at all —
+// and blaming JAMF_CLIENT_ID for that sends the operator to look at a variable
+// that is not the problem. The path and the read error are the whole of the
+// signal on that branch, since nothing downstream opens the file.
+func withheldReasonClause() string {
+	if unreadableClientIDRef.Path != "" {
+		return fmt.Sprintf("which was not used because the profile's own client-id reference "+
+			"file:%s could not be read (%v), so nothing here could tell whether it names the same "+
+			"integration as the credentials in hand.", unreadableClientIDRef.Path, unreadableClientIDRef.Err)
+	}
+	return fmt.Sprintf("which was not used because the client ID came from %s.", clientIDSource)
 }
 
 // withheldLevelPhrase names the withheld level with the right article. The
@@ -345,7 +437,22 @@ func AnnotateScopeLevelError(cmd *cobra.Command, err error) error {
 	// fire on every `school` command, including the ones that never touch the
 	// Platform API.
 	if errors.Is(err, platform.ErrNoPlatformClient) {
-		if withheld := withheldScopeNote(scopesOf(cmd)); withheld != "" {
+		// nil rather than scopesOf(cmd), for two independent reasons.
+		//
+		// No request was sent, so nothing here has an opinion on whether the
+		// declared level would have been accepted — and passing the declared
+		// levels selects withheldScopeNote's disagreeing branch, which talks
+		// about a gateway this arm never reached.
+		//
+		// And school's resolver accepts one level only: resolveSchoolClient
+		// reads JAMF_TENANT_ID and the profile's tenant-id and builds
+		// auth.TenantScope, with no environment code path at all. `school
+		// blueprints list` declares environment scope, so the disagreeing
+		// branch advised an integration created at a declared level — advice
+		// that returns the operator to this identical error, while omitting the
+		// one input that works. Offering the withheld level back is the whole
+		// remedy on this path.
+		if withheld := withheldScopeNote(nil); withheld != "" {
 			return fmt.Errorf("%w\n\nnote: %s", err, withheld)
 		}
 		return err
@@ -693,14 +800,49 @@ func printScopeSummary(w io.Writer, root *cobra.Command, creds *platformGatewayC
 		_, _ = fmt.Fprintln(w, "  is the level to prefer for a new one either way.")
 	}
 	if len(unentitled) > 0 {
-		_, _ = fmt.Fprintf(w, "%d are Jamf Security Cloud, which the check above says this scope is not\n", len(unentitled))
-		_, _ = fmt.Fprintln(w, "entitled to:")
+		// Says what one 403 establishes and no more. BAD_PERMISSIONS is
+		// indistinguishable from a missing capability grant — internal/gateway
+		// records that, and CLAUDE.md's "one 403 is not a probe" rule says the
+		// same — and the recorded /devices/v1/devices control proves the device
+		// grants, not content-categories:read. So an entitled tenant whose
+		// integration simply lacks that one grant used to be told it had no
+		// Security Cloud entitlement, which opens a licensing conversation
+		// instead of ticking a box.
+		_, _ = fmt.Fprintf(w, "%d are Jamf Security Cloud. The one read above was refused 403 for this\n", len(unentitled))
+		_, _ = fmt.Fprintln(w, "credential, which is either no Security Cloud entitlement or a missing capability")
+		_, _ = fmt.Fprintln(w, "grant. The gateway spells both the same way, so check the integration's")
+		_, _ = fmt.Fprintln(w, "permissions in Jamf Account before assuming licensing:")
 		_, _ = fmt.Fprintf(w, "  %s.\n", summariseResources(unentitled))
+	}
+	// securityCloudUnknown is not a "no", and it is not a "yes" either. The
+	// branch above is the only one that subtracts, so without this the summary
+	// printed "It also reaches all 29 Platform API resources, audit and AI
+	// Governance included" after a probe that timed out, 5xx'd or failed DNS —
+	// claiming an entitlement nothing observed, for the sixteen groups the
+	// third verdict was added to stop over-claiming about.
+	if securityCloud == securityCloudUnknown {
+		if sc := securityCloudResourceGroups(root); anyIn(reachable, sc) {
+			_, _ = fmt.Fprintln(w, "The Jamf Security Cloud check did not complete, so whether the dns-*, ztna-*,")
+			_, _ = fmt.Fprintln(w, "content-categories, device-groups and uem-* commands are entitled is unknown.")
+		}
 	}
 	if len(unreachable) > 0 || len(unentitled) > 0 {
 		_, _ = fmt.Fprintln(w, "  (jamf-cli commands -o json lists every command's declared scope under \"scopes\".)")
 	}
 	_, _ = fmt.Fprintln(w, "The Jamf Account commands need an organization-scoped integration.")
+}
+
+// anyIn reports whether any name is in set. Guards the unknown-entitlement
+// sentence so it is not printed for a level that reaches no Security Cloud
+// resource at all, where it would name commands the summary has already
+// excluded for a different reason.
+func anyIn(names []string, set map[string]bool) bool {
+	for _, n := range names {
+		if set[n] {
+			return true
+		}
+	}
+	return false
 }
 
 // summariseResources renders at most three names plus a count, because the

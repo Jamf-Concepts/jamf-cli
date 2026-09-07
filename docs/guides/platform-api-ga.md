@@ -6,7 +6,7 @@ now does for you.
 
 > **The API is GA; the numbers on this page are a snapshot.** Version numbers, the
 > refused-command list and the permission names quoted here track a specific SDK ingest —
-> currently `jamfplatform-go-sdk` `v0.22.1`, whose published surface is Jamf Pro API 11.31.0
+> currently `jamfplatform-go-sdk` `v0.22.2`, whose published surface is Jamf Pro API 11.31.0
 > and Classic API 11.28.0. The published surface moves in both directions at GA: the whole
 > Classic patch-management family was withdrawn in one build and restored in a later one, and
 > `/v3/computers-inventory` came back the same way. So read the refused-command list against

@@ -85,9 +85,12 @@ func run(args []string, envArgs string) int {
 	// documented. That property holds whatever the order.
 	//
 	// The order itself protects nothing today, because the three trigger sets
-	// are disjoint: AnnotateScopeLevelError fires only on a 400 carrying
-	// REQUEST_CONTEXT_NOT_PROVIDED, ClassifyError matches only its usage-error
-	// prefixes, and EnrichPrivilegeError's platform branch acts on a 403 or an
+	// are disjoint. AnnotateScopeLevelError fires on two things: a 400 carrying
+	// REQUEST_CONTEXT_NOT_PROVIDED, and platform.ErrNoPlatformClient — the
+	// second with no gateway response at all, which is school's tenant-less
+	// path where a withheld scope leaves the client nil and nothing is sent.
+	// ClassifyError matches only its usage-error prefixes, and
+	// EnrichPrivilegeError's platform branch acts on a 403 or an
 	// already-wrapped *exitcode.Error. It is written outermost-first anyway, so
 	// a future overlap resolves in the order a reader would expect.
 	err = commands.AnnotateScopeLevelError(executedCmd, err)

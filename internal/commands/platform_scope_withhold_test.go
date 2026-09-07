@@ -3,9 +3,11 @@
 package commands
 
 import (
+	"bytes"
 	"errors"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -151,6 +153,29 @@ func TestBothPlatformScopeRecordsAreClearedPerResolution(t *testing.T) {
 	}
 	if withheldProfileScope.Profile != "" {
 		t.Errorf("withheldProfileScope = %q, want cleared", withheldProfileScope.Profile)
+	}
+
+	// The Security Cloud ladder is the third path resetPlatformScopeRecords'
+	// doc comment covers, and it was the one that skipped the reset: it returns
+	// nil, nil for a profile with no credentials *before* reaching resolveScope,
+	// which is the only reset on that path. The 52 gateway-served Security
+	// Cloud commands therefore inherited the previous resolution's level.
+	resolvedPlatformScope = auth.TenantScope("first-tenant")
+	recordWithheldProfileScope("first", "tenant", "first-tenant")
+	saveURL := serverURL
+	serverURL = ""
+	t.Cleanup(func() { serverURL = saveURL })
+	t.Setenv("JAMF_URL", "")
+
+	client, err := securityPlatformSDKClient(&config.Config{Profiles: map[string]config.Profile{}}, "")
+	if err != nil || client != nil {
+		t.Fatalf("securityPlatformSDKClient = (%v, %v), want (nil, nil) for a config with no credentials", client, err)
+	}
+	if resolvedPlatformScope.Kind != auth.ScopeOrganization || resolvedPlatformScope.ID != "" {
+		t.Errorf("resolvedPlatformScope = %+v, want the zero value — no client was built", resolvedPlatformScope)
+	}
+	if withheldProfileScope.Profile != "" {
+		t.Errorf("withheldProfileScope = %q, want cleared on the security path too", withheldProfileScope.Profile)
 	}
 }
 
@@ -558,37 +583,57 @@ func TestWithheldNoteStateTracksWhichBranchRenders(t *testing.T) {
 	}
 }
 
-// A composed note must not recommend the level it has just said the command's
-// API does not declare.
+// A composed note ranks the durable answer over the one that works today, and
+// prints both — without claiming what the gateway would have done with a header
+// this invocation never sent.
 //
-// scopeLevelNote defers its remedy to withheldScopeNote, and withheldScopeNote
-// knew only which level had been withheld — so a tenant-carrying profile on an
-// environment-only command produced "...declares environment scope, and this
-// invocation is organization-scoped. Profile "gw" carries a tenant ID ... Supply
-// the level for these credentials with JAMF_TENANT_ID or --tenant-id", and
-// following that earns INVALID_REQUEST_CONTEXT_TYPE. Reproduced verbatim on
-// `pro blueprints list`.
-func TestTheWithheldNoteDoesNotOfferALevelTheCommandDoesNotDeclare(t *testing.T) {
+// Two defects in sequence produced this shape. First, scopeLevelNote defers its
+// remedy to withheldScopeNote and withheldScopeNote knew only which level had
+// been withheld, so a tenant-carrying profile on an environment-only command
+// advised JAMF_TENANT_ID under a sentence saying the API declares environment
+// scope. The fix for that swung too far: it said the withheld ID "would not
+// have worked here anyway", which is a *requires* claim
+// AnnotateScopeLevelError's own doc comment forbids — a tenant credential
+// answers 200 on pro platform-devices list, which declares environment scope
+// (probed 2026-09-05) — and it returned before the remedy, leaving an operator
+// whose one working input was the withheld level with nothing to try.
+func TestTheWithheldNoteRanksTheDurableAnswerWithoutOverClaiming(t *testing.T) {
 	isolateScopeVars(t)
 	t.Setenv("JAMF_CLIENT_ID", "env-client-id")
 	recordWithheldProfileScope("gw", "tenant", "profile-tenant")
 
 	note := withheldScopeNote([]string{"environment"})
-	for _, unwanted := range []string{"JAMF_TENANT_ID", "--tenant-id"} {
-		if strings.Contains(note, unwanted) {
-			t.Errorf("the note offers %q for a command declaring environment scope only:\n%s", unwanted, note)
-		}
-	}
-	for _, want := range []string{`"gw"`, "tenant ID", "declares environment scope"} {
+	for _, want := range []string{
+		`"gw"`,
+		"tenant ID",
+		"declares environment scope",
+		// The durable answer is named first, and the level that may still work
+		// is named too — the whole of what an operator can act on.
+		"integration created at a declared level",
+		"JAMF_TENANT_ID",
+		"--tenant-id",
+		"may still work today",
+	} {
 		if !strings.Contains(note, want) {
 			t.Errorf("the note is missing %q:\n%s", want, note)
 		}
 	}
+	// No sentence may state what the gateway would have done with a level it
+	// was never sent. CLAUDE.md records the counter-example.
+	for _, unwanted := range []string{"would not have worked", "will not work"} {
+		if strings.Contains(note, unwanted) {
+			t.Errorf("the note asserts a gateway verdict it cannot know (%q):\n%s", unwanted, note)
+		}
+	}
 
-	// When the command does declare the withheld level, re-offering it is the
-	// right answer and the remedy comes back.
-	if note := withheldScopeNote([]string{"tenant", "environment"}); !strings.Contains(note, "JAMF_TENANT_ID") {
-		t.Errorf("a declared level should still be offered:\n%s", note)
+	// When the command does declare the withheld level there is no ranking to
+	// do: the withheld level is simply the answer.
+	agreeing := withheldScopeNote([]string{"tenant", "environment"})
+	if !strings.Contains(agreeing, "JAMF_TENANT_ID") {
+		t.Errorf("a declared level should still be offered:\n%s", agreeing)
+	}
+	if strings.Contains(agreeing, "may still work today") {
+		t.Errorf("a declared level is not a maybe:\n%s", agreeing)
 	}
 }
 
@@ -716,5 +761,133 @@ func TestSchoolWithholdsAProfileScopeFromForeignCredentials(t *testing.T) {
 	}
 	if withheldProfileScope.Profile != "" {
 		t.Errorf("nothing should have been withheld, got %q", withheldProfileScope.Profile)
+	}
+}
+
+// The school no-client note must be usable on the school path, which is the
+// only path in this CLI where AnnotateScopeLevelError fires with no gateway
+// response behind it.
+//
+// The arm used to pass scopesOf(cmd). `school blueprints list` declares
+// environment scope and the withheld level is tenant, so that selected
+// withheldScopeNote's disagreeing branch — which talks about a gateway this
+// arm never reached, and ranks "an integration created at a declared level"
+// first. resolveSchoolClient has no environment code path at all: it reads
+// JAMF_TENANT_ID and the profile's tenant-id and builds auth.TenantScope, so
+// following that advice returns the operator to the identical error.
+//
+// Asserted through the *cobra.Command main.go actually passes rather than
+// through nil. TestSchoolWithholdsAProfileScopeFromForeignCredentials passes
+// nil, which selects the other branch and is why the defect read as covered:
+// replacing scopesOf(cmd) with nil survived the whole suite.
+func TestTheSchoolNoClientNoteOffersTheOneLevelThatPathAccepts(t *testing.T) {
+	isolateScopeVars(t)
+	root := NewRootCmd("test", "", "", "")
+	cmd := findCommandPath(t, root, "school blueprints list")
+	if cmd == nil {
+		t.Fatal("school blueprints list is not in the tree — this test can prove nothing")
+	}
+	// The premise: the command declares a level the school resolver cannot
+	// build. If that ever stops being true this test is vacuous, so it is
+	// asserted rather than assumed.
+	if levels := scopesOf(cmd); !slices.Contains(levels, "environment") || slices.Contains(levels, "tenant") {
+		t.Fatalf("scopes = %v, want environment without tenant — the branch this covers needs the "+
+			"declared level to disagree with the withheld one", levels)
+	}
+
+	t.Setenv("JAMF_CLIENT_ID", "env-client-id")
+	recordWithheldProfileScope("sch", "tenant", "profile-tenant")
+
+	got := AnnotateScopeLevelError(cmd, platform.RequirePlatformClient(nil)).Error()
+	for _, want := range []string{`"sch"`, "tenant ID", "JAMF_TENANT_ID", "--tenant-id"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("the no-client note is missing %q — that is the input this path accepts:\n%s", want, got)
+		}
+	}
+	// No request was sent, so the note has no opinion on the declared level and
+	// must not rank an integration change ahead of the input that works.
+	for _, unwanted := range []string{"declares environment scope", "may still work today"} {
+		if strings.Contains(got, unwanted) {
+			t.Errorf("the note talks about a gateway this arm never reached (%q):\n%s", unwanted, got)
+		}
+	}
+}
+
+// An unreadable `file:` client-id reference is named, not silently blamed on
+// the environment.
+//
+// The comparison fails closed either way — the level is withheld, which is
+// right, since nothing could establish that the profile names the same
+// integration. What was wrong was the sentence: it said the level "was not
+// used because the client ID came from the JAMF_CLIENT_ID environment
+// variable", when the real cause was a path that could not be read. And the
+// read error surfaces nowhere else: this branch is reachable only when the
+// invocation supplied a client ID, and in exactly that case both ladders skip
+// ResolveSecret(p.ClientID), so no later step ever opens the file.
+func TestAnUnreadableClientIDFileIsNamedRatherThanBlamedOnTheEnvironment(t *testing.T) {
+	isolateScopeVars(t)
+	missing := filepath.Join(t.TempDir(), "not-mounted", "client-id")
+
+	if profileNamesTheInvocationClientID("file:"+missing, "env-client-id") {
+		t.Fatal("an unreadable reference must not read as the same integration")
+	}
+	if unreadableClientIDRef.Path != missing {
+		t.Fatalf("unreadableClientIDRef.Path = %q, want %q", unreadableClientIDRef.Path, missing)
+	}
+	if unreadableClientIDRef.Err == nil {
+		t.Fatal("the read error was discarded")
+	}
+
+	recordWithheldProfileScope("gw", "tenant", "profile-tenant")
+	note := withheldScopeNote(nil)
+	if !strings.Contains(note, missing) {
+		t.Errorf("the note should name the path it could not read:\n%s", note)
+	}
+	if strings.Contains(note, "the client ID came from") {
+		t.Errorf("the note blames the environment variable for a file read failure:\n%s", note)
+	}
+	// The remedy still has to be there — the whole point of the note.
+	if !strings.Contains(note, "JAMF_TENANT_ID") {
+		t.Errorf("the note dropped its remedy:\n%s", note)
+	}
+
+	// A readable file still answers the question it was asked, and leaves no
+	// record behind for the next resolution to misreport.
+	resetPlatformScopeRecords()
+	path := filepath.Join(t.TempDir(), "client-id")
+	if err := os.WriteFile(path, []byte("env-client-id\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if !profileNamesTheInvocationClientID("file:"+path, "env-client-id") {
+		t.Error("a readable matching file should read as the same integration")
+	}
+	if unreadableClientIDRef.Path != "" {
+		t.Errorf("a successful read recorded a failure: %q", unreadableClientIDRef.Path)
+	}
+}
+
+// A `file:` reference the config names but the OS will not let us read cheaply
+// is refused rather than opened. os.ReadFile on a FIFO blocks inside open()
+// with no timeout, which would hang every invocation carrying such a profile on
+// a path whose only job is to answer a yes/no question; /dev/zero Stats as size
+// 0 and then reads forever.
+func TestAClientIDReferenceThatIsNotARegularFileIsRefused(t *testing.T) {
+	isolateScopeVars(t)
+	dir := t.TempDir()
+	if _, err := readClientIDRefFile(dir); err == nil {
+		t.Error("a directory should not read as a client ID")
+	}
+	// The size cap, asserted on the boundary rather than on a device file so
+	// the test runs the same everywhere.
+	path := filepath.Join(dir, "big")
+	if err := os.WriteFile(path, bytes.Repeat([]byte("a"), maxClientIDRefBytes*2), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	got, err := readClientIDRefFile(path)
+	if err != nil {
+		t.Fatalf("readClientIDRefFile: %v", err)
+	}
+	if len(got) != maxClientIDRefBytes {
+		t.Errorf("read %d bytes, want the read capped at %d", len(got), maxClientIDRefBytes)
 	}
 }

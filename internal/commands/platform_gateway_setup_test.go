@@ -112,10 +112,14 @@ func TestValidatePlatformGatewayCredentials_SecurityCloudTenant(t *testing.T) {
 			wantVerdict: securityCloudUnknown,
 		},
 		{
-			name:        "not entitled",
+			// Refused on grants. Deliberately not worded as a licensing
+			// verdict: BAD_PERMISSIONS is the same code for no Security Cloud
+			// entitlement and for an entitled tenant whose integration lacks
+			// content-categories:read, and one read cannot separate them.
+			name:        "refused on grants",
 			status:      http.StatusForbidden,
 			body:        `{"httpStatus":403,"errors":[{"code":"BAD_PERMISSIONS"}]}`,
-			wantText:    "no (no Security Cloud entitlement)",
+			wantText:    "or the integration lacks this permission",
 			wantVerdict: securityCloudUnentitled,
 		},
 		{

@@ -143,7 +143,10 @@ func TestSetupSummarySaysWhatEachLevelActuallyReaches(t *testing.T) {
 	if !strings.Contains(unentitled, "Pro API and Classic API") {
 		t.Errorf("an unentitled tenant still drives Pro; got:\n%s", unentitled)
 	}
-	if !strings.Contains(unentitled, "not\nentitled to") {
+	// The refusal is reported without being named as a licensing verdict — one
+	// 403 cannot separate "no entitlement" from "this grant is missing".
+	// TestTheEntitlementClauseNamesBothCausesOfA403 pins the wording.
+	if !strings.Contains(unentitled, "are Jamf Security Cloud") {
 		t.Errorf("the entitlement answer should be reported; got:\n%s", unentitled)
 	}
 	// And it qualifies the *partition*, which is the whole point: every
@@ -401,4 +404,83 @@ func TestARejectedScopeIDStopsTheReachabilityClaim(t *testing.T) {
 		t.Error("BAD_PERMISSIONS was treated as a rejected scope ID — it is an entitlement answer, " +
 			"and treating it as a bad ID would suppress the summary for every unentitled Jamf Pro tenant")
 	}
+}
+
+// securityCloudUnknown is a third answer at printScopeSummary, not a synonym
+// for "entitled".
+//
+// The verdict was added so an inconclusive probe would stop being reported as a
+// "no", and the negative half of that was fixed while the positive half was
+// not: printScopeSummary branched on == securityCloudUnentitled, so a probe
+// that timed out, 5xx'd or failed DNS took the same path as a confirmed 200 and
+// the closing summary — the artifact the operator keeps — claimed the profile
+// reached all 29 Platform API resources, sixteen of whose entitlement nothing
+// had observed.
+//
+// Collapsing the two verdicts back together, or widening the subtraction to
+// != securityCloudEntitled, each fails one half of this.
+func TestAnInconclusiveSecurityCloudProbeIsReportedAsUnknown(t *testing.T) {
+	root := NewRootCmd("test", "", "", "")
+
+	render := func(v securityCloudVerdict, c *platformGatewayCredentials) string {
+		var b bytes.Buffer
+		printScopeSummary(&b, root, c, v, false)
+		return b.String()
+	}
+
+	unknown := render(securityCloudUnknown, &platformGatewayCredentials{TenantID: "t"})
+	if !strings.Contains(unknown, "check did not complete") {
+		t.Errorf("an unanswered probe must be reported as unanswered, got:\n%s", unknown)
+	}
+	// And it must not be reported as a "no": the 16 groups stay in the
+	// reachable list, which is what fails if the subtraction is widened to
+	// != securityCloudEntitled.
+	if strings.Contains(unknown, "It reaches none of the 29") {
+		t.Errorf("an unanswered probe must not subtract the Security Cloud groups, got:\n%s", unknown)
+	}
+	if strings.Contains(unknown, "are Jamf Security Cloud") {
+		t.Errorf("an unanswered probe must not print the entitlement clause, got:\n%s", unknown)
+	}
+
+	// A confirmed read says nothing about an unknown, which is what fails if
+	// the two verdicts are collapsed.
+	entitled := render(securityCloudEntitled, &platformGatewayCredentials{TenantID: "t"})
+	if strings.Contains(entitled, "check did not complete") {
+		t.Errorf("a successful probe must not report an unknown, got:\n%s", entitled)
+	}
+	unentitled := render(securityCloudUnentitled, &platformGatewayCredentials{TenantID: "t"})
+	if strings.Contains(unentitled, "check did not complete") {
+		t.Errorf("a refused probe is an answer, not an unknown, got:\n%s", unentitled)
+	}
+}
+
+// The entitlement clause says only what one 403 establishes.
+//
+// BAD_PERMISSIONS is the same code for no Security Cloud entitlement and for an
+// entitled tenant whose integration lacks content-categories:read —
+// internal/gateway records it as indistinguishable from a missing privilege,
+// and the recorded /devices/v1/devices control proves the device grants rather
+// than this one. Naming licensing alone sent an operator into a licensing
+// conversation when the fix was one checkbox in Jamf Account.
+func TestTheEntitlementClauseNamesBothCausesOfA403(t *testing.T) {
+	root := NewRootCmd("test", "", "", "")
+	var b bytes.Buffer
+	printScopeSummary(&b, root, &platformGatewayCredentials{TenantID: "t"}, securityCloudUnentitled, false)
+	got := b.String()
+
+	for _, want := range []string{
+		"are Jamf Security Cloud",
+		"no Security Cloud entitlement or a missing capability",
+		"Jamf Account",
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("the clause is missing %q:\n%s", want, got)
+		}
+	}
+	// The old wording attributed the refusal to the scope's entitlement alone.
+	if strings.Contains(got, "this scope is not\nentitled to") {
+		t.Errorf("the clause states a licensing verdict one 403 cannot support:\n%s", got)
+	}
+	// And the two lists still must not contradict each other.
+	assertNoResourceIsBothReachedAndDisclaimed(t, got)
 }
