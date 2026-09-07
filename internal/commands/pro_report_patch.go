@@ -28,7 +28,9 @@ queries the patch policies list endpoint for per-policy status counts.
 Output columns: title, id, on_latest, on_other, total, latest, compliance_pct
 
 With no -o flag, this report writes a table. Then --out-file receives that
-table, not JSON. Use -o json to write structured data to the file.`,
+table, not JSON. Use -o json or -o yaml to write structured data to the file;
+with --scan-failures those two emit one labelled document per section in a
+single array, while csv and plain emit one block per section.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !cmd.Flags().Changed("output") {
 				outputFmt = "table"
@@ -52,41 +54,64 @@ func runReportPatchStatusFull(ctx context.Context, cliCtx *registry.CLIContext, 
 		return printRows(cliCtx, rows)
 	}
 
-	// Print compliance section
-	if err := printSection(cliCtx, "── Patch Title Compliance ──"+"\n", rows); err != nil {
-		return err
+	// Gather every section before rendering any of it. This report was the only
+	// one of the six with no structured branch, so under -o json each section
+	// Printed its own top-level document into the same destination and
+	// `--out-file patch.json` held three separate arrays — which jq rejects at
+	// the second one, while the command's own help recommends exactly that
+	// invocation.
+	policyRows, policyErr := runReportPatchPolicyFailures(ctx, client)
+	if policyErr != nil {
+		fmt.Fprintf(os.Stderr, "WARNING: failed to fetch patch policy failures: %v\n", policyErr)
+		policyRows = nil
 	}
 
-	// Fetch patch policy failure counts
-	policyRows, err := runReportPatchPolicyFailures(ctx, client)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "WARNING: failed to fetch patch policy failures: %v\n", err)
-		return nil
-	}
-
+	var deviceRows []map[string]any
 	if len(policyRows) > 0 {
-		if err := printSection(cliCtx, fmt.Sprintf("\n── Patch Policies With Failures (%d) ──\n", len(policyRows)), policyRows); err != nil {
-			return err
-		}
-
-		// Fetch device-level failures for policies that have them
-		rawDeviceRows, err := fetchPatchDeviceFailures(ctx, client, policyRows)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "WARNING: failed to fetch device-level failures: %v\n", err)
-		} else if len(rawDeviceRows) > 0 {
-			// Enrich with inventory data
+		raw, devErr := fetchPatchDeviceFailures(ctx, client, policyRows)
+		switch {
+		case devErr != nil:
+			fmt.Fprintf(os.Stderr, "WARNING: failed to fetch device-level failures: %v\n", devErr)
+		case len(raw) > 0:
 			lookup := fetchUpdateDeviceLookup(ctx, client)
-			for i, row := range rawDeviceRows {
+			for i, row := range raw {
 				devID, _ := row["device_id"].(string)
 				meta := lookup[devID]
-				rawDeviceRows[i]["serial"] = meta.serial
-				rawDeviceRows[i]["os_version"] = meta.osVersion
-				rawDeviceRows[i]["username"] = meta.username
+				raw[i]["serial"] = meta.serial
+				raw[i]["os_version"] = meta.osVersion
+				raw[i]["username"] = meta.username
 			}
-			return printSection(cliCtx, fmt.Sprintf("\n── Devices With Patch Failures (%d) ──\n", len(rawDeviceRows)), rawDeviceRows)
+			deviceRows = raw
 		}
-	} else {
+	}
+
+	// One labelled document, in the shape the other five reports use. Gated on
+	// json and yaml exactly as they are: a csv or plain rendering of a
+	// multi-section report is N blocks whatever this does, which is why the
+	// help text says to use json or yaml for a single parseable file.
+	if outputFmt == "json" || outputFmt == "yaml" {
+		return printRows(cliCtx, []map[string]any{
+			{"section": "title_compliance", "data": rows},
+			{"section": "policy_failures", "data": policyRows},
+			{"section": "device_failures", "data": deviceRows},
+		})
+	}
+
+	if err := printSection(cliCtx, "── Patch Title Compliance ──\n", rows); err != nil {
+		return err
+	}
+	if policyErr != nil {
+		return nil
+	}
+	if len(policyRows) == 0 {
 		fmt.Fprintln(os.Stderr, "\nNo patch policy failures found.")
+		return nil
+	}
+	if err := printSection(cliCtx, fmt.Sprintf("\n── Patch Policies With Failures (%d) ──\n", len(policyRows)), policyRows); err != nil {
+		return err
+	}
+	if len(deviceRows) > 0 {
+		return printSection(cliCtx, fmt.Sprintf("\n── Devices With Patch Failures (%d) ──\n", len(deviceRows)), deviceRows)
 	}
 
 	return nil

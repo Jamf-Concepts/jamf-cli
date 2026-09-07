@@ -186,6 +186,29 @@ func (f *Formatter) WithFormat(format string) *Formatter {
 	return &c
 }
 
+// IsMachineRendered reports whether Print renders format with a non-table
+// renderer whose output a parser reads — so a section banner must not be
+// written above it.
+//
+// It sits beside Print's own switch on purpose. A caller that hand-wrote the
+// set got it wrong in both directions: Print has no case for FormatXML or
+// FormatRaw, so both reach printTable through the default arm and DO take a
+// banner (TestRawAndXMLRenderTheSameAsTable asserts exactly that), while
+// FormatCSV was omitted and box-drawing banners plus a second header row went
+// into a CSV file, where csv.reader yields a one-field row and pandas raises on
+// the field-count change.
+//
+// FormatPlain is machine-rendered for this purpose too: it emits per-row keys
+// with no shared header, and a banner between runs of it is noise a reader
+// cannot separate from data.
+func IsMachineRendered(format Format) bool {
+	switch format {
+	case FormatJSON, FormatJSONMulti, FormatNDJSON, FormatYAML, FormatCSV, FormatPlain:
+		return true
+	}
+	return false
+}
+
 // Print outputs data in the configured format
 func (f *Formatter) Print(data any) error {
 	data = f.applyProjection(data)
@@ -349,7 +372,15 @@ func (f *Formatter) printCSV(data any) error {
 			return nil
 		}
 		v = flattenRows(v)
-		headers := columnKeys(v, len(f.projector.Select) > 0)
+		headers := columnKeys(v, !f.projector.IsZero())
+		// A projection that matched nothing leaves rows with no fields. An
+		// empty header line plus one empty line per row is not a CSV a parser
+		// can read, and this is the original defect the whole --select area
+		// came from: a count over no columns reads as a rendering fault rather
+		// than as an absent field.
+		if len(headers) == 0 {
+			return nil
+		}
 		_ = w.Write(headers)
 		for _, row := range v {
 			vals := make([]string, len(headers))
@@ -399,7 +430,13 @@ func (f *Formatter) printTable(data any) error {
 	// Flatten nested objects to dot-notation columns for readable table output
 	rows = flattenRows(rows)
 
-	allKeys := columnKeys(rows, len(f.projector.Select) > 0)
+	allKeys := columnKeys(rows, !f.projector.IsZero())
+	// No columns means the projection matched nothing in any row. Printing
+	// "RESULTS (N total)" above a blank header is the defect this area started
+	// from; nothing is the honest answer.
+	if len(allKeys) == 0 {
+		return nil
+	}
 
 	// Filter columns unless --wide is set, or --select already named them.
 	//
@@ -656,6 +693,10 @@ func keyPriority(key string) int {
 // `commands -o csv --select command,api` wrote a `command`-only header while
 // `-o json` returned 1375 `api` values, at exit 0 with nothing on either
 // stream, since a row-drop count cannot see a row that matched something.
+//
+// --compact makes rows heterogeneous the same way: it keeps a key in the rows
+// that carry a value for it and drops it from the rest, so gating on Select
+// alone let --compact delete a whole column. The gate is the WHOLE projector.
 //
 // Unioning unconditionally would change every table in the CLI, which is why
 // CLAUDE.md rules it out. Gating on the projector changes only the tables that

@@ -79,18 +79,28 @@ migration guide** and carries the detail, the error messages verbatim, and the r
   `--select` or `--compact` and parsing whole rows now receives narrowed rows. Affected are
   the `pro report` family, `pro audit`, `pro overview`, `protect overview`,
   `school overview`, `pro group-tools`, `pro classic app-usage`, `multi` and `commands`.
-  A `--select` naming a field a row does not carry **drops that row** and says so on stderr.
-  That note is not an advisory hint and `--quiet` and `--no-hints` do not silence it: the
-  drop removes records rather than narrowing them, and
-  `commands -o csv --select privileges --quiet` writes 721 lines where the unselected run
-  writes 1757, so a silent run could not be told from "1035 fewer commands exist".
-  Under `table` and `csv` the column set is the union across the surviving rows while
-  `--select` is active, so a path only some rows carry is still a column; without `--select`
-  the first row decides, as before.
-- **`pro audit -o raw` and `-o xml` render a table rather than JSON.** Both used to marshal
-  the rows and hand the bytes to `PrintRaw`, which passes JSON through unchanged for those
-  two formats; the shared formatter's own dispatch has no case for either and renders a
-  table. Every other format is byte-identical. Use `-o json` for JSON.
+  `--select` and `--compact` narrow rows; they do **not** remove them, so a projection that
+  matches no field in a row leaves that row present and empty, as it always has on the 200+
+  generated commands. Three consequences worth knowing. Under `table` and `csv` the column
+  set is the **union across rows** while either flag is active, because both make rows
+  heterogeneous — a field only some rows carry used to be a column for none of them;
+  without a projector the first row decides, as before. Under `table` and `csv` a
+  projection that matches nothing in any row now renders **nothing**, where it used to
+  print a row count above a blank header. And `--select` bypasses the table's
+  default-column heuristic, so a named field is shown without needing `--wide`.
+- **`-o raw` and `-o xml` render a table rather than JSON** wherever a command moved onto
+  the shared formatter — `pro audit` and all six `pro report` multi-section reports. Both
+  used to marshal the rows and hand the bytes to `PrintRaw`, which passes JSON through
+  unchanged for exactly those two formats; the formatter's own dispatch has no case for
+  either and renders a table. Every other format is byte-identical. Use `-o json` for JSON.
+- **A section banner is no longer written for a format a parser reads.** `json`, `yaml`,
+  `ndjson`, `csv` and `plain` get no `── Section ──` lines, so a CSV destination is a CSV
+  again; `xml` and `raw` keep theirs, because they render as tables. And
+  `pro report patch-status --scan-failures -o json` now writes **one** array of labelled
+  sections where it wrote three separate documents into the same file.
+- **`--field` naming a field no row carries reports that on stderr**, and `--quiet` and
+  `--no-hints` do not silence it: a `--field` miss produces no output at all, so the note
+  is the only signal distinguishing a wrong field name from an empty result.
 
 - **`pro backup` and `pro diff` refuse a stray positional argument**, with exit 2
   (`usage`). Both take their whole input as flags, and cobra supplies no default validator,

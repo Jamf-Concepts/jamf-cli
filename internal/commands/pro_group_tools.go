@@ -477,16 +477,7 @@ func runGroupToolsExport(ctx context.Context, cliCtx *registry.CLIContext, forma
 		rows = []map[string]any{}
 	}
 
-	// The same drop printRows applies. This command names its own format, so it
-	// keeps formatterFor rather than going through printRows.
-	//
-	// Printing the survivors rather than returning early is what keeps the
-	// document: --format accepts only yaml or json, both structured, so a bare
-	// return covered 100% of this command's output surface and left
-	// `--out-file groups.json` at 0 bytes on a mistyped --select.
-	kept, dropped := selectSurvivors(rows)
-	reportSelectMiss(dropped)
-	return formatterFor(cliCtx, format).Print(kept)
+	return formatterFor(cliCtx, format).Print(rows)
 }
 
 // ─────────────────────────────────────────────────────────────────

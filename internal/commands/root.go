@@ -1097,7 +1097,11 @@ func newCommandsCmd(root *cobra.Command, cliCtx *registry.CLIContext) *cobra.Com
 			entries := collectCommands(root, "", "", "")
 			// Structured formats always get full detail; table/plain
 			// show only command+description unless --wide is set.
-			full := wide || isFullDetailFormat(outputFmt)
+			// --select names its own fields, so the narrow row set must not
+			// hide them: `commands -o table --select api` rendered nothing,
+			// because `api` is only in the wide rows and the projection then
+			// matched no field in any row.
+			full := wide || isFullDetailFormat(outputFmt) || len(selectFields) > 0
 			return printRows(cliCtx, commandEntriesToMaps(entries, full))
 		},
 	}

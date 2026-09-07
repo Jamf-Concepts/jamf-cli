@@ -5,7 +5,6 @@ package commands
 import (
 	"fmt"
 	"os"
-	"strings"
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/output"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
@@ -45,107 +44,52 @@ func printRows(cliCtx *registry.CLIContext, rows []map[string]any) error {
 	if fieldName != "" {
 		return printFieldValues(writerFor(cliCtx), rows, fieldName)
 	}
-	// Drop the rows --select emptied, rather than asking whether they ALL
-	// emptied. A table and a CSV take their column set from row 0 alone, so
-	// keeping a row the select missed emptied the column set and discarded
-	// every matched value in every later row. Dropping them makes the column
-	// set correct by construction, and leaves zero rows in the case the old
-	// all-or-nothing guard covered — which every renderer already handles as
-	// an empty collection, so no format needs a special early return.
-	rows, dropped := selectSurvivors(rows)
-	reportSelectMiss(dropped)
 	return formatterFor(cliCtx, outputFmt).Print(rows)
-}
-
-// selectSurvivors drops the rows --select emptied and reports how many.
-//
-// One decision for every renderer. The guard it replaced lived only in
-// printRows, so `multi`'s aggregated branches, `group-tools export` and three
-// report sections each answered the same condition differently — an empty
-// collection with a warning here, `[{}]` in silence there, zero bytes
-// elsewhere. Three answers to one question.
-func selectSurvivors(rows []map[string]any) ([]map[string]any, int) {
-	return (output.Projector{Select: selectFields}).DropEmptySelections(rows)
-}
-
-// reportSelectMiss says on stderr how many rows --select emptied. Without it
-// the drop is silent, and a caller who mistyped a field gets an empty document
-// and exit 0 with nothing explaining either.
-//
-// stderr rather than the formatter's writer, so it never lands in --out-file
-// beside the data.
-//
-// NOT suppressed by --quiet or --no-hints, unlike an advisory hint. Since the
-// drop removes RECORDS rather than narrowing them, silencing it loses data
-// silently: `commands -o csv --select privileges --quiet --out-file catalog.csv`
-// wrote 721 lines where the unselected run writes 1757, and a consumer asking
-// for "every command, blank where it has none" could not tell that from "1035
-// fewer commands exist".
-func reportSelectMiss(dropped int) {
-	if dropped == 0 || len(selectFields) == 0 {
-		return
-	}
-	_, _ = fmt.Fprintf(os.Stderr, "--select %s matched no field in %d row(s)\n", strings.Join(selectFields, ","), dropped)
 }
 
 // reportFieldMiss says on stderr that --field named nothing any row carried.
 //
-// --field's sibling --select warns on the same input, and without this the two
-// answered identically-shaped mistakes differently: `commands --field
-// nosuchfield --out-file f` left f at 0 bytes, exit 0, both streams empty, so a
-// job could not tell a wrong field name from an empty result.
+// Without it, `commands --field nosuchfield --out-file f` left f at 0 bytes at
+// exit 0 with both streams empty, so a job could not tell a wrong field name
+// from an empty result.
+//
+// NOT suppressed by --quiet or --no-hints, unlike an advisory hint: a --field
+// miss produces no output at all, and silencing the only signal that anything
+// happened is what makes it indistinguishable from success. --select needs no
+// equivalent, because a projection that matches nothing still emits a document
+// of empty objects rather than nothing.
 func reportFieldMiss(rows []map[string]any, written int) {
-	if written > 0 || len(rows) == 0 || quiet || noHints || fieldName == "" {
+	if written > 0 || len(rows) == 0 || fieldName == "" {
 		return
 	}
 	_, _ = fmt.Fprintf(os.Stderr, "--field %s matched no field in %d row(s)\n", fieldName, len(rows))
 }
 
-// printSection writes a section header only when a body will follow it.
+// printSection writes a section header above a row set.
 //
-// The six hand-written multi-section reports wrote their own banner and then
-// called printRows, so the drop suppressed the body with the banner already on
-// the writer: `pro report security -o table --select nosuchfield` produced 105
-// bytes of nothing but three box-drawing lines, one reading
-// `── Flagged Devices (5) ──`, at exit 0. A CSV consumer received a stream of
-// box-drawing characters. The decision has to be made before the header, and in
-// one place, or the call sites disagree about it — three of them did.
+// The header is withheld for a machine-rendered format, because a `──` line in
+// a JSON or CSV destination is not something a parser can read: with the set
+// hand-written here it went wrong in both directions, suppressing the banner
+// above the tables that -o xml and -o raw actually render while writing
+// box-drawing lines into a CSV file. output.IsMachineRendered sits beside
+// Print's own switch so the two cannot drift.
 //
 // It renders through printRows rather than reproducing its tail, so a section
-// and a whole-command read emit the same bytes for the same format. The two
-// diverged when this reproduced only the early return: a select miss here wrote
-// zero bytes where printRows wrote `[]`.
+// and a whole-command read emit the same bytes for the same format.
 func printSection(cliCtx *registry.CLIContext, header string, rows []map[string]any) error {
-	kept, dropped := selectSurvivors(rows)
-	reportSelectMiss(dropped)
-
-	// A structured format has no section headers — a `──` line in a JSON file
-	// is not JSON, and `pro report patch-status --scan-failures -o json
-	// --out-file patch.json` wrote banners interleaved with separate arrays,
-	// which jq rejects at the first one. pro_report_patch.go is the only report
-	// with no json/yaml gate ahead of its printSection calls, so it is the one
-	// that reaches this.
-	structured := false
-	switch output.Format(outputFmt) {
-	case output.FormatJSON, output.FormatYAML, output.FormatNDJSON, output.FormatXML, output.FormatRaw:
-		structured = true
+	// A header only above a body. The renderers decline an empty column set, so
+	// without this the banner outlived the rows it announced:
+	// `pro report security -o table --select nosuchfield` produced 105 bytes of
+	// nothing but box-drawing lines.
+	if (output.Projector{Select: selectFields, Compact: compact}).RendersNothing(rows) {
+		return printRows(cliCtx, rows)
 	}
-
-	// A header only where headers belong, and only above a body. Withholding
-	// the DOCUMENT was the other half of the bug: returning early on a total
-	// miss left 0 bytes for a structured read where printRows writes `[]`, so
-	// the two disagreed about the same input.
-	if !structured && len(kept) > 0 && header != "" {
+	if header != "" && !output.IsMachineRendered(output.Format(outputFmt)) {
 		if _, err := fmt.Fprint(writerFor(cliCtx), header); err != nil {
 			return err
 		}
 	}
-	if len(kept) == 0 && !structured {
-		return nil
-	}
-	// kept, not rows: printRows recomputes the survivors, which by construction
-	// drops nothing a second time, so the count above is the only one there is.
-	return printRows(cliCtx, kept)
+	return printRows(cliCtx, rows)
 }
 
 // formatterFor returns the shared formatter rendering in format. printRows asks

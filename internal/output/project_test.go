@@ -377,65 +377,6 @@ func TestFormatter_Print_Compact_AllFormats(t *testing.T) {
 	}
 }
 
-// TestDropEmptySelectionsAgreesWithApply holds the two halves of the Select
-// projection to one answer. They each stated the input pipeline once and
-// diverged: Apply flattened the rows first, the guard did not, so a nested dot
-// path matched nothing in the guard and everything in the renderer. The guard
-// won, and a whole report was suppressed at exit 0.
-//
-// The some-rows-match row is the one that matters most, and the all-or-nothing
-// guard this replaced could not express it: a table and a CSV take their column
-// set from row 0, so keeping a row the select emptied discarded every matched
-// value in every later row.
-func TestDropEmptySelectionsAgreesWithApply(t *testing.T) {
-	nested := []map[string]any{{
-		"summary": map[string]any{"total_errors": 3, "total_ok": 9},
-	}}
-	// Heterogeneous, and row 0 is the one that misses — the shape that lost
-	// 1375 values on `commands -o csv --select api`.
-	mixed := []map[string]any{
-		{"command": "agent-context"},
-		{"command": "pro categories list", "api": "pro"},
-		{"command": "pro classic-sites list", "api": "pro-classic"},
-	}
-
-	for _, tc := range []struct {
-		name     string
-		rows     []map[string]any
-		sel      []string
-		wantKept int
-		wantDrop int
-	}{
-		{"nested path that exists", nested, []string{"summary.total_errors"}, 1, 0},
-		{"nested parent that exists", nested, []string{"summary"}, 1, 0},
-		{"nested path that does not", nested, []string{"summary.nosuch"}, 0, 1},
-		{"top-level path that does not", nested, []string{"nosuch"}, 0, 1},
-		{"flat path that exists", []map[string]any{{"id": "1"}}, []string{"id"}, 1, 0},
-		{"some rows match, row 0 does not", mixed, []string{"api"}, 2, 1},
-		{"every row matches", mixed, []string{"command"}, 3, 0},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			p := Projector{Select: tc.sel}
-			kept, dropped := p.DropEmptySelections(tc.rows)
-			if len(kept) != tc.wantKept || dropped != tc.wantDrop {
-				t.Errorf("DropEmptySelections = (%d kept, %d dropped), want (%d, %d)", len(kept), dropped, tc.wantKept, tc.wantDrop)
-			}
-
-			// The invariant: a row survives exactly when Apply gives it fields.
-			// Anything else drops data the renderer would have shown, or keeps
-			// a row that empties a table's column set.
-			for _, row := range p.Apply(kept) {
-				if len(row) == 0 {
-					t.Errorf("a surviving row projects to nothing, so it can still empty a table's column set: %v", kept)
-				}
-			}
-			if dropped+len(kept) != len(tc.rows) {
-				t.Errorf("%d kept + %d dropped != %d input rows", len(kept), dropped, len(tc.rows))
-			}
-		})
-	}
-}
-
 // TestSelectUnionsTheRenderedColumnSet asserts the RENDERED columns, which is a
 // different question from whether the projector agrees with Apply.
 //
@@ -496,5 +437,101 @@ func TestNoSelectKeepsRowZeroAsTheColumnSet(t *testing.T) {
 	header := strings.SplitN(buf.String(), "\n", 2)[0]
 	if header != "name" {
 		t.Errorf("header = %q, want %q — row 0 must still decide without --select", header, "name")
+	}
+}
+
+// TestIsMachineRenderedCoversEveryFormat holds the predicate to Print's own
+// switch, which is the authority: a format Print has no case for reaches
+// printTable through the default arm and therefore DOES take a section banner.
+//
+// A caller that hand-wrote this set got it wrong in both directions — xml and
+// raw were called structured, suppressing the banner above the tables they
+// actually render, while csv was omitted and box-drawing lines went into a CSV
+// file where csv.reader yields a one-field row.
+//
+// Every constant is listed, so adding one to internal/output without deciding
+// its answer fails here rather than silently defaulting.
+func TestIsMachineRenderedCoversEveryFormat(t *testing.T) {
+	want := map[Format]bool{
+		FormatJSON:      true,
+		FormatJSONMulti: true,
+		FormatNDJSON:    true,
+		FormatYAML:      true,
+		FormatCSV:       true,
+		FormatPlain:     true,
+		// Print has no case for these two: they render as a table, so they
+		// take a banner like any other table.
+		FormatXML:   false,
+		FormatRaw:   false,
+		FormatTable: false,
+	}
+	for format, expected := range want {
+		t.Run(string(format), func(t *testing.T) {
+			if got := IsMachineRendered(format); got != expected {
+				t.Errorf("IsMachineRendered(%q) = %v, want %v", format, got, expected)
+			}
+		})
+	}
+
+	// The count is the vacuity guard: a new Format constant must be added
+	// above, with its answer decided, rather than inheriting a default.
+	if len(want) != len(allFormatsForTest()) {
+		t.Errorf("the table covers %d formats but internal/output declares %d — decide the new one's answer", len(want), len(allFormatsForTest()))
+	}
+}
+
+// allFormatsForTest is every Format constant the package declares.
+func allFormatsForTest() []Format {
+	return []Format{
+		FormatJSON, FormatJSONMulti, FormatNDJSON, FormatYAML,
+		FormatCSV, FormatPlain, FormatXML, FormatRaw, FormatTable,
+	}
+}
+
+// TestProjectionMatchingNothingRendersNothing covers the defect this whole area
+// started from: a projection that matches no field in any row left every row
+// empty, and printTable still wrote "RESULTS (N total)" above a blank header
+// while printCSV wrote an empty header plus one empty line per row.
+//
+// Nothing is the honest answer, and it is a renderer decision rather than a
+// caller one — which is why three rounds of caller-side guards, and a row
+// filter built on top of them, kept producing new defects one arm over.
+func TestProjectionMatchingNothingRendersNothing(t *testing.T) {
+	rows := []map[string]any{{"id": "1"}, {"id": "2"}}
+	for _, format := range []string{"table", "csv"} {
+		t.Run(format, func(t *testing.T) {
+			var buf bytes.Buffer
+			f := New(format, true, false)
+			f.SetWriter(&buf)
+			f.SetProjector(Projector{Select: []string{"nosuchfield"}})
+			if err := f.Print(rows); err != nil {
+				t.Fatalf("Print: %v", err)
+			}
+			if buf.Len() != 0 {
+				t.Errorf("-o %s rendered %q over no columns", format, buf.String())
+			}
+		})
+	}
+}
+
+// TestCompactUnionsTheColumnSet is --select's sibling. projectCompact keeps a
+// key in the rows that carry a value for it and drops it from the rest, so it
+// makes rows heterogeneous exactly as --select does — and gating the union on
+// Select alone let --compact delete a whole column from a table.
+func TestCompactUnionsTheColumnSet(t *testing.T) {
+	// Row 0 has no "note"; row 1 does. Compact drops empty values.
+	rows := []map[string]any{
+		{"id": "1", "name": "a", "note": ""},
+		{"id": "2", "name": "b", "note": "seen"},
+	}
+	var buf bytes.Buffer
+	f := New("csv", true, false)
+	f.SetWriter(&buf)
+	f.SetProjector(Projector{Compact: true})
+	if err := f.Print(rows); err != nil {
+		t.Fatalf("Print: %v", err)
+	}
+	if !strings.Contains(buf.String(), "note") {
+		t.Errorf("--compact dropped the note column, so row 1's value reaches nothing:\n%s", buf.String())
 	}
 }

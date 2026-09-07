@@ -17,6 +17,7 @@ import (
 	"golang.org/x/term"
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/config"
+	"github.com/Jamf-Concepts/jamf-cli/internal/output"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 )
 
@@ -419,25 +420,10 @@ func printAggregated(cliCtx *registry.CLIContext, cmd *cobra.Command, merged map
 		// Unwrap to a flat array so json/yaml output matches single-instance output.
 		if len(jsonMerged) == 1 {
 			if results, ok := jsonMerged[mergedListKey]; ok {
-				if rows, ok := results.([]map[string]any); ok {
-					// The same drop the table arms below apply. Without it this
-					// branch answered a --select miss with `[{}]` and nothing on
-					// stderr, a third shape for one condition.
-					kept, dropped := selectSurvivors(rows)
-					reportSelectMiss(dropped)
-					return formatter.Print(kept)
-				}
 				return formatter.Print(results)
 			}
 		}
-		// The multi-KEY fallback. The single-key arm above consults the guard
-		// and this did not, so a total --select miss answered `[{}]` in
-		// silence while the same command outside `multi` printed the note and
-		// `[]`: one operator mistake, two behaviours, chosen by whether it
-		// went through `multi`.
-		aggregated, dropped := selectSurvivors([]map[string]any{jsonMerged})
-		reportSelectMiss(dropped)
-		return formatter.Print(aggregated)
+		return formatter.Print([]map[string]any{jsonMerged})
 	}
 
 	// Table mode: render each section
@@ -457,8 +443,17 @@ func printAggregated(cliCtx *registry.CLIContext, cmd *cobra.Command, merged map
 	})
 
 	// The section headers belong wherever the tables go, or --out-file splits one
-	// report between a file and the terminal.
+	// report between a file and the terminal — and not at all for a format a
+	// parser reads, which is the same rule printSection applies. This branch
+	// runs for csv, plain, xml and raw, so a narrower gate than
+	// output.IsMachineRendered wrote box-drawing lines into a CSV file.
 	out := formatter.Writer()
+	banner := func(format string, args ...any) {
+		if output.IsMachineRendered(output.Format(renderFmt)) {
+			return
+		}
+		_, _ = fmt.Fprintf(out, format, args...)
+	}
 
 	first := true
 	for _, key := range keys {
@@ -467,21 +462,10 @@ func printAggregated(cliCtx *registry.CLIContext, cmd *cobra.Command, merged map
 		case map[string]any:
 			// Summary dict — print as single-row table
 			summaryRows := []map[string]any{v}
-			// Gate before the separator and the header, not after: a --select
-			// naming nothing here would otherwise leave a banner and a blank
-			// table, which is the shape printRows was fixed to stop rendering.
-			// Reachable only since this branch moved onto formatterFor for the
-			// --out-file fix, which is what made --select live here at all.
-			kept, dropped := selectSurvivors(summaryRows)
-			reportSelectMiss(dropped)
-			if len(kept) == 0 {
-				continue
-			}
-			summaryRows = kept
 			if !first {
-				_, _ = fmt.Fprintln(out)
+				banner("\n")
 			}
-			_, _ = fmt.Fprintf(out, "── %s ──\n", formatSectionTitle(key))
+			banner("── %s ──\n", formatSectionTitle(key))
 			if err := formatter.Print(summaryRows); err != nil {
 				return err
 			}
@@ -501,16 +485,10 @@ func printAggregated(cliCtx *registry.CLIContext, cmd *cobra.Command, merged map
 				cj, _ := rows[j]["count"].(float64)
 				return ci > cj
 			})
-			kept, dropped := selectSurvivors(rows)
-			reportSelectMiss(dropped)
-			if len(kept) == 0 {
-				continue
-			}
-			rows = kept
 			if !first {
-				_, _ = fmt.Fprintln(out)
+				banner("\n")
 			}
-			_, _ = fmt.Fprintf(out, "── %s (%d) ──\n", formatSectionTitle(key), len(rows))
+			banner("── %s (%d) ──\n", formatSectionTitle(key), len(rows))
 			if err := formatter.Print(rows); err != nil {
 				return err
 			}
@@ -530,16 +508,10 @@ func printAggregated(cliCtx *registry.CLIContext, cmd *cobra.Command, merged map
 			if len(rows) == 0 {
 				continue
 			}
-			kept, dropped := selectSurvivors(rows)
-			reportSelectMiss(dropped)
-			if len(kept) == 0 {
-				continue
-			}
-			rows = kept
 			if !first {
-				_, _ = fmt.Fprintln(out)
+				banner("\n")
 			}
-			_, _ = fmt.Fprintf(out, "── %s (%d) ──\n", formatSectionTitle(key), len(rows))
+			banner("── %s (%d) ──\n", formatSectionTitle(key), len(rows))
 			if err := formatter.Print(rows); err != nil {
 				return err
 			}

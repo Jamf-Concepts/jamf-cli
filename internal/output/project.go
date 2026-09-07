@@ -46,43 +46,33 @@ func (p Projector) Apply(rows []map[string]any) []map[string]any {
 // "<path>." — so --select general returns every general.* field, and
 // --select general.name returns just that one. Missing paths are silently
 // omitted (a row may end up empty if no path matched).
-// DropEmptySelections returns the rows whose Select projection keeps at least
-// one field, and how many it dropped.
+// RendersNothing reports whether the projector leaves every row with no fields,
+// which is when a renderer produces no output for them.
 //
-// It replaces an all-or-nothing guard that could only answer "did EVERY row
-// come back empty", which is the wrong question for a table or a CSV. Both take
-// their column set from row 0 alone — printCSV's `sortedKeys(v[0])` and
-// printTable's `sortedKeys(rows[0])` — so a row 0 the select missed emptied the
-// column set and discarded every matched value in every later row:
-// `commands -o csv --wide --select api` wrote 1757 newlines and zero other
-// characters while 1375 of those rows carried the field, at exit 0. CLAUDE.md's
-// Conventions section already names that hazard; making --select live on 27
-// commands with heterogeneous rows is the case it warns about.
-//
-// Dropping the emptied rows makes the column set correct by construction, since
-// every surviving row carries at least one selected field. It also removes the
-// need for any format-specific early return: zero surviving rows is an empty
-// collection, which every renderer already handles.
-func (p Projector) DropEmptySelections(rows []map[string]any) ([]map[string]any, int) {
-	if len(p.Select) == 0 || len(rows) == 0 {
-		return rows, 0
+// It answers ONE question: should a caller write a section header above these
+// rows. It does not filter them — an earlier version dropped the emptied rows
+// instead, which made the survivors heterogeneous and moved the defect into the
+// column set, then into per-format contracts, then into every arm of `multi`.
+// The renderers now decline an empty column set themselves, so the only thing
+// left for a caller to decide is its own banner.
+func (p Projector) RendersNothing(rows []map[string]any) bool {
+	if p.IsZero() || len(rows) == 0 {
+		return false
 	}
-	projected := p.selectRows(rows)
-	kept := make([]map[string]any, 0, len(rows))
-	for i, row := range projected {
+	for _, row := range p.Apply(rows) {
 		if len(row) > 0 {
-			kept = append(kept, rows[i])
+			return false
 		}
 	}
-	return kept, len(rows) - len(kept)
+	return true
 }
 
 // selectRows runs the Select projection, and is the only place its input
 // pipeline is written down.
 //
-// Apply and DropEmptySelections must answer about the same rows or the guard
-// suppresses output the renderer would have produced. They each spelled the
-// pipeline out once, and diverged: Apply flattened first while the guard
+// Apply and RendersNothing must answer about the same rows, or a caller
+// withholds a header above output the renderer does produce. They each spelled
+// the pipeline out once, and diverged: Apply flattened first while the guard
 // projected raw rows, so a nested path matched nothing, emptied every row and
 // suppressed a whole report at exit 0 — the reports built as one row of nested
 // sections for -o json are exactly the shape the guard was added for.

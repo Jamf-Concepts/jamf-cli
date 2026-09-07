@@ -1068,24 +1068,32 @@ func TestSelectMatchingNothingLeavesNoOrphanBanner(t *testing.T) {
 	}
 }
 
-// TestSelectMatchingNothingStillEmitsAStructuredDocument keeps the
-// empty-collection contract printRows documents for a nil slice: `null` breaks
-// a jq pipeline, and zero bytes is worse — it is not a document at all.
-// `pro report security -o json --select nosuchfield` wrote 0 bytes at exit 0,
-// which raises JSONDecodeError, where main emitted a parseable document.
-func TestSelectMatchingNothingStillEmitsAStructuredDocument(t *testing.T) {
-	oldSelect, oldFmt, oldQuiet := selectFields, outputFmt, quiet
-	t.Cleanup(func() { selectFields, outputFmt, quiet = oldSelect, oldFmt, oldQuiet })
-	selectFields, quiet = []string{"nosuchfield"}, true
+// TestSelectMatchingNothingRendersConsistently pins what a projection matching
+// no field produces, per format.
+//
+// A projection leaves each row with no fields — it does not remove the rows.
+// So a machine format emits a document of empty objects, which is exactly what
+// the 200+ generated commands have always done, and a table or CSV emits
+// nothing rather than a banner above a blank header.
+//
+// An earlier revision dropped the emptied rows and forced `[]` here. That made
+// the hand-written commands disagree with the generated ones, and the
+// heterogeneous survivors it produced moved the original defect into the column
+// set and then into every renderer and `multi` arm in turn.
+func TestSelectMatchingNothingRendersConsistently(t *testing.T) {
+	oldSelect, oldFmt := selectFields, outputFmt
+	t.Cleanup(func() { selectFields, outputFmt = oldSelect, oldFmt })
+	selectFields = []string{"nosuchfield"}
 
 	for _, tc := range []struct {
 		format string
 		want   string
 	}{
-		{"json", "[]"},
-		{"ndjson", ""},
-		{"yaml", "[]"},
-		// A table or CSV has no empty-document form, and its banner is gone.
+		// A document of empty objects: the row is still there, with no fields.
+		{"json", "[\n  {}\n]"},
+		{"yaml", "- {}"},
+		{"ndjson", "{}"},
+		// No column set, so no table and no CSV.
 		{"table", ""},
 		{"csv", ""},
 	} {
@@ -1100,15 +1108,8 @@ func TestSelectMatchingNothingStillEmitsAStructuredDocument(t *testing.T) {
 			if err := printRows(cliCtx, []map[string]any{{"id": "1"}}); err != nil {
 				t.Fatalf("printRows: %v", err)
 			}
-			got := strings.TrimSpace(buf.String())
-			if tc.want == "" {
-				if got != "" {
-					t.Errorf("-o %s wrote %q, want nothing", tc.format, got)
-				}
-				return
-			}
-			if got != tc.want {
-				t.Errorf("-o %s wrote %q, want %q — a structured consumer needs a document, not zero bytes", tc.format, got, tc.want)
+			if got := strings.TrimSpace(buf.String()); got != tc.want {
+				t.Errorf("-o %s wrote %q, want %q", tc.format, got, tc.want)
 			}
 		})
 	}
