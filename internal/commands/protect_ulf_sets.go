@@ -116,7 +116,7 @@ func newProtectULFSetsApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Short: "Create or update a unified logging filter set",
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if scaffold {
-				return printExport(ulfSetExport{})
+				return printExport(cliCtx, ulfSetExport{})
 			}
 			ctx := cmd.Context()
 			data, err := readInput(fromFile)
@@ -334,7 +334,7 @@ func newProtectULFSetsExportCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return printExport(ulfSetToExport(item))
+			return printExport(cliCtx, ulfSetToExport(item))
 		},
 	}
 }

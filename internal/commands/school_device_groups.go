@@ -104,7 +104,7 @@ func newSchoolDeviceGroupsApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Short: "Create or update a device group",
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if scaffold {
-				return printExport(jamfschool.DeviceGroupCreateInput{})
+				return printExport(cliCtx, jamfschool.DeviceGroupCreateInput{})
 			}
 			ctx := cmd.Context()
 			data, err := readInput(fromFile)
@@ -224,7 +224,7 @@ func newSchoolDeviceGroupsExportCmd(cliCtx *registry.CLIContext) *cobra.Command 
 			if err != nil {
 				return err
 			}
-			return printExport(schoolDeviceGroupToInput(item))
+			return printExport(cliCtx, schoolDeviceGroupToInput(item))
 		},
 	}
 }

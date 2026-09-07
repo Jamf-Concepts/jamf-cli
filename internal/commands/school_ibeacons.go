@@ -98,7 +98,7 @@ func newSchoolIBeaconsApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Short: "Create or update an iBeacon",
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if scaffold {
-				return printExport(jamfschool.IBeaconCreateInput{})
+				return printExport(cliCtx, jamfschool.IBeaconCreateInput{})
 			}
 			ctx := cmd.Context()
 			data, err := readInput(fromFile)
@@ -208,7 +208,7 @@ func newSchoolIBeaconsExportCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return printExport(schoolIBeaconToInput(item))
+			return printExport(cliCtx, schoolIBeaconToInput(item))
 		},
 	}
 }

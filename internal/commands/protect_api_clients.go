@@ -106,7 +106,7 @@ func newProtectApiClientsApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if scaffold {
 				// The export shape, not the SDK input shape — see the groups scaffold.
-				return printExport(apiClientExport{Roles: []string{}})
+				return printExport(cliCtx, apiClientExport{Roles: []string{}})
 			}
 			ctx := cmd.Context()
 			data, err := readInput(fromFile)
@@ -211,7 +211,7 @@ func newProtectApiClientsExportCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return printExport(apiClientToExport(item))
+			return printExport(cliCtx, apiClientToExport(item))
 		},
 	}
 }

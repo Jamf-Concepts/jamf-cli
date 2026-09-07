@@ -29,14 +29,15 @@ func printResult(out registry.OutputFormatter, item any, flattened map[string]an
 }
 
 // printExport outputs data as JSON (default) or YAML based on the global output format.
-func printExport(data any) error {
+func printExport(cliCtx *registry.CLIContext, data any) error {
+	w := writerFor(cliCtx)
 	switch outputFmt {
 	case "yaml":
-		enc := yaml.NewEncoder(os.Stdout)
+		enc := yaml.NewEncoder(w)
 		enc.SetIndent(2)
 		return enc.Encode(data)
 	default:
-		enc := json.NewEncoder(os.Stdout)
+		enc := json.NewEncoder(w)
 		enc.SetIndent("", "  ")
 		return enc.Encode(data)
 	}

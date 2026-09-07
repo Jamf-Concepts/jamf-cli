@@ -276,17 +276,18 @@ func newPlatformSDKClient(url, clientID, clientSecret string, scope auth.Scope, 
 
 // printScaffold marshals the given value to stdout, respecting the -o flag.
 // Used by apply commands with --scaffold to show the expected input structure.
-func printScaffold(v any) error {
+func printScaffold(cliCtx *registry.CLIContext, v any) error {
+	w := writerFor(cliCtx)
 	switch outputFmt {
 	case "yaml":
-		enc := yaml.NewEncoder(os.Stdout)
+		enc := yaml.NewEncoder(w)
 		enc.SetIndent(2)
 		if err := enc.Encode(v); err != nil {
 			return err
 		}
 		return enc.Close()
 	default:
-		enc := json.NewEncoder(os.Stdout)
+		enc := json.NewEncoder(w)
 		enc.SetIndent("", "  ")
 		enc.SetEscapeHTML(false)
 		return enc.Encode(v)

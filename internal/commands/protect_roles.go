@@ -120,7 +120,7 @@ func newProtectRolesApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Short: "Create or update a role",
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if scaffold {
-				return printExport(jamfprotect.RoleInput{})
+				return printExport(cliCtx, jamfprotect.RoleInput{})
 			}
 			ctx := cmd.Context()
 			data, err := readInput(fromFile)
@@ -225,7 +225,7 @@ func newProtectRolesExportCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return printExport(roleToInput(item))
+			return printExport(cliCtx, roleToInput(item))
 		},
 	}
 }
