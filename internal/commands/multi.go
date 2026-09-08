@@ -18,9 +18,10 @@ import (
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/config"
 	"github.com/Jamf-Concepts/jamf-cli/internal/output"
+	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 )
 
-func newMultiCmd() *cobra.Command {
+func newMultiCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	var (
 		filter      string
 		profilesCSV string
@@ -43,7 +44,10 @@ shown. The -- separator is optional but recommended when the inner
 command has flags that could conflict with multi's flags.
 
 Report commands are automatically aggregated: summaries are combined and
-detail rows are merged with a profile column added.
+detail rows are merged with a profile column added. An aggregation renders one
+section per merged key, and each section is a complete top-level document, so
+-o csv, ndjson and plain write one undelimited block per section. Use -o json
+or -o yaml for a single parseable file.
 
 Examples:
   # Interactive profile selection (no multi flags, no -- needed)
@@ -158,7 +162,7 @@ Examples:
 				}
 
 				if aggregated := tryAggregate(results); aggregated != nil {
-					if err := printAggregated(cmd, aggregated, desiredFmt); err != nil {
+					if err := printAggregated(cliCtx, cmd, aggregated, desiredFmt); err != nil {
 						return err
 					}
 				} else {
@@ -173,7 +177,7 @@ Examples:
 						} else {
 							_, _ = fmt.Fprintf(w, "\n── %s ──\n", r.profileName)
 						}
-						_, _ = cmd.OutOrStdout().Write(r.stdout)
+						_, _ = writerFor(cliCtx).Write(r.stdout)
 					}
 				}
 			} else {
@@ -193,7 +197,10 @@ Examples:
 
 					cmdArgs := append([]string{"--profile", profileName}, innerArgs...)
 					child := exec.Command(executable, cmdArgs...)
-					child.Stdout = cmd.OutOrStdout()
+					// The child's payload is this command's output, so it
+					// follows --out-file with the aggregated report's. Its
+					// banners stay on stderr, being progress rather than data.
+					child.Stdout = writerFor(cliCtx)
 					child.Stderr = cmd.ErrOrStderr()
 
 					if err := child.Run(); err != nil {
@@ -391,7 +398,7 @@ type childResult struct {
 
 // printAggregated renders the merged report using the desired output format.
 // desiredFmt is extracted from the inner command args; empty string defaults to table.
-func printAggregated(cmd *cobra.Command, merged map[string]any, desiredFmt string) error {
+func printAggregated(cliCtx *registry.CLIContext, cmd *cobra.Command, merged map[string]any, desiredFmt string) error {
 	renderFmt := desiredFmt
 	if renderFmt == "" {
 		// No -o in inner args — check if multi itself had -o set, else default to table
@@ -401,7 +408,7 @@ func printAggregated(cmd *cobra.Command, merged map[string]any, desiredFmt strin
 			renderFmt = "table"
 		}
 	}
-	formatter := output.New(renderFmt, noColor, wide)
+	formatter := formatterFor(cliCtx, renderFmt)
 
 	if renderFmt == "json" || renderFmt == "yaml" {
 		// Convert aggregated summary maps back to list format for JSON
@@ -421,10 +428,14 @@ func printAggregated(cmd *cobra.Command, merged map[string]any, desiredFmt strin
 		// Unwrap to a flat array so json/yaml output matches single-instance output.
 		if len(jsonMerged) == 1 {
 			if results, ok := jsonMerged[mergedListKey]; ok {
+				// Only a plain list is a row set --field can extract from.
+				if rows, isRows := results.([]map[string]any); isRows {
+					return printThrough(formatter, rows)
+				}
 				return formatter.Print(results)
 			}
 		}
-		return formatter.Print([]map[string]any{jsonMerged})
+		return printThrough(formatter, []map[string]any{jsonMerged})
 	}
 
 	// Table mode: render each section
@@ -443,20 +454,32 @@ func printAggregated(cmd *cobra.Command, merged map[string]any, desiredFmt strin
 		return keys[i] < keys[j]
 	})
 
+	// The header goes to the formatter's writer, or --out-file splits one report
+	// between a file and the terminal. The two conditions are printSection's.
+	out := formatter.Writer()
 	first := true
+	section := func(rows []map[string]any, header string, args ...any) error {
+		if !projectionRendersNothing(rows) && !output.IsMachineRendered(output.Format(renderFmt)) {
+			if !first {
+				_, _ = fmt.Fprint(out, "\n")
+			}
+			_, _ = fmt.Fprintf(out, header, args...)
+		}
+		if err := printThrough(formatter, rows); err != nil {
+			return err
+		}
+		first = false
+		return nil
+	}
 	for _, key := range keys {
 		val := merged[key]
 		switch v := val.(type) {
 		case map[string]any:
 			// Summary dict — print as single-row table
-			if !first {
-				fmt.Println()
-			}
-			fmt.Printf("── %s ──\n", formatSectionTitle(key))
-			if err := formatter.Print([]map[string]any{v}); err != nil {
+			summaryRows := []map[string]any{v}
+			if err := section(summaryRows, "── %s ──\n", formatSectionTitle(key)); err != nil {
 				return err
 			}
-			first = false
 
 		case map[string]map[string]any:
 			// Aggregated summary list — render as table sorted by count desc
@@ -472,14 +495,9 @@ func printAggregated(cmd *cobra.Command, merged map[string]any, desiredFmt strin
 				cj, _ := rows[j]["count"].(float64)
 				return ci > cj
 			})
-			if !first {
-				fmt.Println()
-			}
-			fmt.Printf("── %s (%d) ──\n", formatSectionTitle(key), len(rows))
-			if err := formatter.Print(rows); err != nil {
+			if err := section(rows, "── %s (%d) ──\n", formatSectionTitle(key), len(rows)); err != nil {
 				return err
 			}
-			first = false
 
 		case []any:
 			if len(v) == 0 {
@@ -495,14 +513,9 @@ func printAggregated(cmd *cobra.Command, merged map[string]any, desiredFmt strin
 			if len(rows) == 0 {
 				continue
 			}
-			if !first {
-				fmt.Println()
-			}
-			fmt.Printf("── %s (%d) ──\n", formatSectionTitle(key), len(rows))
-			if err := formatter.Print(rows); err != nil {
+			if err := section(rows, "── %s (%d) ──\n", formatSectionTitle(key), len(rows)); err != nil {
 				return err
 			}
-			first = false
 
 		case float64:
 			// Top-level scalar — skip in table mode (included in JSON)

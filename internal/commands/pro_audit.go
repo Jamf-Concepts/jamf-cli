@@ -4,7 +4,6 @@ package commands
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"os"
 	"strings"
@@ -12,7 +11,6 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/Jamf-Concepts/jamf-cli/internal/output"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform"
 	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform/blueprints"
@@ -159,15 +157,11 @@ func runAudit(ctx context.Context, cliCtx *registry.CLIContext, opts auditOption
 		}
 	}
 
-	formatter := output.New(outputFmt, noColor, wide)
-	if outFile != "" {
-		data, err := json.Marshal(rows)
-		if err != nil {
-			return fmt.Errorf("marshalling audit results: %w", err)
-		}
-		return cliCtx.Output.PrintRaw(data)
-	}
-	return formatter.Print(rows)
+	// This command has no --out-file branch of its own on purpose. It used to:
+	// the flag selected the format as well as the destination, so
+	// `-o table --out-file f` wrote JSON to the file. The file now gets the
+	// format -o names, which is what every other command does.
+	return printRows(cliCtx, rows)
 }
 
 // --- Individual Check Implementations ---

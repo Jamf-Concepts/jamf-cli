@@ -10,7 +10,6 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/Jamf-Concepts/jamf-cli/internal/output"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 )
 
@@ -26,12 +25,16 @@ percentages per title.
 Use --scan-failures to also fetch patch policy failure counts. This
 queries the patch policies list endpoint for per-policy status counts.
 
-Output columns: title, id, on_latest, on_other, total, latest, compliance_pct`,
+Output columns: title, id, on_latest, on_other, total, latest, compliance_pct` +
+			multiSectionFormatNote + `
+With --scan-failures the json and yaml document is one array of labelled
+sections. Each section carries a fetch_error field, so an empty section is
+distinguishable from a section that could not be fetched.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !cmd.Flags().Changed("output") {
 				outputFmt = "table"
 			}
-			return runReportPatchStatusFull(cmd.Context(), cliCtx.Client, scanFailures)
+			return runReportPatchStatusFull(cmd.Context(), cliCtx, scanFailures)
 		},
 	}
 
@@ -39,56 +42,90 @@ Output columns: title, id, on_latest, on_other, total, latest, compliance_pct`,
 	return cmd
 }
 
-func runReportPatchStatusFull(ctx context.Context, client registry.HTTPClient, scanFailures bool) error {
+// errString renders an error for a report document. It returns "" for nil so
+// the key is always present, which keeps the document self-describing.
+func errString(err error) string {
+	if err == nil {
+		return ""
+	}
+	return err.Error()
+}
+
+func runReportPatchStatusFull(ctx context.Context, cliCtx *registry.CLIContext, scanFailures bool) error {
+	client := cliCtx.Client
 	rows, err := runReportPatchStatus(ctx, client)
 	if err != nil {
 		return err
 	}
 
-	formatter := output.New(outputFmt, noColor, wide)
-
 	if !scanFailures {
-		return formatter.Print(rows)
+		return printRows(cliCtx, rows)
 	}
 
-	// Print compliance section
-	fmt.Println("── Patch Title Compliance ──")
-	if err := formatter.Print(rows); err != nil {
-		return err
+	// Gathered before rendering. Rendering per section wrote three top-level
+	// arrays into one --out-file, which jq rejects at the second.
+	policyRows, policyErr := runReportPatchPolicyFailures(ctx, client)
+	if policyErr != nil {
+		fmt.Fprintf(os.Stderr, "WARNING: failed to fetch patch policy failures: %v\n", policyErr)
 	}
 
-	// Fetch patch policy failure counts
-	policyRows, err := runReportPatchPolicyFailures(ctx, client)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "WARNING: failed to fetch patch policy failures: %v\n", err)
-		return nil
+	// An empty list prints [], never null. Both are nil on a tenant with no
+	// failures, and jq cannot iterate null.
+	if rows == nil {
+		rows = []map[string]any{}
+	}
+	if policyRows == nil {
+		policyRows = []map[string]any{}
 	}
 
+	deviceRows := []map[string]any{}
+	var deviceErr error
 	if len(policyRows) > 0 {
-		fmt.Printf("\n── Patch Policies With Failures (%d) ──\n", len(policyRows))
-		if err := formatter.Print(policyRows); err != nil {
-			return err
-		}
-
-		// Fetch device-level failures for policies that have them
-		rawDeviceRows, err := fetchPatchDeviceFailures(ctx, client, policyRows)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "WARNING: failed to fetch device-level failures: %v\n", err)
-		} else if len(rawDeviceRows) > 0 {
-			// Enrich with inventory data
+		raw, devErr := fetchPatchDeviceFailures(ctx, client, policyRows)
+		deviceErr = devErr
+		switch {
+		case devErr != nil:
+			fmt.Fprintf(os.Stderr, "WARNING: failed to fetch device-level failures: %v\n", devErr)
+		case len(raw) > 0:
 			lookup := fetchUpdateDeviceLookup(ctx, client)
-			for i, row := range rawDeviceRows {
+			for i, row := range raw {
 				devID, _ := row["device_id"].(string)
 				meta := lookup[devID]
-				rawDeviceRows[i]["serial"] = meta.serial
-				rawDeviceRows[i]["os_version"] = meta.osVersion
-				rawDeviceRows[i]["username"] = meta.username
+				raw[i]["serial"] = meta.serial
+				raw[i]["os_version"] = meta.osVersion
+				raw[i]["username"] = meta.username
 			}
-			fmt.Printf("\n── Devices With Patch Failures (%d) ──\n", len(rawDeviceRows))
-			return formatter.Print(rawDeviceRows)
+			deviceRows = raw
 		}
-	} else {
+	}
+
+	// json and yaml only. A csv or plain rendering of a multi-section report is
+	// N blocks whatever this does, which the help text says.
+	if outputFmt == "json" || outputFmt == "yaml" {
+		return printRows(cliCtx, []map[string]any{
+			{"section": "title_compliance", "data": rows},
+			// A failed fetch and a clean result are both empty, so the
+			// document has to say which one it was.
+			{"section": "policy_failures", "data": policyRows, "fetch_error": errString(policyErr)},
+			{"section": "device_failures", "data": deviceRows, "fetch_error": errString(deviceErr)},
+		})
+	}
+
+	if err := printSection(cliCtx, "── Patch Title Compliance ──\n", rows); err != nil {
+		return err
+	}
+	if policyErr != nil {
+		return nil
+	}
+	if len(policyRows) == 0 {
 		fmt.Fprintln(os.Stderr, "\nNo patch policy failures found.")
+		return nil
+	}
+	if err := printSection(cliCtx, fmt.Sprintf("\n── Patch Policies With Failures (%d) ──\n", len(policyRows)), policyRows); err != nil {
+		return err
+	}
+	if len(deviceRows) > 0 {
+		return printSection(cliCtx, fmt.Sprintf("\n── Devices With Patch Failures (%d) ──\n", len(deviceRows)), deviceRows)
 	}
 
 	return nil

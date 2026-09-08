@@ -5,6 +5,7 @@ package output
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"strings"
 	"testing"
 )
@@ -374,5 +375,239 @@ func TestFormatter_Print_Compact_AllFormats(t *testing.T) {
 				t.Errorf("%s: compact should drop %q, got %q", tc.format, tc.mustNotContain, out)
 			}
 		})
+	}
+}
+
+// TestSelectUnionsTheRenderedColumnSet asserts the rendered columns, which is a
+// different question from whether the projector agrees with Apply.
+//
+// A row survives projection when it matched one selected path rather than all
+// of them, so the survivors are heterogeneous. With row 0 deciding the column
+// set, a path row 0 does not carry was a column for no row:
+// `commands -o csv --select command,api` wrote a `command`-only header while
+// `-o json` returned 1375 `api` values, at exit 0 with nothing on either
+// stream.
+//
+// A single-path selection cannot catch this, because "matched something" and
+// "matched every path" coincide there.
+func TestSelectUnionsTheRenderedColumnSet(t *testing.T) {
+	// Row 0 carries only path A; a later row carries only path B.
+	rows := []map[string]any{
+		{"command": "agent-context"},
+		{"command": "pro categories list", "api": "pro"},
+	}
+
+	for _, format := range []string{"table", "csv"} {
+		t.Run(format, func(t *testing.T) {
+			var buf bytes.Buffer
+			f := New(format, true, false)
+			f.SetWriter(&buf)
+			f.SetProjector(Projector{Select: []string{"command", "api"}})
+			if err := f.Print(rows); err != nil {
+				t.Fatalf("Print: %v", err)
+			}
+			out := strings.ToUpper(buf.String())
+			for _, want := range []string{"COMMAND", "API"} {
+				if !strings.Contains(out, want) {
+					t.Errorf("-o %s dropped the %s column, so a selected value reaches no row:\n%s", format, want, buf.String())
+				}
+			}
+			if !strings.Contains(buf.String(), "pro") {
+				t.Errorf("-o %s rendered no api value:\n%s", format, buf.String())
+			}
+		})
+	}
+}
+
+// TestPlainEmitsOneColumnSetForEveryLine pins printPlain's half of the
+// projection refactor. plain is the only positional format, tab-separated with
+// no header, so a per-row key set shifts a consumer's columns with no signal.
+// `commands -o plain --select command,api` emitted 381 one-field lines among
+// 1375 two-field ones, and `cut -f1` read a command name on some of them and an
+// API label on the rest.
+func TestPlainEmitsOneColumnSetForEveryLine(t *testing.T) {
+	rows := []map[string]any{
+		{"command": "agent-context"},
+		{"command": "pro categories list", "api": "pro"},
+	}
+	for name, p := range map[string]Projector{
+		"select":  {Select: []string{"command", "api"}},
+		"compact": {Compact: true},
+	} {
+		t.Run(name, func(t *testing.T) {
+			var buf bytes.Buffer
+			f := New("plain", true, false)
+			f.SetWriter(&buf)
+			f.SetProjector(p)
+			if err := f.Print(rows); err != nil {
+				t.Fatalf("Print: %v", err)
+			}
+			lines := strings.Split(strings.TrimRight(buf.String(), "\n"), "\n")
+			if len(lines) != 2 {
+				t.Fatalf("got %d lines, want 2:\n%s", len(lines), buf.String())
+			}
+			first := len(strings.Split(lines[0], "\t"))
+			for i, line := range lines {
+				if got := len(strings.Split(line, "\t")); got != first {
+					t.Errorf("line %d carries %d fields, line 0 carries %d. plain has no header, so a shifting column set is undetectable: %q",
+						i, got, first, line)
+				}
+			}
+		})
+	}
+}
+
+// TestSelectBypassesTheDefaultColumnHeuristicBeyondItsThreshold pins the
+// `|| len(f.projector.Select) > 0` clause where it differs from f.wide alone.
+// defaultColumns returns every key unchanged at eight columns or fewer, so a
+// narrower selection cannot tell the clause from its absence.
+func TestSelectBypassesTheDefaultColumnHeuristicBeyondItsThreshold(t *testing.T) {
+	row := map[string]any{"general": map[string]any{}}
+	general := row["general"].(map[string]any)
+	for i := range 10 {
+		general[fmt.Sprintf("field%d", i)] = i
+	}
+	var buf bytes.Buffer
+	f := New("table", true, false)
+	f.SetWriter(&buf)
+	f.SetProjector(Projector{Select: []string{"general"}})
+	if err := f.Print([]map[string]any{row}); err != nil {
+		t.Fatalf("Print: %v", err)
+	}
+	out := strings.ToUpper(buf.String())
+	for i := range 10 {
+		want := strings.ToUpper(fmt.Sprintf("general.field%d", i))
+		if !strings.Contains(out, want) {
+			t.Errorf("--select general withheld %s. The default-column heuristic must not second-guess a named selection:\n%s",
+				want, buf.String())
+		}
+	}
+}
+
+// TestNoSelectKeepsRowZeroAsTheColumnSet pins the other half. CLAUDE.md rules
+// out unioning unconditionally, so the union is gated on the projector and an
+// unprojected table stays byte-identical.
+func TestNoSelectKeepsRowZeroAsTheColumnSet(t *testing.T) {
+	rows := []map[string]any{
+		{"name": "a"},
+		{"name": "b", "extra": "x"},
+	}
+	var buf bytes.Buffer
+	f := New("csv", true, false)
+	f.SetWriter(&buf)
+	if err := f.Print(rows); err != nil {
+		t.Fatalf("Print: %v", err)
+	}
+	header := strings.SplitN(buf.String(), "\n", 2)[0]
+	if header != "name" {
+		t.Errorf("header = %q, want %q. Row 0 must still decide without --select", header, "name")
+	}
+}
+
+// TestIsMachineRenderedCoversEveryFormat holds the predicate to Print's own
+// switch. A format Print has no case for reaches printTable through the default
+// arm, so it does take a section banner.
+//
+// Every constant is listed, so adding one to internal/output without deciding
+// its answer fails here rather than defaulting silently.
+func TestIsMachineRenderedCoversEveryFormat(t *testing.T) {
+	want := map[Format]bool{
+		FormatJSON:      true,
+		FormatJSONMulti: true,
+		FormatNDJSON:    true,
+		FormatYAML:      true,
+		FormatCSV:       true,
+		FormatPlain:     true,
+		// Print has no case for these two: they render as a table, so they
+		// take a banner like any other table.
+		FormatXML:   false,
+		FormatRaw:   false,
+		FormatTable: false,
+	}
+	for format, expected := range want {
+		t.Run(string(format), func(t *testing.T) {
+			if got := IsMachineRendered(format); got != expected {
+				t.Errorf("IsMachineRendered(%q) = %v, want %v", format, got, expected)
+			}
+		})
+	}
+
+	// The count is the vacuity guard: a new Format constant must be added
+	// above, with its answer decided, rather than inheriting a default.
+	if len(want) != len(allFormatsForTest()) {
+		t.Errorf("the table covers %d formats but internal/output declares %d. Decide the new one's answer", len(want), len(allFormatsForTest()))
+	}
+}
+
+// allFormatsForTest is every Format constant the package declares.
+func allFormatsForTest() []Format {
+	return []Format{
+		FormatJSON, FormatJSONMulti, FormatNDJSON, FormatYAML,
+		FormatCSV, FormatPlain, FormatXML, FormatRaw, FormatTable,
+	}
+}
+
+// TestProjectionMatchingNothingRendersNothing covers the defect this area
+// started from. A projection that matches no field in any row leaves every row
+// empty, and printTable wrote "RESULTS (N total)" above a blank header while
+// printCSV wrote an empty header plus one empty line per row.
+//
+// Writing nothing is a renderer decision rather than a caller one. Caller-side
+// guards each produced a new defect one arm over.
+//
+// All four renderers are listed. Covering table and csv alone left plain
+// rendering one blank line per row, and printDetail printing its DETAILS header
+// over an empty field list, which every generated single-object get reaches.
+func TestProjectionMatchingNothingRendersNothing(t *testing.T) {
+	rows := []map[string]any{{"id": "1"}, {"id": "2"}}
+	for _, format := range []string{"table", "csv", "plain"} {
+		t.Run(format, func(t *testing.T) {
+			var buf bytes.Buffer
+			f := New(format, true, false)
+			f.SetWriter(&buf)
+			f.SetProjector(Projector{Select: []string{"nosuchfield"}})
+			if err := f.Print(rows); err != nil {
+				t.Fatalf("Print: %v", err)
+			}
+			if buf.Len() != 0 {
+				t.Errorf("-o %s rendered %q over no columns", format, buf.String())
+			}
+		})
+	}
+
+	// A single object reaches printDetail through Print's default arm.
+	t.Run("detail", func(t *testing.T) {
+		var buf bytes.Buffer
+		f := New("table", true, false)
+		f.SetWriter(&buf)
+		f.SetProjector(Projector{Select: []string{"nosuchfield"}})
+		if err := f.Print(map[string]any{"id": "1"}); err != nil {
+			t.Fatalf("Print: %v", err)
+		}
+		if buf.Len() != 0 {
+			t.Errorf("printDetail rendered %q over no fields", buf.String())
+		}
+	})
+}
+
+// TestCompactUnionsTheColumnSet is --select's sibling. projectCompact keeps a
+// key only in the rows that carry a value for it, which leaves rows
+// heterogeneous the same way --select does. Gating the union on Select alone
+// let --compact delete a whole column.
+func TestCompactUnionsTheColumnSet(t *testing.T) {
+	// Row 0 has no "note"; row 1 does. Compact drops empty values.
+	rows := []map[string]any{
+		{"id": "1", "name": "a", "note": ""},
+		{"id": "2", "name": "b", "note": "seen"},
+	}
+	var buf bytes.Buffer
+	f := New("csv", true, false)
+	f.SetWriter(&buf)
+	f.SetProjector(Projector{Compact: true})
+	if err := f.Print(rows); err != nil {
+		t.Fatalf("Print: %v", err)
+	}
+	if !strings.Contains(buf.String(), "note") {
+		t.Errorf("--compact dropped the note column, so row 1's value reaches nothing:\n%s", buf.String())
 	}
 }

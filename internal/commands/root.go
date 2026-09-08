@@ -117,15 +117,46 @@ func (o *cliOutput) PrintRaw(data []byte) error {
 		return fmt.Errorf("cannot extract field %q from scalar value", fieldName)
 	}
 
-	parts := strings.Split(fieldName, ".")
+	w := o.Writer()
+	if w == nil {
+		w = os.Stdout
+	}
+	return printFieldValues(w, objects, fieldName)
+}
+
+// printFieldValues writes one extracted value per line for --field.
+//
+// It takes the writer rather than reaching for os.Stdout, which is what --field
+// used to do. That split one report between two destinations: the section
+// headers of a multi-section report follow --out-file through the formatter
+// while the values went to the terminal, so `--field source --out-file f` left
+// f holding a 28-byte header and put 3917 bytes of values on stdout, exit 0.
+// With no -o at all, f was 0 bytes, which is the signature issue #349 reports.
+//
+// Shared by cliOutput.PrintRaw, which parses bytes off the wire first, and by
+// printRows, which already holds the rows. Two callers, one extraction, so the
+// two cannot disagree about what --field means.
+func printFieldValues(w io.Writer, objects []map[string]any, field string) error {
+	parts := strings.Split(field, ".")
+	written := 0
 	for _, obj := range objects {
 		val, ok := walkFieldPath(obj, parts)
 		if !ok {
 			continue
 		}
-		if _, err := fmt.Fprintln(os.Stdout, output.FormatValue(val)); err != nil {
+		if _, err := fmt.Fprintln(w, output.FormatValue(val)); err != nil {
 			return err
 		}
+		written++
+	}
+	// Reported here rather than at either caller, so the byte route through
+	// PrintRaw and the row route through printRows both say it. A --field miss
+	// writes nothing at all, so without this `commands --field nosuchfield
+	// --out-file f` left f at 0 bytes with both streams empty at exit 0.
+	// Not suppressed by --quiet or --no-hints: the formatter's projection-miss
+	// note follows the same rule.
+	if written == 0 && len(objects) > 0 {
+		fmt.Fprintf(os.Stderr, "--field %s matched no field in %d row(s)\n", field, len(objects))
 	}
 	return nil
 }
@@ -145,6 +176,26 @@ func walkFieldPath(obj map[string]any, parts []string) (any, bool) {
 		}
 	}
 	return current, true
+}
+
+// buildOutputFormatter assembles the one formatter every command prints
+// through, shared by all products and by the auth-skipped commands. It is the
+// only sanctioned call to output.New in the tree: a formatter built anywhere
+// else receives none of the setters below, so --out-file, --select, --compact,
+// --quiet and --no-hints are parsed and then discarded, with no symptom, since
+// --out-file still creates the file and the payload still reaches standard
+// output. TestNoFileBuildsItsOwnOutputFormatter refuses a second construction
+// site, this file included.
+func buildOutputFormatter(outFileHandle *os.File, explicitNoColor bool) *output.Formatter {
+	formatter := output.New(outputFmt, noColor, wide)
+	if outFileHandle != nil {
+		formatter.SetWriter(outFileHandle)
+	}
+	formatter.SetProjector(output.Projector{Compact: compact, Select: selectFields})
+	formatter.SetQuiet(quiet)
+	formatter.SetNoHints(noHints)
+	formatter.SetExplicitNoColor(explicitNoColor)
+	return formatter
 }
 
 // shouldShowSpinner reports whether HTTP clients should be wrapped to display
@@ -749,15 +800,7 @@ in the config file. It never runs in CI, when output is piped, or under
 				outFileHandle = f
 				noColor = true
 			}
-			formatter := output.New(outputFmt, noColor, wide)
-			if outFileHandle != nil {
-				formatter.SetWriter(outFileHandle)
-			}
-			formatter.SetProjector(output.Projector{Compact: compact, Select: selectFields})
-			formatter.SetQuiet(quiet)
-			formatter.SetNoHints(noHints)
-			formatter.SetExplicitNoColor(explicitNoColor)
-			cliCtx.Output = &cliOutput{formatter}
+			cliCtx.Output = &cliOutput{buildOutputFormatter(outFileHandle, explicitNoColor)}
 			// Set before any product branch: the Protect, School and Security
 			// Cloud paths return from here directly, so an assignment made
 			// alongside the Pro client would leave DryRun false for exactly the
@@ -971,8 +1014,8 @@ in the config file. It never runs in CI, when output is piped, or under
 	cmd.PersistentFlags().BoolVar(&noColor, "no-color", false, "disable colored output")
 	cmd.PersistentFlags().BoolVarP(&dryRun, "dry-run", "n", false, "preview changes without executing")
 	cmd.PersistentFlags().BoolVarP(&wide, "wide", "w", false, "show all columns in table output")
-	cmd.PersistentFlags().BoolVar(&compact, "compact", false, "keep only high-signal scalar fields (identity + fields common across rows); smaller payloads for agents; ignored when --field is set")
-	cmd.PersistentFlags().StringSliceVar(&selectFields, "select", nil, "project output to these dot-path fields only, e.g., --select id,general.name,udid (ignored when --field is set)")
+	cmd.PersistentFlags().BoolVar(&compact, "compact", false, "keep only high-signal scalar fields (identity + fields common across rows); smaller payloads for agents; table/csv/plain take the column union across rows, and render nothing when no field matches; ignored when --field is set")
+	cmd.PersistentFlags().StringSliceVar(&selectFields, "select", nil, "project output to these dot-path fields only, e.g., --select id,general.name,udid; shows a named field without --wide; table/csv/plain take the column union across rows, and render nothing when no field matches (ignored when --field is set)")
 	cmd.PersistentFlags().StringVar(&outFile, "out-file", "", "write output to file instead of stdout")
 	cmd.PersistentFlags().StringVar(&fieldName, "field", "", "extract a single field from JSON response (e.g., --field id)")
 	cmd.PersistentFlags().BoolVar(&allowPartialFailure, "allow-partial-failure", false, "downgrade a partial batch failure (some items failed) to a warning and exit 0")
@@ -998,13 +1041,13 @@ in the config file. It never runs in CI, when output is piped, or under
 	cmd.AddCommand(newCompletionCmd())
 
 	// Commands discovery subcommand
-	cmd.AddCommand(newCommandsCmd(cmd))
+	cmd.AddCommand(newCommandsCmd(cmd, cliCtx))
 
 	// Agent operating guide (auth, exit codes, flags, MCP)
 	cmd.AddCommand(newAgentContextCmd())
 
 	// Multi-profile command runner
-	cmd.AddCommand(newMultiCmd())
+	cmd.AddCommand(newMultiCmd(cliCtx))
 
 	// MCP server (exposes the command tree to AI clients over stdio)
 	cmd.AddCommand(newMCPCmd())
@@ -1146,18 +1189,21 @@ func isFullDetailFormat(format string) bool {
 
 // newCommandsCmd creates the "commands" subcommand that outputs the full
 // command tree in a machine-readable format.
-func newCommandsCmd(root *cobra.Command) *cobra.Command {
+func newCommandsCmd(root *cobra.Command, cliCtx *registry.CLIContext) *cobra.Command {
 	return &cobra.Command{
 		Use:   "commands",
 		Short: "List all available commands",
 		Long:  `List all available commands in a structured format for discovery by scripts and AI agents.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			entries := collectCommands(root, "", "", "")
-			formatter := output.New(outputFmt, noColor, wide)
 			// Structured formats always get full detail; table/plain
 			// show only command+description unless --wide is set.
-			full := wide || isFullDetailFormat(outputFmt)
-			return formatter.Print(commandEntriesToMaps(entries, full))
+			// --select names its own fields, so the narrow row set must not
+			// hide them: `commands -o table --select api` rendered nothing,
+			// because `api` is only in the wide rows and the projection then
+			// matched no field in any row.
+			full := wide || isFullDetailFormat(outputFmt) || len(selectFields) > 0
+			return printRows(cliCtx, commandEntriesToMaps(entries, full))
 		},
 	}
 }

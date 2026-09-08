@@ -1095,7 +1095,7 @@ func TestRunDiff_UnreadableSourceDirectoryErrors(t *testing.T) {
 	src := unreadableBackupDirForTest(t)
 	tgt := t.TempDir()
 
-	if err := runDiff(context.Background(), diffOptions{Source: src, Target: tgt}); err == nil {
+	if err := runDiff(context.Background(), reportTestCtx(nil), diffOptions{Source: src, Target: tgt}); err == nil {
 		t.Error("expected runDiff to fail on an unreadable source, got nil (diff would print \"No differences found\" and exit 0)")
 	}
 }

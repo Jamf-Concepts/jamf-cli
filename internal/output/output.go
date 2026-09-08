@@ -171,8 +171,44 @@ func New(format string, noColor bool, wide bool) *Formatter {
 	}
 }
 
+// WithFormat returns a copy of f rendering in format, keeping the writer, the
+// projector and the advisory settings. A command whose own argument names the
+// format uses it so --out-file, --select and --compact still apply.
+//
+// The copy is shallow, which is safe only while every field is a value or an
+// immutable reference: Select's backing array is never mutated after
+// SetProjector, and writer is an interface the clone shares deliberately.
+// formatterFor clones once per report section, so a future pointer, map or
+// buffer field would alias mutable state across every section.
+func (f *Formatter) WithFormat(format string) *Formatter {
+	c := *f
+	c.format = Format(format)
+	return &c
+}
+
+// IsMachineRendered reports whether Print renders format with a non-table
+// renderer whose output a parser reads, so a section banner must not be written
+// above it.
+//
+// It sits beside Print's own switch, because the answer follows that switch.
+// Print has no case for FormatXML or FormatRaw, so both reach printTable
+// through the default arm and both take a banner.
+//
+// FormatPlain counts as machine-rendered here. It has no header row, so a
+// banner between runs of it is data a reader cannot separate from a record.
+func IsMachineRendered(format Format) bool {
+	switch format {
+	case FormatJSON, FormatJSONMulti, FormatNDJSON, FormatYAML, FormatCSV, FormatPlain:
+		return true
+	}
+	return false
+}
+
 // Print outputs data in the configured format
 func (f *Formatter) Print(data any) error {
+	if rows, ok := data.([]map[string]any); ok {
+		f.reportProjectionMiss(rows)
+	}
 	data = f.applyProjection(data)
 
 	rowCount := -1
@@ -208,6 +244,33 @@ func (f *Formatter) Print(data any) error {
 	return err
 }
 
+// reportProjectionMiss says on stderr that --select or --compact matched no
+// field in any row.
+//
+// printTable, printCSV, printPlain and printDetail all decline an empty column
+// set, so without the note `commands -o table --select nosuchfield` writes zero
+// bytes on both streams and exits 0. printJSON and its siblings still emit a
+// document of empty objects.
+//
+// It lives here rather than at each caller so no caller can forget it, and
+// --quiet and --no-hints do not suppress it. Those flags suppress advisory
+// hints, and under the four declining renderers this note is the only signal
+// separating a mistyped field name from an empty collection.
+func (f *Formatter) reportProjectionMiss(rows []map[string]any) {
+	if !f.projector.RendersNothing(rows) {
+		return
+	}
+	flag := "--compact"
+	if paths := cleanPaths(f.projector.Select); len(paths) > 0 {
+		flag = "--select " + strings.Join(paths, ",")
+	}
+	w := f.stderr
+	if w == nil {
+		w = os.Stderr
+	}
+	_, _ = fmt.Fprintf(w, "%s matched no field in %d row(s)\n", flag, len(rows))
+}
+
 // maybePrintListHint writes a one-line stderr hint suggesting how to
 // narrow large list output. Skipped in --quiet mode, when the count is
 // below threshold, and for table format (which already shows "(N total)"
@@ -217,6 +280,11 @@ func (f *Formatter) maybePrintListHint(rowCount int) {
 		return
 	}
 	if f.format == FormatTable || f.format == "" {
+		return
+	}
+	// The count is pre-projection, so this recommended more of a flag that had
+	// already emptied the output.
+	if !f.projector.IsZero() {
 		return
 	}
 	w := f.stderr
@@ -334,7 +402,12 @@ func (f *Formatter) printCSV(data any) error {
 			return nil
 		}
 		v = flattenRows(v)
-		headers := sortedKeys(v[0])
+		headers := f.columnKeys(v)
+		// An empty header plus one empty line per row is not a CSV a parser can
+		// read.
+		if len(headers) == 0 {
+			return nil
+		}
 		_ = w.Write(headers)
 		for _, row := range v {
 			vals := make([]string, len(headers))
@@ -355,8 +428,13 @@ func (f *Formatter) printPlain(data any) error {
 	switch v := data.(type) {
 	case []map[string]any:
 		v = flattenRows(v)
+		// plain is positional and has no header, so per-row keys shift a
+		// consumer's columns with no signal at all.
+		keys := f.columnKeys(v)
+		if len(keys) == 0 {
+			return nil
+		}
 		for _, row := range v {
-			keys := sortedKeys(row)
 			vals := make([]string, len(keys))
 			for i, k := range keys {
 				vals[i] = FormatValue(row[k])
@@ -384,11 +462,18 @@ func (f *Formatter) printTable(data any) error {
 	// Flatten nested objects to dot-notation columns for readable table output
 	rows = flattenRows(rows)
 
-	allKeys := sortedKeys(rows[0])
+	allKeys := f.columnKeys(rows)
+	// No columns means the projection matched nothing in any row. It used to
+	// print "RESULTS (N total)" above a blank header.
+	if len(allKeys) == 0 {
+		return nil
+	}
 
-	// Filter columns unless --wide is set
+	// --select is itself the narrowing request, so the default-column heuristic
+	// must not narrow it again. It dropped `api` from
+	// `commands -o table --select command,api` until --wide was added.
 	var keys []string
-	if f.wide {
+	if f.wide || len(f.projector.Select) > 0 {
 		keys = allKeys
 	} else {
 		keys = defaultColumns(allKeys, rows[0])
@@ -474,6 +559,11 @@ func (f *Formatter) printDetail(obj map[string]any) error {
 	}
 	row := flat[0]
 	keys := sortedKeys(row)
+	// flattenRows never drops an empty row, so the guard above cannot fire for
+	// a projection that matched nothing. Every generated get reaches here.
+	if len(keys) == 0 {
+		return nil
+	}
 
 	fieldW := len("FIELD")
 	for _, k := range keys {
@@ -622,6 +712,34 @@ func keyPriority(key string) int {
 		return 1
 	}
 	return 2
+}
+
+// columnKeys returns the column set for rows, in sortedKeys' order.
+//
+// Row 0 alone decides it without a projector, which is the documented
+// convention and keeps every existing table byte-identical.
+//
+// Both --select and --compact leave rows heterogeneous, because a row keeps a
+// key only when it carried a match. With row 0 deciding, a key row 0 lacks
+// became a column for no row: `commands -o csv --select command,api` wrote a
+// `command`-only header while `-o json` returned 1375 `api` values.
+//
+// Unioning unconditionally changes every table in the CLI, which CLAUDE.md
+// rules out.
+func (f *Formatter) columnKeys(rows []map[string]any) []string {
+	if len(rows) == 0 {
+		return nil
+	}
+	if f.projector.IsZero() {
+		return sortedKeys(rows[0])
+	}
+	union := make(map[string]any, len(rows[0]))
+	for _, row := range rows {
+		for k := range row {
+			union[k] = nil
+		}
+	}
+	return sortedKeys(union)
 }
 
 // sortedKeys returns map keys in deterministic order:

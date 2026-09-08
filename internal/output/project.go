@@ -16,8 +16,24 @@ type Projector struct {
 }
 
 // IsZero reports whether the projector has no rules configured.
+//
+// Select is measured after trimming, because projectSelect drops a blank path
+// and returns the rows unprojected when none survives. Reading the raw length
+// made `--select " "` render wider than --wide.
 func (p Projector) IsZero() bool {
-	return !p.Compact && len(p.Select) == 0
+	return !p.Compact && len(cleanPaths(p.Select)) == 0
+}
+
+// cleanPaths drops blank and whitespace-only dot paths. A shell variable that
+// expanded to nothing is the usual source of one.
+func cleanPaths(paths []string) []string {
+	cleaned := make([]string, 0, len(paths))
+	for _, p := range paths {
+		if p = strings.TrimSpace(p); p != "" {
+			cleaned = append(cleaned, p)
+		}
+	}
+	return cleaned
 }
 
 // Apply returns rows projected per the configured rules.
@@ -34,26 +50,51 @@ func (p Projector) Apply(rows []map[string]any) []map[string]any {
 	}
 	switch {
 	case len(p.Select) > 0:
-		return projectSelect(flattenRowsRaw(rows), p.Select)
+		return p.selectRows(rows)
 	case p.Compact:
 		return projectCompact(flattenRows(rows))
 	}
 	return flattenRows(rows)
 }
 
-// projectSelect keeps only the requested dot paths.
-// A path matches a flattened key directly OR a flattened key prefixed with
-// "<path>." — so --select general returns every general.* field, and
-// --select general.name returns just that one. Missing paths are silently
-// omitted (a row may end up empty if no path matched).
-func projectSelect(rows []map[string]any, paths []string) []map[string]any {
-	cleaned := make([]string, 0, len(paths))
-	for _, p := range paths {
-		p = strings.TrimSpace(p)
-		if p != "" {
-			cleaned = append(cleaned, p)
+// RendersNothing reports whether the projector leaves every row with no fields,
+// which is when a renderer produces no output for them.
+//
+// It does not filter rows. Dropping the emptied rows instead left the survivors
+// heterogeneous, which moved the defect into the column set and then into every
+// per-format contract. The renderers decline an empty column set themselves, so
+// a caller decides only its own banner.
+func (p Projector) RendersNothing(rows []map[string]any) bool {
+	if p.IsZero() || len(rows) == 0 {
+		return false
+	}
+	for _, row := range p.Apply(rows) {
+		if len(row) > 0 {
+			return false
 		}
 	}
+	return true
+}
+
+// selectRows runs the Select projection. Apply and RendersNothing must answer
+// about the same rows, or a caller withholds a header above output the renderer
+// does produce.
+//
+// Spelling the pipeline out at both call sites let them diverge: Apply
+// flattened first while the guard projected raw rows, so a nested path matched
+// nothing and suppressed a whole report at exit 0.
+func (p Projector) selectRows(rows []map[string]any) []map[string]any {
+	return projectSelect(flattenRowsRaw(rows), p.Select)
+}
+
+// projectSelect keeps only the requested dot paths.
+//
+// A path matches a flattened key directly OR a flattened key prefixed with
+// "<path>.", so --select general returns every general.* field, and
+// --select general.name returns just that one. A path that matches nothing is
+// silently omitted, so a row can end up empty.
+func projectSelect(rows []map[string]any, paths []string) []map[string]any {
+	cleaned := cleanPaths(paths)
 	if len(cleaned) == 0 {
 		return rows
 	}
