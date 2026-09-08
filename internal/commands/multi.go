@@ -44,7 +44,10 @@ shown. The -- separator is optional but recommended when the inner
 command has flags that could conflict with multi's flags.
 
 Report commands are automatically aggregated: summaries are combined and
-detail rows are merged with a profile column added.
+detail rows are merged with a profile column added. An aggregation renders one
+section per merged key, and each section is a complete top-level document, so
+-o csv, ndjson and plain write one undelimited block per section. Use -o json
+or -o yaml for a single parseable file.
 
 Examples:
   # Interactive profile selection (no multi flags, no -- needed)

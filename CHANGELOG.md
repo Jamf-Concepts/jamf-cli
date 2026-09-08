@@ -148,8 +148,9 @@ in hand.
   `ndjson`, `csv` and `plain` get no `── Section ──` lines. `xml` and `raw` keep theirs,
   because they render as tables. A multi-section report still emits one block per section
   under `csv`, `ndjson` and `plain`, now with nothing between the blocks. Use `-o json` or
-  `-o yaml` for a single parseable file. Every affected command states this in its
-  `--help`.
+  `-o yaml` for a single parseable file. All seven `pro report` commands with more than one
+  section say so in their `--help`, from one shared string, and so does `multi`, whose
+  aggregation renders one section per merged key.
 - **`pro report patch-status --scan-failures -o json` now writes one array of labelled
   sections.** It wrote three separate documents into the same file, which `jq` rejects at
   the second one. Each section carries a `fetch_error` field. An empty section and a

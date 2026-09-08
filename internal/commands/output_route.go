@@ -9,6 +9,20 @@ import (
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 )
 
+// multiSectionFormatNote is the --help caveat for a command that renders more
+// than one section. Each section is a complete top-level document, so csv,
+// ndjson and plain produce N of them in one destination with nothing between,
+// the section banner being suppressed for a format a parser reads.
+//
+// One constant rather than a copy per command: five commands carried the
+// sentence and two with the same shape were missed.
+const multiSectionFormatNote = `
+
+With no -o flag, this report writes a table. Then --out-file receives that
+table, not JSON. Use -o json or -o yaml to write structured data to the file.
+Those two emit one document holding every section. csv, ndjson and plain emit
+one undelimited block per section, which no parser reads as a single file.`
+
 // printRows renders rows through the shared formatter, which is where
 // --out-file, --select, --compact, --quiet and --no-hints apply.
 //

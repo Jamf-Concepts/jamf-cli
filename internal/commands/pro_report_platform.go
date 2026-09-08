@@ -342,7 +342,7 @@ func newReportDDMStatusCmd(cliCtx *registry.CLIContext) *cobra.Command {
 per-declaration status counts. Each declaration is resolved to its source
 blueprint (name and ID) where possible.
 
-Requires platform gateway auth.`,
+Requires platform gateway auth.` + multiSectionFormatNote,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if err := requirePlatformClient(cliCtx); err != nil {
 				return err

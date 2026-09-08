@@ -90,12 +90,7 @@ Examples:
   jamf-cli pro report profile-status
 
   # Narrow the window
-  jamf-cli pro report profile-status --days 7
-
-With no -o flag, this report writes a table. Then --out-file receives that
-table, not JSON. Use -o json or -o yaml to write structured data to the file.
-Those two emit one document holding every section. csv, ndjson and plain emit
-one undelimited block per section, which no parser reads as a single file.`,
+  jamf-cli pro report profile-status --days 7` + multiSectionFormatNote,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !cmd.Flags().Changed("output") {
 				outputFmt = "table"
@@ -124,12 +119,7 @@ Examples:
   jamf-cli pro report app-status
 
   # Narrow the window
-  jamf-cli pro report app-status --days 7
-
-With no -o flag, this report writes a table. Then --out-file receives that
-table, not JSON. Use -o json or -o yaml to write structured data to the file.
-Those two emit one document holding every section. csv, ndjson and plain emit
-one undelimited block per section, which no parser reads as a single file.`,
+  jamf-cli pro report app-status --days 7` + multiSectionFormatNote,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !cmd.Flags().Changed("output") {
 				outputFmt = "table"

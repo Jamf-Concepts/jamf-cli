@@ -25,14 +25,11 @@ percentages per title.
 Use --scan-failures to also fetch patch policy failure counts. This
 queries the patch policies list endpoint for per-policy status counts.
 
-Output columns: title, id, on_latest, on_other, total, latest, compliance_pct
-
-With no -o flag, this report writes a table. Then --out-file receives that
-table, not JSON. Use -o json or -o yaml to write structured data to the file.
-With --scan-failures those two emit one array of labelled sections. Each
-section carries a fetch_error field, so an empty section is distinguishable
-from a section that could not be fetched. csv, ndjson and plain emit one
-undelimited block per section, which no parser reads as a single file.`,
+Output columns: title, id, on_latest, on_other, total, latest, compliance_pct` +
+			multiSectionFormatNote + `
+With --scan-failures the json and yaml document is one array of labelled
+sections. Each section carries a fetch_error field, so an empty section is
+distinguishable from a section that could not be fetched.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !cmd.Flags().Changed("output") {
 				outputFmt = "table"
