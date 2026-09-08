@@ -1079,6 +1079,47 @@ func TestSelectMatchingNothingLeavesNoOrphanBanner(t *testing.T) {
 	}
 }
 
+// TestSelectReachesAWideOnlyFieldOnANarrowFormat pins the row-set half of
+// --select, in newCommandsCmd rather than in the formatter.
+//
+// `full := wide || isFullDetailFormat(outputFmt) || len(selectFields) > 0` is
+// what puts a wide-only field into the rows at all. Deleting the --select
+// clause left the whole package green: every other test names a field the
+// narrow row set already carries, or one no row carries, or drives the
+// formatter directly.
+//
+// This is a different clause from the one
+// TestSelectBypassesTheDefaultColumnHeuristicBeyondItsThreshold covers. That
+// test pins the formatter declining to re-narrow a named selection; this one
+// pins the field being in the row set to begin with. Both are needed, because
+// either alone renders nothing.
+//
+// A regression here is silent in a way the earlier rounds were not: the
+// renderers decline an empty column set, so the answer is 0 bytes on stdout —
+// and reportProjectionMiss names the miss, which is the only reason it is
+// visible at all. main's commands_catalog_projection_test.go looks like it
+// covers this surface and cannot: it passes `full` hardcoded.
+//
+// table, plain, xml and raw are the four narrow formats. Every one is listed,
+// because isFullDetailFormat naming a format is what takes it off this path.
+func TestSelectReachesAWideOnlyFieldOnANarrowFormat(t *testing.T) {
+	for _, format := range []string{"table", "plain", "xml", "raw"} {
+		t.Run(format, func(t *testing.T) {
+			restoreOutputFlags(t)
+			// `api` is a wide-only field on the catalog rows, and
+			// platform-gateway is a value it carries.
+			stdout, stderr, err := runRoot(t, "commands", "-o", format, "--select", "api", "--quiet")
+			if err != nil {
+				t.Fatalf("commands -o %s --select api: %v", format, err)
+			}
+			if !strings.Contains(stdout, "platform-gateway") {
+				t.Errorf("-o %s --select api rendered no api value — the narrow row set withheld the field the caller named by name.\nstdout: %q\nstderr: %q",
+					format, shortened(stdout), shortened(stderr))
+			}
+		})
+	}
+}
+
 // TestFieldMissIsReportedAndSurvivesQuiet pins reportFieldMiss.
 //
 // It was executed and asserted nowhere: the only test driving a real field miss
