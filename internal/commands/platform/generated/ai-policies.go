@@ -624,13 +624,13 @@ func newAiPoliciesApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "apply",
 		Short: "Create or update an ai-policy by name",
-		Long:  "Create or update an ai-policy so it matches the input.\n\nReads JSON or YAML from --from-file, or from stdin when the flag is absent.\nThe \"name\" field in the input identifies the ai-policy: if an ai-policy with that\nname already exists it is updated (with confirmation), otherwise a new one\nis created.\n\nThe update is a PATCH, but this resource's server replaces \"settings\" wholesale rather\nthan merging it, so send that field complete or the parts you leave out are\nlost. Other top-level fields do keep their current values when omitted.",
+		Long:  "Create or update an ai-policy so it matches the input.\n\nReads JSON or YAML from --from-file, or from stdin when the flag is absent.\nThe \"name\" field in the input identifies the ai-policy: if an ai-policy with that\nname already exists it is updated (with confirmation), otherwise a new one\nis created.\n\nThe update is a PATCH, but this resource's server replaces \"settings\" wholesale rather\nthan merging it, so send that field complete or the parts you leave out are\nlost. Other top-level fields do keep their current values when omitted.\n\nThe lookup and the create are separate requests, so two runs racing on the\nsame absent name (a CI retry, or concurrent jobs) can both create one. Serialise\napply per ai-policy if that matters.\n\nThis writes a draft. A draft is not enforced until it is published, so follow\na successful apply with `platform ai-policies publish <id>` to make it take\neffect. Publishing with nothing pending answers 409.",
 		// No Args validator: the leaf documents no positional, so the root
 		// walker installs refuseStrayPositionals (and the completion clamp that
 		// goes with it). Declaring cobra.NoArgs here instead blocks that and
 		// answers a stray argument with cobra's "unknown command", which is a
 		// parent's error shape, not a leaf's.
-		Annotations: map[string]string{"jamf:api": "platform-gateway", "jamf:privileges": "ai-policies:create,ai-policies:update"},
+		Annotations: map[string]string{"jamf:api": "platform-gateway", "jamf:privileges": "ai-policies:create,ai-policies:update", "jamf:scopes": "environment"},
 		Example:     "  # Apply an ai-policy from a file\n  jamf-cli platform ai-policies apply --from-file ai-policy.yaml\n\n  # Apply from stdin\n  cat ai-policy.json | jamf-cli platform ai-policies apply\n\n  # Start from a scaffold, edit, apply — no temp file\n  jamf-cli platform ai-policies apply --scaffold | vipe | jamf-cli platform ai-policies apply --yes\n\n  # Preview which of create or update would run\n  jamf-cli platform ai-policies apply --from-file ai-policy.yaml --dry-run\n\n  # Update without the overwrite prompt\n  jamf-cli platform ai-policies apply --from-file ai-policy.yaml --yes",
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if scaffoldFlag {
@@ -703,7 +703,7 @@ func newAiPoliciesApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			if err := platform.ConfirmAction("update", name, yes); err != nil {
 				return err
 			}
-			if err := cliCtx.PlatformSDKClient.Transport().DoWithContentType(cmd.Context(), http.MethodPatch, updatePath, body, "application/json", http.StatusNoContent, nil); err != nil {
+			if err := cliCtx.PlatformSDKClient.Transport().DoWithContentType(cmd.Context(), http.MethodPatch, updatePath, body, "application/merge-patch+json", http.StatusNoContent, nil); err != nil {
 				return fmt.Errorf("apply: updating ai-policy %q (id: %s): %w", name, id, err)
 			}
 			fmt.Fprintf(cmd.ErrOrStderr(), "Updated ai-policy %q (id: %s)\n", name, id)

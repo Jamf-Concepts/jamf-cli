@@ -119,7 +119,7 @@ func newIconsUploadCmd(ctx *registry.CLIContext) *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVar(&flagFile, "file", "", "Path to file to upload (required)")
+	cmd.Flags().StringVar(&flagFile, "file", "", "Path to the file to upload (required; --file, not --from-file: a multipart upload needs a name and a length, so it cannot be piped)")
 	_ = cmd.MarkFlagRequired("file")
 	return cmd
 }

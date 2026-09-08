@@ -2,6 +2,7 @@
 bin/
 dist/
 /jamf-cli
+/site
 
 # Test coverage
 coverage.out

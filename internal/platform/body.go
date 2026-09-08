@@ -59,7 +59,9 @@ func ReadBody(file string, sets []string) (any, error) {
 		if !found {
 			return nil, fmt.Errorf("invalid --set %q: expected key=value", s)
 		}
-		applySet(m, strings.Split(key, "."), parseSetValue(val))
+		if err := applySet(m, strings.Split(key, "."), parseSetValue(val)); err != nil {
+			return nil, fmt.Errorf("--set %q: %w", s, err)
+		}
 	}
 	return m, nil
 }
@@ -84,31 +86,65 @@ func readBodyInput(file string) ([]byte, error) {
 		return raw, nil
 	}
 	stat, err := os.Stdin.Stat()
-	if err != nil || (stat.Mode()&os.ModeCharDevice) != 0 {
+	// A stat failure is not "definitely no input". Collapsing the two sent no
+	// body at all where the caller had piped one, with nothing reported at any
+	// verbosity — the same class of silent wrong answer the empty-pipe rule
+	// above exists to get right, in the branch the rule never covered.
+	if err != nil {
+		return nil, fmt.Errorf("checking stdin: %w", err)
+	}
+	if stat.Mode()&os.ModeCharDevice != 0 {
 		return nil, nil
 	}
-	raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
+	// One byte past the ceiling, so hitting it is distinguishable from real
+	// end-of-input. A LimitReader stopped at exactly the cap returns io.EOF,
+	// which is what a complete body returns too, and a truncated JSON or YAML
+	// document can still parse — so the cut lands as a body missing its
+	// trailing fields, reported as success, on the resources whose own help
+	// says the fields you omit are cleared.
+	raw, err := io.ReadAll(io.LimitReader(os.Stdin, stdinBodyLimit+1))
 	if err != nil {
 		return nil, fmt.Errorf("reading stdin: %w", err)
+	}
+	if len(raw) > stdinBodyLimit {
+		return nil, fmt.Errorf("stdin body exceeds %dMB; use --from-file for a larger payload", stdinBodyLimit>>20)
 	}
 	return raw, nil
 }
 
+// stdinBodyLimit caps a piped request body, matching readApplyInput's ceiling
+// on the Pro side.
+const stdinBodyLimit = 10 << 20
+
 // applySet walks path through m, creating intermediate maps as needed, and
-// stores v at the leaf.
-func applySet(m map[string]any, path []string, v any) {
+// stores v at the leaf. Errors rather than silently clobbering when a path
+// segment already holds a non-object value (e.g. from --from-file or an earlier
+// --set) — matching internal/security's hand-duplicated twin and the Pro
+// generated --set parser's setNestedValue.
+//
+// The permissive version discarded the existing value: --set scope.owner=alice
+// over a body whose scope is the string "team-a" replaced it with
+// {"owner":"alice"}, which is a data-loss edit reported as success. apply is
+// the newest and most consequential caller — its input is a whole desired
+// state — which is why the divergence stopped being tolerable.
+func applySet(m map[string]any, path []string, v any) error {
 	for i, segment := range path {
 		if i == len(path)-1 {
 			m[segment] = v
-			return
+			return nil
 		}
-		next, ok := m[segment].(map[string]any)
+		existing, present := m[segment]
+		next, ok := existing.(map[string]any)
 		if !ok {
+			if present {
+				return fmt.Errorf("cannot set nested key under non-object field %q", segment)
+			}
 			next = map[string]any{}
 			m[segment] = next
 		}
 		m = next
 	}
+	return nil
 }
 
 // parseSetValue decodes typed JSON literals (booleans, numbers, null, arrays,

@@ -167,7 +167,7 @@ them to the package metadata after upload.`,
 		},
 	}
 
-	cmd.Flags().StringVar(&filePath, "file", "", "path to the package file (required)")
+	cmd.Flags().StringVar(&filePath, "file", "", "path to the package file (required; --file, not --from-file: a multipart upload needs a name and a length, so it cannot be piped)")
 	_ = cmd.MarkFlagRequired("file")
 	cmd.Flags().StringVar(&packageName, "name", "", "display name for the package (defaults to filename)")
 	cmd.Flags().StringVar(&categoryID, "category-id", "-1", "category ID for the package")

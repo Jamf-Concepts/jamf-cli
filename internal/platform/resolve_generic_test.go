@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strings"
 	"testing"
 
 	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform"
@@ -286,5 +287,111 @@ func TestMatchesNameInExtraField(t *testing.T) {
 	}
 	if matchesNameIn(domain, "other.com", "domain") {
 		t.Error("a non-matching value must not match")
+	}
+}
+
+// TestResolveIDByName_AmbiguousAcrossPages covers the case per-page matching
+// could not see. Matches were decided one page at a time and the function
+// returned on the first page holding exactly one, so a name repeated either
+// side of a 100-item boundary read as unique — the ambiguity check firing only
+// when both copies happened to land on the same page. The caller then upserted
+// whichever copy sorted first, with no error.
+func TestResolveIDByName_AmbiguousAcrossPages(t *testing.T) {
+	const pageSize = 100
+	mux := http.NewServeMux()
+	path := "/res/v1/items"
+	mux.HandleFunc(path, func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		var results []any
+		if r.URL.Query().Get("page") == "" {
+			// A full first page whose last item carries the target name, so the
+			// lookup has a match in hand *and* a reason to keep paging.
+			for i := range pageSize - 1 {
+				results = append(results, map[string]any{"id": fmt.Sprintf("id-%d", i), "name": fmt.Sprintf("item-%d", i)})
+			}
+			results = append(results, map[string]any{"id": "page1-copy", "name": "Twin"})
+		} else {
+			results = []any{map[string]any{"id": "page2-copy", "name": "Twin"}}
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{"results": results, "totalCount": pageSize + 1})
+	})
+	client := newResolveTestClient(t, mux)
+
+	id, err := ResolveIDByName(context.Background(), client, path, "Twin")
+	if err == nil {
+		t.Fatalf("resolved %q as unique across a page boundary, want an ambiguity error", id)
+	}
+	if IsNotFound(err) {
+		t.Errorf("should not be ErrNotFound, got %v", err)
+	}
+	if !strings.Contains(err.Error(), "ambiguous match: 2") {
+		t.Errorf("error = %v, want it to count both copies", err)
+	}
+}
+
+// TestResolveIDByName_MatchedWithNoID covers a name that matches an item the
+// list gives no ID for. It must not read as absence: a caller that treats
+// ErrNotFound as "create it" — apply does — would otherwise create a second
+// copy of something that already exists, every run, silently.
+//
+// Security Cloud's device groups are the live case. Wire-checked 2026-09-08 on
+// an EU environment credential: a stored group is returned with both id and
+// name, and the implicit "Default Group" is returned with a name alone.
+func TestResolveIDByName_MatchedWithNoID(t *testing.T) {
+	mux := http.NewServeMux()
+	path := "/securitycloud/v2/groups"
+	mux.HandleFunc(path, func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"groups": []any{
+				map[string]any{"name": "Default Group"},
+				map[string]any{"id": "grp-1", "name": "Engineering"},
+			},
+		})
+	})
+	client := newResolveTestClient(t, mux)
+
+	if _, err := ResolveIDByName(context.Background(), client, path, "Default Group"); err == nil {
+		t.Fatal("expected an error for a match the list gives no ID for, got nil")
+	} else if IsNotFound(err) {
+		t.Errorf("must not be ErrNotFound — that is what makes a caller create a duplicate: %v", err)
+	} else if !strings.Contains(err.Error(), "no ID") {
+		t.Errorf("error = %v, want it to say the list returns no ID", err)
+	}
+
+	// The id-bearing sibling in the same response still resolves, so this is a
+	// per-item property and not a per-endpoint one.
+	id, err := ResolveIDByName(context.Background(), client, path, "Engineering")
+	if err != nil {
+		t.Fatalf("id-bearing item: %v", err)
+	}
+	if id != "grp-1" {
+		t.Errorf("id = %q, want grp-1", id)
+	}
+}
+
+// TestResolveIDByName_AmbiguityRemedyIsNotAPositional pins the wording. The
+// error used to say "pass the positional ID to disambiguate", and apply — the
+// caller that most needs the message — takes no positional at all: its whole
+// contract is that the name comes from the body. An error naming a remedy the
+// command cannot offer is worse than a bare failure.
+func TestResolveIDByName_AmbiguityRemedyIsNotAPositional(t *testing.T) {
+	mux := http.NewServeMux()
+	path := "/res/v1/items"
+	mux.HandleFunc(path, func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"results":    []any{map[string]any{"id": "a", "name": "Twin"}, map[string]any{"id": "b", "name": "Twin"}},
+			"totalCount": 2,
+		})
+	})
+	client := newResolveTestClient(t, mux)
+
+	_, err := ResolveIDByName(context.Background(), client, path, "Twin")
+	if err == nil {
+		t.Fatal("expected an ambiguity error")
+	}
+	if strings.Contains(err.Error(), "positional") {
+		t.Errorf("error = %v, want a remedy every caller can satisfy", err)
 	}
 }

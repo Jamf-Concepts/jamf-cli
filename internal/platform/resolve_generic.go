@@ -86,11 +86,12 @@ func resolveIDByName(ctx context.Context, client *jamfplatform.Client, listPath,
 		return "", fmt.Errorf("listing %s: %w", listPath, err)
 	}
 	items, paged := extractItems(raw)
-	if id, err := firstMatch(items, name, nameField); err != nil {
-		return "", err
-	} else if id != "" {
-		return id, nil
-	}
+	// Matches accumulate across every page rather than being decided per page.
+	// Deciding per page returned as soon as one page held a single match, so a
+	// name repeated either side of a 100-item boundary read as unique and the
+	// caller upserted the page-1 item with no ambiguity error — the ambiguity
+	// check firing only when both copies happened to land on the same page.
+	matched, nameless := collectMatches(nil, items, name, nameField)
 
 	// Paginate only if the first response signalled more pages.
 	if paged && len(items) == pageSize {
@@ -109,18 +110,50 @@ func resolveIDByName(ctx context.Context, client *jamfplatform.Client, listPath,
 				return "", fmt.Errorf("listing %s: %w", listPath, err)
 			}
 			pageItems, _ := extractItems(pageRaw)
-			if id, err := firstMatch(pageItems, name, nameField); err != nil {
-				return "", err
-			} else if id != "" {
-				return id, nil
-			}
+			var pageNameless int
+			matched, pageNameless = collectMatches(matched, pageItems, name, nameField)
+			nameless += pageNameless
 			if len(pageItems) < pageSize {
 				break
 			}
 		}
 	}
 
+	switch {
+	case len(matched) == 1:
+		return matched[0], nil
+	case len(matched) > 1:
+		return "", fmt.Errorf("ambiguous match: %d items named %q; identify it by ID instead", len(matched), name)
+	case nameless > 0:
+		// The name matched and the list gave nothing to address it by. Distinct
+		// from ErrNotFound on purpose: a caller that treats absence as "create
+		// it" (apply does) would otherwise create a second copy of something
+		// that already exists, every run, silently. Security Cloud's device
+		// groups are the live case — the implicit "Default Group" is returned
+		// with a name and no id — and a nameless-item report is what CLAUDE.md
+		// records as the fix for the same gap on ZTNA's predefined-derived
+		// apps, where a null name made --name read as a typo.
+		return "", fmt.Errorf("found %d item(s) named %q in %s, but the list returns no ID for them; identify the item by ID instead", nameless, name, listPath)
+	}
+
 	return "", fmt.Errorf("%w: no item with name %q", ErrNotFound, name)
+}
+
+// collectMatches appends the IDs of items whose name matches to matched, and
+// returns the number of matching items the list gave no usable ID for.
+func collectMatches(matched []string, items []map[string]any, name, nameField string) ([]string, int) {
+	nameless := 0
+	for _, item := range items {
+		if !matchesNameIn(item, name, nameField) {
+			continue
+		}
+		if id := extractID(item); id != "" {
+			matched = append(matched, id)
+			continue
+		}
+		nameless++
+	}
+	return matched, nameless
 }
 
 // extractItems pulls the array of items out of a list response envelope.
@@ -157,28 +190,6 @@ func extractItems(raw json.RawMessage) ([]map[string]any, bool) {
 		}
 	}
 	return nil, false
-}
-
-// firstMatch scans items for entries whose name matches. Returns the ID of the
-// first match, or an error when multiple items share the name within this page
-// (ambiguous). Returns ("", nil) when no match is found.
-func firstMatch(items []map[string]any, name, nameField string) (string, error) {
-	var matched []string
-	for _, item := range items {
-		if matchesNameIn(item, name, nameField) {
-			if id := extractID(item); id != "" {
-				matched = append(matched, id)
-			}
-		}
-	}
-	switch len(matched) {
-	case 0:
-		return "", nil
-	case 1:
-		return matched[0], nil
-	default:
-		return "", fmt.Errorf("ambiguous match: %d items named %q; pass the positional ID to disambiguate", len(matched), name)
-	}
 }
 
 // defaultNameFields are the keys a resource's human-readable name is found

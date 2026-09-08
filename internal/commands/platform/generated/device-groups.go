@@ -360,13 +360,13 @@ func newDeviceGroupsApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "apply",
 		Short: "Create or update a device-group by name",
-		Long:  "Create or update a device-group so it matches the input.\n\nReads JSON or YAML from --from-file, or from stdin when the flag is absent.\nThe \"name\" field in the input identifies the device-group: if a device-group with that\nname already exists it is updated (with confirmation), otherwise a new one\nis created.\n\nThe update is a PUT: it replaces the device-group wholesale, so fields you omit are\ncleared. Send a complete body — --scaffold prints one.",
+		Long:  "Create or update a device-group so it matches the input.\n\nReads JSON or YAML from --from-file, or from stdin when the flag is absent.\nThe \"name\" field in the input identifies the device-group: if a device-group with that\nname already exists it is updated (with confirmation), otherwise a new one\nis created.\n\nThe update is a PUT: it replaces the device-group wholesale, so fields you omit are\ncleared. Send a complete body — --scaffold prints one.\n\nThe lookup and the create are separate requests, so two runs racing on the\nsame absent name (a CI retry, or concurrent jobs) can both create one. Serialise\napply per device-group if that matters.",
 		// No Args validator: the leaf documents no positional, so the root
 		// walker installs refuseStrayPositionals (and the completion clamp that
 		// goes with it). Declaring cobra.NoArgs here instead blocks that and
 		// answers a stray argument with cobra's "unknown command", which is a
 		// parent's error shape, not a leaf's.
-		Annotations: map[string]string{"jamf:api": "platform-gateway", "jamf:privileges": "device-groups:create,device-groups:update"},
+		Annotations: map[string]string{"jamf:api": "platform-gateway", "jamf:privileges": "device-groups:create,device-groups:update", "jamf:scopes": "environment,tenant"},
 		Example:     "  # Apply a device-group from a file\n  jamf-cli security device-groups apply --from-file device-group.yaml\n\n  # Apply from stdin\n  cat device-group.json | jamf-cli security device-groups apply\n\n  # Start from a scaffold, edit, apply — no temp file\n  jamf-cli security device-groups apply --scaffold | vipe | jamf-cli security device-groups apply --yes\n\n  # Preview which of create or update would run\n  jamf-cli security device-groups apply --from-file device-group.yaml --dry-run\n\n  # Update without the overwrite prompt\n  jamf-cli security device-groups apply --from-file device-group.yaml --yes",
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if scaffoldFlag {

@@ -441,6 +441,16 @@ func applyLong(a *applySpec) string {
 	default:
 		fmt.Fprintf(&b, "The update is a PUT: it replaces the %s wholesale, so fields you omit are\ncleared. Send a complete body — --scaffold prints one.", a.NameSingular)
 	}
+	// The exists check and the create are two requests, so they are not atomic
+	// and no amount of care on this side makes them so. Stated for every
+	// resource rather than for the ones whose spec declares no name-uniqueness
+	// 409, because a declared 409 is not a promise the server enforces it on
+	// the name — ztna's 409 codes are hostname and reference conflicts — and a
+	// per-resource claim of protection is the one thing worse than the caveat.
+	fmt.Fprintf(&b, "\n\nThe lookup and the create are separate requests, so two runs racing on the\nsame absent %s (a CI retry, or concurrent jobs) can both create one. Serialise\napply per %s if that matters.", a.NameField, a.NameSingular)
+	if a.AfterApply != "" {
+		fmt.Fprintf(&b, "\n\n%s", a.AfterApply)
+	}
 	return strconv.Quote(b.String())
 }
 
@@ -489,6 +499,14 @@ func applyAnnotations(a *applySpec) string {
 	if len(a.Privileges) > 0 {
 		pairs = append(pairs, fmt.Sprintf("%q: %q", "jamf:privileges", strings.Join(a.Privileges, ",")))
 	}
+	// jamf:scopes has to be here for the same reason every other verb carries
+	// it: scopesOf reads this annotation and returns nil when it is absent, so
+	// without it AnnotateScopeLevelError cannot fire for apply and apply drops
+	// out of the commands -o json catalog's scopes field — leaving the one verb
+	// composed of three requests as the only one with no declared level.
+	if len(a.ScopeTypes) > 0 {
+		pairs = append(pairs, fmt.Sprintf("%q: %q", "jamf:scopes", strings.Join(a.ScopeTypes, ",")))
+	}
 	return "map[string]string{" + strings.Join(pairs, ", ") + "}"
 }
 
@@ -510,6 +528,28 @@ func applyAnnotations(a *applySpec) string {
 // wrong thing.
 var platformPatchDoesNotMerge = map[string]string{
 	"ai-policies": "settings",
+}
+
+// platformApplyCaveats names resources whose apply leaves something material
+// undone that the composed verb cannot do for the caller, keyed by resource
+// name. Rendered as the tail of the generated help.
+//
+// ai-policies is the case: CLAUDE.md records the draft/publish split as
+// wire-verified — create and the item PATCH both write a *draft*, and a
+// separate bodyless publish turns the draft into the version that is actually
+// enforced. So apply reports "Updated ai-policy" truthfully and the enforced
+// policy is still whatever was last published, which reads as apply having had
+// no effect.
+//
+// Disclosed rather than published automatically. Publishing is a deliberate,
+// non-idempotent act — CLAUDE.md records that publish with nothing pending
+// answers 409 NO_DRAFT_TO_PUBLISH — and folding it into apply would make one
+// command that writes a draft and promotes it with no way to write a draft
+// alone, which is the workflow the draft/publish split exists to serve.
+var platformApplyCaveats = map[string]string{
+	"ai-policies": "This writes a draft. A draft is not enforced until it is published, so follow\n" +
+		"a successful apply with `platform ai-policies publish <id>` to make it take\n" +
+		"effect. Publishing with nothing pending answers 409.",
 }
 
 // applySpec describes the synthesized `apply` command for one resource.
@@ -542,9 +582,11 @@ type applySpec struct {
 	UpdateCode       int      // success status for the update
 	UpdateHasResult  bool     // update returns a body worth printing
 	UpdateMergePatch bool     // update sends application/merge-patch+json
+	AfterApply       string   // resource-specific caveat for the help tail; empty when there is none
 	Scaffold         string   // create-body scaffold, reused verbatim for --scaffold
 	HasScaffold      bool     // scaffold is non-empty
 	Privileges       []string // union of the three ops' privileges, for the annotation
+	ScopeTypes       []string // union of the scope levels those ops declare, for the annotation
 	PatchReplaces    string   // field a non-merging PATCH replaces wholesale; empty when the method behaves as documented
 }
 
@@ -628,6 +670,10 @@ func buildApplySpec(r *parser.Resource, ownListPath string, nameLookupField stri
 	if nameField == "" {
 		return nil
 	}
+	lookupField := ""
+	if nameField == nameLookupField {
+		lookupField = nameLookupField
+	}
 
 	createCode, createHasResult := successStatus(create)
 	updateCode, updateHasResult := successStatus(update)
@@ -639,9 +685,13 @@ func buildApplySpec(r *parser.Resource, ownListPath string, nameLookupField stri
 	}
 
 	return &applySpec{
-		NameSingular:     singularize(r.Name),
-		NameField:        nameField,
-		NameLookupField:  nameLookupField,
+		NameSingular: singularize(r.Name),
+		NameField:    nameField,
+		// Only when the name apply reads *is* the override: NameField falls
+		// back to the standard three when the create body does not carry the
+		// override, and setting the lookup field anyway would read identity
+		// from one property and search for it under another.
+		NameLookupField:  lookupField,
 		ListPath:         ownListPath,
 		CreatePath:       create.Path,
 		CreateCode:       createCode,
@@ -651,11 +701,13 @@ func buildApplySpec(r *parser.Resource, ownListPath string, nameLookupField stri
 		UpdateParam:      filterTenantPathParams(extractPathParams(update.Path))[0],
 		UpdateCode:       updateCode,
 		UpdateHasResult:  updateHasResult,
-		UpdateMergePatch: update.RequestBody.IsMergePatch,
+		UpdateMergePatch: update.RequestBody.IsMergePatch || strings.EqualFold(update.Method, http.MethodPatch),
 		Scaffold:         scaffold,
 		HasScaffold:      scaffold != "",
 		Privileges:       unionPrivileges(create, update),
+		ScopeTypes:       unionScopeTypes(create, update),
 		PatchReplaces:    platformPatchDoesNotMerge[r.Name],
+		AfterApply:       platformApplyCaveats[r.Name],
 	}
 }
 
@@ -679,6 +731,31 @@ func applyBodyNameField(create *parser.Operation, nameLookupField string) string
 		}
 	}
 	return ""
+}
+
+// unionScopeTypes merges the scope levels the ops apply composes declare.
+//
+// A union rather than one op's list because apply sends all of them: a level
+// that reaches the create but not the list would fail apply on the read, so
+// the honest answer for the composed verb is every level any of its requests
+// declares. In practice a spec declares x-scope-types once at its root and
+// every operation inherits it, so this is a union of identical lists — it is
+// written as a union anyway because the day one operation differs, the
+// alternative is silently reporting the level of whichever op was consulted.
+func unionScopeTypes(ops ...*parser.Operation) []string {
+	seen := map[string]bool{}
+	var out []string
+	for _, op := range ops {
+		for _, st := range op.ScopeTypes {
+			if seen[st] {
+				continue
+			}
+			seen[st] = true
+			out = append(out, st)
+		}
+	}
+	sort.Strings(out)
+	return out
 }
 
 // unionPrivileges merges the privilege lists of the ops apply composes, so its

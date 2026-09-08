@@ -83,10 +83,64 @@ commit types the repo already uses (`feat!`/`build!` for a breaking change).
   exception: its server replaces `settings` wholesale despite the merge-patch content type,
   and its help says so.
 
+  Two things `apply` cannot do for you, both stated in each command's `--help`:
+
+  - **The exists check and the create are separate requests**, so two runs racing on the same
+    absent name — a CI retry, or concurrent jobs — can both create one. Serialise `apply` per
+    resource where that matters. No spec here declares a name-uniqueness `409`, so the server
+    is not a backstop.
+  - **`platform ai-policies apply` writes a draft.** A draft is not enforced until it is
+    published, so follow a successful apply with `platform ai-policies publish <id>`. `apply`
+    does not publish: publishing is non-idempotent (nothing pending answers `409`), and
+    folding it in would leave no way to write a draft alone.
+
 - **The Jamf Security Cloud Radar commands deliberately have no `apply`.** That surface is
   singletons whose `update` is already an idempotent create-or-replace (`stream`, `status`),
   actions (`risk override`, `verification trigger`, `device-lifecycle purge`) and read-only
   documents (`well-known`, `jwks`) — there is no named collection to resolve a name against.
+
+### Behaviour — name lookups report an ambiguity or an unaddressable match instead of guessing
+
+- **A name repeated across a page boundary is now an error.** `--name` and `apply` decided
+  matches one page at a time and returned on the first page holding exactly one, so a name
+  appearing on both sides of a 100-item boundary resolved to whichever copy sorted first,
+  silently. Matches accumulate across every page before the decision, so the ambiguity error
+  fires wherever the copies sit.
+
+- **A name that matches an item the list returns no ID for is no longer reported as "not
+  found".** Absence and "found it, cannot address it" had the same answer, which reads as a
+  typo to a person and as "create it" to `apply`. It now says the list returns no ID for the
+  items it matched. Security Cloud's device groups are the live case: the implicit
+  "Default Group" is returned with a name and no `id`, so
+  `security device-groups apply --set "name=Default Group"` refuses rather than creating a
+  second group named the same. Stored groups are unaffected — they carry an `id` and resolve
+  normally.
+
+- **The ambiguity error no longer tells the caller to "pass the positional ID".** `apply`
+  takes no positional, so on the command that most needs the message it named a remedy the
+  command has no argument for.
+
+### Fixed — Platform writes
+
+- **`apply`'s update sends the same `Content-Type` as the resource's own `patch`.** It was
+  derived from the media type the spec literally declares, so `platform ai-policies apply`
+  sent `application/json` to the URL `platform ai-policies patch` sends
+  `application/merge-patch+json` to (the SDK's default for any bodied `PATCH`) — a
+  divergence on the wire between two commands documented as having the same semantics.
+- **`apply` carries the `jamf:scopes` annotation its sibling verbs carry.** Without it the
+  scope-level note could not fire for `apply`, and `apply` was absent from the `scopes` field
+  in `jamf-cli commands -o json`.
+- **`--set` on a platform command refuses to overwrite a non-object field** rather than
+  discarding it: `--set scope.owner=alice` over a body whose `scope` is a string now errors,
+  matching what the Security Cloud commands already did.
+- **A piped body over 10MB is refused instead of truncated.** The cap returned `io.EOF`,
+  indistinguishable from real end-of-input, and a cut JSON or YAML document can still parse —
+  so a long desired-state document lost its trailing fields and reported success.
+- **A failure to inspect stdin is now reported.** It was collapsed into "no input", so a
+  command could silently send no body where one had been piped.
+- **The renamed-flag hint reaches `-o json`.** It was written straight to stderr, so it
+  landed ahead of the JSON error block in combined output and the envelope's `hint` field
+  was empty — on the one hint a CI job would most want to read structurally.
 
 ## v1.28.0
 

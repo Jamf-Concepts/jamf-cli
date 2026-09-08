@@ -375,13 +375,13 @@ func newZtnaAppsApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "apply",
 		Short: "Create or update a ztna-app by name",
-		Long:  "Create or update a ztna-app so it matches the input.\n\nReads JSON or YAML from --from-file, or from stdin when the flag is absent.\nThe \"name\" field in the input identifies the ztna-app: if a ztna-app with that\nname already exists it is updated (with confirmation), otherwise a new one\nis created.\n\nThe update is a PATCH: fields you omit keep their current values. To clear a\nfield, send it explicitly.",
+		Long:  "Create or update a ztna-app so it matches the input.\n\nReads JSON or YAML from --from-file, or from stdin when the flag is absent.\nThe \"name\" field in the input identifies the ztna-app: if a ztna-app with that\nname already exists it is updated (with confirmation), otherwise a new one\nis created.\n\nThe update is a PATCH: fields you omit keep their current values. To clear a\nfield, send it explicitly.\n\nThe lookup and the create are separate requests, so two runs racing on the\nsame absent name (a CI retry, or concurrent jobs) can both create one. Serialise\napply per ztna-app if that matters.",
 		// No Args validator: the leaf documents no positional, so the root
 		// walker installs refuseStrayPositionals (and the completion clamp that
 		// goes with it). Declaring cobra.NoArgs here instead blocks that and
 		// answers a stray argument with cobra's "unknown command", which is a
 		// parent's error shape, not a leaf's.
-		Annotations: map[string]string{"jamf:api": "platform-gateway", "jamf:privileges": "ztna:create,ztna:update"},
+		Annotations: map[string]string{"jamf:api": "platform-gateway", "jamf:privileges": "ztna:create,ztna:update", "jamf:scopes": "environment,tenant"},
 		Example:     "  # Apply a ztna-app from a file\n  jamf-cli security ztna-apps apply --from-file ztna-app.yaml\n\n  # Apply from stdin\n  cat ztna-app.json | jamf-cli security ztna-apps apply\n\n  # Start from a scaffold, edit, apply — no temp file\n  jamf-cli security ztna-apps apply --scaffold | vipe | jamf-cli security ztna-apps apply --yes\n\n  # Preview which of create or update would run\n  jamf-cli security ztna-apps apply --from-file ztna-app.yaml --dry-run\n\n  # Update without the overwrite prompt\n  jamf-cli security ztna-apps apply --from-file ztna-app.yaml --yes",
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if scaffoldFlag {

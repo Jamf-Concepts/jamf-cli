@@ -985,16 +985,24 @@ in the config file. It never runs in CI, when output is piped, or under
 	// Suggest the nearest flag for unknown-flag typos, then classify as a usage
 	// error (exit 2) so the exit code matches the helpers.go contract.
 	cmd.SetFlagErrorFunc(func(c *cobra.Command, ferr error) error {
+		e := exitcode.Wrap(exitcode.Usage, ferr)
 		const marker = "unknown flag: --"
 		if i := strings.Index(ferr.Error(), marker); i >= 0 {
 			bad := strings.SplitN(ferr.Error()[i+len(marker):], " ", 2)[0]
 			var known []string
 			c.Flags().VisitAll(func(f *pflag.Flag) { known = append(known, f.Name) })
 			if s := suggestFlag(bad, known); s != "" {
-				fmt.Fprintf(os.Stderr, "hint: did you mean --%s?\n", s)
+				// Carried on the error rather than written straight to stderr,
+				// so it lands in the envelope's "hint" field like every other
+				// hint in this CLI. The raw write put the line ahead of the
+				// JSON error block in combined output and left `-o json`'s hint
+				// field empty — so the one hint a caller most needs to
+				// auto-remediate (a renamed flag) was the one they could not
+				// read structurally.
+				e.Hint = fmt.Sprintf("did you mean --%s?", s)
 			}
 		}
-		return exitcode.Wrap(exitcode.Usage, ferr)
+		return e
 	})
 
 	// Global flags
