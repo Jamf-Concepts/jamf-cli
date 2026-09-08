@@ -131,7 +131,7 @@ func (o *cliOutput) PrintRaw(data []byte) error {
 // headers of a multi-section report follow --out-file through the formatter
 // while the values went to the terminal, so `--field source --out-file f` left
 // f holding a 28-byte header and put 3917 bytes of values on stdout, exit 0.
-// With no -o at all, f was 0 bytes — verbatim the signature issue #349 reports.
+// With no -o at all, f was 0 bytes, which is the signature issue #349 reports.
 //
 // Shared by cliOutput.PrintRaw, which parses bytes off the wire first, and by
 // printRows, which already holds the rows. Two callers, one extraction, so the
@@ -180,7 +180,7 @@ func walkFieldPath(obj map[string]any, parts []string) (any, bool) {
 // through, shared by all products and by the auth-skipped commands. It is the
 // only sanctioned call to output.New in the tree: a formatter built anywhere
 // else receives none of the setters below, so --out-file, --select, --compact,
-// --quiet and --no-hints are parsed and then discarded — with no symptom, since
+// --quiet and --no-hints are parsed and then discarded, with no symptom, since
 // --out-file still creates the file and the payload still reaches standard
 // output. TestNoFileBuildsItsOwnOutputFormatter refuses a second construction
 // site, this file included.

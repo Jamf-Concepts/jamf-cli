@@ -19,8 +19,7 @@ type Projector struct {
 //
 // Select is measured after trimming, because projectSelect drops a blank path
 // and returns the rows unprojected when none survives. Reading the raw length
-// made `--select " "` non-zero: it turned on the wide row set and the column
-// union while matching nothing, so a stray space rendered WIDER than --wide.
+// made `--select " "` render wider than --wide.
 func (p Projector) IsZero() bool {
 	return !p.Compact && len(cleanPaths(p.Select)) == 0
 }
@@ -61,12 +60,10 @@ func (p Projector) Apply(rows []map[string]any) []map[string]any {
 // RendersNothing reports whether the projector leaves every row with no fields,
 // which is when a renderer produces no output for them.
 //
-// It answers ONE question: should a caller write a section header above these
-// rows. It does not filter them — an earlier version dropped the emptied rows
-// instead, which made the survivors heterogeneous and moved the defect into the
-// column set, then into per-format contracts, then into every arm of `multi`.
-// The renderers now decline an empty column set themselves, so the only thing
-// left for a caller to decide is its own banner.
+// It does not filter rows. Dropping the emptied rows instead left the survivors
+// heterogeneous, which moved the defect into the column set and then into every
+// per-format contract. The renderers decline an empty column set themselves, so
+// a caller decides only its own banner.
 func (p Projector) RendersNothing(rows []map[string]any) bool {
 	if p.IsZero() || len(rows) == 0 {
 		return false
@@ -79,17 +76,13 @@ func (p Projector) RendersNothing(rows []map[string]any) bool {
 	return true
 }
 
-// selectRows runs the Select projection, and is the only place its input
-// pipeline is written down.
+// selectRows runs the Select projection. Apply and RendersNothing must answer
+// about the same rows, or a caller withholds a header above output the renderer
+// does produce.
 //
-// Apply and RendersNothing must answer about the same rows, or a caller
-// withholds a header above output the renderer does produce. They each spelled
-// the pipeline out once, and diverged: Apply flattened first while the guard
-// projected raw rows, so a nested path matched nothing, emptied every row and
-// suppressed a whole report at exit 0 — the reports built as one row of nested
-// sections for -o json are exactly the shape the guard was added for.
-// `pro report app-status -o json --select summary.total_errors` wrote 0 bytes
-// where main wrote 201, which is verbatim the signature issue #349 reports.
+// Spelling the pipeline out at both call sites let them diverge: Apply
+// flattened first while the guard projected raw rows, so a nested path matched
+// nothing and suppressed a whole report at exit 0.
 func (p Projector) selectRows(rows []map[string]any) []map[string]any {
 	return projectSelect(flattenRowsRaw(rows), p.Select)
 }
@@ -97,7 +90,7 @@ func (p Projector) selectRows(rows []map[string]any) []map[string]any {
 // projectSelect keeps only the requested dot paths.
 //
 // A path matches a flattened key directly OR a flattened key prefixed with
-// "<path>." — so --select general returns every general.* field, and
+// "<path>.", so --select general returns every general.* field, and
 // --select general.name returns just that one. A path that matches nothing is
 // silently omitted, so a row can end up empty.
 func projectSelect(rows []map[string]any, paths []string) []map[string]any {

@@ -13,19 +13,16 @@ import (
 )
 
 // TestEveryMultiSectionReportHonoursItsFormat drives the function that calls
-// printSection in each multi-section report, which no test did: coverage on
-// runReportPatchStatusFull was 0.0% and on the others reached only -o table, so
-// the whole per-format contract was verified by nothing at the command level.
+// printSection in each multi-section report. No other test does:
+// runReportPatchStatusFull was 0% covered and the rest reached only -o table.
 //
-// Two assertions per report, and they are the two the CHANGELOG claims.
-// Under json the output is ONE top-level document, because a caller reads it
-// with jq. Under csv no box-drawing line reaches the stream, because
-// csv.reader yields a one-field row for one.
+// Two assertions per report. Under json the output is one top-level document,
+// because a caller reads it with jq. Under csv no box-drawing line reaches the
+// stream, because csv.Reader yields a one-field row for one.
 //
-// The structs are zero-valued on purpose. Every one of these reports prints its
-// summary section unconditionally, so the empty struct reaches printSection
-// without a mock, and the contract under test is the routing rather than the
-// data.
+// The structs are zero-valued. Each report prints its summary section
+// unconditionally, so an empty struct reaches printSection without a mock, and
+// the routing is what this test covers.
 func TestEveryMultiSectionReportHonoursItsFormat(t *testing.T) {
 	reports := map[string]func(*registry.CLIContext) error{
 		"security": func(c *registry.CLIContext) error {
@@ -71,8 +68,7 @@ func TestEveryMultiSectionReportHonoursItsFormat(t *testing.T) {
 					return
 				}
 
-				// json: one top-level document. N concatenated documents parse
-				// as far as the first and then fail, which is what jq reports.
+				// N concatenated documents parse as far as the first, then fail.
 				body := strings.TrimSpace(out.String())
 				if body == "" {
 					return // a report with nothing to say is allowed to say nothing
@@ -91,7 +87,7 @@ func TestEveryMultiSectionReportHonoursItsFormat(t *testing.T) {
 //
 // update-status needs a non-empty result set: it returns before printSection
 // when both of its collections are empty, so an empty mock made its case
-// vacuous — the banner mutation failed in the other four and passed there.
+// vacuous. The banner mutation failed in the other four and passed there.
 func multiSectionReportMock() *overviewMockClient {
 	empty := overviewMockResponse{200, `{"totalCount":0,"results":[]}`}
 	return &overviewMockClient{

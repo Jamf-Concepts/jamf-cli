@@ -187,20 +187,15 @@ func (f *Formatter) WithFormat(format string) *Formatter {
 }
 
 // IsMachineRendered reports whether Print renders format with a non-table
-// renderer whose output a parser reads — so a section banner must not be
-// written above it.
+// renderer whose output a parser reads, so a section banner must not be written
+// above it.
 //
-// It sits beside Print's own switch on purpose. A caller that hand-wrote the
-// set got it wrong in both directions: Print has no case for FormatXML or
-// FormatRaw, so both reach printTable through the default arm and DO take a
-// banner (TestRawAndXMLRenderTheSameAsTable asserts exactly that), while
-// FormatCSV was omitted and box-drawing banners plus a second header row went
-// into a CSV file, where csv.reader yields a one-field row and pandas raises on
-// the field-count change.
+// It sits beside Print's own switch, because the answer follows that switch.
+// Print has no case for FormatXML or FormatRaw, so both reach printTable
+// through the default arm and both take a banner.
 //
-// FormatPlain is machine-rendered for this purpose too: it emits per-row keys
-// with no shared header, and a banner between runs of it is noise a reader
-// cannot separate from data.
+// FormatPlain counts as machine-rendered here. It has no header row, so a
+// banner between runs of it is data a reader cannot separate from a record.
 func IsMachineRendered(format Format) bool {
 	switch format {
 	case FormatJSON, FormatJSONMulti, FormatNDJSON, FormatYAML, FormatCSV, FormatPlain:
@@ -257,9 +252,8 @@ func (f *Formatter) maybePrintListHint(rowCount int) {
 	if f.format == FormatTable || f.format == "" {
 		return
 	}
-	// Silent while a projector is live. The count is the pre-projection one, so
-	// on a projection that matched nothing this was the only line on stderr and
-	// it recommended more of the flag that had just emptied the output.
+	// The count is pre-projection, so this recommended more of a flag that had
+	// already emptied the output.
 	if !f.projector.IsZero() {
 		return
 	}
@@ -379,11 +373,8 @@ func (f *Formatter) printCSV(data any) error {
 		}
 		v = flattenRows(v)
 		headers := columnKeys(v, !f.projector.IsZero())
-		// A projection that matched nothing leaves rows with no fields. An
-		// empty header line plus one empty line per row is not a CSV a parser
-		// can read, and this is the original defect the whole --select area
-		// came from: a count over no columns reads as a rendering fault rather
-		// than as an absent field.
+		// An empty header plus one empty line per row is not a CSV a parser can
+		// read.
 		if len(headers) == 0 {
 			return nil
 		}
@@ -407,11 +398,8 @@ func (f *Formatter) printPlain(data any) error {
 	switch v := data.(type) {
 	case []map[string]any:
 		v = flattenRows(v)
-		// One column set for every line, computed once. plain is the only
-		// positional format — tab-separated with no header — so per-row keys
-		// shift a consumer's columns with no signal at all. Same union and same
-		// empty-column refusal as printTable and printCSV: a projection that
-		// matched nothing renders nothing, not one blank line per row.
+		// plain is positional and has no header, so per-row keys shift a
+		// consumer's columns with no signal at all.
 		keys := columnKeys(v, !f.projector.IsZero())
 		if len(keys) == 0 {
 			return nil
@@ -445,19 +433,15 @@ func (f *Formatter) printTable(data any) error {
 	rows = flattenRows(rows)
 
 	allKeys := columnKeys(rows, !f.projector.IsZero())
-	// No columns means the projection matched nothing in any row. Printing
-	// "RESULTS (N total)" above a blank header is the defect this area started
-	// from; nothing is the honest answer.
+	// No columns means the projection matched nothing in any row. It used to
+	// print "RESULTS (N total)" above a blank header.
 	if len(allKeys) == 0 {
 		return nil
 	}
 
-	// Filter columns unless --wide is set, or --select already named them.
-	//
-	// --select IS the narrowing request, so the default-column heuristic must
-	// not second-guess it: it dropped `api` from
-	// `commands -o table --select command,api`, a field the caller asked for by
-	// name, and only --wide brought it back.
+	// --select is itself the narrowing request, so the default-column heuristic
+	// must not narrow it again. It dropped `api` from
+	// `commands -o table --select command,api` until --wide was added.
 	var keys []string
 	if f.wide || len(f.projector.Select) > 0 {
 		keys = allKeys
@@ -545,10 +529,8 @@ func (f *Formatter) printDetail(obj map[string]any) error {
 	}
 	row := flat[0]
 	keys := sortedKeys(row)
-	// flattenRows never drops an empty row, so the len(flat) == 0 guard above
-	// cannot fire for a projection that matched nothing — it printed DETAILS
-	// over an empty list. Every generated single-object get reaches this
-	// renderer, so the refusal belongs here as well as in printTable.
+	// flattenRows never drops an empty row, so the guard above cannot fire for
+	// a projection that matched nothing. Every generated get reaches here.
 	if len(keys) == 0 {
 		return nil
 	}
@@ -704,22 +686,16 @@ func keyPriority(key string) int {
 
 // columnKeys returns the column set for rows, in sortedKeys' order.
 //
-// Row 0 alone decides it normally, which is the documented convention and what
-// keeps every table without --select byte-identical. A Select projector is the
-// exception: it makes rows heterogeneous BY DESIGN, because a row survives
-// projection when it matched SOME selected path rather than every one of them.
-// With row 0 deciding, a path row 0 does not carry became a column for no row —
-// `commands -o csv --select command,api` wrote a `command`-only header while
-// `-o json` returned 1375 `api` values, at exit 0 with nothing on either
-// stream, since a row-drop count cannot see a row that matched something.
+// Row 0 alone decides it without a projector, which is the documented
+// convention and keeps every existing table byte-identical.
 //
-// --compact makes rows heterogeneous the same way: it keeps a key in the rows
-// that carry a value for it and drops it from the rest, so gating on Select
-// alone let --compact delete a whole column. The gate is the WHOLE projector.
+// Both --select and --compact leave rows heterogeneous, because a row keeps a
+// key only when it carried a match. With row 0 deciding, a key row 0 lacks
+// became a column for no row: `commands -o csv --select command,api` wrote a
+// `command`-only header while `-o json` returned 1375 `api` values.
 //
-// Unioning unconditionally would change every table in the CLI, which is why
-// CLAUDE.md rules it out. Gating on the projector changes only the tables that
-// asked to be projected.
+// Unioning unconditionally changes every table in the CLI, which CLAUDE.md
+// rules out.
 func columnKeys(rows []map[string]any, projected bool) []string {
 	if len(rows) == 0 {
 		return nil

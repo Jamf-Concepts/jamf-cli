@@ -28,11 +28,11 @@ queries the patch policies list endpoint for per-policy status counts.
 Output columns: title, id, on_latest, on_other, total, latest, compliance_pct
 
 With no -o flag, this report writes a table. Then --out-file receives that
-table, not JSON. Use -o json or -o yaml to write structured data to the file;
-with --scan-failures those two emit one array of labelled sections, each
-carrying a fetch_error field so an empty section is distinguishable from a
-section that could not be fetched. csv, ndjson and plain emit one undelimited
-block per section, which no parser reads as a single file.`,
+table, not JSON. Use -o json or -o yaml to write structured data to the file.
+With --scan-failures those two emit one array of labelled sections. Each
+section carries a fetch_error field, so an empty section is distinguishable
+from a section that could not be fetched. csv, ndjson and plain emit one
+undelimited block per section, which no parser reads as a single file.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !cmd.Flags().Changed("output") {
 				outputFmt = "table"
@@ -45,10 +45,8 @@ block per section, which no parser reads as a single file.`,
 	return cmd
 }
 
-// errString renders an error for a report document. It returns "" for nil, so
-// the key is always present: an absent key and an empty one are the same thing
-// to a reader, and a self-describing document is what lets a consumer tell an
-// empty section from a section that could not be fetched.
+// errString renders an error for a report document. It returns "" for nil so
+// the key is always present, which keeps the document self-describing.
 func errString(err error) string {
 	if err == nil {
 		return ""
@@ -67,21 +65,15 @@ func runReportPatchStatusFull(ctx context.Context, cliCtx *registry.CLIContext, 
 		return printRows(cliCtx, rows)
 	}
 
-	// Gather every section before rendering any of it. This report was the only
-	// one of the six with no structured branch, so under -o json each section
-	// Printed its own top-level document into the same destination and
-	// `--out-file patch.json` held three separate arrays — which jq rejects at
-	// the second one, while the command's own help recommends exactly that
-	// invocation.
+	// Gathered before rendering. Rendering per section wrote three top-level
+	// arrays into one --out-file, which jq rejects at the second.
 	policyRows, policyErr := runReportPatchPolicyFailures(ctx, client)
 	if policyErr != nil {
 		fmt.Fprintf(os.Stderr, "WARNING: failed to fetch patch policy failures: %v\n", policyErr)
 	}
 
-	// An empty list prints [], never null. Both of these are nil in the
-	// ordinary case — a policy contributes a row only when it has failures — so
-	// the document a healthy tenant produced carried "data": null for two of
-	// its three sections, and jq rejected the pipeline the help recommends.
+	// An empty list prints [], never null. Both are nil on a tenant with no
+	// failures, and jq cannot iterate null.
 	if rows == nil {
 		rows = []map[string]any{}
 	}
@@ -110,18 +102,13 @@ func runReportPatchStatusFull(ctx context.Context, cliCtx *registry.CLIContext, 
 		}
 	}
 
-	// One labelled document, in the shape the other five reports use. Gated on
-	// json and yaml exactly as they are: a csv or plain rendering of a
-	// multi-section report is N blocks whatever this does, which is why the
-	// help text says to use json or yaml for a single parseable file.
+	// json and yaml only. A csv or plain rendering of a multi-section report is
+	// N blocks whatever this does, which the help text says.
 	if outputFmt == "json" || outputFmt == "yaml" {
 		return printRows(cliCtx, []map[string]any{
 			{"section": "title_compliance", "data": rows},
-			// A failed fetch and a clean result are both empty here, so the
-			// document has to carry which one it was. The only signal was a
-			// WARNING on stderr, and this command's help steers the reader to
-			// the file — so a scheduled job read "no failures" from a check
-			// that never ran.
+			// A failed fetch and a clean result are both empty, so the
+			// document has to say which one it was.
 			{"section": "policy_failures", "data": policyRows, "fetch_error": errString(policyErr)},
 			{"section": "device_failures", "data": deviceRows, "fetch_error": errString(deviceErr)},
 		})

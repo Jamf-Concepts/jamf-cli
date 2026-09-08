@@ -378,19 +378,18 @@ func TestFormatter_Print_Compact_AllFormats(t *testing.T) {
 	}
 }
 
-// TestSelectUnionsTheRenderedColumnSet asserts the RENDERED columns, which is a
+// TestSelectUnionsTheRenderedColumnSet asserts the rendered columns, which is a
 // different question from whether the projector agrees with Apply.
 //
-// A row survives projection when it matched SOME selected path, never every
-// one of them, so the survivors are heterogeneous by design. With row 0
-// deciding the column set, a path row 0 does not carry was a column for no row:
+// A row survives projection when it matched one selected path rather than all
+// of them, so the survivors are heterogeneous. With row 0 deciding the column
+// set, a path row 0 does not carry was a column for no row:
 // `commands -o csv --select command,api` wrote a `command`-only header while
 // `-o json` returned 1375 `api` values, at exit 0 with nothing on either
-// stream — a row-drop count cannot see a row that matched something.
+// stream.
 //
-// "Correct by construction" held only at ONE path, where "matched something"
-// and "matched every path" coincide. The commit that claimed it measured
-// `--select api`, which is that case.
+// A single-path selection cannot catch this, because "matched something" and
+// "matched every path" coincide there.
 func TestSelectUnionsTheRenderedColumnSet(t *testing.T) {
 	// Row 0 carries only path A; a later row carries only path B.
 	rows := []map[string]any{
@@ -421,11 +420,11 @@ func TestSelectUnionsTheRenderedColumnSet(t *testing.T) {
 }
 
 // TestPlainEmitsOneColumnSetForEveryLine pins printPlain's half of the
-// projection refactor. plain is the only positional format — tab-separated with
-// no header — so a per-row key set shifts a consumer's columns with no signal
-// at all: `commands -o plain --select command,api` emitted 381 one-field lines
-// among 1375 two-field ones, and `cut -f1` read a command name on some of them
-// and an API label on the rest.
+// projection refactor. plain is the only positional format, tab-separated with
+// no header, so a per-row key set shifts a consumer's columns with no signal.
+// `commands -o plain --select command,api` emitted 381 one-field lines among
+// 1375 two-field ones, and `cut -f1` read a command name on some of them and an
+// API label on the rest.
 func TestPlainEmitsOneColumnSetForEveryLine(t *testing.T) {
 	rows := []map[string]any{
 		{"command": "agent-context"},
@@ -450,7 +449,7 @@ func TestPlainEmitsOneColumnSetForEveryLine(t *testing.T) {
 			first := len(strings.Split(lines[0], "\t"))
 			for i, line := range lines {
 				if got := len(strings.Split(line, "\t")); got != first {
-					t.Errorf("line %d carries %d fields, line 0 carries %d — plain has no header, so a shifting column set is undetectable: %q",
+					t.Errorf("line %d carries %d fields, line 0 carries %d. plain has no header, so a shifting column set is undetectable: %q",
 						i, got, first, line)
 				}
 			}
@@ -479,16 +478,15 @@ func TestSelectBypassesTheDefaultColumnHeuristicBeyondItsThreshold(t *testing.T)
 	for i := range 10 {
 		want := strings.ToUpper(fmt.Sprintf("general.field%d", i))
 		if !strings.Contains(out, want) {
-			t.Errorf("--select general withheld %s — the default-column heuristic must not second-guess a named selection:\n%s",
+			t.Errorf("--select general withheld %s. The default-column heuristic must not second-guess a named selection:\n%s",
 				want, buf.String())
 		}
 	}
 }
 
-// TestNoSelectKeepsRowZeroAsTheColumnSet pins the other half. Unioning
-// unconditionally would change every table in the CLI, which is why CLAUDE.md
-// rules it out; the union is gated on the projector so an unprojected table is
-// byte-identical.
+// TestNoSelectKeepsRowZeroAsTheColumnSet pins the other half. CLAUDE.md rules
+// out unioning unconditionally, so the union is gated on the projector and an
+// unprojected table stays byte-identical.
 func TestNoSelectKeepsRowZeroAsTheColumnSet(t *testing.T) {
 	rows := []map[string]any{
 		{"name": "a"},
@@ -502,21 +500,16 @@ func TestNoSelectKeepsRowZeroAsTheColumnSet(t *testing.T) {
 	}
 	header := strings.SplitN(buf.String(), "\n", 2)[0]
 	if header != "name" {
-		t.Errorf("header = %q, want %q — row 0 must still decide without --select", header, "name")
+		t.Errorf("header = %q, want %q. Row 0 must still decide without --select", header, "name")
 	}
 }
 
 // TestIsMachineRenderedCoversEveryFormat holds the predicate to Print's own
-// switch, which is the authority: a format Print has no case for reaches
-// printTable through the default arm and therefore DOES take a section banner.
-//
-// A caller that hand-wrote this set got it wrong in both directions — xml and
-// raw were called structured, suppressing the banner above the tables they
-// actually render, while csv was omitted and box-drawing lines went into a CSV
-// file where csv.reader yields a one-field row.
+// switch. A format Print has no case for reaches printTable through the default
+// arm, so it does take a section banner.
 //
 // Every constant is listed, so adding one to internal/output without deciding
-// its answer fails here rather than silently defaulting.
+// its answer fails here rather than defaulting silently.
 func TestIsMachineRenderedCoversEveryFormat(t *testing.T) {
 	want := map[Format]bool{
 		FormatJSON:      true,
@@ -542,7 +535,7 @@ func TestIsMachineRenderedCoversEveryFormat(t *testing.T) {
 	// The count is the vacuity guard: a new Format constant must be added
 	// above, with its answer decided, rather than inheriting a default.
 	if len(want) != len(allFormatsForTest()) {
-		t.Errorf("the table covers %d formats but internal/output declares %d — decide the new one's answer", len(want), len(allFormatsForTest()))
+		t.Errorf("the table covers %d formats but internal/output declares %d. Decide the new one's answer", len(want), len(allFormatsForTest()))
 	}
 }
 
@@ -554,20 +547,17 @@ func allFormatsForTest() []Format {
 	}
 }
 
-// TestProjectionMatchingNothingRendersNothing covers the defect this whole area
-// started from: a projection that matches no field in any row left every row
-// empty, and printTable still wrote "RESULTS (N total)" above a blank header
-// while printCSV wrote an empty header plus one empty line per row.
+// TestProjectionMatchingNothingRendersNothing covers the defect this area
+// started from. A projection that matches no field in any row leaves every row
+// empty, and printTable wrote "RESULTS (N total)" above a blank header while
+// printCSV wrote an empty header plus one empty line per row.
 //
-// Nothing is the honest answer, and it is a renderer decision rather than a
-// caller one — which is why three rounds of caller-side guards, and a row
-// filter built on top of them, kept producing new defects one arm over.
+// Writing nothing is a renderer decision rather than a caller one. Caller-side
+// guards each produced a new defect one arm over.
 //
-// plain and detail are listed because the first version of this test covered
-// table and csv alone: plain went on rendering one blank line per row (1756
-// newlines for `commands -o plain --select nosuchfield`) and printDetail went
-// on printing its DETAILS header over an empty field list, which every
-// generated single-object get reaches.
+// All four renderers are listed. Covering table and csv alone left plain
+// rendering one blank line per row, and printDetail printing its DETAILS header
+// over an empty field list, which every generated single-object get reaches.
 func TestProjectionMatchingNothingRendersNothing(t *testing.T) {
 	rows := []map[string]any{{"id": "1"}, {"id": "2"}}
 	for _, format := range []string{"table", "csv", "plain"} {
@@ -601,9 +591,9 @@ func TestProjectionMatchingNothingRendersNothing(t *testing.T) {
 }
 
 // TestCompactUnionsTheColumnSet is --select's sibling. projectCompact keeps a
-// key in the rows that carry a value for it and drops it from the rest, so it
-// makes rows heterogeneous exactly as --select does — and gating the union on
-// Select alone let --compact delete a whole column from a table.
+// key only in the rows that carry a value for it, which leaves rows
+// heterogeneous the same way --select does. Gating the union on Select alone
+// let --compact delete a whole column.
 func TestCompactUnionsTheColumnSet(t *testing.T) {
 	// Row 0 has no "note"; row 1 does. Compact drops empty values.
 	rows := []map[string]any{

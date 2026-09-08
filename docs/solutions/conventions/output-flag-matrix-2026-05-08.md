@@ -73,8 +73,8 @@ considering the work complete:
 
    **The route is `printRows` for rows, `printSection` for a row set under a
    section header, and `writerFor` for a bespoke text renderer that takes a
-   writer** — the first two in `internal/commands/output_route.go` and
-   `writerFor` in `internal/commands/doctor.go`, and
+   writer**. The first two are in `internal/commands/output_route.go` and
+   `writerFor` is in `internal/commands/doctor.go`. And
    `TestNoFileBuildsItsOwnOutputFormatter` refuses a formatter built anywhere
    but the three sanctioned sites. `cliCtx.Output.PrintRaw(...)` is the
    **wire-bytes** path only, for a response body that is already serialised.

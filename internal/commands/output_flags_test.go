@@ -64,12 +64,8 @@ func runRoot(t *testing.T, args ...string) (stdout, stderr string, err error) {
 	os.Stdout, os.Stderr = outW, errW
 	t.Cleanup(func() { os.Stdout, os.Stderr = origOut, origErr })
 
-	// Restore the package flag vars too. root.Execute() parses into them, and
-	// they are package-level, so a value set here leaked into whatever test ran
-	// next: `go test -shuffle=4` failed TestSelectMatchingNothingLeavesNoOrphanBanner
-	// with fieldName still "command" from an earlier runRoot, which sent
-	// printRows down the --field branch instead of rendering the table the test
-	// asserts on. Reproduced with no source change at all.
+	// root.Execute() parses into the package flag vars, so without this a value
+	// set here leaks into whatever test runs next. `-shuffle=4` failed on it.
 	restoreOutputFlags(t)
 
 	outDone := make(chan string, 1)
@@ -101,8 +97,8 @@ func commandRows(t *testing.T, data string) []map[string]any {
 	return rows
 }
 
-// The measured signature of the defect: exit 0, a 0-byte file, and the whole
-// payload on standard output.
+// The signature of the defect is exit 0, a 0-byte file, and the whole payload
+// on standard output.
 func TestOutFileTakesTheOutputAndLeavesStdoutEmpty(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "commands.json")
 
@@ -142,8 +138,8 @@ func TestSelectKeepsOnlyTheNamedField(t *testing.T) {
 }
 
 // --compact drops arrays, so the privileges field is the observable one. A
-// command with every field populated would show no difference, which is why the
-// unprojected run is asserted first.
+// command with every field populated shows no difference, so the unprojected
+// run is asserted first.
 func TestCompactDropsTheArrayFields(t *testing.T) {
 	plain, _, err := runRoot(t, "commands", "-o", "json")
 	if err != nil {
@@ -188,10 +184,9 @@ func TestFieldPrintsTheValuesAlone(t *testing.T) {
 	}
 }
 
-// --quiet and --no-hints both suppress the advisory hint the formatter writes to
-// standard error above 50 rows. It is the only one of the six flags whose effect
-// is on standard error, and the only reachable effect either flag has on this
-// command.
+// --quiet and --no-hints both suppress the advisory hint the formatter writes
+// to standard error above 50 rows. That is the only reachable effect either
+// flag has on this command.
 func TestQuietAndNoHintsSuppressTheListHint(t *testing.T) {
 	_, stderr, err := runRoot(t, "commands", "-o", "json")
 	if err != nil {
@@ -213,9 +208,8 @@ func TestQuietAndNoHintsSuppressTheListHint(t *testing.T) {
 }
 
 // The four overview commands and the five multi-section reports render their
-// own text and reach the destination through writerFor, so this covers the
-// helper every one of them depends on. It does not cover their call sites;
-// TestOverviewRenderersTakeTheFormattersWriter does.
+// own text and reach the destination through writerFor. This covers the helper.
+// TestOverviewRenderersTakeTheFormattersWriter covers their call sites.
 func TestWriterForAnswersWithTheFormattersWriter(t *testing.T) {
 	var buf bytes.Buffer
 	formatter := output.New("table", true, false)
@@ -229,13 +223,10 @@ func TestWriterForAnswersWithTheFormattersWriter(t *testing.T) {
 	}
 }
 
-// Two formats have no rendering of their own for a report the CLI assembles,
-// so Print's switch has no case for either and its default arm renders the
-// table. Routing the rows through PrintRaw instead would reach PrintRaw's own
-// FormatRaw and FormatXML arms and emit the report's marshalled JSON, which is
-// a different answer under a flag documented as "exact wire bytes" on a report
-// that has none. Pinned against the table so the equivalence is the assertion,
-// rather than a byte count that says nothing about why.
+// Print has no case for raw or xml, so its default arm renders the table.
+// Routing through PrintRaw instead reaches PrintRaw's own FormatRaw and
+// FormatXML arms and emits marshalled JSON, which is a different answer under a
+// flag documented as "exact wire bytes" for a report that has none.
 func TestRawAndXMLRenderTheSameAsTable(t *testing.T) {
 	table, _, err := runRoot(t, "commands", "-o", "table")
 	if err != nil {
@@ -256,9 +247,8 @@ func TestRawAndXMLRenderTheSameAsTable(t *testing.T) {
 	}
 }
 
-// A report that prints several sections has to send its section headers
-// wherever its tables go. Otherwise --out-file splits one report across a file
-// and a terminal, which is worse than the defect it replaces.
+// A multi-section report sends its section headers wherever its tables go, or
+// --out-file splits one report across a file and a terminal.
 func TestSectionHeadersFollowTheFormatterWriter(t *testing.T) {
 	oldFmt := outputFmt
 	outputFmt = "table"
@@ -293,11 +283,10 @@ func TestSectionHeadersFollowTheFormatterWriter(t *testing.T) {
 	}
 }
 
-// CLAUDE.md records this as a convention with a past regression behind it: an
-// empty list prints `[]`, never `null`, because `null` breaks a jq pipeline on
-// exactly the tenants where the collection is empty. overviewToRows declares
-// `var rows []map[string]any` and only appends inside a loop, so a report whose
-// every section came back empty reaches printRows with a nil slice.
+// An empty list prints `[]`, never `null`, which is a CLAUDE.md convention:
+// `null` breaks a jq pipeline on the tenants where a collection is empty.
+// overviewToRows declares `var rows []map[string]any` and appends only inside a
+// loop, so a report whose sections all came back empty reaches printRows nil.
 func TestPrintRowsRendersANilSliceAsAnEmptyList(t *testing.T) {
 	oldFmt := outputFmt
 	outputFmt = "json"
@@ -342,16 +331,14 @@ func TestWithFormatKeepsTheWriterAndTheProjector(t *testing.T) {
 	}
 }
 
-// Every setter the formatter exposes is one global flag reaching the output,
-// and buildOutputFormatter is the only place they are applied. Four of the five
-// are held by a test that observes the flag; SetExplicitNoColor is not, its only
-// reader being PaginationProgress's choice between the interactive counter and
-// NDJSON events, which needs stderr to be a terminal — something no test in this
-// package can arrange, isStderrTTY being unexported. Deleting that one line left
-// the whole package passing.
+// Every setter the formatter exposes carries one global flag to the output, and
+// buildOutputFormatter is the only place they are applied. A test that observes
+// the flag holds four of the five. SetExplicitNoColor has no such test: its
+// only reader is PaginationProgress, which needs stderr to be a terminal, and
+// isStderrTTY is unexported.
 //
-// So the wiring is what is pinned, and the set is read off the formatter rather
-// than listed: a sixth setter that buildOutputFormatter never calls is the same
+// So this pins the wiring, and reads the set off the formatter rather than
+// listing it. A sixth setter buildOutputFormatter never calls is the same
 // defect as a fifth that stopped being called.
 func TestTheSharedFormatterAppliesEverySetterTheFormatterExposes(t *testing.T) {
 	setters := formatterSetterNames(t)
@@ -434,10 +421,9 @@ func receiverTypeName(expr ast.Expr) string {
 	return ""
 }
 
-// formatterFor's fallback is for a caller reached with a test double or before
-// PersistentPreRunE ran. It goes through the shared builder, so the flags a
-// fresh output.New discards apply there too — which also removes the second
-// construction site the lint had to carve out.
+// formatterFor's fallback covers a caller reached with a test double, or one
+// reached before PersistentPreRunE ran. It calls the shared builder, so the
+// flags a fresh output.New discards apply there too.
 func TestTheFormatterFallbackStillCarriesTheProjection(t *testing.T) {
 	oldSelect := selectFields
 	selectFields = []string{"name"}
@@ -457,14 +443,10 @@ func TestTheFormatterFallbackStillCarriesTheProjection(t *testing.T) {
 	}
 }
 
-// The two callers that ask the shared formatter for a format their own
-// argument names, rather than the global -o value. Both were referenced
-// exactly once in the package outside their own definition, and the three
-// TestGroupToolsExport_* cases assert against marshalGroupsJSON and
-// marshalGroupsYAML, helpers runGroupToolsExport does not call. So WithFormat
-// returning an alias instead of a copy was held by its own unit test alone,
-// and a clone defect reachable only through a non-global format argument would
-// have shipped green.
+// The two callers that ask the shared formatter for a format their own argument
+// names rather than the global -o value. The TestGroupToolsExport_* cases assert
+// against marshalGroupsJSON and marshalGroupsYAML, which runGroupToolsExport
+// never calls, so nothing else reaches WithFormat through a non-global format.
 func TestExportPrintsTheNamedFormatToTheFormattersWriter(t *testing.T) {
 	oldFmt := outputFmt
 	outputFmt = "table"
@@ -493,9 +475,8 @@ func TestExportPrintsTheNamedFormatToTheFormattersWriter(t *testing.T) {
 	if stdout != "" {
 		t.Errorf("standard output carried %q; the export belongs to the formatter's writer", shortened(stdout))
 	}
-	// The shared formatter is reused for the rest of the invocation, so a
-	// WithFormat that aliased instead of copying would leave every later
-	// command rendering YAML.
+	// The shared formatter is reused for the rest of the invocation, so an
+	// aliasing WithFormat would leave every later command rendering YAML.
 	if formatter.Format() != "table" {
 		t.Errorf("the shared formatter now renders %q; asking it for one format must not change it for everyone", formatter.Format())
 	}
@@ -518,14 +499,10 @@ func TestAggregatedReportPrintsToTheFormattersWriter(t *testing.T) {
 		},
 	}
 
-	// "table" and "" are the arm this PR changed, and the arm `multi` takes
-	// with no -o at all. json and yaml both return early from printAggregated,
-	// so a loop of those two never executed the section-header code: reverting
-	// the header print to fmt.Printf passed the test this replaced.
-	// csv and plain are the formats that reach the section helper AND are
-	// machine-rendered, so they are the only ones that exercise its
-	// suppression. Without them the `return` inside the old banner closure was
-	// hit zero times while its Fprintf was hit six.
+	// json and yaml return early from printAggregated, so neither reaches the
+	// section helper. "" is the arm `multi` takes with no -o at all. csv and
+	// plain are the only machine-rendered formats that reach the helper, so
+	// they are what exercises its suppression.
 	for _, format := range []string{"json", "yaml", "table", "", "csv", "plain"} {
 		name := format
 		if name == "" {
@@ -559,8 +536,8 @@ func TestAggregatedReportPrintsToTheFormattersWriter(t *testing.T) {
 					t.Errorf("-o %s: no section header reached the writer, so the headings and the rows go to different places: %q", name, shortened(buf.String()))
 				}
 			}
-			// And they must NOT travel into a stream a parser reads: a `──`
-			// line makes csv.reader yield a one-field row.
+			// They must not travel into a stream a parser reads. A `──` line
+			// makes csv.Reader yield a one-field row.
 			if format == "csv" || format == "plain" {
 				if strings.Contains(buf.String(), "──") {
 					t.Errorf("-o %s put box-drawing lines into a machine-read stream: %q", name, shortened(buf.String()))
@@ -581,9 +558,9 @@ func shortened(s string) string {
 // overviewRenderers are the whole-output text renderers that take a writer
 // rather than printing through the formatter, so the writer their caller
 // chooses is the only thing that sends their output to --out-file. The set is
-// derived from the signature every one of them shares — a writer, then the
-// sections to render — so a fifth overview command's renderer is covered
-// without an edit here. A hardcoded list of names could not see one.
+// derived from the signature every one of them shares, a writer followed by the
+// sections to render, so a fifth overview command's renderer is covered without
+// an edit here. A hardcoded list of names cannot see one.
 func overviewRenderers(files map[string]*ast.File) map[string]bool {
 	found := map[string]bool{}
 	for _, file := range files {
@@ -714,10 +691,8 @@ func TestFilesThatRouteTheirWriterDoNotPrintToStdout(t *testing.T) {
 		ast.Inspect(file, func(n ast.Node) bool {
 			switch node := n.(type) {
 			case *ast.Ident:
-				// printSection counts as routing: it writes the header through
-				// writerFor itself. Two report files stopped naming writerFor
-				// directly when their last banners moved onto it, which is the
-				// rule being followed more completely rather than less.
+				// printSection counts as routing. It writes the header through
+				// writerFor itself.
 				if node.Name == "writerFor" || node.Name == "printSection" {
 					routes = true
 				}
@@ -730,18 +705,14 @@ func TestFilesThatRouteTheirWriterDoNotPrintToStdout(t *testing.T) {
 				case "Print", "Printf", "Println":
 					bare = append(bare, fmt.Sprintf("%s:%d", name, fset.Position(node.Lparen).Line))
 				case "Fprint", "Fprintf", "Fprintln":
-					// A write guarded on a nil CLIContext is the same fallback
-					// writerFor itself carries, and is unreachable in a real
-					// run. Exempted by name so the rule still sees every other
-					// os.Stdout write in the file.
+					// A write guarded on a nil CLIContext is writerFor's own
+					// fallback, unreachable in a real run. Exempted by name so
+					// the rule still sees every other write in the file.
 					if stdoutFallbackSites[name] {
 						return true
 					}
 					// fmt.Fprintln(os.Stdout, …) is the same bug spelled with a
-					// writer. Replacing one fmt.Fprintln(w) with os.Stdout
-					// inside printSchoolOverviewTable left the whole package
-					// green while half the report went to the terminal instead
-					// of --out-file, and that function is 0% unit-covered, so
+					// writer. printSchoolOverviewTable is 0% unit-covered, so
 					// this guard is its only feedback loop.
 					if len(node.Args) > 0 && isStdout(node.Args[0]) {
 						bare = append(bare, fmt.Sprintf("%s:%d", name, fset.Position(node.Lparen).Line))
@@ -766,8 +737,8 @@ func TestFilesThatRouteTheirWriterDoNotPrintToStdout(t *testing.T) {
 }
 
 // stdoutFallbackSites are files whose only os.Stdout write is the fallback for
-// a nil CLIContext — the same shape writerFor carries, and unreachable once
-// PersistentPreRunE has run.
+// a nil CLIContext. That is the shape writerFor carries, and it is unreachable
+// once PersistentPreRunE has run.
 //
 // renderVersion (version.go): `if cliCtx != nil && cliCtx.Output != nil` routes
 // through the formatter, and the os.Stdout line below it exists for a caller
@@ -791,13 +762,11 @@ func isPackageIdent(expr ast.Expr, name string) bool {
 // be built, keyed by file and enclosing function. A construction anywhere else
 // is a finding. Each reason is recorded at the site itself.
 var sanctionedFormatterSites = map[string]string{
-	// The shared formatter itself. The setters carrying --out-file, --select,
-	// --compact, --quiet and --no-hints are applied here.
+	// The shared formatter. Every global output flag is applied here.
 	"commands/root.go": "buildOutputFormatter",
-	// newBulkCmd's Long documents the contract this preview keeps: preview
-	// table on stdout, mutation log on stderr. It stays a table whatever -o
-	// says, so it cannot come from the shared formatter, and it must not follow
-	// --out-file into the data file.
+	// newBulkCmd's Long documents the contract: preview table on stdout,
+	// mutation log on stderr. It stays a table whatever -o says, so it must not
+	// follow --out-file into the data file.
 	"commands/pro_bulk.go": "bulkPreviewTable",
 	// The bulk-targeting preview, keeping the same documented contract.
 	"commands/pro_device_actions.go": "deviceActionPreviewTable",
@@ -807,14 +776,12 @@ var sanctionedFormatterSites = map[string]string{
 // where local is the name internal/output is bound to in the file being read.
 //
 // New is that package's only exported constructor and Formatter's fields are
-// unexported, so the surface is: a reference to New, a composite literal of the
-// type, and new() of it.
+// unexported, so three shapes reach one: a reference to New, a composite
+// literal of the type, and new() of it.
 //
-// It matches the SELECTOR local.New rather than a call to it, which covers both
-// `output.New(…)` and `mk := output.New` in one rule. Matching the call alone
-// missed the second — the constructor taken as a value puts the call one hop
-// away — and the linter this test replaced carried a fixture for exactly that
-// shape, so an earlier version of this rule was a regression against it.
+// It matches the selector local.New rather than a call to it, so it covers both
+// `output.New(…)` and `mk := output.New`. Matching the call alone misses the
+// second, because a constructor taken as a value puts the call one hop away.
 func buildsFormatter(n ast.Node, local string) bool {
 	isSel := func(e ast.Expr, sel string) bool {
 		s, ok := e.(*ast.SelectorExpr)
@@ -828,11 +795,9 @@ func buildsFormatter(n ast.Node, local string) bool {
 	case *ast.SelectorExpr:
 		return isSel(v, "New")
 	case *ast.CompositeLit:
-		// The literal's own type, or the element type of the slice, array or
-		// map it belongs to. An inner literal that ELIDES its element type has
-		// Type == nil — `[]*output.Formatter{{}}` builds a complete working
-		// Formatter, every field being unexported while the type and its
-		// setters are not — so only the outer literal names the type at all.
+		// The literal's own type, or the element type of the collection it
+		// belongs to. An inner literal that elides its element type has
+		// Type == nil, so only the outer literal names the type at all.
 		return namesFormatterType(v.Type, local)
 	case *ast.CallExpr:
 		if id, ok := v.Fun.(*ast.Ident); ok && id.Name == "new" && len(v.Args) == 1 {
@@ -848,7 +813,8 @@ func buildsFormatter(n ast.Node, local string) bool {
 // It is what catches a composite literal with an elided element type. A
 // go/types walk would collapse every construction shape into one rule and close
 // the unexported-constructor hole too; this stays syntactic, so a construction
-// whose type is only inferrable — a factory returning an interface, say — is
+// whose type is only inferrable, a factory returning an interface for example,
+// is
 // still out of reach.
 func namesFormatterType(e ast.Expr, local string) bool {
 	switch t := e.(type) {
@@ -869,23 +835,15 @@ func namesFormatterType(e ast.Expr, local string) bool {
 }
 
 // TestNoFileBuildsItsOwnOutputFormatter refuses an output.Formatter built
-// outside the sanctioned sites. Twenty-four commands called output.New
-// directly, so --out-file, --select, --field, --compact, --quiet and --no-hints
-// were parsed and then discarded on every one of them: --out-file created a
-// 0-byte file while 2934 bytes went to stdout.
+// outside the sanctioned sites. A command that builds its own receives none of
+// the six global output flags, so each one is parsed and then discarded.
 //
-// It replaced a 976-line program under scripts/ with its own Makefile target
-// and gating CI step. That program enumerated construction syntax — dot
-// imports, elided composite-literal element types, generic receivers — and was
-// still blind to a shape this same change introduces, Formatter.WithFormat's
-// dereference-copy. This resolves the import instead, so a file that cannot
-// name the package cannot trip any form of the rule, known or not.
+// The rule resolves the import rather than matching construction syntax, so a
+// file that cannot name internal/output cannot trip it in any form.
 //
 // Attribution is to the enclosing top-level function, so a construction inside
-// a closure inside a sanctioned function is exempt with it. That is why
-// deviceActionPreviewTable was extracted from executeAction: the exemption
-// covers three lines rather than a whole function body where a later
-// result-printing path would have been exempt in advance.
+// a closure inherits that function's exemption. Keep a sanctioned function
+// small for that reason.
 func TestNoFileBuildsItsOwnOutputFormatter(t *testing.T) {
 	const outputPkg = `"github.com/Jamf-Concepts/jamf-cli/internal/output"`
 
@@ -900,9 +858,8 @@ func TestNoFileBuildsItsOwnOutputFormatter(t *testing.T) {
 			t.Errorf("parsing %s: %v", path, parseErr)
 			return nil
 		}
-		// A file that does not import the package cannot construct one,
-		// whatever syntax it reaches for. internal/output's own files are
-		// skipped here, being the package rather than an importer of it.
+		// A file that does not import the package cannot construct one, whatever
+		// syntax it reaches for. internal/output's own files are not importers.
 		local := ""
 		for _, imp := range file.Imports {
 			if imp.Path.Value != outputPkg {
@@ -920,7 +877,7 @@ func TestNoFileBuildsItsOwnOutputFormatter(t *testing.T) {
 		// selector-based rule can see. Refuse the import rather than grow a
 		// second matcher for it: nothing here needs one.
 		if local == "." {
-			t.Errorf("%s dot-imports internal/output, which puts New and Formatter beyond this rule — import it normally", path)
+			t.Errorf("%s dot-imports internal/output, which puts New and Formatter beyond this rule. Import it normally", path)
 			return nil
 		}
 
@@ -946,7 +903,7 @@ func TestNoFileBuildsItsOwnOutputFormatter(t *testing.T) {
 					found[rel] = site
 					return true
 				}
-				t.Errorf("%s: %s builds or captures its own output.Formatter, so every global output flag is inert on it — print through printRows or formatterFor instead", rel, site)
+				t.Errorf("%s: %s builds or captures its own output.Formatter, so every global output flag is inert on it. Print through printRows or formatterFor instead", rel, site)
 				return true
 			})
 		}
@@ -960,7 +917,7 @@ func TestNoFileBuildsItsOwnOutputFormatter(t *testing.T) {
 	// silently leaving the rule enforcing nothing.
 	for file, fn := range sanctionedFormatterSites {
 		if found[file] != fn {
-			t.Errorf("sanctioned site %s:%s builds no formatter any more — remove the entry, or point it at the function that does", file, fn)
+			t.Errorf("sanctioned site %s:%s builds no formatter any more. Remove the entry, or point it at the function that does", file, fn)
 		}
 	}
 }
@@ -972,7 +929,7 @@ func TestNoFileBuildsItsOwnOutputFormatter(t *testing.T) {
 //
 // Wire-measured before the fix: `pro report ddm-status -o table --field source
 // --out-file f` left f holding 28 bytes, the header alone, and put 3917 bytes
-// of values on stdout at exit 0. With no -o, f was 0 bytes — verbatim the
+// of values on stdout at exit 0. With no -o, f was 0 bytes, which is the
 // signature issue #349 reports and this PR closes.
 func TestFieldFollowsTheFormatterWriter(t *testing.T) {
 	fieldName = "name"
@@ -1019,7 +976,6 @@ func TestSelectMatchingNothingPrintsNothing(t *testing.T) {
 	formatter.SetProjector(output.Projector{Select: selectFields})
 	cliCtx := &registry.CLIContext{Output: &cliOutput{formatter}}
 
-	// No row carries "reason".
 	if err := printRows(cliCtx, []map[string]any{{"id": "1", "status": "ok"}}); err != nil {
 		t.Fatalf("printRows: %v", err)
 	}
@@ -1027,8 +983,7 @@ func TestSelectMatchingNothingPrintsNothing(t *testing.T) {
 		t.Errorf("a section carrying none of the --select paths rendered %q, which reads as a broken renderer rather than an absent field", got)
 	}
 
-	// A section that does carry it must still render, or the skip is just a
-	// mute button.
+	// A section that does carry it must still render.
 	buf.Reset()
 	if err := printRows(cliCtx, []map[string]any{{"id": "1", "reason": "expired"}}); err != nil {
 		t.Fatalf("printRows: %v", err)
@@ -1043,7 +998,7 @@ func TestSelectMatchingNothingPrintsNothing(t *testing.T) {
 // banner and then called printRows, so suppressing the body left the banner on
 // the writer: `pro report security -o table --select nosuchfield` produced 105
 // bytes of nothing but three box-drawing lines, one reading
-// `── Flagged Devices (5) ──`, at exit 0 — and a -o csv consumer received a
+// `── Flagged Devices (5) ──`, at exit 0. A -o csv consumer received a
 // stream of box-drawing characters. printSection decides before the header.
 func TestSelectMatchingNothingLeavesNoOrphanBanner(t *testing.T) {
 	oldSelect, oldFmt, oldQuiet := selectFields, outputFmt, quiet
@@ -1060,10 +1015,10 @@ func TestSelectMatchingNothingLeavesNoOrphanBanner(t *testing.T) {
 		t.Fatalf("printSection: %v", err)
 	}
 	if got := buf.String(); got != "" {
-		t.Errorf("a skipped section still wrote %q — the banner outlives the body it announced", got)
+		t.Errorf("a skipped section still wrote %q, so the banner outlives the body it announced", got)
 	}
 
-	// A section that does carry the field keeps its banner AND its body.
+	// A section that does carry the field keeps its banner and its body.
 	buf.Reset()
 	selectFields = []string{"id"}
 	formatter.SetProjector(output.Projector{Select: selectFields})
@@ -1071,7 +1026,6 @@ func TestSelectMatchingNothingLeavesNoOrphanBanner(t *testing.T) {
 		t.Fatalf("printSection: %v", err)
 	}
 	out := buf.String()
-	// The table upper-cases its column names, so assert the rendered value.
 	for _, want := range []string{"── Flagged Devices (1) ──", "RESULTS (1 total)"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("a rendered section is missing %q: %q", want, out)
@@ -1079,41 +1033,28 @@ func TestSelectMatchingNothingLeavesNoOrphanBanner(t *testing.T) {
 	}
 }
 
-// TestSelectReachesAWideOnlyFieldOnANarrowFormat pins the row-set half of
+// TestSelectReachesAWideOnlyFieldOnANarrowFormat pins the row-set clause of
 // --select, in newCommandsCmd rather than in the formatter.
 //
-// `full := wide || isFullDetailFormat(outputFmt) || len(selectFields) > 0` is
-// what puts a wide-only field into the rows at all. Deleting the --select
-// clause left the whole package green: every other test names a field the
-// narrow row set already carries, or one no row carries, or drives the
-// formatter directly.
+// `full := wide || isFullDetailFormat(outputFmt) || len(selectFields) > 0` puts
+// a wide-only field into the rows at all. Deleting the --select clause leaves
+// the whole package green without this test.
+// TestSelectBypassesTheDefaultColumnHeuristicBeyondItsThreshold covers the
+// formatter clause instead, and either clause alone renders nothing.
 //
-// This is a different clause from the one
-// TestSelectBypassesTheDefaultColumnHeuristicBeyondItsThreshold covers. That
-// test pins the formatter declining to re-narrow a named selection; this one
-// pins the field being in the row set to begin with. Both are needed, because
-// either alone renders nothing.
-//
-// A regression here is silent in a way the earlier rounds were not: the
-// renderers decline an empty column set, so the answer is 0 bytes on stdout —
-// and reportProjectionMiss names the miss, which is the only reason it is
-// visible at all. main's commands_catalog_projection_test.go looks like it
-// covers this surface and cannot: it passes `full` hardcoded.
-//
-// table, plain, xml and raw are the four narrow formats. Every one is listed,
-// because isFullDetailFormat naming a format is what takes it off this path.
+// table, plain, xml and raw are the four narrow formats. All four are listed,
+// because isFullDetailFormat naming a format takes it off this path.
 func TestSelectReachesAWideOnlyFieldOnANarrowFormat(t *testing.T) {
 	for _, format := range []string{"table", "plain", "xml", "raw"} {
 		t.Run(format, func(t *testing.T) {
 			restoreOutputFlags(t)
-			// `api` is a wide-only field on the catalog rows, and
-			// platform-gateway is a value it carries.
+			// `api` is wide-only, and platform-gateway is a value it carries.
 			stdout, stderr, err := runRoot(t, "commands", "-o", format, "--select", "api", "--quiet")
 			if err != nil {
 				t.Fatalf("commands -o %s --select api: %v", format, err)
 			}
 			if !strings.Contains(stdout, "platform-gateway") {
-				t.Errorf("-o %s --select api rendered no api value — the narrow row set withheld the field the caller named by name.\nstdout: %q\nstderr: %q",
+				t.Errorf("-o %s --select api rendered no api value. The narrow row set withheld the field the caller named.\nstdout: %q\nstderr: %q",
 					format, shortened(stdout), shortened(stderr))
 			}
 		})
@@ -1122,11 +1063,11 @@ func TestSelectReachesAWideOnlyFieldOnANarrowFormat(t *testing.T) {
 
 // TestFieldMissIsReportedAndSurvivesQuiet pins reportFieldMiss.
 //
-// It was executed and asserted nowhere: the only test driving a real field miss
-// reads stdout, and this note goes to stderr, so both of its mutations shipped
-// green. Deleting the call left `commands --field nosuchfield --out-file f` at
-// 0 bytes with both streams empty at exit 0, and restoring the
-// quiet || noHints suppression did the same under the flags a CI job passes.
+// The note goes to stderr, and the only other test driving a real field miss
+// reads stdout, so both mutations pass without this. Deleting the call leaves
+// `commands --field nosuchfield --out-file f` at 0 bytes with both streams
+// empty at exit 0. Restoring the quiet || noHints suppression does the same
+// under the flags a CI job passes.
 func TestFieldMissIsReportedAndSurvivesQuiet(t *testing.T) {
 	rows := []map[string]any{{"id": "1"}, {"id": "2"}}
 
@@ -1154,7 +1095,7 @@ func TestFieldMissIsReportedAndSurvivesQuiet(t *testing.T) {
 				}
 			})
 			if !strings.Contains(stderr, "--field nosuchfield matched no field in 2 row(s)") {
-				t.Errorf("stderr = %q, want the field-miss note — a --field miss writes nothing at all, so this is the only signal that anything happened", stderr)
+				t.Errorf("stderr = %q, want the field-miss note. A --field miss writes nothing at all, so nothing else reports it", stderr)
 			}
 		})
 	}
@@ -1163,16 +1104,14 @@ func TestFieldMissIsReportedAndSurvivesQuiet(t *testing.T) {
 // TestProjectionMissIsReportedAndSurvivesQuiet is the same guard for --select
 // and --compact.
 //
-// Round 6 deleted this note's predecessor, arguing that a projection matching
-// nothing still emits a document of empty objects. That is true for json, yaml
-// and ndjson and false for the four renderers the same change taught to decline
-// an empty column set — so `commands -o table --select nosuchfield` was 0 bytes
+// json, yaml and ndjson emit a document of empty objects for a projection that
+// matches nothing. table, csv, plain and detail decline the empty column set
+// and write nothing, so `commands -o table --select nosuchfield` gave 0 bytes
 // on both streams at exit 0, which is issue #349's signature.
 func TestProjectionMissIsReportedAndSurvivesQuiet(t *testing.T) {
 	rows := []map[string]any{{"id": "1"}, {"id": "2"}}
-	// --compact keeps a scalar whose key appears in at least 80% of rows, so a
-	// row set of rare keys is what empties every row. That is a real shape: a
-	// report whose rows each carry a different optional field.
+	// --compact keeps a scalar whose key appears in at least 80% of rows, so
+	// only a row set of rare keys empties every row.
 	rare := []map[string]any{{"a": "1"}, {"b": "2"}, {"c": "3"}, {"d": "4"}, {"e": "5"}}
 
 	for _, tc := range []struct {
@@ -1208,7 +1147,7 @@ func TestProjectionMissIsReportedAndSurvivesQuiet(t *testing.T) {
 					}
 				})
 				if !strings.Contains(stderr, tc.want) {
-					t.Errorf("stderr = %q, want %q — the renderer declines an empty column set, so nothing else says anything happened", stderr, tc.want)
+					t.Errorf("stderr = %q, want %q. The renderer declines an empty column set, so nothing else reports it", stderr, tc.want)
 				}
 				if buf.Len() != 0 {
 					t.Errorf("the table rendered %q over no columns", buf.String())
@@ -1217,7 +1156,6 @@ func TestProjectionMissIsReportedAndSurvivesQuiet(t *testing.T) {
 		}
 	}
 
-	// A projection that DOES match says nothing.
 	t.Run("match is silent", func(t *testing.T) {
 		restoreOutputFlags(t)
 		outputFmt = "table"
@@ -1240,14 +1178,12 @@ func TestProjectionMissIsReportedAndSurvivesQuiet(t *testing.T) {
 	})
 }
 
-// TestSectionBannerIsWithheldForAMachineFormat pins printSection's OTHER rule.
+// TestSectionBannerIsWithheldForAMachineFormat pins printSection's second rule.
 //
-// The test above sets outputFmt = "table" for both of its cases, so neither
-// ever reached the IsMachineRendered condition with a body present and a
-// header to write — the coverage counters for the condition and the Fprint
-// inside it were identical, which is the tell. Dropping the condition put
-// box-drawing lines back into a CSV stream with the suite green, and that is
-// verbatim the defect the CHANGELOG claims to have fixed.
+// The test above sets outputFmt = "table" for both cases, so it never reaches
+// the IsMachineRendered condition with rows present and a header to write.
+// Dropping that condition puts box-drawing lines back into a CSV stream with
+// the suite green.
 func TestSectionBannerIsWithheldForAMachineFormat(t *testing.T) {
 	restoreOutputFlags(t)
 	selectFields, quiet = nil, true
@@ -1259,8 +1195,8 @@ func TestSectionBannerIsWithheldForAMachineFormat(t *testing.T) {
 		{"csv", false},
 		{"plain", false},
 		{"ndjson", false},
-		// xml and raw have no case in Print's switch, so both render tables
-		// and both DO take a banner.
+		// xml and raw have no case in Print's switch, so both render tables and
+		// both take a banner.
 		{"xml", true},
 		{"table", true},
 	} {
@@ -1278,7 +1214,6 @@ func TestSectionBannerIsWithheldForAMachineFormat(t *testing.T) {
 			if got := strings.Contains(out, "──"); got != tc.banner {
 				t.Errorf("-o %s wrote a banner = %v, want %v: %q", tc.format, got, tc.banner, out)
 			}
-			// The body always travels, whatever the banner decision.
 			if !strings.Contains(out, "1") {
 				t.Errorf("-o %s wrote no body at all: %q", tc.format, out)
 			}
@@ -1289,15 +1224,15 @@ func TestSectionBannerIsWithheldForAMachineFormat(t *testing.T) {
 // TestSelectMatchingNothingRendersConsistently pins what a projection matching
 // no field produces, per format.
 //
-// A projection leaves each row with no fields — it does not remove the rows.
-// So a machine format emits a document of empty objects, which is exactly what
-// the 200+ generated commands have always done, and a table or CSV emits
-// nothing rather than a banner above a blank header.
+// A projection leaves each row with no fields. It does not remove the rows. So
+// a machine format emits a document of empty objects, matching the 200+
+// generated commands, and a table or CSV emits nothing rather than a banner
+// above a blank header.
 //
 // An earlier revision dropped the emptied rows and forced `[]` here. That made
-// the hand-written commands disagree with the generated ones, and the
-// heterogeneous survivors it produced moved the original defect into the column
-// set and then into every renderer and `multi` arm in turn.
+// the hand-written commands disagree with the generated ones, and its
+// heterogeneous survivors moved the original defect into the column set, then
+// into every renderer and every `multi` arm.
 func TestSelectMatchingNothingRendersConsistently(t *testing.T) {
 	oldSelect, oldFmt := selectFields, outputFmt
 	t.Cleanup(func() { selectFields, outputFmt = oldSelect, oldFmt })
@@ -1307,7 +1242,7 @@ func TestSelectMatchingNothingRendersConsistently(t *testing.T) {
 		format string
 		want   string
 	}{
-		// A document of empty objects: the row is still there, with no fields.
+		// The rows are still there, with no fields.
 		{"json", "[\n  {}\n]"},
 		{"yaml", "- {}"},
 		{"ndjson", "{}"},
@@ -1333,20 +1268,18 @@ func TestSelectMatchingNothingRendersConsistently(t *testing.T) {
 	}
 }
 
-// TestNoReportWritesABannerThenPrintRows pins the CALL SITES rather than the
-// helper, which is the gap that let round 2's fix ship incomplete.
+// TestNoReportWritesABannerThenPrintRows pins the call sites rather than the
+// helper.
 //
-// printSection's contract is that the decision is made before the header. Three
-// sites disagreed with it — two of them inside printMDMHealthReport, whose
-// first two sections already used printSection, so one function applied the
-// rule twice and skipped it twice. Driving that report with a --select naming
-// nothing wrote 117 bytes of nothing but two box-drawing lines at exit 0, and
-// -o csv handed a CSV consumer the same stream.
+// printSection decides the drop and the format before writing the header. A
+// site that writes its own banner and then calls printRows skips that decision:
+// `pro report profile-status -o table --select nosuchfield` wrote 117 bytes of
+// box-drawing lines and no rows, and -o csv handed a CSV consumer the same
+// stream.
 //
-// TestSelectMatchingNothingLeavesNoOrphanBanner cannot see it: it calls
-// printSection directly and asserts nothing about who uses it. Both those
-// report functions are 0% covered, so only the argument itself can be pinned —
-// the same reasoning TestOverviewRenderersTakeTheFormattersWriter gives.
+// TestSelectMatchingNothingLeavesNoOrphanBanner calls printSection directly and
+// asserts nothing about its callers. The report functions are 0% covered, so
+// the call site is the only thing that can hold this.
 func TestNoReportWritesABannerThenPrintRows(t *testing.T) {
 	_, files := packageFiles(t)
 
@@ -1362,16 +1295,15 @@ func TestNoReportWritesABannerThenPrintRows(t *testing.T) {
 					continue
 				}
 				checked++
-				// Every LATER statement in the same block, not just the next
-				// one. Inserting `rows := mdmDevicesToRows(…)` between the
-				// banner and its printRows left the old rule green with the
-				// identical runtime bug.
+				// Every later statement in the block, not just the next one. A
+				// single statement between a banner and its printRows hid the
+				// site this rule was written over.
 				for _, later := range block.List[i+1:] {
 					if writesASectionBanner(later) {
 						break // the next section starts; this one is settled
 					}
 					if callsPrintRows(later) {
-						t.Errorf("%s: a section banner is followed by printRows in the same block — use printSection so the drop and the format are decided before the header", name)
+						t.Errorf("%s: a section banner is followed by printRows in the same block. Use printSection, which decides the drop and the format before the header", name)
 						break
 					}
 				}
@@ -1388,8 +1320,8 @@ func TestNoReportWritesABannerThenPrintRows(t *testing.T) {
 // writesASectionBanner reports whether stmt writes a `── … ──` header itself,
 // as opposed to handing one to printSection.
 //
-// A banner passed TO printSection is correct by definition — that is the whole
-// point of the helper — so counting it made every converted report look like a
+// A banner passed to printSection is correct by definition, which is what the
+// helper is for, so counting it made every converted report look like a
 // violation the moment any later statement in the block called printRows.
 func writesASectionBanner(stmt ast.Stmt) bool {
 	if callsNamed(stmt, "printSection") {

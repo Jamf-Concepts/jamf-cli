@@ -407,11 +407,8 @@ func printAggregated(cliCtx *registry.CLIContext, cmd *cobra.Command, merged map
 	}
 	formatter := formatterFor(cliCtx, renderFmt)
 
-	// --field, the same way printRows applies it. This function renders through
-	// formatterFor rather than printRows, because the format comes from the
-	// inner command's own -o rather than from multi's, and nothing in
-	// internal/output reads fieldName — so the flag was parsed, listed in
-	// Global Flags and discarded on every aggregated run.
+	// Applied here because nothing in internal/output reads fieldName, and this
+	// function renders through formatterFor rather than printRows.
 	emit := func(rows []map[string]any) error {
 		if fieldName != "" {
 			return printFieldValues(formatter.Writer(), rows, fieldName)
@@ -438,10 +435,7 @@ func printAggregated(cliCtx *registry.CLIContext, cmd *cobra.Command, merged map
 		// Unwrap to a flat array so json/yaml output matches single-instance output.
 		if len(jsonMerged) == 1 {
 			if results, ok := jsonMerged[mergedListKey]; ok {
-				// A plain list aggregation is shape-identical to a
-				// single-instance list, so --field means here what it means
-				// there. Any other shape is not a row set and goes through
-				// Print unchanged.
+				// Only a plain list is a row set --field can extract from.
 				if rows, isRows := results.([]map[string]any); isRows {
 					return emit(rows)
 				}
@@ -467,13 +461,8 @@ func printAggregated(cliCtx *registry.CLIContext, cmd *cobra.Command, merged map
 		return keys[i] < keys[j]
 	})
 
-	// One section helper, applying printSection's two rules rather than
-	// re-deriving one of them. The header belongs wherever the tables go, or
-	// --out-file splits one report between a file and the terminal; it is
-	// withheld for a format a parser reads, because this branch runs for csv,
-	// plain, xml and raw and a narrower gate wrote box-drawing lines into a CSV
-	// file; and it is withheld above rows that render nothing, or the banner
-	// outlives the body it announced.
+	// The header goes to the formatter's writer, or --out-file splits one report
+	// between a file and the terminal. The two conditions are printSection's.
 	out := formatter.Writer()
 	first := true
 	section := func(rows []map[string]any, header string, args ...any) error {
