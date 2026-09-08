@@ -150,12 +150,14 @@ func printFieldValues(w io.Writer, objects []map[string]any, field string) error
 		written++
 	}
 	// Reported here rather than at either caller, so the byte route through
-	// PrintRaw and the row route through printRows both say it. Its sibling
-	// --select warns on the same input, and without this the two answered
-	// identically-shaped mistakes differently: `commands --field nosuchfield
-	// --out-file f` left f at 0 bytes, exit 0, both streams empty, so a job
-	// could not tell a wrong field name from an empty result.
-	reportFieldMiss(objects, written)
+	// PrintRaw and the row route through printRows both say it. A --field miss
+	// writes nothing at all, so without this `commands --field nosuchfield
+	// --out-file f` left f at 0 bytes with both streams empty at exit 0.
+	// Not suppressed by --quiet or --no-hints: the formatter's projection-miss
+	// note follows the same rule.
+	if written == 0 && len(objects) > 0 {
+		fmt.Fprintf(os.Stderr, "--field %s matched no field in %d row(s)\n", field, len(objects))
+	}
 	return nil
 }
 

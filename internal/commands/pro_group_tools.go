@@ -477,13 +477,7 @@ func runGroupToolsExport(ctx context.Context, cliCtx *registry.CLIContext, forma
 		rows = []map[string]any{}
 	}
 
-	// Applied here because nothing in internal/output reads fieldName, and this
-	// command renders through formatterFor rather than printRows.
-	if fieldName != "" {
-		return printFieldValues(writerFor(cliCtx), rows, fieldName)
-	}
-	reportProjectionMiss(rows)
-	return formatterFor(cliCtx, format).Print(rows)
+	return printThrough(formatterFor(cliCtx, format), rows)
 }
 
 // ─────────────────────────────────────────────────────────────────

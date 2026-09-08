@@ -407,16 +407,6 @@ func printAggregated(cliCtx *registry.CLIContext, cmd *cobra.Command, merged map
 	}
 	formatter := formatterFor(cliCtx, renderFmt)
 
-	// Applied here because nothing in internal/output reads fieldName, and this
-	// function renders through formatterFor rather than printRows.
-	emit := func(rows []map[string]any) error {
-		if fieldName != "" {
-			return printFieldValues(formatter.Writer(), rows, fieldName)
-		}
-		reportProjectionMiss(rows)
-		return formatter.Print(rows)
-	}
-
 	if renderFmt == "json" || renderFmt == "yaml" {
 		// Convert aggregated summary maps back to list format for JSON
 		jsonMerged := make(map[string]any, len(merged))
@@ -437,12 +427,12 @@ func printAggregated(cliCtx *registry.CLIContext, cmd *cobra.Command, merged map
 			if results, ok := jsonMerged[mergedListKey]; ok {
 				// Only a plain list is a row set --field can extract from.
 				if rows, isRows := results.([]map[string]any); isRows {
-					return emit(rows)
+					return printThrough(formatter, rows)
 				}
 				return formatter.Print(results)
 			}
 		}
-		return emit([]map[string]any{jsonMerged})
+		return printThrough(formatter, []map[string]any{jsonMerged})
 	}
 
 	// Table mode: render each section
@@ -472,7 +462,7 @@ func printAggregated(cliCtx *registry.CLIContext, cmd *cobra.Command, merged map
 			}
 			_, _ = fmt.Fprintf(out, header, args...)
 		}
-		if err := emit(rows); err != nil {
+		if err := printThrough(formatter, rows); err != nil {
 			return err
 		}
 		first = false

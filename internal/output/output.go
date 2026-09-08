@@ -206,6 +206,9 @@ func IsMachineRendered(format Format) bool {
 
 // Print outputs data in the configured format
 func (f *Formatter) Print(data any) error {
+	if rows, ok := data.([]map[string]any); ok {
+		f.reportProjectionMiss(rows)
+	}
 	data = f.applyProjection(data)
 
 	rowCount := -1
@@ -239,6 +242,33 @@ func (f *Formatter) Print(data any) error {
 		f.maybePrintListHint(rowCount)
 	}
 	return err
+}
+
+// reportProjectionMiss says on stderr that --select or --compact matched no
+// field in any row.
+//
+// printTable, printCSV, printPlain and printDetail all decline an empty column
+// set, so without the note `commands -o table --select nosuchfield` writes zero
+// bytes on both streams and exits 0. printJSON and its siblings still emit a
+// document of empty objects.
+//
+// It lives here rather than at each caller so no caller can forget it, and
+// --quiet and --no-hints do not suppress it. Those flags suppress advisory
+// hints, and under the four declining renderers this note is the only signal
+// separating a mistyped field name from an empty collection.
+func (f *Formatter) reportProjectionMiss(rows []map[string]any) {
+	if !f.projector.RendersNothing(rows) {
+		return
+	}
+	flag := "--compact"
+	if paths := cleanPaths(f.projector.Select); len(paths) > 0 {
+		flag = "--select " + strings.Join(paths, ",")
+	}
+	w := f.stderr
+	if w == nil {
+		w = os.Stderr
+	}
+	_, _ = fmt.Fprintf(w, "%s matched no field in %d row(s)\n", flag, len(rows))
 }
 
 // maybePrintListHint writes a one-line stderr hint suggesting how to
@@ -372,7 +402,7 @@ func (f *Formatter) printCSV(data any) error {
 			return nil
 		}
 		v = flattenRows(v)
-		headers := columnKeys(v, !f.projector.IsZero())
+		headers := f.columnKeys(v)
 		// An empty header plus one empty line per row is not a CSV a parser can
 		// read.
 		if len(headers) == 0 {
@@ -400,7 +430,7 @@ func (f *Formatter) printPlain(data any) error {
 		v = flattenRows(v)
 		// plain is positional and has no header, so per-row keys shift a
 		// consumer's columns with no signal at all.
-		keys := columnKeys(v, !f.projector.IsZero())
+		keys := f.columnKeys(v)
 		if len(keys) == 0 {
 			return nil
 		}
@@ -432,7 +462,7 @@ func (f *Formatter) printTable(data any) error {
 	// Flatten nested objects to dot-notation columns for readable table output
 	rows = flattenRows(rows)
 
-	allKeys := columnKeys(rows, !f.projector.IsZero())
+	allKeys := f.columnKeys(rows)
 	// No columns means the projection matched nothing in any row. It used to
 	// print "RESULTS (N total)" above a blank header.
 	if len(allKeys) == 0 {
@@ -696,11 +726,11 @@ func keyPriority(key string) int {
 //
 // Unioning unconditionally changes every table in the CLI, which CLAUDE.md
 // rules out.
-func columnKeys(rows []map[string]any, projected bool) []string {
+func (f *Formatter) columnKeys(rows []map[string]any) []string {
 	if len(rows) == 0 {
 		return nil
 	}
-	if !projected {
+	if f.projector.IsZero() {
 		return sortedKeys(rows[0])
 	}
 	union := make(map[string]any, len(rows[0]))

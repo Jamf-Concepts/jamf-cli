@@ -956,43 +956,6 @@ func TestFieldFollowsTheFormatterWriter(t *testing.T) {
 	}
 }
 
-// TestSelectMatchingNothingPrintsNothing covers a section whose rows carry none
-// of the --select paths. --select was inert on the multi-section reports until
-// this change, so the symptom arrives with it: projectSelect omits a missing
-// path silently and keeps len(rows), so printTable read sortedKeys(rows[0]),
-// got nothing, and still printed "RESULTS (18 total)" above a blank header.
-//
-// A report's sections do not share a schema, so this is the normal case rather
-// than an edge one: `--select reason` is carried by the errors section of
-// `pro report ddm-status` and by none of the others.
-func TestSelectMatchingNothingPrintsNothing(t *testing.T) {
-	oldSelect, oldFmt := selectFields, outputFmt
-	selectFields, outputFmt = []string{"reason"}, "table"
-	t.Cleanup(func() { selectFields, outputFmt = oldSelect, oldFmt })
-
-	var buf bytes.Buffer
-	formatter := output.New("table", true, false)
-	formatter.SetWriter(&buf)
-	formatter.SetProjector(output.Projector{Select: selectFields})
-	cliCtx := &registry.CLIContext{Output: &cliOutput{formatter}}
-
-	if err := printRows(cliCtx, []map[string]any{{"id": "1", "status": "ok"}}); err != nil {
-		t.Fatalf("printRows: %v", err)
-	}
-	if got := buf.String(); got != "" {
-		t.Errorf("a section carrying none of the --select paths rendered %q, which reads as a broken renderer rather than an absent field", got)
-	}
-
-	// A section that does carry it must still render.
-	buf.Reset()
-	if err := printRows(cliCtx, []map[string]any{{"id": "1", "reason": "expired"}}); err != nil {
-		t.Fatalf("printRows: %v", err)
-	}
-	if !strings.Contains(buf.String(), "expired") {
-		t.Errorf("a section carrying the --select path rendered %q, want the value", buf.String())
-	}
-}
-
 // TestSelectMatchingNothingLeavesNoOrphanBanner covers the caller-side half of
 // the --select skip. Each hand-written multi-section report wrote its own
 // banner and then called printRows, so suppressing the body left the banner on
@@ -1061,7 +1024,7 @@ func TestSelectReachesAWideOnlyFieldOnANarrowFormat(t *testing.T) {
 	}
 }
 
-// TestFieldMissIsReportedAndSurvivesQuiet pins reportFieldMiss.
+// TestFieldMissIsReportedAndSurvivesQuiet pins the --field miss note.
 //
 // The note goes to stderr, and the only other test driving a real field miss
 // reads stdout, so both mutations pass without this. Deleting the call leaves
@@ -1266,95 +1229,23 @@ func TestSelectMatchingNothingRendersConsistently(t *testing.T) {
 			}
 		})
 	}
-}
 
-// TestNoReportWritesABannerThenPrintRows pins the call sites rather than the
-// helper.
-//
-// printSection decides the drop and the format before writing the header. A
-// site that writes its own banner and then calls printRows skips that decision:
-// `pro report profile-status -o table --select nosuchfield` wrote 117 bytes of
-// box-drawing lines and no rows, and -o csv handed a CSV consumer the same
-// stream.
-//
-// TestSelectMatchingNothingLeavesNoOrphanBanner calls printSection directly and
-// asserts nothing about its callers. The report functions are 0% covered, so
-// the call site is the only thing that can hold this.
-func TestNoReportWritesABannerThenPrintRows(t *testing.T) {
-	_, files := packageFiles(t)
+	// A row that does carry the path still renders, or the refusal is a mute
+	// button rather than an honest answer.
+	t.Run("a matching row still renders", func(t *testing.T) {
+		outputFmt = "table"
+		selectFields = []string{"reason"}
+		var buf bytes.Buffer
+		formatter := output.New("table", true, false)
+		formatter.SetWriter(&buf)
+		formatter.SetProjector(output.Projector{Select: selectFields})
+		cliCtx := &registry.CLIContext{Output: &cliOutput{formatter}}
 
-	checked := 0
-	for name, file := range files {
-		ast.Inspect(file, func(n ast.Node) bool {
-			block, ok := n.(*ast.BlockStmt)
-			if !ok {
-				return true
-			}
-			for i, stmt := range block.List {
-				if !writesASectionBanner(stmt) {
-					continue
-				}
-				checked++
-				// Every later statement in the block, not just the next one. A
-				// single statement between a banner and its printRows hid the
-				// site this rule was written over.
-				for _, later := range block.List[i+1:] {
-					if writesASectionBanner(later) {
-						break // the next section starts; this one is settled
-					}
-					if callsPrintRows(later) {
-						t.Errorf("%s: a section banner is followed by printRows in the same block. Use printSection, which decides the drop and the format before the header", name)
-						break
-					}
-				}
-			}
-			return true
-		})
-	}
-	if checked == 0 {
-		t.Error("no section banner was found anywhere in the package, so this test proves nothing")
-	}
-	t.Logf("checked %d section banners across %d files", checked, len(files))
-}
-
-// writesASectionBanner reports whether stmt writes a `── … ──` header itself,
-// as opposed to handing one to printSection.
-//
-// A banner passed to printSection is correct by definition, which is what the
-// helper is for, so counting it made every converted report look like a
-// violation the moment any later statement in the block called printRows.
-func writesASectionBanner(stmt ast.Stmt) bool {
-	if callsNamed(stmt, "printSection") {
-		return false
-	}
-	found := false
-	ast.Inspect(stmt, func(n ast.Node) bool {
-		lit, ok := n.(*ast.BasicLit)
-		if ok && strings.Contains(lit.Value, "──") {
-			found = true
+		if err := printRows(cliCtx, []map[string]any{{"id": "1", "reason": "expired"}}); err != nil {
+			t.Fatalf("printRows: %v", err)
 		}
-		return !found
+		if !strings.Contains(buf.String(), "expired") {
+			t.Errorf("rendered %q, want the selected value", buf.String())
+		}
 	})
-	return found
-}
-
-// callsNamed reports whether stmt calls the named package-level function.
-func callsNamed(stmt ast.Stmt, name string) bool {
-	found := false
-	ast.Inspect(stmt, func(n ast.Node) bool {
-		call, ok := n.(*ast.CallExpr)
-		if !ok {
-			return true
-		}
-		if id, isIdent := call.Fun.(*ast.Ident); isIdent && id.Name == name {
-			found = true
-		}
-		return !found
-	})
-	return found
-}
-
-// callsPrintRows reports whether stmt calls printRows.
-func callsPrintRows(stmt ast.Stmt) bool {
-	return callsNamed(stmt, "printRows")
 }

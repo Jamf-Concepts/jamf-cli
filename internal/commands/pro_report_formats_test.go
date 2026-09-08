@@ -23,6 +23,10 @@ import (
 // The structs are zero-valued. Each report prints its summary section
 // unconditionally, so an empty struct reaches printSection without a mock, and
 // the routing is what this test covers.
+//
+// This replaces an AST rule that refused a banner written before printRows. It
+// catches the same regression at every printSection caller except the one in
+// newReportDDMStatusCmd's RunE, which needs a platform client to reach.
 func TestEveryMultiSectionReportHonoursItsFormat(t *testing.T) {
 	reports := map[string]func(*registry.CLIContext) error{
 		"security": func(c *registry.CLIContext) error {
