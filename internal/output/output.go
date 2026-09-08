@@ -257,6 +257,12 @@ func (f *Formatter) maybePrintListHint(rowCount int) {
 	if f.format == FormatTable || f.format == "" {
 		return
 	}
+	// Silent while a projector is live. The count is the pre-projection one, so
+	// on a projection that matched nothing this was the only line on stderr and
+	// it recommended more of the flag that had just emptied the output.
+	if !f.projector.IsZero() {
+		return
+	}
 	w := f.stderr
 	if w == nil {
 		w = os.Stderr
@@ -401,8 +407,16 @@ func (f *Formatter) printPlain(data any) error {
 	switch v := data.(type) {
 	case []map[string]any:
 		v = flattenRows(v)
+		// One column set for every line, computed once. plain is the only
+		// positional format — tab-separated with no header — so per-row keys
+		// shift a consumer's columns with no signal at all. Same union and same
+		// empty-column refusal as printTable and printCSV: a projection that
+		// matched nothing renders nothing, not one blank line per row.
+		keys := columnKeys(v, !f.projector.IsZero())
+		if len(keys) == 0 {
+			return nil
+		}
 		for _, row := range v {
-			keys := sortedKeys(row)
 			vals := make([]string, len(keys))
 			for i, k := range keys {
 				vals[i] = FormatValue(row[k])
@@ -531,6 +545,13 @@ func (f *Formatter) printDetail(obj map[string]any) error {
 	}
 	row := flat[0]
 	keys := sortedKeys(row)
+	// flattenRows never drops an empty row, so the len(flat) == 0 guard above
+	// cannot fire for a projection that matched nothing — it printed DETAILS
+	// over an empty list. Every generated single-object get reaches this
+	// renderer, so the refusal belongs here as well as in printTable.
+	if len(keys) == 0 {
+		return nil
+	}
 
 	fieldW := len("FIELD")
 	for _, k := range keys {
@@ -681,8 +702,6 @@ func keyPriority(key string) int {
 	return 2
 }
 
-// sortedKeys returns map keys in deterministic order:
-// "id" first, then "name", then remaining keys alphabetically.
 // columnKeys returns the column set for rows, in sortedKeys' order.
 //
 // Row 0 alone decides it normally, which is the documented convention and what
@@ -717,6 +736,8 @@ func columnKeys(rows []map[string]any, projected bool) []string {
 	return sortedKeys(union)
 }
 
+// sortedKeys returns map keys in deterministic order:
+// "id" first, then "name", then remaining keys alphabetically.
 func sortedKeys(m map[string]any) []string {
 	keys := make([]string, 0, len(m))
 	for k := range m {

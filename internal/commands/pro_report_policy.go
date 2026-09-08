@@ -139,7 +139,9 @@ Examples:
   jamf-cli pro report policy-status --scan-failures --limit 500
 
 With no -o flag, this report writes a table. Then --out-file receives that
-table, not JSON. Use -o json to write structured data to the file.`,
+table, not JSON. Use -o json or -o yaml to write structured data to the file:
+those two emit one document holding every section. csv, ndjson and plain emit
+one undelimited block per section, which no parser reads as a single file.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Default to table output for this report command
 			if !cmd.Flags().Changed("output") {

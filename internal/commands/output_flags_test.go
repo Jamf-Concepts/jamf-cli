@@ -30,9 +30,6 @@ import (
 // `commands` is the command under test for five of the six flags. It needs no
 // credentials, and it emits well over the 50 rows the advisory hint needs.
 
-// runRoot executes the root command with args and returns what reached standard
-// output and standard error. Both are read in goroutines: `commands -o json` is
-// about a megabyte, which deadlocks a pipe that is drained after the write.
 // restoreOutputFlags saves every global output flag var and puts it back when
 // the test ends. They are package-level and cobra parses into them, so any test
 // that drives the root command leaks its flags into the next one.
@@ -48,6 +45,9 @@ func restoreOutputFlags(t *testing.T) {
 	})
 }
 
+// runRoot executes the root command with args and returns what reached standard
+// output and standard error. Both are read in goroutines: `commands -o json` is
+// about a megabyte, which deadlocks a pipe that is drained after the write.
 func runRoot(t *testing.T, args ...string) (stdout, stderr string, err error) {
 	t.Helper()
 
@@ -522,7 +522,11 @@ func TestAggregatedReportPrintsToTheFormattersWriter(t *testing.T) {
 	// with no -o at all. json and yaml both return early from printAggregated,
 	// so a loop of those two never executed the section-header code: reverting
 	// the header print to fmt.Printf passed the test this replaced.
-	for _, format := range []string{"json", "yaml", "table", ""} {
+	// csv and plain are the formats that reach the section helper AND are
+	// machine-rendered, so they are the only ones that exercise its
+	// suppression. Without them the `return` inside the old banner closure was
+	// hit zero times while its Fprintf was hit six.
+	for _, format := range []string{"json", "yaml", "table", "", "csv", "plain"} {
 		name := format
 		if name == "" {
 			name = "(no -o)"
@@ -553,6 +557,13 @@ func TestAggregatedReportPrintsToTheFormattersWriter(t *testing.T) {
 			if format == "table" || format == "" {
 				if !strings.Contains(buf.String(), "──") {
 					t.Errorf("-o %s: no section header reached the writer, so the headings and the rows go to different places: %q", name, shortened(buf.String()))
+				}
+			}
+			// And they must NOT travel into a stream a parser reads: a `──`
+			// line makes csv.reader yield a one-field row.
+			if format == "csv" || format == "plain" {
+				if strings.Contains(buf.String(), "──") {
+					t.Errorf("-o %s put box-drawing lines into a machine-read stream: %q", name, shortened(buf.String()))
 				}
 			}
 		})
@@ -1065,6 +1076,172 @@ func TestSelectMatchingNothingLeavesNoOrphanBanner(t *testing.T) {
 		if !strings.Contains(out, want) {
 			t.Errorf("a rendered section is missing %q: %q", want, out)
 		}
+	}
+}
+
+// TestFieldMissIsReportedAndSurvivesQuiet pins reportFieldMiss.
+//
+// It was executed and asserted nowhere: the only test driving a real field miss
+// reads stdout, and this note goes to stderr, so both of its mutations shipped
+// green. Deleting the call left `commands --field nosuchfield --out-file f` at
+// 0 bytes with both streams empty at exit 0, and restoring the
+// quiet || noHints suppression did the same under the flags a CI job passes.
+func TestFieldMissIsReportedAndSurvivesQuiet(t *testing.T) {
+	rows := []map[string]any{{"id": "1"}, {"id": "2"}}
+
+	for _, tc := range []struct {
+		name         string
+		quiet, hints bool
+	}{
+		{name: "plain"},
+		{name: "quiet", quiet: true},
+		{name: "no-hints", hints: true},
+		{name: "both", quiet: true, hints: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			restoreOutputFlags(t)
+			fieldName, quiet, noHints = "nosuchfield", tc.quiet, tc.hints
+
+			var buf bytes.Buffer
+			formatter := output.New("json", true, false)
+			formatter.SetWriter(&buf)
+			cliCtx := &registry.CLIContext{Output: &cliOutput{formatter}}
+
+			stderr := captureStderr(t, func() {
+				if err := printRows(cliCtx, rows); err != nil {
+					t.Fatalf("printRows: %v", err)
+				}
+			})
+			if !strings.Contains(stderr, "--field nosuchfield matched no field in 2 row(s)") {
+				t.Errorf("stderr = %q, want the field-miss note — a --field miss writes nothing at all, so this is the only signal that anything happened", stderr)
+			}
+		})
+	}
+}
+
+// TestProjectionMissIsReportedAndSurvivesQuiet is the same guard for --select
+// and --compact.
+//
+// Round 6 deleted this note's predecessor, arguing that a projection matching
+// nothing still emits a document of empty objects. That is true for json, yaml
+// and ndjson and false for the four renderers the same change taught to decline
+// an empty column set — so `commands -o table --select nosuchfield` was 0 bytes
+// on both streams at exit 0, which is issue #349's signature.
+func TestProjectionMissIsReportedAndSurvivesQuiet(t *testing.T) {
+	rows := []map[string]any{{"id": "1"}, {"id": "2"}}
+	// --compact keeps a scalar whose key appears in at least 80% of rows, so a
+	// row set of rare keys is what empties every row. That is a real shape: a
+	// report whose rows each carry a different optional field.
+	rare := []map[string]any{{"a": "1"}, {"b": "2"}, {"c": "3"}, {"d": "4"}, {"e": "5"}}
+
+	for _, tc := range []struct {
+		name         string
+		rows         []map[string]any
+		selectFields []string
+		compact      bool
+		want         string
+	}{
+		{name: "select", rows: rows, selectFields: []string{"nosuchfield"}, want: "--select nosuchfield matched no field in 2 row(s)"},
+		{name: "compact", rows: rare, compact: true, want: "--compact matched no field in 5 row(s)"},
+	} {
+		for _, silent := range []bool{false, true} {
+			name := tc.name
+			if silent {
+				name += "/quiet+no-hints"
+			}
+			t.Run(name, func(t *testing.T) {
+				restoreOutputFlags(t)
+				outputFmt = "table"
+				selectFields, compact = tc.selectFields, tc.compact
+				quiet, noHints = silent, silent
+
+				var buf bytes.Buffer
+				formatter := output.New("table", true, false)
+				formatter.SetWriter(&buf)
+				formatter.SetProjector(output.Projector{Select: tc.selectFields, Compact: tc.compact})
+				cliCtx := &registry.CLIContext{Output: &cliOutput{formatter}}
+
+				stderr := captureStderr(t, func() {
+					if err := printRows(cliCtx, tc.rows); err != nil {
+						t.Fatalf("printRows: %v", err)
+					}
+				})
+				if !strings.Contains(stderr, tc.want) {
+					t.Errorf("stderr = %q, want %q — the renderer declines an empty column set, so nothing else says anything happened", stderr, tc.want)
+				}
+				if buf.Len() != 0 {
+					t.Errorf("the table rendered %q over no columns", buf.String())
+				}
+			})
+		}
+	}
+
+	// A projection that DOES match says nothing.
+	t.Run("match is silent", func(t *testing.T) {
+		restoreOutputFlags(t)
+		outputFmt = "table"
+		selectFields = []string{"id"}
+
+		var buf bytes.Buffer
+		formatter := output.New("table", true, false)
+		formatter.SetWriter(&buf)
+		formatter.SetProjector(output.Projector{Select: selectFields})
+		cliCtx := &registry.CLIContext{Output: &cliOutput{formatter}}
+
+		stderr := captureStderr(t, func() {
+			if err := printRows(cliCtx, rows); err != nil {
+				t.Fatalf("printRows: %v", err)
+			}
+		})
+		if strings.Contains(stderr, "matched no field") {
+			t.Errorf("a projection that matched reported a miss: %q", stderr)
+		}
+	})
+}
+
+// TestSectionBannerIsWithheldForAMachineFormat pins printSection's OTHER rule.
+//
+// The test above sets outputFmt = "table" for both of its cases, so neither
+// ever reached the IsMachineRendered condition with a body present and a
+// header to write — the coverage counters for the condition and the Fprint
+// inside it were identical, which is the tell. Dropping the condition put
+// box-drawing lines back into a CSV stream with the suite green, and that is
+// verbatim the defect the CHANGELOG claims to have fixed.
+func TestSectionBannerIsWithheldForAMachineFormat(t *testing.T) {
+	restoreOutputFlags(t)
+	selectFields, quiet = nil, true
+
+	for _, tc := range []struct {
+		format string
+		banner bool
+	}{
+		{"csv", false},
+		{"plain", false},
+		{"ndjson", false},
+		// xml and raw have no case in Print's switch, so both render tables
+		// and both DO take a banner.
+		{"xml", true},
+		{"table", true},
+	} {
+		t.Run(tc.format, func(t *testing.T) {
+			outputFmt = tc.format
+			var buf bytes.Buffer
+			formatter := output.New(tc.format, true, false)
+			formatter.SetWriter(&buf)
+			cliCtx := &registry.CLIContext{Output: &cliOutput{formatter}}
+
+			if err := printSection(cliCtx, "── Flagged Devices (1) ──\n", []map[string]any{{"id": "1"}}); err != nil {
+				t.Fatalf("printSection: %v", err)
+			}
+			out := buf.String()
+			if got := strings.Contains(out, "──"); got != tc.banner {
+				t.Errorf("-o %s wrote a banner = %v, want %v: %q", tc.format, got, tc.banner, out)
+			}
+			// The body always travels, whatever the banner decision.
+			if !strings.Contains(out, "1") {
+				t.Errorf("-o %s wrote no body at all: %q", tc.format, out)
+			}
+		})
 	}
 }
 

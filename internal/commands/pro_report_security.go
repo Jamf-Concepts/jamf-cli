@@ -40,7 +40,12 @@ Includes:
   - OS distribution: version counts for currency analysis
 
 Table output shows the summary and flagged devices. JSON/YAML output includes
-all three sections.`,
+all three sections.
+
+With no -o flag, this report writes a table. Then --out-file receives that
+table, not JSON. Use -o json or -o yaml to write structured data to the file:
+those two emit one document holding every section. csv, ndjson and plain emit
+one undelimited block per section, which no parser reads as a single file.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			report, err := runReportSecurity(cmd.Context(), cliCtx.Client)
 			if err != nil {

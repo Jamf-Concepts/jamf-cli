@@ -5,6 +5,7 @@ package commands
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/output"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
@@ -44,7 +45,37 @@ func printRows(cliCtx *registry.CLIContext, rows []map[string]any) error {
 	if fieldName != "" {
 		return printFieldValues(writerFor(cliCtx), rows, fieldName)
 	}
+	// Said once here, on the route that knows the projector matched nothing,
+	// rather than in each renderer: table, csv, plain and detail all decline an
+	// empty column set, so without this the answer was nothing on either
+	// stream.
+	reportProjectionMiss(rows)
 	return formatterFor(cliCtx, outputFmt).Print(rows)
+}
+
+// reportProjectionMiss says on stderr that --select or --compact matched no
+// field in any row.
+//
+// Round 6 deleted this note's predecessor, on the argument that a projection
+// matching nothing still emits a document of empty objects. That holds for
+// json, yaml and ndjson. It is false for exactly the formats the same change
+// taught to decline an empty column set — table (the default), csv, plain and
+// detail — where `commands -o table --select nosuchfield` was 0 bytes on both
+// streams at exit 0.
+//
+// NOT suppressed by --quiet or --no-hints, for the same reason as
+// reportFieldMiss: under those formats this is the only thing separating a
+// mistyped field name from an empty collection, and both flags are what a CI
+// job passes.
+func reportProjectionMiss(rows []map[string]any) {
+	if !projectionRendersNothing(rows) {
+		return
+	}
+	what := "--compact"
+	if len(selectFields) > 0 {
+		what = "--select " + strings.Join(selectFields, ",")
+	}
+	_, _ = fmt.Fprintf(os.Stderr, "%s matched no field in %d row(s)\n", what, len(rows))
 }
 
 // reportFieldMiss says on stderr that --field named nothing any row carried.
@@ -55,14 +86,22 @@ func printRows(cliCtx *registry.CLIContext, rows []map[string]any) error {
 //
 // NOT suppressed by --quiet or --no-hints, unlike an advisory hint: a --field
 // miss produces no output at all, and silencing the only signal that anything
-// happened is what makes it indistinguishable from success. --select needs no
-// equivalent, because a projection that matches nothing still emits a document
-// of empty objects rather than nothing.
+// happened is what makes it indistinguishable from success. reportProjectionMiss
+// is the same note for --select and --compact.
 func reportFieldMiss(rows []map[string]any, written int) {
 	if written > 0 || len(rows) == 0 || fieldName == "" {
 		return
 	}
 	_, _ = fmt.Fprintf(os.Stderr, "--field %s matched no field in %d row(s)\n", fieldName, len(rows))
+}
+
+// projectionRendersNothing answers whether the live --select or --compact
+// empties every row. That is what makes table, csv, plain and detail render
+// nothing, so it decides both the miss note and whether a caller writes a
+// header. One predicate, because a banner suppressed on a different rule from
+// the note is how a banner came to outlive its body.
+func projectionRendersNothing(rows []map[string]any) bool {
+	return (output.Projector{Select: selectFields, Compact: compact}).RendersNothing(rows)
 }
 
 // printSection writes a section header above a row set.
@@ -81,7 +120,7 @@ func printSection(cliCtx *registry.CLIContext, header string, rows []map[string]
 	// without this the banner outlived the rows it announced:
 	// `pro report security -o table --select nosuchfield` produced 105 bytes of
 	// nothing but box-drawing lines.
-	if (output.Projector{Select: selectFields, Compact: compact}).RendersNothing(rows) {
+	if projectionRendersNothing(rows) {
 		return printRows(cliCtx, rows)
 	}
 	if header != "" && !output.IsMachineRendered(output.Format(outputFmt)) {

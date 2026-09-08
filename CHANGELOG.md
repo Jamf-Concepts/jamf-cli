@@ -124,23 +124,41 @@ in hand.
   generated commands. Three consequences worth knowing. Under `table` and `csv` the column
   set is the **union across rows** while either flag is active, because both make rows
   heterogeneous — a field only some rows carry used to be a column for none of them;
-  without a projector the first row decides, as before. Under `table` and `csv` a
-  projection that matches nothing in any row now renders **nothing**, where it used to
-  print a row count above a blank header. And `--select` bypasses the table's
+  without a projector the first row decides, as before. `plain` takes the same union, so
+  every line carries the same field count. Under `table`, `csv`, `plain` and the
+  single-object detail view, a projection that matches nothing in any row now renders
+  **nothing**, where it used to print a row count above a blank header; the miss is named
+  on stderr, and neither `--quiet` nor `--no-hints` silences it, because under those
+  formats it is the only thing separating a mistyped field from an empty collection. The
+  large-result hint is withheld while either flag is active, because it recommended more
+  of the flag that had just emptied the output. And `--select` bypasses the table's
   default-column heuristic, so a named field is shown without needing `--wide`.
-- **`-o raw` and `-o xml` render a table rather than JSON** wherever a command moved onto
-  the shared formatter — `pro audit` and all six `pro report` multi-section reports. Both
-  used to marshal the rows and hand the bytes to `PrintRaw`, which passes JSON through
-  unchanged for exactly those two formats; the formatter's own dispatch has no case for
-  either and renders a table. Every other format is byte-identical. Use `-o json` for JSON.
+- **`pro audit -o raw --out-file f` and `-o xml --out-file f` now write a table, not JSON.**
+  That command marshalled its rows and handed the bytes to `PrintRaw`, which passes JSON
+  through unchanged for exactly those two formats, and the branch was reached only when
+  `--out-file` was set. The shared formatter's own dispatch has no case for either format
+  and renders a table. Use `-o json` for JSON. Without `--out-file` the output is
+  byte-identical, and so is every other format. The six `pro report` multi-section reports
+  already rendered `raw` and `xml` as tables, so nothing about their rendering moved — what
+  changed for them is that `--out-file` receives it.
 - **A section banner is no longer written for a format a parser reads.** `json`, `yaml`,
-  `ndjson`, `csv` and `plain` get no `── Section ──` lines, so a CSV destination is a CSV
-  again; `xml` and `raw` keep theirs, because they render as tables. And
-  `pro report patch-status --scan-failures -o json` now writes **one** array of labelled
-  sections where it wrote three separate documents into the same file.
+  `ndjson`, `csv` and `plain` get no `── Section ──` lines; `xml` and `raw` keep theirs,
+  because they render as tables. A multi-section report still emits **one block per
+  section** under `csv`, `ndjson` and `plain`, and now with nothing between them, so use
+  `-o json` or `-o yaml` for a single parseable file. Every affected command says so in
+  its `--help`. Under `json` and `yaml`,
+  `pro report patch-status --scan-failures` now writes **one** array of labelled
+  sections where it wrote three separate documents into the same file, and each section
+  carries a `fetch_error` field: an empty section and a section whose fetch failed were
+  byte-identical before, so a scheduled job read "no failures" from a check that never
+  ran. An empty section is `[]`, never `null`.
 - **`--field` naming a field no row carries reports that on stderr**, and `--quiet` and
   `--no-hints` do not silence it: a `--field` miss produces no output at all, so the note
   is the only signal distinguishing a wrong field name from an empty result.
+- **`--field` now extracts on `pro group-tools export` and on a `multi` aggregation.** Both
+  render through their own `--format` argument rather than the global `-o`, so the flag was
+  parsed, listed in Global Flags and discarded. A `multi` aggregation applies it per
+  section, the way a `pro report` section does.
 
 - **A command that documents no positional argument now refuses one**, with exit 2
   (`usage`). 736 leaf commands used to accept any positional and discard it in silence, so

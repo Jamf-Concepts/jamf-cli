@@ -477,6 +477,15 @@ func runGroupToolsExport(ctx context.Context, cliCtx *registry.CLIContext, forma
 		rows = []map[string]any{}
 	}
 
+	// --field, the same way printRows applies it. This site renders through
+	// formatterFor rather than printRows, because the format comes from this
+	// command's own --format argument rather than from -o, and nothing in
+	// internal/output reads fieldName — so the flag was parsed, listed in
+	// Global Flags and discarded.
+	if fieldName != "" {
+		return printFieldValues(writerFor(cliCtx), rows, fieldName)
+	}
+	reportProjectionMiss(rows)
 	return formatterFor(cliCtx, format).Print(rows)
 }
 

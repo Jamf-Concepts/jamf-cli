@@ -29,8 +29,10 @@ Output columns: title, id, on_latest, on_other, total, latest, compliance_pct
 
 With no -o flag, this report writes a table. Then --out-file receives that
 table, not JSON. Use -o json or -o yaml to write structured data to the file;
-with --scan-failures those two emit one labelled document per section in a
-single array, while csv and plain emit one block per section.`,
+with --scan-failures those two emit one array of labelled sections, each
+carrying a fetch_error field so an empty section is distinguishable from a
+section that could not be fetched. csv, ndjson and plain emit one undelimited
+block per section, which no parser reads as a single file.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !cmd.Flags().Changed("output") {
 				outputFmt = "table"
@@ -41,6 +43,17 @@ single array, while csv and plain emit one block per section.`,
 
 	cmd.Flags().BoolVar(&scanFailures, "scan-failures", false, "include patch policy failure counts")
 	return cmd
+}
+
+// errString renders an error for a report document. It returns "" for nil, so
+// the key is always present: an absent key and an empty one are the same thing
+// to a reader, and a self-describing document is what lets a consumer tell an
+// empty section from a section that could not be fetched.
+func errString(err error) string {
+	if err == nil {
+		return ""
+	}
+	return err.Error()
 }
 
 func runReportPatchStatusFull(ctx context.Context, cliCtx *registry.CLIContext, scanFailures bool) error {
@@ -63,12 +76,24 @@ func runReportPatchStatusFull(ctx context.Context, cliCtx *registry.CLIContext, 
 	policyRows, policyErr := runReportPatchPolicyFailures(ctx, client)
 	if policyErr != nil {
 		fmt.Fprintf(os.Stderr, "WARNING: failed to fetch patch policy failures: %v\n", policyErr)
-		policyRows = nil
 	}
 
-	var deviceRows []map[string]any
+	// An empty list prints [], never null. Both of these are nil in the
+	// ordinary case — a policy contributes a row only when it has failures — so
+	// the document a healthy tenant produced carried "data": null for two of
+	// its three sections, and jq rejected the pipeline the help recommends.
+	if rows == nil {
+		rows = []map[string]any{}
+	}
+	if policyRows == nil {
+		policyRows = []map[string]any{}
+	}
+
+	deviceRows := []map[string]any{}
+	var deviceErr error
 	if len(policyRows) > 0 {
 		raw, devErr := fetchPatchDeviceFailures(ctx, client, policyRows)
+		deviceErr = devErr
 		switch {
 		case devErr != nil:
 			fmt.Fprintf(os.Stderr, "WARNING: failed to fetch device-level failures: %v\n", devErr)
@@ -92,8 +117,13 @@ func runReportPatchStatusFull(ctx context.Context, cliCtx *registry.CLIContext, 
 	if outputFmt == "json" || outputFmt == "yaml" {
 		return printRows(cliCtx, []map[string]any{
 			{"section": "title_compliance", "data": rows},
-			{"section": "policy_failures", "data": policyRows},
-			{"section": "device_failures", "data": deviceRows},
+			// A failed fetch and a clean result are both empty here, so the
+			// document has to carry which one it was. The only signal was a
+			// WARNING on stderr, and this command's help steers the reader to
+			// the file — so a scheduled job read "no failures" from a check
+			// that never ran.
+			{"section": "policy_failures", "data": policyRows, "fetch_error": errString(policyErr)},
+			{"section": "device_failures", "data": deviceRows, "fetch_error": errString(deviceErr)},
 		})
 	}
 

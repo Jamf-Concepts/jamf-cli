@@ -407,6 +407,19 @@ func printAggregated(cliCtx *registry.CLIContext, cmd *cobra.Command, merged map
 	}
 	formatter := formatterFor(cliCtx, renderFmt)
 
+	// --field, the same way printRows applies it. This function renders through
+	// formatterFor rather than printRows, because the format comes from the
+	// inner command's own -o rather than from multi's, and nothing in
+	// internal/output reads fieldName — so the flag was parsed, listed in
+	// Global Flags and discarded on every aggregated run.
+	emit := func(rows []map[string]any) error {
+		if fieldName != "" {
+			return printFieldValues(formatter.Writer(), rows, fieldName)
+		}
+		reportProjectionMiss(rows)
+		return formatter.Print(rows)
+	}
+
 	if renderFmt == "json" || renderFmt == "yaml" {
 		// Convert aggregated summary maps back to list format for JSON
 		jsonMerged := make(map[string]any, len(merged))
@@ -425,10 +438,17 @@ func printAggregated(cliCtx *registry.CLIContext, cmd *cobra.Command, merged map
 		// Unwrap to a flat array so json/yaml output matches single-instance output.
 		if len(jsonMerged) == 1 {
 			if results, ok := jsonMerged[mergedListKey]; ok {
+				// A plain list aggregation is shape-identical to a
+				// single-instance list, so --field means here what it means
+				// there. Any other shape is not a row set and goes through
+				// Print unchanged.
+				if rows, isRows := results.([]map[string]any); isRows {
+					return emit(rows)
+				}
 				return formatter.Print(results)
 			}
 		}
-		return formatter.Print([]map[string]any{jsonMerged})
+		return emit([]map[string]any{jsonMerged})
 	}
 
 	// Table mode: render each section
@@ -447,34 +467,37 @@ func printAggregated(cliCtx *registry.CLIContext, cmd *cobra.Command, merged map
 		return keys[i] < keys[j]
 	})
 
-	// The section headers belong wherever the tables go, or --out-file splits one
-	// report between a file and the terminal — and not at all for a format a
-	// parser reads, which is the same rule printSection applies. This branch
-	// runs for csv, plain, xml and raw, so a narrower gate than
-	// output.IsMachineRendered wrote box-drawing lines into a CSV file.
+	// One section helper, applying printSection's two rules rather than
+	// re-deriving one of them. The header belongs wherever the tables go, or
+	// --out-file splits one report between a file and the terminal; it is
+	// withheld for a format a parser reads, because this branch runs for csv,
+	// plain, xml and raw and a narrower gate wrote box-drawing lines into a CSV
+	// file; and it is withheld above rows that render nothing, or the banner
+	// outlives the body it announced.
 	out := formatter.Writer()
-	banner := func(format string, args ...any) {
-		if output.IsMachineRendered(output.Format(renderFmt)) {
-			return
-		}
-		_, _ = fmt.Fprintf(out, format, args...)
-	}
-
 	first := true
+	section := func(rows []map[string]any, header string, args ...any) error {
+		if !projectionRendersNothing(rows) && !output.IsMachineRendered(output.Format(renderFmt)) {
+			if !first {
+				_, _ = fmt.Fprint(out, "\n")
+			}
+			_, _ = fmt.Fprintf(out, header, args...)
+		}
+		if err := emit(rows); err != nil {
+			return err
+		}
+		first = false
+		return nil
+	}
 	for _, key := range keys {
 		val := merged[key]
 		switch v := val.(type) {
 		case map[string]any:
 			// Summary dict — print as single-row table
 			summaryRows := []map[string]any{v}
-			if !first {
-				banner("\n")
-			}
-			banner("── %s ──\n", formatSectionTitle(key))
-			if err := formatter.Print(summaryRows); err != nil {
+			if err := section(summaryRows, "── %s ──\n", formatSectionTitle(key)); err != nil {
 				return err
 			}
-			first = false
 
 		case map[string]map[string]any:
 			// Aggregated summary list — render as table sorted by count desc
@@ -490,14 +513,9 @@ func printAggregated(cliCtx *registry.CLIContext, cmd *cobra.Command, merged map
 				cj, _ := rows[j]["count"].(float64)
 				return ci > cj
 			})
-			if !first {
-				banner("\n")
-			}
-			banner("── %s (%d) ──\n", formatSectionTitle(key), len(rows))
-			if err := formatter.Print(rows); err != nil {
+			if err := section(rows, "── %s (%d) ──\n", formatSectionTitle(key), len(rows)); err != nil {
 				return err
 			}
-			first = false
 
 		case []any:
 			if len(v) == 0 {
@@ -513,14 +531,9 @@ func printAggregated(cliCtx *registry.CLIContext, cmd *cobra.Command, merged map
 			if len(rows) == 0 {
 				continue
 			}
-			if !first {
-				banner("\n")
-			}
-			banner("── %s (%d) ──\n", formatSectionTitle(key), len(rows))
-			if err := formatter.Print(rows); err != nil {
+			if err := section(rows, "── %s (%d) ──\n", formatSectionTitle(key), len(rows)); err != nil {
 				return err
 			}
-			first = false
 
 		case float64:
 			// Top-level scalar — skip in table mode (included in JSON)
