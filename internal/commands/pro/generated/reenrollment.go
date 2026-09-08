@@ -201,8 +201,8 @@ func newReenrollmentHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:   "history",
 		Short: "Get Re-enrollment history object",
 		Long:  "Gets Re-enrollment history object",
-		Example: `  # Get history for a reenrollment
-  jamf-cli pro reenrollment history 1`,
+		Example: `  # Get history for the reenrollment
+  jamf-cli pro reenrollment history`,
 		Annotations: map[string]string{"jamf:privileges": "Read Re-enrollment", "jamf:api": "pro", "jamf:gateway-privileges": "re-enrollment:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

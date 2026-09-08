@@ -199,8 +199,8 @@ func newDeviceCommunicationSettingsHistoryCmd(ctx *registry.CLIContext) *cobra.C
 		Use:   "history",
 		Short: "Get Device Communication settings history",
 		Long:  "Gets Device Communication settings history",
-		Example: `  # Get history for a device-communication-settings
-  jamf-cli pro device-communication-settings history 1`,
+		Example: `  # Get history for the device-communication-settings
+  jamf-cli pro device-communication-settings history`,
 		Annotations: map[string]string{"jamf:privileges": "Read Automatically Renew MDM Profile Settings", "jamf:api": "pro", "jamf:gateway-privileges": "mdm-profile-renewal-settings:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

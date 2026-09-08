@@ -146,8 +146,8 @@ type classicBodySpec struct {
 	Credentials map[string]bool
 }
 
-// classicScaffoldArgs relaxes a command's positional-argument validator when
-// --scaffold is set.
+// classicScaffoldArgs lowers a command's positional-argument floor to zero when
+// --scaffold is set, and keeps its ceiling.
 //
 // Cobra validates Args BEFORE RunE, so an update that requires an <id> refused
 // "update --scaffold" with "accepts 1 arg(s), received 0" and never reached the
@@ -155,15 +155,35 @@ type classicBodySpec struct {
 // no identifier, makes no request and skips auth, so requiring one is the same
 // class of mistake as requiring credentials for it.
 //
+// Only the floor is the problem, so only the floor moves. Dropping the validator
+// entirely let "update a b c --scaffold" print the template and discard three
+// positionals, which is issue 350 reached through a flag. The ceiling is one
+// because a classic update addresses one object: the template's two branches are
+// MaximumNArgs(1) and ExactArgs(1), and
+// TestScaffoldKeepsTheDeclaredPositionalCeiling fails if that stops holding.
+//
 // Only the classic update commands need this: create takes no positional and
-// apply keys off the body's own name. The modern Pro generator does not hit it
-// because its update accepts zero args anyway — it has a --name alternative, so
-// its validator is MaximumNArgs(1), while a classic resource with no name lookup
-// is ExactArgs(1).
+// apply keys off the body's own name. The modern Pro update escapes it by having
+// a --name alternative, which makes its validator MaximumNArgs(1), where a
+// classic resource with no name lookup is ExactArgs(1). That escape does not
+// extend to the whole modern generator: it emits no relaxation of its own, so a
+// patch or an x-action under a path parameter with no name lookup still cannot
+// reach its own scaffold. unreachableScaffoldLeaves in
+// internal/commands/positional_args_test.go counts those.
 func classicScaffoldArgs(scaffold *bool, inner cobra.PositionalArgs) cobra.PositionalArgs {
 	return func(cmd *cobra.Command, args []string) error {
 		if scaffold != nil && *scaffold {
-			return nil
+			// Lower the floor to zero and keep whatever ceiling the caller
+			// declared, rather than restating an arity the caller already
+			// passed in. Restating it as MaximumNArgs(1) is wrong the day a
+			// classic resource ships an update under two path parameters, and
+			// a mutation to MaximumNArgs(0) left the whole internal/commands
+			// package green while breaking "update <id> --scaffold" on 35
+			// leaves. No backticks in this comment: it is emitted from inside
+			// a raw string literal.
+			if len(args) == 0 {
+				return nil
+			}
 		}
 		if inner == nil {
 			return nil

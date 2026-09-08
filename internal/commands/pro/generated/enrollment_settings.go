@@ -701,8 +701,8 @@ func newEnrollmentSettingsHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:   "history",
 		Short: "Get sorted and paged Enrollment history object",
 		Long:  "Gets sorted and paged Enrollment history object",
-		Example: `  # Get history for a enrollment-setting
-  jamf-cli pro enrollment-settings history 1`,
+		Example: `  # Get history for the enrollment-setting
+  jamf-cli pro enrollment-settings history`,
 		Annotations: map[string]string{"jamf:privileges": "Read User-Initiated Enrollment", "jamf:api": "pro", "jamf:gateway-privileges": "user-initiated-enrollment:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

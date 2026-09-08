@@ -109,8 +109,11 @@ func new{{$.GoName}}{{.GoName}}Cmd(cliCtx *registry.CLIContext) *cobra.Command {
 {{- if and .PathParams (not .SupportsNameLookup) }}
 {{- if .HasScaffold }}
 		Args: func(cmd *cobra.Command, args []string) error {
+			// --scaffold needs no identifier, so it lowers the floor to zero. The
+			// ceiling stays, because dropping the validator let a stray positional
+			// through to be discarded.
 			if scaffoldFlag {
-				return nil
+				return cobra.MaximumNArgs({{len .PathParams}})(cmd, args)
 			}
 			return cobra.ExactArgs({{len .PathParams}})(cmd, args)
 		},
