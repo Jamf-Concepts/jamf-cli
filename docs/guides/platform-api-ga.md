@@ -541,11 +541,12 @@ Additive — no action needed, and all of it is live now.
 |---|---|
 | `… is the retired Jamf Platform gateway` (exit 2) | Set `url:` to `https://{region}.api.jamfcloud.com`. |
 | `404 page not found`, no JSON body | A path reached the gateway that it does not route — usually a `url` carrying a path segment. Supply the host only. |
-| `403 OWNERSHIP_FORBIDDEN` | `environment-id` supplied for a tenant-scoped integration, or the reverse. |
+| `403 OWNERSHIP_FORBIDDEN` | The gateway will not accept this `tenant-id` for these credentials: another organization's tenant, or an environment or organization ID in the tenant field. |
+| `404 ENVIRONMENT_NOT_FOUND` | The gateway does not know this `environment-id`. A tenant ID in the environment field reads as this. |
 | `400 REQUEST_CONTEXT_NOT_PROVIDED` | No scope sent, on a credential that expects one. Add `environment-id` or `tenant-id`. |
 | `400 INVALID_REQUEST_CONTEXT_TYPE` | The level sent is not the level that endpoint accepts; the message names both. `platform audit` accepts environment only. |
 | `permission denied (HTTP 403)` with a permission hint | The integration lacks that permission. Grant it in Jamf Account by the section and name the hint prints. |
-| `403 BAD_PERMISSIONS` with no permission named | The endpoint has no recorded capability, or the namespace is not entitled for this tenant. Check the integration's permissions and the tenant's entitlements. |
+| `403 BAD_PERMISSIONS` with no permission named | The endpoint has no recorded capability, or the namespace is not entitled for this tenant. Check the integration's permissions and the tenant's entitlements — the gateway spells both the same way. |
 | `… is not part of the Jamf Platform gateway's published API` (exit 8) | Expected. Use the successor the message names, if it names one, or run it against a Jamf Pro instance profile — see [Commands refused on a gateway profile](#commands-refused-on-a-gateway-profile). `JAMF_CLI_ALLOW_UNPUBLISHED=1` is the stopgap. |
 | `… is served by the Jamf Platform API, which the active credentials do not reach` (exit 8) | A platform command on an instance profile. Use `-p <platform profile>`. |
 | `--environment-id and --tenant-id are mutually exclusive` | Both levels supplied. Unset whichever the credential was not created for, including in the environment. |

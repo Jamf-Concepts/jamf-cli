@@ -114,8 +114,8 @@ func promptPlatformGatewayCredentials(w io.Writer, reader *bufio.Reader) (*platf
 // reconciling a pair it can never legitimately hold.
 func promptScope(w io.Writer, reader *bufio.Reader) (environmentID, tenantID string) {
 	_, _ = fmt.Fprintln(w)
-	_, _ = fmt.Fprintln(w, "An API integration is created at one level: organization, platform environment,")
-	_, _ = fmt.Fprintln(w, "or tenant. Supply the ID for the level this integration was created at.")
+	_, _ = fmt.Fprintln(w, "Jamf Account creates an API integration at one level: organization, platform")
+	_, _ = fmt.Fprintln(w, "environment, or tenant. Supply the ID for the level this one was created at.")
 
 	_, _ = fmt.Fprint(w, "Platform environment ID (Enter to skip): ")
 	line, _ := reader.ReadString('\n')
@@ -130,38 +130,24 @@ func promptScope(w io.Writer, reader *bufio.Reader) (environmentID, tenantID str
 
 // validatePlatformGatewayCredentials checks the credentials against the gateway.
 //
-// Bad credentials are a hard error — nothing works without them. Whether the
-// tenant can reach Jamf Security Cloud is reported rather than enforced: a Jamf
-// Pro tenant legitimately cannot, and nothing here knows which product the
-// operator meant. securityCloud says whether the gateway served a Security
-// Cloud read, so the caller can describe what the profile enables instead of
-// guessing.
+// Two questions. Are the credentials good — a hard error, since nothing works
+// without them. And does the gateway recognise the scope ID just typed, which
+// nothing else catches: ValidateCredentials is a token exchange and sends no
+// scope header, so a mis-pasted ID saves cleanly and then refuses every
+// command.
 //
-// scopeIDRejected is the second verdict, and it exists because the first one
-// threw away the only wire answer that says the profile cannot work at all.
-// Every failure of the probe used to collapse into `false`, so "no Security
-// Cloud entitlement" — a fine profile — was indistinguishable from "the gateway
-// does not know this scope ID", which nothing else catches either:
-// ValidateCredentials is a token exchange and sends no scope header. The
-// summary then claimed a scope ID the gateway had just refused reached sixteen
-// Platform API resources.
-func validatePlatformGatewayCredentials(ctx context.Context, w io.Writer, creds *platformGatewayCredentials) (verdict securityCloudVerdict, scopeIDRejected bool, err error) {
+// **It checks no product's access or permissions, deliberately.** A capability
+// permission is per operation, not per profile, and the gateway's 403 already
+// names the one it wanted in Jamf Account's own words (EnrichPrivilegeError).
+// A scope ID is agnostic about products.
+func validatePlatformGatewayCredentials(ctx context.Context, w io.Writer, creds *platformGatewayCredentials) (scopeIDRejected bool, err error) {
 	_, _ = fmt.Fprint(w, "\nValidating credentials... ")
 
 	opts := []jamfplatform.Option{
-		// No retries during setup. A mistyped secret or an unentitled tenant
-		// should come back immediately and legibly, not after a backoff that
-		// reads as a hang to someone sitting at a prompt.
-		//
-		// The earlier note here said the default policy backs off "~90 seconds
-		// across three attempts". Both numbers were wrong: it was five attempts,
-		// and the curve was RateLimitLinearJitterBackoff sampling uniformly over
-		// the whole [1s,60s] window times the attempt number, so the first retry
-		// alone averaged ~30s and a full sequence averaged over three minutes.
-		// SDK 1529d60 replaced it with DefaultBackoff plus the intended clamp,
-		// bounding the waits at 1+2+4+8 = 15s — measured at 22s wall clock for a
-		// persistently-502 GET. Still worth disabling here: 22s at a prompt for
-		// an answer that will not change is 22s wasted.
+		// No retries during setup. A mistyped secret should come back
+		// immediately, not after the SDK's backoff ladder — bounded at ~22s,
+		// which at an interactive prompt is 22s spent on an answer that will
+		// not change.
 		jamfplatform.WithRetryPolicy(0, 0, 0),
 	}
 	switch {
@@ -170,39 +156,36 @@ func validatePlatformGatewayCredentials(ctx context.Context, w io.Writer, creds 
 	case creds.TenantID != "":
 		opts = append(opts, jamfplatform.WithTenantID(creds.TenantID))
 	}
-	// This is the one construction site that does not go through
-	// newPlatformSDKClient — it wants no retries, no file token cache and none
-	// of the dry-run/verbose/spinner transports — so it repeats the
-	// retired-host refusal rather than inheriting it. The prompt path above
-	// already refuses, and today every caller comes through it; the refusal is
-	// here anyway because "today every caller does" is not a property a test
-	// preserves, and it is what TestOnlyTheGuardedWrapperConstructsAPlatformClient
-	// requires of a file it exempts.
+	// The one construction site that does not go through newPlatformSDKClient
+	// — it wants no retries, no file token cache and none of the
+	// dry-run/verbose/spinner transports — so it repeats the retired-host
+	// refusal rather than inheriting it. "Every caller comes through the
+	// prompt, which already refuses" is not a property a test preserves, and
+	// TestOnlyTheGuardedWrapperConstructsAPlatformClient requires this of a
+	// file it exempts.
 	if err := refuseRetiredGatewayURL(creds.GatewayURL); err != nil {
 		_, _ = fmt.Fprintln(w, "failed")
-		return securityCloudUnknown, false, err
+		return false, err
 	}
 	pc := jamfplatform.NewClient(creds.GatewayURL, creds.ClientID, creds.ClientSecret, opts...)
 
 	if err := pc.ValidateCredentials(ctx); err != nil {
 		_, _ = fmt.Fprintln(w, "failed")
-		return securityCloudUnknown, false, fmt.Errorf("credential validation failed: %w", err)
+		return false, fmt.Errorf("credential validation failed: %w", err)
 	}
 	_, _ = fmt.Fprintln(w, "ok")
 
-	// One cheap read against a Security Cloud collection every entitled tenant
-	// has. Its purpose is to tell the operator which half of `security` this
-	// profile serves, not to pass or fail the profile: the two ways it fails are
-	// indistinguishable from here — a Jamf Pro tenant has no Security Cloud
-	// entitlement, and a mistyped tenant is not this organisation's.
-	// Organization-scoped credentials do not reach product APIs at all, so the
-	// probe would report a failure that says nothing about the profile.
+	// Organization scope sends no scope header at all, so there is no ID to
+	// check and the probe would report a failure that says nothing about the
+	// profile. Wire-confirmed 2026-09-08: an organization credential answers
+	// 200 on /licensing/v1/licenses and 400 REQUEST_CONTEXT_NOT_PROVIDED on
+	// every scoped namespace, which is correct behaviour rather than a fault.
 	if creds.EnvironmentID == "" && creds.TenantID == "" {
-		return securityCloudUnknown, false, nil
+		return false, nil
 	}
 
-	_, _ = fmt.Fprint(w, "Checking Jamf Security Cloud access... ")
-	path := pc.Transport().APIPrefix(securityCloudGatewayNamespace, "v1") + "/categories"
+	_, _ = fmt.Fprint(w, "Checking the scope ID... ")
+	path := pc.Transport().APIPrefix(scopeProbeNamespace, "v1") + scopeProbeResource
 	var result any
 	probeErr := pc.Transport().DoExpect(ctx, http.MethodGet, path, nil, http.StatusOK, &result)
 	// The level is what the operator typed, and the probe cannot see it from an
@@ -212,132 +195,80 @@ func validatePlatformGatewayCredentials(ctx context.Context, w io.Writer, creds 
 	if creds.EnvironmentID != "" {
 		level = "environment"
 	}
-	verdict, scopeIDRejected = reportSecurityCloudProbe(w, level, probeErr)
-	return verdict, scopeIDRejected, nil
+	return reportScopeIDProbe(w, level, probeErr), nil
 }
 
-// securityCloudVerdict is what the one Security Cloud read established. Three
-// values because the probe has three outcomes and only two were representable:
-// a timeout, a 500 or a DNS failure returned the same false a BAD_PERMISSIONS
-// did, and printScopeSummary then told the operator this scope lacks a Security
-// Cloud entitlement. The scope did not answer no — nothing answered — and a
-// setup summary stating an entitlement it could not observe is the same class
-// of over-claim as the reachability list a rejected scope ID used to get.
-type securityCloudVerdict int
-
-const (
-	// securityCloudUnknown: the probe did not complete, so nothing about the
-	// entitlement is known. Also the zero value, which is the right reading
-	// for the organization-scoped path that skips the probe entirely.
-	securityCloudUnknown securityCloudVerdict = iota
-	// securityCloudEntitled: the read succeeded.
-	securityCloudEntitled
-	// securityCloudUnentitled: the gateway answered BAD_PERMISSIONS on the one
-	// Security Cloud read. Wire-probed against a credential whose own correct
-	// tenant answered BAD_PERMISSIONS here and 200 on /devices/v1/devices in
-	// the same run, so the scope ID is good and the request was refused on
-	// grants rather than on routing or ownership.
-	//
-	// **Which grant is missing it cannot say, and neither may anything reading
-	// this verdict.** BAD_PERMISSIONS is the same answer for no Security Cloud
-	// entitlement at all and for an entitled tenant whose integration was
-	// created without content-categories:read — internal/gateway records the
-	// code as indistinguishable from a missing privilege, and the
-	// /devices/v1/devices control proves the *device* grants, not this one. The
-	// name is the common cause, not a licensing finding; printScopeSummary
-	// names both alternatives.
-	securityCloudUnentitled
-)
-
-// reportSecurityCloudProbe prints what the one Security Cloud read answered and
-// returns the two things the caller can conclude from it.
+// reportScopeIDProbe prints what the scope probe answered and reports whether
+// the gateway refused the scope identifier itself. Split out so each branch's
+// wording is testable without an HTTP server.
 //
-// Split out from the probe so the wording of each branch is testable without an
-// HTTP server: the branches are the whole value of the probe, and the one that
-// matters most was missing.
+// **Only two codes reject an ID, and the gateway spells the refusal differently
+// per level.** Wire-probed 2026-09-08 against GET /pro/v1/jamf-pro-version on
+// an EU tenant, an EU platform environment and a US organization credential:
 //
-// **A rejected scope ID is the answer that stops the summary, and the gateway
-// spells it differently per level.** Wire-probed 2026-09-05 on an EU tenant
-// credential and a US organization credential, with GET /devices/v1/devices
-// alongside as a control returning identical codes — so these are gateway
-// verdicts on the scope header rather than anything Security Cloud decides:
+//   - An X-Environment-Id the gateway does not know — an unknown UUID, or a
+//     tenant ID pasted at the environment prompt (issue #354) — answers 404
+//     ENVIRONMENT_NOT_FOUND naming the value.
+//   - An X-Tenant-Id it will not accept answers 403 OWNERSHIP_FORBIDDEN naming
+//     the value, for an unknown UUID and for an environment or organization ID
+//     pasted at the tenant prompt alike. There is no TENANT_NOT_FOUND.
+//   - The right ID answers 200 at either level; no header answers 400
+//     REQUEST_CONTEXT_NOT_PROVIDED.
 //
-//   - X-Environment-Id the gateway does not know — an unknown UUID, or a tenant
-//     ID pasted at the environment prompt, which is the mis-paste issue #354
-//     reports — answers 404 ENVIRONMENT_NOT_FOUND naming the value.
-//   - X-Tenant-Id the gateway will not accept answers 403 OWNERSHIP_FORBIDDEN
-//     naming the value, "Tenant 'x' is not part of your organization", and it
-//     does so for an unknown UUID, for an environment ID pasted at the tenant
-//     prompt, and for a real tenant belonging to another organization alike.
+// **Everything else leaves the ID unjudged**, because this probe asks about the
+// scope header and nothing else: a BAD_PERMISSIONS, a 5xx or a timeout says
+// nothing about the ID. That also covers the shape these credentials could not
+// construct — a scope with no Jamf Pro behind it, where the path may answer
+// something other than 200.
 //
-// There is no TENANT_NOT_FOUND. An earlier version of this function matched one
-// beside ENVIRONMENT_NOT_FOUND as the tenant-level twin, on the assumption the
-// pair was symmetric. It is not: no code by that name is returned at either
-// level, so the matcher was dead and the tenant half of the mis-paste fell
-// through to the plain "no" below — leaving the reachability claim that this
-// whole verdict exists to stop.
-//
-// So OWNERSHIP_FORBIDDEN rejects the ID. Its message already told the operator
-// to check it; only the verdict was wrong. **BAD_PERMISSIONS is what an
-// entitlement failure looks like, and that is the distinction the two codes
-// carry:** the same credential answering BAD_PERMISSIONS for its own correct
-// tenant answered 200 on /devices/v1/devices in the same run, so the profile is
-// good and Security Cloud simply is not provisioned for it. CLAUDE.md used to
-// record the two as indistinguishable in intent, which is what the earlier
-// (false, false) rested on. Read on one credential and one tenant per level:
-// enough to move the branch, not enough to claim it holds for every entitlement
-// shape, so a future OWNERSHIP_FORBIDDEN on a demonstrably owned tenant is the
-// thing that would send this back.
-// level is the scope level the operator supplied, and it is a parameter because
-// an error cannot answer it. The ownership branch used to be worded tenant-only
-// while being reachable at either level — CLAUDE.md records OWNERSHIP_FORBIDDEN
-// as "an environment ID for a tenant-scoped integration, or the reverse" — so a
-// foreign environment ID was called a tenant ID and the operator was told to
-// use the prompt they had just used, while printScopeSummary called the same
-// value an environment ID from creds. Wording both branches from the level the
-// caller already knows removes the assumption rather than adding one: which
-// code a real-but-foreign environment ID earns is not probed either way.
-func reportSecurityCloudProbe(w io.Writer, level string, err error) (verdict securityCloudVerdict, scopeIDRejected bool) {
+// level is a parameter because an error cannot answer it: OWNERSHIP_FORBIDDEN
+// is reachable at either level, so a refused environment ID must not be called
+// a tenant ID.
+func reportScopeIDProbe(w io.Writer, level string, err error) (scopeIDRejected bool) {
 	if err == nil {
-		_, _ = fmt.Fprintln(w, "yes")
-		return securityCloudEntitled, false
+		_, _ = fmt.Fprintf(w, "ok: the gateway accepts this %s ID\n", level)
+		return false
 	}
 	switch {
 	case strings.Contains(err.Error(), "ENVIRONMENT_NOT_FOUND"):
-		_, _ = fmt.Fprintln(w, "no — the gateway does not know this environment ID")
-		_, _ = fmt.Fprintln(w, "  A platform environment ID and a tenant ID are different values from different")
-		_, _ = fmt.Fprintln(w, "  places in Jamf Account. Re-run setup and answer the prompt for the level this")
-		_, _ = fmt.Fprintln(w, "  integration was created at.")
-		return securityCloudUnknown, true
+		_, _ = fmt.Fprintln(w, "rejected: the gateway does not know this environment ID")
+		_, _ = fmt.Fprintln(w, "  A platform environment ID and a tenant ID come from different places in Jamf")
+		_, _ = fmt.Fprintln(w, "  Account. Re-run setup and answer the prompt for the level this integration")
+		_, _ = fmt.Fprintln(w, "  was created at.")
+		return true
 	case strings.Contains(err.Error(), "OWNERSHIP_FORBIDDEN"):
-		// Not an entitlement answer: the gateway refuses this ID for this
-		// credential, so every scoped request will be refused too.
-		_, _ = fmt.Fprintf(w, "no — the gateway will not accept this %s ID for these credentials\n", level)
-		_, _ = fmt.Fprintln(w, "  Either it belongs to another organization, or it is not the kind of ID this")
-		_, _ = fmt.Fprintf(w, "  prompt wants: a platform environment ID and a tenant ID are different values\n")
-		_, _ = fmt.Fprintln(w, "  from different places in Jamf Account, and neither is the Jamf Pro tenant ID or")
-		_, _ = fmt.Fprintln(w, "  the client ID. Check it in Jamf Account and re-run setup.")
-		return securityCloudUnknown, true
-	case strings.Contains(err.Error(), "BAD_PERMISSIONS"):
-		// The scope ID is fine and the read was refused on grants. Not stated
-		// as a licensing verdict: no Security Cloud entitlement and a missing
-		// content-categories:read grant on an entitled tenant are the same
-		// code, and this one read cannot separate them.
-		_, _ = fmt.Fprintln(w, "no — refused (no entitlement, or the integration lacks this permission)")
-		return securityCloudUnentitled, false
+		_, _ = fmt.Fprintf(w, "rejected: the gateway will not accept this %s ID for these credentials\n", level)
+		_, _ = fmt.Fprintln(w, "  This ID belongs to another organization, or it is the wrong kind of ID. A")
+		_, _ = fmt.Fprintln(w, "  platform environment ID and a tenant ID come from different places in Jamf")
+		_, _ = fmt.Fprintln(w, "  Account, and neither is the Jamf Pro tenant ID or the client ID. Check it in")
+		_, _ = fmt.Fprintln(w, "  Jamf Account, then re-run setup.")
+		return true
 	}
-	// Anything else did not answer the question: a timeout, a 5xx, a DNS
-	// failure. Say the check did not complete rather than reporting a "no" the
-	// gateway never gave, and leave the summary to make no entitlement claim.
-	_, _ = fmt.Fprintf(w, "could not tell (%v)\n", err)
-	return securityCloudUnknown, false
+	// Not an answer about the ID. Say so plainly rather than converting it into
+	// a verdict: a capability refusal in particular means the scope header got
+	// as far as being resolved, since the gateway checks ownership before
+	// capability.
+	_, _ = fmt.Fprintf(w, "could not confirm (%v)\n", err)
+	return false
 }
 
-// securityCloudGatewayNamespace is the gateway namespace Jamf Security Cloud is
-// served under. It matches the namespace the SDK registers the Security Cloud
-// tenant override against, so a Security Cloud request is scoped to that tenant
-// and not the Pro one.
-const securityCloudGatewayNamespace = "securitycloud"
+// The path the scope probe sends the header on. **It is a carrier, not a
+// product access check** — the gateway resolves the scope at the edge, before
+// routing and before capability, so the verdict does not depend on this
+// endpoint existing or on the product being entitled. Wire-checked 2026-09-08:
+// a wrong ID earns the same ENVIRONMENT_NOT_FOUND / OWNERSHIP_FORBIDDEN on
+// /pro/v1/definitely-not-a-real-endpoint and on a Security Cloud path, and only
+// an unrouted *namespace* escapes scope evaluation (Tyk's bare "404 page not
+// found").
+//
+// This one is chosen because it needs no capability grant — one of the 44 Jamf
+// Pro endpoints declaring none — so a correct ID answers a clean 200 instead of
+// the BAD_PERMISSIONS every grant-bearing path returns, which would leave
+// nothing to distinguish "accepted" from "refused on grants".
+const (
+	scopeProbeNamespace = "pro"
+	scopeProbeResource  = "/jamf-pro-version"
+)
 
 // storePlatformGatewaySecrets writes the client credentials to the keychain and
 // returns the profile references that stand in for them, so the plaintext never

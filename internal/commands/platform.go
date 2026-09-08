@@ -220,11 +220,12 @@ Create API client credentials in the Jamf Account portal
 				return err
 			}
 
-			// 5. Validate. Security Cloud access is reported, not enforced;
-			// a scope ID the gateway does not know is reported too, and is
-			// what stops the closing summary claiming a reach it has just
-			// been told the profile does not have.
-			securityCloud, scopeIDRejected, err := validatePlatformGatewayCredentials(cmd.Context(), w, creds)
+			// 5. Validate the credentials, and check the gateway recognises
+			// the scope ID — the one thing a token exchange cannot tell us,
+			// and what stops the closing summary claiming a reach the gateway
+			// has just refused. No product's access or permissions are probed;
+			// a 403 names the permission it wanted.
+			scopeIDRejected, err := validatePlatformGatewayCredentials(cmd.Context(), w, creds)
 			if err != nil {
 				return err
 			}
@@ -262,17 +263,14 @@ Create API client credentials in the Jamf Account portal
 			_, _ = fmt.Fprintf(w, "  Client ID:   %s\n", creds.ClientID)
 			_, _ = fmt.Fprintln(w, "  Secrets stored in system keychain")
 			_, _ = fmt.Fprintln(w)
-			// State what the profile actually enables, from the scope levels
-			// the specs declare rather than from which prompt was filled in.
-			// Two things were wrong while this was hand-written prose: a
-			// tenant-scoped profile was told it served "the Platform API
-			// commands" when thirteen platform-level resources declare
-			// environment scope, and an organization-scoped one was told it
-			// served AI Governance, which answers 400
-			// REQUEST_CONTEXT_NOT_PROVIDED with no scope header. Assembling the
-			// sentence from jamf:scopes means it cannot drift from the specs
-			// the commands were generated from.
-			printScopeSummary(w, cmd.Root(), creds, securityCloud, scopeIDRejected)
+			// State what the profile enables, from the scope levels the specs
+			// declare rather than from which prompt was filled in. Assembling
+			// the sentence from jamf:scopes is what stops it drifting from the
+			// specs the commands were generated from — as hand-written prose it
+			// claimed the Platform API for a tenant profile when thirteen
+			// resources declare environment scope, and AI Governance for an
+			// organization one, which answers 400 with no scope header.
+			printScopeSummary(w, cmd.Root(), creds, scopeIDRejected)
 
 			return nil
 		},

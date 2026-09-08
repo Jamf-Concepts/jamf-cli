@@ -5,11 +5,14 @@ package commands
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"slices"
 	"strings"
 	"testing"
+
+	"github.com/spf13/cobra"
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/auth"
 )
@@ -83,7 +86,7 @@ func TestSetupSummarySaysWhatEachLevelActuallyReaches(t *testing.T) {
 
 	render := func(c *platformGatewayCredentials) string {
 		var b bytes.Buffer
-		printScopeSummary(&b, root, c, securityCloudEntitled, false)
+		printScopeSummary(&b, root, c, false)
 		return b.String()
 	}
 
@@ -100,7 +103,7 @@ func TestSetupSummarySaysWhatEachLevelActuallyReaches(t *testing.T) {
 	if strings.Contains(tenant, "out of reach") {
 		t.Errorf("the summary is more certain than the data supports, got:\n%s", tenant)
 	}
-	if !strings.Contains(tenant, "Some still answer on a tenant credential") {
+	if !strings.Contains(tenant, "Some answer on a tenant credential anyway") {
 		t.Errorf("the summary should say the gateway has not followed the specs everywhere, got:\n%s", tenant)
 	}
 	// summariseResources truncates, so the summary has to point somewhere for
@@ -134,49 +137,35 @@ func TestSetupSummarySaysWhatEachLevelActuallyReaches(t *testing.T) {
 		t.Errorf("organization summary should say the platform surface is out of reach, got:\n%s", org)
 	}
 
-	// The Security Cloud probe qualifies the derived list rather than replacing
-	// it: a Jamf Pro tenant with no Security Cloud entitlement still drives the
-	// Pro API, and the old summary printed only the Security Cloud sentence.
-	var b bytes.Buffer
-	printScopeSummary(&b, root, &platformGatewayCredentials{TenantID: "t"}, securityCloudUnentitled, false)
-	unentitled := b.String()
-	if !strings.Contains(unentitled, "Pro API and Classic API") {
-		t.Errorf("an unentitled tenant still drives Pro; got:\n%s", unentitled)
-	}
-	// The refusal is reported without being named as a licensing verdict — one
-	// 403 cannot separate "no entitlement" from "this grant is missing".
-	// TestTheEntitlementClauseNamesBothCausesOfA403 pins the wording.
-	if !strings.Contains(unentitled, "are Jamf Security Cloud") {
-		t.Errorf("the entitlement answer should be reported; got:\n%s", unentitled)
-	}
-	// And it qualifies the *partition*, which is the whole point: every
-	// platform resource a tenant credential declares is a Security Cloud one,
-	// so an unentitled tenant reaches none of the 29. The summary used to list
-	// all 16 as reached and then disclaim every one of them in the next
-	// sentence.
-	if !strings.Contains(unentitled, "It reaches none of the 29") {
-		t.Errorf("an unentitled tenant reaches no Platform API resource; got:\n%s", unentitled)
-	}
-	if strings.Contains(unentitled, "It also reaches") {
-		t.Errorf("the reachable claim must not survive the entitlement answer; got:\n%s", unentitled)
-	}
-	assertNoResourceIsBothReachedAndDisclaimed(t, unentitled)
+	// Only the tenant summary prints both lists; the environment one reaches
+	// everything and lists nothing, which the helper reports as unproven.
+	assertNoResourceIsBothReachedAndDisclaimed(t, tenant)
 
-	// The same rule at environment level, where the two sets are not the same
-	// shape: an environment credential declares all 29, so the entitlement has
-	// to subtract the 16 from a non-empty reachable set rather than emptying
-	// it. Keying the split on "declares tenant" instead of on the command tree
-	// would have left this case claiming the whole surface.
-	var envUnentitled bytes.Buffer
-	printScopeSummary(&envUnentitled, root, &platformGatewayCredentials{EnvironmentID: "e"}, securityCloudUnentitled, false)
-	got := envUnentitled.String()
-	if strings.Contains(got, "audit and AI Governance included") {
-		t.Errorf("an unentitled environment does not reach the whole surface; got:\n%s", got)
+	// The summary reports the level and says where a permissions answer comes
+	// from. It must claim nothing about any product's entitlement: it used to
+	// probe Jamf Security Cloud and subtract sixteen resources on one 403,
+	// which named a licensing gap the code could not distinguish from a single
+	// missing grant. Wire-checked 2026-09-08, that mattered: a tenant
+	// credential answered BAD_PERMISSIONS on /securitycloud/v1/categories while
+	// an environment credential in the same organization answered 200.
+	// Matched on the claim rather than on the product name: the organization
+	// branch names Security Cloud as one of the surfaces an environment profile
+	// drives, which is a reachability statement and stays.
+	for _, summary := range []string{tenant, env, org} {
+		for _, unwanted := range []string{"entitle", "check did not complete", "Jamf Security Cloud."} {
+			if strings.Contains(summary, unwanted) {
+				t.Errorf("the summary claims a product entitlement (%q):\n%s", unwanted, summary)
+			}
+		}
 	}
-	if !strings.Contains(got, "It also reaches 13 of the 29") {
-		t.Errorf("an unentitled environment reaches the 13 non-Security-Cloud resources; got:\n%s", got)
+	for _, summary := range []string{tenant, env} {
+		if !strings.Contains(summary, "Setup does not check capability permissions") {
+			t.Errorf("the summary should say where a permissions answer comes from:\n%s", summary)
+		}
+		if !strings.Contains(summary, "gatewayPermissions") {
+			t.Errorf("the summary should name where the permissions are listed:\n%s", summary)
+		}
 	}
-	assertNoResourceIsBothReachedAndDisclaimed(t, got)
 }
 
 // assertNoResourceIsBothReachedAndDisclaimed fails when a resource named in the
@@ -192,7 +181,7 @@ func assertNoResourceIsBothReachedAndDisclaimed(t *testing.T, summary string) {
 		case strings.Contains(line, "It also reaches") || strings.Contains(line, "It reaches none"):
 			target = &reached
 			continue
-		case strings.Contains(line, "declare environment scope") || strings.Contains(line, "are Jamf Security Cloud"):
+		case strings.Contains(line, "declare environment scope"):
 			target = &disclaimed
 			continue
 		case !strings.HasPrefix(line, "  ") || strings.Contains(line, "commands -o json"):
@@ -222,7 +211,7 @@ func TestScopeLevelNoteNamesTheLevelsAndTheOneInUse(t *testing.T) {
 	if !strings.Contains(one, "declares environment scope") || !strings.Contains(one, "tenant-scoped") {
 		t.Errorf("both halves must appear, got %q", one)
 	}
-	if !strings.Contains(one, "different integration rather than a different ID") {
+	if !strings.Contains(one, "a different integration, not a different ID") {
 		t.Errorf("a wrong-level credential cannot be fixed by editing an ID, got %q", one)
 	}
 
@@ -230,7 +219,7 @@ func TestScopeLevelNoteNamesTheLevelsAndTheOneInUse(t *testing.T) {
 	if !strings.Contains(two, "environment or tenant scope") {
 		t.Errorf("a two-level set should read as alternatives, got %q", two)
 	}
-	if !strings.Contains(two, "No scope header was sent") {
+	if !strings.Contains(two, "sent no scope header") {
 		t.Errorf("organization scope has no ID to correct, so say so; got %q", two)
 	}
 
@@ -300,17 +289,15 @@ func TestNewPlatformSDKClientRecordsTheScopeItSent(t *testing.T) {
 }
 
 // A scope ID the gateway refuses is the one probe answer that invalidates the
-// whole summary, and it used to collapse into the same `false` as "no Security
-// Cloud entitlement" — so setup reported the profile reached sixteen Platform
-// API resources, every one of which answers the same refusal.
+// whole summary, so it is the only thing the probe concludes.
 //
 // Both levels are covered, because the gateway spells the refusal differently
 // per level and only one of the two spellings was matched at first. Wire-probed
-// 2026-09-05, with GET /devices/v1/devices alongside returning identical codes:
-// a bad X-Environment-Id answers 404 ENVIRONMENT_NOT_FOUND, and a bad
-// X-Tenant-Id answers 403 OWNERSHIP_FORBIDDEN, each naming the value. There is
-// no TENANT_NOT_FOUND, which is what the first version matched — so the tenant
-// half of the mis-paste fell through to a plain "no" and kept the claim.
+// 2026-09-08 against GET /pro/v1/jamf-pro-version on tenant, environment and
+// organization credentials: a bad X-Environment-Id answers 404
+// ENVIRONMENT_NOT_FOUND and a bad X-Tenant-Id answers 403 OWNERSHIP_FORBIDDEN,
+// each naming the value. There is no TENANT_NOT_FOUND, which is what the first
+// version matched, so the tenant half of the mis-paste kept the claim.
 func TestARejectedScopeIDStopsTheReachabilityClaim(t *testing.T) {
 	srv := gatewayStub(t, http.StatusOK, func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -324,12 +311,9 @@ func TestARejectedScopeIDStopsTheReachabilityClaim(t *testing.T) {
 		GatewayURL: srv.URL, ClientID: "id", ClientSecret: "secret",
 		EnvironmentID: "3f1c",
 	}
-	securityCloud, scopeIDRejected, err := validatePlatformGatewayCredentials(context.Background(), &out, creds)
+	scopeIDRejected, err := validatePlatformGatewayCredentials(context.Background(), &out, creds)
 	if err != nil {
 		t.Fatalf("a rejected scope ID is reported, not returned as an error: %v", err)
-	}
-	if securityCloud == securityCloudEntitled {
-		t.Error("a 404 on the probe is not Security Cloud access")
 	}
 	if !scopeIDRejected {
 		t.Fatal("ENVIRONMENT_NOT_FOUND must be reported as a rejected scope ID — nothing else " +
@@ -342,7 +326,7 @@ func TestARejectedScopeIDStopsTheReachabilityClaim(t *testing.T) {
 	// And the summary makes no reachability claim from it.
 	root := NewRootCmd("test", "", "", "")
 	var summary bytes.Buffer
-	printScopeSummary(&summary, root, creds, securityCloudUnknown, true)
+	printScopeSummary(&summary, root, creds, true)
 	got := summary.String()
 	if !strings.Contains(got, "does not recognise the environment ID") {
 		t.Errorf("the summary should name the rejected level:\n%s", got)
@@ -359,7 +343,7 @@ func TestARejectedScopeIDStopsTheReachabilityClaim(t *testing.T) {
 	// typed at the tenant prompt — reported as a plain "no" with the summary
 	// still claiming a reach.
 	var tenantOut bytes.Buffer
-	_, rejected := reportSecurityCloudProbe(&tenantOut, "tenant",
+	rejected := reportScopeIDProbe(&tenantOut, "tenant",
 		fmt.Errorf("status 403: [OWNERSHIP_FORBIDDEN] Tenant 'aee3ec71' is not part of your organization"))
 	if !rejected {
 		t.Error("OWNERSHIP_FORBIDDEN must be reported as a rejected scope ID: the gateway will not " +
@@ -369,20 +353,19 @@ func TestARejectedScopeIDStopsTheReachabilityClaim(t *testing.T) {
 		t.Errorf("the tenant refusal does not say what was wrong:\n%s", tenantOut.String())
 	}
 	var tenantSummary bytes.Buffer
-	printScopeSummary(&tenantSummary, root, &platformGatewayCredentials{TenantID: "aee3ec71"}, securityCloudUnknown, true)
+	printScopeSummary(&tenantSummary, root, &platformGatewayCredentials{TenantID: "aee3ec71"}, true)
 	if got := tenantSummary.String(); !strings.Contains(got, "does not recognise the tenant ID") ||
 		strings.Contains(got, "It also reaches") {
 		t.Errorf("a rejected tenant ID must stop the reachability claim too:\n%s", got)
 	}
 
 	// The same code at environment level, which the old wording could not
-	// express: reportSecurityCloudProbe could not see the level, so it called a
-	// refused environment ID a tenant ID and told the operator to use the
-	// prompt they had just used — while printScopeSummary, which reads the
-	// level from creds, called the same value an environment ID in the next
-	// breath. The two must agree.
+	// express: the probe could not see the level, so it called a refused
+	// environment ID a tenant ID and told the operator to use the prompt they
+	// had just used, while printScopeSummary called the same value an
+	// environment ID in the next breath. The two must agree.
 	var envOwnership bytes.Buffer
-	if _, rejected := reportSecurityCloudProbe(&envOwnership, "environment",
+	if rejected := reportScopeIDProbe(&envOwnership, "environment",
 		fmt.Errorf("status 403: [OWNERSHIP_FORBIDDEN] not part of your organization")); !rejected {
 		t.Error("OWNERSHIP_FORBIDDEN at environment level must reject the scope ID too")
 	}
@@ -393,94 +376,59 @@ func TestARejectedScopeIDStopsTheReachabilityClaim(t *testing.T) {
 		t.Errorf("an environment-level refusal must not call the value a tenant ID:\n%s", got)
 	}
 
-	// BAD_PERMISSIONS stays a plain report, and it is the only one that may:
-	// probed on a credential whose own correct tenant answered BAD_PERMISSIONS
-	// on Security Cloud and 200 on /devices/v1/devices, so the scope ID is good
-	// and the entitlement is simply absent. That is a normal Jamf Pro profile
-	// and the summary stands.
-	var entitlement bytes.Buffer
-	if _, rejected := reportSecurityCloudProbe(&entitlement, "tenant",
+	// A capability refusal is not a verdict on the ID: the gateway checks
+	// ownership before capability, so BAD_PERMISSIONS means the header resolved.
+	// Wire-checked 2026-09-08 — a correct tenant ID on a path requiring a grant
+	// answers BAD_PERMISSIONS, and reading that as a bad ID would suppress the
+	// summary for every profile whose integration lacks one permission.
+	var capability bytes.Buffer
+	if rejected := reportScopeIDProbe(&capability, "tenant",
 		fmt.Errorf("status 403: [BAD_PERMISSIONS] forbidden")); rejected {
-		t.Error("BAD_PERMISSIONS was treated as a rejected scope ID — it is an entitlement answer, " +
-			"and treating it as a bad ID would suppress the summary for every unentitled Jamf Pro tenant")
+		t.Error("BAD_PERMISSIONS was treated as a rejected scope ID — it says the scope resolved")
+	}
+	if !strings.Contains(capability.String(), "could not confirm") {
+		t.Errorf("an answer that is not about the ID must say so:\n%s", capability.String())
 	}
 }
 
-// securityCloudUnknown is a third answer at printScopeSummary, not a synonym
-// for "entitled".
+// An unknown environment ID is a 404, so it reached neither
+// EnrichPrivilegeError (403 only) nor the missing-scope arm, and arrived bare.
 //
-// The verdict was added so an inconclusive probe would stop being reported as a
-// "no", and the negative half of that was fixed while the positive half was
-// not: printScopeSummary branched on == securityCloudUnentitled, so a probe
-// that timed out, 5xx'd or failed DNS took the same path as a confirmed 200 and
-// the closing summary — the artifact the operator keeps — claimed the profile
-// reached all 29 Platform API resources, sixteen of whose entitlement nothing
-// had observed.
-//
-// Collapsing the two verdicts back together, or widening the subtraction to
-// != securityCloudEntitled, each fails one half of this.
-func TestAnInconclusiveSecurityCloudProbeIsReportedAsUnknown(t *testing.T) {
-	root := NewRootCmd("test", "", "", "")
-
-	render := func(v securityCloudVerdict, c *platformGatewayCredentials) string {
-		var b bytes.Buffer
-		printScopeSummary(&b, root, c, v, false)
-		return b.String()
-	}
-
-	unknown := render(securityCloudUnknown, &platformGatewayCredentials{TenantID: "t"})
-	if !strings.Contains(unknown, "check did not complete") {
-		t.Errorf("an unanswered probe must be reported as unanswered, got:\n%s", unknown)
-	}
-	// And it must not be reported as a "no": the 16 groups stay in the
-	// reachable list, which is what fails if the subtraction is widened to
-	// != securityCloudEntitled.
-	if strings.Contains(unknown, "It reaches none of the 29") {
-		t.Errorf("an unanswered probe must not subtract the Security Cloud groups, got:\n%s", unknown)
-	}
-	if strings.Contains(unknown, "are Jamf Security Cloud") {
-		t.Errorf("an unanswered probe must not print the entitlement clause, got:\n%s", unknown)
-	}
-
-	// A confirmed read says nothing about an unknown, which is what fails if
-	// the two verdicts are collapsed.
-	entitled := render(securityCloudEntitled, &platformGatewayCredentials{TenantID: "t"})
-	if strings.Contains(entitled, "check did not complete") {
-		t.Errorf("a successful probe must not report an unknown, got:\n%s", entitled)
-	}
-	unentitled := render(securityCloudUnentitled, &platformGatewayCredentials{TenantID: "t"})
-	if strings.Contains(unentitled, "check did not complete") {
-		t.Errorf("a refused probe is an answer, not an unknown, got:\n%s", unentitled)
-	}
-}
-
-// The entitlement clause says only what one 403 establishes.
-//
-// BAD_PERMISSIONS is the same code for no Security Cloud entitlement and for an
-// entitled tenant whose integration lacks content-categories:read —
-// internal/gateway records it as indistinguishable from a missing privilege,
-// and the recorded /devices/v1/devices control proves the device grants rather
-// than this one. Naming licensing alone sent an operator into a licensing
-// conversation when the fix was one checkbox in Jamf Account.
-func TestTheEntitlementClauseNamesBothCausesOfA403(t *testing.T) {
-	root := NewRootCmd("test", "", "", "")
-	var b bytes.Buffer
-	printScopeSummary(&b, root, &platformGatewayCredentials{TenantID: "t"}, securityCloudUnentitled, false)
-	got := b.String()
+// It is the runtime half of what `platform setup`'s scope check catches: the
+// mis-paste of a tenant ID into environment-id earns exactly this, wire-checked
+// 2026-09-08 from both a tenant and an environment credential.
+func TestAnUnknownEnvironmentIDIsExplained(t *testing.T) {
+	cmd := &cobra.Command{Use: "list", Annotations: map[string]string{annotationScopes: "environment"}}
+	err := AnnotateScopeLevelError(cmd, errors.New(
+		`status 404: {"httpStatus":404,"errors":[{"code":"ENVIRONMENT_NOT_FOUND",`+
+			`"description":"Environment '85f69825' not found."}]}`))
 
 	for _, want := range []string{
-		"are Jamf Security Cloud",
-		"no Security Cloud entitlement or a missing capability",
-		"Jamf Account",
+		"does not know this platform environment ID",
+		"come from different places in Jamf Account",
+		"environment-id in this profile",
 	} {
-		if !strings.Contains(got, want) {
-			t.Errorf("the clause is missing %q:\n%s", want, got)
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("the annotated error is missing %q:\n%s", want, err)
 		}
 	}
-	// The old wording attributed the refusal to the scope's entitlement alone.
-	if strings.Contains(got, "this scope is not\nentitled to") {
-		t.Errorf("the clause states a licensing verdict one 403 cannot support:\n%s", got)
+	// The gateway already names the value, so the note adds only what it
+	// cannot: which two IDs get confused for each other.
+	if !strings.Contains(err.Error(), "Environment '85f69825' not found.") {
+		t.Errorf("the gateway's own message must survive:\n%s", err)
 	}
-	// And the two lists still must not contradict each other.
-	assertNoResourceIsBothReachedAndDisclaimed(t, got)
+
+	// A command declaring nothing gets it too: the ID is wrong whatever the
+	// endpoint declares.
+	bare := AnnotateScopeLevelError(&cobra.Command{Use: "list"},
+		errors.New(`status 404: [ENVIRONMENT_NOT_FOUND] not found`))
+	if !strings.Contains(bare.Error(), "does not know this platform environment ID") {
+		t.Errorf("a command with no declared scope still needs the note:\n%s", bare)
+	}
+
+	// And an unrelated 404 is left alone.
+	other := errors.New(`status 404: [OBJECT_NOT_FOUND] no such blueprint`)
+	if got := AnnotateScopeLevelError(cmd, other); got.Error() != other.Error() {
+		t.Errorf("an unrelated 404 was annotated:\n%s", got)
+	}
 }

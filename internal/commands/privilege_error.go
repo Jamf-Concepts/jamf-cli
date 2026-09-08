@@ -160,8 +160,8 @@ func enrichPlatformPrivilegeError(privs string, levels []string, err error) erro
 // which is the honest answer for the three Jamf Account specs.
 func scopeMismatchHint(levels []string) string {
 	hint := "The credential's scope level does not match the scope header sent. " +
-		"An API integration is created at one level in Jamf Account — organization, " +
-		"platform environment, or tenant — and only works with that level's header. " +
+		"Jamf Account creates an API integration at one level (organization, platform " +
+		"environment, or tenant) and it only works with that level's header. " +
 		"Check environment-id / tenant-id in this profile (jamf-cli config list shows " +
 		"the scope; jamf-cli config path prints the file): an organization-scoped " +
 		"credential must name neither. The capability permissions are not the problem here."

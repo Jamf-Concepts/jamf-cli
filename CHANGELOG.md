@@ -257,23 +257,34 @@ in hand.
   collapsed to `/tenant//` under environment or organization scope.
 - `JAMF_ENVIRONMENT_ID` now overrides a tenant-scoped profile rather than colliding with it,
   the way every other environment variable here overrides the profile.
+- **`platform setup` no longer checks any product's access or permissions.** It used to
+  read `content-categories` and report a Jamf Security Cloud entitlement verdict, which
+  asked the wrong question: a capability permission is granted per operation when the
+  integration is created, so one read says nothing about the other 28 resources, and a
+  gateway 403 already names the permission it wanted in the wording Jamf Account's picker
+  uses. The verdict was also wrong in the ordinary case. Wire-checked in one organization, a
+  **tenant** credential answered `BAD_PERMISSIONS` there while an **environment** credential
+  in the same organization answered 200 — so the summary told a demonstrably entitled
+  organization it had no entitlement, and subtracted all sixteen Security Cloud resources
+  from what the profile reaches. That credential's summary now reports 16 of the 29
+  reachable, and closes by saying where a permissions answer comes from.
+
+  Setup still validates the **scope ID**, because the token exchange sends no scope header:
+  credentials that authenticate say nothing about the ID just typed, so a mis-pasted one
+  saved cleanly and then refused every command. The gateway resolves the scope at the edge,
+  before routing and before capability, so this is not a product check either — only
+  `404 ENVIRONMENT_NOT_FOUND` and `403 OWNERSHIP_FORBIDDEN` reject an ID, and everything
+  else, `BAD_PERMISSIONS` included, leaves it unjudged.
+- **An unknown platform environment ID produced a bare 404 with no explanation.**
+  `ENVIRONMENT_NOT_FOUND` is a 404, so it reached neither the 403 privilege hint nor the
+  missing-scope note. A tenant ID pasted into `environment-id` is exactly this, and it is
+  now annotated with the two IDs it confuses and the profile field to check.
 - **`platform setup`'s closing summary said two things that were not true.** A tenant-scoped
   profile was told it served "the Pro API and Platform API commands" when six Platform specs
   declare environment scope only, and an organization-scoped profile was told AI Governance
   was served, which answers `400 REQUEST_CONTEXT_NOT_PROVIDED` with no scope header. The
   summary is now assembled from the commands' declared scope levels, so it cannot drift from
-  the specs they were generated from. It also no longer contradicts itself: every platform
-  resource a tenant credential declares is a Jamf Security Cloud one, so a tenant with no
-  Security Cloud entitlement was told it reached sixteen of them and then, two lines later,
-  that it lacked the entitlement for all sixteen. The entitlement answer now partitions the
-  list instead of disclaiming it, with the two reasons a resource is out of reach reported
-  separately. And a probe that did not complete — a timeout, a 5xx — reports "could not
-  tell" rather than being rendered as an entitlement the gateway never denied; the summary
-  then says the entitlement is unknown instead of quietly claiming the whole surface.
-  The refusal it *does* get is not stated as a licensing verdict either: the gateway spells
-  "no Security Cloud entitlement" and "this integration lacks `content-categories:read`"
-  with the same `403 BAD_PERMISSIONS`, so the summary names both and says to check the
-  integration's permissions in Jamf Account before assuming licensing.
+  the specs they were generated from.
 - **`platform setup` called a refused environment ID a tenant ID.** The gateway's
   `OWNERSHIP_FORBIDDEN` is reachable at either level, and the refusal was worded tenant-only
   while the closing summary named the same value an environment ID — so setup told an

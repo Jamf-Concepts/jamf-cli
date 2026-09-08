@@ -13,20 +13,19 @@ import (
 	"testing"
 )
 
-// securityCloudCategoriesProbePath is the exact path the Security Cloud tenant
-// probe must request, registered exactly rather than as a prefix so this test is
-// what catches the URL ordering going wrong.
+// scopeProbePath is the exact path the scope probe must request, registered
+// exactly rather than as a prefix so this test is what catches the URL going
+// wrong.
 //
-// The scope is not in the URL any more: it travels as an X-Tenant-Id header, so
-// the path is /{namespace}/{version}/{resource} and a tenant segment
-// appearing anywhere in it is a regression. Registering the path exactly (rather
-// than as a prefix) is what surfaces that — as a handler the client never calls.
-const securityCloudCategoriesProbePath = "/securitycloud/v1/categories"
+// The scope is not in the URL: it travels as an X-Tenant-Id or X-Environment-Id
+// header, so the path is /{namespace}/{version}/{resource} and a tenant segment
+// appearing anywhere in it is a regression, surfacing here as a handler the
+// client never calls.
+const scopeProbePath = "/pro/v1/jamf-pro-version"
 
 // gatewayStub serves the gateway endpoints validatePlatformGatewayCredentials
-// touches: the OAuth2 token endpoint, and the Security Cloud categories
-// collection it probes to check the Security Cloud tenant.
-func gatewayStub(t *testing.T, tokenStatus int, categories func(w http.ResponseWriter, r *http.Request)) *httptest.Server {
+// touches: the OAuth2 token endpoint, and the path the scope probe reads.
+func gatewayStub(t *testing.T, tokenStatus int, scopeProbe func(w http.ResponseWriter, r *http.Request)) *httptest.Server {
 	t.Helper()
 	mux := http.NewServeMux()
 	mux.HandleFunc("/auth/token", func(w http.ResponseWriter, r *http.Request) {
@@ -37,32 +36,64 @@ func gatewayStub(t *testing.T, tokenStatus int, categories func(w http.ResponseW
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = fmt.Fprint(w, `{"access_token":"stub-token","token_type":"Bearer","expires_in":900}`)
 	})
-	if categories != nil {
-		mux.HandleFunc(securityCloudCategoriesProbePath, categories)
+	if scopeProbe != nil {
+		mux.HandleFunc(scopeProbePath, scopeProbe)
 	}
 	srv := httptest.NewServer(mux)
 	t.Cleanup(srv.Close)
 	return srv
 }
 
-func TestValidatePlatformGatewayCredentials_ReportsSecurityCloudAccess(t *testing.T) {
+// The probe asks about the scope ID and nothing else, so a served read reports
+// the ID accepted rather than any product's access.
+func TestValidatePlatformGatewayCredentials_ReportsTheScopeIDAccepted(t *testing.T) {
 	srv := gatewayStub(t, http.StatusOK, func(w http.ResponseWriter, _ *http.Request) {
-		writeJSONStatus(w, http.StatusOK, map[string]any{"results": []any{}, "totalCount": 0})
+		writeJSONStatus(w, http.StatusOK, map[string]any{"version": "11.31.0"})
 	})
 
 	var out bytes.Buffer
 	creds := &platformGatewayCredentials{
 		GatewayURL: srv.URL, ClientID: "id", ClientSecret: "secret", TenantID: "a-tenant",
 	}
-	securityCloud, _, err := validatePlatformGatewayCredentials(context.Background(), &out, creds)
+	rejected, err := validatePlatformGatewayCredentials(context.Background(), &out, creds)
 	if err != nil {
 		t.Fatalf("validate: %v", err)
 	}
-	if securityCloud != securityCloudEntitled {
-		t.Errorf("verdict = %v, want securityCloudEntitled: the gateway served the read", securityCloud)
+	if rejected {
+		t.Error("a served read must not report the scope ID as rejected")
 	}
-	if !strings.Contains(out.String(), "Checking Jamf Security Cloud access... yes") {
-		t.Errorf("output does not report access:\n%s", out.String())
+	if !strings.Contains(out.String(), "Checking the scope ID... ok: the gateway accepts this tenant ID") {
+		t.Errorf("output does not report the scope ID accepted:\n%s", out.String())
+	}
+	// Setup collects credentials and validates them. It must not report on any
+	// product's entitlement: a capability permission is per operation, and the
+	// gateway spells "no entitlement" and "this grant is missing" identically,
+	// so a verdict here can only be less accurate than the 403 that names the
+	// permission it wanted.
+	for _, unwanted := range []string{"Security Cloud", "entitle"} {
+		if strings.Contains(out.String(), unwanted) {
+			t.Errorf("setup reports a product entitlement (%q):\n%s", unwanted, out.String())
+		}
+	}
+}
+
+// Organization scope has no ID to check, so the probe is skipped entirely
+// rather than reporting a failure that says nothing about the profile. The stub
+// serves no probe path, so a request would 404 and be visible as a rejection.
+func TestValidatePlatformGatewayCredentials_OrganizationScopeSkipsTheProbe(t *testing.T) {
+	srv := gatewayStub(t, http.StatusOK, nil)
+
+	var out bytes.Buffer
+	creds := &platformGatewayCredentials{GatewayURL: srv.URL, ClientID: "id", ClientSecret: "secret"}
+	rejected, err := validatePlatformGatewayCredentials(context.Background(), &out, creds)
+	if err != nil {
+		t.Fatalf("validate: %v", err)
+	}
+	if rejected {
+		t.Error("organization scope sends no scope header, so there is no ID to reject")
+	}
+	if strings.Contains(out.String(), "Checking the scope ID") {
+		t.Errorf("organization scope has no scope ID to check:\n%s", out.String())
 	}
 }
 
@@ -75,73 +106,67 @@ func TestValidatePlatformGatewayCredentials_BadCredentialsAreFatal(t *testing.T)
 	}
 	// Credentials that don't work are worth failing setup over: nothing the
 	// profile could go on to do would succeed.
-	if _, _, err := validatePlatformGatewayCredentials(context.Background(), &out, creds); err == nil {
+	if _, err := validatePlatformGatewayCredentials(context.Background(), &out, creds); err == nil {
 		t.Fatal("expected credential validation to fail")
 	}
 }
 
-// TestValidatePlatformGatewayCredentials_SecurityCloudTenant covers what the
-// probe is for now that a profile carries one tenant: telling the operator which
-// half of `security` this tenant serves. Every outcome still saves the profile —
-// a Jamf Pro tenant legitimately has no Security Cloud entitlement, and the
-// gateway's two rejections are indistinguishable in intent from here, so none of
-// them can be treated as a setup failure.
-func TestValidatePlatformGatewayCredentials_SecurityCloudTenant(t *testing.T) {
+// Only two codes reject a scope ID, and everything else must leave it unjudged.
+// Every outcome still saves the profile: the probe answers "does the gateway
+// know this ID", which is not a pass/fail for the credentials.
+//
+// The rows are the wire answers recorded on reportScopeIDProbe, probed
+// 2026-09-08 against this same path at all three levels.
+func TestValidatePlatformGatewayCredentials_ScopeIDVerdicts(t *testing.T) {
 	tests := []struct {
-		name        string
-		status      int
-		body        string
-		wantText    string
-		wantVerdict securityCloudVerdict
+		name         string
+		status       int
+		body         string
+		environment  bool
+		wantText     string
+		wantRejected bool
 	}{
 		{
-			name:        "reachable",
-			status:      http.StatusOK,
-			body:        `{"results":[],"totalCount":0}`,
-			wantText:    "Checking Jamf Security Cloud access... yes",
-			wantVerdict: securityCloudEntitled,
+			name:     "the gateway accepts the id",
+			status:   http.StatusOK,
+			body:     `{"version":"11.31.0"}`,
+			wantText: "ok: the gateway accepts this tenant ID",
 		},
 		{
-			// A tenant ID the gateway refuses, which is also how it answers an
-			// environment ID typed at the tenant prompt. Not an entitlement
-			// answer — see reportSecurityCloudProbe.
-			name:        "tenant id the gateway will not accept",
-			status:      http.StatusForbidden,
-			body:        `{"httpStatus":403,"errors":[{"code":"OWNERSHIP_FORBIDDEN"}]}`,
-			wantText:    "will not accept this tenant ID",
-			wantVerdict: securityCloudUnknown,
+			// Also how it answers an environment or organization ID typed at
+			// the tenant prompt.
+			name:         "tenant id the gateway will not accept",
+			status:       http.StatusForbidden,
+			body:         `{"httpStatus":403,"errors":[{"code":"OWNERSHIP_FORBIDDEN"}]}`,
+			wantText:     "will not accept this tenant ID",
+			wantRejected: true,
 		},
 		{
-			// Refused on grants. Deliberately not worded as a licensing
-			// verdict: BAD_PERMISSIONS is the same code for no Security Cloud
-			// entitlement and for an entitled tenant whose integration lacks
-			// content-categories:read, and one read cannot separate them.
-			name:        "refused on grants",
-			status:      http.StatusForbidden,
-			body:        `{"httpStatus":403,"errors":[{"code":"BAD_PERMISSIONS"}]}`,
-			wantText:    "or the integration lacks this permission",
-			wantVerdict: securityCloudUnentitled,
+			// The issue #354 mis-paste: a tenant ID typed at the environment
+			// prompt. 404 rather than 403, and there is no TENANT_NOT_FOUND
+			// twin at the other level.
+			name:         "environment id the gateway does not know",
+			status:       http.StatusNotFound,
+			body:         `{"httpStatus":404,"errors":[{"code":"ENVIRONMENT_NOT_FOUND"}]}`,
+			environment:  true,
+			wantText:     "does not know this environment ID",
+			wantRejected: true,
 		},
 		{
-			// A 500 did not answer the question. It used to return the same
-			// false a BAD_PERMISSIONS did, and the summary then told the
-			// operator this scope lacks a Security Cloud entitlement — a
-			// verdict nothing had established. Asserted on the wording *and*
-			// the verdict, because either alone passes for the old behaviour.
-			name:        "an inconclusive probe is not an entitlement verdict",
-			status:      http.StatusInternalServerError,
-			body:        `{"httpStatus":500,"errors":[{"code":"BOOM"}]}`,
-			wantText:    "could not tell (",
-			wantVerdict: securityCloudUnknown,
+			// A capability refusal says nothing about the ID — it means the
+			// header got as far as being resolved, since the gateway checks
+			// ownership before capability. Reading it as a verdict is what
+			// produced the entitlement claim this probe replaced.
+			name:     "a capability refusal is not a verdict on the id",
+			status:   http.StatusForbidden,
+			body:     `{"httpStatus":403,"errors":[{"code":"BAD_PERMISSIONS"}]}`,
+			wantText: "could not confirm (",
 		},
 		{
-			// An environment ID the gateway does not know, which is the level
-			// the ownership branch used to mis-name. 404 rather than 403.
-			name:        "environment id the gateway does not know",
-			status:      http.StatusNotFound,
-			body:        `{"httpStatus":404,"errors":[{"code":"ENVIRONMENT_NOT_FOUND"}]}`,
-			wantText:    "does not know this environment ID",
-			wantVerdict: securityCloudUnknown,
+			name:     "a 5xx did not answer the question",
+			status:   http.StatusInternalServerError,
+			body:     `{"httpStatus":500,"errors":[{"code":"BOOM"}]}`,
+			wantText: "could not confirm (",
 		},
 	}
 
@@ -150,8 +175,8 @@ func TestValidatePlatformGatewayCredentials_SecurityCloudTenant(t *testing.T) {
 			srv := gatewayStub(t, http.StatusOK, func(w http.ResponseWriter, r *http.Request) {
 				// Registered exactly, so a tenant segment creeping back into
 				// the URL shows up here as a handler the client never calls.
-				if r.URL.Path != securityCloudCategoriesProbePath {
-					t.Errorf("probed %q, want %q", r.URL.Path, securityCloudCategoriesProbePath)
+				if r.URL.Path != scopeProbePath {
+					t.Errorf("probed %q, want %q", r.URL.Path, scopeProbePath)
 				}
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(tc.status)
@@ -163,21 +188,19 @@ func TestValidatePlatformGatewayCredentials_SecurityCloudTenant(t *testing.T) {
 				GatewayURL: srv.URL, ClientID: "id", ClientSecret: "secret",
 				TenantID: "a-tenant",
 			}
-			// The ENVIRONMENT_NOT_FOUND row is the environment-level one, and
-			// the level decides the wording of the refusals.
-			if strings.Contains(tc.wantText, "environment ID") {
+			if tc.environment {
 				creds.TenantID, creds.EnvironmentID = "", "an-environment"
 			}
-			verdict, _, err := validatePlatformGatewayCredentials(context.Background(), &out, creds)
+			rejected, err := validatePlatformGatewayCredentials(context.Background(), &out, creds)
 			if err != nil {
-				t.Fatalf("validate returned an error; a Security Cloud outcome must report and save: %v", err)
+				t.Fatalf("validate returned an error; a scope-probe outcome must report and save: %v", err)
 			}
 			if !strings.Contains(out.String(), tc.wantText) {
 				t.Errorf("output missing %q:\n%s", tc.wantText, out.String())
 			}
-			if verdict != tc.wantVerdict {
-				t.Errorf("verdict = %v, want %v — the summary claims an entitlement from this",
-					verdict, tc.wantVerdict)
+			if rejected != tc.wantRejected {
+				t.Errorf("rejected = %v, want %v — the summary is suppressed on this",
+					rejected, tc.wantRejected)
 			}
 		})
 	}

@@ -226,11 +226,27 @@ func readClientIDRefFile(path string) (string, error) {
 		return "", err
 	}
 	defer func() { _ = f.Close() }()
-	b, err := io.ReadAll(io.LimitReader(f, maxClientIDRefBytes))
+	// Read one byte past the cap so "at the cap" and "over it" are
+	// distinguishable, and refuse both an over-cap and an empty file rather
+	// than returning a value that cannot be the client ID. Silently comparing
+	// a truncated prefix, or "" against a guaranteed non-empty invocation ID,
+	// would withhold the level and then let withheldReasonClause blame
+	// JAMF_CLIENT_ID for a file problem — the misattribution
+	// unreadableClientIDRef exists to remove. Zero length is what an
+	// interrupted write or a secrets volume mounted ahead of its content
+	// leaves.
+	b, err := io.ReadAll(io.LimitReader(f, maxClientIDRefBytes+1))
 	if err != nil {
 		return "", err
 	}
-	return strings.TrimSpace(string(b)), nil
+	if len(b) > maxClientIDRefBytes {
+		return "", fmt.Errorf("larger than %d bytes, so it cannot name a client ID", maxClientIDRefBytes)
+	}
+	id := strings.TrimSpace(string(b))
+	if id == "" {
+		return "", errors.New("empty")
+	}
+	return id, nil
 }
 
 // credentialIdentifiesTheProfilesIntegration reports whether the active client
@@ -305,28 +321,36 @@ func withheldScopeNote(levels []string) string {
 	if withheldProfileScope.Level == "environment" {
 		envVar, flagName = "JAMF_ENVIRONMENT_ID", "--environment-id"
 	}
+	// An unreadable reference means the comparison was never made, so nothing
+	// here may claim whose integration the profile's ID names —
+	// profileNamesTheInvocationClientID returning false was a fail-closed
+	// default, not a determination. The remedy is the file, and dropping
+	// JAMF_CLIENT_ID is specifically the wrong advice: without it
+	// ResolveAuthForProfile calls ResolveSecret(p.ClientID), opens this same
+	// file and fails outright. The declared levels are left to scopeLevelNote,
+	// which runs beside this (see withheldNoteState).
+	if unreadableClientIDRef.Path != "" {
+		return fmt.Sprintf("Profile %q carries %s, %s Supply the level for these credentials with "+
+			"%s or %s, or make file:%s readable so the profile resolves its own client ID. Do not "+
+			"drop %s while that file is unreadable: the profile cannot then resolve a client ID at all.",
+			withheldProfileScope.Profile, withheldLevelPhrase(), withheldReasonClause(),
+			envVar, flagName, unreadableClientIDRef.Path, clientIDSource)
+	}
 	// When the command's API declares levels that do not include the withheld
 	// one, say so — and stop there, without saying what the gateway would have
-	// done with a header this invocation never sent.
-	//
-	// This branch used to add "would not have worked here anyway", which is a
-	// *requires* claim of exactly the kind AnnotateScopeLevelError's own doc
-	// comment forbids: the spec is currently stricter than the gateway, and a
-	// tenant credential answers 200 on pro platform-devices list, which
-	// declares environment scope (probed 2026-09-05). It also returned before
-	// the remedy below, so the withheld level's own variable and flag were
-	// never printed — leaving an operator whose one working input was
-	// JAMF_TENANT_ID=<the value the note declined to re-offer> with nothing to
-	// try. Both halves are stated now, in the order of durability.
+	// done with a header this invocation never sent. The spec is currently
+	// stricter than the gateway (a tenant credential answers 200 on
+	// pro platform-devices list, which declares environment scope), so both
+	// halves are stated in order of durability rather than one being ruled out.
 	if len(levels) > 0 && !slices.Contains(levels, withheldProfileScope.Level) {
 		return fmt.Sprintf("Profile %q carries %s, %s This command's API declares %s, so an "+
-			"integration created at a declared level is the durable answer; the gateway has not "+
-			"followed the specs everywhere, so %s or %s may still work today.",
+			"integration created at a declared level is the lasting fix; the gateway does not "+
+			"follow the specs everywhere, so %s or %s may still work today.",
 			withheldProfileScope.Profile, withheldLevelPhrase(), withheldReasonClause(),
 			renderScopeLevels(levels), envVar, flagName)
 	}
-	return fmt.Sprintf("Profile %q carries %s, %s An integration is created at one level in Jamf "+
-		"Account and its credential carries that choice, so that ID belongs to the profile's own "+
+	return fmt.Sprintf("Profile %q carries %s, %s Jamf Account creates an integration at one level "+
+		"and its credential carries that choice, so that ID belongs to the profile's own "+
 		"integration. Supply the level for these credentials with %s or %s, or use the profile's "+
 		"own client ID as well as its level.",
 		withheldProfileScope.Profile, withheldLevelPhrase(), withheldReasonClause(), envVar, flagName)
@@ -343,11 +367,12 @@ func withheldScopeNote(levels []string) string {
 // signal on that branch, since nothing downstream opens the file.
 func withheldReasonClause() string {
 	if unreadableClientIDRef.Path != "" {
-		return fmt.Sprintf("which was not used because the profile's own client-id reference "+
-			"file:%s could not be read (%v), so nothing here could tell whether it names the same "+
-			"integration as the credentials in hand.", unreadableClientIDRef.Path, unreadableClientIDRef.Err)
+		return fmt.Sprintf("which this invocation did not use: it could not read the profile's own "+
+			"client-id reference file:%s (%v), so nothing here can tell whether that reference names "+
+			"the same integration as the credentials in hand.",
+			unreadableClientIDRef.Path, unreadableClientIDRef.Err)
 	}
-	return fmt.Sprintf("which was not used because the client ID came from %s.", clientIDSource)
+	return fmt.Sprintf("which this invocation did not use, because the client ID came from %s.", clientIDSource)
 }
 
 // withheldLevelPhrase names the withheld level with the right article. The
@@ -394,6 +419,26 @@ func scopesOf(cmd *cobra.Command) []string {
 // names the declared levels itself — one answer beats two overlapping ones.
 const gatewayMissingScope = "REQUEST_CONTEXT_NOT_PROVIDED"
 
+// gatewayUnknownEnvironment is the gateway's code for an X-Environment-Id it
+// does not know, and it is a 404 — so neither EnrichPrivilegeError (403 only)
+// nor the missing-scope arm above sees it, and it reached the operator bare.
+//
+// It is the runtime half of what `platform setup`'s scope check catches, and
+// the mis-paste issue #354 reports earns exactly this: wire-checked 2026-09-08,
+// a valid tenant ID sent as X-Environment-Id answers
+// 404 ENVIRONMENT_NOT_FOUND naming the value, from both a tenant and an
+// environment credential.
+const gatewayUnknownEnvironment = "ENVIRONMENT_NOT_FOUND"
+
+// unknownEnvironmentNote explains a 404 the gateway returns for an environment
+// ID it does not know. The gateway names the value, so this adds only the part
+// it cannot: the two IDs are different values from different places, which is
+// how the wrong one gets pasted in.
+const unknownEnvironmentNote = "The gateway does not know this platform environment ID. A platform " +
+	"environment ID and a tenant ID come from different places in Jamf Account, and neither is the " +
+	"Jamf Pro tenant ID or the client ID. Check environment-id in this profile (jamf-cli config " +
+	"list shows the scope; jamf-cli config path prints the file), or re-run jamf-cli platform setup."
+
 // INVALID_REQUEST_CONTEXT_TYPE gets nothing, and after the withhold rule it
 // cannot arise from a profile at all: a level now only reaches the wire when
 // the caller named it on this invocation, and the gateway's own message already
@@ -407,11 +452,9 @@ const gatewayMissingScope = "REQUEST_CONTEXT_NOT_PROVIDED"
 // gateway scope error, when the credential in hand is not at one of them.
 //
 // It replaces annotateAuditScopeError, which spelled the same fact for one
-// command by hand. Audit is environment-only, and the note saying so had
-// already gone stale once — it used to add that the spec listed organization as
-// allowed while the gateway refused it, which build v2056 made false. Reading
-// x-scope-types means the sentence cannot disagree with the artifact, and every
-// platform command gets it rather than the one whose gap someone hit.
+// command by hand and had already gone stale once. Reading x-scope-types means
+// the sentence cannot disagree with the artifact, and every platform command
+// gets it rather than the one whose gap someone hit.
 //
 // It says "declares" rather than "requires" on purpose. The spec is currently
 // STRICTER than the gateway: build v2082 moved six Platform specs to
@@ -426,6 +469,13 @@ const gatewayMissingScope = "REQUEST_CONTEXT_NOT_PROVIDED"
 func AnnotateScopeLevelError(cmd *cobra.Command, err error) error {
 	if err == nil {
 		return err
+	}
+	// An unknown environment ID is a 404, so it reaches neither
+	// EnrichPrivilegeError nor the arms below and arrived bare. Checked first
+	// because the ID is the whole problem: the declared levels are beside the
+	// point when the gateway does not recognise the value.
+	if strings.Contains(err.Error(), gatewayUnknownEnvironment) {
+		return fmt.Errorf("%w\n\nnote: %s", err, unknownEnvironmentNote)
 	}
 	// The one path that never reaches the gateway, and therefore never gets the
 	// 400 every other arm here keys on. resolveSchoolClient requires a tenant
@@ -534,6 +584,11 @@ func withheldNoteState(levels []string) withheldState {
 	if withheldProfileScope.Profile == "" {
 		return noWithheldNote
 	}
+	// The unreadable-reference branch returns before the levels check and names
+	// none, so scopeLevelNote is what carries the declared levels there.
+	if unreadableClientIDRef.Path != "" {
+		return withheldNoteBeside
+	}
 	if len(levels) > 0 && !slices.Contains(levels, withheldProfileScope.Level) {
 		return withheldNoteNamesLevels
 	}
@@ -573,12 +628,12 @@ func scopeLevelNote(levels []string, have string, withheld withheldState) string
 		// what organization scope is on the wire, and it is also what a
 		// credential whose level was never supplied ends up sending — which is
 		// why withheldScopeNote runs beside this one.
-		return note + " No scope header was sent, which is what organization scope is on the wire. " +
-			"Set an environment ID on the profile (or JAMF_ENVIRONMENT_ID), or use an integration " +
-			"created at " + which + "."
+		return note + " This invocation sent no scope header, which is what organization scope " +
+			"looks like on the wire. Set an environment ID on the profile (or " +
+			"JAMF_ENVIRONMENT_ID), or use an integration created at " + which + "."
 	}
-	return note + " An integration is created at one level in Jamf Account and only works " +
-		"with that level, so this needs a different integration rather than a different ID. " +
+	return note + " Jamf Account creates an integration at one level and it only works with " +
+		"that level, so fix this with a different integration, not a different ID. " +
 		"jamf-cli config list shows each profile's scope."
 }
 
@@ -639,63 +694,18 @@ func platformResourcesByScope(root *cobra.Command, have string) (reachable, unre
 	return reachable, unreachable
 }
 
-// securityCloudResourceGroups names the resource groups served by Jamf Security
-// Cloud, read off the command tree under `security`.
-//
-// Structural rather than a hand-written list, and rather than "declares tenant
-// scope": the two coincide today only by accident. All six Security Cloud specs
-// declare tenant *and* environment, so an environment credential declares every
-// platform resource and the entitlement still has to subtract these — while a
-// hand-written list would be the third place the same set is spelled and the
-// first to go stale when a spec is added.
-//
-// Only groups carrying jamf:scopes are collected, matching
-// platformResourcesByScope, so the two partitions are over the same population
-// and a group cannot be subtracted from a set it was never in. The Radar-served
-// `security` commands carry no annotation and are therefore absent, which is
-// right: this is about the gateway-served half.
-func securityCloudResourceGroups(root *cobra.Command) map[string]bool {
-	groups := map[string]bool{}
-	for _, product := range root.Commands() {
-		if product.Name() != "security" {
-			continue
-		}
-		for _, resource := range product.Commands() {
-			if resource.Hidden || resource.Name() == "help" || resource.Name() == "completion" {
-				continue
-			}
-			for _, op := range resource.Commands() {
-				if len(scopesOf(op)) > 0 {
-					groups[resource.Name()] = true
-					break
-				}
-			}
-		}
-	}
-	return groups
-}
-
 // printScopeSummary closes `platform setup` by saying what the profile just
-// written can actually reach, derived from the scope levels the specs declare.
+// written can reach, derived from the scope levels the specs declare.
 //
-// securityCloud is what the tenant answered to one probe against
-// content-categories, and it qualifies the derived list rather than replacing
-// it: a Jamf Pro tenant legitimately has no Security Cloud entitlement, and the
-// gateway's two rejections for that are indistinguishable in intent from a
-// scope problem — so the probe answers "entitled?" while jamf:scopes answers
-// "right level?", and both matter.
+// It reports the *level*, never a product's entitlement or grants: a capability
+// permission is per operation and is named by the 403 that wants it, so a
+// summary guessing at 29 resources' permissions can only be less accurate than
+// the error the operator will get anyway.
 //
-// Only securityCloudUnentitled subtracts anything. securityCloudUnknown means
-// the probe did not answer — a timeout, a 5xx, or the organization-scoped path
-// that skips it — and a summary that treated that as a "no" told the operator
-// they lacked an entitlement nothing had checked.
-//
-// scopeIDRejected is the one answer that invalidates the whole summary: the
+// scopeIDRejected is the one answer that invalidates the whole summary — the
 // gateway refused the scope identifier itself, so no reachability claim can be
-// made from it and none is made. Without that the summary told an operator who
-// had pasted a tenant UUID at the environment prompt that the profile reached
-// sixteen Platform API resources, every one of which answers the same 404.
-func printScopeSummary(w io.Writer, root *cobra.Command, creds *platformGatewayCredentials, securityCloud securityCloudVerdict, scopeIDRejected bool) {
+// made from it and none is.
+func printScopeSummary(w io.Writer, root *cobra.Command, creds *platformGatewayCredentials, scopeIDRejected bool) {
 	level := "organization"
 	switch {
 	case creds.EnvironmentID != "":
@@ -708,11 +718,11 @@ func printScopeSummary(w io.Writer, root *cobra.Command, creds *platformGatewayC
 		// here is always the one that was typed in. Say what was rejected and
 		// stop: a reachability list assembled from a scope the gateway does not
 		// know describes a profile that reaches nothing.
-		_, _ = fmt.Fprintf(w, "The gateway does not recognise the %s ID in this profile, so nothing here can\n", level)
-		_, _ = fmt.Fprintln(w, "say what it reaches — every scoped request will be refused until the ID is right.")
-		_, _ = fmt.Fprintln(w, "A platform environment ID and a tenant ID are different values from different")
-		_, _ = fmt.Fprintln(w, "places in Jamf Account. Re-run `jamf-cli platform setup` and answer the prompt")
-		_, _ = fmt.Fprintln(w, "for the level this integration was created at.")
+		_, _ = fmt.Fprintf(w, "The gateway does not recognise the %s ID in this profile. Every scoped\n", level)
+		_, _ = fmt.Fprintln(w, "request will be refused until you fix it, so this cannot say what the profile")
+		_, _ = fmt.Fprintln(w, "reaches. A platform environment ID and a tenant ID come from different places")
+		_, _ = fmt.Fprintln(w, "in Jamf Account. Re-run `jamf-cli platform setup` and answer the prompt for the")
+		_, _ = fmt.Fprintln(w, "level this integration was created at.")
 		return
 	}
 
@@ -732,117 +742,49 @@ func printScopeSummary(w io.Writer, root *cobra.Command, creds *platformGatewayC
 		return
 	}
 
-	// The probe answer qualifies the partition rather than being disclaimed
-	// after it. Listing a resource as reachable and then saying it needs an
-	// entitlement this scope lacks was the summary contradicting itself, and it
-	// did so in the ordinary Jamf Pro case: every platform resource a *tenant*
-	// credential declares is a Jamf Security Cloud one — of the 29 groups
-	// carrying jamf:scopes, the 16 declaring tenant are exactly
-	// content-categories, device-groups, dns-*, enrollment-activation-profiles,
-	// uem-* and ztna-* — so an unentitled tenant reaches none of the 29 while
-	// being told it reached 16.
-	//
-	// The set is read off the command tree rather than off the declared levels,
-	// because "declares tenant" is only accidentally the same set: all six
-	// Security Cloud specs declare tenant AND environment, so an environment
-	// credential declares all 29 and the entitlement has to subtract from that
-	// too. Being wired under `security` is what makes a resource Security
-	// Cloud, and that is what securityCloudResourceGroups reads.
-	//
-	// The two reasons a resource is out of reach are different, so they are
-	// reported separately rather than added together.
-	var unentitled []string
-	if securityCloud == securityCloudUnentitled {
-		sc := securityCloudResourceGroups(root)
-		kept := reachable[:0:0]
-		for _, g := range reachable {
-			if sc[g] {
-				unentitled = append(unentitled, g)
-			} else {
-				kept = append(kept, g)
-			}
-		}
-		reachable = kept
-	}
-
 	_, _ = fmt.Fprintln(w, "This scope serves the Pro API and Classic API commands.")
-	total := len(reachable) + len(unreachable) + len(unentitled)
+	total := len(reachable) + len(unreachable)
 	switch {
-	case len(unreachable) == 0 && len(unentitled) == 0:
+	case len(unreachable) == 0:
 		_, _ = fmt.Fprintf(w, "It also reaches all %d Platform API resources, audit and AI Governance included.\n", total)
 	case len(reachable) == 0:
-		_, _ = fmt.Fprintf(w, "It reaches none of the %d Platform API resources:\n", total)
+		_, _ = fmt.Fprintf(w, "It reaches none of the %d Platform API resources.\n", total)
 	default:
 		_, _ = fmt.Fprintf(w, "It also reaches %d of the %d Platform API resources:\n", len(reachable), total)
 		_, _ = fmt.Fprintf(w, "  %s.\n", summariseResources(reachable))
 	}
-	// One clause per reason, so a resource never appears under two of them and
-	// a count is never printed for an empty set.
 	if len(unreachable) > 0 {
 		_, _ = fmt.Fprintf(w, "%d declare environment scope, which this credential is not at:\n", len(unreachable))
 		_, _ = fmt.Fprintf(w, "  %s.\n", summariseResources(unreachable))
-		// Beside the list it is about, not after both of them. "Some still
-		// answer" is true of a *level* mismatch and false of an entitlement
-		// one — no grant appears because the gateway relaxed a scope rule — so
-		// trailing the two lists it read as covering the Security Cloud group
-		// as well.
-		//
 		// "declares", never "is out of reach": the spec is currently stricter
 		// than the gateway — build v2082 moved six Platform specs to
 		// environment-only and a tenant credential still reaches
-		// platform-devices and platform-device-groups (probed 2026-09-05) — and
+		// platform-devices and platform-device-groups (probed 2026-09-05) — so
 		// this summary must not be more certain than AnnotateScopeLevelError,
-		// which annotates a refusal the gateway has already returned and
-		// deliberately pre-empts none.
-		_, _ = fmt.Fprintln(w, "  Some still answer on a tenant credential — the gateway has not followed the")
-		_, _ = fmt.Fprintln(w, "  specs everywhere, and nothing here refuses on this. A 400 or 403 naming the")
-		_, _ = fmt.Fprintln(w, "  scope is the signal to create an environment-scoped integration; environment")
-		_, _ = fmt.Fprintln(w, "  is the level to prefer for a new one either way.")
-	}
-	if len(unentitled) > 0 {
-		// Says what one 403 establishes and no more. BAD_PERMISSIONS is
-		// indistinguishable from a missing capability grant — internal/gateway
-		// records that, and CLAUDE.md's "one 403 is not a probe" rule says the
-		// same — and the recorded /devices/v1/devices control proves the device
-		// grants, not content-categories:read. So an entitled tenant whose
-		// integration simply lacks that one grant used to be told it had no
-		// Security Cloud entitlement, which opens a licensing conversation
-		// instead of ticking a box.
-		_, _ = fmt.Fprintf(w, "%d are Jamf Security Cloud. The one read above was refused 403 for this\n", len(unentitled))
-		_, _ = fmt.Fprintln(w, "credential, which is either no Security Cloud entitlement or a missing capability")
-		_, _ = fmt.Fprintln(w, "grant. The gateway spells both the same way, so check the integration's")
-		_, _ = fmt.Fprintln(w, "permissions in Jamf Account before assuming licensing:")
-		_, _ = fmt.Fprintf(w, "  %s.\n", summariseResources(unentitled))
-	}
-	// securityCloudUnknown is not a "no", and it is not a "yes" either. The
-	// branch above is the only one that subtracts, so without this the summary
-	// printed "It also reaches all 29 Platform API resources, audit and AI
-	// Governance included" after a probe that timed out, 5xx'd or failed DNS —
-	// claiming an entitlement nothing observed, for the sixteen groups the
-	// third verdict was added to stop over-claiming about.
-	if securityCloud == securityCloudUnknown {
-		if sc := securityCloudResourceGroups(root); anyIn(reachable, sc) {
-			_, _ = fmt.Fprintln(w, "The Jamf Security Cloud check did not complete, so whether the dns-*, ztna-*,")
-			_, _ = fmt.Fprintln(w, "content-categories, device-groups and uem-* commands are entitled is unknown.")
-		}
-	}
-	if len(unreachable) > 0 || len(unentitled) > 0 {
+		// which pre-empts nothing.
+		_, _ = fmt.Fprintln(w, "  Some answer on a tenant credential anyway: the gateway does not follow the")
+		_, _ = fmt.Fprintln(w, "  specs everywhere, and nothing here refuses on this. Treat a 400 or 403 naming")
+		_, _ = fmt.Fprintln(w, "  the scope as the signal to create an environment-scoped integration. Prefer")
+		_, _ = fmt.Fprintln(w, "  environment for a new one either way.")
 		_, _ = fmt.Fprintln(w, "  (jamf-cli commands -o json lists every command's declared scope under \"scopes\".)")
 	}
+	printPermissionsNote(w)
 	_, _ = fmt.Fprintln(w, "The Jamf Account commands need an organization-scoped integration.")
 }
 
-// anyIn reports whether any name is in set. Guards the unknown-entitlement
-// sentence so it is not printed for a level that reaches no Security Cloud
-// resource at all, where it would name commands the summary has already
-// excluded for a different reason.
-func anyIn(names []string, set map[string]bool) bool {
-	for _, n := range names {
-		if set[n] {
-			return true
-		}
-	}
-	return false
+// printPermissionsNote says where a permissions answer comes from, since setup
+// does not give one.
+//
+// This is what a per-product entitlement probe was worth: a capability
+// permission is granted per operation when the integration is created, so no
+// single read establishes anything about the other 28 resources — and a wrong
+// guess is expensive, because the gateway spells "no entitlement" and "this
+// grant is missing" identically. The 403 that wants a permission names it, in
+// the section and picker wording Jamf Account searches by.
+func printPermissionsNote(w io.Writer) {
+	_, _ = fmt.Fprintln(w, "Setup does not check capability permissions. You grant those per command when")
+	_, _ = fmt.Fprintln(w, "you create the integration, and a 403 names the one it wanted in the words Jamf")
+	_, _ = fmt.Fprintln(w, "Account uses. `jamf-cli commands -o json` lists them under \"gatewayPermissions\".")
 }
 
 // summariseResources renders at most three names plus a count, because the

@@ -850,6 +850,31 @@ func TestAnUnreadableClientIDFileIsNamedRatherThanBlamedOnTheEnvironment(t *test
 	if !strings.Contains(note, "JAMF_TENANT_ID") {
 		t.Errorf("the note dropped its remedy:\n%s", note)
 	}
+	// It must make no claim about which integration the profile's ID names.
+	// The comparison was never made, so `false` here is a fail-closed default
+	// and not a determination.
+	if strings.Contains(note, "belongs to the profile's own integration") {
+		t.Errorf("the note asserts the proposition it just called undecidable:\n%s", note)
+	}
+	// And it must name the file as the thing to fix while warning off the one
+	// change that makes this worse: with JAMF_CLIENT_ID gone,
+	// ResolveAuthForProfile calls ResolveSecret(p.ClientID), opens this same
+	// unreadable file and fails outright.
+	if !strings.Contains(note, "readable") {
+		t.Errorf("the note does not name the unreadable file as the thing to fix:\n%s", note)
+	}
+	if !strings.Contains(note, "Do not drop the JAMF_CLIENT_ID environment variable") {
+		t.Errorf("the note must warn against dropping JAMF_CLIENT_ID, which breaks resolution "+
+			"entirely while this file is unreadable:\n%s", note)
+	}
+
+	// The declared levels still reach the operator, from scopeLevelNote beside
+	// this one — withheldNoteState returns withheldNoteBeside on this branch
+	// precisely because the note above names none.
+	if state := withheldNoteState([]string{"environment"}); state != withheldNoteBeside {
+		t.Errorf("withheldNoteState = %v, want withheldNoteBeside so the declared levels are "+
+			"still printed", state)
+	}
 
 	// A readable file still answers the question it was asked, and leaves no
 	// record behind for the next resolution to misreport.
@@ -871,23 +896,87 @@ func TestAnUnreadableClientIDFileIsNamedRatherThanBlamedOnTheEnvironment(t *test
 // with no timeout, which would hang every invocation carrying such a profile on
 // a path whose only job is to answer a yes/no question; /dev/zero Stats as size
 // 0 and then reads forever.
+//
+// The directory case asserts the guard's own message rather than any error,
+// which is what holds the guard in place: neutralize the IsRegular check and
+// os.Open still succeeds on a directory while io.ReadAll returns EISDIR, so a
+// test asserting only `err != nil` passes with the guard gone. The FIFO that
+// motivates it is covered in platform_scope_fifo_test.go, where a timeout can
+// distinguish "refused" from "blocked".
 func TestAClientIDReferenceThatIsNotARegularFileIsRefused(t *testing.T) {
 	isolateScopeVars(t)
 	dir := t.TempDir()
-	if _, err := readClientIDRefFile(dir); err == nil {
-		t.Error("a directory should not read as a client ID")
+	err := mustReadClientIDRefError(t, dir)
+	if !strings.Contains(err.Error(), "not a regular file") {
+		t.Errorf("error = %v, want the IsRegular guard's own message: a downstream read error "+
+			"cannot stand in for it, and a FIFO produces none at all", err)
 	}
-	// The size cap, asserted on the boundary rather than on a device file so
-	// the test runs the same everywhere.
-	path := filepath.Join(dir, "big")
-	if err := os.WriteFile(path, bytes.Repeat([]byte("a"), maxClientIDRefBytes*2), 0o600); err != nil {
+}
+
+// Two reads that succeed at the OS level and cannot be the client ID. Both used
+// to return a nil error and compare false, which withheld the level and then
+// let the note blame JAMF_CLIENT_ID for a file problem.
+func TestAClientIDReferenceThatCannotNameAClientIDIsRefused(t *testing.T) {
+	isolateScopeVars(t)
+	dir := t.TempDir()
+
+	// Zero length is what an interrupted write or a secrets volume mounted
+	// ahead of its content leaves. "" can never equal a supplied client ID, so
+	// comparing it silently is the misattribution.
+	empty := filepath.Join(dir, "empty")
+	if err := os.WriteFile(empty, nil, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	got, err := readClientIDRefFile(path)
+	if err := mustReadClientIDRefError(t, empty); !strings.Contains(err.Error(), "empty") {
+		t.Errorf("error = %v, want it to name the file as empty", err)
+	}
+
+	// Over the cap the read is truncated, so what comes back is a prefix. It
+	// used to be returned as though it were the whole value.
+	big := filepath.Join(dir, "big")
+	if err := os.WriteFile(big, bytes.Repeat([]byte("a"), maxClientIDRefBytes*2), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := mustReadClientIDRefError(t, big); !strings.Contains(err.Error(), "larger than") {
+		t.Errorf("error = %v, want it to name the size cap rather than returning a prefix", err)
+	}
+
+	// At the cap it is a legitimate value and still answers.
+	atCap := filepath.Join(dir, "at-cap")
+	if err := os.WriteFile(atCap, bytes.Repeat([]byte("a"), maxClientIDRefBytes), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	got, err := readClientIDRefFile(atCap)
 	if err != nil {
-		t.Fatalf("readClientIDRefFile: %v", err)
+		t.Fatalf("a file exactly at the cap must still be read: %v", err)
 	}
 	if len(got) != maxClientIDRefBytes {
-		t.Errorf("read %d bytes, want the read capped at %d", len(got), maxClientIDRefBytes)
+		t.Errorf("read %d bytes, want %d", len(got), maxClientIDRefBytes)
 	}
+
+	// And every refusal above must be recorded, or the note blames the
+	// environment variable for a file problem.
+	for _, path := range []string{empty, big} {
+		resetPlatformScopeRecords()
+		if profileNamesTheInvocationClientID("file:"+path, "env-client-id") {
+			t.Fatalf("%s must not read as the same integration", path)
+		}
+		if unreadableClientIDRef.Path != path {
+			t.Errorf("unreadableClientIDRef.Path = %q, want %q", unreadableClientIDRef.Path, path)
+		}
+		recordWithheldProfileScope("gw", "tenant", "profile-tenant")
+		if note := withheldScopeNote(nil); !strings.Contains(note, path) ||
+			strings.Contains(note, "the client ID came from") {
+			t.Errorf("the note should name the path and not blame the variable:\n%s", note)
+		}
+	}
+}
+
+func mustReadClientIDRefError(t *testing.T, path string) error {
+	t.Helper()
+	got, err := readClientIDRefFile(path)
+	if err == nil {
+		t.Fatalf("readClientIDRefFile(%q) = %q, want an error", path, got)
+	}
+	return err
 }
