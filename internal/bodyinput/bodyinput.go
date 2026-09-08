@@ -44,7 +44,7 @@ import (
 // Input carrying no content is an error rather than a nil body. A nil body
 // means "send no body" to every caller here, so an empty file, a file of YAML
 // comments, or a literal null would otherwise make a write that sent nothing
-// indistinguishable from one that was never given a --file at all.
+// indistinguishable from one that was never given a --from-file at all.
 func Normalize(raw []byte) (any, error) {
 	if len(bytes.TrimSpace(raw)) == 0 {
 		return nil, fmt.Errorf("input is empty")

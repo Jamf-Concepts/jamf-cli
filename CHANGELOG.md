@@ -9,6 +9,85 @@ release with none of those gets no entry here.
 Versions follow the `vMAJOR.MINOR.PATCH` tags in this repository, and headings match the
 commit types the repo already uses (`feat!`/`build!` for a breaking change).
 
+## Unreleased
+
+### Breaking — `--file` is renamed to `--from-file` on Platform and Security Cloud writes
+
+- **Every request-body flag is now `--from-file`.** Platform and Security Cloud commands
+  took `--file` while Jamf Pro, Classic, Protect and School took `--from-file`, and
+  `pro platform-device-groups` carried both — `patch` and `patch-members` took `--file`,
+  `apply` took `--from-file`. 41 flag registrations were renamed, and all 361 commands that
+  read a body from a path now agree on the name.
+
+  **There is no compatibility alias.** `--file` answers `unknown flag` (exit 2) on the
+  affected commands, so a script passing it fails at once instead of two spellings surviving
+  in parallel. The migration is a rename:
+
+  ```bash
+  # Before
+  jamf-cli security ztna-gateways create --file gateway.yaml
+  # After
+  jamf-cli security ztna-gateways create --from-file gateway.yaml
+  ```
+
+  Passing the old name prints `hint: did you mean --from-file?` before the error. The hint is
+  looked up rather than guessed by edit distance, which would have suggested `--field`.
+
+  Affected: every generated `platform` and `security` command that takes a body, plus
+  `pro platform-device-groups patch` and `patch-members`.
+
+  **`--file` is unchanged on the 11 commands where it names an upload payload** —
+  `pro packages upload`, `pro icons upload`, `pro inventory-preloads upload` and
+  `csv-validate`, `pro computers-inventory upload`,
+  `pro computer-extension-attributes upload`, `pro enrollment-customizations upload`,
+  `pro mobile-device-prestages upload`, `pro self-service-branding-images upload`,
+  `protect analytics import` and `protect unified-logging-filters import`. That is a
+  different flag with the same name: a `--from-file` body can always arrive on a pipe
+  instead, and a multipart upload cannot, because the transport needs a filename and a
+  length. Renaming those too would have produced one flag name with two capabilities.
+
+### Behaviour — Platform and Security Cloud bodies can be piped
+
+- **`--from-file` is now optional on those commands: absent, the body is read from stdin.**
+  `ReadBody` in both products was `os.ReadFile` and nothing else, where Jamf Pro and Protect
+  had always accepted a pipe — so these were the only namespaces where
+  `--scaffold | edit | apply` had to route through a temp file.
+
+  ```bash
+  jamf-cli security ztna-gateways apply --scaffold | vipe | jamf-cli security ztna-gateways apply --yes
+  ```
+
+  An **empty pipe is not a body**: a CI runner hands every process a stdin that is not a
+  terminal and carries nothing, so that case still reads as "no body given" and a bodyless
+  write is unaffected. A `--from-file` naming an **empty file** remains an error, unchanged.
+
+### Added — `apply` on the platform gateway resources
+
+- **Six gateway resources gained `apply`** (create-if-absent, update-if-present, keyed on the
+  `name` in the body): `security dns-zones`, `security ztna-apps`, `security ztna-gateways`,
+  `security ztna-grouped-gateways`, `security device-groups` and `platform ai-policies`. The
+  verb existed on Jamf Pro and Classic and on no gateway resource.
+
+  Three properties a script should rely on:
+
+  - The name is read from the body, never a flag; a body with no `name`, or a non-string or
+    empty one, is refused before any request is sent.
+  - Only a genuine "not found" on the exists check takes the create branch. An auth error or
+    a 5xx during the lookup aborts.
+  - An existing resource is confirmed before being overwritten; `--yes` skips the prompt, and
+    is required when stdin is not a terminal.
+
+  These resources update with `PATCH`, so **fields omitted from the body keep their current
+  values** — unlike Jamf Pro's and Classic's `apply`, which replace. Each command's `--help`
+  states which semantics it has. `platform ai-policies` is the exception within the
+  exception: its server replaces `settings` wholesale despite the merge-patch content type,
+  and its help says so.
+
+- **The Jamf Security Cloud Radar commands deliberately have no `apply`.** That surface is
+  singletons whose `update` is already an idempotent create-or-replace (`stream`, `status`),
+  actions (`risk override`, `verification trigger`, `device-lifecycle purge`) and read-only
+  documents (`well-known`, `jwks`) — there is no named collection to resolve a name against.
+
 ## v1.28.0
 
 The Jamf Platform API reached general availability on 2026-09-03. Most of this release is

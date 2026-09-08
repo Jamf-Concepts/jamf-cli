@@ -2468,9 +2468,41 @@ func unknownSubcommandError(cmd *cobra.Command, arg string) error {
 // distance small relative to the typo length, so a short typo resolves to the
 // intended flag (--fld -> --field) rather than an unrelated one at the same
 // distance (--all), and a typo with no real match (--id) yields no hint at all.
+// renamedFlags maps a flag this CLI used to accept to the one that replaced it,
+// so the hint for a removed name is the answer rather than a guess.
+//
+// Edit distance is the wrong tool for a rename, and --file is the case that
+// proves it: "file" is two edits from "field" and five from "from-file", so the
+// nearest-flag search sent everyone migrating off --file to --field — an
+// output-field selector, nothing to do with a request body. A rename has a
+// known destination, so it is looked up, not measured.
+var renamedFlags = map[string]string{
+	// Platform and Security Cloud request bodies. Renamed with no compat alias;
+	// --file still exists on the upload commands, which is why this is a hint
+	// and not a rewrite.
+	"file": "from-file",
+	// And the same confusion the other way: the request-body flag is the one
+	// most callers know, so --from-file is what gets typed at an upload. The
+	// command-scoped check below is what keeps the two entries from crossing —
+	// each fires only where its destination is a real flag, and no command has
+	// both.
+	"from-file": "file",
+}
+
 func suggestFlag(unknown string, known []string) string {
 	if unknown == "" {
 		return ""
+	}
+	// A deliberate rename beats the distance search, but only when the
+	// replacement is actually a flag on this command: --file is still the real
+	// flag on the upload commands, and pointing those at --from-file would be
+	// the same misdirection in the other direction.
+	if to, ok := renamedFlags[unknown]; ok {
+		for _, k := range known {
+			if k == to {
+				return to
+			}
+		}
 	}
 	best, bestDist := "", 0
 	for _, k := range known {

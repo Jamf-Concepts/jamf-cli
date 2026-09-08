@@ -804,3 +804,334 @@ func TestLivePagingFlagsAreNotSilentlyDropped(t *testing.T) {
 		t.Error("no non-paginated op declares a paging parameter — this test is covering nothing")
 	}
 }
+
+// TestBuildApplySpec_RequiresCreateUpdateAndName pins the four conditions a
+// resource has to meet before `apply` is synthesized for it. Each subtest
+// removes exactly one and expects nil, because a partially-qualified resource
+// getting an apply is the failure that matters: a command that resolves a name
+// and then has nowhere to send the create.
+func TestBuildApplySpec_RequiresCreateUpdateAndName(t *testing.T) {
+	nameBody := func() *parser.RequestBody {
+		return &parser.RequestBody{Schema: &parser.Schema{Properties: map[string]*parser.Property{"name": {}}}}
+	}
+	create := func() *parser.Operation {
+		return &parser.Operation{Name: "create", Method: "POST", Path: "/svc/v1/things", RequestBody: nameBody()}
+	}
+	update := func() *parser.Operation {
+		return &parser.Operation{Name: "patch", Method: "PATCH", Path: "/svc/v1/things/{id}", RequestBody: nameBody()}
+	}
+	list := func() *parser.Operation {
+		return &parser.Operation{Name: "list", Method: "GET", Path: "/svc/v1/things"}
+	}
+
+	tests := []struct {
+		name        string
+		ops         []*parser.Operation
+		ownListPath string
+		want        bool
+	}{
+		{"all four present", []*parser.Operation{list(), create(), update()}, "/svc/v1/things", true},
+		{"no own list path", []*parser.Operation{list(), create(), update()}, "", false},
+		{"no create", []*parser.Operation{list(), update()}, "/svc/v1/things", false},
+		{"no update", []*parser.Operation{list(), create()}, "/svc/v1/things", false},
+		{
+			// An action POST is not a create: it hangs off an item and takes a
+			// path parameter, so there is no collection to create into.
+			"only an action POST",
+			[]*parser.Operation{list(), {Name: "trigger", Method: "POST", Path: "/svc/v1/things/{id}/trigger", RequestBody: nameBody()}, update()},
+			"/svc/v1/things",
+			false,
+		},
+		{
+			// A destructive collection POST is an action too (purge, unmanage).
+			"destructive collection POST",
+			[]*parser.Operation{list(), {Name: "purge", Method: "POST", Path: "/svc/v1/things", RequestBody: nameBody(), IsDestructive: true}, update()},
+			"/svc/v1/things",
+			false,
+		},
+		{
+			"create body carries no name-ish field",
+			[]*parser.Operation{
+				list(),
+				{Name: "create", Method: "POST", Path: "/svc/v1/things", RequestBody: &parser.RequestBody{Schema: &parser.Schema{Properties: map[string]*parser.Property{"quantity": {}}}}},
+				update(),
+			},
+			"/svc/v1/things",
+			false,
+		},
+		{
+			// Multipart is a binary upload, not a desired-state document.
+			"multipart create",
+			[]*parser.Operation{
+				list(),
+				{Name: "create", Method: "POST", Path: "/svc/v1/things", RequestBody: &parser.RequestBody{IsMultipart: true, Schema: &parser.Schema{Properties: map[string]*parser.Property{"name": {}}}}},
+				update(),
+			},
+			"/svc/v1/things",
+			false,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := buildApplySpec(&parser.Resource{Name: "things", Operations: tc.ops}, tc.ownListPath, "")
+			if (got != nil) != tc.want {
+				t.Fatalf("buildApplySpec() != nil = %v, want %v", got != nil, tc.want)
+			}
+		})
+	}
+}
+
+// TestBuildApplySpec_PrefersPUTOverPATCH pins the update-method choice. PUT
+// replaces, which is what apply means in the Pro and Classic namespaces, so a
+// resource publishing both must not get the weaker merge semantics — and the
+// generated help sentence is derived from this field, so picking the wrong one
+// documents the wrong behaviour as well as performing it.
+func TestBuildApplySpec_PrefersPUTOverPATCH(t *testing.T) {
+	body := func() *parser.RequestBody {
+		return &parser.RequestBody{Schema: &parser.Schema{Properties: map[string]*parser.Property{"name": {}}}}
+	}
+	ops := []*parser.Operation{
+		{Name: "list", Method: "GET", Path: "/svc/v1/things"},
+		{Name: "create", Method: "POST", Path: "/svc/v1/things", RequestBody: body()},
+		// PATCH first, so a first-wins implementation fails this.
+		{Name: "patch", Method: "PATCH", Path: "/svc/v1/things/{id}", RequestBody: body()},
+		{Name: "update", Method: "PUT", Path: "/svc/v1/things/{id}", RequestBody: body()},
+	}
+
+	spec := buildApplySpec(&parser.Resource{Name: "things", Operations: ops}, "/svc/v1/things", "")
+	if spec == nil {
+		t.Fatal("buildApplySpec() = nil, want a spec")
+	}
+	if spec.UpdateMethod != "PUT" {
+		t.Errorf("UpdateMethod = %q, want PUT", spec.UpdateMethod)
+	}
+	if spec.UpdateMergePatch {
+		t.Error("UpdateMergePatch = true on a PUT update")
+	}
+}
+
+// TestBuildApplySpec_NameFieldOverrideNeedsTheBodyToCarryIt guards the
+// sso-domains case from becoming a footgun: the resource-specific lookup field
+// wins only when the create body actually has that property, otherwise apply
+// would read the name from a field the input never contains and report every
+// call as missing it.
+func TestBuildApplySpec_NameFieldOverrideNeedsTheBodyToCarryIt(t *testing.T) {
+	mk := func(props ...string) []*parser.Operation {
+		p := map[string]*parser.Property{}
+		for _, k := range props {
+			p[k] = &parser.Property{}
+		}
+		body := func() *parser.RequestBody { return &parser.RequestBody{Schema: &parser.Schema{Properties: p}} }
+		return []*parser.Operation{
+			{Name: "list", Method: "GET", Path: "/svc/v1/things"},
+			{Name: "create", Method: "POST", Path: "/svc/v1/things", RequestBody: body()},
+			{Name: "patch", Method: "PATCH", Path: "/svc/v1/things/{id}", RequestBody: body()},
+		}
+	}
+
+	spec := buildApplySpec(&parser.Resource{Name: "things", Operations: mk("domain", "name")}, "/svc/v1/things", "domain")
+	if spec == nil || spec.NameField != "domain" {
+		t.Fatalf("NameField = %v, want domain when the body carries it", spec)
+	}
+
+	spec = buildApplySpec(&parser.Resource{Name: "things", Operations: mk("name")}, "/svc/v1/things", "domain")
+	if spec == nil || spec.NameField != "name" {
+		t.Fatalf("NameField = %v, want name when the body does not carry the override", spec)
+	}
+}
+
+// TestPlatformNoApply_NamesResourcesThatHaveAHandWrittenApply keeps the
+// blocklist honest. Both entries exist because a hand-written apply already
+// covers the resource and its parent copies in every generated subcommand — so
+// dropping an entry ships two subcommands named "apply" under one parent, which
+// cobra accepts and dispatches by declaration order.
+func TestPlatformNoApply_NamesResourcesThatHaveAHandWrittenApply(t *testing.T) {
+	specsDir, err := filepath.Abs("../../specs/platform")
+	if err != nil {
+		t.Fatalf("resolving specs dir: %v", err)
+	}
+	resources, _, err := LoadResources(specsDir)
+	if err != nil {
+		t.Fatalf("LoadResources: %v", err)
+	}
+
+	byName := map[string]*parser.Resource{}
+	for _, r := range resources {
+		byName[r.Name] = r
+	}
+	for name := range platformNoApply {
+		r, ok := byName[name]
+		if !ok {
+			t.Errorf("platformNoApply names %q, which is not a platform resource — stale entry", name)
+			continue
+		}
+		tr, err := buildTemplateResource(r)
+		if err != nil {
+			t.Fatalf("buildTemplateResource(%q): %v", name, err)
+		}
+		if tr.Apply != nil {
+			t.Errorf("resource %q is blocklisted but still got an apply spec", name)
+		}
+	}
+}
+
+// TestGenerate_ApplyIsSynthesizedForQualifyingResources asserts the verb
+// actually reaches the emitted files, and that every apply it emits carries the
+// three things that make it usable: --from-file, the exists check, and the
+// confirmation on the update branch.
+func TestGenerate_ApplyIsSynthesizedForQualifyingResources(t *testing.T) {
+	specsDir, err := filepath.Abs("../../specs/platform")
+	if err != nil {
+		t.Fatalf("resolving specs dir: %v", err)
+	}
+	resources, _, err := LoadResources(specsDir)
+	if err != nil {
+		t.Fatalf("LoadResources: %v", err)
+	}
+
+	outDir := t.TempDir()
+	files, err := Generate(resources, outDir)
+	if err != nil {
+		t.Fatalf("Generate: %v", err)
+	}
+
+	withApply := 0
+	for _, f := range files {
+		b, err := os.ReadFile(f)
+		if err != nil {
+			t.Fatalf("reading %s: %v", f, err)
+		}
+		code := string(b)
+		if !strings.Contains(code, "ApplyCmd(cliCtx)") {
+			continue
+		}
+		withApply++
+		for _, want := range []string{
+			`"from-file"`,
+			"platform.ApplyName(",
+			"platform.IsNotFound(err)",
+			"platform.ConfirmAction(",
+			"platform.ReportDryRun(",
+		} {
+			if !strings.Contains(code, want) {
+				t.Errorf("%s has an apply command but no %s", filepath.Base(f), want)
+			}
+		}
+	}
+	if withApply == 0 {
+		t.Error("no platform resource got a synthesized apply — detection or emission is broken")
+	}
+}
+
+func TestSingularize(t *testing.T) {
+	tests := map[string]string{
+		"dns-zones":      "dns-zone",
+		"ztna-gateways":  "ztna-gateway",
+		"ai-policies":    "ai-policy",
+		"device-groups":  "device-group",
+		"uem-sync":       "uem-sync",
+		"content-status": "content-status",
+		"risk-analysis":  "risk-analysis",
+		"ip-address":     "ip-address",
+	}
+	for in, want := range tests {
+		if got := singularize(in); got != want {
+			t.Errorf("singularize(%q) = %q, want %q", in, got, want)
+		}
+	}
+}
+
+func TestArticle(t *testing.T) {
+	tests := map[string]string{
+		"ai-policy":    "an",
+		"dns-zone":     "a",
+		"ztna-app":     "a",
+		"enrollment":   "an",
+		"device-group": "a",
+		"":             "a",
+	}
+	for in, want := range tests {
+		if got := article(in); got != want {
+			t.Errorf("article(%q) = %q, want %q", in, got, want)
+		}
+	}
+}
+
+// TestApplyNamespace pins the example prefix each service maps to. Wrong here
+// costs only a misleading example, which is why it is a derivation — but a
+// misleading example is still a support ticket, and the mapping is stable.
+func TestApplyNamespace(t *testing.T) {
+	if got := applyNamespace("/securitycloud/v1/dns/zones"); got != "security" {
+		t.Errorf("applyNamespace(securitycloud) = %q, want security", got)
+	}
+	if got := applyNamespace("/ai/governance/policies/v1/policies"); got != "platform" {
+		t.Errorf("applyNamespace(ai) = %q, want platform", got)
+	}
+}
+
+// TestApplyLong_NonMergingPatchIsNotDocumentedAsMerging pins the one case where
+// the update method does not describe the server's behaviour. ai-policies sends
+// application/merge-patch+json and the server replaces `settings` wholesale
+// anyway, so the generic PATCH sentence would tell an operator their omitted
+// settings are safe when applying drops them.
+func TestApplyLong_NonMergingPatchIsNotDocumentedAsMerging(t *testing.T) {
+	merging := applyLong(&applySpec{NameSingular: "thing", NameField: "name", UpdateMethod: "PATCH"})
+	if !strings.Contains(merging, "keep their current values") {
+		t.Errorf("a plain PATCH apply should document merge semantics: %s", merging)
+	}
+
+	replacing := applyLong(&applySpec{NameSingular: "ai-policy", NameField: "name", UpdateMethod: "PATCH", PatchReplaces: "settings"})
+	if strings.Contains(replacing, "fields you omit keep their current values") {
+		t.Errorf("a non-merging PATCH apply must not document merge semantics: %s", replacing)
+	}
+	if !strings.Contains(replacing, "settings") {
+		t.Errorf("a non-merging PATCH apply should name the replaced field: %s", replacing)
+	}
+
+	put := applyLong(&applySpec{NameSingular: "thing", NameField: "name", UpdateMethod: "PUT"})
+	if !strings.Contains(put, "replaces the thing wholesale") {
+		t.Errorf("a PUT apply should document replace semantics: %s", put)
+	}
+}
+
+// TestPlatformPatchDoesNotMerge_NamesLiveResources keeps the table from going
+// stale: an entry for a resource that no longer exists, or whose update is no
+// longer a PATCH, documents nothing and hides the fact that it stopped.
+func TestPlatformPatchDoesNotMerge_NamesLiveResources(t *testing.T) {
+	specsDir, err := filepath.Abs("../../specs/platform")
+	if err != nil {
+		t.Fatalf("resolving specs dir: %v", err)
+	}
+	resources, _, err := LoadResources(specsDir)
+	if err != nil {
+		t.Fatalf("LoadResources: %v", err)
+	}
+
+	byName := map[string]*parser.Resource{}
+	for _, r := range resources {
+		byName[r.Name] = r
+	}
+	for name, field := range platformPatchDoesNotMerge {
+		r, ok := byName[name]
+		if !ok {
+			t.Errorf("platformPatchDoesNotMerge names %q, which is not a platform resource — stale entry", name)
+			continue
+		}
+		tr, err := buildTemplateResource(r)
+		if err != nil {
+			t.Fatalf("buildTemplateResource(%q): %v", name, err)
+		}
+		if tr.Apply == nil {
+			// Harmless but pointless: the note only ever reaches apply's help.
+			t.Errorf("platformPatchDoesNotMerge names %q (%s) but that resource has no apply, so the note is unreachable", name, field)
+			continue
+		}
+		if tr.Apply.UpdateMethod != "PATCH" {
+			t.Errorf("platformPatchDoesNotMerge names %q but its apply updates with %s, not PATCH — stale entry", name, tr.Apply.UpdateMethod)
+		}
+		if tr.Apply.PatchReplaces != field {
+			t.Errorf("resource %q apply PatchReplaces = %q, want %q", name, tr.Apply.PatchReplaces, field)
+		}
+	}
+}

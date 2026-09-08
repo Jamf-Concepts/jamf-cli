@@ -614,7 +614,7 @@ coverage manifest reads. The three commands without them are `pro classic-comput
 `create`, `update` and `apply`: the resource is dead, and a Jamf Pro instance 404s it too.
 
 `--set` **builds the whole body** and is therefore mutually exclusive with `--from-file`,
-unlike the Platform and Security Cloud `--set`, which overlays onto a `--file` body. That is
+unlike the Platform and Security Cloud `--set`, which overlays onto a `--from-file` body. That is
 workable because a Classic `PUT` is a partial update: a body carrying only `<name>` renames
 the object and leaves everything else intact, so `--set name=…` alone is a valid update with
 no fetch-merge cycle.
@@ -635,16 +635,72 @@ be sent as-is: `general.category.id`'s spec example is `0`, which answers
 `409 No match found for category 0`, and the `scope` and `account_maintenance` specimens
 reference objects that do not exist on your instance. Delete the sections you do not need.
 
-### `--file` accepts YAML on Platform and Security Cloud commands
+### The request-body flag is `--from-file` everywhere, and it reads stdin
 
-Every generated Platform and Security Cloud `--file` now sniffs the content and accepts YAML
-as well as JSON, matching what Pro's `--from-file` already did. `--scaffold` still prints
+Platform and Security Cloud commands took `--file` where Pro, Classic, Protect and School
+took `--from-file`. They now take `--from-file` too. **The old name is gone, not deprecated**
+— `--file` answers `unknown flag`, so a script passing it fails immediately rather than
+leaving two spellings alive in parallel.
+
+`--file` still means an *upload* payload on the commands that send one (`pro packages
+upload`, `pro icons upload`, `protect analytics import` and their siblings). That is a
+different thing and is deliberately not renamed: a `--from-file` can always be replaced by a
+pipe, and a multipart upload cannot, because the transport needs a filename and a length.
+
+Leaving `--from-file` off now reads the body from **stdin**, which these two products could
+not do before:
+
+```bash
+jamf-cli security ztna-gateways apply --scaffold | vipe | jamf-cli security ztna-gateways apply --yes
+```
+
+An **empty** pipe is not a body. A CI runner hands every process a stdin that is not a
+terminal and carries nothing, so that case reads as "no body given" — otherwise every
+bodyless write would break under CI. A `--from-file` naming an empty file *is* an error,
+because naming a file and not naming one are different instructions.
+
+### `--from-file` accepts YAML on Platform and Security Cloud commands
+
+Every generated Platform and Security Cloud `--from-file` sniffs the content and accepts YAML
+as well as JSON, matching what Pro already did. `--scaffold` still prints
 JSON; a YAML file is converted before the request is built, so `--set` overlays behave
 identically either way.
 
 A YAML body carrying a timestamp scalar or a non-string mapping key — both legal YAML, and
 neither expressible in JSON — used to be reported as malformed input. It is now converted
 rather than refused.
+
+### `apply` reaches the platform gateway resources
+
+`apply` — create-if-absent, update-if-present, keyed on the `name` in the body — existed on
+Pro and Classic and on no gateway resource. Six now have it: `dns-zones`, `ztna-apps`,
+`ztna-gateways`, `ztna-grouped-gateways`, `device-groups` and `ai-policies`.
+
+```bash
+# Idempotent: run twice, get one gateway
+jamf-cli security ztna-gateways apply --from-file gateway.yaml --yes
+
+# Which branch would run? The exists check is a read, so -n answers honestly
+jamf-cli security dns-zones apply --from-file zone.yaml --dry-run
+```
+
+Three things worth knowing:
+
+- **The name comes from the body, never a flag.** The input is the desired state and carries
+  its own identity, so there is no `--name` to disagree with it.
+- **Most of these update with PATCH, so omitted fields keep their current values**, where
+  Pro's and Classic's `apply` replace. Each command's `--help` says which it has.
+  `ai-policies` is called out separately, because its server replaces `settings` wholesale
+  despite the merge-patch content type.
+- **A failed lookup is not a create.** Only a genuine "not found" creates; an auth error or a
+  5xx during the lookup aborts, since treating a failed read as absence is how you get a
+  duplicate.
+
+The Jamf Security Cloud Radar commands have no `apply`, and that is a property of the API
+rather than a gap: its surface is singletons whose `update` is already an idempotent
+create-or-replace (`stream`, `status`), actions (`risk override`, `verification trigger`,
+`device-lifecycle purge`) and read-only documents (`well-known`, `jwks`). There is no named
+collection to resolve a name against.
 
 ### An empty list prints `[]`, not `null`
 
