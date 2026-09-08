@@ -132,7 +132,7 @@ func Hint(scopes []string) string {
 		parts = append(parts, r.String())
 	}
 	return fmt.Sprintf(
-		"grant the %s these permissions in Jamf Account — %s. Names are as the permission picker shows them: %s",
+		"grant the %s these permissions in Jamf Account: %s. Names are as the permission picker shows them: %s",
 		Marker, strings.Join(parts, "; "), permissionsMapURL)
 }
 
@@ -153,7 +153,7 @@ func (r Requirement) String() string {
 	if r.Unknown {
 		// Said explicitly rather than left as a bare slug, so the reader knows
 		// to search the article rather than the picker for this one.
-		b.WriteString(" — no permission name recorded for this capability")
+		b.WriteString(" (no permission name recorded for this capability)")
 	}
 	b.WriteString(")")
 	return b.String()

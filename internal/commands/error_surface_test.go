@@ -17,7 +17,7 @@ func TestFormatErrorTo_IncludesHint(t *testing.T) {
 
 	var buf bytes.Buffer
 	err := exitcode.New(exitcode.NotFound, "missing").WithHint("run list")
-	if !formatErrorTo(&buf, err) {
+	if !formatErrorTo(&buf, err, "", false, false) {
 		t.Fatal("formatErrorTo returned false")
 	}
 	out := buf.String()
@@ -33,7 +33,7 @@ func TestFormatErrorTo_NonJSONReturnsFalse(t *testing.T) {
 	old := outputFmt
 	outputFmt = "table"
 	defer func() { outputFmt = old }()
-	if formatErrorTo(&bytes.Buffer{}, exitcode.New(exitcode.General, "x")) {
+	if formatErrorTo(&bytes.Buffer{}, exitcode.New(exitcode.General, "x"), "", false, false) {
 		t.Fatal("formatErrorTo should return false when output is not json")
 	}
 }

@@ -45,7 +45,7 @@ func newAiPoliciesListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Use:         "list",
 		Short:       "List active AI governance policies for the tenant",
 		Long:        "Returns a paginated list of active AI governance policies for the authenticated tenant. schemaDrift indicates whether a policy's draft settings were authored against an older schema version. hasDraft indicates whether unpublished changes exist.",
-		Annotations: map[string]string{"jamf:privileges": "ai-policies:read", "jamf:api": "platform-gateway"},
+		Annotations: map[string]string{"jamf:privileges": "ai-policies:read", "jamf:api": "platform-gateway", "jamf:scopes": "environment"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err
@@ -119,7 +119,7 @@ func newAiPoliciesCreateCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Use:         "create",
 		Short:       "Create a new AI governance policy",
 		Long:        "Validates settings against the vendor JSON Schema, creates a policy with draft settings, and returns the policy ID. The policy starts with hasDraft=true. Call POST /policies/{policyId}/publish to create the first published version.",
-		Annotations: map[string]string{"jamf:privileges": "ai-policies:create", "jamf:api": "platform-gateway"},
+		Annotations: map[string]string{"jamf:privileges": "ai-policies:create", "jamf:api": "platform-gateway", "jamf:scopes": "environment"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if scaffoldFlag {
 				// Scaffold prints raw JSON regardless of -o, so the output
@@ -185,7 +185,7 @@ func newAiPoliciesDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Use:         "delete <policyId>",
 		Short:       "Archive an AI governance policy (soft delete)",
 		Long:        "Archives the policy. All published versions are retained for audit trail integrity.",
-		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "ai-policies:delete", "jamf:api": "platform-gateway"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "ai-policies:delete", "jamf:api": "platform-gateway", "jamf:scopes": "environment"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
@@ -250,7 +250,7 @@ func newAiPoliciesGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Use:         "get <policyId>",
 		Short:       "Get a policy by ID",
 		Long:        "Returns the policy with its current draft settings. schemaDrift indicates whether the draft was authored against an older schema version. hasDraft indicates whether unpublished changes exist.",
-		Annotations: map[string]string{"jamf:privileges": "ai-policies:read", "jamf:api": "platform-gateway"},
+		Annotations: map[string]string{"jamf:privileges": "ai-policies:read", "jamf:api": "platform-gateway", "jamf:scopes": "environment"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
@@ -303,7 +303,7 @@ func newAiPoliciesPatchCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Use:         "patch <policyId>",
 		Short:       "Save draft settings for an existing policy",
 		Long:        "Validates settings against the vendor schema and updates the draft settings on the policy. Does NOT create a published version. Call POST /policies/{policyId}/publish to snapshot the draft into an immutable version.",
-		Annotations: map[string]string{"jamf:privileges": "ai-policies:update", "jamf:api": "platform-gateway"},
+		Annotations: map[string]string{"jamf:privileges": "ai-policies:update", "jamf:api": "platform-gateway", "jamf:scopes": "environment"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if scaffoldFlag {
@@ -376,7 +376,7 @@ func newAiPoliciesDeploymentCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Use:         "deployment <policyId>",
 		Short:       "Get deployment state for a policy",
 		Long:        "Returns deployment state for all blueprints referencing this policy. The response contains a blueprints array with one entry per matching blueprint. If no blueprint references the policy, the array is empty. Returns 404 only when the policy ID itself does not exist.",
-		Annotations: map[string]string{"jamf:privileges": "ai-policies:read", "jamf:api": "platform-gateway"},
+		Annotations: map[string]string{"jamf:privileges": "ai-policies:read", "jamf:api": "platform-gateway", "jamf:scopes": "environment"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
@@ -426,7 +426,7 @@ func newAiPoliciesPublishCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Use:         "publish <policyId>",
 		Short:       "Publish current draft settings as a new immutable PolicyVersion",
 		Long:        "Snapshots the current draft settings into a new immutable PolicyVersion. Returns 409 if the draft settings match the latest published version (no changes to publish). The publish re-validates settings against the vendor schema before creating the version.",
-		Annotations: map[string]string{"jamf:privileges": "ai-policies:update", "jamf:api": "platform-gateway"},
+		Annotations: map[string]string{"jamf:privileges": "ai-policies:update", "jamf:api": "platform-gateway", "jamf:scopes": "environment"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
@@ -495,7 +495,7 @@ func newAiPoliciesVersionsCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Use:         "versions <policyId>",
 		Short:       "List all versions for a policy",
 		Long:        "Returns a paginated list of all published versions for the specified policy.",
-		Annotations: map[string]string{"jamf:privileges": "ai-policies:read", "jamf:api": "platform-gateway"},
+		Annotations: map[string]string{"jamf:privileges": "ai-policies:read", "jamf:api": "platform-gateway", "jamf:scopes": "environment"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
@@ -564,7 +564,7 @@ func newAiPoliciesVersionCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Use:         "version <policyId> <versionNumber>",
 		Short:       "Get a specific policy version",
 		Long:        "Returns the immutable settings snapshot for a specific published version of the policy.",
-		Annotations: map[string]string{"jamf:privileges": "ai-policies:read", "jamf:api": "platform-gateway"},
+		Annotations: map[string]string{"jamf:privileges": "ai-policies:read", "jamf:api": "platform-gateway", "jamf:scopes": "environment"},
 		Args:        cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {

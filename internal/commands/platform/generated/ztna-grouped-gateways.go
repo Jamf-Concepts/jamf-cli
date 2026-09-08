@@ -39,7 +39,7 @@ func newZtnaGroupedGatewaysListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Use:         "list",
 		Short:       "List Grouped Gateways",
 		Long:        "List all Grouped Gateways for the tenant. Not paginated — the full list is returned in a single response.",
-		Annotations: map[string]string{"jamf:privileges": "ztna:read", "jamf:api": "platform-gateway"},
+		Annotations: map[string]string{"jamf:privileges": "ztna:read", "jamf:api": "platform-gateway", "jamf:scopes": "environment,tenant"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err
@@ -80,7 +80,7 @@ func newZtnaGroupedGatewaysCreateCmd(cliCtx *registry.CLIContext) *cobra.Command
 		Use:         "create",
 		Short:       "Create a Grouped Gateway",
 		Long:        "Create a Grouped Gateway. Returns `201 {id, href}` + `Location` header.\n\nAllowed values:\n  recoveryDelayInSec: 300, 1800, 3600, 10800, 28800\n  routingStrategy: ACTIVE_STANDBY, RANDOM, NEAREST",
-		Annotations: map[string]string{"jamf:privileges": "ztna:create", "jamf:api": "platform-gateway"},
+		Annotations: map[string]string{"jamf:privileges": "ztna:create", "jamf:api": "platform-gateway", "jamf:scopes": "environment,tenant"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if scaffoldFlag {
 				// Scaffold prints raw JSON regardless of -o, so the output
@@ -146,7 +146,7 @@ func newZtnaGroupedGatewaysDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command
 		Use:         "delete <groupedGatewayId>",
 		Short:       "Delete a Grouped Gateway",
 		Long:        "Delete a Grouped Gateway. Returns `204` on success. Returns `404` if the grouped gateway does not exist or belongs to a different tenant — never `403`. Returns `409` if the grouped gateway is still referenced by an App or a DNS Zone — disassociate it first.",
-		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "ztna:delete", "jamf:api": "platform-gateway"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "ztna:delete", "jamf:api": "platform-gateway", "jamf:scopes": "environment,tenant"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
@@ -211,7 +211,7 @@ func newZtnaGroupedGatewaysGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Use:         "get <groupedGatewayId>",
 		Short:       "Get a Grouped Gateway",
 		Long:        "Get a single Grouped Gateway. Returns `404` if the grouped gateway does not exist **or belongs to a different tenant** — never `403`, to avoid confirming existence of grouped gateways owned by other tenants.",
-		Annotations: map[string]string{"jamf:privileges": "ztna:read", "jamf:api": "platform-gateway"},
+		Annotations: map[string]string{"jamf:privileges": "ztna:read", "jamf:api": "platform-gateway", "jamf:scopes": "environment,tenant"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
@@ -264,7 +264,7 @@ func newZtnaGroupedGatewaysPatchCmd(cliCtx *registry.CLIContext) *cobra.Command 
 		Use:         "patch <groupedGatewayId>",
 		Short:       "Partially update a Grouped Gateway",
 		Long:        "Partially update a Grouped Gateway. All fields are optional — include only what you want to change.\n\nAllowed values:\n  recoveryDelayInSec: 300, 1800, 3600, 10800, 28800\n  routingStrategy: ACTIVE_STANDBY, RANDOM, NEAREST",
-		Annotations: map[string]string{"jamf:privileges": "ztna:update", "jamf:api": "platform-gateway"},
+		Annotations: map[string]string{"jamf:privileges": "ztna:update", "jamf:api": "platform-gateway", "jamf:scopes": "environment,tenant"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if scaffoldFlag {

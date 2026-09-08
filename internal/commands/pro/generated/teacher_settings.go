@@ -203,8 +203,8 @@ func newTeacherSettingsHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:   "history",
 		Short: "Get Jamf Teacher app settings history",
 		Long:  "Gets Jamf Teacher app settings history",
-		Example: `  # Get history for a teacher-settings
-  jamf-cli pro teacher-settings history 1`,
+		Example: `  # Get history for the teacher-settings
+  jamf-cli pro teacher-settings history`,
 		Annotations: map[string]string{"jamf:privileges": "Read Teacher App Settings", "jamf:api": "pro", "jamf:gateway-privileges": "teacher-app:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

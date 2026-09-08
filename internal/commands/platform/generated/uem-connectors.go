@@ -38,7 +38,7 @@ func newUemConnectorsListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Use:         "list",
 		Short:       "List connectors",
 		Long:        "Returns the connectors configured for the tenant.",
-		Annotations: map[string]string{"jamf:privileges": "uem-connect:read", "jamf:api": "platform-gateway"},
+		Annotations: map[string]string{"jamf:privileges": "uem-connect:read", "jamf:api": "platform-gateway", "jamf:scopes": "environment,tenant"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err
@@ -79,7 +79,7 @@ func newUemConnectorsCreateCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Use:         "create",
 		Short:       "Create connector",
 		Long:        "Creates a new connector for the tenant. On success returns the identifier of the created connector together with an `href` locating it, as a path relative to the base URL the request was made against.\n\nThe request body is one of 10 shapes, selected by \"vendor\": JamfProConnectorCreateRequest, IntuneConnectorCreateRequest, XenMobileConnectorCreateRequest, Maas360ConnectorCreateRequest, WorkspaceOneConnectorCreateRequest, JamfSchoolConnectorCreateRequest, MobileIronCloudConnectorCreateRequest, MobileIronCoreConnectorCreateRequest, GoogleConnectorCreateRequest, WizyConnectorCreateRequest. --scaffold renders the first; the others differ in which fields they accept.\n\nAllowed values:\n  authStrategy: JAMF_PRO_OAUTH, BASIC, M2M, USERNAME_PASSWORD, CITRIX_CLOUD_ADMIN, CITRIX_CLOUD_ADMIN_OAUTH\n  vendor: JAMF_PRO, INTUNE, XENMOBILE, MAAS360, AIRWATCH, JAMF_SCHOOL, MOBILEIRONCLOUD, MOBILEIRONCORE, GOOGLE, WIZY",
-		Annotations: map[string]string{"jamf:privileges": "uem-connect:create", "jamf:api": "platform-gateway"},
+		Annotations: map[string]string{"jamf:privileges": "uem-connect:create", "jamf:api": "platform-gateway", "jamf:scopes": "environment,tenant"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if scaffoldFlag {
 				// Scaffold prints raw JSON regardless of -o, so the output
@@ -145,7 +145,7 @@ func newUemConnectorsDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Use:         "delete <configId>",
 		Short:       "Delete connector",
 		Long:        "Deletes the connector identified by `configId` and all of its data.",
-		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "uem-connect:delete", "jamf:api": "platform-gateway"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "uem-connect:delete", "jamf:api": "platform-gateway", "jamf:scopes": "environment,tenant"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
@@ -210,7 +210,7 @@ func newUemConnectorsGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Use:         "get <configId>",
 		Short:       "Get connector",
 		Long:        "Returns the connector identified by `configId`.",
-		Annotations: map[string]string{"jamf:privileges": "uem-connect:read", "jamf:api": "platform-gateway"},
+		Annotations: map[string]string{"jamf:privileges": "uem-connect:read", "jamf:api": "platform-gateway", "jamf:scopes": "environment,tenant"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {

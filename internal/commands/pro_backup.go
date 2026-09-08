@@ -76,6 +76,7 @@ func newBackupCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "backup",
 		Short: "Export all Jamf Pro configuration to a local directory",
+		Args:  refuseStrayArgs,
 		Long: `Export configuration objects from a Jamf Pro instance to a local directory.
 
 Each object is saved as an individual YAML or JSON file. Server-generated fields
@@ -103,13 +104,63 @@ reliable download path and are skipped with a warning.`,
 
 	cmd.Flags().StringVar(&outputDir, "output", "", "destination directory (required)")
 	cmd.Flags().StringVar(&format, "format", "yaml", "output format: yaml or json")
-	cmd.Flags().StringVar(&resources, "resources", "", "comma-separated resource filter (e.g., policies,scripts)")
+	cmd.Flags().StringVar(&resources, "resources", "", "comma-separated resource filter (e.g., policies,scripts); tokens: 'pro backup list-resources'")
 	cmd.Flags().BoolVar(&includeIDs, "include-ids", false, "retain server-generated IDs in output")
 	cmd.Flags().IntVar(&concurrency, "concurrency", backupDefaultConcurrency, fmt.Sprintf("max parallel API requests (ceiling %d)", backupMaxConcurrency))
 	cmd.Flags().BoolVar(&downloadPackages, "download-packages", false, "also download package binaries hosted on JCDS to packages/files/")
 	_ = cmd.MarkFlagRequired("output")
+	_ = cmd.RegisterFlagCompletionFunc("resources", backupResourceCompletion)
+
+	cmd.AddCommand(newBackupListResourcesCmd(cliCtx))
 
 	return cmd
+}
+
+// backupResourceCompletion completes the --resources vocabulary shared by
+// `pro backup` and `pro diff`. One function for both flags: two would be two
+// places for the vocabulary to drift from BackupFilterNames.
+func backupResourceCompletion(*cobra.Command, []string, string) ([]string, cobra.ShellCompDirective) {
+	return BackupFilterNames(), cobra.ShellCompDirectiveNoFileComp
+}
+
+func newBackupListResourcesCmd(cliCtx *registry.CLIContext) *cobra.Command {
+	return &cobra.Command{
+		Use:   "list-resources",
+		Short: "List the resource tokens accepted by --resources",
+		Long: `List every resource token accepted by --resources on 'pro backup' and 'pro diff'.
+
+This command writes nothing to disk, so --output here is the root format flag
+(table, json, csv, ...) and not the destination directory 'pro backup --output'
+takes one level up: that one is local to the parent and is not inherited. An
+unrecognised value renders a table, so 'list-resources --output ./tokens.txt'
+prints the listing and creates no file. Use --out-file to write one.
+
+Any format that renders a table shows two columns: resource (the token) and
+source (the API or mechanism each token reads from). json, yaml and ndjson add a
+third, objects (the backing commands, or a note for a resource handled outside
+the generated registry). --output xml and raw carry objects too, but neither
+converts the rows: both emit the JSON verbatim.
+
+--wide changes nothing here. It selects every column of a table row, and the
+objects column is not part of the table shape. Use one of the formats above to
+read objects.`,
+		Annotations: map[string]string{noAuthAnnotation: "true"},
+		Args:        refuseStrayArgs,
+		RunE: func(_ *cobra.Command, _ []string) error {
+			rows, err := backupResourceRows()
+			if err != nil {
+				return err
+			}
+			// The shared formatter, not a private one: PersistentPreRunE has
+			// already given it --out-file, --select, --field, --compact,
+			// --quiet and --no-hints, and output.New applies none of them.
+			data, err := json.Marshal(backupResourceRowsForFormat(rows, cliCtx.Output.Format()))
+			if err != nil {
+				return fmt.Errorf("marshalling resource tokens: %w", err)
+			}
+			return cliCtx.Output.PrintRaw(data)
+		},
+	}
 }
 
 type backupOptions struct {
@@ -267,6 +318,7 @@ func runBackup(ctx context.Context, cliCtx *registry.CLIContext, opts backupOpti
 
 			// Unwrap Classic API single-object wrapper if present
 			obj = unwrapClassicDetail(obj)
+			obj = dropResponseKeys(obj, def.DropKeys)
 
 			if !opts.IncludeIDs {
 				obj = StripServerFields(obj)

@@ -137,10 +137,10 @@ var bodySpecClassicMacosConfigProfiles = classicBodySpec{
       </users>
     </exclusions>
     <jss_user_groups>
-      <jss_user_group>
+      <user_group>
         <id>1</id>
         <name></name>
-      </jss_user_group>
+      </user_group>
     </jss_user_groups>
     <jss_users>
       <user>

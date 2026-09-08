@@ -339,7 +339,7 @@ func newProtectAnalyticsOverridesExportCmd(cliCtx *registry.CLIContext) *cobra.C
 
 Pipe the result into 'overrides apply' against another tenant to reproduce the
 customisations. Analytics with no override are omitted.`,
-		Args: cobra.NoArgs,
+		Args: refuseStrayPositionals,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			analytics, err := cliCtx.ProtectClient.ListAnalytics(cmd.Context())
 			if err != nil {
@@ -377,7 +377,7 @@ absent, or that is custom rather than Jamf-managed, are reported and skipped —
 the rest still apply. An entry the server refuses is reported and the run
 continues, so the summary always says how many landed; the command exits
 non-zero if any failed.`,
-		Args: cobra.NoArgs,
+		Args: refuseStrayPositionals,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if scaffold {
 				return printExport(analyticOverridesDoc{Overrides: []analyticOverride{{
