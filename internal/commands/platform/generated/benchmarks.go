@@ -38,7 +38,7 @@ func newBenchmarksListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Use:         "list",
 		Short:       "Returns list of tenant benchmarks",
 		Long:        "Returns list of tenant benchmarks (if any)",
-		Annotations: map[string]string{"jamf:privileges": "compliance-benchmarks:read", "jamf:api": "platform-gateway"},
+		Annotations: map[string]string{"jamf:privileges": "compliance-benchmarks:read", "jamf:api": "platform-gateway", "jamf:scopes": "environment"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err
@@ -87,7 +87,7 @@ func newBenchmarksCreateCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Use:         "create",
 		Short:       "Creates a new benchmark from provided benchmark request",
 		Long:        "Creates a new benchmark from provided benchmark request and deploys associated artifacts to the MDM\n\nAllowed values:\n  enforcementMode: MONITOR, MONITOR_AND_ENFORCE\n  selectedOsVersions[].osType: MAC_OS, IOS, VISION_OS",
-		Annotations: map[string]string{"jamf:privileges": "compliance-benchmarks:create", "jamf:api": "platform-gateway"},
+		Annotations: map[string]string{"jamf:privileges": "compliance-benchmarks:create", "jamf:api": "platform-gateway", "jamf:scopes": "environment"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if scaffoldFlag {
 				// Scaffold prints raw JSON regardless of -o, so the output
@@ -153,7 +153,7 @@ func newBenchmarksDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Use:         "delete <id>",
 		Short:       "Removes benchmark with given benchmark ID",
 		Long:        "Removes benchmark with given benchmark and removes associated draft (if any) and artifacts from the MDM",
-		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "compliance-benchmarks:delete", "jamf:api": "platform-gateway"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "compliance-benchmarks:delete", "jamf:api": "platform-gateway", "jamf:scopes": "environment"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
@@ -218,7 +218,7 @@ func newBenchmarksGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Use:         "get <id>",
 		Short:       "Returns benchmark for given benchmark ID",
 		Long:        "Returns benchmark with full configuration for given benchmark ID, or 404 if not found",
-		Annotations: map[string]string{"jamf:privileges": "compliance-benchmarks:read", "jamf:api": "platform-gateway"},
+		Annotations: map[string]string{"jamf:privileges": "compliance-benchmarks:read", "jamf:api": "platform-gateway", "jamf:scopes": "environment"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {

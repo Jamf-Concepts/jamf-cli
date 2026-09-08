@@ -3,7 +3,10 @@
 package main
 
 import (
+	"fmt"
 	"io"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"runtime/debug"
@@ -280,6 +283,67 @@ func captureOutput(t *testing.T, fn func()) string {
 	out := <-done
 	_ = r.Close()
 	return out
+}
+
+// TestRunAnnotatesAScopeLevelError covers the second step of the sequence main
+// runs, for the reason TestRunClassifiesTheExitCode covers the third: the
+// internal/commands tests call AnnotateScopeLevelError themselves, which
+// verifies the function and re-creates the wiring around it — so deleting the
+// call from run left the whole suite green with the feature silently not
+// firing, exactly as deleting the ClassifyError call had.
+//
+// The stub is a whole gateway rather than a fake error, because the note is
+// only reachable through the real resolution: the credential's level has to be
+// recorded by newPlatformSDKClient and the command's declared level read off
+// the annotation the platform generator stamped. `pro blueprints list` is the
+// pairing — its API declares environment scope, and the tenant ID below is a
+// level it does not declare.
+func TestRunAnnotatesAScopeLevelError(t *testing.T) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/auth/token", func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = fmt.Fprint(w, `{"access_token":"stub-token","token_type":"Bearer","expires_in":900}`)
+	})
+	mux.HandleFunc("/", func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = fmt.Fprint(w, `{"httpStatus":400,"traceId":"t","errors":[`+
+			`{"code":"REQUEST_CONTEXT_NOT_PROVIDED","description":"Request context not provided"}]}`)
+	})
+	srv := httptest.NewServer(mux)
+	t.Cleanup(srv.Close)
+
+	// HOME as well as the XDG vars: the SDK client keeps a file token cache
+	// under os.UserCacheDir, and a test has no business writing into the
+	// developer's own.
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	t.Setenv("XDG_CACHE_HOME", t.TempDir())
+	t.Setenv("JAMF_PROFILE", "")
+	t.Setenv("JAMF_TOKEN", "")
+	t.Setenv("JAMF_URL", srv.URL)
+	t.Setenv("JAMF_CLIENT_ID", "id")
+	t.Setenv("JAMF_CLIENT_SECRET", "secret")
+	t.Setenv("JAMF_ENVIRONMENT_ID", "")
+	t.Setenv("JAMF_TENANT_ID", "a-tenant")
+
+	var code int
+	got := captureOutput(t, func() {
+		code = run([]string{"jamf-cli", "pro", "blueprints", "list", "--no-update-check", "--no-version-check"}, "")
+	})
+
+	if code == exitcode.Success {
+		t.Fatalf("the gateway answered 400; run reported success:\n%s", got)
+	}
+	for _, want := range []string{
+		"declares environment scope",
+		"this invocation is tenant-scoped",
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("the scope note is missing %q:\n%s", want, got)
+		}
+	}
 }
 
 // TestRunRendersAStrayPositionalRefusal pins how run presents an Args refusal,

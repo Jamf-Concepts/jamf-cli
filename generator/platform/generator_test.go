@@ -400,23 +400,22 @@ func assertNamespacePrefixed(t *testing.T, who, path string) {
 	}
 }
 
-// TestDeviceGroupsUpdateStaysOnV1 asserts, against the committed specs, that
-// `security device-groups update` is served by the v1 PUT and that the v2 PUT
-// ships as no command at all.
+// TestDeviceGroupsUpdateIsServedByV2 asserts, against the committed specs, that
+// `security device-groups update` ships and is served by the v2 PUT.
 //
-// This is the end-to-end half of parser.TestDropUnroutedPlatformOps. Build
-// v1865 declares PUT /v2/groups/{groupId} as the successor to the v1 PUT it
-// deprecates, and the gateway does not route it — 403 BAD_PERMISSIONS 7/7,
-// probed 2026-08-29 against a group created and deleted in the same run, with a
-// v1 write on the same group as the control. deduplicateVersionedOps would
-// prefer v2 by its own correct rule and FallbackPaths is no escape (populated
-// for GETs and DELETEs only, and ignored by the platform template on purpose),
-// so a working command would become a permanent 403 reading as a missing
-// privilege.
+// This is the end-to-end half of parser.TestDropUnroutedPlatformOps, and it
+// used to assert the reverse. Build v1865 declared PUT /v2/groups/{groupId} as
+// the successor to the v1 PUT it deprecated while the gateway refused it, so
+// the v2 PUT was withheld by platformUnroutedOps and update stayed on v1. The
+// v2 handler was fixed on 2026-09-04 — re-probed here 2026-09-05, 204 3/3 with
+// the rename read back through GET /v2/groups — and build v2082 then withdrew
+// the v1 list and PUT outright, so v2 is the only update there is.
 //
-// The v2 *list* is routed and is what list uses, so this also pins that the
-// withholding is per-operation rather than a blanket "hold device groups at v1".
-func TestDeviceGroupsUpdateStaysOnV1(t *testing.T) {
+// Both halves are pinned because the failure was silent in each direction: with
+// the drop still in place after the withdrawal, the resource shipped no update
+// command at all, and `security device-groups --help` simply listed one fewer
+// subcommand.
+func TestDeviceGroupsUpdateIsServedByV2(t *testing.T) {
 	specsDir, err := filepath.Abs("../../specs/platform")
 	if err != nil {
 		t.Fatalf("resolving specs dir: %v", err)
@@ -439,9 +438,6 @@ func TestDeviceGroupsUpdateStaysOnV1(t *testing.T) {
 
 	var update, list *parser.Operation
 	for _, op := range groups.Operations {
-		if op.Path == "/securitycloud/v2/groups/{groupId}" {
-			t.Errorf("op %q ships on the unrouted v2 PUT (%s %s)", op.Name, op.Method, op.Path)
-		}
 		switch op.Name {
 		case "update":
 			update = op
@@ -451,16 +447,30 @@ func TestDeviceGroupsUpdateStaysOnV1(t *testing.T) {
 	}
 
 	if update == nil {
-		t.Fatal("device-groups has no update op")
+		t.Fatal("device-groups has no update op — the v1 PUT is withdrawn, so a drop of the v2 PUT leaves no update at all")
 	}
-	if update.Path != "/securitycloud/v1/groups/{groupId}" {
-		t.Errorf("update Path = %q, want the routed v1 path", update.Path)
+	if update.Path != "/securitycloud/v2/groups/{groupId}" {
+		t.Errorf("update Path = %q, want the v2 path — v1 is withdrawn", update.Path)
 	}
 	if list == nil {
 		t.Fatal("device-groups has no list op")
 	}
 	if list.Path != "/securitycloud/v2/groups" {
-		t.Errorf("list Path = %q, want the routed v2 path — the v2 list is not withheld", list.Path)
+		t.Errorf("list Path = %q, want the routed v2 path", list.Path)
+	}
+	// Create and delete stayed on v1: v2082 withdrew only the v1 list and PUT,
+	// so this pins that nothing swept the whole resource onto one version.
+	for _, op := range groups.Operations {
+		switch op.Name {
+		case "create":
+			if op.Path != "/securitycloud/v1/groups" {
+				t.Errorf("create Path = %q, want the v1 collection", op.Path)
+			}
+		case "delete":
+			if op.Path != "/securitycloud/v1/groups/{groupId}" {
+				t.Errorf("delete Path = %q, want the v1 item path", op.Path)
+			}
+		}
 	}
 }
 

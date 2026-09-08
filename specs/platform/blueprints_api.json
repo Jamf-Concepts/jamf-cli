@@ -1,10 +1,10 @@
 {
   "components": {
     "parameters": {
-      "X-Tenant-Id": {
-        "description": "The tenant UUID identifier.",
+      "X-Environment-Id": {
+        "description": "The environment UUID identifier.",
         "in": "header",
-        "name": "X-Tenant-Id",
+        "name": "X-Environment-Id",
         "required": true,
         "schema": {
           "example": "e77c1408-10c8-4007-b177-abc9157fbcaa",
@@ -2410,7 +2410,7 @@
         "operationId": "listComponents",
         "parameters": [
           {
-            "$ref": "#/components/parameters/X-Tenant-Id"
+            "$ref": "#/components/parameters/X-Environment-Id"
           },
           {
             "description": "Zero-based page index (0..N)",
@@ -2469,7 +2469,7 @@
         "operationId": "getComponent",
         "parameters": [
           {
-            "$ref": "#/components/parameters/X-Tenant-Id"
+            "$ref": "#/components/parameters/X-Environment-Id"
           },
           {
             "description": "Identifier of the component",
@@ -2525,7 +2525,7 @@
         "operationId": "listBlueprints",
         "parameters": [
           {
-            "$ref": "#/components/parameters/X-Tenant-Id"
+            "$ref": "#/components/parameters/X-Environment-Id"
           },
           {
             "description": "Zero-based page index (0..N)",
@@ -2601,7 +2601,7 @@
         "operationId": "createBlueprint",
         "parameters": [
           {
-            "$ref": "#/components/parameters/X-Tenant-Id"
+            "$ref": "#/components/parameters/X-Environment-Id"
           }
         ],
         "requestBody": {
@@ -2678,7 +2678,7 @@
         "operationId": "deleteBlueprint",
         "parameters": [
           {
-            "$ref": "#/components/parameters/X-Tenant-Id"
+            "$ref": "#/components/parameters/X-Environment-Id"
           },
           {
             "description": "Blueprint ID",
@@ -2726,7 +2726,7 @@
         "operationId": "getBlueprint",
         "parameters": [
           {
-            "$ref": "#/components/parameters/X-Tenant-Id"
+            "$ref": "#/components/parameters/X-Environment-Id"
           },
           {
             "description": "Blueprint ID",
@@ -2781,7 +2781,7 @@
         "operationId": "patchBlueprint",
         "parameters": [
           {
-            "$ref": "#/components/parameters/X-Tenant-Id"
+            "$ref": "#/components/parameters/X-Environment-Id"
           },
           {
             "description": "Blueprint ID",
@@ -2871,7 +2871,7 @@
         "operationId": "deployBlueprint",
         "parameters": [
           {
-            "$ref": "#/components/parameters/X-Tenant-Id"
+            "$ref": "#/components/parameters/X-Environment-Id"
           },
           {
             "description": "Blueprint ID",
@@ -2932,7 +2932,7 @@
         "operationId": "getBlueprintStatus",
         "parameters": [
           {
-            "$ref": "#/components/parameters/X-Tenant-Id"
+            "$ref": "#/components/parameters/X-Environment-Id"
           },
           {
             "description": "Blueprint ID",
@@ -2989,7 +2989,7 @@
         "operationId": "undeployBlueprint",
         "parameters": [
           {
-            "$ref": "#/components/parameters/X-Tenant-Id"
+            "$ref": "#/components/parameters/X-Environment-Id"
           },
           {
             "description": "Blueprint ID",
@@ -3064,6 +3064,6 @@
     }
   ],
   "x-scope-types": [
-    "tenant"
+    "environment"
   ]
 }

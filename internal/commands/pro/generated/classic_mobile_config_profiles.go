@@ -185,9 +185,9 @@ var bodySpecClassicMobileConfigProfiles = classicBodySpec{
     </security>
     <self_service_categories>
       <category>
-        <id>1</id>
-        <name>Applications</name>
-        <priority>0</priority>
+        <id>64</id>
+        <name>All Desktops</name>
+        <display_in>false</display_in>
       </category>
     </self_service_categories>
     <self_service_description>Install this profile to access resources on the corporate network</self_service_description>

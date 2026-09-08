@@ -4,6 +4,7 @@ package parser
 
 import (
 	"encoding/json"
+	"io"
 	"os"
 	"path/filepath"
 	"slices"
@@ -2852,13 +2853,20 @@ func TestServiceSegment(t *testing.T) {
 // TestDropUnroutedPlatformOps pins the withholding of an operation a published
 // spec declares but the gateway does not route.
 //
-// The mechanism exists for one case: Security Cloud's device groups, where
-// build v1865 declares PUT /v2/groups/{groupId} as the successor to the v1 PUT
-// it deprecates, while v2 answers 403 BAD_PERMISSIONS and v1 answers 200. Left
-// in, deduplicateVersionedOps prefers the higher version — correctly, by its own
-// rule — and turns a working `security device-groups update` into a permanent
-// 403 indistinguishable from a missing privilege.
+// platformUnroutedOps is empty — the one entry it ever held is gone, Security
+// Cloud's v2 device-group PUT having been fixed on 2026-09-04 — so the entry
+// here is a test-local one. The mechanism has to stay pinned while the table is
+// empty: the next drop is added under pressure, and a generator pass that
+// silently stopped dropping would ship the operation the entry was written to
+// withhold. Same reasoning as gateway.TestProbedEntriesCarryTheProbeBasis,
+// which pins the probe wording against a temporary entry for want of a live
+// one.
 func TestDropUnroutedPlatformOps(t *testing.T) {
+	const unrouted = "PUT /securitycloud/v2/groups/{groupId}"
+	restore := platformUnroutedOps
+	platformUnroutedOps = map[string]bool{unrouted: true}
+	t.Cleanup(func() { platformUnroutedOps = restore })
+
 	ops := []*Operation{
 		{Name: "update", Method: "PUT", Path: "/securitycloud/v1/groups/{groupId}"},
 		{Name: "update", Method: "PUT", Path: "/securitycloud/v2/groups/{groupId}"},
@@ -2875,7 +2883,7 @@ func TestDropUnroutedPlatformOps(t *testing.T) {
 			t.Errorf("unrouted %s %s survived the drop", op.Method, op.Path)
 		}
 	}
-	// The working v1 PUT and the routed v2 list both survive — the drop is
+	// The v1 PUT and the routed v2 list both survive — the drop is
 	// per-operation, not per-version.
 	var sawV1Put, sawV2List bool
 	for _, op := range kept {
@@ -2891,6 +2899,23 @@ func TestDropUnroutedPlatformOps(t *testing.T) {
 	}
 	if !sawV2List {
 		t.Error("v2 list was dropped; the drop is keyed on method+path, not on version")
+	}
+}
+
+// TestPlatformUnroutedOpsIsEmptyOrEvidenced fails when platformUnroutedOps
+// gains an entry, so that adding one is a deliberate edit to this test rather
+// than a quiet table append.
+//
+// A drop is the CLI asserting the published spec is wrong about what the
+// gateway carries, and it costs a command. The bar is a recorded probe plus a
+// working operation the declared one would displace; both live in the table's
+// own comment. This does not judge the evidence — nothing in code can — it only
+// makes the addition visible.
+func TestPlatformUnroutedOpsIsEmptyOrEvidenced(t *testing.T) {
+	for key := range platformUnroutedOps {
+		t.Errorf("platformUnroutedOps names %q — a drop needs a recorded probe in the "+
+			"table's comment and a working operation it would otherwise displace; "+
+			"state both there, then add the key here", key)
 	}
 }
 
@@ -3215,4 +3240,137 @@ func TestParseSchema_PropertyReachedUnion(t *testing.T) {
 	if _, ok := p.Nested.Properties["issuer"]; !ok {
 		t.Errorf("first variant's fields not adopted; got %v", propKeys(p.Nested.Properties))
 	}
+}
+
+// TestScopeTypes pins both halves of the x-scope-types read: the exact slice a
+// spec's declaration produces, and the stderr warning a declaration that cannot
+// be used produces instead.
+//
+// The ordering assertions are exact rather than set comparisons, and that is the
+// point of the test. Every consumer inherits the slice's order — the jamf:scopes
+// annotation, the commands catalog, AnnotateScopeLevelError's note and platform
+// setup's closing summary all render it as it comes — and reversing
+// scopeLevelOrder used to leave the whole suite green, so the widest-first
+// reading of "declares organization, environment, tenant" rested on nothing but
+// the literal's order in the source.
+//
+// The warning half covers the silent-degradation case. nil is the legitimate
+// answer for a spec that declares no scope at all (the three Jamf Account specs
+// do not), so a malformed declaration reaching the same nil is invisible: the
+// spec's resources drop out of both buckets platform setup partitions and the
+// count it prints quietly shrinks, with make generate exiting 0.
+func TestScopeTypes(t *testing.T) {
+	cases := []struct {
+		name        string
+		doc         map[string]any
+		want        []string
+		wantWarning bool
+	}{
+		{
+			name: "key absent is legitimate and silent",
+			doc:  map[string]any{"openapi": "3.0.3"},
+			want: nil,
+		},
+		{
+			name: "one level",
+			doc:  map[string]any{scopeTypesExt: []any{"tenant"}},
+			want: []string{"tenant"},
+		},
+		{
+			// jpapi, capi and the six Security Cloud specs declare two of
+			// these; the order here is deliberately the reverse of the
+			// rendering order, so the assertion fails if scopeLevelOrder is
+			// reversed or the input order leaks through.
+			name: "all three, declared narrowest-first, render widest-first",
+			doc:  map[string]any{scopeTypesExt: []any{"tenant", "environment", "organization"}},
+			want: []string{"organization", "environment", "tenant"},
+		},
+		{
+			name: "two levels declared out of order",
+			doc:  map[string]any{scopeTypesExt: []any{"tenant", "environment"}},
+			want: []string{"environment", "tenant"},
+		},
+		{
+			name: "a duplicated level is collapsed, not repeated",
+			doc:  map[string]any{scopeTypesExt: []any{"environment", "environment"}},
+			want: []string{"environment"},
+		},
+		{
+			// The match is case-sensitive, so this is the shape a hand-edited
+			// spec most easily produces: one level survives and the reader has
+			// no way to tell the other was thrown away.
+			name:        "an unrecognised entry beside a valid one is dropped and reported",
+			doc:         map[string]any{scopeTypesExt: []any{"Environment", "tenant"}},
+			want:        []string{"tenant"},
+			wantWarning: true,
+		},
+		{
+			name:        "every entry unrecognised yields nil and reports",
+			doc:         map[string]any{scopeTypesExt: []any{"Environment", "org", 7}},
+			want:        nil,
+			wantWarning: true,
+		},
+		{
+			name:        "a scalar instead of an array yields nil and reports",
+			doc:         map[string]any{scopeTypesExt: "environment"},
+			want:        nil,
+			wantWarning: true,
+		},
+		{
+			name:        "an empty array is present but unusable, so it reports",
+			doc:         map[string]any{scopeTypesExt: []any{}},
+			want:        nil,
+			wantWarning: true,
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			got, stderr := captureStderr(t, func() []string {
+				return scopeTypes(c.doc, "test_api.json")
+			})
+
+			if !slices.Equal(got, c.want) {
+				t.Errorf("scopeTypes(%v) = %v, want %v", c.doc[scopeTypesExt], got, c.want)
+			}
+			switch {
+			case c.wantWarning && !strings.Contains(stderr, scopeTypesExt):
+				t.Errorf("no %s warning on stderr for %v; got %q", scopeTypesExt, c.doc[scopeTypesExt], stderr)
+			case !c.wantWarning && stderr != "":
+				t.Errorf("unexpected stderr for %v: %q", c.doc[scopeTypesExt], stderr)
+			}
+			if c.wantWarning && !strings.Contains(stderr, "test_api.json") {
+				t.Errorf("warning does not name the spec it came from, so a generate run cannot say which to fix: %q", stderr)
+			}
+		})
+	}
+}
+
+// captureStderr runs fn with os.Stderr redirected to a temp file and returns
+// what it wrote alongside fn's result. A file rather than a pipe, so a writer
+// larger than the pipe buffer could not deadlock the test.
+func captureStderr(t *testing.T, fn func() []string) ([]string, string) {
+	t.Helper()
+
+	f, err := os.CreateTemp(t.TempDir(), "stderr")
+	if err != nil {
+		t.Fatalf("creating stderr capture: %v", err)
+	}
+	saved := os.Stderr
+	os.Stderr = f
+	defer func() {
+		os.Stderr = saved
+		_ = f.Close()
+	}()
+
+	got := fn()
+
+	if _, err := f.Seek(0, io.SeekStart); err != nil {
+		t.Fatalf("rewinding stderr capture: %v", err)
+	}
+	out, err := io.ReadAll(f)
+	if err != nil {
+		t.Fatalf("reading stderr capture: %v", err)
+	}
+	return got, string(out)
 }
