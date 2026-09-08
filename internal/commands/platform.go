@@ -220,8 +220,12 @@ Create API client credentials in the Jamf Account portal
 				return err
 			}
 
-			// 5. Validate. Security Cloud access is reported, not enforced.
-			securityCloud, err := validatePlatformGatewayCredentials(cmd.Context(), w, creds)
+			// 5. Validate the credentials, and check the gateway recognises
+			// the scope ID — the one thing a token exchange cannot tell us,
+			// and what stops the closing summary claiming a reach the gateway
+			// has just refused. No product's access or permissions are probed;
+			// a 403 names the permission it wanted.
+			scopeIDRejected, err := validatePlatformGatewayCredentials(cmd.Context(), w, creds)
 			if err != nil {
 				return err
 			}
@@ -259,26 +263,14 @@ Create API client credentials in the Jamf Account portal
 			_, _ = fmt.Fprintf(w, "  Client ID:   %s\n", creds.ClientID)
 			_, _ = fmt.Fprintln(w, "  Secrets stored in system keychain")
 			_, _ = fmt.Fprintln(w)
-			// State what the profile actually enables, from what the gateway
-			// answered rather than from which prompt was filled in: one tenant
-			// belongs to one product, and claiming a surface it cannot reach
-			// sends someone chasing a 403 that is really a missing entitlement.
-			switch {
-			case securityCloud:
-				_, _ = fmt.Fprintln(w, "This scope serves the gateway-served Jamf Security Cloud commands")
-				_, _ = fmt.Fprintln(w, "(dns-*, ztna-*, content-categories, device-groups, uem-*).")
-			case creds.EnvironmentID == "" && creds.TenantID == "":
-				// Naming the surfaces beats implying the profile drives Pro or
-				// Security Cloud, which it cannot: an organization-scoped
-				// credential sends no scope header and reaches no product API.
-				_, _ = fmt.Fprintln(w, "This is an organization-scoped credential. It serves the Jamf Account commands")
-				_, _ = fmt.Fprintln(w, "(account-licenses, deal-registrations, distributor-*, sso-connections, sso-domains)")
-				_, _ = fmt.Fprintln(w, "and AI Governance (ai-policies, ai-tools). The Jamf Account ones are US-only.")
-				_, _ = fmt.Fprintln(w, "Set up a profile with an environment or tenant ID to drive Pro, Platform,")
-				_, _ = fmt.Fprintln(w, "Security Cloud or audit.")
-			default:
-				_, _ = fmt.Fprintln(w, "This scope serves the Pro API and Platform API commands.")
-			}
+			// State what the profile enables, from the scope levels the specs
+			// declare rather than from which prompt was filled in. Assembling
+			// the sentence from jamf:scopes is what stops it drifting from the
+			// specs the commands were generated from — as hand-written prose it
+			// claimed the Platform API for a tenant profile when thirteen
+			// resources declare environment scope, and AI Governance for an
+			// organization one, which answers 400 with no scope header.
+			printScopeSummary(w, cmd.Root(), creds, scopeIDRejected)
 
 			return nil
 		},
