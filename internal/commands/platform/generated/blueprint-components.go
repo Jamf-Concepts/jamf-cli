@@ -36,7 +36,7 @@ func newBlueprintComponentsListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Use:         "list",
 		Short:       "List available blueprint components",
 		Long:        "Get list of available blueprint components",
-		Annotations: map[string]string{"jamf:privileges": "blueprints:read", "jamf:api": "platform-gateway"},
+		Annotations: map[string]string{"jamf:privileges": "blueprints:read", "jamf:api": "platform-gateway", "jamf:scopes": "environment"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err
@@ -90,7 +90,7 @@ func newBlueprintComponentsGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Use:         "get <identifier>",
 		Short:       "Get component",
 		Long:        "Get component by identifier",
-		Annotations: map[string]string{"jamf:privileges": "blueprints:read", "jamf:api": "platform-gateway"},
+		Annotations: map[string]string{"jamf:privileges": "blueprints:read", "jamf:api": "platform-gateway", "jamf:scopes": "environment"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {

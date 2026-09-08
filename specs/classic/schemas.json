@@ -8,10 +8,10 @@
     "spec": "classic_api_resource_documentation.json",
     "title": "Classic API",
     "version": "11.28.0",
-    "sdkCommit": "fc34c1d",
-    "schemas": 161,
-    "resources": 43,
-    "unresolved": 2
+    "sdkCommit": "d4ab4f4",
+    "schemas": 165,
+    "resources": 44,
+    "unresolved": 1
   },
   "x-jamf-classic-resources": {
     "account-groups": {
@@ -200,6 +200,12 @@
       "schema": "patch_policy",
       "root": "patch_policy",
       "from": "GET /patchpolicies/id/{id}",
+      "singularAgrees": true
+    },
+    "patchsoftwaretitles": {
+      "schema": "patch_software_title",
+      "root": "patch_software_title",
+      "from": "GET /patchsoftwaretitles/id/{id}",
       "singularAgrees": true
     },
     "policies": {
@@ -9633,7 +9639,21 @@
                 "items": {
                   "properties": {
                     "category": {
-                      "$ref": "#/components/schemas/category"
+                      "properties": {
+                        "display_in": {
+                          "description": "Required for the category to be stored at all. A \u003ccategory\u003e carrying only \u003cid\u003e, or \u003cid\u003e plus \u003cname\u003e, or \u003cfeature_in\u003e without \u003cdisplay_in\u003e, is silently discarded, and display_in=false is a deletion gesture rather than a stored value. Write-only ON THIS RESOURCE: the GET echoes only \u003cid\u003e and \u003cname\u003e, so no client can read it back or drift-detect it. Do not generalise that — os_x_configuration_profile, policy, ebook, mac_application and mobile_device_application all echo display_in on read, and this is the only one that hides it. Wire-verified on Jamf Pro 11.31.1, 2026-09-07.",
+                          "type": "boolean"
+                        },
+                        "id": {
+                          "example": 64,
+                          "type": "integer"
+                        },
+                        "name": {
+                          "example": "All Desktops",
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
                     }
                   }
                 },
@@ -11795,7 +11815,7 @@
               "jss_user_groups": {
                 "items": {
                   "properties": {
-                    "jss_user_group": {
+                    "user_group": {
                       "$ref": "#/components/schemas/id_name"
                     }
                   },
@@ -12195,6 +12215,50 @@
         },
         "type": "array"
       },
+      "patch_management_software_titles": {
+        "items": {
+          "properties": {
+            "patch_management_software_title": {
+              "properties": {
+                "id": {
+                  "example": 1,
+                  "type": "integer"
+                },
+                "name": {
+                  "example": "Google Chrome",
+                  "type": "string"
+                },
+                "name_id": {
+                  "example": "GoogleChrome",
+                  "type": "string"
+                },
+                "source_id": {
+                  "example": 1,
+                  "type": "integer"
+                }
+              },
+              "type": "object"
+            },
+            "size": {
+              "$ref": "#/components/schemas/size"
+            }
+          }
+        },
+        "type": "array"
+      },
+      "patch_policies": {
+        "items": {
+          "properties": {
+            "patch_policy": {
+              "$ref": "#/components/schemas/id_name"
+            },
+            "size": {
+              "$ref": "#/components/schemas/size"
+            }
+          }
+        },
+        "type": "array"
+      },
       "patch_policy": {
         "properties": {
           "general": {
@@ -12542,6 +12606,67 @@
         },
         "type": "object"
       },
+      "patch_report": {
+        "properties": {
+          "name": {
+            "example": "Google Chrome",
+            "type": "string"
+          },
+          "patch_software_title_id": {
+            "example": 1,
+            "type": "string"
+          },
+          "total_computers": {
+            "example": 1,
+            "type": "integer"
+          },
+          "total_versions": {
+            "example": 1,
+            "type": "integer"
+          },
+          "versions": {
+            "items": {
+              "properties": {
+                "version": {
+                  "properties": {
+                    "computers": {
+                      "items": {
+                        "properties": {
+                          "computer": {
+                            "properties": {
+                              "id": {
+                                "example": 1,
+                                "type": "integer"
+                              },
+                              "name": {
+                                "example": "Admins MacBook Pro",
+                                "type": "string"
+                              }
+                            },
+                            "type": "object"
+                          },
+                          "size": {
+                            "example": 1,
+                            "type": "integer"
+                          }
+                        }
+                      },
+                      "type": "array"
+                    },
+                    "software_version": {
+                      "example": "65.0.3325.181",
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
       "patch_software_title": {
         "properties": {
           "category": {
@@ -12610,6 +12735,37 @@
           }
         },
         "type": "object"
+      },
+      "patch_software_titles": {
+        "items": {
+          "properties": {
+            "patch_software_title": {
+              "properties": {
+                "id": {
+                  "example": 1,
+                  "type": "integer"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "name_id": {
+                  "example": "GoogleChromne",
+                  "type": "string"
+                },
+                "source_id": {
+                  "example": 1,
+                  "type": "integer"
+                }
+              },
+              "type": "object"
+            },
+            "size": {
+              "example": 1,
+              "type": "integer"
+            }
+          }
+        },
+        "type": "array"
       },
       "policies": {
         "items": {

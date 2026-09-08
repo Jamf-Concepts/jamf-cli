@@ -86,10 +86,7 @@ func newComputerInventoryCollectionSettingsCreateCmd(ctx *registry.CLIContext) *
   jamf-cli pro computer-inventory-collection-settings create --scaffold
 
   # Create a computer-inventory-collection-setting from JSON
-  echo '{"name":"Example"}' | jamf-cli pro computer-inventory-collection-settings create
-
-  # Get a computer-inventory-collection-setting, modify it, and create a copy
-  jamf-cli pro computer-inventory-collection-settings get 1 -o json | jq '.name = "Copy"' | jamf-cli pro computer-inventory-collection-settings create`,
+  echo '{"name":"Example"}' | jamf-cli pro computer-inventory-collection-settings create`,
 		Annotations: map[string]string{"jamf:privileges": "Create Custom Paths", "jamf:api": "pro", "jamf:gateway-privileges": "custom-paths:create"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -235,10 +232,7 @@ func newComputerInventoryCollectionSettingsPatchCmd(ctx *registry.CLIContext) *c
 		Short: "Update computer inventory settings",
 		Long:  "Update computer inventory settings\n\nUse --set KEY=VALUE to update scalar fields (repeatable). Omitted fields are unchanged.\n\nAvailable fields:\n  computerInventoryCollectionPreferences.allowChangingUserAndLocation boolean\n  computerInventoryCollectionPreferences.calculateSizes boolean\n  computerInventoryCollectionPreferences.collectSyncedMobileDeviceInfo boolean\n  computerInventoryCollectionPreferences.collectUnmanagedCertificates boolean\n  computerInventoryCollectionPreferences.includeAccounts boolean\n  computerInventoryCollectionPreferences.includeHiddenAccounts boolean\n  computerInventoryCollectionPreferences.includePackages boolean\n  computerInventoryCollectionPreferences.includePrinters boolean\n  computerInventoryCollectionPreferences.includeServices boolean\n  computerInventoryCollectionPreferences.includeSoftwareId boolean\n  computerInventoryCollectionPreferences.includeSoftwareUpdates boolean\n  computerInventoryCollectionPreferences.monitorApplicationUsage boolean\n  computerInventoryCollectionPreferences.monitorBeacons boolean\n  computerInventoryCollectionPreferences.updateLdapInfoOnComputerInventorySubmissions boolean\n  computerInventoryCollectionPreferences.useUnixUserPaths boolean\n\nArray and object fields accept a JSON value (e.g. --set field='[\"a\",\"b\"]'):\n  applicationPaths                             array\n  computerInventoryCollectionPreferences       object\n\nUse --from-file or pipe JSON to stdin for complex updates (bulk changes, deep nesting).",
 		Example: `  # Update a field
-  jamf-cli pro computer-inventory-collection-settings patch --set field=value
-
-  # Update using JSON
-  jamf-cli pro computer-inventory-collection-settings get -o json | jq '.field = "value"' | jamf-cli pro computer-inventory-collection-settings patch`,
+  jamf-cli pro computer-inventory-collection-settings patch --set field=value`,
 		Annotations: map[string]string{"jamf:privileges": "Update Computer Inventory Collection Settings", "jamf:api": "pro", "jamf:gateway-privileges": "computer-inventory-collection-settings:update"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

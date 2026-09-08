@@ -117,6 +117,24 @@ type Operation struct {
 	// what it does not publish — and for the 44 unauthenticated Jamf Pro
 	// endpoints.
 	GatewayPrivileges []string
+	// ScopeTypes are the Jamf Platform API scope levels the published spec
+	// declares this operation's credential must be created at — some subset of
+	// "organization", "environment" and "tenant", from the spec-root
+	// x-scope-types extension. Platform operations only; empty for a Jamf Pro
+	// or Classic one, whose scope is a property of the gateway route rather
+	// than of the endpoint.
+	//
+	// Per-operation although the extension is per-spec, because two specs can
+	// merge into one resource and disagree: uem-connect and the enrollment API
+	// both tag a resource "activation-profiles", and a resource-level field
+	// would have had to pick one of their answers.
+	//
+	// This is what the SPEC claims, which is currently stricter than what the
+	// gateway serves — build v2082 moved six Platform specs to
+	// environment-only while a tenant credential still reaches at least
+	// platform-devices and platform-device-groups (probed 2026-09-05). So it
+	// is reported and hinted with, never used to refuse a command.
+	ScopeTypes []string
 }
 
 // StatusResult is a non-2xx response the API documents as a meaningful outcome

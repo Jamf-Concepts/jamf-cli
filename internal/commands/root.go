@@ -16,6 +16,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode"
 
 	"github.com/hashicorp/go-retryablehttp"
 	"github.com/spf13/cobra"
@@ -362,9 +363,17 @@ type AuthParams struct {
 }
 
 // ResolveAuthForProfile determines the server URL and auth provider for a
-// specific profile name using the given config. Unlike resolveAuth, it does
-// not read or mutate package-level variables, making it safe to call multiple
-// times for different profiles (e.g., in the diff command).
+// specific profile name using the given config. Unlike resolveAuth, it reads
+// none of the package-level flag variables — every input arrives in params —
+// which is what makes it callable per profile (e.g. in the diff command).
+//
+// It does write two package vars, and the contract is that both are per
+// resolution rather than cumulative: withheldProfileScope, reset at the top
+// here so a stale record cannot put a sentence about the wrong profile on a
+// later error, and resolvedPlatformScope, reset for the same reason and then
+// written by newPlatformSDKClient when a client is built. Sequential calls are
+// therefore safe and each answers for the profile it was given; two concurrent
+// ones are not, and `pro diff` resolves its two sides in sequence.
 func ResolveAuthForProfile(cfg *config.Config, params AuthParams) (string, auth.Provider, error) {
 	profileName := params.Profile
 	url := params.ServerURL
@@ -380,6 +389,32 @@ func ResolveAuthForProfile(cfg *config.Config, params AuthParams) (string, auth.
 	// every other env var here overrides it.
 	scopeFromParams := tid != "" || eid != ""
 	isPlatform := false
+	// Reset per resolution: this is called more than once in one process by the
+	// tests and the MCP server, and a stale answer here would put a sentence
+	// about the wrong profile on a later error. Both vars, not one — the level
+	// note reads resolvedPlatformScope the same way the withheld note reads
+	// withheldProfileScope, and only the first was ever cleared, so a second
+	// resolution that built no client kept the first one's level and the note
+	// described a credential this invocation was not using.
+	resetPlatformScopeRecords()
+	// The client ID names the integration, and an integration's scope level is
+	// its own. Read before the profile fill below overwrites cid, because after
+	// it the two sources are indistinguishable.
+	//
+	// params only, deliberately — not the package var or the environment.
+	// resolveAuth folds JAMF_CLIENT_ID into clientID and passes it here as
+	// params.ClientID, so params is already the complete answer on this path,
+	// and reading the mutable package var instead would make this function's
+	// result depend on global state its params exist to isolate. resolveScope
+	// reads the environment directly for the opposite reason: PersistentPreRunE
+	// returns for the `security` product before resolveAuth folds anything, so
+	// there is nothing folded to read on that path.
+	//
+	// "Supplied on this invocation" is not yet "belongs to another
+	// integration": a profile may name JAMF_CLIENT_ID as its own client-id
+	// reference. The comparison against the profile happens at the switch
+	// below, where the profile is in hand.
+	invocationClientID := params.ClientID
 
 	// Config profile: fill remaining gaps.
 	// Skip profile credential resolution when a token was explicitly provided
@@ -388,7 +423,7 @@ func ResolveAuthForProfile(cfg *config.Config, params AuthParams) (string, auth.
 	// bootstrap scripts).
 	explicitToken := tok != ""
 	if len(cfg.Profiles) > 0 {
-		p, _, err := config.GetProfile(cfg, profileName)
+		p, resolvedProfileName, err := config.GetProfile(cfg, profileName)
 		if err == nil {
 			if url == "" {
 				url = p.URL
@@ -411,11 +446,48 @@ func ResolveAuthForProfile(cfg *config.Config, params AuthParams) (string, auth.
 						}
 						csecret = resolved
 					}
-					if !scopeFromParams && p.EnvironmentID != "" {
-						eid = p.EnvironmentID
-					}
-					if !scopeFromParams && tid == "" && p.TenantID != "" {
-						tid = p.TenantID
+					// A profile's scope level only applies to the profile's
+					// own credentials, so it is withheld — both levels, not
+					// one — when the client ID came from this invocation. An
+					// organization-scoped credential must send no scope header
+					// at all, and a level belonging to another integration is
+					// redundant at best and unusable at worst. Recorded here
+					// and in resolveScope, the only two ladders, rather than
+					// re-derived at error time, so there is no third copy of
+					// the precedence rules to drift. See
+					// profileScopeAppliesTo.
+					switch {
+					case scopeFromParams:
+						// The caller named a level for these credentials; the
+						// profile's is not consulted either way.
+					case invocationClientID != "" &&
+						!profileNamesTheInvocationClientID(p.ClientID, invocationClientID):
+						// The invocation's client ID names a different
+						// integration than the profile's, so the profile's
+						// level is not this credential's. A profile whose
+						// client-id is `env:JAMF_CLIENT_ID` names the same
+						// integration and keeps its level — the variable has to
+						// be set for the profile to resolve its own credential
+						// at all, so a rule reading only "was a client ID
+						// supplied?" dropped the scope of every profile using
+						// that documented shape.
+						// resolvedProfileName, not profileName: an empty -p
+						// resolves to default-profile inside GetProfile, and
+						// the note has to be able to name the profile whose
+						// level it passed over.
+						switch {
+						case p.EnvironmentID != "":
+							recordWithheldProfileScope(resolvedProfileName, "environment", p.EnvironmentID)
+						case p.TenantID != "":
+							recordWithheldProfileScope(resolvedProfileName, "tenant", p.TenantID)
+						}
+					default:
+						if p.EnvironmentID != "" {
+							eid = p.EnvironmentID
+						}
+						if tid == "" && p.TenantID != "" {
+							tid = p.TenantID
+						}
 					}
 				case "oauth2":
 					if cid == "" && p.ClientID != "" {
@@ -745,6 +817,11 @@ in the config file. It never runs in CI, when output is piped, or under
 				}
 			}
 
+			// A command that opts out for itself, wherever it sits in the tree.
+			if cmd.Annotations[noAuthAnnotation] == "true" {
+				return nil
+			}
+
 			// --scaffold just prints a JSON template — no auth needed.
 			if scaffold, _ := cmd.Flags().GetBool("scaffold"); scaffold {
 				return nil
@@ -879,7 +956,14 @@ in the config file. It never runs in CI, when output is piped, or under
 
 	// Global flags
 	cmd.PersistentFlags().StringVarP(&profile, "profile", "p", "", "config profile to use (or JAMF_PROFILE env)")
-	cmd.PersistentFlags().StringVarP(&outputFmt, "output", "o", "json", "output format: table, json, ndjson, csv, yaml, plain, xml (pretty), raw (classic commands default to xml)")
+	// Empty means "not resolved yet": PersistentPreRunE fills it from the flag,
+	// the profile's default-output or the TTY, and ResolveFormat ignores this
+	// value unless the flag was changed. So the only readers of the default are
+	// the paths that run BEFORE resolution — an Args refusal (cobra validates
+	// args first) and a flag error — and defaulting it to "json" made both
+	// render the machine envelope on stdout for a caller who never asked for
+	// JSON, while a refusal raised from RunE printed plain text on stderr.
+	cmd.PersistentFlags().StringVarP(&outputFmt, "output", "o", "", "output format: table, json, ndjson, csv, yaml, plain, xml (pretty), raw (classic commands default to xml)")
 	cmd.PersistentFlags().BoolVarP(&quiet, "quiet", "q", false, "suppress non-error output")
 	cmd.PersistentFlags().BoolVar(&noHints, "no-hints", false, "suppress advisory hints (e.g. large-result narrowing tips); keeps spinner and progress output (or JAMF_CLI_NO_HINTS env)")
 	cmd.PersistentFlags().CountVarP(&verboseLevel, "verbose", "v", "show HTTP requests/responses (-vv adds headers, -vvv adds bodies)")
@@ -953,10 +1037,18 @@ in the config file. It never runs in CI, when output is piped, or under
 	// instead of silently printing help and exiting 0.
 	guardUnknownSubcommands(cmd)
 
+	// cobra supplies no default Args validator, so a leaf that takes only flags
+	// accepts any positional and discards it. Refuse it instead.
+	guardStrayPositionals(cmd)
+
 	// A sibling walk rather than part of the one above, which returns early for
 	// every command that has an argument validator — a leaf has no subcommands.
-	// Both have to run after the last AddCommand, which is the only thing they
-	// share.
+	// It has to run last: the walk above installs a validator on every leaf that
+	// had none, and this one codes only the validators it finds, so reversing the
+	// two leaves every refusal the walk installs unwrapped. Both also have to run
+	// after the last AddCommand, having no way to reach a command added later.
+	// TestEveryLeafRefusesAnUndocumentedPositional holds the order, because
+	// nothing else can: an unwrapped refusal still exits 2 on its own.
 	classifyArgsErrors(cmd)
 
 	return cmd
@@ -1018,6 +1110,25 @@ type commandEntry struct {
 	// gateway's own errors and the specs use, so a script matching on them keeps
 	// a stable key.
 	GatewayPermissions []string `json:"gatewayPermissions,omitempty"`
+	// Scopes are the Jamf Platform API scope levels the published spec says a
+	// credential must be created at to run this command — some subset of
+	// "organization", "environment" and "tenant", widest first. A Platform API
+	// integration is created at exactly one level in Jamf Account and its
+	// credential only works with that level, so this is the one requirement a
+	// 403 cannot teach: the gateway's refusal names a permission and says
+	// nothing about the level.
+	//
+	// Platform-served commands only. A Pro or Classic command routed through
+	// the gateway carries none, because its scope is a property of the gateway
+	// route rather than of the endpoint, and the three Jamf Account specs
+	// declare no x-scope-types at all despite being organization-scoped —
+	// absent here means the spec is silent, not that any level works.
+	//
+	// What the spec claims, which is currently stricter than what the gateway
+	// serves: build v2082 moved six Platform specs to environment-only while a
+	// tenant credential still reaches at least platform-devices and
+	// platform-device-groups. Nothing refuses on it.
+	Scopes []string `json:"scopes,omitempty"`
 }
 
 // isFullDetailFormat reports whether an output format carries the full
@@ -1109,6 +1220,8 @@ func collectCommands(cmd *cobra.Command, prefix, product, group string) []comman
 
 				GatewayPrivileges:  gatewayPrivilegesOf(child),
 				GatewayPermissions: gatewayPermissionsOf(child),
+
+				Scopes: scopesOf(child),
 			}
 
 			// Collect aliases: for leaf commands under a top-level group
@@ -1208,6 +1321,12 @@ func commandEntriesToMaps(entries []commandEntry, full bool) []map[string]any {
 			// Jamf Account rendering without a second slug list to carry.
 			if len(e.GatewayPermissions) > 0 {
 				m["gatewayPermissions"] = e.GatewayPermissions
+			}
+			// Positive-only: a Pro or Classic command carries no declared level
+			// and the three Jamf Account specs declare none either, so an empty
+			// array on every row would read as "any level works".
+			if len(e.Scopes) > 0 {
+				m["scopes"] = e.Scopes
 			}
 		}
 		result[i] = m
@@ -1473,8 +1592,15 @@ func resolveSchoolClient(cfg *config.Config, cliCtx *registry.CLIContext) error 
 	csecret := os.Getenv("JAMF_CLIENT_SECRET")
 	tid := os.Getenv("JAMF_TENANT_ID")
 
-	// Fill from config profile
-	if p, _, err := config.GetProfile(cfg, profileName); err == nil {
+	// Reset per resolution, for the reason ResolveAuthForProfile and
+	// resolveScope do: this runs more than once in one process, and a stale
+	// record would put a sentence about the wrong profile on a later error.
+	resetPlatformScopeRecords()
+
+	// Fill from config profile. resolvedName rather than a discarded blank: an
+	// empty -p resolves to default-profile inside GetProfile, and the withheld
+	// note has to be able to name the profile whose level it passed over.
+	if p, resolvedName, err := config.GetProfile(cfg, profileName); err == nil {
 		if url == "" {
 			url = p.URL
 		}
@@ -1510,8 +1636,20 @@ func resolveSchoolClient(cfg *config.Config, cliCtx *registry.CLIContext) error 
 			}
 			csecret = resolved
 		}
+		// A profile's level belongs to the profile's own integration — the same
+		// rule ResolveAuthForProfile and resolveScope apply. This was the third
+		// copy of the ladder and the one that still spliced: a school profile
+		// carrying platform-url, keychain credentials and tenant-id, in a
+		// pipeline exporting JAMF_CLIENT_ID/JAMF_CLIENT_SECRET for a different
+		// integration, built the platform client from the environment's
+		// credentials and the profile's X-Tenant-Id, with nothing recorded for a
+		// note to explain it.
 		if tid == "" && p.TenantID != "" {
-			tid = p.TenantID
+			if profileScopeAppliesTo(resolvedName, p.ClientID) {
+				tid = p.TenantID
+			} else {
+				recordWithheldProfileScope(resolvedName, "tenant", p.TenantID)
+			}
 		}
 	}
 
@@ -1691,13 +1829,60 @@ func resolveSecurityClient(cfg *config.Config, cliCtx *registry.CLIContext) erro
 // is "json". Returns true if the error was handled, false otherwise (caller
 // should fall back to plain stderr).
 func FormatError(err error) bool {
-	return formatErrorTo(os.Stdout, err)
+	return formatErrorTo(os.Stdout, err, errorConfigDefault(), output.IsTerminal(os.Stdout.Fd()), outFile != "")
+}
+
+// errorFormat answers which format an error should be rendered in.
+//
+// resolved is outputFmt, empty until PersistentPreRunE fills it. Cobra
+// validates args and parses flags before that runs, so errors from those two
+// paths arrive unresolved, and this reproduces the answer PersistentPreRunE
+// would have given. Without it a piped run got the envelope for a RunE error
+// and plain text for an Args refusal: two answers to one question, which is
+// worse than either alone.
+//
+// Split out from formatErrorTo because the interesting inputs are whether
+// stdout is a terminal and what the profile pins, and a test writing to a pipe
+// can never be the first. Both arrive as arguments so this stays a pure
+// decision; errorConfigDefault supplies the second at the one real call site.
+func errorFormat(resolved, configDefault string, stdoutTTY, hasOutFile bool) string {
+	if resolved != "" {
+		return resolved
+	}
+	return output.ResolveFormat(false, "", configDefault, stdoutTTY, hasOutFile)
+}
+
+// errorConfigDefault reads the profile's default-output for an error that is
+// being rendered before PersistentPreRunE resolved one.
+//
+// It exists because skipping it gave a profile pinning `default-output: json`
+// two answers to one question on a terminal: an Args refusal printed plain text
+// while a RunE refusal, raised after resolution, printed the envelope. On main
+// both printed the envelope, so this PR introduced the divergence rather than
+// removing one — against the reasoning it is justified by.
+//
+// A failed load answers "", which falls back to the terminal decision. That is
+// the right failure: an unreadable config cannot be what the operator asked
+// for, and the process is already exiting.
+func errorConfigDefault() string {
+	cfg, err := config.Load()
+	if err != nil || cfg == nil {
+		return ""
+	}
+	return cfg.DefaultOutput
 }
 
 // formatErrorTo writes the JSON error envelope to w when output is "json",
 // including the remediation hint and any structured details when present.
-func formatErrorTo(w io.Writer, err error) bool {
-	if outputFmt != "json" {
+//
+// stdoutTTY and hasOutFile are parameters rather than read here, for the same
+// reason errorFormat takes them: a test writes to a pipe, so nothing that reads
+// the real terminal can exercise the branch where a human is watching.
+// Replacing the IsTerminal argument at the single call site with a literal
+// false — treating every invocation as piped — left every test in this package
+// and in cmd/jamf-cli passing.
+func formatErrorTo(w io.Writer, err error, configDefault string, stdoutTTY, hasOutFile bool) bool {
+	if errorFormat(outputFmt, configDefault, stdoutTTY, hasOutFile) != "json" {
 		return false
 	}
 	code := exitcode.CodeFrom(err)
@@ -1762,6 +1947,31 @@ func ClassifyError(err error) error {
 		}
 	}
 	return err
+}
+
+// declaredPositionals reads the positional contract a command states in its Use
+// string: how many placeholders it documents, and whether the last of them is
+// variadic. Cobra's own "[flags]" and "--" tokens are not positionals.
+//
+// The Use string is the only place that contract is written once, so both the
+// stray-positional guard and the test that holds every leaf to it read the
+// arity from here rather than each carrying its own idea of the shape.
+func declaredPositionals(use, name string) (count int, variadic bool) {
+	fields := strings.Fields(use)
+	if len(fields) > 0 && fields[0] == name {
+		fields = fields[1:]
+	}
+	for _, f := range fields {
+		switch f {
+		case "[flags]", "--", "[--]":
+			continue
+		}
+		count++
+		if strings.Contains(f, "...") {
+			variadic = true
+		}
+	}
+	return count, variadic
 }
 
 // Cobra's own format literals for an invocation that is wrong rather than a
@@ -1857,6 +2067,13 @@ func classifyArgsErrors(cmd *cobra.Command) {
 	}
 }
 
+// noAuthAnnotation marks a single command that calls no API, so PersistentPreRunE
+// skips auth for it. An annotation travels with the one command it is set on,
+// which a third name map could not: matching a name is what makes chainSkip a
+// silent auth bypass for any other command that happens to share it, and what
+// rootOnlySkip exists to contain.
+const noAuthAnnotation = "jamf:no-auth"
+
 // groupParentAnnotation marks a parent command that guardUnknownSubcommands made
 // runnable solely to reject unknown subcommands. PersistentPreRunE skips auth for
 // these — a group parent never calls an API itself.
@@ -1879,11 +2096,6 @@ func guardUnknownSubcommands(cmd *cobra.Command) {
 	if !cmd.HasParent() || !cmd.HasSubCommands() || cmd.Runnable() {
 		return
 	}
-	// SuggestionsFor reads this directly with no default; child commands leave
-	// it at 0, which would suppress all but exact matches.
-	if cmd.SuggestionsMinimumDistance <= 0 {
-		cmd.SuggestionsMinimumDistance = 2
-	}
 	if cmd.Annotations == nil {
 		cmd.Annotations = map[string]string{}
 	}
@@ -1892,12 +2104,317 @@ func guardUnknownSubcommands(cmd *cobra.Command) {
 		if len(args) == 0 {
 			return c.Help() // bare parent (e.g. `pro buildings`) shows help
 		}
-		msg := fmt.Sprintf("unknown command %q for %q", args[0], c.CommandPath())
-		if s := c.SuggestionsFor(args[0]); len(s) > 0 {
-			msg += "\n\nDid you mean this?\n\t" + strings.Join(s, "\n\t")
-		}
-		return exitcode.Wrap(exitcode.Usage, errors.New(msg))
+		return unknownSubcommandError(c, args[0])
 	}
+}
+
+// guardStrayPositionals makes every leaf command that documents no positional
+// argument refuse one. Cobra validates Args per command and has no default, so
+// such a leaf accepted any positional and threw it away: `pro backup /tmp/out`
+// ran a whole backup and ignored the directory, which --output takes.
+//
+// The Use string decides, because it is where each command already states its
+// positional contract. A leaf that documents a placeholder keeps whatever
+// validator it declares, and TestEveryLeafRefusesAnUndocumentedPositional fails
+// when it declares none.
+//
+// It walks what is registered at construction time. Cobra's own default help
+// command is added later, inside ExecuteC, so `help` keeps its stock validator
+// and still discards a stray positional. That is left alone: it prints text and
+// makes no request, and its real arity is a whole command path rather than the
+// single `[command]` its Use suggests.
+func guardStrayPositionals(cmd *cobra.Command) {
+	for _, c := range cmd.Commands() {
+		guardStrayPositionals(c)
+	}
+	// A parent belongs to guardUnknownSubcommands instead, whose RunE reads the
+	// argument to name it in the "did you mean" hint; an Args validator would
+	// refuse the call before that hint is built.
+	if !cmd.Runnable() || cmd.HasSubCommands() {
+		return
+	}
+	count, _ := declaredPositionals(cmd.Use, cmd.Name())
+	if count > 0 {
+		return
+	}
+	// A leaf that declares refuseStrayPositionals by hand keeps it, and still
+	// needs the completion half below, so the two are decided separately.
+	if cmd.Args == nil {
+		cmd.Args = refuseStrayPositionals
+	}
+	// Cobra derives no completion from Args, so the leaf would still offer
+	// filenames for the positional it refuses.
+	if cmd.ValidArgsFunction == nil && len(cmd.ValidArgs) == 0 {
+		cmd.ValidArgsFunction = cobra.NoFileCompletions
+	}
+}
+
+// secretFlagSegments are the hyphen-delimited flag-name segments that mark a
+// string flag as carrying a credential.
+//
+// Segments rather than substrings: "mapping" contains "pin", and "keychain"
+// contains "key", so a substring test redacts the value of several flags that
+// carry no secret. A segment test reads new-password, unlock-token, pin,
+// client-secret and api-key while leaving those alone.
+var secretFlagSegments = map[string]bool{
+	"password": true, "passcode": true, "pin": true,
+	"token": true, "secret": true, "key": true,
+}
+
+// carriesASecretFlag reports whether cmd registers a string flag whose name
+// names a credential. A stray positional on such a command is most likely that
+// credential typed without its flag name.
+//
+// A "-file" suffix is excluded: --token-file and --password-file take a path,
+// and a path is worth reporting back so the caller can see the typo.
+// secretShapedAssignment reports whether a stray positional is itself a
+// key=value pair whose key names a credential — the shape a dropped --set
+// leaves behind.
+//
+// carriesASecretFlag cannot see this one. --set is a stringArray, not a string,
+// and its NAME carries no secret word while its value can: `--set` is
+// repeatable, so omitting it before the second pair drops that pair to a
+// positional. CLAUDE.md names `--set deviceSyncAuth.clientSecret=…` as a real
+// invocation it discourages because the value reaches shell history and ps;
+// echoing it here adds the third vector that paragraph names, the CI log.
+//
+// A body key is camelCase where a flag name is hyphenated, so a separator is
+// inserted at each lower-to-upper transition and the one segment set reads
+// both. Keyed on the value rather than on "does this leaf take --set", because
+// the coarse form would hide an ordinary typo on several hundred leaves.
+func secretShapedAssignment(v string) bool {
+	key, _, ok := strings.Cut(v, "=")
+	if !ok {
+		return false
+	}
+	// Split the key on camelCase boundaries as well as separators, then match a
+	// segment exactly; fall back to a suffix for a key with no boundary at all.
+	//
+	// Two boundaries, and the second is what a naive rule misses. A separator
+	// before EVERY uppercase rune shredded a run of capitals into single
+	// letters, so TOKEN= normalised to "-t-o-k-e-n" and matched nothing while
+	// the doc comment claimed a transition rule. Inserting one only at
+	// lower-to-upper then misses the other end of a run: SECRETValue keeps V
+	// attached to SECRET, because V follows an uppercase T.
+	for _, seg := range splitIdentifier(key) {
+		if secretFlagSegments[seg] {
+			return true
+		}
+	}
+	// A key with no boundary and no separator — apikey, clientsecret,
+	// authtoken — is one opaque segment the exact match cannot reach.
+	//
+	// Matched as a SUFFIX rather than anywhere in the segment, because a field
+	// that holds a credential names it last: clientSecret, apiKey, authToken.
+	// A plain substring test caught "pin" inside "mapping" and "key" starting
+	// "keychain", so `--set deviceFieldMappings.userEmailMapping=x` would have
+	// redacted a value that is no secret. Over-redaction is the right bias on
+	// the value side — a false negative prints a credential — but it is not a
+	// reason to stop distinguishing.
+	for _, seg := range splitIdentifier(key) {
+		for word := range secretFlagSegments {
+			if strings.HasSuffix(seg, word) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// splitIdentifier lowercases key and splits it into words, on "." "-" "_" and
+// on camelCase boundaries.
+//
+// A boundary sits before an uppercase rune when the previous rune is lowercase
+// or a digit (clientSecret -> client, secret), and also when the previous rune
+// is uppercase and the NEXT is lowercase (SECRETValue -> secret, value). The
+// second case is what carries an env-style prefix with a camel tail; without
+// it, a run of capitals swallows the word that follows it.
+func splitIdentifier(key string) []string {
+	runes := []rune(key)
+	var b strings.Builder
+	for i, r := range runes {
+		if unicode.IsUpper(r) && i > 0 {
+			prev := runes[i-1]
+			nextLower := i+1 < len(runes) && unicode.IsLower(runes[i+1])
+			if !unicode.IsUpper(prev) || nextLower {
+				b.WriteByte('-')
+			}
+		}
+		b.WriteRune(unicode.ToLower(r))
+	}
+	return strings.FieldsFunc(b.String(), func(r rune) bool {
+		return r == '.' || r == '-' || r == '_'
+	})
+}
+
+// setPairSplitByASpace reports whether a stray positional on cmd is most likely
+// the value half of a --set pair typed with a space instead of an "=".
+//
+// It asks the FLAG SET, not the value. `--set <key> <value>` has cobra take the
+// key as the flag's one element and drop the value to args[0], so what
+// identifies the invocation is that a supplied --set element itself carries no
+// "=" — nothing about the value. Keying on the value failed in both directions
+// at once: an early return on any "=" in it echoed a credential whose value
+// contains one, which is routine for an Intune or Azure application secret
+// (base64 padding, or the character itself), and
+// `--set deviceSyncAuth.clientSecret 'dGVzdHNlY3JldA=='` printed it verbatim;
+// while `--set vendor=JAMF_PRO body.json` redacted an ordinary filename,
+// because supplying --set is exactly what a caller building a body does. So the
+// narrowing this comment used to claim did not hold where it was claimed.
+//
+// Every --set in the tree is a StringArrayVar with a nil default — 231 sites,
+// checked — so one accessor reaches all of them. The Changed gate is redundant
+// against that default, since an unsupplied flag yields an empty slice and the
+// loop below returns false either way; it is kept because a future non-nil
+// default would otherwise read as a supplied pair, and
+// TestSetPairSplitIgnoresAnUnsuppliedDefault pins that.
+func setPairSplitByASpace(cmd *cobra.Command) bool {
+	f := cmd.Flags().Lookup("set")
+	if f == nil || !f.Changed {
+		return false
+	}
+	pairs, err := cmd.Flags().GetStringArray("set")
+	if err != nil {
+		return false
+	}
+	for _, pair := range pairs {
+		if !strings.Contains(pair, "=") {
+			return true
+		}
+	}
+	return false
+}
+
+func carriesASecretFlag(cmd *cobra.Command) bool {
+	found := false
+	cmd.Flags().VisitAll(func(f *pflag.Flag) {
+		if found || f.Value.Type() != "string" || strings.HasSuffix(f.Name, "-file") {
+			return
+		}
+		for _, seg := range strings.Split(f.Name, "-") {
+			if secretFlagSegments[seg] {
+				found = true
+				return
+			}
+		}
+	})
+	return found
+}
+
+// refuseStrayPositionals reports a positional given to a command that documents
+// none, and carries its own exit code.
+//
+// cobra.NoArgs is the obvious choice and says `unknown command "x" for "y"`,
+// which is guardUnknownSubcommands' message for a parent. On a leaf there is no
+// subcommand the value could have named, so that wording sends the reader
+// hunting for one: `pro backup /tmp/out` reported an unknown command for a
+// directory --output takes, and named neither the flag nor the real mistake.
+//
+// It builds an *exitcode.Error rather than a plain error because that is what
+// carries the Hint, and the hint is the half of the answer that says where the
+// value belongs. The exit code is not the reason: classifyArgsErrors codes every
+// argument error at cobra's own call site, so a plain error from here would
+// still exit 2. The two are independent on purpose, and neither substitutes for
+// the other.
+//
+// The value is redacted when the command registers a secret-bearing string
+// flag, because on those the stray positional IS the secret: omitting
+// --new-password while supplying its value leaves the password as args[0], and
+// this message reaches stdout as JSON whenever output is piped, which is the CI
+// case. `pro comp set-recovery-lock --serial X --yes 'S3cur3P@ss'` printed the
+// password verbatim into the job log. CLAUDE.md's credential policy names that
+// exposure — shell history, ps output and CI logs — as the thing it exists to
+// prevent.
+//
+// Refusing is still the right answer rather than a regression: the same typo on
+// main ran the command with an EMPTY password, and an empty --new-password
+// clears the device's existing Recovery Lock. Only the echo was wrong.
+func refuseStrayPositionals(cmd *cobra.Command, args []string) error {
+	if len(args) == 0 {
+		return nil
+	}
+	value := args[0]
+	if carriesASecretFlag(cmd) || secretShapedAssignment(value) || setPairSplitByASpace(cmd) {
+		value = "<redacted>"
+	}
+	return &exitcode.Error{
+		Code:    exitcode.Usage,
+		Message: fmt.Sprintf("%q takes no positional arguments, but got %q", cmd.CommandPath(), value),
+		Hint:    fmt.Sprintf("run %s --help for the flags it accepts", cmd.CommandPath()),
+	}
+}
+
+// refuseStrayArgs rejects any positional argument with the same message builder
+// and usage exit code guardUnknownSubcommands gives a group parent. It covers
+// the case that guard cannot: a command that is already runnable, which cobra
+// routes straight to RunE with the stray positional silently discarded. `pro
+// backup` and `pro diff` both take their whole input as flags, and `pro backup`
+// owns a subcommand, so a subcommand typo there would otherwise start a full
+// backup.
+//
+// A runnable command must NOT be given groupParentAnnotation instead:
+// PersistentPreRunE reads that annotation to skip auth, so annotating one that
+// calls an API would run it with a nil client.
+func refuseStrayArgs(cmd *cobra.Command, args []string) error {
+	if len(args) == 0 {
+		return nil
+	}
+	return unknownSubcommandError(cmd, args[0])
+}
+
+// unknownSubcommandError reports arg as an unresolvable positional of cmd, in
+// the exit code cobra's own root-level handling uses.
+//
+// The wording follows whether cmd owns subcommands, because "unknown command"
+// is only true when there was a command to get wrong. `pro diff` owns none and
+// takes its whole input as flags, so reporting a stray positional as an unknown
+// command read as though diff were a command group, when the mistake is almost
+// always a missing --source or --target.
+//
+// Either wording then names any required flag that was not supplied, and
+// carries a hint saying where to find the flags — #360's tree-wide guard holds
+// every zero-arity leaf to that, and two wordings for one mistake is what it
+// exists to prevent.
+func unknownSubcommandError(cmd *cobra.Command, arg string) error {
+	var msg, hint, suggestions string
+	if cmd.HasSubCommands() {
+		// SuggestionsFor reads this directly with no default, and a child
+		// command leaves it at 0, which suppresses all but exact matches.
+		// Cobra's own findSuggestions defaults it the same way at the same
+		// point.
+		if cmd.SuggestionsMinimumDistance <= 0 {
+			cmd.SuggestionsMinimumDistance = 2
+		}
+		msg = fmt.Sprintf("unknown command %q for %q", arg, cmd.CommandPath())
+		hint = fmt.Sprintf("run %s --help to list its subcommands", cmd.CommandPath())
+		if s := cmd.SuggestionsFor(arg); len(s) > 0 {
+			suggestions = "\n\nDid you mean this?\n\t" + strings.Join(s, "\n\t")
+		}
+	} else {
+		msg = fmt.Sprintf("%q takes no positional arguments, but got %q", cmd.CommandPath(), arg)
+		hint = fmt.Sprintf("run %s --help for the flags it accepts", cmd.CommandPath())
+	}
+	// Cobra runs ValidateArgs before ValidateRequiredFlags, so this refusal
+	// pre-empts the required-flag error and would otherwise be the last word.
+	// Its own exported validator states the missing set, in the wording the CLI
+	// already prints for a missing required flag everywhere else — so `pro diff
+	// staging production` names --source and --target again. Re-deriving the
+	// rule here meant copying cobra's completion-annotation marker, which is
+	// internal in spirit and would name nothing if cobra ever changed it.
+	//
+	// Only when no suggestion was produced. A suggestion means the positional
+	// was meant to be a subcommand, so the parent's required flags are not what
+	// the operator is missing — and naming one is actively wrong here:
+	// `pro backup list-resourcez` recommended --output one line above the
+	// suggestion for `list-resources`, the single subcommand where --output is
+	// the inherited root FORMAT flag rather than a destination directory.
+	// Following that literally writes no file and prints a table.
+	if suggestions == "" {
+		if err := cmd.ValidateRequiredFlags(); err != nil {
+			msg += " (" + err.Error() + ")"
+		}
+	}
+	return &exitcode.Error{Code: exitcode.Usage, Message: msg + suggestions, Hint: hint}
 }
 
 // suggestFlag returns the closest known flag name to unknown, or "" when none

@@ -210,8 +210,8 @@ func newSelfServiceSettingsHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:   "history",
 		Short: "Get a page of Self Service settings history",
 		Long:  "Get a page of Self Service settings history",
-		Example: `  # Get history for a self-service-settings
-  jamf-cli pro self-service-settings history 1`,
+		Example: `  # Get history for the self-service-settings
+  jamf-cli pro self-service-settings history`,
 		Annotations: map[string]string{"jamf:privileges": "Read Self Service", "jamf:api": "pro", "jamf:gateway-privileges": "self-service:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

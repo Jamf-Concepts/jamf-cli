@@ -44,7 +44,7 @@ func newBlueprintsListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Use:         "list",
 		Short:       "List blueprints",
 		Long:        "Get list of blueprints",
-		Annotations: map[string]string{"jamf:privileges": "blueprints:read", "jamf:api": "platform-gateway"},
+		Annotations: map[string]string{"jamf:privileges": "blueprints:read", "jamf:api": "platform-gateway", "jamf:scopes": "environment"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err
@@ -116,7 +116,7 @@ func newBlueprintsCreateCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Use:         "create",
 		Short:       "Create a new blueprint",
 		Long:        "Create a new blueprint",
-		Annotations: map[string]string{"jamf:privileges": "blueprints:create", "jamf:api": "platform-gateway"},
+		Annotations: map[string]string{"jamf:privileges": "blueprints:create", "jamf:api": "platform-gateway", "jamf:scopes": "environment"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if scaffoldFlag {
 				// Scaffold prints raw JSON regardless of -o, so the output
@@ -182,7 +182,7 @@ func newBlueprintsDeleteCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Use:         "delete <blueprintId>",
 		Short:       "Delete a blueprint",
 		Long:        "Delete a blueprint",
-		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "blueprints:delete", "jamf:api": "platform-gateway"},
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "blueprints:delete", "jamf:api": "platform-gateway", "jamf:scopes": "environment"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
@@ -247,7 +247,7 @@ func newBlueprintsGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Use:         "get <blueprintId>",
 		Short:       "Get a blueprint",
 		Long:        "Get a blueprint",
-		Annotations: map[string]string{"jamf:privileges": "blueprints:read", "jamf:api": "platform-gateway"},
+		Annotations: map[string]string{"jamf:privileges": "blueprints:read", "jamf:api": "platform-gateway", "jamf:scopes": "environment"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
@@ -300,7 +300,7 @@ func newBlueprintsPatchCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Use:         "patch <blueprintId>",
 		Short:       "Updates a blueprint configuration",
 		Long:        "Updates a blueprint configuration.",
-		Annotations: map[string]string{"jamf:privileges": "blueprints:update", "jamf:api": "platform-gateway"},
+		Annotations: map[string]string{"jamf:privileges": "blueprints:update", "jamf:api": "platform-gateway", "jamf:scopes": "environment"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if scaffoldFlag {
@@ -373,7 +373,7 @@ func newBlueprintsDeployCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Use:         "deploy <blueprintId>",
 		Short:       "Deploy blueprint",
 		Long:        "Deploy blueprint",
-		Annotations: map[string]string{"jamf:privileges": "blueprints:deploy", "jamf:api": "platform-gateway"},
+		Annotations: map[string]string{"jamf:privileges": "blueprints:deploy", "jamf:api": "platform-gateway", "jamf:scopes": "environment"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
@@ -434,7 +434,7 @@ func newBlueprintsReportCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Use:         "report <blueprintId>",
 		Short:       "Get blueprint status report",
 		Long:        "Retrieve deployment status report for a specified blueprint.",
-		Annotations: map[string]string{"jamf:privileges": "blueprints:read", "jamf:api": "platform-gateway"},
+		Annotations: map[string]string{"jamf:privileges": "blueprints:read", "jamf:api": "platform-gateway", "jamf:scopes": "environment"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
@@ -484,7 +484,7 @@ func newBlueprintsUndeployCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Use:         "undeploy <blueprintId>",
 		Short:       "Undeploy blueprint",
 		Long:        "Undeploy blueprint",
-		Annotations: map[string]string{"jamf:privileges": "blueprints:deploy", "jamf:api": "platform-gateway"},
+		Annotations: map[string]string{"jamf:privileges": "blueprints:deploy", "jamf:api": "platform-gateway", "jamf:scopes": "environment"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {

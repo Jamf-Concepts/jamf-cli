@@ -211,8 +211,8 @@ func newParentAppHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:   "history",
 		Short: "Get Jamf Parent app settings history",
 		Long:  "Gets Jamf Parent app settings history",
-		Example: `  # Get history for a parent-app
-  jamf-cli pro parent-app history 1`,
+		Example: `  # Get history for the parent-app
+  jamf-cli pro parent-app history`,
 		Annotations: map[string]string{"jamf:privileges": "Read Parent App Settings", "jamf:api": "pro", "jamf:gateway-privileges": "parent-app:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

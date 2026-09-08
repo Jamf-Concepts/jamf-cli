@@ -36,7 +36,7 @@ Covers authentication, exit codes, output and agent flags, destructive-command
 rules, and MCP usage. Output is plain markdown regardless of -o. For the live
 command list run 'jamf-cli commands -o json'; for a command's flags run
 '<command> --help'.`,
-		Args: cobra.NoArgs,
+		Args: refuseStrayPositionals,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			_, err := fmt.Fprintln(cmd.OutOrStdout(), agentContextGuide)
 			return err

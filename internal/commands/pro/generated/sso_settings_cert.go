@@ -210,11 +210,11 @@ func newSsoSettingsCertDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:   "delete",
 		Short: "Delete the currently configured certificate used by SSO",
 		Long:  "Deletes the currently configured certificate used by SSO.",
-		Example: `  # Delete a sso-settings-cert (with confirmation)
-  jamf-cli pro sso-settings-cert delete 1
+		Example: `  # Delete the sso-settings-cert (with confirmation)
+  jamf-cli pro sso-settings-cert delete
 
   # Delete without confirmation prompt
-  jamf-cli pro sso-settings-cert delete 1 --yes`,
+  jamf-cli pro sso-settings-cert delete --yes`,
 		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Update SSO Settings", "jamf:api": "pro", "jamf:gateway-privileges": "sso-settings:update"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

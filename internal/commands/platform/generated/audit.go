@@ -46,7 +46,7 @@ func newAuditListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Use:         "list",
 		Short:       "Filter audit events",
 		Long:        "Returns audit events matching the supplied filters, newest-first, with pagination. At least one filter (`actor`, `audit-source`, `audit-type`, or `resource-id`) is required.",
-		Annotations: map[string]string{"jamf:privileges": "audit:read", "jamf:api": "platform-gateway"},
+		Annotations: map[string]string{"jamf:privileges": "audit:read", "jamf:api": "platform-gateway", "jamf:scopes": "environment"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err
@@ -130,7 +130,7 @@ func newAuditLineageCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Use:         "lineage <resourceId>",
 		Short:       "Get resource lineage",
 		Long:        "Returns complete transactions that touched a resource. Each transaction includes all its events, not just those matching the resource — providing full context for what triggered each change.",
-		Annotations: map[string]string{"jamf:privileges": "audit:read", "jamf:api": "platform-gateway"},
+		Annotations: map[string]string{"jamf:privileges": "audit:read", "jamf:api": "platform-gateway", "jamf:scopes": "environment"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
@@ -186,7 +186,7 @@ func newAuditSourcesCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Use:         "sources",
 		Short:       "Discover audit sources",
 		Long:        "Returns the audit sources available in your environment and the event types each has emitted. Use this to populate filter options for the filter endpoint.",
-		Annotations: map[string]string{"jamf:privileges": "audit:read", "jamf:api": "platform-gateway"},
+		Annotations: map[string]string{"jamf:privileges": "audit:read", "jamf:api": "platform-gateway", "jamf:scopes": "environment"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err
@@ -223,7 +223,7 @@ func newAuditTransactionCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Use:         "transaction <txId>",
 		Short:       "Get transaction timeline",
 		Long:        "Returns all audit events for a transaction, ordered by time. A transaction links a gateway request to all downstream service events it triggered.",
-		Annotations: map[string]string{"jamf:privileges": "audit:read", "jamf:api": "platform-gateway"},
+		Annotations: map[string]string{"jamf:privileges": "audit:read", "jamf:api": "platform-gateway", "jamf:scopes": "environment"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {

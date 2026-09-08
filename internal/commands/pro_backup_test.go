@@ -692,3 +692,255 @@ func TestUnwrapClassicDetail(t *testing.T) {
 		t.Errorf("multi-key map should pass through, got %v", result2)
 	}
 }
+
+// TestNoAuthAnnotation_ListResourcesSkipsAuth covers both halves of the
+// annotation skip. `backup list-resources` reads two in-process tables and must
+// run with no credentials at all; its sibling `backup` carries no annotation and
+// must still resolve auth, because a skip that leaks onto a sibling is invisible
+// — the command runs with no client and fails later with a message that sends
+// the operator to fix credentials that were never the problem.
+func TestNoAuthAnnotation_ListResourcesSkipsAuth(t *testing.T) {
+	t.Run("list-resources runs with no credentials", func(t *testing.T) {
+		resetGlobals()
+		t.Setenv("JAMF_URL", "")
+		t.Setenv("JAMF_TOKEN", "")
+		t.Setenv("JAMF_CLIENT_ID", "")
+		t.Setenv("JAMF_CLIENT_SECRET", "")
+		t.Setenv("JAMF_PROFILE", "")
+		t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+
+		root := NewRootCmd("test", "abc123", "2024-01-01", "unknown")
+		root.SetArgs([]string{"pro", "backup", "list-resources"})
+		root.SetOut(io.Discard)
+		root.SetErr(io.Discard)
+
+		if err := root.Execute(); err != nil {
+			t.Errorf("pro backup list-resources with no credentials: %v", err)
+		}
+	})
+
+	t.Run("backup itself still resolves auth", func(t *testing.T) {
+		resetGlobals()
+		t.Setenv("JAMF_URL", "https://test.jamfcloud.com")
+		t.Setenv("JAMF_TOKEN", "")
+		t.Setenv("JAMF_CLIENT_ID", "")
+		t.Setenv("JAMF_CLIENT_SECRET", "")
+		t.Setenv("JAMF_PROFILE", "")
+		t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+
+		root := NewRootCmd("test", "abc123", "2024-01-01", "unknown")
+		root.SetArgs([]string{"pro", "backup", "--output", t.TempDir()})
+		root.SetOut(io.Discard)
+		root.SetErr(io.Discard)
+
+		err := root.Execute()
+		if err == nil {
+			t.Fatal("expected an auth error — the sibling skipped auth resolution")
+		}
+		if !strings.Contains(err.Error(), "authentication required") {
+			t.Errorf("error = %q, want the auth-resolution error; any other message "+
+				"here means auth was skipped and the command failed later", err.Error())
+		}
+	})
+}
+
+// TestBackupListResources_HonoursOutFile pins that list-resources prints
+// through the shared formatter. It used to build its own with output.New, which
+// writes to os.Stdout and applies none of the global flags PersistentPreRunE
+// has already wired onto cliCtx.Output. --out-file created an empty file while
+// the listing went to stdout, and --select, --field and --compact did nothing.
+func TestBackupListResources_HonoursOutFile(t *testing.T) {
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	path := filepath.Join(t.TempDir(), "tokens.json")
+
+	root := NewRootCmd("test", "none", "none", "none")
+	root.SetArgs([]string{"pro", "backup", "list-resources", "-o", "json", "--out-file", path})
+	root.SetOut(io.Discard)
+	root.SetErr(io.Discard)
+
+	var err error
+	stdout := captureStdout(t, func() { err = root.Execute() })
+	if err != nil {
+		t.Fatalf("pro backup list-resources: %v", err)
+	}
+	if strings.TrimSpace(stdout) != "" {
+		t.Errorf("--out-file was given, so stdout must be empty, got %d bytes: %q", len(stdout), stdout)
+	}
+
+	data, readErr := os.ReadFile(path)
+	if readErr != nil {
+		t.Fatalf("reading --out-file target: %v", readErr)
+	}
+	if len(data) == 0 {
+		t.Fatal("--out-file target is empty: the listing went somewhere else")
+	}
+
+	var rows []map[string]any
+	if err := json.Unmarshal(data, &rows); err != nil {
+		t.Fatalf("--out-file target is not the JSON listing: %v", err)
+	}
+	if len(rows) != len(BackupFilterNames()) {
+		t.Errorf("--out-file target holds %d rows, want %d", len(rows), len(BackupFilterNames()))
+	}
+	if _, ok := rows[0]["objects"]; !ok {
+		t.Error("json output must keep the objects key for anything parsing it")
+	}
+}
+
+// TestBackupListResources_HonoursSelect covers the same regression through the
+// projector, which output.New leaves unset.
+func TestBackupListResources_HonoursSelect(t *testing.T) {
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+
+	root := NewRootCmd("test", "none", "none", "none")
+	root.SetArgs([]string{"pro", "backup", "list-resources", "-o", "json", "--select", "resource"})
+	root.SetOut(io.Discard)
+	root.SetErr(io.Discard)
+
+	var err error
+	stdout := captureStdout(t, func() { err = root.Execute() })
+	if err != nil {
+		t.Fatalf("pro backup list-resources: %v", err)
+	}
+
+	var rows []map[string]any
+	if err := json.Unmarshal([]byte(stdout), &rows); err != nil {
+		t.Fatalf("output is not JSON rows: %v (got %q)", err, stdout)
+	}
+	if len(rows) == 0 {
+		t.Fatal("no rows returned")
+	}
+	for i, r := range rows {
+		if len(r) != 1 {
+			t.Fatalf("row %d has %d keys, want 1 after --select resource: %v", i, len(r), r)
+		}
+		if _, ok := r["resource"]; !ok {
+			t.Fatalf("row %d does not carry the selected key: %v", i, r)
+		}
+	}
+}
+
+// TestBackupListResources_TableLeadsWithTheToken renders the real table and
+// pins the two facts the narrowed row shape exists for: resource is the first
+// column, and objects is not a column at all. sortedKeys floats only id and
+// name, so the rest are alphabetical and objects would otherwise lead.
+func TestBackupListResources_TableLeadsWithTheToken(t *testing.T) {
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+
+	root := NewRootCmd("test", "none", "none", "none")
+	root.SetArgs([]string{"pro", "backup", "list-resources", "-o", "table", "--no-color"})
+	root.SetOut(io.Discard)
+	root.SetErr(io.Discard)
+
+	var err error
+	stdout := captureStdout(t, func() { err = root.Execute() })
+	if err != nil {
+		t.Fatalf("pro backup list-resources: %v", err)
+	}
+
+	// The row-count banner precedes the column header, so find the header
+	// rather than assuming it is the first line.
+	header := ""
+	for _, line := range strings.Split(stdout, "\n") {
+		if strings.Contains(strings.ToLower(line), "resource") {
+			header = strings.ToLower(line)
+			break
+		}
+	}
+	if header == "" {
+		t.Fatalf("no column header naming resource in table output: %q", stdout)
+	}
+	if fields := strings.Fields(header); fields[0] != "resource" {
+		t.Errorf("table columns = %v, want resource first", fields)
+	}
+	if strings.Contains(header, "objects") {
+		t.Errorf("table must not carry the objects column, header = %q", header)
+	}
+}
+
+// TestBackup_AdvancedComputerSearchDropsExecutedResults covers the reason
+// BackupResource.DropKeys exists. A Classic advanced-search GET *runs* the
+// search: `GET /JSSResource/advancedcomputersearches/id/{id}` returns the
+// definition and the computers it currently matches, declared in
+// specs/classic/schemas.json as advanced_computer_search.computers[] with
+// {id, name, udid, Computer_Name}. It is the only curated Classic backup
+// resource whose response embeds device membership.
+//
+// Three things go wrong if it is kept, and the first is why this asserts
+// --include-ids too. StripServerFields drops ids and timestamps generically and
+// is skipped under --include-ids, so it can never do this job. `pro diff` then
+// reports `field: computers` modified for a search whose configuration is
+// identical, on every cross-instance run, because two instances never share
+// device membership. And a directory meant for version control carries device
+// names and UDIDs, which no other resource in the default set contributes.
+func TestBackup_AdvancedComputerSearchDropsExecutedResults(t *testing.T) {
+	const listXML = `<?xml version="1.0" encoding="UTF-8"?>
+<advanced_computer_searches>
+  <advanced_computer_search><id>1</id><name>All Macs</name></advanced_computer_search>
+</advanced_computer_searches>`
+	// The shape the server really answers: config plus executed membership.
+	const detailXML = `<?xml version="1.0" encoding="UTF-8"?>
+<advanced_computer_search>
+  <id>1</id>
+  <name>All Macs</name>
+  <view_as>Standard Web Page</view_as>
+  <criteria><criterion><name>Operating System</name><priority>0</priority></criterion></criteria>
+  <computers>
+    <computer><id>3</id><name>Joes iMac</name><udid>55900BDC-347C-58B1-D249-F32244B11D30</udid><Computer_Name>Joes iMac</Computer_Name></computer>
+  </computers>
+</advanced_computer_search>`
+
+	for _, tc := range []struct {
+		name       string
+		includeIDs bool
+	}{
+		{"default", false},
+		{"include-ids", true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			mock := &backupMockClient{responses: map[string]overviewMockResponse{
+				"/JSSResource/advancedcomputersearches":      {200, listXML},
+				"/JSSResource/advancedcomputersearches/id/1": {200, detailXML},
+				"/v1/advanced-mobile-device-searches":        {200, `{"totalCount":0,"results":[]}`},
+			}}
+
+			oldURL := serverURL
+			serverURL = "https://test.jamfcloud.com"
+			defer func() { serverURL = oldURL }()
+
+			outDir := t.TempDir()
+			if err := runBackup(context.Background(), &registry.CLIContext{Client: mock}, backupOptions{
+				OutputDir:   outDir,
+				Format:      "yaml",
+				Resources:   "advanced-searches",
+				IncludeIDs:  tc.includeIDs,
+				Concurrency: 2,
+			}); err != nil {
+				t.Fatalf("runBackup: %v", err)
+			}
+
+			// SlugifyName rather than a literal, so the filename convention
+			// changing does not read as this rule failing.
+			path := filepath.Join(outDir, "advanced-searches", "computers", SlugifyName("All Macs")+".yaml")
+			raw, err := os.ReadFile(path)
+			if err != nil {
+				t.Fatalf("reading %s: %v", path, err)
+			}
+			body := string(raw)
+
+			// The membership and everything it carries must be gone.
+			for _, leaked := range []string{"computers:", "Joes iMac", "55900BDC-347C-58B1-D249-F32244B11D30"} {
+				if strings.Contains(body, leaked) {
+					t.Errorf("exported search still carries %q, so device data reaches a version-controlled backup:\n%s", leaked, body)
+				}
+			}
+			// The configuration must survive: a drop that took the whole
+			// object would satisfy the assertions above.
+			for _, want := range []string{"name:", "criteria:", "view_as:"} {
+				if !strings.Contains(body, want) {
+					t.Errorf("exported search lost its configuration key %q:\n%s", want, body)
+				}
+			}
+		})
+	}
+}

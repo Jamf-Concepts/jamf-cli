@@ -3,11 +3,15 @@
 package main
 
 import (
+	"fmt"
 	"io"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"runtime/debug"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/exitcode"
@@ -248,5 +252,137 @@ func TestRunAppliesJAMFCLIArgs(t *testing.T) {
 	// argument arrived at all; without it `version` succeeds.
 	if got := run([]string{"jamf-cli", "version"}, "--nosuchflag"); got != exitcode.Usage {
 		t.Errorf("run(version) with JAMF_CLI_ARGS=--nosuchflag = %d, want %d", got, exitcode.Usage)
+	}
+}
+
+// captureOutput is silenceOutput's sibling: it points os.Stdout and os.Stderr
+// at a pipe and returns what was written, so a test can assert how run
+// PRESENTED an error rather than only what error Execute returned. That
+// distinction is the point — every existing test here inspects the exit code
+// or the error value, and the rendering is a separate decision made after both.
+func captureOutput(t *testing.T, fn func()) string {
+	t.Helper()
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("os.Pipe: %v", err)
+	}
+	origOut, origErr := os.Stdout, os.Stderr
+	os.Stdout, os.Stderr = w, w
+
+	done := make(chan string, 1)
+	go func() {
+		var sb strings.Builder
+		_, _ = io.Copy(&sb, r)
+		done <- sb.String()
+	}()
+
+	fn()
+
+	os.Stdout, os.Stderr = origOut, origErr
+	_ = w.Close()
+	out := <-done
+	_ = r.Close()
+	return out
+}
+
+// TestRunAnnotatesAScopeLevelError covers the second step of the sequence main
+// runs, for the reason TestRunClassifiesTheExitCode covers the third: the
+// internal/commands tests call AnnotateScopeLevelError themselves, which
+// verifies the function and re-creates the wiring around it — so deleting the
+// call from run left the whole suite green with the feature silently not
+// firing, exactly as deleting the ClassifyError call had.
+//
+// The stub is a whole gateway rather than a fake error, because the note is
+// only reachable through the real resolution: the credential's level has to be
+// recorded by newPlatformSDKClient and the command's declared level read off
+// the annotation the platform generator stamped. `pro blueprints list` is the
+// pairing — its API declares environment scope, and the tenant ID below is a
+// level it does not declare.
+func TestRunAnnotatesAScopeLevelError(t *testing.T) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/auth/token", func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = fmt.Fprint(w, `{"access_token":"stub-token","token_type":"Bearer","expires_in":900}`)
+	})
+	mux.HandleFunc("/", func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = fmt.Fprint(w, `{"httpStatus":400,"traceId":"t","errors":[`+
+			`{"code":"REQUEST_CONTEXT_NOT_PROVIDED","description":"Request context not provided"}]}`)
+	})
+	srv := httptest.NewServer(mux)
+	t.Cleanup(srv.Close)
+
+	// HOME as well as the XDG vars: the SDK client keeps a file token cache
+	// under os.UserCacheDir, and a test has no business writing into the
+	// developer's own.
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	t.Setenv("XDG_CACHE_HOME", t.TempDir())
+	t.Setenv("JAMF_PROFILE", "")
+	t.Setenv("JAMF_TOKEN", "")
+	t.Setenv("JAMF_URL", srv.URL)
+	t.Setenv("JAMF_CLIENT_ID", "id")
+	t.Setenv("JAMF_CLIENT_SECRET", "secret")
+	t.Setenv("JAMF_ENVIRONMENT_ID", "")
+	t.Setenv("JAMF_TENANT_ID", "a-tenant")
+
+	var code int
+	got := captureOutput(t, func() {
+		code = run([]string{"jamf-cli", "pro", "blueprints", "list", "--no-update-check", "--no-version-check"}, "")
+	})
+
+	if code == exitcode.Success {
+		t.Fatalf("the gateway answered 400; run reported success:\n%s", got)
+	}
+	for _, want := range []string{
+		"declares environment scope",
+		"this invocation is tenant-scoped",
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("the scope note is missing %q:\n%s", want, got)
+		}
+	}
+}
+
+// TestRunRendersAStrayPositionalRefusal pins how run presents an Args refusal,
+// which no other test here reaches: cobra validates args before
+// PersistentPreRunE, so outputFmt is still unresolved and the rendering is
+// decided by errorFormat rather than by the resolved format.
+//
+// The test's stdout is a pipe, so this is the piped answer: the envelope, the
+// same shape a RunE error gets when piped. That equality is the invariant —
+// before this, a piped run answered two ways depending on which side of
+// PersistentPreRunE the error came from, and an interactive run got the
+// envelope for a typo a human had just made. The terminal half of the decision
+// is covered by TestErrorFormat, which takes stdoutTTY as an argument because a
+// pipe can never be a terminal.
+func TestRunRendersAStrayPositionalRefusal(t *testing.T) {
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	t.Setenv("JAMF_URL", "")
+	t.Setenv("JAMF_TOKEN", "")
+	t.Setenv("JAMF_PROFILE", "")
+
+	var code int
+	out := captureOutput(t, func() {
+		code = run([]string{"jamf-cli", "pro", "diff", "somegarbage"}, "")
+	})
+
+	if code != exitcode.Usage {
+		t.Errorf("exit code = %d, want %d (usage)", code, exitcode.Usage)
+	}
+	// The envelope, because the pipe is not a terminal.
+	for _, want := range []string{`"error": "usage"`, `"exitCode": 2`, "takes no positional arguments", `"hint"`} {
+		if !strings.Contains(out, want) {
+			t.Errorf("piped refusal should carry %s, got:\n%s", want, out)
+		}
+	}
+	// The required-flag remedy has to survive the presentation chain, not just
+	// the error value: the Args validator pre-empts cobra's own flag check.
+	for _, want := range []string{"source", "target"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("piped refusal should still name the required flag %q, got:\n%s", want, out)
+		}
 	}
 }
