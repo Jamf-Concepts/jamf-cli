@@ -20,6 +20,7 @@ import (
 	jamfclient "github.com/Jamf-Concepts/jamf-cli/internal/client"
 	"github.com/Jamf-Concepts/jamf-cli/internal/config"
 	"github.com/Jamf-Concepts/jamf-cli/internal/exitcode"
+	"github.com/Jamf-Concepts/jamf-cli/internal/platform"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 	"github.com/Jamf-Concepts/jamfplatform-go-sdk/jamfplatform"
 )
@@ -194,11 +195,9 @@ func (t *dryRunGuardTransport) RoundTrip(req *http.Request) (*http.Response, err
 // clear message instead of a nil-pointer panic.
 func requirePlatformClient(cliCtx *registry.CLIContext) error {
 	if cliCtx.PlatformSDKClient == nil {
-		return fmt.Errorf("this command requires platform gateway auth\n\n" +
-			"Set up a platform profile:\n" +
-			"  jamf-cli config add-profile <name> --auth-method platform --url <gateway-url> --tenant-id <id>\n\n" +
-			"Or use environment variables:\n" +
-			"  JAMF_URL, JAMF_CLIENT_ID, JAMF_CLIENT_SECRET, JAMF_TENANT_ID")
+		// The same wrapped sentinel the generated commands' gate returns, so
+		// AnnotateScopeLevelError can explain a withheld scope level on either.
+		return platform.RequirePlatformClient(nil)
 	}
 	return nil
 }
@@ -222,6 +221,12 @@ func newPlatformSDKClient(url, clientID, clientSecret string, scope auth.Scope, 
 	if err := refuseRetiredGatewayURL(url); err != nil {
 		return nil, err
 	}
+	// Recorded here, not beside a caller, for the same reason
+	// refuseRetiredGatewayURL is: this is the one constructor every platform
+	// path calls, and a guard on it cannot be forgotten by the next caller.
+	// Read by annotateScopeLevelError and scopeMismatchHint, both of which run
+	// after Execute returns and have no config to re-resolve from.
+	resolvedPlatformScope = scope
 	opts := []jamfplatform.Option{
 		jamfplatform.WithUserAgent("jamf-cli/" + cliVersion),
 	}
@@ -319,6 +324,7 @@ func printScaffold(v any) error {
 // checkScopeConflict, since the pair is a configuration mistake rather than a
 // combination worth resolving silently.
 func resolveScope(cfg *config.Config, profileName string) auth.Scope {
+	resetPlatformScopeRecords()
 	if environmentID != "" {
 		return auth.EnvironmentScope(environmentID)
 	}
@@ -336,8 +342,35 @@ func resolveScope(cfg *config.Config, profileName string) auth.Scope {
 	}
 	// GetProfile resolves an empty name to the default profile, which the
 	// caller may not have expanded yet.
-	p, _, err := config.GetProfile(cfg, profileName)
+	p, resolvedName, err := config.GetProfile(cfg, profileName)
 	if err != nil {
+		return auth.Scope{}
+	}
+	// resolvedName, not profileName: an empty -p resolves to default-profile
+	// here, and passing the empty string on made the rules below read as "there
+	// is no profile" — which dropped the scope of every default-profile user
+	// rather than only of a spliced credential, and left the note with no
+	// profile to name.
+	//
+	// Everything from here is the profile's, and a profile's level only applies
+	// to the profile's own credentials. Both branches are dropped, not one:
+	// neither a tenant nor an environment ID belonging to another integration
+	// may be attached, and an organization-scoped credential must send no scope
+	// header at all. See profileScopeAppliesTo.
+	//
+	// p.ClientID is passed rather than re-read from config, because the rule has
+	// to compare the invocation's client ID against the one the profile names:
+	// `client-id: env:JAMF_CLIENT_ID` is a documented profile shape whose
+	// variable must be set for the profile to resolve its own credential, and a
+	// rule keyed on the bare presence of a client ID read every such profile as
+	// a foreign credential and dropped its scope.
+	if !profileScopeAppliesTo(resolvedName, p.ClientID) {
+		switch {
+		case p.EnvironmentID != "":
+			recordWithheldProfileScope(resolvedName, "environment", p.EnvironmentID)
+		case p.TenantID != "":
+			recordWithheldProfileScope(resolvedName, "tenant", p.TenantID)
+		}
 		return auth.Scope{}
 	}
 	if p.EnvironmentID != "" {
@@ -416,6 +449,14 @@ func checkScopeConflict(cfg *config.Config, profileName string) error {
 // host — which has to be reported rather than degraded into "no credentials
 // configured".
 func securityPlatformSDKClient(cfg *config.Config, profileName string) (*jamfplatform.Client, error) {
+	// Reset here rather than only beside resolveScope below. This function
+	// returns nil, nil for a profile with no credentials — one of the two paths
+	// resetPlatformScopeRecords' own doc comment names — and that return is
+	// *before* the resolveScope call, so on that path a previous resolution's
+	// level and withheld record stood. A process that resolves twice then put a
+	// sentence about the wrong profile on the second invocation's error.
+	resetPlatformScopeRecords()
+
 	url := serverURL
 	if url == "" {
 		url = os.Getenv("JAMF_URL")

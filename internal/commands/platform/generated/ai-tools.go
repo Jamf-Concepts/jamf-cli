@@ -37,7 +37,7 @@ func newAiToolsListCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Use:         "list",
 		Short:       "List available vendor tools",
 		Long:        "Returns metadata for all available vendor tools, including their current schema versions. Use this to discover valid toolId values and schema versions when creating or editing policies.",
-		Annotations: map[string]string{"jamf:privileges": "ai-policies:read", "jamf:api": "platform-gateway"},
+		Annotations: map[string]string{"jamf:privileges": "ai-policies:read", "jamf:api": "platform-gateway", "jamf:scopes": "environment"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
 				return err
@@ -81,7 +81,7 @@ func newAiToolsGetCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Use:         "get <toolId>",
 		Short:       "Get tool detail",
 		Long:        "Returns tool metadata including the current schema version and list of all available schema versions. Returns 404 if the toolId is not known.",
-		Annotations: map[string]string{"jamf:privileges": "ai-policies:read", "jamf:api": "platform-gateway"},
+		Annotations: map[string]string{"jamf:privileges": "ai-policies:read", "jamf:api": "platform-gateway", "jamf:scopes": "environment"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
@@ -130,7 +130,7 @@ func newAiToolsSchemaCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		Use:         "schema <toolId> <schemaVersion>",
 		Short:       "Get the vendor JSON Schema for a tool and schema version",
 		Long:        "Returns the JSON Schema for the given tool and schema version pair. Use this schema to validate and render settings forms when creating or editing policies.",
-		Annotations: map[string]string{"jamf:privileges": "ai-policies:read", "jamf:api": "platform-gateway"},
+		Annotations: map[string]string{"jamf:privileges": "ai-policies:read", "jamf:api": "platform-gateway", "jamf:scopes": "environment"},
 		Args:        cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
