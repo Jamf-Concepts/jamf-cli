@@ -12,7 +12,7 @@ package security
 // Security's 12 total operations never need path params, name-based lookup,
 // or PATCH/merge-patch):
 //   - GET (no body)
-//   - PUT/POST/DELETE actions, with or without a JSON or YAML body via --file/--set
+//   - PUT/POST/DELETE actions, with or without a JSON or YAML body via --from-file/--set
 //     (+ --scaffold), and --yes confirmation for destructive ones
 //   - The one paginated op (risk list) always fetches every page and prints
 //     the aggregated array — no --all flag, mirroring the Platform
@@ -80,7 +80,8 @@ func new{{$.GoName}}{{.GoName}}Cmd(cliCtx *registry.CLIContext) *cobra.Command {
 {{- if .HasScaffold }}
 			if scaffoldFlag {
 				// Scaffold prints raw JSON regardless of -o, so the output
-				// can be piped straight back into --file.
+				// can be piped straight back into --from-file, or straight into the
+				// command over a pipe.
 				fmt.Println({{printf "%q" .Scaffold}})
 				return nil
 			}
@@ -104,7 +105,7 @@ func new{{$.GoName}}{{.GoName}}Cmd(cliCtx *registry.CLIContext) *cobra.Command {
 {{- if .IsDestructive }}
 {{- if .HasBody }}
 			if body == nil {
-				return fmt.Errorf("{{.Name}} requires --file or --set specifying a scope; refusing an unscoped {{.Name}}")
+				return fmt.Errorf("{{.Name}} requires --from-file, piped stdin or --set specifying a scope; refusing an unscoped {{.Name}}")
 			}
 {{- end }}
 {{- end }}
@@ -216,7 +217,13 @@ func new{{$.GoName}}{{.GoName}}Cmd(cliCtx *registry.CLIContext) *cobra.Command {
 		},
 	}
 {{- if .HasBody }}
-	cmd.Flags().StringVar(&bodyFile, "file", "", "Path to a JSON or YAML file containing the request body")
+	cmd.Flags().StringVar(&bodyFile, "from-file", "", "Path to a JSON or YAML file containing the request body (or pipe it to stdin)")
+	// --from-file, not --file: Pro, Classic, Protect and School all spelled this
+	// same thing --from-file, and one CLI gets one name for it. Renamed outright
+	// with no compat alias — a caller passing --file now gets "unknown flag",
+	// which is the failure mode you want over a flag that silently splits into
+	// two spellings. --file keeps its unrelated *upload* sense on the commands
+	// that send a binary payload; only the request-body flag is renamed.
 	cmd.Flags().StringArrayVar(&setFlags, "set", nil, "Override body values (key=value, repeatable, supports nested.keys)")
 {{- end }}
 {{- if .HasScaffold }}

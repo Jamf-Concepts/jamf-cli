@@ -262,6 +262,7 @@ type templateResource struct {
 	Long       string // First paragraph of resource description, plain text
 	APILabel   string // product name for help text — which API the resource belongs to
 	Operations []templateOp
+	Apply      *applySpec // synthesized create-or-update-by-name command; nil when the resource does not qualify
 }
 
 // Generate emits one Go file per resource into outputDir. Returns the list of
@@ -281,6 +282,15 @@ func Generate(resources []*parser.Resource, outputDir string) ([]string, error) 
 		// second copy of the identifier expression is a second place for the two
 		// to drift apart.
 		"confirmStmt": confirmStmt,
+		// applyLong/applyExample/applyAnnotations render the apply command's
+		// help. Functions rather than fields on applySpec because they are
+		// presentation built from the spec's own values, and a field would let
+		// the prose and the behaviour it describes drift apart — the
+		// merge-vs-replace sentence in particular has to follow UpdateMethod.
+		"applyLong":        applyLong,
+		"applyExample":     applyExample,
+		"applyAnnotations": applyAnnotations,
+		"article":          article,
 		"opAnnotations": func(op templateOp) string {
 			var pairs []string
 			if op.IsDestructive {
@@ -394,6 +404,403 @@ func extractPathParams(p string) []string {
 	return out
 }
 
+// article returns "a" or "an" for a resource noun, so generated help reads
+// "an ai-policy" rather than "a ai-policy". Vowel-letter test, not a phonetic
+// one: these are spec collection names, and the letter is right for all of
+// them ("an ai-policy", "a dns-zone" — dns reads as "dee-en-ess", but so does
+// every other initialism here, and none of them start with a vowel letter).
+func article(noun string) string {
+	if noun == "" {
+		return "a"
+	}
+	switch noun[0] {
+	case 'a', 'e', 'i', 'o', 'u', 'A', 'E', 'I', 'O', 'U':
+		return "an"
+	}
+	return "a"
+}
+
+// applyLong renders the apply command's Long help as a quoted Go string.
+//
+// The merge-versus-replace sentence is generated from UpdateMethod rather than
+// written once, because it is the one thing about this verb that differs
+// between resources and the one thing an operator gets wrong: a partial body
+// applied over a PATCH resource leaves the omitted fields alone, and applied
+// over a PUT resource clears them.
+func applyLong(a *applySpec) string {
+	var b strings.Builder
+	fmt.Fprintf(&b, "Create or update %s %s so it matches the input.\n\n", article(a.NameSingular), a.NameSingular)
+	fmt.Fprintf(&b, "Reads JSON or YAML from --from-file, or from stdin when the flag is absent.\n")
+	fmt.Fprintf(&b, "The %q field in the input identifies the %s: if %s %s with that\n", a.NameField, a.NameSingular, article(a.NameSingular), a.NameSingular)
+	fmt.Fprintf(&b, "%s already exists it is updated (with confirmation), otherwise a new one\nis created.\n\n", a.NameField)
+	switch {
+	case a.UpdateMethod == http.MethodPatch && a.PatchReplaces != "":
+		fmt.Fprintf(&b, "The update is a PATCH, but this resource's server replaces %q wholesale rather\nthan merging it, so send that field complete or the parts you leave out are\nlost. Other top-level fields do keep their current values when omitted.", a.PatchReplaces)
+	case a.UpdateMethod == http.MethodPatch:
+		fmt.Fprintf(&b, "The update is a PATCH: fields you omit keep their current values. To clear a\nfield, send it explicitly.")
+	default:
+		fmt.Fprintf(&b, "The update is a PUT: it replaces the %s wholesale, so fields you omit are\ncleared. Send a complete body — --scaffold prints one.", a.NameSingular)
+	}
+	// The exists check and the create are two requests, so they are not atomic
+	// and no amount of care on this side makes them so. Stated for every
+	// resource rather than for the ones whose spec declares no name-uniqueness
+	// 409, because a declared 409 is not a promise the server enforces it on
+	// the name — ztna's 409 codes are hostname and reference conflicts — and a
+	// per-resource claim of protection is the one thing worse than the caveat.
+	fmt.Fprintf(&b, "\n\nThe lookup and the create are separate requests, so two runs racing on the\nsame absent %s (a CI retry, or concurrent jobs) can both create one. Serialise\napply per %s if that matters.", a.NameField, a.NameSingular)
+	if a.AfterApply != "" {
+		fmt.Fprintf(&b, "\n\n%s", a.AfterApply)
+	}
+	return strconv.Quote(b.String())
+}
+
+// applyNamespace names the CLI namespace a platform resource is reached
+// through, for examples only.
+//
+// Derived from the gateway service rather than read from the hand-written
+// wiring, which the generator cannot see: everything the gateway serves under
+// "securitycloud" is wired under `security` (dns-*, ztna-*, device-groups,
+// uem-*, content-categories), and the rest under `platform`. If that ever
+// stops holding the cost is one wrong word in an example — the command itself
+// is unaffected — which is why this is a derivation and not another table to
+// keep in step.
+func applyNamespace(createPath string) string {
+	if serviceFromPath(createPath) == "securitycloud" {
+		return "security"
+	}
+	return "platform"
+}
+
+// applyExample renders the apply command's Example block as a quoted Go
+// string. resource is the CLI command path segment.
+func applyExample(resource string, a *applySpec) string {
+	ns := applyNamespace(a.CreatePath)
+	var b strings.Builder
+	fmt.Fprintf(&b, "  # Apply %s %s from a file\n", article(a.NameSingular), a.NameSingular)
+	fmt.Fprintf(&b, "  jamf-cli %s %s apply --from-file %s.yaml\n\n", ns, resource, a.NameSingular)
+	fmt.Fprintf(&b, "  # Apply from stdin\n")
+	fmt.Fprintf(&b, "  cat %s.json | jamf-cli %s %s apply\n\n", a.NameSingular, ns, resource)
+	if a.HasScaffold {
+		fmt.Fprintf(&b, "  # Start from a scaffold, edit, apply — no temp file\n")
+		fmt.Fprintf(&b, "  jamf-cli %s %s apply --scaffold | vipe | jamf-cli %s %s apply --yes\n\n", ns, resource, ns, resource)
+	}
+	fmt.Fprintf(&b, "  # Preview which of create or update would run\n")
+	fmt.Fprintf(&b, "  jamf-cli %s %s apply --from-file %s.yaml --dry-run\n\n", ns, resource, a.NameSingular)
+	fmt.Fprintf(&b, "  # Update without the overwrite prompt\n")
+	fmt.Fprintf(&b, "  jamf-cli %s %s apply --from-file %s.yaml --yes", ns, resource, a.NameSingular)
+	return strconv.Quote(b.String())
+}
+
+// applyAnnotations renders apply's cobra Annotations map. Not destructive: it
+// creates or updates, never deletes — but it does overwrite, which is what the
+// confirmation covers rather than the annotation.
+func applyAnnotations(a *applySpec) string {
+	pairs := []string{fmt.Sprintf("%q: %q", "jamf:api", "platform-gateway")}
+	if len(a.Privileges) > 0 {
+		pairs = append(pairs, fmt.Sprintf("%q: %q", "jamf:privileges", strings.Join(a.Privileges, ",")))
+	}
+	// jamf:scopes has to be here for the same reason every other verb carries
+	// it: scopesOf reads this annotation and returns nil when it is absent, so
+	// without it AnnotateScopeLevelError cannot fire for apply and apply drops
+	// out of the commands -o json catalog's scopes field — leaving the one verb
+	// composed of three requests as the only one with no declared level.
+	if len(a.ScopeTypes) > 0 {
+		pairs = append(pairs, fmt.Sprintf("%q: %q", "jamf:scopes", strings.Join(a.ScopeTypes, ",")))
+	}
+	return "map[string]string{" + strings.Join(pairs, ", ") + "}"
+}
+
+// platformPatchDoesNotMerge names resources whose PATCH does not behave like a
+// merge-patch on the wire, whatever its content type says, keyed by resource
+// name with the field the server replaces wholesale.
+//
+// apply's help sentence is derived from the update method — PATCH merges, PUT
+// replaces — and for these resources that derivation is wrong. ai-policies is
+// wire-verified: the method is PATCH and the CLI sends
+// application/merge-patch+json, but the server treats `settings` as a full
+// replacement (seed {permissions, env}, patch with {permissions} alone, and env
+// is gone), while `name` and `description` on the same body *are*
+// leave-unchanged-if-omitted. So one request body has two behaviours and
+// "fields you omit keep their current values" is a promise the server breaks.
+//
+// Named rather than detected because nothing in the spec says so — this is
+// observed behaviour, and the only alternative to naming it is documenting the
+// wrong thing.
+var platformPatchDoesNotMerge = map[string]string{
+	"ai-policies": "settings",
+}
+
+// platformApplyCaveats names resources whose apply leaves something material
+// undone that the composed verb cannot do for the caller, keyed by resource
+// name. Rendered as the tail of the generated help.
+//
+// ai-policies is the case: CLAUDE.md records the draft/publish split as
+// wire-verified — create and the item PATCH both write a *draft*, and a
+// separate bodyless publish turns the draft into the version that is actually
+// enforced. So apply reports "Updated ai-policy" truthfully and the enforced
+// policy is still whatever was last published, which reads as apply having had
+// no effect.
+//
+// Disclosed rather than published automatically. Publishing is a deliberate,
+// non-idempotent act — CLAUDE.md records that publish with nothing pending
+// answers 409 NO_DRAFT_TO_PUBLISH — and folding it into apply would make one
+// command that writes a draft and promotes it with no way to write a draft
+// alone, which is the workflow the draft/publish split exists to serve.
+var platformApplyCaveats = map[string]string{
+	"ai-policies": "This writes a draft. A draft is not enforced until it is published, so follow\n" +
+		"a successful apply with `platform ai-policies publish <id>` to make it take\n" +
+		"effect. Publishing with nothing pending answers 409.",
+}
+
+// applySpec describes the synthesized `apply` command for one resource.
+//
+// `apply` is not a spec operation — it is composed from three that are: the
+// resource's own list (to look the name up), its collection POST (to create
+// when the name is absent) and its item PUT/PATCH (to update when it is
+// present). Pro and Classic have had this verb since the beginning; the
+// gateway products did not, so `--scaffold | edit | ...` had no idempotent
+// terminus and every caller wrote the exists-check by hand.
+//
+// The update half uses whichever method the resource actually publishes, which
+// is usually PATCH here rather than the PUT Pro's apply gets. That is a real
+// difference and the generated help says so: a PATCH apply merges the fields
+// you supply into the existing resource, where a PUT apply replaces it. Both
+// are idempotent for a body that names every field, which is what a scaffold
+// produces, so the useful property survives — but a partial body behaves
+// differently between the two and the operator has to be told which they have.
+type applySpec struct {
+	NameSingular     string   // singular resource noun for help text and messages
+	NameField        string   // body property carrying the human-readable name
+	NameLookupField  string   // non-standard list property to match, when the resource has one
+	ListPath         string   // the resource's own list path, for the exists check
+	CreatePath       string   // collection POST path
+	CreateCode       int      // success status for the create
+	CreateHasResult  bool     // create returns a body worth printing
+	UpdateMethod     string   // "PUT" or "PATCH", whichever the resource publishes
+	UpdatePath       string   // item path, still carrying its {param} placeholder
+	UpdateParam      string   // the path parameter to substitute the resolved ID into
+	UpdateCode       int      // success status for the update
+	UpdateHasResult  bool     // update returns a body worth printing
+	UpdateMergePatch bool     // update sends application/merge-patch+json
+	AfterApply       string   // resource-specific caveat for the help tail; empty when there is none
+	Scaffold         string   // create-body scaffold, reused verbatim for --scaffold
+	HasScaffold      bool     // scaffold is non-empty
+	Privileges       []string // union of the three ops' privileges, for the annotation
+	ScopeTypes       []string // union of the scope levels those ops declare, for the annotation
+	PatchReplaces    string   // field a non-merging PATCH replaces wholesale; empty when the method behaves as documented
+}
+
+// applyNameFields are the body properties that can carry a resource's
+// human-readable name, in the order internal/platform.ResolveIDByName consults
+// the matching list properties. Keeping the two lists in the same order is what
+// makes "the field apply reads the name from" and "the field the lookup matches
+// it against" the same field.
+var applyNameFields = []string{"name", "title", "displayName"}
+
+// platformNoApply names resources that structurally qualify for `apply` but
+// must not get it. Keyed by resource name.
+//
+// A resource qualifies on shape — own list, collection POST, item PUT/PATCH,
+// a name-ish body property — and shape does not know two things.
+//
+// Whether the collection's names are unique. `apply` is only meaningful when
+// they are: it resolves a name to exactly one ID, and ResolveIDByName already
+// errors on a duplicate within a page, so a collection that permits repeated
+// names turns apply into a command that works until someone reuses a name.
+//
+// And whether a hand-written apply already covers the resource. Two entries
+// here are that case, and both hand-written versions do strictly more than a
+// generated one could:
+//
+//   - blueprints (pro_blueprints.go) applies a *portable* blueprint, resolving
+//     scope names to IDs on the target tenant and optionally randomising
+//     component IDs, which is what makes a blueprint movable between
+//     instances. Its parent copies in every generated subcommand except
+//     create, so a generated apply would land beside the real one and cobra
+//     would carry two subcommands named "apply".
+//   - platform-device-groups (pro_platform_device_groups.go) disambiguates
+//     COMPUTER from MOBILE via --device-type; the generated name lookup cannot,
+//     and the same duplicate-subcommand problem applies.
+var platformNoApply = map[string]bool{
+	"blueprints":             true,
+	"platform-device-groups": true,
+}
+
+// buildApplySpec returns the apply spec for r, or nil when the resource does
+// not qualify. ownListPath must be the resource's *own* list path: a
+// cross-resource lookup path (crossResourceNameLookupPath) means the {id} in
+// this resource's item path belongs to a sibling collection, so there is no
+// collection here to create into and no name of its own to resolve.
+func buildApplySpec(r *parser.Resource, ownListPath string, nameLookupField string) *applySpec {
+	if ownListPath == "" || platformNoApply[r.Name] {
+		return nil
+	}
+
+	var create, update *parser.Operation
+	for _, op := range r.Operations {
+		params := filterTenantPathParams(extractPathParams(op.Path))
+		if op.RequestBody == nil || op.RequestBody.IsMultipart {
+			continue
+		}
+		switch strings.ToUpper(op.Method) {
+		case http.MethodPost:
+			// The collection POST, not an action POST: an action hangs off an
+			// item or a sub-path and takes params, a create posts to the
+			// collection itself. Destructive POSTs (purge, unmanage) are
+			// actions whatever their path shape.
+			if len(params) == 0 && !op.IsDestructive && create == nil {
+				create = op
+			}
+		case http.MethodPut, http.MethodPatch:
+			// Prefer PUT: it replaces, which is what apply means everywhere
+			// else in this CLI. PATCH is taken only when no PUT exists.
+			if len(params) != 1 {
+				continue
+			}
+			if update == nil || (strings.EqualFold(update.Method, http.MethodPatch) && strings.EqualFold(op.Method, http.MethodPut)) {
+				update = op
+			}
+		}
+	}
+	if create == nil || update == nil {
+		return nil
+	}
+
+	nameField := applyBodyNameField(create, nameLookupField)
+	if nameField == "" {
+		return nil
+	}
+	lookupField := ""
+	if nameField == nameLookupField {
+		lookupField = nameLookupField
+	}
+
+	createCode, createHasResult := successStatus(create)
+	updateCode, updateHasResult := successStatus(update)
+	scaffold, err := buildScaffold(create)
+	if err != nil {
+		// A resource whose create body cannot be scaffolded still applies
+		// fine; it just has nothing to show for --scaffold.
+		scaffold = ""
+	}
+
+	return &applySpec{
+		NameSingular: singularize(r.Name),
+		NameField:    nameField,
+		// Only when the name apply reads *is* the override: NameField falls
+		// back to the standard three when the create body does not carry the
+		// override, and setting the lookup field anyway would read identity
+		// from one property and search for it under another.
+		NameLookupField:  lookupField,
+		ListPath:         ownListPath,
+		CreatePath:       create.Path,
+		CreateCode:       createCode,
+		CreateHasResult:  createHasResult,
+		UpdateMethod:     strings.ToUpper(update.Method),
+		UpdatePath:       update.Path,
+		UpdateParam:      filterTenantPathParams(extractPathParams(update.Path))[0],
+		UpdateCode:       updateCode,
+		UpdateHasResult:  updateHasResult,
+		UpdateMergePatch: update.RequestBody.IsMergePatch || strings.EqualFold(update.Method, http.MethodPatch),
+		Scaffold:         scaffold,
+		HasScaffold:      scaffold != "",
+		Privileges:       unionPrivileges(create, update),
+		ScopeTypes:       unionScopeTypes(create, update),
+		PatchReplaces:    platformPatchDoesNotMerge[r.Name],
+		AfterApply:       platformApplyCaveats[r.Name],
+	}
+}
+
+// applyBodyNameField picks the create body property apply reads the name from.
+// A resource-specific lookup field wins when the create body actually carries
+// it — that is the whole point of the override, and sso-domains' "domain" is
+// the case — otherwise the standard three are tried in resolver order.
+func applyBodyNameField(create *parser.Operation, nameLookupField string) string {
+	props := map[string]bool{}
+	if create.RequestBody != nil && create.RequestBody.Schema != nil {
+		for k := range create.RequestBody.Schema.Properties {
+			props[k] = true
+		}
+	}
+	if nameLookupField != "" && props[nameLookupField] {
+		return nameLookupField
+	}
+	for _, f := range applyNameFields {
+		if props[f] {
+			return f
+		}
+	}
+	return ""
+}
+
+// unionScopeTypes merges the scope levels the ops apply composes declare.
+//
+// A union rather than one op's list because apply sends all of them: a level
+// that reaches the create but not the list would fail apply on the read, so
+// the honest answer for the composed verb is every level any of its requests
+// declares. In practice a spec declares x-scope-types once at its root and
+// every operation inherits it, so this is a union of identical lists — it is
+// written as a union anyway because the day one operation differs, the
+// alternative is silently reporting the level of whichever op was consulted.
+func unionScopeTypes(ops ...*parser.Operation) []string {
+	seen := map[string]bool{}
+	var out []string
+	for _, op := range ops {
+		for _, st := range op.ScopeTypes {
+			if seen[st] {
+				continue
+			}
+			seen[st] = true
+			out = append(out, st)
+		}
+	}
+	sort.Strings(out)
+	return out
+}
+
+// unionPrivileges merges the privilege lists of the ops apply composes, so its
+// annotation reports everything the verb can need — a caller sees the read,
+// create and update requirement together rather than discovering the update
+// privilege only on the run that happens to find an existing resource.
+func unionPrivileges(ops ...*parser.Operation) []string {
+	seen := map[string]bool{}
+	var out []string
+	for _, op := range ops {
+		for _, p := range op.Privileges {
+			if seen[p] {
+				continue
+			}
+			seen[p] = true
+			out = append(out, p)
+		}
+	}
+	sort.Strings(out)
+	return out
+}
+
+// singularize trims a trailing plural from a resource name for help text
+// ("dns-zones" → "dns-zone"). Deliberately naive: these are spec collection
+// names, all regular plurals, and a wrong guess costs an odd help string rather
+// than a broken command.
+//
+// The exception list is not decoration. A trailing "s" is not a plural in
+// "status", "analysis" or "address", and stripping it produced "content-statu"
+// — which is why the endings that are never plural are named before the general
+// rule rather than left to it.
+func singularize(name string) string {
+	switch {
+	case strings.HasSuffix(name, "ies"):
+		return strings.TrimSuffix(name, "ies") + "y"
+	case strings.HasSuffix(name, "sses"), strings.HasSuffix(name, "shes"), strings.HasSuffix(name, "ches"):
+		return strings.TrimSuffix(name, "es")
+	case strings.HasSuffix(name, "ss"), strings.HasSuffix(name, "us"), strings.HasSuffix(name, "is"):
+		return name
+	case strings.HasSuffix(name, "s"):
+		return strings.TrimSuffix(name, "s")
+	}
+	return name
+}
+
 func buildTemplateResource(r *parser.Resource) (templateResource, error) {
 	// Find the resource's list op upfront (if any) so single-ID ops can
 	// expose --name as an alternative to the positional arg.
@@ -408,6 +815,10 @@ func buildTemplateResource(r *parser.Resource) (templateResource, error) {
 			break
 		}
 	}
+	// Whether the path above is the resource's *own* collection matters to
+	// apply, which needs somewhere to create into, and not to --name, which only
+	// needs somewhere to look a name up.
+	ownListPath := listPath
 	// Resources with no list op of their own (e.g. benchmark-reports) resolve
 	// --name against a sibling resource's list endpoint when their {id} refers
 	// to that sibling's ID.
@@ -472,6 +883,7 @@ func buildTemplateResource(r *parser.Resource) (templateResource, error) {
 		APILabel:   apiLabel(ops),
 		Long:       firstParagraph(r.Description),
 		Operations: ops,
+		Apply:      buildApplySpec(r, ownListPath, platformNameLookupFields[namespaceFromPath(ownListPath)+"/"+r.Name]),
 	}, nil
 }
 

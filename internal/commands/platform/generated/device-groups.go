@@ -31,6 +31,7 @@ func NewDeviceGroupsCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(newDeviceGroupsGetCmd(cliCtx))
 	cmd.AddCommand(newDeviceGroupsListCmd(cliCtx))
 	cmd.AddCommand(newDeviceGroupsUpdateCmd(cliCtx))
+	cmd.AddCommand(newDeviceGroupsApplyCmd(cliCtx))
 	return cmd
 }
 
@@ -46,7 +47,8 @@ func newDeviceGroupsCreateCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if scaffoldFlag {
 				// Scaffold prints raw JSON regardless of -o, so the output
-				// can be piped straight back into --file.
+				// can be piped straight back into --from-file, or straight into the
+				// command over a pipe.
 				fmt.Println("{\n  \"name\": \"Engineering Team\"\n}")
 				return nil
 			}
@@ -95,7 +97,13 @@ func newDeviceGroupsCreateCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			return cliCtx.Output.PrintRaw(b)
 		},
 	}
-	cmd.Flags().StringVar(&bodyFile, "file", "", "Path to a JSON or YAML file containing the request body")
+	cmd.Flags().StringVar(&bodyFile, "from-file", "", "Path to a JSON or YAML file containing the request body (or pipe it to stdin)")
+	// --from-file, not --file: Pro, Classic, Protect and School all spelled this
+	// same thing --from-file, and one CLI gets one name for it. Renamed outright
+	// with no compat alias — a caller passing --file now gets "unknown flag",
+	// which is the failure mode you want over a flag that silently splits into
+	// two spellings. --file keeps its unrelated *upload* sense on the commands
+	// that send a binary payload; only the request-body flag is renamed.
 	cmd.Flags().StringArrayVar(&setFlags, "set", nil, "Override body values (key=value, repeatable, supports nested.keys)")
 	cmd.Flags().BoolVar(&scaffoldFlag, "scaffold", false, "Print an example request body and exit")
 	return cmd
@@ -269,7 +277,8 @@ func newDeviceGroupsUpdateCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if scaffoldFlag {
 				// Scaffold prints raw JSON regardless of -o, so the output
-				// can be piped straight back into --file.
+				// can be piped straight back into --from-file, or straight into the
+				// command over a pipe.
 				fmt.Println("{\n  \"name\": \"Engineering Team\"\n}")
 				return nil
 			}
@@ -324,10 +333,123 @@ func newDeviceGroupsUpdateCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			return nil
 		},
 	}
-	cmd.Flags().StringVar(&bodyFile, "file", "", "Path to a JSON or YAML file containing the request body")
+	cmd.Flags().StringVar(&bodyFile, "from-file", "", "Path to a JSON or YAML file containing the request body (or pipe it to stdin)")
+	// --from-file, not --file: Pro, Classic, Protect and School all spelled this
+	// same thing --from-file, and one CLI gets one name for it. Renamed outright
+	// with no compat alias — a caller passing --file now gets "unknown flag",
+	// which is the failure mode you want over a flag that silently splits into
+	// two spellings. --file keeps its unrelated *upload* sense on the commands
+	// that send a binary payload; only the request-body flag is renamed.
 	cmd.Flags().StringArrayVar(&setFlags, "set", nil, "Override body values (key=value, repeatable, supports nested.keys)")
 	cmd.Flags().BoolVar(&scaffoldFlag, "scaffold", false, "Print an example request body and exit")
 	cmd.Flags().StringVar(&nameFlag, "name", "", "Resolve target by name instead of ID (uses the resource list endpoint)")
+	return cmd
+}
+
+// newDeviceGroupsApplyCmd is the synthesized create-or-update-by-name command.
+// It composes three of the resource's own operations rather than mapping one:
+// the list (to resolve name), the collection POST and the item
+// PUT. See applySpec in the generator for why the update method
+// varies and what that changes.
+func newDeviceGroupsApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
+	var bodyFile string
+	var setFlags []string
+	var yes bool
+	var scaffoldFlag bool
+
+	cmd := &cobra.Command{
+		Use:   "apply",
+		Short: "Create or update a device-group by name",
+		Long:  "Create or update a device-group so it matches the input.\n\nReads JSON or YAML from --from-file, or from stdin when the flag is absent.\nThe \"name\" field in the input identifies the device-group: if a device-group with that\nname already exists it is updated (with confirmation), otherwise a new one\nis created.\n\nThe update is a PUT: it replaces the device-group wholesale, so fields you omit are\ncleared. Send a complete body — --scaffold prints one.\n\nThe lookup and the create are separate requests, so two runs racing on the\nsame absent name (a CI retry, or concurrent jobs) can both create one. Serialise\napply per device-group if that matters.",
+		// No Args validator: the leaf documents no positional, so the root
+		// walker installs refuseStrayPositionals (and the completion clamp that
+		// goes with it). Declaring cobra.NoArgs here instead blocks that and
+		// answers a stray argument with cobra's "unknown command", which is a
+		// parent's error shape, not a leaf's.
+		Annotations: map[string]string{"jamf:api": "platform-gateway", "jamf:privileges": "device-groups:create,device-groups:update", "jamf:scopes": "environment,tenant"},
+		Example:     "  # Apply a device-group from a file\n  jamf-cli security device-groups apply --from-file device-group.yaml\n\n  # Apply from stdin\n  cat device-group.json | jamf-cli security device-groups apply\n\n  # Start from a scaffold, edit, apply — no temp file\n  jamf-cli security device-groups apply --scaffold | vipe | jamf-cli security device-groups apply --yes\n\n  # Preview which of create or update would run\n  jamf-cli security device-groups apply --from-file device-group.yaml --dry-run\n\n  # Update without the overwrite prompt\n  jamf-cli security device-groups apply --from-file device-group.yaml --yes",
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			if scaffoldFlag {
+				// Same scaffold the create op prints, so the body that comes out
+				// of one command goes into this one unchanged.
+				fmt.Println("{\n  \"name\": \"Engineering Team\"\n}")
+				return nil
+			}
+			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
+				return err
+			}
+			body, err := platform.ReadBody(bodyFile, setFlags)
+			if err != nil {
+				return err
+			}
+			// The name comes out of the body, not a flag: apply's whole contract
+			// is that the input is the desired state and carries its own
+			// identity. A --name flag beside it would be a second source of
+			// truth, and the two disagreeing has no correct resolution.
+			name, err := platform.ApplyName(body, "name")
+			if err != nil {
+				return err
+			}
+
+			// The exists check is a read, so it runs under --dry-run too — that
+			// is what lets the preview say "create" or "update" rather than
+			// guessing. A lookup failure that is not "absent" is fatal: treating
+			// an auth error or a 500 as "not found" would turn a failed read
+			// into an unwanted create.
+			id, err := platform.ResolveIDByName(cmd.Context(), cliCtx.PlatformSDKClient, "/securitycloud/v2/groups", name)
+			if err != nil && !platform.IsNotFound(err) {
+				return err
+			}
+
+			if id == "" {
+				if cliCtx.DryRun {
+					fmt.Fprintf(cmd.ErrOrStderr(), "[dry-run] Would create device-group %q\n", name)
+					return platform.ReportDryRun(cmd.ErrOrStderr(), http.MethodPost, "/securitycloud/v1/groups", body)
+				}
+				var result any
+				if err := cliCtx.PlatformSDKClient.Transport().DoWithContentType(cmd.Context(), http.MethodPost, "/securitycloud/v1/groups", body, "application/json", http.StatusCreated, &result); err != nil {
+					return fmt.Errorf("apply: creating device-group %q: %w", name, err)
+				}
+				fmt.Fprintf(cmd.ErrOrStderr(), "Created device-group %q\n", name)
+				if result == nil {
+					return nil
+				}
+				b, err := json.MarshalIndent(result, "", "  ")
+				if err != nil {
+					return err
+				}
+				return cliCtx.Output.PrintRaw(b)
+			}
+
+			updatePath := strings.Replace("/securitycloud/v2/groups/{groupId}", "{groupId}", url.PathEscape(id), 1)
+			if cliCtx.DryRun {
+				fmt.Fprintf(cmd.ErrOrStderr(), "[dry-run] Would update device-group %q (id: %s)\n", name, id)
+				return platform.ReportDryRun(cmd.ErrOrStderr(), http.MethodPut, updatePath, body)
+			}
+			// Confirmed because this overwrites something that already exists,
+			// and the caller asked for "apply", not "update" — they may not know
+			// the name is taken. Behind the dry-run for the reason the generated
+			// mutations give: a preview must not need the real thing authorised.
+			//
+			// The bare verb, matching confirmStmt's ConfirmAction(op.Name, …):
+			// the helper renders "%s on %q requires --yes", so a longer action
+			// string reads as "update existing ai-policy on "x" requires --yes".
+			// That the resource exists is already carried by the word "update"
+			// appearing at all on a command the caller spelled "apply".
+			if err := platform.ConfirmAction("update", name, yes); err != nil {
+				return err
+			}
+			if err := cliCtx.PlatformSDKClient.Transport().DoWithContentType(cmd.Context(), http.MethodPut, updatePath, body, "application/json", http.StatusNoContent, nil); err != nil {
+				return fmt.Errorf("apply: updating device-group %q (id: %s): %w", name, id, err)
+			}
+			fmt.Fprintf(cmd.ErrOrStderr(), "Updated device-group %q (id: %s)\n", name, id)
+			return nil
+		},
+	}
+	cmd.Flags().StringVar(&bodyFile, "from-file", "", "Path to a JSON or YAML file containing the desired state (or pipe it to stdin)")
+	cmd.Flags().StringArrayVar(&setFlags, "set", nil, "Override body values (key=value, repeatable, supports nested.keys)")
+	cmd.Flags().BoolVar(&yes, "yes", false, "Skip the confirmation prompt when the device-group already exists")
+	cmd.Flags().BoolVar(&scaffoldFlag, "scaffold", false, "Print an example request body and exit")
 	return cmd
 }
 
@@ -342,4 +464,6 @@ var (
 	_ = platform.ConfirmAction
 	_ = platform.ReadBody
 	_ = platform.ResolveIDByName
+	_ = platform.IsNotFound
+	_ = platform.ApplyName
 )

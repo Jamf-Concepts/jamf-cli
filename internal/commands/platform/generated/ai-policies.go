@@ -35,6 +35,7 @@ func NewAiPoliciesCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(newAiPoliciesPublishCmd(cliCtx))
 	cmd.AddCommand(newAiPoliciesVersionsCmd(cliCtx))
 	cmd.AddCommand(newAiPoliciesVersionCmd(cliCtx))
+	cmd.AddCommand(newAiPoliciesApplyCmd(cliCtx))
 	return cmd
 }
 
@@ -123,7 +124,8 @@ func newAiPoliciesCreateCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if scaffoldFlag {
 				// Scaffold prints raw JSON regardless of -o, so the output
-				// can be piped straight back into --file.
+				// can be piped straight back into --from-file, or straight into the
+				// command over a pipe.
 				fmt.Println("{\n  \"description\": \"AI governance policy for engineering team\",\n  \"name\": \"Claude Code - Engineering\",\n  \"schemaVersion\": \"2026-05-12\",\n  \"settings\": {},\n  \"toolId\": \"com.anthropic.claudecode\"\n}")
 				return nil
 			}
@@ -172,7 +174,13 @@ func newAiPoliciesCreateCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			return cliCtx.Output.PrintRaw(b)
 		},
 	}
-	cmd.Flags().StringVar(&bodyFile, "file", "", "Path to a JSON or YAML file containing the request body")
+	cmd.Flags().StringVar(&bodyFile, "from-file", "", "Path to a JSON or YAML file containing the request body (or pipe it to stdin)")
+	// --from-file, not --file: Pro, Classic, Protect and School all spelled this
+	// same thing --from-file, and one CLI gets one name for it. Renamed outright
+	// with no compat alias — a caller passing --file now gets "unknown flag",
+	// which is the failure mode you want over a flag that silently splits into
+	// two spellings. --file keeps its unrelated *upload* sense on the commands
+	// that send a binary payload; only the request-body flag is renamed.
 	cmd.Flags().StringArrayVar(&setFlags, "set", nil, "Override body values (key=value, repeatable, supports nested.keys)")
 	cmd.Flags().BoolVar(&scaffoldFlag, "scaffold", false, "Print an example request body and exit")
 	return cmd
@@ -308,7 +316,8 @@ func newAiPoliciesPatchCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if scaffoldFlag {
 				// Scaffold prints raw JSON regardless of -o, so the output
-				// can be piped straight back into --file.
+				// can be piped straight back into --from-file, or straight into the
+				// command over a pipe.
 				fmt.Println("{\n  \"description\": \"AI governance policy for engineering team\",\n  \"name\": \"Claude Code - Engineering\",\n  \"schemaVersion\": \"2026-05-12\",\n  \"settings\": {}\n}")
 				return nil
 			}
@@ -363,7 +372,13 @@ func newAiPoliciesPatchCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			return nil
 		},
 	}
-	cmd.Flags().StringVar(&bodyFile, "file", "", "Path to a JSON or YAML file containing the request body")
+	cmd.Flags().StringVar(&bodyFile, "from-file", "", "Path to a JSON or YAML file containing the request body (or pipe it to stdin)")
+	// --from-file, not --file: Pro, Classic, Protect and School all spelled this
+	// same thing --from-file, and one CLI gets one name for it. Renamed outright
+	// with no compat alias — a caller passing --file now gets "unknown flag",
+	// which is the failure mode you want over a flag that silently splits into
+	// two spellings. --file keeps its unrelated *upload* sense on the commands
+	// that send a binary payload; only the request-body flag is renamed.
 	cmd.Flags().StringArrayVar(&setFlags, "set", nil, "Override body values (key=value, repeatable, supports nested.keys)")
 	cmd.Flags().BoolVar(&scaffoldFlag, "scaffold", false, "Print an example request body and exit")
 	cmd.Flags().StringVar(&nameFlag, "name", "", "Resolve target by name instead of ID (uses the resource list endpoint)")
@@ -595,6 +610,113 @@ func newAiPoliciesVersionCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
+// newAiPoliciesApplyCmd is the synthesized create-or-update-by-name command.
+// It composes three of the resource's own operations rather than mapping one:
+// the list (to resolve name), the collection POST and the item
+// PATCH. See applySpec in the generator for why the update method
+// varies and what that changes.
+func newAiPoliciesApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
+	var bodyFile string
+	var setFlags []string
+	var yes bool
+	var scaffoldFlag bool
+
+	cmd := &cobra.Command{
+		Use:   "apply",
+		Short: "Create or update an ai-policy by name",
+		Long:  "Create or update an ai-policy so it matches the input.\n\nReads JSON or YAML from --from-file, or from stdin when the flag is absent.\nThe \"name\" field in the input identifies the ai-policy: if an ai-policy with that\nname already exists it is updated (with confirmation), otherwise a new one\nis created.\n\nThe update is a PATCH, but this resource's server replaces \"settings\" wholesale rather\nthan merging it, so send that field complete or the parts you leave out are\nlost. Other top-level fields do keep their current values when omitted.\n\nThe lookup and the create are separate requests, so two runs racing on the\nsame absent name (a CI retry, or concurrent jobs) can both create one. Serialise\napply per ai-policy if that matters.\n\nThis writes a draft. A draft is not enforced until it is published, so follow\na successful apply with `platform ai-policies publish <id>` to make it take\neffect. Publishing with nothing pending answers 409.",
+		// No Args validator: the leaf documents no positional, so the root
+		// walker installs refuseStrayPositionals (and the completion clamp that
+		// goes with it). Declaring cobra.NoArgs here instead blocks that and
+		// answers a stray argument with cobra's "unknown command", which is a
+		// parent's error shape, not a leaf's.
+		Annotations: map[string]string{"jamf:api": "platform-gateway", "jamf:privileges": "ai-policies:create,ai-policies:update", "jamf:scopes": "environment"},
+		Example:     "  # Apply an ai-policy from a file\n  jamf-cli platform ai-policies apply --from-file ai-policy.yaml\n\n  # Apply from stdin\n  cat ai-policy.json | jamf-cli platform ai-policies apply\n\n  # Start from a scaffold, edit, apply — no temp file\n  jamf-cli platform ai-policies apply --scaffold | vipe | jamf-cli platform ai-policies apply --yes\n\n  # Preview which of create or update would run\n  jamf-cli platform ai-policies apply --from-file ai-policy.yaml --dry-run\n\n  # Update without the overwrite prompt\n  jamf-cli platform ai-policies apply --from-file ai-policy.yaml --yes",
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			if scaffoldFlag {
+				// Same scaffold the create op prints, so the body that comes out
+				// of one command goes into this one unchanged.
+				fmt.Println("{\n  \"description\": \"AI governance policy for engineering team\",\n  \"name\": \"Claude Code - Engineering\",\n  \"schemaVersion\": \"2026-05-12\",\n  \"settings\": {},\n  \"toolId\": \"com.anthropic.claudecode\"\n}")
+				return nil
+			}
+			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
+				return err
+			}
+			body, err := platform.ReadBody(bodyFile, setFlags)
+			if err != nil {
+				return err
+			}
+			// The name comes out of the body, not a flag: apply's whole contract
+			// is that the input is the desired state and carries its own
+			// identity. A --name flag beside it would be a second source of
+			// truth, and the two disagreeing has no correct resolution.
+			name, err := platform.ApplyName(body, "name")
+			if err != nil {
+				return err
+			}
+
+			// The exists check is a read, so it runs under --dry-run too — that
+			// is what lets the preview say "create" or "update" rather than
+			// guessing. A lookup failure that is not "absent" is fatal: treating
+			// an auth error or a 500 as "not found" would turn a failed read
+			// into an unwanted create.
+			id, err := platform.ResolveIDByName(cmd.Context(), cliCtx.PlatformSDKClient, "/ai/governance/policies/v1/policies", name)
+			if err != nil && !platform.IsNotFound(err) {
+				return err
+			}
+
+			if id == "" {
+				if cliCtx.DryRun {
+					fmt.Fprintf(cmd.ErrOrStderr(), "[dry-run] Would create ai-policy %q\n", name)
+					return platform.ReportDryRun(cmd.ErrOrStderr(), http.MethodPost, "/ai/governance/policies/v1/policies", body)
+				}
+				var result any
+				if err := cliCtx.PlatformSDKClient.Transport().DoWithContentType(cmd.Context(), http.MethodPost, "/ai/governance/policies/v1/policies", body, "application/json", http.StatusCreated, &result); err != nil {
+					return fmt.Errorf("apply: creating ai-policy %q: %w", name, err)
+				}
+				fmt.Fprintf(cmd.ErrOrStderr(), "Created ai-policy %q\n", name)
+				if result == nil {
+					return nil
+				}
+				b, err := json.MarshalIndent(result, "", "  ")
+				if err != nil {
+					return err
+				}
+				return cliCtx.Output.PrintRaw(b)
+			}
+
+			updatePath := strings.Replace("/ai/governance/policies/v1/policies/{policyId}", "{policyId}", url.PathEscape(id), 1)
+			if cliCtx.DryRun {
+				fmt.Fprintf(cmd.ErrOrStderr(), "[dry-run] Would update ai-policy %q (id: %s)\n", name, id)
+				return platform.ReportDryRun(cmd.ErrOrStderr(), http.MethodPatch, updatePath, body)
+			}
+			// Confirmed because this overwrites something that already exists,
+			// and the caller asked for "apply", not "update" — they may not know
+			// the name is taken. Behind the dry-run for the reason the generated
+			// mutations give: a preview must not need the real thing authorised.
+			//
+			// The bare verb, matching confirmStmt's ConfirmAction(op.Name, …):
+			// the helper renders "%s on %q requires --yes", so a longer action
+			// string reads as "update existing ai-policy on "x" requires --yes".
+			// That the resource exists is already carried by the word "update"
+			// appearing at all on a command the caller spelled "apply".
+			if err := platform.ConfirmAction("update", name, yes); err != nil {
+				return err
+			}
+			if err := cliCtx.PlatformSDKClient.Transport().DoWithContentType(cmd.Context(), http.MethodPatch, updatePath, body, "application/merge-patch+json", http.StatusNoContent, nil); err != nil {
+				return fmt.Errorf("apply: updating ai-policy %q (id: %s): %w", name, id, err)
+			}
+			fmt.Fprintf(cmd.ErrOrStderr(), "Updated ai-policy %q (id: %s)\n", name, id)
+			return nil
+		},
+	}
+	cmd.Flags().StringVar(&bodyFile, "from-file", "", "Path to a JSON or YAML file containing the desired state (or pipe it to stdin)")
+	cmd.Flags().StringArrayVar(&setFlags, "set", nil, "Override body values (key=value, repeatable, supports nested.keys)")
+	cmd.Flags().BoolVar(&yes, "yes", false, "Skip the confirmation prompt when the ai-policy already exists")
+	cmd.Flags().BoolVar(&scaffoldFlag, "scaffold", false, "Print an example request body and exit")
+	return cmd
+}
+
 // guards against unused-import errors when no op uses path substitution,
 // destructive confirmation, request bodies, JSON marshalling, or URL escaping
 var (
@@ -606,4 +728,6 @@ var (
 	_ = platform.ConfirmAction
 	_ = platform.ReadBody
 	_ = platform.ResolveIDByName
+	_ = platform.IsNotFound
+	_ = platform.ApplyName
 )

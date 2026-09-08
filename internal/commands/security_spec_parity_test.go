@@ -31,9 +31,22 @@ import (
 // the arrival of a second version look like a regression — device groups
 // publishing a v2 list alongside the deprecated v1 turned this test red while
 // the command tree was in fact correct.
+//
+// Synthesized verbs are excluded, for the same reason and in the other
+// direction. `apply` is composed from a resource's list, create and update
+// rather than mapped from an operation of its own, so it has no endpoint to
+// pair with and counting it made six correctly-generated commands look like six
+// spec operations that had gone missing. They are named rather than detected so
+// that a *spec* operation arriving under one of these names still counts — the
+// exclusion is of the generator's own inventions, not of the words.
 // versionSegments matches an API version path segment wherever it sits, the
 // same shape generator/parser's stripVersionSegments removes.
 var versionSegments = regexp.MustCompile(`/(?:v\d+|preview)(/|$)`)
+
+// synthesizedVerbs are subcommands the generator composes from several
+// operations instead of mapping from one, so they have no spec endpoint to be
+// counted against. See applySpec in generator/platform/emitter.go.
+var synthesizedVerbs = map[string]bool{"apply": true}
 
 func TestSecurityCloudSpecParity(t *testing.T) {
 	specs, err := filepath.Glob(filepath.Join("..", "..", "specs", "platform", "securitycloud_*.json"))
@@ -77,7 +90,12 @@ func TestSecurityCloudSpecParity(t *testing.T) {
 			t.Errorf("security command %q not wired — add it in security.go", name)
 			continue
 		}
-		cliOps += len(resource.Commands())
+		for _, sub := range resource.Commands() {
+			if synthesizedVerbs[sub.Name()] {
+				continue
+			}
+			cliOps++
+		}
 	}
 
 	if cliOps != specOps {

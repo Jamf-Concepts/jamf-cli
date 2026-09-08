@@ -21,7 +21,7 @@ package platform
 // Current scope:
 //   - GET (with or without path params, no body)
 //   - POST actions (bodyless, with --yes for destructive)
-//   - POST/PUT/PATCH with a JSON or YAML body via --file/--set; POST and PUT use
+//   - POST/PUT/PATCH with a JSON or YAML body via --from-file/--set; POST and PUT use
 //     application/json, PATCH uses application/merge-patch+json
 //   - DELETE with --yes confirmation
 //   - Op-specific success status codes from spec responses
@@ -68,6 +68,9 @@ func New{{.GoName}}Cmd(cliCtx *registry.CLIContext) *cobra.Command {
 	}
 {{- range .Operations }}
 	cmd.AddCommand(new{{$.GoName}}{{.GoName}}Cmd(cliCtx))
+{{- end }}
+{{- if .Apply }}
+	cmd.AddCommand(new{{.GoName}}ApplyCmd(cliCtx))
 {{- end }}
 	return cmd
 }
@@ -127,7 +130,8 @@ func new{{$.GoName}}{{.GoName}}Cmd(cliCtx *registry.CLIContext) *cobra.Command {
 {{- if .HasScaffold }}
 			if scaffoldFlag {
 				// Scaffold prints raw JSON regardless of -o, so the output
-				// can be piped straight back into --file.
+				// can be piped straight back into --from-file, or straight into the
+				// command over a pipe.
 				fmt.Println({{printf "%q" .Scaffold}})
 				return nil
 			}
@@ -319,7 +323,13 @@ func new{{$.GoName}}{{.GoName}}Cmd(cliCtx *registry.CLIContext) *cobra.Command {
 		},
 	}
 {{- if .HasBody }}
-	cmd.Flags().StringVar(&bodyFile, "file", "", "Path to a JSON or YAML file containing the request body")
+	cmd.Flags().StringVar(&bodyFile, "from-file", "", "Path to a JSON or YAML file containing the request body (or pipe it to stdin)")
+	// --from-file, not --file: Pro, Classic, Protect and School all spelled this
+	// same thing --from-file, and one CLI gets one name for it. Renamed outright
+	// with no compat alias — a caller passing --file now gets "unknown flag",
+	// which is the failure mode you want over a flag that silently splits into
+	// two spellings. --file keeps its unrelated *upload* sense on the commands
+	// that send a binary payload; only the request-body flag is renamed.
 	cmd.Flags().StringArrayVar(&setFlags, "set", nil, "Override body values (key=value, repeatable, supports nested.keys)")
 {{- end }}
 {{- if .HasScaffold }}
@@ -347,7 +357,144 @@ func new{{$.GoName}}{{.GoName}}Cmd(cliCtx *registry.CLIContext) *cobra.Command {
 {{- end }}
 	return cmd
 }
-{{ end }}
+{{ end }}{{ if .Apply }}{{ with .Apply }}
+// new{{$.GoName}}ApplyCmd is the synthesized create-or-update-by-name command.
+// It composes three of the resource's own operations rather than mapping one:
+// the list (to resolve {{.NameField}}), the collection POST and the item
+// {{.UpdateMethod}}. See applySpec in the generator for why the update method
+// varies and what that changes.
+func new{{$.GoName}}ApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
+	var bodyFile string
+	var setFlags []string
+	var yes bool
+{{- if .HasScaffold }}
+	var scaffoldFlag bool
+{{- end }}
+
+	cmd := &cobra.Command{
+		Use:   "apply",
+		Short: "Create or update {{ article .NameSingular }} {{.NameSingular}} by {{.NameField}}",
+		Long: {{ applyLong . }},
+		// No Args validator: the leaf documents no positional, so the root
+		// walker installs refuseStrayPositionals (and the completion clamp that
+		// goes with it). Declaring cobra.NoArgs here instead blocks that and
+		// answers a stray argument with cobra's "unknown command", which is a
+		// parent's error shape, not a leaf's.
+		Annotations: {{ applyAnnotations . }},
+		Example: {{ applyExample $.Name . }},
+		RunE: func(cmd *cobra.Command, _ []string) error {
+{{- if .HasScaffold }}
+			if scaffoldFlag {
+				// Same scaffold the create op prints, so the body that comes out
+				// of one command goes into this one unchanged.
+				fmt.Println({{printf "%q" .Scaffold}})
+				return nil
+			}
+{{- end }}
+			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
+				return err
+			}
+			body, err := platform.ReadBody(bodyFile, setFlags)
+			if err != nil {
+				return err
+			}
+			// The name comes out of the body, not a flag: apply's whole contract
+			// is that the input is the desired state and carries its own
+			// identity. A --name flag beside it would be a second source of
+			// truth, and the two disagreeing has no correct resolution.
+			name, err := platform.ApplyName(body, {{printf "%q" .NameField}})
+			if err != nil {
+				return err
+			}
+
+			// The exists check is a read, so it runs under --dry-run too — that
+			// is what lets the preview say "create" or "update" rather than
+			// guessing. A lookup failure that is not "absent" is fatal: treating
+			// an auth error or a 500 as "not found" would turn a failed read
+			// into an unwanted create.
+{{- if .NameLookupField }}
+			id, err := platform.ResolveIDByNameInField(cmd.Context(), cliCtx.PlatformSDKClient, {{printf "%q" .ListPath}}, name, {{printf "%q" .NameLookupField}})
+{{- else }}
+			id, err := platform.ResolveIDByName(cmd.Context(), cliCtx.PlatformSDKClient, {{printf "%q" .ListPath}}, name)
+{{- end }}
+			if err != nil && !platform.IsNotFound(err) {
+				return err
+			}
+
+			if id == "" {
+				if cliCtx.DryRun {
+					fmt.Fprintf(cmd.ErrOrStderr(), "[dry-run] Would create {{.NameSingular}} %q\n", name)
+					return platform.ReportDryRun(cmd.ErrOrStderr(), http.MethodPost, {{printf "%q" .CreatePath}}, body)
+				}
+{{- if .CreateHasResult }}
+				var result any
+{{- end }}
+				if err := cliCtx.PlatformSDKClient.Transport().DoWithContentType(cmd.Context(), http.MethodPost, {{printf "%q" .CreatePath}}, body, "application/json", {{statusConstant .CreateCode}}, {{if .CreateHasResult}}&result{{else}}nil{{end}}); err != nil {
+					return fmt.Errorf("apply: creating {{.NameSingular}} %q: %w", name, err)
+				}
+				fmt.Fprintf(cmd.ErrOrStderr(), "Created {{.NameSingular}} %q\n", name)
+{{- if .CreateHasResult }}
+				if result == nil {
+					return nil
+				}
+				b, err := json.MarshalIndent(result, "", "  ")
+				if err != nil {
+					return err
+				}
+				return cliCtx.Output.PrintRaw(b)
+{{- else }}
+				return nil
+{{- end }}
+			}
+
+			updatePath := strings.Replace({{printf "%q" .UpdatePath}}, "{{"{"}}{{.UpdateParam}}{{"}"}}", url.PathEscape(id), 1)
+			if cliCtx.DryRun {
+				fmt.Fprintf(cmd.ErrOrStderr(), "[dry-run] Would update {{.NameSingular}} %q (id: %s)\n", name, id)
+				return platform.ReportDryRun(cmd.ErrOrStderr(), {{methodConstant .UpdateMethod}}, updatePath, body)
+			}
+			// Confirmed because this overwrites something that already exists,
+			// and the caller asked for "apply", not "update" — they may not know
+			// the name is taken. Behind the dry-run for the reason the generated
+			// mutations give: a preview must not need the real thing authorised.
+			//
+			// The bare verb, matching confirmStmt's ConfirmAction(op.Name, …):
+			// the helper renders "%s on %q requires --yes", so a longer action
+			// string reads as "update existing ai-policy on "x" requires --yes".
+			// That the resource exists is already carried by the word "update"
+			// appearing at all on a command the caller spelled "apply".
+			if err := platform.ConfirmAction("update", name, yes); err != nil {
+				return err
+			}
+{{- if .UpdateHasResult }}
+			var result any
+{{- end }}
+			if err := cliCtx.PlatformSDKClient.Transport().DoWithContentType(cmd.Context(), {{methodConstant .UpdateMethod}}, updatePath, body, {{if .UpdateMergePatch}}"application/merge-patch+json"{{else}}"application/json"{{end}}, {{statusConstant .UpdateCode}}, {{if .UpdateHasResult}}&result{{else}}nil{{end}}); err != nil {
+				return fmt.Errorf("apply: updating {{.NameSingular}} %q (id: %s): %w", name, id, err)
+			}
+			fmt.Fprintf(cmd.ErrOrStderr(), "Updated {{.NameSingular}} %q (id: %s)\n", name, id)
+{{- if .UpdateHasResult }}
+			if result == nil {
+				return nil
+			}
+			b, err := json.MarshalIndent(result, "", "  ")
+			if err != nil {
+				return err
+			}
+			return cliCtx.Output.PrintRaw(b)
+{{- else }}
+			return nil
+{{- end }}
+		},
+	}
+	cmd.Flags().StringVar(&bodyFile, "from-file", "", "Path to a JSON or YAML file containing the desired state (or pipe it to stdin)")
+	cmd.Flags().StringArrayVar(&setFlags, "set", nil, "Override body values (key=value, repeatable, supports nested.keys)")
+	cmd.Flags().BoolVar(&yes, "yes", false, "Skip the confirmation prompt when the {{.NameSingular}} already exists")
+{{- if .HasScaffold }}
+	cmd.Flags().BoolVar(&scaffoldFlag, "scaffold", false, "Print an example request body and exit")
+{{- end }}
+	return cmd
+}
+{{ end }}{{ end }}
 // guards against unused-import errors when no op uses path substitution,
 // destructive confirmation, request bodies, JSON marshalling, or URL escaping
 var (
@@ -359,5 +506,7 @@ var (
 	_ = platform.ConfirmAction
 	_ = platform.ReadBody
 	_ = platform.ResolveIDByName
+	_ = platform.IsNotFound
+	_ = platform.ApplyName
 )
 `

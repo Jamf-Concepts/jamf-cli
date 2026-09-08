@@ -81,7 +81,7 @@ notAfter: 2026-09-02T10:00:00Z
 }
 
 // A top-level array is the shape the two DNS whole-list replaces take, and
-// --set cannot express it, so --file is the only route.
+// --set cannot express it, so --from-file (or a pipe) is the only route.
 func TestNormalizeAcceptsATopLevelArray(t *testing.T) {
 	v, err := Normalize([]byte("- hostname: a.example.com\n- hostname: b.example.com\n"))
 	if err != nil {
@@ -112,7 +112,7 @@ func TestNormalizeRepairsControlCharactersInsteadOfFoldingThem(t *testing.T) {
 
 // A nil body means "send no body" to every caller, so input that carries
 // nothing must be an error — otherwise a write that sent nothing is
-// indistinguishable from one that was never given a --file.
+// indistinguishable from one that was never given a --from-file.
 func TestNormalizeRefusesInputThatCarriesNoContent(t *testing.T) {
 	for name, raw := range map[string]string{
 		"empty":          "",

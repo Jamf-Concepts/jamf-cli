@@ -126,7 +126,8 @@ func newDnsCustomHostnameMappingsUpdateCmd(cliCtx *registry.CLIContext) *cobra.C
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if scaffoldFlag {
 				// Scaffold prints raw JSON regardless of -o, so the output
-				// can be piped straight back into --file.
+				// can be piped straight back into --from-file, or straight into the
+				// command over a pipe.
 				fmt.Println("[\n  {\n    \"aRecords\": [\n      \"203.0.113.10\"\n    ],\n    \"aaaaRecords\": [\n      \"2001:db8::10\"\n    ],\n    \"hostname\": \"app.example.com\",\n    \"secureDns\": false,\n    \"ztna\": false\n  }\n]")
 				return nil
 			}
@@ -167,7 +168,13 @@ func newDnsCustomHostnameMappingsUpdateCmd(cliCtx *registry.CLIContext) *cobra.C
 			return nil
 		},
 	}
-	cmd.Flags().StringVar(&bodyFile, "file", "", "Path to a JSON or YAML file containing the request body")
+	cmd.Flags().StringVar(&bodyFile, "from-file", "", "Path to a JSON or YAML file containing the request body (or pipe it to stdin)")
+	// --from-file, not --file: Pro, Classic, Protect and School all spelled this
+	// same thing --from-file, and one CLI gets one name for it. Renamed outright
+	// with no compat alias — a caller passing --file now gets "unknown flag",
+	// which is the failure mode you want over a flag that silently splits into
+	// two spellings. --file keeps its unrelated *upload* sense on the commands
+	// that send a binary payload; only the request-body flag is renamed.
 	cmd.Flags().StringArrayVar(&setFlags, "set", nil, "Override body values (key=value, repeatable, supports nested.keys)")
 	cmd.Flags().BoolVar(&scaffoldFlag, "scaffold", false, "Print an example request body and exit")
 	return cmd
@@ -184,4 +191,6 @@ var (
 	_ = platform.ConfirmAction
 	_ = platform.ReadBody
 	_ = platform.ResolveIDByName
+	_ = platform.IsNotFound
+	_ = platform.ApplyName
 )

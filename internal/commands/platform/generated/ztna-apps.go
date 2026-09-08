@@ -31,6 +31,7 @@ func NewZtnaAppsCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(newZtnaAppsDeleteCmd(cliCtx))
 	cmd.AddCommand(newZtnaAppsGetCmd(cliCtx))
 	cmd.AddCommand(newZtnaAppsPatchCmd(cliCtx))
+	cmd.AddCommand(newZtnaAppsApplyCmd(cliCtx))
 	return cmd
 }
 
@@ -99,7 +100,8 @@ func newZtnaAppsCreateCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if scaffoldFlag {
 				// Scaffold prints raw JSON regardless of -o, so the output
-				// can be piped straight back into --file.
+				// can be piped straight back into --from-file, or straight into the
+				// command over a pipe.
 				fmt.Println("{\n  \"assignments\": {\n    \"inclusions\": {\n      \"allUsers\": false,\n      \"groups\": [\n        \"group-001\"\n      ]\n    }\n  },\n  \"bareIps\": [\n    \"192.168.1.0/24\"\n  ],\n  \"categoryName\": \"\",\n  \"groupOverrides\": {\n    \"routingOverrides\": [\n      {\n        \"groupIds\": [\n          \"group-001\"\n        ],\n        \"routing\": {\n          \"dnsIpResolutionType\": \"\",\n          \"gatewayId\": \"a1b2\",\n          \"type\": \"CUSTOM\"\n        }\n      }\n    ]\n  },\n  \"hostnames\": [\n    \"crm.example.com\"\n  ],\n  \"name\": \"Internal CRM\",\n  \"predefinedAppId\": \"atlassian-cloud\",\n  \"routing\": {\n    \"dnsIpResolutionType\": \"\",\n    \"gatewayId\": \"a1b2\",\n    \"type\": \"CUSTOM\"\n  },\n  \"security\": {\n    \"deviceManagementBasedAccess\": {\n      \"enabled\": true,\n      \"notificationsEnabled\": true\n    },\n    \"dohIntegration\": {\n      \"blocking\": false,\n      \"notificationsEnabled\": true\n    },\n    \"riskControls\": {\n      \"enabled\": true,\n      \"levelThreshold\": \"MEDIUM\",\n      \"notificationsEnabled\": true\n    }\n  }\n}")
 				return nil
 			}
@@ -148,7 +150,13 @@ func newZtnaAppsCreateCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			return cliCtx.Output.PrintRaw(b)
 		},
 	}
-	cmd.Flags().StringVar(&bodyFile, "file", "", "Path to a JSON or YAML file containing the request body")
+	cmd.Flags().StringVar(&bodyFile, "from-file", "", "Path to a JSON or YAML file containing the request body (or pipe it to stdin)")
+	// --from-file, not --file: Pro, Classic, Protect and School all spelled this
+	// same thing --from-file, and one CLI gets one name for it. Renamed outright
+	// with no compat alias — a caller passing --file now gets "unknown flag",
+	// which is the failure mode you want over a flag that silently splits into
+	// two spellings. --file keeps its unrelated *upload* sense on the commands
+	// that send a binary payload; only the request-body flag is renamed.
 	cmd.Flags().StringArrayVar(&setFlags, "set", nil, "Override body values (key=value, repeatable, supports nested.keys)")
 	cmd.Flags().BoolVar(&scaffoldFlag, "scaffold", false, "Print an example request body and exit")
 	return cmd
@@ -284,7 +292,8 @@ func newZtnaAppsPatchCmd(cliCtx *registry.CLIContext) *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if scaffoldFlag {
 				// Scaffold prints raw JSON regardless of -o, so the output
-				// can be piped straight back into --file.
+				// can be piped straight back into --from-file, or straight into the
+				// command over a pipe.
 				fmt.Println("{\n  \"assignments\": {\n    \"inclusions\": {\n      \"allUsers\": false,\n      \"groups\": [\n        \"group-001\"\n      ]\n    }\n  },\n  \"bareIps\": [\n    \"192.168.1.0/24\"\n  ],\n  \"categoryName\": \"\",\n  \"groupOverrides\": {\n    \"routingOverrides\": [\n      {\n        \"groupIds\": [\n          \"group-001\"\n        ],\n        \"routing\": {\n          \"dnsIpResolutionType\": \"\",\n          \"gatewayId\": \"a1b2\",\n          \"type\": \"CUSTOM\"\n        }\n      }\n    ]\n  },\n  \"hostnames\": [\n    \"crm.example.com\"\n  ],\n  \"name\": \"Internal CRM\",\n  \"routing\": {\n    \"dnsIpResolutionType\": \"\",\n    \"gatewayId\": \"a1b2\",\n    \"type\": \"CUSTOM\"\n  },\n  \"security\": {\n    \"deviceManagementBasedAccess\": {\n      \"enabled\": true,\n      \"notificationsEnabled\": true\n    },\n    \"dohIntegration\": {\n      \"blocking\": false,\n      \"notificationsEnabled\": true\n    },\n    \"riskControls\": {\n      \"enabled\": true,\n      \"levelThreshold\": \"MEDIUM\",\n      \"notificationsEnabled\": true\n    }\n  }\n}")
 				return nil
 			}
@@ -339,10 +348,123 @@ func newZtnaAppsPatchCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			return nil
 		},
 	}
-	cmd.Flags().StringVar(&bodyFile, "file", "", "Path to a JSON or YAML file containing the request body")
+	cmd.Flags().StringVar(&bodyFile, "from-file", "", "Path to a JSON or YAML file containing the request body (or pipe it to stdin)")
+	// --from-file, not --file: Pro, Classic, Protect and School all spelled this
+	// same thing --from-file, and one CLI gets one name for it. Renamed outright
+	// with no compat alias — a caller passing --file now gets "unknown flag",
+	// which is the failure mode you want over a flag that silently splits into
+	// two spellings. --file keeps its unrelated *upload* sense on the commands
+	// that send a binary payload; only the request-body flag is renamed.
 	cmd.Flags().StringArrayVar(&setFlags, "set", nil, "Override body values (key=value, repeatable, supports nested.keys)")
 	cmd.Flags().BoolVar(&scaffoldFlag, "scaffold", false, "Print an example request body and exit")
 	cmd.Flags().StringVar(&nameFlag, "name", "", "Resolve target by name instead of ID (uses the resource list endpoint)")
+	return cmd
+}
+
+// newZtnaAppsApplyCmd is the synthesized create-or-update-by-name command.
+// It composes three of the resource's own operations rather than mapping one:
+// the list (to resolve name), the collection POST and the item
+// PATCH. See applySpec in the generator for why the update method
+// varies and what that changes.
+func newZtnaAppsApplyCmd(cliCtx *registry.CLIContext) *cobra.Command {
+	var bodyFile string
+	var setFlags []string
+	var yes bool
+	var scaffoldFlag bool
+
+	cmd := &cobra.Command{
+		Use:   "apply",
+		Short: "Create or update a ztna-app by name",
+		Long:  "Create or update a ztna-app so it matches the input.\n\nReads JSON or YAML from --from-file, or from stdin when the flag is absent.\nThe \"name\" field in the input identifies the ztna-app: if a ztna-app with that\nname already exists it is updated (with confirmation), otherwise a new one\nis created.\n\nThe update is a PATCH: fields you omit keep their current values. To clear a\nfield, send it explicitly.\n\nThe lookup and the create are separate requests, so two runs racing on the\nsame absent name (a CI retry, or concurrent jobs) can both create one. Serialise\napply per ztna-app if that matters.",
+		// No Args validator: the leaf documents no positional, so the root
+		// walker installs refuseStrayPositionals (and the completion clamp that
+		// goes with it). Declaring cobra.NoArgs here instead blocks that and
+		// answers a stray argument with cobra's "unknown command", which is a
+		// parent's error shape, not a leaf's.
+		Annotations: map[string]string{"jamf:api": "platform-gateway", "jamf:privileges": "ztna:create,ztna:update", "jamf:scopes": "environment,tenant"},
+		Example:     "  # Apply a ztna-app from a file\n  jamf-cli security ztna-apps apply --from-file ztna-app.yaml\n\n  # Apply from stdin\n  cat ztna-app.json | jamf-cli security ztna-apps apply\n\n  # Start from a scaffold, edit, apply — no temp file\n  jamf-cli security ztna-apps apply --scaffold | vipe | jamf-cli security ztna-apps apply --yes\n\n  # Preview which of create or update would run\n  jamf-cli security ztna-apps apply --from-file ztna-app.yaml --dry-run\n\n  # Update without the overwrite prompt\n  jamf-cli security ztna-apps apply --from-file ztna-app.yaml --yes",
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			if scaffoldFlag {
+				// Same scaffold the create op prints, so the body that comes out
+				// of one command goes into this one unchanged.
+				fmt.Println("{\n  \"assignments\": {\n    \"inclusions\": {\n      \"allUsers\": false,\n      \"groups\": [\n        \"group-001\"\n      ]\n    }\n  },\n  \"bareIps\": [\n    \"192.168.1.0/24\"\n  ],\n  \"categoryName\": \"\",\n  \"groupOverrides\": {\n    \"routingOverrides\": [\n      {\n        \"groupIds\": [\n          \"group-001\"\n        ],\n        \"routing\": {\n          \"dnsIpResolutionType\": \"\",\n          \"gatewayId\": \"a1b2\",\n          \"type\": \"CUSTOM\"\n        }\n      }\n    ]\n  },\n  \"hostnames\": [\n    \"crm.example.com\"\n  ],\n  \"name\": \"Internal CRM\",\n  \"predefinedAppId\": \"atlassian-cloud\",\n  \"routing\": {\n    \"dnsIpResolutionType\": \"\",\n    \"gatewayId\": \"a1b2\",\n    \"type\": \"CUSTOM\"\n  },\n  \"security\": {\n    \"deviceManagementBasedAccess\": {\n      \"enabled\": true,\n      \"notificationsEnabled\": true\n    },\n    \"dohIntegration\": {\n      \"blocking\": false,\n      \"notificationsEnabled\": true\n    },\n    \"riskControls\": {\n      \"enabled\": true,\n      \"levelThreshold\": \"MEDIUM\",\n      \"notificationsEnabled\": true\n    }\n  }\n}")
+				return nil
+			}
+			if err := platform.RequirePlatformClient(cliCtx.PlatformSDKClient); err != nil {
+				return err
+			}
+			body, err := platform.ReadBody(bodyFile, setFlags)
+			if err != nil {
+				return err
+			}
+			// The name comes out of the body, not a flag: apply's whole contract
+			// is that the input is the desired state and carries its own
+			// identity. A --name flag beside it would be a second source of
+			// truth, and the two disagreeing has no correct resolution.
+			name, err := platform.ApplyName(body, "name")
+			if err != nil {
+				return err
+			}
+
+			// The exists check is a read, so it runs under --dry-run too — that
+			// is what lets the preview say "create" or "update" rather than
+			// guessing. A lookup failure that is not "absent" is fatal: treating
+			// an auth error or a 500 as "not found" would turn a failed read
+			// into an unwanted create.
+			id, err := platform.ResolveIDByName(cmd.Context(), cliCtx.PlatformSDKClient, "/securitycloud/v1/ztna/apps", name)
+			if err != nil && !platform.IsNotFound(err) {
+				return err
+			}
+
+			if id == "" {
+				if cliCtx.DryRun {
+					fmt.Fprintf(cmd.ErrOrStderr(), "[dry-run] Would create ztna-app %q\n", name)
+					return platform.ReportDryRun(cmd.ErrOrStderr(), http.MethodPost, "/securitycloud/v1/ztna/apps", body)
+				}
+				var result any
+				if err := cliCtx.PlatformSDKClient.Transport().DoWithContentType(cmd.Context(), http.MethodPost, "/securitycloud/v1/ztna/apps", body, "application/json", http.StatusCreated, &result); err != nil {
+					return fmt.Errorf("apply: creating ztna-app %q: %w", name, err)
+				}
+				fmt.Fprintf(cmd.ErrOrStderr(), "Created ztna-app %q\n", name)
+				if result == nil {
+					return nil
+				}
+				b, err := json.MarshalIndent(result, "", "  ")
+				if err != nil {
+					return err
+				}
+				return cliCtx.Output.PrintRaw(b)
+			}
+
+			updatePath := strings.Replace("/securitycloud/v1/ztna/apps/{appId}", "{appId}", url.PathEscape(id), 1)
+			if cliCtx.DryRun {
+				fmt.Fprintf(cmd.ErrOrStderr(), "[dry-run] Would update ztna-app %q (id: %s)\n", name, id)
+				return platform.ReportDryRun(cmd.ErrOrStderr(), http.MethodPatch, updatePath, body)
+			}
+			// Confirmed because this overwrites something that already exists,
+			// and the caller asked for "apply", not "update" — they may not know
+			// the name is taken. Behind the dry-run for the reason the generated
+			// mutations give: a preview must not need the real thing authorised.
+			//
+			// The bare verb, matching confirmStmt's ConfirmAction(op.Name, …):
+			// the helper renders "%s on %q requires --yes", so a longer action
+			// string reads as "update existing ai-policy on "x" requires --yes".
+			// That the resource exists is already carried by the word "update"
+			// appearing at all on a command the caller spelled "apply".
+			if err := platform.ConfirmAction("update", name, yes); err != nil {
+				return err
+			}
+			if err := cliCtx.PlatformSDKClient.Transport().DoWithContentType(cmd.Context(), http.MethodPatch, updatePath, body, "application/merge-patch+json", http.StatusNoContent, nil); err != nil {
+				return fmt.Errorf("apply: updating ztna-app %q (id: %s): %w", name, id, err)
+			}
+			fmt.Fprintf(cmd.ErrOrStderr(), "Updated ztna-app %q (id: %s)\n", name, id)
+			return nil
+		},
+	}
+	cmd.Flags().StringVar(&bodyFile, "from-file", "", "Path to a JSON or YAML file containing the desired state (or pipe it to stdin)")
+	cmd.Flags().StringArrayVar(&setFlags, "set", nil, "Override body values (key=value, repeatable, supports nested.keys)")
+	cmd.Flags().BoolVar(&yes, "yes", false, "Skip the confirmation prompt when the ztna-app already exists")
+	cmd.Flags().BoolVar(&scaffoldFlag, "scaffold", false, "Print an example request body and exit")
 	return cmd
 }
 
@@ -357,4 +479,6 @@ var (
 	_ = platform.ConfirmAction
 	_ = platform.ReadBody
 	_ = platform.ResolveIDByName
+	_ = platform.IsNotFound
+	_ = platform.ApplyName
 )

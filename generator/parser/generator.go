@@ -3043,7 +3043,7 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 {{- end }}
 {{- if opIsMultipart . }}
-	cmd.Flags().StringVar(&flagFile, "file", "", "Path to file to upload (required)")
+	cmd.Flags().StringVar(&flagFile, "file", "", "Path to the file to upload (required; --file, not --from-file: a multipart upload needs a name and a length, so it cannot be piped)")
 	_ = cmd.MarkFlagRequired("file")
 {{- end }}
 {{- if opHasBinaryResponse . }}

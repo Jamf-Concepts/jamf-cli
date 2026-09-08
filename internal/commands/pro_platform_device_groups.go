@@ -213,7 +213,7 @@ func newPDGPatchCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	}
 	cmd.Flags().StringVar(&nameFlag, "name", "", "Resolve target by name instead of ID")
 	cmd.Flags().StringVar(&deviceTypeFlag, "device-type", "", "Narrow --name lookup by device type: COMPUTER or MOBILE")
-	cmd.Flags().StringVar(&bodyFile, "file", "", "Path to JSON file containing the request body")
+	cmd.Flags().StringVar(&bodyFile, "from-file", "", "Path to JSON input file (or pipe JSON to stdin)")
 	cmd.Flags().StringArrayVar(&setFlags, "set", nil, "Override body values (key=value, repeatable, supports nested.keys)")
 	cmd.Flags().BoolVar(&scaffoldFlag, "scaffold", false, "Print an example request body and exit")
 	return cmd
@@ -290,7 +290,7 @@ func newPDGPatchMembersCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	}
 	cmd.Flags().StringVar(&nameFlag, "name", "", "Resolve target by name instead of ID")
 	cmd.Flags().StringVar(&deviceTypeFlag, "device-type", "", "Narrow --name lookup by device type: COMPUTER or MOBILE")
-	cmd.Flags().StringVar(&bodyFile, "file", "", "Path to JSON file containing the request body")
+	cmd.Flags().StringVar(&bodyFile, "from-file", "", "Path to JSON input file (or pipe JSON to stdin)")
 	cmd.Flags().StringArrayVar(&setFlags, "set", nil, "Override body values (key=value, repeatable, supports nested.keys)")
 	cmd.Flags().BoolVar(&scaffoldFlag, "scaffold", false, "Print an example request body and exit")
 	return cmd

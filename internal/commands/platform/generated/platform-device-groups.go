@@ -119,7 +119,8 @@ func newPlatformDeviceGroupsCreateCmd(cliCtx *registry.CLIContext) *cobra.Comman
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if scaffoldFlag {
 				// Scaffold prints raw JSON regardless of -o, so the output
-				// can be piped straight back into --file.
+				// can be piped straight back into --from-file, or straight into the
+				// command over a pipe.
 				fmt.Println("{\n  \"criteria\": [\n    {\n      \"attributeName\": \"Device Name\",\n      \"attributeValue\": \"Some Device Name\",\n      \"hasClosingParenthesis\": false,\n      \"hasOpeningParenthesis\": false,\n      \"joinType\": \"\",\n      \"operator\": \"IS\",\n      \"order\": 0\n    }\n  ],\n  \"description\": \"A custom group of devices\",\n  \"deviceType\": \"\",\n  \"groupType\": \"\",\n  \"members\": [],\n  \"name\": \"New Device Group\"\n}")
 				return nil
 			}
@@ -168,7 +169,13 @@ func newPlatformDeviceGroupsCreateCmd(cliCtx *registry.CLIContext) *cobra.Comman
 			return cliCtx.Output.PrintRaw(b)
 		},
 	}
-	cmd.Flags().StringVar(&bodyFile, "file", "", "Path to a JSON or YAML file containing the request body")
+	cmd.Flags().StringVar(&bodyFile, "from-file", "", "Path to a JSON or YAML file containing the request body (or pipe it to stdin)")
+	// --from-file, not --file: Pro, Classic, Protect and School all spelled this
+	// same thing --from-file, and one CLI gets one name for it. Renamed outright
+	// with no compat alias — a caller passing --file now gets "unknown flag",
+	// which is the failure mode you want over a flag that silently splits into
+	// two spellings. --file keeps its unrelated *upload* sense on the commands
+	// that send a binary payload; only the request-body flag is renamed.
 	cmd.Flags().StringArrayVar(&setFlags, "set", nil, "Override body values (key=value, repeatable, supports nested.keys)")
 	cmd.Flags().BoolVar(&scaffoldFlag, "scaffold", false, "Print an example request body and exit")
 	return cmd
@@ -304,7 +311,8 @@ func newPlatformDeviceGroupsPatchCmd(cliCtx *registry.CLIContext) *cobra.Command
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if scaffoldFlag {
 				// Scaffold prints raw JSON regardless of -o, so the output
-				// can be piped straight back into --file.
+				// can be piped straight back into --from-file, or straight into the
+				// command over a pipe.
 				fmt.Println("{\n  \"criteria\": [\n    {\n      \"attributeName\": \"Device Name\",\n      \"attributeValue\": \"Some Device Name\",\n      \"hasClosingParenthesis\": false,\n      \"hasOpeningParenthesis\": false,\n      \"joinType\": \"\",\n      \"operator\": \"IS\",\n      \"order\": 0\n    }\n  ],\n  \"description\": \"A custom group of devices\",\n  \"name\": \"Some Device Group\"\n}")
 				return nil
 			}
@@ -359,7 +367,13 @@ func newPlatformDeviceGroupsPatchCmd(cliCtx *registry.CLIContext) *cobra.Command
 			return nil
 		},
 	}
-	cmd.Flags().StringVar(&bodyFile, "file", "", "Path to a JSON or YAML file containing the request body")
+	cmd.Flags().StringVar(&bodyFile, "from-file", "", "Path to a JSON or YAML file containing the request body (or pipe it to stdin)")
+	// --from-file, not --file: Pro, Classic, Protect and School all spelled this
+	// same thing --from-file, and one CLI gets one name for it. Renamed outright
+	// with no compat alias — a caller passing --file now gets "unknown flag",
+	// which is the failure mode you want over a flag that silently splits into
+	// two spellings. --file keeps its unrelated *upload* sense on the commands
+	// that send a binary payload; only the request-body flag is renamed.
 	cmd.Flags().StringArrayVar(&setFlags, "set", nil, "Override body values (key=value, repeatable, supports nested.keys)")
 	cmd.Flags().BoolVar(&scaffoldFlag, "scaffold", false, "Print an example request body and exit")
 	cmd.Flags().StringVar(&nameFlag, "name", "", "Resolve target by name instead of ID (uses the resource list endpoint)")
@@ -430,7 +444,8 @@ func newPlatformDeviceGroupsPatchMembersCmd(cliCtx *registry.CLIContext) *cobra.
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if scaffoldFlag {
 				// Scaffold prints raw JSON regardless of -o, so the output
-				// can be piped straight back into --file.
+				// can be piped straight back into --from-file, or straight into the
+				// command over a pipe.
 				fmt.Println("{\n  \"added\": [],\n  \"removed\": []\n}")
 				return nil
 			}
@@ -485,7 +500,13 @@ func newPlatformDeviceGroupsPatchMembersCmd(cliCtx *registry.CLIContext) *cobra.
 			return nil
 		},
 	}
-	cmd.Flags().StringVar(&bodyFile, "file", "", "Path to a JSON or YAML file containing the request body")
+	cmd.Flags().StringVar(&bodyFile, "from-file", "", "Path to a JSON or YAML file containing the request body (or pipe it to stdin)")
+	// --from-file, not --file: Pro, Classic, Protect and School all spelled this
+	// same thing --from-file, and one CLI gets one name for it. Renamed outright
+	// with no compat alias — a caller passing --file now gets "unknown flag",
+	// which is the failure mode you want over a flag that silently splits into
+	// two spellings. --file keeps its unrelated *upload* sense on the commands
+	// that send a binary payload; only the request-body flag is renamed.
 	cmd.Flags().StringArrayVar(&setFlags, "set", nil, "Override body values (key=value, repeatable, supports nested.keys)")
 	cmd.Flags().BoolVar(&scaffoldFlag, "scaffold", false, "Print an example request body and exit")
 	cmd.Flags().StringVar(&nameFlag, "name", "", "Resolve target by name instead of ID (uses the resource list endpoint)")
@@ -503,4 +524,6 @@ var (
 	_ = platform.ConfirmAction
 	_ = platform.ReadBody
 	_ = platform.ResolveIDByName
+	_ = platform.IsNotFound
+	_ = platform.ApplyName
 )

@@ -287,7 +287,7 @@ Use --file for a single YAML file or --dir for a directory of YAML files.`,
 		},
 	}
 
-	cmd.Flags().StringVar(&file, "file", "", "Path to a single YAML file")
+	cmd.Flags().StringVar(&file, "file", "", "Path to a single YAML file (--file, not --from-file: paired with --dir, and neither accepts a pipe)")
 	cmd.Flags().StringVar(&dir, "dir", "", "Path to a directory of YAML files")
 	cmd.MarkFlagsMutuallyExclusive("file", "dir")
 	cmd.MarkFlagsOneRequired("file", "dir")
