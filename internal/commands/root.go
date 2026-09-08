@@ -16,6 +16,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode"
 
 	"github.com/hashicorp/go-retryablehttp"
 	"github.com/spf13/cobra"
@@ -1036,10 +1037,18 @@ in the config file. It never runs in CI, when output is piped, or under
 	// instead of silently printing help and exiting 0.
 	guardUnknownSubcommands(cmd)
 
+	// cobra supplies no default Args validator, so a leaf that takes only flags
+	// accepts any positional and discards it. Refuse it instead.
+	guardStrayPositionals(cmd)
+
 	// A sibling walk rather than part of the one above, which returns early for
 	// every command that has an argument validator — a leaf has no subcommands.
-	// Both have to run after the last AddCommand, which is the only thing they
-	// share.
+	// It has to run last: the walk above installs a validator on every leaf that
+	// had none, and this one codes only the validators it finds, so reversing the
+	// two leaves every refusal the walk installs unwrapped. Both also have to run
+	// after the last AddCommand, having no way to reach a command added later.
+	// TestEveryLeafRefusesAnUndocumentedPositional holds the order, because
+	// nothing else can: an unwrapped refusal still exits 2 on its own.
 	classifyArgsErrors(cmd)
 
 	return cmd
@@ -1940,6 +1949,31 @@ func ClassifyError(err error) error {
 	return err
 }
 
+// declaredPositionals reads the positional contract a command states in its Use
+// string: how many placeholders it documents, and whether the last of them is
+// variadic. Cobra's own "[flags]" and "--" tokens are not positionals.
+//
+// The Use string is the only place that contract is written once, so both the
+// stray-positional guard and the test that holds every leaf to it read the
+// arity from here rather than each carrying its own idea of the shape.
+func declaredPositionals(use, name string) (count int, variadic bool) {
+	fields := strings.Fields(use)
+	if len(fields) > 0 && fields[0] == name {
+		fields = fields[1:]
+	}
+	for _, f := range fields {
+		switch f {
+		case "[flags]", "--", "[--]":
+			continue
+		}
+		count++
+		if strings.Contains(f, "...") {
+			variadic = true
+		}
+	}
+	return count, variadic
+}
+
 // Cobra's own format literals for an invocation that is wrong rather than a
 // request that failed. Prefix matching is forced, not chosen. Cobra returns
 // these as plain errors with no type to assert on, and SetFlagErrorFunc is
@@ -2071,6 +2105,242 @@ func guardUnknownSubcommands(cmd *cobra.Command) {
 			return c.Help() // bare parent (e.g. `pro buildings`) shows help
 		}
 		return unknownSubcommandError(c, args[0])
+	}
+}
+
+// guardStrayPositionals makes every leaf command that documents no positional
+// argument refuse one. Cobra validates Args per command and has no default, so
+// such a leaf accepted any positional and threw it away: `pro backup /tmp/out`
+// ran a whole backup and ignored the directory, which --output takes.
+//
+// The Use string decides, because it is where each command already states its
+// positional contract. A leaf that documents a placeholder keeps whatever
+// validator it declares, and TestEveryLeafRefusesAnUndocumentedPositional fails
+// when it declares none.
+//
+// It walks what is registered at construction time. Cobra's own default help
+// command is added later, inside ExecuteC, so `help` keeps its stock validator
+// and still discards a stray positional. That is left alone: it prints text and
+// makes no request, and its real arity is a whole command path rather than the
+// single `[command]` its Use suggests.
+func guardStrayPositionals(cmd *cobra.Command) {
+	for _, c := range cmd.Commands() {
+		guardStrayPositionals(c)
+	}
+	// A parent belongs to guardUnknownSubcommands instead, whose RunE reads the
+	// argument to name it in the "did you mean" hint; an Args validator would
+	// refuse the call before that hint is built.
+	if !cmd.Runnable() || cmd.HasSubCommands() {
+		return
+	}
+	count, _ := declaredPositionals(cmd.Use, cmd.Name())
+	if count > 0 {
+		return
+	}
+	// A leaf that declares refuseStrayPositionals by hand keeps it, and still
+	// needs the completion half below, so the two are decided separately.
+	if cmd.Args == nil {
+		cmd.Args = refuseStrayPositionals
+	}
+	// Cobra derives no completion from Args, so the leaf would still offer
+	// filenames for the positional it refuses.
+	if cmd.ValidArgsFunction == nil && len(cmd.ValidArgs) == 0 {
+		cmd.ValidArgsFunction = cobra.NoFileCompletions
+	}
+}
+
+// secretFlagSegments are the hyphen-delimited flag-name segments that mark a
+// string flag as carrying a credential.
+//
+// Segments rather than substrings: "mapping" contains "pin", and "keychain"
+// contains "key", so a substring test redacts the value of several flags that
+// carry no secret. A segment test reads new-password, unlock-token, pin,
+// client-secret and api-key while leaving those alone.
+var secretFlagSegments = map[string]bool{
+	"password": true, "passcode": true, "pin": true,
+	"token": true, "secret": true, "key": true,
+}
+
+// carriesASecretFlag reports whether cmd registers a string flag whose name
+// names a credential. A stray positional on such a command is most likely that
+// credential typed without its flag name.
+//
+// A "-file" suffix is excluded: --token-file and --password-file take a path,
+// and a path is worth reporting back so the caller can see the typo.
+// secretShapedAssignment reports whether a stray positional is itself a
+// key=value pair whose key names a credential — the shape a dropped --set
+// leaves behind.
+//
+// carriesASecretFlag cannot see this one. --set is a stringArray, not a string,
+// and its NAME carries no secret word while its value can: `--set` is
+// repeatable, so omitting it before the second pair drops that pair to a
+// positional. CLAUDE.md names `--set deviceSyncAuth.clientSecret=…` as a real
+// invocation it discourages because the value reaches shell history and ps;
+// echoing it here adds the third vector that paragraph names, the CI log.
+//
+// A body key is camelCase where a flag name is hyphenated, so a separator is
+// inserted at each lower-to-upper transition and the one segment set reads
+// both. Keyed on the value rather than on "does this leaf take --set", because
+// the coarse form would hide an ordinary typo on several hundred leaves.
+func secretShapedAssignment(v string) bool {
+	key, _, ok := strings.Cut(v, "=")
+	if !ok {
+		return false
+	}
+	// Split the key on camelCase boundaries as well as separators, then match a
+	// segment exactly; fall back to a suffix for a key with no boundary at all.
+	//
+	// Two boundaries, and the second is what a naive rule misses. A separator
+	// before EVERY uppercase rune shredded a run of capitals into single
+	// letters, so TOKEN= normalised to "-t-o-k-e-n" and matched nothing while
+	// the doc comment claimed a transition rule. Inserting one only at
+	// lower-to-upper then misses the other end of a run: SECRETValue keeps V
+	// attached to SECRET, because V follows an uppercase T.
+	for _, seg := range splitIdentifier(key) {
+		if secretFlagSegments[seg] {
+			return true
+		}
+	}
+	// A key with no boundary and no separator — apikey, clientsecret,
+	// authtoken — is one opaque segment the exact match cannot reach.
+	//
+	// Matched as a SUFFIX rather than anywhere in the segment, because a field
+	// that holds a credential names it last: clientSecret, apiKey, authToken.
+	// A plain substring test caught "pin" inside "mapping" and "key" starting
+	// "keychain", so `--set deviceFieldMappings.userEmailMapping=x` would have
+	// redacted a value that is no secret. Over-redaction is the right bias on
+	// the value side — a false negative prints a credential — but it is not a
+	// reason to stop distinguishing.
+	for _, seg := range splitIdentifier(key) {
+		for word := range secretFlagSegments {
+			if strings.HasSuffix(seg, word) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// splitIdentifier lowercases key and splits it into words, on "." "-" "_" and
+// on camelCase boundaries.
+//
+// A boundary sits before an uppercase rune when the previous rune is lowercase
+// or a digit (clientSecret -> client, secret), and also when the previous rune
+// is uppercase and the NEXT is lowercase (SECRETValue -> secret, value). The
+// second case is what carries an env-style prefix with a camel tail; without
+// it, a run of capitals swallows the word that follows it.
+func splitIdentifier(key string) []string {
+	runes := []rune(key)
+	var b strings.Builder
+	for i, r := range runes {
+		if unicode.IsUpper(r) && i > 0 {
+			prev := runes[i-1]
+			nextLower := i+1 < len(runes) && unicode.IsLower(runes[i+1])
+			if !unicode.IsUpper(prev) || nextLower {
+				b.WriteByte('-')
+			}
+		}
+		b.WriteRune(unicode.ToLower(r))
+	}
+	return strings.FieldsFunc(b.String(), func(r rune) bool {
+		return r == '.' || r == '-' || r == '_'
+	})
+}
+
+// setPairSplitByASpace reports whether a stray positional on cmd is most likely
+// the value half of a --set pair typed with a space instead of an "=".
+//
+// It asks the FLAG SET, not the value. `--set <key> <value>` has cobra take the
+// key as the flag's one element and drop the value to args[0], so what
+// identifies the invocation is that a supplied --set element itself carries no
+// "=" — nothing about the value. Keying on the value failed in both directions
+// at once: an early return on any "=" in it echoed a credential whose value
+// contains one, which is routine for an Intune or Azure application secret
+// (base64 padding, or the character itself), and
+// `--set deviceSyncAuth.clientSecret 'dGVzdHNlY3JldA=='` printed it verbatim;
+// while `--set vendor=JAMF_PRO body.json` redacted an ordinary filename,
+// because supplying --set is exactly what a caller building a body does. So the
+// narrowing this comment used to claim did not hold where it was claimed.
+//
+// Every --set in the tree is a StringArrayVar with a nil default — 231 sites,
+// checked — so one accessor reaches all of them. The Changed gate is redundant
+// against that default, since an unsupplied flag yields an empty slice and the
+// loop below returns false either way; it is kept because a future non-nil
+// default would otherwise read as a supplied pair, and
+// TestSetPairSplitIgnoresAnUnsuppliedDefault pins that.
+func setPairSplitByASpace(cmd *cobra.Command) bool {
+	f := cmd.Flags().Lookup("set")
+	if f == nil || !f.Changed {
+		return false
+	}
+	pairs, err := cmd.Flags().GetStringArray("set")
+	if err != nil {
+		return false
+	}
+	for _, pair := range pairs {
+		if !strings.Contains(pair, "=") {
+			return true
+		}
+	}
+	return false
+}
+
+func carriesASecretFlag(cmd *cobra.Command) bool {
+	found := false
+	cmd.Flags().VisitAll(func(f *pflag.Flag) {
+		if found || f.Value.Type() != "string" || strings.HasSuffix(f.Name, "-file") {
+			return
+		}
+		for _, seg := range strings.Split(f.Name, "-") {
+			if secretFlagSegments[seg] {
+				found = true
+				return
+			}
+		}
+	})
+	return found
+}
+
+// refuseStrayPositionals reports a positional given to a command that documents
+// none, and carries its own exit code.
+//
+// cobra.NoArgs is the obvious choice and says `unknown command "x" for "y"`,
+// which is guardUnknownSubcommands' message for a parent. On a leaf there is no
+// subcommand the value could have named, so that wording sends the reader
+// hunting for one: `pro backup /tmp/out` reported an unknown command for a
+// directory --output takes, and named neither the flag nor the real mistake.
+//
+// It builds an *exitcode.Error rather than a plain error because that is what
+// carries the Hint, and the hint is the half of the answer that says where the
+// value belongs. The exit code is not the reason: classifyArgsErrors codes every
+// argument error at cobra's own call site, so a plain error from here would
+// still exit 2. The two are independent on purpose, and neither substitutes for
+// the other.
+//
+// The value is redacted when the command registers a secret-bearing string
+// flag, because on those the stray positional IS the secret: omitting
+// --new-password while supplying its value leaves the password as args[0], and
+// this message reaches stdout as JSON whenever output is piped, which is the CI
+// case. `pro comp set-recovery-lock --serial X --yes 'S3cur3P@ss'` printed the
+// password verbatim into the job log. CLAUDE.md's credential policy names that
+// exposure — shell history, ps output and CI logs — as the thing it exists to
+// prevent.
+//
+// Refusing is still the right answer rather than a regression: the same typo on
+// main ran the command with an EMPTY password, and an empty --new-password
+// clears the device's existing Recovery Lock. Only the echo was wrong.
+func refuseStrayPositionals(cmd *cobra.Command, args []string) error {
+	if len(args) == 0 {
+		return nil
+	}
+	value := args[0]
+	if carriesASecretFlag(cmd) || secretShapedAssignment(value) || setPairSplitByASpace(cmd) {
+		value = "<redacted>"
+	}
+	return &exitcode.Error{
+		Code:    exitcode.Usage,
+		Message: fmt.Sprintf("%q takes no positional arguments, but got %q", cmd.CommandPath(), value),
+		Hint:    fmt.Sprintf("run %s --help for the flags it accepts", cmd.CommandPath()),
 	}
 }
 

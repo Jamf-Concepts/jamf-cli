@@ -214,8 +214,8 @@ func newAppInstallerGlobalSettingsHistoryCmd(ctx *registry.CLIContext) *cobra.Co
 		Use:   "history",
 		Short: "Get App Installer global settings history object",
 		Long:  "Get App Installer global settings history object  **Required Permissions:** 'applications:read'",
-		Example: `  # Get history for a app-installer-global-settings
-  jamf-cli pro app-installer-global-settings history 1`,
+		Example: `  # Get history for the app-installer-global-settings
+  jamf-cli pro app-installer-global-settings history`,
 		Annotations: map[string]string{"jamf:privileges": "Read Mac Applications", "jamf:api": "pro", "jamf:gateway-privileges": "applications:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

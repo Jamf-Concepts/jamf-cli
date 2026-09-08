@@ -239,8 +239,8 @@ func newSmtpServerHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:   "history",
 		Short: "Get specified SMTP Server history object",
 		Long:  "Get specified SMTP Server history object",
-		Example: `  # Get history for a smtp-server
-  jamf-cli pro smtp-server history 1`,
+		Example: `  # Get history for the smtp-server
+  jamf-cli pro smtp-server history`,
 		Annotations: map[string]string{"jamf:privileges": "Read SMTP Server", "jamf:api": "pro", "jamf:gateway-privileges": "smtp-server:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
