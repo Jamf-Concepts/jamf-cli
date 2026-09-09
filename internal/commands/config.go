@@ -303,6 +303,7 @@ func newConfigAddProfileCmd() *cobra.Command {
 		// profileEnvironmentID is the level to prefer; mutually exclusive with
 		// profileTenantID.
 		profileEnvironmentID string
+		noVerify             bool
 	)
 
 	cmd := &cobra.Command{
@@ -335,25 +336,10 @@ func newConfigAddProfileCmd() *cobra.Command {
 
 			// oauth2 and platform both require client-id + client-secret
 			if authMethod == "oauth2" || authMethod == "platform" {
-				_, _ = fmt.Fprint(w, "Client ID: ")
-				line, err := reader.ReadString('\n')
+				var err error
+				profileClientID, profileClientSec, err = promptClientCredentials(w, reader)
 				if err != nil {
-					return fmt.Errorf("reading client ID: %w", err)
-				}
-				profileClientID = strings.TrimSpace(line)
-				if profileClientID == "" {
-					return fmt.Errorf("client ID is required")
-				}
-
-				_, _ = fmt.Fprint(w, "Client Secret: ")
-				secretBytes, err := term.ReadPassword(int(os.Stdin.Fd()))
-				if err != nil {
-					return fmt.Errorf("reading client secret: %w", err)
-				}
-				_, _ = fmt.Fprintln(w)
-				profileClientSec = string(secretBytes)
-				if profileClientSec == "" {
-					return fmt.Errorf("client secret is required")
+					return err
 				}
 			}
 
@@ -386,6 +372,17 @@ func newConfigAddProfileCmd() *cobra.Command {
 				if profileTok == "" {
 					return fmt.Errorf("token is required")
 				}
+			}
+
+			// Prove the credentials work before writing them. Without this a
+			// truncated paste saves cleanly and then fails on every
+			// subsequent command with an authentication error naming no
+			// cause — the shape reported on issue #354 for a mis-pasted
+			// scope ID. A token exchange only: it says nothing about whether
+			// the credential's privileges reach any given command, which a
+			// 403 names at the point of use.
+			if err := verifyProfileCredentials(cmd.Context(), w, authMethod, normalizedURL, profileClientID, profileClientSec, profileTenantID, profileEnvironmentID, noVerify); err != nil {
+				return err
 			}
 
 			cfg, err := config.Load()
@@ -436,6 +433,7 @@ func newConfigAddProfileCmd() *cobra.Command {
 	cmd.Flags().StringVar(&authMethod, "auth-method", "token", "authentication method: token, oauth2, platform")
 	cmd.Flags().StringVar(&profileTenantID, "tenant-id", "", "tenant ID for platform auth (legacy level; mutually exclusive with --environment-id)")
 	cmd.Flags().StringVar(&profileEnvironmentID, "environment-id", "", "platform environment ID for platform auth (preferred level; mutually exclusive with --tenant-id)")
+	cmd.Flags().BoolVar(&noVerify, "no-verify", false, "save without checking the credentials against the server (for offline or pre-seeded configs)")
 	_ = cmd.MarkFlagRequired("url")
 
 	return cmd
