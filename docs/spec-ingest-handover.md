@@ -1,7 +1,8 @@
 # Handover: path+tag derived `pro` command names
 
 **Branch:** `feat/spec-ingest-path-derived-naming` · **Started:** 2026-09-09
-**Status:** mechanism landed and guarded; 10 tests failing, all in one known class.
+**Status:** mechanism, tag naming and the deprecation aliases all landed and
+guarded. 13 tests failing — 6 in one known class, 7 stale name/count assertions.
 **Delete this file before merge.**
 
 ## The goal, in one line
@@ -28,8 +29,8 @@ whether the splitter could delete the file. Two consequences:
 
 ## The rule
 
-**The tag decides what belongs together; the path decides where the boundary
-falls; the name comes from the path.** Measured on the live 11.31.1 monolith
+**The tag decides what belongs together, the path decides where the boundary
+falls, and the name comes from the tag.** Measured on the live 11.31.1 monolith
 (550 paths / 820 ops), against 163 resources today:
 
 | | resources | unchanged | renamed | merges | splits |
@@ -52,11 +53,26 @@ Neither signal works alone, and both failure modes were measured:
 Tags are sound here rather than convenient: **no path in the document carries two
 different tags**, so the grouping is unambiguous.
 
-Naming from the path (not the tag) is what keeps the biggest resources on the
-names they already ship under — `computers-inventory` absorbs
-`computer-smart-groups`, `erase-device-computers` and
-`remove-computer-mdm-profiles` without being renamed, so `pro computers` (the
-alias, and the most-used command in the CLI) is untouched.
+Naming came from the path first, to minimise renames, and moved to the tag
+because lining up with the API reference is permanent where churn is one-time.
+Measured either way, against 163 resources before:
+
+| | resources | unchanged | renamed | merges | splits |
+|---|---|---|---|---|---|
+| tag names (chosen) | 134 | 53 | 44 | 22 | 13 |
+| path names | 136 | 60 | 40 | 24 | 13 |
+
+Seven fewer names survive; the aliases absorb it. The decisive argument was not
+the counts but the override table: path naming needed eight entries and seven
+were names invented here — a `pki-` prefix the reference does not use,
+`ldap-lookups`, `ddm-clients`, `certificate-authorities`,
+`team-viewer-remote-administrations`. The tag already said. One override
+survives, `policies` → `policy-properties`, because `policies-preview` strips to
+a name that describes a surface the modern API does not have.
+
+A tag covering several groups cannot name them all, and 14 do. The primary
+group takes the bare tag; siblings append the distinguishing path segments,
+reproducing the names they already have (`computer-groups-smart-groups`).
 
 ## What is done
 
@@ -118,7 +134,14 @@ documented idiom for a live case that resolved — see
 tests can inject; the two catalog tests in `internal/commands` cannot and should
 skip with a stated reason.
 
-### 2. Two name updates — 2 failing tests
+### 2. Stale name and count assertions — 7 failing tests
+
+`TestApplyAliases`, `TestCollectCommands` (×3), `TestRequestBodyFlagIsUniformly
+FromFile`, `TestNoExampleDocumentsAnUndeclaredPositional`,
+`TestGroupHelpCarriesTheCaveatWhenEveryLeafIsRefused`. All reference a resource
+name that moved, or a hardcoded count that shifted. Mechanical.
+
+### 2b. Earlier name updates
 
 - `TestChainSkip_RootOnlyNamesDoNotSkipNestedCommands` expects
   `pro mdm-commands`; the operation is now `pro mdm commands`.
@@ -141,16 +164,26 @@ alias entries, not as one diff. Rough priority:
 3. The 13 splits. **These are the hard ones**: an alias can point at only one
    target, so each needs a judgement about which half inherits the name.
 
-### 4. The alias + deprecation layer — not started
+### 4. The alias + deprecation layer — done
 
-Decided: old names ship as aliases emitting a deprecation warning that names the
-replacement, with a **6-month shelf life, then dead code**. Encode a removal date
-per entry and have a test fail once it passes — memory will not do it. Follow
-`JAMF_CLI_ALLOW_UNPUBLISHED`'s precedent and do **not** let `--quiet` or
-`--no-hints` silence the warning.
+`internal/commands/deprecated_names.go`. 102 aliases plus 3 withdrawals that
+refuse with an explanation. Expires 2027-03-09;
+`TestDeprecatedNamesHaveNotExpired` fails the build then, naming every entry to
+delete, and `TestDeprecatedNamesExpiryFiresOnTheDate` exercises the clock either
+side so the guard cannot go silently dead. The warning is not silenced by
+`--quiet` or `--no-hints`.
 
-Cobra note: `cmd.CalledAs()` returns the name actually typed, so a
-`PersistentPreRunE` comparison against `cmd.Name()` is enough to detect alias use.
+**Cobra note, corrected.** `cmd.CalledAs()` does *not* work for this:
+cobra records the matched name on every command it traverses but flips
+`called` to true only on the executed leaf, so a parent's alias reads as `""`.
+`pro icons get 1` resolves `icons` to `icon` and then `get` beneath it, and the
+alias is two levels above the leaf. The warning reads the resource token out of
+argv instead — exact for every ordinary invocation; a flag interleaved between
+the product and the resource misses the warning rather than inventing one.
+
+When this expires, delete `deprecated_names.go`, its wiring in `pro.go` and
+`root.go`, `deprecated_names_test.go`, and
+`generator/parser/testdata/endpoints-before-path-grouping.tsv`.
 
 ### 5. Surfaces carrying command names
 
@@ -159,9 +192,9 @@ Cobra note: `cmd.CalledAs()` returns the name actually typed, so a
 
 ## Override tables, and their size
 
-28 entries total: 8 name overrides, 2 root merges, 5 dropped tags, 13 dropped
-paths. Every one carries its reason in a comment. Watch this number — the promise
-was a rule with a small residue, and 28 is at the edge of that.
+21 entries: **1** name override, 2 root merges, 5 dropped tags, 13 dropped
+paths. Tag naming removed seven of the eight name overrides. Every entry carries
+its reason in a comment.
 
 Two key-format traps, both of which cost a cycle:
 - `pathGroupNameOverrides` keys on the root joined with **`-`** (what `groupName`
@@ -185,7 +218,25 @@ Two key-format traps, both of which cost a cycle:
   needs revisiting when CLAUDE.md is updated.
 - **`GET /v1/branding-images/download/{id}` genuinely was unreachable** —
   `filterToCanonicalPrefix` discarded it from `Icon.yaml` with a warning on every
-  generate. That one stands.
+  generate. That one stands, and it ships as `pro branding`.
+
+## Guards that caught real bugs, so do not weaken them
+
+Each of these failed on a genuine defect during the work rather than being
+written afterwards to describe it:
+
+- `TestDeprecatedNamesPointAtCommandsThatShip` — caught `pro.go` still removing
+  `computer-inventory` from when that name meant the stray erase/remove-mdm
+  pair. Under tag naming it is the primary computer resource, so the removal
+  would have deleted `pro comp list`.
+- `TestProWiringNamesCommandsThatShip` — `addSubcommand`, `removeSubcommand` and
+  `replaceSubcommand` all no-op silently when a parent is renamed. Four parents
+  moved (`computers-inventory`, `jamf-protects`,
+  `jamf-protect-deployment-tasks`, `jcds`) and every one was silent.
+- `TestDroppedTagsDoNotTakeAVersionedPathWithThem` — a tag is not a safe drop
+  unit; `policies-preview` covers a live versioned path.
+- `TestEveryFormerResourceNameStillResolves` — 163 former names: 71 live, 102
+  aliased, 3 withdrawn, nothing orphaned.
 
 ## Reproducing the measurements
 
