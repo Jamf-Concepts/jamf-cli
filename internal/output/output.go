@@ -204,6 +204,34 @@ func IsMachineRendered(format Format) bool {
 	return false
 }
 
+// RendersStructureVerbatim reports whether a format renders a value's own
+// structure rather than projecting it into columns.
+//
+// It exists so a command that narrows its row type for the column formats can
+// name the formats that keep the wide shape, instead of naming the column ones
+// and returning the wide shape for everything else. That polarity matters
+// because the format string is never normalised: New takes the --output value
+// verbatim and ResolveFormat returns it untouched, so "Table" is not
+// FormatTable, and Print's own switch has no case for it and renders a table
+// through the default arm. A command matching "table" exactly therefore handed
+// its wide shape to a table renderer, which is how `config list -o Table` came
+// to drop a column `config list -o table` shows (issue 353). Anything
+// unrecognised renders as a table, so the narrow shape is the matching one.
+//
+// FormatJSONMulti is deliberately absent: it means JSON on the wire and a
+// table on the screen (internal/commands/multi.go sets it as the capture
+// format, and Print has no case for it either), so keeping the wide shape for
+// it would put that shape back on a terminal by way of `jamf-cli multi`. The
+// generated selectTableColumns excludes it from its own keep-set for the same
+// reason, and this function is that set.
+func RendersStructureVerbatim(format string) bool {
+	switch Format(format) {
+	case FormatJSON, FormatYAML, FormatNDJSON, FormatXML, FormatRaw:
+		return true
+	}
+	return false
+}
+
 // Print outputs data in the configured format
 func (f *Formatter) Print(data any) error {
 	if rows, ok := data.([]map[string]any); ok {

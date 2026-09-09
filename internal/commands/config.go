@@ -20,6 +20,7 @@ import (
 	"github.com/Jamf-Concepts/jamf-cli/internal/config"
 	"github.com/Jamf-Concepts/jamf-cli/internal/exitcode"
 	"github.com/Jamf-Concepts/jamf-cli/internal/keychain"
+	"github.com/Jamf-Concepts/jamf-cli/internal/output"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 )
 
@@ -98,25 +99,30 @@ type configProfileTableRow struct {
 // environment-id is the column. A tenant-scoped profile is not left unexplained
 // — auth-method already reads `platform`, and `config list -o json` still
 // carries tenant-id for anything parsing the output.
+//
+// The narrow shape is the default and the keep-set is named, rather than the
+// other way round, because the format string is not normalised anywhere: the
+// switch used to match "table", "csv" and "plain" exactly and return the wide
+// shape for everything else, so `config list -o Table` took the wide shape to
+// the table renderer and lost the column this function exists to guarantee.
+// See output.RendersStructureVerbatim.
 func listRowsForFormat(rows []configProfileRow, format string) any {
-	switch format {
-	case "table", "csv", "plain":
-		out := make([]configProfileTableRow, 0, len(rows))
-		for _, r := range rows {
-			out = append(out, configProfileTableRow{
-				Name:          r.Name,
-				URL:           r.URL,
-				AuthMethod:    r.AuthMethod,
-				EnvironmentID: r.EnvironmentID,
-				Default:       r.Default,
-				Status:        r.Status,
-				Healthy:       r.Healthy,
-			})
-		}
-		return out
-	default:
+	if output.RendersStructureVerbatim(format) {
 		return rows
 	}
+	out := make([]configProfileTableRow, 0, len(rows))
+	for _, r := range rows {
+		out = append(out, configProfileTableRow{
+			Name:          r.Name,
+			URL:           r.URL,
+			AuthMethod:    r.AuthMethod,
+			EnvironmentID: r.EnvironmentID,
+			Default:       r.Default,
+			Status:        r.Status,
+			Healthy:       r.Healthy,
+		})
+	}
+	return out
 }
 
 // activeProfileName returns the profile currently in effect: flag > env > default.

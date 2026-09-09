@@ -8,24 +8,30 @@ import (
 	"io"
 	"os"
 
+	"github.com/Jamf-Concepts/jamf-cli/internal/output"
 	"github.com/Jamf-Concepts/jamf-cli/internal/protect"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 	"gopkg.in/yaml.v3"
 )
 
-// printResult outputs a single item. For table/csv/plain, it uses the
-// flattened map for clean column output. For json/yaml, it outputs the full struct.
+// printResult outputs a single item. The column formats get the flattened map
+// for clean column output; json, yaml, ndjson, xml and raw get the full struct.
+//
+// The keep-set is named and the flattened shape is the default, rather than the
+// other way round, because the format string is not normalised: this used to
+// match "table", "csv" and "plain" exactly, so any other value — a mis-cased
+// -o Table, or the internal json-multi that means JSON on the wire and a table
+// on the screen — took the full struct to a table renderer. See
+// output.RendersStructureVerbatim.
 func printResult(out registry.OutputFormatter, item any, flattened map[string]any) error {
-	switch outputFmt {
-	case "table", "csv", "plain":
-		data, err := json.Marshal(flattened)
-		if err != nil {
-			return fmt.Errorf("marshalling output: %w", err)
-		}
-		return out.PrintRaw(data)
-	default:
+	if output.RendersStructureVerbatim(outputFmt) {
 		return protect.PrintOne(out, item)
 	}
+	data, err := json.Marshal(flattened)
+	if err != nil {
+		return fmt.Errorf("marshalling output: %w", err)
+	}
+	return out.PrintRaw(data)
 }
 
 // printExport outputs data as JSON (default) or YAML based on the global output format.

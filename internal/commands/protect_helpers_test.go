@@ -5,7 +5,10 @@ package commands
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
+
+	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 )
 
 type testInput struct {
@@ -137,4 +140,72 @@ func TestWriteBase64File_Permissions(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestPrintResult_MisCasedFormatStillFlattens is issue 353 at this call site.
+// The switch matched "table", "csv" and "plain" exactly, so a mis-cased
+// -o Table — which Print renders as a table through its default arm — took the
+// full nested struct to a table renderer instead of the flattened map the
+// caller built for exactly that purpose.
+func TestPrintResult_MisCasedFormatStillFlattens(t *testing.T) {
+	type nested struct {
+		Name  string         `json:"name"`
+		Inner map[string]any `json:"inner"`
+	}
+	item := nested{Name: "plan-a", Inner: map[string]any{"deep": "value"}}
+	flattened := map[string]any{"name": "plan-a", "inner.deep": "value"}
+
+	old := outputFmt
+	defer func() { outputFmt = old }()
+
+	for _, format := range []string{"Table", "TABLE", "Csv", "json-multi", "wibble"} {
+		outputFmt = format
+		out := &captureRawFormatter{}
+		if err := printResult(out, item, flattened); err != nil {
+			t.Fatalf("printResult(-o %s): %v", format, err)
+		}
+		if !strings.Contains(string(out.raw), "inner.deep") {
+			t.Errorf("-o %s did not print the flattened map, so a column renderer got the nested struct: %s", format, out.raw)
+		}
+	}
+}
+
+// The keep-set still gets the full struct, which is what printResult narrows
+// away from.
+func TestPrintResult_StructuredFormatsGetTheFullStruct(t *testing.T) {
+	type nested struct {
+		Name  string         `json:"name"`
+		Inner map[string]any `json:"inner"`
+	}
+	item := nested{Name: "plan-a", Inner: map[string]any{"deep": "value"}}
+	flattened := map[string]any{"name": "plan-a", "inner.deep": "value"}
+
+	old := outputFmt
+	defer func() { outputFmt = old }()
+
+	for _, format := range []string{"json", "yaml", "ndjson", "xml", "raw"} {
+		outputFmt = format
+		out := &captureRawFormatter{}
+		if err := printResult(out, item, flattened); err != nil {
+			t.Fatalf("printResult(-o %s): %v", format, err)
+		}
+		if strings.Contains(string(out.raw), "inner.deep") {
+			t.Errorf("-o %s printed the flattened map, so the narrowing reached a structured format: %s", format, out.raw)
+		}
+		if !strings.Contains(string(out.raw), `"inner"`) {
+			t.Errorf("-o %s lost the nested struct: %s", format, out.raw)
+		}
+	}
+}
+
+// captureRawFormatter records what printResult writes. Only PrintRaw is
+// implemented; protect.PrintOne routes through it too.
+type captureRawFormatter struct {
+	registry.OutputFormatter
+	raw []byte
+}
+
+func (c *captureRawFormatter) PrintRaw(data []byte) error {
+	c.raw = data
+	return nil
 }
