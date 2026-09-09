@@ -195,6 +195,16 @@ All mechanical, all fixed.
   now names the live `pro mdm commands`, so it survives the alias expiry and
   asserts what it claims to.
 
+### 2b. Nested sub-resources — briefed separately
+
+`docs/nested-subresources-handover.md`. A tag that merges several path roots
+flattens an independently-writable sub-path into its parent, and a verb that
+collides with nothing then keeps the plain name: `pro sso-settings delete` is
+`DELETE /v2/sso/cert`, and `download` and `parse` belong to the certificate too.
+The rule that identifies a sub-resource is derived and measured (9 of them, 22
+sub-paths correctly excluded); the work is a third grouping level plus a redirect
+mechanism, because a cobra alias cannot point at a two-token path.
+
 ### 3. The renames themselves — **as separate commits**
 
 Nothing after this point is required for a working tree. The 40 renames, 24
