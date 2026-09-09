@@ -279,19 +279,23 @@ func TestRefuseStrayPositionalsNamesTheRealMistake(t *testing.T) {
 //
 // Eighteen are internal/scope's add and remove across nine classic resources,
 // whose examples are written without the binary name (`scope add "Deploy
-// Chrome" …`). The other three carry an example that resolves to a different
+// Chrome" …`). The other two carry an example that resolves to a different
 // command than the leaf it sits on: `pro mobile-devices delete` documents
-// `pro classic-mobile-devices delete`, `pro packages sync` documents
-// `pro jcds sync`, and `pro computer-groups get` belongs to the second of two
-// identical computer-groups subtrees, the generated registry calling
-// NewComputerGroupsCmd twice, so `pro --help` prints the row twice and Find
-// resolves every path under it to the first copy. All three are pre-existing and
-// are a question about the example, or about the registry, rather than about
-// arity.
+// `pro classic-mobile-devices delete` and `pro packages sync` documents
+// `pro jcds sync`. Both are pre-existing and are a question about the example
+// rather than about arity.
+//
+// It was 21. The third was `pro computer-groups get`, which sat in the second of
+// two identical computer-groups subtrees — the generated registry called
+// NewComputerGroupsCmd twice, so `pro --help` printed the row twice and Find
+// resolved every path under it to the first copy. Resource identity comes from
+// the spec's paths and tags now rather than from two filenames that named the
+// same resource, so there is one subtree and the example resolves to its own
+// leaf. A registry defect, fixed by removing what caused it.
 //
 // Pinned so a reader that stops matching a form it handles today, or a new
 // unmatchable form, fails rather than quietly shrinking the population.
-const unmatchedExampleLeaves = 21
+const unmatchedExampleLeaves = 20
 
 // TestScaffoldKeepsTheDeclaredPositionalCeiling covers the path the walk above
 // cannot see, because that walk reads each validator with no flag set.
