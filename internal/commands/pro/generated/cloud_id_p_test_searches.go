@@ -40,7 +40,20 @@ func newCloudIdPTestSearchesTestGroupCmd(ctx *registry.CLIContext) *cobra.Comman
 		Short:       "Get group test search",
 		Long:        "Do test search to ensure about configuration and mappings",
 		Annotations: map[string]string{"jamf:privileges": "Read LDAP Servers", "jamf:api": "pro", "jamf:gateway-privileges": "ldap-servers:read"},
-		Args:        cobra.ExactArgs(1),
+		Args: func(cmd *cobra.Command, args []string) error {
+			// --scaffold prints a body template and makes no request, so it
+			// needs none of the identifiers the path carries. Cobra validates
+			// Args before RunE, so a bare ExactArgs refuses before the scaffold
+			// return is reached and the flag is unusable on this command
+			// (issue 363). Only the floor moves: the ceiling stays the declared
+			// one, because dropping the validator entirely lets
+			// "patch a b c --scaffold" print the template and discard three
+			// positionals, which is issue 350 reached through a flag.
+			if flagScaffold {
+				return cobra.MaximumNArgs(1)(cmd, args)
+			}
+			return cobra.ExactArgs(1)(cmd, args)
+		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -102,7 +115,20 @@ func newCloudIdPTestSearchesTestUserCmd(ctx *registry.CLIContext) *cobra.Command
 		Short:       "Get user test search",
 		Long:        "Do test search to ensure about configuration and mappings",
 		Annotations: map[string]string{"jamf:privileges": "Read LDAP Servers", "jamf:api": "pro", "jamf:gateway-privileges": "ldap-servers:read"},
-		Args:        cobra.ExactArgs(1),
+		Args: func(cmd *cobra.Command, args []string) error {
+			// --scaffold prints a body template and makes no request, so it
+			// needs none of the identifiers the path carries. Cobra validates
+			// Args before RunE, so a bare ExactArgs refuses before the scaffold
+			// return is reached and the flag is unusable on this command
+			// (issue 363). Only the floor moves: the ceiling stays the declared
+			// one, because dropping the validator entirely lets
+			// "patch a b c --scaffold" print the template and discard three
+			// positionals, which is issue 350 reached through a flag.
+			if flagScaffold {
+				return cobra.MaximumNArgs(1)(cmd, args)
+			}
+			return cobra.ExactArgs(1)(cmd, args)
+		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -164,7 +190,20 @@ func newCloudIdPTestSearchesTestUserMembershipCmd(ctx *registry.CLIContext) *cob
 		Short:       "Get membership test search",
 		Long:        "Do test search to ensure about configuration and mappings",
 		Annotations: map[string]string{"jamf:privileges": "Read LDAP Servers", "jamf:api": "pro", "jamf:gateway-privileges": "ldap-servers:read"},
-		Args:        cobra.ExactArgs(1),
+		Args: func(cmd *cobra.Command, args []string) error {
+			// --scaffold prints a body template and makes no request, so it
+			// needs none of the identifiers the path carries. Cobra validates
+			// Args before RunE, so a bare ExactArgs refuses before the scaffold
+			// return is reached and the flag is unusable on this command
+			// (issue 363). Only the floor moves: the ceiling stays the declared
+			// one, because dropping the validator entirely lets
+			// "patch a b c --scaffold" print the template and discard three
+			// positionals, which is issue 350 reached through a flag.
+			if flagScaffold {
+				return cobra.MaximumNArgs(1)(cmd, args)
+			}
+			return cobra.ExactArgs(1)(cmd, args)
+		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 

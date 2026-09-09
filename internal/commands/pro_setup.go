@@ -21,6 +21,7 @@ import (
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/auth"
 	"github.com/Jamf-Concepts/jamf-cli/internal/config"
+	"github.com/Jamf-Concepts/jamf-cli/internal/exitcode"
 	"github.com/Jamf-Concepts/jamf-cli/internal/keychain"
 	"github.com/Jamf-Concepts/jamf-cli/internal/resolve"
 )
@@ -570,26 +571,13 @@ func setupInstance(ctx context.Context, w io.Writer, cfg *config.Config, instanc
 		}
 		_, _ = fmt.Fprintln(w, "✓")
 
-		if err := store.Set(keychain.DefaultService, profileName+"/client-id", clientID); err != nil {
-			return keychain.WriteError("client ID", err)
-		}
-		if err := store.Set(keychain.DefaultService, profileName+"/client-secret", clientSecret); err != nil {
-			return keychain.WriteError("client secret", err)
+		if err := storeClientCredentials(store, profileName, clientID, clientSecret); err != nil {
+			return err
 		}
 	}
 
 	// Add profile to config (caller is responsible for saving)
-	cfg.Profiles[profileName] = config.Profile{
-		URL:          instanceURL,
-		AuthMethod:   "oauth2",
-		ClientID:     keychain.KeychainRef(profileName, "client-id"),
-		ClientSecret: keychain.KeychainRef(profileName, "client-secret"),
-	}
-
-	// Clear any cached token and cookies for this profile so the next invocation
-	// fetches a fresh token rather than potentially using a stale one from before setup.
-	auth.ClearTokenCache(instanceURL, clientID)
-	auth.ClearCookieCache(instanceURL, clientID)
+	writeOAuth2Profile(cfg, profileName, instanceURL, clientID)
 
 	if clientID != "" {
 		_, _ = fmt.Fprintf(w, "  ✓ Profile %q ready (client ID: %s)\n", profileName, clientID)
@@ -599,27 +587,187 @@ func setupInstance(ctx context.Context, w io.Writer, cfg *config.Config, instanc
 	return nil
 }
 
+// Credential sources for "pro setup". The wizard either takes an API client the
+// operator has already created in Jamf Pro, or authenticates with a Jamf Pro
+// account and creates one for them.
+const (
+	credentialSourceExisting = "existing"
+	credentialSourceCreate   = "create"
+)
+
+// defaultCredentialSource is what Enter selects at the prompt. "existing" is
+// the default because it is the path that survives: the account-based path
+// depends on administrator authentication methods Jamf has deprecated (see
+// jamfProAuthDeprecationNote).
+const defaultCredentialSource = credentialSourceExisting
+
+// jamfProAuthDeprecationNote states the deprecation in the public release
+// notes' own terms. Deliberately precise on all three points, because the
+// looser reading ("Jamf is removing accounts in a future release") overstates
+// it in a way that reads as alarmist to a self-hosted operator and as imminent
+// to everyone else:
+//
+//   - it covers administrator authentication for CLOUD-HOSTED instances only,
+//   - the estimated target is the second half of 2027, not the next release,
+//   - basic auth against /api/v1/auth/token — which is what this path uses —
+//     still works today. What ends it is there being no local or directory
+//     account left to authenticate as.
+const jamfProAuthDeprecationNote = `  Local Jamf Pro accounts, SAML and LDAP/directory administrator authentication
+  are deprecated for cloud-hosted Jamf Pro instances, with an estimated removal
+  in the second half of 2027; self-hosted instances are not affected. When those
+  accounts go, this path has no account left to authenticate with. Prefer an
+  existing API client, or "jamf-cli platform setup" for the Platform API.
+  https://learn.jamf.com/r/en-US/jamf-pro-release-notes-current/Deprecations_and_Removals`
+
+// credentialSourceOptions is the ordered list shown at the prompt. The prompt,
+// the validation and the flag help all derive from this slice.
+var credentialSourceOptions = []struct {
+	key         string
+	displayName string
+	description string
+}{
+	{credentialSourceExisting, "Existing API client", "you supply a client ID and secret already created in Jamf Pro"},
+	{credentialSourceCreate, "Create one for me", "authenticate with a Jamf Pro account; jamf-cli creates the API role and client"},
+}
+
+// validCredentialSources returns the comma-separated keys, for flag help and
+// error messages.
+func validCredentialSources() string {
+	names := make([]string, len(credentialSourceOptions))
+	for i, opt := range credentialSourceOptions {
+		names[i] = opt.key
+	}
+	return strings.Join(names, ", ")
+}
+
+func isValidCredentialSource(key string) bool {
+	for _, opt := range credentialSourceOptions {
+		if opt.key == key {
+			return true
+		}
+	}
+	return false
+}
+
+// promptCredentialSource renders the credential-source menu and returns the
+// chosen key. An unrecognised answer selects the default, matching how the
+// scope prompt already behaves.
+func promptCredentialSource(w io.Writer, reader *bufio.Reader) string {
+	_, _ = fmt.Fprintln(w, "How should jamf-cli get its API credentials?")
+	for i, opt := range credentialSourceOptions {
+		marker := ""
+		if opt.key == defaultCredentialSource {
+			marker = " (default)"
+		}
+		_, _ = fmt.Fprintf(w, "  %d. %-20s — %s%s\n", i+1, opt.displayName, opt.description, marker)
+	}
+	_, _ = fmt.Fprintf(w, "Choose [1-%d]: ", len(credentialSourceOptions))
+	line, _ := reader.ReadString('\n')
+
+	if n, err := strconv.Atoi(strings.TrimSpace(line)); err == nil && n >= 1 && n <= len(credentialSourceOptions) {
+		return credentialSourceOptions[n-1].key
+	}
+	return defaultCredentialSource
+}
+
+// storeClientCredentials writes an OAuth2 pair to the keychain under the
+// profile's own account names.
+func storeClientCredentials(store keychain.Store, profileName, clientID, clientSecret string) error {
+	if err := store.Set(keychain.DefaultService, profileName+"/client-id", clientID); err != nil {
+		return keychain.WriteError("client ID", err)
+	}
+	if err := store.Set(keychain.DefaultService, profileName+"/client-secret", clientSecret); err != nil {
+		return keychain.WriteError("client secret", err)
+	}
+	return nil
+}
+
+// writeOAuth2Profile records profileName as an oauth2 profile referencing the
+// keychain entries storeClientCredentials wrote, and clears any token or cookie
+// cache left over from before setup so the next invocation exchanges afresh
+// rather than reusing a token minted for a credential that has since changed.
+// The caller saves the config.
+func writeOAuth2Profile(cfg *config.Config, profileName, instanceURL, clientID string) {
+	cfg.Profiles[profileName] = config.Profile{
+		URL:          instanceURL,
+		AuthMethod:   "oauth2",
+		ClientID:     keychain.KeychainRef(profileName, "client-id"),
+		ClientSecret: keychain.KeychainRef(profileName, "client-secret"),
+	}
+	auth.ClearTokenCache(instanceURL, clientID)
+	auth.ClearCookieCache(instanceURL, clientID)
+}
+
+// setupInstanceWithExistingClient stores an operator-supplied API client as a
+// profile for one instance, after proving the pair works.
+//
+// The verification is the reason this exists rather than pointing people at
+// "config add-profile": a client ID or secret pasted with a truncated tail
+// saves cleanly and then fails on every subsequent command with an
+// authentication error that names no cause. Verifying first turns that into one
+// error at the point the value was typed. It is a token exchange only, so it
+// establishes that the credential is valid and says nothing about whether its
+// API role carries the privileges any given command needs — a 403 names those
+// at the point of use, which setup cannot.
+func setupInstanceWithExistingClient(ctx context.Context, w io.Writer, cfg *config.Config, instanceURL, clientID, clientSecret, profileName string) error {
+	_, _ = fmt.Fprint(w, "  Verifying credentials... ")
+	if err := auth.VerifyOAuth2Credentials(ctx, instanceURL, clientID, clientSecret); err != nil {
+		// Say that nothing landed. Without it the operator reads a bare
+		// exchange failure and cannot tell whether a half-written profile is
+		// now on disk, which is the state they would go looking for.
+		_, _ = fmt.Fprintln(w, "✗")
+		return fmt.Errorf("%w\n\njamf-cli did not write profile %q", err, profileName)
+	}
+	_, _ = fmt.Fprintln(w, "✓")
+
+	if err := storeClientCredentials(config.GetKeychainStore(), profileName, clientID, clientSecret); err != nil {
+		return err
+	}
+	writeOAuth2Profile(cfg, profileName, instanceURL, clientID)
+
+	_, _ = fmt.Fprintf(w, "  ✓ Profile %q ready (client ID: %s)\n", profileName, clientID)
+	return nil
+}
+
 func newConfigSetupCmd() *cobra.Command {
 	var (
-		setupURL     string
-		setupUser    string // populated by interactive prompt only
-		setupPass    string // populated by interactive prompt only
-		setupScope   string
-		setupProfile string
-		fromFile     string
-		rotateCreds  bool
+		setupURL      string
+		setupUser     string // populated by interactive prompt only
+		setupPass     string // populated by interactive prompt only
+		setupScope    string
+		setupProfile  string
+		fromFile      string
+		rotateCreds   bool
+		credentialSrc string
 	)
 
 	cmd := &cobra.Command{
 		Use:   "setup",
-		Short: "Bootstrap OAuth2 credentials from username/password",
-		Long: `Authenticates with a Jamf Pro admin account, creates an API role and
-integration, generates OAuth2 client credentials, and saves them as a
-config profile. The username and password are not stored.
+		Short: "Save an existing API client, or create one from a Jamf Pro account",
+		Long: `Saves OAuth2 client credentials for a Jamf Pro instance as a config profile,
+from one of two sources:
+
+  existing  You supply a client ID and secret for an API client you already
+            created in Jamf Pro (Settings > API roles and clients). Its own API
+            role decides what the CLI can do. jamf-cli exchanges the pair for
+            a token before writing anything.
+
+  create    Authenticates with a Jamf Pro account, creates an API role and
+            client scoped by --scope, and generates credentials. jamf-cli
+            never stores the username or password.
+
+You type every credential at an interactive prompt. No flag, environment
+variable or stdin route accepts one, so nothing lands in shell history, "ps"
+output or a CI log.
 
 For multi-instance setup (e.g., MSPs), use --from-file with a file
 containing one Jamf Pro URL per line. Profiles are auto-named
-pro-<subdomain> (e.g., pro-school1 for school1.jamfcloud.com).`,
+pro-<subdomain> (e.g., pro-school1 for school1.jamfcloud.com). With
+--credentials existing, jamf-cli asks for a client per instance, since Jamf Pro
+issues an API client against the instance it lives on.
+
+Deprecation notice for --credentials create:
+` + jamfProAuthDeprecationNote,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 			w := cmd.OutOrStdout()
@@ -654,26 +802,69 @@ pro-<subdomain> (e.g., pro-school1 for school1.jamfcloud.com).`,
 				urls[i] = normalized
 			}
 
-			// Gather credentials interactively — once for all instances.
-			// Username and password are never accepted via flags or env vars
-			// to prevent exposure in shell history and process listings.
+			// Both credential sources need a secret typed at a prompt, so
+			// --no-input cannot work for either.
 			if noInput {
 				return fmt.Errorf("setup requires interactive input for credentials; cannot use --no-input")
 			}
-			_, _ = fmt.Fprint(w, "Username: ")
-			line, _ := reader.ReadString('\n')
-			setupUser = strings.TrimSpace(line)
 
-			_, _ = fmt.Fprint(w, "Password: ")
-			passBytes, err := term.ReadPassword(int(os.Stdin.Fd()))
-			if err != nil {
-				return fmt.Errorf("reading password: %w", err)
+			if credentialSrc == "" {
+				credentialSrc = promptCredentialSource(w, reader)
+				_, _ = fmt.Fprintln(w)
 			}
-			_, _ = fmt.Fprintln(w) // newline after hidden input
-			setupPass = string(passBytes)
+			if !isValidCredentialSource(credentialSrc) {
+				return exitcode.New(exitcode.Usage,
+					fmt.Sprintf("invalid --credentials %q: must be one of: %s", credentialSrc, validCredentialSources()))
+			}
+
+			// --scope and --rotate-credentials describe an API role and client
+			// this command creates. With an operator-supplied client there is
+			// neither, so honouring them is impossible and ignoring them
+			// silently is worse than refusing: the operator set a flag
+			// believing it narrowed their credential's privileges.
+			if credentialSrc == credentialSourceExisting {
+				if cmd.Flags().Changed("scope") {
+					return exitcode.New(exitcode.Usage,
+						"--scope cannot be used with --credentials existing: the privileges come from the API role already attached to your client in Jamf Pro")
+				}
+				if cmd.Flags().Changed("rotate-credentials") {
+					return exitcode.New(exitcode.Usage,
+						"--rotate-credentials cannot be used with --credentials existing: jamf-cli did not issue the client and cannot rotate its secret; generate a new secret in Jamf Pro and re-run setup")
+				}
+			}
+
+			// Reject a bad --scope before asking for a password. The value is
+			// knowable from the flag alone, so making the operator type
+			// credentials first for a typo already on their command line is
+			// the wrong order. A scope chosen at the prompt below is always
+			// one of scopeOptions, so this is the only check needed.
+			if setupScope != "" && scopeOptionByKey(setupScope).key == "" {
+				return exitcode.New(exitcode.Usage,
+					fmt.Sprintf("invalid --scope %q: must be one of: %s", setupScope, validScopeNames()))
+			}
+
+			// Gather account credentials interactively — once for all
+			// instances. Username and password are never accepted via flags or
+			// env vars to prevent exposure in shell history and process
+			// listings. An existing client is prompted for per instance
+			// instead, below, since it belongs to one instance.
+			if credentialSrc == credentialSourceCreate {
+				_, _ = fmt.Fprintln(w, "This path is deprecated. See \"jamf-cli pro setup --help\".")
+				_, _ = fmt.Fprint(w, "Username: ")
+				line, _ := reader.ReadString('\n')
+				setupUser = strings.TrimSpace(line)
+
+				_, _ = fmt.Fprint(w, "Password: ")
+				passBytes, err := term.ReadPassword(int(os.Stdin.Fd()))
+				if err != nil {
+					return fmt.Errorf("reading password: %w", err)
+				}
+				_, _ = fmt.Fprintln(w) // newline after hidden input
+				setupPass = string(passBytes)
+			}
 
 			// Choose scope — once for all instances
-			if setupScope == "" {
+			if credentialSrc == credentialSourceCreate && setupScope == "" {
 				if noInput {
 					setupScope = defaultScope
 				} else {
@@ -694,10 +885,6 @@ pro-<subdomain> (e.g., pro-school1 for school1.jamfcloud.com).`,
 						setupScope = scopeOptions[n-1].key
 					}
 				}
-			}
-
-			if scopeOptionByKey(setupScope).key == "" {
-				return fmt.Errorf("invalid --scope %q: must be one of: %s", setupScope, validScopeNames())
 			}
 
 			// Load config once for all instances
@@ -724,7 +911,15 @@ pro-<subdomain> (e.g., pro-school1 for school1.jamfcloud.com).`,
 				}
 
 				_, _ = fmt.Fprintf(w, "\n── %s ──\n", urls[0])
-				if err := setupInstance(ctx, w, cfg, urls[0], setupUser, setupPass, setupScope, setupProfile, rotateCreds); err != nil {
+				if credentialSrc == credentialSourceExisting {
+					clientID, clientSecret, err := promptClientCredentials(w, reader)
+					if err != nil {
+						return err
+					}
+					if err := setupInstanceWithExistingClient(ctx, w, cfg, urls[0], clientID, clientSecret, setupProfile); err != nil {
+						return err
+					}
+				} else if err := setupInstance(ctx, w, cfg, urls[0], setupUser, setupPass, setupScope, setupProfile, rotateCreds); err != nil {
 					return err
 				}
 
@@ -737,7 +932,11 @@ pro-<subdomain> (e.g., pro-school1 for school1.jamfcloud.com).`,
 			}
 
 			// Multi-instance mode: auto-name profiles, continue on failure
-			_, _ = fmt.Fprintf(w, "\nSetting up %d instance(s) with scope %q...\n", len(urls), setupScope)
+			if credentialSrc == credentialSourceExisting {
+				_, _ = fmt.Fprintf(w, "\nSetting up %d instance(s) from existing API clients...\n", len(urls))
+			} else {
+				_, _ = fmt.Fprintf(w, "\nSetting up %d instance(s) with scope %q...\n", len(urls), setupScope)
+			}
 
 			var succeeded, failed int
 			var failures []string
@@ -746,7 +945,19 @@ pro-<subdomain> (e.g., pro-school1 for school1.jamfcloud.com).`,
 				profileName := "pro-" + extractSubdomain(instanceURL)
 				_, _ = fmt.Fprintf(w, "\n── %s → profile %q ──\n", instanceURL, profileName)
 
-				if err := setupInstance(ctx, w, cfg, instanceURL, setupUser, setupPass, setupScope, profileName, rotateCreds); err != nil {
+				var err error
+				if credentialSrc == credentialSourceExisting {
+					// Prompted inside the loop: an API client is issued by one
+					// instance, so there is no pair to reuse across them.
+					var clientID, clientSecret string
+					clientID, clientSecret, err = promptClientCredentials(w, reader)
+					if err == nil {
+						err = setupInstanceWithExistingClient(ctx, w, cfg, instanceURL, clientID, clientSecret, profileName)
+					}
+				} else {
+					err = setupInstance(ctx, w, cfg, instanceURL, setupUser, setupPass, setupScope, profileName, rotateCreds)
+				}
+				if err != nil {
 					_, _ = fmt.Fprintf(w, "  ✗ FAILED: %v\n", err)
 					failures = append(failures, fmt.Sprintf("%s: %v", instanceURL, err))
 					failed++
@@ -778,10 +989,11 @@ pro-<subdomain> (e.g., pro-school1 for school1.jamfcloud.com).`,
 	}
 
 	cmd.Flags().StringVar(&setupURL, "url", "", "Jamf Pro server URL")
+	cmd.Flags().StringVar(&credentialSrc, "credentials", "", fmt.Sprintf("credential source: %s (default: %s)", validCredentialSources(), defaultCredentialSource))
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "file containing one Jamf Pro URL per line (for multi-instance setup)")
-	cmd.Flags().StringVar(&setupScope, "scope", "", fmt.Sprintf("API scope: %s (default: %s)", validScopeNames(), defaultScope))
+	cmd.Flags().StringVar(&setupScope, "scope", "", fmt.Sprintf("API scope for --credentials create: %s (default: %s)", validScopeNames(), defaultScope))
 	cmd.Flags().StringVar(&setupProfile, "profile-name", "", "profile name (default: \"default\"; ignored with --from-file)")
-	cmd.Flags().BoolVar(&rotateCreds, "rotate-credentials", false, "regenerate client credentials for existing integrations")
+	cmd.Flags().BoolVar(&rotateCreds, "rotate-credentials", false, "regenerate client credentials for existing integrations (--credentials create only)")
 	cmd.MarkFlagsMutuallyExclusive("url", "from-file")
 
 	return cmd
