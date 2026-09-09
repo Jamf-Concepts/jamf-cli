@@ -189,12 +189,12 @@ Common patterns: `.id`, `.computerAppleId`, `.udid`. Always derive the field nam
 
 When the task involves Platform resources (blueprints, compliance-benchmarks, ddm-reports, platform-devices), **always use `pro platform-device-groups` for all group operations** — creating test groups, listing groups, resolving group IDs, assigning scope.
 
-**Never use Classic or Pro API group commands** (`pro smart-computer-groups`, `pro static-computer-groups`, `pro computer-groups`, `pro mobile-device-groups`) for Platform workflows. These are incompatible:
+**Never use Classic or Pro API group commands** (`pro computer-groups-smart-groups`, `pro computer-groups-static-groups`, `pro computer-groups`, `pro mobile-device-groups`) for Platform workflows. These are incompatible:
 
 | API | Group ID type | Works with Platform resources? |
 |---|---|---|
 | `pro platform-device-groups` | UUID (`cda24521-…`) | Yes |
-| `pro smart-computer-groups` / `pro static-computer-groups` | Integer (`42`) | No |
+| `pro computer-groups-smart-groups` / `pro computer-groups-static-groups` | Integer (`42`) | No |
 
 Blueprint and benchmark scope fields accept only Platform device group UUIDs. Passing a Classic integer group ID will fail silently or be rejected by the API.
 
