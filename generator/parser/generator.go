@@ -2129,6 +2129,21 @@ func new{{ $.GoName }}{{ toCamel .Name }}Cmd(ctx *registry.CLIContext) *cobra.Co
 {{- if hasPathParam .Path }}
 {{- if or (and (isPatchOp .) (patchHasLookup $)) (and (not (isPatchOp .)) (opHasNameLookup . $)) }}
 		Args:  cobra.MaximumNArgs(1),
+{{- else if opHasScaffold . }}
+		Args: func(cmd *cobra.Command, args []string) error {
+			// --scaffold prints a body template and makes no request, so it
+			// needs none of the identifiers the path carries. Cobra validates
+			// Args before RunE, so a bare ExactArgs refuses before the scaffold
+			// return is reached and the flag is unusable on this command
+			// (issue 363). Only the floor moves: the ceiling stays the declared
+			// one, because dropping the validator entirely lets
+			// "patch a b c --scaffold" print the template and discard three
+			// positionals, which is issue 350 reached through a flag.
+			if flagScaffold {
+				return cobra.MaximumNArgs({{ pathParamCount .Parameters }})(cmd, args)
+			}
+			return cobra.ExactArgs({{ pathParamCount .Parameters }})(cmd, args)
+		},
 {{- else }}
 		Args:  cobra.ExactArgs({{ pathParamCount .Parameters }}),
 {{- end }}

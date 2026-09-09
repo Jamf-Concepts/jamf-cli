@@ -412,7 +412,20 @@ func newAdcsSettingsAddHistoryNoteCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short:       "Add specified AD CS Settings object note",
 		Long:        "Adds specified AD CS Settings object note.",
 		Annotations: map[string]string{"jamf:privileges": "Update AD CS Settings", "jamf:api": "pro", "jamf:gateway-privileges": "ad-cs-settings:update"},
-		Args:        cobra.ExactArgs(1),
+		Args: func(cmd *cobra.Command, args []string) error {
+			// --scaffold prints a body template and makes no request, so it
+			// needs none of the identifiers the path carries. Cobra validates
+			// Args before RunE, so a bare ExactArgs refuses before the scaffold
+			// return is reached and the flag is unusable on this command
+			// (issue 363). Only the floor moves: the ceiling stays the declared
+			// one, because dropping the validator entirely lets
+			// "patch a b c --scaffold" print the template and discard three
+			// positionals, which is issue 350 reached through a flag.
+			if flagScaffold {
+				return cobra.MaximumNArgs(1)(cmd, args)
+			}
+			return cobra.ExactArgs(1)(cmd, args)
+		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
@@ -608,7 +621,20 @@ func newAdcsSettingsPatchCmd(ctx *registry.CLIContext) *cobra.Command {
   # Patch from a file
   jamf-cli pro adcs-settings patch 1 --from-file changes.json`,
 		Annotations: map[string]string{"jamf:privileges": "Update AD CS Settings", "jamf:api": "pro", "jamf:gateway-privileges": "ad-cs-settings:update"},
-		Args:        cobra.ExactArgs(1),
+		Args: func(cmd *cobra.Command, args []string) error {
+			// --scaffold prints a body template and makes no request, so it
+			// needs none of the identifiers the path carries. Cobra validates
+			// Args before RunE, so a bare ExactArgs refuses before the scaffold
+			// return is reached and the flag is unusable on this command
+			// (issue 363). Only the floor moves: the ceiling stays the declared
+			// one, because dropping the validator entirely lets
+			// "patch a b c --scaffold" print the template and discard three
+			// positionals, which is issue 350 reached through a flag.
+			if flagScaffold {
+				return cobra.MaximumNArgs(1)(cmd, args)
+			}
+			return cobra.ExactArgs(1)(cmd, args)
+		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
