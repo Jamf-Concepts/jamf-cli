@@ -18,42 +18,42 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// NewPkiVenafiCmd creates the pki-venafi command group
-func NewPkiVenafiCmd(ctx *registry.CLIContext) *cobra.Command {
+// NewVenafiCmd creates the venafi command group
+func NewVenafiCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:         "pki-venafi",
-		Short:       "Manage pki-venafi",
-		Long:        `Manage pki-venafi in Jamf Pro.`,
+		Use:         "venafi",
+		Short:       "Manage venafi",
+		Long:        `Manage venafi in Jamf Pro.`,
 		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
-	cmd.AddCommand(newPkiVenafiGetCmd(ctx))
-	cmd.AddCommand(newPkiVenafiCreateCmd(ctx))
-	cmd.AddCommand(newPkiVenafiDeleteCmd(ctx))
-	cmd.AddCommand(newPkiVenafiHistoryCmd(ctx))
-	cmd.AddCommand(newPkiVenafiAddHistoryNoteCmd(ctx))
-	cmd.AddCommand(newPkiVenafiPatchCmd(ctx))
-	cmd.AddCommand(newPkiVenafiConnectionStatusCmd(ctx))
-	cmd.AddCommand(newPkiVenafiDependentProfilesCmd(ctx))
-	cmd.AddCommand(newPkiVenafiJamfPublicKeyCmd(ctx))
-	cmd.AddCommand(newPkiVenafiRegenerateCmd(ctx))
-	cmd.AddCommand(newPkiVenafiProxyTrustStoreCmd(ctx))
+	cmd.AddCommand(newVenafiGetCmd(ctx))
+	cmd.AddCommand(newVenafiCreateCmd(ctx))
+	cmd.AddCommand(newVenafiDeleteCmd(ctx))
+	cmd.AddCommand(newVenafiHistoryCmd(ctx))
+	cmd.AddCommand(newVenafiAddHistoryNoteCmd(ctx))
+	cmd.AddCommand(newVenafiPatchCmd(ctx))
+	cmd.AddCommand(newVenafiConnectionStatusCmd(ctx))
+	cmd.AddCommand(newVenafiDependentProfilesCmd(ctx))
+	cmd.AddCommand(newVenafiJamfPublicKeyCmd(ctx))
+	cmd.AddCommand(newVenafiRegenerateCmd(ctx))
+	cmd.AddCommand(newVenafiProxyTrustStoreCmd(ctx))
 
 	return cmd
 }
 
-func newPkiVenafiGetCmd(ctx *registry.CLIContext) *cobra.Command {
+func newVenafiGetCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{
 		Use:   "get <id>",
 		Short: "Retrieve a Venafi PKI configuration from Jamf Pro",
 		Long:  "Retrieve a Venafi PKI configuration from Jamf Pro",
-		Example: `  # Get a pki-venafi by ID
-  jamf-cli pro pki-venafi get 1
+		Example: `  # Get a venafi by ID
+  jamf-cli pro venafi get 1
 
-  # Get a pki-venafi and output as YAML
-  jamf-cli pro pki-venafi get 1 -o yaml`,
+  # Get a venafi and output as YAML
+  jamf-cli pro venafi get 1 -o yaml`,
 		Annotations: map[string]string{"jamf:privileges": "Read PKI", "jamf:api": "pro", "jamf:gateway-privileges": "pki:read"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -83,7 +83,7 @@ func newPkiVenafiGetCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newPkiVenafiCreateCmd(ctx *registry.CLIContext) *cobra.Command {
+func newVenafiCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagScaffold bool
 	)
@@ -92,14 +92,14 @@ func newPkiVenafiCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:   "create",
 		Short: "Create a PKI configuration in Jamf Pro for Venafi",
 		Long:  "Creates a Venafi PKI configuration in Jamf Pro, which can be used to issue certificates",
-		Example: `  # Show the JSON template for creating a pki-venafi
-  jamf-cli pro pki-venafi create --scaffold
+		Example: `  # Show the JSON template for creating a venafi
+  jamf-cli pro venafi create --scaffold
 
-  # Create a pki-venafi from JSON
-  echo '{"name":"Example"}' | jamf-cli pro pki-venafi create
+  # Create a venafi from JSON
+  echo '{"name":"Example"}' | jamf-cli pro venafi create
 
-  # Get a pki-venafi, modify it, and create a copy
-  jamf-cli pro pki-venafi get 1 -o json | jq '.name = "Copy"' | jamf-cli pro pki-venafi create`,
+  # Get a venafi, modify it, and create a copy
+  jamf-cli pro venafi get 1 -o json | jq '.name = "Copy"' | jamf-cli pro venafi create`,
 		Annotations: map[string]string{"jamf:privileges": "Update PKI", "jamf:api": "pro", "jamf:gateway-privileges": "pki:update"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -155,7 +155,7 @@ func newPkiVenafiCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newPkiVenafiDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
+func newVenafiDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagYes    bool
 		flagDryRun bool
@@ -165,11 +165,11 @@ func newPkiVenafiDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:   "delete <id>",
 		Short: "Delete a Venafi PKI configuration from Jamf Pro",
 		Long:  "Delete a Venafi PKI configuration from Jamf Pro",
-		Example: `  # Delete a pki-venafi (with confirmation)
-  jamf-cli pro pki-venafi delete 1
+		Example: `  # Delete a venafi (with confirmation)
+  jamf-cli pro venafi delete 1
 
   # Delete without confirmation prompt
-  jamf-cli pro pki-venafi delete 1 --yes`,
+  jamf-cli pro venafi delete 1 --yes`,
 		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Update PKI", "jamf:api": "pro", "jamf:gateway-privileges": "pki:update"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -235,7 +235,7 @@ func newPkiVenafiDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newPkiVenafiHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
+func newVenafiHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagPage     int
 		flagPageSize int
@@ -249,8 +249,8 @@ func newPkiVenafiHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:   "history <id>",
 		Short: "Get specified Venafi CA history object",
 		Long:  "Get specified Venafi CA history object",
-		Example: `  # Get history for a pki-venafi
-  jamf-cli pro pki-venafi history 1`,
+		Example: `  # Get history for a venafi
+  jamf-cli pro venafi history 1`,
 		Annotations: map[string]string{"jamf:privileges": "Read PKI", "jamf:api": "pro", "jamf:gateway-privileges": "pki:read"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -392,7 +392,7 @@ func newPkiVenafiHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newPkiVenafiAddHistoryNoteCmd(ctx *registry.CLIContext) *cobra.Command {
+func newVenafiAddHistoryNoteCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagScaffold bool
 	)
@@ -467,7 +467,7 @@ func newPkiVenafiAddHistoryNoteCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newPkiVenafiPatchCmd(ctx *registry.CLIContext) *cobra.Command {
+func newVenafiPatchCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagScaffold bool
 		flagSet      []string
@@ -479,13 +479,13 @@ func newPkiVenafiPatchCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Update a Venafi PKI configuration in Jamf Pro",
 		Long:  "Update a Venafi PKI configuration in Jamf Pro\n\nUse --set KEY=VALUE to update scalar fields (repeatable). Omitted fields are unchanged.\n\nAvailable fields:\n  clientId                                     string\n  name                                         string\n  proxyAddress                                 string\n  refreshToken                                 string\n  revocationEnabled                            boolean\n\nUse --from-file or pipe JSON to stdin for complex updates (bulk changes, deep nesting).",
 		Example: `  # Update a field by ID
-  jamf-cli pro pki-venafi patch 1 --set general.managed=true
+  jamf-cli pro venafi patch 1 --set general.managed=true
 
   # Update multiple fields
-  jamf-cli pro pki-venafi patch 1 --set field1=value1 --set field2=value2
+  jamf-cli pro venafi patch 1 --set field1=value1 --set field2=value2
 
   # Patch from a file
-  jamf-cli pro pki-venafi patch 1 --from-file changes.json`,
+  jamf-cli pro venafi patch 1 --from-file changes.json`,
 		Annotations: map[string]string{"jamf:privileges": "Update PKI", "jamf:api": "pro", "jamf:gateway-privileges": "pki:update"},
 		Args: func(cmd *cobra.Command, args []string) error {
 			// --scaffold prints a body template and makes no request, so it
@@ -577,7 +577,7 @@ func newPkiVenafiPatchCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newPkiVenafiConnectionStatusCmd(ctx *registry.CLIContext) *cobra.Command {
+func newVenafiConnectionStatusCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{
@@ -613,7 +613,7 @@ func newPkiVenafiConnectionStatusCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newPkiVenafiDependentProfilesCmd(ctx *registry.CLIContext) *cobra.Command {
+func newVenafiDependentProfilesCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{
@@ -649,7 +649,7 @@ func newPkiVenafiDependentProfilesCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newPkiVenafiJamfPublicKeyCmd(ctx *registry.CLIContext) *cobra.Command {
+func newVenafiJamfPublicKeyCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagSaveTo string
 	)
@@ -659,10 +659,10 @@ func newPkiVenafiJamfPublicKeyCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Downloads a certificate used to secure communication between Jamf Pro and a Jamf Pro PKI Proxy Server",
 		Long:  "Downloads a certificate for an existing Venafi configuration that can be used to secure communication between Jamf Pro and a Jamf Pro PKI Proxy Server",
 		Example: `  # Save to file
-  jamf-cli pro pki-venafi jamf-public-key <id> -O output.bin
+  jamf-cli pro venafi jamf-public-key <id> -O output.bin
 
   # Pipe to stdout
-  jamf-cli pro pki-venafi jamf-public-key <id> > output.bin`,
+  jamf-cli pro venafi jamf-public-key <id> > output.bin`,
 		Annotations: map[string]string{"jamf:privileges": "Read PKI", "jamf:api": "pro", "jamf:gateway-privileges": "pki:read"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -708,7 +708,7 @@ func newPkiVenafiJamfPublicKeyCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newPkiVenafiRegenerateCmd(ctx *registry.CLIContext) *cobra.Command {
+func newVenafiRegenerateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{
@@ -761,7 +761,7 @@ func newPkiVenafiRegenerateCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newPkiVenafiProxyTrustStoreCmd(ctx *registry.CLIContext) *cobra.Command {
+func newVenafiProxyTrustStoreCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagSaveTo string
 	)
@@ -771,10 +771,10 @@ func newPkiVenafiProxyTrustStoreCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Downloads the PKI Proxy Server public key to secure communication between Jamf Pro and a Jamf Pro PKI Proxy Server",
 		Long:  "Downloads the uploaded PKI Proxy Server public key to do basic TLS certificate validation between Jamf Pro and a Jamf Pro PKI Proxy Server",
 		Example: `  # Save to file
-  jamf-cli pro pki-venafi proxy-trust-store <id> -O output.bin
+  jamf-cli pro venafi proxy-trust-store <id> -O output.bin
 
   # Pipe to stdout
-  jamf-cli pro pki-venafi proxy-trust-store <id> > output.bin`,
+  jamf-cli pro venafi proxy-trust-store <id> > output.bin`,
 		Annotations: map[string]string{"jamf:privileges": "Read PKI", "jamf:api": "pro", "jamf:gateway-privileges": "pki:read"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {

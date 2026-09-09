@@ -13,26 +13,26 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// NewCertificateAuthoritiesCmd creates the certificate-authorities command group
-func NewCertificateAuthoritiesCmd(ctx *registry.CLIContext) *cobra.Command {
+// NewCertificateAuthorityCmd creates the certificate-authority command group
+func NewCertificateAuthorityCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:         "certificate-authorities",
-		Short:       "Manage certificate-authorities",
-		Long:        `Manage certificate-authorities in Jamf Pro.`,
+		Use:         "certificate-authority",
+		Short:       "Manage certificate-authority",
+		Long:        `Manage certificate-authority in Jamf Pro.`,
 		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
-	cmd.AddCommand(newCertificateAuthoritiesGetCmd(ctx))
-	cmd.AddCommand(newCertificateAuthoritiesActiveCmd(ctx))
-	cmd.AddCommand(newCertificateAuthoritiesDerCmd(ctx))
-	cmd.AddCommand(newCertificateAuthoritiesPemCmd(ctx))
-	cmd.AddCommand(newCertificateAuthoritiesDerByIdCmd(ctx))
-	cmd.AddCommand(newCertificateAuthoritiesPemByIdCmd(ctx))
+	cmd.AddCommand(newCertificateAuthorityGetCmd(ctx))
+	cmd.AddCommand(newCertificateAuthorityActiveCmd(ctx))
+	cmd.AddCommand(newCertificateAuthorityDerCmd(ctx))
+	cmd.AddCommand(newCertificateAuthorityPemCmd(ctx))
+	cmd.AddCommand(newCertificateAuthorityDerByIdCmd(ctx))
+	cmd.AddCommand(newCertificateAuthorityPemByIdCmd(ctx))
 
 	return cmd
 }
 
-func newCertificateAuthoritiesGetCmd(ctx *registry.CLIContext) *cobra.Command {
+func newCertificateAuthorityGetCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{
@@ -40,10 +40,10 @@ func newCertificateAuthoritiesGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Returns X.509 details of Certificate Authority (CA) with provided ID",
 		Long:  "Returns X.509 details of Certificate Authority (CA) with provided ID",
 		Example: `  # Get a certificate-authority by ID
-  jamf-cli pro certificate-authorities get 1
+  jamf-cli pro certificate-authority get 1
 
   # Get a certificate-authority and output as YAML
-  jamf-cli pro certificate-authorities get 1 -o yaml`,
+  jamf-cli pro certificate-authority get 1 -o yaml`,
 		Annotations: map[string]string{"jamf:privileges": "Read PKI", "jamf:api": "pro", "jamf:gateway-privileges": "pki:read"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -73,7 +73,7 @@ func newCertificateAuthoritiesGetCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newCertificateAuthoritiesActiveCmd(ctx *registry.CLIContext) *cobra.Command {
+func newCertificateAuthorityActiveCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{
@@ -107,7 +107,7 @@ func newCertificateAuthoritiesActiveCmd(ctx *registry.CLIContext) *cobra.Command
 	return cmd
 }
 
-func newCertificateAuthoritiesDerCmd(ctx *registry.CLIContext) *cobra.Command {
+func newCertificateAuthorityDerCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagSaveTo string
 	)
@@ -117,10 +117,10 @@ func newCertificateAuthoritiesDerCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Returns X.509 of active Certificate Authority (CA) in DER format",
 		Long:  "Returns X.509 of active Certificate Authority (CA) in DER format",
 		Example: `  # Save to file
-  jamf-cli pro certificate-authorities der -O output.bin
+  jamf-cli pro certificate-authority der -O output.bin
 
   # Pipe to stdout
-  jamf-cli pro certificate-authorities der > output.bin`,
+  jamf-cli pro certificate-authority der > output.bin`,
 		Annotations: map[string]string{"jamf:api": "pro"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -164,7 +164,7 @@ func newCertificateAuthoritiesDerCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newCertificateAuthoritiesPemCmd(ctx *registry.CLIContext) *cobra.Command {
+func newCertificateAuthorityPemCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagSaveTo string
 	)
@@ -174,10 +174,10 @@ func newCertificateAuthoritiesPemCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Returns active Certificate Authority (CA) in PEM format",
 		Long:  "Returns active Certificate Authority (CA) in PEM format",
 		Example: `  # Save to file
-  jamf-cli pro certificate-authorities pem -O output.bin
+  jamf-cli pro certificate-authority pem -O output.bin
 
   # Pipe to stdout
-  jamf-cli pro certificate-authorities pem > output.bin`,
+  jamf-cli pro certificate-authority pem > output.bin`,
 		Annotations: map[string]string{"jamf:api": "pro"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -221,7 +221,7 @@ func newCertificateAuthoritiesPemCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newCertificateAuthoritiesDerByIdCmd(ctx *registry.CLIContext) *cobra.Command {
+func newCertificateAuthorityDerByIdCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagSaveTo string
 	)
@@ -231,10 +231,10 @@ func newCertificateAuthoritiesDerByIdCmd(ctx *registry.CLIContext) *cobra.Comman
 		Short: "Returns X.509 current Certificate Authority (CA) with provided ID in DER format",
 		Long:  "Returns X.509 current Certificate Authority (CA) with provided ID in DER format",
 		Example: `  # Save to file
-  jamf-cli pro certificate-authorities der-by-id <id> -O output.bin
+  jamf-cli pro certificate-authority der-by-id <id> -O output.bin
 
   # Pipe to stdout
-  jamf-cli pro certificate-authorities der-by-id <id> > output.bin`,
+  jamf-cli pro certificate-authority der-by-id <id> > output.bin`,
 		Annotations: map[string]string{"jamf:privileges": "Read PKI", "jamf:api": "pro", "jamf:gateway-privileges": "pki:read"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -280,7 +280,7 @@ func newCertificateAuthoritiesDerByIdCmd(ctx *registry.CLIContext) *cobra.Comman
 	return cmd
 }
 
-func newCertificateAuthoritiesPemByIdCmd(ctx *registry.CLIContext) *cobra.Command {
+func newCertificateAuthorityPemByIdCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagSaveTo string
 	)
@@ -290,10 +290,10 @@ func newCertificateAuthoritiesPemByIdCmd(ctx *registry.CLIContext) *cobra.Comman
 		Short: "Returns current Certificate Authority (CA) with provided ID in PEM format",
 		Long:  "Returns current Certificate Authority (CA) with provided ID in PEM format",
 		Example: `  # Save to file
-  jamf-cli pro certificate-authorities pem-by-id <id> -O output.bin
+  jamf-cli pro certificate-authority pem-by-id <id> -O output.bin
 
   # Pipe to stdout
-  jamf-cli pro certificate-authorities pem-by-id <id> > output.bin`,
+  jamf-cli pro certificate-authority pem-by-id <id> > output.bin`,
 		Annotations: map[string]string{"jamf:privileges": "Read PKI", "jamf:api": "pro", "jamf:gateway-privileges": "pki:read"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {

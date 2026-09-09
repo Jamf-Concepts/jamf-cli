@@ -14,22 +14,22 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// NewEnrollmentCustomizationsImagesCmd creates the enrollment-customizations-images command group
-func NewEnrollmentCustomizationsImagesCmd(ctx *registry.CLIContext) *cobra.Command {
+// NewEnrollmentCustomizationImagesCmd creates the enrollment-customization-images command group
+func NewEnrollmentCustomizationImagesCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:         "enrollment-customizations-images",
-		Short:       "Manage enrollment-customizations-images",
-		Long:        `Manage enrollment-customizations-images in Jamf Pro.`,
+		Use:         "enrollment-customization-images",
+		Short:       "Manage enrollment-customization-images",
+		Long:        `Manage enrollment-customization-images in Jamf Pro.`,
 		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
-	cmd.AddCommand(newEnrollmentCustomizationsImagesUploadCmd(ctx))
-	cmd.AddCommand(newEnrollmentCustomizationsImagesDownloadCmd(ctx))
+	cmd.AddCommand(newEnrollmentCustomizationImagesUploadCmd(ctx))
+	cmd.AddCommand(newEnrollmentCustomizationImagesDownloadCmd(ctx))
 
 	return cmd
 }
 
-func newEnrollmentCustomizationsImagesUploadCmd(ctx *registry.CLIContext) *cobra.Command {
+func newEnrollmentCustomizationImagesUploadCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagFile string
 	)
@@ -82,7 +82,7 @@ func newEnrollmentCustomizationsImagesUploadCmd(ctx *registry.CLIContext) *cobra
 	return cmd
 }
 
-func newEnrollmentCustomizationsImagesDownloadCmd(ctx *registry.CLIContext) *cobra.Command {
+func newEnrollmentCustomizationImagesDownloadCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagSaveTo string
 	)
@@ -92,10 +92,10 @@ func newEnrollmentCustomizationsImagesDownloadCmd(ctx *registry.CLIContext) *cob
 		Short: "Download an enrollment customization image",
 		Long:  "Download an enrollment customization image",
 		Example: `  # Save to file
-  jamf-cli pro enrollment-customizations-images download <id> -O output.bin
+  jamf-cli pro enrollment-customization-images download <id> -O output.bin
 
   # Pipe to stdout
-  jamf-cli pro enrollment-customizations-images download <id> > output.bin`,
+  jamf-cli pro enrollment-customization-images download <id> > output.bin`,
 		Annotations: map[string]string{"jamf:api": "pro"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {

@@ -112,19 +112,29 @@ func TestGroupPathsByCollection_TopLevelCollectionIsAlwaysARoot(t *testing.T) {
 // A path with no version segment still groups.
 func TestGroupPathsByCollection_UnversionedPath(t *testing.T) {
 	got := namesOf(GroupPathsByCollection([]string{"/ldap/groups", "/ldap/servers"}))
-	if _, ok := got["ldap-lookups"]; !ok {
-		t.Errorf("want the overridden name ldap-lookups, got %v", keysOf(got))
+	if _, ok := got["ldap"]; !ok {
+		t.Errorf("want ldap, got %v", keysOf(got))
 	}
 }
 
 // An override replaces a derived name that cannot stand as a command name, and
 // every entry has to still match something the live specs produce — otherwise it
-// is a rule nobody applies, describing a path that moved.
+// is a rule nobody applies, describing a path or a tag that moved.
+//
+// Checked against both derivations, because either can produce the name an
+// override replaces: nameFromTags builds one from the tag, and groupName from
+// the path when the tag is shared or absent.
 func TestPathGroupNameOverridesAllMatchALiveGroup(t *testing.T) {
-	groups := GroupPathsByCollection(livePaths(t))
 	derived := map[string]bool{}
-	for _, g := range groups {
+	for _, g := range GroupPathsByCollection(livePaths(t)) {
 		derived[strings.Join(g.Root, "-")] = true
+	}
+	tagsOf := livePathTags(t)
+	for p, tags := range tagsOf {
+		_ = p
+		for _, tag := range tags {
+			derived[BaseTag(tag)] = true
+		}
 	}
 	for key, replacement := range pathGroupNameOverrides {
 		if !derived[key] {

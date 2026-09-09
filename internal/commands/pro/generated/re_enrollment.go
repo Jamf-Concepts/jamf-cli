@@ -16,36 +16,36 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// NewReenrollmentCmd creates the reenrollment command group
-func NewReenrollmentCmd(ctx *registry.CLIContext) *cobra.Command {
+// NewReEnrollmentCmd creates the re-enrollment command group
+func NewReEnrollmentCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:         "reenrollment",
-		Short:       "Manage reenrollment",
-		Long:        `Manage reenrollment in Jamf Pro.`,
+		Use:         "re-enrollment",
+		Short:       "Manage re-enrollment",
+		Long:        `Manage re-enrollment in Jamf Pro.`,
 		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
-	cmd.AddCommand(newReenrollmentGetCmd(ctx))
-	cmd.AddCommand(newReenrollmentUpdateCmd(ctx))
-	cmd.AddCommand(newReenrollmentHistoryCmd(ctx))
-	cmd.AddCommand(newReenrollmentAddHistoryNoteCmd(ctx))
-	cmd.AddCommand(newReenrollmentHistoryExportCmd(ctx))
+	cmd.AddCommand(newReEnrollmentGetCmd(ctx))
+	cmd.AddCommand(newReEnrollmentUpdateCmd(ctx))
+	cmd.AddCommand(newReEnrollmentHistoryCmd(ctx))
+	cmd.AddCommand(newReEnrollmentAddHistoryNoteCmd(ctx))
+	cmd.AddCommand(newReEnrollmentHistoryExportCmd(ctx))
 
 	return cmd
 }
 
-func newReenrollmentGetCmd(ctx *registry.CLIContext) *cobra.Command {
+func newReEnrollmentGetCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{
 		Use:   "get",
 		Short: "Get Re-enrollment object",
 		Long:  "Gets Re-enrollment object",
-		Example: `  # Get reenrollment
-  jamf-cli pro reenrollment get
+		Example: `  # Get re-enrollment
+  jamf-cli pro re-enrollment get
 
-  # Get reenrollment and output as YAML
-  jamf-cli pro reenrollment get -o yaml`,
+  # Get re-enrollment and output as YAML
+  jamf-cli pro re-enrollment get -o yaml`,
 		Annotations: map[string]string{"jamf:privileges": "Read Re-enrollment", "jamf:api": "pro", "jamf:gateway-privileges": "re-enrollment:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -73,7 +73,7 @@ func newReenrollmentGetCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newReenrollmentUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
+func newReEnrollmentUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagScaffold bool
 		flagSet      []string
@@ -84,13 +84,13 @@ func newReenrollmentUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Update the Re-enrollment object",
 		Long:  "Update the Re-enrollment object\n\nUse --set KEY=VALUE to update individual fields (repeatable). The current resource is fetched, your changes are merged in, read-only fields are dropped, and the whole record is written back. Omitted fields keep their current values.\n\nAvailable fields:\n  flushMDMQueue                                string\n  isFlushExtensionAttributesEnabled            boolean\n  isFlushLocationInformationEnabled            boolean\n  isFlushLocationInformationHistoryEnabled     boolean\n  isFlushPolicyHistoryEnabled                  boolean\n  isFlushSoftwareUpdatePlansEnabled            boolean\n\nWithout --set, pipe a full JSON document to stdin to replace the resource entirely.",
 		Example: `  # Update individual fields (fetch-merge-replace)
-  jamf-cli pro reenrollment update --set field=value
+  jamf-cli pro re-enrollment update --set field=value
 
-  # Replace reenrollment from a full JSON document
-  jamf-cli pro reenrollment get -o json | jq '.field = "value"' | jamf-cli pro reenrollment update
+  # Replace re-enrollment from a full JSON document
+  jamf-cli pro re-enrollment get -o json | jq '.field = "value"' | jamf-cli pro re-enrollment update
 
   # Update from a file
-  jamf-cli pro reenrollment update --from-file reenrollment.json`,
+  jamf-cli pro re-enrollment update --from-file re-enrollment.json`,
 		Annotations: map[string]string{"jamf:privileges": "Update Re-enrollment", "jamf:api": "pro", "jamf:gateway-privileges": "re-enrollment:update"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -130,7 +130,7 @@ func newReenrollmentUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 				current := map[string]any{}
 				if len(existing) > 0 {
 					if err := json.Unmarshal(existing, &current); err != nil {
-						return fmt.Errorf("parsing current reenrollment for --set: %w", err)
+						return fmt.Errorf("parsing current re-enrollment for --set: %w", err)
 					}
 				}
 				(&fieldFilter{fields: map[string]*fieldFilter{"flushMDMQueue": nil, "isFlushExtensionAttributesEnabled": nil, "isFlushLocationInformationEnabled": nil, "isFlushLocationInformationHistoryEnabled": nil, "isFlushPolicyHistoryEnabled": nil, "isFlushSoftwareUpdatePlansEnabled": nil}}).apply(current)
@@ -186,7 +186,7 @@ func newReenrollmentUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newReenrollmentHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
+func newReEnrollmentHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagPage     int
 		flagSize     int
@@ -201,8 +201,8 @@ func newReenrollmentHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:   "history",
 		Short: "Get Re-enrollment history object",
 		Long:  "Gets Re-enrollment history object",
-		Example: `  # Get history for the reenrollment
-  jamf-cli pro reenrollment history`,
+		Example: `  # Get history for the re-enrollment
+  jamf-cli pro re-enrollment history`,
 		Annotations: map[string]string{"jamf:privileges": "Read Re-enrollment", "jamf:api": "pro", "jamf:gateway-privileges": "re-enrollment:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -343,7 +343,7 @@ func newReenrollmentHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newReenrollmentAddHistoryNoteCmd(ctx *registry.CLIContext) *cobra.Command {
+func newReEnrollmentAddHistoryNoteCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagScaffold bool
 	)
@@ -403,7 +403,7 @@ func newReenrollmentAddHistoryNoteCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newReenrollmentHistoryExportCmd(ctx *registry.CLIContext) *cobra.Command {
+func newReEnrollmentHistoryExportCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagExportFields []string
 		flagExportLabels []string
@@ -420,10 +420,10 @@ func newReenrollmentHistoryExportCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Export reenrollment history collection",
 		Long:  "Export reenrollment history collection",
 		Example: `  # Save to file
-  jamf-cli pro reenrollment history-export -O output.bin
+  jamf-cli pro re-enrollment history-export -O output.bin
 
   # Pipe to stdout
-  jamf-cli pro reenrollment history-export > output.bin`,
+  jamf-cli pro re-enrollment history-export > output.bin`,
 		Annotations: map[string]string{"jamf:privileges": "Read Re-enrollment", "jamf:api": "pro", "jamf:gateway-privileges": "re-enrollment:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

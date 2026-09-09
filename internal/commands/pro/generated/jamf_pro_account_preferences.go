@@ -13,33 +13,33 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// NewAccountPreferencesCmd creates the account-preferences command group
-func NewAccountPreferencesCmd(ctx *registry.CLIContext) *cobra.Command {
+// NewJamfProAccountPreferencesCmd creates the jamf-pro-account-preferences command group
+func NewJamfProAccountPreferencesCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:         "account-preferences",
-		Short:       "Manage account-preferences",
-		Long:        `Manage account-preferences in Jamf Pro.`,
+		Use:         "jamf-pro-account-preferences",
+		Short:       "Manage jamf-pro-account-preferences",
+		Long:        `Manage jamf-pro-account-preferences in Jamf Pro.`,
 		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
-	cmd.AddCommand(newAccountPreferencesListCmd(ctx))
-	cmd.AddCommand(newAccountPreferencesPatchCmd(ctx))
+	cmd.AddCommand(newJamfProAccountPreferencesListCmd(ctx))
+	cmd.AddCommand(newJamfProAccountPreferencesPatchCmd(ctx))
 
 	return cmd
 }
 
-func newAccountPreferencesListCmd(ctx *registry.CLIContext) *cobra.Command {
+func newJamfProAccountPreferencesListCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "Get Jamf Pro account preferences",
 		Long:  "Get Jamf Pro account preferences",
-		Example: `  # List all account-preferences
-  jamf-cli pro account-preferences list
+		Example: `  # List all jamf-pro-account-preferences
+  jamf-cli pro jamf-pro-account-preferences list
 
-  # List account-preferences and extract IDs
-  jamf-cli pro account-preferences list --field id`,
+  # List jamf-pro-account-preferences and extract IDs
+  jamf-cli pro jamf-pro-account-preferences list --field id`,
 		Annotations: map[string]string{"jamf:api": "pro"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -68,7 +68,7 @@ func newAccountPreferencesListCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newAccountPreferencesPatchCmd(ctx *registry.CLIContext) *cobra.Command {
+func newJamfProAccountPreferencesPatchCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagScaffold bool
 		flagSet      []string
@@ -80,7 +80,7 @@ func newAccountPreferencesPatchCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Update Jamf Pro account preferences",
 		Long:  "Update Jamf Pro account preferences\n\nUse --set KEY=VALUE to update scalar fields (repeatable). Omitted fields are unchanged.\n\nAvailable fields:\n  computerApplicationSearchMethod              string\n  computerApplicationUsageSearchMethod         string\n  computerLocalUserAccountSearchMethod         string\n  computerPackageReceiptSearchMethod           string\n  computerPeripheralSearchMethod               string\n  computerPrinterSearchMethod                  string\n  computerSearchMethod                         string\n  computerServiceSearchMethod                  string\n  computerSoftwareUpdateSearchMethod           string\n  configProfilesSortingMethod                  string\n  dateFormat                                   string\n  disablePageLeaveCheck                        boolean\n  disableRelativeDates                         boolean\n  disableShortcutsTooltips                     boolean\n  disableTablePagination                       boolean\n  language                                     string\n  mobileDeviceAppSearchMethod                  string\n  mobileDeviceSearchMethod                     string\n  resultsPerPage                               integer\n  timezone                                     string\n  userAllContentSearchMethod                   string\n  userEbookSearchMethod                        string\n  userInterfaceDisplayTheme                    string\n  userMacAppStoreAppSearchMethod               string\n  userMobileDeviceAppSearchMethod              string\n  userSearchMethod                             string\n\nUse --from-file or pipe JSON to stdin for complex updates (bulk changes, deep nesting).",
 		Example: `  # Update a field
-  jamf-cli pro account-preferences patch --set field=value`,
+  jamf-cli pro jamf-pro-account-preferences patch --set field=value`,
 		Annotations: map[string]string{"jamf:api": "pro"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

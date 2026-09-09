@@ -157,7 +157,7 @@ func TestAllPagination_NDJSON_PerRecord(t *testing.T) {
 	}
 
 	// --all is the default (true), so no explicit flag needed; we just run list.
-	cmd := NewComputersInventoryCmd(cliCtx)
+	cmd := NewComputerInventoryCmd(cliCtx)
 	cmd.SetArgs([]string{"list"})
 	if err := cmd.Execute(); err != nil {
 		t.Fatalf("list execute: %v", err)
@@ -179,7 +179,7 @@ func TestAllPagination_NDJSON_Limit(t *testing.T) {
 		Output: out,
 	}
 
-	cmd := NewComputersInventoryCmd(cliCtx)
+	cmd := NewComputerInventoryCmd(cliCtx)
 	cmd.SetArgs([]string{"list", "--limit", "120"})
 	if err := cmd.Execute(); err != nil {
 		t.Fatalf("list execute: %v", err)

@@ -56,8 +56,8 @@ func newProCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	generated.RegisterClassicCommands(cmd, cliCtx)
 
 	// Suppress generated commands that don't work for singleton/sub-resource patterns (see #45)
-	removeSubcommand(cmd, []string{"jamf-protects"}, "apply")
-	removeSubcommand(cmd, []string{"jamf-protect-deployment-tasks"}, "get-by-name")
+	removeSubcommand(cmd, []string{"jamf-protect"}, "apply")
+	removeSubcommand(cmd, []string{"jamf-protect"}, "get-by-name")
 
 	// Suppress generated commands duplicated by richer handwritten versions (see #39).
 	// The handwritten counterparts target by --serial/--name/--group/--from-file,
@@ -66,15 +66,16 @@ func newProCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	//
 	// These used to name six standalone resources, which is what a per-file spec
 	// layout produced: `/v1/computer-inventory/{id}/erase` sat in its own file
-	// and became `pro erase-device-computers`. Grouping by path files each
-	// action under the collection it acts on, so what has to be suppressed is
-	// now a whole resource in two cases and a single subcommand in three.
+	// and became `pro erase-device-computers`. Grouping by tag files each action
+	// under the resource it acts on, so what has to be suppressed is a
+	// subcommand rather than a resource — and `computer-inventory` is the
+	// primary computer resource now, so removing it would take `pro comp list`
+	// with it.
 	//
 	// `computers` is no longer suppressed. It used to be the Classic basic v1
 	// list; that path is dropped at ingest now (see parser.KeepPath), and the
 	// name belongs to `POST /v1/computers/{id}/recalculate-smart-groups`, which
 	// has no handwritten counterpart and should ship.
-	removeSubcommand(cmd, []string{}, "computer-inventory")        // both ops → pro comp erase / remove-mdm
 	removeSubcommand(cmd, []string{}, "jamf-management-framework") // → pro comp redeploy-framework
 	removeSubcommand(cmd, []string{"mobile-devices"}, "erase")     // → pro md erase
 	removeSubcommand(cmd, []string{"mobile-devices"}, "unmanage")  // → pro md unmanage
@@ -86,15 +87,15 @@ func newProCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	replaceSubcommand(cmd, []string{"packages"}, "upload", newPackagesUploadCmd(cliCtx))
 
 	// Add handwritten jcds commands to generated parent (multi-step orchestration).
-	addSubcommand(cmd, []string{"jcds"}, newJcdsDownloadCmd(cliCtx))
-	addSubcommand(cmd, []string{"jcds"}, newJcdsSyncCmd(cliCtx))
+	addSubcommand(cmd, []string{"jamf-cloud-distribution-service"}, newJcdsDownloadCmd(cliCtx))
+	addSubcommand(cmd, []string{"jamf-cloud-distribution-service"}, newJcdsSyncCmd(cliCtx))
 
 	// Also expose sync under packages — JCDS is the backing store for packages.
 	addSubcommand(cmd, []string{"packages"}, newJcdsSyncCmd(cliCtx))
 
 	// Add handwritten retry-failed to generated parent (orchestrates computer
 	// resolution + task lookup/filter before calling the retry endpoint).
-	addSubcommand(cmd, []string{"jamf-protect-deployment-tasks"}, newJamfProtectDeploymentRetryFailedCmd(cliCtx))
+	addSubcommand(cmd, []string{"jamf-protect"}, newJamfProtectDeploymentRetryFailedCmd(cliCtx))
 
 	// Add device action subcommands to generated resource parents
 	// Both replace a generated v4 sibling rather than sitting beside it. The
@@ -103,27 +104,27 @@ func newProCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	// destructive action, honour --dry-run and carry the Find My PIN body. A
 	// second `erase` under one parent is also not a choice cobra can make —
 	// before this, `pro comp --help` listed the name twice.
-	replaceSubcommand(cmd, []string{"computers-inventory"}, "erase", newComputerEraseCmd(cliCtx))
-	removeSubcommand(cmd, []string{"computers-inventory"}, "remove-mdm-profile")
-	addSubcommand(cmd, []string{"computers-inventory"}, newComputerRemoveMDMCmd(cliCtx))
-	addSubcommand(cmd, []string{"computers-inventory"}, newComputerRedeployFrameworkCmd(cliCtx))
-	addSubcommand(cmd, []string{"computers-inventory"}, newComputerBlankPushCmd(cliCtx))
-	addSubcommand(cmd, []string{"computers-inventory"}, newComputerDDMSyncCmd(cliCtx))
-	addSubcommand(cmd, []string{"computers-inventory"}, newComputerRenewMDMCmd(cliCtx))
+	replaceSubcommand(cmd, []string{"computer-inventory"}, "erase", newComputerEraseCmd(cliCtx))
+	removeSubcommand(cmd, []string{"computer-inventory"}, "remove-mdm-profile")
+	addSubcommand(cmd, []string{"computer-inventory"}, newComputerRemoveMDMCmd(cliCtx))
+	addSubcommand(cmd, []string{"computer-inventory"}, newComputerRedeployFrameworkCmd(cliCtx))
+	addSubcommand(cmd, []string{"computer-inventory"}, newComputerBlankPushCmd(cliCtx))
+	addSubcommand(cmd, []string{"computer-inventory"}, newComputerDDMSyncCmd(cliCtx))
+	addSubcommand(cmd, []string{"computer-inventory"}, newComputerRenewMDMCmd(cliCtx))
 	addSubcommand(cmd, []string{"mobile-devices"}, newMobileEraseCmd(cliCtx))
 	addSubcommand(cmd, []string{"mobile-devices"}, newMobileUnmanageCmd(cliCtx))
 
 	// Modern API computer MDM commands
-	addSubcommand(cmd, []string{"computers-inventory"}, newComputerLockCmd(cliCtx))
-	addSubcommand(cmd, []string{"computers-inventory"}, newComputerEnableRemoteDesktopCmd(cliCtx))
-	addSubcommand(cmd, []string{"computers-inventory"}, newComputerDisableRemoteDesktopCmd(cliCtx))
-	addSubcommand(cmd, []string{"computers-inventory"}, newComputerRestartCmd(cliCtx))
-	addSubcommand(cmd, []string{"computers-inventory"}, newComputerShutdownCmd(cliCtx))
-	addSubcommand(cmd, []string{"computers-inventory"}, newComputerSetRecoveryLockCmd(cliCtx))
-	addSubcommand(cmd, []string{"computers-inventory"}, newComputerSettingsCmd(cliCtx))
-	addSubcommand(cmd, []string{"computers-inventory"}, newComputerSetAutoAdminPasswordCmd(cliCtx))
+	addSubcommand(cmd, []string{"computer-inventory"}, newComputerLockCmd(cliCtx))
+	addSubcommand(cmd, []string{"computer-inventory"}, newComputerEnableRemoteDesktopCmd(cliCtx))
+	addSubcommand(cmd, []string{"computer-inventory"}, newComputerDisableRemoteDesktopCmd(cliCtx))
+	addSubcommand(cmd, []string{"computer-inventory"}, newComputerRestartCmd(cliCtx))
+	addSubcommand(cmd, []string{"computer-inventory"}, newComputerShutdownCmd(cliCtx))
+	addSubcommand(cmd, []string{"computer-inventory"}, newComputerSetRecoveryLockCmd(cliCtx))
+	addSubcommand(cmd, []string{"computer-inventory"}, newComputerSettingsCmd(cliCtx))
+	addSubcommand(cmd, []string{"computer-inventory"}, newComputerSetAutoAdminPasswordCmd(cliCtx))
 
-	addSubcommand(cmd, []string{"computers-inventory"}, newComputerFlushCommandsCmd(cliCtx))
+	addSubcommand(cmd, []string{"computer-inventory"}, newComputerFlushCommandsCmd(cliCtx))
 	addSubcommand(cmd, []string{"mobile-devices"}, newMobileFlushCommandsCmd(cliCtx))
 
 	// Mobile device MDM commands (modern API where available, Classic where not)
@@ -152,6 +153,10 @@ func newProCmd(cliCtx *registry.CLIContext) *cobra.Command {
 			break
 		}
 	}
+
+	// Retired resource names, before applyAliases so a deprecated name and a
+	// curated alias cannot both be appended for the same string.
+	applyDeprecatedNames(cmd)
 
 	// Apply aliases and groups to pro's children
 	applyAliases(cmd)

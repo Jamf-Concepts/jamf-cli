@@ -18,40 +18,40 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// NewPkiAdcsSettingsCmd creates the pki-adcs-settings command group
-func NewPkiAdcsSettingsCmd(ctx *registry.CLIContext) *cobra.Command {
+// NewAdcsSettingsCmd creates the adcs-settings command group
+func NewAdcsSettingsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:         "pki-adcs-settings",
-		Short:       "Manage pki-adcs-settings",
-		Long:        `Manage pki-adcs-settings in Jamf Pro.`,
+		Use:         "adcs-settings",
+		Short:       "Manage adcs-settings",
+		Long:        `Manage adcs-settings in Jamf Pro.`,
 		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
-	cmd.AddCommand(newPkiAdcsSettingsGetCmd(ctx))
-	cmd.AddCommand(newPkiAdcsSettingsCreateCmd(ctx))
-	cmd.AddCommand(newPkiAdcsSettingsDeleteCmd(ctx))
-	cmd.AddCommand(newPkiAdcsSettingsHistoryCmd(ctx))
-	cmd.AddCommand(newPkiAdcsSettingsAddHistoryNoteCmd(ctx))
-	cmd.AddCommand(newPkiAdcsSettingsValidateCertificateCmd(ctx))
-	cmd.AddCommand(newPkiAdcsSettingsValidateClientCertificateCmd(ctx))
-	cmd.AddCommand(newPkiAdcsSettingsPatchCmd(ctx))
-	cmd.AddCommand(newPkiAdcsSettingsDependenciesCmd(ctx))
+	cmd.AddCommand(newAdcsSettingsGetCmd(ctx))
+	cmd.AddCommand(newAdcsSettingsCreateCmd(ctx))
+	cmd.AddCommand(newAdcsSettingsDeleteCmd(ctx))
+	cmd.AddCommand(newAdcsSettingsHistoryCmd(ctx))
+	cmd.AddCommand(newAdcsSettingsAddHistoryNoteCmd(ctx))
+	cmd.AddCommand(newAdcsSettingsValidateCertificateCmd(ctx))
+	cmd.AddCommand(newAdcsSettingsValidateClientCertificateCmd(ctx))
+	cmd.AddCommand(newAdcsSettingsPatchCmd(ctx))
+	cmd.AddCommand(newAdcsSettingsDependenciesCmd(ctx))
 
 	return cmd
 }
 
-func newPkiAdcsSettingsGetCmd(ctx *registry.CLIContext) *cobra.Command {
+func newAdcsSettingsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{
 		Use:   "get <id>",
 		Short: "Get AD CS Settings configuration for the ID value",
 		Long:  "Get AD CS Settings configuration for the ID value including public key information, but not including any password information.",
-		Example: `  # Get a pki-adcs-setting by ID
-  jamf-cli pro pki-adcs-settings get 1
+		Example: `  # Get a adcs-setting by ID
+  jamf-cli pro adcs-settings get 1
 
-  # Get a pki-adcs-setting and output as YAML
-  jamf-cli pro pki-adcs-settings get 1 -o yaml`,
+  # Get a adcs-setting and output as YAML
+  jamf-cli pro adcs-settings get 1 -o yaml`,
 		Annotations: map[string]string{"jamf:privileges": "Read AD CS Settings", "jamf:api": "pro", "jamf:gateway-privileges": "ad-cs-settings:read"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -81,7 +81,7 @@ func newPkiAdcsSettingsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newPkiAdcsSettingsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
+func newAdcsSettingsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagScaffold bool
 	)
@@ -90,14 +90,14 @@ func newPkiAdcsSettingsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:   "create",
 		Short: "Create AD CS Settings configuration for either inbound or outbound mode",
 		Long:  "Create AD CS Settings configuration and initialize renewal monitor. Once set, the configuration cannot change between inbound and outbound modes.",
-		Example: `  # Show the JSON template for creating a pki-adcs-setting
-  jamf-cli pro pki-adcs-settings create --scaffold
+		Example: `  # Show the JSON template for creating a adcs-setting
+  jamf-cli pro adcs-settings create --scaffold
 
-  # Create a pki-adcs-setting from JSON
-  echo '{"name":"Example"}' | jamf-cli pro pki-adcs-settings create
+  # Create a adcs-setting from JSON
+  echo '{"name":"Example"}' | jamf-cli pro adcs-settings create
 
-  # Get a pki-adcs-setting, modify it, and create a copy
-  jamf-cli pro pki-adcs-settings get 1 -o json | jq '.name = "Copy"' | jamf-cli pro pki-adcs-settings create`,
+  # Get a adcs-setting, modify it, and create a copy
+  jamf-cli pro adcs-settings get 1 -o json | jq '.name = "Copy"' | jamf-cli pro adcs-settings create`,
 		Annotations: map[string]string{"jamf:privileges": "Create AD CS Settings", "jamf:api": "pro", "jamf:gateway-privileges": "ad-cs-settings:create"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -165,7 +165,7 @@ func newPkiAdcsSettingsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newPkiAdcsSettingsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
+func newAdcsSettingsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagYes    bool
 		flagDryRun bool
@@ -175,11 +175,11 @@ func newPkiAdcsSettingsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:   "delete <id>",
 		Short: "Delete AD CS Settings configuration by ID",
 		Long:  "Delete AD CS Settings configuration, only if reassignment of Certificate Authority succeeds and no config profiles are using the configuration.",
-		Example: `  # Delete a pki-adcs-setting (with confirmation)
-  jamf-cli pro pki-adcs-settings delete 1
+		Example: `  # Delete a adcs-setting (with confirmation)
+  jamf-cli pro adcs-settings delete 1
 
   # Delete without confirmation prompt
-  jamf-cli pro pki-adcs-settings delete 1 --yes`,
+  jamf-cli pro adcs-settings delete 1 --yes`,
 		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Delete AD CS Settings", "jamf:api": "pro", "jamf:gateway-privileges": "ad-cs-settings:delete"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -245,7 +245,7 @@ func newPkiAdcsSettingsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newPkiAdcsSettingsHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
+func newAdcsSettingsHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagPage     int
 		flagPageSize int
@@ -259,8 +259,8 @@ func newPkiAdcsSettingsHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:   "history <id>",
 		Short: "Get specified AD CS Settings history object",
 		Long:  "Get specified AD CS Settings history object.",
-		Example: `  # Get history for a pki-adcs-setting
-  jamf-cli pro pki-adcs-settings history 1`,
+		Example: `  # Get history for a adcs-setting
+  jamf-cli pro adcs-settings history 1`,
 		Annotations: map[string]string{"jamf:privileges": "Read AD CS Settings", "jamf:api": "pro", "jamf:gateway-privileges": "ad-cs-settings:read"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -402,7 +402,7 @@ func newPkiAdcsSettingsHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newPkiAdcsSettingsAddHistoryNoteCmd(ctx *registry.CLIContext) *cobra.Command {
+func newAdcsSettingsAddHistoryNoteCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagScaffold bool
 	)
@@ -477,7 +477,7 @@ func newPkiAdcsSettingsAddHistoryNoteCmd(ctx *registry.CLIContext) *cobra.Comman
 	return cmd
 }
 
-func newPkiAdcsSettingsValidateCertificateCmd(ctx *registry.CLIContext) *cobra.Command {
+func newAdcsSettingsValidateCertificateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagScaffold bool
 	)
@@ -539,7 +539,7 @@ func newPkiAdcsSettingsValidateCertificateCmd(ctx *registry.CLIContext) *cobra.C
 	return cmd
 }
 
-func newPkiAdcsSettingsValidateClientCertificateCmd(ctx *registry.CLIContext) *cobra.Command {
+func newAdcsSettingsValidateClientCertificateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagScaffold bool
 	)
@@ -601,7 +601,7 @@ func newPkiAdcsSettingsValidateClientCertificateCmd(ctx *registry.CLIContext) *c
 	return cmd
 }
 
-func newPkiAdcsSettingsPatchCmd(ctx *registry.CLIContext) *cobra.Command {
+func newAdcsSettingsPatchCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagScaffold bool
 		flagSet      []string
@@ -613,13 +613,13 @@ func newPkiAdcsSettingsPatchCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Update AD CS Settings configuration",
 		Long:  "Update AD CS Settings configuration, where certificate information must be provided in full, or not at all. Cannot change between inbound and outbound modes.\n\nUse --set KEY=VALUE to update scalar fields (repeatable). Omitted fields are unchanged.\n\nAvailable fields:\n  adcsUrl                                      string\n  apiClientId                                  string\n  caName                                       string\n  clientCert.filename                          string\n  clientCert.password                          string\n  displayName                                  string\n  fqdn                                         string\n  outbound                                     boolean\n  revocationEnabled                            boolean\n  serverCert.filename                          string\n  serverCert.password                          string\n\nArray and object fields accept a JSON value (e.g. --set field='[\"a\",\"b\"]'):\n  clientCert                                   object\n  clientCert.data                              array\n  serverCert                                   object\n  serverCert.data                              array\n\nUse --from-file or pipe JSON to stdin for complex updates (bulk changes, deep nesting).",
 		Example: `  # Update a field by ID
-  jamf-cli pro pki-adcs-settings patch 1 --set general.managed=true
+  jamf-cli pro adcs-settings patch 1 --set general.managed=true
 
   # Update multiple fields
-  jamf-cli pro pki-adcs-settings patch 1 --set field1=value1 --set field2=value2
+  jamf-cli pro adcs-settings patch 1 --set field1=value1 --set field2=value2
 
   # Patch from a file
-  jamf-cli pro pki-adcs-settings patch 1 --from-file changes.json`,
+  jamf-cli pro adcs-settings patch 1 --from-file changes.json`,
 		Annotations: map[string]string{"jamf:privileges": "Update AD CS Settings", "jamf:api": "pro", "jamf:gateway-privileges": "ad-cs-settings:update"},
 		Args: func(cmd *cobra.Command, args []string) error {
 			// --scaffold prints a body template and makes no request, so it
@@ -723,7 +723,7 @@ func newPkiAdcsSettingsPatchCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newPkiAdcsSettingsDependenciesCmd(ctx *registry.CLIContext) *cobra.Command {
+func newAdcsSettingsDependenciesCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{

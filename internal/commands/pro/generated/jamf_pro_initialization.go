@@ -13,23 +13,23 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// NewSystemCmd creates the system command group
-func NewSystemCmd(ctx *registry.CLIContext) *cobra.Command {
+// NewJamfProInitializationCmd creates the jamf-pro-initialization command group
+func NewJamfProInitializationCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:         "system",
-		Short:       "Manage system",
-		Long:        `Manage system in Jamf Pro.`,
+		Use:         "jamf-pro-initialization",
+		Short:       "Manage jamf-pro-initialization",
+		Long:        `Manage jamf-pro-initialization in Jamf Pro.`,
 		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
-	cmd.AddCommand(newSystemInitializeCmd(ctx))
-	cmd.AddCommand(newSystemInitializeDatabaseConnectionCmd(ctx))
-	cmd.AddCommand(newSystemPlatformInitializeCmd(ctx))
+	cmd.AddCommand(newJamfProInitializationInitializeCmd(ctx))
+	cmd.AddCommand(newJamfProInitializationInitializeDatabaseConnectionCmd(ctx))
+	cmd.AddCommand(newJamfProInitializationPlatformInitializeCmd(ctx))
 
 	return cmd
 }
 
-func newSystemInitializeCmd(ctx *registry.CLIContext) *cobra.Command {
+func newJamfProInitializationInitializeCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagScaffold bool
 	)
@@ -95,7 +95,7 @@ func newSystemInitializeCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newSystemInitializeDatabaseConnectionCmd(ctx *registry.CLIContext) *cobra.Command {
+func newJamfProInitializationInitializeDatabaseConnectionCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagScaffold bool
 	)
@@ -155,7 +155,7 @@ func newSystemInitializeDatabaseConnectionCmd(ctx *registry.CLIContext) *cobra.C
 	return cmd
 }
 
-func newSystemPlatformInitializeCmd(ctx *registry.CLIContext) *cobra.Command {
+func newJamfProInitializationPlatformInitializeCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagScaffold bool
 	)

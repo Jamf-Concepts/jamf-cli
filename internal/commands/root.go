@@ -752,6 +752,12 @@ in the config file. It never runs in CI, when output is piped, or under
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+			// First, before anything can return early. A deprecated resource
+			// name has to warn on every path that reaches a command through it
+			// — including --scaffold and the products that resolve their own
+			// client and return below.
+			warnIfDeprecatedName(cmd)
+
 			// Respect NO_COLOR env var (https://no-color.org)
 			if _, ok := os.LookupEnv("NO_COLOR"); ok {
 				noColor = true

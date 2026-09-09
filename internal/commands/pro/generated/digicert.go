@@ -16,39 +16,39 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// NewPkiDigicertCmd creates the pki-digicert command group
-func NewPkiDigicertCmd(ctx *registry.CLIContext) *cobra.Command {
+// NewDigicertCmd creates the digicert command group
+func NewDigicertCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:         "pki-digicert",
-		Short:       "Manage pki-digicert",
-		Long:        `Manage pki-digicert in Jamf Pro.`,
+		Use:         "digicert",
+		Short:       "Manage digicert",
+		Long:        `Manage digicert in Jamf Pro.`,
 		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
-	cmd.AddCommand(newPkiDigicertGetCmd(ctx))
-	cmd.AddCommand(newPkiDigicertCreateCmd(ctx))
-	cmd.AddCommand(newPkiDigicertDeleteCmd(ctx))
-	cmd.AddCommand(newPkiDigicertValidateClientCertificateCmd(ctx))
-	cmd.AddCommand(newPkiDigicertPatchCmd(ctx))
-	cmd.AddCommand(newPkiDigicertConnectionStatusCmd(ctx))
-	cmd.AddCommand(newPkiDigicertDependenciesCmd(ctx))
-	cmd.AddCommand(newPkiDigicertPrivilegeCheckCmd(ctx))
+	cmd.AddCommand(newDigicertGetCmd(ctx))
+	cmd.AddCommand(newDigicertCreateCmd(ctx))
+	cmd.AddCommand(newDigicertDeleteCmd(ctx))
+	cmd.AddCommand(newDigicertValidateClientCertificateCmd(ctx))
+	cmd.AddCommand(newDigicertPatchCmd(ctx))
+	cmd.AddCommand(newDigicertConnectionStatusCmd(ctx))
+	cmd.AddCommand(newDigicertDependenciesCmd(ctx))
+	cmd.AddCommand(newDigicertPrivilegeCheckCmd(ctx))
 
 	return cmd
 }
 
-func newPkiDigicertGetCmd(ctx *registry.CLIContext) *cobra.Command {
+func newDigicertGetCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{
 		Use:   "get <id>",
 		Short: "Retrieve DigiCert Trust Lifecycle Manager configuration",
 		Long:  "Retrieve the current configuration of the DigiCert Trust Lifecycle Manager.",
-		Example: `  # Get a pki-digicert by ID
-  jamf-cli pro pki-digicert get 1
+		Example: `  # Get a digicert by ID
+  jamf-cli pro digicert get 1
 
-  # Get a pki-digicert and output as YAML
-  jamf-cli pro pki-digicert get 1 -o yaml`,
+  # Get a digicert and output as YAML
+  jamf-cli pro digicert get 1 -o yaml`,
 		Annotations: map[string]string{"jamf:privileges": "Read DigiCert Settings", "jamf:api": "pro", "jamf:gateway-privileges": "digicert-settings:read"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -78,7 +78,7 @@ func newPkiDigicertGetCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newPkiDigicertCreateCmd(ctx *registry.CLIContext) *cobra.Command {
+func newDigicertCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagScaffold bool
 	)
@@ -87,14 +87,14 @@ func newPkiDigicertCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:   "create",
 		Short: "Create DigiCert Trust Lifecycle Manager configuration with client authentication via client certificate.",
 		Long:  "Create DigiCert Trust Lifecycle Manager configuration and initialize renewal monitor.",
-		Example: `  # Show the JSON template for creating a pki-digicert
-  jamf-cli pro pki-digicert create --scaffold
+		Example: `  # Show the JSON template for creating a digicert
+  jamf-cli pro digicert create --scaffold
 
-  # Create a pki-digicert from JSON
-  echo '{"name":"Example"}' | jamf-cli pro pki-digicert create
+  # Create a digicert from JSON
+  echo '{"name":"Example"}' | jamf-cli pro digicert create
 
-  # Get a pki-digicert, modify it, and create a copy
-  jamf-cli pro pki-digicert get 1 -o json | jq '.name = "Copy"' | jamf-cli pro pki-digicert create`,
+  # Get a digicert, modify it, and create a copy
+  jamf-cli pro digicert get 1 -o json | jq '.name = "Copy"' | jamf-cli pro digicert create`,
 		Annotations: map[string]string{"jamf:privileges": "Create DigiCert Settings", "jamf:api": "pro", "jamf:gateway-privileges": "digicert-settings:create"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -153,7 +153,7 @@ func newPkiDigicertCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newPkiDigicertDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
+func newDigicertDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagYes    bool
 		flagDryRun bool
@@ -163,11 +163,11 @@ func newPkiDigicertDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:   "delete <id>",
 		Short: "Delete DigiCert Trust Lifecycle Manager configuration",
 		Long:  "Delete the current configuration of the DigiCert Trust Lifecycle Manager.",
-		Example: `  # Delete a pki-digicert (with confirmation)
-  jamf-cli pro pki-digicert delete 1
+		Example: `  # Delete a digicert (with confirmation)
+  jamf-cli pro digicert delete 1
 
   # Delete without confirmation prompt
-  jamf-cli pro pki-digicert delete 1 --yes`,
+  jamf-cli pro digicert delete 1 --yes`,
 		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Delete DigiCert Settings", "jamf:api": "pro", "jamf:gateway-privileges": "digicert-settings:delete"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -233,7 +233,7 @@ func newPkiDigicertDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newPkiDigicertValidateClientCertificateCmd(ctx *registry.CLIContext) *cobra.Command {
+func newDigicertValidateClientCertificateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagScaffold bool
 	)
@@ -295,7 +295,7 @@ func newPkiDigicertValidateClientCertificateCmd(ctx *registry.CLIContext) *cobra
 	return cmd
 }
 
-func newPkiDigicertPatchCmd(ctx *registry.CLIContext) *cobra.Command {
+func newDigicertPatchCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagScaffold bool
 		flagSet      []string
@@ -307,13 +307,13 @@ func newPkiDigicertPatchCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Update DigiCert Trust Lifecycle Manager configuration",
 		Long:  "Update DigiCert Trust Lifecycle Manager configuration, where the client certificate information must be provided in full or not at all.\n\nUse --set KEY=VALUE to update scalar fields (repeatable). Omitted fields are unchanged.\n\nAvailable fields:\n  caName                                       string\n  clientCert.filename                          string\n  clientCert.password                          string\n  fqdn                                         string\n  revocationEnabled                            boolean\n\nArray and object fields accept a JSON value (e.g. --set field='[\"a\",\"b\"]'):\n  clientCert                                   object\n  clientCert.data                              array\n\nUse --from-file or pipe JSON to stdin for complex updates (bulk changes, deep nesting).",
 		Example: `  # Update a field by ID
-  jamf-cli pro pki-digicert patch 1 --set general.managed=true
+  jamf-cli pro digicert patch 1 --set general.managed=true
 
   # Update multiple fields
-  jamf-cli pro pki-digicert patch 1 --set field1=value1 --set field2=value2
+  jamf-cli pro digicert patch 1 --set field1=value1 --set field2=value2
 
   # Patch from a file
-  jamf-cli pro pki-digicert patch 1 --from-file changes.json`,
+  jamf-cli pro digicert patch 1 --from-file changes.json`,
 		Annotations: map[string]string{"jamf:privileges": "Update DigiCert Settings", "jamf:api": "pro", "jamf:gateway-privileges": "digicert-settings:update"},
 		Args: func(cmd *cobra.Command, args []string) error {
 			// --scaffold prints a body template and makes no request, so it
@@ -408,7 +408,7 @@ func newPkiDigicertPatchCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newPkiDigicertConnectionStatusCmd(ctx *registry.CLIContext) *cobra.Command {
+func newDigicertConnectionStatusCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{
@@ -444,7 +444,7 @@ func newPkiDigicertConnectionStatusCmd(ctx *registry.CLIContext) *cobra.Command 
 	return cmd
 }
 
-func newPkiDigicertDependenciesCmd(ctx *registry.CLIContext) *cobra.Command {
+func newDigicertDependenciesCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{
@@ -480,7 +480,7 @@ func newPkiDigicertDependenciesCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newPkiDigicertPrivilegeCheckCmd(ctx *registry.CLIContext) *cobra.Command {
+func newDigicertPrivilegeCheckCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{

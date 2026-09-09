@@ -13,21 +13,21 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// NewPatchManagementAcceptDisclaimerCmd creates the patch-management-accept-disclaimer command group
-func NewPatchManagementAcceptDisclaimerCmd(ctx *registry.CLIContext) *cobra.Command {
+// NewPatchManagementCmd creates the patch-management command group
+func NewPatchManagementCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:         "patch-management-accept-disclaimer",
-		Short:       "Manage patch-management-accept-disclaimer",
-		Long:        `Manage patch-management-accept-disclaimer in Jamf Pro.`,
+		Use:         "patch-management",
+		Short:       "Manage patch-management",
+		Long:        `Manage patch-management in Jamf Pro.`,
 		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
-	cmd.AddCommand(newPatchManagementAcceptDisclaimerPatchManagementAcceptDisclaimerCmd(ctx))
+	cmd.AddCommand(newPatchManagementPatchManagementAcceptDisclaimerCmd(ctx))
 
 	return cmd
 }
 
-func newPatchManagementAcceptDisclaimerPatchManagementAcceptDisclaimerCmd(ctx *registry.CLIContext) *cobra.Command {
+func newPatchManagementPatchManagementAcceptDisclaimerCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{

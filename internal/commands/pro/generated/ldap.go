@@ -10,23 +10,23 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// NewLdapLookupsCmd creates the ldap-lookups command group
-func NewLdapLookupsCmd(ctx *registry.CLIContext) *cobra.Command {
+// NewLdapCmd creates the ldap command group
+func NewLdapCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:         "ldap-lookups",
-		Short:       "Manage ldap-lookups",
-		Long:        `Manage ldap-lookups in Jamf Pro.`,
+		Use:         "ldap",
+		Short:       "Manage ldap",
+		Long:        `Manage ldap in Jamf Pro.`,
 		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
-	cmd.AddCommand(newLdapLookupsGroupsCmd(ctx))
-	cmd.AddCommand(newLdapLookupsServersCmd(ctx))
-	cmd.AddCommand(newLdapLookupsLdapServersCmd(ctx))
+	cmd.AddCommand(newLdapGroupsCmd(ctx))
+	cmd.AddCommand(newLdapServersCmd(ctx))
+	cmd.AddCommand(newLdapLdapServersCmd(ctx))
 
 	return cmd
 }
 
-func newLdapLookupsGroupsCmd(ctx *registry.CLIContext) *cobra.Command {
+func newLdapGroupsCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagQ string
 	)
@@ -67,7 +67,7 @@ func newLdapLookupsGroupsCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newLdapLookupsServersCmd(ctx *registry.CLIContext) *cobra.Command {
+func newLdapServersCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{
@@ -102,7 +102,7 @@ func newLdapLookupsServersCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newLdapLookupsLdapServersCmd(ctx *registry.CLIContext) *cobra.Command {
+func newLdapLdapServersCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{

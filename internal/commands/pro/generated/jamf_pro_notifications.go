@@ -14,33 +14,33 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// NewNotificationsCmd creates the notifications command group
-func NewNotificationsCmd(ctx *registry.CLIContext) *cobra.Command {
+// NewJamfProNotificationsCmd creates the jamf-pro-notifications command group
+func NewJamfProNotificationsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:         "notifications",
-		Short:       "Manage notifications",
-		Long:        `Manage notifications in Jamf Pro.`,
+		Use:         "jamf-pro-notifications",
+		Short:       "Manage jamf-pro-notifications",
+		Long:        `Manage jamf-pro-notifications in Jamf Pro.`,
 		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
-	cmd.AddCommand(newNotificationsListCmd(ctx))
-	cmd.AddCommand(newNotificationsDeleteCmd(ctx))
+	cmd.AddCommand(newJamfProNotificationsListCmd(ctx))
+	cmd.AddCommand(newJamfProNotificationsDeleteCmd(ctx))
 
 	return cmd
 }
 
-func newNotificationsListCmd(ctx *registry.CLIContext) *cobra.Command {
+func newJamfProNotificationsListCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "Get Notifications for user and site",
 		Long:  "Gets notifications for user and site",
-		Example: `  # List all notifications
-  jamf-cli pro notifications list
+		Example: `  # List all jamf-pro-notifications
+  jamf-cli pro jamf-pro-notifications list
 
-  # List notifications and extract IDs
-  jamf-cli pro notifications list --field id`,
+  # List jamf-pro-notifications and extract IDs
+  jamf-cli pro jamf-pro-notifications list --field id`,
 		Annotations: map[string]string{"jamf:api": "pro"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -68,7 +68,7 @@ func newNotificationsListCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newNotificationsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
+func newJamfProNotificationsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagYes    bool
 		flagDryRun bool
@@ -78,11 +78,11 @@ func newNotificationsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:   "delete <id> <type>",
 		Short: "Delete Notifications",
 		Long:  "Deletes notifications with given type and id.",
-		Example: `  # Delete a notification (with confirmation)
-  jamf-cli pro notifications delete 1 2
+		Example: `  # Delete a jamf-pro-notification (with confirmation)
+  jamf-cli pro jamf-pro-notifications delete 1 2
 
   # Delete without confirmation prompt
-  jamf-cli pro notifications delete 1 2 --yes`,
+  jamf-cli pro jamf-pro-notifications delete 1 2 --yes`,
 		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Dismiss Notifications", "jamf:api": "pro", "jamf:gateway-privileges": "dismiss-notifications:execute"},
 		Args:        cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {

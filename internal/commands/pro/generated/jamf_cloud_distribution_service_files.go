@@ -16,35 +16,35 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// NewJcdsFilesCmd creates the jcds-files command group
-func NewJcdsFilesCmd(ctx *registry.CLIContext) *cobra.Command {
+// NewJamfCloudDistributionServiceFilesCmd creates the jamf-cloud-distribution-service-files command group
+func NewJamfCloudDistributionServiceFilesCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:         "jcds-files",
-		Short:       "Manage jcds-files",
-		Long:        `Manage jcds-files in Jamf Pro.`,
+		Use:         "jamf-cloud-distribution-service-files",
+		Short:       "Manage jamf-cloud-distribution-service-files",
+		Long:        `Manage jamf-cloud-distribution-service-files in Jamf Pro.`,
 		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
-	cmd.AddCommand(newJcdsFilesListCmd(ctx))
-	cmd.AddCommand(newJcdsFilesGetCmd(ctx))
-	cmd.AddCommand(newJcdsFilesDeleteCmd(ctx))
-	cmd.AddCommand(newJcdsFilesFilesCmd(ctx))
+	cmd.AddCommand(newJamfCloudDistributionServiceFilesListCmd(ctx))
+	cmd.AddCommand(newJamfCloudDistributionServiceFilesGetCmd(ctx))
+	cmd.AddCommand(newJamfCloudDistributionServiceFilesDeleteCmd(ctx))
+	cmd.AddCommand(newJamfCloudDistributionServiceFilesFilesCmd(ctx))
 
 	return cmd
 }
 
-func newJcdsFilesListCmd(ctx *registry.CLIContext) *cobra.Command {
+func newJamfCloudDistributionServiceFilesListCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "Retrieve a list of files and file metadata from the Jamf Cloud Distribution Service",
 		Long:  "Retrieve a list of files and file metadata from the Jamf Cloud Distribution Service.",
-		Example: `  # List all jcds-files
-  jamf-cli pro jcds-files list
+		Example: `  # List all jamf-cloud-distribution-service-files
+  jamf-cli pro jamf-cloud-distribution-service-files list
 
-  # List jcds-files and extract IDs
-  jamf-cli pro jcds-files list --field id`,
+  # List jamf-cloud-distribution-service-files and extract IDs
+  jamf-cli pro jamf-cloud-distribution-service-files list --field id`,
 		Annotations: map[string]string{"jamf:privileges": "Read Jamf Cloud Distribution Service Files", "jamf:api": "pro", "jamf:gateway-privileges": "jamf-cloud-distribution-service-files:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -72,7 +72,7 @@ func newJcdsFilesListCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newJcdsFilesGetCmd(ctx *registry.CLIContext) *cobra.Command {
+func newJamfCloudDistributionServiceFilesGetCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagName string
 	)
@@ -81,14 +81,14 @@ func newJcdsFilesGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:   "get [<id>]",
 		Short: "Retrieve a download URL for a specific file from the Jamf Cloud Distribution Service",
 		Long:  "Retrieve a download URL for a specific file from the Jamf Cloud Distribution Service.",
-		Example: `  # Get a jcds-file by ID
-  jamf-cli pro jcds-files get 1
+		Example: `  # Get a jamf-cloud-distribution-service-file by ID
+  jamf-cli pro jamf-cloud-distribution-service-files get 1
 
-  # Get a jcds-file by name
-  jamf-cli pro jcds-files get --name "Example"
+  # Get a jamf-cloud-distribution-service-file by name
+  jamf-cli pro jamf-cloud-distribution-service-files get --name "Example"
 
-  # Get a jcds-file and output as YAML
-  jamf-cli pro jcds-files get 1 -o yaml`,
+  # Get a jamf-cloud-distribution-service-file and output as YAML
+  jamf-cli pro jamf-cloud-distribution-service-files get 1 -o yaml`,
 		Annotations: map[string]string{"jamf:privileges": "Read Jamf Cloud Distribution Service Files", "jamf:api": "pro", "jamf:gateway-privileges": "jamf-cloud-distribution-service-files:read"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -130,12 +130,12 @@ func newJcdsFilesGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVar(&flagName, "name", "", "Look up jcds-file by name")
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up jamf-cloud-distribution-service-file by name")
 
 	return cmd
 }
 
-func newJcdsFilesDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
+func newJamfCloudDistributionServiceFilesDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagYes    bool
 		flagDryRun bool
@@ -147,14 +147,14 @@ func newJcdsFilesDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:   "delete [<id>]",
 		Short: "Delete a file from the Jamf Cloud Distribution Service",
 		Long:  "Delete a file by filename from the Jamf Cloud Distribution Service.",
-		Example: `  # Delete a jcds-file (with confirmation)
-  jamf-cli pro jcds-files delete 1
+		Example: `  # Delete a jamf-cloud-distribution-service-file (with confirmation)
+  jamf-cli pro jamf-cloud-distribution-service-files delete 1
 
   # Delete by name
-  jamf-cli pro jcds-files delete --name "Example" --yes
+  jamf-cli pro jamf-cloud-distribution-service-files delete --name "Example" --yes
 
   # Delete without confirmation prompt
-  jamf-cli pro jcds-files delete 1 --yes`,
+  jamf-cli pro jamf-cloud-distribution-service-files delete 1 --yes`,
 		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Delete Jamf Cloud Distribution Service Files", "jamf:api": "pro", "jamf:gateway-privileges": "jamf-cloud-distribution-service-files:delete"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -188,7 +188,7 @@ func newJcdsFilesDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 							rid = id
 						}
 						if rid == "" {
-							return fmt.Errorf("no jcds-file found matching %q", entry)
+							return fmt.Errorf("no jamf-cloud-distribution-service-file found matching %q", entry)
 						}
 						bulk = append(bulk, bulkEntry{id: rid, label: entry})
 					}
@@ -207,7 +207,7 @@ func newJcdsFilesDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 				}
 				if flagDryRun {
 					for _, e := range bulk {
-						fmt.Fprintf(os.Stderr, "[dry-run] Would delete jcds-file %q (id: %s)\n", e.label, e.id)
+						fmt.Fprintf(os.Stderr, "[dry-run] Would delete jamf-cloud-distribution-service-file %q (id: %s)\n", e.label, e.id)
 					}
 					return nil
 				}
@@ -215,7 +215,7 @@ func newJcdsFilesDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 					if noInputBulk {
 						return fmt.Errorf("destructive operation requires --yes when --no-input is set")
 					}
-					fmt.Fprintf(os.Stderr, "⚠️  This will delete %d jcds-files. Type 'yes' to confirm: ", len(bulk))
+					fmt.Fprintf(os.Stderr, "⚠️  This will delete %d jamf-cloud-distribution-service-files. Type 'yes' to confirm: ", len(bulk))
 					var confirm string
 					fmt.Scanln(&confirm)
 					if confirm != "yes" {
@@ -231,7 +231,7 @@ func newJcdsFilesDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 					delPath := strings.Replace("/v1/jcds/files/{fileName}", "{fileName}", url.PathEscape(e.id), 1)
 					resp, err := ctx.Client.Do(reqCtx, "DELETE", delPath, nil)
 					if err != nil {
-						fmt.Fprintf(os.Stderr, "delete jcds-file %q (id: %s) failed: %v\n", e.label, e.id, err)
+						fmt.Fprintf(os.Stderr, "delete jamf-cloud-distribution-service-file %q (id: %s) failed: %v\n", e.label, e.id, err)
 						if firstErr == nil {
 							firstErr = err
 						}
@@ -240,18 +240,18 @@ func newJcdsFilesDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 					}
 					resp.Body.Close()
 					if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-						fmt.Fprintf(os.Stderr, "delete jcds-file %q (id: %s) failed: HTTP %d\n", e.label, e.id, resp.StatusCode)
+						fmt.Fprintf(os.Stderr, "delete jamf-cloud-distribution-service-file %q (id: %s) failed: HTTP %d\n", e.label, e.id, resp.StatusCode)
 						if firstErr == nil {
 							firstErr = fmt.Errorf("HTTP %d", resp.StatusCode)
 						}
 						failCount++
 						continue
 					}
-					fmt.Fprintf(os.Stderr, "Deleted jcds-file %q (id: %s)\n", e.label, e.id)
+					fmt.Fprintf(os.Stderr, "Deleted jamf-cloud-distribution-service-file %q (id: %s)\n", e.label, e.id)
 					okCount++
 				}
 				cooldown.Record(ctx.ProfileName)
-				return batchDeleteError(cmd, okCount, failCount, firstErr, "jcds-files deletes")
+				return batchDeleteError(cmd, okCount, failCount, firstErr, "jamf-cloud-distribution-service-files deletes")
 			}
 
 			// Resolve resource ID from positional arg, --name, or lookup flags
@@ -264,7 +264,7 @@ func newJcdsFilesDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 					return err
 				}
 				if rid == "" {
-					return fmt.Errorf("no jcds-file found with name %q", flagName)
+					return fmt.Errorf("no jamf-cloud-distribution-service-file found with name %q", flagName)
 				}
 				resolvedID = rid
 				resolvedByName = flagName
@@ -277,9 +277,9 @@ func newJcdsFilesDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 			// Confirmation for destructive action (after name lookup)
 			if flagDryRun {
 				if resolvedByName != "" {
-					fmt.Fprintf(os.Stderr, "[dry-run] Would delete jcds-file %q (id: %s)\n", resolvedByName, resolvedID)
+					fmt.Fprintf(os.Stderr, "[dry-run] Would delete jamf-cloud-distribution-service-file %q (id: %s)\n", resolvedByName, resolvedID)
 				} else {
-					fmt.Fprintf(os.Stderr, "[dry-run] Would delete jcds-file %s\n", resolvedID)
+					fmt.Fprintf(os.Stderr, "[dry-run] Would delete jamf-cloud-distribution-service-file %s\n", resolvedID)
 				}
 				return nil
 			}
@@ -289,9 +289,9 @@ func newJcdsFilesDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 					return fmt.Errorf("destructive operation requires --yes when --no-input is set")
 				}
 				if resolvedByName != "" {
-					fmt.Fprintf(os.Stderr, "⚠️  This will delete jcds-file %q (id: %s). Type 'yes' to confirm: ", resolvedByName, resolvedID)
+					fmt.Fprintf(os.Stderr, "⚠️  This will delete jamf-cloud-distribution-service-file %q (id: %s). Type 'yes' to confirm: ", resolvedByName, resolvedID)
 				} else {
-					fmt.Fprintf(os.Stderr, "⚠️  This will delete jcds-file %s. Type 'yes' to confirm: ", resolvedID)
+					fmt.Fprintf(os.Stderr, "⚠️  This will delete jamf-cloud-distribution-service-file %s. Type 'yes' to confirm: ", resolvedID)
 				}
 				var confirm string
 				fmt.Scanln(&confirm)
@@ -340,14 +340,14 @@ func newJcdsFilesDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt")
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to file listing IDs or names to delete (one per line, # comments ignored)")
-	cmd.Flags().StringVar(&flagName, "name", "", "Look up jcds-file by name")
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up jamf-cloud-distribution-service-file by name")
 
 	cmd.MarkFlagsMutuallyExclusive("from-file", "name")
 
 	return cmd
 }
 
-func newJcdsFilesFilesCmd(ctx *registry.CLIContext) *cobra.Command {
+func newJamfCloudDistributionServiceFilesFilesCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{

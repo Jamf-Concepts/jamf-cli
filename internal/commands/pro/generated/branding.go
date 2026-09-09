@@ -13,21 +13,21 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// NewBrandingImagesCmd creates the branding-images command group
-func NewBrandingImagesCmd(ctx *registry.CLIContext) *cobra.Command {
+// NewBrandingCmd creates the branding command group
+func NewBrandingCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:         "branding-images",
-		Short:       "Manage branding-images",
-		Long:        `Manage branding-images in Jamf Pro.`,
+		Use:         "branding",
+		Short:       "Manage branding",
+		Long:        `Manage branding in Jamf Pro.`,
 		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
-	cmd.AddCommand(newBrandingImagesDownloadCmd(ctx))
+	cmd.AddCommand(newBrandingDownloadCmd(ctx))
 
 	return cmd
 }
 
-func newBrandingImagesDownloadCmd(ctx *registry.CLIContext) *cobra.Command {
+func newBrandingDownloadCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagSaveTo string
 	)
@@ -37,10 +37,10 @@ func newBrandingImagesDownloadCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Download a self service branding image",
 		Long:  "Download a self service branding image",
 		Example: `  # Save to file
-  jamf-cli pro branding-images download <id> -O output.bin
+  jamf-cli pro branding download <id> -O output.bin
 
   # Pipe to stdout
-  jamf-cli pro branding-images download <id> > output.bin`,
+  jamf-cli pro branding download <id> > output.bin`,
 		Annotations: map[string]string{"jamf:api": "pro"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {

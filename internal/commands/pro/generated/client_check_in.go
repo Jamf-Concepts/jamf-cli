@@ -16,35 +16,35 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// NewCheckInCmd creates the check-in command group
-func NewCheckInCmd(ctx *registry.CLIContext) *cobra.Command {
+// NewClientCheckInCmd creates the client-check-in command group
+func NewClientCheckInCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:         "check-in",
-		Short:       "Manage check-in",
-		Long:        `Manage check-in in Jamf Pro.`,
+		Use:         "client-check-in",
+		Short:       "Manage client-check-in",
+		Long:        `Manage client-check-in in Jamf Pro.`,
 		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
-	cmd.AddCommand(newCheckInGetCmd(ctx))
-	cmd.AddCommand(newCheckInUpdateCmd(ctx))
-	cmd.AddCommand(newCheckInHistoryCmd(ctx))
-	cmd.AddCommand(newCheckInAddHistoryNoteCmd(ctx))
+	cmd.AddCommand(newClientCheckInGetCmd(ctx))
+	cmd.AddCommand(newClientCheckInUpdateCmd(ctx))
+	cmd.AddCommand(newClientCheckInHistoryCmd(ctx))
+	cmd.AddCommand(newClientCheckInAddHistoryNoteCmd(ctx))
 
 	return cmd
 }
 
-func newCheckInGetCmd(ctx *registry.CLIContext) *cobra.Command {
+func newClientCheckInGetCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{
 		Use:   "get",
 		Short: "Get Client Check-In settings",
 		Long:  "Gets 'Client Check-In' object.",
-		Example: `  # Get check-in
-  jamf-cli pro check-in get
+		Example: `  # Get client-check-in
+  jamf-cli pro client-check-in get
 
-  # Get check-in and output as YAML
-  jamf-cli pro check-in get -o yaml`,
+  # Get client-check-in and output as YAML
+  jamf-cli pro client-check-in get -o yaml`,
 		Annotations: map[string]string{"jamf:privileges": "Read Computer Check-In", "jamf:api": "pro", "jamf:gateway-privileges": "computer-check-in:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -72,7 +72,7 @@ func newCheckInGetCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newCheckInUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
+func newClientCheckInUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagScaffold bool
 		flagSet      []string
@@ -83,13 +83,13 @@ func newCheckInUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Update Client Check-In object",
 		Long:  "Update Client Check-In object\n\nUse --set KEY=VALUE to update individual fields (repeatable). The current resource is fetched, your changes are merged in, read-only fields are dropped, and the whole record is written back. Omitted fields keep their current values.\n\nAvailable fields:\n  checkInFrequency                             integer\n  createHooks                                  boolean\n  createStartupScript                          boolean\n  enableLocalConfigurationProfiles             boolean\n  hookLog                                      boolean\n  hookPolicies                                 boolean\n  startupLog                                   boolean\n  startupPolicies                              boolean\n  startupSsh                                   boolean\n\nWithout --set, pipe a full JSON document to stdin to replace the resource entirely.",
 		Example: `  # Update individual fields (fetch-merge-replace)
-  jamf-cli pro check-in update --set field=value
+  jamf-cli pro client-check-in update --set field=value
 
-  # Replace check-in from a full JSON document
-  jamf-cli pro check-in get -o json | jq '.field = "value"' | jamf-cli pro check-in update
+  # Replace client-check-in from a full JSON document
+  jamf-cli pro client-check-in get -o json | jq '.field = "value"' | jamf-cli pro client-check-in update
 
   # Update from a file
-  jamf-cli pro check-in update --from-file check-in.json`,
+  jamf-cli pro client-check-in update --from-file client-check-in.json`,
 		Annotations: map[string]string{"jamf:privileges": "Update Computer Check-In", "jamf:api": "pro", "jamf:gateway-privileges": "computer-check-in:update"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -132,7 +132,7 @@ func newCheckInUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 				current := map[string]any{}
 				if len(existing) > 0 {
 					if err := json.Unmarshal(existing, &current); err != nil {
-						return fmt.Errorf("parsing current check-in for --set: %w", err)
+						return fmt.Errorf("parsing current client-check-in for --set: %w", err)
 					}
 				}
 				(&fieldFilter{fields: map[string]*fieldFilter{"checkInFrequency": nil, "createHooks": nil, "createStartupScript": nil, "enableLocalConfigurationProfiles": nil, "hookLog": nil, "hookPolicies": nil, "startupLog": nil, "startupPolicies": nil, "startupSsh": nil}}).apply(current)
@@ -188,7 +188,7 @@ func newCheckInUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newCheckInHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
+func newClientCheckInHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagPage     int
 		flagPageSize int
@@ -202,8 +202,8 @@ func newCheckInHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:   "history",
 		Short: "Get Client Check-In history object",
 		Long:  "Gets Client Check-In history object",
-		Example: `  # Get history for the check-in
-  jamf-cli pro check-in history`,
+		Example: `  # Get history for the client-check-in
+  jamf-cli pro client-check-in history`,
 		Annotations: map[string]string{"jamf:privileges": "Read Computer Check-In", "jamf:api": "pro", "jamf:gateway-privileges": "computer-check-in:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -342,7 +342,7 @@ func newCheckInHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newCheckInAddHistoryNoteCmd(ctx *registry.CLIContext) *cobra.Command {
+func newClientCheckInAddHistoryNoteCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagScaffold bool
 	)

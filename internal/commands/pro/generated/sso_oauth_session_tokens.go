@@ -9,32 +9,32 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// NewOauth2Cmd creates the oauth2 command group
-func NewOauth2Cmd(ctx *registry.CLIContext) *cobra.Command {
+// NewSsoOauthSessionTokensCmd creates the sso-oauth-session-tokens command group
+func NewSsoOauthSessionTokensCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:         "oauth2",
-		Short:       "Manage oauth2",
-		Long:        `Manage oauth2 in Jamf Pro.`,
+		Use:         "sso-oauth-session-tokens",
+		Short:       "Manage sso-oauth-session-tokens",
+		Long:        `Manage sso-oauth-session-tokens in Jamf Pro.`,
 		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
-	cmd.AddCommand(newOauth2ListCmd(ctx))
+	cmd.AddCommand(newSsoOauthSessionTokensListCmd(ctx))
 
 	return cmd
 }
 
-func newOauth2ListCmd(ctx *registry.CLIContext) *cobra.Command {
+func newSsoOauthSessionTokensListCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "Retrieve the access token and user information for the current session.",
 		Long:  "Retrieve the access token and user information for the current session.",
-		Example: `  # List all oauth2
-  jamf-cli pro oauth2 list
+		Example: `  # List all sso-oauth-session-tokens
+  jamf-cli pro sso-oauth-session-tokens list
 
-  # List oauth2 and extract IDs
-  jamf-cli pro oauth2 list --field id`,
+  # List sso-oauth-session-tokens and extract IDs
+  jamf-cli pro sso-oauth-session-tokens list --field id`,
 		Annotations: map[string]string{"jamf:api": "pro", "jamf:gateway": "unserved", "jamf:gateway-basis": "unpublished", "jamf:gateway-detail": "not declared by the gateway's Jamf Pro API 11.31.0"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

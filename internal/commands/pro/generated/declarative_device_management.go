@@ -14,34 +14,34 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// NewDdmClientsCmd creates the ddm-clients command group
-func NewDdmClientsCmd(ctx *registry.CLIContext) *cobra.Command {
+// NewDeclarativeDeviceManagementCmd creates the declarative-device-management command group
+func NewDeclarativeDeviceManagementCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:         "ddm-clients",
-		Short:       "Manage ddm-clients",
-		Long:        `Manage ddm-clients in Jamf Pro.`,
+		Use:         "declarative-device-management",
+		Short:       "Manage declarative-device-management",
+		Long:        `Manage declarative-device-management in Jamf Pro.`,
 		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
-	cmd.AddCommand(newDdmClientsGetCmd(ctx))
-	cmd.AddCommand(newDdmClientsStatusItemsCmd(ctx))
-	cmd.AddCommand(newDdmClientsSyncCmd(ctx))
+	cmd.AddCommand(newDeclarativeDeviceManagementGetCmd(ctx))
+	cmd.AddCommand(newDeclarativeDeviceManagementStatusItemsCmd(ctx))
+	cmd.AddCommand(newDeclarativeDeviceManagementSyncCmd(ctx))
 
 	return cmd
 }
 
-func newDdmClientsGetCmd(ctx *registry.CLIContext) *cobra.Command {
+func newDeclarativeDeviceManagementGetCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{
 		Use:   "get <id>",
 		Short: "Retrieve an existing declaration",
 		Long:  "Retrieves a stored declaration based on the provided declaration id",
-		Example: `  # Get a ddm-client by ID
-  jamf-cli pro ddm-clients get 1
+		Example: `  # Get a declarative-device-management by ID
+  jamf-cli pro declarative-device-management get 1
 
-  # Get a ddm-client and output as YAML
-  jamf-cli pro ddm-clients get 1 -o yaml`,
+  # Get a declarative-device-management and output as YAML
+  jamf-cli pro declarative-device-management get 1 -o yaml`,
 		Annotations: map[string]string{"jamf:privileges": "Read Mobile Devices,Read Computers", "jamf:api": "pro", "jamf:gateway-privileges": "declarations:read"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -71,7 +71,7 @@ func newDdmClientsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newDdmClientsStatusItemsCmd(ctx *registry.CLIContext) *cobra.Command {
+func newDeclarativeDeviceManagementStatusItemsCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{
@@ -107,7 +107,7 @@ func newDdmClientsStatusItemsCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newDdmClientsSyncCmd(ctx *registry.CLIContext) *cobra.Command {
+func newDeclarativeDeviceManagementSyncCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{

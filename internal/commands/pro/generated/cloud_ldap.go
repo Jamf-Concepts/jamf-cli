@@ -17,32 +17,32 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// NewCloudLdapsCmd creates the cloud-ldaps command group
-func NewCloudLdapsCmd(ctx *registry.CLIContext) *cobra.Command {
+// NewCloudLdapCmd creates the cloud-ldap command group
+func NewCloudLdapCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:         "cloud-ldaps",
-		Short:       "Manage cloud-ldaps",
-		Long:        `Manage cloud-ldaps in Jamf Pro.`,
+		Use:         "cloud-ldap",
+		Short:       "Manage cloud-ldap",
+		Long:        `Manage cloud-ldap in Jamf Pro.`,
 		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
-	cmd.AddCommand(newCloudLdapsGetCmd(ctx))
-	cmd.AddCommand(newCloudLdapsCreateCmd(ctx))
-	cmd.AddCommand(newCloudLdapsUpdateCmd(ctx))
-	cmd.AddCommand(newCloudLdapsDeleteCmd(ctx))
-	cmd.AddCommand(newCloudLdapsVerifyCmd(ctx))
-	cmd.AddCommand(newCloudLdapsDefaultsMappingsCmd(ctx))
-	cmd.AddCommand(newCloudLdapsServerConfigurationCmd(ctx))
-	cmd.AddCommand(newCloudLdapsBindCmd(ctx))
-	cmd.AddCommand(newCloudLdapsSearchCmd(ctx))
-	cmd.AddCommand(newCloudLdapsStatusCmd(ctx))
-	cmd.AddCommand(newCloudLdapsMappingsCmd(ctx))
-	cmd.AddCommand(newCloudLdapsUpdateMappingsCmd(ctx))
+	cmd.AddCommand(newCloudLdapGetCmd(ctx))
+	cmd.AddCommand(newCloudLdapCreateCmd(ctx))
+	cmd.AddCommand(newCloudLdapUpdateCmd(ctx))
+	cmd.AddCommand(newCloudLdapDeleteCmd(ctx))
+	cmd.AddCommand(newCloudLdapVerifyCmd(ctx))
+	cmd.AddCommand(newCloudLdapDefaultsMappingsCmd(ctx))
+	cmd.AddCommand(newCloudLdapServerConfigurationCmd(ctx))
+	cmd.AddCommand(newCloudLdapBindCmd(ctx))
+	cmd.AddCommand(newCloudLdapSearchCmd(ctx))
+	cmd.AddCommand(newCloudLdapStatusCmd(ctx))
+	cmd.AddCommand(newCloudLdapMappingsCmd(ctx))
+	cmd.AddCommand(newCloudLdapUpdateMappingsCmd(ctx))
 
 	return cmd
 }
 
-func newCloudLdapsGetCmd(ctx *registry.CLIContext) *cobra.Command {
+func newCloudLdapGetCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{
@@ -50,10 +50,10 @@ func newCloudLdapsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Get Cloud Identity Provider configuration with given id.",
 		Long:  "Get Cloud Identity Provider configuration with given id.",
 		Example: `  # Get a cloud-ldap by ID
-  jamf-cli pro cloud-ldaps get 1
+  jamf-cli pro cloud-ldap get 1
 
   # Get a cloud-ldap and output as YAML
-  jamf-cli pro cloud-ldaps get 1 -o yaml`,
+  jamf-cli pro cloud-ldap get 1 -o yaml`,
 		Annotations: map[string]string{"jamf:privileges": "Read LDAP Servers", "jamf:api": "pro", "jamf:gateway-privileges": "ldap-servers:read"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -83,7 +83,7 @@ func newCloudLdapsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newCloudLdapsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
+func newCloudLdapCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagScaffold bool
 	)
@@ -93,13 +93,13 @@ func newCloudLdapsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Create Cloud Identity Provider configuration",
 		Long:  "Create new Cloud Identity Provider configuration with unique display name. If mappings not provided, then defaults will be generated instead.",
 		Example: `  # Show the JSON template for creating a cloud-ldap
-  jamf-cli pro cloud-ldaps create --scaffold
+  jamf-cli pro cloud-ldap create --scaffold
 
   # Create a cloud-ldap from JSON
-  echo '{"name":"Example"}' | jamf-cli pro cloud-ldaps create
+  echo '{"name":"Example"}' | jamf-cli pro cloud-ldap create
 
   # Get a cloud-ldap, modify it, and create a copy
-  jamf-cli pro cloud-ldaps get 1 -o json | jq '.name = "Copy"' | jamf-cli pro cloud-ldaps create`,
+  jamf-cli pro cloud-ldap get 1 -o json | jq '.name = "Copy"' | jamf-cli pro cloud-ldap create`,
 		Annotations: map[string]string{"jamf:privileges": "Create LDAP Servers", "jamf:api": "pro", "jamf:gateway-privileges": "ldap-servers:create"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -201,7 +201,7 @@ func newCloudLdapsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newCloudLdapsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
+func newCloudLdapUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagScaffold bool
 		flagSet      []string
@@ -212,13 +212,13 @@ func newCloudLdapsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Update Cloud Identity Provider configuration",
 		Long:  "Update Cloud Identity Provider configuration. Cannot be used for partial updates, all content body must be sent.\n\nUse --set KEY=VALUE to update individual fields (repeatable). The current resource is fetched, your changes are merged in, read-only fields are dropped, and the whole record is written back. Omitted fields keep their current values.\n\nAvailable fields:\n  cloudIdPCommon.displayName                   string\n  cloudIdPCommon.id                            string\n  cloudIdPCommon.providerName                  string\n  server.connectionTimeout                     integer\n  server.connectionType                        string\n  server.domainName                            string\n  server.enabled                               boolean\n  server.membershipCalculationOptimizationEnabled boolean\n  server.port                                  integer\n  server.searchTimeout                         integer\n  server.serverUrl                             string\n  server.useWildcards                          boolean\n\nArray and object fields accept a JSON value (e.g. --set field='[\"a\",\"b\"]'):\n  cloudIdPCommon                               object\n  mappings                                     object\n  mappings.groupMappings                       object\n  mappings.membershipMappings                  object\n  mappings.userMappings                        object\n  server                                       object\n  server.keystore                              object\n\nWithout --set, pipe a full JSON document to stdin to replace the resource entirely.",
 		Example: `  # Update individual fields (fetch-merge-replace)
-  jamf-cli pro cloud-ldaps update 1 --set field=value
+  jamf-cli pro cloud-ldap update 1 --set field=value
 
   # Replace a cloud-ldap from JSON
-  echo '{"name":"Updated"}' | jamf-cli pro cloud-ldaps update 1
+  echo '{"name":"Updated"}' | jamf-cli pro cloud-ldap update 1
 
   # Get a cloud-ldap, modify, and update
-  jamf-cli pro cloud-ldaps get 1 -o json | jq '.name = "New Name"' | jamf-cli pro cloud-ldaps update 1`,
+  jamf-cli pro cloud-ldap get 1 -o json | jq '.name = "New Name"' | jamf-cli pro cloud-ldap update 1`,
 		Annotations: map[string]string{"jamf:privileges": "Update LDAP Servers", "jamf:api": "pro", "jamf:gateway-privileges": "ldap-servers:update"},
 		Args: func(cmd *cobra.Command, args []string) error {
 			// --scaffold prints a body template and makes no request, so it
@@ -378,7 +378,7 @@ func newCloudLdapsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newCloudLdapsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
+func newCloudLdapDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagYes    bool
 		flagDryRun bool
@@ -389,10 +389,10 @@ func newCloudLdapsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Delete Cloud Identity Provider configuration.",
 		Long:  "Delete Cloud Identity Provider configuration.",
 		Example: `  # Delete a cloud-ldap (with confirmation)
-  jamf-cli pro cloud-ldaps delete 1
+  jamf-cli pro cloud-ldap delete 1
 
   # Delete without confirmation prompt
-  jamf-cli pro cloud-ldaps delete 1 --yes`,
+  jamf-cli pro cloud-ldap delete 1 --yes`,
 		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Delete LDAP Servers", "jamf:api": "pro", "jamf:gateway-privileges": "ldap-servers:delete"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -458,7 +458,7 @@ func newCloudLdapsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newCloudLdapsVerifyCmd(ctx *registry.CLIContext) *cobra.Command {
+func newCloudLdapVerifyCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagScaffold bool
 	)
@@ -520,7 +520,7 @@ func newCloudLdapsVerifyCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newCloudLdapsDefaultsMappingsCmd(ctx *registry.CLIContext) *cobra.Command {
+func newCloudLdapDefaultsMappingsCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{
@@ -556,7 +556,7 @@ func newCloudLdapsDefaultsMappingsCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newCloudLdapsServerConfigurationCmd(ctx *registry.CLIContext) *cobra.Command {
+func newCloudLdapServerConfigurationCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{
@@ -592,7 +592,7 @@ func newCloudLdapsServerConfigurationCmd(ctx *registry.CLIContext) *cobra.Comman
 	return cmd
 }
 
-func newCloudLdapsBindCmd(ctx *registry.CLIContext) *cobra.Command {
+func newCloudLdapBindCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{
@@ -628,7 +628,7 @@ func newCloudLdapsBindCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newCloudLdapsSearchCmd(ctx *registry.CLIContext) *cobra.Command {
+func newCloudLdapSearchCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{
@@ -664,7 +664,7 @@ func newCloudLdapsSearchCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newCloudLdapsStatusCmd(ctx *registry.CLIContext) *cobra.Command {
+func newCloudLdapStatusCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{
@@ -700,7 +700,7 @@ func newCloudLdapsStatusCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newCloudLdapsMappingsCmd(ctx *registry.CLIContext) *cobra.Command {
+func newCloudLdapMappingsCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{
@@ -736,7 +736,7 @@ func newCloudLdapsMappingsCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newCloudLdapsUpdateMappingsCmd(ctx *registry.CLIContext) *cobra.Command {
+func newCloudLdapUpdateMappingsCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagScaffold bool
 	)

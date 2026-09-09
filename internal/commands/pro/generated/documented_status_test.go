@@ -69,7 +69,7 @@ func (c *statusClient) Do(ctx context.Context, _, _ string, _ io.Reader) (*http.
 func runPrivilegeCheck(t *testing.T, client *statusClient) (string, error) {
 	t.Helper()
 	out := newJSONOutput()
-	cmd := NewPkiDigicertCmd(&registry.CLIContext{Client: client, Output: out})
+	cmd := NewDigicertCmd(&registry.CLIContext{Client: client, Output: out})
 	cmd.SetOut(io.Discard)
 	cmd.SetErr(io.Discard)
 	cmd.SetArgs([]string{"privilege-check", "12"})

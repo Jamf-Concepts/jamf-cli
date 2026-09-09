@@ -16,23 +16,23 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// NewJamfRemoteAssistSessionCmd creates the jamf-remote-assist-session command group
-func NewJamfRemoteAssistSessionCmd(ctx *registry.CLIContext) *cobra.Command {
+// NewJamfRemoteAssistCmd creates the jamf-remote-assist command group
+func NewJamfRemoteAssistCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:         "jamf-remote-assist-session",
-		Short:       "Manage jamf-remote-assist-session",
-		Long:        `Manage jamf-remote-assist-session in Jamf Pro.`,
+		Use:         "jamf-remote-assist",
+		Short:       "Manage jamf-remote-assist",
+		Long:        `Manage jamf-remote-assist in Jamf Pro.`,
 		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
-	cmd.AddCommand(newJamfRemoteAssistSessionListCmd(ctx))
-	cmd.AddCommand(newJamfRemoteAssistSessionGetCmd(ctx))
-	cmd.AddCommand(newJamfRemoteAssistSessionExportCmd(ctx))
+	cmd.AddCommand(newJamfRemoteAssistListCmd(ctx))
+	cmd.AddCommand(newJamfRemoteAssistGetCmd(ctx))
+	cmd.AddCommand(newJamfRemoteAssistExportCmd(ctx))
 
 	return cmd
 }
 
-func newJamfRemoteAssistSessionListCmd(ctx *registry.CLIContext) *cobra.Command {
+func newJamfRemoteAssistListCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagPage     int
 		flagPageSize int
@@ -46,11 +46,11 @@ func newJamfRemoteAssistSessionListCmd(ctx *registry.CLIContext) *cobra.Command 
 		Use:   "list",
 		Short: "Gets session history items.",
 		Long:  "Returns tenants sessions history.",
-		Example: `  # List all jamf-remote-assist-session
-  jamf-cli pro jamf-remote-assist-session list
+		Example: `  # List all jamf-remote-assist
+  jamf-cli pro jamf-remote-assist list
 
-  # List jamf-remote-assist-session and extract IDs
-  jamf-cli pro jamf-remote-assist-session list --field id`,
+  # List jamf-remote-assist and extract IDs
+  jamf-cli pro jamf-remote-assist list --field id`,
 		Annotations: map[string]string{"jamf:privileges": "Read Remote Assist", "jamf:api": "pro", "jamf:gateway-privileges": "remote-assist:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -190,7 +190,7 @@ func newJamfRemoteAssistSessionListCmd(ctx *registry.CLIContext) *cobra.Command 
 	return cmd
 }
 
-func newJamfRemoteAssistSessionGetCmd(ctx *registry.CLIContext) *cobra.Command {
+func newJamfRemoteAssistGetCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagName string
 	)
@@ -199,14 +199,14 @@ func newJamfRemoteAssistSessionGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:   "get [<id>]",
 		Short: "Gets single session history item.",
 		Long:  "Returns tenants session history for specific session.",
-		Example: `  # Get a jamf-remote-assist-session by ID
-  jamf-cli pro jamf-remote-assist-session get 1
+		Example: `  # Get a jamf-remote-assist by ID
+  jamf-cli pro jamf-remote-assist get 1
 
-  # Get a jamf-remote-assist-session by name
-  jamf-cli pro jamf-remote-assist-session get --name "Example"
+  # Get a jamf-remote-assist by name
+  jamf-cli pro jamf-remote-assist get --name "Example"
 
-  # Get a jamf-remote-assist-session and output as YAML
-  jamf-cli pro jamf-remote-assist-session get 1 -o yaml`,
+  # Get a jamf-remote-assist and output as YAML
+  jamf-cli pro jamf-remote-assist get 1 -o yaml`,
 		Annotations: map[string]string{"jamf:privileges": "Read Remote Assist", "jamf:api": "pro", "jamf:gateway-privileges": "remote-assist:read"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -249,12 +249,12 @@ func newJamfRemoteAssistSessionGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVar(&flagName, "name", "", "Look up jamf-remote-assist-session by name")
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up jamf-remote-assist by name")
 
 	return cmd
 }
 
-func newJamfRemoteAssistSessionExportCmd(ctx *registry.CLIContext) *cobra.Command {
+func newJamfRemoteAssistExportCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagScaffold bool
 		flagSaveTo   string
@@ -264,8 +264,8 @@ func newJamfRemoteAssistSessionExportCmd(ctx *registry.CLIContext) *cobra.Comman
 		Use:   "export",
 		Short: "Export Jamf Remote Assist sessions history",
 		Long:  "Export Jamf Remote Assist sessions history",
-		Example: `  # Export jamf-remote-assist-session to CSV
-  jamf-cli pro jamf-remote-assist-session export --out-file jamf-remote-assist-session.csv`,
+		Example: `  # Export jamf-remote-assist to CSV
+  jamf-cli pro jamf-remote-assist export --out-file jamf-remote-assist.csv`,
 		Annotations: map[string]string{"jamf:privileges": "Read Remote Assist", "jamf:api": "pro", "jamf:gateway-privileges": "remote-assist:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

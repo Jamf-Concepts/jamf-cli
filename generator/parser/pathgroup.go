@@ -41,6 +41,10 @@ type PathGroup struct {
 	Root []string
 	// Paths are the document paths assigned to this group, sorted.
 	Paths []string
+	// Tag is the OpenAPI tag every path in the group carries, with any
+	// `-preview` suffix removed. It is the resource's name unless the tag
+	// covers more than one group.
+	Tag string
 	// Versions are the API versions the group's paths are served at. A group
 	// spanning several is normal and is not itself a consolidation event —
 	// deduplicateVersionedOps decides that per version-stripped path shape.
@@ -259,60 +263,36 @@ func containsInt(xs []int, x int) bool {
 // groupName turns a root into a command name, applying an override when the
 // derived one is unusable.
 func groupName(root []string) string {
-	derived := strings.Join(root, "-")
-	if override, ok := pathGroupNameOverrides[derived]; ok {
+	return applyNameOverride(strings.Join(root, "-"))
+}
+
+// applyNameOverride replaces a derived resource name that cannot stand as a
+// command name. Applied to a tag-derived name and a path-derived one alike,
+// since either can produce one.
+func applyNameOverride(name string) string {
+	if override, ok := pathGroupNameOverrides[name]; ok {
 		return override
 	}
-	return derived
+	return name
 }
 
 // pathGroupNameOverrides replaces a derived resource name that cannot stand as
-// a command name, keyed on the derived name — the root's segments joined with
-// "-", which is what groupName builds. Note this differs from
-// pathGroupRootMerges, which keys on the root joined with "/" because it
-// operates on the grouping map before any name exists.
+// a command name, keyed on the name nameFromTags or groupName produced.
 //
-// Kept deliberately small. Every entry is a name the path structure genuinely
-// does not supply — a legacy path whose first segment is a generic word, or a
-// collision with a command this CLI already ships — and not a matter of taste:
-// a rule that is overridden wherever someone prefers a different noun is not a
-// rule.
+// One entry, and that is the strongest argument for naming from tags. Naming
+// from paths needed eight, seven of which were names I invented — a `pki-`
+// prefix the reference does not use, `ldap-lookups`, `ddm-clients`,
+// `certificate-authorities`, `team-viewer-remote-administrations`. Every one of
+// those was a guess at what a resource should be called, and the tag already
+// said.
 var pathGroupNameOverrides = map[string]string{
-	// `/v1/auth`, `/v1/auth/token`, `/v1/auth/keep-alive`. The hand-written
-	// `pro auth token` already owns this name, and a generated resource cannot
-	// share a parent's name with a hand-written one — cobra dispatches by
-	// declaration order and `pro auth --help` would list one of them.
-	"auth": "authentications",
-	// `/v1/ldap/groups`, `/v1/ldap/servers`. Bare `ldap` reads as a settings
-	// object; these are lookups against a configured directory.
-	"ldap": "ldap-lookups",
-	// `/v1/pki/digicert-trust-lifecycle-manager`. The derived name is 37
-	// characters of vendor product branding; the siblings under the same
-	// namespace are `pki-venafi` and `pki-adcs-settings`.
-	"pki-digicert-trust-lifecycle-manager": "pki-digicert",
-	// `/v1/ddm/{clientManagementId}/status-items` and `/sync`. `pro ddm` is an
-	// established alias for the platform `ddm-reports` command, which a real
-	// subcommand of that name would shadow — cobra prefers an exact name over
-	// an alias.
-	"ddm": "ddm-clients",
-	// Every path is `/v1/pki/certificate-authority/...`, but the collection
-	// itself is not served — only `/active` and `/{id}` — so the root falls back
-	// to `pki`, which also parents venafi, adcs-settings and digicert. Naming
-	// the certificate-authority resource after its whole namespace would claim
-	// its siblings' ground.
-	"pki": "certificate-authorities",
-	// `POST /v1/deploy-package`. The endpoint is verb-first; a command name is
-	// a noun, and the verb belongs to the operation under it.
-	"deploy-package": "package-deployments",
-	// `/v1/enrollment-customization/{id}/...` — panel management, which upstream
-	// serves beside a *separate* `/v1/enrollment-customizations` collection.
-	// Both are real, so the derived names differ only by a trailing `s`; keep
-	// the name that says which one it is.
-	"enrollment-customization": "enrollment-customization-panels",
-	// `/preview/remote-administration-configurations/team-viewer/...`. The
-	// `preview` segment is where upstream parks the endpoint, not part of the
-	// resource's identity, and the derived name is 55 characters.
-	"preview-remote-administration-configurations-team-viewer": "team-viewer-remote-administrations",
+	// `/v1/policy-properties`, tagged `policies-preview`. Stripping the suffix
+	// gives `policies`, which is the one place the reference's own name
+	// misleads: there is no modern policy API at all — no path in the document
+	// contains `/policies` — and real policy CRUD is Classic-only, shipping as
+	// `pro classic-policies`. A `pro policies` command holding two settings
+	// fields would sit beside the actual policy surface looking like it.
+	"policies": "policy-properties",
 }
 
 // KeepPath reports whether a document path should be ingested at all, given the

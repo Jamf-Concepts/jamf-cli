@@ -18,29 +18,29 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// NewTeamViewerRemoteAdministrationsCmd creates the team-viewer-remote-administrations command group
-func NewTeamViewerRemoteAdministrationsCmd(ctx *registry.CLIContext) *cobra.Command {
+// NewTeamViewerRemoteAdministrationCmd creates the team-viewer-remote-administration command group
+func NewTeamViewerRemoteAdministrationCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:         "team-viewer-remote-administrations",
-		Short:       "Manage team-viewer-remote-administrations",
-		Long:        `Manage team-viewer-remote-administrations in Jamf Pro.`,
+		Use:         "team-viewer-remote-administration",
+		Short:       "Manage team-viewer-remote-administration",
+		Long:        `Manage team-viewer-remote-administration in Jamf Pro.`,
 		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
-	cmd.AddCommand(newTeamViewerRemoteAdministrationsGetCmd(ctx))
-	cmd.AddCommand(newTeamViewerRemoteAdministrationsCreateCmd(ctx))
-	cmd.AddCommand(newTeamViewerRemoteAdministrationsDeleteCmd(ctx))
-	cmd.AddCommand(newTeamViewerRemoteAdministrationsSessionsCmd(ctx))
-	cmd.AddCommand(newTeamViewerRemoteAdministrationsCloseCmd(ctx))
-	cmd.AddCommand(newTeamViewerRemoteAdministrationsResendNotificationCmd(ctx))
-	cmd.AddCommand(newTeamViewerRemoteAdministrationsSessionsStatusCmd(ctx))
-	cmd.AddCommand(newTeamViewerRemoteAdministrationsPatchCmd(ctx))
-	cmd.AddCommand(newTeamViewerRemoteAdministrationsStatusCmd(ctx))
+	cmd.AddCommand(newTeamViewerRemoteAdministrationGetCmd(ctx))
+	cmd.AddCommand(newTeamViewerRemoteAdministrationCreateCmd(ctx))
+	cmd.AddCommand(newTeamViewerRemoteAdministrationDeleteCmd(ctx))
+	cmd.AddCommand(newTeamViewerRemoteAdministrationSessionsCmd(ctx))
+	cmd.AddCommand(newTeamViewerRemoteAdministrationCloseCmd(ctx))
+	cmd.AddCommand(newTeamViewerRemoteAdministrationResendNotificationCmd(ctx))
+	cmd.AddCommand(newTeamViewerRemoteAdministrationSessionsStatusCmd(ctx))
+	cmd.AddCommand(newTeamViewerRemoteAdministrationPatchCmd(ctx))
+	cmd.AddCommand(newTeamViewerRemoteAdministrationStatusCmd(ctx))
 
 	return cmd
 }
 
-func newTeamViewerRemoteAdministrationsGetCmd(ctx *registry.CLIContext) *cobra.Command {
+func newTeamViewerRemoteAdministrationGetCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{
@@ -48,10 +48,10 @@ func newTeamViewerRemoteAdministrationsGetCmd(ctx *registry.CLIContext) *cobra.C
 		Short: "Get Team Viewer Remote Administration connection configuration",
 		Long:  "Returns Team Viewer Remote Administration connection configuration",
 		Example: `  # Get a team-viewer-remote-administration by ID
-  jamf-cli pro team-viewer-remote-administrations get 1
+  jamf-cli pro team-viewer-remote-administration get 1
 
   # Get a team-viewer-remote-administration and output as YAML
-  jamf-cli pro team-viewer-remote-administrations get 1 -o yaml`,
+  jamf-cli pro team-viewer-remote-administration get 1 -o yaml`,
 		Annotations: map[string]string{"jamf:privileges": "Read Remote Administration", "jamf:api": "pro", "jamf:gateway-privileges": "remote-administration:read"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -81,7 +81,7 @@ func newTeamViewerRemoteAdministrationsGetCmd(ctx *registry.CLIContext) *cobra.C
 	return cmd
 }
 
-func newTeamViewerRemoteAdministrationsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
+func newTeamViewerRemoteAdministrationCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagScaffold bool
 	)
@@ -91,13 +91,13 @@ func newTeamViewerRemoteAdministrationsCreateCmd(ctx *registry.CLIContext) *cobr
 		Short: "Create Team Viewer Remote Administration connection configuration",
 		Long:  "Creates Team Viewer Remote Administration connection configuration",
 		Example: `  # Show the JSON template for creating a team-viewer-remote-administration
-  jamf-cli pro team-viewer-remote-administrations create --scaffold
+  jamf-cli pro team-viewer-remote-administration create --scaffold
 
   # Create a team-viewer-remote-administration from JSON
-  echo '{"name":"Example"}' | jamf-cli pro team-viewer-remote-administrations create
+  echo '{"name":"Example"}' | jamf-cli pro team-viewer-remote-administration create
 
   # Get a team-viewer-remote-administration, modify it, and create a copy
-  jamf-cli pro team-viewer-remote-administrations get 1 -o json | jq '.name = "Copy"' | jamf-cli pro team-viewer-remote-administrations create`,
+  jamf-cli pro team-viewer-remote-administration get 1 -o json | jq '.name = "Copy"' | jamf-cli pro team-viewer-remote-administration create`,
 		Annotations: map[string]string{"jamf:privileges": "Create Remote Administration", "jamf:api": "pro", "jamf:gateway-privileges": "remote-administration:create"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -153,7 +153,7 @@ func newTeamViewerRemoteAdministrationsCreateCmd(ctx *registry.CLIContext) *cobr
 	return cmd
 }
 
-func newTeamViewerRemoteAdministrationsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
+func newTeamViewerRemoteAdministrationDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagYes    bool
 		flagDryRun bool
@@ -164,10 +164,10 @@ func newTeamViewerRemoteAdministrationsDeleteCmd(ctx *registry.CLIContext) *cobr
 		Short: "Delete Team Viewer Remote Administration connection configuration",
 		Long:  "Deletes Team Viewer Remote Administration connection configuration",
 		Example: `  # Delete a team-viewer-remote-administration (with confirmation)
-  jamf-cli pro team-viewer-remote-administrations delete 1
+  jamf-cli pro team-viewer-remote-administration delete 1
 
   # Delete without confirmation prompt
-  jamf-cli pro team-viewer-remote-administrations delete 1 --yes`,
+  jamf-cli pro team-viewer-remote-administration delete 1 --yes`,
 		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Delete Remote Administration", "jamf:api": "pro", "jamf:gateway-privileges": "remote-administration:delete"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -233,7 +233,7 @@ func newTeamViewerRemoteAdministrationsDeleteCmd(ctx *registry.CLIContext) *cobr
 	return cmd
 }
 
-func newTeamViewerRemoteAdministrationsSessionsCmd(ctx *registry.CLIContext) *cobra.Command {
+func newTeamViewerRemoteAdministrationSessionsCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagPage     int
 		flagPageSize int
@@ -381,7 +381,7 @@ func newTeamViewerRemoteAdministrationsSessionsCmd(ctx *registry.CLIContext) *co
 	return cmd
 }
 
-func newTeamViewerRemoteAdministrationsCloseCmd(ctx *registry.CLIContext) *cobra.Command {
+func newTeamViewerRemoteAdministrationCloseCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{
@@ -435,7 +435,7 @@ func newTeamViewerRemoteAdministrationsCloseCmd(ctx *registry.CLIContext) *cobra
 	return cmd
 }
 
-func newTeamViewerRemoteAdministrationsResendNotificationCmd(ctx *registry.CLIContext) *cobra.Command {
+func newTeamViewerRemoteAdministrationResendNotificationCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{
@@ -489,7 +489,7 @@ func newTeamViewerRemoteAdministrationsResendNotificationCmd(ctx *registry.CLICo
 	return cmd
 }
 
-func newTeamViewerRemoteAdministrationsSessionsStatusCmd(ctx *registry.CLIContext) *cobra.Command {
+func newTeamViewerRemoteAdministrationSessionsStatusCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{
@@ -526,7 +526,7 @@ func newTeamViewerRemoteAdministrationsSessionsStatusCmd(ctx *registry.CLIContex
 	return cmd
 }
 
-func newTeamViewerRemoteAdministrationsPatchCmd(ctx *registry.CLIContext) *cobra.Command {
+func newTeamViewerRemoteAdministrationPatchCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagScaffold bool
 		flagSet      []string
@@ -538,13 +538,13 @@ func newTeamViewerRemoteAdministrationsPatchCmd(ctx *registry.CLIContext) *cobra
 		Short: "Update Team Viewer Remote Administration connection configuration",
 		Long:  "Updates Team Viewer Remote Administration connection configuration\n\nUse --set KEY=VALUE to update scalar fields (repeatable). Omitted fields are unchanged.\n\nAvailable fields:\n  displayName                                  string\n  enabled                                      boolean\n  sessionTimeout                               integer\n  token                                        string\n\nUse --from-file or pipe JSON to stdin for complex updates (bulk changes, deep nesting).",
 		Example: `  # Update a field by ID
-  jamf-cli pro team-viewer-remote-administrations patch 1 --set general.managed=true
+  jamf-cli pro team-viewer-remote-administration patch 1 --set general.managed=true
 
   # Update multiple fields
-  jamf-cli pro team-viewer-remote-administrations patch 1 --set field1=value1 --set field2=value2
+  jamf-cli pro team-viewer-remote-administration patch 1 --set field1=value1 --set field2=value2
 
   # Patch from a file
-  jamf-cli pro team-viewer-remote-administrations patch 1 --from-file changes.json`,
+  jamf-cli pro team-viewer-remote-administration patch 1 --from-file changes.json`,
 		Annotations: map[string]string{"jamf:privileges": "Update Remote Administration", "jamf:api": "pro", "jamf:gateway-privileges": "remote-administration:update"},
 		Args: func(cmd *cobra.Command, args []string) error {
 			// --scaffold prints a body template and makes no request, so it
@@ -635,7 +635,7 @@ func newTeamViewerRemoteAdministrationsPatchCmd(ctx *registry.CLIContext) *cobra
 	return cmd
 }
 
-func newTeamViewerRemoteAdministrationsStatusCmd(ctx *registry.CLIContext) *cobra.Command {
+func newTeamViewerRemoteAdministrationStatusCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{

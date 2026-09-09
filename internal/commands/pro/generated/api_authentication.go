@@ -13,37 +13,37 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// NewAuthenticationsCmd creates the authentications command group
-func NewAuthenticationsCmd(ctx *registry.CLIContext) *cobra.Command {
+// NewApiAuthenticationCmd creates the api-authentication command group
+func NewApiAuthenticationCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:         "authentications",
-		Short:       "Manage authentications",
-		Long:        `Manage authentications in Jamf Pro.`,
+		Use:         "api-authentication",
+		Short:       "Manage api-authentication",
+		Long:        `Manage api-authentication in Jamf Pro.`,
 		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
-	cmd.AddCommand(newAuthenticationsListCmd(ctx))
-	cmd.AddCommand(newAuthenticationsCurrentCmd(ctx))
-	cmd.AddCommand(newAuthenticationsInvalidateTokenCmd(ctx))
-	cmd.AddCommand(newAuthenticationsKeepAliveCmd(ctx))
-	cmd.AddCommand(newAuthenticationsTokenCmd(ctx))
-	cmd.AddCommand(newAuthenticationsOauthTokenCmd(ctx))
+	cmd.AddCommand(newApiAuthenticationListCmd(ctx))
+	cmd.AddCommand(newApiAuthenticationCurrentCmd(ctx))
+	cmd.AddCommand(newApiAuthenticationInvalidateTokenCmd(ctx))
+	cmd.AddCommand(newApiAuthenticationKeepAliveCmd(ctx))
+	cmd.AddCommand(newApiAuthenticationTokenCmd(ctx))
+	cmd.AddCommand(newApiAuthenticationOauthTokenCmd(ctx))
 
 	return cmd
 }
 
-func newAuthenticationsListCmd(ctx *registry.CLIContext) *cobra.Command {
+func newApiAuthenticationListCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "Get all the Authorization details associated with the current api",
 		Long:  "Get all the authorization details associated with the current api token",
-		Example: `  # List all authentications
-  jamf-cli pro authentications list
+		Example: `  # List all api-authentication
+  jamf-cli pro api-authentication list
 
-  # List authentications and extract IDs
-  jamf-cli pro authentications list --field id`,
+  # List api-authentication and extract IDs
+  jamf-cli pro api-authentication list --field id`,
 		Annotations: map[string]string{"jamf:api": "pro", "jamf:gateway": "unserved", "jamf:gateway-basis": "unpublished", "jamf:gateway-detail": "not declared by the gateway's Jamf Pro API 11.31.0"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -72,7 +72,7 @@ func newAuthenticationsListCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newAuthenticationsCurrentCmd(ctx *registry.CLIContext) *cobra.Command {
+func newApiAuthenticationCurrentCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{
@@ -123,7 +123,7 @@ func newAuthenticationsCurrentCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newAuthenticationsInvalidateTokenCmd(ctx *registry.CLIContext) *cobra.Command {
+func newApiAuthenticationInvalidateTokenCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{
@@ -174,7 +174,7 @@ func newAuthenticationsInvalidateTokenCmd(ctx *registry.CLIContext) *cobra.Comma
 	return cmd
 }
 
-func newAuthenticationsKeepAliveCmd(ctx *registry.CLIContext) *cobra.Command {
+func newApiAuthenticationKeepAliveCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{
@@ -225,7 +225,7 @@ func newAuthenticationsKeepAliveCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newAuthenticationsTokenCmd(ctx *registry.CLIContext) *cobra.Command {
+func newApiAuthenticationTokenCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{
@@ -276,7 +276,7 @@ func newAuthenticationsTokenCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newAuthenticationsOauthTokenCmd(ctx *registry.CLIContext) *cobra.Command {
+func newApiAuthenticationOauthTokenCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{

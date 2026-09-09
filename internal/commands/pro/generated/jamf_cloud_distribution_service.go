@@ -14,22 +14,22 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// NewJcdsCmd creates the jcds command group
-func NewJcdsCmd(ctx *registry.CLIContext) *cobra.Command {
+// NewJamfCloudDistributionServiceCmd creates the jamf-cloud-distribution-service command group
+func NewJamfCloudDistributionServiceCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:         "jcds",
-		Short:       "Manage jcds",
-		Long:        `Manage jcds in Jamf Pro.`,
+		Use:         "jamf-cloud-distribution-service",
+		Short:       "Manage jamf-cloud-distribution-service",
+		Long:        `Manage jamf-cloud-distribution-service in Jamf Pro.`,
 		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
-	cmd.AddCommand(newJcdsRefreshInventoryCmd(ctx))
-	cmd.AddCommand(newJcdsRenewCredentialsCmd(ctx))
+	cmd.AddCommand(newJamfCloudDistributionServiceRefreshInventoryCmd(ctx))
+	cmd.AddCommand(newJamfCloudDistributionServiceRenewCredentialsCmd(ctx))
 
 	return cmd
 }
 
-func newJcdsRefreshInventoryCmd(ctx *registry.CLIContext) *cobra.Command {
+func newJamfCloudDistributionServiceRefreshInventoryCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagFileName string
 	)
@@ -86,7 +86,7 @@ func newJcdsRefreshInventoryCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newJcdsRenewCredentialsCmd(ctx *registry.CLIContext) *cobra.Command {
+func newJamfCloudDistributionServiceRenewCredentialsCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{

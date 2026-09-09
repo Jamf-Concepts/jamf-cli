@@ -115,18 +115,19 @@ func GroupPathsByTagAndCollection(paths []TaggedPath) []*PathGroup {
 			byRoot[root] = g
 		}
 		g.Paths = append(g.Paths, p)
+		g.Tag = tagOf[p]
 		if !containsInt(g.Versions, version) {
 			g.Versions = append(g.Versions, version)
 		}
 	}
 
 	mergeRoots(byRoot)
+	nameFromTags(byRoot)
 
 	out := make([]*PathGroup, 0, len(byRoot))
 	for _, g := range byRoot {
 		sort.Strings(g.Paths)
 		sort.Ints(g.Versions)
-		g.Name = groupName(g.Root)
 		out = append(out, g)
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Name < out[j].Name })
@@ -228,4 +229,111 @@ func sharedPathSegments(a, b string) int {
 		n++
 	}
 	return n
+}
+
+// nameFromTags names every group after its OpenAPI tag.
+//
+// The tag is the section heading the API reference publishes, so a command named
+// after it is one a reader can find in the docs. The path is a worse authority
+// on the noun than it looks: upstream serves the same resource at
+// `/v1/computer-inventory/{id}/erase` and `/v4/computers-inventory`, so the
+// singular/plural is an accident of whichever path a reader lands on, where the
+// tag is a deliberate choice.
+//
+// A tag covering several groups cannot name them all, and 14 of them do. The
+// primary group — the one whose root prefixes the others, or failing that the
+// one with the most paths — takes the bare tag, and each sibling appends the
+// path segments that distinguish it. That reproduces the names those siblings
+// already have (`computer-groups-smart-groups`, `enrollment-languages`) while
+// letting the primary move onto the reference's name.
+//
+// A group whose tag is empty, or whose derived name would collide anyway, keeps
+// its path-derived name.
+func nameFromTags(byRoot map[string]*PathGroup) {
+	groupsByTag := map[string][]string{}
+	for root, g := range byRoot {
+		if g.Tag != "" {
+			groupsByTag[g.Tag] = append(groupsByTag[g.Tag], root)
+		}
+	}
+
+	proposed := map[string]string{} // root -> name
+	for tag, roots := range groupsByTag {
+		sort.Strings(roots)
+		if len(roots) == 1 {
+			proposed[roots[0]] = tag
+			continue
+		}
+		primary := primaryRoot(roots, byRoot)
+		shared := commonRootPrefix(roots)
+		for _, root := range roots {
+			if root == primary {
+				proposed[root] = tag
+				continue
+			}
+			segs := splitPathSegments(root)
+			tail := segs[min(shared, len(segs)):]
+			if len(tail) == 0 {
+				tail = segs[len(segs)-1:]
+			}
+			proposed[root] = tag + "-" + strings.Join(tail, "-")
+		}
+	}
+
+	// A proposed name that two groups want, or that an untagged group already
+	// holds, is not usable — fall back to the path for those.
+	wanted := map[string][]string{}
+	for root, name := range proposed {
+		wanted[name] = append(wanted[name], root)
+	}
+	for root, g := range byRoot {
+		name, ok := proposed[root]
+		if !ok || len(wanted[name]) > 1 {
+			g.Name = groupName(g.Root)
+			continue
+		}
+		g.Name = applyNameOverride(name)
+	}
+}
+
+// primaryRoot picks the group that takes the bare tag name: the root that is a
+// path prefix of the others, or the one with the most paths.
+func primaryRoot(roots []string, byRoot map[string]*PathGroup) string {
+	for _, candidate := range roots {
+		prefixesAll := true
+		for _, other := range roots {
+			if other != candidate && !strings.HasPrefix(other, candidate+"/") {
+				prefixesAll = false
+				break
+			}
+		}
+		if prefixesAll {
+			return candidate
+		}
+	}
+	best := roots[0]
+	for _, r := range roots {
+		switch {
+		case len(byRoot[r].Paths) > len(byRoot[best].Paths):
+			best = r
+		case len(byRoot[r].Paths) == len(byRoot[best].Paths) && r < best:
+			best = r
+		}
+	}
+	return best
+}
+
+// commonRootPrefix returns the number of leading path segments every root
+// shares.
+func commonRootPrefix(roots []string) int {
+	if len(roots) == 0 {
+		return 0
+	}
+	shared := len(splitPathSegments(roots[0]))
+	for _, r := range roots[1:] {
+		if n := sharedPathSegments(roots[0], r); n < shared {
+			shared = n
+		}
+	}
+	return shared
 }

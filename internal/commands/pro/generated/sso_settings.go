@@ -18,35 +18,35 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// NewSsoCmd creates the sso command group
-func NewSsoCmd(ctx *registry.CLIContext) *cobra.Command {
+// NewSsoSettingsCmd creates the sso-settings command group
+func NewSsoSettingsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:         "sso",
-		Short:       "Manage sso",
-		Long:        `Manage sso in Jamf Pro.`,
+		Use:         "sso-settings",
+		Short:       "Manage sso-settings",
+		Long:        `Manage sso-settings in Jamf Pro.`,
 		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
-	cmd.AddCommand(newSsoDeleteCmd(ctx))
-	cmd.AddCommand(newSsoHistoryCmd(ctx))
-	cmd.AddCommand(newSsoAddHistoryNoteCmd(ctx))
-	cmd.AddCommand(newSsoDownloadCmd(ctx))
-	cmd.AddCommand(newSsoCreateCertCmd(ctx))
-	cmd.AddCommand(newSsoUpdateCertCmd(ctx))
-	cmd.AddCommand(newSsoFailoverCmd(ctx))
-	cmd.AddCommand(newSsoParseCmd(ctx))
-	cmd.AddCommand(newSsoSsoCmd(ctx))
-	cmd.AddCommand(newSsoUpdateSsoCmd(ctx))
-	cmd.AddCommand(newSsoDependenciesCmd(ctx))
-	cmd.AddCommand(newSsoDisableCmd(ctx))
-	cmd.AddCommand(newSsoCertCmd(ctx))
-	cmd.AddCommand(newSsoGenerateCmd(ctx))
-	cmd.AddCommand(newSsoV3MetadataDownloadCmd(ctx))
+	cmd.AddCommand(newSsoSettingsDeleteCmd(ctx))
+	cmd.AddCommand(newSsoSettingsHistoryCmd(ctx))
+	cmd.AddCommand(newSsoSettingsAddHistoryNoteCmd(ctx))
+	cmd.AddCommand(newSsoSettingsDownloadCmd(ctx))
+	cmd.AddCommand(newSsoSettingsCreateCertCmd(ctx))
+	cmd.AddCommand(newSsoSettingsUpdateCertCmd(ctx))
+	cmd.AddCommand(newSsoSettingsFailoverCmd(ctx))
+	cmd.AddCommand(newSsoSettingsParseCmd(ctx))
+	cmd.AddCommand(newSsoSettingsSsoCmd(ctx))
+	cmd.AddCommand(newSsoSettingsUpdateSsoCmd(ctx))
+	cmd.AddCommand(newSsoSettingsDependenciesCmd(ctx))
+	cmd.AddCommand(newSsoSettingsDisableCmd(ctx))
+	cmd.AddCommand(newSsoSettingsCertCmd(ctx))
+	cmd.AddCommand(newSsoSettingsGenerateCmd(ctx))
+	cmd.AddCommand(newSsoSettingsV3MetadataDownloadCmd(ctx))
 
 	return cmd
 }
 
-func newSsoDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
+func newSsoSettingsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagYes    bool
 		flagDryRun bool
@@ -56,11 +56,11 @@ func newSsoDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:   "delete",
 		Short: "Delete the currently configured certificate used by SSO",
 		Long:  "Deletes the currently configured certificate used by SSO.",
-		Example: `  # Delete the sso (with confirmation)
-  jamf-cli pro sso delete
+		Example: `  # Delete the sso-settings (with confirmation)
+  jamf-cli pro sso-settings delete
 
   # Delete without confirmation prompt
-  jamf-cli pro sso delete --yes`,
+  jamf-cli pro sso-settings delete --yes`,
 		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Update SSO Settings", "jamf:api": "pro", "jamf:gateway-privileges": "sso-settings:update"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -124,7 +124,7 @@ func newSsoDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newSsoHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
+func newSsoSettingsHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagPage     int
 		flagPageSize int
@@ -138,8 +138,8 @@ func newSsoHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:   "history",
 		Short: "Get SSO history object",
 		Long:  "Gets SSO history object",
-		Example: `  # Get history for the sso
-  jamf-cli pro sso history`,
+		Example: `  # Get history for the sso-settings
+  jamf-cli pro sso-settings history`,
 		Annotations: map[string]string{"jamf:privileges": "Read SSO Settings", "jamf:api": "pro", "jamf:gateway-privileges": "sso-settings:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -278,7 +278,7 @@ func newSsoHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newSsoAddHistoryNoteCmd(ctx *registry.CLIContext) *cobra.Command {
+func newSsoSettingsAddHistoryNoteCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagScaffold bool
 	)
@@ -338,7 +338,7 @@ func newSsoAddHistoryNoteCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newSsoDownloadCmd(ctx *registry.CLIContext) *cobra.Command {
+func newSsoSettingsDownloadCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagSaveTo string
 	)
@@ -348,10 +348,10 @@ func newSsoDownloadCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Download the certificate currently configured for use with Jamf Pro's SSO configuration",
 		Long:  "Downloads the certificate currently configured for use with Jamf Pro's SSO configuration",
 		Example: `  # Save to file
-  jamf-cli pro sso download -O output.bin
+  jamf-cli pro sso-settings download -O output.bin
 
   # Pipe to stdout
-  jamf-cli pro sso download > output.bin`,
+  jamf-cli pro sso-settings download > output.bin`,
 		Annotations: map[string]string{"jamf:privileges": "Read SSO Settings", "jamf:api": "pro", "jamf:gateway-privileges": "sso-settings:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -395,7 +395,7 @@ func newSsoDownloadCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newSsoCreateCertCmd(ctx *registry.CLIContext) *cobra.Command {
+func newSsoSettingsCreateCertCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{
@@ -446,7 +446,7 @@ func newSsoCreateCertCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newSsoUpdateCertCmd(ctx *registry.CLIContext) *cobra.Command {
+func newSsoSettingsUpdateCertCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagScaffold bool
 	)
@@ -518,7 +518,7 @@ func newSsoUpdateCertCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newSsoFailoverCmd(ctx *registry.CLIContext) *cobra.Command {
+func newSsoSettingsFailoverCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{
@@ -552,7 +552,7 @@ func newSsoFailoverCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newSsoParseCmd(ctx *registry.CLIContext) *cobra.Command {
+func newSsoSettingsParseCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagScaffold bool
 	)
@@ -614,7 +614,7 @@ func newSsoParseCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newSsoSsoCmd(ctx *registry.CLIContext) *cobra.Command {
+func newSsoSettingsSsoCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{
@@ -648,7 +648,7 @@ func newSsoSsoCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newSsoUpdateSsoCmd(ctx *registry.CLIContext) *cobra.Command {
+func newSsoSettingsUpdateSsoCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagScaffold bool
 	)
@@ -743,7 +743,7 @@ func newSsoUpdateSsoCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newSsoDependenciesCmd(ctx *registry.CLIContext) *cobra.Command {
+func newSsoSettingsDependenciesCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{
@@ -777,7 +777,7 @@ func newSsoDependenciesCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newSsoDisableCmd(ctx *registry.CLIContext) *cobra.Command {
+func newSsoSettingsDisableCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{
@@ -828,7 +828,7 @@ func newSsoDisableCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newSsoCertCmd(ctx *registry.CLIContext) *cobra.Command {
+func newSsoSettingsCertCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{
@@ -862,7 +862,7 @@ func newSsoCertCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newSsoGenerateCmd(ctx *registry.CLIContext) *cobra.Command {
+func newSsoSettingsGenerateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{
@@ -913,7 +913,7 @@ func newSsoGenerateCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newSsoV3MetadataDownloadCmd(ctx *registry.CLIContext) *cobra.Command {
+func newSsoSettingsV3MetadataDownloadCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagSaveTo string
 	)
@@ -923,10 +923,10 @@ func newSsoV3MetadataDownloadCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Download the Jamf Pro SAML metadata file",
 		Long:  "Download the Jamf Pro SAML metadata file",
 		Example: `  # Save to file
-  jamf-cli pro sso v-3-metadata-download -O output.bin
+  jamf-cli pro sso-settings v-3-metadata-download -O output.bin
 
   # Pipe to stdout
-  jamf-cli pro sso v-3-metadata-download > output.bin`,
+  jamf-cli pro sso-settings v-3-metadata-download > output.bin`,
 		Annotations: map[string]string{"jamf:privileges": "Read SSO Settings", "jamf:api": "pro", "jamf:gateway-privileges": "sso-settings:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()

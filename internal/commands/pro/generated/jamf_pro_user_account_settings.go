@@ -16,35 +16,35 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// NewUserCmd creates the user command group
-func NewUserCmd(ctx *registry.CLIContext) *cobra.Command {
+// NewJamfProUserAccountSettingsCmd creates the jamf-pro-user-account-settings command group
+func NewJamfProUserAccountSettingsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:         "user",
-		Short:       "Manage user",
-		Long:        `Manage user in Jamf Pro.`,
+		Use:         "jamf-pro-user-account-settings",
+		Short:       "Manage jamf-pro-user-account-settings",
+		Long:        `Manage jamf-pro-user-account-settings in Jamf Pro.`,
 		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
-	cmd.AddCommand(newUserGetCmd(ctx))
-	cmd.AddCommand(newUserUpdateCmd(ctx))
-	cmd.AddCommand(newUserDeleteCmd(ctx))
-	cmd.AddCommand(newUserChangePasswordCmd(ctx))
+	cmd.AddCommand(newJamfProUserAccountSettingsGetCmd(ctx))
+	cmd.AddCommand(newJamfProUserAccountSettingsUpdateCmd(ctx))
+	cmd.AddCommand(newJamfProUserAccountSettingsDeleteCmd(ctx))
+	cmd.AddCommand(newJamfProUserAccountSettingsChangePasswordCmd(ctx))
 
 	return cmd
 }
 
-func newUserGetCmd(ctx *registry.CLIContext) *cobra.Command {
+func newJamfProUserAccountSettingsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{
 		Use:   "get <id>",
 		Short: "Get the user preferences for the authenticated user and key.",
 		Long:  "Gets the user preferences for the authenticated user and key.",
-		Example: `  # Get a user by ID
-  jamf-cli pro user get 1
+		Example: `  # Get a jamf-pro-user-account-setting by ID
+  jamf-cli pro jamf-pro-user-account-settings get 1
 
-  # Get a user and output as YAML
-  jamf-cli pro user get 1 -o yaml`,
+  # Get a jamf-pro-user-account-setting and output as YAML
+  jamf-cli pro jamf-pro-user-account-settings get 1 -o yaml`,
 		Annotations: map[string]string{"jamf:api": "pro"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -74,18 +74,18 @@ func newUserGetCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newUserUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
+func newJamfProUserAccountSettingsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{
 		Use:   "update <id>",
 		Short: "Persist the user setting",
 		Long:  "Persists the user setting",
-		Example: `  # Replace a user from JSON
-  echo '{"name":"Updated"}' | jamf-cli pro user update 1
+		Example: `  # Replace a jamf-pro-user-account-setting from JSON
+  echo '{"name":"Updated"}' | jamf-cli pro jamf-pro-user-account-settings update 1
 
-  # Get a user, modify, and update
-  jamf-cli pro user get 1 -o json | jq '.name = "New Name"' | jamf-cli pro user update 1`,
+  # Get a jamf-pro-user-account-setting, modify, and update
+  jamf-cli pro jamf-pro-user-account-settings get 1 -o json | jq '.name = "New Name"' | jamf-cli pro jamf-pro-user-account-settings update 1`,
 		Annotations: map[string]string{"jamf:api": "pro"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -132,7 +132,7 @@ func newUserUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newUserDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
+func newJamfProUserAccountSettingsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagYes    bool
 		flagDryRun bool
@@ -142,11 +142,11 @@ func newUserDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:   "delete <id>",
 		Short: "Remove specified setting for authenticated user",
 		Long:  "Remove specified setting for authenticated user",
-		Example: `  # Delete a user (with confirmation)
-  jamf-cli pro user delete 1
+		Example: `  # Delete a jamf-pro-user-account-setting (with confirmation)
+  jamf-cli pro jamf-pro-user-account-settings delete 1
 
   # Delete without confirmation prompt
-  jamf-cli pro user delete 1 --yes`,
+  jamf-cli pro jamf-pro-user-account-settings delete 1 --yes`,
 		Annotations: map[string]string{"jamf:destructive": "true", "jamf:api": "pro"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -212,7 +212,7 @@ func newUserDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newUserChangePasswordCmd(ctx *registry.CLIContext) *cobra.Command {
+func newJamfProUserAccountSettingsChangePasswordCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagScaffold bool
 	)

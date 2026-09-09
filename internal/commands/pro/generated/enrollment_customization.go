@@ -18,35 +18,35 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// NewEnrollmentCustomizationsCmd creates the enrollment-customizations command group
-func NewEnrollmentCustomizationsCmd(ctx *registry.CLIContext) *cobra.Command {
+// NewEnrollmentCustomizationCmd creates the enrollment-customization command group
+func NewEnrollmentCustomizationCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:         "enrollment-customizations",
-		Short:       "Manage enrollment-customizations",
-		Long:        `Manage enrollment-customizations in Jamf Pro.`,
+		Use:         "enrollment-customization",
+		Short:       "Manage enrollment-customization",
+		Long:        `Manage enrollment-customization in Jamf Pro.`,
 		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
-	cmd.AddCommand(newEnrollmentCustomizationsListCmd(ctx))
-	cmd.AddCommand(newEnrollmentCustomizationsGetCmd(ctx))
-	cmd.AddCommand(newEnrollmentCustomizationsCreateCmd(ctx))
-	cmd.AddCommand(newEnrollmentCustomizationsUpdateCmd(ctx))
-	cmd.AddCommand(newEnrollmentCustomizationsDeleteCmd(ctx))
-	cmd.AddCommand(newEnrollmentCustomizationsHistoryCmd(ctx))
-	cmd.AddCommand(newEnrollmentCustomizationsAddHistoryNoteCmd(ctx))
-	cmd.AddCommand(newEnrollmentCustomizationsParseMarkdownCmd(ctx))
-	cmd.AddCommand(newEnrollmentCustomizationsLdapCmd(ctx))
-	cmd.AddCommand(newEnrollmentCustomizationsSsoCmd(ctx))
-	cmd.AddCommand(newEnrollmentCustomizationsTextCmd(ctx))
-	cmd.AddCommand(newEnrollmentCustomizationsMarkdownCmd(ctx))
-	cmd.AddCommand(newEnrollmentCustomizationsAllCmd(ctx))
-	cmd.AddCommand(newEnrollmentCustomizationsPrestagesCmd(ctx))
-	cmd.AddCommand(newEnrollmentCustomizationsApplyCmd(ctx))
+	cmd.AddCommand(newEnrollmentCustomizationListCmd(ctx))
+	cmd.AddCommand(newEnrollmentCustomizationGetCmd(ctx))
+	cmd.AddCommand(newEnrollmentCustomizationCreateCmd(ctx))
+	cmd.AddCommand(newEnrollmentCustomizationUpdateCmd(ctx))
+	cmd.AddCommand(newEnrollmentCustomizationDeleteCmd(ctx))
+	cmd.AddCommand(newEnrollmentCustomizationHistoryCmd(ctx))
+	cmd.AddCommand(newEnrollmentCustomizationAddHistoryNoteCmd(ctx))
+	cmd.AddCommand(newEnrollmentCustomizationParseMarkdownCmd(ctx))
+	cmd.AddCommand(newEnrollmentCustomizationLdapCmd(ctx))
+	cmd.AddCommand(newEnrollmentCustomizationSsoCmd(ctx))
+	cmd.AddCommand(newEnrollmentCustomizationTextCmd(ctx))
+	cmd.AddCommand(newEnrollmentCustomizationMarkdownCmd(ctx))
+	cmd.AddCommand(newEnrollmentCustomizationAllCmd(ctx))
+	cmd.AddCommand(newEnrollmentCustomizationPrestagesCmd(ctx))
+	cmd.AddCommand(newEnrollmentCustomizationApplyCmd(ctx))
 
 	return cmd
 }
 
-func newEnrollmentCustomizationsListCmd(ctx *registry.CLIContext) *cobra.Command {
+func newEnrollmentCustomizationListCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagPage     int
 		flagPageSize int
@@ -59,11 +59,11 @@ func newEnrollmentCustomizationsListCmd(ctx *registry.CLIContext) *cobra.Command
 		Use:   "list",
 		Short: "Retrieve sorted and paged Enrollment Customizations",
 		Long:  "Retrieves sorted and paged Enrollment Customizations",
-		Example: `  # List all enrollment-customizations
-  jamf-cli pro enrollment-customizations list
+		Example: `  # List all enrollment-customization
+  jamf-cli pro enrollment-customization list
 
-  # List enrollment-customizations and extract IDs
-  jamf-cli pro enrollment-customizations list --field id`,
+  # List enrollment-customization and extract IDs
+  jamf-cli pro enrollment-customization list --field id`,
 		Annotations: map[string]string{"jamf:privileges": "Read Enrollment Customizations", "jamf:api": "pro", "jamf:gateway-privileges": "enrollment-customization:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -198,7 +198,7 @@ func newEnrollmentCustomizationsListCmd(ctx *registry.CLIContext) *cobra.Command
 	return cmd
 }
 
-func newEnrollmentCustomizationsGetCmd(ctx *registry.CLIContext) *cobra.Command {
+func newEnrollmentCustomizationGetCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagName string
 	)
@@ -208,13 +208,13 @@ func newEnrollmentCustomizationsGetCmd(ctx *registry.CLIContext) *cobra.Command 
 		Short: "Retrieve an Enrollment Customization with the supplied id",
 		Long:  "Retrieves an Enrollment Customization with the supplied id",
 		Example: `  # Get a enrollment-customization by ID
-  jamf-cli pro enrollment-customizations get 1
+  jamf-cli pro enrollment-customization get 1
 
   # Get a enrollment-customization by name
-  jamf-cli pro enrollment-customizations get --name "Example"
+  jamf-cli pro enrollment-customization get --name "Example"
 
   # Get a enrollment-customization and output as YAML
-  jamf-cli pro enrollment-customizations get 1 -o yaml`,
+  jamf-cli pro enrollment-customization get 1 -o yaml`,
 		Annotations: map[string]string{"jamf:privileges": "Read Enrollment Customizations", "jamf:api": "pro", "jamf:gateway-privileges": "enrollment-customization:read"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -261,7 +261,7 @@ func newEnrollmentCustomizationsGetCmd(ctx *registry.CLIContext) *cobra.Command 
 	return cmd
 }
 
-func newEnrollmentCustomizationsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
+func newEnrollmentCustomizationCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagScaffold bool
 		flagName     string
@@ -272,13 +272,13 @@ func newEnrollmentCustomizationsCreateCmd(ctx *registry.CLIContext) *cobra.Comma
 		Short: "Create an LDAP Panel for a single Enrollment Customization",
 		Long:  "Create an LDAP panel for a single enrollment customization. If multiple LDAP access groups are defined with the same name and id, only one will be saved.",
 		Example: `  # Show the JSON template for creating a enrollment-customization
-  jamf-cli pro enrollment-customizations create --scaffold
+  jamf-cli pro enrollment-customization create --scaffold
 
   # Create a enrollment-customization from JSON
-  echo '{"name":"Example"}' | jamf-cli pro enrollment-customizations create 1
+  echo '{"name":"Example"}' | jamf-cli pro enrollment-customization create 1
 
   # Get a enrollment-customization, modify it, and create a copy
-  jamf-cli pro enrollment-customizations get 1 -o json | jq '.name = "Copy"' | jamf-cli pro enrollment-customizations create 1`,
+  jamf-cli pro enrollment-customization get 1 -o json | jq '.name = "Copy"' | jamf-cli pro enrollment-customization create 1`,
 		Annotations: map[string]string{"jamf:privileges": "Update Enrollment Customizations", "jamf:api": "pro", "jamf:gateway-privileges": "enrollment-customization:update"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -361,7 +361,7 @@ func newEnrollmentCustomizationsCreateCmd(ctx *registry.CLIContext) *cobra.Comma
 	return cmd
 }
 
-func newEnrollmentCustomizationsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
+func newEnrollmentCustomizationUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagScaffold bool
 		flagSet      []string
@@ -372,10 +372,10 @@ func newEnrollmentCustomizationsUpdateCmd(ctx *registry.CLIContext) *cobra.Comma
 		Short: "Update a single LDAP Panel for a single Enrollment Customization",
 		Long:  "Update a single LDAP panel for a single enrollment customization. If multiple LDAP access groups are defined with the same name and id, only one will be saved.\n\nUse --set KEY=VALUE to update individual fields (repeatable). The current resource is fetched, your changes are merged in, read-only fields are dropped, and the whole record is written back. Omitted fields keep their current values.\n\nAvailable fields:\n  backButtonText                               string\n  continueButtonText                           string\n  displayName                                  string\n  passwordLabel                                string\n  rank                                         integer\n  title                                        string\n  usernameLabel                                string\n\nArray and object fields accept a JSON value (e.g. --set field='[\"a\",\"b\"]'):\n  ldapGroupAccess                              array\n\nWithout --set, pipe a full JSON document to stdin to replace the resource entirely.",
 		Example: `  # Update a enrollment-customization from JSON
-  echo '{"name":"Updated"}' | jamf-cli pro enrollment-customizations update 1 2
+  echo '{"name":"Updated"}' | jamf-cli pro enrollment-customization update 1 2
 
   # Get a enrollment-customization, modify, and update
-  jamf-cli pro enrollment-customizations get 1 -o json | jq '.name = "New Name"' | jamf-cli pro enrollment-customizations update 1 2`,
+  jamf-cli pro enrollment-customization get 1 -o json | jq '.name = "New Name"' | jamf-cli pro enrollment-customization update 1 2`,
 		Annotations: map[string]string{"jamf:privileges": "Update Enrollment Customizations", "jamf:api": "pro", "jamf:gateway-privileges": "enrollment-customization:update"},
 		Args: func(cmd *cobra.Command, args []string) error {
 			// --scaffold prints a body template and makes no request, so it
@@ -494,7 +494,7 @@ func newEnrollmentCustomizationsUpdateCmd(ctx *registry.CLIContext) *cobra.Comma
 	return cmd
 }
 
-func newEnrollmentCustomizationsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
+func newEnrollmentCustomizationDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagYes    bool
 		flagDryRun bool
@@ -505,10 +505,10 @@ func newEnrollmentCustomizationsDeleteCmd(ctx *registry.CLIContext) *cobra.Comma
 		Short: "Delete a single Panel from an Enrollment Customization",
 		Long:  "Delete a single panel from an Enrollment Customization",
 		Example: `  # Delete a enrollment-customization (with confirmation)
-  jamf-cli pro enrollment-customizations delete 1 2
+  jamf-cli pro enrollment-customization delete 1 2
 
   # Delete without confirmation prompt
-  jamf-cli pro enrollment-customizations delete 1 2 --yes`,
+  jamf-cli pro enrollment-customization delete 1 2 --yes`,
 		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Update Enrollment Customizations", "jamf:api": "pro", "jamf:gateway-privileges": "enrollment-customization:update"},
 		Args:        cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -575,7 +575,7 @@ func newEnrollmentCustomizationsDeleteCmd(ctx *registry.CLIContext) *cobra.Comma
 	return cmd
 }
 
-func newEnrollmentCustomizationsHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
+func newEnrollmentCustomizationHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagPage     int
 		flagPageSize int
@@ -590,10 +590,10 @@ func newEnrollmentCustomizationsHistoryCmd(ctx *registry.CLIContext) *cobra.Comm
 		Short: "Get sorted and paged Enrollment Customization history objects",
 		Long:  "Gets sorted and paged enrollment customization history objects",
 		Example: `  # Get history for a enrollment-customization by ID
-  jamf-cli pro enrollment-customizations history 1
+  jamf-cli pro enrollment-customization history 1
 
   # Get history by name
-  jamf-cli pro enrollment-customizations history --name "Example"`,
+  jamf-cli pro enrollment-customization history --name "Example"`,
 		Annotations: map[string]string{"jamf:privileges": "Read Enrollment Customizations", "jamf:api": "pro", "jamf:gateway-privileges": "enrollment-customization:read"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -748,7 +748,7 @@ func newEnrollmentCustomizationsHistoryCmd(ctx *registry.CLIContext) *cobra.Comm
 	return cmd
 }
 
-func newEnrollmentCustomizationsAddHistoryNoteCmd(ctx *registry.CLIContext) *cobra.Command {
+func newEnrollmentCustomizationAddHistoryNoteCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagScaffold bool
 		flagName     string
@@ -828,7 +828,7 @@ func newEnrollmentCustomizationsAddHistoryNoteCmd(ctx *registry.CLIContext) *cob
 	return cmd
 }
 
-func newEnrollmentCustomizationsParseMarkdownCmd(ctx *registry.CLIContext) *cobra.Command {
+func newEnrollmentCustomizationParseMarkdownCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagScaffold bool
 	)
@@ -888,7 +888,7 @@ func newEnrollmentCustomizationsParseMarkdownCmd(ctx *registry.CLIContext) *cobr
 	return cmd
 }
 
-func newEnrollmentCustomizationsLdapCmd(ctx *registry.CLIContext) *cobra.Command {
+func newEnrollmentCustomizationLdapCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{
@@ -925,7 +925,7 @@ func newEnrollmentCustomizationsLdapCmd(ctx *registry.CLIContext) *cobra.Command
 	return cmd
 }
 
-func newEnrollmentCustomizationsSsoCmd(ctx *registry.CLIContext) *cobra.Command {
+func newEnrollmentCustomizationSsoCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{
@@ -962,7 +962,7 @@ func newEnrollmentCustomizationsSsoCmd(ctx *registry.CLIContext) *cobra.Command 
 	return cmd
 }
 
-func newEnrollmentCustomizationsTextCmd(ctx *registry.CLIContext) *cobra.Command {
+func newEnrollmentCustomizationTextCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{
@@ -999,7 +999,7 @@ func newEnrollmentCustomizationsTextCmd(ctx *registry.CLIContext) *cobra.Command
 	return cmd
 }
 
-func newEnrollmentCustomizationsMarkdownCmd(ctx *registry.CLIContext) *cobra.Command {
+func newEnrollmentCustomizationMarkdownCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{
@@ -1036,7 +1036,7 @@ func newEnrollmentCustomizationsMarkdownCmd(ctx *registry.CLIContext) *cobra.Com
 	return cmd
 }
 
-func newEnrollmentCustomizationsAllCmd(ctx *registry.CLIContext) *cobra.Command {
+func newEnrollmentCustomizationAllCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagName string
 	)
@@ -1091,7 +1091,7 @@ func newEnrollmentCustomizationsAllCmd(ctx *registry.CLIContext) *cobra.Command 
 	return cmd
 }
 
-func newEnrollmentCustomizationsPrestagesCmd(ctx *registry.CLIContext) *cobra.Command {
+func newEnrollmentCustomizationPrestagesCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagName string
 	)
@@ -1146,7 +1146,7 @@ func newEnrollmentCustomizationsPrestagesCmd(ctx *registry.CLIContext) *cobra.Co
 	return cmd
 }
 
-func newEnrollmentCustomizationsApplyCmd(ctx *registry.CLIContext) *cobra.Command {
+func newEnrollmentCustomizationApplyCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		fromFile     string
 		flagYes      bool
@@ -1164,19 +1164,19 @@ The displayName field in the input is used to check if the resource
 already exists. If it does, the resource is replaced (with confirmation).
 If not, a new resource is created.`,
 		Example: `  # Apply a enrollment-customization from a JSON file
-  jamf-cli pro enrollment-customizations apply --from-file enrollment-customization.json
+  jamf-cli pro enrollment-customization apply --from-file enrollment-customization.json
 
   # Apply a enrollment-customization from a YAML file
-  jamf-cli pro enrollment-customizations apply --from-file enrollment-customization.yaml
+  jamf-cli pro enrollment-customization apply --from-file enrollment-customization.yaml
 
   # Apply from stdin
-  cat enrollment-customization.json | jamf-cli pro enrollment-customizations apply
+  cat enrollment-customization.json | jamf-cli pro enrollment-customization apply
 
   # Apply without replacement confirmation
-  jamf-cli pro enrollment-customizations apply --from-file enrollment-customization.json --yes
+  jamf-cli pro enrollment-customization apply --from-file enrollment-customization.json --yes
 
   # Preview what would happen
-  jamf-cli pro enrollment-customizations apply --from-file enrollment-customization.json --dry-run`,
+  jamf-cli pro enrollment-customization apply --from-file enrollment-customization.json --dry-run`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			reqCtx := cmd.Context()
 			if flagScaffold {

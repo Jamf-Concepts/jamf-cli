@@ -18,30 +18,30 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// NewDistributionPointsCmd creates the distribution-points command group
-func NewDistributionPointsCmd(ctx *registry.CLIContext) *cobra.Command {
+// NewDistributionPointCmd creates the distribution-point command group
+func NewDistributionPointCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:         "distribution-points",
-		Short:       "Manage distribution-points",
-		Long:        `Manage distribution-points in Jamf Pro.`,
+		Use:         "distribution-point",
+		Short:       "Manage distribution-point",
+		Long:        `Manage distribution-point in Jamf Pro.`,
 		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
-	cmd.AddCommand(newDistributionPointsListCmd(ctx))
-	cmd.AddCommand(newDistributionPointsGetCmd(ctx))
-	cmd.AddCommand(newDistributionPointsCreateCmd(ctx))
-	cmd.AddCommand(newDistributionPointsUpdateCmd(ctx))
-	cmd.AddCommand(newDistributionPointsDeleteCmd(ctx))
-	cmd.AddCommand(newDistributionPointsDeleteMultipleCmd(ctx))
-	cmd.AddCommand(newDistributionPointsHistoryCmd(ctx))
-	cmd.AddCommand(newDistributionPointsAddHistoryNoteCmd(ctx))
-	cmd.AddCommand(newDistributionPointsPatchCmd(ctx))
-	cmd.AddCommand(newDistributionPointsApplyCmd(ctx))
+	cmd.AddCommand(newDistributionPointListCmd(ctx))
+	cmd.AddCommand(newDistributionPointGetCmd(ctx))
+	cmd.AddCommand(newDistributionPointCreateCmd(ctx))
+	cmd.AddCommand(newDistributionPointUpdateCmd(ctx))
+	cmd.AddCommand(newDistributionPointDeleteCmd(ctx))
+	cmd.AddCommand(newDistributionPointDeleteMultipleCmd(ctx))
+	cmd.AddCommand(newDistributionPointHistoryCmd(ctx))
+	cmd.AddCommand(newDistributionPointAddHistoryNoteCmd(ctx))
+	cmd.AddCommand(newDistributionPointPatchCmd(ctx))
+	cmd.AddCommand(newDistributionPointApplyCmd(ctx))
 
 	return cmd
 }
 
-func newDistributionPointsListCmd(ctx *registry.CLIContext) *cobra.Command {
+func newDistributionPointListCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagPage     int
 		flagPageSize int
@@ -55,11 +55,11 @@ func newDistributionPointsListCmd(ctx *registry.CLIContext) *cobra.Command {
 		Use:   "list",
 		Short: "Finds all Distribution Points",
 		Long:  "Finds all Distribution Points",
-		Example: `  # List all distribution-points
-  jamf-cli pro distribution-points list
+		Example: `  # List all distribution-point
+  jamf-cli pro distribution-point list
 
-  # List distribution-points and extract IDs
-  jamf-cli pro distribution-points list --field id`,
+  # List distribution-point and extract IDs
+  jamf-cli pro distribution-point list --field id`,
 		Annotations: map[string]string{"jamf:privileges": "Read Distribution Points", "jamf:api": "pro", "jamf:gateway-privileges": "distribution-points:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -198,7 +198,7 @@ func newDistributionPointsListCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newDistributionPointsGetCmd(ctx *registry.CLIContext) *cobra.Command {
+func newDistributionPointGetCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagName string
 	)
@@ -208,13 +208,13 @@ func newDistributionPointsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Get specified distribution point",
 		Long:  "Get specified distribution point",
 		Example: `  # Get a distribution-point by ID
-  jamf-cli pro distribution-points get 1
+  jamf-cli pro distribution-point get 1
 
   # Get a distribution-point by name
-  jamf-cli pro distribution-points get --name "Example"
+  jamf-cli pro distribution-point get --name "Example"
 
   # Get a distribution-point and output as YAML
-  jamf-cli pro distribution-points get 1 -o yaml`,
+  jamf-cli pro distribution-point get 1 -o yaml`,
 		Annotations: map[string]string{"jamf:privileges": "Read Distribution Points", "jamf:api": "pro", "jamf:gateway-privileges": "distribution-points:read"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -261,7 +261,7 @@ func newDistributionPointsGetCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newDistributionPointsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
+func newDistributionPointCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagScaffold bool
 	)
@@ -271,13 +271,13 @@ func newDistributionPointsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Create distribution point",
 		Long:  "Create distribution point",
 		Example: `  # Show the JSON template for creating a distribution-point
-  jamf-cli pro distribution-points create --scaffold
+  jamf-cli pro distribution-point create --scaffold
 
   # Create a distribution-point from JSON
-  echo '{"name":"Example"}' | jamf-cli pro distribution-points create
+  echo '{"name":"Example"}' | jamf-cli pro distribution-point create
 
   # Get a distribution-point, modify it, and create a copy
-  jamf-cli pro distribution-points get 1 -o json | jq '.name = "Copy"' | jamf-cli pro distribution-points create`,
+  jamf-cli pro distribution-point get 1 -o json | jq '.name = "Copy"' | jamf-cli pro distribution-point create`,
 		Annotations: map[string]string{"jamf:privileges": "Create Distribution Points", "jamf:api": "pro", "jamf:gateway-privileges": "distribution-points:create"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -350,7 +350,7 @@ func newDistributionPointsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newDistributionPointsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
+func newDistributionPointUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagScaffold bool
 		flagName     string
@@ -363,16 +363,16 @@ func newDistributionPointsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Update specified distribution point object",
 		Long:  "Update specified distribution point object\n\nIdentify the resource by ID (positional arg), --name.\n\nUse --set KEY=VALUE to update individual fields (repeatable). The current resource is fetched, your changes are merged in, read-only fields are dropped, and the whole record is written back. Omitted fields keep their current values.\n\nAvailable fields:\n  backupDistributionPointId                    string\n  enableLoadBalancing                          boolean\n  fileSharingConnectionType                    string\n  httpsContext                                 string\n  httpsEnabled                                 boolean\n  httpsPassword                                string\n  httpsPort                                    integer\n  httpsSecurityType                            string\n  httpsUsername                                string\n  localPathToShare                             string\n  name                                         string\n  port                                         integer\n  principal                                    boolean\n  readOnlyPassword                             string\n  readOnlyUsername                             string\n  readWritePassword                            string\n  readWriteUsername                            string\n  serverName                                   string\n  shareName                                    string\n  sshPassword                                  string\n  sshUsername                                  string\n  workgroup                                    string\n\nWithout --set, pipe a full JSON document to stdin to replace the resource entirely.",
 		Example: `  # Update individual fields (fetch-merge-replace)
-  jamf-cli pro distribution-points update 1 --set field=value
+  jamf-cli pro distribution-point update 1 --set field=value
 
   # Replace a distribution-point from JSON
-  echo '{"name":"Updated"}' | jamf-cli pro distribution-points update 1
+  echo '{"name":"Updated"}' | jamf-cli pro distribution-point update 1
 
   # Update by name
-  jamf-cli pro distribution-points get --name "Example" -o json | jq '.field = "value"' | jamf-cli pro distribution-points update --name "Example"
+  jamf-cli pro distribution-point get --name "Example" -o json | jq '.field = "value"' | jamf-cli pro distribution-point update --name "Example"
 
   # Get a distribution-point, modify, and update
-  jamf-cli pro distribution-points get 1 -o json | jq '.name = "New Name"' | jamf-cli pro distribution-points update 1`,
+  jamf-cli pro distribution-point get 1 -o json | jq '.name = "New Name"' | jamf-cli pro distribution-point update 1`,
 		Annotations: map[string]string{"jamf:privileges": "Read Distribution Points,Update Distribution Points", "jamf:api": "pro", "jamf:gateway-privileges": "distribution-points:read,distribution-points:update"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -515,7 +515,7 @@ func newDistributionPointsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newDistributionPointsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
+func newDistributionPointDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagYes    bool
 		flagDryRun bool
@@ -528,13 +528,13 @@ func newDistributionPointsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Remove specified distribution point",
 		Long:  "Removes specified distribution point",
 		Example: `  # Delete a distribution-point (with confirmation)
-  jamf-cli pro distribution-points delete 1
+  jamf-cli pro distribution-point delete 1
 
   # Delete by name
-  jamf-cli pro distribution-points delete --name "Example" --yes
+  jamf-cli pro distribution-point delete --name "Example" --yes
 
   # Delete without confirmation prompt
-  jamf-cli pro distribution-points delete 1 --yes`,
+  jamf-cli pro distribution-point delete 1 --yes`,
 		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Delete Distribution Points", "jamf:api": "pro", "jamf:gateway-privileges": "distribution-points:delete"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -595,7 +595,7 @@ func newDistributionPointsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 					if noInputBulk {
 						return fmt.Errorf("destructive operation requires --yes when --no-input is set")
 					}
-					fmt.Fprintf(os.Stderr, "⚠️  This will delete %d distribution-points. Type 'yes' to confirm: ", len(bulk))
+					fmt.Fprintf(os.Stderr, "⚠️  This will delete %d distribution-point. Type 'yes' to confirm: ", len(bulk))
 					var confirm string
 					fmt.Scanln(&confirm)
 					if confirm != "yes" {
@@ -631,7 +631,7 @@ func newDistributionPointsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 					okCount++
 				}
 				cooldown.Record(ctx.ProfileName)
-				return batchDeleteError(cmd, okCount, failCount, firstErr, "distribution-points deletes")
+				return batchDeleteError(cmd, okCount, failCount, firstErr, "distribution-point deletes")
 			}
 
 			// Resolve resource ID from positional arg, --name, or lookup flags
@@ -727,7 +727,7 @@ func newDistributionPointsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newDistributionPointsDeleteMultipleCmd(ctx *registry.CLIContext) *cobra.Command {
+func newDistributionPointDeleteMultipleCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagYes      bool
 		flagDryRun   bool
@@ -739,8 +739,8 @@ func newDistributionPointsDeleteMultipleCmd(ctx *registry.CLIContext) *cobra.Com
 		Use:   "delete-multiple",
 		Short: "Delete multiple distribution points at once",
 		Long:  "Delete multiple distribution points at once",
-		Example: `  # Delete multiple distribution-points by IDs
-  jamf-cli pro distribution-points delete-multiple --ids 1,2,3 --yes`,
+		Example: `  # Delete multiple distribution-point by IDs
+  jamf-cli pro distribution-point delete-multiple --ids 1,2,3 --yes`,
 		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Delete Distribution Points", "jamf:api": "pro", "jamf:gateway-privileges": "distribution-points:delete"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
@@ -824,7 +824,7 @@ func newDistributionPointsDeleteMultipleCmd(ctx *registry.CLIContext) *cobra.Com
 	return cmd
 }
 
-func newDistributionPointsHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
+func newDistributionPointHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagPage     int
 		flagPageSize int
@@ -840,10 +840,10 @@ func newDistributionPointsHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Get specified distribution point History object",
 		Long:  "Gets specified distribution point history object",
 		Example: `  # Get history for a distribution-point by ID
-  jamf-cli pro distribution-points history 1
+  jamf-cli pro distribution-point history 1
 
   # Get history by name
-  jamf-cli pro distribution-points history --name "Example"`,
+  jamf-cli pro distribution-point history --name "Example"`,
 		Annotations: map[string]string{"jamf:privileges": "Read Distribution Points", "jamf:api": "pro", "jamf:gateway-privileges": "distribution-points:read"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -1002,7 +1002,7 @@ func newDistributionPointsHistoryCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newDistributionPointsAddHistoryNoteCmd(ctx *registry.CLIContext) *cobra.Command {
+func newDistributionPointAddHistoryNoteCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagScaffold bool
 		flagName     string
@@ -1082,7 +1082,7 @@ func newDistributionPointsAddHistoryNoteCmd(ctx *registry.CLIContext) *cobra.Com
 	return cmd
 }
 
-func newDistributionPointsPatchCmd(ctx *registry.CLIContext) *cobra.Command {
+func newDistributionPointPatchCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagScaffold bool
 		flagSet      []string
@@ -1095,16 +1095,16 @@ func newDistributionPointsPatchCmd(ctx *registry.CLIContext) *cobra.Command {
 		Short: "Update specified distribution point object",
 		Long:  "Updates the specified object configuration of a File Share Distribution Point in Jamf Pro. ID path parameter is mandatory and other fields can be updated as a whole or with minimal object.\n\nIdentify the resource by ID (positional arg), --name, . Omit ID to use a lookup flag.\n\nUse --set KEY=VALUE to update scalar fields (repeatable). Omitted fields are unchanged.\n\nAvailable fields:\n  backupDistributionPointId                    string\n  enableLoadBalancing                          boolean\n  fileSharingConnectionType                    string\n  httpsContext                                 string\n  httpsEnabled                                 boolean\n  httpsPassword                                string\n  httpsPort                                    integer\n  httpsSecurityType                            string\n  httpsUsername                                string\n  localPathToShare                             string\n  name                                         string\n  port                                         integer\n  principal                                    boolean\n  readOnlyPassword                             string\n  readOnlyUsername                             string\n  readWritePassword                            string\n  readWriteUsername                            string\n  serverName                                   string\n  shareName                                    string\n  sshPassword                                  string\n  sshUsername                                  string\n  workgroup                                    string\n\nUse --from-file or pipe JSON to stdin for complex updates (bulk changes, deep nesting).",
 		Example: `  # Update a field by ID
-  jamf-cli pro distribution-points patch 1 --set general.managed=true
+  jamf-cli pro distribution-point patch 1 --set general.managed=true
 
   # Update multiple fields
-  jamf-cli pro distribution-points patch 1 --set field1=value1 --set field2=value2
+  jamf-cli pro distribution-point patch 1 --set field1=value1 --set field2=value2
 
   # Update by name
-  jamf-cli pro distribution-points patch --name "Example" --set general.managed=true
+  jamf-cli pro distribution-point patch --name "Example" --set general.managed=true
 
   # Patch from a file
-  jamf-cli pro distribution-points patch 1 --from-file changes.json`,
+  jamf-cli pro distribution-point patch 1 --from-file changes.json`,
 		Annotations: map[string]string{"jamf:privileges": "Read Distribution Points,Update Distribution Points", "jamf:api": "pro", "jamf:gateway-privileges": "distribution-points:read,distribution-points:update"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -1217,7 +1217,7 @@ func newDistributionPointsPatchCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newDistributionPointsApplyCmd(ctx *registry.CLIContext) *cobra.Command {
+func newDistributionPointApplyCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		fromFile     string
 		flagYes      bool
@@ -1235,19 +1235,19 @@ The name field in the input is used to check if the resource
 already exists. If it does, the resource is replaced (with confirmation).
 If not, a new resource is created.`,
 		Example: `  # Apply a distribution-point from a JSON file
-  jamf-cli pro distribution-points apply --from-file distribution-point.json
+  jamf-cli pro distribution-point apply --from-file distribution-point.json
 
   # Apply a distribution-point from a YAML file
-  jamf-cli pro distribution-points apply --from-file distribution-point.yaml
+  jamf-cli pro distribution-point apply --from-file distribution-point.yaml
 
   # Apply from stdin
-  cat distribution-point.json | jamf-cli pro distribution-points apply
+  cat distribution-point.json | jamf-cli pro distribution-point apply
 
   # Apply without replacement confirmation
-  jamf-cli pro distribution-points apply --from-file distribution-point.json --yes
+  jamf-cli pro distribution-point apply --from-file distribution-point.json --yes
 
   # Preview what would happen
-  jamf-cli pro distribution-points apply --from-file distribution-point.json --dry-run`,
+  jamf-cli pro distribution-point apply --from-file distribution-point.json --dry-run`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			reqCtx := cmd.Context()
 			if flagScaffold {
