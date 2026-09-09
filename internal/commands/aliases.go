@@ -25,8 +25,8 @@ var commandAliases = map[string][]string{
 	// jamf-protect is now the canonical name (singleton detection). Restore the jp short alias.
 	// jamf-connects still needs an alias since JamfConnect.yaml has {id} paths (config-profiles)
 	// so it isn't detected as a singleton and retains the plural generated name.
-	"jamf-protect":  {"jp"},
-	"jamf-connects": {"jamf-connect"},
+	"jamf-protect": {"jp"},
+
 	// computer-groups-smart-groups replaced smart-computer-groups in 11.28.0; keep the old name
 	// as an alias so existing scripts don't break.
 	"computer-groups-smart-groups": {"smart-computer-groups"},

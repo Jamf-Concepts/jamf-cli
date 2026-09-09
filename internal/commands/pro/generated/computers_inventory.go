@@ -35,12 +35,16 @@ func NewComputersInventoryCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(newComputersInventoryUploadCmd(ctx))
 	cmd.AddCommand(newComputersInventoryFilevaultCmd(ctx))
 	cmd.AddCommand(newComputersInventoryPatchCmd(ctx))
+	cmd.AddCommand(newComputersInventoryRemoveMdmProfileCmd(ctx))
+	cmd.AddCommand(newComputersInventoryEraseCmd(ctx))
 	cmd.AddCommand(newComputersInventoryDownloadCmd(ctx))
 	cmd.AddCommand(newComputersInventoryFilevaultByIdCmd(ctx))
 	cmd.AddCommand(newComputersInventoryViewDeviceLockPinCmd(ctx))
 	cmd.AddCommand(newComputersInventoryViewRecoveryLockPasswordCmd(ctx))
-	cmd.AddCommand(newComputersInventoryEraseCmd(ctx))
-	cmd.AddCommand(newComputersInventoryRemoveMdmProfileCmd(ctx))
+	cmd.AddCommand(newComputersInventoryRecalculateSmartGroupsCmd(ctx))
+	cmd.AddCommand(newComputersInventoryRecalculateCmd(ctx))
+	cmd.AddCommand(newComputersInventoryV4ComputersInventoryEraseCmd(ctx))
+	cmd.AddCommand(newComputersInventoryV4ComputersInventoryRemoveMdmProfileCmd(ctx))
 	cmd.AddCommand(newComputersInventoryApplyCmd(ctx))
 
 	return cmd
@@ -129,7 +133,7 @@ func newComputersInventoryListCmd(ctx *registry.CLIContext) *cobra.Command {
 					pageQuery = append(pageQuery, fmt.Sprintf("page-size=%d", pageSize))
 					pagePath = pagePath + "?" + strings.Join(pageQuery, "&")
 
-					resp, err := vft.do(ctx.Client, reqCtx, "GET", pagePath, nil, []string{"/v1/computers-inventory"})
+					resp, err := vft.do(ctx.Client, reqCtx, "GET", pagePath, nil, []string{"/v3/computers-inventory", "/v2/computers-inventory", "/v1/computers-inventory"})
 					if err != nil {
 						return err
 					}
@@ -186,7 +190,7 @@ func newComputersInventoryListCmd(ctx *registry.CLIContext) *cobra.Command {
 			}
 
 			// Make request
-			resp, err := vft.do(ctx.Client, reqCtx, "GET", path, nil, []string{"/v1/computers-inventory"})
+			resp, err := vft.do(ctx.Client, reqCtx, "GET", path, nil, []string{"/v3/computers-inventory", "/v2/computers-inventory", "/v1/computers-inventory"})
 			if err != nil {
 				return err
 			}
@@ -298,7 +302,7 @@ func newComputersInventoryGetCmd(ctx *registry.CLIContext) *cobra.Command {
 			vft := newVersionFallback("/v4/computers-inventory/{id}")
 
 			// Make request
-			resp, err := vft.do(ctx.Client, reqCtx, "GET", path, nil, []string{"/v1/computers-inventory/{id}"})
+			resp, err := vft.do(ctx.Client, reqCtx, "GET", path, nil, []string{"/v3/computers-inventory/{id}", "/v2/computers-inventory/{id}", "/v1/computers-inventory/{id}"})
 			if err != nil {
 				return err
 			}
@@ -861,7 +865,7 @@ func newComputersInventoryDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 			vft := newVersionFallback("/v4/computers-inventory/{id}")
 
 			// Make request
-			resp, err := vft.do(ctx.Client, reqCtx, "DELETE", path, nil, []string{"/v1/computers-inventory/{id}"})
+			resp, err := vft.do(ctx.Client, reqCtx, "DELETE", path, nil, []string{"/v3/computers-inventory/{id}", "/v2/computers-inventory/{id}", "/v1/computers-inventory/{id}"})
 			if err != nil {
 				return err
 			}
@@ -1051,7 +1055,7 @@ func newComputersInventoryFilevaultCmd(ctx *registry.CLIContext) *cobra.Command 
 					pageQuery = append(pageQuery, fmt.Sprintf("page-size=%d", pageSize))
 					pagePath = pagePath + "?" + strings.Join(pageQuery, "&")
 
-					resp, err := vft.do(ctx.Client, reqCtx, "GET", pagePath, nil, []string{"/v1/computers-inventory/filevault"})
+					resp, err := vft.do(ctx.Client, reqCtx, "GET", pagePath, nil, []string{"/v3/computers-inventory/filevault", "/v2/computers-inventory/filevault", "/v1/computers-inventory/filevault"})
 					if err != nil {
 						return err
 					}
@@ -1108,7 +1112,7 @@ func newComputersInventoryFilevaultCmd(ctx *registry.CLIContext) *cobra.Command 
 			}
 
 			// Make request
-			resp, err := vft.do(ctx.Client, reqCtx, "GET", path, nil, []string{"/v1/computers-inventory/filevault"})
+			resp, err := vft.do(ctx.Client, reqCtx, "GET", path, nil, []string{"/v3/computers-inventory/filevault", "/v2/computers-inventory/filevault", "/v1/computers-inventory/filevault"})
 			if err != nil {
 				return err
 			}
@@ -1376,6 +1380,672 @@ func newComputersInventoryPatchCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
+func newComputersInventoryRemoveMdmProfileCmd(ctx *registry.CLIContext) *cobra.Command {
+	var (
+		flagYes    bool
+		flagDryRun bool
+		fromFile   string
+		flagGroup  string
+		flagName   string
+		flagSerial string
+		flagUdid   string
+	)
+
+	cmd := &cobra.Command{
+		Use:         "remove-mdm-profile [<id>]",
+		Short:       "Remove a computer's MDM profile",
+		Long:        "Remove a computer's MDM profile",
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Send Computer Unmanage Command", "jamf:api": "pro", "jamf:gateway": "unserved", "jamf:gateway-basis": "unpublished", "jamf:gateway-detail": "not declared by the gateway's Jamf Pro API 11.31.0"},
+		Args:        cobra.MaximumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			// --from-file: bulk delete from a file of IDs or names
+			if fromFile != "" {
+				entries, err := readDeleteFile(fromFile)
+				if err != nil {
+					return fmt.Errorf("reading --from-file: %w", err)
+				}
+				if len(entries) == 0 {
+					return fmt.Errorf("--from-file %q: no entries found", fromFile)
+				}
+				type bulkEntry struct{ id, label string }
+				bulk := make([]bulkEntry, 0, len(entries))
+				noInputBulk, _ := cmd.Flags().GetBool("no-input")
+				for _, entry := range entries {
+					if isNumericID(entry) {
+						if entry == "0" {
+							return fmt.Errorf("--from-file: ID 0 is not valid (Jamf Pro uses 0 as a sentinel value)")
+						}
+						bulk = append(bulk, bulkEntry{id: entry, label: entry})
+					} else {
+						var rid string
+						if rid == "" {
+							id, lookupErr := resolveNameToIDForApply(reqCtx, ctx.Client, "/v4/computers-inventory?section=HARDWARE", "hardware.serialNumber", "id", entry, noInputBulk)
+							if lookupErr != nil {
+								return fmt.Errorf("resolving %q via serial: %w", entry, lookupErr)
+							}
+							rid = id
+						}
+						if rid == "" {
+							id, lookupErr := resolveNameToIDForApply(reqCtx, ctx.Client, "/v4/computers-inventory", "udid", "id", entry, noInputBulk)
+							if lookupErr != nil {
+								return fmt.Errorf("resolving %q via udid: %w", entry, lookupErr)
+							}
+							rid = id
+						}
+						if rid == "" {
+							id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v4/computers-inventory", "general.name", "id", entry, noInputBulk)
+							if err != nil {
+								return fmt.Errorf("resolving %q: %w", entry, err)
+							}
+							rid = id
+						}
+						if rid == "" {
+							return fmt.Errorf("no computers-inventory found matching %q", entry)
+						}
+						bulk = append(bulk, bulkEntry{id: rid, label: entry})
+					}
+				}
+				// Deduplicate resolved IDs to avoid double-delete errors.
+				{
+					seen := make(map[string]bool, len(bulk))
+					deduped := bulk[:0]
+					for _, e := range bulk {
+						if !seen[e.id] {
+							seen[e.id] = true
+							deduped = append(deduped, e)
+						}
+					}
+					bulk = deduped
+				}
+				if flagDryRun {
+					for _, e := range bulk {
+						fmt.Fprintf(os.Stderr, "[dry-run] Would delete computers-inventory %q (id: %s)\n", e.label, e.id)
+					}
+					return nil
+				}
+				if !flagYes {
+					if noInputBulk {
+						return fmt.Errorf("destructive operation requires --yes when --no-input is set")
+					}
+					fmt.Fprintf(os.Stderr, "⚠️  This will delete %d computers-inventory. Type 'yes' to confirm: ", len(bulk))
+					var confirm string
+					fmt.Scanln(&confirm)
+					if confirm != "yes" {
+						return fmt.Errorf("aborted")
+					}
+				}
+				if err := cooldown.Enforce(ctx.ProfileName, noInputBulk, ctx.DestructiveCooldown); err != nil {
+					return err
+				}
+				var okCount, failCount int
+				var firstErr error
+				for _, e := range bulk {
+					delPath := strings.Replace("/v1/computer-inventory/{id}/remove-mdm-profile", "{id}", url.PathEscape(e.id), 1)
+					resp, err := ctx.Client.Do(reqCtx, "DELETE", delPath, nil)
+					if err != nil {
+						fmt.Fprintf(os.Stderr, "delete computers-inventory %q (id: %s) failed: %v\n", e.label, e.id, err)
+						if firstErr == nil {
+							firstErr = err
+						}
+						failCount++
+						continue
+					}
+					resp.Body.Close()
+					if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+						fmt.Fprintf(os.Stderr, "delete computers-inventory %q (id: %s) failed: HTTP %d\n", e.label, e.id, resp.StatusCode)
+						if firstErr == nil {
+							firstErr = fmt.Errorf("HTTP %d", resp.StatusCode)
+						}
+						failCount++
+						continue
+					}
+					fmt.Fprintf(os.Stderr, "Deleted computers-inventory %q (id: %s)\n", e.label, e.id)
+					okCount++
+				}
+				cooldown.Record(ctx.ProfileName)
+				return batchDeleteError(cmd, okCount, failCount, firstErr, "computers-inventory deletes")
+			}
+
+			// --group: delete all members of a Classic API group
+			if flagGroup != "" {
+				memberIDs, err := fetchClassicGroupMemberIDs(reqCtx, ctx.Client, "/JSSResource/computergroups", "computers", "computer", flagGroup)
+				if err != nil {
+					return fmt.Errorf("resolving group %q: %w", flagGroup, err)
+				}
+				if len(memberIDs) == 0 {
+					return fmt.Errorf("group %q has no members", flagGroup)
+				}
+				type bulkEntry struct{ id, label string }
+				bulk := make([]bulkEntry, 0, len(memberIDs))
+				for _, id := range memberIDs {
+					bulk = append(bulk, bulkEntry{id: id, label: id})
+				}
+				noInputGrp, _ := cmd.Flags().GetBool("no-input")
+				if flagDryRun {
+					for _, e := range bulk {
+						fmt.Fprintf(os.Stderr, "[dry-run] Would delete computers-inventory id: %s (from group %q)\n", e.id, flagGroup)
+					}
+					return nil
+				}
+				if !flagYes {
+					if noInputGrp {
+						return fmt.Errorf("destructive operation requires --yes when --no-input is set")
+					}
+					fmt.Fprintf(os.Stderr, "⚠️  This will delete %d computers-inventory from group %q. Type 'yes' to confirm: ", len(bulk), flagGroup)
+					var confirm string
+					fmt.Scanln(&confirm)
+					if confirm != "yes" {
+						return fmt.Errorf("aborted")
+					}
+				}
+				if err := cooldown.Enforce(ctx.ProfileName, noInputGrp, ctx.DestructiveCooldown); err != nil {
+					return err
+				}
+				var okCount, failCount int
+				var firstErr error
+				for _, e := range bulk {
+					delPath := strings.Replace("/v1/computer-inventory/{id}/remove-mdm-profile", "{id}", url.PathEscape(e.id), 1)
+					resp, err := ctx.Client.Do(reqCtx, "DELETE", delPath, nil)
+					if err != nil {
+						fmt.Fprintf(os.Stderr, "delete computers-inventory id %s failed: %v\n", e.id, err)
+						if firstErr == nil {
+							firstErr = err
+						}
+						failCount++
+						continue
+					}
+					resp.Body.Close()
+					if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+						fmt.Fprintf(os.Stderr, "delete computers-inventory id %s failed: HTTP %d\n", e.id, resp.StatusCode)
+						if firstErr == nil {
+							firstErr = fmt.Errorf("HTTP %d", resp.StatusCode)
+						}
+						failCount++
+						continue
+					}
+					fmt.Fprintf(os.Stderr, "Deleted computers-inventory id: %s\n", e.id)
+					okCount++
+				}
+				cooldown.Record(ctx.ProfileName)
+				return batchDeleteError(cmd, okCount, failCount, firstErr, "computers-inventory deletes")
+			}
+
+			// Resolve resource ID from positional arg, --name, or lookup flags
+			var resolvedID string
+			var resolvedByName string
+
+			if flagSerial != "" {
+				noInputLookup, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v4/computers-inventory?section=HARDWARE", "hardware.serialNumber", "id", flagSerial, noInputLookup)
+				if err != nil {
+					return fmt.Errorf("looking up --serial %q: %w", flagSerial, err)
+				}
+				if rid == "" {
+					return fmt.Errorf("no computers-inventory found with --serial %q", flagSerial)
+				}
+				resolvedID = rid
+				resolvedByName = flagSerial
+			} else if flagUdid != "" {
+				noInputLookup, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v4/computers-inventory", "udid", "id", flagUdid, noInputLookup)
+				if err != nil {
+					return fmt.Errorf("looking up --udid %q: %w", flagUdid, err)
+				}
+				if rid == "" {
+					return fmt.Errorf("no computers-inventory found with --udid %q", flagUdid)
+				}
+				resolvedID = rid
+				resolvedByName = flagUdid
+			} else if flagName != "" {
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v4/computers-inventory", "general.name", "id", flagName, noInput)
+				if err != nil {
+					return err
+				}
+				if rid == "" {
+					return fmt.Errorf("no computers-inventory found with general.name %q", flagName)
+				}
+				resolvedID = rid
+				resolvedByName = flagName
+			} else if len(args) > 0 {
+				resolvedID = args[0]
+			} else {
+				return fmt.Errorf("provide an <id> argument, --name, --serial, --udid")
+			}
+
+			// Confirmation for destructive action (after name lookup)
+			if flagDryRun {
+				if resolvedByName != "" {
+					fmt.Fprintf(os.Stderr, "[dry-run] Would remove-mdm-profile computers-inventory %q (id: %s)\n", resolvedByName, resolvedID)
+				} else {
+					fmt.Fprintf(os.Stderr, "[dry-run] Would remove-mdm-profile computers-inventory %s\n", resolvedID)
+				}
+				return nil
+			}
+			if !flagYes {
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				if noInput {
+					return fmt.Errorf("destructive operation requires --yes when --no-input is set")
+				}
+				if resolvedByName != "" {
+					fmt.Fprintf(os.Stderr, "⚠️  This will remove-mdm-profile computers-inventory %q (id: %s). Type 'yes' to confirm: ", resolvedByName, resolvedID)
+				} else {
+					fmt.Fprintf(os.Stderr, "⚠️  This will remove-mdm-profile computers-inventory %s. Type 'yes' to confirm: ", resolvedID)
+				}
+				var confirm string
+				fmt.Scanln(&confirm)
+				if confirm != "yes" {
+					return fmt.Errorf("aborted")
+				}
+			}
+
+			// Destructive cooldown enforcement
+			noInputCooldown, _ := cmd.Flags().GetBool("no-input")
+			if err := cooldown.Enforce(ctx.ProfileName, noInputCooldown, ctx.DestructiveCooldown); err != nil {
+				return err
+			}
+
+			// Build request path
+			path := "/v1/computer-inventory/{id}/remove-mdm-profile"
+			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			// Read body from stdin if available
+			var body io.Reader
+			var normalized []byte
+			stat, _ := os.Stdin.Stat()
+			if (stat.Mode() & os.ModeCharDevice) == 0 {
+				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
+				if err != nil {
+					return fmt.Errorf("reading stdin: %w", err)
+				}
+				normalized, err = normalizeInputToJSON(raw)
+				if err != nil {
+					return err
+				}
+			}
+			if len(normalized) > 0 {
+				body = bytes.NewReader(normalized)
+			}
+			resp, err := ctx.Client.Do(reqCtx, "POST", path, body)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			err = ctx.Output.PrintResponse(resp)
+			if err == nil && resp.StatusCode >= 200 && resp.StatusCode < 300 {
+				cooldown.Record(ctx.ProfileName)
+			}
+			return err
+		},
+	}
+
+	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt")
+	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
+	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to file listing IDs or names to delete (one per line, # comments ignored)")
+	cmd.Flags().StringVar(&flagGroup, "group", "", "Delete all computers-inventory from a Classic API group (name or ID)")
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up computers-inventory by name")
+	cmd.Flags().StringVar(&flagSerial, "serial", "", "Look up computer by serial number")
+	cmd.Flags().StringVar(&flagUdid, "udid", "", "Look up computer by UDID")
+
+	cmd.MarkFlagsMutuallyExclusive("from-file", "name")
+	cmd.MarkFlagsMutuallyExclusive("from-file", "serial")
+	cmd.MarkFlagsMutuallyExclusive("from-file", "udid")
+
+	cmd.MarkFlagsMutuallyExclusive("from-file", "group")
+	cmd.MarkFlagsMutuallyExclusive("group", "name")
+	cmd.MarkFlagsMutuallyExclusive("group", "serial")
+	cmd.MarkFlagsMutuallyExclusive("group", "udid")
+
+	return cmd
+}
+
+func newComputersInventoryEraseCmd(ctx *registry.CLIContext) *cobra.Command {
+	var (
+		flagYes      bool
+		flagDryRun   bool
+		fromFile     string
+		flagGroup    string
+		flagScaffold bool
+		flagName     string
+		flagSerial   string
+		flagUdid     string
+	)
+
+	cmd := &cobra.Command{
+		Use:         "erase [<id>]",
+		Short:       "Erase a computer",
+		Long:        "Erase a computer",
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Send Computer Remote Wipe Command", "jamf:api": "pro", "jamf:gateway": "unserved", "jamf:gateway-basis": "unpublished", "jamf:gateway-detail": "not declared by the gateway's Jamf Pro API 11.31.0"},
+		Args:        cobra.MaximumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			if flagScaffold {
+				return printScaffoldOutput(`{
+  "pin": "123456"
+}`, ctx.Output.Format())
+			}
+
+			// --from-file: bulk delete from a file of IDs or names
+			if fromFile != "" {
+				entries, err := readDeleteFile(fromFile)
+				if err != nil {
+					return fmt.Errorf("reading --from-file: %w", err)
+				}
+				if len(entries) == 0 {
+					return fmt.Errorf("--from-file %q: no entries found", fromFile)
+				}
+				type bulkEntry struct{ id, label string }
+				bulk := make([]bulkEntry, 0, len(entries))
+				noInputBulk, _ := cmd.Flags().GetBool("no-input")
+				for _, entry := range entries {
+					if isNumericID(entry) {
+						if entry == "0" {
+							return fmt.Errorf("--from-file: ID 0 is not valid (Jamf Pro uses 0 as a sentinel value)")
+						}
+						bulk = append(bulk, bulkEntry{id: entry, label: entry})
+					} else {
+						var rid string
+						if rid == "" {
+							id, lookupErr := resolveNameToIDForApply(reqCtx, ctx.Client, "/v4/computers-inventory?section=HARDWARE", "hardware.serialNumber", "id", entry, noInputBulk)
+							if lookupErr != nil {
+								return fmt.Errorf("resolving %q via serial: %w", entry, lookupErr)
+							}
+							rid = id
+						}
+						if rid == "" {
+							id, lookupErr := resolveNameToIDForApply(reqCtx, ctx.Client, "/v4/computers-inventory", "udid", "id", entry, noInputBulk)
+							if lookupErr != nil {
+								return fmt.Errorf("resolving %q via udid: %w", entry, lookupErr)
+							}
+							rid = id
+						}
+						if rid == "" {
+							id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v4/computers-inventory", "general.name", "id", entry, noInputBulk)
+							if err != nil {
+								return fmt.Errorf("resolving %q: %w", entry, err)
+							}
+							rid = id
+						}
+						if rid == "" {
+							return fmt.Errorf("no computers-inventory found matching %q", entry)
+						}
+						bulk = append(bulk, bulkEntry{id: rid, label: entry})
+					}
+				}
+				// Deduplicate resolved IDs to avoid double-delete errors.
+				{
+					seen := make(map[string]bool, len(bulk))
+					deduped := bulk[:0]
+					for _, e := range bulk {
+						if !seen[e.id] {
+							seen[e.id] = true
+							deduped = append(deduped, e)
+						}
+					}
+					bulk = deduped
+				}
+				if flagDryRun {
+					for _, e := range bulk {
+						fmt.Fprintf(os.Stderr, "[dry-run] Would delete computers-inventory %q (id: %s)\n", e.label, e.id)
+					}
+					return nil
+				}
+				if !flagYes {
+					if noInputBulk {
+						return fmt.Errorf("destructive operation requires --yes when --no-input is set")
+					}
+					fmt.Fprintf(os.Stderr, "⚠️  This will delete %d computers-inventory. Type 'yes' to confirm: ", len(bulk))
+					var confirm string
+					fmt.Scanln(&confirm)
+					if confirm != "yes" {
+						return fmt.Errorf("aborted")
+					}
+				}
+				if err := cooldown.Enforce(ctx.ProfileName, noInputBulk, ctx.DestructiveCooldown); err != nil {
+					return err
+				}
+				var okCount, failCount int
+				var firstErr error
+				for _, e := range bulk {
+					delPath := strings.Replace("/v1/computer-inventory/{id}/erase", "{id}", url.PathEscape(e.id), 1)
+					resp, err := ctx.Client.Do(reqCtx, "DELETE", delPath, nil)
+					if err != nil {
+						fmt.Fprintf(os.Stderr, "delete computers-inventory %q (id: %s) failed: %v\n", e.label, e.id, err)
+						if firstErr == nil {
+							firstErr = err
+						}
+						failCount++
+						continue
+					}
+					resp.Body.Close()
+					if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+						fmt.Fprintf(os.Stderr, "delete computers-inventory %q (id: %s) failed: HTTP %d\n", e.label, e.id, resp.StatusCode)
+						if firstErr == nil {
+							firstErr = fmt.Errorf("HTTP %d", resp.StatusCode)
+						}
+						failCount++
+						continue
+					}
+					fmt.Fprintf(os.Stderr, "Deleted computers-inventory %q (id: %s)\n", e.label, e.id)
+					okCount++
+				}
+				cooldown.Record(ctx.ProfileName)
+				return batchDeleteError(cmd, okCount, failCount, firstErr, "computers-inventory deletes")
+			}
+
+			// --group: delete all members of a Classic API group
+			if flagGroup != "" {
+				memberIDs, err := fetchClassicGroupMemberIDs(reqCtx, ctx.Client, "/JSSResource/computergroups", "computers", "computer", flagGroup)
+				if err != nil {
+					return fmt.Errorf("resolving group %q: %w", flagGroup, err)
+				}
+				if len(memberIDs) == 0 {
+					return fmt.Errorf("group %q has no members", flagGroup)
+				}
+				type bulkEntry struct{ id, label string }
+				bulk := make([]bulkEntry, 0, len(memberIDs))
+				for _, id := range memberIDs {
+					bulk = append(bulk, bulkEntry{id: id, label: id})
+				}
+				noInputGrp, _ := cmd.Flags().GetBool("no-input")
+				if flagDryRun {
+					for _, e := range bulk {
+						fmt.Fprintf(os.Stderr, "[dry-run] Would delete computers-inventory id: %s (from group %q)\n", e.id, flagGroup)
+					}
+					return nil
+				}
+				if !flagYes {
+					if noInputGrp {
+						return fmt.Errorf("destructive operation requires --yes when --no-input is set")
+					}
+					fmt.Fprintf(os.Stderr, "⚠️  This will delete %d computers-inventory from group %q. Type 'yes' to confirm: ", len(bulk), flagGroup)
+					var confirm string
+					fmt.Scanln(&confirm)
+					if confirm != "yes" {
+						return fmt.Errorf("aborted")
+					}
+				}
+				if err := cooldown.Enforce(ctx.ProfileName, noInputGrp, ctx.DestructiveCooldown); err != nil {
+					return err
+				}
+				var okCount, failCount int
+				var firstErr error
+				for _, e := range bulk {
+					delPath := strings.Replace("/v1/computer-inventory/{id}/erase", "{id}", url.PathEscape(e.id), 1)
+					resp, err := ctx.Client.Do(reqCtx, "DELETE", delPath, nil)
+					if err != nil {
+						fmt.Fprintf(os.Stderr, "delete computers-inventory id %s failed: %v\n", e.id, err)
+						if firstErr == nil {
+							firstErr = err
+						}
+						failCount++
+						continue
+					}
+					resp.Body.Close()
+					if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+						fmt.Fprintf(os.Stderr, "delete computers-inventory id %s failed: HTTP %d\n", e.id, resp.StatusCode)
+						if firstErr == nil {
+							firstErr = fmt.Errorf("HTTP %d", resp.StatusCode)
+						}
+						failCount++
+						continue
+					}
+					fmt.Fprintf(os.Stderr, "Deleted computers-inventory id: %s\n", e.id)
+					okCount++
+				}
+				cooldown.Record(ctx.ProfileName)
+				return batchDeleteError(cmd, okCount, failCount, firstErr, "computers-inventory deletes")
+			}
+
+			// Resolve resource ID from positional arg, --name, or lookup flags
+			var resolvedID string
+			var resolvedByName string
+
+			if flagSerial != "" {
+				noInputLookup, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v4/computers-inventory?section=HARDWARE", "hardware.serialNumber", "id", flagSerial, noInputLookup)
+				if err != nil {
+					return fmt.Errorf("looking up --serial %q: %w", flagSerial, err)
+				}
+				if rid == "" {
+					return fmt.Errorf("no computers-inventory found with --serial %q", flagSerial)
+				}
+				resolvedID = rid
+				resolvedByName = flagSerial
+			} else if flagUdid != "" {
+				noInputLookup, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v4/computers-inventory", "udid", "id", flagUdid, noInputLookup)
+				if err != nil {
+					return fmt.Errorf("looking up --udid %q: %w", flagUdid, err)
+				}
+				if rid == "" {
+					return fmt.Errorf("no computers-inventory found with --udid %q", flagUdid)
+				}
+				resolvedID = rid
+				resolvedByName = flagUdid
+			} else if flagName != "" {
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v4/computers-inventory", "general.name", "id", flagName, noInput)
+				if err != nil {
+					return err
+				}
+				if rid == "" {
+					return fmt.Errorf("no computers-inventory found with general.name %q", flagName)
+				}
+				resolvedID = rid
+				resolvedByName = flagName
+			} else if len(args) > 0 {
+				resolvedID = args[0]
+			} else {
+				return fmt.Errorf("provide an <id> argument, --name, --serial, --udid")
+			}
+
+			// Confirmation for destructive action (after name lookup)
+			if flagDryRun {
+				if resolvedByName != "" {
+					fmt.Fprintf(os.Stderr, "[dry-run] Would erase computers-inventory %q (id: %s)\n", resolvedByName, resolvedID)
+				} else {
+					fmt.Fprintf(os.Stderr, "[dry-run] Would erase computers-inventory %s\n", resolvedID)
+				}
+				return nil
+			}
+			if !flagYes {
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				if noInput {
+					return fmt.Errorf("destructive operation requires --yes when --no-input is set")
+				}
+				if resolvedByName != "" {
+					fmt.Fprintf(os.Stderr, "⚠️  This will erase computers-inventory %q (id: %s). Type 'yes' to confirm: ", resolvedByName, resolvedID)
+				} else {
+					fmt.Fprintf(os.Stderr, "⚠️  This will erase computers-inventory %s. Type 'yes' to confirm: ", resolvedID)
+				}
+				var confirm string
+				fmt.Scanln(&confirm)
+				if confirm != "yes" {
+					return fmt.Errorf("aborted")
+				}
+			}
+
+			// Destructive cooldown enforcement
+			noInputCooldown, _ := cmd.Flags().GetBool("no-input")
+			if err := cooldown.Enforce(ctx.ProfileName, noInputCooldown, ctx.DestructiveCooldown); err != nil {
+				return err
+			}
+
+			// Build request path
+			path := "/v1/computer-inventory/{id}/erase"
+			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			// Read body from stdin if available
+			var body io.Reader
+			var normalized []byte
+			stat, _ := os.Stdin.Stat()
+			if (stat.Mode() & os.ModeCharDevice) == 0 {
+				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
+				if err != nil {
+					return fmt.Errorf("reading stdin: %w", err)
+				}
+				normalized, err = normalizeInputToJSON(raw)
+				if err != nil {
+					return err
+				}
+			}
+			if len(normalized) > 0 {
+				body = bytes.NewReader(normalized)
+			}
+			resp, err := ctx.Client.Do(reqCtx, "POST", path, body)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			err = ctx.Output.PrintResponse(resp)
+			if err == nil && resp.StatusCode >= 200 && resp.StatusCode < 300 {
+				cooldown.Record(ctx.ProfileName)
+			}
+			return err
+		},
+	}
+
+	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt")
+	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
+	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to file listing IDs or names to delete (one per line, # comments ignored)")
+	cmd.Flags().StringVar(&flagGroup, "group", "", "Delete all computers-inventory from a Classic API group (name or ID)")
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up computers-inventory by name")
+	cmd.Flags().StringVar(&flagSerial, "serial", "", "Look up computer by serial number")
+	cmd.Flags().StringVar(&flagUdid, "udid", "", "Look up computer by UDID")
+
+	cmd.MarkFlagsMutuallyExclusive("from-file", "name")
+	cmd.MarkFlagsMutuallyExclusive("from-file", "serial")
+	cmd.MarkFlagsMutuallyExclusive("from-file", "udid")
+
+	cmd.MarkFlagsMutuallyExclusive("from-file", "group")
+	cmd.MarkFlagsMutuallyExclusive("group", "name")
+	cmd.MarkFlagsMutuallyExclusive("group", "serial")
+	cmd.MarkFlagsMutuallyExclusive("group", "udid")
+
+	return cmd
+}
+
 func newComputersInventoryDownloadCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagSaveTo string
@@ -1409,7 +2079,7 @@ func newComputersInventoryDownloadCmd(ctx *registry.CLIContext) *cobra.Command {
 			vft := newVersionFallback("/v4/computers-inventory/{id}/attachments/{attachmentId}")
 
 			// Make request
-			resp, err := vft.do(ctx.Client, reqCtx, "GET", path, nil, []string{"/v1/computers-inventory/{id}/attachments/{attachmentId}"})
+			resp, err := vft.do(ctx.Client, reqCtx, "GET", path, nil, []string{"/v3/computers-inventory/{id}/attachments/{attachmentId}", "/v2/computers-inventory/{id}/attachments/{attachmentId}", "/v1/computers-inventory/{id}/attachments/{attachmentId}"})
 			if err != nil {
 				return err
 			}
@@ -1495,7 +2165,7 @@ func newComputersInventoryFilevaultByIdCmd(ctx *registry.CLIContext) *cobra.Comm
 			vft := newVersionFallback("/v4/computers-inventory/{id}/filevault")
 
 			// Make request
-			resp, err := vft.do(ctx.Client, reqCtx, "GET", path, nil, []string{"/v1/computers-inventory/{id}/filevault"})
+			resp, err := vft.do(ctx.Client, reqCtx, "GET", path, nil, []string{"/v3/computers-inventory/{id}/filevault", "/v2/computers-inventory/{id}/filevault", "/v1/computers-inventory/{id}/filevault"})
 			if err != nil {
 				return err
 			}
@@ -1570,7 +2240,7 @@ func newComputersInventoryViewDeviceLockPinCmd(ctx *registry.CLIContext) *cobra.
 			vft := newVersionFallback("/v4/computers-inventory/{id}/view-device-lock-pin")
 
 			// Make request
-			resp, err := vft.do(ctx.Client, reqCtx, "GET", path, nil, []string{"/v1/computers-inventory/{id}/view-device-lock-pin"})
+			resp, err := vft.do(ctx.Client, reqCtx, "GET", path, nil, []string{"/v3/computers-inventory/{id}/view-device-lock-pin", "/v2/computers-inventory/{id}/view-device-lock-pin", "/v1/computers-inventory/{id}/view-device-lock-pin"})
 			if err != nil {
 				return err
 			}
@@ -1645,7 +2315,7 @@ func newComputersInventoryViewRecoveryLockPasswordCmd(ctx *registry.CLIContext) 
 			vft := newVersionFallback("/v4/computers-inventory/{id}/view-recovery-lock-password")
 
 			// Make request
-			resp, err := vft.do(ctx.Client, reqCtx, "GET", path, nil, []string{"/v1/computers-inventory/{id}/view-recovery-lock-password"})
+			resp, err := vft.do(ctx.Client, reqCtx, "GET", path, nil, []string{"/v3/computers-inventory/{id}/view-recovery-lock-password", "/v2/computers-inventory/{id}/view-recovery-lock-password", "/v1/computers-inventory/{id}/view-recovery-lock-password"})
 			if err != nil {
 				return err
 			}
@@ -1662,7 +2332,189 @@ func newComputersInventoryViewRecoveryLockPasswordCmd(ctx *registry.CLIContext) 
 	return cmd
 }
 
-func newComputersInventoryEraseCmd(ctx *registry.CLIContext) *cobra.Command {
+func newComputersInventoryRecalculateSmartGroupsCmd(ctx *registry.CLIContext) *cobra.Command {
+	var (
+		flagName   string
+		flagSerial string
+		flagUdid   string
+	)
+
+	cmd := &cobra.Command{
+		Use:         "recalculate-smart-groups [<id>]",
+		Short:       "Recalculate a smart group for the given id",
+		Long:        "Recalculates a smart group for the given id and then returns the count of smart groups the computer falls into",
+		Annotations: map[string]string{"jamf:privileges": "Update Smart Computer Groups", "jamf:api": "pro", "jamf:gateway-privileges": "device-groups:update"},
+		Args:        cobra.MaximumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			// Resolve resource ID from positional arg, --name, or lookup flags
+			var resolvedID string
+
+			if flagSerial != "" {
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v4/computers-inventory?section=HARDWARE", "hardware.serialNumber", "id", flagSerial, noInput)
+				if err != nil {
+					return fmt.Errorf("looking up --serial %q: %w", flagSerial, err)
+				}
+				resolvedID = rid
+			} else if flagUdid != "" {
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v4/computers-inventory", "udid", "id", flagUdid, noInput)
+				if err != nil {
+					return fmt.Errorf("looking up --udid %q: %w", flagUdid, err)
+				}
+				resolvedID = rid
+			} else if flagName != "" {
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v4/computers-inventory", "general.name", "id", flagName, noInput)
+				if err != nil {
+					return err
+				}
+				resolvedID = rid
+			} else if len(args) > 0 {
+				resolvedID = args[0]
+			} else {
+				return fmt.Errorf("provide an <id> argument, --name, --serial, --udid")
+			}
+
+			// Build request path
+			path := "/v1/computers/{id}/recalculate-smart-groups"
+			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			// Read body from stdin if available
+			var body io.Reader
+			var normalized []byte
+			stat, _ := os.Stdin.Stat()
+			if (stat.Mode() & os.ModeCharDevice) == 0 {
+				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
+				if err != nil {
+					return fmt.Errorf("reading stdin: %w", err)
+				}
+				normalized, err = normalizeInputToJSON(raw)
+				if err != nil {
+					return err
+				}
+			}
+			if len(normalized) > 0 {
+				body = bytes.NewReader(normalized)
+			}
+			resp, err := ctx.Client.Do(reqCtx, "POST", path, body)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up computers-inventory by name")
+	cmd.Flags().StringVar(&flagSerial, "serial", "", "Look up computer by serial number")
+	cmd.Flags().StringVar(&flagUdid, "udid", "", "Look up computer by UDID")
+
+	return cmd
+}
+
+func newComputersInventoryRecalculateCmd(ctx *registry.CLIContext) *cobra.Command {
+	var (
+		flagName   string
+		flagSerial string
+		flagUdid   string
+	)
+
+	cmd := &cobra.Command{
+		Use:         "recalculate [<id>]",
+		Short:       "Recalculate the smart group for the given id",
+		Long:        "Recalculates the smart group for the given id and then returns the ids for the computers in the smart group",
+		Annotations: map[string]string{"jamf:privileges": "Update Smart Computer Groups", "jamf:api": "pro", "jamf:gateway-privileges": "device-groups:update"},
+		Args:        cobra.MaximumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			// Resolve resource ID from positional arg, --name, or lookup flags
+			var resolvedID string
+
+			if flagSerial != "" {
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v4/computers-inventory?section=HARDWARE", "hardware.serialNumber", "id", flagSerial, noInput)
+				if err != nil {
+					return fmt.Errorf("looking up --serial %q: %w", flagSerial, err)
+				}
+				resolvedID = rid
+			} else if flagUdid != "" {
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v4/computers-inventory", "udid", "id", flagUdid, noInput)
+				if err != nil {
+					return fmt.Errorf("looking up --udid %q: %w", flagUdid, err)
+				}
+				resolvedID = rid
+			} else if flagName != "" {
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v4/computers-inventory", "general.name", "id", flagName, noInput)
+				if err != nil {
+					return err
+				}
+				resolvedID = rid
+			} else if len(args) > 0 {
+				resolvedID = args[0]
+			} else {
+				return fmt.Errorf("provide an <id> argument, --name, --serial, --udid")
+			}
+
+			// Build request path
+			path := "/v1/smart-computer-groups/{id}/recalculate"
+			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			// Read body from stdin if available
+			var body io.Reader
+			var normalized []byte
+			stat, _ := os.Stdin.Stat()
+			if (stat.Mode() & os.ModeCharDevice) == 0 {
+				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
+				if err != nil {
+					return fmt.Errorf("reading stdin: %w", err)
+				}
+				normalized, err = normalizeInputToJSON(raw)
+				if err != nil {
+					return err
+				}
+			}
+			if len(normalized) > 0 {
+				body = bytes.NewReader(normalized)
+			}
+			resp, err := ctx.Client.Do(reqCtx, "POST", path, body)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up computers-inventory by name")
+	cmd.Flags().StringVar(&flagSerial, "serial", "", "Look up computer by serial number")
+	cmd.Flags().StringVar(&flagUdid, "udid", "", "Look up computer by UDID")
+
+	return cmd
+}
+
+func newComputersInventoryV4ComputersInventoryEraseCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagYes      bool
 		flagDryRun   bool
@@ -1675,7 +2527,7 @@ func newComputersInventoryEraseCmd(ctx *registry.CLIContext) *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:         "erase [<id>]",
+		Use:         "v-4-computers-inventory-erase [<id>]",
 		Short:       "Erase a computer",
 		Long:        "Erase a computer",
 		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Send Computer Remote Wipe Command", "jamf:api": "pro", "jamf:gateway-privileges": "destructive-device-actions:execute"},
@@ -1907,9 +2759,9 @@ func newComputersInventoryEraseCmd(ctx *registry.CLIContext) *cobra.Command {
 			// Confirmation for destructive action (after name lookup)
 			if flagDryRun {
 				if resolvedByName != "" {
-					fmt.Fprintf(os.Stderr, "[dry-run] Would erase computers-inventory %q (id: %s)\n", resolvedByName, resolvedID)
+					fmt.Fprintf(os.Stderr, "[dry-run] Would v-4-computers-inventory-erase computers-inventory %q (id: %s)\n", resolvedByName, resolvedID)
 				} else {
-					fmt.Fprintf(os.Stderr, "[dry-run] Would erase computers-inventory %s\n", resolvedID)
+					fmt.Fprintf(os.Stderr, "[dry-run] Would v-4-computers-inventory-erase computers-inventory %s\n", resolvedID)
 				}
 				return nil
 			}
@@ -1919,9 +2771,9 @@ func newComputersInventoryEraseCmd(ctx *registry.CLIContext) *cobra.Command {
 					return fmt.Errorf("destructive operation requires --yes when --no-input is set")
 				}
 				if resolvedByName != "" {
-					fmt.Fprintf(os.Stderr, "⚠️  This will erase computers-inventory %q (id: %s). Type 'yes' to confirm: ", resolvedByName, resolvedID)
+					fmt.Fprintf(os.Stderr, "⚠️  This will v-4-computers-inventory-erase computers-inventory %q (id: %s). Type 'yes' to confirm: ", resolvedByName, resolvedID)
 				} else {
-					fmt.Fprintf(os.Stderr, "⚠️  This will erase computers-inventory %s. Type 'yes' to confirm: ", resolvedID)
+					fmt.Fprintf(os.Stderr, "⚠️  This will v-4-computers-inventory-erase computers-inventory %s. Type 'yes' to confirm: ", resolvedID)
 				}
 				var confirm string
 				fmt.Scanln(&confirm)
@@ -1999,7 +2851,7 @@ func newComputersInventoryEraseCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newComputersInventoryRemoveMdmProfileCmd(ctx *registry.CLIContext) *cobra.Command {
+func newComputersInventoryV4ComputersInventoryRemoveMdmProfileCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagYes    bool
 		flagDryRun bool
@@ -2011,7 +2863,7 @@ func newComputersInventoryRemoveMdmProfileCmd(ctx *registry.CLIContext) *cobra.C
 	)
 
 	cmd := &cobra.Command{
-		Use:         "remove-mdm-profile [<id>]",
+		Use:         "v-4-computers-inventory-remove-mdm-profile [<id>]",
 		Short:       "Remove a computer's MDM profile",
 		Long:        "Remove a computer's MDM profile",
 		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Send Computer Unmanage Command", "jamf:api": "pro", "jamf:gateway-privileges": "destructive-device-actions:execute"},
@@ -2237,9 +3089,9 @@ func newComputersInventoryRemoveMdmProfileCmd(ctx *registry.CLIContext) *cobra.C
 			// Confirmation for destructive action (after name lookup)
 			if flagDryRun {
 				if resolvedByName != "" {
-					fmt.Fprintf(os.Stderr, "[dry-run] Would remove-mdm-profile computers-inventory %q (id: %s)\n", resolvedByName, resolvedID)
+					fmt.Fprintf(os.Stderr, "[dry-run] Would v-4-computers-inventory-remove-mdm-profile computers-inventory %q (id: %s)\n", resolvedByName, resolvedID)
 				} else {
-					fmt.Fprintf(os.Stderr, "[dry-run] Would remove-mdm-profile computers-inventory %s\n", resolvedID)
+					fmt.Fprintf(os.Stderr, "[dry-run] Would v-4-computers-inventory-remove-mdm-profile computers-inventory %s\n", resolvedID)
 				}
 				return nil
 			}
@@ -2249,9 +3101,9 @@ func newComputersInventoryRemoveMdmProfileCmd(ctx *registry.CLIContext) *cobra.C
 					return fmt.Errorf("destructive operation requires --yes when --no-input is set")
 				}
 				if resolvedByName != "" {
-					fmt.Fprintf(os.Stderr, "⚠️  This will remove-mdm-profile computers-inventory %q (id: %s). Type 'yes' to confirm: ", resolvedByName, resolvedID)
+					fmt.Fprintf(os.Stderr, "⚠️  This will v-4-computers-inventory-remove-mdm-profile computers-inventory %q (id: %s). Type 'yes' to confirm: ", resolvedByName, resolvedID)
 				} else {
-					fmt.Fprintf(os.Stderr, "⚠️  This will remove-mdm-profile computers-inventory %s. Type 'yes' to confirm: ", resolvedID)
+					fmt.Fprintf(os.Stderr, "⚠️  This will v-4-computers-inventory-remove-mdm-profile computers-inventory %s. Type 'yes' to confirm: ", resolvedID)
 				}
 				var confirm string
 				fmt.Scanln(&confirm)

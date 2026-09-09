@@ -30,6 +30,14 @@ func NewCloudLdapsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(newCloudLdapsCreateCmd(ctx))
 	cmd.AddCommand(newCloudLdapsUpdateCmd(ctx))
 	cmd.AddCommand(newCloudLdapsDeleteCmd(ctx))
+	cmd.AddCommand(newCloudLdapsVerifyCmd(ctx))
+	cmd.AddCommand(newCloudLdapsDefaultsMappingsCmd(ctx))
+	cmd.AddCommand(newCloudLdapsServerConfigurationCmd(ctx))
+	cmd.AddCommand(newCloudLdapsBindCmd(ctx))
+	cmd.AddCommand(newCloudLdapsSearchCmd(ctx))
+	cmd.AddCommand(newCloudLdapsStatusCmd(ctx))
+	cmd.AddCommand(newCloudLdapsMappingsCmd(ctx))
+	cmd.AddCommand(newCloudLdapsUpdateMappingsCmd(ctx))
 
 	return cmd
 }
@@ -447,5 +455,386 @@ func newCloudLdapsDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
 
 	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt")
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
+	return cmd
+}
+
+func newCloudLdapsVerifyCmd(ctx *registry.CLIContext) *cobra.Command {
+	var (
+		flagScaffold bool
+	)
+
+	cmd := &cobra.Command{
+		Use:         "verify",
+		Short:       "Validate keystore for Cloud Identity Provider secure connection",
+		Long:        "Validate keystore for Cloud Identity Provider secure connection",
+		Annotations: map[string]string{"jamf:privileges": "Create LDAP Servers", "jamf:api": "pro", "jamf:gateway-privileges": "ldap-servers:create"},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			if flagScaffold {
+				return printScaffoldOutput(`{
+  "fileBytes": "WlhoaGJYQnNaU0J2WmlCaElHSmhjMlUyTkNCbGJtTnZaR1ZrSUhaaGJHbGtJSEF4TWk0Z2EyVjVjM1J2Y21VZ1ptbHNaUT09",
+  "fileName": "keystore.p12",
+  "password": "***"
+}`, ctx.Output.Format())
+			}
+
+			// Build request path
+			path := "/v1/ldap-keystore/verify"
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			// Read body from stdin if available
+			var body io.Reader
+			var normalized []byte
+			stat, _ := os.Stdin.Stat()
+			if (stat.Mode() & os.ModeCharDevice) == 0 {
+				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
+				if err != nil {
+					return fmt.Errorf("reading stdin: %w", err)
+				}
+				normalized, err = normalizeInputToJSON(raw)
+				if err != nil {
+					return err
+				}
+			}
+			if len(normalized) > 0 {
+				body = bytes.NewReader(normalized)
+			}
+			resp, err := ctx.Client.Do(reqCtx, "POST", path, body)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
+	return cmd
+}
+
+func newCloudLdapsDefaultsMappingsCmd(ctx *registry.CLIContext) *cobra.Command {
+	var ()
+
+	cmd := &cobra.Command{
+		Use:         "defaults-mappings <id>",
+		Short:       "Get default mappings",
+		Long:        "Get default mappings for Cloud Identity Provider Provider.",
+		Annotations: map[string]string{"jamf:privileges": "Read LDAP Servers", "jamf:api": "pro", "jamf:gateway-privileges": "ldap-servers:read"},
+		Args:        cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			// Build request path
+			path := "/v2/cloud-ldaps/defaults/{provider}/mappings"
+			path = strings.Replace(path, "{provider}", url.PathEscape(args[0]), 1)
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	return cmd
+}
+
+func newCloudLdapsServerConfigurationCmd(ctx *registry.CLIContext) *cobra.Command {
+	var ()
+
+	cmd := &cobra.Command{
+		Use:         "server-configuration <id>",
+		Short:       "Get default server configuration",
+		Long:        "Get default server configuration for Cloud Identity Provider Identity Provider.",
+		Annotations: map[string]string{"jamf:privileges": "Read LDAP Servers", "jamf:api": "pro", "jamf:gateway-privileges": "ldap-servers:read"},
+		Args:        cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			// Build request path
+			path := "/v2/cloud-ldaps/defaults/{provider}/server-configuration"
+			path = strings.Replace(path, "{provider}", url.PathEscape(args[0]), 1)
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	return cmd
+}
+
+func newCloudLdapsBindCmd(ctx *registry.CLIContext) *cobra.Command {
+	var ()
+
+	cmd := &cobra.Command{
+		Use:         "bind <id>",
+		Short:       "Get bind connection pool statistics",
+		Long:        "Get all search connection pool for chosen Cloud Identity Provider. numConnectionsClosedDefunct - The number of connections that have been closed as defunct. numConnectionsClosedExpired - The number of connections that have been closed because they were expired. numConnectionsClosedUnneeded - The number of connections that have been closed because they were no longer needed. numFailedCheckouts - The number of failed attempts to check out a connection from the pool. numFailedConnectionAttempts - The number of failed attempts to create a connection for use in the pool. numReleasedValid - The number of valid connections released back to the pool. numSuccessfulCheckouts - The number of successful attempts to check out a connection from the pool. numSuccessfulCheckoutsNewConnection - The number of successful checkout attempts that had to create a new connection because none were available. numSuccessfulConnectionAttempts - The number successful attempts to create a connection for use in the pool. maximumAvailableConnections - The maximum number of connections that may be available in the pool at any time. numSuccessfulCheckoutsWithoutWait - The number of successful checkout attempts that were able to take an existing connection without waiting. numSuccessfulCheckoutsAfterWait - The number of successful checkout attempts that retrieved a connection from the pool after waiting for it to become available. numAvailableConnections - The number of connections currently available for use in the pool.",
+		Annotations: map[string]string{"jamf:privileges": "Read LDAP Servers", "jamf:api": "pro", "jamf:gateway-privileges": "ldap-servers:read"},
+		Args:        cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			// Build request path
+			path := "/v2/cloud-ldaps/{id}/connection/bind"
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	return cmd
+}
+
+func newCloudLdapsSearchCmd(ctx *registry.CLIContext) *cobra.Command {
+	var ()
+
+	cmd := &cobra.Command{
+		Use:         "search <id>",
+		Short:       "Get search connection pool statistics",
+		Long:        "Get all search connection pool for chosen Cloud Identity Provider. numConnectionsClosedDefunct - The number of connections that have been closed as defunct. numConnectionsClosedExpired - The number of connections that have been closed because they were expired. numConnectionsClosedUnneeded - The number of connections that have been closed because they were no longer needed. numFailedCheckouts - The number of failed attempts to check out a connection from the pool. numFailedConnectionAttempts - The number of failed attempts to create a connection for use in the pool. numReleasedValid - The number of valid connections released back to the pool. numSuccessfulCheckouts - The number of successful attempts to check out a connection from the pool. numSuccessfulCheckoutsNewConnection - The number of successful checkout attempts that had to create a new connection because none were available. numSuccessfulConnectionAttempts - The number successful attempts to create a connection for use in the pool. maximumAvailableConnections - The maximum number of connections that may be available in the pool at any time. numSuccessfulCheckoutsWithoutWait - The number of successful checkout attempts that were able to take an existing connection without waiting. numSuccessfulCheckoutsAfterWait - The number of successful checkout attempts that retrieved a connection from the pool after waiting for it to become available. numAvailableConnections - The number of connections currently available for use in the pool.",
+		Annotations: map[string]string{"jamf:privileges": "Read LDAP Servers", "jamf:api": "pro", "jamf:gateway-privileges": "ldap-servers:read"},
+		Args:        cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			// Build request path
+			path := "/v2/cloud-ldaps/{id}/connection/search"
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	return cmd
+}
+
+func newCloudLdapsStatusCmd(ctx *registry.CLIContext) *cobra.Command {
+	var ()
+
+	cmd := &cobra.Command{
+		Use:         "status <id>",
+		Short:       "Tests the communication with the specified cloud connection",
+		Long:        "Tests the communication with the specified cloud connection",
+		Annotations: map[string]string{"jamf:privileges": "Read LDAP Servers", "jamf:api": "pro", "jamf:gateway-privileges": "ldap-servers:read"},
+		Args:        cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			// Build request path
+			path := "/v2/cloud-ldaps/{id}/connection/status"
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	return cmd
+}
+
+func newCloudLdapsMappingsCmd(ctx *registry.CLIContext) *cobra.Command {
+	var ()
+
+	cmd := &cobra.Command{
+		Use:         "mappings <id>",
+		Short:       "Get mappings configurations for Cloud Identity Providers server configuration.",
+		Long:        "Get all mappings configurations for Cloud Identity Providers server configuration.",
+		Annotations: map[string]string{"jamf:privileges": "Read LDAP Servers", "jamf:api": "pro", "jamf:gateway-privileges": "ldap-servers:read"},
+		Args:        cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			// Build request path
+			path := "/v2/cloud-ldaps/{id}/mappings"
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	return cmd
+}
+
+func newCloudLdapsUpdateMappingsCmd(ctx *registry.CLIContext) *cobra.Command {
+	var (
+		flagScaffold bool
+	)
+
+	cmd := &cobra.Command{
+		Use:         "update-mappings <id>",
+		Short:       "Update Cloud Identity Provider mappings configuration.",
+		Long:        "Update Cloud Identity Provider mappings configuration. Cannot be used for partial updates, all content body must be sent.",
+		Annotations: map[string]string{"jamf:privileges": "Update LDAP Servers", "jamf:api": "pro", "jamf:gateway-privileges": "ldap-servers:update"},
+		Args: func(cmd *cobra.Command, args []string) error {
+			// --scaffold prints a body template and makes no request, so it
+			// needs none of the identifiers the path carries. Cobra validates
+			// Args before RunE, so a bare ExactArgs refuses before the scaffold
+			// return is reached and the flag is unusable on this command
+			// (issue 363). Only the floor moves: the ceiling stays the declared
+			// one, because dropping the validator entirely lets
+			// "patch a b c --scaffold" print the template and discard three
+			// positionals, which is issue 350 reached through a flag.
+			if flagScaffold {
+				return cobra.MaximumNArgs(1)(cmd, args)
+			}
+			return cobra.ExactArgs(1)(cmd, args)
+		},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			if flagScaffold {
+				return printScaffoldOutput(`{
+  "groupMappings": {
+    "groupID": "cn",
+    "groupName": "cn",
+    "groupUuid": "gidNumber",
+    "objectClassLimitation": "ANY_OBJECT_CLASSES",
+    "objectClasses": "groupOfNames",
+    "searchBase": "ou=Groups",
+    "searchScope": "ALL_SUBTREES"
+  },
+  "membershipMappings": {
+    "groupMembershipMapping": "memberOf"
+  },
+  "userMappings": {
+    "additionalSearchBase": "",
+    "building": "",
+    "department": "departmentNumber",
+    "emailAddress": "mail",
+    "objectClassLimitation": "ANY_OBJECT_CLASSES",
+    "objectClasses": "inetOrgPerson",
+    "phone": "",
+    "position": "title",
+    "realName": "displayName",
+    "room": "",
+    "searchBase": "ou=Users",
+    "searchScope": "ALL_SUBTREES",
+    "userID": "mail",
+    "userUuid": "uid",
+    "username": "uid"
+  }
+}`, ctx.Output.Format())
+			}
+
+			// Build request path
+			path := "/v2/cloud-ldaps/{id}/mappings"
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			// Read body from stdin if available
+			var body io.Reader
+			var normalized []byte
+			stat, _ := os.Stdin.Stat()
+			if (stat.Mode() & os.ModeCharDevice) == 0 {
+				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
+				if err != nil {
+					return fmt.Errorf("reading stdin: %w", err)
+				}
+				normalized, err = normalizeInputToJSON(raw)
+				if err != nil {
+					return err
+				}
+			}
+			if len(normalized) > 0 {
+				body = bytes.NewReader(normalized)
+			}
+			resp, err := ctx.Client.Do(reqCtx, "PUT", path, body)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 	return cmd
 }

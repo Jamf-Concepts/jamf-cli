@@ -4,6 +4,7 @@ package generated
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -22,25 +23,30 @@ func NewPolicyPropertiesCmd(ctx *registry.CLIContext) *cobra.Command {
 		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
-	cmd.AddCommand(newPolicyPropertiesPolicyPropertiesCmd(ctx))
-	cmd.AddCommand(newPolicyPropertiesUpdatePolicyPropertiesCmd(ctx))
+	cmd.AddCommand(newPolicyPropertiesGetCmd(ctx))
+	cmd.AddCommand(newPolicyPropertiesUpdateCmd(ctx))
 
 	return cmd
 }
 
-func newPolicyPropertiesPolicyPropertiesCmd(ctx *registry.CLIContext) *cobra.Command {
+func newPolicyPropertiesGetCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{
-		Use:         "policy-properties",
-		Short:       "Get Policy Properties object",
-		Long:        "Gets 'Policy Properties' object.",
-		Annotations: map[string]string{"jamf:privileges": "Read Policies", "jamf:api": "pro", "jamf:gateway": "unserved", "jamf:gateway-basis": "unpublished", "jamf:gateway-detail": "not declared by the gateway's Jamf Pro API 11.31.0"},
+		Use:   "get",
+		Short: "Get Policy Properties object",
+		Long:  "Gets 'Policy Properties' object.",
+		Example: `  # Get policy-properties
+  jamf-cli pro policy-properties get
+
+  # Get policy-properties and output as YAML
+  jamf-cli pro policy-properties get -o yaml`,
+		Annotations: map[string]string{"jamf:privileges": "Read Policies", "jamf:api": "pro", "jamf:gateway-privileges": "policies:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
 			// Build request path
-			path := "/settings/obj/policyProperties"
+			path := "/v1/policy-properties"
 
 			// Build query string
 			var queryParts []string
@@ -62,28 +68,37 @@ func newPolicyPropertiesPolicyPropertiesCmd(ctx *registry.CLIContext) *cobra.Com
 	return cmd
 }
 
-func newPolicyPropertiesUpdatePolicyPropertiesCmd(ctx *registry.CLIContext) *cobra.Command {
+func newPolicyPropertiesUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagScaffold bool
+		flagSet      []string
 	)
 
 	cmd := &cobra.Command{
-		Use:         "update-policy-properties",
-		Short:       "Update Policy Properties object",
-		Long:        "Update Policy Properties object",
-		Annotations: map[string]string{"jamf:privileges": "Update Policies", "jamf:api": "pro", "jamf:gateway": "unserved", "jamf:gateway-basis": "unpublished", "jamf:gateway-detail": "not declared by the gateway's Jamf Pro API 11.31.0"},
+		Use:   "update",
+		Short: "Update Policy Properties object",
+		Long:  "Update Policy Properties object\n\nUse --set KEY=VALUE to update individual fields (repeatable). The current resource is fetched, your changes are merged in, read-only fields are dropped, and the whole record is written back. Omitted fields keep their current values.\n\nAvailable fields:\n  allowNetworkStateChangeTriggers              boolean\n  policiesRequireNetworkStateChange            boolean\n\nWithout --set, pipe a full JSON document to stdin to replace the resource entirely.",
+		Example: `  # Update individual fields (fetch-merge-replace)
+  jamf-cli pro policy-properties update --set field=value
+
+  # Replace policy-properties from a full JSON document
+  jamf-cli pro policy-properties get -o json | jq '.field = "value"' | jamf-cli pro policy-properties update
+
+  # Update from a file
+  jamf-cli pro policy-properties update --from-file policy-properties.json`,
+		Annotations: map[string]string{"jamf:privileges": "Update Policies", "jamf:api": "pro", "jamf:gateway-privileges": "policies:update"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
 				return printScaffoldOutput(`{
-  "isAllowNetworkStateChangeTriggers": false,
-  "isPoliciesRequireNetworkStateChange": false
+  "allowNetworkStateChangeTriggers": false,
+  "policiesRequireNetworkStateChange": false
 }`, ctx.Output.Format())
 			}
 
 			// Build request path
-			path := "/settings/obj/policyProperties"
+			path := "/v1/policy-properties"
 
 			// Build query string
 			var queryParts []string
@@ -95,8 +110,41 @@ func newPolicyPropertiesUpdatePolicyPropertiesCmd(ctx *registry.CLIContext) *cob
 			// Read body from stdin if available
 			var body io.Reader
 			var normalized []byte
+			if len(flagSet) > 0 {
+				// --set: fetch current state, drop read-only / server-computed fields,
+				// merge the caller's changes, and PUT the full record back. Fields not
+				// named in --set keep their current values.
+				existing, ferr := fetchForMerge(reqCtx, ctx.Client, path)
+				if ferr != nil {
+					return ferr
+				}
+				current := map[string]any{}
+				if len(existing) > 0 {
+					if err := json.Unmarshal(existing, &current); err != nil {
+						return fmt.Errorf("parsing current policy-properties for --set: %w", err)
+					}
+				}
+				(&fieldFilter{fields: map[string]*fieldFilter{"allowNetworkStateChangeTriggers": nil, "policiesRequireNetworkStateChange": nil}}).apply(current)
+				setDoc, serr := buildMergePatchFromSet(flagSet, map[string]string{"allowNetworkStateChangeTriggers": "boolean", "policiesRequireNetworkStateChange": "boolean"})
+				if serr != nil {
+					return serr
+				}
+				setMap := map[string]any{}
+				if err := json.Unmarshal(setDoc, &setMap); err != nil {
+					return err
+				}
+				deepMergeJSON(current, setMap)
+				merged, merr := json.Marshal(current)
+				if merr != nil {
+					return merr
+				}
+				normalized = merged
+				if setStat, _ := os.Stdin.Stat(); setStat != nil && (setStat.Mode()&os.ModeCharDevice) == 0 {
+					fmt.Fprintln(os.Stderr, "warning: --set and piped stdin are mutually exclusive; ignoring stdin")
+				}
+			}
 			stat, _ := os.Stdin.Stat()
-			if (stat.Mode() & os.ModeCharDevice) == 0 {
+			if len(flagSet) == 0 && (stat.Mode()&os.ModeCharDevice) == 0 {
 				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
 				if err != nil {
 					return fmt.Errorf("reading stdin: %w", err)
@@ -120,5 +168,11 @@ func newPolicyPropertiesUpdatePolicyPropertiesCmd(ctx *registry.CLIContext) *cob
 	}
 
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
+	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Update a field via fetch-merge-replace (key=value in dot notation, repeatable)")
+	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
+		return []string{
+			"allowNetworkStateChangeTriggers=", "policiesRequireNetworkStateChange=",
+		}, cobra.ShellCompDirectiveNoSpace
+	})
 	return cmd
 }

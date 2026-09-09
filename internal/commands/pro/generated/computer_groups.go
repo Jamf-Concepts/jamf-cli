@@ -19,7 +19,47 @@ func NewComputerGroupsCmd(ctx *registry.CLIContext) *cobra.Command {
 		Annotations: map[string]string{"jamf:api": "pro"},
 	}
 
+	cmd.AddCommand(newComputerGroupsListCmd(ctx))
 	cmd.AddCommand(newComputerGroupsGetCmd(ctx))
+
+	return cmd
+}
+
+func newComputerGroupsListCmd(ctx *registry.CLIContext) *cobra.Command {
+	var ()
+
+	cmd := &cobra.Command{
+		Use:   "list",
+		Short: "Returns the list of all computer groups",
+		Long:  "Use it to get the list of all computer groups.",
+		Example: `  # List all computer-groups
+  jamf-cli pro computer-groups list
+
+  # List computer-groups and extract IDs
+  jamf-cli pro computer-groups list --field id`,
+		Annotations: map[string]string{"jamf:privileges": "Read Smart Computer Groups,Read Static Computer Groups", "jamf:api": "pro", "jamf:gateway-privileges": "device-groups:read"},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			// Build request path
+			path := "/v1/computer-groups"
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
 
 	return cmd
 }

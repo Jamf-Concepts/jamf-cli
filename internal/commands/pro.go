@@ -59,20 +59,26 @@ func newProCmd(cliCtx *registry.CLIContext) *cobra.Command {
 	removeSubcommand(cmd, []string{"jamf-protects"}, "apply")
 	removeSubcommand(cmd, []string{"jamf-protect-deployment-tasks"}, "get-by-name")
 
-	// Suppress generated Classic "computers" (basic v1 list) — replaced by
-	// "computers-inventory" which is aliased to "computers"/"comp" and has the
-	// full modern v4 CRUD plus curated table output. MDM actions continue to be
-	// wired into "computers" via addSubcommand (resolves via alias).
-	removeSubcommand(cmd, []string{}, "computers")
-
-	// Suppress generated commands duplicated by richer handwritten versions (see #39)
-	// Handwritten counterparts support --serial/--name/--group/--from-file targeting and bulk ops.
-	removeSubcommand(cmd, []string{}, "erase-device-computers")              // → pro comp erase
-	removeSubcommand(cmd, []string{}, "erase-device-mobiles")                // → pro md erase
-	removeSubcommand(cmd, []string{}, "renew-mdm-profiles")                  // → pro comp renew-mdm
-	removeSubcommand(cmd, []string{}, "redeploy-jamf-management-frameworks") // → pro comp redeploy-framework
-	removeSubcommand(cmd, []string{}, "remove-computer-mdm-profiles")        // → pro comp remove-mdm
-	removeSubcommand(cmd, []string{}, "remove-mobile-device-mdm-profiles")   // → pro md unmanage
+	// Suppress generated commands duplicated by richer handwritten versions (see #39).
+	// The handwritten counterparts target by --serial/--name/--group/--from-file,
+	// confirm the action, honour --dry-run and carry the Find My PIN body, where
+	// the generated ones take an <id>.
+	//
+	// These used to name six standalone resources, which is what a per-file spec
+	// layout produced: `/v1/computer-inventory/{id}/erase` sat in its own file
+	// and became `pro erase-device-computers`. Grouping by path files each
+	// action under the collection it acts on, so what has to be suppressed is
+	// now a whole resource in two cases and a single subcommand in three.
+	//
+	// `computers` is no longer suppressed. It used to be the Classic basic v1
+	// list; that path is dropped at ingest now (see parser.KeepPath), and the
+	// name belongs to `POST /v1/computers/{id}/recalculate-smart-groups`, which
+	// has no handwritten counterpart and should ship.
+	removeSubcommand(cmd, []string{}, "computer-inventory")        // both ops → pro comp erase / remove-mdm
+	removeSubcommand(cmd, []string{}, "jamf-management-framework") // → pro comp redeploy-framework
+	removeSubcommand(cmd, []string{"mobile-devices"}, "erase")     // → pro md erase
+	removeSubcommand(cmd, []string{"mobile-devices"}, "unmanage")  // → pro md unmanage
+	removeSubcommand(cmd, []string{"mdm"}, "renew-profile")        // → pro comp renew-mdm
 
 	// Replace broken generated upload with handwritten streaming upload.
 	// The JCDS binary-upload endpoint needs special chunked-upload handling

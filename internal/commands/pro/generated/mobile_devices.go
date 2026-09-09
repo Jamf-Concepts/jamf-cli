@@ -11,6 +11,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/Jamf-Concepts/jamf-cli/internal/cooldown"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 	"github.com/Jamf-Concepts/jamf-cli/internal/spinner"
 	"github.com/spf13/cobra"
@@ -27,7 +28,13 @@ func NewMobileDevicesCmd(ctx *registry.CLIContext) *cobra.Command {
 
 	cmd.AddCommand(newMobileDevicesListCmd(ctx))
 	cmd.AddCommand(newMobileDevicesGetCmd(ctx))
+	cmd.AddCommand(newMobileDevicesRecalculateSmartGroupsCmd(ctx))
+	cmd.AddCommand(newMobileDevicesRecalculateCmd(ctx))
 	cmd.AddCommand(newMobileDevicesPatchCmd(ctx))
+	cmd.AddCommand(newMobileDevicesDetailByIdCmd(ctx))
+	cmd.AddCommand(newMobileDevicesEraseCmd(ctx))
+	cmd.AddCommand(newMobileDevicesPairedDevicesCmd(ctx))
+	cmd.AddCommand(newMobileDevicesUnmanageCmd(ctx))
 
 	return cmd
 }
@@ -285,6 +292,188 @@ func newMobileDevicesGetCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
+func newMobileDevicesRecalculateSmartGroupsCmd(ctx *registry.CLIContext) *cobra.Command {
+	var (
+		flagName   string
+		flagSerial string
+		flagUdid   string
+	)
+
+	cmd := &cobra.Command{
+		Use:         "recalculate-smart-groups [<id>]",
+		Short:       "Recalculate all smart groups for the given device id and then return count of smart groups that device fall into",
+		Long:        "Recalculates all smart groups for the given device id and then returns the count of smart groups the device falls into",
+		Annotations: map[string]string{"jamf:privileges": "Update Smart Mobile Device Groups", "jamf:api": "pro", "jamf:gateway-privileges": "device-groups:update"},
+		Args:        cobra.MaximumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			// Resolve resource ID from positional arg, --name, or lookup flags
+			var resolvedID string
+
+			if flagSerial != "" {
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/mobile-devices/detail", "serialNumber", "mobileDeviceId", flagSerial, noInput)
+				if err != nil {
+					return fmt.Errorf("looking up --serial %q: %w", flagSerial, err)
+				}
+				resolvedID = rid
+			} else if flagUdid != "" {
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/mobile-devices/detail", "udid", "mobileDeviceId", flagUdid, noInput)
+				if err != nil {
+					return fmt.Errorf("looking up --udid %q: %w", flagUdid, err)
+				}
+				resolvedID = rid
+			} else if flagName != "" {
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/mobile-devices/detail", "displayName", "mobileDeviceId", flagName, noInput)
+				if err != nil {
+					return err
+				}
+				resolvedID = rid
+			} else if len(args) > 0 {
+				resolvedID = args[0]
+			} else {
+				return fmt.Errorf("provide an <id> argument, --name, --serial, --udid")
+			}
+
+			// Build request path
+			path := "/v1/mobile-devices/{id}/recalculate-smart-groups"
+			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			// Read body from stdin if available
+			var body io.Reader
+			var normalized []byte
+			stat, _ := os.Stdin.Stat()
+			if (stat.Mode() & os.ModeCharDevice) == 0 {
+				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
+				if err != nil {
+					return fmt.Errorf("reading stdin: %w", err)
+				}
+				normalized, err = normalizeInputToJSON(raw)
+				if err != nil {
+					return err
+				}
+			}
+			if len(normalized) > 0 {
+				body = bytes.NewReader(normalized)
+			}
+			resp, err := ctx.Client.Do(reqCtx, "POST", path, body)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up mobile-device by name")
+	cmd.Flags().StringVar(&flagSerial, "serial", "", "Look up mobile device by serial number")
+	cmd.Flags().StringVar(&flagUdid, "udid", "", "Look up mobile device by UDID")
+
+	return cmd
+}
+
+func newMobileDevicesRecalculateCmd(ctx *registry.CLIContext) *cobra.Command {
+	var (
+		flagName   string
+		flagSerial string
+		flagUdid   string
+	)
+
+	cmd := &cobra.Command{
+		Use:         "recalculate [<id>]",
+		Short:       "Recalculate a smart group for the given id then return the ids for the devices in the smart group",
+		Long:        "recalculates a smart group for the given id and then returns the ids for the devices in the smart group",
+		Annotations: map[string]string{"jamf:privileges": "Update Smart Mobile Device Groups", "jamf:api": "pro", "jamf:gateway-privileges": "device-groups:update"},
+		Args:        cobra.MaximumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			// Resolve resource ID from positional arg, --name, or lookup flags
+			var resolvedID string
+
+			if flagSerial != "" {
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/mobile-devices/detail", "serialNumber", "mobileDeviceId", flagSerial, noInput)
+				if err != nil {
+					return fmt.Errorf("looking up --serial %q: %w", flagSerial, err)
+				}
+				resolvedID = rid
+			} else if flagUdid != "" {
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/mobile-devices/detail", "udid", "mobileDeviceId", flagUdid, noInput)
+				if err != nil {
+					return fmt.Errorf("looking up --udid %q: %w", flagUdid, err)
+				}
+				resolvedID = rid
+			} else if flagName != "" {
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/mobile-devices/detail", "displayName", "mobileDeviceId", flagName, noInput)
+				if err != nil {
+					return err
+				}
+				resolvedID = rid
+			} else if len(args) > 0 {
+				resolvedID = args[0]
+			} else {
+				return fmt.Errorf("provide an <id> argument, --name, --serial, --udid")
+			}
+
+			// Build request path
+			path := "/v1/smart-mobile-device-groups/{id}/recalculate"
+			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			// Read body from stdin if available
+			var body io.Reader
+			var normalized []byte
+			stat, _ := os.Stdin.Stat()
+			if (stat.Mode() & os.ModeCharDevice) == 0 {
+				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
+				if err != nil {
+					return fmt.Errorf("reading stdin: %w", err)
+				}
+				normalized, err = normalizeInputToJSON(raw)
+				if err != nil {
+					return err
+				}
+			}
+			if len(normalized) > 0 {
+				body = bytes.NewReader(normalized)
+			}
+			resp, err := ctx.Client.Do(reqCtx, "POST", path, body)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up mobile-device by name")
+	cmd.Flags().StringVar(&flagSerial, "serial", "", "Look up mobile device by serial number")
+	cmd.Flags().StringVar(&flagUdid, "udid", "", "Look up mobile device by UDID")
+
+	return cmd
+}
+
 func newMobileDevicesPatchCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagScaffold bool
@@ -475,6 +664,814 @@ func newMobileDevicesPatchCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up mobile-device by name")
 	cmd.Flags().StringVar(&flagSerial, "serial", "", "Look up mobile device by serial number")
 	cmd.Flags().StringVar(&flagUdid, "udid", "", "Look up mobile device by UDID")
+
+	return cmd
+}
+
+func newMobileDevicesDetailByIdCmd(ctx *registry.CLIContext) *cobra.Command {
+	var (
+		flagName   string
+		flagSerial string
+		flagUdid   string
+	)
+
+	cmd := &cobra.Command{
+		Use:         "detail-by-id [<id>]",
+		Short:       "Get Mobile Device",
+		Long:        "Get MobileDevice",
+		Annotations: map[string]string{"jamf:privileges": "Read Mobile Devices", "jamf:api": "pro", "jamf:gateway-privileges": "devices:read"},
+		Args:        cobra.MaximumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			// Resolve resource ID from positional arg, --name, or lookup flags
+			var resolvedID string
+
+			if flagSerial != "" {
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/mobile-devices/detail", "serialNumber", "mobileDeviceId", flagSerial, noInput)
+				if err != nil {
+					return fmt.Errorf("looking up --serial %q: %w", flagSerial, err)
+				}
+				resolvedID = rid
+			} else if flagUdid != "" {
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/mobile-devices/detail", "udid", "mobileDeviceId", flagUdid, noInput)
+				if err != nil {
+					return fmt.Errorf("looking up --udid %q: %w", flagUdid, err)
+				}
+				resolvedID = rid
+			} else if flagName != "" {
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/mobile-devices/detail", "displayName", "mobileDeviceId", flagName, noInput)
+				if err != nil {
+					return err
+				}
+				resolvedID = rid
+			} else if len(args) > 0 {
+				resolvedID = args[0]
+			} else {
+				return fmt.Errorf("provide an <id> argument, --name, --serial, --udid")
+			}
+
+			// Build request path
+			path := "/v2/mobile-devices/{id}/detail"
+			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up mobile-device by name")
+	cmd.Flags().StringVar(&flagSerial, "serial", "", "Look up mobile device by serial number")
+	cmd.Flags().StringVar(&flagUdid, "udid", "", "Look up mobile device by UDID")
+
+	return cmd
+}
+
+func newMobileDevicesEraseCmd(ctx *registry.CLIContext) *cobra.Command {
+	var (
+		flagYes      bool
+		flagDryRun   bool
+		fromFile     string
+		flagScaffold bool
+		flagName     string
+		flagSerial   string
+		flagUdid     string
+	)
+
+	cmd := &cobra.Command{
+		Use:         "erase [<id>]",
+		Short:       "Erase a Mobile Device",
+		Long:        "Erase a Mobile Device",
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Send Mobile Device Remote Wipe Command", "jamf:api": "pro", "jamf:gateway-privileges": "destructive-device-actions:execute"},
+		Args:        cobra.MaximumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			if flagScaffold {
+				return printScaffoldOutput(`{
+  "clearActivationLock": true,
+  "disallowProximitySetup": true,
+  "preserveDataPlan": true,
+  "returnToService": true
+}`, ctx.Output.Format())
+			}
+
+			// --from-file: bulk delete from a file of IDs or names
+			if fromFile != "" {
+				entries, err := readDeleteFile(fromFile)
+				if err != nil {
+					return fmt.Errorf("reading --from-file: %w", err)
+				}
+				if len(entries) == 0 {
+					return fmt.Errorf("--from-file %q: no entries found", fromFile)
+				}
+				type bulkEntry struct{ id, label string }
+				bulk := make([]bulkEntry, 0, len(entries))
+				noInputBulk, _ := cmd.Flags().GetBool("no-input")
+				for _, entry := range entries {
+					if isNumericID(entry) {
+						if entry == "0" {
+							return fmt.Errorf("--from-file: ID 0 is not valid (Jamf Pro uses 0 as a sentinel value)")
+						}
+						bulk = append(bulk, bulkEntry{id: entry, label: entry})
+					} else {
+						var rid string
+						if rid == "" {
+							id, lookupErr := resolveNameToIDForApply(reqCtx, ctx.Client, "/v2/mobile-devices/detail", "serialNumber", "mobileDeviceId", entry, noInputBulk)
+							if lookupErr != nil {
+								return fmt.Errorf("resolving %q via serial: %w", entry, lookupErr)
+							}
+							rid = id
+						}
+						if rid == "" {
+							id, lookupErr := resolveNameToIDForApply(reqCtx, ctx.Client, "/v2/mobile-devices/detail", "udid", "mobileDeviceId", entry, noInputBulk)
+							if lookupErr != nil {
+								return fmt.Errorf("resolving %q via udid: %w", entry, lookupErr)
+							}
+							rid = id
+						}
+						if rid == "" {
+							id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v2/mobile-devices/detail", "displayName", "mobileDeviceId", entry, noInputBulk)
+							if err != nil {
+								return fmt.Errorf("resolving %q: %w", entry, err)
+							}
+							rid = id
+						}
+						if rid == "" {
+							return fmt.Errorf("no mobile-device found matching %q", entry)
+						}
+						bulk = append(bulk, bulkEntry{id: rid, label: entry})
+					}
+				}
+				// Deduplicate resolved IDs to avoid double-delete errors.
+				{
+					seen := make(map[string]bool, len(bulk))
+					deduped := bulk[:0]
+					for _, e := range bulk {
+						if !seen[e.id] {
+							seen[e.id] = true
+							deduped = append(deduped, e)
+						}
+					}
+					bulk = deduped
+				}
+				if flagDryRun {
+					for _, e := range bulk {
+						fmt.Fprintf(os.Stderr, "[dry-run] Would delete mobile-device %q (id: %s)\n", e.label, e.id)
+					}
+					return nil
+				}
+				if !flagYes {
+					if noInputBulk {
+						return fmt.Errorf("destructive operation requires --yes when --no-input is set")
+					}
+					fmt.Fprintf(os.Stderr, "⚠️  This will delete %d mobile-devices. Type 'yes' to confirm: ", len(bulk))
+					var confirm string
+					fmt.Scanln(&confirm)
+					if confirm != "yes" {
+						return fmt.Errorf("aborted")
+					}
+				}
+				if err := cooldown.Enforce(ctx.ProfileName, noInputBulk, ctx.DestructiveCooldown); err != nil {
+					return err
+				}
+				var okCount, failCount int
+				var firstErr error
+				for _, e := range bulk {
+					delPath := strings.Replace("/v2/mobile-devices/{id}/erase", "{id}", url.PathEscape(e.id), 1)
+					resp, err := ctx.Client.Do(reqCtx, "DELETE", delPath, nil)
+					if err != nil {
+						fmt.Fprintf(os.Stderr, "delete mobile-device %q (id: %s) failed: %v\n", e.label, e.id, err)
+						if firstErr == nil {
+							firstErr = err
+						}
+						failCount++
+						continue
+					}
+					resp.Body.Close()
+					if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+						fmt.Fprintf(os.Stderr, "delete mobile-device %q (id: %s) failed: HTTP %d\n", e.label, e.id, resp.StatusCode)
+						if firstErr == nil {
+							firstErr = fmt.Errorf("HTTP %d", resp.StatusCode)
+						}
+						failCount++
+						continue
+					}
+					fmt.Fprintf(os.Stderr, "Deleted mobile-device %q (id: %s)\n", e.label, e.id)
+					okCount++
+				}
+				cooldown.Record(ctx.ProfileName)
+				return batchDeleteError(cmd, okCount, failCount, firstErr, "mobile-devices deletes")
+			}
+
+			// Resolve resource ID from positional arg, --name, or lookup flags
+			var resolvedID string
+			var resolvedByName string
+
+			if flagSerial != "" {
+				noInputLookup, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v2/mobile-devices/detail", "serialNumber", "mobileDeviceId", flagSerial, noInputLookup)
+				if err != nil {
+					return fmt.Errorf("looking up --serial %q: %w", flagSerial, err)
+				}
+				if rid == "" {
+					return fmt.Errorf("no mobile-device found with --serial %q", flagSerial)
+				}
+				resolvedID = rid
+				resolvedByName = flagSerial
+			} else if flagUdid != "" {
+				noInputLookup, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v2/mobile-devices/detail", "udid", "mobileDeviceId", flagUdid, noInputLookup)
+				if err != nil {
+					return fmt.Errorf("looking up --udid %q: %w", flagUdid, err)
+				}
+				if rid == "" {
+					return fmt.Errorf("no mobile-device found with --udid %q", flagUdid)
+				}
+				resolvedID = rid
+				resolvedByName = flagUdid
+			} else if flagName != "" {
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v2/mobile-devices/detail", "displayName", "mobileDeviceId", flagName, noInput)
+				if err != nil {
+					return err
+				}
+				if rid == "" {
+					return fmt.Errorf("no mobile-device found with displayName %q", flagName)
+				}
+				resolvedID = rid
+				resolvedByName = flagName
+			} else if len(args) > 0 {
+				resolvedID = args[0]
+			} else {
+				return fmt.Errorf("provide an <id> argument, --name, --serial, --udid")
+			}
+
+			// Confirmation for destructive action (after name lookup)
+			if flagDryRun {
+				if resolvedByName != "" {
+					fmt.Fprintf(os.Stderr, "[dry-run] Would erase mobile-device %q (id: %s)\n", resolvedByName, resolvedID)
+				} else {
+					fmt.Fprintf(os.Stderr, "[dry-run] Would erase mobile-device %s\n", resolvedID)
+				}
+				return nil
+			}
+			if !flagYes {
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				if noInput {
+					return fmt.Errorf("destructive operation requires --yes when --no-input is set")
+				}
+				if resolvedByName != "" {
+					fmt.Fprintf(os.Stderr, "⚠️  This will erase mobile-device %q (id: %s). Type 'yes' to confirm: ", resolvedByName, resolvedID)
+				} else {
+					fmt.Fprintf(os.Stderr, "⚠️  This will erase mobile-device %s. Type 'yes' to confirm: ", resolvedID)
+				}
+				var confirm string
+				fmt.Scanln(&confirm)
+				if confirm != "yes" {
+					return fmt.Errorf("aborted")
+				}
+			}
+
+			// Destructive cooldown enforcement
+			noInputCooldown, _ := cmd.Flags().GetBool("no-input")
+			if err := cooldown.Enforce(ctx.ProfileName, noInputCooldown, ctx.DestructiveCooldown); err != nil {
+				return err
+			}
+
+			// Build request path
+			path := "/v2/mobile-devices/{id}/erase"
+			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			// Read body from stdin if available
+			var body io.Reader
+			var normalized []byte
+			stat, _ := os.Stdin.Stat()
+			if (stat.Mode() & os.ModeCharDevice) == 0 {
+				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
+				if err != nil {
+					return fmt.Errorf("reading stdin: %w", err)
+				}
+				normalized, err = normalizeInputToJSON(raw)
+				if err != nil {
+					return err
+				}
+			}
+			if len(normalized) > 0 {
+				body = bytes.NewReader(normalized)
+			}
+			resp, err := ctx.Client.Do(reqCtx, "POST", path, body)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			err = ctx.Output.PrintResponse(resp)
+			if err == nil && resp.StatusCode >= 200 && resp.StatusCode < 300 {
+				cooldown.Record(ctx.ProfileName)
+			}
+			return err
+		},
+	}
+
+	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt")
+	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
+	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to file listing IDs or names to delete (one per line, # comments ignored)")
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up mobile-device by name")
+	cmd.Flags().StringVar(&flagSerial, "serial", "", "Look up mobile device by serial number")
+	cmd.Flags().StringVar(&flagUdid, "udid", "", "Look up mobile device by UDID")
+
+	cmd.MarkFlagsMutuallyExclusive("from-file", "name")
+	cmd.MarkFlagsMutuallyExclusive("from-file", "serial")
+	cmd.MarkFlagsMutuallyExclusive("from-file", "udid")
+
+	return cmd
+}
+
+func newMobileDevicesPairedDevicesCmd(ctx *registry.CLIContext) *cobra.Command {
+	var (
+		flagSection  []string
+		flagPage     int
+		flagPageSize int
+		flagSort     []string
+		flagFilter   string
+		flagAll      bool
+		flagLimit    int
+		flagName     string
+		flagSerial   string
+		flagUdid     string
+	)
+
+	cmd := &cobra.Command{
+		Use:         "paired-devices [<id>]",
+		Short:       "Return paginated Mobile Device Inventory records of all paired devices for the device",
+		Long:        "Return paginated Mobile Device Inventory records of all paired devices for the device",
+		Annotations: map[string]string{"jamf:privileges": "Read Mobile Devices", "jamf:api": "pro", "jamf:gateway-privileges": "devices:read"},
+		Args:        cobra.MaximumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			// Resolve resource ID from positional arg, --name, or lookup flags
+			var resolvedID string
+
+			if flagSerial != "" {
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/mobile-devices/detail", "serialNumber", "mobileDeviceId", flagSerial, noInput)
+				if err != nil {
+					return fmt.Errorf("looking up --serial %q: %w", flagSerial, err)
+				}
+				resolvedID = rid
+			} else if flagUdid != "" {
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/mobile-devices/detail", "udid", "mobileDeviceId", flagUdid, noInput)
+				if err != nil {
+					return fmt.Errorf("looking up --udid %q: %w", flagUdid, err)
+				}
+				resolvedID = rid
+			} else if flagName != "" {
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/mobile-devices/detail", "displayName", "mobileDeviceId", flagName, noInput)
+				if err != nil {
+					return err
+				}
+				resolvedID = rid
+			} else if len(args) > 0 {
+				resolvedID = args[0]
+			} else {
+				return fmt.Errorf("provide an <id> argument, --name, --serial, --udid")
+			}
+
+			// Build request path
+			path := "/v2/mobile-devices/{id}/paired-devices"
+			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
+
+			// Build query string
+			var queryParts []string
+			if len(flagSection) > 0 {
+				for _, v := range flagSection {
+					queryParts = append(queryParts, "section="+url.QueryEscape(fmt.Sprintf("%v", v)))
+				}
+			}
+			if flagPage != 0 {
+				queryParts = append(queryParts, fmt.Sprintf("page=%d", flagPage))
+			}
+			if flagPageSize != 0 {
+				queryParts = append(queryParts, fmt.Sprintf("page-size=%d", flagPageSize))
+			}
+			if len(flagSort) > 0 {
+				for _, v := range flagSort {
+					queryParts = append(queryParts, "sort="+url.QueryEscape(fmt.Sprintf("%v", v)))
+				}
+			}
+			if flagFilter != "" {
+				queryParts = append(queryParts, "filter="+url.QueryEscape(flagFilter))
+			}
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Auto-pagination: fetch all pages when --all is set and --page was not manually specified
+			if flagAll && flagPage == 0 {
+				// Initialised empty, not nil — a nil slice marshals to "null", so
+				// "list --all" on an empty collection used to answer "null" where
+				// the single-page path answers "[]".
+				allResults := []json.RawMessage{}
+				prog := ctx.Output.PaginationProgress()
+				defer prog.Stop()
+				reqCtx = spinner.WithSuppressed(reqCtx)
+				pageNum := 0
+				pageSize := 100
+
+				for {
+					// Build page-specific query
+					pagePath := "/v2/mobile-devices/{id}/paired-devices"
+					pagePath = strings.Replace(pagePath, "{id}", url.PathEscape(resolvedID), 1)
+					var pageQuery []string
+					// Carry forward non-pagination query params
+					for _, qp := range queryParts {
+						if !strings.HasPrefix(qp, "page=") && !strings.HasPrefix(qp, "page-size=") && !strings.HasPrefix(qp, "pagesize=") {
+							pageQuery = append(pageQuery, qp)
+						}
+					}
+					pageQuery = append(pageQuery, fmt.Sprintf("page=%d", pageNum))
+					pageQuery = append(pageQuery, fmt.Sprintf("page-size=%d", pageSize))
+					pagePath = pagePath + "?" + strings.Join(pageQuery, "&")
+
+					resp, err := ctx.Client.Do(reqCtx, "GET", pagePath, nil)
+					if err != nil {
+						return err
+					}
+
+					body, err := io.ReadAll(resp.Body)
+					resp.Body.Close()
+					if err != nil {
+						return err
+					}
+
+					// Parse pagination response: {"totalCount": N, "results": [...]}
+					var pageResp struct {
+						TotalCount int               `json:"totalCount"`
+						Results    []json.RawMessage `json:"results"`
+					}
+					if err := json.Unmarshal(body, &pageResp); err != nil {
+						// Not a paginated response; output as-is
+						return ctx.Output.PrintRaw(body)
+					}
+
+					allResults = append(allResults, pageResp.Results...)
+					prog.Update(len(allResults), pageResp.TotalCount)
+
+					// Check limit
+					if flagLimit > 0 && len(allResults) >= flagLimit {
+						allResults = allResults[:flagLimit]
+						break
+					}
+
+					// Check if we've fetched everything
+					if len(pageResp.Results) < pageSize || len(allResults) >= pageResp.TotalCount {
+						break
+					}
+
+					pageNum++
+				}
+
+				prog.Stop()
+
+				// Output combined results as JSON array
+				combined, err := json.MarshalIndent(allResults, "", "  ")
+				if err != nil {
+					return err
+				}
+				combined = selectTableColumns(combined, []tableColumn{
+					{field: "mobileDeviceId", label: "id"},
+					{field: "general.displayName", label: "name"},
+					{field: "hardware.serialNumber", label: "serial"},
+					{field: "hardware.model", label: "model"},
+					{field: "general.osVersion", label: "osVersion"},
+					{field: "general.lastInventoryUpdateDate", label: "lastInventoryUpdate"},
+				}, ctx.Output.Format())
+				return ctx.Output.PrintRaw(combined)
+			}
+
+			// Make request
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			if ctx.Output.Format() == "ndjson" {
+				ndjsonBody, ndjsonErr := io.ReadAll(resp.Body)
+				if ndjsonErr != nil {
+					return ndjsonErr
+				}
+				var ndjsonWrap struct {
+					Results []json.RawMessage `json:"results"`
+				}
+				if err := json.Unmarshal(ndjsonBody, &ndjsonWrap); err == nil && ndjsonWrap.Results != nil {
+					arr, marshalErr := json.Marshal(ndjsonWrap.Results)
+					if marshalErr != nil {
+						return marshalErr
+					}
+					return ctx.Output.PrintRaw(arr)
+				}
+				return ctx.Output.PrintRaw(ndjsonBody)
+			}
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	cmd.Flags().StringSliceVar(&flagSection, "section", nil, "section of mobile device details, if not specified, Paired Devices section data is returned. Multiple section parameters are supported, e.g. section=GENERAL&section=HARDWARE")
+	cmd.Flags().IntVar(&flagPage, "page", 0, "")
+	cmd.Flags().IntVar(&flagPageSize, "page-size", 100, "")
+	cmd.Flags().StringSliceVar(&flagSort, "sort", nil, "Sorting criteria in the format: property:asc/desc. Default sort is displayName:asc. Multiple sort criteria are supported and must be separated with a comma.  Fields allowed in the sort: 'airPlayPassword', 'appAnalyticsEnabled', 'assetTag', 'availableSpaceMb', 'batteryLevel', 'bluetoothLowEnergyCapable', 'bluetoothMacAddress', 'capacityMb', 'lostModeEnabledDate', 'declarativeDeviceManagementEnabled', 'deviceId', 'deviceLocatorServiceEnabled', 'devicePhoneNumber', 'diagnosticAndUsageReportingEnabled', 'displayName', 'doNotDisturbEnabled', 'enrollmentSessionTokenValid', 'osBuild', 'osSupplementalBuildVersion', 'osVersion', 'osRapidSecurityResponse', 'ipAddress', 'itunesStoreAccountActive', 'mobileDeviceId', 'languages', 'lastContactDate', 'lastEnrolledDate', 'lastCloudBackupDate', 'lastInventoryUpdateDate', 'locales', 'lostModeEnabled', 'managed', 'mdmProfileExpirationDate', 'model', 'modelIdentifier', 'modelNumber', 'modemFirmwareVersion', 'preferredVoiceNumber', 'serialNumber', 'supervised', 'timeZone', 'udid', 'usedSpacePercentage', 'wifiMacAddress', 'deviceOwnershipType', 'building', 'department', 'emailAddress', 'fullName', 'userPhoneNumber', 'position', 'room', 'username', 'appleCareId', 'leaseExpirationDate','lifeExpectancyYears', 'poDate', 'poNumber', 'purchasePrice', 'purchasedOrLeased', 'purchasingAccount', 'purchasingContact', 'vendor', 'warrantyExpirationDate', 'activationLockEnabled', 'blockEncryptionCapable', 'dataProtection', 'fileEncryptionCapable', 'hardwareEncryptionSupported', 'jailbreakStatus', 'passcodeCompliant', 'passcodeCompliantWithProfile', 'passcodeLockGracePeriodEnforcedSeconds', 'passcodePresent', 'carrierSettingsVersion', 'cellularTechnology', 'currentCarrierNetwork', 'currentMobileCountryCode', 'currentMobileNetworkCode', 'dataRoamingEnabled', 'eid', 'network', 'homeMobileCountryCode', 'homeMobileNetworkCode', 'iccid', 'imei', 'imei2', 'meid', 'personalHotspotEnabled', 'voiceRoamingEnabled', 'roaming', 'lastLoggedInUsernameSelfService', 'lastLoggedInUsernameSelfServiceTimestamp', 'lastLoggedInUsernameMdm', 'lastLoggedInUsernameMdmTimestamp'  Example: 'sort=displayName:desc,username:asc' ")
+	cmd.Flags().StringVar(&flagFilter, "filter", "", "Query in the RSQL format, allowing to filter mobile device collection. Default filter is empty query - returning all results for the requested page.  Fields allowed in the query: 'airPlayPassword', 'appAnalyticsEnabled', 'assetTag', 'availableSpaceMb', 'batteryLevel', 'bluetoothLowEnergyCapable', 'bluetoothMacAddress', 'capacityMb', 'declarativeDeviceManagementEnabled', 'deviceId', 'deviceLocatorServiceEnabled', 'devicePhoneNumber', 'diagnosticAndUsageReportingEnabled', 'displayName', 'doNotDisturbEnabled', 'osBuild', 'osSupplementalBuildVersion', 'osVersion', 'osRapidSecurityResponse', 'ipAddress', 'itunesStoreAccountActive', 'mobileDeviceId', 'languages', 'lastContactDate', 'lastInventoryUpdateDate', 'locales', 'lostModeEnabled', 'managed', 'model', 'modelIdentifier', 'modelNumber', 'modemFirmwareVersion', 'preferredVoiceNumber', 'serialNumber', 'supervised', 'timeZone', 'udid', 'usedSpacePercentage', 'wifiMacAddress', 'building', 'department', 'emailAddress', 'fullName', 'userPhoneNumber', 'position', 'room', 'username', 'appleCareId', 'lifeExpectancyYears', 'poNumber', 'purchasePrice', 'purchasedOrLeased', 'purchasingAccount', 'purchasingContact', 'vendor', 'activationLockEnabled', 'blockEncryptionCapable', 'dataProtection', 'fileEncryptionCapable', 'passcodeCompliant', 'passcodeCompliantWithProfile', 'passcodeLockGracePeriodEnforcedSeconds', 'passcodePresent', 'carrierSettingsVersion', 'currentCarrierNetwork', 'currentMobileCountryCode', 'currentMobileNetworkCode', 'dataRoamingEnabled', 'eid', 'network', 'homeMobileCountryCode', 'homeMobileNetworkCode', 'iccid', 'imei', 'imei2', 'meid', 'personalHotspotEnabled', 'roaming', 'lastLoggedInUsernameSelfService', 'lastLoggedInUsernameSelfServiceTimestamp', 'lastLoggedInUsernameMdm', 'lastLoggedInUsernameMdmTimestamp', 'groupId', 'groupName'  This param can be combined with paging and sorting. Example: 'filter=displayName==\"iPad\"' ")
+	cmd.Flags().BoolVar(&flagAll, "all", true, "Fetch all pages (set --all=false for single page)")
+	cmd.Flags().IntVar(&flagLimit, "limit", 0, "Maximum total results to return (0 = unlimited)")
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up mobile-device by name")
+	cmd.Flags().StringVar(&flagSerial, "serial", "", "Look up mobile device by serial number")
+	cmd.Flags().StringVar(&flagUdid, "udid", "", "Look up mobile device by UDID")
+
+	return cmd
+}
+
+func newMobileDevicesUnmanageCmd(ctx *registry.CLIContext) *cobra.Command {
+	var (
+		flagYes    bool
+		flagDryRun bool
+		fromFile   string
+		flagName   string
+		flagSerial string
+		flagUdid   string
+	)
+
+	cmd := &cobra.Command{
+		Use:         "unmanage [<id>]",
+		Short:       "Unmanage a Mobile Device",
+		Long:        "Unmanage a Mobile Device",
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Unmanage Mobile Devices", "jamf:api": "pro", "jamf:gateway-privileges": "destructive-device-actions:execute"},
+		Args:        cobra.MaximumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			// --from-file: bulk delete from a file of IDs or names
+			if fromFile != "" {
+				entries, err := readDeleteFile(fromFile)
+				if err != nil {
+					return fmt.Errorf("reading --from-file: %w", err)
+				}
+				if len(entries) == 0 {
+					return fmt.Errorf("--from-file %q: no entries found", fromFile)
+				}
+				type bulkEntry struct{ id, label string }
+				bulk := make([]bulkEntry, 0, len(entries))
+				noInputBulk, _ := cmd.Flags().GetBool("no-input")
+				for _, entry := range entries {
+					if isNumericID(entry) {
+						if entry == "0" {
+							return fmt.Errorf("--from-file: ID 0 is not valid (Jamf Pro uses 0 as a sentinel value)")
+						}
+						bulk = append(bulk, bulkEntry{id: entry, label: entry})
+					} else {
+						var rid string
+						if rid == "" {
+							id, lookupErr := resolveNameToIDForApply(reqCtx, ctx.Client, "/v2/mobile-devices/detail", "serialNumber", "mobileDeviceId", entry, noInputBulk)
+							if lookupErr != nil {
+								return fmt.Errorf("resolving %q via serial: %w", entry, lookupErr)
+							}
+							rid = id
+						}
+						if rid == "" {
+							id, lookupErr := resolveNameToIDForApply(reqCtx, ctx.Client, "/v2/mobile-devices/detail", "udid", "mobileDeviceId", entry, noInputBulk)
+							if lookupErr != nil {
+								return fmt.Errorf("resolving %q via udid: %w", entry, lookupErr)
+							}
+							rid = id
+						}
+						if rid == "" {
+							id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v2/mobile-devices/detail", "displayName", "mobileDeviceId", entry, noInputBulk)
+							if err != nil {
+								return fmt.Errorf("resolving %q: %w", entry, err)
+							}
+							rid = id
+						}
+						if rid == "" {
+							return fmt.Errorf("no mobile-device found matching %q", entry)
+						}
+						bulk = append(bulk, bulkEntry{id: rid, label: entry})
+					}
+				}
+				// Deduplicate resolved IDs to avoid double-delete errors.
+				{
+					seen := make(map[string]bool, len(bulk))
+					deduped := bulk[:0]
+					for _, e := range bulk {
+						if !seen[e.id] {
+							seen[e.id] = true
+							deduped = append(deduped, e)
+						}
+					}
+					bulk = deduped
+				}
+				if flagDryRun {
+					for _, e := range bulk {
+						fmt.Fprintf(os.Stderr, "[dry-run] Would delete mobile-device %q (id: %s)\n", e.label, e.id)
+					}
+					return nil
+				}
+				if !flagYes {
+					if noInputBulk {
+						return fmt.Errorf("destructive operation requires --yes when --no-input is set")
+					}
+					fmt.Fprintf(os.Stderr, "⚠️  This will delete %d mobile-devices. Type 'yes' to confirm: ", len(bulk))
+					var confirm string
+					fmt.Scanln(&confirm)
+					if confirm != "yes" {
+						return fmt.Errorf("aborted")
+					}
+				}
+				if err := cooldown.Enforce(ctx.ProfileName, noInputBulk, ctx.DestructiveCooldown); err != nil {
+					return err
+				}
+				var okCount, failCount int
+				var firstErr error
+				for _, e := range bulk {
+					delPath := strings.Replace("/v2/mobile-devices/{id}/unmanage", "{id}", url.PathEscape(e.id), 1)
+					resp, err := ctx.Client.Do(reqCtx, "DELETE", delPath, nil)
+					if err != nil {
+						fmt.Fprintf(os.Stderr, "delete mobile-device %q (id: %s) failed: %v\n", e.label, e.id, err)
+						if firstErr == nil {
+							firstErr = err
+						}
+						failCount++
+						continue
+					}
+					resp.Body.Close()
+					if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+						fmt.Fprintf(os.Stderr, "delete mobile-device %q (id: %s) failed: HTTP %d\n", e.label, e.id, resp.StatusCode)
+						if firstErr == nil {
+							firstErr = fmt.Errorf("HTTP %d", resp.StatusCode)
+						}
+						failCount++
+						continue
+					}
+					fmt.Fprintf(os.Stderr, "Deleted mobile-device %q (id: %s)\n", e.label, e.id)
+					okCount++
+				}
+				cooldown.Record(ctx.ProfileName)
+				return batchDeleteError(cmd, okCount, failCount, firstErr, "mobile-devices deletes")
+			}
+
+			// Resolve resource ID from positional arg, --name, or lookup flags
+			var resolvedID string
+			var resolvedByName string
+
+			if flagSerial != "" {
+				noInputLookup, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v2/mobile-devices/detail", "serialNumber", "mobileDeviceId", flagSerial, noInputLookup)
+				if err != nil {
+					return fmt.Errorf("looking up --serial %q: %w", flagSerial, err)
+				}
+				if rid == "" {
+					return fmt.Errorf("no mobile-device found with --serial %q", flagSerial)
+				}
+				resolvedID = rid
+				resolvedByName = flagSerial
+			} else if flagUdid != "" {
+				noInputLookup, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v2/mobile-devices/detail", "udid", "mobileDeviceId", flagUdid, noInputLookup)
+				if err != nil {
+					return fmt.Errorf("looking up --udid %q: %w", flagUdid, err)
+				}
+				if rid == "" {
+					return fmt.Errorf("no mobile-device found with --udid %q", flagUdid)
+				}
+				resolvedID = rid
+				resolvedByName = flagUdid
+			} else if flagName != "" {
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v2/mobile-devices/detail", "displayName", "mobileDeviceId", flagName, noInput)
+				if err != nil {
+					return err
+				}
+				if rid == "" {
+					return fmt.Errorf("no mobile-device found with displayName %q", flagName)
+				}
+				resolvedID = rid
+				resolvedByName = flagName
+			} else if len(args) > 0 {
+				resolvedID = args[0]
+			} else {
+				return fmt.Errorf("provide an <id> argument, --name, --serial, --udid")
+			}
+
+			// Confirmation for destructive action (after name lookup)
+			if flagDryRun {
+				if resolvedByName != "" {
+					fmt.Fprintf(os.Stderr, "[dry-run] Would unmanage mobile-device %q (id: %s)\n", resolvedByName, resolvedID)
+				} else {
+					fmt.Fprintf(os.Stderr, "[dry-run] Would unmanage mobile-device %s\n", resolvedID)
+				}
+				return nil
+			}
+			if !flagYes {
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				if noInput {
+					return fmt.Errorf("destructive operation requires --yes when --no-input is set")
+				}
+				if resolvedByName != "" {
+					fmt.Fprintf(os.Stderr, "⚠️  This will unmanage mobile-device %q (id: %s). Type 'yes' to confirm: ", resolvedByName, resolvedID)
+				} else {
+					fmt.Fprintf(os.Stderr, "⚠️  This will unmanage mobile-device %s. Type 'yes' to confirm: ", resolvedID)
+				}
+				var confirm string
+				fmt.Scanln(&confirm)
+				if confirm != "yes" {
+					return fmt.Errorf("aborted")
+				}
+			}
+
+			// Destructive cooldown enforcement
+			noInputCooldown, _ := cmd.Flags().GetBool("no-input")
+			if err := cooldown.Enforce(ctx.ProfileName, noInputCooldown, ctx.DestructiveCooldown); err != nil {
+				return err
+			}
+
+			// Build request path
+			path := "/v2/mobile-devices/{id}/unmanage"
+			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			// Read body from stdin if available
+			var body io.Reader
+			var normalized []byte
+			stat, _ := os.Stdin.Stat()
+			if (stat.Mode() & os.ModeCharDevice) == 0 {
+				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
+				if err != nil {
+					return fmt.Errorf("reading stdin: %w", err)
+				}
+				normalized, err = normalizeInputToJSON(raw)
+				if err != nil {
+					return err
+				}
+			}
+			if len(normalized) > 0 {
+				body = bytes.NewReader(normalized)
+			}
+			resp, err := ctx.Client.Do(reqCtx, "POST", path, body)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			err = ctx.Output.PrintResponse(resp)
+			if err == nil && resp.StatusCode >= 200 && resp.StatusCode < 300 {
+				cooldown.Record(ctx.ProfileName)
+			}
+			return err
+		},
+	}
+
+	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt")
+	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
+	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to file listing IDs or names to delete (one per line, # comments ignored)")
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up mobile-device by name")
+	cmd.Flags().StringVar(&flagSerial, "serial", "", "Look up mobile device by serial number")
+	cmd.Flags().StringVar(&flagUdid, "udid", "", "Look up mobile device by UDID")
+
+	cmd.MarkFlagsMutuallyExclusive("from-file", "name")
+	cmd.MarkFlagsMutuallyExclusive("from-file", "serial")
+	cmd.MarkFlagsMutuallyExclusive("from-file", "udid")
 
 	return cmd
 }

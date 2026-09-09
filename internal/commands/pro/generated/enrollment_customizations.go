@@ -12,7 +12,6 @@ import (
 	"os"
 	"strings"
 
-	"github.com/Jamf-Concepts/jamf-cli/internal/client"
 	"github.com/Jamf-Concepts/jamf-cli/internal/cooldown"
 	"github.com/Jamf-Concepts/jamf-cli/internal/registry"
 	"github.com/Jamf-Concepts/jamf-cli/internal/spinner"
@@ -35,8 +34,12 @@ func NewEnrollmentCustomizationsCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(newEnrollmentCustomizationsDeleteCmd(ctx))
 	cmd.AddCommand(newEnrollmentCustomizationsHistoryCmd(ctx))
 	cmd.AddCommand(newEnrollmentCustomizationsAddHistoryNoteCmd(ctx))
-	cmd.AddCommand(newEnrollmentCustomizationsUploadCmd(ctx))
-	cmd.AddCommand(newEnrollmentCustomizationsDownloadCmd(ctx))
+	cmd.AddCommand(newEnrollmentCustomizationsParseMarkdownCmd(ctx))
+	cmd.AddCommand(newEnrollmentCustomizationsLdapCmd(ctx))
+	cmd.AddCommand(newEnrollmentCustomizationsSsoCmd(ctx))
+	cmd.AddCommand(newEnrollmentCustomizationsTextCmd(ctx))
+	cmd.AddCommand(newEnrollmentCustomizationsMarkdownCmd(ctx))
+	cmd.AddCommand(newEnrollmentCustomizationsAllCmd(ctx))
 	cmd.AddCommand(newEnrollmentCustomizationsPrestagesCmd(ctx))
 	cmd.AddCommand(newEnrollmentCustomizationsApplyCmd(ctx))
 
@@ -261,41 +264,62 @@ func newEnrollmentCustomizationsGetCmd(ctx *registry.CLIContext) *cobra.Command 
 func newEnrollmentCustomizationsCreateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagScaffold bool
+		flagName     string
 	)
 
 	cmd := &cobra.Command{
-		Use:   "create",
-		Short: "Create an Enrollment Customization",
-		Long:  "Create an enrollment customization",
+		Use:   "create [<id>]",
+		Short: "Create an LDAP Panel for a single Enrollment Customization",
+		Long:  "Create an LDAP panel for a single enrollment customization. If multiple LDAP access groups are defined with the same name and id, only one will be saved.",
 		Example: `  # Show the JSON template for creating a enrollment-customization
   jamf-cli pro enrollment-customizations create --scaffold
 
   # Create a enrollment-customization from JSON
-  echo '{"name":"Example"}' | jamf-cli pro enrollment-customizations create
+  echo '{"name":"Example"}' | jamf-cli pro enrollment-customizations create 1
 
   # Get a enrollment-customization, modify it, and create a copy
-  jamf-cli pro enrollment-customizations get 1 -o json | jq '.name = "Copy"' | jamf-cli pro enrollment-customizations create`,
-		Annotations: map[string]string{"jamf:privileges": "Create Enrollment Customizations", "jamf:api": "pro", "jamf:gateway-privileges": "enrollment-customization:create"},
+  jamf-cli pro enrollment-customizations get 1 -o json | jq '.name = "Copy"' | jamf-cli pro enrollment-customizations create 1`,
+		Annotations: map[string]string{"jamf:privileges": "Update Enrollment Customizations", "jamf:api": "pro", "jamf:gateway-privileges": "enrollment-customization:update"},
+		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
 				return printScaffoldOutput(`{
-  "description": "Example description",
-  "displayName": "Example",
-  "enrollmentCustomizationBrandingSettings": {
-    "backgroundColor": "0000FF",
-    "buttonColor": "0000FF",
-    "buttonTextColor": "0000FF",
-    "iconUrl": "https://jamfUrl/api/v2/enrollment-customizations/images/1",
-    "textColor": "0000FF"
-  },
-  "siteId": "2"
+  "backButtonText": "Back",
+  "continueButtonText": "Continue",
+  "displayName": "A Panel",
+  "ldapGroupAccess": [
+    {
+      "groupName": "admins",
+      "ldapServerId": 1
+    }
+  ],
+  "passwordLabel": "Password",
+  "rank": 0,
+  "title": "My Ldap Panel",
+  "usernameLabel": "Username"
 }`, ctx.Output.Format())
 			}
 
+			// Resolve resource ID from positional arg, --name, or lookup flags
+			var resolvedID string
+			if flagName != "" {
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/enrollment-customizations", "displayName", "id", flagName, noInput)
+				if err != nil {
+					return err
+				}
+				resolvedID = rid
+			} else if len(args) > 0 {
+				resolvedID = args[0]
+			} else {
+				return fmt.Errorf("provide an <id> argument, --name")
+			}
+
 			// Build request path
-			path := "/v2/enrollment-customizations"
+			path := "/v1/enrollment-customization/{id}/ldap"
+			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
 
 			// Build query string
 			var queryParts []string
@@ -332,70 +356,66 @@ func newEnrollmentCustomizationsCreateCmd(ctx *registry.CLIContext) *cobra.Comma
 	}
 
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up enrollment-customization by name")
+
 	return cmd
 }
 
 func newEnrollmentCustomizationsUpdateCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagScaffold bool
-		flagName     string
-
-		flagSet []string
+		flagSet      []string
 	)
 
 	cmd := &cobra.Command{
-		Use:   "update [<id>]",
-		Short: "Update an Enrollment Customization",
-		Long:  "Updates an Enrollment Customization\n\nIdentify the resource by ID (positional arg), --name.\n\nUse --set KEY=VALUE to update individual fields (repeatable). The current resource is fetched, your changes are merged in, read-only fields are dropped, and the whole record is written back. Omitted fields keep their current values.\n\nAvailable fields:\n  description                                  string\n  displayName                                  string\n  enrollmentCustomizationBrandingSettings.backgroundColor string\n  enrollmentCustomizationBrandingSettings.buttonColor string\n  enrollmentCustomizationBrandingSettings.buttonTextColor string\n  enrollmentCustomizationBrandingSettings.iconUrl string\n  enrollmentCustomizationBrandingSettings.textColor string\n  siteId                                       string\n\nArray and object fields accept a JSON value (e.g. --set field='[\"a\",\"b\"]'):\n  enrollmentCustomizationBrandingSettings      object\n\nWithout --set, pipe a full JSON document to stdin to replace the resource entirely.",
-		Example: `  # Update individual fields (fetch-merge-replace)
-  jamf-cli pro enrollment-customizations update 1 --set field=value
-
-  # Replace a enrollment-customization from JSON
-  echo '{"name":"Updated"}' | jamf-cli pro enrollment-customizations update 1
-
-  # Update by name
-  jamf-cli pro enrollment-customizations get --name "Example" -o json | jq '.field = "value"' | jamf-cli pro enrollment-customizations update --name "Example"
+		Use:   "update <id> <panel-id>",
+		Short: "Update a single LDAP Panel for a single Enrollment Customization",
+		Long:  "Update a single LDAP panel for a single enrollment customization. If multiple LDAP access groups are defined with the same name and id, only one will be saved.\n\nUse --set KEY=VALUE to update individual fields (repeatable). The current resource is fetched, your changes are merged in, read-only fields are dropped, and the whole record is written back. Omitted fields keep their current values.\n\nAvailable fields:\n  backButtonText                               string\n  continueButtonText                           string\n  displayName                                  string\n  passwordLabel                                string\n  rank                                         integer\n  title                                        string\n  usernameLabel                                string\n\nArray and object fields accept a JSON value (e.g. --set field='[\"a\",\"b\"]'):\n  ldapGroupAccess                              array\n\nWithout --set, pipe a full JSON document to stdin to replace the resource entirely.",
+		Example: `  # Update a enrollment-customization from JSON
+  echo '{"name":"Updated"}' | jamf-cli pro enrollment-customizations update 1 2
 
   # Get a enrollment-customization, modify, and update
-  jamf-cli pro enrollment-customizations get 1 -o json | jq '.name = "New Name"' | jamf-cli pro enrollment-customizations update 1`,
+  jamf-cli pro enrollment-customizations get 1 -o json | jq '.name = "New Name"' | jamf-cli pro enrollment-customizations update 1 2`,
 		Annotations: map[string]string{"jamf:privileges": "Update Enrollment Customizations", "jamf:api": "pro", "jamf:gateway-privileges": "enrollment-customization:update"},
-		Args:        cobra.MaximumNArgs(1),
+		Args: func(cmd *cobra.Command, args []string) error {
+			// --scaffold prints a body template and makes no request, so it
+			// needs none of the identifiers the path carries. Cobra validates
+			// Args before RunE, so a bare ExactArgs refuses before the scaffold
+			// return is reached and the flag is unusable on this command
+			// (issue 363). Only the floor moves: the ceiling stays the declared
+			// one, because dropping the validator entirely lets
+			// "patch a b c --scaffold" print the template and discard three
+			// positionals, which is issue 350 reached through a flag.
+			if flagScaffold {
+				return cobra.MaximumNArgs(2)(cmd, args)
+			}
+			return cobra.ExactArgs(2)(cmd, args)
+		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
 			if flagScaffold {
 				return printScaffoldOutput(`{
-  "description": "Example description",
-  "displayName": "Example",
-  "enrollmentCustomizationBrandingSettings": {
-    "backgroundColor": "0000FF",
-    "buttonColor": "0000FF",
-    "buttonTextColor": "0000FF",
-    "iconUrl": "https://jamfUrl/api/v2/enrollment-customizations/images/1",
-    "textColor": "0000FF"
-  },
-  "siteId": "2"
+  "backButtonText": "Back",
+  "continueButtonText": "Continue",
+  "displayName": "A Panel",
+  "ldapGroupAccess": [
+    {
+      "groupName": "admins",
+      "ldapServerId": 1
+    }
+  ],
+  "passwordLabel": "Password",
+  "rank": 0,
+  "title": "My Ldap Panel",
+  "usernameLabel": "Username"
 }`, ctx.Output.Format())
 			}
 
-			// Resolve resource ID from positional arg, --name, or lookup flags
-			var resolvedID string
-			if flagName != "" {
-				noInput, _ := cmd.Flags().GetBool("no-input")
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v2/enrollment-customizations", "displayName", "id", flagName, noInput)
-				if err != nil {
-					return err
-				}
-				resolvedID = rid
-			} else if len(args) > 0 {
-				resolvedID = args[0]
-			} else {
-				return fmt.Errorf("provide an <id> argument, --name")
-			}
-
 			// Build request path
-			path := "/v2/enrollment-customizations/{id}"
-			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
+			path := "/v1/enrollment-customization/{id}/ldap/{panel-id}"
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
+			path = strings.Replace(path, "{panel-id}", url.PathEscape(args[1]), 1)
 
 			// Build query string
 			var queryParts []string
@@ -421,8 +441,8 @@ func newEnrollmentCustomizationsUpdateCmd(ctx *registry.CLIContext) *cobra.Comma
 						return fmt.Errorf("parsing current enrollment-customization for --set: %w", err)
 					}
 				}
-				(&fieldFilter{fields: map[string]*fieldFilter{"description": nil, "displayName": nil, "enrollmentCustomizationBrandingSettings": &fieldFilter{fields: map[string]*fieldFilter{"backgroundColor": nil, "buttonColor": nil, "buttonTextColor": nil, "iconUrl": nil, "textColor": nil}}, "siteId": nil}}).apply(current)
-				setDoc, serr := buildMergePatchFromSet(flagSet, map[string]string{"description": "string", "displayName": "string", "enrollmentCustomizationBrandingSettings": "object", "enrollmentCustomizationBrandingSettings.backgroundColor": "string", "enrollmentCustomizationBrandingSettings.buttonColor": "string", "enrollmentCustomizationBrandingSettings.buttonTextColor": "string", "enrollmentCustomizationBrandingSettings.iconUrl": "string", "enrollmentCustomizationBrandingSettings.textColor": "string", "siteId": "string"})
+				(&fieldFilter{fields: map[string]*fieldFilter{"backButtonText": nil, "continueButtonText": nil, "displayName": nil, "ldapGroupAccess": nil, "passwordLabel": nil, "rank": nil, "title": nil, "usernameLabel": nil}}).apply(current)
+				setDoc, serr := buildMergePatchFromSet(flagSet, map[string]string{"backButtonText": "string", "continueButtonText": "string", "displayName": "string", "ldapGroupAccess": "array", "passwordLabel": "string", "rank": "integer", "title": "string", "usernameLabel": "string"})
 				if serr != nil {
 					return serr
 				}
@@ -465,12 +485,10 @@ func newEnrollmentCustomizationsUpdateCmd(ctx *registry.CLIContext) *cobra.Comma
 	}
 
 	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
-	cmd.Flags().StringVar(&flagName, "name", "", "Look up enrollment-customization by name")
-
 	cmd.Flags().StringArrayVar(&flagSet, "set", nil, "Update a field via fetch-merge-replace (key=value in dot notation, repeatable)")
 	_ = cmd.RegisterFlagCompletionFunc("set", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
 		return []string{
-			"description=", "displayName=", "enrollmentCustomizationBrandingSettings.backgroundColor=", "enrollmentCustomizationBrandingSettings.buttonColor=", "enrollmentCustomizationBrandingSettings.buttonTextColor=", "enrollmentCustomizationBrandingSettings.iconUrl=", "enrollmentCustomizationBrandingSettings.textColor=", "siteId=",
+			"backButtonText=", "continueButtonText=", "displayName=", "passwordLabel=", "rank=", "title=", "usernameLabel=",
 		}, cobra.ShellCompDirectiveNoSpace
 	})
 	return cmd
@@ -480,148 +498,25 @@ func newEnrollmentCustomizationsDeleteCmd(ctx *registry.CLIContext) *cobra.Comma
 	var (
 		flagYes    bool
 		flagDryRun bool
-		fromFile   string
-		flagName   string
 	)
 
 	cmd := &cobra.Command{
-		Use:   "delete [<id>]",
-		Short: "Delete an Enrollment Customization with the supplied id",
-		Long:  "Deletes an Enrollment Customization with the supplied id",
+		Use:   "delete <id> <panel-id>",
+		Short: "Delete a single Panel from an Enrollment Customization",
+		Long:  "Delete a single panel from an Enrollment Customization",
 		Example: `  # Delete a enrollment-customization (with confirmation)
-  jamf-cli pro enrollment-customizations delete 1
-
-  # Delete by name
-  jamf-cli pro enrollment-customizations delete --name "Example" --yes
+  jamf-cli pro enrollment-customizations delete 1 2
 
   # Delete without confirmation prompt
-  jamf-cli pro enrollment-customizations delete 1 --yes`,
-		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Delete Enrollment Customizations,Read Enrollment Customizations", "jamf:api": "pro", "jamf:gateway-privileges": "enrollment-customization:delete,enrollment-customization:read"},
-		Args:        cobra.MaximumNArgs(1),
+  jamf-cli pro enrollment-customizations delete 1 2 --yes`,
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Update Enrollment Customizations", "jamf:api": "pro", "jamf:gateway-privileges": "enrollment-customization:update"},
+		Args:        cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
-			// --from-file: bulk delete from a file of IDs or names
-			if fromFile != "" {
-				entries, err := readDeleteFile(fromFile)
-				if err != nil {
-					return fmt.Errorf("reading --from-file: %w", err)
-				}
-				if len(entries) == 0 {
-					return fmt.Errorf("--from-file %q: no entries found", fromFile)
-				}
-				type bulkEntry struct{ id, label string }
-				bulk := make([]bulkEntry, 0, len(entries))
-				noInputBulk, _ := cmd.Flags().GetBool("no-input")
-				for _, entry := range entries {
-					if isNumericID(entry) {
-						if entry == "0" {
-							return fmt.Errorf("--from-file: ID 0 is not valid (Jamf Pro uses 0 as a sentinel value)")
-						}
-						bulk = append(bulk, bulkEntry{id: entry, label: entry})
-					} else {
-						var rid string
-						if rid == "" {
-							id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v2/enrollment-customizations", "displayName", "id", entry, noInputBulk)
-							if err != nil {
-								return fmt.Errorf("resolving %q: %w", entry, err)
-							}
-							rid = id
-						}
-						if rid == "" {
-							return fmt.Errorf("no enrollment-customization found matching %q", entry)
-						}
-						bulk = append(bulk, bulkEntry{id: rid, label: entry})
-					}
-				}
-				// Deduplicate resolved IDs to avoid double-delete errors.
-				{
-					seen := make(map[string]bool, len(bulk))
-					deduped := bulk[:0]
-					for _, e := range bulk {
-						if !seen[e.id] {
-							seen[e.id] = true
-							deduped = append(deduped, e)
-						}
-					}
-					bulk = deduped
-				}
-				if flagDryRun {
-					for _, e := range bulk {
-						fmt.Fprintf(os.Stderr, "[dry-run] Would delete enrollment-customization %q (id: %s)\n", e.label, e.id)
-					}
-					return nil
-				}
-				if !flagYes {
-					if noInputBulk {
-						return fmt.Errorf("destructive operation requires --yes when --no-input is set")
-					}
-					fmt.Fprintf(os.Stderr, "⚠️  This will delete %d enrollment-customizations. Type 'yes' to confirm: ", len(bulk))
-					var confirm string
-					fmt.Scanln(&confirm)
-					if confirm != "yes" {
-						return fmt.Errorf("aborted")
-					}
-				}
-				if err := cooldown.Enforce(ctx.ProfileName, noInputBulk, ctx.DestructiveCooldown); err != nil {
-					return err
-				}
-				var okCount, failCount int
-				var firstErr error
-				for _, e := range bulk {
-					delPath := strings.Replace("/v2/enrollment-customizations/{id}", "{id}", url.PathEscape(e.id), 1)
-					resp, err := ctx.Client.Do(reqCtx, "DELETE", delPath, nil)
-					if err != nil {
-						fmt.Fprintf(os.Stderr, "delete enrollment-customization %q (id: %s) failed: %v\n", e.label, e.id, err)
-						if firstErr == nil {
-							firstErr = err
-						}
-						failCount++
-						continue
-					}
-					resp.Body.Close()
-					if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-						fmt.Fprintf(os.Stderr, "delete enrollment-customization %q (id: %s) failed: HTTP %d\n", e.label, e.id, resp.StatusCode)
-						if firstErr == nil {
-							firstErr = fmt.Errorf("HTTP %d", resp.StatusCode)
-						}
-						failCount++
-						continue
-					}
-					fmt.Fprintf(os.Stderr, "Deleted enrollment-customization %q (id: %s)\n", e.label, e.id)
-					okCount++
-				}
-				cooldown.Record(ctx.ProfileName)
-				return batchDeleteError(cmd, okCount, failCount, firstErr, "enrollment-customizations deletes")
-			}
-
-			// Resolve resource ID from positional arg, --name, or lookup flags
-			var resolvedID string
-			var resolvedByName string
-			if flagName != "" {
-				noInput, _ := cmd.Flags().GetBool("no-input")
-				rid, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v2/enrollment-customizations", "displayName", "id", flagName, noInput)
-				if err != nil {
-					return err
-				}
-				if rid == "" {
-					return fmt.Errorf("no enrollment-customization found with displayName %q", flagName)
-				}
-				resolvedID = rid
-				resolvedByName = flagName
-			} else if len(args) > 0 {
-				resolvedID = args[0]
-			} else {
-				return fmt.Errorf("provide an <id> argument, --name")
-			}
-
-			// Confirmation for destructive action (after name lookup)
+			// Confirmation for destructive action
 			if flagDryRun {
-				if resolvedByName != "" {
-					fmt.Fprintf(os.Stderr, "[dry-run] Would delete enrollment-customization %q (id: %s)\n", resolvedByName, resolvedID)
-				} else {
-					fmt.Fprintf(os.Stderr, "[dry-run] Would delete enrollment-customization %s\n", resolvedID)
-				}
+				fmt.Fprintf(os.Stderr, "Would delete resource %s\n", strings.Join(args, " "))
 				return nil
 			}
 			if !flagYes {
@@ -629,11 +524,7 @@ func newEnrollmentCustomizationsDeleteCmd(ctx *registry.CLIContext) *cobra.Comma
 				if noInput {
 					return fmt.Errorf("destructive operation requires --yes when --no-input is set")
 				}
-				if resolvedByName != "" {
-					fmt.Fprintf(os.Stderr, "⚠️  This will delete enrollment-customization %q (id: %s). Type 'yes' to confirm: ", resolvedByName, resolvedID)
-				} else {
-					fmt.Fprintf(os.Stderr, "⚠️  This will delete enrollment-customization %s. Type 'yes' to confirm: ", resolvedID)
-				}
+				fmt.Fprintf(os.Stderr, "⚠️  This will delete resource %s. Type 'yes' to confirm: ", strings.Join(args, " "))
 				var confirm string
 				fmt.Scanln(&confirm)
 				if confirm != "yes" {
@@ -648,8 +539,9 @@ func newEnrollmentCustomizationsDeleteCmd(ctx *registry.CLIContext) *cobra.Comma
 			}
 
 			// Build request path
-			path := "/v2/enrollment-customizations/{id}"
-			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
+			path := "/v1/enrollment-customization/{id}/all/{panel-id}"
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
+			path = strings.Replace(path, "{panel-id}", url.PathEscape(args[1]), 1)
 
 			// Build query string
 			var queryParts []string
@@ -680,11 +572,6 @@ func newEnrollmentCustomizationsDeleteCmd(ctx *registry.CLIContext) *cobra.Comma
 
 	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt")
 	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
-	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to file listing IDs or names to delete (one per line, # comments ignored)")
-	cmd.Flags().StringVar(&flagName, "name", "", "Look up enrollment-customization by name")
-
-	cmd.MarkFlagsMutuallyExclusive("from-file", "name")
-
 	return cmd
 }
 
@@ -941,21 +828,27 @@ func newEnrollmentCustomizationsAddHistoryNoteCmd(ctx *registry.CLIContext) *cob
 	return cmd
 }
 
-func newEnrollmentCustomizationsUploadCmd(ctx *registry.CLIContext) *cobra.Command {
+func newEnrollmentCustomizationsParseMarkdownCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
-		flagFile string
+		flagScaffold bool
 	)
 
 	cmd := &cobra.Command{
-		Use:         "upload",
-		Short:       "Upload an image",
-		Long:        "Uploads an image",
-		Annotations: map[string]string{"jamf:privileges": "Update Enrollment Customizations", "jamf:api": "pro", "jamf:gateway-privileges": "enrollment-customization:update"},
+		Use:         "parse-markdown",
+		Short:       "Parse the given string as markdown text and return Html output",
+		Long:        "Parse the given string as markdown text and return Html output",
+		Annotations: map[string]string{"jamf:privileges": "Read Enrollment Customizations", "jamf:api": "pro", "jamf:gateway-privileges": "enrollment-customization:read"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
+			if flagScaffold {
+				return printScaffoldOutput(`{
+  "markdown": "**markdown**"
+}`, ctx.Output.Format())
+			}
+
 			// Build request path
-			path := "/v2/enrollment-customizations/images"
+			path := "/v1/enrollment-customization/parse-markdown"
 
 			// Build query string
 			var queryParts []string
@@ -964,22 +857,24 @@ func newEnrollmentCustomizationsUploadCmd(ctx *registry.CLIContext) *cobra.Comma
 			}
 
 			// Make request
-			if ctx.Uploader == nil {
-				return fmt.Errorf("file upload not supported in this context")
+			// Read body from stdin if available
+			var body io.Reader
+			var normalized []byte
+			stat, _ := os.Stdin.Stat()
+			if (stat.Mode() & os.ModeCharDevice) == 0 {
+				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
+				if err != nil {
+					return fmt.Errorf("reading stdin: %w", err)
+				}
+				normalized, err = normalizeInputToJSON(raw)
+				if err != nil {
+					return err
+				}
 			}
-			f, err := os.Open(flagFile)
-			if err != nil {
-				return fmt.Errorf("opening %s: %w", flagFile, err)
+			if len(normalized) > 0 {
+				body = bytes.NewReader(normalized)
 			}
-			defer f.Close()
-			// Stream the file through a seekable multipart body so Upload can
-			// precompute Content-Length and retry on HTTP 429 without
-			// re-buffering the file.
-			body, contentType, contentLength, err := client.NewMultipartFileUpload("file", f)
-			if err != nil {
-				return fmt.Errorf("building multipart body: %w", err)
-			}
-			resp, err := ctx.Uploader.Upload(reqCtx, path, body, contentType, contentLength)
+			resp, err := ctx.Client.Do(reqCtx, "POST", path, body)
 			if err != nil {
 				return err
 			}
@@ -989,31 +884,171 @@ func newEnrollmentCustomizationsUploadCmd(ctx *registry.CLIContext) *cobra.Comma
 		},
 	}
 
-	cmd.Flags().StringVar(&flagFile, "file", "", "Path to the file to upload (required; --file, not --from-file: a multipart upload needs a name and a length, so it cannot be piped)")
-	_ = cmd.MarkFlagRequired("file")
+	cmd.Flags().BoolVar(&flagScaffold, "scaffold", false, "Print a JSON template for the request body and exit")
 	return cmd
 }
 
-func newEnrollmentCustomizationsDownloadCmd(ctx *registry.CLIContext) *cobra.Command {
+func newEnrollmentCustomizationsLdapCmd(ctx *registry.CLIContext) *cobra.Command {
+	var ()
+
+	cmd := &cobra.Command{
+		Use:         "ldap <id> <panel-id>",
+		Short:       "Get a single LDAP panel for a single Enrollment Customization",
+		Long:        "Get a single LDAP panel for a single enrollment customization",
+		Annotations: map[string]string{"jamf:privileges": "Read Enrollment Customizations", "jamf:api": "pro", "jamf:gateway-privileges": "enrollment-customization:read"},
+		Args:        cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			// Build request path
+			path := "/v1/enrollment-customization/{id}/ldap/{panel-id}"
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
+			path = strings.Replace(path, "{panel-id}", url.PathEscape(args[1]), 1)
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	return cmd
+}
+
+func newEnrollmentCustomizationsSsoCmd(ctx *registry.CLIContext) *cobra.Command {
+	var ()
+
+	cmd := &cobra.Command{
+		Use:         "sso <id> <panel-id>",
+		Short:       "Get a single SSO Panel for a single Enrollment Customization",
+		Long:        "Get a single SSO panel for a single enrollment customization",
+		Annotations: map[string]string{"jamf:privileges": "Read Enrollment Customizations", "jamf:api": "pro", "jamf:gateway-privileges": "enrollment-customization:read"},
+		Args:        cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			// Build request path
+			path := "/v1/enrollment-customization/{id}/sso/{panel-id}"
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
+			path = strings.Replace(path, "{panel-id}", url.PathEscape(args[1]), 1)
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	return cmd
+}
+
+func newEnrollmentCustomizationsTextCmd(ctx *registry.CLIContext) *cobra.Command {
+	var ()
+
+	cmd := &cobra.Command{
+		Use:         "text <id> <panel-id>",
+		Short:       "Get a single Text Panel for a single Enrollment Customization",
+		Long:        "Get a single Text panel for a single enrollment customization",
+		Annotations: map[string]string{"jamf:privileges": "Read Enrollment Customizations", "jamf:api": "pro", "jamf:gateway-privileges": "enrollment-customization:read"},
+		Args:        cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			// Build request path
+			path := "/v1/enrollment-customization/{id}/text/{panel-id}"
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
+			path = strings.Replace(path, "{panel-id}", url.PathEscape(args[1]), 1)
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	return cmd
+}
+
+func newEnrollmentCustomizationsMarkdownCmd(ctx *registry.CLIContext) *cobra.Command {
+	var ()
+
+	cmd := &cobra.Command{
+		Use:         "markdown <id> <panel-id>",
+		Short:       "Get the markdown output of a single Text Panel for a single Enrollment",
+		Long:        "Get the markdown output of a single Text panel for a single enrollment customization",
+		Annotations: map[string]string{"jamf:privileges": "Read Enrollment Customizations", "jamf:api": "pro", "jamf:gateway-privileges": "enrollment-customization:read"},
+		Args:        cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			// Build request path
+			path := "/v1/enrollment-customization/{id}/text/{panel-id}/markdown"
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
+			path = strings.Replace(path, "{panel-id}", url.PathEscape(args[1]), 1)
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			resp, err := ctx.Client.Do(reqCtx, "GET", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	return cmd
+}
+
+func newEnrollmentCustomizationsAllCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
-		flagSaveTo string
-		flagName   string
+		flagName string
 	)
 
 	cmd := &cobra.Command{
-		Use:   "download [<id>]",
-		Short: "Download an enrollment customization image",
-		Long:  "Download an enrollment customization image",
-		Example: `  # Save to file
-  jamf-cli pro enrollment-customizations download <id> -O output.bin
-
-  # Pipe to stdout
-  jamf-cli pro enrollment-customizations download <id> > output.bin`,
-		Annotations: map[string]string{"jamf:api": "pro"},
+		Use:         "all [<id>]",
+		Short:       "Get all Panels for single Enrollment Customization",
+		Long:        "Get all panels for single enrollment customization",
+		Annotations: map[string]string{"jamf:privileges": "Read Enrollment Customizations", "jamf:api": "pro", "jamf:gateway-privileges": "enrollment-customization:read"},
 		Args:        cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
-			reqCtx = registry.WithAccept(reqCtx, "*/*")
 
 			// Resolve resource ID from positional arg, --name, or lookup flags
 			var resolvedID string
@@ -1031,7 +1066,7 @@ func newEnrollmentCustomizationsDownloadCmd(ctx *registry.CLIContext) *cobra.Com
 			}
 
 			// Build request path
-			path := "/v2/enrollment-customizations/images/{id}"
+			path := "/v1/enrollment-customization/{id}/all"
 			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
 
 			// Build query string
@@ -1047,25 +1082,10 @@ func newEnrollmentCustomizationsDownloadCmd(ctx *registry.CLIContext) *cobra.Com
 			}
 			defer resp.Body.Close()
 
-			if flagSaveTo != "" {
-				f, err := os.Create(flagSaveTo)
-				if err != nil {
-					return fmt.Errorf("opening output file: %w", err)
-				}
-				defer f.Close()
-				n, err := io.Copy(f, resp.Body)
-				if err != nil {
-					return err
-				}
-				fmt.Fprintf(os.Stderr, "Saved to %s (%d bytes)\n", flagSaveTo, n)
-				return nil
-			}
-			_, err = io.Copy(os.Stdout, resp.Body)
-			return err
+			return ctx.Output.PrintResponse(resp)
 		},
 	}
 
-	cmd.Flags().StringVarP(&flagSaveTo, "save-to", "O", "", "Save output to file instead of stdout")
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up enrollment-customization by name")
 
 	return cmd
@@ -1137,7 +1157,7 @@ func newEnrollmentCustomizationsApplyCmd(ctx *registry.CLIContext) *cobra.Comman
 	cmd := &cobra.Command{
 		Use:         "apply",
 		Short:       "Create or replace a enrollment-customization by name",
-		Annotations: map[string]string{"jamf:api": "pro", "jamf:gateway-privileges": "enrollment-customization:create,enrollment-customization:read,enrollment-customization:update"},
+		Annotations: map[string]string{"jamf:api": "pro", "jamf:gateway-privileges": "enrollment-customization:read,enrollment-customization:update"},
 		Long: `Create or replace a enrollment-customization. Reads JSON or YAML from --from-file or stdin.
 
 The displayName field in the input is used to check if the resource
@@ -1161,16 +1181,19 @@ If not, a new resource is created.`,
 			reqCtx := cmd.Context()
 			if flagScaffold {
 				return printScaffoldOutput(`{
-  "description": "Example description",
-  "displayName": "Example",
-  "enrollmentCustomizationBrandingSettings": {
-    "backgroundColor": "0000FF",
-    "buttonColor": "0000FF",
-    "buttonTextColor": "0000FF",
-    "iconUrl": "https://jamfUrl/api/v2/enrollment-customizations/images/1",
-    "textColor": "0000FF"
-  },
-  "siteId": "2"
+  "backButtonText": "Back",
+  "continueButtonText": "Continue",
+  "displayName": "A Panel",
+  "ldapGroupAccess": [
+    {
+      "groupName": "admins",
+      "ldapServerId": 1
+    }
+  ],
+  "passwordLabel": "Password",
+  "rank": 0,
+  "title": "My Ldap Panel",
+  "usernameLabel": "Username"
 }`, ctx.Output.Format())
 			}
 
@@ -1206,7 +1229,7 @@ If not, a new resource is created.`,
 					fmt.Fprintf(os.Stderr, "[dry-run] Would create enrollment-customization %q\n", name)
 					return nil
 				}
-				resp, err := ctx.Client.Do(reqCtx, "POST", "/v2/enrollment-customizations", bytes.NewReader(data))
+				resp, err := ctx.Client.Do(reqCtx, "POST", "/v1/enrollment-customization/{id}/ldap", bytes.NewReader(data))
 				if err != nil {
 					return err
 				}
@@ -1232,7 +1255,7 @@ If not, a new resource is created.`,
 				}
 			}
 
-			updatePath := strings.Replace("/v2/enrollment-customizations/{id}", "{id}", url.PathEscape(id), 1)
+			updatePath := strings.Replace("/v1/enrollment-customization/{id}/ldap/{panel-id}", "{panel-id}", url.PathEscape(id), 1)
 			resp, err := ctx.Client.Do(reqCtx, "PUT", updatePath, bytes.NewReader(data))
 			if err != nil {
 				return err

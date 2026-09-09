@@ -45,14 +45,21 @@ type successor struct {
 // covers itself and everything beneath it, longest key first, so one entry
 // answers for a whole resource's subcommands.
 var successors = map[string]successor{
-	// The gateway's published 11.31.0 surface withdrew 122 superseded Jamf Pro
-	// endpoints. In almost every case the CLI moved onto the successor silently;
-	// static computer groups are the exception, because the two versions ship
-	// under two different command names.
-	"pro static-computer-groups": {
-		Command: "pro computer-groups-static-groups",
-		Why:     "the same resource on the v3 endpoint the gateway publishes, where this command is the withdrawn v2",
-	},
+	// Empty, and that is the answer rather than an omission.
+	//
+	// It held one entry: `pro static-computer-groups`, the withdrawn v2 of a
+	// resource whose v3 shipped under a second command name, because a per-file
+	// spec layout named each version's file separately. Resource identity comes
+	// from the paths now, so both versions land in one resource,
+	// deduplicateVersionedOps keeps the v3 the gateway publishes, and there is
+	// no v2 command left to refuse or redirect. The rename removed the need for
+	// the redirect.
+	//
+	// Deliberately not here: the standalone erase-device-computers and
+	// remove-computer-mdm-profiles resources, which were refused and which
+	// pro.go removed from the tree outright in favour of the hand-written
+	// `pro comp erase` / `remove-mdm`. Those names no longer exist either; the
+	// actions now sit inside `computer-inventory`, which pro.go removes whole.
 	// Deliberately not here: the standalone erase-device-computers and
 	// remove-computer-mdm-profiles resources. Both are refused, but pro.go
 	// removes them from the tree outright in favour of the hand-written

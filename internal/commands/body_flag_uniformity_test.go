@@ -18,15 +18,15 @@ import "testing"
 // Keyed by full command path, so a new upload command has to be considered
 // rather than silently inheriting the exemption.
 var bodyFileUploadLeaves = map[string]string{
-	"pro packages upload":                      "multipart .pkg upload",
-	"pro icons upload":                         "multipart icon image upload",
-	"pro self-service-branding-images upload":  "multipart branding image upload",
-	"pro mobile-device-prestages upload":       "multipart prestage attachment upload",
-	"pro inventory-preloads upload":            "multipart CSV upload",
-	"pro inventory-preloads csv-validate":      "multipart CSV upload, validated not stored",
-	"pro computer-extension-attributes upload": "multipart attribute payload upload",
-	"pro enrollment-customizations upload":     "multipart enrollment image upload",
-	"pro computers-inventory upload":           "multipart computer attachment upload",
+	"pro packages upload":                         "multipart .pkg upload",
+	"pro icon upload":                             "multipart icon image upload",
+	"pro self-service upload":                     "multipart branding image upload",
+	"pro mobile-device-prestages upload":          "multipart prestage attachment upload",
+	"pro inventory-preload upload":                "multipart CSV upload",
+	"pro inventory-preload csv-validate":          "multipart CSV upload, validated not stored",
+	"pro computer-extension-attributes upload":    "multipart attribute payload upload",
+	"pro enrollment-customizations-images upload": "multipart enrollment image upload",
+	"pro computers-inventory upload":              "multipart computer attachment upload",
 	// --file/--dir are a pair here: one YAML document, or a directory of them.
 	// Renaming the singular half alone would break the pairing, and neither
 	// half accepts a pipe.
