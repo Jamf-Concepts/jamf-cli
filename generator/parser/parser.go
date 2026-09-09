@@ -1669,27 +1669,48 @@ func disambiguateSameTerminalOps(ops []*Operation) {
 		for _, op := range group[1:] {
 			// Same path as canonical: differentiate by HTTP method verb prefix.
 			if op.Path == group[0].Path {
-				var prefix string
-				switch op.Method {
-				case "PUT":
-					prefix = "update-"
-				case "PATCH":
-					prefix = "patch-"
-				case "POST":
-					prefix = "create-"
-				case "DELETE":
-					prefix = "delete-"
-				default:
-					prefix = strings.ToLower(op.Method) + "-"
-				}
-				op.Name = prefix + baseName
+				op.Name = methodVerbPrefix(op.Method) + baseName
 				assigned[op.Name] = true
 				continue
 			}
 			newName := buildDisambiguatedName(baseName, op.Path, group[0].Path, assigned)
+			// The path-derived name can already be taken by an earlier sibling on
+			// the *same* path as this one — three methods on
+			// /v2/computer-prestages/{id}/scope all reduce to `scope-by-id`
+			// against the collection-level `GET .../scope` that keeps `scope`.
+			// buildDisambiguatedName has nothing left to distinguish them with
+			// (their paths are identical), so the method is what separates them,
+			// exactly as it does for a collision on group[0]'s own path. Without
+			// this the second and third both keep the taken name and
+			// dedupeOperations drops them: POST and PUT on both prestage scopes,
+			// four write operations, gone with a warning.
+			if assigned[newName] {
+				if withVerb := methodVerbPrefix(op.Method) + baseName; !assigned[withVerb] {
+					newName = withVerb
+				} else if withVerb := methodVerbPrefix(op.Method) + newName; !assigned[withVerb] {
+					newName = withVerb
+				}
+			}
 			op.Name = newName
 			assigned[newName] = true
 		}
+	}
+}
+
+// methodVerbPrefix is the "update-"/"create-" style prefix that separates two
+// operations a path cannot separate, because they sit on the same path.
+func methodVerbPrefix(method string) string {
+	switch method {
+	case "PUT":
+		return "update-"
+	case "PATCH":
+		return "patch-"
+	case "POST":
+		return "create-"
+	case "DELETE":
+		return "delete-"
+	default:
+		return strings.ToLower(method) + "-"
 	}
 }
 
@@ -2766,4 +2787,142 @@ func isDestructiveAction(opName string) bool {
 		}
 	}
 	return false
+}
+
+// qualifyDuplicateVerbsOutsideTheRoot resolves a name still held by more than
+// one operation after every other naming pass, in favour of the operation that
+// addresses the resource's own root.
+//
+// A tag can cover a singular and a plural path root at once, and then the two
+// roots' verbs collide on a name no pass reaches. `/v1/enrollment-customization`
+// carries four panel families under `{id}` — ldap, sso, text and all — each with
+// its own POST, PUT and DELETE, while `/v2/enrollment-customizations` carries
+// the customization's own create, update and delete. Nine operations wanted
+// three names. disambiguateSameTerminalOps declines the group (the terminal
+// segments differ), resolveNoParamConflicts declines it (every path is
+// parameterised), and dedupeOperations then *dropped* eight of the nine with a
+// warning and exit 0 — including all three of the customization's own writes,
+// so `pro enrollment-customization create` created an LDAP panel and the
+// resource's own CRUD stopped existing.
+//
+// Dropping is the wrong resolution whichever operation loses, but the ordering
+// matters too: a resource's own root is what its plain verbs mean, so the root
+// keeps `create`, `update` and `delete` and a sub-path's write is qualified by
+// the segment that owns it — `ldap-create`, `sso-update`, `text-delete`. That
+// mirrors buildDisambiguatedName's rule (distinguishing fixed segment, then the
+// base name) rather than inventing a second convention.
+//
+// It deliberately does nothing when no operation in the collision addresses the
+// root: `GET /v1/enrollment-customization/{id}/all` against
+// `GET .../all/{panel-id}` is a pre-existing collision between two sub-paths,
+// with no root operation to give the name to and no answer this rule can
+// supply. Those keep the behaviour they shipped with; the pinned drop list is
+// where they are recorded.
+func qualifyDuplicateVerbsOutsideTheRoot(ops []*Operation, root []string) {
+	if len(root) == 0 {
+		return
+	}
+	rootPath := "/" + strings.Join(root, "/")
+
+	byName := map[string][]*Operation{}
+	taken := map[string]bool{}
+	for _, op := range ops {
+		byName[op.Name] = append(byName[op.Name], op)
+		taken[op.Name] = true
+	}
+
+	names := make([]string, 0, len(byName))
+	for name := range byName {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+
+	for _, name := range names {
+		group := byName[name]
+		if len(group) <= 1 {
+			continue
+		}
+		// Deterministic: a root-addressing operation first, then the shallowest
+		// path, then the method order the rest of the naming uses. An unstable
+		// keeper would move a command's name between two runs of `make generate`
+		// with no change to the document.
+		sort.SliceStable(group, func(i, j int) bool {
+			ri, rj := addressesRoot(group[i], rootPath), addressesRoot(group[j], rootPath)
+			if ri != rj {
+				return ri
+			}
+			ci, cj := strings.Count(group[i].Path, "/"), strings.Count(group[j].Path, "/")
+			if ci != cj {
+				return ci < cj
+			}
+			order := map[string]int{"GET": 0, "PUT": 1, "PATCH": 2, "POST": 3, "DELETE": 4}
+			if order[group[i].Method] != order[group[j].Method] {
+				return order[group[i].Method] < order[group[j].Method]
+			}
+			return group[i].Path < group[j].Path
+		})
+		if !addressesRoot(group[0], rootPath) {
+			continue
+		}
+		for _, op := range group[1:] {
+			// Only a write is qualified. A colliding GET is left to
+			// dedupeOperations, which is where the collection-path preference
+			// lives and where one deliberate fusion depends on it:
+			// resourceGetDetailPathOverrides puts `GET /v4/computers-inventory-
+			// detail/{id}` and `GET /v4/computers-inventory/{id}` behind a single
+			// `get` on purpose, the first serving the call and the second serving
+			// `--section`. Renaming the loser there would split one command into
+			// two and take the override's default path with it. The defect this
+			// pass exists for is a dropped *write*, so that is all it touches.
+			if op.Method == "GET" || op.Method == "HEAD" {
+				continue
+			}
+			qualifier := owningSegment(op.Path, rootPath)
+			if qualifier == "" || qualifier == name {
+				continue
+			}
+			candidate := qualifier + "-" + name
+			if taken[candidate] {
+				candidate = qualifier + "-" + methodVerbPrefix(op.Method) + name
+			}
+			if taken[candidate] {
+				continue
+			}
+			op.Name = candidate
+			taken[candidate] = true
+		}
+	}
+}
+
+// addressesRoot reports whether an operation is the resource's own collection or
+// its own single item — the two shapes a plain verb belongs to.
+func addressesRoot(op *Operation, rootPath string) bool {
+	p := stripVersionSegments(op.Path)
+	if p == rootPath {
+		return true
+	}
+	rest, ok := strings.CutPrefix(p, rootPath+"/")
+	return ok && strings.HasPrefix(rest, "{") && !strings.Contains(rest, "/")
+}
+
+// owningSegment is the last non-parameterised segment of a path, which is the
+// thing a write on that path acts on. It returns "" when the path has no such
+// segment beyond the root, there being nothing to qualify the name with.
+func owningSegment(path, rootPath string) string {
+	p := stripVersionSegments(path)
+	if p == rootPath || strings.HasPrefix(rootPath+"/", p+"/") {
+		return ""
+	}
+	segs := splitPathSegments(p)
+	for i := len(segs) - 1; i >= 0; i-- {
+		if strings.HasPrefix(segs[i], "{") {
+			continue
+		}
+		seg := strcase.ToKebab(segs[i])
+		if "/"+strings.Join(segs[:i+1], "/") == rootPath {
+			return ""
+		}
+		return seg
+	}
+	return ""
 }

@@ -203,6 +203,7 @@ func buildResourceShell(root []string, name string, ops []*Operation, schemas ma
 		renameLoneNonCanonicalList(ops, canonical)
 	}
 	disambiguateSameTerminalOps(ops)
+	qualifyDuplicateVerbsOutsideTheRoot(ops, root)
 
 	if len(ops) == 0 {
 		return nil

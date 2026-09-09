@@ -1103,6 +1103,16 @@ in the config file. It never runs in CI, when output is piped, or under
 	// accepts any positional and discards it. Refuse it instead.
 	guardStrayPositionals(cmd)
 
+	// The same shape as guardFormerLeafGroups one level down: a verb that
+	// resolves and exits 0 under a deprecated resource name while addressing a
+	// different object than it did.
+	//
+	// After guardStrayPositionals, not before, because it fronts the leaf's Args
+	// as well as its RunE — and that walk installs a validator only on a leaf
+	// that has none, so running first made `pro enrollment-customization create`
+	// look already-guarded and it accepted a stray positional again.
+	guardDeprecatedNameVerbMoves(cmd)
+
 	// A sibling walk rather than part of the one above, which returns early for
 	// every command that has an argument validator — a leaf has no subcommands.
 	// It has to run last: the walk above installs a validator on every leaf that

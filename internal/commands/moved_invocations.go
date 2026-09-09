@@ -4,6 +4,7 @@ package commands
 
 import (
 	"fmt"
+	"os"
 	"sort"
 	"strings"
 
@@ -118,6 +119,136 @@ var formerLeafGroups = map[string]string{
 	"csa token":                     "csa token get",
 	"local-admin-password settings": "local-admin-password settings get",
 	"managed-software-updates-plans feature-toggle": "managed-software-updates-plans feature-toggle get",
+}
+
+// deprecatedNameVerbMoves are the verbs that mean something different under a
+// deprecated resource name than under the name it now resolves to.
+//
+// A resource alias resolves the first token and leaves the rest alone, which is
+// right for every entry in deprecatedNames but one: two former resources,
+// `enrollment-customizations` and `enrollment-customization-panels`, resolve
+// onto the single `enrollment-customization` the tag merges them into, and both
+// shipped a `create`, an `update` and a `delete`. One of the two has to keep the
+// plain verb, and it is the resource's own root — `create` creates a
+// customization, as it did under the plural name and as
+// qualifyDuplicateVerbsOutsideTheRoot now makes it. The panel writes are
+// `ldap-create`, `sso-update`, `all-delete` and the rest.
+//
+// So `pro enrollment-customization-panels create` resolves, exits 0 and creates
+// the wrong kind of object. That is the shape formerLeafGroups exists for —
+// still resolves, still exits 0, does something else — and it gets the same
+// answer: refuse, and name the command that does what the invocation asked for.
+// The panel *reads* under that spelling (`all`, `ldap`, `sso`, `text`,
+// `markdown`, `parse-markdown`) are unchanged and keep working.
+//
+// Keyed on the spelling the caller typed rather than on the resolved path,
+// because the resolved path is what the two spellings have in common: only the
+// first token tells them apart. Governed by deprecatedNamesRemovedAfter — the
+// verb move is permanent, pointing at the replacement is migration help.
+var deprecatedNameVerbMoves = map[string]map[string]string{
+	"enrollment-customization-panels": {
+		"create": "enrollment-customization ldap-create", // POST /v1/enrollment-customization/{id}/ldap
+		"update": "enrollment-customization ldap-update", // PUT  /v1/enrollment-customization/{id}/ldap/{panel-id}
+		"delete": "enrollment-customization all-delete",  // DELETE /v1/enrollment-customization/{id}/all/{panel-id}
+	},
+}
+
+// guardDeprecatedNameVerbMoves refuses a verb whose meaning changed with the
+// spelling of the resource it was typed against.
+//
+// It wraps the leaf's RunE the way guardFormerLeafGroups wraps a group's, and
+// runs from the root for the same reason: NewRootCmd has no `pro` in hand.
+// Unlike that guard it fires whatever the invocation asked for, there being no
+// harmless reading of a write against the wrong object.
+func guardDeprecatedNameVerbMoves(root *cobra.Command) {
+	pro := childNamed(root, "pro")
+	if pro == nil {
+		return
+	}
+	for _, old := range sortedKeysOfVerbMoves() {
+		dep, ok := deprecatedNames[old]
+		if !ok {
+			// The alias is gone, so the old spelling no longer resolves and
+			// there is nothing to refuse — TestDeprecatedNameVerbMovesResolve
+			// is the guard against a stale entry.
+			continue
+		}
+		resource := childNamed(pro, dep.Now)
+		if resource == nil {
+			continue
+		}
+		for _, verb := range sortedKeysOfStringMap(deprecatedNameVerbMoves[old]) {
+			leaf := childNamed(resource, verb)
+			if leaf == nil {
+				continue
+			}
+			inner := leaf.RunE
+			typed, wanted := old, deprecatedNameVerbMoves[old][verb]
+			calledVerb := verb
+			live := dep.Now
+			// Cobra validates Args before RunE, so `pro
+			// enrollment-customization-panels update <id> <panel-id>` — the form
+			// the old command took — earned "accepts at most 1 arg(s)" and never
+			// reached the refusal: the arity complaint, with no pointer, on the
+			// invocation a caller actually types. Relax the validator for the
+			// old spelling only, the same floor-only relaxation
+			// classicScaffoldArgs makes for --scaffold.
+			innerArgs := leaf.Args
+			leaf.Args = func(cmd *cobra.Command, args []string) error {
+				if resourceTokenAfter(os.Args, productToken(cmd)) == typed {
+					return nil
+				}
+				if innerArgs == nil {
+					return nil
+				}
+				return innerArgs(cmd, args)
+			}
+			leaf.RunE = func(cmd *cobra.Command, args []string) error {
+				if err := refuseMovedVerb(resourceTokenAfter(os.Args, productToken(cmd)), typed, live, calledVerb, wanted); err != nil {
+					return err
+				}
+				if inner == nil {
+					return cmd.Help()
+				}
+				return inner(cmd, args)
+			}
+		}
+	}
+}
+
+// refuseMovedVerb answers the guard's one question — was this verb typed
+// against the spelling whose meaning it no longer has — and is separate from the
+// RunE wrapper so it can be tested without running the command, which needs
+// credentials and a CLIContext.
+func refuseMovedVerb(typedResource, oldName, liveName, verb, replacement string) error {
+	if typedResource != oldName {
+		return nil
+	}
+	return &exitcode.Error{
+		Code: exitcode.Usage,
+		Message: fmt.Sprintf(
+			"`pro %s %s` no longer names this operation: `%s` and `%s` are one resource now, and its plain verbs are the resource's own",
+			oldName, verb, oldName, liveName),
+		Hint: "run `jamf-cli pro " + replacement + "`",
+	}
+}
+
+func sortedKeysOfVerbMoves() []string {
+	out := make([]string, 0, len(deprecatedNameVerbMoves))
+	for k := range deprecatedNameVerbMoves {
+		out = append(out, k)
+	}
+	sort.Strings(out)
+	return out
+}
+
+func sortedKeysOfStringMap(m map[string]string) []string {
+	out := make([]string, 0, len(m))
+	for k := range m {
+		out = append(out, k)
+	}
+	sort.Strings(out)
+	return out
 }
 
 // applyMovedInvocations registers each moved invocation as a hidden command that

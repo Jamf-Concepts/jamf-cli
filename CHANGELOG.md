@@ -62,14 +62,14 @@ commit types the repo already uses (`feat!`/`build!` for a breaking change).
   curated short alias now, along with `pro jcds-files` for the half the sub-resource
   split gave a command of its own — 37 characters is not a name anyone types.
 
-#### 43 invocations an alias cannot cover — the operation name moved too
+#### 46 invocations an alias cannot cover — the operation name moved too
 
 An alias maps one resource name to one replacement. Where a resource **split**, or
 where an operation's name is derived from a path segment that now sits under a
 different resource, the resource alias resolves and the subcommand then does not
 exist. The endpoint is unchanged in every case, so only the command name moved.
 
-**All 43 answer at runtime with the new invocation named**, in place of cobra's
+**All 46 answer at runtime with the new invocation named**, in place of cobra's
 `unknown command`, and both spellings of each reach it — the old resource name through
 its alias, and the new one directly. `pro schedulers triggers` and `pro scheduler
 triggers` both report that the operation moved and name `pro scheduler-jobs triggers`.
@@ -77,7 +77,11 @@ Exit code 2, the same as every other command that does not exist: what a caller 
 missing here is not a classification but the pointer, and a second exit code for one
 class would only make a wrapper script harder to write. Two old invocations collapse
 onto `pro enrollment list`, whose endpoints went to different places, so that one names
-both. The refusals retire with the aliases on 2027-03-09.
+both. Three of the 46 are a verb whose *meaning* moved rather than its name —
+`create`, `update` and `delete` under `pro enrollment-customization-panels`, which
+resolve to a live command that addresses the customization instead of the panel, so
+they are refused where the other 43 would have got `unknown command`. The refusals
+retire with the aliases on 2027-03-09.
 
 The subsections after this one cover the rest: 7 endpoints that are no longer ingested
 at all, 3 `apply` commands that were never expressible, and 3 paths that became command
@@ -270,6 +274,66 @@ resolved the name to an id and then `PUT` the plan document at
 `/v1/managed-software-updates/plans/feature-toggle`, replacing the tenant's managed
 software update feature toggle. There is no plan update endpoint to point a working
 `apply` at; use `create`.
+
+#### 19 write operations that were being deleted at generate time now ship
+
+A name held by two operations was resolved by keeping one and **discarding the
+other**, with a warning on stderr and exit 0. That is the wrong resolution
+whichever operation loses, and on this branch the loser was twice the resource's
+own root:
+
+- **`pro enrollment-customization create`, `update` and `delete` addressed an
+  LDAP panel.** The `enrollment-customization` tag covers a singular root
+  carrying four panel families under `{id}` — ldap, sso, text and all — and the
+  plural `/v2/enrollment-customizations` carrying the customization's own CRUD.
+  Nine operations wanted three names, the panels' won, and the customization's
+  POST, PUT and DELETE stopped existing. `apply` was built on top of that:
+  it resolved a **customization** name to a customization id, substituted it into
+  `{panel-id}` and `PUT` the document at an LDAP panel path, with `{id}` never
+  substituted. Same shape as the `managed-software-updates-plans apply` defect
+  above, on a different resource.
+- **`pro computer-prestage-scopes create-scope` and `update-scope` were gone**,
+  and the same two on `pro mobile-device-prestage-scopes`. `GET`, `POST` and `PUT`
+  all sit on `/v2/computer-prestages/{id}/scope`, so the disambiguation had
+  nothing left to separate them with once the collection-level `GET .../scope`
+  took `scope` — and gave all three the same name.
+
+A resource's plain verbs are its root's, so the root keeps `create`, `update` and
+`delete` and a sub-path's write is qualified by the segment that owns it. Where
+two methods share one path, the method separates them, as it already did for a
+collision on the canonical path. Nothing is dropped in either case.
+
+The panel writes that *did* hold the plain verbs are renamed rather than
+restored: `pro enrollment-customization ldap-create`, `ldap-update` and
+`all-delete` are what `create`, `update` and `delete` used to send.
+
+The same resolution restored **twelve more operations `main` never shipped
+either**, every one the loser of a collision between two sub-paths:
+
+| command | endpoint |
+|---|---|
+| `pro enrollment-customization sso-create` / `sso-update` / `sso-delete` | `POST` `…/{id}/sso`, `PUT`/`DELETE` `…/{id}/sso/{panel-id}` |
+| `pro enrollment-customization text-create` / `text-update` / `text-delete` | the same three on `…/{id}/text` |
+| `pro enrollment-customization ldap-delete` | `DELETE …/enrollment-customization/{id}/ldap/{panel-id}` |
+| `pro packages manifest-delete` | `DELETE /v1/packages/{id}/manifest` |
+| `pro venafi proxy-trust-store-create` / `proxy-trust-store-delete` | `POST`/`DELETE /v1/pki/venafi/{id}/proxy-trust-store` |
+| `pro patch-software-title-configurations dashboard-delete` | `DELETE /v3/patch-software-title-configurations/{id}/dashboard` |
+| `pro computer-inventory attachments-delete` | `DELETE /v4/computers-inventory/{id}/attachments/{attachmentId}` |
+
+**One invocation changes meaning and is refused rather than left to run.**
+`enrollment-customizations` and `enrollment-customization-panels` both resolve
+onto the one `enrollment-customization` the tag merges them into, and both
+shipped a `create`, an `update` and a `delete`. Only one can keep the plain verb
+and it is the resource's own root, so those three under the *panels* spelling
+refuse with the panel command to use instead — `pro enrollment-customization-panels
+create` names `pro enrollment-customization ldap-create`. The panel reads under
+that spelling (`all`, `ldap`, `sso`, `text`, `markdown`, `parse-markdown`) are
+unchanged.
+
+The surviving 16 drops are pinned in
+`generator/parser/testdata/dropped-operations.tsv`, with the reason for the two
+that are not simple collisions between sub-paths. A new one fails the build; a
+root operation losing its name to a sub-path's fails it outright.
 
 #### Also fixed by the same change
 

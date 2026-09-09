@@ -641,11 +641,11 @@ pro computer-inventory-collection-settings delete	leaf	refused
 pro computer-inventory-collection-settings list	leaf	leaf
 pro computer-inventory-collection-settings patch	leaf	leaf
 pro computer-prestage-scopes	group	group
-pro computer-prestage-scopes create-scope	leaf	gone
+pro computer-prestage-scopes create-scope	leaf	leaf
 pro computer-prestage-scopes delete-multiple	leaf	leaf
 pro computer-prestage-scopes list	leaf	leaf
 pro computer-prestage-scopes scope	leaf	leaf
-pro computer-prestage-scopes update-scope	leaf	gone
+pro computer-prestage-scopes update-scope	leaf	leaf
 pro computer-prestages	group	group
 pro computer-prestages apply	leaf	leaf
 pro computer-prestages create	leaf	leaf
@@ -774,14 +774,14 @@ pro ebooks list	leaf	leaf
 pro ebooks scope	leaf	leaf
 pro enrollment-customization-panels	group	group
 pro enrollment-customization-panels all	leaf	leaf
-pro enrollment-customization-panels create	leaf	leaf
-pro enrollment-customization-panels delete	leaf	leaf
+pro enrollment-customization-panels create	leaf	refused
+pro enrollment-customization-panels delete	leaf	refused
 pro enrollment-customization-panels ldap	leaf	leaf
 pro enrollment-customization-panels markdown	leaf	leaf
 pro enrollment-customization-panels parse-markdown	leaf	leaf
 pro enrollment-customization-panels sso	leaf	leaf
 pro enrollment-customization-panels text	leaf	leaf
-pro enrollment-customization-panels update	leaf	leaf
+pro enrollment-customization-panels update	leaf	refused
 pro enrollment-customizations	group	group
 pro enrollment-customizations add-history-note	leaf	leaf
 pro enrollment-customizations apply	leaf	leaf
@@ -1002,11 +1002,11 @@ pro mobile-device-inventory-details	group	group
 pro mobile-device-inventory-details list	leaf	leaf
 pro mobile-device-inventory-details paired-devices	leaf	leaf
 pro mobile-device-prestage-scopes	group	group
-pro mobile-device-prestage-scopes create-scope	leaf	gone
+pro mobile-device-prestage-scopes create-scope	leaf	leaf
 pro mobile-device-prestage-scopes delete-multiple	leaf	leaf
 pro mobile-device-prestage-scopes list	leaf	leaf
 pro mobile-device-prestage-scopes scope	leaf	leaf
-pro mobile-device-prestage-scopes update-scope	leaf	gone
+pro mobile-device-prestage-scopes update-scope	leaf	leaf
 pro mobile-device-prestage-sync-states	group	group
 pro mobile-device-prestage-sync-states latest	leaf	leaf
 pro mobile-device-prestage-sync-states list	leaf	leaf

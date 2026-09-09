@@ -33,11 +33,13 @@ func NewVenafiCmd(ctx *registry.CLIContext) *cobra.Command {
 	cmd.AddCommand(newVenafiHistoryCmd(ctx))
 	cmd.AddCommand(newVenafiAddHistoryNoteCmd(ctx))
 	cmd.AddCommand(newVenafiPatchCmd(ctx))
-	cmd.AddCommand(newVenafiConnectionStatusCmd(ctx))
 	cmd.AddCommand(newVenafiDependentProfilesCmd(ctx))
+	cmd.AddCommand(newVenafiConnectionStatusCmd(ctx))
 	cmd.AddCommand(newVenafiJamfPublicKeyCmd(ctx))
 	cmd.AddCommand(newVenafiRegenerateCmd(ctx))
+	cmd.AddCommand(newVenafiProxyTrustStoreDeleteCmd(ctx))
 	cmd.AddCommand(newVenafiProxyTrustStoreCmd(ctx))
+	cmd.AddCommand(newVenafiProxyTrustStoreCreateCmd(ctx))
 
 	return cmd
 }
@@ -577,20 +579,20 @@ func newVenafiPatchCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newVenafiConnectionStatusCmd(ctx *registry.CLIContext) *cobra.Command {
+func newVenafiDependentProfilesCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{
-		Use:         "connection-status <id>",
-		Short:       "Tests the communication between Jamf Pro and a Jamf Pro PKI Proxy Server",
-		Long:        "Tests the communication between Jamf Pro and a Jamf Pro PKI Proxy Server",
+		Use:         "dependent-profiles <id>",
+		Short:       "Get configuration profile data using specified Venafi CA object",
+		Long:        "Get configuration profile data using specified Venafi CA object",
 		Annotations: map[string]string{"jamf:privileges": "Read PKI", "jamf:api": "pro", "jamf:gateway-privileges": "pki:read"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
 			// Build request path
-			path := "/v1/pki/venafi/{id}/connection-status"
+			path := "/v1/pki/venafi/{id}/dependent-profiles"
 			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
 
 			// Build query string
@@ -613,20 +615,20 @@ func newVenafiConnectionStatusCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
-func newVenafiDependentProfilesCmd(ctx *registry.CLIContext) *cobra.Command {
+func newVenafiConnectionStatusCmd(ctx *registry.CLIContext) *cobra.Command {
 	var ()
 
 	cmd := &cobra.Command{
-		Use:         "dependent-profiles <id>",
-		Short:       "Get configuration profile data using specified Venafi CA object",
-		Long:        "Get configuration profile data using specified Venafi CA object",
+		Use:         "connection-status <id>",
+		Short:       "Tests the communication between Jamf Pro and a Jamf Pro PKI Proxy Server",
+		Long:        "Tests the communication between Jamf Pro and a Jamf Pro PKI Proxy Server",
 		Annotations: map[string]string{"jamf:privileges": "Read PKI", "jamf:api": "pro", "jamf:gateway-privileges": "pki:read"},
 		Args:        cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reqCtx := cmd.Context()
 
 			// Build request path
-			path := "/v1/pki/venafi/{id}/dependent-profiles"
+			path := "/v1/pki/venafi/{id}/connection-status"
 			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
 
 			// Build query string
@@ -761,6 +763,81 @@ func newVenafiRegenerateCmd(ctx *registry.CLIContext) *cobra.Command {
 	return cmd
 }
 
+func newVenafiProxyTrustStoreDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
+	var (
+		flagYes    bool
+		flagDryRun bool
+	)
+
+	cmd := &cobra.Command{
+		Use:         "proxy-trust-store-delete <id>",
+		Short:       "Removes the PKI Proxy Server public key used to secure communication between Jamf Pro and a Jamf Pro PKI Proxy Server",
+		Long:        "Removes the uploaded PKI Proxy Server public key to do basic TLS certificate validation between Jamf Pro and a Jamf Pro PKI Proxy Server",
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Update PKI", "jamf:api": "pro", "jamf:gateway-privileges": "pki:update"},
+		Args:        cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			// Confirmation for destructive action
+			if flagDryRun {
+				fmt.Fprintf(os.Stderr, "Would proxy-trust-store-delete resource %s\n", strings.Join(args, " "))
+				return nil
+			}
+			if !flagYes {
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				if noInput {
+					return fmt.Errorf("destructive operation requires --yes when --no-input is set")
+				}
+				fmt.Fprintf(os.Stderr, "⚠️  This will proxy-trust-store-delete resource %s. Type 'yes' to confirm: ", strings.Join(args, " "))
+				var confirm string
+				fmt.Scanln(&confirm)
+				if confirm != "yes" {
+					return fmt.Errorf("aborted")
+				}
+			}
+
+			// Destructive cooldown enforcement
+			noInputCooldown, _ := cmd.Flags().GetBool("no-input")
+			if err := cooldown.Enforce(ctx.ProfileName, noInputCooldown, ctx.DestructiveCooldown); err != nil {
+				return err
+			}
+
+			// Build request path
+			path := "/v1/pki/venafi/{id}/proxy-trust-store"
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			resp, err := ctx.Client.Do(reqCtx, "DELETE", path, nil)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			if resp.StatusCode == http.StatusNoContent {
+				cooldown.Record(ctx.ProfileName)
+				fmt.Fprintln(os.Stderr, "Deleted successfully")
+				return nil
+			}
+
+			err = ctx.Output.PrintResponse(resp)
+			if err == nil && resp.StatusCode >= 200 && resp.StatusCode < 300 {
+				cooldown.Record(ctx.ProfileName)
+			}
+			return err
+		},
+	}
+
+	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt")
+	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
+	return cmd
+}
+
 func newVenafiProxyTrustStoreCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagSaveTo string
@@ -817,5 +894,58 @@ func newVenafiProxyTrustStoreCmd(ctx *registry.CLIContext) *cobra.Command {
 	}
 
 	cmd.Flags().StringVarP(&flagSaveTo, "save-to", "O", "", "Save output to file instead of stdout")
+	return cmd
+}
+
+func newVenafiProxyTrustStoreCreateCmd(ctx *registry.CLIContext) *cobra.Command {
+	var ()
+
+	cmd := &cobra.Command{
+		Use:         "proxy-trust-store-create <id>",
+		Short:       "Uploads the PKI Proxy Server public key to secure communication between Jamf Pro and a Jamf Pro PKI Proxy Server",
+		Long:        "Uploads the PKI Proxy Server public key to do basic TLS certificate validation between Jamf Pro and a Jamf Pro PKI Proxy Server",
+		Annotations: map[string]string{"jamf:privileges": "Update PKI", "jamf:api": "pro", "jamf:gateway-privileges": "pki:update"},
+		Args:        cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			// Build request path
+			path := "/v1/pki/venafi/{id}/proxy-trust-store"
+			path = strings.Replace(path, "{id}", url.PathEscape(args[0]), 1)
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			// Read body from stdin if available
+			var body io.Reader
+			var normalized []byte
+			stat, _ := os.Stdin.Stat()
+			if (stat.Mode() & os.ModeCharDevice) == 0 {
+				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
+				if err != nil {
+					return fmt.Errorf("reading stdin: %w", err)
+				}
+				normalized, err = normalizeInputToJSON(raw)
+				if err != nil {
+					return err
+				}
+			}
+			if len(normalized) > 0 {
+				body = bytes.NewReader(normalized)
+			}
+			resp, err := ctx.Client.Do(reqCtx, "POST", path, body)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
 	return cmd
 }

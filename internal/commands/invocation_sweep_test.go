@@ -123,6 +123,15 @@ func invocationShape(root *cobra.Command, invocation string) string {
 	if cmd.HasSubCommands() {
 		return "group"
 	}
+	if verbMovedUnderThisSpelling(invocation) {
+		// The one refusal that is not a stub: the same leaf serves both
+		// spellings and guardDeprecatedNameVerbMoves refuses only the one whose
+		// verb changed meaning, so the shape is a property of the invocation
+		// rather than of the command it resolves to. Reporting it as `leaf`
+		// would record a refusal as a working command, which is the drift the
+		// `refused` rows exist to catch.
+		return "refused"
+	}
 	if isMovedStub(cmd) {
 		// Resolves, but only to say where the operation went. Reporting this as
 		// `leaf` would mean a restored command and a refusal stub read the
@@ -130,4 +139,20 @@ func invocationShape(root *cobra.Command, invocation string) string {
 		return "refused"
 	}
 	return "leaf"
+}
+
+// verbMovedUnderThisSpelling reports whether an invocation names a verb that
+// guardDeprecatedNameVerbMoves refuses under the resource spelling it was typed
+// against.
+func verbMovedUnderThisSpelling(invocation string) bool {
+	tokens := strings.Fields(invocation)
+	if len(tokens) != 3 {
+		return false
+	}
+	moves, ok := deprecatedNameVerbMoves[tokens[1]]
+	if !ok {
+		return false
+	}
+	_, moved := moves[tokens[2]]
+	return moved
 }

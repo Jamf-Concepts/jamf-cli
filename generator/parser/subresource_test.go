@@ -474,10 +474,19 @@ var plainVerbsOutsideTheirRoot = map[string]string{
 	// judgement about which of the two roots owns `get`, not a method question.
 	"GET /v1/dss-declarations/{declarationId}": "a DSS declaration under the ddm tag; needs a name decision, not a split",
 
-	// The enrollment-customization panel families: /v1/enrollment-customization
-	// (singular) under a group rooted at /v1/enrollment-customizations
-	// (plural). Every one sits under {id}, so no no-param rule reaches them.
-	"POST /v1/enrollment-customization/{id}/ldap":             "a panel under {id}; the singular and plural roots are one tag",
-	"PUT /v1/enrollment-customization/{id}/ldap/{panel-id}":   "a panel under {id}; the singular and plural roots are one tag",
-	"DELETE /v1/enrollment-customization/{id}/all/{panel-id}": "a panel under {id}; the singular and plural roots are one tag",
+	// The enrollment-customization panel families used to be here — three
+	// entries reading "a panel under {id}; the singular and plural roots are one
+	// tag", which is why they are worth recording as removed rather than just
+	// deleted. The reason was true of the *name* and said nothing about what
+	// happened to the operation the panel displaced: the customization's own
+	// POST, PUT and DELETE collided with the panel's on `create`, `update` and
+	// `delete`, and dedupeOperations dropped them. An allowlist entry that
+	// explains why a verb may keep a foreign noun cannot be satisfied while the
+	// operation it displaced is being deleted, which is what
+	// TestNoPreviouslyShippedWriteIsDropped now asserts separately.
+	//
+	// qualifyDuplicateVerbsOutsideTheRoot resolves that collision in favour of
+	// the root, so the panel writes are `ldap-create`, `sso-update`,
+	// `all-delete` and so on — not plain verbs, and nothing for this guard to
+	// allow.
 }

@@ -34,12 +34,13 @@ func NewPatchSoftwareTitleConfigurationsCmd(ctx *registry.CLIContext) *cobra.Com
 	cmd.AddCommand(newPatchSoftwareTitleConfigurationsHistoryCmd(ctx))
 	cmd.AddCommand(newPatchSoftwareTitleConfigurationsAddHistoryNoteCmd(ctx))
 	cmd.AddCommand(newPatchSoftwareTitleConfigurationsPatchCmd(ctx))
+	cmd.AddCommand(newPatchSoftwareTitleConfigurationsCreateDashboardCmd(ctx))
 	cmd.AddCommand(newPatchSoftwareTitleConfigurationsDefinitionsCmd(ctx))
 	cmd.AddCommand(newPatchSoftwareTitleConfigurationsDependenciesCmd(ctx))
 	cmd.AddCommand(newPatchSoftwareTitleConfigurationsExportReportCmd(ctx))
 	cmd.AddCommand(newPatchSoftwareTitleConfigurationsExtensionAttributesCmd(ctx))
-	cmd.AddCommand(newPatchSoftwareTitleConfigurationsCreateDashboardCmd(ctx))
 	cmd.AddCommand(newPatchSoftwareTitleConfigurationsDashboardCmd(ctx))
+	cmd.AddCommand(newPatchSoftwareTitleConfigurationsDashboardDeleteCmd(ctx))
 	cmd.AddCommand(newPatchSoftwareTitleConfigurationsPatchReportCmd(ctx))
 	cmd.AddCommand(newPatchSoftwareTitleConfigurationsPatchSummaryCmd(ctx))
 	cmd.AddCommand(newPatchSoftwareTitleConfigurationsVersionsCmd(ctx))
@@ -834,6 +835,78 @@ func newPatchSoftwareTitleConfigurationsPatchCmd(ctx *registry.CLIContext) *cobr
 	return cmd
 }
 
+func newPatchSoftwareTitleConfigurationsCreateDashboardCmd(ctx *registry.CLIContext) *cobra.Command {
+	var (
+		flagName string
+	)
+
+	cmd := &cobra.Command{
+		Use:         "create-dashboard [<id>]",
+		Short:       "Add a software title configuration to the dashboard",
+		Long:        "Adds a software title configuration to the dashboard.",
+		Annotations: map[string]string{"jamf:privileges": "Read Patch Management Software Titles", "jamf:api": "pro", "jamf:gateway-privileges": "patch-management-software-titles:read"},
+		Args:        cobra.MaximumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			// Resolve resource ID from positional arg, --name, or lookup flags
+			var resolvedID string
+			if flagName != "" {
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v3/patch-software-title-configurations", "displayName", "id", flagName, noInput)
+				if err != nil {
+					return err
+				}
+				resolvedID = rid
+			} else if len(args) > 0 {
+				resolvedID = args[0]
+			} else {
+				return fmt.Errorf("provide an <id> argument, --name")
+			}
+
+			// Build request path
+			path := "/v3/patch-software-title-configurations/{id}/dashboard"
+			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+
+			// Make request
+			// Read body from stdin if available
+			var body io.Reader
+			var normalized []byte
+			stat, _ := os.Stdin.Stat()
+			if (stat.Mode() & os.ModeCharDevice) == 0 {
+				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
+				if err != nil {
+					return fmt.Errorf("reading stdin: %w", err)
+				}
+				normalized, err = normalizeInputToJSON(raw)
+				if err != nil {
+					return err
+				}
+			}
+			if len(normalized) > 0 {
+				body = bytes.NewReader(normalized)
+			}
+			resp, err := ctx.Client.Do(reqCtx, "POST", path, body)
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			return ctx.Output.PrintResponse(resp)
+		},
+	}
+
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up patch-software-title-configuration by name")
+
+	return cmd
+}
+
 func newPatchSoftwareTitleConfigurationsDefinitionsCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagPage     int
@@ -1210,78 +1283,6 @@ func newPatchSoftwareTitleConfigurationsExtensionAttributesCmd(ctx *registry.CLI
 	return cmd
 }
 
-func newPatchSoftwareTitleConfigurationsCreateDashboardCmd(ctx *registry.CLIContext) *cobra.Command {
-	var (
-		flagName string
-	)
-
-	cmd := &cobra.Command{
-		Use:         "create-dashboard [<id>]",
-		Short:       "Add a software title configuration to the dashboard",
-		Long:        "Adds a software title configuration to the dashboard.",
-		Annotations: map[string]string{"jamf:privileges": "Read Patch Management Software Titles", "jamf:api": "pro", "jamf:gateway-privileges": "patch-management-software-titles:read"},
-		Args:        cobra.MaximumNArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			reqCtx := cmd.Context()
-
-			// Resolve resource ID from positional arg, --name, or lookup flags
-			var resolvedID string
-			if flagName != "" {
-				noInput, _ := cmd.Flags().GetBool("no-input")
-				rid, err := resolveNameToID(reqCtx, ctx.Client, "/v3/patch-software-title-configurations", "displayName", "id", flagName, noInput)
-				if err != nil {
-					return err
-				}
-				resolvedID = rid
-			} else if len(args) > 0 {
-				resolvedID = args[0]
-			} else {
-				return fmt.Errorf("provide an <id> argument, --name")
-			}
-
-			// Build request path
-			path := "/v3/patch-software-title-configurations/{id}/dashboard"
-			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
-
-			// Build query string
-			var queryParts []string
-			if len(queryParts) > 0 {
-				path = path + "?" + strings.Join(queryParts, "&")
-			}
-
-			// Make request
-			// Read body from stdin if available
-			var body io.Reader
-			var normalized []byte
-			stat, _ := os.Stdin.Stat()
-			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				raw, err := io.ReadAll(io.LimitReader(os.Stdin, 10<<20))
-				if err != nil {
-					return fmt.Errorf("reading stdin: %w", err)
-				}
-				normalized, err = normalizeInputToJSON(raw)
-				if err != nil {
-					return err
-				}
-			}
-			if len(normalized) > 0 {
-				body = bytes.NewReader(normalized)
-			}
-			resp, err := ctx.Client.Do(reqCtx, "POST", path, body)
-			if err != nil {
-				return err
-			}
-			defer resp.Body.Close()
-
-			return ctx.Output.PrintResponse(resp)
-		},
-	}
-
-	cmd.Flags().StringVar(&flagName, "name", "", "Look up patch-software-title-configuration by name")
-
-	return cmd
-}
-
 func newPatchSoftwareTitleConfigurationsDashboardCmd(ctx *registry.CLIContext) *cobra.Command {
 	var (
 		flagName string
@@ -1334,6 +1335,211 @@ func newPatchSoftwareTitleConfigurationsDashboardCmd(ctx *registry.CLIContext) *
 	}
 
 	cmd.Flags().StringVar(&flagName, "name", "", "Look up patch-software-title-configuration by name")
+
+	return cmd
+}
+
+func newPatchSoftwareTitleConfigurationsDashboardDeleteCmd(ctx *registry.CLIContext) *cobra.Command {
+	var (
+		flagYes    bool
+		flagDryRun bool
+		fromFile   string
+		flagName   string
+	)
+
+	cmd := &cobra.Command{
+		Use:         "dashboard-delete [<id>]",
+		Short:       "Remove a software title configuration from the dashboard",
+		Long:        "Removes a software title configuration from the dashboard.",
+		Annotations: map[string]string{"jamf:destructive": "true", "jamf:privileges": "Read Patch Management Software Titles", "jamf:api": "pro", "jamf:gateway-privileges": "patch-management-software-titles:read"},
+		Args:        cobra.MaximumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqCtx := cmd.Context()
+
+			// --from-file: bulk delete from a file of IDs or names
+			if fromFile != "" {
+				entries, err := readDeleteFile(fromFile)
+				if err != nil {
+					return fmt.Errorf("reading --from-file: %w", err)
+				}
+				if len(entries) == 0 {
+					return fmt.Errorf("--from-file %q: no entries found", fromFile)
+				}
+				type bulkEntry struct{ id, label string }
+				bulk := make([]bulkEntry, 0, len(entries))
+				noInputBulk, _ := cmd.Flags().GetBool("no-input")
+				for _, entry := range entries {
+					if isNumericID(entry) {
+						if entry == "0" {
+							return fmt.Errorf("--from-file: ID 0 is not valid (Jamf Pro uses 0 as a sentinel value)")
+						}
+						bulk = append(bulk, bulkEntry{id: entry, label: entry})
+					} else {
+						var rid string
+						if rid == "" {
+							id, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v3/patch-software-title-configurations", "displayName", "id", entry, noInputBulk)
+							if err != nil {
+								return fmt.Errorf("resolving %q: %w", entry, err)
+							}
+							rid = id
+						}
+						if rid == "" {
+							return fmt.Errorf("no patch-software-title-configuration found matching %q", entry)
+						}
+						bulk = append(bulk, bulkEntry{id: rid, label: entry})
+					}
+				}
+				// Deduplicate resolved IDs to avoid double-delete errors.
+				{
+					seen := make(map[string]bool, len(bulk))
+					deduped := bulk[:0]
+					for _, e := range bulk {
+						if !seen[e.id] {
+							seen[e.id] = true
+							deduped = append(deduped, e)
+						}
+					}
+					bulk = deduped
+				}
+				if flagDryRun {
+					for _, e := range bulk {
+						fmt.Fprintf(os.Stderr, "[dry-run] Would delete patch-software-title-configuration %q (id: %s)\n", e.label, e.id)
+					}
+					return nil
+				}
+				if !flagYes {
+					if noInputBulk {
+						return fmt.Errorf("destructive operation requires --yes when --no-input is set")
+					}
+					fmt.Fprintf(os.Stderr, "⚠️  This will delete %d patch-software-title-configurations. Type 'yes' to confirm: ", len(bulk))
+					var confirm string
+					fmt.Scanln(&confirm)
+					if confirm != "yes" {
+						return fmt.Errorf("aborted")
+					}
+				}
+				if err := cooldown.Enforce(ctx.ProfileName, noInputBulk, ctx.DestructiveCooldown); err != nil {
+					return err
+				}
+				var okCount, failCount int
+				var firstErr error
+				for _, e := range bulk {
+					delPath := strings.Replace("/v3/patch-software-title-configurations/{id}/dashboard", "{id}", url.PathEscape(e.id), 1)
+					resp, err := ctx.Client.Do(reqCtx, "DELETE", delPath, nil)
+					if err != nil {
+						fmt.Fprintf(os.Stderr, "delete patch-software-title-configuration %q (id: %s) failed: %v\n", e.label, e.id, err)
+						if firstErr == nil {
+							firstErr = err
+						}
+						failCount++
+						continue
+					}
+					resp.Body.Close()
+					if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+						fmt.Fprintf(os.Stderr, "delete patch-software-title-configuration %q (id: %s) failed: HTTP %d\n", e.label, e.id, resp.StatusCode)
+						if firstErr == nil {
+							firstErr = fmt.Errorf("HTTP %d", resp.StatusCode)
+						}
+						failCount++
+						continue
+					}
+					fmt.Fprintf(os.Stderr, "Deleted patch-software-title-configuration %q (id: %s)\n", e.label, e.id)
+					okCount++
+				}
+				cooldown.Record(ctx.ProfileName)
+				return batchDeleteError(cmd, okCount, failCount, firstErr, "patch-software-title-configurations deletes")
+			}
+
+			// Resolve resource ID from positional arg, --name, or lookup flags
+			var resolvedID string
+			var resolvedByName string
+			if flagName != "" {
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				rid, err := resolveNameToIDForApply(reqCtx, ctx.Client, "/v3/patch-software-title-configurations", "displayName", "id", flagName, noInput)
+				if err != nil {
+					return err
+				}
+				if rid == "" {
+					return fmt.Errorf("no patch-software-title-configuration found with displayName %q", flagName)
+				}
+				resolvedID = rid
+				resolvedByName = flagName
+			} else if len(args) > 0 {
+				resolvedID = args[0]
+			} else {
+				return fmt.Errorf("provide an <id> argument, --name")
+			}
+
+			// Confirmation for destructive action (after name lookup)
+			if flagDryRun {
+				if resolvedByName != "" {
+					fmt.Fprintf(os.Stderr, "[dry-run] Would dashboard-delete patch-software-title-configuration %q (id: %s)\n", resolvedByName, resolvedID)
+				} else {
+					fmt.Fprintf(os.Stderr, "[dry-run] Would dashboard-delete patch-software-title-configuration %s\n", resolvedID)
+				}
+				return nil
+			}
+			if !flagYes {
+				noInput, _ := cmd.Flags().GetBool("no-input")
+				if noInput {
+					return fmt.Errorf("destructive operation requires --yes when --no-input is set")
+				}
+				if resolvedByName != "" {
+					fmt.Fprintf(os.Stderr, "⚠️  This will dashboard-delete patch-software-title-configuration %q (id: %s). Type 'yes' to confirm: ", resolvedByName, resolvedID)
+				} else {
+					fmt.Fprintf(os.Stderr, "⚠️  This will dashboard-delete patch-software-title-configuration %s. Type 'yes' to confirm: ", resolvedID)
+				}
+				var confirm string
+				fmt.Scanln(&confirm)
+				if confirm != "yes" {
+					return fmt.Errorf("aborted")
+				}
+			}
+
+			// Destructive cooldown enforcement
+			noInputCooldown, _ := cmd.Flags().GetBool("no-input")
+			if err := cooldown.Enforce(ctx.ProfileName, noInputCooldown, ctx.DestructiveCooldown); err != nil {
+				return err
+			}
+
+			// Build request path
+			path := "/v3/patch-software-title-configurations/{id}/dashboard"
+			path = strings.Replace(path, "{id}", url.PathEscape(resolvedID), 1)
+
+			// Build query string
+			var queryParts []string
+			if len(queryParts) > 0 {
+				path = path + "?" + strings.Join(queryParts, "&")
+			}
+			vft := newVersionFallback("/v3/patch-software-title-configurations/{id}/dashboard")
+
+			// Make request
+			resp, err := vft.do(ctx.Client, reqCtx, "DELETE", path, nil, []string{"/v2/patch-software-title-configurations/{id}/dashboard"})
+			if err != nil {
+				return err
+			}
+			defer resp.Body.Close()
+
+			if resp.StatusCode == http.StatusNoContent {
+				cooldown.Record(ctx.ProfileName)
+				fmt.Fprintln(os.Stderr, "Deleted successfully")
+				return nil
+			}
+
+			err = ctx.Output.PrintResponse(resp)
+			if err == nil && resp.StatusCode >= 200 && resp.StatusCode < 300 {
+				cooldown.Record(ctx.ProfileName)
+			}
+			return err
+		},
+	}
+
+	cmd.Flags().BoolVar(&flagYes, "yes", false, "Skip confirmation prompt")
+	cmd.Flags().BoolVarP(&flagDryRun, "dry-run", "n", false, "Preview without executing")
+	cmd.Flags().StringVar(&fromFile, "from-file", "", "Path to file listing IDs or names to delete (one per line, # comments ignored)")
+	cmd.Flags().StringVar(&flagName, "name", "", "Look up patch-software-title-configuration by name")
+
+	cmd.MarkFlagsMutuallyExclusive("from-file", "name")
 
 	return cmd
 }

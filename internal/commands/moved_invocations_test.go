@@ -3,6 +3,7 @@
 package commands
 
 import (
+	"errors"
 	"os"
 	"sort"
 	"strings"
@@ -364,4 +365,126 @@ func withArgs(argv []string, fn func()) {
 	os.Args = argv
 	defer func() { os.Args = saved }()
 	fn()
+}
+
+// Every deprecatedNameVerbMoves entry names a live deprecated resource, a verb
+// that exists on its replacement, and a replacement invocation that resolves to
+// a leaf.
+//
+// A stale entry is the failure to watch for: the verb move is permanent, so an
+// entry that stops matching means the refusal has silently gone and the old
+// spelling is running the wrong operation again.
+func TestDeprecatedNameVerbMovesResolve(t *testing.T) {
+	pro := proCmd(t)
+	if len(deprecatedNameVerbMoves) == 0 {
+		t.Fatal("the table is empty, so this test cannot pass vacuously")
+	}
+	for _, old := range sortedKeysOfVerbMoves() {
+		dep, ok := deprecatedNames[old]
+		if !ok {
+			t.Errorf("%q names no deprecatedNames entry, so nothing resolves it and nothing is refused", old)
+			continue
+		}
+		resource := childNamed(pro, dep.Now)
+		if resource == nil {
+			t.Errorf("%q points at %q, which the binary does not ship", old, dep.Now)
+			continue
+		}
+		for _, verb := range sortedKeysOfStringMap(deprecatedNameVerbMoves[old]) {
+			if childNamed(resource, verb) == nil {
+				t.Errorf("%s %s: %q has no %q, so the entry refuses nothing", old, verb, dep.Now, verb)
+			}
+			want := deprecatedNameVerbMoves[old][verb]
+			target := findCommand(pro, want)
+			if target == nil {
+				t.Errorf("%s %s points at `pro %s`, which the binary does not ship", old, verb, want)
+				continue
+			}
+			if target.HasSubCommands() {
+				t.Errorf("%s %s points at `pro %s`, which is a command group and returns no data", old, verb, want)
+			}
+		}
+	}
+}
+
+// The refusal itself: a moved verb typed against the old spelling refuses and
+// names its replacement, while the live spelling is passed through.
+//
+// Asserted on the predicate the guard's RunE wrapper calls, rather than by
+// running the command: the live-spelling half has to reach `inner`, and every
+// generated RunE needs a CLIContext before it does anything at all.
+func TestDeprecatedNameVerbMoveRefusesOnlyTheOldSpelling(t *testing.T) {
+	const old = "enrollment-customization-panels"
+	moves := deprecatedNameVerbMoves[old]
+	if len(moves) == 0 {
+		t.Fatalf("%q holds no verb moves, so this test cannot pass vacuously", old)
+	}
+	live := deprecatedNames[old].Now
+
+	for verb, want := range moves {
+		t.Run(verb, func(t *testing.T) {
+			err := refuseMovedVerb(old, old, live, verb, want)
+			if err == nil {
+				t.Fatalf("`pro %s %s` was accepted; it addresses the resource root, not the panel", old, verb)
+			}
+			if !strings.Contains(err.Error(), old) {
+				t.Errorf("refusal does not name the spelling typed: %v", err)
+			}
+			var ec *exitcode.Error
+			if !errors.As(err, &ec) {
+				t.Fatalf("refusal is not an *exitcode.Error, so it carries no hint: %v", err)
+			}
+			if ec.Code != exitcode.Usage {
+				t.Errorf("exit code = %d, want %d", ec.Code, exitcode.Usage)
+			}
+			if !strings.Contains(ec.Hint, want) {
+				t.Errorf("hint = %q, want it to name `pro %s`", ec.Hint, want)
+			}
+			if err := refuseMovedVerb(live, old, live, verb, want); err != nil {
+				t.Errorf("`pro %s %s` was refused: %v", live, verb, err)
+			}
+		})
+	}
+}
+
+// The wiring: the guard reaches the leaf and reads argv, so the refusal is what
+// the built binary answers rather than only what the predicate returns.
+func TestGuardDeprecatedNameVerbMovesWrapsTheLeaf(t *testing.T) {
+	const old = "enrollment-customization-panels"
+	root := NewRootCmd("test", "none", "none", "none")
+	leaf := findCommand(childNamed(root, "pro"), deprecatedNames[old].Now+" create")
+	if leaf == nil {
+		t.Fatal("`pro enrollment-customization create` does not resolve")
+	}
+	withArgs([]string{"jamf-cli", "pro", old, "create", "--scaffold"}, func() {
+		if err := leaf.RunE(leaf, nil); err == nil {
+			t.Fatal("the guard did not reach the leaf: a moved verb ran under the old spelling")
+		}
+	})
+}
+
+// Cobra validates Args before RunE, so the refusal has to survive the form the
+// old command took: `pro enrollment-customization-panels update <id> <panel-id>`
+// against a leaf that now accepts at most one positional. Without the
+// relaxation this answered "accepts at most 1 arg(s), received 2" and the
+// pointer was unreachable from the invocation a caller actually types.
+func TestDeprecatedNameVerbMoveSurvivesTheOldArity(t *testing.T) {
+	const old = "enrollment-customization-panels"
+	root := NewRootCmd("test", "none", "none", "none")
+	leaf := findCommand(childNamed(root, "pro"), deprecatedNames[old].Now+" update")
+	if leaf == nil {
+		t.Fatal("`pro enrollment-customization update` does not resolve")
+	}
+	withArgs([]string{"jamf-cli", "pro", old, "update", "1", "2"}, func() {
+		if err := leaf.Args(leaf, []string{"1", "2"}); err != nil {
+			t.Errorf("two positionals under the old spelling = %v, want them through to the refusal", err)
+		}
+	})
+	// And the live spelling keeps its ceiling, or the relaxation has replaced
+	// the validator rather than fronting it.
+	withArgs([]string{"jamf-cli", "pro", deprecatedNames[old].Now, "update", "1", "2", "3"}, func() {
+		if err := leaf.Args(leaf, []string{"1", "2", "3"}); err == nil {
+			t.Error("three positionals under the live spelling were accepted; the arity check is gone")
+		}
+	})
 }
