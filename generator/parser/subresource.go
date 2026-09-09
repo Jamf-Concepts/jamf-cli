@@ -26,6 +26,33 @@ import (
 // So the sub-path becomes a command of its own and its verbs become plain
 // again: `pro sso-settings cert delete`, `pro sso-settings cert download`.
 
+// Three questions the rule leaves open, and the answer taken for each.
+//
+// **A sub-path with a deeper operation but no write on itself does not split.**
+// `/v1/sso/failover` is a GET plus `POST /v1/sso/failover/generate`, so
+// `failover` and `generate` both stay flat and `generate` is another lone verb
+// on the parent. Widening the rule to "any sub-path with a deeper operation of
+// its own" would fix that and would also pull in every `/history` pair with an
+// `/export` beneath it, `/pki/certificate-authority/active` with its `/der` and
+// `/pem`, `/apns-client-push-status/enable-all-clients` with its `/status`,
+// `/inventory-preload/csv` and `/mdm/commands` — turning eighteen appends into
+// nested sub-resources for no correctness gain. The rule's justification is
+// *ownership*, and "has a deeper operation" is a fact about URL shape rather
+// than about ownership. `generate` is also not the defect this exists to fix: it
+// shadows no CRUD verb, so TestNoPlainVerbLeavesItsResource does not flag it,
+// where `delete`, `update` and `patch` on a sub-path all did.
+//
+// **A create-and-read-only sub-resource (GET+POST, no PUT or DELETE) will not
+// split**, and none exists today. That is the one shape where the rule might be
+// wrong and cannot be judged from the document, so it is left to arrive:
+// TestSubResourcePartitionIsPinned lists every refused multi-method sub-path, so
+// a new GET+POST candidate appears as a diff in that list and gets decided then
+// rather than silently.
+//
+// **`csa` keeping only `tenant-id` beside the split-out `token` reads fine.**
+// `pro csa tenant-id` and `pro csa token get|delete` is a better surface than
+// `pro csa delete` deleting a token, which is what it did.
+
 // subResourceWriteMethods are the methods that make a sub-path an object rather
 // than an operation.
 //
