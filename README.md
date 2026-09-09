@@ -35,12 +35,21 @@ For interactive use, `jamf-cli pro setup` prompts for credentials so nothing is 
 
 ### Jamf Pro
 
+`pro setup` takes credentials from either of two sources. It asks which at the
+first prompt, defaulting to an API client you already made:
+
 ```bash
-# One-time setup: prompts for credentials and stores them in the system keychain
+# One-time setup: prompts for a client ID and secret, verifies them, and stores
+# them in the system keychain
 jamf-cli pro setup --url https://jamf.company.com
 
+# Let jamf-cli create the API role and client for you, using a Jamf Pro account.
+# Local and directory accounts are deprecated for cloud-hosted instances
+# (estimated removal in the second half of 2027), so prefer the option above.
+jamf-cli pro setup --url https://jamf.company.com --credentials create
+
 # Multi-instance setup (MSPs): bootstrap credentials for many instances at once
-jamf-cli pro setup --from-file instances.txt --scope standard
+jamf-cli pro setup --from-file instances.txt --credentials create --scope standard
 
 # Instance health dashboard
 jamf-cli pro overview
