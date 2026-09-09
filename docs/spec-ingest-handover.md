@@ -2,7 +2,8 @@
 
 **Branch:** `feat/spec-ingest-path-derived-naming` · **Started:** 2026-09-09
 **Status:** mechanism, tag naming and the deprecation aliases all landed and
-guarded. 13 tests failing — 6 in one known class, 7 stale name/count assertions.
+guarded. Lint clean. 13 tests failing — **7** in one known class (the
+`gateway.successors` table emptying) and **6** stale name or count assertions.
 **Delete this file before merge.**
 
 ## The goal, in one line
@@ -59,7 +60,7 @@ Measured either way, against 163 resources before:
 
 | | resources | unchanged | renamed | merges | splits |
 |---|---|---|---|---|---|
-| tag names (chosen) | 134 | 53 | 44 | 22 | 13 |
+| tag names (chosen) | 135 | 53 | 44 | 22 | 13 |
 | path names | 136 | 60 | 40 | 24 | 13 |
 
 Seven fewer names survive; the aliases absorb it. The decisive argument was not
@@ -108,7 +109,7 @@ component partitioning, `_MonolithLibrary.yaml`, `PreservedSpecs`,
 
 ## What is left
 
-### 1. The successors table emptied — 6 failing tests
+### 1. The successors table emptied — 7 failing tests
 
 `internal/gateway/note.go`'s `successors` held one entry,
 `pro static-computer-groups`, whose v2 resource folded into the v3-served
@@ -116,10 +117,10 @@ component partitioning, `_MonolithLibrary.yaml`, `PreservedSpecs`,
 is legitimately empty — and 6 tests assert a non-empty one:
 
 ```
-TestEveryCommandEntryFieldReachesTheCatalog     TestCatalogCarriesTheSuccessorForARefusedCommand
-TestTheRefusalNamesAWorkingSuccessorWhereOneShips  TestCatalogJSONCarriesTheSuccessorKey
-TestRefusalNamesACuratedSuccessorFirst          TestSuccessorMatchesTheLongestCommandPathPrefix
-TestGroupHelpCarriesTheCaveatWhenEveryLeafIsRefused
+TestCatalogCarriesTheSuccessorForARefusedCommand   TestCatalogJSONCarriesTheSuccessorKey
+TestEveryCommandEntryFieldReachesTheCatalog        TestGroupHelpCarriesTheCaveatWhenEveryLeafIsRefused
+TestRefusalNamesACuratedSuccessorFirst             TestSuccessorMatchesTheLongestCommandPathPrefix
+TestTheRefusalNamesAWorkingSuccessorWhereOneShips
 ```
 
 I checked all 67 refused commands for a genuine successor and found none
@@ -134,14 +135,15 @@ documented idiom for a live case that resolved — see
 tests can inject; the two catalog tests in `internal/commands` cannot and should
 skip with a stated reason.
 
-### 2. Stale name and count assertions — 7 failing tests
+### 2. Stale name and count assertions — 6 failing tests
 
-`TestApplyAliases`, `TestCollectCommands` (×3), `TestRequestBodyFlagIsUniformly
-FromFile`, `TestNoExampleDocumentsAnUndeclaredPositional`,
-`TestGroupHelpCarriesTheCaveatWhenEveryLeafIsRefused`. All reference a resource
-name that moved, or a hardcoded count that shifted. Mechanical.
+`TestApplyAliases`, `TestCollectCommands` (×3),
+`TestRequestBodyFlagIsUniformlyFromFile`,
+`TestNoExampleDocumentsAnUndeclaredPositional`. Each references a resource name
+that moved or a hardcoded count that shifted. Mechanical; the failure message
+names the value in every case.
 
-### 2b. Earlier name updates
+Two earlier ones in the same class
 
 - `TestChainSkip_RootOnlyNamesDoNotSkipNestedCommands` expects
   `pro mdm-commands`; the operation is now `pro mdm commands`.
@@ -235,8 +237,13 @@ written afterwards to describe it:
   `jamf-protect-deployment-tasks`, `jcds`) and every one was silent.
 - `TestDroppedTagsDoNotTakeAVersionedPathWithThem` — a tag is not a safe drop
   unit; `policies-preview` covers a live versioned path.
-- `TestEveryFormerResourceNameStillResolves` — 163 former names: 71 live, 102
-  aliased, 3 withdrawn, nothing orphaned.
+- `TestEveryFormerResourceNameStillResolves` — 163 former names: 60 live, 103
+  aliased, 3 withdrawn, nothing orphaned. (103 rather than the table's 102: one
+  former name also reaches its replacement through a curated alias.)
+- `TestWithdrawnNameMessagesNameCommandsThatShip` — the withdrawal messages
+  named `pro team-viewer-remote-administrations` and
+  `pro computers-inventory redeploy-framework`, both pre-rename forms. Prose is
+  what a rename does not update.
 
 ## Reproducing the measurements
 
