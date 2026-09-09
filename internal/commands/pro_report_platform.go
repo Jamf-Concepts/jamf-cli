@@ -32,35 +32,58 @@ failed, and pending device counts. Requires platform gateway auth.`,
 			ctx := cmd.Context()
 			c := cliCtx.PlatformSDKClient
 
-			bps, err := blueprints.New(c).ListBlueprints(ctx, nil, "")
+			bp := blueprints.New(c)
+
+			bps, err := bp.ListBlueprints(ctx, nil, "")
 			if err != nil {
 				return err
 			}
 
 			rows := make([]map[string]any, 0, len(bps))
-			for _, bp := range bps {
+			for _, b := range bps {
 				state := ""
-				if bp.DeploymentState != nil {
-					state = bp.DeploymentState.State
-				}
-				row := map[string]any{
-					"name":  bp.Name,
-					"state": state,
+				if b.DeploymentState != nil {
+					state = b.DeploymentState.State
 				}
 
-				detail, err := blueprints.New(c).GetBlueprint(ctx, bp.ID)
-				if err == nil {
+				// Every row carries every key, because a table's columns are
+				// the keys of its *first* row (see the "A table's columns"
+				// convention in CLAUDE.md). Leaving a count off a
+				// NOT_DEPLOYED row cost the whole report its SUCCEEDED /
+				// FAILED / PENDING columns whenever a NOT_DEPLOYED blueprint
+				// happened to sort first (issue #356). nil means "not
+				// applicable to this row" and is rendered as a placeholder
+				// for table/csv/plain and dropped for json/yaml, so the
+				// structured output keeps the shape it has always had.
+				row := map[string]any{
+					"name":      b.Name,
+					"state":     state,
+					"scope":     nil,
+					"steps":     nil,
+					"succeeded": nil,
+					"failed":    nil,
+					"pending":   nil,
+				}
+
+				detail, err := bp.GetBlueprint(ctx, b.ID)
+				switch {
+				case err != nil:
+					// Reported rather than swallowed: without this the row
+					// silently claimed no scope and no steps.
+					_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "Warning: failed to fetch blueprint %q: %v\n", b.Name, err)
+				default:
+					row["scope"] = 0
 					if detail.Scope != nil {
 						row["scope"] = len(detail.Scope.DeviceGroups)
-					} else {
-						row["scope"] = 0
 					}
 					row["steps"] = len(detail.Steps)
 				}
 
 				if state == "DEPLOYED" {
-					report, err := blueprints.New(c).GetBlueprintReport(ctx, bp.ID)
-					if err == nil {
+					report, err := bp.GetBlueprintReport(ctx, b.ID)
+					if err != nil {
+						_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "Warning: failed to fetch deployment report for %q: %v\n", b.Name, err)
+					} else {
 						row["succeeded"] = report.Succeeded
 						row["failed"] = report.Failed
 						row["pending"] = report.Pending
@@ -75,9 +98,51 @@ failed, and pending device counts. Requires platform gateway auth.`,
 				return nil
 			}
 
-			return printRows(cliCtx, rows)
+			return printRows(cliCtx, blueprintStatusRowsForFormat(rows, outputFmt))
 		},
 	}
+}
+
+// notApplicable is what a column-bearing row shows for a value that does not
+// apply to it. An em dash rather than 0, because 0 succeeded devices and no
+// deployment to have succeeded on are different facts.
+const notApplicable = "\u2014"
+
+// structuredRowFormats are the formats that marshal a row rather than render
+// it into columns. They keep an absent value absent — which is the shape they
+// have always emitted, and the only honest one, since a consumer of these
+// reads a number where a column reader reads a cell. -o xml and -o raw are
+// deliberately not here: neither has a case in the formatter's switch, so both
+// render a table and both need the column.
+var structuredRowFormats = map[string]bool{
+	"json":       true,
+	"json-multi": true,
+	"yaml":       true,
+	"ndjson":     true,
+}
+
+// blueprintStatusRowsForFormat resolves the nil placeholders in the canonical
+// rows for the requested format: a structured format drops the key, and every
+// column-rendering format substitutes notApplicable so the key survives as a
+// column whatever the first row happens to be.
+func blueprintStatusRowsForFormat(rows []map[string]any, format string) []map[string]any {
+	structured := structuredRowFormats[format]
+	out := make([]map[string]any, 0, len(rows))
+	for _, row := range rows {
+		resolved := make(map[string]any, len(row))
+		for k, v := range row {
+			switch {
+			case v != nil:
+				resolved[k] = v
+			case structured:
+				// key omitted
+			default:
+				resolved[k] = notApplicable
+			}
+		}
+		out = append(out, resolved)
+	}
+	return out
 }
 
 // ── Compliance Rules Report ────────────────────────────────────────────────
