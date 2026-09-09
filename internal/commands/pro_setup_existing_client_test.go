@@ -7,12 +7,14 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/config"
+	"github.com/Jamf-Concepts/jamf-cli/internal/exitcode"
 	"github.com/Jamf-Concepts/jamf-cli/internal/keychain"
 )
 
@@ -100,6 +102,11 @@ func TestSetupInstanceWithExistingClient_BadPairWritesNothing(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected an error for a secret the server rejects")
 	}
+	// The operator has to be told nothing landed, or they go looking for a
+	// half-written profile.
+	if !strings.Contains(err.Error(), "did not write profile") {
+		t.Errorf("error = %q, want it to say no profile was written", err.Error())
+	}
 	if len(mock.items) != 0 {
 		t.Errorf("keychain written despite verification failure: %v", mock.items)
 	}
@@ -163,6 +170,13 @@ func TestProSetup_ExistingClientRefusesRoleCreationFlags(t *testing.T) {
 			args: []string{"--url", "https://example.jamfcloud.com", "--credentials", "byo"},
 			want: "invalid --credentials",
 		},
+		{
+			// A typo in --scope has to be caught before the username and
+			// password prompts, not after them.
+			name: "unknown scope, before any prompt",
+			args: []string{"--url", "https://example.jamfcloud.com", "--credentials", "create", "--scope", "bogus"},
+			want: "invalid --scope",
+		},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -178,6 +192,17 @@ func TestProSetup_ExistingClientRefusesRoleCreationFlags(t *testing.T) {
 			}
 			if !strings.Contains(err.Error(), tc.want) {
 				t.Errorf("error = %q, want it to contain %q", err.Error(), tc.want)
+			}
+			// Exit 2, so a wrapper can tell "you invoked it wrong" from "the
+			// operation failed".
+			var ec *exitcode.Error
+			if !errors.As(err, &ec) || ec.Code != exitcode.Usage {
+				t.Errorf("exit code = %v, want %v (usage)", err, exitcode.Usage)
+			}
+			// Nothing may be read from stdin before the refusal: the test
+			// would block on a prompt rather than fail.
+			if strings.Contains(out.String(), "Username") || strings.Contains(out.String(), "Client ID") {
+				t.Errorf("prompted before refusing:\n%s", out.String())
 			}
 		})
 	}

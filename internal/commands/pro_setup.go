@@ -21,6 +21,7 @@ import (
 
 	"github.com/Jamf-Concepts/jamf-cli/internal/auth"
 	"github.com/Jamf-Concepts/jamf-cli/internal/config"
+	"github.com/Jamf-Concepts/jamf-cli/internal/exitcode"
 	"github.com/Jamf-Concepts/jamf-cli/internal/keychain"
 	"github.com/Jamf-Concepts/jamf-cli/internal/resolve"
 )
@@ -711,8 +712,11 @@ func writeOAuth2Profile(cfg *config.Config, profileName, instanceURL, clientID s
 func setupInstanceWithExistingClient(ctx context.Context, w io.Writer, cfg *config.Config, instanceURL, clientID, clientSecret, profileName string) error {
 	_, _ = fmt.Fprint(w, "  Verifying credentials... ")
 	if err := auth.VerifyOAuth2Credentials(ctx, instanceURL, clientID, clientSecret); err != nil {
+		// Say that nothing landed. Without it the operator reads a bare
+		// exchange failure and cannot tell whether a half-written profile is
+		// now on disk, which is the state they would go looking for.
 		_, _ = fmt.Fprintln(w, "✗")
-		return err
+		return fmt.Errorf("%w\n\njamf-cli did not write profile %q", err, profileName)
 	}
 	_, _ = fmt.Fprintln(w, "✓")
 
@@ -809,7 +813,8 @@ Deprecation notice for --credentials create:
 				_, _ = fmt.Fprintln(w)
 			}
 			if !isValidCredentialSource(credentialSrc) {
-				return fmt.Errorf("invalid --credentials %q: must be one of: %s", credentialSrc, validCredentialSources())
+				return exitcode.New(exitcode.Usage,
+					fmt.Sprintf("invalid --credentials %q: must be one of: %s", credentialSrc, validCredentialSources()))
 			}
 
 			// --scope and --rotate-credentials describe an API role and client
@@ -819,11 +824,23 @@ Deprecation notice for --credentials create:
 			// believing it narrowed their credential's privileges.
 			if credentialSrc == credentialSourceExisting {
 				if cmd.Flags().Changed("scope") {
-					return fmt.Errorf("--scope cannot be used with --credentials existing: the privileges come from the API role already attached to your client in Jamf Pro")
+					return exitcode.New(exitcode.Usage,
+						"--scope cannot be used with --credentials existing: the privileges come from the API role already attached to your client in Jamf Pro")
 				}
 				if cmd.Flags().Changed("rotate-credentials") {
-					return fmt.Errorf("--rotate-credentials cannot be used with --credentials existing: jamf-cli did not issue the client and cannot rotate its secret; generate a new secret in Jamf Pro and re-run setup")
+					return exitcode.New(exitcode.Usage,
+						"--rotate-credentials cannot be used with --credentials existing: jamf-cli did not issue the client and cannot rotate its secret; generate a new secret in Jamf Pro and re-run setup")
 				}
+			}
+
+			// Reject a bad --scope before asking for a password. The value is
+			// knowable from the flag alone, so making the operator type
+			// credentials first for a typo already on their command line is
+			// the wrong order. A scope chosen at the prompt below is always
+			// one of scopeOptions, so this is the only check needed.
+			if setupScope != "" && scopeOptionByKey(setupScope).key == "" {
+				return exitcode.New(exitcode.Usage,
+					fmt.Sprintf("invalid --scope %q: must be one of: %s", setupScope, validScopeNames()))
 			}
 
 			// Gather account credentials interactively — once for all
@@ -868,10 +885,6 @@ Deprecation notice for --credentials create:
 						setupScope = scopeOptions[n-1].key
 					}
 				}
-			}
-
-			if credentialSrc == credentialSourceCreate && scopeOptionByKey(setupScope).key == "" {
-				return fmt.Errorf("invalid --scope %q: must be one of: %s", setupScope, validScopeNames())
 			}
 
 			// Load config once for all instances
